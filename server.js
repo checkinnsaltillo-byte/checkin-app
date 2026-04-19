@@ -23,8 +23,7 @@ const PORT = process.env.PORT || 8080;
 const DEFAULT_CHECKIN_WEB_APP_URL = process.env.CHECKIN_WEB_APP_URL || "";
 
 if (!FACTURAPI_SECRET_KEY) {
-  console.error("Falta FACTURAPI_SECRET_KEY en variables de entorno.");
-  process.exit(1);
+  console.warn("⚠️ FACTURAPI_SECRET_KEY no definida. Algunas funciones no funcionarán.");
 }
 
 async function facturapiFetch(pathname, options = {}) {
