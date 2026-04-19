@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>CHECK-IN | Ticket Facturapi</title>
+  <style>
+    :root{
+      --bg:#fff8ee;
+      --bg-soft:#fffdf8;
+      --card:#ffffff;
+      --text:#2b2b2b;
+      --text-soft:#6b7280;
+      --border:#f6d8a8;
+      --border-strong:#efc36f;
+      --primary:#f59e0b;
+      --primary-strong:#d97706;
+      --primary-soft:#fff4db;
+      --accent:#fb923c;
+      --danger:#c9372c;
+      --success:#2563eb;
+      --success-dark:#1d4ed8;
+      --success-bg:#eff6ff;
+      --success-border:#bfdbfe;
+      --ok-bg:#ecfdf3;
+      --ok-border:#abefc6;
+      --ok-text:#067647;
+      --warn-bg:#fff7ed;
+      --warn-border:#fdba74;
+      --warn-text:#9a6700;
+      --err-bg:#fef2f2;
+      --err-border:#fecaca;
+      --err-text:#b42318;
+      --shadow:0 18px 40px rgba(217,119,6,.12);
+      --radius:20px;
+      --radius-sm:14px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      min-height:100vh;
+      padding:20px 14px 30px;
+      font-family:Arial,sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(251,191,36,.12), transparent 28%),
+        linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
+      color:var(--text);
+    }
+    .page-shell{max-width:1100px;margin:0 auto;}
+    .logo-wrap{
+      width:100%;
+      text-align:center;
+      margin-top:20px;
+      margin-bottom:10px;
+    }
+    .logo-wrap img{
+      max-width:260px;
+      width:70%;
+      height:auto;
+      display:inline-block;
+    }
+    .container{
+      width:100%;
+      max-width:980px;
+      margin:0 auto;
+      background:var(--card);
+      padding:24px;
+      border-radius:26px;
+      box-shadow:var(--shadow);
+      border:1px solid rgba(255,255,255,.9);
+    }
+    .head{
+      padding:0 0 18px;
+      border-bottom:1px solid var(--border);
+      margin-bottom:18px;
+    }
+    .head h1{
+      margin:0 0 10px;
+      font-size:30px;
+      line-height:1.08;
+      color:var(--text);
+    }
+    .head p{
+      margin:0 0 8px;
+      color:var(--text-soft);
+      line-height:1.5;
+      font-size:14px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+    }
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .field.full{grid-column:1 / -1}
+    label{
+      font-weight:700;
+      display:block;
+      line-height:1.35;
+      color:#3a3124;
+      font-size:14px;
+    }
+    input,select,button{
+      width:100%;
+      border-radius:16px;
+      border:1px solid var(--border-strong);
+      padding:14px 15px;
+      font-size:16px;
+      background:#fff;
+      color:var(--text);
+      transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease, filter .18s ease;
+      min-height:52px;
+    }
+    input:focus,select:focus{
+      outline:none;
+      border-color:var(--accent);
+      box-shadow:0 0 0 4px rgba(245,158,11,.14);
+    }
+    button{
+      margin-top:0;
+      background:linear-gradient(180deg,var(--primary) 0%, var(--primary-strong) 100%);
+      color:#fff;
+      border:none;
+      cursor:pointer;
+      font-weight:700;
+      letter-spacing:.01em;
+      box-shadow:0 10px 20px rgba(217,119,6,.18);
+    }
+    button:hover{
+      filter:brightness(1.03);
+      transform:translateY(-1px);
+      box-shadow:0 12px 24px rgba(217,119,6,.24);
+    }
+    button:disabled{
+      opacity:.72;
+      cursor:not-allowed;
+      transform:none;
+      box-shadow:none;
+    }
+    button.secondary{
+      background:linear-gradient(180deg,#fff7ed 0%, #fde7c0 100%);
+      color:#8a5300;
+      border:1px solid #efc36f;
+      box-shadow:none;
+    }
+    button.success{
+      background:linear-gradient(180deg,var(--success) 0%, var(--success-dark) 100%);
+      box-shadow:0 10px 20px rgba(37,99,235,.18);
+    }
+    .hint{
+      font-size:12px;
+      color:var(--text-soft);
+      line-height:1.45;
+      margin-top:0;
+    }
+    .checkbox-wrap{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:46px;
+      background:var(--bg-soft);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:12px 14px;
+    }
+    .checkbox-wrap input{
+      width:20px;
+      min-height:auto;
+      height:20px;
+      margin:0;
+      accent-color:var(--primary);
+    }
+    .actions,.send-actions{
+      grid-column:1 / -1;
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:4px;
+    }
+    .status,.send-status{
+      margin-top:14px;
+      padding:13px 14px;
+      border-radius:14px;
+      font-size:14px;
+      display:none;
+      line-height:1.45;
+      white-space:pre-wrap;
+    }
+    .status.ok,.send-status.ok{
+      display:block;
+      background:var(--ok-bg);
+      border:1px solid var(--ok-border);
+      color:var(--ok-text);
+    }
+    .status.warn,.send-status.warn{
+      display:block;
+      background:var(--warn-bg);
+      border:1px solid var(--warn-border);
+      color:var(--warn-text);
+    }
+    .status.err,.send-status.err{
+      display:block;
+      background:var(--err-bg);
+      border:1px solid var(--err-border);
+      color:var(--err-text);
+    }
+    .summary,.result,.send-panel{
+      margin-top:18px;
+      border:1px solid var(--border);
+      border-radius:20px;
+      background:var(--bg-soft);
+      display:none;
+      overflow:hidden;
+    }
+    .summary-head,.send-head{
+      padding:16px 18px;
+      border-bottom:1px solid var(--border);
+      font-weight:700;
+      font-size:16px;
+      color:var(--text);
+      background:#fff;
+    }
+    .summary-body,.send-body{
+      padding:16px;
+    }
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:12px;
+    }
+    .summary-box{
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:14px;
+    }
+    .summary-box small{
+      display:block;
+      color:var(--text-soft);
+      margin-bottom:6px;
+      font-size:12px;
+    }
+    .summary-box strong{
+      font-size:20px;
+      color:var(--text);
+    }
+    .meta{
+      margin-top:14px;
+      font-size:13px;
+      color:var(--text-soft);
+      line-height:1.55;
+      white-space:pre-wrap;
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:14px;
+    }
+    .result-top{
+      padding:16px 18px;
+      border-bottom:1px solid var(--border);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+      background:#fff;
+    }
+    .result-top strong{
+      display:block;
+      font-size:17px;
+      color:var(--text);
+    }
+    .result-top span{
+      color:var(--text-soft);
+      font-size:13px;
+      line-height:1.5;
+    }
+    iframe{
+      width:100%;
+      height:760px;
+      border:0;
+      background:#f3f4f6;
+    }
+    .link-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:46px;
+      padding:12px 16px;
+      border-radius:14px;
+      text-decoration:none;
+      background:linear-gradient(180deg,var(--success) 0%, var(--success-dark) 100%);
+      color:#fff;
+      font-weight:700;
+      box-shadow:0 10px 20px rgba(37,99,235,.18);
+    }
+    code{
+      background:#fff7ed;
+      border:1px solid var(--border);
+      padding:1px 6px;
+      border-radius:8px;
+      color:#8a5300;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    @media (max-width: 900px){
+      .grid{grid-template-columns:1fr}
+      .summary-grid{grid-template-columns:1fr 1fr}
+      iframe{height:560px}
+    }
+    @media (max-width: 700px){
+      body{padding:14px 10px 28px}
+      .container{padding:18px;border-radius:20px}
+      .head h1{font-size:25px}
+      .actions,.send-actions{flex-direction:column}
+      button,.link-btn{width:100%}
+    }
+    @media (max-width: 560px){
+      .summary-grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="logo-wrap">
+    <img
+      src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&sz=w1000"
+      alt="Logo Check-inn"
+      referrerpolicy="no-referrer"
+    >
+  </div>
+
+  <div class="page-shell">
+    <div class="container">
+      <div class="head">
+        <h1>Ticket con desglose por Facturapi</h1>
+        <p>
+          Esta versión usa el producto configurado en Facturapi y deja que Facturapi calcule el desglose.
+          Puedes activar o desactivar la opción <strong>Incluye impuestos</strong>, definir <strong>Cantidad</strong>
+          y capturar los datos de contacto del cliente para preparar el envío del ticket.
+        </p>
+        <p id="checkinConfigLine">
+          Conexión con Check in: verificando Apps Script...
+        </p>
+      </div>
+
+      <form id="receiptForm" class="grid">
+        <div class="field">
+          <label for="quantity">Cantidad</label>
+          <input id="quantity" type="number" min="0.01" step="0.01" value="1" required />
+          <div class="hint">Aquí se puede precargar desde Control de huéspedes usando el valor de "$ Monto facturado Total".</div>
+        </div>
+
+        <div class="field">
+          <label for="productId">Producto</label>
+          <select id="productId" required>
+            <option value="">Cargando productos...</option>
+          </select>
+          <div class="hint">Se usan los impuestos y retenciones del producto configurado en Facturapi.</div>
+        </div>
+
+        <div class="field">
+          <label for="email">Correo electrónico</label>
+          <input id="email" type="email" placeholder="cliente@correo.com" />
+        </div>
+
+        <div class="field">
+          <label for="whatsapp">Whatsapp del cliente</label>
+          <input id="whatsapp" type="text" placeholder="Ej. 528441234567" />
+          <div class="hint">Captúralo con código de país. Este botón abrirá WhatsApp con el mensaje listo para enviar.</div>
+        </div>
+
+        <div class="field">
+          <label for="currency">Moneda</label>
+          <select id="currency">
+            <option value="MXN">MXN</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="exchange">Tipo de cambio</label>
+          <input id="exchange" type="number" min="0.000001" step="0.000001" value="1" />
+        </div>
+
+        <div class="field">
+          <label for="paymentForm">Forma de pago</label>
+          <select id="paymentForm">
+            <option value="01">01 - Efectivo</option>
+            <option value="03" selected>03 - Transferencia electrónica</option>
+            <option value="04">04 - Tarjeta de crédito</option>
+            <option value="28">28 - Tarjeta de débito</option>
+            <option value="99">99 - Por definir</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="branch">Sucursal</label>
+          <input id="branch" type="text" placeholder="Opcional" />
+        </div>
+
+        <div class="field">
+          <label for="externalId">Referencia interna</label>
+          <input id="externalId" type="text" placeholder="Ej. RES-2026-0001" />
+        </div>
+
+        <div class="field full">
+          <div class="checkbox-wrap">
+            <input id="includeTaxes" type="checkbox" checked />
+            <label for="includeTaxes" style="margin:0;">Incluye impuestos</label>
+          </div>
+          <div class="hint">Esto controla <code>tax_included</code>.</div>
+        </div>
+
+        <div class="actions">
+          <button id="submitBtn" type="submit">Generar ticket</button>
+          <button id="reloadProductsBtn" class="secondary" type="button">Recargar productos</button>
+        </div>
+      </form>
+
+      <div id="status" class="status"></div>
+
+      <div id="summary" class="summary">
+        <div class="summary-head">Resumen del envío</div>
+        <div class="summary-body">
+          <div class="summary-grid">
+            <div class="summary-box">
+              <small>Cantidad</small>
+              <strong id="sumQty">—</strong>
+            </div>
+            <div class="summary-box">
+              <small>Incluye impuestos</small>
+              <strong id="sumInclude">—</strong>
+            </div>
+            <div class="summary-box">
+              <small>Moneda</small>
+              <strong id="sumCurrency">—</strong>
+            </div>
+            <div class="summary-box">
+              <small>Correo electrónico</small>
+              <strong id="sumEmail">—</strong>
+            </div>
+          </div>
+          <div id="sumMeta" class="meta"></div>
+        </div>
+      </div>
+
+      <div id="result" class="result">
+        <div class="result-top">
+          <div>
+            <strong id="resultTitle">Ticket generado</strong>
+            <span id="resultMeta"></span>
+          </div>
+          <a id="pdfLink" class="link-btn" href="#" target="_blank" rel="noopener noreferrer">Abrir PDF</a>
+        </div>
+        <iframe id="pdfFrame" title="Vista previa del ticket"></iframe>
+      </div>
+
+      <div id="sendPanel" class="send-panel">
+        <div class="send-head">Enviar ticket</div>
+        <div class="send-body">
+          <div class="send-actions">
+            <button id="sendEmailBtn" class="success" type="button">Enviar por correo electrónico</button>
+            <button id="sendBothBtn" type="button">Enviar por correo electrónico y avisar por Whatsapp</button>
+          </div>
+          <div id="sendStatus" class="send-status"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+    const els = {
+      form: document.getElementById("receiptForm"),
+      quantity: document.getElementById("quantity"),
+      productId: document.getElementById("productId"),
+      email: document.getElementById("email"),
+      whatsapp: document.getElementById("whatsapp"),
+      currency: document.getElementById("currency"),
+      exchange: document.getElementById("exchange"),
+      paymentForm: document.getElementById("paymentForm"),
+      branch: document.getElementById("branch"),
+      externalId: document.getElementById("externalId"),
+      includeTaxes: document.getElementById("includeTaxes"),
+      status: document.getElementById("status"),
+      submitBtn: document.getElementById("submitBtn"),
+      reloadProductsBtn: document.getElementById("reloadProductsBtn"),
+      summary: document.getElementById("summary"),
+      sumQty: document.getElementById("sumQty"),
+      sumInclude: document.getElementById("sumInclude"),
+      sumCurrency: document.getElementById("sumCurrency"),
+      sumEmail: document.getElementById("sumEmail"),
+      sumMeta: document.getElementById("sumMeta"),
+      result: document.getElementById("result"),
+      resultTitle: document.getElementById("resultTitle"),
+      resultMeta: document.getElementById("resultMeta"),
+      pdfLink: document.getElementById("pdfLink"),
+      pdfFrame: document.getElementById("pdfFrame"),
+      sendPanel: document.getElementById("sendPanel"),
+      sendEmailBtn: document.getElementById("sendEmailBtn"),
+      sendBothBtn: document.getElementById("sendBothBtn"),
+      sendStatus: document.getElementById("sendStatus"),
+      checkinConfigLine: document.getElementById("checkinConfigLine")
+    };
+
+    const WHATSAPP_MESSAGE = "Hemos enviado el TICKET para AUTO-FACTURACIÓN al correo proporcionado. Recuerda que sólo estará vigente dentro del mes fiscal en curso.";
+
+    const appState = {
+      receiptId: null,
+      pdfUrl: null,
+      publicPdfUrl: null,
+      drivePdfUrl: null,
+      recordId: null,
+      rowNumber: null,
+      nextFolio: '',
+      folioSaved: false,
+      checkinWebAppUrl: ''
+    };
+
+    const queryParams = new URLSearchParams(window.location.search);
+
+    function normalizeCurrencyParam(value) {
+      const raw = String(value || '').trim().toUpperCase();
+      if (!raw) return 'MXN';
+      if (raw.includes('USD') || raw.includes('DÓLAR') || raw.includes('DOLAR')) return 'USD';
+      if (raw.includes('EUR') || raw.includes('EURO')) return 'EUR';
+      if (raw.includes('GBP') || raw.includes('LIBRA')) return 'GBP';
+      if (raw.includes('BRL') || raw.includes('REAL')) return 'BRL';
+      return 'MXN';
+    }
+
+    function prefillFormFromQueryParams() {
+      const quantity = queryParams.get('quantity');
+      const currency = queryParams.get('currency');
+      const email = queryParams.get('email');
+      const whatsapp = queryParams.get('whatsapp');
+      const externalId = queryParams.get('externalId');
+      const source = queryParams.get('source');
+      const recordId = queryParams.get('recordId');
+      const rowNumber = queryParams.get('rowNumber');
+      const checkinWebAppUrl = queryParams.get('checkinWebAppUrl');
+
+      if (quantity && !Number.isNaN(Number(quantity))) {
+        els.quantity.value = String(quantity);
+      }
+      if (currency) {
+        els.currency.value = normalizeCurrencyParam(currency);
+      }
+      if (email) {
+        els.email.value = email;
+      }
+      if (whatsapp) {
+        els.whatsapp.value = whatsapp;
+      }
+      if (externalId) {
+        els.externalId.value = externalId;
+      }
+      if (recordId) {
+        appState.recordId = recordId;
+      }
+      if (rowNumber) {
+        appState.rowNumber = rowNumber;
+      }
+      if (checkinWebAppUrl) {
+        appState.checkinWebAppUrl = checkinWebAppUrl;
+      }
+
+      els.currency.dispatchEvent(new Event('change'));
+
+      if (source === 'control_huespedes') {
+        setStatus('Se cargaron datos desde Control de huéspedes. Revisa el producto y luego genera el ticket.', 'ok');
+      }
+    }
+
+    async function loadCheckinConfig() {
+      try {
+        const qs = new URLSearchParams();
+        if (appState.checkinWebAppUrl) qs.set('checkinWebAppUrl', appState.checkinWebAppUrl);
+        const res = await fetch(`/api/checkin-config?${qs.toString()}`);
+        const data = await safeJson(res);
+        if (!res.ok) throw new Error(data?.message || 'No fue posible validar la conexión con Check in.');
+        appState.checkinWebAppUrl = data?.checkinWebAppUrl || appState.checkinWebAppUrl || '';
+        if (els.checkinConfigLine) {
+          els.checkinConfigLine.textContent = `Conexión con Check in activa vía Apps Script: ${appState.checkinWebAppUrl || 'sin URL'}`;
+        }
+      } catch (err) {
+        if (els.checkinConfigLine) {
+          els.checkinConfigLine.textContent = `Conexión con Check in con error: ${err.message || err}`;
+        }
+      }
+    }
+
+    async function loadNextFolio() {
+      try {
+        const qs = new URLSearchParams();
+        if (appState.checkinWebAppUrl) qs.set('checkinWebAppUrl', appState.checkinWebAppUrl);
+        const res = await fetch(`/api/next-facturapi-folio?${qs.toString()}`);
+        const data = await safeJson(res);
+        if (!res.ok) throw new Error(data?.message || 'No fue posible obtener el siguiente folio.');
+        if (data?.next_folio) {
+          appState.nextFolio = String(data.next_folio);
+        }
+        if (data?.checkinWebAppUrl) {
+          appState.checkinWebAppUrl = data.checkinWebAppUrl;
+          if (els.checkinConfigLine) {
+            els.checkinConfigLine.textContent = `Conexión con Check in activa vía Apps Script: ${appState.checkinWebAppUrl}`;
+          }
+        }
+      } catch (err) {
+        if (!appState.nextFolio) appState.nextFolio = '';
+        console.error(err);
+      }
+    }
+
+    async function saveFolioInSheet() {
+      // El guardado fuerte del folio ahora se hace desde /api/create-receipt
+      appState.folioSaved = true;
+      return { ok: true, delegated: true };
+    }
+
+    function setStatus(message, kind = "ok") {
+      els.status.className = `status ${kind}`;
+      els.status.textContent = message;
+    }
+
+    function clearStatus() {
+      els.status.className = "status";
+      els.status.textContent = "";
+    }
+
+    function setSendStatus(message, kind = "ok") {
+      els.sendStatus.className = `send-status ${kind}`;
+      els.sendStatus.textContent = message;
+    }
+
+    function clearSendStatus() {
+      els.sendStatus.className = "send-status";
+      els.sendStatus.textContent = "";
+    }
+
+    function setLoading(flag) {
+      els.submitBtn.disabled = flag;
+      els.reloadProductsBtn.disabled = flag;
+      els.submitBtn.textContent = flag ? "Generando..." : "Generar ticket";
+    }
+
+    function setSendLoading(flag) {
+      els.sendEmailBtn.disabled = flag;
+      els.sendBothBtn.disabled = flag;
+    }
+
+    function renderProducts(items) {
+      els.productId.innerHTML = "";
+      if (!Array.isArray(items) || !items.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No hay productos disponibles";
+        els.productId.appendChild(opt);
+        return;
+      }
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Selecciona un producto";
+      els.productId.appendChild(placeholder);
+      items.forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.description;
+        els.productId.appendChild(opt);
+      });
+    }
+
+    async function safeJson(res) {
+      const text = await res.text();
+      try {
+        return text ? JSON.parse(text) : {};
+      } catch (_err) {
+        return { message: text || `Respuesta no JSON (${res.status})` };
+      }
+    }
+
+    async function loadProducts() {
+      clearStatus();
+      try {
+        els.productId.innerHTML = `<option value="">Cargando productos...</option>`;
+        const res = await fetch("/api/products");
+        const data = await safeJson(res);
+        if (!res.ok) throw new Error(data?.message || "No fue posible cargar los productos.");
+        renderProducts(data?.data || []);
+        setStatus(`Se cargaron ${data?.data?.length || 0} producto(s).`, "ok");
+      } catch (err) {
+        renderProducts([]);
+        setStatus(err.message || "Error al cargar productos.", "err");
+      }
+    }
+
+    function renderSummary(payload, response) {
+      els.sumQty.textContent = String(payload.quantity);
+      els.sumInclude.textContent = payload.includeTaxes ? "Sí" : "No";
+      els.sumCurrency.textContent = payload.currency;
+      els.sumEmail.textContent = payload.email || "—";
+      const item = response?.payloadSent?.items?.[0]?.product;
+      const lines = [
+        `Folio Facturapi: ${response?.receipt?.folio_number ?? response?.facturapiFolio ?? 'Se asigna al generar el ticket'}`,
+        `Folio Facturapi: ${response?.receipt?.folio_number || response?.facturapiFolio || response?.sheetUpdate?.folio_facturapi || '—'}`,
+        `Descripción: ${item?.description ?? "—"}`,
+        `SKU: ${item?.sku ?? "—"}`,
+        `Monto unitario enviado: ${item?.price ?? 1}`,
+        `Tax included enviado: ${item?.tax_included ? "true" : "false"}`,
+        `Taxes configurados: ${JSON.stringify(item?.taxes ?? [])}`,
+        `Local taxes configurados: ${JSON.stringify(item?.local_taxes ?? [])}`,
+        `Whatsapp capturado: ${payload.whatsapp || "—"}`
+      ];
+      els.sumMeta.textContent = lines.join("\n");
+      els.summary.style.display = "block";
+    }
+
+    function normalizePhone(phone) {
+      return String(phone || "").replace(/[^\d]/g, "");
+    }
+
+    function getPublicPdfUrl() {
+      if (appState.drivePdfUrl) return appState.drivePdfUrl;
+      if (appState.publicPdfUrl) return appState.publicPdfUrl;
+      if (!appState.pdfUrl) return "";
+      try {
+        return new URL(appState.pdfUrl, window.location.origin).toString();
+      } catch (_err) {
+        return `${window.location.origin}${appState.pdfUrl}`;
+      }
+    }
+
+    function buildWhatsappMessage() {
+      const invoiceUrl = getPublicPdfUrl();
+      if (invoiceUrl) {
+        return `${WHATSAPP_MESSAGE}
+
+URL de la factura: ${invoiceUrl}`;
+      }
+      return WHATSAPP_MESSAGE;
+    }
+
+    async function fetchReceiptPdfFile() {
+      if (!appState.receiptId || !appState.pdfUrl) {
+        throw new Error("Primero debes generar el ticket.");
+      }
+
+      const res = await fetch(appState.pdfUrl);
+      if (!res.ok) {
+        throw new Error(`No fue posible descargar el PDF (${res.status}).`);
+      }
+
+      const blob = await res.blob();
+      const fileName = `ticket-${appState.receiptId}.pdf`;
+      return new File([blob], fileName, { type: "application/pdf" });
+    }
+
+    async function downloadReceiptPdf() {
+      const pdfFile = await fetchReceiptPdfFile();
+      const objectUrl = URL.createObjectURL(pdfFile);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = pdfFile.name || `ticket-${appState.receiptId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      return pdfFile.name || `ticket-${appState.receiptId}.pdf`;
+    }
+
+    async function sendReceiptEmail() {
+      const email = els.email.value.trim();
+      clearSendStatus();
+
+      if (!appState.receiptId) {
+        setSendStatus("Primero debes generar el ticket.", "warn");
+        return false;
+      }
+      if (!email) {
+        setSendStatus("Debes capturar el correo electrónico.", "warn");
+        return false;
+      }
+
+      try {
+        setSendLoading(true);
+        setSendStatus("Enviando correo por Facturapi...", "warn");
+
+        const res = await fetch("/api/send-receipt-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ receiptId: appState.receiptId, email })
+        });
+
+        const data = await safeJson(res);
+        if (!res.ok) {
+          throw new Error(data?.message || data?.error || `Error ${res.status} al enviar correo.`);
+        }
+
+        setSendStatus(data?.message || `Correo enviado correctamente a ${email}.`, "ok");
+        return true;
+      } catch (err) {
+        setSendStatus(err.message || "No fue posible enviar el correo.", "err");
+        return false;
+      } finally {
+        setSendLoading(false);
+      }
+    }
+
+    async function notifyWhatsappMessage() {
+      const phone = normalizePhone(els.whatsapp.value);
+      clearSendStatus();
+
+      if (!appState.receiptId) {
+        setSendStatus("Primero debes generar el ticket.", "warn");
+        return false;
+      }
+      if (!phone) {
+        setSendStatus("Debes capturar el Whatsapp del cliente.", "warn");
+        return false;
+      }
+
+      const message = encodeURIComponent(buildWhatsappMessage());
+
+      const appUrl = `whatsapp://send?phone=${phone}&text=${message}`;
+      const webUrl = `https://web.whatsapp.com/send?phone=${phone}&text=${message}`;
+
+      let didFallback = false;
+      const fallbackTimer = setTimeout(() => {
+        didFallback = true;
+        window.open(webUrl, "_blank", "noopener,noreferrer");
+        setSendStatus(
+          "No se detectó la app local de WhatsApp. Se abrió WhatsApp Web con el mensaje listo para enviar.",
+          "warn"
+        );
+      }, 1200);
+
+      window.location.href = appUrl;
+
+      setTimeout(() => {
+        if (!didFallback) {
+          clearTimeout(fallbackTimer);
+          setSendStatus("Se abrió WhatsApp con el mensaje listo para enviar.", "ok");
+        }
+      }, 300);
+
+      return true;
+    }
+
+    els.currency.addEventListener("change", () => {
+      if (els.currency.value === "MXN") {
+        els.exchange.value = "1";
+        els.exchange.readOnly = true;
+      } else {
+        els.exchange.readOnly = false;
+        if (Number(els.exchange.value) === 1) els.exchange.value = "";
+      }
+    });
+
+    els.currency.dispatchEvent(new Event("change"));
+    els.reloadProductsBtn.addEventListener("click", loadProducts);
+    els.sendEmailBtn.addEventListener("click", sendReceiptEmail);
+    els.sendBothBtn.addEventListener("click", async () => {
+      const emailOk = await sendReceiptEmail();
+      if (emailOk) await notifyWhatsappMessage();
+    });
+
+    els.form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearStatus();
+      clearSendStatus();
+      els.result.style.display = "none";
+      els.summary.style.display = "none";
+      els.sendPanel.style.display = "none";
+      appState.receiptId = null;
+      appState.pdfUrl = null;
+      appState.publicPdfUrl = null;
+      appState.drivePdfUrl = null;
+      appState.folioSaved = false;
+
+      try {
+        const payload = {
+          amount: 1,
+          quantity: Number(els.quantity.value || 1),
+          productId: els.productId.value,
+          email: els.email.value.trim() || undefined,
+          whatsapp: els.whatsapp.value.trim() || undefined,
+          currency: els.currency.value,
+          exchange: Number(els.exchange.value || 1),
+          paymentForm: els.paymentForm.value,
+          branch: els.branch.value.trim() || undefined,
+          externalId: els.externalId.value.trim() || undefined,
+          includeTaxes: els.includeTaxes.checked,
+          recordId: appState.recordId || undefined,
+          rowNumber: appState.rowNumber || undefined,
+          checkinWebAppUrl: appState.checkinWebAppUrl || undefined
+        };
+
+        if (!payload.quantity || payload.quantity <= 0) throw new Error("Debes capturar una cantidad válida.");
+        if (!payload.productId) throw new Error("Debes seleccionar un producto.");
+
+        setLoading(true);
+
+        const res = await fetch("/api/create-receipt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await safeJson(res);
+        if (!res.ok) throw new Error(data?.message || "No fue posible generar el ticket.");
+
+        if (data?.sheetUpdate?.ok) {
+          appState.folioSaved = true;
+        } else if (data?.sheetUpdateError) {
+          throw new Error(`Ticket generado pero no se pudo guardar el folio en Check in: ${data.sheetUpdateError}`);
+        }
+
+        renderSummary(payload, data);
+
+        const pdfUrl = `/api/receipt-pdf/${encodeURIComponent(data.receipt.id)}`;
+        const drivePdfUrl = data?.pdfDriveSave?.url || data?.pdfDriveSave?.file_url || data?.pdfDriveSave?.pdf_url || '';
+        appState.receiptId = data.receipt.id;
+        appState.pdfUrl = pdfUrl;
+        appState.drivePdfUrl = drivePdfUrl;
+        appState.publicPdfUrl = pdfUrl ? new URL(pdfUrl, window.location.origin).toString() : '';
+
+        els.pdfLink.href = drivePdfUrl || pdfUrl;
+        els.pdfFrame.src = drivePdfUrl || pdfUrl;
+        els.resultTitle.textContent = `Ticket generado: Folio Facturapi ${data.receipt.folio_number ?? data.facturapiFolio ?? "sin folio visible"}`;
+        els.resultMeta.textContent = `ID: ${data.receipt.id} | Total: ${data.receipt.total} | Moneda: ${data.receipt.currency} | Folio Facturapi: ${data?.receipt?.folio_number || data?.facturapiFolio || data?.sheetUpdate?.folio_facturapi || "—"} | URL factura: ${drivePdfUrl || appState.publicPdfUrl || '—'} | Apps Script: ${data?.checkinWebAppUrl || appState.checkinWebAppUrl || '—'}`;
+        els.result.style.display = "block";
+        els.sendPanel.style.display = "block";
+
+        setStatus(`Ticket generado correctamente. Folio Facturapi: ${data?.receipt?.folio_number || data?.facturapiFolio || data?.sheetUpdate?.folio_facturapi || "—"}.`, "ok");
+      } catch (err) {
+        setStatus(err.message || "Ocurrió un error.", "err");
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    prefillFormFromQueryParams();
+    loadCheckinConfig();
+    loadNextFolio();
+    loadProducts();
+  </script>
+</body>
+</html>
