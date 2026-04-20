@@ -1944,7 +1944,8 @@ button:disabled{
 </div>
 <script>
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxSANWdm_0uM3HZ5F9IEVzspEDA0ekOA8jZVw1JQtMmZMPtZHFiRQUtWqn2s77yVPbsWw/exec";
-const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || `${window.location.origin}/facturapi`;
+const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || "http://localhost:8080";
+
 const ladas = [
   {c:"México",code:"52",p:1},
   {c:"Estados Unidos",code:"1",p:1},
@@ -2172,6 +2173,7 @@ function applyGuestRecordToForm(row){
     setInputValue('#regimen_otro', row["Régimen fiscal otro"] || row["Régimen otro"]);
   }
   toggleRegimenOtro();
+  syncConceptoFacturaByRegimen();
   toggleComprobanteTransferencia();
   formatCurrencyPreview();
 
@@ -2500,10 +2502,36 @@ propiedad.addEventListener("change", () => {
   actualizarAvisoCoordinacionVehiculo();
 });
 
+function syncConceptoFacturaByRegimen(){
+  const conceptoSelect = document.getElementById('facturapi_concepto')
+    || document.getElementById('concepto')
+    || document.querySelector('select[name="facturapi_concepto"]')
+    || document.querySelector('select[name="concepto"]');
+  if (!conceptoSelect) return;
+
+  const regimenValue = String(regimen?.value || '').trim();
+  const objetivoTexto = regimenValue === 'General de Ley Personas Morales'
+    ? '1. Arrendamiento en Saltillo, Coah.'
+    : '2. Arrendamiento en Saltillo, Coah.';
+
+  const opcion = Array.from(conceptoSelect.options || []).find(opt => {
+    const value = String(opt.value || '').trim();
+    const text = String(opt.textContent || '').trim();
+    return value === objetivoTexto || text === objetivoTexto;
+  });
+
+  if (!opcion) return;
+  if (conceptoSelect.value !== opcion.value) {
+    conceptoSelect.value = opcion.value;
+    conceptoSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
+
 function toggleRegimenOtro(){
   const show = regimen.value === "Otro";
   regimen_otro.classList.toggle("hidden", !show);
   if (!show) regimen_otro.value = "";
+  syncConceptoFacturaByRegimen();
 }
 regimen.addEventListener("change", toggleRegimenOtro);
 
@@ -2587,6 +2615,7 @@ divisa_monto.addEventListener("change", formatCurrencyPreview);
 formatCurrencyPreview();
 toggleComprobanteTransferencia();
 syncFacturaVisibility();
+syncConceptoFacturaByRegimen();
 actualizarAvisoCoordinacionVehiculo();
 actualizarResumenVehiculo();
 
