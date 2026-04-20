@@ -368,12 +368,6 @@
         </div>
 
         <div class="field">
-          <label for="taxRegime">Régimen fiscal</label>
-          <input id="taxRegime" type="text" placeholder="Se cargará desde Control de huéspedes" />
-          <div class="hint">Este dato se precarga cuando vienes desde Generar ticket en Control de huéspedes.</div>
-        </div>
-
-        <div class="field">
           <label for="whatsapp">Whatsapp del cliente</label>
           <input id="whatsapp" type="text" placeholder="Ej. 528441234567" />
           <div class="hint">Captúralo con código de país. Este botón abrirá WhatsApp con el mensaje listo para enviar.</div>
@@ -485,7 +479,6 @@
       quantity: document.getElementById("quantity"),
       productId: document.getElementById("productId"),
       email: document.getElementById("email"),
-      taxRegime: document.getElementById("taxRegime"),
       whatsapp: document.getElementById("whatsapp"),
       currency: document.getElementById("currency"),
       exchange: document.getElementById("exchange"),
@@ -544,7 +537,6 @@
       const quantity = queryParams.get('quantity');
       const currency = queryParams.get('currency');
       const email = queryParams.get('email');
-      const taxRegime = queryParams.get('taxRegime');
       const whatsapp = queryParams.get('whatsapp');
       const externalId = queryParams.get('externalId');
       const source = queryParams.get('source');
@@ -560,9 +552,6 @@
       }
       if (email) {
         els.email.value = email;
-      }
-      if (taxRegime) {
-        els.taxRegime.value = taxRegime;
       }
       if (whatsapp) {
         els.whatsapp.value = whatsapp;
@@ -724,7 +713,6 @@
         `Tax included enviado: ${item?.tax_included ? "true" : "false"}`,
         `Taxes configurados: ${JSON.stringify(item?.taxes ?? [])}`,
         `Local taxes configurados: ${JSON.stringify(item?.local_taxes ?? [])}`,
-        `Régimen fiscal: ${payload.taxRegime || "—"}`,
         `Whatsapp capturado: ${payload.whatsapp || "—"}`
       ];
       els.sumMeta.textContent = lines.join("\n");
@@ -899,7 +887,6 @@ URL de la factura: ${invoiceUrl}`;
           quantity: Number(els.quantity.value || 1),
           productId: els.productId.value,
           email: els.email.value.trim() || undefined,
-          taxRegime: els.taxRegime.value.trim() || undefined,
           whatsapp: els.whatsapp.value.trim() || undefined,
           currency: els.currency.value,
           exchange: Number(els.exchange.value || 1),
@@ -944,7 +931,7 @@ URL de la factura: ${invoiceUrl}`;
         els.pdfLink.href = drivePdfUrl || pdfUrl;
         els.pdfFrame.src = drivePdfUrl || pdfUrl;
         els.resultTitle.textContent = `Ticket generado: Folio Facturapi ${data.receipt.folio_number ?? data.facturapiFolio ?? "sin folio visible"}`;
-        els.resultMeta.textContent = `ID: ${data.receipt.id} | Total: ${data.receipt.total} | Moneda: ${data.receipt.currency} | Régimen fiscal: ${payload.taxRegime || '—'} | Folio Facturapi: ${data?.receipt?.folio_number || data?.facturapiFolio || data?.sheetUpdate?.folio_facturapi || "—"} | URL factura: ${drivePdfUrl || appState.publicPdfUrl || '—'} | Apps Script: ${data?.checkinWebAppUrl || appState.checkinWebAppUrl || '—'}`;
+        els.resultMeta.textContent = `ID: ${data.receipt.id} | Total: ${data.receipt.total} | Moneda: ${data.receipt.currency} | Folio Facturapi: ${data?.receipt?.folio_number || data?.facturapiFolio || data?.sheetUpdate?.folio_facturapi || "—"} | URL factura: ${drivePdfUrl || appState.publicPdfUrl || '—'} | Apps Script: ${data?.checkinWebAppUrl || appState.checkinWebAppUrl || '—'}`;
         els.result.style.display = "block";
         els.sendPanel.style.display = "block";
 
