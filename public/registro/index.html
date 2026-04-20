@@ -542,6 +542,16 @@ button:disabled{
   display:none;
 }
 .vehicle-warning.show{display:block;}
+.vehicle-alert-note{
+  margin-top:12px;
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid #fdba74;
+  background:#fff7ed;
+  color:#9a6700;
+  font-size:13px;
+  line-height:1.55;
+}
 @media (max-width:700px){
   .vehicle-fields-grid{grid-template-columns:1fr;}
 }
@@ -1682,16 +1692,12 @@ button:disabled{
 <option value="no">No</option>
 </select>
 <div class="vehicle-pro-shell hidden" id="vehiculo_fields">
-<div class="vehicle-pro-intro">
-<div class="vehicle-pro-title" data-i18n="vehicleProTitle">Registro inteligente del vehículo</div>
-<div class="vehicle-pro-copy" data-i18n="vehicleProCopy">Captura al menos marca y modelo. Las placas, la foto y la hora habitual de salida ayudan al control de acceso y a la operación diaria.</div>
-<div class="vehicle-status-pill" id="vehicleStatusPill" data-i18n="vehicleStatusWaiting">Captura los datos del vehículo si aplica</div>
-</div>
 <div class="vehicle-warning" id="vehicleWarningBox"></div>
+<div class="vehicle-alert-note hidden" id="vehicleCoordinationNote">En caso de ocupar el PASILLO CENTRAL requerirás COORDINARTE con los DEMÁS HUÉSPEDES. Consulta los horarios de entrada, salida y contacto en el módulo "Información de vehículos".</div>
 <div class="vehicle-fields-grid">
 <div class="vehicle-card">
 <div class="vehicle-card-title" data-i18n="vehicleIdentityTitle">Identificación del vehículo</div>
-<label data-i18n="make">Marca (opcional)</label>
+<label data-i18n="make">Marca</label>
 <select id="vehiculo_marca" name="vehiculo_marca">
 <option value="">Selecciona</option>
 <option value="Nissan">Nissan</option>
@@ -1727,19 +1733,19 @@ button:disabled{
 <option value="Otro">Otro</option>
 </select>
 <input class="hidden" id="vehiculo_marca_otro" name="vehiculo_marca_otro" placeholder="Especifica la marca" type="text"/>
-<label data-i18n="model">Modelo (opcional)</label>
+<label data-i18n="model">Modelo</label>
 <input id="vehiculo_modelo" name="vehiculo_modelo" placeholder="Especifica el modelo" type="text"/>
-<label data-i18n="platesRequired"># Placas (opcional)</label>
+<label data-i18n="platesRequired"># Placas</label>
 <input id="vehiculo_placas" name="vehiculo_placas" placeholder="Escribe las placas" type="text" maxlength="12" autocapitalize="characters"/>
 <div class="hint" data-i18n="platesHint">Usa letras y números tal como aparecen en el vehículo.</div>
 </div>
 <div class="vehicle-card">
 <div class="vehicle-card-title" data-i18n="vehicleOpsTitle">Apoyo operativo</div>
-<label data-i18n="color">Color (opcional)</label>
+<label data-i18n="color">Color</label>
 <input id="vehiculo_color" name="vehiculo_color" placeholder="Ejemplo: Blanco, gris, rojo" type="text"/>
-<label data-i18n="usualDepartureTime">Hora habitual de salida (opcional)</label>
+<label data-i18n="usualDepartureTime">Hora habitual de salida</label>
 <input id="vehiculo_hora_salida" name="vehiculo_hora_salida" type="time"/>
-<label data-i18n="addPhoto">Agregar foto (opcional)</label>
+<label data-i18n="addPhoto">Agregar foto</label>
 <div class="upload-box">
 <label class="custom-upload">
 <input accept="image/*" id="vehiculo_foto" name="vehiculo_foto" type="file"/>
@@ -1786,7 +1792,7 @@ button:disabled{
 </div>
 </div>
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxSANWdm_0uM3HZ5F9IEVzspEDA0ekOA8jZVw1JQtMmZMPtZHFiRQUtWqn2s77yVPbsWw/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzwg18jToCCIqIgxers0WZ5nD4AZFL-dxhErk9EazFffaatWzaZTstprZVF9u9qnE4_wg/exec";
 const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || "http://localhost:8080";
 
 const ladas = [
@@ -2220,6 +2226,7 @@ const vehicleSummaryBox = document.getElementById("vehicleSummaryBox");
 const vehicleSummaryText = document.getElementById("vehicleSummaryText");
 const vehicleStatusPill = document.getElementById("vehicleStatusPill");
 const vehicleWarningBox = document.getElementById("vehicleWarningBox");
+const vehicleCoordinationNote = document.getElementById("vehicleCoordinationNote");
 const comprobanteTransferenciaWrap = document.getElementById("comprobante_transferencia_wrap");
 const comprobanteTransferencia = document.getElementById("comprobante_transferencia");
 
@@ -2340,6 +2347,7 @@ propiedad.addEventListener("change", () => {
   const show = propiedad.value === "Otra";
   propiedad_otra.classList.toggle("hidden", !show);
   if (!show) propiedad_otra.value = "";
+  actualizarAvisoCoordinacionVehiculo();
 });
 
 function toggleRegimenOtro(){
@@ -2429,6 +2437,7 @@ divisa_monto.addEventListener("change", formatCurrencyPreview);
 formatCurrencyPreview();
 toggleComprobanteTransferencia();
 syncFacturaVisibility();
+actualizarAvisoCoordinacionVehiculo();
 actualizarResumenVehiculo();
 
 function updateFileName(inputId, outputId, previewId){
@@ -2545,6 +2554,14 @@ function toggleMarcaOtro(){
 }
 vehiculoMarca.addEventListener("change", toggleMarcaOtro);
 
+function actualizarAvisoCoordinacionVehiculo(){
+  if (!vehicleCoordinationNote) return;
+  const tiene = String(tieneVehiculo?.value || "").trim().toLowerCase() === "si";
+  const propiedadSeleccionada = String(propiedad?.value || "").trim();
+  const mostrar = tiene && (propiedadSeleccionada === "Calle Cumbres" || propiedadSeleccionada === "Calle Oaxaca");
+  vehicleCoordinationNote.classList.toggle("hidden", !mostrar);
+}
+
 function actualizarResumenVehiculo(){
   if (!vehicleSummaryBox || !vehicleSummaryText || !vehicleStatusPill) return;
   const activo = tieneVehiculo.value === "si";
@@ -2628,6 +2645,7 @@ function toggleVehicleFields(){
   } else {
     toggleMarcaOtro();
   }
+  actualizarAvisoCoordinacionVehiculo();
   actualizarResumenVehiculo();
 }
 
@@ -3041,11 +3059,11 @@ const I18N = {
     specifyMake: "Especifica la marca",
     model: "Modelo",
     specifyModel: "Especifica el modelo",
-    color: "Color (opcional)",
+    color: "Color",
     colorPlaceholder: "Ejemplo: Blanco, gris, rojo",
-    addPhoto: "Agregar foto (opcional)",
-    usualDepartureTime: "Hora habitual de salida (opcional)",
-    plates: "# Placas (opcional)",
+    addPhoto: "Agregar foto",
+    usualDepartureTime: "Hora habitual de salida",
+    plates: "# Placas",
     platesPlaceholder: "Escribe las placas",
     comments: "Comentarios (opcional)",
     send: "Enviar",
@@ -3136,11 +3154,11 @@ const I18N = {
     specifyMake: "Specify the make",
     model: "Model",
     specifyModel: "Specify the model",
-    color: "Color (optional)",
+    color: "Color",
     colorPlaceholder: "Example: White, gray, red",
-    addPhoto: "Add photo (optional)",
-    usualDepartureTime: "Usual departure time (optional)",
-    plates: "License plates (optional)",
+    addPhoto: "Add photo",
+    usualDepartureTime: "Usual departure time",
+    plates: "License plates",
     platesPlaceholder: "Enter the license plates",
     comments: "Comments (optional)",
     send: "Submit",
@@ -3251,9 +3269,9 @@ function applyTranslations(lang){
     else if (text.includes("Cuentas con vehículo") || text.includes("Do you have a vehicle")) label.textContent = t.vehicle;
     else if (text === "Marca" || text === "Make") label.textContent = t.make;
     else if (text === "Modelo" || text === "Model") label.textContent = t.model;
-    else if (text === "Color (opcional)" || text === "Color (optional)") label.textContent = t.color;
-    else if (text === "Agregar foto (opcional)" || text === "Add photo (optional)") label.textContent = t.addPhoto;
-    else if (text === "Hora habitual de salida (opcional)" || text === "Usual departure time (optional)") label.textContent = t.usualDepartureTime;
+    else if (text === "Color" || text === "Color") label.textContent = t.color;
+    else if (text === "Agregar foto" || text === "Add photo") label.textContent = t.addPhoto;
+    else if (text === "Hora habitual de salida" || text === "Usual departure time") label.textContent = t.usualDepartureTime;
     else if (text.includes("Placas") || text.includes("License plates")) label.textContent = t.plates;
     else if (text.includes("Comentarios") || text.includes("Comments")) label.textContent = t.comments;
   });
@@ -3358,7 +3376,7 @@ const SIMPLE_I18N = {
     vehicleIdentityTitle:"Identificación del vehículo",
     vehicleOpsTitle:"Apoyo operativo",
     vehicleSummaryTitle:"Resumen del vehículo",
-    platesRequired:"# Placas (opcional)",
+    platesRequired:"# Placas",
     platesHint:"Usa letras y números tal como aparecen en el vehículo.",
     vehicleProSub:"Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.",
     vehicleProTitle:"Registro inteligente del vehículo",
@@ -3367,7 +3385,7 @@ const SIMPLE_I18N = {
     vehicleIdentityTitle:"Identificación del vehículo",
     vehicleOpsTitle:"Apoyo operativo",
     vehicleSummaryTitle:"Resumen del vehículo",
-    platesRequired:"# Placas (opcional)",
+    platesRequired:"# Placas",
     platesHint:"Usa letras y números tal como aparecen en el vehículo.",
     sec6Title:"Comentarios",
     sec6Sub:"",
@@ -3400,12 +3418,12 @@ const SIMPLE_I18N = {
     emailPrimary:"Correo electrónico (principal)",
     emailCopy:"Correo electrónico (copia)",
     vehicle:"¿Cuentas con vehículo?",
-    make:"Marca (opcional)",
-    model:"Modelo (opcional)",
-    color:"Color (opcional)",
-    addPhoto:"Agregar foto (opcional)",
-    usualDepartureTime:"Hora habitual de salida (opcional)",
-    plates:"# Placas (opcional)",
+    make:"Marca",
+    model:"Modelo",
+    color:"Color",
+    addPhoto:"Agregar foto",
+    usualDepartureTime:"Hora habitual de salida",
+    plates:"# Placas",
     send:"Enviar",
     uploadImage:"Subir imagen",
     noImage:"Ninguna imagen seleccionada"
@@ -3438,7 +3456,7 @@ const SIMPLE_I18N = {
     vehicleIdentityTitle:"Vehicle identity",
     vehicleOpsTitle:"Operational support",
     vehicleSummaryTitle:"Vehicle summary",
-    platesRequired:"License plates (optional)",
+    platesRequired:"License plates",
     platesHint:"Use letters and numbers exactly as shown on the vehicle.",
     vehicleProSub:"Register the vehicle that will enter the property to improve control, security, and daily operations.",
     vehicleProTitle:"Smart vehicle registration",
@@ -3447,7 +3465,7 @@ const SIMPLE_I18N = {
     vehicleIdentityTitle:"Vehicle identity",
     vehicleOpsTitle:"Operational support",
     vehicleSummaryTitle:"Vehicle summary",
-    platesRequired:"License plates (optional)",
+    platesRequired:"License plates",
     platesHint:"Use letters and numbers exactly as shown on the vehicle.",
     sec6Title:"Comments",
     sec6Sub:"",
@@ -3482,10 +3500,10 @@ const SIMPLE_I18N = {
     vehicle:"Do you have a vehicle?",
     make:"Make (required)",
     model:"Model (required)",
-    color:"Color (optional)",
-    addPhoto:"Add photo (optional)",
-    usualDepartureTime:"Usual departure time (optional)",
-    plates:"License plates (optional)",
+    color:"Color",
+    addPhoto:"Add photo",
+    usualDepartureTime:"Usual departure time",
+    plates:"License plates",
     send:"Submit",
     uploadImage:"Upload image",
     noImage:"No image selected"
@@ -4452,9 +4470,9 @@ document.addEventListener("DOMContentLoaded", function(){
       "Número de celular": getRecordValueByCandidates(record, ['Cel/Whatsapp (principal)','Número de celular','Numero de celular','celular_principal']),
       "Marca": marca,
       "Modelo": modelo,
-      "Color (opcional)": getRecordValueByCandidates(record, ['Color vehículo','Color vehiculo','Color del vehículo','Color del vehiculo','Color','vehiculo_color']),
+      "Color": getRecordValueByCandidates(record, ['Color vehículo','Color vehiculo','Color del vehículo','Color del vehiculo','Color','vehiculo_color']),
       "# Placas": placas,
-      "Hora habitual de salida (opcional)": getRecordValueByCandidates(record, ['Hora habitual de salida','Hora habitual de salida (opcional)','vehiculo_hora_salida']),
+      "Hora habitual de salida": getRecordValueByCandidates(record, ['Hora habitual de salida','Hora habitual de salida','vehiculo_hora_salida']),
       "Foto": getRecordValueByCandidates(record, ['Foto vehículo','Foto vehiculo','Foto del vehículo','Foto del vehiculo','Link foto vehículo','Link foto vehiculo','vehiculo_foto'])
     };
   }
@@ -4506,9 +4524,9 @@ document.addEventListener("DOMContentLoaded", function(){
               <div class="vehicle-detail-item"><div class="vehicle-detail-label">Número de celular</div><div class="vehicle-detail-value">${celularHtml}</div></div>
               <div class="vehicle-detail-item"><div class="vehicle-detail-label">Marca</div><div class="vehicle-detail-value">${escapeHtml(row["Marca"] || '—')}</div></div>
               <div class="vehicle-detail-item"><div class="vehicle-detail-label">Modelo</div><div class="vehicle-detail-value">${escapeHtml(row["Modelo"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Color (opcional)</div><div class="vehicle-detail-value">${escapeHtml(row["Color (opcional)"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Color</div><div class="vehicle-detail-value">${escapeHtml(row["Color"] || '—')}</div></div>
               <div class="vehicle-detail-item"><div class="vehicle-detail-label"># Placas</div><div class="vehicle-detail-value">${escapeHtml(row["# Placas"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Hora habitual de salida (opcional)</div><div class="vehicle-detail-value">${escapeHtml(row["Hora habitual de salida (opcional)"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Hora habitual de salida</div><div class="vehicle-detail-value">${escapeHtml(row["Hora habitual de salida"] || '—')}</div></div>
             </div>
             <div class="vehicle-photo-panel">
               <div class="vehicle-photo-title">Foto</div>
