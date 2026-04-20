@@ -461,6 +461,259 @@ button:disabled{
   }
 }
 
+.vehicle-pro-shell{
+  margin-top:10px;
+}
+.vehicle-pro-intro{
+  background:linear-gradient(180deg,#fff8ee 0%, #fff3df 100%);
+  border:1px solid #f3cf94;
+  border-radius:16px;
+  padding:14px;
+  margin-top:10px;
+}
+.vehicle-pro-title{
+  font-size:14px;
+  font-weight:700;
+  color:#7c4a03;
+  margin-bottom:6px;
+}
+.vehicle-pro-copy{
+  font-size:13px;
+  color:#6b7280;
+  line-height:1.5;
+}
+.vehicle-status-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:999px;
+  background:#fff7ed;
+  border:1px solid #fdba74;
+  color:#9a6700;
+  font-size:12px;
+  font-weight:700;
+  margin-top:10px;
+}
+.vehicle-fields-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+  margin-top:14px;
+}
+.vehicle-card{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:14px;
+}
+.vehicle-card-title{
+  font-size:13px;
+  font-weight:700;
+  color:#7c4a03;
+  margin-bottom:8px;
+}
+.vehicle-summary{
+  margin-top:14px;
+  padding:14px;
+  border-radius:16px;
+  border:1px solid #d1fadf;
+  background:linear-gradient(180deg,#f6fef9 0%, #ecfdf3 100%);
+}
+.vehicle-summary-title{
+  font-size:13px;
+  font-weight:700;
+  color:#067647;
+  margin-bottom:8px;
+}
+.vehicle-summary-text{
+  font-size:13px;
+  color:#475467;
+  line-height:1.5;
+}
+.vehicle-warning{
+  margin-top:10px;
+  padding:12px;
+  border-radius:14px;
+  border:1px solid #fecaca;
+  background:#fef2f2;
+  color:#b42318;
+  font-size:13px;
+  display:none;
+}
+.vehicle-warning.show{display:block;}
+@media (max-width:700px){
+  .vehicle-fields-grid{grid-template-columns:1fr;}
+}
+
+
+/* ===== Información de vehículos ===== */
+.vehicle-info-toolbar{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:end;
+  margin-top:14px;
+}
+.vehicle-info-toolbar > div{
+  flex:1 1 260px;
+}
+.vehicle-info-meta{
+  margin-top:12px;
+  font-size:13px;
+  color:var(--text-soft);
+}
+.vehicle-list{
+  margin-top:16px;
+  display:grid;
+  gap:12px;
+}
+.vehicle-card-item{
+  border:1px solid var(--border);
+  border-radius:18px;
+  background:#fff;
+  overflow:hidden;
+  box-shadow:0 8px 22px rgba(217,119,6,.06);
+}
+.vehicle-card-summary{
+  list-style:none;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:16px 18px;
+  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
+}
+.vehicle-card-summary::-webkit-details-marker{
+  display:none;
+}
+.vehicle-card-summary::marker{
+  content:"";
+}
+.vehicle-card-main{
+  min-width:0;
+  display:grid;
+  gap:4px;
+}
+.vehicle-card-title{
+  font-size:16px;
+  font-weight:700;
+  color:#2b2b2b;
+  line-height:1.25;
+}
+.vehicle-card-subtitle{
+  font-size:13px;
+  color:#6b7280;
+  line-height:1.4;
+}
+.vehicle-card-chevron{
+  flex:0 0 auto;
+  font-size:20px;
+  color:#b45309;
+  transition:transform .18s ease;
+}
+.vehicle-card-item[open] .vehicle-card-chevron{
+  transform:rotate(180deg);
+}
+.vehicle-card-body{
+  padding:16px 18px 18px;
+  display:grid;
+  grid-template-columns:minmax(0,1.4fr) minmax(220px,.9fr);
+  gap:16px;
+  align-items:start;
+}
+.vehicle-detail-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.vehicle-detail-item{
+  background:#fffdf8;
+  border:1px solid #f2cc8c;
+  border-radius:14px;
+  padding:12px;
+}
+.vehicle-detail-label{
+  font-size:12px;
+  color:#6b7280;
+  margin-bottom:5px;
+}
+.vehicle-detail-value{
+  font-size:14px;
+  color:#2b2b2b;
+  line-height:1.4;
+  word-break:break-word;
+}
+.vehicle-phone-link{
+  color:#0f766e;
+  font-weight:700;
+  text-decoration:none;
+}
+.vehicle-phone-link:hover{
+  text-decoration:underline;
+}
+.vehicle-photo-panel{
+  background:#fffdf8;
+  border:1px solid #f2cc8c;
+  border-radius:16px;
+  padding:12px;
+}
+.vehicle-photo-title{
+  font-size:13px;
+  font-weight:700;
+  color:#7c4a03;
+  margin-bottom:10px;
+}
+.vehicle-thumb{
+  width:100%;
+  height:220px;
+  border-radius:12px;
+  object-fit:contain;
+  border:1px solid #f2cc8c;
+  background:#fff;
+  display:block;
+}
+.vehicle-thumb-link{
+  display:block;
+}
+.vehicle-photo-empty{
+  min-height:220px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  color:#6b7280;
+  font-size:13px;
+  border:1px dashed #f2cc8c;
+  border-radius:12px;
+  background:#fff;
+  padding:18px;
+}
+.vehicle-empty{
+  padding:24px;
+  text-align:center;
+  color:var(--text-soft);
+  background:#fff;
+  border:1px dashed var(--border);
+  border-radius:18px;
+}
+@media (max-width: 860px){
+  .vehicle-card-body{
+    grid-template-columns:1fr;
+  }
+}
+@media (max-width: 640px){
+  .vehicle-detail-grid{
+    grid-template-columns:1fr;
+  }
+  .vehicle-card-summary{
+    padding:14px 15px;
+  }
+  .vehicle-card-body{
+    padding:14px 15px 15px;
+  }
+}
 
 #popupSuccessState{display:none;}
 #popupSuccessState #whatsappHelpLabel{display:block !important;}
@@ -855,7 +1108,7 @@ button:disabled{
 <body>
 <div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
   <img
-    src="https://drive.google.com/thumbnail?id=1tgD_4er4DcZvG6IjN649-RElGvaZFcdI&sz=w1000"
+    src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&sz=w1000"
     alt="Logo Check-inn"
     style="max-width:260px; width:70%; height:auto; display:inline-block;"
     referrerpolicy="no-referrer"
@@ -874,7 +1127,47 @@ button:disabled{
 <h1 data-i18n="title">Registro de huéspedes</h1>
 <div class="top-menu">
   <button type="button" class="menu-btn active" id="menuRegistroBtn">Registro de huéspedes</button>
+  <button type="button" class="menu-btn secondary" id="menuVehiculosBtn">Información de vehículos</button>
   <button type="button" class="menu-btn secondary" id="menuControlBtn">Control de huéspedes</button>
+</div>
+
+
+<div id="viewVehiculos" class="view-panel hidden">
+  <div class="dashboard-wrap">
+    <div class="section">
+      <h2 class="section-title">Información de vehículos</h2>
+      <p class="section-subtitle">Consulta los vehículos con estancia activa hoy y filtra la información por propiedad.</p>
+
+      <div class="vehicle-info-toolbar">
+        <div>
+          <label for="vehiculos_propiedad_filtro">Propiedad</label>
+          <select id="vehiculos_propiedad_filtro">
+            <option value="">Selecciona</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-actions">
+        <button type="button" id="btnBuscarVehiculos">Buscar vehículos</button>
+        <button type="button" class="menu-btn secondary" id="btnLimpiarVehiculos" style="flex:0 0 auto;">Limpiar filtros</button>
+      </div>
+
+      <div class="vehicle-info-meta" id="vehiculosMeta">Sin consulta todavía.</div>
+
+      <div class="vehicle-list" id="vehiculosTableBody">
+        <div class="vehicle-empty">Sin registros para mostrar.</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="popup-backdrop" id="vehiculosLoadingPopup" style="display:none;">
+  <div class="popup-card" style="max-width:320px;">
+    <div style="width:52px;height:52px;border:4px solid rgba(245,158,11,.25);border-top-color:#f59e0b;border-radius:50%;margin:0 auto 16px;animation:spinPopup 0.9s linear infinite;"></div>
+    <h3 style="margin-bottom:8px;">Buscando vehículos</h3>
+    <div class="hint" style="margin:0;">Por favor espera mientras consultamos los registros.</div>
+  </div>
 </div>
 
 <div id="viewDashboard" class="view-panel hidden">
@@ -1382,14 +1675,23 @@ button:disabled{
 <input id="correo2" name="correo2" type="email"/>
 </div>
 </div>
-<div class="section hidden" id="vehicle_section_hidden_backend"><h2 class="section-title" data-i18n="sec5Title">Registro de vehículo</h2><label data-i18n="vehicle">¿Cuentas con vehículo?</label>
+<div class="section" id="vehicle_section_hidden_backend"><h2 class="section-title" data-i18n="sec5Title">Registro de vehículo</h2><p class="section-subtitle" data-i18n="vehicleProSub">Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.</p><label data-i18n="vehicle">¿Cuentas con vehículo?</label>
 <select id="tiene_vehiculo" name="tiene_vehiculo">
 <option value="">Selecciona</option>
 <option value="si">Sí</option>
 <option value="no">No</option>
 </select>
-<div class="hidden" id="vehiculo_fields">
-<label data-i18n="make">Marca</label>
+<div class="vehicle-pro-shell hidden" id="vehiculo_fields">
+<div class="vehicle-pro-intro">
+<div class="vehicle-pro-title" data-i18n="vehicleProTitle">Registro inteligente del vehículo</div>
+<div class="vehicle-pro-copy" data-i18n="vehicleProCopy">Captura al menos marca y modelo. Las placas, la foto y la hora habitual de salida ayudan al control de acceso y a la operación diaria.</div>
+<div class="vehicle-status-pill" id="vehicleStatusPill" data-i18n="vehicleStatusWaiting">Captura los datos del vehículo si aplica</div>
+</div>
+<div class="vehicle-warning" id="vehicleWarningBox"></div>
+<div class="vehicle-fields-grid">
+<div class="vehicle-card">
+<div class="vehicle-card-title" data-i18n="vehicleIdentityTitle">Identificación del vehículo</div>
+<label data-i18n="make">Marca (opcional)</label>
 <select id="vehiculo_marca" name="vehiculo_marca">
 <option value="">Selecciona</option>
 <option value="Nissan">Nissan</option>
@@ -1425,10 +1727,18 @@ button:disabled{
 <option value="Otro">Otro</option>
 </select>
 <input class="hidden" id="vehiculo_marca_otro" name="vehiculo_marca_otro" placeholder="Especifica la marca" type="text"/>
-<label data-i18n="model">Modelo</label>
+<label data-i18n="model">Modelo (opcional)</label>
 <input id="vehiculo_modelo" name="vehiculo_modelo" placeholder="Especifica el modelo" type="text"/>
+<label data-i18n="platesRequired"># Placas (opcional)</label>
+<input id="vehiculo_placas" name="vehiculo_placas" placeholder="Escribe las placas" type="text" maxlength="12" autocapitalize="characters"/>
+<div class="hint" data-i18n="platesHint">Usa letras y números tal como aparecen en el vehículo.</div>
+</div>
+<div class="vehicle-card">
+<div class="vehicle-card-title" data-i18n="vehicleOpsTitle">Apoyo operativo</div>
 <label data-i18n="color">Color (opcional)</label>
 <input id="vehiculo_color" name="vehiculo_color" placeholder="Ejemplo: Blanco, gris, rojo" type="text"/>
+<label data-i18n="usualDepartureTime">Hora habitual de salida (opcional)</label>
+<input id="vehiculo_hora_salida" name="vehiculo_hora_salida" type="time"/>
 <label data-i18n="addPhoto">Agregar foto (opcional)</label>
 <div class="upload-box">
 <label class="custom-upload">
@@ -1443,10 +1753,12 @@ button:disabled{
 </label>
 <div class="preview-wrapper"><img alt="" class="preview-img hidden" id="vehiculo_foto_preview"/><div class="preview-text" id="vehiculo_foto_name">Ninguna imagen seleccionada</div></div>
 </div>
-<label data-i18n="usualDepartureTime">Hora habitual de salida (opcional)</label>
-<input id="vehiculo_hora_salida" name="vehiculo_hora_salida" type="time"/>
-<label data-i18n="plates"># Placas (opcional)</label>
-<input id="vehiculo_placas" name="vehiculo_placas" placeholder="Escribe las placas" type="text"/>
+</div>
+</div>
+<div class="vehicle-summary" id="vehicleSummaryBox" style="display:none;">
+<div class="vehicle-summary-title" data-i18n="vehicleSummaryTitle">Resumen del vehículo</div>
+<div class="vehicle-summary-text" id="vehicleSummaryText"></div>
+</div>
 </div>
 </div>
 <div class="section"><h2 class="section-title" data-i18n="sec6Title">Comentarios</h2><p class="section-subtitle" data-i18n="sec6Sub"></p>
@@ -1474,8 +1786,8 @@ button:disabled{
 </div>
 </div>
 <script>
-const WEB_APP_URL = window.CHECKIN_WEB_APP_URL || "https://script.google.com/macros/s/AKfycbzwg18jToCCIqIgxers0WZ5nD4AZFL-dxhErk9EazFffaatWzaZTstprZVF9u9qnE4_wg/exec";
-const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || `${window.location.origin}/facturapi`;
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzwg18jToCCIqIgxers0WZ5nD4AZFL-dxhErk9EazFffaatWzaZTstprZVF9u9qnE4_wg/exec";
+const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || "http://localhost:8080";
 
 const ladas = [
   {c:"México",code:"52",p:1},
@@ -1904,6 +2216,10 @@ const vehiculoColor = document.getElementById("vehiculo_color");
 const vehiculoFoto = document.getElementById("vehiculo_foto");
 const vehiculoHoraSalida = document.getElementById("vehiculo_hora_salida");
 const vehiculoPlacas = document.getElementById("vehiculo_placas");
+const vehicleSummaryBox = document.getElementById("vehicleSummaryBox");
+const vehicleSummaryText = document.getElementById("vehicleSummaryText");
+const vehicleStatusPill = document.getElementById("vehicleStatusPill");
+const vehicleWarningBox = document.getElementById("vehicleWarningBox");
 const comprobanteTransferenciaWrap = document.getElementById("comprobante_transferencia_wrap");
 const comprobanteTransferencia = document.getElementById("comprobante_transferencia");
 
@@ -2113,6 +2429,7 @@ divisa_monto.addEventListener("change", formatCurrencyPreview);
 formatCurrencyPreview();
 toggleComprobanteTransferencia();
 syncFacturaVisibility();
+actualizarResumenVehiculo();
 
 function updateFileName(inputId, outputId, previewId){
   const input = document.getElementById(inputId);
@@ -2146,6 +2463,22 @@ updateFileName("ine_trasero", "ine_trasero_name", "ine_trasero_preview");
 updateFileName("identificacion_unica", "identificacion_unica_name", "identificacion_unica_preview");
 updateFileName("vehiculo_foto", "vehiculo_foto_name", "vehiculo_foto_preview");
 updateFileName("comprobante_transferencia", "comprobante_transferencia_name", "comprobante_transferencia_preview");
+
+[vehiculoMarca, vehiculoMarcaOtro, vehiculoModelo, vehiculoColor, vehiculoHoraSalida].forEach(el => {
+  if (!el) return;
+  el.addEventListener("input", actualizarResumenVehiculo);
+  el.addEventListener("change", actualizarResumenVehiculo);
+});
+if (vehiculoPlacas) {
+  vehiculoPlacas.addEventListener("input", () => {
+    normalizarPlacasVehiculo();
+    actualizarResumenVehiculo();
+  });
+  vehiculoPlacas.addEventListener("blur", normalizarPlacasVehiculo);
+}
+if (vehiculoFoto) {
+  vehiculoFoto.addEventListener("change", actualizarResumenVehiculo);
+}
 
 function fileToBase64(file){
   return new Promise((resolve, reject) => {
@@ -2212,11 +2545,74 @@ function toggleMarcaOtro(){
 }
 vehiculoMarca.addEventListener("change", toggleMarcaOtro);
 
-tieneVehiculo.addEventListener("change", () => {
+function actualizarResumenVehiculo(){
+  if (!vehicleSummaryBox || !vehicleSummaryText || !vehicleStatusPill) return;
+  const activo = tieneVehiculo.value === "si";
+  if (!activo) {
+    vehicleSummaryBox.style.display = "none";
+    vehicleSummaryText.textContent = "";
+    vehicleStatusPill.textContent = (window.currentLang === "en")
+      ? "Vehicle section inactive"
+      : "Sección de vehículo inactiva";
+    if (vehicleWarningBox) {
+      vehicleWarningBox.classList.remove("show");
+      vehicleWarningBox.textContent = "";
+    }
+    return;
+  }
+  const marca = (vehiculoMarca.value === "Otro" ? vehiculoMarcaOtro.value : vehiculoMarca.value || "").trim();
+  const modelo = (vehiculoModelo.value || "").trim();
+  const color = (vehiculoColor.value || "").trim();
+  const placas = (vehiculoPlacas.value || "").trim();
+  const hora = (vehiculoHoraSalida.value || "").trim();
+  const foto = vehiculoFoto?.files?.[0]?.name || "";
+  const faltantes = [];
+
+  if (!marca && !modelo && !color && !placas && !hora && !foto) {
+    vehicleStatusPill.textContent = (window.currentLang === "en")
+      ? "Vehicle details are optional"
+      : "Los datos del vehículo son opcionales";
+    if (vehicleWarningBox) {
+      vehicleWarningBox.classList.remove("show");
+      vehicleWarningBox.textContent = "";
+    }
+  } else {
+    vehicleStatusPill.textContent = (window.currentLang === "en")
+      ? "Vehicle information captured"
+      : "Información del vehículo capturada";
+    if (vehicleWarningBox) {
+      vehicleWarningBox.classList.remove("show");
+      vehicleWarningBox.textContent = "";
+    }
+  }
+
+  const partes = [
+    marca && modelo ? `${marca} ${modelo}` : (marca || modelo),
+    color ? ((window.currentLang === "en") ? `Color: ${color}` : `Color: ${color}`) : "",
+    placas ? ((window.currentLang === "en") ? `Plates: ${placas}` : `Placas: ${placas}`) : "",
+    hora ? ((window.currentLang === "en") ? `Usual departure: ${hora}` : `Salida habitual: ${hora}`) : "",
+    foto ? ((window.currentLang === "en") ? `Photo: ${foto}` : `Foto: ${foto}`) : ""
+  ].filter(Boolean);
+  if (partes.length) {
+    vehicleSummaryBox.style.display = "block";
+    vehicleSummaryText.textContent = partes.join(" · ");
+  } else {
+    vehicleSummaryBox.style.display = "none";
+    vehicleSummaryText.textContent = "";
+  }
+}
+
+function normalizarPlacasVehiculo(){
+  if (!vehiculoPlacas) return;
+  vehiculoPlacas.value = String(vehiculoPlacas.value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, "")
+    .slice(0, 12);
+}
+
+function toggleVehicleFields(){
   const show = tieneVehiculo.value === "si";
   vehiculoFields.classList.toggle("hidden", !show);
-
-
   if (!show) {
     vehiculoMarca.value = "";
     vehiculoMarcaOtro.value = "";
@@ -2226,13 +2622,16 @@ tieneVehiculo.addEventListener("change", () => {
     vehiculoHoraSalida.value = "";
     vehiculoPlacas.value = "";
     document.getElementById("vehiculo_foto_name").textContent = "Ninguna imagen seleccionada";
-      document.getElementById("vehiculo_foto_preview").classList.add("hidden");
-      document.getElementById("vehiculo_foto_preview").src = "";
+    document.getElementById("vehiculo_foto_preview").classList.add("hidden");
+    document.getElementById("vehiculo_foto_preview").src = "";
     vehiculoMarcaOtro.classList.add("hidden");
   } else {
     toggleMarcaOtro();
   }
-});
+  actualizarResumenVehiculo();
+}
+
+tieneVehiculo.addEventListener("change", toggleVehicleFields);
 
 
 const MAX_FILE_SIZE_MB = 12;
@@ -2403,6 +2802,11 @@ document.getElementById("form").addEventListener("submit", async function(e){
 
   validarArchivosAntesDeEnviar();
 
+  const tieneVehiculoActivo = String(f.get("tiene_vehiculo") || "") === "si";
+  const vehiculoMarcaFinal = String((f.get("vehiculo_marca") === "Otro" ? f.get("vehiculo_marca_otro") : f.get("vehiculo_marca")) || "").trim();
+  const vehiculoModeloFinal = String(f.get("vehiculo_modelo") || "").trim();
+  const vehiculoPlacasFinal = String(f.get("vehiculo_placas") || "").trim().toUpperCase();
+
   const payload = {
     action: "submit_form",
     tipo_registro: f.get("tipo_registro"),
@@ -2444,12 +2848,12 @@ document.getElementById("form").addEventListener("submit", async function(e){
     tiene_vehiculo: f.get("tiene_vehiculo"),
     vehiculo_marca: f.get("vehiculo_marca"),
     vehiculo_marca_otro: f.get("vehiculo_marca_otro"),
-    vehiculo_modelo: f.get("vehiculo_modelo"),
+    vehiculo_modelo: vehiculoModeloFinal,
     vehiculo_modelo_otro: "",
     vehiculo_color: f.get("vehiculo_color"),
     vehiculo_foto: "",
     vehiculo_hora_salida: f.get("vehiculo_hora_salida"),
-    vehiculo_placas: f.get("vehiculo_placas"),
+    vehiculo_placas: vehiculoPlacasFinal,
     comentarios: f.get("comentarios")
   };
 
@@ -2916,6 +3320,7 @@ function applyTranslations(lang){
 document.documentElement.lang = lang;
   window.currentLang = lang;
   if (typeof actualizarNotasFacturaPorIdioma === "function") actualizarNotasFacturaPorIdioma(lang);
+  if (typeof actualizarResumenVehiculo === "function") actualizarResumenVehiculo();
   if (guestAutofillStatus && !guestAutofillStatus.classList.contains("hidden")) {
     detectExistingGuestByPhone();
   }
@@ -2946,6 +3351,24 @@ const SIMPLE_I18N = {
     sec4Title:"Facturación",
     sec4Sub:"",
     sec5Title:"Registro de vehículo",
+    vehicleProSub:"Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.",
+    vehicleProTitle:"Registro inteligente del vehículo",
+    vehicleProCopy:"Captura al menos marca y modelo. Las placas, la foto y la hora habitual de salida ayudan al control de acceso y a la operación diaria.",
+    vehicleStatusWaiting:"Captura los datos del vehículo si aplica",
+    vehicleIdentityTitle:"Identificación del vehículo",
+    vehicleOpsTitle:"Apoyo operativo",
+    vehicleSummaryTitle:"Resumen del vehículo",
+    platesRequired:"# Placas (opcional)",
+    platesHint:"Usa letras y números tal como aparecen en el vehículo.",
+    vehicleProSub:"Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.",
+    vehicleProTitle:"Registro inteligente del vehículo",
+    vehicleProCopy:"Captura al menos marca y modelo. Las placas, la foto y la hora habitual de salida ayudan al control de acceso y a la operación diaria.",
+    vehicleStatusWaiting:"Captura los datos del vehículo si aplica",
+    vehicleIdentityTitle:"Identificación del vehículo",
+    vehicleOpsTitle:"Apoyo operativo",
+    vehicleSummaryTitle:"Resumen del vehículo",
+    platesRequired:"# Placas (opcional)",
+    platesHint:"Usa letras y números tal como aparecen en el vehículo.",
     sec6Title:"Comentarios",
     sec6Sub:"",
     bookingSource:"Medio de reservación",
@@ -2977,8 +3400,8 @@ const SIMPLE_I18N = {
     emailPrimary:"Correo electrónico (principal)",
     emailCopy:"Correo electrónico (copia)",
     vehicle:"¿Cuentas con vehículo?",
-    make:"Marca",
-    model:"Modelo",
+    make:"Marca (opcional)",
+    model:"Modelo (opcional)",
     color:"Color (opcional)",
     addPhoto:"Agregar foto (opcional)",
     usualDepartureTime:"Hora habitual de salida (opcional)",
@@ -3008,6 +3431,24 @@ const SIMPLE_I18N = {
     sec4Title:"Invoicing",
     sec4Sub:"Tax information for invoice issuance.",
     sec5Title:"Vehicle registration",
+    vehicleProSub:"Register the vehicle that will enter the property to improve control, security, and daily operations.",
+    vehicleProTitle:"Smart vehicle registration",
+    vehicleProCopy:"Fill in at least make and model. Photo, plates, and usual departure time help access control and daily operations.",
+    vehicleStatusWaiting:"Add vehicle details if available",
+    vehicleIdentityTitle:"Vehicle identity",
+    vehicleOpsTitle:"Operational support",
+    vehicleSummaryTitle:"Vehicle summary",
+    platesRequired:"License plates (optional)",
+    platesHint:"Use letters and numbers exactly as shown on the vehicle.",
+    vehicleProSub:"Register the vehicle that will enter the property to improve control, security, and daily operations.",
+    vehicleProTitle:"Smart vehicle registration",
+    vehicleProCopy:"Fill in at least make and model. Photo, plates, and usual departure time help access control and daily operations.",
+    vehicleStatusWaiting:"Add vehicle details if available",
+    vehicleIdentityTitle:"Vehicle identity",
+    vehicleOpsTitle:"Operational support",
+    vehicleSummaryTitle:"Vehicle summary",
+    platesRequired:"License plates (optional)",
+    platesHint:"Use letters and numbers exactly as shown on the vehicle.",
     sec6Title:"Comments",
     sec6Sub:"",
     bookingSource:"Booking source",
@@ -3039,8 +3480,8 @@ const SIMPLE_I18N = {
     emailPrimary:"Email (primary)",
     emailCopy:"Email (copy)",
     vehicle:"Do you have a vehicle?",
-    make:"Make",
-    model:"Model",
+    make:"Make (required)",
+    model:"Model (required)",
     color:"Color (optional)",
     addPhoto:"Add photo (optional)",
     usualDepartureTime:"Usual departure time (optional)",
@@ -3104,6 +3545,7 @@ function applyTranslations(lang){
 
   document.documentElement.lang = lang;
   window.currentLang = lang;
+  if (typeof actualizarResumenVehiculo === "function") actualizarResumenVehiculo();
 }
 
 (function(){
@@ -3324,8 +3766,10 @@ document.addEventListener("DOMContentLoaded", function(){
 /* ===== Menú + dashboard Control de huéspedes ===== */
 (function(){
   const viewRegistro = document.getElementById("viewRegistro");
+  const viewVehiculos = document.getElementById("viewVehiculos");
   const viewDashboard = document.getElementById("viewDashboard");
   const menuRegistroBtn = document.getElementById("menuRegistroBtn");
+  const menuVehiculosBtn = document.getElementById("menuVehiculosBtn");
   const menuControlBtn = document.getElementById("menuControlBtn");
   const tableBody = document.getElementById("dashboardTableBody");
   const meta = document.getElementById("dashboardMeta");
@@ -3345,12 +3789,19 @@ document.addEventListener("DOMContentLoaded", function(){
   let dashboardFilterOptionsLoaded = false;
 
   function activarVista(vista){
+    const esRegistro = vista === "registro";
+    const esVehiculos = vista === "vehiculos";
     const esDashboard = vista === "dashboard";
-    if (viewRegistro) viewRegistro.classList.toggle("hidden", esDashboard);
+    if (viewRegistro) viewRegistro.classList.toggle("hidden", !esRegistro);
+    if (viewVehiculos) viewVehiculos.classList.toggle("hidden", !esVehiculos);
     if (viewDashboard) viewDashboard.classList.toggle("hidden", !esDashboard);
     if (menuRegistroBtn) {
-      menuRegistroBtn.classList.toggle("active", !esDashboard);
-      menuRegistroBtn.classList.toggle("secondary", esDashboard);
+      menuRegistroBtn.classList.toggle("active", esRegistro);
+      menuRegistroBtn.classList.toggle("secondary", !esRegistro);
+    }
+    if (menuVehiculosBtn) {
+      menuVehiculosBtn.classList.toggle("active", esVehiculos);
+      menuVehiculosBtn.classList.toggle("secondary", !esVehiculos);
     }
     if (menuControlBtn) {
       menuControlBtn.classList.toggle("active", esDashboard);
@@ -3885,13 +4336,307 @@ document.addEventListener("DOMContentLoaded", function(){
     if (modal) modal.style.display = "none";
   };
 
+
+
+  const vehiculosTableBody = document.getElementById("vehiculosTableBody");
+  const vehiculosMeta = document.getElementById("vehiculosMeta");
+  const vehiculosPropiedadFiltro = document.getElementById("vehiculos_propiedad_filtro");
+  const vehiculosLoadingPopup = document.getElementById("vehiculosLoadingPopup");
+  let vehiculosRows = [];
+  let vehiculosCacheByProperty = Object.create(null);
+  let vehiculosPropertiesLoaded = false;
+  let vehiculosBaseRows = [];
+  let vehiculosBaseRowsLoaded = false;
+
+  function mostrarPopupVehiculos(){
+    if (vehiculosLoadingPopup) vehiculosLoadingPopup.style.display = 'flex';
+  }
+
+  function ocultarPopupVehiculos(){
+    if (vehiculosLoadingPopup) vehiculosLoadingPopup.style.display = 'none';
+  }
+
+  function setVehiculosPropiedadesOptions(values){
+    if (!vehiculosPropiedadFiltro) return;
+    const current = vehiculosPropiedadFiltro.value;
+    const unique = Array.from(new Set((values || []).map(v => safeText(v).trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
+    vehiculosPropiedadFiltro.innerHTML = '<option value="">Selecciona</option>' + unique.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+    if (unique.includes(current)) vehiculosPropiedadFiltro.value = current;
+  }
+
+  function normalizeDriveImageUrl(url){
+    const txt = safeText(url).trim();
+    if (!txt) return '';
+    const fileMatch = txt.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (fileMatch) return `https://drive.google.com/thumbnail?id=${fileMatch[1]}&sz=w1200`;
+    const dMatch = txt.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (dMatch) return `https://drive.google.com/thumbnail?id=${dMatch[1]}&sz=w1200`;
+    const idMatch = txt.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idMatch) return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w1200`;
+    return txt;
+  }
+
+  function normalizedKey(value){
+    return safeText(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  }
+
+  function getRecordValueByCandidates(record, candidates){
+    if (!record || typeof record !== 'object') return '';
+    const map = new Map();
+    Object.keys(record).forEach(key => map.set(normalizedKey(key), record[key]));
+    for (const candidate of candidates) {
+      const val = map.get(normalizedKey(candidate));
+      if (val != null && String(val).trim()) return String(val).trim();
+    }
+    return '';
+  }
+
+  function firstGuestNameFromRecord(record){
+    const direct = getRecordValueByCandidates(record, [
+      'Nombre del huésped 1','Nombre del huesped 1','Huésped 1','Huesped 1',
+      'Nombre de la persona que hizo la reservación','Nombre de la persona que hizo la reservacion'
+    ]);
+    if (direct) return direct;
+    const allGuests = getRecordValueByCandidates(record, [
+      'Nombres de TODOS los huéspedes (separados por comas)',
+      'Nombres de TODOS los huespedes (separados por comas)',
+      'Nombres de los huéspedes',
+      'Nombres de los huespedes'
+    ]);
+    if (!allGuests) return '';
+    return String(allGuests).split(',').map(x => x.trim()).filter(Boolean)[0] || '';
+  }
+
+  function normalizeDateOnly(value){
+    const txt = safeText(value).trim();
+    if (!txt) return '';
+    const match = txt.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+    const d = new Date(txt);
+    if (Number.isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function getTodayDateOnly(){
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  }
+
+  function isCurrentStayActive(record){
+    const hoy = getTodayDateOnly();
+    const entrada = normalizeDateOnly(getRecordValueByCandidates(record, ['Fecha de ingreso','ingreso']));
+    const salida = normalizeDateOnly(getRecordValueByCandidates(record, ['Fecha de salida','salida']));
+    if (!entrada || !salida) return false;
+    return entrada <= hoy && hoy <= salida;
+  }
+
+  function buildVehicleRowFromDetail(record){
+    const marca = getRecordValueByCandidates(record, [
+      'Marca vehículo','Marca vehiculo','Marca del vehículo','Marca del vehiculo','Marca','vehiculo_marca'
+    ]);
+    const modelo = getRecordValueByCandidates(record, [
+      'Modelo vehículo','Modelo vehiculo','Modelo del vehículo','Modelo del vehiculo','Modelo','vehiculo_modelo'
+    ]);
+    const placas = getRecordValueByCandidates(record, ['Placas','# Placas','vehiculo_placas']);
+    const flag = getRecordValueByCandidates(record, [
+      '¿Cuenta con vehículo?','¿Cuenta con vehiculo?','¿Cuentas con vehículo?','¿Cuentas con vehiculo?',
+      'Cuenta con vehículo','Cuenta con vehiculo','Cuentas con vehículo','Cuentas con vehiculo','tiene_vehiculo'
+    ]).toLowerCase();
+    const tieneDatosVehiculo = !!(marca || modelo || placas || flag === 'si' || flag === 'sí' || flag === 'yes');
+    if (!tieneDatosVehiculo) return null;
+    if (!isCurrentStayActive(record)) return null;
+    return {
+      "Nombre del huésped 1": firstGuestNameFromRecord(record),
+      "Propiedad": getRecordValueByCandidates(record, ['Propiedad','Property']),
+      "# Departamento": getRecordValueByCandidates(record, ['# Departamento','Departamento','Apartment #','depto']),
+      "Número de celular": getRecordValueByCandidates(record, ['Cel/Whatsapp (principal)','Número de celular','Numero de celular','celular_principal']),
+      "Marca": marca,
+      "Modelo": modelo,
+      "Color (opcional)": getRecordValueByCandidates(record, ['Color vehículo','Color vehiculo','Color del vehículo','Color del vehiculo','Color','vehiculo_color']),
+      "# Placas": placas,
+      "Hora habitual de salida (opcional)": getRecordValueByCandidates(record, ['Hora habitual de salida','Hora habitual de salida (opcional)','vehiculo_hora_salida']),
+      "Foto": getRecordValueByCandidates(record, ['Foto vehículo','Foto vehiculo','Foto del vehículo','Foto del vehiculo','Link foto vehículo','Link foto vehiculo','vehiculo_foto'])
+    };
+  }
+
+  function renderVehiculosRows(){
+    if (!vehiculosTableBody) return;
+    const propiedad = safeText(vehiculosPropiedadFiltro?.value).trim();
+    if (!propiedad) {
+      vehiculosTableBody.innerHTML = '<div class="vehicle-empty">Selecciona una propiedad para consultar los vehículos activos hoy.</div>';
+      if (vehiculosMeta) vehiculosMeta.textContent = 'Selecciona una propiedad para iniciar la búsqueda.';
+      return;
+    }
+
+    if (!vehiculosRows.length) {
+      vehiculosTableBody.innerHTML = '<div class="vehicle-empty">No se encontraron vehículos activos hoy para la propiedad seleccionada.</div>';
+      if (vehiculosMeta) vehiculosMeta.textContent = '0 vehículos encontrados para la propiedad seleccionada.';
+      return;
+    }
+
+    vehiculosTableBody.innerHTML = vehiculosRows.map(row => {
+      const waUrl = buildWhatsAppUrl(row["Número de celular"]);
+      const celularHtml = waUrl
+        ? `<a class="vehicle-phone-link" href="${waUrl}" target="_blank" rel="noopener">${escapeHtml(row["Número de celular"] || '—')}</a>`
+        : `<span>${escapeHtml(row["Número de celular"] || '—')}</span>`;
+      const fotoUrl = safeText(row["Foto"]).trim();
+      const fotoPreviewUrl = normalizeDriveImageUrl(fotoUrl);
+      const fotoHtml = fotoUrl
+        ? `<a class="vehicle-thumb-link" href="${escapeHtml(fotoUrl)}" target="_blank" rel="noopener">
+             <img class="vehicle-thumb" src="${escapeHtml(fotoPreviewUrl)}" alt="Foto vehículo" referrerpolicy="no-referrer"
+               onerror="this.style.display='none'; this.closest('.vehicle-photo-panel').querySelector('.vehicle-photo-empty').style.display='flex';">
+           </a>
+           <div class="vehicle-photo-empty" style="display:none;">No se pudo previsualizar la foto disponible.</div>`
+        : `<div class="vehicle-photo-empty">Sin foto disponible</div>`;
+
+      return `
+        <details class="vehicle-card-item">
+          <summary class="vehicle-card-summary">
+            <div class="vehicle-card-main">
+              <div class="vehicle-card-title">${escapeHtml(row["Nombre del huésped 1"] || 'Sin nombre')} · ${escapeHtml(row["Marca"] || 'Sin marca')} ${escapeHtml(row["Modelo"] || '')}</div>
+              <div class="vehicle-card-subtitle">${escapeHtml(row["Propiedad"] || 'Sin propiedad')} · Depto ${escapeHtml(row["# Departamento"] || '—')} · Placas: ${escapeHtml(row["# Placas"] || '—')}</div>
+            </div>
+            <div class="vehicle-card-chevron">⌄</div>
+          </summary>
+          <div class="vehicle-card-body">
+            <div class="vehicle-detail-grid">
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Nombre del huésped 1</div><div class="vehicle-detail-value">${escapeHtml(row["Nombre del huésped 1"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Propiedad</div><div class="vehicle-detail-value">${escapeHtml(row["Propiedad"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label"># Departamento</div><div class="vehicle-detail-value">${escapeHtml(row["# Departamento"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Número de celular</div><div class="vehicle-detail-value">${celularHtml}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Marca</div><div class="vehicle-detail-value">${escapeHtml(row["Marca"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Modelo</div><div class="vehicle-detail-value">${escapeHtml(row["Modelo"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Color (opcional)</div><div class="vehicle-detail-value">${escapeHtml(row["Color (opcional)"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label"># Placas</div><div class="vehicle-detail-value">${escapeHtml(row["# Placas"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Hora habitual de salida (opcional)</div><div class="vehicle-detail-value">${escapeHtml(row["Hora habitual de salida (opcional)"] || '—')}</div></div>
+            </div>
+            <div class="vehicle-photo-panel">
+              <div class="vehicle-photo-title">Foto</div>
+              ${fotoHtml}
+            </div>
+          </div>
+        </details>
+      `;
+    }).join('');
+
+    if (vehiculosMeta) vehiculosMeta.textContent = `${vehiculosRows.length} vehículos activos hoy encontrados para la propiedad seleccionada.`;
+  }
+
+  async function cargarBaseRowsVehiculos(forceReload = false){
+    if (vehiculosBaseRowsLoaded && !forceReload) return vehiculosBaseRows;
+    const res = await fetch(`${WEB_APP_URL}?action=list_records&page=1&page_size=500`, { method: 'GET' });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || json.message || 'No fue posible cargar registros base.');
+    vehiculosBaseRows = Array.isArray(json.rows) ? json.rows : [];
+    vehiculosBaseRowsLoaded = true;
+    return vehiculosBaseRows;
+  }
+
+  async function cargarPropiedadesVehiculos(forceReload = false){
+    if (vehiculosPropertiesLoaded && !forceReload) return;
+    try {
+      if (vehiculosTableBody) vehiculosTableBody.innerHTML = '<div class="vehicle-empty">Cargando propiedades disponibles...</div>';
+      if (vehiculosMeta) vehiculosMeta.textContent = 'Cargando propiedades disponibles...';
+
+      let properties = [];
+      try {
+        const res = await fetch(`${WEB_APP_URL}?action=list_active_vehicle_properties`, { method: 'GET' });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error || json.message || 'Backend rápido no disponible');
+        properties = Array.isArray(json.properties) ? json.properties : [];
+      } catch (_err) {
+        const baseRows = await cargarBaseRowsVehiculos(forceReload);
+        properties = Array.from(new Set(baseRows.filter(r => isCurrentStayActive(r)).map(r => safeText(r["Propiedad"] || '').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
+      }
+
+      setVehiculosPropiedadesOptions(properties);
+      vehiculosPropertiesLoaded = true;
+      if (vehiculosTableBody) vehiculosTableBody.innerHTML = '<div class="vehicle-empty">Selecciona una propiedad para consultar los vehículos activos hoy.</div>';
+      if (vehiculosMeta) vehiculosMeta.textContent = 'Selecciona una propiedad para iniciar la búsqueda.';
+    } catch (err) {
+      if (vehiculosTableBody) vehiculosTableBody.innerHTML = `<div class="vehicle-empty">Error al consultar vehículos: ${escapeHtml(err.message)}</div>`;
+      if (vehiculosMeta) vehiculosMeta.textContent = 'No fue posible cargar la información de vehículos.';
+    }
+  }
+
+  async function buscarVehiculosPorPropiedad(forceReload = false){
+    const propiedad = safeText(vehiculosPropiedadFiltro?.value).trim();
+    if (!propiedad) {
+      renderVehiculosRows();
+      return;
+    }
+
+    if (vehiculosCacheByProperty[propiedad] && !forceReload) {
+      vehiculosRows = vehiculosCacheByProperty[propiedad];
+      renderVehiculosRows();
+      return;
+    }
+
+    try {
+      mostrarPopupVehiculos();
+      if (vehiculosMeta) vehiculosMeta.textContent = 'Consultando vehículos activos para la propiedad seleccionada...';
+
+      let rows = [];
+      try {
+        const params = new URLSearchParams();
+        params.set('action', 'list_active_vehicles');
+        params.set('propiedad', propiedad);
+        const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: 'GET' });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error || json.message || 'Backend rápido no disponible');
+        rows = Array.isArray(json.rows) ? json.rows : [];
+      } catch (_err) {
+        const baseRows = await cargarBaseRowsVehiculos(forceReload);
+        const candidateRows = baseRows.filter(r => isCurrentStayActive(r) && safeText(r["Propiedad"] || '').trim() === propiedad);
+        if (candidateRows.length) {
+          const detailPromises = candidateRows.map(async (row) => {
+            const recordId = safeText(row['ID'] || row['row_number'] || '').trim();
+            if (!recordId) return buildVehicleRowFromDetail(row);
+            try {
+              const detailRes = await fetch(`${WEB_APP_URL}?action=get_record_detail&record_id=${encodeURIComponent(recordId)}`, { method: 'GET' });
+              const detailJson = await detailRes.json();
+              if (!detailJson.ok) return buildVehicleRowFromDetail(row);
+              return buildVehicleRowFromDetail(detailJson.record || row);
+            } catch (_e) {
+              return buildVehicleRowFromDetail(row);
+            }
+          });
+          rows = (await Promise.all(detailPromises)).filter(Boolean);
+        }
+      }
+
+      vehiculosRows = rows;
+      vehiculosCacheByProperty[propiedad] = rows;
+      renderVehiculosRows();
+    } catch (err) {
+      vehiculosRows = [];
+      if (vehiculosTableBody) vehiculosTableBody.innerHTML = `<div class="vehicle-empty">Error al consultar vehículos: ${escapeHtml(err.message)}</div>`;
+      if (vehiculosMeta) vehiculosMeta.textContent = 'No fue posible cargar la información de vehículos.';
+    } finally {
+      ocultarPopupVehiculos();
+    }
+  }
+
+
   if (menuRegistroBtn) menuRegistroBtn.addEventListener("click", () => activarVista("registro"));
+  if (menuVehiculosBtn) menuVehiculosBtn.addEventListener("click", async () => {
+    activarVista("vehiculos");
+    await cargarPropiedadesVehiculos(false);
+  });
   if (menuControlBtn) menuControlBtn.addEventListener("click", async () => {
     activarVista("dashboard");
     await cargarOpcionesFiltros();
     buscarRegistros(true);
   });
 
+  document.getElementById("btnBuscarVehiculos")?.addEventListener("click", () => { buscarVehiculosPorPropiedad(false); });
+  document.getElementById("btnLimpiarVehiculos")?.addEventListener("click", () => {
+    if (vehiculosPropiedadFiltro) vehiculosPropiedadFiltro.value = "";
+    vehiculosRows = [];
+    if (vehiculosTableBody) vehiculosTableBody.innerHTML = '<div class="vehicle-empty">Selecciona una propiedad para consultar los vehículos activos hoy.</div>';
+    if (vehiculosMeta) vehiculosMeta.textContent = 'Selecciona una propiedad para iniciar la búsqueda.';
+  });
+  vehiculosPropiedadFiltro?.addEventListener("change", () => { buscarVehiculosPorPropiedad(false); });
   document.getElementById("btnBuscarHuespedes")?.addEventListener("click", () => buscarRegistros(true));
   document.getElementById("btnLimpiarFiltros")?.addEventListener("click", limpiarFiltros);
   document.getElementById("btnExportarCsv")?.addEventListener("click", exportarCsv);
