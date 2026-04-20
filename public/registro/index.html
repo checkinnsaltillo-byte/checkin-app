@@ -1117,12 +1117,7 @@ button:disabled{
 </head>
 <body>
 <div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
-  <img
-    src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&sz=w1000"
-    alt="Logo Check-inn"
-    style="max-width:260px; width:70%; height:auto; display:inline-block;"
-    referrerpolicy="no-referrer"
-  >
+<img alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w1000" style="max-width:260px; width:70%; height:auto; display:inline-block;"/>
 </div>
 <div class="page-shell">
 <div class="container">
@@ -1136,199 +1131,180 @@ button:disabled{
 </div>
 <h1 data-i18n="title">Registro de huéspedes</h1>
 <div class="top-menu">
-  <button type="button" class="menu-btn active" id="menuRegistroBtn">Registro de huéspedes</button>
-  <button type="button" class="menu-btn secondary" id="menuVehiculosBtn">Información de vehículos</button>
-  <button type="button" class="menu-btn secondary" id="menuControlBtn">Control de huéspedes</button>
+<button class="menu-btn active" id="menuRegistroBtn" type="button">Registro de huéspedes</button>
+<button class="menu-btn secondary" id="menuVehiculosBtn" type="button">Información de vehículos</button>
+<button class="menu-btn secondary" id="menuControlBtn" type="button">Control de huéspedes</button>
 </div>
-
-
-<div id="viewVehiculos" class="view-panel hidden">
-  <div class="dashboard-wrap">
-    <div class="section">
-      <h2 class="section-title">Información de vehículos</h2>
-      <p class="section-subtitle">Consulta los vehículos con estancia activa hoy y filtra la información por propiedad.</p>
-
-      <div class="vehicle-info-toolbar">
-        <div>
-          <label for="vehiculos_propiedad_filtro">Propiedad</label>
-          <select id="vehiculos_propiedad_filtro">
-            <option value="">Selecciona</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="filter-actions">
-        <button type="button" id="btnBuscarVehiculos">Buscar vehículos</button>
-        <button type="button" class="menu-btn secondary" id="btnLimpiarVehiculos" style="flex:0 0 auto;">Limpiar filtros</button>
-      </div>
-
-      <div class="vehicle-info-meta" id="vehiculosMeta">Sin consulta todavía.</div>
-
-      <div class="vehicle-list" id="vehiculosTableBody">
-        <div class="vehicle-empty">Sin registros para mostrar.</div>
-      </div>
-
-    </div>
-  </div>
+<div class="view-panel hidden" id="viewVehiculos">
+<div class="dashboard-wrap">
+<div class="section">
+<h2 class="section-title">Información de vehículos</h2>
+<p class="section-subtitle">Consulta los vehículos con estancia activa hoy y filtra la información por propiedad.</p>
+<div class="vehicle-info-toolbar">
+<div>
+<label for="vehiculos_propiedad_filtro">Propiedad</label>
+<select id="vehiculos_propiedad_filtro">
+<option value="">Selecciona</option>
+</select>
 </div>
-
+</div>
+<div class="filter-actions">
+<button id="btnBuscarVehiculos" type="button">Buscar vehículos</button>
+<button class="menu-btn secondary" id="btnLimpiarVehiculos" style="flex:0 0 auto;" type="button">Limpiar filtros</button>
+</div>
+<div class="vehicle-info-meta" id="vehiculosMeta">Sin consulta todavía.</div>
+<div class="vehicle-list" id="vehiculosTableBody">
+<div class="vehicle-empty">Sin registros para mostrar.</div>
+</div>
+</div>
+</div>
+</div>
 <div class="popup-backdrop" id="vehiculosLoadingPopup" style="display:none;">
-  <div class="popup-card" style="max-width:320px;">
-    <div style="width:52px;height:52px;border:4px solid rgba(245,158,11,.25);border-top-color:#f59e0b;border-radius:50%;margin:0 auto 16px;animation:spinPopup 0.9s linear infinite;"></div>
-    <h3 style="margin-bottom:8px;">Buscando vehículos</h3>
-    <div class="hint" style="margin:0;">Por favor espera mientras consultamos los registros.</div>
-  </div>
+<div class="popup-card" style="max-width:320px;">
+<div style="width:52px;height:52px;border:4px solid rgba(245,158,11,.25);border-top-color:#f59e0b;border-radius:50%;margin:0 auto 16px;animation:spinPopup 0.9s linear infinite;"></div>
+<h3 style="margin-bottom:8px;">Buscando vehículos</h3>
+<div class="hint" style="margin:0;">Por favor espera mientras consultamos los registros.</div>
 </div>
-
-<div id="viewDashboard" class="view-panel hidden">
-  <div class="dashboard-wrap">
-    <div class="section">
-      <h2 class="section-title">Control de huéspedes</h2>
-      <p class="section-subtitle">Consulta los registros guardados en la hoja "Check in" con filtros dinámicos, rango de fechas, paginación y detalle completo.</p>
-
-      <div class="range-grid">
-        <div class="range-card">
-          <div class="range-title">Rango de fecha de entrada</div>
-          <div class="grid">
-            <div>
-              <label for="filtro_fecha_entrada_desde">Desde</label>
-              <input type="date" id="filtro_fecha_entrada_desde">
-            </div>
-            <div>
-              <label for="filtro_fecha_entrada_hasta">Hasta</label>
-              <input type="date" id="filtro_fecha_entrada_hasta">
-            </div>
-          </div>
-        </div>
-        <div class="range-card">
-          <div class="range-title">Rango de fecha de salida</div>
-          <div class="grid">
-            <div>
-              <label for="filtro_fecha_salida_desde">Desde</label>
-              <input type="date" id="filtro_fecha_salida_desde">
-            </div>
-            <div>
-              <label for="filtro_fecha_salida_hasta">Hasta</label>
-              <input type="date" id="filtro_fecha_salida_hasta">
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="filter-grid" style="margin-top:14px;">
-        <div>
-          <label for="filtro_nombre_reservacion">Nombre de la persona que hizo la reservación</label>
-          <select id="filtro_nombre_reservacion"><option value="">Todos</option></select>
-        </div>
-        <div>
-          <label for="filtro_medio_reservacion">Medio de reservación</label>
-          <select id="filtro_medio_reservacion"><option value="">Todos</option></select>
-        </div>
-        <div>
-          <label for="filtro_celular_principal">Cel/Whatsapp (principal)</label>
-          <select id="filtro_celular_principal"><option value="">Todos</option></select>
-        </div>
-        <div>
-          <label for="filtro_requiere_factura">¿Requiere factura?</label>
-          <select id="filtro_requiere_factura"><option value="">Todos</option><option value="Sí">Sí</option><option value="No">No</option></select>
-        </div>
-        <div>
-          <label for="filtro_razon_social">Razón social</label>
-          <select id="filtro_razon_social"><option value="">Todos</option></select>
-        </div>
-        <div>
-          <label for="filtro_forma_pago">Forma de pago</label>
-          <select id="filtro_forma_pago"><option value="">Todos</option></select>
-        </div>
-        <div>
-          <label for="filtro_correo">Correo electrónico</label>
-          <select id="filtro_correo"><option value="">Todos</option></select>
-        </div>
-        <div>
-          <label for="dashboard_page_size">Registros por página</label>
-          <select id="dashboard_page_size">
-            <option value="10">10</option>
-            <option value="25" selected>25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="filter-actions">
-        <button type="button" id="btnBuscarHuespedes">Buscar registros</button>
-        <button type="button" class="menu-btn secondary" id="btnLimpiarFiltros" style="flex:0 0 auto;">Limpiar filtros</button>
-        <button type="button" class="menu-btn secondary" id="btnExportarCsv" style="flex:0 0 auto;">Exportar CSV</button>
-      </div>
-
-      <div class="kpi-grid">
-        <div class="kpi-card"><div class="kpi-label">Registros encontrados</div><div class="kpi-value" id="kpi_total_registros">0</div></div>
-        <div class="kpi-card"><div class="kpi-label">Con factura</div><div class="kpi-value" id="kpi_con_factura">0</div></div>
-        <div class="kpi-card"><div class="kpi-label">Sin factura</div><div class="kpi-value" id="kpi_sin_factura">0</div></div>
-        <div class="kpi-card"><div class="kpi-label">Medios de reservación únicos</div><div class="kpi-value" id="kpi_medios_unicos">0</div></div>
-      </div>
-
-      <div class="results-meta" id="dashboardMeta">Sin consulta todavía.</div>
-
-      <div class="table-wrap">
-        <table class="table-results">
-          <thead>
-            <tr>
-              <th>¿Requiere factura?</th>
-              <th>$ Monto facturado Total</th>
-              <th>Fecha de entrada</th>
-              <th>Fecha de salida</th>
-              <th>Nombre de la persona que hizo la reservación</th>
-              <th>Medio de reservación</th>
-              <th>Cel/Whatsapp (principal)</th>
-              <th>Razón social</th>
-              <th>Forma de pago</th>
-              <th>Correo electrónico</th>
-              <th>Propiedad</th>
-              <th># Departamento</th>
-              <th># Huéspedes</th>
-            </tr>
-          </thead>
-          <tbody id="dashboardTableBody">
-            <tr><td colspan="13" class="empty-state">Sin registros para mostrar.</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="pager-bar">
-        <div class="pager-info" id="dashboardPagerInfo">Página 1 de 1</div>
-        <div class="pager-controls">
-          <button type="button" class="menu-btn secondary" id="btnPrevPage" style="flex:0 0 auto;">Anterior</button>
-          <button type="button" class="menu-btn secondary" id="btnNextPage" style="flex:0 0 auto;">Siguiente</button>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
-
+<div class="view-panel hidden" id="viewDashboard">
+<div class="dashboard-wrap">
+<div class="section">
+<h2 class="section-title">Control de huéspedes</h2>
+<p class="section-subtitle">Consulta los registros guardados en la hoja "Check in" con filtros dinámicos, rango de fechas, paginación y detalle completo.</p>
+<div class="range-grid">
+<div class="range-card">
+<div class="range-title">Rango de fecha de entrada</div>
+<div class="grid">
+<div>
+<label for="filtro_fecha_entrada_desde">Desde</label>
+<input id="filtro_fecha_entrada_desde" type="date"/>
+</div>
+<div>
+<label for="filtro_fecha_entrada_hasta">Hasta</label>
+<input id="filtro_fecha_entrada_hasta" type="date"/>
+</div>
+</div>
+</div>
+<div class="range-card">
+<div class="range-title">Rango de fecha de salida</div>
+<div class="grid">
+<div>
+<label for="filtro_fecha_salida_desde">Desde</label>
+<input id="filtro_fecha_salida_desde" type="date"/>
+</div>
+<div>
+<label for="filtro_fecha_salida_hasta">Hasta</label>
+<input id="filtro_fecha_salida_hasta" type="date"/>
+</div>
+</div>
+</div>
+</div>
+<div class="filter-grid" style="margin-top:14px;">
+<div>
+<label for="filtro_nombre_reservacion">Nombre de la persona que hizo la reservación</label>
+<select id="filtro_nombre_reservacion"><option value="">Todos</option></select>
+</div>
+<div>
+<label for="filtro_medio_reservacion">Medio de reservación</label>
+<select id="filtro_medio_reservacion"><option value="">Todos</option></select>
+</div>
+<div>
+<label for="filtro_celular_principal">Cel/Whatsapp (principal)</label>
+<select id="filtro_celular_principal"><option value="">Todos</option></select>
+</div>
+<div>
+<label for="filtro_requiere_factura">¿Requiere factura?</label>
+<select id="filtro_requiere_factura"><option value="">Todos</option><option value="Sí">Sí</option><option value="No">No</option></select>
+</div>
+<div>
+<label for="filtro_razon_social">Razón social</label>
+<select id="filtro_razon_social"><option value="">Todos</option></select>
+</div>
+<div>
+<label for="filtro_forma_pago">Forma de pago</label>
+<select id="filtro_forma_pago"><option value="">Todos</option></select>
+</div>
+<div>
+<label for="filtro_correo">Correo electrónico</label>
+<select id="filtro_correo"><option value="">Todos</option></select>
+</div>
+<div>
+<label for="dashboard_page_size">Registros por página</label>
+<select id="dashboard_page_size">
+<option value="10">10</option>
+<option selected="" value="25">25</option>
+<option value="50">50</option>
+<option value="100">100</option>
+</select>
+</div>
+</div>
+<div class="filter-actions">
+<button id="btnBuscarHuespedes" type="button">Buscar registros</button>
+<button class="menu-btn secondary" id="btnLimpiarFiltros" style="flex:0 0 auto;" type="button">Limpiar filtros</button>
+<button class="menu-btn secondary" id="btnExportarCsv" style="flex:0 0 auto;" type="button">Exportar CSV</button>
+</div>
+<div class="kpi-grid">
+<div class="kpi-card"><div class="kpi-label">Registros encontrados</div><div class="kpi-value" id="kpi_total_registros">0</div></div>
+<div class="kpi-card"><div class="kpi-label">Con factura</div><div class="kpi-value" id="kpi_con_factura">0</div></div>
+<div class="kpi-card"><div class="kpi-label">Sin factura</div><div class="kpi-value" id="kpi_sin_factura">0</div></div>
+<div class="kpi-card"><div class="kpi-label">Medios de reservación únicos</div><div class="kpi-value" id="kpi_medios_unicos">0</div></div>
+</div>
+<div class="results-meta" id="dashboardMeta">Sin consulta todavía.</div>
+<div class="table-wrap">
+<table class="table-results">
+<thead>
+<tr>
+<th>¿Requiere factura?</th>
+<th>$ Monto facturado Total</th>
+<th>Fecha de entrada</th>
+<th>Fecha de salida</th>
+<th>Nombre de la persona que hizo la reservación</th>
+<th>Medio de reservación</th>
+<th>Cel/Whatsapp (principal)</th>
+<th>Razón social</th>
+<th>Forma de pago</th>
+<th>Correo electrónico</th>
+<th>Propiedad</th>
+<th># Departamento</th>
+<th># Huéspedes</th>
+</tr>
+</thead>
+<tbody id="dashboardTableBody">
+<tr><td class="empty-state" colspan="13">Sin registros para mostrar.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="pager-bar">
+<div class="pager-info" id="dashboardPagerInfo">Página 1 de 1</div>
+<div class="pager-controls">
+<button class="menu-btn secondary" id="btnPrevPage" style="flex:0 0 auto;" type="button">Anterior</button>
+<button class="menu-btn secondary" id="btnNextPage" style="flex:0 0 auto;" type="button">Siguiente</button>
+</div>
+</div>
+</div>
+</div>
+</div>
 <div class="popup-backdrop" id="dashboardDetailModal" style="display:none;">
-  <div class="popup-card detail-modal-card">
-    <h3 style="margin-bottom:6px;">Detalle completo del registro</h3>
-    <div class="hint" id="dashboardDetailSubtitle" style="margin-bottom:14px;">Consulta completa del huésped.</div>
-    <div class="detail-grid" id="dashboardDetailGrid"></div>
-    <div class="detail-modal-actions">
-      <button type="button" onclick="cerrarDetalleDashboard()">Cerrar</button>
-    </div>
-  </div>
+<div class="popup-card detail-modal-card">
+<h3 style="margin-bottom:6px;">Detalle completo del registro</h3>
+<div class="hint" id="dashboardDetailSubtitle" style="margin-bottom:14px;">Consulta completa del huésped.</div>
+<div class="detail-grid" id="dashboardDetailGrid"></div>
+<div class="detail-modal-actions">
+<button onclick="cerrarDetalleDashboard()" type="button">Cerrar</button>
 </div>
-
-<div id="viewRegistro" class="view-panel">
-
+</div>
+</div>
+<div class="view-panel" id="viewRegistro">
 <form id="form">
-<input type="hidden" id="tipo_registro" name="tipo_registro" value="nuevo"/>
+<input id="tipo_registro" name="tipo_registro" type="hidden" value="nuevo"/>
 <div class="section" id="section_celular_principal"><h2 class="section-title" data-i18n="phoneLookupTitle">Número de celular</h2><p class="section-subtitle" data-i18n="phoneLookupSub">Escribe tu número para buscar si ya existe un registro previo y completar automáticamente algunos datos.</p>
 <div class="phone-group">
 <select id="lada1" name="lada1"></select>
-<input id="celular_principal_input" name="cel" type="tel" inputmode="numeric" autocomplete="tel-national"/>
+<input autocomplete="tel-national" id="celular_principal_input" inputmode="numeric" name="cel" type="tel"/>
 </div>
-<div id="guestAutofillStatus" class="note hidden" style="margin-top:10px;"></div>
+<div class="note hidden" id="guestAutofillStatus" style="margin-top:10px;"></div>
 </div>
-<div id="formulario_principal" class="visible"><div class="section"><h2 class="section-title" data-i18n="sec1Title">Datos de la reservación</h2><p class="section-subtitle" data-i18n="sec1Sub"></p><label data-i18n="bookingSource">Medio de reservación</label>
+<div class="visible" id="formulario_principal"><div class="section"><h2 class="section-title" data-i18n="sec1Title">Datos de la reservación</h2><p class="section-subtitle" data-i18n="sec1Sub"></p><label data-i18n="bookingSource">Medio de reservación</label>
 <select name="medio">
 <option value="">Selecciona</option>
 <option value="Airbnb">Airbnb</option>
@@ -1369,7 +1345,6 @@ button:disabled{
 </select>
 </div></div>
 <div id="field_huespedes_nombres"><label data-i18n="guestNames">Nombres de los huéspedes</label>
-
 <div id="huespedes-container">
 <div class="huesped-row" style="position:relative;">
 <div style="flex:1; padding-right:34px;">
@@ -1585,7 +1560,6 @@ button:disabled{
 </select>
 </div></div>
 <div id="field_huespedes_nombres"><label data-i18n="guestNames">Nombres de los huéspedes</label>
-
 <div id="huespedes-container">
 <div class="huesped-row" style="position:relative;">
 <div style="flex:1; padding-right:34px;">
@@ -1614,13 +1588,12 @@ button:disabled{
 <option value="no">No</option>
 </select>
 <div class="note hidden" id="factura_notas">
-  <div class="factura-note-es">a) UNA FACTURA por PERIODO registrado</div>
-  <div class="factura-note-es" style="margin-top:6px;">b) Si realizas una EXTENSIÓN deberás realizar un nuevo registro para el nuevo periodo</div>
-  <div class="factura-note-es" style="margin-top:6px;">c) TICKET VIGENTE ÚNICAMENTE DENTRO DEL MES en que fue generado</div>
-
-  <div class="factura-note-en hidden">a) ONE INVOICE per REGISTERED PERIOD</div>
-  <div class="factura-note-en hidden" style="margin-top:6px;">b) If you EXTEND your stay, you must submit a new registration for the new period</div>
-  <div class="factura-note-en hidden" style="margin-top:6px;">c) TICKET VALID ONLY WITHIN THE MONTH it was issued</div>
+<div class="factura-note-es">a) UNA FACTURA por PERIODO registrado</div>
+<div class="factura-note-es" style="margin-top:6px;">b) Si realizas una EXTENSIÓN deberás realizar un nuevo registro para el nuevo periodo</div>
+<div class="factura-note-es" style="margin-top:6px;">c) TICKET VIGENTE ÚNICAMENTE DENTRO DEL MES en que fue generado</div>
+<div class="factura-note-en hidden">a) ONE INVOICE per REGISTERED PERIOD</div>
+<div class="factura-note-en hidden" style="margin-top:6px;">b) If you EXTEND your stay, you must submit a new registration for the new period</div>
+<div class="factura-note-en hidden" style="margin-top:6px;">c) TICKET VALID ONLY WITHIN THE MONTH it was issued</div>
 </div>
 <div class="hidden" id="factura_fields">
 <div id="field_razon_social"><label data-i18n="businessName">Razón social</label>
@@ -1659,10 +1632,10 @@ button:disabled{
 </div>
 </div>
 <div class="note hidden" id="nota_airbnb">
-  <div class="nota-airbnb-es">
+<div class="nota-airbnb-es">
     La factura emitida por Check-Inn NO INCLUYE la "Comisión Airbnb". En caso de querer cubrir el gasto total deberás descargar la factura correspondiente a la comisión de esta plataforma directamente de su app.
   </div>
-  <div class="nota-airbnb-en hidden">
+<div class="nota-airbnb-en hidden">
     The invoice issued by Check-Inn DOES NOT INCLUDE the "Airbnb Commission". If you want to cover the total cost, you must download the invoice for this platform's commission directly from its app.
   </div>
 </div>
@@ -1692,17 +1665,12 @@ button:disabled{
 <option value="no">No</option>
 </select>
 <div class="vehicle-pro-shell hidden" id="vehiculo_fields">
-<div class="vehicle-pro-intro">
-<div class="vehicle-pro-title" data-i18n="vehicleProTitle">Registro inteligente del vehículo</div>
-<div class="vehicle-pro-copy" data-i18n="vehicleProCopy">Captura al menos marca y modelo. Las placas, la foto y la hora habitual de salida ayudan al control de acceso y a la operación diaria.</div>
-<div class="vehicle-status-pill" id="vehicleStatusPill" data-i18n="vehicleStatusWaiting">Captura los datos del vehículo si aplica</div>
-</div>
 <div class="vehicle-warning" id="vehicleWarningBox"></div>
 <div class="vehicle-alert-note hidden" id="vehicleCoordinationNote">En caso de ocupar el PASILLO CENTRAL requerirás COORDINARTE con los DEMÁS HUÉSPEDES. Consulta los horarios de entrada, salida y contacto en el módulo "Información de vehículos".</div>
-<div class="vehicle-fields-grid">
+<div class="vehicle-fields-grid" style="grid-template-columns:1fr;">
 <div class="vehicle-card">
 <div class="vehicle-card-title" data-i18n="vehicleIdentityTitle">Identificación del vehículo</div>
-<label data-i18n="make">Marca (opcional)</label>
+<label data-i18n="make">Marca</label>
 <select id="vehiculo_marca" name="vehiculo_marca">
 <option value="">Selecciona</option>
 <option value="Nissan">Nissan</option>
@@ -1738,20 +1706,12 @@ button:disabled{
 <option value="Otro">Otro</option>
 </select>
 <input class="hidden" id="vehiculo_marca_otro" name="vehiculo_marca_otro" placeholder="Especifica la marca" type="text"/>
-<label data-i18n="model">Modelo (opcional)</label>
+<label data-i18n="model">Modelo</label>
 <input id="vehiculo_modelo" name="vehiculo_modelo" placeholder="Especifica el modelo" type="text"/>
-<label data-i18n="platesRequired"># Placas (opcional)</label>
-<input id="vehiculo_placas" name="vehiculo_placas" placeholder="Escribe las placas" type="text" maxlength="12" autocapitalize="characters"/>
+<label data-i18n="platesRequired"># Placas</label>
+<input autocapitalize="characters" id="vehiculo_placas" maxlength="12" name="vehiculo_placas" placeholder="Escribe las placas" type="text"/>
 <div class="hint" data-i18n="platesHint">Usa letras y números tal como aparecen en el vehículo.</div>
-</div>
-<div class="vehicle-card">
-<div class="vehicle-card-title" data-i18n="vehicleOpsTitle">Apoyo operativo</div>
-<label data-i18n="color">Color (opcional)</label>
-<input id="vehiculo_color" name="vehiculo_color" placeholder="Ejemplo: Blanco, gris, rojo" type="text"/>
-<label data-i18n="usualDepartureTime">Hora habitual de salida (opcional)</label>
-<input id="vehiculo_hora_salida" name="vehiculo_hora_salida" type="time"/>
-<label data-i18n="addPhoto">Agregar foto (opcional)</label>
-<div class="upload-box">
+<label data-i18n="color">Color</label><input id="vehiculo_color" name="vehiculo_color" placeholder="Ejemplo: Blanco, gris, rojo" type="text"/><label data-i18n="usualDepartureTime">Hora habitual de salida</label><input id="vehiculo_hora_salida" name="vehiculo_hora_salida" type="time"/><label data-i18n="addPhoto">Agregar foto</label><div class="upload-box">
 <label class="custom-upload">
 <input accept="image/*" id="vehiculo_foto" name="vehiculo_foto" type="file"/>
 <span class="upload-drop">
@@ -1763,8 +1723,7 @@ button:disabled{
 </span>
 </label>
 <div class="preview-wrapper"><img alt="" class="preview-img hidden" id="vehiculo_foto_preview"/><div class="preview-text" id="vehiculo_foto_name">Ninguna imagen seleccionada</div></div>
-</div>
-</div>
+</div></div>
 </div>
 <div class="vehicle-summary" id="vehicleSummaryBox" style="display:none;">
 <div class="vehicle-summary-title" data-i18n="vehicleSummaryTitle">Resumen del vehículo</div>
@@ -3064,11 +3023,11 @@ const I18N = {
     specifyMake: "Especifica la marca",
     model: "Modelo",
     specifyModel: "Especifica el modelo",
-    color: "Color (opcional)",
+    color: "Color",
     colorPlaceholder: "Ejemplo: Blanco, gris, rojo",
-    addPhoto: "Agregar foto (opcional)",
-    usualDepartureTime: "Hora habitual de salida (opcional)",
-    plates: "# Placas (opcional)",
+    addPhoto: "Agregar foto",
+    usualDepartureTime: "Hora habitual de salida",
+    plates: "# Placas",
     platesPlaceholder: "Escribe las placas",
     comments: "Comentarios (opcional)",
     send: "Enviar",
@@ -3159,11 +3118,11 @@ const I18N = {
     specifyMake: "Specify the make",
     model: "Model",
     specifyModel: "Specify the model",
-    color: "Color (optional)",
+    color: "Color",
     colorPlaceholder: "Example: White, gray, red",
-    addPhoto: "Add photo (optional)",
-    usualDepartureTime: "Usual departure time (optional)",
-    plates: "License plates (optional)",
+    addPhoto: "Add photo",
+    usualDepartureTime: "Usual departure time",
+    plates: "License plates",
     platesPlaceholder: "Enter the license plates",
     comments: "Comments (optional)",
     send: "Submit",
@@ -3274,9 +3233,9 @@ function applyTranslations(lang){
     else if (text.includes("Cuentas con vehículo") || text.includes("Do you have a vehicle")) label.textContent = t.vehicle;
     else if (text === "Marca" || text === "Make") label.textContent = t.make;
     else if (text === "Modelo" || text === "Model") label.textContent = t.model;
-    else if (text === "Color (opcional)" || text === "Color (optional)") label.textContent = t.color;
-    else if (text === "Agregar foto (opcional)" || text === "Add photo (optional)") label.textContent = t.addPhoto;
-    else if (text === "Hora habitual de salida (opcional)" || text === "Usual departure time (optional)") label.textContent = t.usualDepartureTime;
+    else if (text === "Color" || text === "Color") label.textContent = t.color;
+    else if (text === "Agregar foto" || text === "Add photo") label.textContent = t.addPhoto;
+    else if (text === "Hora habitual de salida" || text === "Usual departure time") label.textContent = t.usualDepartureTime;
     else if (text.includes("Placas") || text.includes("License plates")) label.textContent = t.plates;
     else if (text.includes("Comentarios") || text.includes("Comments")) label.textContent = t.comments;
   });
@@ -3381,7 +3340,7 @@ const SIMPLE_I18N = {
     vehicleIdentityTitle:"Identificación del vehículo",
     vehicleOpsTitle:"Apoyo operativo",
     vehicleSummaryTitle:"Resumen del vehículo",
-    platesRequired:"# Placas (opcional)",
+    platesRequired:"# Placas",
     platesHint:"Usa letras y números tal como aparecen en el vehículo.",
     vehicleProSub:"Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.",
     vehicleProTitle:"Registro inteligente del vehículo",
@@ -3390,7 +3349,7 @@ const SIMPLE_I18N = {
     vehicleIdentityTitle:"Identificación del vehículo",
     vehicleOpsTitle:"Apoyo operativo",
     vehicleSummaryTitle:"Resumen del vehículo",
-    platesRequired:"# Placas (opcional)",
+    platesRequired:"# Placas",
     platesHint:"Usa letras y números tal como aparecen en el vehículo.",
     sec6Title:"Comentarios",
     sec6Sub:"",
@@ -3423,12 +3382,12 @@ const SIMPLE_I18N = {
     emailPrimary:"Correo electrónico (principal)",
     emailCopy:"Correo electrónico (copia)",
     vehicle:"¿Cuentas con vehículo?",
-    make:"Marca (opcional)",
-    model:"Modelo (opcional)",
-    color:"Color (opcional)",
-    addPhoto:"Agregar foto (opcional)",
-    usualDepartureTime:"Hora habitual de salida (opcional)",
-    plates:"# Placas (opcional)",
+    make:"Marca",
+    model:"Modelo",
+    color:"Color",
+    addPhoto:"Agregar foto",
+    usualDepartureTime:"Hora habitual de salida",
+    plates:"# Placas",
     send:"Enviar",
     uploadImage:"Subir imagen",
     noImage:"Ninguna imagen seleccionada"
@@ -3461,7 +3420,7 @@ const SIMPLE_I18N = {
     vehicleIdentityTitle:"Vehicle identity",
     vehicleOpsTitle:"Operational support",
     vehicleSummaryTitle:"Vehicle summary",
-    platesRequired:"License plates (optional)",
+    platesRequired:"License plates",
     platesHint:"Use letters and numbers exactly as shown on the vehicle.",
     vehicleProSub:"Register the vehicle that will enter the property to improve control, security, and daily operations.",
     vehicleProTitle:"Smart vehicle registration",
@@ -3470,7 +3429,7 @@ const SIMPLE_I18N = {
     vehicleIdentityTitle:"Vehicle identity",
     vehicleOpsTitle:"Operational support",
     vehicleSummaryTitle:"Vehicle summary",
-    platesRequired:"License plates (optional)",
+    platesRequired:"License plates",
     platesHint:"Use letters and numbers exactly as shown on the vehicle.",
     sec6Title:"Comments",
     sec6Sub:"",
@@ -3505,10 +3464,10 @@ const SIMPLE_I18N = {
     vehicle:"Do you have a vehicle?",
     make:"Make (required)",
     model:"Model (required)",
-    color:"Color (optional)",
-    addPhoto:"Add photo (optional)",
-    usualDepartureTime:"Usual departure time (optional)",
-    plates:"License plates (optional)",
+    color:"Color",
+    addPhoto:"Add photo",
+    usualDepartureTime:"Usual departure time",
+    plates:"License plates",
     send:"Submit",
     uploadImage:"Upload image",
     noImage:"No image selected"
@@ -3718,7 +3677,6 @@ function limpiarSistemaDeTextosCheckInn(){
   });
 })();
 </script>
-
 <script>
 document.addEventListener("DOMContentLoaded", function(){
   const medioPago = document.querySelector('select[name="medio_pago"]');
@@ -3739,7 +3697,6 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 });
 </script>
-
 <script>
 document.addEventListener("DOMContentLoaded", function(){
   const medioPago = document.getElementById("medio_pago");
@@ -3784,7 +3741,6 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 });
 </script>
-
 <script>
 /* ===== Menú + dashboard Control de huéspedes ===== */
 (function(){
@@ -4475,9 +4431,9 @@ document.addEventListener("DOMContentLoaded", function(){
       "Número de celular": getRecordValueByCandidates(record, ['Cel/Whatsapp (principal)','Número de celular','Numero de celular','celular_principal']),
       "Marca": marca,
       "Modelo": modelo,
-      "Color (opcional)": getRecordValueByCandidates(record, ['Color vehículo','Color vehiculo','Color del vehículo','Color del vehiculo','Color','vehiculo_color']),
+      "Color": getRecordValueByCandidates(record, ['Color vehículo','Color vehiculo','Color del vehículo','Color del vehiculo','Color','vehiculo_color']),
       "# Placas": placas,
-      "Hora habitual de salida (opcional)": getRecordValueByCandidates(record, ['Hora habitual de salida','Hora habitual de salida (opcional)','vehiculo_hora_salida']),
+      "Hora habitual de salida": getRecordValueByCandidates(record, ['Hora habitual de salida','Hora habitual de salida','vehiculo_hora_salida']),
       "Foto": getRecordValueByCandidates(record, ['Foto vehículo','Foto vehiculo','Foto del vehículo','Foto del vehiculo','Link foto vehículo','Link foto vehiculo','vehiculo_foto'])
     };
   }
@@ -4529,9 +4485,9 @@ document.addEventListener("DOMContentLoaded", function(){
               <div class="vehicle-detail-item"><div class="vehicle-detail-label">Número de celular</div><div class="vehicle-detail-value">${celularHtml}</div></div>
               <div class="vehicle-detail-item"><div class="vehicle-detail-label">Marca</div><div class="vehicle-detail-value">${escapeHtml(row["Marca"] || '—')}</div></div>
               <div class="vehicle-detail-item"><div class="vehicle-detail-label">Modelo</div><div class="vehicle-detail-value">${escapeHtml(row["Modelo"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Color (opcional)</div><div class="vehicle-detail-value">${escapeHtml(row["Color (opcional)"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Color</div><div class="vehicle-detail-value">${escapeHtml(row["Color"] || '—')}</div></div>
               <div class="vehicle-detail-item"><div class="vehicle-detail-label"># Placas</div><div class="vehicle-detail-value">${escapeHtml(row["# Placas"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Hora habitual de salida (opcional)</div><div class="vehicle-detail-value">${escapeHtml(row["Hora habitual de salida (opcional)"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Hora habitual de salida</div><div class="vehicle-detail-value">${escapeHtml(row["Hora habitual de salida"] || '—')}</div></div>
             </div>
             <div class="vehicle-photo-panel">
               <div class="vehicle-photo-title">Foto</div>
@@ -4755,21 +4711,18 @@ function normalizePhoneForWhatsApp(phone){
 }
 
 </script>
-
-<div id="passwordModal" class="popup-backdrop" style="display:none;">
-  <div class="popup-card" style="max-width:360px;">
-    <h3 style="margin-bottom:8px;">Acceso restringido</h3>
-    <div class="hint" style="margin-bottom:14px;">Ingresa la contraseña para entrar a Control de huéspedes</div>
-    <input id="adminPasswordInput" type="password" placeholder="Contraseña" style="width:100%;padding:14px 15px;border-radius:14px;border:1px solid var(--border-strong);font-size:16px;">
-    <div id="adminPasswordError" style="display:none;color:#b42318;font-size:13px;margin-top:10px;">Contraseña incorrecta</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
-      <button type="button" id="cancelPasswordBtn" style="margin-top:0;background:linear-gradient(180deg,#d1d5db 0%, #9ca3af 100%);">Cancelar</button>
-      <button type="button" id="submitPasswordBtn" style="margin-top:0;">Entrar</button>
-    </div>
-  </div>
+<div class="popup-backdrop" id="passwordModal" style="display:none;">
+<div class="popup-card" style="max-width:360px;">
+<h3 style="margin-bottom:8px;">Acceso restringido</h3>
+<div class="hint" style="margin-bottom:14px;">Ingresa la contraseña para entrar a Control de huéspedes</div>
+<input id="adminPasswordInput" placeholder="Contraseña" style="width:100%;padding:14px 15px;border-radius:14px;border:1px solid var(--border-strong);font-size:16px;" type="password"/>
+<div id="adminPasswordError" style="display:none;color:#b42318;font-size:13px;margin-top:10px;">Contraseña incorrecta</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+<button id="cancelPasswordBtn" style="margin-top:0;background:linear-gradient(180deg,#d1d5db 0%, #9ca3af 100%);" type="button">Cancelar</button>
+<button id="submitPasswordBtn" style="margin-top:0;" type="button">Entrar</button>
 </div>
-
-
+</div>
+</div>
 <script>
 window.dashboardUnlocked = false;
 const DASHBOARD_PASSWORD = "admin";
@@ -4853,8 +4806,6 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 });
 </script>
-
-
 <script>
 document.addEventListener("DOMContentLoaded", function(){
   const entradaDesde = document.getElementById("filtro_fecha_entrada_desde");
@@ -4895,6 +4846,5 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 });
 </script>
-
 </body>
 </html>
