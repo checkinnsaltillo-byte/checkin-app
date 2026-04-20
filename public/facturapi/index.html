@@ -944,7 +944,7 @@ URL de la factura: ${invoiceUrl}`;
         els.pdfLink.href = drivePdfUrl || pdfUrl;
         els.pdfFrame.src = drivePdfUrl || pdfUrl;
         els.resultTitle.textContent = `Ticket generado: Folio Facturapi ${data.receipt.folio_number ?? data.facturapiFolio ?? "sin folio visible"}`;
-        els.resultMeta.textContent = `ID: ${data.receipt.id} | Total: ${data.receipt.total} | Moneda: ${data.receipt.currency} | Régimen fiscal: ${payload.taxRegime || '—'} | Folio Facturapi: ${data?.receipt?.folio_number || data?.facturapiFolio || data?.sheetUpdate?.folio_facturapi || "—"} | URL factura: ${drivePdfUrl || appState.publicPdfUrl || '—'} | Apps Script: ${data?.checkinWebAppUrl || appState.checkinWebAppUrl || '—'}`;
+        els.resultMeta.textContent = `ID: ${data.receipt.id} | Total: ${data.receipt.total} | Moneda: ${data.receipt.currency} | Régimen fiscal: ${payload.taxRegime || "—"} | Folio Facturapi: ${data?.receipt?.folio_number || data?.facturapiFolio || data?.sheetUpdate?.folio_facturapi || "—"} | URL factura: ${drivePdfUrl || appState.publicPdfUrl || '—'} | Apps Script: ${data?.checkinWebAppUrl || appState.checkinWebAppUrl || '—'}`;
         els.result.style.display = "block";
         els.sendPanel.style.display = "block";
 
