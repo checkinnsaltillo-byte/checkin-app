@@ -359,6 +359,7 @@ app.post("/api/create-receipt", async (req, res) => {
       payloadSent: payload,
       assignedFolio: facturapiFolio,
       facturapiFolio,
+      submittedTaxRegime: taxRegime || null,
       checkinWebAppUrl: resolvedCheckinUrl,
       contact: { email: email || null, taxRegime: taxRegime || null, whatsapp: whatsapp || null },
       sheetUpdate,
