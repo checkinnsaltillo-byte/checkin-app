@@ -1692,12 +1692,17 @@ button:disabled{
 <option value="no">No</option>
 </select>
 <div class="vehicle-pro-shell hidden" id="vehiculo_fields">
+<div class="vehicle-pro-intro">
+<div class="vehicle-pro-title" data-i18n="vehicleProTitle">Registro inteligente del vehículo</div>
+<div class="vehicle-pro-copy" data-i18n="vehicleProCopy">Captura al menos marca y modelo. Las placas, la foto y la hora habitual de salida ayudan al control de acceso y a la operación diaria.</div>
+<div class="vehicle-status-pill" id="vehicleStatusPill" data-i18n="vehicleStatusWaiting">Captura los datos del vehículo si aplica</div>
+</div>
 <div class="vehicle-warning" id="vehicleWarningBox"></div>
 <div class="vehicle-alert-note hidden" id="vehicleCoordinationNote">En caso de ocupar el PASILLO CENTRAL requerirás COORDINARTE con los DEMÁS HUÉSPEDES. Consulta los horarios de entrada, salida y contacto en el módulo "Información de vehículos".</div>
 <div class="vehicle-fields-grid">
 <div class="vehicle-card">
 <div class="vehicle-card-title" data-i18n="vehicleIdentityTitle">Identificación del vehículo</div>
-<label data-i18n="make">Marca</label>
+<label data-i18n="make">Marca (opcional)</label>
 <select id="vehiculo_marca" name="vehiculo_marca">
 <option value="">Selecciona</option>
 <option value="Nissan">Nissan</option>
@@ -1733,19 +1738,19 @@ button:disabled{
 <option value="Otro">Otro</option>
 </select>
 <input class="hidden" id="vehiculo_marca_otro" name="vehiculo_marca_otro" placeholder="Especifica la marca" type="text"/>
-<label data-i18n="model">Modelo</label>
+<label data-i18n="model">Modelo (opcional)</label>
 <input id="vehiculo_modelo" name="vehiculo_modelo" placeholder="Especifica el modelo" type="text"/>
-<label data-i18n="platesRequired"># Placas</label>
+<label data-i18n="platesRequired"># Placas (opcional)</label>
 <input id="vehiculo_placas" name="vehiculo_placas" placeholder="Escribe las placas" type="text" maxlength="12" autocapitalize="characters"/>
 <div class="hint" data-i18n="platesHint">Usa letras y números tal como aparecen en el vehículo.</div>
 </div>
 <div class="vehicle-card">
 <div class="vehicle-card-title" data-i18n="vehicleOpsTitle">Apoyo operativo</div>
-<label data-i18n="color">Color</label>
+<label data-i18n="color">Color (opcional)</label>
 <input id="vehiculo_color" name="vehiculo_color" placeholder="Ejemplo: Blanco, gris, rojo" type="text"/>
-<label data-i18n="usualDepartureTime">Hora habitual de salida</label>
+<label data-i18n="usualDepartureTime">Hora habitual de salida (opcional)</label>
 <input id="vehiculo_hora_salida" name="vehiculo_hora_salida" type="time"/>
-<label data-i18n="addPhoto">Agregar foto</label>
+<label data-i18n="addPhoto">Agregar foto (opcional)</label>
 <div class="upload-box">
 <label class="custom-upload">
 <input accept="image/*" id="vehiculo_foto" name="vehiculo_foto" type="file"/>
@@ -3059,11 +3064,11 @@ const I18N = {
     specifyMake: "Especifica la marca",
     model: "Modelo",
     specifyModel: "Especifica el modelo",
-    color: "Color",
+    color: "Color (opcional)",
     colorPlaceholder: "Ejemplo: Blanco, gris, rojo",
-    addPhoto: "Agregar foto",
-    usualDepartureTime: "Hora habitual de salida",
-    plates: "# Placas",
+    addPhoto: "Agregar foto (opcional)",
+    usualDepartureTime: "Hora habitual de salida (opcional)",
+    plates: "# Placas (opcional)",
     platesPlaceholder: "Escribe las placas",
     comments: "Comentarios (opcional)",
     send: "Enviar",
@@ -3154,11 +3159,11 @@ const I18N = {
     specifyMake: "Specify the make",
     model: "Model",
     specifyModel: "Specify the model",
-    color: "Color",
+    color: "Color (optional)",
     colorPlaceholder: "Example: White, gray, red",
-    addPhoto: "Add photo",
-    usualDepartureTime: "Usual departure time",
-    plates: "License plates",
+    addPhoto: "Add photo (optional)",
+    usualDepartureTime: "Usual departure time (optional)",
+    plates: "License plates (optional)",
     platesPlaceholder: "Enter the license plates",
     comments: "Comments (optional)",
     send: "Submit",
@@ -3269,9 +3274,9 @@ function applyTranslations(lang){
     else if (text.includes("Cuentas con vehículo") || text.includes("Do you have a vehicle")) label.textContent = t.vehicle;
     else if (text === "Marca" || text === "Make") label.textContent = t.make;
     else if (text === "Modelo" || text === "Model") label.textContent = t.model;
-    else if (text === "Color" || text === "Color") label.textContent = t.color;
-    else if (text === "Agregar foto" || text === "Add photo") label.textContent = t.addPhoto;
-    else if (text === "Hora habitual de salida" || text === "Usual departure time") label.textContent = t.usualDepartureTime;
+    else if (text === "Color (opcional)" || text === "Color (optional)") label.textContent = t.color;
+    else if (text === "Agregar foto (opcional)" || text === "Add photo (optional)") label.textContent = t.addPhoto;
+    else if (text === "Hora habitual de salida (opcional)" || text === "Usual departure time (optional)") label.textContent = t.usualDepartureTime;
     else if (text.includes("Placas") || text.includes("License plates")) label.textContent = t.plates;
     else if (text.includes("Comentarios") || text.includes("Comments")) label.textContent = t.comments;
   });
@@ -3376,7 +3381,7 @@ const SIMPLE_I18N = {
     vehicleIdentityTitle:"Identificación del vehículo",
     vehicleOpsTitle:"Apoyo operativo",
     vehicleSummaryTitle:"Resumen del vehículo",
-    platesRequired:"# Placas",
+    platesRequired:"# Placas (opcional)",
     platesHint:"Usa letras y números tal como aparecen en el vehículo.",
     vehicleProSub:"Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.",
     vehicleProTitle:"Registro inteligente del vehículo",
@@ -3385,7 +3390,7 @@ const SIMPLE_I18N = {
     vehicleIdentityTitle:"Identificación del vehículo",
     vehicleOpsTitle:"Apoyo operativo",
     vehicleSummaryTitle:"Resumen del vehículo",
-    platesRequired:"# Placas",
+    platesRequired:"# Placas (opcional)",
     platesHint:"Usa letras y números tal como aparecen en el vehículo.",
     sec6Title:"Comentarios",
     sec6Sub:"",
@@ -3418,12 +3423,12 @@ const SIMPLE_I18N = {
     emailPrimary:"Correo electrónico (principal)",
     emailCopy:"Correo electrónico (copia)",
     vehicle:"¿Cuentas con vehículo?",
-    make:"Marca",
-    model:"Modelo",
-    color:"Color",
-    addPhoto:"Agregar foto",
-    usualDepartureTime:"Hora habitual de salida",
-    plates:"# Placas",
+    make:"Marca (opcional)",
+    model:"Modelo (opcional)",
+    color:"Color (opcional)",
+    addPhoto:"Agregar foto (opcional)",
+    usualDepartureTime:"Hora habitual de salida (opcional)",
+    plates:"# Placas (opcional)",
     send:"Enviar",
     uploadImage:"Subir imagen",
     noImage:"Ninguna imagen seleccionada"
@@ -3456,7 +3461,7 @@ const SIMPLE_I18N = {
     vehicleIdentityTitle:"Vehicle identity",
     vehicleOpsTitle:"Operational support",
     vehicleSummaryTitle:"Vehicle summary",
-    platesRequired:"License plates",
+    platesRequired:"License plates (optional)",
     platesHint:"Use letters and numbers exactly as shown on the vehicle.",
     vehicleProSub:"Register the vehicle that will enter the property to improve control, security, and daily operations.",
     vehicleProTitle:"Smart vehicle registration",
@@ -3465,7 +3470,7 @@ const SIMPLE_I18N = {
     vehicleIdentityTitle:"Vehicle identity",
     vehicleOpsTitle:"Operational support",
     vehicleSummaryTitle:"Vehicle summary",
-    platesRequired:"License plates",
+    platesRequired:"License plates (optional)",
     platesHint:"Use letters and numbers exactly as shown on the vehicle.",
     sec6Title:"Comments",
     sec6Sub:"",
@@ -3500,10 +3505,10 @@ const SIMPLE_I18N = {
     vehicle:"Do you have a vehicle?",
     make:"Make (required)",
     model:"Model (required)",
-    color:"Color",
-    addPhoto:"Add photo",
-    usualDepartureTime:"Usual departure time",
-    plates:"License plates",
+    color:"Color (optional)",
+    addPhoto:"Add photo (optional)",
+    usualDepartureTime:"Usual departure time (optional)",
+    plates:"License plates (optional)",
     send:"Submit",
     uploadImage:"Upload image",
     noImage:"No image selected"
@@ -4470,9 +4475,9 @@ document.addEventListener("DOMContentLoaded", function(){
       "Número de celular": getRecordValueByCandidates(record, ['Cel/Whatsapp (principal)','Número de celular','Numero de celular','celular_principal']),
       "Marca": marca,
       "Modelo": modelo,
-      "Color": getRecordValueByCandidates(record, ['Color vehículo','Color vehiculo','Color del vehículo','Color del vehiculo','Color','vehiculo_color']),
+      "Color (opcional)": getRecordValueByCandidates(record, ['Color vehículo','Color vehiculo','Color del vehículo','Color del vehiculo','Color','vehiculo_color']),
       "# Placas": placas,
-      "Hora habitual de salida": getRecordValueByCandidates(record, ['Hora habitual de salida','Hora habitual de salida','vehiculo_hora_salida']),
+      "Hora habitual de salida (opcional)": getRecordValueByCandidates(record, ['Hora habitual de salida','Hora habitual de salida (opcional)','vehiculo_hora_salida']),
       "Foto": getRecordValueByCandidates(record, ['Foto vehículo','Foto vehiculo','Foto del vehículo','Foto del vehiculo','Link foto vehículo','Link foto vehiculo','vehiculo_foto'])
     };
   }
@@ -4524,9 +4529,9 @@ document.addEventListener("DOMContentLoaded", function(){
               <div class="vehicle-detail-item"><div class="vehicle-detail-label">Número de celular</div><div class="vehicle-detail-value">${celularHtml}</div></div>
               <div class="vehicle-detail-item"><div class="vehicle-detail-label">Marca</div><div class="vehicle-detail-value">${escapeHtml(row["Marca"] || '—')}</div></div>
               <div class="vehicle-detail-item"><div class="vehicle-detail-label">Modelo</div><div class="vehicle-detail-value">${escapeHtml(row["Modelo"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Color</div><div class="vehicle-detail-value">${escapeHtml(row["Color"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Color (opcional)</div><div class="vehicle-detail-value">${escapeHtml(row["Color (opcional)"] || '—')}</div></div>
               <div class="vehicle-detail-item"><div class="vehicle-detail-label"># Placas</div><div class="vehicle-detail-value">${escapeHtml(row["# Placas"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Hora habitual de salida</div><div class="vehicle-detail-value">${escapeHtml(row["Hora habitual de salida"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Hora habitual de salida (opcional)</div><div class="vehicle-detail-value">${escapeHtml(row["Hora habitual de salida (opcional)"] || '—')}</div></div>
             </div>
             <div class="vehicle-photo-panel">
               <div class="vehicle-photo-title">Foto</div>
