@@ -1943,7 +1943,7 @@ button:disabled{
 </div>
 </div>
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzI-r5Aoj-Fbhi8Yx7TGFr2stjeqgRDuN-MYjYF-NWBiS8x7HolvbLLO4RSLUJTC1dr0g/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxSANWdm_0uM3HZ5F9IEVzspEDA0ekOA8jZVw1JQtMmZMPtZHFiRQUtWqn2s77yVPbsWw/exec";
 const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || "http://localhost:8080";
 
 const ladas = [
@@ -4004,13 +4004,15 @@ document.addEventListener("DOMContentLoaded", function(){
   window.buildFacturapiUrlFromRow = function(row){
     const params = new URLSearchParams();
     params.set('source', 'control_huespedes');
-    params.set('quantity', formatMontoEditable(row["$ Monto facturado Total"]) || '1');
-    params.set('currency', window.normalizeCurrencyFromSheet(row["Divisa monto pagado"]));
-    const email = safeText(row["Correo electrónico"]).trim();
-    const whatsapp = normalizePhoneForWhatsApp(row["Cel/Whatsapp (principal)"]);
+    params.set('quantity', formatMontoEditable(getRowValueFlexible(row, ["$ Monto facturado Total", "Monto facturado Total"])) || '1');
+    params.set('currency', window.normalizeCurrencyFromSheet(getRowValueFlexible(row, ["Divisa monto pagado", "Moneda", "Currency"])));
+    const email = safeText(getRowValueFlexible(row, ["Correo electrónico", "Correo electronico", "Email"])) .trim();
+    const whatsapp = normalizePhoneForWhatsApp(getRowValueFlexible(row, ["Cel/Whatsapp (principal)", "Celular principal", "Whatsapp principal"]));
+    const taxRegime = safeText(getRowValueFlexible(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])) .trim();
     const externalId = safeText(row["ID"] || row["row_number"] || '').trim();
     if (email) params.set('email', email);
     if (whatsapp) params.set('whatsapp', whatsapp);
+    if (taxRegime) params.set('taxRegime', taxRegime);
     if (externalId) {
       params.set('externalId', `CHECKIN-${externalId}`);
       params.set('recordId', externalId);
@@ -5040,15 +5042,25 @@ function handleMontoFacturadoKeydown(event, input){
   event.stopPropagation();
 }
 
-function generarTicket(recordId){
+async function generarTicket(recordId){
   if (!recordId) {
     alert('No se pudo identificar el registro.');
     return;
   }
-  const row = (window.dashboardRows || []).find(r => String(r["ID"] || r["row_number"] || '') === String(recordId));
+  let row = (window.dashboardRows || []).find(r => String(r["ID"] || r["row_number"] || '') === String(recordId));
   if (!row) {
     alert('No se encontró la información del registro seleccionado.');
     return;
+  }
+  const missingTaxRegime = !safeText(getRowValueFlexible(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])) .trim();
+  if (missingTaxRegime && typeof WEB_APP_URL !== 'undefined' && WEB_APP_URL) {
+    try {
+      const res = await fetch(`${WEB_APP_URL}?action=get_record_detail&record_id=${encodeURIComponent(recordId)}`, { method: 'GET' });
+      const json = await res.json();
+      if (json?.ok && json.record) {
+        row = { ...row, ...json.record };
+      }
+    } catch (_err) {}
   }
   const url = window.buildFacturapiUrlFromRow(row);
   if (!url) {
