@@ -804,6 +804,199 @@ button:disabled{
   font-weight:700;
   color:var(--text);
 }
+.kpi-card-accent{
+  background:linear-gradient(180deg,#f3fff6 0%, #e7f8ee 100%);
+  border-color:#b7e4c7;
+}
+.kpi-card-alert{
+  background:linear-gradient(180deg,#fff6f6 0%, #fdeaea 100%);
+  border-color:#f2b8b5;
+}
+.dashboard-alerts{
+  margin-top:14px;
+  display:grid;
+  gap:10px;
+}
+.dashboard-alert{
+  border-radius:16px;
+  padding:12px 14px;
+  border:1px solid var(--border);
+  font-size:14px;
+  line-height:1.45;
+  background:#fffdf8;
+  color:#6b7280;
+}
+.dashboard-alert strong{color:#2b2b2b;}
+.dashboard-alert-pending{
+  background:linear-gradient(180deg,#fff7f7 0%, #fdecec 100%);
+  border-color:#efb3b1;
+  color:#9f1239;
+}
+.dashboard-alert-ok{
+  background:linear-gradient(180deg,#f5fff7 0%, #e9f9ee 100%);
+  border-color:#b7e4c7;
+  color:#166534;
+}
+.dashboard-alert-neutral{
+  background:#fffdf8;
+  border-color:#f3e3c4;
+  color:#8a6d3b;
+}
+.dashboard-records-wrap{
+  margin-top:16px;
+}
+.dashboard-records{
+  display:grid;
+  gap:14px;
+}
+.dashboard-record{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:22px;
+  overflow:hidden;
+  box-shadow:0 10px 24px rgba(217,119,6,.08);
+}
+.dashboard-record-summary{
+  list-style:none;
+  cursor:pointer;
+  padding:16px;
+  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
+  transition:background .2s ease, border-color .2s ease;
+}
+.dashboard-record.factura-pendiente .dashboard-record-summary{
+  background:linear-gradient(180deg,#fff7f7 0%, #fdecec 100%);
+}
+.dashboard-record.factura-generada .dashboard-record-summary{
+  background:linear-gradient(180deg,#f5fff7 0%, #e9f9ee 100%);
+}
+.dashboard-record.factura-pendiente .dashboard-record-toggle{
+  border-color:#f4c7c7;
+  color:#c2410c;
+}
+.dashboard-record.factura-generada .dashboard-record-toggle{
+  border-color:#b7e4c7;
+  color:#15803d;
+}
+.dashboard-record-summary::-webkit-details-marker{display:none;}
+.dashboard-record-summary::marker{content:"";}
+.dashboard-record-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.dashboard-record-title{
+  font-size:17px;
+  font-weight:800;
+  color:#2b2b2b;
+  line-height:1.25;
+}
+.dashboard-record-subtitle{
+  font-size:13px;
+  color:#6b7280;
+  margin-top:4px;
+  line-height:1.4;
+}
+.dashboard-record-toggle{
+  flex:0 0 auto;
+  width:36px;
+  height:36px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
+  border:1px solid #f3d7a4;
+  color:#b45309;
+  font-size:18px;
+  transition:transform .18s ease;
+}
+.dashboard-record[open] .dashboard-record-toggle{
+  transform:rotate(180deg);
+}
+.dashboard-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.dashboard-summary-item{
+  background:#fff;
+  border:1px solid #f3e3c4;
+  border-radius:16px;
+  padding:10px 12px;
+  min-width:0;
+}
+.dashboard-summary-label{
+  font-size:11px;
+  font-weight:700;
+  color:#8a6d3b;
+  margin-bottom:4px;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+}
+.dashboard-summary-value{
+  font-size:14px;
+  color:#2b2b2b;
+  line-height:1.35;
+  word-break:break-word;
+}
+.dashboard-summary-value .dashboard-whatsapp-link{
+  word-break:break-all;
+}
+.dashboard-monto-box{
+  display:grid;
+  gap:10px;
+}
+.dashboard-ticket-actions{
+  align-items:flex-start;
+}
+.dashboard-ticket-actions > div{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:6px;
+}
+.dashboard-record-body{
+  padding:16px;
+  border-top:1px solid #f3e3c4;
+  background:#fff;
+}
+.dashboard-record-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:flex-start;
+  justify-content:space-between;
+}
+.dashboard-inline-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.dashboard-action-card{
+  background:#fffdf8;
+  border:1px solid #f3e3c4;
+  border-radius:16px;
+  padding:12px;
+  flex:1 1 280px;
+}
+.dashboard-action-card .dashboard-summary-label{
+  margin-bottom:8px;
+}
+.dashboard-details-btn{
+  margin-top:0;
+  min-width:180px;
+}
+.empty-state{
+  padding:22px;
+  text-align:center;
+  color:var(--text-soft);
+  background:#fff;
+  border:1px dashed var(--border);
+  border-radius:18px;
+}
 .table-wrap{
   margin-top:16px;
   border:1px solid var(--border);
@@ -901,6 +1094,16 @@ button:disabled{
   }
   .filter-actions{
     flex-direction:column;
+  }
+  .dashboard-summary-grid{
+    grid-template-columns:1fr;
+  }
+  .dashboard-record-summary,
+  .dashboard-record-body{
+    padding:14px;
+  }
+  .dashboard-details-btn{
+    width:100%;
   }
 }
 
@@ -1248,31 +1451,15 @@ button:disabled{
 <div class="kpi-card"><div class="kpi-label">Con factura</div><div class="kpi-value" id="kpi_con_factura">0</div></div>
 <div class="kpi-card"><div class="kpi-label">Sin factura</div><div class="kpi-value" id="kpi_sin_factura">0</div></div>
 <div class="kpi-card"><div class="kpi-label">Medios de reservación únicos</div><div class="kpi-value" id="kpi_medios_unicos">0</div></div>
+<div class="kpi-card kpi-card-accent"><div class="kpi-label">% facturado</div><div class="kpi-value" id="kpi_pct_facturado">0%</div></div>
+<div class="kpi-card kpi-card-alert"><div class="kpi-label">% pendiente</div><div class="kpi-value" id="kpi_pct_pendiente">0%</div></div>
 </div>
+<div class="dashboard-alerts" id="dashboardAlerts"><div class="dashboard-alert dashboard-alert-neutral">Sin alertas todavía.</div></div>
 <div class="results-meta" id="dashboardMeta">Sin consulta todavía.</div>
-<div class="table-wrap">
-<table class="table-results">
-<thead>
-<tr>
-<th>¿Requiere factura?</th>
-<th>$ Monto facturado Total</th>
-<th>Fecha de entrada</th>
-<th>Fecha de salida</th>
-<th>Nombre de la persona que hizo la reservación</th>
-<th>Medio de reservación</th>
-<th>Cel/Whatsapp (principal)</th>
-<th>Razón social</th>
-<th>Forma de pago</th>
-<th>Correo electrónico</th>
-<th>Propiedad</th>
-<th># Departamento</th>
-<th># Huéspedes</th>
-</tr>
-</thead>
-<tbody id="dashboardTableBody">
-<tr><td class="empty-state" colspan="13">Sin registros para mostrar.</td></tr>
-</tbody>
-</table>
+<div class="dashboard-records-wrap">
+<div class="dashboard-records" id="dashboardTableBody">
+<div class="empty-state">Sin registros para mostrar.</div>
+</div>
 </div>
 <div class="pager-bar">
 <div class="pager-info" id="dashboardPagerInfo">Página 1 de 1</div>
@@ -1756,7 +1943,7 @@ button:disabled{
 </div>
 </div>
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxbXsXVYFYq6ndlI9I6r1vDKbySOsULgIemOKkZz-CSXQfVeoW3DJfmlrAV_bL-9MFKgw/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxSANWdm_0uM3HZ5F9IEVzspEDA0ekOA8jZVw1JQtMmZMPtZHFiRQUtWqn2s77yVPbsWw/exec";
 const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || "http://localhost:8080";
 
 const ladas = [
@@ -3756,6 +3943,9 @@ document.addEventListener("DOMContentLoaded", function(){
   const kpiFactura = document.getElementById("kpi_con_factura");
   const kpiSinFactura = document.getElementById("kpi_sin_factura");
   const kpiMedios = document.getElementById("kpi_medios_unicos");
+  const kpiPctFacturado = document.getElementById("kpi_pct_facturado");
+  const kpiPctPendiente = document.getElementById("kpi_pct_pendiente");
+  const dashboardAlerts = document.getElementById("dashboardAlerts");
   const pagerInfo = document.getElementById("dashboardPagerInfo");
   const pageSizeSelect = document.getElementById("dashboard_page_size");
 
@@ -3814,15 +4004,15 @@ document.addEventListener("DOMContentLoaded", function(){
   window.buildFacturapiUrlFromRow = function(row){
     const params = new URLSearchParams();
     params.set('source', 'control_huespedes');
-    params.set('quantity', formatMontoEditable(row["$ Monto facturado Total"]) || '1');
-    params.set('currency', window.normalizeCurrencyFromSheet(row["Divisa monto pagado"]));
-    const email = safeText(row["Correo electrónico"]).trim();
-    const taxRegime = safeText(row["Régimen fiscal"] || row["Regimen fiscal"] || row["regimen_fiscal"] || '').trim();
-    const whatsapp = normalizePhoneForWhatsApp(row["Cel/Whatsapp (principal)"]);
+    params.set('quantity', formatMontoEditable(getRowValueFlexible(row, ["$ Monto facturado Total", "Monto facturado Total"])) || '1');
+    params.set('currency', window.normalizeCurrencyFromSheet(getRowValueFlexible(row, ["Divisa monto pagado", "Moneda", "Currency"])));
+    const email = safeText(getRowValueFlexible(row, ["Correo electrónico", "Correo electronico", "Email"])) .trim();
+    const whatsapp = normalizePhoneForWhatsApp(getRowValueFlexible(row, ["Cel/Whatsapp (principal)", "Celular principal", "Whatsapp principal"]));
+    const taxRegime = safeText(getRowValueFlexible(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])) .trim();
     const externalId = safeText(row["ID"] || row["row_number"] || '').trim();
     if (email) params.set('email', email);
-    if (taxRegime) params.set('taxRegime', taxRegime);
     if (whatsapp) params.set('whatsapp', whatsapp);
+    if (taxRegime) params.set('taxRegime', taxRegime);
     if (externalId) {
       params.set('externalId', `CHECKIN-${externalId}`);
       params.set('recordId', externalId);
@@ -3900,6 +4090,19 @@ document.addEventListener("DOMContentLoaded", function(){
     return safeText(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
   }
 
+  function getRowValueFlexible(row, candidates){
+    if (!row || typeof row !== 'object') return '';
+    const entries = Object.entries(row);
+    for (const candidate of candidates || []) {
+      const direct = row[candidate];
+      if (direct != null && String(direct).trim() !== '') return String(direct).trim();
+      const normalizedCandidate = normalizeFlexibleKey(candidate);
+      const found = entries.find(([key, value]) => normalizeFlexibleKey(key) === normalizedCandidate && value != null && String(value).trim() !== '');
+      if (found) return String(found[1]).trim();
+    }
+    return '';
+  }
+
   function extractTicketUrl(obj){
     if (!obj || typeof obj !== 'object') return '';
     const directCandidates = [
@@ -3921,6 +4124,20 @@ document.addEventListener("DOMContentLoaded", function(){
       if (/^https?:\/\//i.test(txt) && nk.includes('facturapi') && nk.includes('url')) return txt;
     }
     return '';
+  }
+
+  function getFacturaStatusClass(row, ticketUrl){
+    const factura = safeText(getRowValueFlexible(row, ['¿Requiere factura?', 'Requiere factura'])).trim().toLowerCase();
+    if (!(factura === 'si' || factura === 'sí' || factura === 'yes')) return '';
+    return ticketUrl ? 'factura-generada' : 'factura-pendiente';
+  }
+
+  function applyFacturaStatusClass(recordId, statusClass){
+    const selector = `[data-record-card-id="${CSS.escape(String(recordId || ''))}"]`;
+    const node = document.querySelector(selector);
+    if (!node) return;
+    node.classList.remove('factura-pendiente', 'factura-generada');
+    if (statusClass) node.classList.add(statusClass);
   }
 
   function buildWhatsappReenvioUrl(row, ticketUrl){
@@ -3970,6 +4187,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const existingUrl = extractTicketUrl(row);
       if (existingUrl) {
         container.innerHTML = buildTicketActionsHtml(row, existingUrl);
+        applyFacturaStatusClass(recordId, getFacturaStatusClass(row, existingUrl));
         continue;
       }
 
@@ -3985,6 +4203,77 @@ document.addEventListener("DOMContentLoaded", function(){
         if (detailUrl) {
           row['Ticket facturapi url'] = detailUrl;
           container.innerHTML = buildTicketActionsHtml(row, detailUrl);
+          applyFacturaStatusClass(recordId, getFacturaStatusClass(row, detailUrl));
+        }
+      } catch (_err) {}
+    }
+  }
+
+  function isFacturaYes(value){
+    const txt = safeText(value).trim().toLowerCase();
+    return txt === 'si' || txt === 'sí' || txt === 'yes';
+  }
+
+  function updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado){
+    if (!dashboardAlerts) return;
+    if (!totalFacturaYes) {
+      dashboardAlerts.innerHTML = '<div class="dashboard-alert dashboard-alert-neutral">No hay registros que requieran factura en esta consulta.</div>';
+      return;
+    }
+    const alerts = [];
+    if (totalPendiente > 0) {
+      alerts.push(`<div class="dashboard-alert dashboard-alert-pending">🔔 <strong>${totalPendiente}</strong> registro(s) con factura pendiente requieren atención. Se muestran primero en la lista.</div>`);
+    }
+    if (totalFacturado > 0) {
+      alerts.push(`<div class="dashboard-alert dashboard-alert-ok">✅ <strong>${totalFacturado}</strong> registro(s) ya cuentan con ticket generado.</div>`);
+    }
+    dashboardAlerts.innerHTML = alerts.join('');
+  }
+
+  async function resolveExpandedFinancialValuesForVisibleRows(){
+    const targets = Array.from(document.querySelectorAll('[data-detail-field="1"]'));
+    const detailCache = Object.create(null);
+
+    async function getDetail(recordId){
+      if (detailCache[recordId]) return detailCache[recordId];
+      const params = new URLSearchParams();
+      params.set('action', 'get_record_detail');
+      params.set('record_id', recordId);
+      const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: 'GET' });
+      const json = await res.json();
+      if (!json.ok) return null;
+      detailCache[recordId] = json.record || {};
+      return detailCache[recordId];
+    }
+
+    for (const node of targets) {
+      const currentText = safeText(node.textContent).trim();
+      if (currentText && currentText !== '—') continue;
+      const recordId = safeText(node.dataset.recordId).trim();
+      const fieldType = safeText(node.dataset.fieldType).trim();
+      if (!recordId || !fieldType) continue;
+      const row = dashboardRows.find(r => safeText(r['ID'] || r['row_number']).trim() === recordId);
+      if (!row) continue;
+
+      let aliases = [];
+      if (fieldType === 'monto_pagado') aliases = ['($) Monto Total pagado', '$ Monto Total pagado', 'Monto Total pagado'];
+      else if (fieldType === 'razon_social') aliases = ['Razón social', 'Razon social', 'Business name'];
+      else if (fieldType === 'regimen_fiscal') aliases = ['Régimen fiscal', 'Regimen fiscal', 'Tax regime'];
+      else continue;
+
+      const inlineValue = getRowValueFlexible(row, aliases);
+      if (safeText(inlineValue).trim()) {
+        node.textContent = safeText(inlineValue).trim();
+        continue;
+      }
+
+      try {
+        const detail = await getDetail(recordId);
+        if (!detail) continue;
+        const detailValue = getRowValueFlexible(detail, aliases);
+        if (safeText(detailValue).trim()) {
+          row[aliases[0]] = safeText(detailValue).trim();
+          node.textContent = safeText(detailValue).trim();
         }
       } catch (_err) {}
     }
@@ -3992,20 +4281,38 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function renderRows(payload){
     dashboardRows = Array.isArray(payload.rows) ? payload.rows : [];
+    dashboardRows = dashboardRows.sort((a, b) => {
+      const aStatus = getFacturaStatusClass(a, extractTicketUrl(a));
+      const bStatus = getFacturaStatusClass(b, extractTicketUrl(b));
+      const rank = (status) => status === 'factura-pendiente' ? 0 : (status === 'factura-generada' ? 1 : 2);
+      return rank(aStatus) - rank(bStatus);
+    });
     window.dashboardRows = dashboardRows;
     dashboardTotal = Number(payload.total || 0);
     dashboardPage = Number(payload.page || 1);
     dashboardPageSize = Number(payload.page_size || dashboardPageSize || 25);
     dashboardPages = Math.max(1, Number(payload.total_pages || 1));
 
+    const totalFacturaYes = Number(payload.total_con_factura || 0);
+    const totalPendiente = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-pendiente').length;
+    const totalFacturado = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-generada').length;
+    const pctFacturado = totalFacturaYes ? Math.round((Number(payload.total_con_factura || 0) - Number(payload.total_sin_factura_en_facturables || 0)) / totalFacturaYes * 100) : 0;
+    const pctPendiente = totalFacturaYes ? Math.round((totalPendiente / Math.max(1, totalPendiente + totalFacturado)) * 100) : 0;
+
+    if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
+    if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
+    updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado);
+
     if (!tableBody) return;
     if (!dashboardRows.length){
-      tableBody.innerHTML = '<tr><td colspan="13" class="empty-state">No se encontraron registros con esos filtros.</td></tr>';
+      tableBody.innerHTML = '<div class="empty-state">No se encontraron registros con esos filtros.</div>';
       if (meta) meta.textContent = dashboardTotal ? `Sin registros en esta página.` : "0 registros encontrados.";
       if (kpiTotal) kpiTotal.textContent = String(dashboardTotal);
       if (kpiFactura) kpiFactura.textContent = String(payload.total_con_factura || 0);
       if (kpiSinFactura) kpiSinFactura.textContent = String(payload.total_sin_factura || 0);
       if (kpiMedios) kpiMedios.textContent = String(payload.total_medios_unicos || 0);
+      if (kpiPctFacturado) kpiPctFacturado.textContent = '0%';
+      if (kpiPctPendiente) kpiPctPendiente.textContent = '0%';
       if (pagerInfo) pagerInfo.textContent = `Página ${dashboardPage} de ${dashboardPages}`;
       return;
     }
@@ -4014,9 +4321,11 @@ document.addEventListener("DOMContentLoaded", function(){
     if (kpiFactura) kpiFactura.textContent = String(payload.total_con_factura || 0);
     if (kpiSinFactura) kpiSinFactura.textContent = String(payload.total_sin_factura || 0);
     if (kpiMedios) kpiMedios.textContent = String(payload.total_medios_unicos || 0);
+    if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
+    if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
     const inicio = ((dashboardPage - 1) * dashboardPageSize) + 1;
     const fin = Math.min(dashboardTotal, inicio + dashboardRows.length - 1);
-    if (meta) meta.textContent = `${dashboardTotal} registros encontrados. Mostrando ${inicio}-${fin}.`;
+    if (meta) meta.textContent = `${dashboardTotal} registros encontrados. Mostrando ${inicio}-${fin}. Pendientes primero.`;
     if (pagerInfo) pagerInfo.textContent = `Página ${dashboardPage} de ${dashboardPages}`;
 
     tableBody.innerHTML = dashboardRows.map(r => {
@@ -4026,26 +4335,75 @@ document.addEventListener("DOMContentLoaded", function(){
       const phoneHtml = waUrl
         ? `<a class="dashboard-whatsapp-link" href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();">${escapeHtml(r["Cel/Whatsapp (principal)"])}</a>`
         : escapeHtml(r["Cel/Whatsapp (principal)"]);
-      const monto = formatMontoEditable(r["$ Monto facturado Total"]);
+      const montoFacturadoRaw = getRowValueFlexible(r, ["$ Monto facturado Total", "Monto facturado Total"]);
+      const montoPagadoRaw = getRowValueFlexible(r, ["($) Monto Total pagado", "$ Monto Total pagado", "Monto Total pagado"]);
+      const requiereFacturaRaw = getRowValueFlexible(r, ["¿Requiere factura?", "Requiere factura"]);
+      const montoFacturado = formatMontoEditable(montoFacturadoRaw || "");
+      const montoPagado = escapeHtml(montoPagadoRaw || "—");
+      const requiereFactura = escapeHtml(requiereFacturaRaw || "—");
+      const facturaStatusClass = getFacturaStatusClass(r, extractTicketUrl(r));
+      const facturaIndicator = facturaStatusClass === 'factura-pendiente'
+        ? '<span class="badge-yes" style="background:#fdecec;color:#9f1239;border-color:#efb3b1;">🧾 Pendiente</span>'
+        : (facturaStatusClass === 'factura-generada'
+          ? '<span class="badge-yes" style="background:#e9f9ee;color:#166534;border-color:#b7e4c7;">🧾 Facturado</span>'
+          : '');
+
+      const razonSocialRaw = getRowValueFlexible(r, ["Razón social", "Razon social", "Business name"]);
+      const regimenFiscalRaw = getRowValueFlexible(r, ["Régimen fiscal", "Regimen fiscal", "Tax regime"]);
+      const expandedItems = [
+        ["Nombre de la persona que realizó la reservación", escapeHtml(r["Nombre de la persona que hizo la reservación"] || "—")],
+        ["Medio de reservación", escapeHtml(r["Medio de reservación"] || "—")],
+        ["Propiedad", escapeHtml(r["Propiedad"] || "—")],
+        ["# Departamento", escapeHtml(r["# Departamento"] || "—")],
+        ["¿Requiere factura?", `${requiereFactura} ${facturaIndicator}`],
+        ["Razón social", `<span data-detail-field="1" data-field-type="razon_social" data-record-id="${recordId}">${escapeHtml(razonSocialRaw || "—")}</span>`],
+        ["Régimen fiscal", `<span data-detail-field="1" data-field-type="regimen_fiscal" data-record-id="${recordId}">${escapeHtml(regimenFiscalRaw || "—")}</span>`],
+        ["Forma de pago", escapeHtml(r["Forma de pago"] || "—")],
+        ["($) Monto Total pagado", `<span data-detail-field="1" data-field-type="monto_pagado" data-record-id="${recordId}">${montoPagado}</span>`],
+        ["$ Monto facturado Total", `
+          <div class="dashboard-monto-box" onclick="event.stopPropagation();">
+            <input type="number" step="0.01" class="dashboard-monto-input" value="${escapeHtml(montoFacturado)}" data-record-id="${recordId}" data-original-value="${escapeHtml(montoFacturado)}" onclick="event.stopPropagation();" onkeydown="handleMontoFacturadoKeydown(event,this)" onblur="guardarMontoFacturadoTotal(this)">
+            <div class="dashboard-inline-actions dashboard-ticket-actions" data-ticket-actions="1" data-record-id="${recordId}">${facturaHtml}</div>
+          </div>`],
+        ["Cel/Whatsapp (principal)", phoneHtml]
+      ];
+
+      const expandedHtml = expandedItems.map(([label, value]) => `
+        <div class="dashboard-summary-item">
+          <div class="dashboard-summary-label">${label}</div>
+          <div class="dashboard-summary-value">${value}</div>
+        </div>
+      `).join("");
+
       return `
-        <tr class="dashboard-row-clickable" onclick="abrirDetalleDashboard('${recordId}')" title="Abrir detalle del registro">
-          <td><div data-ticket-actions="1" data-record-id="${recordId}">${facturaHtml}</div></td>
-          <td><input type="number" step="0.01" class="dashboard-monto-input" value="${escapeHtml(monto)}" data-record-id="${recordId}" data-original-value="${escapeHtml(monto)}" onclick="event.stopPropagation();" onkeydown="handleMontoFacturadoKeydown(event,this)" onblur="guardarMontoFacturadoTotal(this)"></td>
-          <td>${escapeHtml(r["Fecha de ingreso"])}</td>
-          <td>${escapeHtml(r["Fecha de salida"])}</td>
-          <td>${escapeHtml(r["Nombre de la persona que hizo la reservación"])}</td>
-          <td>${escapeHtml(r["Medio de reservación"])}</td>
-          <td>${phoneHtml}</td>
-          <td>${escapeHtml(r["Razón social"])}</td>
-          <td>${escapeHtml(r["Forma de pago"])}</td>
-          <td>${escapeHtml(r["Correo electrónico"])}</td>
-          <td>${escapeHtml(r["Propiedad"])}</td>
-          <td>${escapeHtml(r["# Departamento"])}</td>
-          <td>${escapeHtml(r["# Huéspedes"])}</td>
-        </tr>
+        <details class="dashboard-record ${facturaStatusClass}" data-record-card-id="${recordId}">
+          <summary class="dashboard-record-summary">
+            <div class="dashboard-record-top">
+              <div>
+                <div class="dashboard-record-title">${escapeHtml(r["Nombre de la persona que hizo la reservación"] || "Sin nombre")}</div>
+                <div class="dashboard-record-subtitle">${escapeHtml(r["Propiedad"] || "Sin propiedad")} · Depto ${escapeHtml(r["# Departamento"] || "—")} · ${escapeHtml(r["Fecha de ingreso"] || "—")} → ${escapeHtml(r["Fecha de salida"] || "—")}</div>
+              </div>
+              <div class="dashboard-record-toggle">⌄</div>
+            </div>
+          </summary>
+          <div class="dashboard-record-body">
+            <div class="dashboard-summary-grid">
+              ${expandedHtml}
+            </div>
+            <div class="dashboard-record-actions">
+              <div class="dashboard-action-card">
+                <div class="dashboard-summary-label">Detalle</div>
+                <div class="dashboard-inline-actions" onclick="event.stopPropagation();">
+                  <button type="button" class="dashboard-details-btn" onclick="event.stopPropagation(); abrirDetalleDashboard('${recordId}')">Ver detalles</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
       `;
     }).join("");
     resolveTicketButtonsForVisibleRows();
+    resolveExpandedFinancialValuesForVisibleRows();
   }
 
   async function buscarRegistros(resetPage){
@@ -4684,41 +5042,27 @@ function handleMontoFacturadoKeydown(event, input){
   event.stopPropagation();
 }
 
-
-function safeText(value, fallback = "") {
-  if (value === null || value === undefined) return fallback;
-  const v = String(value).trim();
-  return v === "" ? fallback : v;
-}
-
 async function generarTicket(recordId){
   if (!recordId) {
     alert('No se pudo identificar el registro.');
     return;
   }
-  const row = (window.dashboardRows || []).find(r => String(r["ID"] || r["row_number"] || '') === String(recordId));
+  let row = (window.dashboardRows || []).find(r => String(r["ID"] || r["row_number"] || '') === String(recordId));
   if (!row) {
     alert('No se encontró la información del registro seleccionado.');
     return;
   }
-
-  let rowForTicket = { ...row };
-  const taxRegimeMissing = !safeText(rowForTicket["Régimen fiscal"] || rowForTicket["Regimen fiscal"] || rowForTicket["regimen_fiscal"]);
-
-  if (taxRegimeMissing && typeof WEB_APP_URL !== 'undefined' && WEB_APP_URL) {
+  const missingTaxRegime = !safeText(getRowValueFlexible(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])) .trim();
+  if (missingTaxRegime && typeof WEB_APP_URL !== 'undefined' && WEB_APP_URL) {
     try {
-      const params = new URLSearchParams();
-      params.set('action', 'get_record_detail');
-      params.set('record_id', recordId);
-      const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: 'GET' });
+      const res = await fetch(`${WEB_APP_URL}?action=get_record_detail&record_id=${encodeURIComponent(recordId)}`, { method: 'GET' });
       const json = await res.json();
-      if (json && json.ok && json.record) {
-        rowForTicket = { ...rowForTicket, ...json.record };
+      if (json?.ok && json.record) {
+        row = { ...row, ...json.record };
       }
     } catch (_err) {}
   }
-
-  const url = window.buildFacturapiUrlFromRow(rowForTicket);
+  const url = window.buildFacturapiUrlFromRow(row);
   if (!url) {
     alert('No se pudo construir la URL de Facturapi.');
     return;
