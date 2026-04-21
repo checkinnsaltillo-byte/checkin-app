@@ -342,10 +342,7 @@
           Puedes activar o desactivar la opción <strong>Incluye impuestos</strong>, definir <strong>Cantidad</strong>
           y capturar los datos de contacto del cliente para preparar el envío del ticket.
         </p>
-        <p id="checkinConfigLine">
-          Conexión con Check in: verificando Apps Script...
-        </p>
-      </div>
+</div>
 
       <form id="receiptForm" class="grid">
         <div class="field">
@@ -510,8 +507,7 @@
       sendPanel: document.getElementById("sendPanel"),
       sendEmailBtn: document.getElementById("sendEmailBtn"),
       sendBothBtn: document.getElementById("sendBothBtn"),
-      sendStatus: document.getElementById("sendStatus"),
-      checkinConfigLine: document.getElementById("checkinConfigLine")
+      sendStatus: document.getElementById("sendStatus")
     };
 
     const WHATSAPP_MESSAGE = "Hemos enviado el TICKET para AUTO-FACTURACIÓN al correo proporcionado. Recuerda que sólo estará vigente dentro del mes fiscal en curso.";
@@ -652,18 +648,6 @@
         setStatus(desiredProduct ? `${baseMsg} Producto esperado: ${desiredProduct}.` : `${baseMsg} Revisa el producto y luego genera el ticket.`, 'ok');
       }
     }
-
-    async function loadCheckinConfig() {
-      try {
-        const qs = new URLSearchParams();
-        if (appState.checkinWebAppUrl) qs.set('checkinWebAppUrl', appState.checkinWebAppUrl);
-        const res = await fetch(`/api/checkin-config?${qs.toString()}`);
-        const data = await safeJson(res);
-        if (!res.ok) throw new Error(data?.message || 'No fue posible validar la conexión con Check in.');
-        appState.checkinWebAppUrl = data?.checkinWebAppUrl || appState.checkinWebAppUrl || '';
-        if (els.checkinConfigLine) {
-          els.checkinConfigLine.textContent = `Conexión con Check in activa vía Apps Script: ${appState.checkinWebAppUrl || 'sin URL'}`;
-        }
       } catch (err) {
         if (els.checkinConfigLine) {
           els.checkinConfigLine.textContent = `Conexión con Check in con error: ${err.message || err}`;
@@ -1040,7 +1024,6 @@ URL de la factura: ${invoiceUrl}`;
     });
 
     prefillFormFromQueryParams();
-    loadCheckinConfig();
     loadNextFolio();
     loadProducts();
   </script>
