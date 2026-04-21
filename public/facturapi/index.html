@@ -322,9 +322,95 @@
     @media (max-width: 560px){
       .summary-grid{grid-template-columns:1fr}
     }
+  
+    .mobile-topbar{display:none}
+    .hero-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:var(--primary-soft);color:#8a5300;font-weight:700;font-size:12px;border:1px solid var(--border);margin-bottom:10px}
+    .hero-chip .dot{width:8px;height:8px;border-radius:999px;background:var(--primary)}
+    .sticky-actions{display:none}
+    .result-actions{display:flex;gap:10px;flex-wrap:wrap}
+    .ghost-btn{
+      display:inline-flex;align-items:center;justify-content:center;
+      min-height:46px;padding:12px 16px;border-radius:14px;text-decoration:none;
+      background:#fff;color:#8a5300;font-weight:700;border:1px solid var(--border-strong);
+    }
+    .pdf-shell{position:relative;background:#fff}
+    .pdf-toolbar{display:none}
+    .floating-help{
+      position:fixed;right:14px;bottom:16px;z-index:35;
+      display:none;align-items:center;justify-content:center;
+      width:56px;height:56px;border-radius:999px;text-decoration:none;
+      background:linear-gradient(180deg,var(--success) 0%, var(--success-dark) 100%);
+      color:#fff;font-size:24px;box-shadow:0 14px 26px rgba(37,99,235,.24)
+    }
+    .section-card{margin-top:18px;padding:14px 16px;border:1px solid var(--border);background:#fff;border-radius:18px}
+    .section-card strong{display:block;margin-bottom:6px}
+    .mini-note{font-size:12px;color:var(--text-soft);line-height:1.45}
+    @media (max-width: 900px){
+      .result-actions{width:100%}
+    }
+    @media (max-width: 700px){
+      body{padding:0 0 88px;background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%)}
+      .mobile-topbar{
+        display:flex;position:sticky;top:0;z-index:30;backdrop-filter:blur(12px);
+        justify-content:space-between;align-items:center;padding:12px 14px;
+        background:rgba(255,253,248,.92);border-bottom:1px solid rgba(239,195,111,.6)
+      }
+      .mobile-topbar strong{font-size:14px;color:#3a3124}
+      .mobile-topbar span{font-size:11px;color:var(--text-soft)}
+      .page-shell{max-width:100%}
+      .logo-wrap{margin:10px 0 6px}
+      .logo-wrap img{width:62%;max-width:180px}
+      .container{
+        max-width:none;margin:0;border-radius:24px 24px 0 0;padding:16px 14px 18px;
+        box-shadow:0 -10px 30px rgba(217,119,6,.08)
+      }
+      .head{padding:0 0 14px;margin-bottom:14px}
+      .head h1{font-size:22px;line-height:1.12}
+      .head p{font-size:13px}
+      .hero-chip{font-size:11px;padding:7px 10px}
+      .grid{gap:12px}
+      input,select,button{min-height:56px;font-size:16px;padding:15px 14px;border-radius:15px}
+      .checkbox-wrap{align-items:flex-start}
+      .checkbox-wrap input{width:22px;height:22px;margin-top:2px}
+      .summary,.result,.send-panel{border-radius:18px}
+      .summary-head,.send-head,.result-top{padding:14px}
+      .summary-body,.send-body{padding:14px}
+      .summary-box{padding:12px}
+      .summary-box strong{font-size:18px}
+      .result-top{align-items:flex-start}
+      .result-top strong{font-size:16px}
+      .result-top span{font-size:12px}
+      .pdf-toolbar{display:flex;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);background:#fffdf8;position:sticky;top:49px;z-index:10}
+      .pdf-toolbar .link-btn,.pdf-toolbar .ghost-btn{flex:1;min-height:50px}
+      iframe{height:68vh;min-height:440px;background:#eef2f7}
+      .actions,.send-actions,.result-actions{flex-direction:column}
+      button,.link-btn,.ghost-btn{width:100%;min-height:56px}
+      .sticky-actions{
+        display:grid;grid-template-columns:1fr 1fr;gap:10px;
+        position:fixed;left:0;right:0;bottom:0;z-index:40;
+        padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+        background:rgba(255,253,248,.97);backdrop-filter:blur(12px);border-top:1px solid rgba(239,195,111,.7)
+      }
+      .sticky-actions button{margin:0;box-shadow:none}
+      .floating-help{display:flex}
+    }
+    @media (max-width: 420px){
+      .container{padding:14px 12px 18px}
+      .head h1{font-size:20px}
+      iframe{height:62vh;min-height:390px}
+      .sticky-actions{grid-template-columns:1fr}
+    }
+
   </style>
 </head>
 <body>
+  <div class="mobile-topbar">
+    <div>
+      <strong>Ticket Facturapi</strong><br>
+      <span>Versión PRO móvil</span>
+    </div>
+    <span>CHECK-IN</span>
+  </div>
   <div class="logo-wrap">
     <img
       src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&sz=w1000"
@@ -336,15 +422,14 @@
   <div class="page-shell">
     <div class="container">
       <div class="head">
+        <div class="hero-chip"><span class="dot"></span>Optimizado para celular</div>
         <h1>Ticket con desglose por Facturapi</h1>
         <p>
           Esta versión usa el producto configurado en Facturapi y deja que Facturapi calcule el desglose.
           Puedes activar o desactivar la opción <strong>Incluye impuestos</strong>, definir <strong>Cantidad</strong>
           y capturar los datos de contacto del cliente para preparar el envío del ticket.
         </p>
-        <p id="checkinConfigLine">
-          Conexión con Check in: verificando Apps Script...
-        </p>
+        <p id="checkinConfigLine" style="display:none;"></p>
       </div>
 
       <form id="receiptForm" class="grid">
@@ -461,9 +546,18 @@
             <strong id="resultTitle">Ticket generado</strong>
             <span id="resultMeta"></span>
           </div>
-          <a id="pdfLink" class="link-btn" href="#" target="_blank" rel="noopener noreferrer">Abrir PDF</a>
+          <div class="result-actions">
+            <a id="pdfLink" class="link-btn" href="#" target="_blank" rel="noopener noreferrer">Abrir en ventana independiente</a>
+            <button id="copyPdfBtn" class="secondary" type="button">Copiar enlace</button>
+          </div>
         </div>
-        <iframe id="pdfFrame" title="Vista previa del ticket"></iframe>
+        <div class="pdf-shell">
+          <div class="pdf-toolbar">
+            <a id="pdfLinkMobile" class="link-btn" href="#" target="_blank" rel="noopener noreferrer">Abrir en ventana independiente</a>
+            <button id="downloadPdfBtn" class="secondary" type="button">Descargar PDF</button>
+          </div>
+          <iframe id="pdfFrame" title="Vista previa del ticket"></iframe>
+        </div>
       </div>
 
       <div id="sendPanel" class="send-panel">
@@ -476,8 +570,20 @@
           <div id="sendStatus" class="send-status"></div>
         </div>
       </div>
+
+      <div class="section-card">
+        <strong>Uso rápido en celular</strong>
+        <div class="mini-note">Genera el ticket, revísalo en pantalla y usa los botones fijos inferiores para enviarlo o recargar productos sin perder contexto.</div>
+      </div>
     </div>
   </div>
+
+  <div class="sticky-actions">
+    <button id="stickyGenerateBtn" type="button">Generar ticket</button>
+    <button id="stickyReloadBtn" class="secondary" type="button">Recargar productos</button>
+  </div>
+
+  <a class="floating-help" href="#sendPanel" aria-label="Ir a envío">✉</a>
 
 <script>
     const els = {
@@ -511,7 +617,12 @@
       sendEmailBtn: document.getElementById("sendEmailBtn"),
       sendBothBtn: document.getElementById("sendBothBtn"),
       sendStatus: document.getElementById("sendStatus"),
-      checkinConfigLine: document.getElementById("checkinConfigLine")
+      checkinConfigLine: document.getElementById("checkinConfigLine"),
+      copyPdfBtn: document.getElementById("copyPdfBtn"),
+      downloadPdfBtn: document.getElementById("downloadPdfBtn"),
+      pdfLinkMobile: document.getElementById("pdfLinkMobile"),
+      stickyGenerateBtn: document.getElementById("stickyGenerateBtn"),
+      stickyReloadBtn: document.getElementById("stickyReloadBtn")
     };
 
     const WHATSAPP_MESSAGE = "Hemos enviado el TICKET para AUTO-FACTURACIÓN al correo proporcionado. Recuerda que sólo estará vigente dentro del mes fiscal en curso.";
@@ -722,7 +833,10 @@
     function setLoading(flag) {
       els.submitBtn.disabled = flag;
       els.reloadProductsBtn.disabled = flag;
+      if (els.stickyGenerateBtn) els.stickyGenerateBtn.disabled = flag;
+      if (els.stickyReloadBtn) els.stickyReloadBtn.disabled = flag;
       els.submitBtn.textContent = flag ? "Generando..." : "Generar ticket";
+      if (els.stickyGenerateBtn) els.stickyGenerateBtn.textContent = flag ? "Generando..." : "Generar ticket";
     }
 
     function setSendLoading(flag) {
@@ -957,6 +1071,26 @@ URL de la factura: ${invoiceUrl}`;
 
     els.currency.dispatchEvent(new Event("change"));
     els.reloadProductsBtn.addEventListener("click", loadProducts);
+    els.stickyReloadBtn?.addEventListener("click", loadProducts);
+    els.stickyGenerateBtn?.addEventListener("click", () => els.form.requestSubmit());
+    els.copyPdfBtn?.addEventListener("click", async () => {
+      try {
+        const url = getPublicPdfUrl() || els.pdfLink?.href;
+        if (!url || url === '#') throw new Error('Aún no hay un enlace disponible.');
+        await navigator.clipboard.writeText(url);
+        setSendStatus('Enlace del PDF copiado al portapapeles.', 'ok');
+      } catch (err) {
+        setSendStatus(err.message || 'No se pudo copiar el enlace.', 'warn');
+      }
+    });
+    els.downloadPdfBtn?.addEventListener("click", async () => {
+      try {
+        const fileName = await downloadReceiptPdf();
+        setSendStatus(`Descarga iniciada: ${fileName}.`, 'ok');
+      } catch (err) {
+        setSendStatus(err.message || 'No fue posible descargar el PDF.', 'err');
+      }
+    });
     els.sendEmailBtn.addEventListener("click", sendReceiptEmail);
     els.sendBothBtn.addEventListener("click", async () => {
       const emailOk = await sendReceiptEmail();
@@ -1025,6 +1159,7 @@ URL de la factura: ${invoiceUrl}`;
         appState.publicPdfUrl = pdfUrl ? new URL(pdfUrl, window.location.origin).toString() : '';
 
         els.pdfLink.href = drivePdfUrl || pdfUrl;
+        if (els.pdfLinkMobile) els.pdfLinkMobile.href = drivePdfUrl || pdfUrl;
         els.pdfFrame.src = drivePdfUrl || pdfUrl;
         els.resultTitle.textContent = `Ticket generado: Folio Facturapi ${data.receipt.folio_number ?? data.facturapiFolio ?? "sin folio visible"}`;
         els.resultMeta.textContent = `ID: ${data.receipt.id} | Total: ${data.receipt.total} | Moneda: ${data.receipt.currency} | Régimen fiscal: ${payload.taxRegime || '—'} | Folio Facturapi: ${data?.receipt?.folio_number || data?.facturapiFolio || data?.sheetUpdate?.folio_facturapi || "—"} | URL factura: ${drivePdfUrl || appState.publicPdfUrl || '—'} | Apps Script: ${data?.checkinWebAppUrl || appState.checkinWebAppUrl || '—'}`;
