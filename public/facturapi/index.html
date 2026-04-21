@@ -1174,6 +1174,36 @@ URL de la factura: ${invoiceUrl}`;
       }
     });
 
+    
+// ===== AUTO CANTIDAD DESDE FRONTEND (VERSIÓN SIMPLE) =====
+(function(){
+  try{
+    // 1. query param
+    const qp = new URLSearchParams(window.location.search);
+    let val = qp.get('quantity');
+
+    // 2. localStorage fallback
+    if(!val){
+      val = localStorage.getItem('monto_facturado_total');
+    }
+
+    // 3. opener (si viene de otra ventana)
+    if(!val && window.opener){
+      try{
+        val = window.opener.localStorage.getItem('monto_facturado_total');
+      }catch(e){}
+    }
+
+    if(val && !isNaN(val)){
+      const input = document.getElementById('quantity');
+      if(input){
+        input.value = val;
+      }
+    }
+  }catch(e){}
+})();
+
+
     prefillFormFromQueryParams();
     loadCheckinConfig();
     loadNextFolio();
