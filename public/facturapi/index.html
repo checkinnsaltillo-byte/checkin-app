@@ -581,8 +581,28 @@
       return 'MXN';
     }
 
+    function resolveDynamicQuantityFallback() {
+      const quantityKey = queryParams.get('dynamicQuantityKey');
+      const recordId = queryParams.get('recordId');
+      const candidates = [
+        quantityKey,
+        recordId ? `facturapi_quantity_${recordId}` : '',
+        ''
+      ].filter(Boolean);
+      for (const key of candidates) {
+        try {
+          const value = sessionStorage.getItem(key);
+          if (value && !Number.isNaN(Number(value))) return String(value);
+        } catch (_err) {}
+      }
+      return '';
+    }
+
     function prefillFormFromQueryParams() {
-      const quantity = queryParams.get('quantity');
+      const quantityFromUrl = queryParams.get('quantity');
+      const quantity = (quantityFromUrl && !Number.isNaN(Number(quantityFromUrl)))
+        ? String(quantityFromUrl)
+        : resolveDynamicQuantityFallback();
       const currency = queryParams.get('currency');
       const email = queryParams.get('email');
       const taxRegime = queryParams.get('taxRegime');
@@ -627,7 +647,8 @@
 
       if (source === 'control_huespedes') {
         const desiredProduct = getDesiredProductName();
-        const baseMsg = 'Se cargaron datos desde Control de huéspedes.';
+        const quantityMsg = quantity ? ` Cantidad heredada: ${quantity}.` : '';
+        const baseMsg = `Se cargaron datos desde Control de huéspedes.${quantityMsg}`;
         setStatus(desiredProduct ? `${baseMsg} Producto esperado: ${desiredProduct}.` : `${baseMsg} Revisa el producto y luego genera el ticket.`, 'ok');
       }
     }
