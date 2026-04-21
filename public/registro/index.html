@@ -3998,6 +3998,8 @@ document.addEventListener("DOMContentLoaded", function(){
     }
   }
 
+  window.activarVista = activarVista;
+
   function safeText(v){ return v == null ? "" : String(v); }
   window.safeText = safeText;
   function escapeHtml(v){
@@ -4024,26 +4026,17 @@ document.addEventListener("DOMContentLoaded", function(){
     if (raw.includes("BRL") || raw.includes("REAL")) return "BRL";
     return "MXN";
   };
-  window.getMontoFacturadoInputValue = function(recordId){
-    const cleanId = safeText(recordId).trim();
-    if (!cleanId) return '';
-    const selector = `.dashboard-monto-input[data-record-id="${(window.CSS && CSS.escape) ? CSS.escape(cleanId) : cleanId.replace(/(["\])/g, '\\$1')}"]`;
-    const input = document.querySelector(selector);
-    return input ? formatMontoEditable(input.value || input.dataset.originalValue || '') : '';
-  };
   window.buildFacturapiUrlFromRow = function(row, options = {}){
     const params = new URLSearchParams();
-    const externalId = safeText(row["ID"] || row["row_number"] || '').trim();
-    const dynamicQuantity = formatMontoEditable(options.quantity != null ? options.quantity : '');
-    const fallbackQuantity = formatMontoEditable(getRowValueFlexible(row, ["$ Monto facturado Total", "Monto facturado Total"])) || '1';
-    const quantityToSend = dynamicQuantity || fallbackQuantity;
     params.set('source', 'control_huespedes');
-    params.set('quantity', quantityToSend);
+    const quantityValue = formatMontoEditable(options.quantity ?? getRowValueFlexible(row, ["$ Monto facturado Total", "Monto facturado Total"])) || '1';
+    params.set('quantity', quantityValue);
     params.set('currency', window.normalizeCurrencyFromSheet(getRowValueFlexible(row, ["Divisa monto pagado", "Moneda", "Currency"])));
     const email = safeText(getRowValueFlexible(row, ["Correo electrónico", "Correo electronico", "Email"])) .trim();
     const whatsapp = normalizePhoneForWhatsApp(getRowValueFlexible(row, ["Cel/Whatsapp (principal)", "Celular principal", "Whatsapp principal"]));
     const taxRegime = safeText(getRowValueFlexible(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])) .trim();
     const conceptoFacturapi = resolveConceptoFacturapiPorRegimen(taxRegime);
+    const externalId = safeText(row["ID"] || row["row_number"] || '').trim();
     if (email) params.set('email', email);
     if (conceptoFacturapi) {
       params.set('concepto', conceptoFacturapi);
@@ -4055,8 +4048,9 @@ document.addEventListener("DOMContentLoaded", function(){
       params.set('externalId', `CHECKIN-${externalId}`);
       params.set('recordId', externalId);
       params.set('rowNumber', safeText(row["row_number"] || '').trim());
-      params.set('dynamicQuantityKey', `facturapi_quantity_${externalId}`);
-      try { sessionStorage.setItem(`facturapi_quantity_${externalId}`, quantityToSend); } catch (_err) {}
+    }
+    if (options.dynamicQuantityKey) {
+      params.set('dynamicQuantityKey', options.dynamicQuantityKey);
     }
     if (typeof WEB_APP_URL !== 'undefined' && WEB_APP_URL) {
       params.set('checkinWebAppUrl', WEB_APP_URL);
@@ -5166,8 +5160,18 @@ async function generarTicket(recordId){
       }
     } catch (_err) {}
   }
-  const currentMontoFacturado = window.getMontoFacturadoInputValue ? window.getMontoFacturadoInputValue(recordId) : '';
-  const url = window.buildFacturapiUrlFromRow(row, { quantity: currentMontoFacturado });
+
+  const montoInput = document.querySelector(`.dashboard-monto-input[data-record-id="${CSS.escape(String(recordId))}"]`);
+  const cantidadDinamica = String(montoInput?.value || '').trim() || formatMontoEditable(getRowValueFlexibleFn(row, ["$ Monto facturado Total", "Monto facturado Total"])) || '1';
+  const dynamicQuantityKey = `facturapi_quantity_${recordId}`;
+  try {
+    sessionStorage.setItem(dynamicQuantityKey, cantidadDinamica);
+  } catch (_err) {}
+
+  const url = window.buildFacturapiUrlFromRow(row, {
+    quantity: cantidadDinamica,
+    dynamicQuantityKey
+  });
   if (!url) {
     alert('No se pudo construir la URL de Facturapi.');
     return;
@@ -5288,22 +5292,29 @@ function hidePasswordModal(){
   if (modal) modal.style.display = "none";
 }
 
-function openDashboardAfterUnlock(){
+async function openDashboardAfterUnlock(){
+  if (typeof window.activarVistaControlHuespedes === "function") {
+    try {
+      await window.activarVistaControlHuespedes(true);
+      return;
+    } catch (_err) {}
+  }
+
   const dashboardBtn = document.getElementById("menuControlBtn");
   if (dashboardBtn) {
-    dashboardBtn.click();
+    dashboardBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     return;
   }
 
-  if (typeof activarVista === "function") {
-    activarVista("dashboard");
+  if (typeof window.activarVista === "function") {
+    window.activarVista("dashboard");
   }
-  if (typeof cargarOpcionesFiltros === "function") {
-    Promise.resolve(cargarOpcionesFiltros()).then(() => {
-      if (typeof buscarRegistros === "function") buscarRegistros(true);
+  if (typeof window.cargarOpcionesFiltros === "function") {
+    Promise.resolve(window.cargarOpcionesFiltros()).then(() => {
+      if (typeof window.buscarRegistros === "function") window.buscarRegistros(true);
     }).catch(() => {});
-  } else if (typeof buscarRegistros === "function") {
-    buscarRegistros(true);
+  } else if (typeof window.buscarRegistros === "function") {
+    window.buscarRegistros(true);
   }
 }
 
