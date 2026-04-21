@@ -5125,8 +5125,21 @@ async function generarTicket(recordId){
     alert('No se pudo identificar el registro.');
     return;
   }
+
+  const win = window.open('', '_blank', 'noopener');
+  if (!win) {
+    alert('El navegador bloqueó la apertura de la ventana. Permite pop-ups para este sitio e inténtalo nuevamente.');
+    return;
+  }
+
+  try {
+    win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Abriendo ticket...</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Arial,sans-serif;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#fff7ed;color:#7c4a03;padding:24px;text-align:center} .card{max-width:360px;background:#fff;border:1px solid #f3cf94;border-radius:18px;padding:24px;box-shadow:0 12px 30px rgba(217,119,6,.12)} .spinner{width:42px;height:42px;border:4px solid rgba(245,158,11,.22);border-top-color:#f59e0b;border-radius:50%;margin:0 auto 14px;animation:spin .9s linear infinite}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} h1{font-size:20px;margin:0 0 8px} p{margin:0;font-size:14px;line-height:1.45}</style></head><body><div class="card"><div class="spinner"></div><h1>Abriendo ticket...</h1><p>Espera un momento mientras preparamos la información.</p></div></body></html>`);
+    win.document.close();
+  } catch (_err) {}
+
   let row = (window.dashboardRows || []).find(r => String(r["ID"] || r["row_number"] || '') === String(recordId));
   if (!row) {
+    win.close();
     alert('No se encontró la información del registro seleccionado.');
     return;
   }
@@ -5156,13 +5169,12 @@ async function generarTicket(recordId){
   }
   const url = window.buildFacturapiUrlFromRow(row);
   if (!url) {
+    win.close();
     alert('No se pudo construir la URL de Facturapi.');
     return;
   }
-  const win = window.open(url, '_blank', 'noopener');
-  if (!win) {
-    alert('El navegador bloqueó la apertura de la ventana. Permite pop-ups para este sitio e inténtalo nuevamente.');
-  }
+
+  win.location.replace(url);
 }
 
 function normalizePhoneForWhatsApp(phone){
