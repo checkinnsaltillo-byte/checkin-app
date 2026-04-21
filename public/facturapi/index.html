@@ -351,7 +351,7 @@
         <div class="field">
           <label for="quantity">Cantidad</label>
           <input id="quantity" type="number" min="0.01" step="0.01" value="1" required />
-          <div class="hint">Aquí se puede precargar desde Control de huéspedes usando el valor de "$ Monto facturado Total".</div>
+          <div class="hint">Aquí se precarga dinámicamente desde el valor visible en frontend de "$ Monto facturado Total" en Control de huéspedes.</div>
         </div>
 
         <div class="field">
@@ -365,6 +365,12 @@
         <div class="field">
           <label for="email">Correo electrónico</label>
           <input id="email" type="email" placeholder="cliente@correo.com" />
+        </div>
+
+        <div class="field">
+          <label for="taxRegime">Régimen fiscal</label>
+          <input id="taxRegime" type="text" placeholder="Se cargará desde Control de huéspedes" />
+          <div class="hint">Este dato se precarga cuando vienes desde Generar ticket en Control de huéspedes.</div>
         </div>
 
         <div class="field">
@@ -479,6 +485,7 @@
       quantity: document.getElementById("quantity"),
       productId: document.getElementById("productId"),
       email: document.getElementById("email"),
+      taxRegime: document.getElementById("taxRegime"),
       whatsapp: document.getElementById("whatsapp"),
       currency: document.getElementById("currency"),
       exchange: document.getElementById("exchange"),
@@ -523,6 +530,47 @@
 
     const queryParams = new URLSearchParams(window.location.search);
 
+    function normalizeText(value) {
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+    }
+
+    function resolveConceptoPorRegimen(regimenFiscal) {
+      return normalizeText(regimenFiscal) === 'general de ley personas morales'
+        ? '1. Arrendamiento en Saltillo, Coah.'
+        : '2. Arrendamiento en Saltillo, Coah.';
+    }
+
+    function getDesiredProductName() {
+      const concepto = queryParams.get('concepto') || queryParams.get('descripcion');
+      if (concepto && String(concepto).trim()) return String(concepto).trim();
+      const taxRegime = els.taxRegime?.value || queryParams.get('taxRegime') || '';
+      if (String(taxRegime).trim()) return resolveConceptoPorRegimen(taxRegime);
+      return '';
+    }
+
+    function autoSelectProductByDesiredName() {
+      const desired = getDesiredProductName();
+      if (!desired || !els.productId) return false;
+
+      const desiredNorm = normalizeText(desired);
+      const options = Array.from(els.productId.options || []).filter(opt => opt.value);
+      if (!options.length) return false;
+
+      let match = options.find(opt => normalizeText(opt.textContent) === desiredNorm);
+      if (!match) {
+        match = options.find(opt => normalizeText(opt.textContent).startsWith(desiredNorm));
+      }
+      if (!match) return false;
+
+      els.productId.value = match.value;
+      return true;
+    }
+
     function normalizeCurrencyParam(value) {
       const raw = String(value || '').trim().toUpperCase();
       if (!raw) return 'MXN';
@@ -533,10 +581,31 @@
       return 'MXN';
     }
 
+    function resolveDynamicQuantityFallback() {
+      const quantityKey = queryParams.get('dynamicQuantityKey');
+      const recordId = queryParams.get('recordId');
+      const candidates = [
+        quantityKey,
+        recordId ? `facturapi_quantity_${recordId}` : '',
+        ''
+      ].filter(Boolean);
+      for (const key of candidates) {
+        try {
+          const value = sessionStorage.getItem(key);
+          if (value && !Number.isNaN(Number(value))) return String(value);
+        } catch (_err) {}
+      }
+      return '';
+    }
+
     function prefillFormFromQueryParams() {
-      const quantity = queryParams.get('quantity');
+      const quantityFromUrl = queryParams.get('quantity');
+      const quantity = (quantityFromUrl && !Number.isNaN(Number(quantityFromUrl)))
+        ? String(quantityFromUrl)
+        : resolveDynamicQuantityFallback();
       const currency = queryParams.get('currency');
       const email = queryParams.get('email');
+      const taxRegime = queryParams.get('taxRegime');
       const whatsapp = queryParams.get('whatsapp');
       const externalId = queryParams.get('externalId');
       const source = queryParams.get('source');
@@ -552,6 +621,9 @@
       }
       if (email) {
         els.email.value = email;
+      }
+      if (taxRegime) {
+        els.taxRegime.value = taxRegime;
       }
       if (whatsapp) {
         els.whatsapp.value = whatsapp;
@@ -571,8 +643,13 @@
 
       els.currency.dispatchEvent(new Event('change'));
 
+      autoSelectProductByDesiredName();
+
       if (source === 'control_huespedes') {
-        setStatus('Se cargaron datos desde Control de huéspedes. Revisa el producto y luego genera el ticket.', 'ok');
+        const desiredProduct = getDesiredProductName();
+        const quantityMsg = quantity ? ` Cantidad heredada: ${quantity}.` : '';
+        const baseMsg = `Se cargaron datos desde Control de huéspedes.${quantityMsg}`;
+        setStatus(desiredProduct ? `${baseMsg} Producto esperado: ${desiredProduct}.` : `${baseMsg} Revisa el producto y luego genera el ticket.`, 'ok');
       }
     }
 
@@ -670,8 +747,10 @@
         const opt = document.createElement("option");
         opt.value = p.id;
         opt.textContent = p.description;
+        if (p.sku) opt.dataset.sku = p.sku;
         els.productId.appendChild(opt);
       });
+      autoSelectProductByDesiredName();
     }
 
     async function safeJson(res) {
@@ -691,7 +770,15 @@
         const data = await safeJson(res);
         if (!res.ok) throw new Error(data?.message || "No fue posible cargar los productos.");
         renderProducts(data?.data || []);
-        setStatus(`Se cargaron ${data?.data?.length || 0} producto(s).`, "ok");
+        const desiredProduct = getDesiredProductName();
+        const autoSelected = autoSelectProductByDesiredName();
+        if (desiredProduct) {
+          setStatus(autoSelected
+            ? `Se cargaron ${data?.data?.length || 0} producto(s). Se seleccionó automáticamente: ${desiredProduct}.`
+            : `Se cargaron ${data?.data?.length || 0} producto(s), pero no se encontró coincidencia exacta para: ${desiredProduct}.`, "ok");
+        } else {
+          setStatus(`Se cargaron ${data?.data?.length || 0} producto(s).`, "ok");
+        }
       } catch (err) {
         renderProducts([]);
         setStatus(err.message || "Error al cargar productos.", "err");
@@ -713,6 +800,7 @@
         `Tax included enviado: ${item?.tax_included ? "true" : "false"}`,
         `Taxes configurados: ${JSON.stringify(item?.taxes ?? [])}`,
         `Local taxes configurados: ${JSON.stringify(item?.local_taxes ?? [])}`,
+        `Régimen fiscal: ${payload.taxRegime || "—"}`,
         `Whatsapp capturado: ${payload.whatsapp || "—"}`
       ];
       els.sumMeta.textContent = lines.join("\n");
@@ -850,6 +938,13 @@ URL de la factura: ${invoiceUrl}`;
       return true;
     }
 
+    els.taxRegime.addEventListener('input', () => {
+      autoSelectProductByDesiredName();
+    });
+    els.taxRegime.addEventListener('change', () => {
+      autoSelectProductByDesiredName();
+    });
+
     els.currency.addEventListener("change", () => {
       if (els.currency.value === "MXN") {
         els.exchange.value = "1";
@@ -887,6 +982,7 @@ URL de la factura: ${invoiceUrl}`;
           quantity: Number(els.quantity.value || 1),
           productId: els.productId.value,
           email: els.email.value.trim() || undefined,
+          taxRegime: els.taxRegime.value.trim() || undefined,
           whatsapp: els.whatsapp.value.trim() || undefined,
           currency: els.currency.value,
           exchange: Number(els.exchange.value || 1),
@@ -931,7 +1027,7 @@ URL de la factura: ${invoiceUrl}`;
         els.pdfLink.href = drivePdfUrl || pdfUrl;
         els.pdfFrame.src = drivePdfUrl || pdfUrl;
         els.resultTitle.textContent = `Ticket generado: Folio Facturapi ${data.receipt.folio_number ?? data.facturapiFolio ?? "sin folio visible"}`;
-        els.resultMeta.textContent = `ID: ${data.receipt.id} | Total: ${data.receipt.total} | Moneda: ${data.receipt.currency} | Folio Facturapi: ${data?.receipt?.folio_number || data?.facturapiFolio || data?.sheetUpdate?.folio_facturapi || "—"} | URL factura: ${drivePdfUrl || appState.publicPdfUrl || '—'} | Apps Script: ${data?.checkinWebAppUrl || appState.checkinWebAppUrl || '—'}`;
+        els.resultMeta.textContent = `ID: ${data.receipt.id} | Total: ${data.receipt.total} | Moneda: ${data.receipt.currency} | Régimen fiscal: ${payload.taxRegime || '—'} | Folio Facturapi: ${data?.receipt?.folio_number || data?.facturapiFolio || data?.sheetUpdate?.folio_facturapi || "—"} | URL factura: ${drivePdfUrl || appState.publicPdfUrl || '—'} | Apps Script: ${data?.checkinWebAppUrl || appState.checkinWebAppUrl || '—'}`;
         els.result.style.display = "block";
         els.sendPanel.style.display = "block";
 
