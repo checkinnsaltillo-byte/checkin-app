@@ -5125,43 +5125,78 @@ async function generarTicket(recordId){
     alert('No se pudo identificar el registro.');
     return;
   }
-  let row = (window.dashboardRows || []).find(r => String(r["ID"] || r["row_number"] || '') === String(recordId));
-  if (!row) {
-    alert('No se encontró la información del registro seleccionado.');
-    return;
+
+  const popup = window.open('', '_blank');
+  if (popup) {
+    popup.document.write(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Abriendo Facturapi...</title>
+  <style>
+    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;background:#fff8ee;color:#2b2b2b;}
+    .box{text-align:center;padding:24px;}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h3>Abriendo ticket...</h3>
+    <p>Espera unos segundos.</p>
+  </div>
+</body>
+</html>`);
+    popup.document.close();
   }
-  const safeTextFn = window.safeText || (v => v == null ? "" : String(v));
-  const getRowValueFlexibleFn = window.getRowValueFlexible || function(record, keys){
-    if (!record || typeof record !== "object") return "";
-    const entries = Object.entries(record);
-    const normalizeKey = (value) => safeTextFn(value).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g," ").trim();
-    for (const key of keys || []) {
-      const direct = record[key];
-      if (direct != null && safeTextFn(direct).trim() !== "") return safeTextFn(direct).trim();
-      const normalizedCandidate = normalizeKey(key);
-      const found = entries.find(([entryKey, value]) => normalizeKey(entryKey) === normalizedCandidate && value != null && safeTextFn(value).trim() !== "");
-      if (found) return safeTextFn(found[1]).trim();
+
+  try {
+    let row = (window.dashboardRows || []).find(r => String(r["ID"] || r["row_number"] || '') === String(recordId));
+    if (!row) {
+      if (popup) popup.close();
+      alert('No se encontró la información del registro seleccionado.');
+      return;
     }
-    return "";
-  };
-  const missingTaxRegime = !safeTextFn(getRowValueFlexibleFn(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])) .trim();
-  if (missingTaxRegime && typeof WEB_APP_URL !== 'undefined' && WEB_APP_URL) {
-    try {
-      const res = await fetch(`${WEB_APP_URL}?action=get_record_detail&record_id=${encodeURIComponent(recordId)}`, { method: 'GET' });
-      const json = await res.json();
-      if (json?.ok && json.record) {
-        row = { ...row, ...json.record };
+
+    const safeTextFn = window.safeText || (v => v == null ? '' : String(v));
+    const getRowValueFlexibleFn = window.getRowValueFlexible || function(record, keys){
+      if (!record || typeof record !== 'object') return '';
+      const entries = Object.entries(record);
+      const normalizeKey = (value) => safeTextFn(value).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+      for (const key of keys || []) {
+        const direct = record[key];
+        if (direct != null && safeTextFn(direct).trim() !== '') return safeTextFn(direct).trim();
+        const normalizedCandidate = normalizeKey(key);
+        const found = entries.find(([entryKey, value]) => normalizeKey(entryKey) === normalizedCandidate && value != null && safeTextFn(value).trim() !== '');
+        if (found) return safeTextFn(found[1]).trim();
       }
-    } catch (_err) {}
-  }
-  const url = window.buildFacturapiUrlFromRow(row);
-  if (!url) {
-    alert('No se pudo construir la URL de Facturapi.');
-    return;
-  }
-  const win = window.open(url, '_blank', 'noopener');
-  if (!win) {
-    alert('El navegador bloqueó la apertura de la ventana. Permite pop-ups para este sitio e inténtalo nuevamente.');
+      return '';
+    };
+
+    const missingTaxRegime = !safeTextFn(getRowValueFlexibleFn(row, ['Régimen fiscal', 'Regimen fiscal', 'Tax regime'])).trim();
+    if (missingTaxRegime && typeof WEB_APP_URL !== 'undefined' && WEB_APP_URL) {
+      try {
+        const res = await fetch(`${WEB_APP_URL}?action=get_record_detail&record_id=${encodeURIComponent(recordId)}`, { method: 'GET' });
+        const json = await res.json();
+        if (json?.ok && json.record) {
+          row = { ...row, ...json.record };
+        }
+      } catch (_err) {}
+    }
+
+    const url = window.buildFacturapiUrlFromRow(row);
+    if (!url) {
+      if (popup) popup.close();
+      alert('No se pudo construir la URL de Facturapi.');
+      return;
+    }
+
+    if (popup) {
+      popup.location.href = url;
+    } else {
+      window.location.href = url;
+    }
+  } catch (err) {
+    if (popup) popup.close();
+    alert('Error al abrir Facturapi: ' + (err.message || err));
   }
 }
 
