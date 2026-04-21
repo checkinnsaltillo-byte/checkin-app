@@ -525,22 +525,10 @@
       rowNumber: null,
       nextFolio: '',
       folioSaved: false,
-      checkinWebAppUrl: '',
-      preferredProductText: '',
-      preferredProductId: ''
+      checkinWebAppUrl: ''
     };
 
     const queryParams = new URLSearchParams(window.location.search);
-
-    function normalizeCurrencyParam(value) {
-      const raw = String(value || '').trim().toUpperCase();
-      if (!raw) return 'MXN';
-      if (raw.includes('USD') || raw.includes('DÓLAR') || raw.includes('DOLAR')) return 'USD';
-      if (raw.includes('EUR') || raw.includes('EURO')) return 'EUR';
-      if (raw.includes('GBP') || raw.includes('LIBRA')) return 'GBP';
-      if (raw.includes('BRL') || raw.includes('REAL')) return 'BRL';
-      return 'MXN';
-    }
 
     function normalizeText(value) {
       return String(value || '')
@@ -552,50 +540,45 @@
     }
 
     function resolveConceptoPorRegimen(regimenFiscal) {
-      const regimenNormalizado = normalizeText(regimenFiscal);
-      return regimenNormalizado === 'general de ley personas morales'
+      return normalizeText(regimenFiscal) === 'general de ley personas morales'
         ? '1. Arrendamiento en Saltillo, Coah.'
         : '2. Arrendamiento en Saltillo, Coah.';
     }
 
-    function applyPreferredProductSelection() {
-      if (!els.productId) return false;
-
-      const preferredId = String(appState.preferredProductId || '').trim();
-      if (preferredId) {
-        const optionById = Array.from(els.productId.options).find(opt => String(opt.value || '').trim() === preferredId);
-        if (optionById) {
-          els.productId.value = optionById.value;
-          return true;
-        }
-      }
-
-      const preferredText = normalizeText(appState.preferredProductText);
-      if (!preferredText) return false;
-
-      const optionByText = Array.from(els.productId.options).find(opt => {
-        const optionText = normalizeText(opt.textContent || '');
-        return optionText === preferredText || optionText.includes(preferredText) || preferredText.includes(optionText);
-      });
-
-      if (optionByText) {
-        els.productId.value = optionByText.value;
-        return true;
-      }
-
-      return false;
+    function getDesiredProductName() {
+      const concepto = queryParams.get('concepto') || queryParams.get('descripcion');
+      if (concepto && String(concepto).trim()) return String(concepto).trim();
+      const taxRegime = els.taxRegime?.value || queryParams.get('taxRegime') || '';
+      if (String(taxRegime).trim()) return resolveConceptoPorRegimen(taxRegime);
+      return '';
     }
 
-    function syncPreferredProductFromTaxRegime() {
-      const conceptoDesdeRegimen = resolveConceptoPorRegimen(els.taxRegime?.value || '');
-      if (!appState.preferredProductText) {
-        appState.preferredProductText = conceptoDesdeRegimen;
+    function autoSelectProductByDesiredName() {
+      const desired = getDesiredProductName();
+      if (!desired || !els.productId) return false;
+
+      const desiredNorm = normalizeText(desired);
+      const options = Array.from(els.productId.options || []).filter(opt => opt.value);
+      if (!options.length) return false;
+
+      let match = options.find(opt => normalizeText(opt.textContent) === desiredNorm);
+      if (!match) {
+        match = options.find(opt => normalizeText(opt.textContent).startsWith(desiredNorm));
       }
-      if (!applyPreferredProductSelection()) {
-        appState.preferredProductText = conceptoDesdeRegimen;
-        applyPreferredProductSelection();
-      }
-      return appState.preferredProductText;
+      if (!match) return false;
+
+      els.productId.value = match.value;
+      return true;
+    }
+
+    function normalizeCurrencyParam(value) {
+      const raw = String(value || '').trim().toUpperCase();
+      if (!raw) return 'MXN';
+      if (raw.includes('USD') || raw.includes('DÓLAR') || raw.includes('DOLAR')) return 'USD';
+      if (raw.includes('EUR') || raw.includes('EURO')) return 'EUR';
+      if (raw.includes('GBP') || raw.includes('LIBRA')) return 'GBP';
+      if (raw.includes('BRL') || raw.includes('REAL')) return 'BRL';
+      return 'MXN';
     }
 
     function prefillFormFromQueryParams() {
@@ -609,8 +592,6 @@
       const recordId = queryParams.get('recordId');
       const rowNumber = queryParams.get('rowNumber');
       const checkinWebAppUrl = queryParams.get('checkinWebAppUrl');
-      const concepto = queryParams.get('concepto') || queryParams.get('descripcion');
-      const productId = queryParams.get('productId');
 
       if (quantity && !Number.isNaN(Number(quantity))) {
         els.quantity.value = String(quantity);
@@ -639,15 +620,15 @@
       if (checkinWebAppUrl) {
         appState.checkinWebAppUrl = checkinWebAppUrl;
       }
-      if (productId) {
-        appState.preferredProductId = productId;
-      }
-      appState.preferredProductText = concepto || resolveConceptoPorRegimen(taxRegime || '');
 
       els.currency.dispatchEvent(new Event('change'));
 
+      autoSelectProductByDesiredName();
+
       if (source === 'control_huespedes') {
-        setStatus('Se cargaron datos desde Control de huéspedes. Revisa el producto y luego genera el ticket.', 'ok');
+        const desiredProduct = getDesiredProductName();
+        const baseMsg = 'Se cargaron datos desde Control de huéspedes.';
+        setStatus(desiredProduct ? `${baseMsg} Producto esperado: ${desiredProduct}.` : `${baseMsg} Revisa el producto y luego genera el ticket.`, 'ok');
       }
     }
 
@@ -745,10 +726,10 @@
         const opt = document.createElement("option");
         opt.value = p.id;
         opt.textContent = p.description;
-        opt.dataset.description = p.description || "";
+        if (p.sku) opt.dataset.sku = p.sku;
         els.productId.appendChild(opt);
       });
-      applyPreferredProductSelection();
+      autoSelectProductByDesiredName();
     }
 
     async function safeJson(res) {
@@ -768,13 +749,12 @@
         const data = await safeJson(res);
         if (!res.ok) throw new Error(data?.message || "No fue posible cargar los productos.");
         renderProducts(data?.data || []);
-        const autoSelected = applyPreferredProductSelection();
-        const preferredText = appState.preferredProductText || '';
-        const selectedText = els.productId.options[els.productId.selectedIndex]?.textContent || '';
-        if (preferredText && autoSelected) {
-          setStatus(`Se cargaron ${data?.data?.length || 0} producto(s). Producto seleccionado automáticamente: ${selectedText}.`, "ok");
-        } else if (preferredText && !autoSelected) {
-          setStatus(`Se cargaron ${data?.data?.length || 0} producto(s). No se encontró coincidencia automática para "${preferredText}".`, "warn");
+        const desiredProduct = getDesiredProductName();
+        const autoSelected = autoSelectProductByDesiredName();
+        if (desiredProduct) {
+          setStatus(autoSelected
+            ? `Se cargaron ${data?.data?.length || 0} producto(s). Se seleccionó automáticamente: ${desiredProduct}.`
+            : `Se cargaron ${data?.data?.length || 0} producto(s), pero no se encontró coincidencia exacta para: ${desiredProduct}.`, "ok");
         } else {
           setStatus(`Se cargaron ${data?.data?.length || 0} producto(s).`, "ok");
         }
@@ -937,14 +917,11 @@ URL de la factura: ${invoiceUrl}`;
       return true;
     }
 
-    els.taxRegime.addEventListener("input", () => {
-      appState.preferredProductText = resolveConceptoPorRegimen(els.taxRegime.value || '');
-      applyPreferredProductSelection();
+    els.taxRegime.addEventListener('input', () => {
+      autoSelectProductByDesiredName();
     });
-
-    els.taxRegime.addEventListener("change", () => {
-      appState.preferredProductText = resolveConceptoPorRegimen(els.taxRegime.value || '');
-      applyPreferredProductSelection();
+    els.taxRegime.addEventListener('change', () => {
+      autoSelectProductByDesiredName();
     });
 
     els.currency.addEventListener("change", () => {
