@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+1tgD_4er4DcZvG6IjN649-RElGvaZFcdI<!DOCTYPE html>
 
 <html lang="es">
 <head>
@@ -379,149 +379,6 @@ button:disabled{
   color:#6b7280;
   font-weight:700;
 }
-
-
-.facturapi-modal-backdrop{
-  position:fixed;
-  inset:0;
-  z-index:1000000;
-  background:rgba(17,24,39,.45);
-  display:none;
-  align-items:center;
-  justify-content:center;
-  padding:env(safe-area-inset-top, 10px) 10px calc(env(safe-area-inset-bottom, 10px) + 10px);
-  -webkit-backdrop-filter:blur(4px);
-  backdrop-filter:blur(4px);
-}
-.facturapi-modal-shell{
-  width:min(1120px, 100%);
-  height:min(92vh, 900px);
-  background:#fff;
-  border-radius:22px;
-  overflow:hidden;
-  box-shadow:0 24px 60px rgba(15,23,42,.28);
-  display:flex;
-  flex-direction:column;
-  border:1px solid rgba(255,255,255,.8);
-}
-.facturapi-modal-header{
-  position:sticky;
-  top:0;
-  z-index:2;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  padding:12px 14px;
-  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
-  border-bottom:1px solid #f3d7a4;
-}
-.facturapi-modal-title-wrap{
-  min-width:0;
-}
-.facturapi-modal-title{
-  font-size:16px;
-  font-weight:800;
-  color:#2b2b2b;
-  line-height:1.2;
-}
-.facturapi-modal-subtitle{
-  margin-top:3px;
-  font-size:12px;
-  color:#6b7280;
-  line-height:1.35;
-}
-.facturapi-modal-actions{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  flex:0 0 auto;
-}
-.facturapi-modal-btn{
-  margin-top:0;
-  min-width:auto;
-  padding:10px 12px;
-  border-radius:12px;
-  font-size:13px;
-  box-shadow:none;
-}
-.facturapi-modal-btn.secondary{
-  background:linear-gradient(180deg,#fff7ed 0%, #fde7c0 100%);
-  color:#8a5300;
-  border:1px solid #efc36f;
-}
-.facturapi-modal-btn.close{
-  background:linear-gradient(180deg,#ef4444 0%, #dc2626 100%);
-  color:#fff;
-}
-.facturapi-modal-frame-wrap{
-  position:relative;
-  flex:1 1 auto;
-  min-height:0;
-  background:#f8fafc;
-}
-.facturapi-modal-loader{
-  position:absolute;
-  inset:0;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:12px;
-  color:#6b7280;
-  font-size:14px;
-  background:linear-gradient(180deg,rgba(255,253,248,.96) 0%, rgba(255,247,237,.92) 100%);
-}
-.facturapi-modal-loader.hidden{
-  display:none;
-}
-.facturapi-modal-spinner{
-  width:42px;
-  height:42px;
-  border:4px solid rgba(245,158,11,.22);
-  border-top-color:#f59e0b;
-  border-radius:50%;
-  animation:spinPopup .9s linear infinite;
-}
-.facturapi-modal-frame{
-  width:100%;
-  height:100%;
-  border:0;
-  background:#fff;
-}
-body.facturapi-modal-open{
-  overflow:hidden;
-}
-@media (max-width: 700px){
-  .facturapi-modal-backdrop{
-    padding:0;
-    align-items:stretch;
-    justify-content:stretch;
-  }
-  .facturapi-modal-shell{
-    width:100%;
-    height:100dvh;
-    max-height:100dvh;
-    border-radius:0;
-  }
-  .facturapi-modal-header{
-    padding-top:calc(env(safe-area-inset-top, 0px) + 10px);
-  }
-  .facturapi-modal-title{
-    font-size:15px;
-  }
-  .facturapi-modal-subtitle{
-    font-size:11px;
-  }
-  .facturapi-modal-actions{
-    gap:6px;
-  }
-  .facturapi-modal-btn{
-    padding:10px 11px;
-    font-size:12px;
-  }
-}
-
 @media (max-width: 700px){
   body{ padding:14px 10px 28px; }
   .container{
@@ -604,269 +461,6 @@ body.facturapi-modal-open{
   }
 }
 
-.vehicle-pro-shell{
-  margin-top:10px;
-}
-.vehicle-pro-intro{
-  background:linear-gradient(180deg,#fff8ee 0%, #fff3df 100%);
-  border:1px solid #f3cf94;
-  border-radius:16px;
-  padding:14px;
-  margin-top:10px;
-}
-.vehicle-pro-title{
-  font-size:14px;
-  font-weight:700;
-  color:#7c4a03;
-  margin-bottom:6px;
-}
-.vehicle-pro-copy{
-  font-size:13px;
-  color:#6b7280;
-  line-height:1.5;
-}
-.vehicle-status-pill{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  padding:8px 12px;
-  border-radius:999px;
-  background:#fff7ed;
-  border:1px solid #fdba74;
-  color:#9a6700;
-  font-size:12px;
-  font-weight:700;
-  margin-top:10px;
-}
-.vehicle-fields-grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:14px;
-  margin-top:14px;
-}
-.vehicle-card{
-  background:#fff;
-  border:1px solid var(--border);
-  border-radius:18px;
-  padding:14px;
-}
-.vehicle-card-title{
-  font-size:13px;
-  font-weight:700;
-  color:#7c4a03;
-  margin-bottom:8px;
-}
-.vehicle-summary{
-  margin-top:14px;
-  padding:14px;
-  border-radius:16px;
-  border:1px solid #d1fadf;
-  background:linear-gradient(180deg,#f6fef9 0%, #ecfdf3 100%);
-}
-.vehicle-summary-title{
-  font-size:13px;
-  font-weight:700;
-  color:#067647;
-  margin-bottom:8px;
-}
-.vehicle-summary-text{
-  font-size:13px;
-  color:#475467;
-  line-height:1.5;
-}
-.vehicle-warning{
-  margin-top:10px;
-  padding:12px;
-  border-radius:14px;
-  border:1px solid #fecaca;
-  background:#fef2f2;
-  color:#b42318;
-  font-size:13px;
-  display:none;
-}
-.vehicle-warning.show{display:block;}
-.vehicle-alert-note{
-  margin-top:12px;
-  padding:12px 14px;
-  border-radius:14px;
-  border:1px solid #fdba74;
-  background:#fff7ed;
-  color:#9a6700;
-  font-size:13px;
-  line-height:1.55;
-}
-@media (max-width:700px){
-  .vehicle-fields-grid{grid-template-columns:1fr;}
-}
-
-
-/* ===== Información de vehículos ===== */
-.vehicle-info-toolbar{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:end;
-  margin-top:14px;
-}
-.vehicle-info-toolbar > div{
-  flex:1 1 260px;
-}
-.vehicle-info-meta{
-  margin-top:12px;
-  font-size:13px;
-  color:var(--text-soft);
-}
-.vehicle-list{
-  margin-top:16px;
-  display:grid;
-  gap:12px;
-}
-.vehicle-card-item{
-  border:1px solid var(--border);
-  border-radius:18px;
-  background:#fff;
-  overflow:hidden;
-  box-shadow:0 8px 22px rgba(217,119,6,.06);
-}
-.vehicle-card-summary{
-  list-style:none;
-  cursor:pointer;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  padding:16px 18px;
-  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
-}
-.vehicle-card-summary::-webkit-details-marker{
-  display:none;
-}
-.vehicle-card-summary::marker{
-  content:"";
-}
-.vehicle-card-main{
-  min-width:0;
-  display:grid;
-  gap:4px;
-}
-.vehicle-card-title{
-  font-size:16px;
-  font-weight:700;
-  color:#2b2b2b;
-  line-height:1.25;
-}
-.vehicle-card-subtitle{
-  font-size:13px;
-  color:#6b7280;
-  line-height:1.4;
-}
-.vehicle-card-chevron{
-  flex:0 0 auto;
-  font-size:20px;
-  color:#b45309;
-  transition:transform .18s ease;
-}
-.vehicle-card-item[open] .vehicle-card-chevron{
-  transform:rotate(180deg);
-}
-.vehicle-card-body{
-  padding:16px 18px 18px;
-  display:grid;
-  grid-template-columns:minmax(0,1.4fr) minmax(220px,.9fr);
-  gap:16px;
-  align-items:start;
-}
-.vehicle-detail-grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:10px;
-}
-.vehicle-detail-item{
-  background:#fffdf8;
-  border:1px solid #f2cc8c;
-  border-radius:14px;
-  padding:12px;
-}
-.vehicle-detail-label{
-  font-size:12px;
-  color:#6b7280;
-  margin-bottom:5px;
-}
-.vehicle-detail-value{
-  font-size:14px;
-  color:#2b2b2b;
-  line-height:1.4;
-  word-break:break-word;
-}
-.vehicle-phone-link{
-  color:#0f766e;
-  font-weight:700;
-  text-decoration:none;
-}
-.vehicle-phone-link:hover{
-  text-decoration:underline;
-}
-.vehicle-photo-panel{
-  background:#fffdf8;
-  border:1px solid #f2cc8c;
-  border-radius:16px;
-  padding:12px;
-}
-.vehicle-photo-title{
-  font-size:13px;
-  font-weight:700;
-  color:#7c4a03;
-  margin-bottom:10px;
-}
-.vehicle-thumb{
-  width:100%;
-  height:220px;
-  border-radius:12px;
-  object-fit:contain;
-  border:1px solid #f2cc8c;
-  background:#fff;
-  display:block;
-}
-.vehicle-thumb-link{
-  display:block;
-}
-.vehicle-photo-empty{
-  min-height:220px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  color:#6b7280;
-  font-size:13px;
-  border:1px dashed #f2cc8c;
-  border-radius:12px;
-  background:#fff;
-  padding:18px;
-}
-.vehicle-empty{
-  padding:24px;
-  text-align:center;
-  color:var(--text-soft);
-  background:#fff;
-  border:1px dashed var(--border);
-  border-radius:18px;
-}
-@media (max-width: 860px){
-  .vehicle-card-body{
-    grid-template-columns:1fr;
-  }
-}
-@media (max-width: 640px){
-  .vehicle-detail-grid{
-    grid-template-columns:1fr;
-  }
-  .vehicle-card-summary{
-    padding:14px 15px;
-  }
-  .vehicle-card-body{
-    padding:14px 15px 15px;
-  }
-}
 
 #popupSuccessState{display:none;}
 #popupSuccessState #whatsappHelpLabel{display:block !important;}
@@ -946,199 +540,6 @@ body.facturapi-modal-open{
   font-size:24px;
   font-weight:700;
   color:var(--text);
-}
-.kpi-card-accent{
-  background:linear-gradient(180deg,#f3fff6 0%, #e7f8ee 100%);
-  border-color:#b7e4c7;
-}
-.kpi-card-alert{
-  background:linear-gradient(180deg,#fff6f6 0%, #fdeaea 100%);
-  border-color:#f2b8b5;
-}
-.dashboard-alerts{
-  margin-top:14px;
-  display:grid;
-  gap:10px;
-}
-.dashboard-alert{
-  border-radius:16px;
-  padding:12px 14px;
-  border:1px solid var(--border);
-  font-size:14px;
-  line-height:1.45;
-  background:#fffdf8;
-  color:#6b7280;
-}
-.dashboard-alert strong{color:#2b2b2b;}
-.dashboard-alert-pending{
-  background:linear-gradient(180deg,#fff7f7 0%, #fdecec 100%);
-  border-color:#efb3b1;
-  color:#9f1239;
-}
-.dashboard-alert-ok{
-  background:linear-gradient(180deg,#f5fff7 0%, #e9f9ee 100%);
-  border-color:#b7e4c7;
-  color:#166534;
-}
-.dashboard-alert-neutral{
-  background:#fffdf8;
-  border-color:#f3e3c4;
-  color:#8a6d3b;
-}
-.dashboard-records-wrap{
-  margin-top:16px;
-}
-.dashboard-records{
-  display:grid;
-  gap:14px;
-}
-.dashboard-record{
-  background:#fff;
-  border:1px solid var(--border);
-  border-radius:22px;
-  overflow:hidden;
-  box-shadow:0 10px 24px rgba(217,119,6,.08);
-}
-.dashboard-record-summary{
-  list-style:none;
-  cursor:pointer;
-  padding:16px;
-  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
-  transition:background .2s ease, border-color .2s ease;
-}
-.dashboard-record.factura-pendiente .dashboard-record-summary{
-  background:linear-gradient(180deg,#fff7f7 0%, #fdecec 100%);
-}
-.dashboard-record.factura-generada .dashboard-record-summary{
-  background:linear-gradient(180deg,#f5fff7 0%, #e9f9ee 100%);
-}
-.dashboard-record.factura-pendiente .dashboard-record-toggle{
-  border-color:#f4c7c7;
-  color:#c2410c;
-}
-.dashboard-record.factura-generada .dashboard-record-toggle{
-  border-color:#b7e4c7;
-  color:#15803d;
-}
-.dashboard-record-summary::-webkit-details-marker{display:none;}
-.dashboard-record-summary::marker{content:"";}
-.dashboard-record-top{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:12px;
-}
-.dashboard-record-title{
-  font-size:17px;
-  font-weight:800;
-  color:#2b2b2b;
-  line-height:1.25;
-}
-.dashboard-record-subtitle{
-  font-size:13px;
-  color:#6b7280;
-  margin-top:4px;
-  line-height:1.4;
-}
-.dashboard-record-toggle{
-  flex:0 0 auto;
-  width:36px;
-  height:36px;
-  border-radius:999px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:#fff;
-  border:1px solid #f3d7a4;
-  color:#b45309;
-  font-size:18px;
-  transition:transform .18s ease;
-}
-.dashboard-record[open] .dashboard-record-toggle{
-  transform:rotate(180deg);
-}
-.dashboard-summary-grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:10px;
-}
-.dashboard-summary-item{
-  background:#fff;
-  border:1px solid #f3e3c4;
-  border-radius:16px;
-  padding:10px 12px;
-  min-width:0;
-}
-.dashboard-summary-label{
-  font-size:11px;
-  font-weight:700;
-  color:#8a6d3b;
-  margin-bottom:4px;
-  text-transform:uppercase;
-  letter-spacing:.02em;
-}
-.dashboard-summary-value{
-  font-size:14px;
-  color:#2b2b2b;
-  line-height:1.35;
-  word-break:break-word;
-}
-.dashboard-summary-value .dashboard-whatsapp-link{
-  word-break:break-all;
-}
-.dashboard-monto-box{
-  display:grid;
-  gap:10px;
-}
-.dashboard-ticket-actions{
-  align-items:flex-start;
-}
-.dashboard-ticket-actions > div{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-start;
-  gap:6px;
-}
-.dashboard-record-body{
-  padding:16px;
-  border-top:1px solid #f3e3c4;
-  background:#fff;
-}
-.dashboard-record-actions{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:flex-start;
-  justify-content:space-between;
-}
-.dashboard-inline-actions{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  align-items:center;
-}
-.dashboard-action-card{
-  background:#fffdf8;
-  border:1px solid #f3e3c4;
-  border-radius:16px;
-  padding:12px;
-  flex:1 1 280px;
-}
-.dashboard-action-card .dashboard-summary-label{
-  margin-bottom:8px;
-}
-.dashboard-details-btn{
-  margin-top:0;
-  min-width:180px;
-}
-.empty-state{
-  padding:22px;
-  text-align:center;
-  color:var(--text-soft);
-  background:#fff;
-  border:1px dashed var(--border);
-  border-radius:18px;
 }
 .table-wrap{
   margin-top:16px;
@@ -1237,16 +638,6 @@ body.facturapi-modal-open{
   }
   .filter-actions{
     flex-direction:column;
-  }
-  .dashboard-summary-grid{
-    grid-template-columns:1fr;
-  }
-  .dashboard-record-summary,
-  .dashboard-record-body{
-    padding:14px;
-  }
-  .dashboard-details-btn{
-    width:100%;
   }
 }
 
@@ -1463,7 +854,12 @@ body.facturapi-modal-open{
 </head>
 <body>
 <div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
-<img alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w1000" style="max-width:260px; width:70%; height:auto; display:inline-block;"/>
+  <img
+    src="https://drive.google.com/thumbnail?id=1tgD_4er4DcZvG6IjN649-RElGvaZFcdI&sz=w1000"
+    alt="Logo Check-inn"
+    style="max-width:260px; width:70%; height:auto; display:inline-block;"
+    referrerpolicy="no-referrer"
+  >
 </div>
 <div class="page-shell">
 <div class="container">
@@ -1477,164 +873,159 @@ body.facturapi-modal-open{
 </div>
 <h1 data-i18n="title">Registro de huéspedes</h1>
 <div class="top-menu">
-<button class="menu-btn active" id="menuRegistroBtn" type="button">Registro de huéspedes</button>
-<button class="menu-btn secondary" id="menuVehiculosBtn" type="button">Información de vehículos</button>
-<button class="menu-btn secondary" id="menuControlBtn" type="button">Control de huéspedes</button>
+  <button type="button" class="menu-btn active" id="menuRegistroBtn">Registro de huéspedes</button>
+  <button type="button" class="menu-btn secondary" id="menuControlBtn">Control de huéspedes</button>
 </div>
-<div class="view-panel hidden" id="viewVehiculos">
-<div class="dashboard-wrap">
-<div class="section">
-<h2 class="section-title">Información de vehículos</h2>
-<p class="section-subtitle">Consulta los vehículos con estancia activa hoy y filtra la información por propiedad.</p>
-<div class="vehicle-info-toolbar">
-<div>
-<label for="vehiculos_propiedad_filtro">Propiedad</label>
-<select id="vehiculos_propiedad_filtro">
-<option value="">Selecciona</option>
-</select>
+
+<div id="viewDashboard" class="view-panel hidden">
+  <div class="dashboard-wrap">
+    <div class="section">
+      <h2 class="section-title">Control de huéspedes</h2>
+      <p class="section-subtitle">Consulta los registros guardados en la hoja "Check in" con filtros dinámicos, rango de fechas, paginación y detalle completo.</p>
+
+      <div class="range-grid">
+        <div class="range-card">
+          <div class="range-title">Rango de fecha de entrada</div>
+          <div class="grid">
+            <div>
+              <label for="filtro_fecha_entrada_desde">Desde</label>
+              <input type="date" id="filtro_fecha_entrada_desde">
+            </div>
+            <div>
+              <label for="filtro_fecha_entrada_hasta">Hasta</label>
+              <input type="date" id="filtro_fecha_entrada_hasta">
+            </div>
+          </div>
+        </div>
+        <div class="range-card">
+          <div class="range-title">Rango de fecha de salida</div>
+          <div class="grid">
+            <div>
+              <label for="filtro_fecha_salida_desde">Desde</label>
+              <input type="date" id="filtro_fecha_salida_desde">
+            </div>
+            <div>
+              <label for="filtro_fecha_salida_hasta">Hasta</label>
+              <input type="date" id="filtro_fecha_salida_hasta">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="filter-grid" style="margin-top:14px;">
+        <div>
+          <label for="filtro_nombre_reservacion">Nombre de la persona que hizo la reservación</label>
+          <select id="filtro_nombre_reservacion"><option value="">Todos</option></select>
+        </div>
+        <div>
+          <label for="filtro_medio_reservacion">Medio de reservación</label>
+          <select id="filtro_medio_reservacion"><option value="">Todos</option></select>
+        </div>
+        <div>
+          <label for="filtro_celular_principal">Cel/Whatsapp (principal)</label>
+          <select id="filtro_celular_principal"><option value="">Todos</option></select>
+        </div>
+        <div>
+          <label for="filtro_requiere_factura">¿Requiere factura?</label>
+          <select id="filtro_requiere_factura"><option value="">Todos</option><option value="Sí">Sí</option><option value="No">No</option></select>
+        </div>
+        <div>
+          <label for="filtro_razon_social">Razón social</label>
+          <select id="filtro_razon_social"><option value="">Todos</option></select>
+        </div>
+        <div>
+          <label for="filtro_forma_pago">Forma de pago</label>
+          <select id="filtro_forma_pago"><option value="">Todos</option></select>
+        </div>
+        <div>
+          <label for="filtro_correo">Correo electrónico</label>
+          <select id="filtro_correo"><option value="">Todos</option></select>
+        </div>
+        <div>
+          <label for="dashboard_page_size">Registros por página</label>
+          <select id="dashboard_page_size">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-actions">
+        <button type="button" id="btnBuscarHuespedes">Buscar registros</button>
+        <button type="button" class="menu-btn secondary" id="btnLimpiarFiltros" style="flex:0 0 auto;">Limpiar filtros</button>
+        <button type="button" class="menu-btn secondary" id="btnExportarCsv" style="flex:0 0 auto;">Exportar CSV</button>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">Registros encontrados</div><div class="kpi-value" id="kpi_total_registros">0</div></div>
+        <div class="kpi-card"><div class="kpi-label">Con factura</div><div class="kpi-value" id="kpi_con_factura">0</div></div>
+        <div class="kpi-card"><div class="kpi-label">Sin factura</div><div class="kpi-value" id="kpi_sin_factura">0</div></div>
+        <div class="kpi-card"><div class="kpi-label">Medios de reservación únicos</div><div class="kpi-value" id="kpi_medios_unicos">0</div></div>
+      </div>
+
+      <div class="results-meta" id="dashboardMeta">Sin consulta todavía.</div>
+
+      <div class="table-wrap">
+        <table class="table-results">
+          <thead>
+            <tr>
+              <th>¿Requiere factura?</th>
+              <th>$ Monto facturado Total</th>
+              <th>Fecha de entrada</th>
+              <th>Fecha de salida</th>
+              <th>Nombre de la persona que hizo la reservación</th>
+              <th>Medio de reservación</th>
+              <th>Cel/Whatsapp (principal)</th>
+              <th>Razón social</th>
+              <th>Forma de pago</th>
+              <th>Correo electrónico</th>
+              <th>Propiedad</th>
+              <th># Departamento</th>
+              <th># Huéspedes</th>
+            </tr>
+          </thead>
+          <tbody id="dashboardTableBody">
+            <tr><td colspan="13" class="empty-state">Sin registros para mostrar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pager-bar">
+        <div class="pager-info" id="dashboardPagerInfo">Página 1 de 1</div>
+        <div class="pager-controls">
+          <button type="button" class="menu-btn secondary" id="btnPrevPage" style="flex:0 0 auto;">Anterior</button>
+          <button type="button" class="menu-btn secondary" id="btnNextPage" style="flex:0 0 auto;">Siguiente</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
-</div>
-<div class="filter-actions">
-<button id="btnBuscarVehiculos" type="button">Buscar vehículos</button>
-<button class="menu-btn secondary" id="btnLimpiarVehiculos" style="flex:0 0 auto;" type="button">Limpiar filtros</button>
-</div>
-<div class="vehicle-info-meta" id="vehiculosMeta">Sin consulta todavía.</div>
-<div class="vehicle-list" id="vehiculosTableBody">
-<div class="vehicle-empty">Sin registros para mostrar.</div>
-</div>
-</div>
-</div>
-</div>
-<div class="popup-backdrop" id="vehiculosLoadingPopup" style="display:none;">
-<div class="popup-card" style="max-width:320px;">
-<div style="width:52px;height:52px;border:4px solid rgba(245,158,11,.25);border-top-color:#f59e0b;border-radius:50%;margin:0 auto 16px;animation:spinPopup 0.9s linear infinite;"></div>
-<h3 style="margin-bottom:8px;">Buscando vehículos</h3>
-<div class="hint" style="margin:0;">Por favor espera mientras consultamos los registros.</div>
-</div>
-</div>
-<div class="view-panel hidden" id="viewDashboard">
-<div class="dashboard-wrap">
-<div class="section">
-<h2 class="section-title">Control de huéspedes</h2>
-<p class="section-subtitle">Consulta los registros guardados en la hoja "Check in" con filtros dinámicos, rango de fechas, paginación y detalle completo.</p>
-<div class="range-grid">
-<div class="range-card">
-<div class="range-title">Rango de fecha de entrada</div>
-<div class="grid">
-<div>
-<label for="filtro_fecha_entrada_desde">Desde</label>
-<input id="filtro_fecha_entrada_desde" type="date"/>
-</div>
-<div>
-<label for="filtro_fecha_entrada_hasta">Hasta</label>
-<input id="filtro_fecha_entrada_hasta" type="date"/>
-</div>
-</div>
-</div>
-<div class="range-card">
-<div class="range-title">Rango de fecha de salida</div>
-<div class="grid">
-<div>
-<label for="filtro_fecha_salida_desde">Desde</label>
-<input id="filtro_fecha_salida_desde" type="date"/>
-</div>
-<div>
-<label for="filtro_fecha_salida_hasta">Hasta</label>
-<input id="filtro_fecha_salida_hasta" type="date"/>
-</div>
-</div>
-</div>
-</div>
-<div class="filter-grid" style="margin-top:14px;">
-<div>
-<label for="filtro_nombre_reservacion">Nombre de la persona que hizo la reservación</label>
-<select id="filtro_nombre_reservacion"><option value="">Todos</option></select>
-</div>
-<div>
-<label for="filtro_medio_reservacion">Medio de reservación</label>
-<select id="filtro_medio_reservacion"><option value="">Todos</option></select>
-</div>
-<div>
-<label for="filtro_celular_principal">Cel/Whatsapp (principal)</label>
-<select id="filtro_celular_principal"><option value="">Todos</option></select>
-</div>
-<div>
-<label for="filtro_requiere_factura">¿Requiere factura?</label>
-<select id="filtro_requiere_factura"><option value="">Todos</option><option value="Sí">Sí</option><option value="No">No</option></select>
-</div>
-<div>
-<label for="filtro_razon_social">Razón social</label>
-<select id="filtro_razon_social"><option value="">Todos</option></select>
-</div>
-<div>
-<label for="filtro_forma_pago">Forma de pago</label>
-<select id="filtro_forma_pago"><option value="">Todos</option></select>
-</div>
-<div>
-<label for="filtro_correo">Correo electrónico</label>
-<select id="filtro_correo"><option value="">Todos</option></select>
-</div>
-<div>
-<label for="dashboard_page_size">Registros por página</label>
-<select id="dashboard_page_size">
-<option value="10">10</option>
-<option selected="" value="25">25</option>
-<option value="50">50</option>
-<option value="100">100</option>
-</select>
-</div>
-</div>
-<div class="filter-actions">
-<button id="btnBuscarHuespedes" type="button">Buscar registros</button>
-<button class="menu-btn secondary" id="btnLimpiarFiltros" style="flex:0 0 auto;" type="button">Limpiar filtros</button>
-<button class="menu-btn secondary" id="btnExportarCsv" style="flex:0 0 auto;" type="button">Exportar CSV</button>
-</div>
-<div class="kpi-grid">
-<div class="kpi-card"><div class="kpi-label">Registros encontrados</div><div class="kpi-value" id="kpi_total_registros">0</div></div>
-<div class="kpi-card"><div class="kpi-label">Con factura</div><div class="kpi-value" id="kpi_con_factura">0</div></div>
-<div class="kpi-card"><div class="kpi-label">Sin factura</div><div class="kpi-value" id="kpi_sin_factura">0</div></div>
-<div class="kpi-card"><div class="kpi-label">Medios de reservación únicos</div><div class="kpi-value" id="kpi_medios_unicos">0</div></div>
-<div class="kpi-card kpi-card-accent"><div class="kpi-label">% facturado</div><div class="kpi-value" id="kpi_pct_facturado">0%</div></div>
-<div class="kpi-card kpi-card-alert"><div class="kpi-label">% pendiente</div><div class="kpi-value" id="kpi_pct_pendiente">0%</div></div>
-</div>
-<div class="dashboard-alerts" id="dashboardAlerts"><div class="dashboard-alert dashboard-alert-neutral">Sin alertas todavía.</div></div>
-<div class="results-meta" id="dashboardMeta">Sin consulta todavía.</div>
-<div class="dashboard-records-wrap">
-<div class="dashboard-records" id="dashboardTableBody">
-<div class="empty-state">Sin registros para mostrar.</div>
-</div>
-</div>
-<div class="pager-bar">
-<div class="pager-info" id="dashboardPagerInfo">Página 1 de 1</div>
-<div class="pager-controls">
-<button class="menu-btn secondary" id="btnPrevPage" style="flex:0 0 auto;" type="button">Anterior</button>
-<button class="menu-btn secondary" id="btnNextPage" style="flex:0 0 auto;" type="button">Siguiente</button>
-</div>
-</div>
-</div>
-</div>
-</div>
+
 <div class="popup-backdrop" id="dashboardDetailModal" style="display:none;">
-<div class="popup-card detail-modal-card">
-<h3 style="margin-bottom:6px;">Detalle completo del registro</h3>
-<div class="hint" id="dashboardDetailSubtitle" style="margin-bottom:14px;">Consulta completa del huésped.</div>
-<div class="detail-grid" id="dashboardDetailGrid"></div>
-<div class="detail-modal-actions">
-<button onclick="cerrarDetalleDashboard()" type="button">Cerrar</button>
+  <div class="popup-card detail-modal-card">
+    <h3 style="margin-bottom:6px;">Detalle completo del registro</h3>
+    <div class="hint" id="dashboardDetailSubtitle" style="margin-bottom:14px;">Consulta completa del huésped.</div>
+    <div class="detail-grid" id="dashboardDetailGrid"></div>
+    <div class="detail-modal-actions">
+      <button type="button" onclick="cerrarDetalleDashboard()">Cerrar</button>
+    </div>
+  </div>
 </div>
-</div>
-</div>
-<div class="view-panel" id="viewRegistro">
+
+<div id="viewRegistro" class="view-panel">
+
 <form id="form">
-<input id="tipo_registro" name="tipo_registro" type="hidden" value="nuevo"/>
+<input type="hidden" id="tipo_registro" name="tipo_registro" value="nuevo"/>
 <div class="section" id="section_celular_principal"><h2 class="section-title" data-i18n="phoneLookupTitle">Número de celular</h2><p class="section-subtitle" data-i18n="phoneLookupSub">Escribe tu número para buscar si ya existe un registro previo y completar automáticamente algunos datos.</p>
 <div class="phone-group">
 <select id="lada1" name="lada1"></select>
-<input autocomplete="tel-national" id="celular_principal_input" inputmode="numeric" name="cel" type="tel"/>
+<input id="celular_principal_input" name="cel" type="tel" inputmode="numeric" autocomplete="tel-national"/>
 </div>
-<div class="note hidden" id="guestAutofillStatus" style="margin-top:10px;"></div>
+<div id="guestAutofillStatus" class="note hidden" style="margin-top:10px;"></div>
 </div>
-<div class="visible" id="formulario_principal"><div class="section"><h2 class="section-title" data-i18n="sec1Title">Datos de la reservación</h2><p class="section-subtitle" data-i18n="sec1Sub"></p><label data-i18n="bookingSource">Medio de reservación</label>
+<div id="formulario_principal" class="visible"><div class="section"><h2 class="section-title" data-i18n="sec1Title">Datos de la reservación</h2><p class="section-subtitle" data-i18n="sec1Sub"></p><label data-i18n="bookingSource">Medio de reservación</label>
 <select name="medio">
 <option value="">Selecciona</option>
 <option value="Airbnb">Airbnb</option>
@@ -1675,6 +1066,7 @@ body.facturapi-modal-open{
 </select>
 </div></div>
 <div id="field_huespedes_nombres"><label data-i18n="guestNames">Nombres de los huéspedes</label>
+
 <div id="huespedes-container">
 <div class="huesped-row" style="position:relative;">
 <div style="flex:1; padding-right:34px;">
@@ -1890,6 +1282,7 @@ body.facturapi-modal-open{
 </select>
 </div></div>
 <div id="field_huespedes_nombres"><label data-i18n="guestNames">Nombres de los huéspedes</label>
+
 <div id="huespedes-container">
 <div class="huesped-row" style="position:relative;">
 <div style="flex:1; padding-right:34px;">
@@ -1918,12 +1311,13 @@ body.facturapi-modal-open{
 <option value="no">No</option>
 </select>
 <div class="note hidden" id="factura_notas">
-<div class="factura-note-es">a) UNA FACTURA por PERIODO registrado</div>
-<div class="factura-note-es" style="margin-top:6px;">b) Si realizas una EXTENSIÓN deberás realizar un nuevo registro para el nuevo periodo</div>
-<div class="factura-note-es" style="margin-top:6px;">c) TICKET VIGENTE ÚNICAMENTE DENTRO DEL MES en que fue generado</div>
-<div class="factura-note-en hidden">a) ONE INVOICE per REGISTERED PERIOD</div>
-<div class="factura-note-en hidden" style="margin-top:6px;">b) If you EXTEND your stay, you must submit a new registration for the new period</div>
-<div class="factura-note-en hidden" style="margin-top:6px;">c) TICKET VALID ONLY WITHIN THE MONTH it was issued</div>
+  <div class="factura-note-es">a) UNA FACTURA por PERIODO registrado</div>
+  <div class="factura-note-es" style="margin-top:6px;">b) Si realizas una EXTENSIÓN deberás realizar un nuevo registro para el nuevo periodo</div>
+  <div class="factura-note-es" style="margin-top:6px;">c) TICKET VIGENTE ÚNICAMENTE DENTRO DEL MES en que fue generado</div>
+
+  <div class="factura-note-en hidden">a) ONE INVOICE per REGISTERED PERIOD</div>
+  <div class="factura-note-en hidden" style="margin-top:6px;">b) If you EXTEND your stay, you must submit a new registration for the new period</div>
+  <div class="factura-note-en hidden" style="margin-top:6px;">c) TICKET VALID ONLY WITHIN THE MONTH it was issued</div>
 </div>
 <div class="hidden" id="factura_fields">
 <div id="field_razon_social"><label data-i18n="businessName">Razón social</label>
@@ -1937,7 +1331,6 @@ body.facturapi-modal-open{
 <option value="Otro">Otro</option>
 </select>
 <input class="hidden" id="regimen_otro" name="regimen_otro" placeholder="Especifica el régimen fiscal" type="text"/>
-<input id="concepto_facturapi" name="concepto_facturapi" type="hidden" value=""/>
 </div><label data-i18n="paymentMethod">Medio de pago</label>
 <select id="medio_pago" name="medio_pago">
 <option value="">Selecciona</option>
@@ -1963,10 +1356,10 @@ body.facturapi-modal-open{
 </div>
 </div>
 <div class="note hidden" id="nota_airbnb">
-<div class="nota-airbnb-es">
+  <div class="nota-airbnb-es">
     La factura emitida por Check-Inn NO INCLUYE la "Comisión Airbnb". En caso de querer cubrir el gasto total deberás descargar la factura correspondiente a la comisión de esta plataforma directamente de su app.
   </div>
-<div class="nota-airbnb-en hidden">
+  <div class="nota-airbnb-en hidden">
     The invoice issued by Check-Inn DOES NOT INCLUDE the "Airbnb Commission". If you want to cover the total cost, you must download the invoice for this platform's commission directly from its app.
   </div>
 </div>
@@ -1989,18 +1382,13 @@ body.facturapi-modal-open{
 <input id="correo2" name="correo2" type="email"/>
 </div>
 </div>
-<div class="section" id="vehicle_section_hidden_backend"><h2 class="section-title" data-i18n="sec5Title">Registro de vehículo</h2><p class="section-subtitle" data-i18n="vehicleProSub">Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.</p><label data-i18n="vehicle">¿Cuentas con vehículo?</label>
+<div class="section hidden" id="vehicle_section_hidden_backend"><h2 class="section-title" data-i18n="sec5Title">Registro de vehículo</h2><label data-i18n="vehicle">¿Cuentas con vehículo?</label>
 <select id="tiene_vehiculo" name="tiene_vehiculo">
 <option value="">Selecciona</option>
 <option value="si">Sí</option>
 <option value="no">No</option>
 </select>
-<div class="vehicle-pro-shell hidden" id="vehiculo_fields">
-<div class="vehicle-warning" id="vehicleWarningBox"></div>
-<div class="vehicle-alert-note hidden" id="vehicleCoordinationNote">En caso de ocupar el PASILLO CENTRAL requerirás COORDINARTE con los DEMÁS HUÉSPEDES. Consulta los horarios de entrada, salida y contacto en el módulo "Información de vehículos".</div>
-<div class="vehicle-fields-grid" style="grid-template-columns:1fr;">
-<div class="vehicle-card">
-<div class="vehicle-card-title" data-i18n="vehicleIdentityTitle">Identificación del vehículo</div>
+<div class="hidden" id="vehiculo_fields">
 <label data-i18n="make">Marca</label>
 <select id="vehiculo_marca" name="vehiculo_marca">
 <option value="">Selecciona</option>
@@ -2039,10 +1427,10 @@ body.facturapi-modal-open{
 <input class="hidden" id="vehiculo_marca_otro" name="vehiculo_marca_otro" placeholder="Especifica la marca" type="text"/>
 <label data-i18n="model">Modelo</label>
 <input id="vehiculo_modelo" name="vehiculo_modelo" placeholder="Especifica el modelo" type="text"/>
-<label data-i18n="platesRequired"># Placas</label>
-<input autocapitalize="characters" id="vehiculo_placas" maxlength="12" name="vehiculo_placas" placeholder="Escribe las placas" type="text"/>
-<div class="hint" data-i18n="platesHint">Usa letras y números tal como aparecen en el vehículo.</div>
-<label data-i18n="color">Color</label><input id="vehiculo_color" name="vehiculo_color" placeholder="Ejemplo: Blanco, gris, rojo" type="text"/><label data-i18n="usualDepartureTime">Hora habitual de salida</label><input id="vehiculo_hora_salida" name="vehiculo_hora_salida" type="time"/><label data-i18n="addPhoto">Agregar foto</label><div class="upload-box">
+<label data-i18n="color">Color (opcional)</label>
+<input id="vehiculo_color" name="vehiculo_color" placeholder="Ejemplo: Blanco, gris, rojo" type="text"/>
+<label data-i18n="addPhoto">Agregar foto (opcional)</label>
+<div class="upload-box">
 <label class="custom-upload">
 <input accept="image/*" id="vehiculo_foto" name="vehiculo_foto" type="file"/>
 <span class="upload-drop">
@@ -2054,12 +1442,11 @@ body.facturapi-modal-open{
 </span>
 </label>
 <div class="preview-wrapper"><img alt="" class="preview-img hidden" id="vehiculo_foto_preview"/><div class="preview-text" id="vehiculo_foto_name">Ninguna imagen seleccionada</div></div>
-</div></div>
 </div>
-<div class="vehicle-summary" id="vehicleSummaryBox" style="display:none;">
-<div class="vehicle-summary-title" data-i18n="vehicleSummaryTitle">Resumen del vehículo</div>
-<div class="vehicle-summary-text" id="vehicleSummaryText"></div>
-</div>
+<label data-i18n="usualDepartureTime">Hora habitual de salida (opcional)</label>
+<input id="vehiculo_hora_salida" name="vehiculo_hora_salida" type="time"/>
+<label data-i18n="plates"># Placas (opcional)</label>
+<input id="vehiculo_placas" name="vehiculo_placas" placeholder="Escribe las placas" type="text"/>
 </div>
 </div>
 <div class="section"><h2 class="section-title" data-i18n="sec6Title">Comentarios</h2><p class="section-subtitle" data-i18n="sec6Sub"></p>
@@ -2087,7 +1474,7 @@ body.facturapi-modal-open{
 </div>
 </div>
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxSANWdm_0uM3HZ5F9IEVzspEDA0ekOA8jZVw1JQtMmZMPtZHFiRQUtWqn2s77yVPbsWw/exec";
+const WEB_APP_URL = window.CHECKIN_WEB_APP_URL || "https://script.google.com/macros/s/AKfycbzwg18jToCCIqIgxers0WZ5nD4AZFL-dxhErk9EazFffaatWzaZTstprZVF9u9qnE4_wg/exec";
 const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || `${window.location.origin}/facturapi`;
 
 const ladas = [
@@ -2312,7 +1699,6 @@ function applyGuestRecordToForm(row){
   syncFacturaVisibility();
   setInputValue('#razon_social', row["Razón social"]);
   setSelectByTextOrValue(document.getElementById("regimen"), row["Régimen fiscal"]);
-  syncConceptoFacturapiPorRegimen();
   setSelectByTextOrValue(document.getElementById("divisa_monto"), row["Divisa monto pagado"]);
   if (String(row["Régimen fiscal"] || "").trim().toLowerCase() === 'otro') {
     setInputValue('#regimen_otro', row["Régimen fiscal otro"] || row["Régimen otro"]);
@@ -2501,7 +1887,6 @@ const divisa_monto = document.getElementById("divisa_monto");
 const monto_preview = document.getElementById("monto_preview");
 const regimen = document.getElementById("regimen");
 const regimen_otro = document.getElementById("regimen_otro");
-const conceptoFacturapi = document.getElementById("concepto_facturapi");
 const numHuespedes = document.getElementById("num_huespedes");
 const identificacionTipo = document.getElementById("identificacion_tipo");
 const identificacionOtro = document.getElementById("identificacion_otro");
@@ -2519,11 +1904,6 @@ const vehiculoColor = document.getElementById("vehiculo_color");
 const vehiculoFoto = document.getElementById("vehiculo_foto");
 const vehiculoHoraSalida = document.getElementById("vehiculo_hora_salida");
 const vehiculoPlacas = document.getElementById("vehiculo_placas");
-const vehicleSummaryBox = document.getElementById("vehicleSummaryBox");
-const vehicleSummaryText = document.getElementById("vehicleSummaryText");
-const vehicleStatusPill = document.getElementById("vehicleStatusPill");
-const vehicleWarningBox = document.getElementById("vehicleWarningBox");
-const vehicleCoordinationNote = document.getElementById("vehicleCoordinationNote");
 const comprobanteTransferenciaWrap = document.getElementById("comprobante_transferencia_wrap");
 const comprobanteTransferencia = document.getElementById("comprobante_transferencia");
 
@@ -2644,28 +2024,12 @@ propiedad.addEventListener("change", () => {
   const show = propiedad.value === "Otra";
   propiedad_otra.classList.toggle("hidden", !show);
   if (!show) propiedad_otra.value = "";
-  actualizarAvisoCoordinacionVehiculo();
 });
-
-function resolveConceptoFacturapiPorRegimen(regimenFiscal){
-  const regimenNormalizado = String(regimenFiscal || "").trim().toLowerCase();
-  return regimenNormalizado === "general de ley personas morales"
-    ? "1. Arrendamiento en Saltillo, Coah."
-    : "2. Arrendamiento en Saltillo, Coah.";
-}
-
-function syncConceptoFacturapiPorRegimen(){
-  if (!conceptoFacturapi) return "";
-  const valor = resolveConceptoFacturapiPorRegimen(regimen?.value || "");
-  conceptoFacturapi.value = valor;
-  return valor;
-}
 
 function toggleRegimenOtro(){
   const show = regimen.value === "Otro";
   regimen_otro.classList.toggle("hidden", !show);
   if (!show) regimen_otro.value = "";
-  syncConceptoFacturapiPorRegimen();
 }
 regimen.addEventListener("change", toggleRegimenOtro);
 
@@ -2747,11 +2111,8 @@ function formatCurrencyPreview(){
 monto_pagado.addEventListener("input", formatCurrencyPreview);
 divisa_monto.addEventListener("change", formatCurrencyPreview);
 formatCurrencyPreview();
-syncConceptoFacturapiPorRegimen();
 toggleComprobanteTransferencia();
 syncFacturaVisibility();
-actualizarAvisoCoordinacionVehiculo();
-actualizarResumenVehiculo();
 
 function updateFileName(inputId, outputId, previewId){
   const input = document.getElementById(inputId);
@@ -2785,22 +2146,6 @@ updateFileName("ine_trasero", "ine_trasero_name", "ine_trasero_preview");
 updateFileName("identificacion_unica", "identificacion_unica_name", "identificacion_unica_preview");
 updateFileName("vehiculo_foto", "vehiculo_foto_name", "vehiculo_foto_preview");
 updateFileName("comprobante_transferencia", "comprobante_transferencia_name", "comprobante_transferencia_preview");
-
-[vehiculoMarca, vehiculoMarcaOtro, vehiculoModelo, vehiculoColor, vehiculoHoraSalida].forEach(el => {
-  if (!el) return;
-  el.addEventListener("input", actualizarResumenVehiculo);
-  el.addEventListener("change", actualizarResumenVehiculo);
-});
-if (vehiculoPlacas) {
-  vehiculoPlacas.addEventListener("input", () => {
-    normalizarPlacasVehiculo();
-    actualizarResumenVehiculo();
-  });
-  vehiculoPlacas.addEventListener("blur", normalizarPlacasVehiculo);
-}
-if (vehiculoFoto) {
-  vehiculoFoto.addEventListener("change", actualizarResumenVehiculo);
-}
 
 function fileToBase64(file){
   return new Promise((resolve, reject) => {
@@ -2867,82 +2212,11 @@ function toggleMarcaOtro(){
 }
 vehiculoMarca.addEventListener("change", toggleMarcaOtro);
 
-function actualizarAvisoCoordinacionVehiculo(){
-  if (!vehicleCoordinationNote) return;
-  const tiene = String(tieneVehiculo?.value || "").trim().toLowerCase() === "si";
-  const propiedadSeleccionada = String(propiedad?.value || "").trim();
-  const mostrar = tiene && (propiedadSeleccionada === "Calle Cumbres" || propiedadSeleccionada === "Calle Oaxaca");
-  vehicleCoordinationNote.classList.toggle("hidden", !mostrar);
-}
-
-function actualizarResumenVehiculo(){
-  if (!vehicleSummaryBox || !vehicleSummaryText || !vehicleStatusPill) return;
-  const activo = tieneVehiculo.value === "si";
-  if (!activo) {
-    vehicleSummaryBox.style.display = "none";
-    vehicleSummaryText.textContent = "";
-    vehicleStatusPill.textContent = (window.currentLang === "en")
-      ? "Vehicle section inactive"
-      : "Sección de vehículo inactiva";
-    if (vehicleWarningBox) {
-      vehicleWarningBox.classList.remove("show");
-      vehicleWarningBox.textContent = "";
-    }
-    return;
-  }
-  const marca = (vehiculoMarca.value === "Otro" ? vehiculoMarcaOtro.value : vehiculoMarca.value || "").trim();
-  const modelo = (vehiculoModelo.value || "").trim();
-  const color = (vehiculoColor.value || "").trim();
-  const placas = (vehiculoPlacas.value || "").trim();
-  const hora = (vehiculoHoraSalida.value || "").trim();
-  const foto = vehiculoFoto?.files?.[0]?.name || "";
-  const faltantes = [];
-
-  if (!marca && !modelo && !color && !placas && !hora && !foto) {
-    vehicleStatusPill.textContent = (window.currentLang === "en")
-      ? "Vehicle details are optional"
-      : "Los datos del vehículo son opcionales";
-    if (vehicleWarningBox) {
-      vehicleWarningBox.classList.remove("show");
-      vehicleWarningBox.textContent = "";
-    }
-  } else {
-    vehicleStatusPill.textContent = (window.currentLang === "en")
-      ? "Vehicle information captured"
-      : "Información del vehículo capturada";
-    if (vehicleWarningBox) {
-      vehicleWarningBox.classList.remove("show");
-      vehicleWarningBox.textContent = "";
-    }
-  }
-
-  const partes = [
-    marca && modelo ? `${marca} ${modelo}` : (marca || modelo),
-    color ? ((window.currentLang === "en") ? `Color: ${color}` : `Color: ${color}`) : "",
-    placas ? ((window.currentLang === "en") ? `Plates: ${placas}` : `Placas: ${placas}`) : "",
-    hora ? ((window.currentLang === "en") ? `Usual departure: ${hora}` : `Salida habitual: ${hora}`) : "",
-    foto ? ((window.currentLang === "en") ? `Photo: ${foto}` : `Foto: ${foto}`) : ""
-  ].filter(Boolean);
-  if (partes.length) {
-    vehicleSummaryBox.style.display = "block";
-    vehicleSummaryText.textContent = partes.join(" · ");
-  } else {
-    vehicleSummaryBox.style.display = "none";
-    vehicleSummaryText.textContent = "";
-  }
-}
-
-function normalizarPlacasVehiculo(){
-  if (!vehiculoPlacas) return;
-  vehiculoPlacas.value = String(vehiculoPlacas.value || "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9-]/g, "")
-    .slice(0, 12);
-}
-
-function toggleVehicleFields(){
+tieneVehiculo.addEventListener("change", () => {
   const show = tieneVehiculo.value === "si";
   vehiculoFields.classList.toggle("hidden", !show);
+
+
   if (!show) {
     vehiculoMarca.value = "";
     vehiculoMarcaOtro.value = "";
@@ -2952,17 +2226,13 @@ function toggleVehicleFields(){
     vehiculoHoraSalida.value = "";
     vehiculoPlacas.value = "";
     document.getElementById("vehiculo_foto_name").textContent = "Ninguna imagen seleccionada";
-    document.getElementById("vehiculo_foto_preview").classList.add("hidden");
-    document.getElementById("vehiculo_foto_preview").src = "";
+      document.getElementById("vehiculo_foto_preview").classList.add("hidden");
+      document.getElementById("vehiculo_foto_preview").src = "";
     vehiculoMarcaOtro.classList.add("hidden");
   } else {
     toggleMarcaOtro();
   }
-  actualizarAvisoCoordinacionVehiculo();
-  actualizarResumenVehiculo();
-}
-
-tieneVehiculo.addEventListener("change", toggleVehicleFields);
+});
 
 
 const MAX_FILE_SIZE_MB = 12;
@@ -3133,11 +2403,6 @@ document.getElementById("form").addEventListener("submit", async function(e){
 
   validarArchivosAntesDeEnviar();
 
-  const tieneVehiculoActivo = String(f.get("tiene_vehiculo") || "") === "si";
-  const vehiculoMarcaFinal = String((f.get("vehiculo_marca") === "Otro" ? f.get("vehiculo_marca_otro") : f.get("vehiculo_marca")) || "").trim();
-  const vehiculoModeloFinal = String(f.get("vehiculo_modelo") || "").trim();
-  const vehiculoPlacasFinal = String(f.get("vehiculo_placas") || "").trim().toUpperCase();
-
   const payload = {
     action: "submit_form",
     tipo_registro: f.get("tipo_registro"),
@@ -3179,12 +2444,12 @@ document.getElementById("form").addEventListener("submit", async function(e){
     tiene_vehiculo: f.get("tiene_vehiculo"),
     vehiculo_marca: f.get("vehiculo_marca"),
     vehiculo_marca_otro: f.get("vehiculo_marca_otro"),
-    vehiculo_modelo: vehiculoModeloFinal,
+    vehiculo_modelo: f.get("vehiculo_modelo"),
     vehiculo_modelo_otro: "",
     vehiculo_color: f.get("vehiculo_color"),
     vehiculo_foto: "",
     vehiculo_hora_salida: f.get("vehiculo_hora_salida"),
-    vehiculo_placas: vehiculoPlacasFinal,
+    vehiculo_placas: f.get("vehiculo_placas"),
     comentarios: f.get("comentarios")
   };
 
@@ -3372,11 +2637,11 @@ const I18N = {
     specifyMake: "Especifica la marca",
     model: "Modelo",
     specifyModel: "Especifica el modelo",
-    color: "Color",
+    color: "Color (opcional)",
     colorPlaceholder: "Ejemplo: Blanco, gris, rojo",
-    addPhoto: "Agregar foto",
-    usualDepartureTime: "Hora habitual de salida",
-    plates: "# Placas",
+    addPhoto: "Agregar foto (opcional)",
+    usualDepartureTime: "Hora habitual de salida (opcional)",
+    plates: "# Placas (opcional)",
     platesPlaceholder: "Escribe las placas",
     comments: "Comentarios (opcional)",
     send: "Enviar",
@@ -3467,11 +2732,11 @@ const I18N = {
     specifyMake: "Specify the make",
     model: "Model",
     specifyModel: "Specify the model",
-    color: "Color",
+    color: "Color (optional)",
     colorPlaceholder: "Example: White, gray, red",
-    addPhoto: "Add photo",
-    usualDepartureTime: "Usual departure time",
-    plates: "License plates",
+    addPhoto: "Add photo (optional)",
+    usualDepartureTime: "Usual departure time (optional)",
+    plates: "License plates (optional)",
     platesPlaceholder: "Enter the license plates",
     comments: "Comments (optional)",
     send: "Submit",
@@ -3582,9 +2847,9 @@ function applyTranslations(lang){
     else if (text.includes("Cuentas con vehículo") || text.includes("Do you have a vehicle")) label.textContent = t.vehicle;
     else if (text === "Marca" || text === "Make") label.textContent = t.make;
     else if (text === "Modelo" || text === "Model") label.textContent = t.model;
-    else if (text === "Color" || text === "Color") label.textContent = t.color;
-    else if (text === "Agregar foto" || text === "Add photo") label.textContent = t.addPhoto;
-    else if (text === "Hora habitual de salida" || text === "Usual departure time") label.textContent = t.usualDepartureTime;
+    else if (text === "Color (opcional)" || text === "Color (optional)") label.textContent = t.color;
+    else if (text === "Agregar foto (opcional)" || text === "Add photo (optional)") label.textContent = t.addPhoto;
+    else if (text === "Hora habitual de salida (opcional)" || text === "Usual departure time (optional)") label.textContent = t.usualDepartureTime;
     else if (text.includes("Placas") || text.includes("License plates")) label.textContent = t.plates;
     else if (text.includes("Comentarios") || text.includes("Comments")) label.textContent = t.comments;
   });
@@ -3651,7 +2916,6 @@ function applyTranslations(lang){
 document.documentElement.lang = lang;
   window.currentLang = lang;
   if (typeof actualizarNotasFacturaPorIdioma === "function") actualizarNotasFacturaPorIdioma(lang);
-  if (typeof actualizarResumenVehiculo === "function") actualizarResumenVehiculo();
   if (guestAutofillStatus && !guestAutofillStatus.classList.contains("hidden")) {
     detectExistingGuestByPhone();
   }
@@ -3682,24 +2946,6 @@ const SIMPLE_I18N = {
     sec4Title:"Facturación",
     sec4Sub:"",
     sec5Title:"Registro de vehículo",
-    vehicleProSub:"Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.",
-    vehicleProTitle:"Registro inteligente del vehículo",
-    vehicleProCopy:"Captura al menos marca y modelo. Las placas, la foto y la hora habitual de salida ayudan al control de acceso y a la operación diaria.",
-    vehicleStatusWaiting:"Captura los datos del vehículo si aplica",
-    vehicleIdentityTitle:"Identificación del vehículo",
-    vehicleOpsTitle:"Apoyo operativo",
-    vehicleSummaryTitle:"Resumen del vehículo",
-    platesRequired:"# Placas",
-    platesHint:"Usa letras y números tal como aparecen en el vehículo.",
-    vehicleProSub:"Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.",
-    vehicleProTitle:"Registro inteligente del vehículo",
-    vehicleProCopy:"Captura al menos marca y modelo. Las placas, la foto y la hora habitual de salida ayudan al control de acceso y a la operación diaria.",
-    vehicleStatusWaiting:"Captura los datos del vehículo si aplica",
-    vehicleIdentityTitle:"Identificación del vehículo",
-    vehicleOpsTitle:"Apoyo operativo",
-    vehicleSummaryTitle:"Resumen del vehículo",
-    platesRequired:"# Placas",
-    platesHint:"Usa letras y números tal como aparecen en el vehículo.",
     sec6Title:"Comentarios",
     sec6Sub:"",
     bookingSource:"Medio de reservación",
@@ -3733,10 +2979,10 @@ const SIMPLE_I18N = {
     vehicle:"¿Cuentas con vehículo?",
     make:"Marca",
     model:"Modelo",
-    color:"Color",
-    addPhoto:"Agregar foto",
-    usualDepartureTime:"Hora habitual de salida",
-    plates:"# Placas",
+    color:"Color (opcional)",
+    addPhoto:"Agregar foto (opcional)",
+    usualDepartureTime:"Hora habitual de salida (opcional)",
+    plates:"# Placas (opcional)",
     send:"Enviar",
     uploadImage:"Subir imagen",
     noImage:"Ninguna imagen seleccionada"
@@ -3762,24 +3008,6 @@ const SIMPLE_I18N = {
     sec4Title:"Invoicing",
     sec4Sub:"Tax information for invoice issuance.",
     sec5Title:"Vehicle registration",
-    vehicleProSub:"Register the vehicle that will enter the property to improve control, security, and daily operations.",
-    vehicleProTitle:"Smart vehicle registration",
-    vehicleProCopy:"Fill in at least make and model. Photo, plates, and usual departure time help access control and daily operations.",
-    vehicleStatusWaiting:"Add vehicle details if available",
-    vehicleIdentityTitle:"Vehicle identity",
-    vehicleOpsTitle:"Operational support",
-    vehicleSummaryTitle:"Vehicle summary",
-    platesRequired:"License plates",
-    platesHint:"Use letters and numbers exactly as shown on the vehicle.",
-    vehicleProSub:"Register the vehicle that will enter the property to improve control, security, and daily operations.",
-    vehicleProTitle:"Smart vehicle registration",
-    vehicleProCopy:"Fill in at least make and model. Photo, plates, and usual departure time help access control and daily operations.",
-    vehicleStatusWaiting:"Add vehicle details if available",
-    vehicleIdentityTitle:"Vehicle identity",
-    vehicleOpsTitle:"Operational support",
-    vehicleSummaryTitle:"Vehicle summary",
-    platesRequired:"License plates",
-    platesHint:"Use letters and numbers exactly as shown on the vehicle.",
     sec6Title:"Comments",
     sec6Sub:"",
     bookingSource:"Booking source",
@@ -3811,12 +3039,12 @@ const SIMPLE_I18N = {
     emailPrimary:"Email (primary)",
     emailCopy:"Email (copy)",
     vehicle:"Do you have a vehicle?",
-    make:"Make (required)",
-    model:"Model (required)",
-    color:"Color",
-    addPhoto:"Add photo",
-    usualDepartureTime:"Usual departure time",
-    plates:"License plates",
+    make:"Make",
+    model:"Model",
+    color:"Color (optional)",
+    addPhoto:"Add photo (optional)",
+    usualDepartureTime:"Usual departure time (optional)",
+    plates:"License plates (optional)",
     send:"Submit",
     uploadImage:"Upload image",
     noImage:"No image selected"
@@ -3876,7 +3104,6 @@ function applyTranslations(lang){
 
   document.documentElement.lang = lang;
   window.currentLang = lang;
-  if (typeof actualizarResumenVehiculo === "function") actualizarResumenVehiculo();
 }
 
 (function(){
@@ -4026,6 +3253,7 @@ function limpiarSistemaDeTextosCheckInn(){
   });
 })();
 </script>
+
 <script>
 document.addEventListener("DOMContentLoaded", function(){
   const medioPago = document.querySelector('select[name="medio_pago"]');
@@ -4046,6 +3274,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 });
 </script>
+
 <script>
 document.addEventListener("DOMContentLoaded", function(){
   const medioPago = document.getElementById("medio_pago");
@@ -4090,14 +3319,13 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 });
 </script>
+
 <script>
 /* ===== Menú + dashboard Control de huéspedes ===== */
 (function(){
   const viewRegistro = document.getElementById("viewRegistro");
-  const viewVehiculos = document.getElementById("viewVehiculos");
   const viewDashboard = document.getElementById("viewDashboard");
   const menuRegistroBtn = document.getElementById("menuRegistroBtn");
-  const menuVehiculosBtn = document.getElementById("menuVehiculosBtn");
   const menuControlBtn = document.getElementById("menuControlBtn");
   const tableBody = document.getElementById("dashboardTableBody");
   const meta = document.getElementById("dashboardMeta");
@@ -4105,9 +3333,6 @@ document.addEventListener("DOMContentLoaded", function(){
   const kpiFactura = document.getElementById("kpi_con_factura");
   const kpiSinFactura = document.getElementById("kpi_sin_factura");
   const kpiMedios = document.getElementById("kpi_medios_unicos");
-  const kpiPctFacturado = document.getElementById("kpi_pct_facturado");
-  const kpiPctPendiente = document.getElementById("kpi_pct_pendiente");
-  const dashboardAlerts = document.getElementById("dashboardAlerts");
   const pagerInfo = document.getElementById("dashboardPagerInfo");
   const pageSizeSelect = document.getElementById("dashboard_page_size");
 
@@ -4118,22 +3343,14 @@ document.addEventListener("DOMContentLoaded", function(){
   let dashboardTotal = 0;
   let dashboardPages = 1;
   let dashboardFilterOptionsLoaded = false;
-  let dashboardTicketResolutionInProgress = false;
 
   function activarVista(vista){
-    const esRegistro = vista === "registro";
-    const esVehiculos = vista === "vehiculos";
     const esDashboard = vista === "dashboard";
-    if (viewRegistro) viewRegistro.classList.toggle("hidden", !esRegistro);
-    if (viewVehiculos) viewVehiculos.classList.toggle("hidden", !esVehiculos);
+    if (viewRegistro) viewRegistro.classList.toggle("hidden", esDashboard);
     if (viewDashboard) viewDashboard.classList.toggle("hidden", !esDashboard);
     if (menuRegistroBtn) {
-      menuRegistroBtn.classList.toggle("active", esRegistro);
-      menuRegistroBtn.classList.toggle("secondary", !esRegistro);
-    }
-    if (menuVehiculosBtn) {
-      menuVehiculosBtn.classList.toggle("active", esVehiculos);
-      menuVehiculosBtn.classList.toggle("secondary", !esVehiculos);
+      menuRegistroBtn.classList.toggle("active", !esDashboard);
+      menuRegistroBtn.classList.toggle("secondary", esDashboard);
     }
     if (menuControlBtn) {
       menuControlBtn.classList.toggle("active", esDashboard);
@@ -4142,15 +3359,12 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   function safeText(v){ return v == null ? "" : String(v); }
-  window.safeText = safeText;
   function escapeHtml(v){
     return safeText(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
-  window.escapeHtml = escapeHtml;
   function normalizePhoneForWhatsApp(v){
     return safeText(v).replace(/[^0-9]/g, "");
   }
-  window.normalizePhoneForWhatsApp = normalizePhoneForWhatsApp;
   function buildWhatsAppUrl(v){
     const digits = normalizePhoneForWhatsApp(v);
     return digits ? `https://wa.me/${encodeURIComponent(digits)}` : "";
@@ -4170,20 +3384,13 @@ document.addEventListener("DOMContentLoaded", function(){
   window.buildFacturapiUrlFromRow = function(row){
     const params = new URLSearchParams();
     params.set('source', 'control_huespedes');
-    params.set('quantity', formatMontoEditable(getRowValueFlexible(row, ["$ Monto facturado Total", "Monto facturado Total"])) || '1');
-    params.set('currency', window.normalizeCurrencyFromSheet(getRowValueFlexible(row, ["Divisa monto pagado", "Moneda", "Currency"])));
-    const email = safeText(getRowValueFlexible(row, ["Correo electrónico", "Correo electronico", "Email"])) .trim();
-    const whatsapp = normalizePhoneForWhatsApp(getRowValueFlexible(row, ["Cel/Whatsapp (principal)", "Celular principal", "Whatsapp principal"]));
-    const taxRegime = safeText(getRowValueFlexible(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])) .trim();
-    const conceptoFacturapi = resolveConceptoFacturapiPorRegimen(taxRegime);
+    params.set('quantity', formatMontoEditable(row["$ Monto facturado Total"]) || '1');
+    params.set('currency', window.normalizeCurrencyFromSheet(row["Divisa monto pagado"]));
+    const email = safeText(row["Correo electrónico"]).trim();
+    const whatsapp = normalizePhoneForWhatsApp(row["Cel/Whatsapp (principal)"]);
     const externalId = safeText(row["ID"] || row["row_number"] || '').trim();
     if (email) params.set('email', email);
-    if (conceptoFacturapi) {
-      params.set('concepto', conceptoFacturapi);
-      params.set('descripcion', conceptoFacturapi);
-    }
     if (whatsapp) params.set('whatsapp', whatsapp);
-    if (taxRegime) params.set('taxRegime', taxRegime);
     if (externalId) {
       params.set('externalId', `CHECKIN-${externalId}`);
       params.set('recordId', externalId);
@@ -4261,20 +3468,6 @@ document.addEventListener("DOMContentLoaded", function(){
     return safeText(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
   }
 
-  function getRowValueFlexible(row, candidates){
-    if (!row || typeof row !== 'object') return '';
-    const entries = Object.entries(row);
-    for (const candidate of candidates || []) {
-      const direct = row[candidate];
-      if (direct != null && String(direct).trim() !== '') return String(direct).trim();
-      const normalizedCandidate = normalizeFlexibleKey(candidate);
-      const found = entries.find(([key, value]) => normalizeFlexibleKey(key) === normalizedCandidate && value != null && String(value).trim() !== '');
-      if (found) return String(found[1]).trim();
-    }
-    return '';
-  }
-  window.getRowValueFlexible = getRowValueFlexible;
-
   function extractTicketUrl(obj){
     if (!obj || typeof obj !== 'object') return '';
     const directCandidates = [
@@ -4296,46 +3489,6 @@ document.addEventListener("DOMContentLoaded", function(){
       if (/^https?:\/\//i.test(txt) && nk.includes('facturapi') && nk.includes('url')) return txt;
     }
     return '';
-  }
-
-  function getFacturaStatusClass(row, ticketUrl){
-    const factura = safeText(getRowValueFlexible(row, ['¿Requiere factura?', 'Requiere factura'])).trim().toLowerCase();
-    if (!(factura === 'si' || factura === 'sí' || factura === 'yes')) return '';
-    return ticketUrl ? 'factura-generada' : 'factura-pendiente';
-  }
-
-
-  function getFacturaHeaderBadgeHtml(row, options = {}){
-    const suppressPending = !!options.suppressPending;
-    const factura = safeText(getRowValueFlexible(row, ['¿Requiere factura?', 'Requiere factura'])).trim().toLowerCase();
-    if (!(factura === 'si' || factura === 'sí' || factura === 'yes')) return '';
-    const statusClass = getFacturaStatusClass(row, extractTicketUrl(row));
-    if (statusClass === 'factura-generada') {
-      return '<span class="badge-yes" style="background:#e9f9ee;color:#166534;border-color:#b7e4c7;">🧾 Facturado</span>';
-    }
-    if (statusClass === 'factura-pendiente' && !suppressPending) {
-      return '<span class="badge-yes" style="background:#fdecec;color:#9f1239;border-color:#efb3b1;">🧾 Pendiente</span>';
-    }
-    return '';
-  }
-
-  function updateVisibleFacturaHeaderBadges(){
-    const nodes = Array.from(document.querySelectorAll('[data-factura-header-badge="1"]'));
-    for (const node of nodes) {
-      const recordId = safeText(node.dataset.recordId).trim();
-      if (!recordId) continue;
-      const row = dashboardRows.find(r => String(r['ID'] || r['row_number'] || '').trim() === recordId);
-      if (!row) continue;
-      node.innerHTML = getFacturaHeaderBadgeHtml(row, { suppressPending: dashboardTicketResolutionInProgress });
-    }
-  }
-
-  function applyFacturaStatusClass(recordId, statusClass){
-    const selector = `[data-record-card-id="${CSS.escape(String(recordId || ''))}"]`;
-    const node = document.querySelector(selector);
-    if (!node) return;
-    node.classList.remove('factura-pendiente', 'factura-generada');
-    if (statusClass) node.classList.add(statusClass);
   }
 
   function buildWhatsappReenvioUrl(row, ticketUrl){
@@ -4374,26 +3527,8 @@ document.addEventListener("DOMContentLoaded", function(){
     `;
   }
 
-  function recalculateDashboardInvoiceStatus(){
-    const totalFacturaYes = dashboardRows.filter(r => isFacturaYes(getRowValueFlexible(r, ['¿Requiere factura?', 'Requiere factura']))).length;
-    const totalPendiente = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-pendiente').length;
-    const totalFacturado = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-generada').length;
-
-    if (kpiFactura) kpiFactura.textContent = String(totalFacturaYes);
-    if (kpiSinFactura) kpiSinFactura.textContent = String(Math.max(0, dashboardTotal - totalFacturaYes));
-    if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
-    if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
-
-    updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado);
-    updateVisibleFacturaHeaderBadges();
-  }
-
   async function resolveTicketButtonsForVisibleRows(){
-    dashboardTicketResolutionInProgress = true;
-    updateDashboardAlerts(0, 0, 0);
-    updateVisibleFacturaHeaderBadges();
     const containers = Array.from(document.querySelectorAll('[data-ticket-actions="1"]'));
-    let huboCambios = false;
     for (const container of containers) {
       const recordId = String(container.dataset.recordId || '').trim();
       if (!recordId) continue;
@@ -4403,7 +3538,6 @@ document.addEventListener("DOMContentLoaded", function(){
       const existingUrl = extractTicketUrl(row);
       if (existingUrl) {
         container.innerHTML = buildTicketActionsHtml(row, existingUrl);
-        applyFacturaStatusClass(recordId, getFacturaStatusClass(row, existingUrl));
         continue;
       }
 
@@ -4419,84 +3553,6 @@ document.addEventListener("DOMContentLoaded", function(){
         if (detailUrl) {
           row['Ticket facturapi url'] = detailUrl;
           container.innerHTML = buildTicketActionsHtml(row, detailUrl);
-          applyFacturaStatusClass(recordId, getFacturaStatusClass(row, detailUrl));
-          huboCambios = true;
-        }
-      } catch (_err) {}
-    }
-    dashboardTicketResolutionInProgress = false;
-    recalculateDashboardInvoiceStatus();
-  }
-
-  function isFacturaYes(value){
-    const txt = safeText(value).trim().toLowerCase();
-    return txt === 'si' || txt === 'sí' || txt === 'yes';
-  }
-
-  function updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado){
-    if (!dashboardAlerts) return;
-    if (dashboardTicketResolutionInProgress) {
-      dashboardAlerts.innerHTML = '<div class="dashboard-alert dashboard-alert-neutral">Actualizando estatus de tickets...</div>';
-      return;
-    }
-    if (!totalFacturaYes) {
-      dashboardAlerts.innerHTML = '<div class="dashboard-alert dashboard-alert-neutral">No hay registros que requieran factura en esta consulta.</div>';
-      return;
-    }
-    const alerts = [];
-    if (totalPendiente > 0) {
-      alerts.push(`<div class="dashboard-alert dashboard-alert-pending">🔔 <strong>${totalPendiente}</strong> registro(s) con factura pendiente requieren atención. Se muestran primero en la lista.</div>`);
-    }
-    if (totalFacturado > 0) {
-      alerts.push(`<div class="dashboard-alert dashboard-alert-ok">✅ <strong>${totalFacturado}</strong> registro(s) ya cuentan con ticket generado.</div>`);
-    }
-    dashboardAlerts.innerHTML = alerts.join('');
-  }
-
-  async function resolveExpandedFinancialValuesForVisibleRows(){
-    const targets = Array.from(document.querySelectorAll('[data-detail-field="1"]'));
-    const detailCache = Object.create(null);
-
-    async function getDetail(recordId){
-      if (detailCache[recordId]) return detailCache[recordId];
-      const params = new URLSearchParams();
-      params.set('action', 'get_record_detail');
-      params.set('record_id', recordId);
-      const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: 'GET' });
-      const json = await res.json();
-      if (!json.ok) return null;
-      detailCache[recordId] = json.record || {};
-      return detailCache[recordId];
-    }
-
-    for (const node of targets) {
-      const currentText = safeText(node.textContent).trim();
-      if (currentText && currentText !== '—') continue;
-      const recordId = safeText(node.dataset.recordId).trim();
-      const fieldType = safeText(node.dataset.fieldType).trim();
-      if (!recordId || !fieldType) continue;
-      const row = dashboardRows.find(r => safeText(r['ID'] || r['row_number']).trim() === recordId);
-      if (!row) continue;
-
-      let aliases = [];
-      if (fieldType === 'monto_pagado') aliases = ['($) Monto Total pagado', '$ Monto Total pagado', 'Monto Total pagado'];
-      else if (fieldType === 'razon_social') aliases = ['Razón social', 'Razon social', 'Business name'];
-      else if (fieldType === 'regimen_fiscal') aliases = ['Régimen fiscal', 'Regimen fiscal', 'Tax regime'];
-      else continue;
-
-      const inlineValue = getRowValueFlexible(row, aliases);
-      if (safeText(inlineValue).trim()) {
-        node.textContent = safeText(inlineValue).trim();
-        continue;
-      }
-
-      try {
-        const detail = await getDetail(recordId);
-        if (!detail) continue;
-        const detailValue = getRowValueFlexible(detail, aliases);
-        if (safeText(detailValue).trim()) {
-          row[aliases[0]] = safeText(detailValue).trim();
-          node.textContent = safeText(detailValue).trim();
         }
       } catch (_err) {}
     }
@@ -4504,37 +3560,20 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function renderRows(payload){
     dashboardRows = Array.isArray(payload.rows) ? payload.rows : [];
-    dashboardRows = dashboardRows.sort((a, b) => {
-      const aStatus = getFacturaStatusClass(a, extractTicketUrl(a));
-      const bStatus = getFacturaStatusClass(b, extractTicketUrl(b));
-      const rank = (status) => status === 'factura-pendiente' ? 0 : (status === 'factura-generada' ? 1 : 2);
-      return rank(aStatus) - rank(bStatus);
-    });
     window.dashboardRows = dashboardRows;
     dashboardTotal = Number(payload.total || 0);
     dashboardPage = Number(payload.page || 1);
     dashboardPageSize = Number(payload.page_size || dashboardPageSize || 25);
     dashboardPages = Math.max(1, Number(payload.total_pages || 1));
 
-    const totalFacturaYes = dashboardRows.filter(r => isFacturaYes(getRowValueFlexible(r, ['¿Requiere factura?', 'Requiere factura']))).length;
-    const totalPendiente = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-pendiente').length;
-    const totalFacturado = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-generada').length;
-
-    if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
-    if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
-    dashboardTicketResolutionInProgress = true;
-    updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado);
-
     if (!tableBody) return;
     if (!dashboardRows.length){
-      tableBody.innerHTML = '<div class="empty-state">No se encontraron registros con esos filtros.</div>';
+      tableBody.innerHTML = '<tr><td colspan="13" class="empty-state">No se encontraron registros con esos filtros.</td></tr>';
       if (meta) meta.textContent = dashboardTotal ? `Sin registros en esta página.` : "0 registros encontrados.";
       if (kpiTotal) kpiTotal.textContent = String(dashboardTotal);
       if (kpiFactura) kpiFactura.textContent = String(payload.total_con_factura || 0);
       if (kpiSinFactura) kpiSinFactura.textContent = String(payload.total_sin_factura || 0);
       if (kpiMedios) kpiMedios.textContent = String(payload.total_medios_unicos || 0);
-      if (kpiPctFacturado) kpiPctFacturado.textContent = '0%';
-      if (kpiPctPendiente) kpiPctPendiente.textContent = '0%';
       if (pagerInfo) pagerInfo.textContent = `Página ${dashboardPage} de ${dashboardPages}`;
       return;
     }
@@ -4543,11 +3582,9 @@ document.addEventListener("DOMContentLoaded", function(){
     if (kpiFactura) kpiFactura.textContent = String(payload.total_con_factura || 0);
     if (kpiSinFactura) kpiSinFactura.textContent = String(payload.total_sin_factura || 0);
     if (kpiMedios) kpiMedios.textContent = String(payload.total_medios_unicos || 0);
-    if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
-    if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
     const inicio = ((dashboardPage - 1) * dashboardPageSize) + 1;
     const fin = Math.min(dashboardTotal, inicio + dashboardRows.length - 1);
-    if (meta) meta.textContent = `${dashboardTotal} registros encontrados. Mostrando ${inicio}-${fin}. Pendientes primero.`;
+    if (meta) meta.textContent = `${dashboardTotal} registros encontrados. Mostrando ${inicio}-${fin}.`;
     if (pagerInfo) pagerInfo.textContent = `Página ${dashboardPage} de ${dashboardPages}`;
 
     tableBody.innerHTML = dashboardRows.map(r => {
@@ -4557,74 +3594,26 @@ document.addEventListener("DOMContentLoaded", function(){
       const phoneHtml = waUrl
         ? `<a class="dashboard-whatsapp-link" href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();">${escapeHtml(r["Cel/Whatsapp (principal)"])}</a>`
         : escapeHtml(r["Cel/Whatsapp (principal)"]);
-      const montoFacturadoRaw = getRowValueFlexible(r, ["$ Monto facturado Total", "Monto facturado Total"]);
-      const montoPagadoRaw = getRowValueFlexible(r, ["($) Monto Total pagado", "$ Monto Total pagado", "Monto Total pagado"]);
-      const requiereFacturaRaw = getRowValueFlexible(r, ["¿Requiere factura?", "Requiere factura"]);
-      const montoFacturado = formatMontoEditable(montoFacturadoRaw || "");
-      const montoPagado = escapeHtml(montoPagadoRaw || "—");
-      const requiereFactura = escapeHtml(requiereFacturaRaw || "—");
-      const facturaStatusClass = getFacturaStatusClass(r, extractTicketUrl(r));
-      const facturaHeaderBadge = getFacturaHeaderBadgeHtml(r, { suppressPending: dashboardTicketResolutionInProgress });
-
-      const razonSocialRaw = getRowValueFlexible(r, ["Razón social", "Razon social", "Business name"]);
-      const regimenFiscalRaw = getRowValueFlexible(r, ["Régimen fiscal", "Regimen fiscal", "Tax regime"]);
-      const expandedItems = [
-        ["Nombre de la persona que realizó la reservación", escapeHtml(r["Nombre de la persona que hizo la reservación"] || "—")],
-        ["Medio de reservación", escapeHtml(r["Medio de reservación"] || "—")],
-        ["Propiedad", escapeHtml(r["Propiedad"] || "—")],
-        ["# Departamento", escapeHtml(r["# Departamento"] || "—")],
-        ["¿Requiere factura?", `${requiereFactura}`],
-        ["Razón social", `<span data-detail-field="1" data-field-type="razon_social" data-record-id="${recordId}">${escapeHtml(razonSocialRaw || "—")}</span>`],
-        ["Régimen fiscal", `<span data-detail-field="1" data-field-type="regimen_fiscal" data-record-id="${recordId}">${escapeHtml(regimenFiscalRaw || "—")}</span>`],
-        ["Forma de pago", escapeHtml(r["Forma de pago"] || "—")],
-        ["($) Monto Total pagado", `<span data-detail-field="1" data-field-type="monto_pagado" data-record-id="${recordId}">${montoPagado}</span>`],
-        ["$ Monto facturado Total", `
-          <div class="dashboard-monto-box" onclick="event.stopPropagation();">
-            <input type="number" step="0.01" class="dashboard-monto-input" value="${escapeHtml(montoFacturado)}" data-record-id="${recordId}" data-original-value="${escapeHtml(montoFacturado)}" onclick="event.stopPropagation();" onkeydown="handleMontoFacturadoKeydown(event,this)" onblur="guardarMontoFacturadoTotal(this)">
-            <div class="dashboard-inline-actions dashboard-ticket-actions" data-ticket-actions="1" data-record-id="${recordId}">${facturaHtml}</div>
-          </div>`],
-        ["Cel/Whatsapp (principal)", phoneHtml]
-      ];
-
-      const expandedHtml = expandedItems.map(([label, value]) => `
-        <div class="dashboard-summary-item">
-          <div class="dashboard-summary-label">${label}</div>
-          <div class="dashboard-summary-value">${value}</div>
-        </div>
-      `).join("");
-
+      const monto = formatMontoEditable(r["$ Monto facturado Total"]);
       return `
-        <details class="dashboard-record ${facturaStatusClass}" data-record-card-id="${recordId}">
-          <summary class="dashboard-record-summary">
-            <div class="dashboard-record-top">
-              <div>
-                <div class="dashboard-record-title">${escapeHtml(r["Nombre de la persona que hizo la reservación"] || "Sin nombre")}</div>
-                <div class="dashboard-record-subtitle">${escapeHtml(r["Propiedad"] || "Sin propiedad")} · Depto ${escapeHtml(r["# Departamento"] || "—")} · ${escapeHtml(r["Fecha de ingreso"] || "—")} → ${escapeHtml(r["Fecha de salida"] || "—")}</div>
-              </div>
-              <div style="display:flex; align-items:center; gap:10px;">
-                <div data-factura-header-badge="1" data-record-id="${recordId}">${facturaHeaderBadge}</div>
-                <div class="dashboard-record-toggle">⌄</div>
-              </div>
-            </div>
-          </summary>
-          <div class="dashboard-record-body">
-            <div class="dashboard-summary-grid">
-              ${expandedHtml}
-            </div>
-            <div class="dashboard-record-actions">
-              <div class="dashboard-action-card">
-                <div class="dashboard-summary-label">Detalle</div>
-                <div class="dashboard-inline-actions" onclick="event.stopPropagation();">
-                  <button type="button" class="dashboard-details-btn" onclick="event.stopPropagation(); abrirDetalleDashboard('${recordId}')">Ver detalles</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </details>
+        <tr class="dashboard-row-clickable" onclick="abrirDetalleDashboard('${recordId}')" title="Abrir detalle del registro">
+          <td><div data-ticket-actions="1" data-record-id="${recordId}">${facturaHtml}</div></td>
+          <td><input type="number" step="0.01" class="dashboard-monto-input" value="${escapeHtml(monto)}" data-record-id="${recordId}" data-original-value="${escapeHtml(monto)}" onclick="event.stopPropagation();" onkeydown="handleMontoFacturadoKeydown(event,this)" onblur="guardarMontoFacturadoTotal(this)"></td>
+          <td>${escapeHtml(r["Fecha de ingreso"])}</td>
+          <td>${escapeHtml(r["Fecha de salida"])}</td>
+          <td>${escapeHtml(r["Nombre de la persona que hizo la reservación"])}</td>
+          <td>${escapeHtml(r["Medio de reservación"])}</td>
+          <td>${phoneHtml}</td>
+          <td>${escapeHtml(r["Razón social"])}</td>
+          <td>${escapeHtml(r["Forma de pago"])}</td>
+          <td>${escapeHtml(r["Correo electrónico"])}</td>
+          <td>${escapeHtml(r["Propiedad"])}</td>
+          <td>${escapeHtml(r["# Departamento"])}</td>
+          <td>${escapeHtml(r["# Huéspedes"])}</td>
+        </tr>
       `;
     }).join("");
     resolveTicketButtonsForVisibleRows();
-    resolveExpandedFinancialValuesForVisibleRows();
   }
 
   async function buscarRegistros(resetPage){
@@ -4896,307 +3885,13 @@ document.addEventListener("DOMContentLoaded", function(){
     if (modal) modal.style.display = "none";
   };
 
-
-
-  const vehiculosTableBody = document.getElementById("vehiculosTableBody");
-  const vehiculosMeta = document.getElementById("vehiculosMeta");
-  const vehiculosPropiedadFiltro = document.getElementById("vehiculos_propiedad_filtro");
-  const vehiculosLoadingPopup = document.getElementById("vehiculosLoadingPopup");
-  let vehiculosRows = [];
-  let vehiculosCacheByProperty = Object.create(null);
-  let vehiculosPropertiesLoaded = false;
-  let vehiculosBaseRows = [];
-  let vehiculosBaseRowsLoaded = false;
-
-  function mostrarPopupVehiculos(){
-    if (vehiculosLoadingPopup) vehiculosLoadingPopup.style.display = 'flex';
-  }
-
-  function ocultarPopupVehiculos(){
-    if (vehiculosLoadingPopup) vehiculosLoadingPopup.style.display = 'none';
-  }
-
-  function setVehiculosPropiedadesOptions(values){
-    if (!vehiculosPropiedadFiltro) return;
-    const current = vehiculosPropiedadFiltro.value;
-    const unique = Array.from(new Set((values || []).map(v => safeText(v).trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
-    vehiculosPropiedadFiltro.innerHTML = '<option value="">Selecciona</option>' + unique.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
-    if (unique.includes(current)) vehiculosPropiedadFiltro.value = current;
-  }
-
-  function normalizeDriveImageUrl(url){
-    const txt = safeText(url).trim();
-    if (!txt) return '';
-    const fileMatch = txt.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (fileMatch) return `https://drive.google.com/thumbnail?id=${fileMatch[1]}&sz=w1200`;
-    const dMatch = txt.match(/\/d\/([a-zA-Z0-9_-]+)/);
-    if (dMatch) return `https://drive.google.com/thumbnail?id=${dMatch[1]}&sz=w1200`;
-    const idMatch = txt.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-    if (idMatch) return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w1200`;
-    return txt;
-  }
-
-  function normalizedKey(value){
-    return safeText(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
-  }
-
-  function getRecordValueByCandidates(record, candidates){
-    if (!record || typeof record !== 'object') return '';
-    const map = new Map();
-    Object.keys(record).forEach(key => map.set(normalizedKey(key), record[key]));
-    for (const candidate of candidates) {
-      const val = map.get(normalizedKey(candidate));
-      if (val != null && String(val).trim()) return String(val).trim();
-    }
-    return '';
-  }
-
-  function firstGuestNameFromRecord(record){
-    const direct = getRecordValueByCandidates(record, [
-      'Nombre del huésped 1','Nombre del huesped 1','Huésped 1','Huesped 1',
-      'Nombre de la persona que hizo la reservación','Nombre de la persona que hizo la reservacion'
-    ]);
-    if (direct) return direct;
-    const allGuests = getRecordValueByCandidates(record, [
-      'Nombres de TODOS los huéspedes (separados por comas)',
-      'Nombres de TODOS los huespedes (separados por comas)',
-      'Nombres de los huéspedes',
-      'Nombres de los huespedes'
-    ]);
-    if (!allGuests) return '';
-    return String(allGuests).split(',').map(x => x.trim()).filter(Boolean)[0] || '';
-  }
-
-  function normalizeDateOnly(value){
-    const txt = safeText(value).trim();
-    if (!txt) return '';
-    const match = txt.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
-    const d = new Date(txt);
-    if (Number.isNaN(d.getTime())) return '';
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  }
-
-  function getTodayDateOnly(){
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-  }
-
-  function isCurrentStayActive(record){
-    const hoy = getTodayDateOnly();
-    const entrada = normalizeDateOnly(getRecordValueByCandidates(record, ['Fecha de ingreso','ingreso']));
-    const salida = normalizeDateOnly(getRecordValueByCandidates(record, ['Fecha de salida','salida']));
-    if (!entrada || !salida) return false;
-    return entrada <= hoy && hoy <= salida;
-  }
-
-  function buildVehicleRowFromDetail(record){
-    const marca = getRecordValueByCandidates(record, [
-      'Marca vehículo','Marca vehiculo','Marca del vehículo','Marca del vehiculo','Marca','vehiculo_marca'
-    ]);
-    const modelo = getRecordValueByCandidates(record, [
-      'Modelo vehículo','Modelo vehiculo','Modelo del vehículo','Modelo del vehiculo','Modelo','vehiculo_modelo'
-    ]);
-    const placas = getRecordValueByCandidates(record, ['Placas','# Placas','vehiculo_placas']);
-    const flag = getRecordValueByCandidates(record, [
-      '¿Cuenta con vehículo?','¿Cuenta con vehiculo?','¿Cuentas con vehículo?','¿Cuentas con vehiculo?',
-      'Cuenta con vehículo','Cuenta con vehiculo','Cuentas con vehículo','Cuentas con vehiculo','tiene_vehiculo'
-    ]).toLowerCase();
-    const tieneDatosVehiculo = !!(marca || modelo || placas || flag === 'si' || flag === 'sí' || flag === 'yes');
-    if (!tieneDatosVehiculo) return null;
-    if (!isCurrentStayActive(record)) return null;
-    return {
-      "Nombre del huésped 1": firstGuestNameFromRecord(record),
-      "Propiedad": getRecordValueByCandidates(record, ['Propiedad','Property']),
-      "# Departamento": getRecordValueByCandidates(record, ['# Departamento','Departamento','Apartment #','depto']),
-      "Número de celular": getRecordValueByCandidates(record, ['Cel/Whatsapp (principal)','Número de celular','Numero de celular','celular_principal']),
-      "Marca": marca,
-      "Modelo": modelo,
-      "Color": getRecordValueByCandidates(record, ['Color vehículo','Color vehiculo','Color del vehículo','Color del vehiculo','Color','vehiculo_color']),
-      "# Placas": placas,
-      "Hora habitual de salida": getRecordValueByCandidates(record, ['Hora habitual de salida','Hora habitual de salida','vehiculo_hora_salida']),
-      "Foto": getRecordValueByCandidates(record, ['Foto vehículo','Foto vehiculo','Foto del vehículo','Foto del vehiculo','Link foto vehículo','Link foto vehiculo','vehiculo_foto'])
-    };
-  }
-
-  function renderVehiculosRows(){
-    if (!vehiculosTableBody) return;
-    const propiedad = safeText(vehiculosPropiedadFiltro?.value).trim();
-    if (!propiedad) {
-      vehiculosTableBody.innerHTML = '<div class="vehicle-empty">Selecciona una propiedad para consultar los vehículos activos hoy.</div>';
-      if (vehiculosMeta) vehiculosMeta.textContent = 'Selecciona una propiedad para iniciar la búsqueda.';
-      return;
-    }
-
-    if (!vehiculosRows.length) {
-      vehiculosTableBody.innerHTML = '<div class="vehicle-empty">No se encontraron vehículos activos hoy para la propiedad seleccionada.</div>';
-      if (vehiculosMeta) vehiculosMeta.textContent = '0 vehículos encontrados para la propiedad seleccionada.';
-      return;
-    }
-
-    vehiculosTableBody.innerHTML = vehiculosRows.map(row => {
-      const waUrl = buildWhatsAppUrl(row["Número de celular"]);
-      const celularHtml = waUrl
-        ? `<a class="vehicle-phone-link" href="${waUrl}" target="_blank" rel="noopener">${escapeHtml(row["Número de celular"] || '—')}</a>`
-        : `<span>${escapeHtml(row["Número de celular"] || '—')}</span>`;
-      const fotoUrl = safeText(row["Foto"]).trim();
-      const fotoPreviewUrl = normalizeDriveImageUrl(fotoUrl);
-      const fotoHtml = fotoUrl
-        ? `<a class="vehicle-thumb-link" href="${escapeHtml(fotoUrl)}" target="_blank" rel="noopener">
-             <img class="vehicle-thumb" src="${escapeHtml(fotoPreviewUrl)}" alt="Foto vehículo" referrerpolicy="no-referrer"
-               onerror="this.style.display='none'; this.closest('.vehicle-photo-panel').querySelector('.vehicle-photo-empty').style.display='flex';">
-           </a>
-           <div class="vehicle-photo-empty" style="display:none;">No se pudo previsualizar la foto disponible.</div>`
-        : `<div class="vehicle-photo-empty">Sin foto disponible</div>`;
-
-      return `
-        <details class="vehicle-card-item">
-          <summary class="vehicle-card-summary">
-            <div class="vehicle-card-main">
-              <div class="vehicle-card-title">${escapeHtml(row["Nombre del huésped 1"] || 'Sin nombre')} · ${escapeHtml(row["Marca"] || 'Sin marca')} ${escapeHtml(row["Modelo"] || '')}</div>
-              <div class="vehicle-card-subtitle">${escapeHtml(row["Propiedad"] || 'Sin propiedad')} · Depto ${escapeHtml(row["# Departamento"] || '—')} · Placas: ${escapeHtml(row["# Placas"] || '—')}</div>
-            </div>
-            <div class="vehicle-card-chevron">⌄</div>
-          </summary>
-          <div class="vehicle-card-body">
-            <div class="vehicle-detail-grid">
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Nombre del huésped 1</div><div class="vehicle-detail-value">${escapeHtml(row["Nombre del huésped 1"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Propiedad</div><div class="vehicle-detail-value">${escapeHtml(row["Propiedad"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label"># Departamento</div><div class="vehicle-detail-value">${escapeHtml(row["# Departamento"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Número de celular</div><div class="vehicle-detail-value">${celularHtml}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Marca</div><div class="vehicle-detail-value">${escapeHtml(row["Marca"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Modelo</div><div class="vehicle-detail-value">${escapeHtml(row["Modelo"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Color</div><div class="vehicle-detail-value">${escapeHtml(row["Color"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label"># Placas</div><div class="vehicle-detail-value">${escapeHtml(row["# Placas"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Hora habitual de salida</div><div class="vehicle-detail-value">${escapeHtml(row["Hora habitual de salida"] || '—')}</div></div>
-            </div>
-            <div class="vehicle-photo-panel">
-              <div class="vehicle-photo-title">Foto</div>
-              ${fotoHtml}
-            </div>
-          </div>
-        </details>
-      `;
-    }).join('');
-
-    if (vehiculosMeta) vehiculosMeta.textContent = `${vehiculosRows.length} vehículos activos hoy encontrados para la propiedad seleccionada.`;
-  }
-
-  async function cargarBaseRowsVehiculos(forceReload = false){
-    if (vehiculosBaseRowsLoaded && !forceReload) return vehiculosBaseRows;
-    const res = await fetch(`${WEB_APP_URL}?action=list_records&page=1&page_size=500`, { method: 'GET' });
-    const json = await res.json();
-    if (!json.ok) throw new Error(json.error || json.message || 'No fue posible cargar registros base.');
-    vehiculosBaseRows = Array.isArray(json.rows) ? json.rows : [];
-    vehiculosBaseRowsLoaded = true;
-    return vehiculosBaseRows;
-  }
-
-  async function cargarPropiedadesVehiculos(forceReload = false){
-    if (vehiculosPropertiesLoaded && !forceReload) return;
-    try {
-      if (vehiculosTableBody) vehiculosTableBody.innerHTML = '<div class="vehicle-empty">Cargando propiedades disponibles...</div>';
-      if (vehiculosMeta) vehiculosMeta.textContent = 'Cargando propiedades disponibles...';
-
-      let properties = [];
-      try {
-        const res = await fetch(`${WEB_APP_URL}?action=list_active_vehicle_properties`, { method: 'GET' });
-        const json = await res.json();
-        if (!json.ok) throw new Error(json.error || json.message || 'Backend rápido no disponible');
-        properties = Array.isArray(json.properties) ? json.properties : [];
-      } catch (_err) {
-        const baseRows = await cargarBaseRowsVehiculos(forceReload);
-        properties = Array.from(new Set(baseRows.filter(r => isCurrentStayActive(r)).map(r => safeText(r["Propiedad"] || '').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
-      }
-
-      setVehiculosPropiedadesOptions(properties);
-      vehiculosPropertiesLoaded = true;
-      if (vehiculosTableBody) vehiculosTableBody.innerHTML = '<div class="vehicle-empty">Selecciona una propiedad para consultar los vehículos activos hoy.</div>';
-      if (vehiculosMeta) vehiculosMeta.textContent = 'Selecciona una propiedad para iniciar la búsqueda.';
-    } catch (err) {
-      if (vehiculosTableBody) vehiculosTableBody.innerHTML = `<div class="vehicle-empty">Error al consultar vehículos: ${escapeHtml(err.message)}</div>`;
-      if (vehiculosMeta) vehiculosMeta.textContent = 'No fue posible cargar la información de vehículos.';
-    }
-  }
-
-  async function buscarVehiculosPorPropiedad(forceReload = false){
-    const propiedad = safeText(vehiculosPropiedadFiltro?.value).trim();
-    if (!propiedad) {
-      renderVehiculosRows();
-      return;
-    }
-
-    if (vehiculosCacheByProperty[propiedad] && !forceReload) {
-      vehiculosRows = vehiculosCacheByProperty[propiedad];
-      renderVehiculosRows();
-      return;
-    }
-
-    try {
-      mostrarPopupVehiculos();
-      if (vehiculosMeta) vehiculosMeta.textContent = 'Consultando vehículos activos para la propiedad seleccionada...';
-
-      let rows = [];
-      try {
-        const params = new URLSearchParams();
-        params.set('action', 'list_active_vehicles');
-        params.set('propiedad', propiedad);
-        const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: 'GET' });
-        const json = await res.json();
-        if (!json.ok) throw new Error(json.error || json.message || 'Backend rápido no disponible');
-        rows = Array.isArray(json.rows) ? json.rows : [];
-      } catch (_err) {
-        const baseRows = await cargarBaseRowsVehiculos(forceReload);
-        const candidateRows = baseRows.filter(r => isCurrentStayActive(r) && safeText(r["Propiedad"] || '').trim() === propiedad);
-        if (candidateRows.length) {
-          const detailPromises = candidateRows.map(async (row) => {
-            const recordId = safeText(row['ID'] || row['row_number'] || '').trim();
-            if (!recordId) return buildVehicleRowFromDetail(row);
-            try {
-              const detailRes = await fetch(`${WEB_APP_URL}?action=get_record_detail&record_id=${encodeURIComponent(recordId)}`, { method: 'GET' });
-              const detailJson = await detailRes.json();
-              if (!detailJson.ok) return buildVehicleRowFromDetail(row);
-              return buildVehicleRowFromDetail(detailJson.record || row);
-            } catch (_e) {
-              return buildVehicleRowFromDetail(row);
-            }
-          });
-          rows = (await Promise.all(detailPromises)).filter(Boolean);
-        }
-      }
-
-      vehiculosRows = rows;
-      vehiculosCacheByProperty[propiedad] = rows;
-      renderVehiculosRows();
-    } catch (err) {
-      vehiculosRows = [];
-      if (vehiculosTableBody) vehiculosTableBody.innerHTML = `<div class="vehicle-empty">Error al consultar vehículos: ${escapeHtml(err.message)}</div>`;
-      if (vehiculosMeta) vehiculosMeta.textContent = 'No fue posible cargar la información de vehículos.';
-    } finally {
-      ocultarPopupVehiculos();
-    }
-  }
-
-
   if (menuRegistroBtn) menuRegistroBtn.addEventListener("click", () => activarVista("registro"));
-  if (menuVehiculosBtn) menuVehiculosBtn.addEventListener("click", async () => {
-    activarVista("vehiculos");
-    await cargarPropiedadesVehiculos(false);
-  });
   if (menuControlBtn) menuControlBtn.addEventListener("click", async () => {
     activarVista("dashboard");
     await cargarOpcionesFiltros();
     buscarRegistros(true);
   });
 
-  document.getElementById("btnBuscarVehiculos")?.addEventListener("click", () => { buscarVehiculosPorPropiedad(false); });
-  document.getElementById("btnLimpiarVehiculos")?.addEventListener("click", () => {
-    if (vehiculosPropiedadFiltro) vehiculosPropiedadFiltro.value = "";
-    vehiculosRows = [];
-    if (vehiculosTableBody) vehiculosTableBody.innerHTML = '<div class="vehicle-empty">Selecciona una propiedad para consultar los vehículos activos hoy.</div>';
-    if (vehiculosMeta) vehiculosMeta.textContent = 'Selecciona una propiedad para iniciar la búsqueda.';
-  });
-  vehiculosPropiedadFiltro?.addEventListener("change", () => { buscarVehiculosPorPropiedad(false); });
   document.getElementById("btnBuscarHuespedes")?.addEventListener("click", () => buscarRegistros(true));
   document.getElementById("btnLimpiarFiltros")?.addEventListener("click", limpiarFiltros);
   document.getElementById("btnExportarCsv")?.addEventListener("click", exportarCsv);
@@ -5263,94 +3958,25 @@ function handleMontoFacturadoKeydown(event, input){
   event.stopPropagation();
 }
 
-function openFacturapiModal(url){
-  const modal = document.getElementById("facturapiModal");
-  const frame = document.getElementById("facturapiModalFrame");
-  const loader = document.getElementById("facturapiModalLoader");
-  const externalBtn = document.getElementById("facturapiOpenExternalBtn");
-  if (!modal || !frame) {
-    window.location.href = url;
-    return;
-  }
-  if (loader) loader.classList.remove("hidden");
-  frame.src = url;
-  frame.onload = () => {
-    if (loader) loader.classList.add("hidden");
-  };
-  if (externalBtn) {
-    externalBtn.onclick = function(){ window.open(url, '_blank', 'noopener'); };
-  }
-  modal.style.display = 'flex';
-  modal.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('facturapi-modal-open');
-}
-
-function closeFacturapiModal(){
-  const modal = document.getElementById("facturapiModal");
-  const frame = document.getElementById("facturapiModalFrame");
-  const loader = document.getElementById("facturapiModalLoader");
-  if (frame) frame.src = 'about:blank';
-  if (loader) loader.classList.remove('hidden');
-  if (modal) {
-    modal.style.display = 'none';
-    modal.setAttribute('aria-hidden', 'true');
-  }
-  document.body.classList.remove('facturapi-modal-open');
-}
-window.closeFacturapiModal = closeFacturapiModal;
-
-document.addEventListener('DOMContentLoaded', function(){
-  const closeBtn = document.getElementById('facturapiCloseBtn');
-  const modal = document.getElementById('facturapiModal');
-  if (closeBtn) closeBtn.addEventListener('click', closeFacturapiModal);
-  if (modal) {
-    modal.addEventListener('click', function(e){ if (e.target === modal) closeFacturapiModal(); });
-  }
-  document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape') closeFacturapiModal();
-  });
-});
-
-async function generarTicket(recordId){
+function generarTicket(recordId){
   if (!recordId) {
     alert('No se pudo identificar el registro.');
     return;
   }
-  let row = (window.dashboardRows || []).find(r => String(r["ID"] || r["row_number"] || '') === String(recordId));
+  const row = (window.dashboardRows || []).find(r => String(r["ID"] || r["row_number"] || '') === String(recordId));
   if (!row) {
     alert('No se encontró la información del registro seleccionado.');
     return;
-  }
-  const safeTextFn = window.safeText || (v => v == null ? "" : String(v));
-  const getRowValueFlexibleFn = window.getRowValueFlexible || function(record, keys){
-    if (!record || typeof record !== "object") return "";
-    const entries = Object.entries(record);
-    const normalizeKey = (value) => safeTextFn(value).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g," ").trim();
-    for (const key of keys || []) {
-      const direct = record[key];
-      if (direct != null && safeTextFn(direct).trim() !== "") return safeTextFn(direct).trim();
-      const normalizedCandidate = normalizeKey(key);
-      const found = entries.find(([entryKey, value]) => normalizeKey(entryKey) === normalizedCandidate && value != null && safeTextFn(value).trim() !== "");
-      if (found) return safeTextFn(found[1]).trim();
-    }
-    return "";
-  };
-  const missingTaxRegime = !safeTextFn(getRowValueFlexibleFn(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])).trim();
-  if (missingTaxRegime && typeof WEB_APP_URL !== 'undefined' && WEB_APP_URL) {
-    try {
-      const res = await fetch(`${WEB_APP_URL}?action=get_record_detail&record_id=${encodeURIComponent(recordId)}`, { method: 'GET' });
-      const json = await res.json();
-      if (json?.ok && json.record) {
-        row = { ...row, ...json.record };
-      }
-    } catch (_err) {}
   }
   const url = window.buildFacturapiUrlFromRow(row);
   if (!url) {
     alert('No se pudo construir la URL de Facturapi.');
     return;
   }
-  openFacturapiModal(url);
+  const win = window.open(url, '_blank', 'noopener');
+  if (!win) {
+    alert('El navegador bloqueó la apertura de la ventana. Permite pop-ups para este sitio e inténtalo nuevamente.');
+  }
 }
 
 function normalizePhoneForWhatsApp(phone){
@@ -5362,39 +3988,20 @@ function normalizePhoneForWhatsApp(phone){
 
 </script>
 
-<div class="facturapi-modal-backdrop" id="facturapiModal" aria-hidden="true">
-  <div class="facturapi-modal-shell" role="dialog" aria-modal="true" aria-labelledby="facturapiModalTitle">
-    <div class="facturapi-modal-header">
-      <div class="facturapi-modal-title-wrap">
-        <div class="facturapi-modal-title" id="facturapiModalTitle">Ticket Facturapi</div>
-        <div class="facturapi-modal-subtitle">Optimizado para celular. Usa Cerrar para volver al registro.</div>
-      </div>
-      <div class="facturapi-modal-actions">
-        <button type="button" class="facturapi-modal-btn secondary" id="facturapiOpenExternalBtn">Abrir aparte</button>
-        <button type="button" class="facturapi-modal-btn close" id="facturapiCloseBtn">Cerrar</button>
-      </div>
-    </div>
-    <div class="facturapi-modal-frame-wrap">
-      <div class="facturapi-modal-loader" id="facturapiModalLoader">
-        <div class="facturapi-modal-spinner"></div>
-        <div>Cargando ventana de Facturapi...</div>
-      </div>
-      <iframe class="facturapi-modal-frame" id="facturapiModalFrame" title="Facturapi"></iframe>
+<div id="passwordModal" class="popup-backdrop" style="display:none;">
+  <div class="popup-card" style="max-width:360px;">
+    <h3 style="margin-bottom:8px;">Acceso restringido</h3>
+    <div class="hint" style="margin-bottom:14px;">Ingresa la contraseña para entrar a Control de huéspedes</div>
+    <input id="adminPasswordInput" type="password" placeholder="Contraseña" style="width:100%;padding:14px 15px;border-radius:14px;border:1px solid var(--border-strong);font-size:16px;">
+    <div id="adminPasswordError" style="display:none;color:#b42318;font-size:13px;margin-top:10px;">Contraseña incorrecta</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+      <button type="button" id="cancelPasswordBtn" style="margin-top:0;background:linear-gradient(180deg,#d1d5db 0%, #9ca3af 100%);">Cancelar</button>
+      <button type="button" id="submitPasswordBtn" style="margin-top:0;">Entrar</button>
     </div>
   </div>
 </div>
-<div class="popup-backdrop" id="passwordModal" style="display:none;">
-<div class="popup-card" style="max-width:360px;">
-<h3 style="margin-bottom:8px;">Acceso restringido</h3>
-<div class="hint" style="margin-bottom:14px;">Ingresa la contraseña para entrar a Control de huéspedes</div>
-<input id="adminPasswordInput" placeholder="Contraseña" style="width:100%;padding:14px 15px;border-radius:14px;border:1px solid var(--border-strong);font-size:16px;" type="password"/>
-<div id="adminPasswordError" style="display:none;color:#b42318;font-size:13px;margin-top:10px;">Contraseña incorrecta</div>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
-<button id="cancelPasswordBtn" style="margin-top:0;background:linear-gradient(180deg,#d1d5db 0%, #9ca3af 100%);" type="button">Cancelar</button>
-<button id="submitPasswordBtn" style="margin-top:0;" type="button">Entrar</button>
-</div>
-</div>
-</div>
+
+
 <script>
 window.dashboardUnlocked = false;
 const DASHBOARD_PASSWORD = "admin";
@@ -5478,6 +4085,8 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 });
 </script>
+
+
 <script>
 document.addEventListener("DOMContentLoaded", function(){
   const entradaDesde = document.getElementById("filtro_fecha_entrada_desde");
@@ -5518,5 +4127,6 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 });
 </script>
+
 </body>
 </html>
