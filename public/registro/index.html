@@ -3975,6 +3975,7 @@ document.addEventListener("DOMContentLoaded", function(){
   let dashboardTotal = 0;
   let dashboardPages = 1;
   let dashboardFilterOptionsLoaded = false;
+  let dashboardTicketResolutionInProgress = false;
 
   function activarVista(vista){
     const esRegistro = vista === "registro";
@@ -4160,6 +4161,32 @@ document.addEventListener("DOMContentLoaded", function(){
     return ticketUrl ? 'factura-generada' : 'factura-pendiente';
   }
 
+
+  function getFacturaHeaderBadgeHtml(row, options = {}){
+    const suppressPending = !!options.suppressPending;
+    const factura = safeText(getRowValueFlexible(row, ['¿Requiere factura?', 'Requiere factura'])).trim().toLowerCase();
+    if (!(factura === 'si' || factura === 'sí' || factura === 'yes')) return '';
+    const statusClass = getFacturaStatusClass(row, extractTicketUrl(row));
+    if (statusClass === 'factura-generada') {
+      return '<span class="badge-yes" style="background:#e9f9ee;color:#166534;border-color:#b7e4c7;">🧾 Facturado</span>';
+    }
+    if (statusClass === 'factura-pendiente' && !suppressPending) {
+      return '<span class="badge-yes" style="background:#fdecec;color:#9f1239;border-color:#efb3b1;">🧾 Pendiente</span>';
+    }
+    return '';
+  }
+
+  function updateVisibleFacturaHeaderBadges(){
+    const nodes = Array.from(document.querySelectorAll('[data-factura-header-badge="1"]'));
+    for (const node of nodes) {
+      const recordId = safeText(node.dataset.recordId).trim();
+      if (!recordId) continue;
+      const row = dashboardRows.find(r => String(r['ID'] || r['row_number'] || '').trim() === recordId);
+      if (!row) continue;
+      node.innerHTML = getFacturaHeaderBadgeHtml(row, { suppressPending: dashboardTicketResolutionInProgress });
+    }
+  }
+
   function applyFacturaStatusClass(recordId, statusClass){
     const selector = `[data-record-card-id="${CSS.escape(String(recordId || ''))}"]`;
     const node = document.querySelector(selector);
@@ -4215,9 +4242,13 @@ document.addEventListener("DOMContentLoaded", function(){
     if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
 
     updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado);
+    updateVisibleFacturaHeaderBadges();
   }
 
   async function resolveTicketButtonsForVisibleRows(){
+    dashboardTicketResolutionInProgress = true;
+    updateDashboardAlerts(0, 0, 0);
+    updateVisibleFacturaHeaderBadges();
     const containers = Array.from(document.querySelectorAll('[data-ticket-actions="1"]'));
     let huboCambios = false;
     for (const container of containers) {
@@ -4250,9 +4281,8 @@ document.addEventListener("DOMContentLoaded", function(){
         }
       } catch (_err) {}
     }
-    if (huboCambios) {
-      recalculateDashboardInvoiceStatus();
-    }
+    dashboardTicketResolutionInProgress = false;
+    recalculateDashboardInvoiceStatus();
   }
 
   function isFacturaYes(value){
@@ -4262,6 +4292,10 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado){
     if (!dashboardAlerts) return;
+    if (dashboardTicketResolutionInProgress) {
+      dashboardAlerts.innerHTML = '<div class="dashboard-alert dashboard-alert-neutral">Actualizando estatus de tickets...</div>';
+      return;
+    }
     if (!totalFacturaYes) {
       dashboardAlerts.innerHTML = '<div class="dashboard-alert dashboard-alert-neutral">No hay registros que requieran factura en esta consulta.</div>';
       return;
@@ -4345,6 +4379,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
     if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
+    dashboardTicketResolutionInProgress = true;
     updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado);
 
     if (!tableBody) return;
@@ -4386,11 +4421,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const montoPagado = escapeHtml(montoPagadoRaw || "—");
       const requiereFactura = escapeHtml(requiereFacturaRaw || "—");
       const facturaStatusClass = getFacturaStatusClass(r, extractTicketUrl(r));
-      const facturaIndicator = facturaStatusClass === 'factura-pendiente'
-        ? '<span class="badge-yes" style="background:#fdecec;color:#9f1239;border-color:#efb3b1;">🧾 Pendiente</span>'
-        : (facturaStatusClass === 'factura-generada'
-          ? '<span class="badge-yes" style="background:#e9f9ee;color:#166534;border-color:#b7e4c7;">🧾 Facturado</span>'
-          : '');
+      const facturaHeaderBadge = getFacturaHeaderBadgeHtml(r, { suppressPending: dashboardTicketResolutionInProgress });
 
       const razonSocialRaw = getRowValueFlexible(r, ["Razón social", "Razon social", "Business name"]);
       const regimenFiscalRaw = getRowValueFlexible(r, ["Régimen fiscal", "Regimen fiscal", "Tax regime"]);
@@ -4399,7 +4430,7 @@ document.addEventListener("DOMContentLoaded", function(){
         ["Medio de reservación", escapeHtml(r["Medio de reservación"] || "—")],
         ["Propiedad", escapeHtml(r["Propiedad"] || "—")],
         ["# Departamento", escapeHtml(r["# Departamento"] || "—")],
-        ["¿Requiere factura?", `${requiereFactura} ${facturaIndicator}`],
+        ["¿Requiere factura?", `${requiereFactura}`],
         ["Razón social", `<span data-detail-field="1" data-field-type="razon_social" data-record-id="${recordId}">${escapeHtml(razonSocialRaw || "—")}</span>`],
         ["Régimen fiscal", `<span data-detail-field="1" data-field-type="regimen_fiscal" data-record-id="${recordId}">${escapeHtml(regimenFiscalRaw || "—")}</span>`],
         ["Forma de pago", escapeHtml(r["Forma de pago"] || "—")],
@@ -4427,7 +4458,10 @@ document.addEventListener("DOMContentLoaded", function(){
                 <div class="dashboard-record-title">${escapeHtml(r["Nombre de la persona que hizo la reservación"] || "Sin nombre")}</div>
                 <div class="dashboard-record-subtitle">${escapeHtml(r["Propiedad"] || "Sin propiedad")} · Depto ${escapeHtml(r["# Departamento"] || "—")} · ${escapeHtml(r["Fecha de ingreso"] || "—")} → ${escapeHtml(r["Fecha de salida"] || "—")}</div>
               </div>
-              <div class="dashboard-record-toggle">⌄</div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div data-factura-header-badge="1" data-record-id="${recordId}">${facturaHeaderBadge}</div>
+                <div class="dashboard-record-toggle">⌄</div>
+              </div>
             </div>
           </summary>
           <div class="dashboard-record-body">
