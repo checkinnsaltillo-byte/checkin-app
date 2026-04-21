@@ -4026,16 +4026,27 @@ document.addEventListener("DOMContentLoaded", function(){
     if (raw.includes("BRL") || raw.includes("REAL")) return "BRL";
     return "MXN";
   };
-  window.buildFacturapiUrlFromRow = function(row){
+  window.getLiveMontoFacturadoTotal = function(recordId, row){
+    const selector = `.dashboard-monto-input[data-record-id="${String(recordId || '').replace(/"/g, '&quot;')}"]`;
+    const liveInput = document.querySelector(selector);
+    const liveValue = liveInput ? formatMontoEditable(liveInput.value || '') : '';
+    if (liveValue) return liveValue;
+    return formatMontoEditable(getRowValueFlexible(row, ["$ Monto facturado Total", "Monto facturado Total"])) || '1';
+  };
+
+  window.buildFacturapiUrlFromRow = function(row, options = {}){
     const params = new URLSearchParams();
+    const externalId = safeText(row["ID"] || row["row_number"] || '').trim();
+    const liveQuantity = formatMontoEditable(options.liveQuantity || window.getLiveMontoFacturadoTotal(externalId, row) || '') || '1';
+
     params.set('source', 'control_huespedes');
-    params.set('quantity', formatMontoEditable(getRowValueFlexible(row, ["$ Monto facturado Total", "Monto facturado Total"])) || '1');
+    params.set('quantity', liveQuantity);
     params.set('currency', window.normalizeCurrencyFromSheet(getRowValueFlexible(row, ["Divisa monto pagado", "Moneda", "Currency"])));
     const email = safeText(getRowValueFlexible(row, ["Correo electrónico", "Correo electronico", "Email"])) .trim();
     const whatsapp = normalizePhoneForWhatsApp(getRowValueFlexible(row, ["Cel/Whatsapp (principal)", "Celular principal", "Whatsapp principal"]));
     const taxRegime = safeText(getRowValueFlexible(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])) .trim();
     const conceptoFacturapi = resolveConceptoFacturapiPorRegimen(taxRegime);
-    const externalId = safeText(row["ID"] || row["row_number"] || '').trim();
+
     if (email) params.set('email', email);
     if (conceptoFacturapi) {
       params.set('concepto', conceptoFacturapi);
@@ -4044,6 +4055,11 @@ document.addEventListener("DOMContentLoaded", function(){
     if (whatsapp) params.set('whatsapp', whatsapp);
     if (taxRegime) params.set('taxRegime', taxRegime);
     if (externalId) {
+      const dynamicQuantityKey = `facturapi_quantity_${externalId}`;
+      try {
+        sessionStorage.setItem(dynamicQuantityKey, liveQuantity);
+      } catch (_err) {}
+      params.set('dynamicQuantityKey', dynamicQuantityKey);
       params.set('externalId', `CHECKIN-${externalId}`);
       params.set('recordId', externalId);
       params.set('rowNumber', safeText(row["row_number"] || '').trim());
@@ -5156,7 +5172,12 @@ async function generarTicket(recordId){
       }
     } catch (_err) {}
   }
-  const url = window.buildFacturapiUrlFromRow(row);
+  const liveQuantity = window.getLiveMontoFacturadoTotal(recordId, row);
+  if (!liveQuantity || Number(liveQuantity) <= 0) {
+    alert('Debes capturar un valor válido en "$ Monto facturado Total" antes de generar el ticket.');
+    return;
+  }
+  const url = window.buildFacturapiUrlFromRow(row, { liveQuantity });
   if (!url) {
     alert('No se pudo construir la URL de Facturapi.');
     return;
