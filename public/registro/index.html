@@ -379,6 +379,149 @@ button:disabled{
   color:#6b7280;
   font-weight:700;
 }
+
+
+.facturapi-modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:1000000;
+  background:rgba(17,24,39,.45);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:env(safe-area-inset-top, 10px) 10px calc(env(safe-area-inset-bottom, 10px) + 10px);
+  -webkit-backdrop-filter:blur(4px);
+  backdrop-filter:blur(4px);
+}
+.facturapi-modal-shell{
+  width:min(1120px, 100%);
+  height:min(92vh, 900px);
+  background:#fff;
+  border-radius:22px;
+  overflow:hidden;
+  box-shadow:0 24px 60px rgba(15,23,42,.28);
+  display:flex;
+  flex-direction:column;
+  border:1px solid rgba(255,255,255,.8);
+}
+.facturapi-modal-header{
+  position:sticky;
+  top:0;
+  z-index:2;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:12px 14px;
+  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
+  border-bottom:1px solid #f3d7a4;
+}
+.facturapi-modal-title-wrap{
+  min-width:0;
+}
+.facturapi-modal-title{
+  font-size:16px;
+  font-weight:800;
+  color:#2b2b2b;
+  line-height:1.2;
+}
+.facturapi-modal-subtitle{
+  margin-top:3px;
+  font-size:12px;
+  color:#6b7280;
+  line-height:1.35;
+}
+.facturapi-modal-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:0 0 auto;
+}
+.facturapi-modal-btn{
+  margin-top:0;
+  min-width:auto;
+  padding:10px 12px;
+  border-radius:12px;
+  font-size:13px;
+  box-shadow:none;
+}
+.facturapi-modal-btn.secondary{
+  background:linear-gradient(180deg,#fff7ed 0%, #fde7c0 100%);
+  color:#8a5300;
+  border:1px solid #efc36f;
+}
+.facturapi-modal-btn.close{
+  background:linear-gradient(180deg,#ef4444 0%, #dc2626 100%);
+  color:#fff;
+}
+.facturapi-modal-frame-wrap{
+  position:relative;
+  flex:1 1 auto;
+  min-height:0;
+  background:#f8fafc;
+}
+.facturapi-modal-loader{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  color:#6b7280;
+  font-size:14px;
+  background:linear-gradient(180deg,rgba(255,253,248,.96) 0%, rgba(255,247,237,.92) 100%);
+}
+.facturapi-modal-loader.hidden{
+  display:none;
+}
+.facturapi-modal-spinner{
+  width:42px;
+  height:42px;
+  border:4px solid rgba(245,158,11,.22);
+  border-top-color:#f59e0b;
+  border-radius:50%;
+  animation:spinPopup .9s linear infinite;
+}
+.facturapi-modal-frame{
+  width:100%;
+  height:100%;
+  border:0;
+  background:#fff;
+}
+body.facturapi-modal-open{
+  overflow:hidden;
+}
+@media (max-width: 700px){
+  .facturapi-modal-backdrop{
+    padding:0;
+    align-items:stretch;
+    justify-content:stretch;
+  }
+  .facturapi-modal-shell{
+    width:100%;
+    height:100dvh;
+    max-height:100dvh;
+    border-radius:0;
+  }
+  .facturapi-modal-header{
+    padding-top:calc(env(safe-area-inset-top, 0px) + 10px);
+  }
+  .facturapi-modal-title{
+    font-size:15px;
+  }
+  .facturapi-modal-subtitle{
+    font-size:11px;
+  }
+  .facturapi-modal-actions{
+    gap:6px;
+  }
+  .facturapi-modal-btn{
+    padding:10px 11px;
+    font-size:12px;
+  }
+}
+
 @media (max-width: 700px){
   body{ padding:14px 10px 28px; }
   .container{
@@ -1944,7 +2087,7 @@ button:disabled{
 </div>
 </div>
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxSANWdm_0uM3HZ5F9IEVzspEDA0ekOA8jZVw1JQtMmZMPtZHFiRQUtWqn2s77yVPbsWw/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxbXsXVYFYq6ndlI9I6r1vDKbySOsULgIemOKkZz-CSXQfVeoW3DJfmlrAV_bL-9MFKgw/exec";
 const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || `${window.location.origin}/facturapi`;
 
 const ladas = [
@@ -3998,8 +4141,6 @@ document.addEventListener("DOMContentLoaded", function(){
     }
   }
 
-  window.activarVista = activarVista;
-
   function safeText(v){ return v == null ? "" : String(v); }
   window.safeText = safeText;
   function escapeHtml(v){
@@ -4795,23 +4936,6 @@ document.addEventListener("DOMContentLoaded", function(){
     return txt;
   }
 
-  function normalizePropertyName(value){
-    return safeText(value)
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g,'')
-      .replace(/^calle\s+/,'')
-      .replace(/[^a-z0-9]+/g,' ')
-      .trim();
-  }
-
-  function propertyMatches(recordValue, selectedValue){
-    const a = normalizePropertyName(recordValue);
-    const b = normalizePropertyName(selectedValue);
-    if (!a || !b) return false;
-    return a === b || a.includes(b) || b.includes(a);
-  }
-
   function normalizedKey(value){
     return safeText(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
   }
@@ -4982,12 +5106,7 @@ document.addEventListener("DOMContentLoaded", function(){
         properties = Array.isArray(json.properties) ? json.properties : [];
       } catch (_err) {
         const baseRows = await cargarBaseRowsVehiculos(forceReload);
-        properties = Array.from(new Set(baseRows
-          .filter(r => isCurrentStayActive(r))
-          .map(r => getRecordValueByCandidates(r, ['Propiedad','Property']))
-          .map(v => safeText(v).trim())
-          .filter(Boolean)
-        )).sort((a,b)=>a.localeCompare(b,'es'));
+        properties = Array.from(new Set(baseRows.filter(r => isCurrentStayActive(r)).map(r => safeText(r["Propiedad"] || '').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
       }
 
       setVehiculosPropiedadesOptions(properties);
@@ -5028,11 +5147,7 @@ document.addEventListener("DOMContentLoaded", function(){
         rows = Array.isArray(json.rows) ? json.rows : [];
       } catch (_err) {
         const baseRows = await cargarBaseRowsVehiculos(forceReload);
-        const candidateRows = baseRows.filter(r => {
-          if (!isCurrentStayActive(r)) return false;
-          const recordProperty = getRecordValueByCandidates(r, ['Propiedad','Property']);
-          return propertyMatches(recordProperty, propiedad);
-        });
+        const candidateRows = baseRows.filter(r => isCurrentStayActive(r) && safeText(r["Propiedad"] || '').trim() === propiedad);
         if (candidateRows.length) {
           const detailPromises = candidateRows.map(async (row) => {
             const recordId = safeText(row['ID'] || row['row_number'] || '').trim();
@@ -5048,10 +5163,6 @@ document.addEventListener("DOMContentLoaded", function(){
           });
           rows = (await Promise.all(detailPromises)).filter(Boolean);
         }
-      }
-
-      if ((!rows || !rows.length) && !forceReload) {
-        return buscarVehiculosPorPropiedad(true);
       }
 
       vehiculosRows = rows;
@@ -5152,6 +5263,54 @@ function handleMontoFacturadoKeydown(event, input){
   event.stopPropagation();
 }
 
+function openFacturapiModal(url){
+  const modal = document.getElementById("facturapiModal");
+  const frame = document.getElementById("facturapiModalFrame");
+  const loader = document.getElementById("facturapiModalLoader");
+  const externalBtn = document.getElementById("facturapiOpenExternalBtn");
+  if (!modal || !frame) {
+    window.location.href = url;
+    return;
+  }
+  if (loader) loader.classList.remove("hidden");
+  frame.src = url;
+  frame.onload = () => {
+    if (loader) loader.classList.add("hidden");
+  };
+  if (externalBtn) {
+    externalBtn.onclick = function(){ window.open(url, '_blank', 'noopener'); };
+  }
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('facturapi-modal-open');
+}
+
+function closeFacturapiModal(){
+  const modal = document.getElementById("facturapiModal");
+  const frame = document.getElementById("facturapiModalFrame");
+  const loader = document.getElementById("facturapiModalLoader");
+  if (frame) frame.src = 'about:blank';
+  if (loader) loader.classList.remove('hidden');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+  }
+  document.body.classList.remove('facturapi-modal-open');
+}
+window.closeFacturapiModal = closeFacturapiModal;
+
+document.addEventListener('DOMContentLoaded', function(){
+  const closeBtn = document.getElementById('facturapiCloseBtn');
+  const modal = document.getElementById('facturapiModal');
+  if (closeBtn) closeBtn.addEventListener('click', closeFacturapiModal);
+  if (modal) {
+    modal.addEventListener('click', function(e){ if (e.target === modal) closeFacturapiModal(); });
+  }
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') closeFacturapiModal();
+  });
+});
+
 async function generarTicket(recordId){
   if (!recordId) {
     alert('No se pudo identificar el registro.');
@@ -5176,7 +5335,7 @@ async function generarTicket(recordId){
     }
     return "";
   };
-  const missingTaxRegime = !safeTextFn(getRowValueFlexibleFn(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])) .trim();
+  const missingTaxRegime = !safeTextFn(getRowValueFlexibleFn(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])).trim();
   if (missingTaxRegime && typeof WEB_APP_URL !== 'undefined' && WEB_APP_URL) {
     try {
       const res = await fetch(`${WEB_APP_URL}?action=get_record_detail&record_id=${encodeURIComponent(recordId)}`, { method: 'GET' });
@@ -5191,61 +5350,8 @@ async function generarTicket(recordId){
     alert('No se pudo construir la URL de Facturapi.');
     return;
   }
-  abrirFacturapiModal(url);
+  openFacturapiModal(url);
 }
-
-function abrirFacturapiModal(url){
-  const modal = document.getElementById('facturapiModal');
-  const frame = document.getElementById('facturapiModalFrame');
-  const hint = document.getElementById('facturapiModalHint');
-  const loading = document.getElementById('facturapiModalLoading');
-  const externalBtn = document.getElementById('facturapiOpenExternalBtn');
-  if (!modal || !frame) {
-    window.location.href = url;
-    return;
-  }
-
-  modal.style.display = 'flex';
-  frame.src = 'about:blank';
-  if (hint) hint.textContent = 'Cargando Facturapi dentro de esta ventana...';
-  if (loading) loading.style.display = 'flex';
-
-  const onLoad = function(){
-    if (loading) loading.style.display = 'none';
-    if (hint) hint.textContent = 'Si no ves el formulario, usa "Abrir aparte".';
-    frame.removeEventListener('load', onLoad);
-  };
-  frame.addEventListener('load', onLoad);
-  frame.src = url;
-
-  if (externalBtn) {
-    externalBtn.onclick = function(){
-      window.location.href = url;
-    };
-  }
-}
-
-function cerrarFacturapiModal(){
-  const modal = document.getElementById('facturapiModal');
-  const frame = document.getElementById('facturapiModalFrame');
-  const hint = document.getElementById('facturapiModalHint');
-  const loading = document.getElementById('facturapiModalLoading');
-  if (frame) frame.src = 'about:blank';
-  if (loading) loading.style.display = 'flex';
-  if (hint) hint.textContent = 'Cargando Facturapi...';
-  if (modal) modal.style.display = 'none';
-}
-
-document.addEventListener('DOMContentLoaded', function(){
-  const closeBtn = document.getElementById('facturapiCloseBtn');
-  const modal = document.getElementById('facturapiModal');
-  if (closeBtn) closeBtn.addEventListener('click', cerrarFacturapiModal);
-  if (modal) {
-    modal.addEventListener('click', function(event){
-      if (event.target === modal) cerrarFacturapiModal();
-    });
-  }
-});
 
 function normalizePhoneForWhatsApp(phone){
   let clean = String(phone || '').replace(/\D/g, '');
@@ -5256,26 +5362,27 @@ function normalizePhoneForWhatsApp(phone){
 
 </script>
 
-<div class="popup-backdrop" id="facturapiModal" style="display:none; align-items:center; justify-content:center; z-index:1000000; padding:14px;">
-  <div class="popup-card" style="max-width:1100px; width:min(1100px, 100%); height:min(88vh, 900px); padding:0; overflow:hidden; text-align:left; display:flex; flex-direction:column;">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid #f3e3c4; background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);">
-      <div style="min-width:0;">
-        <div style="font-size:16px; font-weight:800; color:#2b2b2b;">Generar ticket</div>
-        <div id="facturapiModalHint" style="font-size:12px; color:#6b7280; margin-top:3px;">Cargando Facturapi...</div>
+<div class="facturapi-modal-backdrop" id="facturapiModal" aria-hidden="true">
+  <div class="facturapi-modal-shell" role="dialog" aria-modal="true" aria-labelledby="facturapiModalTitle">
+    <div class="facturapi-modal-header">
+      <div class="facturapi-modal-title-wrap">
+        <div class="facturapi-modal-title" id="facturapiModalTitle">Ticket Facturapi</div>
+        <div class="facturapi-modal-subtitle">Optimizado para celular. Usa Cerrar para volver al registro.</div>
       </div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <button id="facturapiOpenExternalBtn" type="button" style="margin-top:0; padding:10px 12px; font-size:13px;">Abrir aparte</button>
-        <button id="facturapiCloseBtn" type="button" style="margin-top:0; padding:10px 12px; font-size:13px; background:linear-gradient(180deg,#d1d5db 0%, #9ca3af 100%);">Cerrar</button>
+      <div class="facturapi-modal-actions">
+        <button type="button" class="facturapi-modal-btn secondary" id="facturapiOpenExternalBtn">Abrir aparte</button>
+        <button type="button" class="facturapi-modal-btn close" id="facturapiCloseBtn">Cerrar</button>
       </div>
     </div>
-    <div id="facturapiModalLoading" style="display:flex; align-items:center; justify-content:center; gap:12px; padding:18px; border-bottom:1px solid #f3e3c4; background:#fffdf8;">
-      <div style="width:24px;height:24px;border:3px solid rgba(245,158,11,.25);border-top-color:#f59e0b;border-radius:50%;animation:spinPopup 0.9s linear infinite;"></div>
-      <div style="font-size:13px; color:#6b7280;">Preparando Facturapi...</div>
+    <div class="facturapi-modal-frame-wrap">
+      <div class="facturapi-modal-loader" id="facturapiModalLoader">
+        <div class="facturapi-modal-spinner"></div>
+        <div>Cargando ventana de Facturapi...</div>
+      </div>
+      <iframe class="facturapi-modal-frame" id="facturapiModalFrame" title="Facturapi"></iframe>
     </div>
-    <iframe id="facturapiModalFrame" title="Facturapi" src="about:blank" style="flex:1 1 auto; width:100%; border:0; background:#fff;"></iframe>
   </div>
 </div>
-
 <div class="popup-backdrop" id="passwordModal" style="display:none;">
 <div class="popup-card" style="max-width:360px;">
 <h3 style="margin-bottom:8px;">Acceso restringido</h3>
@@ -5307,29 +5414,22 @@ function hidePasswordModal(){
   if (modal) modal.style.display = "none";
 }
 
-async function openDashboardAfterUnlock(){
-  if (typeof window.activarVistaControlHuespedes === "function") {
-    try {
-      await window.activarVistaControlHuespedes(true);
-      return;
-    } catch (_err) {}
-  }
-
+function openDashboardAfterUnlock(){
   const dashboardBtn = document.getElementById("menuControlBtn");
   if (dashboardBtn) {
-    dashboardBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    dashboardBtn.click();
     return;
   }
 
-  if (typeof window.activarVista === "function") {
-    window.activarVista("dashboard");
+  if (typeof activarVista === "function") {
+    activarVista("dashboard");
   }
-  if (typeof window.cargarOpcionesFiltros === "function") {
-    Promise.resolve(window.cargarOpcionesFiltros()).then(() => {
-      if (typeof window.buscarRegistros === "function") window.buscarRegistros(true);
+  if (typeof cargarOpcionesFiltros === "function") {
+    Promise.resolve(cargarOpcionesFiltros()).then(() => {
+      if (typeof buscarRegistros === "function") buscarRegistros(true);
     }).catch(() => {});
-  } else if (typeof window.buscarRegistros === "function") {
-    window.buscarRegistros(true);
+  } else if (typeof buscarRegistros === "function") {
+    buscarRegistros(true);
   }
 }
 
