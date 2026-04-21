@@ -1320,7 +1320,7 @@ button:disabled{
 </head>
 <body>
 <div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
-<img alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1tgD_4er4DcZvG6IjN649-RElGvaZFcdI&amp;sz=w1000" style="max-width:260px; width:70%; height:auto; display:inline-block;"/>
+<img alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w1000" style="max-width:260px; width:70%; height:auto; display:inline-block;"/>
 </div>
 <div class="page-shell">
 <div class="container">
@@ -4026,11 +4026,10 @@ document.addEventListener("DOMContentLoaded", function(){
     if (raw.includes("BRL") || raw.includes("REAL")) return "BRL";
     return "MXN";
   };
-  window.buildFacturapiUrlFromRow = function(row, options = {}){
+  window.buildFacturapiUrlFromRow = function(row){
     const params = new URLSearchParams();
     params.set('source', 'control_huespedes');
-    const quantityValue = formatMontoEditable(options.quantity ?? getRowValueFlexible(row, ["$ Monto facturado Total", "Monto facturado Total"])) || '1';
-    params.set('quantity', quantityValue);
+    params.set('quantity', formatMontoEditable(getRowValueFlexible(row, ["$ Monto facturado Total", "Monto facturado Total"])) || '1');
     params.set('currency', window.normalizeCurrencyFromSheet(getRowValueFlexible(row, ["Divisa monto pagado", "Moneda", "Currency"])));
     const email = safeText(getRowValueFlexible(row, ["Correo electrónico", "Correo electronico", "Email"])) .trim();
     const whatsapp = normalizePhoneForWhatsApp(getRowValueFlexible(row, ["Cel/Whatsapp (principal)", "Celular principal", "Whatsapp principal"]));
@@ -4048,9 +4047,6 @@ document.addEventListener("DOMContentLoaded", function(){
       params.set('externalId', `CHECKIN-${externalId}`);
       params.set('recordId', externalId);
       params.set('rowNumber', safeText(row["row_number"] || '').trim());
-    }
-    if (options.dynamicQuantityKey) {
-      params.set('dynamicQuantityKey', options.dynamicQuantityKey);
     }
     if (typeof WEB_APP_URL !== 'undefined' && WEB_APP_URL) {
       params.set('checkinWebAppUrl', WEB_APP_URL);
@@ -4799,6 +4795,23 @@ document.addEventListener("DOMContentLoaded", function(){
     return txt;
   }
 
+  function normalizePropertyName(value){
+    return safeText(value)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g,'')
+      .replace(/^calle\s+/,'')
+      .replace(/[^a-z0-9]+/g,' ')
+      .trim();
+  }
+
+  function propertyMatches(recordValue, selectedValue){
+    const a = normalizePropertyName(recordValue);
+    const b = normalizePropertyName(selectedValue);
+    if (!a || !b) return false;
+    return a === b || a.includes(b) || b.includes(a);
+  }
+
   function normalizedKey(value){
     return safeText(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
   }
@@ -4969,7 +4982,12 @@ document.addEventListener("DOMContentLoaded", function(){
         properties = Array.isArray(json.properties) ? json.properties : [];
       } catch (_err) {
         const baseRows = await cargarBaseRowsVehiculos(forceReload);
-        properties = Array.from(new Set(baseRows.filter(r => isCurrentStayActive(r)).map(r => safeText(r["Propiedad"] || '').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
+        properties = Array.from(new Set(baseRows
+          .filter(r => isCurrentStayActive(r))
+          .map(r => getRecordValueByCandidates(r, ['Propiedad','Property']))
+          .map(v => safeText(v).trim())
+          .filter(Boolean)
+        )).sort((a,b)=>a.localeCompare(b,'es'));
       }
 
       setVehiculosPropiedadesOptions(properties);
@@ -5010,7 +5028,11 @@ document.addEventListener("DOMContentLoaded", function(){
         rows = Array.isArray(json.rows) ? json.rows : [];
       } catch (_err) {
         const baseRows = await cargarBaseRowsVehiculos(forceReload);
-        const candidateRows = baseRows.filter(r => isCurrentStayActive(r) && safeText(r["Propiedad"] || '').trim() === propiedad);
+        const candidateRows = baseRows.filter(r => {
+          if (!isCurrentStayActive(r)) return false;
+          const recordProperty = getRecordValueByCandidates(r, ['Propiedad','Property']);
+          return propertyMatches(recordProperty, propiedad);
+        });
         if (candidateRows.length) {
           const detailPromises = candidateRows.map(async (row) => {
             const recordId = safeText(row['ID'] || row['row_number'] || '').trim();
@@ -5026,6 +5048,10 @@ document.addEventListener("DOMContentLoaded", function(){
           });
           rows = (await Promise.all(detailPromises)).filter(Boolean);
         }
+      }
+
+      if ((!rows || !rows.length) && !forceReload) {
+        return buscarVehiculosPorPropiedad(true);
       }
 
       vehiculosRows = rows;
@@ -5160,18 +5186,7 @@ async function generarTicket(recordId){
       }
     } catch (_err) {}
   }
-
-  const montoInput = document.querySelector(`.dashboard-monto-input[data-record-id="${CSS.escape(String(recordId))}"]`);
-  const cantidadDinamica = String(montoInput?.value || '').trim() || formatMontoEditable(getRowValueFlexibleFn(row, ["$ Monto facturado Total", "Monto facturado Total"])) || '1';
-  const dynamicQuantityKey = `facturapi_quantity_${recordId}`;
-  try {
-    sessionStorage.setItem(dynamicQuantityKey, cantidadDinamica);
-  } catch (_err) {}
-
-  const url = window.buildFacturapiUrlFromRow(row, {
-    quantity: cantidadDinamica,
-    dynamicQuantityKey
-  });
+  const url = window.buildFacturapiUrlFromRow(row);
   if (!url) {
     alert('No se pudo construir la URL de Facturapi.');
     return;
