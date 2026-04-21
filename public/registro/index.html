@@ -1320,7 +1320,7 @@ button:disabled{
 </head>
 <body>
 <div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
-<img alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1tgD_4er4DcZvG6IjN649-RElGvaZFcdI&amp;sz=w1000" style="max-width:260px; width:70%; height:auto; display:inline-block;"/>
+<img alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w1000" style="max-width:260px; width:70%; height:auto; display:inline-block;"/>
 </div>
 <div class="page-shell">
 <div class="container">
@@ -4204,8 +4204,22 @@ document.addEventListener("DOMContentLoaded", function(){
     `;
   }
 
+  function recalculateDashboardInvoiceStatus(){
+    const totalFacturaYes = dashboardRows.filter(r => isFacturaYes(getRowValueFlexible(r, ['¿Requiere factura?', 'Requiere factura']))).length;
+    const totalPendiente = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-pendiente').length;
+    const totalFacturado = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-generada').length;
+
+    if (kpiFactura) kpiFactura.textContent = String(totalFacturaYes);
+    if (kpiSinFactura) kpiSinFactura.textContent = String(Math.max(0, dashboardTotal - totalFacturaYes));
+    if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
+    if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
+
+    updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado);
+  }
+
   async function resolveTicketButtonsForVisibleRows(){
     const containers = Array.from(document.querySelectorAll('[data-ticket-actions="1"]'));
+    let huboCambios = false;
     for (const container of containers) {
       const recordId = String(container.dataset.recordId || '').trim();
       if (!recordId) continue;
@@ -4232,8 +4246,12 @@ document.addEventListener("DOMContentLoaded", function(){
           row['Ticket facturapi url'] = detailUrl;
           container.innerHTML = buildTicketActionsHtml(row, detailUrl);
           applyFacturaStatusClass(recordId, getFacturaStatusClass(row, detailUrl));
+          huboCambios = true;
         }
       } catch (_err) {}
+    }
+    if (huboCambios) {
+      recalculateDashboardInvoiceStatus();
     }
   }
 
@@ -4321,11 +4339,9 @@ document.addEventListener("DOMContentLoaded", function(){
     dashboardPageSize = Number(payload.page_size || dashboardPageSize || 25);
     dashboardPages = Math.max(1, Number(payload.total_pages || 1));
 
-    const totalFacturaYes = Number(payload.total_con_factura || 0);
+    const totalFacturaYes = dashboardRows.filter(r => isFacturaYes(getRowValueFlexible(r, ['¿Requiere factura?', 'Requiere factura']))).length;
     const totalPendiente = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-pendiente').length;
     const totalFacturado = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-generada').length;
-    const pctFacturado = totalFacturaYes ? Math.round((Number(payload.total_con_factura || 0) - Number(payload.total_sin_factura_en_facturables || 0)) / totalFacturaYes * 100) : 0;
-    const pctPendiente = totalFacturaYes ? Math.round((totalPendiente / Math.max(1, totalPendiente + totalFacturado)) * 100) : 0;
 
     if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
     if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
