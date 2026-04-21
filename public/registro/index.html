@@ -1794,6 +1794,7 @@ button:disabled{
 <option value="Otro">Otro</option>
 </select>
 <input class="hidden" id="regimen_otro" name="regimen_otro" placeholder="Especifica el régimen fiscal" type="text"/>
+<input id="concepto_facturapi" name="concepto_facturapi" type="hidden" value=""/>
 </div><label data-i18n="paymentMethod">Medio de pago</label>
 <select id="medio_pago" name="medio_pago">
 <option value="">Selecciona</option>
@@ -1944,7 +1945,7 @@ button:disabled{
 </div>
 <script>
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxSANWdm_0uM3HZ5F9IEVzspEDA0ekOA8jZVw1JQtMmZMPtZHFiRQUtWqn2s77yVPbsWw/exec";
-const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || "http://localhost:8080";
+const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || `${window.location.origin}/facturapi`;
 
 const ladas = [
   {c:"México",code:"52",p:1},
@@ -2168,12 +2169,12 @@ function applyGuestRecordToForm(row){
   syncFacturaVisibility();
   setInputValue('#razon_social', row["Razón social"]);
   setSelectByTextOrValue(document.getElementById("regimen"), row["Régimen fiscal"]);
+  syncConceptoFacturapiPorRegimen();
   setSelectByTextOrValue(document.getElementById("divisa_monto"), row["Divisa monto pagado"]);
   if (String(row["Régimen fiscal"] || "").trim().toLowerCase() === 'otro') {
     setInputValue('#regimen_otro', row["Régimen fiscal otro"] || row["Régimen otro"]);
   }
   toggleRegimenOtro();
-  syncConceptoFacturaByRegimen();
   toggleComprobanteTransferencia();
   formatCurrencyPreview();
 
@@ -2357,6 +2358,7 @@ const divisa_monto = document.getElementById("divisa_monto");
 const monto_preview = document.getElementById("monto_preview");
 const regimen = document.getElementById("regimen");
 const regimen_otro = document.getElementById("regimen_otro");
+const conceptoFacturapi = document.getElementById("concepto_facturapi");
 const numHuespedes = document.getElementById("num_huespedes");
 const identificacionTipo = document.getElementById("identificacion_tipo");
 const identificacionOtro = document.getElementById("identificacion_otro");
@@ -2502,36 +2504,25 @@ propiedad.addEventListener("change", () => {
   actualizarAvisoCoordinacionVehiculo();
 });
 
-function syncConceptoFacturaByRegimen(){
-  const conceptoSelect = document.getElementById('facturapi_concepto')
-    || document.getElementById('concepto')
-    || document.querySelector('select[name="facturapi_concepto"]')
-    || document.querySelector('select[name="concepto"]');
-  if (!conceptoSelect) return;
+function resolveConceptoFacturapiPorRegimen(regimenFiscal){
+  const regimenNormalizado = String(regimenFiscal || "").trim().toLowerCase();
+  return regimenNormalizado === "general de ley personas morales"
+    ? "1. Arrendamiento en Saltillo, Coah."
+    : "2. Arrendamiento en Saltillo, Coah.";
+}
 
-  const regimenValue = String(regimen?.value || '').trim();
-  const objetivoTexto = regimenValue === 'General de Ley Personas Morales'
-    ? '1. Arrendamiento en Saltillo, Coah.'
-    : '2. Arrendamiento en Saltillo, Coah.';
-
-  const opcion = Array.from(conceptoSelect.options || []).find(opt => {
-    const value = String(opt.value || '').trim();
-    const text = String(opt.textContent || '').trim();
-    return value === objetivoTexto || text === objetivoTexto;
-  });
-
-  if (!opcion) return;
-  if (conceptoSelect.value !== opcion.value) {
-    conceptoSelect.value = opcion.value;
-    conceptoSelect.dispatchEvent(new Event('change', { bubbles: true }));
-  }
+function syncConceptoFacturapiPorRegimen(){
+  if (!conceptoFacturapi) return "";
+  const valor = resolveConceptoFacturapiPorRegimen(regimen?.value || "");
+  conceptoFacturapi.value = valor;
+  return valor;
 }
 
 function toggleRegimenOtro(){
   const show = regimen.value === "Otro";
   regimen_otro.classList.toggle("hidden", !show);
   if (!show) regimen_otro.value = "";
-  syncConceptoFacturaByRegimen();
+  syncConceptoFacturapiPorRegimen();
 }
 regimen.addEventListener("change", toggleRegimenOtro);
 
@@ -2613,9 +2604,9 @@ function formatCurrencyPreview(){
 monto_pagado.addEventListener("input", formatCurrencyPreview);
 divisa_monto.addEventListener("change", formatCurrencyPreview);
 formatCurrencyPreview();
+syncConceptoFacturapiPorRegimen();
 toggleComprobanteTransferencia();
 syncFacturaVisibility();
-syncConceptoFacturaByRegimen();
 actualizarAvisoCoordinacionVehiculo();
 actualizarResumenVehiculo();
 
@@ -4040,8 +4031,13 @@ document.addEventListener("DOMContentLoaded", function(){
     const email = safeText(getRowValueFlexible(row, ["Correo electrónico", "Correo electronico", "Email"])) .trim();
     const whatsapp = normalizePhoneForWhatsApp(getRowValueFlexible(row, ["Cel/Whatsapp (principal)", "Celular principal", "Whatsapp principal"]));
     const taxRegime = safeText(getRowValueFlexible(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])) .trim();
+    const conceptoFacturapi = resolveConceptoFacturapiPorRegimen(taxRegime);
     const externalId = safeText(row["ID"] || row["row_number"] || '').trim();
     if (email) params.set('email', email);
+    if (conceptoFacturapi) {
+      params.set('concepto', conceptoFacturapi);
+      params.set('descripcion', conceptoFacturapi);
+    }
     if (whatsapp) params.set('whatsapp', whatsapp);
     if (taxRegime) params.set('taxRegime', taxRegime);
     if (externalId) {
