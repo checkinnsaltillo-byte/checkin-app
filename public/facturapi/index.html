@@ -698,13 +698,29 @@
       const candidates = [
         quantityKey,
         recordId ? `facturapi_quantity_${recordId}` : '',
-        ''
+        'monto_facturado_total'
       ].filter(Boolean);
       for (const key of candidates) {
         try {
-          const value = sessionStorage.getItem(key);
-          if (value && !Number.isNaN(Number(value))) return String(value);
+          const sessionValue = sessionStorage.getItem(key);
+          if (sessionValue && !Number.isNaN(Number(sessionValue))) return String(sessionValue);
         } catch (_err) {}
+        try {
+          const localValue = localStorage.getItem(key);
+          if (localValue && !Number.isNaN(Number(localValue))) return String(localValue);
+        } catch (_err) {}
+      }
+      if (window.opener) {
+        for (const key of candidates) {
+          try {
+            const openerSessionValue = window.opener.sessionStorage.getItem(key);
+            if (openerSessionValue && !Number.isNaN(Number(openerSessionValue))) return String(openerSessionValue);
+          } catch (_err) {}
+          try {
+            const openerLocalValue = window.opener.localStorage.getItem(key);
+            if (openerLocalValue && !Number.isNaN(Number(openerLocalValue))) return String(openerLocalValue);
+          } catch (_err) {}
+        }
       }
       return '';
     }
@@ -1175,36 +1191,41 @@ URL de la factura: ${invoiceUrl}`;
     });
 
     
-// ===== AUTO CANTIDAD DESDE FRONTEND (VERSIÓN SIMPLE) =====
-(function(){
-  try{
-    // 1. query param
-    const qp = new URLSearchParams(window.location.search);
-    let val = qp.get('quantity');
-
-    // 2. localStorage fallback
-    if(!val){
-      val = localStorage.getItem('monto_facturado_total');
-    }
-
-    // 3. opener (si viene de otra ventana)
-    if(!val && window.opener){
-      try{
-        val = window.opener.localStorage.getItem('monto_facturado_total');
-      }catch(e){}
-    }
-
-    if(val && !isNaN(val)){
+// ===== AUTO CANTIDAD DESDE FRONTEND (VERSIÓN DIRECTA) =====
+    function applyDynamicQuantityValue(rawValue) {
+      const numericValue = String(rawValue ?? '').trim();
+      if (!numericValue || Number.isNaN(Number(numericValue))) return false;
       const input = document.getElementById('quantity');
-      if(input){
-        input.value = val;
+      if (!input) return false;
+      input.value = numericValue;
+      return true;
+    }
+
+    function syncDynamicQuantityFromFrontend() {
+      const quantityFromUrl = queryParams.get('quantity');
+      if (applyDynamicQuantityValue(quantityFromUrl)) return;
+
+      const fallbackValue = resolveDynamicQuantityFallback();
+      if (applyDynamicQuantityValue(fallbackValue)) return;
+
+      if (window.opener && typeof window.opener.getLiveMontoFacturadoTotal === 'function') {
+        try {
+          const liveValue = window.opener.getLiveMontoFacturadoTotal(queryParams.get('recordId') || '', {});
+          applyDynamicQuantityValue(liveValue);
+        } catch (_err) {}
       }
     }
-  }catch(e){}
-})();
 
+    window.addEventListener('message', function(event){
+      const data = event?.data || {};
+      if (data && data.type === 'facturapi:setQuantity') {
+        applyDynamicQuantityValue(data.quantity);
+      }
+    });
 
+    syncDynamicQuantityFromFrontend();
     prefillFormFromQueryParams();
+    syncDynamicQuantityFromFrontend();
     loadCheckinConfig();
     loadNextFolio();
     loadProducts();
