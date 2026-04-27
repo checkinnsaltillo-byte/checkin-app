@@ -1,15 +1,3 @@
-
-function actualizarStatusUI(idRegistro){
-  const card = document.querySelector(`[data-id='${idRegistro}']`);
-  if(!card) return;
-  const badge = card.querySelector('.status');
-  if(badge){
-    badge.className = 'status facturado';
-    badge.innerHTML = '🟢 Facturado';
-  }
-}
-
-function esFacturado(r){return ((r['Folio facturapi']||'').toString().trim()!=='');}
 <!DOCTYPE html>
 
 <html lang="es">
@@ -1329,6 +1317,27 @@ button:disabled{
 }
 
 </style>
+
+<script>
+function actualizarStatusUI(idRegistro){
+  const card = document.querySelector(`[data-record-card-id="${String(idRegistro || '')}"]`) 
+            || document.querySelector(`[data-id="${String(idRegistro || '')}"]`);
+  if(!card) return;
+  card.classList.remove('factura-pendiente');
+  card.classList.add('factura-generada');
+
+  const badge = card.querySelector('[data-factura-header-badge="1"]') || card.querySelector('.status');
+  if(badge){
+    badge.className = badge.className || '';
+    badge.innerHTML = '<span class="badge-yes" style="background:#e9f9ee;color:#166534;border-color:#b7e4c7;">🧾 Facturado</span>';
+  }
+}
+
+function esFacturado(r){
+  return ((r && r['Folio facturapi']) || '').toString().trim() !== '';
+}
+</script>
+
 </head>
 <body>
 <div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
