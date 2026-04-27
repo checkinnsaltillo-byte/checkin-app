@@ -1,3 +1,15 @@
+
+function actualizarStatusUI(idRegistro){
+  const card = document.querySelector(`[data-id='${idRegistro}']`);
+  if(!card) return;
+  const badge = card.querySelector('.status');
+  if(badge){
+    badge.className = 'status facturado';
+    badge.innerHTML = '🟢 Facturado';
+  }
+}
+
+function esFacturado(r){return ((r['Folio facturapi']||'').toString().trim()!=='');}
 <!DOCTYPE html>
 
 <html lang="es">
@@ -1316,14 +1328,6 @@ button:disabled{
   box-shadow:0 0 0 3px rgba(34,197,94,.08);
 }
 
-
-/* === CHECK-IN optimización control huéspedes === */
-.dashboard-factura-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap;border:1px solid transparent;}
-.dashboard-factura-badge.facturado{background:#e9f9ee;color:#166534;border-color:#b7e4c7;}
-.dashboard-factura-badge.pendiente{background:#fdecec;color:#9f1239;border-color:#efb3b1;}
-.dashboard-record.factura-generada .dashboard-record-summary{background:linear-gradient(180deg,#f5fff7 0%, #e9f9ee 100%) !important;}
-.dashboard-record.factura-pendiente .dashboard-record-summary{background:linear-gradient(180deg,#fff7f7 0%, #fdecec 100%) !important;}
-
 </style>
 </head>
 <body>
@@ -1954,7 +1958,6 @@ button:disabled{
 <script>
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxbXsXVYFYq6ndlI9I6r1vDKbySOsULgIemOKkZz-CSXQfVeoW3DJfmlrAV_bL-9MFKgw/exec";
 const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || `${window.location.origin}/facturapi`;
-let __checkinSubmitInProgress = false;
 
 const ladas = [
   {c:"México",code:"52",p:1},
@@ -2981,8 +2984,6 @@ function validarArchivosAntesDeEnviar(){
 
 document.getElementById("form").addEventListener("submit", async function(e){
   e.preventDefault();
-  if (__checkinSubmitInProgress) return;
-  __checkinSubmitInProgress = true;
 
   const status = document.getElementById("statusMessage");
   const submitBtn = document.getElementById("submitBtn");
@@ -2994,21 +2995,12 @@ document.getElementById("form").addEventListener("submit", async function(e){
   if (!WEB_APP_URL || WEB_APP_URL.includes("PEGA_AQUI")) {
     status.textContent = "Falta pegar la URL del Web App de Apps Script.";
     status.classList.add("error");
-    __checkinSubmitInProgress = false;
     return;
   }
 
   const f = new FormData(this);
 
-  try {
-    validarArchivosAntesDeEnviar();
-  } catch (validationErr) {
-    status.textContent = validationErr.message || "Revisa los archivos adjuntos.";
-    status.classList.add("error");
-    status.style.display = "block";
-    __checkinSubmitInProgress = false;
-    return;
-  }
+  validarArchivosAntesDeEnviar();
 
   const tieneVehiculoActivo = String(f.get("tiene_vehiculo") || "") === "si";
   const vehiculoMarcaFinal = String((f.get("vehiculo_marca") === "Otro" ? f.get("vehiculo_marca_otro") : f.get("vehiculo_marca")) || "").trim();
@@ -3175,7 +3167,6 @@ document.getElementById("form").addEventListener("submit", async function(e){
     status.textContent = "Error al conectar con Apps Script: " + err.message;
     status.classList.add("error");
   } finally {
-    __checkinSubmitInProgress = false;
     submitBtn.disabled = false;
     submitBtn.textContent = "Enviar";
   }
@@ -4155,49 +4146,33 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   window.getRowValueFlexible = getRowValueFlexible;
 
-  function getFacturapiFolio(row){
-    return getRowValueFlexible(row, [
-      'Folio facturapi',
-      'Folio Facturapi',
-      'folio facturapi',
-      'Folio de Facturapi',
-      'Folio',
-      'facturapi_folio',
-      'facturapiFolio'
-    ]);
-  }
-  window.getFacturapiFolio = getFacturapiFolio;
-
-  function isRowFacturado(row){
-    return safeText(getFacturapiFolio(row)).trim() !== '';
-  }
-  window.isRowFacturado = isRowFacturado;
-
   function extractTicketUrl(obj){
     if (!obj || typeof obj !== 'object') return '';
-    const direct = getRowValueFlexible(obj, [
-      'Ticket facturapi url',
-      'Ticket Facturapi Url',
-      'ticket facturapi url',
-      'Ticket facturapi URL',
-      'ticket_url',
-      'ticketUrl',
-      'url'
-    ]);
-    if (direct) return safeText(direct).trim();
+    const directCandidates = [
+      obj['Ticket facturapi url'],
+      obj['ticket facturapi url'],
+      obj['Ticket Facturapi Url'],
+      obj['ticket_url'],
+      obj['ticketUrl'],
+      obj['url']
+    ];
+    for (const candidate of directCandidates) {
+      const txt = safeText(candidate).trim();
+      if (/^https?:\/\//i.test(txt)) return txt;
+    }
     for (const [key, value] of Object.entries(obj)) {
       const nk = normalizeFlexibleKey(key);
       const txt = safeText(value).trim();
-      if (txt && nk.includes('ticket') && nk.includes('url')) return txt;
-      if (txt && nk.includes('facturapi') && nk.includes('url')) return txt;
+      if (/^https?:\/\//i.test(txt) && nk.includes('ticket') && nk.includes('url')) return txt;
+      if (/^https?:\/\//i.test(txt) && nk.includes('facturapi') && nk.includes('url')) return txt;
     }
     return '';
   }
 
-  function getFacturaStatusClass(row){
+  function getFacturaStatusClass(row, ticketUrl){
     const factura = safeText(getRowValueFlexible(row, ['¿Requiere factura?', 'Requiere factura'])).trim().toLowerCase();
     if (!(factura === 'si' || factura === 'sí' || factura === 'yes')) return '';
-    return isRowFacturado(row) ? 'factura-generada' : 'factura-pendiente';
+    return ticketUrl ? 'factura-generada' : 'factura-pendiente';
   }
 
 
@@ -4205,11 +4180,12 @@ document.addEventListener("DOMContentLoaded", function(){
     const suppressPending = !!options.suppressPending;
     const factura = safeText(getRowValueFlexible(row, ['¿Requiere factura?', 'Requiere factura'])).trim().toLowerCase();
     if (!(factura === 'si' || factura === 'sí' || factura === 'yes')) return '';
-    if (isRowFacturado(row)) {
-      return '<span class="dashboard-factura-badge facturado">🧾 Facturado</span>';
+    const statusClass = getFacturaStatusClass(row, extractTicketUrl(row));
+    if (statusClass === 'factura-generada') {
+      return '<span class="badge-yes" style="background:#e9f9ee;color:#166534;border-color:#b7e4c7;">🧾 Facturado</span>';
     }
-    if (!suppressPending) {
-      return '<span class="dashboard-factura-badge pendiente">🧾 Pendiente</span>';
+    if (statusClass === 'factura-pendiente' && !suppressPending) {
+      return '<span class="badge-yes" style="background:#fdecec;color:#9f1239;border-color:#efb3b1;">🧾 Pendiente</span>';
     }
     return '';
   }
@@ -4233,23 +4209,6 @@ document.addEventListener("DOMContentLoaded", function(){
     if (statusClass) node.classList.add(statusClass);
   }
 
-  window.actualizarStatusUI = function(recordId, folio){
-    const id = safeText(recordId).trim();
-    if (!id) return;
-    const row = dashboardRows.find(r => String(r['ID'] || r['row_number'] || '').trim() === id);
-    if (row) row['Folio facturapi'] = safeText(folio || row['Folio facturapi'] || 'GENERADO').trim() || 'GENERADO';
-    const card = document.querySelector(`[data-record-card-id="${CSS.escape(id)}"]`);
-    if (card) {
-      card.classList.remove('factura-pendiente');
-      card.classList.add('factura-generada');
-    }
-    const badge = document.querySelector(`[data-factura-header-badge="1"][data-record-id="${CSS.escape(id)}"]`);
-    if (badge && row) badge.innerHTML = getFacturaHeaderBadgeHtml(row, { suppressPending:false });
-    const actions = document.querySelector(`[data-ticket-actions="1"][data-record-id="${CSS.escape(id)}"]`);
-    if (actions && row) actions.innerHTML = buildTicketActionsHtml(row, extractTicketUrl(row));
-    recalculateDashboardInvoiceStatus();
-  };
-
   function buildWhatsappReenvioUrl(row, ticketUrl){
     const cleanPhone = normalizePhoneForWhatsApp(safeText(row["Cel/Whatsapp (principal)"]).trim());
     const cleanUrl = safeText(ticketUrl).trim();
@@ -4265,7 +4224,6 @@ document.addEventListener("DOMContentLoaded", function(){
       return factura ? (factura === 'no' ? '<span class="badge-no">No</span>' : escapeHtml(safeText(facturaRaw))) : '';
     }
     const recordId = escapeHtml(row["ID"] || row["row_number"] || "");
-    const folioFacturapi = safeText(getFacturapiFolio(row)).trim();
     const safeUrl = escapeHtml(ticketUrl || '');
     if (safeUrl) {
       const reenviarUrl = buildWhatsappReenvioUrl(row, ticketUrl);
@@ -4280,14 +4238,6 @@ document.addEventListener("DOMContentLoaded", function(){
         </div>
       `;
     }
-    if (folioFacturapi) {
-      return `
-        <div style="display:flex; flex-direction:column; align-items:flex-start; gap:6px;" onclick="event.stopPropagation();">
-          <span class="badge-yes">Sí</span>
-          <span class="dashboard-factura-badge facturado">🧾 Facturado</span>
-        </div>
-      `;
-    }
     return `
       <div style="display:flex; flex-direction:column; align-items:flex-start; gap:6px;" onclick="event.stopPropagation();">
         <span class="badge-yes">Sí</span>
@@ -4298,8 +4248,8 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function recalculateDashboardInvoiceStatus(){
     const totalFacturaYes = dashboardRows.filter(r => isFacturaYes(getRowValueFlexible(r, ['¿Requiere factura?', 'Requiere factura']))).length;
-    const totalPendiente = dashboardRows.filter(r => getFacturaStatusClass(r) === 'factura-pendiente').length;
-    const totalFacturado = dashboardRows.filter(r => getFacturaStatusClass(r) === 'factura-generada').length;
+    const totalPendiente = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-pendiente').length;
+    const totalFacturado = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-generada').length;
 
     if (kpiFactura) kpiFactura.textContent = String(totalFacturaYes);
     if (kpiSinFactura) kpiSinFactura.textContent = String(Math.max(0, dashboardTotal - totalFacturaYes));
@@ -4312,7 +4262,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function resolveTicketButtonsForVisibleRows(){
     // Optimización: no consultamos detalle por cada registro.
-    // El estatus se define únicamente con la columna ya cargada "Folio facturapi".
+    // El estatus se define únicamente con la columna ya cargada "Ticket facturapi url".
     dashboardTicketResolutionInProgress = false;
     const containers = Array.from(document.querySelectorAll('[data-ticket-actions="1"]'));
     for (const container of containers) {
@@ -4322,7 +4272,7 @@ document.addEventListener("DOMContentLoaded", function(){
       if (!row) continue;
       const ticketUrl = extractTicketUrl(row);
       container.innerHTML = buildTicketActionsHtml(row, ticketUrl);
-      applyFacturaStatusClass(recordId, getFacturaStatusClass(row));
+      applyFacturaStatusClass(recordId, getFacturaStatusClass(row, ticketUrl));
     }
     recalculateDashboardInvoiceStatus();
   }
@@ -4404,8 +4354,8 @@ document.addEventListener("DOMContentLoaded", function(){
   function renderRows(payload){
     dashboardRows = Array.isArray(payload.rows) ? payload.rows : [];
     dashboardRows = dashboardRows.sort((a, b) => {
-      const aStatus = getFacturaStatusClass(a);
-      const bStatus = getFacturaStatusClass(b);
+      const aStatus = getFacturaStatusClass(a, extractTicketUrl(a));
+      const bStatus = getFacturaStatusClass(b, extractTicketUrl(b));
       const rank = (status) => status === 'factura-pendiente' ? 0 : (status === 'factura-generada' ? 1 : 2);
       return rank(aStatus) - rank(bStatus);
     });
@@ -4416,8 +4366,8 @@ document.addEventListener("DOMContentLoaded", function(){
     dashboardPages = Math.max(1, Number(payload.total_pages || 1));
 
     const totalFacturaYes = dashboardRows.filter(r => isFacturaYes(getRowValueFlexible(r, ['¿Requiere factura?', 'Requiere factura']))).length;
-    const totalPendiente = dashboardRows.filter(r => getFacturaStatusClass(r) === 'factura-pendiente').length;
-    const totalFacturado = dashboardRows.filter(r => getFacturaStatusClass(r) === 'factura-generada').length;
+    const totalPendiente = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-pendiente').length;
+    const totalFacturado = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-generada').length;
 
     if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
     if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
@@ -4462,7 +4412,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const montoFacturado = formatMontoEditable(montoFacturadoRaw || "");
       const montoPagado = escapeHtml(montoPagadoRaw || "—");
       const requiereFactura = escapeHtml(requiereFacturaRaw || "—");
-      const facturaStatusClass = getFacturaStatusClass(r);
+      const facturaStatusClass = getFacturaStatusClass(r, extractTicketUrl(r));
       const facturaHeaderBadge = getFacturaHeaderBadgeHtml(r, { suppressPending: false });
 
       const razonSocialRaw = getRowValueFlexible(r, ["Razón social", "Razon social", "Business name"]);
@@ -4563,7 +4513,7 @@ document.addEventListener("DOMContentLoaded", function(){
       return;
     }
     const headers = [
-      "¿Requiere factura?","Folio facturapi","$ Monto facturado Total","Fecha de ingreso","Fecha de salida","Nombre de la persona que hizo la reservación","Medio de reservación",
+      "¿Requiere factura?","$ Monto facturado Total","Fecha de ingreso","Fecha de salida","Nombre de la persona que hizo la reservación","Medio de reservación",
       "Cel/Whatsapp (principal)","Razón social","Forma de pago","Correo electrónico",
       "Propiedad","# Departamento","# Huéspedes"
     ];
@@ -4621,7 +4571,6 @@ document.addEventListener("DOMContentLoaded", function(){
         "Correo electrónico",
         "...enviar copia al siguiente correo:",
         "$ Monto facturado Total",
-        "Folio facturapi",
         "Ticket facturapi url"
       ];
 
@@ -4723,8 +4672,7 @@ document.addEventListener("DOMContentLoaded", function(){
         "Razón social",
         "Divisa monto pagado",
         "($) Monto Total pagado",
-        "$ Monto facturado Total",
-        "Folio facturapi"
+        "$ Monto facturado Total"
       ];
 
       function renderSection(title, fieldList){
@@ -5165,6 +5113,8 @@ function handleMontoFacturadoKeydown(event, input){
 }
 
 async function generarTicket(recordId){
+// actualización inmediata
+setTimeout(()=>actualizarStatusUI(registro.id||registro.ID||registro.folio),300);
   if (!recordId) {
     alert('No se pudo identificar el registro.');
     return;
@@ -5203,7 +5153,6 @@ async function generarTicket(recordId){
     alert('No se pudo construir la URL de Facturapi.');
     return;
   }
-  window.__facturapiCurrentRecordId = String(recordId);
   abrirFacturapiModal(url);
 }
 
@@ -5238,52 +5187,16 @@ function abrirFacturapiModal(url){
   }
 }
 
-async function refreshFacturaStatusFromBackend(recordId){
-  const id = String(recordId || '').trim();
-  if (!id || typeof WEB_APP_URL === 'undefined' || !WEB_APP_URL) return;
-  try {
-    const res = await fetch(`${WEB_APP_URL}?action=get_record_detail&record_id=${encodeURIComponent(id)}`, { method:'GET' });
-    const json = await res.json();
-    if (!json?.ok || !json.record) return;
-    const detail = json.record || {};
-    const folio = (window.getFacturapiFolio ? window.getFacturapiFolio(detail) : (detail['Folio facturapi'] || '')).toString().trim();
-    const url = (window.getRowValueFlexible ? window.getRowValueFlexible(detail, ['Ticket facturapi url','Ticket Facturapi Url']) : (detail['Ticket facturapi url'] || '')).toString().trim();
-    const row = (window.dashboardRows || []).find(r => String(r['ID'] || r['row_number'] || '').trim() === id);
-    if (row) {
-      Object.assign(row, detail);
-      if (folio) row['Folio facturapi'] = folio;
-      if (url) row['Ticket facturapi url'] = url;
-    }
-    if (folio && typeof window.actualizarStatusUI === 'function') {
-      window.actualizarStatusUI(id, folio);
-    }
-  } catch (_err) {}
-}
-
 function cerrarFacturapiModal(){
   const modal = document.getElementById('facturapiModal');
   const frame = document.getElementById('facturapiModalFrame');
   const hint = document.getElementById('facturapiModalHint');
   const loading = document.getElementById('facturapiModalLoading');
-  const recordId = window.__facturapiCurrentRecordId || '';
   if (frame) frame.src = 'about:blank';
   if (loading) loading.style.display = 'flex';
   if (hint) hint.textContent = 'Cargando Facturapi...';
   if (modal) modal.style.display = 'none';
-  if (recordId) refreshFacturaStatusFromBackend(recordId);
 }
-
-
-window.addEventListener('message', function(event){
-  const data = event && event.data ? event.data : {};
-  if (!data || typeof data !== 'object') return;
-  if (data.type !== 'facturapi_ticket_generated' && data.type !== 'checkin_ticket_generated') return;
-  const recordId = data.recordId || data.rowNumber || data.externalId || '';
-  const folio = data.folio || data.folio_facturapi || data.facturapiFolio || 'GENERADO';
-  if (recordId && typeof window.actualizarStatusUI === 'function') {
-    window.actualizarStatusUI(String(recordId).replace(/^CHECKIN-/,'').trim(), folio);
-  }
-}, false);
 
 document.addEventListener('DOMContentLoaded', function(){
   const closeBtn = document.getElementById('facturapiCloseBtn');
