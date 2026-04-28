@@ -1,3 +1,15 @@
+
+function actualizarStatusUI(idRegistro){
+  const card = document.querySelector(`[data-id='${idRegistro}']`);
+  if(!card) return;
+  const badge = card.querySelector('.status');
+  if(badge){
+    badge.className = 'status facturado';
+    badge.innerHTML = '🟢 Facturado';
+  }
+}
+
+function esFacturado(r){return ((r['Folio facturapi']||'').toString().trim()!=='');}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1032,19 +1044,6 @@ URL de la factura: ${invoiceUrl}`;
         els.sendPanel.style.display = "block";
 
         setStatus(`Ticket generado correctamente. Folio Facturapi: ${data?.receipt?.folio_number || data?.facturapiFolio || data?.sheetUpdate?.folio_facturapi || "—"}.`, "ok");
-
-        try {
-          window.parent.postMessage({
-            type: 'facturapi-ticket-generated',
-            recordId: appState.recordId || payload.recordId || '',
-            rowNumber: appState.rowNumber || payload.rowNumber || '',
-            externalId: payload.externalId || '',
-            folio: data?.receipt?.folio_number || data?.facturapiFolio || data?.sheetUpdate?.folio_facturapi || '',
-            ticketUrl: drivePdfUrl || appState.publicPdfUrl || '',
-            drivePdfUrl: drivePdfUrl || '',
-            publicPdfUrl: appState.publicPdfUrl || ''
-          }, '*');
-        } catch (_err) {}
       } catch (err) {
         setStatus(err.message || "Ocurrió un error.", "err");
       } finally {
