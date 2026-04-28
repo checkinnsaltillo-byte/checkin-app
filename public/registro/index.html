@@ -1454,7 +1454,6 @@ button:disabled{
 </div>
 <div class="filter-actions">
 <button id="btnBuscarHuespedes" type="button">Buscar registros</button>
-<button id="btnGenerarTicketNuevo" type="button">Generar ticket nuevo</button>
 <button class="menu-btn secondary" id="btnLimpiarFiltros" style="flex:0 0 auto;" type="button">Limpiar filtros</button>
 <button class="menu-btn secondary" id="btnExportarCsv" style="flex:0 0 auto;" type="button">Exportar CSV</button>
 </div>
@@ -5211,7 +5210,6 @@ document.addEventListener("DOMContentLoaded", function(){
   });
   vehiculosPropiedadFiltro?.addEventListener("change", () => { buscarVehiculosPorPropiedad(false); });
   document.getElementById("btnBuscarHuespedes")?.addEventListener("click", () => buscarRegistros(true));
-  document.getElementById("btnGenerarTicketNuevo")?.addEventListener("click", generarTicketNuevoSinRegistro);
   document.getElementById("btnLimpiarFiltros")?.addEventListener("click", limpiarFiltros);
   document.getElementById("btnExportarCsv")?.addEventListener("click", exportarCsv);
   document.getElementById("btnPrevPage")?.addEventListener("click", () => { if (dashboardPage > 1) { dashboardPage -= 1; buscarRegistros(false); } });
@@ -5275,13 +5273,6 @@ function handleMontoFacturadoKeydown(event, input){
     input.blur();
   }
   event.stopPropagation();
-}
-
-function generarTicketNuevoSinRegistro(){
-  const url = typeof FACTURAPI_APP_URL !== "undefined" && FACTURAPI_APP_URL
-    ? FACTURAPI_APP_URL
-    : `/facturapi`;
-  abrirFacturapiModal(url);
 }
 
 async function generarTicket(recordId){
