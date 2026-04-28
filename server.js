@@ -1,486 +1,5545 @@
-import express from "express";
-import dotenv from "dotenv";
-import crypto from "crypto";
-import path from "path";
-import { fileURLToPath } from "url";
+<!DOCTYPE html>
 
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = express();
-app.use(express.json({ limit: "20mb" }));
-app.use(express.urlencoded({ extended: true, limit: "20mb" }));
-
-const publicDir = path.join(__dirname, "public");
-app.use("/registro", express.static(path.join(publicDir, "registro")));
-app.use("/facturapi", express.static(path.join(publicDir, "facturapi")));
-
-const FACTURAPI_BASE = "https://www.facturapi.io/v2";
-const FACTURAPI_SECRET_KEY = process.env.FACTURAPI_SECRET_KEY;
-const PORT = process.env.PORT || 8080;
-const DEFAULT_CHECKIN_WEB_APP_URL = process.env.CHECKIN_WEB_APP_URL || "";
-
-if (!FACTURAPI_SECRET_KEY) {
-  console.warn("⚠️ FACTURAPI_SECRET_KEY no definida. Algunas funciones no funcionarán.");
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>CHECK-IN | Registro</title>
+<style>
+:root{
+  --bg:#fff8ee;
+  --bg-soft:#fffdf8;
+  --card:#ffffff;
+  --text:#2b2b2b;
+  --text-soft:#6b7280;
+  --border:#f6d8a8;
+  --border-strong:#efc36f;
+  --primary:#f59e0b;
+  --primary-strong:#d97706;
+  --primary-soft:#fff4db;
+  --accent:#fb923c;
+  --danger:#c9372c;
+  --success-bg:#fff8db;
+  --success-border:#f6d365;
+  --success-text:#9a6700;
+  --error-bg:#fef2f2;
+  --error-border:#fecaca;
+  --error-text:#b42318;
+  --note-bg:#fff7ed;
+  --note-border:#fdba74;
+  --shadow:0 18px 40px rgba(217,119,6,.12);
+  --radius:20px;
+  --radius-sm:14px;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  min-height:100vh;
+  padding:20px 14px 30px;
+  font-family:Arial,sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(251,191,36,.12), transparent 28%),
+    linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
+  color:var(--text);
+}
+.page-shell{
+  max-width:900px;
+  margin:0 auto;
+}
+.container{
+  width:100%;
+  max-width:760px;
+  margin:0 auto;
+  background:var(--card);
+  padding:24px;
+  border-radius:26px;
+  box-shadow:var(--shadow);
+  border:1px solid rgba(255,255,255,.9);
+}
+h1{
+  margin:0 0 12px 0;
+  font-size:30px;
+  line-height:1.08;
+  color:var(--text);
+}
+.section{
+  margin-top:18px;
+  padding:18px;
+  border:1px solid var(--border);
+  border-radius:20px;
+  background:var(--bg-soft);
+}
+.section-title{
+  margin:0 0 6px;
+  font-size:17px;
+  font-weight:700;
+  color:var(--text);
+}
+.section-subtitle{
+  margin:0 0 14px;
+  font-size:13px;
+  color:var(--text-soft);
+  line-height:1.45;
+}
+label{
+  font-weight:700;
+  display:block;
+  margin-top:15px;
+  margin-bottom:7px;
+  line-height:1.35;
+  color:#3a3124;
+}
+select,input,textarea{
+  width:100%;
+  padding:14px 15px;
+  border-radius:16px;
+  border:1px solid var(--border-strong);
+  font-size:16px;
+  background:#fff;
+  color:var(--text);
+  transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+textarea{
+  min-height:120px;
+  resize:vertical;
+}
+select::placeholder,input::placeholder,textarea::placeholder{ color:#9a8f85; }
+select:focus,input:focus,textarea:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 4px rgba(245,158,11,.14);
+}
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+.grid-vertical{
+  display:grid;
+  gap:14px;
+}
+.phone-group,.money-group{
+  display:grid;
+  grid-template-columns:220px 1fr;
+  gap:10px;
+}
+.huesped-row{
+  display:flex;
+  gap:10px;
+  margin-bottom:10px;
+  align-items:flex-start;
+}
+button{
+  margin-top:12px;
+  padding:14px 16px;
+  background:linear-gradient(180deg,var(--primary) 0%, var(--primary-strong) 100%);
+  color:#fff;
+  border:none;
+  border-radius:16px;
+  cursor:pointer;
+  font-size:15px;
+  font-weight:700;
+  letter-spacing:.01em;
+  box-shadow:0 10px 20px rgba(217,119,6,.18);
+  transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+button:hover{
+  filter:brightness(1.03);
+  transform:translateY(-1px);
+  box-shadow:0 12px 24px rgba(217,119,6,.24);
+}
+button:disabled{
+  opacity:.72;
+  cursor:not-allowed;
+  transform:none;
+  box-shadow:none;
+}
+.btn-remove{
+  position:absolute;
+  top:8px;
+  right:8px;
+  width:24px;
+  height:24px;
+  min-width:24px;
+  padding:0;
+  margin-top:0;
+  font-size:14px;
+  line-height:1;
+  border-radius:50%;
+  background:#f3f4f6;
+  color:#6b7280;
+  border:1px solid #e5e7eb;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  box-shadow:none;
+  transition:all .15s ease, opacity .15s ease;
+  z-index:2;
+}
+.hidden{display:none !important;}
+.note{
+  background:var(--note-bg);
+  border:1px solid var(--note-border);
+  padding:13px;
+  border-radius:14px;
+  margin-top:10px;
+  font-size:13px;
+  line-height:1.5;
+  color:#7a5300;
+}
+.hint{
+  font-size:12px;
+  color:var(--text-soft);
+  margin-top:6px;
+  line-height:1.45;
+}
+.upload-box{
+  border:1px dashed var(--border-strong);
+  border-radius:18px;
+  padding:14px;
+  background:#fffdf8;
+}
+.upload-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.preview-text{
+  font-size:12px;
+  color:var(--text-soft);
+  margin-top:0;
+  line-height:1.35;
+  word-break:break-word;
 }
 
-async function facturapiFetch(pathname, options = {}) {
-  const res = await fetch(`${FACTURAPI_BASE}${pathname}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${FACTURAPI_SECRET_KEY}`,
-      Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(options.headers || {}),
-    },
-  });
-  return res;
+.preview-wrapper{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:8px;
+}
+.preview-img{
+  width:64px;
+  height:64px;
+  object-fit:cover;
+  border-radius:10px;
+  border:1px solid #fde68a;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+  background:#fff;
+}
+.preview-img.hidden{
+  display:none;
 }
 
-async function parseFacturapiResponse(res) {
-  const contentType = res.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    return await res.json();
+.custom-upload{
+  display:block;
+}
+.custom-upload input{ display:none; }
+.upload-drop{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:14px;
+  border-radius:16px;
+  border:1px solid #f3d7a4;
+  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
+  transition:border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+  cursor:pointer;
+}
+.upload-drop:hover{
+  border-color:#f59e0b;
+  box-shadow:0 8px 18px rgba(245,158,11,.12);
+}
+.upload-copy{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.upload-title{
+  font-size:14px;
+  font-weight:700;
+  color:#7c4a03;
+}
+.upload-subtitle{
+  font-size:12px;
+  color:var(--text-soft);
+}
+.upload-btn{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:118px;
+  padding:10px 14px;
+  border-radius:12px;
+  background:linear-gradient(180deg,#f59e0b 0%, #d97706 100%);
+  color:#fff;
+  font-size:14px;
+  font-weight:700;
+}
+.status{
+  margin-top:14px;
+  padding:13px 14px;
+  border-radius:14px;
+  font-size:14px;
+  display:none;
+}
+.status.success{
+  display:block;
+  background:var(--success-bg);
+  border:1px solid var(--success-border);
+  color:var(--success-text);
+}
+.status.error{
+  display:block;
+  background:var(--error-bg);
+  border:1px solid var(--error-border);
+  color:var(--error-text);
+}
+.popup-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(53,32,8,.22);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:999999;
+  padding:16px;
+  -webkit-backdrop-filter:blur(4px);
+  backdrop-filter:blur(4px);
+}
+.popup-card{
+  background:#fff;
+  padding:28px 24px;
+  border-radius:22px;
+  text-align:center;
+  max-width:340px;
+  width:100%;
+  box-shadow:0 24px 50px rgba(16,24,40,.18);
+}
+.popup-card h3{
+  margin:0 0 8px 0;
+  color:var(--text);
+  font-size:24px;
+}
+.popup-card .hint{
+  font-size:14px;
+  margin:0 0 14px 0;
+}
+.submit-wrap{
+  position:static;
+  margin-top:22px;
+  padding-top:18px;
+  border-top:1px solid var(--border);
+  background:transparent;
+  backdrop-filter:none;
+}
+.submit-wrap::before{
+  content:"Fin del registro";
+  display:block;
+  margin-bottom:8px;
+  font-size:12px;
+  font-weight:700;
+  color:var(--text-soft);
+  text-align:center;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+}
+.submit-wrap button{
+  width:100%;
+}
+.lang-bar{
+  display:flex;
+  justify-content:flex-end;
+  margin-bottom:14px;
+  align-items:center;
+  gap:10px;
+}
+.lang-note{
+  font-size:12px;
+  color:#6b7280;
+}
+.lang-switch{
+  position:relative;
+  width:90px;
+  height:32px;
+  background:#f4e7cf;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  font-size:12px;
+  cursor:pointer;
+}
+.lang-slider{
+  position:absolute;
+  width:45px;
+  height:28px;
+  background:#f59e0b;
+  border-radius:999px;
+  top:2px;
+  left:2px;
+  transition:all 0.25s ease;
+}
+.lang-switch-label{
+  flex:1;
+  text-align:center;
+  z-index:1;
+  color:#6b7280;
+  font-weight:700;
+}
+@media (max-width: 700px){
+  body{ padding:14px 10px 28px; }
+  .container{
+    padding:18px;
+    border-radius:20px;
   }
-  const text = await res.text();
-  return { message: text };
+  .section{ padding:14px; border-radius:16px; }
+  h1{ font-size:25px; }
+  .grid,.phone-group,.money-group,.upload-grid{
+    grid-template-columns:1fr;
+  }
+  .huesped-row{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .btn-remove{ width:24px; }
+  button{ width:100%; }
+  .huesped-row .btn-remove{ opacity:1; }
+  label{ margin-top:14px; }
+  select,input,textarea{
+    font-size:16px;
+    padding:14px;
+  }
+  .upload-drop{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+  .upload-btn{
+    width:100%;
+  }
+}
+@keyframes spinPopup{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+
+.initial-choice{
+  margin-top:14px;
+}
+.choice-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+.choice-card{
+  border:1px solid var(--border-strong);
+  border-radius:18px;
+  background:#fffdf8;
+  padding:18px;
+  cursor:pointer;
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.choice-card:hover{
+  transform:translateY(-1px);
+  box-shadow:0 12px 24px rgba(217,119,6,.12);
+  border-color:var(--accent);
+}
+.choice-card.active{
+  border-color:var(--primary-strong);
+  box-shadow:0 0 0 4px rgba(245,158,11,.12);
+  background:#fff7ed;
+}
+.choice-card-title{
+  font-size:17px;
+  font-weight:700;
+  color:var(--text);
+  margin-bottom:6px;
+}
+.choice-card-text{
+  font-size:13px;
+  color:var(--text-soft);
+  line-height:1.45;
+}
+.form-hidden-until-choice{
+  display:none;
+}
+.form-hidden-until-choice.visible{
+  display:block;
+}
+@media (max-width: 700px){
+  .choice-grid{
+    grid-template-columns:1fr;
+  }
 }
 
-function round2(value) {
-  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+.vehicle-pro-shell{
+  margin-top:10px;
+}
+.vehicle-pro-intro{
+  background:linear-gradient(180deg,#fff8ee 0%, #fff3df 100%);
+  border:1px solid #f3cf94;
+  border-radius:16px;
+  padding:14px;
+  margin-top:10px;
+}
+.vehicle-pro-title{
+  font-size:14px;
+  font-weight:700;
+  color:#7c4a03;
+  margin-bottom:6px;
+}
+.vehicle-pro-copy{
+  font-size:13px;
+  color:#6b7280;
+  line-height:1.5;
+}
+.vehicle-status-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:999px;
+  background:#fff7ed;
+  border:1px solid #fdba74;
+  color:#9a6700;
+  font-size:12px;
+  font-weight:700;
+  margin-top:10px;
+}
+.vehicle-fields-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+  margin-top:14px;
+}
+.vehicle-card{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:14px;
+}
+.vehicle-card-title{
+  font-size:13px;
+  font-weight:700;
+  color:#7c4a03;
+  margin-bottom:8px;
+}
+.vehicle-summary{
+  margin-top:14px;
+  padding:14px;
+  border-radius:16px;
+  border:1px solid #d1fadf;
+  background:linear-gradient(180deg,#f6fef9 0%, #ecfdf3 100%);
+}
+.vehicle-summary-title{
+  font-size:13px;
+  font-weight:700;
+  color:#067647;
+  margin-bottom:8px;
+}
+.vehicle-summary-text{
+  font-size:13px;
+  color:#475467;
+  line-height:1.5;
+}
+.vehicle-warning{
+  margin-top:10px;
+  padding:12px;
+  border-radius:14px;
+  border:1px solid #fecaca;
+  background:#fef2f2;
+  color:#b42318;
+  font-size:13px;
+  display:none;
+}
+.vehicle-warning.show{display:block;}
+.vehicle-alert-note{
+  margin-top:12px;
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid #fdba74;
+  background:#fff7ed;
+  color:#9a6700;
+  font-size:13px;
+  line-height:1.55;
+}
+@media (max-width:700px){
+  .vehicle-fields-grid{grid-template-columns:1fr;}
 }
 
-function resolveVisibleFacturapiFolio(receipt) {
-  const candidates = [
-    receipt?.folio_number,
-    receipt?.folioNumber,
-    receipt?.folio,
-    receipt?.number
+
+/* ===== Información de vehículos ===== */
+.vehicle-info-toolbar{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:end;
+  margin-top:14px;
+}
+.vehicle-info-toolbar > div{
+  flex:1 1 260px;
+}
+.vehicle-info-meta{
+  margin-top:12px;
+  font-size:13px;
+  color:var(--text-soft);
+}
+.vehicle-list{
+  margin-top:16px;
+  display:grid;
+  gap:12px;
+}
+.vehicle-card-item{
+  border:1px solid var(--border);
+  border-radius:18px;
+  background:#fff;
+  overflow:hidden;
+  box-shadow:0 8px 22px rgba(217,119,6,.06);
+}
+.vehicle-card-summary{
+  list-style:none;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:16px 18px;
+  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
+}
+.vehicle-card-summary::-webkit-details-marker{
+  display:none;
+}
+.vehicle-card-summary::marker{
+  content:"";
+}
+.vehicle-card-main{
+  min-width:0;
+  display:grid;
+  gap:4px;
+}
+.vehicle-card-title{
+  font-size:16px;
+  font-weight:700;
+  color:#2b2b2b;
+  line-height:1.25;
+}
+.vehicle-card-subtitle{
+  font-size:13px;
+  color:#6b7280;
+  line-height:1.4;
+}
+.vehicle-card-chevron{
+  flex:0 0 auto;
+  font-size:20px;
+  color:#b45309;
+  transition:transform .18s ease;
+}
+.vehicle-card-item[open] .vehicle-card-chevron{
+  transform:rotate(180deg);
+}
+.vehicle-card-body{
+  padding:16px 18px 18px;
+  display:grid;
+  grid-template-columns:minmax(0,1.4fr) minmax(220px,.9fr);
+  gap:16px;
+  align-items:start;
+}
+.vehicle-detail-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.vehicle-detail-item{
+  background:#fffdf8;
+  border:1px solid #f2cc8c;
+  border-radius:14px;
+  padding:12px;
+}
+.vehicle-detail-label{
+  font-size:12px;
+  color:#6b7280;
+  margin-bottom:5px;
+}
+.vehicle-detail-value{
+  font-size:14px;
+  color:#2b2b2b;
+  line-height:1.4;
+  word-break:break-word;
+}
+.vehicle-phone-link{
+  color:#0f766e;
+  font-weight:700;
+  text-decoration:none;
+}
+.vehicle-phone-link:hover{
+  text-decoration:underline;
+}
+.vehicle-photo-panel{
+  background:#fffdf8;
+  border:1px solid #f2cc8c;
+  border-radius:16px;
+  padding:12px;
+}
+.vehicle-photo-title{
+  font-size:13px;
+  font-weight:700;
+  color:#7c4a03;
+  margin-bottom:10px;
+}
+.vehicle-thumb{
+  width:100%;
+  height:220px;
+  border-radius:12px;
+  object-fit:contain;
+  border:1px solid #f2cc8c;
+  background:#fff;
+  display:block;
+}
+.vehicle-thumb-link{
+  display:block;
+}
+.vehicle-photo-empty{
+  min-height:220px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  color:#6b7280;
+  font-size:13px;
+  border:1px dashed #f2cc8c;
+  border-radius:12px;
+  background:#fff;
+  padding:18px;
+}
+.vehicle-empty{
+  padding:24px;
+  text-align:center;
+  color:var(--text-soft);
+  background:#fff;
+  border:1px dashed var(--border);
+  border-radius:18px;
+}
+@media (max-width: 860px){
+  .vehicle-card-body{
+    grid-template-columns:1fr;
+  }
+}
+@media (max-width: 640px){
+  .vehicle-detail-grid{
+    grid-template-columns:1fr;
+  }
+  .vehicle-card-summary{
+    padding:14px 15px;
+  }
+  .vehicle-card-body{
+    padding:14px 15px 15px;
+  }
+}
+
+#popupSuccessState{display:none;}
+#popupSuccessState #whatsappHelpLabel{display:block !important;}
+#popupSuccessState #whatsappHelpButton{display:block !important;width:100% !important;}
+@media (max-width:700px){
+  #popupSuccessState #whatsappHelpLabel{
+    display:block !important;
+    width:100% !important;
+    text-align:center !important;
+    margin-top:12px !important;
+    margin-bottom:0 !important;
+  }
+  #popupSuccessState #whatsappHelpButton{
+    display:block !important;
+    width:100% !important;
+    margin-top:8px !important;
+    background:#25D366 !important;
+  }
+}
+
+/* ===== Menú principal + dashboard de control de huéspedes ===== */
+.top-menu{
+  display:flex;
+  gap:10px;
+  margin:10px 0 18px;
+  flex-wrap:wrap;
+}
+.menu-btn{
+  flex:1 1 220px;
+  margin-top:0;
+  padding:12px 16px;
+}
+.menu-btn.secondary{
+  background:linear-gradient(180deg,#fff7ed 0%, #fde7c0 100%);
+  color:#8a5300;
+  border:1px solid #efc36f;
+  box-shadow:none;
+}
+.menu-btn.active{
+  box-shadow:0 0 0 4px rgba(245,158,11,.14), 0 10px 20px rgba(217,119,6,.18);
+}
+.view-panel.hidden{
+  display:none !important;
+}
+.dashboard-wrap{
+  margin-top:10px;
+}
+.filter-grid{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:14px;
+}
+.filter-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:14px;
+}
+.kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:12px;
+  margin-top:16px;
+}
+.kpi-card{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:14px;
+}
+.kpi-label{
+  font-size:12px;
+  color:var(--text-soft);
+  margin-bottom:6px;
+}
+.kpi-value{
+  font-size:24px;
+  font-weight:700;
+  color:var(--text);
+}
+.kpi-card-accent{
+  background:linear-gradient(180deg,#f3fff6 0%, #e7f8ee 100%);
+  border-color:#b7e4c7;
+}
+.kpi-card-alert{
+  background:linear-gradient(180deg,#fff6f6 0%, #fdeaea 100%);
+  border-color:#f2b8b5;
+}
+.dashboard-alerts{
+  margin-top:14px;
+  display:grid;
+  gap:10px;
+}
+.dashboard-alert{
+  border-radius:16px;
+  padding:12px 14px;
+  border:1px solid var(--border);
+  font-size:14px;
+  line-height:1.45;
+  background:#fffdf8;
+  color:#6b7280;
+}
+.dashboard-alert strong{color:#2b2b2b;}
+.dashboard-alert-pending{
+  background:linear-gradient(180deg,#fff7f7 0%, #fdecec 100%);
+  border-color:#efb3b1;
+  color:#9f1239;
+}
+.dashboard-alert-ok{
+  background:linear-gradient(180deg,#f5fff7 0%, #e9f9ee 100%);
+  border-color:#b7e4c7;
+  color:#166534;
+}
+.dashboard-alert-neutral{
+  background:#fffdf8;
+  border-color:#f3e3c4;
+  color:#8a6d3b;
+}
+.dashboard-records-wrap{
+  margin-top:16px;
+}
+.dashboard-records{
+  display:grid;
+  gap:14px;
+}
+.dashboard-record{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:22px;
+  overflow:hidden;
+  box-shadow:0 10px 24px rgba(217,119,6,.08);
+}
+.dashboard-record-summary{
+  list-style:none;
+  cursor:pointer;
+  padding:16px;
+  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
+  transition:background .2s ease, border-color .2s ease;
+}
+.dashboard-record.factura-pendiente .dashboard-record-summary{
+  background:linear-gradient(180deg,#fff7f7 0%, #fdecec 100%);
+}
+.dashboard-record.factura-generada .dashboard-record-summary{
+  background:linear-gradient(180deg,#f5fff7 0%, #e9f9ee 100%);
+}
+.dashboard-record.factura-pendiente .dashboard-record-toggle{
+  border-color:#f4c7c7;
+  color:#c2410c;
+}
+.dashboard-record.factura-generada .dashboard-record-toggle{
+  border-color:#b7e4c7;
+  color:#15803d;
+}
+.dashboard-record-summary::-webkit-details-marker{display:none;}
+.dashboard-record-summary::marker{content:"";}
+.dashboard-record-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.dashboard-record-title{
+  font-size:17px;
+  font-weight:800;
+  color:#2b2b2b;
+  line-height:1.25;
+}
+.dashboard-record-subtitle{
+  font-size:13px;
+  color:#6b7280;
+  margin-top:4px;
+  line-height:1.4;
+}
+.dashboard-record-toggle{
+  flex:0 0 auto;
+  width:36px;
+  height:36px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
+  border:1px solid #f3d7a4;
+  color:#b45309;
+  font-size:18px;
+  transition:transform .18s ease;
+}
+.dashboard-record[open] .dashboard-record-toggle{
+  transform:rotate(180deg);
+}
+.dashboard-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.dashboard-summary-item{
+  background:#fff;
+  border:1px solid #f3e3c4;
+  border-radius:16px;
+  padding:10px 12px;
+  min-width:0;
+}
+.dashboard-summary-label{
+  font-size:11px;
+  font-weight:700;
+  color:#8a6d3b;
+  margin-bottom:4px;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+}
+.dashboard-summary-value{
+  font-size:14px;
+  color:#2b2b2b;
+  line-height:1.35;
+  word-break:break-word;
+}
+.dashboard-summary-value .dashboard-whatsapp-link{
+  word-break:break-all;
+}
+.dashboard-monto-box{
+  display:grid;
+  gap:10px;
+}
+.dashboard-ticket-actions{
+  align-items:flex-start;
+}
+.dashboard-ticket-actions > div{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:6px;
+}
+.dashboard-record-body{
+  padding:16px;
+  border-top:1px solid #f3e3c4;
+  background:#fff;
+}
+.dashboard-record-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:flex-start;
+  justify-content:space-between;
+}
+.dashboard-inline-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.dashboard-action-card{
+  background:#fffdf8;
+  border:1px solid #f3e3c4;
+  border-radius:16px;
+  padding:12px;
+  flex:1 1 280px;
+}
+.dashboard-action-card .dashboard-summary-label{
+  margin-bottom:8px;
+}
+.dashboard-details-btn{
+  margin-top:0;
+  min-width:180px;
+}
+.empty-state{
+  padding:22px;
+  text-align:center;
+  color:var(--text-soft);
+  background:#fff;
+  border:1px dashed var(--border);
+  border-radius:18px;
+}
+.table-wrap{
+  margin-top:16px;
+  border:1px solid var(--border);
+  border-radius:18px;
+  overflow:auto;
+  background:#fff;
+}
+.table-results{
+  width:100%;
+  border-collapse:collapse;
+  min-width:1200px;
+}
+.table-results th,
+.table-results td{
+  padding:10px 12px;
+  border-bottom:1px solid #f3e3c4;
+  font-size:13px;
+  text-align:left;
+  vertical-align:top;
+  white-space:nowrap;
+}
+.table-results th{
+  position:sticky;
+  top:0;
+  background:#fff7ed;
+  z-index:1;
+}
+.results-meta{
+  margin-top:12px;
+  font-size:13px;
+  color:var(--text-soft);
+}
+.badge-yes,
+.badge-no{
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+}
+.badge-yes{
+  background:#ecfdf3;
+  color:#067647;
+  border:1px solid #abefc6;
+}
+.badge-no{
+  background:#fef3f2;
+  color:#b42318;
+  border:1px solid #fecdca;
+}
+.empty-state{
+  padding:22px;
+  text-align:center;
+  color:var(--text-soft);
+}
+.dashboard-whatsapp-link{
+  color:#0f766e;
+  font-weight:700;
+  text-decoration:none;
+}
+.dashboard-whatsapp-link:hover{
+  text-decoration:underline;
+}
+.dashboard-monto-input{
+  width:120px;
+  min-width:120px;
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid var(--border-strong);
+  font-size:13px;
+}
+.dashboard-monto-input.saving{
+  opacity:.7;
+}
+.dashboard-monto-input.saved{
+  border-color:#22c55e;
+  box-shadow:0 0 0 3px rgba(34,197,94,.12);
+}
+.dashboard-monto-input.error{
+  border-color:#ef4444;
+  box-shadow:0 0 0 3px rgba(239,68,68,.12);
+}
+@media (max-width: 900px){
+  .filter-grid{
+    grid-template-columns:1fr 1fr;
+  }
+  .kpi-grid{
+    grid-template-columns:1fr 1fr;
+  }
+}
+@media (max-width: 700px){
+  .filter-grid,
+  .kpi-grid{
+    grid-template-columns:1fr;
+  }
+  .filter-actions{
+    flex-direction:column;
+  }
+  .dashboard-summary-grid{
+    grid-template-columns:1fr;
+  }
+  .dashboard-record-summary,
+  .dashboard-record-body{
+    padding:14px;
+  }
+  .dashboard-details-btn{
+    width:100%;
+  }
+}
+
+
+.range-grid{display:grid;grid-template-columns:1fr;gap:14px;}
+.range-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:14px;}
+.range-title{font-size:13px;font-weight:700;margin-bottom:10px;color:#7c4a03;}
+.pager-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;}
+.pager-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.pager-controls button{margin-top:0;}
+.pager-info{font-size:13px;color:var(--text-soft);}
+.link-btn{background:none;border:none;padding:0;color:#b45309;font-weight:700;cursor:pointer;box-shadow:none;margin-top:0;}
+.link-btn:hover{text-decoration:underline;transform:none;filter:none;}
+.detail-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 14px;text-align:left;margin-top:10px;}
+.detail-item{background:#fffdf8;border:1px solid var(--border);border-radius:12px;padding:10px;}
+.detail-key{font-size:12px;color:var(--text-soft);margin-bottom:4px;}
+.detail-value{font-size:14px;color:var(--text);word-break:break-word;white-space:pre-wrap;}
+.detail-modal-card{max-width:860px;width:100%;max-height:85vh;overflow:auto;text-align:left;}
+.detail-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
+@media (max-width:700px){.range-grid,.detail-grid{grid-template-columns:1fr;}.pager-bar{align-items:stretch;}.pager-controls{width:100%;}.detail-modal-actions button{width:100%;}}
+
+
+.dashboard-row-clickable{
+  cursor:pointer;
+  transition:background-color .15s ease;
+}
+.dashboard-row-clickable:hover{
+  background:#fff4db;
+}
+
+
+.dashboard-row-clickable{
+  cursor:pointer;
+  transition:background-color .15s ease;
+}
+.dashboard-row-clickable:hover{
+  background:#fff4db;
+}
+.detail-image{
+  max-width:100%;
+  max-height:220px;
+  display:block;
+  border-radius:10px;
+  border:1px solid #e9d5a1;
+  background:#fff;
+}
+.detail-link{
+  word-break:break-all;
+}
+
+
+/* === DETAIL MODAL UPGRADE === */
+.detail-kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(180px,1fr));
+  gap:12px;
+  margin-bottom:14px;
+}
+.detail-kpi{
+  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
+  border:1px solid #f3cf94;
+  border-radius:18px;
+  padding:14px;
+  box-shadow:0 8px 20px rgba(217,119,6,.08);
+}
+.detail-kpi-label{
+  font-size:12px;
+  color:#6b7280;
+  margin-bottom:6px;
+}
+.detail-kpi-value{
+  font-size:18px;
+  font-weight:700;
+  color:#2b2b2b;
+  line-height:1.2;
+}
+.detail-sections{
+  display:grid;
+  gap:14px;
+}
+.detail-card{
+  background:#fffdf8;
+  border:1px solid #f2cc8c;
+  border-radius:18px;
+  padding:14px;
+}
+.detail-card-title{
+  font-size:14px;
+  font-weight:700;
+  color:#7c4a03;
+  margin-bottom:10px;
+}
+.detail-grid-compact{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:12px;
+}
+.detail-item{
+  min-height:unset !important;
+  background:#fff;
+  border:1px solid #f2cc8c;
+  border-radius:16px;
+  padding:12px;
+}
+.detail-key{
+  font-size:12px;
+  color:#667085;
+  margin-bottom:5px;
+}
+.detail-value{
+  font-size:14px;
+  color:#2b2b2b;
+  line-height:1.45;
+  word-break:break-word;
+}
+.detail-gallery{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:12px;
+}
+.detail-image-card{
+  background:#fff;
+  border:1px solid #f2cc8c;
+  border-radius:16px;
+  padding:12px;
+}
+.detail-image{
+  width:100%;
+  max-width:100%;
+  height:180px;
+  display:block;
+  border-radius:12px;
+  border:1px solid #e9d5a1;
+  background:#fff;
+  object-fit:contain;
+}
+.detail-link{
+  word-break:break-all;
+}
+.detail-wa{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  text-decoration:none;
+  color:#0f766e;
+  font-weight:700;
+}
+.detail-wa:hover{
+  text-decoration:underline;
+}
+@media (max-width: 800px){
+  .detail-kpi-grid{
+    grid-template-columns:repeat(2, minmax(0,1fr));
+  }
+  .detail-grid-compact,
+  .detail-gallery{
+    grid-template-columns:1fr;
+  }
+}
+
+
+@media (max-width: 1024px){
+  .detail-kpi-grid{
+    grid-template-columns:repeat(auto-fit, minmax(160px,1fr));
+  }
+}
+@media (max-width: 600px){
+  .detail-kpi-grid{
+    grid-template-columns:1fr;
+  }
+  .detail-kpi{
+    padding:16px;
+  }
+  .detail-kpi-value{
+    font-size:20px;
+  }
+}
+
+
+.auto-detected-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 10px;
+  border-radius:999px;
+  background:#ecfdf3;
+  border:1px solid #abefc6;
+  color:#067647;
+  font-size:12px;
+  font-weight:700;
+  margin-bottom:10px;
+}
+
+
+.autofilled-field{
+  background:linear-gradient(180deg,#eefaf3 0%, #e2f7ea 100%) !important;
+  border-color:#7cc79a !important;
+  box-shadow:0 0 0 3px rgba(34,197,94,.10);
+}
+.autofilled-field:focus{
+  border-color:#4caf72 !important;
+  box-shadow:0 0 0 4px rgba(34,197,94,.16) !important;
+}
+.autofilled-label{
+  color:#256b45 !important;
+}
+.autofilled-wrapper{
+  border-color:#7cc79a !important;
+  background:linear-gradient(180deg,#f4fff8 0%, #ebfbf1 100%) !important;
+  box-shadow:0 0 0 3px rgba(34,197,94,.08);
+}
+
+</style>
+</head>
+<body>
+<div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
+<img alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w1000" style="max-width:260px; width:70%; height:auto; display:inline-block;"/>
+</div>
+<div class="page-shell">
+<div class="container">
+<div class="lang-bar">
+<span class="lang-note" data-i18n="chooseLanguage">Selecciona el idioma</span>
+<div class="lang-switch" id="langSwitch">
+<div class="lang-slider" id="switchSlider"></div>
+<div class="lang-switch-label">ES</div>
+<div class="lang-switch-label">EN</div>
+</div>
+</div>
+<h1 data-i18n="title">Registro de huéspedes</h1>
+<div class="top-menu">
+<button class="menu-btn active" id="menuRegistroBtn" type="button">Registro de huéspedes</button>
+<button class="menu-btn secondary" id="menuVehiculosBtn" type="button">Información de vehículos</button>
+<button class="menu-btn secondary" id="menuControlBtn" type="button">Control de huéspedes</button>
+</div>
+<div class="view-panel hidden" id="viewVehiculos">
+<div class="dashboard-wrap">
+<div class="section">
+<h2 class="section-title">Información de vehículos</h2>
+<p class="section-subtitle">Consulta los vehículos con estancia activa hoy y filtra la información por propiedad.</p>
+<div class="vehicle-info-toolbar">
+<div>
+<label for="vehiculos_propiedad_filtro">Propiedad</label>
+<select id="vehiculos_propiedad_filtro">
+<option value="">Selecciona</option>
+</select>
+</div>
+</div>
+<div class="filter-actions">
+<button id="btnBuscarVehiculos" type="button">Buscar vehículos</button>
+<button class="menu-btn secondary" id="btnLimpiarVehiculos" style="flex:0 0 auto;" type="button">Limpiar filtros</button>
+</div>
+<div class="vehicle-info-meta" id="vehiculosMeta">Sin consulta todavía.</div>
+<div class="vehicle-list" id="vehiculosTableBody">
+<div class="vehicle-empty">Sin registros para mostrar.</div>
+</div>
+</div>
+</div>
+</div>
+<div class="popup-backdrop" id="vehiculosLoadingPopup" style="display:none;">
+<div class="popup-card" style="max-width:320px;">
+<div style="width:52px;height:52px;border:4px solid rgba(245,158,11,.25);border-top-color:#f59e0b;border-radius:50%;margin:0 auto 16px;animation:spinPopup 0.9s linear infinite;"></div>
+<h3 style="margin-bottom:8px;">Buscando vehículos</h3>
+<div class="hint" style="margin:0;">Por favor espera mientras consultamos los registros.</div>
+</div>
+</div>
+<div class="view-panel hidden" id="viewDashboard">
+<div class="dashboard-wrap">
+<div class="section">
+<h2 class="section-title">Control de huéspedes</h2>
+<p class="section-subtitle">Consulta los registros guardados en la hoja "Check in" con filtros dinámicos, rango de fechas, paginación y detalle completo.</p>
+<div class="range-grid">
+<div class="range-card">
+<div class="range-title">Rango de fecha de entrada</div>
+<div class="grid">
+<div>
+<label for="filtro_fecha_entrada_desde">Desde</label>
+<input id="filtro_fecha_entrada_desde" type="date"/>
+</div>
+<div>
+<label for="filtro_fecha_entrada_hasta">Hasta</label>
+<input id="filtro_fecha_entrada_hasta" type="date"/>
+</div>
+</div>
+</div>
+<div class="range-card">
+<div class="range-title">Rango de fecha de salida</div>
+<div class="grid">
+<div>
+<label for="filtro_fecha_salida_desde">Desde</label>
+<input id="filtro_fecha_salida_desde" type="date"/>
+</div>
+<div>
+<label for="filtro_fecha_salida_hasta">Hasta</label>
+<input id="filtro_fecha_salida_hasta" type="date"/>
+</div>
+</div>
+</div>
+</div>
+<div class="filter-grid" style="margin-top:14px;">
+<div>
+<label for="filtro_nombre_reservacion">Nombre de la persona que hizo la reservación</label>
+<select id="filtro_nombre_reservacion"><option value="">Todos</option></select>
+</div>
+<div>
+<label for="filtro_medio_reservacion">Medio de reservación</label>
+<select id="filtro_medio_reservacion"><option value="">Todos</option></select>
+</div>
+<div>
+<label for="filtro_celular_principal">Cel/Whatsapp (principal)</label>
+<select id="filtro_celular_principal"><option value="">Todos</option></select>
+</div>
+<div>
+<label for="filtro_requiere_factura">¿Requiere factura?</label>
+<select id="filtro_requiere_factura"><option value="">Todos</option><option value="Sí">Sí</option><option value="No">No</option></select>
+</div>
+<div>
+<label for="filtro_razon_social">Razón social</label>
+<select id="filtro_razon_social"><option value="">Todos</option></select>
+</div>
+<div>
+<label for="filtro_forma_pago">Forma de pago</label>
+<select id="filtro_forma_pago"><option value="">Todos</option></select>
+</div>
+<div>
+<label for="filtro_correo">Correo electrónico</label>
+<select id="filtro_correo"><option value="">Todos</option></select>
+</div>
+<div>
+<label for="dashboard_page_size">Registros por página</label>
+<select id="dashboard_page_size">
+<option value="10">10</option>
+<option selected="" value="25">25</option>
+<option value="50">50</option>
+<option value="100">100</option>
+</select>
+</div>
+</div>
+<div class="filter-actions">
+<button id="btnBuscarHuespedes" type="button">Buscar registros</button>
+<button class="menu-btn secondary" id="btnLimpiarFiltros" style="flex:0 0 auto;" type="button">Limpiar filtros</button>
+<button class="menu-btn secondary" id="btnExportarCsv" style="flex:0 0 auto;" type="button">Exportar CSV</button>
+</div>
+<div class="kpi-grid">
+<div class="kpi-card"><div class="kpi-label">Registros encontrados</div><div class="kpi-value" id="kpi_total_registros">0</div></div>
+<div class="kpi-card"><div class="kpi-label">Con factura</div><div class="kpi-value" id="kpi_con_factura">0</div></div>
+<div class="kpi-card"><div class="kpi-label">Sin factura</div><div class="kpi-value" id="kpi_sin_factura">0</div></div>
+<div class="kpi-card"><div class="kpi-label">Medios de reservación únicos</div><div class="kpi-value" id="kpi_medios_unicos">0</div></div>
+<div class="kpi-card kpi-card-accent"><div class="kpi-label">% facturado</div><div class="kpi-value" id="kpi_pct_facturado">0%</div></div>
+<div class="kpi-card kpi-card-alert"><div class="kpi-label">% pendiente</div><div class="kpi-value" id="kpi_pct_pendiente">0%</div></div>
+</div>
+<div class="dashboard-alerts" id="dashboardAlerts"><div class="dashboard-alert dashboard-alert-neutral">Sin alertas todavía.</div></div>
+<div class="results-meta" id="dashboardMeta">Sin consulta todavía.</div>
+<div class="dashboard-records-wrap">
+<div class="dashboard-records" id="dashboardTableBody">
+<div class="empty-state">Sin registros para mostrar.</div>
+</div>
+</div>
+<div class="pager-bar">
+<div class="pager-info" id="dashboardPagerInfo">Página 1 de 1</div>
+<div class="pager-controls">
+<button class="menu-btn secondary" id="btnPrevPage" style="flex:0 0 auto;" type="button">Anterior</button>
+<button class="menu-btn secondary" id="btnNextPage" style="flex:0 0 auto;" type="button">Siguiente</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="popup-backdrop" id="dashboardDetailModal" style="display:none;">
+<div class="popup-card detail-modal-card">
+<h3 style="margin-bottom:6px;">Detalle completo del registro</h3>
+<div class="hint" id="dashboardDetailSubtitle" style="margin-bottom:14px;">Consulta completa del huésped.</div>
+<div class="detail-grid" id="dashboardDetailGrid"></div>
+<div class="detail-modal-actions">
+<button onclick="cerrarDetalleDashboard()" type="button">Cerrar</button>
+</div>
+</div>
+</div>
+<div class="view-panel" id="viewRegistro">
+<form id="form">
+<input id="tipo_registro" name="tipo_registro" type="hidden" value="nuevo"/>
+<div class="section" id="section_celular_principal"><h2 class="section-title" data-i18n="phoneLookupTitle">Número de celular</h2><p class="section-subtitle" data-i18n="phoneLookupSub">Escribe tu número para buscar si ya existe un registro previo y completar automáticamente algunos datos.</p>
+<div class="phone-group">
+<select id="lada1" name="lada1"></select>
+<input autocomplete="tel-national" id="celular_principal_input" inputmode="numeric" name="cel" type="tel"/>
+</div>
+<div class="note hidden" id="guestAutofillStatus" style="margin-top:10px;"></div>
+</div>
+<div class="visible" id="formulario_principal"><div class="section"><h2 class="section-title" data-i18n="sec1Title">Datos de la reservación</h2><p class="section-subtitle" data-i18n="sec1Sub"></p><label data-i18n="bookingSource">Medio de reservación</label>
+<select name="medio">
+<option value="">Selecciona</option>
+<option value="Airbnb">Airbnb</option>
+<option value="Check-inn-Saltillo.com">Check-inn-Saltillo.com (website / link de whatsapp)</option>
+<option value="Trato directo">Trato directo</option>
+</select>
+<label data-i18n="bookingName">Nombre de la persona que hizo la reservación</label>
+<input name="nombre" type="text"/><div id="field_propiedad_departamento"><label data-i18n="property">Propiedad</label>
+<select id="propiedad" name="propiedad">
+<option value="">Selecciona</option>
+<option value="Calle Cumbres">Calle Cumbres</option>
+<option value="Calle Baja California">Calle Baja California</option>
+<option value="Calle Oaxaca">Calle Oaxaca</option>
+<option value="Calle José Cárdenas">Calle José Cárdenas</option>
+<option value="Calle Matamoros">Calle Matamoros</option>
+<option value="Calle Torreón">Calle Torreón</option>
+<option value="Otra">Otra</option>
+</select>
+<input class="hidden" id="propiedad_otra" name="propiedad_otra" placeholder="Especifica" type="text"/>
+<div class="grid-vertical">
+<div>
+<label data-i18n="department"># Departamento</label>
+<select name="depto">
+<option value="">Selecciona</option>
+<option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+<option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+<option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
+<option value="13">13</option><option value="14">14</option>
+</select>
+<div class="hint">Selecciona una hora en intervalos de 30 minutos.</div>
+</div>
+<div id="field_num_huespedes">
+<label data-i18n="guestsCount"># Huéspedes</label>
+<select id="num_huespedes" name="num_huespedes">
+<option value="">Selecciona</option>
+<option value="1">1</option><option value="2">2</option><option value="3">3</option>
+<option value="4">4</option><option value="5">5</option><option value="6">6</option>
+</select>
+</div></div>
+<div id="field_huespedes_nombres"><label data-i18n="guestNames">Nombres de los huéspedes</label>
+<div id="huespedes-container">
+<div class="huesped-row" style="position:relative;">
+<div style="flex:1; padding-right:34px;">
+<input name="huesped[]" placeholder="Huésped 1" type="text"/>
+<label class="copiar-reservante-wrap" style="font-weight:normal; margin-top:8px; display:flex; align-items:center; gap:8px;">
+<input class="copiar-reservante" onchange="toggleCopiarReservante(this)" style="width:auto;" type="checkbox"/>
+        Es la misma persona que realizó la reservación
+      </label>
+</div>
+</div>
+</div>
+<button onclick="addGuest()" type="button">➕ Agregar huésped</button>
+</div>
+</div>
+<div class="grid-vertical">
+<div>
+<label data-i18n="checkinDate">Fecha de ingreso</label>
+<input name="ingreso" type="date"/>
+<label data-i18n="arrivalTime">Hora estimada de llegada (a partir de las 2 P.M.)</label>
+<select id="hora_llegada_estimada" name="hora_llegada_estimada">
+<option value="">Selecciona</option>
+<option value="2:00 p.m.">2:00 p.m.</option>
+<option value="2:30 p.m.">2:30 p.m.</option>
+<option value="3:00 p.m.">3:00 p.m.</option>
+<option value="3:30 p.m.">3:30 p.m.</option>
+<option value="4:00 p.m.">4:00 p.m.</option>
+<option value="4:30 p.m.">4:30 p.m.</option>
+<option value="5:00 p.m.">5:00 p.m.</option>
+<option value="5:30 p.m.">5:30 p.m.</option>
+<option value="6:00 p.m.">6:00 p.m.</option>
+<option value="6:30 p.m.">6:30 p.m.</option>
+<option value="7:00 p.m.">7:00 p.m.</option>
+<option value="7:30 p.m.">7:30 p.m.</option>
+<option value="8:00 p.m.">8:00 p.m.</option>
+<option value="8:30 p.m.">8:30 p.m.</option>
+<option value="9:00 p.m.">9:00 p.m.</option>
+<option value="9:30 p.m.">9:30 p.m.</option>
+<option value="10:00 p.m.">10:00 p.m.</option>
+<option value="10:30 p.m.">10:30 p.m.</option>
+<option value="11:00 p.m.">11:00 p.m.</option>
+</select>
+<datalist id="hora_llegada_sugerencias">
+<option value="14:00"></option>
+<option value="14:30"></option>
+<option value="15:00"></option>
+<option value="15:30"></option>
+<option value="16:00"></option>
+<option value="16:30"></option>
+<option value="17:00"></option>
+<option value="17:30"></option>
+<option value="18:00"></option>
+<option value="18:30"></option>
+<option value="19:00"></option>
+<option value="19:30"></option>
+<option value="20:00"></option>
+<option value="20:30"></option>
+<option value="21:00"></option>
+<option value="21:30"></option>
+<option value="22:00"></option>
+<option value="22:30"></option>
+<option value="23:00"></option>
+<option value="23:30"></option>
+</datalist>
+</div>
+<div>
+<label data-i18n="checkoutDate">Fecha de salida</label>
+<input name="salida" type="date"/>
+<label data-i18n="departureTime">Hora estimada de salida (máximo 10 A.M.)</label>
+<select id="hora_salida_estimada" name="hora_salida_estimada">
+<option value="">Selecciona</option>
+<option value="12:00 a.m.">12:00 a.m.</option>
+<option value="12:30 a.m.">12:30 a.m.</option>
+<option value="1:00 a.m.">1:00 a.m.</option>
+<option value="1:30 a.m.">1:30 a.m.</option>
+<option value="2:00 a.m.">2:00 a.m.</option>
+<option value="2:30 a.m.">2:30 a.m.</option>
+<option value="3:00 a.m.">3:00 a.m.</option>
+<option value="3:30 a.m.">3:30 a.m.</option>
+<option value="4:00 a.m.">4:00 a.m.</option>
+<option value="4:30 a.m.">4:30 a.m.</option>
+<option value="5:00 a.m.">5:00 a.m.</option>
+<option value="5:30 a.m.">5:30 a.m.</option>
+<option value="6:00 a.m.">6:00 a.m.</option>
+<option value="6:30 a.m.">6:30 a.m.</option>
+<option value="7:00 a.m.">7:00 a.m.</option>
+<option value="7:30 a.m.">7:30 a.m.</option>
+<option value="8:00 a.m.">8:00 a.m.</option>
+<option value="8:30 a.m.">8:30 a.m.</option>
+<option value="9:00 a.m.">9:00 a.m.</option>
+<option value="9:30 a.m.">9:30 a.m.</option>
+<option value="10:00 a.m.">10:00 a.m.</option>
+</select>
+<datalist id="hora_salida_sugerencias">
+<option value="01:00"></option>
+<option value="01:30"></option>
+<option value="02:00"></option>
+<option value="02:30"></option>
+<option value="03:00"></option>
+<option value="03:30"></option>
+<option value="04:00"></option>
+<option value="04:30"></option>
+<option value="05:00"></option>
+<option value="05:30"></option>
+<option value="06:00"></option>
+<option value="06:30"></option>
+<option value="07:00"></option>
+<option value="07:30"></option>
+<option value="08:00"></option>
+<option value="08:30"></option>
+<option value="09:00"></option>
+<option value="09:30"></option>
+<option value="10:00"></option>
+<option value="10:30"></option>
+</datalist>
+</div>
+</div>
+</div>
+<div class="section" id="section_identificacion_estancia"><h2 class="section-title" data-i18n="sec2Title">Identificación y estancia</h2><p class="section-subtitle" data-i18n="sec2Sub">Capture la identificación, motivo de viaje, fechas, horarios y personas hospedadas.</p><div id="field_identificacion"><label data-i18n="idType">Identificación personal</label>
+<select id="identificacion_tipo" name="identificacion_tipo">
+<option value="">Selecciona</option>
+<option value="INE">INE</option>
+<option value="Pasaporte">Pasaporte</option>
+<option value="Otro">Otro</option>
+</select>
+<input class="hidden" id="identificacion_otro" name="identificacion_otro" placeholder="Especifica la identificación" type="text"/>
+<div class="hidden" id="identificacion_ine_fields">
+<div class="upload-grid">
+<div class="upload-box">
+<label data-i18n="frontSide">Lado frontal</label>
+<label class="custom-upload">
+<input accept="image/*" id="ine_frontal" name="ine_frontal" type="file"/>
+<span class="upload-drop">
+<span class="upload-copy">
+<span class="upload-title" data-i18n="uploadImage">Subir imagen</span>
+<span class="upload-subtitle">JPG o PNG optimizado</span>
+</span>
+<span class="upload-btn" data-i18n="uploadImage">Subir imagen</span>
+</span>
+</label>
+<div class="preview-wrapper"><img alt="" class="preview-img hidden" id="ine_frontal_preview"/><div class="preview-text" id="ine_frontal_name">Ninguna imagen seleccionada</div></div>
+</div>
+<div class="upload-box">
+<label data-i18n="backSide">Lado trasero</label>
+<label class="custom-upload">
+<input accept="image/*" id="ine_trasero" name="ine_trasero" type="file"/>
+<span class="upload-drop">
+<span class="upload-copy">
+<span class="upload-title" data-i18n="uploadImage">Subir imagen</span>
+<span class="upload-subtitle">JPG o PNG optimizado</span>
+</span>
+<span class="upload-btn" data-i18n="uploadImage">Subir imagen</span>
+</span>
+</label>
+<div class="preview-wrapper"><img alt="" class="preview-img hidden" id="ine_trasero_preview"/><div class="preview-text" id="ine_trasero_name">Ninguna imagen seleccionada</div></div>
+</div>
+</div>
+</div>
+<div class="hidden" id="identificacion_unica_fields">
+<div class="upload-box">
+<label data-i18n="idImage">Imagen de identificación</label>
+<label class="custom-upload">
+<input accept="image/*" id="identificacion_unica" name="identificacion_unica" type="file"/>
+<span class="upload-drop">
+<span class="upload-copy">
+<span class="upload-title" data-i18n="uploadImage">Subir imagen</span>
+<span class="upload-subtitle">JPG o PNG optimizado</span>
+</span>
+<span class="upload-btn" data-i18n="uploadImage">Subir imagen</span>
+</span>
+</label>
+<div class="preview-wrapper"><img alt="" class="preview-img hidden" id="identificacion_unica_preview"/><div class="preview-text" id="identificacion_unica_name">Ninguna imagen seleccionada</div></div>
+</div>
+</div>
+</div><div id="field_motivo"><label data-i18n="reason">Motivo</label>
+<select id="motivo" name="motivo">
+<option value="">Selecciona</option>
+<option value="Laboral">Laboral</option>
+<option value="Estudio">Estudio</option>
+<option value="Vacacional">Vacacional</option>
+<option value="Otro">Otro</option>
+</select>
+<input class="hidden" id="motivo_otro" name="motivo_otro" placeholder="Especifica" type="text"/>
+</div><div class="hidden" id="field_propiedad_departamento"><label data-i18n="property">Propiedad</label>
+<select id="propiedad" name="propiedad">
+<option value="">Selecciona</option>
+<option value="Calle Cumbres">Calle Cumbres</option>
+<option value="Calle Baja California">Calle Baja California</option>
+<option value="Calle Oaxaca">Calle Oaxaca</option>
+<option value="Calle José Cárdenas">Calle José Cárdenas</option>
+<option value="Calle Matamoros">Calle Matamoros</option>
+<option value="Calle Torreón">Calle Torreón</option>
+<option value="Otra">Otra</option>
+</select>
+<input class="hidden" id="propiedad_otra" name="propiedad_otra" placeholder="Especifica" type="text"/>
+<div class="grid-vertical">
+<div>
+<label data-i18n="department"># Departamento</label>
+<select name="depto">
+<option value="">Selecciona</option>
+<option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+<option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+<option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
+<option value="13">13</option><option value="14">14</option>
+</select>
+<div class="hint">Selecciona una hora en intervalos de 30 minutos.</div>
+</div>
+<div id="field_num_huespedes">
+<label data-i18n="guestsCount"># Huéspedes</label>
+<select id="num_huespedes" name="num_huespedes">
+<option value="">Selecciona</option>
+<option value="1">1</option><option value="2">2</option><option value="3">3</option>
+<option value="4">4</option><option value="5">5</option><option value="6">6</option>
+</select>
+</div></div>
+<div id="field_huespedes_nombres"><label data-i18n="guestNames">Nombres de los huéspedes</label>
+<div id="huespedes-container">
+<div class="huesped-row" style="position:relative;">
+<div style="flex:1; padding-right:34px;">
+<input name="huesped[]" placeholder="Huésped 1" type="text"/>
+<label class="copiar-reservante-wrap" style="font-weight:normal; margin-top:8px; display:flex; align-items:center; gap:8px;">
+<input class="copiar-reservante" onchange="toggleCopiarReservante(this)" style="width:auto;" type="checkbox"/>
+        Es la misma persona que realizó la reservación
+      </label>
+</div>
+</div>
+</div>
+<button onclick="addGuest()" type="button">➕ Agregar huésped</button>
+</div>
+</div>
+</div>
+<div class="section" id="section_contacto_huesped"><h2 class="section-title" data-i18n="sec3Title">Contacto del huésped</h2><p class="section-subtitle" data-i18n="sec3Sub">Datos de contacto del huésped y de emergencia.</p><label data-i18n="emergencyContact">Contacto emergencia</label>
+<div class="phone-group">
+<select id="lada2" name="lada2"></select>
+<input name="emergencia" type="tel"/>
+</div>
+</div>
+<div class="section"><h2 class="section-title" data-i18n="sec4Title">Facturación</h2><p class="section-subtitle" data-i18n="sec4Sub"></p><label data-i18n="invoice">¿Requieres el TICKET para AUTO-FACTURACIÓN?</label>
+<select id="factura" name="factura">
+<option value="">Selecciona</option>
+<option value="si">Sí</option>
+<option value="no">No</option>
+</select>
+<div class="note hidden" id="factura_notas">
+<div class="factura-note-es">a) UNA FACTURA por PERIODO registrado</div>
+<div class="factura-note-es" style="margin-top:6px;">b) Si realizas una EXTENSIÓN deberás realizar un nuevo registro para el nuevo periodo</div>
+<div class="factura-note-es" style="margin-top:6px;">c) TICKET VIGENTE ÚNICAMENTE DENTRO DEL MES en que fue generado</div>
+<div class="factura-note-en hidden">a) ONE INVOICE per REGISTERED PERIOD</div>
+<div class="factura-note-en hidden" style="margin-top:6px;">b) If you EXTEND your stay, you must submit a new registration for the new period</div>
+<div class="factura-note-en hidden" style="margin-top:6px;">c) TICKET VALID ONLY WITHIN THE MONTH it was issued</div>
+</div>
+<div class="hidden" id="factura_fields">
+<div id="field_razon_social"><label data-i18n="businessName">Razón social</label>
+<input id="razon_social" name="razon_social" type="text"/>
+</div><div id="field_regimen_fiscal"><label data-i18n="taxRegime">Régimen fiscal</label>
+<select id="regimen" name="regimen">
+<option value="">Selecciona</option>
+<option value="General de Ley Personas Morales">General de Ley Personas Morales</option>
+<option value="Régimen Simplificado de Confianza (RESICO)">Régimen Simplificado de Confianza (RESICO)</option>
+<option value="Persona Física con Actividades Empresariales y Profesionales">Persona Física con Actividades Empresariales y Profesionales</option>
+<option value="Otro">Otro</option>
+</select>
+<input class="hidden" id="regimen_otro" name="regimen_otro" placeholder="Especifica el régimen fiscal" type="text"/>
+<input id="concepto_facturapi" name="concepto_facturapi" type="hidden" value=""/>
+</div><label data-i18n="paymentMethod">Medio de pago</label>
+<select id="medio_pago" name="medio_pago">
+<option value="">Selecciona</option>
+<option value="Transferencia directa a la cuenta del anfitrión">Transferencia directa a la cuenta del anfitrión</option>
+<option value="Airbnb">Airbnb</option>
+<option value="Página web (www.check-inn-saltillo.com)">Página web (www.check-inn-saltillo.com)</option>
+<option value="Liga de Whatsapp">Liga de Whatsapp</option>
+</select>
+<div class="hidden" id="comprobante_transferencia_wrap">
+<label data-i18n="transferReceipt">Sube el comprobante de transferencia</label>
+<div class="upload-box">
+<label class="custom-upload">
+<input accept="image/*" id="comprobante_transferencia" name="comprobante_transferencia" type="file"/>
+<span class="upload-drop">
+<span class="upload-copy">
+<span class="upload-title" data-i18n="uploadImage">Subir imagen</span>
+<span class="upload-subtitle">JPG o PNG optimizado</span>
+</span>
+<span class="upload-btn" data-i18n="uploadImage">Subir imagen</span>
+</span>
+</label>
+<div class="preview-wrapper"><img alt="" class="preview-img hidden" id="comprobante_transferencia_preview"/><div class="preview-text" id="comprobante_transferencia_name">Ninguna imagen seleccionada</div></div>
+</div>
+</div>
+<div class="note hidden" id="nota_airbnb">
+<div class="nota-airbnb-es">
+    La factura emitida por Check-Inn NO INCLUYE la "Comisión Airbnb". En caso de querer cubrir el gasto total deberás descargar la factura correspondiente a la comisión de esta plataforma directamente de su app.
+  </div>
+<div class="nota-airbnb-en hidden">
+    The invoice issued by Check-Inn DOES NOT INCLUDE the "Airbnb Commission". If you want to cover the total cost, you must download the invoice for this platform's commission directly from its app.
+  </div>
+</div>
+<label data-i18n="amountPaid">$ Monto pagado</label>
+<div class="money-group">
+<select id="divisa_monto" name="divisa_monto">
+<option value="">Selecciona divisa</option>
+<option selected="" value="MXN">Peso mexicano (MXN)</option>
+<option value="USD">Dólar estadounidense (USD)</option>
+<option value="BRL">Real brasileño (BRL)</option>
+<option value="EUR">Euro (EUR)</option>
+<option value="GBP">Libra esterlina (GBP)</option>
+</select>
+<input id="monto_pagado" inputmode="decimal" min="0" name="monto_pagado" placeholder="0.00" step="0.01" type="number"/>
+</div>
+<div class="hint" id="monto_preview">Monto capturado: MXN 0.00</div>
+<label data-i18n="emailPrimary">Correo electrónico (principal)</label>
+<input id="correo1" name="correo1" type="email"/>
+<label data-i18n="emailCopy">Correo electrónico (copia)</label>
+<input id="correo2" name="correo2" type="email"/>
+</div>
+</div>
+<div class="section" id="vehicle_section_hidden_backend"><h2 class="section-title" data-i18n="sec5Title">Registro de vehículo</h2><p class="section-subtitle" data-i18n="vehicleProSub">Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.</p><label data-i18n="vehicle">¿Cuentas con vehículo?</label>
+<select id="tiene_vehiculo" name="tiene_vehiculo">
+<option value="">Selecciona</option>
+<option value="si">Sí</option>
+<option value="no">No</option>
+</select>
+<div class="vehicle-pro-shell hidden" id="vehiculo_fields">
+<div class="vehicle-warning" id="vehicleWarningBox"></div>
+<div class="vehicle-alert-note hidden" id="vehicleCoordinationNote">En caso de ocupar el PASILLO CENTRAL requerirás COORDINARTE con los DEMÁS HUÉSPEDES. Consulta los horarios de entrada, salida y contacto en el módulo "Información de vehículos".</div>
+<div class="vehicle-fields-grid" style="grid-template-columns:1fr;">
+<div class="vehicle-card">
+<div class="vehicle-card-title" data-i18n="vehicleIdentityTitle">Identificación del vehículo</div>
+<label data-i18n="make">Marca</label>
+<select id="vehiculo_marca" name="vehiculo_marca">
+<option value="">Selecciona</option>
+<option value="Nissan">Nissan</option>
+<option value="Chevrolet">Chevrolet</option>
+<option value="Volkswagen">Volkswagen</option>
+<option value="Toyota">Toyota</option>
+<option value="Honda">Honda</option>
+<option value="Ford">Ford</option>
+<option value="Kia">Kia</option>
+<option value="Hyundai">Hyundai</option>
+<option value="Mazda">Mazda</option>
+<option value="Renault">Renault</option>
+<option value="SEAT">SEAT</option>
+<option value="Suzuki">Suzuki</option>
+<option value="Mitsubishi">Mitsubishi</option>
+<option value="Jeep">Jeep</option>
+<option value="BMW">BMW</option>
+<option value="Mercedes-Benz">Mercedes-Benz</option>
+<option value="Audi">Audi</option>
+<option value="Tesla">Tesla</option>
+<option value="Peugeot">Peugeot</option>
+<option value="Chirey">Chirey</option>
+<option value="Subaru">Subaru</option>
+<option value="Volvo">Volvo</option>
+<option value="Lexus">Lexus</option>
+<option value="Acura">Acura</option>
+<option value="GMC">GMC</option>
+<option value="Cadillac">Cadillac</option>
+<option value="Infiniti">Infiniti</option>
+<option value="Lincoln">Lincoln</option>
+<option value="RAM">RAM</option>
+<option value="Mini">Mini</option>
+<option value="Otro">Otro</option>
+</select>
+<input class="hidden" id="vehiculo_marca_otro" name="vehiculo_marca_otro" placeholder="Especifica la marca" type="text"/>
+<label data-i18n="model">Modelo</label>
+<input id="vehiculo_modelo" name="vehiculo_modelo" placeholder="Especifica el modelo" type="text"/>
+<label data-i18n="platesRequired"># Placas</label>
+<input autocapitalize="characters" id="vehiculo_placas" maxlength="12" name="vehiculo_placas" placeholder="Escribe las placas" type="text"/>
+<div class="hint" data-i18n="platesHint">Usa letras y números tal como aparecen en el vehículo.</div>
+<label data-i18n="color">Color</label><input id="vehiculo_color" name="vehiculo_color" placeholder="Ejemplo: Blanco, gris, rojo" type="text"/><label data-i18n="usualDepartureTime">Hora habitual de salida</label><input id="vehiculo_hora_salida" name="vehiculo_hora_salida" type="time"/><label data-i18n="addPhoto">Agregar foto</label><div class="upload-box">
+<label class="custom-upload">
+<input accept="image/*" id="vehiculo_foto" name="vehiculo_foto" type="file"/>
+<span class="upload-drop">
+<span class="upload-copy">
+<span class="upload-title" data-i18n="uploadImage">Subir imagen</span>
+<span class="upload-subtitle">JPG o PNG optimizado</span>
+</span>
+<span class="upload-btn" data-i18n="uploadImage">Subir imagen</span>
+</span>
+</label>
+<div class="preview-wrapper"><img alt="" class="preview-img hidden" id="vehiculo_foto_preview"/><div class="preview-text" id="vehiculo_foto_name">Ninguna imagen seleccionada</div></div>
+</div></div>
+</div>
+<div class="vehicle-summary" id="vehicleSummaryBox" style="display:none;">
+<div class="vehicle-summary-title" data-i18n="vehicleSummaryTitle">Resumen del vehículo</div>
+<div class="vehicle-summary-text" id="vehicleSummaryText"></div>
+</div>
+</div>
+</div>
+<div class="section"><h2 class="section-title" data-i18n="sec6Title">Comentarios</h2><p class="section-subtitle" data-i18n="sec6Sub"></p>
+<textarea name="comentarios"></textarea></div>
+<div class="submit-wrap"><button data-i18n="send" id="submitBtn" type="submit">Enviar</button><div class="status" id="statusMessage"></div></div></div></form>
+</div>
+<div class="popup-backdrop" id="popupEnvio" style="display:none; position:fixed; inset:0; z-index:999999; align-items:center; justify-content:center; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);">
+<div class="popup-card" style="max-width:340px;">
+<div id="popupLoadingState">
+<div style="width:48px;height:48px;border:4px solid rgba(245,158,11,.25);border-top-color:#f59e0b;border-radius:50%;margin:0 auto 16px;animation:spinPopup 0.9s linear infinite;"></div>
+<h3 id="popupTituloEnvio">Procesando registro...</h3>
+<div class="hint" id="popupTextoEnvio" style="font-size:14px; margin:8px 0 0 0; color:#374151;">
+        Por favor espera unos segundos.
+      </div>
+</div>
+<div id="popupSuccessState" style="display:none;">
+<h3 id="popupTituloExito">Registro exitoso</h3>
+<div class="hint" id="popupTextoExito" style="font-size:14px; margin:8px 0 16px 0; color:#374151;">
+        El formulario se envió correctamente.
+      </div>
+<button onclick="cerrarVentanaEnvio()" type="button">Cerrar</button><div id="whatsappHelpLabel" style="display:block;width:100%;margin-top:12px;text-align:center;font-size:14px;font-weight:700;color:#374151;">Dudas/Comentarios</div><button id="whatsappHelpButton" onclick="abrirWhatsappDudas()" style="display:block !important;width:100%;margin-top:8px;padding:14px 16px;background:#25D366;color:#ffffff;border:none;border-radius:16px;font-size:15px;font-weight:700;cursor:pointer;-webkit-appearance:none;appearance:none;" type="button">Envíanos un Whatsapp</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbylxvY9Zw74OkMSVcw83za8D-EL0jpVsfn0b0wvmLJ2KeMHfgT27025ZrC1Wvx1nuau7A/exec";
+const FACTURAPI_APP_URL = window.FACTURAPI_APP_URL || `${window.location.origin}/facturapi`;
+
+const ladas = [
+  {c:"México",code:"52",p:1},
+  {c:"Estados Unidos",code:"1",p:1},
+  {c:"Canadá",code:"1",p:1},
+  {c:"Brasil",code:"55",p:1},
+  {c:"España",code:"34",p:1},
+  {c:"Argentina",code:"54"},
+  {c:"Chile",code:"56"},
+  {c:"Colombia",code:"57"},
+  {c:"Perú",code:"51"},
+  {c:"Reino Unido",code:"44"}
+];
+
+function loadLadas(id){
+  const s = document.getElementById(id);
+  s.innerHTML = '<option value="">Lada</option>';
+  ladas.filter(x => x.p).forEach(x => {
+    s.innerHTML += `<option value="${x.code}">${x.c} (+${x.code})</option>`;
+  });
+  s.innerHTML += '<option disabled>────</option>';
+  ladas.filter(x => !x.p).forEach(x => {
+    s.innerHTML += `<option value="${x.code}">${x.c} (+${x.code})</option>`;
+  });
+  s.value = "52";
+}
+loadLadas("lada1");
+loadLadas("lada2");
+const guestAutofillStatus = document.getElementById("guestAutofillStatus");
+let guestLookupTimer = null;
+let guestLookupInFlight = 0;
+let guestLookupCatalog = null;
+let guestLookupLastMatchedPhone = "";
+
+function findRelatedLabel(el){
+  if (!el) return null;
+  if (el.id) {
+    const explicit = document.querySelector(`label[for="${el.id}"]`);
+    if (explicit) return explicit;
+  }
+  let current = el.previousElementSibling;
+  while (current) {
+    if (current.tagName && current.tagName.toLowerCase() === "label") return current;
+    current = current.previousElementSibling;
+  }
+  const parent = el.closest('div');
+  if (!parent) return null;
+  let sibling = parent.previousElementSibling;
+  while (sibling) {
+    if (sibling.tagName && sibling.tagName.toLowerCase() === "label") return sibling;
+    sibling = sibling.previousElementSibling;
+  }
+  return null;
+}
+function markFieldAsAutofilled(el){
+  if (!el) return;
+  el.classList.add("autofilled-field");
+  const label = findRelatedLabel(el);
+  if (label) label.classList.add("autofilled-label");
+}
+function clearFieldAutofilled(el){
+  if (!el) return;
+  el.classList.remove("autofilled-field");
+  const label = findRelatedLabel(el);
+  if (label) label.classList.remove("autofilled-label");
+}
+function markPreviewAsAutofilled(wrapperId){
+  const wrapper = document.getElementById(wrapperId);
+  if (wrapper) wrapper.classList.add("autofilled-wrapper");
+}
+function clearAllAutofilledMarks(){
+  document.querySelectorAll(".autofilled-field").forEach(el => el.classList.remove("autofilled-field"));
+  document.querySelectorAll(".autofilled-label").forEach(el => el.classList.remove("autofilled-label"));
+  document.querySelectorAll(".autofilled-wrapper").forEach(el => el.classList.remove("autofilled-wrapper"));
+}
+function attachAutofilledFieldListeners(root = document){
+  root.querySelectorAll('input, select, textarea').forEach(el => {
+    if (el.dataset.autofillHighlightBound === "1") return;
+    const clear = () => clearFieldAutofilled(el);
+    el.addEventListener("input", clear);
+    el.addEventListener("change", clear);
+    el.dataset.autofillHighlightBound = "1";
+  });
+}
+document.addEventListener("DOMContentLoaded", function(){
+  attachAutofilledFieldListeners(document);
+  actualizarTextoUploads(false);
+});
+
+function setGuestAutofillMessage(type, html){
+  if (!guestAutofillStatus) return;
+  guestAutofillStatus.classList.remove("hidden","success","error");
+  if (!html) {
+    guestAutofillStatus.classList.add("hidden");
+    guestAutofillStatus.innerHTML = "";
+    return;
+  }
+  if (type === "success") guestAutofillStatus.classList.add("success");
+  else if (type === "error") guestAutofillStatus.classList.add("error");
+  guestAutofillStatus.innerHTML = html;
+}
+
+function actualizarTextoUploads(esHuespedExistente){
+  const texto = esHuespedExistente
+    ? (window.currentLang === "en" ? "Update image" : "Actualizar imagen")
+    : (window.currentLang === "en" ? "Upload image" : "Subir imagen");
+
+  document.querySelectorAll('.upload-title, .upload-btn').forEach(el => {
+    el.textContent = texto;
+  });
+}
+
+function normalizePhone(value){
+  return String(value || "").replace(/\D/g, "");
+}
+
+function getPrimaryPhoneCandidate(){
+  const lada = document.getElementById("lada1")?.value || "";
+  const cel = document.querySelector('input[name="cel"]')?.value || "";
+  return normalizePhone(`${lada}${cel}`);
+}
+
+async function loadGuestPhoneCatalog(){
+  if (guestLookupCatalog) return guestLookupCatalog;
+  const res = await fetch(`${WEB_APP_URL}?action=list_filter_options`, { method: "GET" });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || json.message || "No fue posible consultar huéspedes previos.");
+  const phones = Array.isArray(json?.options?.celulares_principales) ? json.options.celulares_principales : [];
+  guestLookupCatalog = phones.map(raw => ({ raw, digits: normalizePhone(raw) })).filter(x => x.digits);
+  return guestLookupCatalog;
+}
+
+async function fetchGuestRecordByExactPhone(rawPhone){
+  const params = new URLSearchParams();
+  params.set("action", "list_records");
+  params.set("celular_principal", rawPhone);
+  params.set("page", "1");
+  params.set("page_size", "100");
+  const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: "GET" });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || json.message || "No fue posible recuperar el registro.");
+  const rows = Array.isArray(json.rows) ? json.rows : [];
+  return rows.length ? rows[0] : null;
+}
+
+async function fetchGuestRecordDetail(recordId){
+  const id = String(recordId || "").trim();
+  if (!id) return null;
+  const params = new URLSearchParams();
+  params.set("action", "get_record_detail");
+  params.set("record_id", id);
+  const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: "GET" });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || json.message || "No fue posible recuperar el detalle del registro.");
+  return json.record || null;
+}
+
+function setSelectByTextOrValue(select, desired){
+  if (!select) return false;
+  const target = String(desired || "").trim().toLowerCase();
+  if (!target) return false;
+  const opt = Array.from(select.options).find(o => String(o.value || "").trim().toLowerCase() === target || String(o.textContent || "").trim().toLowerCase() === target);
+  if (!opt) return false;
+  select.value = opt.value;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+  markFieldAsAutofilled(select);
+  return true;
+}
+
+function fillGuestNames(namesText){
+  const names = String(namesText || "").split(",").map(x => x.trim()).filter(Boolean);
+  if (!names.length) return;
+  const currentInputs = Array.from(document.querySelectorAll('#huespedes-container input[name="huesped[]"]'));
+  while (document.querySelectorAll('#huespedes-container input[name="huesped[]"]').length < names.length) {
+    addGuest();
+  }
+  const inputs = Array.from(document.querySelectorAll('#huespedes-container input[name="huesped[]"]'));
+  inputs.forEach((input, idx) => {
+    input.value = names[idx] || "";
+    if (names[idx]) markFieldAsAutofilled(input);
+  });
+  renumerarHuespedes();
+}
+
+function applyGuestRecordToForm(row){
+  if (!row) return;
+  clearAllAutofilledMarks();
+
+  const setInputValue = (selector, value) => {
+    const el = document.querySelector(selector);
+    if (el && value != null && String(value).trim()) {
+      el.value = String(value).trim();
+      markFieldAsAutofilled(el);
+    }
+  };
+
+  setInputValue('input[name="nombre"]', row["Nombre de la persona que hizo la reservación"]);
+  setInputValue('#razon_social', row["Razón social"]);
+  setInputValue('#correo1', row["Correo electrónico"]);
+  setInputValue('#correo2', row["...enviar copia al siguiente correo:"]);
+  const montoPagadoEl = document.getElementById('monto_pagado');
+  if (montoPagadoEl) {
+    montoPagadoEl.value = '';
+    clearFieldAutofilled(montoPagadoEl);
+  }
+
+  fillGuestNames(row["Nombres de TODOS los huéspedes (separados por comas)"]);
+
+  setSelectByTextOrValue(document.getElementById("identificacion_tipo"), row["Tipo de identificación"]);
+  if (String(row["Tipo de identificación"] || "").trim().toLowerCase() === 'otro') {
+    setInputValue('#identificacion_otro', row["Identificación otro"]);
+  }
+  toggleIdentificacion();
+
+  setSelectByTextOrValue(document.getElementById("motivo"), row["Motivo de tu hospedaje"]);
+  if (String(row["Motivo de tu hospedaje"] || "").trim().toLowerCase() === 'otro') {
+    setInputValue('#motivo_otro', row["Motivo otro"] || row["Motivo"]);
+  }
+
+  setSelectByTextOrValue(document.getElementById("factura"), row["¿Requiere factura?"]);
+  syncFacturaVisibility();
+  setInputValue('#razon_social', row["Razón social"]);
+  setSelectByTextOrValue(document.getElementById("regimen"), row["Régimen fiscal"]);
+  syncConceptoFacturapiPorRegimen();
+  setSelectByTextOrValue(document.getElementById("divisa_monto"), row["Divisa monto pagado"]);
+  if (String(row["Régimen fiscal"] || "").trim().toLowerCase() === 'otro') {
+    setInputValue('#regimen_otro', row["Régimen fiscal otro"] || row["Régimen otro"]);
+  }
+  toggleRegimenOtro();
+  toggleComprobanteTransferencia();
+  formatCurrencyPreview();
+
+  const celEmergencia = String(row["Cel/Whatsapp (contacto de emergencia)"] || "");
+  const emergDigits = normalizePhone(celEmergencia);
+  if (emergDigits) {
+    const lada2 = document.getElementById("lada2");
+    const emergencia = document.querySelector('input[name="emergencia"]');
+    if (lada2 && emergDigits.length > 10) {
+      lada2.value = emergDigits.slice(0, emergDigits.length - 10);
+      markFieldAsAutofilled(lada2);
+    }
+    if (emergencia) {
+      emergencia.value = emergDigits.slice(-10);
+      markFieldAsAutofilled(emergencia);
+    }
+  }
+
+  attachAutofilledFieldListeners(document);
+}
+
+function resetAutofillToNewMode(){
+  guestLookupLastMatchedPhone = "";
+  clearAllAutofilledMarks();
+  setGuestAutofillMessage("", "");
+  actualizarTextoUploads(false);
+}
+
+async function detectExistingGuestByPhone(){
+  const lookupId = ++guestLookupInFlight;
+  const digits = getPrimaryPhoneCandidate();
+
+  if (!digits || digits.length < 10) {
+    resetAutofillToNewMode();
+    return;
+  }
+
+  try {
+    setGuestAutofillMessage("", (window.currentLang === "en")
+      ? "Checking previous guest records..."
+      : "Buscando registros previos del huésped...");
+    const catalog = await loadGuestPhoneCatalog();
+    if (lookupId !== guestLookupInFlight) return;
+
+    const exact = catalog.find(item => item.digits === digits || item.digits.endsWith(digits));
+    if (!exact) {
+      resetAutofillToNewMode();
+      actualizarTextoUploads(false);
+      setGuestAutofillMessage("", (window.currentLang === "en")
+        ? "No previous match was found for this phone number."
+        : "No se encontró un registro previo para este número.");
+      return;
+    }
+
+    if (guestLookupLastMatchedPhone === exact.raw) {
+      actualizarTextoUploads(true);
+      setGuestAutofillMessage("success", `<span class="auto-detected-badge">${(window.currentLang === "en") ? "Returning guest detected" : "Huésped ya registrado detectado"}</span>`);
+      return;
+    }
+
+    const row = await fetchGuestRecordByExactPhone(exact.raw);
+    if (lookupId !== guestLookupInFlight) return;
+
+    if (!row) {
+      resetAutofillToNewMode();
+      return;
+    }
+
+    const recordId = row["ID"] || row["row_number"] || row["Row"] || row["ROW_NUMBER"] || "";
+    const detailRow = recordId ? (await fetchGuestRecordDetail(recordId)) : null;
+    if (lookupId !== guestLookupInFlight) return;
+
+    const sourceRow = detailRow || row;
+    guestLookupLastMatchedPhone = exact.raw;
+    applyGuestRecordToForm(sourceRow);
+    actualizarTextoUploads(true);
+    const nombre = sourceRow["Nombre de la persona que hizo la reservación"] || row["Nombre de la persona que hizo la reservación"] || "";
+    setGuestAutofillMessage("success",
+      `<span class="auto-detected-badge">${(window.currentLang === "en") ? "Previous guest found" : "Huésped encontrado"}</span><div>${(window.currentLang === "en") ? "The available fields were completed automatically for" : "Se completaron automáticamente los campos disponibles de"} <strong>${String(nombre || "").trim() || ((window.currentLang === "en") ? "this guest" : "este huésped")}</strong>.</div>`
+    );
+  } catch (err) {
+    if (lookupId !== guestLookupInFlight) return;
+    setGuestAutofillMessage("error", ((window.currentLang === "en") ? "Could not verify previous records: " : "No se pudieron verificar registros previos: ") + err.message);
+  }
+}
+
+function scheduleGuestLookup(){
+  clearTimeout(guestLookupTimer);
+  guestLookupTimer = setTimeout(detectExistingGuestByPhone, 500);
+}
+
+document.querySelector('input[name="cel"]')?.addEventListener("input", scheduleGuestLookup);
+document.querySelector('input[name="cel"]')?.addEventListener("blur", detectExistingGuestByPhone);
+document.getElementById("lada1")?.addEventListener("change", detectExistingGuestByPhone);
+function renumerarHuespedes(){
+  const rows = document.querySelectorAll('#huespedes-container .huesped-row');
+  rows.forEach((row, index) => {
+    const input = row.querySelector('input[name="huesped[]"]');
+    const checkboxWrap = row.querySelector('.copiar-reservante-wrap');
+    const checkbox = row.querySelector('.copiar-reservante');
+    if (input) {
+      input.placeholder = `Huésped ${index + 1}`;
+      input.setAttribute("aria-label", `Huésped ${index + 1}`);
+    }
+    if (index === 0) {
+      if (checkboxWrap) checkboxWrap.style.display = "flex";
+      if (checkbox && checkbox.checked && input) {
+        copiarNombreReservanteEnInput(input);
+        input.readOnly = true;
+      } else if (input) {
+        input.readOnly = false;
+      }
+    } else {
+      if (checkbox) checkbox.checked = false;
+      if (checkboxWrap) checkboxWrap.style.display = "none";
+      if (input) input.readOnly = false;
+    }
+
+    const removeBtn = row.querySelector(".btn-remove");
+    if (removeBtn) {
+      removeBtn.style.display = rows.length === 1 ? "none" : "";
+    }
+  });
+}
+
+function copiarNombreReservanteEnInput(input){
+  const nombreReservante = (document.querySelector('input[name="nombre"]')?.value || "").trim();
+  input.value = nombreReservante;
+}
+
+function toggleCopiarReservante(checkbox){
+  const row = checkbox.closest(".huesped-row");
+  const allRows = Array.from(document.querySelectorAll('#huespedes-container .huesped-row'));
+  const rowIndex = allRows.indexOf(row);
+  const input = row?.querySelector('input[name="huesped[]"]');
+  if (!input || rowIndex !== 0) return;
+
+  if (checkbox.checked) {
+    copiarNombreReservanteEnInput(input);
+    input.readOnly = true;
+  } else {
+    input.readOnly = false;
+  }
+}
+
+function addGuest(){
+  const d = document.createElement("div");
+  d.className = "huesped-row";
+  d.setAttribute("style","position:relative;");
+  d.innerHTML = `
+    <div style="flex:1; padding-right:34px;">
+      <input type="text" name="huesped[]" placeholder="">
+      <label class="copiar-reservante-wrap" style="font-weight:normal; margin-top:8px; display:none; align-items:center; gap:8px;">
+        <input type="checkbox" class="copiar-reservante" style="width:auto;" onchange="toggleCopiarReservante(this)">
+        Es la misma persona que realizó la reservación
+      </label>
+    </div>
+    <button type="button" class="btn-remove" aria-label="Eliminar huésped">×</button>
+  `;
+  d.querySelector(".btn-remove").addEventListener("click", function(){
+    d.remove();
+    renumerarHuespedes();
+  });
+  document.getElementById("huespedes-container").appendChild(d);
+  renumerarHuespedes();
+  if (window.currentLang) applyTranslations(window.currentLang);
+}
+renumerarHuespedes();
+
+const motivo = document.getElementById("motivo");
+const motivo_otro = document.getElementById("motivo_otro");
+const propiedad = document.getElementById("propiedad");
+const propiedad_otra = document.getElementById("propiedad_otra");
+const factura = document.getElementById("factura");
+const facturaFields = document.getElementById("factura_fields");
+const facturaNotas = document.getElementById("factura_notas");
+const medio_pago = document.getElementById("medio_pago");
+const nota_airbnb = document.getElementById("nota_airbnb");
+const monto_pagado = document.getElementById("monto_pagado");
+const divisa_monto = document.getElementById("divisa_monto");
+const monto_preview = document.getElementById("monto_preview");
+const regimen = document.getElementById("regimen");
+const regimen_otro = document.getElementById("regimen_otro");
+const conceptoFacturapi = document.getElementById("concepto_facturapi");
+const numHuespedes = document.getElementById("num_huespedes");
+const identificacionTipo = document.getElementById("identificacion_tipo");
+const identificacionOtro = document.getElementById("identificacion_otro");
+const identificacionIneFields = document.getElementById("identificacion_ine_fields");
+const identificacionUnicaFields = document.getElementById("identificacion_unica_fields");
+const ineFrontal = document.getElementById("ine_frontal");
+const ineTrasero = document.getElementById("ine_trasero");
+const identificacionUnica = document.getElementById("identificacion_unica");
+const tieneVehiculo = document.getElementById("tiene_vehiculo");
+const vehiculoFields = document.getElementById("vehiculo_fields");
+const vehiculoMarca = document.getElementById("vehiculo_marca");
+const vehiculoMarcaOtro = document.getElementById("vehiculo_marca_otro");
+const vehiculoModelo = document.getElementById("vehiculo_modelo");
+const vehiculoColor = document.getElementById("vehiculo_color");
+const vehiculoFoto = document.getElementById("vehiculo_foto");
+const vehiculoHoraSalida = document.getElementById("vehiculo_hora_salida");
+const vehiculoPlacas = document.getElementById("vehiculo_placas");
+const vehicleSummaryBox = document.getElementById("vehicleSummaryBox");
+const vehicleSummaryText = document.getElementById("vehicleSummaryText");
+const vehicleStatusPill = document.getElementById("vehicleStatusPill");
+const vehicleWarningBox = document.getElementById("vehicleWarningBox");
+const vehicleCoordinationNote = document.getElementById("vehicleCoordinationNote");
+const comprobanteTransferenciaWrap = document.getElementById("comprobante_transferencia_wrap");
+const comprobanteTransferencia = document.getElementById("comprobante_transferencia");
+
+const formularioPrincipal = document.getElementById("formulario_principal");
+const tipoRegistroInput = document.getElementById("tipo_registro");
+const campoIdentificacion = document.getElementById("field_identificacion");
+const seccionIdentificacionEstancia = document.getElementById("section_identificacion_estancia");
+const campoMotivo = document.getElementById("field_motivo");
+const campoPropiedadDepartamento = document.getElementById("field_propiedad_departamento");
+const campoNumHuespedes = document.getElementById("field_num_huespedes");
+const campoHuespedesNombres = document.getElementById("field_huespedes_nombres");
+const seccionContactoHuesped = document.getElementById("section_contacto_huesped");
+const campoRazonSocial = document.getElementById("field_razon_social");
+const campoRegimenFiscal = document.getElementById("field_regimen_fiscal");
+
+// Inicializar siempre como registro nuevo
+tipoRegistroInput.value = "nuevo";
+if (formularioPrincipal) formularioPrincipal.classList.add("visible");
+if (seccionIdentificacionEstancia) seccionIdentificacionEstancia.classList.remove("hidden");
+if (campoIdentificacion) campoIdentificacion.classList.remove("hidden");
+if (campoMotivo) campoMotivo.classList.remove("hidden");
+if (campoPropiedadDepartamento) campoPropiedadDepartamento.classList.remove("hidden");
+if (campoNumHuespedes) campoNumHuespedes.classList.remove("hidden");
+if (campoHuespedesNombres) campoHuespedesNombres.classList.remove("hidden");
+if (seccionContactoHuesped) seccionContactoHuesped.classList.remove("hidden");
+
+function seleccionarTipoRegistro(tipo, options = {}){
+  const silent = !!options.silent;
+  tipoRegistroInput.value = tipo || "nuevo";
+  formularioPrincipal.classList.add("visible");
+
+  const choiceNuevo = document.getElementById("choice_nuevo");
+  const choiceRegistrado = document.getElementById("choice_registrado");
+  if (choiceNuevo) choiceNuevo.classList.toggle("active", tipo === "nuevo");
+  if (choiceRegistrado) choiceRegistrado.classList.toggle("active", tipo === "registrado");
+
+  const esRegistrado = tipo === "registrado";
+  seccionIdentificacionEstancia.classList.toggle("hidden", esRegistrado);
+  campoIdentificacion.classList.toggle("hidden", esRegistrado);
+  campoMotivo.classList.toggle("hidden", esRegistrado);
+  campoPropiedadDepartamento.classList.remove("hidden");
+  campoNumHuespedes.classList.toggle("hidden", esRegistrado);
+  campoHuespedesNombres.classList.toggle("hidden", esRegistrado);
+  seccionContactoHuesped.classList.toggle("hidden", esRegistrado);
+
+  if (factura.value === "si") {
+    campoRazonSocial.classList.toggle("hidden", esRegistrado);
+    campoRegimenFiscal.classList.remove("hidden");
+  } else {
+    campoRazonSocial.classList.add("hidden");
+    campoRegimenFiscal.classList.add("hidden");
+  }
+
+  if (esRegistrado && !silent) {
+    identificacionTipo.value = "";
+    identificacionOtro.value = "";
+    toggleIdentificacion();
+    motivo.value = "";
+    motivo_otro.value = "";
+  } else {
+    campoRazonSocial.classList.toggle("hidden", factura.value !== "si");
+    campoRegimenFiscal.classList.toggle("hidden", factura.value !== "si");
+  }
+
+  if (window.currentLang) applyTranslations(window.currentLang);
+}
+
+function actualizarCamposPorTipoRegistro(){
+  const esRegistrado = tipoRegistroInput.value === "registrado";
+  seccionIdentificacionEstancia.classList.toggle("hidden", esRegistrado);
+  if (!tipoRegistroInput.value) return;
+  campoIdentificacion.classList.toggle("hidden", esRegistrado);
+  campoMotivo.classList.toggle("hidden", esRegistrado);
+  campoPropiedadDepartamento.classList.remove("hidden");
+  campoNumHuespedes.classList.toggle("hidden", esRegistrado);
+  campoHuespedesNombres.classList.toggle("hidden", esRegistrado);
+  seccionContactoHuesped.classList.toggle("hidden", esRegistrado);
+  campoRazonSocial.classList.toggle("hidden", factura.value !== "si" || esRegistrado);
+  campoRegimenFiscal.classList.toggle("hidden", factura.value !== "si");
+}
+
+seleccionarTipoRegistro("nuevo", { silent: true });
+
+document.querySelector('input[name="nombre"]').addEventListener("input", () => {
+  const firstRow = document.querySelector('#huespedes-container .huesped-row');
+  const chk = firstRow?.querySelector('.copiar-reservante:checked');
+  const input = firstRow?.querySelector('input[name="huesped[]"]');
+  if (chk && input) copiarNombreReservanteEnInput(input);
+});
+
+
+function sincronizarNumeroHuespedes(){
+  const valor = parseInt(numHuespedes.value || "0", 10);
+  const container = document.getElementById("huespedes-container");
+  let actuales = container.querySelectorAll('input[name="huesped[]"]').length;
+  if (!valor) return;
+
+  while (actuales < valor) {
+    addGuest();
+    actuales = container.querySelectorAll('input[name="huesped[]"]').length;
+  }
+  while (actuales > valor) {
+    container.lastElementChild.remove();
+    actuales = container.querySelectorAll('input[name="huesped[]"]').length;
+  }
+  renumerarHuespedes();
+  if (window.currentLang) applyTranslations(window.currentLang);
+}
+numHuespedes.addEventListener("change", sincronizarNumeroHuespedes);
+
+motivo.addEventListener("change", () => {
+  const show = motivo.value === "Otro";
+  motivo_otro.classList.toggle("hidden", !show);
+  if (!show) motivo_otro.value = "";
+});
+
+propiedad.addEventListener("change", () => {
+  const show = propiedad.value === "Otra";
+  propiedad_otra.classList.toggle("hidden", !show);
+  if (!show) propiedad_otra.value = "";
+  actualizarAvisoCoordinacionVehiculo();
+});
+
+function resolveConceptoFacturapiPorRegimen(regimenFiscal){
+  const regimenNormalizado = String(regimenFiscal || "").trim().toLowerCase();
+  return regimenNormalizado === "general de ley personas morales"
+    ? "1. Arrendamiento en Saltillo, Coah."
+    : "2. Arrendamiento en Saltillo, Coah.";
+}
+
+function syncConceptoFacturapiPorRegimen(){
+  if (!conceptoFacturapi) return "";
+  const valor = resolveConceptoFacturapiPorRegimen(regimen?.value || "");
+  conceptoFacturapi.value = valor;
+  return valor;
+}
+
+function toggleRegimenOtro(){
+  const show = regimen.value === "Otro";
+  regimen_otro.classList.toggle("hidden", !show);
+  if (!show) regimen_otro.value = "";
+  syncConceptoFacturapiPorRegimen();
+}
+regimen.addEventListener("change", toggleRegimenOtro);
+
+function syncFacturaVisibility(){
+  const facturaValor = String(factura?.value || "").trim().toLowerCase();
+  const show = facturaValor === "si" || facturaValor === "sí" || facturaValor === "yes";
+  if (facturaFields) facturaFields.classList.toggle("hidden", !show);
+  if (facturaNotas) facturaNotas.classList.toggle("hidden", !show);
+  const esRegistrado = tipoRegistroInput.value === "registrado";
+  if (campoRazonSocial) campoRazonSocial.classList.toggle("hidden", !show || esRegistrado);
+  if (campoRegimenFiscal) campoRegimenFiscal.classList.toggle("hidden", !show);
+
+  if (!show) {
+    nota_airbnb.classList.add("hidden");
+    regimen_otro.classList.add("hidden");
+    regimen_otro.value = "";
+    medio_pago.value = "";
+    toggleComprobanteTransferencia();
+  } else {
+    toggleRegimenOtro();
+    nota_airbnb.classList.toggle("hidden", medio_pago.value !== "Airbnb");
+    toggleComprobanteTransferencia();
+  }
+}
+
+if (factura) {
+  factura.addEventListener("change", syncFacturaVisibility);
+  factura.addEventListener("input", syncFacturaVisibility);
+  factura.setAttribute("onchange", "syncFacturaVisibility()");
+}
+
+function toggleComprobanteTransferencia(){
+  const show = medio_pago.value === "Transferencia directa a la cuenta del anfitrión";
+  comprobanteTransferenciaWrap.classList.toggle("hidden", !show);
+  if (!show && comprobanteTransferencia) {
+    comprobanteTransferencia.value = "";
+    document.getElementById("comprobante_transferencia_name").textContent = (window.currentLang === "en" ? "No image selected" : "Ninguna imagen seleccionada");
+    document.getElementById("comprobante_transferencia_preview").classList.add("hidden");
+    document.getElementById("comprobante_transferencia_preview").src = "";
+  }
+}
+
+
+const medio_reservacion = document.querySelector('select[name="medio"]');
+
+function syncMedioPagoConReservacion(){
+  if (!medio_reservacion || !medio_pago) return;
+
+  if ((medio_reservacion.value || "").trim() === "Airbnb") {
+    medio_pago.value = "Airbnb";
+    medio_pago.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+}
+
+if (medio_reservacion) {
+  medio_reservacion.addEventListener("change", syncMedioPagoConReservacion);
+}
+
+medio_pago.addEventListener("change", () => {
+  nota_airbnb.classList.toggle("hidden", medio_pago.value !== "Airbnb");
+  toggleComprobanteTransferencia();
+});
+
+function formatCurrencyPreview(){
+  const currency = divisa_monto.value || "MXN";
+  const amount = parseFloat(monto_pagado.value || "0");
+  try {
+    const formatted = new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+    monto_preview.textContent = `Monto capturado: ${formatted}`;
+  } catch {
+    monto_preview.textContent = `Monto capturado: ${currency} ${amount.toFixed(2)}`;
+  }
+}
+monto_pagado.addEventListener("input", formatCurrencyPreview);
+divisa_monto.addEventListener("change", formatCurrencyPreview);
+formatCurrencyPreview();
+syncConceptoFacturapiPorRegimen();
+toggleComprobanteTransferencia();
+syncFacturaVisibility();
+actualizarAvisoCoordinacionVehiculo();
+actualizarResumenVehiculo();
+
+function updateFileName(inputId, outputId, previewId){
+  const input = document.getElementById(inputId);
+  const output = document.getElementById(outputId);
+  const preview = document.getElementById(previewId);
+
+  input.addEventListener("change", () => {
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      output.textContent = file.name;
+
+      const reader = new FileReader();
+      reader.onload = function(e){
+        if (preview) {
+          preview.src = e.target.result;
+          preview.classList.remove("hidden");
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      output.textContent = "Ninguna imagen seleccionada";
+      if (preview) {
+        preview.classList.add("hidden");
+        preview.src = "";
+      }
+    }
+  });
+}
+updateFileName("ine_frontal", "ine_frontal_name", "ine_frontal_preview");
+updateFileName("ine_trasero", "ine_trasero_name", "ine_trasero_preview");
+updateFileName("identificacion_unica", "identificacion_unica_name", "identificacion_unica_preview");
+updateFileName("vehiculo_foto", "vehiculo_foto_name", "vehiculo_foto_preview");
+updateFileName("comprobante_transferencia", "comprobante_transferencia_name", "comprobante_transferencia_preview");
+
+[vehiculoMarca, vehiculoMarcaOtro, vehiculoModelo, vehiculoColor, vehiculoHoraSalida].forEach(el => {
+  if (!el) return;
+  el.addEventListener("input", actualizarResumenVehiculo);
+  el.addEventListener("change", actualizarResumenVehiculo);
+});
+if (vehiculoPlacas) {
+  vehiculoPlacas.addEventListener("input", () => {
+    normalizarPlacasVehiculo();
+    actualizarResumenVehiculo();
+  });
+  vehiculoPlacas.addEventListener("blur", normalizarPlacasVehiculo);
+}
+if (vehiculoFoto) {
+  vehiculoFoto.addEventListener("change", actualizarResumenVehiculo);
+}
+
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      resolve(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const base64 = result.includes(",") ? result.split(",")[1] : "";
+      resolve({
+        fileName: file.name || "",
+        mimeType: file.type || "application/octet-stream",
+        base64: base64
+      });
+    };
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo " + (file.name || "")));
+    reader.readAsDataURL(file);
+  });
+}
+
+
+function toggleIdentificacion(){
+  const value = identificacionTipo.value;
+  const esINE = value === "INE";
+  const esOtro = value === "Otro";
+  const esUnica = value === "Pasaporte" || value === "Otro";
+
+  identificacionOtro.classList.toggle("hidden", !esOtro);
+  if (!esOtro) identificacionOtro.value = "";
+
+  identificacionIneFields.classList.toggle("hidden", !esINE);
+  identificacionUnicaFields.classList.toggle("hidden", !esUnica);
+
+
+  if (!esINE) {
+    ineFrontal.value = "";
+    ineTrasero.value = "";
+    document.getElementById("ine_frontal_name").textContent = "Ninguna imagen seleccionada";
+      document.getElementById("ine_frontal_preview").classList.add("hidden");
+      document.getElementById("ine_frontal_preview").src = "";
+    document.getElementById("ine_trasero_name").textContent = "Ninguna imagen seleccionada";
+      document.getElementById("ine_trasero_preview").classList.add("hidden");
+      document.getElementById("ine_trasero_preview").src = "";
+  }
+  if (!esUnica) {
+    identificacionUnica.value = "";
+    document.getElementById("identificacion_unica_name").textContent = "Ninguna imagen seleccionada";
+      document.getElementById("identificacion_unica_preview").classList.add("hidden");
+      document.getElementById("identificacion_unica_preview").src = "";
+  }
+}
+identificacionTipo.addEventListener("change", toggleIdentificacion);
+
+
+function toggleMarcaOtro(){
+  const show = vehiculoMarca.value === "Otro" && tieneVehiculo.value === "si";
+  vehiculoMarcaOtro.classList.toggle("hidden", !show);
+
+  if (!show) {
+    vehiculoMarcaOtro.value = "";
+  }
+}
+vehiculoMarca.addEventListener("change", toggleMarcaOtro);
+
+function actualizarAvisoCoordinacionVehiculo(){
+  if (!vehicleCoordinationNote) return;
+  const tiene = String(tieneVehiculo?.value || "").trim().toLowerCase() === "si";
+  const propiedadSeleccionada = String(propiedad?.value || "").trim();
+  const mostrar = tiene && (propiedadSeleccionada === "Calle Cumbres" || propiedadSeleccionada === "Calle Oaxaca");
+  vehicleCoordinationNote.classList.toggle("hidden", !mostrar);
+}
+
+function actualizarResumenVehiculo(){
+  if (!vehicleSummaryBox || !vehicleSummaryText || !vehicleStatusPill) return;
+  const activo = tieneVehiculo.value === "si";
+  if (!activo) {
+    vehicleSummaryBox.style.display = "none";
+    vehicleSummaryText.textContent = "";
+    vehicleStatusPill.textContent = (window.currentLang === "en")
+      ? "Vehicle section inactive"
+      : "Sección de vehículo inactiva";
+    if (vehicleWarningBox) {
+      vehicleWarningBox.classList.remove("show");
+      vehicleWarningBox.textContent = "";
+    }
+    return;
+  }
+  const marca = (vehiculoMarca.value === "Otro" ? vehiculoMarcaOtro.value : vehiculoMarca.value || "").trim();
+  const modelo = (vehiculoModelo.value || "").trim();
+  const color = (vehiculoColor.value || "").trim();
+  const placas = (vehiculoPlacas.value || "").trim();
+  const hora = (vehiculoHoraSalida.value || "").trim();
+  const foto = vehiculoFoto?.files?.[0]?.name || "";
+  const faltantes = [];
+
+  if (!marca && !modelo && !color && !placas && !hora && !foto) {
+    vehicleStatusPill.textContent = (window.currentLang === "en")
+      ? "Vehicle details are optional"
+      : "Los datos del vehículo son opcionales";
+    if (vehicleWarningBox) {
+      vehicleWarningBox.classList.remove("show");
+      vehicleWarningBox.textContent = "";
+    }
+  } else {
+    vehicleStatusPill.textContent = (window.currentLang === "en")
+      ? "Vehicle information captured"
+      : "Información del vehículo capturada";
+    if (vehicleWarningBox) {
+      vehicleWarningBox.classList.remove("show");
+      vehicleWarningBox.textContent = "";
+    }
+  }
+
+  const partes = [
+    marca && modelo ? `${marca} ${modelo}` : (marca || modelo),
+    color ? ((window.currentLang === "en") ? `Color: ${color}` : `Color: ${color}`) : "",
+    placas ? ((window.currentLang === "en") ? `Plates: ${placas}` : `Placas: ${placas}`) : "",
+    hora ? ((window.currentLang === "en") ? `Usual departure: ${hora}` : `Salida habitual: ${hora}`) : "",
+    foto ? ((window.currentLang === "en") ? `Photo: ${foto}` : `Foto: ${foto}`) : ""
+  ].filter(Boolean);
+  if (partes.length) {
+    vehicleSummaryBox.style.display = "block";
+    vehicleSummaryText.textContent = partes.join(" · ");
+  } else {
+    vehicleSummaryBox.style.display = "none";
+    vehicleSummaryText.textContent = "";
+  }
+}
+
+function normalizarPlacasVehiculo(){
+  if (!vehiculoPlacas) return;
+  vehiculoPlacas.value = String(vehiculoPlacas.value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, "")
+    .slice(0, 12);
+}
+
+function toggleVehicleFields(){
+  const show = tieneVehiculo.value === "si";
+  vehiculoFields.classList.toggle("hidden", !show);
+  if (!show) {
+    vehiculoMarca.value = "";
+    vehiculoMarcaOtro.value = "";
+    vehiculoModelo.value = "";
+    vehiculoColor.value = "";
+    vehiculoFoto.value = "";
+    vehiculoHoraSalida.value = "";
+    vehiculoPlacas.value = "";
+    document.getElementById("vehiculo_foto_name").textContent = "Ninguna imagen seleccionada";
+    document.getElementById("vehiculo_foto_preview").classList.add("hidden");
+    document.getElementById("vehiculo_foto_preview").src = "";
+    vehiculoMarcaOtro.classList.add("hidden");
+  } else {
+    toggleMarcaOtro();
+  }
+  actualizarAvisoCoordinacionVehiculo();
+  actualizarResumenVehiculo();
+}
+
+tieneVehiculo.addEventListener("change", toggleVehicleFields);
+
+
+const MAX_FILE_SIZE_MB = 12;
+
+async function compressImageToBase64(file, maxWidth = 900, quality = 0.58) {
+  if (!file) return null;
+
+  const bitmap = await createImageBitmap(file);
+  let width = bitmap.width;
+  let height = bitmap.height;
+
+  if (width > maxWidth) {
+    height = Math.round(height * (maxWidth / width));
+    width = maxWidth;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d", { alpha: false });
+  ctx.drawImage(bitmap, 0, 0, width, height);
+
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", quality));
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      resolve(result.includes(",") ? result.split(",")[1] : "");
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+
+  return {
+    fileName: (file.name || "imagen").replace(/\.[^.]+$/, "") + ".jpg",
+    mimeType: "image/jpeg",
+    base64
+  };
+}
+
+function getSelectedFilesForUpload(){
+  return [
+    { fieldName: "ine_frontal", label: "INE frontal", file: document.getElementById("ine_frontal")?.files?.[0] || null },
+    { fieldName: "ine_trasero", label: "INE trasero", file: document.getElementById("ine_trasero")?.files?.[0] || null },
+    { fieldName: "identificacion_unica", label: "Identificación", file: document.getElementById("identificacion_unica")?.files?.[0] || null },
+    { fieldName: "vehiculo_foto", label: "Foto vehículo", file: document.getElementById("vehiculo_foto")?.files?.[0] || null },
+    { fieldName: "comprobante_transferencia", label: "Comprobante de transferencia", file: document.getElementById("comprobante_transferencia")?.files?.[0] || null }
+  ].filter(x => x.file);
+}
+
+async function uploadImagesInBackground(recordId){
+  const files = getSelectedFilesForUpload();
+  if (!files.length) {
+    mostrarVentanaExito();
+    return;
+  }
+
+  for (let i = 0; i < files.length; i++) {
+    const item = files[i];
+    document.getElementById("popupTextoEnvio").textContent = `Subiendo imagen ${i + 1} de ${files.length}: ${item.label}...`;
+
+    const compressed = await compressImageToBase64(item.file);
+
+    const res = await fetch(WEB_APP_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify({
+        action: "upload_file",
+        record_id: recordId,
+        field_name: item.fieldName,
+        file: compressed
+      })
+    });
+
+    const text = await res.text();
+    let json = {};
+    try {
+      json = JSON.parse(text);
+    } catch {
+      throw new Error("Respuesta inválida al subir imagen.");
+    }
+    if (!json.ok) {
+      throw new Error(json.message || json.error || `No se pudo subir ${item.label}.`);
+    }
+  }
+
+  mostrarVentanaExito();
+}
+
+
+function mostrarVentanaEnvio(){
+  const popup = document.getElementById("popupEnvio");
+  const loading = document.getElementById("popupLoadingState");
+  const success = document.getElementById("popupSuccessState");
+  if (popup) popup.style.display = "flex";
+  if (loading) loading.style.display = "block";
+  if (success) success.style.display = "none";
+}
+
+function mostrarVentanaExito(){
+  const popup = document.getElementById("popupEnvio");
+  const loading = document.getElementById("popupLoadingState");
+  const success = document.getElementById("popupSuccessState");
+  if (popup) popup.style.display = "flex";
+  if (loading) loading.style.display = "none";
+  if (success) success.style.display = "block";
+}
+
+function cerrarVentanaEnvio(){
+  const popup = document.getElementById("popupEnvio");
+  if (popup) popup.style.display = "none";
+}
+
+function esperarRepintadoUI(ms = 80){
+  return new Promise(resolve => {
+    requestAnimationFrame(() => {
+      setTimeout(resolve, ms);
+    });
+  });
+}
+
+
+
+function limpiarHuespedesVacios(arr){
+  return (arr || []).map(x => String(x || "").trim()).filter(Boolean);
+}
+
+function validarArchivosAntesDeEnviar(){
+  const archivos = [
+    { inputId: "ine_frontal", etiqueta: "INE frontal" },
+    { inputId: "ine_trasero", etiqueta: "INE trasero" },
+    { inputId: "identificacion_unica", etiqueta: "Identificación" },
+    { inputId: "vehiculo_foto", etiqueta: "Foto de vehículo" },
+    { inputId: "comprobante_transferencia", etiqueta: "Comprobante de transferencia" }
   ];
-  for (const c of candidates) {
-    if (c != null && String(c).trim() !== "") return String(c).trim();
+
+  for (const item of archivos) {
+    const input = document.getElementById(item.inputId);
+    const file = input && input.files ? input.files[0] : null;
+    if (!file) continue;
+
+    const sizeMb = file.size / (1024 * 1024);
+    if (sizeMb > MAX_FILE_SIZE_MB) {
+      throw new Error(`${item.etiqueta}: el archivo excede ${MAX_FILE_SIZE_MB} MB.`);
+    }
+  }
+}
+
+
+let registroSubmitEnCurso = false;
+let ultimoRegistroSubmitKey = "";
+
+function normalizarTextoReserva(v){
+  return String(v || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function normalizarTelefonoReserva(v){
+  return String(v || "").replace(/\D/g, "");
+}
+
+function obtenerPropiedadPayload(payload){
+  return String(payload.propiedad === "Otra" ? (payload.propiedad_otra || "") : (payload.propiedad || "")).trim();
+}
+
+function construirClaveReserva(payload){
+  const partes = [
+    normalizarTelefonoReserva(payload.celular_principal),
+    normalizarTextoReserva(payload.nombre),
+    normalizarTextoReserva(obtenerPropiedadPayload(payload)),
+    normalizarTextoReserva(payload.depto),
+    String(payload.ingreso || "").trim(),
+    String(payload.salida || "").trim()
+  ];
+  return partes.join("|");
+}
+
+function leerCampoFlexibleReserva(row, nombres){
+  if (!row || typeof row !== "object") return "";
+  const entries = Object.entries(row);
+  const normalizaKey = (x) => normalizarTextoReserva(x);
+  for (const nombre of nombres) {
+    if (row[nombre] != null && String(row[nombre]).trim() !== "") return String(row[nombre]).trim();
+    const target = normalizaKey(nombre);
+    const found = entries.find(([k, v]) => normalizaKey(k) === target && v != null && String(v).trim() !== "");
+    if (found) return String(found[1]).trim();
   }
   return "";
 }
 
+function esRegistroSimilarReserva(row, payload){
+  const telPayload = normalizarTelefonoReserva(payload.celular_principal);
+  const nombrePayload = normalizarTextoReserva(payload.nombre);
+  const propPayload = normalizarTextoReserva(obtenerPropiedadPayload(payload));
+  const deptoPayload = normalizarTextoReserva(payload.depto);
+  const ingresoPayload = String(payload.ingreso || "").trim();
+  const salidaPayload = String(payload.salida || "").trim();
 
+  const telRow = normalizarTelefonoReserva(leerCampoFlexibleReserva(row, ["Cel/Whatsapp (principal)", "Celular principal", "Whatsapp principal"]));
+  const nombreRow = normalizarTextoReserva(leerCampoFlexibleReserva(row, ["Nombre de la persona que hizo la reservación", "Nombre reservación", "Nombre"]));
+  const propRow = normalizarTextoReserva(leerCampoFlexibleReserva(row, ["Propiedad", "Property"]));
+  const deptoRow = normalizarTextoReserva(leerCampoFlexibleReserva(row, ["# Departamento", "Departamento", "Depto"]));
+  const ingresoRow = String(leerCampoFlexibleReserva(row, ["Fecha de ingreso", "Ingreso", "Check-in date"])).trim();
+  const salidaRow = String(leerCampoFlexibleReserva(row, ["Fecha de salida", "Salida", "Check-out date"])).trim();
 
-function resolveCheckinWebAppUrl(overrideUrl) {
-  const candidate = String(overrideUrl || "").trim();
-  if (candidate && /^https:\/\//i.test(candidate)) return candidate;
-  const envUrl = String(DEFAULT_CHECKIN_WEB_APP_URL || "").trim();
-  if (envUrl && /^https:\/\//i.test(envUrl)) return envUrl;
-  throw new Error("Falta configurar CHECKIN_WEB_APP_URL.");
+  const mismoTelefono = telPayload && telRow && (telPayload.endsWith(telRow) || telRow.endsWith(telPayload));
+  const mismoNombre = nombrePayload && nombreRow && nombrePayload === nombreRow;
+  const mismaUnidad = propPayload && propRow && propPayload === propRow && (!deptoPayload || !deptoRow || deptoPayload === deptoRow);
+  const mismasFechas = ingresoPayload && salidaPayload && ingresoPayload === ingresoRow && salidaPayload === salidaRow;
+  const tocaPeriodo = ingresoPayload && salidaPayload && ingresoRow && salidaRow && !(salidaPayload <= ingresoRow || ingresoPayload >= salidaRow);
+
+  return (mismoTelefono || mismoNombre) && mismaUnidad && (mismasFechas || tocaPeriodo);
 }
 
-async function getNextFacturapiFolioFromSheet_(overrideUrl) {
-  const checkinUrl = resolveCheckinWebAppUrl(overrideUrl);
-  const url = `${checkinUrl}?action=get_next_facturapi_folio`;
-  const data = await checkinFetchJson(url);
-  return {
-    ok: true,
-    checkinWebAppUrl: checkinUrl,
-    max_folio: Number(data?.max_folio || 0),
-    next_folio: Number(data?.next_folio || 1)
-  };
-}
-
-
-async function checkinFetchJson(url, options = {}) {
-  const res = await fetch(url, options);
-  const text = await res.text();
-  let data = {};
+async function buscarReservasSimilares(payload){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3500);
   try {
-    data = text ? JSON.parse(text) : {};
+    const params = new URLSearchParams();
+    params.set("action", "list_records");
+    params.set("page", "1");
+    params.set("page_size", "25");
+    if (payload.ingreso) {
+      params.set("fecha_entrada_desde", payload.ingreso);
+      params.set("fecha_entrada_hasta", payload.ingreso);
+    }
+    const telefono = String(payload.celular_principal || "").replace(/^'/, "").trim();
+    if (telefono) params.set("celular_principal", telefono);
+
+    const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: "GET", signal: controller.signal });
+    const json = await res.json();
+    if (!json || !json.ok || !Array.isArray(json.rows)) return [];
+    return json.rows.filter(row => esRegistroSimilarReserva(row, payload));
   } catch (_err) {
-    data = { message: text || `Respuesta no JSON (${res.status})` };
+    return [];
+  } finally {
+    clearTimeout(timer);
   }
-  if (!res.ok) {
-    const err = new Error(data?.error || data?.message || `Error ${res.status}`);
-    err.status = res.status;
-    err.payload = data;
-    throw err;
-  }
-  return data;
 }
 
-
-async function saveFacturapiFolioStrict_(recordId, folio, externalId, overrideUrl) {
-  if (!recordId && !externalId) {
-    throw new Error("Falta recordId/externalId para guardar el folio.");
-  }
-  if (!folio) {
-    throw new Error("Falta folio para guardar.");
-  }
-  const payload = {
-    action: "update_facturapi_folio_strict",
-    record_id: recordId || "",
-    folio_facturapi: folio,
-    external_id: externalId || ""
-  };
-  const checkinUrl = resolveCheckinWebAppUrl(overrideUrl);
-  const data = await checkinFetchJson(checkinUrl, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(payload)
-  });
-  return { ...data, checkinWebAppUrl: checkinUrl };
+async function confirmarSiReservaSimilar(payload){
+  const similares = await buscarReservasSimilares(payload);
+  if (!similares.length) return true;
+  const primero = similares[0] || {};
+  const nombre = leerCampoFlexibleReserva(primero, ["Nombre de la persona que hizo la reservación", "Nombre"]);
+  const ingreso = leerCampoFlexibleReserva(primero, ["Fecha de ingreso", "Ingreso"]);
+  const salida = leerCampoFlexibleReserva(primero, ["Fecha de salida", "Salida"]);
+  const propiedad = leerCampoFlexibleReserva(primero, ["Propiedad"]);
+  const depto = leerCampoFlexibleReserva(primero, ["# Departamento", "Departamento", "Depto"]);
+  return window.confirm(
+    `Encontré ${similares.length} registro(s) parecido(s) que podrían corresponder a la misma reservación.\n\n` +
+    `Registro similar:\n${nombre || "Sin nombre"}\n${propiedad || "Sin propiedad"} ${depto ? "- Depto " + depto : ""}\n${ingreso || "Sin fecha"} → ${salida || "Sin fecha"}\n\n` +
+    `Para evitar duplicados, presiona Cancelar si NO estás seguro.\n\n¿Deseas enviar de todas formas?`
+  );
 }
 
+document.getElementById("form").addEventListener("submit", async function(e){
+  e.preventDefault();
 
-async function saveReceiptPdfToCheckin_(receiptId, { recordId, rowNumber, externalId, folio, overrideUrl } = {}) {
-  if (!receiptId) {
-    throw new Error("Falta receiptId para guardar el PDF.");
-  }
-  if (!recordId && !externalId && !rowNumber) {
-    throw new Error("Falta recordId/externalId/rowNumber para asociar el PDF en Check in.");
+  if (registroSubmitEnCurso) {
+    return;
   }
 
-  const pdfRes = await facturapiFetch(`/receipts/${encodeURIComponent(receiptId)}/pdf`, {
-    headers: { Accept: "application/pdf" },
-  });
+  const status = document.getElementById("statusMessage");
+  const submitBtn = document.getElementById("submitBtn");
+  status.className = "status";
+  status.style.display = "none";
+  status.textContent = "";
 
-  if (!pdfRes.ok) {
-    const contentType = pdfRes.headers.get("content-type") || "";
-    if (contentType.includes("application/json")) {
-      const err = await pdfRes.json();
-      throw new Error(err?.message || "Facturapi no devolvió el PDF.");
-    }
-    const text = await pdfRes.text();
-    throw new Error(text || "Facturapi no devolvió el PDF.");
+
+  if (!WEB_APP_URL || WEB_APP_URL.includes("PEGA_AQUI")) {
+    status.textContent = "Falta pegar la URL del Web App de Apps Script.";
+    status.classList.add("error");
+    return;
   }
 
-  const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
-  const base64 = pdfBuffer.toString("base64");
-  const checkinUrl = resolveCheckinWebAppUrl(overrideUrl);
+  const f = new FormData(this);
+
+  validarArchivosAntesDeEnviar();
+
+  const tieneVehiculoActivo = String(f.get("tiene_vehiculo") || "") === "si";
+  const vehiculoMarcaFinal = String((f.get("vehiculo_marca") === "Otro" ? f.get("vehiculo_marca_otro") : f.get("vehiculo_marca")) || "").trim();
+  const vehiculoModeloFinal = String(f.get("vehiculo_modelo") || "").trim();
+  const vehiculoPlacasFinal = String(f.get("vehiculo_placas") || "").trim().toUpperCase();
 
   const payload = {
-    action: "save_facturapi_pdf",
-    record_id: recordId || "",
-    row_number: rowNumber || "",
-    external_id: externalId || "",
-    receipt_id: receiptId,
-    folio_facturapi: folio || "",
-    file: {
-      fileName: `ticket-${folio || receiptId}.pdf`,
-      mimeType: "application/pdf",
-      base64
-    }
+    action: "submit_form",
+    idempotency_key: `${Date.now()}-${Math.random().toString(36).slice(2)}-${normalizarTelefonoReserva(f.get("cel"))}`,
+    tipo_registro: f.get("tipo_registro"),
+    medio: f.get("medio"),
+    nombre: f.get("nombre"),
+    hora_llegada_estimada: f.get("hora_llegada_estimada"),
+    hora_salida_estimada: f.get("hora_salida_estimada"),
+    identificacion_tipo: f.get("identificacion_tipo"),
+    identificacion_otro: f.get("identificacion_otro"),
+    ine_frontal: "",
+    ine_trasero: "",
+    identificacion_unica: "",
+    motivo: f.get("motivo"),
+    motivo_otro: f.get("motivo_otro"),
+    propiedad: f.get("propiedad"),
+    propiedad_otra: f.get("propiedad_otra"),
+    depto: f.get("depto"),
+    num_huespedes: f.get("num_huespedes"),
+    ingreso: f.get("ingreso"),
+    salida: f.get("salida"),
+    huespedes: limpiarHuespedesVacios(f.getAll("huesped[]")),
+    lada1: f.get("lada1"),
+    celular_principal: `'${(f.get("lada1") || "").trim()} ${(f.get("cel") || "").trim()}`.trim(),
+    lada2: f.get("lada2"),
+    celular_emergencia: `'${(f.get("lada2") || "").trim()} ${(f.get("emergencia") || "").trim()}`.trim(),
+    factura: f.get("factura"),
+    razon_social: f.get("razon_social"),
+    regimen: f.get("regimen"),
+    regimen_otro: f.get("regimen_otro"),
+    medio_pago: f.get("medio_pago"),
+    comprobante_transferencia: "",
+    divisa_monto: f.get("divisa_monto"),
+    monto_pagado: f.get("monto_pagado"),
+    correo1: f.get("correo1"),
+    correo2: f.get("correo2"),
+    rfc: "",
+    codigo_postal: "",
+    comentarios_factura: "",
+    tiene_vehiculo: f.get("tiene_vehiculo"),
+    vehiculo_marca: f.get("vehiculo_marca"),
+    vehiculo_marca_otro: f.get("vehiculo_marca_otro"),
+    vehiculo_modelo: vehiculoModeloFinal,
+    vehiculo_modelo_otro: "",
+    vehiculo_color: f.get("vehiculo_color"),
+    vehiculo_foto: "",
+    vehiculo_hora_salida: f.get("vehiculo_hora_salida"),
+    vehiculo_placas: vehiculoPlacasFinal,
+    comentarios: f.get("comentarios")
   };
 
-  const data = await checkinFetchJson(checkinUrl, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(payload)
-  });
+  const submitKey = construirClaveReserva(payload);
+  if (ultimoRegistroSubmitKey && ultimoRegistroSubmitKey === submitKey) {
+    status.textContent = "Este registro ya fue enviado o está en proceso. Evitamos enviarlo nuevamente para no duplicarlo.";
+    status.classList.add("error");
+    status.style.display = "block";
+    return;
+  }
 
-  return { ...data, checkinWebAppUrl: checkinUrl };
-}
+  registroSubmitEnCurso = true;
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Verificando...";
 
-app.get("/api/checkin-config", (req, res) => {
-  const checkinWebAppUrl = resolveCheckinWebAppUrl(req.query?.checkinWebAppUrl);
-  return res.json({ ok: true, checkinWebAppUrl });
-});
+  const puedeEnviar = await confirmarSiReservaSimilar(payload);
+  if (!puedeEnviar) {
+    registroSubmitEnCurso = false;
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Enviar";
+    status.textContent = "Envío cancelado para evitar un posible registro duplicado.";
+    status.classList.add("error");
+    status.style.display = "block";
+    return;
+  }
 
-app.get("/health", (_req, res) => {
-  return res.json({ ok: true, service: "checkin-unificado" });
-});
+  ultimoRegistroSubmitKey = submitKey;
 
-app.get("/", (_req, res) => {
-  return res.redirect("/registro/");
-});
-
-app.get("/facturapi", (_req, res) => {
-  return res.redirect("/facturapi/");
-});
-
-app.get("/registro", (_req, res) => {
-  return res.redirect("/registro/");
-});
-
-app.get("/api/products", async (_req, res) => {
   try {
-    const apiRes = await facturapiFetch("/products?limit=100");
-    const data = await parseFacturapiResponse(apiRes);
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Enviando...";
+    status.textContent = "Enviando registro...";
+    status.classList.add("success");
+    mostrarVentanaEnvio();
+    await esperarRepintadoUI();
 
-    if (!apiRes.ok) {
-      return res.status(apiRes.status).json({
-        message: data?.message || "Error al consultar productos en Facturapi.",
-        facturapi: data,
-      });
-    }
-
-    return res.json(data);
-  } catch (error) {
-    return res.status(500).json({
-      message: "Error al consultar productos en Facturapi.",
-      error: String(error?.message || error),
+    const res = await fetch(WEB_APP_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(payload)
     });
+
+    const text = await res.text();
+    let json = {};
+    try {
+      json = JSON.parse(text);
+    } catch (parseErr) {
+      throw new Error("La respuesta del Apps Script no fue JSON válido: " + text);
+    }
+
+    if (json.ok) {
+      status.textContent = "Registro guardado. Procesando imágenes...";
+      status.classList.add("success");
+
+      const recordId = json.record_id || json.row_number || "";
+      await uploadImagesInBackground(recordId);
+
+      status.textContent = "Envío exitoso. Registro guardado correctamente.";
+
+      window.__ultimoRegistroWhatsapp = {
+        nombre: String(payload.nombre || "").trim(),
+        propiedad: String((payload.propiedad === "Otra" ? (payload.propiedad_otra || "") : (payload.propiedad || "")) || "").trim(),
+        depto: String(payload.depto || "").trim(),
+        ingreso: String(payload.ingreso || "").trim(),
+        salida: String(payload.salida || "").trim()
+      };
+
+      this.reset();
+
+      facturaFields.classList.add("hidden");
+      seccionIdentificacionEstancia.classList.remove("hidden");
+      campoIdentificacion.classList.remove("hidden");
+      campoMotivo.classList.remove("hidden");
+      campoNumHuespedes.classList.remove("hidden");
+      campoHuespedesNombres.classList.remove("hidden");
+      seccionContactoHuesped.classList.remove("hidden");
+      campoRazonSocial.classList.add("hidden");
+      campoRegimenFiscal.classList.add("hidden");
+      facturaNotas.classList.add("hidden");
+      nota_airbnb.classList.add("hidden");
+      syncFacturaVisibility();
+      comprobanteTransferenciaWrap.classList.add("hidden");
+      regimen_otro.classList.add("hidden");
+      identificacionOtro.classList.add("hidden");
+      identificacionIneFields.classList.add("hidden");
+      identificacionUnicaFields.classList.add("hidden");
+      vehiculoFields.classList.add("hidden");
+      vehiculoMarcaOtro.classList.add("hidden");
+
+      const container = document.getElementById("huespedes-container");
+      container.innerHTML = `<div class="huesped-row" style="position:relative;">
+        <div style="flex:1;">
+          <input type="text" name="huesped[]" placeholder="Huésped 1">
+          <label class="copiar-reservante-wrap" style="font-weight:normal; margin-top:8px; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" class="copiar-reservante" style="width:auto;" onchange="toggleCopiarReservante(this)">
+            Es la misma persona que realizó la reservación
+          </label>
+        </div>
+      </div>`;
+      renumerarHuespedes();
+
+      document.getElementById("ine_frontal_name").textContent = "Ninguna imagen seleccionada";
+      document.getElementById("ine_frontal_preview").classList.add("hidden");
+      document.getElementById("ine_frontal_preview").src = "";
+      document.getElementById("ine_trasero_name").textContent = "Ninguna imagen seleccionada";
+      document.getElementById("ine_trasero_preview").classList.add("hidden");
+      document.getElementById("ine_trasero_preview").src = "";
+      document.getElementById("identificacion_unica_name").textContent = "Ninguna imagen seleccionada";
+      document.getElementById("identificacion_unica_preview").classList.add("hidden");
+      document.getElementById("identificacion_unica_preview").src = "";
+      document.getElementById("vehiculo_foto_name").textContent = "Ninguna imagen seleccionada";
+      document.getElementById("vehiculo_foto_preview").classList.add("hidden");
+      document.getElementById("vehiculo_foto_preview").src = "";
+      document.getElementById("comprobante_transferencia_name").textContent = "Ninguna imagen seleccionada";
+      document.getElementById("comprobante_transferencia_preview").classList.add("hidden");
+      document.getElementById("comprobante_transferencia_preview").src = "";
+
+      formatCurrencyPreview();
+      loadLadas("lada1");
+      loadLadas("lada2");
+      guestLookupLastMatchedPhone = "";
+      setGuestAutofillMessage("", "");
+
+      tipoRegistroInput.value = "nuevo";
+      if (formularioPrincipal) formularioPrincipal.classList.add("visible");
+
+    } else {
+      cerrarVentanaEnvio();
+      status.textContent = "Error al guardar: " + (json.message || json.error || "desconocido");
+      status.classList.add("error");
+    }
+  } catch (err) {
+    cerrarVentanaEnvio();
+    status.textContent = "Error al conectar con Apps Script: " + err.message;
+    status.classList.add("error");
+  } finally {
+    registroSubmitEnCurso = false;
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Enviar";
   }
 });
 
-app.post("/api/create-receipt", async (req, res) => {
-  try {
-    const {
-      amount = 1,
-      productId,
-      currency = "MXN",
-      exchange = 1,
-      paymentForm = "03",
-      branch,
-      externalId,
-      includeTaxes = true,
-      quantity = 1,
-      email,
-      taxRegime,
-      whatsapp,
-      recordId,
-      rowNumber,
-      assignedFolio,
-      checkinWebAppUrl,
-    } = req.body || {};
 
-    if (Number(amount) !== 1) {
-      return res.status(400).json({ message: "El monto unitario está fijo en 1 para esta versión." });
-    }
-    if (!productId) {
-      return res.status(400).json({ message: "Debes seleccionar un producto." });
-    }
-    if (!quantity || Number(quantity) <= 0) {
-      return res.status(400).json({ message: "La cantidad debe ser mayor a cero." });
-    }
 
-    const productRes = await facturapiFetch(`/products/${encodeURIComponent(productId)}`);
-    const product = await parseFacturapiResponse(productRes);
+</script>
+<script>
+const I18N = {
+  es: {
+    title: "Registro de huéspedes",
+    phoneLookupTitle: "Número de celular",
+    phoneLookupSub: "Escribe tu número para buscar si ya existe un registro previo y completar automáticamente algunos datos.",
+    guestPhoneNumber: "Número de celular",
+    sec1Title: "Datos de la reservación",
+    sec1Sub: "",
+    sec2Title: "Identificación y estancia",
+    sec2Sub: "Capture la identificación, motivo de viaje, fechas, horarios y personas hospedadas.",
+    sec3Title: "Contacto",
+    sec3Sub: "Datos de contacto del huésped y, si aplica, información fiscal para emisión de factura.",
+    sec4Title: "Registro de vehículo",
+    sec4Sub: "",
+    bookingSource: "Medio de reservación",
+    bookingName: "Nombre de la persona que hizo la reservación",
+    checkinDate: "Fecha de ingreso",
+    arrivalTime: "Hora estimada de llegada (a partir de las 2 P.M.)",
+    checkoutDate: "Fecha de salida",
+    departureTime: "Hora estimada de salida (máximo 10 A.M.)",
+    idType: "Identificación personal",
+    specifyId: "Especifica la identificación",
+    frontSide: "Lado frontal",
+    backSide: "Lado trasero",
+    idImage: "Imagen de identificación",
+    reason: "Motivo",
+    specify: "Especifica",
+    property: "Propiedad",
+    department: "# Departamento",
+    guestsCount: "# Huéspedes",
+    guestNames: "Nombres de los huéspedes",
+    guestHint:"",
+    sameAsBooker: "Es la misma persona que realizó la reservación",
+    addGuest: "➕ Agregar huésped",
+    guestPhone: "Celular del huésped",
+    emergencyContact: "Contacto emergencia",
+    invoice: "¿Requieres el TICKET para AUTO-FACTURACIÓN?",
+    invoiceNotePeriod: "",
+    invoiceNoteExtension: "",
+    businessName: "Razón social",
+    taxRegime: "Régimen fiscal",
+    specifyTaxRegime: "Especifica el régimen fiscal",
+    paymentMethod: "Medio de pago",
+    transferReceipt: "Sube el comprobante de transferencia",
+    airbnbNote: "",
+    amountPaid: "$ Monto pagado",
+    currencyHintPrefix: "Monto capturado:",
+    emailPrimary: "Correo electrónico (principal)",
+    emailCopy: "Correo electrónico (copia)",
+    vehicle: "¿Cuentas con vehículo?",
+    registerVehicle: "Registro de vehículo",
+    commentsTitle: "Comentarios",
+    uploadImage: "Subir imagen",
+    noImage: "Ninguna imagen seleccionada",
+    chooseLanguage: "Selecciona el idioma",
+    preFormTitle: "Tipo de registro",
+    preFormSub: "",
+    optionNewTitle: "Registro nuevo",
+    optionNewText: "Prepara tu identificación personal",
+    optionRegisteredTitle: "Huésped ya registrado",
+    optionRegisteredText: "",
+    make: "Marca",
+    specifyMake: "Especifica la marca",
+    model: "Modelo",
+    specifyModel: "Especifica el modelo",
+    color: "Color",
+    colorPlaceholder: "Ejemplo: Blanco, gris, rojo",
+    addPhoto: "Agregar foto",
+    usualDepartureTime: "Hora habitual de salida",
+    plates: "# Placas",
+    platesPlaceholder: "Escribe las placas",
+    comments: "Comentarios (opcional)",
+    send: "Enviar",
+    successTitle: "Registro exitoso",
+    successText: "El formulario se envió correctamente.",
+    close: "Cerrar",
+    statusSending: "Enviando registro...",
+    statusSuccess: "Envío exitoso. Registro guardado correctamente.",
+    placeholderSelect: "Selecciona",
+    placeholderCurrency: "Selecciona divisa",
+    placeholderLada: "Lada",
+    placeholderHour1: "Huésped 1",
+    placeholderGuestBase: "Huésped",
+    placeholderModel: "Especifica el modelo",
+    bookerMediumOptions: ["Selecciona","Airbnb","Check-inn-Saltillo.com (website / link de whatsapp)","Trato directo"],
+    idTypeOptions: ["Selecciona","INE","Pasaporte","Otro"],
+    reasonOptions: ["Selecciona","Laboral","Estudio","Vacacional","Otro"],
+    propertyOptions: ["Selecciona","Calle Cumbres","Calle Baja California","Calle Oaxaca","Calle José Cárdenas","Calle Matamoros","Calle Torreón","Otra"],
+    invoiceOptions: ["Selecciona","Sí","No"],
+    vehicleOptions: ["Selecciona","Sí","No"],
+    paymentOptions: ["Selecciona","Transferencia directa a la cuenta del anfitrión","Airbnb","Página web (www.check-inn-saltillo.com)","Liga de Whatsapp"],
+    currencyOptions: ["Selecciona divisa","Peso mexicano (MXN)","Dólar estadounidense (USD)","Real brasileño (BRL)","Euro (EUR)","Libra esterlina (GBP)"],
+    taxRegimeOptions: ["Selecciona","General de Ley Personas Morales","Régimen Simplificado de Confianza (RESICO)","Persona Física con Actividades Empresariales y Profesionales","Otro"],
+    vehicleMakeOther: "Otro",
+    selectFirstBrand: "Selecciona primero una marca"
+  },
+  en: {
+    title: "Guest registration",
+    phoneLookupTitle: "Mobile number",
+    phoneLookupSub: "Enter your number to check whether a previous guest record exists and auto-fill some fields.",
+    guestPhoneNumber: "Mobile number",
+    sec1Title: "Reservation details",
+    sec1Sub: "Información general de la estancia y de la persona que realizó la reservación.",
+    sec2Title: "Identification and stay",
+    sec2Sub: "Provide identification, trip purpose, dates, times and guest names.",
+    sec3Title: "Guest contact",
+    sec3Sub: "Guest and emergency contact details.",
+    sec4Title: "Vehicle registration",
+    sec4Sub: "",
+    bookingSource: "Booking source",
+    bookingName: "Name of the person who made the reservation",
+    checkinDate: "Check-in date",
+    arrivalTime: "Estimated arrival time (from 2 P.M.)",
+    checkoutDate: "Check-out date",
+    departureTime: "Estimated departure time (max 10 A.M.)",
+    idType: "Personal identification",
+    specifyId: "Specify the identification",
+    frontSide: "Front side",
+    backSide: "Back side",
+    idImage: "Identification image",
+    reason: "Purpose",
+    specify: "Specify",
+    property: "Property",
+    department: "Apartment #",
+    guestsCount: "Guests #",
+    guestNames: "Guest names",
+    guestHint:"",
+    sameAsBooker: "Same person who made the reservation",
+    addGuest: "➕ Add guest",
+    guestPhone: "Guest phone",
+    emergencyContact: "Emergency contact",
+    invoice: "Do you need a self-invoicing ticket?",
+    invoiceNotePeriod: "One invoice will be issued for each registered period.",
+    invoiceNoteExtension: "If you make an EXTENSION, you must submit a new registration for the new period.",
+    businessName: "Business name",
+    taxRegime: "Tax regime",
+    specifyTaxRegime: "Specify the tax regime",
+    paymentMethod: "Payment method",
+    transferReceipt: "Upload transfer receipt",
+    airbnbNote: "",
+    amountPaid: "$ Amount paid",
+    currencyHintPrefix: "Captured amount:",
+    emailPrimary: "Email (primary)",
+    emailCopy: "Email (copy)",
+    vehicle: "Do you have a vehicle?",
+    registerVehicle: "Register your vehicle",
+    commentsTitle: "Comments",
+    uploadImage: "Upload image",
+    noImage: "No image selected",
+    chooseLanguage: "Choose language",
+    preFormTitle: "Registration type",
+    preFormSub: "",
+    optionNewTitle: "New registration",
+    optionNewText: "Prepare your personal ID.",
+    optionRegisteredTitle: "Already registered guest",
+    optionRegisteredText:"If you have already uploaded your personal ID",
+    make: "Make",
+    specifyMake: "Specify the make",
+    model: "Model",
+    specifyModel: "Specify the model",
+    color: "Color",
+    colorPlaceholder: "Example: White, gray, red",
+    addPhoto: "Add photo",
+    usualDepartureTime: "Usual departure time",
+    plates: "License plates",
+    platesPlaceholder: "Enter the license plates",
+    comments: "Comments (optional)",
+    send: "Submit",
+    successTitle: "Registration successful",
+    successText: "The form was submitted successfully.",
+    close: "Close",
+    statusSending: "Submitting registration...",
+    statusSuccess: "Successful submission. Registration saved correctly.",
+    placeholderSelect: "Select",
+    placeholderCurrency: "Select currency",
+    placeholderLada: "Country code",
+    placeholderHour1: "Guest 1",
+    placeholderGuestBase: "Guest",
+    placeholderModel: "Specify the model",
+    bookerMediumOptions: ["Select","Airbnb","Check-inn-Saltillo.com (website / WhatsApp link)","Direct booking"],
+    idTypeOptions: ["Select","ID card","Passport","Other"],
+    reasonOptions: ["Select","Work","Study","Vacation","Other"],
+    propertyOptions: ["Select","Calle Cumbres","Calle Baja California","Calle Oaxaca","Calle José Cárdenas","Calle Matamoros","Calle Torreón","Other"],
+    invoiceOptions: ["Select","Yes","No"],
+    vehicleOptions: ["Select","Yes","No"],
+    paymentOptions: ["Select","Direct transfer to host account","Airbnb","Website (www.check-inn-saltillo.com)","WhatsApp link"],
+    currencyOptions: ["Select currency","Mexican peso (MXN)","US dollar (USD)","Brazilian real (BRL)","Euro (EUR)","British pound (GBP)"],
+    taxRegimeOptions: ["Select","General Corporate Tax Regime","Simplified Trust Regime (RESICO)","Individual with Business and Professional Activities","Other"],
+    vehicleMakeOther: "Other",
+    selectFirstBrand: "Select a make first"
+  }
+};
 
-    if (!productRes.ok) {
-      return res.status(productRes.status).json({
-        message: product?.message || "No fue posible consultar el producto.",
-        facturapi: product,
+function setSelectTexts(selectEl, labels) {
+  if (!selectEl || !labels) return;
+  const options = Array.from(selectEl.options);
+  options.forEach((opt, idx) => {
+    if (labels[idx] !== undefined) opt.textContent = labels[idx];
+  });
+}
+
+function refreshGuestTexts(lang){
+  const t = I18N[lang];
+  const guestInputList = document.querySelectorAll('#huespedes-container input[name="huesped[]"]');
+  guestInputList.forEach((input, idx) => {
+    input.placeholder = `${t.placeholderGuestBase} ${idx + 1}`;
+    input.setAttribute("aria-label", `${t.placeholderGuestBase} ${idx + 1}`);
+  });
+  const checkLabel = document.querySelector('.copiar-reservante-wrap');
+  if (checkLabel) {
+    const txtNodes = Array.from(checkLabel.childNodes).filter(n => n.nodeType === 3);
+    if (txtNodes.length) txtNodes[txtNodes.length - 1].textContent = " " + t.sameAsBooker;
+  }
+  document.querySelectorAll('.copiar-reservante-wrap').forEach(lbl => {
+    const txtNodes = Array.from(lbl.childNodes).filter(n => n.nodeType === 3);
+    if (txtNodes.length) txtNodes[txtNodes.length - 1].textContent = " " + t.sameAsBooker;
+  });
+}
+
+function applyTranslations(lang){
+  const t = I18N[lang] || I18N.es;
+
+  const h1 = document.querySelector("h1");
+  if (h1) h1.textContent = t.title;
+
+  const sectionTitles = document.querySelectorAll(".section-title");
+  if (sectionTitles[0]) sectionTitles[0].textContent = t.sec1Title;
+  if (sectionTitles[1]) sectionTitles[1].textContent = t.sec2Title;
+  if (sectionTitles[2]) sectionTitles[2].textContent = t.sec3Title;
+  if (sectionTitles[3]) sectionTitles[3].textContent = (lang === "en" ? "Invoicing" : "Facturación");
+  if (sectionTitles[4]) sectionTitles[4].textContent = t.registerVehicle;
+  if (sectionTitles[5]) sectionTitles[5].textContent = t.commentsTitle;
+
+  const sectionSubs = document.querySelectorAll(".section-subtitle");
+  if (sectionSubs[0]) sectionSubs[0].textContent = t.sec1Sub;
+  if (sectionSubs[1]) sectionSubs[1].textContent = t.sec2Sub;
+  if (sectionSubs[2]) sectionSubs[2].textContent = t.sec3Sub;
+  if (sectionSubs[3]) sectionSubs[3].textContent = (lang === "en" ? "Tax information for invoice issuance." : "");
+  if (sectionSubs[4]) {
+    sectionSubs[4].textContent = t.sec4Sub;
+    sectionSubs[4].style.display = t.sec4Sub ? "" : "none";
+  }
+  if (sectionSubs[5]) sectionSubs[5].textContent = (lang === "en" ? "" : "");
+
+  const labels = Array.from(document.querySelectorAll("label"));
+  labels.forEach(label => {
+    const text = label.textContent.trim();
+    if (text === "Medio de reservación" || text === "Booking source") label.textContent = t.bookingSource;
+    else if (text === "Nombre de la persona que hizo la reservación" || text === "Name of the person who made the reservation") label.textContent = t.bookingName;
+    else if (text === "Fecha de ingreso" || text === "Check-in date") label.textContent = t.checkinDate;
+    else if (text.includes("Hora estimada de llegada") || text.includes("Estimated arrival time")) label.textContent = t.arrivalTime;
+    else if (text === "Fecha de salida" || text === "Check-out date") label.textContent = t.checkoutDate;
+    else if (text.includes("Hora estimada de salida") || text.includes("Estimated departure time")) label.textContent = t.departureTime;
+    else if (text === "Identificación personal" || text === "Personal identification") label.textContent = t.idType;
+    else if (text === "Lado frontal" || text === "Front side") label.textContent = t.frontSide;
+    else if (text === "Lado trasero" || text === "Back side") label.textContent = t.backSide;
+    else if (text === "Imagen de identificación" || text === "Identification image") label.textContent = t.idImage;
+    else if (text === "Motivo" || text === "Purpose") label.textContent = t.reason;
+    else if (text === "Propiedad" || text === "Property") label.textContent = t.property;
+    else if (text === "# Departamento" || text === "Apartment #") label.textContent = t.department;
+    else if (text === "# Huéspedes" || text === "Guests #") label.textContent = t.guestsCount;
+    else if (text === "Nombres de los huéspedes" || text === "Guest names") label.textContent = t.guestNames;
+    else if (text === "Celular del huésped" || text === "Guest phone") label.textContent = t.guestPhone;
+    else if (text === "Contacto emergencia" || text === "Emergency contact") label.textContent = t.emergencyContact;
+    else if (text.includes("Requieres factura") || text.includes("Do you need an invoice")) label.textContent = t.invoice;
+    else if (text === "Razón social" || text === "Business name") label.textContent = t.businessName;
+    else if (text === "Régimen fiscal" || text === "Tax regime") label.textContent = t.taxRegime;
+    else if (text === "Medio de pago" || text === "Payment method") label.textContent = t.paymentMethod;
+    else if (text === "Sube el comprobante de transferencia" || text === "Upload transfer receipt") label.textContent = t.transferReceipt;
+    else if (text.includes("$ Monto pagado") || text.includes("$ Amount paid")) label.textContent = t.amountPaid;
+    else if (text === "Correo electrónico (principal)" || text === "Email (primary)") label.textContent = t.emailPrimary;
+    else if (text === "Correo electrónico (copia)" || text === "Email (copy)") label.textContent = t.emailCopy;
+    else if (text.includes("Cuentas con vehículo") || text.includes("Do you have a vehicle")) label.textContent = t.vehicle;
+    else if (text === "Marca" || text === "Make") label.textContent = t.make;
+    else if (text === "Modelo" || text === "Model") label.textContent = t.model;
+    else if (text === "Color" || text === "Color") label.textContent = t.color;
+    else if (text === "Agregar foto" || text === "Add photo") label.textContent = t.addPhoto;
+    else if (text === "Hora habitual de salida" || text === "Usual departure time") label.textContent = t.usualDepartureTime;
+    else if (text.includes("Placas") || text.includes("License plates")) label.textContent = t.plates;
+    else if (text.includes("Comentarios") || text.includes("Comments")) label.textContent = t.comments;
+  });
+
+  const hints = document.querySelectorAll(".hint");
+  if (hints[0]) hints[0].textContent = t.guestHint;
+  if (document.getElementById("monto_preview")) {
+    const amountText = document.getElementById("monto_preview").textContent.split(":").slice(1).join(":").trim() || "MXN 0.00";
+    document.getElementById("monto_preview").textContent = `${t.currencyHintPrefix} ${amountText}`;
+  }
+  const popupTitle = document.querySelector("#popupTituloExito");
+  if (popupTitle) popupTitle.textContent = t.successTitle;
+  const popupHint = document.querySelector("#popupTextoExito");
+  if (popupHint) popupHint.textContent = t.successText;
+  const popupBtn = document.querySelector('#popupSuccessState button');
+  if (popupBtn) popupBtn.textContent = t.close;
+
+  const submitBtn = document.getElementById("submitBtn");
+  if (submitBtn && submitBtn.textContent !== "Enviando..." && submitBtn.textContent !== "Submitting registration...") submitBtn.textContent = t.send;
+
+  const addGuestBtn = document.querySelector('button[onclick="addGuest()"]');
+  if (addGuestBtn) addGuestBtn.textContent = t.addGuest;
+
+  const placeholders = {
+    identificacion_otro: t.specifyId,
+    motivo_otro: t.specify,
+    propiedad_otra: t.specify,
+    regimen_otro: t.specifyTaxRegime,
+    vehiculo_marca_otro: t.specifyMake,
+    vehiculo_modelo: t.placeholderModel,
+    vehiculo_color: t.colorPlaceholder,
+    vehiculo_placas: t.platesPlaceholder
+  };
+  Object.entries(placeholders).forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.placeholder = value;
+  });
+
+  setSelectTexts(document.querySelector('select[name="medio"]'), t.bookerMediumOptions);
+  setSelectTexts(document.getElementById("identificacion_tipo"), t.idTypeOptions);
+  setSelectTexts(document.getElementById("motivo"), t.reasonOptions);
+  setSelectTexts(document.getElementById("propiedad"), t.propertyOptions);
+  setSelectTexts(document.getElementById("factura"), t.invoiceOptions);
+  setSelectTexts(document.getElementById("medio_pago"), t.paymentOptions);
+  setSelectTexts(document.getElementById("divisa_monto"), t.currencyOptions);
+  setSelectTexts(document.getElementById("regimen"), t.taxRegimeOptions);
+  setSelectTexts(document.getElementById("tiene_vehiculo"), t.vehicleOptions);
+
+  const lada1 = document.getElementById("lada1");
+  const lada2 = document.getElementById("lada2");
+  if (lada1 && lada1.options[0]) lada1.options[0].textContent = t.placeholderLada;
+  if (lada2 && lada2.options[0]) lada2.options[0].textContent = t.placeholderLada;
+
+  refreshGuestTexts(lang);
+
+  document.querySelectorAll('.upload-title, .upload-btn').forEach(el => el.textContent = t.uploadImage);
+  document.querySelectorAll('.preview-text').forEach(el => {
+    if (!el.textContent || el.textContent.trim() === "Ninguna imagen seleccionada" || el.textContent.trim() === "No image selected") {
+      el.textContent = t.noImage;
+    }
+  });
+  const langNote = document.querySelector('.lang-note');
+  if (langNote) langNote.textContent = t.chooseLanguage;
+document.documentElement.lang = lang;
+  window.currentLang = lang;
+  if (typeof actualizarNotasFacturaPorIdioma === "function") actualizarNotasFacturaPorIdioma(lang);
+  if (typeof actualizarResumenVehiculo === "function") actualizarResumenVehiculo();
+  if (guestAutofillStatus && !guestAutofillStatus.classList.contains("hidden")) {
+    detectExistingGuestByPhone();
+  }
+}
+
+applyTranslations(window.currentLang || "es");
+</script>
+<script>
+const SIMPLE_I18N = {
+  es: {
+    chooseLanguage:"Selecciona el idioma",
+    preFormTitle:"Tipo de registro",
+    preFormSub:"",
+    optionNewTitle:"Registro nuevo",
+    optionNewText:"Prepara tu identificación personal",
+    optionRegisteredTitle:"Huésped ya registrado",
+    optionRegisteredText:"Si ya subiste tu identificación personal",
+    title:"Registro de huéspedes",
+    phoneLookupTitle:"Número de celular",
+    phoneLookupSub:"Escribe tu número para buscar si ya existe un registro previo y completar automáticamente algunos datos.",
+    guestPhoneNumber:"Número de celular",
+    sec1Title:"Datos de la reservación",
+    sec1Sub:"",
+    sec2Title:"Identificación y estancia",
+    sec2Sub:"Capture la identificación, motivo de viaje, fechas, horarios y personas hospedadas.",
+    sec3Title:"Contacto del huésped",
+    sec3Sub:"Datos de contacto del huésped y de emergencia.",
+    sec4Title:"Facturación",
+    sec4Sub:"",
+    sec5Title:"Registro de vehículo",
+    vehicleProSub:"Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.",
+    vehicleProTitle:"Registro inteligente del vehículo",
+    vehicleProCopy:"Captura al menos marca y modelo. Las placas, la foto y la hora habitual de salida ayudan al control de acceso y a la operación diaria.",
+    vehicleStatusWaiting:"Captura los datos del vehículo si aplica",
+    vehicleIdentityTitle:"Identificación del vehículo",
+    vehicleOpsTitle:"Apoyo operativo",
+    vehicleSummaryTitle:"Resumen del vehículo",
+    platesRequired:"# Placas",
+    platesHint:"Usa letras y números tal como aparecen en el vehículo.",
+    vehicleProSub:"Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.",
+    vehicleProTitle:"Registro inteligente del vehículo",
+    vehicleProCopy:"Captura al menos marca y modelo. Las placas, la foto y la hora habitual de salida ayudan al control de acceso y a la operación diaria.",
+    vehicleStatusWaiting:"Captura los datos del vehículo si aplica",
+    vehicleIdentityTitle:"Identificación del vehículo",
+    vehicleOpsTitle:"Apoyo operativo",
+    vehicleSummaryTitle:"Resumen del vehículo",
+    platesRequired:"# Placas",
+    platesHint:"Usa letras y números tal como aparecen en el vehículo.",
+    sec6Title:"Comentarios",
+    sec6Sub:"",
+    bookingSource:"Medio de reservación",
+    bookingName:"Nombre de la persona que hizo la reservación",
+    checkinDate:"Fecha de ingreso",
+    arrivalTime:"Hora estimada de llegada (a partir de las 2 P.M.)",
+    checkoutDate:"Fecha de salida",
+    departureTime:"Hora estimada de salida (máximo 10 A.M.)",
+    idType:"Identificación personal",
+    frontSide:"Lado frontal",
+    backSide:"Lado trasero",
+    idImage:"Imagen de identificación",
+    reason:"Motivo",
+    property:"Propiedad",
+    department:"# Departamento",
+    guestsCount:"# Huéspedes",
+    guestNames:"Nombres de los huéspedes",
+    guestHint:"",
+    guestPhone:"Celular del huésped",
+    emergencyContact:"Contacto emergencia",
+    invoice:"¿Requieres el TICKET para AUTO-FACTURACIÓN?",
+    invoiceNotePeriod:"",
+    invoiceNoteExtension:"",
+    businessName:"Razón social",
+    taxRegime:"Régimen fiscal",
+    paymentMethod:"Medio de pago",
+    transferReceipt:"Sube el comprobante de transferencia",
+    amountPaid:"$ Monto pagado",
+    emailPrimary:"Correo electrónico (principal)",
+    emailCopy:"Correo electrónico (copia)",
+    vehicle:"¿Cuentas con vehículo?",
+    make:"Marca",
+    model:"Modelo",
+    color:"Color",
+    addPhoto:"Agregar foto",
+    usualDepartureTime:"Hora habitual de salida",
+    plates:"# Placas",
+    send:"Enviar",
+    uploadImage:"Subir imagen",
+    noImage:"Ninguna imagen seleccionada"
+  },
+  en: {
+    chooseLanguage:"Choose language",
+    preFormTitle:"Registration type",
+    preFormSub:"",
+    optionNewTitle:"New registration",
+    optionNewText:"Prepare your personal ID.",
+    optionRegisteredTitle:"Already registered guest",
+    optionRegisteredText:"If you have already uploaded your personal ID",
+    title:"Guest registration",
+    phoneLookupTitle:"Mobile number",
+    phoneLookupSub:"Enter your number to check whether a previous guest record exists and auto-fill some fields.",
+    guestPhoneNumber:"Mobile number",
+    sec1Title:"Reservation details",
+    sec1Sub:"",
+    sec2Title:"Identification and stay",
+    sec2Sub:"Provide identification, trip purpose, dates, times and guest names.",
+    sec3Title:"Guest contact",
+    sec3Sub:"Guest and emergency contact details.",
+    sec4Title:"Invoicing",
+    sec4Sub:"Tax information for invoice issuance.",
+    sec5Title:"Vehicle registration",
+    vehicleProSub:"Register the vehicle that will enter the property to improve control, security, and daily operations.",
+    vehicleProTitle:"Smart vehicle registration",
+    vehicleProCopy:"Fill in at least make and model. Photo, plates, and usual departure time help access control and daily operations.",
+    vehicleStatusWaiting:"Add vehicle details if available",
+    vehicleIdentityTitle:"Vehicle identity",
+    vehicleOpsTitle:"Operational support",
+    vehicleSummaryTitle:"Vehicle summary",
+    platesRequired:"License plates",
+    platesHint:"Use letters and numbers exactly as shown on the vehicle.",
+    vehicleProSub:"Register the vehicle that will enter the property to improve control, security, and daily operations.",
+    vehicleProTitle:"Smart vehicle registration",
+    vehicleProCopy:"Fill in at least make and model. Photo, plates, and usual departure time help access control and daily operations.",
+    vehicleStatusWaiting:"Add vehicle details if available",
+    vehicleIdentityTitle:"Vehicle identity",
+    vehicleOpsTitle:"Operational support",
+    vehicleSummaryTitle:"Vehicle summary",
+    platesRequired:"License plates",
+    platesHint:"Use letters and numbers exactly as shown on the vehicle.",
+    sec6Title:"Comments",
+    sec6Sub:"",
+    bookingSource:"Booking source",
+    bookingName:"Name of the person who made the reservation",
+    checkinDate:"Check-in date",
+    arrivalTime:"Estimated arrival time (from 2 P.M.)",
+    checkoutDate:"Check-out date",
+    departureTime:"Estimated departure time (max 10 A.M.)",
+    idType:"Personal identification",
+    frontSide:"Front side",
+    backSide:"Back side",
+    idImage:"Identification image",
+    reason:"Purpose",
+    property:"Property",
+    department:"Apartment #",
+    guestsCount:"Guests #",
+    guestNames:"Guest names",
+    guestHint:"",
+    guestPhone:"Guest phone",
+    emergencyContact:"Emergency contact",
+    invoice:"Do you need a self-invoicing ticket?",
+    invoiceNotePeriod:"One invoice will be issued for each registered period.",
+    invoiceNoteExtension:"If you make an EXTENSION, you must submit a new registration for the new period.",
+    businessName:"Business name",
+    taxRegime:"Tax regime",
+    paymentMethod:"Payment method",
+    transferReceipt:"Upload transfer receipt",
+    amountPaid:"$ Amount paid",
+    emailPrimary:"Email (primary)",
+    emailCopy:"Email (copy)",
+    vehicle:"Do you have a vehicle?",
+    make:"Make (required)",
+    model:"Model (required)",
+    color:"Color",
+    addPhoto:"Add photo",
+    usualDepartureTime:"Usual departure time",
+    plates:"License plates",
+    send:"Submit",
+    uploadImage:"Upload image",
+    noImage:"No image selected"
+  }
+};
+
+function applyTranslations(lang){
+  const t = SIMPLE_I18N[lang] || SIMPLE_I18N.es;
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const key = el.getAttribute("data-i18n");
+    if (t[key]) el.textContent = t[key];
+  });
+
+  document.querySelectorAll(".preview-text").forEach(el => {
+    const v = (el.textContent || "").trim();
+    if (!v || v === SIMPLE_I18N.es.noImage || v === SIMPLE_I18N.en.noImage) {
+      el.textContent = t.noImage;
+    }
+  });
+
+  const placeholders = {
+    identificacion_otro: lang === "en" ? "Specify the identification" : "Especifica la identificación",
+    motivo_otro: lang === "en" ? "Specify" : "Especifica",
+    propiedad_otra: lang === "en" ? "Specify" : "Especifica",
+    regimen_otro: lang === "en" ? "Specify the tax regime" : "Especifica el régimen fiscal",
+    vehiculo_marca_otro: lang === "en" ? "Specify the make" : "Especifica la marca",
+    vehiculo_modelo: lang === "en" ? "Specify the model" : "Especifica el modelo",
+    vehiculo_color: lang === "en" ? "Example: White, gray, red" : "Ejemplo: Blanco, gris, rojo",
+    vehiculo_placas: lang === "en" ? "Enter the license plates" : "Escribe las placas"
+  };
+  Object.entries(placeholders).forEach(([id,val]) => {
+    const el = document.getElementById(id);
+    if (el) el.placeholder = val;
+  });
+
+  const selectMaps = [
+    ['select[name="medio"]', lang === "en" ? ["Select","Airbnb","Check-inn-Saltillo.com (website / WhatsApp link)","Direct booking"] : ["Selecciona","Airbnb","Check-inn-Saltillo.com (website / link de whatsapp)","Trato directo"]],
+    ['#identificacion_tipo', lang === "en" ? ["Select","ID card","Passport","Other"] : ["Selecciona","INE","Pasaporte","Otro"]],
+    ['#motivo', lang === "en" ? ["Select","Work","Study","Vacation","Other"] : ["Selecciona","Laboral","Estudio","Vacacional","Otro"]],
+    ['#propiedad', lang === "en" ? ["Select","Calle Cumbres","Calle Baja California","Calle Oaxaca","Calle José Cárdenas","Calle Matamoros","Calle Torreón","Other"] : ["Selecciona","Calle Cumbres","Calle Baja California","Calle Oaxaca","Calle José Cárdenas","Calle Matamoros","Calle Torreón","Otra"]],
+    ['#factura', lang === "en" ? ["Select","Yes","No"] : ["Selecciona","Sí","No"]],
+    ['#tiene_vehiculo', lang === "en" ? ["Select","Yes","No"] : ["Selecciona","Sí","No"]],
+    ['#medio_pago', lang === "en" ? ["Select","Direct transfer to host account","Airbnb","Website (www.check-inn-saltillo.com)","WhatsApp link"] : ["Selecciona","Transferencia directa a la cuenta del anfitrión","Airbnb","Página web (www.check-inn-saltillo.com)","Liga de Whatsapp"]],
+    ['#divisa_monto', lang === "en" ? ["Select currency","Mexican peso (MXN)","US dollar (USD)","Brazilian real (BRL)","Euro (EUR)","British pound (GBP)"] : ["Selecciona divisa","Peso mexicano (MXN)","Dólar estadounidense (USD)","Real brasileño (BRL)","Euro (EUR)","Libra esterlina (GBP)"]],
+    ['#regimen', lang === "en" ? ["Select","General Corporate Tax Regime","Simplified Trust Regime (RESICO)","Individual with Business and Professional Activities","Other"] : ["Selecciona","General de Ley Personas Morales","Régimen Simplificado de Confianza (RESICO)","Persona Física con Actividades Empresariales y Profesionales","Otro"]]
+  ];
+  selectMaps.forEach(([sel, labels]) => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    Array.from(el.options).forEach((opt, i) => { if (labels[i] !== undefined) opt.textContent = labels[i]; });
+  });
+
+  const lada1 = document.getElementById("lada1");
+  const lada2 = document.getElementById("lada2");
+  if (lada1 && lada1.options[0]) lada1.options[0].textContent = lang === "en" ? "Country code" : "Lada";
+  if (lada2 && lada2.options[0]) lada2.options[0].textContent = lang === "en" ? "Country code" : "Lada";
+
+  document.documentElement.lang = lang;
+  window.currentLang = lang;
+  if (typeof actualizarResumenVehiculo === "function") actualizarResumenVehiculo();
+}
+
+(function(){
+  let currentLang = "es";
+  function updateSwitchUI(){
+    const slider = document.getElementById("switchSlider");
+    const labels = document.querySelectorAll(".lang-switch-label");
+    if (!slider) return;
+    if (currentLang === "es") {
+      slider.style.left = "2px";
+      if (labels[0]) labels[0].style.color = "#ffffff";
+      if (labels[1]) labels[1].style.color = "#6b7280";
+    } else {
+      slider.style.left = "43px";
+      if (labels[0]) labels[0].style.color = "#6b7280";
+      if (labels[1]) labels[1].style.color = "#ffffff";
+    }
+  }
+  document.addEventListener("DOMContentLoaded", function(){
+    const sw = document.getElementById("langSwitch");
+    if (sw) {
+      sw.addEventListener("click", function(){
+        currentLang = currentLang === "es" ? "en" : "es";
+        window.currentLang = currentLang;
+        applyTranslations(currentLang);
+        updateSwitchUI();
       });
     }
+    applyTranslations(currentLang);
+    window.currentLang = currentLang;
+    updateSwitchUI();
+  });
+})();
+</script>
+<script>
+function abrirWhatsappDudas() {
+  const nombre = document.querySelector('input[name="nombre"]')?.value || "";
+  const propiedad = document.querySelector('select[name="propiedad"]')?.value || "";
+  const depto = document.querySelector('select[name="depto"]')?.value || "";
+  const ingreso = document.querySelector('input[name="ingreso"]')?.value || "";
+  const salida = document.querySelector('input[name="salida"]')?.value || "";
 
-    const payload = {
-      items: [
-        {
-          quantity: Number(quantity),
-          discount: 0,
-          product: {
-            description: product.description,
-            product_key: product.product_key,
-            price: round2(Number(amount)),
-            tax_included: Boolean(includeTaxes),
-            taxability: product.taxability,
-            taxes: Array.isArray(product.taxes) ? product.taxes : [],
-            local_taxes: Array.isArray(product.local_taxes) ? product.local_taxes : [],
-            unit_key: product.unit_key,
-            unit_name: product.unit_name,
-            sku: product.sku,
-          },
-        },
-      ],
-      payment_form: paymentForm,
-      currency,
-      exchange: Number(exchange || 1),
-      ...(branch ? { branch } : {}),
-      ...(externalId ? { external_id: externalId } : {}),
-      idempotency_key: crypto.randomUUID(),
+  const mensaje = `Hola soy ${nombre} con reservación en ${propiedad}-${depto} del ${ingreso} al ${salida}. Mi duda/comentario es el siguiente:`;
+
+  const url = `https://wa.me/528444443922?text=${encodeURIComponent(mensaje)}`;
+  window.open(url, "_blank");
+}
+</script>
+<script>
+window.__ultimoRegistroWhatsapp = {
+  nombre: "",
+  propiedad: "",
+  depto: "",
+  ingreso: "",
+  salida: ""
+};
+
+function formatearFechaWhatsapp(fechaISO){
+  if (!fechaISO) return "";
+  const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const partes = String(fechaISO).split("-");
+  if (partes.length !== 3) return fechaISO;
+  const anio = Number(partes[0]);
+  const mes = Number(partes[1]);
+  const dia = Number(partes[2]);
+  if (!anio || !mes || !dia) return fechaISO;
+  return `${dia} de ${meses[mes - 1]}`;
+}
+
+function obtenerTextoPropiedad(){
+  const select = document.querySelector('select[name="propiedad"]');
+  const otra = document.querySelector('input[name="propiedad_otra"]')?.value?.trim() || "";
+  if (select && select.value === "Otra" && otra) return otra;
+  return select?.value || "";
+}
+
+function abrirWhatsappDudas() {
+  const data = window.__ultimoRegistroWhatsapp || {};
+  const nombre = (data.nombre || "").trim();
+  const propiedad = (data.propiedad || "").trim();
+  const depto = (data.depto || "").trim();
+  const ingreso = formatearFechaWhatsapp(data.ingreso || "");
+  const salida = formatearFechaWhatsapp(data.salida || "");
+
+  const ubicacion = [propiedad, depto].filter(Boolean).join(" ");
+  const periodo = [ingreso, salida].filter(Boolean).join(" al ");
+
+  let mensaje = "Hola";
+  if (nombre) mensaje += ` soy *${nombre}*`;
+  if (propiedad || depto) mensaje += ` con reservación en *${propiedad}*-*${depto}*`;
+  if (ingreso || salida) mensaje += ` del *${ingreso}* al *${salida}*`;
+  mensaje += ". Mi duda/comentario es el siguiente:";
+
+  const url = `https://wa.me/528444443922?text=${encodeURIComponent(mensaje)}`;
+  window.open(url, "_blank");
+}
+</script>
+<script>
+function actualizarNotasFacturaPorIdioma(lang){
+  const mostrarEN = lang === "en";
+  document.querySelectorAll(".factura-note-es").forEach(el => el.classList.toggle("hidden", mostrarEN));
+  document.querySelectorAll(".factura-note-en").forEach(el => el.classList.toggle("hidden", !mostrarEN));
+  document.querySelectorAll(".nota-airbnb-es").forEach(el => el.classList.toggle("hidden", mostrarEN));
+  document.querySelectorAll(".nota-airbnb-en").forEach(el => el.classList.toggle("hidden", !mostrarEN));
+}
+
+function limpiarSistemaDeTextosCheckInn(){
+  const facturaNotas = document.getElementById("factura_notas");
+  if (facturaNotas) {
+    facturaNotas.innerHTML = `
+      <div class="factura-note-es">a) UNA FACTURA por PERIODO registrado</div>
+      <div class="factura-note-es" style="margin-top:6px;">b) Si realizas una EXTENSIÓN deberás realizar un nuevo registro para el nuevo periodo</div>
+      <div class="factura-note-es" style="margin-top:6px;">c) TICKET VIGENTE ÚNICAMENTE DENTRO DEL MES en que fue generado</div>
+
+      <div class="factura-note-en hidden">a) ONE INVOICE per REGISTERED PERIOD</div>
+      <div class="factura-note-en hidden" style="margin-top:6px;">b) If you EXTEND your stay, you must submit a new registration for the new period</div>
+      <div class="factura-note-en hidden" style="margin-top:6px;">c) TICKET VALID ONLY WITHIN THE MONTH it was issued</div>
+    `;
+  }
+
+  const notaAirbnb = document.getElementById("nota_airbnb");
+  if (notaAirbnb) {
+    notaAirbnb.innerHTML = `
+      <div class="nota-airbnb-es">
+        La factura emitida por Check-Inn NO INCLUYE la "Comisión Airbnb". En caso de querer cubrir el gasto total deberás descargar la factura correspondiente a la comisión de esta plataforma directamente de su app.
+      </div>
+      <div class="nota-airbnb-en hidden">
+        The invoice issued by Check-Inn DOES NOT INCLUDE the "Airbnb Commission". If you want to cover the total cost, you must download the invoice for this platform's commission directly from its app.
+      </div>
+    `;
+  }
+
+  actualizarNotasFacturaPorIdioma(window.currentLang || document.documentElement.lang || "es");
+}
+
+(function(){
+  const originalApplyTranslations = window.applyTranslations;
+  if (typeof originalApplyTranslations === "function") {
+    window.applyTranslations = function(lang){
+      originalApplyTranslations(lang);
+      limpiarSistemaDeTextosCheckInn();
     };
-
-    const receiptRes = await facturapiFetch("/receipts", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-
-    const receipt = await parseFacturapiResponse(receiptRes);
-
-    if (!receiptRes.ok) {
-      return res.status(receiptRes.status).json({
-        message: receipt?.message || "No fue posible generar el ticket.",
-        facturapi: receipt,
-      });
-    }
-
-    const resolvedCheckinUrl = resolveCheckinWebAppUrl(checkinWebAppUrl);
-    const facturapiFolio = resolveVisibleFacturapiFolio(receipt);
-
-    let sheetUpdate = null;
-    let sheetUpdateError = null;
-    try {
-      if ((recordId || externalId || rowNumber) && facturapiFolio) {
-        const strictPayload = {
-          record_id: recordId || "",
-          row_number: rowNumber || "",
-          external_id: externalId || "",
-          folio_facturapi: facturapiFolio
-        };
-        const data = await checkinFetchJson(resolvedCheckinUrl, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "update_facturapi_folio_strict", ...strictPayload })
-        });
-        if (!data?.ok) {
-          throw new Error(data?.error || data?.message || "No se pudo guardar el Folio Facturapi en Check in.");
-        }
-        if (String(data?.written_value || "").trim() !== facturapiFolio) {
-          throw new Error(`La hoja escribió "${data?.written_value || ""}" en vez de "${facturapiFolio}".`);
-        }
-        sheetUpdate = { ...data, checkinWebAppUrl: resolvedCheckinUrl };
-      } else {
-        sheetUpdateError = "Falta recordId/externalId/rowNumber o Folio Facturapi para guardar en Check in.";
-      }
-    } catch (saveErr) {
-      sheetUpdateError = String(saveErr?.message || saveErr);
-    }
-
-    let pdfDriveSave = null;
-    let pdfDriveSaveError = null;
-    try {
-      if (recordId || externalId || rowNumber) {
-        pdfDriveSave = await saveReceiptPdfToCheckin_(receipt.id, {
-          recordId,
-          rowNumber,
-          externalId,
-          folio: facturapiFolio,
-          overrideUrl: resolvedCheckinUrl
-        });
-      } else {
-        pdfDriveSaveError = "Falta recordId/externalId/rowNumber para guardar el PDF en Drive.";
-      }
-    } catch (savePdfErr) {
-      pdfDriveSaveError = String(savePdfErr?.message || savePdfErr);
-    }
-
-    return res.json({
-      ok: true,
-      receipt,
-      payloadSent: payload,
-      assignedFolio: facturapiFolio,
-      facturapiFolio,
-      checkinWebAppUrl: resolvedCheckinUrl,
-      contact: { email: email || null, taxRegime: taxRegime || null, whatsapp: whatsapp || null },
-      sheetUpdate,
-      sheetUpdateError,
-      pdfDriveSave,
-      pdfDriveSaveError,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: "Error al crear el ticket.",
-      error: String(error?.message || error),
-    });
   }
-});
 
-app.post("/api/send-receipt-email", async (req, res) => {
-  try {
-    const { receiptId, email } = req.body || {};
-
-    if (!receiptId) {
-      return res.status(400).json({ message: "Falta receiptId." });
-    }
-    if (!email) {
-      return res.status(400).json({ message: "Falta el correo electrónico." });
-    }
-
-    const apiRes = await facturapiFetch(`/receipts/${encodeURIComponent(receiptId)}/email`, {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
-
-    const data = await parseFacturapiResponse(apiRes);
-
-    if (!apiRes.ok) {
-      return res.status(apiRes.status).json({
-        message: data?.message || "Facturapi no pudo enviar el correo.",
-        facturapi: data,
-      });
-    }
-
-    return res.json({
-      ok: true,
-      message: `Correo enviado correctamente por Facturapi a ${email}.`,
-      facturapi: data,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: "Error al enviar el correo por Facturapi.",
-      error: String(error?.message || error),
-    });
-  }
-});
-
-app.get("/api/receipt-pdf/:receiptId", async (req, res) => {
-  try {
-    const { receiptId } = req.params;
-    const pdfRes = await facturapiFetch(`/receipts/${encodeURIComponent(receiptId)}/pdf`, {
-      headers: { Accept: "application/pdf" },
-    });
-
-    if (!pdfRes.ok) {
-      const contentType = pdfRes.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        const err = await pdfRes.json();
-        return res.status(pdfRes.status).json(err);
-      }
-      const text = await pdfRes.text();
-      return res.status(pdfRes.status).send(text);
-    }
-
-    const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="ticket-${receiptId}.pdf"`);
-    return res.send(pdfBuffer);
-  } catch (error) {
-    return res.status(500).json({
-      message: "Error al obtener PDF.",
-      error: String(error?.message || error),
-    });
-  }
-});
-
-
-app.get("/api/next-facturapi-folio", async (req, res) => {
-  try {
-    const data = await getNextFacturapiFolioFromSheet_(req.query?.checkinWebAppUrl);
-    return res.json(data);
-  } catch (error) {
-    return res.status(error.status || 500).json({
-      message: "No fue posible obtener el siguiente folio.",
-      error: String(error?.message || error),
-      details: error.payload || null
-    });
-  }
-});
-
-app.post("/api/save-facturapi-folio", async (req, res) => {
-  try {
-    const { recordId, folio, externalId, checkinWebAppUrl } = req.body || {};
-    if (!recordId && !externalId) return res.status(400).json({ message: "Falta recordId o externalId." });
-    if (!folio) return res.status(400).json({ message: "Falta folio." });
-
-    const data = await saveFacturapiFolioStrict_(recordId, folio, externalId, checkinWebAppUrl);
-    return res.json({ ok: true, ...data });
-  } catch (error) {
-    return res.status(error.status || 500).json({
-      message: "No fue posible guardar el folio en la hoja.",
-      error: String(error?.message || error),
-      details: error.payload || null
-    });
-  }
-});
-
-
-app.use((req, res) => {
-  return res.status(404).json({
-    ok: false,
-    message: "Ruta no encontrada.",
-    path: req.originalUrl
+  document.addEventListener("DOMContentLoaded", function(){
+    limpiarSistemaDeTextosCheckInn();
   });
+})();
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  const medioPago = document.querySelector('select[name="medio_pago"]');
+  const montoField = document.querySelector('[name="monto"]')?.closest('div');
+
+  function toggleMonto(){
+    if(!medioPago || !montoField) return;
+    if(medioPago.value.toLowerCase().includes("airbnb")){
+      montoField.style.display = "none";
+    } else {
+      montoField.style.display = "";
+    }
+  }
+
+  if(medioPago){
+    medioPago.addEventListener("change", toggleMonto);
+    toggleMonto();
+  }
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  const medioPago = document.getElementById("medio_pago");
+  const montoInput = document.getElementById("monto_pagado");
+  const montoPreview = document.getElementById("monto_preview");
+
+  function encontrarLabelMonto(){
+    if (!montoInput) return null;
+    let node = montoInput.parentElement;
+    while (node) {
+      let prev = node.previousElementSibling;
+      while (prev) {
+        if (prev.tagName && prev.tagName.toLowerCase() === "label") return prev;
+        prev = prev.previousElementSibling;
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  const montoLabel = encontrarLabelMonto();
+  const montoGroup = montoInput ? montoInput.closest(".money-group") : null;
+
+  function toggleMontoPagado(){
+    if (!medioPago) return;
+    const esAirbnb = (medioPago.value || "").trim().toLowerCase() === "airbnb";
+
+    if (montoLabel) montoLabel.style.display = esAirbnb ? "none" : "";
+    if (montoGroup) montoGroup.style.display = esAirbnb ? "none" : "";
+    if (montoPreview) montoPreview.style.display = esAirbnb ? "none" : "";
+
+    if (montoInput) {
+      if (esAirbnb) {
+        montoInput.value = "";
+      }
+    }
+  }
+
+  if (medioPago) {
+    medioPago.addEventListener("change", toggleMontoPagado);
+    toggleMontoPagado();
+  }
+});
+</script>
+<script>
+/* ===== Menú + dashboard Control de huéspedes ===== */
+(function(){
+  const viewRegistro = document.getElementById("viewRegistro");
+  const viewVehiculos = document.getElementById("viewVehiculos");
+  const viewDashboard = document.getElementById("viewDashboard");
+  const menuRegistroBtn = document.getElementById("menuRegistroBtn");
+  const menuVehiculosBtn = document.getElementById("menuVehiculosBtn");
+  const menuControlBtn = document.getElementById("menuControlBtn");
+  const tableBody = document.getElementById("dashboardTableBody");
+  const meta = document.getElementById("dashboardMeta");
+  const kpiTotal = document.getElementById("kpi_total_registros");
+  const kpiFactura = document.getElementById("kpi_con_factura");
+  const kpiSinFactura = document.getElementById("kpi_sin_factura");
+  const kpiMedios = document.getElementById("kpi_medios_unicos");
+  const kpiPctFacturado = document.getElementById("kpi_pct_facturado");
+  const kpiPctPendiente = document.getElementById("kpi_pct_pendiente");
+  const dashboardAlerts = document.getElementById("dashboardAlerts");
+  const pagerInfo = document.getElementById("dashboardPagerInfo");
+  const pageSizeSelect = document.getElementById("dashboard_page_size");
+
+  let dashboardRows = [];
+  window.dashboardRows = dashboardRows;
+  let dashboardPage = 1;
+  let dashboardPageSize = Number(pageSizeSelect?.value || 25);
+  let dashboardTotal = 0;
+  let dashboardPages = 1;
+  let dashboardFilterOptionsLoaded = false;
+  let dashboardTicketResolutionInProgress = false;
+
+  function activarVista(vista){
+    const esRegistro = vista === "registro";
+    const esVehiculos = vista === "vehiculos";
+    const esDashboard = vista === "dashboard";
+    if (viewRegistro) viewRegistro.classList.toggle("hidden", !esRegistro);
+    if (viewVehiculos) viewVehiculos.classList.toggle("hidden", !esVehiculos);
+    if (viewDashboard) viewDashboard.classList.toggle("hidden", !esDashboard);
+    if (menuRegistroBtn) {
+      menuRegistroBtn.classList.toggle("active", esRegistro);
+      menuRegistroBtn.classList.toggle("secondary", !esRegistro);
+    }
+    if (menuVehiculosBtn) {
+      menuVehiculosBtn.classList.toggle("active", esVehiculos);
+      menuVehiculosBtn.classList.toggle("secondary", !esVehiculos);
+    }
+    if (menuControlBtn) {
+      menuControlBtn.classList.toggle("active", esDashboard);
+      menuControlBtn.classList.toggle("secondary", !esDashboard);
+    }
+  }
+
+  window.activarVista = activarVista;
+
+  function safeText(v){ return v == null ? "" : String(v); }
+  window.safeText = safeText;
+  function escapeHtml(v){
+    return safeText(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  window.escapeHtml = escapeHtml;
+  function normalizePhoneForWhatsApp(v){
+    return safeText(v).replace(/[^0-9]/g, "");
+  }
+  window.normalizePhoneForWhatsApp = normalizePhoneForWhatsApp;
+  function buildWhatsAppUrl(v){
+    const digits = normalizePhoneForWhatsApp(v);
+    return digits ? `https://wa.me/${encodeURIComponent(digits)}` : "";
+  }
+  function formatMontoEditable(v){
+    return safeText(v).trim();
+  }
+  window.normalizeCurrencyFromSheet = function(v){
+    const raw = safeText(v).trim().toUpperCase();
+    if (!raw) return "MXN";
+    if (raw.includes("USD") || raw.includes("DÓLAR") || raw.includes("DOLAR")) return "USD";
+    if (raw.includes("EUR") || raw.includes("EURO")) return "EUR";
+    if (raw.includes("GBP") || raw.includes("LIBRA")) return "GBP";
+    if (raw.includes("BRL") || raw.includes("REAL")) return "BRL";
+    return "MXN";
+  };
+  window.buildFacturapiUrlFromRow = function(row){
+    const params = new URLSearchParams();
+    params.set('source', 'control_huespedes');
+    params.set('quantity', formatMontoEditable(getRowValueFlexible(row, ["$ Monto facturado Total", "Monto facturado Total"])) || '1');
+    params.set('currency', window.normalizeCurrencyFromSheet(getRowValueFlexible(row, ["Divisa monto pagado", "Moneda", "Currency"])));
+    const email = safeText(getRowValueFlexible(row, ["Correo electrónico", "Correo electronico", "Email"])) .trim();
+    const whatsapp = normalizePhoneForWhatsApp(getRowValueFlexible(row, ["Cel/Whatsapp (principal)", "Celular principal", "Whatsapp principal"]));
+    const taxRegime = safeText(getRowValueFlexible(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])) .trim();
+    const conceptoFacturapi = resolveConceptoFacturapiPorRegimen(taxRegime);
+    const externalId = safeText(row["ID"] || row["row_number"] || '').trim();
+    if (email) params.set('email', email);
+    if (conceptoFacturapi) {
+      params.set('concepto', conceptoFacturapi);
+      params.set('descripcion', conceptoFacturapi);
+    }
+    if (whatsapp) params.set('whatsapp', whatsapp);
+    if (taxRegime) params.set('taxRegime', taxRegime);
+    if (externalId) {
+      params.set('externalId', `CHECKIN-${externalId}`);
+      params.set('recordId', externalId);
+      params.set('rowNumber', safeText(row["row_number"] || '').trim());
+    }
+    if (typeof WEB_APP_URL !== 'undefined' && WEB_APP_URL) {
+      params.set('checkinWebAppUrl', WEB_APP_URL);
+    }
+    return `${FACTURAPI_APP_URL}?${params.toString()}`;
+  };
+  window.abrirFacturapiDesdeControl = function(url){
+    if (!url) return;
+    window.open(url, '_blank', 'noopener');
+  };
+
+
+  function setOptions(selectId, values){
+    const el = document.getElementById(selectId);
+    if (!el) return;
+    const current = el.value;
+    const unique = Array.from(new Set((values || []).map(v => safeText(v).trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
+    el.innerHTML = '<option value="">Todos</option>' + unique.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+    if (unique.includes(current)) el.value = current;
+  }
+
+  async function cargarOpcionesFiltros(){
+    if (dashboardFilterOptionsLoaded) return;
+    try {
+      const res = await fetch(`${WEB_APP_URL}?action=list_filter_options`, { method: "GET" });
+      const json = await res.json();
+      if (json && json.message === "Web app activo.") {
+        throw new Error("La Web App publicada no es la versión nueva del dashboard. Debes volver a implementar el Apps Script.");
+      }
+      if (!json.ok) throw new Error(json.error || json.message || "No fue posible cargar filtros.");
+      const opts = json.options || {};
+      setOptions("filtro_nombre_reservacion", opts.nombres_reservacion);
+      setOptions("filtro_medio_reservacion", opts.medios_reservacion);
+      setOptions("filtro_celular_principal", opts.celulares_principales);
+      setOptions("filtro_razon_social", opts.razones_sociales);
+      setOptions("filtro_forma_pago", opts.formas_pago);
+      setOptions("filtro_correo", opts.correos);
+      dashboardFilterOptionsLoaded = true;
+    } catch (err) {
+      if (meta) meta.textContent = "Error al cargar opciones de filtros: " + err.message;
+    }
+  }
+
+  function buildQueryParams(){
+    const params = new URLSearchParams();
+    params.set("action", "list_records");
+    const fields = {
+      fecha_entrada_desde: "filtro_fecha_entrada_desde",
+      fecha_entrada_hasta: "filtro_fecha_entrada_hasta",
+      fecha_salida_desde: "filtro_fecha_salida_desde",
+      fecha_salida_hasta: "filtro_fecha_salida_hasta",
+      nombre_reservacion: "filtro_nombre_reservacion",
+      medio_reservacion: "filtro_medio_reservacion",
+      celular_principal: "filtro_celular_principal",
+      requiere_factura: "filtro_requiere_factura",
+      razon_social: "filtro_razon_social",
+      forma_pago: "filtro_forma_pago",
+      correo: "filtro_correo"
+    };
+    Object.entries(fields).forEach(([param, id]) => {
+      const el = document.getElementById(id);
+      const value = (el && el.value ? String(el.value).trim() : "");
+      if (value) params.set(param, value);
+    });
+    params.set("page", String(dashboardPage));
+    params.set("page_size", String(dashboardPageSize));
+    return params;
+  }
+
+  function normalizeFlexibleKey(value){
+    return safeText(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  }
+
+  function getRowValueFlexible(row, candidates){
+    if (!row || typeof row !== 'object') return '';
+    const entries = Object.entries(row);
+    for (const candidate of candidates || []) {
+      const direct = row[candidate];
+      if (direct != null && String(direct).trim() !== '') return String(direct).trim();
+      const normalizedCandidate = normalizeFlexibleKey(candidate);
+      const found = entries.find(([key, value]) => normalizeFlexibleKey(key) === normalizedCandidate && value != null && String(value).trim() !== '');
+      if (found) return String(found[1]).trim();
+    }
+    return '';
+  }
+  window.getRowValueFlexible = getRowValueFlexible;
+
+  function extractTicketUrl(obj){
+    if (!obj || typeof obj !== 'object') return '';
+    const directCandidates = [
+      obj['Ticket facturapi url'],
+      obj['ticket facturapi url'],
+      obj['Ticket Facturapi Url'],
+      obj['ticket_url'],
+      obj['ticketUrl'],
+      obj['url']
+    ];
+    for (const candidate of directCandidates) {
+      const txt = safeText(candidate).trim();
+      if (/^https?:\/\//i.test(txt)) return txt;
+    }
+    for (const [key, value] of Object.entries(obj)) {
+      const nk = normalizeFlexibleKey(key);
+      const txt = safeText(value).trim();
+      if (/^https?:\/\//i.test(txt) && nk.includes('ticket') && nk.includes('url')) return txt;
+      if (/^https?:\/\//i.test(txt) && nk.includes('facturapi') && nk.includes('url')) return txt;
+    }
+    return '';
+  }
+
+  function getFacturaStatusClass(row, ticketUrl){
+    const factura = safeText(getRowValueFlexible(row, ['¿Requiere factura?', 'Requiere factura'])).trim().toLowerCase();
+    if (!(factura === 'si' || factura === 'sí' || factura === 'yes')) return '';
+    return ticketUrl ? 'factura-generada' : 'factura-pendiente';
+  }
+
+
+  function getFacturaHeaderBadgeHtml(row, options = {}){
+    const suppressPending = !!options.suppressPending;
+    const factura = safeText(getRowValueFlexible(row, ['¿Requiere factura?', 'Requiere factura'])).trim().toLowerCase();
+    if (!(factura === 'si' || factura === 'sí' || factura === 'yes')) return '';
+    const statusClass = getFacturaStatusClass(row, extractTicketUrl(row));
+    if (statusClass === 'factura-generada') {
+      return '<span class="badge-yes" style="background:#e9f9ee;color:#166534;border-color:#b7e4c7;">🧾 Facturado</span>';
+    }
+    if (statusClass === 'factura-pendiente' && !suppressPending) {
+      return '<span class="badge-yes" style="background:#fdecec;color:#9f1239;border-color:#efb3b1;">🧾 Pendiente</span>';
+    }
+    return '';
+  }
+
+  function updateVisibleFacturaHeaderBadges(){
+    const nodes = Array.from(document.querySelectorAll('[data-factura-header-badge="1"]'));
+    for (const node of nodes) {
+      const recordId = safeText(node.dataset.recordId).trim();
+      if (!recordId) continue;
+      const row = dashboardRows.find(r => String(r['ID'] || r['row_number'] || '').trim() === recordId);
+      if (!row) continue;
+      node.innerHTML = getFacturaHeaderBadgeHtml(row, { suppressPending: dashboardTicketResolutionInProgress });
+    }
+  }
+
+  function applyFacturaStatusClass(recordId, statusClass){
+    const selector = `[data-record-card-id="${CSS.escape(String(recordId || ''))}"]`;
+    const node = document.querySelector(selector);
+    if (!node) return;
+    node.classList.remove('factura-pendiente', 'factura-generada');
+    if (statusClass) node.classList.add(statusClass);
+  }
+
+  function buildWhatsappReenvioUrl(row, ticketUrl){
+    const cleanPhone = normalizePhoneForWhatsApp(safeText(row["Cel/Whatsapp (principal)"]).trim());
+    const cleanUrl = safeText(ticketUrl).trim();
+    if (!cleanPhone || !/^https?:\/\//i.test(cleanUrl)) return '';
+    const mensaje = `Hemos enviado el TICKET para AUTO-FACTURACIÓN al correo proporcionado.\n\nURL de la factura:\n${cleanUrl}\n\nRecuerda que sólo estará vigente dentro del mes fiscal en curso.`;
+    return `https://wa.me/${encodeURIComponent(cleanPhone)}?text=${encodeURIComponent(mensaje)}`;
+  }
+
+  function buildTicketActionsHtml(row, ticketUrl){
+    const factura = safeText(row["¿Requiere factura?"]).trim().toLowerCase();
+    if (!(factura === 'si' || factura === 'sí' || factura === 'yes')) {
+      return factura ? (factura === 'no' ? '<span class="badge-no">No</span>' : escapeHtml(safeText(row["¿Requiere factura?"]))) : '';
+    }
+    const recordId = escapeHtml(row["ID"] || row["row_number"] || "");
+    const safeUrl = escapeHtml(ticketUrl || '');
+    if (safeUrl) {
+      const reenviarUrl = buildWhatsappReenvioUrl(row, ticketUrl);
+      const reenviarAnchor = reenviarUrl
+        ? `<a href="${escapeHtml(reenviarUrl)}" target="_blank" rel="noopener" class="link-btn" style="padding:4px 8px; border-radius:999px; background:#25D366; color:#fff; font-size:11px; line-height:1.2; text-decoration:none;" onclick="event.stopPropagation();">Reenviar ticket</a>`
+        : `<button type="button" class="link-btn" style="padding:4px 8px; border-radius:999px; background:#9ca3af; color:#fff; font-size:11px; line-height:1.2;" onclick="event.stopPropagation(); alert('No se encontró un número válido de Cel/Whatsapp (principal) para este registro.');">Reenviar ticket</button>`;
+      return `
+        <div style="display:flex; flex-direction:column; align-items:flex-start; gap:6px;" onclick="event.stopPropagation();">
+          <span class="badge-yes">Sí</span>
+          <a href="${safeUrl}" target="_blank" rel="noopener" class="link-btn" style="padding:4px 8px; border-radius:999px; background:#16a34a; color:#fff; font-size:11px; line-height:1.2; text-decoration:none;" onclick="event.stopPropagation();">Ver ticket</a>
+          ${reenviarAnchor}
+        </div>
+      `;
+    }
+    return `
+      <div style="display:flex; flex-direction:column; align-items:flex-start; gap:6px;" onclick="event.stopPropagation();">
+        <span class="badge-yes">Sí</span>
+        <button type="button" class="link-btn" style="padding:4px 8px; border-radius:999px; background:#f59e0b; color:#fff; font-size:11px; line-height:1.2;" onclick="event.stopPropagation(); generarTicket('${recordId}')">Generar Ticket</button>
+      </div>
+    `;
+  }
+
+  function recalculateDashboardInvoiceStatus(){
+    const totalFacturaYes = dashboardRows.filter(r => isFacturaYes(getRowValueFlexible(r, ['¿Requiere factura?', 'Requiere factura']))).length;
+    const totalPendiente = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-pendiente').length;
+    const totalFacturado = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-generada').length;
+
+    if (kpiFactura) kpiFactura.textContent = String(totalFacturaYes);
+    if (kpiSinFactura) kpiSinFactura.textContent = String(Math.max(0, dashboardTotal - totalFacturaYes));
+    if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
+    if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
+
+    updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado);
+    updateVisibleFacturaHeaderBadges();
+  }
+
+  async function resolveTicketButtonsForVisibleRows(){
+    dashboardTicketResolutionInProgress = true;
+    updateDashboardAlerts(0, 0, 0);
+    updateVisibleFacturaHeaderBadges();
+    const containers = Array.from(document.querySelectorAll('[data-ticket-actions="1"]'));
+    let huboCambios = false;
+    for (const container of containers) {
+      const recordId = String(container.dataset.recordId || '').trim();
+      if (!recordId) continue;
+      const row = dashboardRows.find(r => String(r['ID'] || r['row_number'] || '').trim() === recordId);
+      if (!row) continue;
+
+      const existingUrl = extractTicketUrl(row);
+      if (existingUrl) {
+        container.innerHTML = buildTicketActionsHtml(row, existingUrl);
+        applyFacturaStatusClass(recordId, getFacturaStatusClass(row, existingUrl));
+        continue;
+      }
+
+      try {
+        const params = new URLSearchParams();
+        params.set('action', 'get_record_detail');
+        params.set('record_id', recordId);
+        const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: 'GET' });
+        const json = await res.json();
+        if (!json.ok) continue;
+        const detail = json.record || {};
+        const detailUrl = extractTicketUrl(detail);
+        if (detailUrl) {
+          row['Ticket facturapi url'] = detailUrl;
+          container.innerHTML = buildTicketActionsHtml(row, detailUrl);
+          applyFacturaStatusClass(recordId, getFacturaStatusClass(row, detailUrl));
+          huboCambios = true;
+        }
+      } catch (_err) {}
+    }
+    dashboardTicketResolutionInProgress = false;
+    recalculateDashboardInvoiceStatus();
+  }
+
+  function isFacturaYes(value){
+    const txt = safeText(value).trim().toLowerCase();
+    return txt === 'si' || txt === 'sí' || txt === 'yes';
+  }
+
+  function updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado){
+    if (!dashboardAlerts) return;
+    if (dashboardTicketResolutionInProgress) {
+      dashboardAlerts.innerHTML = '<div class="dashboard-alert dashboard-alert-neutral">Actualizando estatus de tickets...</div>';
+      return;
+    }
+    if (!totalFacturaYes) {
+      dashboardAlerts.innerHTML = '<div class="dashboard-alert dashboard-alert-neutral">No hay registros que requieran factura en esta consulta.</div>';
+      return;
+    }
+    const alerts = [];
+    if (totalPendiente > 0) {
+      alerts.push(`<div class="dashboard-alert dashboard-alert-pending">🔔 <strong>${totalPendiente}</strong> registro(s) con factura pendiente requieren atención. Se muestran primero en la lista.</div>`);
+    }
+    if (totalFacturado > 0) {
+      alerts.push(`<div class="dashboard-alert dashboard-alert-ok">✅ <strong>${totalFacturado}</strong> registro(s) ya cuentan con ticket generado.</div>`);
+    }
+    dashboardAlerts.innerHTML = alerts.join('');
+  }
+
+  async function resolveExpandedFinancialValuesForVisibleRows(){
+    const targets = Array.from(document.querySelectorAll('[data-detail-field="1"]'));
+    const detailCache = Object.create(null);
+
+    async function getDetail(recordId){
+      if (detailCache[recordId]) return detailCache[recordId];
+      const params = new URLSearchParams();
+      params.set('action', 'get_record_detail');
+      params.set('record_id', recordId);
+      const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: 'GET' });
+      const json = await res.json();
+      if (!json.ok) return null;
+      detailCache[recordId] = json.record || {};
+      return detailCache[recordId];
+    }
+
+    for (const node of targets) {
+      const currentText = safeText(node.textContent).trim();
+      if (currentText && currentText !== '—') continue;
+      const recordId = safeText(node.dataset.recordId).trim();
+      const fieldType = safeText(node.dataset.fieldType).trim();
+      if (!recordId || !fieldType) continue;
+      const row = dashboardRows.find(r => safeText(r['ID'] || r['row_number']).trim() === recordId);
+      if (!row) continue;
+
+      let aliases = [];
+      if (fieldType === 'monto_pagado') aliases = ['($) Monto Total pagado', '$ Monto Total pagado', 'Monto Total pagado'];
+      else if (fieldType === 'razon_social') aliases = ['Razón social', 'Razon social', 'Business name'];
+      else if (fieldType === 'regimen_fiscal') aliases = ['Régimen fiscal', 'Regimen fiscal', 'Tax regime'];
+      else continue;
+
+      const inlineValue = getRowValueFlexible(row, aliases);
+      if (safeText(inlineValue).trim()) {
+        node.textContent = safeText(inlineValue).trim();
+        continue;
+      }
+
+      try {
+        const detail = await getDetail(recordId);
+        if (!detail) continue;
+        const detailValue = getRowValueFlexible(detail, aliases);
+        if (safeText(detailValue).trim()) {
+          row[aliases[0]] = safeText(detailValue).trim();
+          node.textContent = safeText(detailValue).trim();
+        }
+      } catch (_err) {}
+    }
+  }
+
+  function renderRows(payload){
+    dashboardRows = Array.isArray(payload.rows) ? payload.rows : [];
+    dashboardRows = dashboardRows.sort((a, b) => {
+      const aStatus = getFacturaStatusClass(a, extractTicketUrl(a));
+      const bStatus = getFacturaStatusClass(b, extractTicketUrl(b));
+      const rank = (status) => status === 'factura-pendiente' ? 0 : (status === 'factura-generada' ? 1 : 2);
+      return rank(aStatus) - rank(bStatus);
+    });
+    window.dashboardRows = dashboardRows;
+    dashboardTotal = Number(payload.total || 0);
+    dashboardPage = Number(payload.page || 1);
+    dashboardPageSize = Number(payload.page_size || dashboardPageSize || 25);
+    dashboardPages = Math.max(1, Number(payload.total_pages || 1));
+
+    const totalFacturaYes = dashboardRows.filter(r => isFacturaYes(getRowValueFlexible(r, ['¿Requiere factura?', 'Requiere factura']))).length;
+    const totalPendiente = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-pendiente').length;
+    const totalFacturado = dashboardRows.filter(r => getFacturaStatusClass(r, extractTicketUrl(r)) === 'factura-generada').length;
+
+    if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
+    if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
+    dashboardTicketResolutionInProgress = true;
+    updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado);
+
+    if (!tableBody) return;
+    if (!dashboardRows.length){
+      tableBody.innerHTML = '<div class="empty-state">No se encontraron registros con esos filtros.</div>';
+      if (meta) meta.textContent = dashboardTotal ? `Sin registros en esta página.` : "0 registros encontrados.";
+      if (kpiTotal) kpiTotal.textContent = String(dashboardTotal);
+      if (kpiFactura) kpiFactura.textContent = String(payload.total_con_factura || 0);
+      if (kpiSinFactura) kpiSinFactura.textContent = String(payload.total_sin_factura || 0);
+      if (kpiMedios) kpiMedios.textContent = String(payload.total_medios_unicos || 0);
+      if (kpiPctFacturado) kpiPctFacturado.textContent = '0%';
+      if (kpiPctPendiente) kpiPctPendiente.textContent = '0%';
+      if (pagerInfo) pagerInfo.textContent = `Página ${dashboardPage} de ${dashboardPages}`;
+      return;
+    }
+
+    if (kpiTotal) kpiTotal.textContent = String(dashboardTotal);
+    if (kpiFactura) kpiFactura.textContent = String(payload.total_con_factura || 0);
+    if (kpiSinFactura) kpiSinFactura.textContent = String(payload.total_sin_factura || 0);
+    if (kpiMedios) kpiMedios.textContent = String(payload.total_medios_unicos || 0);
+    if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
+    if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
+    const inicio = ((dashboardPage - 1) * dashboardPageSize) + 1;
+    const fin = Math.min(dashboardTotal, inicio + dashboardRows.length - 1);
+    if (meta) meta.textContent = `${dashboardTotal} registros encontrados. Mostrando ${inicio}-${fin}. Pendientes primero.`;
+    if (pagerInfo) pagerInfo.textContent = `Página ${dashboardPage} de ${dashboardPages}`;
+
+    tableBody.innerHTML = dashboardRows.map(r => {
+      const recordId = escapeHtml(r["ID"] || r["row_number"] || "");
+      const facturaHtml = buildTicketActionsHtml(r, extractTicketUrl(r));
+      const waUrl = buildWhatsAppUrl(r["Cel/Whatsapp (principal)"]);
+      const phoneHtml = waUrl
+        ? `<a class="dashboard-whatsapp-link" href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();">${escapeHtml(r["Cel/Whatsapp (principal)"])}</a>`
+        : escapeHtml(r["Cel/Whatsapp (principal)"]);
+      const montoFacturadoRaw = getRowValueFlexible(r, ["$ Monto facturado Total", "Monto facturado Total"]);
+      const montoPagadoRaw = getRowValueFlexible(r, ["($) Monto Total pagado", "$ Monto Total pagado", "Monto Total pagado"]);
+      const requiereFacturaRaw = getRowValueFlexible(r, ["¿Requiere factura?", "Requiere factura"]);
+      const montoFacturado = formatMontoEditable(montoFacturadoRaw || "");
+      const montoPagado = escapeHtml(montoPagadoRaw || "—");
+      const requiereFactura = escapeHtml(requiereFacturaRaw || "—");
+      const facturaStatusClass = getFacturaStatusClass(r, extractTicketUrl(r));
+      const facturaHeaderBadge = getFacturaHeaderBadgeHtml(r, { suppressPending: dashboardTicketResolutionInProgress });
+
+      const razonSocialRaw = getRowValueFlexible(r, ["Razón social", "Razon social", "Business name"]);
+      const regimenFiscalRaw = getRowValueFlexible(r, ["Régimen fiscal", "Regimen fiscal", "Tax regime"]);
+      const expandedItems = [
+        ["Nombre de la persona que realizó la reservación", escapeHtml(r["Nombre de la persona que hizo la reservación"] || "—")],
+        ["Medio de reservación", escapeHtml(r["Medio de reservación"] || "—")],
+        ["Propiedad", escapeHtml(r["Propiedad"] || "—")],
+        ["# Departamento", escapeHtml(r["# Departamento"] || "—")],
+        ["¿Requiere factura?", `${requiereFactura}`],
+        ["Razón social", `<span data-detail-field="1" data-field-type="razon_social" data-record-id="${recordId}">${escapeHtml(razonSocialRaw || "—")}</span>`],
+        ["Régimen fiscal", `<span data-detail-field="1" data-field-type="regimen_fiscal" data-record-id="${recordId}">${escapeHtml(regimenFiscalRaw || "—")}</span>`],
+        ["Forma de pago", escapeHtml(r["Forma de pago"] || "—")],
+        ["($) Monto Total pagado", `<span data-detail-field="1" data-field-type="monto_pagado" data-record-id="${recordId}">${montoPagado}</span>`],
+        ["$ Monto facturado Total", `
+          <div class="dashboard-monto-box" onclick="event.stopPropagation();">
+            <input type="number" step="0.01" class="dashboard-monto-input" value="${escapeHtml(montoFacturado)}" data-record-id="${recordId}" data-original-value="${escapeHtml(montoFacturado)}" onclick="event.stopPropagation();" onkeydown="handleMontoFacturadoKeydown(event,this)" onblur="guardarMontoFacturadoTotal(this)">
+            <div class="dashboard-inline-actions dashboard-ticket-actions" data-ticket-actions="1" data-record-id="${recordId}">${facturaHtml}</div>
+          </div>`],
+        ["Cel/Whatsapp (principal)", phoneHtml]
+      ];
+
+      const expandedHtml = expandedItems.map(([label, value]) => `
+        <div class="dashboard-summary-item">
+          <div class="dashboard-summary-label">${label}</div>
+          <div class="dashboard-summary-value">${value}</div>
+        </div>
+      `).join("");
+
+      return `
+        <details class="dashboard-record ${facturaStatusClass}" data-record-card-id="${recordId}">
+          <summary class="dashboard-record-summary">
+            <div class="dashboard-record-top">
+              <div>
+                <div class="dashboard-record-title">${escapeHtml(r["Nombre de la persona que hizo la reservación"] || "Sin nombre")}</div>
+                <div class="dashboard-record-subtitle">${escapeHtml(r["Propiedad"] || "Sin propiedad")} · Depto ${escapeHtml(r["# Departamento"] || "—")} · ${escapeHtml(r["Fecha de ingreso"] || "—")} → ${escapeHtml(r["Fecha de salida"] || "—")}</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div data-factura-header-badge="1" data-record-id="${recordId}">${facturaHeaderBadge}</div>
+                <div class="dashboard-record-toggle">⌄</div>
+              </div>
+            </div>
+          </summary>
+          <div class="dashboard-record-body">
+            <div class="dashboard-summary-grid">
+              ${expandedHtml}
+            </div>
+            <div class="dashboard-record-actions">
+              <div class="dashboard-action-card">
+                <div class="dashboard-summary-label">Detalle</div>
+                <div class="dashboard-inline-actions" onclick="event.stopPropagation();">
+                  <button type="button" class="dashboard-details-btn" onclick="event.stopPropagation(); abrirDetalleDashboard('${recordId}')">Ver detalles</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+      `;
+    }).join("");
+    resolveTicketButtonsForVisibleRows();
+    resolveExpandedFinancialValuesForVisibleRows();
+  }
+
+  async function buscarRegistros(resetPage){
+    if (resetPage) dashboardPage = 1;
+    if (meta) meta.textContent = "Consultando registros...";
+    try {
+      const params = buildQueryParams();
+      const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: "GET" });
+      const json = await res.json();
+      if (json && json.message === "Web app activo.") {
+        throw new Error("La Web App publicada sigue en la versión vieja. Vuelve a implementar el Apps Script nuevo y actualiza la URL.");
+      }
+      if (!json.ok) throw new Error(json.error || json.message || "No fue posible obtener los registros.");
+      renderRows(json);
+    } catch (err) {
+      renderRows({ rows: [], total: 0, page: 1, total_pages: 1, total_con_factura: 0, total_sin_factura: 0, total_medios_unicos: 0 });
+      if (meta) meta.textContent = "Error al consultar registros: " + err.message + " Verifica que publicaste el Apps Script nuevo y que WEB_APP_URL corresponde a esa implementación.";
+    }
+  }
+
+  function limpiarFiltros(){
+    [
+      "filtro_fecha_entrada_desde","filtro_fecha_entrada_hasta","filtro_fecha_salida_desde","filtro_fecha_salida_hasta",
+      "filtro_nombre_reservacion","filtro_medio_reservacion","filtro_celular_principal","filtro_requiere_factura",
+      "filtro_razon_social","filtro_forma_pago","filtro_correo"
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    dashboardPage = 1;
+    buscarRegistros(true);
+  }
+
+  function exportarCsv(){
+    if (!dashboardRows.length) {
+      alert("No hay registros para exportar en la página actual.");
+      return;
+    }
+    const headers = [
+      "¿Requiere factura?","$ Monto facturado Total","Fecha de ingreso","Fecha de salida","Nombre de la persona que hizo la reservación","Medio de reservación",
+      "Cel/Whatsapp (principal)","Razón social","Forma de pago","Correo electrónico",
+      "Propiedad","# Departamento","# Huéspedes"
+    ];
+    const lines = [headers.join(","), ...dashboardRows.map(row => headers.map(h => `"${safeText(row[h]).replace(/"/g, '""')}"`).join(","))];
+    const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `control_huespedes_pagina_${dashboardPage}.csv`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
+
+  window.abrirDetalleDashboard = async function(recordId){
+    const modal = document.getElementById("dashboardDetailModal");
+    const grid = document.getElementById("dashboardDetailGrid");
+    const subtitle = document.getElementById("dashboardDetailSubtitle");
+    if (!modal || !grid) return;
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">Cargando detalle...</div>';
+    modal.style.display = "flex";
+    try {
+      const res = await fetch(`${WEB_APP_URL}?action=get_record_detail&record_id=${encodeURIComponent(recordId)}`, { method: "GET" });
+      const json = await res.json();
+      if (json && json.message === "Web app activo.") {
+        throw new Error("La Web App publicada sigue en la versión vieja.");
+      }
+      if (!json.ok) throw new Error(json.error || json.message || "No fue posible obtener el detalle.");
+      const record = json.record || {};
+      subtitle.textContent = `${safeText(record["Nombre de la persona que hizo la reservación"]) || 'Registro'} · ${safeText(record["Fecha de ingreso"]) || ''}`;
+
+      const allowedFields = [
+        "Medio de reservación",
+        "Nombre de la persona que hizo la reservación",
+        "Tipo de identificación",
+        "INE frontal",
+        "INE trasero",
+        "Identificación única",
+        "Identificación otro",
+        "Propiedad",
+        "# Departamento",
+        "Motivo de tu hospedaje",
+        "Fecha de ingreso",
+        "Hora estimada de llegada",
+        "Fecha de salida",
+        "Hora estimada de salida",
+        "# Noches",
+        "# Huéspedes",
+        "Nombres de TODOS los huéspedes (separados por comas)",
+        "Cel/Whatsapp (principal)",
+        "Cel/Whatsapp (contacto de emergencia)",
+        "¿Requiere factura?",
+        "Razón social",
+        "Divisa monto pagado",
+        "($) Monto Total pagado",
+        "Comprobante transferencia",
+        "Correo electrónico",
+        "...enviar copia al siguiente correo:",
+        "$ Monto facturado Total",
+        "Ticket facturapi url"
+      ];
+
+      function safeVal(key){
+        return safeText(record[key]);
+      }
+
+      function isImageField(key, value){
+        const k = safeText(key).toLowerCase();
+        const v = safeText(value);
+        if (!v || v === "—") return false;
+        return /(ine frontal|ine trasero|identificacion unica|identificación única|identificacion otro|identificación otro|comprobante transferencia)/.test(k) && /^https?:\/\//i.test(v);
+      }
+
+      function normalizeDriveImage(url){
+        const txt = safeText(url);
+        const fileMatch = txt.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (fileMatch) return `https://drive.google.com/thumbnail?id=${fileMatch[1]}&sz=w1200`;
+        const dMatch = txt.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (dMatch) return `https://drive.google.com/thumbnail?id=${dMatch[1]}&sz=w1200`;
+        const idMatch = txt.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (idMatch) return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w1200`;
+        return txt;
+      }
+
+      function normalizePhone(val){
+        return safeText(val).replace(/[^0-9]/g,'');
+      }
+
+      function renderPhoneWhatsApp(val){
+        const raw = safeText(val);
+        const digits = normalizePhone(raw);
+        if (!digits) return `<span>${escapeHtml(raw)}</span>`;
+        return `<a class="detail-wa" href="https://wa.me/${encodeURIComponent(digits)}" target="_blank" rel="noopener">WhatsApp: ${escapeHtml(raw)}</a>`;
+      }
+
+      function renderStandardItem(key){
+        const raw = safeVal(key);
+        if (!raw || raw === "—") return "";
+        let valueHtml = `<span>${escapeHtml(raw)}</span>`;
+        if (key === "Cel/Whatsapp (principal)" || key === "Cel/Whatsapp (contacto de emergencia)") {
+          valueHtml = renderPhoneWhatsApp(raw);
+        } else if (key === "Correo electrónico" || key === "...enviar copia al siguiente correo:") {
+          valueHtml = `<a href="mailto:${escapeHtml(raw)}">${escapeHtml(raw)}</a>`;
+        }
+        return `
+          <div class="detail-item">
+            <div class="detail-key">${escapeHtml(key)}</div>
+            <div class="detail-value">${valueHtml}</div>
+          </div>
+        `;
+      }
+
+      const visibleFields = allowedFields.filter(key => {
+        const val = safeVal(key);
+        return val && val !== "—";
+      });
+
+      if (!visibleFields.length) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">No hay campos con información para mostrar.</div>';
+        return;
+      }
+
+      const kpis = [
+        ["Reservación", safeVal("Nombre de la persona que hizo la reservación")],
+        ["Ubicación", [safeVal("Propiedad"), safeVal("# Departamento") ? "Depto " + safeVal("# Departamento") : ""].filter(Boolean).join(" · ")],
+        ["Periodo", [safeVal("Fecha de ingreso"), safeVal("Fecha de salida")].filter(Boolean).join(" → ")],
+        ["Monto", [safeVal("Divisa monto pagado"), safeVal("($) Monto Total pagado") || safeVal("$ Monto facturado Total")].filter(Boolean).join(" ")]
+      ].filter(item => item[1]);
+
+      const imageFields = visibleFields.filter(key => isImageField(key, safeVal(key)));
+      const standardFields = visibleFields.filter(key => !isImageField(key, safeVal(key)));
+
+      const bookingFields = [
+        "Medio de reservación",
+        "Nombre de la persona que hizo la reservación",
+        "Tipo de identificación",
+        "Propiedad",
+        "# Departamento",
+        "Motivo de tu hospedaje",
+        "Fecha de ingreso",
+        "Hora estimada de llegada",
+        "Fecha de salida",
+        "Hora estimada de salida",
+        "# Noches",
+        "# Huéspedes",
+        "Nombres de TODOS los huéspedes (separados por comas)"
+      ];
+
+      const contactFields = [
+        "Cel/Whatsapp (principal)",
+        "Cel/Whatsapp (contacto de emergencia)",
+        "Correo electrónico",
+        "...enviar copia al siguiente correo:"
+      ];
+
+      const billingFields = [
+        "¿Requiere factura?",
+        "Razón social",
+        "Divisa monto pagado",
+        "($) Monto Total pagado",
+        "$ Monto facturado Total"
+      ];
+
+      function renderSection(title, fieldList){
+        const items = fieldList
+          .filter(key => standardFields.includes(key))
+          .map(renderStandardItem)
+          .filter(Boolean)
+          .join("");
+        if (!items) return "";
+        return `
+          <div class="detail-card">
+            <div class="detail-card-title">${escapeHtml(title)}</div>
+            <div class="detail-grid-compact">${items}</div>
+          </div>
+        `;
+      }
+
+      let galleryHtml = "";
+      if (imageFields.length) {
+        galleryHtml = `
+          <div class="detail-card">
+            <div class="detail-card-title">Imágenes</div>
+            <div class="detail-gallery">
+              ${imageFields.map(key => {
+                const rawUrl = safeVal(key);
+                const imgUrl = normalizeDriveImage(rawUrl);
+                return `
+                  <div class="detail-image-card">
+                    <div class="detail-key">${escapeHtml(key)}</div>
+                    <div style="margin:8px 0 10px 0;">
+                      <img class="detail-image" src="${escapeHtml(imgUrl)}" alt="${escapeHtml(key)}"
+                           referrerpolicy="no-referrer"
+                           onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                      <div style="display:none;color:#8a6d3b;">No se pudo previsualizar la imagen.</div>
+                    </div>
+                    <a class="detail-link" href="${escapeHtml(rawUrl)}" target="_blank" rel="noopener">Abrir imagen</a>
+                  </div>
+                `;
+              }).join("")}
+            </div>
+          </div>
+        `;
+      }
+
+      grid.innerHTML = `
+        <div class="detail-sections">
+          ${kpis.length ? `
+            <div class="detail-kpi-grid">
+              ${kpis.map(([label, value]) => `
+                <div class="detail-kpi">
+                  <div class="detail-kpi-label">${escapeHtml(label)}</div>
+                  <div class="detail-kpi-value">${escapeHtml(value)}</div>
+                </div>
+              `).join("")}
+            </div>
+          ` : ""}
+          ${galleryHtml}
+          ${renderSection("Reservación y estancia", bookingFields)}
+          ${renderSection("Contacto", contactFields)}
+          ${renderSection("Facturación", billingFields)}
+        </div>
+      `;
+    } catch (err) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Error al cargar detalle: ${escapeHtml(err.message)}</div>`;
+    }
+  };
+
+  window.cerrarDetalleDashboard = function(){
+    const modal = document.getElementById("dashboardDetailModal");
+    if (modal) modal.style.display = "none";
+  };
+
+
+
+  const vehiculosTableBody = document.getElementById("vehiculosTableBody");
+  const vehiculosMeta = document.getElementById("vehiculosMeta");
+  const vehiculosPropiedadFiltro = document.getElementById("vehiculos_propiedad_filtro");
+  const vehiculosLoadingPopup = document.getElementById("vehiculosLoadingPopup");
+  let vehiculosRows = [];
+  let vehiculosCacheByProperty = Object.create(null);
+  let vehiculosPropertiesLoaded = false;
+  let vehiculosBaseRows = [];
+  let vehiculosBaseRowsLoaded = false;
+
+  function mostrarPopupVehiculos(){
+    if (vehiculosLoadingPopup) vehiculosLoadingPopup.style.display = 'flex';
+  }
+
+  function ocultarPopupVehiculos(){
+    if (vehiculosLoadingPopup) vehiculosLoadingPopup.style.display = 'none';
+  }
+
+  function setVehiculosPropiedadesOptions(values){
+    if (!vehiculosPropiedadFiltro) return;
+    const current = vehiculosPropiedadFiltro.value;
+    const unique = Array.from(new Set((values || []).map(v => safeText(v).trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
+    vehiculosPropiedadFiltro.innerHTML = '<option value="">Selecciona</option>' + unique.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+    if (unique.includes(current)) vehiculosPropiedadFiltro.value = current;
+  }
+
+  function normalizeDriveImageUrl(url){
+    const txt = safeText(url).trim();
+    if (!txt) return '';
+    const fileMatch = txt.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (fileMatch) return `https://drive.google.com/thumbnail?id=${fileMatch[1]}&sz=w1200`;
+    const dMatch = txt.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (dMatch) return `https://drive.google.com/thumbnail?id=${dMatch[1]}&sz=w1200`;
+    const idMatch = txt.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idMatch) return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w1200`;
+    return txt;
+  }
+
+  function normalizedKey(value){
+    return safeText(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  }
+
+  function getRecordValueByCandidates(record, candidates){
+    if (!record || typeof record !== 'object') return '';
+    const map = new Map();
+    Object.keys(record).forEach(key => map.set(normalizedKey(key), record[key]));
+    for (const candidate of candidates) {
+      const val = map.get(normalizedKey(candidate));
+      if (val != null && String(val).trim()) return String(val).trim();
+    }
+    return '';
+  }
+
+  function firstGuestNameFromRecord(record){
+    const direct = getRecordValueByCandidates(record, [
+      'Nombre del huésped 1','Nombre del huesped 1','Huésped 1','Huesped 1',
+      'Nombre de la persona que hizo la reservación','Nombre de la persona que hizo la reservacion'
+    ]);
+    if (direct) return direct;
+    const allGuests = getRecordValueByCandidates(record, [
+      'Nombres de TODOS los huéspedes (separados por comas)',
+      'Nombres de TODOS los huespedes (separados por comas)',
+      'Nombres de los huéspedes',
+      'Nombres de los huespedes'
+    ]);
+    if (!allGuests) return '';
+    return String(allGuests).split(',').map(x => x.trim()).filter(Boolean)[0] || '';
+  }
+
+  function normalizeDateOnly(value){
+    const txt = safeText(value).trim();
+    if (!txt) return '';
+    const match = txt.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+    const d = new Date(txt);
+    if (Number.isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function getTodayDateOnly(){
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  }
+
+  function isCurrentStayActive(record){
+    const hoy = getTodayDateOnly();
+    const entrada = normalizeDateOnly(getRecordValueByCandidates(record, ['Fecha de ingreso','ingreso']));
+    const salida = normalizeDateOnly(getRecordValueByCandidates(record, ['Fecha de salida','salida']));
+    if (!entrada || !salida) return false;
+    return entrada <= hoy && hoy <= salida;
+  }
+
+  function buildVehicleRowFromDetail(record){
+    const marca = getRecordValueByCandidates(record, [
+      'Marca vehículo','Marca vehiculo','Marca del vehículo','Marca del vehiculo','Marca','vehiculo_marca'
+    ]);
+    const modelo = getRecordValueByCandidates(record, [
+      'Modelo vehículo','Modelo vehiculo','Modelo del vehículo','Modelo del vehiculo','Modelo','vehiculo_modelo'
+    ]);
+    const placas = getRecordValueByCandidates(record, ['Placas','# Placas','vehiculo_placas']);
+    const flag = getRecordValueByCandidates(record, [
+      '¿Cuenta con vehículo?','¿Cuenta con vehiculo?','¿Cuentas con vehículo?','¿Cuentas con vehiculo?',
+      'Cuenta con vehículo','Cuenta con vehiculo','Cuentas con vehículo','Cuentas con vehiculo','tiene_vehiculo'
+    ]).toLowerCase();
+    const tieneDatosVehiculo = !!(marca || modelo || placas || flag === 'si' || flag === 'sí' || flag === 'yes');
+    if (!tieneDatosVehiculo) return null;
+    if (!isCurrentStayActive(record)) return null;
+    return {
+      "Nombre del huésped 1": firstGuestNameFromRecord(record),
+      "Propiedad": getRecordValueByCandidates(record, ['Propiedad','Property']),
+      "# Departamento": getRecordValueByCandidates(record, ['# Departamento','Departamento','Apartment #','depto']),
+      "Número de celular": getRecordValueByCandidates(record, ['Cel/Whatsapp (principal)','Número de celular','Numero de celular','celular_principal']),
+      "Marca": marca,
+      "Modelo": modelo,
+      "Color": getRecordValueByCandidates(record, ['Color vehículo','Color vehiculo','Color del vehículo','Color del vehiculo','Color','vehiculo_color']),
+      "# Placas": placas,
+      "Hora habitual de salida": getRecordValueByCandidates(record, ['Hora habitual de salida','Hora habitual de salida','vehiculo_hora_salida']),
+      "Foto": getRecordValueByCandidates(record, ['Foto vehículo','Foto vehiculo','Foto del vehículo','Foto del vehiculo','Link foto vehículo','Link foto vehiculo','vehiculo_foto'])
+    };
+  }
+
+  function renderVehiculosRows(){
+    if (!vehiculosTableBody) return;
+    const propiedad = safeText(vehiculosPropiedadFiltro?.value).trim();
+    if (!propiedad) {
+      vehiculosTableBody.innerHTML = '<div class="vehicle-empty">Selecciona una propiedad para consultar los vehículos activos hoy.</div>';
+      if (vehiculosMeta) vehiculosMeta.textContent = 'Selecciona una propiedad para iniciar la búsqueda.';
+      return;
+    }
+
+    if (!vehiculosRows.length) {
+      vehiculosTableBody.innerHTML = '<div class="vehicle-empty">No se encontraron vehículos activos hoy para la propiedad seleccionada.</div>';
+      if (vehiculosMeta) vehiculosMeta.textContent = '0 vehículos encontrados para la propiedad seleccionada.';
+      return;
+    }
+
+    vehiculosTableBody.innerHTML = vehiculosRows.map(row => {
+      const waUrl = buildWhatsAppUrl(row["Número de celular"]);
+      const celularHtml = waUrl
+        ? `<a class="vehicle-phone-link" href="${waUrl}" target="_blank" rel="noopener">${escapeHtml(row["Número de celular"] || '—')}</a>`
+        : `<span>${escapeHtml(row["Número de celular"] || '—')}</span>`;
+      const fotoUrl = safeText(row["Foto"]).trim();
+      const fotoPreviewUrl = normalizeDriveImageUrl(fotoUrl);
+      const fotoHtml = fotoUrl
+        ? `<a class="vehicle-thumb-link" href="${escapeHtml(fotoUrl)}" target="_blank" rel="noopener">
+             <img class="vehicle-thumb" src="${escapeHtml(fotoPreviewUrl)}" alt="Foto vehículo" referrerpolicy="no-referrer"
+               onerror="this.style.display='none'; this.closest('.vehicle-photo-panel').querySelector('.vehicle-photo-empty').style.display='flex';">
+           </a>
+           <div class="vehicle-photo-empty" style="display:none;">No se pudo previsualizar la foto disponible.</div>`
+        : `<div class="vehicle-photo-empty">Sin foto disponible</div>`;
+
+      return `
+        <details class="vehicle-card-item">
+          <summary class="vehicle-card-summary">
+            <div class="vehicle-card-main">
+              <div class="vehicle-card-title">${escapeHtml(row["Nombre del huésped 1"] || 'Sin nombre')} · ${escapeHtml(row["Marca"] || 'Sin marca')} ${escapeHtml(row["Modelo"] || '')}</div>
+              <div class="vehicle-card-subtitle">${escapeHtml(row["Propiedad"] || 'Sin propiedad')} · Depto ${escapeHtml(row["# Departamento"] || '—')} · Placas: ${escapeHtml(row["# Placas"] || '—')}</div>
+            </div>
+            <div class="vehicle-card-chevron">⌄</div>
+          </summary>
+          <div class="vehicle-card-body">
+            <div class="vehicle-detail-grid">
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Nombre del huésped 1</div><div class="vehicle-detail-value">${escapeHtml(row["Nombre del huésped 1"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Propiedad</div><div class="vehicle-detail-value">${escapeHtml(row["Propiedad"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label"># Departamento</div><div class="vehicle-detail-value">${escapeHtml(row["# Departamento"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Número de celular</div><div class="vehicle-detail-value">${celularHtml}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Marca</div><div class="vehicle-detail-value">${escapeHtml(row["Marca"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Modelo</div><div class="vehicle-detail-value">${escapeHtml(row["Modelo"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Color</div><div class="vehicle-detail-value">${escapeHtml(row["Color"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label"># Placas</div><div class="vehicle-detail-value">${escapeHtml(row["# Placas"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Hora habitual de salida</div><div class="vehicle-detail-value">${escapeHtml(row["Hora habitual de salida"] || '—')}</div></div>
+            </div>
+            <div class="vehicle-photo-panel">
+              <div class="vehicle-photo-title">Foto</div>
+              ${fotoHtml}
+            </div>
+          </div>
+        </details>
+      `;
+    }).join('');
+
+    if (vehiculosMeta) vehiculosMeta.textContent = `${vehiculosRows.length} vehículos activos hoy encontrados para la propiedad seleccionada.`;
+  }
+
+  async function cargarBaseRowsVehiculos(forceReload = false){
+    if (vehiculosBaseRowsLoaded && !forceReload) return vehiculosBaseRows;
+    const res = await fetch(`${WEB_APP_URL}?action=list_records&page=1&page_size=500`, { method: 'GET' });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || json.message || 'No fue posible cargar registros base.');
+    vehiculosBaseRows = Array.isArray(json.rows) ? json.rows : [];
+    vehiculosBaseRowsLoaded = true;
+    return vehiculosBaseRows;
+  }
+
+  async function cargarPropiedadesVehiculos(forceReload = false){
+    if (vehiculosPropertiesLoaded && !forceReload) return;
+    try {
+      if (vehiculosTableBody) vehiculosTableBody.innerHTML = '<div class="vehicle-empty">Cargando propiedades disponibles...</div>';
+      if (vehiculosMeta) vehiculosMeta.textContent = 'Cargando propiedades disponibles...';
+
+      let properties = [];
+      try {
+        const res = await fetch(`${WEB_APP_URL}?action=list_active_vehicle_properties`, { method: 'GET' });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error || json.message || 'Backend rápido no disponible');
+        properties = Array.isArray(json.properties) ? json.properties : [];
+      } catch (_err) {
+        const baseRows = await cargarBaseRowsVehiculos(forceReload);
+        properties = Array.from(new Set(baseRows.filter(r => isCurrentStayActive(r)).map(r => safeText(r["Propiedad"] || '').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
+      }
+
+      setVehiculosPropiedadesOptions(properties);
+      vehiculosPropertiesLoaded = true;
+      if (vehiculosTableBody) vehiculosTableBody.innerHTML = '<div class="vehicle-empty">Selecciona una propiedad para consultar los vehículos activos hoy.</div>';
+      if (vehiculosMeta) vehiculosMeta.textContent = 'Selecciona una propiedad para iniciar la búsqueda.';
+    } catch (err) {
+      if (vehiculosTableBody) vehiculosTableBody.innerHTML = `<div class="vehicle-empty">Error al consultar vehículos: ${escapeHtml(err.message)}</div>`;
+      if (vehiculosMeta) vehiculosMeta.textContent = 'No fue posible cargar la información de vehículos.';
+    }
+  }
+
+  async function buscarVehiculosPorPropiedad(forceReload = false){
+    const propiedad = safeText(vehiculosPropiedadFiltro?.value).trim();
+    if (!propiedad) {
+      renderVehiculosRows();
+      return;
+    }
+
+    if (vehiculosCacheByProperty[propiedad] && !forceReload) {
+      vehiculosRows = vehiculosCacheByProperty[propiedad];
+      renderVehiculosRows();
+      return;
+    }
+
+    try {
+      mostrarPopupVehiculos();
+      if (vehiculosMeta) vehiculosMeta.textContent = 'Consultando vehículos activos para la propiedad seleccionada...';
+
+      let rows = [];
+      try {
+        const params = new URLSearchParams();
+        params.set('action', 'list_active_vehicles');
+        params.set('propiedad', propiedad);
+        const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: 'GET' });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error || json.message || 'Backend rápido no disponible');
+        rows = Array.isArray(json.rows) ? json.rows : [];
+      } catch (_err) {
+        const baseRows = await cargarBaseRowsVehiculos(forceReload);
+        const candidateRows = baseRows.filter(r => isCurrentStayActive(r) && safeText(r["Propiedad"] || '').trim() === propiedad);
+        if (candidateRows.length) {
+          const detailPromises = candidateRows.map(async (row) => {
+            const recordId = safeText(row['ID'] || row['row_number'] || '').trim();
+            if (!recordId) return buildVehicleRowFromDetail(row);
+            try {
+              const detailRes = await fetch(`${WEB_APP_URL}?action=get_record_detail&record_id=${encodeURIComponent(recordId)}`, { method: 'GET' });
+              const detailJson = await detailRes.json();
+              if (!detailJson.ok) return buildVehicleRowFromDetail(row);
+              return buildVehicleRowFromDetail(detailJson.record || row);
+            } catch (_e) {
+              return buildVehicleRowFromDetail(row);
+            }
+          });
+          rows = (await Promise.all(detailPromises)).filter(Boolean);
+        }
+      }
+
+      vehiculosRows = rows;
+      vehiculosCacheByProperty[propiedad] = rows;
+      renderVehiculosRows();
+    } catch (err) {
+      vehiculosRows = [];
+      if (vehiculosTableBody) vehiculosTableBody.innerHTML = `<div class="vehicle-empty">Error al consultar vehículos: ${escapeHtml(err.message)}</div>`;
+      if (vehiculosMeta) vehiculosMeta.textContent = 'No fue posible cargar la información de vehículos.';
+    } finally {
+      ocultarPopupVehiculos();
+    }
+  }
+
+
+  if (menuRegistroBtn) menuRegistroBtn.addEventListener("click", () => activarVista("registro"));
+  if (menuVehiculosBtn) menuVehiculosBtn.addEventListener("click", async () => {
+    activarVista("vehiculos");
+    await cargarPropiedadesVehiculos(false);
+  });
+  if (menuControlBtn) menuControlBtn.addEventListener("click", async () => {
+    activarVista("dashboard");
+    await cargarOpcionesFiltros();
+    buscarRegistros(true);
+  });
+
+  document.getElementById("btnBuscarVehiculos")?.addEventListener("click", () => { buscarVehiculosPorPropiedad(false); });
+  document.getElementById("btnLimpiarVehiculos")?.addEventListener("click", () => {
+    if (vehiculosPropiedadFiltro) vehiculosPropiedadFiltro.value = "";
+    vehiculosRows = [];
+    if (vehiculosTableBody) vehiculosTableBody.innerHTML = '<div class="vehicle-empty">Selecciona una propiedad para consultar los vehículos activos hoy.</div>';
+    if (vehiculosMeta) vehiculosMeta.textContent = 'Selecciona una propiedad para iniciar la búsqueda.';
+  });
+  vehiculosPropiedadFiltro?.addEventListener("change", () => { buscarVehiculosPorPropiedad(false); });
+  document.getElementById("btnBuscarHuespedes")?.addEventListener("click", () => buscarRegistros(true));
+  document.getElementById("btnLimpiarFiltros")?.addEventListener("click", limpiarFiltros);
+  document.getElementById("btnExportarCsv")?.addEventListener("click", exportarCsv);
+  document.getElementById("btnPrevPage")?.addEventListener("click", () => { if (dashboardPage > 1) { dashboardPage -= 1; buscarRegistros(false); } });
+  document.getElementById("btnNextPage")?.addEventListener("click", () => { if (dashboardPage < dashboardPages) { dashboardPage += 1; buscarRegistros(false); } });
+  pageSizeSelect?.addEventListener("change", () => { dashboardPageSize = Number(pageSizeSelect.value || 25); buscarRegistros(true); });
+
+  [
+    "filtro_fecha_entrada_desde","filtro_fecha_entrada_hasta","filtro_fecha_salida_desde","filtro_fecha_salida_hasta",
+    "filtro_nombre_reservacion","filtro_medio_reservacion","filtro_celular_principal","filtro_requiere_factura",
+    "filtro_razon_social","filtro_forma_pago","filtro_correo"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("change", () => buscarRegistros(true));
+    el.addEventListener("keydown", function(ev){ if (ev.key === "Enter") { ev.preventDefault(); buscarRegistros(true); } });
+  });
+})();
+</script>
+<script>
+async function guardarMontoFacturadoTotal(input){
+  if (!input) return;
+  const nuevoValor = String(input.value || '').trim();
+  const original = String(input.dataset.originalValue || '').trim();
+  const recordId = String(input.dataset.recordId || '').trim();
+  if (!recordId || nuevoValor === original || input.dataset.saving === '1') return;
+
+  input.dataset.saving = '1';
+  input.classList.remove('saved','error');
+  input.classList.add('saving');
+
+  try {
+    const res = await fetch(WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'update_facturado_total',
+        record_id: recordId,
+        monto_facturado_total: nuevoValor
+      })
+    });
+    const text = await res.text();
+    let json = {};
+    try { json = JSON.parse(text); } catch(e) { throw new Error('Respuesta inválida del servidor.'); }
+    if (!json.ok) throw new Error(json.error || json.message || 'No se pudo actualizar el monto facturado total.');
+    input.dataset.originalValue = nuevoValor;
+    input.classList.add('saved');
+    setTimeout(() => input.classList.remove('saved'), 1600);
+  } catch (err) {
+    input.classList.add('error');
+    setTimeout(() => input.classList.remove('error'), 2200);
+    alert('Error al actualizar "$ Monto facturado Total": ' + err.message);
+  } finally {
+    input.dataset.saving = '0';
+    input.classList.remove('saving');
+  }
+}
+
+function handleMontoFacturadoKeydown(event, input){
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    input.blur();
+  }
+  event.stopPropagation();
+}
+
+async function generarTicket(recordId){
+  if (!recordId) {
+    alert('No se pudo identificar el registro.');
+    return;
+  }
+  let row = (window.dashboardRows || []).find(r => String(r["ID"] || r["row_number"] || '') === String(recordId));
+  if (!row) {
+    alert('No se encontró la información del registro seleccionado.');
+    return;
+  }
+  const safeTextFn = window.safeText || (v => v == null ? "" : String(v));
+  const getRowValueFlexibleFn = window.getRowValueFlexible || function(record, keys){
+    if (!record || typeof record !== "object") return "";
+    const entries = Object.entries(record);
+    const normalizeKey = (value) => safeTextFn(value).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+    for (const key of keys || []) {
+      const direct = record[key];
+      if (direct != null && safeTextFn(direct).trim() !== "") return safeTextFn(direct).trim();
+      const normalizedCandidate = normalizeKey(key);
+      const found = entries.find(([entryKey, value]) => normalizeKey(entryKey) === normalizedCandidate && value != null && safeTextFn(value).trim() !== "");
+      if (found) return safeTextFn(found[1]).trim();
+    }
+    return "";
+  };
+  const missingTaxRegime = !safeTextFn(getRowValueFlexibleFn(row, ["Régimen fiscal", "Regimen fiscal", "Tax regime"])) .trim();
+  if (missingTaxRegime && typeof WEB_APP_URL !== 'undefined' && WEB_APP_URL) {
+    try {
+      const res = await fetch(`${WEB_APP_URL}?action=get_record_detail&record_id=${encodeURIComponent(recordId)}`, { method: 'GET' });
+      const json = await res.json();
+      if (json?.ok && json.record) {
+        row = { ...row, ...json.record };
+      }
+    } catch (_err) {}
+  }
+  const url = window.buildFacturapiUrlFromRow(row);
+  if (!url) {
+    alert('No se pudo construir la URL de Facturapi.');
+    return;
+  }
+  abrirFacturapiModal(url);
+}
+
+function abrirFacturapiModal(url){
+  const modal = document.getElementById('facturapiModal');
+  const frame = document.getElementById('facturapiModalFrame');
+  const hint = document.getElementById('facturapiModalHint');
+  const loading = document.getElementById('facturapiModalLoading');
+  const externalBtn = document.getElementById('facturapiOpenExternalBtn');
+  if (!modal || !frame) {
+    window.location.href = url;
+    return;
+  }
+
+  modal.style.display = 'flex';
+  frame.src = 'about:blank';
+  if (hint) hint.textContent = 'Cargando Facturapi dentro de esta ventana...';
+  if (loading) loading.style.display = 'flex';
+
+  const onLoad = function(){
+    if (loading) loading.style.display = 'none';
+    if (hint) hint.textContent = 'Si no ves el formulario, usa "Abrir aparte".';
+    frame.removeEventListener('load', onLoad);
+  };
+  frame.addEventListener('load', onLoad);
+  frame.src = url;
+
+  if (externalBtn) {
+    externalBtn.onclick = function(){
+      window.location.href = url;
+    };
+  }
+}
+
+function cerrarFacturapiModal(){
+  const modal = document.getElementById('facturapiModal');
+  const frame = document.getElementById('facturapiModalFrame');
+  const hint = document.getElementById('facturapiModalHint');
+  const loading = document.getElementById('facturapiModalLoading');
+  if (frame) frame.src = 'about:blank';
+  if (loading) loading.style.display = 'flex';
+  if (hint) hint.textContent = 'Cargando Facturapi...';
+  if (modal) modal.style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  const closeBtn = document.getElementById('facturapiCloseBtn');
+  const modal = document.getElementById('facturapiModal');
+  if (closeBtn) closeBtn.addEventListener('click', cerrarFacturapiModal);
+  if (modal) {
+    modal.addEventListener('click', function(event){
+      if (event.target === modal) cerrarFacturapiModal();
+    });
+  }
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Servidor corriendo en http://0.0.0.0:${PORT}`);
+function normalizePhoneForWhatsApp(phone){
+  let clean = String(phone || '').replace(/\D/g, '');
+  if (!clean) return '';
+  if (clean.length === 10) clean = '52' + clean;
+  return clean;
+}
+
+</script>
+
+<div class="popup-backdrop" id="facturapiModal" style="display:none; align-items:center; justify-content:center; z-index:1000000; padding:14px;">
+  <div class="popup-card" style="max-width:1100px; width:min(1100px, 100%); height:min(88vh, 900px); padding:0; overflow:hidden; text-align:left; display:flex; flex-direction:column;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid #f3e3c4; background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);">
+      <div style="min-width:0;">
+        <div style="font-size:16px; font-weight:800; color:#2b2b2b;">Generar ticket</div>
+        <div id="facturapiModalHint" style="font-size:12px; color:#6b7280; margin-top:3px;">Cargando Facturapi...</div>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="facturapiOpenExternalBtn" type="button" style="margin-top:0; padding:10px 12px; font-size:13px;">Abrir aparte</button>
+        <button id="facturapiCloseBtn" type="button" style="margin-top:0; padding:10px 12px; font-size:13px; background:linear-gradient(180deg,#d1d5db 0%, #9ca3af 100%);">Cerrar</button>
+      </div>
+    </div>
+    <div id="facturapiModalLoading" style="display:flex; align-items:center; justify-content:center; gap:12px; padding:18px; border-bottom:1px solid #f3e3c4; background:#fffdf8;">
+      <div style="width:24px;height:24px;border:3px solid rgba(245,158,11,.25);border-top-color:#f59e0b;border-radius:50%;animation:spinPopup 0.9s linear infinite;"></div>
+      <div style="font-size:13px; color:#6b7280;">Preparando Facturapi...</div>
+    </div>
+    <iframe id="facturapiModalFrame" title="Facturapi" src="about:blank" style="flex:1 1 auto; width:100%; border:0; background:#fff;"></iframe>
+  </div>
+</div>
+
+<div class="popup-backdrop" id="passwordModal" style="display:none;">
+<div class="popup-card" style="max-width:360px;">
+<h3 style="margin-bottom:8px;">Acceso restringido</h3>
+<div class="hint" style="margin-bottom:14px;">Ingresa la contraseña para entrar a Control de huéspedes</div>
+<input id="adminPasswordInput" placeholder="Contraseña" style="width:100%;padding:14px 15px;border-radius:14px;border:1px solid var(--border-strong);font-size:16px;" type="password"/>
+<div id="adminPasswordError" style="display:none;color:#b42318;font-size:13px;margin-top:10px;">Contraseña incorrecta</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+<button id="cancelPasswordBtn" style="margin-top:0;background:linear-gradient(180deg,#d1d5db 0%, #9ca3af 100%);" type="button">Cancelar</button>
+<button id="submitPasswordBtn" style="margin-top:0;" type="button">Entrar</button>
+</div>
+</div>
+</div>
+<script>
+window.dashboardUnlocked = false;
+const DASHBOARD_PASSWORD = "admin";
+
+function showPasswordModal(){
+  const modal = document.getElementById("passwordModal");
+  const input = document.getElementById("adminPasswordInput");
+  const err = document.getElementById("adminPasswordError");
+  if (err) err.style.display = "none";
+  if (input) input.value = "";
+  if (modal) modal.style.display = "flex";
+  if (input) setTimeout(() => input.focus(), 30);
+}
+
+function hidePasswordModal(){
+  const modal = document.getElementById("passwordModal");
+  if (modal) modal.style.display = "none";
+}
+
+async function openDashboardAfterUnlock(){
+  if (typeof window.activarVistaControlHuespedes === "function") {
+    try {
+      await window.activarVistaControlHuespedes(true);
+      return;
+    } catch (_err) {}
+  }
+
+  const dashboardBtn = document.getElementById("menuControlBtn");
+  if (dashboardBtn) {
+    dashboardBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    return;
+  }
+
+  if (typeof window.activarVista === "function") {
+    window.activarVista("dashboard");
+  }
+  if (typeof window.cargarOpcionesFiltros === "function") {
+    Promise.resolve(window.cargarOpcionesFiltros()).then(() => {
+      if (typeof window.buscarRegistros === "function") window.buscarRegistros(true);
+    }).catch(() => {});
+  } else if (typeof window.buscarRegistros === "function") {
+    window.buscarRegistros(true);
+  }
+}
+
+function unlockDashboardWithPassword(){
+  const input = document.getElementById("adminPasswordInput");
+  const err = document.getElementById("adminPasswordError");
+  const pass = input ? input.value : "";
+  if (pass === DASHBOARD_PASSWORD) {
+    window.dashboardUnlocked = true;
+    if (err) err.style.display = "none";
+    hidePasswordModal();
+    openDashboardAfterUnlock();
+  } else {
+    if (err) err.style.display = "block";
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+  const dashboardBtn = document.getElementById("menuControlBtn");
+  const submitBtn = document.getElementById("submitPasswordBtn");
+  const cancelBtn = document.getElementById("cancelPasswordBtn");
+  const input = document.getElementById("adminPasswordInput");
+  const modal = document.getElementById("passwordModal");
+
+  if (dashboardBtn) {
+    dashboardBtn.addEventListener("click", function(ev){
+      if (window.dashboardUnlocked) return;
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      ev.stopPropagation();
+      showPasswordModal();
+    }, true);
+  }
+
+  if (submitBtn) submitBtn.addEventListener("click", unlockDashboardWithPassword);
+  if (cancelBtn) cancelBtn.addEventListener("click", hidePasswordModal);
+  if (input) {
+    input.addEventListener("keydown", function(e){
+      if (e.key === "Enter") unlockDashboardWithPassword();
+    });
+  }
+  if (modal) {
+    modal.addEventListener("click", function(e){
+      if (e.target === modal) hidePasswordModal();
+    });
+  }
 });
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  const entradaDesde = document.getElementById("filtro_fecha_entrada_desde");
+  if (entradaDesde && !entradaDesde.value) {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    entradaDesde.value = `${yyyy}-${mm}-${dd}`;
+  }
+
+  const detailModal = document.getElementById("dashboardDetailModal");
+  const closeBtn =
+    document.getElementById("dashboardDetailCloseBtn") ||
+    document.querySelector('[data-close="dashboard-detail"]') ||
+    document.querySelector(".dashboard-detail-close");
+
+  function cerrarDetalleRegistro(){
+    if (detailModal) detailModal.style.display = "none";
+  }
+
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape" && detailModal && detailModal.style.display === "flex") {
+      cerrarDetalleRegistro();
+    }
+  });
+
+  if (detailModal) {
+    detailModal.addEventListener("click", function(e){
+      if (e.target === detailModal) {
+        cerrarDetalleRegistro();
+      }
+    });
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener("click", cerrarDetalleRegistro);
+  }
+});
+</script>
+</body>
+</html>
