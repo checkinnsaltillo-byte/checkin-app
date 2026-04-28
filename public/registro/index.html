@@ -330,12 +330,23 @@ button:disabled{
   margin:0 0 14px 0;
 }
 .submit-wrap{
-  position:sticky;
-  bottom:0;
-  margin-top:18px;
-  padding-top:12px;
-  background:linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.88) 35%, rgba(255,255,255,1) 100%);
-  backdrop-filter:blur(3px);
+  position:static;
+  margin-top:22px;
+  padding-top:18px;
+  border-top:1px solid var(--border);
+  background:transparent;
+  backdrop-filter:none;
+}
+.submit-wrap::before{
+  content:"Fin del registro";
+  display:block;
+  margin-bottom:8px;
+  font-size:12px;
+  font-weight:700;
+  color:var(--text-soft);
+  text-align:center;
+  letter-spacing:.02em;
+  text-transform:uppercase;
 }
 .submit-wrap button{
   width:100%;
@@ -1317,27 +1328,6 @@ button:disabled{
 }
 
 </style>
-
-<script>
-function actualizarStatusUI(idRegistro){
-  const card = document.querySelector(`[data-record-card-id="${String(idRegistro || '')}"]`) 
-            || document.querySelector(`[data-id="${String(idRegistro || '')}"]`);
-  if(!card) return;
-  card.classList.remove('factura-pendiente');
-  card.classList.add('factura-generada');
-
-  const badge = card.querySelector('[data-factura-header-badge="1"]') || card.querySelector('.status');
-  if(badge){
-    badge.className = badge.className || '';
-    badge.innerHTML = '<span class="badge-yes" style="background:#e9f9ee;color:#166534;border-color:#b7e4c7;">🧾 Facturado</span>';
-  }
-}
-
-function esFacturado(r){
-  return ((r && r['Folio facturapi']) || '').toString().trim() !== '';
-}
-</script>
-
 </head>
 <body>
 <div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
@@ -1464,6 +1454,7 @@ function esFacturado(r){
 </div>
 <div class="filter-actions">
 <button id="btnBuscarHuespedes" type="button">Buscar registros</button>
+<button id="btnGenerarTicketNuevo" type="button">Generar ticket nuevo</button>
 <button class="menu-btn secondary" id="btnLimpiarFiltros" style="flex:0 0 auto;" type="button">Limpiar filtros</button>
 <button class="menu-btn secondary" id="btnExportarCsv" style="flex:0 0 auto;" type="button">Exportar CSV</button>
 </div>
@@ -2991,8 +2982,123 @@ function validarArchivosAntesDeEnviar(){
   }
 }
 
+
+let registroSubmitEnCurso = false;
+let ultimoRegistroSubmitKey = "";
+
+function normalizarTextoReserva(v){
+  return String(v || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function normalizarTelefonoReserva(v){
+  return String(v || "").replace(/\D/g, "");
+}
+
+function obtenerPropiedadPayload(payload){
+  return String(payload.propiedad === "Otra" ? (payload.propiedad_otra || "") : (payload.propiedad || "")).trim();
+}
+
+function construirClaveReserva(payload){
+  const partes = [
+    normalizarTelefonoReserva(payload.celular_principal),
+    normalizarTextoReserva(payload.nombre),
+    normalizarTextoReserva(obtenerPropiedadPayload(payload)),
+    normalizarTextoReserva(payload.depto),
+    String(payload.ingreso || "").trim(),
+    String(payload.salida || "").trim()
+  ];
+  return partes.join("|");
+}
+
+function leerCampoFlexibleReserva(row, nombres){
+  if (!row || typeof row !== "object") return "";
+  const entries = Object.entries(row);
+  const normalizaKey = (x) => normalizarTextoReserva(x);
+  for (const nombre of nombres) {
+    if (row[nombre] != null && String(row[nombre]).trim() !== "") return String(row[nombre]).trim();
+    const target = normalizaKey(nombre);
+    const found = entries.find(([k, v]) => normalizaKey(k) === target && v != null && String(v).trim() !== "");
+    if (found) return String(found[1]).trim();
+  }
+  return "";
+}
+
+function esRegistroSimilarReserva(row, payload){
+  const telPayload = normalizarTelefonoReserva(payload.celular_principal);
+  const nombrePayload = normalizarTextoReserva(payload.nombre);
+  const propPayload = normalizarTextoReserva(obtenerPropiedadPayload(payload));
+  const deptoPayload = normalizarTextoReserva(payload.depto);
+  const ingresoPayload = String(payload.ingreso || "").trim();
+  const salidaPayload = String(payload.salida || "").trim();
+
+  const telRow = normalizarTelefonoReserva(leerCampoFlexibleReserva(row, ["Cel/Whatsapp (principal)", "Celular principal", "Whatsapp principal"]));
+  const nombreRow = normalizarTextoReserva(leerCampoFlexibleReserva(row, ["Nombre de la persona que hizo la reservación", "Nombre reservación", "Nombre"]));
+  const propRow = normalizarTextoReserva(leerCampoFlexibleReserva(row, ["Propiedad", "Property"]));
+  const deptoRow = normalizarTextoReserva(leerCampoFlexibleReserva(row, ["# Departamento", "Departamento", "Depto"]));
+  const ingresoRow = String(leerCampoFlexibleReserva(row, ["Fecha de ingreso", "Ingreso", "Check-in date"])).trim();
+  const salidaRow = String(leerCampoFlexibleReserva(row, ["Fecha de salida", "Salida", "Check-out date"])).trim();
+
+  const mismoTelefono = telPayload && telRow && (telPayload.endsWith(telRow) || telRow.endsWith(telPayload));
+  const mismoNombre = nombrePayload && nombreRow && nombrePayload === nombreRow;
+  const mismaUnidad = propPayload && propRow && propPayload === propRow && (!deptoPayload || !deptoRow || deptoPayload === deptoRow);
+  const mismasFechas = ingresoPayload && salidaPayload && ingresoPayload === ingresoRow && salidaPayload === salidaRow;
+  const tocaPeriodo = ingresoPayload && salidaPayload && ingresoRow && salidaRow && !(salidaPayload <= ingresoRow || ingresoPayload >= salidaRow);
+
+  return (mismoTelefono || mismoNombre) && mismaUnidad && (mismasFechas || tocaPeriodo);
+}
+
+async function buscarReservasSimilares(payload){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3500);
+  try {
+    const params = new URLSearchParams();
+    params.set("action", "list_records");
+    params.set("page", "1");
+    params.set("page_size", "25");
+    if (payload.ingreso) {
+      params.set("fecha_entrada_desde", payload.ingreso);
+      params.set("fecha_entrada_hasta", payload.ingreso);
+    }
+    const telefono = String(payload.celular_principal || "").replace(/^'/, "").trim();
+    if (telefono) params.set("celular_principal", telefono);
+
+    const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: "GET", signal: controller.signal });
+    const json = await res.json();
+    if (!json || !json.ok || !Array.isArray(json.rows)) return [];
+    return json.rows.filter(row => esRegistroSimilarReserva(row, payload));
+  } catch (_err) {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function confirmarSiReservaSimilar(payload){
+  const similares = await buscarReservasSimilares(payload);
+  if (!similares.length) return true;
+  const primero = similares[0] || {};
+  const nombre = leerCampoFlexibleReserva(primero, ["Nombre de la persona que hizo la reservación", "Nombre"]);
+  const ingreso = leerCampoFlexibleReserva(primero, ["Fecha de ingreso", "Ingreso"]);
+  const salida = leerCampoFlexibleReserva(primero, ["Fecha de salida", "Salida"]);
+  const propiedad = leerCampoFlexibleReserva(primero, ["Propiedad"]);
+  const depto = leerCampoFlexibleReserva(primero, ["# Departamento", "Departamento", "Depto"]);
+  return window.confirm(
+    `Encontré ${similares.length} registro(s) parecido(s) que podrían corresponder a la misma reservación.\n\n` +
+    `Registro similar:\n${nombre || "Sin nombre"}\n${propiedad || "Sin propiedad"} ${depto ? "- Depto " + depto : ""}\n${ingreso || "Sin fecha"} → ${salida || "Sin fecha"}\n\n` +
+    `Para evitar duplicados, presiona Cancelar si NO estás seguro.\n\n¿Deseas enviar de todas formas?`
+  );
+}
+
 document.getElementById("form").addEventListener("submit", async function(e){
   e.preventDefault();
+
+  if (registroSubmitEnCurso) {
+    return;
+  }
 
   const status = document.getElementById("statusMessage");
   const submitBtn = document.getElementById("submitBtn");
@@ -3018,6 +3124,7 @@ document.getElementById("form").addEventListener("submit", async function(e){
 
   const payload = {
     action: "submit_form",
+    idempotency_key: `${Date.now()}-${Math.random().toString(36).slice(2)}-${normalizarTelefonoReserva(f.get("cel"))}`,
     tipo_registro: f.get("tipo_registro"),
     medio: f.get("medio"),
     nombre: f.get("nombre"),
@@ -3065,6 +3172,31 @@ document.getElementById("form").addEventListener("submit", async function(e){
     vehiculo_placas: vehiculoPlacasFinal,
     comentarios: f.get("comentarios")
   };
+
+  const submitKey = construirClaveReserva(payload);
+  if (ultimoRegistroSubmitKey && ultimoRegistroSubmitKey === submitKey) {
+    status.textContent = "Este registro ya fue enviado o está en proceso. Evitamos enviarlo nuevamente para no duplicarlo.";
+    status.classList.add("error");
+    status.style.display = "block";
+    return;
+  }
+
+  registroSubmitEnCurso = true;
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Verificando...";
+
+  const puedeEnviar = await confirmarSiReservaSimilar(payload);
+  if (!puedeEnviar) {
+    registroSubmitEnCurso = false;
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Enviar";
+    status.textContent = "Envío cancelado para evitar un posible registro duplicado.";
+    status.classList.add("error");
+    status.style.display = "block";
+    return;
+  }
+
+  ultimoRegistroSubmitKey = submitKey;
 
   try {
     submitBtn.disabled = true;
@@ -3176,6 +3308,7 @@ document.getElementById("form").addEventListener("submit", async function(e){
     status.textContent = "Error al conectar con Apps Script: " + err.message;
     status.classList.add("error");
   } finally {
+    registroSubmitEnCurso = false;
     submitBtn.disabled = false;
     submitBtn.textContent = "Enviar";
   }
@@ -4227,10 +4360,9 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   function buildTicketActionsHtml(row, ticketUrl){
-    const facturaRaw = getRowValueFlexible(row, ['¿Requiere factura?', 'Requiere factura']);
-    const factura = safeText(facturaRaw).trim().toLowerCase();
+    const factura = safeText(row["¿Requiere factura?"]).trim().toLowerCase();
     if (!(factura === 'si' || factura === 'sí' || factura === 'yes')) {
-      return factura ? (factura === 'no' ? '<span class="badge-no">No</span>' : escapeHtml(safeText(facturaRaw))) : '';
+      return factura ? (factura === 'no' ? '<span class="badge-no">No</span>' : escapeHtml(safeText(row["¿Requiere factura?"]))) : '';
     }
     const recordId = escapeHtml(row["ID"] || row["row_number"] || "");
     const safeUrl = escapeHtml(ticketUrl || '');
@@ -4269,20 +4401,43 @@ document.addEventListener("DOMContentLoaded", function(){
     updateVisibleFacturaHeaderBadges();
   }
 
-  function resolveTicketButtonsForVisibleRows(){
-    // Optimización: no consultamos detalle por cada registro.
-    // El estatus se define únicamente con la columna ya cargada "Ticket facturapi url".
-    dashboardTicketResolutionInProgress = false;
+  async function resolveTicketButtonsForVisibleRows(){
+    dashboardTicketResolutionInProgress = true;
+    updateDashboardAlerts(0, 0, 0);
+    updateVisibleFacturaHeaderBadges();
     const containers = Array.from(document.querySelectorAll('[data-ticket-actions="1"]'));
+    let huboCambios = false;
     for (const container of containers) {
       const recordId = String(container.dataset.recordId || '').trim();
       if (!recordId) continue;
       const row = dashboardRows.find(r => String(r['ID'] || r['row_number'] || '').trim() === recordId);
       if (!row) continue;
-      const ticketUrl = extractTicketUrl(row);
-      container.innerHTML = buildTicketActionsHtml(row, ticketUrl);
-      applyFacturaStatusClass(recordId, getFacturaStatusClass(row, ticketUrl));
+
+      const existingUrl = extractTicketUrl(row);
+      if (existingUrl) {
+        container.innerHTML = buildTicketActionsHtml(row, existingUrl);
+        applyFacturaStatusClass(recordId, getFacturaStatusClass(row, existingUrl));
+        continue;
+      }
+
+      try {
+        const params = new URLSearchParams();
+        params.set('action', 'get_record_detail');
+        params.set('record_id', recordId);
+        const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: 'GET' });
+        const json = await res.json();
+        if (!json.ok) continue;
+        const detail = json.record || {};
+        const detailUrl = extractTicketUrl(detail);
+        if (detailUrl) {
+          row['Ticket facturapi url'] = detailUrl;
+          container.innerHTML = buildTicketActionsHtml(row, detailUrl);
+          applyFacturaStatusClass(recordId, getFacturaStatusClass(row, detailUrl));
+          huboCambios = true;
+        }
+      } catch (_err) {}
     }
+    dashboardTicketResolutionInProgress = false;
     recalculateDashboardInvoiceStatus();
   }
 
@@ -4380,7 +4535,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
     if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
-    dashboardTicketResolutionInProgress = false;
+    dashboardTicketResolutionInProgress = true;
     updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado);
 
     if (!tableBody) return;
@@ -4422,7 +4577,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const montoPagado = escapeHtml(montoPagadoRaw || "—");
       const requiereFactura = escapeHtml(requiereFacturaRaw || "—");
       const facturaStatusClass = getFacturaStatusClass(r, extractTicketUrl(r));
-      const facturaHeaderBadge = getFacturaHeaderBadgeHtml(r, { suppressPending: false });
+      const facturaHeaderBadge = getFacturaHeaderBadgeHtml(r, { suppressPending: dashboardTicketResolutionInProgress });
 
       const razonSocialRaw = getRowValueFlexible(r, ["Razón social", "Razon social", "Business name"]);
       const regimenFiscalRaw = getRowValueFlexible(r, ["Régimen fiscal", "Regimen fiscal", "Tax regime"]);
@@ -5056,6 +5211,7 @@ document.addEventListener("DOMContentLoaded", function(){
   });
   vehiculosPropiedadFiltro?.addEventListener("change", () => { buscarVehiculosPorPropiedad(false); });
   document.getElementById("btnBuscarHuespedes")?.addEventListener("click", () => buscarRegistros(true));
+  document.getElementById("btnGenerarTicketNuevo")?.addEventListener("click", generarTicketNuevoSinRegistro);
   document.getElementById("btnLimpiarFiltros")?.addEventListener("click", limpiarFiltros);
   document.getElementById("btnExportarCsv")?.addEventListener("click", exportarCsv);
   document.getElementById("btnPrevPage")?.addEventListener("click", () => { if (dashboardPage > 1) { dashboardPage -= 1; buscarRegistros(false); } });
@@ -5121,9 +5277,14 @@ function handleMontoFacturadoKeydown(event, input){
   event.stopPropagation();
 }
 
+function generarTicketNuevoSinRegistro(){
+  const url = typeof FACTURAPI_APP_URL !== "undefined" && FACTURAPI_APP_URL
+    ? FACTURAPI_APP_URL
+    : `/facturapi`;
+  abrirFacturapiModal(url);
+}
+
 async function generarTicket(recordId){
-// actualización inmediata
-setTimeout(()=>actualizarStatusUI(registro.id||registro.ID||registro.folio),300);
   if (!recordId) {
     alert('No se pudo identificar el registro.');
     return;
