@@ -1767,6 +1767,27 @@ function formatFechaBonita(fecha){
   }
 }
 
+
+// ===== FORMATO SIMPLE DE FECHAS (dropdown headers) =====
+function formatFechaSimple(fecha){
+  if(!fecha) return "—";
+  try{
+    const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+    const f = new Date(fecha);
+    if(isNaN(f)) return fecha;
+    return f.getDate() + " de " + meses[f.getMonth()];
+  }catch(e){
+    return fecha;
+  }
+}
+
+function formatRangoFechasSimple(inicio, fin){
+  if(!inicio && !fin) return "—";
+  const f1 = formatFechaSimple(inicio);
+  const f2 = formatFechaSimple(fin);
+  return f1 + " → " + f2;
+}
+
 </script>
 
 </head>
