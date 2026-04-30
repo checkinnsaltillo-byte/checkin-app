@@ -1659,6 +1659,79 @@ button:disabled{
   border-color:#cbd5e1 !important;
 }
 
+
+/* ===== CHECK-IN layout final Control de huéspedes: etiqueta arriba del nombre y tarjetas mobile-first ===== */
+#viewDashboard .dashboard-record-summary{
+  text-align:left !important;
+}
+#viewDashboard .dashboard-record-top{
+  align-items:flex-start !important;
+  justify-content:space-between !important;
+}
+#viewDashboard .dashboard-record-left{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:flex-start !important;
+  justify-content:flex-start !important;
+  gap:6px !important;
+  min-width:0 !important;
+  flex:1 1 auto !important;
+  padding-left:0 !important;
+}
+#viewDashboard .dashboard-record-header-badges{
+  width:100% !important;
+  min-width:0 !important;
+  flex:0 1 auto !important;
+  display:flex !important;
+  flex-direction:row !important;
+  justify-content:flex-start !important;
+  align-items:flex-start !important;
+  gap:6px !important;
+  margin:0 0 2px 0 !important;
+}
+#viewDashboard .dashboard-record-heading{
+  width:100% !important;
+  min-width:0 !important;
+  text-align:left !important;
+}
+#viewDashboard .dashboard-record-title,
+#viewDashboard .dashboard-record-subtitle{
+  text-align:left !important;
+}
+#viewDashboard .dashboard-reservation-badge{
+  align-self:flex-start !important;
+  margin:0 0 2px 0 !important;
+  max-width:190px !important;
+}
+@media (max-width:700px){
+  #viewDashboard .dashboard-record-summary,
+  #viewDashboard .dashboard-record-body{
+    padding-left:12px !important;
+    padding-right:12px !important;
+  }
+  #viewDashboard .dashboard-record-top{
+    gap:8px !important;
+  }
+  #viewDashboard .dashboard-record-left{
+    gap:5px !important;
+  }
+  #viewDashboard .dashboard-record-title{
+    font-size:16px !important;
+    line-height:1.2 !important;
+  }
+  #viewDashboard .dashboard-record-subtitle{
+    margin-top:3px !important;
+    line-height:1.35 !important;
+  }
+  #viewDashboard .dashboard-record-right{
+    margin-left:6px !important;
+    gap:7px !important;
+  }
+  #viewDashboard .dashboard-header-amount-value{
+    font-size:18px !important;
+  }
+}
+
 </style>
 
 <script>
