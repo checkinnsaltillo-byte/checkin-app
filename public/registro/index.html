@@ -2697,6 +2697,160 @@ a.link-btn[href^="https://wa.me/"]{
   margin-top:2px;
 }
 
+
+
+/* ===== Calendario de estancias por alojamiento ===== */
+.calendar-modal-card{
+  max-width:1180px !important;
+  width:min(1180px, calc(100vw - 18px)) !important;
+  max-height:92vh !important;
+  overflow:auto !important;
+  text-align:left !important;
+  padding:22px !important;
+}
+.calendar-modal-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:12px;
+}
+.calendar-toolbar{
+  display:grid;
+  grid-template-columns:160px 160px minmax(220px,1fr) auto;
+  gap:12px;
+  align-items:end;
+  padding:14px;
+  border-radius:18px;
+  border:1px solid #f3cf94;
+  background:#fffdf8;
+}
+.calendar-toolbar label{margin-top:0 !important;font-size:12px !important;color:#7c4a03 !important;}
+.calendar-toolbar input,.calendar-toolbar select{padding:11px 12px !important;border-radius:14px !important;font-size:14px !important;}
+.calendar-toolbar button{margin-top:0 !important;white-space:nowrap;}
+.calendar-meta{margin:12px 0;font-size:13px;color:#6b7280;line-height:1.4;}
+.calendar-scroll{overflow:auto;border:1px solid #f3e3c4;border-radius:18px;background:#fff;max-height:62vh;}
+.calendar-grid{display:grid;min-width:max-content;position:relative;}
+.calendar-corner,.calendar-day-header,.calendar-stay-label,.calendar-cell{border-bottom:1px solid #f3e3c4;border-right:1px solid #f3e3c4;}
+.calendar-corner{position:sticky;left:0;top:0;z-index:5;background:#fff7ed;padding:12px;font-size:12px;font-weight:900;color:#7c4a03;min-width:220px;}
+.calendar-day-header{position:sticky;top:0;z-index:4;background:#fff7ed;min-width:72px;text-align:center;padding:9px 6px;font-size:12px;font-weight:800;color:#5f5f5f;}
+.calendar-day-header.weekend{background:#f3f4f6;}
+.calendar-day-num{font-size:17px;color:#2b2b2b;margin-top:2px;}
+.calendar-stay-label{position:sticky;left:0;z-index:3;background:#fff;padding:10px 12px;min-width:220px;display:flex;flex-direction:column;justify-content:center;}
+.calendar-stay-name{font-size:13px;font-weight:900;color:#2b2b2b;line-height:1.25;max-width:210px;white-space:normal;}
+.calendar-stay-code{font-size:11px;color:#6b7280;margin-top:4px;}
+.calendar-cell{position:relative;min-width:72px;height:58px;background:#fff;}
+.calendar-cell.weekend{background:#f9fafb;}
+.calendar-cell.today{box-shadow:inset 0 0 0 2px rgba(15,118,110,.55);}
+.calendar-bar{position:absolute;left:6px;right:6px;top:13px;height:31px;border-radius:999px;background:linear-gradient(90deg,#0f766e 0%,#14b8a6 100%);color:#fff;font-size:12px;font-weight:900;display:flex;align-items:center;padding:0 10px;box-shadow:0 8px 18px rgba(15,118,110,.18);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;z-index:2;}
+.calendar-bar.airbnb{background:linear-gradient(90deg,#e11d48 0%,#fb7185 100%);}
+.calendar-bar.directo{background:linear-gradient(90deg,#7c3aed 0%,#a78bfa 100%);}
+.calendar-bar.web{background:linear-gradient(90deg,#0369a1 0%,#38bdf8 100%);}
+.calendar-bar.otro{background:linear-gradient(90deg,#475569 0%,#94a3b8 100%);}
+.calendar-bar-start{border-top-left-radius:999px;border-bottom-left-radius:999px;}
+.calendar-bar-mid{border-radius:0;left:0;right:0;}
+.calendar-bar-end{border-top-right-radius:999px;border-bottom-right-radius:999px;}
+.calendar-empty-row{padding:24px;text-align:center;color:#6b7280;}
+@media (max-width:700px){
+  .calendar-modal-card{width:100vw !important;height:100dvh !important;max-height:100dvh !important;border-radius:0 !important;padding:14px !important;}
+  .calendar-modal-header{position:sticky;top:0;background:#fff;z-index:8;padding-bottom:10px;border-bottom:1px solid #f3e3c4;}
+  .calendar-toolbar{grid-template-columns:1fr;}
+  .calendar-scroll{max-height:calc(100dvh - 270px);}
+  .calendar-corner,.calendar-stay-label{min-width:180px;}
+  .calendar-day-header,.calendar-cell{min-width:64px;}
+}
+
+
+/* ===== Calendario: metadata, colores por factura y card pop-up ===== */
+.calendar-bar{cursor:pointer;transition:transform .14s ease, box-shadow .14s ease, filter .14s ease;}
+.calendar-bar:hover{transform:translateY(-1px);filter:saturate(1.08) brightness(1.02);box-shadow:0 11px 24px rgba(15,23,42,.18);}
+.calendar-bar.factura-si{background:linear-gradient(90deg,#dc2626 0%,#fb7185 100%) !important;}
+.calendar-bar.factura-no{background:linear-gradient(90deg,#64748b 0%,#cbd5e1 100%) !important;color:#111827 !important;}
+.calendar-bar.factura-si.ticket-emitido{background:linear-gradient(90deg,#16a34a 0%,#86efac 100%) !important;color:#064e3b !important;}
+.calendar-tooltip{position:fixed;display:none;z-index:1000005;max-width:310px;padding:11px 12px;border-radius:14px;background:#111827;color:#fff;font-size:12px;line-height:1.45;box-shadow:0 16px 36px rgba(15,23,42,.30);pointer-events:none;white-space:pre-line;}
+.calendar-tooltip strong{color:#fff;}
+.calendar-legend{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 10px;align-items:center;font-size:12px;color:#6b7280;}
+.calendar-legend-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #e5e7eb;background:#fff;font-weight:800;color:#374151;}
+.calendar-legend-dot{width:10px;height:10px;border-radius:999px;display:inline-block;}
+.calendar-legend-dot.si{background:#dc2626;}.calendar-legend-dot.no{background:#64748b;}.calendar-legend-dot.emitido{background:#16a34a;}
+.calendar-card-modal-card{max-width:780px !important;width:min(780px,calc(100vw - 24px)) !important;max-height:88vh !important;overflow:auto !important;text-align:left !important;padding:18px !important;}
+.calendar-card-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
+.calendar-card-modal-head h3{margin:0;font-size:22px;}
+.calendar-card-modal-body .dashboard-record{margin:0 !important;}
+.calendar-card-modal-body .dashboard-record[open] .dashboard-record-toggle{transform:rotate(180deg);}
+@media(max-width:700px){.calendar-card-modal-card{width:100vw !important;height:100dvh !important;max-height:100dvh !important;border-radius:0 !important;padding:14px !important;}.calendar-card-modal-head{position:sticky;top:0;background:#fff;z-index:4;padding-bottom:10px;border-bottom:1px solid #f3e3c4;}.calendar-tooltip{max-width:calc(100vw - 28px);}}
+
+
+
+/* ===== Calendario V2: colores premium + leyenda fija + tablet/mobile ===== */
+.calendar-scroll{overflow:auto !important;border-radius:20px !important;-webkit-overflow-scrolling:touch !important;}
+.calendar-legend{position:sticky !important;top:0 !important;z-index:9 !important;display:flex !important;gap:8px !important;flex-wrap:wrap !important;margin:0 !important;padding:10px 12px !important;align-items:center !important;font-size:12px !important;color:#6b7280 !important;background:rgba(255,255,255,.94) !important;border-bottom:1px solid #f3e3c4 !important;backdrop-filter:blur(12px) !important;-webkit-backdrop-filter:blur(12px) !important;box-shadow:0 8px 18px rgba(15,23,42,.06) !important;}
+.calendar-legend-pill{display:inline-flex !important;align-items:center !important;gap:7px !important;padding:6px 10px !important;border-radius:999px !important;border:1px solid #e5e7eb !important;background:#fff !important;font-weight:900 !important;color:#374151 !important;box-shadow:0 4px 12px rgba(15,23,42,.06) !important;white-space:nowrap !important;}
+.calendar-legend-dot{width:12px !important;height:12px !important;border-radius:999px !important;display:inline-block !important;box-shadow:0 0 0 3px rgba(255,255,255,.75),0 3px 8px rgba(15,23,42,.16) !important;}
+.calendar-legend-dot.si{background:linear-gradient(135deg,#f97316,#e11d48,#be185d) !important;}
+.calendar-legend-dot.no{background:linear-gradient(135deg,#2563eb,#06b6d4,#14b8a6) !important;}
+.calendar-legend-dot.emitido{background:linear-gradient(135deg,#059669,#10b981,#f59e0b) !important;}
+.calendar-corner{top:42px !important;z-index:8 !important;background:linear-gradient(180deg,#fff7ed 0%,#fffbeb 100%) !important;box-shadow:6px 0 14px rgba(15,23,42,.06) !important;}
+.calendar-day-header{top:42px !important;z-index:7 !important;background:linear-gradient(180deg,#fff7ed 0%,#fffbeb 100%) !important;}
+.calendar-bar{background:linear-gradient(90deg,#6366f1 0%,#22d3ee 100%) !important;color:#fff !important;box-shadow:0 10px 22px rgba(79,70,229,.18) !important;}
+.calendar-bar.factura-si{background:linear-gradient(90deg,#f97316 0%,#e11d48 52%,#be185d 100%) !important;color:#fff !important;}
+.calendar-bar.factura-no{background:linear-gradient(90deg,#2563eb 0%,#06b6d4 55%,#14b8a6 100%) !important;color:#fff !important;}
+.calendar-bar.factura-si.ticket-emitido{background:linear-gradient(90deg,#059669 0%,#10b981 48%,#f59e0b 100%) !important;color:#fff !important;}
+.calendar-bar:hover{filter:saturate(1.12) brightness(1.04) !important;box-shadow:0 14px 30px rgba(15,23,42,.22) !important;}
+@media(max-width:1024px){.calendar-modal-card{width:calc(100vw - 18px) !important;max-height:94vh !important;padding:16px !important;border-radius:20px !important;}.calendar-toolbar{grid-template-columns:1fr 1fr !important;}.calendar-scroll{max-height:calc(100dvh - 260px) !important;}.calendar-corner,.calendar-stay-label{min-width:190px !important;}.calendar-day-header,.calendar-cell{min-width:64px !important;}.calendar-bar{height:30px !important;top:12px !important;font-size:11px !important;padding:0 9px !important;}.calendar-legend{gap:6px !important;padding:9px !important;}.calendar-legend-pill{font-size:11px !important;padding:6px 9px !important;}}
+@media(max-width:700px){.calendar-modal-card{width:100vw !important;height:100dvh !important;max-height:100dvh !important;border-radius:0 !important;padding:12px !important;}.calendar-modal-header{position:sticky !important;top:0 !important;background:#fff !important;z-index:10 !important;padding-bottom:10px !important;border-bottom:1px solid #f3e3c4 !important;}.calendar-toolbar{grid-template-columns:1fr !important;}.calendar-toolbar button{width:100% !important;}.calendar-scroll{max-height:calc(100dvh - 310px) !important;border-radius:16px !important;}.calendar-corner,.calendar-stay-label{min-width:160px !important;}.calendar-day-header,.calendar-cell{min-width:58px !important;}.calendar-cell{height:54px !important;}.calendar-day-header{top:78px !important;font-size:11px !important;padding:8px 4px !important;}.calendar-corner{top:78px !important;}.calendar-day-num{font-size:15px !important;}.calendar-stay-name{font-size:12px !important;max-width:150px !important;}.calendar-stay-code{font-size:10px !important;}.calendar-bar{height:28px !important;top:13px !important;font-size:10.5px !important;padding:0 8px !important;left:4px !important;right:4px !important;}.calendar-legend{display:grid !important;grid-template-columns:1fr !important;gap:6px !important;padding:8px !important;}.calendar-legend-pill{width:max-content !important;max-width:100% !important;font-size:11px !important;padding:6px 9px !important;}}
+
+
+/* ===== Calendario V4: enfoque inicial snap + highlight temporal ===== */
+.calendar-scroll{scroll-behavior:smooth !important;scroll-snap-type:x proximity !important;}
+.calendar-day-header,.calendar-cell{scroll-snap-align:center !important;}
+.calendar-focus-control{background:#fff !important;border:1px solid #f3e3c4 !important;border-radius:16px !important;padding:10px !important;}
+.calendar-focus-control label{display:flex !important;align-items:center !important;gap:7px !important;margin:0 0 7px 0 !important;font-size:12px !important;color:#7c4a03 !important;}
+.calendar-focus-control select{border-color:#f59e0b !important;background:#fffdf8 !important;font-weight:800 !important;}
+#dashboardCalendarModal .calendar-cell.calendar-focus-highlight,#dashboardCalendarModal .calendar-day-header.calendar-focus-highlight{position:relative !important;z-index:1 !important;animation:none !important;box-shadow:none !important;background:rgba(245,158,11,.12) !important;outline:none !important;}
+#dashboardCalendarModal .calendar-day-header.calendar-focus-highlight{background:#fff7ed !important;background-image:none !important;color:#5f5f5f !important;}
+#dashboardCalendarModal .calendar-cell.calendar-focus-highlight::after{content:none !important;display:none !important;}
+@keyframes calendarColumnFocusPulse{0%{filter:none;transform:none;}100%{filter:none;transform:none;}}
+@media(max-width:1024px){.calendar-focus-control{grid-column:1 / -1;}}
+
+
+
+/* ===== Calendario: encabezado de fecha de referencia sin transparencia ===== */
+#dashboardCalendarModal .calendar-day-header.calendar-focus-highlight{
+  background:#fff7ed !important;
+  background-image:none !important;
+  color:#5f5f5f !important;
+  box-shadow:none !important;
+  outline:none !important;
+}
+#dashboardCalendarModal .calendar-cell.calendar-focus-highlight{
+  background:rgba(245,158,11,.10) !important;
+  box-shadow:none !important;
+  outline:none !important;
+}
+
+/* ===== Filtros de fechas simples: entrada + salida forman un solo rango ===== */
+.range-grid-simple{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:14px !important;
+}
+.range-card-simple{
+  padding:14px !important;
+}
+.range-card-simple .range-title{
+  display:block !important;
+  margin:0 0 10px 0 !important;
+  font-size:13px !important;
+  font-weight:900 !important;
+  color:#7c4a03 !important;
+}
+.range-card-simple input[type="date"]{
+  width:100% !important;
+}
+@media(max-width:700px){
+  .range-grid-simple{grid-template-columns:1fr !important;}
+}
 </style>
 
 <script>
@@ -2762,6 +2916,29 @@ function formatRangoFechasSimple(inicio, fin){
 
 </script>
 
+
+<style>
+/* ===== Filtro Mes: estancia toca el mes seleccionado ===== */
+.month-filter-grid{
+  grid-template-columns: minmax(220px, 320px) !important;
+  align-items:start !important;
+}
+.month-filter-card{
+  padding:14px !important;
+}
+.month-filter-card input[type="month"]{
+  max-width:260px !important;
+}
+@media (max-width:700px){
+  .month-filter-grid{
+    grid-template-columns:1fr !important;
+  }
+  .month-filter-card input[type="month"]{
+    max-width:100% !important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
@@ -2819,32 +2996,12 @@ function formatRangoFechasSimple(inicio, fin){
 <div class="section">
 <h2 class="section-title">Control de huéspedes</h2>
 <p class="section-subtitle">Consulta los registros guardados en la hoja "Check in" con filtros dinámicos, rango de fechas, paginación y detalle completo.</p>
-<div class="range-grid">
-<div class="range-card">
-<div class="range-title">Rango de fecha de entrada</div>
-<div class="grid">
-<div>
-<label for="filtro_fecha_entrada_desde">Desde</label>
-<input id="filtro_fecha_entrada_desde" type="date"/>
-</div>
-<div>
-<label for="filtro_fecha_entrada_hasta">Hasta</label>
-<input id="filtro_fecha_entrada_hasta" type="date"/>
-</div>
-</div>
-</div>
-<div class="range-card">
-<div class="range-title">Rango de fecha de salida</div>
-<div class="grid">
-<div>
-<label for="filtro_fecha_salida_desde">Desde</label>
-<input id="filtro_fecha_salida_desde" type="date"/>
-</div>
-<div>
-<label for="filtro_fecha_salida_hasta">Hasta</label>
-<input id="filtro_fecha_salida_hasta" type="date"/>
-</div>
-</div>
+
+<div class="range-grid range-grid-simple month-filter-grid">
+<div class="range-card range-card-simple month-filter-card">
+<label class="range-title" for="filtro_mes_estancia">Mes</label>
+<input id="filtro_mes_estancia" type="month"/>
+<div class="hint">Muestra registros cuya estancia toca al menos un día del mes seleccionado.</div>
 </div>
 </div>
 <div class="filter-grid" style="margin-top:14px;">
@@ -2930,12 +3087,17 @@ function formatRangoFechasSimple(inicio, fin){
 </div>
 <div class="dashboard-alerts" id="dashboardAlerts"><div class="dashboard-alert dashboard-alert-neutral">Sin alertas todavía.</div></div>
 <div class="results-meta" id="dashboardMeta">Sin consulta todavía.</div>
-<div class="dashboard-records-wrap">
+<div class="dashboard-view-switch" id="dashboardViewSwitch" role="group" aria-label="Modo de visualización de registros">
+  <button class="dashboard-view-switch-btn active" id="btnModoLista" type="button" data-dashboard-view="lista" aria-pressed="true">Lista</button>
+  <button class="dashboard-view-switch-btn" id="btnModoCalendario" type="button" data-dashboard-view="calendario" aria-pressed="false">Calendario</button>
+</div>
+<div class="dashboard-calendar-inline hidden" id="dashboardCalendarInlineMount"></div>
+<div class="dashboard-records-wrap" id="dashboardRecordsWrap">
 <div class="dashboard-records" id="dashboardTableBody">
 <div class="empty-state">Sin registros para mostrar.</div>
 </div>
 </div>
-<div class="pager-bar">
+<div class="pager-bar" id="dashboardPagerBar">
 <div class="pager-info" id="dashboardPagerInfo">Página 1 de 1</div>
 <div class="pager-controls">
 <button class="menu-btn secondary" id="btnPrevPage" style="flex:0 0 auto;" type="button">Anterior</button>
@@ -2945,6 +3107,37 @@ function formatRangoFechasSimple(inicio, fin){
 </div>
 </div>
 </div>
+
+<div class="dashboard-calendar-panel" id="dashboardCalendarModal" style="display:none;">
+  <div class="calendar-modal-card dashboard-calendar-card-inline">
+    <div class="calendar-modal-header">
+      <div>
+        <h3 style="margin-bottom:6px;">Calendario de estancias</h3>
+        <div class="hint" id="calendarSubtitle">Vista por alojamiento, día y duración de la estancia.</div>
+      </div>
+    </div>
+    <div class="calendar-toolbar">
+      <div>
+        <label for="calendarFechaDesde">Desde</label>
+        <input id="calendarFechaDesde" type="date" />
+      </div>
+      <div>
+        <label for="calendarFechaHasta">Hasta</label>
+        <input id="calendarFechaHasta" type="date" />
+      </div>
+      <div>
+        <label for="calendarAlojamientoFiltro">Alojamiento</label>
+        <select id="calendarAlojamientoFiltro"><option value="">Todos</option></select>
+      </div>
+      <button class="menu-btn secondary" id="btnActualizarCalendario" type="button">Actualizar</button>
+    </div>
+    <div class="calendar-meta" id="calendarMeta">Carga registros para visualizar el calendario.</div>
+    <div class="calendar-scroll" id="calendarGridWrap">
+      <div class="empty-state">Sin registros para mostrar.</div>
+    </div>
+  </div>
+</div>
+
 <div class="popup-backdrop" id="dashboardDetailModal" style="display:none;">
 <div class="popup-card detail-modal-card">
 <h3 style="margin-bottom:6px;">Detalle completo del registro</h3>
@@ -5817,10 +6010,6 @@ function formatFechaBonita(fecha){
     const params = new URLSearchParams();
     params.set("action", "list_records");
     const fields = {
-      fecha_entrada_desde: "filtro_fecha_entrada_desde",
-      fecha_entrada_hasta: "filtro_fecha_entrada_hasta",
-      fecha_salida_desde: "filtro_fecha_salida_desde",
-      fecha_salida_hasta: "filtro_fecha_salida_hasta",
       nombre_reservacion: "filtro_nombre_reservacion",
       medio_reservacion: "filtro_medio_reservacion",
       celular_principal: "filtro_celular_principal",
@@ -6365,6 +6554,70 @@ function buildTicketActionsHtml(row, ticketUrl){
     resolveExpandedFinancialValuesForVisibleRows();
   }
 
+
+  function parseDashboardDate(value){
+    const raw = safeText(value).trim();
+    if (!raw) return null;
+    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) {
+      const d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const parts = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (parts) {
+      const d = new Date(Number(parts[3]), Number(parts[2]) - 1, Number(parts[1]));
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const parsed = new Date(raw);
+    return isNaN(parsed.getTime()) ? null : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  }
+
+  function getSelectedMonthRange(){
+    const monthInput = document.getElementById("filtro_mes_estancia");
+    const value = safeText(monthInput?.value).trim();
+    const m = value.match(/^(\d{4})-(\d{2})$/);
+    if (!m) return null;
+    const year = Number(m[1]);
+    const monthIndex = Number(m[2]) - 1;
+    const start = new Date(year, monthIndex, 1);
+    const end = new Date(year, monthIndex + 1, 0);
+    start.setHours(0,0,0,0);
+    end.setHours(23,59,59,999);
+    return { start, end, label: value };
+  }
+
+  function rowTouchesSelectedMonth(row){
+    const range = getSelectedMonthRange();
+    if (!range) return true;
+
+    const entradaRaw = getRowValueFlexible(row, [
+      "Fecha de entrada", "Fecha ingreso", "Ingreso", "ingreso", "Check in", "Check-in"
+    ]);
+    const salidaRaw = getRowValueFlexible(row, [
+      "Fecha de salida", "Salida", "salida", "Check out", "Check-out"
+    ]);
+
+    const entrada = parseDashboardDate(entradaRaw);
+    const salida = parseDashboardDate(salidaRaw);
+
+    if (!entrada && !salida) return false;
+
+    const stayStart = entrada || salida;
+    const stayEnd = salida || entrada;
+
+    stayStart.setHours(0,0,0,0);
+    stayEnd.setHours(23,59,59,999);
+
+    return stayStart <= range.end && stayEnd >= range.start;
+  }
+
+  function aplicarFiltroMesEstancia(rows){
+    const range = getSelectedMonthRange();
+    const base = Array.isArray(rows) ? rows : [];
+    if (!range) return base;
+    return base.filter(rowTouchesSelectedMonth);
+  }
+
   async function buscarRegistros(resetPage){
     if (resetPage) dashboardPage = 1;
     if (meta) meta.textContent = "Consultando registros...";
@@ -6376,7 +6629,8 @@ function buildTicketActionsHtml(row, ticketUrl){
         throw new Error("La Web App publicada sigue en la versión vieja. Vuelve a implementar el Apps Script nuevo y actualiza la URL.");
       }
       if (!json.ok) throw new Error(json.error || json.message || "No fue posible obtener los registros.");
-      renderRows(json);
+      const rowsFiltradosPorMes = aplicarFiltroMesEstancia(Array.isArray(json.rows) ? json.rows : []);
+      renderRows({ ...json, rows: rowsFiltradosPorMes, total: rowsFiltradosPorMes.length });
     } catch (err) {
       renderRows({ rows: [], total: 0, page: 1, total_pages: 1, total_con_factura: 0, total_sin_factura: 0, total_medios_unicos: 0 });
       if (meta) meta.textContent = "Error al consultar registros: " + err.message + " Verifica que publicaste el Apps Script nuevo y que WEB_APP_URL corresponde a esa implementación.";
@@ -6385,7 +6639,7 @@ function buildTicketActionsHtml(row, ticketUrl){
 
   function limpiarFiltros(){
     [
-      "filtro_fecha_entrada_desde","filtro_fecha_entrada_hasta","filtro_fecha_salida_desde","filtro_fecha_salida_hasta",
+      "filtro_mes_estancia",
       "filtro_nombre_reservacion","filtro_medio_reservacion","filtro_celular_principal","filtro_requiere_factura",
       "filtro_razon_social","filtro_forma_pago","filtro_correo"
     ].forEach(id => {
@@ -6943,7 +7197,7 @@ function buildTicketActionsHtml(row, ticketUrl){
   pageSizeSelect?.addEventListener("change", () => { dashboardPageSize = Number(pageSizeSelect.value || 25); buscarRegistros(true); });
 
   [
-    "filtro_fecha_entrada_desde","filtro_fecha_entrada_hasta","filtro_fecha_salida_desde","filtro_fecha_salida_hasta",
+    "filtro_mes_estancia",
     "filtro_nombre_reservacion","filtro_medio_reservacion","filtro_celular_principal","filtro_requiere_factura",
     "filtro_razon_social","filtro_forma_pago","filtro_correo"
   ].forEach(id => {
@@ -8131,5 +8385,795 @@ function formatFechaBonita(fecha){
 (function(){function posicionarBotonDashboardAnalitico(){const view=document.getElementById('viewDashboard');const btn=document.getElementById('btnDashboardAnalitico');if(!view||!btn)return;const active=!view.classList.contains('hidden');btn.style.display=active?'inline-flex':'none';if(!active)return;const section=view.querySelector('.section')||view;const rect=section.getBoundingClientRect();const margin=window.innerWidth<=700?12:18;const topLimit=window.innerWidth<=700?76:104;const top=Math.max(margin,Math.min(topLimit,Math.max(rect.top+margin,margin)));const right=Math.max(margin,window.innerWidth-rect.right+margin);document.documentElement.style.setProperty('--dashboard-btn-top',top+'px');document.documentElement.style.setProperty('--dashboard-btn-right',right+'px');}window.posicionarBotonDashboardAnalitico=posicionarBotonDashboardAnalitico;window.addEventListener('scroll',posicionarBotonDashboardAnalitico,{passive:true});window.addEventListener('resize',posicionarBotonDashboardAnalitico);document.addEventListener('DOMContentLoaded',function(){posicionarBotonDashboardAnalitico();['menuControlBtn','menuRegistroBtn','menuVehiculosBtn'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('click',()=>setTimeout(posicionarBotonDashboardAnalitico,0));});});})();
 </script>
 
+
+<script>
+/* ===== Calendario de estancias: alojamiento x día ===== */
+(function(){
+  const MS_DIA = 24 * 60 * 60 * 1000;
+  const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const DIAS = ['dom','lun','mar','mié','jue','vie','sáb'];
+
+  function txt(v){ return window.safeText ? window.safeText(v) : (v == null ? '' : String(v)); }
+  function esc(v){ return window.escapeHtml ? window.escapeHtml(v) : txt(v).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function norm(v){ return txt(v).normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toLowerCase(); }
+  function parseDateLocal(value){
+    const raw = txt(value).trim();
+    if(!raw) return null;
+    const m = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if(m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+    const d = new Date(raw);
+    if(Number.isNaN(d.getTime())) return null;
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  function toInputDate(d){
+    if(!d) return '';
+    const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+  function daysBetween(a,b){ return Math.round((b-a)/MS_DIA); }
+  function clampDate(d,min,max){ return d < min ? min : (d > max ? max : d); }
+  function getVal(row, aliases){
+    if(window.getRowValueFlexible) return window.getRowValueFlexible(row, aliases);
+    const keys = Object.keys(row || {});
+    for(const alias of aliases){
+      const k = keys.find(x => norm(x) === norm(alias));
+      if(k) return row[k];
+    }
+    return '';
+  }
+  function alojamiento(row){
+    const prop = getVal(row, ['Propiedad','Alojamiento','HouseName']) || 'Sin propiedad';
+    const depto = getVal(row, ['# Departamento','Departamento','Depto']);
+    return `${txt(prop).trim()}${txt(depto).trim() ? ' #' + txt(depto).trim() : ''}`;
+  }
+  function guestName(row){ return getVal(row, ['Nombre de la persona que hizo la reservación','mbre de la persona que hizo la reservación','Huésped 1','Nombre']) || 'Sin nombre'; }
+  function medioClass(row){
+    const m = norm(getVal(row, ['Medio de reservación','Medio de reservacion']));
+    if(m.includes('airbnb')) return 'airbnb';
+    if(m.includes('trato') || m.includes('direct')) return 'directo';
+    if(m.includes('check') || m.includes('web') || m.includes('whatsapp')) return 'web';
+    return 'otro';
+  }
+  function rowsBase(){ return Array.isArray(window.dashboardRows) ? window.dashboardRows : []; }
+  function getFechaDefault(rows, tipo){
+    const fechas = rows.flatMap(r => [parseDateLocal(getVal(r,['Fecha de ingreso','Ingreso','Check-in date'])), parseDateLocal(getVal(r,['Fecha de salida','Salida','Check-out date']))]).filter(Boolean).sort((a,b)=>a-b);
+    if(fechas.length){
+      if(tipo === 'desde') return fechas[0];
+      return fechas[fechas.length-1];
+    }
+    const hoy = new Date();
+    return tipo === 'desde' ? new Date(hoy.getFullYear(), hoy.getMonth(), 1) : new Date(hoy.getFullYear(), hoy.getMonth()+1, 0);
+  }
+  function fillAlojamientos(rows){
+    const sel = document.getElementById('calendarAlojamientoFiltro');
+    if(!sel) return;
+    const prev = sel.value;
+    const values = Array.from(new Set(rows.map(alojamiento))).sort((a,b)=>a.localeCompare(b,'es'));
+    sel.innerHTML = '<option value="">Todos</option>' + values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    if(values.includes(prev)) sel.value = prev;
+  }
+  function buildDays(desde,hasta){
+    const days=[];
+    for(let d=new Date(desde); d<=hasta; d=addDays(d,1)) days.push(new Date(d));
+    return days;
+  }
+  window.abrirCalendarioHuespedes = function(){
+    const rows = rowsBase();
+    const modal = document.getElementById('dashboardCalendarModal');
+    if(!modal) return;
+    const desdeInput = document.getElementById('calendarFechaDesde');
+    const hastaInput = document.getElementById('calendarFechaHasta');
+    if(desdeInput && !desdeInput.value) desdeInput.value = toInputDate(getFechaDefault(rows,'desde'));
+    if(hastaInput && !hastaInput.value) hastaInput.value = toInputDate(getFechaDefault(rows,'hasta'));
+    fillAlojamientos(rows);
+    modal.style.display = 'flex';
+    renderCalendarioHuespedes();
+  };
+  window.cerrarCalendarioHuespedes = function(){
+    const modal = document.getElementById('dashboardCalendarModal');
+    if(modal) modal.style.display = 'none';
+  };
+  window.renderCalendarioHuespedes = function(){
+    const wrap = document.getElementById('calendarGridWrap');
+    const meta = document.getElementById('calendarMeta');
+    const sub = document.getElementById('calendarSubtitle');
+    const rows = rowsBase();
+    if(!wrap) return;
+    const desde = parseDateLocal(document.getElementById('calendarFechaDesde')?.value) || getFechaDefault(rows,'desde');
+    const hasta = parseDateLocal(document.getElementById('calendarFechaHasta')?.value) || getFechaDefault(rows,'hasta');
+    if(!rows.length){
+      wrap.innerHTML = '<div class="empty-state">Primero carga registros en Control de huéspedes y después abre el calendario.</div>';
+      if(meta) meta.textContent = 'Sin registros cargados.';
+      return;
+    }
+    if(hasta < desde){
+      wrap.innerHTML = '<div class="empty-state">La fecha final debe ser igual o posterior a la fecha inicial.</div>';
+      if(meta) meta.textContent = 'Rango de fechas inválido.';
+      return;
+    }
+    const alojamientoFiltro = txt(document.getElementById('calendarAlojamientoFiltro')?.value).trim();
+    const days = buildDays(desde,hasta);
+    const dayCount = days.length;
+    const maxDays = 95;
+    if(dayCount > maxDays){
+      wrap.innerHTML = `<div class="empty-state">Selecciona un rango máximo de ${maxDays} días para mantener la vista rápida.</div>`;
+      if(meta) meta.textContent = `${dayCount} días seleccionados.`;
+      return;
+    }
+    let prepared = rows.map(r => {
+      const start = parseDateLocal(getVal(r,['Fecha de ingreso','Ingreso','Check-in date']));
+      const endRaw = parseDateLocal(getVal(r,['Fecha de salida','Salida','Check-out date']));
+      if(!start || !endRaw) return null;
+      const end = endRaw < start ? start : endRaw;
+      return { row:r, alojamiento:alojamiento(r), start, end };
+    }).filter(Boolean).filter(x => x.end >= desde && x.start <= hasta);
+    if(alojamientoFiltro) prepared = prepared.filter(x => x.alojamiento === alojamientoFiltro);
+    const grupos = new Map();
+    prepared.forEach(x => { if(!grupos.has(x.alojamiento)) grupos.set(x.alojamiento, []); grupos.get(x.alojamiento).push(x); });
+    const alojamientos = Array.from(grupos.keys()).sort((a,b)=>a.localeCompare(b,'es'));
+    if(!alojamientos.length){
+      wrap.innerHTML = '<div class="empty-state">No hay estancias en el rango seleccionado.</div>';
+      if(meta) meta.textContent = '0 estancias visibles.';
+      return;
+    }
+    const cols = `220px repeat(${dayCount}, 72px)`;
+    let html = `<div class="calendar-grid" style="grid-template-columns:${cols};">`;
+    html += '<div class="calendar-corner">Alojamiento</div>';
+    const todayStr = toInputDate(new Date());
+    days.forEach(d => {
+      const weekend = d.getDay() === 0 || d.getDay() === 6;
+      html += `<div class="calendar-day-header${weekend ? ' weekend' : ''}"><div>${DIAS[d.getDay()]}</div><div class="calendar-day-num">${d.getDate()}</div><div>${MESES[d.getMonth()].slice(0,3)}</div></div>`;
+    });
+    alojamientos.forEach((aloj, rowIndex) => {
+      html += `<div class="calendar-stay-label"><div class="calendar-stay-name">${esc(aloj)}</div><div class="calendar-stay-code">${grupos.get(aloj).length} estancia(s)</div></div>`;
+      days.forEach((d, dayIndex) => {
+        const weekend = d.getDay() === 0 || d.getDay() === 6;
+        const today = toInputDate(d) === todayStr;
+        html += `<div class="calendar-cell${weekend ? ' weekend' : ''}${today ? ' today' : ''}" data-row="${rowIndex}" data-day="${dayIndex}">`;
+        grupos.get(aloj).forEach(stay => {
+          const visibleStart = clampDate(stay.start, desde, hasta);
+          const visibleEnd = clampDate(stay.end, desde, hasta);
+          const startIdx = daysBetween(desde, visibleStart);
+          const endIdx = daysBetween(desde, visibleEnd);
+          if(dayIndex !== startIdx) return;
+          const span = Math.max(1, endIdx - startIdx + 1);
+          const width = `calc(${span * 72}px - 12px)`;
+          const nombre = guestName(stay.row);
+          const title = `${nombre}
+${aloj}
+${toInputDate(stay.start)} → ${toInputDate(stay.end)}`;
+          html += `<div class="calendar-bar ${medioClass(stay.row)}" style="width:${width};" title="${esc(title)}">${esc(nombre)}</div>`;
+        });
+        html += '</div>';
+      });
+    });
+    html += '</div>';
+    wrap.innerHTML = html;
+    const inicioTxt = `${desde.getDate()} ${MESES[desde.getMonth()]} ${desde.getFullYear()}`;
+    const finTxt = `${hasta.getDate()} ${MESES[hasta.getMonth()]} ${hasta.getFullYear()}`;
+    if(meta) meta.textContent = `${prepared.length} estancia(s) · ${alojamientos.length} alojamiento(s) · ${inicioTxt} a ${finTxt}.`;
+    if(sub) sub.textContent = 'Los renglones son alojamientos y las barras muestran huésped + duración de estancia.';
+  };
+  document.addEventListener('DOMContentLoaded', function(){
+    document.getElementById('btnVistaCalendario')?.addEventListener('click', window.abrirCalendarioHuespedes);
+    document.getElementById('btnActualizarCalendario')?.addEventListener('click', window.renderCalendarioHuespedes);
+    ['calendarFechaDesde','calendarFechaHasta','calendarAlojamientoFiltro'].forEach(id => {
+      document.getElementById(id)?.addEventListener('change', window.renderCalendarioHuespedes);
+    });
+    document.getElementById('dashboardCalendarModal')?.addEventListener('click', function(ev){ if(ev.target === this) window.cerrarCalendarioHuespedes(); });
+  });
+})();
+</script>
+
+<script>
+/* ===== Override calendario: metadata + color factura + card popup ===== */
+(function(){
+  const MS_DIA = 24 * 60 * 60 * 1000;
+  const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const DIAS = ['dom','lun','mar','mié','jue','vie','sáb'];
+  window.__calendarStayRows = [];
+  function txt(v){ return window.safeText ? window.safeText(v) : (v == null ? '' : String(v)); }
+  function esc(v){ return window.escapeHtml ? window.escapeHtml(v) : txt(v).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function norm(v){ return txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase(); }
+  function parseDateLocal(value){ const raw=txt(value).trim(); if(!raw) return null; const m=raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/); if(m) return new Date(+m[1], +m[2]-1, +m[3]); const d=new Date(raw); return Number.isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function toInputDate(d){ if(!d) return ''; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+  function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+  function daysBetween(a,b){ return Math.round((b-a)/MS_DIA); }
+  function clampDate(d,min,max){ return d < min ? min : (d > max ? max : d); }
+  function getVal(row, aliases){ if(window.getRowValueFlexible) return window.getRowValueFlexible(row, aliases); const keys=Object.keys(row||{}); for(const alias of aliases){ const k=keys.find(x=>norm(x)===norm(alias)); if(k) return row[k]; } return ''; }
+  function alojamiento(row){ const prop=getVal(row,['Propiedad','Alojamiento','HouseName'])||'Sin propiedad'; const depto=getVal(row,['# Departamento','Departamento','Depto']); return `${txt(prop).trim()}${txt(depto).trim() ? ' #' + txt(depto).trim() : ''}`; }
+  function guestName(row){ return getVal(row,['Nombre de la persona que hizo la reservación','mbre de la persona que hizo la reservación','Huésped 1','Nombre']) || 'Sin nombre'; }
+  function medioReservacion(row){ return getVal(row,['Medio de reservación','Medio de reservacion']) || 'Sin medio'; }
+  function montoFacturado(row){ const raw=getVal(row,['$ Monto facturado Total','Monto facturado Total']); if(!txt(raw).trim()) return '—'; const clean=txt(raw).trim(); return /^\$/.test(clean) ? clean : '$ ' + clean; }
+  function requiereFactura(row){ const v=norm(getVal(row,['¿Requiere factura?','Requiere factura'])); return v==='si' || v==='sí' || v==='yes'; }
+  function ticketEmitido(row){ return !!txt(getVal(row,['Folio facturapi','Folio Facturapi','folio facturapi','Folio'])).trim(); }
+  function facturaClass(row){ if(requiereFactura(row) && ticketEmitido(row)) return 'factura-si ticket-emitido'; return requiereFactura(row) ? 'factura-si' : 'factura-no'; }
+  function facturaLabel(row){ if(requiereFactura(row) && ticketEmitido(row)) return 'Sí requiere factura · ticket emitido'; return requiereFactura(row) ? 'Sí requiere factura' : 'No requiere factura'; }
+  function rowsBase(){ return Array.isArray(window.dashboardRows) ? window.dashboardRows : []; }
+  function getFechaDefault(rows,tipo){ const fechas=rows.flatMap(r=>[parseDateLocal(getVal(r,['Fecha de ingreso','Ingreso','Check-in date'])),parseDateLocal(getVal(r,['Fecha de salida','Salida','Check-out date']))]).filter(Boolean).sort((a,b)=>a-b); if(fechas.length) return tipo==='desde'?fechas[0]:fechas[fechas.length-1]; const hoy=new Date(); return tipo==='desde'?new Date(hoy.getFullYear(),hoy.getMonth(),1):new Date(hoy.getFullYear(),hoy.getMonth()+1,0); }
+  function fillAlojamientos(rows){ const sel=document.getElementById('calendarAlojamientoFiltro'); if(!sel) return; const prev=sel.value; const values=Array.from(new Set(rows.map(alojamiento))).sort((a,b)=>a.localeCompare(b,'es')); sel.innerHTML='<option value="">Todos</option>'+values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(''); if(values.includes(prev)) sel.value=prev; }
+  function buildDays(desde,hasta){ const days=[]; for(let d=new Date(desde); d<=hasta; d=addDays(d,1)) days.push(new Date(d)); return days; }
+  function ensureTooltip(){ let t=document.getElementById('calendarTooltip'); if(!t){ t=document.createElement('div'); t.id='calendarTooltip'; t.className='calendar-tooltip'; document.body.appendChild(t); } return t; }
+  function bindTooltip(){ const tooltip=ensureTooltip(); if(tooltip.dataset.bound==='1') return; tooltip.dataset.bound='1'; document.addEventListener('mousemove', ev=>{ const bar=ev.target.closest&&ev.target.closest('.calendar-bar[data-calendar-tooltip]'); const modal=document.getElementById('dashboardCalendarModal'); if(!bar||!modal||modal.style.display==='none'){ tooltip.style.display='none'; return; } tooltip.innerHTML=bar.getAttribute('data-calendar-tooltip')||''; tooltip.style.display='block'; tooltip.style.left=Math.min(ev.clientX+14, window.innerWidth-tooltip.offsetWidth-12)+'px'; tooltip.style.top=Math.min(ev.clientY+14, window.innerHeight-tooltip.offsetHeight-12)+'px'; }); }
+  function ensureCardModal(){ let modal=document.getElementById('calendarCardModal'); if(modal) return modal; modal=document.createElement('div'); modal.className='popup-backdrop'; modal.id='calendarCardModal'; modal.style.display='none'; modal.innerHTML=`<div class="popup-card calendar-card-modal-card"><div class="calendar-card-modal-head"><div><h3>Registro de estancia</h3><div class="hint">Vista idéntica a la card de la lista principal.</div></div><button class="analytics-close-btn" type="button" onclick="cerrarCardCalendario()" aria-label="Cerrar">×</button></div><div class="calendar-card-modal-body" id="calendarCardModalBody"></div></div>`; document.body.appendChild(modal); modal.addEventListener('click', ev=>{ if(ev.target===modal) window.cerrarCardCalendario(); }); return modal; }
+  function getRecordId(row){ return txt(row && (row['ID'] || row['row_number'] || row['Row'] || row['ROW_NUMBER'] || '')).trim(); }
+  function buildFallbackCard(row){ const recordId=esc(getRecordId(row)); const statusClass=requiereFactura(row)?(ticketEmitido(row)?'factura-generada':'factura-pendiente'):'factura-no-requiere'; const nombre=guestName(row); const prop=getVal(row,['Propiedad','Alojamiento','HouseName'])||'Sin propiedad'; const depto=getVal(row,['# Departamento','Departamento','Depto'])||'—'; const ingreso=getVal(row,['Fecha de ingreso','Ingreso','Check-in date']); const salida=getVal(row,['Fecha de salida','Salida','Check-out date']); const medio=medioReservacion(row); const telefono=getVal(row,['Cel/Whatsapp (principal)','Celular principal','Whatsapp principal'])||'—'; const razon=getVal(row,['Razón social','Razon social','Business name'])||'—'; const forma=getVal(row,['Forma de pago','Medio de pago','Payment method'])||'—'; const correo=getVal(row,['Correo electrónico','Correo electronico','Email'])||'—'; const ticketBadge=requiereFactura(row)?(ticketEmitido(row)?'<span class="ticket-status-badge ticket-emitido">🧾 Ticket emitido</span>':'<span class="ticket-status-badge ticket-pendiente">🧾 Ticket pendiente</span>'):'<span class="ticket-status-badge ticket-no-requiere">Sin ticket requerido</span>'; const reqBadge=requiereFactura(row)?'<span class="badge-req si">Sí</span>':'<span class="badge-req no">No</span>'; const rango=(typeof formatRangoFechasSimple==='function')?formatRangoFechasSimple(ingreso,salida):(ingreso+' → '+salida); return `<details class="dashboard-record ${statusClass}" open data-record-card-id="${recordId}"><summary class="dashboard-record-summary"><div class="dashboard-record-top"><div class="dashboard-record-left"><div class="dashboard-record-header-badges"><span class="dashboard-reservation-badge otro">${esc(medio)}</span></div><div class="dashboard-record-heading"><div class="dashboard-record-title">${esc(nombre)}</div><div class="dashboard-record-subtitle">${esc(prop)} · # ${esc(depto)} <br>${esc(rango)}</div></div></div><div class="dashboard-record-right"><div class="dashboard-header-amount"><div class="dashboard-header-amount-label">Monto facturado</div><div class="dashboard-header-amount-value">${esc(montoFacturado(row))}</div><div>${ticketBadge}</div></div><div class="dashboard-record-toggle">⌄</div></div></div></summary><div class="dashboard-record-body"><div class="dashboard-summary-grid"><div class="dashboard-summary-item"><div class="dashboard-summary-label">Medio de reservación</div><div class="dashboard-summary-value">${esc(medio)}</div></div><div class="dashboard-summary-item"><div class="dashboard-summary-label">Propiedad</div><div class="dashboard-summary-value">${esc(prop)}</div></div><div class="dashboard-summary-item"><div class="dashboard-summary-label"># Departamento</div><div class="dashboard-summary-value">${esc(depto)}</div></div><div class="dashboard-summary-item"><div class="dashboard-summary-label">¿Requiere factura?</div><div class="dashboard-summary-value">${reqBadge}</div></div><div class="dashboard-summary-item"><div class="dashboard-summary-label">Razón social</div><div class="dashboard-summary-value">${esc(razon)}</div></div><div class="dashboard-summary-item"><div class="dashboard-summary-label">Forma de pago</div><div class="dashboard-summary-value">${esc(forma)}</div></div><div class="dashboard-summary-item"><div class="dashboard-summary-label">Correo electrónico</div><div class="dashboard-summary-value">${esc(correo)}</div></div><div class="dashboard-summary-item"><div class="dashboard-summary-label">Cel/Whatsapp (principal)</div><div class="dashboard-summary-value">${esc(telefono)}</div></div></div><div class="dashboard-record-actions"><div class="dashboard-action-card"><div class="dashboard-summary-label">Detalle</div><div class="dashboard-inline-actions"><button type="button" class="dashboard-details-btn" onclick="event.stopPropagation(); abrirDetalleDashboard('${recordId}')">Ver detalles</button></div></div></div></div></details>`; }
+  window.cerrarCardCalendario=function(){ const modal=document.getElementById('calendarCardModal'); if(modal) modal.style.display='none'; };
+  window.abrirCardCalendario=function(stayIndex){ const stay=window.__calendarStayRows[Number(stayIndex)]; if(!stay||!stay.row) return; const modal=ensureCardModal(); const body=document.getElementById('calendarCardModalBody'); const recordId=getRecordId(stay.row); let html=''; if(recordId&&window.CSS&&CSS.escape){ const visibleCard=document.querySelector(`[data-record-card-id="${CSS.escape(recordId)}"]`); if(visibleCard){ const clone=visibleCard.cloneNode(true); clone.open=true; html=clone.outerHTML; } } if(!html) html=buildFallbackCard(stay.row); body.innerHTML=html; modal.style.display='flex'; };
+  window.abrirCalendarioHuespedes=function(){ const rows=rowsBase(); const modal=document.getElementById('dashboardCalendarModal'); if(!modal) return; const desdeInput=document.getElementById('calendarFechaDesde'); const hastaInput=document.getElementById('calendarFechaHasta'); if(desdeInput&&!desdeInput.value) desdeInput.value=toInputDate(getFechaDefault(rows,'desde')); if(hastaInput&&!hastaInput.value) hastaInput.value=toInputDate(getFechaDefault(rows,'hasta')); fillAlojamientos(rows); modal.style.display='flex'; bindTooltip(); renderCalendarioHuespedes(); };
+  window.cerrarCalendarioHuespedes=function(){ const modal=document.getElementById('dashboardCalendarModal'); const tooltip=document.getElementById('calendarTooltip'); if(tooltip) tooltip.style.display='none'; if(modal) modal.style.display='none'; };
+  window.renderCalendarioHuespedes=function(){ const wrap=document.getElementById('calendarGridWrap'); const meta=document.getElementById('calendarMeta'); const sub=document.getElementById('calendarSubtitle'); const rows=rowsBase(); if(!wrap) return; const desde=parseDateLocal(document.getElementById('calendarFechaDesde')?.value)||getFechaDefault(rows,'desde'); const hasta=parseDateLocal(document.getElementById('calendarFechaHasta')?.value)||getFechaDefault(rows,'hasta'); if(!rows.length){ wrap.innerHTML='<div class="empty-state">Primero carga registros en Control de huéspedes y después abre el calendario.</div>'; if(meta) meta.textContent='Sin registros cargados.'; return; } if(hasta<desde){ wrap.innerHTML='<div class="empty-state">La fecha final debe ser igual o posterior a la fecha inicial.</div>'; if(meta) meta.textContent='Rango de fechas inválido.'; return; } const alojamientoFiltro=txt(document.getElementById('calendarAlojamientoFiltro')?.value).trim(); const days=buildDays(desde,hasta); const dayCount=days.length; if(dayCount>95){ wrap.innerHTML='<div class="empty-state">Selecciona un rango máximo de 95 días para mantener la vista rápida.</div>'; if(meta) meta.textContent=`${dayCount} días seleccionados.`; return; } let prepared=rows.map(r=>{ const start=parseDateLocal(getVal(r,['Fecha de ingreso','Ingreso','Check-in date'])); const endRaw=parseDateLocal(getVal(r,['Fecha de salida','Salida','Check-out date'])); if(!start||!endRaw) return null; const end=endRaw<start?start:endRaw; return {row:r, alojamiento:alojamiento(r), start, end}; }).filter(Boolean).filter(x=>x.end>=desde&&x.start<=hasta); if(alojamientoFiltro) prepared=prepared.filter(x=>x.alojamiento===alojamientoFiltro); window.__calendarStayRows=prepared; const grupos=new Map(); prepared.forEach((x,idx)=>{ x.__calendarIndex=idx; if(!grupos.has(x.alojamiento)) grupos.set(x.alojamiento,[]); grupos.get(x.alojamiento).push(x); }); const alojamientos=Array.from(grupos.keys()).sort((a,b)=>a.localeCompare(b,'es')); if(!alojamientos.length){ wrap.innerHTML='<div class="empty-state">No hay estancias en el rango seleccionado.</div>'; if(meta) meta.textContent='0 estancias visibles.'; return; } const dayW=window.innerWidth<=700?58:(window.innerWidth<=1024?64:72); const labelW=window.innerWidth<=700?160:(window.innerWidth<=1024?190:220); const cols=`${labelW}px repeat(${dayCount}, ${dayW}px)`; let html=`<div class="calendar-legend"><span class="calendar-legend-pill"><span class="calendar-legend-dot si"></span>Sí requiere factura</span><span class="calendar-legend-pill"><span class="calendar-legend-dot no"></span>No requiere factura</span><span class="calendar-legend-pill"><span class="calendar-legend-dot emitido"></span>Ticket emitido</span></div><div class="calendar-grid" style="grid-template-columns:${cols};"><div class="calendar-corner">Alojamiento</div>`; const todayStr=toInputDate(new Date()); days.forEach(d=>{ const weekend=d.getDay()===0||d.getDay()===6; html+=`<div class="calendar-day-header${weekend?' weekend':''}"><div>${DIAS[d.getDay()]}</div><div class="calendar-day-num">${d.getDate()}</div><div>${MESES[d.getMonth()].slice(0,3)}</div></div>`; }); alojamientos.forEach((aloj,rowIndex)=>{ html+=`<div class="calendar-stay-label"><div class="calendar-stay-name">${esc(aloj)}</div><div class="calendar-stay-code">${grupos.get(aloj).length} estancia(s)</div></div>`; days.forEach((d,dayIndex)=>{ const weekend=d.getDay()===0||d.getDay()===6; const today=toInputDate(d)===todayStr; html+=`<div class="calendar-cell${weekend?' weekend':''}${today?' today':''}" data-row="${rowIndex}" data-day="${dayIndex}">`; grupos.get(aloj).forEach(stay=>{ const visibleStart=clampDate(stay.start,desde,hasta); const visibleEnd=clampDate(stay.end,desde,hasta); const startIdx=daysBetween(desde,visibleStart); const endIdx=daysBetween(desde,visibleEnd); if(dayIndex!==startIdx) return; const span=Math.max(1,endIdx-startIdx+1); const width=`calc(${span*dayW}px - ${window.innerWidth<=700?8:12}px)`; const nombre=guestName(stay.row); const medio=medioReservacion(stay.row); const req=facturaLabel(stay.row); const monto=montoFacturado(stay.row); const tooltip=`<strong>${esc(nombre)}</strong>\nMonto facturado: ${esc(monto)}\nFactura: ${esc(req)}\nMedio de reservación: ${esc(medio)}\n${esc(aloj)}\n${toInputDate(stay.start)} → ${toInputDate(stay.end)}`; html+=`<div class="calendar-bar ${facturaClass(stay.row)}" style="width:${width};" data-calendar-stay-index="${stay.__calendarIndex}" data-calendar-tooltip="${esc(tooltip)}" onclick="event.stopPropagation(); abrirCardCalendario('${stay.__calendarIndex}')">${esc(nombre)}</div>`; }); html+='</div>'; }); }); html+='</div>'; wrap.innerHTML=html; bindTooltip(); const inicioTxt=`${desde.getDate()} ${MESES[desde.getMonth()]} ${desde.getFullYear()}`; const finTxt=`${hasta.getDate()} ${MESES[hasta.getMonth()]} ${hasta.getFullYear()}`; if(meta) meta.textContent=`${prepared.length} estancia(s) · ${alojamientos.length} alojamiento(s) · ${inicioTxt} a ${finTxt}.`; if(sub) sub.textContent='Pasa el cursor sobre una barra para ver metadata. Da click para abrir la card del registro.'; };
+  document.addEventListener('keydown', ev=>{ if(ev.key==='Escape'){ window.cerrarCardCalendario(); const m=document.getElementById('dashboardCalendarModal'); if(m&&m.style.display==='flex') window.cerrarCalendarioHuespedes(); } });
+})();
+</script>
+
+<style id="calendar-flat-responsive-v3">
+.calendar-modal-card{width:min(1180px,calc(100vw - 22px)) !important;max-height:92vh !important;overflow:auto !important;}
+.calendar-toolbar{grid-template-columns:repeat(6,minmax(0,1fr)) !important;align-items:end !important;}
+.calendar-legend-fixed{position:sticky !important;top:0 !important;z-index:14 !important;display:flex !important;gap:8px !important;flex-wrap:wrap !important;margin:10px 0 0 !important;padding:10px 12px !important;align-items:center !important;background:#fff !important;border:1px solid #f3e3c4 !important;border-radius:16px 16px 0 0 !important;box-shadow:0 8px 20px rgba(15,23,42,.08) !important;}
+.calendar-legend-fixed .calendar-legend-pill{background:#fff !important;border:1px solid #e5e7eb !important;color:#374151 !important;box-shadow:none !important;}
+.calendar-legend-fixed .calendar-legend-dot{box-shadow:none !important;}
+.calendar-legend{display:none !important;}
+.calendar-scroll{border-radius:0 0 18px 18px !important;margin-top:0 !important;}
+.calendar-corner,.calendar-day-header{top:0 !important;background:#fff7ed !important;background-image:none !important;}
+.calendar-bar{background:#4f46e5 !important;color:#fff !important;box-shadow:0 8px 18px rgba(79,70,229,.20) !important;border:1px solid rgba(255,255,255,.45) !important;}
+.calendar-bar.factura-si{background:#e11d48 !important;color:#fff !important;box-shadow:0 8px 18px rgba(225,29,72,.20) !important;}
+.calendar-bar.factura-no{background:#0ea5e9 !important;color:#fff !important;box-shadow:0 8px 18px rgba(14,165,233,.20) !important;}
+.calendar-bar.factura-si.ticket-emitido{background:#16a34a !important;color:#fff !important;box-shadow:0 8px 18px rgba(22,163,74,.20) !important;}
+.calendar-legend-dot.si{background:#e11d48 !important;}.calendar-legend-dot.no{background:#0ea5e9 !important;}.calendar-legend-dot.emitido{background:#16a34a !important;}
+.calendar-bar:hover{filter:brightness(1.06) !important;transform:translateY(-1px) !important;box-shadow:0 12px 26px rgba(15,23,42,.24) !important;}
+@media(max-width:1100px){.calendar-toolbar{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}.calendar-modal-card{width:calc(100vw - 16px) !important;padding:16px !important;}.calendar-scroll{max-height:calc(100dvh - 360px) !important;}}
+@media(max-width:700px){.calendar-modal-card{width:100vw !important;height:100dvh !important;max-height:100dvh !important;border-radius:0 !important;padding:12px !important;}.calendar-modal-header{position:sticky !important;top:0 !important;z-index:20 !important;background:#fff !important;}.calendar-toolbar{grid-template-columns:1fr !important;gap:10px !important;}.calendar-toolbar button{width:100% !important;}.calendar-legend-fixed{position:sticky !important;top:0 !important;z-index:16 !important;border-radius:14px 14px 0 0 !important;display:grid !important;grid-template-columns:1fr !important;gap:6px !important;}.calendar-legend-fixed .calendar-legend-pill{width:max-content !important;max-width:100% !important;font-size:11px !important;padding:6px 9px !important;}.calendar-scroll{max-height:calc(100dvh - 470px) !important;border-radius:0 0 14px 14px !important;}.calendar-corner,.calendar-day-header{top:0 !important;}.calendar-corner,.calendar-stay-label{min-width:165px !important;}.calendar-day-header,.calendar-cell{min-width:60px !important;}.calendar-bar{height:29px !important;font-size:10.5px !important;}}
+</style>
+<script id="calendar-filters-flat-v3">
+(function(){
+ const MS=86400000, MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'], DIAS=['dom','lun','mar','mié','jue','vie','sáb'];
+ const txt=v=>window.safeText?window.safeText(v):(v==null?'':String(v));
+ const esc=v=>window.escapeHtml?window.escapeHtml(v):txt(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+ const norm=v=>txt(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+ function date(v){const r=txt(v).trim(); if(!r)return null; const m=r.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/); if(m)return new Date(+m[1],+m[2]-1,+m[3]); const d=new Date(r); return isNaN(d)?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());}
+ const iso=d=>d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`:'';
+ const daysBetween=(a,b)=>Math.round((b-a)/MS), clamp=(d,a,b)=>d<a?a:(d>b?b:d);
+ function get(row,aliases){ if(window.getRowValueFlexible)return window.getRowValueFlexible(row,aliases); const keys=Object.keys(row||{}); for(const a of aliases){const k=keys.find(x=>norm(x)===norm(a)); if(k)return row[k];} return ''; }
+ const rows=()=>Array.isArray(window.dashboardFilteredRows)?window.dashboardFilteredRows:(Array.isArray(window.dashboardRows)?window.dashboardRows:[]);
+ const prop=r=>get(r,['Propiedad','Alojamiento','HouseName'])||'Sin propiedad';
+ const aloj=r=>`${txt(prop(r)).trim()}${txt(get(r,['# Departamento','Departamento','Depto'])).trim()?' #'+txt(get(r,['# Departamento','Departamento','Depto'])).trim():''}`;
+ const nombre=r=>get(r,['Nombre de la persona que hizo la reservación','mbre de la persona que hizo la reservación','Huésped 1','Nombre'])||'Sin nombre';
+ const medio=r=>get(r,['Medio de reservación','Medio de reservacion'])||'Sin medio';
+ const monto=r=>{const raw=txt(get(r,['$ Monto facturado Total','Monto facturado Total'])).trim(); return raw?(/^\$/.test(raw)?raw:'$ '+raw):'—';};
+ const req=r=>['si','sí','yes'].includes(norm(get(r,['¿Requiere factura?','Requiere factura'])));
+ const emit=r=>!!txt(get(r,['Folio facturapi','Ticket facturapi url','Ticket facturapi URL'])).trim();
+ const clase=r=>req(r)&&emit(r)?'factura-si ticket-emitido':(req(r)?'factura-si':'factura-no');
+ const label=r=>req(r)&&emit(r)?'Sí requiere factura · ticket emitido':(req(r)?'Sí requiere factura · pendiente':'No requiere factura');
+ const idrow=r=>get(r,['ID','id','row_number','Row','ROW_NUMBER'])||'';
+ function defaults(rs,t){const fs=rs.flatMap(r=>[date(get(r,['Fecha de ingreso','Ingreso','Check-in date'])),date(get(r,['Fecha de salida','Salida','Check-out date']))]).filter(Boolean).sort((a,b)=>a-b); if(fs.length)return t==='desde'?fs[0]:fs[fs.length-1]; const h=new Date(); return t==='desde'?new Date(h.getFullYear(),h.getMonth(),1):new Date(h.getFullYear(),h.getMonth()+1,0);}
+ function days(a,b){const out=[]; for(let d=new Date(a);d<=b;d.setDate(d.getDate()+1))out.push(new Date(d)); return out;}
+ function addExtras(){const tb=document.querySelector('#dashboardCalendarModal .calendar-toolbar'); if(!tb)return; if(!document.getElementById('calendarPropiedadFiltro')){const d=document.createElement('div'); d.innerHTML='<label for="calendarPropiedadFiltro">Propiedad</label><select id="calendarPropiedadFiltro"><option value="">Todas</option></select>'; tb.insertBefore(d,document.getElementById('calendarAlojamientoFiltro')?.closest('div')||document.getElementById('btnActualizarCalendario'));} if(!document.getElementById('calendarNombreFiltro')){const d=document.createElement('div'); d.innerHTML='<label for="calendarNombreFiltro">Nombre de la persona que hizo la reservación</label><select id="calendarNombreFiltro"><option value="">Todos</option></select>'; tb.insertBefore(d,document.getElementById('btnActualizarCalendario'));} ['calendarPropiedadFiltro','calendarNombreFiltro'].forEach(i=>{const e=document.getElementById(i); if(e&&e.dataset.v3!=='1'){e.addEventListener('change',window.renderCalendarioHuespedes); e.dataset.v3='1';}});}
+ function legend(){const w=document.getElementById('calendarGridWrap'); if(!w)return; let l=document.getElementById('calendarLegendFixed'); if(!l){l=document.createElement('div'); l.id='calendarLegendFixed'; l.className='calendar-legend-fixed'; l.innerHTML='<span class="calendar-legend-pill"><span class="calendar-legend-dot si"></span>Sí requiere factura</span><span class="calendar-legend-pill"><span class="calendar-legend-dot no"></span>No requiere factura</span><span class="calendar-legend-pill"><span class="calendar-legend-dot emitido"></span>Ticket emitido</span>'; w.parentNode.insertBefore(l,w);}}
+ function select(id,vals,all){const s=document.getElementById(id); if(!s)return; const prev=s.value; const arr=[...new Set(vals.map(x=>txt(x).trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es')); s.innerHTML=`<option value="">${all}</option>`+arr.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(''); if(arr.includes(prev))s.value=prev;}
+ function fill(rs){select('calendarPropiedadFiltro',rs.map(prop),'Todas'); select('calendarAlojamientoFiltro',rs.map(aloj),'Todos'); select('calendarNombreFiltro',rs.map(nombre),'Todos');}
+ function tooltip(){let t=document.getElementById('calendarTooltip'); if(!t){t=document.createElement('div'); t.id='calendarTooltip'; t.className='calendar-tooltip'; document.body.appendChild(t);} if(t.dataset.v3==='1')return; t.dataset.v3='1'; document.addEventListener('mousemove',ev=>{const b=ev.target.closest&&ev.target.closest('.calendar-bar[data-calendar-tooltip]'); const m=document.getElementById('dashboardCalendarModal'); if(!b||!m||m.style.display==='none'){t.style.display='none'; return;} t.innerHTML=b.getAttribute('data-calendar-tooltip')||''; t.style.display='block'; t.style.left=Math.min(ev.clientX+14,window.innerWidth-t.offsetWidth-12)+'px'; t.style.top=Math.min(ev.clientY+14,window.innerHeight-t.offsetHeight-12)+'px';});}
+ function ensureCard(){let m=document.getElementById('calendarCardModal'); if(m)return m; m=document.createElement('div'); m.className='popup-backdrop'; m.id='calendarCardModal'; m.style.display='none'; m.innerHTML='<div class="popup-card calendar-card-modal-card"><div class="calendar-card-modal-head"><div><h3>Registro de estancia</h3><div class="hint">Card del registro seleccionado.</div></div><button class="analytics-close-btn" type="button" onclick="cerrarCardCalendario()" aria-label="Cerrar">×</button></div><div class="calendar-card-modal-body" id="calendarCardModalBody"></div></div>'; document.body.appendChild(m); m.addEventListener('click',ev=>{if(ev.target===m)window.cerrarCardCalendario();}); return m;}
+ function fallback(r){return `<details class="dashboard-record ${req(r)?(emit(r)?'factura-generada':'factura-pendiente'):'factura-no-requiere'}" open data-record-card-id="${esc(idrow(r))}"><summary class="dashboard-record-summary"><div class="dashboard-record-top"><div class="dashboard-record-left"><div class="dashboard-record-header-badges"><span class="dashboard-reservation-badge otro">${esc(medio(r))}</span></div><div class="dashboard-record-heading"><div class="dashboard-record-title">${esc(nombre(r))}</div><div class="dashboard-record-subtitle">${esc(aloj(r))}<br>${esc(get(r,['Fecha de ingreso','Ingreso']))} → ${esc(get(r,['Fecha de salida','Salida']))}</div></div></div><div class="dashboard-record-right"><div class="dashboard-header-amount"><div class="dashboard-header-amount-label">Monto facturado</div><div class="dashboard-header-amount-value">${esc(monto(r))}</div></div><div class="dashboard-record-toggle">⌄</div></div></div></summary><div class="dashboard-record-body"><div class="dashboard-summary-grid"><div class="dashboard-summary-item"><div class="dashboard-summary-label">Medio de reservación</div><div class="dashboard-summary-value">${esc(medio(r))}</div></div><div class="dashboard-summary-item"><div class="dashboard-summary-label">Propiedad</div><div class="dashboard-summary-value">${esc(prop(r))}</div></div><div class="dashboard-summary-item"><div class="dashboard-summary-label">¿Requiere factura?</div><div class="dashboard-summary-value">${req(r)?'<span class="badge-req si">Sí</span>':'<span class="badge-req no">No</span>'}</div></div><div class="dashboard-summary-item"><div class="dashboard-summary-label">Monto facturado</div><div class="dashboard-summary-value">${esc(monto(r))}</div></div></div></div></details>`;}
+ window.cerrarCardCalendario=function(){const m=document.getElementById('calendarCardModal'); if(m)m.style.display='none';};
+ window.abrirCardCalendario=function(i){const st=window.__calendarStayRows&&window.__calendarStayRows[Number(i)]; if(!st||!st.row)return; const m=ensureCard(), b=document.getElementById('calendarCardModalBody'), rid=idrow(st.row); let html=''; if(rid&&window.CSS&&CSS.escape){const c=document.querySelector(`[data-record-card-id="${CSS.escape(rid)}"]`); if(c){const cl=c.cloneNode(true); cl.open=true; html=cl.outerHTML;}} b.innerHTML=html||fallback(st.row); m.style.display='flex';};
+ window.abrirCalendarioHuespedes=function(){const rs=rows(), m=document.getElementById('dashboardCalendarModal'); if(!m)return; addExtras(); legend(); const d=document.getElementById('calendarFechaDesde'), h=document.getElementById('calendarFechaHasta'); if(d&&!d.value)d.value=iso(defaults(rs,'desde')); if(h&&!h.value)h.value=iso(defaults(rs,'hasta')); fill(rs); m.style.display='flex'; tooltip(); window.renderCalendarioHuespedes();};
+ window.renderCalendarioHuespedes=function(){addExtras(); legend(); const w=document.getElementById('calendarGridWrap'), meta=document.getElementById('calendarMeta'), sub=document.getElementById('calendarSubtitle'), rs=rows(); if(!w)return; if(!rs.length){w.innerHTML='<div class="empty-state">Primero carga registros en Control de huéspedes y después abre el calendario.</div>'; if(meta)meta.textContent='Sin registros cargados.'; return;} const desde=date(document.getElementById('calendarFechaDesde')?.value)||defaults(rs,'desde'), hasta=date(document.getElementById('calendarFechaHasta')?.value)||defaults(rs,'hasta'); if(hasta<desde){w.innerHTML='<div class="empty-state">La fecha final debe ser igual o posterior a la fecha inicial.</div>'; if(meta)meta.textContent='Rango de fechas inválido.'; return;} const pf=txt(document.getElementById('calendarPropiedadFiltro')?.value).trim(), af=txt(document.getElementById('calendarAlojamientoFiltro')?.value).trim(), nf=txt(document.getElementById('calendarNombreFiltro')?.value).trim(); const ds=days(desde,hasta); if(ds.length>95){w.innerHTML='<div class="empty-state">Selecciona un rango máximo de 95 días para mantener la vista rápida.</div>'; if(meta)meta.textContent=`${ds.length} días seleccionados.`; return;} let prep=rs.map(r=>{const s=date(get(r,['Fecha de ingreso','Ingreso','Check-in date'])), e0=date(get(r,['Fecha de salida','Salida','Check-out date'])); if(!s||!e0)return null; const e=e0<s?s:e0; return {row:r,start:s,end:e,alojamiento:aloj(r),propiedad:prop(r),nombre:nombre(r)};}).filter(Boolean).filter(x=>x.end>=desde&&x.start<=hasta); if(pf)prep=prep.filter(x=>x.propiedad===pf); if(af)prep=prep.filter(x=>x.alojamiento===af); if(nf)prep=prep.filter(x=>x.nombre===nf); window.__calendarStayRows=prep; const grupos=new Map(); prep.forEach((x,i)=>{x.__calendarIndex=i; if(!grupos.has(x.alojamiento))grupos.set(x.alojamiento,[]); grupos.get(x.alojamiento).push(x);}); const al=[...grupos.keys()].sort((a,b)=>a.localeCompare(b,'es')); if(!al.length){w.innerHTML='<div class="empty-state">No hay estancias en el rango o filtros seleccionados.</div>'; if(meta)meta.textContent='0 estancias visibles.'; return;} const dw=window.innerWidth<=700?60:(window.innerWidth<=1024?64:72), lw=window.innerWidth<=700?165:(window.innerWidth<=1024?190:220); let html=`<div class="calendar-grid" style="grid-template-columns:${lw}px repeat(${ds.length}, ${dw}px);"><div class="calendar-corner">Alojamiento</div>`; const today=iso(new Date()); ds.forEach(d=>{const wk=d.getDay()===0||d.getDay()===6; html+=`<div class="calendar-day-header${wk?' weekend':''}"><div>${DIAS[d.getDay()]}</div><div class="calendar-day-num">${d.getDate()}</div><div>${MESES[d.getMonth()].slice(0,3)}</div></div>`;}); al.forEach((a,ri)=>{html+=`<div class="calendar-stay-label"><div class="calendar-stay-name">${esc(a)}</div><div class="calendar-stay-code">${grupos.get(a).length} estancia(s)</div></div>`; ds.forEach((d,di)=>{const wk=d.getDay()===0||d.getDay()===6, td=iso(d)===today; html+=`<div class="calendar-cell${wk?' weekend':''}${td?' today':''}" data-row="${ri}" data-day="${di}">`; grupos.get(a).forEach(st=>{const vs=clamp(st.start,desde,hasta), ve=clamp(st.end,desde,hasta), si=daysBetween(desde,vs), ei=daysBetween(desde,ve); if(di!==si)return; const span=Math.max(1,ei-si+1), width=`calc(${span*dw}px - ${window.innerWidth<=700?8:12}px)`, tt=`<strong>${esc(nombre(st.row))}</strong>\nMonto facturado: ${esc(monto(st.row))}\nFactura: ${esc(label(st.row))}\nMedio de reservación: ${esc(medio(st.row))}\n${esc(a)}\n${iso(st.start)} → ${iso(st.end)}`; html+=`<div class="calendar-bar ${clase(st.row)}" style="width:${width};" data-calendar-stay-index="${st.__calendarIndex}" data-calendar-tooltip="${esc(tt)}" onclick="event.stopPropagation(); abrirCardCalendario('${st.__calendarIndex}')">${esc(nombre(st.row))}</div>`;}); html+='</div>';});}); html+='</div>'; w.innerHTML=html; tooltip(); const filtros=[pf&&`Propiedad: ${pf}`,af&&`Alojamiento: ${af}`,nf&&`Nombre: ${nf}`].filter(Boolean).join(' · '); if(meta)meta.textContent=`${prep.length} estancia(s) · ${al.length} alojamiento(s) · ${desde.getDate()} ${MESES[desde.getMonth()]} ${desde.getFullYear()} a ${hasta.getDate()} ${MESES[hasta.getMonth()]} ${hasta.getFullYear()}${filtros?' · '+filtros:''}.`; if(sub)sub.textContent='Colores planos por estado de factura. Pasa el cursor para ver metadata y da click para abrir la card.';};
+ document.addEventListener('DOMContentLoaded',()=>{addExtras(); legend(); ['calendarFechaDesde','calendarFechaHasta','calendarAlojamientoFiltro','calendarPropiedadFiltro','calendarNombreFiltro'].forEach(id=>{const e=document.getElementById(id); if(e&&e.dataset.v3!=='1'){e.addEventListener('change',window.renderCalendarioHuespedes); e.dataset.v3='1';}});});
+})();
+</script>
+
+
+<!-- ===== Calendario: enfoque inicial configurable con snap y highlight ===== -->
+<script id="calendar-focus-snap-v5">
+(function(){
+  const MS=86400000;
+  const iso=d=>d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`:'';
+  const parseIso=v=>{const raw=String(v||'').trim(); const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})/); return m?new Date(Number(m[1]),Number(m[2])-1,Number(m[3])):null;};
+  const norm=d=>d?new Date(d.getFullYear(),d.getMonth(),d.getDate()):null;
+  const add=(b,n)=>{const d=norm(b); d.setDate(d.getDate()+n); return d;};
+  const clamp=(d,min,max)=>!d?null:(min&&d<min?min:(max&&d>max?max:d));
+  function rangoDefaultCentradoEnHoy(){const h=norm(new Date());return{desde:iso(add(h,-15)),hasta:iso(add(h,45))};}
+  function asegurarRangoConHoySiEstaVacio(){const d=document.getElementById('calendarFechaDesde'),h=document.getElementById('calendarFechaHasta'); if(!d||!h)return; if(!d.value&&!h.value){const r=rangoDefaultCentradoEnHoy(); d.value=r.desde; h.value=r.hasta;}}
+  function ensureFocusControl(){const tb=document.querySelector('#dashboardCalendarModal .calendar-toolbar'); if(!tb||document.getElementById('calendarFocusMode'))return; const box=document.createElement('div'); box.className='calendar-focus-control'; box.innerHTML='<label for="calendarFocusMode">Fecha de referencia</label><select id="calendarFocusMode"><option value="today" selected>Día de hoy</option><option value="oldest">Fecha más antigua filtrada</option></select>'; const btn=document.getElementById('btnActualizarCalendario'); tb.insertBefore(box,btn||null); box.querySelector('select')?.addEventListener('change',()=>enfocarCalendarioSegunModo({highlight:true,force:true}));}
+  function range(){return{desde:parseIso(document.getElementById('calendarFechaDesde')?.value),hasta:parseIso(document.getElementById('calendarFechaHasta')?.value)};}
+  function oldest(){const stays=Array.isArray(window.__calendarStayRows)?window.__calendarStayRows:[]; const {desde,hasta}=range(); let min=null; stays.forEach(st=>{const d=norm(st&&st.start instanceof Date?st.start:parseIso(st&&st.start)); if(d&&(!min||d<min))min=d;}); return clamp(min,desde,hasta);}
+  function focusDate(){const mode=document.getElementById('calendarFocusMode')?.value||'today'; return mode==='oldest'?(oldest()||norm(new Date())):norm(new Date());}
+  function dayIndex(fecha){const {desde}=range(); if(!desde||!fecha)return-1; return Math.round((norm(fecha)-desde)/MS);}
+  function clearHi(){document.querySelectorAll('#calendarGridWrap .calendar-focus-highlight').forEach(el=>el.classList.remove('calendar-focus-highlight'));}
+  function hi(di){clearHi(); if(di<0)return; const w=document.getElementById('calendarGridWrap'); if(!w)return; const heads=w.querySelectorAll('.calendar-day-header'); if(heads[di])heads[di].classList.add('calendar-focus-highlight'); w.querySelectorAll(`.calendar-cell[data-day="${di}"]`).forEach(el=>el.classList.add('calendar-focus-highlight'));}
+  function scrollDay(di,opt={}){const m=document.getElementById('dashboardCalendarModal'),w=document.getElementById('calendarGridWrap'); if(!m||m.style.display==='none'||!w||di<0)return false; const target=w.querySelector(`.calendar-cell[data-day="${di}"]`)||w.querySelectorAll('.calendar-day-header')[di]; if(!target)return false; requestAnimationFrame(()=>{const left=Math.max(0,target.offsetLeft+target.offsetWidth/2-w.clientWidth/2); try{w.scrollTo({left,behavior:'smooth'});}catch(e){w.scrollLeft=left;} if(opt.highlight!==false)setTimeout(()=>hi(di),280);}); return true;}
+  function enfocarCalendarioSegunModo(opt={}){ensureFocusControl(); return scrollDay(dayIndex(focusDate()),opt);}
+  window.enfocarCalendarioSegunModo=enfocarCalendarioSegunModo;
+  window.centrarColumnaHoyCalendario=function(){const s=document.getElementById('calendarFocusMode'),prev=s?.value; if(s)s.value='today'; const ok=enfocarCalendarioSegunModo({highlight:true,force:true}); if(s&&prev)s.value=prev; return ok;};
+  const prevOpen=window.abrirCalendarioHuespedes; if(typeof prevOpen==='function'){window.abrirCalendarioHuespedes=function(){asegurarRangoConHoySiEstaVacio(); ensureFocusControl(); const r=prevOpen.apply(this,arguments); setTimeout(()=>enfocarCalendarioSegunModo({highlight:true}),100); setTimeout(()=>enfocarCalendarioSegunModo({highlight:false}),360); return r;};}
+  const prevRender=window.renderCalendarioHuespedes; if(typeof prevRender==='function'){window.renderCalendarioHuespedes=function(){ensureFocusControl(); const r=prevRender.apply(this,arguments); setTimeout(()=>enfocarCalendarioSegunModo({highlight:true}),90); return r;};}
+  document.addEventListener('DOMContentLoaded',ensureFocusControl);
+})();
+</script>
+
+
+
+<!-- ===== Lista / Calendario inline Control de huéspedes ===== -->
+<style id="dashboard-list-calendar-inline-switch">
+  .dashboard-view-switch{
+    margin-top:10px;
+    display:inline-flex;
+    gap:4px;
+    padding:5px;
+    border-radius:999px;
+    border:1px solid #f3cf94;
+    background:#fff7ed;
+    box-shadow:inset 0 1px 2px rgba(15,23,42,.05);
+  }
+  .dashboard-view-switch-btn{
+    margin-top:0 !important;
+    min-width:118px;
+    padding:10px 16px !important;
+    border-radius:999px !important;
+    background:transparent !important;
+    color:#7c4a03 !important;
+    border:0 !important;
+    box-shadow:none !important;
+    font-weight:900 !important;
+  }
+  .dashboard-view-switch-btn.active{
+    background:linear-gradient(180deg,#f59e0b 0%,#d97706 100%) !important;
+    color:#fff !important;
+    box-shadow:0 8px 18px rgba(217,119,6,.18) !important;
+  }
+  .dashboard-calendar-inline{
+    margin-top:14px;
+  }
+  .dashboard-calendar-panel{
+    width:100%;
+  }
+  #dashboardCalendarModal.dashboard-calendar-panel{
+    position:static !important;
+    inset:auto !important;
+    z-index:auto !important;
+    background:transparent !important;
+    padding:0 !important;
+    display:none;
+    align-items:stretch !important;
+    justify-content:stretch !important;
+    -webkit-backdrop-filter:none !important;
+    backdrop-filter:none !important;
+  }
+  #dashboardCalendarModal .dashboard-calendar-card-inline,
+  #dashboardCalendarModal .calendar-modal-card{
+    width:100% !important;
+    max-width:none !important;
+    max-height:none !important;
+    overflow:visible !important;
+    padding:0 !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+    background:transparent !important;
+    text-align:left !important;
+  }
+  #dashboardCalendarModal .calendar-modal-header{
+    position:static !important;
+    background:transparent !important;
+    border-bottom:0 !important;
+    padding:0 !important;
+    margin:0 0 12px !important;
+  }
+  #dashboardCalendarModal .analytics-close-btn{display:none !important;}
+  #dashboardCalendarModal .calendar-scroll{
+    max-height:62vh !important;
+  }
+  @media(max-width:700px){
+    .dashboard-view-switch{display:grid;grid-template-columns:1fr 1fr;width:100%;}
+    .dashboard-view-switch-btn{width:100% !important;min-width:0;}
+    #dashboardCalendarModal .calendar-modal-card{
+      width:100% !important;
+      height:auto !important;
+      max-height:none !important;
+      border-radius:0 !important;
+      padding:0 !important;
+    }
+    #dashboardCalendarModal .calendar-scroll{
+      max-height:calc(100dvh - 320px) !important;
+    }
+  }
+</style>
+<script id="dashboard-list-calendar-inline-switch-script">
+(function(){
+  const __prevAbrirCalendarioInline = window.abrirCalendarioHuespedes;
+  function qs(id){ return document.getElementById(id); }
+  function moveCalendarInline(){
+    const mount = qs('dashboardCalendarInlineMount');
+    const cal = qs('dashboardCalendarModal');
+    if(mount && cal && cal.parentNode !== mount){ mount.appendChild(cal); }
+  }
+  function rowsCargadas(){
+    return Array.isArray(window.dashboardFilteredRows) ? window.dashboardFilteredRows
+      : (Array.isArray(window.dashboardRows) ? window.dashboardRows
+      : (Array.isArray(window.dashboardRowsFiltered) ? window.dashboardRowsFiltered
+      : (Array.isArray(window.dashboardRowsAll) ? window.dashboardRowsAll
+      : (Array.isArray(window.__dashboardRowsFiltered) ? window.__dashboardRowsFiltered
+      : (Array.isArray(window.__dashboardRows) ? window.__dashboardRows : [])))));
+  }
+  function inicializarCalendarioInline(){
+    moveCalendarInline();
+    const rows = rowsCargadas();
+    try{
+      if(typeof window.asegurarRangoConHoySiEstaVacio === 'function') window.asegurarRangoConHoySiEstaVacio();
+    }catch(e){}
+    const desdeInput = qs('calendarFechaDesde');
+    const hastaInput = qs('calendarFechaHasta');
+    if(rows.length){
+      try{
+        if(desdeInput && !desdeInput.value && typeof getFechaDefault === 'function' && typeof toInputDate === 'function') desdeInput.value = toInputDate(getFechaDefault(rows,'desde'));
+        if(hastaInput && !hastaInput.value && typeof getFechaDefault === 'function' && typeof toInputDate === 'function') hastaInput.value = toInputDate(getFechaDefault(rows,'hasta'));
+      }catch(e){}
+    }
+    if(typeof __prevAbrirCalendarioInline === 'function' && !window.__inlineCalendarOpening){
+      try{
+        window.__inlineCalendarOpening = true;
+        __prevAbrirCalendarioInline();
+      }catch(e){}
+      finally{ window.__inlineCalendarOpening = false; }
+    } else {
+      try{ if(typeof window.renderCalendarioHuespedes === 'function') window.renderCalendarioHuespedes(); }catch(e){}
+    }
+    const cal = qs('dashboardCalendarModal');
+    if(cal) cal.style.display = 'block';
+  }
+  window.setDashboardViewMode = function(mode){
+    moveCalendarInline();
+    const isCal = mode === 'calendario';
+    const listaBtn = qs('btnModoLista');
+    const calBtn = qs('btnModoCalendario');
+    const listWrap = qs('dashboardRecordsWrap');
+    const pager = qs('dashboardPagerBar');
+    const mount = qs('dashboardCalendarInlineMount');
+    const cal = qs('dashboardCalendarModal');
+    listaBtn?.classList.toggle('active', !isCal);
+    calBtn?.classList.toggle('active', isCal);
+    listaBtn?.setAttribute('aria-pressed', String(!isCal));
+    calBtn?.setAttribute('aria-pressed', String(isCal));
+    listWrap?.classList.toggle('hidden', isCal);
+    pager?.classList.toggle('hidden', isCal);
+    mount?.classList.toggle('hidden', !isCal);
+    if(cal) cal.style.display = isCal ? 'block' : 'none';
+    if(isCal) inicializarCalendarioInline();
+  };
+  window.abrirCalendarioHuespedes = function(){ window.setDashboardViewMode('calendario'); };
+  window.cerrarCalendarioHuespedes = function(){ window.setDashboardViewMode('lista'); };
+  document.addEventListener('DOMContentLoaded', function(){
+    moveCalendarInline();
+    qs('btnModoLista')?.addEventListener('click', function(){ window.setDashboardViewMode('lista'); });
+    qs('btnModoCalendario')?.addEventListener('click', function(){ window.setDashboardViewMode('calendario'); });
+    qs('btnVistaCalendario')?.addEventListener('click', function(){ window.setDashboardViewMode('calendario'); });
+    window.setDashboardViewMode('lista');
+  });
+})();
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+    const inputMes = document.getElementById("filtro_mes_estancia");
+    if(inputMes && !inputMes.value){
+        const hoy = new Date();
+        const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+        const valor = `${hoy.getFullYear()}-${mes}`;
+        inputMes.value = valor;
+    }
+});
+</script>
+
 </body>
 </html>
+
+<!-- ===== FIX calendario: encabezado fijo con highlight tenue de columna ===== -->
+<style id="calendar-sticky-reference-header-fix">
+  #dashboardCalendarModal .calendar-scroll{
+    overflow:auto !important;
+    position:relative !important;
+    -webkit-overflow-scrolling:touch !important;
+  }
+
+  #dashboardCalendarModal .calendar-corner,
+  #dashboardCalendarModal .calendar-day-header{
+    position:sticky !important;
+    top:0 !important;
+    z-index:30 !important;
+    background:#fff7ed !important;
+    background-image:none !important;
+  }
+
+  #dashboardCalendarModal .calendar-corner{
+    left:0 !important;
+    z-index:45 !important;
+  }
+
+  #dashboardCalendarModal .calendar-day-header.calendar-focus-highlight{
+    position:sticky !important;
+    top:0 !important;
+    z-index:42 !important;
+    background:#fff7ed !important;
+    background-image:none !important;
+    color:#5f5f5f !important;
+    box-shadow:none !important;
+    outline:none !important;
+    animation:none !important;
+    transform:none !important;
+    filter:none !important;
+  }
+
+  #dashboardCalendarModal .calendar-cell.calendar-focus-highlight{
+    position:relative !important;
+    z-index:1 !important;
+    background:rgba(245,158,11,.10) !important;
+    box-shadow:none !important;
+    outline:none !important;
+    animation:none !important;
+    transform:none !important;
+    filter:none !important;
+  }
+
+  #dashboardCalendarModal .calendar-cell.calendar-focus-highlight::after,
+  #dashboardCalendarModal .calendar-day-header.calendar-focus-highlight::after{
+    content:none !important;
+    display:none !important;
+  }
+
+  @media(max-width:700px){
+    #dashboardCalendarModal .calendar-corner,
+    #dashboardCalendarModal .calendar-day-header{
+      top:0 !important;
+    }
+  }
+</style>
+
+<!-- ===== Calendario inline: mostrar únicamente Fecha de referencia ===== -->
+<style id="calendar-inline-only-reference-filter">
+  #dashboardCalendarModal .calendar-toolbar{
+    grid-template-columns:minmax(220px, 360px) !important;
+    justify-content:flex-start !important;
+    align-items:end !important;
+    gap:10px !important;
+  }
+  #dashboardCalendarModal .calendar-toolbar > div:not(.calendar-focus-control),
+  #dashboardCalendarModal .calendar-toolbar > button{
+    display:none !important;
+  }
+  #dashboardCalendarModal .calendar-focus-control{
+    display:block !important;
+    width:100% !important;
+    max-width:360px !important;
+    grid-column:auto !important;
+  }
+  #dashboardCalendarModal .calendar-focus-control label{
+    margin:0 0 7px 0 !important;
+  }
+  @media(max-width:700px){
+    #dashboardCalendarModal .calendar-toolbar{
+      grid-template-columns:1fr !important;
+    }
+    #dashboardCalendarModal .calendar-focus-control{
+      max-width:none !important;
+    }
+  }
+</style>
+
+
+<!-- ===== Calendario PRO: leyendas compactas + Fecha de referencia integrada a la derecha ===== -->
+<style id="calendar-pro-legend-reference-control">
+  #dashboardCalendarModal .calendar-toolbar{
+    display:none !important;
+  }
+  #dashboardCalendarModal .calendar-legend-fixed{
+    position:sticky !important;
+    top:0 !important;
+    z-index:60 !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:space-between !important;
+    gap:10px !important;
+    flex-wrap:wrap !important;
+    margin:10px 0 0 !important;
+    padding:8px 10px !important;
+    background:rgba(255,255,255,.96) !important;
+    border:1px solid #f1dfbd !important;
+    border-radius:16px 16px 0 0 !important;
+    box-shadow:0 8px 18px rgba(15,23,42,.06) !important;
+    backdrop-filter:blur(12px) saturate(1.1) !important;
+    -webkit-backdrop-filter:blur(12px) saturate(1.1) !important;
+  }
+  #dashboardCalendarModal .calendar-legend-chips{
+    display:flex !important;
+    align-items:center !important;
+    gap:6px !important;
+    flex-wrap:wrap !important;
+    min-width:0 !important;
+  }
+  #dashboardCalendarModal .calendar-legend-fixed .calendar-legend-pill{
+    display:inline-flex !important;
+    align-items:center !important;
+    gap:5px !important;
+    padding:4px 8px !important;
+    min-height:25px !important;
+    border-radius:999px !important;
+    background:linear-gradient(180deg,#fff 0%,#f8fafc 100%) !important;
+    border:1px solid #e5e7eb !important;
+    color:#374151 !important;
+    box-shadow:0 3px 8px rgba(15,23,42,.045) !important;
+    font-size:11px !important;
+    font-weight:800 !important;
+    line-height:1.1 !important;
+    letter-spacing:0 !important;
+    white-space:nowrap !important;
+  }
+  #dashboardCalendarModal .calendar-legend-fixed .calendar-legend-dot{
+    width:8px !important;
+    height:8px !important;
+    min-width:8px !important;
+    border-radius:999px !important;
+    display:inline-block !important;
+    box-shadow:0 0 0 2px rgba(255,255,255,.9),0 2px 5px rgba(15,23,42,.16) !important;
+  }
+  #dashboardCalendarModal .calendar-legend-fixed .calendar-legend-dot.si{background:linear-gradient(135deg,#fb923c,#e11d48,#be185d) !important;}
+  #dashboardCalendarModal .calendar-legend-fixed .calendar-legend-dot.no{background:linear-gradient(135deg,#2563eb,#06b6d4,#14b8a6) !important;}
+  #dashboardCalendarModal .calendar-legend-fixed .calendar-legend-dot.emitido{background:linear-gradient(135deg,#059669,#10b981,#f59e0b) !important;}
+
+  #dashboardCalendarModal .calendar-legend-reference-slot{
+    margin-left:auto !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:flex-end !important;
+    flex:0 0 auto !important;
+  }
+  #dashboardCalendarModal .calendar-legend-reference-slot .calendar-focus-control{
+    display:flex !important;
+    align-items:center !important;
+    gap:7px !important;
+    width:auto !important;
+    max-width:none !important;
+    padding:4px 5px 4px 9px !important;
+    border-radius:999px !important;
+    border:1px solid #fed7aa !important;
+    background:linear-gradient(180deg,#fff7ed 0%,#fffbeb 100%) !important;
+    box-shadow:0 3px 9px rgba(217,119,6,.075) !important;
+  }
+  #dashboardCalendarModal .calendar-legend-reference-slot .calendar-focus-control label{
+    margin:0 !important;
+    display:inline-flex !important;
+    align-items:center !important;
+    gap:5px !important;
+    color:#92400e !important;
+    font-size:11px !important;
+    font-weight:900 !important;
+    line-height:1 !important;
+    white-space:nowrap !important;
+  }
+  #dashboardCalendarModal .calendar-legend-reference-slot .calendar-focus-control label::before{
+    content:"🎯";
+    font-size:11px;
+    line-height:1;
+  }
+  #dashboardCalendarModal .calendar-legend-reference-slot .calendar-focus-control select{
+    width:auto !important;
+    min-width:114px !important;
+    max-width:150px !important;
+    height:26px !important;
+    padding:3px 22px 3px 8px !important;
+    border-radius:999px !important;
+    border:1px solid #f59e0b !important;
+    background:#ffffff !important;
+    color:#2b2b2b !important;
+    font-size:11px !important;
+    font-weight:800 !important;
+    box-shadow:none !important;
+  }
+  #dashboardCalendarModal .calendar-scroll{
+    border-radius:0 0 16px 16px !important;
+    border-top:0 !important;
+  }
+  @media(max-width:700px){
+    #dashboardCalendarModal .calendar-legend-fixed{
+      align-items:stretch !important;
+      display:flex !important;
+      flex-direction:column !important;
+      gap:7px !important;
+      padding:8px !important;
+    }
+    #dashboardCalendarModal .calendar-legend-chips{
+      gap:5px !important;
+    }
+    #dashboardCalendarModal .calendar-legend-fixed .calendar-legend-pill{
+      font-size:10.5px !important;
+      padding:4px 7px !important;
+      min-height:24px !important;
+    }
+    #dashboardCalendarModal .calendar-legend-reference-slot{
+      width:100% !important;
+      justify-content:flex-end !important;
+      margin-left:0 !important;
+    }
+    #dashboardCalendarModal .calendar-legend-reference-slot .calendar-focus-control{
+      width:auto !important;
+      max-width:100% !important;
+    }
+    #dashboardCalendarModal .calendar-legend-reference-slot .calendar-focus-control select{
+      min-width:118px !important;
+      max-width:140px !important;
+    }
+  }
+</style>
+<script id="calendar-pro-legend-reference-control-script">
+(function(){
+  function qs(id){return document.getElementById(id);}
+  function enhanceLegendReference(){
+    const legend=qs('calendarLegendFixed');
+    if(!legend) return;
+
+    let chips=legend.querySelector('.calendar-legend-chips');
+    if(!chips){
+      chips=document.createElement('div');
+      chips.className='calendar-legend-chips';
+      Array.from(legend.querySelectorAll(':scope > .calendar-legend-pill')).forEach(el=>chips.appendChild(el));
+      legend.insertBefore(chips, legend.firstChild);
+    }
+
+    let slot=legend.querySelector('.calendar-legend-reference-slot');
+    if(!slot){
+      slot=document.createElement('div');
+      slot.className='calendar-legend-reference-slot';
+      legend.appendChild(slot);
+    }
+
+    const control=qs('calendarFocusMode')?.closest('.calendar-focus-control');
+    if(control && control.parentNode!==slot){
+      slot.appendChild(control);
+    }
+  }
+
+  const prevRender=window.renderCalendarioHuespedes;
+  if(typeof prevRender==='function'){
+    window.renderCalendarioHuespedes=function(){
+      const r=prevRender.apply(this, arguments);
+      setTimeout(enhanceLegendReference, 0);
+      setTimeout(enhanceLegendReference, 80);
+      return r;
+    };
+  }
+
+  const prevOpen=window.abrirCalendarioHuespedes;
+  if(typeof prevOpen==='function'){
+    window.abrirCalendarioHuespedes=function(){
+      const r=prevOpen.apply(this, arguments);
+      setTimeout(enhanceLegendReference, 0);
+      setTimeout(enhanceLegendReference, 120);
+      return r;
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(enhanceLegendReference, 0);
+    setTimeout(enhanceLegendReference, 250);
+  });
+})();
+</script>
+
+<style>
+.header-calendario-derecha-pro{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:4px;
+}
+.fila-superior{
+    width:100%;
+    display:flex;
+    justify-content:flex-end;
+}
+.fila-inferior{
+    width:100%;
+    display:flex;
+    justify-content:flex-end;
+}
+</style>
