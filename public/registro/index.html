@@ -1732,6 +1732,971 @@ button:disabled{
   }
 }
 
+
+/* ===== Ticket emitido clicable en encabezado ===== */
+a.ticket-status-badge,
+a.dashboard-ticket-status-badge{
+  text-decoration:none !important;
+  cursor:pointer !important;
+}
+a.ticket-status-badge:hover,
+a.dashboard-ticket-status-badge:hover{
+  transform:translateY(-1px);
+  filter:brightness(1.03);
+}
+
+
+/* ===== Botón copiar mensaje ticket ===== */
+.copy-ticket-message-btn{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  width:max-content !important;
+  max-width:100% !important;
+  padding:5px 10px !important;
+  border-radius:999px !important;
+  background:#0f766e !important;
+  color:#ffffff !important;
+  font-size:11px !important;
+  font-weight:800 !important;
+  line-height:1.2 !important;
+  text-decoration:none !important;
+  border:0 !important;
+  box-shadow:none !important;
+  margin-top:0 !important;
+  cursor:pointer !important;
+}
+.copy-ticket-message-btn:hover{
+  filter:brightness(1.05) !important;
+  transform:translateY(-1px) !important;
+}
+.copy-ticket-message-btn.copied{
+  background:#16a34a !important;
+}
+
+
+/* Respaldo: ocultar cualquier enlace de reenviar ticket si existiera por caché/render previo */
+a.link-btn[href^="https://wa.me/"]{
+  display:none !important;
+}
+
+
+/* ===== KPI unificado: estado de tickets ===== */
+.ticket-status-wide-card{
+  grid-column:1 / -1;
+  padding:16px !important;
+  background:linear-gradient(180deg,#ffffff 0%, #fffdf8 100%) !important;
+  border-color:#f3cf94 !important;
+}
+.ticket-status-wide-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.ticket-status-wide-title{
+  font-size:18px;
+  font-weight:900;
+  color:#2b2b2b;
+  line-height:1.15;
+}
+.ticket-status-wide-total{
+  flex:0 0 auto;
+  padding:7px 10px;
+  border-radius:999px;
+  background:#fff7ed;
+  border:1px solid #fdba74;
+  color:#9a6700;
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.ticket-stacked-bar{
+  width:100%;
+  height:18px;
+  display:flex;
+  overflow:hidden;
+  border-radius:999px;
+  background:#f3f4f6;
+  border:1px solid #e5e7eb;
+  box-shadow:inset 0 1px 2px rgba(15,23,42,.08);
+}
+.ticket-stacked-segment{
+  height:100%;
+  min-width:0;
+  transition:width .35s ease;
+}
+.ticket-stacked-issued{
+  background:linear-gradient(90deg,#16a34a 0%, #86efac 100%);
+}
+.ticket-stacked-pending{
+  background:linear-gradient(90deg,#f97316 0%, #ef4444 100%);
+}
+.ticket-status-wide-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+}
+.ticket-status-metric{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:11px 12px;
+  border-radius:16px;
+  background:#fff;
+  border:1px solid #f3e3c4;
+}
+.ticket-status-dot{
+  width:12px;
+  height:12px;
+  border-radius:999px;
+  flex:0 0 auto;
+}
+.ticket-status-metric.issued .ticket-status-dot{ background:#16a34a; }
+.ticket-status-metric.pending .ticket-status-dot{ background:#ef4444; }
+.ticket-status-metric-label{
+  font-size:12px;
+  font-weight:800;
+  color:#6b7280;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+}
+.ticket-status-metric-value{
+  margin-top:2px;
+  font-size:18px;
+  font-weight:900;
+  color:#2b2b2b;
+  line-height:1.1;
+}
+@media (max-width:700px){
+  .ticket-status-wide-head{
+    flex-direction:column;
+    gap:8px;
+  }
+  .ticket-status-wide-total{
+    width:100%;
+    text-align:center;
+  }
+  .ticket-status-wide-grid{
+    grid-template-columns:1fr;
+  }
+  .ticket-status-metric-value{
+    font-size:17px;
+  }
+}
+
+
+/* ===== Dashboard analítico pop-up ===== */
+.analytics-modal-card{
+  max-width:1080px !important;
+  width:100% !important;
+  max-height:88vh !important;
+  overflow:auto !important;
+  text-align:left !important;
+  padding:22px !important;
+}
+.analytics-modal-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:12px;
+}
+.analytics-close-btn{
+  width:38px !important;
+  height:38px !important;
+  min-width:38px !important;
+  margin-top:0 !important;
+  border-radius:999px !important;
+  padding:0 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-size:24px !important;
+  line-height:1 !important;
+  background:#f3f4f6 !important;
+  color:#374151 !important;
+  box-shadow:none !important;
+}
+.analytics-controls{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  padding:14px;
+  border-radius:18px;
+  border:1px solid #f3cf94;
+  background:#fffdf8;
+}
+.analytics-controls label{
+  margin-top:0 !important;
+  font-size:12px !important;
+  color:#7c4a03 !important;
+}
+.analytics-controls select{
+  padding:11px 12px !important;
+  border-radius:14px !important;
+  font-size:14px !important;
+}
+.analytics-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin-top:14px;
+}
+.analytics-summary-card{
+  background:linear-gradient(180deg,#ffffff 0%,#fff7ed 100%);
+  border:1px solid #f3cf94;
+  border-radius:16px;
+  padding:12px 14px;
+}
+.analytics-summary-label{
+  font-size:11px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+  color:#8a6d3b;
+}
+.analytics-summary-value{
+  margin-top:4px;
+  font-size:24px;
+  font-weight:900;
+  color:#2b2b2b;
+}
+.analytics-table-head{
+  margin-top:16px;
+  display:grid;
+  grid-template-columns:minmax(240px,1.2fr) 110px minmax(180px,1fr);
+  gap:10px;
+  padding:10px 12px;
+  border-radius:14px;
+  background:#fef2f2;
+  color:#7c2d12;
+  font-size:12px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+}
+.analytics-tree{
+  display:grid;
+  gap:8px;
+  margin-top:8px;
+}
+.analytics-node{
+  border:1px solid #f3e3c4;
+  border-radius:16px;
+  background:#fff;
+  overflow:hidden;
+}
+.analytics-node-summary{
+  list-style:none;
+  display:grid;
+  grid-template-columns:minmax(240px,1.2fr) 110px minmax(180px,1fr);
+  gap:10px;
+  align-items:center;
+  padding:11px 12px;
+  cursor:pointer;
+}
+.analytics-node-summary::-webkit-details-marker{display:none;}
+.analytics-node-summary::marker{content:"";}
+.analytics-node-label{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  font-weight:800;
+  color:#2b2b2b;
+  line-height:1.25;
+}
+.analytics-node-label-text{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.analytics-chevron{
+  flex:0 0 auto;
+  width:22px;
+  height:22px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  background:#fff7ed;
+  border:1px solid #fdba74;
+  color:#b45309;
+  font-size:13px;
+  transition:transform .16s ease;
+}
+.analytics-node[open] > .analytics-node-summary .analytics-chevron{
+  transform:rotate(90deg);
+}
+.analytics-leaf-dot{
+  flex:0 0 auto;
+  width:9px;
+  height:9px;
+  border-radius:999px;
+  background:#f59e0b;
+  margin-left:7px;
+}
+.analytics-node-count{
+  font-size:14px;
+  font-weight:900;
+  color:#2b2b2b;
+}
+.analytics-bar-track{
+  position:relative;
+  width:100%;
+  height:22px;
+  overflow:hidden;
+  border-radius:999px;
+  border:1px solid #e5e7eb;
+  background:#f3f4f6;
+}
+.analytics-bar-fill{
+  height:100%;
+  min-width:2px;
+  border-radius:999px;
+  background:linear-gradient(90deg,#f59e0b 0%,#dc2626 100%);
+  transition:width .22s ease;
+}
+.analytics-bar-label{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:11px;
+  font-weight:900;
+  color:#374151;
+  pointer-events:none;
+}
+.analytics-children{
+  display:grid;
+  gap:8px;
+  padding:0 10px 10px 24px;
+}
+.analytics-level-2 .analytics-bar-fill{background:linear-gradient(90deg,#0ea5e9 0%,#6366f1 100%);}
+.analytics-level-3 .analytics-bar-fill{background:linear-gradient(90deg,#16a34a 0%,#84cc16 100%);}
+.analytics-tooltip{
+  position:fixed;
+  display:none;
+  z-index:1000000;
+  max-width:280px;
+  padding:10px 12px;
+  border-radius:12px;
+  background:#111827;
+  color:#fff;
+  font-size:12px;
+  line-height:1.4;
+  box-shadow:0 14px 30px rgba(15,23,42,.24);
+  pointer-events:none;
+  white-space:pre-line;
+}
+@media (max-width:850px){
+  .analytics-controls,
+  .analytics-summary-grid{grid-template-columns:1fr;}
+  .analytics-table-head{display:none;}
+  .analytics-node-summary{
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+  .analytics-children{padding-left:14px;}
+}
+
+
+/* ===== Serie de tiempo analítica ===== */
+.analytics-time-btn{
+  margin-top:0 !important;
+  padding:10px 14px !important;
+  border-radius:999px !important;
+  flex:0 0 auto !important;
+}
+.analytics-timeseries-panel{
+  margin-top:14px;
+  padding:14px;
+  border:1px solid #f3cf94;
+  border-radius:20px;
+  background:linear-gradient(180deg,#ffffff 0%,#fffdf8 100%);
+  display:none;
+}
+.analytics-timeseries-panel.show{
+  display:block;
+}
+.analytics-timeseries-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+.analytics-timeseries-title{
+  font-size:16px;
+  font-weight:900;
+  color:#2b2b2b;
+  line-height:1.2;
+}
+.analytics-timeseries-subtitle{
+  margin-top:3px;
+  font-size:12px;
+  color:#6b7280;
+}
+.analytics-timeseries-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.analytics-toggle-btn{
+  margin-top:0 !important;
+  padding:9px 12px !important;
+  border-radius:999px !important;
+  background:linear-gradient(180deg,#fff7ed 0%, #fde7c0 100%) !important;
+  color:#8a5300 !important;
+  border:1px solid #efc36f !important;
+  box-shadow:none !important;
+}
+.analytics-toggle-btn.active{
+  background:linear-gradient(180deg,#0f766e 0%, #0d9488 100%) !important;
+  color:#ffffff !important;
+  border-color:#0f766e !important;
+}
+.analytics-timeseries-chart-wrap{
+  position:relative;
+  width:100%;
+  min-height:280px;
+  overflow:hidden;
+}
+.analytics-timeseries-svg{
+  width:100%;
+  height:280px;
+  display:block;
+}
+.analytics-axis-label{
+  font-size:11px;
+  fill:#6b7280;
+  font-weight:700;
+}
+.analytics-grid-line{
+  stroke:#f3e3c4;
+  stroke-width:1;
+}
+.analytics-line{
+  fill:none;
+  stroke:#0f766e;
+  stroke-width:3;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.analytics-area{
+  fill:rgba(15,118,110,.10);
+}
+.analytics-point{
+  fill:#ffffff;
+  stroke:#0f766e;
+  stroke-width:3;
+  cursor:pointer;
+}
+.analytics-point:hover{
+  fill:#0f766e;
+}
+.analytics-timeseries-tooltip{
+  position:fixed;
+  z-index:1000002;
+  display:none;
+  pointer-events:none;
+  background:#111827;
+  color:#fff;
+  padding:9px 10px;
+  border-radius:12px;
+  font-size:12px;
+  line-height:1.35;
+  box-shadow:0 12px 30px rgba(15,23,42,.22);
+  max-width:240px;
+  white-space:pre-line;
+}
+.analytics-timeseries-empty{
+  padding:22px;
+  text-align:center;
+  color:#6b7280;
+  border:1px dashed #f3cf94;
+  border-radius:16px;
+  background:#fff;
+}
+@media (max-width:700px){
+  .analytics-timeseries-svg{
+    height:240px;
+  }
+  .analytics-timeseries-chart-wrap{
+    min-height:240px;
+  }
+}
+
+
+
+/* ===== Dashboard analítico: responsive + filtros independientes ===== */
+.analytics-independent-filters{
+  margin:12px 0 14px;
+  padding:14px;
+  border-radius:20px;
+  border:1px solid #f3cf94;
+  background:linear-gradient(180deg,#fffdf8 0%,#fff7ed 100%);
+}
+.analytics-filter-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.analytics-filter-title{
+  font-size:15px;
+  font-weight:900;
+  color:#2b2b2b;
+}
+.analytics-filter-subtitle{
+  margin-top:3px;
+  font-size:12px;
+  color:#6b7280;
+}
+.analytics-clear-filter-btn{
+  margin-top:0 !important;
+  padding:9px 12px !important;
+  border-radius:999px !important;
+  background:linear-gradient(180deg,#fff 0%,#f3f4f6 100%) !important;
+  color:#374151 !important;
+  border:1px solid #e5e7eb !important;
+  box-shadow:none !important;
+  white-space:nowrap;
+}
+.analytics-filter-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr 1.15fr;
+  gap:12px;
+  align-items:stretch;
+}
+.analytics-filter-card{
+  background:#fff;
+  border:1px solid #f3e3c4;
+  border-radius:16px;
+  padding:12px;
+}
+.analytics-filter-card-title{
+  font-size:12px;
+  font-weight:900;
+  color:#7c4a03;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+  margin-bottom:8px;
+}
+.analytics-filter-date-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.analytics-independent-filters label{
+  margin-top:0 !important;
+  font-size:12px !important;
+  color:#7c4a03 !important;
+}
+.analytics-independent-filters input,
+.analytics-independent-filters select{
+  padding:11px 12px !important;
+  border-radius:14px !important;
+  font-size:14px !important;
+}
+.analytics-filter-status{
+  margin-top:10px;
+  font-size:12px;
+  color:#6b7280;
+  line-height:1.4;
+}
+.analytics-modal-card{
+  width:min(1120px, calc(100vw - 18px)) !important;
+  max-height:92vh !important;
+}
+.analytics-timeseries-chart-wrap{
+  overflow-x:auto !important;
+  -webkit-overflow-scrolling:touch;
+}
+.analytics-timeseries-svg{
+  min-width:760px;
+}
+@media (max-width:1024px){
+  .analytics-modal-card{
+    width:calc(100vw - 14px) !important;
+    max-height:94vh !important;
+    padding:16px !important;
+    border-radius:18px !important;
+  }
+  .analytics-filter-grid{
+    grid-template-columns:1fr 1fr;
+  }
+  .analytics-filter-card-name{
+    grid-column:1 / -1;
+  }
+  .analytics-controls{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
+@media (max-width:700px){
+  .analytics-modal-card{
+    width:100vw !important;
+    height:100dvh !important;
+    max-height:100dvh !important;
+    border-radius:0 !important;
+    padding:14px !important;
+  }
+  .analytics-modal-header{
+    position:sticky;
+    top:0;
+    z-index:3;
+    background:#fff;
+    padding:8px 0 12px;
+    border-bottom:1px solid #f3e3c4;
+    margin-bottom:12px;
+  }
+  .analytics-filter-head{
+    flex-direction:column;
+  }
+  .analytics-clear-filter-btn{
+    width:100%;
+  }
+  .analytics-filter-grid,
+  .analytics-filter-date-grid,
+  .analytics-controls,
+  .analytics-summary-grid{
+    grid-template-columns:1fr !important;
+  }
+  .analytics-timeseries-head{
+    flex-direction:column;
+  }
+  .analytics-timeseries-actions{
+    width:100%;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .analytics-toggle-btn,
+  .analytics-time-btn{
+    width:100% !important;
+  }
+  .analytics-timeseries-svg{
+    min-width:680px;
+  }
+  .analytics-node-summary{
+    grid-template-columns:1fr !important;
+  }
+}
+
+
+/* ===== V12: botón superior dashboard analítico + badge/pulse + campo numérico destacado ===== */
+#viewDashboard .section{position:relative;}
+#btnDashboardAnalitico{position:absolute !important;top:14px !important;right:14px !important;width:auto !important;min-width:190px !important;flex:0 0 auto !important;margin-top:0 !important;padding:10px 14px !important;border-radius:999px !important;background:linear-gradient(135deg,#0f766e 0%,#0d9488 100%) !important;color:#fff !important;border:1px solid rgba(255,255,255,.55) !important;box-shadow:0 12px 26px rgba(15,118,110,.22) !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;gap:8px !important;z-index:8 !important;}
+#btnDashboardAnalitico:hover{transform:translateY(-1px) !important;box-shadow:0 16px 32px rgba(15,118,110,.28) !important;}
+.dashboard-analytics-badge{min-width:24px;height:24px;padding:0 8px;border-radius:999px;background:#fff;color:#0f766e;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;line-height:1;box-shadow:0 3px 10px rgba(15,23,42,.12);}
+#btnDashboardAnalitico.dashboard-pulse{animation:dashboardPulseNewData 1.35s ease-out 2;}
+@keyframes dashboardPulseNewData{0%{box-shadow:0 0 0 0 rgba(15,118,110,.48),0 12px 26px rgba(15,118,110,.22);}70%{box-shadow:0 0 0 12px rgba(15,118,110,0),0 16px 32px rgba(15,118,110,.28);}100%{box-shadow:0 0 0 0 rgba(15,118,110,0),0 12px 26px rgba(15,118,110,.22);}}
+.analytics-controls .analytics-numeric-filter{background:linear-gradient(180deg,#ecfeff 0%,#cffafe 100%) !important;border:1px solid #67e8f9 !important;border-radius:18px !important;padding:12px !important;box-shadow:0 8px 20px rgba(8,145,178,.10) !important;}
+.analytics-controls .analytics-numeric-filter label{color:#155e75 !important;font-weight:900 !important;}
+.analytics-controls .analytics-numeric-filter select{border-color:#06b6d4 !important;background:#ffffff !important;box-shadow:0 0 0 3px rgba(6,182,212,.08) !important;}
+.analytics-summary-card.numeric-accent{background:linear-gradient(180deg,#ecfeff 0%,#f0fdfa 100%) !important;border-color:#67e8f9 !important;}
+@media (max-width:700px){#btnDashboardAnalitico{top:calc(12px + env(safe-area-inset-top)) !important;right:calc(12px + env(safe-area-inset-right)) !important;left:auto !important;width:50px !important;height:50px !important;min-width:50px !important;}}
+
+/* ===== Serie de tiempo al final como dropdown ===== */
+.analytics-timeseries-dropdown{
+  margin-top:18px;
+  padding-top:14px;
+  border-top:1px solid #f3e3c4;
+}
+.analytics-timeseries-dropdown .analytics-time-btn{
+  width:100% !important;
+  margin-top:0 !important;
+  padding:13px 16px !important;
+  border-radius:16px !important;
+  background:linear-gradient(180deg,#0f766e 0%, #0d9488 100%) !important;
+  color:#ffffff !important;
+  box-shadow:0 10px 22px rgba(15,118,110,.18) !important;
+}
+.analytics-timeseries-dropdown .analytics-time-btn.active{
+  background:linear-gradient(180deg,#0d9488 0%, #0f766e 100%) !important;
+}
+.analytics-timeseries-dropdown .analytics-timeseries-panel{
+  margin-top:10px !important;
+}
+@media (max-width:700px){
+  .analytics-timeseries-dropdown .analytics-time-btn{
+    width:100% !important;
+  }
+}
+
+
+
+
+/* ===== Dashboard: botón flotante fijo visible global ===== */
+#btnDashboardAnalitico{position:fixed !important;top:calc(18px + env(safe-area-inset-top)) !important;right:calc(18px + env(safe-area-inset-right)) !important;left:auto !important;bottom:auto !important;width:62px !important;height:62px !important;min-width:62px !important;max-width:62px !important;min-height:62px !important;padding:0 !important;margin:0 !important;border-radius:50% !important;display:flex !important;align-items:center !important;justify-content:center !important;background:rgba(15,118,110,.76) !important;color:#ffffff !important;border:1px solid rgba(255,255,255,.72) !important;box-shadow:0 18px 42px rgba(15,23,42,.24), inset 0 1px 0 rgba(255,255,255,.36) !important;opacity:.86 !important;backdrop-filter:blur(12px) saturate(1.2) !important;-webkit-backdrop-filter:blur(12px) saturate(1.2) !important;z-index:2147483000 !important;overflow:hidden !important;cursor:pointer !important;transform:none !important;}
+#btnDashboardAnalitico::before{content:"";position:absolute;inset:5px;border-radius:50%;background:radial-gradient(circle at 35% 25%, rgba(255,255,255,.34), rgba(255,255,255,.08) 44%, rgba(255,255,255,0) 70%);pointer-events:none;}
+#btnDashboardAnalitico:hover,#btnDashboardAnalitico:focus-visible{opacity:1 !important;background:rgba(15,118,110,.94) !important;transform:translateY(-1px) scale(1.04) !important;box-shadow:0 22px 52px rgba(15,23,42,.32), 0 0 0 5px rgba(15,118,110,.12) !important;outline:none !important;}
+#btnDashboardAnalitico:active{transform:scale(.98) !important;}
+#btnDashboardAnalitico .dashboard-btn-icon{position:relative;z-index:1;display:flex !important;align-items:center !important;justify-content:center !important;width:35px !important;height:35px !important;border-radius:14px !important;background:rgba(255,255,255,.22) !important;color:#ffffff !important;}
+#btnDashboardAnalitico .dashboard-btn-icon svg{display:block;width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round;}
+@media (max-width:700px){#btnDashboardAnalitico{top:calc(12px + env(safe-area-inset-top)) !important;right:calc(12px + env(safe-area-inset-right)) !important;width:56px !important;height:56px !important;min-width:56px !important;max-width:56px !important;min-height:56px !important;}#btnDashboardAnalitico .dashboard-btn-icon{width:32px !important;height:32px !important;}#btnDashboardAnalitico .dashboard-btn-icon svg{width:23px;height:23px;}}
+
+
+/* ===== Corrección: botón Dashboard sólo dentro de Control de huéspedes ===== */
+#viewDashboard .section{
+  position:relative !important;
+}
+#viewDashboard #btnDashboardAnalitico{
+  position:absolute !important;
+  top:14px !important;
+  right:14px !important;
+  left:auto !important;
+  bottom:auto !important;
+  width:56px !important;
+  height:56px !important;
+  min-width:56px !important;
+  max-width:56px !important;
+  min-height:56px !important;
+  padding:0 !important;
+  margin:0 !important;
+  border-radius:999px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  background:rgba(15,118,110,.78) !important;
+  color:#ffffff !important;
+  border:1px solid rgba(255,255,255,.78) !important;
+  box-shadow:0 14px 32px rgba(15,23,42,.22), inset 0 1px 0 rgba(255,255,255,.36) !important;
+  opacity:.88 !important;
+  backdrop-filter:blur(10px) saturate(1.15) !important;
+  -webkit-backdrop-filter:blur(10px) saturate(1.15) !important;
+  z-index:20 !important;
+  overflow:hidden !important;
+  cursor:pointer !important;
+  transform:none !important;
+}
+#viewDashboard #btnDashboardAnalitico::before{
+  content:"";
+  position:absolute;
+  inset:5px;
+  border-radius:999px;
+  background:radial-gradient(circle at 35% 25%, rgba(255,255,255,.38), rgba(255,255,255,.10) 45%, rgba(255,255,255,0) 72%);
+  pointer-events:none;
+}
+#viewDashboard #btnDashboardAnalitico:hover,
+#viewDashboard #btnDashboardAnalitico:focus-visible{
+  opacity:1 !important;
+  background:rgba(15,118,110,.96) !important;
+  transform:translateY(-1px) scale(1.04) !important;
+  box-shadow:0 18px 40px rgba(15,23,42,.30), 0 0 0 5px rgba(15,118,110,.12) !important;
+  outline:none !important;
+}
+#viewDashboard #btnDashboardAnalitico:active{
+  transform:scale(.98) !important;
+}
+#viewDashboard #btnDashboardAnalitico .dashboard-btn-icon{
+  position:relative;
+  z-index:1;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  width:33px !important;
+  height:33px !important;
+  border-radius:14px !important;
+  background:rgba(255,255,255,.22) !important;
+  color:#ffffff !important;
+}
+#viewDashboard #btnDashboardAnalitico .dashboard-btn-icon svg{
+  display:block !important;
+  width:24px !important;
+  height:24px !important;
+  fill:none !important;
+  stroke:currentColor !important;
+  stroke-width:2.35 !important;
+  stroke-linecap:round !important;
+  stroke-linejoin:round !important;
+}
+#viewDashboard .filter-actions{
+  padding-right:72px !important;
+}
+@media (max-width:700px){
+  #viewDashboard .section{
+    padding-top:74px !important;
+  }
+  #viewDashboard #btnDashboardAnalitico{
+    top:12px !important;
+    right:12px !important;
+    width:54px !important;
+    height:54px !important;
+    min-width:54px !important;
+    max-width:54px !important;
+    min-height:54px !important;
+  }
+  #viewDashboard .filter-actions{
+    padding-right:0 !important;
+  }
+}
+
+
+
+/* ===== AJUSTE FINAL: ocultar textos de Identificación y botón Dashboard fijo dentro de Control ===== */
+#section_identificacion_estancia > .section-title,
+#section_identificacion_estancia > .section-subtitle{
+  display:none !important;
+}
+#viewDashboard.hidden #btnDashboardAnalitico{
+  display:none !important;
+}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico{
+  position:fixed !important;
+  top:calc(118px + env(safe-area-inset-top)) !important;
+  right:max(18px, calc((100vw - 760px) / 2 + 18px)) !important;
+  left:auto !important;
+  bottom:auto !important;
+  width:58px !important;
+  height:58px !important;
+  min-width:58px !important;
+  max-width:58px !important;
+  min-height:58px !important;
+  padding:0 !important;
+  margin:0 !important;
+  border-radius:50% !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  background:linear-gradient(135deg, rgba(124,58,237,.78) 0%, rgba(14,165,233,.72) 52%, rgba(20,184,166,.72) 100%) !important;
+  color:#ffffff !important;
+  border:1px solid rgba(255,255,255,.72) !important;
+  box-shadow:0 18px 42px rgba(15,23,42,.24), 0 0 0 6px rgba(255,255,255,.34), inset 0 1px 0 rgba(255,255,255,.42) !important;
+  opacity:.82 !important;
+  backdrop-filter:blur(14px) saturate(1.35) !important;
+  -webkit-backdrop-filter:blur(14px) saturate(1.35) !important;
+  z-index:99990 !important;
+  overflow:hidden !important;
+  cursor:pointer !important;
+  transform:none !important;
+}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico::before{
+  content:"" !important;
+  position:absolute !important;
+  inset:0 !important;
+  border-radius:50% !important;
+  background:radial-gradient(circle at 32% 24%, rgba(255,255,255,.62), rgba(255,255,255,.20) 32%, rgba(255,255,255,0) 68%) !important;
+  pointer-events:none !important;
+}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico::after{
+  content:"" !important;
+  position:absolute !important;
+  inset:7px !important;
+  border-radius:50% !important;
+  border:1px solid rgba(255,255,255,.44) !important;
+  pointer-events:none !important;
+}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico:hover,
+#viewDashboard:not(.hidden) #btnDashboardAnalitico:focus-visible{
+  opacity:1 !important;
+  transform:translateY(-1px) scale(1.05) !important;
+  background:linear-gradient(135deg, rgba(124,58,237,.96) 0%, rgba(14,165,233,.92) 52%, rgba(20,184,166,.92) 100%) !important;
+  box-shadow:0 22px 52px rgba(15,23,42,.32), 0 0 0 8px rgba(14,165,233,.13), inset 0 1px 0 rgba(255,255,255,.54) !important;
+  outline:none !important;
+}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico:active{
+  transform:scale(.97) !important;
+}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico .dashboard-btn-icon{
+  position:relative !important;
+  z-index:2 !important;
+  width:34px !important;
+  height:34px !important;
+  border-radius:50% !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  background:rgba(255,255,255,.20) !important;
+  color:#ffffff !important;
+}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico .dashboard-btn-icon svg{
+  width:24px !important;
+  height:24px !important;
+  stroke-width:2.45 !important;
+}
+#viewDashboard .filter-actions{
+  padding-right:76px !important;
+}
+@media (max-width:700px){
+  #viewDashboard:not(.hidden) #btnDashboardAnalitico{
+    top:calc(86px + env(safe-area-inset-top)) !important;
+    right:calc(14px + env(safe-area-inset-right)) !important;
+    width:54px !important;
+    height:54px !important;
+    min-width:54px !important;
+    max-width:54px !important;
+    min-height:54px !important;
+  }
+  #viewDashboard:not(.hidden) #btnDashboardAnalitico .dashboard-btn-icon{
+    width:32px !important;
+    height:32px !important;
+  }
+  #viewDashboard .filter-actions{
+    padding-right:0 !important;
+  }
+}
+
+
+/* ===== OVERRIDE FINAL CORREGIDO: botón del Dashboard sólo dentro de Control de huéspedes ===== */
+#section_identificacion_estancia > .section-title,
+#section_identificacion_estancia > .section-subtitle{display:none !important;visibility:hidden !important;height:0 !important;margin:0 !important;padding:0 !important;overflow:hidden !important;}
+#viewDashboard.hidden #btnDashboardAnalitico,#viewRegistro #btnDashboardAnalitico,#viewVehiculos #btnDashboardAnalitico{display:none !important;}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico{position:fixed !important;top:var(--dashboard-btn-top,104px) !important;right:var(--dashboard-btn-right,24px) !important;left:auto !important;bottom:auto !important;width:58px !important;height:58px !important;min-width:58px !important;max-width:58px !important;min-height:58px !important;padding:0 !important;margin:0 !important;border-radius:999px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;background:linear-gradient(135deg,rgba(124,58,237,.70) 0%,rgba(14,165,233,.68) 48%,rgba(20,184,166,.70) 100%) !important;color:#fff !important;border:1px solid rgba(255,255,255,.70) !important;box-shadow:0 16px 36px rgba(15,23,42,.22),0 0 0 5px rgba(255,255,255,.30),inset 0 1px 0 rgba(255,255,255,.44) !important;opacity:.86 !important;backdrop-filter:blur(14px) saturate(1.35) !important;-webkit-backdrop-filter:blur(14px) saturate(1.35) !important;z-index:10020 !important;overflow:hidden !important;cursor:pointer !important;transform:none !important;}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico::before{content:"" !important;position:absolute !important;inset:0 !important;border-radius:999px !important;background:radial-gradient(circle at 30% 22%,rgba(255,255,255,.72),rgba(255,255,255,.20) 34%,rgba(255,255,255,0) 70%) !important;pointer-events:none !important;}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico::after{content:"" !important;position:absolute !important;inset:7px !important;border-radius:999px !important;border:1px solid rgba(255,255,255,.46) !important;pointer-events:none !important;}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico:hover,#viewDashboard:not(.hidden) #btnDashboardAnalitico:focus-visible{opacity:1 !important;transform:translateY(-1px) scale(1.05) !important;background:linear-gradient(135deg,rgba(124,58,237,.96) 0%,rgba(14,165,233,.93) 48%,rgba(20,184,166,.94) 100%) !important;box-shadow:0 22px 52px rgba(15,23,42,.32),0 0 0 8px rgba(14,165,233,.13),inset 0 1px 0 rgba(255,255,255,.54) !important;outline:none !important;}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico:active{transform:scale(.97) !important;}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico .dashboard-btn-icon{position:relative !important;z-index:2 !important;width:34px !important;height:34px !important;border-radius:999px !important;display:flex !important;align-items:center !important;justify-content:center !important;background:rgba(255,255,255,.20) !important;color:#fff !important;}
+#viewDashboard:not(.hidden) #btnDashboardAnalitico .dashboard-btn-icon svg{width:24px !important;height:24px !important;stroke-width:2.45 !important;}
+@media(max-width:700px){#viewDashboard:not(.hidden) #btnDashboardAnalitico{width:54px !important;height:54px !important;min-width:54px !important;max-width:54px !important;min-height:54px !important;}#viewDashboard:not(.hidden) #btnDashboardAnalitico .dashboard-btn-icon{width:32px !important;height:32px !important;}}
+
+
+/* ===== Airbnb: monto total y cálculo automático de monto facturado ===== */
+.dashboard-airbnb-monto-wrap{display:grid;gap:6px;padding:10px;border:1px solid #bae6fd;border-radius:14px;background:linear-gradient(180deg, rgba(240,249,255,.96) 0%, rgba(236,254,255,.86) 100%);}
+.dashboard-airbnb-monto-label{font-size:11px;font-weight:900;color:#075985;text-transform:uppercase;letter-spacing:.02em;}
+.dashboard-airbnb-monto-input{width:150px;min-width:150px;padding:8px 10px;border-radius:10px;border:1px solid #38bdf8;background:#ffffff;font-size:13px;}
+.dashboard-monto-input.airbnb-calculado{background:linear-gradient(180deg,#f8fafc 0%,#eef2ff 100%) !important;border-color:#a5b4fc !important;color:#334155 !important;font-weight:900 !important;}
+.dashboard-monto-hint{font-size:11px;color:#64748b;line-height:1.35;}
+
+.dashboard-monto-calculado-wrap{display:grid;gap:6px;padding:10px;border:1px solid #c7d2fe;border-radius:14px;background:linear-gradient(180deg,#f8fafc 0%,#eef2ff 100%);}
+.dashboard-monto-calculado-label{font-size:11px;font-weight:900;color:#3730a3;text-transform:uppercase;letter-spacing:.02em;}
+.dashboard-monto-calculado-wrap .dashboard-monto-input{width:150px;min-width:150px;}
+
+.dashboard-airbnb-comision-wrap{display:grid;gap:6px;padding:10px;border:1px solid #fed7aa;border-radius:14px;background:linear-gradient(180deg, rgba(255,247,237,.98) 0%, rgba(255,237,213,.82) 100%);}
+.dashboard-airbnb-comision-label{font-size:11px;font-weight:900;color:#9a3412;text-transform:uppercase;letter-spacing:.02em;}
+.dashboard-airbnb-comision-input{width:150px;min-width:150px;padding:8px 10px;border-radius:10px;border:1px solid #fb923c;background:#fff7ed;color:#9a3412;font-size:13px;font-weight:900;}
+
+
+/* ===== Ajuste Ticket para auto-facturación: orden y campos calculados tenues ===== */
+.dashboard-ticket-autofacturacion-box{
+  display:grid;
+  gap:10px;
+}
+.dashboard-campo-calculado-tenue{
+  opacity:.92;
+  box-shadow:inset 0 1px 3px rgba(15,23,42,.06), 0 6px 14px rgba(15,23,42,.04) !important;
+}
+.dashboard-campo-calculado-tenue input[readonly]{
+  background:linear-gradient(180deg,#f8fafc 0%,#eef2f7 100%) !important;
+  color:#475569 !important;
+  border-color:#cbd5e1 !important;
+  box-shadow:inset 0 1px 2px rgba(15,23,42,.06) !important;
+}
+.dashboard-campo-base-airbnb{
+  box-shadow:0 8px 18px rgba(14,165,233,.08) !important;
+}
+.dashboard-ticket-autofacturacion-box .dashboard-inline-actions{
+  margin-top:2px;
+}
+
 </style>
 
 <script>
@@ -1773,6 +2738,13 @@ function formatFechaSimple(fecha){
   if(!fecha) return "—";
   try{
     const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+    const raw = String(fecha).trim();
+    const matchIso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (matchIso) {
+      const dia = Number(matchIso[3]);
+      const mes = Number(matchIso[2]);
+      if (dia && mes >= 1 && mes <= 12) return dia + " de " + meses[mes - 1];
+    }
     const f = new Date(fecha);
     if(isNaN(f)) return fecha;
     return f.getDate() + " de " + meses[f.getMonth()];
@@ -1916,6 +2888,7 @@ function formatRangoFechasSimple(inicio, fin){
 </div>
 <div class="filter-actions">
 <button id="btnBuscarHuespedes" type="button">Buscar registros</button>
+<button id="btnDashboardAnalitico" type="button" aria-label="Abrir dashboard analítico" title="Dashboard analítico"><span class="dashboard-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M4 19V5"></path><path d="M4 19h16"></path><rect x="7" y="11" width="3" height="5" rx="1"></rect><rect x="12" y="7" width="3" height="9" rx="1"></rect><rect x="17" y="4" width="3" height="12" rx="1"></rect></svg></span></button>
 <button class="menu-btn secondary" id="btnLimpiarFiltros" style="flex:0 0 auto;" type="button">Limpiar filtros</button>
 <button class="menu-btn secondary" id="btnExportarCsv" style="flex:0 0 auto;" type="button">Exportar CSV</button>
 </div>
@@ -1923,8 +2896,37 @@ function formatRangoFechasSimple(inicio, fin){
 <div class="kpi-card"><div class="kpi-label">Registros encontrados</div><div class="kpi-value" id="kpi_total_registros">0</div></div>
 <div class="kpi-card"><div class="kpi-label">Con factura</div><div class="kpi-value" id="kpi_con_factura">0</div></div>
 <div class="kpi-card"><div class="kpi-label">Sin factura</div><div class="kpi-value" id="kpi_sin_factura">0</div></div>
-<div class="kpi-card kpi-card-accent"><div class="kpi-label">% ticket emitido</div><div class="kpi-value" id="kpi_pct_facturado">0%</div></div>
-<div class="kpi-card kpi-card-alert"><div class="kpi-label">% ticket pendiente</div><div class="kpi-value" id="kpi_pct_pendiente">0%</div></div>
+<div class="kpi-card ticket-status-wide-card" id="kpi_ticket_status_card">
+  <div class="ticket-status-wide-head">
+    <div>
+      <div class="kpi-label">Estado de tickets</div>
+      <div class="ticket-status-wide-title">Emitidos vs pendientes</div>
+    </div>
+    <div class="ticket-status-wide-total" id="kpi_ticket_total_requieren">0 tickets requieren factura</div>
+  </div>
+
+  <div class="ticket-stacked-bar" aria-label="Porcentaje de tickets emitidos y pendientes">
+    <div class="ticket-stacked-segment ticket-stacked-issued" id="ticket_stacked_emitido" style="width:0%;"></div>
+    <div class="ticket-stacked-segment ticket-stacked-pending" id="ticket_stacked_pendiente" style="width:0%;"></div>
+  </div>
+
+  <div class="ticket-status-wide-grid">
+    <div class="ticket-status-metric issued">
+      <span class="ticket-status-dot"></span>
+      <div>
+        <div class="ticket-status-metric-label">Emitidos</div>
+        <div class="ticket-status-metric-value"><span id="kpi_tickets_emitidos_num">0</span> (<span id="kpi_pct_facturado">0%</span>)</div>
+      </div>
+    </div>
+    <div class="ticket-status-metric pending">
+      <span class="ticket-status-dot"></span>
+      <div>
+        <div class="ticket-status-metric-label">Pendientes</div>
+        <div class="ticket-status-metric-value"><span id="kpi_tickets_pendientes_num">0</span> (<span id="kpi_pct_pendiente">0%</span>)</div>
+      </div>
+    </div>
+  </div>
+</div>
 </div>
 <div class="dashboard-alerts" id="dashboardAlerts"><div class="dashboard-alert dashboard-alert-neutral">Sin alertas todavía.</div></div>
 <div class="results-meta" id="dashboardMeta">Sin consulta todavía.</div>
@@ -1953,6 +2955,117 @@ function formatRangoFechasSimple(inicio, fin){
 </div>
 </div>
 </div>
+
+<div class="popup-backdrop" id="dashboardAnalyticsModal" style="display:none;">
+  <div class="popup-card analytics-modal-card">
+    <div class="analytics-modal-header">
+      <div>
+        <h3 style="margin-bottom:6px;">Dashboard analítico</h3>
+        <div class="hint" id="analyticsSubtitle">Tabla dinámica interactiva sobre los registros cargados.</div>
+      </div>
+      <button class="analytics-close-btn" onclick="cerrarDashboardAnalitico()" type="button" aria-label="Cerrar">×</button>
+    </div>
+
+    <div class="analytics-independent-filters" id="analyticsIndependentFilters">
+      <div class="analytics-filter-head">
+        <div>
+          <div class="analytics-filter-title">Filtros del dashboard analítico</div>
+          <div class="analytics-filter-subtitle">Estos filtros son independientes de la pantalla principal. Se consideran únicamente registros entre la fecha de ingreso y la fecha de salida seleccionadas.</div>
+        </div>
+        <button class="analytics-clear-filter-btn" id="btnLimpiarFiltrosAnaliticos" type="button">Limpiar filtros</button>
+      </div>
+      <div class="analytics-filter-grid">
+        <div class="analytics-filter-card">
+          <div class="analytics-filter-card-title">Fecha de ingreso</div>
+          <label for="analyticsIngresoDesde">Fecha de ingreso</label>
+          <input id="analyticsIngresoDesde" type="date" />
+        </div>
+        <div class="analytics-filter-card">
+          <div class="analytics-filter-card-title">Fecha de salida</div>
+          <label for="analyticsSalidaHasta">Fecha de salida</label>
+          <input id="analyticsSalidaHasta" type="date" />
+        </div>
+        <div class="analytics-filter-card analytics-filter-card-name">
+          <div class="analytics-filter-card-title">Nombre de la persona que hizo la reservación</div>
+          <label for="analyticsNombreReservacion">Nombre</label>
+          <select id="analyticsNombreReservacion"><option value="">Todos</option></select>
+        </div>
+      </div>
+      <div class="analytics-filter-status" id="analyticsFilterStatus">Sin filtros aplicados.</div>
+    </div>
+
+    <div class="analytics-controls">
+      <div class="analytics-numeric-filter">
+        <label for="analyticsMetric">Campo numérico</label>
+        <select id="analyticsMetric">
+          <option value="reservas" selected>Conteo de reservas</option>
+          <option value="requieren_factura">Conteo de reservas que requieren factura</option>
+          <option value="ticket_emitido">Conteo de tickets emitidos</option>
+          <option value="ticket_pendiente">Conteo de tickets pendientes</option>
+          <option value="monto_facturado">Monto facturado</option>
+        </select>
+      </div>
+      <div>
+        <label for="analyticsDim1">Desglose 1</label>
+        <select id="analyticsDim1"></select>
+      </div>
+      <div>
+        <label for="analyticsDim2">Desglose 2</label>
+        <select id="analyticsDim2"></select>
+      </div>
+      <div>
+        <label for="analyticsDim3">Desglose 3</label>
+        <select id="analyticsDim3"></select>
+      </div>
+    </div>
+
+    <div class="analytics-summary-grid">
+      <div class="analytics-summary-card">
+        <div class="analytics-summary-label">Registros usados</div>
+        <div class="analytics-summary-value" id="analyticsTotalRows">0</div>
+      </div>
+      <div class="analytics-summary-card numeric-accent">
+        <div class="analytics-summary-label">Campo numérico agregado</div>
+        <div class="analytics-summary-value" id="analyticsTotalMetric">0</div>
+      </div>
+      <div class="analytics-summary-card">
+        <div class="analytics-summary-label">Desgloses activos</div>
+        <div class="analytics-summary-value" id="analyticsActiveDims">0</div>
+      </div>
+    </div>
+
+
+    <div class="analytics-table-head">
+      <div>Desglose jerárquico</div>
+      <div>Conteo</div>
+      <div>Barra</div>
+    </div>
+    <div class="analytics-tree" id="analyticsTreeBody">
+      <div class="empty-state">Carga registros y selecciona hasta 3 campos de desglose.</div>
+    </div>
+    <div class="analytics-timeseries-dropdown">
+      <button class="analytics-time-btn" id="btnSerieTiempoAnalitica" onclick="toggleSerieTiempoAnalitica()" type="button" aria-expanded="false">▾ Serie de tiempo</button>
+      <div class="analytics-timeseries-panel" id="analyticsTimeSeriesPanel">
+        <div class="analytics-timeseries-head">
+          <div>
+            <div class="analytics-timeseries-title">Serie de tiempo</div>
+            <div class="analytics-timeseries-subtitle" id="analyticsTimeSeriesSubtitle">Fecha de entrada · datos directos</div>
+          </div>
+          <div class="analytics-timeseries-actions">
+            <button class="analytics-toggle-btn" id="btnDatosDirectos" onclick="setSerieTiempoAcumulada(false)" type="button">Datos directos</button>
+            <button class="analytics-toggle-btn" id="btnDatosAcumulados" onclick="setSerieTiempoAcumulada(true)" type="button">Datos acumulados</button>
+          </div>
+        </div>
+        <div class="analytics-timeseries-chart-wrap" id="analyticsTimeSeriesChart">
+          <div class="analytics-timeseries-empty">Carga registros para visualizar la serie de tiempo.</div>
+        </div>
+        <div class="analytics-timeseries-tooltip" id="analyticsTimeSeriesTooltip"></div>
+      </div>
+    </div>
+    <div class="analytics-tooltip" id="analyticsTooltip"></div>
+  </div>
+</div>
+
 <div class="view-panel" id="viewRegistro">
 <form id="form">
 <input id="tipo_registro" name="tipo_registro" type="hidden" value="nuevo"/>
@@ -2121,7 +3234,7 @@ function formatRangoFechasSimple(inicio, fin){
 </div>
 </div>
 </div>
-<div class="section" id="section_identificacion_estancia"><h2 class="section-title" data-i18n="sec2Title">Identificación y estancia</h2><p class="section-subtitle" data-i18n="sec2Sub">Capture la identificación, motivo de viaje, fechas, horarios y personas hospedadas.</p><div id="field_identificacion"><label data-i18n="idType">Identificación personal</label>
+<div class="section" id="section_identificacion_estancia"><div id="field_identificacion"><label data-i18n="idType">Identificación personal</label>
 <select id="identificacion_tipo" name="identificacion_tipo">
 <option value="">Selecciona</option>
 <option value="INE">INE</option>
@@ -3657,8 +4770,8 @@ const I18N = {
     guestPhoneNumber: "Número de celular",
     sec1Title: "Datos de la reservación",
     sec1Sub: "",
-    sec2Title: "Identificación y estancia",
-    sec2Sub: "Capture la identificación, motivo de viaje, fechas, horarios y personas hospedadas.",
+    sec2Title: "",
+    sec2Sub: "",
     sec3Title: "Contacto",
     sec3Sub: "Datos de contacto del huésped y, si aplica, información fiscal para emisión de factura.",
     sec4Title: "Registro de vehículo",
@@ -4030,8 +5143,8 @@ const SIMPLE_I18N = {
     guestPhoneNumber:"Número de celular",
     sec1Title:"Datos de la reservación",
     sec1Sub:"",
-    sec2Title:"Identificación y estancia",
-    sec2Sub:"Capture la identificación, motivo de viaje, fechas, horarios y personas hospedadas.",
+    sec2Title: "",
+    sec2Sub: "",
     sec3Title:"Contacto del huésped",
     sec3Sub:"Datos de contacto del huésped y de emergencia.",
     sec4Title:"Facturación",
@@ -4544,8 +5657,9 @@ function formatFechaBonita(fecha){
   const pagerInfo = document.getElementById("dashboardPagerInfo");
   const pageSizeSelect = document.getElementById("dashboard_page_size");
 
-  let dashboardRows = [];
-  window.dashboardRows = dashboardRows;
+  let dashboardRows = []; // registros visibles en la página actual
+  let dashboardAllRows = []; // universo completo según filtros, antes de paginar
+  window.dashboardRows = dashboardAllRows;
   let dashboardPage = 1;
   let dashboardPageSize = Number(pageSizeSelect?.value || 25);
   let dashboardTotal = 0;
@@ -4720,8 +5834,11 @@ function formatFechaBonita(fecha){
       const value = (el && el.value ? String(el.value).trim() : "");
       if (value) params.set(param, value);
     });
-    params.set("page", String(dashboardPage));
-    params.set("page_size", String(dashboardPageSize));
+    // Importante: consultar el universo completo filtrado y NO limitarlo por "Registros por página".
+    // La paginación se aplica después en el navegador, para que los registros que Sí requieren factura
+    // se ordenen al inicio aunque originalmente estuvieran más allá de la primera página del backend.
+    params.set("page", "1");
+    params.set("page_size", "10000");
     return params;
   }
 
@@ -4779,7 +5896,13 @@ function formatFechaBonita(fecha){
     const suppressPending = !!options.suppressPending;
     const statusClass = getFacturaStatusClass(row);
     if (statusClass === 'factura-generada') {
-      return '<span class="dashboard-ticket-status-badge emitido">🧾 Ticket emitido</span>';
+      const folio = getRowValueFlexible(row, ['Folio facturapi', 'Folio Facturapi', 'folio facturapi', 'Folio']) || "";
+      const ticketUrl = extractTicketUrl(row);
+      const label = folio ? `🧾 Ticket emitido - Folio #${escapeHtml(folio)}` : "🧾 Ticket emitido";
+      if (ticketUrl) {
+        return `<a href="${escapeHtml(ticketUrl)}" target="_blank" rel="noopener" class="dashboard-ticket-status-badge emitido" onclick="event.stopPropagation();">${label}</a>`;
+      }
+      return `<span class="dashboard-ticket-status-badge emitido">${label}</span>`;
     }
     if (statusClass === 'factura-pendiente' && !suppressPending) {
       return '<span class="dashboard-ticket-status-badge pendiente">🧾 Ticket pendiente</span>';
@@ -4790,7 +5913,13 @@ function formatFechaBonita(fecha){
   function getTicketStatusBadgeHtml(row){
     const statusClass = getFacturaStatusClass(row);
     if (statusClass === 'factura-generada') {
-      return '<span class="ticket-status-badge ticket-emitido">🧾 Ticket emitido</span>';
+      const folio = getRowValueFlexible(row, ['Folio facturapi', 'Folio Facturapi', 'folio facturapi', 'Folio']) || "";
+      const ticketUrl = extractTicketUrl(row);
+      const label = folio ? `🧾 Ticket emitido - Folio #${escapeHtml(folio)}` : "🧾 Ticket emitido";
+      if (ticketUrl) {
+        return `<a href="${escapeHtml(ticketUrl)}" target="_blank" rel="noopener" class="ticket-status-badge ticket-emitido" onclick="event.stopPropagation();">${label}</a>`;
+      }
+      return `<span class="ticket-status-badge ticket-emitido">${label}</span>`;
     }
     if (statusClass === 'factura-pendiente') {
       return '<span class="ticket-status-badge ticket-pendiente">🧾 Ticket pendiente</span>';
@@ -4803,7 +5932,7 @@ function formatFechaBonita(fecha){
     for (const node of nodes) {
       const recordId = safeText(node.dataset.recordId).trim();
       if (!recordId) continue;
-      const row = dashboardRows.find(r => String(r['ID'] || r['row_number'] || '').trim() === recordId);
+      const row = (dashboardAllRows.length ? dashboardAllRows : dashboardRows).find(r => String(r['ID'] || r['row_number'] || '').trim() === recordId);
       if (!row) continue;
       node.innerHTML = getTicketStatusBadgeHtml(row);
     }
@@ -4814,7 +5943,7 @@ function formatFechaBonita(fecha){
     for (const node of nodes) {
       const recordId = safeText(node.dataset.recordId).trim();
       if (!recordId) continue;
-      const row = dashboardRows.find(r => String(r['ID'] || r['row_number'] || '').trim() === recordId);
+      const row = (dashboardAllRows.length ? dashboardAllRows : dashboardRows).find(r => String(r['ID'] || r['row_number'] || '').trim() === recordId);
       if (!row) continue;
       node.innerHTML = getFacturaHeaderBadgeHtml(row, { suppressPending: dashboardTicketResolutionInProgress });
     }
@@ -4835,6 +5964,66 @@ function formatFechaBonita(fecha){
     const mensaje = `Hemos enviado el TICKET para AUTO-FACTURACIÓN al correo proporcionado.\n\nURL de la factura:\n${cleanUrl}\n\nRecuerda que sólo estará vigente dentro del mes fiscal en curso.`;
     return `https://wa.me/${encodeURIComponent(cleanPhone)}?text=${encodeURIComponent(mensaje)}`;
   }
+
+
+  function buildTicketConsultaMessage(ticketUrl){
+    const cleanUrl = safeText(ticketUrl).trim();
+    if (!/^https?:\/\//i.test(cleanUrl)) return '';
+    return `Hemos enviado el TICKET para AUTO-FACTURACIÓN al correo proporcionado.\n\nURL de la factura:\n${cleanUrl}\n\nRecuerda que sólo estará vigente dentro del mes fiscal en curso.`;
+  }
+
+  async function copyTextToClipboardUniversal(text){
+    const value = safeText(text);
+    if (!value) return false;
+
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(value);
+        return true;
+      } catch (_err) {}
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '-9999px';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch (_err) {
+      ok = false;
+    }
+
+    document.body.removeChild(textarea);
+    return ok;
+  }
+
+  window.copiarMensajeTicketEmitido = async function(button, encodedMessage){
+    const mensaje = decodeURIComponent(safeText(encodedMessage || ''));
+    const originalText = button ? button.textContent : '';
+    const ok = await copyTextToClipboardUniversal(mensaje);
+
+    if (button) {
+      button.textContent = ok ? 'Mensaje copiado' : 'No se pudo copiar';
+      button.classList.toggle('copied', ok);
+      setTimeout(() => {
+        button.textContent = originalText || 'Copiar mensaje para consultar ticket emitido';
+        button.classList.remove('copied');
+      }, 1800);
+    }
+
+    if (!ok) {
+      alert('No se pudo copiar automáticamente. Mantén presionado el texto o usa copiar manualmente:\n\n' + mensaje);
+    }
+  };
 
   
   function getRequiereFacturaBadgeHtml(value){
@@ -4867,14 +6056,20 @@ function buildTicketActionsHtml(row, ticketUrl){
       }
 
       const reenviarUrl = buildWhatsappReenvioUrl(row, ticketUrl);
-      const reenviarAnchor = reenviarUrl
-        ? `<a href="${escapeHtml(reenviarUrl)}" target="_blank" rel="noopener" class="link-btn" style="padding:4px 8px; border-radius:999px; background:#25D366; color:#fff; font-size:11px; line-height:1.2; text-decoration:none;" onclick="event.stopPropagation();">Reenviar ticket</a>`
+      const verTicketLabel = folioFacturapi ? `Ver ticket - Folio #${escapeHtml(folioFacturapi)}` : 'Ver ticket';
+      const reenviarAnchor = '';
+
+      const mensajeConsultaTicket = buildTicketConsultaMessage(ticketUrl);
+      const copiarMensajeBtn = mensajeConsultaTicket
+        ? `<button type="button" class="copy-ticket-message-btn" onclick="event.stopPropagation(); copiarMensajeTicketEmitido(this, '${encodeURIComponent(mensajeConsultaTicket)}')">Copiar mensaje para consultar ticket emitido</button>`
         : '';
+
       return `
         <div style="display:flex; flex-direction:column; align-items:flex-start; gap:6px;" onclick="event.stopPropagation();">
           <span class="badge-yes">Sí</span>
-          <a href="${safeUrl}" target="_blank" rel="noopener" class="link-btn" style="padding:4px 8px; border-radius:999px; background:#16a34a; color:#fff; font-size:11px; line-height:1.2; text-decoration:none;" onclick="event.stopPropagation();">Ver ticket</a>
+          <a href="${safeUrl}" target="_blank" rel="noopener" class="link-btn" style="padding:4px 8px; border-radius:999px; background:#16a34a; color:#fff; font-size:11px; line-height:1.2; text-decoration:none;" onclick="event.stopPropagation();">${verTicketLabel}</a>
           ${reenviarAnchor}
+          ${copiarMensajeBtn}
         </div>
       `;
     }
@@ -4888,9 +6083,10 @@ function buildTicketActionsHtml(row, ticketUrl){
   }
 
   function recalculateDashboardInvoiceStatus(){
-    const totalFacturaYes = dashboardRows.filter(r => isFacturaYes(getRowValueFlexible(r, ['¿Requiere factura?', 'Requiere factura']))).length;
-    const totalPendiente = dashboardRows.filter(r => getFacturaStatusClass(r) === 'factura-pendiente').length;
-    const totalFacturado = dashboardRows.filter(r => getFacturaStatusClass(r) === 'factura-generada').length;
+    const baseRows = dashboardAllRows && dashboardAllRows.length ? dashboardAllRows : dashboardRows;
+    const totalFacturaYes = baseRows.filter(r => isFacturaYes(getRowValueFlexible(r, ['¿Requiere factura?', 'Requiere factura']))).length;
+    const totalPendiente = baseRows.filter(r => getFacturaStatusClass(r) === 'factura-pendiente').length;
+    const totalFacturado = baseRows.filter(r => getFacturaStatusClass(r) === 'factura-generada').length;
 
     if (kpiFactura) kpiFactura.textContent = String(totalFacturaYes);
     if (kpiSinFactura) kpiSinFactura.textContent = String(Math.max(0, dashboardTotal - totalFacturaYes));
@@ -4910,7 +6106,7 @@ function buildTicketActionsHtml(row, ticketUrl){
     for (const container of containers) {
       const recordId = String(container.dataset.recordId || '').trim();
       if (!recordId) continue;
-      const row = dashboardRows.find(r => String(r['ID'] || r['row_number'] || '').trim() === recordId);
+      const row = (dashboardAllRows.length ? dashboardAllRows : dashboardRows).find(r => String(r['ID'] || r['row_number'] || '').trim() === recordId);
       if (!row) continue;
       const ticketUrl = extractTicketUrl(row);
       container.innerHTML = buildTicketActionsHtml(row, ticketUrl);
@@ -4966,7 +6162,7 @@ function buildTicketActionsHtml(row, ticketUrl){
       const recordId = safeText(node.dataset.recordId).trim();
       const fieldType = safeText(node.dataset.fieldType).trim();
       if (!recordId || !fieldType) continue;
-      const row = dashboardRows.find(r => safeText(r['ID'] || r['row_number']).trim() === recordId);
+      const row = (dashboardAllRows.length ? dashboardAllRows : dashboardRows).find(r => safeText(r['ID'] || r['row_number']).trim() === recordId);
       if (!row) continue;
 
       let aliases = [];
@@ -4994,22 +6190,37 @@ function buildTicketActionsHtml(row, ticketUrl){
   }
 
   function renderRows(payload){
-    dashboardRows = Array.isArray(payload.rows) ? payload.rows : [];
-    dashboardRows = dashboardRows.sort((a, b) => {
-      const aStatus = getFacturaStatusClass(a);
-      const bStatus = getFacturaStatusClass(b);
-      const rank = (status) => status === 'factura-pendiente' ? 0 : (status === 'factura-generada' ? 1 : 2);
-      return rank(aStatus) - rank(bStatus);
-    });
-    window.dashboardRows = dashboardRows;
-    dashboardTotal = Number(payload.total || 0);
-    dashboardPage = Number(payload.page || 1);
-    dashboardPageSize = Number(payload.page_size || dashboardPageSize || 25);
-    dashboardPages = Math.max(1, Number(payload.total_pages || 1));
+    const rankFactura = (row) => {
+      const status = getFacturaStatusClass(row);
+      if (status === 'factura-pendiente') return 0;
+      if (status === 'factura-generada') return 1;
+      return 2;
+    };
 
-    const totalFacturaYes = dashboardRows.filter(r => isFacturaYes(getRowValueFlexible(r, ['¿Requiere factura?', 'Requiere factura']))).length;
-    const totalPendiente = dashboardRows.filter(r => getFacturaStatusClass(r) === 'factura-pendiente').length;
-    const totalFacturado = dashboardRows.filter(r => getFacturaStatusClass(r) === 'factura-generada').length;
+    // Universo completo después de aplicar filtros del usuario, antes de paginar.
+    dashboardAllRows = (Array.isArray(payload.rows) ? payload.rows : []).slice().sort((a, b) => {
+      const diff = rankFactura(a) - rankFactura(b);
+      if (diff !== 0) return diff;
+      const aId = Number(safeText(a['ID'] || a['row_number']).replace(/[^0-9.-]/g, '')) || 0;
+      const bId = Number(safeText(b['ID'] || b['row_number']).replace(/[^0-9.-]/g, '')) || 0;
+      return bId - aId;
+    });
+
+    window.dashboardRows = dashboardAllRows;
+    dashboardTotal = dashboardAllRows.length;
+    dashboardPage = Number(dashboardPage || 1);
+    dashboardPageSize = Number(pageSizeSelect?.value || dashboardPageSize || 25);
+    dashboardPages = Math.max(1, Math.ceil(dashboardTotal / dashboardPageSize));
+    if (dashboardPage > dashboardPages) dashboardPage = dashboardPages;
+    if (dashboardPage < 1) dashboardPage = 1;
+
+    const startIndex = (dashboardPage - 1) * dashboardPageSize;
+    const endIndex = startIndex + dashboardPageSize;
+    dashboardRows = dashboardAllRows.slice(startIndex, endIndex);
+
+    const totalFacturaYes = dashboardAllRows.filter(r => isFacturaYes(getRowValueFlexible(r, ['¿Requiere factura?', 'Requiere factura']))).length;
+    const totalPendiente = dashboardAllRows.filter(r => getFacturaStatusClass(r) === 'factura-pendiente').length;
+    const totalFacturado = dashboardAllRows.filter(r => getFacturaStatusClass(r) === 'factura-generada').length;
 
     if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
     if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
@@ -5017,12 +6228,12 @@ function buildTicketActionsHtml(row, ticketUrl){
     updateDashboardAlerts(totalFacturaYes, totalPendiente, totalFacturado);
 
     if (!tableBody) return;
-    if (!dashboardRows.length){
+    if (!dashboardAllRows.length){
       tableBody.innerHTML = '<div class="empty-state">No se encontraron registros con esos filtros.</div>';
       if (meta) meta.textContent = dashboardTotal ? `Sin registros en esta página.` : "0 registros encontrados.";
       if (kpiTotal) kpiTotal.textContent = String(dashboardTotal);
-      if (kpiFactura) kpiFactura.textContent = String(payload.total_con_factura || 0);
-      if (kpiSinFactura) kpiSinFactura.textContent = String(payload.total_sin_factura || 0);
+      if (kpiFactura) kpiFactura.textContent = String(totalFacturaYes);
+      if (kpiSinFactura) kpiSinFactura.textContent = String(Math.max(0, dashboardTotal - totalFacturaYes));
       if (kpiMedios) kpiMedios.textContent = String(payload.total_medios_unicos || 0);
       if (kpiPctFacturado) kpiPctFacturado.textContent = '0%';
       if (kpiPctPendiente) kpiPctPendiente.textContent = '0%';
@@ -5031,14 +6242,14 @@ function buildTicketActionsHtml(row, ticketUrl){
     }
 
     if (kpiTotal) kpiTotal.textContent = String(dashboardTotal);
-    if (kpiFactura) kpiFactura.textContent = String(payload.total_con_factura || 0);
-    if (kpiSinFactura) kpiSinFactura.textContent = String(payload.total_sin_factura || 0);
+    if (kpiFactura) kpiFactura.textContent = String(totalFacturaYes);
+    if (kpiSinFactura) kpiSinFactura.textContent = String(Math.max(0, dashboardTotal - totalFacturaYes));
     if (kpiMedios) kpiMedios.textContent = String(payload.total_medios_unicos || 0);
     if (kpiPctFacturado) kpiPctFacturado.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalFacturado / totalFacturaYes) * 100) : 0))}%`;
     if (kpiPctPendiente) kpiPctPendiente.textContent = `${Math.max(0, Math.min(100, totalFacturaYes ? Math.round((totalPendiente / totalFacturaYes) * 100) : 0))}%`;
     const inicio = ((dashboardPage - 1) * dashboardPageSize) + 1;
     const fin = Math.min(dashboardTotal, inicio + dashboardRows.length - 1);
-    if (meta) meta.textContent = `${dashboardTotal} registros encontrados. Mostrando ${inicio}-${fin}. Tickets pendientes primero.`;
+    if (meta) meta.textContent = `${dashboardTotal} registros encontrados según filtros. Mostrando ${inicio}-${fin}. Registros que Sí requieren factura siempre primero, calculado sobre todo el universo filtrado.`;
     if (pagerInfo) pagerInfo.textContent = `Página ${dashboardPage} de ${dashboardPages}`;
 
     tableBody.innerHTML = dashboardRows.map(r => {
@@ -5049,11 +6260,21 @@ function buildTicketActionsHtml(row, ticketUrl){
         ? `<a class="dashboard-whatsapp-link" href="${waUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();">${escapeHtml(r["Cel/Whatsapp (principal)"])}</a>`
         : escapeHtml(r["Cel/Whatsapp (principal)"]);
       const montoFacturadoRaw = getRowValueFlexible(r, ["$ Monto facturado Total", "Monto facturado Total"]);
+      const montoAirbnbRaw = getRowValueFlexible(r, ["$ Monto total Airbnb", "Monto total Airbnb", "Monto Airbnb", "Total Airbnb"]);
       const montoPagadoRaw = getRowValueFlexible(r, ["($) Monto Total pagado", "$ Monto Total pagado", "Monto Total pagado"]);
       const requiereFacturaRaw = getRowValueFlexible(r, ["¿Requiere factura?", "Requiere factura"]);
-      const montoFacturado = formatMontoEditable(montoFacturadoRaw || "");
+      const montoFacturadoBase = formatMontoEditable(montoFacturadoRaw || "");
+      const montoAirbnb = formatMontoEditable(montoAirbnbRaw || "");
+      const medioReservacionRaw = getRowValueFlexible(r, ["Medio de reservación", "Medio de reservacion"]);
+      const esReservaAirbnb = normalizeFlexibleKey(medioReservacionRaw) === "airbnb";
+      const montoComisionAirbnb = (esReservaAirbnb && montoAirbnb)
+        ? calcularComisionAirbnb(montoAirbnb).toFixed(2)
+        : "";
+      const montoFacturado = (esReservaAirbnb && montoAirbnb)
+        ? (parseMontoAirbnb(montoAirbnb) - parseMontoAirbnb(montoComisionAirbnb)).toFixed(2)
+        : montoFacturadoBase;
       const montoFacturadoHeader = formatMontoEncabezado(montoFacturado);
-      const medioReservacionBadge = getMedioReservacionBadgeHtml(r["Medio de reservación"] || "");
+      const medioReservacionBadge = getMedioReservacionBadgeHtml(medioReservacionRaw || "");
       const montoPagado = escapeHtml(montoPagadoRaw || "—");
       const requiereFactura = escapeHtml(requiereFacturaRaw || "—");
       const facturaStatusClass = getFacturaStatusClass(r);
@@ -5072,9 +6293,23 @@ function buildTicketActionsHtml(row, ticketUrl){
         ["Régimen fiscal", `<span data-detail-field="1" data-field-type="regimen_fiscal" data-record-id="${recordId}">${escapeHtml(regimenFiscalRaw || "—")}</span>`],
         ["Forma de pago", escapeHtml(r["Forma de pago"] || "—")],
         ["($) Monto Total pagado", `<span data-detail-field="1" data-field-type="monto_pagado" data-record-id="${recordId}">${montoPagado}</span>`],
-        ["$ Monto facturado Total", `
-          <div class="dashboard-monto-box" onclick="event.stopPropagation();">
-            <input type="number" step="0.01" class="dashboard-monto-input" value="${escapeHtml(montoFacturado)}" data-record-id="${recordId}" data-original-value="${escapeHtml(montoFacturado)}" onclick="event.stopPropagation();" onkeydown="handleMontoFacturadoKeydown(event,this)" onblur="guardarMontoFacturadoTotal(this)">
+        ["Ticket para auto-facturación", `
+          <div class="dashboard-monto-box dashboard-ticket-autofacturacion-box" onclick="event.stopPropagation();" data-monto-airbnb-box="${esReservaAirbnb ? '1' : '0'}">
+            ${esReservaAirbnb ? `<div class="dashboard-airbnb-monto-wrap dashboard-campo-base-airbnb">
+                <div class="dashboard-airbnb-monto-label">(=) $ Monto total Airbnb</div>
+                <input type="number" step="0.01" min="0" class="dashboard-airbnb-monto-input" value="${escapeHtml(montoAirbnb)}" data-record-id="${recordId}" onclick="event.stopPropagation();" onkeydown="handleMontoAirbnbKeydown(event,this)" oninput="calcularMontoFacturadoDesdeAirbnb(this)" onblur="guardarMontoFacturadoDesdeAirbnb(this)">
+                <div class="dashboard-monto-hint">Base editable para calcular comisión y monto facturado.</div>
+              </div>
+              <div class="dashboard-airbnb-comision-wrap dashboard-campo-calculado-tenue">
+                <div class="dashboard-airbnb-comision-label">(-) $ Comisión Airbnb</div>
+                <input type="number" step="0.01" class="dashboard-airbnb-comision-input" value="${escapeHtml(montoComisionAirbnb)}" readonly aria-readonly="true" onclick="event.stopPropagation();">
+                <div class="dashboard-monto-hint">Calculado: Airbnb × (15.5%)</div>
+              </div>` : ''}
+            <div class="dashboard-monto-calculado-wrap${esReservaAirbnb ? ' dashboard-campo-calculado-tenue' : ''}">
+              <div class="dashboard-monto-calculado-label">(+) $ Monto facturado Total</div>
+              <input type="number" step="0.01" class="dashboard-monto-input${esReservaAirbnb ? ' airbnb-calculado' : ''}" value="${escapeHtml(montoFacturado)}" data-record-id="${recordId}" data-original-value="${escapeHtml(montoFacturado)}" ${esReservaAirbnb ? 'readonly aria-readonly="true" data-airbnb-calculado="1"' : ''} onclick="event.stopPropagation();" onkeydown="handleMontoFacturadoKeydown(event,this)" onblur="guardarMontoFacturadoTotal(this)">
+              ${esReservaAirbnb ? `<div class="dashboard-monto-hint">Calculado: $ Monto total Airbnb - $ Comisión Airbnb.</div>` : ''}
+            </div>
             <div class="dashboard-inline-actions dashboard-ticket-actions" data-ticket-actions="1" data-record-id="${recordId}">${facturaHtml}</div>
           </div>`],
         ["Cel/Whatsapp (principal)", phoneHtml]
@@ -5097,7 +6332,7 @@ function buildTicketActionsHtml(row, ticketUrl){
                 </div>
                 <div class="dashboard-record-heading">
                   <div class="dashboard-record-title">${escapeHtml(r["Nombre de la persona que hizo la reservación"] || "Sin nombre")}</div>
-                  <div class="dashboard-record-subtitle">${escapeHtml(r["Propiedad"] || "Sin propiedad")} · # ${escapeHtml(r["# Departamento"] || "—")} <br>${formatFechaBonita(r["Fecha de ingreso"])} → ${formatFechaBonita(r["Fecha de salida"])}</div>
+                  <div class="dashboard-record-subtitle">${escapeHtml(r["Propiedad"] || "Sin propiedad")} · # ${escapeHtml(r["# Departamento"] || "—")} <br>${formatRangoFechasSimple(r["Fecha de ingreso"], r["Fecha de salida"])}</div>
                 </div>
               </div>
               <div class="dashboard-record-right">
@@ -5733,6 +6968,72 @@ function formatFechaBonita(fecha){
 
 </script>
 <script>
+const AIRBNB_COMISION = 0.155;
+const AIRBNB_IVA_COMISION = 0.16;
+const AIRBNB_FACTOR_COMISION_TOTAL = AIRBNB_COMISION;
+const AIRBNB_FACTOR_FACTURADO = 1 - AIRBNB_FACTOR_COMISION_TOTAL;
+
+function parseMontoAirbnb(value){
+  const clean = String(value || '').replace(/,/g, '').replace(/[^0-9.\-]/g, '');
+  const num = Number(clean);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function calcularComisionAirbnb(montoTotalAirbnb){
+  return Math.max(0, parseMontoAirbnb(montoTotalAirbnb) * AIRBNB_FACTOR_COMISION_TOTAL);
+}
+
+function calcularMontoFacturadoAirbnb(montoTotalAirbnb){
+  const total = parseMontoAirbnb(montoTotalAirbnb);
+  const comision = calcularComisionAirbnb(total);
+  return Math.max(0, total - comision);
+}
+
+function getMontoFacturadoInputDesdeAirbnb(inputAirbnb){
+  const box = inputAirbnb?.closest('.dashboard-monto-box');
+  return box ? box.querySelector('.dashboard-monto-input[data-airbnb-calculado="1"]') : null;
+}
+
+function getComisionAirbnbInputDesdeAirbnb(inputAirbnb){
+  const box = inputAirbnb?.closest('.dashboard-monto-box');
+  return box ? box.querySelector('.dashboard-airbnb-comision-input') : null;
+}
+
+function actualizarHeaderMontoFacturado(inputFacturado){
+  if (!inputFacturado) return;
+  const recordId = String(inputFacturado.dataset.recordId || '').trim();
+  const card = document.querySelector(`[data-record-card-id="${CSS.escape(recordId)}"]`);
+  const headerValue = card?.querySelector('.dashboard-header-amount-value');
+  if (headerValue && typeof formatMontoEncabezado === 'function') {
+    headerValue.textContent = formatMontoEncabezado(inputFacturado.value || '');
+  }
+}
+
+function calcularMontoFacturadoDesdeAirbnb(inputAirbnb){
+  const inputFacturado = getMontoFacturadoInputDesdeAirbnb(inputAirbnb);
+  const inputComision = getComisionAirbnbInputDesdeAirbnb(inputAirbnb);
+  const resultado = calcularMontoFacturadoAirbnb(inputAirbnb.value);
+  const comision = calcularComisionAirbnb(inputAirbnb.value);
+  if (inputComision) inputComision.value = comision ? comision.toFixed(2) : '';
+  if (!inputFacturado) return;
+  inputFacturado.value = resultado ? resultado.toFixed(2) : '';
+  actualizarHeaderMontoFacturado(inputFacturado);
+}
+
+function guardarMontoFacturadoDesdeAirbnb(inputAirbnb){
+  calcularMontoFacturadoDesdeAirbnb(inputAirbnb);
+  const inputFacturado = getMontoFacturadoInputDesdeAirbnb(inputAirbnb);
+  if (inputFacturado) guardarMontoFacturadoTotal(inputFacturado);
+}
+
+function handleMontoAirbnbKeydown(event, input){
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    input.blur();
+  }
+  event.stopPropagation();
+}
+
 async function guardarMontoFacturadoTotal(input){
   if (!input) return;
   const nuevoValor = String(input.value || '').trim();
@@ -6085,8 +7386,750 @@ function formatFechaBonita(fecha){
   }
 }
 
-
-  
 </script>
+
+<script>
+(function(){
+  function safeTextKpi(v){ return v == null ? "" : String(v); }
+  function normKpi(v){
+    return safeTextKpi(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  }
+  function getValKpi(row, names){
+    if (!row || typeof row !== 'object') return '';
+    const entries = Object.entries(row);
+    for (const name of names) {
+      if (row[name] != null && String(row[name]).trim() !== '') return String(row[name]).trim();
+      const n = normKpi(name);
+      const found = entries.find(([k,v]) => normKpi(k) === n && v != null && String(v).trim() !== '');
+      if (found) return String(found[1]).trim();
+    }
+    return '';
+  }
+  function facturaSiKpi(row){
+    const v = normKpi(getValKpi(row, ['¿Requiere factura?', 'Requiere factura']));
+    return v === 'si' || v === 'yes';
+  }
+  function facturadoKpi(row){
+    return !!getValKpi(row, ['Folio facturapi', 'Folio Facturapi', 'folio facturapi', 'Folio']);
+  }
+  window.actualizarKpiTicketStacked = function(){
+    const rows = Array.isArray(window.dashboardRows) ? window.dashboardRows : [];
+    const totalReq = rows.filter(facturaSiKpi).length;
+    const emitidos = rows.filter(r => facturaSiKpi(r) && facturadoKpi(r)).length;
+    const pendientes = Math.max(0, totalReq - emitidos);
+    const pctEmitidos = totalReq ? Math.round((emitidos / totalReq) * 100) : 0;
+    const pctPendientes = totalReq ? (100 - pctEmitidos) : 0;
+
+    const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    const setWidth = (id, pct) => { const el = document.getElementById(id); if (el) el.style.width = pct + '%'; };
+
+    setText('kpi_pct_facturado', pctEmitidos + '%');
+    setText('kpi_pct_pendiente', pctPendientes + '%');
+    setText('kpi_tickets_emitidos_num', String(emitidos));
+    setText('kpi_tickets_pendientes_num', String(pendientes));
+    setText('kpi_ticket_total_requieren', totalReq + ' ticket' + (totalReq === 1 ? '' : 's') + ' requieren factura');
+    setWidth('ticket_stacked_emitido', pctEmitidos);
+    setWidth('ticket_stacked_pendiente', pctPendientes);
+  };
+
+  const observer = new MutationObserver(() => {
+    clearTimeout(window.__kpiTicketStackedTimer);
+    window.__kpiTicketStackedTimer = setTimeout(() => {
+      if (typeof window.actualizarKpiTicketStacked === 'function') window.actualizarKpiTicketStacked();
+    }, 80);
+  });
+
+  document.addEventListener('DOMContentLoaded', function(){
+    const target = document.getElementById('dashboardTableBody');
+    if (target) observer.observe(target, { childList:true, subtree:true });
+    setTimeout(() => window.actualizarKpiTicketStacked && window.actualizarKpiTicketStacked(), 300);
+  });
+})();
+</script>
+
+
+<script>
+/* ===== Dashboard analítico jerárquico de Control de huéspedes ===== */
+(function(){
+  const FIELD_OPTIONS = [
+    { value:'medio', label:'Medio de reservación', aliases:['Medio de reservación','Medio reservación','medio'] },
+    { value:'requiere_factura', label:'¿Requiere factura?', aliases:['¿Requiere factura?','Requiere factura','factura'] },
+    { value:'ticket_status', label:'Estatus de ticket', computed:true },
+    { value:'propiedad', label:'Propiedad', aliases:['Propiedad','property'] },
+    { value:'depto', label:'# Departamento', aliases:['# Departamento','Departamento','Depto','depto'] },
+    { value:'forma_pago', label:'Forma de pago', aliases:['Forma de pago','Medio de pago','paymentMethod'] },
+    { value:'razon_social', label:'Razón social', aliases:['Razón social','Razon social','Business name'] },
+    { value:'regimen', label:'Régimen fiscal', aliases:['Régimen fiscal','Regimen fiscal','Tax regime'] },
+    { value:'correo', label:'Correo electrónico', aliases:['Correo electrónico','Correo electronico','Email'] },
+    { value:'fecha_entrada', label:'Fecha de entrada', aliases:['Fecha de entrada','Fecha ingreso','ingreso'] },
+    { value:'fecha_salida', label:'Fecha de salida', aliases:['Fecha de salida','salida'] }
+  ];
+
+  function safe(v){ return v == null ? '' : String(v); }
+  function esc(v){ return safe(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function norm(v){ return safe(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim(); }
+  function getVal(row, aliases){
+    if (!row || typeof row !== 'object') return '';
+    const entries = Object.entries(row);
+    for (const a of aliases || []) {
+      if (row[a] != null && safe(row[a]).trim() !== '') return safe(row[a]).trim();
+      const na = norm(a);
+      const found = entries.find(([k,v]) => norm(k) === na && v != null && safe(v).trim() !== '');
+      if (found) return safe(found[1]).trim();
+    }
+    return '';
+  }
+  function facturaSi(row){
+    const v = norm(getVal(row, ['¿Requiere factura?','Requiere factura','factura']));
+    return v === 'si' || v === 'yes';
+  }
+  function folio(row){ return getVal(row, ['Folio facturapi','Folio Facturapi','folio facturapi','Folio']); }
+  function ticketStatus(row){
+    if (folio(row)) return 'Ticket emitido';
+    if (facturaSi(row)) return 'Ticket pendiente';
+    return 'Sin ticket requerido';
+  }
+  function parseNumericValue(value){
+    if (value == null) return 0;
+    let raw = safe(value).trim();
+    if (!raw) return 0;
+    raw = raw.replace(/^['’`]+/, '').replace(/s/g, '');
+    const hasComma = raw.includes(',');
+    const hasDot = raw.includes('.');
+    raw = raw.replace(/[^0-9,.-]/g, '');
+    if (hasComma && hasDot) raw = raw.replace(/,/g, '');
+    else if (hasComma && !hasDot) raw = raw.replace(/,/g, '.');
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function montoFacturado(row){
+    return parseNumericValue(getVal(row, ['$ Monto facturado Total','Monto facturado Total','Monto facturado','monto_facturado','Monto Facturado']));
+  }
+  function metricValue(row, metric){
+    if (metric === 'monto_facturado') return montoFacturado(row);
+    return 1;
+  }
+  function metricFormat(value, metric){
+    const n = Number(value || 0);
+    if (metric === 'monto_facturado') {
+      try { return new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN', maximumFractionDigits:0 }).format(n); }
+      catch(e){ return '$' + Math.round(n).toLocaleString('es-MX'); }
+    }
+    return String(Math.round(n));
+  }
+  function fechaSimple(v){
+    if (!v) return '';
+    const s = safe(v).trim();
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return s;
+    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    return `${d.getDate()} de ${meses[d.getMonth()]}`;
+  }
+  function getDimValue(row, dim){
+    const def = FIELD_OPTIONS.find(x => x.value === dim);
+    if (!def) return 'Sin dato';
+    if (dim === 'ticket_status') return ticketStatus(row);
+    let v = getVal(row, def.aliases);
+    if (dim === 'requiere_factura') v = facturaSi(row) ? 'Sí' : 'No';
+    if (dim === 'fecha_entrada' || dim === 'fecha_salida') v = fechaSimple(v);
+    return safe(v).trim() || 'Sin dato';
+  }
+  function metricMatch(row, metric){
+    if (metric === 'reservas') return true;
+    if (metric === 'requieren_factura') return facturaSi(row);
+    if (metric === 'ticket_emitido') return facturaSi(row) && !!folio(row);
+    if (metric === 'ticket_pendiente') return facturaSi(row) && !folio(row);
+    if (metric === 'monto_facturado') return montoFacturado(row) !== 0;
+    return true;
+  }
+  function metricLabel(metric){
+    return ({
+      reservas:'Conteo de reservas',
+      requieren_factura:'Conteo de reservas que requieren factura',
+      ticket_emitido:'Conteo de tickets emitidos',
+      ticket_pendiente:'Conteo de tickets pendientes',
+      monto_facturado:'Monto facturado'
+    })[metric] || 'Conteo de reservas';
+  }
+  function rows(){
+    const baseRows = Array.isArray(window.analyticsDashboardRows)
+      ? window.analyticsDashboardRows
+      : (Array.isArray(window.dashboardRows) ? window.dashboardRows : []);
+    return applyAnalyticsIndependentFilters(baseRows);
+  }
+
+  function rowsUnfilteredAnalytics(){
+    return Array.isArray(window.analyticsDashboardRows)
+      ? window.analyticsDashboardRows
+      : (Array.isArray(window.dashboardRows) ? window.dashboardRows : []);
+  }
+
+  function parseDateForFilter(value){
+    if (typeof parseFechaEntrada === 'function') return parseFechaEntrada(value);
+    const raw = safe(value).trim().replace(/^['’`]+/, '').replace(/ /g, ' ');
+    if (!raw) return null;
+    if (/^\d{4,6}(\.\d+)?$/.test(raw)) {
+      const serial = Number(raw);
+      if (Number.isFinite(serial) && serial > 20000) {
+        const ms = Math.round((serial - 25569) * 86400 * 1000);
+        const dSerial = new Date(ms);
+        if (!isNaN(dSerial)) return new Date(dSerial.getUTCFullYear(), dSerial.getUTCMonth(), dSerial.getUTCDate());
+      }
+    }
+    const token = (raw.match(/\d{1,4}[-\/]\d{1,2}[-\/]\d{1,4}/) || [''])[0];
+    if (token) {
+      const parts = token.split(/[-\/]/).map(Number);
+      let y, m, d;
+      if (String(parts[0]).length === 4) { y = parts[0]; m = parts[1]; d = parts[2]; }
+      else if (String(parts[2]).length === 4) { d = parts[0]; m = parts[1]; y = parts[2]; }
+      if (y && m && d) {
+        const parsed = new Date(y, m - 1, d);
+        if (parsed.getFullYear() === y && parsed.getMonth() === m - 1 && parsed.getDate() === d) return parsed;
+      }
+    }
+    const fallback = new Date(raw);
+    if (!isNaN(fallback)) return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
+    return null;
+  }
+
+  function toInputDateKey(date){
+    if (!date) return '';
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  }
+
+  function getFechaSalidaValue(row){
+    return getVal(row, ['Fecha de salida','Fecha salida','Salida','salida','Check-out date','Check out date','checkout','check-out']);
+  }
+
+  function getNombreReservacionValue(row){
+    return getVal(row, ['Nombre de la persona que hizo la reservación','Nombre de reservación','Nombre reservacion','Nombre','bookingName']);
+  }
+
+  function applyAnalyticsIndependentFilters(baseRows){
+    const fechaIngreso = document.getElementById('analyticsIngresoDesde')?.value || '';
+    const fechaSalida = document.getElementById('analyticsSalidaHasta')?.value || '';
+    const nombre = document.getElementById('analyticsNombreReservacion')?.value || '';
+    const minIngreso = fechaIngreso ? new Date(fechaIngreso + 'T00:00:00') : null;
+    const maxSalida = fechaSalida ? new Date(fechaSalida + 'T00:00:00') : null;
+
+    return (baseRows || []).filter(row => {
+      if (nombre && getNombreReservacionValue(row) !== nombre) return false;
+      if (minIngreso) {
+        const dtIngreso = parseDateForFilter(getFechaEntradaValue(row));
+        if (!dtIngreso || dtIngreso < minIngreso) return false;
+      }
+      if (maxSalida) {
+        const dtSalida = parseDateForFilter(getFechaSalidaValue(row));
+        if (!dtSalida || dtSalida > maxSalida) return false;
+      }
+      return true;
+    });
+  }
+
+  function populateAnalyticsNameFilter(){
+    const select = document.getElementById('analyticsNombreReservacion');
+    if (!select) return;
+    const previous = select.value || '';
+    const names = Array.from(new Set(rowsUnfilteredAnalytics().map(getNombreReservacionValue).filter(Boolean)))
+      .sort((a,b) => a.localeCompare(b, 'es'));
+    select.innerHTML = '<option value="">Todos</option>' + names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    if (previous && names.includes(previous)) select.value = previous;
+  }
+
+  function updateAnalyticsFilterStatus(){
+    const status = document.getElementById('analyticsFilterStatus');
+    if (!status) return;
+    const total = rowsUnfilteredAnalytics().length;
+    const visible = rows().length;
+    const parts = [];
+    const add = (label, value) => { if (value) parts.push(`${label}: ${value}`); };
+    add('Fecha de ingreso', document.getElementById('analyticsIngresoDesde')?.value || '');
+    add('Fecha de salida', document.getElementById('analyticsSalidaHasta')?.value || '');
+    add('Nombre', document.getElementById('analyticsNombreReservacion')?.value || '');
+    status.textContent = `${visible} de ${total} registros visibles${parts.length ? ' · ' + parts.join(' · ') : ' · sin filtros aplicados'}.`;
+  }
+
+  function clearAnalyticsFilters(){
+    ['analyticsIngresoDesde','analyticsSalidaHasta'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const nombre = document.getElementById('analyticsNombreReservacion');
+    if (nombre) nombre.value = '';
+    render();
+    renderSerieTiempoAnalitica();
+  }
+
+  function fillSelects(){
+    const html = ['<option value="">Sin desglose</option>'].concat(FIELD_OPTIONS.map(f => `<option value="${esc(f.value)}">${esc(f.label)}</option>`)).join('');
+    ['analyticsDim1','analyticsDim2','analyticsDim3'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.dataset.loaded) {
+        el.innerHTML = html;
+        el.dataset.loaded = '1';
+      }
+    });
+    ['analyticsDim1','analyticsDim2','analyticsDim3'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+  }
+
+  function buildTree(dataRows, dims, metric, level=0, path=[]){
+    if (level >= dims.length) return [];
+    const dim = dims[level];
+    const map = new Map();
+    for (const r of dataRows) {
+      const key = getDimValue(r, dim);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(r);
+    }
+    return Array.from(map.entries())
+      .map(([label, groupRows]) => ({
+        label,
+        dim,
+        rows: groupRows,
+        value: groupRows.reduce((sum, row) => sum + metricValue(row, metric), 0),
+        path: path.concat(label),
+        children: buildTree(groupRows, dims, metric, level + 1, path.concat(label))
+      }))
+      .sort((a,b) => b.value - a.value || a.label.localeCompare(b.label, 'es'));
+  }
+
+  function renderNodes(nodes, level, parentTotal, maxSibling, metric){
+    if (!nodes.length) return '';
+    return nodes.map(node => {
+      const pctParent = parentTotal ? Math.round((node.value / parentTotal) * 100) : 0;
+
+      // El ancho de la barra debe representar el porcentaje real:
+      // - Nivel principal: contra el total general filtrado.
+      // - Niveles inferiores: contra el total del nivel superior.
+      const pctWidth = pctParent;
+
+      const hasChildren = node.children && node.children.length;
+      const baseLabel = level === 0 ? 'total filtrado' : 'nivel superior';
+      const meta = `${FIELD_OPTIONS.find(f=>f.value===node.dim)?.label || node.dim}: ${node.label}\n${metric === 'monto_facturado' ? 'Monto' : 'Conteo'}: ${metricFormat(node.value, metric)}\n% del ${baseLabel}: ${pctParent}%\nRuta: ${node.path.join(' › ')}`;
+      const summary = `
+        <summary class="analytics-node-summary analytics-level-${level+1}" data-tooltip="${esc(meta)}">
+          <div class="analytics-node-label" style="padding-left:${level * 8}px;">
+            ${hasChildren ? '<span class="analytics-chevron">›</span>' : '<span class="analytics-leaf-dot"></span>'}
+            <span class="analytics-node-label-text">${esc(node.label)}</span>
+          </div>
+          <div class="analytics-node-count">${metricFormat(node.value, metric)} (${pctParent}%)</div>
+          <div class="analytics-bar-track">
+            <div class="analytics-bar-fill" style="width:${pctWidth}%;"></div>
+            <div class="analytics-bar-label">${pctWidth}% del ${baseLabel}</div>
+          </div>
+        </summary>`;
+      if (hasChildren) {
+        return `<details class="analytics-node analytics-level-${level+1}">${summary}<div class="analytics-children">${renderNodes(node.children, level+1, node.value, null, metric)}</div></details>`;
+      }
+      return `<div class="analytics-node analytics-level-${level+1}">${summary}</div>`;
+    }).join('');
+  }
+  function uniqueDims(){
+    const vals = ['analyticsDim1','analyticsDim2','analyticsDim3']
+      .map(id => document.getElementById(id)?.value || '')
+      .filter(Boolean);
+    return vals.filter((v,i,a) => a.indexOf(v) === i).slice(0,3);
+  }
+
+  function render(){
+    const body = document.getElementById('analyticsTreeBody');
+    if (!body) return;
+    const metric = document.getElementById('analyticsMetric')?.value || 'reservas';
+    const dims = uniqueDims();
+    const allRows = rows();
+    const rawRows = rowsUnfilteredAnalytics();
+    const filtered = allRows.filter(r => metricMatch(r, metric));
+    const total = filtered.reduce((sum, row) => sum + metricValue(row, metric), 0);
+    const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    setText('analyticsTotalRows', String(allRows.length));
+    updateAnalyticsFilterStatus();
+    setText('analyticsTotalMetric', metricFormat(total, metric));
+    setText('analyticsActiveDims', String(dims.length));
+    const subtitle = document.getElementById('analyticsSubtitle');
+    if (subtitle) subtitle.textContent = `${metricLabel(metric)} · ${dims.length ? 'desglosado por ' + dims.map(d => FIELD_OPTIONS.find(f=>f.value===d)?.label || d).join(' › ') : 'sin desglose'}`;
+
+    if (!allRows.length) {
+      body.innerHTML = '<div class="empty-state">No hay registros cargados en el dashboard analítico.</div>';
+      return;
+    }
+    if (!dims.length) {
+      body.innerHTML = `<div class="empty-state">${metricLabel(metric)}: <strong>${metricFormat(total, metric)}</strong>. Selecciona al menos un campo de desglose.</div>`;
+      return;
+    }
+    if (!total) {
+      body.innerHTML = '<div class="empty-state">No hay registros que cumplan el valor seleccionado.</div>';
+      return;
+    }
+    const tree = buildTree(filtered, dims, metric);
+    body.innerHTML = renderNodes(tree, 0, total, null, metric);
+  }
+
+  function bindTooltip(){
+    const tooltip = document.getElementById('analyticsTooltip');
+    if (!tooltip || tooltip.dataset.bound === '1') return;
+    tooltip.dataset.bound = '1';
+    document.addEventListener('mousemove', (ev) => {
+      const target = ev.target.closest && ev.target.closest('[data-tooltip]');
+      if (!target || !document.getElementById('dashboardAnalyticsModal') || document.getElementById('dashboardAnalyticsModal').style.display === 'none') {
+        tooltip.style.display = 'none';
+        return;
+      }
+      tooltip.textContent = target.getAttribute('data-tooltip') || '';
+      tooltip.style.display = 'block';
+      tooltip.style.left = Math.min(ev.clientX + 14, window.innerWidth - 300) + 'px';
+      tooltip.style.top = Math.min(ev.clientY + 14, window.innerHeight - 120) + 'px';
+    });
+  }
+
+  async function fetchAnalyticsRowsIndependientes(){
+    if (Array.isArray(window.analyticsDashboardRows) && window.analyticsDashboardRows.length) return window.analyticsDashboardRows;
+    const params = new URLSearchParams();
+    params.set('action', 'list_records');
+    params.set('page', '1');
+    params.set('page_size', '5000');
+    const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method:'GET' });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || json.message || 'No fue posible cargar registros para el dashboard analítico.');
+    window.analyticsDashboardRows = Array.isArray(json.rows) ? json.rows : [];
+    return window.analyticsDashboardRows;
+  }
+
+  window.abrirDashboardAnalitico = async function(){
+    fillSelects();
+    bindTooltip();
+    bindTimeSeriesTooltip();
+    const clearAnalyticsBtn = document.getElementById('btnLimpiarFiltrosAnaliticos');
+    if (clearAnalyticsBtn) clearAnalyticsBtn.addEventListener('click', clearAnalyticsFilters);
+    const modal = document.getElementById('dashboardAnalyticsModal');
+    if (modal) modal.style.display = 'flex';
+    const body = document.getElementById('analyticsTreeBody');
+    if (body) body.innerHTML = '<div class="empty-state">Cargando registros del dashboard analítico...</div>';
+    try {
+      await fetchAnalyticsRowsIndependientes();
+      populateAnalyticsNameFilter();
+    } catch (err) {
+      if (!Array.isArray(window.analyticsDashboardRows)) window.analyticsDashboardRows = Array.isArray(window.dashboardRows) ? window.dashboardRows.slice() : [];
+      populateAnalyticsNameFilter();
+      if (body) body.innerHTML = `<div class="empty-state">No fue posible cargar registros independientes. Se usarán los registros disponibles en pantalla.<br>${esc(err.message || err)}</div>`;
+    }
+    render();
+    renderSerieTiempoAnalitica();
+  };
+  window.cerrarDashboardAnalitico = function(){
+    const modal = document.getElementById('dashboardAnalyticsModal');
+    if (modal) modal.style.display = 'none';
+  };
+
+
+  let analyticsTimeSeriesVisible = false;
+  let analyticsTimeSeriesAccumulated = false;
+  let analyticsTimeSeriesSelectedLabel = "";
+
+  function parseFechaEntrada(value){
+    let raw = safeText(value).trim();
+    if (!raw) return null;
+
+    raw = raw
+      .replace(/^['’\x60]+/, '')
+      .replace(/\u00a0/g, ' ')
+      .trim();
+
+    // Google Sheets puede devolver fechas como número serial. Se ignora la fracción de hora.
+    if (/^\d{4,6}(\.\d+)?$/.test(raw)) {
+      const serial = Number(raw);
+      if (Number.isFinite(serial) && serial > 20000) {
+        const ms = Math.round((serial - 25569) * 86400 * 1000);
+        const dSerial = new Date(ms);
+        if (!isNaN(dSerial)) return new Date(dSerial.getUTCFullYear(), dSerial.getUTCMonth(), dSerial.getUTCDate());
+      }
+    }
+
+    // Formatos aceptados: dd/mm/yyyy, d/m/yyyy, yyyy-mm-dd y versiones con hora.
+    const fechaToken = (raw.match(/\b\d{1,4}[-\/]\d{1,2}[-\/]\d{1,4}\b/) || [''])[0];
+    if (!fechaToken) {
+      const parsedFallback = new Date(raw);
+      if (!isNaN(parsedFallback)) return new Date(parsedFallback.getFullYear(), parsedFallback.getMonth(), parsedFallback.getDate());
+      return null;
+    }
+
+    let y, mo, d;
+    const parts = fechaToken.split(/[-\/]/).map(Number);
+    if (parts.length !== 3 || parts.some(n => !Number.isFinite(n))) return null;
+
+    if (String(parts[0]).length === 4) {
+      y = parts[0]; mo = parts[1]; d = parts[2];
+    } else if (String(parts[2]).length === 4) {
+      d = parts[0]; mo = parts[1]; y = parts[2];
+    } else {
+      return null;
+    }
+
+    if (!y || !mo || !d || mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+    const parsed = new Date(y, mo - 1, d);
+    if (parsed.getFullYear() !== y || parsed.getMonth() !== mo - 1 || parsed.getDate() !== d) return null;
+    return parsed;
+  }
+
+  function getFechaEntradaValue(row){
+    if (!row || typeof row !== 'object') return '';
+
+    const exact = getVal(row, [
+      'Fecha de entrada',
+      'Fecha entrada',
+      'Fecha de ingreso',
+      'Fecha ingreso',
+      'Ingreso',
+      'ingreso',
+      'Check-in date',
+      'Check in date',
+      'checkin',
+      'check-in'
+    ]);
+    if (exact) return exact;
+
+    const entries = Object.entries(row);
+    const found = entries.find(([key, val]) => {
+      const nk = norm(key);
+      return val != null && safe(val).trim() !== '' && (
+        nk === 'fecha de entrada' ||
+        nk === 'fecha entrada' ||
+        nk === 'fecha de ingreso' ||
+        nk === 'fecha ingreso' ||
+        nk === 'ingreso' ||
+        nk.includes('fecha entrada') ||
+        nk.includes('fecha ingreso') ||
+        nk.includes('check in') ||
+        nk.includes('checkin')
+      );
+    });
+    return found ? safe(found[1]).trim() : '';
+  }
+
+  function formatFechaEntradaLabel(date){
+    if (!date) return 'Sin fecha';
+    const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    return `${date.getDate()} ${meses[date.getMonth()]} ${date.getFullYear()}`;
+  }
+
+  function metricRowsForTimeSeries(){
+    const metric = document.getElementById('analyticsMetric')?.value || 'reservas';
+    return rows().filter(r => metricMatch(r, metric));
+  }
+
+  function buildTimeSeriesData(){
+    const groupedBySeries = new Map();
+    const dateKeys = new Map();
+    const dims = uniqueDims();
+    const metricRows = metricRowsForTimeSeries();
+    let evaluatedRows = 0;
+    let validDates = 0;
+
+    metricRows.forEach(row => {
+      evaluatedRows += 1;
+      const dt = parseFechaEntrada(getFechaEntradaValue(row));
+      if (!dt) return;
+      validDates += 1;
+
+      const dateKey = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+      if (!dateKeys.has(dateKey)) dateKeys.set(dateKey, dt);
+
+      const serieLabel = dims.length ? dims.map(dim => getDimValue(row, dim)).join(' › ') : 'Total';
+      if (!groupedBySeries.has(serieLabel)) groupedBySeries.set(serieLabel, new Map());
+      const serieMap = groupedBySeries.get(serieLabel);
+      serieMap.set(dateKey, (serieMap.get(dateKey) || 0) + metricValue(row, document.getElementById('analyticsMetric')?.value || 'reservas'));
+    });
+
+    const sortedDates = Array.from(dateKeys.entries()).sort((a,b) => a[1] - b[1]);
+    const series = Array.from(groupedBySeries.entries()).map(([label, counts]) => {
+      let running = 0;
+      const points = sortedDates.map(([key, date]) => {
+        const direct = counts.get(key) || 0;
+        running += direct;
+        return { key, date, direct, value: analyticsTimeSeriesAccumulated ? running : direct };
+      });
+      const totalDirect = points.reduce((sum, p) => sum + p.direct, 0);
+      return { label, points, totalDirect };
+    }).filter(serie => serie.totalDirect > 0)
+      .sort((a,b) => b.totalDirect - a.totalDirect || a.label.localeCompare(b.label, 'es'));
+
+    return { series, dates: sortedDates.map(([key, date]) => ({ key, date })), evaluatedRows, validDates, dims };
+  }
+
+  function renderSerieTiempoAnalitica(){
+    const panel = document.getElementById('analyticsTimeSeriesPanel');
+    const chart = document.getElementById('analyticsTimeSeriesChart');
+    const subtitle = document.getElementById('analyticsTimeSeriesSubtitle');
+    const btnDirectos = document.getElementById('btnDatosDirectos');
+    const btnAcumulados = document.getElementById('btnDatosAcumulados');
+    if (!panel || !chart) return;
+
+    if (!analyticsTimeSeriesVisible) {
+      panel.classList.remove('show');
+      return;
+    }
+
+    panel.classList.add('show');
+    if (btnDirectos) btnDirectos.classList.toggle('active', !analyticsTimeSeriesAccumulated);
+    if (btnAcumulados) btnAcumulados.classList.toggle('active', analyticsTimeSeriesAccumulated);
+
+    const metric = document.getElementById('analyticsMetric')?.value || 'reservas';
+    const dims = uniqueDims();
+    const mode = analyticsTimeSeriesAccumulated ? 'datos acumulados' : 'datos directos';
+    const dimLabel = dims.length ? dims.map(d => FIELD_OPTIONS.find(f=>f.value===d)?.label || d).join(' › ') : 'sin desglose';
+    if (subtitle) subtitle.textContent = `Fecha de entrada · ${metricLabel(metric)} · ${mode} · ${dimLabel}`;
+
+    const ts = buildTimeSeriesData();
+    const series = ts.series;
+    const dates = ts.dates;
+    if (!series.length || !dates.length) {
+      const sample = rows().slice(0, 1).map(r => Object.keys(r || {}).slice(0, 12).join(' · ')).join('');
+      chart.innerHTML = `<div class="analytics-timeseries-empty">No hay fechas válidas en el campo “Fecha de entrada / Fecha de ingreso” para graficar.<br><br>Filas evaluadas para <strong>${esc(metricLabel(metric))}</strong>: ${ts.evaluatedRows}. Fechas válidas detectadas: ${ts.validDates}.${sample ? `<br><span style="font-size:11px;">Encabezados recibidos: ${esc(sample)}</span>` : ''}</div>`;
+      return;
+    }
+
+    const w = 900, h = 280;
+    const pad = { left: 46, right: 22, top: 20, bottom: 42 };
+    const innerW = w - pad.left - pad.right;
+    const innerH = h - pad.top - pad.bottom;
+    const maxY = Math.max(...series.flatMap(s => s.points.map(d => d.value)), 1);
+    const minDate = dates[0].date.getTime();
+    const maxDate = dates[dates.length - 1].date.getTime();
+    const span = Math.max(maxDate - minDate, 1);
+
+    const x = (dt) => pad.left + ((dt.getTime() - minDate) / span) * innerW;
+    const y = (v) => pad.top + innerH - (v / maxY) * innerH;
+    const palette = ['#0f766e','#f59e0b','#2563eb','#dc2626','#7c3aed','#16a34a','#db2777','#0891b2','#9333ea','#ea580c','#4f46e5','#65a30d'];
+
+    const gridVals = [0, Math.round(maxY/2), maxY].filter((v,i,a) => a.indexOf(v) === i);
+    const maxXLabels = window.innerWidth < 700 ? 8 : (window.innerWidth < 1024 ? 10 : 14);
+    const xStep = Math.max(1, Math.ceil(dates.length / maxXLabels));
+    const xLabels = dates.filter((_, i) => i % xStep === 0);
+    if (dates.length && xLabels[xLabels.length - 1] !== dates[dates.length - 1]) xLabels.push(dates[dates.length - 1]);
+
+    const selectedLabelStillExists = !analyticsTimeSeriesSelectedLabel || series.some(s => s.label === analyticsTimeSeriesSelectedLabel);
+    if (!selectedLabelStillExists) analyticsTimeSeriesSelectedLabel = "";
+    const hasSelectedSeries = !!analyticsTimeSeriesSelectedLabel;
+
+    const paths = series.map((serie, idx) => {
+      const color = palette[idx % palette.length];
+      const isSelected = hasSelectedSeries && serie.label === analyticsTimeSeriesSelectedLabel;
+      const isDimmed = hasSelectedSeries && !isSelected;
+      const points = serie.points.map(d => ({...d, x: x(d.date), y: y(d.value)}));
+      const visiblePoints = points.filter(p => analyticsTimeSeriesAccumulated || p.direct > 0 || dates.length <= 10);
+      const path = points.map((p,i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
+      const lineWidth = isSelected ? 5 : 3;
+      const lineOpacity = isDimmed ? 0.18 : 1;
+      const pointOpacity = isDimmed ? 0.16 : 1;
+      const circles = visiblePoints.map(p => {
+        const meta = [
+          `Serie: ${serie.label}`,
+          `Fecha de entrada: ${formatFechaEntradaLabel(p.date)}`,
+          `${metric === 'monto_facturado' ? 'Monto directo' : 'Conteo directo'}: ${metricFormat(p.direct, metric)}`,
+          analyticsTimeSeriesAccumulated ? `Acumulado: ${metricFormat(p.value, metric)}` : `Valor: ${metricFormat(p.value, metric)}`,
+          `Métrica: ${metricLabel(metric)}`,
+          dims.length ? `Desglose: ${dimLabel}` : 'Desglose: sin desglose'
+        ].join('\n');
+        const r = isSelected ? 6 : 4.5;
+        return `<circle class="analytics-point" cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${r}" style="stroke:${color};opacity:${pointOpacity};" data-ts-tooltip="${esc(meta)}"></circle>`;
+      }).join('');
+      return `<path class="analytics-line" d="${path}" style="stroke:${color};stroke-width:${lineWidth};opacity:${lineOpacity};"></path>${circles}`;
+    }).join('');
+
+    const legend = series.map((serie, idx) => {
+      const color = palette[idx % palette.length];
+      const isSelected = hasSelectedSeries && serie.label === analyticsTimeSeriesSelectedLabel;
+      const isDimmed = hasSelectedSeries && !isSelected;
+      const activeStyle = isSelected ? 'background:#fff7ed;border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.14);' : 'background:#fff;border-color:#f3e3c4;';
+      const opacityStyle = isDimmed ? 'opacity:.38;filter:grayscale(.75);' : 'opacity:1;';
+      return `<button type="button" onclick="seleccionarSerieTiempoLeyenda(${JSON.stringify(serie.label)})" title="Resaltar ${esc(serie.label)}" style="display:inline-flex;align-items:center;gap:6px;margin:4px 6px 0 0;padding:7px 10px;border-radius:999px;border:1px solid #f3e3c4;font-size:12px;font-weight:800;color:#374151;max-width:100%;cursor:pointer;box-shadow:none;${activeStyle}${opacityStyle}"><span style="width:10px;height:10px;border-radius:999px;background:${color};display:inline-block;flex:0 0 auto;"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(serie.label)} (${metricFormat(serie.totalDirect, metric)})</span></button>`;
+    }).join('');
+
+    chart.innerHTML = `
+      <svg class="analytics-timeseries-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+        ${gridVals.map(v => `<line class="analytics-grid-line" x1="${pad.left}" y1="${y(v).toFixed(2)}" x2="${w-pad.right}" y2="${y(v).toFixed(2)}"></line>
+          <text class="analytics-axis-label" x="8" y="${(y(v)+4).toFixed(2)}">${v}</text>`).join('')}
+        ${xLabels.map(d => `<text class="analytics-axis-label" x="${x(d.date).toFixed(2)}" y="${h-13}" text-anchor="middle">${formatFechaEntradaLabel(d.date).replace(/ \d{4}$/,'')}</text>`).join('')}
+        ${paths}
+      </svg>
+      <div style="display:flex;flex-wrap:wrap;gap:2px 4px;margin-top:8px;">${legend}</div>
+      <div class="hint" style="margin-top:8px;">Haz clic en una leyenda para resaltar esa serie; vuelve a hacer clic para mostrar todas.</div>
+      <div class="hint" style="margin-top:6px;">Verificación: ${ts.validDates} de ${ts.evaluatedRows} registros de la métrica tienen “Fecha de entrada / Fecha de ingreso” válida. Series graficadas: ${series.length}. Nivel usado: ${esc(dimLabel)}.</div>
+    `;
+  }
+
+
+  window.seleccionarSerieTiempoLeyenda = function(label){
+    const selected = String(label || '');
+    analyticsTimeSeriesSelectedLabel = analyticsTimeSeriesSelectedLabel === selected ? '' : selected;
+    renderSerieTiempoAnalitica();
+  };
+
+  function actualizarBotonSerieTiempoAnalitica(){
+    const btn = document.getElementById('btnSerieTiempoAnalitica');
+    if (!btn) return;
+    btn.classList.toggle('active', analyticsTimeSeriesVisible);
+    btn.setAttribute('aria-expanded', analyticsTimeSeriesVisible ? 'true' : 'false');
+    btn.textContent = analyticsTimeSeriesVisible ? '▴ Ocultar serie de tiempo' : '▾ Serie de tiempo';
+  }
+
+  window.toggleSerieTiempoAnalitica = function(){
+    analyticsTimeSeriesVisible = !analyticsTimeSeriesVisible;
+    actualizarBotonSerieTiempoAnalitica();
+    renderSerieTiempoAnalitica();
+  };
+
+  window.setSerieTiempoAcumulada = function(value){
+    analyticsTimeSeriesAccumulated = !!value;
+    analyticsTimeSeriesVisible = true;
+    actualizarBotonSerieTiempoAnalitica();
+    renderSerieTiempoAnalitica();
+  };
+
+  function bindTimeSeriesTooltip(){
+    const tooltip = document.getElementById('analyticsTimeSeriesTooltip');
+    if (!tooltip || tooltip.dataset.bound === '1') return;
+    tooltip.dataset.bound = '1';
+    document.addEventListener('mousemove', function(ev){
+      const target = ev.target.closest && ev.target.closest('[data-ts-tooltip]');
+      const modal = document.getElementById('dashboardAnalyticsModal');
+      if (!target || !modal || modal.style.display === 'none') {
+        tooltip.style.display = 'none';
+        return;
+      }
+      tooltip.textContent = target.getAttribute('data-ts-tooltip') || '';
+      tooltip.style.display = 'block';
+      tooltip.style.left = Math.min(ev.clientX + 14, window.innerWidth - 260) + 'px';
+      tooltip.style.top = Math.min(ev.clientY + 14, window.innerHeight - 130) + 'px';
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    const btn = document.getElementById('btnDashboardAnalitico');
+    if (btn) btn.addEventListener('click', window.abrirDashboardAnalitico);
+    ['analyticsMetric','analyticsDim1','analyticsDim2','analyticsDim3','analyticsIngresoDesde','analyticsSalidaHasta','analyticsNombreReservacion'].forEach(id => {
+      document.addEventListener('change', function(ev){
+        if (ev.target && ev.target.id === id) { render(); renderSerieTiempoAnalitica(); }
+      });
+    });
+    const modal = document.getElementById('dashboardAnalyticsModal');
+    if (modal) {
+      modal.addEventListener('click', function(ev){
+        if (ev.target === modal) window.cerrarDashboardAnalitico();
+      });
+    }
+    document.addEventListener('keydown', function(ev){
+      if (ev.key === 'Escape') window.cerrarDashboardAnalitico();
+    });
+  });
+})();
+</script>
+
+<script>
+(function(){function posicionarBotonDashboardAnalitico(){const view=document.getElementById('viewDashboard');const btn=document.getElementById('btnDashboardAnalitico');if(!view||!btn)return;const active=!view.classList.contains('hidden');btn.style.display=active?'inline-flex':'none';if(!active)return;const section=view.querySelector('.section')||view;const rect=section.getBoundingClientRect();const margin=window.innerWidth<=700?12:18;const topLimit=window.innerWidth<=700?76:104;const top=Math.max(margin,Math.min(topLimit,Math.max(rect.top+margin,margin)));const right=Math.max(margin,window.innerWidth-rect.right+margin);document.documentElement.style.setProperty('--dashboard-btn-top',top+'px');document.documentElement.style.setProperty('--dashboard-btn-right',right+'px');}window.posicionarBotonDashboardAnalitico=posicionarBotonDashboardAnalitico;window.addEventListener('scroll',posicionarBotonDashboardAnalitico,{passive:true});window.addEventListener('resize',posicionarBotonDashboardAnalitico);document.addEventListener('DOMContentLoaded',function(){posicionarBotonDashboardAnalitico();['menuControlBtn','menuRegistroBtn','menuVehiculosBtn'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('click',()=>setTimeout(posicionarBotonDashboardAnalitico,0));});});})();
+</script>
+
 </body>
 </html>
