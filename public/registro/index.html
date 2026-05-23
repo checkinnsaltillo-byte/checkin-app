@@ -7,27 +7,29 @@
 <title>CHECK-IN | Registro</title>
 <style>
 :root{
-  --bg:#fff8ee;
-  --bg-soft:#fffdf8;
+  /* Paleta Ticket Vision — gris metálico (gunmetal slate) + cyan acento */
+  --bg:#f4f6f8;
+  --bg-soft:#ffffff;
   --card:#ffffff;
-  --text:#2b2b2b;
+  --text:#1f2937;
   --text-soft:#6b7280;
-  --border:#f6d8a8;
-  --border-strong:#efc36f;
-  --primary:#f59e0b;
-  --primary-strong:#d97706;
-  --primary-soft:#fff4db;
-  --accent:#fb923c;
-  --danger:#c9372c;
-  --success-bg:#fff8db;
-  --success-border:#f6d365;
-  --success-text:#9a6700;
+  --border:#e5e7eb;
+  --border-strong:#cbd5e1;
+  --primary:#475569;
+  --primary-strong:#334155;
+  --primary-dark:#334155;
+  --primary-soft:#f1f5f9;
+  --accent:#0891b2;
+  --danger:#dc2626;
+  --success-bg:#ecfdf5;
+  --success-border:#a7f3d0;
+  --success-text:#065f46;
   --error-bg:#fef2f2;
   --error-border:#fecaca;
   --error-text:#b42318;
-  --note-bg:#fff7ed;
-  --note-border:#fdba74;
-  --shadow:0 18px 40px rgba(217,119,6,.12);
+  --note-bg:#f1f5f9;
+  --note-border:#cbd5e1;
+  --shadow:0 18px 40px rgba(15,23,42,.08);
   --radius:20px;
   --radius-sm:14px;
 }
@@ -39,8 +41,8 @@ body{
   padding:20px 14px 30px;
   font-family:Arial,sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(251,191,36,.12), transparent 28%),
-    linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
+    radial-gradient(circle at top left, rgba(71,85,105,.08), transparent 28%),
+    linear-gradient(180deg,#ffffff 0%, #f1f5f9 100%);
   color:var(--text);
 }
 .page-shell{
@@ -88,7 +90,7 @@ label{
   margin-top:15px;
   margin-bottom:7px;
   line-height:1.35;
-  color:#3a3124;
+  color:#1f2937;
 }
 select,input,textarea{
   width:100%;
@@ -104,11 +106,11 @@ textarea{
   min-height:120px;
   resize:vertical;
 }
-select::placeholder,input::placeholder,textarea::placeholder{ color:#9a8f85; }
+select::placeholder,input::placeholder,textarea::placeholder{ color:#94a3b8; }
 select:focus,input:focus,textarea:focus{
   outline:none;
   border-color:var(--accent);
-  box-shadow:0 0 0 4px rgba(245,158,11,.14);
+  box-shadow:0 0 0 4px rgba(8,145,178,.16);
 }
 .grid{
   display:grid;
@@ -141,13 +143,13 @@ button{
   font-size:15px;
   font-weight:700;
   letter-spacing:.01em;
-  box-shadow:0 10px 20px rgba(217,119,6,.18);
+  box-shadow:0 10px 20px rgba(15,23,42,.16);
   transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
 }
 button:hover{
-  filter:brightness(1.03);
+  filter:brightness(1.06);
   transform:translateY(-1px);
-  box-shadow:0 12px 24px rgba(217,119,6,.24);
+  box-shadow:0 12px 24px rgba(15,23,42,.22);
 }
 button:disabled{
   opacity:.72;
@@ -187,7 +189,7 @@ button:disabled{
   margin-top:10px;
   font-size:13px;
   line-height:1.5;
-  color:#7a5300;
+  color:#1e293b;
 }
 .hint{
   font-size:12px;
@@ -199,7 +201,7 @@ button:disabled{
   border:1px dashed var(--border-strong);
   border-radius:18px;
   padding:14px;
-  background:#fffdf8;
+  background:#ffffff;
 }
 .upload-grid{
   display:grid;
@@ -225,7 +227,7 @@ button:disabled{
   height:64px;
   object-fit:cover;
   border-radius:10px;
-  border:1px solid #fde68a;
+  border:1px solid #cbd5e1;
   box-shadow:0 2px 6px rgba(0,0,0,.08);
   background:#fff;
 }
@@ -244,14 +246,14 @@ button:disabled{
   gap:10px;
   padding:14px;
   border-radius:16px;
-  border:1px solid #f3d7a4;
-  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
+  border:1px solid #e5e7eb;
+  background:linear-gradient(180deg,#ffffff 0%, #f1f5f9 100%);
   transition:border-color .18s ease, transform .18s ease, box-shadow .18s ease;
   cursor:pointer;
 }
 .upload-drop:hover{
-  border-color:#dc2626;
-  box-shadow:0 8px 18px rgba(245,158,11,.12);
+  border-color:var(--accent);
+  box-shadow:0 8px 18px rgba(8,145,178,.18);
 }
 .upload-copy{
   display:flex;
@@ -261,7 +263,7 @@ button:disabled{
 .upload-title{
   font-size:14px;
   font-weight:700;
-  color:#7c4a03;
+  color:#1e293b;
 }
 .upload-subtitle{
   font-size:12px;
@@ -275,7 +277,7 @@ button:disabled{
   min-width:118px;
   padding:10px 14px;
   border-radius:12px;
-  background:linear-gradient(180deg,#dc2626 0%, #b91c1c 100%);
+  background:linear-gradient(180deg,var(--primary) 0%, var(--primary-strong) 100%);
   color:#fff;
   font-size:14px;
   font-weight:700;
@@ -302,7 +304,7 @@ button:disabled{
 .popup-backdrop{
   position:fixed;
   inset:0;
-  background:rgba(53,32,8,.22);
+  background:rgba(15,23,42,.45);
   display:none;
   align-items:center;
   justify-content:center;
@@ -355,7 +357,8 @@ button:disabled{
   position:relative;
   width:90px;
   height:32px;
-  background:#f4e7cf;
+  background:var(--primary-soft);
+  border:1px solid var(--border-strong);
   border-radius:999px;
   display:flex;
   align-items:center;
@@ -366,11 +369,12 @@ button:disabled{
   position:absolute;
   width:45px;
   height:28px;
-  background:#dc2626;
+  background:linear-gradient(180deg,var(--primary) 0%, var(--primary-strong) 100%);
   border-radius:999px;
   top:2px;
   left:2px;
   transition:all 0.25s ease;
+  box-shadow:0 4px 10px rgba(15,23,42,.18);
 }
 .lang-switch-label{
   flex:1;
@@ -423,19 +427,19 @@ button:disabled{
 .choice-card{
   border:1px solid var(--border-strong);
   border-radius:18px;
-  background:#fffdf8;
+  background:#ffffff;
   padding:18px;
   cursor:pointer;
   transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
 }
 .choice-card:hover{
   transform:translateY(-1px);
-  box-shadow:0 12px 24px rgba(217,119,6,.12);
+  box-shadow:0 12px 24px rgba(15,23,42,.12);
   border-color:var(--accent);
 }
 .choice-card.active{
   border-color:var(--primary-strong);
-  box-shadow:0 0 0 4px rgba(245,158,11,.12);
+  box-shadow:0 0 0 4px rgba(15,23,42,.10);
   background:#fef2f2;
 }
 .choice-card-title{
@@ -465,8 +469,8 @@ button:disabled{
   margin-top:10px;
 }
 .vehicle-pro-intro{
-  background:linear-gradient(180deg,#fff8ee 0%, #fff3df 100%);
-  border:1px solid #f3cf94;
+  background:linear-gradient(180deg,#f8fafc 0%, #fff3df 100%);
+  border:1px solid #cbd5e1;
   border-radius:16px;
   padding:14px;
   margin-top:10px;
@@ -474,7 +478,7 @@ button:disabled{
 .vehicle-pro-title{
   font-size:14px;
   font-weight:700;
-  color:#7c4a03;
+  color:#1e293b;
   margin-bottom:6px;
 }
 .vehicle-pro-copy{
@@ -489,8 +493,8 @@ button:disabled{
   padding:8px 12px;
   border-radius:999px;
   background:#fef2f2;
-  border:1px solid #fdba74;
-  color:#9a6700;
+  border:1px solid #94a3b8;
+  color:#1e293b;
   font-size:12px;
   font-weight:700;
   margin-top:10px;
@@ -510,7 +514,7 @@ button:disabled{
 .vehicle-card-title{
   font-size:13px;
   font-weight:700;
-  color:#7c4a03;
+  color:#1e293b;
   margin-bottom:8px;
 }
 .vehicle-summary{
@@ -546,9 +550,9 @@ button:disabled{
   margin-top:12px;
   padding:12px 14px;
   border-radius:14px;
-  border:1px solid #fdba74;
+  border:1px solid #94a3b8;
   background:#fef2f2;
-  color:#9a6700;
+  color:#1e293b;
   font-size:13px;
   line-height:1.55;
 }
@@ -583,7 +587,7 @@ button:disabled{
   border-radius:18px;
   background:#fff;
   overflow:hidden;
-  box-shadow:0 8px 22px rgba(217,119,6,.06);
+  box-shadow:0 8px 22px rgba(15,23,42,.06);
 }
 .vehicle-card-summary{
   list-style:none;
@@ -593,7 +597,7 @@ button:disabled{
   justify-content:space-between;
   gap:12px;
   padding:16px 18px;
-  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
+  background:linear-gradient(180deg,#ffffff 0%, #f1f5f9 100%);
 }
 .vehicle-card-summary::-webkit-details-marker{
   display:none;
@@ -609,7 +613,7 @@ button:disabled{
 .vehicle-card-title{
   font-size:16px;
   font-weight:700;
-  color:#2b2b2b;
+  color:#1f2937;
   line-height:1.25;
 }
 .vehicle-card-subtitle{
@@ -620,7 +624,7 @@ button:disabled{
 .vehicle-card-chevron{
   flex:0 0 auto;
   font-size:20px;
-  color:#b45309;
+  color:#334155;
   transition:transform .18s ease;
 }
 .vehicle-card-item[open] .vehicle-card-chevron{
@@ -639,8 +643,8 @@ button:disabled{
   gap:10px;
 }
 .vehicle-detail-item{
-  background:#fffdf8;
-  border:1px solid #f2cc8c;
+  background:#ffffff;
+  border:1px solid #cbd5e1;
   border-radius:14px;
   padding:12px;
 }
@@ -651,7 +655,7 @@ button:disabled{
 }
 .vehicle-detail-value{
   font-size:14px;
-  color:#2b2b2b;
+  color:#1f2937;
   line-height:1.4;
   word-break:break-word;
 }
@@ -664,15 +668,15 @@ button:disabled{
   text-decoration:underline;
 }
 .vehicle-photo-panel{
-  background:#fffdf8;
-  border:1px solid #f2cc8c;
+  background:#ffffff;
+  border:1px solid #cbd5e1;
   border-radius:16px;
   padding:12px;
 }
 .vehicle-photo-title{
   font-size:13px;
   font-weight:700;
-  color:#7c4a03;
+  color:#1e293b;
   margin-bottom:10px;
 }
 .vehicle-thumb{
@@ -680,7 +684,7 @@ button:disabled{
   height:220px;
   border-radius:12px;
   object-fit:contain;
-  border:1px solid #f2cc8c;
+  border:1px solid #cbd5e1;
   background:#fff;
   display:block;
 }
@@ -695,7 +699,7 @@ button:disabled{
   text-align:center;
   color:#6b7280;
   font-size:13px;
-  border:1px dashed #f2cc8c;
+  border:1px dashed #cbd5e1;
   border-radius:12px;
   background:#fff;
   padding:18px;
@@ -757,13 +761,17 @@ button:disabled{
   padding:12px 16px;
 }
 .menu-btn.secondary{
-  background:linear-gradient(180deg,#fff7ed 0%, #fde7c0 100%);
-  color:#8a5300;
-  border:1px solid #efc36f;
+  background:#ffffff;
+  color:var(--primary-dark);
+  border:1px solid var(--border-strong);
   box-shadow:none;
 }
+.menu-btn.secondary:hover{
+  background:var(--primary-soft);
+  border-color:var(--primary);
+}
 .menu-btn.active{
-  box-shadow:0 0 0 4px rgba(245,158,11,.14), 0 10px 20px rgba(217,119,6,.18);
+  box-shadow:0 0 0 4px rgba(8,145,178,.16), 0 10px 20px rgba(15,23,42,.18);
 }
 .view-panel.hidden{
   display:none !important;
@@ -823,10 +831,10 @@ button:disabled{
   border:1px solid var(--border);
   font-size:14px;
   line-height:1.45;
-  background:#fffdf8;
+  background:#ffffff;
   color:#6b7280;
 }
-.dashboard-alert strong{color:#2b2b2b;}
+.dashboard-alert strong{color:#1f2937;}
 .dashboard-alert-pending{
   background:linear-gradient(180deg,#fff7f7 0%, #fdecec 100%);
   border-color:#fca5a5;
@@ -838,9 +846,9 @@ button:disabled{
   color:#166534;
 }
 .dashboard-alert-neutral{
-  background:#fffdf8;
-  border-color:#f3e3c4;
-  color:#8a6d3b;
+  background:#ffffff;
+  border-color:#e5e7eb;
+  color:#475569;
 }
 .dashboard-records-wrap{
   margin-top:16px;
@@ -854,13 +862,13 @@ button:disabled{
   border:1px solid var(--border);
   border-radius:22px;
   overflow:hidden;
-  box-shadow:0 10px 24px rgba(217,119,6,.08);
+  box-shadow:0 10px 24px rgba(15,23,42,.08);
 }
 .dashboard-record-summary{
   list-style:none;
   cursor:pointer;
   padding:16px;
-  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
+  background:linear-gradient(180deg,#ffffff 0%, #f1f5f9 100%);
   transition:background .2s ease, border-color .2s ease;
 }
 .dashboard-record.factura-pendiente .dashboard-record-summary{
@@ -909,8 +917,8 @@ button:disabled{
 .dashboard-record-heading{min-width:0;}
 .dashboard-record-right{flex:0 0 auto;display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-left:auto;}
 .dashboard-header-amount{text-align:right;min-width:120px;}
-.dashboard-header-amount-label{font-size:10px;font-weight:800;color:#8a6d3b;text-transform:uppercase;letter-spacing:.02em;}
-.dashboard-header-amount-value{margin-top:2px;font-size:22px;font-weight:900;color:#2b2b2b;line-height:1.1;}
+.dashboard-header-amount-label{font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.02em;}
+.dashboard-header-amount-value{margin-top:2px;font-size:22px;font-weight:900;color:#1f2937;line-height:1.1;}
 
 .dashboard-record-header-badges .dashboard-reservation-badge{
   width:max-content;
@@ -925,7 +933,7 @@ button:disabled{
   font-size:11px;
   font-weight:800;
   line-height:1.2;
-  border:1px solid #f3e3c4;
+  border:1px solid #e5e7eb;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -961,7 +969,7 @@ button:disabled{
 .dashboard-record-title{
   font-size:17px;
   font-weight:800;
-  color:#2b2b2b;
+  color:#1f2937;
   line-height:1.25;
 }
 .dashboard-record-subtitle{
@@ -979,8 +987,8 @@ button:disabled{
   align-items:center;
   justify-content:center;
   background:#fff;
-  border:1px solid #f3d7a4;
-  color:#b45309;
+  border:1px solid #e5e7eb;
+  color:#334155;
   font-size:18px;
   transition:transform .18s ease;
 }
@@ -994,7 +1002,7 @@ button:disabled{
 }
 .dashboard-summary-item{
   background:#fff;
-  border:1px solid #f3e3c4;
+  border:1px solid #e5e7eb;
   border-radius:16px;
   padding:10px 12px;
   min-width:0;
@@ -1002,14 +1010,14 @@ button:disabled{
 .dashboard-summary-label{
   font-size:11px;
   font-weight:700;
-  color:#8a6d3b;
+  color:#475569;
   margin-bottom:4px;
   text-transform:uppercase;
   letter-spacing:.02em;
 }
 .dashboard-summary-value{
   font-size:14px;
-  color:#2b2b2b;
+  color:#1f2937;
   line-height:1.35;
   word-break:break-word;
 }
@@ -1031,7 +1039,7 @@ button:disabled{
 }
 .dashboard-record-body{
   padding:16px;
-  border-top:1px solid #f3e3c4;
+  border-top:1px solid #e5e7eb;
   background:#fff;
 }
 .dashboard-record-actions{
@@ -1048,8 +1056,8 @@ button:disabled{
   align-items:center;
 }
 .dashboard-action-card{
-  background:#fffdf8;
-  border:1px solid #f3e3c4;
+  background:#ffffff;
+  border:1px solid #e5e7eb;
   border-radius:16px;
   padding:12px;
   flex:1 1 280px;
@@ -1084,7 +1092,7 @@ button:disabled{
 .table-results th,
 .table-results td{
   padding:10px 12px;
-  border-bottom:1px solid #f3e3c4;
+  border-bottom:1px solid #e5e7eb;
   font-size:13px;
   text-align:left;
   vertical-align:top;
@@ -1188,15 +1196,15 @@ button:disabled{
 
 .range-grid{display:grid;grid-template-columns:1fr;gap:14px;}
 .range-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:14px;}
-.range-title{font-size:13px;font-weight:700;margin-bottom:10px;color:#7c4a03;}
+.range-title{font-size:13px;font-weight:700;margin-bottom:10px;color:#1e293b;}
 .pager-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;}
 .pager-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 .pager-controls button{margin-top:0;}
 .pager-info{font-size:13px;color:var(--text-soft);}
-.link-btn{background:none;border:none;padding:0;color:#b45309;font-weight:700;cursor:pointer;box-shadow:none;margin-top:0;}
+.link-btn{background:none;border:none;padding:0;color:#334155;font-weight:700;cursor:pointer;box-shadow:none;margin-top:0;}
 .link-btn:hover{text-decoration:underline;transform:none;filter:none;}
 .detail-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 14px;text-align:left;margin-top:10px;}
-.detail-item{background:#fffdf8;border:1px solid var(--border);border-radius:12px;padding:10px;}
+.detail-item{background:#ffffff;border:1px solid var(--border);border-radius:12px;padding:10px;}
 .detail-key{font-size:12px;color:var(--text-soft);margin-bottom:4px;}
 .detail-value{font-size:14px;color:var(--text);word-break:break-word;white-space:pre-wrap;}
 .detail-modal-card{max-width:860px;width:100%;max-height:85vh;overflow:auto;text-align:left;}
@@ -1209,7 +1217,7 @@ button:disabled{
   transition:background-color .15s ease;
 }
 .dashboard-row-clickable:hover{
-  background:#fff4db;
+  background:#f1f5f9;
 }
 
 
@@ -1218,7 +1226,7 @@ button:disabled{
   transition:background-color .15s ease;
 }
 .dashboard-row-clickable:hover{
-  background:#fff4db;
+  background:#f1f5f9;
 }
 .detail-image{
   max-width:100%;
@@ -1241,11 +1249,11 @@ button:disabled{
   margin-bottom:14px;
 }
 .detail-kpi{
-  background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);
-  border:1px solid #f3cf94;
+  background:linear-gradient(180deg,#ffffff 0%, #f1f5f9 100%);
+  border:1px solid #cbd5e1;
   border-radius:18px;
   padding:14px;
-  box-shadow:0 8px 20px rgba(217,119,6,.08);
+  box-shadow:0 8px 20px rgba(15,23,42,.08);
 }
 .detail-kpi-label{
   font-size:12px;
@@ -1255,7 +1263,7 @@ button:disabled{
 .detail-kpi-value{
   font-size:18px;
   font-weight:700;
-  color:#2b2b2b;
+  color:#1f2937;
   line-height:1.2;
 }
 .detail-sections{
@@ -1263,15 +1271,15 @@ button:disabled{
   gap:14px;
 }
 .detail-card{
-  background:#fffdf8;
-  border:1px solid #f2cc8c;
+  background:#ffffff;
+  border:1px solid #cbd5e1;
   border-radius:18px;
   padding:14px;
 }
 .detail-card-title{
   font-size:14px;
   font-weight:700;
-  color:#7c4a03;
+  color:#1e293b;
   margin-bottom:10px;
 }
 .detail-grid-compact{
@@ -1282,7 +1290,7 @@ button:disabled{
 .detail-item{
   min-height:unset !important;
   background:#fff;
-  border:1px solid #f2cc8c;
+  border:1px solid #cbd5e1;
   border-radius:16px;
   padding:12px;
 }
@@ -1293,7 +1301,7 @@ button:disabled{
 }
 .detail-value{
   font-size:14px;
-  color:#2b2b2b;
+  color:#1f2937;
   line-height:1.45;
   word-break:break-word;
 }
@@ -1304,7 +1312,7 @@ button:disabled{
 }
 .detail-image-card{
   background:#fff;
-  border:1px solid #f2cc8c;
+  border:1px solid #cbd5e1;
   border-radius:16px;
   padding:12px;
 }
@@ -1423,9 +1431,9 @@ button:disabled{
   border-color:#86efac;
 }
 .ticket-status-badge.ticket-pendiente{
-  background:linear-gradient(180deg,#fff7ed 0%,#fecaca 100%);
+  background:linear-gradient(180deg,#f1f5f9 0%,#fecaca 100%);
   color:#991b1b;
-  border-color:#fdba74;
+  border-color:#94a3b8;
 }
 .ticket-status-badge.ticket-no-requiere{
   background:linear-gradient(180deg,#f9fafb 0%,#f3f4f6 100%);
@@ -1442,7 +1450,7 @@ button:disabled{
   100%{transform:scale(1);box-shadow:0 5px 14px rgba(15,23,42,.08);}
 }
 .dashboard-record.factura-pendiente .dashboard-record-summary{
-  background:linear-gradient(180deg,#fff7ed 0%,#ffedd5 100%);
+  background:linear-gradient(180deg,#f1f5f9 0%,#ffedd5 100%);
 }
 .dashboard-record.factura-generada .dashboard-record-summary{
   background:linear-gradient(180deg,#f0fdf4 0%,#dcfce7 100%);
@@ -1472,13 +1480,13 @@ button:disabled{
   box-shadow:0 12px 28px rgba(220,38,38,.14) !important;
 }
 .dashboard-record.factura-pendiente .dashboard-record-summary{
-  background:linear-gradient(180deg,#fff5f5 0%, #fee2e2 100%) !important;
+  background:linear-gradient(180deg,#fef2f2 0%, #fee2e2 100%) !important;
   border-bottom:1px solid #fecaca !important;
 }
 .dashboard-record.factura-pendiente .dashboard-record-toggle{
   border-color:#fca5a5 !important;
   color:#dc2626 !important;
-  background:#fff5f5 !important;
+  background:#fef2f2 !important;
 }
 .dashboard-ticket-status-badge.pendiente,
 .etiqueta-ticket.pendiente,
@@ -1490,12 +1498,12 @@ button:disabled{
   border:1px solid #fca5a5 !important;
 }
 .dashboard-alert-pending{
-  background:linear-gradient(180deg,#fff5f5 0%, #fee2e2 100%) !important;
+  background:linear-gradient(180deg,#fef2f2 0%, #fee2e2 100%) !important;
   border-color:#fca5a5 !important;
   color:#991b1b !important;
 }
 .kpi-card-alert{
-  background:linear-gradient(180deg,#fff5f5 0%, #fee2e2 100%) !important;
+  background:linear-gradient(180deg,#fef2f2 0%, #fee2e2 100%) !important;
   border-color:#fca5a5 !important;
 }
 .kpi-card-alert .kpi-value{
@@ -1649,7 +1657,7 @@ button:disabled{
 .dashboard-reservation-badge.expedia{
   background:linear-gradient(180deg,#fefce8 0%,#fef9c3 100%) !important;
   color:#854d0e !important;
-  border-color:#fde68a !important;
+  border-color:#cbd5e1 !important;
 }
 
 /* Otros / sin medio → gris elegante */
@@ -1785,8 +1793,8 @@ a.link-btn[href^="https://wa.me/"]{
 .ticket-status-wide-card{
   grid-column:1 / -1;
   padding:16px !important;
-  background:linear-gradient(180deg,#ffffff 0%, #fffdf8 100%) !important;
-  border-color:#f3cf94 !important;
+  background:linear-gradient(180deg,#ffffff 0%, #ffffff 100%) !important;
+  border-color:#cbd5e1 !important;
 }
 .ticket-status-wide-head{
   display:flex;
@@ -1798,16 +1806,16 @@ a.link-btn[href^="https://wa.me/"]{
 .ticket-status-wide-title{
   font-size:18px;
   font-weight:900;
-  color:#2b2b2b;
+  color:#1f2937;
   line-height:1.15;
 }
 .ticket-status-wide-total{
   flex:0 0 auto;
   padding:7px 10px;
   border-radius:999px;
-  background:#fff7ed;
-  border:1px solid #fdba74;
-  color:#9a6700;
+  background:#f1f5f9;
+  border:1px solid #94a3b8;
+  color:#1e293b;
   font-size:12px;
   font-weight:900;
   white-space:nowrap;
@@ -1831,7 +1839,7 @@ a.link-btn[href^="https://wa.me/"]{
   background:linear-gradient(90deg,#16a34a 0%, #86efac 100%);
 }
 .ticket-stacked-pending{
-  background:linear-gradient(90deg,#f97316 0%, #ef4444 100%);
+  background:linear-gradient(90deg,#0891b2 0%, #ef4444 100%);
 }
 .ticket-status-wide-grid{
   display:grid;
@@ -1846,7 +1854,7 @@ a.link-btn[href^="https://wa.me/"]{
   padding:11px 12px;
   border-radius:16px;
   background:#fff;
-  border:1px solid #f3e3c4;
+  border:1px solid #e5e7eb;
 }
 .ticket-status-dot{
   width:12px;
@@ -1867,7 +1875,7 @@ a.link-btn[href^="https://wa.me/"]{
   margin-top:2px;
   font-size:18px;
   font-weight:900;
-  color:#2b2b2b;
+  color:#1f2937;
   line-height:1.1;
 }
 @media (max-width:700px){
@@ -1926,13 +1934,13 @@ a.link-btn[href^="https://wa.me/"]{
   gap:12px;
   padding:14px;
   border-radius:18px;
-  border:1px solid #f3cf94;
-  background:#fffdf8;
+  border:1px solid #cbd5e1;
+  background:#ffffff;
 }
 .analytics-controls label{
   margin-top:0 !important;
   font-size:12px !important;
-  color:#7c4a03 !important;
+  color:#1e293b !important;
 }
 .analytics-controls select{
   padding:11px 12px !important;
@@ -1946,8 +1954,8 @@ a.link-btn[href^="https://wa.me/"]{
   margin-top:14px;
 }
 .analytics-summary-card{
-  background:linear-gradient(180deg,#ffffff 0%,#fff7ed 100%);
-  border:1px solid #f3cf94;
+  background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%);
+  border:1px solid #cbd5e1;
   border-radius:16px;
   padding:12px 14px;
 }
@@ -1956,13 +1964,13 @@ a.link-btn[href^="https://wa.me/"]{
   font-weight:800;
   text-transform:uppercase;
   letter-spacing:.02em;
-  color:#8a6d3b;
+  color:#475569;
 }
 .analytics-summary-value{
   margin-top:4px;
   font-size:24px;
   font-weight:900;
-  color:#2b2b2b;
+  color:#1f2937;
 }
 .analytics-table-head{
   margin-top:16px;
@@ -1984,7 +1992,7 @@ a.link-btn[href^="https://wa.me/"]{
   margin-top:8px;
 }
 .analytics-node{
-  border:1px solid #f3e3c4;
+  border:1px solid #e5e7eb;
   border-radius:16px;
   background:#fff;
   overflow:hidden;
@@ -2007,7 +2015,7 @@ a.link-btn[href^="https://wa.me/"]{
   gap:8px;
   font-size:14px;
   font-weight:800;
-  color:#2b2b2b;
+  color:#1f2937;
   line-height:1.25;
 }
 .analytics-node-label-text{
@@ -2023,9 +2031,9 @@ a.link-btn[href^="https://wa.me/"]{
   align-items:center;
   justify-content:center;
   border-radius:999px;
-  background:#fff7ed;
-  border:1px solid #fdba74;
-  color:#b45309;
+  background:#f1f5f9;
+  border:1px solid #94a3b8;
+  color:#334155;
   font-size:13px;
   transition:transform .16s ease;
 }
@@ -2037,13 +2045,13 @@ a.link-btn[href^="https://wa.me/"]{
   width:9px;
   height:9px;
   border-radius:999px;
-  background:#f59e0b;
+  background:#475569;
   margin-left:7px;
 }
 .analytics-node-count{
   font-size:14px;
   font-weight:900;
-  color:#2b2b2b;
+  color:#1f2937;
 }
 .analytics-bar-track{
   position:relative;
@@ -2058,7 +2066,7 @@ a.link-btn[href^="https://wa.me/"]{
   height:100%;
   min-width:2px;
   border-radius:999px;
-  background:linear-gradient(90deg,#f59e0b 0%,#dc2626 100%);
+  background:linear-gradient(90deg,#475569 0%,#dc2626 100%);
   transition:width .22s ease;
 }
 .analytics-bar-label{
@@ -2116,9 +2124,9 @@ a.link-btn[href^="https://wa.me/"]{
 .analytics-timeseries-panel{
   margin-top:14px;
   padding:14px;
-  border:1px solid #f3cf94;
+  border:1px solid #cbd5e1;
   border-radius:20px;
-  background:linear-gradient(180deg,#ffffff 0%,#fffdf8 100%);
+  background:linear-gradient(180deg,#ffffff 0%,#ffffff 100%);
   display:none;
 }
 .analytics-timeseries-panel.show{
@@ -2135,7 +2143,7 @@ a.link-btn[href^="https://wa.me/"]{
 .analytics-timeseries-title{
   font-size:16px;
   font-weight:900;
-  color:#2b2b2b;
+  color:#1f2937;
   line-height:1.2;
 }
 .analytics-timeseries-subtitle{
@@ -2153,9 +2161,9 @@ a.link-btn[href^="https://wa.me/"]{
   margin-top:0 !important;
   padding:9px 12px !important;
   border-radius:999px !important;
-  background:linear-gradient(180deg,#fff7ed 0%, #fde7c0 100%) !important;
+  background:linear-gradient(180deg,#f1f5f9 0%, #fde7c0 100%) !important;
   color:#8a5300 !important;
-  border:1px solid #efc36f !important;
+  border:1px solid #cbd5e1 !important;
   box-shadow:none !important;
 }
 .analytics-toggle-btn.active{
@@ -2180,7 +2188,7 @@ a.link-btn[href^="https://wa.me/"]{
   font-weight:700;
 }
 .analytics-grid-line{
-  stroke:#f3e3c4;
+  stroke:#e5e7eb;
   stroke-width:1;
 }
 .analytics-line{
@@ -2221,7 +2229,7 @@ a.link-btn[href^="https://wa.me/"]{
   padding:22px;
   text-align:center;
   color:#6b7280;
-  border:1px dashed #f3cf94;
+  border:1px dashed #cbd5e1;
   border-radius:16px;
   background:#fff;
 }
@@ -2241,8 +2249,8 @@ a.link-btn[href^="https://wa.me/"]{
   margin:12px 0 14px;
   padding:14px;
   border-radius:20px;
-  border:1px solid #f3cf94;
-  background:linear-gradient(180deg,#fffdf8 0%,#fff7ed 100%);
+  border:1px solid #cbd5e1;
+  background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%);
 }
 .analytics-filter-head{
   display:flex;
@@ -2254,7 +2262,7 @@ a.link-btn[href^="https://wa.me/"]{
 .analytics-filter-title{
   font-size:15px;
   font-weight:900;
-  color:#2b2b2b;
+  color:#1f2937;
 }
 .analytics-filter-subtitle{
   margin-top:3px;
@@ -2279,14 +2287,14 @@ a.link-btn[href^="https://wa.me/"]{
 }
 .analytics-filter-card{
   background:#fff;
-  border:1px solid #f3e3c4;
+  border:1px solid #e5e7eb;
   border-radius:16px;
   padding:12px;
 }
 .analytics-filter-card-title{
   font-size:12px;
   font-weight:900;
-  color:#7c4a03;
+  color:#1e293b;
   text-transform:uppercase;
   letter-spacing:.02em;
   margin-bottom:8px;
@@ -2299,7 +2307,7 @@ a.link-btn[href^="https://wa.me/"]{
 .analytics-independent-filters label{
   margin-top:0 !important;
   font-size:12px !important;
-  color:#7c4a03 !important;
+  color:#1e293b !important;
 }
 .analytics-independent-filters input,
 .analytics-independent-filters select{
@@ -2355,7 +2363,7 @@ a.link-btn[href^="https://wa.me/"]{
     z-index:3;
     background:#fff;
     padding:8px 0 12px;
-    border-bottom:1px solid #f3e3c4;
+    border-bottom:1px solid #e5e7eb;
     margin-bottom:12px;
   }
   .analytics-filter-head{
@@ -2408,7 +2416,7 @@ a.link-btn[href^="https://wa.me/"]{
 .analytics-timeseries-dropdown{
   margin-top:18px;
   padding-top:14px;
-  border-top:1px solid #f3e3c4;
+  border-top:1px solid #e5e7eb;
 }
 .analytics-timeseries-dropdown .analytics-time-btn{
   width:100% !important;
@@ -2670,9 +2678,9 @@ a.link-btn[href^="https://wa.me/"]{
 .dashboard-monto-calculado-label{font-size:11px;font-weight:900;color:#3730a3;text-transform:uppercase;letter-spacing:.02em;}
 .dashboard-monto-calculado-wrap .dashboard-monto-input{width:150px;min-width:150px;}
 
-.dashboard-airbnb-comision-wrap{display:grid;gap:6px;padding:10px;border:1px solid #fed7aa;border-radius:14px;background:linear-gradient(180deg, rgba(255,247,237,.98) 0%, rgba(255,237,213,.82) 100%);}
+.dashboard-airbnb-comision-wrap{display:grid;gap:6px;padding:10px;border:1px solid #cbd5e1;border-radius:14px;background:linear-gradient(180deg, rgba(255,247,237,.98) 0%, rgba(255,237,213,.82) 100%);}
 .dashboard-airbnb-comision-label{font-size:11px;font-weight:900;color:#9a3412;text-transform:uppercase;letter-spacing:.02em;}
-.dashboard-airbnb-comision-input{width:150px;min-width:150px;padding:8px 10px;border-radius:10px;border:1px solid #fb923c;background:#fff7ed;color:#9a3412;font-size:13px;font-weight:900;}
+.dashboard-airbnb-comision-input{width:150px;min-width:150px;padding:8px 10px;border-radius:10px;border:1px solid #0891b2;background:#f1f5f9;color:#9a3412;font-size:13px;font-weight:900;}
 
 
 /* ===== Ajuste Ticket para auto-facturación: orden y campos calculados tenues ===== */
@@ -2722,22 +2730,22 @@ a.link-btn[href^="https://wa.me/"]{
   align-items:end;
   padding:14px;
   border-radius:18px;
-  border:1px solid #f3cf94;
-  background:#fffdf8;
+  border:1px solid #cbd5e1;
+  background:#ffffff;
 }
-.calendar-toolbar label{margin-top:0 !important;font-size:12px !important;color:#7c4a03 !important;}
+.calendar-toolbar label{margin-top:0 !important;font-size:12px !important;color:#1e293b !important;}
 .calendar-toolbar input,.calendar-toolbar select{padding:11px 12px !important;border-radius:14px !important;font-size:14px !important;}
 .calendar-toolbar button{margin-top:0 !important;white-space:nowrap;}
 .calendar-meta{margin:12px 0;font-size:13px;color:#6b7280;line-height:1.4;}
-.calendar-scroll{overflow:auto;border:1px solid #f3e3c4;border-radius:18px;background:#fff;max-height:62vh;}
+.calendar-scroll{overflow:auto;border:1px solid #e5e7eb;border-radius:18px;background:#fff;max-height:62vh;}
 .calendar-grid{display:grid;min-width:max-content;position:relative;}
-.calendar-corner,.calendar-day-header,.calendar-stay-label,.calendar-cell{border-bottom:1px solid #f3e3c4;border-right:1px solid #f3e3c4;}
-.calendar-corner{position:sticky;left:0;top:0;z-index:5;background:#fff7ed;padding:12px;font-size:12px;font-weight:900;color:#7c4a03;min-width:220px;}
-.calendar-day-header{position:sticky;top:0;z-index:4;background:#fff7ed;min-width:72px;text-align:center;padding:9px 6px;font-size:12px;font-weight:800;color:#5f5f5f;}
+.calendar-corner,.calendar-day-header,.calendar-stay-label,.calendar-cell{border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb;}
+.calendar-corner{position:sticky;left:0;top:0;z-index:5;background:#f1f5f9;padding:12px;font-size:12px;font-weight:900;color:#1e293b;min-width:220px;}
+.calendar-day-header{position:sticky;top:0;z-index:4;background:#f1f5f9;min-width:72px;text-align:center;padding:9px 6px;font-size:12px;font-weight:800;color:#5f5f5f;}
 .calendar-day-header.weekend{background:#f3f4f6;}
-.calendar-day-num{font-size:17px;color:#2b2b2b;margin-top:2px;}
+.calendar-day-num{font-size:17px;color:#1f2937;margin-top:2px;}
 .calendar-stay-label{position:sticky;left:0;z-index:3;background:#fff;padding:10px 12px;min-width:220px;display:flex;flex-direction:column;justify-content:center;}
-.calendar-stay-name{font-size:13px;font-weight:900;color:#2b2b2b;line-height:1.25;max-width:210px;white-space:normal;}
+.calendar-stay-name{font-size:13px;font-weight:900;color:#1f2937;line-height:1.25;max-width:210px;white-space:normal;}
 .calendar-stay-code{font-size:11px;color:#6b7280;margin-top:4px;}
 .calendar-cell{position:relative;min-width:72px;height:58px;background:#fff;}
 .calendar-cell.weekend{background:#f9fafb;}
@@ -2753,7 +2761,7 @@ a.link-btn[href^="https://wa.me/"]{
 .calendar-empty-row{padding:24px;text-align:center;color:#6b7280;}
 @media (max-width:700px){
   .calendar-modal-card{width:100vw !important;height:100dvh !important;max-height:100dvh !important;border-radius:0 !important;padding:14px !important;}
-  .calendar-modal-header{position:sticky;top:0;background:#fff;z-index:8;padding-bottom:10px;border-bottom:1px solid #f3e3c4;}
+  .calendar-modal-header{position:sticky;top:0;background:#fff;z-index:8;padding-bottom:10px;border-bottom:1px solid #e5e7eb;}
   .calendar-toolbar{grid-template-columns:1fr;}
   .calendar-scroll{max-height:calc(100dvh - 270px);}
   .calendar-corner,.calendar-stay-label{min-width:180px;}
@@ -2778,37 +2786,37 @@ a.link-btn[href^="https://wa.me/"]{
 .calendar-card-modal-head h3{margin:0;font-size:22px;}
 .calendar-card-modal-body .dashboard-record{margin:0 !important;}
 .calendar-card-modal-body .dashboard-record[open] .dashboard-record-toggle{transform:rotate(180deg);}
-@media(max-width:700px){.calendar-card-modal-card{width:100vw !important;height:100dvh !important;max-height:100dvh !important;border-radius:0 !important;padding:14px !important;}.calendar-card-modal-head{position:sticky;top:0;background:#fff;z-index:4;padding-bottom:10px;border-bottom:1px solid #f3e3c4;}.calendar-tooltip{max-width:calc(100vw - 28px);}}
+@media(max-width:700px){.calendar-card-modal-card{width:100vw !important;height:100dvh !important;max-height:100dvh !important;border-radius:0 !important;padding:14px !important;}.calendar-card-modal-head{position:sticky;top:0;background:#fff;z-index:4;padding-bottom:10px;border-bottom:1px solid #e5e7eb;}.calendar-tooltip{max-width:calc(100vw - 28px);}}
 
 
 
 /* ===== Calendario V2: colores premium + leyenda fija + tablet/mobile ===== */
 .calendar-scroll{overflow:auto !important;border-radius:20px !important;-webkit-overflow-scrolling:touch !important;}
-.calendar-legend{position:sticky !important;top:0 !important;z-index:9 !important;display:flex !important;gap:8px !important;flex-wrap:wrap !important;margin:0 !important;padding:10px 12px !important;align-items:center !important;font-size:12px !important;color:#6b7280 !important;background:rgba(255,255,255,.94) !important;border-bottom:1px solid #f3e3c4 !important;backdrop-filter:blur(12px) !important;-webkit-backdrop-filter:blur(12px) !important;box-shadow:0 8px 18px rgba(15,23,42,.06) !important;}
+.calendar-legend{position:sticky !important;top:0 !important;z-index:9 !important;display:flex !important;gap:8px !important;flex-wrap:wrap !important;margin:0 !important;padding:10px 12px !important;align-items:center !important;font-size:12px !important;color:#6b7280 !important;background:rgba(255,255,255,.94) !important;border-bottom:1px solid #e5e7eb !important;backdrop-filter:blur(12px) !important;-webkit-backdrop-filter:blur(12px) !important;box-shadow:0 8px 18px rgba(15,23,42,.06) !important;}
 .calendar-legend-pill{display:inline-flex !important;align-items:center !important;gap:7px !important;padding:6px 10px !important;border-radius:999px !important;border:1px solid #e5e7eb !important;background:#fff !important;font-weight:900 !important;color:#374151 !important;box-shadow:0 4px 12px rgba(15,23,42,.06) !important;white-space:nowrap !important;}
 .calendar-legend-dot{width:12px !important;height:12px !important;border-radius:999px !important;display:inline-block !important;box-shadow:0 0 0 3px rgba(255,255,255,.75),0 3px 8px rgba(15,23,42,.16) !important;}
-.calendar-legend-dot.si{background:linear-gradient(135deg,#f97316,#e11d48,#be185d) !important;}
+.calendar-legend-dot.si{background:linear-gradient(135deg,#0891b2,#e11d48,#be185d) !important;}
 .calendar-legend-dot.no{background:linear-gradient(135deg,#2563eb,#06b6d4,#14b8a6) !important;}
-.calendar-legend-dot.emitido{background:linear-gradient(135deg,#059669,#10b981,#f59e0b) !important;}
-.calendar-corner{top:42px !important;z-index:8 !important;background:linear-gradient(180deg,#fff7ed 0%,#fffbeb 100%) !important;box-shadow:6px 0 14px rgba(15,23,42,.06) !important;}
-.calendar-day-header{top:42px !important;z-index:7 !important;background:linear-gradient(180deg,#fff7ed 0%,#fffbeb 100%) !important;}
+.calendar-legend-dot.emitido{background:linear-gradient(135deg,#059669,#10b981,#475569) !important;}
+.calendar-corner{top:42px !important;z-index:8 !important;background:linear-gradient(180deg,#f1f5f9 0%,#f8fafc 100%) !important;box-shadow:6px 0 14px rgba(15,23,42,.06) !important;}
+.calendar-day-header{top:42px !important;z-index:7 !important;background:linear-gradient(180deg,#f1f5f9 0%,#f8fafc 100%) !important;}
 .calendar-bar{background:linear-gradient(90deg,#6366f1 0%,#22d3ee 100%) !important;color:#fff !important;box-shadow:0 10px 22px rgba(79,70,229,.18) !important;}
-.calendar-bar.factura-si{background:linear-gradient(90deg,#f97316 0%,#e11d48 52%,#be185d 100%) !important;color:#fff !important;}
+.calendar-bar.factura-si{background:linear-gradient(90deg,#0891b2 0%,#e11d48 52%,#be185d 100%) !important;color:#fff !important;}
 .calendar-bar.factura-no{background:linear-gradient(90deg,#2563eb 0%,#06b6d4 55%,#14b8a6 100%) !important;color:#fff !important;}
-.calendar-bar.factura-si.ticket-emitido{background:linear-gradient(90deg,#059669 0%,#10b981 48%,#f59e0b 100%) !important;color:#fff !important;}
+.calendar-bar.factura-si.ticket-emitido{background:linear-gradient(90deg,#059669 0%,#10b981 48%,#475569 100%) !important;color:#fff !important;}
 .calendar-bar:hover{filter:saturate(1.12) brightness(1.04) !important;box-shadow:0 14px 30px rgba(15,23,42,.22) !important;}
 @media(max-width:1024px){.calendar-modal-card{width:calc(100vw - 18px) !important;max-height:94vh !important;padding:16px !important;border-radius:20px !important;}.calendar-toolbar{grid-template-columns:1fr 1fr !important;}.calendar-scroll{max-height:calc(100dvh - 260px) !important;}.calendar-corner,.calendar-stay-label{min-width:190px !important;}.calendar-day-header,.calendar-cell{min-width:64px !important;}.calendar-bar{height:30px !important;top:12px !important;font-size:11px !important;padding:0 9px !important;}.calendar-legend{gap:6px !important;padding:9px !important;}.calendar-legend-pill{font-size:11px !important;padding:6px 9px !important;}}
-@media(max-width:700px){.calendar-modal-card{width:100vw !important;height:100dvh !important;max-height:100dvh !important;border-radius:0 !important;padding:12px !important;}.calendar-modal-header{position:sticky !important;top:0 !important;background:#fff !important;z-index:10 !important;padding-bottom:10px !important;border-bottom:1px solid #f3e3c4 !important;}.calendar-toolbar{grid-template-columns:1fr !important;}.calendar-toolbar button{width:100% !important;}.calendar-scroll{max-height:calc(100dvh - 310px) !important;border-radius:16px !important;}.calendar-corner,.calendar-stay-label{min-width:160px !important;}.calendar-day-header,.calendar-cell{min-width:58px !important;}.calendar-cell{height:54px !important;}.calendar-day-header{top:78px !important;font-size:11px !important;padding:8px 4px !important;}.calendar-corner{top:78px !important;}.calendar-day-num{font-size:15px !important;}.calendar-stay-name{font-size:12px !important;max-width:150px !important;}.calendar-stay-code{font-size:10px !important;}.calendar-bar{height:28px !important;top:13px !important;font-size:10.5px !important;padding:0 8px !important;left:4px !important;right:4px !important;}.calendar-legend{display:grid !important;grid-template-columns:1fr !important;gap:6px !important;padding:8px !important;}.calendar-legend-pill{width:max-content !important;max-width:100% !important;font-size:11px !important;padding:6px 9px !important;}}
+@media(max-width:700px){.calendar-modal-card{width:100vw !important;height:100dvh !important;max-height:100dvh !important;border-radius:0 !important;padding:12px !important;}.calendar-modal-header{position:sticky !important;top:0 !important;background:#fff !important;z-index:10 !important;padding-bottom:10px !important;border-bottom:1px solid #e5e7eb !important;}.calendar-toolbar{grid-template-columns:1fr !important;}.calendar-toolbar button{width:100% !important;}.calendar-scroll{max-height:calc(100dvh - 310px) !important;border-radius:16px !important;}.calendar-corner,.calendar-stay-label{min-width:160px !important;}.calendar-day-header,.calendar-cell{min-width:58px !important;}.calendar-cell{height:54px !important;}.calendar-day-header{top:78px !important;font-size:11px !important;padding:8px 4px !important;}.calendar-corner{top:78px !important;}.calendar-day-num{font-size:15px !important;}.calendar-stay-name{font-size:12px !important;max-width:150px !important;}.calendar-stay-code{font-size:10px !important;}.calendar-bar{height:28px !important;top:13px !important;font-size:10.5px !important;padding:0 8px !important;left:4px !important;right:4px !important;}.calendar-legend{display:grid !important;grid-template-columns:1fr !important;gap:6px !important;padding:8px !important;}.calendar-legend-pill{width:max-content !important;max-width:100% !important;font-size:11px !important;padding:6px 9px !important;}}
 
 
 /* ===== Calendario V4: enfoque inicial snap + highlight temporal ===== */
 .calendar-scroll{scroll-behavior:smooth !important;scroll-snap-type:x proximity !important;}
 .calendar-day-header,.calendar-cell{scroll-snap-align:center !important;}
-.calendar-focus-control{background:#fff !important;border:1px solid #f3e3c4 !important;border-radius:16px !important;padding:10px !important;}
-.calendar-focus-control label{display:flex !important;align-items:center !important;gap:7px !important;margin:0 0 7px 0 !important;font-size:12px !important;color:#7c4a03 !important;}
-.calendar-focus-control select{border-color:#f59e0b !important;background:#fffdf8 !important;font-weight:800 !important;}
-#dashboardCalendarModal .calendar-cell.calendar-focus-highlight,#dashboardCalendarModal .calendar-day-header.calendar-focus-highlight{position:relative !important;z-index:1 !important;animation:none !important;box-shadow:none !important;background:rgba(245,158,11,.12) !important;outline:none !important;}
-#dashboardCalendarModal .calendar-day-header.calendar-focus-highlight{background:#fff7ed !important;background-image:none !important;color:#5f5f5f !important;}
+.calendar-focus-control{background:#fff !important;border:1px solid #e5e7eb !important;border-radius:16px !important;padding:10px !important;}
+.calendar-focus-control label{display:flex !important;align-items:center !important;gap:7px !important;margin:0 0 7px 0 !important;font-size:12px !important;color:#1e293b !important;}
+.calendar-focus-control select{border-color:#475569 !important;background:#ffffff !important;font-weight:800 !important;}
+#dashboardCalendarModal .calendar-cell.calendar-focus-highlight,#dashboardCalendarModal .calendar-day-header.calendar-focus-highlight{position:relative !important;z-index:1 !important;animation:none !important;box-shadow:none !important;background:rgba(15,23,42,.10) !important;outline:none !important;}
+#dashboardCalendarModal .calendar-day-header.calendar-focus-highlight{background:#f1f5f9 !important;background-image:none !important;color:#5f5f5f !important;}
 #dashboardCalendarModal .calendar-cell.calendar-focus-highlight::after{content:none !important;display:none !important;}
 @keyframes calendarColumnFocusPulse{0%{filter:none;transform:none;}100%{filter:none;transform:none;}}
 @media(max-width:1024px){.calendar-focus-control{grid-column:1 / -1;}}
@@ -2817,14 +2825,14 @@ a.link-btn[href^="https://wa.me/"]{
 
 /* ===== Calendario: encabezado de fecha de referencia sin transparencia ===== */
 #dashboardCalendarModal .calendar-day-header.calendar-focus-highlight{
-  background:#fff7ed !important;
+  background:#f1f5f9 !important;
   background-image:none !important;
   color:#5f5f5f !important;
   box-shadow:none !important;
   outline:none !important;
 }
 #dashboardCalendarModal .calendar-cell.calendar-focus-highlight{
-  background:rgba(245,158,11,.10) !important;
+  background:rgba(8,145,178,.10) !important;
   box-shadow:none !important;
   outline:none !important;
 }
@@ -2843,7 +2851,7 @@ a.link-btn[href^="https://wa.me/"]{
   margin:0 0 10px 0 !important;
   font-size:13px !important;
   font-weight:900 !important;
-  color:#7c4a03 !important;
+  color:#1e293b !important;
 }
 .range-card-simple input[type="date"]{
   width:100% !important;
@@ -2958,7 +2966,6 @@ function formatRangoFechasSimple(inicio, fin){
 <div class="top-menu">
 <button class="menu-btn active" id="menuRegistroBtn" type="button">Registro de huéspedes</button>
 <button class="menu-btn secondary" id="menuVehiculosBtn" type="button">Información de vehículos</button>
-<button class="menu-btn secondary" id="menuControlBtn" type="button">Control de huéspedes</button>
 </div>
 <div class="view-panel hidden" id="viewVehiculos">
 <div class="dashboard-wrap">
@@ -2986,277 +2993,10 @@ function formatRangoFechasSimple(inicio, fin){
 </div>
 <div class="popup-backdrop" id="vehiculosLoadingPopup" style="display:none;">
 <div class="popup-card" style="max-width:320px;">
-<div style="width:52px;height:52px;border:4px solid rgba(245,158,11,.25);border-top-color:#dc2626;border-radius:50%;margin:0 auto 16px;animation:spinPopup 0.9s linear infinite;"></div>
+<div style="width:52px;height:52px;border:4px solid rgba(15,23,42,.22);border-top-color:#475569;border-radius:50%;margin:0 auto 16px;animation:spinPopup 0.9s linear infinite;"></div>
 <h3 style="margin-bottom:8px;">Buscando vehículos</h3>
 <div class="hint" style="margin:0;">Por favor espera mientras consultamos los registros.</div>
 </div>
-</div>
-<div class="view-panel hidden" id="viewDashboard">
-<div class="dashboard-wrap">
-<div class="section">
-<h2 class="section-title">Control de huéspedes</h2>
-<p class="section-subtitle">Consulta los registros guardados en la hoja "Check in" con filtros dinámicos, rango de fechas, paginación y detalle completo.</p>
-
-<div class="range-grid range-grid-simple month-filter-grid">
-<div class="range-card range-card-simple month-filter-card">
-<label class="range-title" for="filtro_mes_estancia">Mes</label>
-<input id="filtro_mes_estancia" type="month"/>
-<div class="hint">Muestra registros cuya estancia toca al menos un día del mes seleccionado.</div>
-</div>
-</div>
-<div class="filter-grid" style="margin-top:14px;">
-<div>
-<label for="filtro_nombre_reservacion">Nombre de la persona que hizo la reservación</label>
-<select id="filtro_nombre_reservacion"><option value="">Todos</option></select>
-</div>
-<div>
-<label for="filtro_medio_reservacion">Medio de reservación</label>
-<select id="filtro_medio_reservacion"><option value="">Todos</option></select>
-</div>
-<div>
-<label for="filtro_celular_principal">Cel/Whatsapp (principal)</label>
-<select id="filtro_celular_principal"><option value="">Todos</option></select>
-</div>
-<div>
-<label for="filtro_requiere_factura">¿Requiere factura?</label>
-<select id="filtro_requiere_factura"><option value="">Todos</option><option value="Sí">Sí</option><option value="No">No</option></select>
-</div>
-<div>
-<label for="filtro_razon_social">Razón social</label>
-<select id="filtro_razon_social"><option value="">Todos</option></select>
-</div>
-<div>
-<label for="filtro_forma_pago">Forma de pago</label>
-<select id="filtro_forma_pago"><option value="">Todos</option></select>
-</div>
-<div>
-<label for="filtro_correo">Correo electrónico</label>
-<select id="filtro_correo"><option value="">Todos</option></select>
-</div>
-<div>
-<label for="dashboard_page_size">Registros por página</label>
-<select id="dashboard_page_size">
-<option value="10">10</option>
-<option selected="" value="25">25</option>
-<option value="50">50</option>
-<option value="100">100</option>
-</select>
-</div>
-</div>
-<div class="filter-actions">
-<button id="btnBuscarHuespedes" type="button">Buscar registros</button>
-<button id="btnDashboardAnalitico" type="button" aria-label="Abrir dashboard analítico" title="Dashboard analítico"><span class="dashboard-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M4 19V5"></path><path d="M4 19h16"></path><rect x="7" y="11" width="3" height="5" rx="1"></rect><rect x="12" y="7" width="3" height="9" rx="1"></rect><rect x="17" y="4" width="3" height="12" rx="1"></rect></svg></span></button>
-<button class="menu-btn secondary" id="btnLimpiarFiltros" style="flex:0 0 auto;" type="button">Limpiar filtros</button>
-<button class="menu-btn secondary" id="btnExportarCsv" style="flex:0 0 auto;" type="button">Exportar CSV</button>
-</div>
-<div class="kpi-grid">
-<div class="kpi-card"><div class="kpi-label">Registros encontrados</div><div class="kpi-value" id="kpi_total_registros">0</div></div>
-<div class="kpi-card"><div class="kpi-label">Con factura</div><div class="kpi-value" id="kpi_con_factura">0</div></div>
-<div class="kpi-card"><div class="kpi-label">Sin factura</div><div class="kpi-value" id="kpi_sin_factura">0</div></div>
-<div class="kpi-card ticket-status-wide-card" id="kpi_ticket_status_card">
-  <div class="ticket-status-wide-head">
-    <div>
-      <div class="kpi-label">Estado de tickets</div>
-      <div class="ticket-status-wide-title">Emitidos vs pendientes</div>
-    </div>
-    <div class="ticket-status-wide-total" id="kpi_ticket_total_requieren">0 tickets requieren factura</div>
-  </div>
-
-  <div class="ticket-stacked-bar" aria-label="Porcentaje de tickets emitidos y pendientes">
-    <div class="ticket-stacked-segment ticket-stacked-issued" id="ticket_stacked_emitido" style="width:0%;"></div>
-    <div class="ticket-stacked-segment ticket-stacked-pending" id="ticket_stacked_pendiente" style="width:0%;"></div>
-  </div>
-
-  <div class="ticket-status-wide-grid">
-    <div class="ticket-status-metric issued">
-      <span class="ticket-status-dot"></span>
-      <div>
-        <div class="ticket-status-metric-label">Emitidos</div>
-        <div class="ticket-status-metric-value"><span id="kpi_tickets_emitidos_num">0</span> (<span id="kpi_pct_facturado">0%</span>)</div>
-      </div>
-    </div>
-    <div class="ticket-status-metric pending">
-      <span class="ticket-status-dot"></span>
-      <div>
-        <div class="ticket-status-metric-label">Pendientes</div>
-        <div class="ticket-status-metric-value"><span id="kpi_tickets_pendientes_num">0</span> (<span id="kpi_pct_pendiente">0%</span>)</div>
-      </div>
-    </div>
-  </div>
-</div>
-</div>
-<div class="dashboard-alerts" id="dashboardAlerts"><div class="dashboard-alert dashboard-alert-neutral">Sin alertas todavía.</div></div>
-<div class="results-meta" id="dashboardMeta">Sin consulta todavía.</div>
-<div class="dashboard-view-switch" id="dashboardViewSwitch" role="group" aria-label="Modo de visualización de registros">
-  <button class="dashboard-view-switch-btn active" id="btnModoLista" type="button" data-dashboard-view="lista" aria-pressed="true">Lista</button>
-  <button class="dashboard-view-switch-btn" id="btnModoCalendario" type="button" data-dashboard-view="calendario" aria-pressed="false">Calendario</button>
-</div>
-<div class="dashboard-calendar-inline hidden" id="dashboardCalendarInlineMount"></div>
-<div class="dashboard-records-wrap" id="dashboardRecordsWrap">
-<div class="dashboard-records" id="dashboardTableBody">
-<div class="empty-state">Sin registros para mostrar.</div>
-</div>
-</div>
-<div class="pager-bar" id="dashboardPagerBar">
-<div class="pager-info" id="dashboardPagerInfo">Página 1 de 1</div>
-<div class="pager-controls">
-<button class="menu-btn secondary" id="btnPrevPage" style="flex:0 0 auto;" type="button">Anterior</button>
-<button class="menu-btn secondary" id="btnNextPage" style="flex:0 0 auto;" type="button">Siguiente</button>
-</div>
-</div>
-</div>
-</div>
-</div>
-
-<div class="dashboard-calendar-panel" id="dashboardCalendarModal" style="display:none;">
-  <div class="calendar-modal-card dashboard-calendar-card-inline">
-    <div class="calendar-modal-header">
-      <div>
-        <h3 style="margin-bottom:6px;">Calendario de estancias</h3>
-        <div class="hint" id="calendarSubtitle">Vista por alojamiento, día y duración de la estancia.</div>
-      </div>
-    </div>
-    <div class="calendar-toolbar">
-      <div>
-        <label for="calendarFechaDesde">Desde</label>
-        <input id="calendarFechaDesde" type="date" />
-      </div>
-      <div>
-        <label for="calendarFechaHasta">Hasta</label>
-        <input id="calendarFechaHasta" type="date" />
-      </div>
-      <div>
-        <label for="calendarAlojamientoFiltro">Alojamiento</label>
-        <select id="calendarAlojamientoFiltro"><option value="">Todos</option></select>
-      </div>
-      <button class="menu-btn secondary" id="btnActualizarCalendario" type="button">Actualizar</button>
-    </div>
-    <div class="calendar-meta" id="calendarMeta">Carga registros para visualizar el calendario.</div>
-    <div class="calendar-scroll" id="calendarGridWrap">
-      <div class="empty-state">Sin registros para mostrar.</div>
-    </div>
-  </div>
-</div>
-
-<div class="popup-backdrop" id="dashboardDetailModal" style="display:none;">
-<div class="popup-card detail-modal-card">
-<h3 style="margin-bottom:6px;">Detalle completo del registro</h3>
-<div class="hint" id="dashboardDetailSubtitle" style="margin-bottom:14px;">Consulta completa del huésped.</div>
-<div class="detail-grid" id="dashboardDetailGrid"></div>
-<div class="detail-modal-actions">
-<button onclick="cerrarDetalleDashboard()" type="button">Cerrar</button>
-</div>
-</div>
-</div>
-
-<div class="popup-backdrop" id="dashboardAnalyticsModal" style="display:none;">
-  <div class="popup-card analytics-modal-card">
-    <div class="analytics-modal-header">
-      <div>
-        <h3 style="margin-bottom:6px;">Dashboard analítico</h3>
-        <div class="hint" id="analyticsSubtitle">Tabla dinámica interactiva sobre los registros cargados.</div>
-      </div>
-      <button class="analytics-close-btn" onclick="cerrarDashboardAnalitico()" type="button" aria-label="Cerrar">×</button>
-    </div>
-
-    <div class="analytics-independent-filters" id="analyticsIndependentFilters">
-      <div class="analytics-filter-head">
-        <div>
-          <div class="analytics-filter-title">Filtros del dashboard analítico</div>
-          <div class="analytics-filter-subtitle">Estos filtros son independientes de la pantalla principal. Se consideran únicamente registros entre la fecha de ingreso y la fecha de salida seleccionadas.</div>
-        </div>
-        <button class="analytics-clear-filter-btn" id="btnLimpiarFiltrosAnaliticos" type="button">Limpiar filtros</button>
-      </div>
-      <div class="analytics-filter-grid">
-        <div class="analytics-filter-card">
-          <div class="analytics-filter-card-title">Fecha de ingreso</div>
-          <label for="analyticsIngresoDesde">Fecha de ingreso</label>
-          <input id="analyticsIngresoDesde" type="date" />
-        </div>
-        <div class="analytics-filter-card">
-          <div class="analytics-filter-card-title">Fecha de salida</div>
-          <label for="analyticsSalidaHasta">Fecha de salida</label>
-          <input id="analyticsSalidaHasta" type="date" />
-        </div>
-        <div class="analytics-filter-card analytics-filter-card-name">
-          <div class="analytics-filter-card-title">Nombre de la persona que hizo la reservación</div>
-          <label for="analyticsNombreReservacion">Nombre</label>
-          <select id="analyticsNombreReservacion"><option value="">Todos</option></select>
-        </div>
-      </div>
-      <div class="analytics-filter-status" id="analyticsFilterStatus">Sin filtros aplicados.</div>
-    </div>
-
-    <div class="analytics-controls">
-      <div class="analytics-numeric-filter">
-        <label for="analyticsMetric">Campo numérico</label>
-        <select id="analyticsMetric">
-          <option value="reservas" selected>Conteo de reservas</option>
-          <option value="requieren_factura">Conteo de reservas que requieren factura</option>
-          <option value="ticket_emitido">Conteo de tickets emitidos</option>
-          <option value="ticket_pendiente">Conteo de tickets pendientes</option>
-          <option value="monto_facturado">Monto facturado</option>
-        </select>
-      </div>
-      <div>
-        <label for="analyticsDim1">Desglose 1</label>
-        <select id="analyticsDim1"></select>
-      </div>
-      <div>
-        <label for="analyticsDim2">Desglose 2</label>
-        <select id="analyticsDim2"></select>
-      </div>
-      <div>
-        <label for="analyticsDim3">Desglose 3</label>
-        <select id="analyticsDim3"></select>
-      </div>
-    </div>
-
-    <div class="analytics-summary-grid">
-      <div class="analytics-summary-card">
-        <div class="analytics-summary-label">Registros usados</div>
-        <div class="analytics-summary-value" id="analyticsTotalRows">0</div>
-      </div>
-      <div class="analytics-summary-card numeric-accent">
-        <div class="analytics-summary-label">Campo numérico agregado</div>
-        <div class="analytics-summary-value" id="analyticsTotalMetric">0</div>
-      </div>
-      <div class="analytics-summary-card">
-        <div class="analytics-summary-label">Desgloses activos</div>
-        <div class="analytics-summary-value" id="analyticsActiveDims">0</div>
-      </div>
-    </div>
-
-
-    <div class="analytics-table-head">
-      <div>Desglose jerárquico</div>
-      <div>Conteo</div>
-      <div>Barra</div>
-    </div>
-    <div class="analytics-tree" id="analyticsTreeBody">
-      <div class="empty-state">Carga registros y selecciona hasta 3 campos de desglose.</div>
-    </div>
-    <div class="analytics-timeseries-dropdown">
-      <button class="analytics-time-btn" id="btnSerieTiempoAnalitica" onclick="toggleSerieTiempoAnalitica()" type="button" aria-expanded="false">▾ Serie de tiempo</button>
-      <div class="analytics-timeseries-panel" id="analyticsTimeSeriesPanel">
-        <div class="analytics-timeseries-head">
-          <div>
-            <div class="analytics-timeseries-title">Serie de tiempo</div>
-            <div class="analytics-timeseries-subtitle" id="analyticsTimeSeriesSubtitle">Fecha de entrada · datos directos</div>
-          </div>
-          <div class="analytics-timeseries-actions">
-            <button class="analytics-toggle-btn" id="btnDatosDirectos" onclick="setSerieTiempoAcumulada(false)" type="button">Datos directos</button>
-            <button class="analytics-toggle-btn" id="btnDatosAcumulados" onclick="setSerieTiempoAcumulada(true)" type="button">Datos acumulados</button>
-          </div>
-        </div>
-        <div class="analytics-timeseries-chart-wrap" id="analyticsTimeSeriesChart">
-          <div class="analytics-timeseries-empty">Carga registros para visualizar la serie de tiempo.</div>
-        </div>
-        <div class="analytics-timeseries-tooltip" id="analyticsTimeSeriesTooltip"></div>
-      </div>
-    </div>
-    <div class="analytics-tooltip" id="analyticsTooltip"></div>
-  </div>
 </div>
 
 <div class="view-panel" id="viewRegistro">
@@ -3704,7 +3444,7 @@ function formatRangoFechasSimple(inicio, fin){
 <div class="popup-backdrop" id="popupEnvio" style="display:none; position:fixed; inset:0; z-index:999999; align-items:center; justify-content:center; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);">
 <div class="popup-card" style="max-width:340px;">
 <div id="popupLoadingState">
-<div style="width:48px;height:48px;border:4px solid rgba(245,158,11,.25);border-top-color:#dc2626;border-radius:50%;margin:0 auto 16px;animation:spinPopup 0.9s linear infinite;"></div>
+<div style="width:48px;height:48px;border:4px solid rgba(15,23,42,.22);border-top-color:#475569;border-radius:50%;margin:0 auto 16px;animation:spinPopup 0.9s linear infinite;"></div>
 <h3 id="popupTituloEnvio">Procesando registro...</h3>
 <div class="hint" id="popupTextoEnvio" style="font-size:14px; margin:8px 0 0 0; color:#374151;">
         Por favor espera unos segundos.
@@ -5180,7 +4920,7 @@ function applyTranslations(lang){
   const h1 = document.querySelector("h1");
   if (h1) h1.textContent = t.title;
 
-  const sectionTitles = document.querySelectorAll(".section-title");
+  const sectionTitles = document.querySelectorAll("#viewRegistro .section-title");
   if (sectionTitles[0]) sectionTitles[0].textContent = t.sec1Title;
   if (sectionTitles[1]) sectionTitles[1].textContent = t.sec2Title;
   if (sectionTitles[2]) sectionTitles[2].textContent = t.sec3Title;
@@ -5188,7 +4928,7 @@ function applyTranslations(lang){
   if (sectionTitles[4]) sectionTitles[4].textContent = t.registerVehicle;
   if (sectionTitles[5]) sectionTitles[5].textContent = t.commentsTitle;
 
-  const sectionSubs = document.querySelectorAll(".section-subtitle");
+  const sectionSubs = document.querySelectorAll("#viewRegistro .section-subtitle");
   if (sectionSubs[0]) sectionSubs[0].textContent = t.sec1Sub;
   if (sectionSubs[1]) sectionSubs[1].textContent = t.sec2Sub;
   if (sectionSubs[2]) sectionSubs[2].textContent = t.sec3Sub;
@@ -6849,7 +6589,7 @@ function buildTicketActionsHtml(row, ticketUrl){
                       <img class="detail-image" src="${escapeHtml(imgUrl)}" alt="${escapeHtml(key)}"
                            referrerpolicy="no-referrer"
                            onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                      <div style="display:none;color:#8a6d3b;">No se pudo previsualizar la imagen.</div>
+                      <div style="display:none;color:#475569;">No se pudo previsualizar la imagen.</div>
                     </div>
                     <a class="detail-link" href="${escapeHtml(rawUrl)}" target="_blank" rel="noopener">Abrir imagen</a>
                   </div>
@@ -7455,9 +7195,9 @@ function formatFechaBonita(fecha){
 
 <div class="popup-backdrop" id="facturapiModal" style="display:none; align-items:center; justify-content:center; z-index:1000000; padding:14px;">
   <div class="popup-card" style="max-width:1100px; width:min(1100px, 100%); height:min(88vh, 900px); padding:0; overflow:hidden; text-align:left; display:flex; flex-direction:column;">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid #f3e3c4; background:linear-gradient(180deg,#fffdf8 0%, #fff7ed 100%);">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid #e5e7eb; background:linear-gradient(180deg,#ffffff 0%, #f1f5f9 100%);">
       <div style="min-width:0;">
-        <div style="font-size:16px; font-weight:800; color:#2b2b2b;">Generar ticket</div>
+        <div style="font-size:16px; font-weight:800; color:#1f2937;">Generar ticket</div>
         <div id="facturapiModalHint" style="font-size:12px; color:#6b7280; margin-top:3px;">Cargando Facturapi...</div>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -7465,116 +7205,15 @@ function formatFechaBonita(fecha){
         <button id="facturapiCloseBtn" type="button" style="margin-top:0; padding:10px 12px; font-size:13px; background:linear-gradient(180deg,#d1d5db 0%, #9ca3af 100%);">Cerrar</button>
       </div>
     </div>
-    <div id="facturapiModalLoading" style="display:flex; align-items:center; justify-content:center; gap:12px; padding:18px; border-bottom:1px solid #f3e3c4; background:#fffdf8;">
-      <div style="width:24px;height:24px;border:3px solid rgba(245,158,11,.25);border-top-color:#dc2626;border-radius:50%;animation:spinPopup 0.9s linear infinite;"></div>
+    <div id="facturapiModalLoading" style="display:flex; align-items:center; justify-content:center; gap:12px; padding:18px; border-bottom:1px solid #e5e7eb; background:#ffffff;">
+      <div style="width:24px;height:24px;border:3px solid rgba(15,23,42,.22);border-top-color:#475569;border-radius:50%;animation:spinPopup 0.9s linear infinite;"></div>
       <div style="font-size:13px; color:#6b7280;">Preparando Facturapi...</div>
     </div>
     <iframe id="facturapiModalFrame" title="Facturapi" src="about:blank" style="flex:1 1 auto; width:100%; border:0; background:#fff;"></iframe>
   </div>
 </div>
 
-<div class="popup-backdrop" id="passwordModal" style="display:none;">
-<div class="popup-card" style="max-width:360px;">
-<h3 style="margin-bottom:8px;">Acceso restringido</h3>
-<div class="hint" style="margin-bottom:14px;">Ingresa la contraseña para entrar a Control de huéspedes</div>
-<input id="adminPasswordInput" placeholder="Contraseña" style="width:100%;padding:14px 15px;border-radius:14px;border:1px solid var(--border-strong);font-size:16px;" type="password"/>
-<div id="adminPasswordError" style="display:none;color:#991b1b;font-size:13px;margin-top:10px;">Contraseña incorrecta</div>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
-<button id="cancelPasswordBtn" style="margin-top:0;background:linear-gradient(180deg,#d1d5db 0%, #9ca3af 100%);" type="button">Cancelar</button>
-<button id="submitPasswordBtn" style="margin-top:0;" type="button">Entrar</button>
-</div>
-</div>
-</div>
 <script>
-window.dashboardUnlocked = false;
-const DASHBOARD_PASSWORD = "admin";
-
-function showPasswordModal(){
-  const modal = document.getElementById("passwordModal");
-  const input = document.getElementById("adminPasswordInput");
-  const err = document.getElementById("adminPasswordError");
-  if (err) err.style.display = "none";
-  if (input) input.value = "";
-  if (modal) modal.style.display = "flex";
-  if (input) setTimeout(() => input.focus(), 30);
-}
-
-function hidePasswordModal(){
-  const modal = document.getElementById("passwordModal");
-  if (modal) modal.style.display = "none";
-}
-
-async function openDashboardAfterUnlock(){
-  if (typeof window.activarVistaControlHuespedes === "function") {
-    try {
-      await window.activarVistaControlHuespedes(true);
-      return;
-    } catch (_err) {}
-  }
-
-  const dashboardBtn = document.getElementById("menuControlBtn");
-  if (dashboardBtn) {
-    dashboardBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    return;
-  }
-
-  if (typeof window.activarVista === "function") {
-    window.activarVista("dashboard");
-  }
-  if (typeof window.cargarOpcionesFiltros === "function") {
-    Promise.resolve(window.cargarOpcionesFiltros()).then(() => {
-      if (typeof window.buscarRegistros === "function") window.buscarRegistros(true);
-    }).catch(() => {});
-  } else if (typeof window.buscarRegistros === "function") {
-    window.buscarRegistros(true);
-  }
-}
-
-function unlockDashboardWithPassword(){
-  const input = document.getElementById("adminPasswordInput");
-  const err = document.getElementById("adminPasswordError");
-  const pass = input ? input.value : "";
-  if (pass === DASHBOARD_PASSWORD) {
-    window.dashboardUnlocked = true;
-    if (err) err.style.display = "none";
-    hidePasswordModal();
-    openDashboardAfterUnlock();
-  } else {
-    if (err) err.style.display = "block";
-  }
-}
-
-document.addEventListener("DOMContentLoaded", function(){
-  const dashboardBtn = document.getElementById("menuControlBtn");
-  const submitBtn = document.getElementById("submitPasswordBtn");
-  const cancelBtn = document.getElementById("cancelPasswordBtn");
-  const input = document.getElementById("adminPasswordInput");
-  const modal = document.getElementById("passwordModal");
-
-  if (dashboardBtn) {
-    dashboardBtn.addEventListener("click", function(ev){
-      if (window.dashboardUnlocked) return;
-      ev.preventDefault();
-      ev.stopImmediatePropagation();
-      ev.stopPropagation();
-      showPasswordModal();
-    }, true);
-  }
-
-  if (submitBtn) submitBtn.addEventListener("click", unlockDashboardWithPassword);
-  if (cancelBtn) cancelBtn.addEventListener("click", hidePasswordModal);
-  if (input) {
-    input.addEventListener("keydown", function(e){
-      if (e.key === "Enter") unlockDashboardWithPassword();
-    });
-  }
-  if (modal) {
-    modal.addEventListener("click", function(e){
-      if (e.target === modal) hidePasswordModal();
-    });
-  }
-});
-
 function formatFechaBonita(fecha){
   if(!fecha) return "—";
   try{
@@ -8255,7 +7894,7 @@ function formatFechaBonita(fecha){
 
     const x = (dt) => pad.left + ((dt.getTime() - minDate) / span) * innerW;
     const y = (v) => pad.top + innerH - (v / maxY) * innerH;
-    const palette = ['#0f766e','#f59e0b','#2563eb','#dc2626','#7c3aed','#16a34a','#db2777','#0891b2','#9333ea','#ea580c','#4f46e5','#65a30d'];
+    const palette = ['#0f766e','#475569','#2563eb','#dc2626','#7c3aed','#16a34a','#db2777','#0891b2','#9333ea','#ea580c','#4f46e5','#65a30d'];
 
     const gridVals = [0, Math.round(maxY/2), maxY].filter((v,i,a) => a.indexOf(v) === i);
     const maxXLabels = window.innerWidth < 700 ? 8 : (window.innerWidth < 1024 ? 10 : 14);
@@ -8296,9 +7935,9 @@ function formatFechaBonita(fecha){
       const color = palette[idx % palette.length];
       const isSelected = hasSelectedSeries && serie.label === analyticsTimeSeriesSelectedLabel;
       const isDimmed = hasSelectedSeries && !isSelected;
-      const activeStyle = isSelected ? 'background:#fff7ed;border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.14);' : 'background:#fff;border-color:#f3e3c4;';
+      const activeStyle = isSelected ? 'background:#f1f5f9;border-color:#475569;box-shadow:0 0 0 3px rgba(8,145,178,.16);' : 'background:#fff;border-color:#e5e7eb;';
       const opacityStyle = isDimmed ? 'opacity:.38;filter:grayscale(.75);' : 'opacity:1;';
-      return `<button type="button" onclick="seleccionarSerieTiempoLeyenda(${JSON.stringify(serie.label)})" title="Resaltar ${esc(serie.label)}" style="display:inline-flex;align-items:center;gap:6px;margin:4px 6px 0 0;padding:7px 10px;border-radius:999px;border:1px solid #f3e3c4;font-size:12px;font-weight:800;color:#374151;max-width:100%;cursor:pointer;box-shadow:none;${activeStyle}${opacityStyle}"><span style="width:10px;height:10px;border-radius:999px;background:${color};display:inline-block;flex:0 0 auto;"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(serie.label)} (${metricFormat(serie.totalDirect, metric)})</span></button>`;
+      return `<button type="button" onclick="seleccionarSerieTiempoLeyenda(${JSON.stringify(serie.label)})" title="Resaltar ${esc(serie.label)}" style="display:inline-flex;align-items:center;gap:6px;margin:4px 6px 0 0;padding:7px 10px;border-radius:999px;border:1px solid #e5e7eb;font-size:12px;font-weight:800;color:#374151;max-width:100%;cursor:pointer;box-shadow:none;${activeStyle}${opacityStyle}"><span style="width:10px;height:10px;border-radius:999px;background:${color};display:inline-block;flex:0 0 auto;"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(serie.label)} (${metricFormat(serie.totalDirect, metric)})</span></button>`;
     }).join('');
 
     chart.innerHTML = `
@@ -8611,12 +8250,12 @@ ${toInputDate(stay.start)} → ${toInputDate(stay.end)}`;
 <style id="calendar-flat-responsive-v3">
 .calendar-modal-card{width:min(1180px,calc(100vw - 22px)) !important;max-height:92vh !important;overflow:auto !important;}
 .calendar-toolbar{grid-template-columns:repeat(6,minmax(0,1fr)) !important;align-items:end !important;}
-.calendar-legend-fixed{position:sticky !important;top:0 !important;z-index:14 !important;display:flex !important;gap:8px !important;flex-wrap:wrap !important;margin:10px 0 0 !important;padding:10px 12px !important;align-items:center !important;background:#fff !important;border:1px solid #f3e3c4 !important;border-radius:16px 16px 0 0 !important;box-shadow:0 8px 20px rgba(15,23,42,.08) !important;}
+.calendar-legend-fixed{position:sticky !important;top:0 !important;z-index:14 !important;display:flex !important;gap:8px !important;flex-wrap:wrap !important;margin:10px 0 0 !important;padding:10px 12px !important;align-items:center !important;background:#fff !important;border:1px solid #e5e7eb !important;border-radius:16px 16px 0 0 !important;box-shadow:0 8px 20px rgba(15,23,42,.08) !important;}
 .calendar-legend-fixed .calendar-legend-pill{background:#fff !important;border:1px solid #e5e7eb !important;color:#374151 !important;box-shadow:none !important;}
 .calendar-legend-fixed .calendar-legend-dot{box-shadow:none !important;}
 .calendar-legend{display:none !important;}
 .calendar-scroll{border-radius:0 0 18px 18px !important;margin-top:0 !important;}
-.calendar-corner,.calendar-day-header{top:0 !important;background:#fff7ed !important;background-image:none !important;}
+.calendar-corner,.calendar-day-header{top:0 !important;background:#f1f5f9 !important;background-image:none !important;}
 .calendar-bar{background:#4f46e5 !important;color:#fff !important;box-shadow:0 8px 18px rgba(79,70,229,.20) !important;border:1px solid rgba(255,255,255,.45) !important;}
 .calendar-bar.factura-si{background:#e11d48 !important;color:#fff !important;box-shadow:0 8px 18px rgba(225,29,72,.20) !important;}
 .calendar-bar.factura-no{background:#0ea5e9 !important;color:#fff !important;box-shadow:0 8px 18px rgba(14,165,233,.20) !important;}
@@ -8703,8 +8342,8 @@ ${toInputDate(stay.start)} → ${toInputDate(stay.end)}`;
     gap:4px;
     padding:5px;
     border-radius:999px;
-    border:1px solid #f3cf94;
-    background:#fff7ed;
+    border:1px solid #cbd5e1;
+    background:#f1f5f9;
     box-shadow:inset 0 1px 2px rgba(15,23,42,.05);
   }
   .dashboard-view-switch-btn{
@@ -8713,15 +8352,15 @@ ${toInputDate(stay.start)} → ${toInputDate(stay.end)}`;
     padding:10px 16px !important;
     border-radius:999px !important;
     background:transparent !important;
-    color:#7c4a03 !important;
+    color:#1e293b !important;
     border:0 !important;
     box-shadow:none !important;
     font-weight:900 !important;
   }
   .dashboard-view-switch-btn.active{
-    background:linear-gradient(180deg,#f59e0b 0%,#d97706 100%) !important;
+    background:linear-gradient(180deg,#475569 0%,#334155 100%) !important;
     color:#fff !important;
-    box-shadow:0 8px 18px rgba(217,119,6,.18) !important;
+    box-shadow:0 8px 18px rgba(15,23,42,.18) !important;
   }
   .dashboard-calendar-inline{
     margin-top:14px;
@@ -8881,7 +8520,7 @@ document.addEventListener("DOMContentLoaded", function(){
     position:sticky !important;
     top:0 !important;
     z-index:30 !important;
-    background:#fff7ed !important;
+    background:#f1f5f9 !important;
     background-image:none !important;
   }
 
@@ -8894,7 +8533,7 @@ document.addEventListener("DOMContentLoaded", function(){
     position:sticky !important;
     top:0 !important;
     z-index:42 !important;
-    background:#fff7ed !important;
+    background:#f1f5f9 !important;
     background-image:none !important;
     color:#5f5f5f !important;
     box-shadow:none !important;
@@ -8907,7 +8546,7 @@ document.addEventListener("DOMContentLoaded", function(){
   #dashboardCalendarModal .calendar-cell.calendar-focus-highlight{
     position:relative !important;
     z-index:1 !important;
-    background:rgba(245,158,11,.10) !important;
+    background:rgba(8,145,178,.10) !important;
     box-shadow:none !important;
     outline:none !important;
     animation:none !important;
@@ -9016,9 +8655,9 @@ document.addEventListener("DOMContentLoaded", function(){
     display:inline-block !important;
     box-shadow:0 0 0 2px rgba(255,255,255,.9),0 2px 5px rgba(15,23,42,.16) !important;
   }
-  #dashboardCalendarModal .calendar-legend-fixed .calendar-legend-dot.si{background:linear-gradient(135deg,#fb923c,#e11d48,#be185d) !important;}
+  #dashboardCalendarModal .calendar-legend-fixed .calendar-legend-dot.si{background:linear-gradient(135deg,#0891b2,#e11d48,#be185d) !important;}
   #dashboardCalendarModal .calendar-legend-fixed .calendar-legend-dot.no{background:linear-gradient(135deg,#2563eb,#06b6d4,#14b8a6) !important;}
-  #dashboardCalendarModal .calendar-legend-fixed .calendar-legend-dot.emitido{background:linear-gradient(135deg,#059669,#10b981,#f59e0b) !important;}
+  #dashboardCalendarModal .calendar-legend-fixed .calendar-legend-dot.emitido{background:linear-gradient(135deg,#059669,#10b981,#475569) !important;}
 
   #dashboardCalendarModal .calendar-legend-reference-slot{
     margin-left:auto !important;
@@ -9035,9 +8674,9 @@ document.addEventListener("DOMContentLoaded", function(){
     max-width:none !important;
     padding:4px 5px 4px 9px !important;
     border-radius:999px !important;
-    border:1px solid #fed7aa !important;
-    background:linear-gradient(180deg,#fff7ed 0%,#fffbeb 100%) !important;
-    box-shadow:0 3px 9px rgba(217,119,6,.075) !important;
+    border:1px solid #cbd5e1 !important;
+    background:linear-gradient(180deg,#f1f5f9 0%,#f8fafc 100%) !important;
+    box-shadow:0 3px 9px rgba(15,23,42,.075) !important;
   }
   #dashboardCalendarModal .calendar-legend-reference-slot .calendar-focus-control label{
     margin:0 !important;
@@ -9062,9 +8701,9 @@ document.addEventListener("DOMContentLoaded", function(){
     height:26px !important;
     padding:3px 22px 3px 8px !important;
     border-radius:999px !important;
-    border:1px solid #f59e0b !important;
+    border:1px solid #475569 !important;
     background:#ffffff !important;
-    color:#2b2b2b !important;
+    color:#1f2937 !important;
     font-size:11px !important;
     font-weight:800 !important;
     box-shadow:none !important;
