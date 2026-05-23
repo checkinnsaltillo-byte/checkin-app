@@ -13,9 +13,23 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write
 
 jobs:
+  # Push a `test` no puede deployar Pages (la env github-pages
+  # solo acepta main). Cuando alguien pushea test, redirigimos
+  # disparando el mismo workflow desde main.
+  redirect-from-test:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/test'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch deploy desde main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy-pages.yml --ref main --repo ${{ github.repository }}
+
   build:
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main
