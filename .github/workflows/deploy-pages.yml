@@ -1,0 +1,92 @@
+name: Deploy GitHub Pages (main + test preview)
+
+on:
+  push:
+    branches: [main, test]
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-src
+
+      - name: Checkout test
+        uses: actions/checkout@v4
+        with:
+          ref: test
+          path: test-src
+        continue-on-error: true
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          # Copia main al raíz
+          rsync -a --exclude='.git' --exclude='node_modules' --exclude='.github' --exclude='*.bak' main-src/ _site/
+          # Copia test bajo /preview/ (si la rama existe)
+          if [ -d "test-src" ]; then
+            mkdir -p _site/preview
+            rsync -a --exclude='.git' --exclude='node_modules' --exclude='.github' --exclude='*.bak' test-src/ _site/preview/
+          fi
+          # Index redirect al registro
+          if [ ! -f _site/index.html ]; then
+            cat > _site/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="es"><head>
+          <meta charset="utf-8">
+          <title>Check-inn Saltillo</title>
+          <meta http-equiv="refresh" content="0; url=public/registro/">
+          <link rel="canonical" href="public/registro/">
+          </head><body>
+          <p>Redirigiendo a <a href="public/registro/">Registro de huéspedes</a>…</p>
+          </body></html>
+          EOF
+          fi
+          # Index redirect en /preview/
+          if [ -d "_site/preview" ] && [ ! -f _site/preview/index.html ]; then
+            cat > _site/preview/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="es"><head>
+          <meta charset="utf-8">
+          <title>Check-inn Saltillo · Preview</title>
+          <meta http-equiv="refresh" content="0; url=public/registro/">
+          <link rel="canonical" href="public/registro/">
+          </head><body>
+          <p>Redirigiendo a <a href="public/registro/">Registro de huéspedes (preview)</a>…</p>
+          </body></html>
+          EOF
+          fi
+          echo "=== Estructura final ==="
+          find _site -maxdepth 3 -type f | head -30
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
