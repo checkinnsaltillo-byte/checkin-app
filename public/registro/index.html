@@ -2947,8 +2947,226 @@ function formatRangoFechasSimple(inicio, fin){
 }
 </style>
 
+<style>
+/* ===== Auth: Welcome / Login / Home ===== */
+.auth-hide{display:none !important;}
+.auth-actions{
+  display:grid;
+  gap:14px;
+  margin-top:22px;
+}
+.auth-bigbtn{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:6px;
+  padding:22px 22px;
+  border-radius:18px;
+  border:1px solid var(--border-strong);
+  background:#fff;
+  box-shadow:0 6px 18px rgba(15,23,42,.06);
+  cursor:pointer;
+  text-align:left;
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+  margin-top:0;
+  color:var(--text);
+  font-family:Arial,sans-serif;
+  font-weight:600;
+}
+.auth-bigbtn:hover{
+  transform:translateY(-2px);
+  box-shadow:0 14px 30px rgba(15,23,42,.10);
+  border-color:var(--primary);
+}
+.auth-bigbtn.primary{
+  background:linear-gradient(180deg,var(--primary) 0%, var(--primary-strong) 100%);
+  color:#fff;
+  border-color:transparent;
+}
+.auth-bigbtn.primary:hover{
+  filter:brightness(1.04);
+}
+.auth-bigbtn-title{
+  font-size:17px;
+  font-weight:800;
+  line-height:1.2;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.auth-bigbtn-sub{
+  font-size:13px;
+  font-weight:500;
+  line-height:1.35;
+  opacity:.85;
+}
+.auth-bigbtn .auth-bigbtn-icon{
+  font-size:22px;
+  line-height:1;
+}
+.auth-back-link{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-top:18px;
+  padding:8px 0;
+  background:none;
+  color:var(--text-soft);
+  border:none;
+  box-shadow:none;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+}
+.auth-back-link:hover{
+  color:var(--primary);
+  background:none;
+  transform:none;
+  box-shadow:none;
+}
+.auth-otp-input{
+  letter-spacing:14px;
+  text-align:center;
+  font-size:24px !important;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+}
+.auth-info-banner{
+  background:var(--primary-soft);
+  border:1px solid var(--border-strong);
+  border-radius:14px;
+  padding:14px 16px;
+  font-size:13px;
+  color:var(--primary-dark);
+  line-height:1.5;
+  margin-top:14px;
+}
+.auth-info-banner strong{color:var(--primary-strong);}
+
+/* Logout pill arriba a la derecha */
+.session-pill{
+  position:fixed;
+  top:16px;
+  right:16px;
+  z-index:1000;
+  display:none;
+  align-items:center;
+  gap:10px;
+  padding:8px 14px;
+  background:#ffffff;
+  border:1px solid var(--border-strong);
+  border-radius:999px;
+  box-shadow:0 8px 20px rgba(15,23,42,.10);
+  font-size:13px;
+  color:var(--text);
+}
+.session-pill.visible{display:inline-flex;}
+.session-pill-name{
+  font-weight:700;
+  color:var(--primary-dark);
+  max-width:140px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.session-pill-logout{
+  margin-top:0;
+  padding:6px 10px;
+  font-size:12px;
+  background:transparent;
+  color:var(--danger);
+  border:1px solid #fecaca;
+  border-radius:999px;
+  box-shadow:none;
+  cursor:pointer;
+}
+.session-pill-logout:hover{
+  background:#fef2f2;
+  filter:none;
+  transform:none;
+  box-shadow:none;
+}
+@media (max-width:700px){
+  .session-pill{
+    top:10px;
+    right:10px;
+    padding:6px 10px;
+    font-size:12px;
+  }
+  .session-pill-name{max-width:90px;}
+}
+
+/* Home dashboard */
+.home-greeting{
+  font-size:22px;
+  font-weight:800;
+  color:var(--text);
+  margin:6px 0 4px;
+}
+.home-subtitle{
+  font-size:13px;
+  color:var(--text-soft);
+  margin:0 0 18px;
+}
+.home-summary-card{
+  background:linear-gradient(180deg,var(--primary-soft) 0%, #ffffff 100%);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:18px;
+  margin-bottom:14px;
+}
+.home-summary-title{
+  font-size:13px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  color:var(--primary-dark);
+  margin:0 0 12px;
+}
+.home-summary-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px 16px;
+}
+@media (max-width:560px){
+  .home-summary-grid{grid-template-columns:1fr;}
+}
+.home-summary-item{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.home-summary-key{
+  font-size:11px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  color:var(--text-soft);
+}
+.home-summary-val{
+  font-size:14px;
+  color:var(--text);
+  font-weight:600;
+  word-break:break-word;
+}
+.home-empty{
+  background:#ffffff;
+  border:1px dashed var(--border-strong);
+  border-radius:14px;
+  padding:18px;
+  text-align:center;
+  color:var(--text-soft);
+  font-size:13px;
+  line-height:1.5;
+}
+</style>
+
 </head>
 <body>
+<div class="session-pill" id="sessionPill">
+  <span>Hola, <span class="session-pill-name" id="sessionPillName">—</span></span>
+  <button class="session-pill-logout" id="btnLogout" type="button">Cerrar sesión</button>
+</div>
 <div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
 <img alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w1000" style="max-width:260px; width:70%; height:auto; display:inline-block;"/>
 </div>
@@ -2963,10 +3181,93 @@ function formatRangoFechasSimple(inicio, fin){
 </div>
 </div>
 <h1 data-i18n="title">Registro de huéspedes</h1>
-<div class="top-menu">
+<div class="top-menu" id="topMenu">
 <button class="menu-btn active" id="menuRegistroBtn" type="button">Registro de huéspedes</button>
 <button class="menu-btn secondary" id="menuVehiculosBtn" type="button">Información de vehículos</button>
 </div>
+
+<!-- ═══ PANTALLA DE BIENVENIDA ══════════════════════════════════════ -->
+<div class="view-panel" id="viewWelcome">
+  <div class="section">
+    <h2 class="section-title">¿Cómo quieres continuar?</h2>
+    <p class="section-subtitle">Selecciona una opción para empezar tu registro o consultar información de vehículos.</p>
+    <div class="auth-actions">
+      <button class="auth-bigbtn primary" id="btnGoLogin" type="button">
+        <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🔐</span>Iniciar sesión</span>
+        <span class="auth-bigbtn-sub">Más rápido si ya te has hospedado con nosotros. Te enviamos un código por WhatsApp para validar tu celular y autorrellenar tus datos.</span>
+      </button>
+      <button class="auth-bigbtn" id="btnGoExpress" type="button">
+        <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">⚡</span>Acceso exprés</span>
+        <span class="auth-bigbtn-sub">Llena el formulario o consulta vehículos sin registrarte. Ideal si es tu primera vez o no quieres iniciar sesión.</span>
+      </button>
+    </div>
+    <div class="auth-info-banner">
+      💡 <strong>Tip:</strong> Si llenas el formulario por acceso exprés con tu celular, tu cuenta queda creada automáticamente. La próxima vez podrás iniciar sesión para autorellenar tus datos.
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FLUJO DE LOGIN (Celular → OTP) ══════════════════════════════ -->
+<div class="view-panel hidden" id="viewLogin">
+  <div class="section" id="loginStepPhone">
+    <h2 class="section-title">Iniciar sesión</h2>
+    <p class="section-subtitle">Escribe tu número de celular. Te enviaremos un código de 6 dígitos por WhatsApp.</p>
+    <label for="login_celular">Celular</label>
+    <div class="phone-group">
+      <select id="login_lada" name="login_lada"></select>
+      <input autocomplete="tel-national" id="login_celular" inputmode="numeric" name="login_celular" type="tel" placeholder="10 dígitos"/>
+    </div>
+    <div class="note hidden" id="loginPhoneError"></div>
+    <button id="btnSendOtp" type="button">Enviar código</button>
+    <button class="auth-back-link" id="btnLoginBack1" type="button">← Volver</button>
+  </div>
+
+  <div class="section hidden" id="loginStepOtp">
+    <h2 class="section-title">Ingresa el código</h2>
+    <p class="section-subtitle">Enviamos un código de 6 dígitos a <strong id="loginOtpPhoneDisplay">tu celular</strong> por WhatsApp.</p>
+    <label for="login_otp">Código de verificación</label>
+    <input id="login_otp" class="auth-otp-input" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="one-time-code"/>
+    <div class="note hidden" id="loginOtpError"></div>
+    <button id="btnVerifyOtp" type="button">Verificar y entrar</button>
+    <button class="auth-back-link" id="btnLoginBack2" type="button">← Cambiar de número</button>
+    <div class="auth-info-banner" id="loginOtpDemoBanner">
+      🧪 <strong>Modo demo:</strong> WhatsApp aún no está configurado. Usa el código <code>123456</code> para probar el flujo. (Una vez conectes Meta, este aviso desaparece.)
+    </div>
+  </div>
+</div>
+
+<!-- ═══ HOME POST-LOGIN ═════════════════════════════════════════════ -->
+<div class="view-panel hidden" id="viewHome">
+  <div class="section">
+    <h2 class="home-greeting" id="homeGreeting">¡Hola!</h2>
+    <p class="home-subtitle">Bienvenido de vuelta a Check-inn Saltillo.</p>
+
+    <div class="home-summary-card" id="homeSummaryCard">
+      <div class="home-summary-title">Última estancia registrada</div>
+      <div class="home-summary-grid" id="homeSummaryGrid">
+        <div class="home-summary-item"><span class="home-summary-key">Propiedad</span><span class="home-summary-val" id="homeProp">—</span></div>
+        <div class="home-summary-item"><span class="home-summary-key">Ingreso</span><span class="home-summary-val" id="homeIngreso">—</span></div>
+        <div class="home-summary-item"><span class="home-summary-key">Salida</span><span class="home-summary-val" id="homeSalida">—</span></div>
+        <div class="home-summary-item"><span class="home-summary-key">Vehículo</span><span class="home-summary-val" id="homeVehiculo">—</span></div>
+      </div>
+    </div>
+    <div class="home-empty hidden" id="homeEmptyCard">
+      Aún no tienes estancias registradas. Crea tu primera reservación abajo.
+    </div>
+
+    <div class="auth-actions">
+      <button class="auth-bigbtn primary" id="btnHomeNueva" type="button">
+        <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">📝</span>Nueva reservación</span>
+        <span class="auth-bigbtn-sub">Llena el formulario con tus datos ya guardados (puedes editarlos).</span>
+      </button>
+      <button class="auth-bigbtn" id="btnHomeVehiculos" type="button">
+        <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span>Información de vehículos</span>
+        <span class="auth-bigbtn-sub">Consulta los vehículos con estancia activa hoy por propiedad.</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="view-panel hidden" id="viewVehiculos">
 <div class="dashboard-wrap">
 <div class="section">
@@ -2999,7 +3300,7 @@ function formatRangoFechasSimple(inicio, fin){
 </div>
 </div>
 
-<div class="view-panel" id="viewRegistro">
+<div class="view-panel hidden" id="viewRegistro">
 <form id="form">
 <input id="tipo_registro" name="tipo_registro" type="hidden" value="nuevo"/>
 <div class="section" id="section_celular_principal"><h2 class="section-title" data-i18n="phoneLookupTitle">Número de celular</h2><p class="section-subtitle" data-i18n="phoneLookupSub">Escribe tu número para buscar si ya existe un registro previo y completar automáticamente algunos datos.</p>
@@ -8502,6 +8803,394 @@ document.addEventListener("DOMContentLoaded", function(){
         inputMes.value = valor;
     }
 });
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Sistema de Auth — Fase 1 (mock OTP)
+   - Sesión en localStorage con TTL 30 días
+   - OTP mock: cualquier celular válido + código "123456" entra
+   - Cuando se conecte WhatsApp Cloud API, solo se reemplazan
+     sendOtp() y verifyOtp() para hacer fetch al Apps Script
+   ═══════════════════════════════════════════════════════════════════ */
+(function(){
+  "use strict";
+
+  const SESSION_KEY = "checkinn_session_v1";
+  const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
+  const MOCK_OTP = "123456";
+  const OTP_DEMO_MODE = true; // poner en false cuando WhatsApp esté configurado
+
+  // ─── Refs DOM ──────────────────────────────────────────────────────
+  const $ = id => document.getElementById(id);
+  const viewWelcome = $("viewWelcome");
+  const viewLogin = $("viewLogin");
+  const viewHome = $("viewHome");
+  const viewRegistro = $("viewRegistro");
+  const viewVehiculos = $("viewVehiculos");
+  const topMenu = $("topMenu");
+  const sessionPill = $("sessionPill");
+  const sessionPillName = $("sessionPillName");
+  const loginStepPhone = $("loginStepPhone");
+  const loginStepOtp = $("loginStepOtp");
+  const loginLadaSelect = $("login_lada");
+  const loginCelInput = $("login_celular");
+  const loginOtpInput = $("login_otp");
+  const loginPhoneError = $("loginPhoneError");
+  const loginOtpError = $("loginOtpError");
+  const loginOtpPhoneDisplay = $("loginOtpPhoneDisplay");
+  const loginOtpDemoBanner = $("loginOtpDemoBanner");
+
+  // ─── Estado en memoria del OTP en curso ───────────────────────────
+  let pendingOtp = null; // {phone, code, expiresAt}
+
+  // ─── Helpers de sesión ─────────────────────────────────────────────
+  function getSession(){
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      if (!s || !s.phone || !s.expiresAt) return null;
+      if (Date.now() > s.expiresAt) {
+        localStorage.removeItem(SESSION_KEY);
+        return null;
+      }
+      return s;
+    } catch(e) {
+      return null;
+    }
+  }
+  function setSession(data){
+    const session = {
+      phone: data.phone,
+      lada: data.lada || "52",
+      name: data.name || "",
+      token: data.token || generateToken(),
+      createdAt: Date.now(),
+      expiresAt: Date.now() + SESSION_TTL_MS
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    return session;
+  }
+  function clearSession(){
+    localStorage.removeItem(SESSION_KEY);
+  }
+  function generateToken(){
+    const arr = new Uint8Array(16);
+    if (window.crypto && window.crypto.getRandomValues) {
+      window.crypto.getRandomValues(arr);
+    } else {
+      for (let i=0; i<arr.length; i++) arr[i] = Math.floor(Math.random()*256);
+    }
+    return Array.from(arr).map(b => b.toString(16).padStart(2,"0")).join("");
+  }
+
+  // ─── Router de vistas ──────────────────────────────────────────────
+  function showOnly(elToShow){
+    [viewWelcome, viewLogin, viewHome, viewRegistro, viewVehiculos].forEach(el => {
+      if (el) el.classList.toggle("hidden", el !== elToShow);
+    });
+  }
+  function setMenuVisible(visible){
+    if (topMenu) topMenu.style.display = visible ? "" : "none";
+  }
+  function setMenuActive(which){
+    const reg = $("menuRegistroBtn");
+    const veh = $("menuVehiculosBtn");
+    if (reg) { reg.classList.toggle("active", which === "registro"); reg.classList.toggle("secondary", which !== "registro"); }
+    if (veh) { veh.classList.toggle("active", which === "vehiculos"); veh.classList.toggle("secondary", which !== "vehiculos"); }
+  }
+  function gotoWelcome(){
+    showOnly(viewWelcome);
+    setMenuVisible(false);
+    refreshSessionPill();
+  }
+  function gotoLoginPhone(){
+    showOnly(viewLogin);
+    setMenuVisible(false);
+    if (loginStepPhone) loginStepPhone.classList.remove("hidden");
+    if (loginStepOtp) loginStepOtp.classList.add("hidden");
+    if (loginPhoneError) loginPhoneError.classList.add("hidden");
+    if (loginOtpError) loginOtpError.classList.add("hidden");
+    if (loginCelInput) { loginCelInput.value = ""; setTimeout(() => loginCelInput.focus(), 30); }
+    if (loginOtpInput) loginOtpInput.value = "";
+    pendingOtp = null;
+  }
+  function gotoLoginOtp(phoneDigits, ladaCode){
+    if (loginStepPhone) loginStepPhone.classList.add("hidden");
+    if (loginStepOtp) loginStepOtp.classList.remove("hidden");
+    if (loginOtpError) loginOtpError.classList.add("hidden");
+    if (loginOtpPhoneDisplay) loginOtpPhoneDisplay.textContent = `+${ladaCode} ${phoneDigits}`;
+    if (loginOtpDemoBanner) loginOtpDemoBanner.style.display = OTP_DEMO_MODE ? "" : "none";
+    if (loginOtpInput) { loginOtpInput.value = ""; setTimeout(() => loginOtpInput.focus(), 30); }
+  }
+  function gotoHome(){
+    const s = getSession();
+    if (!s) return gotoWelcome();
+    showOnly(viewHome);
+    setMenuVisible(false);
+    refreshHomeContent(s);
+    refreshSessionPill();
+  }
+  function gotoExpressForm(){
+    showOnly(viewRegistro);
+    setMenuVisible(true);
+    setMenuActive("registro");
+  }
+  function gotoExpressVehiculos(){
+    showOnly(viewVehiculos);
+    setMenuVisible(true);
+    setMenuActive("vehiculos");
+    if (typeof window.cargarPropiedadesVehiculos === "function") {
+      try { window.cargarPropiedadesVehiculos(false); } catch(e){}
+    }
+  }
+
+  function refreshSessionPill(){
+    const s = getSession();
+    if (s && sessionPill && sessionPillName) {
+      sessionPillName.textContent = s.name || s.phone;
+      sessionPill.classList.add("visible");
+    } else if (sessionPill) {
+      sessionPill.classList.remove("visible");
+    }
+  }
+
+  function refreshHomeContent(session){
+    const greeting = $("homeGreeting");
+    if (greeting) greeting.textContent = `¡Hola${session.name ? ", " + session.name.split(" ")[0] : ""}!`;
+    // Los datos del summary se pueblan al rellenar el formulario.
+    // Por ahora mostramos vacío si no hay datos enriquecidos.
+    const summaryCard = $("homeSummaryCard");
+    const emptyCard = $("homeEmptyCard");
+    if (session.lastStay) {
+      if (summaryCard) summaryCard.classList.remove("hidden");
+      if (emptyCard) emptyCard.classList.add("hidden");
+      const set = (id, val) => { const el = $(id); if (el) el.textContent = val || "—"; };
+      set("homeProp", session.lastStay.propiedad);
+      set("homeIngreso", session.lastStay.ingreso);
+      set("homeSalida", session.lastStay.salida);
+      set("homeVehiculo", session.lastStay.vehiculo);
+    } else {
+      if (summaryCard) summaryCard.classList.add("hidden");
+      if (emptyCard) emptyCard.classList.remove("hidden");
+    }
+  }
+
+  // ─── OTP send/verify (mock) ────────────────────────────────────────
+  async function sendOtp(phoneDigits, ladaCode){
+    // TODO Fase 3: reemplazar por fetch al Apps Script (action=send_whatsapp_otp)
+    if (OTP_DEMO_MODE) {
+      pendingOtp = {
+        phone: phoneDigits,
+        lada: ladaCode,
+        code: MOCK_OTP,
+        expiresAt: Date.now() + 5*60*1000
+      };
+      return { ok: true, demo: true };
+    }
+    // Cuando esté integrado:
+    // const res = await fetch(CHECKIN_WEB_APP_URL, {method:"POST", body: JSON.stringify({action:"send_whatsapp_otp", phone: ladaCode+phoneDigits})});
+    // return await res.json();
+    throw new Error("OTP no configurado");
+  }
+  async function verifyOtp(code){
+    if (!pendingOtp) return { ok: false, error: "Solicita un código primero" };
+    if (Date.now() > pendingOtp.expiresAt) {
+      pendingOtp = null;
+      return { ok: false, error: "El código expiró. Solicita uno nuevo." };
+    }
+    if (OTP_DEMO_MODE) {
+      if (String(code).trim() === pendingOtp.code) {
+        const phone = pendingOtp.phone;
+        const lada = pendingOtp.lada;
+        pendingOtp = null;
+        return { ok: true, phone, lada };
+      }
+      return { ok: false, error: "Código incorrecto." };
+    }
+    throw new Error("Verificación no configurada");
+  }
+
+  // ─── Handlers de UI ────────────────────────────────────────────────
+  function showError(el, msg){
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.remove("hidden");
+  }
+  function clearError(el){ if (el) el.classList.add("hidden"); }
+
+  function setBtnLoading(btn, loading, originalText){
+    if (!btn) return;
+    if (loading) {
+      btn.dataset.origText = btn.dataset.origText || originalText || btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Procesando…";
+    } else {
+      btn.disabled = false;
+      if (btn.dataset.origText) btn.textContent = btn.dataset.origText;
+    }
+  }
+
+  async function onSendOtp(){
+    clearError(loginPhoneError);
+    const lada = (loginLadaSelect?.value || "").trim();
+    const phone = (loginCelInput?.value || "").replace(/\D/g, "").trim();
+    if (!lada) return showError(loginPhoneError, "Selecciona la lada.");
+    if (!phone || phone.length < 10) return showError(loginPhoneError, "El celular debe tener al menos 10 dígitos.");
+
+    const btn = $("btnSendOtp");
+    setBtnLoading(btn, true);
+    try {
+      const res = await sendOtp(phone, lada);
+      if (!res.ok) return showError(loginPhoneError, res.error || "No se pudo enviar el código.");
+      gotoLoginOtp(phone, lada);
+    } catch (e) {
+      showError(loginPhoneError, e.message || "Error al enviar el código.");
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  }
+
+  async function onVerifyOtp(){
+    clearError(loginOtpError);
+    const code = (loginOtpInput?.value || "").trim();
+    if (code.length !== 6) return showError(loginOtpError, "El código debe tener 6 dígitos.");
+    const btn = $("btnVerifyOtp");
+    setBtnLoading(btn, true);
+    try {
+      const res = await verifyOtp(code);
+      if (!res.ok) return showError(loginOtpError, res.error || "Código inválido.");
+      // Crear sesión
+      const session = setSession({ phone: res.phone, lada: res.lada });
+      // Intentar enriquecer con datos del huésped (autofill)
+      await tryEnrichSessionFromForm(session);
+      gotoHome();
+    } catch (e) {
+      showError(loginOtpError, e.message || "Error de verificación.");
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  }
+
+  // Después de login, llenamos lada1+cel del formulario para que el
+  // sistema existente dispare autofill (detectExistingGuestByPhone).
+  // Aprovechamos eso para extraer nombre, propiedad, etc. para el home.
+  async function tryEnrichSessionFromForm(session){
+    try {
+      const lada1 = $("lada1");
+      const cel = document.querySelector('input[name="cel"]');
+      if (lada1) lada1.value = session.lada;
+      if (cel) cel.value = session.phone;
+      if (typeof window.detectExistingGuestByPhone === "function") {
+        await window.detectExistingGuestByPhone();
+      }
+      // Después del autofill, leemos los datos del form para mostrarlos en home.
+      const f = $("form");
+      if (!f) return;
+      const fd = new FormData(f);
+      const get = k => (fd.get(k) || "").toString().trim();
+      const nombre = get("nombre_reservante") || get("huesped[]");
+      const propiedad = get("propiedad");
+      const ingreso = get("fecha_ingreso");
+      const salida = get("fecha_salida");
+      const tieneVehiculo = (get("tiene_vehiculo") || "").toLowerCase() === "sí" || get("tiene_vehiculo") === "Si" || get("tiene_vehiculo") === "Sí";
+      let vehiculo = "";
+      if (tieneVehiculo) {
+        const marca = get("vehiculo_marca");
+        const placas = get("vehiculo_placas");
+        vehiculo = [marca, placas].filter(Boolean).join(" · ") || "Registrado";
+      } else if (get("tiene_vehiculo")) {
+        vehiculo = "Sin vehículo";
+      }
+      const lastStay = { propiedad, ingreso, salida, vehiculo };
+      const hasAnyData = nombre || propiedad || ingreso || salida || vehiculo;
+      if (nombre) session.name = nombre;
+      if (hasAnyData) session.lastStay = lastStay;
+      // Guardar de nuevo enriquecido
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    } catch(e){
+      // Falla silenciosa: el home se mostrará vacío
+      console.warn("Auth enrich failed:", e);
+    }
+  }
+
+  function onLogout(){
+    if (!confirm("¿Cerrar sesión?")) return;
+    clearSession();
+    pendingOtp = null;
+    if (sessionPill) sessionPill.classList.remove("visible");
+    gotoWelcome();
+  }
+
+  // ─── Bind eventos ──────────────────────────────────────────────────
+  function bindEvents(){
+    $("btnGoLogin")?.addEventListener("click", gotoLoginPhone);
+    $("btnGoExpress")?.addEventListener("click", gotoExpressForm);
+    $("btnLoginBack1")?.addEventListener("click", gotoWelcome);
+    $("btnLoginBack2")?.addEventListener("click", gotoLoginPhone);
+    $("btnSendOtp")?.addEventListener("click", onSendOtp);
+    $("btnVerifyOtp")?.addEventListener("click", onVerifyOtp);
+    $("btnHomeNueva")?.addEventListener("click", () => {
+      showOnly(viewRegistro);
+      setMenuVisible(true);
+      setMenuActive("registro");
+    });
+    $("btnHomeVehiculos")?.addEventListener("click", gotoExpressVehiculos);
+    $("btnLogout")?.addEventListener("click", onLogout);
+
+    // Enter en inputs
+    loginCelInput?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); onSendOtp(); } });
+    loginOtpInput?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); onVerifyOtp(); } });
+    // Solo dígitos en OTP
+    loginOtpInput?.addEventListener("input", e => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
+    });
+    // Solo dígitos en celular
+    loginCelInput?.addEventListener("input", e => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 15);
+    });
+
+    // Override de los botones del top-menu para que respeten la lógica de auth
+    $("menuRegistroBtn")?.addEventListener("click", () => {
+      showOnly(viewRegistro);
+      setMenuActive("registro");
+    });
+    $("menuVehiculosBtn")?.addEventListener("click", () => {
+      showOnly(viewVehiculos);
+      setMenuActive("vehiculos");
+    });
+  }
+
+  // ─── Inicialización ────────────────────────────────────────────────
+  function init(){
+    // Poblar el select de lada del login con las mismas opciones que lada1
+    if (typeof window.loadLadas === "function" && loginLadaSelect) {
+      try { window.loadLadas("login_lada"); } catch(e){}
+    }
+    bindEvents();
+    const s = getSession();
+    if (s) {
+      gotoHome();
+    } else {
+      gotoWelcome();
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    // El script va al final del body, así que el DOM ya está listo,
+    // pero damos una micro-espera para que otros scripts terminen su setup.
+    setTimeout(init, 0);
+  }
+
+  // Exponer para debugging y para que otros scripts puedan consultar
+  window.checkinnAuth = {
+    getSession, clearSession, gotoWelcome, gotoHome, gotoLoginPhone,
+    _state: () => ({ pendingOtp, session: getSession() })
+  };
+})();
 </script>
 
 </body>
