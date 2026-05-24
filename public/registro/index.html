@@ -3025,6 +3025,7 @@ function formatRangoFechasSimple(inicio, fin){
   box-shadow:none;
 }
 .auth-otp-input{
+  display:block;
   letter-spacing:14px;
   text-align:center;
   font-size:24px !important;
@@ -3207,33 +3208,64 @@ function formatRangoFechasSimple(inicio, fin){
   </div>
 </div>
 
-<!-- ═══ FLUJO DE LOGIN (Celular → OTP) ══════════════════════════════ -->
+<!-- ═══ FLUJO DE LOGIN (Celular → PIN o OTP+crear PIN) ═══════════════ -->
 <div class="view-panel hidden" id="viewLogin">
+
+  <!-- Paso 1: pedir celular -->
   <div class="section" id="loginStepPhone">
     <h2 class="section-title">Iniciar sesión</h2>
-    <p class="section-subtitle">Escribe tu número de celular. Te enviaremos un código de 6 dígitos por WhatsApp.</p>
+    <p class="section-subtitle">Escribe tu celular para entrar. Si es tu primera vez, te enviaremos un código por WhatsApp para validarlo.</p>
     <label for="login_celular">Celular</label>
     <div class="phone-group">
       <select id="login_lada" name="login_lada"></select>
       <input autocomplete="tel-national" id="login_celular" inputmode="numeric" name="login_celular" type="tel" placeholder="10 dígitos"/>
     </div>
     <div class="note hidden" id="loginPhoneError"></div>
-    <button id="btnSendOtp" type="button">Enviar código</button>
+    <button id="btnContinuePhone" type="button">Continuar</button>
     <button class="auth-back-link" id="btnLoginBack1" type="button">← Volver</button>
   </div>
 
+  <!-- Paso 2A: pedir PIN existente -->
+  <div class="section hidden" id="loginStepPin">
+    <h2 class="section-title">Ingresa tu PIN</h2>
+    <p class="section-subtitle">Bienvenido de nuevo. Ingresa el PIN de 4 dígitos que creaste para <strong id="loginPinPhoneDisplay">tu cuenta</strong>.</p>
+    <label for="login_pin">PIN</label>
+    <input id="login_pin" class="auth-otp-input" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" style="letter-spacing:18px; max-width:200px;"/>
+    <div class="note hidden" id="loginPinError"></div>
+    <button id="btnVerifyPin" type="button">Entrar</button>
+    <button class="auth-back-link" id="btnLoginForgotPin" type="button">¿Olvidaste tu PIN? Recupéralo con WhatsApp</button>
+    <button class="auth-back-link" id="btnLoginBackFromPin" type="button">← Cambiar de número</button>
+  </div>
+
+  <!-- Paso 2B: pedir código OTP (primera vez o recuperación) -->
   <div class="section hidden" id="loginStepOtp">
-    <h2 class="section-title">Ingresa el código</h2>
+    <h2 class="section-title" id="loginOtpTitle">Ingresa el código</h2>
     <p class="section-subtitle">Enviamos un código de 6 dígitos a <strong id="loginOtpPhoneDisplay">tu celular</strong> por WhatsApp.</p>
     <label for="login_otp">Código de verificación</label>
     <input id="login_otp" class="auth-otp-input" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="one-time-code"/>
     <div class="note hidden" id="loginOtpError"></div>
-    <button id="btnVerifyOtp" type="button">Verificar y entrar</button>
-    <button class="auth-back-link" id="btnLoginBack2" type="button">← Cambiar de número</button>
+    <button id="btnVerifyOtp" type="button">Verificar</button>
+    <button class="auth-back-link" id="btnLoginBackFromOtp" type="button">← Cambiar de número</button>
     <div class="auth-info-banner" id="loginOtpDemoBanner">
       🧪 <strong>Modo demo:</strong> WhatsApp aún no está configurado. Usa el código <code>123456</code> para probar el flujo. (Una vez conectes Meta, este aviso desaparece.)
     </div>
   </div>
+
+  <!-- Paso 3: crear PIN (tras validar OTP por primera vez o tras recuperación) -->
+  <div class="section hidden" id="loginStepCreatePin">
+    <h2 class="section-title" id="createPinTitle">Crea tu PIN</h2>
+    <p class="section-subtitle" id="createPinSubtitle">Escoge un PIN de 4 dígitos. Lo usarás para entrar más rápido la próxima vez sin esperar un código.</p>
+    <label for="login_pin_new">Nuevo PIN</label>
+    <input id="login_pin_new" class="auth-otp-input" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" style="letter-spacing:18px; max-width:200px;"/>
+    <label for="login_pin_confirm" style="margin-top:14px;">Confirma el PIN</label>
+    <input id="login_pin_confirm" class="auth-otp-input" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" style="letter-spacing:18px; max-width:200px;"/>
+    <div class="note hidden" id="createPinError"></div>
+    <button id="btnSaveNewPin" type="button">Guardar PIN y entrar</button>
+    <div class="auth-info-banner">
+      💡 <strong>Tip:</strong> Elige un PIN que recuerdes pero que no sea obvio (evita <code>1234</code>, <code>0000</code>, tu año de nacimiento). Si lo olvidas, puedes recuperarlo con un código por WhatsApp.
+    </div>
+  </div>
+
 </div>
 
 <!-- ═══ HOME POST-LOGIN ═════════════════════════════════════════════ -->
@@ -8807,16 +8839,23 @@ document.addEventListener("DOMContentLoaded", function(){
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════
-   Sistema de Auth — Fase 1 (mock OTP)
-   - Sesión en localStorage con TTL 30 días
-   - OTP mock: cualquier celular válido + código "123456" entra
-   - Cuando se conecte WhatsApp Cloud API, solo se reemplazan
-     sendOtp() y verifyOtp() para hacer fetch al Apps Script
+   Sistema de Auth — Fase 1 (mock OTP + PIN)
+   - Modelo: primera vez = OTP por WhatsApp + crear PIN;
+             visitas siguientes = solo PIN (en cualquier dispositivo).
+   - Sesión en localStorage con TTL 30 días (token aleatorio).
+   - "Backend" mock: usuarios y PINs en localStorage aparte.
+   - Mocks que se reemplazan en Fase 3 por fetch al Apps Script:
+       • checkUserStatus(phone)  → ¿existe usuario? ¿tiene PIN?
+       • sendOtp(phone)          → envía código por WhatsApp
+       • verifyOtp(phone, code)  → valida código
+       • createPin(phone, pin, otpTicket) → guarda PIN hasheado
+       • verifyPin(phone, pin)   → valida PIN
    ═══════════════════════════════════════════════════════════════════ */
 (function(){
   "use strict";
 
   const SESSION_KEY = "checkinn_session_v1";
+  const USERS_MOCK_KEY = "checkinn_users_mock_v1"; // Fase 1: mock backend
   const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
   const MOCK_OTP = "123456";
   const OTP_DEMO_MODE = true; // poner en false cuando WhatsApp esté configurado
@@ -8832,17 +8871,29 @@ document.addEventListener("DOMContentLoaded", function(){
   const sessionPill = $("sessionPill");
   const sessionPillName = $("sessionPillName");
   const loginStepPhone = $("loginStepPhone");
+  const loginStepPin = $("loginStepPin");
   const loginStepOtp = $("loginStepOtp");
+  const loginStepCreatePin = $("loginStepCreatePin");
   const loginLadaSelect = $("login_lada");
   const loginCelInput = $("login_celular");
+  const loginPinInput = $("login_pin");
+  const loginPinNewInput = $("login_pin_new");
+  const loginPinConfirmInput = $("login_pin_confirm");
   const loginOtpInput = $("login_otp");
   const loginPhoneError = $("loginPhoneError");
+  const loginPinError = $("loginPinError");
   const loginOtpError = $("loginOtpError");
+  const createPinError = $("createPinError");
+  const loginPinPhoneDisplay = $("loginPinPhoneDisplay");
   const loginOtpPhoneDisplay = $("loginOtpPhoneDisplay");
   const loginOtpDemoBanner = $("loginOtpDemoBanner");
+  const loginOtpTitle = $("loginOtpTitle");
+  const createPinTitle = $("createPinTitle");
+  const createPinSubtitle = $("createPinSubtitle");
 
-  // ─── Estado en memoria del OTP en curso ───────────────────────────
-  let pendingOtp = null; // {phone, code, expiresAt}
+  // ─── Estado en memoria del flujo de login en curso ────────────────
+  let pendingOtp = null;       // {phone, lada, code, expiresAt, reason: 'first-time'|'reset-pin'}
+  let pendingLogin = null;     // {phone, lada, otpValidated: bool}
 
   // ─── Helpers de sesión ─────────────────────────────────────────────
   function getSession(){
@@ -8905,24 +8956,56 @@ document.addEventListener("DOMContentLoaded", function(){
     setMenuVisible(false);
     refreshSessionPill();
   }
+  function hideAllLoginSteps(){
+    [loginStepPhone, loginStepPin, loginStepOtp, loginStepCreatePin].forEach(el => {
+      if (el) el.classList.add("hidden");
+    });
+    [loginPhoneError, loginPinError, loginOtpError, createPinError].forEach(el => {
+      if (el) el.classList.add("hidden");
+    });
+  }
   function gotoLoginPhone(){
     showOnly(viewLogin);
     setMenuVisible(false);
+    hideAllLoginSteps();
     if (loginStepPhone) loginStepPhone.classList.remove("hidden");
-    if (loginStepOtp) loginStepOtp.classList.add("hidden");
-    if (loginPhoneError) loginPhoneError.classList.add("hidden");
-    if (loginOtpError) loginOtpError.classList.add("hidden");
     if (loginCelInput) { loginCelInput.value = ""; setTimeout(() => loginCelInput.focus(), 30); }
+    if (loginPinInput) loginPinInput.value = "";
     if (loginOtpInput) loginOtpInput.value = "";
+    if (loginPinNewInput) loginPinNewInput.value = "";
+    if (loginPinConfirmInput) loginPinConfirmInput.value = "";
     pendingOtp = null;
+    pendingLogin = null;
   }
-  function gotoLoginOtp(phoneDigits, ladaCode){
-    if (loginStepPhone) loginStepPhone.classList.add("hidden");
+  function gotoLoginPin(phoneDigits, ladaCode){
+    hideAllLoginSteps();
+    if (loginStepPin) loginStepPin.classList.remove("hidden");
+    if (loginPinPhoneDisplay) loginPinPhoneDisplay.textContent = `+${ladaCode} ${phoneDigits}`;
+    if (loginPinInput) { loginPinInput.value = ""; setTimeout(() => loginPinInput.focus(), 30); }
+  }
+  function gotoLoginOtp(phoneDigits, ladaCode, reason){
+    hideAllLoginSteps();
     if (loginStepOtp) loginStepOtp.classList.remove("hidden");
-    if (loginOtpError) loginOtpError.classList.add("hidden");
     if (loginOtpPhoneDisplay) loginOtpPhoneDisplay.textContent = `+${ladaCode} ${phoneDigits}`;
     if (loginOtpDemoBanner) loginOtpDemoBanner.style.display = OTP_DEMO_MODE ? "" : "none";
+    if (loginOtpTitle) {
+      loginOtpTitle.textContent = (reason === "reset-pin")
+        ? "Recupera tu PIN"
+        : "Valida tu celular";
+    }
     if (loginOtpInput) { loginOtpInput.value = ""; setTimeout(() => loginOtpInput.focus(), 30); }
+  }
+  function gotoCreatePin(isReset){
+    hideAllLoginSteps();
+    if (loginStepCreatePin) loginStepCreatePin.classList.remove("hidden");
+    if (createPinTitle) createPinTitle.textContent = isReset ? "Crea un PIN nuevo" : "Crea tu PIN";
+    if (createPinSubtitle) {
+      createPinSubtitle.textContent = isReset
+        ? "Tu celular fue validado. Escoge un PIN nuevo de 4 dígitos para futuros inicios de sesión."
+        : "Escoge un PIN de 4 dígitos. Lo usarás para entrar más rápido la próxima vez sin esperar un código.";
+    }
+    if (loginPinNewInput) { loginPinNewInput.value = ""; setTimeout(() => loginPinNewInput.focus(), 30); }
+    if (loginPinConfirmInput) loginPinConfirmInput.value = "";
   }
   function gotoHome(){
     const s = getSession();
@@ -8977,21 +9060,48 @@ document.addEventListener("DOMContentLoaded", function(){
     }
   }
 
-  // ─── OTP send/verify (mock) ────────────────────────────────────────
-  async function sendOtp(phoneDigits, ladaCode){
-    // TODO Fase 3: reemplazar por fetch al Apps Script (action=send_whatsapp_otp)
+  // ─── "Backend" mock: usuarios y PINs ───────────────────────────────
+  // En Fase 3 se reemplaza por llamadas al Apps Script.
+  function getMockUsers(){
+    try { return JSON.parse(localStorage.getItem(USERS_MOCK_KEY) || "{}"); }
+    catch(e){ return {}; }
+  }
+  function saveMockUsers(users){
+    localStorage.setItem(USERS_MOCK_KEY, JSON.stringify(users));
+  }
+  async function sha256Hex(text){
+    if (window.crypto && window.crypto.subtle) {
+      const buf = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+    }
+    // Fallback simple (no es crypto fuerte, solo para mock)
+    let h = 0;
+    for (let i=0; i<text.length; i++) { h = (h<<5)-h + text.charCodeAt(i); h |= 0; }
+    return String(h);
+  }
+  async function hashPin(phone, pin){
+    return await sha256Hex(`checkinn|${phone}|${pin}`);
+  }
+
+  // ─── API: checkUserStatus / OTP / PIN ──────────────────────────────
+  async function checkUserStatus(fullPhone){
+    // Fase 3: fetch(CHECKIN_WEB_APP_URL+"?action=check_user_status&phone="+fullPhone)
+    const users = getMockUsers();
+    const u = users[fullPhone];
+    return { exists: !!u, hasPin: !!(u && u.pinHash) };
+  }
+  async function sendOtp(phoneDigits, ladaCode, reason){
+    // Fase 3: fetch al Apps Script (action=send_whatsapp_otp)
     if (OTP_DEMO_MODE) {
       pendingOtp = {
         phone: phoneDigits,
         lada: ladaCode,
         code: MOCK_OTP,
+        reason: reason || "first-time",
         expiresAt: Date.now() + 5*60*1000
       };
       return { ok: true, demo: true };
     }
-    // Cuando esté integrado:
-    // const res = await fetch(CHECKIN_WEB_APP_URL, {method:"POST", body: JSON.stringify({action:"send_whatsapp_otp", phone: ladaCode+phoneDigits})});
-    // return await res.json();
     throw new Error("OTP no configurado");
   }
   async function verifyOtp(code){
@@ -9002,14 +9112,41 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     if (OTP_DEMO_MODE) {
       if (String(code).trim() === pendingOtp.code) {
-        const phone = pendingOtp.phone;
-        const lada = pendingOtp.lada;
+        const out = { ok: true, phone: pendingOtp.phone, lada: pendingOtp.lada, reason: pendingOtp.reason };
         pendingOtp = null;
-        return { ok: true, phone, lada };
+        return out;
       }
       return { ok: false, error: "Código incorrecto." };
     }
     throw new Error("Verificación no configurada");
+  }
+  async function createPin(fullPhone, pin){
+    // Fase 3: action=create_pin con otpTicket que pruebe que validó OTP
+    const users = getMockUsers();
+    users[fullPhone] = {
+      phone: fullPhone,
+      pinHash: await hashPin(fullPhone, pin),
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    saveMockUsers(users);
+    return { ok: true };
+  }
+  async function verifyPin(fullPhone, pin){
+    // Fase 3: action=verify_pin (rate-limited en backend)
+    const users = getMockUsers();
+    const u = users[fullPhone];
+    if (!u || !u.pinHash) return { ok: false, error: "No tienes PIN registrado." };
+    const candidate = await hashPin(fullPhone, pin);
+    if (candidate === u.pinHash) return { ok: true };
+    return { ok: false, error: "PIN incorrecto." };
+  }
+  function fullPhone(lada, digits){ return `+${lada}${digits}`; }
+  function isWeakPin(pin){
+    if (!/^\d{4}$/.test(pin)) return true;
+    if (/^(\d)\1{3}$/.test(pin)) return true; // 0000, 1111...
+    if (pin === "1234" || pin === "4321" || pin === "0123") return true;
+    return false;
   }
 
   // ─── Handlers de UI ────────────────────────────────────────────────
@@ -9032,21 +9169,66 @@ document.addEventListener("DOMContentLoaded", function(){
     }
   }
 
-  async function onSendOtp(){
+  async function finishLoginSuccess(phone, lada){
+    const session = setSession({ phone, lada });
+    await tryEnrichSessionFromForm(session);
+    gotoHome();
+  }
+
+  async function onContinuePhone(){
     clearError(loginPhoneError);
     const lada = (loginLadaSelect?.value || "").trim();
     const phone = (loginCelInput?.value || "").replace(/\D/g, "").trim();
     if (!lada) return showError(loginPhoneError, "Selecciona la lada.");
     if (!phone || phone.length < 10) return showError(loginPhoneError, "El celular debe tener al menos 10 dígitos.");
 
-    const btn = $("btnSendOtp");
+    const btn = $("btnContinuePhone");
     setBtnLoading(btn, true);
     try {
-      const res = await sendOtp(phone, lada);
-      if (!res.ok) return showError(loginPhoneError, res.error || "No se pudo enviar el código.");
-      gotoLoginOtp(phone, lada);
+      pendingLogin = { phone, lada, otpValidated: false };
+      const status = await checkUserStatus(fullPhone(lada, phone));
+      if (status.hasPin) {
+        gotoLoginPin(phone, lada);
+      } else {
+        const res = await sendOtp(phone, lada, "first-time");
+        if (!res.ok) return showError(loginPhoneError, res.error || "No se pudo enviar el código.");
+        gotoLoginOtp(phone, lada, "first-time");
+      }
     } catch (e) {
-      showError(loginPhoneError, e.message || "Error al enviar el código.");
+      showError(loginPhoneError, e.message || "Error al continuar.");
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  }
+
+  async function onVerifyPin(){
+    clearError(loginPinError);
+    const pin = (loginPinInput?.value || "").trim();
+    if (pin.length !== 4) return showError(loginPinError, "El PIN debe tener 4 dígitos.");
+    if (!pendingLogin) return showError(loginPinError, "Sesión interrumpida. Vuelve a empezar.");
+    const btn = $("btnVerifyPin");
+    setBtnLoading(btn, true);
+    try {
+      const res = await verifyPin(fullPhone(pendingLogin.lada, pendingLogin.phone), pin);
+      if (!res.ok) return showError(loginPinError, res.error || "PIN incorrecto.");
+      await finishLoginSuccess(pendingLogin.phone, pendingLogin.lada);
+    } catch (e) {
+      showError(loginPinError, e.message || "Error al verificar.");
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  }
+
+  async function onForgotPin(){
+    if (!pendingLogin) return;
+    const btn = $("btnLoginForgotPin");
+    setBtnLoading(btn, true, "¿Olvidaste tu PIN? Recupéralo con WhatsApp");
+    try {
+      const res = await sendOtp(pendingLogin.phone, pendingLogin.lada, "reset-pin");
+      if (!res.ok) return showError(loginPinError, res.error || "No se pudo enviar el código.");
+      gotoLoginOtp(pendingLogin.phone, pendingLogin.lada, "reset-pin");
+    } catch (e) {
+      showError(loginPinError, e.message || "Error al enviar el código.");
     } finally {
       setBtnLoading(btn, false);
     }
@@ -9061,13 +9243,35 @@ document.addEventListener("DOMContentLoaded", function(){
     try {
       const res = await verifyOtp(code);
       if (!res.ok) return showError(loginOtpError, res.error || "Código inválido.");
-      // Crear sesión
-      const session = setSession({ phone: res.phone, lada: res.lada });
-      // Intentar enriquecer con datos del huésped (autofill)
-      await tryEnrichSessionFromForm(session);
-      gotoHome();
+      // OTP validado → ir a crear/cambiar PIN
+      pendingLogin = { phone: res.phone, lada: res.lada, otpValidated: true };
+      gotoCreatePin(res.reason === "reset-pin");
     } catch (e) {
       showError(loginOtpError, e.message || "Error de verificación.");
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  }
+
+  async function onSaveNewPin(){
+    clearError(createPinError);
+    const pin = (loginPinNewInput?.value || "").trim();
+    const confirm = (loginPinConfirmInput?.value || "").trim();
+    if (!pendingLogin || !pendingLogin.otpValidated) {
+      return showError(createPinError, "Sesión interrumpida. Vuelve a empezar.");
+    }
+    if (pin.length !== 4) return showError(createPinError, "El PIN debe tener 4 dígitos.");
+    if (pin !== confirm) return showError(createPinError, "Los PINs no coinciden.");
+    if (isWeakPin(pin)) return showError(createPinError, "Ese PIN es muy fácil de adivinar. Elige otro.");
+    const btn = $("btnSaveNewPin");
+    setBtnLoading(btn, true);
+    try {
+      const fp = fullPhone(pendingLogin.lada, pendingLogin.phone);
+      const res = await createPin(fp, pin);
+      if (!res.ok) return showError(createPinError, res.error || "No se pudo guardar el PIN.");
+      await finishLoginSuccess(pendingLogin.phone, pendingLogin.lada);
+    } catch (e) {
+      showError(createPinError, e.message || "Error al guardar el PIN.");
     } finally {
       setBtnLoading(btn, false);
     }
@@ -9128,9 +9332,13 @@ document.addEventListener("DOMContentLoaded", function(){
     $("btnGoLogin")?.addEventListener("click", gotoLoginPhone);
     $("btnGoExpress")?.addEventListener("click", gotoExpressForm);
     $("btnLoginBack1")?.addEventListener("click", gotoWelcome);
-    $("btnLoginBack2")?.addEventListener("click", gotoLoginPhone);
-    $("btnSendOtp")?.addEventListener("click", onSendOtp);
+    $("btnLoginBackFromPin")?.addEventListener("click", gotoLoginPhone);
+    $("btnLoginBackFromOtp")?.addEventListener("click", gotoLoginPhone);
+    $("btnContinuePhone")?.addEventListener("click", onContinuePhone);
+    $("btnVerifyPin")?.addEventListener("click", onVerifyPin);
+    $("btnLoginForgotPin")?.addEventListener("click", onForgotPin);
     $("btnVerifyOtp")?.addEventListener("click", onVerifyOtp);
+    $("btnSaveNewPin")?.addEventListener("click", onSaveNewPin);
     $("btnHomeNueva")?.addEventListener("click", () => {
       showOnly(viewRegistro);
       setMenuVisible(true);
@@ -9140,16 +9348,20 @@ document.addEventListener("DOMContentLoaded", function(){
     $("btnLogout")?.addEventListener("click", onLogout);
 
     // Enter en inputs
-    loginCelInput?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); onSendOtp(); } });
+    loginCelInput?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); onContinuePhone(); } });
+    loginPinInput?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); onVerifyPin(); } });
     loginOtpInput?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); onVerifyOtp(); } });
-    // Solo dígitos en OTP
-    loginOtpInput?.addEventListener("input", e => {
-      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
-    });
-    // Solo dígitos en celular
-    loginCelInput?.addEventListener("input", e => {
-      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 15);
-    });
+    loginPinConfirmInput?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); onSaveNewPin(); } });
+
+    // Solo dígitos
+    const onlyDigits = (maxLen) => (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, maxLen);
+    };
+    loginOtpInput?.addEventListener("input", onlyDigits(6));
+    loginPinInput?.addEventListener("input", onlyDigits(4));
+    loginPinNewInput?.addEventListener("input", onlyDigits(4));
+    loginPinConfirmInput?.addEventListener("input", onlyDigits(4));
+    loginCelInput?.addEventListener("input", onlyDigits(15));
 
     // Override de los botones del top-menu para que respeten la lógica de auth
     $("menuRegistroBtn")?.addEventListener("click", () => {
