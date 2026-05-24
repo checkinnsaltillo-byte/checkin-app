@@ -3224,6 +3224,151 @@ function formatRangoFechasSimple(inicio, fin){
   .stays-table tbody td{ padding:8px 10px; font-size:12px; }
 }
 
+/* ───── KPIs (Home) ───── */
+.kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:10px;
+  margin-top:14px;
+}
+@media (max-width:760px){
+  .kpi-grid{ grid-template-columns:repeat(2, 1fr); }
+}
+.kpi-card{
+  background:#ffffff;
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px 12px;
+  text-align:center;
+  box-shadow:0 4px 12px rgba(15,23,42,.04);
+}
+.kpi-icon{
+  font-size:20px;
+  margin-bottom:4px;
+  line-height:1;
+}
+.kpi-value{
+  font-size:20px;
+  font-weight:800;
+  color:var(--primary-dark);
+  font-variant-numeric:tabular-nums;
+  line-height:1.1;
+  margin-bottom:4px;
+  word-break:break-word;
+}
+.kpi-value.kpi-range{ font-size:13px; line-height:1.3; }
+.kpi-label{
+  font-size:11px;
+  font-weight:600;
+  color:var(--text-soft);
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  line-height:1.3;
+}
+
+/* ───── Estado semáforo en tabla ───── */
+.stays-status-cell{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  white-space:nowrap;
+}
+.stays-status-dot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  flex:0 0 10px;
+  box-shadow:0 0 0 2px rgba(255,255,255,.9);
+}
+.stays-status-dot.past{ background:#dc2626; }
+.stays-status-dot.ongoing{ background:#16a34a; }
+.stays-status-dot.future{ background:#f59e0b; }
+.stays-status-label{ font-size:12px; font-weight:700; }
+.stays-row-clickable{ cursor:pointer; transition:background .12s; }
+.stays-row-clickable:hover{ background:var(--primary-soft); }
+
+/* ───── Paginación tabla ───── */
+.stays-pager{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:10px;
+  padding:12px 16px;
+  background:var(--bg-soft);
+  border-top:1px solid var(--border);
+  font-size:13px;
+}
+.stays-pager.hidden{ display:none; }
+.stays-pager-left{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.stays-pager-left label{
+  margin:0;
+  font-size:12px;
+  font-weight:700;
+  color:var(--text-soft);
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.stays-pager-left select{
+  width:auto;
+  padding:6px 28px 6px 10px;
+  font-size:13px;
+  border-radius:10px;
+}
+.stays-pager-right{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.stays-pager-right button{
+  margin-top:0;
+  padding:8px 12px;
+  font-size:12px;
+}
+.stays-pager-right button:disabled{ opacity:.4; }
+.stays-pager-info{
+  font-size:12px;
+  font-weight:700;
+  color:var(--primary-dark);
+  font-variant-numeric:tabular-nums;
+  min-width:90px;
+  text-align:center;
+}
+
+/* ───── Detalle modal ───── */
+.detail-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px 14px;
+}
+@media (max-width:560px){
+  .detail-grid{ grid-template-columns:1fr; }
+}
+.detail-item{
+  background:#f8fafc;
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:10px 12px;
+}
+.detail-key{
+  font-size:11px;
+  font-weight:700;
+  color:var(--text-soft);
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  margin-bottom:4px;
+}
+.detail-val{
+  font-size:13px;
+  font-weight:600;
+  color:var(--text);
+  word-break:break-word;
+}
+
 /* ───── Profile completion card (Home) ───── */
 .profile-card{
   background:#fff;
@@ -3430,6 +3575,40 @@ body.has-session input[name="nombre"] {
   color:var(--text-soft) !important;
   cursor:not-allowed;
 }
+
+/* ───── Preview de imágenes: zoom + eliminar ───── */
+.preview-wrapper{
+  position:relative;
+}
+.preview-img{
+  cursor:zoom-in;
+  transition:transform .15s ease;
+}
+.preview-img:hover{ transform:scale(1.04); }
+.preview-img-remove{
+  position:absolute;
+  top:-8px;
+  left:56px;       /* a la derecha de la miniatura de 64px */
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  background:#dc2626;
+  color:#fff;
+  border:2px solid #fff;
+  font-size:13px;
+  font-weight:800;
+  line-height:1;
+  cursor:pointer;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 4px 12px rgba(15,23,42,.25);
+  padding:0;
+  margin:0;
+  z-index:2;
+}
+.preview-wrapper.has-image .preview-img-remove{ display:inline-flex; }
+.preview-img-remove:hover{ background:#b91c1c; transform:scale(1.1); }
 </style>
 
 </head>
@@ -3557,6 +3736,30 @@ body.has-session input[name="nombre"] {
       <p class="profile-card-sub" id="profileCardSub" data-i18n="profileCardSubEmpty">Captura tu perfil una sola vez (identificación, datos fiscales, vehículo) y reserva más rápido en el futuro.</p>
     </div>
 
+    <!-- KPIs -->
+    <div class="kpi-grid" id="kpiGrid">
+      <div class="kpi-card">
+        <div class="kpi-icon">🌙</div>
+        <div class="kpi-value" id="kpiNoches">0</div>
+        <div class="kpi-label" data-i18n="kpiNochesLabel">Noches totales</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">🏠</div>
+        <div class="kpi-value" id="kpiAlojamientos">0</div>
+        <div class="kpi-label" data-i18n="kpiAlojamientosLabel">Alojamientos</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">💰</div>
+        <div class="kpi-value" id="kpiMonto">$0</div>
+        <div class="kpi-label" data-i18n="kpiMontoLabel">Monto total</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📅</div>
+        <div class="kpi-value kpi-range" id="kpiRange">—</div>
+        <div class="kpi-label" data-i18n="kpiRangeLabel">Primera · última estancia</div>
+      </div>
+    </div>
+
     <div class="auth-actions">
       <!-- Sección 1: Nueva reservación -->
       <button class="auth-bigbtn primary" id="btnHomeNueva" type="button">
@@ -3571,16 +3774,17 @@ body.has-session input[name="nombre"] {
       </button>
     </div>
 
-    <!-- Sección 3: Tabla de estancias (header fijo + dropdown de historial) -->
+    <!-- Sección 3: Tabla de estancias con paginación y estado -->
     <div class="stays-card">
       <div class="stays-card-header">
         <h3 class="stays-card-title" data-i18n="staysCardTitle">Tu estancia</h3>
-        <p class="stays-card-subtitle" id="staysCardSubtitle" data-i18n="staysCardSubtitle">Resumen de tu estancia actual o más reciente.</p>
+        <p class="stays-card-subtitle" id="staysCardSubtitle" data-i18n="staysCardSubtitle">Resumen de todas tus estancias.</p>
       </div>
       <div class="stays-table-wrap">
         <table class="stays-table">
           <thead>
             <tr>
+              <th data-i18n="staysThEstado">Estado</th>
               <th data-i18n="staysThProp">Propiedad</th>
               <th data-i18n="staysThDepto"># Depto</th>
               <th data-i18n="staysThIngreso">Ingreso</th>
@@ -3588,17 +3792,28 @@ body.has-session input[name="nombre"] {
               <th data-i18n="staysThMonto">Monto total</th>
             </tr>
           </thead>
-          <tbody id="staysCurrentBody">
-            <tr class="stays-empty-row" id="staysEmptyRow">
-              <td colspan="5" data-i18n="staysEmpty">Aún no tienes estancias registradas.</td>
+          <tbody id="staysBody">
+            <tr class="stays-empty-row">
+              <td colspan="6" data-i18n="staysEmpty">Aún no tienes estancias registradas.</td>
             </tr>
           </tbody>
-          <tbody class="stays-history-rows hidden" id="staysHistoryBody"></tbody>
         </table>
       </div>
-      <div class="stays-toggle hidden" id="staysToggle">
-        <span id="staysToggleLabel" data-i18n="staysShowMore">Ver estancias anteriores</span>
-        <span class="stays-toggle-icon">▶</span>
+      <div class="stays-pager hidden" id="staysPager">
+        <div class="stays-pager-left">
+          <label for="staysPageSizeSelect" data-i18n="staysPageSize">Por página</label>
+          <select id="staysPageSizeSelect">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+        <div class="stays-pager-right">
+          <button class="wizard-btn-secondary" id="staysPrevBtn" type="button" data-i18n="staysPagerPrev">← Anterior</button>
+          <span class="stays-pager-info" id="staysPagerInfo">Página 1 de 1</span>
+          <button class="wizard-btn-secondary" id="staysNextBtn" type="button" data-i18n="staysPagerNext">Siguiente →</button>
+        </div>
       </div>
     </div>
   </div>
@@ -3665,8 +3880,11 @@ body.has-session input[name="nombre"] {
       <label for="wiz_nombre" data-i18n="wizNombreLabel">Nombre completo</label>
       <input id="wiz_nombre" type="text" autocomplete="name" placeholder="Como aparece en tu identificación"/>
       <label data-i18n="wizCelularLabel">Celular principal</label>
-      <input id="wiz_celular_display" class="wizard-readonly" type="text" readonly aria-readonly="true"/>
-      <small class="hint" data-i18n="wizCelularHint">Este es el celular con el que iniciaste sesión. No se puede cambiar.</small>
+      <div style="display:flex;gap:10px;align-items:stretch;">
+        <input id="wiz_celular_display" class="wizard-readonly" type="text" readonly aria-readonly="true" style="flex:1;"/>
+        <button id="wizChangePhoneBtn" type="button" class="wizard-btn-secondary" style="margin-top:0;white-space:nowrap;" data-i18n="changePhoneBtn">✏️ Cambiar celular</button>
+      </div>
+      <small class="hint" data-i18n="wizCelularHint">Es el celular con el que iniciaste sesión. Si necesitas cambiarlo, te validaremos el nuevo con un código por WhatsApp.</small>
       <label data-i18n="wizEmergenciaLabel" style="margin-top:14px;">Contacto de emergencia</label>
       <div class="phone-group">
         <select id="wiz_emerg_lada"></select>
@@ -3710,7 +3928,7 @@ body.has-session input[name="nombre"] {
             </div>
           </div>
           <div class="upload-box">
-            <label data-i18n="wizIdBackLabel">Lado trasero</label>
+            <label data-i18n="wizIdBackLabel">Lado posterior</label>
             <label class="custom-upload">
               <input id="wiz_ine_trasero" type="file" accept="image/*"/>
               <div class="upload-drop">
@@ -3841,8 +4059,7 @@ body.has-session input[name="nombre"] {
     <div class="wizard-footer">
       <button class="wizard-btn-secondary" id="wizBtnPrev" type="button" data-i18n="wizPrev">← Atrás</button>
       <button id="wizBtnNext" type="button" data-i18n="wizNext">Siguiente →</button>
-      <button id="wizBtnFinish" type="button" class="hidden" data-i18n="wizFinish">Guardar datos</button>
-      <button class="wizard-btn-secondary wizard-btn-save-exit" id="wizBtnSaveExit" type="button" data-i18n="wizSaveExit">Guardar y salir</button>
+      <button id="wizBtnFinish" type="button" class="wizard-btn-save-exit" data-i18n="wizFinish">Guardar datos</button>
     </div>
   </div>
 </div>
@@ -4040,7 +4257,7 @@ body.has-session input[name="nombre"] {
 <div class="preview-wrapper"><img alt="" class="preview-img hidden" id="ine_frontal_preview"/><div class="preview-text" id="ine_frontal_name">Ninguna imagen seleccionada</div></div>
 </div>
 <div class="upload-box">
-<label data-i18n="backSide">Lado trasero</label>
+<label data-i18n="backSide">Lado posterior</label>
 <label class="custom-upload">
 <input accept="image/*" id="ine_trasero" name="ine_trasero" type="file"/>
 <span class="upload-drop">
@@ -5566,7 +5783,7 @@ const I18N = {
     idType: "Identificación personal",
     specifyId: "Especifica la identificación",
     frontSide: "Lado frontal",
-    backSide: "Lado trasero",
+    backSide: "Lado posterior",
     idImage: "Imagen de identificación",
     reason: "Motivo",
     specify: "Especifica",
@@ -5798,7 +6015,7 @@ function applyTranslations(lang){
     else if (text.includes("Hora estimada de salida") || text.includes("Estimated departure time")) label.textContent = t.departureTime;
     else if (text === "Identificación personal" || text === "Personal identification") label.textContent = t.idType;
     else if (text === "Lado frontal" || text === "Front side") label.textContent = t.frontSide;
-    else if (text === "Lado trasero" || text === "Back side") label.textContent = t.backSide;
+    else if (text === "Lado posterior" || text === "Back side") label.textContent = t.backSide;
     else if (text === "Imagen de identificación" || text === "Identification image") label.textContent = t.idImage;
     else if (text === "Motivo" || text === "Purpose") label.textContent = t.reason;
     else if (text === "Propiedad" || text === "Property") label.textContent = t.property;
@@ -5959,7 +6176,7 @@ const SIMPLE_I18N = {
     departureTime:"Hora estimada de salida (máximo 10 A.M.)",
     idType:"Identificación personal",
     frontSide:"Lado frontal",
-    backSide:"Lado trasero",
+    backSide:"Lado posterior",
     idImage:"Imagen de identificación",
     reason:"Motivo",
     property:"Propiedad",
@@ -6066,12 +6283,12 @@ const SIMPLE_I18N = {
     wizStep4Sub:"Si llegas con vehículo, ayúdanos a coordinar la entrada y seguridad de las propiedades.",
     wizNombreLabel:"Nombre completo",
     wizCelularLabel:"Celular principal",
-    wizCelularHint:"Este es el celular con el que iniciaste sesión. No se puede cambiar.",
+    wizCelularHint:"Es el celular con el que iniciaste sesión. Si necesitas cambiarlo, te validaremos el nuevo con un código por WhatsApp.",
     wizEmergenciaLabel:"Contacto de emergencia",
     wizIdTipoLabel:"Tipo de identificación",
     wizIdOtroLabel:"Especifica el tipo de identificación",
     wizIdFrontLabel:"Lado frontal",
-    wizIdBackLabel:"Lado trasero",
+    wizIdBackLabel:"Lado posterior",
     wizIdImageLabel:"Imagen de identificación",
     wizFacturaLabel:"¿Vas a requerir factura por tus estancias?",
     wizRfcLabel:"RFC",
@@ -6093,7 +6310,40 @@ const SIMPLE_I18N = {
     wizErrStep1:"Captura tu nombre completo y un contacto de emergencia (10 dígitos).",
     wizErrStep2:"Selecciona el tipo de identificación y sube la(s) imagen(es).",
     wizErrStep3:"Si requieres factura, llena razón social, RFC, régimen y correo.",
-    wizErrStep4:"Si tienes vehículo, llena marca, modelo, color y placas."
+    wizErrStep4:"Si tienes vehículo, llena marca, modelo, color y placas.",
+    profileCompleteTitle:"¡Perfil completo!",
+    profileCompleteText:"Ya puedes hacer reservaciones rápidas con tus datos guardados.",
+    acceptBtn:"Aceptar",
+    closeBtn:"Cerrar",
+    cancelBtn:"Cancelar",
+    stayDetailTitle:"Detalle de la estancia",
+    /* Tabla Tu estancia mejorada */
+    staysThEstado:"Estado",
+    staysStatusFuture:"Próxima",
+    staysStatusOngoing:"En curso",
+    staysStatusPast:"Concluida",
+    staysPageSize:"Por página",
+    staysPagerInfo:"Página {p} de {t}",
+    staysPagerPrev:"← Anterior",
+    staysPagerNext:"Siguiente →",
+    /* KPIs */
+    kpiNochesLabel:"Noches totales",
+    kpiAlojamientosLabel:"Alojamientos",
+    kpiMontoLabel:"Monto total",
+    kpiRangeLabel:"Primera · última estancia",
+    /* Cambio de celular */
+    changePhoneBtn:"✏️ Cambiar celular",
+    changePhoneTitleA:"Cambiar celular",
+    changePhoneSubA:"Escribe el nuevo número. Te enviaremos un código por WhatsApp para validarlo.",
+    changePhoneTitleB:"Confirma el cambio",
+    changePhoneSubBTmpl:"Enviamos un código a <strong>{phone}</strong> por WhatsApp.",
+    changePhoneSendCode:"Enviar código",
+    changePhoneSuccessTitle:"Celular actualizado",
+    changePhoneSuccessText:"Tu nuevo celular fue validado y guardado.",
+    /* Imágenes */
+    imgRemoveBtn:"Eliminar",
+    imgUploadBtn:"Subir imagen",
+    imgUpdateBtn:"Actualizar imagen"
   },
   en: {
     chooseLanguage:"Choose language",
@@ -6251,7 +6501,7 @@ const SIMPLE_I18N = {
     wizStep4Sub:"If you arrive by vehicle, help us coordinate property access and security.",
     wizNombreLabel:"Full name",
     wizCelularLabel:"Primary phone",
-    wizCelularHint:"This is the phone you signed in with. It can't be changed.",
+    wizCelularHint:"This is the phone you signed in with. To change it we'll validate the new number with a WhatsApp code.",
     wizEmergenciaLabel:"Emergency contact",
     wizIdTipoLabel:"ID type",
     wizIdOtroLabel:"Specify the ID type",
@@ -6278,7 +6528,36 @@ const SIMPLE_I18N = {
     wizErrStep1:"Capture your full name and an emergency contact (10 digits).",
     wizErrStep2:"Select the ID type and upload the required image(s).",
     wizErrStep3:"If you require invoicing, fill business name, RFC, regime and email.",
-    wizErrStep4:"If you have a vehicle, fill make, model, color and plates."
+    wizErrStep4:"If you have a vehicle, fill make, model, color and plates.",
+    profileCompleteTitle:"Profile complete!",
+    profileCompleteText:"You can now make fast bookings with your saved data.",
+    acceptBtn:"OK",
+    closeBtn:"Close",
+    cancelBtn:"Cancel",
+    stayDetailTitle:"Stay details",
+    staysThEstado:"Status",
+    staysStatusFuture:"Upcoming",
+    staysStatusOngoing:"Ongoing",
+    staysStatusPast:"Completed",
+    staysPageSize:"Per page",
+    staysPagerInfo:"Page {p} of {t}",
+    staysPagerPrev:"← Previous",
+    staysPagerNext:"Next →",
+    kpiNochesLabel:"Total nights",
+    kpiAlojamientosLabel:"Stays",
+    kpiMontoLabel:"Total amount",
+    kpiRangeLabel:"First · last stay",
+    changePhoneBtn:"✏️ Change phone",
+    changePhoneTitleA:"Change phone",
+    changePhoneSubA:"Enter the new number. We'll send a WhatsApp code to validate it.",
+    changePhoneTitleB:"Confirm change",
+    changePhoneSubBTmpl:"We sent a code to <strong>{phone}</strong> via WhatsApp.",
+    changePhoneSendCode:"Send code",
+    changePhoneSuccessTitle:"Phone updated",
+    changePhoneSuccessText:"Your new phone was validated and saved.",
+    imgRemoveBtn:"Remove",
+    imgUploadBtn:"Upload image",
+    imgUpdateBtn:"Update image"
   }
 };
 
@@ -9941,15 +10220,10 @@ document.addEventListener("DOMContentLoaded", function(){
     }
   }
 
-  function renderEmptyStays(){
-    const i = getI18n();
-    const cur = $("staysCurrentBody");
-    const hist = $("staysHistoryBody");
-    const toggle = $("staysToggle");
-    if (cur) cur.innerHTML = `<tr class="stays-empty-row"><td colspan="5">${i.staysEmpty || "Aún no tienes estancias registradas."}</td></tr>`;
-    if (hist) { hist.innerHTML = ""; hist.classList.add("hidden"); }
-    if (toggle) { toggle.classList.add("hidden"); toggle.classList.remove("open"); }
-  }
+  // Estado actual del paginador
+  let staysPage = 1;
+  let staysPageSize = 10;
+  let staysSorted = []; // estancias ordenadas por fecha ingreso desc
 
   function escapeHtml(v){
     return String(v == null ? "" : v)
@@ -9957,9 +10231,36 @@ document.addEventListener("DOMContentLoaded", function(){
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  function renderStayRow(stay, isCurrent){
-    const cls = isCurrent ? "stays-row-current" : "stays-row-history";
-    return `<tr class="${cls}">
+  function parseDateLocal(s){
+    if (!s) return null;
+    let raw = String(s);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) raw = raw + "T00:00:00";
+    const d = new Date(raw);
+    return isNaN(d) ? null : d;
+  }
+
+  function getStayStatus(stay){
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const ingreso = parseDateLocal(stay.ingreso);
+    const salida = parseDateLocal(stay.salida);
+    if (!ingreso) return { key: "past", labelKey: "staysStatusPast" };
+    if (ingreso > today) return { key: "future", labelKey: "staysStatusFuture" };
+    if (salida && salida >= today) return { key: "ongoing", labelKey: "staysStatusOngoing" };
+    if (!salida && ingreso <= today) return { key: "ongoing", labelKey: "staysStatusOngoing" };
+    return { key: "past", labelKey: "staysStatusPast" };
+  }
+
+  function renderStayRow(stay, idx){
+    const status = getStayStatus(stay);
+    const i = getI18n();
+    return `<tr class="stays-row-clickable" data-stay-index="${idx}">
+      <td>
+        <span class="stays-status-cell">
+          <span class="stays-status-dot ${status.key}"></span>
+          <span class="stays-status-label">${escapeHtml(i[status.labelKey] || status.key)}</span>
+        </span>
+      </td>
       <td>${escapeHtml(stay.propiedad || "—")}</td>
       <td>${escapeHtml(stay.depto || "—")}</td>
       <td>${escapeHtml(fmtFecha(stay.ingreso))}</td>
@@ -9968,37 +10269,143 @@ document.addEventListener("DOMContentLoaded", function(){
     </tr>`;
   }
 
-  function renderStaysTable(rows){
+  function renderEmptyStays(){
     const i = getI18n();
-    const cur = $("staysCurrentBody");
-    const hist = $("staysHistoryBody");
-    const toggle = $("staysToggle");
-    if (!rows || !rows.length) return renderEmptyStays();
+    const body = $("staysBody");
+    if (body) body.innerHTML = `<tr class="stays-empty-row"><td colspan="6">${i.staysEmpty || "Aún no tienes estancias registradas."}</td></tr>`;
+    const pager = $("staysPager");
+    if (pager) pager.classList.add("hidden");
+  }
 
-    // Ordenar por fecha de ingreso desc para que la más reciente sea la "actual"
+  function renderStaysPage(){
+    const body = $("staysBody");
+    if (!body) return;
+    if (!staysSorted.length) return renderEmptyStays();
+    const total = staysSorted.length;
+    const totalPages = Math.max(1, Math.ceil(total / staysPageSize));
+    if (staysPage > totalPages) staysPage = totalPages;
+    const start = (staysPage - 1) * staysPageSize;
+    const slice = staysSorted.slice(start, start + staysPageSize);
+    body.innerHTML = slice.map((stay, i) => renderStayRow(stay, start + i)).join("");
+    // Click handlers
+    body.querySelectorAll("tr.stays-row-clickable").forEach(tr => {
+      tr.addEventListener("click", () => {
+        const idx = Number(tr.dataset.stayIndex);
+        showStayDetail(idx);
+      });
+    });
+    // Pager
+    const pager = $("staysPager");
+    const info = $("staysPagerInfo");
+    const prev = $("staysPrevBtn");
+    const next = $("staysNextBtn");
+    if (pager) pager.classList.toggle("hidden", total <= 5 && staysPageSize >= total);
+    const i18n = getI18n();
+    if (info) info.textContent = (i18n.staysPagerInfo || "Página {p} de {t}").replace("{p}", staysPage).replace("{t}", totalPages);
+    if (prev) prev.disabled = staysPage <= 1;
+    if (next) next.disabled = staysPage >= totalPages;
+  }
+
+  function showStayDetail(idx){
+    const stay = staysSorted[idx];
+    if (!stay) return;
+    const rawRow = stay._raw || {};
+    const modal = $("stayDetailModal");
+    const grid = $("stayDetailGrid");
+    const subtitle = $("stayDetailSubtitle");
+    if (!modal || !grid) return;
+    const status = getStayStatus(stay);
+    const i = getI18n();
+    if (subtitle) subtitle.innerHTML = `<span class="stays-status-cell"><span class="stays-status-dot ${status.key}"></span><span class="stays-status-label">${escapeHtml(i[status.labelKey] || status.key)}</span></span> · ${escapeHtml(stay.propiedad || "—")} · ${escapeHtml(fmtFecha(stay.ingreso))} → ${escapeHtml(fmtFecha(stay.salida))}`;
+    // Construir grid con TODOS los campos relevantes del row crudo
+    const ESCAPED_FIELDS = [
+      ["Nombre de la persona que hizo la reservación", "Reservante"],
+      ["Medio de reservación", "Medio"],
+      ["Propiedad", "Propiedad"],
+      ["# Departamento", "# Departamento"],
+      ["Fecha de ingreso", "Fecha de ingreso"],
+      ["Hora estimada de llegada", "Hora de llegada"],
+      ["Fecha de salida", "Fecha de salida"],
+      ["Hora estimada de salida", "Hora de salida"],
+      ["# Huéspedes", "# Huéspedes"],
+      ["Nombres de TODOS los huéspedes (separados por comas)", "Huéspedes"],
+      ["Cel/Whatsapp (principal)", "Celular principal"],
+      ["¿Requiere factura?", "Requiere factura"],
+      ["($) Monto Total pagado", "Monto pagado"],
+      ["$ Monto facturado Total", "Monto facturado"],
+      ["Folio facturapi", "Folio Facturapi"],
+      ["Razón social", "Razón social"],
+      ["RFC", "RFC"],
+      ["Régimen fiscal", "Régimen fiscal"],
+      ["Marca", "Marca vehículo"],
+      ["Modelo", "Modelo vehículo"],
+      ["Color", "Color"],
+      ["# Placas", "# Placas"],
+      ["Hora habitual de salida", "Hora habitual salida"],
+      ["Comentarios", "Comentarios"]
+    ];
+    const items = ESCAPED_FIELDS
+      .map(([key, label]) => {
+        const val = rawRow[key];
+        if (val == null || String(val).trim() === "") return null;
+        return `<div class="detail-item"><div class="detail-key">${escapeHtml(label)}</div><div class="detail-val">${escapeHtml(/Fecha/.test(key) ? fmtFecha(val) : (/Monto/.test(key) || /pago/.test(key) ? fmtMonto(val) : val))}</div></div>`;
+      })
+      .filter(Boolean);
+    grid.innerHTML = items.length ? items.join("") : `<div class="detail-item"><div class="detail-val">Sin información detallada disponible.</div></div>`;
+    modal.style.display = "flex";
+    document.body.style.overflow = "hidden";
+  }
+  function closeStayDetail(){
+    const modal = $("stayDetailModal");
+    if (modal) modal.style.display = "none";
+    document.body.style.overflow = "";
+  }
+
+  function renderKPIs(rows){
+    const noches = rows.reduce((acc, r) => {
+      const ing = parseDateLocal(r.ingreso);
+      const sal = parseDateLocal(r.salida);
+      if (!ing || !sal) return acc;
+      const diff = Math.max(0, Math.round((sal - ing) / (24*60*60*1000)));
+      return acc + diff;
+    }, 0);
+    const aloj = rows.length;
+    const monto = rows.reduce((acc, r) => {
+      const m = String(r.monto || "").replace(/[^0-9.\-]/g, "");
+      const n = Number(m);
+      return acc + (isFinite(n) ? n : 0);
+    }, 0);
+    const dates = rows.map(r => parseDateLocal(r.ingreso)).filter(Boolean).sort((a,b) => a - b);
+    const first = dates[0];
+    const last = dates[dates.length - 1];
+    const $set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+    $set("kpiNoches", noches);
+    $set("kpiAlojamientos", aloj);
+    $set("kpiMonto", fmtMonto(monto));
+    $set("kpiRange", (first && last) ? (first.getTime() === last.getTime() ? fmtFecha(first.toISOString().slice(0,10)) : `${fmtFecha(first.toISOString().slice(0,10))} → ${fmtFecha(last.toISOString().slice(0,10))}`) : "—");
+  }
+
+  function renderStaysTable(rows){
+    if (!rows || !rows.length) {
+      staysSorted = [];
+      renderEmptyStays();
+      renderKPIs([]);
+      return;
+    }
+    // Ordenar por fecha de ingreso desc
     const sorted = rows.slice().sort((a, b) => {
       const da = new Date(pickField(a, ["Fecha de ingreso", "fecha_ingreso", "ingreso"]) || 0).getTime();
       const db = new Date(pickField(b, ["Fecha de ingreso", "fecha_ingreso", "ingreso"]) || 0).getTime();
       return (db || 0) - (da || 0);
     });
-    const summaries = sorted.map(rowToStaySummary);
-
-    if (cur) cur.innerHTML = renderStayRow(summaries[0], true);
-    const others = summaries.slice(1);
-    if (hist) {
-      hist.innerHTML = others.map(s => renderStayRow(s, false)).join("");
-      hist.classList.add("hidden"); // colapsado por defecto
-    }
-    if (toggle) {
-      if (others.length > 0) {
-        toggle.classList.remove("hidden");
-        toggle.classList.remove("open");
-        const lbl = $("staysToggleLabel");
-        if (lbl) lbl.textContent = i.staysShowMore || "Ver estancias anteriores";
-      } else {
-        toggle.classList.add("hidden");
-      }
-    }
+    staysSorted = sorted.map(r => {
+      const s = rowToStaySummary(r);
+      s._raw = r;
+      return s;
+    });
+    staysPage = 1;
+    renderStaysPage();
+    renderKPIs(staysSorted);
   }
 
   function refreshHomeI18n(lang){
@@ -10357,7 +10764,27 @@ document.addEventListener("DOMContentLoaded", function(){
       setMenuActive("registro");
     });
     $("btnHomeVehiculos")?.addEventListener("click", gotoExpressVehiculos);
-    $("staysToggle")?.addEventListener("click", toggleStaysHistory);
+    // Paginación + page size + detalle de la tabla Tu estancia
+    $("staysPrevBtn")?.addEventListener("click", () => { if (staysPage > 1) { staysPage--; renderStaysPage(); }});
+    $("staysNextBtn")?.addEventListener("click", () => {
+      const totalPages = Math.max(1, Math.ceil(staysSorted.length / staysPageSize));
+      if (staysPage < totalPages) { staysPage++; renderStaysPage(); }
+    });
+    $("staysPageSizeSelect")?.addEventListener("change", e => {
+      staysPageSize = Number(e.target.value) || 10;
+      staysPage = 1;
+      renderStaysPage();
+    });
+    $("stayDetailCloseBtn")?.addEventListener("click", () => {
+      const m = $("stayDetailModal"); if (m) m.style.display = "none";
+      document.body.style.overflow = "";
+    });
+    $("stayDetailModal")?.addEventListener("click", e => {
+      if (e.target.id === "stayDetailModal") {
+        e.currentTarget.style.display = "none";
+        document.body.style.overflow = "";
+      }
+    });
     $("btnLogout")?.addEventListener("click", onLogout);
 
     // Enter en inputs
@@ -10687,9 +11114,8 @@ document.addEventListener("DOMContentLoaded", function(){
       const flags = stepCompletionFlags(activeProfile);
       l.classList.toggle("done", flags[ln - 1]);
     });
-    // Botones: en el paso 4 cambia "Siguiente" por "Guardar datos"
+    // "Siguiente" se oculta en el último paso; "Guardar datos" siempre visible.
     $("wizBtnNext").classList.toggle("hidden", n === TOTAL_STEPS);
-    $("wizBtnFinish").classList.toggle("hidden", n !== TOTAL_STEPS);
     $("wizBtnPrev").disabled = (n === 1);
     // Update meta
     updateProgressUI();
@@ -10789,35 +11215,132 @@ document.addEventListener("DOMContentLoaded", function(){
     if (currentStep < TOTAL_STEPS) showStep(currentStep + 1);
   }
   function tryFinish(){
+    // Siempre persiste lo capturado. Si está completo, muestra pop-up de éxito
+    // y al cerrar regresa al Home. Si está parcial, regresa al Home directo.
+    if (activeProfile) saveProfile(activePhoneKey, activeProfile);
+    refreshHomeCard();
     const flags = stepCompletionFlags(activeProfile);
     const allDone = flags.every(Boolean);
-    if (!allDone) {
-      // Ir al primer paso incompleto
-      const firstMissing = flags.findIndex(f => !f) + 1;
-      showStep(firstMissing);
-      const errEl = $(`wizStep${firstMissing}Error`);
-      const i = getI18n();
-      if (errEl) {
-        errEl.textContent = i[`wizErrStep${firstMissing}`] || "Faltan datos requeridos.";
-        errEl.classList.remove("hidden");
-      }
+    if (allDone) {
+      activeProfile.completed = true;
+      saveProfile(activePhoneKey, activeProfile);
+      refreshHomeCard();
+      showProfileCompleteModal();
+    } else {
+      exitWizardToHome();
+    }
+  }
+  function showProfileCompleteModal(){
+    const modal = $("profileCompleteModal");
+    if (modal) {
+      modal.style.display = "flex";
+    } else {
+      exitWizardToHome();
+    }
+  }
+
+  // ─── Cambio de celular con OTP ─────────────────────────────────────
+  let changePhonePending = null; // {newPhone, newLada, code, expiresAt}
+
+  function openChangePhoneModal(){
+    const modal = $("changePhoneModal");
+    if (!modal) return;
+    // Reset
+    $("changePhoneStepA").classList.remove("hidden");
+    $("changePhoneStepB").classList.add("hidden");
+    $("changePhoneCelInput").value = "";
+    $("changePhoneOtpInput").value = "";
+    $("changePhoneErrorA").classList.add("hidden");
+    $("changePhoneErrorB").classList.add("hidden");
+    // Poblar lada del modal con las mismas opciones
+    if (typeof window.loadLadas === "function") {
+      try { window.loadLadas("changePhoneLadaSelect"); } catch(e){}
+    }
+    modal.style.display = "flex";
+    setTimeout(() => $("changePhoneCelInput").focus(), 50);
+  }
+  function closeChangePhoneModal(){
+    const modal = $("changePhoneModal");
+    if (modal) modal.style.display = "none";
+    changePhonePending = null;
+  }
+  async function onChangePhoneSend(){
+    const errEl = $("changePhoneErrorA");
+    errEl.classList.add("hidden");
+    const lada = ($("changePhoneLadaSelect")?.value || "").trim();
+    const phone = ($("changePhoneCelInput")?.value || "").replace(/\D/g, "").trim();
+    if (!lada) { errEl.textContent = "Selecciona la lada."; errEl.classList.remove("hidden"); return; }
+    if (!phone || phone.length < 10) { errEl.textContent = "El celular debe tener al menos 10 dígitos."; errEl.classList.remove("hidden"); return; }
+    const session = window.checkinnAuth?.getSession();
+    if (session && `${session.lada}${session.phone}` === `${lada}${phone}`) {
+      errEl.textContent = "Ese ya es tu celular actual.";
+      errEl.classList.remove("hidden");
       return;
     }
-    activeProfile.completed = true;
-    saveProfile(activePhoneKey, activeProfile);
-    refreshHomeCard();
+    // En Fase 1 (modo demo): código fijo 123456. En Fase 3: llamada al backend.
+    changePhonePending = {
+      newPhone: phone,
+      newLada: lada,
+      code: "123456",
+      expiresAt: Date.now() + 5*60*1000
+    };
+    // Pasar al paso B
+    $("changePhoneStepA").classList.add("hidden");
+    $("changePhoneStepB").classList.remove("hidden");
+    const subB = $("changePhoneSubB");
     const i = getI18n();
-    alert(i.wizFinishedToast || "¡Perfil completo!");
-    exitWizardToHome();
-  }
-  function saveAndExit(){
-    if (activeProfile) saveProfile(activePhoneKey, activeProfile);
-    const i = getI18n();
-    if (profileCompletionPercent(activeProfile) > 0 && profileCompletionPercent(activeProfile) < 100) {
-      // Pequeño toast informativo
-      // (alert es simple pero efectivo, podemos refinar a banner luego)
+    if (subB) {
+      const tmpl = i.changePhoneSubBTmpl || "Enviamos un código a <strong>{phone}</strong> por WhatsApp.";
+      subB.innerHTML = tmpl.replace("{phone}", `+${lada} ${phone}`);
     }
-    exitWizardToHome();
+    setTimeout(() => $("changePhoneOtpInput").focus(), 50);
+  }
+  async function onChangePhoneVerify(){
+    const errEl = $("changePhoneErrorB");
+    errEl.classList.add("hidden");
+    if (!changePhonePending) { errEl.textContent = "Solicita un código primero."; errEl.classList.remove("hidden"); return; }
+    if (Date.now() > changePhonePending.expiresAt) {
+      errEl.textContent = "El código expiró. Solicita uno nuevo.";
+      errEl.classList.remove("hidden");
+      changePhonePending = null;
+      return;
+    }
+    const code = ($("changePhoneOtpInput")?.value || "").trim();
+    if (code !== changePhonePending.code) {
+      errEl.textContent = "Código incorrecto.";
+      errEl.classList.remove("hidden");
+      return;
+    }
+    // Migrar el perfil de la clave antigua a la nueva
+    const oldKey = getPhoneKey();
+    const newKey = `+${changePhonePending.newLada}${changePhonePending.newPhone}`;
+    const all = loadAllProfiles();
+    if (oldKey && all[oldKey]) {
+      all[newKey] = all[oldKey];
+      delete all[oldKey];
+      saveAllProfiles(all);
+    }
+    // Actualizar sesión
+    if (window.checkinnAuth) {
+      try {
+        const session = window.checkinnAuth.getSession();
+        if (session) {
+          session.phone = changePhonePending.newPhone;
+          session.lada = changePhonePending.newLada;
+          localStorage.setItem("checkinn_session_v1", JSON.stringify(session));
+        }
+      } catch(e){}
+    }
+    // Actualizar UI inmediatamente
+    activePhoneKey = newKey;
+    activeProfile = loadProfile(newKey);
+    $("wiz_celular_display").value = `+${changePhonePending.newLada} ${changePhonePending.newPhone}`;
+    refreshHomeCard();
+    // Actualizar la pill de sesión si está visible
+    const pillName = document.getElementById("sessionPillName");
+    if (pillName) pillName.textContent = `${changePhonePending.newPhone}`;
+    closeChangePhoneModal();
+    alert("✓ Celular actualizado correctamente.");
   }
 
   // ─── Bloqueo de "Nueva reservación" ────────────────────────────────
@@ -10850,7 +11373,34 @@ document.addEventListener("DOMContentLoaded", function(){
     $("wizBtnPrev")?.addEventListener("click", () => showStep(currentStep - 1));
     $("wizBtnNext")?.addEventListener("click", tryAdvance);
     $("wizBtnFinish")?.addEventListener("click", tryFinish);
-    $("wizBtnSaveExit")?.addEventListener("click", saveAndExit);
+    $("profileCompleteOkBtn")?.addEventListener("click", () => {
+      const modal = $("profileCompleteModal");
+      if (modal) modal.style.display = "none";
+      exitWizardToHome();
+    });
+    $("profileCompleteModal")?.addEventListener("click", (e) => {
+      if (e.target.id === "profileCompleteModal") {
+        e.currentTarget.style.display = "none";
+        exitWizardToHome();
+      }
+    });
+    // Cambio de celular (mini-modal)
+    $("wizChangePhoneBtn")?.addEventListener("click", openChangePhoneModal);
+    $("changePhoneCancelBtnA")?.addEventListener("click", closeChangePhoneModal);
+    $("changePhoneCancelBtnB")?.addEventListener("click", closeChangePhoneModal);
+    $("changePhoneSendBtn")?.addEventListener("click", onChangePhoneSend);
+    $("changePhoneVerifyBtn")?.addEventListener("click", onChangePhoneVerify);
+    $("changePhoneCelInput")?.addEventListener("input", e => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 15);
+    });
+    $("changePhoneOtpInput")?.addEventListener("input", e => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
+    });
+    $("changePhoneCelInput")?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); onChangePhoneSend(); }});
+    $("changePhoneOtpInput")?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); onChangePhoneVerify(); }});
+    $("changePhoneModal")?.addEventListener("click", e => {
+      if (e.target.id === "changePhoneModal") closeChangePhoneModal();
+    });
     bindFormToProfile();
 
     // Click en los puntitos de pasos → ir directo
@@ -10894,6 +11444,242 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 })();
 </script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Enhancements de imágenes (wizard + form principal):
+   - Click en preview → zoom modal
+   - Botón × en cada preview para eliminar la imagen
+   - Texto del botón cambia entre "Subir imagen" / "Actualizar imagen"
+   ═══════════════════════════════════════════════════════════════════ */
+(function(){
+  "use strict";
+  const $ = id => document.getElementById(id);
+
+  // Texto inicial del botón upload (depende de si hay imagen).
+  function refreshUploadButtonText(input){
+    const wrap = input.closest('.custom-upload, .upload-box, .upload-grid > div, label.custom-upload') || input.closest('label');
+    if (!wrap) return;
+    const btnTextEl = wrap.querySelector('.upload-btn');
+    if (!btnTextEl) return;
+    const i = (window.SIMPLE_I18N && window.SIMPLE_I18N[window.currentLang || 'es']) || {};
+    // Buscar la imagen preview asociada
+    const wrapper = wrap.parentElement?.querySelector('.preview-wrapper')
+                 || wrap.closest('.upload-box')?.querySelector('.preview-wrapper');
+    const img = wrapper?.querySelector('.preview-img');
+    const hasImage = img && !img.classList.contains('hidden') && img.getAttribute('src');
+    btnTextEl.textContent = hasImage
+      ? (i.imgUpdateBtn || 'Actualizar imagen')
+      : (i.imgUploadBtn || 'Subir imagen');
+  }
+
+  function enhanceAllPreviews(){
+    document.querySelectorAll('.preview-wrapper').forEach(wrap => {
+      const img = wrap.querySelector('.preview-img');
+      if (!img) return;
+
+      // Click en imagen → zoom
+      if (!img.dataset.zoomBound) {
+        img.dataset.zoomBound = '1';
+        img.addEventListener('click', () => {
+          if (img.classList.contains('hidden') || !img.src) return;
+          openZoom(img.src);
+        });
+      }
+
+      // Botón X si no existe
+      if (!wrap.querySelector('.preview-img-remove')) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'preview-img-remove';
+        btn.setAttribute('aria-label', 'Eliminar imagen');
+        btn.textContent = '×';
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          removeImage(wrap);
+        });
+        wrap.appendChild(btn);
+      }
+
+      // Estado has-image inicial
+      const hasImage = img.getAttribute('src') && !img.classList.contains('hidden');
+      wrap.classList.toggle('has-image', !!hasImage);
+    });
+  }
+
+  function findInputForPreview(wrap){
+    // Buscar el <input type="file"> asociado: por convención el id del preview
+    // termina en _preview y el input correspondiente quita ese sufijo.
+    const img = wrap.querySelector('.preview-img');
+    if (!img || !img.id) return null;
+    const inputId = img.id.replace(/_preview$/, '');
+    return document.getElementById(inputId);
+  }
+
+  function removeImage(wrap){
+    const img = wrap.querySelector('.preview-img');
+    const nameEl = wrap.querySelector('.preview-text');
+    const input = findInputForPreview(wrap);
+    if (img) {
+      img.classList.add('hidden');
+      img.removeAttribute('src');
+    }
+    const i = (window.SIMPLE_I18N && window.SIMPLE_I18N[window.currentLang || 'es']) || {};
+    if (nameEl) nameEl.textContent = i.noImage || 'Ninguna imagen seleccionada';
+    if (input) {
+      try { input.value = ''; } catch(e){}
+      // Disparar change event para que cualquier lógica dependiente reaccione
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    wrap.classList.remove('has-image');
+    refreshUploadButtonText(input || img);
+  }
+
+  // Zoom modal
+  function openZoom(src){
+    const modal = $('imageZoomModal');
+    const img = $('imageZoomImg');
+    if (!modal || !img) return;
+    img.src = src;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+  function closeZoom(){
+    const modal = $('imageZoomModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  // MutationObserver: cuando aparecen nuevos preview-wrappers (ej. al cambiar
+  // el tipo de identificación), también los enhanced.
+  function startObserver(){
+    const mo = new MutationObserver(muts => {
+      let needsScan = false;
+      muts.forEach(m => {
+        m.addedNodes.forEach(n => {
+          if (n.nodeType === 1 && (n.classList?.contains('preview-wrapper') || n.querySelector?.('.preview-wrapper'))) {
+            needsScan = true;
+          }
+        });
+      });
+      if (needsScan) enhanceAllPreviews();
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+  }
+
+  // Bind change a todos los inputs file para refrescar el texto del botón
+  function bindFileInputs(){
+    document.querySelectorAll('input[type="file"]').forEach(inp => {
+      if (inp.dataset.uploadTextBound) return;
+      inp.dataset.uploadTextBound = '1';
+      inp.addEventListener('change', () => {
+        // Pequeña espera para que la imagen ya esté en el preview
+        setTimeout(() => {
+          const wrapper = inp.closest('.upload-box')?.querySelector('.preview-wrapper')
+                       || inp.closest('.custom-upload')?.parentElement?.querySelector('.preview-wrapper')
+                       || document.getElementById(`${inp.id}_preview`)?.closest('.preview-wrapper');
+          if (wrapper) {
+            const img = wrapper.querySelector('.preview-img');
+            const hasImage = img && !img.classList.contains('hidden') && img.getAttribute('src');
+            wrapper.classList.toggle('has-image', !!hasImage);
+          }
+          refreshUploadButtonText(inp);
+        }, 50);
+      });
+    });
+  }
+
+  function init(){
+    enhanceAllPreviews();
+    bindFileInputs();
+    startObserver();
+    $('imageZoomCloseBtn')?.addEventListener('click', closeZoom);
+    $('imageZoomModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'imageZoomModal') closeZoom();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && $('imageZoomModal').style.display === 'flex') closeZoom();
+    });
+    // Refresh inicial de todos los textos
+    document.querySelectorAll('input[type="file"]').forEach(refreshUploadButtonText);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    setTimeout(init, 0);
+  }
+
+  window.checkinnImages = { refreshUploadButtonText, enhanceAllPreviews, removeImage, openZoom };
+})();
+</script>
+
+<!-- ═══ Modal: Perfil completo ═════════════════════════════════════ -->
+<div class="popup-backdrop" id="profileCompleteModal" style="display:none;">
+  <div class="popup-card" style="max-width:380px;">
+    <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(180deg,#10b981 0%, #059669 100%);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:32px;font-weight:800;box-shadow:0 12px 28px rgba(16,185,129,.32);">✓</div>
+    <h3 data-i18n="profileCompleteTitle">¡Perfil completo!</h3>
+    <div class="hint" data-i18n="profileCompleteText">Ya puedes hacer reservaciones rápidas con tus datos guardados.</div>
+    <div style="margin-top:18px;">
+      <button id="profileCompleteOkBtn" type="button" style="width:100%;" data-i18n="acceptBtn">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal: Detalle de estancia (tabla Tu estancia) ═════════════ -->
+<div class="popup-backdrop" id="stayDetailModal" style="display:none;">
+  <div class="popup-card detail-modal-card" style="max-width:560px;text-align:left;">
+    <h3 style="margin-bottom:6px;" data-i18n="stayDetailTitle">Detalle de la estancia</h3>
+    <div class="hint" id="stayDetailSubtitle" style="margin-bottom:14px;"></div>
+    <div class="detail-grid" id="stayDetailGrid"></div>
+    <div style="display:flex;gap:10px;margin-top:18px;">
+      <button class="wizard-btn-secondary" id="stayDetailCloseBtn" type="button" style="flex:1;margin-top:0;" data-i18n="closeBtn">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal: Zoom de imagen ══════════════════════════════════════ -->
+<div class="popup-backdrop" id="imageZoomModal" style="display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.85);">
+  <button id="imageZoomCloseBtn" type="button" style="position:fixed;top:18px;right:18px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.95);color:#1f2937;border:none;font-size:22px;font-weight:800;cursor:pointer;box-shadow:0 8px 20px rgba(0,0,0,.3);margin:0;padding:0;z-index:1000001;line-height:1;">✕</button>
+  <img id="imageZoomImg" alt="" style="max-width:92vw;max-height:88vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);background:#fff;"/>
+</div>
+
+<!-- ═══ Modal: Cambiar celular (con OTP) ═══════════════════════════ -->
+<div class="popup-backdrop" id="changePhoneModal" style="display:none;">
+  <div class="popup-card" style="max-width:420px;text-align:left;">
+    <!-- Paso A: nuevo celular -->
+    <div id="changePhoneStepA">
+      <h3 style="margin-bottom:6px;" data-i18n="changePhoneTitleA">Cambiar celular</h3>
+      <div class="hint" style="margin-bottom:14px;" data-i18n="changePhoneSubA">Escribe el nuevo número. Te enviaremos un código por WhatsApp para validarlo.</div>
+      <label for="changePhoneCelInput" data-i18n="phoneLabel">Celular</label>
+      <div class="phone-group">
+        <select id="changePhoneLadaSelect"></select>
+        <input id="changePhoneCelInput" type="tel" inputmode="numeric" placeholder="10 dígitos"/>
+      </div>
+      <div class="note hidden" id="changePhoneErrorA"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+        <button class="wizard-btn-secondary" id="changePhoneCancelBtnA" type="button" style="margin-top:0;" data-i18n="cancelBtn">Cancelar</button>
+        <button id="changePhoneSendBtn" type="button" style="margin-top:0;" data-i18n="changePhoneSendCode">Enviar código</button>
+      </div>
+    </div>
+    <!-- Paso B: ingresar OTP -->
+    <div id="changePhoneStepB" class="hidden">
+      <h3 style="margin-bottom:6px;" data-i18n="changePhoneTitleB">Confirma el cambio</h3>
+      <div class="hint" style="margin-bottom:14px;" id="changePhoneSubB"></div>
+      <label for="changePhoneOtpInput" data-i18n="otpLabel">Código de verificación</label>
+      <input id="changePhoneOtpInput" class="auth-otp-input" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="one-time-code"/>
+      <div class="note hidden" id="changePhoneErrorB"></div>
+      <div class="auth-info-banner" id="changePhoneDemoBanner" style="margin-top:12px;">
+        🧪 <strong>Modo demo:</strong> Usa el código <code>123456</code>.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+        <button class="wizard-btn-secondary" id="changePhoneCancelBtnB" type="button" style="margin-top:0;" data-i18n="cancelBtn">Cancelar</button>
+        <button id="changePhoneVerifyBtn" type="button" style="margin-top:0;" data-i18n="loginVerify">Verificar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
