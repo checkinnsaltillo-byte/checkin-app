@@ -9305,7 +9305,11 @@ document.addEventListener("DOMContentLoaded", function(){
   function fmtFecha(s){
     if (!s) return "—";
     try {
-      const d = new Date(s);
+      // Si viene como "YYYY-MM-DD" sin hora, forzamos local time para evitar
+      // desfase de un día por interpretación UTC.
+      let raw = String(s);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) raw = raw + "T00:00:00";
+      const d = new Date(raw);
       if (isNaN(d)) return s;
       const lang = window.currentLang || "es";
       return d.toLocaleDateString(lang === "en" ? "en-US" : "es-MX", { day: "2-digit", month: "short", year: "numeric" });
@@ -9330,29 +9334,63 @@ document.addEventListener("DOMContentLoaded", function(){
     return {
       propiedad: pickField(row, ["Propiedad", "propiedad"]),
       depto: pickField(row, ["# Departamento", "Departamento", "depto", "departamento"]),
-      ingreso: pickField(row, ["Fecha de ingreso", "fecha_ingreso", "F. Ingreso", "ingreso"]),
-      salida: pickField(row, ["Fecha de salida", "fecha_salida", "F. Salida", "salida"]),
-      monto: pickField(row, ["Monto pagado", "monto_pagado", "Monto facturado", "monto_facturado", "$ Monto pagado"])
+      ingreso: pickField(row, ["Fecha de ingreso", "fecha_ingreso", "F. Ingreso", "ingreso", "Check-in", "Check in"]),
+      salida: pickField(row, ["Fecha de salida", "fecha_salida", "F. Salida", "salida", "Check-out", "Check out"]),
+      monto: pickField(row, [
+        "($) Monto Total pagado", "$ Monto Total pagado", "Monto Total pagado",
+        "$ Monto facturado Total", "Monto facturado Total",
+        "$ Monto pagado", "Monto pagado", "monto_pagado",
+        "Monto", "Total", "$ Total"
+      ])
     };
   }
 
-  async function fetchAllStaysByPhone(rawPhone){
-    // Reusa el endpoint list_records existente (mismo que detectExistingGuestByPhone).
-    // En Fase 3 esto consulta el Sheet directo y devuelve todas las filas del huésped.
+  async function fetchAllStaysByPhone(userDigits){
+    // Reproduce la lógica de detectExistingGuestByPhone para encontrar el
+    // formato exacto guardado en el Sheet (ej: "'52 1234567890" con apóstrofe),
+    // luego trae TODAS las filas (no solo la primera) para construir el historial.
     try {
       const webAppUrl = (typeof WEB_APP_URL !== "undefined" && WEB_APP_URL) ? WEB_APP_URL : null;
-      if (!webAppUrl || !rawPhone) return [];
+      if (!webAppUrl) { console.warn("[stays] WEB_APP_URL no disponible"); return []; }
+
+      const digits = String(userDigits || "").replace(/\D/g, "");
+      if (!digits || digits.length < 8) { console.warn("[stays] dígitos insuficientes:", digits); return []; }
+
+      if (typeof loadGuestPhoneCatalog !== "function") {
+        console.warn("[stays] loadGuestPhoneCatalog no disponible");
+        return [];
+      }
+
+      const catalog = await loadGuestPhoneCatalog();
+      console.log("[stays] catálogo:", catalog.length, "celulares · buscando:", digits);
+
+      // Buscar match exacto o por sufijo en ambas direcciones (puede que el
+      // Sheet tenga el celular con lada o sin ella).
+      const exact = catalog.find(item => item.digits === digits)
+                 || catalog.find(item => item.digits.endsWith(digits))
+                 || catalog.find(item => digits.endsWith(item.digits));
+      if (!exact) {
+        console.warn("[stays] sin match en catálogo para:", digits);
+        return [];
+      }
+      console.log("[stays] match:", exact);
+
       const params = new URLSearchParams();
       params.set("action", "list_records");
-      params.set("celular_principal", rawPhone);
+      params.set("celular_principal", exact.raw);
       params.set("page", "1");
       params.set("page_size", "100");
       const res = await fetch(`${webAppUrl}?${params.toString()}`);
       const json = await res.json();
-      if (!json.ok) return [];
-      return Array.isArray(json.rows) ? json.rows : [];
+      if (!json.ok) {
+        console.warn("[stays] list_records error:", json.error || json.message);
+        return [];
+      }
+      const rows = Array.isArray(json.rows) ? json.rows : [];
+      console.log("[stays] filas:", rows.length, rows[0] ? Object.keys(rows[0]) : "(vacío)");
+      return rows;
     } catch(e) {
-      console.warn("fetchAllStaysByPhone error:", e);
+      console.warn("[stays] fetchAllStaysByPhone error:", e);
       return [];
     }
   }
@@ -9452,17 +9490,22 @@ document.addEventListener("DOMContentLoaded", function(){
   async function refreshHomeContent(session){
     refreshHomeI18n(window.currentLang || "es");
 
-    // Mostrar estancias: usa cache si existe, si no, consulta backend
+    // Mostrar loading mientras consultamos
     const cur = $("staysCurrentBody");
     if (cur) {
       const i = getI18n();
       cur.innerHTML = `<tr class="stays-empty-row"><td colspan="5">${i.staysLoading || "Cargando…"}</td></tr>`;
     }
-    const rawPhone = `+${session.lada}${session.phone}`;
-    const rawPhoneLegacy = `'${session.lada} ${session.phone}`; // formato Sheet con prefijo apóstrofe
-    let rows = await fetchAllStaysByPhone(rawPhone);
-    if (!rows.length) rows = await fetchAllStaysByPhone(rawPhoneLegacy);
-    if (!rows.length) rows = await fetchAllStaysByPhone(`${session.lada}${session.phone}`);
+
+    // Buscar primero con lada+celular; si no, solo celular (algunos sheets
+    // guardan el celular sin lada). fetchAllStaysByPhone usa el catálogo
+    // del Sheet para encontrar el match exacto.
+    const digitsWithLada = `${session.lada}${session.phone}`.replace(/\D/g, "");
+    const digitsOnly = String(session.phone || "").replace(/\D/g, "");
+    let rows = await fetchAllStaysByPhone(digitsWithLada);
+    if (!rows.length && digitsOnly !== digitsWithLada) {
+      rows = await fetchAllStaysByPhone(digitsOnly);
+    }
     window.checkinnAuth._cachedStays = rows;
     renderStaysTable(rows);
   }
