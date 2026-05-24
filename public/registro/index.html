@@ -3223,6 +3223,213 @@ function formatRangoFechasSimple(inicio, fin){
   .stays-table thead th,
   .stays-table tbody td{ padding:8px 10px; font-size:12px; }
 }
+
+/* ───── Profile completion card (Home) ───── */
+.profile-card{
+  background:#fff;
+  border:1px solid var(--border-strong);
+  border-radius:18px;
+  padding:18px;
+  margin-top:16px;
+  box-shadow:0 6px 18px rgba(15,23,42,.04);
+  cursor:pointer;
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.profile-card:hover{
+  transform:translateY(-1px);
+  box-shadow:0 14px 28px rgba(15,23,42,.08);
+  border-color:var(--primary);
+}
+.profile-card.completed{
+  background:linear-gradient(180deg,#ecfdf5 0%, #ffffff 100%);
+  border-color:#a7f3d0;
+}
+.profile-card-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:12px;
+}
+.profile-card-title{
+  font-size:16px;
+  font-weight:800;
+  color:var(--primary-dark);
+  margin:0;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.profile-card-title-icon{ font-size:20px; line-height:1; }
+.profile-card.completed .profile-card-title{ color:#065f46; }
+.profile-card-pct{
+  font-size:14px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  color:var(--primary-dark);
+  background:var(--primary-soft);
+  padding:4px 12px;
+  border-radius:999px;
+  white-space:nowrap;
+}
+.profile-card.completed .profile-card-pct{
+  color:#065f46;
+  background:#d1fae5;
+}
+.profile-progress{
+  height:8px;
+  background:#e5e7eb;
+  border-radius:999px;
+  overflow:hidden;
+  margin-bottom:10px;
+}
+.profile-progress-bar{
+  height:100%;
+  background:linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
+  border-radius:999px;
+  transition:width .35s ease;
+}
+.profile-card.completed .profile-progress-bar{
+  background:linear-gradient(90deg, #10b981 0%, #34d399 100%);
+}
+.profile-card-sub{
+  font-size:12px;
+  color:var(--text-soft);
+  margin:0;
+}
+
+/* ───── Wizard view ───── */
+#viewProfileWizard .section{ padding:20px; }
+.wizard-progress-block{ margin-bottom:18px; }
+.wizard-steps{
+  display:flex;
+  align-items:center;
+  gap:0;
+  margin:8px 0 12px;
+  width:100%;
+}
+.wizard-step{
+  flex:0 0 auto;
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  background:#e5e7eb;
+  color:#9ca3af;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  font-size:13px;
+  border:2px solid transparent;
+  transition:all .2s ease;
+  cursor:pointer;
+}
+.wizard-step.active{
+  background:linear-gradient(180deg,var(--primary) 0%, var(--primary-strong) 100%);
+  color:#fff;
+  border-color:#fff;
+  box-shadow:0 0 0 3px rgba(8,145,178,.18);
+}
+.wizard-step.done{
+  background:#10b981;
+  color:#fff;
+}
+.wizard-step-line{
+  flex:1 1 auto;
+  height:3px;
+  background:#e5e7eb;
+  transition:background .2s ease;
+}
+.wizard-step-line.done{ background:#10b981; }
+.wizard-progress{
+  height:6px;
+  background:#e5e7eb;
+  border-radius:999px;
+  overflow:hidden;
+}
+.wizard-progress-bar{
+  height:100%;
+  background:linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
+  border-radius:999px;
+  transition:width .35s ease;
+}
+.wizard-meta{
+  display:flex;
+  justify-content:space-between;
+  font-size:12px;
+  color:var(--text-soft);
+  margin-top:6px;
+  font-weight:600;
+}
+.wizard-step-title{
+  font-size:18px;
+  font-weight:800;
+  color:var(--text);
+  margin:18px 0 4px;
+}
+.wizard-step-subtitle{
+  font-size:13px;
+  color:var(--text-soft);
+  margin:0 0 14px;
+  line-height:1.45;
+}
+.wizard-step-pane{ display:none; }
+.wizard-step-pane.active{ display:block; }
+.wizard-footer{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:20px;
+  padding-top:16px;
+  border-top:1px solid var(--border);
+}
+.wizard-footer button{
+  margin-top:0;
+  padding:12px 18px;
+  font-size:14px;
+}
+.wizard-btn-secondary{
+  background:#fff !important;
+  color:var(--primary-dark) !important;
+  border:1px solid var(--border-strong) !important;
+  box-shadow:none !important;
+}
+.wizard-btn-secondary:hover{
+  background:var(--primary-soft) !important;
+  border-color:var(--primary) !important;
+  filter:none !important;
+  transform:none !important;
+}
+.wizard-btn-save-exit{
+  margin-left:auto !important;
+}
+.wizard-readonly{
+  background:#f8fafc !important;
+  color:var(--text-soft) !important;
+  cursor:not-allowed;
+}
+.wizard-conditional{ display:none; }
+.wizard-conditional.show{ display:block; }
+@media (max-width:560px){
+  .wizard-footer{ flex-direction:column; }
+  .wizard-footer button{ width:100%; }
+  .wizard-btn-save-exit{ margin-left:0 !important; order:99; }
+}
+
+/* ───── Form: ocultar secciones del perfil cuando hay sesión ───── */
+body.has-session #section_celular_principal,
+body.has-session #section_contacto_huesped,
+body.has-session #section_facturacion,
+body.has-session #vehicle_section_hidden_backend,
+body.has-session #guestAutofillStatus {
+  display:none !important;
+}
+/* Nombre del reservante: pre-llenado read-only */
+body.has-session input[name="nombre"] {
+  background:#f8fafc !important;
+  color:var(--text-soft) !important;
+  cursor:not-allowed;
+}
 </style>
 
 </head>
@@ -3337,11 +3544,24 @@ function formatRangoFechasSimple(inicio, fin){
     <h2 class="home-greeting" id="homeGreeting" data-i18n="homeGreeting">¡Hola!</h2>
     <p class="home-subtitle" data-i18n="homeSubtitle">Bienvenido de vuelta a Check-inn Saltillo.</p>
 
+    <!-- Sección "Completa tus datos" con barra de progreso -->
+    <div class="profile-card" id="profileCard" role="button" tabindex="0">
+      <div class="profile-card-head">
+        <h3 class="profile-card-title">
+          <span class="profile-card-title-icon" id="profileCardIcon">📋</span>
+          <span data-i18n="profileCardTitle">Completa tus datos</span>
+        </h3>
+        <span class="profile-card-pct" id="profileCardPct">0%</span>
+      </div>
+      <div class="profile-progress"><div class="profile-progress-bar" id="profileProgressBar" style="width:0%;"></div></div>
+      <p class="profile-card-sub" id="profileCardSub" data-i18n="profileCardSubEmpty">Captura tu perfil una sola vez (identificación, datos fiscales, vehículo) y reserva más rápido en el futuro.</p>
+    </div>
+
     <div class="auth-actions">
       <!-- Sección 1: Nueva reservación -->
       <button class="auth-bigbtn primary" id="btnHomeNueva" type="button">
         <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">📝</span><span data-i18n="btnNuevaReservacionTitle">Registro de nueva reservación</span></span>
-        <span class="auth-bigbtn-sub" data-i18n="btnNuevaReservacionSub">Llena el formulario con tus datos ya guardados (puedes editarlos antes de enviar).</span>
+        <span class="auth-bigbtn-sub" data-i18n="btnNuevaReservacionSub">Reserva en segundos con tus datos del perfil ya guardados.</span>
       </button>
 
       <!-- Sección 2: Información de vehículos -->
@@ -3414,6 +3634,217 @@ function formatRangoFechasSimple(inicio, fin){
 <h3 style="margin-bottom:8px;">Buscando vehículos</h3>
 <div class="hint" style="margin:0;">Por favor espera mientras consultamos los registros.</div>
 </div>
+</div>
+
+<!-- ═══ WIZARD "COMPLETA TUS DATOS" ═════════════════════════════════ -->
+<div class="view-panel hidden" id="viewProfileWizard">
+  <div class="section">
+    <div class="wizard-progress-block">
+      <h2 class="section-title" data-i18n="wizardHeader">Completa tus datos</h2>
+      <p class="section-subtitle" data-i18n="wizardSubheader">Te lo pediremos solo una vez. Después podrás reservar en segundos.</p>
+      <div class="wizard-steps" id="wizardSteps">
+        <div class="wizard-step active" data-step="1">1</div>
+        <div class="wizard-step-line" data-line="1"></div>
+        <div class="wizard-step" data-step="2">2</div>
+        <div class="wizard-step-line" data-line="2"></div>
+        <div class="wizard-step" data-step="3">3</div>
+        <div class="wizard-step-line" data-line="3"></div>
+        <div class="wizard-step" data-step="4">4</div>
+      </div>
+      <div class="wizard-progress"><div class="wizard-progress-bar" id="wizardProgressBar" style="width:0%;"></div></div>
+      <div class="wizard-meta">
+        <span id="wizardMetaStep" data-i18n="wizardStepX">Paso 1 de 4</span>
+        <span id="wizardMetaPct">0% completado</span>
+      </div>
+    </div>
+
+    <!-- Paso 1: Datos personales -->
+    <div class="wizard-step-pane active" data-pane="1">
+      <h3 class="wizard-step-title" data-i18n="wizStep1Title">Datos personales</h3>
+      <p class="wizard-step-subtitle" data-i18n="wizStep1Sub">Tu nombre y un contacto de emergencia.</p>
+      <label for="wiz_nombre" data-i18n="wizNombreLabel">Nombre completo</label>
+      <input id="wiz_nombre" type="text" autocomplete="name" placeholder="Como aparece en tu identificación"/>
+      <label data-i18n="wizCelularLabel">Celular principal</label>
+      <input id="wiz_celular_display" class="wizard-readonly" type="text" readonly aria-readonly="true"/>
+      <small class="hint" data-i18n="wizCelularHint">Este es el celular con el que iniciaste sesión. No se puede cambiar.</small>
+      <label data-i18n="wizEmergenciaLabel" style="margin-top:14px;">Contacto de emergencia</label>
+      <div class="phone-group">
+        <select id="wiz_emerg_lada"></select>
+        <input id="wiz_emerg_celular" inputmode="numeric" type="tel" placeholder="10 dígitos"/>
+      </div>
+      <div class="note hidden" id="wizStep1Error"></div>
+    </div>
+
+    <!-- Paso 2: Identificación personal -->
+    <div class="wizard-step-pane" data-pane="2">
+      <h3 class="wizard-step-title" data-i18n="wizStep2Title">Identificación personal</h3>
+      <p class="wizard-step-subtitle" data-i18n="wizStep2Sub">Sube tu identificación oficial. Te la pediremos solo una vez.</p>
+      <label for="wiz_id_tipo" data-i18n="wizIdTipoLabel">Tipo de identificación</label>
+      <select id="wiz_id_tipo">
+        <option value="">Selecciona</option>
+        <option value="INE">INE</option>
+        <option value="Pasaporte">Pasaporte</option>
+        <option value="Otro">Otro</option>
+      </select>
+      <div class="wizard-conditional" id="wiz_id_otro_wrap">
+        <label for="wiz_id_otro" data-i18n="wizIdOtroLabel" style="margin-top:14px;">Especifica el tipo de identificación</label>
+        <input id="wiz_id_otro" type="text"/>
+      </div>
+      <div class="wizard-conditional" id="wiz_id_two_sides">
+        <div class="upload-grid" style="margin-top:14px;">
+          <div class="upload-box">
+            <label data-i18n="wizIdFrontLabel">Lado frontal</label>
+            <label class="custom-upload">
+              <input id="wiz_ine_frontal" type="file" accept="image/*"/>
+              <div class="upload-drop">
+                <div class="upload-copy">
+                  <div class="upload-title" data-i18n="uploadImage">Subir imagen</div>
+                  <div class="upload-subtitle" data-i18n="wizPickFile">Toma o elige una foto</div>
+                </div>
+                <div class="upload-btn" data-i18n="wizBtnFile">Elegir archivo</div>
+              </div>
+            </label>
+            <div class="preview-wrapper">
+              <img alt="" class="preview-img hidden" id="wiz_ine_frontal_preview"/>
+              <div class="preview-text" id="wiz_ine_frontal_name" data-i18n="noImage">Ninguna imagen seleccionada</div>
+            </div>
+          </div>
+          <div class="upload-box">
+            <label data-i18n="wizIdBackLabel">Lado trasero</label>
+            <label class="custom-upload">
+              <input id="wiz_ine_trasero" type="file" accept="image/*"/>
+              <div class="upload-drop">
+                <div class="upload-copy">
+                  <div class="upload-title" data-i18n="uploadImage">Subir imagen</div>
+                  <div class="upload-subtitle" data-i18n="wizPickFile">Toma o elige una foto</div>
+                </div>
+                <div class="upload-btn" data-i18n="wizBtnFile">Elegir archivo</div>
+              </div>
+            </label>
+            <div class="preview-wrapper">
+              <img alt="" class="preview-img hidden" id="wiz_ine_trasero_preview"/>
+              <div class="preview-text" id="wiz_ine_trasero_name" data-i18n="noImage">Ninguna imagen seleccionada</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="wizard-conditional" id="wiz_id_single_side">
+        <div class="upload-box" style="margin-top:14px;">
+          <label data-i18n="wizIdImageLabel">Imagen de identificación</label>
+          <label class="custom-upload">
+            <input id="wiz_ident_unica" type="file" accept="image/*"/>
+            <div class="upload-drop">
+              <div class="upload-copy">
+                <div class="upload-title" data-i18n="uploadImage">Subir imagen</div>
+                <div class="upload-subtitle" data-i18n="wizPickFile">Toma o elige una foto</div>
+              </div>
+              <div class="upload-btn" data-i18n="wizBtnFile">Elegir archivo</div>
+            </div>
+          </label>
+          <div class="preview-wrapper">
+            <img alt="" class="preview-img hidden" id="wiz_ident_unica_preview"/>
+            <div class="preview-text" id="wiz_ident_unica_name" data-i18n="noImage">Ninguna imagen seleccionada</div>
+          </div>
+        </div>
+      </div>
+      <div class="note hidden" id="wizStep2Error"></div>
+    </div>
+
+    <!-- Paso 3: Facturación (datos fiscales) -->
+    <div class="wizard-step-pane" data-pane="3">
+      <h3 class="wizard-step-title" data-i18n="wizStep3Title">Datos para facturación</h3>
+      <p class="wizard-step-subtitle" data-i18n="wizStep3Sub">Si necesitas factura por tus reservaciones, captura aquí tus datos fiscales una sola vez.</p>
+      <label for="wiz_factura" data-i18n="wizFacturaLabel">¿Vas a requerir factura por tus estancias?</label>
+      <select id="wiz_factura">
+        <option value="">Selecciona</option>
+        <option value="Sí">Sí</option>
+        <option value="No">No</option>
+      </select>
+      <div class="wizard-conditional" id="wiz_factura_yes">
+        <label for="wiz_razon_social" data-i18n="businessName" style="margin-top:14px;">Razón social</label>
+        <input id="wiz_razon_social" type="text"/>
+        <label for="wiz_rfc" data-i18n="wizRfcLabel" style="margin-top:14px;">RFC</label>
+        <input id="wiz_rfc" type="text" maxlength="13" style="text-transform:uppercase;"/>
+        <label for="wiz_regimen" data-i18n="taxRegime" style="margin-top:14px;">Régimen fiscal</label>
+        <select id="wiz_regimen">
+          <option value="">Selecciona</option>
+          <option value="General de Ley Personas Morales">General de Ley Personas Morales</option>
+          <option value="Régimen Simplificado de Confianza (RESICO)">Régimen Simplificado de Confianza (RESICO)</option>
+          <option value="Persona Física con Actividades Empresariales y Profesionales">Persona Física con Actividades Empresariales y Profesionales</option>
+          <option value="Otro">Otro</option>
+        </select>
+        <div class="wizard-conditional" id="wiz_regimen_otro_wrap">
+          <label for="wiz_regimen_otro" data-i18n="wizRegimenOtroLabel" style="margin-top:14px;">Especifica el régimen fiscal</label>
+          <input id="wiz_regimen_otro" type="text"/>
+        </div>
+        <label for="wiz_correo_factura" data-i18n="wizCorreoFacturaLabel" style="margin-top:14px;">Correo para envío de factura</label>
+        <input id="wiz_correo_factura" type="email" autocomplete="email"/>
+      </div>
+      <div class="note hidden" id="wizStep3Error"></div>
+    </div>
+
+    <!-- Paso 4: Vehículo -->
+    <div class="wizard-step-pane" data-pane="4">
+      <h3 class="wizard-step-title" data-i18n="wizStep4Title">Vehículo</h3>
+      <p class="wizard-step-subtitle" data-i18n="wizStep4Sub">Si llegas con vehículo, ayúdanos a coordinar la entrada y seguridad de las propiedades.</p>
+      <label for="wiz_tiene_vehiculo" data-i18n="wizTieneVehiculoLabel">¿Cuentas con vehículo?</label>
+      <select id="wiz_tiene_vehiculo">
+        <option value="">Selecciona</option>
+        <option value="Sí">Sí</option>
+        <option value="No">No</option>
+      </select>
+      <div class="wizard-conditional" id="wiz_vehiculo_detalles">
+        <div class="grid" style="margin-top:14px;">
+          <div>
+            <label for="wiz_veh_marca" data-i18n="make">Marca</label>
+            <input id="wiz_veh_marca" type="text"/>
+          </div>
+          <div>
+            <label for="wiz_veh_modelo" data-i18n="model">Modelo</label>
+            <input id="wiz_veh_modelo" type="text"/>
+          </div>
+        </div>
+        <div class="grid">
+          <div>
+            <label for="wiz_veh_color" data-i18n="color">Color</label>
+            <input id="wiz_veh_color" type="text"/>
+          </div>
+          <div>
+            <label for="wiz_veh_placas" data-i18n="plates"># Placas</label>
+            <input id="wiz_veh_placas" type="text" style="text-transform:uppercase;"/>
+          </div>
+        </div>
+        <label for="wiz_veh_hora_salida" data-i18n="usualDepartureTime" style="margin-top:14px;">Hora habitual de salida</label>
+        <input id="wiz_veh_hora_salida" type="time"/>
+        <div class="upload-box" style="margin-top:14px;">
+          <label data-i18n="wizVehFotoLabel">Foto del vehículo (opcional)</label>
+          <label class="custom-upload">
+            <input id="wiz_veh_foto" type="file" accept="image/*"/>
+            <div class="upload-drop">
+              <div class="upload-copy">
+                <div class="upload-title" data-i18n="addPhoto">Agregar foto</div>
+                <div class="upload-subtitle" data-i18n="wizPickFile">Toma o elige una foto</div>
+              </div>
+              <div class="upload-btn" data-i18n="wizBtnFile">Elegir archivo</div>
+            </div>
+          </label>
+          <div class="preview-wrapper">
+            <img alt="" class="preview-img hidden" id="wiz_veh_foto_preview"/>
+            <div class="preview-text" id="wiz_veh_foto_name" data-i18n="noImage">Ninguna imagen seleccionada</div>
+          </div>
+        </div>
+      </div>
+      <div class="note hidden" id="wizStep4Error"></div>
+    </div>
+
+    <!-- Navegación del wizard -->
+    <div class="wizard-footer">
+      <button class="wizard-btn-secondary" id="wizBtnPrev" type="button" data-i18n="wizPrev">← Atrás</button>
+      <button id="wizBtnNext" type="button" data-i18n="wizNext">Siguiente →</button>
+      <button id="wizBtnFinish" type="button" class="hidden" data-i18n="wizFinish">Guardar datos</button>
+      <button class="wizard-btn-secondary wizard-btn-save-exit" id="wizBtnSaveExit" type="button" data-i18n="wizSaveExit">Guardar y salir</button>
+    </div>
+  </div>
 </div>
 
 <div class="view-panel hidden" id="viewRegistro">
@@ -3703,7 +4134,7 @@ function formatRangoFechasSimple(inicio, fin){
 <input name="emergencia" type="tel"/>
 </div>
 </div>
-<div class="section"><h2 class="section-title" data-i18n="sec4Title">Facturación</h2><p class="section-subtitle" data-i18n="sec4Sub"></p><label data-i18n="invoice">¿Requieres el TICKET para AUTO-FACTURACIÓN?</label>
+<div class="section" id="section_facturacion"><h2 class="section-title" data-i18n="sec4Title">Facturación</h2><p class="section-subtitle" data-i18n="sec4Sub"></p><label data-i18n="invoice">¿Requieres el TICKET para AUTO-FACTURACIÓN?</label>
 <select id="factura" name="factura">
 <option value="">Selecciona</option>
 <option value="si">Sí</option>
@@ -5616,7 +6047,53 @@ const SIMPLE_I18N = {
     menuRegistroBtn:"Registro de huéspedes",
     menuVehiculosBtn:"Información de vehículos",
     vehSectionTitle:"Información de vehículos",
-    vehSectionSub:"Consulta los vehículos con estancia activa hoy y filtra la información por propiedad."
+    vehSectionSub:"Consulta los vehículos con estancia activa hoy y filtra la información por propiedad.",
+    /* ── Profile wizard ── */
+    profileCardTitle:"Completa tus datos",
+    profileCardSubEmpty:"Captura tu perfil una sola vez (identificación, datos fiscales, vehículo) y reserva más rápido en el futuro.",
+    profileCardSubPartial:"Continúa donde lo dejaste para activar reservaciones rápidas.",
+    profileCardSubDone:"Tu perfil está completo. Puedes reservar en segundos.",
+    wizardHeader:"Completa tus datos",
+    wizardSubheader:"Te lo pediremos solo una vez. Después podrás reservar en segundos.",
+    wizardStepX:"Paso {n} de 4",
+    wizStep1Title:"Datos personales",
+    wizStep1Sub:"Tu nombre y un contacto de emergencia.",
+    wizStep2Title:"Identificación personal",
+    wizStep2Sub:"Sube tu identificación oficial. Te la pediremos solo una vez.",
+    wizStep3Title:"Datos para facturación",
+    wizStep3Sub:"Si necesitas factura por tus reservaciones, captura aquí tus datos fiscales una sola vez.",
+    wizStep4Title:"Vehículo",
+    wizStep4Sub:"Si llegas con vehículo, ayúdanos a coordinar la entrada y seguridad de las propiedades.",
+    wizNombreLabel:"Nombre completo",
+    wizCelularLabel:"Celular principal",
+    wizCelularHint:"Este es el celular con el que iniciaste sesión. No se puede cambiar.",
+    wizEmergenciaLabel:"Contacto de emergencia",
+    wizIdTipoLabel:"Tipo de identificación",
+    wizIdOtroLabel:"Especifica el tipo de identificación",
+    wizIdFrontLabel:"Lado frontal",
+    wizIdBackLabel:"Lado trasero",
+    wizIdImageLabel:"Imagen de identificación",
+    wizFacturaLabel:"¿Vas a requerir factura por tus estancias?",
+    wizRfcLabel:"RFC",
+    wizRegimenOtroLabel:"Especifica el régimen fiscal",
+    wizCorreoFacturaLabel:"Correo para envío de factura",
+    wizTieneVehiculoLabel:"¿Cuentas con vehículo?",
+    wizVehFotoLabel:"Foto del vehículo (opcional)",
+    wizPickFile:"Toma o elige una foto",
+    wizBtnFile:"Elegir archivo",
+    wizPrev:"← Atrás",
+    wizNext:"Siguiente →",
+    wizFinish:"Guardar datos",
+    wizSaveExit:"Guardar y salir",
+    wizSavedToast:"Tus datos quedaron guardados. Continúa cuando quieras.",
+    wizFinishedToast:"¡Perfil completo! Ya puedes hacer reservaciones rápidas.",
+    wizBlockedReserveTitle:"Completa tus datos primero",
+    wizBlockedReserveText:"Necesitas terminar de capturar tu perfil (identificación, datos fiscales y vehículo) antes de hacer una reservación.",
+    wizBlockedGoBtn:"Continuar mi perfil",
+    wizErrStep1:"Captura tu nombre completo y un contacto de emergencia (10 dígitos).",
+    wizErrStep2:"Selecciona el tipo de identificación y sube la(s) imagen(es).",
+    wizErrStep3:"Si requieres factura, llena razón social, RFC, régimen y correo.",
+    wizErrStep4:"Si tienes vehículo, llena marca, modelo, color y placas."
   },
   en: {
     chooseLanguage:"Choose language",
@@ -5755,7 +6232,53 @@ const SIMPLE_I18N = {
     menuRegistroBtn:"Guest registration",
     menuVehiculosBtn:"Vehicle information",
     vehSectionTitle:"Vehicle information",
-    vehSectionSub:"See vehicles with an active stay today and filter by property."
+    vehSectionSub:"See vehicles with an active stay today and filter by property.",
+    /* ── Profile wizard ── */
+    profileCardTitle:"Complete your profile",
+    profileCardSubEmpty:"Fill in your profile once (ID, tax info, vehicle) and book faster from now on.",
+    profileCardSubPartial:"Pick up where you left off to enable fast bookings.",
+    profileCardSubDone:"Your profile is complete. You can book in seconds.",
+    wizardHeader:"Complete your profile",
+    wizardSubheader:"We'll only ask you once. After that you can book in seconds.",
+    wizardStepX:"Step {n} of 4",
+    wizStep1Title:"Personal details",
+    wizStep1Sub:"Your name and an emergency contact.",
+    wizStep2Title:"Personal ID",
+    wizStep2Sub:"Upload your official ID. We'll only ask you once.",
+    wizStep3Title:"Invoicing details",
+    wizStep3Sub:"If you need invoices for your stays, capture your tax info once.",
+    wizStep4Title:"Vehicle",
+    wizStep4Sub:"If you arrive by vehicle, help us coordinate property access and security.",
+    wizNombreLabel:"Full name",
+    wizCelularLabel:"Primary phone",
+    wizCelularHint:"This is the phone you signed in with. It can't be changed.",
+    wizEmergenciaLabel:"Emergency contact",
+    wizIdTipoLabel:"ID type",
+    wizIdOtroLabel:"Specify the ID type",
+    wizIdFrontLabel:"Front side",
+    wizIdBackLabel:"Back side",
+    wizIdImageLabel:"ID image",
+    wizFacturaLabel:"Will you require invoices for your stays?",
+    wizRfcLabel:"RFC (Mexican tax ID)",
+    wizRegimenOtroLabel:"Specify the tax regime",
+    wizCorreoFacturaLabel:"Email for invoice delivery",
+    wizTieneVehiculoLabel:"Do you have a vehicle?",
+    wizVehFotoLabel:"Vehicle photo (optional)",
+    wizPickFile:"Take or pick a photo",
+    wizBtnFile:"Choose file",
+    wizPrev:"← Back",
+    wizNext:"Next →",
+    wizFinish:"Save profile",
+    wizSaveExit:"Save and exit",
+    wizSavedToast:"Your data was saved. Continue whenever you like.",
+    wizFinishedToast:"Profile complete! You can now do fast bookings.",
+    wizBlockedReserveTitle:"Complete your profile first",
+    wizBlockedReserveText:"You need to finish capturing your profile (ID, tax info, vehicle) before booking.",
+    wizBlockedGoBtn:"Continue my profile",
+    wizErrStep1:"Capture your full name and an emergency contact (10 digits).",
+    wizErrStep2:"Select the ID type and upload the required image(s).",
+    wizErrStep3:"If you require invoicing, fill business name, RFC, regime and email.",
+    wizErrStep4:"If you have a vehicle, fill make, model, color and plates."
   }
 };
 
@@ -9296,6 +9819,29 @@ document.addEventListener("DOMContentLoaded", function(){
     } else if (sessionPill) {
       sessionPill.classList.remove("visible");
     }
+    // Marca body para que CSS oculte secciones del perfil en el form principal
+    document.body.classList.toggle("has-session", !!s);
+    // Pre-rellena el nombre del reservante con el del perfil del wizard
+    if (s) {
+      try {
+        const phoneKey = `+${s.lada}${s.phone}`;
+        const profile = (window.checkinnProfile && window.checkinnProfile._loadProfile)
+          ? window.checkinnProfile._loadProfile(phoneKey) : null;
+        const nombre = profile?.step1?.nombre || s.name || "";
+        const nombreInput = document.querySelector('input[name="nombre"]');
+        if (nombreInput && nombre) {
+          nombreInput.value = nombre;
+          nombreInput.setAttribute("readonly", "");
+          nombreInput.setAttribute("aria-readonly", "true");
+        }
+      } catch(e){}
+    } else {
+      const nombreInput = document.querySelector('input[name="nombre"]');
+      if (nombreInput) {
+        nombreInput.removeAttribute("readonly");
+        nombreInput.removeAttribute("aria-readonly");
+      }
+    }
   }
 
   function getI18n(){
@@ -9871,6 +10417,481 @@ document.addEventListener("DOMContentLoaded", function(){
     _cachedStays: null,
     _state: () => ({ pendingOtp, session: getSession() })
   };
+})();
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Wizard "Completa tus datos" — perfil del huésped en 4 pasos
+   - Persiste en localStorage (clave checkinn_profile_v1) por celular
+   - Auto-save al cambiar campos
+   - Validación por paso (mínimos requeridos)
+   - "Guardar y salir" en cualquier paso vuelve al Home conservando avance
+   - "Guardar datos" en el paso 4 finaliza el perfil
+   - El Home muestra una card con la barra de progreso y % real
+   - "Nueva reservación" se bloquea si el perfil no está al 100%
+   - Fase 3: las funciones loadProfile/saveProfile se moverán al backend
+   ═══════════════════════════════════════════════════════════════════ */
+(function(){
+  "use strict";
+
+  const STORE_KEY = "checkinn_profile_v1";
+  const TOTAL_STEPS = 4;
+  const $ = id => document.getElementById(id);
+
+  const viewHome = $("viewHome");
+  const viewWizard = $("viewProfileWizard");
+  const viewRegistro = $("viewRegistro");
+
+  let currentStep = 1;
+  let activeProfile = null;     // perfil cargado del usuario actual
+  let activePhoneKey = null;    // clave por celular (ej "+525512345678")
+
+  // ─── Storage helpers (mock — Fase 3: backend) ─────────────────────
+  function loadAllProfiles(){
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); }
+    catch(e){ return {}; }
+  }
+  function saveAllProfiles(map){
+    localStorage.setItem(STORE_KEY, JSON.stringify(map));
+  }
+  function getPhoneKey(){
+    const s = window.checkinnAuth && window.checkinnAuth.getSession();
+    if (!s) return null;
+    return `+${s.lada}${s.phone}`;
+  }
+  function loadProfile(phoneKey){
+    const all = loadAllProfiles();
+    return all[phoneKey] || {
+      step1:{ nombre:"", emerg_lada:"52", emerg_celular:"" },
+      step2:{ tipo:"", id_otro:"", ine_frontal:"", ine_trasero:"", ident_unica:"" },
+      step3:{ factura:"", razon_social:"", rfc:"", regimen:"", regimen_otro:"", correo_factura:"" },
+      step4:{ tiene_vehiculo:"", marca:"", modelo:"", color:"", placas:"", hora_salida:"", foto:"" },
+      completed:false,
+      lastStep:1,
+      updatedAt:0
+    };
+  }
+  function saveProfile(phoneKey, profile){
+    const all = loadAllProfiles();
+    profile.updatedAt = Date.now();
+    all[phoneKey] = profile;
+    saveAllProfiles(all);
+  }
+
+  // ─── Validación: qué paso está completo ────────────────────────────
+  function isStep1Complete(p){
+    return !!(p.step1.nombre && p.step1.nombre.trim() && p.step1.emerg_celular && p.step1.emerg_celular.replace(/\D/g,"").length >= 10);
+  }
+  function isStep2Complete(p){
+    if (!p.step2.tipo) return false;
+    if (p.step2.tipo === "Otro" && !p.step2.id_otro.trim()) return false;
+    if (p.step2.tipo === "INE") return !!(p.step2.ine_frontal && p.step2.ine_trasero);
+    // Pasaporte u Otro = una sola imagen
+    return !!p.step2.ident_unica;
+  }
+  function isStep3Complete(p){
+    if (!p.step3.factura) return false;
+    if (p.step3.factura === "No") return true;
+    if (!p.step3.razon_social.trim() || !p.step3.rfc.trim() || !p.step3.regimen || !p.step3.correo_factura.trim()) return false;
+    if (p.step3.regimen === "Otro" && !p.step3.regimen_otro.trim()) return false;
+    return true;
+  }
+  function isStep4Complete(p){
+    if (!p.step4.tiene_vehiculo) return false;
+    if (p.step4.tiene_vehiculo === "No") return true;
+    return !!(p.step4.marca.trim() && p.step4.modelo.trim() && p.step4.color.trim() && p.step4.placas.trim());
+  }
+  function stepCompletionFlags(p){
+    return [isStep1Complete(p), isStep2Complete(p), isStep3Complete(p), isStep4Complete(p)];
+  }
+  function profileCompletionPercent(p){
+    const flags = stepCompletionFlags(p);
+    const done = flags.filter(Boolean).length;
+    return Math.round((done / TOTAL_STEPS) * 100);
+  }
+  function isProfileFullyComplete(p){
+    return stepCompletionFlags(p).every(Boolean);
+  }
+
+  // ─── i18n helper ───────────────────────────────────────────────────
+  function getI18n(){
+    const lang = window.currentLang || document.documentElement.lang || "es";
+    return (window.SIMPLE_I18N && window.SIMPLE_I18N[lang]) || {};
+  }
+
+  // ─── Bind del form al estado ──────────────────────────────────────
+  function bindFormToProfile(){
+    // Helper: actualiza un campo del perfil y guarda
+    const set = (path, value) => {
+      const [step, key] = path.split(".");
+      if (!activeProfile) return;
+      activeProfile[step][key] = value;
+      saveProfile(activePhoneKey, activeProfile);
+      updateConditionals();
+      updateProgressUI();
+      refreshHomeCard();
+    };
+
+    // ── Paso 1
+    $("wiz_nombre").addEventListener("input", e => set("step1.nombre", e.target.value));
+    const emergLada = $("wiz_emerg_lada");
+    if (typeof window.loadLadas === "function") {
+      try { window.loadLadas("wiz_emerg_lada"); } catch(e){}
+    }
+    emergLada.addEventListener("change", e => set("step1.emerg_lada", e.target.value));
+    const emergCel = $("wiz_emerg_celular");
+    emergCel.addEventListener("input", e => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 15);
+      set("step1.emerg_celular", e.target.value);
+    });
+
+    // ── Paso 2
+    $("wiz_id_tipo").addEventListener("change", e => set("step2.tipo", e.target.value));
+    $("wiz_id_otro").addEventListener("input", e => set("step2.id_otro", e.target.value));
+    bindFileInput("wiz_ine_frontal", "step2.ine_frontal");
+    bindFileInput("wiz_ine_trasero", "step2.ine_trasero");
+    bindFileInput("wiz_ident_unica", "step2.ident_unica");
+
+    // ── Paso 3
+    $("wiz_factura").addEventListener("change", e => set("step3.factura", e.target.value));
+    $("wiz_razon_social").addEventListener("input", e => set("step3.razon_social", e.target.value));
+    $("wiz_rfc").addEventListener("input", e => {
+      e.target.value = e.target.value.toUpperCase();
+      set("step3.rfc", e.target.value);
+    });
+    $("wiz_regimen").addEventListener("change", e => set("step3.regimen", e.target.value));
+    $("wiz_regimen_otro").addEventListener("input", e => set("step3.regimen_otro", e.target.value));
+    $("wiz_correo_factura").addEventListener("input", e => set("step3.correo_factura", e.target.value));
+
+    // ── Paso 4
+    $("wiz_tiene_vehiculo").addEventListener("change", e => set("step4.tiene_vehiculo", e.target.value));
+    $("wiz_veh_marca").addEventListener("input", e => set("step4.marca", e.target.value));
+    $("wiz_veh_modelo").addEventListener("input", e => set("step4.modelo", e.target.value));
+    $("wiz_veh_color").addEventListener("input", e => set("step4.color", e.target.value));
+    $("wiz_veh_placas").addEventListener("input", e => {
+      e.target.value = e.target.value.toUpperCase();
+      set("step4.placas", e.target.value);
+    });
+    $("wiz_veh_hora_salida").addEventListener("change", e => set("step4.hora_salida", e.target.value));
+    bindFileInput("wiz_veh_foto", "step4.foto");
+  }
+
+  function bindFileInput(inputId, profilePath){
+    const input = $(inputId);
+    if (!input) return;
+    const previewId = `${inputId}_preview`;
+    const nameId = `${inputId}_name`;
+    input.addEventListener("change", () => {
+      const file = input.files && input.files[0];
+      if (!file) {
+        if (activeProfile) {
+          const [step, key] = profilePath.split(".");
+          activeProfile[step][key] = "";
+          saveProfile(activePhoneKey, activeProfile);
+        }
+        const preview = $(previewId), name = $(nameId);
+        if (preview) preview.classList.add("hidden");
+        if (name) name.textContent = getI18n().noImage || "Ninguna imagen seleccionada";
+        updateProgressUI();
+        refreshHomeCard();
+        return;
+      }
+      // Guardamos el nombre del archivo en localStorage (sin la imagen base64
+      // para no llenar el storage). En Fase 3 subimos al backend.
+      const [step, key] = profilePath.split(".");
+      activeProfile[step][key] = file.name;
+      saveProfile(activePhoneKey, activeProfile);
+      // Preview en memoria
+      const reader = new FileReader();
+      reader.onload = e => {
+        const preview = $(previewId);
+        if (preview) {
+          preview.src = e.target.result;
+          preview.classList.remove("hidden");
+        }
+      };
+      reader.readAsDataURL(file);
+      const name = $(nameId);
+      if (name) name.textContent = file.name;
+      updateProgressUI();
+      refreshHomeCard();
+    });
+  }
+
+  // ─── UI updates ────────────────────────────────────────────────────
+  function fillFormFromProfile(p){
+    $("wiz_nombre").value = p.step1.nombre || "";
+    if ($("wiz_emerg_lada")) $("wiz_emerg_lada").value = p.step1.emerg_lada || "52";
+    $("wiz_emerg_celular").value = p.step1.emerg_celular || "";
+
+    $("wiz_id_tipo").value = p.step2.tipo || "";
+    $("wiz_id_otro").value = p.step2.id_otro || "";
+    setPreviewName("wiz_ine_frontal_name", p.step2.ine_frontal);
+    setPreviewName("wiz_ine_trasero_name", p.step2.ine_trasero);
+    setPreviewName("wiz_ident_unica_name", p.step2.ident_unica);
+
+    $("wiz_factura").value = p.step3.factura || "";
+    $("wiz_razon_social").value = p.step3.razon_social || "";
+    $("wiz_rfc").value = p.step3.rfc || "";
+    $("wiz_regimen").value = p.step3.regimen || "";
+    $("wiz_regimen_otro").value = p.step3.regimen_otro || "";
+    $("wiz_correo_factura").value = p.step3.correo_factura || "";
+
+    $("wiz_tiene_vehiculo").value = p.step4.tiene_vehiculo || "";
+    $("wiz_veh_marca").value = p.step4.marca || "";
+    $("wiz_veh_modelo").value = p.step4.modelo || "";
+    $("wiz_veh_color").value = p.step4.color || "";
+    $("wiz_veh_placas").value = p.step4.placas || "";
+    $("wiz_veh_hora_salida").value = p.step4.hora_salida || "";
+    setPreviewName("wiz_veh_foto_name", p.step4.foto);
+  }
+  function setPreviewName(id, val){
+    const el = $(id);
+    if (!el) return;
+    el.textContent = val || (getI18n().noImage || "Ninguna imagen seleccionada");
+  }
+  function updateConditionals(){
+    // Paso 2: tipo identificación
+    const tipo = activeProfile?.step2?.tipo || "";
+    toggle("wiz_id_otro_wrap", tipo === "Otro");
+    toggle("wiz_id_two_sides", tipo === "INE");
+    toggle("wiz_id_single_side", tipo === "Pasaporte" || (tipo === "Otro"));
+    // Paso 3: factura
+    const factura = activeProfile?.step3?.factura || "";
+    toggle("wiz_factura_yes", factura === "Sí");
+    toggle("wiz_regimen_otro_wrap", (activeProfile?.step3?.regimen || "") === "Otro");
+    // Paso 4: vehículo
+    const tieneVeh = activeProfile?.step4?.tiene_vehiculo || "";
+    toggle("wiz_vehiculo_detalles", tieneVeh === "Sí");
+  }
+  function toggle(id, show){
+    const el = $(id);
+    if (!el) return;
+    el.classList.toggle("show", !!show);
+  }
+  function showStep(n){
+    n = Math.max(1, Math.min(TOTAL_STEPS, n));
+    currentStep = n;
+    document.querySelectorAll(".wizard-step-pane").forEach(p => {
+      p.classList.toggle("active", Number(p.dataset.pane) === n);
+    });
+    document.querySelectorAll(".wizard-step").forEach(s => {
+      const sn = Number(s.dataset.step);
+      s.classList.toggle("active", sn === n);
+      const flags = stepCompletionFlags(activeProfile);
+      s.classList.toggle("done", flags[sn - 1]);
+    });
+    document.querySelectorAll(".wizard-step-line").forEach(l => {
+      const ln = Number(l.dataset.line);
+      const flags = stepCompletionFlags(activeProfile);
+      l.classList.toggle("done", flags[ln - 1]);
+    });
+    // Botones: en el paso 4 cambia "Siguiente" por "Guardar datos"
+    $("wizBtnNext").classList.toggle("hidden", n === TOTAL_STEPS);
+    $("wizBtnFinish").classList.toggle("hidden", n !== TOTAL_STEPS);
+    $("wizBtnPrev").disabled = (n === 1);
+    // Update meta
+    updateProgressUI();
+    if (activeProfile) {
+      activeProfile.lastStep = n;
+      saveProfile(activePhoneKey, activeProfile);
+    }
+    // Scroll al top del wizard
+    viewWizard?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  function updateProgressUI(){
+    const pct = activeProfile ? profileCompletionPercent(activeProfile) : 0;
+    const bar = $("wizardProgressBar");
+    if (bar) bar.style.width = pct + "%";
+    const i = getI18n();
+    const metaStep = $("wizardMetaStep");
+    if (metaStep) metaStep.textContent = (i.wizardStepX || "Paso {n} de 4").replace("{n}", currentStep);
+    const metaPct = $("wizardMetaPct");
+    if (metaPct) metaPct.textContent = pct + "% " + (window.currentLang === "en" ? "complete" : "completado");
+    // Refresca puntitos
+    document.querySelectorAll(".wizard-step").forEach(s => {
+      const sn = Number(s.dataset.step);
+      const flags = stepCompletionFlags(activeProfile);
+      s.classList.toggle("done", flags[sn - 1] && sn !== currentStep);
+    });
+    document.querySelectorAll(".wizard-step-line").forEach(l => {
+      const ln = Number(l.dataset.line);
+      const flags = stepCompletionFlags(activeProfile);
+      l.classList.toggle("done", flags[ln - 1]);
+    });
+  }
+
+  // ─── Home card ─────────────────────────────────────────────────────
+  function refreshHomeCard(){
+    const card = $("profileCard");
+    if (!card) return;
+    const session = window.checkinnAuth?.getSession();
+    if (!session) { card.style.display = "none"; return; }
+    card.style.display = "";
+    // Siempre recargar de storage para reflejar cambios externos
+    activePhoneKey = getPhoneKey();
+    activeProfile = loadProfile(activePhoneKey);
+    const pct = profileCompletionPercent(activeProfile);
+    const i = getI18n();
+    $("profileCardPct").textContent = pct + "%";
+    const bar = $("profileProgressBar");
+    if (bar) bar.style.width = pct + "%";
+    card.classList.toggle("completed", pct === 100);
+    const icon = $("profileCardIcon");
+    if (icon) icon.textContent = pct === 100 ? "✓" : "📋";
+    const sub = $("profileCardSub");
+    if (sub) {
+      sub.textContent = pct === 100
+        ? (i.profileCardSubDone || "Tu perfil está completo.")
+        : pct > 0
+          ? (i.profileCardSubPartial || "Continúa donde lo dejaste.")
+          : (i.profileCardSubEmpty || "Captura tu perfil una sola vez.");
+    }
+  }
+
+  // ─── Navegación entre vistas ───────────────────────────────────────
+  function openWizard(){
+    const session = window.checkinnAuth?.getSession();
+    if (!session) { window.checkinnAuth?.gotoWelcome(); return; }
+    activePhoneKey = getPhoneKey();
+    activeProfile = loadProfile(activePhoneKey);
+    // Pintar
+    [viewHome, viewWizard, viewRegistro, $("viewVehiculos"), $("viewWelcome"), $("viewLogin")].forEach(el => {
+      if (el) el.classList.toggle("hidden", el !== viewWizard);
+    });
+    $("topMenu").style.display = "none";
+    // Setear celular en read-only
+    const phoneDisplay = `+${session.lada} ${session.phone}`;
+    $("wiz_celular_display").value = phoneDisplay;
+    // Cargar datos
+    fillFormFromProfile(activeProfile);
+    updateConditionals();
+    showStep(activeProfile.lastStep || 1);
+  }
+  function exitWizardToHome(){
+    if (window.checkinnAuth) window.checkinnAuth.gotoHome();
+  }
+
+  // ─── Validación al avanzar ─────────────────────────────────────────
+  function tryAdvance(){
+    const flags = stepCompletionFlags(activeProfile);
+    if (!flags[currentStep - 1]) {
+      const errId = `wizStep${currentStep}Error`;
+      const errEl = $(errId);
+      const i = getI18n();
+      const msg = i[`wizErrStep${currentStep}`] || "Faltan datos requeridos.";
+      if (errEl) { errEl.textContent = msg; errEl.classList.remove("hidden"); }
+      return;
+    }
+    const errEl = $(`wizStep${currentStep}Error`);
+    if (errEl) errEl.classList.add("hidden");
+    if (currentStep < TOTAL_STEPS) showStep(currentStep + 1);
+  }
+  function tryFinish(){
+    const flags = stepCompletionFlags(activeProfile);
+    const allDone = flags.every(Boolean);
+    if (!allDone) {
+      // Ir al primer paso incompleto
+      const firstMissing = flags.findIndex(f => !f) + 1;
+      showStep(firstMissing);
+      const errEl = $(`wizStep${firstMissing}Error`);
+      const i = getI18n();
+      if (errEl) {
+        errEl.textContent = i[`wizErrStep${firstMissing}`] || "Faltan datos requeridos.";
+        errEl.classList.remove("hidden");
+      }
+      return;
+    }
+    activeProfile.completed = true;
+    saveProfile(activePhoneKey, activeProfile);
+    refreshHomeCard();
+    const i = getI18n();
+    alert(i.wizFinishedToast || "¡Perfil completo!");
+    exitWizardToHome();
+  }
+  function saveAndExit(){
+    if (activeProfile) saveProfile(activePhoneKey, activeProfile);
+    const i = getI18n();
+    if (profileCompletionPercent(activeProfile) > 0 && profileCompletionPercent(activeProfile) < 100) {
+      // Pequeño toast informativo
+      // (alert es simple pero efectivo, podemos refinar a banner luego)
+    }
+    exitWizardToHome();
+  }
+
+  // ─── Bloqueo de "Nueva reservación" ────────────────────────────────
+  function interceptHomeNueva(){
+    const btn = $("btnHomeNueva");
+    if (!btn) return;
+    // Capturamos el click en fase de captura para correr ANTES del listener
+    // que abre el form directamente.
+    btn.addEventListener("click", function(ev){
+      const session = window.checkinnAuth?.getSession();
+      if (!session) return; // sin sesión = acceso exprés, comportamiento normal
+      activePhoneKey = getPhoneKey();
+      activeProfile = loadProfile(activePhoneKey);
+      if (!isProfileFullyComplete(activeProfile)) {
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        ev.stopPropagation();
+        const i = getI18n();
+        if (confirm(`${i.wizBlockedReserveTitle || "Completa tus datos primero"}\n\n${i.wizBlockedReserveText || "Necesitas terminar de capturar tu perfil antes de hacer una reservación."}`)) {
+          openWizard();
+        }
+      }
+    }, true); // useCapture=true
+  }
+
+  // ─── Init ──────────────────────────────────────────────────────────
+  function init(){
+    if (!viewWizard) return;
+    // Bind events
+    $("wizBtnPrev")?.addEventListener("click", () => showStep(currentStep - 1));
+    $("wizBtnNext")?.addEventListener("click", tryAdvance);
+    $("wizBtnFinish")?.addEventListener("click", tryFinish);
+    $("wizBtnSaveExit")?.addEventListener("click", saveAndExit);
+    bindFormToProfile();
+
+    // Click en los puntitos de pasos → ir directo
+    document.querySelectorAll(".wizard-step").forEach(s => {
+      s.addEventListener("click", () => showStep(Number(s.dataset.step)));
+    });
+
+    // Card del Home abre wizard
+    $("profileCard")?.addEventListener("click", openWizard);
+    $("profileCard")?.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWizard(); }
+    });
+
+    // Bloqueo de Nueva reservación
+    interceptHomeNueva();
+
+    // Refrescar card cada vez que se va al Home
+    // (auth.js llama refreshHomeContent que es async; nos enganchamos a un
+    // observer del view-panel visible)
+    const observer = new MutationObserver(refreshHomeCard);
+    if (viewHome) {
+      observer.observe(viewHome, { attributes: true, attributeFilter: ["class"] });
+    }
+    // Inicial
+    refreshHomeCard();
+  }
+
+  // Exponer para integración con auth.js (refreshHomeI18n llama aquí)
+  window.checkinnProfile = {
+    openWizard, refreshHomeCard,
+    isProfileFullyComplete: () => activeProfile ? isProfileFullyComplete(activeProfile) : false,
+    getProfile: () => activeProfile,
+    getPercent: () => activeProfile ? profileCompletionPercent(activeProfile) : 0,
+    _loadProfile: loadProfile
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    setTimeout(init, 0);
+  }
 })();
 </script>
 
