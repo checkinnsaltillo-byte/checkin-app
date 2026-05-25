@@ -3224,6 +3224,209 @@ function formatRangoFechasSimple(inicio, fin){
   .stays-table tbody td{ padding:8px 10px; font-size:12px; }
 }
 
+/* ───── Cashback (card + modales) ───── */
+.cashback-card{
+  background:linear-gradient(180deg,#ecfdf5 0%, #ffffff 100%);
+  border:1px solid #a7f3d0;
+  border-radius:18px;
+  padding:18px 20px;
+  margin-top:14px;
+  box-shadow:0 8px 24px rgba(16,185,129,.08);
+}
+.cashback-card.paused{
+  background:linear-gradient(180deg,#f1f5f9 0%, #ffffff 100%);
+  border-color:var(--border-strong);
+  box-shadow:none;
+}
+.cashback-card-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  flex-wrap:wrap;
+}
+.cashback-card-title{
+  margin:0;
+  font-size:14px;
+  font-weight:800;
+  color:#065f46;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.cashback-card.paused .cashback-card-title{ color:var(--text-soft); }
+.cashback-card-balance{
+  font-size:30px;
+  font-weight:900;
+  color:#065f46;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-.01em;
+  margin:6px 0 4px;
+  line-height:1.05;
+}
+.cashback-card.paused .cashback-card-balance{ color:var(--text-soft); }
+.cashback-card-balance-sub{
+  font-size:12px;
+  color:#047857;
+  font-weight:600;
+}
+.cashback-card.paused .cashback-card-balance-sub{ color:var(--text-soft); }
+.cashback-card-expiry{
+  font-size:12px;
+  color:var(--text-soft);
+  margin-top:8px;
+  font-weight:600;
+}
+.cashback-card-expiry.warning{
+  color:#b45309;
+  font-weight:700;
+}
+.cashback-card-last{
+  font-size:12px;
+  color:var(--text-soft);
+  margin-top:6px;
+  font-style:italic;
+}
+.cashback-card-actions{
+  display:flex;
+  gap:10px;
+  margin-top:14px;
+  flex-wrap:wrap;
+}
+.cashback-btn{
+  margin-top:0;
+  padding:10px 16px;
+  font-size:13px;
+  background:linear-gradient(180deg,#10b981 0%, #059669 100%);
+  color:#fff;
+  box-shadow:0 6px 14px rgba(16,185,129,.28);
+  border-radius:12px;
+  font-weight:700;
+}
+.cashback-btn:hover{
+  filter:brightness(1.06);
+  box-shadow:0 10px 22px rgba(16,185,129,.38);
+}
+.cashback-btn:disabled{
+  background:#94a3b8 !important;
+  cursor:not-allowed;
+  box-shadow:none;
+  filter:none;
+  transform:none;
+}
+.cashback-btn-secondary{
+  background:transparent !important;
+  color:#065f46 !important;
+  border:1.5px solid #a7f3d0 !important;
+  box-shadow:none !important;
+}
+.cashback-btn-secondary:hover{
+  background:#ecfdf5 !important;
+  filter:none !important;
+  transform:none !important;
+  box-shadow:none !important;
+}
+.cashback-paused-info{
+  background:#fff;
+  border:1px dashed var(--border-strong);
+  border-radius:12px;
+  padding:12px 14px;
+  font-size:13px;
+  color:var(--text);
+  line-height:1.5;
+  margin-top:10px;
+}
+
+/* Coupon code visual */
+.coupon-code-box{
+  background:linear-gradient(180deg,#0f172a 0%, #1e293b 100%);
+  color:#fff;
+  border-radius:14px;
+  padding:18px 20px;
+  margin:14px 0 16px;
+  text-align:center;
+  position:relative;
+  box-shadow:0 10px 24px rgba(15,23,42,.20);
+}
+.coupon-code-label{
+  font-size:11px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.1em;
+  color:#94a3b8;
+  margin-bottom:6px;
+}
+.coupon-code-value{
+  font-size:24px;
+  font-weight:900;
+  font-family:'SF Mono', Menlo, Consolas, monospace;
+  letter-spacing:.04em;
+  margin-bottom:4px;
+  word-break:break-all;
+}
+.coupon-code-amount{
+  font-size:13px;
+  color:#a7f3d0;
+  font-weight:700;
+  margin-top:4px;
+}
+.coupon-actions-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-bottom:8px;
+}
+.coupon-detail{
+  display:flex;
+  justify-content:space-between;
+  font-size:13px;
+  padding:8px 0;
+  border-bottom:1px solid var(--border);
+}
+.coupon-detail:last-child{ border-bottom:none; }
+.coupon-detail-key{ color:var(--text-soft); font-weight:600; }
+.coupon-detail-val{ color:var(--text); font-weight:700; }
+
+/* Cashback movements table (historial) */
+.cb-movements-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+}
+.cb-movements-table thead th{
+  background:#f8fafc;
+  color:var(--primary-dark);
+  font-size:11px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  padding:8px 10px;
+  text-align:left;
+  border-bottom:1px solid var(--border);
+}
+.cb-movements-table tbody td{
+  padding:10px;
+  border-bottom:1px solid var(--border);
+  vertical-align:top;
+}
+.cb-movements-table tbody tr:last-child td{ border-bottom:none; }
+.cb-amount-pos{ color:#065f46; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.cb-amount-neg{ color:#b91c1c; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.cb-tipo-pill{
+  display:inline-block;
+  padding:2px 8px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.cb-tipo-pill.ganado{ background:#dcfce7; color:#065f46; }
+.cb-tipo-pill.canjeado{ background:#dbeafe; color:#1e40af; }
+.cb-tipo-pill.caducado{ background:#f3f4f6; color:#6b7280; }
+.cb-tipo-pill.cancelado{ background:#fee2e2; color:#991b1b; }
+.cb-tipo-pill.ajuste_manual{ background:#fef3c7; color:#78350f; }
+
 /* ───── Paquetes (pricing cards) ───── */
 .packages-section{
   margin-top:18px;
@@ -4207,6 +4410,24 @@ body.has-session input[name="nombre"] {
         <div class="kpi-value" id="kpiAntiguedad">—</div>
         <div class="kpi-label" data-i18n="kpiAntiguedadLabel">Antigüedad</div>
       </div>
+    </div>
+
+    <!-- Card: Cashback -->
+    <div class="cashback-card" id="cashbackCard">
+      <div class="cashback-card-head">
+        <div style="flex:1;min-width:200px;">
+          <h3 class="cashback-card-title" id="cashbackCardTitle"><span>💸</span><span data-i18n="cashbackCardTitle">Tu cashback</span></h3>
+          <div class="cashback-card-balance" id="cashbackBalance">$0</div>
+          <div class="cashback-card-balance-sub" data-i18n="cashbackBalanceSub" id="cashbackBalanceSub">MXN · acumulado disponible</div>
+          <div class="cashback-card-expiry" id="cashbackExpiry"></div>
+          <div class="cashback-card-last" id="cashbackLast"></div>
+        </div>
+        <div class="cashback-card-actions" id="cashbackActions">
+          <button type="button" class="cashback-btn" id="btnGenerateCoupon" data-i18n="cashbackGenerateBtn">Generar cupón</button>
+          <button type="button" class="cashback-btn cashback-btn-secondary" id="btnCashbackHistory" data-i18n="cashbackHistoryBtn">Ver historial</button>
+        </div>
+      </div>
+      <div class="cashback-paused-info hidden" id="cashbackPausedInfo"></div>
     </div>
 
     <!-- Sección: Adquiere nuestros Paquetes -->
@@ -6890,7 +7111,48 @@ const SIMPLE_I18N = {
     /* Imágenes */
     imgRemoveBtn:"Eliminar",
     imgUploadBtn:"Subir imagen",
-    imgUpdateBtn:"Actualizar imagen"
+    imgUpdateBtn:"Actualizar imagen",
+    /* Cashback */
+    cashbackCardTitle:"Tu cashback",
+    cashbackCardTitlePaused:"Tu cashback (pausado)",
+    cashbackBalanceSub:"MXN · acumulado disponible",
+    cashbackGenerateBtn:"Generar cupón",
+    cashbackHistoryBtn:"Ver historial",
+    cashbackExpiryTmpl:"Próxima caducidad: {date} (en {time})",
+    cashbackExpiryNone:"Tu saldo no tiene caducidad próxima.",
+    cashbackPausedTmpl:"Tu paquete {pkg} está activo. El cashback se reactiva el {date}.",
+    cashbackLastEarnedTmpl:"Última: ganaste {amount} · estancia {prop}",
+    cashbackPausedSavedTmpl:"Saldo guardado: {amount}",
+    cashbackGenerateTitle:"Generar cupón",
+    cashbackGenerateSub:"Convierte parte de tu saldo en un cupón que podrás canjear al pagar tu próxima estancia.",
+    cashbackAvailableLabel:"Saldo disponible",
+    cashbackMinLabel:"Mínimo del cupón",
+    cashbackCouponValidityLabel:"Vigencia del cupón",
+    cashbackCouponValidity:"6 meses",
+    cashbackAmountLabel:"Monto del cupón (MXN)",
+    cashbackConfirmBtn:"Generar cupón",
+    cashbackGeneratedTitle:"¡Cupón generado!",
+    cashbackGeneratedSub:"Guarda este código. Lo necesitarás al pagar tu próxima estancia.",
+    cashbackCouponCodeLabel:"Código del cupón",
+    cashbackCouponExpiryTmpl:"Vence el {date}",
+    cashbackCopyBtn:"📋 Copiar",
+    cashbackShareWABtn:"📱 WhatsApp",
+    cashbackHistoryTitle:"Historial de cashback",
+    cashbackHistorySub:"Todos tus movimientos: ganado por estancias, canjeado por cupones, caducidades.",
+    cashbackThDate:"Fecha",
+    cashbackThType:"Tipo",
+    cashbackThDesc:"Concepto",
+    cashbackThAmount:"Monto",
+    cashbackHistoryEmpty:"Sin movimientos todavía.",
+    cashbackTipoGanado:"Ganado",
+    cashbackTipoCanjeado:"Canjeado",
+    cashbackTipoCaducado:"Caducado",
+    cashbackTipoCancelado:"Cancelado",
+    cashbackTipoAjusteManual:"Ajuste manual",
+    cashbackErrMinAmount:"El mínimo del cupón es $200 MXN.",
+    cashbackErrMaxAmount:"El monto excede tu saldo disponible.",
+    cashbackErrInvalidAmount:"Ingresa un monto válido.",
+    cashbackErrPaused:"No puedes generar cupones mientras tienes un paquete activo."
   },
   en: {
     chooseLanguage:"Choose language",
@@ -7111,7 +7373,48 @@ const SIMPLE_I18N = {
     changePhoneSuccessText:"Your new phone was validated and saved.",
     imgRemoveBtn:"Remove",
     imgUploadBtn:"Upload image",
-    imgUpdateBtn:"Update image"
+    imgUpdateBtn:"Update image",
+    /* Cashback */
+    cashbackCardTitle:"Your cashback",
+    cashbackCardTitlePaused:"Your cashback (paused)",
+    cashbackBalanceSub:"MXN · available balance",
+    cashbackGenerateBtn:"Generate voucher",
+    cashbackHistoryBtn:"View history",
+    cashbackExpiryTmpl:"Next expiration: {date} (in {time})",
+    cashbackExpiryNone:"Your balance has no upcoming expiration.",
+    cashbackPausedTmpl:"Your {pkg} package is active. Cashback resumes on {date}.",
+    cashbackLastEarnedTmpl:"Last: you earned {amount} · stay {prop}",
+    cashbackPausedSavedTmpl:"Saved balance: {amount}",
+    cashbackGenerateTitle:"Generate voucher",
+    cashbackGenerateSub:"Convert part of your balance into a voucher you can redeem on your next stay.",
+    cashbackAvailableLabel:"Available balance",
+    cashbackMinLabel:"Voucher minimum",
+    cashbackCouponValidityLabel:"Voucher validity",
+    cashbackCouponValidity:"6 months",
+    cashbackAmountLabel:"Voucher amount (MXN)",
+    cashbackConfirmBtn:"Generate voucher",
+    cashbackGeneratedTitle:"Voucher generated!",
+    cashbackGeneratedSub:"Save this code. You'll need it when paying your next stay.",
+    cashbackCouponCodeLabel:"Voucher code",
+    cashbackCouponExpiryTmpl:"Expires on {date}",
+    cashbackCopyBtn:"📋 Copy",
+    cashbackShareWABtn:"📱 WhatsApp",
+    cashbackHistoryTitle:"Cashback history",
+    cashbackHistorySub:"All movements: earned from stays, redeemed via vouchers, expirations.",
+    cashbackThDate:"Date",
+    cashbackThType:"Type",
+    cashbackThDesc:"Description",
+    cashbackThAmount:"Amount",
+    cashbackHistoryEmpty:"No movements yet.",
+    cashbackTipoGanado:"Earned",
+    cashbackTipoCanjeado:"Redeemed",
+    cashbackTipoCaducado:"Expired",
+    cashbackTipoCancelado:"Cancelled",
+    cashbackTipoAjusteManual:"Manual adjustment",
+    cashbackErrMinAmount:"The voucher minimum is $200 MXN.",
+    cashbackErrMaxAmount:"Amount exceeds your available balance.",
+    cashbackErrInvalidAmount:"Enter a valid amount.",
+    cashbackErrPaused:"You can't generate vouchers while an active package is in place."
   }
 };
 
@@ -12679,6 +12982,554 @@ document.addEventListener("DOMContentLoaded", function(){
   };
 })();
 </script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Cashback — Fase 1 mock
+   - Storage: localStorage clave checkinn_cashback_v1 por celular
+   - Reglas:
+     • 10% directo, 5% Airbnb
+     • Caducidad: 6 meses sin actividad → caduca todo el saldo
+     • Excluyente con paquete activo
+     • Cupón generado: min $200, vigencia 6 meses
+     • Cancelación de estancia: revierte el cashback otorgado
+   - Auto-award demo: por cada estancia del Sheet del huésped, si no
+     existe un movement con ese reservacion_id, se simula que ya se
+     otorgó (created_at = fecha de salida de la estancia).
+   ═══════════════════════════════════════════════════════════════════ */
+(function(){
+  "use strict";
+  const STORE_KEY = "checkinn_cashback_v1";
+  const COUPON_MIN = 200;
+  const SIX_MONTHS_MS = 6 * 30.4375 * 24 * 60 * 60 * 1000;
+  const $ = id => document.getElementById(id);
+
+  // ─── Helpers de storage ────────────────────────────────────────────
+  function loadAll(){
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); }
+    catch(e){ return {}; }
+  }
+  function saveAll(m){ localStorage.setItem(STORE_KEY, JSON.stringify(m)); }
+  function getPhoneKey(){
+    const s = window.checkinnAuth?.getSession?.();
+    return s ? `+${s.lada}${s.phone}` : null;
+  }
+  function loadPhone(key){
+    const all = loadAll();
+    return all[key] || { movements: [], coupons: [] };
+  }
+  function savePhone(key, data){
+    const all = loadAll();
+    all[key] = data;
+    saveAll(all);
+  }
+  function uuid(){
+    const arr = new Uint8Array(8);
+    if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(arr);
+    else for (let i=0; i<arr.length; i++) arr[i] = Math.floor(Math.random()*256);
+    return Array.from(arr).map(b => b.toString(16).padStart(2,"0")).join("");
+  }
+  function couponCode(){
+    const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let c = "CB-";
+    for (let i=0; i<8; i++) c += A[Math.floor(Math.random()*A.length)];
+    return c;
+  }
+
+  // ─── i18n + format ────────────────────────────────────────────────
+  function getI18n(){
+    const lang = window.currentLang || "es";
+    return (window.SIMPLE_I18N && window.SIMPLE_I18N[lang]) || {};
+  }
+  function fmtMonto(v){
+    const n = Number(v); if (!isFinite(n)) return "$0";
+    return new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits: 2}).format(n);
+  }
+  function fmtFecha(s){
+    if (!s) return "—";
+    let raw = String(s);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) raw = raw + "T00:00:00";
+    const d = new Date(raw);
+    if (isNaN(d)) return s;
+    const lang = window.currentLang || "es";
+    return d.toLocaleDateString(lang === "en" ? "en-US" : "es-MX", { day:"2-digit", month:"short", year:"numeric" });
+  }
+  function timeUntil(ts){
+    const lang = window.currentLang || "es";
+    const diff = Math.max(0, ts - Date.now());
+    const days = Math.floor(diff / (24*60*60*1000));
+    if (days < 1) return lang === "en" ? "today" : "hoy";
+    if (days < 30) return lang === "en" ? `${days} day${days!==1?"s":""}` : `${days} día${days!==1?"s":""}`;
+    const months = Math.floor(days / 30.4375);
+    return lang === "en" ? `${months} month${months!==1?"s":""}` : `${months} ${months===1?"mes":"meses"}`;
+  }
+
+  // ─── API de cashback ───────────────────────────────────────────────
+  function getBalance(phoneKey){
+    const data = loadPhone(phoneKey);
+    return data.movements.reduce((acc, m) => acc + Number(m.monto || 0), 0);
+  }
+  function getLastMovement(phoneKey){
+    const data = loadPhone(phoneKey);
+    if (!data.movements.length) return null;
+    return data.movements.slice().sort((a,b) => b.created_at - a.created_at)[0];
+  }
+  function getNextExpiration(phoneKey){
+    // 6 meses desde el último movimiento (de cualquier tipo)
+    const last = getLastMovement(phoneKey);
+    if (!last) return null;
+    return last.created_at + SIX_MONTHS_MS;
+  }
+  function getLastEarned(phoneKey){
+    const data = loadPhone(phoneKey);
+    const earned = data.movements.filter(m => m.tipo === "ganado").sort((a,b) => b.created_at - a.created_at);
+    return earned[0] || null;
+  }
+  function isPausedByPackage(){
+    const pkg = window.checkinnPackages?.getActivePackage?.();
+    return pkg ? pkg : null;
+  }
+  function pickField(row, candidates){
+    if (!row) return "";
+    for (const k of candidates) {
+      const v = row[k];
+      if (v != null && String(v).trim() !== "") return String(v).trim();
+    }
+    return "";
+  }
+  function awardCashbackForStay(phoneKey, row){
+    if (!row) return false;
+    // Si tiene paquete activo, no premiar (excluyente)
+    if (isPausedByPackage()) return false;
+    // _cachedStays contiene rows crudos del Sheet; leemos los campos por nombre.
+    const reservacionId = pickField(row, ["ID", "row_number", "Row"]);
+    if (!reservacionId) return false;
+    const data = loadPhone(phoneKey);
+    // Idempotencia
+    if (data.movements.some(m => m.tipo === "ganado" && m.reservacion_id === reservacionId)) return false;
+    const montoStr = pickField(row, [
+      "($) Monto Total pagado", "$ Monto Total pagado", "Monto Total pagado",
+      "$ Monto facturado Total", "Monto facturado Total",
+      "$ Monto pagado", "Monto pagado"
+    ]);
+    const monto = Number(String(montoStr).replace(/[^0-9.\-]/g, ""));
+    if (!isFinite(monto) || monto <= 0) return false;
+    // Canal
+    const canalRaw = pickField(row, ["Medio de reservación", "Medio"]).toLowerCase();
+    const isAirbnb = canalRaw.includes("airbnb");
+    const pct = isAirbnb ? 5 : 10;
+    const ganado = Math.round(monto * pct / 100 * 100) / 100;
+    // Fecha = fecha de salida (cuando se completó la estancia)
+    const salida = pickField(row, ["Fecha de salida", "F. Salida", "salida"]);
+    const ingreso = pickField(row, ["Fecha de ingreso", "F. Ingreso", "ingreso"]);
+    const propiedad = pickField(row, ["Propiedad", "propiedad"]);
+    let createdAt;
+    if (salida) {
+      let raw = String(salida);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) raw = raw + "T00:00:00";
+      const d = new Date(raw);
+      createdAt = isNaN(d) ? Date.now() : d.getTime();
+    } else {
+      createdAt = Date.now();
+    }
+    data.movements.push({
+      id: uuid(),
+      tipo: "ganado",
+      monto: ganado,
+      reservacion_id: reservacionId,
+      canal: isAirbnb ? "Airbnb" : "directo",
+      descripcion: `Cashback ${pct}% · ${propiedad || "estancia"} · ${fmtFecha(ingreso)} → ${fmtFecha(salida)}`,
+      created_at: createdAt,
+      caduca_at: createdAt + SIX_MONTHS_MS
+    });
+    savePhone(phoneKey, data);
+    return true;
+  }
+  function autoAwardForAllStays(){
+    const phoneKey = getPhoneKey();
+    if (!phoneKey) return 0;
+    const stays = window.checkinnAuth?._cachedStays || [];
+    let count = 0;
+    stays.forEach(s => { if (awardCashbackForStay(phoneKey, s)) count++; });
+    // Expirar si corresponde
+    expireIfStale(phoneKey);
+    return count;
+  }
+  function expireIfStale(phoneKey){
+    const balance = getBalance(phoneKey);
+    if (balance <= 0) return;
+    const last = getLastMovement(phoneKey);
+    if (!last) return;
+    if (Date.now() < last.created_at + SIX_MONTHS_MS) return;
+    // Expirar todo el saldo
+    const data = loadPhone(phoneKey);
+    data.movements.push({
+      id: uuid(),
+      tipo: "caducado",
+      monto: -balance,
+      reservacion_id: "",
+      descripcion: "Caducidad por 6 meses sin actividad",
+      created_at: Date.now()
+    });
+    savePhone(phoneKey, data);
+  }
+  function generateCoupon(phoneKey, monto){
+    const balance = getBalance(phoneKey);
+    if (monto < COUPON_MIN) throw new Error(getI18n().cashbackErrMinAmount || "Monto mínimo $200.");
+    if (monto > balance) throw new Error(getI18n().cashbackErrMaxAmount || "Excede saldo disponible.");
+    if (isPausedByPackage()) throw new Error(getI18n().cashbackErrPaused || "Pausado por paquete activo.");
+    const data = loadPhone(phoneKey);
+    const codigo = couponCode();
+    const now = Date.now();
+    const expira = now + SIX_MONTHS_MS;
+    const i = getI18n();
+    // Crear movement negativo + cupón
+    data.movements.push({
+      id: uuid(),
+      tipo: "canjeado",
+      monto: -monto,
+      reservacion_id: "",
+      descripcion: `${i.cashbackTipoCanjeado || "Canjeado"} · cupón ${codigo}`,
+      cupon_codigo: codigo,
+      created_at: now
+    });
+    data.coupons.push({
+      codigo,
+      monto,
+      created_at: now,
+      caduca_at: expira,
+      estado: "activo"
+    });
+    savePhone(phoneKey, data);
+    return { codigo, monto, caduca_at: expira };
+  }
+
+  // ─── Render UI ─────────────────────────────────────────────────────
+  function refreshCashbackCard(){
+    const phoneKey = getPhoneKey();
+    const card = $("cashbackCard");
+    if (!card || !phoneKey) return;
+    expireIfStale(phoneKey);
+    const i = getI18n();
+    const balance = getBalance(phoneKey);
+    const pkg = isPausedByPackage();
+    const balanceEl = $("cashbackBalance");
+    const titleEl = $("cashbackCardTitle");
+    const subEl = $("cashbackBalanceSub");
+    const expiryEl = $("cashbackExpiry");
+    const lastEl = $("cashbackLast");
+    const actions = $("cashbackActions");
+    const pausedInfo = $("cashbackPausedInfo");
+    const btnGen = $("btnGenerateCoupon");
+
+    if (pkg) {
+      card.classList.add("paused");
+      if (titleEl) titleEl.innerHTML = `<span>💸</span><span>${i.cashbackCardTitlePaused || "Tu cashback (pausado)"}</span>`;
+      if (balanceEl) balanceEl.textContent = fmtMonto(balance);
+      if (subEl) subEl.textContent = i.cashbackBalanceSub || "MXN · saldo guardado";
+      if (pausedInfo) {
+        pausedInfo.classList.remove("hidden");
+        const tmpl = i.cashbackPausedTmpl || "Tu paquete {pkg} está activo. El cashback se reactiva el {date}.";
+        pausedInfo.textContent = tmpl
+          .replace("{pkg}", `${pkg.icon} ${pkg.shortName}`)
+          .replace("{date}", fmtFecha(new Date(pkg.validUntil).toISOString().slice(0,10)));
+      }
+      if (expiryEl) expiryEl.textContent = "";
+      if (lastEl) lastEl.textContent = "";
+      if (btnGen) btnGen.disabled = true;
+    } else {
+      card.classList.remove("paused");
+      if (titleEl) titleEl.innerHTML = `<span>💸</span><span>${i.cashbackCardTitle || "Tu cashback"}</span>`;
+      if (balanceEl) balanceEl.textContent = fmtMonto(balance);
+      if (subEl) subEl.textContent = i.cashbackBalanceSub || "MXN · acumulado disponible";
+      if (pausedInfo) pausedInfo.classList.add("hidden");
+      if (btnGen) btnGen.disabled = balance < COUPON_MIN;
+
+      // Próxima caducidad
+      const next = getNextExpiration(phoneKey);
+      if (expiryEl) {
+        if (next && balance > 0) {
+          const days = Math.floor((next - Date.now()) / (24*60*60*1000));
+          const tmpl = i.cashbackExpiryTmpl || "Próxima caducidad: {date} (en {time})";
+          expiryEl.textContent = tmpl.replace("{date}", fmtFecha(new Date(next).toISOString().slice(0,10))).replace("{time}", timeUntil(next));
+          expiryEl.classList.toggle("warning", days <= 30);
+        } else {
+          expiryEl.textContent = "";
+          expiryEl.classList.remove("warning");
+        }
+      }
+      // Última ganancia
+      const lastE = getLastEarned(phoneKey);
+      if (lastEl) {
+        if (lastE) {
+          const tmpl = i.cashbackLastEarnedTmpl || "Última: ganaste {amount} · estancia {prop}";
+          // Extraer prop del descripcion
+          const propMatch = lastE.descripcion.match(/·\s+([^·]+)\s+·/);
+          const prop = propMatch ? propMatch[1].trim() : "—";
+          lastEl.textContent = tmpl.replace("{amount}", fmtMonto(lastE.monto)).replace("{prop}", prop);
+        } else {
+          lastEl.textContent = "";
+        }
+      }
+    }
+  }
+
+  function openGenerateModal(){
+    const phoneKey = getPhoneKey();
+    if (!phoneKey) return;
+    if (isPausedByPackage()) {
+      alert(getI18n().cashbackErrPaused || "Pausado por paquete activo.");
+      return;
+    }
+    const balance = getBalance(phoneKey);
+    if (balance < COUPON_MIN) {
+      alert(getI18n().cashbackErrMinAmount || "El mínimo del cupón es $200 MXN.");
+      return;
+    }
+    $("couponAvailableValue").textContent = fmtMonto(balance);
+    const input = $("couponAmountInput");
+    input.value = "";
+    input.max = String(balance);
+    $("cashbackGenerateError").classList.add("hidden");
+    const modal = $("cashbackGenerateModal");
+    modal.style.display = "flex";
+    document.body.style.overflow = "hidden";
+    setTimeout(() => input.focus(), 50);
+  }
+  function closeGenerateModal(){
+    $("cashbackGenerateModal").style.display = "none";
+    document.body.style.overflow = "";
+  }
+  function confirmGenerate(){
+    const phoneKey = getPhoneKey();
+    if (!phoneKey) return;
+    const input = $("couponAmountInput");
+    const monto = Number(input.value);
+    const errEl = $("cashbackGenerateError");
+    errEl.classList.add("hidden");
+    const i = getI18n();
+    if (!isFinite(monto) || monto <= 0) {
+      errEl.textContent = i.cashbackErrInvalidAmount || "Monto inválido.";
+      errEl.classList.remove("hidden"); return;
+    }
+    try {
+      const c = generateCoupon(phoneKey, monto);
+      closeGenerateModal();
+      // Mostrar éxito
+      $("generatedCouponCode").textContent = c.codigo;
+      $("generatedCouponAmount").textContent = fmtMonto(c.monto) + " MXN";
+      const tmpl = i.cashbackCouponExpiryTmpl || "Vence el {date}";
+      $("generatedCouponExpiry").textContent = tmpl.replace("{date}", fmtFecha(new Date(c.caduca_at).toISOString().slice(0,10)));
+      $("cashbackGeneratedModal").style.display = "flex";
+      document.body.style.overflow = "hidden";
+      refreshCashbackCard();
+    } catch(e) {
+      errEl.textContent = e.message;
+      errEl.classList.remove("hidden");
+    }
+  }
+  function closeGeneratedModal(){
+    $("cashbackGeneratedModal").style.display = "none";
+    document.body.style.overflow = "";
+  }
+  function copyCouponCode(){
+    const code = $("generatedCouponCode").textContent;
+    navigator.clipboard?.writeText(code).then(() => {
+      const btn = $("btnCopyCoupon");
+      const orig = btn.textContent;
+      btn.textContent = "✓ Copiado";
+      setTimeout(() => btn.textContent = orig, 1500);
+    });
+  }
+  function shareCouponWA(){
+    const code = $("generatedCouponCode").textContent;
+    const amount = $("generatedCouponAmount").textContent;
+    const text = encodeURIComponent(`🎉 Tengo un cupón Check-inn Saltillo:\nCódigo: ${code}\nValor: ${amount}\n\nMe sirve para pagar mi próxima estancia.`);
+    window.open(`https://wa.me/?text=${text}`, "_blank");
+  }
+
+  function openHistory(){
+    const phoneKey = getPhoneKey();
+    if (!phoneKey) return;
+    const data = loadPhone(phoneKey);
+    const movs = data.movements.slice().sort((a,b) => b.created_at - a.created_at);
+    const body = $("cashbackHistoryBody");
+    const i = getI18n();
+    if (!movs.length) {
+      body.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-soft);font-style:italic;padding:20px;">${i.cashbackHistoryEmpty || "Sin movimientos."}</td></tr>`;
+    } else {
+      body.innerHTML = movs.map(m => {
+        const tipoLabel = i["cashbackTipo" + (m.tipo.charAt(0).toUpperCase() + m.tipo.slice(1).replace(/_(\w)/g, (_,c) => c.toUpperCase()))] || m.tipo;
+        const amountClass = m.monto >= 0 ? "cb-amount-pos" : "cb-amount-neg";
+        const sign = m.monto >= 0 ? "+" : "";
+        return `<tr>
+          <td>${fmtFecha(new Date(m.created_at).toISOString().slice(0,10))}</td>
+          <td><span class="cb-tipo-pill ${m.tipo}">${tipoLabel}</span></td>
+          <td>${escapeHtmlSafe(m.descripcion || "—")}</td>
+          <td style="text-align:right;"><span class="${amountClass}">${sign}${fmtMonto(m.monto)}</span></td>
+        </tr>`;
+      }).join("");
+    }
+    $("cashbackHistoryModal").style.display = "flex";
+    document.body.style.overflow = "hidden";
+  }
+  function closeHistory(){
+    $("cashbackHistoryModal").style.display = "none";
+    document.body.style.overflow = "";
+  }
+  function escapeHtmlSafe(v){
+    return String(v == null ? "" : v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  }
+
+  // ─── Hook al render de estancias ───────────────────────────────────
+  function hookAutoAward(){
+    // Cuando la tabla de estancias se carga/recarga, intentar otorgar cashback
+    // por cada estancia que aún no tenga movement asociado.
+    const originalRerender = window.checkinnRerenderStays;
+    if (typeof originalRerender === "function") {
+      window.checkinnRerenderStays = function(){
+        originalRerender();
+        autoAwardForAllStays();
+        refreshCashbackCard();
+      };
+    }
+    // En el cambio de vista a viewHome
+    const viewHome = $("viewHome");
+    if (viewHome) {
+      const mo = new MutationObserver(() => {
+        if (!viewHome.classList.contains("hidden")) {
+          autoAwardForAllStays();
+          refreshCashbackCard();
+        }
+      });
+      mo.observe(viewHome, { attributes:true, attributeFilter:["class"] });
+    }
+  }
+
+  // ─── Init ──────────────────────────────────────────────────────────
+  function pollUntilStaysReady(maxTries){
+    // Las estancias se cargan async desde Apps Script. Esperamos hasta que
+    // _cachedStays tenga contenido para correr el auto-award por primera vez.
+    let tries = 0;
+    const intv = setInterval(() => {
+      tries++;
+      const stays = window.checkinnAuth?._cachedStays;
+      if (stays && stays.length > 0) {
+        const count = autoAwardForAllStays();
+        if (count > 0) refreshCashbackCard();
+        clearInterval(intv);
+      } else if (tries >= maxTries) {
+        clearInterval(intv);
+      }
+    }, 800);
+  }
+  function init(){
+    $("btnGenerateCoupon")?.addEventListener("click", openGenerateModal);
+    $("btnCashbackHistory")?.addEventListener("click", openHistory);
+    $("cashbackCancelBtn")?.addEventListener("click", closeGenerateModal);
+    $("cashbackConfirmBtn")?.addEventListener("click", confirmGenerate);
+    $("btnCashbackGeneratedClose")?.addEventListener("click", closeGeneratedModal);
+    $("btnCopyCoupon")?.addEventListener("click", copyCouponCode);
+    $("btnShareCouponWA")?.addEventListener("click", shareCouponWA);
+    $("cashbackHistoryCloseBtn")?.addEventListener("click", closeHistory);
+    $("cashbackGenerateModal")?.addEventListener("click", e => { if (e.target.id === "cashbackGenerateModal") closeGenerateModal(); });
+    $("cashbackGeneratedModal")?.addEventListener("click", e => { if (e.target.id === "cashbackGeneratedModal") closeGeneratedModal(); });
+    $("cashbackHistoryModal")?.addEventListener("click", e => { if (e.target.id === "cashbackHistoryModal") closeHistory(); });
+    $("couponAmountInput")?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); confirmGenerate(); }});
+    hookAutoAward();
+    autoAwardForAllStays();
+    refreshCashbackCard();
+    // Esperar a que las estancias se carguen async y volver a intentar
+    pollUntilStaysReady(15);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    setTimeout(init, 0);
+  }
+
+  window.checkinnCashback = {
+    getBalance,
+    getLastMovement,
+    getNextExpiration,
+    refreshCashbackCard,
+    autoAwardForAllStays,
+    generateCoupon,
+    _loadPhone: loadPhone
+  };
+})();
+</script>
+
+<!-- ═══ Modal: Generar cupón de cashback ═══════════════════════════ -->
+<div class="popup-backdrop" id="cashbackGenerateModal" style="display:none;">
+  <div class="popup-card" style="max-width:420px;text-align:left;">
+    <h3 style="margin-bottom:6px;" data-i18n="cashbackGenerateTitle">Generar cupón</h3>
+    <div class="hint" style="margin-bottom:14px;" data-i18n="cashbackGenerateSub">Convierte parte de tu saldo en un cupón que podrás canjear al pagar tu próxima estancia.</div>
+    <div class="coupon-detail">
+      <span class="coupon-detail-key" data-i18n="cashbackAvailableLabel">Saldo disponible</span>
+      <span class="coupon-detail-val" id="couponAvailableValue">$0</span>
+    </div>
+    <div class="coupon-detail">
+      <span class="coupon-detail-key" data-i18n="cashbackMinLabel">Mínimo del cupón</span>
+      <span class="coupon-detail-val">$200 MXN</span>
+    </div>
+    <div class="coupon-detail">
+      <span class="coupon-detail-key" data-i18n="cashbackCouponValidityLabel">Vigencia del cupón</span>
+      <span class="coupon-detail-val" data-i18n="cashbackCouponValidity">6 meses</span>
+    </div>
+    <label for="couponAmountInput" style="margin-top:14px;" data-i18n="cashbackAmountLabel">Monto del cupón (MXN)</label>
+    <input id="couponAmountInput" type="number" min="200" step="50" placeholder="200"/>
+    <div class="note hidden" id="cashbackGenerateError"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+      <button class="wizard-btn-secondary" id="cashbackCancelBtn" type="button" style="margin-top:0;" data-i18n="cancelBtn">Cancelar</button>
+      <button class="cashback-btn" id="cashbackConfirmBtn" type="button" style="margin-top:0;" data-i18n="cashbackConfirmBtn">Generar cupón</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal: Cupón generado (éxito) ══════════════════════════════ -->
+<div class="popup-backdrop" id="cashbackGeneratedModal" style="display:none;">
+  <div class="popup-card" style="max-width:420px;text-align:center;">
+    <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(180deg,#10b981 0%, #059669 100%);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px;font-weight:900;">✓</div>
+    <h3 style="margin-bottom:6px;" data-i18n="cashbackGeneratedTitle">¡Cupón generado!</h3>
+    <div class="hint" style="margin-bottom:6px;" data-i18n="cashbackGeneratedSub">Guarda este código. Lo necesitarás al pagar tu próxima estancia.</div>
+    <div class="coupon-code-box">
+      <div class="coupon-code-label" data-i18n="cashbackCouponCodeLabel">Código del cupón</div>
+      <div class="coupon-code-value" id="generatedCouponCode">CB-XXXXXXXX</div>
+      <div class="coupon-code-amount" id="generatedCouponAmount">$0</div>
+    </div>
+    <div style="font-size:12px;color:var(--text-soft);margin-bottom:14px;text-align:center;" id="generatedCouponExpiry"></div>
+    <div class="coupon-actions-row">
+      <button class="cashback-btn cashback-btn-secondary" id="btnCopyCoupon" type="button" data-i18n="cashbackCopyBtn">📋 Copiar</button>
+      <button class="cashback-btn cashback-btn-secondary" id="btnShareCouponWA" type="button" data-i18n="cashbackShareWABtn">📱 WhatsApp</button>
+    </div>
+    <button class="cashback-btn" id="btnCashbackGeneratedClose" type="button" style="width:100%;" data-i18n="acceptBtn">Aceptar</button>
+  </div>
+</div>
+
+<!-- ═══ Modal: Historial de cashback ══════════════════════════════ -->
+<div class="popup-backdrop" id="cashbackHistoryModal" style="display:none;">
+  <div class="popup-card" style="max-width:640px;text-align:left;">
+    <h3 style="margin-bottom:6px;" data-i18n="cashbackHistoryTitle">Historial de cashback</h3>
+    <div class="hint" style="margin-bottom:14px;" data-i18n="cashbackHistorySub">Todos tus movimientos: ganado por estancias, canjeado por cupones, caducidades.</div>
+    <div style="max-height:50vh;overflow-y:auto;border:1px solid var(--border);border-radius:12px;">
+      <table class="cb-movements-table">
+        <thead>
+          <tr>
+            <th data-i18n="cashbackThDate">Fecha</th>
+            <th data-i18n="cashbackThType">Tipo</th>
+            <th data-i18n="cashbackThDesc">Concepto</th>
+            <th data-i18n="cashbackThAmount" style="text-align:right;">Monto</th>
+          </tr>
+        </thead>
+        <tbody id="cashbackHistoryBody">
+          <tr><td colspan="4" style="text-align:center;color:var(--text-soft);font-style:italic;padding:20px;" data-i18n="cashbackHistoryEmpty">Sin movimientos todavía.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <button class="wizard-btn-secondary" id="cashbackHistoryCloseBtn" type="button" style="width:100%;margin-top:14px;" data-i18n="closeBtn">Cerrar</button>
+  </div>
+</div>
 
 <!-- ═══ Modal: Checkout estilo Stripe (paquetes) ═══════════════════ -->
 <div class="popup-backdrop" id="stripeCheckoutModal" style="display:none;">
