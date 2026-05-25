@@ -3224,6 +3224,350 @@ function formatRangoFechasSimple(inicio, fin){
   .stays-table tbody td{ padding:8px 10px; font-size:12px; }
 }
 
+/* ───── Paquetes (pricing cards) ───── */
+.packages-section{
+  margin-top:18px;
+}
+.packages-section-head{
+  margin-bottom:14px;
+}
+.packages-section-title{
+  font-size:18px;
+  font-weight:800;
+  color:var(--text);
+  margin:0 0 4px;
+}
+.packages-section-sub{
+  font-size:13px;
+  color:var(--text-soft);
+  margin:0;
+}
+.packages-grid{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:14px;
+}
+@media (max-width:900px){
+  .packages-grid{ grid-template-columns:1fr; }
+}
+.package-card{
+  position:relative;
+  background:#fff;
+  border:1px solid var(--border-strong);
+  border-radius:18px;
+  padding:22px;
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 8px 24px rgba(15,23,42,.06);
+  transition:transform .15s, box-shadow .15s, border-color .15s;
+}
+.package-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 16px 36px rgba(15,23,42,.10);
+}
+.package-card.recommended{
+  border-color:var(--primary);
+  border-width:2px;
+  background:linear-gradient(180deg,#ffffff 0%, var(--primary-soft) 100%);
+}
+.package-recommended-badge{
+  position:absolute;
+  top:14px;
+  right:14px;
+  background:var(--primary-soft);
+  color:var(--primary-dark);
+  font-size:11px;
+  font-weight:800;
+  padding:4px 10px;
+  border-radius:999px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.package-name{
+  font-size:22px;
+  font-weight:900;
+  color:var(--text);
+  margin:0 0 4px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.package-name .package-icon{ font-size:22px; }
+.package-tagline{
+  font-size:13px;
+  color:var(--text-soft);
+  margin:0 0 18px;
+  line-height:1.4;
+  min-height:36px;
+}
+.package-divider{
+  height:1px;
+  background:var(--border);
+  margin:0 0 16px;
+}
+.package-price{
+  display:flex;
+  align-items:baseline;
+  gap:6px;
+  margin-bottom:4px;
+  flex-wrap:wrap;
+}
+.package-price-amount{
+  font-size:28px;
+  font-weight:900;
+  color:var(--text);
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-0.02em;
+}
+.package-price-unit{
+  font-size:13px;
+  color:var(--text-soft);
+  font-weight:600;
+}
+.package-savings{
+  font-size:12px;
+  color:#059669;
+  font-weight:700;
+  margin-bottom:18px;
+}
+.package-cta{
+  width:100%;
+  margin-top:0;
+  padding:14px;
+  font-size:14px;
+  font-weight:700;
+  margin-bottom:20px;
+}
+.package-cta.owned{
+  background:#e5e7eb !important;
+  color:var(--text-soft) !important;
+  cursor:default;
+  box-shadow:none !important;
+  transform:none !important;
+  filter:none !important;
+}
+.package-features-title{
+  font-size:12px;
+  font-weight:800;
+  color:var(--text);
+  margin:0 0 12px;
+}
+.package-features{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.package-feature{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  font-size:13px;
+  color:var(--text);
+  line-height:1.4;
+}
+.package-feature-icon{
+  flex-shrink:0;
+  font-size:13px;
+  color:var(--primary);
+  margin-top:1px;
+}
+
+/* ───── Modal estilo Stripe Checkout ───── */
+.stripe-modal-card{
+  max-width:440px !important;
+  text-align:left;
+  padding:24px !important;
+}
+.stripe-modal-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:18px;
+}
+.stripe-modal-brand{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
+  color:var(--text-soft);
+  font-weight:700;
+}
+.stripe-modal-brand-logo{
+  background:#635bff;
+  color:#fff;
+  font-weight:900;
+  font-family:Arial,sans-serif;
+  padding:3px 8px;
+  border-radius:6px;
+  font-size:12px;
+  letter-spacing:-0.01em;
+}
+.stripe-summary{
+  background:#f6f9fc;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:14px 16px;
+  margin-bottom:18px;
+}
+.stripe-summary-name{
+  font-size:14px;
+  font-weight:800;
+  color:var(--text);
+  margin-bottom:4px;
+}
+.stripe-summary-price{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:18px;
+  font-weight:900;
+  color:var(--primary-dark);
+  font-variant-numeric:tabular-nums;
+}
+.stripe-summary-currency{ font-size:12px; color:var(--text-soft); font-weight:600; }
+.stripe-field{ margin-bottom:12px; }
+.stripe-field label{
+  display:block;
+  font-size:12px;
+  font-weight:700;
+  color:var(--text);
+  margin-bottom:6px;
+}
+.stripe-field input{
+  width:100%;
+  padding:11px 13px;
+  font-size:14px;
+  border-radius:8px;
+  border:1px solid var(--border-strong);
+  font-family:'SF Mono', Menlo, Consolas, monospace;
+  font-variant-numeric:tabular-nums;
+}
+.stripe-field input:focus{
+  border-color:#635bff;
+  box-shadow:0 0 0 3px rgba(99,91,255,.16);
+  outline:none;
+}
+.stripe-field-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.stripe-pay-btn{
+  width:100%;
+  margin-top:6px;
+  padding:14px;
+  background:#635bff !important;
+  color:#fff !important;
+  font-size:15px;
+  font-weight:800;
+  border-radius:8px;
+  box-shadow:0 4px 12px rgba(99,91,255,.28) !important;
+  border:none;
+}
+.stripe-pay-btn:hover{
+  background:#5851ea !important;
+  transform:translateY(-1px);
+  box-shadow:0 8px 20px rgba(99,91,255,.38) !important;
+  filter:none !important;
+}
+.stripe-pay-btn:disabled{
+  background:#9c95ff !important;
+  cursor:not-allowed;
+}
+.stripe-secure-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  margin-top:12px;
+  font-size:11px;
+  color:var(--text-soft);
+}
+.stripe-cancel-btn{
+  width:100%;
+  margin-top:8px;
+  padding:10px;
+  background:none !important;
+  color:var(--text-soft) !important;
+  border:none !important;
+  font-size:13px;
+  font-weight:600;
+  box-shadow:none !important;
+  transform:none !important;
+  filter:none !important;
+}
+.stripe-cancel-btn:hover{
+  color:var(--text);
+  background:none !important;
+}
+.stripe-demo-notice{
+  background:#fef3c7;
+  border:1px solid #fcd34d;
+  color:#78350f;
+  border-radius:8px;
+  padding:10px 12px;
+  font-size:12px;
+  margin-bottom:14px;
+  line-height:1.4;
+}
+.stripe-loader{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+  padding:24px 0;
+}
+.stripe-loader-spinner{
+  width:48px;
+  height:48px;
+  border:4px solid rgba(99,91,255,.20);
+  border-top-color:#635bff;
+  border-radius:50%;
+  animation:spinPopup 0.9s linear infinite;
+}
+.stripe-success-check{
+  width:64px;
+  height:64px;
+  border-radius:50%;
+  background:#10b981;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:32px;
+  font-weight:900;
+  margin:0 auto 14px;
+  box-shadow:0 12px 28px rgba(16,185,129,.32);
+}
+
+/* ───── Insignia paquete en pill de sesión ───── */
+.session-pill-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:3px 9px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  white-space:nowrap;
+}
+.session-pill-badge.frecuente{ background:#dbeafe; color:#1e40af; }
+.session-pill-badge.recurrente{ background:#dcfce7; color:#14532d; }
+.session-pill-badge.empresarial{ background:#fef3c7; color:#92400e; }
+.session-pill-badge::before{ content:""; }
+.stays-amount-savings{
+  font-size:11px;
+  font-weight:700;
+  color:#059669;
+  display:block;
+  margin-top:2px;
+}
+
 /* ───── KPIs (Home) ───── */
 .kpi-grid{
   display:grid;
@@ -3865,6 +4209,87 @@ body.has-session input[name="nombre"] {
       </div>
     </div>
 
+    <!-- Sección: Adquiere nuestros Paquetes -->
+    <div class="packages-section" id="packagesSection">
+      <div class="packages-section-head">
+        <h2 class="packages-section-title" data-i18n="packagesSectionTitle">Adquiere nuestros Paquetes</h2>
+        <p class="packages-section-sub" data-i18n="packagesSectionSub">Compra noches por adelantado y obtén descuentos exclusivos en cada estancia.</p>
+      </div>
+      <div class="packages-grid">
+
+        <!-- Paquete Frecuente -->
+        <div class="package-card" data-package-id="frecuente">
+          <h3 class="package-name"><span class="package-icon">🌙</span><span data-i18n="pkgFrecuenteName">Frecuente</span></h3>
+          <p class="package-tagline" data-i18n="pkgFrecuenteTagline">Para huéspedes que vienen varias veces al año.</p>
+          <div class="package-divider"></div>
+          <div class="package-price">
+            <span class="package-price-amount">$60,000</span>
+            <span class="package-price-unit" data-i18n="pkgPriceUnitTotal">total · 10 noches</span>
+          </div>
+          <div class="package-savings" data-i18n="pkgFrecuenteSavings">+ 10% de descuento aplicado · ahorras vs. tarifa normal</div>
+          <button class="package-cta" type="button" data-buy-package="frecuente" data-i18n="pkgBuyBtn">Adquirir paquete</button>
+          <div class="package-features-title" data-i18n="pkgIncludesTitle">Qué incluye</div>
+          <ul class="package-features">
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgFrecuenteFeat1">10% de descuento en cada noche</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgFrecuenteFeat2">Vigencia 12 meses para usar las 10 noches</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgFrecuenteFeat3">Late check-out hasta 12 PM sin cargo</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgFrecuenteFeat4">Wi-Fi prioritario durante tu estancia</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgFrecuenteFeat5">Detalle de bienvenida en cada visita</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgFrecuenteFeat6">Cancelación flexible hasta 48h antes</span></li>
+          </ul>
+        </div>
+
+        <!-- Paquete Recurrente (recomendado) -->
+        <div class="package-card recommended" data-package-id="recurrente">
+          <span class="package-recommended-badge" data-i18n="pkgRecommended">Recomendado</span>
+          <h3 class="package-name"><span class="package-icon">✨</span><span data-i18n="pkgRecurrenteName">Recurrente</span></h3>
+          <p class="package-tagline" data-i18n="pkgRecurrenteTagline">Para visitas mensuales o estancias largas dispersas.</p>
+          <div class="package-divider"></div>
+          <div class="package-price">
+            <span class="package-price-amount">$150,000</span>
+            <span class="package-price-unit" data-i18n="pkgPriceUnitTotal30">total · 30 noches</span>
+          </div>
+          <div class="package-savings" data-i18n="pkgRecurrenteSavings">+ 15% de descuento aplicado · mejor relación volumen/precio</div>
+          <button class="package-cta" type="button" data-buy-package="recurrente" data-i18n="pkgBuyBtn">Adquirir paquete</button>
+          <div class="package-features-title" data-i18n="pkgIncludesPlusTitle">Todo lo del Frecuente, más:</div>
+          <ul class="package-features">
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgRecurrenteFeat1">15% de descuento en cada noche</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgRecurrenteFeat2">Vigencia 12 meses para usar las 30 noches</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgRecurrenteFeat3">Estacionamiento incluido cuando aplique</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgRecurrenteFeat4">Check-in temprano desde 12 PM sin cargo</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgRecurrenteFeat5">Limpieza mid-stay gratis (estancias ≥5 noches)</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgRecurrenteFeat6">Línea directa de WhatsApp de soporte VIP</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgRecurrenteFeat7">Transferible: cede noches a familiares con tu autorización</span></li>
+          </ul>
+        </div>
+
+        <!-- Paquete Empresarial -->
+        <div class="package-card" data-package-id="empresarial">
+          <h3 class="package-name"><span class="package-icon">🏢</span><span data-i18n="pkgEmpresarialName">Empresarial</span></h3>
+          <p class="package-tagline" data-i18n="pkgEmpresarialTagline">Para empresas con personal que viaja a Saltillo regularmente.</p>
+          <div class="package-divider"></div>
+          <div class="package-price">
+            <span class="package-price-amount">$25,000</span>
+            <span class="package-price-unit" data-i18n="pkgPriceUnitMembership">membresía · 6 meses</span>
+          </div>
+          <div class="package-savings" data-i18n="pkgEmpresarialSavings">+ Tarifa preferencial $4,500/noche (20% off) durante el periodo</div>
+          <button class="package-cta" type="button" data-buy-package="empresarial" data-i18n="pkgBuyBtn">Adquirir paquete</button>
+          <div class="package-features-title" data-i18n="pkgIncludesPlusRecTitle">Todo lo del Recurrente, más:</div>
+          <ul class="package-features">
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgEmpresarialFeat1">20% de descuento garantizado durante 6 meses</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgEmpresarialFeat2">Noches ilimitadas (sin tope de uso en el periodo)</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgEmpresarialFeat3">Facturación mensual consolidada a nombre de la empresa</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgEmpresarialFeat4">Confirmación instantánea sin verificar disponibilidad</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgEmpresarialFeat5">Asignación prioritaria de propiedad/departamento preferido</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgEmpresarialFeat6">Hasta 3 huéspedes adicionales por noche sin cargo</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgEmpresarialFeat7">Reporte trimestral de uso para deducción fiscal</span></li>
+            <li class="package-feature"><span class="package-feature-icon">✓</span><span data-i18n="pkgEmpresarialFeat8">Ejecutivo de cuenta empresarial dedicado</span></li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+
     <div class="auth-actions">
       <!-- Sección 1: Nueva reservación -->
       <button class="auth-bigbtn primary" id="btnHomeNueva" type="button">
@@ -3895,12 +4320,13 @@ body.has-session input[name="nombre"] {
               <th data-i18n="staysThIngreso">Ingreso</th>
               <th data-i18n="staysThSalida">Salida</th>
               <th data-i18n="staysThMonto">Monto total</th>
+              <th data-i18n="staysThAhorro">Ahorro</th>
               <th data-i18n="staysThFactura">Factura</th>
             </tr>
           </thead>
           <tbody id="staysBody">
             <tr class="stays-empty-row">
-              <td colspan="7" data-i18n="staysEmpty">Aún no tienes estancias registradas.</td>
+              <td colspan="8" data-i18n="staysEmpty">Aún no tienes estancias registradas.</td>
             </tr>
           </tbody>
         </table>
@@ -6438,6 +6864,7 @@ const SIMPLE_I18N = {
     /* Tabla Tu estancia mejorada */
     staysThEstado:"Estado",
     staysThFactura:"Factura",
+    staysThAhorro:"Ahorro",
     staysStatusFuture:"Próxima",
     staysStatusOngoing:"En curso",
     staysStatusPast:"Concluida",
@@ -6661,6 +7088,7 @@ const SIMPLE_I18N = {
     stayDetailTitle:"Stay details",
     staysThEstado:"Status",
     staysThFactura:"Invoice",
+    staysThAhorro:"Savings",
     staysStatusFuture:"Upcoming",
     staysStatusOngoing:"Ongoing",
     staysStatusPast:"Completed",
@@ -10477,6 +10905,14 @@ document.addEventListener("DOMContentLoaded", function(){
     const facturaCell = thumbUrl
       ? `<span class="stays-invoice-thumb" data-zoom-src="${escapeHtml(fullThumbUrl)}" data-stay-index="${idx}" title="Ver factura"><img src="${escapeHtml(thumbUrl)}" alt="factura" loading="lazy"/></span>`
       : `<span class="stays-invoice-thumb-none" title="${escapeHtml(stay.requiereFactura === "No" ? "No requiere" : "Pendiente")}">—</span>`;
+    // Ahorro por paquete activo (si aplica)
+    let ahorroCell = `<span class="stays-amount-savings" style="color:var(--text-soft);font-weight:600;">—</span>`;
+    if (window.checkinnPackages && typeof window.checkinnPackages.calcSavingsForStay === "function") {
+      const savings = window.checkinnPackages.calcSavingsForStay(stay);
+      if (savings > 0) {
+        ahorroCell = `<span class="stays-amount-savings">-${escapeHtml(fmtMonto(savings))}</span>`;
+      }
+    }
     return `<tr class="stays-row-clickable" data-stay-index="${idx}">
       <td>
         <span class="stays-status-cell">
@@ -10489,6 +10925,7 @@ document.addEventListener("DOMContentLoaded", function(){
       <td>${escapeHtml(fmtFecha(stay.ingreso))}</td>
       <td>${escapeHtml(fmtFecha(stay.salida))}</td>
       <td class="stays-amount">${escapeHtml(fmtMonto(stay.monto))}</td>
+      <td class="stays-invoice-cell">${ahorroCell}</td>
       <td class="stays-invoice-cell">${facturaCell}</td>
     </tr>`;
   }
@@ -11095,6 +11532,10 @@ document.addEventListener("DOMContentLoaded", function(){
     refreshHomeI18n,
     _cachedStays: null,
     _state: () => ({ pendingOtp, session: getSession() })
+  };
+  // Permite a otros módulos (paquetes) re-renderizar la tabla
+  window.checkinnRerenderStays = function(){
+    if (window.checkinnAuth._cachedStays) renderStaysTable(window.checkinnAuth._cachedStays);
   };
 })();
 </script>
@@ -11927,6 +12368,385 @@ document.addEventListener("DOMContentLoaded", function(){
 <div class="popup-backdrop" id="imageZoomModal" style="display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.85);">
   <button id="imageZoomCloseBtn" type="button" style="position:fixed;top:18px;right:18px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.95);color:#1f2937;border:none;font-size:22px;font-weight:800;cursor:pointer;box-shadow:0 8px 20px rgba(0,0,0,.3);margin:0;padding:0;z-index:1000001;line-height:1;">✕</button>
   <img id="imageZoomImg" alt="" style="max-width:92vw;max-height:88vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);background:#fff;"/>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Paquetes + Checkout estilo Stripe (mock) + Insignia en pill
+   - Catálogo de paquetes en PACKAGES_CATALOG
+   - Persistencia en localStorage por celular (checkinn_packages_v1)
+   - Mock de Stripe: loader 1.8s y success. NO cobra nada real.
+   - Tras "pagar": marca el paquete como activo, refresca pill, KPI table.
+   - Cálculo de "Ahorro" en la tabla: si la estancia es POSTERIOR a la
+     compra y el paquete sigue vigente, descuento × monto.
+   ═══════════════════════════════════════════════════════════════════ */
+(function(){
+  "use strict";
+  const STORE_KEY = "checkinn_packages_v1";
+  const $ = id => document.getElementById(id);
+
+  const PACKAGES_CATALOG = {
+    frecuente: {
+      id: "frecuente",
+      name: "Frecuente · 10 noches",
+      shortName: "Frecuente",
+      icon: "🌙",
+      price: 60000,
+      pricePerNight: 6000,
+      nights: 10,
+      discountPct: 10,
+      validityMonths: 12,
+      badgeText: "FRECUENTE"
+    },
+    recurrente: {
+      id: "recurrente",
+      name: "Recurrente · 30 noches",
+      shortName: "Recurrente",
+      icon: "✨",
+      price: 150000,
+      pricePerNight: 5000,
+      nights: 30,
+      discountPct: 15,
+      validityMonths: 12,
+      badgeText: "RECURRENTE"
+    },
+    empresarial: {
+      id: "empresarial",
+      name: "Empresarial · 6 meses",
+      shortName: "Empresarial",
+      icon: "🏢",
+      price: 25000,
+      pricePerNight: 4500,
+      nights: null,        // ilimitado
+      discountPct: 20,
+      validityMonths: 6,
+      badgeText: "EMPRESARIAL"
+    }
+  };
+
+  // ─── Helpers storage ───────────────────────────────────────────────
+  function loadAll(){
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); }
+    catch(e){ return {}; }
+  }
+  function saveAll(map){ localStorage.setItem(STORE_KEY, JSON.stringify(map)); }
+  function getPhoneKey(){
+    const s = window.checkinnAuth && window.checkinnAuth.getSession();
+    return s ? `+${s.lada}${s.phone}` : null;
+  }
+  function getActivePackage(){
+    const key = getPhoneKey();
+    if (!key) return null;
+    const all = loadAll();
+    const entry = all[key];
+    if (!entry || !entry.package) return null;
+    // Verificar vigencia
+    if (entry.package.validUntil && Date.now() > entry.package.validUntil) return null;
+    return entry.package;
+  }
+  function markPackagePurchased(pkgDef){
+    const key = getPhoneKey();
+    if (!key) return null;
+    const all = loadAll();
+    const now = Date.now();
+    const validUntil = now + (pkgDef.validityMonths * 30.4375 * 24 * 60 * 60 * 1000);
+    const purchased = {
+      id: pkgDef.id,
+      name: pkgDef.name,
+      shortName: pkgDef.shortName,
+      icon: pkgDef.icon,
+      discountPct: pkgDef.discountPct,
+      pricePerNight: pkgDef.pricePerNight,
+      nights: pkgDef.nights,
+      usedNights: 0,
+      amountPaid: pkgDef.price,
+      purchasedAt: now,
+      validUntil,
+      badgeText: pkgDef.badgeText
+    };
+    if (!all[key]) all[key] = { history: [] };
+    if (all[key].package) all[key].history.push(all[key].package);
+    all[key].package = purchased;
+    saveAll(all);
+    return purchased;
+  }
+
+  // ─── Render: insignia en pill de sesión ───────────────────────────
+  function refreshSessionBadge(){
+    const pkg = getActivePackage();
+    const pill = $("sessionPill");
+    if (!pill) return;
+    // Limpia badge previo
+    pill.querySelectorAll(".session-pill-badge").forEach(el => el.remove());
+    if (!pkg) return;
+    const span = document.createElement("span");
+    span.className = `session-pill-badge ${pkg.id}`;
+    span.textContent = `${pkg.icon} ${pkg.badgeText}`;
+    // Insertar antes del botón de logout
+    const logoutBtn = pill.querySelector(".session-pill-logout");
+    if (logoutBtn) pill.insertBefore(span, logoutBtn);
+    else pill.appendChild(span);
+  }
+
+  // ─── Render: estado de las cards (CTA "Adquirido") ────────────────
+  function refreshPackageCards(){
+    const active = getActivePackage();
+    document.querySelectorAll(".package-card").forEach(card => {
+      const id = card.dataset.packageId;
+      const cta = card.querySelector(".package-cta");
+      if (!cta) return;
+      const i = getI18n();
+      if (active && active.id === id) {
+        cta.textContent = i.pkgOwnedBtn || "✓ Paquete activo";
+        cta.classList.add("owned");
+        cta.disabled = true;
+      } else if (active) {
+        // Otro paquete activo: deshabilitar adquirir (un paquete a la vez)
+        cta.textContent = i.pkgOtherActiveBtn || "Ya tienes un paquete activo";
+        cta.classList.add("owned");
+        cta.disabled = true;
+      } else {
+        cta.textContent = i.pkgBuyBtn || "Adquirir paquete";
+        cta.classList.remove("owned");
+        cta.disabled = false;
+      }
+    });
+  }
+
+  // ─── Helpers i18n ───────────────────────────────────────────────────
+  function getI18n(){
+    const lang = window.currentLang || "es";
+    return (window.SIMPLE_I18N && window.SIMPLE_I18N[lang]) || {};
+  }
+  function fmtMonto(v){
+    const num = Number(v);
+    if (!isFinite(num)) return "$0";
+    return new Intl.NumberFormat("es-MX", { style:"currency", currency:"MXN", maximumFractionDigits: 2 }).format(num);
+  }
+
+  // ─── Checkout mock ─────────────────────────────────────────────────
+  let pendingPackage = null;
+
+  function openCheckout(pkgId){
+    const pkgDef = PACKAGES_CATALOG[pkgId];
+    if (!pkgDef) return;
+    if (!window.checkinnAuth?.getSession()) {
+      alert("Inicia sesión para adquirir un paquete.");
+      return;
+    }
+    if (getActivePackage()) {
+      alert("Ya tienes un paquete activo. Espera a que termine la vigencia o úsalo antes de adquirir otro.");
+      return;
+    }
+    pendingPackage = pkgDef;
+    const modal = $("stripeCheckoutModal");
+    if (!modal) return;
+    // Reset
+    $("stripeStepForm").classList.remove("hidden");
+    $("stripeStepLoading").classList.add("hidden");
+    $("stripeStepSuccess").classList.add("hidden");
+    $("stripeFormError").classList.add("hidden");
+    $("stripeSummaryName").textContent = pkgDef.name;
+    $("stripeSummaryPrice").textContent = fmtMonto(pkgDef.price);
+    $("stripePayBtn").textContent = `${getI18n().stripePayBtnPrefix || "Pagar"} ${fmtMonto(pkgDef.price)} MXN`;
+    // Pre-llenar correo si el perfil lo tiene
+    try {
+      const profile = window.checkinnProfile?._loadProfile?.(getPhoneKey());
+      const email = profile?.step3?.correo_factura || "";
+      $("stripeCardEmail").value = email;
+      $("stripeCardName").value = profile?.step1?.nombre || "";
+    } catch(e){}
+    // Limpiar campos sensibles
+    $("stripeCardNumber").value = "4242 4242 4242 4242";
+    $("stripeCardExp").value = "12/30";
+    $("stripeCardCvc").value = "123";
+    modal.style.display = "flex";
+    document.body.style.overflow = "hidden";
+  }
+  function closeCheckout(){
+    const modal = $("stripeCheckoutModal");
+    if (modal) modal.style.display = "none";
+    document.body.style.overflow = "";
+    pendingPackage = null;
+  }
+  function onStripePay(){
+    if (!pendingPackage) return;
+    const errEl = $("stripeFormError");
+    errEl.classList.add("hidden");
+    // Validaciones simples
+    const email = $("stripeCardEmail").value.trim();
+    const num = $("stripeCardNumber").value.replace(/\s/g, "");
+    const exp = $("stripeCardExp").value.trim();
+    const cvc = $("stripeCardCvc").value.trim();
+    const name = $("stripeCardName").value.trim();
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) { errEl.textContent = "Ingresa un correo válido."; errEl.classList.remove("hidden"); return; }
+    if (num.length < 13 || num.length > 19) { errEl.textContent = "Número de tarjeta inválido."; errEl.classList.remove("hidden"); return; }
+    if (!/^\d{2}\/\d{2}$/.test(exp)) { errEl.textContent = "Fecha de vencimiento inválida (MM/AA)."; errEl.classList.remove("hidden"); return; }
+    if (cvc.length < 3) { errEl.textContent = "CVC inválido."; errEl.classList.remove("hidden"); return; }
+    if (!name) { errEl.textContent = "Escribe el nombre como aparece en la tarjeta."; errEl.classList.remove("hidden"); return; }
+    // Simular procesamiento
+    $("stripeStepForm").classList.add("hidden");
+    $("stripeStepLoading").classList.remove("hidden");
+    setTimeout(() => {
+      // Marcar como adquirido
+      const purchased = markPackagePurchased(pendingPackage);
+      $("stripeStepLoading").classList.add("hidden");
+      $("stripeStepSuccess").classList.remove("hidden");
+      const i = getI18n();
+      $("stripeSuccessText").textContent = (i.stripeSuccessTextTmpl || "Tu paquete {name} está activo. Disfruta tus beneficios.").replace("{name}", purchased.name);
+      // Refrescar UI relacionada
+      refreshSessionBadge();
+      refreshPackageCards();
+      // Re-render tabla de estancias para mostrar columna ahorro
+      if (typeof window.checkinnRerenderStays === "function") {
+        window.checkinnRerenderStays();
+      }
+    }, 1800);
+  }
+
+  // Formatters de campos de tarjeta
+  function formatCardNumberInput(e){
+    let v = e.target.value.replace(/\s/g, "").replace(/\D/g, "").slice(0, 19);
+    e.target.value = v.replace(/(\d{4})(?=\d)/g, "$1 ");
+  }
+  function formatCardExpInput(e){
+    let v = e.target.value.replace(/\D/g, "").slice(0, 4);
+    if (v.length >= 3) v = v.slice(0,2) + "/" + v.slice(2);
+    e.target.value = v;
+  }
+
+  // ─── Cálculo de ahorro por estancia (para la tabla) ────────────────
+  // Expuesto a checkinnAuth para que renderStaysTable lo use al renderizar.
+  function calcSavingsForStay(stay){
+    const pkg = getActivePackage();
+    if (!pkg) return 0;
+    // Aplicar solo si la estancia es POSTERIOR a la fecha de compra del paquete
+    if (!stay.ingreso) return 0;
+    let raw = String(stay.ingreso);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) raw = raw + "T00:00:00";
+    const stayDate = new Date(raw);
+    if (isNaN(stayDate)) return 0;
+    if (stayDate.getTime() < pkg.purchasedAt) return 0;
+    if (stayDate.getTime() > pkg.validUntil) return 0;
+    const monto = Number(String(stay.monto || "").replace(/[^0-9.\-]/g, ""));
+    if (!isFinite(monto)) return 0;
+    return Math.round(monto * (pkg.discountPct / 100) * 100) / 100;
+  }
+
+  // ─── Init ──────────────────────────────────────────────────────────
+  function init(){
+    document.querySelectorAll("[data-buy-package]").forEach(btn => {
+      btn.addEventListener("click", () => openCheckout(btn.dataset.buyPackage));
+    });
+    $("stripeCancelBtn")?.addEventListener("click", closeCheckout);
+    $("stripeSuccessOkBtn")?.addEventListener("click", closeCheckout);
+    $("stripePayBtn")?.addEventListener("click", onStripePay);
+    $("stripeCheckoutModal")?.addEventListener("click", e => {
+      if (e.target.id === "stripeCheckoutModal") closeCheckout();
+    });
+    $("stripeCardNumber")?.addEventListener("input", formatCardNumberInput);
+    $("stripeCardExp")?.addEventListener("input", formatCardExpInput);
+    $("stripeCardCvc")?.addEventListener("input", e => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4);
+    });
+    // Refresh inicial: insignia + cards
+    refreshSessionBadge();
+    refreshPackageCards();
+    // Re-render al cambiar sesión (cuando el auth refresca pill)
+    const pill = $("sessionPill");
+    if (pill) {
+      const mo = new MutationObserver(() => {
+        refreshSessionBadge();
+        refreshPackageCards();
+      });
+      mo.observe(pill, { attributes: true, attributeFilter: ["class"] });
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    setTimeout(init, 0);
+  }
+
+  // Exponer al renderizado de stays
+  window.checkinnPackages = {
+    getActivePackage,
+    calcSavingsForStay,
+    refreshSessionBadge,
+    refreshPackageCards,
+    PACKAGES_CATALOG
+  };
+})();
+</script>
+
+<!-- ═══ Modal: Checkout estilo Stripe (paquetes) ═══════════════════ -->
+<div class="popup-backdrop" id="stripeCheckoutModal" style="display:none;">
+  <div class="popup-card stripe-modal-card">
+    <!-- Step A: form de pago -->
+    <div id="stripeStepForm">
+      <div class="stripe-modal-head">
+        <h3 style="margin:0;" data-i18n="stripeTitle">Confirmar y pagar</h3>
+        <div class="stripe-modal-brand">
+          <span data-i18n="stripeBrandHint">Powered by</span>
+          <span class="stripe-modal-brand-logo">stripe</span>
+        </div>
+      </div>
+      <div class="stripe-demo-notice" data-i18n-html="stripeDemoNotice">
+        🧪 <strong>Modo demo:</strong> esto es una simulación. No se cobrará nada y los campos de tarjeta no se envían a Stripe.
+      </div>
+      <div class="stripe-summary">
+        <div class="stripe-summary-name" id="stripeSummaryName">—</div>
+        <div class="stripe-summary-price">
+          <span id="stripeSummaryPrice">$0</span>
+          <span class="stripe-summary-currency">MXN</span>
+        </div>
+      </div>
+      <div class="stripe-field">
+        <label for="stripeCardEmail" data-i18n="stripeEmailLabel">Correo electrónico</label>
+        <input id="stripeCardEmail" type="email" autocomplete="email" placeholder="tucorreo@ejemplo.com"/>
+      </div>
+      <div class="stripe-field">
+        <label for="stripeCardNumber" data-i18n="stripeCardNumberLabel">Número de tarjeta</label>
+        <input id="stripeCardNumber" inputmode="numeric" maxlength="19" placeholder="4242 4242 4242 4242"/>
+      </div>
+      <div class="stripe-field-row">
+        <div class="stripe-field">
+          <label for="stripeCardExp" data-i18n="stripeCardExpLabel">Vencimiento</label>
+          <input id="stripeCardExp" inputmode="numeric" maxlength="5" placeholder="MM/AA"/>
+        </div>
+        <div class="stripe-field">
+          <label for="stripeCardCvc" data-i18n="stripeCardCvcLabel">CVC</label>
+          <input id="stripeCardCvc" inputmode="numeric" maxlength="4" placeholder="123"/>
+        </div>
+      </div>
+      <div class="stripe-field">
+        <label for="stripeCardName" data-i18n="stripeCardNameLabel">Nombre en la tarjeta</label>
+        <input id="stripeCardName" type="text" autocomplete="cc-name" placeholder="Como aparece en la tarjeta"/>
+      </div>
+      <div class="note hidden" id="stripeFormError"></div>
+      <button id="stripePayBtn" class="stripe-pay-btn" type="button" data-i18n="stripePayBtn">Pagar $0.00 MXN</button>
+      <button id="stripeCancelBtn" class="stripe-cancel-btn" type="button" data-i18n="cancelBtn">Cancelar</button>
+      <div class="stripe-secure-row">
+        🔒 <span data-i18n="stripeSecureNote">Pago seguro encriptado con Stripe</span>
+      </div>
+    </div>
+    <!-- Step B: loader -->
+    <div id="stripeStepLoading" class="hidden">
+      <div class="stripe-loader">
+        <div class="stripe-loader-spinner"></div>
+        <div style="font-size:14px;font-weight:600;color:var(--text);" data-i18n="stripeProcessing">Procesando tu pago…</div>
+        <div style="font-size:12px;color:var(--text-soft);" data-i18n="stripeProcessingSub">No cierres esta ventana.</div>
+      </div>
+    </div>
+    <!-- Step C: success -->
+    <div id="stripeStepSuccess" class="hidden">
+      <div class="stripe-success-check">✓</div>
+      <h3 style="margin-bottom:8px;text-align:center;" data-i18n="stripeSuccessTitle">¡Pago exitoso!</h3>
+      <div class="hint" style="text-align:center;margin-bottom:16px;" id="stripeSuccessText">Tu paquete está activo.</div>
+      <button id="stripeSuccessOkBtn" class="stripe-pay-btn" type="button" data-i18n="acceptBtn">Aceptar</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ Modal: Cambiar celular (con OTP) ═══════════════════════════ -->
