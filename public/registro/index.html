@@ -3044,6 +3044,122 @@ function formatRangoFechasSimple(inicio, fin){
 }
 .auth-info-banner strong{color:var(--primary-strong);}
 
+/* Menú hamburguesa global */
+.hamburger-btn{
+  position:fixed;
+  top:16px;
+  left:16px;
+  z-index:1001;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:4px;
+  width:42px;
+  height:42px;
+  background:#ffffff;
+  border:1px solid var(--border-strong);
+  border-radius:12px;
+  cursor:pointer;
+  padding:0;
+  margin:0;
+  box-shadow:0 6px 18px rgba(15,23,42,.10);
+  transition:transform .15s;
+}
+.hamburger-btn:hover{ transform:scale(1.05); filter:none; box-shadow:0 10px 22px rgba(15,23,42,.14); }
+.hamburger-btn.visible{ display:inline-flex; }
+.hamburger-btn .hb-line{
+  display:block;
+  width:18px;
+  height:2px;
+  background:var(--primary-dark);
+  border-radius:2px;
+}
+.nav-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,.45);
+  z-index:1009;
+  display:none;
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+}
+.nav-overlay.open{ display:block; }
+.nav-sidebar{
+  position:fixed;
+  top:0;
+  left:0;
+  width:280px;
+  max-width:80vw;
+  height:100vh;
+  background:#fff;
+  z-index:1010;
+  box-shadow:6px 0 24px rgba(15,23,42,.16);
+  transform:translateX(-105%);
+  transition:transform .25s cubic-bezier(.32,1,.6,1);
+  display:flex;
+  flex-direction:column;
+}
+.nav-sidebar.open{ transform:translateX(0); }
+.nav-sidebar-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:18px 18px 14px;
+  border-bottom:1px solid var(--border);
+}
+.nav-sidebar-title{
+  font-size:15px;
+  font-weight:800;
+  color:var(--text);
+}
+.nav-close-btn{
+  margin-top:0;
+  padding:6px 10px;
+  font-size:14px;
+  background:transparent;
+  color:var(--text-soft);
+  box-shadow:none;
+  border:none;
+}
+.nav-close-btn:hover{
+  background:var(--primary-soft);
+  color:var(--text);
+  transform:none;
+  filter:none;
+  box-shadow:none;
+}
+.nav-menu{
+  list-style:none;
+  margin:0;
+  padding:14px 10px;
+  flex:1;
+  overflow-y:auto;
+}
+.nav-item{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px 14px;
+  border-radius:12px;
+  font-size:14px;
+  font-weight:700;
+  color:var(--text);
+  cursor:pointer;
+  margin-bottom:4px;
+  transition:background .15s, color .15s;
+}
+.nav-item:hover{
+  background:var(--primary-soft);
+  color:var(--primary-dark);
+}
+.nav-item-icon{
+  font-size:18px;
+  line-height:1;
+  flex:0 0 22px;
+  text-align:center;
+}
+
 /* Logout pill arriba a la derecha */
 .session-pill{
   position:fixed;
@@ -3722,6 +3838,32 @@ body.has-session input[name="nombre"] {
   <span><span data-i18n="sessionGreeting">Hola,</span> <span class="session-pill-name" id="sessionPillName">—</span></span>
   <button class="session-pill-logout" id="btnLogout" type="button" data-i18n="sessionLogout">Cerrar sesión</button>
 </div>
+
+<!-- ═══ Menú hamburguesa (solo con sesión) ══════════════════════════ -->
+<button class="hamburger-btn" id="hamburgerBtn" type="button" aria-label="Menú">
+  <span class="hb-line"></span><span class="hb-line"></span><span class="hb-line"></span>
+</button>
+<div class="nav-overlay" id="navOverlay"></div>
+<aside class="nav-sidebar" id="navSidebar">
+  <div class="nav-sidebar-header">
+    <span class="nav-sidebar-title" data-i18n="navMenuTitle">Menú</span>
+    <button class="nav-close-btn" id="navCloseBtn" type="button" aria-label="Cerrar">✕</button>
+  </div>
+  <ul class="nav-menu">
+    <li class="nav-item" id="navItemPersonal">
+      <span class="nav-item-icon">👤</span>
+      <span data-i18n="navItemPersonal">Datos personales</span>
+    </li>
+    <li class="nav-item" id="navItemVehiculos">
+      <span class="nav-item-icon">🚗</span>
+      <span data-i18n="navItemVehiculos">Información de vehículos</span>
+    </li>
+    <li class="nav-item" id="navItemEstancias">
+      <span class="nav-item-icon">🗓️</span>
+      <span data-i18n="navItemEstancias">Tus estancias</span>
+    </li>
+  </ul>
+</aside>
 <div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
 <img alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w1000" style="max-width:260px; width:70%; height:auto; display:inline-block;"/>
 </div>
@@ -6357,6 +6499,10 @@ const SIMPLE_I18N = {
     createPinTip:"💡 <strong>Tip:</strong> Elige un PIN que recuerdes pero que no sea obvio (evita <code>1234</code>, <code>0000</code>, tu año de nacimiento). Si lo olvidas, puedes recuperarlo con un código por WhatsApp.",
     sessionGreeting:"Hola,",
     sessionLogout:"Cerrar sesión",
+    navMenuTitle:"Menú",
+    navItemPersonal:"Datos personales",
+    navItemVehiculos:"Información de vehículos",
+    navItemEstancias:"Tus estancias",
     homeGreeting:"¡Hola!",
     homeGreetingNamed:"¡Hola, {name}!",
     homeSubtitle:"Bienvenido de vuelta a Check-inn Saltillo.",
@@ -6379,8 +6525,8 @@ const SIMPLE_I18N = {
     menuVehiculosBtn:"Información de vehículos",
     vehSectionTitle:"Información de vehículos",
     vehSectionSub:"Consulta los vehículos con estancia activa hoy y filtra la información por propiedad.",
-    vehSessionLabelOne:"Tu estancia en curso · {prop}",
-    vehSessionLabelMany:"Tienes {n} estancias en curso. Elige la propiedad:",
+    vehSessionLabelOne:"Tu estancia · {prop}",
+    vehSessionLabelMany:"Tienes estancias en {n} propiedades. Elige una:",
     vehNoActiveStays:"No tienes estancias activas hoy. Verás los vehículos cuando tu reservación esté en curso.",
     /* ── Profile wizard ── */
     profileCardTitle:"Completa tus datos",
@@ -6581,6 +6727,10 @@ const SIMPLE_I18N = {
     createPinTip:"💡 <strong>Tip:</strong> Pick a PIN you remember but isn't obvious (avoid <code>1234</code>, <code>0000</code>, your birth year). If you forget it, you can recover it via WhatsApp code.",
     sessionGreeting:"Hi,",
     sessionLogout:"Sign out",
+    navMenuTitle:"Menu",
+    navItemPersonal:"Personal data",
+    navItemVehiculos:"Vehicle information",
+    navItemEstancias:"Your stays",
     homeGreeting:"Hi there!",
     homeGreetingNamed:"Hi, {name}!",
     homeSubtitle:"Welcome back to Check-inn Saltillo.",
@@ -6603,8 +6753,8 @@ const SIMPLE_I18N = {
     menuVehiculosBtn:"Vehicle information",
     vehSectionTitle:"Vehicle information",
     vehSectionSub:"See vehicles with an active stay today and filter by property.",
-    vehSessionLabelOne:"Your ongoing stay · {prop}",
-    vehSessionLabelMany:"You have {n} ongoing stays. Pick the property:",
+    vehSessionLabelOne:"Your stay · {prop}",
+    vehSessionLabelMany:"You have stays in {n} properties. Pick one:",
     vehNoActiveStays:"You have no active stays today. Vehicles will show up when your reservation is ongoing.",
     /* ── Profile wizard ── */
     profileCardTitle:"Complete your profile",
@@ -10218,6 +10368,23 @@ document.addEventListener("DOMContentLoaded", function(){
     setTimeout(applyVehiclesSessionFilter, 200);
   }
 
+  function parseLocalDate(s){
+    if (!s) return null;
+    let raw = String(s);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) raw = raw + "T00:00:00";
+    const d = new Date(raw);
+    return isNaN(d) ? null : d;
+  }
+  function staysOverlap(myIng, mySal, otherIng, otherSal){
+    // Hay traslape si NO (yo termino antes que el otro empiece) Y NO (el otro
+    // termina antes que yo empiece). Si alguna salida es null, se asume
+    // = ingreso + 1 día (al menos 1 noche).
+    if (!myIng || !otherIng) return false;
+    const myEnd = mySal || new Date(myIng.getTime() + 24*60*60*1000);
+    const otherEnd = otherSal || new Date(otherIng.getTime() + 24*60*60*1000);
+    return myIng <= otherEnd && otherIng <= myEnd;
+  }
+
   function applyVehiclesSessionFilter(){
     const session = getSession();
     const bar = $("vehiclesSessionBar");
@@ -10225,19 +10392,19 @@ document.addEventListener("DOMContentLoaded", function(){
     bar.classList.remove("hidden");
     const i = getI18n();
     const rows = window.checkinnAuth?._cachedStays || [];
-    // Estancias en curso = status "ongoing"
-    const today = new Date(); today.setHours(0,0,0,0);
-    const ongoing = rows.filter(r => {
-      const ing = (function(s){ if (!s) return null; let raw = String(s); if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) raw = raw + "T00:00:00"; const d = new Date(raw); return isNaN(d) ? null : d; })(r.ingreso);
-      const sal = (function(s){ if (!s) return null; let raw = String(s); if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) raw = raw + "T00:00:00"; const d = new Date(raw); return isNaN(d) ? null : d; })(r.salida);
-      if (!ing) return false;
-      if (ing > today) return false;
-      if (sal && sal < today) return false;
-      return true;
+    // Considera TODAS las estancias del usuario (no solo en curso).
+    // Una propiedad entra al filtro si tengo al menos una estancia en ella.
+    const propStays = {};
+    rows.forEach(r => {
+      const prop = pickField(r, ["Propiedad", "propiedad"]);
+      if (!prop) return;
+      if (!propStays[prop]) propStays[prop] = [];
+      propStays[prop].push({
+        ingreso: parseLocalDate(pickField(r, ["Fecha de ingreso", "fecha_ingreso", "ingreso"])),
+        salida: parseLocalDate(pickField(r, ["Fecha de salida", "fecha_salida", "salida"]))
+      });
     });
-    const propsSet = new Set();
-    ongoing.forEach(r => { if (r.propiedad) propsSet.add(r.propiedad); });
-    const props = Array.from(propsSet);
+    const props = Object.keys(propStays);
     const label = $("vehiclesSessionLabel");
     const tabs = $("vehiclesPropTabs");
     const empty = $("vehiclesSessionEmpty");
@@ -10248,12 +10415,18 @@ document.addEventListener("DOMContentLoaded", function(){
       return;
     }
     if (empty) empty.classList.add("hidden");
+
+    // Cache de stays por propiedad para que el filtro de vehículos pueda
+    // usar el cruce de fechas.
+    window.__userStaysByProp = propStays;
+    window.__userPhoneKey = `+${session.lada}${session.phone}`;
+
     if (props.length === 1) {
-      if (label) label.textContent = (i.vehSessionLabelOne || "Tu estancia en curso · {prop}").replace("{prop}", props[0]);
+      if (label) label.textContent = (i.vehSessionLabelOne || "Tu estancia · {prop}").replace("{prop}", props[0]);
       if (tabs) { tabs.innerHTML = ""; tabs.classList.add("hidden"); }
       autoLoadVehiclesForProperty(props[0]);
     } else {
-      if (label) label.textContent = (i.vehSessionLabelMany || "Tienes {n} estancias en curso. Elige la propiedad:").replace("{n}", props.length);
+      if (label) label.textContent = (i.vehSessionLabelMany || "Tienes estancias en {n} propiedades. Elige una:").replace("{n}", props.length);
       if (tabs) {
         tabs.innerHTML = props.map((p, idx) =>
           `<button type="button" class="vehicles-prop-tab ${idx===0?"active":""}" data-prop="${escapeHtml(p)}">${escapeHtml(p)}</button>`
@@ -10271,24 +10444,121 @@ document.addEventListener("DOMContentLoaded", function(){
     }
   }
 
-  function autoLoadVehiclesForProperty(prop){
-    const sel = document.getElementById("vehiculos_propiedad_filtro");
-    if (!sel) return;
-    // Esperar a que las opciones estén cargadas
-    let tries = 0;
-    const tryFill = () => {
-      tries++;
-      const has = Array.from(sel.options).some(o => o.value === prop || o.textContent === prop);
-      if (!has && tries < 30) { setTimeout(tryFill, 100); return; }
-      // Encontrar la opción
-      const opt = Array.from(sel.options).find(o => o.value === prop || o.textContent === prop);
-      if (opt) {
-        sel.value = opt.value;
-        // Disparar evento change (la lógica existente busca al cambiar)
-        sel.dispatchEvent(new Event("change", { bubbles: true }));
+  async function autoLoadVehiclesForProperty(prop){
+    // Flujo:
+    // 1. list_records (sin filtro confiable de propiedad) → todas las reservaciones
+    // 2. Filtrar client-side: propiedad coincide + celular ≠ mío + fechas cruzan con mi estancia
+    // 3. Para cada candidato → get_record_detail para verificar si tiene vehículo
+    // 4. Renderizar solo los que tienen vehículo (Marca/Placas no vacíos)
+    const propStays = window.__userStaysByProp?.[prop] || [];
+    const myPhoneKey = window.__userPhoneKey || "";
+    const meta = document.getElementById("vehiculosMeta");
+    const tableBody = document.getElementById("vehiculosTableBody");
+    if (meta) meta.textContent = `Buscando vehículos en ${prop} que crucen con tus fechas...`;
+    if (tableBody) tableBody.innerHTML = '<div class="vehicle-empty">Cargando...</div>';
+    try {
+      const webAppUrl = (typeof WEB_APP_URL !== "undefined" && WEB_APP_URL) ? WEB_APP_URL : null;
+      if (!webAppUrl) throw new Error("WEB_APP_URL no disponible");
+      // Traemos todas las reservaciones (list_records ignora propiedad pero da el resto)
+      const params = new URLSearchParams();
+      params.set("action", "list_records");
+      params.set("page", "1");
+      params.set("page_size", "500");
+      const res = await fetch(`${webAppUrl}?${params.toString()}`);
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || json.message || "Error al consultar reservaciones");
+      const allRows = Array.isArray(json.rows) ? json.rows : [];
+      // Filtrado primario
+      const myDigits = myPhoneKey.replace(/\D/g, "");
+      const candidates = [];
+      for (const row of allRows) {
+        if (pickField(row, ["Propiedad", "propiedad"]) !== prop) continue;
+        const otherPhone = pickField(row, ["Cel/Whatsapp (principal)", "Celular principal", "Whatsapp principal"]);
+        const otherDigits = otherPhone.replace(/\D/g, "");
+        if (myDigits && otherDigits && (otherDigits === myDigits || otherDigits.endsWith(myDigits) || myDigits.endsWith(otherDigits))) continue;
+        const otherIng = parseLocalDate(pickField(row, ["Fecha de ingreso", "fecha_ingreso", "ingreso"]));
+        const otherSal = parseLocalDate(pickField(row, ["Fecha de salida", "fecha_salida", "salida"]));
+        const crosses = propStays.some(s => staysOverlap(s.ingreso, s.salida, otherIng, otherSal));
+        if (!crosses) continue;
+        candidates.push(row);
       }
-    };
-    tryFill();
+      if (!candidates.length) {
+        if (tableBody) tableBody.innerHTML = '<div class="vehicle-empty">No hay otros huéspedes en esta propiedad que crucen con tus fechas.</div>';
+        if (meta) meta.textContent = `Sin huéspedes en ${prop} que crucen con tus fechas.`;
+        return;
+      }
+      if (meta) meta.textContent = `Verificando ${candidates.length} candidato${candidates.length !== 1 ? "s" : ""} en ${prop}...`;
+      // Obtener detalle de cada candidato en paralelo
+      const detailPromises = candidates.map(async (row) => {
+        const recordId = String(row["ID"] || row["row_number"] || "").trim();
+        if (!recordId) return null;
+        try {
+          const detailRes = await fetch(`${webAppUrl}?action=get_record_detail&record_id=${encodeURIComponent(recordId)}`);
+          const detailJson = await detailRes.json();
+          if (!detailJson.ok) return null;
+          return { row, detail: detailJson.record || row };
+        } catch(_e) { return null; }
+      });
+      const details = (await Promise.all(detailPromises)).filter(Boolean);
+      // Filtrar los que SÍ tienen vehículo (nombres reales del Sheet)
+      const vehicles = details.filter(d => {
+        const tieneVeh = pickField(d.detail, ["¿Cuenta con vehículo?", "¿Cuentas con vehículo?", "Cuenta con vehiculo", "Tiene vehículo"]).toLowerCase();
+        if (tieneVeh && !(tieneVeh === "sí" || tieneVeh === "si" || tieneVeh === "yes")) return false;
+        const marca = pickField(d.detail, ["Marca vehículo", "Marca", "Marca vehiculo"]);
+        const placas = pickField(d.detail, ["Placas", "# Placas"]);
+        return !!(marca || placas);
+      });
+      // Renderizar
+      if (tableBody) {
+        if (!vehicles.length) {
+          tableBody.innerHTML = '<div class="vehicle-empty">Ningún huésped en esta propiedad (con fechas cruzadas) registró vehículo.</div>';
+        } else {
+          tableBody.innerHTML = vehicles.map(({row, detail}) => {
+            const nombre = pickField(detail, ["Nombre del huésped 1", "Nombre de la persona que hizo la reservación"]) || "Huésped";
+            const marca = pickField(detail, ["Marca vehículo", "Marca"]) || "—";
+            const modelo = pickField(detail, ["Modelo vehículo", "Modelo"]) || "";
+            const color = pickField(detail, ["Color vehículo", "Color"]) || "";
+            const placas = pickField(detail, ["Placas", "# Placas"]) || "—";
+            const depto = pickField(detail, ["# Departamento"]) || "—";
+            const horaSalida = pickField(detail, ["Hora habitual de salida"]) || "";
+            const cel = pickField(detail, ["Cel/Whatsapp (principal)"]) || "";
+            const celDigits = cel.replace(/\D/g, "");
+            const waLink = celDigits ? `https://wa.me/${celDigits}` : "";
+            const ingreso = pickField(detail, ["Fecha de ingreso"]);
+            const salida = pickField(detail, ["Fecha de salida"]);
+            return `
+              <div class="vehicle-card" style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 4px 12px rgba(15,23,42,.04);">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
+                  <div>
+                    <div style="font-weight:800;font-size:15px;color:var(--text);">${escapeHtmlSafe(marca)} ${escapeHtmlSafe(modelo)}</div>
+                    <div style="font-size:12px;color:var(--text-soft);margin-top:2px;">Placas: <strong>${escapeHtmlSafe(placas)}</strong>${color ? " · " + escapeHtmlSafe(color) : ""}</div>
+                  </div>
+                  ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener" style="margin-top:0;padding:6px 12px;background:#25d366;color:#fff;border-radius:999px;font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">📱 WhatsApp</a>` : ""}
+                </div>
+                <div style="border-top:1px solid var(--border);padding-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:12px;color:var(--text);">
+                  <div><span style="color:var(--text-soft);">Huésped:</span> ${escapeHtmlSafe(nombre)}</div>
+                  <div><span style="color:var(--text-soft);">Depto:</span> ${escapeHtmlSafe(depto)}</div>
+                  <div><span style="color:var(--text-soft);">Estancia:</span> ${escapeHtmlSafe(ingreso)} → ${escapeHtmlSafe(salida)}</div>
+                  ${horaSalida ? `<div><span style="color:var(--text-soft);">Hora salida:</span> ${escapeHtmlSafe(horaSalida)}</div>` : ""}
+                </div>
+              </div>
+            `;
+          }).join("");
+        }
+      }
+      if (meta) {
+        meta.textContent = vehicles.length
+          ? `${vehicles.length} vehículo${vehicles.length !== 1 ? "s" : ""} en ${prop} cruzando con tus fechas.`
+          : `Sin vehículos en ${prop} con fechas cruzadas.`;
+      }
+    } catch(err) {
+      console.warn("[vehicles] error:", err);
+      if (meta) meta.textContent = `Error: ${err.message}`;
+      if (tableBody) tableBody.innerHTML = `<div class="vehicle-empty">Error: ${escapeHtmlSafe(err.message)}</div>`;
+    }
+  }
+  function escapeHtmlSafe(v){
+    return String(v == null ? "" : v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   }
 
   function refreshSessionPill(){
@@ -10301,6 +10571,9 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     // Marca body para que CSS oculte secciones del perfil en el form principal
     document.body.classList.toggle("has-session", !!s);
+    // Mostrar/ocultar botón hamburguesa según sesión
+    const hb = $("hamburgerBtn");
+    if (hb) hb.classList.toggle("visible", !!s);
     // Pre-rellena el nombre del reservante con el del perfil del wizard
     if (s) {
       try {
@@ -10597,22 +10870,32 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function calcAntiguedad(firstDate){
     if (!firstDate) return "—";
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const startDay = new Date(firstDate);
-    startDay.setHours(0, 0, 0, 0);
-    const days = Math.max(0, Math.floor((today - startDay) / (24*60*60*1000)));
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const startDay = new Date(firstDate); startDay.setHours(0, 0, 0, 0);
+    if (startDay > today) return "—";
     const lang = window.currentLang || "es";
-    if (days < 30) {
-      if (days === 0) return lang === "en" ? "Today" : "Hoy";
-      return lang === "en"
-        ? `${days} day${days !== 1 ? "s" : ""}`
-        : `${days} día${days !== 1 ? "s" : ""}`;
+    // Diferencia en meses calendario completos
+    let months = (today.getFullYear() - startDay.getFullYear()) * 12 + (today.getMonth() - startDay.getMonth());
+    if (today.getDate() < startDay.getDate()) months -= 1;
+    if (months < 1) {
+      return lang === "en" ? "<1 month" : "<1 mes";
     }
-    const months = Math.floor(days / 30.4375);
-    return lang === "en"
-      ? `${months} month${months !== 1 ? "s" : ""}`
-      : `${months} ${months === 1 ? "mes" : "meses"}`;
+    if (months < 12) {
+      return lang === "en"
+        ? `${months} month${months !== 1 ? "s" : ""}`
+        : `${months} ${months === 1 ? "mes" : "meses"}`;
+    }
+    const years = Math.floor(months / 12);
+    const remMonths = months % 12;
+    if (lang === "en") {
+      const yPart = `${years} year${years !== 1 ? "s" : ""}`;
+      if (remMonths === 0) return yPart;
+      return `${yPart} ${remMonths} month${remMonths !== 1 ? "s" : ""}`;
+    } else {
+      const yPart = `${years} ${years === 1 ? "año" : "años"}`;
+      if (remMonths === 0) return yPart;
+      return `${yPart} ${remMonths} ${remMonths === 1 ? "mes" : "meses"}`;
+    }
   }
   function renderKPIs(rows){
     const noches = rows.reduce((acc, r) => {
@@ -11016,6 +11299,35 @@ document.addEventListener("DOMContentLoaded", function(){
       setMenuActive("registro");
     });
     $("btnHomeVehiculos")?.addEventListener("click", gotoExpressVehiculos);
+    // Menú hamburguesa
+    $("hamburgerBtn")?.addEventListener("click", () => {
+      $("navSidebar")?.classList.add("open");
+      $("navOverlay")?.classList.add("open");
+      document.body.style.overflow = "hidden";
+    });
+    const closeNavMenu = () => {
+      $("navSidebar")?.classList.remove("open");
+      $("navOverlay")?.classList.remove("open");
+      document.body.style.overflow = "";
+    };
+    $("navCloseBtn")?.addEventListener("click", closeNavMenu);
+    $("navOverlay")?.addEventListener("click", closeNavMenu);
+    $("navItemPersonal")?.addEventListener("click", () => {
+      closeNavMenu();
+      if (window.checkinnProfile?.openWizard) window.checkinnProfile.openWizard();
+    });
+    $("navItemVehiculos")?.addEventListener("click", () => {
+      closeNavMenu();
+      gotoExpressVehiculos();
+    });
+    $("navItemEstancias")?.addEventListener("click", () => {
+      closeNavMenu();
+      gotoHome();
+      setTimeout(() => {
+        const tableEl = document.querySelector("#viewHome .stays-card");
+        if (tableEl) tableEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 200);
+    });
     // Paginación + page size + detalle de la tabla Tu estancia
     $("staysPrevBtn")?.addEventListener("click", () => { if (staysPage > 1) { staysPage--; renderStaysPage(); }});
     $("staysNextBtn")?.addEventListener("click", () => {
@@ -11406,32 +11718,28 @@ document.addEventListener("DOMContentLoaded", function(){
     if (!card) return;
     const session = window.checkinnAuth?.getSession();
     if (!session) { card.style.display = "none"; return; }
-    card.style.display = "";
     // Siempre recargar de storage para reflejar cambios externos
     activePhoneKey = getPhoneKey();
     activeProfile = loadProfile(activePhoneKey);
     const pct = profileCompletionPercent(activeProfile);
+    // Si está al 100%, ocultar la card. El acceso para actualizar se mantiene
+    // via el menú hamburguesa → "Datos personales".
+    if (pct === 100) { card.style.display = "none"; return; }
+    card.style.display = "";
     const i = getI18n();
     $("profileCardPct").textContent = pct + "%";
     const bar = $("profileProgressBar");
     if (bar) bar.style.width = pct + "%";
-    card.classList.toggle("completed", pct === 100);
+    card.classList.remove("completed");
     const icon = $("profileCardIcon");
-    if (icon) icon.textContent = pct === 100 ? "✓" : "📋";
-    // Título: "Completa tus datos" o "Actualiza tus datos" cuando al 100%
+    if (icon) icon.textContent = "📋";
     const titleEl = card.querySelector('.profile-card-title span[data-i18n="profileCardTitle"]');
-    if (titleEl) {
-      titleEl.textContent = pct === 100
-        ? (i.profileCardTitleDone || "Actualiza tus datos")
-        : (i.profileCardTitle || "Completa tus datos");
-    }
+    if (titleEl) titleEl.textContent = i.profileCardTitle || "Completa tus datos";
     const sub = $("profileCardSub");
     if (sub) {
-      sub.textContent = pct === 100
-        ? (i.profileCardSubDone || "Tu perfil está completo.")
-        : pct > 0
-          ? (i.profileCardSubPartial || "Continúa donde lo dejaste.")
-          : (i.profileCardSubEmpty || "Captura tu perfil una sola vez.");
+      sub.textContent = pct > 0
+        ? (i.profileCardSubPartial || "Continúa donde lo dejaste.")
+        : (i.profileCardSubEmpty || "Captura tu perfil una sola vez.");
     }
   }
 
