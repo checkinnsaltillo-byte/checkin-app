@@ -3266,6 +3266,66 @@ function formatRangoFechasSimple(inicio, fin){
   line-height:1.3;
 }
 
+/* ───── Vehículos: banner de sesión + tabs de propiedades ───── */
+body.has-session #vehicleInfoToolbar,
+body.has-session #vehicleFilterActions{ display:none !important; }
+.vehicles-session-bar{
+  background:linear-gradient(180deg,var(--primary-soft) 0%, #ffffff 100%);
+  border:1px solid var(--border-strong);
+  border-radius:14px;
+  padding:14px 16px;
+  margin-bottom:14px;
+}
+.vehicles-session-bar.hidden{ display:none; }
+.vehicles-session-label{
+  font-size:13px;
+  font-weight:700;
+  color:var(--primary-dark);
+  margin-bottom:8px;
+}
+.vehicles-prop-tabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.vehicles-prop-tabs.hidden{ display:none; }
+.vehicles-prop-tab{
+  margin-top:0;
+  padding:8px 14px;
+  font-size:13px;
+  font-weight:700;
+  background:#fff;
+  color:var(--primary-dark);
+  border:1px solid var(--border-strong);
+  box-shadow:none;
+  border-radius:999px;
+  cursor:pointer;
+}
+.vehicles-prop-tab:hover{
+  background:var(--primary-soft);
+  border-color:var(--primary);
+  transform:none;
+  filter:none;
+  box-shadow:none;
+}
+.vehicles-prop-tab.active{
+  background:linear-gradient(180deg,var(--primary) 0%, var(--primary-strong) 100%);
+  color:#fff;
+  border-color:transparent;
+}
+.vehicles-session-empty{
+  background:#fff;
+  border:1px dashed var(--border-strong);
+  border-radius:12px;
+  padding:14px;
+  font-size:13px;
+  color:var(--text-soft);
+  line-height:1.5;
+  text-align:center;
+  margin-top:8px;
+}
+.vehicles-session-empty.hidden{ display:none; }
+
 /* ───── Estado semáforo en tabla ───── */
 .stays-status-cell{
   display:inline-flex;
@@ -3286,6 +3346,51 @@ function formatRangoFechasSimple(inicio, fin){
 .stays-status-label{ font-size:12px; font-weight:700; }
 .stays-row-clickable{ cursor:pointer; transition:background .12s; }
 .stays-row-clickable:hover{ background:var(--primary-soft); }
+
+/* ───── Preview de factura en tabla ───── */
+.stays-invoice-cell{
+  text-align:center;
+  vertical-align:middle !important;
+}
+.stays-invoice-thumb{
+  display:inline-block;
+  width:42px;
+  height:42px;
+  border:1px solid var(--border-strong);
+  border-radius:8px;
+  overflow:hidden;
+  background:#f8fafc;
+  cursor:zoom-in;
+  vertical-align:middle;
+  position:relative;
+  transition:transform .15s, box-shadow .15s;
+}
+.stays-invoice-thumb:hover{
+  transform:scale(1.1);
+  box-shadow:0 4px 12px rgba(15,23,42,.15);
+}
+.stays-invoice-thumb img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.stays-invoice-thumb-none{
+  display:inline-block;
+  color:var(--text-soft);
+  font-size:18px;
+  font-weight:600;
+  line-height:1;
+}
+/* Imagen del modal de zoom con cursor lupa */
+#imageZoomImg{
+  cursor:zoom-in;
+  transition:transform .25s ease;
+}
+#imageZoomImg.zoomed{
+  cursor:zoom-out;
+  transform:scale(1.8);
+}
 
 /* ───── Paginación tabla ───── */
 .stays-pager{
@@ -3754,9 +3859,9 @@ body.has-session input[name="nombre"] {
         <div class="kpi-label" data-i18n="kpiMontoLabel">Monto total</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon">📅</div>
-        <div class="kpi-value kpi-range" id="kpiRange">—</div>
-        <div class="kpi-label" data-i18n="kpiRangeLabel">Primera · última estancia</div>
+        <div class="kpi-icon">⏳</div>
+        <div class="kpi-value" id="kpiAntiguedad">—</div>
+        <div class="kpi-label" data-i18n="kpiAntiguedadLabel">Antigüedad</div>
       </div>
     </div>
 
@@ -3790,11 +3895,12 @@ body.has-session input[name="nombre"] {
               <th data-i18n="staysThIngreso">Ingreso</th>
               <th data-i18n="staysThSalida">Salida</th>
               <th data-i18n="staysThMonto">Monto total</th>
+              <th data-i18n="staysThFactura">Factura</th>
             </tr>
           </thead>
           <tbody id="staysBody">
             <tr class="stays-empty-row">
-              <td colspan="6" data-i18n="staysEmpty">Aún no tienes estancias registradas.</td>
+              <td colspan="7" data-i18n="staysEmpty">Aún no tienes estancias registradas.</td>
             </tr>
           </tbody>
         </table>
@@ -3824,7 +3930,15 @@ body.has-session input[name="nombre"] {
 <div class="section">
 <h2 class="section-title" data-i18n="vehSectionTitle">Información de vehículos</h2>
 <p class="section-subtitle" data-i18n="vehSectionSub">Consulta los vehículos con estancia activa hoy y filtra la información por propiedad.</p>
-<div class="vehicle-info-toolbar">
+
+<!-- Banner para usuarios con sesión: auto-filtrado por estancia(s) en curso -->
+<div class="vehicles-session-bar hidden" id="vehiclesSessionBar">
+  <div class="vehicles-session-label" id="vehiclesSessionLabel"></div>
+  <div class="vehicles-prop-tabs hidden" id="vehiclesPropTabs"></div>
+  <div class="vehicles-session-empty hidden" id="vehiclesSessionEmpty" data-i18n="vehNoActiveStays">No tienes estancias activas hoy. Verás los vehículos cuando tu reservación esté en curso.</div>
+</div>
+
+<div class="vehicle-info-toolbar" id="vehicleInfoToolbar">
 <div>
 <label for="vehiculos_propiedad_filtro">Propiedad</label>
 <select id="vehiculos_propiedad_filtro">
@@ -3832,7 +3946,7 @@ body.has-session input[name="nombre"] {
 </select>
 </div>
 </div>
-<div class="filter-actions">
+<div class="filter-actions" id="vehicleFilterActions">
 <button id="btnBuscarVehiculos" type="button">Buscar vehículos</button>
 <button class="menu-btn secondary" id="btnLimpiarVehiculos" style="flex:0 0 auto;" type="button">Limpiar filtros</button>
 </div>
@@ -6265,11 +6379,15 @@ const SIMPLE_I18N = {
     menuVehiculosBtn:"Información de vehículos",
     vehSectionTitle:"Información de vehículos",
     vehSectionSub:"Consulta los vehículos con estancia activa hoy y filtra la información por propiedad.",
+    vehSessionLabelOne:"Tu estancia en curso · {prop}",
+    vehSessionLabelMany:"Tienes {n} estancias en curso. Elige la propiedad:",
+    vehNoActiveStays:"No tienes estancias activas hoy. Verás los vehículos cuando tu reservación esté en curso.",
     /* ── Profile wizard ── */
     profileCardTitle:"Completa tus datos",
+    profileCardTitleDone:"Actualiza tus datos",
     profileCardSubEmpty:"Captura tu perfil una sola vez (identificación, datos fiscales, vehículo) y reserva más rápido en el futuro.",
     profileCardSubPartial:"Continúa donde lo dejaste para activar reservaciones rápidas.",
-    profileCardSubDone:"Tu perfil está completo. Puedes reservar en segundos.",
+    profileCardSubDone:"Tu perfil está completo. Ábrelo para revisar o actualizar cualquier dato.",
     wizardHeader:"Completa tus datos",
     wizardSubheader:"Te lo pediremos solo una vez. Después podrás reservar en segundos.",
     wizardStepX:"Paso {n} de 4",
@@ -6319,6 +6437,7 @@ const SIMPLE_I18N = {
     stayDetailTitle:"Detalle de la estancia",
     /* Tabla Tu estancia mejorada */
     staysThEstado:"Estado",
+    staysThFactura:"Factura",
     staysStatusFuture:"Próxima",
     staysStatusOngoing:"En curso",
     staysStatusPast:"Concluida",
@@ -6331,6 +6450,7 @@ const SIMPLE_I18N = {
     kpiAlojamientosLabel:"Alojamientos",
     kpiMontoLabel:"Monto total",
     kpiRangeLabel:"Primera · última estancia",
+    kpiAntiguedadLabel:"Antigüedad",
     /* Cambio de celular */
     changePhoneBtn:"✏️ Cambiar celular",
     changePhoneTitleA:"Cambiar celular",
@@ -6483,11 +6603,15 @@ const SIMPLE_I18N = {
     menuVehiculosBtn:"Vehicle information",
     vehSectionTitle:"Vehicle information",
     vehSectionSub:"See vehicles with an active stay today and filter by property.",
+    vehSessionLabelOne:"Your ongoing stay · {prop}",
+    vehSessionLabelMany:"You have {n} ongoing stays. Pick the property:",
+    vehNoActiveStays:"You have no active stays today. Vehicles will show up when your reservation is ongoing.",
     /* ── Profile wizard ── */
     profileCardTitle:"Complete your profile",
+    profileCardTitleDone:"Update your profile",
     profileCardSubEmpty:"Fill in your profile once (ID, tax info, vehicle) and book faster from now on.",
     profileCardSubPartial:"Pick up where you left off to enable fast bookings.",
-    profileCardSubDone:"Your profile is complete. You can book in seconds.",
+    profileCardSubDone:"Your profile is complete. Open it to review or update any data.",
     wizardHeader:"Complete your profile",
     wizardSubheader:"We'll only ask you once. After that you can book in seconds.",
     wizardStepX:"Step {n} of 4",
@@ -6536,6 +6660,7 @@ const SIMPLE_I18N = {
     cancelBtn:"Cancel",
     stayDetailTitle:"Stay details",
     staysThEstado:"Status",
+    staysThFactura:"Invoice",
     staysStatusFuture:"Upcoming",
     staysStatusOngoing:"Ongoing",
     staysStatusPast:"Completed",
@@ -6547,6 +6672,7 @@ const SIMPLE_I18N = {
     kpiAlojamientosLabel:"Stays",
     kpiMontoLabel:"Total amount",
     kpiRangeLabel:"First · last stay",
+    kpiAntiguedadLabel:"Member since",
     changePhoneBtn:"✏️ Change phone",
     changePhoneTitleA:"Change phone",
     changePhoneSubA:"Enter the new number. We'll send a WhatsApp code to validate it.",
@@ -10088,6 +10214,81 @@ document.addEventListener("DOMContentLoaded", function(){
     if (typeof window.cargarPropiedadesVehiculos === "function") {
       try { window.cargarPropiedadesVehiculos(false); } catch(e){}
     }
+    // Si hay sesión, aplicar auto-filtrado por estancia(s) en curso
+    setTimeout(applyVehiclesSessionFilter, 200);
+  }
+
+  function applyVehiclesSessionFilter(){
+    const session = getSession();
+    const bar = $("vehiclesSessionBar");
+    if (!session || !bar) return;
+    bar.classList.remove("hidden");
+    const i = getI18n();
+    const rows = window.checkinnAuth?._cachedStays || [];
+    // Estancias en curso = status "ongoing"
+    const today = new Date(); today.setHours(0,0,0,0);
+    const ongoing = rows.filter(r => {
+      const ing = (function(s){ if (!s) return null; let raw = String(s); if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) raw = raw + "T00:00:00"; const d = new Date(raw); return isNaN(d) ? null : d; })(r.ingreso);
+      const sal = (function(s){ if (!s) return null; let raw = String(s); if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) raw = raw + "T00:00:00"; const d = new Date(raw); return isNaN(d) ? null : d; })(r.salida);
+      if (!ing) return false;
+      if (ing > today) return false;
+      if (sal && sal < today) return false;
+      return true;
+    });
+    const propsSet = new Set();
+    ongoing.forEach(r => { if (r.propiedad) propsSet.add(r.propiedad); });
+    const props = Array.from(propsSet);
+    const label = $("vehiclesSessionLabel");
+    const tabs = $("vehiclesPropTabs");
+    const empty = $("vehiclesSessionEmpty");
+    if (props.length === 0) {
+      if (label) label.textContent = "";
+      if (tabs) { tabs.innerHTML = ""; tabs.classList.add("hidden"); }
+      if (empty) empty.classList.remove("hidden");
+      return;
+    }
+    if (empty) empty.classList.add("hidden");
+    if (props.length === 1) {
+      if (label) label.textContent = (i.vehSessionLabelOne || "Tu estancia en curso · {prop}").replace("{prop}", props[0]);
+      if (tabs) { tabs.innerHTML = ""; tabs.classList.add("hidden"); }
+      autoLoadVehiclesForProperty(props[0]);
+    } else {
+      if (label) label.textContent = (i.vehSessionLabelMany || "Tienes {n} estancias en curso. Elige la propiedad:").replace("{n}", props.length);
+      if (tabs) {
+        tabs.innerHTML = props.map((p, idx) =>
+          `<button type="button" class="vehicles-prop-tab ${idx===0?"active":""}" data-prop="${escapeHtml(p)}">${escapeHtml(p)}</button>`
+        ).join("");
+        tabs.classList.remove("hidden");
+        tabs.querySelectorAll(".vehicles-prop-tab").forEach(btn => {
+          btn.addEventListener("click", () => {
+            tabs.querySelectorAll(".vehicles-prop-tab").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            autoLoadVehiclesForProperty(btn.dataset.prop);
+          });
+        });
+      }
+      autoLoadVehiclesForProperty(props[0]);
+    }
+  }
+
+  function autoLoadVehiclesForProperty(prop){
+    const sel = document.getElementById("vehiculos_propiedad_filtro");
+    if (!sel) return;
+    // Esperar a que las opciones estén cargadas
+    let tries = 0;
+    const tryFill = () => {
+      tries++;
+      const has = Array.from(sel.options).some(o => o.value === prop || o.textContent === prop);
+      if (!has && tries < 30) { setTimeout(tryFill, 100); return; }
+      // Encontrar la opción
+      const opt = Array.from(sel.options).find(o => o.value === prop || o.textContent === prop);
+      if (opt) {
+        sel.value = opt.value;
+        // Disparar evento change (la lógica existente busca al cambiar)
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    };
+    tryFill();
   }
 
   function refreshSessionPill(){
@@ -10166,8 +10367,25 @@ document.addEventListener("DOMContentLoaded", function(){
         "$ Monto facturado Total", "Monto facturado Total",
         "$ Monto pagado", "Monto pagado", "monto_pagado",
         "Monto", "Total", "$ Total"
-      ])
+      ]),
+      ticketUrl: pickField(row, ["Ticket facturapi url", "ticket facturapi url", "Ticket facturapi URL"]),
+      requiereFactura: pickField(row, ["¿Requiere factura?", "Requiere factura"])
     };
+  }
+
+  function driveIdFromUrl(url){
+    if (!url) return "";
+    const m1 = String(url).match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (m1) return m1[1];
+    const m2 = String(url).match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (m2) return m2[1];
+    return "";
+  }
+  function driveThumbUrl(url, size){
+    const id = driveIdFromUrl(url);
+    if (!id) return "";
+    const w = size || 400;
+    return `https://drive.google.com/thumbnail?id=${id}&sz=w${w}`;
   }
 
   async function fetchAllStaysByPhone(userDigits){
@@ -10254,6 +10472,11 @@ document.addEventListener("DOMContentLoaded", function(){
   function renderStayRow(stay, idx){
     const status = getStayStatus(stay);
     const i = getI18n();
+    const thumbUrl = driveThumbUrl(stay.ticketUrl, 240);
+    const fullThumbUrl = driveThumbUrl(stay.ticketUrl, 1200);
+    const facturaCell = thumbUrl
+      ? `<span class="stays-invoice-thumb" data-zoom-src="${escapeHtml(fullThumbUrl)}" data-stay-index="${idx}" title="Ver factura"><img src="${escapeHtml(thumbUrl)}" alt="factura" loading="lazy"/></span>`
+      : `<span class="stays-invoice-thumb-none" title="${escapeHtml(stay.requiereFactura === "No" ? "No requiere" : "Pendiente")}">—</span>`;
     return `<tr class="stays-row-clickable" data-stay-index="${idx}">
       <td>
         <span class="stays-status-cell">
@@ -10266,6 +10489,7 @@ document.addEventListener("DOMContentLoaded", function(){
       <td>${escapeHtml(fmtFecha(stay.ingreso))}</td>
       <td>${escapeHtml(fmtFecha(stay.salida))}</td>
       <td class="stays-amount">${escapeHtml(fmtMonto(stay.monto))}</td>
+      <td class="stays-invoice-cell">${facturaCell}</td>
     </tr>`;
   }
 
@@ -10289,7 +10513,17 @@ document.addEventListener("DOMContentLoaded", function(){
     body.innerHTML = slice.map((stay, i) => renderStayRow(stay, start + i)).join("");
     // Click handlers
     body.querySelectorAll("tr.stays-row-clickable").forEach(tr => {
-      tr.addEventListener("click", () => {
+      tr.addEventListener("click", (ev) => {
+        // Si clickearon el thumbnail de factura, abrir zoom y no abrir detalle
+        const thumb = ev.target.closest(".stays-invoice-thumb");
+        if (thumb) {
+          ev.stopPropagation();
+          const src = thumb.dataset.zoomSrc;
+          if (src && window.checkinnImages?.openZoom) {
+            window.checkinnImages.openZoom(src);
+          }
+          return;
+        }
         const idx = Number(tr.dataset.stayIndex);
         showStayDetail(idx);
       });
@@ -10361,6 +10595,25 @@ document.addEventListener("DOMContentLoaded", function(){
     document.body.style.overflow = "";
   }
 
+  function calcAntiguedad(firstDate){
+    if (!firstDate) return "—";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDay = new Date(firstDate);
+    startDay.setHours(0, 0, 0, 0);
+    const days = Math.max(0, Math.floor((today - startDay) / (24*60*60*1000)));
+    const lang = window.currentLang || "es";
+    if (days < 30) {
+      if (days === 0) return lang === "en" ? "Today" : "Hoy";
+      return lang === "en"
+        ? `${days} day${days !== 1 ? "s" : ""}`
+        : `${days} día${days !== 1 ? "s" : ""}`;
+    }
+    const months = Math.floor(days / 30.4375);
+    return lang === "en"
+      ? `${months} month${months !== 1 ? "s" : ""}`
+      : `${months} ${months === 1 ? "mes" : "meses"}`;
+  }
   function renderKPIs(rows){
     const noches = rows.reduce((acc, r) => {
       const ing = parseDateLocal(r.ingreso);
@@ -10377,12 +10630,11 @@ document.addEventListener("DOMContentLoaded", function(){
     }, 0);
     const dates = rows.map(r => parseDateLocal(r.ingreso)).filter(Boolean).sort((a,b) => a - b);
     const first = dates[0];
-    const last = dates[dates.length - 1];
     const $set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
     $set("kpiNoches", noches);
     $set("kpiAlojamientos", aloj);
     $set("kpiMonto", fmtMonto(monto));
-    $set("kpiRange", (first && last) ? (first.getTime() === last.getTime() ? fmtFecha(first.toISOString().slice(0,10)) : `${fmtFecha(first.toISOString().slice(0,10))} → ${fmtFecha(last.toISOString().slice(0,10))}`) : "—");
+    $set("kpiAntiguedad", calcAntiguedad(first));
   }
 
   function renderStaysTable(rows){
@@ -11166,6 +11418,13 @@ document.addEventListener("DOMContentLoaded", function(){
     card.classList.toggle("completed", pct === 100);
     const icon = $("profileCardIcon");
     if (icon) icon.textContent = pct === 100 ? "✓" : "📋";
+    // Título: "Completa tus datos" o "Actualiza tus datos" cuando al 100%
+    const titleEl = card.querySelector('.profile-card-title span[data-i18n="profileCardTitle"]');
+    if (titleEl) {
+      titleEl.textContent = pct === 100
+        ? (i.profileCardTitleDone || "Actualiza tus datos")
+        : (i.profileCardTitle || "Completa tus datos");
+    }
     const sub = $("profileCardSub");
     if (sub) {
       sub.textContent = pct === 100
@@ -11542,13 +11801,32 @@ document.addEventListener("DOMContentLoaded", function(){
     const img = $('imageZoomImg');
     if (!modal || !img) return;
     img.src = src;
+    img.classList.remove('zoomed');
+    img.style.transformOrigin = '50% 50%';
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
   }
   function closeZoom(){
     const modal = $('imageZoomModal');
+    const img = $('imageZoomImg');
+    if (img) { img.classList.remove('zoomed'); img.style.transformOrigin = '50% 50%'; }
     if (modal) modal.style.display = 'none';
     document.body.style.overflow = '';
+  }
+  function toggleZoomLevel(ev){
+    const img = $('imageZoomImg');
+    if (!img) return;
+    if (!img.classList.contains('zoomed')) {
+      // Hacer zoom in. Centrar en el punto donde dio click.
+      const rect = img.getBoundingClientRect();
+      const x = ((ev.clientX - rect.left) / rect.width) * 100;
+      const y = ((ev.clientY - rect.top) / rect.height) * 100;
+      img.style.transformOrigin = `${x}% ${y}%`;
+      img.classList.add('zoomed');
+    } else {
+      img.classList.remove('zoomed');
+      img.style.transformOrigin = '50% 50%';
+    }
   }
 
   // MutationObserver: cuando aparecen nuevos preview-wrappers (ej. al cambiar
@@ -11596,6 +11874,12 @@ document.addEventListener("DOMContentLoaded", function(){
     startObserver();
     $('imageZoomCloseBtn')?.addEventListener('click', closeZoom);
     $('imageZoomModal')?.addEventListener('click', (e) => {
+      // Click sobre la imagen → toggle zoom in/out
+      if (e.target.id === 'imageZoomImg') {
+        toggleZoomLevel(e);
+        return;
+      }
+      // Click sobre el backdrop → cerrar
       if (e.target.id === 'imageZoomModal') closeZoom();
     });
     document.addEventListener('keydown', (e) => {
