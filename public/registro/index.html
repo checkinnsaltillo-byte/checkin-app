@@ -3014,6 +3014,35 @@ function formatRangoFechasSimple(inicio, fin){
 .auth-bigbtn.primary:hover{
   filter:brightness(1.04);
 }
+.auth-bigbtn.express-primary{
+  background:linear-gradient(180deg,#fff5f5 0%, #fee2e2 100%);
+  border:2px solid #fca5a5;
+  box-shadow:0 10px 24px rgba(220,38,38,.10);
+  position:relative;
+}
+.auth-bigbtn.express-primary::before{
+  content:"";
+  position:absolute;
+  top:-2px;
+  left:-2px;
+  right:-2px;
+  bottom:-2px;
+  border-radius:20px;
+  background:linear-gradient(135deg,rgba(252,165,165,.30) 0%, transparent 60%);
+  pointer-events:none;
+}
+.auth-bigbtn.express-primary:hover{
+  background:linear-gradient(180deg,#fee2e2 0%, #fecaca 100%);
+  border-color:#f87171;
+  box-shadow:0 16px 32px rgba(220,38,38,.18);
+  transform:translateY(-2px);
+}
+.auth-bigbtn.express-primary .auth-bigbtn-title{
+  color:#991b1b;
+}
+.auth-bigbtn.express-primary .auth-bigbtn-sub{
+  color:#7f1d1d;
+}
 .auth-bigbtn-title{
   font-size:17px;
   font-weight:800;
@@ -4290,13 +4319,13 @@ body.has-session input[name="nombre"] {
     <h2 class="section-title" data-i18n="welcomeTitle">¿Cómo quieres continuar?</h2>
     <p class="section-subtitle" data-i18n="welcomeSubtitle">Selecciona una opción para empezar tu registro o consultar información de vehículos.</p>
     <div class="auth-actions">
-      <button class="auth-bigbtn primary" id="btnGoLogin" type="button">
-        <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🔐</span><span data-i18n="welcomeBtnLogin">Iniciar sesión</span></span>
-        <span class="auth-bigbtn-sub" data-i18n="welcomeBtnLoginSub">Más rápido si ya te has hospedado con nosotros. Te enviamos un código por WhatsApp para validar tu celular y autorrellenar tus datos.</span>
-      </button>
-      <button class="auth-bigbtn" id="btnGoExpress" type="button">
+      <button class="auth-bigbtn express-primary" id="btnGoExpress" type="button">
         <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">⚡</span><span data-i18n="welcomeBtnExpress">Registro exprés</span></span>
-        <span class="auth-bigbtn-sub" data-i18n="welcomeBtnExpressSub">Llena el formulario o consulta vehículos sin registrarte. Ideal si es tu primera vez o no quieres iniciar sesión.</span>
+        <span class="auth-bigbtn-sub" data-i18n="welcomeBtnExpressSub">Solo completa el formulario de registro. Ideal si es tu primera estancia y tus visitas no son frecuentes.</span>
+      </button>
+      <button class="auth-bigbtn" id="btnGoLogin" type="button">
+        <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🔐</span><span data-i18n="welcomeBtnLogin">Inicia sesión y ¡obtén beneficios!</span></span>
+        <span class="auth-bigbtn-sub" data-i18n="welcomeBtnLoginSub">Completa tu perfil y accede a descuentos. Consulta tus tickets de auto-facturación. Te enviaremos un código por WhatsApp para activar tu cuenta.</span>
       </button>
       <button class="auth-bigbtn" id="btnGoVehiculos" type="button">
         <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="welcomeBtnVehiculos">Información de vehículos</span></span>
@@ -6206,6 +6235,12 @@ function mostrarVentanaExito(){
 function cerrarVentanaEnvio(){
   const popup = document.getElementById("popupEnvio");
   if (popup) popup.style.display = "none";
+  // Tras cerrar el modal de éxito, regresar al home/welcome automáticamente
+  setTimeout(() => {
+    if (window.checkinnAuth && typeof window.checkinnAuth.gotoHome === "function") {
+      window.checkinnAuth.gotoHome();
+    }
+  }, 100);
 }
 
 function esperarRepintadoUI(ms = 80){
@@ -6899,10 +6934,10 @@ const SIMPLE_I18N = {
     /* ── Auth: welcome / login / home / session ── */
     welcomeTitle:"¿Cómo quieres continuar?",
     welcomeSubtitle:"Selecciona una opción para empezar tu registro o consultar información de vehículos.",
-    welcomeBtnLogin:"Iniciar sesión y acumular puntos",
-    welcomeBtnLoginSub:"Completa tu perfil y accede a beneficios exclusivos como descuentos y noches gratis. Te enviaremos un código por WhatsApp para verificar tu número y activar tu cuenta.",
+    welcomeBtnLogin:"Inicia sesión y ¡obtén beneficios!",
+    welcomeBtnLoginSub:"Completa tu perfil y accede a descuentos. Consulta tus tickets de auto-facturación. Te enviaremos un código por WhatsApp para activar tu cuenta.",
     welcomeBtnExpress:"Registro exprés",
-    welcomeBtnExpressSub:"Más rápido y sencillo. Solo completa el formulario de registro. Ideal si es tu primera estancia y tus visitas no son frecuentes.",
+    welcomeBtnExpressSub:"Solo completa el formulario de registro. Ideal si es tu primera estancia y tus visitas no son frecuentes.",
     welcomeBtnVehiculos:"Información de vehículos",
     welcomeBtnVehiculosSub:"Consulta los vehículos con estancia activa hoy. Útil para coordinar movimientos en el estacionamiento.",
     welcomeTip:"💡 <strong>Tip:</strong> Si llenas el formulario por registro exprés con tu celular, tu cuenta queda creada automáticamente. La próxima vez podrás iniciar sesión para autorrellenar tus datos.",
@@ -7035,7 +7070,7 @@ const SIMPLE_I18N = {
     staysPagerNext:"Siguiente →",
     /* KPIs */
     kpiNochesLabel:"Noches totales",
-    kpiAlojamientosLabel:"Alojamientos",
+    kpiAlojamientosLabel:"# Estancias",
     kpiMontoLabel:"Monto total",
     kpiRangeLabel:"Primera · última estancia",
     kpiAntiguedadLabel:"Antigüedad",
@@ -7144,10 +7179,10 @@ const SIMPLE_I18N = {
     /* ── Auth: welcome / login / home / session ── */
     welcomeTitle:"How do you want to continue?",
     welcomeSubtitle:"Choose an option to start your registration or to look up vehicle information.",
-    welcomeBtnLogin:"Sign in and earn points",
-    welcomeBtnLoginSub:"Complete your profile and unlock exclusive benefits like discounts and free nights. We'll send you a WhatsApp code to verify your number and activate your account.",
+    welcomeBtnLogin:"Sign in and get benefits!",
+    welcomeBtnLoginSub:"Complete your profile and unlock discounts. Look up your auto-billing tickets. We'll send you a WhatsApp code to activate your account.",
     welcomeBtnExpress:"Express registration",
-    welcomeBtnExpressSub:"Faster and simpler. Just fill the registration form. Ideal if it's your first stay and your visits are not frequent.",
+    welcomeBtnExpressSub:"Just fill the registration form. Ideal if it's your first stay and your visits are not frequent.",
     welcomeBtnVehiculos:"Vehicle information",
     welcomeBtnVehiculosSub:"See vehicles with an active stay today. Useful to coordinate parking movements.",
     welcomeTip:"💡 <strong>Tip:</strong> If you fill the form via express access with your phone, your account is created automatically. Next time you can sign in to prefill your data.",
@@ -7278,7 +7313,7 @@ const SIMPLE_I18N = {
     staysPagerPrev:"← Previous",
     staysPagerNext:"Next →",
     kpiNochesLabel:"Total nights",
-    kpiAlojamientosLabel:"Stays",
+    kpiAlojamientosLabel:"# Stays",
     kpiMontoLabel:"Total amount",
     kpiRangeLabel:"First · last stay",
     kpiAntiguedadLabel:"Member since",
@@ -7501,6 +7536,12 @@ function abrirWhatsappDudas() {
 
   const url = `https://wa.me/528444443922?text=${encodeURIComponent(mensaje)}`;
   window.open(url, "_blank");
+  // Tras lanzar WhatsApp, regresar al home/welcome automáticamente
+  setTimeout(() => {
+    if (window.checkinnAuth && typeof window.checkinnAuth.gotoHome === "function") {
+      window.checkinnAuth.gotoHome();
+    }
+  }, 200);
 }
 
 function formatFechaBonita(fecha){
@@ -11480,6 +11521,32 @@ document.addEventListener("DOMContentLoaded", function(){
       return `${yPart} ${remMonths} ${remMonths === 1 ? "mes" : "meses"}`;
     }
   }
+  function countDistinctStays(rows){
+    // Agrupa reservas consecutivas como una sola "estancia distinta".
+    // Reglas: ordenamos por fecha de ingreso ascendente. Si la salida de
+    // una reserva es igual al ingreso de la siguiente (o están a ≤1 día
+    // de gap), se considera la misma estancia continua. Si no, cuenta
+    // como una estancia nueva.
+    if (!rows || !rows.length) return 0;
+    const dated = rows.map(r => ({
+      ing: parseDateLocal(r.ingreso),
+      sal: parseDateLocal(r.salida)
+    })).filter(x => x.ing).sort((a,b) => a.ing - b.ing);
+    if (!dated.length) return 0;
+    let count = 1;
+    let prevSal = dated[0].sal || dated[0].ing;
+    for (let i = 1; i < dated.length; i++) {
+      const cur = dated[i];
+      const gapMs = cur.ing - prevSal;
+      const gapDays = gapMs / (24*60*60*1000);
+      // Si gap es positivo y mayor a 1 día, cuenta como nueva estancia
+      if (gapDays > 1) count++;
+      // Actualizar prevSal al máximo (por traslapes)
+      const newSal = cur.sal || cur.ing;
+      if (newSal > prevSal) prevSal = newSal;
+    }
+    return count;
+  }
   function renderKPIs(rows){
     const noches = rows.reduce((acc, r) => {
       const ing = parseDateLocal(r.ingreso);
@@ -11488,7 +11555,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const diff = Math.max(0, Math.round((sal - ing) / (24*60*60*1000)));
       return acc + diff;
     }, 0);
-    const aloj = rows.length;
+    const aloj = countDistinctStays(rows);
     const monto = rows.reduce((acc, r) => {
       const m = String(r.monto || "").replace(/[^0-9.\-]/g, "");
       const n = Number(m);
