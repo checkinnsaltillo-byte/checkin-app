@@ -3450,14 +3450,79 @@ body.has-session .back-home-btn{ display:inline-flex; }
   border-color:#a7f3d0;
 }
 
+/* ───── KPI Insignia: Noches gratis acumuladas ───── */
+.kpi-noches-gratis-card{
+  background:linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
+  border:1px solid #fcd34d;
+  border-radius:14px;
+  padding:14px 12px;
+  text-align:center;
+  box-shadow:0 4px 12px rgba(245,158,11,.10);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  position:relative;
+  overflow:hidden;
+}
+.kpi-noches-gratis-card.has-acumuladas{
+  background:linear-gradient(180deg, #fde68a 0%, #fcd34d 100%);
+  border-color:#f59e0b;
+  box-shadow:0 8px 24px rgba(245,158,11,.25);
+}
+.kpi-noches-gratis-card.has-acumuladas::before{
+  content:"";
+  position:absolute;
+  top:-50%;
+  right:-50%;
+  width:120%;
+  height:200%;
+  background:radial-gradient(circle, rgba(255,255,255,.4) 0%, transparent 60%);
+  pointer-events:none;
+}
+.kpi-noches-gratis-trophy{
+  font-size:34px;
+  line-height:1;
+  filter:grayscale(.8);
+  opacity:.5;
+  transition:filter .25s, opacity .25s;
+}
+.kpi-noches-gratis-card.has-acumuladas .kpi-noches-gratis-trophy{
+  filter:none;
+  opacity:1;
+  animation:trophyPulse 2.2s ease-in-out infinite;
+}
+@keyframes trophyPulse{
+  0%, 100%{ transform: scale(1); }
+  50%{ transform: scale(1.08); }
+}
+.kpi-noches-gratis-num{
+  font-size:30px;
+  font-weight:900;
+  color:#78350f;
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+}
+.kpi-noches-gratis-card.has-acumuladas .kpi-noches-gratis-num{ color:#7c2d12; }
+.kpi-noches-gratis-label{
+  font-size:11px;
+  font-weight:800;
+  color:#78350f;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  line-height:1.3;
+  position:relative;
+  z-index:1;
+}
+
 /* ───── KPIs (Home) ───── */
 .kpi-grid{
   display:grid;
-  grid-template-columns:repeat(5, 1fr);
+  grid-template-columns:repeat(6, 1fr);
   gap:10px;
   margin-top:14px;
 }
-@media (max-width:980px){
+@media (max-width:1100px){
   .kpi-grid{ grid-template-columns:repeat(3, 1fr); }
 }
 @media (max-width:560px){
@@ -3554,6 +3619,56 @@ body.has-session #vehicleFilterActions{ display:none !important; }
   margin-top:8px;
 }
 .vehicles-session-empty.hidden{ display:none; }
+
+/* Tarjeta de vehículo: foto thumb + botones Llamar/WhatsApp */
+.veh-photo-thumb{
+  flex-shrink:0;
+  width:64px;
+  height:64px;
+  border-radius:10px;
+  overflow:hidden;
+  border:1px solid var(--border-strong);
+  background:#f8fafc;
+  cursor:zoom-in;
+  transition:transform .15s, box-shadow .15s;
+}
+.veh-photo-thumb:hover{
+  transform:scale(1.05);
+  box-shadow:0 4px 12px rgba(15,23,42,.15);
+}
+.veh-photo-thumb img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.veh-action-btn{
+  margin:0;
+  padding:6px 12px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  white-space:nowrap;
+  border:none;
+  cursor:pointer;
+  transition:transform .15s, filter .15s;
+}
+.veh-action-btn:hover{
+  transform:translateY(-1px);
+  filter:brightness(1.06);
+}
+.veh-action-wa{
+  background:#25d366;
+  color:#fff;
+}
+.veh-action-call{
+  background:#2563eb;
+  color:#fff;
+}
 
 /* ───── Estado semáforo en tabla ───── */
 .stays-status-cell{
@@ -3701,6 +3816,62 @@ body.has-session #vehicleFilterActions{ display:none !important; }
   font-weight:600;
   color:var(--text);
   word-break:break-word;
+}
+
+/* ───── Insignia "Perfil completo · beneficios activos" ───── */
+.profile-complete-badge{
+  display:none;
+  align-items:center;
+  gap:12px;
+  background:linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color:#fff;
+  border-radius:14px;
+  padding:14px 18px;
+  margin-bottom:14px;
+  box-shadow:0 10px 26px rgba(16,185,129,.28);
+  position:relative;
+  overflow:hidden;
+}
+.profile-complete-badge.visible{ display:flex; }
+.profile-complete-badge::before{
+  content:"";
+  position:absolute;
+  top:-30%;
+  right:-10%;
+  width:160px;
+  height:160px;
+  background:radial-gradient(circle, rgba(255,255,255,.30) 0%, transparent 65%);
+  pointer-events:none;
+}
+.profile-complete-badge-icon{
+  flex-shrink:0;
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  background:rgba(255,255,255,.22);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:22px;
+  font-weight:900;
+  position:relative;
+  z-index:1;
+}
+.profile-complete-badge-text{
+  flex:1;
+  position:relative;
+  z-index:1;
+  line-height:1.3;
+}
+.profile-complete-badge-title{
+  font-size:14px;
+  font-weight:800;
+  letter-spacing:.01em;
+}
+.profile-complete-badge-sub{
+  font-size:12px;
+  opacity:.92;
+  margin-top:2px;
 }
 
 /* ───── Profile completion card (Home) ───── */
@@ -4084,6 +4255,15 @@ body.has-session input[name="nombre"] {
     <h2 class="home-greeting" id="homeGreeting" data-i18n="homeGreeting">¡Hola!</h2>
     <p class="home-subtitle" data-i18n="homeSubtitle">Bienvenido de vuelta a Check-inn Saltillo.</p>
 
+    <!-- Insignia "Perfil completo · beneficios activos" (solo si 100%) -->
+    <div class="profile-complete-badge" id="profileCompleteBadge">
+      <div class="profile-complete-badge-icon">✓</div>
+      <div class="profile-complete-badge-text">
+        <div class="profile-complete-badge-title" data-i18n="profileBadgeTitle">Perfil completo · Beneficios activos</div>
+        <div class="profile-complete-badge-sub" data-i18n="profileBadgeSub">Estás recibiendo cashback, prioridad de atención y registro exprés.</div>
+      </div>
+    </div>
+
     <!-- Sección "Completa tus datos" con barra de progreso -->
     <div class="profile-card" id="profileCard" role="button" tabindex="0">
       <div class="profile-card-head">
@@ -4128,8 +4308,12 @@ body.has-session input[name="nombre"] {
           <div class="kpi-donut-center-num" id="kpiDonutNum">0</div>
           <div class="kpi-donut-center-of" id="kpiDonutOf">/ 10</div>
         </div>
-        <div class="kpi-donut-status lvl-far" id="kpiDonutStatus" data-i18n="kpiNocheGratisStatusFar">Sigue acumulando</div>
-        <div class="kpi-donut-label" data-i18n="kpiNocheGratisLabel">Noches para 1 noche gratis</div>
+        <div class="kpi-donut-label" id="kpiDonutFaltan" data-i18n="kpiDonutFaltanTmpl">Faltan 10 noches para tu siguiente noche gratis</div>
+      </div>
+      <div class="kpi-noches-gratis-card" id="kpiNochesGratisAcumCard">
+        <div class="kpi-noches-gratis-trophy">🏆</div>
+        <div class="kpi-noches-gratis-num" id="kpiNochesGratisAcumNum">0</div>
+        <div class="kpi-noches-gratis-label" id="kpiNochesGratisAcumLabel" data-i18n="kpiNochesGratisAcumLabel">Noches gratis acumuladas</div>
       </div>
     </div>
 
@@ -6660,6 +6844,8 @@ const SIMPLE_I18N = {
     /* ── Profile wizard ── */
     profileCardTitle:"Completa tu perfil para obtener beneficios",
     profileCardTitleDone:"Actualiza tus datos",
+    profileBadgeTitle:"Perfil completo · Beneficios activos",
+    profileBadgeSub:"Estás recibiendo cashback, prioridad de atención y registro exprés.",
     profileCardSubEmpty:"Captura tu perfil una sola vez (identificación, datos fiscales, vehículo) y reserva más rápido en el futuro.",
     profileCardSubPartial:"Continúa donde lo dejaste para activar reservaciones rápidas.",
     profileCardSubDone:"Tu perfil está completo. Ábrelo para revisar o actualizar cualquier dato.",
@@ -6731,6 +6917,9 @@ const SIMPLE_I18N = {
     kpiNocheGratisStatusMid:"Ya estás cerca",
     kpiNocheGratisStatusNear:"¡Casi lo logras!",
     kpiNocheGratisStatusAchieved:"¡1 noche gratis disponible!",
+    kpiDonutFaltanTmpl:"Faltan {n} noches para tu siguiente noche gratis",
+    kpiNochesGratisAcumLabel:"Noches gratis acumuladas",
+    kpiNochesGratisAcumLabelSingular:"Noche gratis acumulada",
     /* Cambio de celular */
     changePhoneBtn:"✏️ Cambiar celular",
     changePhoneTitleA:"Cambiar celular",
@@ -6894,6 +7083,8 @@ const SIMPLE_I18N = {
     /* ── Profile wizard ── */
     profileCardTitle:"Complete your profile to unlock benefits",
     profileCardTitleDone:"Update your profile",
+    profileBadgeTitle:"Profile complete · Benefits active",
+    profileBadgeSub:"You're getting cashback, priority support, and express check-in.",
     profileCardSubEmpty:"Fill in your profile once (ID, tax info, vehicle) and book faster from now on.",
     profileCardSubPartial:"Pick up where you left off to enable fast bookings.",
     profileCardSubDone:"Your profile is complete. Open it to review or update any data.",
@@ -6963,6 +7154,9 @@ const SIMPLE_I18N = {
     kpiNocheGratisStatusMid:"You're getting close",
     kpiNocheGratisStatusNear:"Almost there!",
     kpiNocheGratisStatusAchieved:"1 free night unlocked!",
+    kpiDonutFaltanTmpl:"{n} nights left for your next free night",
+    kpiNochesGratisAcumLabel:"Free nights earned",
+    kpiNochesGratisAcumLabelSingular:"Free night earned",
     changePhoneBtn:"✏️ Change phone",
     changePhoneTitleA:"Change phone",
     changePhoneSubA:"Enter the new number. We'll send a WhatsApp code to validate it.",
@@ -10494,7 +10688,9 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function gotoExpressForm(){
     showOnly(viewRegistro);
-    setMenuVisible(true);
+    // Si hay sesión, el menú hamburguesa reemplaza el topMenu de tabs
+    const hasSession = !!getSession();
+    setMenuVisible(!hasSession);
     setMenuActive("registro");
     // Pre-llenar sección de vehículo con los datos del perfil
     prefillVehicleFromProfile();
@@ -10575,7 +10771,8 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function gotoExpressVehiculos(){
     showOnly(viewVehiculos);
-    setMenuVisible(true);
+    const hasSession = !!getSession();
+    setMenuVisible(!hasSession);
     setMenuActive("vehiculos");
     if (typeof window.cargarPropiedadesVehiculos === "function") {
       try { window.cargarPropiedadesVehiculos(false); } catch(e){}
@@ -10662,20 +10859,19 @@ document.addEventListener("DOMContentLoaded", function(){
 
   async function autoLoadVehiclesForProperty(prop){
     // Flujo:
-    // 1. list_records (sin filtro confiable de propiedad) → todas las reservaciones
-    // 2. Filtrar client-side: propiedad coincide + celular ≠ mío + fechas cruzan con mi estancia
+    // 1. list_records → todas las reservaciones
+    // 2. Filtrar client-side: propiedad coincide + celular ≠ mío +
+    //    HOY está entre fecha de ingreso y fecha de salida (ambas incluidas)
     // 3. Para cada candidato → get_record_detail para verificar si tiene vehículo
-    // 4. Renderizar solo los que tienen vehículo (Marca/Placas no vacíos)
-    const propStays = window.__userStaysByProp?.[prop] || [];
+    // 4. Renderizar solo los que tienen vehículo
     const myPhoneKey = window.__userPhoneKey || "";
     const meta = document.getElementById("vehiculosMeta");
     const tableBody = document.getElementById("vehiculosTableBody");
-    if (meta) meta.textContent = `Buscando vehículos en ${prop} que crucen con tus fechas...`;
+    if (meta) meta.textContent = `Buscando vehículos activos hoy en ${prop}...`;
     if (tableBody) tableBody.innerHTML = '<div class="vehicle-empty">Cargando...</div>';
     try {
       const webAppUrl = (typeof WEB_APP_URL !== "undefined" && WEB_APP_URL) ? WEB_APP_URL : null;
       if (!webAppUrl) throw new Error("WEB_APP_URL no disponible");
-      // Traemos todas las reservaciones (list_records ignora propiedad pero da el resto)
       const params = new URLSearchParams();
       params.set("action", "list_records");
       params.set("page", "1");
@@ -10684,7 +10880,8 @@ document.addEventListener("DOMContentLoaded", function(){
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || json.message || "Error al consultar reservaciones");
       const allRows = Array.isArray(json.rows) ? json.rows : [];
-      // Filtrado primario
+      // Filtrado primario: HOY entre ingreso y salida (inclusive)
+      const today = new Date(); today.setHours(0,0,0,0);
       const myDigits = myPhoneKey.replace(/\D/g, "");
       const candidates = [];
       for (const row of allRows) {
@@ -10694,16 +10891,18 @@ document.addEventListener("DOMContentLoaded", function(){
         if (myDigits && otherDigits && (otherDigits === myDigits || otherDigits.endsWith(myDigits) || myDigits.endsWith(otherDigits))) continue;
         const otherIng = parseLocalDate(pickField(row, ["Fecha de ingreso", "fecha_ingreso", "ingreso"]));
         const otherSal = parseLocalDate(pickField(row, ["Fecha de salida", "fecha_salida", "salida"]));
-        const crosses = propStays.some(s => staysOverlap(s.ingreso, s.salida, otherIng, otherSal));
-        if (!crosses) continue;
+        if (!otherIng) continue;
+        // HOY debe estar entre ingreso y salida inclusive
+        if (today < otherIng) continue;
+        if (otherSal && today > otherSal) continue;
         candidates.push(row);
       }
       if (!candidates.length) {
-        if (tableBody) tableBody.innerHTML = '<div class="vehicle-empty">No hay otros huéspedes en esta propiedad que crucen con tus fechas.</div>';
-        if (meta) meta.textContent = `Sin huéspedes en ${prop} que crucen con tus fechas.`;
+        if (tableBody) tableBody.innerHTML = '<div class="vehicle-empty">No hay otros huéspedes con estancia activa hoy en esta propiedad.</div>';
+        if (meta) meta.textContent = `Sin huéspedes activos hoy en ${prop}.`;
         return;
       }
-      if (meta) meta.textContent = `Verificando ${candidates.length} candidato${candidates.length !== 1 ? "s" : ""} en ${prop}...`;
+      if (meta) meta.textContent = `Verificando ${candidates.length} estancia${candidates.length !== 1 ? "s" : ""} activa${candidates.length !== 1 ? "s" : ""} hoy en ${prop}...`;
       // Obtener detalle de cada candidato en paralelo
       const detailPromises = candidates.map(async (row) => {
         const recordId = String(row["ID"] || row["row_number"] || "").trim();
@@ -10734,7 +10933,6 @@ document.addEventListener("DOMContentLoaded", function(){
           tableBody.innerHTML = '<div class="vehicle-empty">Ningún huésped en esta propiedad (con fechas cruzadas) registró vehículo.</div>';
         } else {
           tableBody.innerHTML = vehicles.map(({row, detail}) => {
-            const nombre = pickField(detail, ["Nombre del huésped 1", "Nombre de la persona que hizo la reservación"]) || "Huésped";
             let marca = pickField(detail, ["Marca vehículo", "Marca"]);
             const marcaOtro = pickField(detail, ["Marca vehículo otro", "Marca vehiculo otro"]);
             if (!marca && marcaOtro) marca = marcaOtro;
@@ -10750,26 +10948,47 @@ document.addEventListener("DOMContentLoaded", function(){
             const cel = pickField(detail, ["Cel/Whatsapp (principal)"]) || "";
             const celDigits = cel.replace(/\D/g, "");
             const waLink = celDigits ? `https://wa.me/${celDigits}` : "";
+            const callLink = celDigits ? `tel:+${celDigits}` : "";
             const ingreso = pickField(detail, ["Fecha de ingreso"]);
             const salida = pickField(detail, ["Fecha de salida"]);
+            // Foto del vehículo: puede estar en "Link foto vehículo" (URL Drive) o "Foto vehículo"
+            const fotoUrl = pickField(detail, ["Link foto vehículo", "Foto vehículo", "Link foto vehiculo"]);
+            const fotoId = driveIdFromUrl(fotoUrl);
+            const fotoThumb = fotoId ? `https://drive.google.com/thumbnail?id=${fotoId}&sz=w240` : "";
+            const fotoFull = fotoId ? `https://drive.google.com/thumbnail?id=${fotoId}&sz=w1600` : "";
+            const fotoHTML = fotoThumb
+              ? `<div class="veh-photo-thumb" data-zoom-src="${escapeHtmlSafe(fotoFull)}" title="Ver foto"><img src="${escapeHtmlSafe(fotoThumb)}" alt="Foto vehículo" loading="lazy"/></div>`
+              : "";
             return `
               <div class="vehicle-card" style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 4px 12px rgba(15,23,42,.04);">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
-                  <div>
-                    <div style="font-weight:800;font-size:15px;color:var(--text);">${escapeHtmlSafe(marca)} ${escapeHtmlSafe(modelo)}</div>
-                    <div style="font-size:12px;color:var(--text-soft);margin-top:2px;">Placas: <strong>${escapeHtmlSafe(placas)}</strong>${color ? " · " + escapeHtmlSafe(color) : ""}</div>
+                  <div style="display:flex;gap:12px;align-items:center;flex:1;">
+                    ${fotoHTML}
+                    <div>
+                      <div style="font-weight:800;font-size:15px;color:var(--text);">${escapeHtmlSafe(marca)} ${escapeHtmlSafe(modelo)}</div>
+                      <div style="font-size:12px;color:var(--text-soft);margin-top:2px;">Placas: <strong>${escapeHtmlSafe(placas)}</strong>${color ? " · " + escapeHtmlSafe(color) : ""}</div>
+                    </div>
                   </div>
-                  ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener" style="margin-top:0;padding:6px 12px;background:#25d366;color:#fff;border-radius:999px;font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">📱 WhatsApp</a>` : ""}
+                  <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+                    ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener" class="veh-action-btn veh-action-wa">📱 WhatsApp</a>` : ""}
+                    ${callLink ? `<a href="${callLink}" class="veh-action-btn veh-action-call">📞 Llamar</a>` : ""}
+                  </div>
                 </div>
                 <div style="border-top:1px solid var(--border);padding-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:12px;color:var(--text);">
-                  <div><span style="color:var(--text-soft);">Huésped:</span> ${escapeHtmlSafe(nombre)}</div>
                   <div><span style="color:var(--text-soft);">Depto:</span> ${escapeHtmlSafe(depto)}</div>
-                  <div><span style="color:var(--text-soft);">Estancia:</span> ${escapeHtmlSafe(ingreso)} → ${escapeHtmlSafe(salida)}</div>
+                  <div><span style="color:var(--text-soft);">Estancia:</span> ${escapeHtmlSafe(fmtFecha(ingreso))} → ${escapeHtmlSafe(fmtFecha(salida))}</div>
                   ${horaSalida ? `<div><span style="color:var(--text-soft);">Hora salida:</span> ${escapeHtmlSafe(horaSalida)}</div>` : ""}
                 </div>
               </div>
             `;
           }).join("");
+          // Bind click en thumbs para zoom
+          tableBody.querySelectorAll(".veh-photo-thumb").forEach(el => {
+            el.addEventListener("click", () => {
+              const src = el.dataset.zoomSrc;
+              if (src && window.checkinnImages?.openZoom) window.checkinnImages.openZoom(src);
+            });
+          });
         }
       }
       if (meta) {
@@ -11150,6 +11369,7 @@ document.addEventListener("DOMContentLoaded", function(){
   function renderNocheGratisDonut(totalNoches){
     const cycle = 10;
     const acumuladas = totalNoches % cycle;
+    const faltan = cycle - acumuladas;
     const noches_gratis_disponibles = Math.floor(totalNoches / cycle);
     const num = acumuladas; // 0..10
     const pct = num / cycle; // 0..1
@@ -11157,43 +11377,46 @@ document.addEventListener("DOMContentLoaded", function(){
     const numEl = $("kpiDonutNum");
     const ofEl = $("kpiDonutOf");
     const progressEl = $("kpiDonutProgress");
-    const statusEl = $("kpiDonutStatus");
+    const faltanEl = $("kpiDonutFaltan");
     const card = $("kpiNocheGratisCard");
-    if (!numEl || !ofEl || !progressEl || !statusEl || !card) return;
-    // Determinar nivel
+    // Determinar nivel del semáforo (color del aro)
     let level = "lvl-far";
-    let statusText = i.kpiNocheGratisStatusFar || "Sigue acumulando";
-    if (noches_gratis_disponibles > 0 && acumuladas === 0) {
-      level = "lvl-achieved";
-      statusText = (i.kpiNocheGratisStatusAchieved || "¡{n} noche(s) gratis!").replace("{n}", noches_gratis_disponibles);
-    } else if (noches_gratis_disponibles > 0) {
-      // Tiene gratis ganadas + acumulando para la siguiente
-      level = "lvl-achieved";
-      statusText = (i.kpiNocheGratisStatusAchieved || "¡{n} noche(s) gratis!").replace("{n}", noches_gratis_disponibles) +
-                   (acumuladas > 0 ? ` · +${acumuladas}` : "");
-    } else if (num >= 7) {
-      level = "lvl-near";
-      statusText = i.kpiNocheGratisStatusNear || "¡Casi lo logras!";
-    } else if (num >= 4) {
-      level = "lvl-mid";
-      statusText = i.kpiNocheGratisStatusMid || "Ya estás cerca";
+    if (acumuladas === 0 && noches_gratis_disponibles > 0) level = "lvl-achieved";
+    else if (num >= 7) level = "lvl-near";
+    else if (num >= 4) level = "lvl-mid";
+    // SVG dona
+    if (progressEl) {
+      const circumference = 2 * Math.PI * 32;
+      progressEl.setAttribute("stroke-dasharray", String(circumference));
+      progressEl.setAttribute("stroke-dashoffset", String(circumference * (1 - pct)));
+      ["lvl-far","lvl-mid","lvl-near","lvl-achieved"].forEach(c => progressEl.classList.remove(c));
+      progressEl.classList.add(level);
     }
-    // SVG dona: circunferencia ≈ 2 * π * 32 = 201
-    const circumference = 2 * Math.PI * 32;
-    progressEl.setAttribute("stroke-dasharray", String(circumference));
-    progressEl.setAttribute("stroke-dashoffset", String(circumference * (1 - pct)));
-    // Limpiar clases lvl-*
-    ["lvl-far","lvl-mid","lvl-near","lvl-achieved"].forEach(c => {
-      progressEl.classList.remove(c);
-      statusEl.classList.remove(c);
-      card.classList.remove(c);
-    });
-    progressEl.classList.add(level);
-    statusEl.classList.add(level);
-    card.classList.add(level);
-    numEl.textContent = acumuladas;
-    ofEl.textContent = `/ ${cycle}`;
-    statusEl.textContent = statusText;
+    if (card) {
+      ["lvl-far","lvl-mid","lvl-near","lvl-achieved"].forEach(c => card.classList.remove(c));
+      card.classList.add(level);
+    }
+    if (numEl) numEl.textContent = acumuladas;
+    if (ofEl) ofEl.textContent = `/ ${cycle}`;
+    if (faltanEl) {
+      const tmpl = i.kpiDonutFaltanTmpl || "Faltan {n} noches para tu siguiente noche gratis";
+      faltanEl.textContent = tmpl.replace("{n}", faltan === 0 ? cycle : faltan);
+    }
+
+    // KPI Insignia: noches gratis acumuladas
+    const acumNumEl = $("kpiNochesGratisAcumNum");
+    const acumLabelEl = $("kpiNochesGratisAcumLabel");
+    const acumCard = $("kpiNochesGratisAcumCard");
+    if (acumNumEl) acumNumEl.textContent = noches_gratis_disponibles;
+    if (acumCard) {
+      acumCard.classList.toggle("has-acumuladas", noches_gratis_disponibles > 0);
+    }
+    if (acumLabelEl) {
+      const lbl = noches_gratis_disponibles === 1
+        ? (i.kpiNochesGratisAcumLabelSingular || "Noche gratis acumulada")
+        : (i.kpiNochesGratisAcumLabel || "Noches gratis acumuladas");
+      acumLabelEl.textContent = lbl;
+    }
   }
 
   function renderStaysTable(rows){
@@ -11999,16 +12222,25 @@ document.addEventListener("DOMContentLoaded", function(){
   // ─── Home card ─────────────────────────────────────────────────────
   function refreshHomeCard(){
     const card = $("profileCard");
+    const badge = $("profileCompleteBadge");
     if (!card) return;
     const session = window.checkinnAuth?.getSession();
-    if (!session) { card.style.display = "none"; return; }
+    if (!session) {
+      card.style.display = "none";
+      if (badge) badge.classList.remove("visible");
+      return;
+    }
     // Siempre recargar de storage para reflejar cambios externos
     activePhoneKey = getPhoneKey();
     activeProfile = loadProfile(activePhoneKey);
     const pct = profileCompletionPercent(activeProfile);
-    // Si está al 100%, ocultar la card. El acceso para actualizar se mantiene
-    // via el menú hamburguesa → "Datos personales".
-    if (pct === 100) { card.style.display = "none"; return; }
+    // Si está al 100%, ocultar la card y mostrar la insignia de beneficios.
+    if (pct === 100) {
+      card.style.display = "none";
+      if (badge) badge.classList.add("visible");
+      return;
+    }
+    if (badge) badge.classList.remove("visible");
     card.style.display = "";
     const i = getI18n();
     $("profileCardPct").textContent = pct + "%";
