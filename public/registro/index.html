@@ -4368,6 +4368,8 @@ body.has-session input[name="nombre"] {
   <div class="section hidden" id="loginStepOtp">
     <h2 class="section-title" id="loginOtpTitle">Ingresa el código</h2>
     <p class="section-subtitle" id="loginOtpSubtitleEl">Enviamos un código de 6 dígitos a <strong id="loginOtpPhoneDisplay">tu celular</strong> por WhatsApp.</p>
+    <!-- Aviso: registros previos detectados (ej. tras Registro exprés sin sesión) -->
+    <div class="auth-info-banner hidden" id="loginOtpExistingNote" style="margin-bottom:14px;"></div>
     <label for="login_otp" data-i18n="otpLabel">Código de verificación</label>
     <input id="login_otp" class="auth-otp-input" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="one-time-code"/>
     <div class="note hidden" id="loginOtpError"></div>
@@ -6957,6 +6959,8 @@ const SIMPLE_I18N = {
     otpLabel:"Código de verificación",
     loginVerify:"Verificar",
     loginOtpDemoBanner:"🧪 <strong>Modo demo:</strong> WhatsApp aún no está configurado. Usa el código <code>123456</code> para probar el flujo. (Una vez conectes Meta, este aviso desaparece.)",
+    loginOtpExistingOne:"📒 <strong>Encontramos 1 registro previo</strong> asociado a tu celular. Al iniciar sesión podrás ver tu historial completo de estancias.",
+    loginOtpExistingMany:"📒 <strong>Encontramos {count} registros previos</strong> asociados a tu celular. Al iniciar sesión podrás ver tu historial completo de estancias.",
     createPinTitle:"Crea tu PIN",
     createPinSubtitle:"Escoge un PIN de 4 dígitos. Lo usarás para entrar más rápido la próxima vez sin esperar un código.",
     createPinTitleReset:"Crea un PIN nuevo",
@@ -7202,6 +7206,8 @@ const SIMPLE_I18N = {
     otpLabel:"Verification code",
     loginVerify:"Verify",
     loginOtpDemoBanner:"🧪 <strong>Demo mode:</strong> WhatsApp is not configured yet. Use the code <code>123456</code> to test the flow. (Once Meta is connected, this notice disappears.)",
+    loginOtpExistingOne:"📒 <strong>We found 1 previous record</strong> linked to your phone. After signing in you'll see your full stay history.",
+    loginOtpExistingMany:"📒 <strong>We found {count} previous records</strong> linked to your phone. After signing in you'll see your full stay history.",
     createPinTitle:"Create your PIN",
     createPinSubtitle:"Choose a 4-digit PIN. You'll use it to sign in faster next time without waiting for a code.",
     createPinTitleReset:"Create a new PIN",
@@ -10819,13 +10825,31 @@ document.addEventListener("DOMContentLoaded", function(){
     refreshPinSubtitle();
     if (loginPinInput) { loginPinInput.value = ""; setTimeout(() => loginPinInput.focus(), 30); }
   }
-  function gotoLoginOtp(phoneDigits, ladaCode, reason){
+  function setExistingRecordsNote(count){
+    const note = $("loginOtpExistingNote");
+    if (!note) return;
+    const n = Math.max(0, parseInt(count, 10) || 0);
+    if (!n) { note.classList.add("hidden"); note.innerHTML = ""; return; }
+    const i = getI18n();
+    const tmpl = (n === 1)
+      ? (i.loginOtpExistingOne || "📒 <strong>Encontramos 1 registro previo</strong> asociado a tu celular. Al iniciar sesión podrás ver tu historial completo de estancias.")
+      : (i.loginOtpExistingMany || "📒 <strong>Encontramos {count} registros previos</strong> asociados a tu celular. Al iniciar sesión podrás ver tu historial completo de estancias.");
+    note.innerHTML = tmpl.replace("{count}", String(n));
+    note.classList.remove("hidden");
+  }
+  function gotoLoginOtp(phoneDigits, ladaCode, reason, existingCount){
     currentOtpReason = reason || "first-time";
     hideAllLoginSteps();
     if (loginStepOtp) loginStepOtp.classList.remove("hidden");
     refreshOtpSubtitle();
     refreshOtpTitle(currentOtpReason);
     if (loginOtpDemoBanner) loginOtpDemoBanner.style.display = OTP_DEMO_MODE ? "" : "none";
+    // Aviso de registros previos solo en flujo first-time
+    if (currentOtpReason === "first-time") {
+      setExistingRecordsNote(existingCount);
+    } else {
+      setExistingRecordsNote(0);
+    }
     if (loginOtpInput) { loginOtpInput.value = ""; setTimeout(() => loginOtpInput.focus(), 30); }
   }
   let currentCreatePinReset = false;
@@ -11863,7 +11887,22 @@ document.addEventListener("DOMContentLoaded", function(){
       } else {
         const res = await sendOtp(phone, lada, "first-time");
         if (!res.ok) return showError(loginPhoneError, res.error || "No se pudo enviar el código.");
-        gotoLoginOtp(phone, lada, "first-time");
+        // Búsqueda en backend de registros previos asociados al celular
+        // (p. ej. el huésped hizo Registro exprés antes de iniciar sesión).
+        // Probamos primero con lada+celular y, si no hay match, con el
+        // celular sin lada (algunos rows del Sheet guardan solo el local).
+        let existingCount = 0;
+        try {
+          if (typeof fetchAllStaysByPhone === "function") {
+            const digitsWithLada = `${lada}${phone}`;
+            let rows = await fetchAllStaysByPhone(digitsWithLada);
+            if (!rows || !rows.length) rows = await fetchAllStaysByPhone(phone);
+            existingCount = Array.isArray(rows) ? rows.length : 0;
+          }
+        } catch (errCount) {
+          console.warn("[login] no se pudo contar registros previos:", errCount);
+        }
+        gotoLoginOtp(phone, lada, "first-time", existingCount);
       }
     } catch (e) {
       showError(loginPhoneError, e.message || "Error al continuar.");
