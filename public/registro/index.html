@@ -61,22 +61,19 @@ body{
   body{ padding:28px 48px 48px; }
   .container{ max-width:1280px !important; padding:36px 40px !important; }
 }
-/* Desktop: form de registro y home en 2 columnas */
+/* Desktop: KPIs en 6 columnas y packages en 3 columnas.
+   El formulario de registro se mantiene apilado verticalmente
+   (una sola columna) en cualquier breakpoint. */
 @media (min-width:1100px){
-  #viewRegistro #formulario_principal,
-  #viewRegistro #form{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:18px;
-    align-items:start;
-  }
-  #viewRegistro #section_celular_principal,
-  #viewRegistro .submit-wrap{ grid-column:1 / -1; }
-  /* Home: KPIs en 6 columnas */
   .kpi-grid{ grid-template-columns:repeat(6, 1fr) !important; }
-  /* Packages siempre 3 columnas en desktop */
   .packages-grid{ grid-template-columns:repeat(3, 1fr) !important; }
 }
+/* Registro: siempre una sola columna apilada, ocupando el ancho del card */
+#viewRegistro #formulario_principal,
+#viewRegistro #form{
+  display:block;
+}
+#viewRegistro .section{ width:100%; }
 .container{
   width:100%;
   max-width:760px;
