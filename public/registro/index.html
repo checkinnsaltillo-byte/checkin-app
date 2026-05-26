@@ -46,8 +46,36 @@ body{
   color:var(--text);
 }
 .page-shell{
-  max-width:900px;
+  max-width:1280px;
   margin:0 auto;
+}
+@media (min-width:1400px){
+  .page-shell{ max-width:1440px; }
+}
+@media (min-width:900px){
+  body{ padding:24px 32px 40px; }
+  .container{ max-width:1100px !important; padding:32px !important; }
+  /* En desktop el form, registro y home aprovechan más ancho */
+}
+@media (min-width:1280px){
+  body{ padding:28px 48px 48px; }
+  .container{ max-width:1280px !important; padding:36px 40px !important; }
+}
+/* Desktop: form de registro y home en 2 columnas */
+@media (min-width:1100px){
+  #viewRegistro #formulario_principal,
+  #viewRegistro #form{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+    align-items:start;
+  }
+  #viewRegistro #section_celular_principal,
+  #viewRegistro .submit-wrap{ grid-column:1 / -1; }
+  /* Home: KPIs en 6 columnas */
+  .kpi-grid{ grid-template-columns:repeat(6, 1fr) !important; }
+  /* Packages siempre 3 columnas en desktop */
+  .packages-grid{ grid-template-columns:repeat(3, 1fr) !important; }
 }
 .container{
   width:100%;
@@ -3046,7 +3074,7 @@ function formatRangoFechasSimple(inicio, fin){
 
 /* Botón "Volver al inicio" en vistas secundarias */
 .back-home-btn{
-  display:none;
+  display:inline-flex;
   align-items:center;
   gap:6px;
   margin:8px 0 14px;
@@ -3067,7 +3095,6 @@ function formatRangoFechasSimple(inicio, fin){
   box-shadow:0 6px 16px rgba(15,23,42,.08);
   filter:none;
 }
-body.has-session .back-home-btn{ display:inline-flex; }
 
 /* Menú hamburguesa global */
 .hamburger-btn{
@@ -3514,6 +3541,31 @@ body.has-session .back-home-btn{ display:inline-flex; }
   position:relative;
   z-index:1;
 }
+.kpi-noches-gratis-claim{
+  margin:8px 0 0;
+  padding:8px 14px;
+  background:#25d366;
+  color:#fff;
+  border:none;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+  position:relative;
+  z-index:1;
+  box-shadow:0 4px 10px rgba(37,211,102,.35);
+  transition:transform .15s, box-shadow .15s;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+}
+.kpi-noches-gratis-claim:hover{
+  transform:translateY(-1px);
+  box-shadow:0 6px 14px rgba(37,211,102,.45);
+  filter:none;
+}
+.kpi-noches-gratis-claim.hidden{ display:none; }
 
 /* ───── KPIs (Home) ───── */
 .kpi-grid{
@@ -3666,7 +3718,7 @@ body.has-session #vehicleFilterActions{ display:none !important; }
   color:#fff;
 }
 .veh-action-call{
-  background:#2563eb;
+  background:#ea580c;
   color:#fff;
 }
 
@@ -3725,6 +3777,49 @@ body.has-session #vehicleFilterActions{ display:none !important; }
   font-size:18px;
   font-weight:600;
   line-height:1;
+}
+.stays-invoice-thumb{ position:relative; }
+.stays-invoice-badge{
+  position:absolute;
+  top:-6px;
+  right:-6px;
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  background:#16a34a;
+  color:#fff;
+  font-size:11px;
+  font-weight:900;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:2px solid #fff;
+  box-shadow:0 2px 6px rgba(15,23,42,.18);
+}
+.stays-invoice-status{
+  display:inline-flex;
+  flex-direction:column;
+  align-items:center;
+  gap:2px;
+  font-size:18px;
+  line-height:1.1;
+  padding:4px 8px;
+  border-radius:8px;
+  font-weight:700;
+}
+.stays-invoice-status small{
+  font-size:9px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.stays-invoice-status.pending{
+  background:#fef3c7;
+  color:#92400e;
+}
+.stays-invoice-status.no-req{
+  background:#f1f5f9;
+  color:#64748b;
 }
 /* Imagen del modal de zoom con cursor lupa */
 #imageZoomImg{
@@ -3872,6 +3967,27 @@ body.has-session #vehicleFilterActions{ display:none !important; }
   font-size:12px;
   opacity:.92;
   margin-top:2px;
+}
+.profile-complete-badge-btn{
+  margin:0;
+  padding:8px 14px;
+  background:#ffffff;
+  color:#065f46;
+  border:none;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+  position:relative;
+  z-index:1;
+  box-shadow:0 4px 10px rgba(0,0,0,.10);
+  transition:transform .15s, box-shadow .15s;
+}
+.profile-complete-badge-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 16px rgba(0,0,0,.16);
+  filter:none;
 }
 
 /* ───── Profile completion card (Home) ───── */
@@ -4182,6 +4298,10 @@ body.has-session input[name="nombre"] {
         <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">⚡</span><span data-i18n="welcomeBtnExpress">Registro exprés</span></span>
         <span class="auth-bigbtn-sub" data-i18n="welcomeBtnExpressSub">Llena el formulario o consulta vehículos sin registrarte. Ideal si es tu primera vez o no quieres iniciar sesión.</span>
       </button>
+      <button class="auth-bigbtn" id="btnGoVehiculos" type="button">
+        <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="welcomeBtnVehiculos">Información de vehículos</span></span>
+        <span class="auth-bigbtn-sub" data-i18n="welcomeBtnVehiculosSub">Consulta los vehículos con estancia activa hoy. Útil para coordinar movimientos en el estacionamiento.</span>
+      </button>
     </div>
     <div class="auth-info-banner" data-i18n-html="welcomeTip">
       💡 <strong>Tip:</strong> Si llenas el formulario por registro exprés con tu celular, tu cuenta queda creada automáticamente. La próxima vez podrás iniciar sesión para autorrellenar tus datos.
@@ -4260,8 +4380,9 @@ body.has-session input[name="nombre"] {
       <div class="profile-complete-badge-icon">✓</div>
       <div class="profile-complete-badge-text">
         <div class="profile-complete-badge-title" data-i18n="profileBadgeTitle">Perfil completo · Beneficios activos</div>
-        <div class="profile-complete-badge-sub" data-i18n="profileBadgeSub">Estás recibiendo cashback, prioridad de atención y registro exprés.</div>
+        <div class="profile-complete-badge-sub" data-i18n="profileBadgeSub">Estás recibiendo beneficios exclusivos y prioridad de atención.</div>
       </div>
+      <button type="button" class="profile-complete-badge-btn" id="profileCompleteUpdateBtn" data-i18n="profileBadgeUpdateBtn">Actualizar datos</button>
     </div>
 
     <!-- Sección "Completa tus datos" con barra de progreso -->
@@ -4314,6 +4435,7 @@ body.has-session input[name="nombre"] {
         <div class="kpi-noches-gratis-trophy">🏆</div>
         <div class="kpi-noches-gratis-num" id="kpiNochesGratisAcumNum">0</div>
         <div class="kpi-noches-gratis-label" id="kpiNochesGratisAcumLabel" data-i18n="kpiNochesGratisAcumLabel">Noches gratis acumuladas</div>
+        <button type="button" class="kpi-noches-gratis-claim hidden" id="kpiReclamarNochesBtn" data-i18n="kpiReclamarBtn">Reclama tus noches</button>
       </div>
     </div>
 
@@ -6781,6 +6903,8 @@ const SIMPLE_I18N = {
     welcomeBtnLoginSub:"Completa tu perfil y accede a beneficios exclusivos como descuentos y noches gratis. Te enviaremos un código por WhatsApp para verificar tu número y activar tu cuenta.",
     welcomeBtnExpress:"Registro exprés",
     welcomeBtnExpressSub:"Más rápido y sencillo. Solo completa el formulario de registro. Ideal si es tu primera estancia y tus visitas no son frecuentes.",
+    welcomeBtnVehiculos:"Información de vehículos",
+    welcomeBtnVehiculosSub:"Consulta los vehículos con estancia activa hoy. Útil para coordinar movimientos en el estacionamiento.",
     welcomeTip:"💡 <strong>Tip:</strong> Si llenas el formulario por registro exprés con tu celular, tu cuenta queda creada automáticamente. La próxima vez podrás iniciar sesión para autorrellenar tus datos.",
     loginPhoneTitle:"Iniciar sesión",
     loginPhoneSubtitle:"Escribe tu celular para entrar. Si es tu primera vez, te enviaremos un código por WhatsApp para validarlo.",
@@ -6845,7 +6969,10 @@ const SIMPLE_I18N = {
     profileCardTitle:"Completa tu perfil para obtener beneficios",
     profileCardTitleDone:"Actualiza tus datos",
     profileBadgeTitle:"Perfil completo · Beneficios activos",
-    profileBadgeSub:"Estás recibiendo cashback, prioridad de atención y registro exprés.",
+    profileBadgeSub:"Estás recibiendo beneficios exclusivos y prioridad de atención.",
+    profileBadgeUpdateBtn:"Actualizar datos",
+    wizSaveChangesBtn:"Guardar cambios",
+    wizExitBtn:"Salir",
     profileCardSubEmpty:"Captura tu perfil una sola vez (identificación, datos fiscales, vehículo) y reserva más rápido en el futuro.",
     profileCardSubPartial:"Continúa donde lo dejaste para activar reservaciones rápidas.",
     profileCardSubDone:"Tu perfil está completo. Ábrelo para revisar o actualizar cualquier dato.",
@@ -6920,6 +7047,7 @@ const SIMPLE_I18N = {
     kpiDonutFaltanTmpl:"Faltan {n} noches para tu siguiente noche gratis",
     kpiNochesGratisAcumLabel:"Noches gratis acumuladas",
     kpiNochesGratisAcumLabelSingular:"Noche gratis acumulada",
+    kpiReclamarBtn:"📱 Reclama tus noches",
     /* Cambio de celular */
     changePhoneBtn:"✏️ Cambiar celular",
     changePhoneTitleA:"Cambiar celular",
@@ -7020,6 +7148,8 @@ const SIMPLE_I18N = {
     welcomeBtnLoginSub:"Complete your profile and unlock exclusive benefits like discounts and free nights. We'll send you a WhatsApp code to verify your number and activate your account.",
     welcomeBtnExpress:"Express registration",
     welcomeBtnExpressSub:"Faster and simpler. Just fill the registration form. Ideal if it's your first stay and your visits are not frequent.",
+    welcomeBtnVehiculos:"Vehicle information",
+    welcomeBtnVehiculosSub:"See vehicles with an active stay today. Useful to coordinate parking movements.",
     welcomeTip:"💡 <strong>Tip:</strong> If you fill the form via express access with your phone, your account is created automatically. Next time you can sign in to prefill your data.",
     loginPhoneTitle:"Sign in",
     loginPhoneSubtitle:"Enter your phone to sign in. First time? We'll send a WhatsApp code to validate it.",
@@ -7084,7 +7214,10 @@ const SIMPLE_I18N = {
     profileCardTitle:"Complete your profile to unlock benefits",
     profileCardTitleDone:"Update your profile",
     profileBadgeTitle:"Profile complete · Benefits active",
-    profileBadgeSub:"You're getting cashback, priority support, and express check-in.",
+    profileBadgeSub:"You're getting exclusive benefits and priority support.",
+    profileBadgeUpdateBtn:"Update data",
+    wizSaveChangesBtn:"Save changes",
+    wizExitBtn:"Exit",
     profileCardSubEmpty:"Fill in your profile once (ID, tax info, vehicle) and book faster from now on.",
     profileCardSubPartial:"Pick up where you left off to enable fast bookings.",
     profileCardSubDone:"Your profile is complete. Open it to review or update any data.",
@@ -7157,6 +7290,7 @@ const SIMPLE_I18N = {
     kpiDonutFaltanTmpl:"{n} nights left for your next free night",
     kpiNochesGratisAcumLabel:"Free nights earned",
     kpiNochesGratisAcumLabelSingular:"Free night earned",
+    kpiReclamarBtn:"📱 Claim your nights",
     changePhoneBtn:"✏️ Change phone",
     changePhoneTitleA:"Change phone",
     changePhoneSubA:"Enter the new number. We'll send a WhatsApp code to validate it.",
@@ -10976,7 +11110,6 @@ document.addEventListener("DOMContentLoaded", function(){
                 </div>
                 <div style="border-top:1px solid var(--border);padding-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:12px;color:var(--text);">
                   <div><span style="color:var(--text-soft);">Depto:</span> ${escapeHtmlSafe(depto)}</div>
-                  <div><span style="color:var(--text-soft);">Estancia:</span> ${escapeHtmlSafe(fmtFecha(ingreso))} → ${escapeHtmlSafe(fmtFecha(salida))}</div>
                   ${horaSalida ? `<div><span style="color:var(--text-soft);">Hora salida:</span> ${escapeHtmlSafe(horaSalida)}</div>` : ""}
                 </div>
               </div>
@@ -11192,9 +11325,14 @@ document.addEventListener("DOMContentLoaded", function(){
     const i = getI18n();
     const thumbUrl = driveThumbUrl(stay.ticketUrl, 240);
     const fullThumbUrl = driveThumbUrl(stay.ticketUrl, 1200);
-    const facturaCell = thumbUrl
-      ? `<span class="stays-invoice-thumb" data-zoom-src="${escapeHtml(fullThumbUrl)}" data-stay-index="${idx}" title="Ver factura"><img src="${escapeHtml(thumbUrl)}" alt="factura" loading="lazy"/></span>`
-      : `<span class="stays-invoice-thumb-none" title="${escapeHtml(stay.requiereFactura === "No" ? "No requiere" : "Pendiente")}">—</span>`;
+    let facturaCell;
+    if (thumbUrl) {
+      facturaCell = `<span class="stays-invoice-thumb" data-zoom-src="${escapeHtml(fullThumbUrl)}" data-stay-index="${idx}" title="Ver factura emitida"><img src="${escapeHtml(thumbUrl)}" alt="factura" loading="lazy"/><span class="stays-invoice-badge done" title="Factura emitida">✓</span></span>`;
+    } else if (stay.requiereFactura === "No") {
+      facturaCell = `<span class="stays-invoice-status no-req" title="No requiere factura">⊘<br><small>No requiere</small></span>`;
+    } else {
+      facturaCell = `<span class="stays-invoice-status pending" title="Factura pendiente">⏳<br><small>Pendiente</small></span>`;
+    }
     return `<tr class="stays-row-clickable" data-stay-index="${idx}">
       <td>
         <span class="stays-status-cell">
@@ -11407,6 +11545,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const acumNumEl = $("kpiNochesGratisAcumNum");
     const acumLabelEl = $("kpiNochesGratisAcumLabel");
     const acumCard = $("kpiNochesGratisAcumCard");
+    const claimBtn = $("kpiReclamarNochesBtn");
     if (acumNumEl) acumNumEl.textContent = noches_gratis_disponibles;
     if (acumCard) {
       acumCard.classList.toggle("has-acumuladas", noches_gratis_disponibles > 0);
@@ -11416,6 +11555,21 @@ document.addEventListener("DOMContentLoaded", function(){
         ? (i.kpiNochesGratisAcumLabelSingular || "Noche gratis acumulada")
         : (i.kpiNochesGratisAcumLabel || "Noches gratis acumuladas");
       acumLabelEl.textContent = lbl;
+    }
+    // Botón "Reclama tus noches" solo si hay noches gratis acumuladas
+    if (claimBtn) {
+      claimBtn.classList.toggle("hidden", noches_gratis_disponibles <= 0);
+      claimBtn.onclick = () => {
+        const HOTEL_WA_NUMBER = "528441234567"; // TODO: reemplazar por el número real
+        const session = getSession();
+        const profile = session ? (window.checkinnProfile?._loadProfile?.(getPhoneKey())) : null;
+        const nombre = profile?.step1?.nombre || (session?.name) || "huésped";
+        const idHuesped = session?.phone ? `#${session.phone.slice(-4)}` : "#0000";
+        const noches = noches_gratis_disponibles;
+        const noun = noches === 1 ? "noche" : "noches";
+        const text = `Hola, soy ${nombre} (huésped ${idHuesped}). Quiero hacer uso de mi beneficio de ${noches} ${noun} sin costo para mi siguiente reservación.`;
+        window.open(`https://wa.me/${HOTEL_WA_NUMBER}?text=${encodeURIComponent(text)}`, "_blank");
+      };
     }
   }
 
@@ -11784,6 +11938,7 @@ document.addEventListener("DOMContentLoaded", function(){
   function bindEvents(){
     $("btnGoLogin")?.addEventListener("click", gotoLoginPhone);
     $("btnGoExpress")?.addEventListener("click", gotoExpressForm);
+    $("btnGoVehiculos")?.addEventListener("click", gotoExpressVehiculos);
     $("btnLoginBack1")?.addEventListener("click", gotoWelcome);
     $("btnLoginBackFromPin")?.addEventListener("click", gotoLoginPhone);
     $("btnLoginBackFromOtp")?.addEventListener("click", gotoLoginPhone);
@@ -11944,6 +12099,7 @@ document.addEventListener("DOMContentLoaded", function(){
   let currentStep = 1;
   let activeProfile = null;     // perfil cargado del usuario actual
   let activePhoneKey = null;    // clave por celular (ej "+525512345678")
+  let profileSnapshotAtOpen = ""; // serializado al abrir para detectar cambios
 
   // ─── Storage helpers (mock — Fase 3: backend) ─────────────────────
   function loadAllProfiles(){
@@ -12029,6 +12185,7 @@ document.addEventListener("DOMContentLoaded", function(){
       updateConditionals();
       updateProgressUI();
       refreshHomeCard();
+      updateFinishButtonLabel();
     };
 
     // ── Paso 1
@@ -12265,6 +12422,8 @@ document.addEventListener("DOMContentLoaded", function(){
     if (!session) { window.checkinnAuth?.gotoWelcome(); return; }
     activePhoneKey = getPhoneKey();
     activeProfile = loadProfile(activePhoneKey);
+    // Snapshot del estado al abrir (para detectar cambios)
+    profileSnapshotAtOpen = serializeProfile(activeProfile);
     // Pintar
     [viewHome, viewWizard, viewRegistro, $("viewVehiculos"), $("viewWelcome"), $("viewLogin")].forEach(el => {
       if (el) el.classList.toggle("hidden", el !== viewWizard);
@@ -12277,9 +12436,42 @@ document.addEventListener("DOMContentLoaded", function(){
     fillFormFromProfile(activeProfile);
     updateConditionals();
     showStep(activeProfile.lastStep || 1);
+    updateFinishButtonLabel();
+  }
+  function serializeProfile(p){
+    if (!p) return "";
+    const subset = {
+      step1: p.step1, step2: p.step2, step3: p.step3, step4: p.step4
+    };
+    return JSON.stringify(subset);
+  }
+  function hasUnsavedChanges(){
+    return serializeProfile(activeProfile) !== profileSnapshotAtOpen;
+  }
+  function updateFinishButtonLabel(){
+    const btn = $("wizBtnFinish");
+    if (!btn) return;
+    const i = getI18n();
+    const wasComplete = activeProfile?.completed;
+    const isFullyComplete = isProfileFullyComplete(activeProfile);
+    if (wasComplete && !hasUnsavedChanges()) {
+      // Ya estaba completo y sin cambios → solo "Salir"
+      btn.textContent = i.wizExitBtn || "Salir";
+      btn.dataset.mode = "exit";
+    } else if (wasComplete && hasUnsavedChanges()) {
+      // Ya estaba completo + hay cambios → "Guardar cambios"
+      btn.textContent = i.wizSaveChangesBtn || "Guardar cambios";
+      btn.dataset.mode = "save-changes";
+    } else {
+      // Aún no estaba completo → "Guardar datos" (comportamiento normal)
+      btn.textContent = i.wizFinish || "Guardar datos";
+      btn.dataset.mode = "save-data";
+    }
   }
   function exitWizardToHome(){
     if (window.checkinnAuth) window.checkinnAuth.gotoHome();
+    // Asegurar que la card del perfil refleje el estado actual al volver
+    setTimeout(refreshHomeCard, 50);
   }
 
   // ─── Validación al avanzar ─────────────────────────────────────────
@@ -12298,8 +12490,14 @@ document.addEventListener("DOMContentLoaded", function(){
     if (currentStep < TOTAL_STEPS) showStep(currentStep + 1);
   }
   function tryFinish(){
-    // Siempre persiste lo capturado. Si está completo, muestra pop-up de éxito
-    // y al cerrar regresa al Home. Si está parcial, regresa al Home directo.
+    const btn = $("wizBtnFinish");
+    const mode = btn?.dataset?.mode || "save-data";
+    if (mode === "exit") {
+      // Sin cambios, perfil ya completo → solo salir, sin tocar nada
+      exitWizardToHome();
+      return;
+    }
+    // Persistir y refrescar
     if (activeProfile) saveProfile(activePhoneKey, activeProfile);
     refreshHomeCard();
     const flags = stepCompletionFlags(activeProfile);
@@ -12307,6 +12505,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if (allDone) {
       activeProfile.completed = true;
       saveProfile(activePhoneKey, activeProfile);
+      profileSnapshotAtOpen = serializeProfile(activeProfile);
       refreshHomeCard();
       showProfileCompleteModal();
     } else {
@@ -12461,6 +12660,7 @@ document.addEventListener("DOMContentLoaded", function(){
       if (modal) modal.style.display = "none";
       exitWizardToHome();
     });
+    $("profileCompleteUpdateBtn")?.addEventListener("click", openWizard);
     $("profileCompleteModal")?.addEventListener("click", (e) => {
       if (e.target.id === "profileCompleteModal") {
         e.currentTarget.style.display = "none";
