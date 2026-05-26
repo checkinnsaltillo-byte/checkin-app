@@ -3586,6 +3586,52 @@ function formatRangoFechasSimple(inicio, fin){
   align-items:center;
   gap:4px;
 }
+/* ───── KPI bloqueado (perfil incompleto) ─────
+   Aplica a kpi-donut-card y kpi-noches-gratis-card cuando profile pct < 100. */
+.kpi-donut-card.kpi-locked,
+.kpi-noches-gratis-card.kpi-locked{
+  position:relative;
+  overflow:hidden;
+  pointer-events:none;
+}
+.kpi-donut-card.kpi-locked > *:not(.kpi-locked-overlay),
+.kpi-noches-gratis-card.kpi-locked > *:not(.kpi-locked-overlay){
+  filter:grayscale(.6) blur(.3px);
+  opacity:.55;
+}
+.kpi-locked-overlay{
+  position:absolute;
+  inset:0;
+  background:rgba(255,255,255,.78);
+  backdrop-filter:blur(1.5px);
+  -webkit-backdrop-filter:blur(1.5px);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:8px;
+  z-index:2;
+  border-radius:14px;
+  pointer-events:auto;
+  cursor:default;
+}
+.kpi-locked-overlay-icon{
+  font-size:28px;
+  line-height:1;
+  filter:drop-shadow(0 2px 4px rgba(15,23,42,.18));
+}
+.kpi-locked-overlay-text{
+  font-size:10.5px;
+  font-weight:800;
+  color:#475569;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  line-height:1.25;
+  text-align:center;
+  padding:0 4px;
+}
+
 .kpi-noches-gratis-claim:hover{
   transform:translateY(-1px);
   box-shadow:0 6px 14px rgba(37,211,102,.45);
@@ -4036,6 +4082,25 @@ body.has-session #vehicleFilterActions{ display:none !important; }
   background:linear-gradient(180deg,#ecfdf5 0%, #ffffff 100%);
   border-color:#a7f3d0;
 }
+.profile-card.incomplete{
+  background:linear-gradient(180deg,#fef2f2 0%, #fee2e2 100%);
+  border-color:#fca5a5;
+  box-shadow:0 6px 18px rgba(220,38,38,.10);
+}
+.profile-card.incomplete:hover{
+  border-color:#f87171;
+  box-shadow:0 14px 28px rgba(220,38,38,.16);
+}
+.profile-card.incomplete .profile-card-title{ color:#991b1b; }
+.profile-card.incomplete .profile-card-pct{
+  color:#991b1b;
+  background:#fecaca;
+}
+.profile-card.incomplete .profile-card-sub{ color:#7f1d1d; }
+.profile-card.incomplete .profile-progress{ background:#fecaca; }
+.profile-card.incomplete .profile-progress-bar{
+  background:linear-gradient(90deg, #dc2626 0%, #f97316 100%);
+}
 .profile-card-head{
   display:flex;
   align-items:center;
@@ -4458,12 +4523,20 @@ body.has-session input[name="nombre"] {
           <div class="kpi-donut-center-of" id="kpiDonutOf">/ 10</div>
         </div>
         <div class="kpi-donut-label" id="kpiDonutFaltan" data-i18n="kpiDonutFaltanTmpl">Faltan 10 noches para tu siguiente noche gratis</div>
+        <div class="kpi-locked-overlay" hidden>
+          <div class="kpi-locked-overlay-icon">🔒</div>
+          <div class="kpi-locked-overlay-text" data-i18n="kpiLockedCaption">Completa tu perfil para aprovechar tus beneficios</div>
+        </div>
       </div>
       <div class="kpi-noches-gratis-card" id="kpiNochesGratisAcumCard">
         <div class="kpi-noches-gratis-trophy">🏆</div>
         <div class="kpi-noches-gratis-num" id="kpiNochesGratisAcumNum">0</div>
         <div class="kpi-noches-gratis-label" id="kpiNochesGratisAcumLabel" data-i18n="kpiNochesGratisAcumLabel">Noches gratis acumuladas</div>
         <button type="button" class="kpi-noches-gratis-claim hidden" id="kpiReclamarNochesBtn" data-i18n="kpiReclamarBtn">Reclama tus noches</button>
+        <div class="kpi-locked-overlay" hidden>
+          <div class="kpi-locked-overlay-icon">🔒</div>
+          <div class="kpi-locked-overlay-text" data-i18n="kpiLockedCaption">Completa tu perfil para aprovechar tus beneficios</div>
+        </div>
       </div>
     </div>
 
@@ -4570,6 +4643,7 @@ body.has-session input[name="nombre"] {
 
 <!-- ═══ WIZARD "COMPLETA TUS DATOS" ═════════════════════════════════ -->
 <div class="view-panel hidden" id="viewProfileWizard">
+  <button type="button" class="back-home-btn" id="wizBtnBackHome" data-i18n="backHomeBtn">← Volver al inicio</button>
   <div class="section">
     <div class="wizard-progress-block">
       <h2 class="section-title" data-i18n="wizardHeader">Completa tus datos</h2>
@@ -4776,7 +4850,7 @@ body.has-session input[name="nombre"] {
     <div class="wizard-footer">
       <button class="wizard-btn-secondary" id="wizBtnPrev" type="button" data-i18n="wizPrev">← Atrás</button>
       <button id="wizBtnNext" type="button" data-i18n="wizNext">Siguiente →</button>
-      <button id="wizBtnFinish" type="button" class="wizard-btn-save-exit" data-i18n="wizFinish">Guardar datos</button>
+      <button id="wizBtnFinish" type="button" class="wizard-btn-save-exit" data-i18n="wizFinish">Guardar y salir</button>
     </div>
   </div>
 </div>
@@ -7042,7 +7116,12 @@ const SIMPLE_I18N = {
     wizBtnFile:"Elegir archivo",
     wizPrev:"← Atrás",
     wizNext:"Siguiente →",
-    wizFinish:"Guardar datos",
+    wizFinish:"Guardar y salir",
+    wizFinishStep4:"Finalizar registro",
+    wizUnsavedTitle:"Tienes cambios sin guardar",
+    wizUnsavedText:"Aún no has guardado los cambios de tu perfil. ¿Qué quieres hacer?",
+    wizUnsavedDiscardBtn:"No guardar cambios",
+    wizUnsavedSaveExitBtn:"Guardar y salir",
     wizSaveExit:"Guardar y salir",
     wizSavedToast:"Tus datos quedaron guardados. Continúa cuando quieras.",
     wizFinishedToast:"¡Perfil completo! Ya puedes hacer reservaciones rápidas.",
@@ -7083,6 +7162,7 @@ const SIMPLE_I18N = {
     kpiDonutFaltanTmpl:"Faltan {n} noches para tu siguiente noche gratis",
     kpiNochesGratisAcumLabel:"Noches gratis acumuladas",
     kpiNochesGratisAcumLabelSingular:"Noche gratis acumulada",
+    kpiLockedCaption:"Completa tu perfil para aprovechar tus beneficios",
     kpiReclamarBtn:"📱 Reclama tus noches",
     /* Cambio de celular */
     changePhoneBtn:"✏️ Cambiar celular",
@@ -7289,7 +7369,12 @@ const SIMPLE_I18N = {
     wizBtnFile:"Choose file",
     wizPrev:"← Back",
     wizNext:"Next →",
-    wizFinish:"Save profile",
+    wizFinish:"Save and exit",
+    wizFinishStep4:"Finish registration",
+    wizUnsavedTitle:"You have unsaved changes",
+    wizUnsavedText:"You haven't saved your profile changes yet. What would you like to do?",
+    wizUnsavedDiscardBtn:"Discard changes",
+    wizUnsavedSaveExitBtn:"Save and exit",
     wizSaveExit:"Save and exit",
     wizSavedToast:"Your data was saved. Continue whenever you like.",
     wizFinishedToast:"Profile complete! You can now do fast bookings.",
@@ -7328,6 +7413,7 @@ const SIMPLE_I18N = {
     kpiDonutFaltanTmpl:"{n} nights left for your next free night",
     kpiNochesGratisAcumLabel:"Free nights earned",
     kpiNochesGratisAcumLabelSingular:"Free night earned",
+    kpiLockedCaption:"Complete your profile to unlock benefits",
     kpiReclamarBtn:"📱 Claim your nights",
     changePhoneBtn:"✏️ Change phone",
     changePhoneTitleA:"Change phone",
@@ -12445,11 +12531,12 @@ document.addEventListener("DOMContentLoaded", function(){
       const flags = stepCompletionFlags(activeProfile);
       l.classList.toggle("done", flags[ln - 1]);
     });
-    // "Siguiente" se oculta en el último paso; "Guardar datos" siempre visible.
+    // "Siguiente" se oculta en el último paso; "Atrás" se OCULTA en paso 1.
     $("wizBtnNext").classList.toggle("hidden", n === TOTAL_STEPS);
-    $("wizBtnPrev").disabled = (n === 1);
-    // Update meta
+    $("wizBtnPrev").classList.toggle("hidden", n === 1);
+    // Update meta y label dinámico del botón principal (Guardar y salir / Finalizar registro)
     updateProgressUI();
+    updateFinishButtonLabel();
     if (activeProfile) {
       activeProfile.lastStep = n;
       saveProfile(activePhoneKey, activeProfile);
@@ -12479,6 +12566,22 @@ document.addEventListener("DOMContentLoaded", function(){
     });
   }
 
+  // ─── Lock/unlock KPIs de beneficios según completitud del perfil ───
+  function refreshBenefitsKpiLock(isComplete){
+    const donut = document.getElementById("kpiNocheGratisCard");
+    const acum  = document.getElementById("kpiNochesGratisAcumCard");
+    [donut, acum].forEach(card => {
+      if (!card) return;
+      const overlay = card.querySelector(".kpi-locked-overlay");
+      if (isComplete) {
+        card.classList.remove("kpi-locked");
+        if (overlay) overlay.hidden = true;
+      } else {
+        card.classList.add("kpi-locked");
+        if (overlay) overlay.hidden = false;
+      }
+    });
+  }
   // ─── Home card ─────────────────────────────────────────────────────
   function refreshHomeCard(){
     const card = $("profileCard");
@@ -12488,14 +12591,18 @@ document.addEventListener("DOMContentLoaded", function(){
     if (!session) {
       card.style.display = "none";
       if (badge) badge.classList.remove("visible");
+      refreshBenefitsKpiLock(false);
       return;
     }
     // Siempre recargar de storage para reflejar cambios externos
     activePhoneKey = getPhoneKey();
     activeProfile = loadProfile(activePhoneKey);
     const pct = profileCompletionPercent(activeProfile);
+    // Lock de KPIs de beneficios (donut + acumuladas) siempre que <100%
+    refreshBenefitsKpiLock(pct === 100);
     // Si está al 100%, ocultar la card y mostrar la insignia de beneficios.
     if (pct === 100) {
+      card.classList.remove("incomplete");
       card.style.display = "none";
       if (badge) badge.classList.add("visible");
       return;
@@ -12506,9 +12613,11 @@ document.addEventListener("DOMContentLoaded", function(){
     $("profileCardPct").textContent = pct + "%";
     const bar = $("profileProgressBar");
     if (bar) bar.style.width = pct + "%";
+    // Estado "incompleto" → estilo rojo + ícono de aviso
     card.classList.remove("completed");
+    card.classList.add("incomplete");
     const icon = $("profileCardIcon");
-    if (icon) icon.textContent = "📋";
+    if (icon) icon.textContent = "⚠️";
     const titleEl = card.querySelector('.profile-card-title span[data-i18n="profileCardTitle"]');
     if (titleEl) titleEl.textContent = i.profileCardTitle || "Completa tus datos";
     const sub = $("profileCardSub");
@@ -12556,7 +12665,6 @@ document.addEventListener("DOMContentLoaded", function(){
     if (!btn) return;
     const i = getI18n();
     const wasComplete = activeProfile?.completed;
-    const isFullyComplete = isProfileFullyComplete(activeProfile);
     if (wasComplete && !hasUnsavedChanges()) {
       // Ya estaba completo y sin cambios → solo "Salir"
       btn.textContent = i.wizExitBtn || "Salir";
@@ -12565,9 +12673,13 @@ document.addEventListener("DOMContentLoaded", function(){
       // Ya estaba completo + hay cambios → "Guardar cambios"
       btn.textContent = i.wizSaveChangesBtn || "Guardar cambios";
       btn.dataset.mode = "save-changes";
+    } else if (currentStep === TOTAL_STEPS) {
+      // En el último paso del primer registro → "Finalizar registro"
+      btn.textContent = i.wizFinishStep4 || "Finalizar registro";
+      btn.dataset.mode = "save-data";
     } else {
-      // Aún no estaba completo → "Guardar datos" (comportamiento normal)
-      btn.textContent = i.wizFinish || "Guardar datos";
+      // Pasos 1-3 del primer registro → "Guardar y salir"
+      btn.textContent = i.wizFinish || "Guardar y salir";
       btn.dataset.mode = "save-data";
     }
   }
@@ -12751,6 +12863,48 @@ document.addEventListener("DOMContentLoaded", function(){
     }, true); // useCapture=true
   }
 
+  // ─── "Volver al inicio" desde el wizard con detección de cambios ──
+  function openUnsavedModal(){
+    const m = $("wizUnsavedModal");
+    if (m) m.style.display = "flex";
+  }
+  function closeUnsavedModal(){
+    const m = $("wizUnsavedModal");
+    if (m) m.style.display = "none";
+  }
+  function onWizBackHomeClick(){
+    if (hasUnsavedChanges()) {
+      openUnsavedModal();
+    } else {
+      exitWizardToHome();
+    }
+  }
+  function onUnsavedDiscard(){
+    // Revertir los step1-4 al snapshot capturado al abrir el wizard.
+    // Cada input se autopersiste a localStorage al cambiar, así que para
+    // descartar reescribimos las claves step1..step4 desde el snapshot.
+    closeUnsavedModal();
+    try {
+      const snapshot = profileSnapshotAtOpen ? JSON.parse(profileSnapshotAtOpen) : null;
+      if (snapshot && activeProfile) {
+        if (snapshot.step1) activeProfile.step1 = snapshot.step1;
+        if (snapshot.step2) activeProfile.step2 = snapshot.step2;
+        if (snapshot.step3) activeProfile.step3 = snapshot.step3;
+        if (snapshot.step4) activeProfile.step4 = snapshot.step4;
+        saveProfile(activePhoneKey, activeProfile);
+      }
+    } catch (e) {
+      console.warn("[wizard] discard failed:", e);
+    }
+    refreshHomeCard();
+    exitWizardToHome();
+  }
+  function onUnsavedSaveExit(){
+    closeUnsavedModal();
+    // Reusar tryFinish para persistir y salir (no abre modal completo si no está al 100%)
+    tryFinish();
+  }
+
   // ─── Init ──────────────────────────────────────────────────────────
   function init(){
     if (!viewWizard) return;
@@ -12758,6 +12912,12 @@ document.addEventListener("DOMContentLoaded", function(){
     $("wizBtnPrev")?.addEventListener("click", () => showStep(currentStep - 1));
     $("wizBtnNext")?.addEventListener("click", tryAdvance);
     $("wizBtnFinish")?.addEventListener("click", tryFinish);
+    $("wizBtnBackHome")?.addEventListener("click", onWizBackHomeClick);
+    $("wizUnsavedDiscardBtn")?.addEventListener("click", onUnsavedDiscard);
+    $("wizUnsavedSaveExitBtn")?.addEventListener("click", onUnsavedSaveExit);
+    $("wizUnsavedModal")?.addEventListener("click", (e) => {
+      if (e.target.id === "wizUnsavedModal") closeUnsavedModal();
+    });
     $("profileCompleteOkBtn")?.addEventListener("click", () => {
       const modal = $("profileCompleteModal");
       if (modal) modal.style.display = "none";
@@ -13035,6 +13195,19 @@ document.addEventListener("DOMContentLoaded", function(){
     <div class="hint" data-i18n="profileCompleteText">Ya puedes hacer reservaciones rápidas con tus datos guardados.</div>
     <div style="margin-top:18px;">
       <button id="profileCompleteOkBtn" type="button" style="width:100%;" data-i18n="acceptBtn">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal: Cambios sin guardar (al salir del wizard) ═══════════ -->
+<div class="popup-backdrop" id="wizUnsavedModal" style="display:none;">
+  <div class="popup-card" style="max-width:420px;text-align:left;">
+    <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(180deg,#f59e0b 0%, #d97706 100%);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:28px;font-weight:800;box-shadow:0 10px 24px rgba(245,158,11,.30);">⚠️</div>
+    <h3 style="text-align:center;margin-bottom:6px;" data-i18n="wizUnsavedTitle">Tienes cambios sin guardar</h3>
+    <div class="hint" style="text-align:center;margin-bottom:16px;" data-i18n="wizUnsavedText">Aún no has guardado los cambios de tu perfil. ¿Qué quieres hacer?</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button id="wizUnsavedSaveExitBtn" type="button" style="width:100%;margin-top:0;" data-i18n="wizUnsavedSaveExitBtn">Guardar y salir</button>
+      <button id="wizUnsavedDiscardBtn" type="button" class="wizard-btn-secondary" style="width:100%;margin-top:0;" data-i18n="wizUnsavedDiscardBtn">No guardar cambios</button>
     </div>
   </div>
 </div>
