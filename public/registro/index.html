@@ -4399,6 +4399,41 @@ body.has-session input[name="nombre"] {
       el.classList.add("hidden-loader");
     }
   }, 8000);
+
+  // Helpers globales para mostrar/ocultar el splash en operaciones async.
+  // Usamos un contador para soportar múltiples cargas simultáneas (mostramos
+  // el loader si al menos una está en curso; ocultamos cuando llega a 0).
+  // También un timeout de seguridad de 10 s para evitar quedarse atascado.
+  (function(){
+    var depth = 0;
+    var safetyTimer = null;
+    var loaderEl = null;
+    function el(){ if (!loaderEl) loaderEl = document.getElementById("appLoader"); return loaderEl; }
+    function show(){
+      depth++;
+      var e = el();
+      if (e) e.classList.remove("hidden-loader");
+      if (safetyTimer) clearTimeout(safetyTimer);
+      safetyTimer = setTimeout(function(){
+        // Reset por seguridad: si algo se cuelga, no dejamos el splash arriba
+        depth = 0;
+        var e2 = el(); if (e2) e2.classList.add("hidden-loader");
+      }, 10000);
+    }
+    function hide(){
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) {
+        var e = el();
+        if (e) e.classList.add("hidden-loader");
+        if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
+      }
+    }
+    function wrap(promise){
+      show();
+      return Promise.resolve(promise).finally(hide);
+    }
+    window.checkinnLoader = { show: show, hide: hide, wrap: wrap };
+  })();
 </script>
 
 <div class="session-pill" id="sessionPill">
@@ -4643,6 +4678,7 @@ body.has-session input[name="nombre"] {
               <th data-i18n="staysThEstado">Estado</th>
               <th data-i18n="staysThProp">Propiedad</th>
               <th data-i18n="staysThDepto"># Depto</th>
+              <th data-i18n="staysThNoches">Total de noches</th>
               <th data-i18n="staysThIngreso">Ingreso</th>
               <th data-i18n="staysThSalida">Salida</th>
               <th data-i18n="staysThMonto">Monto total</th>
@@ -4650,7 +4686,7 @@ body.has-session input[name="nombre"] {
           </thead>
           <tbody id="staysBody">
             <tr class="stays-empty-row">
-              <td colspan="7" data-i18n="staysEmpty">Aún no tienes estancias registradas.</td>
+              <td colspan="8" data-i18n="staysEmpty">Aún no tienes estancias registradas.</td>
             </tr>
           </tbody>
         </table>
@@ -7187,6 +7223,7 @@ const SIMPLE_I18N = {
     staysCardSubtitle:"Resumen de tu estancia actual o más reciente.",
     staysThProp:"Propiedad",
     staysThDepto:"# Depto",
+    staysThNoches:"Total de noches",
     staysThIngreso:"Ingreso",
     staysThSalida:"Salida",
     staysThMonto:"Monto total",
@@ -7204,6 +7241,7 @@ const SIMPLE_I18N = {
     vehLblDepto:"Depto",
     vehLblHoraSalida:"Hora salida",
     vehLblLlamar:"Llamar",
+    vehLblWhatsApp:"WhatsApp",
     vehNoActiveStays:"No tienes estancias activas hoy. Verás los vehículos cuando tu reservación esté en curso.",
     /* ── Profile wizard ── */
     profileCardTitle:"Completa tu perfil para obtener beneficios",
@@ -7462,6 +7500,7 @@ const SIMPLE_I18N = {
     staysCardSubtitle:"Summary of your current or most recent stay.",
     staysThProp:"Property",
     staysThDepto:"# Apt",
+    staysThNoches:"Total nights",
     staysThIngreso:"Check-in",
     staysThSalida:"Check-out",
     staysThMonto:"Total",
@@ -7479,6 +7518,7 @@ const SIMPLE_I18N = {
     vehLblDepto:"Apt",
     vehLblHoraSalida:"Departure",
     vehLblLlamar:"Call",
+    vehLblWhatsApp:"WhatsApp",
     vehNoActiveStays:"You have no active stays today. Vehicles will show up when your reservation is ongoing.",
     /* ── Profile wizard ── */
     profileCardTitle:"Complete your profile to unlock benefits",
@@ -7700,7 +7740,18 @@ function applyTranslations(lang){
         // Re-render del home (vehículos compactos + textos dinámicos) para
         // contenidos que se construyen con innerHTML y no llevan data-i18n.
         if (window.checkinnAuth && typeof window.checkinnAuth.refreshHomeContentForLang === "function") {
-          try { window.checkinnAuth.refreshHomeContentForLang(); } catch(_e){}
+          try {
+            if (window.checkinnLoader) window.checkinnLoader.show();
+            const p = window.checkinnAuth.refreshHomeContentForLang();
+            if (p && typeof p.finally === "function") {
+              p.finally(() => { if (window.checkinnLoader) window.checkinnLoader.hide(); });
+            } else if (window.checkinnLoader) {
+              // refresh sin promise → ocultar pronto
+              setTimeout(() => window.checkinnLoader.hide(), 400);
+            }
+          } catch(_e){
+            if (window.checkinnLoader) window.checkinnLoader.hide();
+          }
         }
       });
     }
@@ -9191,7 +9242,7 @@ function buildTicketActionsHtml(row, ticketUrl){
             <div class="vehicle-card-main">
               <div class="vehicle-card-title">${escapeHtml(row["Nombre del huésped 1"] || 'Sin nombre')} · ${escapeHtml(row["Marca"] || 'Sin marca')} ${escapeHtml(row["Modelo"] || '')}</div>
               <div class="vehicle-card-subtitle">${escapeHtml(row["Propiedad"] || 'Sin propiedad')} · Placas: ${escapeHtml(row["# Placas"] || '—')}</div>
-              <div class="vehicle-card-subtitle">Depto: ${escapeHtml(row["# Departamento"] || '—')} · Hora salida: ${escapeHtml(row["Hora habitual de salida"] || '—')}</div>
+              <div class="vehicle-card-subtitle">Depto: ${row["# Departamento"] ? `# ${escapeHtml(String(row["# Departamento"]).replace(/^\s*#\s*/, ""))}` : '—'} · Hora salida: ${escapeHtml(row["Hora habitual de salida"] || '—')}</div>
             </div>
             <div class="vehicle-card-chevron">⌄</div>
           </summary>
@@ -11144,7 +11195,14 @@ document.addEventListener("DOMContentLoaded", function(){
     showOnly(viewHome);
     setMenuVisible(false);
     refreshSessionPill();
-    await refreshHomeContent(s);
+    // Mostrar splash "Cargando datos…" mientras se traen las estancias
+    // y se renderiza el dashboard.
+    if (window.checkinnLoader) window.checkinnLoader.show();
+    try {
+      await refreshHomeContent(s);
+    } finally {
+      if (window.checkinnLoader) window.checkinnLoader.hide();
+    }
   }
   function gotoExpressForm(){
     showOnly(viewRegistro);
@@ -11271,7 +11329,19 @@ document.addEventListener("DOMContentLoaded", function(){
     setMenuVisible(!hasSession);
     setMenuActive("vehiculos");
     if (typeof window.cargarPropiedadesVehiculos === "function") {
-      try { window.cargarPropiedadesVehiculos(false); } catch(e){}
+      // Splash "Cargando datos…" mientras se traen las propiedades y filas
+      // de vehículos del backend.
+      if (window.checkinnLoader) window.checkinnLoader.show();
+      try {
+        const p = window.cargarPropiedadesVehiculos(false);
+        if (p && typeof p.finally === "function") {
+          p.finally(() => { if (window.checkinnLoader) window.checkinnLoader.hide(); });
+        } else {
+          if (window.checkinnLoader) window.checkinnLoader.hide();
+        }
+      } catch(e) {
+        if (window.checkinnLoader) window.checkinnLoader.hide();
+      }
     }
     // Si hay sesión, aplicar auto-filtrado por estancia(s) en curso
     setTimeout(applyVehiclesSessionFilter, 200);
@@ -11461,21 +11531,26 @@ document.addEventListener("DOMContentLoaded", function(){
             const lblDepto  = labels.vehLblDepto  || "Depto";
             const lblHora   = labels.vehLblHoraSalida || "Hora salida";
             const lblCall   = labels.vehLblLlamar || "Llamar";
+            const lblWA     = labels.vehLblWhatsApp || "WhatsApp";
+            const deptoDisplay = depto && depto !== "—" ? `# ${depto}` : "—";
             return `
               <div class="vehicle-card" style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:10px;box-shadow:0 4px 12px rgba(15,23,42,.04);">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
                   <div style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;">
                     ${fotoHTML}
                     <div style="min-width:0;flex:1;">
                       <div style="font-weight:800;font-size:15px;color:var(--text);">${escapeHtmlSafe(marca)} ${escapeHtmlSafe(modelo)}${color ? ` · <span style="font-weight:600;color:var(--text-soft);">${escapeHtmlSafe(color)}</span>` : ""}</div>
                       <div style="font-size:12.5px;color:var(--text);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 12px;">
                         <span><span style="color:var(--text-soft);">${escapeHtmlSafe(lblPlacas)}:</span> <strong>${escapeHtmlSafe(placas)}</strong></span>
-                        <span><span style="color:var(--text-soft);">${escapeHtmlSafe(lblDepto)}:</span> ${escapeHtmlSafe(depto)}</span>
+                        <span><span style="color:var(--text-soft);">${escapeHtmlSafe(lblDepto)}:</span> ${escapeHtmlSafe(deptoDisplay)}</span>
                         ${horaSalida ? `<span><span style="color:var(--text-soft);">${escapeHtmlSafe(lblHora)}:</span> ${escapeHtmlSafe(horaSalida)}</span>` : ""}
                       </div>
                     </div>
                   </div>
-                  ${callLink ? `<a href="${callLink}" class="veh-action-btn veh-action-call" style="flex-shrink:0;">📞 ${escapeHtmlSafe(lblCall)}</a>` : ""}
+                  <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
+                    ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener" class="veh-action-btn veh-action-wa">📱 ${escapeHtmlSafe(lblWA)}</a>` : ""}
+                    ${callLink ? `<a href="${callLink}" class="veh-action-btn veh-action-call">📞 ${escapeHtmlSafe(lblCall)}</a>` : ""}
+                  </div>
                 </div>
               </div>
             `;
@@ -11707,17 +11782,25 @@ document.addEventListener("DOMContentLoaded", function(){
         </span>
       </td>
       <td>${escapeHtml(stay.propiedad || "—")}</td>
-      <td>${escapeHtml(stay.depto || "—")}</td>
+      <td>${stay.depto ? `# ${escapeHtml(stay.depto)}` : "—"}</td>
+      <td>${computeStayNights(stay)}</td>
       <td>${escapeHtml(fmtFecha(stay.ingreso))}</td>
       <td>${escapeHtml(fmtFecha(stay.salida))}</td>
       <td class="stays-amount">${escapeHtml(fmtMonto(stay.monto))}</td>
     </tr>`;
   }
+  function computeStayNights(stay){
+    const ing = parseDateLocal(stay.ingreso);
+    const sal = parseDateLocal(stay.salida);
+    if (!ing || !sal) return "—";
+    const n = Math.max(0, Math.round((sal - ing) / (24*60*60*1000)));
+    return String(n);
+  }
 
   function renderEmptyStays(){
     const i = getI18n();
     const body = $("staysBody");
-    if (body) body.innerHTML = `<tr class="stays-empty-row"><td colspan="7">${i.staysEmpty || "Aún no tienes estancias registradas."}</td></tr>`;
+    if (body) body.innerHTML = `<tr class="stays-empty-row"><td colspan="8">${i.staysEmpty || "Aún no tienes estancias registradas."}</td></tr>`;
     const pager = $("staysPager");
     if (pager) pager.classList.add("hidden");
   }
@@ -11796,9 +11879,16 @@ document.addEventListener("DOMContentLoaded", function(){
       .map(([key, label]) => {
         const val = rawRow[key];
         if (val == null || String(val).trim() === "") return null;
-        const displayVal = /Fecha/.test(key)
-          ? fmtFecha(val)
-          : (/Monto/.test(key) ? fmtMonto(val) : String(val));
+        let displayVal;
+        if (/Fecha/.test(key)) {
+          displayVal = fmtFecha(val);
+        } else if (/Monto/.test(key)) {
+          displayVal = fmtMonto(val);
+        } else if (key === "# Departamento") {
+          displayVal = `# ${String(val).replace(/^\s*#\s*/, "")}`;
+        } else {
+          displayVal = String(val);
+        }
         return `<div class="detail-item"><div class="detail-key">${escapeHtml(label)}</div><div class="detail-value">${escapeHtml(displayVal)}</div></div>`;
       })
       .filter(Boolean);
@@ -12468,7 +12558,8 @@ document.addEventListener("DOMContentLoaded", function(){
     // de idioma para que contenidos construidos con innerHTML se rehagan.
     refreshHomeContentForLang: function(){
       const s = getSession();
-      if (s) { try { refreshHomeContent(s); } catch(_e){} }
+      if (s) { try { return refreshHomeContent(s); } catch(_e){} }
+      return Promise.resolve();
     },
     _cachedStays: null,
     _state: () => ({ pendingOtp, session: getSession() })
