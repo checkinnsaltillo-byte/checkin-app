@@ -3587,25 +3587,27 @@ function formatRangoFechasSimple(inicio, fin){
   gap:4px;
 }
 /* ───── KPI bloqueado (perfil incompleto) ─────
-   Aplica a kpi-donut-card y kpi-noches-gratis-card cuando profile pct < 100. */
+   Aplica a kpi-donut-card y kpi-noches-gratis-card cuando profile pct < 100.
+   IMPORTANTE: las tarjetas ya tienen position:relative (asegurado abajo) y
+   el overlay solo se muestra cuando la tarjeta tiene la clase .kpi-locked.
+   Antes usábamos el atributo HTML `hidden`, pero CSS display:flex lo ignora
+   por especificidad y el overlay se anclaba al viewport → Chrome colapsaba. */
+.kpi-donut-card,
+.kpi-noches-gratis-card{ position:relative; }
 .kpi-donut-card.kpi-locked,
 .kpi-noches-gratis-card.kpi-locked{
-  position:relative;
   overflow:hidden;
-  pointer-events:none;
 }
 .kpi-donut-card.kpi-locked > *:not(.kpi-locked-overlay),
 .kpi-noches-gratis-card.kpi-locked > *:not(.kpi-locked-overlay){
-  filter:grayscale(.6) blur(.3px);
-  opacity:.55;
+  filter:grayscale(.7);
+  opacity:.5;
 }
 .kpi-locked-overlay{
+  display:none; /* visibilidad por clase, NO por atributo hidden */
   position:absolute;
   inset:0;
-  background:rgba(255,255,255,.78);
-  backdrop-filter:blur(1.5px);
-  -webkit-backdrop-filter:blur(1.5px);
-  display:flex;
+  background:rgba(255,255,255,.82);
   flex-direction:column;
   align-items:center;
   justify-content:center;
@@ -3613,13 +3615,12 @@ function formatRangoFechasSimple(inicio, fin){
   padding:8px;
   z-index:2;
   border-radius:14px;
-  pointer-events:auto;
-  cursor:default;
+  pointer-events:none;
 }
+.kpi-locked .kpi-locked-overlay{ display:flex; }
 .kpi-locked-overlay-icon{
   font-size:28px;
   line-height:1;
-  filter:drop-shadow(0 2px 4px rgba(15,23,42,.18));
 }
 .kpi-locked-overlay-text{
   font-size:10.5px;
@@ -4523,7 +4524,7 @@ body.has-session input[name="nombre"] {
           <div class="kpi-donut-center-of" id="kpiDonutOf">/ 10</div>
         </div>
         <div class="kpi-donut-label" id="kpiDonutFaltan" data-i18n="kpiDonutFaltanTmpl">Faltan 10 noches para tu siguiente noche gratis</div>
-        <div class="kpi-locked-overlay" hidden>
+        <div class="kpi-locked-overlay">
           <div class="kpi-locked-overlay-icon">🔒</div>
           <div class="kpi-locked-overlay-text" data-i18n="kpiLockedCaption">Completa tu perfil para aprovechar tus beneficios</div>
         </div>
@@ -4533,7 +4534,7 @@ body.has-session input[name="nombre"] {
         <div class="kpi-noches-gratis-num" id="kpiNochesGratisAcumNum">0</div>
         <div class="kpi-noches-gratis-label" id="kpiNochesGratisAcumLabel" data-i18n="kpiNochesGratisAcumLabel">Noches gratis acumuladas</div>
         <button type="button" class="kpi-noches-gratis-claim hidden" id="kpiReclamarNochesBtn" data-i18n="kpiReclamarBtn">Reclama tus noches</button>
-        <div class="kpi-locked-overlay" hidden>
+        <div class="kpi-locked-overlay">
           <div class="kpi-locked-overlay-icon">🔒</div>
           <div class="kpi-locked-overlay-text" data-i18n="kpiLockedCaption">Completa tu perfil para aprovechar tus beneficios</div>
         </div>
@@ -12567,19 +12568,13 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   // ─── Lock/unlock KPIs de beneficios según completitud del perfil ───
+  // La visibilidad del overlay la maneja el CSS vía .kpi-locked en el card.
   function refreshBenefitsKpiLock(isComplete){
     const donut = document.getElementById("kpiNocheGratisCard");
     const acum  = document.getElementById("kpiNochesGratisAcumCard");
     [donut, acum].forEach(card => {
       if (!card) return;
-      const overlay = card.querySelector(".kpi-locked-overlay");
-      if (isComplete) {
-        card.classList.remove("kpi-locked");
-        if (overlay) overlay.hidden = true;
-      } else {
-        card.classList.add("kpi-locked");
-        if (overlay) overlay.hidden = false;
-      }
+      card.classList.toggle("kpi-locked", !isComplete);
     });
   }
   // ─── Home card ─────────────────────────────────────────────────────
