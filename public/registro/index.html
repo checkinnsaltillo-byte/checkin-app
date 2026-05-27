@@ -4261,6 +4261,17 @@ body.has-session #vehicleFilterActions{ display:none !important; }
 .wizard-btn-save-exit{
   margin-left:auto !important;
 }
+/* Botón principal en rojo cuando hay cambios sin guardar */
+.wizard-btn-save-exit.has-changes{
+  background:linear-gradient(180deg,#ef4444 0%, #dc2626 100%) !important;
+  border-color:#dc2626 !important;
+  color:#fff !important;
+  box-shadow:0 10px 22px rgba(220,38,38,.32) !important;
+}
+.wizard-btn-save-exit.has-changes:hover{
+  background:linear-gradient(180deg,#dc2626 0%, #b91c1c 100%) !important;
+  box-shadow:0 14px 28px rgba(220,38,38,.42) !important;
+}
 .wizard-readonly{
   background:#f8fafc !important;
   color:var(--text-soft) !important;
@@ -4807,7 +4818,41 @@ body.has-session input[name="nombre"] {
         <div class="grid" style="margin-top:14px;">
           <div>
             <label for="wiz_veh_marca" data-i18n="make">Marca</label>
-            <input id="wiz_veh_marca" type="text"/>
+            <select id="wiz_veh_marca">
+              <option value="">Selecciona</option>
+              <option value="Nissan">Nissan</option>
+              <option value="Chevrolet">Chevrolet</option>
+              <option value="Volkswagen">Volkswagen</option>
+              <option value="Toyota">Toyota</option>
+              <option value="Honda">Honda</option>
+              <option value="Ford">Ford</option>
+              <option value="Kia">Kia</option>
+              <option value="Hyundai">Hyundai</option>
+              <option value="Mazda">Mazda</option>
+              <option value="Renault">Renault</option>
+              <option value="SEAT">SEAT</option>
+              <option value="Suzuki">Suzuki</option>
+              <option value="Mitsubishi">Mitsubishi</option>
+              <option value="Jeep">Jeep</option>
+              <option value="BMW">BMW</option>
+              <option value="Mercedes-Benz">Mercedes-Benz</option>
+              <option value="Audi">Audi</option>
+              <option value="Tesla">Tesla</option>
+              <option value="Peugeot">Peugeot</option>
+              <option value="Chirey">Chirey</option>
+              <option value="Subaru">Subaru</option>
+              <option value="Volvo">Volvo</option>
+              <option value="Lexus">Lexus</option>
+              <option value="Acura">Acura</option>
+              <option value="GMC">GMC</option>
+              <option value="Cadillac">Cadillac</option>
+              <option value="Infiniti">Infiniti</option>
+              <option value="Lincoln">Lincoln</option>
+              <option value="RAM">RAM</option>
+              <option value="Mini">Mini</option>
+              <option value="Otro">Otro</option>
+            </select>
+            <input class="hidden" id="wiz_veh_marca_otro" type="text" placeholder="Especifica la marca" style="margin-top:8px;"/>
           </div>
           <div>
             <label for="wiz_veh_modelo" data-i18n="model">Modelo</label>
@@ -7119,6 +7164,7 @@ const SIMPLE_I18N = {
     wizNext:"Siguiente →",
     wizFinish:"Guardar y salir",
     wizFinishStep4:"Finalizar registro",
+    wizSaveChangesAndExit:"Guardar cambios y Salir",
     wizUnsavedTitle:"Tienes cambios sin guardar",
     wizUnsavedText:"Aún no has guardado los cambios de tu perfil. ¿Qué quieres hacer?",
     wizUnsavedDiscardBtn:"No guardar cambios",
@@ -7134,7 +7180,7 @@ const SIMPLE_I18N = {
     wizErrStep3:"Si requieres factura, llena razón social, RFC, régimen y correo.",
     wizErrStep4:"Si tienes vehículo, llena marca, modelo, color y placas.",
     profileCompleteTitle:"¡Perfil completo!",
-    profileCompleteText:"Ya puedes hacer reservaciones rápidas con tus datos guardados.",
+    profileCompleteText:"Ya puedes gozar de nuestros beneficios.",
     acceptBtn:"Aceptar",
     closeBtn:"Cerrar",
     cancelBtn:"Cancelar",
@@ -7372,6 +7418,7 @@ const SIMPLE_I18N = {
     wizNext:"Next →",
     wizFinish:"Save and exit",
     wizFinishStep4:"Finish registration",
+    wizSaveChangesAndExit:"Save changes and exit",
     wizUnsavedTitle:"You have unsaved changes",
     wizUnsavedText:"You haven't saved your profile changes yet. What would you like to do?",
     wizUnsavedDiscardBtn:"Discard changes",
@@ -7387,7 +7434,7 @@ const SIMPLE_I18N = {
     wizErrStep3:"If you require invoicing, fill business name, RFC, regime and email.",
     wizErrStep4:"If you have a vehicle, fill make, model, color and plates.",
     profileCompleteTitle:"Profile complete!",
-    profileCompleteText:"You can now make fast bookings with your saved data.",
+    profileCompleteText:"You can now enjoy all our benefits.",
     acceptBtn:"OK",
     closeBtn:"Close",
     cancelBtn:"Cancel",
@@ -11029,7 +11076,8 @@ document.addEventListener("DOMContentLoaded", function(){
     const onChange = () => {
       try {
         const profile = window.checkinnProfile?._loadProfile?.(phoneKey) || {};
-        if (!profile.step4) profile.step4 = { tiene_vehiculo:"", marca:"", modelo:"", color:"", placas:"", hora_salida:"", foto:"" };
+        if (!profile.step4) profile.step4 = { tiene_vehiculo:"", marca:"", marca_otro:"", modelo:"", color:"", placas:"", hora_salida:"", foto:"" };
+        if (typeof profile.step4.marca_otro === "undefined") profile.step4.marca_otro = "";
         const tv = document.getElementById("tiene_vehiculo")?.value || "";
         profile.step4.tiene_vehiculo = (tv === "si" ? "Sí" : (tv === "no" ? "No" : tv));
         const marcaSel = document.getElementById("vehiculo_marca")?.value || "";
@@ -12310,7 +12358,7 @@ document.addEventListener("DOMContentLoaded", function(){
       step1:{ nombre:"", emerg_lada:"52", emerg_celular:"" },
       step2:{ tipo:"", id_otro:"", ine_frontal:"", ine_trasero:"", ident_unica:"" },
       step3:{ factura:"", razon_social:"", rfc:"", regimen:"", regimen_otro:"", correo_factura:"" },
-      step4:{ tiene_vehiculo:"", marca:"", modelo:"", color:"", placas:"", hora_salida:"", foto:"" },
+      step4:{ tiene_vehiculo:"", marca:"", marca_otro:"", modelo:"", color:"", placas:"", hora_salida:"", foto:"" },
       completed:false,
       lastStep:1,
       updatedAt:0
@@ -12344,7 +12392,11 @@ document.addEventListener("DOMContentLoaded", function(){
   function isStep4Complete(p){
     if (!p.step4.tiene_vehiculo) return false;
     if (p.step4.tiene_vehiculo === "No") return true;
-    return !!(p.step4.marca.trim() && p.step4.modelo.trim() && p.step4.color.trim() && p.step4.placas.trim());
+    const marca = (p.step4.marca || "").trim();
+    const marcaOtro = (p.step4.marca_otro || "").trim();
+    // Si marca === "Otro" se requiere marca_otro con valor
+    const marcaOk = marca && (marca !== "Otro" || marcaOtro);
+    return !!(marcaOk && p.step4.modelo.trim() && p.step4.color.trim() && p.step4.placas.trim());
   }
   function stepCompletionFlags(p){
     return [isStep1Complete(p), isStep2Complete(p), isStep3Complete(p), isStep4Complete(p)];
@@ -12411,7 +12463,17 @@ document.addEventListener("DOMContentLoaded", function(){
 
     // ── Paso 4
     $("wiz_tiene_vehiculo").addEventListener("change", e => set("step4.tiene_vehiculo", e.target.value));
-    $("wiz_veh_marca").addEventListener("input", e => set("step4.marca", e.target.value));
+    $("wiz_veh_marca").addEventListener("change", e => {
+      set("step4.marca", e.target.value);
+      // Mostrar/ocultar input "Especifica la marca" según selección
+      const otroInp = $("wiz_veh_marca_otro");
+      if (otroInp) otroInp.classList.toggle("hidden", e.target.value !== "Otro");
+      if (e.target.value !== "Otro") {
+        if (otroInp) otroInp.value = "";
+        set("step4.marca_otro", "");
+      }
+    });
+    $("wiz_veh_marca_otro").addEventListener("input", e => set("step4.marca_otro", e.target.value));
     $("wiz_veh_modelo").addEventListener("input", e => set("step4.modelo", e.target.value));
     $("wiz_veh_color").addEventListener("input", e => set("step4.color", e.target.value));
     $("wiz_veh_placas").addEventListener("input", e => {
@@ -12484,7 +12546,24 @@ document.addEventListener("DOMContentLoaded", function(){
     $("wiz_correo_factura").value = p.step3.correo_factura || "";
 
     $("wiz_tiene_vehiculo").value = p.step4.tiene_vehiculo || "";
-    $("wiz_veh_marca").value = p.step4.marca || "";
+    // Marca: select con opciones predefinidas + "Otro". Si el valor guardado
+    // no aparece en el select (texto libre legado), lo migramos a "Otro" y lo
+    // colocamos en el input marca_otro.
+    const marcaSel = $("wiz_veh_marca");
+    const marcaOtroInp = $("wiz_veh_marca_otro");
+    const storedMarca = p.step4.marca || "";
+    const optsMarca = Array.from(marcaSel?.options || []).map(o => o.value);
+    if (storedMarca && optsMarca.includes(storedMarca)) {
+      marcaSel.value = storedMarca;
+      if (marcaOtroInp) marcaOtroInp.value = p.step4.marca_otro || "";
+    } else if (storedMarca) {
+      // texto libre legado → "Otro" + valor en marca_otro
+      marcaSel.value = "Otro";
+      if (marcaOtroInp) marcaOtroInp.value = storedMarca;
+    } else {
+      marcaSel.value = "";
+      if (marcaOtroInp) marcaOtroInp.value = "";
+    }
     $("wiz_veh_modelo").value = p.step4.modelo || "";
     $("wiz_veh_color").value = p.step4.color || "";
     $("wiz_veh_placas").value = p.step4.placas || "";
@@ -12509,6 +12588,11 @@ document.addEventListener("DOMContentLoaded", function(){
     // Paso 4: vehículo
     const tieneVeh = activeProfile?.step4?.tiene_vehiculo || "";
     toggle("wiz_vehiculo_detalles", tieneVeh === "Sí");
+    // Mostrar input "Especifica la marca" solo cuando marca === "Otro"
+    const marcaOtroInp = $("wiz_veh_marca_otro");
+    if (marcaOtroInp) {
+      marcaOtroInp.classList.toggle("hidden", (activeProfile?.step4?.marca || "") !== "Otro");
+    }
   }
   function toggle(id, show){
     const el = $(id);
@@ -12660,20 +12744,25 @@ document.addEventListener("DOMContentLoaded", function(){
     if (!btn) return;
     const i = getI18n();
     const wasComplete = activeProfile?.completed;
-    if (wasComplete && !hasUnsavedChanges()) {
-      // Ya estaba completo y sin cambios → solo "Salir"
+    const hasChanges = hasUnsavedChanges();
+    // Reset clase de cambios; se aplica abajo si corresponde
+    btn.classList.remove("has-changes");
+    if (hasChanges) {
+      // SIEMPRE que haya cambios respecto al snapshot del open mostramos
+      // el botón rojo "Guardar cambios y Salir" en cualquier paso.
+      btn.textContent = i.wizSaveChangesAndExit || "Guardar cambios y Salir";
+      btn.dataset.mode = "save-changes";
+      btn.classList.add("has-changes");
+    } else if (wasComplete) {
+      // Perfil ya completo + sin cambios → solo "Salir"
       btn.textContent = i.wizExitBtn || "Salir";
       btn.dataset.mode = "exit";
-    } else if (wasComplete && hasUnsavedChanges()) {
-      // Ya estaba completo + hay cambios → "Guardar cambios"
-      btn.textContent = i.wizSaveChangesBtn || "Guardar cambios";
-      btn.dataset.mode = "save-changes";
     } else if (currentStep === TOTAL_STEPS) {
-      // En el último paso del primer registro → "Finalizar registro"
+      // Último paso del primer registro sin cambios pendientes → "Finalizar registro"
       btn.textContent = i.wizFinishStep4 || "Finalizar registro";
       btn.dataset.mode = "save-data";
     } else {
-      // Pasos 1-3 del primer registro → "Guardar y salir"
+      // Pasos 1-3 del primer registro sin cambios → "Guardar y salir"
       btn.textContent = i.wizFinish || "Guardar y salir";
       btn.dataset.mode = "save-data";
     }
@@ -12717,6 +12806,12 @@ document.addEventListener("DOMContentLoaded", function(){
       saveProfile(activePhoneKey, activeProfile);
       profileSnapshotAtOpen = serializeProfile(activeProfile);
       refreshHomeCard();
+      showProfileCompleteModal();
+    } else if (mode === "save-changes") {
+      // Guardó cambios pero el perfil sigue incompleto → confirmación
+      // (mismo modal; al Aceptar va al home). Actualizamos el snapshot
+      // para que el botón pase de rojo a verde al volver a entrar.
+      profileSnapshotAtOpen = serializeProfile(activeProfile);
       showProfileCompleteModal();
     } else {
       exitWizardToHome();
@@ -12835,28 +12930,11 @@ document.addEventListener("DOMContentLoaded", function(){
     alert("✓ Celular actualizado correctamente.");
   }
 
-  // ─── Bloqueo de "Nueva reservación" ────────────────────────────────
-  function interceptHomeNueva(){
-    const btn = $("btnHomeNueva");
-    if (!btn) return;
-    // Capturamos el click en fase de captura para correr ANTES del listener
-    // que abre el form directamente.
-    btn.addEventListener("click", function(ev){
-      const session = window.checkinnAuth?.getSession();
-      if (!session) return; // sin sesión = acceso exprés, comportamiento normal
-      activePhoneKey = getPhoneKey();
-      activeProfile = loadProfile(activePhoneKey);
-      if (!isProfileFullyComplete(activeProfile)) {
-        ev.preventDefault();
-        ev.stopImmediatePropagation();
-        ev.stopPropagation();
-        const i = getI18n();
-        if (confirm(`${i.wizBlockedReserveTitle || "Completa tus datos primero"}\n\n${i.wizBlockedReserveText || "Necesitas terminar de capturar tu perfil antes de hacer una reservación."}`)) {
-          openWizard();
-        }
-      }
-    }, true); // useCapture=true
-  }
+  // ─── "Nueva reservación" libre (sin bloqueo por perfil) ────────────
+  // Antes mostrábamos un confirm si el perfil no estaba al 100%. Ahora
+  // dejamos pasar el click directo al handler global que abre el form,
+  // ya que no es obligatorio tener el perfil completo para reservar.
+  function interceptHomeNueva(){ /* no-op intencional */ }
 
   // ─── "Volver al inicio" desde el wizard con detección de cambios ──
   function openUnsavedModal(){
@@ -13187,7 +13265,7 @@ document.addEventListener("DOMContentLoaded", function(){
   <div class="popup-card" style="max-width:380px;">
     <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(180deg,#10b981 0%, #059669 100%);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:32px;font-weight:800;box-shadow:0 12px 28px rgba(16,185,129,.32);">✓</div>
     <h3 data-i18n="profileCompleteTitle">¡Perfil completo!</h3>
-    <div class="hint" data-i18n="profileCompleteText">Ya puedes hacer reservaciones rápidas con tus datos guardados.</div>
+    <div class="hint" data-i18n="profileCompleteText">Ya puedes gozar de nuestros beneficios.</div>
     <div style="margin-top:18px;">
       <button id="profileCompleteOkBtn" type="button" style="width:100%;" data-i18n="acceptBtn">Aceptar</button>
     </div>
