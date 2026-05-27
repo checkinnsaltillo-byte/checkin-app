@@ -6,6 +6,49 @@
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <title>CHECK-IN | Registro</title>
 <style>
+/* ═══ App loader splash (bloquea interacción) ═══ */
+#appLoader{
+  position:fixed;
+  inset:0;
+  z-index:2147483600;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:linear-gradient(180deg,#f4f6f8 0%, #e2e8f0 100%);
+  transition:opacity .35s ease, visibility .35s ease;
+}
+#appLoader.hidden-loader{
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+}
+.app-loader-card{
+  background:#fff;
+  border-radius:18px;
+  padding:28px 36px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:16px;
+  box-shadow:0 20px 60px rgba(15,23,42,.18);
+  min-width:240px;
+}
+.app-loader-spinner{
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  border:4px solid #e5e7eb;
+  border-top-color:#0891b2;
+  animation:app-loader-spin 0.9s linear infinite;
+}
+@keyframes app-loader-spin{ to { transform:rotate(360deg); } }
+.app-loader-text{
+  font-size:14px;
+  font-weight:700;
+  color:#475569;
+  letter-spacing:.02em;
+}
+
 :root{
   /* Paleta Ticket Vision — gris metálico (gunmetal slate) + cyan acento */
   --bg:#f4f6f8;
@@ -4338,6 +4381,24 @@ body.has-session input[name="nombre"] {
 
 </head>
 <body>
+<!-- ═══ Splash de carga (bloquea la interacción hasta que la app cargue) ═══ -->
+<div id="appLoader" role="status" aria-live="polite" aria-label="Cargando datos">
+  <div class="app-loader-card">
+    <div class="app-loader-spinner" aria-hidden="true"></div>
+    <div class="app-loader-text" data-i18n="appLoaderText">Cargando datos…</div>
+  </div>
+</div>
+<script>
+  // Fallback: si la inicialización no logra ocultar el splash en 8 s, lo
+  // ocultamos de cualquier modo para que el huésped no quede atascado.
+  setTimeout(function(){
+    var el = document.getElementById("appLoader");
+    if (el && !el.classList.contains("hidden-loader")) {
+      el.classList.add("hidden-loader");
+    }
+  }, 8000);
+</script>
+
 <div class="session-pill" id="sessionPill">
   <span><span data-i18n="sessionGreeting">Hola,</span> <span class="session-pill-name" id="sessionPillName">—</span></span>
   <button class="session-pill-logout" id="btnLogout" type="button" data-i18n="sessionLogout">Cerrar sesión</button>
@@ -4513,7 +4574,7 @@ body.has-session input[name="nombre"] {
       <div class="kpi-card">
         <div class="kpi-icon">🏠</div>
         <div class="kpi-value" id="kpiAlojamientos">0</div>
-        <div class="kpi-label" data-i18n="kpiAlojamientosLabel">Alojamientos</div>
+        <div class="kpi-label" data-i18n="kpiAlojamientosLabel"># Alojamientos</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-icon">💰</div>
@@ -4569,20 +4630,20 @@ body.has-session input[name="nombre"] {
     <!-- Sección 3: Tabla de estancias con paginación y estado -->
     <div class="stays-card">
       <div class="stays-card-header">
-        <h3 class="stays-card-title" data-i18n="staysCardTitle">Tu estancia</h3>
+        <h3 class="stays-card-title" data-i18n="staysCardTitle">Tus estancias</h3>
         <p class="stays-card-subtitle" id="staysCardSubtitle" data-i18n="staysCardSubtitle">Resumen de todas tus estancias.</p>
       </div>
       <div class="stays-table-wrap">
         <table class="stays-table">
           <thead>
             <tr>
+              <th data-i18n="staysThFactura">Factura</th>
               <th data-i18n="staysThEstado">Estado</th>
               <th data-i18n="staysThProp">Propiedad</th>
               <th data-i18n="staysThDepto"># Depto</th>
               <th data-i18n="staysThIngreso">Ingreso</th>
               <th data-i18n="staysThSalida">Salida</th>
               <th data-i18n="staysThMonto">Monto total</th>
-              <th data-i18n="staysThFactura">Factura</th>
             </tr>
           </thead>
           <tbody id="staysBody">
@@ -7103,7 +7164,8 @@ const SIMPLE_I18N = {
     btnNuevaReservacionSub:"Llena el formulario con tus datos ya guardados (puedes editarlos antes de enviar).",
     btnInfoVehiculosTitle:"Información de vehículos",
     btnInfoVehiculosSub:"Consulta los vehículos con estancia activa hoy por propiedad.",
-    staysCardTitle:"Tu estancia",
+    staysCardTitle:"Tus estancias",
+    appLoaderText:"Cargando datos…",
     staysCardSubtitle:"Resumen de tu estancia actual o más reciente.",
     staysThProp:"Propiedad",
     staysThDepto:"# Depto",
@@ -7197,7 +7259,7 @@ const SIMPLE_I18N = {
     staysPagerNext:"Siguiente →",
     /* KPIs */
     kpiNochesLabel:"Noches totales",
-    kpiAlojamientosLabel:"# Estancias",
+    kpiAlojamientosLabel:"# Alojamientos",
     kpiMontoLabel:"Monto total",
     kpiRangeLabel:"Primera · última estancia",
     kpiAntiguedadLabel:"Antigüedad",
@@ -7357,7 +7419,8 @@ const SIMPLE_I18N = {
     btnNuevaReservacionSub:"Fill the form with your saved data (you can edit before submitting).",
     btnInfoVehiculosTitle:"Vehicle information",
     btnInfoVehiculosSub:"See vehicles with an active stay today by property.",
-    staysCardTitle:"Your stay",
+    staysCardTitle:"Your stays",
+    appLoaderText:"Loading data…",
     staysCardSubtitle:"Summary of your current or most recent stay.",
     staysThProp:"Property",
     staysThDepto:"# Apt",
@@ -7449,7 +7512,7 @@ const SIMPLE_I18N = {
     staysPagerPrev:"← Previous",
     staysPagerNext:"Next →",
     kpiNochesLabel:"Total nights",
-    kpiAlojamientosLabel:"# Stays",
+    kpiAlojamientosLabel:"# Lodgings",
     kpiMontoLabel:"Total amount",
     kpiRangeLabel:"First · last stay",
     kpiAntiguedadLabel:"Member since",
@@ -9066,7 +9129,8 @@ function buildTicketActionsHtml(row, ticketUrl){
           <summary class="vehicle-card-summary">
             <div class="vehicle-card-main">
               <div class="vehicle-card-title">${escapeHtml(row["Nombre del huésped 1"] || 'Sin nombre')} · ${escapeHtml(row["Marca"] || 'Sin marca')} ${escapeHtml(row["Modelo"] || '')}</div>
-              <div class="vehicle-card-subtitle">${escapeHtml(row["Propiedad"] || 'Sin propiedad')} · # ${escapeHtml(row["# Departamento"] || '—')} · Placas: ${escapeHtml(row["# Placas"] || '—')}</div>
+              <div class="vehicle-card-subtitle">${escapeHtml(row["Propiedad"] || 'Sin propiedad')} · Placas: ${escapeHtml(row["# Placas"] || '—')}</div>
+              <div class="vehicle-card-subtitle">Depto: ${escapeHtml(row["# Departamento"] || '—')} · Hora salida: ${escapeHtml(row["Hora habitual de salida"] || '—')}</div>
             </div>
             <div class="vehicle-card-chevron">⌄</div>
           </summary>
@@ -10885,7 +10949,12 @@ document.addEventListener("DOMContentLoaded", function(){
 
   // ─── Router de vistas ──────────────────────────────────────────────
   function showOnly(elToShow){
-    [viewWelcome, viewLogin, viewHome, viewRegistro, viewVehiculos].forEach(el => {
+    // IMPORTANTE: incluir viewProfileWizard. Si se omite, al volver al home
+    // desde "Guardar cambios y Salir" el wizard queda visible sobre el home
+    // (bug reportado 4 veces). Resolvemos por id porque la const local del
+    // auth IIFE no incluye el wizard.
+    const wizard = document.getElementById("viewProfileWizard");
+    [viewWelcome, viewLogin, viewHome, viewRegistro, viewVehiculos, wizard].forEach(el => {
       if (el) el.classList.toggle("hidden", el !== elToShow);
     });
   }
@@ -11531,6 +11600,7 @@ document.addEventListener("DOMContentLoaded", function(){
       facturaCell = `<span class="stays-invoice-status pending" title="Factura pendiente">⏳<br><small>Pendiente</small></span>`;
     }
     return `<tr class="stays-row-clickable" data-stay-index="${idx}">
+      <td class="stays-invoice-cell">${facturaCell}</td>
       <td>
         <span class="stays-status-cell">
           <span class="stays-status-dot ${status.key}"></span>
@@ -11542,14 +11612,13 @@ document.addEventListener("DOMContentLoaded", function(){
       <td>${escapeHtml(fmtFecha(stay.ingreso))}</td>
       <td>${escapeHtml(fmtFecha(stay.salida))}</td>
       <td class="stays-amount">${escapeHtml(fmtMonto(stay.monto))}</td>
-      <td class="stays-invoice-cell">${facturaCell}</td>
     </tr>`;
   }
 
   function renderEmptyStays(){
     const i = getI18n();
     const body = $("staysBody");
-    if (body) body.innerHTML = `<tr class="stays-empty-row"><td colspan="6">${i.staysEmpty || "Aún no tienes estancias registradas."}</td></tr>`;
+    if (body) body.innerHTML = `<tr class="stays-empty-row"><td colspan="7">${i.staysEmpty || "Aún no tienes estancias registradas."}</td></tr>`;
     const pager = $("staysPager");
     if (pager) pager.classList.add("hidden");
   }
@@ -11677,31 +11746,16 @@ document.addEventListener("DOMContentLoaded", function(){
       return `${yPart} ${remMonths} ${remMonths === 1 ? "mes" : "meses"}`;
     }
   }
-  function countDistinctStays(rows){
-    // Agrupa reservas consecutivas como una sola "estancia distinta".
-    // Reglas: ordenamos por fecha de ingreso ascendente. Si la salida de
-    // una reserva es igual al ingreso de la siguiente (o están a ≤1 día
-    // de gap), se considera la misma estancia continua. Si no, cuenta
-    // como una estancia nueva.
+  function countDistinctLodgings(rows){
+    // Cuenta cuántas propiedades distintas ha visitado el huésped (alojamientos).
+    // Cada propiedad cuenta una sola vez sin importar cuántas reservaciones.
     if (!rows || !rows.length) return 0;
-    const dated = rows.map(r => ({
-      ing: parseDateLocal(r.ingreso),
-      sal: parseDateLocal(r.salida)
-    })).filter(x => x.ing).sort((a,b) => a.ing - b.ing);
-    if (!dated.length) return 0;
-    let count = 1;
-    let prevSal = dated[0].sal || dated[0].ing;
-    for (let i = 1; i < dated.length; i++) {
-      const cur = dated[i];
-      const gapMs = cur.ing - prevSal;
-      const gapDays = gapMs / (24*60*60*1000);
-      // Si gap es positivo y mayor a 1 día, cuenta como nueva estancia
-      if (gapDays > 1) count++;
-      // Actualizar prevSal al máximo (por traslapes)
-      const newSal = cur.sal || cur.ing;
-      if (newSal > prevSal) prevSal = newSal;
-    }
-    return count;
+    const set = new Set();
+    rows.forEach(r => {
+      const p = String(r.propiedad || r.Propiedad || "").trim();
+      if (p) set.add(p);
+    });
+    return set.size;
   }
   function renderKPIs(rows){
     const noches = rows.reduce((acc, r) => {
@@ -11711,7 +11765,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const diff = Math.max(0, Math.round((sal - ing) / (24*60*60*1000)));
       return acc + diff;
     }, 0);
-    const aloj = countDistinctStays(rows);
+    const aloj = countDistinctLodgings(rows);
     const monto = rows.reduce((acc, r) => {
       const m = String(r.monto || "").replace(/[^0-9.\-]/g, "");
       const n = Number(m);
@@ -12186,9 +12240,10 @@ document.addEventListener("DOMContentLoaded", function(){
     $("btnVerifyOtp")?.addEventListener("click", onVerifyOtp);
     $("btnSaveNewPin")?.addEventListener("click", onSaveNewPin);
     $("btnHomeNueva")?.addEventListener("click", () => {
-      showOnly(viewRegistro);
-      setMenuVisible(true);
-      setMenuActive("registro");
+      // Item 6: ocultar topMenu cuando hay sesión.
+      // Item 1: usar gotoExpressForm para que el prefill del vehículo del
+      // perfil corra y los cambios del form sincronicen de vuelta al perfil.
+      gotoExpressForm();
     });
     $("btnHomeVehiculos")?.addEventListener("click", gotoExpressVehiculos);
     // Botones "Volver al inicio" (delegación)
@@ -12286,10 +12341,17 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     bindEvents();
     const s = getSession();
+    const hideAppLoader = () => {
+      const el = document.getElementById("appLoader");
+      if (el) el.classList.add("hidden-loader");
+    };
     if (s) {
-      gotoHome();
+      // gotoHome es async (await refreshHomeContent); ocultamos el splash
+      // cuando termina para que el home aparezca con la tabla ya cargada.
+      gotoHome().finally(hideAppLoader);
     } else {
       gotoWelcome();
+      hideAppLoader();
     }
   }
 
