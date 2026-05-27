@@ -372,15 +372,17 @@ button:disabled{
 .popup-backdrop{
   position:fixed;
   inset:0;
-  background:rgba(15,23,42,.45);
+  background:rgba(15,23,42,.55);
   display:none;
   align-items:center;
   justify-content:center;
   z-index:999999;
   padding:16px;
-  -webkit-backdrop-filter:blur(4px);
-  backdrop-filter:blur(4px);
 }
+/* IMPORTANTE: NO usar backdrop-filter:blur aquí. Cuando se aplica sobre la
+   página entera (KPIs con muchos elementos, cards de vehículo con imágenes,
+   tabla larga, etc.) Chrome colapsa por sobrecarga de GPU. Probado: el modal
+   stayDetailModal crasheaba el navegador del cliente. */
 .popup-card{
   background:#fff;
   padding:28px 24px;
@@ -7166,6 +7168,22 @@ const SIMPLE_I18N = {
     btnInfoVehiculosSub:"Consulta los vehículos con estancia activa hoy por propiedad.",
     staysCardTitle:"Tus estancias",
     appLoaderText:"Cargando datos…",
+    detailReservante:"Reservante",
+    detailMedio:"Medio de reservación",
+    detailPropiedad:"Propiedad",
+    detailDepto:"# Departamento",
+    detailFechaIngreso:"Fecha de ingreso",
+    detailHoraLlegada:"Hora estimada de llegada",
+    detailFechaSalida:"Fecha de salida",
+    detailHoraSalida:"Hora estimada de salida",
+    detailNumHuespedes:"# Huéspedes",
+    detailNombresHuespedes:"Nombres de huéspedes",
+    detailRequiereFactura:"¿Requiere factura?",
+    detailMontoPagado:"Monto total pagado",
+    detailMontoFacturado:"Monto facturado",
+    detailFolio:"Folio de factura",
+    detailComentarios:"Comentarios",
+    detailEmpty:"Sin información detallada disponible.",
     staysCardSubtitle:"Resumen de tu estancia actual o más reciente.",
     staysThProp:"Propiedad",
     staysThDepto:"# Depto",
@@ -7180,8 +7198,12 @@ const SIMPLE_I18N = {
     menuVehiculosBtn:"Información de vehículos",
     vehSectionTitle:"Información de vehículos",
     vehSectionSub:"Consulta los vehículos con estancia activa hoy y filtra la información por propiedad.",
-    vehSessionLabelOne:"Tu estancia · {prop}",
-    vehSessionLabelMany:"Tienes estancias en {n} propiedades. Elige una:",
+    vehSessionLabelOne:"Tu estancia activa · {prop}",
+    vehSessionLabelMany:"Tienes estancias activas en {n} propiedades. Elige una:",
+    vehLblPlacas:"Placas",
+    vehLblDepto:"Depto",
+    vehLblHoraSalida:"Hora salida",
+    vehLblLlamar:"Llamar",
     vehNoActiveStays:"No tienes estancias activas hoy. Verás los vehículos cuando tu reservación esté en curso.",
     /* ── Profile wizard ── */
     profileCardTitle:"Completa tu perfil para obtener beneficios",
@@ -7421,6 +7443,22 @@ const SIMPLE_I18N = {
     btnInfoVehiculosSub:"See vehicles with an active stay today by property.",
     staysCardTitle:"Your stays",
     appLoaderText:"Loading data…",
+    detailReservante:"Booked by",
+    detailMedio:"Booking channel",
+    detailPropiedad:"Property",
+    detailDepto:"# Apartment",
+    detailFechaIngreso:"Check-in date",
+    detailHoraLlegada:"Estimated arrival time",
+    detailFechaSalida:"Check-out date",
+    detailHoraSalida:"Estimated departure time",
+    detailNumHuespedes:"# Guests",
+    detailNombresHuespedes:"Guest names",
+    detailRequiereFactura:"Requires invoice?",
+    detailMontoPagado:"Total amount paid",
+    detailMontoFacturado:"Invoiced amount",
+    detailFolio:"Invoice folio",
+    detailComentarios:"Comments",
+    detailEmpty:"No detailed information available.",
     staysCardSubtitle:"Summary of your current or most recent stay.",
     staysThProp:"Property",
     staysThDepto:"# Apt",
@@ -7435,8 +7473,12 @@ const SIMPLE_I18N = {
     menuVehiculosBtn:"Vehicle information",
     vehSectionTitle:"Vehicle information",
     vehSectionSub:"See vehicles with an active stay today and filter by property.",
-    vehSessionLabelOne:"Your stay · {prop}",
-    vehSessionLabelMany:"You have stays in {n} properties. Pick one:",
+    vehSessionLabelOne:"Your active stay · {prop}",
+    vehSessionLabelMany:"You have active stays in {n} properties. Pick one:",
+    vehLblPlacas:"Plates",
+    vehLblDepto:"Apt",
+    vehLblHoraSalida:"Departure",
+    vehLblLlamar:"Call",
     vehNoActiveStays:"You have no active stays today. Vehicles will show up when your reservation is ongoing.",
     /* ── Profile wizard ── */
     profileCardTitle:"Complete your profile to unlock benefits",
@@ -7641,6 +7683,25 @@ function applyTranslations(lang){
         window.currentLang = currentLang;
         applyTranslations(currentLang);
         updateSwitchUI();
+        // Disparar evento para que vistas dinámicas (tabla de estancias,
+        // cards de vehículo, modales) puedan re-renderizar con el idioma
+        // nuevo. Algunos contenidos construidos por innerHTML no tienen
+        // data-i18n y necesitan rebuild.
+        try {
+          window.dispatchEvent(new CustomEvent("checkinn:langchange", { detail: { lang: currentLang } }));
+        } catch(_e) {}
+        // Re-render directo de la tabla y home si los hooks están expuestos
+        if (typeof window.checkinnRerenderStays === "function") {
+          try { window.checkinnRerenderStays(); } catch(_e){}
+        }
+        if (window.checkinnAuth && typeof window.checkinnAuth.refreshHomeI18n === "function") {
+          try { window.checkinnAuth.refreshHomeI18n(currentLang); } catch(_e){}
+        }
+        // Re-render del home (vehículos compactos + textos dinámicos) para
+        // contenidos que se construyen con innerHTML y no llevan data-i18n.
+        if (window.checkinnAuth && typeof window.checkinnAuth.refreshHomeContentForLang === "function") {
+          try { window.checkinnAuth.refreshHomeContentForLang(); } catch(_e){}
+        }
       });
     }
     applyTranslations(currentLang);
@@ -11134,9 +11195,44 @@ document.addEventListener("DOMContentLoaded", function(){
         }
         el.dispatchEvent(new Event("change", { bubbles: true }));
       });
+      // Si en el perfil hay una foto del vehículo (dataURL), mostrarla
+      // como preview en el form con zoom on-click.
+      try {
+        const foto = step4.foto || "";
+        const fotoName = step4.foto_name || "";
+        const preview = document.getElementById("vehiculo_foto_preview");
+        const nameEl = document.getElementById("vehiculo_foto_name");
+        if (preview) {
+          if (foto && /^data:image\//.test(foto)) {
+            preview.src = foto;
+            preview.classList.remove("hidden");
+            preview.dataset.zoomSrc = foto;
+            preview.style.cursor = "zoom-in";
+            // Click → zoom modal
+            if (!preview.dataset.zoomBound) {
+              preview.dataset.zoomBound = "1";
+              preview.addEventListener("click", () => {
+                const src = preview.dataset.zoomSrc;
+                if (src && window.checkinnImages?.openZoom) {
+                  window.checkinnImages.openZoom(src);
+                }
+              });
+            }
+          } else {
+            preview.classList.add("hidden");
+          }
+        }
+        if (nameEl) {
+          nameEl.textContent = fotoName || (foto && !/^data:image\//.test(foto) ? foto : "")
+            || (getI18nFallback().noImage || "Ninguna imagen seleccionada");
+        }
+      } catch(eFoto) { console.warn("[prefillVehicle.foto]", eFoto); }
       // Sincronizar cambios del form de vuelta al perfil
       setupVehicleSyncToProfile(phoneKey);
     } catch(e) { console.warn("[prefillVehicle]", e); }
+  }
+  function getI18nFallback(){
+    return (window.SIMPLE_I18N && window.SIMPLE_I18N[window.currentLang || "es"]) || {};
   }
   let _vehicleSyncBound = false;
   function setupVehicleSyncToProfile(phoneKey){
@@ -11359,24 +11455,27 @@ document.addEventListener("DOMContentLoaded", function(){
             const fotoHTML = fotoThumb
               ? `<div class="veh-photo-thumb" data-zoom-src="${escapeHtmlSafe(fotoFull)}" title="Ver foto"><img src="${escapeHtmlSafe(fotoThumb)}" alt="Foto vehículo" loading="lazy"/></div>`
               : "";
+            // Compacto: Placas, Depto y Hora salida en una sola fila, sin body.
+            const labels = (window.SIMPLE_I18N && window.SIMPLE_I18N[window.currentLang||"es"]) || {};
+            const lblPlacas = labels.vehLblPlacas || "Placas";
+            const lblDepto  = labels.vehLblDepto  || "Depto";
+            const lblHora   = labels.vehLblHoraSalida || "Hora salida";
+            const lblCall   = labels.vehLblLlamar || "Llamar";
             return `
-              <div class="vehicle-card" style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 4px 12px rgba(15,23,42,.04);">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
-                  <div style="display:flex;gap:12px;align-items:center;flex:1;">
+              <div class="vehicle-card" style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:10px;box-shadow:0 4px 12px rgba(15,23,42,.04);">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                  <div style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;">
                     ${fotoHTML}
-                    <div>
-                      <div style="font-weight:800;font-size:15px;color:var(--text);">${escapeHtmlSafe(marca)} ${escapeHtmlSafe(modelo)}</div>
-                      <div style="font-size:12px;color:var(--text-soft);margin-top:2px;">Placas: <strong>${escapeHtmlSafe(placas)}</strong>${color ? " · " + escapeHtmlSafe(color) : ""}</div>
+                    <div style="min-width:0;flex:1;">
+                      <div style="font-weight:800;font-size:15px;color:var(--text);">${escapeHtmlSafe(marca)} ${escapeHtmlSafe(modelo)}${color ? ` · <span style="font-weight:600;color:var(--text-soft);">${escapeHtmlSafe(color)}</span>` : ""}</div>
+                      <div style="font-size:12.5px;color:var(--text);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 12px;">
+                        <span><span style="color:var(--text-soft);">${escapeHtmlSafe(lblPlacas)}:</span> <strong>${escapeHtmlSafe(placas)}</strong></span>
+                        <span><span style="color:var(--text-soft);">${escapeHtmlSafe(lblDepto)}:</span> ${escapeHtmlSafe(depto)}</span>
+                        ${horaSalida ? `<span><span style="color:var(--text-soft);">${escapeHtmlSafe(lblHora)}:</span> ${escapeHtmlSafe(horaSalida)}</span>` : ""}
+                      </div>
                     </div>
                   </div>
-                  <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-                    ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener" class="veh-action-btn veh-action-wa">📱 WhatsApp</a>` : ""}
-                    ${callLink ? `<a href="${callLink}" class="veh-action-btn veh-action-call">📞 Llamar</a>` : ""}
-                  </div>
-                </div>
-                <div style="border-top:1px solid var(--border);padding-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:12px;color:var(--text);">
-                  <div><span style="color:var(--text-soft);">Depto:</span> ${escapeHtmlSafe(depto)}</div>
-                  ${horaSalida ? `<div><span style="color:var(--text-soft);">Hora salida:</span> ${escapeHtmlSafe(horaSalida)}</div>` : ""}
+                  ${callLink ? `<a href="${callLink}" class="veh-action-btn veh-action-call" style="flex-shrink:0;">📞 ${escapeHtmlSafe(lblCall)}</a>` : ""}
                 </div>
               </div>
             `;
@@ -11673,41 +11772,39 @@ document.addEventListener("DOMContentLoaded", function(){
     const status = getStayStatus(stay);
     const i = getI18n();
     if (subtitle) subtitle.innerHTML = `<span class="stays-status-cell"><span class="stays-status-dot ${status.key}"></span><span class="stays-status-label">${escapeHtml(i[status.labelKey] || status.key)}</span></span> · ${escapeHtml(stay.propiedad || "—")} · ${escapeHtml(fmtFecha(stay.ingreso))} → ${escapeHtml(fmtFecha(stay.salida))}`;
-    // Construir grid con TODOS los campos relevantes del row crudo
-    const ESCAPED_FIELDS = [
-      ["Nombre de la persona que hizo la reservación", "Reservante"],
-      ["Medio de reservación", "Medio"],
-      ["Propiedad", "Propiedad"],
-      ["# Departamento", "# Departamento"],
-      ["Fecha de ingreso", "Fecha de ingreso"],
-      ["Hora estimada de llegada", "Hora de llegada"],
-      ["Fecha de salida", "Fecha de salida"],
-      ["Hora estimada de salida", "Hora de salida"],
-      ["# Huéspedes", "# Huéspedes"],
-      ["Nombres de TODOS los huéspedes (separados por comas)", "Huéspedes"],
-      ["Cel/Whatsapp (principal)", "Celular principal"],
-      ["¿Requiere factura?", "Requiere factura"],
-      ["($) Monto Total pagado", "Monto pagado"],
-      ["$ Monto facturado Total", "Monto facturado"],
-      ["Folio facturapi", "Folio Facturapi"],
-      ["Razón social", "Razón social"],
-      ["RFC", "RFC"],
-      ["Régimen fiscal", "Régimen fiscal"],
-      ["Marca", "Marca vehículo"],
-      ["Modelo", "Modelo vehículo"],
-      ["Color", "Color"],
-      ["# Placas", "# Placas"],
-      ["Hora habitual de salida", "Hora habitual salida"],
-      ["Comentarios", "Comentarios"]
+    // Solo campos específicos de la estancia (reserva). EXCLUIMOS los datos
+    // que ya viven en el perfil del huésped: nombre/celular del huésped,
+    // identificación, datos fiscales y datos del vehículo.
+    const STAY_FIELDS = [
+      ["Nombre de la persona que hizo la reservación", i.detailReservante || "Reservante"],
+      ["Medio de reservación", i.detailMedio || "Medio de reservación"],
+      ["Propiedad", i.detailPropiedad || "Propiedad"],
+      ["# Departamento", i.detailDepto || "# Departamento"],
+      ["Fecha de ingreso", i.detailFechaIngreso || "Fecha de ingreso"],
+      ["Hora estimada de llegada", i.detailHoraLlegada || "Hora estimada de llegada"],
+      ["Fecha de salida", i.detailFechaSalida || "Fecha de salida"],
+      ["Hora estimada de salida", i.detailHoraSalida || "Hora estimada de salida"],
+      ["# Huéspedes", i.detailNumHuespedes || "# Huéspedes"],
+      ["Nombres de TODOS los huéspedes (separados por comas)", i.detailNombresHuespedes || "Nombres de huéspedes"],
+      ["¿Requiere factura?", i.detailRequiereFactura || "¿Requiere factura?"],
+      ["($) Monto Total pagado", i.detailMontoPagado || "Monto total pagado"],
+      ["$ Monto facturado Total", i.detailMontoFacturado || "Monto facturado"],
+      ["Folio facturapi", i.detailFolio || "Folio de factura"],
+      ["Comentarios", i.detailComentarios || "Comentarios"]
     ];
-    const items = ESCAPED_FIELDS
+    const items = STAY_FIELDS
       .map(([key, label]) => {
         const val = rawRow[key];
         if (val == null || String(val).trim() === "") return null;
-        return `<div class="detail-item"><div class="detail-key">${escapeHtml(label)}</div><div class="detail-val">${escapeHtml(/Fecha/.test(key) ? fmtFecha(val) : (/Monto/.test(key) || /pago/.test(key) ? fmtMonto(val) : val))}</div></div>`;
+        const displayVal = /Fecha/.test(key)
+          ? fmtFecha(val)
+          : (/Monto/.test(key) ? fmtMonto(val) : String(val));
+        return `<div class="detail-item"><div class="detail-key">${escapeHtml(label)}</div><div class="detail-value">${escapeHtml(displayVal)}</div></div>`;
       })
       .filter(Boolean);
-    grid.innerHTML = items.length ? items.join("") : `<div class="detail-item"><div class="detail-val">Sin información detallada disponible.</div></div>`;
+    grid.innerHTML = items.length
+      ? items.join("")
+      : `<div class="detail-item"><div class="detail-value">${escapeHtml(i.detailEmpty || "Sin información detallada disponible.")}</div></div>`;
     modal.style.display = "flex";
     document.body.style.overflow = "hidden";
   }
@@ -12367,6 +12464,12 @@ document.addEventListener("DOMContentLoaded", function(){
   window.checkinnAuth = {
     getSession, clearSession, gotoWelcome, gotoHome, gotoLoginPhone,
     refreshHomeI18n,
+    // Re-render del home (incluye vehículos compactos y stays) tras cambio
+    // de idioma para que contenidos construidos con innerHTML se rehagan.
+    refreshHomeContentForLang: function(){
+      const s = getSession();
+      if (s) { try { refreshHomeContent(s); } catch(_e){} }
+    },
     _cachedStays: null,
     _state: () => ({ pendingOtp, session: getSession() })
   };
@@ -12546,43 +12649,84 @@ document.addEventListener("DOMContentLoaded", function(){
     bindFileInput("wiz_veh_foto", "step4.foto");
   }
 
+  // Lee un File como dataURL pero re-escalándolo en un canvas para que ocupe
+  // poco espacio en localStorage (máx 900px, JPEG 0.78). Devuelve promesa
+  // con un dataURL listo para usar como <img src>.
+  function fileToCompressedDataUrl(file, maxSide = 900, quality = 0.78){
+    return new Promise((resolve, reject) => {
+      try {
+        const reader = new FileReader();
+        reader.onerror = () => reject(reader.error || new Error("file read failed"));
+        reader.onload = ev => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              let w = img.naturalWidth || img.width;
+              let h = img.naturalHeight || img.height;
+              const ratio = Math.min(1, maxSide / Math.max(w, h));
+              const tw = Math.max(1, Math.round(w * ratio));
+              const th = Math.max(1, Math.round(h * ratio));
+              const c = document.createElement("canvas");
+              c.width = tw; c.height = th;
+              const ctx = c.getContext("2d");
+              ctx.drawImage(img, 0, 0, tw, th);
+              resolve(c.toDataURL("image/jpeg", quality));
+            } catch (e) { reject(e); }
+          };
+          img.onerror = () => reject(new Error("image decode failed"));
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      } catch (e) { reject(e); }
+    });
+  }
+
   function bindFileInput(inputId, profilePath){
     const input = $(inputId);
     if (!input) return;
     const previewId = `${inputId}_preview`;
     const nameId = `${inputId}_name`;
-    input.addEventListener("change", () => {
+    input.addEventListener("change", async () => {
       const file = input.files && input.files[0];
+      const [step, key] = profilePath.split(".");
       if (!file) {
         if (activeProfile) {
-          const [step, key] = profilePath.split(".");
           activeProfile[step][key] = "";
+          activeProfile[step][key + "_name"] = "";
           saveProfile(activePhoneKey, activeProfile);
         }
         const preview = $(previewId), name = $(nameId);
-        if (preview) preview.classList.add("hidden");
+        if (preview) { preview.classList.add("hidden"); preview.removeAttribute("data-zoom-src"); }
         if (name) name.textContent = getI18n().noImage || "Ninguna imagen seleccionada";
         updateProgressUI();
         refreshHomeCard();
         return;
       }
-      // Guardamos el nombre del archivo en localStorage (sin la imagen base64
-      // para no llenar el storage). En Fase 3 subimos al backend.
-      const [step, key] = profilePath.split(".");
-      activeProfile[step][key] = file.name;
-      saveProfile(activePhoneKey, activeProfile);
-      // Preview en memoria
-      const reader = new FileReader();
-      reader.onload = e => {
+      // Persistimos la imagen comprimida en dataURL (resize a 900px máx,
+      // JPEG 0.78) para mostrarla luego en otras vistas (form de reserva).
+      try {
+        const dataUrl = await fileToCompressedDataUrl(file, 900, 0.78);
+        if (activeProfile) {
+          activeProfile[step][key] = dataUrl;
+          activeProfile[step][key + "_name"] = file.name;
+          saveProfile(activePhoneKey, activeProfile);
+        }
         const preview = $(previewId);
         if (preview) {
-          preview.src = e.target.result;
+          preview.src = dataUrl;
           preview.classList.remove("hidden");
+          preview.dataset.zoomSrc = dataUrl;
         }
-      };
-      reader.readAsDataURL(file);
-      const name = $(nameId);
-      if (name) name.textContent = file.name;
+        const name = $(nameId);
+        if (name) name.textContent = file.name;
+      } catch (e) {
+        console.warn("[bindFileInput] compress failed, fallback to name only", e);
+        if (activeProfile) {
+          activeProfile[step][key] = "";
+          activeProfile[step][key + "_name"] = file.name;
+          saveProfile(activePhoneKey, activeProfile);
+        }
+      }
       updateProgressUI();
       refreshHomeCard();
     });
@@ -12596,9 +12740,6 @@ document.addEventListener("DOMContentLoaded", function(){
 
     $("wiz_id_tipo").value = p.step2.tipo || "";
     $("wiz_id_otro").value = p.step2.id_otro || "";
-    setPreviewName("wiz_ine_frontal_name", p.step2.ine_frontal);
-    setPreviewName("wiz_ine_trasero_name", p.step2.ine_trasero);
-    setPreviewName("wiz_ident_unica_name", p.step2.ident_unica);
 
     $("wiz_factura").value = p.step3.factura || "";
     $("wiz_razon_social").value = p.step3.razon_social || "";
@@ -12630,7 +12771,32 @@ document.addEventListener("DOMContentLoaded", function(){
     $("wiz_veh_color").value = p.step4.color || "";
     $("wiz_veh_placas").value = p.step4.placas || "";
     $("wiz_veh_hora_salida").value = p.step4.hora_salida || "";
-    setPreviewName("wiz_veh_foto_name", p.step4.foto);
+    // Foto: dataURL en step4.foto (post-cambio) o legado solo nombre.
+    paintProfileImagePreview("wiz_ine_frontal",  p.step2.ine_frontal);
+    paintProfileImagePreview("wiz_ine_trasero",  p.step2.ine_trasero);
+    paintProfileImagePreview("wiz_ident_unica",  p.step2.ident_unica);
+    paintProfileImagePreview("wiz_veh_foto",     p.step4.foto, p.step4.foto_name);
+  }
+  // Pinta preview de imagen y label en el wizard. Si val es un dataURL,
+  // lo muestra; si no, oculta el preview pero conserva el nombre.
+  function paintProfileImagePreview(inputId, val, displayName){
+    const previewId = `${inputId}_preview`;
+    const nameId = `${inputId}_name`;
+    const preview = $(previewId);
+    const name = $(nameId);
+    if (preview) {
+      if (val && /^data:image\//.test(String(val))) {
+        preview.src = val;
+        preview.classList.remove("hidden");
+        preview.dataset.zoomSrc = val;
+      } else {
+        preview.classList.add("hidden");
+        preview.removeAttribute("src");
+        preview.removeAttribute("data-zoom-src");
+      }
+    }
+    const labelText = displayName || (val && !/^data:image\//.test(String(val)) ? val : "");
+    if (name) name.textContent = labelText || (getI18n().noImage || "Ninguna imagen seleccionada");
   }
   function setPreviewName(id, val){
     const el = $(id);
