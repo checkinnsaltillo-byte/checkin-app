@@ -4049,36 +4049,52 @@ function formatRangoFechasSimple(inicio, fin){
 @media (max-width:560px){
   .kpi-grid{ grid-template-columns:repeat(2, 1fr); }
 }
+/* KPI card compacta. El icon se mueve a la esquina superior derecha como
+   "marca de agua" decorativa para liberar la línea vertical: ahora el
+   value queda hasta arriba y la card es más corta. */
 .kpi-card{
   background:#ffffff;
   border:1px solid var(--border);
   border-radius:14px;
-  padding:14px 12px;
-  text-align:center;
+  padding:12px 12px 10px;
+  text-align:left;
   box-shadow:0 4px 12px rgba(15,23,42,.04);
+  position:relative;
+  overflow:hidden;
+  min-height:78px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
 }
 .kpi-icon{
-  font-size:20px;
-  margin-bottom:4px;
+  position:absolute;
+  top:8px;
+  right:10px;
+  font-size:22px;
   line-height:1;
+  opacity:.55;
+  filter:grayscale(.15);
+  pointer-events:none;
 }
 .kpi-value{
-  font-size:20px;
+  font-size:24px;
   font-weight:800;
   color:var(--primary-dark);
   font-variant-numeric:tabular-nums;
-  line-height:1.1;
-  margin-bottom:4px;
+  line-height:1.05;
+  margin-bottom:2px;
   word-break:break-word;
+  padding-right:28px;
 }
-.kpi-value.kpi-range{ font-size:13px; line-height:1.3; }
+.kpi-value.kpi-range{ font-size:14px; line-height:1.3; }
 .kpi-label{
   font-size:11px;
-  font-weight:600;
+  font-weight:700;
   color:var(--text-soft);
   text-transform:uppercase;
   letter-spacing:.04em;
-  line-height:1.3;
+  line-height:1.25;
+  padding-right:28px;
 }
 
 /* ───── Vehículos: banner de sesión + tabs de propiedades ───── */
@@ -4838,7 +4854,7 @@ body.has-session input[name="nombre"] {
 </div>
 </div>
 <div class="page-title-row">
-  <h1 id="pageH1" data-i18n="title">Registro de huéspedes</h1>
+  <h1 id="pageH1" data-i18n="title">Portal del huésped</h1>
   <button id="btnRefreshHome" class="page-refresh-btn" type="button" hidden aria-label="Actualizar datos" title="Actualizar datos">
     <span class="page-refresh-icon" aria-hidden="true">↻</span>
     <span class="page-refresh-text" data-i18n="btnRefreshHome">Actualizar</span>
@@ -4853,11 +4869,10 @@ body.has-session input[name="nombre"] {
 <div class="view-panel" id="viewWelcome">
   <div class="section">
     <h2 class="section-title" data-i18n="welcomeTitle">¿Cómo quieres continuar?</h2>
-    <p class="section-subtitle" data-i18n="welcomeSubtitle">Selecciona una opción para empezar tu registro o consultar información de vehículos.</p>
     <div class="auth-actions">
       <button class="auth-bigbtn express-primary" id="btnGoExpress" type="button">
-        <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">⚡</span><span data-i18n="welcomeBtnExpress">Registro exprés</span></span>
-        <span class="auth-bigbtn-sub" data-i18n="welcomeBtnExpressSub">Solo completa el formulario de registro. Ideal si es tu primera estancia y tus visitas no son frecuentes.</span>
+        <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">⚡</span><span data-i18n="welcomeBtnExpress">Registro exprés de nueva reservación</span></span>
+        <span class="auth-bigbtn-sub" data-i18n="welcomeBtnExpressSub">Solo completa el formulario de registro. Ideal si tu visita es esporádica y no requieres control de facturas.</span>
       </button>
       <button class="auth-bigbtn" id="btnGoLogin" type="button">
         <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🔐</span><span data-i18n="welcomeBtnLogin">Inicia sesión y ¡obtén beneficios!</span></span>
@@ -4867,9 +4882,6 @@ body.has-session input[name="nombre"] {
         <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="welcomeBtnVehiculos">Información de vehículos</span></span>
         <span class="auth-bigbtn-sub" data-i18n="welcomeBtnVehiculosSub">Consulta los vehículos con estancia activa hoy. Útil para coordinar movimientos en el estacionamiento.</span>
       </button>
-    </div>
-    <div class="auth-info-banner" data-i18n-html="welcomeTip">
-      💡 <strong>Tip:</strong> Si llenas el formulario por registro exprés con tu celular, tu cuenta queda creada automáticamente. La próxima vez podrás iniciar sesión para autorrellenar tus datos.
     </div>
   </div>
 </div>
@@ -7075,7 +7087,7 @@ function formatFechaBonita(fecha){
 <script>
 const I18N = {
   es: {
-    title: "Registro de huéspedes",
+    title: "Portal del huésped",
     phoneLookupTitle: "Número de celular",
     phoneLookupSub: "Escribe tu número para buscar si ya existe un registro previo y completar automáticamente algunos datos.",
     guestPhoneNumber: "Número de celular",
@@ -7448,7 +7460,7 @@ const SIMPLE_I18N = {
     optionNewText:"Prepara tu identificación personal",
     optionRegisteredTitle:"Huésped ya registrado",
     optionRegisteredText:"Si ya subiste tu identificación personal",
-    title:"Registro de huéspedes",
+    title:"Guest portal",
     phoneLookupTitle:"Número de celular",
     phoneLookupSub:"Escribe tu número para buscar si ya existe un registro previo y completar automáticamente algunos datos.",
     guestPhoneNumber:"Número de celular",
@@ -7524,8 +7536,9 @@ const SIMPLE_I18N = {
     welcomeSubtitle:"Selecciona una opción para empezar tu registro o consultar información de vehículos.",
     welcomeBtnLogin:"Inicia sesión y ¡obtén beneficios!",
     welcomeBtnLoginSub:"Completa tu perfil y accede a descuentos. Consulta tus tickets de auto-facturación. Te enviaremos un código por WhatsApp para activar tu cuenta.",
-    welcomeBtnExpress:"Registro exprés",
-    welcomeBtnExpressSub:"Solo completa el formulario de registro. Ideal si es tu primera estancia y tus visitas no son frecuentes.",
+    welcomeBtnExpress:"Registro exprés de nueva reservación",
+    expressFormTitle:"Registro exprés de nueva reservación",
+    welcomeBtnExpressSub:"Solo completa el formulario de registro. Ideal si tu visita es esporádica y no requieres control de facturas.",
     welcomeBtnVehiculos:"Información de vehículos",
     welcomeBtnVehiculosSub:"Consulta los vehículos con estancia activa hoy. Útil para coordinar movimientos en el estacionamiento.",
     welcomeTip:"💡 <strong>Tip:</strong> Si llenas el formulario por registro exprés con tu celular, tu cuenta queda creada automáticamente. La próxima vez podrás iniciar sesión para autorrellenar tus datos.",
@@ -7817,8 +7830,9 @@ const SIMPLE_I18N = {
     welcomeSubtitle:"Choose an option to start your registration or to look up vehicle information.",
     welcomeBtnLogin:"Sign in and get benefits!",
     welcomeBtnLoginSub:"Complete your profile and unlock discounts. Look up your auto-billing tickets. We'll send you a WhatsApp code to activate your account.",
-    welcomeBtnExpress:"Express registration",
-    welcomeBtnExpressSub:"Just fill the registration form. Ideal if it's your first stay and your visits are not frequent.",
+    welcomeBtnExpress:"Express booking registration",
+    expressFormTitle:"Express booking registration",
+    welcomeBtnExpressSub:"Just fill the registration form. Ideal if your visit is occasional and you don't need invoice tracking.",
     welcomeBtnVehiculos:"Vehicle information",
     welcomeBtnVehiculosSub:"See vehicles with an active stay today. Useful to coordinate parking movements.",
     welcomeTip:"💡 <strong>Tip:</strong> If you fill the form via express access with your phone, your account is created automatically. Next time you can sign in to prefill your data.",
@@ -11471,10 +11485,11 @@ document.addEventListener("DOMContentLoaded", function(){
     [viewWelcome, viewLogin, viewHome, viewRegistro, viewVehiculos, wizard].forEach(el => {
       if (el) el.classList.toggle("hidden", el !== elToShow);
     });
-    // El botón "Actualizar datos" solo se ve en el home. gotoHome lo
-    // re-muestra después de este reset.
+    // El botón "Actualizar datos" se ve en viewHome y viewVehiculos
+    // (las dos vistas que muestran datos del backend del huésped).
+    // En welcome, login, registro y wizard queda oculto.
     const btnRefresh = document.getElementById("btnRefreshHome");
-    if (btnRefresh) btnRefresh.hidden = (elToShow !== viewHome);
+    if (btnRefresh) btnRefresh.hidden = !(elToShow === viewHome || elToShow === viewVehiculos);
   }
   function setMenuVisible(visible){
     if (topMenu) topMenu.style.display = visible ? "" : "none";
@@ -11489,6 +11504,14 @@ document.addEventListener("DOMContentLoaded", function(){
     showOnly(viewWelcome);
     setMenuVisible(false);
     refreshSessionPill();
+    // Restaurar H1 al default ("Portal del huésped") por si venía
+    // de express form donde quedó como "Registro exprés..."
+    const h1 = document.getElementById("pageH1");
+    const i = (window.SIMPLE_I18N && window.SIMPLE_I18N[window.currentLang||"es"]) || {};
+    if (h1) {
+      h1.textContent = i.title || "Portal del huésped";
+      h1.setAttribute("data-i18n", "title");
+    }
   }
   function hideAllLoginSteps(){
     [loginStepPhone, loginStepPin, loginStepOtp, loginStepCreatePin].forEach(el => {
@@ -11620,8 +11643,20 @@ document.addEventListener("DOMContentLoaded", function(){
     showOnly(viewRegistro);
     const session = getSession();
     const hasSession = !!session;
-    setMenuVisible(!hasSession);
+    // El topMenu (tabs Registro/Vehículos) siempre se oculta en el form,
+    // sin importar si hay sesión o no. Antes solo se ocultaba con sesión.
+    setMenuVisible(false);
     setMenuActive("registro");
+    // Sin sesión: cambiar H1 al título de la sección. Con sesión, el H1
+    // ya dice "¡Hola {nombre}!" y queremos preservarlo.
+    if (!hasSession) {
+      const h1 = document.getElementById("pageH1");
+      const i = (window.SIMPLE_I18N && window.SIMPLE_I18N[window.currentLang||"es"]) || {};
+      if (h1) {
+        h1.textContent = i.expressFormTitle || "Registro exprés de nueva reservación";
+        h1.removeAttribute("data-i18n");
+      }
+    }
     // Pre-llenar el celular desde la sesión SIEMPRE que haya sesión (porque
     // el form puede haber sido reseteado tras un submit anterior y la sección
     // del celular está oculta vía CSS para usuarios con sesión — así
@@ -12889,8 +12924,18 @@ document.addEventListener("DOMContentLoaded", function(){
       btn.classList.add("spinning");
       btn.disabled = true;
       try {
-        // refreshHomeForce invalida cache y vuelve a llamar refreshHomeContent
-        await (window.checkinnAuth?.refreshHomeForce?.() || Promise.resolve());
+        // Detectar vista activa: home → refetch stays; vehículos → reload props
+        const vehVisible = viewVehiculos && !viewVehiculos.classList.contains("hidden");
+        if (vehVisible) {
+          // Refresh para viewVehiculos: invalidar cache y recargar propiedades
+          try { if (typeof window.vehiculosBaseRowsLoaded !== "undefined") window.vehiculosBaseRowsLoaded = false; } catch(_e){}
+          try { if (typeof window.vehiculosPropertiesLoaded !== "undefined") window.vehiculosPropertiesLoaded = false; } catch(_e){}
+          if (typeof window.cargarPropiedadesVehiculos === "function") {
+            await window.cargarPropiedadesVehiculos(true);
+          }
+        } else {
+          await (window.checkinnAuth?.refreshHomeForce?.() || Promise.resolve());
+        }
       } finally {
         btn.classList.remove("spinning");
         btn.disabled = false;
@@ -13466,7 +13511,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const h1NoSession = document.getElementById("pageH1");
       const iNoSession = getI18n();
       if (h1NoSession) {
-        h1NoSession.textContent = iNoSession.title || "Registro de huéspedes";
+        h1NoSession.textContent = iNoSession.title || "Portal del huésped";
         h1NoSession.setAttribute("data-i18n", "title");
       }
       return;
@@ -13572,7 +13617,7 @@ document.addEventListener("DOMContentLoaded", function(){
         h1.textContent = (window.currentLang === "en" ? "Hi " : "¡Hola ") + nombre + (window.currentLang === "en" ? "!" : "!");
         h1.removeAttribute("data-i18n");
       } else {
-        h1.textContent = i.title || "Registro de huéspedes";
+        h1.textContent = i.title || "Portal del huésped";
         h1.setAttribute("data-i18n", "title");
       }
     }
@@ -14502,18 +14547,20 @@ document.addEventListener("DOMContentLoaded", function(){
   const HOTEL_WA_NUMBER = "528444443922";
   function buildWaHref(){
     let nombre = "";
+    let hasSession = false;
     try {
       const session = window.checkinnAuth?.getSession?.();
       if (session) {
+        hasSession = true;
         const phoneKey = `+${session.lada}${session.phone}`;
         const profile = window.checkinnProfile?._loadProfile?.(phoneKey);
         nombre = (profile?.step1?.nombre || "").trim();
       }
     } catch(_e){}
-    const intro = nombre
-      ? `Soy ${nombre}, huésped registrado.`
-      : "Soy huésped registrado.";
-    const mensaje = `${intro} Mi duda/comentario es el siguiente: `;
+    // Sin sesión: invitamos a presentarse. Con sesión: ya sabemos quién es.
+    const mensaje = hasSession && nombre
+      ? `Hola, mi nombre es ${nombre}, mi duda/comentario es el siguiente: `
+      : `Hola, mi nombre es: `;
     return `https://wa.me/${HOTEL_WA_NUMBER}?text=${encodeURIComponent(mensaje)}`;
   }
   function setupWaFab(){
