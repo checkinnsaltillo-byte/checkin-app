@@ -3328,6 +3328,9 @@ function formatRangoFechasSimple(inicio, fin){
   flex-shrink:0;
   transition:transform .15s, box-shadow .15s, background .15s;
 }
+/* IMPORTANTE: el atributo HTML "hidden" queda anulado por display:inline-flex
+   arriba, así que forzamos display:none cuando hidden está presente. */
+.page-refresh-btn[hidden]{ display:none !important; }
 .page-refresh-btn:hover{
   background:var(--primary-soft);
   transform:translateY(-1px);
@@ -4872,7 +4875,7 @@ body.has-session input[name="nombre"] {
     <div class="auth-actions">
       <button class="auth-bigbtn express-primary" id="btnGoExpress" type="button">
         <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">⚡</span><span data-i18n="welcomeBtnExpress">Registro exprés de nueva reservación</span></span>
-        <span class="auth-bigbtn-sub" data-i18n="welcomeBtnExpressSub">Solo completa el formulario de registro. Ideal si tu visita es esporádica y no requieres control de facturas.</span>
+        <span class="auth-bigbtn-sub" data-i18n="welcomeBtnExpressSub">Solo completa el formulario de registro. Ideal si tu visita es esporádica y no requieres control de tickets de autofacturación.</span>
       </button>
       <button class="auth-bigbtn" id="btnGoLogin" type="button">
         <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🔐</span><span data-i18n="welcomeBtnLogin">Inicia sesión y ¡obtén beneficios!</span></span>
@@ -6056,7 +6059,91 @@ function applyGuestRecordToForm(row){
     }
   }
 
+  // ─── Autofill VEHICULO ─────────────────────────────────────────────
+  // Cuenta con vehículo? select usa values "si"/"no" lowercase.
+  const tieneVeh = String(row["¿Cuenta con vehículo?"] || "").toLowerCase().trim();
+  const tieneVehNorm = (tieneVeh === "sí" || tieneVeh === "si" || tieneVeh === "yes") ? "si"
+                      : (tieneVeh === "no") ? "no" : "";
+  if (tieneVehNorm) {
+    const tieneEl = document.getElementById("tiene_vehiculo");
+    if (tieneEl) {
+      tieneEl.value = tieneVehNorm;
+      tieneEl.dispatchEvent(new Event("change", { bubbles: true }));
+      markFieldAsAutofilled(tieneEl);
+    }
+  }
+  if (tieneVehNorm === "si") {
+    // Marca: si está en el catálogo del combobox, asignar; sino "Otro" + marca_otro
+    const marcaRaw = String(row["Marca vehículo"] || row["Marca"] || "").trim();
+    const marcaInput = document.getElementById("vehiculo_marca");
+    if (marcaInput && marcaRaw) {
+      marcaInput.value = marcaRaw;
+      marcaInput.dispatchEvent(new Event("change", { bubbles: true }));
+      markFieldAsAutofilled(marcaInput);
+    }
+    setInputValue('#vehiculo_modelo', row["Modelo vehículo"] || row["Modelo"]);
+    setInputValue('#vehiculo_color', row["Color vehículo"] || row["Color"]);
+    setInputValue('#vehiculo_placas', row["Placas"] || row["# Placas"]);
+    const horaHabitual = row["Hora habitual de salida"] || "";
+    if (horaHabitual) {
+      const horaEl = document.getElementById("vehiculo_hora_salida");
+      if (horaEl) {
+        // <input type="time"> requiere HH:mm
+        const m = String(horaHabitual).match(/(\d{1,2}):(\d{2})/);
+        if (m) {
+          horaEl.value = `${String(m[1]).padStart(2,"0")}:${m[2]}`;
+          markFieldAsAutofilled(horaEl);
+        }
+      }
+    }
+  }
+
+  // ─── Autofill IMÁGENES (INE frontal/trasero/única + vehículo) ─────
+  // Para cada campo: tomar el link de Drive, normalizarlo a thumbnail,
+  // pintarlo en el preview-img, ocultar el área de upload y agregar
+  // el botón X + zoom vía enhanceAllPreviews. Después refresh del label
+  // del botón ("Actualizar imagen").
+  setImagePreviewFromUrl("ine_frontal", row["Link INE frontal"] || row["INE frontal"]);
+  setImagePreviewFromUrl("ine_trasero", row["Link INE trasero"] || row["INE trasero"]);
+  setImagePreviewFromUrl("identificacion_unica", row["Link identificación única"] || row["Link identificación"] || row["Identificación única"]);
+  setImagePreviewFromUrl("vehiculo_foto", row["Link foto vehículo"] || row["Foto vehículo"]);
+
   attachAutofilledFieldListeners(document);
+}
+
+// Pinta una imagen del backend como preview en el form. inputId es el id
+// del <input type="file"> y se asume que el preview está en
+// `${inputId}_preview` y el name en `${inputId}_name`.
+function setImagePreviewFromUrl(inputId, rawUrl){
+  const url = String(rawUrl || "").trim();
+  if (!url) return;
+  const preview = document.getElementById(`${inputId}_preview`);
+  const nameEl = document.getElementById(`${inputId}_name`);
+  if (!preview) return;
+  // Normalizar a URL de thumbnail de Drive (función ya existente).
+  let displayUrl = url;
+  try {
+    if (typeof normalizeDriveImageUrl === "function") {
+      displayUrl = normalizeDriveImageUrl(url) || url;
+    } else {
+      // Fallback: extraer fileId
+      const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (m) displayUrl = `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1200`;
+    }
+  } catch(_e){}
+  preview.src = displayUrl;
+  preview.classList.remove("hidden");
+  preview.dataset.zoomSrc = displayUrl;
+  preview.dataset.fromBackend = "1"; // marca para no resubirlo si no cambia
+  if (nameEl) nameEl.textContent = "Imagen ya cargada";
+  // Reflejar "Actualizar imagen" en el botón + agregar X de eliminar + zoom
+  try {
+    if (window.checkinnImages?.enhanceAllPreviews) window.checkinnImages.enhanceAllPreviews();
+    const fileInput = document.getElementById(inputId);
+    if (fileInput && window.checkinnImages?.refreshUploadButtonText) {
+      window.checkinnImages.refreshUploadButtonText(fileInput);
+    }
+  } catch(_e){}
 }
 
 function resetAutofillToNewMode(){
@@ -7182,7 +7269,7 @@ const I18N = {
     selectFirstBrand: "Selecciona primero una marca"
   },
   en: {
-    title: "Guest registration",
+    title: "Guest portal",
     phoneLookupTitle: "Mobile number",
     phoneLookupSub: "Enter your number to check whether a previous guest record exists and auto-fill some fields.",
     guestPhoneNumber: "Mobile number",
@@ -7460,7 +7547,7 @@ const SIMPLE_I18N = {
     optionNewText:"Prepara tu identificación personal",
     optionRegisteredTitle:"Huésped ya registrado",
     optionRegisteredText:"Si ya subiste tu identificación personal",
-    title:"Guest portal",
+    title:"Portal del huésped",
     phoneLookupTitle:"Número de celular",
     phoneLookupSub:"Escribe tu número para buscar si ya existe un registro previo y completar automáticamente algunos datos.",
     guestPhoneNumber:"Número de celular",
@@ -7538,7 +7625,7 @@ const SIMPLE_I18N = {
     welcomeBtnLoginSub:"Completa tu perfil y accede a descuentos. Consulta tus tickets de auto-facturación. Te enviaremos un código por WhatsApp para activar tu cuenta.",
     welcomeBtnExpress:"Registro exprés de nueva reservación",
     expressFormTitle:"Registro exprés de nueva reservación",
-    welcomeBtnExpressSub:"Solo completa el formulario de registro. Ideal si tu visita es esporádica y no requieres control de facturas.",
+    welcomeBtnExpressSub:"Solo completa el formulario de registro. Ideal si tu visita es esporádica y no requieres control de tickets de autofacturación.",
     welcomeBtnVehiculos:"Información de vehículos",
     welcomeBtnVehiculosSub:"Consulta los vehículos con estancia activa hoy. Útil para coordinar movimientos en el estacionamiento.",
     welcomeTip:"💡 <strong>Tip:</strong> Si llenas el formulario por registro exprés con tu celular, tu cuenta queda creada automáticamente. La próxima vez podrás iniciar sesión para autorrellenar tus datos.",
@@ -7754,7 +7841,7 @@ const SIMPLE_I18N = {
     optionNewText:"Prepare your personal ID.",
     optionRegisteredTitle:"Already registered guest",
     optionRegisteredText:"If you have already uploaded your personal ID",
-    title:"Guest registration",
+    title:"Guest portal",
     phoneLookupTitle:"Mobile number",
     phoneLookupSub:"Enter your number to check whether a previous guest record exists and auto-fill some fields.",
     guestPhoneNumber:"Mobile number",
@@ -7832,7 +7919,7 @@ const SIMPLE_I18N = {
     welcomeBtnLoginSub:"Complete your profile and unlock discounts. Look up your auto-billing tickets. We'll send you a WhatsApp code to activate your account.",
     welcomeBtnExpress:"Express booking registration",
     expressFormTitle:"Express booking registration",
-    welcomeBtnExpressSub:"Just fill the registration form. Ideal if your visit is occasional and you don't need invoice tracking.",
+    welcomeBtnExpressSub:"Just fill the registration form. Ideal if your visit is occasional and you don't need auto-invoice ticket tracking.",
     welcomeBtnVehiculos:"Vehicle information",
     welcomeBtnVehiculosSub:"See vehicles with an active stay today. Useful to coordinate parking movements.",
     welcomeTip:"💡 <strong>Tip:</strong> If you fill the form via express access with your phone, your account is created automatically. Next time you can sign in to prefill your data.",
