@@ -3128,6 +3128,49 @@ function formatRangoFechasSimple(inicio, fin){
   font-size:22px;
   line-height:1;
 }
+/* Sección de "Información de vehículos" como dropdown inline */
+.veh-collapsible-card{
+  display:flex;
+  flex-direction:column;
+  width:100%;
+}
+.veh-collapsible-trigger{
+  width:100%;
+  text-align:left;
+}
+.veh-collapsible-trigger .veh-collapsible-chevron{
+  margin-left:auto;
+  font-size:16px;
+  line-height:1;
+  transition:transform .2s ease;
+  display:inline-block;
+}
+.veh-collapsible-trigger[aria-expanded="true"] .veh-collapsible-chevron{
+  transform:rotate(180deg);
+}
+.veh-collapsible-body{
+  background:#fff;
+  border:1px solid var(--border, #e5e7eb);
+  border-radius:14px;
+  margin-top:10px;
+  padding:14px;
+  width:100%;
+  box-sizing:border-box;
+}
+.veh-collapsible-body[hidden]{
+  display:none !important;
+}
+.veh-collapsible-body .dashboard-wrap{
+  margin:0;
+  padding:0;
+}
+.veh-collapsible-body .section{
+  padding:0;
+  margin:0;
+  background:transparent;
+  box-shadow:none;
+  border:none;
+}
 .auth-back-link{
   display:inline-flex;
   align-items:center;
@@ -4923,10 +4966,13 @@ body.has-session input[name="nombre"] {
         <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🔐</span><span data-i18n="welcomeBtnLogin">Inicia sesión y ¡obtén beneficios!</span></span>
         <span class="auth-bigbtn-sub" data-i18n="welcomeBtnLoginSub">Completa tu perfil y accede a descuentos. Consulta tus tickets de auto-facturación. Te enviaremos un código por WhatsApp para activar tu cuenta.</span>
       </button>
-      <button class="auth-bigbtn" id="btnGoVehiculos" type="button">
-        <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="welcomeBtnVehiculos">Información de vehículos</span></span>
-        <span class="auth-bigbtn-sub" data-i18n="welcomeBtnVehiculosSub">Consulta los vehículos con estancia activa hoy. Útil para coordinar movimientos en el estacionamiento.</span>
-      </button>
+      <div class="veh-collapsible-card" id="vehCollapsibleWelcome">
+        <button class="auth-bigbtn veh-collapsible-trigger" id="btnGoVehiculos" type="button" aria-expanded="false">
+          <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="welcomeBtnVehiculos">Información de vehículos</span><span class="veh-collapsible-chevron" aria-hidden="true">▾</span></span>
+          <span class="auth-bigbtn-sub" data-i18n="welcomeBtnVehiculosSub">Consulta los vehículos con estancia activa hoy. Útil para coordinar movimientos en el estacionamiento.</span>
+        </button>
+        <div class="veh-collapsible-body" id="vehBodyWelcome" hidden></div>
+      </div>
     </div>
   </div>
 </div>
@@ -5104,10 +5150,13 @@ body.has-session input[name="nombre"] {
       </button>
 
       <!-- Sección 2: Información de vehículos -->
-      <button class="auth-bigbtn" id="btnHomeVehiculos" type="button">
-        <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="btnInfoVehiculosTitle">Información de vehículos</span></span>
-        <span class="auth-bigbtn-sub" data-i18n="btnInfoVehiculosSub">Consulta los vehículos con estancia activa hoy por propiedad.</span>
-      </button>
+      <div class="veh-collapsible-card" id="vehCollapsibleHome">
+        <button class="auth-bigbtn veh-collapsible-trigger" id="btnHomeVehiculos" type="button" aria-expanded="false">
+          <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="btnInfoVehiculosTitle">Información de vehículos</span><span class="veh-collapsible-chevron" aria-hidden="true">▾</span></span>
+          <span class="auth-bigbtn-sub" data-i18n="btnInfoVehiculosSub">Consulta los vehículos con estancia activa hoy por propiedad.</span>
+        </button>
+        <div class="veh-collapsible-body" id="vehBodyHome" hidden></div>
+      </div>
     </div>
 
     <!-- Sección 3: Tabla de estancias — dropdown (default desplegado) -->
@@ -5164,10 +5213,8 @@ body.has-session input[name="nombre"] {
 </div>
 
 <div class="view-panel hidden" id="viewVehiculos">
-<button type="button" class="back-home-btn" data-back-home data-i18n="backHomeBtn">← Volver al inicio</button>
-<div class="dashboard-wrap">
+<div class="dashboard-wrap" id="vehiclesDashboardContent">
 <div class="section">
-<h2 class="section-title" data-i18n="vehSectionTitle">Información de vehículos</h2>
 <p class="section-subtitle" data-i18n="vehSectionSub">Consulta los vehículos con estancia activa hoy y filtra la información por propiedad.</p>
 
 <!-- Banner para usuarios con sesión: auto-filtrado por estancia(s) en curso -->
@@ -5486,7 +5533,7 @@ body.has-session input[name="nombre"] {
 </div>
 </div>
 </div>
-<button onclick="addGuest()" type="button">➕ Agregar huésped</button>
+<button onclick="addGuest()" type="button">+ Agregar huésped</button>
 </div>
 </div>
 <div class="grid-vertical">
@@ -5701,7 +5748,7 @@ body.has-session input[name="nombre"] {
 </div>
 </div>
 </div>
-<button onclick="addGuest()" type="button">➕ Agregar huésped</button>
+<button onclick="addGuest()" type="button">+ Agregar huésped</button>
 </div>
 </div>
 </div>
@@ -5920,6 +5967,7 @@ function markFieldAsAutofilled(el){
   const label = findRelatedLabel(el);
   if (label) label.classList.add("autofilled-label");
 }
+try { window.markFieldAsAutofilled = markFieldAsAutofilled; } catch(_e){}
 function clearFieldAutofilled(el){
   if (!el) return;
   el.classList.remove("autofilled-field");
@@ -7252,7 +7300,7 @@ const I18N = {
     guestNames: "Nombres de los huéspedes",
     guestHint:"",
     sameAsBooker: "Es la misma persona que realizó la reservación",
-    addGuest: "➕ Agregar huésped",
+    addGuest: "+ Agregar huésped",
     guestPhone: "Celular del huésped",
     emergencyContact: "Contacto emergencia",
     invoice: "¿Requieres el TICKET para AUTO-FACTURACIÓN?",
@@ -7347,7 +7395,7 @@ const I18N = {
     guestNames: "Guest names",
     guestHint:"",
     sameAsBooker: "Same person who made the reservation",
-    addGuest: "➕ Add guest",
+    addGuest: "+ Add guest",
     guestPhone: "Guest phone",
     emergencyContact: "Emergency contact",
     invoice: "Do you need a self-invoicing ticket?",
@@ -11857,6 +11905,32 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     // Pre-llenar sección de vehículo con los datos del perfil
     prefillVehicleFromProfile();
+    // Pre-llenar correos (principal + copia) desde step3.correo_factura del perfil
+    prefillEmailsFromProfile();
+  }
+
+  function prefillEmailsFromProfile(){
+    const session = getSession();
+    if (!session) return;
+    try {
+      const phoneKey = `+${session.lada}${session.phone}`;
+      const profile = window.checkinnProfile?._loadProfile?.(phoneKey);
+      const email = (profile?.step3?.correo_factura || "").trim();
+      if (!email) return;
+      ["correo1","correo2"].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        // Solo pre-llenamos si está vacío (no pisamos lo que el usuario haya escrito)
+        if (!String(el.value || "").trim()) {
+          el.value = email;
+          if (typeof window.markFieldAsAutofilled === "function") {
+            window.markFieldAsAutofilled(el);
+          } else if (typeof markFieldAsAutofilled === "function") {
+            markFieldAsAutofilled(el);
+          }
+        }
+      });
+    } catch(e){ console.warn("[prefillEmails]", e); }
   }
 
   function prefillVehicleFromProfile(){
@@ -11976,15 +12050,44 @@ document.addEventListener("DOMContentLoaded", function(){
     });
   }
   function gotoExpressVehiculos(){
-    showOnly(viewVehiculos);
-    // El topMenu (tabs Registro/Vehículos) siempre se oculta en
-    // viewVehiculos, sin importar si hay sesión. La sección tiene
-    // su propio botón "Volver al inicio" en la parte superior.
-    setMenuVisible(false);
-    setMenuActive("vehiculos");
+    // Sección "Información de vehículos" ahora es un dropdown inline
+    // dentro del botón "Información de vehículos" — no abre ventana nueva.
+    const session = getSession();
+    const bodyId = session ? "vehBodyHome" : "vehBodyWelcome";
+    const btnId  = session ? "btnHomeVehiculos" : "btnGoVehiculos";
+    // Asegurar que estamos en la vista correcta (home con sesión, welcome sin)
+    if (session) {
+      const homeHidden = viewHome && viewHome.classList.contains("hidden");
+      if (homeHidden) {
+        const p = gotoHome();
+        if (p && typeof p.then === "function") {
+          p.then(() => expandVehiculosDropdown(bodyId, btnId));
+          return;
+        }
+      }
+    } else {
+      const welcomeHidden = viewWelcome && viewWelcome.classList.contains("hidden");
+      if (welcomeHidden) {
+        gotoWelcome();
+      }
+    }
+    expandVehiculosDropdown(bodyId, btnId);
+  }
+
+  function expandVehiculosDropdown(bodyId, btnId){
+    const body = document.getElementById(bodyId);
+    const btn  = document.getElementById(btnId);
+    if (!body || !btn) return;
+    // Mover el dashboard-wrap dentro del body si no está ahí
+    const dash = document.getElementById("vehiclesDashboardContent");
+    if (dash && dash.parentElement !== body) {
+      body.appendChild(dash);
+    }
+    body.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+    btn.classList.add("open");
+    // Cargar datos en backend
     if (typeof window.cargarPropiedadesVehiculos === "function") {
-      // Splash "Cargando datos…" mientras se traen las propiedades y filas
-      // de vehículos del backend.
       if (window.checkinnLoader) window.checkinnLoader.show();
       try {
         const p = window.cargarPropiedadesVehiculos(false);
@@ -11997,8 +12100,36 @@ document.addEventListener("DOMContentLoaded", function(){
         if (window.checkinnLoader) window.checkinnLoader.hide();
       }
     }
-    // Si hay sesión, aplicar auto-filtrado por estancia(s) en curso
     setTimeout(applyVehiclesSessionFilter, 200);
+    // Scroll suave hasta el botón para que el body desplegado quede visible
+    try { btn.scrollIntoView({ behavior:"smooth", block:"start" }); } catch(_e){}
+  }
+
+  function collapseVehiculosDropdown(){
+    ["btnGoVehiculos","btnHomeVehiculos"].forEach(id => {
+      const b = document.getElementById(id);
+      if (!b) return;
+      b.setAttribute("aria-expanded","false");
+      b.classList.remove("open");
+    });
+    ["vehBodyWelcome","vehBodyHome"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.hidden = true;
+    });
+  }
+
+  function toggleVehiculosDropdown(bodyId, btnId){
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    const isOpen = btn.getAttribute("aria-expanded") === "true";
+    if (isOpen) {
+      const body = document.getElementById(bodyId);
+      if (body) body.hidden = true;
+      btn.setAttribute("aria-expanded","false");
+      btn.classList.remove("open");
+    } else {
+      expandVehiculosDropdown(bodyId, btnId);
+    }
   }
 
   function parseLocalDate(s){
@@ -13095,7 +13226,7 @@ document.addEventListener("DOMContentLoaded", function(){
   function bindEvents(){
     $("btnGoLogin")?.addEventListener("click", gotoLoginPhone);
     $("btnGoExpress")?.addEventListener("click", gotoExpressForm);
-    $("btnGoVehiculos")?.addEventListener("click", gotoExpressVehiculos);
+    $("btnGoVehiculos")?.addEventListener("click", () => toggleVehiculosDropdown("vehBodyWelcome","btnGoVehiculos"));
     $("btnLoginBack1")?.addEventListener("click", gotoWelcome);
     $("btnLoginBackFromPin")?.addEventListener("click", gotoLoginPhone);
     $("btnLoginBackFromOtp")?.addEventListener("click", gotoLoginPhone);
@@ -13110,7 +13241,7 @@ document.addEventListener("DOMContentLoaded", function(){
       // perfil corra y los cambios del form sincronicen de vuelta al perfil.
       gotoExpressForm();
     });
-    $("btnHomeVehiculos")?.addEventListener("click", gotoExpressVehiculos);
+    $("btnHomeVehiculos")?.addEventListener("click", () => toggleVehiculosDropdown("vehBodyHome","btnHomeVehiculos"));
     // Botón "Actualizar datos" junto al H1 — fuerza refetch de stays
     $("btnRefreshHome")?.addEventListener("click", async () => {
       const btn = $("btnRefreshHome");
@@ -13118,9 +13249,11 @@ document.addEventListener("DOMContentLoaded", function(){
       btn.classList.add("spinning");
       btn.disabled = true;
       try {
-        // Detectar vista activa: home → refetch stays; vehículos → reload props
-        const vehVisible = viewVehiculos && !viewVehiculos.classList.contains("hidden");
-        if (vehVisible) {
+        // Detectar si el dropdown de vehículos está abierto en home o welcome
+        const vehDropdownOpen =
+          document.getElementById("btnHomeVehiculos")?.getAttribute("aria-expanded") === "true" ||
+          document.getElementById("btnGoVehiculos")?.getAttribute("aria-expanded") === "true";
+        if (vehDropdownOpen) {
           // Refresh para viewVehiculos: invalidar cache y recargar propiedades
           try { if (typeof window.vehiculosBaseRowsLoaded !== "undefined") window.vehiculosBaseRowsLoaded = false; } catch(_e){}
           try { if (typeof window.vehiculosPropertiesLoaded !== "undefined") window.vehiculosPropertiesLoaded = false; } catch(_e){}
@@ -13217,8 +13350,8 @@ document.addEventListener("DOMContentLoaded", function(){
       setMenuActive("registro");
     });
     $("menuVehiculosBtn")?.addEventListener("click", () => {
-      showOnly(viewVehiculos);
-      setMenuActive("vehiculos");
+      // Sección "Información de vehículos" ahora es dropdown inline
+      gotoExpressVehiculos();
     });
   }
 
@@ -14406,7 +14539,9 @@ document.addEventListener("DOMContentLoaded", function(){
     const wrapper = wrap.parentElement?.querySelector('.preview-wrapper')
                  || wrap.closest('.upload-box')?.querySelector('.preview-wrapper');
     const img = wrapper?.querySelector('.preview-img');
-    const hasImage = img && !img.classList.contains('hidden') && img.getAttribute('src');
+    const hasVisibleImage = img && !img.classList.contains('hidden') && img.getAttribute('src');
+    const hasBackendImage = img && (img.dataset.fromBackend === '1' || img.dataset.backendUrl);
+    const hasImage = hasVisibleImage || hasBackendImage;
     btnTextEl.textContent = hasImage
       ? (i.imgUpdateBtn || 'Actualizar imagen')
       : (i.imgUploadBtn || 'Subir imagen');
