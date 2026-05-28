@@ -6111,34 +6111,33 @@ function applyGuestRecordToForm(row){
   attachAutofilledFieldListeners(document);
 }
 
-// Pinta una imagen del backend como preview en el form. inputId es el id
-// del <input type="file"> y se asume que el preview está en
-// `${inputId}_preview` y el name en `${inputId}_name`.
+// En el form de "Registro exprés de nueva reservación" NO mostramos el
+// preview de las imágenes ya guardadas en el perfil — solo indicamos
+// que existen via el label "Imagen ya guardada" y dejamos el botón en
+// "Actualizar imagen". Si el huésped quiere ver la imagen vieja, puede
+// hacerlo en la sección de Perfil; aquí solo es para reservar.
 function setImagePreviewFromUrl(inputId, rawUrl){
   const url = String(rawUrl || "").trim();
   if (!url) return;
   const preview = document.getElementById(`${inputId}_preview`);
   const nameEl = document.getElementById(`${inputId}_name`);
-  if (!preview) return;
-  // Normalizar a URL de thumbnail de Drive (función ya existente).
-  let displayUrl = url;
+  // Mantener el preview oculto: no pintamos la imagen.
+  if (preview) {
+    preview.classList.add("hidden");
+    preview.removeAttribute("src");
+    // Marca interna para que el submit handler sepa que existe imagen
+    // en backend y no es necesario re-subirla si el usuario no la cambia.
+    preview.dataset.fromBackend = "1";
+    preview.dataset.backendUrl = url;
+  }
+  // Etiqueta legible para el huésped
+  if (nameEl) {
+    nameEl.textContent = (window.currentLang === "en")
+      ? "Image already saved"
+      : "Imagen ya guardada";
+  }
+  // Reflejar "Actualizar imagen" en el botón
   try {
-    if (typeof normalizeDriveImageUrl === "function") {
-      displayUrl = normalizeDriveImageUrl(url) || url;
-    } else {
-      // Fallback: extraer fileId
-      const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-      if (m) displayUrl = `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1200`;
-    }
-  } catch(_e){}
-  preview.src = displayUrl;
-  preview.classList.remove("hidden");
-  preview.dataset.zoomSrc = displayUrl;
-  preview.dataset.fromBackend = "1"; // marca para no resubirlo si no cambia
-  if (nameEl) nameEl.textContent = "Imagen ya cargada";
-  // Reflejar "Actualizar imagen" en el botón + agregar X de eliminar + zoom
-  try {
-    if (window.checkinnImages?.enhanceAllPreviews) window.checkinnImages.enhanceAllPreviews();
     const fileInput = document.getElementById(inputId);
     if (fileInput && window.checkinnImages?.refreshUploadButtonText) {
       window.checkinnImages.refreshUploadButtonText(fileInput);
@@ -7704,7 +7703,7 @@ const SIMPLE_I18N = {
     menuRegistroBtn:"Registro de huéspedes",
     menuVehiculosBtn:"Información de vehículos",
     vehSectionTitle:"Información de vehículos",
-    vehSectionSub:"Consulta los vehículos con estancia activa hoy y filtra la información por propiedad.",
+    vehSectionSub:"Consulta los vehículos con estancia activa durante los siguientes dos días y filtra la información por propiedad.",
     vehSessionLabelOne:"Tu estancia activa · {prop}",
     vehSessionLabelMany:"Tienes estancias activas en {n} propiedades. Elige una:",
     vehLblPlacas:"Placas",
@@ -7998,7 +7997,7 @@ const SIMPLE_I18N = {
     menuRegistroBtn:"Guest registration",
     menuVehiculosBtn:"Vehicle information",
     vehSectionTitle:"Vehicle information",
-    vehSectionSub:"See vehicles with an active stay today and filter by property.",
+    vehSectionSub:"See vehicles with an active stay over the next two days and filter by property.",
     vehSessionLabelOne:"Your active stay · {prop}",
     vehSessionLabelMany:"You have active stays in {n} properties. Pick one:",
     vehLblPlacas:"Plates",
@@ -9673,11 +9672,19 @@ function buildTicketActionsHtml(row, ticketUrl){
   }
 
   function isCurrentStayActive(record){
-    const hoy = getTodayDateOnly();
+    // Ventana ampliada: consideramos "activos" los registros cuya estancia
+    // cruza con [hoy, hoy+2 días]. Es decir, devolvemos true si el rango
+    // [entrada, salida] tiene intersección con el rango [hoy, hoy+2].
+    const hoyStr = getTodayDateOnly();
+    const today = new Date(hoyStr);
+    const horizon = new Date(today);
+    horizon.setDate(horizon.getDate() + 2);
+    const horizonStr = `${horizon.getFullYear()}-${String(horizon.getMonth()+1).padStart(2,'0')}-${String(horizon.getDate()).padStart(2,'0')}`;
     const entrada = normalizeDateOnly(getRecordValueByCandidates(record, ['Fecha de ingreso','ingreso']));
-    const salida = normalizeDateOnly(getRecordValueByCandidates(record, ['Fecha de salida','salida']));
+    const salida  = normalizeDateOnly(getRecordValueByCandidates(record, ['Fecha de salida','salida']));
     if (!entrada || !salida) return false;
-    return entrada <= hoy && hoy <= salida;
+    // Intersección no vacía: entrada <= horizonte Y salida >= hoy
+    return entrada <= horizonStr && salida >= hoyStr;
   }
 
   function buildVehicleRowFromDetail(record){
@@ -9795,9 +9802,20 @@ function buildTicketActionsHtml(row, ticketUrl){
         const json = await res.json();
         if (!json.ok) throw new Error(json.error || json.message || 'Backend rápido no disponible');
         properties = Array.isArray(json.properties) ? json.properties : [];
+        // El backend nuevo (normalizado) no expone esta acción y devuelve
+        // un payload sin .properties. Forzamos el fallback en ese caso.
+        if (!properties.length) throw new Error('backend_no_properties');
       } catch (_err) {
+        // Fallback: leer TODAS las reservaciones y extraer la lista
+        // completa de propiedades vistas en la historia. NO filtramos
+        // por fecha aquí para que el huésped vea todas las propiedades
+        // disponibles aunque hoy ninguna tenga reservación activa.
         const baseRows = await cargarBaseRowsVehiculos(forceReload);
-        properties = Array.from(new Set(baseRows.filter(r => isCurrentStayActive(r)).map(r => safeText(r["Propiedad"] || '').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
+        properties = Array.from(new Set(
+          baseRows
+            .map(r => safeText(r["Propiedad"] || '').trim())
+            .filter(Boolean)
+        )).sort((a,b)=>a.localeCompare(b,'es'));
       }
 
       setVehiculosPropiedadesOptions(properties);
