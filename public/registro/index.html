@@ -6854,6 +6854,26 @@ document.getElementById("form").addEventListener("submit", async function(e){
 
   validarArchivosAntesDeEnviar();
 
+  // SAFETY NET: si hay sesión y los campos del celular están vacíos
+  // (por reset post-submit anterior + sección oculta vía CSS has-session),
+  // forzar lada1+cel desde la sesión antes de leerlos del FormData.
+  try {
+    const session = window.checkinnAuth?.getSession?.();
+    if (session) {
+      const fLada = (f.get("lada1") || "").toString().trim();
+      const fCel = (f.get("cel") || "").toString().trim();
+      if (!fLada || !fCel) {
+        const ladaEl = document.getElementById("lada1");
+        const celEl = document.querySelector('input[name="cel"]');
+        if (ladaEl && session.lada) ladaEl.value = session.lada;
+        if (celEl && session.phone) celEl.value = session.phone;
+        // Reconstruir FormData tras setear los valores
+        f.set("lada1", session.lada || "");
+        f.set("cel", session.phone || "");
+      }
+    }
+  } catch(_e){}
+
   const tieneVehiculoActivo = String(f.get("tiene_vehiculo") || "") === "si";
   const vehiculoMarcaFinal = String((f.get("vehiculo_marca") === "Otro" ? f.get("vehiculo_marca_otro") : f.get("vehiculo_marca")) || "").trim();
   const vehiculoModeloFinal = String(f.get("vehiculo_modelo") || "").trim();
@@ -11586,10 +11606,22 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function gotoExpressForm(){
     showOnly(viewRegistro);
-    // Si hay sesión, el menú hamburguesa reemplaza el topMenu de tabs
-    const hasSession = !!getSession();
+    const session = getSession();
+    const hasSession = !!session;
     setMenuVisible(!hasSession);
     setMenuActive("registro");
+    // Pre-llenar el celular desde la sesión SIEMPRE que haya sesión (porque
+    // el form puede haber sido reseteado tras un submit anterior y la sección
+    // del celular está oculta vía CSS para usuarios con sesión — así
+    // garantizamos que el payload de submit_form lleve el celular del perfil).
+    if (hasSession) {
+      try {
+        const lada1 = document.getElementById("lada1");
+        const cel = document.querySelector('input[name="cel"]');
+        if (lada1 && session.lada) lada1.value = session.lada;
+        if (cel && session.phone) cel.value = session.phone;
+      } catch(_e){}
+    }
     // Pre-llenar sección de vehículo con los datos del perfil
     prefillVehicleFromProfile();
   }
