@@ -3275,6 +3275,37 @@ function formatRangoFechasSimple(inicio, fin){
   /* Ya existe .profile-card.incomplete con rojo — mantenemos coherencia */
 }
 
+/* ───── FAB WhatsApp (flotante esquina inferior derecha) ───── */
+.wa-fab{
+  position:fixed;
+  right:18px;
+  bottom:18px;
+  width:58px;
+  height:58px;
+  border-radius:50%;
+  background:#25D366;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 12px 28px rgba(37,211,102,.42), 0 0 0 4px rgba(255,255,255,.22);
+  z-index:9999;
+  text-decoration:none;
+  transition:transform .15s ease, box-shadow .15s ease;
+  /* Respeta safe-area en mobile */
+  margin-right:env(safe-area-inset-right);
+  margin-bottom:env(safe-area-inset-bottom);
+}
+.wa-fab:hover{
+  transform:translateY(-2px) scale(1.04);
+  box-shadow:0 18px 34px rgba(37,211,102,.55), 0 0 0 4px rgba(255,255,255,.28);
+}
+.wa-fab:active{ transform:scale(.96); }
+.wa-fab svg{ display:block; }
+@media (max-width:480px){
+  .wa-fab{ width:52px; height:52px; right:14px; bottom:14px; }
+  .wa-fab svg{ width:24px; height:24px; }
+}
+
 /* ───── Combobox custom de Marca (dropdown debajo, no datalist) ───── */
 .marca-combobox{
   position:relative;
@@ -3423,11 +3454,12 @@ function formatRangoFechasSimple(inicio, fin){
 }
 .nav-sidebar.open{ transform:translateX(0); }
 .nav-sidebar-header{
+  position:relative;
   display:flex;
   align-items:center;
-  justify-content:space-between;
-  padding:18px 18px 14px;
+  padding:18px 56px 14px 18px;
   border-bottom:1px solid var(--border);
+  min-height:54px;
 }
 .nav-sidebar-title{
   font-size:15px;
@@ -3435,17 +3467,29 @@ function formatRangoFechasSimple(inicio, fin){
   color:var(--text);
 }
 .nav-close-btn{
-  margin-top:0;
-  padding:6px 10px;
-  font-size:14px;
+  position:absolute;
+  top:10px;
+  right:10px;
+  margin:0;
+  padding:0;
+  width:32px;
+  height:32px;
+  border-radius:8px;
   background:transparent;
   color:var(--text-soft);
-  box-shadow:none;
   border:none;
+  box-shadow:none;
+  font-size:18px;
+  line-height:1;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  transition:background .15s ease, color .15s ease;
 }
 .nav-close-btn:hover{
   background:var(--primary-soft);
-  color:var(--text);
+  color:var(--primary-dark);
   transform:none;
   filter:none;
   box-shadow:none;
@@ -4674,6 +4718,13 @@ body.has-session input[name="nombre"] {
   <button class="session-pill-logout" id="btnLogout" type="button" data-i18n="sessionLogout">Cerrar sesión</button>
 </div>
 
+<!-- FAB WhatsApp: flotante esquina inferior derecha, siempre visible -->
+<a href="#" id="waFab" class="wa-fab" target="_blank" rel="noopener" aria-label="Contactar por WhatsApp">
+  <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+    <path fill="#fff" d="M16 3C8.82 3 3 8.82 3 16c0 2.34.62 4.54 1.7 6.45L3 29l6.7-1.76C11.55 28.37 13.73 29 16 29c7.18 0 13-5.82 13-13S23.18 3 16 3zm0 23.6c-2.04 0-3.99-.56-5.69-1.63l-.41-.24-3.97 1.04 1.06-3.87-.27-.42A10.6 10.6 0 0 1 5.4 16c0-5.84 4.76-10.6 10.6-10.6S26.6 10.16 26.6 16 21.84 26.6 16 26.6zm5.97-7.94c-.33-.16-1.93-.95-2.23-1.06-.3-.11-.51-.16-.73.17-.22.32-.83 1.06-1.02 1.27-.19.22-.38.24-.7.08-.33-.16-1.39-.51-2.65-1.64-.98-.87-1.64-1.95-1.83-2.27-.19-.33-.02-.5.14-.66.15-.14.33-.38.5-.57.16-.19.22-.32.33-.54.11-.22.06-.4-.03-.57-.08-.16-.73-1.77-1.01-2.42-.27-.64-.54-.55-.73-.56l-.62-.01c-.22 0-.57.08-.86.4-.3.33-1.13 1.11-1.13 2.7s1.16 3.14 1.32 3.36c.16.22 2.28 3.48 5.52 4.87.77.33 1.37.53 1.83.68.77.24 1.47.21 2.02.13.62-.09 1.93-.79 2.2-1.55.27-.76.27-1.41.19-1.55-.08-.14-.3-.22-.62-.38z"/>
+  </svg>
+</a>
+
 <!-- ═══ Menú hamburguesa (solo con sesión) ══════════════════════════ -->
 <button class="hamburger-btn" id="hamburgerBtn" type="button" aria-label="Menú">
   <span class="hb-line"></span><span class="hb-line"></span><span class="hb-line"></span>
@@ -4821,8 +4872,10 @@ body.has-session input[name="nombre"] {
       <button type="button" class="profile-complete-badge-btn" id="profileCompleteUpdateBtn" data-i18n="profileBadgeUpdateBtn">Actualizar datos</button>
     </div>
 
-    <!-- ID Card del perfil — dropdown con header fijo y body colapsable -->
-    <div class="profile-card profile-id-card open" id="profileCard">
+    <!-- ID Card del perfil — dropdown con header fijo y body colapsable.
+         Default open/closed se establece dinámicamente en refreshHomeCard
+         según completitud (100% → colapsada, &lt;100% → desplegada). -->
+    <div class="profile-card profile-id-card" id="profileCard">
       <button type="button" class="profile-card-header" id="profileCardHeader" aria-expanded="true">
         <div class="profile-card-head">
           <h3 class="profile-card-title">
@@ -4866,9 +4919,9 @@ body.has-session input[name="nombre"] {
         <div class="kpi-label" data-i18n="kpiAlojamientosLabel"># Visitas</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon">💰</div>
-        <div class="kpi-value" id="kpiMonto">$0</div>
-        <div class="kpi-label" data-i18n="kpiMontoLabel">Monto total</div>
+        <div class="kpi-icon">🧾</div>
+        <div class="kpi-value" id="kpiTickets">0</div>
+        <div class="kpi-label" data-i18n="kpiTicketsLabel"># Tickets emitidos</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-icon">⏳</div>
@@ -7541,6 +7594,7 @@ const SIMPLE_I18N = {
     profileCardSubWarn:"Te faltan algunos campos para acceder a todos los beneficios.",
     profileCardEditBtn:"Editar perfil",
     kpiMontoLabel:"Monto total",
+    kpiTicketsLabel:"# Tickets emitidos",
     kpiRangeLabel:"Primera · última estancia",
     kpiAntiguedadLabel:"Antigüedad",
     kpiNocheGratisLabel:"Noches para 1 noche gratis",
@@ -7830,6 +7884,7 @@ const SIMPLE_I18N = {
     profileCardSubWarn:"A few fields are still missing to unlock all benefits.",
     profileCardEditBtn:"Edit profile",
     kpiMontoLabel:"Total amount",
+    kpiTicketsLabel:"# Tickets issued",
     kpiRangeLabel:"First · last stay",
     kpiAntiguedadLabel:"Member since",
     kpiNocheGratisLabel:"Nights to 1 free night",
@@ -11518,6 +11573,13 @@ document.addEventListener("DOMContentLoaded", function(){
           nameEl.textContent = fotoName || (foto && !/^data:image\//.test(foto) ? foto : "")
             || (getI18nFallback().noImage || "Ninguna imagen seleccionada");
         }
+        // Forzar label "Actualizar imagen" si la foto ya está cargada
+        try {
+          const fileInput = document.getElementById("vehiculo_foto");
+          if (fileInput && window.checkinnImages?.refreshUploadButtonText) {
+            window.checkinnImages.refreshUploadButtonText(fileInput);
+          }
+        } catch(_e){}
       } catch(eFoto) { console.warn("[prefillVehicle.foto]", eFoto); }
       // Sincronizar cambios del form de vuelta al perfil
       setupVehicleSyncToProfile(phoneKey);
@@ -12198,17 +12260,18 @@ document.addEventListener("DOMContentLoaded", function(){
       return acc + diff;
     }, 0);
     const aloj = countDistinctVisits(rows);
-    const monto = rows.reduce((acc, r) => {
-      const m = String(r.monto || "").replace(/[^0-9.\-]/g, "");
-      const n = Number(m);
-      return acc + (isFinite(n) ? n : 0);
+    // # Tickets emitidos: rows con Folio facturapi o Ticket facturapi url no vacío
+    const ticketsEmitidos = rows.reduce((acc, r) => {
+      const folio = String(r.folioFacturapi || r["Folio facturapi"] || "").trim();
+      const ticketUrl = String(r.ticketUrl || r["Ticket facturapi url"] || "").trim();
+      return acc + ((folio || ticketUrl) ? 1 : 0);
     }, 0);
     const dates = rows.map(r => parseDateLocal(r.ingreso)).filter(Boolean).sort((a,b) => a - b);
     const first = dates[0];
     const $set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
     $set("kpiNoches", noches);
     $set("kpiAlojamientos", aloj);
-    $set("kpiMonto", fmtMonto(monto));
+    $set("kpiTickets", ticketsEmitidos);
     $set("kpiAntiguedad", calcAntiguedad(first));
     // KPI dona: noches para próxima noche gratis (cada 10 noches = 1 gratis)
     renderNocheGratisDonut(noches);
@@ -13245,6 +13308,13 @@ document.addEventListener("DOMContentLoaded", function(){
     activeProfile = loadProfile(activePhoneKey);
     const pct = profileCompletionPercent(activeProfile);
     refreshBenefitsKpiLock(pct === 100);
+    // Default open: si todavía no se ha togglado manualmente, abrir si
+    // pct<100 (porque hay campos por capturar) y cerrar si pct===100.
+    if (!card.dataset.userToggled) {
+      card.classList.toggle("open", pct < 100);
+      const headerEl = $("profileCardHeader");
+      if (headerEl) headerEl.setAttribute("aria-expanded", pct < 100 ? "true" : "false");
+    }
     // El profileCompleteBadge ahora es redundante (la card maneja todos los
     // estados). Lo ocultamos siempre para evitar duplicación.
     if (badge) badge.classList.remove("visible");
@@ -13781,6 +13851,9 @@ document.addEventListener("DOMContentLoaded", function(){
       const card = $("profileCard");
       if (!card) return;
       const open = card.classList.toggle("open");
+      // Marcar que el usuario lo togglo manualmente para que refreshHomeCard
+      // no sobrescriba su preferencia en re-renders
+      card.dataset.userToggled = "1";
       $("profileCardHeader")?.setAttribute("aria-expanded", open ? "true" : "false");
     });
     $("profileCardEditBtn")?.addEventListener("click", openWizard);
@@ -14205,6 +14278,45 @@ document.addEventListener("DOMContentLoaded", function(){
     document.addEventListener("DOMContentLoaded", initAll);
   } else {
     initAll();
+  }
+})();
+
+/* ═══════════════════════════════════════════════════════════════════
+   FAB WhatsApp: actualiza el href con el nombre del huésped si hay
+   sesión y abre WhatsApp con mensaje prefilled.
+═══════════════════════════════════════════════════════════════════ */
+(function(){
+  const HOTEL_WA_NUMBER = "528444443922";
+  function buildWaHref(){
+    let nombre = "";
+    try {
+      const session = window.checkinnAuth?.getSession?.();
+      if (session) {
+        const phoneKey = `+${session.lada}${session.phone}`;
+        const profile = window.checkinnProfile?._loadProfile?.(phoneKey);
+        nombre = (profile?.step1?.nombre || "").trim();
+      }
+    } catch(_e){}
+    const intro = nombre
+      ? `Soy ${nombre}, huésped registrado.`
+      : "Soy huésped registrado.";
+    const mensaje = `${intro} Mi duda/comentario es el siguiente: `;
+    return `https://wa.me/${HOTEL_WA_NUMBER}?text=${encodeURIComponent(mensaje)}`;
+  }
+  function setupWaFab(){
+    const fab = document.getElementById("waFab");
+    if (!fab) return;
+    // Actualizar href justo antes del click para capturar la sesión más reciente
+    fab.addEventListener("click", (e) => {
+      fab.setAttribute("href", buildWaHref());
+    });
+    // Inicial
+    fab.setAttribute("href", buildWaHref());
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", setupWaFab);
+  } else {
+    setupWaFab();
   }
 })();
 </script>
