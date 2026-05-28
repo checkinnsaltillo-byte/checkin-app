@@ -73,6 +73,7 @@ function doPost(e) {
     if (action === "submit_form") return jsonOutput_(saveFormRecord_(data));
     if (action === "save_profile_only") return jsonOutput_(saveProfileOnly_(data));
     if (action === "upload_file") return jsonOutput_(saveDeferredFile_(data));
+    if (action === "upload_profile_file") return jsonOutput_(saveProfileFile_(data));
     if (action === "update_facturado_total") return jsonOutput_(updateFacturadoTotal_(data));
     if (action === "update_facturapi_folio") return jsonOutput_(updateFacturapiFolio_(data));
     if (action === "update_facturapi_folio_strict") return jsonOutput_(updateFacturapiFolioStrict_(data));
@@ -486,6 +487,37 @@ function updateVehicleFile_(cel, fileInfo) {
   setCellByHeader_(sheet, headers, row, "ID archivo foto vehículo", fileInfo.id);
   setCellByHeader_(sheet, headers, row, "Nombre archivo vehículo", fileInfo.name);
   setCellByHeader_(sheet, headers, row, "Fecha actualización", new Date());
+}
+
+// Sube archivo del wizard de perfil (sin reservación). Routea por field_name
+// hacia Perfiles (INE/identif) o Vehiculos (foto vehículo). La carpeta de
+// Drive se organiza por celular del huésped.
+function saveProfileFile_(data) {
+  const cel = safe_(data.celular_principal);
+  const fieldName = safe_(data.field_name);
+  const fileObj = data.file;
+  if (!cel) throw new Error("Falta celular_principal.");
+  if (!fieldName) throw new Error("Falta field_name.");
+  if (!fileObj || !fileObj.base64) throw new Error("No se recibió archivo.");
+
+  const ALLOWED = ["ine_frontal","ine_trasero","identificacion_unica","vehiculo_foto"];
+  if (ALLOWED.indexOf(fieldName) === -1) {
+    throw new Error("field_name no válido para upload_profile_file: " + fieldName);
+  }
+
+  // Carpeta Drive: Perfiles/<celular sanitizado>/<field_name>
+  const celClean = cleanFolderName_(String(cel).replace(/[\s'+]/g, ""));
+  const subfolders = ["Perfiles", celClean];
+  const fileInfo = saveBase64FileToDrive_(fileObj, fieldName, subfolders);
+
+  switch (fieldName) {
+    case "ine_frontal":          updateProfileFile_(cel, "INE frontal", fileInfo); break;
+    case "ine_trasero":          updateProfileFile_(cel, "INE trasero", fileInfo); break;
+    case "identificacion_unica": updateProfileFile_(cel, "Identificación única", fileInfo); break;
+    case "vehiculo_foto":        updateVehicleFile_(cel, fileInfo); break;
+  }
+
+  return { ok: true, url: fileInfo.url, file_id: fileInfo.id, file_name: fileInfo.name, field_name: fieldName, celular: cel };
 }
 
 // ─── FACTURAPI updates (todo en Reservaciones) ──────────────────────────────

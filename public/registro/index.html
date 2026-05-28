@@ -4917,40 +4917,40 @@ body.has-session input[name="nombre"] {
         <div class="grid" style="margin-top:14px;">
           <div>
             <label for="wiz_veh_marca" data-i18n="make">Marca</label>
-            <select id="wiz_veh_marca">
-              <option value="">Selecciona</option>
-              <option value="Nissan">Nissan</option>
-              <option value="Chevrolet">Chevrolet</option>
-              <option value="Volkswagen">Volkswagen</option>
-              <option value="Toyota">Toyota</option>
-              <option value="Honda">Honda</option>
-              <option value="Ford">Ford</option>
-              <option value="Kia">Kia</option>
-              <option value="Hyundai">Hyundai</option>
-              <option value="Mazda">Mazda</option>
-              <option value="Renault">Renault</option>
-              <option value="SEAT">SEAT</option>
-              <option value="Suzuki">Suzuki</option>
-              <option value="Mitsubishi">Mitsubishi</option>
-              <option value="Jeep">Jeep</option>
-              <option value="BMW">BMW</option>
-              <option value="Mercedes-Benz">Mercedes-Benz</option>
-              <option value="Audi">Audi</option>
-              <option value="Tesla">Tesla</option>
-              <option value="Peugeot">Peugeot</option>
-              <option value="Chirey">Chirey</option>
-              <option value="Subaru">Subaru</option>
-              <option value="Volvo">Volvo</option>
-              <option value="Lexus">Lexus</option>
-              <option value="Acura">Acura</option>
-              <option value="GMC">GMC</option>
-              <option value="Cadillac">Cadillac</option>
-              <option value="Infiniti">Infiniti</option>
-              <option value="Lincoln">Lincoln</option>
-              <option value="RAM">RAM</option>
-              <option value="Mini">Mini</option>
-              <option value="Otro">Otro</option>
-            </select>
+            <input id="wiz_veh_marca" list="marcasVehiculoList" type="text" autocomplete="off" placeholder="Escribe o elige una marca"/>
+            <datalist id="marcasVehiculoList">
+              <option value="Acura"></option>
+              <option value="Audi"></option>
+              <option value="BMW"></option>
+              <option value="Cadillac"></option>
+              <option value="Chevrolet"></option>
+              <option value="Chirey"></option>
+              <option value="Ford"></option>
+              <option value="GMC"></option>
+              <option value="Honda"></option>
+              <option value="Hyundai"></option>
+              <option value="Infiniti"></option>
+              <option value="Jeep"></option>
+              <option value="Kia"></option>
+              <option value="Lexus"></option>
+              <option value="Lincoln"></option>
+              <option value="Mazda"></option>
+              <option value="Mercedes-Benz"></option>
+              <option value="Mini"></option>
+              <option value="Mitsubishi"></option>
+              <option value="Nissan"></option>
+              <option value="Peugeot"></option>
+              <option value="RAM"></option>
+              <option value="Renault"></option>
+              <option value="SEAT"></option>
+              <option value="Subaru"></option>
+              <option value="Suzuki"></option>
+              <option value="Tesla"></option>
+              <option value="Toyota"></option>
+              <option value="Volkswagen"></option>
+              <option value="Volvo"></option>
+              <option value="Otro"></option>
+            </datalist>
             <input class="hidden" id="wiz_veh_marca_otro" type="text" placeholder="Especifica la marca" style="margin-top:8px;"/>
           </div>
           <div>
@@ -5379,40 +5379,7 @@ body.has-session input[name="nombre"] {
 <div class="vehicle-card">
 <div class="vehicle-card-title" data-i18n="vehicleIdentityTitle">Identificación del vehículo</div>
 <label data-i18n="make">Marca</label>
-<select id="vehiculo_marca" name="vehiculo_marca">
-<option value="">Selecciona</option>
-<option value="Nissan">Nissan</option>
-<option value="Chevrolet">Chevrolet</option>
-<option value="Volkswagen">Volkswagen</option>
-<option value="Toyota">Toyota</option>
-<option value="Honda">Honda</option>
-<option value="Ford">Ford</option>
-<option value="Kia">Kia</option>
-<option value="Hyundai">Hyundai</option>
-<option value="Mazda">Mazda</option>
-<option value="Renault">Renault</option>
-<option value="SEAT">SEAT</option>
-<option value="Suzuki">Suzuki</option>
-<option value="Mitsubishi">Mitsubishi</option>
-<option value="Jeep">Jeep</option>
-<option value="BMW">BMW</option>
-<option value="Mercedes-Benz">Mercedes-Benz</option>
-<option value="Audi">Audi</option>
-<option value="Tesla">Tesla</option>
-<option value="Peugeot">Peugeot</option>
-<option value="Chirey">Chirey</option>
-<option value="Subaru">Subaru</option>
-<option value="Volvo">Volvo</option>
-<option value="Lexus">Lexus</option>
-<option value="Acura">Acura</option>
-<option value="GMC">GMC</option>
-<option value="Cadillac">Cadillac</option>
-<option value="Infiniti">Infiniti</option>
-<option value="Lincoln">Lincoln</option>
-<option value="RAM">RAM</option>
-<option value="Mini">Mini</option>
-<option value="Otro">Otro</option>
-</select>
+<input id="vehiculo_marca" name="vehiculo_marca" list="marcasVehiculoList" type="text" autocomplete="off" placeholder="Escribe o elige una marca"/>
 <input class="hidden" id="vehiculo_marca_otro" name="vehiculo_marca_otro" placeholder="Especifica la marca" type="text"/>
 <label data-i18n="model">Modelo</label>
 <input id="vehiculo_modelo" name="vehiculo_modelo" placeholder="Especifica el modelo" type="text"/>
@@ -6453,6 +6420,13 @@ function mostrarVentanaExito(){
 function cerrarVentanaEnvio(){
   const popup = document.getElementById("popupEnvio");
   if (popup) popup.style.display = "none";
+  // Invalidar cachés para que la nueva reservación aparezca en la tabla
+  // del home tras redirigir. guestLookupCatalog es un módulo-level let;
+  // _cachedStays vive en window.checkinnAuth.
+  try { if (typeof guestLookupCatalog !== "undefined") guestLookupCatalog = null; } catch(_e){}
+  if (window.checkinnAuth) {
+    try { window.checkinnAuth._cachedStays = null; } catch(_e){}
+  }
   // Tras cerrar el modal de éxito, regresar al home/welcome automáticamente
   setTimeout(() => {
     if (window.checkinnAuth && typeof window.checkinnAuth.gotoHome === "function") {
@@ -12719,16 +12693,21 @@ document.addEventListener("DOMContentLoaded", function(){
 
     // ── Paso 4
     $("wiz_tiene_vehiculo").addEventListener("change", e => set("step4.tiene_vehiculo", e.target.value));
-    $("wiz_veh_marca").addEventListener("change", e => {
-      set("step4.marca", e.target.value);
-      // Mostrar/ocultar input "Especifica la marca" según selección
+    // wiz_veh_marca ahora es <input list="marcasVehiculoList"> con datalist.
+    // El usuario puede teclear texto libre o elegir una opción. Si pone
+    // exactamente "Otro" se muestra el input "Especifica la marca".
+    const wizMarcaChangeHandler = e => {
+      const v = e.target.value;
+      set("step4.marca", v);
       const otroInp = $("wiz_veh_marca_otro");
-      if (otroInp) otroInp.classList.toggle("hidden", e.target.value !== "Otro");
-      if (e.target.value !== "Otro") {
+      if (otroInp) otroInp.classList.toggle("hidden", v !== "Otro");
+      if (v !== "Otro") {
         if (otroInp) otroInp.value = "";
         set("step4.marca_otro", "");
       }
-    });
+    };
+    $("wiz_veh_marca").addEventListener("input", wizMarcaChangeHandler);
+    $("wiz_veh_marca").addEventListener("change", wizMarcaChangeHandler);
     $("wiz_veh_marca_otro").addEventListener("input", e => set("step4.marca_otro", e.target.value));
     $("wiz_veh_modelo").addEventListener("input", e => set("step4.modelo", e.target.value));
     $("wiz_veh_color").addEventListener("input", e => set("step4.color", e.target.value));
@@ -12840,23 +12819,15 @@ document.addEventListener("DOMContentLoaded", function(){
     $("wiz_correo_factura").value = p.step3.correo_factura || "";
 
     $("wiz_tiene_vehiculo").value = p.step4.tiene_vehiculo || "";
-    // Marca: select con opciones predefinidas + "Otro". Si el valor guardado
-    // no aparece en el select (texto libre legado), lo migramos a "Otro" y lo
-    // colocamos en el input marca_otro.
-    const marcaSel = $("wiz_veh_marca");
+    // Marca: input + datalist. El valor puede ser cualquiera (texto libre).
+    // Si el guardado es "Otro" se muestra el input marca_otro.
+    const marcaInp = $("wiz_veh_marca");
     const marcaOtroInp = $("wiz_veh_marca_otro");
     const storedMarca = p.step4.marca || "";
-    const optsMarca = Array.from(marcaSel?.options || []).map(o => o.value);
-    if (storedMarca && optsMarca.includes(storedMarca)) {
-      marcaSel.value = storedMarca;
-      if (marcaOtroInp) marcaOtroInp.value = p.step4.marca_otro || "";
-    } else if (storedMarca) {
-      // texto libre legado → "Otro" + valor en marca_otro
-      marcaSel.value = "Otro";
-      if (marcaOtroInp) marcaOtroInp.value = storedMarca;
-    } else {
-      marcaSel.value = "";
-      if (marcaOtroInp) marcaOtroInp.value = "";
+    if (marcaInp) marcaInp.value = storedMarca;
+    if (marcaOtroInp) {
+      marcaOtroInp.value = p.step4.marca_otro || "";
+      marcaOtroInp.classList.toggle("hidden", storedMarca !== "Otro");
     }
     $("wiz_veh_modelo").value = p.step4.modelo || "";
     $("wiz_veh_color").value = p.step4.color || "";
@@ -13188,10 +13159,65 @@ document.addEventListener("DOMContentLoaded", function(){
         body: JSON.stringify(payload)
       });
       const json = await res.json();
-      if (!json.ok) console.warn("[wizard] backend rechazó save_profile_only:", json.error);
-      else console.log("[wizard] perfil sincronizado:", json);
+      if (!json.ok) {
+        console.warn("[wizard] backend rechazó save_profile_only:", json.error);
+        return;
+      }
+      console.log("[wizard] perfil sincronizado:", json);
+      // Tras el sync de texto, subir las imágenes del wizard que estén en
+      // localStorage como dataURLs (action upload_profile_file por cada una).
+      await uploadWizardImages_(cel);
     } catch (e) {
       console.warn("[wizard] syncProfileToBackend_ error:", e);
+    }
+  }
+  // Sube los dataURLs guardados en localStorage (INE frontal/trasero,
+  // identif única, foto vehículo) al backend. Routea por field_name a
+  // Perfiles o Vehiculos. Errores se loguean pero no bloquean el wizard.
+  async function uploadWizardImages_(cel){
+    const webAppUrl = (typeof WEB_APP_URL !== "undefined" && WEB_APP_URL) ? WEB_APP_URL : null;
+    if (!webAppUrl || !activeProfile) return;
+    const p = activeProfile;
+    const tasks = [
+      { field: "ine_frontal",          src: p.step2?.ine_frontal, fileName: p.step2?.ine_frontal_name || "ine_frontal.jpg" },
+      { field: "ine_trasero",          src: p.step2?.ine_trasero, fileName: p.step2?.ine_trasero_name || "ine_trasero.jpg" },
+      { field: "identificacion_unica", src: p.step2?.ident_unica, fileName: p.step2?.ident_unica_name || "identif.jpg" },
+      { field: "vehiculo_foto",        src: p.step4?.foto,        fileName: p.step4?.foto_name || "vehiculo.jpg" }
+    ].filter(t => t.src && /^data:image\//.test(t.src));
+    if (!tasks.length) return;
+    for (const t of tasks) {
+      try {
+        // Sólo subir si no se ha subido aún (marca en localStorage).
+        const uploadedKey = `${t.field}_uploaded_url`;
+        const alreadyUploaded = p.step2?.[uploadedKey] || p.step4?.[uploadedKey];
+        if (alreadyUploaded) continue;
+        const [meta, b64] = t.src.split(",");
+        const mimeMatch = /data:([^;]+);/.exec(meta) || [];
+        const mimeType = mimeMatch[1] || "image/jpeg";
+        const payload = {
+          action: "upload_profile_file",
+          celular_principal: cel,
+          field_name: t.field,
+          file: { fileName: t.fileName, mimeType, base64: b64 }
+        };
+        const r = await fetch(webAppUrl, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+        const j = await r.json();
+        if (j.ok) {
+          // Marca de "ya subido" para no reenviarla cada vez que se guarde el wizard.
+          if (t.field === "vehiculo_foto" && p.step4) p.step4[uploadedKey] = j.url;
+          else if (p.step2) p.step2[uploadedKey] = j.url;
+          saveProfile(activePhoneKey, p);
+          console.log("[wizard] subida ok:", t.field, j.url);
+        } else {
+          console.warn("[wizard] backend rechazó upload_profile_file:", t.field, j.error);
+        }
+      } catch (errOne) {
+        console.warn("[wizard] error subiendo", t.field, errOne);
+      }
     }
   }
   function showProfileCompleteModal(){
