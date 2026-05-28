@@ -2952,6 +2952,33 @@ function esFacturado(r){
   return ((r && r['Folio facturapi']) || '').toString().trim() !== '';
 }
 
+// Simplifica un valor de hora ("10:00", "10:00:00", "10:00 AM",
+// "Sun Jan 01 1900 10:00:00 GMT-...", Date object, etc.) a "HH:mm".
+// Si no se reconoce, devuelve el valor crudo.
+function fmtHoraSimple_(value){
+  if (value == null || value === "") return "";
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    const h = String(value.getHours()).padStart(2, "0");
+    const m = String(value.getMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  }
+  const s = String(value).trim();
+  if (!s) return "";
+  const m = s.match(/(\d{1,2}):(\d{2})/);
+  if (m) {
+    const hh = String(Math.min(23, Math.max(0, parseInt(m[1], 10)))).padStart(2, "0");
+    return `${hh}:${m[2]}`;
+  }
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const h = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${h}:${mm}`;
+  }
+  return s;
+}
+window.fmtHoraSimple_ = fmtHoraSimple_;
+
 function formatFechaBonita(fecha){
   if(!fecha) return "—";
   try{
@@ -3273,6 +3300,53 @@ function formatRangoFechasSimple(inicio, fin){
 }
 .profile-card.status-red{
   /* Ya existe .profile-card.incomplete con rojo — mantenemos coherencia */
+}
+
+/* ───── Botón "Actualizar datos" junto al H1 ───── */
+.page-title-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.page-title-row h1{ margin:0; flex:1 1 auto; min-width:0; }
+.page-refresh-btn{
+  margin-top:0;
+  padding:8px 14px;
+  background:#fff;
+  color:var(--primary-dark);
+  border:1px solid var(--border-strong);
+  border-radius:999px;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  box-shadow:0 4px 12px rgba(15,23,42,.05);
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  flex-shrink:0;
+  transition:transform .15s, box-shadow .15s, background .15s;
+}
+.page-refresh-btn:hover{
+  background:var(--primary-soft);
+  transform:translateY(-1px);
+  box-shadow:0 6px 16px rgba(15,23,42,.08);
+  filter:none;
+}
+.page-refresh-icon{
+  font-size:16px;
+  line-height:1;
+  display:inline-block;
+  transition:transform .5s ease;
+}
+.page-refresh-btn.spinning .page-refresh-icon{
+  animation:spinIcon 0.9s linear infinite;
+}
+@keyframes spinIcon{ to { transform:rotate(360deg); } }
+@media (max-width:480px){
+  .page-refresh-text{ display:none; }
+  .page-refresh-btn{ padding:8px 10px; }
 }
 
 /* ───── FAB WhatsApp (flotante esquina inferior derecha) ───── */
@@ -4763,7 +4837,13 @@ body.has-session input[name="nombre"] {
 <div class="lang-switch-label">EN</div>
 </div>
 </div>
-<h1 id="pageH1" data-i18n="title">Registro de huéspedes</h1>
+<div class="page-title-row">
+  <h1 id="pageH1" data-i18n="title">Registro de huéspedes</h1>
+  <button id="btnRefreshHome" class="page-refresh-btn" type="button" hidden aria-label="Actualizar datos" title="Actualizar datos">
+    <span class="page-refresh-icon" aria-hidden="true">↻</span>
+    <span class="page-refresh-text" data-i18n="btnRefreshHome">Actualizar</span>
+  </button>
+</div>
 <div class="top-menu" id="topMenu">
 <button class="menu-btn active" id="menuRegistroBtn" type="button">Registro de huéspedes</button>
 <button class="menu-btn secondary" id="menuVehiculosBtn" type="button">Información de vehículos</button>
@@ -4879,7 +4959,6 @@ body.has-session input[name="nombre"] {
       <button type="button" class="profile-card-header" id="profileCardHeader" aria-expanded="true">
         <div class="profile-card-head">
           <h3 class="profile-card-title">
-            <span class="profile-card-title-icon" id="profileCardIcon">📋</span>
             <span id="profileCardTitleText" data-i18n="profileCardTitle">Completa tus datos</span>
           </h3>
           <div class="profile-card-head-right">
@@ -7593,6 +7672,7 @@ const SIMPLE_I18N = {
     profileCardSubComplete:"Estás recibiendo beneficios exclusivos y prioridad de atención.",
     profileCardSubWarn:"Te faltan algunos campos para acceder a todos los beneficios.",
     profileCardEditBtn:"Editar perfil",
+    btnRefreshHome:"Actualizar",
     kpiMontoLabel:"Monto total",
     kpiTicketsLabel:"# Tickets emitidos",
     kpiRangeLabel:"Primera · última estancia",
@@ -7883,6 +7963,7 @@ const SIMPLE_I18N = {
     profileCardSubComplete:"You are receiving exclusive benefits and priority service.",
     profileCardSubWarn:"A few fields are still missing to unlock all benefits.",
     profileCardEditBtn:"Edit profile",
+    btnRefreshHome:"Refresh",
     kpiMontoLabel:"Total amount",
     kpiTicketsLabel:"# Tickets issued",
     kpiRangeLabel:"First · last stay",
@@ -9531,7 +9612,7 @@ function buildTicketActionsHtml(row, ticketUrl){
             <div class="vehicle-card-main">
               <div class="vehicle-card-title">${escapeHtml(row["Nombre del huésped 1"] || 'Sin nombre')} · ${escapeHtml(row["Marca"] || 'Sin marca')} ${escapeHtml(row["Modelo"] || '')}</div>
               <div class="vehicle-card-subtitle">${escapeHtml(row["Propiedad"] || 'Sin propiedad')} · Placas: ${escapeHtml(row["# Placas"] || '—')}</div>
-              <div class="vehicle-card-subtitle">Depto: ${row["# Departamento"] ? `# ${escapeHtml(String(row["# Departamento"]).replace(/^\s*#\s*/, ""))}` : '—'} · Hora salida: ${escapeHtml(row["Hora habitual de salida"] || '—')}</div>
+              <div class="vehicle-card-subtitle">Depto: ${row["# Departamento"] ? `# ${escapeHtml(String(row["# Departamento"]).replace(/^\s*#\s*/, ""))}` : '—'} · Hora salida: ${escapeHtml(fmtHoraSimple_(row["Hora habitual de salida"]) || '—')}</div>
             </div>
             <div class="vehicle-card-chevron">⌄</div>
           </summary>
@@ -9545,7 +9626,7 @@ function buildTicketActionsHtml(row, ticketUrl){
               <div class="vehicle-detail-item"><div class="vehicle-detail-label">Modelo</div><div class="vehicle-detail-value">${escapeHtml(row["Modelo"] || '—')}</div></div>
               <div class="vehicle-detail-item"><div class="vehicle-detail-label">Color</div><div class="vehicle-detail-value">${escapeHtml(row["Color"] || '—')}</div></div>
               <div class="vehicle-detail-item"><div class="vehicle-detail-label"># Placas</div><div class="vehicle-detail-value">${escapeHtml(row["# Placas"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Hora habitual de salida</div><div class="vehicle-detail-value">${escapeHtml(row["Hora habitual de salida"] || '—')}</div></div>
+              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Hora habitual de salida</div><div class="vehicle-detail-value">${escapeHtml(fmtHoraSimple_(row["Hora habitual de salida"]) || '—')}</div></div>
             </div>
             <div class="vehicle-photo-panel">
               <div class="vehicle-photo-title">Foto</div>
@@ -11358,6 +11439,10 @@ document.addEventListener("DOMContentLoaded", function(){
     [viewWelcome, viewLogin, viewHome, viewRegistro, viewVehiculos, wizard].forEach(el => {
       if (el) el.classList.toggle("hidden", el !== elToShow);
     });
+    // El botón "Actualizar datos" solo se ve en el home. gotoHome lo
+    // re-muestra después de este reset.
+    const btnRefresh = document.getElementById("btnRefreshHome");
+    if (btnRefresh) btnRefresh.hidden = (elToShow !== viewHome);
   }
   function setMenuVisible(visible){
     if (topMenu) topMenu.style.display = visible ? "" : "none";
@@ -11484,13 +11569,19 @@ document.addEventListener("DOMContentLoaded", function(){
     showOnly(viewHome);
     setMenuVisible(false);
     refreshSessionPill();
-    // Mostrar splash "Cargando datos…" mientras se traen las estancias
-    // y se renderiza el dashboard.
-    if (window.checkinnLoader) window.checkinnLoader.show();
+    // Mostrar botón "Actualizar datos" junto al H1 solo en el home con sesión
+    const btnRefresh = document.getElementById("btnRefreshHome");
+    if (btnRefresh) btnRefresh.hidden = false;
+    // Mostrar splash "Cargando datos…" SOLO si todavía no hay cache de
+    // stays (primera carga o tras submit que invalidó la cache). En
+    // "Volver al inicio" desde otras vistas, la cache vive y no se
+    // muestra spinner ni se hace fetch.
+    const hasCache = window.checkinnAuth && Array.isArray(window.checkinnAuth._cachedStays);
+    if (!hasCache && window.checkinnLoader) window.checkinnLoader.show();
     try {
       await refreshHomeContent(s);
     } finally {
-      if (window.checkinnLoader) window.checkinnLoader.hide();
+      if (!hasCache && window.checkinnLoader) window.checkinnLoader.hide();
     }
   }
   function gotoExpressForm(){
@@ -11806,7 +11897,7 @@ document.addEventListener("DOMContentLoaded", function(){
             const color = pickField(detail, ["Color vehículo", "Color"]) || "";
             const placas = pickField(detail, ["Placas", "# Placas"]) || "—";
             const depto = pickField(detail, ["# Departamento"]) || "—";
-            const horaSalida = pickField(detail, ["Hora habitual de salida"]) || "";
+            const horaSalida = fmtHoraSimple_(pickField(detail, ["Hora habitual de salida"]));
             const cel = pickField(detail, ["Cel/Whatsapp (principal)"]) || "";
             const celDigits = cel.replace(/\D/g, "");
             const waLink = celDigits ? `https://wa.me/${celDigits}` : "";
@@ -12400,19 +12491,25 @@ document.addEventListener("DOMContentLoaded", function(){
     }
   }
 
-  async function refreshHomeContent(session){
+  async function refreshHomeContent(session, opts){
     refreshHomeI18n(window.currentLang || "es");
+    // Si hay caché válida y NO se forzó el refresh, solo re-renderiza
+    // desde memoria (mucho más rápido). Cualquier flujo que necesite
+    // datos frescos (cache nullificada por cerrarVentanaEnvio o por el
+    // botón "Actualizar datos") cae al fetch real abajo.
+    const force = opts && opts.force === true;
+    const cached = window.checkinnAuth && window.checkinnAuth._cachedStays;
+    if (!force && Array.isArray(cached)) {
+      renderStaysTable(cached);
+      return;
+    }
 
-    // Mostrar loading mientras consultamos
     const cur = $("staysCurrentBody");
     if (cur) {
       const i = getI18n();
       cur.innerHTML = `<tr class="stays-empty-row"><td colspan="5">${i.staysLoading || "Cargando…"}</td></tr>`;
     }
 
-    // Buscar primero con lada+celular; si no, solo celular (algunos sheets
-    // guardan el celular sin lada). fetchAllStaysByPhone usa el catálogo
-    // del Sheet para encontrar el match exacto.
     const digitsWithLada = `${session.lada}${session.phone}`.replace(/\D/g, "");
     const digitsOnly = String(session.phone || "").replace(/\D/g, "");
     let rows = await fetchAllStaysByPhone(digitsWithLada);
@@ -12741,6 +12838,20 @@ document.addEventListener("DOMContentLoaded", function(){
       gotoExpressForm();
     });
     $("btnHomeVehiculos")?.addEventListener("click", gotoExpressVehiculos);
+    // Botón "Actualizar datos" junto al H1 — fuerza refetch de stays
+    $("btnRefreshHome")?.addEventListener("click", async () => {
+      const btn = $("btnRefreshHome");
+      if (!btn) return;
+      btn.classList.add("spinning");
+      btn.disabled = true;
+      try {
+        // refreshHomeForce invalida cache y vuelve a llamar refreshHomeContent
+        await (window.checkinnAuth?.refreshHomeForce?.() || Promise.resolve());
+      } finally {
+        btn.classList.remove("spinning");
+        btn.disabled = false;
+      }
+    });
     // Botones "Volver al inicio" (delegación)
     document.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-back-home]");
@@ -12868,6 +12979,18 @@ document.addEventListener("DOMContentLoaded", function(){
       const s = getSession();
       if (s) { try { return refreshHomeContent(s); } catch(_e){} }
       return Promise.resolve();
+    },
+    // Forzar refetch ignorando cache (botón "Actualizar datos")
+    refreshHomeForce: function(){
+      const s = getSession();
+      if (!s) return Promise.resolve();
+      // Invalidar cachés relacionadas para asegurar datos frescos
+      try { this._cachedStays = null; } catch(_e){}
+      try { if (typeof window.guestLookupCatalog !== "undefined") window.guestLookupCatalog = null; } catch(_e){}
+      if (window.checkinnLoader) window.checkinnLoader.show();
+      return refreshHomeContent(s, { force: true }).finally(() => {
+        if (window.checkinnLoader) window.checkinnLoader.hide();
+      });
     },
     _cachedStays: null,
     _state: () => ({ pendingOtp, session: getSession() })
@@ -13356,8 +13479,6 @@ document.addEventListener("DOMContentLoaded", function(){
       subKey = "profileCardSubEmpty";
       subFallback = "Captura tu perfil una sola vez.";
     }
-    const icon = $("profileCardIcon");
-    if (icon) icon.textContent = pct === 100 ? "✓" : "📋";
     const statusEl = $("profileCardStatus");
     if (statusEl) statusEl.textContent = statusIcon;
     const titleEl = $("profileCardTitleText");
