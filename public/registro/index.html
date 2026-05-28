@@ -3143,6 +3143,144 @@ function formatRangoFechasSimple(inicio, fin){
 }
 .auth-info-banner strong{color:var(--primary-strong);}
 
+/* ───── ID Card del perfil (semáforo + resumen compacto) ───── */
+.profile-id-card{ position:relative; }
+.profile-card-head-right{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.profile-card-status{
+  font-size:18px;
+  line-height:1;
+  filter:drop-shadow(0 1px 2px rgba(15,23,42,.18));
+}
+.profile-id-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px 14px;
+  margin:10px 0 8px;
+  padding-top:8px;
+  border-top:1px dashed var(--border-strong);
+  font-size:12.5px;
+}
+@media (max-width:560px){
+  .profile-id-grid{ grid-template-columns:1fr; }
+}
+.profile-id-row{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+}
+.profile-id-label{
+  font-size:10.5px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  color:var(--text-soft);
+  font-weight:700;
+}
+.profile-id-value{
+  font-size:13px;
+  color:var(--text);
+  font-weight:600;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.profile-id-value.empty{
+  color:#94a3b8;
+  font-style:italic;
+  font-weight:500;
+}
+/* Estados semáforo: verde (100%), amarillo (50-99), rojo (<50%) */
+.profile-card.status-green{
+  background:linear-gradient(180deg,#ecfdf5 0%, #ffffff 100%);
+  border-color:#a7f3d0;
+}
+.profile-card.status-green .profile-card-title,
+.profile-card.status-green .profile-card-pct{ color:#065f46; }
+.profile-card.status-green .profile-card-pct{ background:#d1fae5; }
+.profile-card.status-yellow{
+  background:linear-gradient(180deg,#fffbeb 0%, #fef3c7 100%);
+  border-color:#fcd34d;
+  box-shadow:0 6px 18px rgba(245,158,11,.10);
+}
+.profile-card.status-yellow .profile-card-title,
+.profile-card.status-yellow .profile-card-pct{ color:#92400e; }
+.profile-card.status-yellow .profile-card-pct{ background:#fde68a; }
+.profile-card.status-yellow .profile-progress-bar{
+  background:linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+}
+.profile-card.status-red{
+  /* Ya existe .profile-card.incomplete con rojo — mantenemos coherencia */
+}
+
+/* ───── Combobox custom de Marca (dropdown debajo, no datalist) ───── */
+.marca-combobox{
+  position:relative;
+  display:block;
+}
+.marca-combobox input[data-combobox-input]{
+  width:100%;
+  padding-right:38px; /* espacio para el chevron */
+}
+.marca-combobox-toggle{
+  position:absolute;
+  top:50%;
+  right:8px;
+  transform:translateY(-50%);
+  width:28px;
+  height:28px;
+  padding:0;
+  margin:0;
+  border:none;
+  background:transparent;
+  color:#64748b;
+  font-size:16px;
+  line-height:1;
+  cursor:pointer;
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:2;
+}
+.marca-combobox-toggle:hover{ background:rgba(15,23,42,.06); color:#1f2937; box-shadow:none; transform:translateY(-50%); }
+.marca-combobox-list{
+  display:none;
+  position:absolute;
+  top:calc(100% + 4px);
+  left:0;
+  right:0;
+  max-height:260px;
+  overflow-y:auto;
+  background:#fff;
+  border:1px solid var(--border-strong);
+  border-radius:12px;
+  box-shadow:0 14px 32px rgba(15,23,42,.18);
+  padding:6px 0;
+  margin:0;
+  list-style:none;
+  z-index:50;
+}
+.marca-combobox.open .marca-combobox-list{ display:block; }
+.marca-combobox-list li{
+  padding:10px 14px;
+  font-size:14px;
+  color:#1f2937;
+  cursor:pointer;
+  transition:background .12s;
+}
+.marca-combobox-list li:hover,
+.marca-combobox-list li[data-highlighted="1"]{
+  background:#f1f5f9;
+}
+.marca-combobox-list li[data-empty="1"]{
+  color:#94a3b8;
+  font-style:italic;
+  cursor:default;
+}
+
 /* Botón "Volver al inicio" en vistas secundarias */
 .back-home-btn{
   display:inline-flex;
@@ -4588,16 +4726,29 @@ body.has-session input[name="nombre"] {
       <button type="button" class="profile-complete-badge-btn" id="profileCompleteUpdateBtn" data-i18n="profileBadgeUpdateBtn">Actualizar datos</button>
     </div>
 
-    <!-- Sección "Completa tus datos" con barra de progreso -->
-    <div class="profile-card" id="profileCard" role="button" tabindex="0">
+    <!-- ID Card del perfil con semáforo de completitud -->
+    <div class="profile-card profile-id-card" id="profileCard" role="button" tabindex="0">
       <div class="profile-card-head">
         <h3 class="profile-card-title">
           <span class="profile-card-title-icon" id="profileCardIcon">📋</span>
-          <span data-i18n="profileCardTitle">Completa tus datos</span>
+          <span id="profileCardTitleText" data-i18n="profileCardTitle">Completa tus datos</span>
         </h3>
-        <span class="profile-card-pct" id="profileCardPct">0%</span>
+        <div class="profile-card-head-right">
+          <span class="profile-card-status" id="profileCardStatus">⚠️</span>
+          <span class="profile-card-pct" id="profileCardPct">0%</span>
+        </div>
       </div>
       <div class="profile-progress"><div class="profile-progress-bar" id="profileProgressBar" style="width:0%;"></div></div>
+      <div class="profile-id-grid" id="profileIdGrid">
+        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblNombre">Nombre</span><span class="profile-id-value" id="profileIdNombre">—</span></div>
+        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblCelular">Celular</span><span class="profile-id-value" id="profileIdCelular">—</span></div>
+        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblIdent">Identificación</span><span class="profile-id-value" id="profileIdIdent">—</span></div>
+        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblRFC">RFC</span><span class="profile-id-value" id="profileIdRFC">—</span></div>
+        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblRazon">Razón social</span><span class="profile-id-value" id="profileIdRazon">—</span></div>
+        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblRegimen">Régimen fiscal</span><span class="profile-id-value" id="profileIdRegimen">—</span></div>
+        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblCorreo">Correo</span><span class="profile-id-value" id="profileIdCorreo">—</span></div>
+        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblVehiculo">Vehículo</span><span class="profile-id-value" id="profileIdVehiculo">—</span></div>
+      </div>
       <p class="profile-card-sub" id="profileCardSub" data-i18n="profileCardSubEmpty">Captura tu perfil una sola vez (identificación, datos fiscales, vehículo) y reserva más rápido en el futuro.</p>
     </div>
 
@@ -4609,9 +4760,9 @@ body.has-session input[name="nombre"] {
         <div class="kpi-label" data-i18n="kpiNochesLabel">Noches totales</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon">🏠</div>
+        <div class="kpi-icon">🧳</div>
         <div class="kpi-value" id="kpiAlojamientos">0</div>
-        <div class="kpi-label" data-i18n="kpiAlojamientosLabel"># Alojamientos</div>
+        <div class="kpi-label" data-i18n="kpiAlojamientosLabel"># Visitas</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-icon">💰</div>
@@ -4623,7 +4774,7 @@ body.has-session input[name="nombre"] {
         <div class="kpi-value" id="kpiAntiguedad">—</div>
         <div class="kpi-label" data-i18n="kpiAntiguedadLabel">Antigüedad</div>
       </div>
-      <div class="kpi-donut-card" id="kpiNocheGratisCard">
+      <div class="kpi-donut-card" id="kpiNocheGratisCard" style="display:none !important;">
         <svg class="kpi-donut-svg" viewBox="0 0 80 80">
           <circle class="kpi-donut-track" cx="40" cy="40" r="32"></circle>
           <circle class="kpi-donut-progress lvl-far" id="kpiDonutProgress" cx="40" cy="40" r="32" stroke-dasharray="201" stroke-dashoffset="201"></circle>
@@ -4638,7 +4789,7 @@ body.has-session input[name="nombre"] {
           <div class="kpi-locked-overlay-text" data-i18n="kpiLockedCaption">Completa tu perfil para aprovechar tus beneficios</div>
         </div>
       </div>
-      <div class="kpi-noches-gratis-card" id="kpiNochesGratisAcumCard">
+      <div class="kpi-noches-gratis-card" id="kpiNochesGratisAcumCard" style="display:none !important;">
         <div class="kpi-noches-gratis-trophy">🏆</div>
         <div class="kpi-noches-gratis-num" id="kpiNochesGratisAcumNum">0</div>
         <div class="kpi-noches-gratis-label" id="kpiNochesGratisAcumLabel" data-i18n="kpiNochesGratisAcumLabel">Noches gratis acumuladas</div>
@@ -4917,40 +5068,11 @@ body.has-session input[name="nombre"] {
         <div class="grid" style="margin-top:14px;">
           <div>
             <label for="wiz_veh_marca" data-i18n="make">Marca</label>
-            <input id="wiz_veh_marca" list="marcasVehiculoList" type="text" autocomplete="off" placeholder="Escribe o elige una marca"/>
-            <datalist id="marcasVehiculoList">
-              <option value="Acura"></option>
-              <option value="Audi"></option>
-              <option value="BMW"></option>
-              <option value="Cadillac"></option>
-              <option value="Chevrolet"></option>
-              <option value="Chirey"></option>
-              <option value="Ford"></option>
-              <option value="GMC"></option>
-              <option value="Honda"></option>
-              <option value="Hyundai"></option>
-              <option value="Infiniti"></option>
-              <option value="Jeep"></option>
-              <option value="Kia"></option>
-              <option value="Lexus"></option>
-              <option value="Lincoln"></option>
-              <option value="Mazda"></option>
-              <option value="Mercedes-Benz"></option>
-              <option value="Mini"></option>
-              <option value="Mitsubishi"></option>
-              <option value="Nissan"></option>
-              <option value="Peugeot"></option>
-              <option value="RAM"></option>
-              <option value="Renault"></option>
-              <option value="SEAT"></option>
-              <option value="Subaru"></option>
-              <option value="Suzuki"></option>
-              <option value="Tesla"></option>
-              <option value="Toyota"></option>
-              <option value="Volkswagen"></option>
-              <option value="Volvo"></option>
-              <option value="Otro"></option>
-            </datalist>
+            <div class="marca-combobox" data-combobox="marca">
+              <input id="wiz_veh_marca" type="text" autocomplete="off" placeholder="Escribe o elige una marca" data-combobox-input/>
+              <button type="button" class="marca-combobox-toggle" aria-label="Mostrar opciones" tabindex="-1" data-combobox-toggle>▾</button>
+              <ul class="marca-combobox-list" data-combobox-list role="listbox"></ul>
+            </div>
             <input class="hidden" id="wiz_veh_marca_otro" type="text" placeholder="Especifica la marca" style="margin-top:8px;"/>
           </div>
           <div>
@@ -5379,7 +5501,11 @@ body.has-session input[name="nombre"] {
 <div class="vehicle-card">
 <div class="vehicle-card-title" data-i18n="vehicleIdentityTitle">Identificación del vehículo</div>
 <label data-i18n="make">Marca</label>
-<input id="vehiculo_marca" name="vehiculo_marca" list="marcasVehiculoList" type="text" autocomplete="off" placeholder="Escribe o elige una marca"/>
+<div class="marca-combobox" data-combobox="marca">
+<input id="vehiculo_marca" name="vehiculo_marca" type="text" autocomplete="off" placeholder="Escribe o elige una marca" data-combobox-input/>
+<button type="button" class="marca-combobox-toggle" aria-label="Mostrar opciones" tabindex="-1" data-combobox-toggle>▾</button>
+<ul class="marca-combobox-list" data-combobox-list role="listbox"></ul>
+</div>
 <input class="hidden" id="vehiculo_marca_otro" name="vehiculo_marca_otro" placeholder="Especifica la marca" type="text"/>
 <label data-i18n="model">Modelo</label>
 <input id="vehiculo_modelo" name="vehiculo_modelo" placeholder="Especifica el modelo" type="text"/>
@@ -7293,7 +7419,20 @@ const SIMPLE_I18N = {
     staysPagerNext:"Siguiente →",
     /* KPIs */
     kpiNochesLabel:"Noches totales",
-    kpiAlojamientosLabel:"# Alojamientos",
+    kpiAlojamientosLabel:"# Visitas",
+    profileIdLblNombre:"Nombre",
+    profileIdLblCelular:"Celular",
+    profileIdLblIdent:"Identificación",
+    profileIdLblRFC:"RFC",
+    profileIdLblRazon:"Razón social",
+    profileIdLblRegimen:"Régimen fiscal",
+    profileIdLblCorreo:"Correo",
+    profileIdLblVehiculo:"Vehículo",
+    profileIdEmpty:"Por capturar",
+    profileCardTitleComplete:"Perfil completo · Beneficios activos",
+    profileCardTitleWarn:"Perfil casi completo",
+    profileCardSubComplete:"Estás recibiendo beneficios exclusivos y prioridad de atención.",
+    profileCardSubWarn:"Te faltan algunos campos para acceder a todos los beneficios.",
     kpiMontoLabel:"Monto total",
     kpiRangeLabel:"Primera · última estancia",
     kpiAntiguedadLabel:"Antigüedad",
@@ -7568,7 +7707,20 @@ const SIMPLE_I18N = {
     staysPagerPrev:"← Previous",
     staysPagerNext:"Next →",
     kpiNochesLabel:"Total nights",
-    kpiAlojamientosLabel:"# Lodgings",
+    kpiAlojamientosLabel:"# Visits",
+    profileIdLblNombre:"Name",
+    profileIdLblCelular:"Phone",
+    profileIdLblIdent:"ID",
+    profileIdLblRFC:"RFC",
+    profileIdLblRazon:"Business name",
+    profileIdLblRegimen:"Tax regime",
+    profileIdLblCorreo:"Email",
+    profileIdLblVehiculo:"Vehicle",
+    profileIdEmpty:"To capture",
+    profileCardTitleComplete:"Profile complete · Benefits active",
+    profileCardTitleWarn:"Profile almost complete",
+    profileCardSubComplete:"You are receiving exclusive benefits and priority service.",
+    profileCardSubWarn:"A few fields are still missing to unlock all benefits.",
     kpiMontoLabel:"Total amount",
     kpiRangeLabel:"First · last stay",
     kpiAntiguedadLabel:"Member since",
@@ -11907,16 +12059,27 @@ document.addEventListener("DOMContentLoaded", function(){
       return `${yPart} ${remMonths} ${remMonths === 1 ? "mes" : "meses"}`;
     }
   }
-  function countDistinctLodgings(rows){
-    // Cuenta cuántas propiedades distintas ha visitado el huésped (alojamientos).
-    // Cada propiedad cuenta una sola vez sin importar cuántas reservaciones.
+  function countDistinctVisits(rows){
+    // Cuenta "visitas" del huésped. Una visita es un grupo de estancias
+    // consecutivas — donde la salida de una y el ingreso de la siguiente
+    // están a ≤1 día — sin importar la propiedad/departamento. Si hay
+    // más de 1 día de gap se considera una visita nueva.
     if (!rows || !rows.length) return 0;
-    const set = new Set();
-    rows.forEach(r => {
-      const p = String(r.propiedad || r.Propiedad || "").trim();
-      if (p) set.add(p);
-    });
-    return set.size;
+    const dated = rows.map(r => ({
+      ing: parseDateLocal(r.ingreso),
+      sal: parseDateLocal(r.salida)
+    })).filter(x => x.ing).sort((a,b) => a.ing - b.ing);
+    if (!dated.length) return 0;
+    let count = 1;
+    let prevSal = dated[0].sal || dated[0].ing;
+    for (let i = 1; i < dated.length; i++) {
+      const cur = dated[i];
+      const gapDays = (cur.ing - prevSal) / (24*60*60*1000);
+      if (gapDays > 1) count++;
+      const newSal = cur.sal || cur.ing;
+      if (newSal > prevSal) prevSal = newSal;
+    }
+    return count;
   }
   function renderKPIs(rows){
     const noches = rows.reduce((acc, r) => {
@@ -11926,7 +12089,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const diff = Math.max(0, Math.round((sal - ing) / (24*60*60*1000)));
       return acc + diff;
     }, 0);
-    const aloj = countDistinctLodgings(rows);
+    const aloj = countDistinctVisits(rows);
     const monto = rows.reduce((acc, r) => {
       const m = String(r.monto || "").replace(/[^0-9.\-]/g, "");
       const n = Number(m);
@@ -12963,38 +13126,89 @@ document.addEventListener("DOMContentLoaded", function(){
       refreshBenefitsKpiLock(false);
       return;
     }
-    // Siempre recargar de storage para reflejar cambios externos
     activePhoneKey = getPhoneKey();
     activeProfile = loadProfile(activePhoneKey);
     const pct = profileCompletionPercent(activeProfile);
-    // Lock de KPIs de beneficios (donut + acumuladas) siempre que <100%
     refreshBenefitsKpiLock(pct === 100);
-    // Si está al 100%, ocultar la card y mostrar la insignia de beneficios.
-    if (pct === 100) {
-      card.classList.remove("incomplete");
-      card.style.display = "none";
-      if (badge) badge.classList.add("visible");
-      return;
-    }
+    // El profileCompleteBadge ahora es redundante (la card maneja todos los
+    // estados). Lo ocultamos siempre para evitar duplicación.
     if (badge) badge.classList.remove("visible");
     card.style.display = "";
     const i = getI18n();
     $("profileCardPct").textContent = pct + "%";
     const bar = $("profileProgressBar");
     if (bar) bar.style.width = pct + "%";
-    // Estado "incompleto" → estilo rojo + ícono de aviso
-    card.classList.remove("completed");
-    card.classList.add("incomplete");
-    const icon = $("profileCardIcon");
-    if (icon) icon.textContent = "⚠️";
-    const titleEl = card.querySelector('.profile-card-title span[data-i18n="profileCardTitle"]');
-    if (titleEl) titleEl.textContent = i.profileCardTitle || "Completa tus datos";
-    const sub = $("profileCardSub");
-    if (sub) {
-      sub.textContent = pct > 0
-        ? (i.profileCardSubPartial || "Continúa donde lo dejaste.")
-        : (i.profileCardSubEmpty || "Captura tu perfil una sola vez.");
+
+    // Determinar estado semáforo
+    // - 100%   → verde (status-green)
+    // - 50-99  → amarillo (status-yellow)
+    // - 0-49   → rojo (incomplete · ya en el CSS heredado)
+    card.classList.remove("completed","incomplete","status-green","status-yellow","status-red");
+    let statusIcon = "⚠️";
+    let titleKey = "profileCardTitle";        // "Completa tus datos"
+    let titleFallback = "Completa tus datos";
+    let subKey = "profileCardSubEmpty";
+    let subFallback = "Captura tu perfil una sola vez.";
+    if (pct === 100) {
+      card.classList.add("status-green","completed");
+      statusIcon = "✅";
+      titleKey = "profileCardTitleComplete";
+      titleFallback = "Perfil completo · Beneficios activos";
+      subKey = "profileCardSubComplete";
+      subFallback = "Estás recibiendo beneficios exclusivos.";
+    } else if (pct >= 50) {
+      card.classList.add("status-yellow");
+      statusIcon = "⚠️";
+      titleKey = "profileCardTitleWarn";
+      titleFallback = "Perfil casi completo";
+      subKey = "profileCardSubWarn";
+      subFallback = "Te faltan algunos campos para todos los beneficios.";
+    } else {
+      card.classList.add("incomplete","status-red");
+      statusIcon = "🚨";
+      titleKey = "profileCardTitle";
+      titleFallback = "Completa tu perfil";
+      subKey = "profileCardSubEmpty";
+      subFallback = "Captura tu perfil una sola vez.";
     }
+    const icon = $("profileCardIcon");
+    if (icon) icon.textContent = pct === 100 ? "✓" : "📋";
+    const statusEl = $("profileCardStatus");
+    if (statusEl) statusEl.textContent = statusIcon;
+    const titleEl = $("profileCardTitleText");
+    if (titleEl) titleEl.textContent = i[titleKey] || titleFallback;
+    const sub = $("profileCardSub");
+    if (sub) sub.textContent = i[subKey] || subFallback;
+
+    // Poblar ID Card grid con los campos clave del perfil
+    const emptyLabel = i.profileIdEmpty || "Por capturar";
+    const setIdField = (id, value) => {
+      const el = $(id);
+      if (!el) return;
+      const v = (value || "").toString().trim();
+      el.textContent = v || emptyLabel;
+      el.classList.toggle("empty", !v);
+    };
+    const p = activeProfile || {};
+    const s1 = p.step1 || {};
+    const s2 = p.step2 || {};
+    const s3 = p.step3 || {};
+    const s4 = p.step4 || {};
+    // Celular siempre proviene de la sesión (el wizard lo bloquea como
+    // read-only para evitar inconsistencias).
+    const celSesion = (session.lada && session.phone) ? `+${session.lada} ${session.phone}` : "";
+    const tipoId = s2.tipo === "Otro" ? (s2.id_otro || "Otro") : (s2.tipo || "");
+    const regimen = s3.regimen === "Otro" ? (s3.regimen_otro || "Otro") : (s3.regimen || "");
+    const marcaMostrar = s4.marca === "Otro" ? (s4.marca_otro || "Otro") : (s4.marca || "");
+    const vehiculo = [marcaMostrar, s4.modelo].filter(Boolean).join(" ").trim();
+    setIdField("profileIdNombre", s1.nombre);
+    setIdField("profileIdCelular", celSesion);
+    setIdField("profileIdIdent", tipoId);
+    setIdField("profileIdRFC", s3.rfc);
+    setIdField("profileIdRazon", s3.razon_social);
+    setIdField("profileIdRegimen", regimen);
+    setIdField("profileIdCorreo", s3.correo_factura);
+    setIdField("profileIdVehiculo", s4.tiene_vehiculo === "No" ? "Sin vehículo" : vehiculo);
   }
 
   // ─── Navegación entre vistas ───────────────────────────────────────
@@ -13741,6 +13955,117 @@ document.addEventListener("DOMContentLoaded", function(){
     </div>
   </div>
 </div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Combobox custom de Marca (sustituye <datalist> nativo).
+   - Dropdown bajo el input (no a la derecha ni a pantalla completa)
+   - Filtrado por substring case-insensitive
+   - Click fuera o Esc cierra
+   - Selección por click o Enter sobre opción resaltada
+═══════════════════════════════════════════════════════════════════ */
+(function(){
+  const MARCAS = [
+    "Acura","Audi","BMW","Cadillac","Chevrolet","Chirey","Ford","GMC","Honda","Hyundai",
+    "Infiniti","Jeep","Kia","Lexus","Lincoln","Mazda","Mercedes-Benz","Mini","Mitsubishi",
+    "Nissan","Peugeot","RAM","Renault","SEAT","Subaru","Suzuki","Tesla","Toyota",
+    "Volkswagen","Volvo","Otro"
+  ];
+  function norm(s){ return String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,""); }
+  function init(combobox){
+    if (combobox.dataset.inited === "1") return;
+    combobox.dataset.inited = "1";
+    const input = combobox.querySelector("[data-combobox-input]");
+    const toggle = combobox.querySelector("[data-combobox-toggle]");
+    const list = combobox.querySelector("[data-combobox-list]");
+    if (!input || !list) return;
+    let highlighted = -1;
+
+    function render(filter){
+      const f = norm(filter || "");
+      const items = MARCAS.filter(m => !f || norm(m).indexOf(f) !== -1);
+      if (!items.length) {
+        list.innerHTML = '<li data-empty="1">Sin coincidencias</li>';
+        highlighted = -1;
+        return;
+      }
+      list.innerHTML = items.map((m, i) => `<li role="option" data-value="${m}" data-idx="${i}">${m}</li>`).join("");
+      highlighted = -1;
+    }
+    function open(){
+      combobox.classList.add("open");
+      render(input.value);
+    }
+    function close(){
+      combobox.classList.remove("open");
+      highlighted = -1;
+    }
+    function select(value){
+      input.value = value;
+      close();
+      input.dispatchEvent(new Event("input", { bubbles:true }));
+      input.dispatchEvent(new Event("change", { bubbles:true }));
+    }
+    function highlightItem(idx){
+      const items = list.querySelectorAll("li[data-value]");
+      items.forEach((el, i) => el.dataset.highlighted = i === idx ? "1" : "0");
+      if (items[idx]) items[idx].scrollIntoView({ block: "nearest" });
+    }
+
+    input.addEventListener("focus", open);
+    input.addEventListener("input", () => {
+      open();
+      render(input.value);
+    });
+    input.addEventListener("keydown", (e) => {
+      const items = list.querySelectorAll("li[data-value]");
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (!combobox.classList.contains("open")) open();
+        highlighted = Math.min(items.length - 1, highlighted + 1);
+        highlightItem(highlighted);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        highlighted = Math.max(0, highlighted - 1);
+        highlightItem(highlighted);
+      } else if (e.key === "Enter") {
+        if (combobox.classList.contains("open") && highlighted >= 0 && items[highlighted]) {
+          e.preventDefault();
+          select(items[highlighted].dataset.value);
+        }
+      } else if (e.key === "Escape") {
+        close();
+        input.blur();
+      } else if (e.key === "Tab") {
+        close();
+      }
+    });
+    toggle?.addEventListener("mousedown", (e) => {
+      e.preventDefault(); // no robar foco al input
+      if (combobox.classList.contains("open")) close();
+      else { input.focus(); open(); }
+    });
+    list.addEventListener("mousedown", (e) => {
+      const li = e.target.closest("li[data-value]");
+      if (!li) return;
+      e.preventDefault();
+      select(li.dataset.value);
+    });
+    // Cerrar al click fuera
+    document.addEventListener("mousedown", (e) => {
+      if (!combobox.contains(e.target)) close();
+    });
+  }
+  function initAll(){
+    document.querySelectorAll('[data-combobox="marca"]').forEach(init);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initAll);
+  } else {
+    initAll();
+  }
+})();
+</script>
 
 </body>
 </html>
