@@ -4891,6 +4891,8 @@ body.has-session input[name="nombre"] {
 
 <!-- ═══ FLUJO DE LOGIN (Celular → PIN o OTP+crear PIN) ═══════════════ -->
 <div class="view-panel hidden" id="viewLogin">
+  <!-- Botón "Volver al inicio" superior (igual que otras secciones) -->
+  <button type="button" class="back-home-btn" id="btnLoginBack1" data-i18n="backHomeBtn">← Volver al inicio</button>
 
   <!-- Paso 1: pedir celular -->
   <div class="section" id="loginStepPhone">
@@ -4903,7 +4905,6 @@ body.has-session input[name="nombre"] {
     </div>
     <div class="note hidden" id="loginPhoneError"></div>
     <button id="btnContinuePhone" type="button" data-i18n="loginContinue">Continuar</button>
-    <button class="auth-back-link" id="btnLoginBack1" type="button" data-i18n="loginBack">← Volver</button>
   </div>
 
   <!-- Paso 2A: pedir PIN existente -->
@@ -9827,6 +9828,9 @@ function buildTicketActionsHtml(row, ticketUrl){
       if (vehiculosMeta) vehiculosMeta.textContent = 'No fue posible cargar la información de vehículos.';
     }
   }
+  // Exponer al global para que gotoExpressVehiculos (en otro IIFE) pueda
+  // invocar la carga. Sin esto, el dropdown queda vacío en welcome.
+  window.cargarPropiedadesVehiculos = cargarPropiedadesVehiculos;
 
   async function buscarVehiculosPorPropiedad(forceReload = false){
     const propiedad = safeText(vehiculosPropiedadFiltro?.value).trim();
@@ -11896,8 +11900,10 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function gotoExpressVehiculos(){
     showOnly(viewVehiculos);
-    const hasSession = !!getSession();
-    setMenuVisible(!hasSession);
+    // El topMenu (tabs Registro/Vehículos) siempre se oculta en
+    // viewVehiculos, sin importar si hay sesión. La sección tiene
+    // su propio botón "Volver al inicio" en la parte superior.
+    setMenuVisible(false);
     setMenuActive("vehiculos");
     if (typeof window.cargarPropiedadesVehiculos === "function") {
       // Splash "Cargando datos…" mientras se traen las propiedades y filas
