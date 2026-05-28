@@ -3143,8 +3143,60 @@ function formatRangoFechasSimple(inicio, fin){
 }
 .auth-info-banner strong{color:var(--primary-strong);}
 
-/* ───── ID Card del perfil (semáforo + resumen compacto) ───── */
-.profile-id-card{ position:relative; }
+/* ───── ID Card del perfil (semáforo + dropdown) ───── */
+.profile-id-card{ position:relative; padding:0; cursor:default; }
+.profile-id-card:hover{ transform:none; box-shadow:0 6px 18px rgba(15,23,42,.04); border-color:var(--border-strong); }
+.profile-card-header{
+  display:block;
+  width:100%;
+  background:transparent;
+  border:none;
+  margin:0;
+  padding:18px 18px 12px;
+  text-align:left;
+  cursor:pointer;
+  border-radius:18px;
+  transition:background .12s;
+  box-shadow:none;
+}
+.profile-card-header:hover{ background:rgba(15,23,42,.02); transform:none; filter:none; box-shadow:none; }
+.profile-card-chevron{
+  font-size:18px;
+  color:var(--text-soft);
+  transition:transform .25s;
+  display:inline-block;
+  margin-left:4px;
+}
+.profile-id-card.open .profile-card-chevron{ transform:rotate(180deg); }
+.profile-card-body{
+  max-height:0;
+  overflow:hidden;
+  transition:max-height .3s ease, padding .25s;
+  padding:0 18px;
+}
+.profile-id-card.open .profile-card-body{
+  max-height:1200px;
+  padding:0 18px 18px;
+}
+.profile-card-edit-btn{
+  margin-top:14px;
+  width:100%;
+  background:var(--primary);
+  color:#fff;
+  border:none;
+  border-radius:12px;
+  padding:10px 16px;
+  font-weight:700;
+  font-size:14px;
+  cursor:pointer;
+  box-shadow:0 4px 12px rgba(8,145,178,.20);
+  transition:transform .12s, box-shadow .12s, filter .12s;
+}
+.profile-card-edit-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 18px rgba(8,145,178,.30);
+  filter:brightness(1.05);
+}
 .profile-card-head-right{
   display:flex;
   align-items:center;
@@ -3187,11 +3239,19 @@ function formatRangoFechasSimple(inicio, fin){
   text-overflow:ellipsis;
   white-space:nowrap;
 }
-.profile-id-value.empty{
-  color:#94a3b8;
-  font-style:italic;
-  font-weight:500;
+.profile-id-row.empty{
+  background:linear-gradient(180deg,#fff7ed 0%, #ffedd5 100%);
+  border-left:3px solid #f97316;
+  padding:4px 6px 4px 8px;
+  border-radius:6px;
+  margin-left:-8px;
 }
+.profile-id-value.empty{
+  color:#9a3412;
+  font-style:italic;
+  font-weight:600;
+}
+.profile-id-row.empty .profile-id-label{ color:#9a3412; }
 /* Estados semáforo: verde (100%), amarillo (50-99), rojo (<50%) */
 .profile-card.status-green{
   background:linear-gradient(180deg,#ecfdf5 0%, #ffffff 100%);
@@ -3500,6 +3560,41 @@ function formatRangoFechasSimple(inicio, fin){
   padding:14px 16px;
   background:linear-gradient(180deg,var(--primary-soft) 0%, #ffffff 100%);
   border-bottom:1px solid var(--border);
+}
+/* Variante dropdown: header clickable como botón con chevron */
+.stays-card-collapsible > .stays-card-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  width:100%;
+  border:none;
+  text-align:left;
+  cursor:pointer;
+  transition:filter .12s;
+  margin:0;
+  border-radius:18px 18px 0 0;
+  box-shadow:none;
+}
+.stays-card-collapsible > .stays-card-header:hover{ filter:brightness(0.98); transform:none; }
+.stays-card-chevron{
+  font-size:18px;
+  color:var(--primary-dark);
+  transition:transform .25s;
+  flex-shrink:0;
+}
+.stays-card-collapsible.open .stays-card-chevron{ transform:rotate(180deg); }
+.stays-card-body{
+  max-height:0;
+  overflow:hidden;
+  transition:max-height .35s ease;
+}
+.stays-card-collapsible.open .stays-card-body{
+  max-height:2000px;
+}
+.stays-card-collapsible:not(.open) > .stays-card-header{
+  border-bottom:none;
+  border-radius:18px;
 }
 .stays-card-title{
   margin:0;
@@ -4617,7 +4712,7 @@ body.has-session input[name="nombre"] {
 <div class="lang-switch-label">EN</div>
 </div>
 </div>
-<h1 data-i18n="title">Registro de huéspedes</h1>
+<h1 id="pageH1" data-i18n="title">Registro de huéspedes</h1>
 <div class="top-menu" id="topMenu">
 <button class="menu-btn active" id="menuRegistroBtn" type="button">Registro de huéspedes</button>
 <button class="menu-btn secondary" id="menuVehiculosBtn" type="button">Información de vehículos</button>
@@ -4713,8 +4808,8 @@ body.has-session input[name="nombre"] {
 <!-- ═══ HOME POST-LOGIN ═════════════════════════════════════════════ -->
 <div class="view-panel hidden" id="viewHome">
   <div class="section">
-    <h2 class="home-greeting" id="homeGreeting" data-i18n="homeGreeting">¡Hola!</h2>
-    <p class="home-subtitle" data-i18n="homeSubtitle">Bienvenido de vuelta a Check-inn Saltillo.</p>
+    <!-- Item 2+3: el saludo y el subtítulo se eliminaron. El H1 global
+         #pageH1 se actualiza a "¡Hola {nombre}!" cuando hay sesión. -->
 
     <!-- Insignia "Perfil completo · beneficios activos" (solo si 100%) -->
     <div class="profile-complete-badge" id="profileCompleteBadge">
@@ -4726,30 +4821,36 @@ body.has-session input[name="nombre"] {
       <button type="button" class="profile-complete-badge-btn" id="profileCompleteUpdateBtn" data-i18n="profileBadgeUpdateBtn">Actualizar datos</button>
     </div>
 
-    <!-- ID Card del perfil con semáforo de completitud -->
-    <div class="profile-card profile-id-card" id="profileCard" role="button" tabindex="0">
-      <div class="profile-card-head">
-        <h3 class="profile-card-title">
-          <span class="profile-card-title-icon" id="profileCardIcon">📋</span>
-          <span id="profileCardTitleText" data-i18n="profileCardTitle">Completa tus datos</span>
-        </h3>
-        <div class="profile-card-head-right">
-          <span class="profile-card-status" id="profileCardStatus">⚠️</span>
-          <span class="profile-card-pct" id="profileCardPct">0%</span>
+    <!-- ID Card del perfil — dropdown con header fijo y body colapsable -->
+    <div class="profile-card profile-id-card open" id="profileCard">
+      <button type="button" class="profile-card-header" id="profileCardHeader" aria-expanded="true">
+        <div class="profile-card-head">
+          <h3 class="profile-card-title">
+            <span class="profile-card-title-icon" id="profileCardIcon">📋</span>
+            <span id="profileCardTitleText" data-i18n="profileCardTitle">Completa tus datos</span>
+          </h3>
+          <div class="profile-card-head-right">
+            <span class="profile-card-status" id="profileCardStatus">⚠️</span>
+            <span class="profile-card-pct" id="profileCardPct">0%</span>
+            <span class="profile-card-chevron" aria-hidden="true">▾</span>
+          </div>
         </div>
+        <div class="profile-progress"><div class="profile-progress-bar" id="profileProgressBar" style="width:0%;"></div></div>
+      </button>
+      <div class="profile-card-body" id="profileCardBody">
+        <div class="profile-id-grid" id="profileIdGrid">
+          <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblNombre">Nombre</span><span class="profile-id-value" id="profileIdNombre">—</span></div>
+          <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblCelular">Celular</span><span class="profile-id-value" id="profileIdCelular">—</span></div>
+          <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblIdent">Identificación</span><span class="profile-id-value" id="profileIdIdent">—</span></div>
+          <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblRFC">RFC</span><span class="profile-id-value" id="profileIdRFC">—</span></div>
+          <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblRazon">Razón social</span><span class="profile-id-value" id="profileIdRazon">—</span></div>
+          <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblRegimen">Régimen fiscal</span><span class="profile-id-value" id="profileIdRegimen">—</span></div>
+          <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblCorreo">Correo</span><span class="profile-id-value" id="profileIdCorreo">—</span></div>
+          <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblVehiculo">Vehículo</span><span class="profile-id-value" id="profileIdVehiculo">—</span></div>
+        </div>
+        <p class="profile-card-sub" id="profileCardSub" data-i18n="profileCardSubEmpty">Captura tu perfil una sola vez (identificación, datos fiscales, vehículo) y reserva más rápido en el futuro.</p>
+        <button type="button" class="profile-card-edit-btn" id="profileCardEditBtn" data-i18n="profileCardEditBtn">Editar perfil</button>
       </div>
-      <div class="profile-progress"><div class="profile-progress-bar" id="profileProgressBar" style="width:0%;"></div></div>
-      <div class="profile-id-grid" id="profileIdGrid">
-        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblNombre">Nombre</span><span class="profile-id-value" id="profileIdNombre">—</span></div>
-        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblCelular">Celular</span><span class="profile-id-value" id="profileIdCelular">—</span></div>
-        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblIdent">Identificación</span><span class="profile-id-value" id="profileIdIdent">—</span></div>
-        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblRFC">RFC</span><span class="profile-id-value" id="profileIdRFC">—</span></div>
-        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblRazon">Razón social</span><span class="profile-id-value" id="profileIdRazon">—</span></div>
-        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblRegimen">Régimen fiscal</span><span class="profile-id-value" id="profileIdRegimen">—</span></div>
-        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblCorreo">Correo</span><span class="profile-id-value" id="profileIdCorreo">—</span></div>
-        <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblVehiculo">Vehículo</span><span class="profile-id-value" id="profileIdVehiculo">—</span></div>
-      </div>
-      <p class="profile-card-sub" id="profileCardSub" data-i18n="profileCardSubEmpty">Captura tu perfil una sola vez (identificación, datos fiscales, vehículo) y reserva más rápido en el futuro.</p>
     </div>
 
     <!-- KPIs -->
@@ -4802,8 +4903,8 @@ body.has-session input[name="nombre"] {
     </div>
 
     <div class="auth-actions">
-      <!-- Sección 1: Nueva reservación -->
-      <button class="auth-bigbtn primary" id="btnHomeNueva" type="button">
+      <!-- Sección 1: Nueva reservación (tono rojo como Express del welcome) -->
+      <button class="auth-bigbtn express-primary" id="btnHomeNueva" type="button">
         <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">📝</span><span data-i18n="btnNuevaReservacionTitle">Registro de nueva reservación</span></span>
         <span class="auth-bigbtn-sub" data-i18n="btnNuevaReservacionSub">Reserva en segundos con tus datos del perfil ya guardados.</span>
       </button>
@@ -4815,12 +4916,16 @@ body.has-session input[name="nombre"] {
       </button>
     </div>
 
-    <!-- Sección 3: Tabla de estancias con paginación y estado -->
-    <div class="stays-card">
-      <div class="stays-card-header">
-        <h3 class="stays-card-title" data-i18n="staysCardTitle">Tus estancias</h3>
-        <p class="stays-card-subtitle" id="staysCardSubtitle" data-i18n="staysCardSubtitle">Resumen de todas tus estancias.</p>
-      </div>
+    <!-- Sección 3: Tabla de estancias — dropdown (default desplegado) -->
+    <div class="stays-card stays-card-collapsible open" id="staysCard">
+      <button type="button" class="stays-card-header" id="staysCardHeader" aria-expanded="true">
+        <div>
+          <h3 class="stays-card-title" data-i18n="staysCardTitle">Tus estancias</h3>
+          <p class="stays-card-subtitle" id="staysCardSubtitle" data-i18n="staysCardSubtitle">Resumen de tu estancia actual o más reciente.</p>
+        </div>
+        <span class="stays-card-chevron" aria-hidden="true">▾</span>
+      </button>
+      <div class="stays-card-body" id="staysCardBody">
       <div class="stays-table-wrap">
         <table class="stays-table">
           <thead>
@@ -4858,6 +4963,7 @@ body.has-session input[name="nombre"] {
           <button class="wizard-btn-secondary" id="staysNextBtn" type="button" data-i18n="staysPagerNext">Siguiente →</button>
         </div>
       </div>
+      </div><!-- /.stays-card-body -->
     </div>
   </div>
 </div>
@@ -7433,6 +7539,7 @@ const SIMPLE_I18N = {
     profileCardTitleWarn:"Perfil casi completo",
     profileCardSubComplete:"Estás recibiendo beneficios exclusivos y prioridad de atención.",
     profileCardSubWarn:"Te faltan algunos campos para acceder a todos los beneficios.",
+    profileCardEditBtn:"Editar perfil",
     kpiMontoLabel:"Monto total",
     kpiRangeLabel:"Primera · última estancia",
     kpiAntiguedadLabel:"Antigüedad",
@@ -7721,6 +7828,7 @@ const SIMPLE_I18N = {
     profileCardTitleWarn:"Profile almost complete",
     profileCardSubComplete:"You are receiving exclusive benefits and priority service.",
     profileCardSubWarn:"A few fields are still missing to unlock all benefits.",
+    profileCardEditBtn:"Edit profile",
     kpiMontoLabel:"Total amount",
     kpiRangeLabel:"First · last stay",
     kpiAntiguedadLabel:"Member since",
@@ -13124,6 +13232,13 @@ document.addEventListener("DOMContentLoaded", function(){
       card.style.display = "none";
       if (badge) badge.classList.remove("visible");
       refreshBenefitsKpiLock(false);
+      // Restaurar el título por defecto sin sesión
+      const h1NoSession = document.getElementById("pageH1");
+      const iNoSession = getI18n();
+      if (h1NoSession) {
+        h1NoSession.textContent = iNoSession.title || "Registro de huéspedes";
+        h1NoSession.setAttribute("data-i18n", "title");
+      }
       return;
     }
     activePhoneKey = getPhoneKey();
@@ -13180,7 +13295,8 @@ document.addEventListener("DOMContentLoaded", function(){
     const sub = $("profileCardSub");
     if (sub) sub.textContent = i[subKey] || subFallback;
 
-    // Poblar ID Card grid con los campos clave del perfil
+    // Poblar ID Card grid con los campos clave del perfil. Resaltar los
+    // campos por capturar marcando la fila entera (no solo el valor).
     const emptyLabel = i.profileIdEmpty || "Por capturar";
     const setIdField = (id, value) => {
       const el = $(id);
@@ -13188,6 +13304,8 @@ document.addEventListener("DOMContentLoaded", function(){
       const v = (value || "").toString().trim();
       el.textContent = v || emptyLabel;
       el.classList.toggle("empty", !v);
+      const row = el.closest(".profile-id-row");
+      if (row) row.classList.toggle("empty", !v);
     };
     const p = activeProfile || {};
     const s1 = p.step1 || {};
@@ -13209,6 +13327,20 @@ document.addEventListener("DOMContentLoaded", function(){
     setIdField("profileIdRegimen", regimen);
     setIdField("profileIdCorreo", s3.correo_factura);
     setIdField("profileIdVehiculo", s4.tiene_vehiculo === "No" ? "Sin vehículo" : vehiculo);
+
+    // H1 personalizado: "¡Hola {Nombre}!" cuando hay nombre, fallback al
+    // título genérico cuando aún no se capturó el nombre.
+    const h1 = document.getElementById("pageH1");
+    if (h1) {
+      const nombre = (s1.nombre || "").trim();
+      if (nombre) {
+        h1.textContent = (window.currentLang === "en" ? "Hi " : "¡Hola ") + nombre + (window.currentLang === "en" ? "!" : "!");
+        h1.removeAttribute("data-i18n");
+      } else {
+        h1.textContent = i.title || "Registro de huéspedes";
+        h1.setAttribute("data-i18n", "title");
+      }
+    }
   }
 
   // ─── Navegación entre vistas ───────────────────────────────────────
@@ -13644,10 +13776,20 @@ document.addEventListener("DOMContentLoaded", function(){
       s.addEventListener("click", () => showStep(Number(s.dataset.step)));
     });
 
-    // Card del Home abre wizard
-    $("profileCard")?.addEventListener("click", openWizard);
-    $("profileCard")?.addEventListener("keydown", e => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWizard(); }
+    // ID Card dropdown: header toggle + Editar perfil → openWizard
+    $("profileCardHeader")?.addEventListener("click", () => {
+      const card = $("profileCard");
+      if (!card) return;
+      const open = card.classList.toggle("open");
+      $("profileCardHeader")?.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    $("profileCardEditBtn")?.addEventListener("click", openWizard);
+    // Stays card dropdown: header toggle (default open)
+    $("staysCardHeader")?.addEventListener("click", () => {
+      const card = $("staysCard");
+      if (!card) return;
+      const open = card.classList.toggle("open");
+      $("staysCardHeader")?.setAttribute("aria-expanded", open ? "true" : "false");
     });
 
     // Bloqueo de Nueva reservación
