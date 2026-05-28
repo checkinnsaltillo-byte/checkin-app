@@ -9673,18 +9673,18 @@ function buildTicketActionsHtml(row, ticketUrl){
   }
 
   function isCurrentStayActive(record){
-    // Ventana ampliada: consideramos "activos" los registros cuya estancia
-    // cruza con [hoy, hoy+2 días]. Es decir, devolvemos true si el rango
-    // [entrada, salida] tiene intersección con el rango [hoy, hoy+2].
+    // Ventana: consideramos "activos" los registros cuya estancia
+    // contiene HOY o MAÑANA. Es decir, devolvemos true si el rango
+    // [entrada, salida] tiene intersección con el rango [hoy, mañana].
     const hoyStr = getTodayDateOnly();
     const today = new Date(hoyStr);
     const horizon = new Date(today);
-    horizon.setDate(horizon.getDate() + 2);
+    horizon.setDate(horizon.getDate() + 1); // mañana
     const horizonStr = `${horizon.getFullYear()}-${String(horizon.getMonth()+1).padStart(2,'0')}-${String(horizon.getDate()).padStart(2,'0')}`;
     const entrada = normalizeDateOnly(getRecordValueByCandidates(record, ['Fecha de ingreso','ingreso']));
     const salida  = normalizeDateOnly(getRecordValueByCandidates(record, ['Fecha de salida','salida']));
     if (!entrada || !salida) return false;
-    // Intersección no vacía: entrada <= horizonte Y salida >= hoy
+    // Intersección no vacía: entrada <= mañana Y salida >= hoy
     return entrada <= horizonStr && salida >= hoyStr;
   }
 
@@ -9858,6 +9858,10 @@ function buildTicketActionsHtml(row, ticketUrl){
         const json = await res.json();
         if (!json.ok) throw new Error(json.error || json.message || 'Backend rápido no disponible');
         rows = Array.isArray(json.rows) ? json.rows : [];
+        // El backend normalizado no expone esta acción y responde
+        // { ok:true, message:"Web app activo..." } sin .rows. Forzamos
+        // el fallback para que el flujo sí busque vehículos.
+        if (!rows.length) throw new Error('backend_no_rows');
       } catch (_err) {
         const baseRows = await cargarBaseRowsVehiculos(forceReload);
         const candidateRows = baseRows.filter(r => isCurrentStayActive(r) && safeText(r["Propiedad"] || '').trim() === propiedad);
