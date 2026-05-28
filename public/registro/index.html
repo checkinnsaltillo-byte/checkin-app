@@ -6900,8 +6900,20 @@ document.getElementById("form").addEventListener("submit", async function(e){
     ingreso: f.get("ingreso"),
     salida: f.get("salida"),
     huespedes: limpiarHuespedesVacios(f.getAll("huesped[]")),
-    lada1: f.get("lada1"),
-    celular_principal: `'${(f.get("lada1") || "").trim()} ${(f.get("cel") || "").trim()}`.trim(),
+    lada1: (function(){
+      const s = window.checkinnAuth?.getSession?.();
+      return (s && s.lada) ? s.lada : f.get("lada1");
+    })(),
+    // Celular: si hay sesión, SIEMPRE usar session.lada + session.phone
+    // (más confiable que el FormData que puede quedar vacío tras reset).
+    // Sin sesión (registro exprés), cae al valor del form.
+    celular_principal: (function(){
+      const s = window.checkinnAuth?.getSession?.();
+      if (s && s.lada && s.phone) return `'${s.lada} ${s.phone}`;
+      const lada = (f.get("lada1") || "").trim();
+      const cel = (f.get("cel") || "").trim();
+      return `'${lada} ${cel}`.trim();
+    })(),
     lada2: f.get("lada2"),
     celular_emergencia: `'${(f.get("lada2") || "").trim()} ${(f.get("emergencia") || "").trim()}`.trim(),
     factura: f.get("factura"),
