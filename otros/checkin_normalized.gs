@@ -74,6 +74,7 @@ function doPost(e) {
     if (action === "save_profile_only") return jsonOutput_(saveProfileOnly_(data));
     if (action === "upload_file") return jsonOutput_(saveDeferredFile_(data));
     if (action === "upload_profile_file") return jsonOutput_(saveProfileFile_(data));
+    if (action === "migrate_phone") return jsonOutput_(migratePhone_(data));
     if (action === "update_facturado_total") return jsonOutput_(updateFacturadoTotal_(data));
     if (action === "update_facturapi_folio") return jsonOutput_(updateFacturapiFolio_(data));
     if (action === "update_facturapi_folio_strict") return jsonOutput_(updateFacturapiFolioStrict_(data));
@@ -518,6 +519,135 @@ function saveProfileFile_(data) {
   }
 
   return { ok: true, url: fileInfo.url, file_id: fileInfo.id, file_name: fileInfo.name, field_name: fieldName, celular: cel };
+}
+
+// ─── MIGRACIÓN DE CELULAR ───────────────────────────────────────────────────
+// Cuando un huésped cambia su celular (vía wizard "Cambiar celular"),
+// actualizamos las 3 hojas para que su historial siga vinculado al perfil.
+//
+//   Perfiles:      si new_phone ya existe → merge campos no vacíos del viejo
+//                  hacia el nuevo, luego borrar la fila vieja.
+//                  Si solo existe el viejo → reescribir la celda con el nuevo.
+//   Vehiculos:     misma lógica de merge/reescritura por celular.
+//   Reservaciones: actualizar TODAS las rows donde
+//                  "Cel/Whatsapp (principal)" === old_phone → new_phone.
+//
+// Idempotente: si old_phone === new_phone, devuelve ok sin cambios.
+function migratePhone_(data) {
+  ensureNormalizedSheets_();
+  const oldPhone = safe_(data.old_phone).trim();
+  const newPhone = safe_(data.new_phone).trim();
+  if (!oldPhone || !newPhone) throw new Error("Faltan old_phone y new_phone.");
+  if (normalizePhone_(oldPhone) === normalizePhone_(newPhone)) {
+    return { ok: true, message: "old_phone y new_phone son iguales; no hay nada que migrar.", perfiles_updated: 0, vehiculos_updated: 0, reservaciones_updated: 0 };
+  }
+
+  const result = {
+    ok: true,
+    perfiles_updated: 0,
+    vehiculos_updated: 0,
+    reservaciones_updated: 0,
+    perfiles_deleted: 0,
+    vehiculos_deleted: 0
+  };
+
+  // ─── PERFILES ──
+  (function migratePerfiles(){
+    const sheet = getSheet_(PERFILES_SHEET);
+    const headers = getHeaders_(sheet);
+    const oldRow = findRowByPhone_(sheet, headers, oldPhone);
+    if (!oldRow) return; // nada que migrar
+    const newRow = findRowByPhone_(sheet, headers, newPhone);
+    if (newRow && newRow !== oldRow) {
+      // Existe row con el celular nuevo → merge (los del viejo llenan nulos del nuevo)
+      const oldData = readRow_(sheet, headers, oldRow);
+      const newData = readRow_(sheet, headers, newRow);
+      const merged = {};
+      headers.forEach(h => {
+        if (h === "ID_Perfil") merged[h] = newData[h];                // preservar ID del nuevo
+        else if (h === "Cel/Whatsapp (principal)") merged[h] = newPhone;
+        else if (h === "Fecha creación") merged[h] = newData[h] || oldData[h] || new Date();
+        else if (h === "Fecha actualización") merged[h] = new Date();
+        else {
+          const nv = newData[h];
+          const ov = oldData[h];
+          merged[h] = (nv != null && String(nv).trim() !== "") ? nv : (ov != null ? ov : "");
+        }
+      });
+      writeRow_(sheet, headers, newRow, merged);
+      // Borrar el row viejo (deleteRow ajusta índices arriba; como oldRow puede ser
+      // mayor o menor que newRow lo manejamos correctamente)
+      sheet.deleteRow(oldRow);
+      result.perfiles_updated++;
+      result.perfiles_deleted++;
+    } else {
+      // Solo existe el viejo → reescribir la celda del cel
+      setCellByHeader_(sheet, headers, oldRow, "Cel/Whatsapp (principal)", newPhone);
+      setCellByHeader_(sheet, headers, oldRow, "Fecha actualización", new Date());
+      result.perfiles_updated++;
+    }
+  })();
+
+  // ─── VEHICULOS ──
+  (function migrateVehiculos(){
+    const sheet = getSheet_(VEHICULOS_SHEET);
+    const headers = getHeaders_(sheet);
+    const oldRow = findRowByPhone_(sheet, headers, oldPhone);
+    if (!oldRow) return;
+    const newRow = findRowByPhone_(sheet, headers, newPhone);
+    if (newRow && newRow !== oldRow) {
+      const oldData = readRow_(sheet, headers, oldRow);
+      const newData = readRow_(sheet, headers, newRow);
+      const merged = {};
+      headers.forEach(h => {
+        if (h === "ID_Vehiculo") merged[h] = newData[h];
+        else if (h === "Cel/Whatsapp (principal)") merged[h] = newPhone;
+        else if (h === "Fecha actualización") merged[h] = new Date();
+        else {
+          const nv = newData[h];
+          const ov = oldData[h];
+          merged[h] = (nv != null && String(nv).trim() !== "") ? nv : (ov != null ? ov : "");
+        }
+      });
+      writeRow_(sheet, headers, newRow, merged);
+      sheet.deleteRow(oldRow);
+      result.vehiculos_updated++;
+      result.vehiculos_deleted++;
+    } else {
+      setCellByHeader_(sheet, headers, oldRow, "Cel/Whatsapp (principal)", newPhone);
+      setCellByHeader_(sheet, headers, oldRow, "Fecha actualización", new Date());
+      result.vehiculos_updated++;
+    }
+  })();
+
+  // ─── RESERVACIONES ──
+  (function migrateReservaciones(){
+    const sheet = getSheet_(RESERVACIONES_SHEET);
+    const headers = getHeaders_(sheet);
+    const colIdx = headers.indexOf("Cel/Whatsapp (principal)");
+    if (colIdx < 0) return;
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return;
+    const range = sheet.getRange(2, colIdx + 1, lastRow - 1, 1);
+    const values = range.getDisplayValues();
+    const targetOld = normalizePhone_(oldPhone);
+    // Identificar los rows que coinciden y actualizar con batch update
+    const updates = [];
+    for (let i = 0; i < values.length; i++) {
+      if (normalizePhone_(values[i][0]) === targetOld) {
+        updates.push(i);
+      }
+    }
+    if (!updates.length) return;
+    // Mantener compatibilidad con cells text-formatted (apóstrofo)
+    updates.forEach(rowOffset => {
+      sheet.getRange(rowOffset + 2, colIdx + 1).setValue(newPhone);
+    });
+    result.reservaciones_updated = updates.length;
+  })();
+
+  SpreadsheetApp.flush();
+  return result;
 }
 
 // ─── FACTURAPI updates (todo en Reservaciones) ──────────────────────────────

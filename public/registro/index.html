@@ -13717,7 +13717,14 @@ document.addEventListener("DOMContentLoaded", function(){
       errEl.classList.remove("hidden");
       return;
     }
-    // Migrar el perfil de la clave antigua a la nueva
+    // Capturar lada/phone viejos ANTES de sobrescribir la sesión (los
+    // necesitamos para la migración en backend con formato exacto).
+    let oldLada = "", oldPhoneDigits = "";
+    try {
+      const cur = window.checkinnAuth?.getSession();
+      if (cur) { oldLada = cur.lada || ""; oldPhoneDigits = cur.phone || ""; }
+    } catch(_e){}
+    // Migrar el perfil de la clave antigua a la nueva (localStorage)
     const oldKey = getPhoneKey();
     const newKey = `+${changePhonePending.newLada}${changePhonePending.newPhone}`;
     const all = loadAllProfiles();
@@ -13746,7 +13753,48 @@ document.addEventListener("DOMContentLoaded", function(){
     const pillName = document.getElementById("sessionPillName");
     if (pillName) pillName.textContent = `${changePhonePending.newPhone}`;
     closeChangePhoneModal();
-    alert("✓ Celular actualizado correctamente.");
+
+    // Migrar en el backend: Perfiles, Vehiculos, Reservaciones
+    // El formato debe coincidir con el que se usa al guardar:
+    // '<lada> <local>' con apóstrofo (Google Sheets lo trata como texto).
+    try {
+      const webAppUrl = (typeof WEB_APP_URL !== "undefined" && WEB_APP_URL) ? WEB_APP_URL : null;
+      if (webAppUrl && oldLada && oldPhoneDigits) {
+        const oldPhoneFmt = `'${oldLada} ${oldPhoneDigits}`;
+        const newPhoneFmt = `'${changePhonePending.newLada} ${changePhonePending.newPhone}`;
+        const res = await fetch(webAppUrl, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "migrate_phone",
+            old_phone: oldPhoneFmt,
+            new_phone: newPhoneFmt
+          })
+        });
+        const json = await res.json();
+        if (json.ok) {
+          console.log("[changePhone] backend migrate_phone ok:", json);
+          // Invalidar cachés para que la tabla recargue con el celular nuevo
+          try { if (typeof guestLookupCatalog !== "undefined") guestLookupCatalog = null; } catch(_e){}
+          if (window.checkinnAuth) {
+            try { window.checkinnAuth._cachedStays = null; } catch(_e){}
+          }
+          // Refrescar home para que la tabla muestre las reservaciones migradas
+          if (window.checkinnAuth?.refreshHomeContentForLang) {
+            try { window.checkinnAuth.refreshHomeContentForLang(); } catch(_e){}
+          }
+          alert(`✓ Celular actualizado. Historial migrado: ${json.reservaciones_updated} reservaciones, ${json.perfiles_updated} perfil, ${json.vehiculos_updated} vehículo.`);
+        } else {
+          console.warn("[changePhone] backend rechazó migrate_phone:", json.error);
+          alert("✓ Celular actualizado, pero la migración del historial en el sheets falló: " + (json.error || "desconocido") + ". Avisa a soporte.");
+        }
+      } else {
+        alert("✓ Celular actualizado correctamente.");
+      }
+    } catch (e) {
+      console.warn("[changePhone] migrate_phone network error:", e);
+      alert("✓ Celular actualizado localmente, pero no se pudo contactar el backend para migrar el historial: " + e.message);
+    }
   }
 
   // ─── "Nueva reservación" libre (sin bloqueo por perfil) ────────────
