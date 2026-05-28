@@ -108,7 +108,8 @@ body{
    El formulario de registro se mantiene apilado verticalmente
    (una sola columna) en cualquier breakpoint. */
 @media (min-width:1100px){
-  .kpi-grid{ grid-template-columns:repeat(6, 1fr) !important; }
+  /* .kpi-grid usa auto-fit ahora (definido más abajo) para distribuirse
+     en el ancho completo según el número de KPIs visibles. */
   .packages-grid{ grid-template-columns:repeat(3, 1fr) !important; }
 }
 /* Registro: siempre una sola columna apilada, ocupando el ancho del card */
@@ -1233,9 +1234,7 @@ button:disabled{
   .filter-grid{
     grid-template-columns:1fr 1fr;
   }
-  .kpi-grid{
-    grid-template-columns:1fr 1fr;
-  }
+  /* .kpi-grid usa auto-fit (definido abajo) — sin override aquí */
 }
 @media (max-width: 700px){
   .dashboard-record-top{align-items:flex-start;}
@@ -1244,8 +1243,7 @@ button:disabled{
   .dashboard-record-right{flex-direction:column;align-items:flex-end;gap:8px;}
   .dashboard-header-amount{min-width:95px;}
   .dashboard-header-amount-value{font-size:19px;}
-  .filter-grid,
-  .kpi-grid{
+  .filter-grid{
     grid-template-columns:1fr;
   }
   .filter-actions{
@@ -3205,6 +3203,49 @@ function formatRangoFechasSimple(inicio, fin){
   max-height:1200px;
   padding:0 18px 18px;
 }
+/* Galería de imágenes dentro del profile dropdown body */
+.profile-card-gallery{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(110px, 1fr));
+  gap:10px;
+  margin:14px 0 4px;
+}
+.profile-card-gallery[hidden]{ display:none; }
+.profile-gallery-item{
+  position:relative;
+  border:1px solid var(--border-strong);
+  border-radius:12px;
+  overflow:hidden;
+  background:#f8fafc;
+  cursor:zoom-in;
+  aspect-ratio:4/3;
+  transition:transform .15s, box-shadow .15s;
+}
+.profile-gallery-item:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 18px rgba(15,23,42,.08);
+}
+.profile-gallery-item img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.profile-gallery-caption{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  font-size:10px;
+  font-weight:700;
+  color:#fff;
+  background:rgba(15,23,42,.62);
+  padding:3px 6px;
+  text-align:center;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  pointer-events:none;
+}
 .profile-card-edit-btn{
   margin-top:14px;
   width:100%;
@@ -4042,15 +4083,16 @@ function formatRangoFechasSimple(inicio, fin){
 /* ───── KPIs (Home) ───── */
 .kpi-grid{
   display:grid;
-  grid-template-columns:repeat(6, 1fr);
+  /* auto-fit + minmax hace que las cards visibles llenen TODO el ancho
+     disponible. Si hay 4 KPIs activos (los 2 de noche gratis están
+     ocultos por display:none), se acomodan en 4 columnas iguales en
+     desktop. Si la pantalla es chica, automáticamente bajan a 2 o 1. */
+  grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
   gap:10px;
   margin-top:14px;
 }
-@media (max-width:1100px){
-  .kpi-grid{ grid-template-columns:repeat(3, 1fr); }
-}
 @media (max-width:560px){
-  .kpi-grid{ grid-template-columns:repeat(2, 1fr); }
+  .kpi-grid{ grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); }
 }
 /* KPI card compacta. El icon se mueve a la esquina superior derecha como
    "marca de agua" decorativa para liberar la línea vertical: ahora el
@@ -4996,6 +5038,10 @@ body.has-session input[name="nombre"] {
           <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblCorreo">Correo</span><span class="profile-id-value" id="profileIdCorreo">—</span></div>
           <div class="profile-id-row"><span class="profile-id-label" data-i18n="profileIdLblVehiculo">Vehículo</span><span class="profile-id-value" id="profileIdVehiculo">—</span></div>
         </div>
+        <!-- Galería de imágenes del perfil (INE/identificación + foto vehículo).
+             Las imágenes se inyectan dinámicamente desde refreshHomeCard cuando
+             existen en localStorage como dataURL. Click → zoom modal. -->
+        <div class="profile-card-gallery" id="profileCardGallery" hidden></div>
         <p class="profile-card-sub" id="profileCardSub" data-i18n="profileCardSubEmpty">Captura tu perfil una sola vez (identificación, datos fiscales, vehículo) y reserva más rápido en el futuro.</p>
         <button type="button" class="profile-card-edit-btn" id="profileCardEditBtn" data-i18n="profileCardEditBtn">Editar perfil</button>
       </div>
@@ -5080,17 +5126,18 @@ body.has-session input[name="nombre"] {
             <tr>
               <th data-i18n="staysThFactura">Factura</th>
               <th data-i18n="staysThEstado">Estado</th>
+              <th data-i18n="staysThMedio">Medio de reservación</th>
               <th data-i18n="staysThProp">Propiedad</th>
               <th data-i18n="staysThDepto"># Depto</th>
               <th data-i18n="staysThNoches">Total de noches</th>
               <th data-i18n="staysThIngreso">Ingreso</th>
               <th data-i18n="staysThSalida">Salida</th>
-              <th data-i18n="staysThMonto">Monto total</th>
+              <th data-i18n="staysThMonto">$ Total facturado</th>
             </tr>
           </thead>
           <tbody id="staysBody">
             <tr class="stays-empty-row">
-              <td colspan="8" data-i18n="staysEmpty">Aún no tienes estancias registradas.</td>
+              <td colspan="9" data-i18n="staysEmpty">Aún no tienes estancias registradas.</td>
             </tr>
           </tbody>
         </table>
@@ -7694,9 +7741,10 @@ const SIMPLE_I18N = {
     staysThProp:"Propiedad",
     staysThDepto:"# Depto",
     staysThNoches:"Total de noches",
+    staysThMedio:"Medio de reservación",
     staysThIngreso:"Ingreso",
     staysThSalida:"Salida",
-    staysThMonto:"Monto total",
+    staysThMonto:"$ Total facturado",
     staysEmpty:"Aún no tienes estancias registradas.",
     staysShowMore:"Ver estancias anteriores",
     staysShowLess:"Ocultar estancias anteriores",
@@ -7988,9 +8036,10 @@ const SIMPLE_I18N = {
     staysThProp:"Property",
     staysThDepto:"# Apt",
     staysThNoches:"Total nights",
+    staysThMedio:"Booking channel",
     staysThIngreso:"Check-in",
     staysThSalida:"Check-out",
-    staysThMonto:"Total",
+    staysThMonto:"$ Total invoiced",
     staysEmpty:"You don't have any stays registered yet.",
     staysShowMore:"Show previous stays",
     staysShowLess:"Hide previous stays",
@@ -9727,58 +9776,82 @@ function buildTicketActionsHtml(row, ticketUrl){
     }
 
     if (!vehiculosRows.length) {
-      vehiculosTableBody.innerHTML = '<div class="vehicle-empty">No se encontraron vehículos activos hoy para la propiedad seleccionada.</div>';
+      vehiculosTableBody.innerHTML = '<div class="vehicle-empty">No se encontraron vehículos activos para la propiedad seleccionada.</div>';
       if (vehiculosMeta) vehiculosMeta.textContent = '0 vehículos encontrados para la propiedad seleccionada.';
       return;
     }
 
-    vehiculosTableBody.innerHTML = vehiculosRows.map(row => {
-      const waUrl = buildWhatsAppUrl(row["Número de celular"]);
-      const celularHtml = waUrl
-        ? `<a class="vehicle-phone-link" href="${waUrl}" target="_blank" rel="noopener">${escapeHtml(row["Número de celular"] || '—')}</a>`
-        : `<span>${escapeHtml(row["Número de celular"] || '—')}</span>`;
-      const fotoUrl = safeText(row["Foto"]).trim();
-      const fotoPreviewUrl = normalizeDriveImageUrl(fotoUrl);
-      const fotoHtml = fotoUrl
-        ? `<a class="vehicle-thumb-link" href="${escapeHtml(fotoUrl)}" target="_blank" rel="noopener">
-             <img class="vehicle-thumb" src="${escapeHtml(fotoPreviewUrl)}" alt="Foto vehículo" referrerpolicy="no-referrer"
-               onerror="this.style.display='none'; this.closest('.vehicle-photo-panel').querySelector('.vehicle-photo-empty').style.display='flex';">
-           </a>
-           <div class="vehicle-photo-empty" style="display:none;">No se pudo previsualizar la foto disponible.</div>`
-        : `<div class="vehicle-photo-empty">Sin foto disponible</div>`;
+    // Render compacto idéntico al de autoLoadVehiclesForProperty (sesión):
+    // foto thumb + marca/modelo/color + Placas/Depto/Hora salida + WhatsApp/Llamar
+    const labels = (window.SIMPLE_I18N && window.SIMPLE_I18N[window.currentLang||"es"]) || {};
+    const lblPlacas = labels.vehLblPlacas || "Placas";
+    const lblDepto  = labels.vehLblDepto  || "Depto";
+    const lblHora   = labels.vehLblHoraSalida || "Hora salida";
+    const lblCall   = labels.vehLblLlamar || "Llamar";
+    const lblWA     = labels.vehLblWhatsApp || "WhatsApp";
+    const esc = (v) => String(v == null ? "" : v)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 
+    vehiculosTableBody.innerHTML = vehiculosRows.map(row => {
+      const marca = row["Marca"] || "—";
+      const modelo = row["Modelo"] || "";
+      const color = row["Color"] || "";
+      const placas = row["# Placas"] || "—";
+      const deptoRaw = row["# Departamento"] || "";
+      const deptoDisplay = deptoRaw ? `# ${String(deptoRaw).replace(/^\s*#\s*/, "")}` : "—";
+      const horaSalida = fmtHoraSimple_(row["Hora habitual de salida"]) || "";
+      const cel = String(row["Número de celular"] || "");
+      const celDigits = cel.replace(/\D/g, "");
+      const waLink = celDigits ? `https://wa.me/${celDigits}` : "";
+      const callLink = celDigits ? `tel:+${celDigits}` : "";
+      // Foto: normalizar URL Drive a thumbnail para preview + zoom
+      const fotoUrl = safeText(row["Foto"]).trim();
+      let fotoThumb = "", fotoFull = "";
+      if (fotoUrl) {
+        const m = fotoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || fotoUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (m) {
+          fotoThumb = `https://drive.google.com/thumbnail?id=${m[1]}&sz=w240`;
+          fotoFull  = `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`;
+        } else {
+          fotoThumb = normalizeDriveImageUrl(fotoUrl) || fotoUrl;
+          fotoFull = fotoThumb;
+        }
+      }
+      const fotoHTML = fotoThumb
+        ? `<div class="veh-photo-thumb" data-zoom-src="${esc(fotoFull)}" title="Ver foto"><img src="${esc(fotoThumb)}" alt="Foto vehículo" loading="lazy"/></div>`
+        : "";
       return `
-        <details class="vehicle-card-item">
-          <summary class="vehicle-card-summary">
-            <div class="vehicle-card-main">
-              <div class="vehicle-card-title">${escapeHtml(row["Nombre del huésped 1"] || 'Sin nombre')} · ${escapeHtml(row["Marca"] || 'Sin marca')} ${escapeHtml(row["Modelo"] || '')}</div>
-              <div class="vehicle-card-subtitle">${escapeHtml(row["Propiedad"] || 'Sin propiedad')} · Placas: ${escapeHtml(row["# Placas"] || '—')}</div>
-              <div class="vehicle-card-subtitle">Depto: ${row["# Departamento"] ? `# ${escapeHtml(String(row["# Departamento"]).replace(/^\s*#\s*/, ""))}` : '—'} · Hora salida: ${escapeHtml(fmtHoraSimple_(row["Hora habitual de salida"]) || '—')}</div>
+        <div class="vehicle-card" style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:10px;box-shadow:0 4px 12px rgba(15,23,42,.04);">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;">
+              ${fotoHTML}
+              <div style="min-width:0;flex:1;">
+                <div style="font-weight:800;font-size:15px;color:var(--text);">${esc(marca)} ${esc(modelo)}${color ? ` · <span style="font-weight:600;color:var(--text-soft);">${esc(color)}</span>` : ""}</div>
+                <div style="font-size:12.5px;color:var(--text);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 12px;">
+                  <span><span style="color:var(--text-soft);">${esc(lblPlacas)}:</span> <strong>${esc(placas)}</strong></span>
+                  <span><span style="color:var(--text-soft);">${esc(lblDepto)}:</span> ${esc(deptoDisplay)}</span>
+                  ${horaSalida ? `<span><span style="color:var(--text-soft);">${esc(lblHora)}:</span> ${esc(horaSalida)}</span>` : ""}
+                </div>
+              </div>
             </div>
-            <div class="vehicle-card-chevron">⌄</div>
-          </summary>
-          <div class="vehicle-card-body">
-            <div class="vehicle-detail-grid">
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Nombre del huésped 1</div><div class="vehicle-detail-value">${escapeHtml(row["Nombre del huésped 1"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Propiedad</div><div class="vehicle-detail-value">${escapeHtml(row["Propiedad"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label"># Departamento</div><div class="vehicle-detail-value">${escapeHtml(row["# Departamento"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Número de celular</div><div class="vehicle-detail-value">${celularHtml}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Marca</div><div class="vehicle-detail-value">${escapeHtml(row["Marca"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Modelo</div><div class="vehicle-detail-value">${escapeHtml(row["Modelo"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Color</div><div class="vehicle-detail-value">${escapeHtml(row["Color"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label"># Placas</div><div class="vehicle-detail-value">${escapeHtml(row["# Placas"] || '—')}</div></div>
-              <div class="vehicle-detail-item"><div class="vehicle-detail-label">Hora habitual de salida</div><div class="vehicle-detail-value">${escapeHtml(fmtHoraSimple_(row["Hora habitual de salida"]) || '—')}</div></div>
-            </div>
-            <div class="vehicle-photo-panel">
-              <div class="vehicle-photo-title">Foto</div>
-              ${fotoHtml}
+            <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
+              ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener" class="veh-action-btn veh-action-wa">📱 ${esc(lblWA)}</a>` : ""}
+              ${callLink ? `<a href="${callLink}" class="veh-action-btn veh-action-call">📞 ${esc(lblCall)}</a>` : ""}
             </div>
           </div>
-        </details>
+        </div>
       `;
-    }).join('');
+    }).join("");
 
-    if (vehiculosMeta) vehiculosMeta.textContent = `${vehiculosRows.length} vehículos activos hoy encontrados para la propiedad seleccionada.`;
+    // Bind click en thumbs para zoom (mismo flujo que en la sesión)
+    vehiculosTableBody.querySelectorAll(".veh-photo-thumb").forEach(el => {
+      el.addEventListener("click", () => {
+        const src = el.dataset.zoomSrc;
+        if (src && window.checkinnImages?.openZoom) window.checkinnImages.openZoom(src);
+      });
+    });
+
+    if (vehiculosMeta) vehiculosMeta.textContent = `${vehiculosRows.length} vehículo${vehiculosRows.length !== 1 ? "s" : ""} encontrado${vehiculosRows.length !== 1 ? "s" : ""} para la propiedad seleccionada.`;
   }
 
   async function cargarBaseRowsVehiculos(forceReload = false){
@@ -12232,16 +12305,21 @@ document.addEventListener("DOMContentLoaded", function(){
     return {
       propiedad: pickField(row, ["Propiedad", "propiedad"]),
       depto: pickField(row, ["# Departamento", "Departamento", "depto", "departamento"]),
+      medio: pickField(row, ["Medio de reservación", "Medio de reservacion", "medio"]),
       ingreso: pickField(row, ["Fecha de ingreso", "fecha_ingreso", "F. Ingreso", "ingreso", "Check-in", "Check in"]),
       salida: pickField(row, ["Fecha de salida", "fecha_salida", "F. Salida", "salida", "Check-out", "Check out"]),
       monto: pickField(row, [
         "($) Monto Total pagado", "$ Monto Total pagado", "Monto Total pagado",
-        "$ Monto facturado Total", "Monto facturado Total",
-        "$ Monto pagado", "Monto pagado", "monto_pagado",
-        "Monto", "Total", "$ Total"
+        "$ Monto pagado", "Monto pagado", "monto_pagado"
+      ]),
+      // "Monto total" en la tabla ahora muestra el "$ Monto facturado Total"
+      // de la hoja Reservaciones.
+      montoFacturado: pickField(row, [
+        "$ Monto facturado Total", "Monto facturado Total", "($) Monto facturado Total"
       ]),
       ticketUrl: pickField(row, ["Ticket facturapi url", "ticket facturapi url", "Ticket facturapi URL"]),
-      requiereFactura: pickField(row, ["¿Requiere factura?", "Requiere factura"])
+      requiereFactura: pickField(row, ["¿Requiere factura?", "Requiere factura"]),
+      folioFacturapi: pickField(row, ["Folio facturapi", "Folio Facturapi"])
     };
   }
 
@@ -12362,12 +12440,13 @@ document.addEventListener("DOMContentLoaded", function(){
           <span class="stays-status-label">${escapeHtml(i[status.labelKey] || status.key)}</span>
         </span>
       </td>
+      <td>${escapeHtml(stay.medio || "—")}</td>
       <td>${escapeHtml(stay.propiedad || "—")}</td>
       <td>${stay.depto ? `# ${escapeHtml(stay.depto)}` : "—"}</td>
       <td>${computeStayNights(stay)}</td>
       <td>${escapeHtml(fmtFecha(stay.ingreso))}</td>
       <td>${escapeHtml(fmtFecha(stay.salida))}</td>
-      <td class="stays-amount">${escapeHtml(fmtMonto(stay.monto))}</td>
+      <td class="stays-amount">${escapeHtml(fmtMonto(stay.montoFacturado))}</td>
     </tr>`;
   }
   function computeStayNights(stay){
@@ -12381,7 +12460,7 @@ document.addEventListener("DOMContentLoaded", function(){
   function renderEmptyStays(){
     const i = getI18n();
     const body = $("staysBody");
-    if (body) body.innerHTML = `<tr class="stays-empty-row"><td colspan="8">${i.staysEmpty || "Aún no tienes estancias registradas."}</td></tr>`;
+    if (body) body.innerHTML = `<tr class="stays-empty-row"><td colspan="9">${i.staysEmpty || "Aún no tienes estancias registradas."}</td></tr>`;
     const pager = $("staysPager");
     if (pager) pager.classList.add("hidden");
   }
@@ -13722,6 +13801,41 @@ document.addEventListener("DOMContentLoaded", function(){
     setIdField("profileIdRegimen", regimen);
     setIdField("profileIdCorreo", s3.correo_factura);
     setIdField("profileIdVehiculo", s4.tiene_vehiculo === "No" ? "Sin vehículo" : vehiculo);
+
+    // Galería de imágenes del perfil: INE frontal/trasero, identif. única,
+    // foto vehículo. Solo mostramos las que están guardadas como dataURL.
+    // Click → modal de zoom (mismo openZoom usado en otros lados).
+    const gallery = $("profileCardGallery");
+    if (gallery) {
+      const items = [
+        { src: s2.ine_frontal, label: "INE frontal" },
+        { src: s2.ine_trasero, label: "INE trasero" },
+        { src: s2.ident_unica, label: "Identificación" },
+        { src: s4.foto,        label: "Vehículo" }
+      ].filter(it => it.src && /^data:image\//.test(String(it.src)));
+      if (!items.length) {
+        gallery.hidden = true;
+        gallery.innerHTML = "";
+      } else {
+        gallery.hidden = false;
+        gallery.innerHTML = items.map(it => `
+          <div class="profile-gallery-item" data-zoom-src="${String(it.src).replace(/"/g, '&quot;')}">
+            <img src="${String(it.src).replace(/"/g, '&quot;')}" alt="${it.label}" loading="lazy"/>
+            <div class="profile-gallery-caption">${it.label}</div>
+          </div>
+        `).join("");
+        // Bind click → zoom
+        gallery.querySelectorAll(".profile-gallery-item").forEach(el => {
+          el.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            const src = el.dataset.zoomSrc;
+            if (src && window.checkinnImages?.openZoom) {
+              window.checkinnImages.openZoom(src);
+            }
+          });
+        });
+      }
+    }
 
     // H1 personalizado: "¡Hola {Nombre}!" cuando hay nombre, fallback al
     // título genérico cuando aún no se capturó el nombre.
