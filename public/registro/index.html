@@ -13115,9 +13115,12 @@ document.addEventListener("DOMContentLoaded", function(){
       exitWizardToHome();
       return;
     }
-    // Persistir y refrescar
+    // Persistir en localStorage y refrescar UI inmediatamente
     if (activeProfile) saveProfile(activePhoneKey, activeProfile);
     refreshHomeCard();
+    // SINCRONIZAR al backend (hojas Perfiles + Vehiculos) en segundo plano.
+    // No bloqueamos la UI: el usuario regresa al home y el backend se actualiza.
+    syncProfileToBackend_().catch(err => console.warn("[wizard] sync backend falló:", err));
     const flags = stepCompletionFlags(activeProfile);
     const allDone = flags.every(Boolean);
     if (allDone) {
@@ -13134,6 +13137,61 @@ document.addEventListener("DOMContentLoaded", function(){
       showProfileCompleteModal();
     } else {
       exitWizardToHome();
+    }
+  }
+
+  // ─── Sincronizar perfil + vehículo al backend ──────────────────────
+  async function syncProfileToBackend_(){
+    try {
+      const session = window.checkinnAuth?.getSession();
+      if (!session) return;
+      if (!activeProfile) return;
+      const webAppUrl = (typeof WEB_APP_URL !== "undefined" && WEB_APP_URL) ? WEB_APP_URL : null;
+      if (!webAppUrl) {
+        console.warn("[wizard] WEB_APP_URL no disponible, omitiendo sync.");
+        return;
+      }
+      const p = activeProfile;
+      // Celular con formato esperado por backend: '<lada> <local>' (con apóstrofo).
+      const cel = `'${session.lada || "52"} ${session.phone}`;
+      const emerg = (p.step1?.emerg_celular || "").replace(/\D/g, "");
+      const celEmerg = emerg ? `'${p.step1?.emerg_lada || "52"} ${emerg}` : "";
+      const payload = {
+        action: "save_profile_only",
+        celular_principal: cel,
+        celular_emergencia: celEmerg,
+        nombre_huesped: p.step1?.nombre || "",
+        // Identificación (Step 2). Por ahora solo campos texto; las imágenes
+        // del wizard viven en localStorage hasta que se haga upload formal.
+        identificacion_tipo: p.step2?.tipo || "",
+        identificacion_otro: p.step2?.id_otro || "",
+        // Datos fiscales (Step 3)
+        factura: p.step3?.factura || "",
+        razon_social: p.step3?.razon_social || "",
+        rfc: p.step3?.rfc || "",
+        regimen: p.step3?.regimen || "",
+        regimen_otro: p.step3?.regimen_otro || "",
+        codigo_postal: p.step3?.codigo_postal || "",
+        correo1: p.step3?.correo_factura || "",
+        // Vehículo (Step 4)
+        tiene_vehiculo: p.step4?.tiene_vehiculo || "",
+        vehiculo_marca: p.step4?.marca || "",
+        vehiculo_marca_otro: p.step4?.marca_otro || "",
+        vehiculo_modelo: p.step4?.modelo || "",
+        vehiculo_color: p.step4?.color || "",
+        vehiculo_placas: p.step4?.placas || "",
+        vehiculo_hora_salida: p.step4?.hora_salida || ""
+      };
+      const res = await fetch(webAppUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (!json.ok) console.warn("[wizard] backend rechazó save_profile_only:", json.error);
+      else console.log("[wizard] perfil sincronizado:", json);
+    } catch (e) {
+      console.warn("[wizard] syncProfileToBackend_ error:", e);
     }
   }
   function showProfileCompleteModal(){
