@@ -1,15 +1,3 @@
-
-function actualizarStatusUI(idRegistro){
-  const card = document.querySelector(`[data-id='${idRegistro}']`);
-  if(!card) return;
-  const badge = card.querySelector('.status');
-  if(badge){
-    badge.className = 'status facturado';
-    badge.innerHTML = '🟢 Facturado';
-  }
-}
-
-function esFacturado(r){return ((r['Folio facturapi']||'').toString().trim()!=='');}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -334,7 +322,39 @@ function esFacturado(r){return ((r['Folio facturapi']||'').toString().trim()!=='
     @media (max-width: 560px){
       .summary-grid{grid-template-columns:1fr}
     }
+    /* ── Modo embebido (cuando viene de ticket-vision: ?source=control_huespedes) ── */
+    body.tv-embed .logo-wrap{display:none !important}
+    body.tv-embed{
+      --bg:#f8fafc;
+      --bg-soft:#f1f5f9;
+      --card:#ffffff;
+      --text:#1f2937;
+      --text-soft:#64748b;
+      --border:#e2e8f0;
+      --border-strong:#cbd5e1;
+      --primary:#334155;
+      --primary-strong:#1e293b;
+      --primary-soft:#f1f5f9;
+      --accent:#475569;
+      --shadow:0 4px 14px rgba(15,23,42,.08);
+    }
+    body.tv-embed{padding:14px 12px 28px;background:#f8fafc}
+    body.tv-embed .container{box-shadow:none;border:1px solid #e2e8f0}
   </style>
+  <script>
+    // Activa tema embed cuando viene desde el módulo Información de huéspedes
+    (function(){
+      try {
+        var p = new URLSearchParams(window.location.search);
+        if (p.get('source') === 'control_huespedes') {
+          document.documentElement.classList.add('tv-embed');
+          document.addEventListener('DOMContentLoaded', function(){
+            document.body.classList.add('tv-embed');
+          });
+        }
+      } catch(_) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="logo-wrap">
