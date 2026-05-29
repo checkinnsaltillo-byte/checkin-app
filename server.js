@@ -1,15 +1,3 @@
-
-function actualizarStatusUI(idRegistro){
-  const card = document.querySelector(`[data-id='${idRegistro}']`);
-  if(!card) return;
-  const badge = card.querySelector('.status');
-  if(badge){
-    badge.className = 'status facturado';
-    badge.innerHTML = '🟢 Facturado';
-  }
-}
-
-function esFacturado(r){return ((r['Folio facturapi']||'').toString().trim()!=='');}
 import express from "express";
 import dotenv from "dotenv";
 import crypto from "crypto";
