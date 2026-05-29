@@ -326,7 +326,8 @@ app.post("/api/create-receipt", async (req, res) => {
           record_id: recordId || "",
           row_number: rowNumber || "",
           external_id: externalId || "",
-          folio_facturapi: facturapiFolio
+          folio_facturapi: facturapiFolio,
+          monto_facturado: Number(quantity) || ""   // ← se persiste en "$ Monto facturado Total"
         };
         const data = await checkinFetchJson(resolvedCheckinUrl, {
           method: "POST",

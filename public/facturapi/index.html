@@ -1041,10 +1041,14 @@ URL de la factura: ${invoiceUrl}`;
         const data = await safeJson(res);
         if (!res.ok) throw new Error(data?.message || "No fue posible generar el ticket.");
 
+        // Folio: lo registramos como warning si falló, pero NO impedimos
+        // que el PDF preview/result se muestre (el ticket sí se generó en facturapi).
         if (data?.sheetUpdate?.ok) {
           appState.folioSaved = true;
         } else if (data?.sheetUpdateError) {
-          throw new Error(`Ticket generado pero no se pudo guardar el folio en Check in: ${data.sheetUpdateError}`);
+          appState.folioSaved = false;
+          appState.sheetUpdateWarning = `Ticket generado pero no se pudo guardar el folio en Check in: ${data.sheetUpdateError}`;
+          console.warn(appState.sheetUpdateWarning);
         }
 
         renderSummary(payload, data);
@@ -1063,7 +1067,12 @@ URL de la factura: ${invoiceUrl}`;
         els.result.style.display = "block";
         els.sendPanel.style.display = "block";
 
-        setStatus(`Ticket generado correctamente. Folio Facturapi: ${data?.receipt?.folio_number || data?.facturapiFolio || data?.sheetUpdate?.folio_facturapi || "—"}.`, "ok");
+        const folioMsg = `Ticket generado correctamente. Folio Facturapi: ${data?.receipt?.folio_number || data?.facturapiFolio || data?.sheetUpdate?.folio_facturapi || "—"}.`;
+        if (appState.sheetUpdateWarning) {
+          setStatus(`${folioMsg} ⚠ ${appState.sheetUpdateWarning}`, "warn");
+        } else {
+          setStatus(folioMsg, "ok");
+        }
       } catch (err) {
         setStatus(err.message || "Ocurrió un error.", "err");
       } finally {
