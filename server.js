@@ -366,6 +366,34 @@ app.post("/api/create-receipt", async (req, res) => {
       pdfDriveSaveError = String(savePdfErr?.message || savePdfErr);
     }
 
+    // Persistir el monto facturado total (= Cantidad del form, que viene del
+    // campo "(+) $ Monto facturado Total" de la card de Control de huéspedes)
+    // en la columna "$ Monto facturado Total" del sheet Reservaciones.
+    let montoFacturadoSave = null;
+    let montoFacturadoSaveError = null;
+    try {
+      const idForSave = recordId || (externalId ? String(externalId).replace(/^CHECKIN-/, "").trim() : "");
+      if (idForSave && quantity != null && Number(quantity) > 0) {
+        const data = await checkinFetchJson(resolvedCheckinUrl, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "update_facturado_total",
+            record_id: idForSave,
+            monto_facturado_total: String(quantity)
+          })
+        });
+        if (!data?.ok) {
+          throw new Error(data?.error || data?.message || "No se pudo guardar el monto facturado total.");
+        }
+        montoFacturadoSave = { ...data, checkinWebAppUrl: resolvedCheckinUrl };
+      } else if (!idForSave) {
+        montoFacturadoSaveError = "Falta record_id/externalId para guardar el Monto Facturado Total.";
+      }
+    } catch (saveMontoErr) {
+      montoFacturadoSaveError = String(saveMontoErr?.message || saveMontoErr);
+    }
+
     return res.json({
       ok: true,
       receipt,
@@ -378,6 +406,8 @@ app.post("/api/create-receipt", async (req, res) => {
       sheetUpdateError,
       pdfDriveSave,
       pdfDriveSaveError,
+      montoFacturadoSave,
+      montoFacturadoSaveError,
     });
   } catch (error) {
     return res.status(500).json({
