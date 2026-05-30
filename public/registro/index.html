@@ -4985,8 +4985,8 @@ body.has-session input[name="nombre"] {
     </div>
   </div>
 </div>
-<div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
-<img alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w1000" style="max-width:260px; width:70%; height:auto; display:inline-block;"/>
+<div class="page-logo-wrap" style="width:100%; text-align:center; margin:6px 0 4px;">
+<img class="page-logo-img" alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w1000" style="max-width:180px; width:48%; height:auto; display:inline-block;"/>
 </div>
 <div class="page-shell">
 <div class="container">
@@ -14911,6 +14911,70 @@ document.addEventListener("DOMContentLoaded", function(){
     bindFileInputs();
     startObserver();
     $('imageZoomCloseBtn')?.addEventListener('click', closeZoom);
+    // ─── Download + Share ───────────────────────────────────────
+    async function fetchAsBlob(src){
+      const r = await fetch(src, { mode: 'cors' });
+      if (!r.ok) throw new Error('No se pudo descargar la imagen.');
+      return await r.blob();
+    }
+    function guessFilename(src){
+      try {
+        const u = new URL(src, location.href);
+        const id = u.searchParams.get('id');
+        if (id) return `checkinn-${id}.png`;
+        const last = u.pathname.split('/').filter(Boolean).pop() || 'imagen';
+        return last.match(/\.[a-z]{2,4}$/i) ? last : `${last}.png`;
+      } catch { return 'imagen.png'; }
+    }
+    $('imageZoomDownloadBtn')?.addEventListener('click', async (ev) => {
+      ev.stopPropagation();
+      const src = $('imageZoomImg')?.src;
+      if (!src) return;
+      const name = guessFilename(src);
+      try {
+        const blob = await fetchAsBlob(src);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (err) {
+        // Fallback: abrir en nueva pestaña — el usuario puede usar "guardar como".
+        window.open(src, '_blank', 'noopener');
+      }
+    });
+    $('imageZoomShareBtn')?.addEventListener('click', async (ev) => {
+      ev.stopPropagation();
+      const src = $('imageZoomImg')?.src;
+      if (!src) return;
+      const name = guessFilename(src);
+      // Preferir Web Share API con file (iOS/Android nativos)
+      try {
+        if (navigator.canShare && window.File) {
+          const blob = await fetchAsBlob(src);
+          const file = new File([blob], name, { type: blob.type || 'image/png' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'Check-inn', text: 'Comprobante' });
+            return;
+          }
+        }
+        if (navigator.share) {
+          await navigator.share({ url: src, title: 'Check-inn', text: 'Comprobante' });
+          return;
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // usuario canceló
+      }
+      // Fallback final: copiar URL al clipboard
+      try {
+        await navigator.clipboard.writeText(src);
+        alert('No se pudo abrir el menú de compartir. La URL de la imagen se copió al portapapeles.');
+      } catch {
+        window.open(src, '_blank', 'noopener');
+      }
+    });
     $('imageZoomModal')?.addEventListener('click', (e) => {
       // Click sobre la imagen → toggle zoom in/out
       if (e.target.id === 'imageZoomImg') {
@@ -14976,7 +15040,11 @@ document.addEventListener("DOMContentLoaded", function(){
 
 <!-- ═══ Modal: Zoom de imagen ══════════════════════════════════════ -->
 <div class="popup-backdrop" id="imageZoomModal" style="display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.85);">
-  <button id="imageZoomCloseBtn" type="button" style="position:fixed;top:18px;right:18px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.95);color:#1f2937;border:none;font-size:22px;font-weight:800;cursor:pointer;box-shadow:0 8px 20px rgba(0,0,0,.3);margin:0;padding:0;z-index:1000001;line-height:1;">✕</button>
+  <div class="image-zoom-toolbar" style="position:fixed;top:18px;right:18px;display:flex;gap:10px;z-index:1000001;">
+    <button id="imageZoomDownloadBtn" type="button" class="image-zoom-tool-btn" title="Descargar imagen" aria-label="Descargar imagen">⬇</button>
+    <button id="imageZoomShareBtn" type="button" class="image-zoom-tool-btn" title="Compartir imagen" aria-label="Compartir imagen">⤴</button>
+    <button id="imageZoomCloseBtn" type="button" class="image-zoom-tool-btn" title="Cerrar" aria-label="Cerrar">✕</button>
+  </div>
   <img id="imageZoomImg" alt="" style="max-width:92vw;max-height:88vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);background:#fff;"/>
 </div>
 
@@ -16110,6 +16178,29 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   .veh-card-actions .veh-action-call:hover { background: #ea580c; }
   .veh-card-actions .veh-action-btn:active { transform: scale(.97); }
+
+  /* ─── Image zoom modal toolbar (Descargar + Compartir + Cerrar) ─── */
+  .image-zoom-tool-btn {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.95);
+    color: #1f2937;
+    border: none;
+    font-size: 18px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0,0,0,.3);
+    padding: 0; margin: 0;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform .15s var(--d2-ease), background .15s var(--d2-ease);
+  }
+  .image-zoom-tool-btn:hover { background: #fff; transform: translateY(-1px); }
+  .image-zoom-tool-btn:active { transform: scale(.94); }
+  /* Cursor zoom-in en la imagen también dentro de tickets/facturas */
+  .stays-invoice-thumb img { cursor: zoom-in; }
 </style>
 
 </body>
