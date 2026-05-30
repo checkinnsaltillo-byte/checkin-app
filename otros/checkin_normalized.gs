@@ -94,6 +94,7 @@ function doGet(e) {
     if (action === "get_record_detail") return jsonOutput_(getGuestRecordDetail_(e.parameter || {}));
     if (action === "debug_dashboard") return jsonOutput_(debugDashboard_());
     if (action === "get_next_facturapi_folio") return jsonOutput_(getNextFacturapiFolio_());
+    if (action === "update_reservacion_cell") return jsonOutput_(updateReservacionCell_(e.parameter || {}));
     return jsonOutput_({ ok: true, message: "Web app activo (normalizado)." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -666,6 +667,31 @@ function updateFacturadoTotal_(data) {
   if (!row) throw new Error("No se encontró la reservación.");
   setCellByHeader_(sheet, headers, row, "$ Monto facturado Total", normalized);
   return { ok: true, row_number: row, record_id: recordId, monto_facturado_total: normalized };
+}
+
+// Acción GET genérica para actualizar UNA celda de Reservaciones por record_id.
+// Uso: ?action=update_reservacion_cell&record_id=...&header=$%20MONTO%20TOTAL%20Airbnb&value=600
+// Es defensiva: si el header no existe en la hoja devuelve ok:false con detalle.
+function updateReservacionCell_(params) {
+  const recordId = safe_(params.record_id || params.id || params.row_id);
+  const headerName = safe_(params.header);
+  const rawValue = safe_(params.value);
+  if (!recordId) return { ok: false, error: "Falta record_id." };
+  if (!headerName) return { ok: false, error: "Falta header." };
+  const normalized = String(rawValue || "").trim();
+  if (normalized && isNaN(Number(normalized.replace(/,/g, "")))) {
+    return { ok: false, error: "Valor debe ser numérico.", header: headerName };
+  }
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  if (headers.indexOf(headerName) < 0) {
+    return { ok: false, error: "Header no encontrado en la hoja.", header: headerName, available: headers.filter(h => /airbnb|facturado/i.test(h)) };
+  }
+  let row = findRowByValue_(sheet, headers, "ID", recordId);
+  if (!row) row = findRowByRowNumber_(sheet, recordId);
+  if (!row) return { ok: false, error: "No se encontró la reservación.", record_id: recordId };
+  const written = setCellByHeader_(sheet, headers, row, headerName, normalized);
+  return { ok: written, record_id: recordId, row_number: row, header: headerName, value: normalized };
 }
 
 // Sincroniza los 3 campos del bloque Airbnb en una sola llamada:
