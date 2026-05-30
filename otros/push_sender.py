@@ -35,15 +35,28 @@ VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:correodeandrescarreon@gm
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+def _normalize_phone(s):
+    """Quita '+' y todo lo no-numérico para comparar phoneKeys robustamente."""
+    return "".join(c for c in str(s) if c.isdigit())
+
+
 def list_subscriptions(phone_key=None):
-    params = {"action": "list_push_subscriptions"}
-    if phone_key:
-        params["phoneKey"] = phone_key
-    r = requests.get(WEB_APP_URL, params=params, allow_redirects=True, timeout=30)
+    # Trae todas y filtra localmente — Sheets puede haber guardado el phoneKey
+    # como número (sin '+') al recibirlo del frontend.
+    r = requests.get(WEB_APP_URL, params={"action": "list_push_subscriptions"},
+                     allow_redirects=True, timeout=30)
     data = r.json()
     if not data.get("ok"):
         raise RuntimeError(f"list_push_subscriptions falló: {data}")
-    return data.get("rows", [])
+    rows = data.get("rows", [])
+    # Coerce todo a string (Sheets devuelve números como int)
+    for row in rows:
+        for k in list(row.keys()):
+            row[k] = "" if row[k] is None else str(row[k])
+    if phone_key:
+        target = _normalize_phone(phone_key)
+        rows = [r for r in rows if _normalize_phone(r.get("phoneKey", "")) == target]
+    return rows
 
 
 def unregister(endpoint):
@@ -66,13 +79,11 @@ def send_one(sub, payload):
         "endpoint": endpoint,
         "keys": {"p256dh": sub["p256dh"], "auth": sub["auth"]},
     }
-    with open(VAPID_PRIVATE_PEM, "r") as f:
-        vapid_pem = f.read()
     try:
         webpush(
             subscription_info=subscription_info,
             data=json.dumps(payload),
-            vapid_private_key=vapid_pem,
+            vapid_private_key=VAPID_PRIVATE_PEM,   # path to .pem
             vapid_claims={"sub": VAPID_SUBJECT},
             ttl=86400,
         )
