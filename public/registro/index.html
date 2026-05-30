@@ -16270,6 +16270,64 @@ document.addEventListener("DOMContentLoaded", function(){
   .image-zoom-tool-btn:active { transform: scale(.94); }
   /* Cursor zoom-in en la imagen también dentro de tickets/facturas */
   .stays-invoice-thumb img { cursor: zoom-in; }
+
+  /* ─── Stays card unificada con auth-bigbtn ──────────────────────────
+     "Tus estancias" debe verse igual a "Registro de nueva reservación" y
+     "Información de vehículos" (mismo border, padding del header,
+     radius y ancho). Al desplegarse el body conserva el mismo width. */
+  .stays-card.stays-card-collapsible {
+    background: var(--d2-surface) !important;
+    border: 1px solid var(--d2-border) !important;
+    border-radius: var(--d2-radius-lg) !important;
+    box-shadow: var(--d2-shadow-xs) !important;
+    overflow: hidden;
+    margin-top: 14px !important;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .stays-card-collapsible > .stays-card-header {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 18px 20px !important;
+    transition: background .15s var(--d2-ease) !important;
+  }
+  .stays-card-collapsible > .stays-card-header:hover {
+    background: var(--d2-surface-soft) !important;
+    filter: none !important;
+  }
+  .stays-card-collapsible:not(.open) > .stays-card-header {
+    border-radius: var(--d2-radius-lg) !important;
+  }
+  .stays-card-title {
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.015em !important;
+    color: var(--d2-fg) !important;
+    margin: 0 !important;
+  }
+  .stays-card-subtitle {
+    font-size: 13px !important;
+    color: var(--d2-fg-soft) !important;
+    margin: 2px 0 0 !important;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+  .stays-card-chevron {
+    color: var(--d2-fg-muted) !important;
+    font-size: 16px !important;
+  }
+  .stays-card-collapsible > .stays-card-body {
+    padding: 0 20px 20px;
+    box-sizing: border-box;
+    width: 100%;
+  }
+  /* La tabla de estancias tiene scroll horizontal interno cuando no
+     cabe; el card padre conserva el ancho del welcome/auth-bigbtn. */
+  .stays-card-collapsible .stays-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 </style>
 
 </body>
