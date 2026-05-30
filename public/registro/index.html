@@ -15568,18 +15568,16 @@ document.addEventListener("DOMContentLoaded", function(){
   });
 
   async function refreshAdminUi(){
-    if (!navAdmin) return;
-    const isAdmin = await isAdminUser();
-    navAdmin.hidden = !isAdmin;
+    // Desactivado temporalmente — el item "Mandar aviso (admin)" queda oculto.
+    if (navAdmin) navAdmin.hidden = true;
   }
 
   // Refrescar UI cuando se abre el menú o cambia la sesión
   document.getElementById("navOpenBtn")?.addEventListener("click", async () => {
     await refreshPushUi();
     await refreshAdminUi();
-    // navCats visible solo cuando hay subscripción activa
-    const sub = await getCurrentSubscription();
-    if (navCats) navCats.hidden = !(sub && Notification.permission === "granted");
+    // "Categorías de avisos" desactivado temporalmente — siempre oculto.
+    if (navCats) navCats.hidden = true;
   });
   window.addEventListener("storage", (e) => {
     if (e.key === "checkinn_session_v1") { refreshPushUi(); refreshAdminUi(); }
