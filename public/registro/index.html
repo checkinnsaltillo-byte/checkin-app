@@ -15601,6 +15601,363 @@ document.addEventListener("DOMContentLoaded", function(){
 })();
 </script>
 
+<!-- ═══════════════════════════════════════════════════════════════════════
+     DESIGN v2 — Refresh global tipo Apple
+     Tipografía SF Pro, paleta refinada, menos recuadros, más jerarquía
+     tipográfica y respiración. Aplica al final para sobreescribir lo previo.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<style id="design-v2">
+  :root {
+    --d2-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --d2-fg: #0a0a0a;
+    --d2-fg-soft: #4b5563;
+    --d2-fg-muted: #9ca3af;
+    --d2-bg: linear-gradient(180deg,#ffffff 0%, #f7f8fa 100%);
+    --d2-surface: #ffffff;
+    --d2-surface-soft: #f9fafb;
+    --d2-border: #ececef;
+    --d2-border-strong: #d1d5db;
+    --d2-accent: #dc2626;
+    --d2-accent-hover: #b91c1c;
+    --d2-accent-soft: #fef2f2;
+    --d2-success: #059669;
+    --d2-warning: #d97706;
+    --d2-info: #2563eb;
+    --d2-shadow-xs: 0 1px 2px rgba(15,23,42,.04);
+    --d2-shadow-sm: 0 2px 8px rgba(15,23,42,.05);
+    --d2-shadow: 0 6px 20px rgba(15,23,42,.07);
+    --d2-shadow-lg: 0 16px 40px rgba(15,23,42,.10);
+    --d2-radius-sm: 10px;
+    --d2-radius: 14px;
+    --d2-radius-lg: 20px;
+    --d2-radius-xl: 28px;
+    --d2-ease: cubic-bezier(.22,.61,.36,1);
+  }
+
+  /* ─── Tipografía global ─────────────────────────────────────── */
+  html, body {
+    font-family: var(--d2-font) !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "ss01","cv11","cv12","case";
+    letter-spacing: -0.011em;
+    color: var(--d2-fg);
+    background: var(--d2-bg);
+  }
+  h1, h2, h3, h4 {
+    letter-spacing: -0.024em;
+    font-weight: 700;
+    color: var(--d2-fg);
+  }
+  h1 { letter-spacing: -0.034em; font-weight: 800; }
+  #homeGreeting, #pageH1 {
+    text-transform: none !important;
+    font-size: clamp(26px, 5vw, 34px);
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+  }
+
+  /* ─── Top bar compacto ──────────────────────────────────────── */
+  .session-pill {
+    background: rgba(255,255,255,.7) !important;
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid rgba(15,23,42,.06) !important;
+    box-shadow: var(--d2-shadow-xs) !important;
+    border-radius: 999px !important;
+    font-size: 13px !important;
+  }
+  .session-pill button {
+    border-radius: 999px !important;
+  }
+  #navOpenBtn, .nav-trigger-btn {
+    background: rgba(255,255,255,.8) !important;
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid rgba(15,23,42,.06) !important;
+    box-shadow: var(--d2-shadow-xs) !important;
+  }
+
+  /* ─── Botón "Volver al inicio" inline en vez de full-width ── */
+  .back-home-btn {
+    display: inline-flex !important;
+    background: transparent !important;
+    color: var(--d2-fg-soft) !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 8px 12px !important;
+    border-radius: 10px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    width: auto !important;
+    margin: 8px 0 16px !important;
+    transition: background .15s var(--d2-ease), color .15s var(--d2-ease);
+  }
+  .back-home-btn:hover {
+    background: rgba(15,23,42,.04) !important;
+    color: var(--d2-fg) !important;
+  }
+
+  /* ─── Botón refresh: chico, inline ─────────────────────────── */
+  .page-refresh-btn {
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    border-radius: 999px !important;
+    border: 1px solid var(--d2-border) !important;
+    background: var(--d2-surface) !important;
+    box-shadow: var(--d2-shadow-xs) !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    margin: 0 !important;
+  }
+  .page-refresh-btn:hover {
+    background: var(--d2-surface-soft) !important;
+  }
+
+  /* ─── Secciones / cards principales ─────────────────────────── */
+  .view-panel .section,
+  .stays-card,
+  .profile-card {
+    background: var(--d2-surface) !important;
+    border: none !important;
+    box-shadow: var(--d2-shadow-sm) !important;
+    border-radius: var(--d2-radius-lg) !important;
+    padding: 22px 20px !important;
+  }
+  .section .section,
+  .stays-card .section,
+  .profile-card .section {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* ─── Profile card: filas como lista typográfica, no recuadros ── */
+  .profile-id-row {
+    background: transparent !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--d2-border) !important;
+    border-radius: 0 !important;
+    padding: 14px 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(110px, 1fr) 2fr !important;
+    align-items: baseline;
+    gap: 16px;
+  }
+  .profile-id-row:last-child { border-bottom: none !important; }
+  .profile-id-label {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    color: var(--d2-fg-muted) !important;
+  }
+  .profile-id-value {
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    color: var(--d2-fg) !important;
+    text-align: right;
+  }
+  .profile-id-value em,
+  .profile-id-value.por-capturar {
+    color: var(--d2-warning) !important;
+    font-style: normal !important;
+    font-weight: 500 !important;
+  }
+
+  /* ─── Card "Completa tu perfil": más suave ─────────────────── */
+  .profile-card[data-incomplete="1"],
+  .profile-card.incomplete {
+    background: linear-gradient(135deg, #fff7ed 0%, #fffbf3 100%) !important;
+    border: 1px solid #fed7aa !important;
+  }
+
+  /* ─── Inputs / selects estilo Apple iOS ───────────────────── */
+  input[type="text"], input[type="email"], input[type="tel"],
+  input[type="number"], input[type="date"], input[type="time"],
+  input[type="search"], input[type="password"],
+  select, textarea {
+    font-family: var(--d2-font) !important;
+    font-size: 16px !important;
+    background: var(--d2-surface) !important;
+    border: 1px solid var(--d2-border) !important;
+    border-radius: 12px !important;
+    padding: 13px 14px !important;
+    color: var(--d2-fg) !important;
+    transition: border-color .15s var(--d2-ease), box-shadow .15s var(--d2-ease), background .15s var(--d2-ease);
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none !important;
+    border-color: var(--d2-accent) !important;
+    box-shadow: 0 0 0 4px rgba(220,38,38,.10) !important;
+  }
+  label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--d2-fg-soft);
+    letter-spacing: -0.005em;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  /* ─── Botones primarios — micro-interacción ───────────────── */
+  button:not(.session-pill button):not(.nav-trigger-btn):not(#navOpenBtn):not(.page-refresh-btn):not(.back-home-btn):not(.auth-bigbtn):not(.veh-collapsible-trigger):not(.nav-close-btn):not(.preview-img-remove) {
+    font-family: var(--d2-font);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    transition: transform .15s var(--d2-ease), box-shadow .15s var(--d2-ease), background .15s var(--d2-ease);
+  }
+  button:active { transform: scale(.985); }
+
+  /* ─── auth-bigbtn ─────────────────────────────────────────── */
+  .auth-bigbtn {
+    background: var(--d2-surface) !important;
+    border: 1px solid var(--d2-border) !important;
+    box-shadow: var(--d2-shadow-xs) !important;
+    border-radius: var(--d2-radius-lg) !important;
+    padding: 18px 20px !important;
+    transition: transform .2s var(--d2-ease), box-shadow .2s var(--d2-ease), border-color .2s var(--d2-ease) !important;
+  }
+  .auth-bigbtn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--d2-shadow) !important;
+    border-color: var(--d2-border-strong) !important;
+  }
+  .auth-bigbtn-title { color: var(--d2-fg); letter-spacing: -0.015em; }
+  .auth-bigbtn-sub { color: var(--d2-fg-soft); opacity: 1; }
+  .auth-bigbtn.express-primary {
+    background: linear-gradient(135deg, #fff1f2 0%, #fef2f2 100%) !important;
+    border-color: #fecaca !important;
+  }
+  .auth-bigbtn.express-primary .auth-bigbtn-title { color: #991b1b; }
+  .auth-bigbtn.express-primary .auth-bigbtn-sub { color: #7f1d1d; opacity: 0.85; }
+
+  /* ─── KPIs ────────────────────────────────────────────────── */
+  .kpi-card {
+    background: var(--d2-surface) !important;
+    border: 1px solid var(--d2-border) !important;
+    box-shadow: var(--d2-shadow-xs) !important;
+    border-radius: var(--d2-radius) !important;
+  }
+  .kpi-value {
+    letter-spacing: -0.045em !important;
+    font-weight: 800 !important;
+    color: var(--d2-fg) !important;
+  }
+  .kpi-label {
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    color: var(--d2-fg-muted) !important;
+  }
+
+  /* ─── Wizard ──────────────────────────────────────────────── */
+  .wizard-step {
+    transition: background .25s var(--d2-ease), color .25s var(--d2-ease), transform .2s var(--d2-ease) !important;
+  }
+  .wizard-step.active {
+    transform: scale(1.05);
+    box-shadow: 0 4px 14px rgba(220,38,38,.25);
+  }
+  .wizard-step-pane h3.wizard-step-title {
+    font-size: 22px;
+    letter-spacing: -0.025em;
+    margin-bottom: 4px;
+  }
+  .wizard-step-subtitle {
+    color: var(--d2-fg-soft);
+    font-size: 14px;
+    margin-bottom: 18px;
+  }
+
+  /* ─── Upload boxes ────────────────────────────────────────── */
+  .upload-box, .custom-upload {
+    border: 1px dashed var(--d2-border-strong) !important;
+    border-radius: var(--d2-radius) !important;
+    background: var(--d2-surface-soft) !important;
+    transition: border-color .15s var(--d2-ease), background .15s var(--d2-ease);
+  }
+  .upload-box:hover, .custom-upload:hover {
+    border-color: var(--d2-accent) !important;
+    background: var(--d2-accent-soft) !important;
+  }
+
+  /* ─── Tabla estancias ─────────────────────────────────────── */
+  .stays-table th {
+    font-size: 11px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--d2-fg-muted) !important;
+    font-weight: 700 !important;
+  }
+  .stays-table td { font-size: 14px; color: var(--d2-fg); }
+
+  /* ─── Dashboard wrap ──────────────────────────────────────── */
+  .dashboard-wrap {
+    padding: 24px 18px !important;
+    max-width: 980px;
+    margin: 0 auto;
+  }
+  @media (max-width: 640px) {
+    .dashboard-wrap { padding: 18px 14px !important; }
+    .view-panel .section, .stays-card, .profile-card {
+      padding: 18px 16px !important;
+    }
+  }
+
+  /* ─── Sidebar nav ─────────────────────────────────────────── */
+  .nav-sidebar { background: var(--d2-surface) !important; }
+  .nav-item {
+    border-radius: 12px !important;
+    transition: background .15s var(--d2-ease) !important;
+  }
+  .nav-item:hover { background: var(--d2-surface-soft) !important; }
+  .nav-item-icon { width: 24px; text-align: center; }
+
+  /* ─── Animación entrada vistas ────────────────────────────── */
+  .view-panel:not(.hidden) > .section,
+  .view-panel:not(.hidden) > .dashboard-wrap > .section {
+    animation: d2FadeUp .35s var(--d2-ease) both;
+  }
+  @keyframes d2FadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .view-panel .section + .section { margin-top: 14px !important; }
+
+  /* ─── PWA install btn ─────────────────────────────────────── */
+  .pwa-install-btn {
+    background: var(--d2-surface-soft) !important;
+    border: 1px solid var(--d2-border) !important;
+    border-radius: var(--d2-radius) !important;
+    padding: 13px 18px !important;
+    font-weight: 600 !important;
+    transition: border-color .15s var(--d2-ease), background .15s var(--d2-ease) !important;
+  }
+  .pwa-install-btn:hover {
+    border-color: var(--d2-border-strong) !important;
+    background: var(--d2-surface) !important;
+  }
+
+  /* ─── Selección de texto ──────────────────────────────────── */
+  ::selection { background: rgba(220,38,38,.18); color: var(--d2-fg); }
+
+  /* ─── Modales: shadow rica, sin border ────────────────────── */
+  .popup-card,
+  .modal-content,
+  [id$="Modal"] > div:first-child {
+    border-radius: var(--d2-radius-xl) !important;
+    box-shadow: var(--d2-shadow-lg) !important;
+    border: 0 !important;
+  }
+</style>
+
 </body>
 </html>
 
