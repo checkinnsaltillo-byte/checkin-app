@@ -9280,7 +9280,7 @@ function buildTicketActionsHtml(row, ticketUrl){
           <div class="dashboard-monto-box dashboard-ticket-autofacturacion-box" onclick="event.stopPropagation();" data-monto-airbnb-box="${esReservaAirbnb ? '1' : '0'}">
             ${esReservaAirbnb ? `<div class="dashboard-airbnb-monto-wrap dashboard-campo-base-airbnb">
                 <div class="dashboard-airbnb-monto-label">(=) $ Monto total Airbnb</div>
-                <input type="number" step="0.01" min="0" class="dashboard-airbnb-monto-input" value="${escapeHtml(montoAirbnb)}" data-record-id="${recordId}" onclick="event.stopPropagation();" onkeydown="handleMontoAirbnbKeydown(event,this)" oninput="calcularMontoFacturadoDesdeAirbnb(this)" onblur="guardarMontoFacturadoDesdeAirbnb(this)">
+                <input type="number" step="0.01" min="0" class="dashboard-airbnb-monto-input" value="${escapeHtml(montoAirbnb)}" data-record-id="${recordId}" data-original-value="${escapeHtml(montoAirbnb)}" onclick="event.stopPropagation();" onkeydown="handleMontoAirbnbKeydown(event,this)" oninput="calcularMontoFacturadoDesdeAirbnb(this)" onblur="guardarMontoFacturadoDesdeAirbnb(this)">
                 <div class="dashboard-monto-hint">Base editable para calcular comisión y monto facturado.</div>
               </div>
               <div class="dashboard-airbnb-comision-wrap dashboard-campo-calculado-tenue">
@@ -10121,8 +10121,62 @@ function calcularMontoFacturadoDesdeAirbnb(inputAirbnb){
 
 function guardarMontoFacturadoDesdeAirbnb(inputAirbnb){
   calcularMontoFacturadoDesdeAirbnb(inputAirbnb);
+  // Sincroniza Total Airbnb + Comisión + Facturado en una sola llamada al backend
+  guardarMontosAirbnb(inputAirbnb);
+}
+
+async function guardarMontosAirbnb(inputAirbnb){
+  if (!inputAirbnb) return;
+  const recordId = String(inputAirbnb.dataset.recordId || '').trim();
+  if (!recordId) return;
+  const inputComision  = getComisionAirbnbInputDesdeAirbnb(inputAirbnb);
   const inputFacturado = getMontoFacturadoInputDesdeAirbnb(inputAirbnb);
-  if (inputFacturado) guardarMontoFacturadoTotal(inputFacturado);
+  const total    = String(inputAirbnb.value || '').trim();
+  const comision = String(inputComision?.value || '').trim();
+  const facturado = String(inputFacturado?.value || '').trim();
+  const original = String(inputAirbnb.dataset.originalValue || '').trim();
+  if (total === original || inputAirbnb.dataset.saving === '1') return;
+
+  inputAirbnb.dataset.saving = '1';
+  inputAirbnb.classList.remove('saved','error');
+  inputAirbnb.classList.add('saving');
+  if (inputFacturado) { inputFacturado.classList.remove('saved','error'); inputFacturado.classList.add('saving'); }
+  if (inputComision)  { inputComision.classList.remove('saved','error');  inputComision.classList.add('saving');  }
+
+  try {
+    const res = await fetch(WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'update_airbnb_amounts',
+        record_id: recordId,
+        monto_total_airbnb: total,
+        comision_airbnb: comision,
+        monto_facturado_total: facturado
+      })
+    });
+    const text = await res.text();
+    let json = {};
+    try { json = JSON.parse(text); } catch(e) { throw new Error('Respuesta inválida del servidor.'); }
+    if (!json.ok) throw new Error(json.error || json.message || 'No se pudieron actualizar los montos Airbnb.');
+    inputAirbnb.dataset.originalValue = total;
+    if (inputFacturado) inputFacturado.dataset.originalValue = facturado;
+    [inputAirbnb, inputComision, inputFacturado].forEach(el => {
+      if (!el) return;
+      el.classList.add('saved');
+      setTimeout(() => el.classList.remove('saved'), 1600);
+    });
+  } catch (err) {
+    [inputAirbnb, inputComision, inputFacturado].forEach(el => {
+      if (!el) return;
+      el.classList.add('error');
+      setTimeout(() => el.classList.remove('error'), 2200);
+    });
+    alert('Error al actualizar montos Airbnb: ' + err.message);
+  } finally {
+    inputAirbnb.dataset.saving = '0';
+    [inputAirbnb, inputComision, inputFacturado].forEach(el => el?.classList.remove('saving'));
+  }
 }
 
 function handleMontoAirbnbKeydown(event, input){

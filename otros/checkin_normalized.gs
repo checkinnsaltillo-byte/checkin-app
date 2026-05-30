@@ -76,6 +76,7 @@ function doPost(e) {
     if (action === "upload_profile_file") return jsonOutput_(saveProfileFile_(data));
     if (action === "migrate_phone") return jsonOutput_(migratePhone_(data));
     if (action === "update_facturado_total") return jsonOutput_(updateFacturadoTotal_(data));
+    if (action === "update_airbnb_amounts") return jsonOutput_(updateAirbnbAmounts_(data));
     if (action === "update_facturapi_folio") return jsonOutput_(updateFacturapiFolio_(data));
     if (action === "update_facturapi_folio_strict") return jsonOutput_(updateFacturapiFolioStrict_(data));
     if (action === "save_facturapi_pdf") return jsonOutput_(saveFacturapiPdf_(data));
@@ -665,6 +666,33 @@ function updateFacturadoTotal_(data) {
   if (!row) throw new Error("No se encontró la reservación.");
   setCellByHeader_(sheet, headers, row, "$ Monto facturado Total", normalized);
   return { ok: true, row_number: row, record_id: recordId, monto_facturado_total: normalized };
+}
+
+// Sincroniza los 3 campos del bloque Airbnb en una sola llamada:
+// "$ MONTO TOTAL Airbnb", "$ Comisión Airbnb" y "$ Monto facturado Total".
+function updateAirbnbAmounts_(data) {
+  const recordId = safe_(data.record_id || data.id || data.row_id);
+  if (!recordId) throw new Error("Falta record_id.");
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = findRowByValue_(sheet, headers, "ID", recordId);
+  if (!row) row = findRowByRowNumber_(sheet, recordId);
+  if (!row) throw new Error("No se encontró la reservación.");
+  const norm = v => {
+    const s = String(safe_(v) || "").trim();
+    if (s && isNaN(Number(s.replace(/,/g, "")))) throw new Error("Monto debe ser numérico.");
+    return s;
+  };
+  const total    = norm(data.monto_total_airbnb);
+  const comision = norm(data.comision_airbnb);
+  const facturado = norm(data.monto_facturado_total);
+  setCellByHeader_(sheet, headers, row, "$ MONTO TOTAL Airbnb", total);
+  setCellByHeader_(sheet, headers, row, "$ Comisión Airbnb", comision);
+  setCellByHeader_(sheet, headers, row, "$ Monto facturado Total", facturado);
+  return {
+    ok: true, row_number: row, record_id: recordId,
+    monto_total_airbnb: total, comision_airbnb: comision, monto_facturado_total: facturado
+  };
 }
 
 function updateFacturapiFolio_(data) {
