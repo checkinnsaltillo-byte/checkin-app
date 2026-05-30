@@ -99,17 +99,110 @@ def send_one(sub, payload):
         return False, f"error: {ex}"
 
 
+def list_pending():
+    r = requests.get(WEB_APP_URL, params={"action": "list_pending_notifications"},
+                     allow_redirects=True, timeout=30)
+    data = r.json()
+    if not data.get("ok"):
+        raise RuntimeError(f"list_pending_notifications falló: {data}")
+    return data.get("rows", [])
+
+
+def mark_processed(notification_id, status, error=""):
+    try:
+        requests.post(
+            WEB_APP_URL,
+            data=json.dumps({
+                "action": "mark_notification_processed",
+                "id": notification_id,
+                "status": status,
+                "error": error,
+            }),
+            headers={"Content-Type": "text/plain;charset=utf-8"},
+            allow_redirects=True, timeout=30,
+        )
+    except Exception as e:
+        print(f"  [warn] no se pudo marcar procesada: {e}", file=sys.stderr)
+
+
+def drain_queue():
+    """Procesa todas las notificaciones pendientes de la hoja Notifications_Queue."""
+    pending = list_pending()
+    print(f"Pendientes en cola: {len(pending)}")
+    if not pending:
+        return 0, 0
+    sent, failed = 0, 0
+    for n in pending:
+        target = (n.get("target") or "").strip()
+        category = (n.get("category") or "general").strip()
+        payload = {
+            "title": n.get("title", ""),
+            "body": n.get("body", ""),
+            "url": n.get("url") or "./",
+        }
+        if n.get("badge"):
+            try: payload["badgeCount"] = int(n["badge"])
+            except: pass
+        if n.get("tag"):
+            payload["tag"] = n["tag"]
+        # Resolver destinatarios
+        if target == "ALL" or target == "":
+            subs = list_subscriptions(None)
+        else:
+            subs = list_subscriptions(target)
+        # Filtrar por categoría (si la suscripción tiene categorías listadas)
+        def matches_cat(sub):
+            cats = (sub.get("categories") or "").strip()
+            if not cats: return True  # sin filtro = recibe todo
+            allowed = {c.strip().lower() for c in cats.split(",")}
+            return category.lower() in allowed
+        subs = [s for s in subs if matches_cat(s)]
+        if not subs:
+            mark_processed(n["id"], "sent", "0 destinatarios elegibles")
+            print(f"  · [{n['id'][:8]}] ningún destinatario elegible (target={target}, cat={category})")
+            continue
+        local_sent = 0
+        last_err = ""
+        for sub in subs:
+            ok, err = send_one(sub, payload)
+            if ok: local_sent += 1
+            else: last_err = err
+        if local_sent > 0:
+            mark_processed(n["id"], "sent", f"{local_sent}/{len(subs)} enviados")
+            sent += 1
+            print(f"  ✓ [{n['id'][:8]}] {local_sent}/{len(subs)} entregados (cat={category})")
+        else:
+            mark_processed(n["id"], "failed", last_err or "0 enviados")
+            failed += 1
+            print(f"  ✗ [{n['id'][:8]}] fallido: {last_err}")
+        time.sleep(0.05)
+    return sent, failed
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--phone", help="phoneKey objetivo, ej. +528115569120")
     g.add_argument("--all", action="store_true", help="enviar a TODAS las suscripciones")
-    p.add_argument("--title", required=True, help="Título de la notificación")
-    p.add_argument("--body", required=True, help="Cuerpo de la notificación")
+    g.add_argument("--drain", action="store_true", help="procesar la cola Notifications_Queue (todos los pendientes)")
+    p.add_argument("--title", help="Título de la notificación (no requerido con --drain)")
+    p.add_argument("--body", help="Cuerpo de la notificación (no requerido con --drain)")
     p.add_argument("--url", default="./", help="URL que abre al hacer click (default: ./)")
     p.add_argument("--badge", type=int, default=None, help="Número del badge rojo en el ícono")
     p.add_argument("--tag", default=None, help="Tag para reemplazar notificaciones del mismo tipo")
     args = p.parse_args()
+
+    if args.drain:
+        if not os.path.exists(VAPID_PRIVATE_PEM):
+            print(f"ERROR: no encuentro {VAPID_PRIVATE_PEM}", file=sys.stderr)
+            sys.exit(1)
+        sent, failed = drain_queue()
+        print(f"\nResumen drain: {sent} notificaciones enviadas, {failed} fallidas.")
+        return
+
+    if not args.title or not args.body:
+        print("ERROR: --title y --body son requeridos (excepto en --drain)", file=sys.stderr)
+        sys.exit(2)
 
     if not os.path.exists(VAPID_PRIVATE_PEM):
         print(f"ERROR: no encuentro {VAPID_PRIVATE_PEM}", file=sys.stderr)

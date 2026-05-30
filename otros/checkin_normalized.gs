@@ -24,7 +24,14 @@ const RESERVACIONES_SHEET = "Reservaciones";
 const LEGACY_SHEET = "Check in";
 const LEGACY_ARCHIVE = "Check in (archivo)";
 const PUSH_SUBS_SHEET = "Push_Subscriptions";
-const PUSH_SUBS_HEADERS = ["phoneKey","endpoint","p256dh","auth","ua","created_at","updated_at","badge_count","last_sent_at"];
+const PUSH_SUBS_HEADERS = ["phoneKey","endpoint","p256dh","auth","ua","created_at","updated_at","badge_count","last_sent_at","categories"];
+const PUSH_QUEUE_SHEET = "Notifications_Queue";
+const PUSH_QUEUE_HEADERS = ["id","target","category","title","body","badge","url","tag","status","error","created_at","processed_at","source"];
+// Categorías de avisos disponibles
+const PUSH_CATEGORIES = ["reservaciones","facturas","recordatorios","general"];
+// phoneKey del admin — quien puede mandar avisos y ver el panel admin del portal.
+// Cambiar si la cuenta admin cambia.
+const ADMIN_PHONE_KEY = "528115569120";
 // Clave pública VAPID (segura para exponer al cliente)
 const VAPID_PUBLIC_KEY = "BH0SFnFLetMhyFlMaSFfl2ZfH-UYcuIvEQze-kPOcKGukvB4PmDW_Pu4WAe0zkpwYz3ks7oLHE7UGSI7QVOAb74";
 
@@ -88,6 +95,9 @@ function doPost(e) {
     if (action === "save_facturapi_pdf") return jsonOutput_(saveFacturapiPdf_(data));
     if (action === "register_push_subscription") return jsonOutput_(registerPushSubscription_(data));
     if (action === "unregister_push_subscription") return jsonOutput_(unregisterPushSubscription_(data));
+    if (action === "update_push_categories") return jsonOutput_(updatePushCategories_(data));
+    if (action === "queue_notification") return jsonOutput_(queueNotification_(data));
+    if (action === "mark_notification_processed") return jsonOutput_(markNotificationProcessed_(data));
     return jsonOutput_({ ok: false, error: "Acción no reconocida." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -106,6 +116,9 @@ function doGet(e) {
     if (action === "get_vapid_public_key") return jsonOutput_({ ok: true, key: VAPID_PUBLIC_KEY });
     if (action === "list_push_subscriptions") return jsonOutput_(listPushSubscriptions_(e.parameter || {}));
     if (action === "send_push_to_user") return jsonOutput_(sendPushToUserFromAppsScript_(e.parameter || {}));
+    if (action === "list_pending_notifications") return jsonOutput_(listPendingNotifications_(e.parameter || {}));
+    if (action === "get_push_categories") return jsonOutput_({ ok: true, categories: PUSH_CATEGORIES });
+    if (action === "is_admin") return jsonOutput_({ ok: true, isAdmin: String((e.parameter||{}).phoneKey||"").replace(/\D/g,"") === ADMIN_PHONE_KEY });
     return jsonOutput_({ ok: true, message: "Web app activo (normalizado)." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -405,6 +418,22 @@ function saveFormRecord_(data) {
   const perfilResult = upsertPerfil_(data, cel);
   const vehiculoResult = upsertVehiculo_(data, cel);
   const reservacionResult = insertReservacion_(data, cel, vehiculoResult.id_vehiculo);
+  // Auto-push al huésped: "Reservación recibida"
+  try {
+    const phoneKey = normalizePhone_(cel);
+    if (phoneKey) {
+      const nombreReservante = safe_(data.nombre || "").trim().split(" ")[0] || "huésped";
+      queueNotification_({
+        target: phoneKey,
+        category: "reservaciones",
+        title: "Reservación recibida ✓",
+        body: `¡Gracias ${nombreReservante}! Procesaremos tu solicitud y te avisaremos cuando esté lista.`,
+        url: "./",
+        tag: "reservacion-" + reservacionResult.record_id,
+        source: "auto:submit_form"
+      });
+    }
+  } catch(e) { Logger.log("[auto-push submit_form] " + e); }
   return {
     ok: true,
     record_id: reservacionResult.record_id,
@@ -1493,7 +1522,15 @@ function ensurePushSubsSheet_() {
   if (!sh) {
     sh = ss.insertSheet(PUSH_SUBS_SHEET);
     sh.appendRow(PUSH_SUBS_HEADERS);
+    return sh;
   }
+  // Migración: agregar columnas faltantes al final si la hoja es antigua.
+  const existing = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0];
+  PUSH_SUBS_HEADERS.forEach(h => {
+    if (existing.indexOf(h) < 0) {
+      sh.getRange(1, sh.getLastColumn() + 1).setValue(h);
+    }
+  });
   return sh;
 }
 
@@ -1589,4 +1626,164 @@ function sendPushToUserFromAppsScript_(params) {
     error: "El envío de push requiere firma ECDSA VAPID. Usa otros/push_sender.py.",
     hint: "Apps Script no soporta ECDSA. Lee la hoja " + PUSH_SUBS_SHEET + " y envía con web-push (Python o Node)."
   };
+}
+
+// Actualiza las categorías de aviso de un usuario (CSV, ej. "reservaciones,facturas").
+function updatePushCategories_(data) {
+  const phoneKey = String(safe_(data.phoneKey || "")).replace(/\D/g, "");
+  const cats = safe_(data.categories || "").trim();
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  const sh = ensurePushSubsSheet_();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: true, updated: 0 };
+  const data2 = sh.getRange(1, 1, lastRow, PUSH_SUBS_HEADERS.length).getValues();
+  const headers = data2[0];
+  const idxPhone = headers.indexOf("phoneKey");
+  const idxCats = headers.indexOf("categories");
+  if (idxPhone < 0 || idxCats < 0) return { ok: false, error: "Hoja sin columnas requeridas." };
+  let updated = 0;
+  for (let i = 1; i < data2.length; i++) {
+    if (String(data2[i][idxPhone]).replace(/\D/g, "") === phoneKey) {
+      sh.getRange(i + 1, idxCats + 1).setValue(cats);
+      updated++;
+    }
+  }
+  return { ok: true, updated };
+}
+
+// ═══ Cola de notificaciones ═══════════════════════════════════════════════════
+function ensureQueueSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sh = ss.getSheetByName(PUSH_QUEUE_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(PUSH_QUEUE_SHEET);
+    sh.appendRow(PUSH_QUEUE_HEADERS);
+  }
+  return sh;
+}
+
+// Encola una notificación. target puede ser "ALL" o un phoneKey (dígitos).
+// Args: { target, category, title, body, badge?, url?, tag?, source? }
+function queueNotification_(data) {
+  const target = safe_(data.target || "").replace(/\D/g, "") || "ALL";
+  const category = safe_(data.category || "general");
+  const title = safe_(data.title || "").trim();
+  const body = safe_(data.body || "").trim();
+  if (!title || !body) return { ok: false, error: "Falta title/body." };
+  if (PUSH_CATEGORIES.indexOf(category) < 0) {
+    return { ok: false, error: "Categoría inválida: " + category };
+  }
+  const sh = ensureQueueSheet_();
+  const id = Utilities.getUuid();
+  const row = {
+    id,
+    target: data.target === "ALL" ? "ALL" : target,
+    category,
+    title, body,
+    badge: data.badge != null ? String(data.badge) : "",
+    url: safe_(data.url || ""),
+    tag: safe_(data.tag || ""),
+    status: "pending",
+    error: "",
+    created_at: new Date().toISOString(),
+    processed_at: "",
+    source: safe_(data.source || "manual")
+  };
+  sh.appendRow(PUSH_QUEUE_HEADERS.map(h => row[h] != null ? row[h] : ""));
+  return { ok: true, id, queued: 1 };
+}
+
+// Lista notificaciones pendientes (las que el sender debe procesar).
+function listPendingNotifications_(params) {
+  const sh = ensureQueueSheet_();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: true, rows: [] };
+  const data = sh.getRange(1, 1, lastRow, PUSH_QUEUE_HEADERS.length).getValues();
+  const headers = data[0];
+  const rows = data.slice(1).map(r => {
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = r[i] == null ? "" : String(r[i]));
+    return obj;
+  }).filter(r => r.status === "pending");
+  const limit = Math.min(parseInt(params.limit || "200", 10), 500);
+  return { ok: true, rows: rows.slice(0, limit), total: rows.length };
+}
+
+// Marca una notificación como procesada (sent / failed).
+function markNotificationProcessed_(data) {
+  const id = safe_(data.id || "").trim();
+  const status = safe_(data.status || "sent").trim();
+  const error = safe_(data.error || "").trim();
+  if (!id) return { ok: false, error: "Falta id." };
+  const sh = ensureQueueSheet_();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: false, error: "Cola vacía." };
+  const idxId = PUSH_QUEUE_HEADERS.indexOf("id");
+  const idxStatus = PUSH_QUEUE_HEADERS.indexOf("status");
+  const idxError = PUSH_QUEUE_HEADERS.indexOf("error");
+  const idxProc = PUSH_QUEUE_HEADERS.indexOf("processed_at");
+  const col = sh.getRange(2, idxId + 1, lastRow - 1, 1).getValues();
+  for (let i = 0; i < col.length; i++) {
+    if (String(col[i][0]).trim() === id) {
+      const r = i + 2;
+      sh.getRange(r, idxStatus + 1).setValue(status);
+      sh.getRange(r, idxError + 1).setValue(error);
+      sh.getRange(r, idxProc + 1).setValue(new Date().toISOString());
+      return { ok: true, updated: 1, id };
+    }
+  }
+  return { ok: false, error: "id no encontrado.", id };
+}
+
+// ═══ Menú custom en la hoja para enviar avisos desde Sheets ═══════════════════
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu("🔔 Avisos")
+    .addItem("Enviar a un usuario…", "menuSendToUser_")
+    .addItem("Enviar a TODOS los suscritos…", "menuSendToAll_")
+    .addSeparator()
+    .addItem("Ver pendientes en cola", "menuShowPending_")
+    .addToUi();
+}
+function menuSendToUser_() {
+  const ui = SpreadsheetApp.getUi();
+  const r1 = ui.prompt("Destinatario", "phoneKey (solo dígitos, ej. 528115569120):", ui.ButtonSet.OK_CANCEL);
+  if (r1.getSelectedButton() !== ui.Button.OK) return;
+  const phone = r1.getResponseText().trim();
+  if (!phone) return;
+  const r2 = ui.prompt("Categoría", "reservaciones | facturas | recordatorios | general", ui.ButtonSet.OK_CANCEL);
+  if (r2.getSelectedButton() !== ui.Button.OK) return;
+  const category = r2.getResponseText().trim() || "general";
+  const r3 = ui.prompt("Título", "Título corto de la notificación:", ui.ButtonSet.OK_CANCEL);
+  if (r3.getSelectedButton() !== ui.Button.OK) return;
+  const title = r3.getResponseText().trim();
+  const r4 = ui.prompt("Cuerpo", "Mensaje:", ui.ButtonSet.OK_CANCEL);
+  if (r4.getSelectedButton() !== ui.Button.OK) return;
+  const body = r4.getResponseText().trim();
+  const res = queueNotification_({ target: phone, category, title, body, source: "sheets-menu" });
+  ui.alert(res.ok
+    ? "✓ Encolada (id " + res.id + ").\nCorre 'python3 otros/push_sender.py --drain' para enviar."
+    : "Error: " + (res.error || "desconocido"));
+}
+function menuSendToAll_() {
+  const ui = SpreadsheetApp.getUi();
+  const r2 = ui.prompt("Categoría", "reservaciones | facturas | recordatorios | general", ui.ButtonSet.OK_CANCEL);
+  if (r2.getSelectedButton() !== ui.Button.OK) return;
+  const category = r2.getResponseText().trim() || "general";
+  const r3 = ui.prompt("Título", "Título corto:", ui.ButtonSet.OK_CANCEL);
+  if (r3.getSelectedButton() !== ui.Button.OK) return;
+  const title = r3.getResponseText().trim();
+  const r4 = ui.prompt("Cuerpo", "Mensaje:", ui.ButtonSet.OK_CANCEL);
+  if (r4.getSelectedButton() !== ui.Button.OK) return;
+  const body = r4.getResponseText().trim();
+  const res = queueNotification_({ target: "ALL", category, title, body, source: "sheets-menu" });
+  ui.alert(res.ok
+    ? "✓ Encolada para TODOS (id " + res.id + ").\nCorre 'python3 otros/push_sender.py --drain' para enviar."
+    : "Error: " + (res.error || "desconocido"));
+}
+function menuShowPending_() {
+  const list = listPendingNotifications_({ limit: "20" });
+  SpreadsheetApp.getUi().alert("Pendientes: " + list.total + (list.total
+    ? "\n\nEjecuta: python3 otros/push_sender.py --drain"
+    : ""));
 }

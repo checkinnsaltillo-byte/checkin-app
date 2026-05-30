@@ -4940,8 +4940,56 @@ body.has-session input[name="nombre"] {
       <span class="nav-item-icon">🔔</span>
       <span id="navPushLabel">Activar avisos</span>
     </li>
+    <li class="nav-item" id="navItemPushCategories" hidden>
+      <span class="nav-item-icon">⚙️</span>
+      <span>Categorías de avisos</span>
+    </li>
+    <li class="nav-item" id="navItemAdminPush" hidden>
+      <span class="nav-item-icon">📢</span>
+      <span>Mandar aviso (admin)</span>
+    </li>
   </ul>
 </aside>
+<!-- ═══ Modal: Categorías de avisos ═══════════════════════════════════════ -->
+<div id="pushCatsModal" role="dialog" aria-modal="true" style="position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.55);padding:18px;">
+  <div style="background:#fff;border-radius:18px;max-width:420px;width:100%;padding:22px;box-shadow:0 30px 80px rgba(15,23,42,.32);">
+    <h3 style="margin:0 0 8px;font-size:18px;font-weight:800;">Categorías de avisos</h3>
+    <p style="font-size:13px;color:#475569;margin-bottom:14px;">Elige qué tipo de avisos quieres recibir en este dispositivo.</p>
+    <div id="pushCatsList" style="display:grid;gap:10px;margin-bottom:18px;"></div>
+    <div style="display:flex;gap:10px;">
+      <button type="button" id="pushCatsCancelBtn" style="flex:1;padding:11px;border-radius:12px;background:#e2e8f0;color:#0f172a;font-weight:700;border:0;cursor:pointer;">Cancelar</button>
+      <button type="button" id="pushCatsSaveBtn" style="flex:1;padding:11px;border-radius:12px;background:#dc2626;color:#fff;font-weight:700;border:0;cursor:pointer;">Guardar</button>
+    </div>
+  </div>
+</div>
+<!-- ═══ Modal: Mandar aviso (admin) ═══════════════════════════════════════ -->
+<div id="adminPushModal" role="dialog" aria-modal="true" style="position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.55);padding:18px;">
+  <div style="background:#fff;border-radius:18px;max-width:480px;width:100%;padding:22px;box-shadow:0 30px 80px rgba(15,23,42,.32);max-height:92vh;overflow-y:auto;">
+    <h3 style="margin:0 0 8px;font-size:18px;font-weight:800;">Mandar aviso</h3>
+    <p style="font-size:13px;color:#475569;margin-bottom:14px;">Se encola en la hoja Notifications_Queue y se envía al ejecutar <code>push_sender.py --drain</code>.</p>
+    <label style="font-size:12px;font-weight:700;color:#0f172a;">Destinatario</label>
+    <select id="adminPushTarget" style="width:100%;padding:10px;border-radius:10px;border:1px solid #cbd5e1;margin-bottom:12px;font-size:14px;">
+      <option value="ALL">Todos los suscritos</option>
+    </select>
+    <label style="font-size:12px;font-weight:700;color:#0f172a;">Categoría</label>
+    <select id="adminPushCategory" style="width:100%;padding:10px;border-radius:10px;border:1px solid #cbd5e1;margin-bottom:12px;font-size:14px;">
+      <option value="general">general</option>
+      <option value="reservaciones">reservaciones</option>
+      <option value="facturas">facturas</option>
+      <option value="recordatorios">recordatorios</option>
+    </select>
+    <label style="font-size:12px;font-weight:700;color:#0f172a;">Título</label>
+    <input id="adminPushTitle" type="text" maxlength="80" placeholder="Ej. Tu factura está lista" style="width:100%;padding:10px;border-radius:10px;border:1px solid #cbd5e1;margin-bottom:12px;font-size:14px;box-sizing:border-box;"/>
+    <label style="font-size:12px;font-weight:700;color:#0f172a;">Mensaje</label>
+    <textarea id="adminPushBody" rows="3" maxlength="200" placeholder="Mensaje que verá el destinatario" style="width:100%;padding:10px;border-radius:10px;border:1px solid #cbd5e1;margin-bottom:12px;font-size:14px;box-sizing:border-box;resize:vertical;"></textarea>
+    <label style="font-size:12px;font-weight:700;color:#0f172a;">Badge (opcional)</label>
+    <input id="adminPushBadge" type="number" min="0" placeholder="0 = sin punto rojo" style="width:100%;padding:10px;border-radius:10px;border:1px solid #cbd5e1;margin-bottom:18px;font-size:14px;box-sizing:border-box;"/>
+    <div style="display:flex;gap:10px;">
+      <button type="button" id="adminPushCancelBtn" style="flex:1;padding:11px;border-radius:12px;background:#e2e8f0;color:#0f172a;font-weight:700;border:0;cursor:pointer;">Cancelar</button>
+      <button type="button" id="adminPushSendBtn" style="flex:1;padding:11px;border-radius:12px;background:#dc2626;color:#fff;font-weight:700;border:0;cursor:pointer;">Encolar y enviar</button>
+    </div>
+  </div>
+</div>
 <div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
 <img alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w1000" style="max-width:260px; width:70%; height:auto; display:inline-block;"/>
 </div>
@@ -15404,15 +15452,142 @@ document.addEventListener("DOMContentLoaded", function(){
     }
   });
 
+  // ═══ Categorías de avisos ═══
+  const PUSH_CATEGORIES = ["reservaciones","facturas","recordatorios","general"];
+  const PUSH_CAT_LABELS = {
+    reservaciones: "Reservaciones (creadas, confirmadas)",
+    facturas: "Facturas y tickets",
+    recordatorios: "Recordatorios de check-in/out",
+    general: "Anuncios generales"
+  };
+  const navCats = document.getElementById("navItemPushCategories");
+  const catsModal = document.getElementById("pushCatsModal");
+  const catsList = document.getElementById("pushCatsList");
+
+  function getEnabledCategories(){
+    const raw = localStorage.getItem("checkinn_push_categories");
+    if (raw === null) return [...PUSH_CATEGORIES];  // default: todas
+    return raw.split(",").map(s => s.trim()).filter(Boolean);
+  }
+  function openCatsModal(){
+    if (!catsList) return;
+    const enabled = new Set(getEnabledCategories());
+    catsList.innerHTML = PUSH_CATEGORIES.map(c => `
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f8fafc;border-radius:10px;cursor:pointer;">
+        <input type="checkbox" data-cat="${c}" ${enabled.has(c) ? "checked" : ""} style="width:18px;height:18px;cursor:pointer;"/>
+        <span style="font-size:14px;color:#0f172a;">${PUSH_CAT_LABELS[c]}</span>
+      </label>
+    `).join("");
+    catsModal.style.display = "flex";
+  }
+  function closeCatsModal(){ if (catsModal) catsModal.style.display = "none"; }
+  document.getElementById("pushCatsCancelBtn")?.addEventListener("click", closeCatsModal);
+  document.getElementById("pushCatsSaveBtn")?.addEventListener("click", async () => {
+    const checks = Array.from(catsList.querySelectorAll('input[type="checkbox"]'));
+    const enabled = checks.filter(c => c.checked).map(c => c.dataset.cat);
+    localStorage.setItem("checkinn_push_categories", enabled.join(","));
+    const phoneKey = getPhoneKey();
+    if (phoneKey) {
+      await postBackend("update_push_categories", {
+        phoneKey: phoneKey.replace(/\D/g, ""),
+        categories: enabled.join(",")
+      });
+    }
+    closeCatsModal();
+    alert("Preferencias guardadas. Recibirás solo los avisos seleccionados.");
+  });
+  navCats?.addEventListener("click", () => {
+    document.getElementById("navSidebar")?.classList.remove("open");
+    document.getElementById("navOverlay")?.classList.remove("open");
+    document.body.style.overflow = "";
+    openCatsModal();
+  });
+
+  // ═══ Admin: mandar aviso desde el portal ═══
+  const navAdmin = document.getElementById("navItemAdminPush");
+  const adminModal = document.getElementById("adminPushModal");
+  const adminTarget = document.getElementById("adminPushTarget");
+
+  async function isAdminUser(){
+    const phoneKey = getPhoneKey();
+    if (!phoneKey) return false;
+    try {
+      const url = `${WEB_APP_URL}?action=is_admin&phoneKey=${encodeURIComponent(phoneKey.replace(/\D/g,""))}`;
+      const r = await fetch(url);
+      const j = await r.json();
+      return !!j.isAdmin;
+    } catch(_e){ return false; }
+  }
+  async function loadAdminSubscriptionList(){
+    if (!adminTarget) return;
+    try {
+      const r = await fetch(`${WEB_APP_URL}?action=list_push_subscriptions`);
+      const j = await r.json();
+      if (!j.ok) return;
+      adminTarget.innerHTML = '<option value="ALL">Todos los suscritos</option>';
+      const seen = new Set();
+      (j.rows || []).forEach(row => {
+        const pk = String(row.phoneKey || "").replace(/\D/g,"");
+        if (!pk || seen.has(pk)) return;
+        seen.add(pk);
+        const opt = document.createElement("option");
+        opt.value = pk;
+        opt.textContent = `+${pk}`;
+        adminTarget.appendChild(opt);
+      });
+    } catch(_e){}
+  }
+  function closeAdminModal(){ if (adminModal) adminModal.style.display = "none"; }
+  document.getElementById("adminPushCancelBtn")?.addEventListener("click", closeAdminModal);
+  document.getElementById("adminPushSendBtn")?.addEventListener("click", async () => {
+    const target = adminTarget.value;
+    const category = document.getElementById("adminPushCategory").value;
+    const title = document.getElementById("adminPushTitle").value.trim();
+    const body = document.getElementById("adminPushBody").value.trim();
+    const badge = document.getElementById("adminPushBadge").value.trim();
+    if (!title || !body) { alert("Título y mensaje son obligatorios."); return; }
+    const res = await postBackend("queue_notification", {
+      target, category, title, body,
+      badge: badge ? Number(badge) : undefined,
+      source: "portal-admin"
+    });
+    if (res && res.ok) {
+      alert(`✓ Encolada (id ${res.id.slice(0,8)}).\nEjecuta:\npython3 otros/push_sender.py --drain\nen tu Mac para enviar.`);
+      closeAdminModal();
+    } else {
+      alert("Error: " + (res && res.error || "desconocido"));
+    }
+  });
+  navAdmin?.addEventListener("click", async () => {
+    document.getElementById("navSidebar")?.classList.remove("open");
+    document.getElementById("navOverlay")?.classList.remove("open");
+    document.body.style.overflow = "";
+    await loadAdminSubscriptionList();
+    adminModal.style.display = "flex";
+    setTimeout(() => document.getElementById("adminPushTitle")?.focus(), 100);
+  });
+
+  async function refreshAdminUi(){
+    if (!navAdmin) return;
+    const isAdmin = await isAdminUser();
+    navAdmin.hidden = !isAdmin;
+  }
+
   // Refrescar UI cuando se abre el menú o cambia la sesión
-  document.getElementById("navOpenBtn")?.addEventListener("click", refreshPushUi);
+  document.getElementById("navOpenBtn")?.addEventListener("click", async () => {
+    await refreshPushUi();
+    await refreshAdminUi();
+    // navCats visible solo cuando hay subscripción activa
+    const sub = await getCurrentSubscription();
+    if (navCats) navCats.hidden = !(sub && Notification.permission === "granted");
+  });
   window.addEventListener("storage", (e) => {
-    if (e.key === "checkinn_session_v1") refreshPushUi();
+    if (e.key === "checkinn_session_v1") { refreshPushUi(); refreshAdminUi(); }
   });
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", refreshPushUi);
+    document.addEventListener("DOMContentLoaded", () => { refreshPushUi(); refreshAdminUi(); });
   } else {
-    setTimeout(refreshPushUi, 200);
+    setTimeout(() => { refreshPushUi(); refreshAdminUi(); }, 200);
   }
 })();
 </script>
