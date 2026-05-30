@@ -25,6 +25,10 @@ const LEGACY_SHEET = "Check in";
 const LEGACY_ARCHIVE = "Check in (archivo)";
 const PUSH_SUBS_SHEET = "Push_Subscriptions";
 const PUSH_SUBS_HEADERS = ["phoneKey","endpoint","p256dh","auth","ua","created_at","updated_at","badge_count","last_sent_at","categories"];
+const OTP_CODES_SHEET = "OTP_Codes";
+const OTP_CODES_HEADERS = ["phoneKey","method","target","code","created_at","expires_at","attempts","verified_at","status"];
+const OTP_TTL_MS = 5 * 60 * 1000;        // 5 minutos
+const OTP_MAX_ATTEMPTS = 5;              // por código
 const PUSH_QUEUE_SHEET = "Notifications_Queue";
 const PUSH_QUEUE_HEADERS = ["id","target","category","title","body","badge","url","tag","status","error","created_at","processed_at","source"];
 // Categorías de avisos disponibles
@@ -93,6 +97,8 @@ function doPost(e) {
     if (action === "update_facturapi_folio") return jsonOutput_(updateFacturapiFolio_(data));
     if (action === "update_facturapi_folio_strict") return jsonOutput_(updateFacturapiFolioStrict_(data));
     if (action === "save_facturapi_pdf") return jsonOutput_(saveFacturapiPdf_(data));
+    if (action === "send_otp") return jsonOutput_(sendOtp_(data));
+    if (action === "verify_otp") return jsonOutput_(verifyOtp_(data));
     if (action === "register_push_subscription") return jsonOutput_(registerPushSubscription_(data));
     if (action === "unregister_push_subscription") return jsonOutput_(unregisterPushSubscription_(data));
     if (action === "update_push_categories") return jsonOutput_(updatePushCategories_(data));
@@ -114,6 +120,7 @@ function doGet(e) {
     if (action === "get_next_facturapi_folio") return jsonOutput_(getNextFacturapiFolio_());
     if (action === "update_reservacion_cell") return jsonOutput_(updateReservacionCell_(e.parameter || {}));
     if (action === "get_vapid_public_key") return jsonOutput_({ ok: true, key: VAPID_PUBLIC_KEY });
+    if (action === "get_otp_methods") return jsonOutput_(getOtpMethods_(e.parameter || {}));
     if (action === "list_push_subscriptions") return jsonOutput_(listPushSubscriptions_(e.parameter || {}));
     if (action === "send_push_to_user") return jsonOutput_(sendPushToUserFromAppsScript_(e.parameter || {}));
     if (action === "list_pending_notifications") return jsonOutput_(listPendingNotifications_(e.parameter || {}));
@@ -1509,6 +1516,232 @@ function uniqueNonEmpty_(arr) {
 
 function jsonOutput_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ═══ OTP via Email/SMS ═══════════════════════════════════════════════════════
+// Storage server-side de códigos OTP. Sustituye al mock client-side ("123456").
+// Métodos soportados:
+//   - "email": MailApp.sendEmail nativo de Apps Script (gratis, hasta 100/día por usuario)
+//   - "sms"  : Twilio REST API (requiere TWILIO_* en Script Properties)
+
+function ensureOtpSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sh = ss.getSheetByName(OTP_CODES_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(OTP_CODES_SHEET);
+    sh.appendRow(OTP_CODES_HEADERS);
+  }
+  return sh;
+}
+
+function generateOtpCode_() {
+  // 6 dígitos
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// Helper: obtiene info del perfil (correo de facturación + nombre) por phoneKey.
+function getProfileContactByPhone_(phoneKey) {
+  try {
+    const key = String(phoneKey).replace(/\D/g, "");
+    const { rows: perfiles } = getAllRows_(PERFILES_SHEET);
+    for (let i = 0; i < perfiles.length; i++) {
+      const p = perfiles[i];
+      const cel = String(p["Cel/Whatsapp (principal)"] || "").replace(/\D/g, "");
+      if (cel && cel === key) {
+        return {
+          email: safe_(p["Correo electrónico para el envío de la factura"]).trim(),
+          name: safe_(p["Nombre del huésped"]).trim()
+        };
+      }
+    }
+  } catch(e) { Logger.log("[getProfileContact] " + e); }
+  return { email: "", name: "" };
+}
+
+// GET helper: devuelve métodos disponibles (target del usuario por phoneKey)
+// y enmascara para mostrar al cliente (ej. "an***@gmail.com")
+function getOtpMethods_(params) {
+  const phoneKey = String(params.phoneKey || "").replace(/\D/g, "");
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  const contact = getProfileContactByPhone_(phoneKey);
+  const sms = phoneKey;
+  return {
+    ok: true,
+    methods: {
+      email: contact.email ? { available: true, target: contact.email, masked: maskEmail_(contact.email) } : { available: false },
+      sms: { available: true, target: sms, masked: maskPhone_(sms) }
+    },
+    name: contact.name
+  };
+}
+function maskEmail_(em) {
+  if (!em) return "";
+  const at = em.indexOf("@");
+  if (at < 2) return em;
+  return em.slice(0, 2) + "***" + em.slice(at);
+}
+function maskPhone_(p) {
+  if (!p || p.length < 4) return p;
+  return "*** *** " + p.slice(-4);
+}
+
+// POST send_otp: genera código, guarda y envía por email o sms.
+// Args: { phoneKey, method, target? }
+//   method ∈ "email" | "sms"
+//   target opcional — si no viene, se toma de perfil (email) o phoneKey (sms).
+function sendOtp_(data) {
+  const phoneKey = String(data.phoneKey || "").replace(/\D/g, "");
+  const method = String(data.method || "").trim().toLowerCase();
+  let target = safe_(data.target || "").trim();
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  if (method !== "email" && method !== "sms") return { ok: false, error: "method debe ser email o sms." };
+  // Si no llega target, intentar resolverlo
+  if (!target) {
+    const contact = getProfileContactByPhone_(phoneKey);
+    if (method === "email") target = contact.email;
+    else if (method === "sms") target = phoneKey;
+  }
+  if (!target) return { ok: false, error: "No hay correo registrado en el perfil. Captura uno o usa SMS." };
+  // Generar y guardar
+  const code = generateOtpCode_();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + OTP_TTL_MS);
+  const sh = ensureOtpSheet_();
+  // Invalidar códigos pendientes previos del mismo phoneKey
+  invalidateOldOtp_(sh, phoneKey);
+  // Append
+  const row = {
+    phoneKey, method, target, code,
+    created_at: now.toISOString(),
+    expires_at: expiresAt.toISOString(),
+    attempts: 0,
+    verified_at: "",
+    status: "pending"
+  };
+  sh.appendRow(OTP_CODES_HEADERS.map(h => row[h]));
+  // Enviar
+  try {
+    if (method === "email") {
+      sendOtpEmail_(target, code);
+    } else if (method === "sms") {
+      sendOtpSms_(target, code);
+    }
+  } catch (err) {
+    return { ok: false, error: "No se pudo enviar el código: " + (err.message || err) };
+  }
+  return { ok: true, method, sent_to: method === "email" ? maskEmail_(target) : maskPhone_(target), expires_in: Math.floor(OTP_TTL_MS / 1000) };
+}
+
+function invalidateOldOtp_(sh, phoneKey) {
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return;
+  const data = sh.getRange(2, 1, lastRow - 1, OTP_CODES_HEADERS.length).getValues();
+  const idxPhone = OTP_CODES_HEADERS.indexOf("phoneKey");
+  const idxStatus = OTP_CODES_HEADERS.indexOf("status");
+  for (let i = 0; i < data.length; i++) {
+    if (String(data[i][idxPhone]).replace(/\D/g,"") === phoneKey && String(data[i][idxStatus]) === "pending") {
+      sh.getRange(i + 2, idxStatus + 1).setValue("invalidated");
+    }
+  }
+}
+
+function sendOtpEmail_(toEmail, code) {
+  const subject = "Tu código de acceso a Check-inn Saltillo";
+  const body =
+    "Hola,\n\n" +
+    "Tu código de acceso al portal de Check-inn Saltillo es:\n\n" +
+    "    " + code + "\n\n" +
+    "Este código vence en 5 minutos. Si tú no lo solicitaste, ignora este mensaje.\n\n" +
+    "— Check-inn Saltillo · www.check-inn-saltillo.com";
+  const htmlBody =
+    '<div style="font-family:-apple-system,Helvetica,Arial,sans-serif;color:#0f172a;max-width:480px;margin:0 auto;padding:24px;">' +
+    '<h2 style="margin:0 0 12px;letter-spacing:-.02em;">Tu código de acceso</h2>' +
+    '<p style="font-size:14px;color:#4b5563;margin:0 0 18px;">Hola, ingresa este código en el portal de <strong>Check-inn Saltillo</strong>:</p>' +
+    '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:18px;text-align:center;font-size:32px;font-weight:800;letter-spacing:.4em;color:#991b1b;">' + code + '</div>' +
+    '<p style="font-size:13px;color:#6b7280;margin:16px 0 0;">Vence en 5 minutos. Si tú no lo solicitaste, ignora este correo.</p>' +
+    '<hr style="border:0;border-top:1px solid #e5e7eb;margin:20px 0;">' +
+    '<p style="font-size:12px;color:#9ca3af;margin:0;">Check-inn Saltillo · <a href="https://www.check-inn-saltillo.com" style="color:#dc2626;">check-inn-saltillo.com</a></p>' +
+    '</div>';
+  MailApp.sendEmail({
+    to: toEmail,
+    subject: subject,
+    body: body,
+    htmlBody: htmlBody,
+    name: "Check-inn Saltillo"
+  });
+}
+
+function sendOtpSms_(toPhoneDigits, code) {
+  const props = PropertiesService.getScriptProperties();
+  const sid = props.getProperty("TWILIO_ACCOUNT_SID");
+  const tok = props.getProperty("TWILIO_AUTH_TOKEN");
+  const from = props.getProperty("TWILIO_FROM_NUMBER");
+  if (!sid || !tok || !from) {
+    throw new Error("Twilio no configurado. Falta TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER en Script Properties.");
+  }
+  // Twilio API: POST a https://api.twilio.com/2010-04-01/Accounts/{SID}/Messages.json
+  const to = "+" + String(toPhoneDigits).replace(/\D/g, "");
+  const url = "https://api.twilio.com/2010-04-01/Accounts/" + sid + "/Messages.json";
+  const body =
+    "Tu código de acceso a Check-inn Saltillo es: " + code +
+    ". Vence en 5 minutos. Si tú no lo solicitaste, ignora este mensaje.";
+  const res = UrlFetchApp.fetch(url, {
+    method: "post",
+    headers: { "Authorization": "Basic " + Utilities.base64Encode(sid + ":" + tok) },
+    payload: { From: from, To: to, Body: body },
+    muteHttpExceptions: true
+  });
+  const status = res.getResponseCode();
+  if (status >= 400) {
+    const text = res.getContentText();
+    throw new Error("Twilio error " + status + ": " + text);
+  }
+}
+
+// POST verify_otp: valida { phoneKey, code }.
+function verifyOtp_(data) {
+  const phoneKey = String(data.phoneKey || "").replace(/\D/g, "");
+  const code = String(data.code || "").trim();
+  if (!phoneKey || !code) return { ok: false, error: "Falta phoneKey o code." };
+  const sh = ensureOtpSheet_();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: false, error: "No hay códigos. Solicita uno primero." };
+  const all = sh.getRange(2, 1, lastRow - 1, OTP_CODES_HEADERS.length).getValues();
+  const idxPhone = OTP_CODES_HEADERS.indexOf("phoneKey");
+  const idxCode = OTP_CODES_HEADERS.indexOf("code");
+  const idxExp = OTP_CODES_HEADERS.indexOf("expires_at");
+  const idxAttempts = OTP_CODES_HEADERS.indexOf("attempts");
+  const idxStatus = OTP_CODES_HEADERS.indexOf("status");
+  const idxVerified = OTP_CODES_HEADERS.indexOf("verified_at");
+  // Buscar pendiente más reciente del phoneKey
+  let foundIdx = -1;
+  for (let i = all.length - 1; i >= 0; i--) {
+    if (String(all[i][idxPhone]).replace(/\D/g, "") === phoneKey && String(all[i][idxStatus]) === "pending") {
+      foundIdx = i;
+      break;
+    }
+  }
+  if (foundIdx < 0) return { ok: false, error: "Solicita un código primero." };
+  const row = all[foundIdx];
+  const sheetRow = foundIdx + 2;
+  const expiresAt = new Date(String(row[idxExp]));
+  if (Date.now() > expiresAt.getTime()) {
+    sh.getRange(sheetRow, idxStatus + 1).setValue("expired");
+    return { ok: false, error: "El código expiró. Solicita uno nuevo." };
+  }
+  const attempts = Number(row[idxAttempts] || 0);
+  if (attempts >= OTP_MAX_ATTEMPTS) {
+    sh.getRange(sheetRow, idxStatus + 1).setValue("locked");
+    return { ok: false, error: "Demasiados intentos. Solicita un código nuevo." };
+  }
+  sh.getRange(sheetRow, idxAttempts + 1).setValue(attempts + 1);
+  if (String(row[idxCode]) !== code) {
+    return { ok: false, error: "Código incorrecto." };
+  }
+  // OK
+  sh.getRange(sheetRow, idxStatus + 1).setValue("verified");
+  sh.getRange(sheetRow, idxVerified + 1).setValue(new Date().toISOString());
+  return { ok: true, phoneKey: phoneKey };
 }
 
 // ═══ PUSH NOTIFICATIONS ════════════════════════════════════════════════════════

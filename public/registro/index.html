@@ -5075,17 +5075,39 @@ body.has-session input[name="nombre"] {
 
   <!-- Paso 2B: pedir código OTP (primera vez o recuperación) -->
   <div class="section hidden" id="loginStepOtp">
-    <h2 class="section-title" id="loginOtpTitle">Ingresa el código</h2>
-    <p class="section-subtitle" id="loginOtpSubtitleEl">Enviamos un código de 6 dígitos a <strong id="loginOtpPhoneDisplay">tu celular</strong> por WhatsApp.</p>
-    <!-- Aviso: registros previos detectados (ej. tras Registro exprés sin sesión) -->
-    <div class="auth-info-banner hidden" id="loginOtpExistingNote" style="margin-bottom:14px;"></div>
-    <label for="login_otp" data-i18n="otpLabel">Código de verificación</label>
-    <input id="login_otp" class="auth-otp-input" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="one-time-code"/>
-    <div class="note hidden" id="loginOtpError"></div>
-    <button id="btnVerifyOtp" type="button" data-i18n="loginVerify">Verificar</button>
-    <button class="auth-back-link" id="btnLoginBackFromOtp" type="button" data-i18n="loginChangeNumber">← Cambiar de número</button>
-    <div class="auth-info-banner" id="loginOtpDemoBanner" data-i18n-html="loginOtpDemoBanner">
-      🧪 <strong>Modo demo:</strong> WhatsApp aún no está configurado. Usa el código <code>123456</code> para probar el flujo. (Una vez conectes Meta, este aviso desaparece.)
+    <!-- ── Sub-paso A: elegir método de envío ── -->
+    <div id="otpMethodPickerSection">
+      <h2 class="section-title">¿Cómo prefieres recibir tu código?</h2>
+      <p class="section-subtitle">Te enviaremos un código de 6 dígitos a uno de estos contactos.</p>
+      <div class="auth-info-banner hidden" id="loginOtpExistingNote" style="margin-bottom:14px;"></div>
+      <div class="otp-method-list">
+        <button class="otp-method-card" id="otpMethodEmail" type="button" hidden>
+          <span class="otp-method-ico">📧</span>
+          <span class="otp-method-text">
+            <strong>Correo electrónico</strong>
+            <small id="otpMethodEmailTarget">—</small>
+          </span>
+        </button>
+        <button class="otp-method-card" id="otpMethodSms" type="button">
+          <span class="otp-method-ico">💬</span>
+          <span class="otp-method-text">
+            <strong>Mensaje SMS</strong>
+            <small id="otpMethodSmsTarget">—</small>
+          </span>
+        </button>
+      </div>
+      <div class="note hidden" id="otpMethodError"></div>
+      <button class="auth-back-link" id="btnLoginBackFromMethod" type="button" data-i18n="loginChangeNumber">← Cambiar de número</button>
+    </div>
+    <!-- ── Sub-paso B: ingresar el código ── -->
+    <div id="otpCodeEntrySection" hidden>
+      <h2 class="section-title" id="loginOtpTitle">Ingresa el código</h2>
+      <p class="section-subtitle" id="loginOtpSubtitleEl">Enviamos un código de 6 dígitos a <strong id="loginOtpDeliveredTarget">—</strong>.</p>
+      <label for="login_otp" data-i18n="otpLabel">Código de verificación</label>
+      <input id="login_otp" class="auth-otp-input" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="one-time-code"/>
+      <div class="note hidden" id="loginOtpError"></div>
+      <button id="btnVerifyOtp" type="button" data-i18n="loginVerify">Verificar</button>
+      <button class="auth-back-link" id="btnLoginBackFromOtp" type="button">← Elegir otro método</button>
     </div>
   </div>
 
@@ -12013,16 +12035,76 @@ document.addEventListener("DOMContentLoaded", function(){
     currentOtpReason = reason || "first-time";
     hideAllLoginSteps();
     if (loginStepOtp) loginStepOtp.classList.remove("hidden");
-    refreshOtpSubtitle();
-    refreshOtpTitle(currentOtpReason);
-    if (loginOtpDemoBanner) loginOtpDemoBanner.style.display = OTP_DEMO_MODE ? "" : "none";
+    // Mostrar SOLO el method picker; ocultar la entrada del código hasta que el
+    // usuario elija un método y el backend confirme el envío.
+    const pickSec = $("otpMethodPickerSection");
+    const codeSec = $("otpCodeEntrySection");
+    if (pickSec) pickSec.hidden = false;
+    if (codeSec) codeSec.hidden = true;
     // Aviso de registros previos solo en flujo first-time
     if (currentOtpReason === "first-time") {
       setExistingRecordsNote(existingCount);
     } else {
       setExistingRecordsNote(0);
     }
-    if (loginOtpInput) { loginOtpInput.value = ""; setTimeout(() => loginOtpInput.focus(), 30); }
+    // Cargar contactos disponibles (email del perfil + sms del celular)
+    populateOtpMethods(phoneDigits, ladaCode);
+  }
+
+  async function populateOtpMethods(phoneDigits, ladaCode){
+    const phoneKey = `${ladaCode}${phoneDigits}`.replace(/\D/g, "");
+    const btnEmail = $("otpMethodEmail");
+    const btnSms   = $("otpMethodSms");
+    const tgtEmail = $("otpMethodEmailTarget");
+    const tgtSms   = $("otpMethodSmsTarget");
+    if (tgtSms) tgtSms.textContent = `+${ladaCode} ${formatPhonePretty_(phoneDigits)}`;
+    // Llamar al backend para resolver el correo del perfil
+    try {
+      const res = await getOtpMethods(phoneKey);
+      const m = (res && res.methods) || {};
+      if (m.email && m.email.available && tgtEmail) {
+        tgtEmail.textContent = m.email.masked;
+        btnEmail.hidden = false;
+        btnEmail.dataset.target = m.email.target;
+      } else if (btnEmail) {
+        btnEmail.hidden = true;
+      }
+      if (m.sms && m.sms.available && tgtSms) {
+        btnSms.dataset.target = m.sms.target;
+      }
+    } catch(_e) {
+      if (btnEmail) btnEmail.hidden = true;
+    }
+  }
+  function formatPhonePretty_(p){
+    const s = String(p).replace(/\D/g, "");
+    if (s.length >= 10) return `${s.slice(0,2)} ${s.slice(2,6)} ${s.slice(6)}`;
+    return s;
+  }
+
+  async function onOtpMethodChosen(method, btn){
+    const errEl = $("otpMethodError");
+    if (errEl) { errEl.classList.add("hidden"); errEl.textContent = ""; }
+    if (btn) btn.classList.add("loading");
+    const target = btn ? (btn.dataset.target || "") : "";
+    try {
+      const res = await sendOtpViaMethod(method, target);
+      if (!res || !res.ok) {
+        if (errEl) { errEl.textContent = (res && res.error) || "No se pudo enviar el código."; errEl.classList.remove("hidden"); }
+        return;
+      }
+      // Cambio al sub-paso de ingreso de código
+      const pickSec = $("otpMethodPickerSection");
+      const codeSec = $("otpCodeEntrySection");
+      if (pickSec) pickSec.hidden = true;
+      if (codeSec) codeSec.hidden = false;
+      const deliveredEl = $("loginOtpDeliveredTarget");
+      if (deliveredEl) deliveredEl.textContent = res.sent_to || (method === "email" ? "tu correo" : "tu celular");
+      refreshOtpTitle(currentOtpReason);
+      if (loginOtpInput) { loginOtpInput.value = ""; setTimeout(() => loginOtpInput.focus(), 30); }
+    } finally {
+      if (btn) btn.classList.remove("loading");
+    }
   }
   let currentCreatePinReset = false;
   function gotoCreatePin(isReset){
@@ -13208,19 +13290,41 @@ document.addEventListener("DOMContentLoaded", function(){
     const u = users[fullPhone];
     return { exists: !!u, hasPin: !!(u && u.pinHash) };
   }
+  // OTP via backend Apps Script: methods email/sms con storage server-side.
+  // sendOtp ahora solo registra el estado pendiente; el envío real lo hace
+  // sendOtpViaMethod(method) cuando el usuario elige email o sms.
   async function sendOtp(phoneDigits, ladaCode, reason){
-    // Fase 3: fetch al Apps Script (action=send_whatsapp_otp)
-    if (OTP_DEMO_MODE) {
-      pendingOtp = {
-        phone: phoneDigits,
-        lada: ladaCode,
-        code: MOCK_OTP,
-        reason: reason || "first-time",
-        expiresAt: Date.now() + 5*60*1000
-      };
-      return { ok: true, demo: true };
-    }
-    throw new Error("OTP no configurado");
+    pendingOtp = {
+      phone: phoneDigits,
+      lada: ladaCode,
+      reason: reason || "first-time",
+      expiresAt: Date.now() + 5*60*1000
+    };
+    return { ok: true };
+  }
+  async function getOtpMethods(phoneKey){
+    try {
+      const r = await fetch(`${WEB_APP_URL}?action=get_otp_methods&phoneKey=${encodeURIComponent(phoneKey)}`);
+      return await r.json();
+    } catch(e) { return { ok: false, error: e.message }; }
+  }
+  async function sendOtpViaMethod(method, target){
+    if (!pendingOtp) return { ok: false, error: "Sin contexto. Vuelve a ingresar tu celular." };
+    const phoneKey = `${pendingOtp.lada}${pendingOtp.phone}`.replace(/\D/g, "");
+    try {
+      const r = await fetch(WEB_APP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "send_otp", phoneKey, method, target: target || "" })
+      });
+      const json = await r.json();
+      if (json && json.ok) {
+        pendingOtp.method = method;
+        pendingOtp.sentTo = json.sent_to;
+        pendingOtp.expiresAt = Date.now() + (Number(json.expires_in) || 300) * 1000;
+      }
+      return json;
+    } catch(e) { return { ok: false, error: e.message }; }
   }
   async function verifyOtp(code){
     if (!pendingOtp) return { ok: false, error: "Solicita un código primero" };
@@ -13228,15 +13332,21 @@ document.addEventListener("DOMContentLoaded", function(){
       pendingOtp = null;
       return { ok: false, error: "El código expiró. Solicita uno nuevo." };
     }
-    if (OTP_DEMO_MODE) {
-      if (String(code).trim() === pendingOtp.code) {
+    const phoneKey = `${pendingOtp.lada}${pendingOtp.phone}`.replace(/\D/g, "");
+    try {
+      const r = await fetch(WEB_APP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "verify_otp", phoneKey, code: String(code).trim() })
+      });
+      const json = await r.json();
+      if (json && json.ok) {
         const out = { ok: true, phone: pendingOtp.phone, lada: pendingOtp.lada, reason: pendingOtp.reason };
         pendingOtp = null;
         return out;
       }
-      return { ok: false, error: "Código incorrecto." };
-    }
-    throw new Error("Verificación no configurada");
+      return { ok: false, error: (json && json.error) || "Código incorrecto." };
+    } catch(e) { return { ok: false, error: e.message }; }
   }
   async function createPin(fullPhone, pin){
     // Fase 3: action=create_pin con otpTicket que pruebe que validó OTP
@@ -13467,7 +13577,17 @@ document.addEventListener("DOMContentLoaded", function(){
     $("btnGoVehiculos")?.addEventListener("click", () => toggleVehiculosDropdown("vehBodyWelcome","btnGoVehiculos"));
     $("btnLoginBack1")?.addEventListener("click", gotoWelcome);
     $("btnLoginBackFromPin")?.addEventListener("click", gotoLoginPhone);
-    $("btnLoginBackFromOtp")?.addEventListener("click", gotoLoginPhone);
+    // "Cambiar de número" desde el method picker → vuelve al paso de celular
+    $("btnLoginBackFromMethod")?.addEventListener("click", gotoLoginPhone);
+    // "Elegir otro método" desde el sub-paso de ingreso de código → vuelve al picker
+    $("btnLoginBackFromOtp")?.addEventListener("click", () => {
+      const pickSec = $("otpMethodPickerSection");
+      const codeSec = $("otpCodeEntrySection");
+      if (pickSec) pickSec.hidden = false;
+      if (codeSec) codeSec.hidden = true;
+    });
+    $("otpMethodEmail")?.addEventListener("click", (e) => onOtpMethodChosen("email", e.currentTarget));
+    $("otpMethodSms")?.addEventListener("click", (e) => onOtpMethodChosen("sms", e.currentTarget));
     $("btnContinuePhone")?.addEventListener("click", onContinuePhone);
     $("btnVerifyPin")?.addEventListener("click", onVerifyPin);
     $("btnLoginForgotPin")?.addEventListener("click", onForgotPin);
@@ -16270,6 +16390,59 @@ document.addEventListener("DOMContentLoaded", function(){
   .image-zoom-tool-btn:active { transform: scale(.94); }
   /* Cursor zoom-in en la imagen también dentro de tickets/facturas */
   .stays-invoice-thumb img { cursor: zoom-in; }
+
+  /* ─── OTP method picker ────────────────────────────────────── */
+  .otp-method-list {
+    display: grid;
+    gap: 10px;
+    margin: 18px 0 14px;
+  }
+  .otp-method-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    background: var(--d2-surface);
+    border: 1px solid var(--d2-border);
+    border-radius: var(--d2-radius);
+    padding: 14px 16px;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .15s var(--d2-ease), transform .12s var(--d2-ease), box-shadow .15s var(--d2-ease);
+  }
+  .otp-method-card:hover {
+    border-color: var(--d2-accent);
+    transform: translateY(-1px);
+    box-shadow: var(--d2-shadow-sm);
+  }
+  .otp-method-card:active { transform: scale(.985); }
+  .otp-method-card.loading {
+    opacity: .65;
+    pointer-events: none;
+  }
+  .otp-method-ico { font-size: 24px; line-height: 1; flex-shrink: 0; }
+  .otp-method-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+  }
+  .otp-method-text strong {
+    font-size: 15px;
+    color: var(--d2-fg);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .otp-method-text small {
+    font-size: 13px;
+    color: var(--d2-fg-soft);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .otp-method-card[hidden] { display: none !important; }
 
   /* ─── Stays card unificada con auth-bigbtn ──────────────────────────
      "Tus estancias" debe verse igual a "Registro de nueva reservación" y
