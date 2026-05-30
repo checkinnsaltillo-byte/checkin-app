@@ -10121,12 +10121,46 @@ function calcularMontoFacturadoDesdeAirbnb(inputAirbnb){
 
 function guardarMontoFacturadoDesdeAirbnb(inputAirbnb){
   calcularMontoFacturadoDesdeAirbnb(inputAirbnb);
-  // Replica EXACTA del patrón de guardarMontoFacturadoTotal, una por columna.
-  guardarMontoTotalAirbnb(inputAirbnb);
-  const inputComision = getComisionAirbnbInputDesdeAirbnb(inputAirbnb);
-  if (inputComision) guardarComisionAirbnb(inputComision);
+  // Usa la acción GET update_reservacion_cell (ya desplegada y verificada)
+  // para escribir las 3 columnas. NO depende de nuevas acciones POST.
+  guardarAirbnbCellsViaGet(inputAirbnb);
+}
+
+async function guardarAirbnbCellsViaGet(inputAirbnb){
+  if (!inputAirbnb) return;
+  const recordId = String(inputAirbnb.dataset.recordId || '').trim();
+  if (!recordId) { console.warn('[airbnb-cells] sin recordId'); return; }
+  const inputComision  = getComisionAirbnbInputDesdeAirbnb(inputAirbnb);
   const inputFacturado = getMontoFacturadoInputDesdeAirbnb(inputAirbnb);
-  if (inputFacturado) guardarMontoFacturadoTotal(inputFacturado);
+  const cells = [
+    { header: '$ MONTO TOTAL Airbnb',    value: String(inputAirbnb.value || '').trim(),    el: inputAirbnb },
+    { header: '$ Comisión Airbnb',        value: String(inputComision?.value || '').trim(), el: inputComision },
+    { header: '$ Monto facturado Total',  value: String(inputFacturado?.value || '').trim(), el: inputFacturado }
+  ];
+  cells.forEach(c => { if (c.el) { c.el.classList.remove('saved','error'); c.el.classList.add('saving'); }});
+  console.log('[airbnb-cells] enviando', cells.map(c => `${c.header}=${c.value}`));
+  const results = await Promise.all(cells.map(async (c) => {
+    const url = `${WEB_APP_URL}?action=update_reservacion_cell&record_id=${encodeURIComponent(recordId)}&header=${encodeURIComponent(c.header)}&value=${encodeURIComponent(c.value)}`;
+    try {
+      const res = await fetch(url, { method: 'GET' });
+      const json = await res.json();
+      return { ...c, json };
+    } catch (err) {
+      return { ...c, json: { ok: false, error: err.message } };
+    }
+  }));
+  console.log('[airbnb-cells] resultados', results);
+  results.forEach(r => {
+    if (!r.el) return;
+    r.el.classList.remove('saving');
+    r.el.classList.add(r.json?.ok ? 'saved' : 'error');
+    setTimeout(() => r.el.classList.remove(r.json?.ok ? 'saved' : 'error'), r.json?.ok ? 1600 : 2400);
+  });
+  const fallos = results.filter(r => !r.json?.ok);
+  if (fallos.length) {
+    const detalle = fallos.map(f => `• "${f.header}": ${f.json?.error || 'falló'}`).join('\n');
+    alert(`No se pudieron guardar ${fallos.length} de 3 campos Airbnb:\n${detalle}`);
+  }
 }
 
 // Copia exacta de guardarMontoFacturadoTotal pero para "$ MONTO TOTAL Airbnb"
