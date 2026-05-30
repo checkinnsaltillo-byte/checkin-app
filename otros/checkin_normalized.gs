@@ -76,6 +76,8 @@ function doPost(e) {
     if (action === "upload_profile_file") return jsonOutput_(saveProfileFile_(data));
     if (action === "migrate_phone") return jsonOutput_(migratePhone_(data));
     if (action === "update_facturado_total") return jsonOutput_(updateFacturadoTotal_(data));
+    if (action === "update_monto_total_airbnb") return jsonOutput_(updateMontoTotalAirbnb_(data));
+    if (action === "update_comision_airbnb") return jsonOutput_(updateComisionAirbnb_(data));
     if (action === "update_airbnb_amounts") return jsonOutput_(updateAirbnbAmounts_(data));
     if (action === "update_facturapi_folio") return jsonOutput_(updateFacturapiFolio_(data));
     if (action === "update_facturapi_folio_strict") return jsonOutput_(updateFacturapiFolioStrict_(data));
@@ -667,6 +669,38 @@ function updateFacturadoTotal_(data) {
   if (!row) throw new Error("No se encontró la reservación.");
   setCellByHeader_(sheet, headers, row, "$ Monto facturado Total", normalized);
   return { ok: true, row_number: row, record_id: recordId, monto_facturado_total: normalized };
+}
+
+// Copia idéntica de updateFacturadoTotal_ pero para "$ MONTO TOTAL Airbnb"
+function updateMontoTotalAirbnb_(data) {
+  const recordId = safe_(data.record_id || data.id || data.row_id);
+  const rawValue = safe_(data.monto_total_airbnb);
+  if (!recordId) throw new Error("Falta record_id.");
+  const normalized = String(rawValue || "").trim();
+  if (normalized && isNaN(Number(normalized.replace(/,/g, "")))) throw new Error("Monto debe ser numérico.");
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = findRowByValue_(sheet, headers, "ID", recordId);
+  if (!row) row = findRowByRowNumber_(sheet, recordId);
+  if (!row) throw new Error("No se encontró la reservación.");
+  setCellByHeader_(sheet, headers, row, "$ MONTO TOTAL Airbnb", normalized);
+  return { ok: true, row_number: row, record_id: recordId, monto_total_airbnb: normalized };
+}
+
+// Copia idéntica de updateFacturadoTotal_ pero para "$ Comisión Airbnb"
+function updateComisionAirbnb_(data) {
+  const recordId = safe_(data.record_id || data.id || data.row_id);
+  const rawValue = safe_(data.comision_airbnb);
+  if (!recordId) throw new Error("Falta record_id.");
+  const normalized = String(rawValue || "").trim();
+  if (normalized && isNaN(Number(normalized.replace(/,/g, "")))) throw new Error("Monto debe ser numérico.");
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = findRowByValue_(sheet, headers, "ID", recordId);
+  if (!row) row = findRowByRowNumber_(sheet, recordId);
+  if (!row) throw new Error("No se encontró la reservación.");
+  setCellByHeader_(sheet, headers, row, "$ Comisión Airbnb", normalized);
+  return { ok: true, row_number: row, record_id: recordId, comision_airbnb: normalized };
 }
 
 // Acción GET genérica para actualizar UNA celda de Reservaciones por record_id.

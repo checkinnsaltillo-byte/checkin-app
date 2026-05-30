@@ -10121,58 +10121,91 @@ function calcularMontoFacturadoDesdeAirbnb(inputAirbnb){
 
 function guardarMontoFacturadoDesdeAirbnb(inputAirbnb){
   calcularMontoFacturadoDesdeAirbnb(inputAirbnb);
-  // v2: 3 GET-updates en paralelo (más reliable que POST en Apps Script)
-  sincronizarBloqueAirbnbV2(inputAirbnb);
+  // Replica EXACTA del patrón de guardarMontoFacturadoTotal, una por columna.
+  guardarMontoTotalAirbnb(inputAirbnb);
+  const inputComision = getComisionAirbnbInputDesdeAirbnb(inputAirbnb);
+  if (inputComision) guardarComisionAirbnb(inputComision);
+  const inputFacturado = getMontoFacturadoInputDesdeAirbnb(inputAirbnb);
+  if (inputFacturado) guardarMontoFacturadoTotal(inputFacturado);
 }
 
-async function sincronizarBloqueAirbnbV2(inputAirbnb){
-  if (!inputAirbnb) return;
-  const recordId = String(inputAirbnb.dataset.recordId || '').trim();
-  if (!recordId) { console.warn('[airbnb-sync] sin recordId'); return; }
-  const inputComision  = getComisionAirbnbInputDesdeAirbnb(inputAirbnb);
-  const inputFacturado = getMontoFacturadoInputDesdeAirbnb(inputAirbnb);
-  const total    = String(inputAirbnb.value || '').trim();
-  const comision = String(inputComision?.value || '').trim();
-  const facturado = String(inputFacturado?.value || '').trim();
-  if (inputAirbnb.dataset.saving === '1') return;
+// Copia exacta de guardarMontoFacturadoTotal pero para "$ MONTO TOTAL Airbnb"
+async function guardarMontoTotalAirbnb(input){
+  if (!input) return;
+  const nuevoValor = String(input.value || '').trim();
+  const recordId = String(input.dataset.recordId || '').trim();
+  if (!recordId || input.dataset.saving === '1') return;
 
-  inputAirbnb.dataset.saving = '1';
-  [inputAirbnb, inputComision, inputFacturado].forEach(el => {
-    if (!el) return;
-    el.classList.remove('saved','error');
-    el.classList.add('saving');
-  });
+  input.dataset.saving = '1';
+  input.classList.remove('saved','error');
+  input.classList.add('saving');
 
-  const cells = [
-    { header: '$ MONTO TOTAL Airbnb', value: total,    el: inputAirbnb },
-    { header: '$ Comisión Airbnb',    value: comision, el: inputComision },
-    { header: '$ Monto facturado Total', value: facturado, el: inputFacturado }
-  ];
-  console.log('[airbnb-sync] enviando', cells.map(c => `${c.header}=${c.value}`));
-  const results = await Promise.all(cells.map(async (c) => {
-    const url = `${WEB_APP_URL}?action=update_reservacion_cell&record_id=${encodeURIComponent(recordId)}&header=${encodeURIComponent(c.header)}&value=${encodeURIComponent(c.value)}`;
-    try {
-      const res = await fetch(url, { method: 'GET' });
-      const json = await res.json();
-      return { ...c, json };
-    } catch (err) {
-      return { ...c, json: { ok: false, error: err.message } };
-    }
-  }));
-  console.log('[airbnb-sync] resultados', results);
-  const fallos = results.filter(r => !r.json?.ok);
-  results.forEach(r => {
-    if (!r.el) return;
-    r.el.classList.remove('saving');
-    r.el.classList.add(r.json?.ok ? 'saved' : 'error');
-    setTimeout(() => r.el.classList.remove(r.json?.ok ? 'saved' : 'error'), r.json?.ok ? 1600 : 2400);
-  });
-  inputAirbnb.dataset.saving = '0';
-  inputAirbnb.dataset.originalValue = total;
-  if (inputFacturado) inputFacturado.dataset.originalValue = facturado;
-  if (fallos.length) {
-    const detalle = fallos.map(f => `• "${f.header}": ${f.json?.error || 'falló'}`).join('\n');
-    alert(`No se pudieron guardar ${fallos.length} de 3 campos Airbnb:\n${detalle}`);
+  try {
+    const res = await fetch(WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'update_monto_total_airbnb',
+        record_id: recordId,
+        monto_total_airbnb: nuevoValor
+      })
+    });
+    const text = await res.text();
+    let json = {};
+    try { json = JSON.parse(text); } catch(e) { throw new Error('Respuesta inválida del servidor.'); }
+    if (!json.ok) throw new Error(json.error || json.message || 'No se pudo actualizar el monto total Airbnb.');
+    input.dataset.originalValue = nuevoValor;
+    input.classList.add('saved');
+    setTimeout(() => input.classList.remove('saved'), 1600);
+  } catch (err) {
+    input.classList.add('error');
+    setTimeout(() => input.classList.remove('error'), 2200);
+    alert('Error al actualizar "$ MONTO TOTAL Airbnb": ' + err.message);
+  } finally {
+    input.dataset.saving = '0';
+    input.classList.remove('saving');
+  }
+}
+
+// Copia exacta de guardarMontoFacturadoTotal pero para "$ Comisión Airbnb"
+async function guardarComisionAirbnb(input){
+  if (!input) return;
+  const nuevoValor = String(input.value || '').trim();
+  // El input de comisión es readonly y no tiene data-record-id propio:
+  // lo tomamos del input hermano de Airbnb dentro del mismo bloque.
+  const box = input.closest('.dashboard-monto-box');
+  const inputAirbnb = box?.querySelector('.dashboard-airbnb-monto-input');
+  const recordId = String(inputAirbnb?.dataset.recordId || input.dataset.recordId || '').trim();
+  if (!recordId || input.dataset.saving === '1') return;
+
+  input.dataset.saving = '1';
+  input.classList.remove('saved','error');
+  input.classList.add('saving');
+
+  try {
+    const res = await fetch(WEB_APP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'update_comision_airbnb',
+        record_id: recordId,
+        comision_airbnb: nuevoValor
+      })
+    });
+    const text = await res.text();
+    let json = {};
+    try { json = JSON.parse(text); } catch(e) { throw new Error('Respuesta inválida del servidor.'); }
+    if (!json.ok) throw new Error(json.error || json.message || 'No se pudo actualizar la comisión Airbnb.');
+    input.dataset.originalValue = nuevoValor;
+    input.classList.add('saved');
+    setTimeout(() => input.classList.remove('saved'), 1600);
+  } catch (err) {
+    input.classList.add('error');
+    setTimeout(() => input.classList.remove('error'), 2200);
+    alert('Error al actualizar "$ Comisión Airbnb": ' + err.message);
+  } finally {
+    input.dataset.saving = '0';
+    input.classList.remove('saving');
   }
 }
 
