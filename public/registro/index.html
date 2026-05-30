@@ -4932,6 +4932,10 @@ body.has-session input[name="nombre"] {
       <span class="nav-item-icon">🗓️</span>
       <span data-i18n="navItemEstancias">Tus estancias</span>
     </li>
+    <li class="nav-item" id="navItemInstallPwa" hidden>
+      <span class="nav-item-icon">📲</span>
+      <span>Crear acceso directo</span>
+    </li>
   </ul>
 </aside>
 <div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
@@ -15182,6 +15186,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   const btn = document.getElementById("btnInstallPwa");
+  const navBtn = document.getElementById("navItemInstallPwa");
   const modal = document.getElementById("pwaInstallModal");
   const stepsEl = document.getElementById("pwaInstallSteps");
   const titleEl = document.getElementById("pwaInstallTitle");
@@ -15225,28 +15230,29 @@ document.addEventListener("DOMContentLoaded", function(){
     <li>Confirma. El ícono de Check-inn quedará en tu pantalla de inicio.</li>
   `;
 
-  // ─── Android: capturar beforeinstallprompt y mostrar botón nativo ───
+  function setBtnsVisible(visible){
+    if (btn) btn.hidden = !visible;
+    if (navBtn) navBtn.hidden = !visible;
+  }
+
+  // ─── Android: capturar beforeinstallprompt y mostrar botones ───
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    if (!isStandalone && btn) btn.hidden = false;
+    if (!isStandalone) setBtnsVisible(true);
   });
 
-  // ─── iOS: no hay beforeinstallprompt, mostrar botón si no está instalado ───
-  if (isIOS && !isStandalone && btn) {
-    btn.hidden = false;
-  }
+  // ─── iOS: no hay beforeinstallprompt, mostrar botones si no está instalado ───
+  if (isIOS && !isStandalone) setBtnsVisible(true);
 
-  // ─── Click handler ───
-  btn?.addEventListener("click", async () => {
+  // ─── Click handler unificado ───
+  async function handleInstallClick(){
     if (deferredPrompt) {
       // Android Chrome (o Edge / Samsung Internet)
       deferredPrompt.prompt();
       try {
         const choice = await deferredPrompt.userChoice;
-        if (choice && choice.outcome === "accepted") {
-          btn.hidden = true;
-        }
+        if (choice && choice.outcome === "accepted") setBtnsVisible(false);
       } catch(_e){}
       deferredPrompt = null;
     } else if (isIOS) {
@@ -15255,13 +15261,21 @@ document.addEventListener("DOMContentLoaded", function(){
       // Fallback genérico (browsers que no soportan beforeinstallprompt)
       showModal(androidFallbackSteps, "Cómo crear el acceso directo", "Estos son los pasos en Chrome / Edge / Samsung Internet.");
     }
+  }
+  btn?.addEventListener("click", handleInstallClick);
+  navBtn?.addEventListener("click", () => {
+    // Cerrar sidebar antes de mostrar modal
+    document.getElementById("navSidebar")?.classList.remove("open");
+    document.getElementById("navOverlay")?.classList.remove("open");
+    document.body.style.overflow = "";
+    handleInstallClick();
   });
 
   // Si ya está instalado, ocultar definitivamente
-  if (isStandalone && btn) btn.hidden = true;
+  if (isStandalone) setBtnsVisible(false);
 
   window.addEventListener("appinstalled", () => {
-    if (btn) btn.hidden = true;
+    setBtnsVisible(false);
     deferredPrompt = null;
   });
 })();
