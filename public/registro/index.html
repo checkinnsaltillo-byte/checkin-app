@@ -4788,7 +4788,6 @@ body.has-session #vehicleFilterActions{ display:none !important; }
 /* ───── Form: ocultar secciones del perfil cuando hay sesión ───── */
 body.has-session #section_celular_principal,
 body.has-session #section_contacto_huesped,
-body.has-session #section_facturacion,
 body.has-session #field_identificacion,
 body.has-session #field_motivo,
 body.has-session #guestAutofillStatus {
@@ -11905,32 +11904,66 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     // Pre-llenar sección de vehículo con los datos del perfil
     prefillVehicleFromProfile();
-    // Pre-llenar correos (principal + copia) desde step3.correo_factura del perfil
-    prefillEmailsFromProfile();
+    // Pre-llenar sección Facturación completa (factura Sí/No + razón social + régimen + correos)
+    prefillFacturacionFromProfile();
   }
 
-  function prefillEmailsFromProfile(){
+  function prefillFacturacionFromProfile(){
     const session = getSession();
     if (!session) return;
     try {
       const phoneKey = `+${session.lada}${session.phone}`;
       const profile = window.checkinnProfile?._loadProfile?.(phoneKey);
-      const email = (profile?.step3?.correo_factura || "").trim();
-      if (!email) return;
-      ["correo1","correo2"].forEach(id => {
-        const el = document.getElementById(id);
+      const step3 = profile?.step3 || {};
+      const facturaRaw = String(step3.factura || "").trim();
+      const mark = (el) => {
         if (!el) return;
-        // Solo pre-llenamos si está vacío (no pisamos lo que el usuario haya escrito)
-        if (!String(el.value || "").trim()) {
-          el.value = email;
-          if (typeof window.markFieldAsAutofilled === "function") {
-            window.markFieldAsAutofilled(el);
-          } else if (typeof markFieldAsAutofilled === "function") {
-            markFieldAsAutofilled(el);
-          }
+        if (typeof window.markFieldAsAutofilled === "function") window.markFieldAsAutofilled(el);
+        else if (typeof markFieldAsAutofilled === "function") markFieldAsAutofilled(el);
+      };
+      const facturaEl = document.getElementById("factura");
+      if (!facturaEl) return;
+      // 1) Mapear "Sí"/"No" del perfil → value del select ("si"/"no")
+      let mappedValue = "";
+      if (/^s[ií]$/i.test(facturaRaw)) mappedValue = "si";
+      else if (/^no$/i.test(facturaRaw)) mappedValue = "no";
+      if (mappedValue && !String(facturaEl.value || "").trim()) {
+        facturaEl.value = mappedValue;
+        facturaEl.dispatchEvent(new Event("change", { bubbles:true }));
+        mark(facturaEl);
+      }
+      // 2) Si la respuesta del perfil es "Sí", pre-llenar el resto de campos
+      if (mappedValue === "si") {
+        const rs = document.getElementById("razon_social");
+        if (rs && !String(rs.value || "").trim() && step3.razon_social) {
+          rs.value = step3.razon_social; mark(rs);
         }
-      });
-    } catch(e){ console.warn("[prefillEmails]", e); }
+        const reg = document.getElementById("regimen");
+        if (reg && !String(reg.value || "").trim() && step3.regimen) {
+          const exists = Array.from(reg.options).some(o => o.value === step3.regimen);
+          if (exists) {
+            reg.value = step3.regimen;
+          } else {
+            const otroOpt = Array.from(reg.options).find(o => o.value === "Otro");
+            if (otroOpt) {
+              reg.value = "Otro";
+              const otroEl = document.getElementById("regimen_otro");
+              if (otroEl) { otroEl.value = step3.regimen_otro || step3.regimen; otroEl.classList.remove("hidden"); mark(otroEl); }
+            }
+          }
+          reg.dispatchEvent(new Event("change", { bubbles:true }));
+          mark(reg);
+        }
+        // Correos (principal + copia) desde step3.correo_factura
+        const email = (step3.correo_factura || "").trim();
+        if (email) {
+          ["correo1","correo2"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !String(el.value || "").trim()) { el.value = email; mark(el); }
+          });
+        }
+      }
+    } catch(e){ console.warn("[prefillFacturacion]", e); }
   }
 
   function prefillVehicleFromProfile(){
