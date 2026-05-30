@@ -12127,23 +12127,7 @@ document.addEventListener("DOMContentLoaded", function(){
     refreshOtpTitle(currentOtpReason);
     if (loginOtpInput) { loginOtpInput.value = ""; setTimeout(() => loginOtpInput.focus(), 30); }
   }
-      if (!res || !res.ok) {
-        if (errEl) { errEl.textContent = (res && res.error) || "No se pudo enviar el código."; errEl.classList.remove("hidden"); }
-        return;
-      }
-      // Cambio al sub-paso de ingreso de código
-      const pickSec = $("otpMethodPickerSection");
-      const codeSec = $("otpCodeEntrySection");
-      if (pickSec) pickSec.hidden = true;
-      if (codeSec) codeSec.hidden = false;
-      const deliveredEl = $("loginOtpDeliveredTarget");
-      if (deliveredEl) deliveredEl.textContent = res.sent_to || (method === "email" ? "tu correo" : "tu celular");
-      refreshOtpTitle(currentOtpReason);
-      if (loginOtpInput) { loginOtpInput.value = ""; setTimeout(() => loginOtpInput.focus(), 30); }
-    } finally {
-      if (btn) btn.classList.remove("loading");
-    }
-  }
+
   let currentCreatePinReset = false;
   function gotoCreatePin(isReset){
     currentCreatePinReset = !!isReset;
