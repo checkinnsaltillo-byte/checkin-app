@@ -5081,11 +5081,11 @@ body.has-session input[name="nombre"] {
       <p class="section-subtitle">Te enviaremos un código de 6 dígitos a uno de estos contactos.</p>
       <div class="auth-info-banner hidden" id="loginOtpExistingNote" style="margin-bottom:14px;"></div>
       <div class="otp-method-list">
-        <button class="otp-method-card" id="otpMethodEmail" type="button" hidden>
+        <button class="otp-method-card" id="otpMethodEmail" type="button">
           <span class="otp-method-ico">📧</span>
           <span class="otp-method-text">
             <strong>Correo electrónico</strong>
-            <small id="otpMethodEmailTarget">—</small>
+            <small id="otpMethodEmailTarget">Escribe tu correo</small>
           </span>
         </button>
         <button class="otp-method-card" id="otpMethodSms" type="button">
@@ -5095,6 +5095,12 @@ body.has-session input[name="nombre"] {
             <small id="otpMethodSmsTarget">—</small>
           </span>
         </button>
+      </div>
+      <!-- Input de correo en línea, sólo aparece cuando el usuario elige Email y no hay correo en perfil -->
+      <div id="otpEmailInputWrap" hidden style="margin-top:14px;">
+        <label for="otpEmailInput" style="font-size:13px;font-weight:600;color:var(--d2-fg-soft);margin-bottom:6px;display:block;">Tu correo electrónico</label>
+        <input id="otpEmailInput" type="email" autocomplete="email" placeholder="tucorreo@ejemplo.com"/>
+        <button id="btnSendOtpEmailCustom" type="button" style="margin-top:10px;">Enviar código a este correo</button>
       </div>
       <div class="note hidden" id="otpMethodError"></div>
       <button class="auth-back-link" id="btnLoginBackFromMethod" type="button" data-i18n="loginChangeNumber">← Cambiar de número</button>
@@ -12058,23 +12064,14 @@ document.addEventListener("DOMContentLoaded", function(){
     const tgtEmail = $("otpMethodEmailTarget");
     const tgtSms   = $("otpMethodSmsTarget");
     if (tgtSms) tgtSms.textContent = `+${ladaCode} ${formatPhonePretty_(phoneDigits)}`;
-    // Llamar al backend para resolver el correo del perfil
-    try {
-      const res = await getOtpMethods(phoneKey);
-      const m = (res && res.methods) || {};
-      if (m.email && m.email.available && tgtEmail) {
-        tgtEmail.textContent = m.email.masked;
-        btnEmail.hidden = false;
-        btnEmail.dataset.target = m.email.target;
-      } else if (btnEmail) {
-        btnEmail.hidden = true;
-      }
-      if (m.sms && m.sms.available && tgtSms) {
-        btnSms.dataset.target = m.sms.target;
-      }
-    } catch(_e) {
-      if (btnEmail) btnEmail.hidden = true;
-    }
+    if (btnSms) btnSms.dataset.target = phoneKey;
+    if (tgtEmail) tgtEmail.textContent = "Escribe tu correo";
+    if (btnEmail) btnEmail.dataset.target = "";
+    // Ocultar input de email por default cada vez que se entra al picker
+    const wrap = $("otpEmailInputWrap");
+    if (wrap) wrap.hidden = true;
+    const input = $("otpEmailInput");
+    if (input) input.value = "";
   }
   function formatPhonePretty_(p){
     const s = String(p).replace(/\D/g, "");
@@ -12085,10 +12082,51 @@ document.addEventListener("DOMContentLoaded", function(){
   async function onOtpMethodChosen(method, btn){
     const errEl = $("otpMethodError");
     if (errEl) { errEl.classList.add("hidden"); errEl.textContent = ""; }
+    // Para email: si aún no escribió correo, abrir el input inline (sin enviar todavía)
+    if (method === "email") {
+      const wrap = $("otpEmailInputWrap");
+      const input = $("otpEmailInput");
+      if (wrap && wrap.hidden) {
+        wrap.hidden = false;
+        if (input) setTimeout(() => input.focus(), 30);
+        return;
+      }
+      // Ya está visible: validar correo y enviar
+      const email = (input?.value || "").trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        if (errEl) { errEl.textContent = "Escribe un correo válido."; errEl.classList.remove("hidden"); }
+        if (input) input.focus();
+        return;
+      }
+      btn = $("btnSendOtpEmailCustom") || btn;
+      if (btn) btn.classList.add("loading");
+      try { return await doSendOtp(method, email, btn); } finally { if (btn) btn.classList.remove("loading"); }
+    }
     if (btn) btn.classList.add("loading");
     const target = btn ? (btn.dataset.target || "") : "";
     try {
-      const res = await sendOtpViaMethod(method, target);
+      return await doSendOtp(method, target, btn);
+    } finally {
+      if (btn) btn.classList.remove("loading");
+    }
+  }
+
+  async function doSendOtp(method, target, btn){
+    const errEl = $("otpMethodError");
+    const res = await sendOtpViaMethod(method, target);
+    if (!res || !res.ok) {
+      if (errEl) { errEl.textContent = (res && res.error) || "No se pudo enviar el código."; errEl.classList.remove("hidden"); }
+      return;
+    }
+    const pickSec = $("otpMethodPickerSection");
+    const codeSec = $("otpCodeEntrySection");
+    if (pickSec) pickSec.hidden = true;
+    if (codeSec) codeSec.hidden = false;
+    const deliveredEl = $("loginOtpDeliveredTarget");
+    if (deliveredEl) deliveredEl.textContent = res.sent_to || (method === "email" ? "tu correo" : "tu celular");
+    refreshOtpTitle(currentOtpReason);
+    if (loginOtpInput) { loginOtpInput.value = ""; setTimeout(() => loginOtpInput.focus(), 30); }
+  }
       if (!res || !res.ok) {
         if (errEl) { errEl.textContent = (res && res.error) || "No se pudo enviar el código."; errEl.classList.remove("hidden"); }
         return;
@@ -13588,6 +13626,14 @@ document.addEventListener("DOMContentLoaded", function(){
     });
     $("otpMethodEmail")?.addEventListener("click", (e) => onOtpMethodChosen("email", e.currentTarget));
     $("otpMethodSms")?.addEventListener("click", (e) => onOtpMethodChosen("sms", e.currentTarget));
+    $("btnSendOtpEmailCustom")?.addEventListener("click", () => onOtpMethodChosen("email", $("otpMethodEmail")));
+    // Enter en el input de correo manda el código directamente
+    $("otpEmailInput")?.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        onOtpMethodChosen("email", $("otpMethodEmail"));
+      }
+    });
     $("btnContinuePhone")?.addEventListener("click", onContinuePhone);
     $("btnVerifyPin")?.addEventListener("click", onVerifyPin);
     $("btnLoginForgotPin")?.addEventListener("click", onForgotPin);
