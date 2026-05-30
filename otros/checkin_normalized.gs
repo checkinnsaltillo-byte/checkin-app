@@ -23,6 +23,10 @@ const VEHICULOS_SHEET = "Vehiculos";
 const RESERVACIONES_SHEET = "Reservaciones";
 const LEGACY_SHEET = "Check in";
 const LEGACY_ARCHIVE = "Check in (archivo)";
+const PUSH_SUBS_SHEET = "Push_Subscriptions";
+const PUSH_SUBS_HEADERS = ["phoneKey","endpoint","p256dh","auth","ua","created_at","updated_at","badge_count","last_sent_at"];
+// Clave pública VAPID (segura para exponer al cliente)
+const VAPID_PUBLIC_KEY = "BH0SFnFLetMhyFlMaSFfl2ZfH-UYcuIvEQze-kPOcKGukvB4PmDW_Pu4WAe0zkpwYz3ks7oLHE7UGSI7QVOAb74";
 
 const PERFILES_HEADERS = [
   "ID_Perfil","Cel/Whatsapp (principal)","Lada celular huésped","Nombre del huésped",
@@ -82,6 +86,8 @@ function doPost(e) {
     if (action === "update_facturapi_folio") return jsonOutput_(updateFacturapiFolio_(data));
     if (action === "update_facturapi_folio_strict") return jsonOutput_(updateFacturapiFolioStrict_(data));
     if (action === "save_facturapi_pdf") return jsonOutput_(saveFacturapiPdf_(data));
+    if (action === "register_push_subscription") return jsonOutput_(registerPushSubscription_(data));
+    if (action === "unregister_push_subscription") return jsonOutput_(unregisterPushSubscription_(data));
     return jsonOutput_({ ok: false, error: "Acción no reconocida." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -97,6 +103,9 @@ function doGet(e) {
     if (action === "debug_dashboard") return jsonOutput_(debugDashboard_());
     if (action === "get_next_facturapi_folio") return jsonOutput_(getNextFacturapiFolio_());
     if (action === "update_reservacion_cell") return jsonOutput_(updateReservacionCell_(e.parameter || {}));
+    if (action === "get_vapid_public_key") return jsonOutput_({ ok: true, key: VAPID_PUBLIC_KEY });
+    if (action === "list_push_subscriptions") return jsonOutput_(listPushSubscriptions_(e.parameter || {}));
+    if (action === "send_push_to_user") return jsonOutput_(sendPushToUserFromAppsScript_(e.parameter || {}));
     return jsonOutput_({ ok: true, message: "Web app activo (normalizado)." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -1471,4 +1480,113 @@ function uniqueNonEmpty_(arr) {
 
 function jsonOutput_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ═══ PUSH NOTIFICATIONS ════════════════════════════════════════════════════════
+// Storage de Web Push subscriptions. El ENVÍO de push (que requiere firma ECDSA
+// VAPID) no es práctico desde Apps Script; se hace desde un script externo
+// (otros/push_sender.py) que lee esta hoja y manda los push con la clave privada.
+
+function ensurePushSubsSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sh = ss.getSheetByName(PUSH_SUBS_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(PUSH_SUBS_SHEET);
+    sh.appendRow(PUSH_SUBS_HEADERS);
+  }
+  return sh;
+}
+
+// Registra (o actualiza) una suscripción Web Push para un phoneKey.
+// data: { phoneKey, endpoint, p256dh, auth, ua? }
+function registerPushSubscription_(data) {
+  const phoneKey = safe_(data.phoneKey || data.phone_key || "").trim();
+  const endpoint = safe_(data.endpoint || "").trim();
+  const p256dh = safe_(data.p256dh || "").trim();
+  const auth = safe_(data.auth || "").trim();
+  const ua = safe_(data.ua || "").trim();
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  if (!endpoint || !p256dh || !auth) return { ok: false, error: "Faltan campos endpoint/p256dh/auth." };
+  const sh = ensurePushSubsSheet_();
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const idxEndpoint = headers.indexOf("endpoint");
+  const lastRow = sh.getLastRow();
+  const now = new Date().toISOString();
+  // Buscar fila existente por endpoint (idempotente: un endpoint = un dispositivo)
+  let foundRow = -1;
+  if (lastRow >= 2 && idxEndpoint >= 0) {
+    const col = sh.getRange(2, idxEndpoint + 1, lastRow - 1, 1).getValues();
+    for (let i = 0; i < col.length; i++) {
+      if (String(col[i][0]).trim() === endpoint) { foundRow = i + 2; break; }
+    }
+  }
+  const row = {};
+  PUSH_SUBS_HEADERS.forEach(h => row[h] = "");
+  row.phoneKey = phoneKey;
+  row.endpoint = endpoint;
+  row.p256dh = p256dh;
+  row.auth = auth;
+  row.ua = ua;
+  row.updated_at = now;
+  row.badge_count = "";
+  if (foundRow < 0) {
+    row.created_at = now;
+    sh.appendRow(PUSH_SUBS_HEADERS.map(h => row[h]));
+    return { ok: true, action: "created", phoneKey, endpoint };
+  } else {
+    // Update: preserva created_at + badge_count + last_sent_at
+    const existing = sh.getRange(foundRow, 1, 1, PUSH_SUBS_HEADERS.length).getValues()[0];
+    row.created_at = existing[PUSH_SUBS_HEADERS.indexOf("created_at")] || now;
+    row.badge_count = existing[PUSH_SUBS_HEADERS.indexOf("badge_count")] || "";
+    row.last_sent_at = existing[PUSH_SUBS_HEADERS.indexOf("last_sent_at")] || "";
+    sh.getRange(foundRow, 1, 1, PUSH_SUBS_HEADERS.length).setValues([PUSH_SUBS_HEADERS.map(h => row[h])]);
+    return { ok: true, action: "updated", phoneKey, endpoint };
+  }
+}
+
+// Elimina la suscripción por endpoint (cuando el usuario desinstala / revoca permiso)
+function unregisterPushSubscription_(data) {
+  const endpoint = safe_(data.endpoint || "").trim();
+  if (!endpoint) return { ok: false, error: "Falta endpoint." };
+  const sh = ensurePushSubsSheet_();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: true, deleted: 0 };
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const idxEndpoint = headers.indexOf("endpoint");
+  if (idxEndpoint < 0) return { ok: false, error: "Hoja sin columna endpoint." };
+  const col = sh.getRange(2, idxEndpoint + 1, lastRow - 1, 1).getValues();
+  for (let i = col.length - 1; i >= 0; i--) {
+    if (String(col[i][0]).trim() === endpoint) {
+      sh.deleteRow(i + 2);
+      return { ok: true, deleted: 1 };
+    }
+  }
+  return { ok: true, deleted: 0 };
+}
+
+// Lista suscripciones (opcionalmente filtra por phoneKey). GET admin.
+function listPushSubscriptions_(params) {
+  const phoneKeyFilter = safe_(params.phoneKey || "").trim();
+  const sh = ensurePushSubsSheet_();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: true, rows: [] };
+  const data = sh.getRange(1, 1, lastRow, PUSH_SUBS_HEADERS.length).getValues();
+  const headers = data[0];
+  const rows = data.slice(1).map(r => {
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = r[i]);
+    return obj;
+  });
+  const filtered = phoneKeyFilter ? rows.filter(r => String(r.phoneKey).trim() === phoneKeyFilter) : rows;
+  return { ok: true, rows: filtered, total: filtered.length };
+}
+
+// Stub: el envío real se hace desde Python (push_sender.py) con la VAPID privada.
+// Esta función devuelve las suscripciones objetivo y un mensaje informativo.
+function sendPushToUserFromAppsScript_(params) {
+  return {
+    ok: false,
+    error: "El envío de push requiere firma ECDSA VAPID. Usa otros/push_sender.py.",
+    hint: "Apps Script no soporta ECDSA. Lee la hoja " + PUSH_SUBS_SHEET + " y envía con web-push (Python o Node)."
+  };
 }

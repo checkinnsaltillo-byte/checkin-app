@@ -4936,6 +4936,10 @@ body.has-session input[name="nombre"] {
       <span class="nav-item-icon">📲</span>
       <span>Crear acceso directo</span>
     </li>
+    <li class="nav-item" id="navItemPushSubscribe" hidden>
+      <span class="nav-item-icon">🔔</span>
+      <span id="navPushLabel">Activar avisos</span>
+    </li>
   </ul>
 </aside>
 <div style="width:100%; text-align:center; margin-top:20px; margin-bottom:10px;">
@@ -15278,6 +15282,138 @@ document.addEventListener("DOMContentLoaded", function(){
     setBtnsVisible(false);
     deferredPrompt = null;
   });
+
+  // ═══ PUSH NOTIFICATIONS — suscripción y desuscripción ═══
+  const VAPID_PUBLIC_KEY = "BH0SFnFLetMhyFlMaSFfl2ZfH-UYcuIvEQze-kPOcKGukvB4PmDW_Pu4WAe0zkpwYz3ks7oLHE7UGSI7QVOAb74";
+  const navPush = document.getElementById("navItemPushSubscribe");
+  const navPushLabel = document.getElementById("navPushLabel");
+  const pushSupported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+
+  function urlBase64ToUint8Array(base64String){
+    const padding = "=".repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(base64);
+    const arr = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+  }
+  function arrayBufferToBase64Url(buffer){
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function getPhoneKey(){
+    try {
+      const raw = localStorage.getItem("checkinn_session_v1");
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      if (!s || !s.phone || !s.lada) return null;
+      return `+${s.lada}${s.phone}`;
+    } catch(_e){ return null; }
+  }
+
+  async function getCurrentSubscription(){
+    if (!pushSupported) return null;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      return await reg.pushManager.getSubscription();
+    } catch(_e){ return null; }
+  }
+
+  async function refreshPushUi(){
+    if (!pushSupported || !navPush) { if (navPush) navPush.hidden = true; return; }
+    const phoneKey = getPhoneKey();
+    if (!phoneKey) { navPush.hidden = true; return; }  // solo con sesión
+    const sub = await getCurrentSubscription();
+    const granted = Notification.permission === "granted" && !!sub;
+    navPush.hidden = false;
+    if (navPushLabel) navPushLabel.textContent = granted ? "Desactivar avisos" : "Activar avisos";
+    navPush.dataset.state = granted ? "active" : "inactive";
+  }
+
+  async function postBackend(action, payload){
+    return fetch(WEB_APP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action, ...payload })
+    }).then(r => r.json()).catch(e => ({ ok: false, error: e.message }));
+  }
+
+  async function subscribeToPush(){
+    if (!pushSupported) { alert("Tu navegador no soporta avisos push."); return; }
+    const phoneKey = getPhoneKey();
+    if (!phoneKey) { alert("Inicia sesión para activar avisos."); return; }
+    if (Notification.permission === "denied") {
+      alert("Bloqueaste los avisos. Habilítalos en los ajustes del navegador y vuelve a intentar.");
+      return;
+    }
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") { alert("No se concedió permiso para avisos."); return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+      const json = sub.toJSON();
+      const p256dh = json.keys && json.keys.p256dh;
+      const auth = json.keys && json.keys.auth;
+      const res = await postBackend("register_push_subscription", {
+        phoneKey,
+        endpoint: sub.endpoint,
+        p256dh, auth,
+        ua: navigator.userAgent
+      });
+      if (res && res.ok) {
+        await refreshPushUi();
+        alert("Avisos activados. Te llegarán notificaciones cuando haya novedades.");
+      } else {
+        alert("No se pudo registrar la suscripción: " + (res && res.error || "error desconocido"));
+      }
+    } catch (err) {
+      console.error("[push] subscribe failed", err);
+      alert("Error al activar avisos: " + err.message);
+    }
+  }
+
+  async function unsubscribeFromPush(){
+    try {
+      const sub = await getCurrentSubscription();
+      if (sub) {
+        const endpoint = sub.endpoint;
+        await sub.unsubscribe().catch(()=>{});
+        await postBackend("unregister_push_subscription", { endpoint });
+      }
+      await refreshPushUi();
+      alert("Avisos desactivados.");
+    } catch (err) {
+      console.error("[push] unsubscribe failed", err);
+    }
+  }
+
+  navPush?.addEventListener("click", async () => {
+    // Cerrar sidebar
+    document.getElementById("navSidebar")?.classList.remove("open");
+    document.getElementById("navOverlay")?.classList.remove("open");
+    document.body.style.overflow = "";
+    if (navPush.dataset.state === "active") {
+      await unsubscribeFromPush();
+    } else {
+      await subscribeToPush();
+    }
+  });
+
+  // Refrescar UI cuando se abre el menú o cambia la sesión
+  document.getElementById("navOpenBtn")?.addEventListener("click", refreshPushUi);
+  window.addEventListener("storage", (e) => {
+    if (e.key === "checkinn_session_v1") refreshPushUi();
+  });
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", refreshPushUi);
+  } else {
+    setTimeout(refreshPushUi, 200);
+  }
 })();
 </script>
 
