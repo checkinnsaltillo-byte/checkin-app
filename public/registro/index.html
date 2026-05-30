@@ -5342,9 +5342,9 @@ body.has-session input[name="nombre"] {
       <label for="wiz_nombre" data-i18n="wizNombreLabel">Nombre completo</label>
       <input id="wiz_nombre" type="text" autocomplete="name" placeholder="Como aparece en tu identificación"/>
       <label data-i18n="wizCelularLabel">Celular principal</label>
-      <div style="display:flex;gap:10px;align-items:stretch;">
-        <input id="wiz_celular_display" class="wizard-readonly" type="text" readonly aria-readonly="true" style="flex:1;"/>
-        <button id="wizChangePhoneBtn" type="button" class="wizard-btn-secondary" style="margin-top:0;white-space:nowrap;" data-i18n="changePhoneBtn">✏️ Cambiar celular</button>
+      <div class="wiz-phone-row">
+        <span id="wiz_celular_display" class="wiz-phone-display"></span>
+        <button id="wizChangePhoneBtn" type="button" class="wizard-btn-secondary" data-i18n="changePhoneBtn">✏️ Cambiar celular</button>
       </div>
       <small class="hint" data-i18n="wizCelularHint">Es el celular con el que iniciaste sesión. Si necesitas cambiarlo, te validaremos el nuevo con un código por WhatsApp.</small>
       <label data-i18n="wizEmergenciaLabel" style="margin-top:14px;">Contacto de emergencia</label>
@@ -9930,25 +9930,35 @@ function buildTicketActionsHtml(row, ticketUrl){
         ? `<div class="veh-photo-thumb" data-zoom-src="${esc(fotoFull)}" title="Ver foto"><img src="${esc(fotoThumb)}" alt="Foto vehículo" loading="lazy"/></div>`
         : "";
       return `
-        <div class="vehicle-card" style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:10px;box-shadow:0 4px 12px rgba(15,23,42,.04);">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-            <div style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;">
-              ${fotoHTML}
-              <div style="min-width:0;flex:1;">
-                <div style="font-weight:800;font-size:15px;color:var(--text);">${esc(marca)} ${esc(modelo)}${color ? ` · <span style="font-weight:600;color:var(--text-soft);">${esc(color)}</span>` : ""}</div>
-                <div style="font-size:12.5px;color:var(--text);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 12px;">
-                  <span><span style="color:var(--text-soft);">${esc(lblPlacas)}:</span> <strong>${esc(placas)}</strong></span>
-                  <span><span style="color:var(--text-soft);">${esc(lblDepto)}:</span> ${esc(deptoDisplay)}</span>
-                  ${horaSalida ? `<span><span style="color:var(--text-soft);">${esc(lblHora)}:</span> ${esc(horaSalida)}</span>` : ""}
-                </div>
-              </div>
+        <article class="veh-card-v2">
+          <header class="veh-card-head">
+            ${fotoHTML}
+            <div class="veh-card-title-wrap">
+              <h4 class="veh-card-title">${esc(marca)} ${esc(modelo)}</h4>
+              ${color ? `<p class="veh-card-sub">${esc(color)}</p>` : ""}
             </div>
-            <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
-              ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener" class="veh-action-btn veh-action-wa">📱 ${esc(lblWA)}</a>` : ""}
-              ${callLink ? `<a href="${callLink}" class="veh-action-btn veh-action-call">📞 ${esc(lblCall)}</a>` : ""}
+          </header>
+          <dl class="veh-card-meta">
+            <div class="veh-card-meta-item">
+              <dt>${esc(lblPlacas)}</dt>
+              <dd>${esc(placas)}</dd>
             </div>
-          </div>
-        </div>
+            <div class="veh-card-meta-item">
+              <dt>${esc(lblDepto)}</dt>
+              <dd>${esc(deptoDisplay)}</dd>
+            </div>
+            ${horaSalida ? `
+            <div class="veh-card-meta-item">
+              <dt>${esc(lblHora)}</dt>
+              <dd>${esc(horaSalida)}</dd>
+            </div>` : ""}
+          </dl>
+          ${(waLink || callLink) ? `
+          <footer class="veh-card-actions">
+            ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener" class="veh-action-btn veh-action-wa">📱 ${esc(lblWA)}</a>` : ""}
+            ${callLink ? `<a href="${callLink}" class="veh-action-btn veh-action-call">📞 ${esc(lblCall)}</a>` : ""}
+          </footer>` : ""}
+        </article>
       `;
     }).join("");
 
@@ -14213,7 +14223,7 @@ document.addEventListener("DOMContentLoaded", function(){
     $("topMenu").style.display = "none";
     // Setear celular en read-only
     const phoneDisplay = `+${session.lada} ${session.phone}`;
-    $("wiz_celular_display").value = phoneDisplay;
+    $("wiz_celular_display").textContent = phoneDisplay;
     // Cargar datos
     fillFormFromProfile(activeProfile);
     updateConditionals();
@@ -14532,7 +14542,7 @@ document.addEventListener("DOMContentLoaded", function(){
     // Actualizar UI inmediatamente
     activePhoneKey = newKey;
     activeProfile = loadProfile(newKey);
-    $("wiz_celular_display").value = `+${changePhonePending.newLada} ${changePhonePending.newPhone}`;
+    $("wiz_celular_display").textContent = `+${changePhonePending.newLada} ${changePhonePending.newPhone}`;
     refreshHomeCard();
     // Actualizar la pill de sesión si está visible
     const pillName = document.getElementById("sessionPillName");
@@ -15956,6 +15966,150 @@ document.addEventListener("DOMContentLoaded", function(){
     box-shadow: var(--d2-shadow-lg) !important;
     border: 0 !important;
   }
+
+  /* ─── Wizard celular principal: display limpio, sin input vacío ── */
+  .wiz-phone-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .wiz-phone-display {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--d2-fg);
+    letter-spacing: -0.015em;
+    flex: 1;
+    min-width: 0;
+    padding: 12px 14px;
+    background: var(--d2-surface-soft);
+    border-radius: 12px;
+    border: 1px solid var(--d2-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .wiz-phone-display:empty::before {
+    content: "—";
+    color: var(--d2-fg-muted);
+    font-weight: 500;
+  }
+  .wiz-phone-row .wizard-btn-secondary {
+    margin-top: 0 !important;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  /* ─── Card de vehículo v2: layout vertical limpio ─────────────── */
+  .veh-card-v2 {
+    background: var(--d2-surface);
+    border: 1px solid var(--d2-border);
+    border-radius: var(--d2-radius);
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: var(--d2-shadow-xs);
+    transition: box-shadow .15s var(--d2-ease), transform .15s var(--d2-ease);
+  }
+  .veh-card-v2:hover {
+    box-shadow: var(--d2-shadow-sm);
+    transform: translateY(-1px);
+  }
+  .veh-card-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  .veh-card-head .veh-photo-thumb {
+    flex: 0 0 64px;
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: zoom-in;
+    background: var(--d2-surface-soft);
+    border: 1px solid var(--d2-border);
+  }
+  .veh-card-head .veh-photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .veh-card-title-wrap {
+    flex: 1;
+    min-width: 0;
+  }
+  .veh-card-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--d2-fg);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .veh-card-sub {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--d2-fg-soft);
+    font-weight: 500;
+  }
+  .veh-card-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 12px;
+    margin: 0 0 14px;
+    padding: 12px 0;
+    border-top: 1px solid var(--d2-border);
+    border-bottom: 1px solid var(--d2-border);
+  }
+  .veh-card-meta-item dt {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--d2-fg-muted);
+    margin-bottom: 3px;
+  }
+  .veh-card-meta-item dd {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--d2-fg);
+    letter-spacing: -0.01em;
+  }
+  .veh-card-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .veh-card-actions .veh-action-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: transform .12s var(--d2-ease), box-shadow .12s var(--d2-ease), background .12s var(--d2-ease);
+  }
+  .veh-card-actions .veh-action-wa {
+    background: #25d366;
+    color: #fff;
+  }
+  .veh-card-actions .veh-action-wa:hover { background: #1ebd5b; }
+  .veh-card-actions .veh-action-call {
+    background: #f97316;
+    color: #fff;
+  }
+  .veh-card-actions .veh-action-call:hover { background: #ea580c; }
+  .veh-card-actions .veh-action-btn:active { transform: scale(.97); }
 </style>
 
 </body>
