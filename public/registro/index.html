@@ -15230,10 +15230,26 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
   // ─── Registrar Service Worker (necesario para que Chrome dispare beforeinstallprompt) ───
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("sw.js").catch(err => {
+    window.addEventListener("load", async () => {
+      try {
+        const reg = await navigator.serviceWorker.register("sw.js");
+        // Recargar cuando un SW nuevo toma control (evita HTML cacheado en iOS PWA).
+        let didReload = false;
+        navigator.serviceWorker.addEventListener("message", (ev) => {
+          if (ev.data && ev.data.type === "sw-activated" && !didReload) {
+            didReload = true;
+            location.reload();
+          }
+        });
+        // Chequeo periódico de actualizaciones (al volver al foco / cada 60s).
+        const checkUpdate = () => { try { reg.update(); } catch(_e){} };
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") checkUpdate();
+        });
+        setInterval(checkUpdate, 60000);
+      } catch (err) {
         console.warn("[pwa] sw register failed:", err);
-      });
+      }
     });
   }
 
