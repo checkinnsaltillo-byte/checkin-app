@@ -5,6 +5,13 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <title>CHECK-IN | Registro</title>
+<!-- PWA: manifest + iconos + theme color -->
+<link rel="manifest" href="manifest.webmanifest"/>
+<meta name="theme-color" content="#dc2626"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Check-inn"/>
 <style>
 /* ═══ App loader splash (bloquea interacción) ═══ */
 #appLoader{
@@ -4972,6 +4979,10 @@ body.has-session input[name="nombre"] {
         </button>
         <div class="veh-collapsible-body" id="vehBodyWelcome" hidden></div>
       </div>
+      <button class="pwa-install-btn" id="btnInstallPwa" type="button" hidden>
+        <span class="pwa-install-icon" aria-hidden="true">📲</span>
+        <span class="pwa-install-label">Crear acceso directo en mi dispositivo</span>
+      </button>
     </div>
   </div>
 </div>
@@ -15093,6 +15104,166 @@ document.addEventListener("DOMContentLoaded", function(){
   } else {
     setupWaFab();
   }
+})();
+</script>
+
+<!-- ═══ PWA: Instalar como app + instrucciones iOS ═══════════════════ -->
+<style>
+.pwa-install-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  margin-top:16px;
+  padding:12px 18px;
+  background:#f1f5f9;
+  color:#0f172a;
+  border:1px dashed #94a3b8;
+  border-radius:14px;
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+  width:100%;
+  box-sizing:border-box;
+  transition:background .12s, border-color .12s, transform .1s;
+}
+.pwa-install-btn:hover{ background:#e2e8f0; border-color:#64748b; }
+.pwa-install-btn:active{ transform:scale(.98); }
+.pwa-install-btn[hidden]{ display:none !important; }
+.pwa-install-icon{ font-size:20px; line-height:1; }
+.pwa-install-label{ line-height:1.2; }
+/* Modal de instrucciones iOS */
+#pwaInstallModal{
+  position:fixed; inset:0; z-index:2147483600;
+  display:none; align-items:center; justify-content:center;
+  background:rgba(15,23,42,.55);
+  padding:18px;
+}
+#pwaInstallModal.open{ display:flex; }
+#pwaInstallModal .pwa-modal-card{
+  background:#fff; border-radius:18px; max-width:420px; width:100%;
+  padding:22px; box-shadow:0 30px 80px rgba(15,23,42,.32);
+  max-height:90vh; overflow-y:auto;
+}
+#pwaInstallModal h3{ margin:0 0 8px; font-size:18px; font-weight:800; color:#0f172a; }
+#pwaInstallModal .pwa-modal-sub{ font-size:13px; color:#475569; margin-bottom:14px; }
+#pwaInstallModal ol{ padding-left:22px; margin:0 0 18px; }
+#pwaInstallModal ol li{ margin-bottom:12px; line-height:1.45; font-size:14px; color:#1e293b; }
+#pwaInstallModal .pwa-modal-share-icon{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:26px; height:26px; border-radius:6px;
+  background:#dbeafe; color:#1d4ed8; font-weight:800; vertical-align:middle;
+  margin:0 3px;
+}
+#pwaInstallModal .pwa-modal-close{
+  width:100%; padding:12px; border-radius:12px;
+  background:#0f172a; color:#fff; font-weight:700; border:0; cursor:pointer;
+}
+#pwaInstallModal .pwa-modal-close:hover{ background:#1e293b; }
+</style>
+<div id="pwaInstallModal" role="dialog" aria-modal="true" aria-labelledby="pwaInstallTitle">
+  <div class="pwa-modal-card">
+    <h3 id="pwaInstallTitle">Cómo crear el acceso directo</h3>
+    <p class="pwa-modal-sub" id="pwaInstallSubtitle">Sigue los pasos para tener Check-inn como ícono de app en tu pantalla de inicio.</p>
+    <ol id="pwaInstallSteps"></ol>
+    <button type="button" class="pwa-modal-close" id="pwaInstallCloseBtn">Entendido</button>
+  </div>
+</div>
+<script>
+(function(){
+  "use strict";
+  // ─── Registrar Service Worker (necesario para que Chrome dispare beforeinstallprompt) ───
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(err => {
+        console.warn("[pwa] sw register failed:", err);
+      });
+    });
+  }
+
+  const btn = document.getElementById("btnInstallPwa");
+  const modal = document.getElementById("pwaInstallModal");
+  const stepsEl = document.getElementById("pwaInstallSteps");
+  const titleEl = document.getElementById("pwaInstallTitle");
+  const subEl = document.getElementById("pwaInstallSubtitle");
+  const closeBtn = document.getElementById("pwaInstallCloseBtn");
+  let deferredPrompt = null;
+
+  // Detección de plataforma
+  const ua = navigator.userAgent || "";
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  const isAndroid = /Android/.test(ua);
+  const isStandalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
+
+  function showModal(html, title, sub){
+    if (!modal) return;
+    if (titleEl && title) titleEl.textContent = title;
+    if (subEl && sub) subEl.textContent = sub;
+    if (stepsEl) stepsEl.innerHTML = html;
+    modal.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+  function closeModal(){
+    if (!modal) return;
+    modal.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+  closeBtn?.addEventListener("click", closeModal);
+  modal?.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+
+  const iosSteps = `
+    <li>Toca el ícono <span class="pwa-modal-share-icon" aria-label="Compartir">⬆️</span> <strong>Compartir</strong> en la barra inferior de Safari.</li>
+    <li>Desplázate y toca <strong>"Agregar a pantalla de inicio"</strong> (Add to Home Screen).</li>
+    <li>Confirma con <strong>"Agregar"</strong> en la esquina superior derecha.</li>
+    <li>El ícono de Check-inn aparecerá en tu pantalla de inicio. Ábrelo desde ahí para una experiencia tipo app.</li>
+  `;
+  const androidFallbackSteps = `
+    <li>Toca el menú <strong>⋮</strong> de Chrome (esquina superior derecha).</li>
+    <li>Toca <strong>"Agregar a pantalla principal"</strong> o <strong>"Instalar app"</strong>.</li>
+    <li>Confirma. El ícono de Check-inn quedará en tu pantalla de inicio.</li>
+  `;
+
+  // ─── Android: capturar beforeinstallprompt y mostrar botón nativo ───
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!isStandalone && btn) btn.hidden = false;
+  });
+
+  // ─── iOS: no hay beforeinstallprompt, mostrar botón si no está instalado ───
+  if (isIOS && !isStandalone && btn) {
+    btn.hidden = false;
+  }
+
+  // ─── Click handler ───
+  btn?.addEventListener("click", async () => {
+    if (deferredPrompt) {
+      // Android Chrome (o Edge / Samsung Internet)
+      deferredPrompt.prompt();
+      try {
+        const choice = await deferredPrompt.userChoice;
+        if (choice && choice.outcome === "accepted") {
+          btn.hidden = true;
+        }
+      } catch(_e){}
+      deferredPrompt = null;
+    } else if (isIOS) {
+      showModal(iosSteps, "Cómo agregar Check-inn a tu iPhone", "Safari no tiene un botón directo: estos son los 4 pasos.");
+    } else {
+      // Fallback genérico (browsers que no soportan beforeinstallprompt)
+      showModal(androidFallbackSteps, "Cómo crear el acceso directo", "Estos son los pasos en Chrome / Edge / Samsung Internet.");
+    }
+  });
+
+  // Si ya está instalado, ocultar definitivamente
+  if (isStandalone && btn) btn.hidden = true;
+
+  window.addEventListener("appinstalled", () => {
+    if (btn) btn.hidden = true;
+    deferredPrompt = null;
+  });
 })();
 </script>
 
