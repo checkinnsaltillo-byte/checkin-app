@@ -4401,14 +4401,19 @@ body.has-session #vehicleFilterActions{ display:none !important; }
   background:#f1f5f9;
   color:#64748b;
 }
-/* Imagen del modal de zoom con cursor lupa */
+/* Imagen del modal de zoom con cursor lupa.
+   IMPORTANTE: el transform/scale ahora lo controla el JS (ZOOM_STATE) para
+   permitir pan táctil. Sólo dejamos cursor + transition aquí. */
 #imageZoomImg{
   cursor:zoom-in;
   transition:transform .25s ease;
+  will-change:transform;
 }
 #imageZoomImg.zoomed{
-  cursor:zoom-out;
-  transform:scale(1.8);
+  cursor:grab;
+}
+#imageZoomImg.zoomed:active{
+  cursor:grabbing;
 }
 
 /* ───── Paginación tabla ───── */
@@ -12542,25 +12547,35 @@ document.addEventListener("DOMContentLoaded", function(){
             const lblWA     = labels.vehLblWhatsApp || "WhatsApp";
             const deptoDisplay = depto && depto !== "—" ? `# ${depto}` : "—";
             return `
-              <div class="vehicle-card" style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:10px;box-shadow:0 4px 12px rgba(15,23,42,.04);">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-                  <div style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;">
-                    ${fotoHTML}
-                    <div style="min-width:0;flex:1;">
-                      <div style="font-weight:800;font-size:15px;color:var(--text);">${escapeHtmlSafe(marca)} ${escapeHtmlSafe(modelo)}${color ? ` · <span style="font-weight:600;color:var(--text-soft);">${escapeHtmlSafe(color)}</span>` : ""}</div>
-                      <div style="font-size:12.5px;color:var(--text);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 12px;">
-                        <span><span style="color:var(--text-soft);">${escapeHtmlSafe(lblPlacas)}:</span> <strong>${escapeHtmlSafe(placas)}</strong></span>
-                        <span><span style="color:var(--text-soft);">${escapeHtmlSafe(lblDepto)}:</span> ${escapeHtmlSafe(deptoDisplay)}</span>
-                        ${horaSalida ? `<span><span style="color:var(--text-soft);">${escapeHtmlSafe(lblHora)}:</span> ${escapeHtmlSafe(horaSalida)}</span>` : ""}
-                      </div>
-                    </div>
+              <article class="veh-card-v2">
+                <header class="veh-card-head">
+                  ${fotoHTML}
+                  <div class="veh-card-title-wrap">
+                    <h4 class="veh-card-title">${escapeHtmlSafe(marca)} ${escapeHtmlSafe(modelo)}</h4>
+                    ${color ? `<p class="veh-card-sub">${escapeHtmlSafe(color)}</p>` : ""}
                   </div>
-                  <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">
-                    ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener" class="veh-action-btn veh-action-wa">📱 ${escapeHtmlSafe(lblWA)}</a>` : ""}
-                    ${callLink ? `<a href="${callLink}" class="veh-action-btn veh-action-call">📞 ${escapeHtmlSafe(lblCall)}</a>` : ""}
+                </header>
+                <dl class="veh-card-meta">
+                  <div class="veh-card-meta-item">
+                    <dt>${escapeHtmlSafe(lblPlacas)}</dt>
+                    <dd>${escapeHtmlSafe(placas)}</dd>
                   </div>
-                </div>
-              </div>
+                  <div class="veh-card-meta-item">
+                    <dt>${escapeHtmlSafe(lblDepto)}</dt>
+                    <dd>${escapeHtmlSafe(deptoDisplay)}</dd>
+                  </div>
+                  ${horaSalida ? `
+                  <div class="veh-card-meta-item">
+                    <dt>${escapeHtmlSafe(lblHora)}</dt>
+                    <dd>${escapeHtmlSafe(horaSalida)}</dd>
+                  </div>` : ""}
+                </dl>
+                ${(waLink || callLink) ? `
+                <footer class="veh-card-actions">
+                  ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener" class="veh-action-btn veh-action-wa">📱 ${escapeHtmlSafe(lblWA)}</a>` : ""}
+                  ${callLink ? `<a href="${callLink}" class="veh-action-btn veh-action-call">📞 ${escapeHtmlSafe(lblCall)}</a>` : ""}
+                </footer>` : ""}
+              </article>
             `;
           }).join("");
           // Bind click en thumbs para zoom
@@ -14833,38 +14848,113 @@ document.addEventListener("DOMContentLoaded", function(){
     refreshUploadButtonText(input || img);
   }
 
-  // Zoom modal
+  // ─── Zoom modal con pan táctil/pointer ─────────────────────────────
+  // Estado del zoom: scale + translate. Permite zoom-in al click/tap y
+  // arrastre con dedo o cursor mientras está zoomed.
+  const ZOOM_STATE = { scale: 1, tx: 0, ty: 0, dragging: false, lastX: 0, lastY: 0, didMove: false };
+
+  function applyZoomTransform(){
+    const img = $('imageZoomImg');
+    if (!img) return;
+    img.style.transformOrigin = '50% 50%';
+    img.style.transform = `translate3d(${ZOOM_STATE.tx}px, ${ZOOM_STATE.ty}px, 0) scale(${ZOOM_STATE.scale})`;
+  }
+  function resetZoom(){
+    ZOOM_STATE.scale = 1; ZOOM_STATE.tx = 0; ZOOM_STATE.ty = 0;
+    const img = $('imageZoomImg');
+    if (img) { img.classList.remove('zoomed'); applyZoomTransform(); }
+  }
+  // Limita el pan para que la imagen no se vaya fuera del viewport
+  function clampPan(){
+    const img = $('imageZoomImg');
+    if (!img) return;
+    const rect = img.getBoundingClientRect();
+    // rect.width/height YA incluyen el scale aplicado en este frame.
+    // Calcular el rango permitido para que el centro de la imagen
+    // pueda alejarse hasta donde la imagen escalada cubra el viewport.
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const scaledW = img.offsetWidth * ZOOM_STATE.scale;
+    const scaledH = img.offsetHeight * ZOOM_STATE.scale;
+    const maxTx = Math.max(0, (scaledW - vw) / 2 + 20);
+    const maxTy = Math.max(0, (scaledH - vh) / 2 + 20);
+    if (ZOOM_STATE.tx > maxTx) ZOOM_STATE.tx = maxTx;
+    if (ZOOM_STATE.tx < -maxTx) ZOOM_STATE.tx = -maxTx;
+    if (ZOOM_STATE.ty > maxTy) ZOOM_STATE.ty = maxTy;
+    if (ZOOM_STATE.ty < -maxTy) ZOOM_STATE.ty = -maxTy;
+  }
+
   function openZoom(src){
     const modal = $('imageZoomModal');
     const img = $('imageZoomImg');
     if (!modal || !img) return;
     img.src = src;
-    img.classList.remove('zoomed');
-    img.style.transformOrigin = '50% 50%';
+    resetZoom();
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
   }
   function closeZoom(){
     const modal = $('imageZoomModal');
-    const img = $('imageZoomImg');
-    if (img) { img.classList.remove('zoomed'); img.style.transformOrigin = '50% 50%'; }
+    resetZoom();
     if (modal) modal.style.display = 'none';
     document.body.style.overflow = '';
   }
   function toggleZoomLevel(ev){
     const img = $('imageZoomImg');
     if (!img) return;
-    if (!img.classList.contains('zoomed')) {
-      // Hacer zoom in. Centrar en el punto donde dio click.
+    if (ZOOM_STATE.scale === 1) {
+      // Zoom-in: 2x, centrar en el punto donde dio click/tap.
+      ZOOM_STATE.scale = 2;
+      // Pan inicial para que el punto del tap quede al centro de la pantalla
       const rect = img.getBoundingClientRect();
-      const x = ((ev.clientX - rect.left) / rect.width) * 100;
-      const y = ((ev.clientY - rect.top) / rect.height) * 100;
-      img.style.transformOrigin = `${x}% ${y}%`;
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      ZOOM_STATE.tx = (cx - ev.clientX) * (ZOOM_STATE.scale - 1) / ZOOM_STATE.scale;
+      ZOOM_STATE.ty = (cy - ev.clientY) * (ZOOM_STATE.scale - 1) / ZOOM_STATE.scale;
       img.classList.add('zoomed');
+      applyZoomTransform();
+      clampPan();
+      applyZoomTransform();
     } else {
-      img.classList.remove('zoomed');
-      img.style.transformOrigin = '50% 50%';
+      resetZoom();
     }
+  }
+
+  function bindPan(){
+    const img = $('imageZoomImg');
+    if (!img || img.dataset.panBound === '1') return;
+    img.dataset.panBound = '1';
+    img.style.touchAction = 'none'; // necesario para que Pointer Events fluyan
+    img.addEventListener('pointerdown', (ev) => {
+      ZOOM_STATE.didMove = false;
+      if (ZOOM_STATE.scale === 1) return; // sólo se arrastra cuando hay zoom
+      ZOOM_STATE.dragging = true;
+      ZOOM_STATE.lastX = ev.clientX;
+      ZOOM_STATE.lastY = ev.clientY;
+      img.setPointerCapture(ev.pointerId);
+      img.style.transition = 'none';
+      ev.preventDefault();
+    });
+    img.addEventListener('pointermove', (ev) => {
+      if (!ZOOM_STATE.dragging) return;
+      const dx = ev.clientX - ZOOM_STATE.lastX;
+      const dy = ev.clientY - ZOOM_STATE.lastY;
+      if (Math.abs(dx) + Math.abs(dy) > 3) ZOOM_STATE.didMove = true;
+      ZOOM_STATE.lastX = ev.clientX;
+      ZOOM_STATE.lastY = ev.clientY;
+      ZOOM_STATE.tx += dx;
+      ZOOM_STATE.ty += dy;
+      clampPan();
+      applyZoomTransform();
+    });
+    const endPan = (ev) => {
+      if (!ZOOM_STATE.dragging) return;
+      ZOOM_STATE.dragging = false;
+      try { img.releasePointerCapture(ev.pointerId); } catch(_e){}
+      img.style.transition = '';
+    };
+    img.addEventListener('pointerup', endPan);
+    img.addEventListener('pointercancel', endPan);
   }
 
   // MutationObserver: cuando aparecen nuevos preview-wrappers (ej. al cambiar
@@ -14910,6 +15000,7 @@ document.addEventListener("DOMContentLoaded", function(){
     enhanceAllPreviews();
     bindFileInputs();
     startObserver();
+    bindPan();
     $('imageZoomCloseBtn')?.addEventListener('click', closeZoom);
     // ─── Download + Share ───────────────────────────────────────
     async function fetchAsBlob(src){
@@ -14945,39 +15036,11 @@ document.addEventListener("DOMContentLoaded", function(){
         window.open(src, '_blank', 'noopener');
       }
     });
-    $('imageZoomShareBtn')?.addEventListener('click', async (ev) => {
-      ev.stopPropagation();
-      const src = $('imageZoomImg')?.src;
-      if (!src) return;
-      const name = guessFilename(src);
-      // Preferir Web Share API con file (iOS/Android nativos)
-      try {
-        if (navigator.canShare && window.File) {
-          const blob = await fetchAsBlob(src);
-          const file = new File([blob], name, { type: blob.type || 'image/png' });
-          if (navigator.canShare({ files: [file] })) {
-            await navigator.share({ files: [file], title: 'Check-inn', text: 'Comprobante' });
-            return;
-          }
-        }
-        if (navigator.share) {
-          await navigator.share({ url: src, title: 'Check-inn', text: 'Comprobante' });
-          return;
-        }
-      } catch (err) {
-        if (err && err.name === 'AbortError') return; // usuario canceló
-      }
-      // Fallback final: copiar URL al clipboard
-      try {
-        await navigator.clipboard.writeText(src);
-        alert('No se pudo abrir el menú de compartir. La URL de la imagen se copió al portapapeles.');
-      } catch {
-        window.open(src, '_blank', 'noopener');
-      }
-    });
     $('imageZoomModal')?.addEventListener('click', (e) => {
-      // Click sobre la imagen → toggle zoom in/out
+      // Click sobre la imagen → toggle zoom in/out, PERO no si fue
+      // resultado de un drag (didMove) — eso preserva la posición pan.
       if (e.target.id === 'imageZoomImg') {
+        if (ZOOM_STATE.didMove) { ZOOM_STATE.didMove = false; return; }
         toggleZoomLevel(e);
         return;
       }
@@ -15041,8 +15104,13 @@ document.addEventListener("DOMContentLoaded", function(){
 <!-- ═══ Modal: Zoom de imagen ══════════════════════════════════════ -->
 <div class="popup-backdrop" id="imageZoomModal" style="display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.85);">
   <div class="image-zoom-toolbar" style="position:fixed;top:18px;right:18px;display:flex;gap:10px;z-index:1000001;">
-    <button id="imageZoomDownloadBtn" type="button" class="image-zoom-tool-btn" title="Descargar imagen" aria-label="Descargar imagen">⬇</button>
-    <button id="imageZoomShareBtn" type="button" class="image-zoom-tool-btn" title="Compartir imagen" aria-label="Compartir imagen">⤴</button>
+    <button id="imageZoomDownloadBtn" type="button" class="image-zoom-tool-btn" title="Descargar imagen" aria-label="Descargar imagen">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 4v12"/>
+        <polyline points="6 10 12 16 18 10"/>
+        <path d="M5 20h14"/>
+      </svg>
+    </button>
     <button id="imageZoomCloseBtn" type="button" class="image-zoom-tool-btn" title="Cerrar" aria-label="Cerrar">✕</button>
   </div>
   <img id="imageZoomImg" alt="" style="max-width:92vw;max-height:88vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);background:#fff;"/>
@@ -16152,17 +16220,18 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   .veh-card-actions {
     display: flex;
+    flex-direction: column;
     gap: 8px;
   }
   .veh-card-actions .veh-action-btn {
-    flex: 1;
+    width: 100%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 10px 12px;
+    gap: 8px;
+    padding: 12px 14px;
     border-radius: 10px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     text-decoration: none;
     transition: transform .12s var(--d2-ease), box-shadow .12s var(--d2-ease), background .12s var(--d2-ease);
