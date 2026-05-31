@@ -13325,11 +13325,24 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   // ─── API: checkUserStatus / OTP / PIN ──────────────────────────────
+  // PIN persistido en backend (Sheet Perfiles, columna "PIN hash").
+  // checkUserStatus / createPin / verifyPin hablan con Apps Script vía POST.
   async function checkUserStatus(fullPhone){
-    // Fase 3: fetch(CHECKIN_WEB_APP_URL+"?action=check_user_status&phone="+fullPhone)
-    const users = getMockUsers();
-    const u = users[fullPhone];
-    return { exists: !!u, hasPin: !!(u && u.pinHash) };
+    const phoneKey = String(fullPhone).replace(/\D/g, "");
+    try {
+      const r = await fetch(WEB_APP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "check_user_status", phoneKey })
+      });
+      const json = await r.json();
+      if (json && json.ok) return { exists: !!json.exists, hasPin: !!json.hasPin };
+      console.warn("[checkUserStatus] backend error:", json && json.error);
+      return { exists: false, hasPin: false };
+    } catch(e) {
+      console.warn("[checkUserStatus] network error:", e);
+      return { exists: false, hasPin: false };
+    }
   }
   // OTP via backend Apps Script: methods email/sms con storage server-side.
   // sendOtp ahora solo registra el estado pendiente; el envío real lo hace
@@ -13390,25 +13403,36 @@ document.addEventListener("DOMContentLoaded", function(){
     } catch(e) { return { ok: false, error: e.message }; }
   }
   async function createPin(fullPhone, pin){
-    // Fase 3: action=create_pin con otpTicket que pruebe que validó OTP
-    const users = getMockUsers();
-    users[fullPhone] = {
-      phone: fullPhone,
-      pinHash: await hashPin(fullPhone, pin),
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    saveMockUsers(users);
-    return { ok: true };
+    const phoneKey = String(fullPhone).replace(/\D/g, "");
+    const pinHash = await hashPin(phoneKey, pin);
+    try {
+      const r = await fetch(WEB_APP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "set_pin", phoneKey, pinHash })
+      });
+      const json = await r.json();
+      if (json && json.ok) return { ok: true };
+      return { ok: false, error: (json && json.error) || "No se pudo guardar el PIN." };
+    } catch(e) {
+      return { ok: false, error: e.message || "Error de red al guardar PIN." };
+    }
   }
   async function verifyPin(fullPhone, pin){
-    // Fase 3: action=verify_pin (rate-limited en backend)
-    const users = getMockUsers();
-    const u = users[fullPhone];
-    if (!u || !u.pinHash) return { ok: false, error: "No tienes PIN registrado." };
-    const candidate = await hashPin(fullPhone, pin);
-    if (candidate === u.pinHash) return { ok: true };
-    return { ok: false, error: "PIN incorrecto." };
+    const phoneKey = String(fullPhone).replace(/\D/g, "");
+    const pinHash = await hashPin(phoneKey, pin);
+    try {
+      const r = await fetch(WEB_APP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "verify_pin", phoneKey, pinHash })
+      });
+      const json = await r.json();
+      if (json && json.ok) return { ok: true };
+      return { ok: false, error: (json && json.error) || "PIN incorrecto." };
+    } catch(e) {
+      return { ok: false, error: e.message || "Error de red al verificar PIN." };
+    }
   }
   function fullPhone(lada, digits){ return `+${lada}${digits}`; }
   function isWeakPin(pin){

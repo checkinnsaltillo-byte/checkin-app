@@ -48,7 +48,8 @@ const PERFILES_HEADERS = [
   "Identificación única","Link identificación única","ID archivo identificación única","Nombre archivo identificación",
   "¿Requiere factura?","Razón social","RFC","Régimen fiscal","Régimen otro","Código Postal",
   "Correo electrónico para el envío de la factura",
-  "Fecha creación","Fecha actualización"
+  "Fecha creación","Fecha actualización",
+  "PIN hash","PIN actualizado"
 ];
 
 const VEHICULOS_HEADERS = [
@@ -99,6 +100,9 @@ function doPost(e) {
     if (action === "save_facturapi_pdf") return jsonOutput_(saveFacturapiPdf_(data));
     if (action === "send_otp") return jsonOutput_(sendOtp_(data));
     if (action === "verify_otp") return jsonOutput_(verifyOtp_(data));
+    if (action === "check_user_status") return jsonOutput_(checkUserStatus_(data));
+    if (action === "set_pin") return jsonOutput_(setPin_(data));
+    if (action === "verify_pin") return jsonOutput_(verifyPin_(data));
     if (action === "register_push_subscription") return jsonOutput_(registerPushSubscription_(data));
     if (action === "unregister_push_subscription") return jsonOutput_(unregisterPushSubscription_(data));
     if (action === "update_push_categories") return jsonOutput_(updatePushCategories_(data));
@@ -1742,6 +1746,69 @@ function verifyOtp_(data) {
   sh.getRange(sheetRow, idxStatus + 1).setValue("verified");
   sh.getRange(sheetRow, idxVerified + 1).setValue(new Date().toISOString());
   return { ok: true, phoneKey: phoneKey };
+}
+
+// ─── PIN persistido en Perfiles ─────────────────────────────────────────────
+// El PIN se hashea en cliente (sha256("checkinn|"+phoneKey+"|"+pin)) y solo
+// se guarda el hash. checkUserStatus indica si hay PIN sin revelarlo.
+
+function checkUserStatus_(data) {
+  const phoneKey = String(data.phoneKey || "").replace(/\D/g, "");
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  ensureNormalizedSheets_();
+  const sh = getSheet_(PERFILES_SHEET);
+  const headers = getHeaders_(sh);
+  const rowNum = findRowByPhone_(sh, headers, phoneKey);
+  if (!rowNum) return { ok: true, exists: false, hasPin: false };
+  const row = readRow_(sh, headers, rowNum);
+  const pinHash = String(row["PIN hash"] || "").trim();
+  return { ok: true, exists: true, hasPin: !!pinHash };
+}
+
+function setPin_(data) {
+  const phoneKey = String(data.phoneKey || "").replace(/\D/g, "");
+  const pinHash = String(data.pinHash || "").trim();
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  if (!pinHash) return { ok: false, error: "Falta pinHash." };
+  ensureNormalizedSheets_();
+  const sh = getSheet_(PERFILES_SHEET);
+  const headers = getHeaders_(sh);
+  let rowNum = findRowByPhone_(sh, headers, phoneKey);
+  const nowIso = new Date().toISOString();
+  if (!rowNum) {
+    // No existe el perfil — crear uno mínimo con solo celular + PIN.
+    // El wizard llenará después el resto de los campos.
+    appendRow_(sh, headers, {
+      "ID_Perfil": Utilities.getUuid(),
+      "Cel/Whatsapp (principal)": phoneKey,
+      "PIN hash": pinHash,
+      "PIN actualizado": nowIso,
+      "Fecha creación": nowIso,
+      "Fecha actualización": nowIso
+    });
+    return { ok: true, created: true };
+  }
+  setCellByHeader_(sh, headers, rowNum, "PIN hash", pinHash);
+  setCellByHeader_(sh, headers, rowNum, "PIN actualizado", nowIso);
+  setCellByHeader_(sh, headers, rowNum, "Fecha actualización", nowIso);
+  return { ok: true, created: false };
+}
+
+function verifyPin_(data) {
+  const phoneKey = String(data.phoneKey || "").replace(/\D/g, "");
+  const pinHash = String(data.pinHash || "").trim();
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  if (!pinHash) return { ok: false, error: "Falta pinHash." };
+  ensureNormalizedSheets_();
+  const sh = getSheet_(PERFILES_SHEET);
+  const headers = getHeaders_(sh);
+  const rowNum = findRowByPhone_(sh, headers, phoneKey);
+  if (!rowNum) return { ok: false, error: "Usuario no encontrado." };
+  const row = readRow_(sh, headers, rowNum);
+  const saved = String(row["PIN hash"] || "").trim();
+  if (!saved) return { ok: false, error: "Sin PIN configurado." };
+  if (saved !== pinHash) return { ok: false, error: "PIN incorrecto." };
+  return { ok: true };
 }
 
 // ═══ PUSH NOTIFICATIONS ════════════════════════════════════════════════════════
