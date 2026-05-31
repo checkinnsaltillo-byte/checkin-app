@@ -1931,6 +1931,64 @@ function archiveNotification_(data) {
   return { ok: true };
 }
 
+// ─── Helpers de prueba e instalación de triggers ───────────────────────
+
+// Crea una notificación de prueba en el inbox del usuario admin.
+// Ejecutar UNA VEZ desde el editor para verificar que el panel 🔔 funciona.
+function testCreateNotification() {
+  createInboxNotification_(
+    ADMIN_PHONE_KEY,
+    "ticket_issued",
+    "🧾 Ticket de factura emitido",
+    "Tu factura de Calle Cumbres (Folio TEST-1234) está lista. Toca para descargar.",
+    { folio: "TEST-1234", ticketUrl: "", monto: "1500", propiedad: "Calle Cumbres" }
+  );
+  Logger.log("Notificación de prueba creada en Notifications_Inbox para phoneKey=" + ADMIN_PHONE_KEY);
+}
+
+// Trigger onEdit instalable: detecta cuando alguien edita manualmente la
+// celda "Folio facturapi" en la hoja Reservaciones. Si el valor pasó de
+// vacío a no-vacío, dispara la notificación al huésped.
+function onEditReservacionesTrigger(e) {
+  try {
+    if (!e || !e.range || !e.value) return;
+    const sheet = e.range.getSheet();
+    if (sheet.getName() !== RESERVACIONES_SHEET) return;
+    const row = e.range.getRow();
+    if (row < 2) return; // ignorar header
+    const col = e.range.getColumn();
+    const headers = getHeaders_(sheet);
+    const folioCol = headers.indexOf("Folio facturapi") + 1;
+    if (col !== folioCol) return;
+    const prevValue = String(e.oldValue || "").trim();
+    const newValue = String(e.value || "").trim();
+    if (prevValue || !newValue) return; // solo vacío → no-vacío
+    const rowData = readRow_(sheet, headers, row);
+    const phoneKey = String(rowData["Cel/Whatsapp (principal)"] || "").replace(/\D/g, "");
+    if (!phoneKey) return;
+    notifyTicketIssued_(phoneKey, rowData);
+  } catch (err) {
+    console.warn("onEditReservacionesTrigger error:", err);
+  }
+}
+
+// Instala el trigger onEdit en la spreadsheet. Ejecutar UNA SOLA VEZ.
+// Si la corres dos veces, no pasa nada — borra el anterior y reinstala.
+function installOnEditReservacionesTrigger() {
+  const ssId = SPREADSHEET_ID;
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => {
+    if (t.getHandlerFunction() === "onEditReservacionesTrigger") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  ScriptApp.newTrigger("onEditReservacionesTrigger")
+    .forSpreadsheet(ssId)
+    .onEdit()
+    .create();
+  Logger.log("Trigger onEditReservacionesTrigger instalado correctamente.");
+}
+
 // Trigger: al asignar/actualizar Folio facturapi de una reserva, si el folio
 // pasó de vacío a no-vacío, creamos una notificación tipo "ticket_issued"
 // para el huésped + encolamos un Web Push (categoría "facturas").
