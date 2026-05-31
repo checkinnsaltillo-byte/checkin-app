@@ -3959,11 +3959,19 @@ function formatRangoFechasSimple(inicio, fin){
   color:var(--text); font-weight:600;
   word-break:break-word;
 }
-@media (max-width:480px){
-  .stays-card-item-header{ padding:12px 14px; gap:10px; }
+@media (max-width:600px){
+  .stays-card-item-header{ padding:12px 12px; gap:8px; }
   .stays-card-item-title{ font-size:15px; }
-  .stays-card-monto-value{ font-size:16px; }
+  .stays-card-item-dates{ font-size:12px; }
+  .stays-card-item-nights{ font-size:11px; }
+  .stays-card-monto-label{ font-size:9px; }
+  .stays-card-monto-value{ font-size:15px; }
   .stays-card-monto-value.muted{ font-size:18px; }
+  .stays-card-medio-chip{ font-size:10px; padding:3px 8px 3px 3px; }
+  .stays-card-medio-chip .medio-letter{ width:16px; height:16px; font-size:10px; }
+  .stays-card-ticket-chip{ font-size:10px; padding:3px 7px; }
+  .stays-card-item-body{ padding:12px 12px 14px; }
+  .stays-card-item-details{ grid-template-columns:1fr; gap:8px 0; }
 }
 .stays-table{
   width:100%;
@@ -16868,6 +16876,14 @@ document.addEventListener("DOMContentLoaded", function(){
     padding: 0 20px 20px;
     box-sizing: border-box;
     width: 100%;
+  }
+  /* En móvil reducimos los paddings laterales para que las cards
+     de estancia tengan más ancho disponible y no se empalme el
+     título con el chip de monto. */
+  @media (max-width: 600px) {
+    .stays-card-collapsible > .stays-card-body {
+      padding: 0 8px 14px;
+    }
   }
   /* La tabla de estancias tiene scroll horizontal interno cuando no
      cabe; el card padre conserva el ancho del welcome/auth-bigbtn. */
