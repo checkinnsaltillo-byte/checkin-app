@@ -12611,6 +12611,21 @@ document.addEventListener("DOMContentLoaded", function(){
     // Mostrar botón "Actualizar datos" junto al H1 solo en el home con sesión
     const btnRefresh = document.getElementById("btnRefreshHome");
     if (btnRefresh) btnRefresh.hidden = false;
+    // Hidratar perfil del backend SIEMPRE que se entra al home con sesión.
+    // Esto cubre el caso de la PWA standalone (iOS) cuyo localStorage está
+    // separado del Safari, donde el usuario YA tenía sesión persistida pero
+    // su localStorage NO tiene el perfil. Sin esto, el wizard pediría
+    // capturar de nuevo datos que ya están en la hoja Perfiles.
+    try {
+      const phoneKey = `+${s.lada}${s.phone}`;
+      if (window.checkinnProfile?._hydrateFromBackend) {
+        await window.checkinnProfile._hydrateFromBackend(phoneKey);
+        // Re-refrescar la card del perfil tras hidratar.
+        if (typeof window.checkinnProfile.refreshHomeCard === "function") {
+          try { window.checkinnProfile.refreshHomeCard(); } catch(_e){}
+        }
+      }
+    } catch(_e){}
     // Mostrar splash "Cargando datos…" SOLO si todavía no hay cache de
     // stays (primera carga o tras submit que invalidó la cache). En
     // "Volver al inicio" desde otras vistas, la cache vive y no se
