@@ -2034,6 +2034,33 @@ function testCreateNotification() {
   Logger.log("Notificación de prueba creada en Notifications_Inbox para phoneKey=" + ADMIN_PHONE_KEY);
 }
 
+// Crea notificación EN INBOX + encola Web Push (badge en ícono + lock screen).
+// Tras correr esto, dispara manualmente el workflow "Push Notifications · Drain
+// Queue" en GitHub Actions para enviarlo al dispositivo en segundos.
+function testCreateNotificationFullPush() {
+  const folioStr = "TEST-" + Date.now().toString().slice(-6);
+  const title = "🧾 Ticket de factura emitido";
+  const body = "Tu factura de Calle Cumbres (Folio " + folioStr + ") está lista. Toca para descargar.";
+  // 1) Inbox (panel 🔔 en la app)
+  createInboxNotification_(
+    ADMIN_PHONE_KEY, "ticket_issued", title, body,
+    { folio: folioStr, ticketUrl: "", propiedad: "Calle Cumbres" }
+  );
+  // 2) Web Push queue (badge en ícono + lock screen)
+  queueNotification_({
+    target: ADMIN_PHONE_KEY,
+    category: "facturas",
+    title: title,
+    body: body,
+    url: "./",
+    tag: "test-" + Date.now(),
+    badge: 1,
+    source: "test-full-push"
+  });
+  Logger.log("✓ Inbox + Queue creados para " + ADMIN_PHONE_KEY);
+  Logger.log("→ Para enviar el push ya: GitHub → Actions → 'Push Notifications · Drain Queue' → Run workflow.");
+}
+
 // Trigger onEdit instalable: detecta cuando alguien edita manualmente la
 // celda "Folio facturapi" en la hoja Reservaciones. Si el valor pasó de
 // vacío a no-vacío, dispara la notificación al huésped.
