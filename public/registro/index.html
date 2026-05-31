@@ -464,10 +464,12 @@ button:disabled{
   font-weight:700;
 }
 @media (max-width: 700px){
-  body{ padding:14px 10px 28px; }
+  body{ padding:4px 10px 28px; }
+  .page-logo-wrap{ margin:0 0 -12px !important; }
   .container{
-    padding:18px;
+    padding:10px 18px 18px;
     border-radius:20px;
+    margin-top:0;
   }
   .section{ padding:14px; border-radius:16px; }
   h1{ font-size:25px; }
@@ -5162,8 +5164,8 @@ body.has-session input[name="nombre"] {
     </div>
   </div>
 </div>
-<div class="page-logo-wrap" style="width:100%; text-align:center; margin:2px 0 0;">
-<img class="page-logo-img" alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w1000" style="max-width:180px; width:48%; height:auto; display:inline-block;"/>
+<div class="page-logo-wrap" style="width:100%; text-align:center; margin:0; line-height:0;">
+<img class="page-logo-img" alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w1000" style="max-width:140px; width:38%; height:auto; display:inline-block; margin:0;"/>
 </div>
 <div class="page-shell">
 <div class="container">
@@ -16973,20 +16975,20 @@ document.addEventListener("DOMContentLoaded", function(){
     /* En móvil reducimos el padding del contenedor general y de las
        secciones internas (impacta viewHome y viewVehiculos) para que el
        contenido se extienda más horizontalmente. */
-    .container { padding-left: 6px !important; padding-right: 6px !important; padding-top: 14px !important; }
+    .container { padding-left: 6px !important; padding-right: 6px !important; padding-top: 10px !important; }
     #viewHome .section { padding-left: 10px; padding-right: 10px; }
-    /* viewVehiculos: la .section pierde su recuadro y padding lateral
-       para que las cards y filtros se extiendan edge-to-edge. */
+    /* viewVehiculos: mantenemos el recuadro de la .section (con border y
+       background) pero reducimos su padding lateral al mínimo para que el
+       texto y las cards se extiendan casi todo el ancho. */
     #viewVehiculos .section {
-      padding: 8px 2px !important;
-      border: none !important;
-      background: transparent !important;
+      padding: 12px 6px !important;
       margin-top: 6px;
     }
     #viewVehiculos .vehicle-info-toolbar { gap: 6px; margin-top: 8px; }
     #viewVehiculos .filter-actions { gap: 6px; }
-    .vehicle-card-summary { padding: 14px 12px !important; }
-    .vehicle-card-body { padding-left: 12px !important; padding-right: 12px !important; }
+    /* Cards de vehículos: padding interno mínimo lateral para extenderse */
+    .vehicle-card-summary { padding: 14px 10px !important; }
+    .vehicle-card-body { padding-left: 10px !important; padding-right: 10px !important; }
     /* Dropdown "Información de vehículos" en viewHome: los tres paddings
        concéntricos (body wrapper + session bar + card del vehículo)
        comían enorme ancho. Los aplastamos al mínimo en móvil. */
