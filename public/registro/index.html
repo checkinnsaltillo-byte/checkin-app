@@ -12057,6 +12057,18 @@ document.addEventListener("DOMContentLoaded", function(){
     populateOtpMethods(phoneDigits, ladaCode);
   }
 
+  // ────────────────────────────────────────────────────────────────
+  // FLAGS para habilitar/deshabilitar métodos de envío de OTP.
+  // Cambia false → true para reactivar el método correspondiente:
+  //   - sms:      requiere Twilio fuera de modo trial (upgrade ~$20 USD)
+  //   - whatsapp: requiere verificación de negocio aprobada por Meta
+  // ────────────────────────────────────────────────────────────────
+  const OTP_METHODS_ENABLED = {
+    email: true,
+    sms: false,
+    whatsapp: false
+  };
+
   async function populateOtpMethods(phoneDigits, ladaCode){
     const phoneKey = `${ladaCode}${phoneDigits}`.replace(/\D/g, "");
     const btnEmail = $("otpMethodEmail");
@@ -12067,11 +12079,18 @@ document.addEventListener("DOMContentLoaded", function(){
     if (btnSms) btnSms.dataset.target = phoneKey;
     if (tgtEmail) tgtEmail.textContent = "Escribe tu correo";
     if (btnEmail) btnEmail.dataset.target = "";
-    // Ocultar input de email por default cada vez que se entra al picker
+    // Aplicar flags de habilitación (oculta los métodos no disponibles)
+    if (btnEmail) btnEmail.hidden = !OTP_METHODS_ENABLED.email;
+    if (btnSms)   btnSms.hidden   = !OTP_METHODS_ENABLED.sms;
+    // Si solo hay un método habilitado y es email → abrir input directamente para ahorrar un clic
+    const onlyEmail = OTP_METHODS_ENABLED.email && !OTP_METHODS_ENABLED.sms && !OTP_METHODS_ENABLED.whatsapp;
     const wrap = $("otpEmailInputWrap");
-    if (wrap) wrap.hidden = true;
+    if (wrap) wrap.hidden = !onlyEmail;
     const input = $("otpEmailInput");
-    if (input) input.value = "";
+    if (input) {
+      input.value = "";
+      if (onlyEmail) setTimeout(() => input.focus(), 30);
+    }
   }
   function formatPhonePretty_(p){
     const s = String(p).replace(/\D/g, "");
