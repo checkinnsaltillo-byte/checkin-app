@@ -3855,16 +3855,16 @@ function formatRangoFechasSimple(inicio, fin){
   color:#64748b; font-size:14px;
 }
 .stays-card-item{
-  background:#fff;
-  border:1px solid var(--border);
+  background:#f8fafc;
+  border:none;
   border-radius:14px;
   overflow:hidden;
-  transition:box-shadow .18s, border-color .18s;
+  transition:background .18s, box-shadow .18s;
 }
-.stays-card-item:hover{ box-shadow:0 4px 14px rgba(15,23,42,.05); }
+.stays-card-item:hover{ background:#f1f5f9; }
 .stays-card-item.expanded{
-  box-shadow:0 6px 18px rgba(15,23,42,.07);
-  border-color:#cbd5e1;
+  background:#fff;
+  box-shadow:0 6px 18px rgba(15,23,42,.08);
 }
 .stays-card-item-header{
   display:grid;
@@ -3931,6 +3931,22 @@ function formatRangoFechasSimple(inicio, fin){
 .stays-card-ticket-chip.pending{ color:#b45309; border-color:#fde68a; background:#fffbeb; }
 .stays-card-ticket-chip.issued{ color:#047857; border-color:#a7f3d0; background:#ecfdf5; }
 .stays-card-ticket-chip.not-required{ color:#475569; border-color:#cbd5e1; background:#f1f5f9; }
+/* Variante interactiva: el chip "Ticket emitido" se comporta como botón.
+   Hover lo sombrea, active lo comprime ligeramente. */
+.stays-card-ticket-chip.is-button{
+  cursor:pointer;
+  font-family:inherit;
+  transition:background .15s ease, box-shadow .15s ease, transform .12s ease, border-color .15s ease;
+}
+.stays-card-ticket-chip.is-button:hover{
+  background:#d1fae5;
+  border-color:#6ee7b7;
+  box-shadow:0 3px 10px rgba(4,120,87,.18);
+}
+.stays-card-ticket-chip.is-button:active{ transform:scale(.96); }
+.stays-card-ticket-chip.is-button:focus-visible{
+  outline:2px solid #10b981; outline-offset:2px;
+}
 .stays-card-chevron-mini{
   display:inline-block; margin-left:8px;
   font-size:12px; color:#94a3b8;
@@ -5415,20 +5431,20 @@ body.has-session input[name="nombre"] {
       </button>
       <div class="stays-card-body" id="staysCardBody">
       <div class="stays-view-toggle" role="tablist" aria-label="Cambiar vista">
-        <button type="button" class="stays-view-btn active" id="staysViewBtnTable" role="tab" aria-selected="true">
-          <span class="stays-view-btn-icon" aria-hidden="true">▦</span>
-          <span data-i18n="staysViewTable">Tabla</span>
-        </button>
-        <button type="button" class="stays-view-btn" id="staysViewBtnCards" role="tab" aria-selected="false">
+        <button type="button" class="stays-view-btn active" id="staysViewBtnCards" role="tab" aria-selected="true">
           <span class="stays-view-btn-icon" aria-hidden="true">▤</span>
           <span data-i18n="staysViewCards">Cards</span>
         </button>
+        <button type="button" class="stays-view-btn" id="staysViewBtnTable" role="tab" aria-selected="false">
+          <span class="stays-view-btn-icon" aria-hidden="true">▦</span>
+          <span data-i18n="staysViewTable">Tabla</span>
+        </button>
       </div>
-      <div class="stays-cards-wrap hidden" id="staysCardsWrap">
+      <div class="stays-cards-wrap" id="staysCardsWrap">
         <div id="staysCardsContainer"></div>
         <div class="stays-cards-empty hidden" id="staysCardsEmpty" data-i18n="staysEmpty">Aún no tienes estancias registradas.</div>
       </div>
-      <div class="stays-table-wrap" id="staysTableWrap">
+      <div class="stays-table-wrap hidden" id="staysTableWrap">
         <table class="stays-table">
           <thead>
             <tr>
@@ -12350,12 +12366,35 @@ document.addEventListener("DOMContentLoaded", function(){
         : (i.createPinSubtitle || "Escoge un PIN de 4 dígitos. Lo usarás para entrar más rápido la próxima vez sin esperar un código.");
     }
   }
+  // Construye un saludo personalizado a partir del nombre de la sesión y lo
+  // pone en el <h1 id="pageH1">. Soporta español/inglés y aplica title-case
+  // (los nombres del Sheet vienen en MAYÚSCULAS).
+  function updatePageH1WithSession_(session){
+    const h1 = document.getElementById("pageH1");
+    if (!h1) return;
+    const i = (window.SIMPLE_I18N && window.SIMPLE_I18N[window.currentLang||"es"]) || {};
+    const fullName = (session && session.name ? String(session.name) : "").trim();
+    if (!fullName) {
+      h1.textContent = i.title || "Portal del huésped";
+      h1.setAttribute("data-i18n", "title");
+      return;
+    }
+    const toTitle = (s) => s.toLowerCase().replace(/(^|\s|-)([a-záéíóúñü])/g, (_m, sep, c) => sep + c.toUpperCase());
+    const parts = fullName.split(/\s+/).filter(Boolean).slice(0, 2);
+    const display = parts.map(toTitle).join(" ");
+    const tmpl = i.homeGreetingNamed || "¡Hola, {name}!";
+    h1.textContent = tmpl.replace("{name}", display);
+    h1.removeAttribute("data-i18n");
+  }
+
   async function gotoHome(){
     const s = getSession();
     if (!s) return gotoWelcome();
     showOnly(viewHome);
     setMenuVisible(false);
     refreshSessionPill();
+    // H1 personalizado: "¡Hola Nombre Apellido!" cuando hay sesión.
+    updatePageH1WithSession_(s);
     // Mostrar botón "Actualizar datos" junto al H1 solo en el home con sesión
     const btnRefresh = document.getElementById("btnRefreshHome");
     if (btnRefresh) btnRefresh.hidden = false;
@@ -13065,7 +13104,7 @@ document.addEventListener("DOMContentLoaded", function(){
   let staysPage = 1;
   let staysPageSize = 10;
   let staysSorted = []; // estancias ordenadas por fecha ingreso desc
-  let staysViewMode = "table"; // "table" | "cards"
+  let staysViewMode = "cards"; // "table" | "cards" (cards por default)
 
   function escapeHtml(v){
     return String(v == null ? "" : v)
@@ -13211,7 +13250,9 @@ document.addEventListener("DOMContentLoaded", function(){
     let ticketChip;
     if (folio || ticketUrl) {
       const lbl = i.staysTicketIssued || "Ticket emitido";
-      ticketChip = `<span class="stays-card-ticket-chip issued">🧾 ${escapeHtml(lbl)}${folio ? ` · Folio ${escapeHtml(folio)}` : ""}</span>`;
+      // El chip "Ticket emitido" es interactivo: al click abre el zoom de la factura
+      // (si hay imagen) o el detalle de la estancia.
+      ticketChip = `<button type="button" class="stays-card-ticket-chip issued is-button" data-action="open-ticket">🧾 ${escapeHtml(lbl)}${folio ? ` · Folio ${escapeHtml(folio)}` : ""}</button>`;
     } else if (reqFactura === "No") {
       const lbl = i.staysTicketNotRequired || "Sin factura";
       ticketChip = `<span class="stays-card-ticket-chip not-required">⊘ ${escapeHtml(lbl)}</span>`;
@@ -13285,11 +13326,28 @@ document.addEventListener("DOMContentLoaded", function(){
     const slice = staysSorted.slice(start, start + staysPageSize);
     container.innerHTML = slice.map((stay, i) => renderStayCard(stay, start + i)).join("");
     container.querySelectorAll(".stays-card-item-header").forEach(header => {
-      header.addEventListener("click", () => {
+      header.addEventListener("click", (ev) => {
+        // Si clickearon el botón de ticket, NO togglear el expand.
+        if (ev.target.closest("[data-action='open-ticket']")) return;
         const card = header.closest(".stays-card-item");
         if (!card) return;
         const isExpanded = card.classList.toggle("expanded");
         header.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+      });
+    });
+    container.querySelectorAll("[data-action='open-ticket']").forEach(btn => {
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const card = btn.closest(".stays-card-item");
+        const idx = Number(card?.dataset.stayIndex);
+        const stay = staysSorted[idx];
+        if (!stay) return;
+        const tUrl = String(stay.ticketUrl || (stay._raw && stay._raw["Ticket facturapi url"]) || "").trim();
+        if (tUrl && typeof driveThumbUrl === "function" && window.checkinnImages?.openZoom) {
+          window.checkinnImages.openZoom(driveThumbUrl(tUrl, 1200));
+        } else {
+          showStayDetail(idx);
+        }
       });
     });
     updateStaysPager();
@@ -13554,6 +13612,11 @@ document.addEventListener("DOMContentLoaded", function(){
       } else if (i.homeGreeting) {
         greeting.textContent = i.homeGreeting;
       }
+    }
+    // Sincronizar pageH1 ("¡Hola, Nombre Apellido!") al cambiar idioma,
+    // siempre que estemos en la vista home (con sesión).
+    if (session && !viewHome.classList.contains("hidden")) {
+      try { updatePageH1WithSession_(session); } catch(_e){}
     }
     // Re-renderizar tabla con nuevos formatos de fecha si hay datos cacheados
     if (window.checkinnAuth && window.checkinnAuth._cachedStays) {
@@ -16886,9 +16949,18 @@ document.addEventListener("DOMContentLoaded", function(){
       padding: 0 2px 12px;
     }
     .stays-card-collapsible > .stays-card-header {
-      padding-left: 12px;
-      padding-right: 12px;
+      padding-left: 6px;
+      padding-right: 10px;
     }
+    /* En móvil reducimos el padding del contenedor general y de las
+       secciones internas (impacta viewHome y viewVehiculos) para que el
+       contenido se extienda más horizontalmente. */
+    .container { padding-left: 10px !important; padding-right: 10px !important; padding-top: 14px !important; }
+    #viewHome .section,
+    #viewVehiculos .section { padding-left: 10px; padding-right: 10px; }
+    /* Cards de vehículos: padding interno más compacto */
+    .vehicle-card-summary { padding-left: 12px !important; padding-right: 12px !important; }
+    .vehicle-info-toolbar { gap: 8px; }
   }
   /* La tabla de estancias tiene scroll horizontal interno cuando no
      cabe; el card padre conserva el ancho del welcome/auth-bigbtn. */
