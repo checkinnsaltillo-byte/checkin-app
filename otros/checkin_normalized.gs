@@ -136,6 +136,7 @@ function doGet(e) {
     if (action === "get_push_categories") return jsonOutput_({ ok: true, categories: PUSH_CATEGORIES });
     if (action === "is_admin") return jsonOutput_({ ok: true, isAdmin: String((e.parameter||{}).phoneKey||"").replace(/\D/g,"") === ADMIN_PHONE_KEY });
     if (action === "list_notifications") return jsonOutput_(listNotifications_(e.parameter || {}));
+    if (action === "get_profile") return jsonOutput_(getProfile_(e.parameter || {}));
     return jsonOutput_({ ok: true, message: "Web app activo (normalizado)." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -1830,6 +1831,93 @@ function verifyPin_(data) {
   if (!saved) return { ok: false, error: "Sin PIN configurado." };
   if (saved !== pinHash) return { ok: false, error: "PIN incorrecto." };
   return { ok: true };
+}
+
+// ─── get_profile: hidrata el wizard desde el backend ─────────────────────
+// Devuelve el perfil completo del usuario (Perfiles + Vehiculos) mapeado al
+// formato { step1, step2, step3, step4, completed, lastStep, updatedAt } que
+// usa el frontend en localStorage. El frontend lo invoca al iniciar sesión
+// para que el wizard NO le pida llenar datos que ya están guardados.
+
+function getProfile_(params) {
+  const phoneKey = String(params.phoneKey || "").replace(/\D/g, "");
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  ensureNormalizedSheets_();
+  const shP = getSheet_(PERFILES_SHEET);
+  const headersP = getHeaders_(shP);
+  const rowP = findRowByPhone_(shP, headersP, phoneKey);
+  if (!rowP) return { ok: true, exists: false, profile: null };
+  const p = readRow_(shP, headersP, rowP);
+
+  // Extraer celular de emergencia (separar lada + celular si vienen juntos)
+  const emergCel = String(p["Cel/Whatsapp (contacto de emergencia)"] || "").replace(/\D/g, "");
+  const emergLada = String(p["Lada contacto emergencia"] || "52").replace(/\D/g, "") || "52";
+  let emergLocal = emergCel;
+  // Si el cel de emergencia incluye la lada al inicio, separarla.
+  if (emergCel.length > 10 && emergCel.startsWith(emergLada)) {
+    emergLocal = emergCel.slice(emergLada.length);
+  } else if (emergCel.length > 10) {
+    // Asumir últimos 10 dígitos = local; resto = lada
+    emergLocal = emergCel.slice(-10);
+  }
+
+  const step1 = {
+    nombre: String(p["Nombre del huésped"] || "").trim(),
+    emerg_lada: emergLada,
+    emerg_celular: emergLocal
+  };
+  const step2 = {
+    tipo: String(p["Tipo de identificación"] || "").trim(),
+    id_otro: String(p["Identificación otro"] || "").trim(),
+    ine_frontal: String(p["Link INE frontal"] || "").trim(),
+    ine_trasero: String(p["Link INE trasero"] || "").trim(),
+    ident_unica: String(p["Link identificación única"] || "").trim()
+  };
+  const step3 = {
+    factura: String(p["¿Requiere factura?"] || "").trim(),
+    razon_social: String(p["Razón social"] || "").trim(),
+    rfc: String(p["RFC"] || "").trim(),
+    regimen: String(p["Régimen fiscal"] || "").trim(),
+    regimen_otro: String(p["Régimen otro"] || "").trim(),
+    codigo_postal: String(p["Código Postal"] || "").trim(),
+    correo_factura: String(p["Correo electrónico para el envío de la factura"] || "").trim()
+  };
+
+  // Vehículo (otra hoja)
+  let step4 = {
+    tiene_vehiculo: "", marca: "", marca_otro: "",
+    modelo: "", color: "", placas: "", hora_salida: "", foto: ""
+  };
+  try {
+    const shV = getSheet_(VEHICULOS_SHEET);
+    const headersV = getHeaders_(shV);
+    const rowV = findRowByPhone_(shV, headersV, phoneKey);
+    if (rowV) {
+      const v = readRow_(shV, headersV, rowV);
+      step4 = {
+        tiene_vehiculo: String(v["¿Cuenta con vehículo?"] || "").trim(),
+        marca: String(v["Marca vehículo"] || "").trim(),
+        marca_otro: String(v["Marca vehículo otro"] || "").trim(),
+        modelo: String(v["Modelo vehículo"] || "").trim(),
+        color: String(v["Color vehículo"] || "").trim(),
+        placas: String(v["Placas"] || "").trim(),
+        hora_salida: String(v["Hora habitual de salida"] || "").trim(),
+        foto: String(v["Link foto vehículo"] || "").trim()
+      };
+    }
+  } catch(_e){}
+
+  const updatedAt = (function(){
+    const v = p["Fecha actualización"] || p["Fecha creación"];
+    if (!v) return 0;
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  })();
+
+  return {
+    ok: true, exists: true,
+    profile: { step1, step2, step3, step4, lastStep: 4, updatedAt }
+  };
 }
 
 // ─── Inbox de notificaciones POR USUARIO ─────────────────────────────────
