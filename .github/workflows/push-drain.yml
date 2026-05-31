@@ -1,0 +1,64 @@
+name: Push Notifications · Drain Queue
+
+# Procesa la cola Notifications_Queue del Apps Script y envía los Web Push
+# pendientes con el sender Python. Se ejecuta cada 5 minutos automático y
+# también manualmente desde la pestaña Actions de GitHub.
+#
+# Requiere 3 secretos en Settings → Secrets and variables → Actions:
+#   - VAPID_PRIVATE_PEM   (contenido del .pem, formato SEC1 EC PRIVATE KEY)
+#   - VAPID_SUBJECT       (mailto:tu@correo.com)
+#   - WEB_APP_URL         (URL del Web App de Apps Script)
+
+on:
+  schedule:
+    # Cada 5 minutos. GitHub Actions tiene latencia variable en crons
+    # (puede arrancar entre 3 y 10 min después del horario indicado).
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    # Disparable manualmente desde la UI de Actions cuando emites una
+    # factura y quieres mandar el push de inmediato.
+
+# Una sola ejecución a la vez (evita doble-envío si overlapping).
+concurrency:
+  group: push-drain
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pywebpush requests
+
+      - name: Write VAPID key
+        env:
+          VAPID_PRIVATE_PEM: ${{ secrets.VAPID_PRIVATE_PEM }}
+        run: |
+          if [ -z "$VAPID_PRIVATE_PEM" ]; then
+            echo "❌ Secret VAPID_PRIVATE_PEM no configurado."
+            exit 1
+          fi
+          mkdir -p otros
+          printf '%s\n' "$VAPID_PRIVATE_PEM" > otros/vapid_private.pem
+          chmod 600 otros/vapid_private.pem
+          echo "✅ Llave VAPID escrita."
+
+      - name: Drain queue
+        env:
+          WEB_APP_URL: ${{ secrets.WEB_APP_URL }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+          VAPID_PRIVATE_PEM: otros/vapid_private.pem
+        run: |
+          python3 otros/push_sender.py --drain
