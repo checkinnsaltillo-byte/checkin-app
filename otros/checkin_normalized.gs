@@ -1483,6 +1483,14 @@ function normalizePhone_(value) {
   return String(value || "").replace(/[\s'‘’“”]/g, "").replace(/^[+]/, "").trim();
 }
 
+// Devuelve la fecha-hora actual en zona horaria de Saltillo/Monterrey (CST/CDT),
+// formateada como ISO 8601 con offset explícito. Ejemplo: 2026-05-30T21:42:15-06:00
+// Reemplaza `new Date().toISOString()` (que devuelve UTC) para que los
+// timestamps que guardamos en las hojas coincidan con la hora local del huésped.
+function nowIso_() {
+  return Utilities.formatDate(new Date(), "America/Monterrey", "yyyy-MM-dd'T'HH:mm:ssXXX");
+}
+
 function normalizeFacturaForFilter_(value) {
   const v = normalizeText_(value);
   if (v === "factura" || v === "si" || v === "sí" || v === "yes") return "Sí";
@@ -1766,7 +1774,7 @@ function verifyOtp_(data) {
   }
   // OK
   sh.getRange(sheetRow, idxStatus + 1).setValue("verified");
-  sh.getRange(sheetRow, idxVerified + 1).setValue(new Date().toISOString());
+  sh.getRange(sheetRow, idxVerified + 1).setValue(nowIso_());
   return { ok: true, phoneKey: phoneKey };
 }
 
@@ -1796,7 +1804,7 @@ function setPin_(data) {
   const sh = getSheet_(PERFILES_SHEET);
   const headers = getHeaders_(sh);
   let rowNum = findRowByPhone_(sh, headers, phoneKey);
-  const nowIso = new Date().toISOString();
+  const nowIso = nowIso_();
   if (!rowNum) {
     // No existe el perfil — crear uno mínimo con solo celular + PIN.
     // El wizard llenará después el resto de los campos.
@@ -1948,7 +1956,7 @@ function createInboxNotification_(phoneKey, type, title, body, data) {
     title: String(title || ""),
     body: String(body || ""),
     data: data ? JSON.stringify(data) : "",
-    created_at: new Date().toISOString(),
+    created_at: nowIso_(),
     read_at: "",
     archived_at: ""
   });
@@ -1988,7 +1996,7 @@ function markAllNotificationsRead_(data) {
   const idxPhone = headers.indexOf("phoneKey");
   const idxRead = headers.indexOf("read_at");
   const idxArch = headers.indexOf("archived_at");
-  const nowIso = new Date().toISOString();
+  const nowIso = nowIso_();
   let updated = 0;
   for (let i = 0; i < values.length; i++) {
     const samePhone = String(values[i][idxPhone]).replace(/\D/g, "") === phoneKey;
@@ -2009,7 +2017,7 @@ function archiveNotification_(data) {
   const headers = getHeaders_(sh);
   const rowNum = findRowByValue_(sh, headers, "id", id);
   if (!rowNum) return { ok: false, error: "Notificación no encontrada." };
-  const nowIso = new Date().toISOString();
+  const nowIso = nowIso_();
   setCellByHeader_(sh, headers, rowNum, "archived_at", nowIso);
   // Si aún no estaba leída, marcarla también como leída.
   const row = readRow_(sh, headers, rowNum);
@@ -2181,7 +2189,7 @@ function registerPushSubscription_(data) {
   const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
   const idxEndpoint = headers.indexOf("endpoint");
   const lastRow = sh.getLastRow();
-  const now = new Date().toISOString();
+  const now = nowIso_();
   // Buscar fila existente por endpoint (idempotente: un endpoint = un dispositivo)
   let foundRow = -1;
   if (lastRow >= 2 && idxEndpoint >= 0) {
@@ -2318,7 +2326,7 @@ function queueNotification_(data) {
     tag: safe_(data.tag || ""),
     status: "pending",
     error: "",
-    created_at: new Date().toISOString(),
+    created_at: nowIso_(),
     processed_at: "",
     source: safe_(data.source || "manual")
   };
@@ -2361,7 +2369,7 @@ function markNotificationProcessed_(data) {
       const r = i + 2;
       sh.getRange(r, idxStatus + 1).setValue(status);
       sh.getRange(r, idxError + 1).setValue(error);
-      sh.getRange(r, idxProc + 1).setValue(new Date().toISOString());
+      sh.getRange(r, idxProc + 1).setValue(nowIso_());
       return { ok: true, updated: 1, id };
     }
   }
