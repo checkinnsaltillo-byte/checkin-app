@@ -31,6 +31,9 @@ const OTP_TTL_MS = 5 * 60 * 1000;        // 5 minutos
 const OTP_MAX_ATTEMPTS = 5;              // por código
 const PUSH_QUEUE_SHEET = "Notifications_Queue";
 const PUSH_QUEUE_HEADERS = ["id","target","category","title","body","badge","url","tag","status","error","created_at","processed_at","source"];
+// Inbox de notificaciones POR USUARIO (lo que se muestra en el panel 🔔 del header)
+const NOTIF_INBOX_SHEET = "Notifications_Inbox";
+const NOTIF_INBOX_HEADERS = ["id","phoneKey","type","title","body","data","created_at","read_at","archived_at"];
 // Categorías de avisos disponibles
 const PUSH_CATEGORIES = ["reservaciones","facturas","recordatorios","general"];
 // phoneKey del admin — quien puede mandar avisos y ver el panel admin del portal.
@@ -103,6 +106,8 @@ function doPost(e) {
     if (action === "check_user_status") return jsonOutput_(checkUserStatus_(data));
     if (action === "set_pin") return jsonOutput_(setPin_(data));
     if (action === "verify_pin") return jsonOutput_(verifyPin_(data));
+    if (action === "mark_notifications_read") return jsonOutput_(markAllNotificationsRead_(data));
+    if (action === "archive_notification") return jsonOutput_(archiveNotification_(data));
     if (action === "register_push_subscription") return jsonOutput_(registerPushSubscription_(data));
     if (action === "unregister_push_subscription") return jsonOutput_(unregisterPushSubscription_(data));
     if (action === "update_push_categories") return jsonOutput_(updatePushCategories_(data));
@@ -130,6 +135,7 @@ function doGet(e) {
     if (action === "list_pending_notifications") return jsonOutput_(listPendingNotifications_(e.parameter || {}));
     if (action === "get_push_categories") return jsonOutput_({ ok: true, categories: PUSH_CATEGORIES });
     if (action === "is_admin") return jsonOutput_({ ok: true, isAdmin: String((e.parameter||{}).phoneKey||"").replace(/\D/g,"") === ADMIN_PHONE_KEY });
+    if (action === "list_notifications") return jsonOutput_(listNotifications_(e.parameter || {}));
     return jsonOutput_({ ok: true, message: "Web app activo (normalizado)." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -815,7 +821,15 @@ function updateFacturapiFolio_(data) {
   let row = findRowByValue_(sheet, headers, "ID", recordId);
   if (!row) row = findRowByRowNumber_(sheet, recordId);
   if (!row) throw new Error("No se encontró la reservación.");
+  // Detectar transición vacío → no-vacío para disparar notificación al huésped.
+  const prevRow = readRow_(sheet, headers, row);
+  const prevFolio = String(prevRow["Folio facturapi"] || "").trim();
   setCellByHeader_(sheet, headers, row, "Folio facturapi", normalized);
+  if (!prevFolio && normalized) {
+    const updatedRow = readRow_(sheet, headers, row);
+    const phoneKey = String(updatedRow["Cel/Whatsapp (principal)"] || "").replace(/\D/g, "");
+    if (phoneKey) notifyTicketIssued_(phoneKey, updatedRow);
+  }
   return { ok: true, row_number: row, record_id: recordId, folio_facturapi: normalized };
 }
 
@@ -840,9 +854,16 @@ function updateFacturapiFolioStrict_(data) {
   if (!row) throw new Error("No se encontró la reservación.");
   const targetCol = headers.indexOf("Folio facturapi");
   if (targetCol < 0) throw new Error('No existe la columna "Folio facturapi"');
+  // Detectar transición vacío → no-vacío para disparar notificación al huésped.
+  const prevFolio = String(readRow_(sheet, headers, row)["Folio facturapi"] || "").trim();
   sheet.getRange(row, targetCol + 1).setNumberFormat("@");
   sheet.getRange(row, targetCol + 1).setValue(normalized);
   SpreadsheetApp.flush();
+  if (!prevFolio && normalized) {
+    const updatedRow = readRow_(sheet, headers, row);
+    const phoneKey = String(updatedRow["Cel/Whatsapp (principal)"] || "").replace(/\D/g, "");
+    if (phoneKey) notifyTicketIssued_(phoneKey, updatedRow);
+  }
   return {
     ok: true,
     row_number: row,
@@ -1809,6 +1830,145 @@ function verifyPin_(data) {
   if (!saved) return { ok: false, error: "Sin PIN configurado." };
   if (saved !== pinHash) return { ok: false, error: "PIN incorrecto." };
   return { ok: true };
+}
+
+// ─── Inbox de notificaciones POR USUARIO ─────────────────────────────────
+// Cada huésped tiene su propio "inbox" en la hoja Notifications_Inbox.
+// El frontend muestra una campana 🔔 con badge rojo en la cantidad de
+// notificaciones no leídas. Al abrir el panel se marcan todas como leídas
+// (el badge baja a 0). Al hacer click en una notificación que tiene acción
+// (ej: abrir PDF de ticket), se archiva.
+
+function ensureNotifInboxSheet_() {
+  const ss = getSpreadsheet_();
+  return ensureSheetWithHeaders_(ss, NOTIF_INBOX_SHEET, NOTIF_INBOX_HEADERS);
+}
+
+// Crea una notificación nueva en el inbox del usuario.
+// type: identificador del tipo ("ticket_issued", etc).
+// title/body: texto visible.
+// data: objeto que se serializa a JSON (ticketUrl, folio, etc.).
+function createInboxNotification_(phoneKey, type, title, body, data) {
+  const cleanPhone = String(phoneKey || "").replace(/\D/g, "");
+  if (!cleanPhone) return { ok: false, error: "Falta phoneKey." };
+  const sh = ensureNotifInboxSheet_();
+  const headers = getHeaders_(sh);
+  appendRow_(sh, headers, {
+    id: Utilities.getUuid(),
+    phoneKey: cleanPhone,
+    type: String(type || "general"),
+    title: String(title || ""),
+    body: String(body || ""),
+    data: data ? JSON.stringify(data) : "",
+    created_at: new Date().toISOString(),
+    read_at: "",
+    archived_at: ""
+  });
+  return { ok: true };
+}
+
+function listNotifications_(params) {
+  const phoneKey = String(params.phoneKey || "").replace(/\D/g, "");
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  ensureNotifInboxSheet_();
+  const data = getAllRows_(NOTIF_INBOX_SHEET).rows;
+  const rows = data
+    .filter(r => String(r.phoneKey).replace(/\D/g, "") === phoneKey)
+    .filter(r => !String(r.archived_at || "").trim())
+    .map(r => ({
+      id: r.id,
+      type: r.type,
+      title: r.title,
+      body: r.body,
+      data: r.data ? (function(){ try { return JSON.parse(r.data); } catch(_e){ return {}; } })() : {},
+      created_at: r.created_at,
+      read_at: r.read_at || ""
+    }))
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  const unread = rows.filter(r => !r.read_at).length;
+  return { ok: true, rows: rows, unread: unread };
+}
+
+function markAllNotificationsRead_(data) {
+  const phoneKey = String(data.phoneKey || "").replace(/\D/g, "");
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  const sh = ensureNotifInboxSheet_();
+  const headers = getHeaders_(sh);
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: true, updated: 0 };
+  const values = sh.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  const idxPhone = headers.indexOf("phoneKey");
+  const idxRead = headers.indexOf("read_at");
+  const idxArch = headers.indexOf("archived_at");
+  const nowIso = new Date().toISOString();
+  let updated = 0;
+  for (let i = 0; i < values.length; i++) {
+    const samePhone = String(values[i][idxPhone]).replace(/\D/g, "") === phoneKey;
+    const notRead = !String(values[i][idxRead] || "").trim();
+    const notArchived = !String(values[i][idxArch] || "").trim();
+    if (samePhone && notRead && notArchived) {
+      sh.getRange(i + 2, idxRead + 1).setValue(nowIso);
+      updated++;
+    }
+  }
+  return { ok: true, updated: updated };
+}
+
+function archiveNotification_(data) {
+  const id = String(data.id || "").trim();
+  if (!id) return { ok: false, error: "Falta id." };
+  const sh = ensureNotifInboxSheet_();
+  const headers = getHeaders_(sh);
+  const rowNum = findRowByValue_(sh, headers, "id", id);
+  if (!rowNum) return { ok: false, error: "Notificación no encontrada." };
+  const nowIso = new Date().toISOString();
+  setCellByHeader_(sh, headers, rowNum, "archived_at", nowIso);
+  // Si aún no estaba leída, marcarla también como leída.
+  const row = readRow_(sh, headers, rowNum);
+  if (!String(row.read_at || "").trim()) {
+    setCellByHeader_(sh, headers, rowNum, "read_at", nowIso);
+  }
+  return { ok: true };
+}
+
+// Trigger: al asignar/actualizar Folio facturapi de una reserva, si el folio
+// pasó de vacío a no-vacío, creamos una notificación tipo "ticket_issued"
+// para el huésped + encolamos un Web Push (categoría "facturas").
+function notifyTicketIssued_(phoneKey, reservacionRow) {
+  try {
+    const cleanPhone = String(phoneKey || "").replace(/\D/g, "");
+    if (!cleanPhone) return;
+    const folio = String(reservacionRow["Folio facturapi"] || "").trim();
+    const ticketUrl = String(reservacionRow["Ticket facturapi url"] || "").trim();
+    const monto = reservacionRow["$ Monto facturado Total"] || reservacionRow["($) Monto Total pagado"] || "";
+    const propiedad = String(reservacionRow["Propiedad"] || "").trim();
+    const titleEs = "🧾 Ticket de factura emitido";
+    const bodyEs = folio
+      ? "Tu factura " + (propiedad ? "de " + propiedad + " " : "") + "(Folio " + folio + ") está lista. Toca para descargar."
+      : "Tu factura está lista. Toca para descargar.";
+    createInboxNotification_(cleanPhone, "ticket_issued", titleEs, bodyEs, {
+      folio: folio,
+      ticketUrl: ticketUrl,
+      monto: monto,
+      propiedad: propiedad,
+      reservacionId: reservacionRow["ID"] || ""
+    });
+    // Encolar web push (categoría facturas)
+    try {
+      queueNotification_({
+        target: cleanPhone,
+        category: "facturas",
+        title: titleEs,
+        body: bodyEs,
+        url: "./",
+        tag: "ticket-" + (folio || Date.now()),
+        badge: 1,
+        source: "auto-folio-trigger"
+      });
+    } catch(_e){}
+  } catch (err) {
+    console.warn("notifyTicketIssued_ error:", err);
+  }
 }
 
 // ═══ PUSH NOTIFICATIONS ════════════════════════════════════════════════════════

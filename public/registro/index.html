@@ -429,6 +429,175 @@ button:disabled{
   align-items:center;
   gap:10px;
 }
+/* ─── Botón de Notificaciones (campana 🔔 + badge rojo) ────────────────── */
+.notif-btn{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:36px; height:36px;
+  border-radius:50%;
+  background:#fff;
+  border:1px solid var(--border);
+  color:var(--text);
+  cursor:pointer;
+  transition:background .15s, box-shadow .15s, transform .12s;
+  padding:0;
+  margin-right:auto;
+}
+.notif-btn:hover{ background:#f1f5f9; box-shadow:0 2px 8px rgba(15,23,42,.08); }
+.notif-btn:active{ transform:scale(.94); }
+.notif-btn.hidden{ display:none !important; }
+.notif-badge{
+  position:absolute;
+  top:-3px; right:-3px;
+  min-width:18px; height:18px;
+  padding:0 5px;
+  border-radius:999px;
+  background:var(--danger);
+  color:#fff;
+  font-size:10px;
+  font-weight:800;
+  display:inline-flex;
+  align-items:center; justify-content:center;
+  border:2px solid #fff;
+  box-sizing:border-box;
+  line-height:1;
+}
+.notif-badge.hidden{ display:none !important; }
+
+/* ─── Panel de notificaciones (popover) ──────────────────────────────── */
+.notif-backdrop{
+  position:fixed; inset:0;
+  background:rgba(15,23,42,.25);
+  z-index:9998;
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+}
+.notif-backdrop.hidden{ display:none !important; }
+.notif-panel{
+  position:fixed;
+  top:60px; right:14px; left:14px;
+  max-width:420px;
+  margin-left:auto;
+  background:#fff;
+  border-radius:18px;
+  box-shadow:0 20px 60px rgba(15,23,42,.25);
+  z-index:9999;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  max-height:80vh;
+}
+.notif-panel.hidden{ display:none !important; }
+.notif-panel-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:14px 18px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg, var(--primary-soft) 0%, #fff 100%);
+}
+.notif-panel-header h3{
+  margin:0;
+  font-size:16px;
+  font-weight:800;
+  color:var(--text);
+}
+.notif-panel-close{
+  width:28px; height:28px;
+  border-radius:50%;
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  font-size:22px;
+  line-height:1;
+  color:var(--text-soft);
+  display:inline-flex;
+  align-items:center; justify-content:center;
+}
+.notif-panel-close:hover{ background:#f1f5f9; color:var(--text); }
+.notif-panel-body{
+  overflow-y:auto;
+  flex:1;
+  padding:8px 0;
+}
+.notif-panel-empty{
+  padding:32px 24px;
+  text-align:center;
+  color:var(--text-soft);
+}
+.notif-empty-icon{
+  font-size:38px;
+  margin-bottom:8px;
+  opacity:.7;
+}
+.notif-panel-empty p{
+  margin:0;
+  font-size:13px;
+}
+.notif-list{
+  list-style:none;
+  margin:0;
+  padding:0;
+}
+.notif-item{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:12px;
+  padding:12px 18px;
+  cursor:pointer;
+  border-bottom:1px solid #f1f5f9;
+  transition:background .15s;
+  position:relative;
+}
+.notif-item:hover{ background:#f8fafc; }
+.notif-item:last-child{ border-bottom:none; }
+.notif-item-icon{
+  width:36px; height:36px;
+  border-radius:10px;
+  background:#ecfdf5;
+  color:#047857;
+  display:inline-flex;
+  align-items:center; justify-content:center;
+  font-size:18px;
+  flex-shrink:0;
+}
+.notif-item.type-ticket_issued .notif-item-icon{ background:#ecfdf5; color:#047857; }
+.notif-item-body{ min-width:0; }
+.notif-item-title{
+  font-size:14px;
+  font-weight:700;
+  color:var(--text);
+  margin:0 0 2px;
+  line-height:1.3;
+}
+.notif-item-text{
+  font-size:12px;
+  color:var(--text-soft);
+  margin:0;
+  line-height:1.4;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.notif-item-time{
+  font-size:11px;
+  color:#94a3b8;
+  white-space:nowrap;
+  align-self:flex-start;
+}
+.notif-item-unread-dot{
+  position:absolute;
+  top:14px; right:18px;
+  width:8px; height:8px;
+  border-radius:50%;
+  background:var(--danger);
+  display:none;
+}
+.notif-item.is-unread .notif-item-unread-dot{ display:block; }
+.notif-item.is-unread .notif-item-title{ color:var(--primary-dark); }
 .lang-note{
   font-size:12px;
   color:#6b7280;
@@ -5170,6 +5339,13 @@ body.has-session input[name="nombre"] {
 <div class="page-shell">
 <div class="container">
 <div class="lang-bar">
+<button id="btnNotifications" class="notif-btn hidden" type="button" aria-label="Notificaciones" aria-haspopup="dialog">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+  <span class="notif-badge hidden" id="notifBadge" aria-live="polite">0</span>
+</button>
 <span class="lang-note" data-i18n="chooseLanguage">Selecciona el idioma</span>
 <div class="lang-switch" id="langSwitch">
 <div class="lang-slider" id="switchSlider"></div>
@@ -5177,6 +5353,22 @@ body.has-session input[name="nombre"] {
 <div class="lang-switch-label">EN</div>
 </div>
 </div>
+
+<!-- ═══ Panel de Notificaciones (popover) ═══════════════════════════ -->
+<div id="notifPanel" class="notif-panel hidden" role="dialog" aria-labelledby="notifPanelTitle" aria-modal="false">
+  <div class="notif-panel-header">
+    <h3 id="notifPanelTitle" data-i18n="notifPanelTitle">Notificaciones</h3>
+    <button id="notifPanelCloseBtn" class="notif-panel-close" type="button" aria-label="Cerrar">×</button>
+  </div>
+  <div id="notifPanelBody" class="notif-panel-body">
+    <div class="notif-panel-empty" id="notifPanelEmpty">
+      <div class="notif-empty-icon" aria-hidden="true">🔕</div>
+      <p data-i18n="notifEmpty">No tienes notificaciones por ahora.</p>
+    </div>
+    <ul class="notif-list" id="notifList" hidden></ul>
+  </div>
+</div>
+<div id="notifBackdrop" class="notif-backdrop hidden" aria-hidden="true"></div>
 <div class="page-title-row">
   <h1 id="pageH1" data-i18n="title">Portal del huésped</h1>
   <button id="btnRefreshHome" class="page-refresh-btn" type="button" hidden aria-label="Actualizar datos" title="Actualizar datos">
@@ -8051,6 +8243,13 @@ const SIMPLE_I18N = {
     btnInfoVehiculosSub:"Consulta los vehículos con estancia activa hoy por propiedad.",
     staysCardTitle:"Tus estancias",
     appLoaderText:"Cargando datos…",
+    notifPanelTitle:"Notificaciones",
+    notifEmpty:"No tienes notificaciones por ahora.",
+    notifTimeJustNow:"Ahora",
+    notifTimeMinutes:"hace {n} min",
+    notifTimeHours:"hace {n} h",
+    notifTimeYesterday:"ayer",
+    notifTimeDays:"hace {n} días",
     detailReservante:"Reservante",
     detailMedio:"Medio de reservación",
     detailPropiedad:"Propiedad",
@@ -8354,6 +8553,13 @@ const SIMPLE_I18N = {
     btnInfoVehiculosSub:"See vehicles with an active stay today by property.",
     staysCardTitle:"Your stays",
     appLoaderText:"Loading data…",
+    notifPanelTitle:"Notifications",
+    notifEmpty:"No notifications for now.",
+    notifTimeJustNow:"Just now",
+    notifTimeMinutes:"{n} min ago",
+    notifTimeHours:"{n} h ago",
+    notifTimeYesterday:"yesterday",
+    notifTimeDays:"{n} days ago",
     detailReservante:"Booked by",
     detailMedio:"Booking channel",
     detailPropiedad:"Property",
@@ -12965,6 +13171,13 @@ document.addEventListener("DOMContentLoaded", function(){
     // Mostrar/ocultar botón hamburguesa según sesión
     const hb = $("hamburgerBtn");
     if (hb) hb.classList.toggle("visible", !!s);
+    // Mostrar/ocultar botón de notificaciones según sesión + refresh.
+    try {
+      if (window.checkinnNotifications) {
+        window.checkinnNotifications.setVisible(!!s);
+        if (s) window.checkinnNotifications.refresh();
+      }
+    } catch(_e){}
     // Pre-rellena el nombre del reservante con el del perfil del wizard
     if (s) {
       try {
@@ -17015,6 +17228,252 @@ document.addEventListener("DOMContentLoaded", function(){
     -webkit-overflow-scrolling: touch;
   }
 </style>
+
+<!-- ═══ Notificaciones (campana 🔔) ═══════════════════════════════════ -->
+<script>
+(function(){
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const WEB_APP_URL = window.CHECKIN_WEB_APP_URL || "https://script.google.com/macros/s/AKfycbwqMfC6tITLXlhEwYzQ5mKzw-KD6-nV7XVKIuekj6pK4Po50oRfVKClZeHcr-si3ppB/exec";
+
+  const state = {
+    items: [],
+    unread: 0,
+    isPanelOpen: false,
+    lastFetchAt: 0
+  };
+
+  function getPhoneKey(){
+    try {
+      const s = window.checkinnAuth?.getSession?.();
+      if (!s) return "";
+      return String((s.lada || "") + (s.phone || "")).replace(/\D/g, "");
+    } catch(_e){ return ""; }
+  }
+
+  function getI18n(){
+    try {
+      const lang = window.currentLang || "es";
+      return (window.SIMPLE_I18N && window.SIMPLE_I18N[lang]) || {};
+    } catch(_e){ return {}; }
+  }
+
+  function fmtRelativeTime(iso){
+    const i = getI18n();
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const diffMs = Date.now() - d.getTime();
+    const diffMin = Math.round(diffMs / 60000);
+    if (diffMin < 1) return i.notifTimeJustNow || "Ahora";
+    if (diffMin < 60) return (i.notifTimeMinutes || "hace {n} min").replace("{n}", diffMin);
+    const diffHr = Math.round(diffMin / 60);
+    if (diffHr < 24) return (i.notifTimeHours || "hace {n} h").replace("{n}", diffHr);
+    const diffDays = Math.round(diffHr / 24);
+    if (diffDays === 1) return i.notifTimeYesterday || "ayer";
+    if (diffDays < 30) return (i.notifTimeDays || "hace {n} días").replace("{n}", diffDays);
+    return d.toLocaleDateString(window.currentLang === "en" ? "en-US" : "es-MX", { month: "short", day: "numeric" });
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function updateBadge(unread){
+    const badge = $("notifBadge");
+    if (!badge) return;
+    if (!unread || unread <= 0) {
+      badge.classList.add("hidden");
+      badge.textContent = "0";
+    } else {
+      badge.classList.remove("hidden");
+      badge.textContent = unread > 9 ? "9+" : String(unread);
+    }
+    // También actualizar el badge de la PWA (icono en el home screen)
+    try {
+      if ("setAppBadge" in navigator) {
+        if (unread && unread > 0) navigator.setAppBadge(unread).catch(()=>{});
+        else navigator.clearAppBadge?.().catch(()=>{});
+      }
+    } catch(_e){}
+  }
+
+  function renderList(){
+    const list = $("notifList");
+    const empty = $("notifPanelEmpty");
+    if (!list || !empty) return;
+    if (!state.items.length) {
+      list.hidden = true;
+      empty.style.display = "block";
+      return;
+    }
+    empty.style.display = "none";
+    list.hidden = false;
+    list.innerHTML = state.items.map(n => {
+      const isUnread = !n.read_at;
+      const iconChar = n.type === "ticket_issued" ? "🧾" : "🔔";
+      const time = fmtRelativeTime(n.created_at);
+      return `<li class="notif-item type-${escapeHtml(n.type || "")} ${isUnread ? "is-unread" : ""}" data-notif-id="${escapeHtml(n.id)}" data-notif-type="${escapeHtml(n.type || "")}">
+        <span class="notif-item-icon" aria-hidden="true">${iconChar}</span>
+        <div class="notif-item-body">
+          <p class="notif-item-title">${escapeHtml(n.title || "")}</p>
+          <p class="notif-item-text">${escapeHtml(n.body || "")}</p>
+        </div>
+        <span class="notif-item-time">${escapeHtml(time)}</span>
+        <span class="notif-item-unread-dot" aria-hidden="true"></span>
+      </li>`;
+    }).join("");
+    list.querySelectorAll(".notif-item").forEach(el => {
+      el.addEventListener("click", () => onItemClick(el.dataset.notifId, el.dataset.notifType));
+    });
+  }
+
+  async function fetchNotifications(){
+    const phoneKey = getPhoneKey();
+    if (!phoneKey) {
+      state.items = []; state.unread = 0;
+      updateBadge(0);
+      return;
+    }
+    try {
+      const r = await fetch(`${WEB_APP_URL}?action=list_notifications&phoneKey=${encodeURIComponent(phoneKey)}`);
+      const json = await r.json();
+      if (!json || !json.ok) return;
+      state.items = json.rows || [];
+      state.unread = Number(json.unread || 0);
+      state.lastFetchAt = Date.now();
+      updateBadge(state.unread);
+      if (state.isPanelOpen) renderList();
+    } catch(e) {
+      console.warn("[notif] fetch error:", e);
+    }
+  }
+
+  async function markAllRead(){
+    const phoneKey = getPhoneKey();
+    if (!phoneKey) return;
+    // Optimistic UI: badge a 0 inmediato.
+    state.unread = 0;
+    state.items.forEach(n => { if (!n.read_at) n.read_at = new Date().toISOString(); });
+    updateBadge(0);
+    renderList();
+    try {
+      await fetch(WEB_APP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "mark_notifications_read", phoneKey })
+      });
+    } catch(e) { console.warn("[notif] markAllRead error:", e); }
+  }
+
+  async function archiveNotification(id){
+    if (!id) return;
+    // Optimistic UI: quitar de la lista local.
+    state.items = state.items.filter(n => n.id !== id);
+    renderList();
+    try {
+      await fetch(WEB_APP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "archive_notification", id })
+      });
+    } catch(e) { console.warn("[notif] archive error:", e); }
+  }
+
+  function onItemClick(id, type){
+    const item = state.items.find(n => n.id === id);
+    if (!item) return;
+    if (type === "ticket_issued" && item.data && item.data.ticketUrl) {
+      // Acción específica: abrir el PDF/imagen de la factura.
+      const url = item.data.ticketUrl;
+      if (window.checkinnImages?.openZoom && /\.(png|jpe?g|gif|webp)$/i.test(url)) {
+        window.checkinnImages.openZoom(url);
+      } else {
+        window.open(url, "_blank", "noopener");
+      }
+      // Archivar la notificación (sale del inbox).
+      archiveNotification(id);
+      closePanel();
+    } else {
+      // Sin acción definida: solo archivar.
+      archiveNotification(id);
+    }
+  }
+
+  function openPanel(){
+    const panel = $("notifPanel");
+    const backdrop = $("notifBackdrop");
+    if (!panel) return;
+    panel.classList.remove("hidden");
+    if (backdrop) backdrop.classList.remove("hidden");
+    state.isPanelOpen = true;
+    renderList();
+    // Auto-marcar todas como leídas al abrir (estrategia "Auto-leer").
+    if (state.unread > 0) markAllRead();
+    // Refrescar en background por si hay nuevas.
+    fetchNotifications();
+  }
+
+  function closePanel(){
+    const panel = $("notifPanel");
+    const backdrop = $("notifBackdrop");
+    if (panel) panel.classList.add("hidden");
+    if (backdrop) backdrop.classList.add("hidden");
+    state.isPanelOpen = false;
+  }
+
+  function setVisible(visible){
+    const btn = $("btnNotifications");
+    if (!btn) return;
+    btn.classList.toggle("hidden", !visible);
+    if (!visible) closePanel();
+  }
+
+  // ─── Init ────────────────────────────────────────────────────────
+  document.addEventListener("DOMContentLoaded", () => {
+    $("btnNotifications")?.addEventListener("click", openPanel);
+    $("notifPanelCloseBtn")?.addEventListener("click", closePanel);
+    $("notifBackdrop")?.addEventListener("click", closePanel);
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape" && state.isPanelOpen) closePanel();
+    });
+  });
+
+  // Refresco automático al recibir un push (el SW manda postMessage).
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      const d = event.data || {};
+      if (d.type === "push-received" || d.type === "sw-activated") {
+        setTimeout(() => fetchNotifications(), 500);
+      }
+    });
+  }
+
+  // Polling cada 2 min cuando la pestaña está visible.
+  let pollTimer = null;
+  function startPolling(){
+    if (pollTimer) return;
+    pollTimer = setInterval(() => {
+      if (document.visibilityState === "visible" && getPhoneKey()) fetchNotifications();
+    }, 120000);
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && getPhoneKey()) fetchNotifications();
+  });
+  startPolling();
+
+  // API pública
+  window.checkinnNotifications = {
+    refresh: fetchNotifications,
+    open: openPanel,
+    close: closePanel,
+    setVisible: setVisible,
+    getState: () => ({ ...state })
+  };
+})();
+</script>
 
 </body>
 </html>
