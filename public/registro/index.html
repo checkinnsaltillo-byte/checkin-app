@@ -14551,14 +14551,18 @@ document.addEventListener("DOMContentLoaded", function(){
   // (por si el usuario tiene algo en draft que aún no sincronizó).
   async function hydrateProfileFromBackend(phoneKey){
     try {
-      if (!phoneKey) return null;
+      if (!phoneKey) { console.warn("[profile] hydrate: sin phoneKey"); return null; }
       const cleanKey = String(phoneKey).replace(/\D/g, "");
-      if (!cleanKey) return null;
+      if (!cleanKey) { console.warn("[profile] hydrate: phoneKey vacío tras limpiar"); return null; }
       const webAppUrl = (typeof WEB_APP_URL !== "undefined" && WEB_APP_URL) ? WEB_APP_URL : null;
-      if (!webAppUrl) return null;
-      const r = await fetch(`${webAppUrl}?action=get_profile&phoneKey=${encodeURIComponent(cleanKey)}`);
+      if (!webAppUrl) { console.warn("[profile] hydrate: WEB_APP_URL no definido"); return null; }
+      const url = `${webAppUrl}?action=get_profile&phoneKey=${encodeURIComponent(cleanKey)}`;
+      console.log("[profile] hydrate fetch:", url);
+      const r = await fetch(url);
       const json = await r.json();
-      if (!json || !json.ok || !json.exists || !json.profile) return null;
+      console.log("[profile] hydrate response:", json);
+      if (!json || !json.ok) { console.warn("[profile] hydrate: backend no devolvió ok. ¿Hiciste redeploy del Apps Script con la action get_profile?"); return null; }
+      if (!json.exists || !json.profile) { console.warn("[profile] hydrate: backend dice que el perfil no existe para phoneKey=" + cleanKey); return null; }
       const remote = json.profile;
       const local = loadProfile(phoneKey);
       // Merge campo por campo: backend gana si tiene valor; local sobrevive
@@ -14947,7 +14951,12 @@ document.addEventListener("DOMContentLoaded", function(){
     });
   }
   // ─── Home card ─────────────────────────────────────────────────────
-  function refreshHomeCard(){
+  // Flag de hidratación: una vez por sesión, hidratar el localStorage desde
+  // el backend. Esto resuelve el caso de la PWA standalone (iOS) cuyo
+  // localStorage está separado del Safari del navegador.
+  let _profileHydratedKey = null;
+
+  async function refreshHomeCard(){
     const card = $("profileCard");
     const badge = $("profileCompleteBadge");
     if (!card) return;
@@ -14966,6 +14975,18 @@ document.addEventListener("DOMContentLoaded", function(){
       return;
     }
     activePhoneKey = getPhoneKey();
+    // BLOQUEAR hasta que el backend responda con el perfil. Esto garantiza
+    // que en la PWA (con localStorage vacío) NO renderizemos "Por capturar"
+    // antes de tener los datos reales del backend.
+    if (_profileHydratedKey !== activePhoneKey) {
+      try {
+        console.log("[profile] hidratando desde backend...", activePhoneKey);
+        await hydrateProfileFromBackend(activePhoneKey);
+        _profileHydratedKey = activePhoneKey;
+      } catch(e){
+        console.warn("[profile] hidratación falló:", e);
+      }
+    }
     activeProfile = loadProfile(activePhoneKey);
     const pct = profileCompletionPercent(activeProfile);
     refreshBenefitsKpiLock(pct === 100);

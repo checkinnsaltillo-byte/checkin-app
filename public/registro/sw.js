@@ -6,7 +6,7 @@
 //    en iOS NO sirva HTML cacheado por Safari y siempre traiga el último deploy.
 //  · push / notificationclick: notificaciones + badge.
 
-const SW_VERSION = "2026-05-30-3";
+const SW_VERSION = "2026-05-30-4";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
