@@ -4937,10 +4937,9 @@ body.has-session input[name="nombre"] {
       <span class="nav-item-icon">🗓️</span>
       <span data-i18n="navItemEstancias">Tus estancias</span>
     </li>
-    <li class="nav-item" id="navItemInstallPwa" hidden>
-      <span class="nav-item-icon">📲</span>
-      <span>Crear acceso directo</span>
-    </li>
+    <!-- Item "Crear acceso directo" eliminado del menú. El botón solo aparece
+         en la pantalla de bienvenida cuando se está en un explorador móvil
+         (iOS Safari o Android Chrome) y la PWA aún no está instalada. -->
     <li class="nav-item" id="navItemPushSubscribe" hidden>
       <span class="nav-item-icon">🔔</span>
       <span id="navPushLabel">Activar avisos</span>
@@ -15588,7 +15587,6 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   const btn = document.getElementById("btnInstallPwa");
-  const navBtn = document.getElementById("navItemInstallPwa");
   const modal = document.getElementById("pwaInstallModal");
   const stepsEl = document.getElementById("pwaInstallSteps");
   const titleEl = document.getElementById("pwaInstallTitle");
@@ -15632,19 +15630,22 @@ document.addEventListener("DOMContentLoaded", function(){
     <li>Confirma. El ícono de Check-inn quedará en tu pantalla de inicio.</li>
   `;
 
+  // El botón solo es relevante en móvil (iOS Safari / Android Chrome).
+  // En desktop no lo mostramos aunque Chrome dispare beforeinstallprompt.
+  const isMobile = isIOS || isAndroid;
+
   function setBtnsVisible(visible){
     if (btn) btn.hidden = !visible;
-    if (navBtn) navBtn.hidden = !visible;
   }
 
-  // ─── Android: capturar beforeinstallprompt y mostrar botones ───
+  // ─── Android móvil: capturar beforeinstallprompt y mostrar botón ───
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    if (!isStandalone) setBtnsVisible(true);
+    if (isMobile && !isStandalone) setBtnsVisible(true);
   });
 
-  // ─── iOS: no hay beforeinstallprompt, mostrar botones si no está instalado ───
+  // ─── iOS móvil: no hay beforeinstallprompt, mostrar botón si no está instalado ───
   if (isIOS && !isStandalone) setBtnsVisible(true);
 
   // ─── Click handler unificado ───
@@ -15665,13 +15666,6 @@ document.addEventListener("DOMContentLoaded", function(){
     }
   }
   btn?.addEventListener("click", handleInstallClick);
-  navBtn?.addEventListener("click", () => {
-    // Cerrar sidebar antes de mostrar modal
-    document.getElementById("navSidebar")?.classList.remove("open");
-    document.getElementById("navOverlay")?.classList.remove("open");
-    document.body.style.overflow = "";
-    handleInstallClick();
-  });
 
   // Si ya está instalado, ocultar definitivamente
   if (isStandalone) setBtnsVisible(false);
