@@ -3880,6 +3880,11 @@ function formatRangoFechasSimple(inicio, fin){
   font-family:inherit;
 }
 .stays-card-item-header:hover{ filter:brightness(.99); }
+.stays-card-item-header:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:-2px;
+  border-radius:14px;
+}
 .stays-card-header-left{
   display:flex; flex-direction:column; gap:6px; min-width:0;
 }
@@ -13287,8 +13292,11 @@ document.addEventListener("DOMContentLoaded", function(){
       .join("");
     const detailsBlock = detailItems
       || `<div class="stays-card-detail"><span class="stays-card-detail-value">${escapeHtml(i.detailEmpty || "Sin información detallada disponible.")}</span></div>`;
+    // NOTA: usamos <div role="button"> en lugar de <button> porque el chip
+    // "Ticket emitido" es un <button> y HTML no permite anidar buttons
+    // (el parser cierra el padre y lo saca del flujo, rompiendo el layout).
     return `<div class="stays-card-item" data-stay-index="${idx}">
-      <button type="button" class="stays-card-item-header" aria-expanded="false">
+      <div class="stays-card-item-header" role="button" tabindex="0" aria-expanded="false">
         <div class="stays-card-header-left">
           <span class="stays-card-medio-chip"><span class="medio-letter">${escapeHtml(medioLetter)}</span>${escapeHtml(medio)}</span>
           <h4 class="stays-card-item-title">${escapeHtml(titleText)}<span class="stays-card-chevron-mini" aria-hidden="true">▾</span></h4>
@@ -13300,7 +13308,7 @@ document.addEventListener("DOMContentLoaded", function(){
           <span class="stays-card-monto-value${montoIsEmpty ? " muted" : ""}">${escapeHtml(montoIsEmpty ? "—" : monto)}</span>
           ${ticketChip}
         </div>
-      </button>
+      </div>
       <div class="stays-card-item-body">
         <div class="stays-card-item-details">${detailsBlock}</div>
       </div>
@@ -13325,14 +13333,24 @@ document.addEventListener("DOMContentLoaded", function(){
     const start = (staysPage - 1) * staysPageSize;
     const slice = staysSorted.slice(start, start + staysPageSize);
     container.innerHTML = slice.map((stay, i) => renderStayCard(stay, start + i)).join("");
+    const toggleCard = (header) => {
+      const card = header.closest(".stays-card-item");
+      if (!card) return;
+      const isExpanded = card.classList.toggle("expanded");
+      header.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+    };
     container.querySelectorAll(".stays-card-item-header").forEach(header => {
       header.addEventListener("click", (ev) => {
         // Si clickearon el botón de ticket, NO togglear el expand.
         if (ev.target.closest("[data-action='open-ticket']")) return;
-        const card = header.closest(".stays-card-item");
-        if (!card) return;
-        const isExpanded = card.classList.toggle("expanded");
-        header.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+        toggleCard(header);
+      });
+      header.addEventListener("keydown", (ev) => {
+        if (ev.target.closest("[data-action='open-ticket']")) return;
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          toggleCard(header);
+        }
       });
     });
     container.querySelectorAll("[data-action='open-ticket']").forEach(btn => {
@@ -16955,12 +16973,20 @@ document.addEventListener("DOMContentLoaded", function(){
     /* En móvil reducimos el padding del contenedor general y de las
        secciones internas (impacta viewHome y viewVehiculos) para que el
        contenido se extienda más horizontalmente. */
-    .container { padding-left: 10px !important; padding-right: 10px !important; padding-top: 14px !important; }
-    #viewHome .section,
-    #viewVehiculos .section { padding-left: 10px; padding-right: 10px; }
-    /* Cards de vehículos: padding interno más compacto */
-    .vehicle-card-summary { padding-left: 12px !important; padding-right: 12px !important; }
-    .vehicle-info-toolbar { gap: 8px; }
+    .container { padding-left: 6px !important; padding-right: 6px !important; padding-top: 14px !important; }
+    #viewHome .section { padding-left: 10px; padding-right: 10px; }
+    /* viewVehiculos: la .section pierde su recuadro y padding lateral
+       para que las cards y filtros se extiendan edge-to-edge. */
+    #viewVehiculos .section {
+      padding: 8px 2px !important;
+      border: none !important;
+      background: transparent !important;
+      margin-top: 6px;
+    }
+    #viewVehiculos .vehicle-info-toolbar { gap: 6px; margin-top: 8px; }
+    #viewVehiculos .filter-actions { gap: 6px; }
+    .vehicle-card-summary { padding: 14px 12px !important; }
+    .vehicle-card-body { padding-left: 12px !important; padding-right: 12px !important; }
   }
   /* La tabla de estancias tiene scroll horizontal interno cuando no
      cabe; el card padre conserva el ancho del welcome/auth-bigbtn. */
