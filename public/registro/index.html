@@ -21,7 +21,9 @@
   display:flex;
   align-items:center;
   justify-content:center;
-  background:linear-gradient(180deg,#f4f6f8 0%, #e2e8f0 100%);
+  background:rgba(15,23,42,.35);
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
   transition:opacity .35s ease, visibility .35s ease;
 }
 #appLoader.hidden-loader{
@@ -423,7 +425,7 @@ button:disabled{
 .lang-bar{
   display:flex;
   justify-content:flex-end;
-  margin-bottom:14px;
+  margin-bottom:6px;
   align-items:center;
   gap:10px;
 }
@@ -3762,11 +3764,11 @@ function formatRangoFechasSimple(inicio, fin){
 /* Tabla de estancias (dropdown) */
 .stays-card{
   background:#fff;
-  border:1px solid var(--border-strong);
+  border:none;
   border-radius:18px;
   overflow:hidden;
   margin-top:16px;
-  box-shadow:0 6px 18px rgba(15,23,42,.04);
+  box-shadow:none;
 }
 .stays-card-header{
   padding:14px 16px;
@@ -3960,7 +3962,7 @@ function formatRangoFechasSimple(inicio, fin){
   word-break:break-word;
 }
 @media (max-width:600px){
-  .stays-card-item-header{ padding:12px 12px; gap:8px; }
+  .stays-card-item-header{ padding:12px 10px; gap:6px; }
   .stays-card-item-title{ font-size:15px; }
   .stays-card-item-dates{ font-size:12px; }
   .stays-card-item-nights{ font-size:11px; }
@@ -5139,7 +5141,7 @@ body.has-session input[name="nombre"] {
     </div>
   </div>
 </div>
-<div class="page-logo-wrap" style="width:100%; text-align:center; margin:6px 0 4px;">
+<div class="page-logo-wrap" style="width:100%; text-align:center; margin:2px 0 0;">
 <img class="page-logo-img" alt="Logo Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w1000" style="max-width:180px; width:48%; height:auto; display:inline-block;"/>
 </div>
 <div class="page-shell">
@@ -16877,12 +16879,15 @@ document.addEventListener("DOMContentLoaded", function(){
     box-sizing: border-box;
     width: 100%;
   }
-  /* En móvil reducimos los paddings laterales para que las cards
-     de estancia tengan más ancho disponible y no se empalme el
-     título con el chip de monto. */
+  /* En móvil reducimos los paddings laterales al mínimo para que las
+     cards de estancia ocupen casi todo el ancho del viewport. */
   @media (max-width: 600px) {
     .stays-card-collapsible > .stays-card-body {
-      padding: 0 8px 14px;
+      padding: 0 2px 12px;
+    }
+    .stays-card-collapsible > .stays-card-header {
+      padding-left: 12px;
+      padding-right: 12px;
     }
   }
   /* La tabla de estancias tiene scroll horizontal interno cuando no
