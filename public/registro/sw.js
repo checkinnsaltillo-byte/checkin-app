@@ -6,7 +6,7 @@
 //    en iOS NO sirva HTML cacheado por Safari y siempre traiga el último deploy.
 //  · push / notificationclick: notificaciones + badge.
 
-const SW_VERSION = "2026-05-30-4";
+const SW_VERSION = "2026-05-30-5";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -62,12 +62,32 @@ self.addEventListener("push", (event) => {
     data: { url: payload.url || "./", ...(payload.data || {}) }
   };
   const tasks = [self.registration.showNotification(title, options)];
+  // Badge en el ícono de la PWA. iOS tiene soporte limitado de setAppBadge
+  // desde el SW background, así que también mandamos un postMessage a
+  // todos los clientes abiertos para que el frontend lo intente (más
+  // confiable cuando la PWA está activa).
   const badgeCount = Number(payload.badgeCount);
-  if (!isNaN(badgeCount) && badgeCount > 0 && self.navigator && typeof self.navigator.setAppBadge === "function") {
-    tasks.push(self.navigator.setAppBadge(badgeCount).catch(()=>{}));
+  const hasBadgeApi = self.navigator && typeof self.navigator.setAppBadge === "function";
+  console.log("[sw] push received. badgeCount=", badgeCount, "setAppBadge available:", hasBadgeApi);
+  if (!isNaN(badgeCount) && badgeCount > 0 && hasBadgeApi) {
+    tasks.push(
+      self.navigator.setAppBadge(badgeCount)
+        .then(() => console.log("[sw] setAppBadge OK:", badgeCount))
+        .catch((e) => console.warn("[sw] setAppBadge failed:", e))
+    );
   } else if (badgeCount === 0 && self.navigator && typeof self.navigator.clearAppBadge === "function") {
     tasks.push(self.navigator.clearAppBadge().catch(()=>{}));
   }
+  // Notificar a los clientes activos (si los hay) para que sincronicen
+  // el badge desde el cliente — funciona mejor en iOS que el SW solo.
+  tasks.push((async () => {
+    try {
+      const allClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const c of allClients) {
+        try { c.postMessage({ type: "push-received", badgeCount: badgeCount }); } catch(_e){}
+      }
+    } catch(_e){}
+  })());
   event.waitUntil(Promise.all(tasks));
 });
 
