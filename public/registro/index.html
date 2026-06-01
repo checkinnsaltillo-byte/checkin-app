@@ -61,6 +61,9 @@
 .checkinn-loader.size-sm{ --ci-pin-h:21px; --ci-dur:2.8s; }
 .checkinn-loader.size-md{ --ci-pin-h:33px; }
 .checkinn-loader.size-lg{ --ci-pin-h:47px; }
+/* Tamaños del loader animado usado como LOGO en el header */
+.checkinn-loader.size-pill{ --ci-pin-h:36px; --ci-dur:4s; }
+.checkinn-loader.size-welcome{ --ci-pin-h:54px; --ci-dur:4s; }
 .ci-pin-scene{ perspective:700px; height:var(--ci-pin-h); }
 .ci-pin{
   position:relative; height:var(--ci-pin-h);
@@ -450,17 +453,13 @@ button:disabled{
   align-items:center;
   gap:10px;
 }
-/* Logo en el lang-bar: solo visible sin sesión (página de bienvenida).
-   Tamaño "mediano" (≈ 1.5× el del session-pill). */
+/* Logo (loader animado) en el lang-bar: solo visible sin sesión
+   (página de bienvenida). Tamaño "mediano" (54px). */
 .lang-bar-logo{
-  height:54px;
-  width:auto;
-  max-width:140px;
-  object-fit:contain;
-  display:inline-block;
   margin-right:auto;
+  flex-shrink:0;
 }
-body.has-session .lang-bar-logo{ display:none; }
+body.has-session .lang-bar-logo{ display:none !important; }
 /* ─── Botón de Notificaciones (campana 🔔 + badge rojo) ────────────────── */
 .notif-btn{
   position:relative;
@@ -3918,14 +3917,10 @@ function formatRangoFechasSimple(inicio, fin){
   box-sizing:border-box;
 }
 .session-pill.visible{display:inline-flex;}
-/* Logo dentro del session-pill (izquierda) — aprovecha toda la altura */
+/* Logo (loader animado) dentro del session-pill (izquierda). */
 .session-pill-logo{
-  height:36px;
-  width:auto;
-  max-width:90px;
-  object-fit:contain;
-  display:inline-block;
   margin-right:4px;
+  flex-shrink:0;
 }
 /* Botones-ícono dentro del session-pill (campanita, refresh) — idénticos */
 .session-pill .session-pill-icon-btn{
@@ -5334,7 +5329,16 @@ body.has-session input[name="nombre"] {
 </script>
 
 <div class="session-pill" id="sessionPill">
-  <img class="session-pill-logo" alt="Check-inn" src="./logo_brand.png" />
+  <div class="checkinn-loader size-pill session-pill-logo" role="img" aria-label="Check-inn">
+    <div class="ci-pin-scene">
+      <div class="ci-pin">
+        <div class="ci-face front"><img alt="" src="./loader_pin.png"></div>
+        <div class="ci-face back"><img alt="" src="./loader_pin.png"></div>
+        <img class="ci-spacer" alt="" src="./loader_pin.png">
+      </div>
+    </div>
+    <img class="ci-text" alt="" src="./loader_text.png">
+  </div>
   <button id="btnNotifications" class="session-pill-icon-btn hidden" type="button" aria-label="Notificaciones" aria-haspopup="dialog">
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -5437,7 +5441,16 @@ body.has-session input[name="nombre"] {
 <div class="page-shell">
 <div class="container">
 <div class="lang-bar">
-<img class="lang-bar-logo" alt="Check-inn" src="./logo_brand.png" />
+<div class="checkinn-loader size-welcome lang-bar-logo" role="img" aria-label="Check-inn">
+  <div class="ci-pin-scene">
+    <div class="ci-pin">
+      <div class="ci-face front"><img alt="" src="./loader_pin.png"></div>
+      <div class="ci-face back"><img alt="" src="./loader_pin.png"></div>
+      <img class="ci-spacer" alt="" src="./loader_pin.png">
+    </div>
+  </div>
+  <img class="ci-text" alt="" src="./loader_text.png">
+</div>
 <span class="lang-note" data-i18n="chooseLanguage">Selecciona el idioma</span>
 <div class="lang-switch" id="langSwitch">
 <div class="lang-slider" id="switchSlider"></div>
