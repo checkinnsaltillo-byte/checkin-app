@@ -448,11 +448,15 @@ button:disabled{
 }
 .lang-bar{
   display:flex;
-  justify-content:flex-end;
+  justify-content:flex-start;
   margin-bottom:6px;
   align-items:center;
   gap:10px;
 }
+/* "Selecciona el idioma" pegado al switch (a la derecha) */
+.lang-bar .lang-note{ margin-left:auto; }
+body.has-session .lang-bar{ justify-content:flex-end; }
+body.has-session .lang-bar .lang-note{ margin-left:0; }
 /* Logo (loader animado) en el lang-bar: solo visible sin sesión
    (página de bienvenida). Tamaño "mediano" (54px). */
 .lang-bar-logo{
@@ -5506,7 +5510,7 @@ body.has-session input[name="nombre"] {
       </button>
       <div class="veh-collapsible-card" id="vehCollapsibleWelcome">
         <button class="auth-bigbtn veh-collapsible-trigger" id="btnGoVehiculos" type="button" aria-expanded="false">
-          <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="welcomeBtnVehiculos">Información de vehículos</span><span class="veh-collapsible-chevron" aria-hidden="true">▾</span></span>
+          <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="welcomeBtnVehiculos">Información de vehículos</span></span>
           <span class="auth-bigbtn-sub" data-i18n="welcomeBtnVehiculosSub">Consulta los vehículos con estancia activa hoy. Útil para coordinar movimientos en el estacionamiento.</span>
         </button>
         <div class="veh-collapsible-body" id="vehBodyWelcome" hidden></div>
@@ -5722,7 +5726,7 @@ body.has-session input[name="nombre"] {
       <!-- Sección 2: Información de vehículos -->
       <div class="veh-collapsible-card" id="vehCollapsibleHome">
         <button class="auth-bigbtn veh-collapsible-trigger" id="btnHomeVehiculos" type="button" aria-expanded="false">
-          <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="btnInfoVehiculosTitle">Información de vehículos</span><span class="veh-collapsible-chevron" aria-hidden="true">▾</span></span>
+          <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="btnInfoVehiculosTitle">Información de vehículos</span></span>
           <span class="auth-bigbtn-sub" data-i18n="btnInfoVehiculosSub">Consulta los vehículos con estancia activa hoy por propiedad.</span>
         </button>
         <div class="veh-collapsible-body" id="vehBodyHome" hidden></div>
@@ -5793,6 +5797,10 @@ body.has-session input[name="nombre"] {
       </div>
       </div><!-- /.stays-card-body -->
     </div>
+    <button class="pwa-install-btn" id="btnInstallPwaHome" type="button" hidden>
+      <span class="pwa-install-icon" aria-hidden="true">📲</span>
+      <span class="pwa-install-label">Crear acceso directo en mi dispositivo</span>
+    </button>
   </div>
 </div>
 
@@ -8478,6 +8486,8 @@ const SIMPLE_I18N = {
     wizErrStep3:"Si requieres factura, llena razón social, RFC, régimen y correo.",
     wizErrStep4:"Si tienes vehículo, llena marca, modelo, color y placas.",
     profileCompleteTitle:"¡Perfil completo!",
+    profileSavedTitle:"Datos guardados",
+    profileSavedText:"Tus cambios se guardaron correctamente.",
     profileCompleteText:"Ya puedes gozar de nuestros beneficios.",
     acceptBtn:"Aceptar",
     closeBtn:"Cerrar",
@@ -8789,6 +8799,8 @@ const SIMPLE_I18N = {
     wizErrStep3:"If you require invoicing, fill business name, RFC, regime and email.",
     wizErrStep4:"If you have a vehicle, fill make, model, color and plates.",
     profileCompleteTitle:"Profile complete!",
+    profileSavedTitle:"Changes saved",
+    profileSavedText:"Your changes were saved successfully.",
     profileCompleteText:"You can now enjoy all our benefits.",
     acceptBtn:"OK",
     closeBtn:"Close",
@@ -12500,6 +12512,7 @@ document.addEventListener("DOMContentLoaded", function(){
     showOnly(viewWelcome);
     setMenuVisible(false);
     refreshSessionPill();
+    if (viewRegistro) viewRegistro.classList.remove("as-popup");
     // Restaurar H1 al default ("Portal del huésped") por si venía
     // de express form donde quedó como "Registro exprés..."
     const h1 = document.getElementById("pageH1");
@@ -12772,11 +12785,10 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function gotoExpressForm(){
     showOnly(viewRegistro);
-    // Aplicar estilo popup-modal cuando hay sesión (viene desde home).
-    // Sin sesión (desde welcome), se mantiene el flujo de página completa.
+    // viewRegistro siempre se abre como popup-modal (con o sin sesión).
     const session = getSession();
     const hasSession = !!session;
-    if (viewRegistro) viewRegistro.classList.toggle("as-popup", hasSession);
+    if (viewRegistro) viewRegistro.classList.add("as-popup");
     // El topMenu (tabs Registro/Vehículos) siempre se oculta en el form,
     // sin importar si hay sesión o no. Antes solo se ocultaba con sesión.
     setMenuVisible(false);
@@ -14447,7 +14459,7 @@ document.addEventListener("DOMContentLoaded", function(){
   function bindEvents(){
     $("btnGoLogin")?.addEventListener("click", gotoLoginPhone);
     $("btnGoExpress")?.addEventListener("click", gotoExpressForm);
-    $("btnGoVehiculos")?.addEventListener("click", () => toggleVehiculosDropdown("vehBodyWelcome","btnGoVehiculos"));
+    $("btnGoVehiculos")?.addEventListener("click", () => openVehiculosPopup());
     $("btnLoginBack1")?.addEventListener("click", gotoWelcome);
     $("btnLoginBackFromPin")?.addEventListener("click", gotoLoginPhone);
     // "Cambiar de número" desde el method picker → vuelve al paso de celular
@@ -15423,13 +15435,13 @@ document.addEventListener("DOMContentLoaded", function(){
       saveProfile(activePhoneKey, activeProfile);
       profileSnapshotAtOpen = serializeProfile(activeProfile);
       refreshHomeCard();
-      showProfileCompleteModal();
+      showProfileCompleteModal(true);
     } else if (mode === "save-changes") {
       // Guardó cambios pero el perfil sigue incompleto → confirmación
       // (mismo modal; al Aceptar va al home). Actualizamos el snapshot
       // para que el botón pase de rojo a verde al volver a entrar.
       profileSnapshotAtOpen = serializeProfile(activeProfile);
-      showProfileCompleteModal();
+      showProfileCompleteModal(false);
     } else {
       exitWizardToHome();
     }
@@ -15544,13 +15556,20 @@ document.addEventListener("DOMContentLoaded", function(){
       }
     }
   }
-  function showProfileCompleteModal(){
+  function showProfileCompleteModal(isComplete){
     const modal = $("profileCompleteModal");
-    if (modal) {
-      modal.style.display = "flex";
+    if (!modal) { exitWizardToHome(); return; }
+    const i = getI18n();
+    const titleEl = modal.querySelector("h3");
+    const bodyEl = modal.querySelector(".hint");
+    if (isComplete) {
+      if (titleEl) titleEl.textContent = i.profileCompleteTitle || "¡Perfil completo!";
+      if (bodyEl) bodyEl.textContent = i.profileCompleteText || "Ya puedes gozar de nuestros beneficios.";
     } else {
-      exitWizardToHome();
+      if (titleEl) titleEl.textContent = i.profileSavedTitle || "Datos guardados";
+      if (bodyEl) bodyEl.textContent = i.profileSavedText || "Tus cambios se guardaron correctamente.";
     }
+    modal.style.display = "flex";
   }
 
   // ─── Cambio de celular con OTP ─────────────────────────────────────
@@ -16494,6 +16513,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   const btn = document.getElementById("btnInstallPwa");
+  const btnHome = document.getElementById("btnInstallPwaHome");
   const modal = document.getElementById("pwaInstallModal");
   const stepsEl = document.getElementById("pwaInstallSteps");
   const titleEl = document.getElementById("pwaInstallTitle");
@@ -16543,6 +16563,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function setBtnsVisible(visible){
     if (btn) btn.hidden = !visible;
+    if (btnHome) btnHome.hidden = !visible;
   }
 
   // ─── Android móvil: capturar beforeinstallprompt y mostrar botón ───
@@ -16573,6 +16594,7 @@ document.addEventListener("DOMContentLoaded", function(){
     }
   }
   btn?.addEventListener("click", handleInstallClick);
+  btnHome?.addEventListener("click", handleInstallClick);
 
   // Si ya está instalado, ocultar definitivamente
   if (isStandalone) setBtnsVisible(false);
@@ -17665,16 +17687,21 @@ document.addEventListener("DOMContentLoaded", function(){
     #viewHome .veh-collapsible-card { margin-top: 8px !important; }
 
     /* Title row sin botones (los movimos al pill) */
-    .page-title-row { margin-bottom: 6px; }
+    .page-title-row { margin-bottom: 4px !important; }
+    /* H1 ¡Hola, Andrés!: compacto y sin espacio extra abajo */
+    h1, #pageH1 { margin: 0 !important; padding: 0 !important; }
 
-    /* Espacios homologados y reducidos entre TODAS las secciones del home */
+    /* Espacios homologados a 6px entre TODAS las secciones del home (h1,
+       profile-card, KPIs, registro reservación, vehículos, estancias). */
     #viewHome > * { margin-top: 6px !important; }
     #viewHome > *:first-child { margin-top: 0 !important; }
     #viewHome .dashboard-wrap { margin-top: 6px !important; }
     #viewHome .auth-bigbtn,
     #viewHome .stays-card,
     #viewHome .veh-collapsible-card,
-    #viewHome .profile-card-bigbtn { margin-top: 6px !important; }
+    #viewHome .profile-card-bigbtn,
+    #viewHome .kpi-grid { margin-top: 6px !important; }
+    #viewHome .kpi-grid { margin-bottom: 0 !important; }
 
     /* KPIs con altura reducida */
     .kpi-grid {
