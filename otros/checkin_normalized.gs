@@ -1338,6 +1338,260 @@ function migrateToNormalizedSchema() {
   };
 }
 
+// ─── RESYNC INCREMENTAL DESDE LEGACY ─────────────────────────────────────────
+// Lee la hoja "Check in (archivo)" y agrega a las hojas normalizadas SOLO los
+// registros que aún NO existan. NO destruye datos: los perfiles/vehículos/
+// reservaciones ya guardadas por la app viva se preservan tal cual.
+//
+// Detección de duplicados:
+//   - Perfiles: por celular normalizado.
+//   - Vehículos: por celular normalizado.
+//   - Reservaciones: primero por columna "ID" si coincide; si no, por la combinación
+//     (celular + fecha de ingreso + # depto) — heurística suficiente porque un
+//     mismo huésped no toma 2 deptos distintos el mismo día.
+function resyncFromLegacyArchive() {
+  ensureNormalizedSheets_();
+  const ss = getSpreadsheet_();
+  const src = ss.getSheetByName(LEGACY_ARCHIVE) || ss.getSheetByName(LEGACY_SHEET);
+  if (!src) return { ok: false, error: "No se encontró la hoja '" + LEGACY_ARCHIVE + "' ni '" + LEGACY_SHEET + "'." };
+
+  const srcHeaders = getHeaders_(src);
+  const srcLast = src.getLastRow();
+  if (srcLast < 2) return { ok: true, message: "Hoja legacy vacía. Nada que sincronizar." };
+  const srcValues = src.getRange(2, 1, srcLast - 1, srcHeaders.length).getDisplayValues();
+  const srcRows = srcValues.map(rowValues => {
+    const obj = {};
+    srcHeaders.forEach((h, i) => obj[h] = rowValues[i]);
+    return obj;
+  });
+
+  // Helper de extracción robusta
+  function pick(row, aliases) {
+    for (let i = 0; i < aliases.length; i++) {
+      if (Object.prototype.hasOwnProperty.call(row, aliases[i])) {
+        const v = row[aliases[i]];
+        if (v != null && String(v).trim() !== "") return String(v);
+      }
+    }
+    return "";
+  }
+
+  // Cargar hojas normalizadas existentes
+  const perfilesSh = getSheet_(PERFILES_SHEET);
+  const perfilesHeaders = getHeaders_(perfilesSh);
+  const perfilesExistentes = getAllRows_(PERFILES_SHEET).rows;
+  const perfilesByPhone = {};
+  perfilesExistentes.forEach(p => {
+    const key = normalizePhone_(p["Cel/Whatsapp (principal)"]);
+    if (key) perfilesByPhone[key] = p;
+  });
+
+  const vehiculosSh = getSheet_(VEHICULOS_SHEET);
+  const vehiculosHeaders = getHeaders_(vehiculosSh);
+  const vehiculosExistentes = getAllRows_(VEHICULOS_SHEET).rows;
+  const vehiculosByPhone = {};
+  vehiculosExistentes.forEach(v => {
+    const key = normalizePhone_(v["Cel/Whatsapp (principal)"]);
+    if (key) vehiculosByPhone[key] = v;
+  });
+
+  const reservacionesSh = getSheet_(RESERVACIONES_SHEET);
+  const reservacionesHeaders = getHeaders_(reservacionesSh);
+  const reservacionesExistentes = getAllRows_(RESERVACIONES_SHEET).rows;
+  const reservacionesById = {};
+  const reservacionesByKey = {};
+  function resvKey(cel, fechaIngreso, depto) {
+    return normalizePhone_(cel) + "|" + String(fechaIngreso || "").trim() + "|" + String(depto || "").trim();
+  }
+  reservacionesExistentes.forEach(r => {
+    const rid = String(r.ID || "").trim();
+    if (rid) reservacionesById[rid] = r;
+    const k = resvKey(r["Cel/Whatsapp (principal)"], r["Fecha de ingreso"], r["# Departamento"]);
+    reservacionesByKey[k] = r;
+  });
+
+  // Agrupar legacy por celular (para perfiles + vehículos)
+  const byCel = {};
+  srcRows.forEach(r => {
+    const cel = pick(r, ["Cel/Whatsapp (principal)", "Celular principal"]);
+    if (!cel) return;
+    const key = normalizePhone_(cel);
+    if (!byCel[key]) byCel[key] = { cel, rows: [] };
+    byCel[key].rows.push(r);
+  });
+
+  let perfilesCreados = 0, vehiculosCreados = 0;
+  let reservacionesCreadas = 0, reservacionesSkip = 0;
+
+  // ───────── Perfiles + Vehículos ─────────
+  Object.keys(byCel).forEach(key => {
+    const group = byCel[key];
+    const latest = group.rows.slice().sort((a, b) => {
+      const da = parseDateSafe_(pick(a, ["Marca temporal", "Fecha de ingreso"]));
+      const db = parseDateSafe_(pick(b, ["Marca temporal", "Fecha de ingreso"]));
+      return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
+    })[0];
+    function pickMerged(aliases) {
+      const list = [latest].concat(group.rows);
+      for (let i = 0; i < list.length; i++) {
+        const v = pick(list[i], aliases);
+        if (v) return v;
+      }
+      return "";
+    }
+
+    // Perfil: solo crear si no existe (preservar lo capturado por la app)
+    if (!perfilesByPhone[key]) {
+      const perfilMap = {
+        "ID_Perfil": Utilities.getUuid(),
+        "Cel/Whatsapp (principal)": group.cel,
+        "Lada celular huésped": pickMerged(["Lada celular huésped"]),
+        "Nombre del huésped": (pickMerged(["Nombres de TODOS los huéspedes (separados por comas)"]).split(",")[0] || "").trim() || pickMerged(["Nombre de la persona que hizo la reservación"]),
+        "Lada contacto emergencia": pickMerged(["Lada contacto emergencia", "Lada contacto de emergencia"]),
+        "Cel/Whatsapp (contacto de emergencia)": pickMerged(["Cel/Whatsapp (contacto de emergencia)"]),
+        "Tipo de identificación": pickMerged(["Tipo de identificación"]),
+        "Identificación otro": pickMerged(["Identificación otro"]),
+        "INE frontal": pickMerged(["INE frontal"]),
+        "Link INE frontal": pickMerged(["Link INE frontal"]),
+        "ID archivo INE frontal": pickMerged(["ID archivo INE frontal"]),
+        "Nombre archivo INE frontal": pickMerged(["Nombre archivo INE frontal"]),
+        "INE trasero": pickMerged(["INE trasero"]),
+        "Link INE trasero": pickMerged(["Link INE trasero"]),
+        "ID archivo INE trasero": pickMerged(["ID archivo INE trasero"]),
+        "Nombre archivo INE trasero": pickMerged(["Nombre archivo INE trasero"]),
+        "Identificación única": pickMerged(["Identificación única"]),
+        "Link identificación única": pickMerged(["Link identificación única", "Link identificación"]),
+        "ID archivo identificación única": pickMerged(["ID archivo identificación única"]),
+        "Nombre archivo identificación": pickMerged(["Nombre archivo identificación"]),
+        "¿Requiere factura?": normalizeYesNo_(pickMerged(["¿Requiere factura?"])),
+        "Razón social": pickMerged(["Razón social"]),
+        "RFC": pickMerged(["RFC"]),
+        "Régimen fiscal": pickMerged(["Régimen fiscal"]),
+        "Régimen otro": pickMerged(["Régimen otro"]),
+        "Código Postal": pickMerged(["Código Postal"]),
+        "Correo electrónico para el envío de la factura": pickMerged(["Correo electrónico para el envío de la factura", "Correo electrónico"]),
+        "Fecha creación": nowIso_(),
+        "Fecha actualización": nowIso_()
+      };
+      appendRow_(perfilesSh, perfilesHeaders, perfilMap);
+      // Registrar en cache para que el sweep de reservaciones encuentre su ID_Vehiculo si se crea ahora.
+      perfilesByPhone[key] = perfilMap;
+      perfilesCreados++;
+    }
+
+    // Vehículo: solo crear si no existe Y el legacy declara que tiene vehículo
+    const tieneVeh = group.rows.some(r => normalizeYesNo_(pick(r, ["¿Cuenta con vehículo?"])) === "Sí");
+    if (tieneVeh && !vehiculosByPhone[key]) {
+      const idVeh = Utilities.getUuid();
+      const vehMap = {
+        "ID_Vehiculo": idVeh,
+        "Cel/Whatsapp (principal)": group.cel,
+        "¿Cuenta con vehículo?": "Sí",
+        "Marca vehículo": pickMerged(["Marca vehículo"]),
+        "Marca vehículo otro": pickMerged(["Marca vehículo otro"]),
+        "Modelo vehículo": pickMerged(["Modelo vehículo"]),
+        "Modelo vehículo otro": pickMerged(["Modelo vehículo otro"]),
+        "Color vehículo": pickMerged(["Color vehículo"]),
+        "Placas": pickMerged(["Placas"]),
+        "Hora habitual de salida": pickMerged(["Hora habitual de salida"]),
+        "Foto vehículo": pickMerged(["Foto vehículo"]),
+        "Link foto vehículo": pickMerged(["Link foto vehículo"]),
+        "ID archivo foto vehículo": pickMerged(["ID archivo foto vehículo"]),
+        "Nombre archivo vehículo": pickMerged(["Nombre archivo vehículo"]),
+        "Fecha actualización": nowIso_()
+      };
+      appendRow_(vehiculosSh, vehiculosHeaders, vehMap);
+      vehiculosByPhone[key] = vehMap;
+      vehiculosCreados++;
+    }
+  });
+
+  // ───────── Reservaciones (1 fila por cada row del legacy, idempotente) ─────────
+  srcRows.forEach(r => {
+    const cel = pick(r, ["Cel/Whatsapp (principal)"]);
+    if (!cel) return;
+    const id = String(pick(r, ["ID"]) || "").trim();
+    const k = resvKey(cel, pick(r, ["Fecha de ingreso"]), pick(r, ["# Departamento"]));
+    const exists = (id && reservacionesById[id]) || reservacionesByKey[k];
+    if (exists) { reservacionesSkip++; return; }
+
+    const phoneKey = normalizePhone_(cel);
+    const veh = vehiculosByPhone[phoneKey];
+    const idVeh = veh ? (veh.ID_Vehiculo || "") : "";
+
+    const resMap = {
+      "ID": id || Utilities.getUuid(),
+      "Cel/Whatsapp (principal)": cel,
+      "ID_Vehiculo": idVeh,
+      "Marca temporal": pick(r, ["Marca temporal"]),
+      "MES": pick(r, ["MES"]),
+      "Mes correspondiente": pick(r, ["Mes correspondiente"]),
+      "Tipo de factura": pick(r, ["Tipo de factura"]),
+      "Medio de reservación": pick(r, ["Medio de reservación"]),
+      "Cuenta": pick(r, ["Cuenta"]),
+      "Propiedad": pick(r, ["Propiedad"]),
+      "Propiedad otra": pick(r, ["Propiedad otra"]),
+      "# Departamento": pick(r, ["# Departamento"]),
+      "Motivo de tu hospedaje": pick(r, ["Motivo de tu hospedaje"]),
+      "Motivo otro": pick(r, ["Motivo otro"]),
+      "Fecha de ingreso": pick(r, ["Fecha de ingreso"]),
+      "Hora estimada de llegada": pick(r, ["Hora estimada de llegada"]),
+      "Fecha de salida": pick(r, ["Fecha de salida"]),
+      "Hora estimada de salida": pick(r, ["Hora estimada de salida"]),
+      "# Noches": pick(r, ["# Noches"]),
+      "# Huéspedes": pick(r, ["# Huéspedes"]),
+      "Nombres de TODOS los huéspedes (separados por comas)": pick(r, ["Nombres de TODOS los huéspedes (separados por comas)"]),
+      "Nombre de la persona que hizo la reservación": pick(r, ["Nombre de la persona que hizo la reservación"]),
+      "Forma de pago": pick(r, ["Forma de pago"]),
+      "Divisa monto pagado": pick(r, ["Divisa monto pagado"]),
+      "Comprobante transferencia": pick(r, ["Comprobante transferencia"]),
+      "Link comprobante transferencia": pick(r, ["Link comprobante transferencia"]),
+      "ID archivo comprobante transferencia": pick(r, ["ID archivo comprobante transferencia"]),
+      "Nombre archivo comprobante transferencia": pick(r, ["Nombre archivo comprobante transferencia"]),
+      "Correo electrónico": pick(r, ["Correo electrónico"]),
+      "...enviar copia al siguiente correo:": pick(r, ["...enviar copia al siguiente correo:"]),
+      "$ Noches": pick(r, ["$ Noches"]),
+      "$ Cuota de limpieza": pick(r, ["$ Cuota de limpieza"]),
+      "$ MONTO TOTAL Airbnb": pick(r, ["$ MONTO TOTAL Airbnb"]),
+      "$ Comisión Airbnb": pick(r, ["$ Comisión Airbnb"]),
+      "$ Monto antes de impuestos": pick(r, ["$ Monto antes de impuestos"]),
+      "($) Monto Total pagado": pick(r, ["($) Monto Total pagado"]),
+      "$ Monto facturado Total": pick(r, ["$ Monto facturado Total"]),
+      "Folio facturapi": pick(r, ["Folio facturapi"]),
+      "Folio CFDI": pick(r, ["Folio CFDI"]),
+      "Folio Relación": pick(r, ["Folio Relación"]),
+      "Folio complemento de pago": pick(r, ["Folio complemento de pago"]),
+      "Estatus": pick(r, ["Estatus"]),
+      "Fecha de emisión": pick(r, ["Fecha de emisión"]),
+      "Concepto Factura": pick(r, ["Concepto Factura"]),
+      "Método de pago": pick(r, ["Método de pago"]),
+      "Ticket facturapi url": pick(r, ["Ticket facturapi url"]),
+      "Ticket facturapi id archivo": pick(r, ["Ticket facturapi id archivo"]),
+      "Ticket facturapi nombre archivo": pick(r, ["Ticket facturapi nombre archivo"]),
+      "Ticket facturapi carpeta url": pick(r, ["Ticket facturapi carpeta url"]),
+      "Ticket facturapi carpeta ruta": pick(r, ["Ticket facturapi carpeta ruta"]),
+      "Envía tus comentarios": pick(r, ["Envía tus comentarios"]),
+      "Envía tus comentarios con relación a la factura": pick(r, ["Envía tus comentarios con relación a la factura"]),
+      "Notas": pick(r, ["Notas"]),
+      "Enviado por": pick(r, ["Enviado por"])
+    };
+    appendRow_(reservacionesSh, reservacionesHeaders, resMap);
+    if (resMap.ID) reservacionesById[resMap.ID] = resMap;
+    reservacionesByKey[k] = resMap;
+    reservacionesCreadas++;
+  });
+
+  return {
+    ok: true,
+    legacy_rows_leidas: srcRows.length,
+    perfiles_creados: perfilesCreados,
+    vehiculos_creados: vehiculosCreados,
+    reservaciones_creadas: reservacionesCreadas,
+    reservaciones_existentes_skip: reservacionesSkip,
+    message: "Sync completada. Solo se agregaron los registros nuevos; los existentes se preservaron."
+  };
+}
+
 // ─── DRIVE / ARCHIVOS ────────────────────────────────────────────────────────
 
 function saveBase64FileToDrive_(fileObj, prefix, subfolders) {
