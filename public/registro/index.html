@@ -3884,19 +3884,33 @@ function formatRangoFechasSimple(inicio, fin){
   color:var(--text);
 }
 .session-pill.visible{display:inline-flex;}
-/* Botones-ícono dentro del session-pill (campanita, refresh) */
+/* Logo dentro del session-pill (izquierda) */
+.session-pill-logo{
+  height:24px;
+  width:auto;
+  object-fit:contain;
+  display:inline-block;
+  margin-right:2px;
+}
+/* Botones-ícono dentro del session-pill (campanita, refresh) — idénticos */
 .session-pill .session-pill-icon-btn{
   position:relative;
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  width:32px; height:32px;
-  border-radius:50%;
-  background:transparent;
-  border:none;
-  color:var(--text);
+  width:30px !important; height:30px !important;
+  min-width:30px;
+  border-radius:50% !important;
+  background:transparent !important;
+  border:1px solid transparent !important;
+  color:var(--text) !important;
   cursor:pointer;
-  padding:0;
+  padding:0 !important;
+  margin:0 !important;
+  box-shadow:none !important;
+  font-size:16px !important;
+  font-weight:700 !important;
+  line-height:1 !important;
   transition:background .15s ease, transform .12s ease;
 }
 .session-pill .session-pill-icon-btn:hover{ background:#f1f5f9; }
@@ -5272,14 +5286,15 @@ body.has-session input[name="nombre"] {
 </script>
 
 <div class="session-pill" id="sessionPill">
+  <img class="session-pill-logo" alt="Check-inn" referrerpolicy="no-referrer" src="https://drive.google.com/thumbnail?id=1PT-1BIv8lVFdwyTcjWDJ0QDeAfPFrlPQ&amp;sz=w200" />
   <button id="btnNotifications" class="session-pill-icon-btn hidden" type="button" aria-label="Notificaciones" aria-haspopup="dialog">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
       <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
     </svg>
     <span class="notif-badge hidden" id="notifBadge" aria-live="polite">0</span>
   </button>
-  <button id="btnRefreshHome" class="session-pill-icon-btn page-refresh-btn" type="button" hidden aria-label="Actualizar datos" title="Actualizar datos">
+  <button id="btnRefreshHome" class="session-pill-icon-btn" type="button" hidden aria-label="Actualizar datos" title="Actualizar datos">
     <span class="page-refresh-icon" aria-hidden="true">↻</span>
   </button>
   <button class="session-pill-logout" id="btnLogout" type="button" data-i18n="sessionLogout">Cerrar sesión</button>
@@ -5397,6 +5412,15 @@ body.has-session input[name="nombre"] {
   </div>
 </div>
 <div id="notifBackdrop" class="notif-backdrop hidden" aria-hidden="true"></div>
+
+<!-- ═══ Popup genérico (Información de vehículos, Registro nueva reservación) ═══ -->
+<div id="popupOverlay" class="popup-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="popupTitle">
+  <div class="popup-card-wrap">
+    <button type="button" class="popup-close-btn" id="popupCloseBtn" aria-label="Cerrar">×</button>
+    <h3 class="popup-title" id="popupTitle"></h3>
+    <div class="popup-body" id="popupBody"></div>
+  </div>
+</div>
 <div class="page-title-row">
   <h1 id="pageH1" data-i18n="title">Portal del huésped</h1>
 </div>
@@ -12628,6 +12652,8 @@ document.addEventListener("DOMContentLoaded", function(){
     const s = getSession();
     if (!s) return gotoWelcome();
     showOnly(viewHome);
+    // Limpiar la clase as-popup del viewRegistro por si venía de allá.
+    if (viewRegistro) viewRegistro.classList.remove("as-popup");
     setMenuVisible(false);
     refreshSessionPill();
     // H1 personalizado: "¡Hola Nombre Apellido!" cuando hay sesión.
@@ -12664,8 +12690,11 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function gotoExpressForm(){
     showOnly(viewRegistro);
+    // Aplicar estilo popup-modal cuando hay sesión (viene desde home).
+    // Sin sesión (desde welcome), se mantiene el flujo de página completa.
     const session = getSession();
     const hasSession = !!session;
+    if (viewRegistro) viewRegistro.classList.toggle("as-popup", hasSession);
     // El topMenu (tabs Registro/Vehículos) siempre se oculta en el form,
     // sin importar si hay sesión o no. Antes solo se ocultaba con sesión.
     setMenuVisible(false);
@@ -12953,6 +12982,42 @@ document.addEventListener("DOMContentLoaded", function(){
     } else {
       expandVehiculosDropdown(bodyId, btnId);
     }
+  }
+
+  // ─── Popup de Información de vehículos (reemplaza al dropdown en home) ──
+  function openVehiculosPopup(){
+    const overlay = document.getElementById("popupOverlay");
+    const titleEl = document.getElementById("popupTitle");
+    const bodyEl  = document.getElementById("popupBody");
+    if (!overlay || !bodyEl) return;
+    const i = getI18n();
+    if (titleEl) titleEl.textContent = "🚗 " + (i.btnInfoVehiculosTitle || "Información de vehículos");
+    // Mover el dashboard de vehículos dentro del popup body
+    const dash = document.getElementById("vehiclesDashboardContent");
+    if (dash && dash.parentElement !== bodyEl) bodyEl.appendChild(dash);
+    overlay.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    // Cargar datos como hace expandVehiculosDropdown
+    if (typeof window.cargarPropiedadesVehiculos === "function") {
+      if (window.checkinnLoader) window.checkinnLoader.show();
+      try {
+        const p = window.cargarPropiedadesVehiculos(false);
+        if (p && typeof p.finally === "function") {
+          p.finally(() => { if (window.checkinnLoader) window.checkinnLoader.hide(); });
+        } else {
+          if (window.checkinnLoader) window.checkinnLoader.hide();
+        }
+      } catch(e) {
+        if (window.checkinnLoader) window.checkinnLoader.hide();
+      }
+    }
+    setTimeout(applyVehiclesSessionFilter, 200);
+  }
+  function closePopup(){
+    const overlay = document.getElementById("popupOverlay");
+    if (!overlay) return;
+    overlay.classList.add("hidden");
+    document.body.style.overflow = "";
   }
 
   function parseLocalDate(s){
@@ -14330,7 +14395,18 @@ document.addEventListener("DOMContentLoaded", function(){
       // perfil corra y los cambios del form sincronicen de vuelta al perfil.
       gotoExpressForm();
     });
-    $("btnHomeVehiculos")?.addEventListener("click", () => toggleVehiculosDropdown("vehBodyHome","btnHomeVehiculos"));
+    $("btnHomeVehiculos")?.addEventListener("click", () => openVehiculosPopup());
+    // Cierre del popup genérico (vehículos y otros)
+    $("popupCloseBtn")?.addEventListener("click", closePopup);
+    $("popupOverlay")?.addEventListener("click", (ev) => {
+      if (ev.target.id === "popupOverlay") closePopup();
+    });
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") {
+        const overlay = document.getElementById("popupOverlay");
+        if (overlay && !overlay.classList.contains("hidden")) closePopup();
+      }
+    });
     // Botón "Actualizar datos" junto al H1 — fuerza refetch de stays
     $("btnRefreshHome")?.addEventListener("click", async () => {
       const btn = $("btnRefreshHome");
@@ -17497,7 +17573,143 @@ document.addEventListener("DOMContentLoaded", function(){
 
     /* Title row sin botones (los movimos al pill) */
     .page-title-row { margin-bottom: 6px; }
+
+    /* Espacios homologados y reducidos entre TODAS las secciones del home */
+    #viewHome > * { margin-top: 6px !important; }
+    #viewHome > *:first-child { margin-top: 0 !important; }
+    #viewHome .dashboard-wrap { margin-top: 6px !important; }
+    #viewHome .auth-bigbtn,
+    #viewHome .stays-card,
+    #viewHome .veh-collapsible-card,
+    #viewHome .profile-card-bigbtn { margin-top: 6px !important; }
+
+    /* KPIs con altura reducida */
+    .kpi-grid {
+      gap: 6px !important;
+      margin-top: 6px !important;
+    }
+    .kpi-card,
+    .kpi-row,
+    .kpi-icon-row {
+      padding: 6px 10px !important;
+      min-height: 0 !important;
+      border-radius: 12px !important;
+    }
+    .kpi-icon-row { gap: 8px !important; }
+    .kpi-value, .kpi-num { font-size: 16px !important; line-height: 1.1 !important; }
+    .kpi-label { font-size: 9px !important; line-height: 1.15 !important; margin: 0 !important; }
+    .kpi-card .kpi-icon, .kpi-icon-row .kpi-icon { font-size: 18px !important; }
   }
+
+  /* ═══ Popup genérico (Vehículos y Registro) ═══════════════════════════ */
+  .popup-overlay{
+    position:fixed; inset:0;
+    background:rgba(15,23,42,.45);
+    backdrop-filter:blur(3px);
+    -webkit-backdrop-filter:blur(3px);
+    z-index:10000;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:20px 12px;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .popup-overlay.hidden{ display:none !important; }
+  .popup-card-wrap{
+    position:relative;
+    background:#fff;
+    border-radius:18px;
+    max-width:560px;
+    width:100%;
+    padding:18px 16px 20px;
+    box-shadow:0 24px 60px rgba(15,23,42,.30);
+    margin-top:24px;
+    margin-bottom:24px;
+  }
+  .popup-close-btn{
+    position:absolute;
+    top:10px; right:10px;
+    width:32px; height:32px;
+    border-radius:50%;
+    background:#f1f5f9;
+    border:none;
+    font-size:22px;
+    line-height:1;
+    color:#475569;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center; justify-content:center;
+    padding:0;
+    transition:background .15s ease, transform .12s ease;
+    z-index:2;
+  }
+  .popup-close-btn:hover{ background:#e2e8f0; color:#0f172a; }
+  .popup-close-btn:active{ transform:scale(.92); }
+  .popup-title{
+    margin:0 32px 12px 0;
+    font-size:17px;
+    font-weight:800;
+    letter-spacing:-0.01em;
+    color:var(--text);
+    line-height:1.2;
+  }
+  .popup-body{ width:100%; }
+  /* Resetear ANY padding/border de elementos dentro del popup que vengan del original */
+  .popup-body .dashboard-wrap,
+  .popup-body .section{
+    margin:0 !important;
+    padding:0 !important;
+    border:none !important;
+    background:transparent !important;
+    box-shadow:none !important;
+  }
+  /* viewRegistro como popup: cuando tiene la clase .as-popup, se ve como modal */
+  #viewRegistro.as-popup{
+    position:fixed !important;
+    inset:0;
+    background:rgba(15,23,42,.45);
+    backdrop-filter:blur(3px);
+    -webkit-backdrop-filter:blur(3px);
+    z-index:10000;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    padding:20px 12px;
+    margin:0;
+  }
+  #viewRegistro.as-popup .dashboard-wrap,
+  #viewRegistro.as-popup #formulario_principal{
+    background:#fff;
+    border-radius:18px;
+    max-width:600px;
+    width:100%;
+    margin:24px auto;
+    padding:46px 14px 18px;
+    box-shadow:0 24px 60px rgba(15,23,42,.30);
+    position:relative;
+  }
+  #viewRegistro.as-popup .back-home-btn{
+    position:absolute !important;
+    top:8px !important; right:8px !important;
+    left:auto !important;
+    width:32px !important; height:32px !important;
+    border-radius:50% !important;
+    background:#f1f5f9 !important;
+    color:#475569 !important;
+    border:none !important;
+    font-size:0 !important;
+    padding:0 !important;
+    z-index:2;
+    display:inline-flex !important;
+    align-items:center; justify-content:center;
+  }
+  #viewRegistro.as-popup .back-home-btn::before{
+    content:"×";
+    font-size:22px;
+    font-weight:600;
+    line-height:1;
+  }
+  #viewRegistro.as-popup .back-home-btn:hover{ background:#e2e8f0 !important; color:#0f172a !important; }
 </style>
 
 <!-- ═══ Notificaciones (campana 🔔) ═══════════════════════════════════ -->
