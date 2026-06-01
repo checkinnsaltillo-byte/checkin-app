@@ -450,13 +450,13 @@ button:disabled{
 .notif-btn.hidden{ display:none !important; }
 .notif-badge{
   position:absolute;
-  top:-3px; right:-3px;
-  min-width:18px; height:18px;
-  padding:0 5px;
+  top:0; right:0;
+  min-width:16px; height:16px;
+  padding:0 4px;
   border-radius:999px;
   background:var(--danger);
   color:#fff;
-  font-size:10px;
+  font-size:9px;
   font-weight:800;
   display:inline-flex;
   align-items:center; justify-content:center;
@@ -3869,39 +3869,64 @@ function formatRangoFechasSimple(inicio, fin){
 /* Logout pill arriba a la derecha */
 .session-pill{
   position:fixed;
-  top:16px;
-  right:16px;
+  top:14px;
+  right:14px;
   z-index:1000;
   display:none;
   align-items:center;
-  gap:10px;
-  padding:8px 14px;
+  gap:6px;
+  padding:4px 6px 4px 4px;
   background:#ffffff;
-  border:1px solid var(--border-strong);
+  border:1px solid var(--border);
   border-radius:999px;
-  box-shadow:0 8px 20px rgba(15,23,42,.10);
+  box-shadow:0 4px 14px rgba(15,23,42,.08);
   font-size:13px;
   color:var(--text);
 }
 .session-pill.visible{display:inline-flex;}
+/* Botones-ícono dentro del session-pill (campanita, refresh) */
+.session-pill .session-pill-icon-btn{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:32px; height:32px;
+  border-radius:50%;
+  background:transparent;
+  border:none;
+  color:var(--text);
+  cursor:pointer;
+  padding:0;
+  transition:background .15s ease, transform .12s ease;
+}
+.session-pill .session-pill-icon-btn:hover{ background:#f1f5f9; }
+.session-pill .session-pill-icon-btn:active{ transform:scale(.92); }
+.session-pill .session-pill-icon-btn.hidden{ display:none !important; }
+.session-pill .session-pill-icon-btn[hidden]{ display:none !important; }
+.session-pill .page-refresh-icon{
+  font-size:18px; line-height:1; font-weight:700;
+}
+.session-pill .page-refresh-btn.spinning .page-refresh-icon{
+  animation:spinPopup .9s linear infinite;
+}
+/* Ocultar el texto "Actualizar" cuando está dentro del pill */
+.session-pill .page-refresh-text{ display:none; }
 .session-pill-name{
-  font-weight:700;
-  color:var(--primary-dark);
-  max-width:140px;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
+  display:none !important;
 }
 .session-pill-logout{
   margin-top:0;
-  padding:6px 10px;
+  margin-left:2px;
+  padding:7px 12px;
   font-size:12px;
+  font-weight:600;
   background:transparent;
   color:var(--danger);
   border:1px solid #fecaca;
   border-radius:999px;
   box-shadow:none;
   cursor:pointer;
+  white-space:nowrap;
 }
 .session-pill-logout:hover{
   background:#fef2f2;
@@ -5247,8 +5272,18 @@ body.has-session input[name="nombre"] {
 </script>
 
 <div class="session-pill" id="sessionPill">
-  <span><span data-i18n="sessionGreeting">Hola,</span> <span class="session-pill-name" id="sessionPillName">—</span></span>
+  <button id="btnNotifications" class="session-pill-icon-btn hidden" type="button" aria-label="Notificaciones" aria-haspopup="dialog">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+    <span class="notif-badge hidden" id="notifBadge" aria-live="polite">0</span>
+  </button>
+  <button id="btnRefreshHome" class="session-pill-icon-btn page-refresh-btn" type="button" hidden aria-label="Actualizar datos" title="Actualizar datos">
+    <span class="page-refresh-icon" aria-hidden="true">↻</span>
+  </button>
   <button class="session-pill-logout" id="btnLogout" type="button" data-i18n="sessionLogout">Cerrar sesión</button>
+  <span id="sessionPillName" hidden>—</span>
 </div>
 
 <!-- FAB WhatsApp: flotante esquina inferior derecha, siempre visible -->
@@ -5339,13 +5374,6 @@ body.has-session input[name="nombre"] {
 <div class="page-shell">
 <div class="container">
 <div class="lang-bar">
-<button id="btnNotifications" class="notif-btn hidden" type="button" aria-label="Notificaciones" aria-haspopup="dialog">
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
-    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-  </svg>
-  <span class="notif-badge hidden" id="notifBadge" aria-live="polite">0</span>
-</button>
 <span class="lang-note" data-i18n="chooseLanguage">Selecciona el idioma</span>
 <div class="lang-switch" id="langSwitch">
 <div class="lang-slider" id="switchSlider"></div>
@@ -5371,10 +5399,6 @@ body.has-session input[name="nombre"] {
 <div id="notifBackdrop" class="notif-backdrop hidden" aria-hidden="true"></div>
 <div class="page-title-row">
   <h1 id="pageH1" data-i18n="title">Portal del huésped</h1>
-  <button id="btnRefreshHome" class="page-refresh-btn" type="button" hidden aria-label="Actualizar datos" title="Actualizar datos">
-    <span class="page-refresh-icon" aria-hidden="true">↻</span>
-    <span class="page-refresh-text" data-i18n="btnRefreshHome">Actualizar</span>
-  </button>
 </div>
 <div class="top-menu" id="topMenu">
 <button class="menu-btn active" id="menuRegistroBtn" type="button">Registro de huéspedes</button>
@@ -17327,6 +17351,152 @@ document.addEventListener("DOMContentLoaded", function(){
   .stays-card-collapsible .stays-table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     REDISEÑO AIRBNB-LIKE — densidad, tipografía y jerarquía
+     Aplica overrides al final para conseguir un look más Airbnb:
+     - Tipografía: más pequeña y refinada (system-ui SF Pro Display)
+     - Padding/margins: reducidos para más densidad
+     - Border-radius: más sutil (12-14px en lugar de 18-26px)
+     - Sombras: muy suaves (4-12px blur, low opacity)
+     - Colores: neutros con acento rojo/coral
+     ═══════════════════════════════════════════════════════════════════ */
+
+  @media (max-width: 700px) {
+    /* H1 más compacto y refinado */
+    h1, #pageH1 {
+      font-size: 22px !important;
+      line-height: 1.15 !important;
+      letter-spacing: -0.02em;
+      font-weight: 700;
+      margin: 0 0 8px !important;
+    }
+
+    /* Container general */
+    .container {
+      padding: 10px 12px 16px !important;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(15,23,42,.05);
+      border: 1px solid #f1f5f9;
+    }
+
+    /* Secciones más compactas */
+    .section {
+      padding: 12px !important;
+      border-radius: 14px;
+      border: 1px solid #f1f5f9;
+      margin-top: 10px;
+    }
+    .section-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.01em; }
+    .section-subtitle { font-size: 12px; line-height: 1.4; margin-bottom: 10px; color: #6b7280; }
+
+    /* Cards de Home: profile-card y stays-card */
+    .stays-card,
+    .veh-collapsible-card,
+    .profile-card-bigbtn {
+      margin-top: 8px !important;
+    }
+    .stays-card-header,
+    .veh-collapsible-trigger.auth-bigbtn {
+      padding: 12px 14px !important;
+    }
+    .stays-card-title { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+    .stays-card-subtitle { font-size: 11.5px; color: #6b7280; line-height: 1.35; margin-top: 1px; }
+    .auth-bigbtn-title { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+    .auth-bigbtn-sub { font-size: 11.5px !important; color: #6b7280 !important; line-height: 1.4 !important; }
+
+    /* KPIs más compactos */
+    .kpi-grid {
+      gap: 8px !important;
+      margin-top: 8px !important;
+    }
+    .kpi-card,
+    .kpi-row,
+    .kpi-icon-row {
+      padding: 8px 10px !important;
+      border-radius: 12px !important;
+      box-shadow: 0 1px 4px rgba(15,23,42,.04) !important;
+    }
+    .kpi-value, .kpi-num { font-size: 18px !important; font-weight: 800; letter-spacing: -0.02em; }
+    .kpi-label { font-size: 9.5px !important; letter-spacing: .04em; color: #6b7280; }
+
+    /* Botones principales (Welcome) */
+    .auth-bigbtn {
+      padding: 14px 16px !important;
+      border-radius: 14px !important;
+      margin-top: 8px !important;
+      box-shadow: 0 2px 8px rgba(15,23,42,.05) !important;
+    }
+    .auth-bigbtn-icon { font-size: 18px !important; }
+
+    /* Stays cards (Tus estancias) compactas */
+    .stays-card-item-header {
+      padding: 10px 8px !important;
+      gap: 8px !important;
+    }
+    .stays-card-item-title { font-size: 14px !important; letter-spacing: -0.01em; }
+    .stays-card-item-dates { font-size: 11.5px !important; color: #6b7280; }
+    .stays-card-item-nights { font-size: 11px !important; color: #94a3b8; }
+    .stays-card-monto-label { font-size: 9px !important; color: #94a3b8; }
+    .stays-card-monto-value { font-size: 14px !important; font-weight: 800; letter-spacing: -0.01em; }
+    .stays-card-monto-value.muted { font-size: 16px !important; }
+    .stays-card-medio-chip { font-size: 9.5px !important; padding: 2px 7px 2px 2px !important; }
+    .stays-card-medio-chip .medio-letter { width: 14px; height: 14px; font-size: 9px; }
+    .stays-card-ticket-chip { font-size: 9.5px !important; padding: 3px 6px !important; }
+
+    /* Vehicle cards en home dropdown */
+    .veh-collapsible-body .veh-card-v2 {
+      padding: 10px !important;
+      border-radius: 12px !important;
+    }
+    .veh-card-title { font-size: 14px !important; letter-spacing: -0.01em; font-weight: 700; }
+    .veh-card-sub { font-size: 11.5px !important; color: #6b7280; }
+    .veh-card-meta { padding: 8px 0 !important; gap: 8px !important; }
+    .veh-card-meta-item dt { font-size: 9px; }
+    .veh-card-meta-item dd { font-size: 13px; }
+    .veh-card-actions .veh-action-btn {
+      padding: 10px 12px !important;
+      font-size: 13px !important;
+      border-radius: 10px !important;
+    }
+
+    /* Banner "Tu estancia activa" */
+    .veh-collapsible-body .vehicles-session-bar {
+      padding: 8px 10px !important;
+      border-radius: 10px !important;
+      margin-bottom: 6px !important;
+    }
+    .vehicles-session-label { font-size: 12px !important; }
+
+    /* Profile dropdown row */
+    .profile-row { padding: 8px 0 !important; font-size: 12.5px !important; }
+    .profile-row-key { font-size: 10px !important; letter-spacing: .04em !important; }
+    .profile-row-value { font-size: 13px !important; }
+
+    /* Mensaje "Captura tu perfil..." más sutil */
+    .profile-card-tip { font-size: 11.5px !important; color: #6b7280; padding: 8px 12px !important; }
+
+    /* Lang bar más sutil */
+    .lang-bar { margin-bottom: 4px !important; }
+    .lang-note { font-size: 11px !important; color: #94a3b8; }
+    .lang-switch { transform: scale(.92); transform-origin: right center; }
+
+    /* Edit button (Editar perfil) más compacto */
+    button#editProfileBtn,
+    button.profile-edit-btn {
+      padding: 10px 14px !important;
+      font-size: 13px !important;
+      border-radius: 10px !important;
+    }
+
+    /* Reducir espacios verticales entre bloques de Home */
+    #viewHome .auth-bigbtn,
+    #viewHome .stays-card,
+    #viewHome .veh-collapsible-card { margin-top: 8px !important; }
+
+    /* Title row sin botones (los movimos al pill) */
+    .page-title-row { margin-bottom: 6px; }
   }
 </style>
 
