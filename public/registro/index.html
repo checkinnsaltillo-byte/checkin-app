@@ -49,33 +49,33 @@
   letter-spacing:.02em;
 }
 
-/* ─── Loader Check-inn (pin 3D animado + sombra fija) ─────────────────── */
+/* ─── Loader Check-inn (pin 3D animado + texto "Check-inn" fijo) ───────── */
 .checkinn-loader{
-  --ci-size:33px;
+  --ci-pin-h:33px;
   --ci-dur:3.5s;
   display:inline-flex;
-  flex-direction:column;
   align-items:center;
+  gap:calc(var(--ci-pin-h) * 0.05);
   line-height:0;
 }
-.checkinn-loader.size-sm{ --ci-size:21px; --ci-dur:2.8s; }
-.checkinn-loader.size-md{ --ci-size:33px; }
-.checkinn-loader.size-lg{ --ci-size:47px; }
-.ci-pin-scene{ perspective:700px; width:var(--ci-size); }
+.checkinn-loader.size-sm{ --ci-pin-h:21px; --ci-dur:2.8s; }
+.checkinn-loader.size-md{ --ci-pin-h:33px; }
+.checkinn-loader.size-lg{ --ci-pin-h:47px; }
+.ci-pin-scene{ perspective:700px; height:var(--ci-pin-h); }
 .ci-pin{
-  position:relative; width:var(--ci-size);
+  position:relative; height:var(--ci-pin-h);
   transform-style:preserve-3d;
   animation:ci-spin var(--ci-dur) linear infinite;
   will-change:transform;
 }
 .ci-face{
-  position:absolute; top:0; left:0; width:var(--ci-size);
+  position:absolute; top:0; left:0; height:var(--ci-pin-h);
   backface-visibility:hidden;
 }
-.ci-face img, .ci-spacer{ display:block; width:var(--ci-size); height:auto; }
+.ci-face img, .ci-spacer{ display:block; height:var(--ci-pin-h); width:auto; }
 .ci-face.back{ transform:rotateY(180deg); }
 .ci-spacer{ visibility:hidden; }
-.ci-shadow{ display:block; width:var(--ci-size); height:auto; margin-top:2px; }
+.ci-text{ display:block; height:calc(var(--ci-pin-h) * 0.552); width:auto; }
 @keyframes ci-spin{ to { transform:rotateY(360deg); } }
 @media (prefers-reduced-motion: reduce){ .ci-pin{ animation:none; } }
 
@@ -5282,7 +5282,7 @@ body.has-session input[name="nombre"] {
           <img class="ci-spacer" alt="" src="./loader_pin.png">
         </div>
       </div>
-      <img class="ci-shadow" alt="" src="./loader_shadow.png">
+      <img class="ci-text" alt="" src="./loader_text.png">
     </div>
     <div class="app-loader-text" data-i18n="appLoaderText">Cargando datos…</div>
   </div>
@@ -5824,7 +5824,7 @@ body.has-session input[name="nombre"] {
       <img class="ci-spacer" alt="" src="./loader_pin.png">
     </div>
   </div>
-  <img class="ci-shadow" alt="" src="./loader_shadow.png">
+  <img class="ci-text" alt="" src="./loader_text.png">
 </div>
 <h3 style="margin-bottom:6px;">Buscando vehículos</h3>
 <div class="hint" style="margin:0;">Por favor espera mientras consultamos los registros.</div>
@@ -6475,7 +6475,7 @@ body.has-session input[name="nombre"] {
       <img class="ci-spacer" alt="" src="./loader_pin.png">
     </div>
   </div>
-  <img class="ci-shadow" alt="" src="./loader_shadow.png">
+  <img class="ci-text" alt="" src="./loader_text.png">
 </div>
 <h3 id="popupTituloEnvio">Procesando registro...</h3>
 <div class="hint" id="popupTextoEnvio" style="font-size:14px; margin:8px 0 0 0; color:#374151;">
