@@ -34,29 +34,50 @@
 .app-loader-card{
   background:#fff;
   border-radius:18px;
-  padding:28px 36px;
+  padding:24px 32px;
   display:flex;
   flex-direction:column;
   align-items:center;
-  gap:16px;
+  gap:12px;
   box-shadow:0 20px 60px rgba(15,23,42,.18);
   min-width:240px;
 }
-.app-loader-spinner{
-  width:48px;
-  height:48px;
-  border-radius:50%;
-  border:4px solid #e5e7eb;
-  border-top-color:#0891b2;
-  animation:app-loader-spin 0.9s linear infinite;
-}
-@keyframes app-loader-spin{ to { transform:rotate(360deg); } }
 .app-loader-text{
   font-size:14px;
   font-weight:700;
   color:#475569;
   letter-spacing:.02em;
 }
+
+/* ─── Loader Check-inn (pin 3D animado + sombra fija) ─────────────────── */
+.checkinn-loader{
+  --ci-size:100px;
+  --ci-dur:3.5s;
+  display:inline-flex;
+  flex-direction:column;
+  align-items:center;
+  line-height:0;
+}
+.checkinn-loader.size-sm{ --ci-size:64px; --ci-dur:2.8s; }
+.checkinn-loader.size-md{ --ci-size:100px; }
+.checkinn-loader.size-lg{ --ci-size:140px; }
+.ci-pin-scene{ perspective:700px; width:var(--ci-size); }
+.ci-pin{
+  position:relative; width:var(--ci-size);
+  transform-style:preserve-3d;
+  animation:ci-spin var(--ci-dur) linear infinite;
+  will-change:transform;
+}
+.ci-face{
+  position:absolute; top:0; left:0; width:var(--ci-size);
+  backface-visibility:hidden;
+}
+.ci-face img, .ci-spacer{ display:block; width:var(--ci-size); height:auto; }
+.ci-face.back{ transform:rotateY(180deg); }
+.ci-spacer{ visibility:hidden; }
+.ci-shadow{ display:block; width:var(--ci-size); height:auto; margin-top:2px; }
+@keyframes ci-spin{ to { transform:rotateY(360deg); } }
+@media (prefers-reduced-motion: reduce){ .ci-pin{ animation:none; } }
 
 :root{
   /* Paleta Ticket Vision — gris metálico (gunmetal slate) + cyan acento */
@@ -5242,7 +5263,16 @@ body.has-session input[name="nombre"] {
 <!-- ═══ Splash de carga (bloquea la interacción hasta que la app cargue) ═══ -->
 <div id="appLoader" role="status" aria-live="polite" aria-label="Cargando datos">
   <div class="app-loader-card">
-    <div class="app-loader-spinner" aria-hidden="true"></div>
+    <div class="checkinn-loader size-md" role="img" aria-label="Cargando">
+      <div class="ci-pin-scene">
+        <div class="ci-pin">
+          <div class="ci-face front"><img alt="" src="./loader_pin.png"></div>
+          <div class="ci-face back"><img alt="" src="./loader_pin.png"></div>
+          <img class="ci-spacer" alt="" src="./loader_pin.png">
+        </div>
+      </div>
+      <img class="ci-shadow" alt="" src="./loader_shadow.png">
+    </div>
     <div class="app-loader-text" data-i18n="appLoaderText">Cargando datos…</div>
   </div>
 </div>
@@ -5773,9 +5803,18 @@ body.has-session input[name="nombre"] {
 </div>
 </div>
 <div class="popup-backdrop" id="vehiculosLoadingPopup" style="display:none;">
-<div class="popup-card" style="max-width:320px;">
-<div style="width:52px;height:52px;border:4px solid rgba(15,23,42,.22);border-top-color:#475569;border-radius:50%;margin:0 auto 16px;animation:spinPopup 0.9s linear infinite;"></div>
-<h3 style="margin-bottom:8px;">Buscando vehículos</h3>
+<div class="popup-card" style="max-width:320px; text-align:center;">
+<div class="checkinn-loader size-md" role="img" aria-label="Cargando" style="margin:0 auto 8px;">
+  <div class="ci-pin-scene">
+    <div class="ci-pin">
+      <div class="ci-face front"><img alt="" src="./loader_pin.png"></div>
+      <div class="ci-face back"><img alt="" src="./loader_pin.png"></div>
+      <img class="ci-spacer" alt="" src="./loader_pin.png">
+    </div>
+  </div>
+  <img class="ci-shadow" alt="" src="./loader_shadow.png">
+</div>
+<h3 style="margin-bottom:6px;">Buscando vehículos</h3>
 <div class="hint" style="margin:0;">Por favor espera mientras consultamos los registros.</div>
 </div>
 </div>
@@ -6415,8 +6454,17 @@ body.has-session input[name="nombre"] {
 </div>
 <div class="popup-backdrop" id="popupEnvio" style="display:none; position:fixed; inset:0; z-index:999999; align-items:center; justify-content:center; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);">
 <div class="popup-card" style="max-width:340px;">
-<div id="popupLoadingState">
-<div style="width:48px;height:48px;border:4px solid rgba(15,23,42,.22);border-top-color:#475569;border-radius:50%;margin:0 auto 16px;animation:spinPopup 0.9s linear infinite;"></div>
+<div id="popupLoadingState" style="text-align:center;">
+<div class="checkinn-loader size-sm" role="img" aria-label="Cargando" style="margin:0 auto 8px;">
+  <div class="ci-pin-scene">
+    <div class="ci-pin">
+      <div class="ci-face front"><img alt="" src="./loader_pin.png"></div>
+      <div class="ci-face back"><img alt="" src="./loader_pin.png"></div>
+      <img class="ci-spacer" alt="" src="./loader_pin.png">
+    </div>
+  </div>
+  <img class="ci-shadow" alt="" src="./loader_shadow.png">
+</div>
 <h3 id="popupTituloEnvio">Procesando registro...</h3>
 <div class="hint" id="popupTextoEnvio" style="font-size:14px; margin:8px 0 0 0; color:#374151;">
         Por favor espera unos segundos.
