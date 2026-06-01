@@ -4041,23 +4041,27 @@ function formatRangoFechasSimple(inicio, fin){
 /* ─── Toggle de vista (Tabla / Cards) ─────────────────────────────────── */
 .stays-view-toggle{
   display:inline-flex;
-  gap:4px;
-  background:#f1f5f9;
-  padding:4px;
-  border-radius:10px;
-  margin-bottom:14px;
+  gap:8px;
+  background:transparent;
+  padding:0;
+  border-radius:0;
+  margin-bottom:10px;
 }
 .stays-view-btn{
   display:inline-flex; align-items:center; gap:6px;
   border:none; background:transparent;
-  padding:7px 14px; border-radius:7px;
-  font-size:13px; font-weight:600; color:#475569;
-  cursor:pointer; transition:background .18s, color .18s, box-shadow .18s;
+  padding:6px 10px; border-radius:8px;
+  font-size:13px; font-weight:600; color:#94a3b8;
+  cursor:pointer; transition:color .18s, border-color .18s;
+  border-bottom:2px solid transparent;
+  border-radius:0;
 }
-.stays-view-btn:hover{ color:#0f172a; }
+.stays-view-btn:hover{ color:#475569; }
 .stays-view-btn.active{
-  background:#fff; color:#0f172a;
-  box-shadow:0 1px 3px rgba(15,23,42,.08);
+  background:transparent;
+  color:var(--text);
+  box-shadow:none;
+  border-bottom-color:var(--text);
 }
 .stays-view-btn-icon{ font-size:14px; line-height:1; }
 
@@ -13590,21 +13594,28 @@ document.addEventListener("DOMContentLoaded", function(){
       ticketChip = `<span class="stays-card-ticket-chip pending">🧾 ${escapeHtml(lbl)}</span>`;
     }
     // Solo 6 campos en el detalle de cada card. Vacíos se omiten (más abajo).
+    // Cada entrada acepta array de keys posibles (con/sin acento, variantes).
     const STAY_DETAIL_FIELDS = [
-      ["# Huéspedes", i.detailNumHuespedes || "# Huéspedes"],
-      ["Nombres de TODOS los huéspedes (separados por comas)", i.detailNombresHuespedes || "Nombres de huéspedes"],
-      ["Hora estimada de llegada", i.detailHoraLlegada || "Hora estimada de llegada"],
-      ["Hora estimada de salida", i.detailHoraSalida || "Hora estimada de salida"],
-      ["Motivo de tu hospedaje", i.detailMotivo || "Motivo"],
-      ["Comentarios", i.detailComentarios || "Comentarios"]
+      [["# Huéspedes", "# Huespedes"], i.detailNumHuespedes || "# Huéspedes"],
+      [["Nombres de TODOS los huéspedes (separados por comas)", "Nombres de TODOS los huespedes (separados por comas)"], i.detailNombresHuespedes || "Nombres de huéspedes"],
+      [["Hora estimada de llegada"], i.detailHoraLlegada || "Hora estimada de llegada"],
+      [["Hora estimada de salida"], i.detailHoraSalida || "Hora estimada de salida"],
+      [["Motivo de tu hospedaje", "Motivo"], i.detailMotivo || "Motivo"],
+      [["Comentarios", "Envía tus comentarios", "Notas"], i.detailComentarios || "Comentarios"]
     ];
     const detailItems = STAY_DETAIL_FIELDS
-      .map(([key, label]) => {
-        const val = rawRow[key];
-        if (val == null || String(val).trim() === "") return null;
+      .map(([keys, label]) => {
+        // Probar cada clave hasta encontrar una con valor.
+        let val = null, matchedKey = null;
+        for (const k of keys) {
+          if (rawRow[k] != null && String(rawRow[k]).trim() !== "") {
+            val = rawRow[k]; matchedKey = k; break;
+          }
+        }
+        if (val == null) return null;
         let displayVal;
-        if (/Fecha/.test(key)) displayVal = fmtFecha(val);
-        else if (/Monto/.test(key)) displayVal = fmtMonto(val);
+        if (/Fecha/.test(matchedKey)) displayVal = fmtFecha(val);
+        else if (/Monto/.test(matchedKey)) displayVal = fmtMonto(val);
         else displayVal = String(val);
         return `<div class="stays-card-detail"><span class="stays-card-detail-key">${escapeHtml(label)}</span><span class="stays-card-detail-value">${escapeHtml(displayVal)}</span></div>`;
       })
