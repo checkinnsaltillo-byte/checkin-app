@@ -51,16 +51,16 @@
 
 /* ─── Loader Check-inn (pin 3D animado + sombra fija) ─────────────────── */
 .checkinn-loader{
-  --ci-size:20px;
+  --ci-size:33px;
   --ci-dur:3.5s;
   display:inline-flex;
   flex-direction:column;
   align-items:center;
   line-height:0;
 }
-.checkinn-loader.size-sm{ --ci-size:13px; --ci-dur:2.8s; }
-.checkinn-loader.size-md{ --ci-size:20px; }
-.checkinn-loader.size-lg{ --ci-size:28px; }
+.checkinn-loader.size-sm{ --ci-size:21px; --ci-dur:2.8s; }
+.checkinn-loader.size-md{ --ci-size:33px; }
+.checkinn-loader.size-lg{ --ci-size:47px; }
 .ci-pin-scene{ perspective:700px; width:var(--ci-size); }
 .ci-pin{
   position:relative; width:var(--ci-size);
@@ -450,6 +450,17 @@ button:disabled{
   align-items:center;
   gap:10px;
 }
+/* Logo en el lang-bar: solo visible sin sesión (página de bienvenida).
+   Tamaño "mediano" (≈ 1.5× el del session-pill). */
+.lang-bar-logo{
+  height:54px;
+  width:auto;
+  max-width:140px;
+  object-fit:contain;
+  display:inline-block;
+  margin-right:auto;
+}
+body.has-session .lang-bar-logo{ display:none; }
 /* ─── Botón de Notificaciones (campana 🔔 + badge rojo) ────────────────── */
 .notif-btn{
   position:relative;
@@ -5323,7 +5334,7 @@ body.has-session input[name="nombre"] {
 </script>
 
 <div class="session-pill" id="sessionPill">
-  <img class="session-pill-logo" alt="Check-inn" src="./logo_simple.png" />
+  <img class="session-pill-logo" alt="Check-inn" src="./logo_brand.png" />
   <button id="btnNotifications" class="session-pill-icon-btn hidden" type="button" aria-label="Notificaciones" aria-haspopup="dialog">
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -5426,6 +5437,7 @@ body.has-session input[name="nombre"] {
 <div class="page-shell">
 <div class="container">
 <div class="lang-bar">
+<img class="lang-bar-logo" alt="Check-inn" src="./logo_brand.png" />
 <span class="lang-note" data-i18n="chooseLanguage">Selecciona el idioma</span>
 <div class="lang-switch" id="langSwitch">
 <div class="lang-slider" id="switchSlider"></div>
