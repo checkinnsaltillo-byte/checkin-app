@@ -8311,6 +8311,7 @@ const SIMPLE_I18N = {
     detailHoraSalida:"Hora estimada de salida",
     detailNumHuespedes:"# Huéspedes",
     detailNombresHuespedes:"Nombres de huéspedes",
+    detailMotivo:"Motivo",
     detailRequiereFactura:"¿Requiere factura?",
     detailMontoPagado:"Monto total pagado",
     detailMontoFacturado:"Monto facturado",
@@ -8621,6 +8622,7 @@ const SIMPLE_I18N = {
     detailHoraSalida:"Estimated departure time",
     detailNumHuespedes:"# Guests",
     detailNombresHuespedes:"Guest names",
+    detailMotivo:"Reason",
     detailRequiereFactura:"Requires invoice?",
     detailMontoPagado:"Total amount paid",
     detailMontoFacturado:"Invoiced amount",
@@ -13587,17 +13589,13 @@ document.addEventListener("DOMContentLoaded", function(){
       const lbl = i.staysTicketPending || "Ticket pendiente";
       ticketChip = `<span class="stays-card-ticket-chip pending">🧾 ${escapeHtml(lbl)}</span>`;
     }
-    // Resto de campos para el body (al expandir). Excluimos los que ya están en el header.
+    // Solo 6 campos en el detalle de cada card. Vacíos se omiten (más abajo).
     const STAY_DETAIL_FIELDS = [
-      ["Nombre de la persona que hizo la reservación", i.detailReservante || "Reservante"],
-      ["Hora estimada de llegada", i.detailHoraLlegada || "Hora estimada de llegada"],
-      ["Hora estimada de salida", i.detailHoraSalida || "Hora estimada de salida"],
       ["# Huéspedes", i.detailNumHuespedes || "# Huéspedes"],
       ["Nombres de TODOS los huéspedes (separados por comas)", i.detailNombresHuespedes || "Nombres de huéspedes"],
-      ["¿Requiere factura?", i.detailRequiereFactura || "¿Requiere factura?"],
-      ["($) Monto Total pagado", i.detailMontoPagado || "Monto total pagado"],
-      ["Concepto Factura", i.detailConceptoFactura || "Concepto factura"],
-      ["Método de pago", i.detailMetodoPago || "Método de pago"],
+      ["Hora estimada de llegada", i.detailHoraLlegada || "Hora estimada de llegada"],
+      ["Hora estimada de salida", i.detailHoraSalida || "Hora estimada de salida"],
+      ["Motivo de tu hospedaje", i.detailMotivo || "Motivo"],
       ["Comentarios", i.detailComentarios || "Comentarios"]
     ];
     const detailItems = STAY_DETAIL_FIELDS
