@@ -1,0 +1,2684 @@
+// ============================================================================
+// Check-In backend (Ticket Vision · esquema normalizado v1)
+// ----------------------------------------------------------------------------
+// Hojas que mantiene este script:
+//   1) Perfiles      — 1 fila por celular (datos personales/fiscales/identif.)
+//   2) Vehiculos     — 1 fila por celular (datos del vehículo actual)
+//   3) Reservaciones — N filas por celular (una por estancia)
+//
+// Para migrar desde la hoja única "Check in" legada:
+//   - Ejecuta UNA SOLA VEZ la función migrateToNormalizedSchema()
+//   - El script crea las 3 hojas, mueve los datos y renombra "Check in"
+//     a "Check in (archivo)" como respaldo intacto.
+// ============================================================================
+
+const SPREADSHEET_ID = "1f_rdwQncSUXRNEvp5kM_kjyX1S-NnY7UE2z4HGvFL3Q";
+const DRIVE_FOLDER_ID = "1DLwFUP8oQnv1AuMwI7Oqc6iFPiRgYWZv";
+const PUBLIC_SHARING_WITH_LINK = true;
+const MAX_BASE64_CHARS = 25 * 1024 * 1024;
+const FOLDER_CACHE_ = {};
+
+const PERFILES_SHEET = "Perfiles";
+const VEHICULOS_SHEET = "Vehiculos";
+const RESERVACIONES_SHEET = "Reservaciones";
+const LEGACY_SHEET = "Check in";
+const LEGACY_ARCHIVE = "Check in (archivo)";
+const PUSH_SUBS_SHEET = "Push_Subscriptions";
+const PUSH_SUBS_HEADERS = ["phoneKey","endpoint","p256dh","auth","ua","created_at","updated_at","badge_count","last_sent_at","categories"];
+const OTP_CODES_SHEET = "OTP_Codes";
+const OTP_CODES_HEADERS = ["phoneKey","method","target","code","created_at","expires_at","attempts","verified_at","status"];
+const OTP_TTL_MS = 5 * 60 * 1000;        // 5 minutos
+const OTP_MAX_ATTEMPTS = 5;              // por código
+const PUSH_QUEUE_SHEET = "Notifications_Queue";
+const PUSH_QUEUE_HEADERS = ["id","target","category","title","body","badge","url","tag","status","error","created_at","processed_at","source"];
+// Inbox de notificaciones POR USUARIO (lo que se muestra en el panel 🔔 del header)
+const NOTIF_INBOX_SHEET = "Notifications_Inbox";
+const NOTIF_INBOX_HEADERS = ["id","phoneKey","type","title","body","data","created_at","read_at","archived_at"];
+// Categorías de avisos disponibles
+const PUSH_CATEGORIES = ["reservaciones","facturas","recordatorios","general"];
+// phoneKey del admin — quien puede mandar avisos y ver el panel admin del portal.
+// Cambiar si la cuenta admin cambia.
+const ADMIN_PHONE_KEY = "528115569120";
+// Clave pública VAPID (segura para exponer al cliente)
+const VAPID_PUBLIC_KEY = "BH0SFnFLetMhyFlMaSFfl2ZfH-UYcuIvEQze-kPOcKGukvB4PmDW_Pu4WAe0zkpwYz3ks7oLHE7UGSI7QVOAb74";
+
+const PERFILES_HEADERS = [
+  "ID_Perfil","Cel/Whatsapp (principal)","Lada celular huésped","Nombre del huésped",
+  "Lada contacto emergencia","Cel/Whatsapp (contacto de emergencia)",
+  "Tipo de identificación","Identificación otro",
+  "INE frontal","Link INE frontal","ID archivo INE frontal","Nombre archivo INE frontal",
+  "INE trasero","Link INE trasero","ID archivo INE trasero","Nombre archivo INE trasero",
+  "Identificación única","Link identificación única","ID archivo identificación única","Nombre archivo identificación",
+  "¿Requiere factura?","Razón social","RFC","Régimen fiscal","Régimen otro","Código Postal",
+  "Correo electrónico para el envío de la factura",
+  "Fecha creación","Fecha actualización",
+  "PIN hash","PIN actualizado"
+];
+
+const VEHICULOS_HEADERS = [
+  "ID_Vehiculo","Cel/Whatsapp (principal)","¿Cuenta con vehículo?",
+  "Marca vehículo","Marca vehículo otro","Modelo vehículo","Modelo vehículo otro",
+  "Color vehículo","Placas","Hora habitual de salida",
+  "Foto vehículo","Link foto vehículo","ID archivo foto vehículo","Nombre archivo vehículo",
+  "Fecha actualización"
+];
+
+const RESERVACIONES_HEADERS = [
+  "ID","Cel/Whatsapp (principal)","ID_Vehiculo",
+  "Marca temporal","MES","Mes correspondiente","Tipo de factura",
+  "Medio de reservación","Cuenta",
+  "Propiedad","Propiedad otra","# Departamento",
+  "Motivo de tu hospedaje","Motivo otro",
+  "Fecha de ingreso","Hora estimada de llegada","Fecha de salida","Hora estimada de salida",
+  "# Noches","# Huéspedes","Nombres de TODOS los huéspedes (separados por comas)",
+  "Nombre de la persona que hizo la reservación",
+  "Forma de pago","Divisa monto pagado",
+  "Comprobante transferencia","Link comprobante transferencia","ID archivo comprobante transferencia","Nombre archivo comprobante transferencia",
+  "Correo electrónico","...enviar copia al siguiente correo:",
+  "$ Noches","$ Cuota de limpieza","$ MONTO TOTAL Airbnb","$ Comisión Airbnb","$ Monto antes de impuestos",
+  "($) Monto Total pagado","$ Monto facturado Total",
+  "Folio facturapi","Folio CFDI","Folio Relación","Folio complemento de pago","Estatus",
+  "Fecha de emisión","Concepto Factura","Método de pago",
+  "Ticket facturapi url","Ticket facturapi id archivo","Ticket facturapi nombre archivo","Ticket facturapi carpeta url","Ticket facturapi carpeta ruta",
+  "Envía tus comentarios","Envía tus comentarios con relación a la factura","Notas","Enviado por"
+];
+
+// ─── ENTRY POINTS ────────────────────────────────────────────────────────────
+
+function doPost(e) {
+  try {
+    const data = JSON.parse((e && e.postData && e.postData.contents) || "{}");
+    const action = data.action || "submit_form";
+    if (action === "submit_form") return jsonOutput_(saveFormRecord_(data));
+    if (action === "save_profile_only") return jsonOutput_(saveProfileOnly_(data));
+    if (action === "upload_file") return jsonOutput_(saveDeferredFile_(data));
+    if (action === "upload_profile_file") return jsonOutput_(saveProfileFile_(data));
+    if (action === "migrate_phone") return jsonOutput_(migratePhone_(data));
+    if (action === "update_facturado_total") return jsonOutput_(updateFacturadoTotal_(data));
+    if (action === "update_monto_total_airbnb") return jsonOutput_(updateMontoTotalAirbnb_(data));
+    if (action === "update_comision_airbnb") return jsonOutput_(updateComisionAirbnb_(data));
+    if (action === "update_airbnb_amounts") return jsonOutput_(updateAirbnbAmounts_(data));
+    if (action === "update_facturapi_folio") return jsonOutput_(updateFacturapiFolio_(data));
+    if (action === "update_facturapi_folio_strict") return jsonOutput_(updateFacturapiFolioStrict_(data));
+    if (action === "save_facturapi_pdf") return jsonOutput_(saveFacturapiPdf_(data));
+    if (action === "send_otp") return jsonOutput_(sendOtp_(data));
+    if (action === "verify_otp") return jsonOutput_(verifyOtp_(data));
+    if (action === "check_user_status") return jsonOutput_(checkUserStatus_(data));
+    if (action === "set_pin") return jsonOutput_(setPin_(data));
+    if (action === "verify_pin") return jsonOutput_(verifyPin_(data));
+    if (action === "mark_notifications_read") return jsonOutput_(markAllNotificationsRead_(data));
+    if (action === "archive_notification") return jsonOutput_(archiveNotification_(data));
+    if (action === "register_push_subscription") return jsonOutput_(registerPushSubscription_(data));
+    if (action === "unregister_push_subscription") return jsonOutput_(unregisterPushSubscription_(data));
+    if (action === "update_push_categories") return jsonOutput_(updatePushCategories_(data));
+    if (action === "queue_notification") return jsonOutput_(queueNotification_(data));
+    if (action === "mark_notification_processed") return jsonOutput_(markNotificationProcessed_(data));
+    return jsonOutput_({ ok: false, error: "Acción no reconocida." });
+  } catch (err) {
+    return jsonOutput_({ ok: false, error: err.message || String(err) });
+  }
+}
+
+function doGet(e) {
+  try {
+    const action = (e && e.parameter && e.parameter.action) || "";
+    if (action === "list_records") return jsonOutput_(listGuestRecords_(e.parameter || {}));
+    if (action === "list_filter_options") return jsonOutput_(getGuestFilterOptions_());
+    if (action === "get_record_detail") return jsonOutput_(getGuestRecordDetail_(e.parameter || {}));
+    if (action === "debug_dashboard") return jsonOutput_(debugDashboard_());
+    if (action === "get_next_facturapi_folio") return jsonOutput_(getNextFacturapiFolio_());
+    if (action === "update_reservacion_cell") return jsonOutput_(updateReservacionCell_(e.parameter || {}));
+    if (action === "get_vapid_public_key") return jsonOutput_({ ok: true, key: VAPID_PUBLIC_KEY });
+    if (action === "get_otp_methods") return jsonOutput_(getOtpMethods_(e.parameter || {}));
+    if (action === "list_push_subscriptions") return jsonOutput_(listPushSubscriptions_(e.parameter || {}));
+    if (action === "send_push_to_user") return jsonOutput_(sendPushToUserFromAppsScript_(e.parameter || {}));
+    if (action === "list_pending_notifications") return jsonOutput_(listPendingNotifications_(e.parameter || {}));
+    if (action === "get_push_categories") return jsonOutput_({ ok: true, categories: PUSH_CATEGORIES });
+    if (action === "is_admin") return jsonOutput_({ ok: true, isAdmin: String((e.parameter||{}).phoneKey||"").replace(/\D/g,"") === ADMIN_PHONE_KEY });
+    if (action === "list_notifications") return jsonOutput_(listNotifications_(e.parameter || {}));
+    if (action === "get_profile") return jsonOutput_(getProfile_(e.parameter || {}));
+    return jsonOutput_({ ok: true, message: "Web app activo (normalizado)." });
+  } catch (err) {
+    return jsonOutput_({ ok: false, error: err.message || String(err) });
+  }
+}
+
+// ─── SHEET HELPERS ───────────────────────────────────────────────────────────
+
+function getSpreadsheet_() { return SpreadsheetApp.openById(SPREADSHEET_ID); }
+
+function ensureNormalizedSheets_() {
+  const ss = getSpreadsheet_();
+  ensureSheetWithHeaders_(ss, PERFILES_SHEET, PERFILES_HEADERS);
+  ensureSheetWithHeaders_(ss, VEHICULOS_SHEET, VEHICULOS_HEADERS);
+  ensureSheetWithHeaders_(ss, RESERVACIONES_SHEET, RESERVACIONES_HEADERS);
+}
+
+function ensureSheetWithHeaders_(ss, name, headers) {
+  let sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.setFrozenRows(1);
+    return sh;
+  }
+  const lastCol = Math.max(sh.getLastColumn(), 1);
+  const current = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  const missing = headers.filter(h => current.indexOf(h) === -1);
+  if (missing.length) {
+    sh.getRange(1, current.length + 1, 1, missing.length).setValues([missing]);
+  }
+  return sh;
+}
+
+function getSheet_(name) {
+  const sh = getSpreadsheet_().getSheetByName(name);
+  if (!sh) throw new Error('No existe la hoja "' + name + '". Ejecuta migrateToNormalizedSchema primero.');
+  return sh;
+}
+
+function getHeaders_(sheet) {
+  const lastColumn = sheet.getLastColumn();
+  if (lastColumn < 1) throw new Error("La hoja " + sheet.getName() + " no tiene encabezados.");
+  return sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(v => String(v || "").trim());
+}
+
+function getAllRows_(sheetName) {
+  const sheet = getSheet_(sheetName);
+  const headers = getHeaders_(sheet);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { sheet, headers, rows: [] };
+  const values = sheet.getRange(2, 1, lastRow - 1, headers.length).getDisplayValues();
+  const rows = values.map((rowValues, idx) => {
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = rowValues[i]);
+    obj.__row_number = idx + 2;
+    return obj;
+  });
+  return { sheet, headers, rows };
+}
+
+function findRowByValue_(sheet, headers, columnName, value) {
+  const colIdx = headers.indexOf(columnName);
+  if (colIdx < 0) return null;
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  const values = sheet.getRange(2, colIdx + 1, lastRow - 1, 1).getDisplayValues();
+  const target = String(value || "").trim();
+  for (let i = 0; i < values.length; i++) {
+    if (String(values[i][0] || "").trim() === target) return i + 2;
+  }
+  return null;
+}
+
+function findRowByPhone_(sheet, headers, phone) {
+  const colIdx = headers.indexOf("Cel/Whatsapp (principal)");
+  if (colIdx < 0) return null;
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  const values = sheet.getRange(2, colIdx + 1, lastRow - 1, 1).getDisplayValues();
+  const target = normalizePhone_(phone);
+  for (let i = 0; i < values.length; i++) {
+    if (normalizePhone_(values[i][0]) === target) return i + 2;
+  }
+  return null;
+}
+
+function findRowByRowNumber_(sheet, rowNumber) {
+  const n = Number(rowNumber);
+  if (!n || n < 2 || n > sheet.getLastRow()) return null;
+  return n;
+}
+
+function readRow_(sheet, headers, rowNumber) {
+  const values = sheet.getRange(rowNumber, 1, 1, headers.length).getValues()[0];
+  const obj = {};
+  headers.forEach((h, i) => obj[h] = values[i]);
+  obj.__row_number = rowNumber;
+  return obj;
+}
+
+function writeRow_(sheet, headers, rowNumber, dataMap) {
+  const rowValues = headers.map(h => Object.prototype.hasOwnProperty.call(dataMap, h) ? dataMap[h] : "");
+  sheet.getRange(rowNumber, 1, 1, headers.length).setValues([rowValues]);
+}
+
+function appendRow_(sheet, headers, dataMap) {
+  const rowValues = headers.map(h => Object.prototype.hasOwnProperty.call(dataMap, h) ? dataMap[h] : "");
+  sheet.appendRow(rowValues);
+  return sheet.getLastRow();
+}
+
+function setCellByHeader_(sheet, headers, rowNumber, headerName, value) {
+  const colIdx = headers.indexOf(headerName);
+  if (colIdx < 0) return false;
+  sheet.getRange(rowNumber, colIdx + 1).setValue(value);
+  return true;
+}
+
+// ─── UPSERTS ─────────────────────────────────────────────────────────────────
+
+function upsertPerfil_(data, cel) {
+  ensureNormalizedSheets_();
+  const sheet = getSheet_(PERFILES_SHEET);
+  const headers = getHeaders_(sheet);
+  const now = new Date();
+  const newMap = buildPerfilFromData_(data, cel);
+  const existingRow = findRowByPhone_(sheet, headers, cel);
+
+  if (existingRow) {
+    const existing = readRow_(sheet, headers, existingRow);
+    const merged = {};
+    headers.forEach(h => {
+      if (h === "Fecha creación") merged[h] = existing[h] || now;
+      else if (h === "Fecha actualización") merged[h] = now;
+      else if (h === "ID_Perfil") merged[h] = existing[h] || newMap[h] || Utilities.getUuid();
+      else {
+        const newVal = newMap[h];
+        const oldVal = existing[h];
+        merged[h] = (newVal != null && String(newVal).trim() !== "") ? newVal : (oldVal != null ? oldVal : "");
+      }
+    });
+    writeRow_(sheet, headers, existingRow, merged);
+    return { id_perfil: merged["ID_Perfil"], row_number: existingRow, created: false };
+  }
+  const idPerfil = Utilities.getUuid();
+  newMap["ID_Perfil"] = idPerfil;
+  newMap["Fecha creación"] = now;
+  newMap["Fecha actualización"] = now;
+  const row = appendRow_(sheet, headers, newMap);
+  return { id_perfil: idPerfil, row_number: row, created: true };
+}
+
+function upsertVehiculo_(data, cel) {
+  ensureNormalizedSheets_();
+  const sheet = getSheet_(VEHICULOS_SHEET);
+  const headers = getHeaders_(sheet);
+  const now = new Date();
+  const tieneVeh = normalizeYesNo_(data.tiene_vehiculo);
+  const existingRow = findRowByPhone_(sheet, headers, cel);
+
+  if (!tieneVeh && !existingRow) return { id_vehiculo: "", row_number: null, created: false };
+
+  const newMap = buildVehiculoFromData_(data, cel);
+  if (existingRow) {
+    const existing = readRow_(sheet, headers, existingRow);
+    const merged = {};
+    headers.forEach(h => {
+      if (h === "Fecha actualización") merged[h] = now;
+      else if (h === "ID_Vehiculo") merged[h] = existing[h] || newMap[h] || Utilities.getUuid();
+      else {
+        const newVal = newMap[h];
+        const oldVal = existing[h];
+        merged[h] = (newVal != null && String(newVal).trim() !== "") ? newVal : (oldVal != null ? oldVal : "");
+      }
+    });
+    writeRow_(sheet, headers, existingRow, merged);
+    return { id_vehiculo: merged["ID_Vehiculo"], row_number: existingRow, created: false };
+  }
+  const idVeh = Utilities.getUuid();
+  newMap["ID_Vehiculo"] = idVeh;
+  newMap["Fecha actualización"] = now;
+  const row = appendRow_(sheet, headers, newMap);
+  return { id_vehiculo: idVeh, row_number: row, created: true };
+}
+
+function insertReservacion_(data, cel, idVehiculo) {
+  ensureNormalizedSheets_();
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  const now = new Date();
+  const ingresoDate = parseDateSafe_(data.ingreso) || now;
+  const recordId = Utilities.getUuid();
+
+  const m = {};
+  m["ID"] = recordId;
+  m["Cel/Whatsapp (principal)"] = cel;
+  m["ID_Vehiculo"] = idVehiculo || "";
+  m["Marca temporal"] = now;
+  m["MES"] = Utilities.formatDate(now, Session.getScriptTimeZone(), "MMMM");
+  m["Mes correspondiente"] = Utilities.formatDate(ingresoDate, Session.getScriptTimeZone(), "MMMM yyyy");
+  m["Tipo de factura"] = normalizeInvoiceType_(data.factura);
+  m["Medio de reservación"] = safe_(data.medio);
+  m["Cuenta"] = "";
+  m["Propiedad"] = resolveOtherValue_(data.propiedad, data.propiedad_otra, ["Otra","Other"]);
+  m["Propiedad otra"] = safe_(data.propiedad_otra);
+  m["# Departamento"] = safe_(data.depto);
+  m["Motivo de tu hospedaje"] = resolveOtherValue_(data.motivo, data.motivo_otro, ["Otro","Other"]);
+  m["Motivo otro"] = safe_(data.motivo_otro);
+  m["Fecha de ingreso"] = safe_(data.ingreso);
+  m["Hora estimada de llegada"] = safe_(data.hora_llegada_estimada);
+  m["Fecha de salida"] = safe_(data.salida);
+  m["Hora estimada de salida"] = safe_(data.hora_salida_estimada);
+  m["# Noches"] = calculateNights_(data.ingreso, data.salida);
+  m["# Huéspedes"] = safe_(data.num_huespedes);
+  m["Nombres de TODOS los huéspedes (separados por comas)"] = arrayToCsv_(data.huespedes);
+  m["Nombre de la persona que hizo la reservación"] = safe_(data.nombre);
+  m["Forma de pago"] = safe_(data.medio_pago);
+  m["Divisa monto pagado"] = safe_(data.divisa_monto);
+  m["Correo electrónico"] = safe_(data.correo1);
+  m["...enviar copia al siguiente correo:"] = safe_(data.correo2);
+  m["($) Monto Total pagado"] = safe_(data.monto_pagado);
+  m["Envía tus comentarios"] = safe_(data.comentarios);
+  m["Envía tus comentarios con relación a la factura"] = safe_(data.comentarios_factura);
+
+  const rowNumber = appendRow_(sheet, headers, m);
+  return { row_number: rowNumber, record_id: recordId };
+}
+
+function buildPerfilFromData_(data, cel) {
+  const firstGuest = firstGuestName_(data.huespedes);
+  return {
+    "Cel/Whatsapp (principal)": cel,
+    "Nombre del huésped": firstGuest || safe_(data.nombre_huesped) || safe_(data.nombre),
+    "Cel/Whatsapp (contacto de emergencia)": safe_(data.celular_emergencia),
+    "Tipo de identificación": resolveOtherValue_(data.identificacion_tipo, data.identificacion_otro, ["Otro","Other"]),
+    "Identificación otro": safe_(data.identificacion_otro),
+    "¿Requiere factura?": normalizeYesNo_(data.factura),
+    "Razón social": safe_(data.razon_social),
+    "RFC": safe_(data.rfc),
+    "Régimen fiscal": resolveOtherValue_(data.regimen, data.regimen_otro, ["Otro","Other"]),
+    "Régimen otro": safe_(data.regimen_otro),
+    "Código Postal": safe_(data.codigo_postal),
+    "Correo electrónico para el envío de la factura": safe_(data.correo1)
+  };
+}
+
+function buildVehiculoFromData_(data, cel) {
+  return {
+    "Cel/Whatsapp (principal)": cel,
+    "¿Cuenta con vehículo?": normalizeYesNo_(data.tiene_vehiculo),
+    "Marca vehículo": resolveOtherValue_(data.vehiculo_marca, data.vehiculo_marca_otro, ["Otro","Other"]),
+    "Marca vehículo otro": safe_(data.vehiculo_marca_otro),
+    "Modelo vehículo": safe_(data.vehiculo_modelo),
+    "Modelo vehículo otro": safe_(data.vehiculo_modelo_otro),
+    "Color vehículo": safe_(data.vehiculo_color),
+    "Placas": safe_(data.vehiculo_placas),
+    "Hora habitual de salida": safe_(data.vehiculo_hora_salida)
+  };
+}
+
+function firstGuestName_(value) {
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const v = String(value[i] || "").trim();
+      if (v) return v;
+    }
+    return "";
+  }
+  return safe_(value).split(",")[0].trim();
+}
+
+// ─── SAVE PROFILE ONLY (desde el wizard, sin reservación) ───────────────────
+
+function saveProfileOnly_(data) {
+  ensureNormalizedSheets_();
+  const cel = safe_(data.celular_principal).trim();
+  if (!cel) throw new Error("Falta celular_principal.");
+  const perfilResult = upsertPerfil_(data, cel);
+  const vehiculoResult = upsertVehiculo_(data, cel);
+  return {
+    ok: true,
+    id_perfil: perfilResult.id_perfil,
+    id_vehiculo: vehiculoResult.id_vehiculo,
+    perfil_created: perfilResult.created,
+    vehiculo_created: vehiculoResult.created,
+    celular: cel
+  };
+}
+
+// ─── SUBMIT FORM ────────────────────────────────────────────────────────────
+
+function saveFormRecord_(data) {
+  ensureNormalizedSheets_();
+  const cel = safe_(data.celular_principal).trim();
+  if (!cel) throw new Error("Falta celular_principal.");
+  const perfilResult = upsertPerfil_(data, cel);
+  const vehiculoResult = upsertVehiculo_(data, cel);
+  const reservacionResult = insertReservacion_(data, cel, vehiculoResult.id_vehiculo);
+  // Auto-push al huésped: "Reservación recibida"
+  try {
+    const phoneKey = normalizePhone_(cel);
+    if (phoneKey) {
+      const nombreReservante = safe_(data.nombre || "").trim().split(" ")[0] || "huésped";
+      queueNotification_({
+        target: phoneKey,
+        category: "reservaciones",
+        title: "Reservación recibida ✓",
+        body: `¡Gracias ${nombreReservante}! Procesaremos tu solicitud y te avisaremos cuando esté lista.`,
+        url: "./",
+        tag: "reservacion-" + reservacionResult.record_id,
+        source: "auto:submit_form"
+      });
+    }
+  } catch(e) { Logger.log("[auto-push submit_form] " + e); }
+  return {
+    ok: true,
+    record_id: reservacionResult.record_id,
+    row_number: reservacionResult.row_number,
+    id_perfil: perfilResult.id_perfil,
+    id_vehiculo: vehiculoResult.id_vehiculo,
+    perfil_created: perfilResult.created,
+    vehiculo_created: vehiculoResult.created
+  };
+}
+
+// ─── UPLOADS ────────────────────────────────────────────────────────────────
+
+function saveDeferredFile_(data) {
+  const recordId = safe_(data.record_id);
+  const fieldName = safe_(data.field_name);
+  const fileObj = data.file;
+  if (!recordId) throw new Error("Falta record_id.");
+  if (!fieldName) throw new Error("Falta field_name.");
+  if (!fileObj || !fileObj.base64) throw new Error("No se recibió archivo.");
+
+  const resSheet = getSheet_(RESERVACIONES_SHEET);
+  const resHeaders = getHeaders_(resSheet);
+  const resRowNum = findRowByValue_(resSheet, resHeaders, "ID", recordId);
+  if (!resRowNum) throw new Error("No se encontró la reservación.");
+  const resRow = readRow_(resSheet, resHeaders, resRowNum);
+  const cel = resRow["Cel/Whatsapp (principal)"];
+  if (!cel) throw new Error("La reservación no tiene celular asociado.");
+
+  const ingreso = parseDateSafe_(resRow["Fecha de ingreso"]) || new Date();
+  const year = Utilities.formatDate(ingreso, Session.getScriptTimeZone(), "yyyy");
+  const month = Utilities.formatDate(ingreso, Session.getScriptTimeZone(), "MM");
+  const propiedad = cleanFolderName_(resRow["Propiedad"] || "Sin propiedad");
+  const guestName = cleanFolderName_(resRow["Nombre de la persona que hizo la reservación"] || "Sin nombre");
+  const subfolders = [year, month, propiedad, guestName];
+
+  const fileInfo = saveBase64FileToDrive_(fileObj, fieldName, subfolders);
+
+  switch (fieldName) {
+    case "ine_frontal":            updateProfileFile_(cel, "INE frontal", fileInfo); break;
+    case "ine_trasero":            updateProfileFile_(cel, "INE trasero", fileInfo); break;
+    case "identificacion_unica":   updateProfileFile_(cel, "Identificación única", fileInfo); break;
+    case "vehiculo_foto":          updateVehicleFile_(cel, fileInfo); break;
+    case "comprobante_transferencia":
+      setCellByHeader_(resSheet, resHeaders, resRowNum, "Comprobante transferencia", fileInfo.url);
+      setCellByHeader_(resSheet, resHeaders, resRowNum, "Link comprobante transferencia", fileInfo.url);
+      setCellByHeader_(resSheet, resHeaders, resRowNum, "ID archivo comprobante transferencia", fileInfo.id);
+      setCellByHeader_(resSheet, resHeaders, resRowNum, "Nombre archivo comprobante transferencia", fileInfo.name);
+      break;
+    default: throw new Error("Campo de archivo no válido: " + fieldName);
+  }
+  return { ok: true, url: fileInfo.url, file_id: fileInfo.id, row_number: resRowNum };
+}
+
+function updateProfileFile_(cel, mainField, fileInfo) {
+  const sheet = getSheet_(PERFILES_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = findRowByPhone_(sheet, headers, cel);
+  if (!row) {
+    const dataMap = {
+      "ID_Perfil": Utilities.getUuid(),
+      "Cel/Whatsapp (principal)": cel,
+      "Fecha creación": new Date(),
+      "Fecha actualización": new Date()
+    };
+    row = appendRow_(sheet, headers, dataMap);
+  }
+  setCellByHeader_(sheet, headers, row, mainField, fileInfo.url);
+  setCellByHeader_(sheet, headers, row, "Link " + mainField, fileInfo.url);
+  if (mainField === "Identificación única") {
+    setCellByHeader_(sheet, headers, row, "Link identificación", fileInfo.url);
+  }
+  setCellByHeader_(sheet, headers, row, "ID archivo " + mainField, fileInfo.id);
+  const nameHeader = mainField === "Identificación única" ? "Nombre archivo identificación" : ("Nombre archivo " + mainField);
+  setCellByHeader_(sheet, headers, row, nameHeader, fileInfo.name);
+  setCellByHeader_(sheet, headers, row, "Fecha actualización", new Date());
+}
+
+function updateVehicleFile_(cel, fileInfo) {
+  const sheet = getSheet_(VEHICULOS_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = findRowByPhone_(sheet, headers, cel);
+  if (!row) {
+    const dataMap = {
+      "ID_Vehiculo": Utilities.getUuid(),
+      "Cel/Whatsapp (principal)": cel,
+      "¿Cuenta con vehículo?": "Sí",
+      "Fecha actualización": new Date()
+    };
+    row = appendRow_(sheet, headers, dataMap);
+  }
+  setCellByHeader_(sheet, headers, row, "Foto vehículo", fileInfo.url);
+  setCellByHeader_(sheet, headers, row, "Link foto vehículo", fileInfo.url);
+  setCellByHeader_(sheet, headers, row, "ID archivo foto vehículo", fileInfo.id);
+  setCellByHeader_(sheet, headers, row, "Nombre archivo vehículo", fileInfo.name);
+  setCellByHeader_(sheet, headers, row, "Fecha actualización", new Date());
+}
+
+// Sube archivo del wizard de perfil (sin reservación). Routea por field_name
+// hacia Perfiles (INE/identif) o Vehiculos (foto vehículo). La carpeta de
+// Drive se organiza por celular del huésped.
+function saveProfileFile_(data) {
+  const cel = safe_(data.celular_principal);
+  const fieldName = safe_(data.field_name);
+  const fileObj = data.file;
+  if (!cel) throw new Error("Falta celular_principal.");
+  if (!fieldName) throw new Error("Falta field_name.");
+  if (!fileObj || !fileObj.base64) throw new Error("No se recibió archivo.");
+
+  const ALLOWED = ["ine_frontal","ine_trasero","identificacion_unica","vehiculo_foto"];
+  if (ALLOWED.indexOf(fieldName) === -1) {
+    throw new Error("field_name no válido para upload_profile_file: " + fieldName);
+  }
+
+  // Carpeta Drive: Perfiles/<celular sanitizado>/<field_name>
+  const celClean = cleanFolderName_(String(cel).replace(/[\s'+]/g, ""));
+  const subfolders = ["Perfiles", celClean];
+  const fileInfo = saveBase64FileToDrive_(fileObj, fieldName, subfolders);
+
+  switch (fieldName) {
+    case "ine_frontal":          updateProfileFile_(cel, "INE frontal", fileInfo); break;
+    case "ine_trasero":          updateProfileFile_(cel, "INE trasero", fileInfo); break;
+    case "identificacion_unica": updateProfileFile_(cel, "Identificación única", fileInfo); break;
+    case "vehiculo_foto":        updateVehicleFile_(cel, fileInfo); break;
+  }
+
+  return { ok: true, url: fileInfo.url, file_id: fileInfo.id, file_name: fileInfo.name, field_name: fieldName, celular: cel };
+}
+
+// ─── MIGRACIÓN DE CELULAR ───────────────────────────────────────────────────
+// Cuando un huésped cambia su celular (vía wizard "Cambiar celular"),
+// actualizamos las 3 hojas para que su historial siga vinculado al perfil.
+//
+//   Perfiles:      si new_phone ya existe → merge campos no vacíos del viejo
+//                  hacia el nuevo, luego borrar la fila vieja.
+//                  Si solo existe el viejo → reescribir la celda con el nuevo.
+//   Vehiculos:     misma lógica de merge/reescritura por celular.
+//   Reservaciones: actualizar TODAS las rows donde
+//                  "Cel/Whatsapp (principal)" === old_phone → new_phone.
+//
+// Idempotente: si old_phone === new_phone, devuelve ok sin cambios.
+function migratePhone_(data) {
+  ensureNormalizedSheets_();
+  const oldPhone = safe_(data.old_phone).trim();
+  const newPhone = safe_(data.new_phone).trim();
+  if (!oldPhone || !newPhone) throw new Error("Faltan old_phone y new_phone.");
+  if (normalizePhone_(oldPhone) === normalizePhone_(newPhone)) {
+    return { ok: true, message: "old_phone y new_phone son iguales; no hay nada que migrar.", perfiles_updated: 0, vehiculos_updated: 0, reservaciones_updated: 0 };
+  }
+
+  const result = {
+    ok: true,
+    perfiles_updated: 0,
+    vehiculos_updated: 0,
+    reservaciones_updated: 0,
+    perfiles_deleted: 0,
+    vehiculos_deleted: 0
+  };
+
+  // ─── PERFILES ──
+  (function migratePerfiles(){
+    const sheet = getSheet_(PERFILES_SHEET);
+    const headers = getHeaders_(sheet);
+    const oldRow = findRowByPhone_(sheet, headers, oldPhone);
+    if (!oldRow) return; // nada que migrar
+    const newRow = findRowByPhone_(sheet, headers, newPhone);
+    if (newRow && newRow !== oldRow) {
+      // Existe row con el celular nuevo → merge (los del viejo llenan nulos del nuevo)
+      const oldData = readRow_(sheet, headers, oldRow);
+      const newData = readRow_(sheet, headers, newRow);
+      const merged = {};
+      headers.forEach(h => {
+        if (h === "ID_Perfil") merged[h] = newData[h];                // preservar ID del nuevo
+        else if (h === "Cel/Whatsapp (principal)") merged[h] = newPhone;
+        else if (h === "Fecha creación") merged[h] = newData[h] || oldData[h] || new Date();
+        else if (h === "Fecha actualización") merged[h] = new Date();
+        else {
+          const nv = newData[h];
+          const ov = oldData[h];
+          merged[h] = (nv != null && String(nv).trim() !== "") ? nv : (ov != null ? ov : "");
+        }
+      });
+      writeRow_(sheet, headers, newRow, merged);
+      // Borrar el row viejo (deleteRow ajusta índices arriba; como oldRow puede ser
+      // mayor o menor que newRow lo manejamos correctamente)
+      sheet.deleteRow(oldRow);
+      result.perfiles_updated++;
+      result.perfiles_deleted++;
+    } else {
+      // Solo existe el viejo → reescribir la celda del cel
+      setCellByHeader_(sheet, headers, oldRow, "Cel/Whatsapp (principal)", newPhone);
+      setCellByHeader_(sheet, headers, oldRow, "Fecha actualización", new Date());
+      result.perfiles_updated++;
+    }
+  })();
+
+  // ─── VEHICULOS ──
+  (function migrateVehiculos(){
+    const sheet = getSheet_(VEHICULOS_SHEET);
+    const headers = getHeaders_(sheet);
+    const oldRow = findRowByPhone_(sheet, headers, oldPhone);
+    if (!oldRow) return;
+    const newRow = findRowByPhone_(sheet, headers, newPhone);
+    if (newRow && newRow !== oldRow) {
+      const oldData = readRow_(sheet, headers, oldRow);
+      const newData = readRow_(sheet, headers, newRow);
+      const merged = {};
+      headers.forEach(h => {
+        if (h === "ID_Vehiculo") merged[h] = newData[h];
+        else if (h === "Cel/Whatsapp (principal)") merged[h] = newPhone;
+        else if (h === "Fecha actualización") merged[h] = new Date();
+        else {
+          const nv = newData[h];
+          const ov = oldData[h];
+          merged[h] = (nv != null && String(nv).trim() !== "") ? nv : (ov != null ? ov : "");
+        }
+      });
+      writeRow_(sheet, headers, newRow, merged);
+      sheet.deleteRow(oldRow);
+      result.vehiculos_updated++;
+      result.vehiculos_deleted++;
+    } else {
+      setCellByHeader_(sheet, headers, oldRow, "Cel/Whatsapp (principal)", newPhone);
+      setCellByHeader_(sheet, headers, oldRow, "Fecha actualización", new Date());
+      result.vehiculos_updated++;
+    }
+  })();
+
+  // ─── RESERVACIONES ──
+  (function migrateReservaciones(){
+    const sheet = getSheet_(RESERVACIONES_SHEET);
+    const headers = getHeaders_(sheet);
+    const colIdx = headers.indexOf("Cel/Whatsapp (principal)");
+    if (colIdx < 0) return;
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return;
+    const range = sheet.getRange(2, colIdx + 1, lastRow - 1, 1);
+    const values = range.getDisplayValues();
+    const targetOld = normalizePhone_(oldPhone);
+    // Identificar los rows que coinciden y actualizar con batch update
+    const updates = [];
+    for (let i = 0; i < values.length; i++) {
+      if (normalizePhone_(values[i][0]) === targetOld) {
+        updates.push(i);
+      }
+    }
+    if (!updates.length) return;
+    // Mantener compatibilidad con cells text-formatted (apóstrofo)
+    updates.forEach(rowOffset => {
+      sheet.getRange(rowOffset + 2, colIdx + 1).setValue(newPhone);
+    });
+    result.reservaciones_updated = updates.length;
+  })();
+
+  SpreadsheetApp.flush();
+  return result;
+}
+
+// ─── FACTURAPI updates (todo en Reservaciones) ──────────────────────────────
+
+function updateFacturadoTotal_(data) {
+  const recordId = safe_(data.record_id || data.id || data.row_id);
+  const rawValue = safe_(data.monto_facturado_total);
+  if (!recordId) throw new Error("Falta record_id.");
+  const normalized = String(rawValue || "").trim();
+  if (normalized && isNaN(Number(normalized.replace(/,/g, "")))) throw new Error("Monto debe ser numérico.");
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = findRowByValue_(sheet, headers, "ID", recordId);
+  if (!row) row = findRowByRowNumber_(sheet, recordId);
+  if (!row) throw new Error("No se encontró la reservación.");
+  setCellByHeader_(sheet, headers, row, "$ Monto facturado Total", normalized);
+  return { ok: true, row_number: row, record_id: recordId, monto_facturado_total: normalized };
+}
+
+// Copia idéntica de updateFacturadoTotal_ pero para "$ MONTO TOTAL Airbnb"
+function updateMontoTotalAirbnb_(data) {
+  const recordId = safe_(data.record_id || data.id || data.row_id);
+  const rawValue = safe_(data.monto_total_airbnb);
+  if (!recordId) throw new Error("Falta record_id.");
+  const normalized = String(rawValue || "").trim();
+  if (normalized && isNaN(Number(normalized.replace(/,/g, "")))) throw new Error("Monto debe ser numérico.");
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = findRowByValue_(sheet, headers, "ID", recordId);
+  if (!row) row = findRowByRowNumber_(sheet, recordId);
+  if (!row) throw new Error("No se encontró la reservación.");
+  setCellByHeader_(sheet, headers, row, "$ MONTO TOTAL Airbnb", normalized);
+  return { ok: true, row_number: row, record_id: recordId, monto_total_airbnb: normalized };
+}
+
+// Copia idéntica de updateFacturadoTotal_ pero para "$ Comisión Airbnb"
+function updateComisionAirbnb_(data) {
+  const recordId = safe_(data.record_id || data.id || data.row_id);
+  const rawValue = safe_(data.comision_airbnb);
+  if (!recordId) throw new Error("Falta record_id.");
+  const normalized = String(rawValue || "").trim();
+  if (normalized && isNaN(Number(normalized.replace(/,/g, "")))) throw new Error("Monto debe ser numérico.");
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = findRowByValue_(sheet, headers, "ID", recordId);
+  if (!row) row = findRowByRowNumber_(sheet, recordId);
+  if (!row) throw new Error("No se encontró la reservación.");
+  setCellByHeader_(sheet, headers, row, "$ Comisión Airbnb", normalized);
+  return { ok: true, row_number: row, record_id: recordId, comision_airbnb: normalized };
+}
+
+// Acción GET genérica para actualizar UNA celda de Reservaciones por record_id.
+// Uso: ?action=update_reservacion_cell&record_id=...&header=$%20MONTO%20TOTAL%20Airbnb&value=600
+// Es defensiva: si el header no existe en la hoja devuelve ok:false con detalle.
+function updateReservacionCell_(params) {
+  const recordId = safe_(params.record_id || params.id || params.row_id);
+  const headerName = safe_(params.header);
+  const rawValue = safe_(params.value);
+  if (!recordId) return { ok: false, error: "Falta record_id." };
+  if (!headerName) return { ok: false, error: "Falta header." };
+  const normalized = String(rawValue || "").trim();
+  if (normalized && isNaN(Number(normalized.replace(/,/g, "")))) {
+    return { ok: false, error: "Valor debe ser numérico.", header: headerName };
+  }
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  if (headers.indexOf(headerName) < 0) {
+    return { ok: false, error: "Header no encontrado en la hoja.", header: headerName, available: headers.filter(h => /airbnb|facturado/i.test(h)) };
+  }
+  let row = findRowByValue_(sheet, headers, "ID", recordId);
+  if (!row) row = findRowByRowNumber_(sheet, recordId);
+  if (!row) return { ok: false, error: "No se encontró la reservación.", record_id: recordId };
+  const written = setCellByHeader_(sheet, headers, row, headerName, normalized);
+  return { ok: written, record_id: recordId, row_number: row, header: headerName, value: normalized };
+}
+
+// Sincroniza los 3 campos del bloque Airbnb en una sola llamada:
+// "$ MONTO TOTAL Airbnb", "$ Comisión Airbnb" y "$ Monto facturado Total".
+function updateAirbnbAmounts_(data) {
+  const recordId = safe_(data.record_id || data.id || data.row_id);
+  if (!recordId) throw new Error("Falta record_id.");
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = findRowByValue_(sheet, headers, "ID", recordId);
+  if (!row) row = findRowByRowNumber_(sheet, recordId);
+  if (!row) throw new Error("No se encontró la reservación.");
+  const norm = v => {
+    const s = String(safe_(v) || "").trim();
+    if (s && isNaN(Number(s.replace(/,/g, "")))) throw new Error("Monto debe ser numérico.");
+    return s;
+  };
+  const total    = norm(data.monto_total_airbnb);
+  const comision = norm(data.comision_airbnb);
+  const facturado = norm(data.monto_facturado_total);
+  setCellByHeader_(sheet, headers, row, "$ MONTO TOTAL Airbnb", total);
+  setCellByHeader_(sheet, headers, row, "$ Comisión Airbnb", comision);
+  setCellByHeader_(sheet, headers, row, "$ Monto facturado Total", facturado);
+  return {
+    ok: true, row_number: row, record_id: recordId,
+    monto_total_airbnb: total, comision_airbnb: comision, monto_facturado_total: facturado
+  };
+}
+
+function updateFacturapiFolio_(data) {
+  const recordId = safe_(data.record_id || data.id || data.row_id);
+  const rawValue = safe_(data.folio_facturapi);
+  if (!recordId) throw new Error("Falta record_id.");
+  const normalized = String(rawValue || "").trim();
+  if (!normalized || isNaN(Number(normalized))) throw new Error("Folio debe ser numérico.");
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = findRowByValue_(sheet, headers, "ID", recordId);
+  if (!row) row = findRowByRowNumber_(sheet, recordId);
+  if (!row) throw new Error("No se encontró la reservación.");
+  // Detectar transición vacío → no-vacío para disparar notificación al huésped.
+  const prevRow = readRow_(sheet, headers, row);
+  const prevFolio = String(prevRow["Folio facturapi"] || "").trim();
+  setCellByHeader_(sheet, headers, row, "Folio facturapi", normalized);
+  if (!prevFolio && normalized) {
+    const updatedRow = readRow_(sheet, headers, row);
+    const phoneKey = String(updatedRow["Cel/Whatsapp (principal)"] || "").replace(/\D/g, "");
+    if (phoneKey) notifyTicketIssued_(phoneKey, updatedRow);
+  }
+  return { ok: true, row_number: row, record_id: recordId, folio_facturapi: normalized };
+}
+
+function updateFacturapiFolioStrict_(data) {
+  const recordId = safe_(data.record_id || data.id || data.row_id);
+  const explicitRow = safe_(data.row_number || data.rowNumber);
+  const externalId = safe_(data.external_id || data.externalId);
+  const rawValue = safe_(data.folio_facturapi || data.folio);
+  if (!recordId && !externalId && !explicitRow) throw new Error("Falta identificador de reservación.");
+  const normalized = String(rawValue || "").trim();
+  if (!normalized || isNaN(Number(normalized))) throw new Error("Folio debe ser numérico.");
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = null;
+  if (explicitRow) row = findRowByRowNumber_(sheet, explicitRow);
+  if (!row && recordId) { row = findRowByValue_(sheet, headers, "ID", recordId); if (!row) row = findRowByRowNumber_(sheet, recordId); }
+  if (!row && externalId) {
+    const clean = String(externalId).replace(/^CHECKIN-/, "").trim();
+    row = findRowByValue_(sheet, headers, "ID", clean);
+    if (!row) row = findRowByRowNumber_(sheet, clean);
+  }
+  if (!row) throw new Error("No se encontró la reservación.");
+  const targetCol = headers.indexOf("Folio facturapi");
+  if (targetCol < 0) throw new Error('No existe la columna "Folio facturapi"');
+  // Detectar transición vacío → no-vacío para disparar notificación al huésped.
+  const prevFolio = String(readRow_(sheet, headers, row)["Folio facturapi"] || "").trim();
+  sheet.getRange(row, targetCol + 1).setNumberFormat("@");
+  sheet.getRange(row, targetCol + 1).setValue(normalized);
+  SpreadsheetApp.flush();
+  if (!prevFolio && normalized) {
+    const updatedRow = readRow_(sheet, headers, row);
+    const phoneKey = String(updatedRow["Cel/Whatsapp (principal)"] || "").replace(/\D/g, "");
+    if (phoneKey) notifyTicketIssued_(phoneKey, updatedRow);
+  }
+  return {
+    ok: true,
+    row_number: row,
+    record_id: recordId || String(externalId).replace(/^CHECKIN-/, "").trim(),
+    folio_facturapi: normalized,
+    target_column: "Folio facturapi",
+    sheet_name: sheet.getName(),
+    spreadsheet_name: getSpreadsheet_().getName()
+  };
+}
+
+function saveFacturapiPdf_(data) {
+  const recordId = safe_(data.record_id || data.id || data.row_id);
+  const explicitRow = safe_(data.row_number || data.rowNumber);
+  const externalId = safe_(data.external_id || data.externalId);
+  const receiptId = safe_(data.receipt_id || data.receiptId);
+  const folio = safe_(data.folio_facturapi || data.folio);
+  const fileObj = data.file;
+  if (!recordId && !externalId && !explicitRow) throw new Error("Falta identificación.");
+  if (!receiptId && !folio) throw new Error("Falta receipt_id o folio.");
+  if (!fileObj || !fileObj.base64) throw new Error("Sin PDF.");
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = null;
+  if (explicitRow) row = findRowByRowNumber_(sheet, explicitRow);
+  if (!row && recordId) { row = findRowByValue_(sheet, headers, "ID", recordId); if (!row) row = findRowByRowNumber_(sheet, recordId); }
+  if (!row && externalId) {
+    const clean = String(externalId).replace(/^CHECKIN-/, "").trim();
+    row = findRowByValue_(sheet, headers, "ID", clean);
+    if (!row) row = findRowByRowNumber_(sheet, clean);
+  }
+  if (!row) throw new Error("No se encontró la reservación.");
+  const resRow = readRow_(sheet, headers, row);
+  const ingreso = parseDateSafe_(resRow["Fecha de ingreso"]) || new Date();
+  const year = Utilities.formatDate(ingreso, Session.getScriptTimeZone(), "yyyy");
+  const month = Utilities.formatDate(ingreso, Session.getScriptTimeZone(), "MM");
+  const propiedad = cleanFolderName_(resRow["Propiedad"] || "Sin propiedad");
+  const guestName = cleanFolderName_(resRow["Nombre de la persona que hizo la reservación"] || "Sin nombre");
+  const pdfName = cleanFolderName_(folio ? "ticket_facturapi_folio_" + folio : "ticket_facturapi_" + receiptId) + ".pdf";
+  const fileInfo = saveFacturapiPdfToDrive_(
+    { fileName: pdfName, mimeType: fileObj.mimeType || "application/pdf", base64: fileObj.base64 },
+    [year, month, propiedad, guestName, "Tickets Facturapi"]
+  );
+  setCellByHeader_(sheet, headers, row, "Ticket facturapi url", fileInfo.url);
+  setCellByHeader_(sheet, headers, row, "Ticket facturapi id archivo", fileInfo.id);
+  setCellByHeader_(sheet, headers, row, "Ticket facturapi nombre archivo", fileInfo.name);
+  setCellByHeader_(sheet, headers, row, "Ticket facturapi carpeta url", fileInfo.folder_url);
+  setCellByHeader_(sheet, headers, row, "Ticket facturapi carpeta ruta", fileInfo.folder_path);
+  SpreadsheetApp.flush();
+  return {
+    ok: true,
+    row_number: row,
+    record_id: recordId || String(externalId).replace(/^CHECKIN-/, "").trim(),
+    receipt_id: receiptId,
+    folio_facturapi: folio,
+    ticket_facturapi_url: fileInfo.url,
+    file_id: fileInfo.id,
+    file_name: fileInfo.name,
+    folder_url: fileInfo.folder_url,
+    folder_path: fileInfo.folder_path,
+    sheet_name: sheet.getName(),
+    spreadsheet_name: getSpreadsheet_().getName()
+  };
+}
+
+function getNextFacturapiFolio_() {
+  ensureNormalizedSheets_();
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  const col = headers.indexOf("Folio facturapi");
+  let maxFolio = 0;
+  if (col >= 0 && sheet.getLastRow() > 1) {
+    const values = sheet.getRange(2, col + 1, sheet.getLastRow() - 1, 1).getDisplayValues();
+    values.forEach(r => {
+      const v = String(r[0] || "").replace(/[^0-9]/g, "");
+      const n = Number(v || 0);
+      if (n > maxFolio) maxFolio = n;
+    });
+  }
+  return { ok: true, max_folio: maxFolio, next_folio: maxFolio + 1, sheet_name: RESERVACIONES_SHEET, spreadsheet_name: getSpreadsheet_().getName() };
+}
+
+// ─── READS con JOIN ─────────────────────────────────────────────────────────
+
+function getPerfilByCel_(cel) {
+  const sheet = getSheet_(PERFILES_SHEET);
+  const headers = getHeaders_(sheet);
+  const row = findRowByPhone_(sheet, headers, cel);
+  if (!row) return null;
+  return readRow_(sheet, headers, row);
+}
+
+function getVehiculoByCel_(cel) {
+  const sheet = getSheet_(VEHICULOS_SHEET);
+  const headers = getHeaders_(sheet);
+  const row = findRowByPhone_(sheet, headers, cel);
+  if (!row) return null;
+  return readRow_(sheet, headers, row);
+}
+
+function mergeReservacionWithProfile_(resRow, perfil, vehiculo) {
+  const p = perfil || {};
+  return {
+    "ID": resRow["ID"] || "",
+    "row_number": resRow.__row_number || "",
+    "Fecha de ingreso": resRow["Fecha de ingreso"] || "",
+    "Hora estimada de llegada": resRow["Hora estimada de llegada"] || "",
+    "Fecha de salida": resRow["Fecha de salida"] || "",
+    "Hora estimada de salida": resRow["Hora estimada de salida"] || "",
+    "Nombre de la persona que hizo la reservación": resRow["Nombre de la persona que hizo la reservación"] || "",
+    "Medio de reservación": resRow["Medio de reservación"] || "",
+    "Cel/Whatsapp (principal)": resRow["Cel/Whatsapp (principal)"] || "",
+    "¿Requiere factura?": p["¿Requiere factura?"] || "",
+    "($) Monto Total pagado": resRow["($) Monto Total pagado"] || "",
+    "$ Monto facturado Total": resRow["$ Monto facturado Total"] || "",
+    "Folio facturapi": resRow["Folio facturapi"] || "",
+    "Ticket facturapi url": resRow["Ticket facturapi url"] || "",
+    "Razón social": p["Razón social"] || "",
+    "Régimen fiscal": p["Régimen fiscal"] || "",
+    "Forma de pago": resRow["Forma de pago"] || "",
+    "Correo electrónico": resRow["Correo electrónico"] || p["Correo electrónico para el envío de la factura"] || "",
+    "Propiedad": resRow["Propiedad"] || "",
+    "# Departamento": resRow["# Departamento"] || "",
+    "# Huéspedes": resRow["# Huéspedes"] || ""
+  };
+}
+
+function listGuestRecords_(params) {
+  ensureNormalizedSheets_();
+  const { rows: reservaciones } = getAllRows_(RESERVACIONES_SHEET);
+  const { rows: perfiles } = getAllRows_(PERFILES_SHEET);
+  const { rows: vehiculos } = getAllRows_(VEHICULOS_SHEET);
+
+  const perfilByCel = {};
+  perfiles.forEach(p => {
+    const key = normalizePhone_(p["Cel/Whatsapp (principal)"]);
+    if (key) perfilByCel[key] = p;
+  });
+  const vehiculoByCel = {};
+  vehiculos.forEach(v => {
+    const key = normalizePhone_(v["Cel/Whatsapp (principal)"]);
+    if (key) vehiculoByCel[key] = v;
+  });
+
+  const joined = reservaciones.map(r => {
+    const key = normalizePhone_(r["Cel/Whatsapp (principal)"]);
+    return { res: r, perfil: perfilByCel[key] || null, vehiculo: vehiculoByCel[key] || null };
+  });
+
+  const filtered = joined.filter(j => {
+    const r = j.res;
+    const p = j.perfil || {};
+    return matchDateFrom_(r["Fecha de ingreso"], params.fecha_entrada_desde) &&
+      matchDateTo_(r["Fecha de ingreso"], params.fecha_entrada_hasta) &&
+      matchDateFrom_(r["Fecha de salida"], params.fecha_salida_desde) &&
+      matchDateTo_(r["Fecha de salida"], params.fecha_salida_hasta) &&
+      matchContains_(r["Nombre de la persona que hizo la reservación"], params.nombre_reservacion) &&
+      matchContains_(r["Medio de reservación"], params.medio_reservacion) &&
+      matchContainsPhone_(r["Cel/Whatsapp (principal)"], params.celular_principal) &&
+      matchEqualsNormalized_(normalizeFacturaForFilter_(p["¿Requiere factura?"]), params.requiere_factura) &&
+      matchContains_(p["Razón social"], params.razon_social) &&
+      matchContains_(r["Forma de pago"], params.forma_pago) &&
+      matchContains_(r["Correo electrónico"] || p["Correo electrónico para el envío de la factura"], params.correo);
+  });
+
+  filtered.sort((a, b) => {
+    const da = parseDateSafe_(a.res["Fecha de ingreso"]);
+    const db = parseDateSafe_(b.res["Fecha de ingreso"]);
+    return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
+  });
+
+  const total = filtered.length;
+  const pageSize = Math.max(1, Math.min(Number(params.page_size || 25), 200));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.max(1, Math.min(Number(params.page || 1), totalPages || 1));
+  const start = (page - 1) * pageSize;
+  const pageRows = filtered.slice(start, start + pageSize).map(j => mergeReservacionWithProfile_(j.res, j.perfil, j.vehiculo));
+
+  return {
+    ok: true,
+    rows: pageRows,
+    total,
+    page,
+    page_size: pageSize,
+    total_pages: Math.max(1, totalPages),
+    total_con_factura: filtered.filter(j => normalizeText_(normalizeFacturaForFilter_((j.perfil || {})["¿Requiere factura?"])) === "si").length,
+    total_sin_factura: filtered.filter(j => normalizeText_(normalizeFacturaForFilter_((j.perfil || {})["¿Requiere factura?"])) === "no").length,
+    total_medios_unicos: uniqueNonEmpty_(filtered.map(j => j.res["Medio de reservación"])).length
+  };
+}
+
+function getGuestFilterOptions_() {
+  ensureNormalizedSheets_();
+  const { rows: reservaciones } = getAllRows_(RESERVACIONES_SHEET);
+  const { rows: perfiles } = getAllRows_(PERFILES_SHEET);
+  return {
+    ok: true,
+    options: {
+      nombres_reservacion: uniqueNonEmpty_(reservaciones.map(r => r["Nombre de la persona que hizo la reservación"])),
+      medios_reservacion: uniqueNonEmpty_(reservaciones.map(r => r["Medio de reservación"])),
+      celulares_principales: uniqueNonEmpty_(perfiles.map(p => p["Cel/Whatsapp (principal)"])),
+      razones_sociales: uniqueNonEmpty_(perfiles.map(p => p["Razón social"])),
+      formas_pago: uniqueNonEmpty_(reservaciones.map(r => r["Forma de pago"])),
+      correos: uniqueNonEmpty_(
+        reservaciones.map(r => r["Correo electrónico"])
+          .concat(perfiles.map(p => p["Correo electrónico para el envío de la factura"]))
+      )
+    }
+  };
+}
+
+function getGuestRecordDetail_(params) {
+  ensureNormalizedSheets_();
+  const recordId = safe_(params.record_id);
+  if (!recordId) return { ok: false, error: "Falta record_id." };
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  let rowNum = findRowByValue_(sheet, headers, "ID", recordId);
+  if (!rowNum) rowNum = findRowByRowNumber_(sheet, recordId);
+  if (!rowNum) return { ok: false, error: "Reservación no encontrada." };
+  const resRow = readRow_(sheet, headers, rowNum);
+  const cel = resRow["Cel/Whatsapp (principal)"];
+  const perfil = cel ? getPerfilByCel_(cel) : null;
+  const vehiculo = cel ? getVehiculoByCel_(cel) : null;
+  const merged = {};
+  if (perfil) Object.keys(perfil).forEach(k => { if (k !== "__row_number") merged[k] = perfil[k]; });
+  if (vehiculo) Object.keys(vehiculo).forEach(k => { if (k !== "__row_number") merged[k] = vehiculo[k]; });
+  Object.keys(resRow).forEach(k => { if (k !== "__row_number") merged[k] = resRow[k]; });
+  merged.__row_number = rowNum;
+  return { ok: true, record: merged };
+}
+
+function debugDashboard_() {
+  ensureNormalizedSheets_();
+  const ss = getSpreadsheet_();
+  const p = getSheet_(PERFILES_SHEET);
+  const v = getSheet_(VEHICULOS_SHEET);
+  const r = getSheet_(RESERVACIONES_SHEET);
+  return {
+    ok: true,
+    spreadsheet_name: ss.getName(),
+    perfiles_count: Math.max(0, p.getLastRow() - 1),
+    vehiculos_count: Math.max(0, v.getLastRow() - 1),
+    reservaciones_count: Math.max(0, r.getLastRow() - 1),
+    perfiles_headers: getHeaders_(p),
+    vehiculos_headers: getHeaders_(v),
+    reservaciones_headers: getHeaders_(r),
+    schema: "normalized"
+  };
+}
+
+// ─── MIGRACIÓN ONE-TIME ─────────────────────────────────────────────────────
+
+function migrateToNormalizedSchema() {
+  ensureNormalizedSheets_();
+  const ss = getSpreadsheet_();
+  let src = ss.getSheetByName(LEGACY_SHEET);
+  if (!src) src = ss.getSheetByName(LEGACY_ARCHIVE);
+  if (!src) return { ok: false, error: "No se encontró la hoja '" + LEGACY_SHEET + "' ni '" + LEGACY_ARCHIVE + "'." };
+
+  const perfilesSh = getSheet_(PERFILES_SHEET);
+  const vehiculosSh = getSheet_(VEHICULOS_SHEET);
+  const reservacionesSh = getSheet_(RESERVACIONES_SHEET);
+
+  if (perfilesSh.getLastRow() > 1 || vehiculosSh.getLastRow() > 1 || reservacionesSh.getLastRow() > 1) {
+    return {
+      ok: false,
+      error: "Las hojas normalizadas ya tienen datos. La migración solo debe correrse una vez. Bórralas manualmente si quieres re-migrar.",
+      perfiles: Math.max(0, perfilesSh.getLastRow() - 1),
+      vehiculos: Math.max(0, vehiculosSh.getLastRow() - 1),
+      reservaciones: Math.max(0, reservacionesSh.getLastRow() - 1)
+    };
+  }
+
+  const srcHeaders = getHeaders_(src);
+  const srcLast = src.getLastRow();
+  if (srcLast < 2) {
+    if (src.getName() === LEGACY_SHEET) src.setName(LEGACY_ARCHIVE);
+    return { ok: true, migrated: 0, message: "Hoja vacía. Renombrada a backup." };
+  }
+  const srcValues = src.getRange(2, 1, srcLast - 1, srcHeaders.length).getDisplayValues();
+  const srcRows = srcValues.map(rowValues => {
+    const obj = {};
+    srcHeaders.forEach((h, i) => obj[h] = rowValues[i]);
+    return obj;
+  });
+
+  function pick(row, aliases) {
+    for (let i = 0; i < aliases.length; i++) {
+      if (Object.prototype.hasOwnProperty.call(row, aliases[i])) {
+        const v = row[aliases[i]];
+        if (v != null && String(v).trim() !== "") return String(v);
+      }
+    }
+    return "";
+  }
+
+  const byCel = {};
+  srcRows.forEach(r => {
+    const cel = pick(r, ["Cel/Whatsapp (principal)", "Celular principal"]);
+    if (!cel) return;
+    const key = normalizePhone_(cel);
+    if (!byCel[key]) byCel[key] = { cel, rows: [] };
+    byCel[key].rows.push(r);
+  });
+
+  const perfilesHeaders = getHeaders_(perfilesSh);
+  const vehHeaders = getHeaders_(vehiculosSh);
+  const resHeaders = getHeaders_(reservacionesSh);
+  let perfilesCount = 0, vehiculosCount = 0, reservacionesCount = 0;
+  const idVehiculoByCel = {};
+
+  Object.keys(byCel).forEach(key => {
+    const group = byCel[key];
+    const latest = group.rows.slice().sort((a, b) => {
+      const da = parseDateSafe_(pick(a, ["Marca temporal", "Fecha de ingreso"]));
+      const db = parseDateSafe_(pick(b, ["Marca temporal", "Fecha de ingreso"]));
+      return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
+    })[0];
+
+    function pickMerged(aliases) {
+      const list = [latest].concat(group.rows);
+      for (let i = 0; i < list.length; i++) {
+        const v = pick(list[i], aliases);
+        if (v) return v;
+      }
+      return "";
+    }
+
+    const perfilMap = {
+      "ID_Perfil": Utilities.getUuid(),
+      "Cel/Whatsapp (principal)": group.cel,
+      "Lada celular huésped": pickMerged(["Lada celular huésped"]),
+      "Nombre del huésped": (pickMerged(["Nombres de TODOS los huéspedes (separados por comas)"]).split(",")[0] || "").trim() || pickMerged(["Nombre de la persona que hizo la reservación"]),
+      "Lada contacto emergencia": pickMerged(["Lada contacto emergencia", "Lada contacto de emergencia"]),
+      "Cel/Whatsapp (contacto de emergencia)": pickMerged(["Cel/Whatsapp (contacto de emergencia)"]),
+      "Tipo de identificación": pickMerged(["Tipo de identificación"]),
+      "Identificación otro": pickMerged(["Identificación otro"]),
+      "INE frontal": pickMerged(["INE frontal"]),
+      "Link INE frontal": pickMerged(["Link INE frontal"]),
+      "ID archivo INE frontal": pickMerged(["ID archivo INE frontal"]),
+      "Nombre archivo INE frontal": pickMerged(["Nombre archivo INE frontal"]),
+      "INE trasero": pickMerged(["INE trasero"]),
+      "Link INE trasero": pickMerged(["Link INE trasero"]),
+      "ID archivo INE trasero": pickMerged(["ID archivo INE trasero"]),
+      "Nombre archivo INE trasero": pickMerged(["Nombre archivo INE trasero"]),
+      "Identificación única": pickMerged(["Identificación única"]),
+      "Link identificación única": pickMerged(["Link identificación única", "Link identificación"]),
+      "ID archivo identificación única": pickMerged(["ID archivo identificación única"]),
+      "Nombre archivo identificación": pickMerged(["Nombre archivo identificación"]),
+      "¿Requiere factura?": normalizeYesNo_(pickMerged(["¿Requiere factura?"])),
+      "Razón social": pickMerged(["Razón social"]),
+      "RFC": pickMerged(["RFC"]),
+      "Régimen fiscal": pickMerged(["Régimen fiscal"]),
+      "Régimen otro": pickMerged(["Régimen otro"]),
+      "Código Postal": pickMerged(["Código Postal"]),
+      "Correo electrónico para el envío de la factura": pickMerged(["Correo electrónico para el envío de la factura", "Correo electrónico"]),
+      "Fecha creación": new Date(),
+      "Fecha actualización": new Date()
+    };
+    appendRow_(perfilesSh, perfilesHeaders, perfilMap);
+    perfilesCount++;
+
+    const tieneVeh = group.rows.some(r => normalizeYesNo_(pick(r, ["¿Cuenta con vehículo?"])) === "Sí");
+    if (tieneVeh) {
+      const idVeh = Utilities.getUuid();
+      idVehiculoByCel[key] = idVeh;
+      const vehMap = {
+        "ID_Vehiculo": idVeh,
+        "Cel/Whatsapp (principal)": group.cel,
+        "¿Cuenta con vehículo?": "Sí",
+        "Marca vehículo": pickMerged(["Marca vehículo"]),
+        "Marca vehículo otro": pickMerged(["Marca vehículo otro"]),
+        "Modelo vehículo": pickMerged(["Modelo vehículo"]),
+        "Modelo vehículo otro": pickMerged(["Modelo vehículo otro"]),
+        "Color vehículo": pickMerged(["Color vehículo"]),
+        "Placas": pickMerged(["Placas"]),
+        "Hora habitual de salida": pickMerged(["Hora habitual de salida"]),
+        "Foto vehículo": pickMerged(["Foto vehículo"]),
+        "Link foto vehículo": pickMerged(["Link foto vehículo"]),
+        "ID archivo foto vehículo": pickMerged(["ID archivo foto vehículo"]),
+        "Nombre archivo vehículo": pickMerged(["Nombre archivo vehículo"]),
+        "Fecha actualización": new Date()
+      };
+      appendRow_(vehiculosSh, vehHeaders, vehMap);
+      vehiculosCount++;
+    }
+  });
+
+  srcRows.forEach(r => {
+    const cel = pick(r, ["Cel/Whatsapp (principal)"]);
+    if (!cel) return;
+    const key = normalizePhone_(cel);
+    const idVeh = idVehiculoByCel[key] || "";
+    const resMap = {
+      "ID": pick(r, ["ID"]) || Utilities.getUuid(),
+      "Cel/Whatsapp (principal)": cel,
+      "ID_Vehiculo": idVeh,
+      "Marca temporal": pick(r, ["Marca temporal"]),
+      "MES": pick(r, ["MES"]),
+      "Mes correspondiente": pick(r, ["Mes correspondiente"]),
+      "Tipo de factura": pick(r, ["Tipo de factura"]),
+      "Medio de reservación": pick(r, ["Medio de reservación"]),
+      "Cuenta": pick(r, ["Cuenta"]),
+      "Propiedad": pick(r, ["Propiedad"]),
+      "Propiedad otra": pick(r, ["Propiedad otra"]),
+      "# Departamento": pick(r, ["# Departamento"]),
+      "Motivo de tu hospedaje": pick(r, ["Motivo de tu hospedaje"]),
+      "Motivo otro": pick(r, ["Motivo otro"]),
+      "Fecha de ingreso": pick(r, ["Fecha de ingreso"]),
+      "Hora estimada de llegada": pick(r, ["Hora estimada de llegada"]),
+      "Fecha de salida": pick(r, ["Fecha de salida"]),
+      "Hora estimada de salida": pick(r, ["Hora estimada de salida"]),
+      "# Noches": pick(r, ["# Noches"]),
+      "# Huéspedes": pick(r, ["# Huéspedes"]),
+      "Nombres de TODOS los huéspedes (separados por comas)": pick(r, ["Nombres de TODOS los huéspedes (separados por comas)"]),
+      "Nombre de la persona que hizo la reservación": pick(r, ["Nombre de la persona que hizo la reservación"]),
+      "Forma de pago": pick(r, ["Forma de pago"]),
+      "Divisa monto pagado": pick(r, ["Divisa monto pagado"]),
+      "Comprobante transferencia": pick(r, ["Comprobante transferencia"]),
+      "Link comprobante transferencia": pick(r, ["Link comprobante transferencia"]),
+      "ID archivo comprobante transferencia": pick(r, ["ID archivo comprobante transferencia"]),
+      "Nombre archivo comprobante transferencia": pick(r, ["Nombre archivo comprobante transferencia"]),
+      "Correo electrónico": pick(r, ["Correo electrónico"]),
+      "...enviar copia al siguiente correo:": pick(r, ["...enviar copia al siguiente correo:"]),
+      "$ Noches": pick(r, ["$ Noches"]),
+      "$ Cuota de limpieza": pick(r, ["$ Cuota de limpieza"]),
+      "$ MONTO TOTAL Airbnb": pick(r, ["$ MONTO TOTAL Airbnb"]),
+      "$ Comisión Airbnb": pick(r, ["$ Comisión Airbnb"]),
+      "$ Monto antes de impuestos": pick(r, ["$ Monto antes de impuestos"]),
+      "($) Monto Total pagado": pick(r, ["($) Monto Total pagado"]),
+      "$ Monto facturado Total": pick(r, ["$ Monto facturado Total"]),
+      "Folio facturapi": pick(r, ["Folio facturapi"]),
+      "Folio CFDI": pick(r, ["Folio CFDI"]),
+      "Folio Relación": pick(r, ["Folio Relación"]),
+      "Folio complemento de pago": pick(r, ["Folio complemento de pago"]),
+      "Estatus": pick(r, ["Estatus"]),
+      "Fecha de emisión": pick(r, ["Fecha de emisión"]),
+      "Concepto Factura": pick(r, ["Concepto Factura"]),
+      "Método de pago": pick(r, ["Método de pago"]),
+      "Ticket facturapi url": pick(r, ["Ticket facturapi url"]),
+      "Ticket facturapi id archivo": pick(r, ["Ticket facturapi id archivo"]),
+      "Ticket facturapi nombre archivo": pick(r, ["Ticket facturapi nombre archivo"]),
+      "Ticket facturapi carpeta url": pick(r, ["Ticket facturapi carpeta url"]),
+      "Ticket facturapi carpeta ruta": pick(r, ["Ticket facturapi carpeta ruta"]),
+      "Envía tus comentarios": pick(r, ["Envía tus comentarios"]),
+      "Envía tus comentarios con relación a la factura": pick(r, ["Envía tus comentarios con relación a la factura"]),
+      "Notas": pick(r, ["Notas"]),
+      "Enviado por": pick(r, ["Enviado por"])
+    };
+    appendRow_(reservacionesSh, resHeaders, resMap);
+    reservacionesCount++;
+  });
+
+  if (src.getName() === LEGACY_SHEET) {
+    let archiveName = LEGACY_ARCHIVE;
+    if (ss.getSheetByName(archiveName)) {
+      archiveName = LEGACY_ARCHIVE + " " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+    }
+    src.setName(archiveName);
+  }
+
+  return {
+    ok: true,
+    perfiles_creados: perfilesCount,
+    vehiculos_creados: vehiculosCount,
+    reservaciones_creadas: reservacionesCount,
+    backup_sheet: src.getName(),
+    spreadsheet: ss.getName(),
+    message: "Migración completada. La hoja original quedó como backup intacto."
+  };
+}
+
+// ─── RESYNC INCREMENTAL DESDE LEGACY ─────────────────────────────────────────
+// Lee la hoja "Check in (archivo)" y agrega a las hojas normalizadas SOLO los
+// registros que aún NO existan. NO destruye datos: los perfiles/vehículos/
+// reservaciones ya guardadas por la app viva se preservan tal cual.
+//
+// Detección de duplicados:
+//   - Perfiles: por celular normalizado.
+//   - Vehículos: por celular normalizado.
+//   - Reservaciones: primero por columna "ID" si coincide; si no, por la combinación
+//     (celular + fecha de ingreso + # depto) — heurística suficiente porque un
+//     mismo huésped no toma 2 deptos distintos el mismo día.
+function resyncFromLegacyArchive() {
+  ensureNormalizedSheets_();
+  const ss = getSpreadsheet_();
+  const src = ss.getSheetByName(LEGACY_ARCHIVE) || ss.getSheetByName(LEGACY_SHEET);
+  if (!src) return { ok: false, error: "No se encontró la hoja '" + LEGACY_ARCHIVE + "' ni '" + LEGACY_SHEET + "'." };
+
+  const srcHeaders = getHeaders_(src);
+  const srcLast = src.getLastRow();
+  if (srcLast < 2) return { ok: true, message: "Hoja legacy vacía. Nada que sincronizar." };
+  const srcValues = src.getRange(2, 1, srcLast - 1, srcHeaders.length).getDisplayValues();
+  const srcRows = srcValues.map(rowValues => {
+    const obj = {};
+    srcHeaders.forEach((h, i) => obj[h] = rowValues[i]);
+    return obj;
+  });
+
+  // Helper de extracción robusta
+  function pick(row, aliases) {
+    for (let i = 0; i < aliases.length; i++) {
+      if (Object.prototype.hasOwnProperty.call(row, aliases[i])) {
+        const v = row[aliases[i]];
+        if (v != null && String(v).trim() !== "") return String(v);
+      }
+    }
+    return "";
+  }
+
+  // Cargar hojas normalizadas existentes
+  const perfilesSh = getSheet_(PERFILES_SHEET);
+  const perfilesHeaders = getHeaders_(perfilesSh);
+  const perfilesExistentes = getAllRows_(PERFILES_SHEET).rows;
+  const perfilesByPhone = {};
+  perfilesExistentes.forEach(p => {
+    const key = normalizePhone_(p["Cel/Whatsapp (principal)"]);
+    if (key) perfilesByPhone[key] = p;
+  });
+
+  const vehiculosSh = getSheet_(VEHICULOS_SHEET);
+  const vehiculosHeaders = getHeaders_(vehiculosSh);
+  const vehiculosExistentes = getAllRows_(VEHICULOS_SHEET).rows;
+  const vehiculosByPhone = {};
+  vehiculosExistentes.forEach(v => {
+    const key = normalizePhone_(v["Cel/Whatsapp (principal)"]);
+    if (key) vehiculosByPhone[key] = v;
+  });
+
+  const reservacionesSh = getSheet_(RESERVACIONES_SHEET);
+  const reservacionesHeaders = getHeaders_(reservacionesSh);
+  const reservacionesExistentes = getAllRows_(RESERVACIONES_SHEET).rows;
+  const reservacionesById = {};
+  const reservacionesByKey = {};
+  function resvKey(cel, fechaIngreso, depto) {
+    return normalizePhone_(cel) + "|" + String(fechaIngreso || "").trim() + "|" + String(depto || "").trim();
+  }
+  reservacionesExistentes.forEach(r => {
+    const rid = String(r.ID || "").trim();
+    if (rid) reservacionesById[rid] = r;
+    const k = resvKey(r["Cel/Whatsapp (principal)"], r["Fecha de ingreso"], r["# Departamento"]);
+    reservacionesByKey[k] = r;
+  });
+
+  // Agrupar legacy por celular (para perfiles + vehículos)
+  const byCel = {};
+  srcRows.forEach(r => {
+    const cel = pick(r, ["Cel/Whatsapp (principal)", "Celular principal"]);
+    if (!cel) return;
+    const key = normalizePhone_(cel);
+    if (!byCel[key]) byCel[key] = { cel, rows: [] };
+    byCel[key].rows.push(r);
+  });
+
+  let perfilesCreados = 0, vehiculosCreados = 0;
+  let reservacionesCreadas = 0, reservacionesSkip = 0;
+
+  // ───────── Perfiles + Vehículos ─────────
+  Object.keys(byCel).forEach(key => {
+    const group = byCel[key];
+    const latest = group.rows.slice().sort((a, b) => {
+      const da = parseDateSafe_(pick(a, ["Marca temporal", "Fecha de ingreso"]));
+      const db = parseDateSafe_(pick(b, ["Marca temporal", "Fecha de ingreso"]));
+      return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
+    })[0];
+    function pickMerged(aliases) {
+      const list = [latest].concat(group.rows);
+      for (let i = 0; i < list.length; i++) {
+        const v = pick(list[i], aliases);
+        if (v) return v;
+      }
+      return "";
+    }
+
+    // Perfil: solo crear si no existe (preservar lo capturado por la app)
+    if (!perfilesByPhone[key]) {
+      const perfilMap = {
+        "ID_Perfil": Utilities.getUuid(),
+        "Cel/Whatsapp (principal)": group.cel,
+        "Lada celular huésped": pickMerged(["Lada celular huésped"]),
+        "Nombre del huésped": (pickMerged(["Nombres de TODOS los huéspedes (separados por comas)"]).split(",")[0] || "").trim() || pickMerged(["Nombre de la persona que hizo la reservación"]),
+        "Lada contacto emergencia": pickMerged(["Lada contacto emergencia", "Lada contacto de emergencia"]),
+        "Cel/Whatsapp (contacto de emergencia)": pickMerged(["Cel/Whatsapp (contacto de emergencia)"]),
+        "Tipo de identificación": pickMerged(["Tipo de identificación"]),
+        "Identificación otro": pickMerged(["Identificación otro"]),
+        "INE frontal": pickMerged(["INE frontal"]),
+        "Link INE frontal": pickMerged(["Link INE frontal"]),
+        "ID archivo INE frontal": pickMerged(["ID archivo INE frontal"]),
+        "Nombre archivo INE frontal": pickMerged(["Nombre archivo INE frontal"]),
+        "INE trasero": pickMerged(["INE trasero"]),
+        "Link INE trasero": pickMerged(["Link INE trasero"]),
+        "ID archivo INE trasero": pickMerged(["ID archivo INE trasero"]),
+        "Nombre archivo INE trasero": pickMerged(["Nombre archivo INE trasero"]),
+        "Identificación única": pickMerged(["Identificación única"]),
+        "Link identificación única": pickMerged(["Link identificación única", "Link identificación"]),
+        "ID archivo identificación única": pickMerged(["ID archivo identificación única"]),
+        "Nombre archivo identificación": pickMerged(["Nombre archivo identificación"]),
+        "¿Requiere factura?": normalizeYesNo_(pickMerged(["¿Requiere factura?"])),
+        "Razón social": pickMerged(["Razón social"]),
+        "RFC": pickMerged(["RFC"]),
+        "Régimen fiscal": pickMerged(["Régimen fiscal"]),
+        "Régimen otro": pickMerged(["Régimen otro"]),
+        "Código Postal": pickMerged(["Código Postal"]),
+        "Correo electrónico para el envío de la factura": pickMerged(["Correo electrónico para el envío de la factura", "Correo electrónico"]),
+        "Fecha creación": nowIso_(),
+        "Fecha actualización": nowIso_()
+      };
+      appendRow_(perfilesSh, perfilesHeaders, perfilMap);
+      // Registrar en cache para que el sweep de reservaciones encuentre su ID_Vehiculo si se crea ahora.
+      perfilesByPhone[key] = perfilMap;
+      perfilesCreados++;
+    }
+
+    // Vehículo: solo crear si no existe Y el legacy declara que tiene vehículo
+    const tieneVeh = group.rows.some(r => normalizeYesNo_(pick(r, ["¿Cuenta con vehículo?"])) === "Sí");
+    if (tieneVeh && !vehiculosByPhone[key]) {
+      const idVeh = Utilities.getUuid();
+      const vehMap = {
+        "ID_Vehiculo": idVeh,
+        "Cel/Whatsapp (principal)": group.cel,
+        "¿Cuenta con vehículo?": "Sí",
+        "Marca vehículo": pickMerged(["Marca vehículo"]),
+        "Marca vehículo otro": pickMerged(["Marca vehículo otro"]),
+        "Modelo vehículo": pickMerged(["Modelo vehículo"]),
+        "Modelo vehículo otro": pickMerged(["Modelo vehículo otro"]),
+        "Color vehículo": pickMerged(["Color vehículo"]),
+        "Placas": pickMerged(["Placas"]),
+        "Hora habitual de salida": pickMerged(["Hora habitual de salida"]),
+        "Foto vehículo": pickMerged(["Foto vehículo"]),
+        "Link foto vehículo": pickMerged(["Link foto vehículo"]),
+        "ID archivo foto vehículo": pickMerged(["ID archivo foto vehículo"]),
+        "Nombre archivo vehículo": pickMerged(["Nombre archivo vehículo"]),
+        "Fecha actualización": nowIso_()
+      };
+      appendRow_(vehiculosSh, vehiculosHeaders, vehMap);
+      vehiculosByPhone[key] = vehMap;
+      vehiculosCreados++;
+    }
+  });
+
+  // ───────── Reservaciones (1 fila por cada row del legacy, idempotente) ─────────
+  srcRows.forEach(r => {
+    const cel = pick(r, ["Cel/Whatsapp (principal)"]);
+    if (!cel) return;
+    const id = String(pick(r, ["ID"]) || "").trim();
+    const k = resvKey(cel, pick(r, ["Fecha de ingreso"]), pick(r, ["# Departamento"]));
+    const exists = (id && reservacionesById[id]) || reservacionesByKey[k];
+    if (exists) { reservacionesSkip++; return; }
+
+    const phoneKey = normalizePhone_(cel);
+    const veh = vehiculosByPhone[phoneKey];
+    const idVeh = veh ? (veh.ID_Vehiculo || "") : "";
+
+    const resMap = {
+      "ID": id || Utilities.getUuid(),
+      "Cel/Whatsapp (principal)": cel,
+      "ID_Vehiculo": idVeh,
+      "Marca temporal": pick(r, ["Marca temporal"]),
+      "MES": pick(r, ["MES"]),
+      "Mes correspondiente": pick(r, ["Mes correspondiente"]),
+      "Tipo de factura": pick(r, ["Tipo de factura"]),
+      "Medio de reservación": pick(r, ["Medio de reservación"]),
+      "Cuenta": pick(r, ["Cuenta"]),
+      "Propiedad": pick(r, ["Propiedad"]),
+      "Propiedad otra": pick(r, ["Propiedad otra"]),
+      "# Departamento": pick(r, ["# Departamento"]),
+      "Motivo de tu hospedaje": pick(r, ["Motivo de tu hospedaje"]),
+      "Motivo otro": pick(r, ["Motivo otro"]),
+      "Fecha de ingreso": pick(r, ["Fecha de ingreso"]),
+      "Hora estimada de llegada": pick(r, ["Hora estimada de llegada"]),
+      "Fecha de salida": pick(r, ["Fecha de salida"]),
+      "Hora estimada de salida": pick(r, ["Hora estimada de salida"]),
+      "# Noches": pick(r, ["# Noches"]),
+      "# Huéspedes": pick(r, ["# Huéspedes"]),
+      "Nombres de TODOS los huéspedes (separados por comas)": pick(r, ["Nombres de TODOS los huéspedes (separados por comas)"]),
+      "Nombre de la persona que hizo la reservación": pick(r, ["Nombre de la persona que hizo la reservación"]),
+      "Forma de pago": pick(r, ["Forma de pago"]),
+      "Divisa monto pagado": pick(r, ["Divisa monto pagado"]),
+      "Comprobante transferencia": pick(r, ["Comprobante transferencia"]),
+      "Link comprobante transferencia": pick(r, ["Link comprobante transferencia"]),
+      "ID archivo comprobante transferencia": pick(r, ["ID archivo comprobante transferencia"]),
+      "Nombre archivo comprobante transferencia": pick(r, ["Nombre archivo comprobante transferencia"]),
+      "Correo electrónico": pick(r, ["Correo electrónico"]),
+      "...enviar copia al siguiente correo:": pick(r, ["...enviar copia al siguiente correo:"]),
+      "$ Noches": pick(r, ["$ Noches"]),
+      "$ Cuota de limpieza": pick(r, ["$ Cuota de limpieza"]),
+      "$ MONTO TOTAL Airbnb": pick(r, ["$ MONTO TOTAL Airbnb"]),
+      "$ Comisión Airbnb": pick(r, ["$ Comisión Airbnb"]),
+      "$ Monto antes de impuestos": pick(r, ["$ Monto antes de impuestos"]),
+      "($) Monto Total pagado": pick(r, ["($) Monto Total pagado"]),
+      "$ Monto facturado Total": pick(r, ["$ Monto facturado Total"]),
+      "Folio facturapi": pick(r, ["Folio facturapi"]),
+      "Folio CFDI": pick(r, ["Folio CFDI"]),
+      "Folio Relación": pick(r, ["Folio Relación"]),
+      "Folio complemento de pago": pick(r, ["Folio complemento de pago"]),
+      "Estatus": pick(r, ["Estatus"]),
+      "Fecha de emisión": pick(r, ["Fecha de emisión"]),
+      "Concepto Factura": pick(r, ["Concepto Factura"]),
+      "Método de pago": pick(r, ["Método de pago"]),
+      "Ticket facturapi url": pick(r, ["Ticket facturapi url"]),
+      "Ticket facturapi id archivo": pick(r, ["Ticket facturapi id archivo"]),
+      "Ticket facturapi nombre archivo": pick(r, ["Ticket facturapi nombre archivo"]),
+      "Ticket facturapi carpeta url": pick(r, ["Ticket facturapi carpeta url"]),
+      "Ticket facturapi carpeta ruta": pick(r, ["Ticket facturapi carpeta ruta"]),
+      "Envía tus comentarios": pick(r, ["Envía tus comentarios"]),
+      "Envía tus comentarios con relación a la factura": pick(r, ["Envía tus comentarios con relación a la factura"]),
+      "Notas": pick(r, ["Notas"]),
+      "Enviado por": pick(r, ["Enviado por"])
+    };
+    appendRow_(reservacionesSh, reservacionesHeaders, resMap);
+    if (resMap.ID) reservacionesById[resMap.ID] = resMap;
+    reservacionesByKey[k] = resMap;
+    reservacionesCreadas++;
+  });
+
+  return {
+    ok: true,
+    legacy_rows_leidas: srcRows.length,
+    perfiles_creados: perfilesCreados,
+    vehiculos_creados: vehiculosCreados,
+    reservaciones_creadas: reservacionesCreadas,
+    reservaciones_existentes_skip: reservacionesSkip,
+    message: "Sync completada. Solo se agregaron los registros nuevos; los existentes se preservaron."
+  };
+}
+
+// ─── DRIVE / ARCHIVOS ────────────────────────────────────────────────────────
+
+function saveBase64FileToDrive_(fileObj, prefix, subfolders) {
+  if (String(fileObj.base64 || "").length > MAX_BASE64_CHARS) throw new Error("Archivo demasiado grande.");
+  let folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  const pathParts = [];
+  (subfolders || []).forEach(name => {
+    const clean = cleanFolderName_(name);
+    folder = getOrCreateFolder_(folder, clean);
+    pathParts.push(clean);
+  });
+  const bytes = Utilities.base64Decode(fileObj.base64);
+  const ext = guessExtension_(fileObj.mimeType, fileObj.fileName);
+  const ts = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd_HHmmss");
+  const safePrefix = cleanFolderName_(prefix || "archivo");
+  const safeName = cleanFolderName_((fileObj.fileName || "imagen").replace(/\.[^.]+$/, ""));
+  const blob = Utilities.newBlob(bytes, fileObj.mimeType || "image/jpeg", safePrefix + "_" + safeName + "_" + ts + "." + ext);
+  const file = folder.createFile(blob);
+  if (PUBLIC_SHARING_WITH_LINK) file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return {
+    url: file.getUrl(),
+    id: file.getId(),
+    name: file.getName(),
+    folder_id: folder.getId(),
+    folder_name: folder.getName(),
+    folder_url: folder.getUrl(),
+    folder_path: pathParts.join(" / ")
+  };
+}
+
+function saveFacturapiPdfToDrive_(fileObj, subfolders) {
+  if (String(fileObj.base64 || "").length > MAX_BASE64_CHARS) throw new Error("Archivo demasiado grande.");
+  let folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  const pathParts = [];
+  (subfolders || []).forEach(name => {
+    const clean = cleanFolderName_(name);
+    folder = getOrCreateFolder_(folder, clean);
+    pathParts.push(clean);
+  });
+  const bytes = Utilities.base64Decode(fileObj.base64);
+  const finalName = cleanFolderName_((fileObj.fileName || "ticket_facturapi").replace(/\.[^.]+$/, "")) + ".pdf";
+  let file;
+  const existing = folder.getFilesByName(finalName);
+  if (existing.hasNext()) file = existing.next();
+  else {
+    const blob = Utilities.newBlob(bytes, fileObj.mimeType || "application/pdf", finalName);
+    file = folder.createFile(blob);
+  }
+  if (PUBLIC_SHARING_WITH_LINK) file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return {
+    url: file.getUrl(),
+    id: file.getId(),
+    name: file.getName(),
+    folder_id: folder.getId(),
+    folder_name: folder.getName(),
+    folder_url: folder.getUrl(),
+    folder_path: pathParts.join(" / ")
+  };
+}
+
+function getOrCreateFolder_(parent, name) {
+  const clean = cleanFolderName_(name);
+  const cacheKey = String(parent.getId()) + '::' + clean;
+  if (FOLDER_CACHE_[cacheKey]) return FOLDER_CACHE_[cacheKey];
+  const existing = parent.getFoldersByName(clean);
+  const folder = existing.hasNext() ? existing.next() : parent.createFolder(clean);
+  FOLDER_CACHE_[cacheKey] = folder;
+  return folder;
+}
+
+function cleanFolderName_(value) {
+  return String(value || "Sin nombre")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[\\/:*?"<>|#%]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .substring(0, 80) || "Sin nombre";
+}
+
+function guessExtension_(mimeType, fileName) {
+  const map = { "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp", "application/pdf": "pdf" };
+  if (map[mimeType]) return map[mimeType];
+  const m = String(fileName || "").match(/\.([^.]+)$/);
+  return m ? m[1].toLowerCase() : "jpg";
+}
+
+// ─── UTILS ──────────────────────────────────────────────────────────────────
+
+function calculateNights_(checkIn, checkOut) {
+  const inDate = parseDateSafe_(checkIn);
+  const outDate = parseDateSafe_(checkOut);
+  if (!inDate || !outDate) return "";
+  const diff = Math.round((outDate - inDate) / (1000 * 60 * 60 * 24));
+  return diff >= 0 ? diff : "";
+}
+
+function parseDateSafe_(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function normalizeYesNo_(value) {
+  const v = String(value || "").toLowerCase().trim();
+  if (v === "si" || v === "sí" || v === "yes") return "Sí";
+  if (v === "no") return "No";
+  return safe_(value);
+}
+
+function normalizeInvoiceType_(value) {
+  const v = String(value || "").toLowerCase().trim();
+  if (v === "si" || v === "sí" || v === "yes") return "Factura";
+  if (v === "no") return "Sin factura";
+  return "";
+}
+
+function resolveOtherValue_(selectedValue, otherValue, otherTokens) {
+  const selected = safe_(selectedValue).trim();
+  const other = safe_(otherValue).trim();
+  if (!selected) return other;
+  const tokens = otherTokens || ["Otro", "Otra", "Other"];
+  return tokens.indexOf(selected) !== -1 ? other : selected;
+}
+
+function arrayToCsv_(value) {
+  if (Array.isArray(value)) {
+    return value.map(v => String(v || "").trim()).filter(String).join(", ");
+  }
+  return safe_(value);
+}
+
+function safe_(value) { return value == null ? "" : String(value); }
+
+function normalizeText_(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizePhone_(value) {
+  return String(value || "").replace(/[\s'‘’“”]/g, "").replace(/^[+]/, "").trim();
+}
+
+// Devuelve la fecha-hora actual en zona horaria de Saltillo/Monterrey (CST/CDT),
+// formateada como ISO 8601 con offset explícito. Ejemplo: 2026-05-30T21:42:15-06:00
+// Reemplaza `new Date().toISOString()` (que devuelve UTC) para que los
+// timestamps que guardamos en las hojas coincidan con la hora local del huésped.
+function nowIso_() {
+  return Utilities.formatDate(new Date(), "America/Monterrey", "yyyy-MM-dd'T'HH:mm:ssXXX");
+}
+
+function normalizeFacturaForFilter_(value) {
+  const v = normalizeText_(value);
+  if (v === "factura" || v === "si" || v === "sí" || v === "yes") return "Sí";
+  if (v === "sin factura" || v === "no") return "No";
+  return safe_(value);
+}
+
+function matchContains_(cellValue, filterValue) {
+  const filter = normalizeText_(filterValue);
+  if (!filter) return true;
+  return normalizeText_(cellValue).indexOf(filter) !== -1;
+}
+
+function matchContainsPhone_(cellValue, filterValue) {
+  const filter = normalizePhone_(filterValue);
+  if (!filter) return true;
+  return normalizePhone_(cellValue).indexOf(filter) !== -1;
+}
+
+function matchEqualsNormalized_(cellValue, filterValue) {
+  const filter = normalizeText_(filterValue);
+  if (!filter) return true;
+  return normalizeText_(cellValue) === filter;
+}
+
+function matchDateFrom_(cellValue, fromValue) {
+  if (!fromValue) return true;
+  const cellDate = parseDateSafe_(cellValue);
+  const fromDate = parseDateSafe_(fromValue);
+  if (!cellDate || !fromDate) return false;
+  return stripTime_(cellDate).getTime() >= stripTime_(fromDate).getTime();
+}
+
+function matchDateTo_(cellValue, toValue) {
+  if (!toValue) return true;
+  const cellDate = parseDateSafe_(cellValue);
+  const toDate = parseDateSafe_(toValue);
+  if (!cellDate || !toDate) return false;
+  return stripTime_(cellDate).getTime() <= stripTime_(toDate).getTime();
+}
+
+function stripTime_(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+
+function uniqueNonEmpty_(arr) {
+  const seen = {};
+  const out = [];
+  (arr || []).forEach(value => {
+    const txt = safe_(value).trim();
+    if (!txt) return;
+    const key = normalizeText_(txt);
+    if (seen[key]) return;
+    seen[key] = true;
+    out.push(txt);
+  });
+  return out.sort();
+}
+
+function jsonOutput_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ═══ OTP via Email/SMS ═══════════════════════════════════════════════════════
+// Storage server-side de códigos OTP. Sustituye al mock client-side ("123456").
+// Métodos soportados:
+//   - "email": MailApp.sendEmail nativo de Apps Script (gratis, hasta 100/día por usuario)
+//   - "sms"  : Twilio REST API (requiere TWILIO_* en Script Properties)
+
+function ensureOtpSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sh = ss.getSheetByName(OTP_CODES_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(OTP_CODES_SHEET);
+    sh.appendRow(OTP_CODES_HEADERS);
+  }
+  return sh;
+}
+
+function generateOtpCode_() {
+  // 6 dígitos
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// Helper: obtiene info del perfil (correo de facturación + nombre) por phoneKey.
+function getProfileContactByPhone_(phoneKey) {
+  try {
+    const key = String(phoneKey).replace(/\D/g, "");
+    const { rows: perfiles } = getAllRows_(PERFILES_SHEET);
+    for (let i = 0; i < perfiles.length; i++) {
+      const p = perfiles[i];
+      const cel = String(p["Cel/Whatsapp (principal)"] || "").replace(/\D/g, "");
+      if (cel && cel === key) {
+        return {
+          email: safe_(p["Correo electrónico para el envío de la factura"]).trim(),
+          name: safe_(p["Nombre del huésped"]).trim()
+        };
+      }
+    }
+  } catch(e) { Logger.log("[getProfileContact] " + e); }
+  return { email: "", name: "" };
+}
+
+// GET helper: devuelve métodos disponibles (target del usuario por phoneKey)
+// y enmascara para mostrar al cliente (ej. "an***@gmail.com")
+function getOtpMethods_(params) {
+  const phoneKey = String(params.phoneKey || "").replace(/\D/g, "");
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  const contact = getProfileContactByPhone_(phoneKey);
+  const sms = phoneKey;
+  return {
+    ok: true,
+    methods: {
+      email: contact.email ? { available: true, target: contact.email, masked: maskEmail_(contact.email) } : { available: false },
+      sms: { available: true, target: sms, masked: maskPhone_(sms) }
+    },
+    name: contact.name
+  };
+}
+function maskEmail_(em) {
+  if (!em) return "";
+  const at = em.indexOf("@");
+  if (at < 2) return em;
+  return em.slice(0, 2) + "***" + em.slice(at);
+}
+function maskPhone_(p) {
+  if (!p || p.length < 4) return p;
+  return "*** *** " + p.slice(-4);
+}
+
+// POST send_otp: genera código, guarda y envía por email o sms.
+// Args: { phoneKey, method, target? }
+//   method ∈ "email" | "sms"
+//   target opcional — si no viene, se toma de perfil (email) o phoneKey (sms).
+function sendOtp_(data) {
+  const phoneKey = String(data.phoneKey || "").replace(/\D/g, "");
+  const method = String(data.method || "").trim().toLowerCase();
+  let target = safe_(data.target || "").trim();
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  if (method !== "email" && method !== "sms") return { ok: false, error: "method debe ser email o sms." };
+  // Si no llega target, intentar resolverlo
+  if (!target) {
+    const contact = getProfileContactByPhone_(phoneKey);
+    if (method === "email") target = contact.email;
+    else if (method === "sms") target = phoneKey;
+  }
+  if (!target) return { ok: false, error: "No hay correo registrado en el perfil. Captura uno o usa SMS." };
+  // Generar y guardar
+  const code = generateOtpCode_();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + OTP_TTL_MS);
+  const sh = ensureOtpSheet_();
+  // Invalidar códigos pendientes previos del mismo phoneKey
+  invalidateOldOtp_(sh, phoneKey);
+  // Append
+  const row = {
+    phoneKey, method, target, code,
+    created_at: now.toISOString(),
+    expires_at: expiresAt.toISOString(),
+    attempts: 0,
+    verified_at: "",
+    status: "pending"
+  };
+  sh.appendRow(OTP_CODES_HEADERS.map(h => row[h]));
+  // Enviar
+  try {
+    if (method === "email") {
+      sendOtpEmail_(target, code);
+    } else if (method === "sms") {
+      sendOtpSms_(target, code);
+    }
+  } catch (err) {
+    return { ok: false, error: "No se pudo enviar el código: " + (err.message || err) };
+  }
+  return { ok: true, method, sent_to: method === "email" ? maskEmail_(target) : maskPhone_(target), expires_in: Math.floor(OTP_TTL_MS / 1000) };
+}
+
+function invalidateOldOtp_(sh, phoneKey) {
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return;
+  const data = sh.getRange(2, 1, lastRow - 1, OTP_CODES_HEADERS.length).getValues();
+  const idxPhone = OTP_CODES_HEADERS.indexOf("phoneKey");
+  const idxStatus = OTP_CODES_HEADERS.indexOf("status");
+  for (let i = 0; i < data.length; i++) {
+    if (String(data[i][idxPhone]).replace(/\D/g,"") === phoneKey && String(data[i][idxStatus]) === "pending") {
+      sh.getRange(i + 2, idxStatus + 1).setValue("invalidated");
+    }
+  }
+}
+
+function sendOtpEmail_(toEmail, code) {
+  const subject = "Tu código de acceso a Check-inn Saltillo";
+  const body =
+    "Hola,\n\n" +
+    "Tu código de acceso al portal de Check-inn Saltillo es:\n\n" +
+    "    " + code + "\n\n" +
+    "Este código vence en 5 minutos. Si tú no lo solicitaste, ignora este mensaje.\n\n" +
+    "— Check-inn Saltillo · www.check-inn-saltillo.com";
+  const htmlBody =
+    '<div style="font-family:-apple-system,Helvetica,Arial,sans-serif;color:#0f172a;max-width:480px;margin:0 auto;padding:24px;">' +
+    '<h2 style="margin:0 0 12px;letter-spacing:-.02em;">Tu código de acceso</h2>' +
+    '<p style="font-size:14px;color:#4b5563;margin:0 0 18px;">Hola, ingresa este código en el portal de <strong>Check-inn Saltillo</strong>:</p>' +
+    '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:18px;text-align:center;font-size:32px;font-weight:800;letter-spacing:.4em;color:#991b1b;">' + code + '</div>' +
+    '<p style="font-size:13px;color:#6b7280;margin:16px 0 0;">Vence en 5 minutos. Si tú no lo solicitaste, ignora este correo.</p>' +
+    '<hr style="border:0;border-top:1px solid #e5e7eb;margin:20px 0;">' +
+    '<p style="font-size:12px;color:#9ca3af;margin:0;">Check-inn Saltillo · <a href="https://www.check-inn-saltillo.com" style="color:#dc2626;">check-inn-saltillo.com</a></p>' +
+    '</div>';
+  MailApp.sendEmail({
+    to: toEmail,
+    subject: subject,
+    body: body,
+    htmlBody: htmlBody,
+    name: "Check-inn Saltillo"
+  });
+}
+
+function sendOtpSms_(toPhoneDigits, code) {
+  const props = PropertiesService.getScriptProperties();
+  const sid = props.getProperty("TWILIO_ACCOUNT_SID");
+  const tok = props.getProperty("TWILIO_AUTH_TOKEN");
+  const from = props.getProperty("TWILIO_FROM_NUMBER");
+  if (!sid || !tok || !from) {
+    throw new Error("Twilio no configurado. Falta TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER en Script Properties.");
+  }
+  // Twilio API: POST a https://api.twilio.com/2010-04-01/Accounts/{SID}/Messages.json
+  const to = "+" + String(toPhoneDigits).replace(/\D/g, "");
+  const url = "https://api.twilio.com/2010-04-01/Accounts/" + sid + "/Messages.json";
+  const body =
+    "Tu código de acceso a Check-inn Saltillo es: " + code +
+    ". Vence en 5 minutos. Si tú no lo solicitaste, ignora este mensaje.";
+  const res = UrlFetchApp.fetch(url, {
+    method: "post",
+    headers: { "Authorization": "Basic " + Utilities.base64Encode(sid + ":" + tok) },
+    payload: { From: from, To: to, Body: body },
+    muteHttpExceptions: true
+  });
+  const status = res.getResponseCode();
+  if (status >= 400) {
+    const text = res.getContentText();
+    throw new Error("Twilio error " + status + ": " + text);
+  }
+}
+
+// POST verify_otp: valida { phoneKey, code }.
+function verifyOtp_(data) {
+  const phoneKey = String(data.phoneKey || "").replace(/\D/g, "");
+  const code = String(data.code || "").trim();
+  if (!phoneKey || !code) return { ok: false, error: "Falta phoneKey o code." };
+  const sh = ensureOtpSheet_();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: false, error: "No hay códigos. Solicita uno primero." };
+  const all = sh.getRange(2, 1, lastRow - 1, OTP_CODES_HEADERS.length).getValues();
+  const idxPhone = OTP_CODES_HEADERS.indexOf("phoneKey");
+  const idxCode = OTP_CODES_HEADERS.indexOf("code");
+  const idxExp = OTP_CODES_HEADERS.indexOf("expires_at");
+  const idxAttempts = OTP_CODES_HEADERS.indexOf("attempts");
+  const idxStatus = OTP_CODES_HEADERS.indexOf("status");
+  const idxVerified = OTP_CODES_HEADERS.indexOf("verified_at");
+  // Buscar pendiente más reciente del phoneKey
+  let foundIdx = -1;
+  for (let i = all.length - 1; i >= 0; i--) {
+    if (String(all[i][idxPhone]).replace(/\D/g, "") === phoneKey && String(all[i][idxStatus]) === "pending") {
+      foundIdx = i;
+      break;
+    }
+  }
+  if (foundIdx < 0) return { ok: false, error: "Solicita un código primero." };
+  const row = all[foundIdx];
+  const sheetRow = foundIdx + 2;
+  const expiresAt = new Date(String(row[idxExp]));
+  if (Date.now() > expiresAt.getTime()) {
+    sh.getRange(sheetRow, idxStatus + 1).setValue("expired");
+    return { ok: false, error: "El código expiró. Solicita uno nuevo." };
+  }
+  const attempts = Number(row[idxAttempts] || 0);
+  if (attempts >= OTP_MAX_ATTEMPTS) {
+    sh.getRange(sheetRow, idxStatus + 1).setValue("locked");
+    return { ok: false, error: "Demasiados intentos. Solicita un código nuevo." };
+  }
+  sh.getRange(sheetRow, idxAttempts + 1).setValue(attempts + 1);
+  if (String(row[idxCode]) !== code) {
+    return { ok: false, error: "Código incorrecto." };
+  }
+  // OK
+  sh.getRange(sheetRow, idxStatus + 1).setValue("verified");
+  sh.getRange(sheetRow, idxVerified + 1).setValue(nowIso_());
+  return { ok: true, phoneKey: phoneKey };
+}
+
+// ─── PIN persistido en Perfiles ─────────────────────────────────────────────
+// El PIN se hashea en cliente (sha256("checkinn|"+phoneKey+"|"+pin)) y solo
+// se guarda el hash. checkUserStatus indica si hay PIN sin revelarlo.
+
+function checkUserStatus_(data) {
+  const phoneKey = String(data.phoneKey || "").replace(/\D/g, "");
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  ensureNormalizedSheets_();
+  const sh = getSheet_(PERFILES_SHEET);
+  const headers = getHeaders_(sh);
+  const rowNum = findRowByPhone_(sh, headers, phoneKey);
+  if (!rowNum) return { ok: true, exists: false, hasPin: false };
+  const row = readRow_(sh, headers, rowNum);
+  const pinHash = String(row["PIN hash"] || "").trim();
+  return { ok: true, exists: true, hasPin: !!pinHash };
+}
+
+function setPin_(data) {
+  const phoneKey = String(data.phoneKey || "").replace(/\D/g, "");
+  const pinHash = String(data.pinHash || "").trim();
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  if (!pinHash) return { ok: false, error: "Falta pinHash." };
+  ensureNormalizedSheets_();
+  const sh = getSheet_(PERFILES_SHEET);
+  const headers = getHeaders_(sh);
+  let rowNum = findRowByPhone_(sh, headers, phoneKey);
+  const nowIso = nowIso_();
+  if (!rowNum) {
+    // No existe el perfil — crear uno mínimo con solo celular + PIN.
+    // El wizard llenará después el resto de los campos.
+    appendRow_(sh, headers, {
+      "ID_Perfil": Utilities.getUuid(),
+      "Cel/Whatsapp (principal)": phoneKey,
+      "PIN hash": pinHash,
+      "PIN actualizado": nowIso,
+      "Fecha creación": nowIso,
+      "Fecha actualización": nowIso
+    });
+    return { ok: true, created: true };
+  }
+  setCellByHeader_(sh, headers, rowNum, "PIN hash", pinHash);
+  setCellByHeader_(sh, headers, rowNum, "PIN actualizado", nowIso);
+  setCellByHeader_(sh, headers, rowNum, "Fecha actualización", nowIso);
+  return { ok: true, created: false };
+}
+
+function verifyPin_(data) {
+  const phoneKey = String(data.phoneKey || "").replace(/\D/g, "");
+  const pinHash = String(data.pinHash || "").trim();
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  if (!pinHash) return { ok: false, error: "Falta pinHash." };
+  ensureNormalizedSheets_();
+  const sh = getSheet_(PERFILES_SHEET);
+  const headers = getHeaders_(sh);
+  const rowNum = findRowByPhone_(sh, headers, phoneKey);
+  if (!rowNum) return { ok: false, error: "Usuario no encontrado." };
+  const row = readRow_(sh, headers, rowNum);
+  const saved = String(row["PIN hash"] || "").trim();
+  if (!saved) return { ok: false, error: "Sin PIN configurado." };
+  if (saved !== pinHash) return { ok: false, error: "PIN incorrecto." };
+  return { ok: true };
+}
+
+// ─── get_profile: hidrata el wizard desde el backend ─────────────────────
+// Devuelve el perfil completo del usuario (Perfiles + Vehiculos) mapeado al
+// formato { step1, step2, step3, step4, completed, lastStep, updatedAt } que
+// usa el frontend en localStorage. El frontend lo invoca al iniciar sesión
+// para que el wizard NO le pida llenar datos que ya están guardados.
+
+function getProfile_(params) {
+  const phoneKey = String(params.phoneKey || "").replace(/\D/g, "");
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  ensureNormalizedSheets_();
+  const shP = getSheet_(PERFILES_SHEET);
+  const headersP = getHeaders_(shP);
+  const rowP = findRowByPhone_(shP, headersP, phoneKey);
+  if (!rowP) return { ok: true, exists: false, profile: null };
+  const p = readRow_(shP, headersP, rowP);
+
+  // Extraer celular de emergencia (separar lada + celular si vienen juntos)
+  const emergCel = String(p["Cel/Whatsapp (contacto de emergencia)"] || "").replace(/\D/g, "");
+  const emergLada = String(p["Lada contacto emergencia"] || "52").replace(/\D/g, "") || "52";
+  let emergLocal = emergCel;
+  // Si el cel de emergencia incluye la lada al inicio, separarla.
+  if (emergCel.length > 10 && emergCel.startsWith(emergLada)) {
+    emergLocal = emergCel.slice(emergLada.length);
+  } else if (emergCel.length > 10) {
+    // Asumir últimos 10 dígitos = local; resto = lada
+    emergLocal = emergCel.slice(-10);
+  }
+
+  const step1 = {
+    nombre: String(p["Nombre del huésped"] || "").trim(),
+    emerg_lada: emergLada,
+    emerg_celular: emergLocal
+  };
+  const step2 = {
+    tipo: String(p["Tipo de identificación"] || "").trim(),
+    id_otro: String(p["Identificación otro"] || "").trim(),
+    ine_frontal: String(p["Link INE frontal"] || "").trim(),
+    ine_trasero: String(p["Link INE trasero"] || "").trim(),
+    ident_unica: String(p["Link identificación única"] || "").trim()
+  };
+  const step3 = {
+    factura: String(p["¿Requiere factura?"] || "").trim(),
+    razon_social: String(p["Razón social"] || "").trim(),
+    rfc: String(p["RFC"] || "").trim(),
+    regimen: String(p["Régimen fiscal"] || "").trim(),
+    regimen_otro: String(p["Régimen otro"] || "").trim(),
+    codigo_postal: String(p["Código Postal"] || "").trim(),
+    correo_factura: String(p["Correo electrónico para el envío de la factura"] || "").trim()
+  };
+
+  // Vehículo (otra hoja)
+  let step4 = {
+    tiene_vehiculo: "", marca: "", marca_otro: "",
+    modelo: "", color: "", placas: "", hora_salida: "", foto: ""
+  };
+  try {
+    const shV = getSheet_(VEHICULOS_SHEET);
+    const headersV = getHeaders_(shV);
+    const rowV = findRowByPhone_(shV, headersV, phoneKey);
+    if (rowV) {
+      const v = readRow_(shV, headersV, rowV);
+      step4 = {
+        tiene_vehiculo: String(v["¿Cuenta con vehículo?"] || "").trim(),
+        marca: String(v["Marca vehículo"] || "").trim(),
+        marca_otro: String(v["Marca vehículo otro"] || "").trim(),
+        modelo: String(v["Modelo vehículo"] || "").trim(),
+        color: String(v["Color vehículo"] || "").trim(),
+        placas: String(v["Placas"] || "").trim(),
+        hora_salida: String(v["Hora habitual de salida"] || "").trim(),
+        foto: String(v["Link foto vehículo"] || "").trim()
+      };
+    }
+  } catch(_e){}
+
+  const updatedAt = (function(){
+    const v = p["Fecha actualización"] || p["Fecha creación"];
+    if (!v) return 0;
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  })();
+
+  return {
+    ok: true, exists: true,
+    profile: { step1, step2, step3, step4, lastStep: 4, updatedAt }
+  };
+}
+
+// ─── Inbox de notificaciones POR USUARIO ─────────────────────────────────
+// Cada huésped tiene su propio "inbox" en la hoja Notifications_Inbox.
+// El frontend muestra una campana 🔔 con badge rojo en la cantidad de
+// notificaciones no leídas. Al abrir el panel se marcan todas como leídas
+// (el badge baja a 0). Al hacer click en una notificación que tiene acción
+// (ej: abrir PDF de ticket), se archiva.
+
+function ensureNotifInboxSheet_() {
+  const ss = getSpreadsheet_();
+  return ensureSheetWithHeaders_(ss, NOTIF_INBOX_SHEET, NOTIF_INBOX_HEADERS);
+}
+
+// Crea una notificación nueva en el inbox del usuario.
+// type: identificador del tipo ("ticket_issued", etc).
+// title/body: texto visible.
+// data: objeto que se serializa a JSON (ticketUrl, folio, etc.).
+function createInboxNotification_(phoneKey, type, title, body, data) {
+  const cleanPhone = String(phoneKey || "").replace(/\D/g, "");
+  if (!cleanPhone) return { ok: false, error: "Falta phoneKey." };
+  const sh = ensureNotifInboxSheet_();
+  const headers = getHeaders_(sh);
+  appendRow_(sh, headers, {
+    id: Utilities.getUuid(),
+    phoneKey: cleanPhone,
+    type: String(type || "general"),
+    title: String(title || ""),
+    body: String(body || ""),
+    data: data ? JSON.stringify(data) : "",
+    created_at: nowIso_(),
+    read_at: "",
+    archived_at: ""
+  });
+  return { ok: true };
+}
+
+function listNotifications_(params) {
+  const phoneKey = String(params.phoneKey || "").replace(/\D/g, "");
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  ensureNotifInboxSheet_();
+  const data = getAllRows_(NOTIF_INBOX_SHEET).rows;
+  const rows = data
+    .filter(r => String(r.phoneKey).replace(/\D/g, "") === phoneKey)
+    .filter(r => !String(r.archived_at || "").trim())
+    .map(r => ({
+      id: r.id,
+      type: r.type,
+      title: r.title,
+      body: r.body,
+      data: r.data ? (function(){ try { return JSON.parse(r.data); } catch(_e){ return {}; } })() : {},
+      created_at: r.created_at,
+      read_at: r.read_at || ""
+    }))
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  const unread = rows.filter(r => !r.read_at).length;
+  return { ok: true, rows: rows, unread: unread };
+}
+
+function markAllNotificationsRead_(data) {
+  const phoneKey = String(data.phoneKey || "").replace(/\D/g, "");
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  const sh = ensureNotifInboxSheet_();
+  const headers = getHeaders_(sh);
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: true, updated: 0 };
+  const values = sh.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  const idxPhone = headers.indexOf("phoneKey");
+  const idxRead = headers.indexOf("read_at");
+  const idxArch = headers.indexOf("archived_at");
+  const nowIso = nowIso_();
+  let updated = 0;
+  for (let i = 0; i < values.length; i++) {
+    const samePhone = String(values[i][idxPhone]).replace(/\D/g, "") === phoneKey;
+    const notRead = !String(values[i][idxRead] || "").trim();
+    const notArchived = !String(values[i][idxArch] || "").trim();
+    if (samePhone && notRead && notArchived) {
+      sh.getRange(i + 2, idxRead + 1).setValue(nowIso);
+      updated++;
+    }
+  }
+  return { ok: true, updated: updated };
+}
+
+function archiveNotification_(data) {
+  const id = String(data.id || "").trim();
+  if (!id) return { ok: false, error: "Falta id." };
+  const sh = ensureNotifInboxSheet_();
+  const headers = getHeaders_(sh);
+  const rowNum = findRowByValue_(sh, headers, "id", id);
+  if (!rowNum) return { ok: false, error: "Notificación no encontrada." };
+  const nowIso = nowIso_();
+  setCellByHeader_(sh, headers, rowNum, "archived_at", nowIso);
+  // Si aún no estaba leída, marcarla también como leída.
+  const row = readRow_(sh, headers, rowNum);
+  if (!String(row.read_at || "").trim()) {
+    setCellByHeader_(sh, headers, rowNum, "read_at", nowIso);
+  }
+  return { ok: true };
+}
+
+// ─── Helpers de prueba e instalación de triggers ───────────────────────
+
+// Crea una notificación de prueba en el inbox del usuario admin.
+// Ejecutar UNA VEZ desde el editor para verificar que el panel 🔔 funciona.
+function testCreateNotification() {
+  createInboxNotification_(
+    ADMIN_PHONE_KEY,
+    "ticket_issued",
+    "🧾 Ticket de factura emitido",
+    "Tu factura de Calle Cumbres (Folio TEST-1234) está lista. Toca para descargar.",
+    { folio: "TEST-1234", ticketUrl: "", monto: "1500", propiedad: "Calle Cumbres" }
+  );
+  Logger.log("Notificación de prueba creada en Notifications_Inbox para phoneKey=" + ADMIN_PHONE_KEY);
+}
+
+// Crea notificación EN INBOX + encola Web Push (badge en ícono + lock screen).
+// Tras correr esto, dispara manualmente el workflow "Push Notifications · Drain
+// Queue" en GitHub Actions para enviarlo al dispositivo en segundos.
+function testCreateNotificationFullPush() {
+  const folioStr = "TEST-" + Date.now().toString().slice(-6);
+  const title = "🧾 Ticket de factura emitido";
+  const body = "Tu factura de Calle Cumbres (Folio " + folioStr + ") está lista. Toca para descargar.";
+  // 1) Inbox (panel 🔔 en la app)
+  createInboxNotification_(
+    ADMIN_PHONE_KEY, "ticket_issued", title, body,
+    { folio: folioStr, ticketUrl: "", propiedad: "Calle Cumbres" }
+  );
+  // 2) Web Push queue (badge en ícono + lock screen)
+  queueNotification_({
+    target: ADMIN_PHONE_KEY,
+    category: "facturas",
+    title: title,
+    body: body,
+    url: "./",
+    tag: "test-" + Date.now(),
+    badge: 1,
+    source: "test-full-push"
+  });
+  Logger.log("✓ Inbox + Queue creados para " + ADMIN_PHONE_KEY);
+  Logger.log("→ Para enviar el push ya: GitHub → Actions → 'Push Notifications · Drain Queue' → Run workflow.");
+}
+
+// Trigger onEdit instalable: detecta cuando alguien edita manualmente la
+// celda "Folio facturapi" en la hoja Reservaciones. Si el valor pasó de
+// vacío a no-vacío, dispara la notificación al huésped.
+function onEditReservacionesTrigger(e) {
+  try {
+    if (!e || !e.range || !e.value) return;
+    const sheet = e.range.getSheet();
+    if (sheet.getName() !== RESERVACIONES_SHEET) return;
+    const row = e.range.getRow();
+    if (row < 2) return; // ignorar header
+    const col = e.range.getColumn();
+    const headers = getHeaders_(sheet);
+    const folioCol = headers.indexOf("Folio facturapi") + 1;
+    if (col !== folioCol) return;
+    const prevValue = String(e.oldValue || "").trim();
+    const newValue = String(e.value || "").trim();
+    if (prevValue || !newValue) return; // solo vacío → no-vacío
+    const rowData = readRow_(sheet, headers, row);
+    const phoneKey = String(rowData["Cel/Whatsapp (principal)"] || "").replace(/\D/g, "");
+    if (!phoneKey) return;
+    notifyTicketIssued_(phoneKey, rowData);
+  } catch (err) {
+    console.warn("onEditReservacionesTrigger error:", err);
+  }
+}
+
+// Instala el trigger onEdit en la spreadsheet. Ejecutar UNA SOLA VEZ.
+// Si la corres dos veces, no pasa nada — borra el anterior y reinstala.
+function installOnEditReservacionesTrigger() {
+  const ssId = SPREADSHEET_ID;
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => {
+    if (t.getHandlerFunction() === "onEditReservacionesTrigger") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  ScriptApp.newTrigger("onEditReservacionesTrigger")
+    .forSpreadsheet(ssId)
+    .onEdit()
+    .create();
+  Logger.log("Trigger onEditReservacionesTrigger instalado correctamente.");
+}
+
+// Trigger: al asignar/actualizar Folio facturapi de una reserva, si el folio
+// pasó de vacío a no-vacío, creamos una notificación tipo "ticket_issued"
+// para el huésped + encolamos un Web Push (categoría "facturas").
+function notifyTicketIssued_(phoneKey, reservacionRow) {
+  try {
+    const cleanPhone = String(phoneKey || "").replace(/\D/g, "");
+    if (!cleanPhone) return;
+    const folio = String(reservacionRow["Folio facturapi"] || "").trim();
+    const ticketUrl = String(reservacionRow["Ticket facturapi url"] || "").trim();
+    const monto = reservacionRow["$ Monto facturado Total"] || reservacionRow["($) Monto Total pagado"] || "";
+    const propiedad = String(reservacionRow["Propiedad"] || "").trim();
+    const titleEs = "🧾 Ticket de factura emitido";
+    const bodyEs = folio
+      ? "Tu factura " + (propiedad ? "de " + propiedad + " " : "") + "(Folio " + folio + ") está lista. Toca para descargar."
+      : "Tu factura está lista. Toca para descargar.";
+    createInboxNotification_(cleanPhone, "ticket_issued", titleEs, bodyEs, {
+      folio: folio,
+      ticketUrl: ticketUrl,
+      monto: monto,
+      propiedad: propiedad,
+      reservacionId: reservacionRow["ID"] || ""
+    });
+    // Encolar web push (categoría facturas)
+    try {
+      queueNotification_({
+        target: cleanPhone,
+        category: "facturas",
+        title: titleEs,
+        body: bodyEs,
+        url: "./",
+        tag: "ticket-" + (folio || Date.now()),
+        badge: 1,
+        source: "auto-folio-trigger"
+      });
+    } catch(_e){}
+  } catch (err) {
+    console.warn("notifyTicketIssued_ error:", err);
+  }
+}
+
+// ═══ PUSH NOTIFICATIONS ════════════════════════════════════════════════════════
+// Storage de Web Push subscriptions. El ENVÍO de push (que requiere firma ECDSA
+// VAPID) no es práctico desde Apps Script; se hace desde un script externo
+// (otros/push_sender.py) que lee esta hoja y manda los push con la clave privada.
+
+function ensurePushSubsSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sh = ss.getSheetByName(PUSH_SUBS_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(PUSH_SUBS_SHEET);
+    sh.appendRow(PUSH_SUBS_HEADERS);
+    return sh;
+  }
+  // Migración: agregar columnas faltantes al final si la hoja es antigua.
+  const existing = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0];
+  PUSH_SUBS_HEADERS.forEach(h => {
+    if (existing.indexOf(h) < 0) {
+      sh.getRange(1, sh.getLastColumn() + 1).setValue(h);
+    }
+  });
+  return sh;
+}
+
+// Registra (o actualiza) una suscripción Web Push para un phoneKey.
+// data: { phoneKey, endpoint, p256dh, auth, ua? }
+function registerPushSubscription_(data) {
+  const phoneKey = safe_(data.phoneKey || data.phone_key || "").trim();
+  const endpoint = safe_(data.endpoint || "").trim();
+  const p256dh = safe_(data.p256dh || "").trim();
+  const auth = safe_(data.auth || "").trim();
+  const ua = safe_(data.ua || "").trim();
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  if (!endpoint || !p256dh || !auth) return { ok: false, error: "Faltan campos endpoint/p256dh/auth." };
+  const sh = ensurePushSubsSheet_();
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const idxEndpoint = headers.indexOf("endpoint");
+  const lastRow = sh.getLastRow();
+  const now = nowIso_();
+  // Buscar fila existente por endpoint (idempotente: un endpoint = un dispositivo)
+  let foundRow = -1;
+  if (lastRow >= 2 && idxEndpoint >= 0) {
+    const col = sh.getRange(2, idxEndpoint + 1, lastRow - 1, 1).getValues();
+    for (let i = 0; i < col.length; i++) {
+      if (String(col[i][0]).trim() === endpoint) { foundRow = i + 2; break; }
+    }
+  }
+  const row = {};
+  PUSH_SUBS_HEADERS.forEach(h => row[h] = "");
+  row.phoneKey = phoneKey;
+  row.endpoint = endpoint;
+  row.p256dh = p256dh;
+  row.auth = auth;
+  row.ua = ua;
+  row.updated_at = now;
+  row.badge_count = "";
+  if (foundRow < 0) {
+    row.created_at = now;
+    sh.appendRow(PUSH_SUBS_HEADERS.map(h => row[h]));
+    return { ok: true, action: "created", phoneKey, endpoint };
+  } else {
+    // Update: preserva created_at + badge_count + last_sent_at
+    const existing = sh.getRange(foundRow, 1, 1, PUSH_SUBS_HEADERS.length).getValues()[0];
+    row.created_at = existing[PUSH_SUBS_HEADERS.indexOf("created_at")] || now;
+    row.badge_count = existing[PUSH_SUBS_HEADERS.indexOf("badge_count")] || "";
+    row.last_sent_at = existing[PUSH_SUBS_HEADERS.indexOf("last_sent_at")] || "";
+    sh.getRange(foundRow, 1, 1, PUSH_SUBS_HEADERS.length).setValues([PUSH_SUBS_HEADERS.map(h => row[h])]);
+    return { ok: true, action: "updated", phoneKey, endpoint };
+  }
+}
+
+// Elimina la suscripción por endpoint (cuando el usuario desinstala / revoca permiso)
+function unregisterPushSubscription_(data) {
+  const endpoint = safe_(data.endpoint || "").trim();
+  if (!endpoint) return { ok: false, error: "Falta endpoint." };
+  const sh = ensurePushSubsSheet_();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: true, deleted: 0 };
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const idxEndpoint = headers.indexOf("endpoint");
+  if (idxEndpoint < 0) return { ok: false, error: "Hoja sin columna endpoint." };
+  const col = sh.getRange(2, idxEndpoint + 1, lastRow - 1, 1).getValues();
+  for (let i = col.length - 1; i >= 0; i--) {
+    if (String(col[i][0]).trim() === endpoint) {
+      sh.deleteRow(i + 2);
+      return { ok: true, deleted: 1 };
+    }
+  }
+  return { ok: true, deleted: 0 };
+}
+
+// Lista suscripciones (opcionalmente filtra por phoneKey). GET admin.
+function listPushSubscriptions_(params) {
+  const phoneKeyFilter = safe_(params.phoneKey || "").trim();
+  const sh = ensurePushSubsSheet_();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: true, rows: [] };
+  const data = sh.getRange(1, 1, lastRow, PUSH_SUBS_HEADERS.length).getValues();
+  const headers = data[0];
+  const rows = data.slice(1).map(r => {
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = r[i]);
+    return obj;
+  });
+  const filtered = phoneKeyFilter ? rows.filter(r => String(r.phoneKey).trim() === phoneKeyFilter) : rows;
+  return { ok: true, rows: filtered, total: filtered.length };
+}
+
+// Stub: el envío real se hace desde Python (push_sender.py) con la VAPID privada.
+// Esta función devuelve las suscripciones objetivo y un mensaje informativo.
+function sendPushToUserFromAppsScript_(params) {
+  return {
+    ok: false,
+    error: "El envío de push requiere firma ECDSA VAPID. Usa otros/push_sender.py.",
+    hint: "Apps Script no soporta ECDSA. Lee la hoja " + PUSH_SUBS_SHEET + " y envía con web-push (Python o Node)."
+  };
+}
+
+// Actualiza las categorías de aviso de un usuario (CSV, ej. "reservaciones,facturas").
+function updatePushCategories_(data) {
+  const phoneKey = String(safe_(data.phoneKey || "")).replace(/\D/g, "");
+  const cats = safe_(data.categories || "").trim();
+  if (!phoneKey) return { ok: false, error: "Falta phoneKey." };
+  const sh = ensurePushSubsSheet_();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: true, updated: 0 };
+  const data2 = sh.getRange(1, 1, lastRow, PUSH_SUBS_HEADERS.length).getValues();
+  const headers = data2[0];
+  const idxPhone = headers.indexOf("phoneKey");
+  const idxCats = headers.indexOf("categories");
+  if (idxPhone < 0 || idxCats < 0) return { ok: false, error: "Hoja sin columnas requeridas." };
+  let updated = 0;
+  for (let i = 1; i < data2.length; i++) {
+    if (String(data2[i][idxPhone]).replace(/\D/g, "") === phoneKey) {
+      sh.getRange(i + 1, idxCats + 1).setValue(cats);
+      updated++;
+    }
+  }
+  return { ok: true, updated };
+}
+
+// ═══ Cola de notificaciones ═══════════════════════════════════════════════════
+function ensureQueueSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sh = ss.getSheetByName(PUSH_QUEUE_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(PUSH_QUEUE_SHEET);
+    sh.appendRow(PUSH_QUEUE_HEADERS);
+  }
+  return sh;
+}
+
+// Encola una notificación. target puede ser "ALL" o un phoneKey (dígitos).
+// Args: { target, category, title, body, badge?, url?, tag?, source? }
+function queueNotification_(data) {
+  const target = safe_(data.target || "").replace(/\D/g, "") || "ALL";
+  const category = safe_(data.category || "general");
+  const title = safe_(data.title || "").trim();
+  const body = safe_(data.body || "").trim();
+  if (!title || !body) return { ok: false, error: "Falta title/body." };
+  if (PUSH_CATEGORIES.indexOf(category) < 0) {
+    return { ok: false, error: "Categoría inválida: " + category };
+  }
+  const sh = ensureQueueSheet_();
+  const id = Utilities.getUuid();
+  const row = {
+    id,
+    target: data.target === "ALL" ? "ALL" : target,
+    category,
+    title, body,
+    badge: data.badge != null ? String(data.badge) : "",
+    url: safe_(data.url || ""),
+    tag: safe_(data.tag || ""),
+    status: "pending",
+    error: "",
+    created_at: nowIso_(),
+    processed_at: "",
+    source: safe_(data.source || "manual")
+  };
+  sh.appendRow(PUSH_QUEUE_HEADERS.map(h => row[h] != null ? row[h] : ""));
+  return { ok: true, id, queued: 1 };
+}
+
+// Lista notificaciones pendientes (las que el sender debe procesar).
+function listPendingNotifications_(params) {
+  const sh = ensureQueueSheet_();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: true, rows: [] };
+  const data = sh.getRange(1, 1, lastRow, PUSH_QUEUE_HEADERS.length).getValues();
+  const headers = data[0];
+  const rows = data.slice(1).map(r => {
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = r[i] == null ? "" : String(r[i]));
+    return obj;
+  }).filter(r => r.status === "pending");
+  const limit = Math.min(parseInt(params.limit || "200", 10), 500);
+  return { ok: true, rows: rows.slice(0, limit), total: rows.length };
+}
+
+// Marca una notificación como procesada (sent / failed).
+function markNotificationProcessed_(data) {
+  const id = safe_(data.id || "").trim();
+  const status = safe_(data.status || "sent").trim();
+  const error = safe_(data.error || "").trim();
+  if (!id) return { ok: false, error: "Falta id." };
+  const sh = ensureQueueSheet_();
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: false, error: "Cola vacía." };
+  const idxId = PUSH_QUEUE_HEADERS.indexOf("id");
+  const idxStatus = PUSH_QUEUE_HEADERS.indexOf("status");
+  const idxError = PUSH_QUEUE_HEADERS.indexOf("error");
+  const idxProc = PUSH_QUEUE_HEADERS.indexOf("processed_at");
+  const col = sh.getRange(2, idxId + 1, lastRow - 1, 1).getValues();
+  for (let i = 0; i < col.length; i++) {
+    if (String(col[i][0]).trim() === id) {
+      const r = i + 2;
+      sh.getRange(r, idxStatus + 1).setValue(status);
+      sh.getRange(r, idxError + 1).setValue(error);
+      sh.getRange(r, idxProc + 1).setValue(nowIso_());
+      return { ok: true, updated: 1, id };
+    }
+  }
+  return { ok: false, error: "id no encontrado.", id };
+}
+
+// ═══ Menú custom en la hoja para enviar avisos desde Sheets ═══════════════════
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu("🔔 Avisos")
+    .addItem("Enviar a un usuario…", "menuSendToUser_")
+    .addItem("Enviar a TODOS los suscritos…", "menuSendToAll_")
+    .addSeparator()
+    .addItem("Ver pendientes en cola", "menuShowPending_")
+    .addToUi();
+}
+function menuSendToUser_() {
+  const ui = SpreadsheetApp.getUi();
+  const r1 = ui.prompt("Destinatario", "phoneKey (solo dígitos, ej. 528115569120):", ui.ButtonSet.OK_CANCEL);
+  if (r1.getSelectedButton() !== ui.Button.OK) return;
+  const phone = r1.getResponseText().trim();
+  if (!phone) return;
+  const r2 = ui.prompt("Categoría", "reservaciones | facturas | recordatorios | general", ui.ButtonSet.OK_CANCEL);
+  if (r2.getSelectedButton() !== ui.Button.OK) return;
+  const category = r2.getResponseText().trim() || "general";
+  const r3 = ui.prompt("Título", "Título corto de la notificación:", ui.ButtonSet.OK_CANCEL);
+  if (r3.getSelectedButton() !== ui.Button.OK) return;
+  const title = r3.getResponseText().trim();
+  const r4 = ui.prompt("Cuerpo", "Mensaje:", ui.ButtonSet.OK_CANCEL);
+  if (r4.getSelectedButton() !== ui.Button.OK) return;
+  const body = r4.getResponseText().trim();
+  const res = queueNotification_({ target: phone, category, title, body, source: "sheets-menu" });
+  ui.alert(res.ok
+    ? "✓ Encolada (id " + res.id + ").\nCorre 'python3 otros/push_sender.py --drain' para enviar."
+    : "Error: " + (res.error || "desconocido"));
+}
+function menuSendToAll_() {
+  const ui = SpreadsheetApp.getUi();
+  const r2 = ui.prompt("Categoría", "reservaciones | facturas | recordatorios | general", ui.ButtonSet.OK_CANCEL);
+  if (r2.getSelectedButton() !== ui.Button.OK) return;
+  const category = r2.getResponseText().trim() || "general";
+  const r3 = ui.prompt("Título", "Título corto:", ui.ButtonSet.OK_CANCEL);
+  if (r3.getSelectedButton() !== ui.Button.OK) return;
+  const title = r3.getResponseText().trim();
+  const r4 = ui.prompt("Cuerpo", "Mensaje:", ui.ButtonSet.OK_CANCEL);
+  if (r4.getSelectedButton() !== ui.Button.OK) return;
+  const body = r4.getResponseText().trim();
+  const res = queueNotification_({ target: "ALL", category, title, body, source: "sheets-menu" });
+  ui.alert(res.ok
+    ? "✓ Encolada para TODOS (id " + res.id + ").\nCorre 'python3 otros/push_sender.py --drain' para enviar."
+    : "Error: " + (res.error || "desconocido"));
+}
+function menuShowPending_() {
+  const list = listPendingNotifications_({ limit: "20" });
+  SpreadsheetApp.getUi().alert("Pendientes: " + list.total + (list.total
+    ? "\n\nEjecuta: python3 otros/push_sender.py --drain"
+    : ""));
+}
