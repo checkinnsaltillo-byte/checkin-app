@@ -451,8 +451,13 @@ button:disabled{
   justify-content:flex-end;
   margin-bottom:6px;
   align-items:center;
-  gap:10px;
+  gap:6px;
 }
+/* Logo del lang-bar empuja todo lo demás a la derecha (lang-note + switch
+   quedan pegados como bloque a la derecha). */
+.lang-bar-logo{ margin-right:auto !important; }
+/* "Selecciona el idioma" siempre pegado al switch, separado por el gap. */
+.lang-bar .lang-note{ margin-left:0 !important; }
 /* Logo (loader animado) en el lang-bar: solo visible sin sesión
    (página de bienvenida). Tamaño "mediano" (54px). */
 .lang-bar-logo{
@@ -5506,7 +5511,7 @@ body.has-session input[name="nombre"] {
       </button>
       <div class="veh-collapsible-card" id="vehCollapsibleWelcome">
         <button class="auth-bigbtn veh-collapsible-trigger" id="btnGoVehiculos" type="button" aria-expanded="false">
-          <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="welcomeBtnVehiculos">Información de vehículos</span><span class="veh-collapsible-chevron" aria-hidden="true">▾</span></span>
+          <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="welcomeBtnVehiculos">Información de vehículos</span></span>
           <span class="auth-bigbtn-sub" data-i18n="welcomeBtnVehiculosSub">Consulta los vehículos con estancia activa hoy. Útil para coordinar movimientos en el estacionamiento.</span>
         </button>
         <div class="veh-collapsible-body" id="vehBodyWelcome" hidden></div>
@@ -5545,7 +5550,7 @@ body.has-session input[name="nombre"] {
     <input id="login_pin" class="auth-otp-input" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" style="letter-spacing:18px; max-width:200px;"/>
     <div class="note hidden" id="loginPinError"></div>
     <button id="btnVerifyPin" type="button" data-i18n="loginEnter">Entrar</button>
-    <button class="auth-back-link" id="btnLoginForgotPin" type="button" data-i18n="loginForgotPin">¿Olvidaste tu PIN? Recupéralo con WhatsApp</button>
+    <button class="auth-back-link" id="btnLoginForgotPin" type="button" data-i18n="loginForgotPin">¿Olvidaste tu PIN? Recupéralo aquí</button>
     <button class="auth-back-link" id="btnLoginBackFromPin" type="button" data-i18n="loginChangeNumber">← Cambiar de número</button>
   </div>
 
@@ -5722,7 +5727,7 @@ body.has-session input[name="nombre"] {
       <!-- Sección 2: Información de vehículos -->
       <div class="veh-collapsible-card" id="vehCollapsibleHome">
         <button class="auth-bigbtn veh-collapsible-trigger" id="btnHomeVehiculos" type="button" aria-expanded="false">
-          <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="btnInfoVehiculosTitle">Información de vehículos</span><span class="veh-collapsible-chevron" aria-hidden="true">▾</span></span>
+          <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚗</span><span data-i18n="btnInfoVehiculosTitle">Información de vehículos</span></span>
           <span class="auth-bigbtn-sub" data-i18n="btnInfoVehiculosSub">Consulta los vehículos con estancia activa hoy por propiedad.</span>
         </button>
         <div class="veh-collapsible-body" id="vehBodyHome" hidden></div>
@@ -5793,6 +5798,10 @@ body.has-session input[name="nombre"] {
       </div>
       </div><!-- /.stays-card-body -->
     </div>
+    <button class="pwa-install-btn" id="btnInstallPwaHome" type="button" hidden>
+      <span class="pwa-install-icon" aria-hidden="true">📲</span>
+      <span class="pwa-install-label">Crear acceso directo en mi dispositivo</span>
+    </button>
   </div>
 </div>
 
@@ -8336,7 +8345,7 @@ const SIMPLE_I18N = {
     loginPinSubtitle:"Bienvenido de nuevo. Ingresa el PIN de 4 dígitos que creaste para <strong>{phone}</strong>.",
     pinLabel:"PIN",
     loginEnter:"Entrar",
-    loginForgotPin:"¿Olvidaste tu PIN? Recupéralo con WhatsApp",
+    loginForgotPin:"¿Olvidaste tu PIN? Recupéralo aquí",
     loginChangeNumber:"← Cambiar de número",
     loginOtpTitle:"Ingresa el código",
     loginOtpTitleFirst:"Valida tu celular",
@@ -8478,6 +8487,8 @@ const SIMPLE_I18N = {
     wizErrStep3:"Si requieres factura, llena razón social, RFC, régimen y correo.",
     wizErrStep4:"Si tienes vehículo, llena marca, modelo, color y placas.",
     profileCompleteTitle:"¡Perfil completo!",
+    profileSavedTitle:"Datos guardados",
+    profileSavedText:"Tus cambios se guardaron correctamente.",
     profileCompleteText:"Ya puedes gozar de nuestros beneficios.",
     acceptBtn:"Aceptar",
     closeBtn:"Cerrar",
@@ -8647,7 +8658,7 @@ const SIMPLE_I18N = {
     loginPinSubtitle:"Welcome back. Enter the 4-digit PIN you created for <strong>{phone}</strong>.",
     pinLabel:"PIN",
     loginEnter:"Sign in",
-    loginForgotPin:"Forgot your PIN? Recover it via WhatsApp",
+    loginForgotPin:"Forgot your PIN? Recover it here",
     loginChangeNumber:"← Change phone",
     loginOtpTitle:"Enter the code",
     loginOtpTitleFirst:"Validate your phone",
@@ -8789,6 +8800,8 @@ const SIMPLE_I18N = {
     wizErrStep3:"If you require invoicing, fill business name, RFC, regime and email.",
     wizErrStep4:"If you have a vehicle, fill make, model, color and plates.",
     profileCompleteTitle:"Profile complete!",
+    profileSavedTitle:"Changes saved",
+    profileSavedText:"Your changes were saved successfully.",
     profileCompleteText:"You can now enjoy all our benefits.",
     acceptBtn:"OK",
     closeBtn:"Close",
@@ -10160,11 +10173,11 @@ function buildTicketActionsHtml(row, ticketUrl){
       function normalizeDriveImage(url){
         const txt = safeText(url);
         const fileMatch = txt.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-        if (fileMatch) return `https://drive.google.com/thumbnail?id=${fileMatch[1]}&sz=w1200`;
+        if (fileMatch) return `https://lh3.googleusercontent.com/d/${fileMatch[1]}=w1200`;
         const dMatch = txt.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (dMatch) return `https://drive.google.com/thumbnail?id=${dMatch[1]}&sz=w1200`;
+        if (dMatch) return `https://lh3.googleusercontent.com/d/${dMatch[1]}=w1200`;
         const idMatch = txt.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-        if (idMatch) return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w1200`;
+        if (idMatch) return `https://lh3.googleusercontent.com/d/${idMatch[1]}=w1200`;
         return txt;
       }
 
@@ -10349,11 +10362,11 @@ function buildTicketActionsHtml(row, ticketUrl){
     const txt = safeText(url).trim();
     if (!txt) return '';
     const fileMatch = txt.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (fileMatch) return `https://drive.google.com/thumbnail?id=${fileMatch[1]}&sz=w1200`;
+    if (fileMatch) return `https://lh3.googleusercontent.com/d/${fileMatch[1]}=w1200`;
     const dMatch = txt.match(/\/d\/([a-zA-Z0-9_-]+)/);
-    if (dMatch) return `https://drive.google.com/thumbnail?id=${dMatch[1]}&sz=w1200`;
+    if (dMatch) return `https://lh3.googleusercontent.com/d/${dMatch[1]}=w1200`;
     const idMatch = txt.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-    if (idMatch) return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w1200`;
+    if (idMatch) return `https://lh3.googleusercontent.com/d/${idMatch[1]}=w1200`;
     return txt;
   }
 
@@ -10492,8 +10505,8 @@ function buildTicketActionsHtml(row, ticketUrl){
       if (fotoUrl) {
         const m = fotoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || fotoUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
         if (m) {
-          fotoThumb = `https://drive.google.com/thumbnail?id=${m[1]}&sz=w240`;
-          fotoFull  = `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`;
+          fotoThumb = `https://lh3.googleusercontent.com/d/${m[1]}=w240`;
+          fotoFull  = `https://lh3.googleusercontent.com/d/${m[1]}=w1600`;
         } else {
           fotoThumb = normalizeDriveImageUrl(fotoUrl) || fotoUrl;
           fotoFull = fotoThumb;
@@ -12500,6 +12513,7 @@ document.addEventListener("DOMContentLoaded", function(){
     showOnly(viewWelcome);
     setMenuVisible(false);
     refreshSessionPill();
+    if (viewRegistro) viewRegistro.classList.remove("as-popup");
     // Restaurar H1 al default ("Portal del huésped") por si venía
     // de express form donde quedó como "Registro exprés..."
     const h1 = document.getElementById("pageH1");
@@ -12772,11 +12786,10 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function gotoExpressForm(){
     showOnly(viewRegistro);
-    // Aplicar estilo popup-modal cuando hay sesión (viene desde home).
-    // Sin sesión (desde welcome), se mantiene el flujo de página completa.
+    // viewRegistro siempre se abre como popup-modal (con o sin sesión).
     const session = getSession();
     const hasSession = !!session;
-    if (viewRegistro) viewRegistro.classList.toggle("as-popup", hasSession);
+    if (viewRegistro) viewRegistro.classList.add("as-popup");
     // El topMenu (tabs Registro/Vehículos) siempre se oculta en el form,
     // sin importar si hay sesión o no. Antes solo se ocultaba con sesión.
     setMenuVisible(false);
@@ -13275,8 +13288,8 @@ document.addEventListener("DOMContentLoaded", function(){
             // Foto del vehículo: puede estar en "Link foto vehículo" (URL Drive) o "Foto vehículo"
             const fotoUrl = pickField(detail, ["Link foto vehículo", "Foto vehículo", "Link foto vehiculo"]);
             const fotoId = driveIdFromUrl(fotoUrl);
-            const fotoThumb = fotoId ? `https://drive.google.com/thumbnail?id=${fotoId}&sz=w240` : "";
-            const fotoFull = fotoId ? `https://drive.google.com/thumbnail?id=${fotoId}&sz=w1600` : "";
+            const fotoThumb = fotoId ? `https://lh3.googleusercontent.com/d/${fotoId}=w240` : "";
+            const fotoFull = fotoId ? `https://lh3.googleusercontent.com/d/${fotoId}=w1600` : "";
             const fotoHTML = fotoThumb
               ? `<div class="veh-photo-thumb" data-zoom-src="${escapeHtmlSafe(fotoFull)}" title="Ver foto"><img src="${escapeHtmlSafe(fotoThumb)}" alt="Foto vehículo" loading="lazy"/></div>`
               : "";
@@ -13453,7 +13466,10 @@ document.addEventListener("DOMContentLoaded", function(){
     const id = driveIdFromUrl(url);
     if (!id) return "";
     const w = size || 400;
-    return `https://drive.google.com/thumbnail?id=${id}&sz=w${w}`;
+    // Usamos el CDN directo (lh3.googleusercontent.com) en lugar de
+    // drive.google.com/thumbnail porque éste hace un redirect 302 que
+    // falla en WebView de iOS (PWA standalone).
+    return `https://lh3.googleusercontent.com/d/${id}=w${w}`;
   }
 
   async function fetchAllStaysByPhone(userDigits){
@@ -14338,7 +14354,7 @@ document.addEventListener("DOMContentLoaded", function(){
   async function onForgotPin(){
     if (!pendingLogin) return;
     const btn = $("btnLoginForgotPin");
-    setBtnLoading(btn, true, "¿Olvidaste tu PIN? Recupéralo con WhatsApp");
+    setBtnLoading(btn, true, "¿Olvidaste tu PIN? Recupéralo aquí");
     try {
       const res = await sendOtp(pendingLogin.phone, pendingLogin.lada, "reset-pin");
       if (!res.ok) return showError(loginPinError, res.error || "No se pudo enviar el código.");
@@ -14447,7 +14463,7 @@ document.addEventListener("DOMContentLoaded", function(){
   function bindEvents(){
     $("btnGoLogin")?.addEventListener("click", gotoLoginPhone);
     $("btnGoExpress")?.addEventListener("click", gotoExpressForm);
-    $("btnGoVehiculos")?.addEventListener("click", () => toggleVehiculosDropdown("vehBodyWelcome","btnGoVehiculos"));
+    $("btnGoVehiculos")?.addEventListener("click", () => openVehiculosPopup());
     $("btnLoginBack1")?.addEventListener("click", gotoWelcome);
     $("btnLoginBackFromPin")?.addEventListener("click", gotoLoginPhone);
     // "Cambiar de número" desde el method picker → vuelve al paso de celular
@@ -14750,13 +14766,29 @@ document.addEventListener("DOMContentLoaded", function(){
       if (!json.exists || !json.profile) { console.warn("[profile] hydrate: backend dice que el perfil no existe para phoneKey=" + cleanKey); return null; }
       const remote = json.profile;
       const local = loadProfile(phoneKey);
-      // Merge campo por campo: backend gana si tiene valor; local sobrevive
-      // si el backend está vacío.
+      // CAMPOS DE IMAGEN: preservamos el dataURL local si existe — un
+      // dataURL local es "mejor" que una URL de Drive del backend porque
+      // (a) carga instantáneo, (b) funciona offline, (c) no depende de
+      // CORS / redirect 302 que falla en iOS WebView. Solo usamos la URL
+      // del backend cuando el local NO tiene dataURL para ese campo.
+      const IMAGE_FIELDS = {
+        step2: ["ine_frontal","ine_trasero","ident_unica"],
+        step4: ["foto"]
+      };
+      const mergeStep = (stepKey, localStep, remoteStep) => {
+        const out = { ...localStep, ...filterEmpty_(remoteStep || {}) };
+        // Re-aplicar dataURL local si existe (overriding URL backend).
+        (IMAGE_FIELDS[stepKey] || []).forEach(k => {
+          const localVal = String(localStep[k] || "");
+          if (/^data:image\//.test(localVal)) out[k] = localVal;
+        });
+        return out;
+      };
       const merged = {
         step1: { ...local.step1, ...filterEmpty_(remote.step1 || {}) },
-        step2: { ...local.step2, ...filterEmpty_(remote.step2 || {}) },
+        step2: mergeStep("step2", local.step2, remote.step2),
         step3: { ...local.step3, ...filterEmpty_(remote.step3 || {}) },
-        step4: { ...local.step4, ...filterEmpty_(remote.step4 || {}) },
+        step4: mergeStep("step4", local.step4, remote.step4),
         completed: local.completed || false,
         lastStep: Math.max(local.lastStep || 1, remote.lastStep || 1),
         updatedAt: Math.max(local.updatedAt || 0, remote.updatedAt || 0)
@@ -15017,31 +15049,86 @@ document.addEventListener("DOMContentLoaded", function(){
     $("wiz_veh_color").value = p.step4.color || "";
     $("wiz_veh_placas").value = p.step4.placas || "";
     $("wiz_veh_hora_salida").value = p.step4.hora_salida || "";
-    // Foto: dataURL en step4.foto (post-cambio) o legado solo nombre.
+    // Foto: dataURL en step4.foto (post-cambio) o URL de Drive (post-hidratación
+    // desde backend) o legado solo nombre.
     paintProfileImagePreview("wiz_ine_frontal",  p.step2.ine_frontal);
     paintProfileImagePreview("wiz_ine_trasero",  p.step2.ine_trasero);
     paintProfileImagePreview("wiz_ident_unica",  p.step2.ident_unica);
     paintProfileImagePreview("wiz_veh_foto",     p.step4.foto, p.step4.foto_name);
+    // Después de pintar, re-engancha el zoom + botón × y refresca los labels.
+    try {
+      if (window.checkinnImages?.enhanceAllPreviews) window.checkinnImages.enhanceAllPreviews();
+      ["wiz_ine_frontal","wiz_ine_trasero","wiz_ident_unica","wiz_veh_foto"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && window.checkinnImages?.refreshUploadButtonText) {
+          window.checkinnImages.refreshUploadButtonText(el);
+        }
+      });
+    } catch(_e){}
   }
-  // Pinta preview de imagen y label en el wizard. Si val es un dataURL,
-  // lo muestra; si no, oculta el preview pero conserva el nombre.
+  // Pinta preview de imagen y label en el wizard.
+  // Acepta: dataURL (data:image/...) o URL de Google Drive (https://drive.google.com/...)
+  // En ambos casos muestra la imagen y la habilita para zoom.
   function paintProfileImagePreview(inputId, val, displayName){
     const previewId = `${inputId}_preview`;
     const nameId = `${inputId}_name`;
     const preview = $(previewId);
     const name = $(nameId);
+    const strVal = String(val || "").trim();
+    const isDataUrl = /^data:image\//.test(strVal);
+    const isDriveUrl = /drive\.google\.com|lh3\.googleusercontent\.com/.test(strVal);
     if (preview) {
-      if (val && /^data:image\//.test(String(val))) {
-        preview.src = val;
+      if (isDataUrl) {
+        // dataURL: muestra directo. El más confiable.
+        preview.src = strVal;
         preview.classList.remove("hidden");
-        preview.dataset.zoomSrc = val;
+        preview.dataset.zoomSrc = strVal;
+      } else if (isDriveUrl) {
+        // ESTRATEGIA: pedir al backend que descargue el archivo de Drive y
+        // nos devuelva el dataURL. Esto elimina CORS / redirect / iOS
+        // WebView quirks. El backend usa DriveApp (con permisos del owner
+        // del script) → Utilities.base64Encode → dataURL.
+        preview.classList.remove("hidden");  // visible aunque src vacío
+        // Mostramos un placeholder transparente mientras carga.
+        preview.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><circle cx='20' cy='20' r='10' fill='%23e2e8f0'/></svg>";
+        (async () => {
+          try {
+            const url = `${WEB_APP_URL}?action=get_image_b64&id=${encodeURIComponent(strVal)}`;
+            const r = await fetch(url);
+            const json = await r.json();
+            if (json && json.ok && json.dataUrl) {
+              preview.src = json.dataUrl;
+              preview.dataset.zoomSrc = json.dataUrl;
+              // Cachear en activeProfile para próxima vez.
+              try {
+                const map = {
+                  wiz_ine_frontal: ["step2","ine_frontal"],
+                  wiz_ine_trasero: ["step2","ine_trasero"],
+                  wiz_ident_unica: ["step2","ident_unica"],
+                  wiz_veh_foto:    ["step4","foto"]
+                };
+                const [stepKey, fieldKey] = map[inputId] || [null, null];
+                if (stepKey && fieldKey && activeProfile && activePhoneKey) {
+                  activeProfile[stepKey][fieldKey] = json.dataUrl;
+                  saveProfile(activePhoneKey, activeProfile);
+                }
+              } catch(_e){}
+            } else {
+              console.warn("[preview] get_image_b64 falló:", json && json.error);
+              preview.classList.add("hidden");
+            }
+          } catch(e) {
+            console.warn("[preview] fetch error:", e);
+            preview.classList.add("hidden");
+          }
+        })();
       } else {
         preview.classList.add("hidden");
         preview.removeAttribute("src");
         preview.removeAttribute("data-zoom-src");
       }
     }
-    const labelText = displayName || (val && !/^data:image\//.test(String(val)) ? val : "");
+    const labelText = displayName || (val && !isDataUrl && !isDriveUrl ? val : "");
     if (name) name.textContent = labelText || (getI18n().noImage || "Ninguna imagen seleccionada");
   }
   function setPreviewName(id, val){
@@ -15423,13 +15510,13 @@ document.addEventListener("DOMContentLoaded", function(){
       saveProfile(activePhoneKey, activeProfile);
       profileSnapshotAtOpen = serializeProfile(activeProfile);
       refreshHomeCard();
-      showProfileCompleteModal();
+      showProfileCompleteModal(true);
     } else if (mode === "save-changes") {
       // Guardó cambios pero el perfil sigue incompleto → confirmación
       // (mismo modal; al Aceptar va al home). Actualizamos el snapshot
       // para que el botón pase de rojo a verde al volver a entrar.
       profileSnapshotAtOpen = serializeProfile(activeProfile);
-      showProfileCompleteModal();
+      showProfileCompleteModal(false);
     } else {
       exitWizardToHome();
     }
@@ -15544,13 +15631,20 @@ document.addEventListener("DOMContentLoaded", function(){
       }
     }
   }
-  function showProfileCompleteModal(){
+  function showProfileCompleteModal(isComplete){
     const modal = $("profileCompleteModal");
-    if (modal) {
-      modal.style.display = "flex";
+    if (!modal) { exitWizardToHome(); return; }
+    const i = getI18n();
+    const titleEl = modal.querySelector("h3");
+    const bodyEl = modal.querySelector(".hint");
+    if (isComplete) {
+      if (titleEl) titleEl.textContent = i.profileCompleteTitle || "¡Perfil completo!";
+      if (bodyEl) bodyEl.textContent = i.profileCompleteText || "Ya puedes gozar de nuestros beneficios.";
     } else {
-      exitWizardToHome();
+      if (titleEl) titleEl.textContent = i.profileSavedTitle || "Datos guardados";
+      if (bodyEl) bodyEl.textContent = i.profileSavedText || "Tus cambios se guardaron correctamente.";
     }
+    modal.style.display = "flex";
   }
 
   // ─── Cambio de celular con OTP ─────────────────────────────────────
@@ -16494,6 +16588,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   const btn = document.getElementById("btnInstallPwa");
+  const btnHome = document.getElementById("btnInstallPwaHome");
   const modal = document.getElementById("pwaInstallModal");
   const stepsEl = document.getElementById("pwaInstallSteps");
   const titleEl = document.getElementById("pwaInstallTitle");
@@ -16543,6 +16638,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function setBtnsVisible(visible){
     if (btn) btn.hidden = !visible;
+    if (btnHome) btnHome.hidden = !visible;
   }
 
   // ─── Android móvil: capturar beforeinstallprompt y mostrar botón ───
@@ -16573,6 +16669,7 @@ document.addEventListener("DOMContentLoaded", function(){
     }
   }
   btn?.addEventListener("click", handleInstallClick);
+  btnHome?.addEventListener("click", handleInstallClick);
 
   // Si ya está instalado, ocultar definitivamente
   if (isStandalone) setBtnsVisible(false);
@@ -17665,16 +17762,66 @@ document.addEventListener("DOMContentLoaded", function(){
     #viewHome .veh-collapsible-card { margin-top: 8px !important; }
 
     /* Title row sin botones (los movimos al pill) */
-    .page-title-row { margin-bottom: 6px; }
+    .page-title-row { margin-bottom: 4px !important; }
+    /* H1 ¡Hola, Andrés!: compacto y sin espacio extra abajo */
+    h1, #pageH1 { margin: 0 !important; padding: 0 !important; }
 
-    /* Espacios homologados y reducidos entre TODAS las secciones del home */
-    #viewHome > * { margin-top: 6px !important; }
-    #viewHome > *:first-child { margin-top: 0 !important; }
-    #viewHome .dashboard-wrap { margin-top: 6px !important; }
+    /* ═══════════════════════════════════════════════════════════════════
+       ESPACIADO ESTÁNDAR Y EQUIDISTANTE (welcome + home)
+       Un solo valor (--space-std) controla todos los gaps verticales
+       entre secciones, cajas, KPIs y bloques. Cambia un número aquí
+       y se ajusta toda la app.
+       ═══════════════════════════════════════════════════════════════════ */
+    :root { --space-std: 8px; }
+
+    /* Padding interno consistente de la .section (contenedor de viewWelcome
+       y viewHome). */
+    #viewWelcome .section,
+    #viewHome .section { padding: var(--space-std) !important; }
+
+    /* TODOS los hijos directos de .section tienen el mismo gap arriba.
+       El primer hijo no tiene margen (pegado al borde superior). */
+    #viewWelcome .section > *,
+    #viewHome .section > * {
+      margin-top: var(--space-std) !important;
+      margin-bottom: 0 !important;
+    }
+    #viewWelcome .section > *:first-child,
+    #viewHome .section > *:first-child { margin-top: 0 !important; }
+
+    /* Espaciado uniforme para cualquier bloque de nivel superior que se
+       use en welcome/home (cajas, cards, KPIs, badges, banners). */
+    #viewWelcome .auth-bigbtn,
+    #viewWelcome .stays-card,
+    #viewWelcome .veh-collapsible-card,
+    #viewWelcome .profile-card-bigbtn,
+    #viewWelcome .profile-card,
+    #viewWelcome .profile-complete-badge,
+    #viewWelcome .kpi-grid,
     #viewHome .auth-bigbtn,
     #viewHome .stays-card,
     #viewHome .veh-collapsible-card,
-    #viewHome .profile-card-bigbtn { margin-top: 6px !important; }
+    #viewHome .profile-card-bigbtn,
+    #viewHome .profile-card,
+    #viewHome .profile-complete-badge,
+    #viewHome .kpi-grid {
+      margin-top: var(--space-std) !important;
+      margin-bottom: 0 !important;
+    }
+
+    /* Gap interno del kpi-grid (entre cada KPI). */
+    #viewWelcome .kpi-grid,
+    #viewHome .kpi-grid { gap: var(--space-std) !important; }
+
+    /* Botones "Crear acceso directo" y similar al final del view. */
+    #viewWelcome .pwa-install-btn,
+    #viewHome .pwa-install-btn { margin-top: var(--space-std) !important; }
+
+    /* H1 superior y page-title-row pegados sin extra margin abajo. */
+    .page-title-row { margin-bottom: var(--space-std) !important; }
+    h1, #pageH1 { margin: 0 !important; padding: 0 !important; }
+    /* Lang-bar superior pegado con espacio estándar abajo. */
+    .lang-bar { margin-bottom: var(--space-std) !important; }
 
     /* KPIs con altura reducida */
     .kpi-grid {
@@ -17722,23 +17869,33 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   .popup-close-btn{
     position:absolute;
-    top:10px; right:10px;
-    width:32px; height:32px;
+    top:12px; right:12px;
+    width:36px; height:36px;
     border-radius:50%;
-    background:#f1f5f9;
-    border:none;
-    font-size:22px;
+    background:#fff;
+    border:1px solid #e2e8f0;
+    font-size:20px;
+    font-weight:600;
     line-height:1;
-    color:#475569;
+    color:#0f172a;
     cursor:pointer;
     display:inline-flex;
     align-items:center; justify-content:center;
     padding:0;
-    transition:background .15s ease, transform .12s ease;
+    box-shadow:0 2px 8px rgba(15,23,42,.08);
+    transition:background .15s ease, transform .12s ease, box-shadow .15s ease, border-color .15s ease;
     z-index:2;
   }
-  .popup-close-btn:hover{ background:#e2e8f0; color:#0f172a; }
+  .popup-close-btn:hover{
+    background:#f8fafc;
+    border-color:#cbd5e1;
+    box-shadow:0 4px 12px rgba(15,23,42,.12);
+  }
   .popup-close-btn:active{ transform:scale(.92); }
+  .popup-close-btn:focus-visible{
+    outline:2px solid var(--accent);
+    outline-offset:2px;
+  }
   .popup-title{
     margin:0 32px 12px 0;
     font-size:17px;
@@ -17783,26 +17940,33 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   #viewRegistro.as-popup .back-home-btn{
     position:absolute !important;
-    top:8px !important; right:8px !important;
+    top:12px !important; right:12px !important;
     left:auto !important;
-    width:32px !important; height:32px !important;
+    width:36px !important; height:36px !important;
     border-radius:50% !important;
-    background:#f1f5f9 !important;
-    color:#475569 !important;
-    border:none !important;
+    background:#fff !important;
+    color:#0f172a !important;
+    border:1px solid #e2e8f0 !important;
     font-size:0 !important;
     padding:0 !important;
+    box-shadow:0 2px 8px rgba(15,23,42,.08) !important;
     z-index:2;
     display:inline-flex !important;
     align-items:center; justify-content:center;
+    transition:background .15s ease, box-shadow .15s ease, border-color .15s ease;
   }
   #viewRegistro.as-popup .back-home-btn::before{
     content:"×";
-    font-size:22px;
+    font-size:20px;
     font-weight:600;
     line-height:1;
+    color:#0f172a;
   }
-  #viewRegistro.as-popup .back-home-btn:hover{ background:#e2e8f0 !important; color:#0f172a !important; }
+  #viewRegistro.as-popup .back-home-btn:hover{
+    background:#f8fafc !important;
+    border-color:#cbd5e1 !important;
+    box-shadow:0 4px 12px rgba(15,23,42,.12) !important;
+  }
 </style>
 
 <!-- ═══ Notificaciones (campana 🔔) ═══════════════════════════════════ -->
