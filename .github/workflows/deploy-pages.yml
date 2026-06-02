@@ -55,32 +55,34 @@ jobs:
             mkdir -p _site/preview
             rsync -a --exclude='.git' --exclude='node_modules' --exclude='.github' --exclude='*.bak' test-src/ _site/preview/
           fi
-          # Index redirect al registro
+          # Index redirect al registro (silencioso, sin texto visible)
           if [ ! -f _site/index.html ]; then
             cat > _site/index.html <<'EOF'
           <!DOCTYPE html>
           <html lang="es"><head>
           <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
           <title>Check-inn Saltillo</title>
           <meta http-equiv="refresh" content="0; url=public/registro/">
           <link rel="canonical" href="public/registro/">
-          </head><body>
-          <p>Redirigiendo a <a href="public/registro/">Registro de huéspedes</a>…</p>
-          </body></html>
+          <style>html,body{margin:0;padding:0;background:#fff;height:100%;}</style>
+          <script>location.replace("public/registro/");</script>
+          </head><body></body></html>
           EOF
           fi
-          # Index redirect en /preview/
+          # Index redirect en /preview/ (silencioso)
           if [ -d "_site/preview" ] && [ ! -f _site/preview/index.html ]; then
             cat > _site/preview/index.html <<'EOF'
           <!DOCTYPE html>
           <html lang="es"><head>
           <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
           <title>Check-inn Saltillo · Preview</title>
           <meta http-equiv="refresh" content="0; url=public/registro/">
           <link rel="canonical" href="public/registro/">
-          </head><body>
-          <p>Redirigiendo a <a href="public/registro/">Registro de huéspedes (preview)</a>…</p>
-          </body></html>
+          <style>html,body{margin:0;padding:0;background:#fff;height:100%;}</style>
+          <script>location.replace("public/registro/");</script>
+          </head><body></body></html>
           EOF
           fi
           echo "=== Estructura final ==="

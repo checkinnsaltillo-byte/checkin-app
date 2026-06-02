@@ -1,12 +1,16 @@
-// Service worker — Check-inn PWA (v2)
+// Service worker — Check-inn PWA (v3)
 // Estrategia:
 //  · install: skipWaiting (el SW nuevo toma control inmediato).
 //  · activate: clients.claim() + notifica a clientes para que recarguen.
-//  · fetch: network-first para navegaciones HTML — esto fuerza que la PWA
-//    en iOS NO sirva HTML cacheado por Safari y siempre traiga el último deploy.
+//  · fetch: solo intercepta navegaciones HTML para ofrecer página offline.
+//    Usa cache HTTP nativo del browser ({cache:"default"}) — esto evita
+//    re-descargar los ~767 KB del index.html en cada visita y deja que
+//    el cache-control max-age=600 de GitHub Pages haga su trabajo.
+//    Para forzar fresh HTML tras un deploy, el activate notifica a los
+//    clientes para que recarguen.
 //  · push / notificationclick: notificaciones + badge.
 
-const SW_VERSION = "2026-05-30-5";
+const SW_VERSION = "2026-06-02-1";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -30,17 +34,20 @@ self.addEventListener("fetch", (event) => {
     req.mode === "navigate" ||
     (req.headers.get("accept") || "").includes("text/html");
   if (!isNavigation) return;
-  // Network-first para HTML — evita que Safari/iOS sirva HTML caché viejo.
+  // Usar cache HTTP nativo del browser ({cache:"default"}) — respeta el
+  // cache-control: max-age=600 que GitHub Pages envía, así una segunda
+  // visita dentro de 10 min sirve el HTML cacheado al instante. La
+  // protección contra deploy stale viene del clients.claim() + reload
+  // en el activate, no de forzar no-store en cada fetch.
   event.respondWith((async () => {
     try {
-      const fresh = await fetch(req, { cache: "no-store" });
-      return fresh;
-    } catch (err) {
-      // Sin red: intentar lo que haya en caché HTTP del browser
-      return fetch(req).catch(() => new Response(
+      return await fetch(req);
+    } catch (_err) {
+      // Sin red: fallback offline
+      return new Response(
         "<h1>Sin conexión</h1><p>Reintenta cuando tengas red.</p>",
         { headers: { "Content-Type": "text/html; charset=utf-8" }, status: 503 }
-      ));
+      );
     }
   })());
 });
