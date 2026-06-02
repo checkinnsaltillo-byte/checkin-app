@@ -137,6 +137,7 @@ function doGet(e) {
     if (action === "is_admin") return jsonOutput_({ ok: true, isAdmin: String((e.parameter||{}).phoneKey||"").replace(/\D/g,"") === ADMIN_PHONE_KEY });
     if (action === "list_notifications") return jsonOutput_(listNotifications_(e.parameter || {}));
     if (action === "get_profile") return jsonOutput_(getProfile_(e.parameter || {}));
+    if (action === "get_image_b64") return jsonOutput_(getImageB64_(e.parameter || {}));
     return jsonOutput_({ ok: true, message: "Web app activo (normalizado)." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -2180,6 +2181,36 @@ function getProfile_(params) {
     ok: true, exists: true,
     profile: { step1, step2, step3, step4, lastStep: 4, updatedAt }
   };
+}
+
+// ─── get_image_b64: convierte un archivo de Drive a dataURL ──────────────
+// El frontend pasa el ID del archivo (o URL completa, extrae el ID) y el
+// backend descarga el blob con DriveApp + Utilities.base64Encode → dataURL.
+// Esto soluciona el problema de iOS WebView que no carga URLs de Drive
+// (CORS / redirect 302 / permisos), porque el dataURL es self-contained.
+function getImageB64_(params) {
+  let idOrUrl = String(params.id || params.url || "").trim();
+  if (!idOrUrl) return { ok: false, error: "Falta id." };
+  // Extraer ID si vino una URL completa.
+  const matchers = [
+    /\/file\/d\/([a-zA-Z0-9_-]+)/,
+    /\/d\/([a-zA-Z0-9_-]+)/,
+    /[?&]id=([a-zA-Z0-9_-]+)/
+  ];
+  for (const re of matchers) {
+    const m = idOrUrl.match(re);
+    if (m) { idOrUrl = m[1]; break; }
+  }
+  try {
+    const file = DriveApp.getFileById(idOrUrl);
+    const blob = file.getBlob();
+    const mime = blob.getContentType() || "image/jpeg";
+    const b64 = Utilities.base64Encode(blob.getBytes());
+    const dataUrl = "data:" + mime + ";base64," + b64;
+    return { ok: true, mime: mime, dataUrl: dataUrl };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
+  }
 }
 
 // ─── Inbox de notificaciones POR USUARIO ─────────────────────────────────

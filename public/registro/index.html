@@ -15076,68 +15076,56 @@ document.addEventListener("DOMContentLoaded", function(){
     const name = $(nameId);
     const strVal = String(val || "").trim();
     const isDataUrl = /^data:image\//.test(strVal);
-    const isHttpUrl = /^https?:\/\//.test(strVal);
     const isDriveUrl = /drive\.google\.com|lh3\.googleusercontent\.com/.test(strVal);
     if (preview) {
       if (isDataUrl) {
-        // dataURL: muestra directo. Sin fallback necesario.
+        // dataURL: muestra directo. El más confiable.
         preview.src = strVal;
         preview.classList.remove("hidden");
         preview.dataset.zoomSrc = strVal;
-        preview.onerror = null;
-      } else if (isDriveUrl && typeof normalizeDriveImageUrl === "function") {
-        const thumb = normalizeDriveImageUrl(strVal);
-        preview.src = thumb;
-        preview.referrerPolicy = "no-referrer";
-        preview.classList.remove("hidden");
-        preview.dataset.zoomSrc = thumb;
-        // Fallback: si la URL CDN no carga en iOS WebView, hacemos fetch
-        // → blob → object URL. Solo intentamos una vez.
-        preview.onerror = async function(){
-          this.onerror = null;
+      } else if (isDriveUrl) {
+        // ESTRATEGIA: pedir al backend que descargue el archivo de Drive y
+        // nos devuelva el dataURL. Esto elimina CORS / redirect / iOS
+        // WebView quirks. El backend usa DriveApp (con permisos del owner
+        // del script) → Utilities.base64Encode → dataURL.
+        preview.classList.remove("hidden");  // visible aunque src vacío
+        // Mostramos un placeholder transparente mientras carga.
+        preview.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><circle cx='20' cy='20' r='10' fill='%23e2e8f0'/></svg>";
+        (async () => {
           try {
-            const r = await fetch(thumb, { mode: "cors", credentials: "omit" });
-            if (!r.ok) throw new Error("HTTP " + r.status);
-            const blob = await r.blob();
-            const objUrl = URL.createObjectURL(blob);
-            this.src = objUrl;
-            this.dataset.zoomSrc = objUrl;
-            // También cacheamos en localStorage para próxima vez (opcional).
-            try {
-              const reader = new FileReader();
-              reader.onload = () => {
-                const cached = reader.result;
-                if (typeof cached === "string" && /^data:image\//.test(cached)) {
-                  // Guardar en activeProfile para el próximo abrir del wizard.
-                  if (activeProfile && activePhoneKey) {
-                    const [stepKey, fieldKey] = (function(){
-                      const map = {
-                        wiz_ine_frontal: ["step2","ine_frontal"],
-                        wiz_ine_trasero: ["step2","ine_trasero"],
-                        wiz_ident_unica: ["step2","ident_unica"],
-                        wiz_veh_foto:    ["step4","foto"]
-                      };
-                      return map[inputId] || [null, null];
-                    })();
-                    if (stepKey && fieldKey) {
-                      activeProfile[stepKey][fieldKey] = cached;
-                      saveProfile(activePhoneKey, activeProfile);
-                    }
-                  }
+            const url = `${WEB_APP_URL}?action=get_image_b64&id=${encodeURIComponent(strVal)}`;
+            const r = await fetch(url);
+            const json = await r.json();
+            if (json && json.ok && json.dataUrl) {
+              preview.src = json.dataUrl;
+              preview.dataset.zoomSrc = json.dataUrl;
+              // Cachear en activeProfile para próxima vez.
+              try {
+                const map = {
+                  wiz_ine_frontal: ["step2","ine_frontal"],
+                  wiz_ine_trasero: ["step2","ine_trasero"],
+                  wiz_ident_unica: ["step2","ident_unica"],
+                  wiz_veh_foto:    ["step4","foto"]
+                };
+                const [stepKey, fieldKey] = map[inputId] || [null, null];
+                if (stepKey && fieldKey && activeProfile && activePhoneKey) {
+                  activeProfile[stepKey][fieldKey] = json.dataUrl;
+                  saveProfile(activePhoneKey, activeProfile);
                 }
-              };
-              reader.readAsDataURL(blob);
-            } catch(_e){}
+              } catch(_e){}
+            } else {
+              console.warn("[preview] get_image_b64 falló:", json && json.error);
+              preview.classList.add("hidden");
+            }
           } catch(e) {
-            console.warn("[preview] fetch fallback falló:", e);
-            this.classList.add("hidden");
+            console.warn("[preview] fetch error:", e);
+            preview.classList.add("hidden");
           }
-        };
+        })();
       } else {
         preview.classList.add("hidden");
         preview.removeAttribute("src");
         preview.removeAttribute("data-zoom-src");
-        preview.onerror = null;
       }
     }
     const labelText = displayName || (val && !isDataUrl && !isDriveUrl ? val : "");
