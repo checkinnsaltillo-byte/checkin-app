@@ -453,6 +453,42 @@ button:disabled{
   align-items:center;
   gap:6px;
 }
+/* ─── Barra superior con botón "Acceso Admin" (solo welcome) ──────────── */
+.admin-bar{
+  display:flex;
+  justify-content:flex-end;
+  margin-bottom:6px;
+  align-items:center;
+  gap:6px;
+}
+body.has-session .admin-bar{ display:none !important; }
+.admin-access-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  height:32px;
+  padding:0 14px;
+  background:var(--primary-soft);
+  border:1px solid var(--border-strong);
+  border-radius:999px;
+  color:#6b7280;
+  font-weight:700;
+  font-size:12px;
+  font-family:inherit;
+  cursor:pointer;
+  transition:background .2s ease, color .2s ease, box-shadow .2s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.admin-access-btn:hover,
+.admin-access-btn:active{
+  background:linear-gradient(180deg,var(--primary) 0%, var(--primary-strong) 100%);
+  color:#fff;
+  box-shadow:0 4px 10px rgba(15,23,42,.18);
+}
+.admin-access-btn .admin-lock-icon{
+  font-size:14px;
+  line-height:1;
+}
 /* Logo del lang-bar empuja todo lo demás a la derecha (lang-note + switch
    quedan pegados como bloque a la derecha). */
 .lang-bar-logo{ margin-right:auto !important; }
@@ -5445,6 +5481,12 @@ body.has-session input[name="nombre"] {
 <div class="page-logo-wrap" style="width:100%; height:56px; margin:0;" aria-hidden="true"></div>
 <div class="page-shell">
 <div class="container">
+<div class="admin-bar">
+  <button type="button" class="admin-access-btn" id="adminAccessBtn" aria-label="Acceso administrativo">
+    <span class="admin-lock-icon" aria-hidden="true">🔒</span>
+    <span data-i18n="adminAccessBtn">Acceso Admin</span>
+  </button>
+</div>
 <div class="lang-bar">
 <div class="checkinn-loader size-welcome lang-bar-logo" role="img" aria-label="Check-inn">
   <div class="ci-pin-scene">
@@ -8246,6 +8288,7 @@ function formatFechaBonita(fecha){
 <script>
 const SIMPLE_I18N = {
   es: {
+    adminAccessBtn:"Acceso Admin",
     chooseLanguage:"Selecciona el idioma",
     preFormTitle:"Tipo de registro",
     preFormSub:"",
@@ -8559,6 +8602,7 @@ const SIMPLE_I18N = {
     imgUpdateBtn:"Actualizar imagen"
   },
   en: {
+    adminAccessBtn:"Admin Access",
     chooseLanguage:"Choose language",
     preFormTitle:"Registration type",
     preFormSub:"",
@@ -16682,6 +16726,13 @@ document.addEventListener("DOMContentLoaded", function(){
   window.addEventListener("appinstalled", () => {
     setBtnsVisible(false);
     deferredPrompt = null;
+  });
+
+  // ═══ Botón "Acceso Admin" en bienvenida ═══
+  // Placeholder: por ahora muestra aviso. Cuando se implemente el panel
+  // administrativo, reemplazar el alert por la navegación / modal de login.
+  document.getElementById("adminAccessBtn")?.addEventListener("click", () => {
+    alert("Acceso administrativo próximamente.\n\nEste botón abrirá el panel de administración con autenticación por PIN.");
   });
 
   // ═══ PUSH NOTIFICATIONS — suscripción y desuscripción ═══
