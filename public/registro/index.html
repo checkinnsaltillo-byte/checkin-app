@@ -5482,9 +5482,9 @@ body.has-session input[name="nombre"] {
 <div class="page-shell">
 <div class="container">
 <div class="admin-bar">
-  <button type="button" class="admin-access-btn" id="adminAccessBtn" aria-label="Acceso administrativo">
+  <button type="button" class="admin-access-btn" id="adminAccessBtn" aria-label="Portal administrativo">
     <span class="admin-lock-icon" aria-hidden="true">🔒</span>
-    <span data-i18n="adminAccessBtn">Acceso Admin</span>
+    <span data-i18n="adminAccessBtn">Portal Admin</span>
   </button>
 </div>
 <div class="lang-bar">
@@ -8288,7 +8288,7 @@ function formatFechaBonita(fecha){
 <script>
 const SIMPLE_I18N = {
   es: {
-    adminAccessBtn:"Acceso Admin",
+    adminAccessBtn:"Portal Admin",
     chooseLanguage:"Selecciona el idioma",
     preFormTitle:"Tipo de registro",
     preFormSub:"",
@@ -8602,7 +8602,7 @@ const SIMPLE_I18N = {
     imgUpdateBtn:"Actualizar imagen"
   },
   en: {
-    adminAccessBtn:"Admin Access",
+    adminAccessBtn:"Admin Portal",
     chooseLanguage:"Choose language",
     preFormTitle:"Registration type",
     preFormSub:"",
@@ -16728,14 +16728,12 @@ document.addEventListener("DOMContentLoaded", function(){
     deferredPrompt = null;
   });
 
-  // ═══ Botón "Acceso Admin" en bienvenida ═══
-  // Abre el panel administrativo (Ticket Vision) en una pestaña nueva.
-  // Ruta relativa (../../admin/) para que funcione tanto en
-  // checkinnsaltillo-byte.github.io/checkin-app/ como en check-inn.mx/.
-  // noopener,noreferrer evita que la pestaña nueva tenga acceso al
-  // window.opener (best practice de seguridad).
+  // ═══ Botón "Portal Admin" en bienvenida ═══
+  // Navega al panel administrativo (Ticket Vision) en la misma ventana,
+  // manteniendo el usuario dentro de la web app. Ruta relativa
+  // (../../admin/) para portar entre dominios.
   document.getElementById("adminAccessBtn")?.addEventListener("click", () => {
-    window.open("../../admin/", "_blank", "noopener,noreferrer");
+    window.location.href = "../../admin/";
   });
 
   // ═══ PUSH NOTIFICATIONS — suscripción y desuscripción ═══
