@@ -16729,12 +16729,13 @@ document.addEventListener("DOMContentLoaded", function(){
   });
 
   // ═══ Botón "Acceso Admin" en bienvenida ═══
-  // Navega al panel administrativo (Ticket Vision) montado bajo /admin/ del
-  // mismo dominio. La ruta es relativa (../../admin/) para que funcione tanto
-  // en checkinnsaltillo-byte.github.io/checkin-app/ como en check-inn.mx/.
-  // El dominio principal del usuario se conserva — solo cambia el path.
+  // Abre el panel administrativo (Ticket Vision) en una pestaña nueva.
+  // Ruta relativa (../../admin/) para que funcione tanto en
+  // checkinnsaltillo-byte.github.io/checkin-app/ como en check-inn.mx/.
+  // noopener,noreferrer evita que la pestaña nueva tenga acceso al
+  // window.opener (best practice de seguridad).
   document.getElementById("adminAccessBtn")?.addEventListener("click", () => {
-    window.location.href = "../../admin/";
+    window.open("../../admin/", "_blank", "noopener,noreferrer");
   });
 
   // ═══ PUSH NOTIFICATIONS — suscripción y desuscripción ═══
