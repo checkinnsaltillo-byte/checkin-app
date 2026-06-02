@@ -12469,10 +12469,15 @@ document.addEventListener("DOMContentLoaded", function(){
       expiresAt: Date.now() + SESSION_TTL_MS
     };
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    // Refrescar UI de push para que el opt-in automático se arme tras login.
+    // (window.refreshPushUi se asigna abajo en el bloque de push.)
+    try { if (typeof window.refreshPushUi === "function") window.refreshPushUi(); } catch(_e){}
     return session;
   }
   function clearSession(){
     localStorage.removeItem(SESSION_KEY);
+    // Al cerrar sesión, ocultar el item del menú y limpiar el flag de auto-arm.
+    try { if (typeof window.refreshPushUi === "function") window.refreshPushUi(); } catch(_e){}
   }
   function generateToken(){
     const arr = new Uint8Array(16);
@@ -16680,10 +16685,25 @@ document.addEventListener("DOMContentLoaded", function(){
   });
 
   // ═══ PUSH NOTIFICATIONS — suscripción y desuscripción ═══
+  // Política: opt-in automático en el PRIMER gesto del usuario tras iniciar sesión
+  // (iOS Safari exige un gesto para `Notification.requestPermission()`). Si el
+  // usuario opta por NO recibir avisos desde el menú hamburguesa, se persiste
+  // un flag `checkinn_push_optout` en localStorage y NO se vuelve a pedir
+  // automáticamente hasta que él mismo lo reactive en el menú.
   const VAPID_PUBLIC_KEY = "BH0SFnFLetMhyFlMaSFfl2ZfH-UYcuIvEQze-kPOcKGukvB4PmDW_Pu4WAe0zkpwYz3ks7oLHE7UGSI7QVOAb74";
+  const PUSH_OPTOUT_KEY = "checkinn_push_optout";
   const navPush = document.getElementById("navItemPushSubscribe");
   const navPushLabel = document.getElementById("navPushLabel");
   const pushSupported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  function isPushOptedOut(){
+    try { return localStorage.getItem(PUSH_OPTOUT_KEY) === "1"; } catch(_e){ return false; }
+  }
+  function setPushOptOut(v){
+    try {
+      if (v) localStorage.setItem(PUSH_OPTOUT_KEY, "1");
+      else localStorage.removeItem(PUSH_OPTOUT_KEY);
+    } catch(_e){}
+  }
 
   function urlBase64ToUint8Array(base64String){
     const padding = "=".repeat((4 - base64String.length % 4) % 4);
@@ -16723,10 +16743,19 @@ document.addEventListener("DOMContentLoaded", function(){
     if (!phoneKey) { navPush.hidden = true; return; }  // solo con sesión
     const sub = await getCurrentSubscription();
     const granted = Notification.permission === "granted" && !!sub;
+    const denied = Notification.permission === "denied";
     navPush.hidden = false;
-    if (navPushLabel) navPushLabel.textContent = granted ? "Desactivar avisos" : "Activar avisos";
+    if (navPushLabel) {
+      if (denied) navPushLabel.textContent = "Avisos bloqueados (ajustes)";
+      else if (granted) navPushLabel.textContent = "Desactivar avisos";
+      else navPushLabel.textContent = "Activar avisos";
+    }
     navPush.dataset.state = granted ? "active" : "inactive";
+    // Tras refrescar UI con sesión válida, intentar el opt-in automático.
+    maybeArmAutoSubscribe();
   }
+  // Exponer para que setSession/clearSession (definidos antes) puedan re-evaluar.
+  window.refreshPushUi = refreshPushUi;
 
   async function postBackend(action, payload){
     return fetch(WEB_APP_URL, {
@@ -16736,22 +16765,35 @@ document.addEventListener("DOMContentLoaded", function(){
     }).then(r => r.json()).catch(e => ({ ok: false, error: e.message }));
   }
 
-  async function subscribeToPush(){
-    if (!pushSupported) { alert("Tu navegador no soporta avisos push."); return; }
+  async function subscribeToPush(opts){
+    const silent = !!(opts && opts.silent);
+    if (!pushSupported) { if (!silent) alert("Tu navegador no soporta avisos push."); return false; }
     const phoneKey = getPhoneKey();
-    if (!phoneKey) { alert("Inicia sesión para activar avisos."); return; }
+    if (!phoneKey) { if (!silent) alert("Inicia sesión para activar avisos."); return false; }
     if (Notification.permission === "denied") {
-      alert("Bloqueaste los avisos. Habilítalos en los ajustes del navegador y vuelve a intentar.");
-      return;
+      if (!silent) alert("Bloqueaste los avisos. Habilítalos en los ajustes del navegador y vuelve a intentar.");
+      return false;
     }
     try {
+      // CRÍTICO iOS: requestPermission() debe llamarse SIN await previo que rompa
+      // el contexto del gesto del usuario. getPhoneKey() y la lectura de permission
+      // son síncronos, así que llegamos aquí dentro del mismo tick.
       const perm = await Notification.requestPermission();
-      if (perm !== "granted") { alert("No se concedió permiso para avisos."); return; }
+      if (perm !== "granted") {
+        if (!silent) alert("No se concedió permiso para avisos.");
+        // Marcar opt-out solo si el usuario rechazó explícitamente (no en silent).
+        if (!silent) setPushOptOut(true);
+        return false;
+      }
       const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-      });
+      // Reusar suscripción existente si la hay (evita acumular endpoints stale).
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      }
       const json = sub.toJSON();
       const p256dh = json.keys && json.keys.p256dh;
       const auth = json.keys && json.keys.auth;
@@ -16762,18 +16804,25 @@ document.addEventListener("DOMContentLoaded", function(){
         ua: navigator.userAgent
       });
       if (res && res.ok) {
+        setPushOptOut(false);
         await refreshPushUi();
-        alert("Avisos activados. Te llegarán notificaciones cuando haya novedades.");
+        if (!silent) alert("Avisos activados. Te llegarán notificaciones cuando haya novedades.");
+        return true;
       } else {
-        alert("No se pudo registrar la suscripción: " + (res && res.error || "error desconocido"));
+        if (!silent) alert("No se pudo registrar la suscripción: " + (res && res.error || "error desconocido"));
+        return false;
       }
     } catch (err) {
       console.error("[push] subscribe failed", err);
-      alert("Error al activar avisos: " + err.message);
+      if (!silent) alert("Error al activar avisos: " + err.message);
+      return false;
     }
   }
 
-  async function unsubscribeFromPush(){
+  async function unsubscribeFromPush(opts){
+    const silent = !!(opts && opts.silent);
+    // Por default, un unsubscribe manual marca opt-out persistente.
+    const explicit = !(opts && opts.explicit === false);
     try {
       const sub = await getCurrentSubscription();
       if (sub) {
@@ -16781,11 +16830,70 @@ document.addEventListener("DOMContentLoaded", function(){
         await sub.unsubscribe().catch(()=>{});
         await postBackend("unregister_push_subscription", { endpoint });
       }
+      if (explicit) setPushOptOut(true);
       await refreshPushUi();
-      alert("Avisos desactivados.");
+      if (!silent) alert("Avisos desactivados. Puedes reactivarlos desde el menú.");
     } catch (err) {
       console.error("[push] unsubscribe failed", err);
     }
+  }
+
+  // Opt-in automático: se arma una sola vez por carga. Si permission es "default",
+  // engancha un listener de PRIMER gesto del usuario para pedir permiso dentro
+  // del contexto del gesto (requerido por iOS Safari). Si ya está "granted" pero
+  // no hay endpoint registrado, se suscribe silenciosamente sin esperar gesto.
+  let _autoSubArmed = false;
+  function maybeArmAutoSubscribe(){
+    if (_autoSubArmed) return;
+    if (!pushSupported) return;
+    if (!getPhoneKey()) return;          // requiere sesión
+    if (isPushOptedOut()) return;        // usuario rechazó explícitamente
+    if (Notification.permission === "denied") return;
+    if (Notification.permission === "granted") {
+      // Permiso ya concedido: re-sincronizar suscripción al backend.
+      _autoSubArmed = true;
+      (async () => {
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+          }
+          const json = sub.toJSON();
+          await postBackend("register_push_subscription", {
+            phoneKey: getPhoneKey(),
+            endpoint: sub.endpoint,
+            p256dh: json.keys && json.keys.p256dh,
+            auth: json.keys && json.keys.auth,
+            ua: navigator.userAgent
+          });
+          await refreshPushUi();
+        } catch(e) { console.warn("[push] auto-resync failed:", e); }
+      })();
+      return;
+    }
+    // permission === "default": esperar al primer gesto del usuario.
+    _autoSubArmed = true;
+    const handler = (ev) => {
+      // Evitar disparar si el tap es sobre el propio item del menú (lo manejará su click).
+      if (ev && ev.target && ev.target.closest && ev.target.closest("#navItemPushSubscribe")) return;
+      // Re-verificar guards: el usuario pudo haber hecho opt-out o cambiar permiso
+      // antes de este gesto. Si ya no califica, desarmar sin pedir nada.
+      if (isPushOptedOut() || Notification.permission !== "default") {
+        document.removeEventListener("pointerdown", handler, true);
+        document.removeEventListener("click", handler, true);
+        return;
+      }
+      document.removeEventListener("pointerdown", handler, true);
+      document.removeEventListener("click", handler, true);
+      // Llamar dentro del contexto del gesto — no aplazar.
+      subscribeToPush({ silent: true });
+    };
+    document.addEventListener("pointerdown", handler, { capture: true });
+    document.addEventListener("click", handler, { capture: true });
   }
 
   navPush?.addEventListener("click", async () => {
@@ -16794,8 +16902,10 @@ document.addEventListener("DOMContentLoaded", function(){
     document.getElementById("navOverlay")?.classList.remove("open");
     document.body.style.overflow = "";
     if (navPush.dataset.state === "active") {
-      await unsubscribeFromPush();
+      await unsubscribeFromPush();  // marca opt-out
     } else {
+      // El usuario reactiva manualmente: limpiar opt-out y suscribir con feedback.
+      setPushOptOut(false);
       await subscribeToPush();
     }
   });
