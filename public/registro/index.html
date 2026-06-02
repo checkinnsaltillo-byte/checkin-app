@@ -5550,7 +5550,7 @@ body.has-session input[name="nombre"] {
     <input id="login_pin" class="auth-otp-input" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" style="letter-spacing:18px; max-width:200px;"/>
     <div class="note hidden" id="loginPinError"></div>
     <button id="btnVerifyPin" type="button" data-i18n="loginEnter">Entrar</button>
-    <button class="auth-back-link" id="btnLoginForgotPin" type="button" data-i18n="loginForgotPin">¿Olvidaste tu PIN? Recupéralo con WhatsApp</button>
+    <button class="auth-back-link" id="btnLoginForgotPin" type="button" data-i18n="loginForgotPin">¿Olvidaste tu PIN? Recupéralo aquí</button>
     <button class="auth-back-link" id="btnLoginBackFromPin" type="button" data-i18n="loginChangeNumber">← Cambiar de número</button>
   </div>
 
@@ -8345,7 +8345,7 @@ const SIMPLE_I18N = {
     loginPinSubtitle:"Bienvenido de nuevo. Ingresa el PIN de 4 dígitos que creaste para <strong>{phone}</strong>.",
     pinLabel:"PIN",
     loginEnter:"Entrar",
-    loginForgotPin:"¿Olvidaste tu PIN? Recupéralo con WhatsApp",
+    loginForgotPin:"¿Olvidaste tu PIN? Recupéralo aquí",
     loginChangeNumber:"← Cambiar de número",
     loginOtpTitle:"Ingresa el código",
     loginOtpTitleFirst:"Valida tu celular",
@@ -8658,7 +8658,7 @@ const SIMPLE_I18N = {
     loginPinSubtitle:"Welcome back. Enter the 4-digit PIN you created for <strong>{phone}</strong>.",
     pinLabel:"PIN",
     loginEnter:"Sign in",
-    loginForgotPin:"Forgot your PIN? Recover it via WhatsApp",
+    loginForgotPin:"Forgot your PIN? Recover it here",
     loginChangeNumber:"← Change phone",
     loginOtpTitle:"Enter the code",
     loginOtpTitleFirst:"Validate your phone",
@@ -10173,11 +10173,11 @@ function buildTicketActionsHtml(row, ticketUrl){
       function normalizeDriveImage(url){
         const txt = safeText(url);
         const fileMatch = txt.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-        if (fileMatch) return `https://drive.google.com/thumbnail?id=${fileMatch[1]}&sz=w1200`;
+        if (fileMatch) return `https://lh3.googleusercontent.com/d/${fileMatch[1]}=w1200`;
         const dMatch = txt.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (dMatch) return `https://drive.google.com/thumbnail?id=${dMatch[1]}&sz=w1200`;
+        if (dMatch) return `https://lh3.googleusercontent.com/d/${dMatch[1]}=w1200`;
         const idMatch = txt.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-        if (idMatch) return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w1200`;
+        if (idMatch) return `https://lh3.googleusercontent.com/d/${idMatch[1]}=w1200`;
         return txt;
       }
 
@@ -10362,11 +10362,11 @@ function buildTicketActionsHtml(row, ticketUrl){
     const txt = safeText(url).trim();
     if (!txt) return '';
     const fileMatch = txt.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (fileMatch) return `https://drive.google.com/thumbnail?id=${fileMatch[1]}&sz=w1200`;
+    if (fileMatch) return `https://lh3.googleusercontent.com/d/${fileMatch[1]}=w1200`;
     const dMatch = txt.match(/\/d\/([a-zA-Z0-9_-]+)/);
-    if (dMatch) return `https://drive.google.com/thumbnail?id=${dMatch[1]}&sz=w1200`;
+    if (dMatch) return `https://lh3.googleusercontent.com/d/${dMatch[1]}=w1200`;
     const idMatch = txt.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-    if (idMatch) return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w1200`;
+    if (idMatch) return `https://lh3.googleusercontent.com/d/${idMatch[1]}=w1200`;
     return txt;
   }
 
@@ -10505,8 +10505,8 @@ function buildTicketActionsHtml(row, ticketUrl){
       if (fotoUrl) {
         const m = fotoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || fotoUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
         if (m) {
-          fotoThumb = `https://drive.google.com/thumbnail?id=${m[1]}&sz=w240`;
-          fotoFull  = `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`;
+          fotoThumb = `https://lh3.googleusercontent.com/d/${m[1]}=w240`;
+          fotoFull  = `https://lh3.googleusercontent.com/d/${m[1]}=w1600`;
         } else {
           fotoThumb = normalizeDriveImageUrl(fotoUrl) || fotoUrl;
           fotoFull = fotoThumb;
@@ -13288,8 +13288,8 @@ document.addEventListener("DOMContentLoaded", function(){
             // Foto del vehículo: puede estar en "Link foto vehículo" (URL Drive) o "Foto vehículo"
             const fotoUrl = pickField(detail, ["Link foto vehículo", "Foto vehículo", "Link foto vehiculo"]);
             const fotoId = driveIdFromUrl(fotoUrl);
-            const fotoThumb = fotoId ? `https://drive.google.com/thumbnail?id=${fotoId}&sz=w240` : "";
-            const fotoFull = fotoId ? `https://drive.google.com/thumbnail?id=${fotoId}&sz=w1600` : "";
+            const fotoThumb = fotoId ? `https://lh3.googleusercontent.com/d/${fotoId}=w240` : "";
+            const fotoFull = fotoId ? `https://lh3.googleusercontent.com/d/${fotoId}=w1600` : "";
             const fotoHTML = fotoThumb
               ? `<div class="veh-photo-thumb" data-zoom-src="${escapeHtmlSafe(fotoFull)}" title="Ver foto"><img src="${escapeHtmlSafe(fotoThumb)}" alt="Foto vehículo" loading="lazy"/></div>`
               : "";
@@ -13466,7 +13466,10 @@ document.addEventListener("DOMContentLoaded", function(){
     const id = driveIdFromUrl(url);
     if (!id) return "";
     const w = size || 400;
-    return `https://drive.google.com/thumbnail?id=${id}&sz=w${w}`;
+    // Usamos el CDN directo (lh3.googleusercontent.com) en lugar de
+    // drive.google.com/thumbnail porque éste hace un redirect 302 que
+    // falla en WebView de iOS (PWA standalone).
+    return `https://lh3.googleusercontent.com/d/${id}=w${w}`;
   }
 
   async function fetchAllStaysByPhone(userDigits){
@@ -14351,7 +14354,7 @@ document.addEventListener("DOMContentLoaded", function(){
   async function onForgotPin(){
     if (!pendingLogin) return;
     const btn = $("btnLoginForgotPin");
-    setBtnLoading(btn, true, "¿Olvidaste tu PIN? Recupéralo con WhatsApp");
+    setBtnLoading(btn, true, "¿Olvidaste tu PIN? Recupéralo aquí");
     try {
       const res = await sendOtp(pendingLogin.phone, pendingLogin.lada, "reset-pin");
       if (!res.ok) return showError(loginPinError, res.error || "No se pudo enviar el código.");
