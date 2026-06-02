@@ -14766,13 +14766,29 @@ document.addEventListener("DOMContentLoaded", function(){
       if (!json.exists || !json.profile) { console.warn("[profile] hydrate: backend dice que el perfil no existe para phoneKey=" + cleanKey); return null; }
       const remote = json.profile;
       const local = loadProfile(phoneKey);
-      // Merge campo por campo: backend gana si tiene valor; local sobrevive
-      // si el backend está vacío.
+      // CAMPOS DE IMAGEN: preservamos el dataURL local si existe — un
+      // dataURL local es "mejor" que una URL de Drive del backend porque
+      // (a) carga instantáneo, (b) funciona offline, (c) no depende de
+      // CORS / redirect 302 que falla en iOS WebView. Solo usamos la URL
+      // del backend cuando el local NO tiene dataURL para ese campo.
+      const IMAGE_FIELDS = {
+        step2: ["ine_frontal","ine_trasero","ident_unica"],
+        step4: ["foto"]
+      };
+      const mergeStep = (stepKey, localStep, remoteStep) => {
+        const out = { ...localStep, ...filterEmpty_(remoteStep || {}) };
+        // Re-aplicar dataURL local si existe (overriding URL backend).
+        (IMAGE_FIELDS[stepKey] || []).forEach(k => {
+          const localVal = String(localStep[k] || "");
+          if (/^data:image\//.test(localVal)) out[k] = localVal;
+        });
+        return out;
+      };
       const merged = {
         step1: { ...local.step1, ...filterEmpty_(remote.step1 || {}) },
-        step2: { ...local.step2, ...filterEmpty_(remote.step2 || {}) },
+        step2: mergeStep("step2", local.step2, remote.step2),
         step3: { ...local.step3, ...filterEmpty_(remote.step3 || {}) },
-        step4: { ...local.step4, ...filterEmpty_(remote.step4 || {}) },
+        step4: mergeStep("step4", local.step4, remote.step4),
         completed: local.completed || false,
         lastStep: Math.max(local.lastStep || 1, remote.lastStep || 1),
         updatedAt: Math.max(local.updatedAt || 0, remote.updatedAt || 0)
@@ -15060,22 +15076,68 @@ document.addEventListener("DOMContentLoaded", function(){
     const name = $(nameId);
     const strVal = String(val || "").trim();
     const isDataUrl = /^data:image\//.test(strVal);
-    const isDriveUrl = /^https?:\/\/.*drive\.google\.com/.test(strVal);
+    const isHttpUrl = /^https?:\/\//.test(strVal);
+    const isDriveUrl = /drive\.google\.com|lh3\.googleusercontent\.com/.test(strVal);
     if (preview) {
       if (isDataUrl) {
+        // dataURL: muestra directo. Sin fallback necesario.
         preview.src = strVal;
         preview.classList.remove("hidden");
         preview.dataset.zoomSrc = strVal;
+        preview.onerror = null;
       } else if (isDriveUrl && typeof normalizeDriveImageUrl === "function") {
         const thumb = normalizeDriveImageUrl(strVal);
         preview.src = thumb;
         preview.referrerPolicy = "no-referrer";
         preview.classList.remove("hidden");
         preview.dataset.zoomSrc = thumb;
+        // Fallback: si la URL CDN no carga en iOS WebView, hacemos fetch
+        // → blob → object URL. Solo intentamos una vez.
+        preview.onerror = async function(){
+          this.onerror = null;
+          try {
+            const r = await fetch(thumb, { mode: "cors", credentials: "omit" });
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            const blob = await r.blob();
+            const objUrl = URL.createObjectURL(blob);
+            this.src = objUrl;
+            this.dataset.zoomSrc = objUrl;
+            // También cacheamos en localStorage para próxima vez (opcional).
+            try {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const cached = reader.result;
+                if (typeof cached === "string" && /^data:image\//.test(cached)) {
+                  // Guardar en activeProfile para el próximo abrir del wizard.
+                  if (activeProfile && activePhoneKey) {
+                    const [stepKey, fieldKey] = (function(){
+                      const map = {
+                        wiz_ine_frontal: ["step2","ine_frontal"],
+                        wiz_ine_trasero: ["step2","ine_trasero"],
+                        wiz_ident_unica: ["step2","ident_unica"],
+                        wiz_veh_foto:    ["step4","foto"]
+                      };
+                      return map[inputId] || [null, null];
+                    })();
+                    if (stepKey && fieldKey) {
+                      activeProfile[stepKey][fieldKey] = cached;
+                      saveProfile(activePhoneKey, activeProfile);
+                    }
+                  }
+                }
+              };
+              reader.readAsDataURL(blob);
+            } catch(_e){}
+          } catch(e) {
+            console.warn("[preview] fetch fallback falló:", e);
+            this.classList.add("hidden");
+          }
+        };
       } else {
         preview.classList.add("hidden");
         preview.removeAttribute("src");
         preview.removeAttribute("data-zoom-src");
+        preview.onerror = null;
       }
     }
     const labelText = displayName || (val && !isDataUrl && !isDriveUrl ? val : "");
