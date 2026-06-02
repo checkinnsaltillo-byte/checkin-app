@@ -17766,20 +17766,62 @@ document.addEventListener("DOMContentLoaded", function(){
     /* H1 ¡Hola, Andrés!: compacto y sin espacio extra abajo */
     h1, #pageH1 { margin: 0 !important; padding: 0 !important; }
 
-    /* Espacios homologados a 6px entre TODAS las secciones internas del
-       home. Aplicamos a TODOS los descendientes que sean bloques visibles
-       (profile-card, profile-complete-badge, kpi-grid, auth-bigbtn,
-       stays-card, veh-collapsible-card, profile-card-bigbtn). */
-    #viewHome .section { padding: 6px !important; }
-    #viewHome .section > * { margin-top: 6px !important; margin-bottom: 0 !important; }
+    /* ═══════════════════════════════════════════════════════════════════
+       ESPACIADO ESTÁNDAR Y EQUIDISTANTE (welcome + home)
+       Un solo valor (--space-std) controla todos los gaps verticales
+       entre secciones, cajas, KPIs y bloques. Cambia un número aquí
+       y se ajusta toda la app.
+       ═══════════════════════════════════════════════════════════════════ */
+    :root { --space-std: 8px; }
+
+    /* Padding interno consistente de la .section (contenedor de viewWelcome
+       y viewHome). */
+    #viewWelcome .section,
+    #viewHome .section { padding: var(--space-std) !important; }
+
+    /* TODOS los hijos directos de .section tienen el mismo gap arriba.
+       El primer hijo no tiene margen (pegado al borde superior). */
+    #viewWelcome .section > *,
+    #viewHome .section > * {
+      margin-top: var(--space-std) !important;
+      margin-bottom: 0 !important;
+    }
+    #viewWelcome .section > *:first-child,
     #viewHome .section > *:first-child { margin-top: 0 !important; }
+
+    /* Espaciado uniforme para cualquier bloque de nivel superior que se
+       use en welcome/home (cajas, cards, KPIs, badges, banners). */
+    #viewWelcome .auth-bigbtn,
+    #viewWelcome .stays-card,
+    #viewWelcome .veh-collapsible-card,
+    #viewWelcome .profile-card-bigbtn,
+    #viewWelcome .profile-card,
+    #viewWelcome .profile-complete-badge,
+    #viewWelcome .kpi-grid,
     #viewHome .auth-bigbtn,
     #viewHome .stays-card,
     #viewHome .veh-collapsible-card,
     #viewHome .profile-card-bigbtn,
     #viewHome .profile-card,
     #viewHome .profile-complete-badge,
-    #viewHome .kpi-grid { margin-top: 6px !important; margin-bottom: 0 !important; }
+    #viewHome .kpi-grid {
+      margin-top: var(--space-std) !important;
+      margin-bottom: 0 !important;
+    }
+
+    /* Gap interno del kpi-grid (entre cada KPI). */
+    #viewWelcome .kpi-grid,
+    #viewHome .kpi-grid { gap: var(--space-std) !important; }
+
+    /* Botones "Crear acceso directo" y similar al final del view. */
+    #viewWelcome .pwa-install-btn,
+    #viewHome .pwa-install-btn { margin-top: var(--space-std) !important; }
+
+    /* H1 superior y page-title-row pegados sin extra margin abajo. */
+    .page-title-row { margin-bottom: var(--space-std) !important; }
+    h1, #pageH1 { margin: 0 !important; padding: 0 !important; }
+    /* Lang-bar superior pegado con espacio estándar abajo. */
+    .lang-bar { margin-bottom: var(--space-std) !important; }
 
     /* KPIs con altura reducida */
     .kpi-grid {
