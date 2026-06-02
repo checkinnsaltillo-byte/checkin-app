@@ -489,6 +489,10 @@ body.has-session .admin-bar{ display:none !important; }
   font-size:14px;
   line-height:1;
 }
+/* Override del media query global `button{ width:100% }` en mobile: el
+   botón Portal Admin debe mantener su ancho de pill, alineado a la
+   derecha igual que el lang-switch. */
+.admin-access-btn{ width:auto !important; }
 /* Logo del lang-bar empuja todo lo demás a la derecha (lang-note + switch
    quedan pegados como bloque a la derecha). */
 .lang-bar-logo{ margin-right:auto !important; }
@@ -18090,7 +18094,7 @@ document.addEventListener("DOMContentLoaded", function(){
     margin:0;
   }
   #viewRegistro.as-popup .dashboard-wrap,
-  #viewRegistro.as-popup #formulario_principal{
+  #viewRegistro.as-popup #form{
     background:#fff;
     border-radius:18px;
     max-width:600px;
@@ -18099,6 +18103,23 @@ document.addEventListener("DOMContentLoaded", function(){
     padding:46px 14px 18px;
     box-shadow:0 24px 60px rgba(15,23,42,.30);
     position:relative;
+  }
+  /* Resetear formulario_principal interno: ya no necesita su propio
+     background/padding/shadow — el modal lo aporta el <form> padre. */
+  #viewRegistro.as-popup #formulario_principal{
+    background:transparent !important;
+    box-shadow:none !important;
+    padding:0 !important;
+    margin:0 !important;
+    max-width:none !important;
+    width:auto !important;
+    border-radius:0 !important;
+  }
+  /* section_celular_principal queda dentro del modal del <form> sin
+     espacio extra: solo separación visual respecto a las secciones de
+     formulario_principal de abajo. */
+  #viewRegistro.as-popup #section_celular_principal{
+    margin-bottom:14px !important;
   }
   #viewRegistro.as-popup .back-home-btn{
     position:absolute !important;
