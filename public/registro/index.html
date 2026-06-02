@@ -16729,10 +16729,12 @@ document.addEventListener("DOMContentLoaded", function(){
   });
 
   // ═══ Botón "Acceso Admin" en bienvenida ═══
-  // Placeholder: por ahora muestra aviso. Cuando se implemente el panel
-  // administrativo, reemplazar el alert por la navegación / modal de login.
+  // Navega al panel administrativo (Ticket Vision) montado bajo /admin/ del
+  // mismo dominio. La ruta es relativa (../../admin/) para que funcione tanto
+  // en checkinnsaltillo-byte.github.io/checkin-app/ como en check-inn.mx/.
+  // El dominio principal del usuario se conserva — solo cambia el path.
   document.getElementById("adminAccessBtn")?.addEventListener("click", () => {
-    alert("Acceso administrativo próximamente.\n\nEste botón abrirá el panel de administración con autenticación por PIN.");
+    window.location.href = "../../admin/";
   });
 
   // ═══ PUSH NOTIFICATIONS — suscripción y desuscripción ═══

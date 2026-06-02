@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+  <title>Sistema Financiero | Check Inn Saltillo</title>
+  <link rel="stylesheet" href="styles.css?v=71">
+  <style>
+    /* ─── Modo nocturno ─────────────────────────────────────────────── */
+    body.dark {
+      background: #0f172a !important;
+      color: #e5e7eb !important;
+      --text: #e5e7eb;
+      --text-soft: #9ca3af;
+      --border: #334155;
+      --surface: #1e293b;
+      --primary-dark: #94a3b8;
+    }
+    body.dark .ticket-card,
+    body.dark .bn-msel-panel,
+    body.dark #bn-classify-modal,
+    body.dark #bn-indicadores-modal,
+    body.dark .confirm-modal,
+    body.dark .upload-sheet,
+    body.dark #bn-bulk-bar,
+    body.dark .db-filter-panel,
+    body.dark .bn-table-wrap,
+    body.dark .bn-modal {
+      background: #1e293b !important;
+      color: #e5e7eb !important;
+      border-color: #334155 !important;
+    }
+    body.dark .ticket-card-header {
+      background: #1e293b !important;
+      color: #e5e7eb !important;
+      border-color: #334155 !important;
+    }
+    body.dark .ticket-card-header.ci-egresos  { background: linear-gradient(180deg,#3f1d1d,#5b2222) !important; }
+    body.dark .ticket-card-header.ci-ingresos { background: linear-gradient(180deg,#14352a,#1a4a37) !important; }
+    body.dark .ticket-card-header.ci-activos  { background: linear-gradient(180deg,#1e293b,#1e3a8a) !important; }
+    body.dark .ticket-card-header.ci-pasivos  { background: linear-gradient(180deg,#2d1b4e,#4c1d95) !important; }
+    body.dark .ticket-card-header.ci-capital  { background: linear-gradient(180deg,#1f2937,#374151) !important; }
+    body.dark .ticket-store, body.dark .ticket-meta,
+    body.dark .info-chip, body.dark .product-summary,
+    body.dark .resumen-key, body.dark th, body.dark td,
+    body.dark .bn-kpi-label, body.dark .bn-kpi-value, body.dark .bn-kpi-sub,
+    body.dark .bn-section-title, body.dark .db-todas-label,
+    body.dark .db-count-inline, body.dark label, body.dark h1, body.dark h2, body.dark h3, body.dark p,
+    body.dark .field-select, body.dark input, body.dark select, body.dark textarea {
+      color: #e5e7eb !important;
+    }
+    body.dark .info-chip:not(.ci-egresos):not(.ci-ingresos):not(.ci-activos):not(.ci-pasivos):not(.ci-capital) {
+      background: #334155 !important;
+      color: #e5e7eb !important;
+    }
+    body.dark .field-select, body.dark input, body.dark select, body.dark textarea,
+    body.dark .db-search-input {
+      background: #0f172a !important;
+      border-color: #334155 !important;
+      color: #e5e7eb !important;
+    }
+    body.dark .bn-kpi-card { background: #1e293b !important; border-color: #334155 !important; }
+    body.dark .bn-menu-bar { border-color: #334155 !important; }
+    body.dark .bn-cat-btn, body.dark .bn-sub-chip {
+      background: #1e293b !important;
+      color: #e5e7eb !important;
+      border-color: #334155 !important;
+    }
+    body.dark .bn-cat-btn.active, body.dark .bn-sub-chip.active {
+      background: #334155 !important;
+      color: #fff !important;
+      border-color: #334155 !important;
+    }
+    body.dark .app-header { background: #1e293b !important; border-color: #334155 !important; }
+    body.dark #btn-dark-mode { color: #94a3b8; }
+    body.dark .bn-msel-trigger { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+    body.dark table th, body.dark table td { border-color: #334155 !important; }
+    body.dark .classify-tab { background: #1e293b !important; color: #e5e7eb !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Login Overlay -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-card">
+      <div class="login-logo">
+        <img src="https://drive.google.com/thumbnail?id=1We0TuuoTb0fDa5xLVMzDqzMZZWwgkb0v&sz=w300"
+             alt="Logo" style="width:64px;height:64px;object-fit:contain;border-radius:12px;background:#fff;padding:4px;box-shadow:0 4px 12px rgba(15,23,42,.12)">
+      </div>
+      <h2 class="login-title">Sistema Financiero</h2>
+      <p class="login-subtitle">Check Inn Saltillo</p>
+      <div class="login-field">
+        <input type="password" id="loginPassword" class="login-input"
+               placeholder="Contraseña" onkeydown="handleLoginKey(event)" autocomplete="current-password">
+      </div>
+      <p class="login-error hidden" id="loginError"></p>
+      <button class="btn-login" onclick="tryLogin()">Entrar</button>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay hidden">
+    <div class="loading-card">
+      <div class="thinking-dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <h3 id="loadingTitle">Claude está analizando...</h3>
+      <p id="loadingSubtitle">Extrayendo productos y datos del ticket</p>
+    </div>
+  </div>
+
+  <div id="app-root" class="page-shell hidden">
+
+    <!-- Sidebar nav overlay -->
+    <div id="nav-overlay" class="nav-overlay hidden" onclick="closeNavMenu()"></div>
+    <nav id="nav-sidebar" class="nav-sidebar">
+      <div class="nav-sidebar-header">
+        <span class="nav-sidebar-title">Menú</span>
+        <button class="nav-close-btn" onclick="closeNavMenu()">✕</button>
+      </div>
+      <ul class="nav-menu">
+        <li class="nav-item active" id="nav-item-registros"
+            onclick="switchModule('registros');closeNavMenu()">
+          📚 Registros contables
+        </li>
+        <li class="nav-sub-item"
+            onclick="switchModule('registros');bn_setCat('pc');closeNavMenu()">
+          🏷️ &nbsp;Por clasificar
+        </li>
+        <li class="nav-sub-item"
+            onclick="switchModule('registros');bn_setCat('reg');closeNavMenu()">
+          📊 &nbsp;Cuentas
+        </li>
+        <li class="nav-sub-item"
+            onclick="switchModule('registros');bn_setCat('pres');closeNavMenu()">
+          📐 &nbsp;Planeación
+        </li>
+        <li class="nav-sub-item"
+            onclick="switchModule('registros');bn_setTipo('F');closeNavMenu()">
+          📊 &nbsp;Indicadores
+        </li>
+        <li class="nav-item" id="nav-item-tickets"
+            onclick="switchModule('tickets');switchSection('capturados');closeNavMenu()">
+          🎫 Tickets
+        </li>
+        <li class="nav-sub-item"
+            onclick="switchModule('tickets');switchSection('capturados');closeNavMenu()">
+          📋 &nbsp;Tickets capturados
+        </li>
+        <li class="nav-sub-item"
+            onclick="switchModule('tickets');switchSection('captura');closeNavMenu()">
+          📸 &nbsp;Captura de tickets
+        </li>
+        <li class="nav-item" id="nav-item-huespedes"
+            onclick="switchModule('huespedes');closeNavMenu()">
+          🏨 Información de huéspedes
+        </li>
+        <li class="nav-item" id="nav-item-lodgify"
+            onclick="switchModule('lodgify');closeNavMenu()">
+          🌐 Reservas Lodgify
+        </li>
+      </ul>
+      <div style="margin-top:auto;padding:16px;border-top:1px solid var(--border,#e5e7eb);display:flex;justify-content:center">
+        <button id="btn-dark-mode" onclick="toggleDarkMode()" title="Alternar tema claro/oscuro"
+                style="padding:8px 16px;border:1px solid var(--border,#d1d5db);background:var(--surface,#fff);color:var(--text,#374151);cursor:pointer;font-size:14px;border-radius:8px;display:inline-flex;align-items:center;gap:8px;font-weight:600">
+          🌙 <span>Tema</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Header -->
+    <header class="app-header">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="hamburger-btn" onclick="toggleNavMenu()" title="Menú">
+          <span class="hb-line"></span><span class="hb-line"></span><span class="hb-line"></span>
+        </button>
+        <div class="header-logo" style="display:flex;align-items:center;gap:12px">
+          <img src="https://drive.google.com/thumbnail?id=1We0TuuoTb0fDa5xLVMzDqzMZZWwgkb0v&sz=w600"
+               alt="Logo"
+               style="height:90px;width:auto;max-width:220px;object-fit:contain;background:transparent;padding:0;border-radius:0;box-shadow:none;margin-top:-21px;margin-bottom:-21px">
+          <div class="logo-text">
+            <h1>Sistema Financiero</h1>
+            <span>Check Inn Saltillo</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ══ MÓDULO: Tickets ══════════════════════════════════════ -->
+    <div id="module-tickets" class="hidden">
+
+      <!-- Sub-tabs dentro del módulo Tickets -->
+      <div class="sub-tabs">
+        <button class="sub-tab active" id="subtab-capturados" onclick="switchSection('capturados')">📋 Tickets capturados</button>
+        <button class="sub-tab"        id="subtab-captura"    onclick="switchSection('captura')">📸 Captura de tickets</button>
+      </div>
+
+    <!-- ══ SECCIÓN: Tickets capturados ══════════════════════════ -->
+    <div id="section-capturados">
+
+      <!-- Top bar -->
+      <div class="db-top-bar">
+        <div class="db-top-left">
+          <button class="btn-filter-toggle" id="btn-filter-toggle"
+                  onclick="toggleDbFilters()" title="Mostrar filtros">
+            <span class="hb-line"></span><span class="hb-line"></span><span class="hb-line"></span>
+          </button>
+          <label class="toggle-switch">
+            <input type="checkbox" id="db-f-todas" checked onchange="syncTodasSwitch(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="db-todas-label">Todos los tickets</span>
+        </div>
+        <div class="db-top-right">
+          <span class="db-count-inline" id="db-filter-subtitle"></span>
+          <button class="btn-limpiar" style="margin:0" onclick="loadDashboard()">↻ Actualizar</button>
+          <button class="btn-limpiar" style="margin:0" onclick="clearDashboardFilters()">✕ Limpiar</button>
+        </div>
+      </div>
+
+      <!-- Panel de filtros (oculto por defecto) -->
+      <div class="db-filter-panel hidden" id="db-filter-body">
+        <div class="db-filter-grid">
+          <div class="db-filter-full">
+            <input type="text" id="db-f-text" placeholder="🔍  Buscar por tienda, concepto, encargado…" class="db-search-input" oninput="onFilterChange()">
+          </div>
+          <div class="db-filter-half">
+            <label>Fecha desde</label>
+            <input type="date" id="db-f-desde" class="field-select" onchange="onFilterChange()">
+          </div>
+          <div class="db-filter-half">
+            <label>Fecha hasta</label>
+            <input type="date" id="db-f-hasta" class="field-select" onchange="onFilterChange()">
+          </div>
+          <div class="db-filter-half">
+            <label>Cuenta</label>
+            <select id="db-f-cuenta" class="field-select" onchange="onFilterChange()">
+              <option value="">Todas</option>
+              <option>Egresos</option><option>Ingresos</option>
+              <option>Activos</option><option>Pasivos</option><option>Capital</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Método de pago</label>
+            <select id="db-f-metodo" class="field-select" onchange="onFilterChange()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Tienda</label>
+            <select id="db-f-tienda" class="field-select" onchange="onFilterChange()">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Clasificado por</label>
+            <select id="db-f-clasificado-por" class="field-select" onchange="onFilterChange()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Propiedad</label>
+            <select id="db-f-propiedad" class="field-select" onchange="onFilterChange()">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Departamento</label>
+            <select id="db-f-departamento" class="field-select" onchange="onFilterChange()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Encargado</label>
+            <select id="db-f-comprador" class="field-select" onchange="onFilterChange()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Deducible</label>
+            <select id="db-f-deducible" class="field-select" onchange="onFilterChange()">
+              <option value="">Todos</option>
+              <option value="si">Sí</option>
+              <option value="no">No</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Reembolso</label>
+            <select id="db-f-reembolso" class="field-select" onchange="onFilterChange()">
+              <option value="">Todos</option>
+              <option value="si">Sí</option>
+              <option value="no">No</option>
+            </select>
+          </div>
+          <div class="db-filter-full">
+            <label>Descripción de producto</label>
+            <select id="db-f-descripcion" class="field-select" onchange="onFilterChange()">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="db-filter-full">
+            <label>Rango de total</label>
+            <div class="dual-range-wrap">
+              <div class="dual-range-labels">
+                <span id="range-total-min-lbl">$0</span>
+                <span id="range-total-max-lbl">Máx.</span>
+              </div>
+              <div class="dual-range-track">
+                <div class="dual-range-base"></div>
+                <div class="dual-range-fill" id="dual-range-fill"></div>
+                <input type="range" class="dual-range dual-range-lo" id="db-f-total-min"
+                       min="0" max="50000" step="100" value="0" style="z-index:4"
+                       oninput="onTotalRangeInput('lo')">
+                <input type="range" class="dual-range dual-range-hi" id="db-f-total-max"
+                       min="0" max="50000" step="100" value="50000" style="z-index:5"
+                       oninput="onTotalRangeInput('hi')">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Count bar y lista -->
+      <div class="db-count-bar" id="db-count-bar"></div>
+      <div class="tickets-container" id="dbContainer"></div>
+      <div class="db-pagination-bar" id="db-pagination"></div>
+
+    </div><!-- /section-capturados -->
+
+    <!-- ══ SECCIÓN: Captura de tickets ══════════════════════════ -->
+    <div id="section-captura" class="hidden">
+
+    <!-- ── PASO 1: Captura (accordion) ─────────────────────────── -->
+    <div class="accordion-panel" id="panel-1">
+      <div class="accordion-header" onclick="togglePanel(1)">
+        <div class="accordion-header-left">
+          <span class="accordion-arrow open" id="panel-arrow-1">›</span>
+          <div>
+            <div class="accordion-title">Captura de tickets</div>
+            <div class="accordion-subtitle">Cada imagen corresponde a un ticket independiente</div>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-body" id="panel-body-1">
+
+        <div class="upload-box-single">
+          <button class="btn-agregar-ticket" onclick="openUploadSheet()">
+            <span class="btn-agregar-icon">📎</span>
+            <span>Agregar tickets</span>
+          </button>
+          <p class="upload-hint" id="uploadHint">Seleccionar desde cámara, fotos o archivos</p>
+        </div>
+        <div id="limpiarWrap" class="hidden" style="text-align:center;margin-top:10px;">
+          <button class="btn-limpiar" onclick="limpiarTickets()">🗑 Limpiar todo</button>
+        </div>
+
+        <!-- Hidden file inputs (desktop directo) -->
+        <input type="file" id="files-camera"  accept="image/*" capture="environment" multiple style="display:none">
+        <input type="file" id="files-gallery" accept="image/*,video/*" multiple style="display:none">
+        <input type="file" id="files-files"   accept="image/*,application/pdf" multiple style="display:none">
+
+        <div id="imagePreview" class="image-strip hidden"></div>
+
+        <div id="analyzeWrap" class="hidden">
+          <button class="btn-analizar" onclick="analyzeTickets()">🔍 Analizar tickets</button>
+        </div>
+        <div id="analyzeStatus" class="status-inline"></div>
+
+      </div>
+    </div>
+
+    <!-- ── PASO 2: Resultados (accordion) ──────────────────────── -->
+    <div class="accordion-panel" id="panel-2">
+      <div class="accordion-header" onclick="togglePanel(2)">
+        <div class="accordion-header-left">
+          <span class="accordion-arrow" id="panel-arrow-2">›</span>
+          <div>
+            <div class="accordion-title">Resultados</div>
+            <div class="accordion-subtitle" id="panel-2-subtitle">Sin tickets analizados</div>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-body collapsed" id="panel-body-2">
+        <div id="ticketsContainer" class="tickets-container"></div>
+      </div>
+    </div>
+
+    <!-- ── PASO 3: Guardar resultados ──────────────────────────── -->
+    <div class="accordion-panel hidden" id="panel-3">
+      <div class="accordion-header save-action-header" id="btnGuardar" onclick="guardarResultados()">
+        <div class="accordion-header-left">
+          <span class="save-action-icon">💾</span>
+          <div>
+            <div class="accordion-title save-action-title">Guardar resultados</div>
+            <div class="accordion-subtitle save-action-sub" id="saveSubtitle">Enviar tickets clasificados a Google Sheets</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="save-status hidden" id="saveStatus"></p>
+
+    </div><!-- /section-captura -->
+
+    </div><!-- /module-tickets -->
+
+    <!-- ══ MÓDULO: Registros contables ══════════════════════════ -->
+    <div id="module-registros">
+
+      <!-- Top bar con Año / Mes siempre visibles (ARRIBA de los KPIs) -->
+      <div class="db-top-bar" style="flex-wrap:wrap;gap:8px">
+        <div class="db-top-left">
+          <span class="db-todas-label" id="bn-status-label">Registros contables</span>
+        </div>
+        <div class="db-top-right">
+          <span class="db-count-inline" id="bn-filter-subtitle"></span>
+          <button class="btn-limpiar" style="margin:0" onclick="bn_loadData()">↻ Actualizar</button>
+          <button class="btn-limpiar" style="margin:0" onclick="bn_clearFilters()">✕ Limpiar</button>
+        </div>
+      </div>
+
+      <!-- Filtros Año y Mes (multi-select, siempre visibles, derivados del campo Día) -->
+      <div id="bn-mes-anio-row" style="display:grid;grid-template-columns:1fr 1fr;align-items:end;gap:10px;margin:10px 0 14px">
+        <div class="bn-msel" data-field="anio" style="position:relative;min-width:0">
+          <label style="display:block;font-weight:700;color:var(--text-soft);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Año</label>
+          <button class="bn-msel-trigger" onclick="bn_mselToggle('anio',event)" type="button"
+                  style="width:100%;padding:8px 12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;cursor:pointer;text-align:left;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+            <span class="bn-msel-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Todos</span>
+            <span style="font-size:10px;color:var(--text-soft);margin-left:6px">▼</span>
+          </button>
+          <div class="bn-msel-panel hidden" id="bn-msel-panel-anio"
+               style="position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.12);max-height:260px;overflow-y:auto;z-index:90;padding:6px;min-width:160px"></div>
+        </div>
+        <div class="bn-msel" data-field="mes" style="position:relative;min-width:0">
+          <label style="display:block;font-weight:700;color:var(--text-soft);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">🗓️ Mes</label>
+          <button class="bn-msel-trigger" onclick="bn_mselToggle('mes',event)" type="button"
+                  style="width:100%;padding:8px 12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;cursor:pointer;text-align:left;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+            <span class="bn-msel-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Todos</span>
+            <span style="font-size:10px;color:var(--text-soft);margin-left:6px">▼</span>
+          </button>
+          <div class="bn-msel-panel hidden" id="bn-msel-panel-mes"
+               style="position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.12);max-height:260px;overflow-y:auto;z-index:90;padding:6px;min-width:200px"></div>
+        </div>
+      </div>
+
+      <!-- KPIs agrupados en 3 secciones -->
+      <div id="bn-kpi-wrap" style="margin-bottom:14px;border:1px solid var(--border,#e5e7eb);border-radius:12px;overflow:hidden;background:#fff">
+        <div onclick="bn_toggleKpiSection()" id="bn-kpi-header"
+             style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f1f5f9;cursor:pointer;user-select:none">
+          <span style="font-size:13px;font-weight:800;color:#334155">📊 Indicadores principales</span>
+          <span id="bn-kpi-period-summary" style="flex:1;font-size:11px;color:#475569;font-weight:600">—</span>
+          <span id="bn-kpi-toggle-chev" style="font-size:11px;color:#64748b">▼ Ocultar</span>
+        </div>
+        <div id="bn-kpi-row" style="display:flex;flex-direction:column;gap:10px;padding:10px">
+          <!-- Estado de Resultados (con Presupuesto Operativo) -->
+          <div>
+            <div style="font-size:10px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;padding-left:2px">📈 Estado de Resultados</div>
+            <div class="bn-kpi-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+              <div class="bn-kpi-card" style="cursor:pointer" onclick="bn_kpiOpenSubcuentasPopup('Egresos')">
+                <div class="bn-kpi-label">Egresos (período) <span style="font-size:9px;color:#94a3b8">▾ clic detalle</span></div>
+                <div class="bn-kpi-value" id="bn-k-egr-real">—</div>
+                <div class="bn-kpi-sub" id="bn-k-egr-sub">—</div>
+              </div>
+              <div class="bn-kpi-card" style="cursor:pointer" onclick="bn_kpiOpenSubcuentasPopup('Ingresos')">
+                <div class="bn-kpi-label">Ingresos (período) <span style="font-size:9px;color:#94a3b8">▾ clic detalle</span></div>
+                <div class="bn-kpi-value" id="bn-k-ing-real">—</div>
+                <div class="bn-kpi-sub" id="bn-k-ing-sub">—</div>
+              </div>
+              <div class="bn-kpi-card">
+                <div class="bn-kpi-label">Utilidad (período)</div>
+                <div class="bn-kpi-value" id="bn-k-utilidad">—</div>
+                <div class="bn-kpi-sub" id="bn-k-utilidad-sub">—</div>
+              </div>
+              <div class="bn-kpi-card">
+                <div class="bn-kpi-label">Presupuesto Operativo</div>
+                <div class="bn-kpi-value" id="bn-k-avance-egr">—</div>
+                <div id="bn-k-avance-bar" style="margin:4px 0 2px"></div>
+                <div class="bn-kpi-sub" id="bn-k-avance-egr-sub">—</div>
+              </div>
+            </div>
+          </div>
+          <!-- Balance General -->
+          <div>
+            <div style="font-size:10px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;padding-left:2px">📊 Balance General</div>
+            <div class="bn-kpi-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="bn-kpi-card" style="cursor:pointer" onclick="bn_kpiOpenSubcuentasPopup('Capital')">
+                <div class="bn-kpi-label">Retiro de utilidades <span style="font-size:9px;color:#94a3b8">▾ clic detalle</span></div>
+                <div class="bn-kpi-value" id="bn-k-retiro">—</div>
+                <div id="bn-k-retiro-bar" style="margin:4px 0 2px"></div>
+                <div class="bn-kpi-sub" id="bn-k-retiro-sub">—</div>
+              </div>
+              <div class="bn-kpi-card" style="cursor:pointer" onclick="bn_kpiOpenSubcuentasPopup('Capital')">
+                <div class="bn-kpi-label">Reinversión <span style="font-size:9px;color:#94a3b8">▾ clic detalle</span></div>
+                <div class="bn-kpi-value" id="bn-k-reinv">—</div>
+                <div id="bn-k-reinv-bar" style="margin:4px 0 2px"></div>
+                <div class="bn-kpi-sub" id="bn-k-reinv-sub">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Menú principal — barras full-width con jerarquía padre→hijos -->
+      <div class="bn-menu-bar" style="margin-bottom:12px;border:1px solid var(--border,#e2e8f0);border-radius:10px;overflow:hidden">
+        <!-- Row 1: categorías padre, divididas en cuadros contiguos full-width -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0">
+          <button class="bn-cat-btn" id="bn-cat-pc" data-cat="pc" onclick="bn_setCat('pc')"
+                  style="padding:12px 10px;border:none;border-right:1px solid rgba(255,255,255,.25);background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">🏷️ Por clasificar</button>
+          <button class="bn-cat-btn" id="bn-cat-reg" data-cat="reg" onclick="bn_setCat('reg')"
+                  style="padding:12px 10px;border:none;border-right:1px solid rgba(255,255,255,.25);background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📊 Cuentas</button>
+          <button class="bn-cat-btn" id="bn-cat-pres" data-cat="pres" onclick="bn_setCat('pres')"
+                  style="padding:12px 10px;border:none;border-right:1px solid rgba(255,255,255,.25);background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📐 Planeación</button>
+          <button class="bn-cat-btn" id="bn-cat-ind" data-cat="ind" onclick="bn_setCat('ind')"
+                  style="padding:12px 10px;border:none;background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📊 Indicadores</button>
+        </div>
+        <!-- Row 2: subcategorías del padre activo — cuadros contiguos full-width en tono más claro -->
+        <div id="bn-subcat-row" style="display:grid;gap:0"></div>
+      </div>
+
+      <!-- Vista cronológica siempre activa; toggle oculto -->
+      <div id="bn-timeline-toggle-row" class="hidden"></div>
+
+      <!-- Panel "Estado de validación" (sólo en tabs Por Clasificar) -->
+      <div id="bn-review-panel" class="hidden" style="margin:8px 0 12px"></div>
+
+      <!-- Toggle de selección múltiple + selector de tamaño de página -->
+      <div id="bn-actions-row" style="display:flex;align-items:center;gap:10px;margin:6px 0 12px;flex-wrap:wrap">
+        <button id="bn-btn-sel-mode" type="button" onclick="bn_toggleSelMode()"
+                style="padding:7px 14px;border:1.5px solid var(--border,#d1d5db);background:var(--surface,#fff);color:var(--text,#374151);border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0">
+          ☑️ Seleccionar
+        </button>
+        <button id="bn-btn-match-tickets" type="button" onclick="bn_relacionarConTickets()"
+                style="padding:7px 14px;border:none;background:linear-gradient(180deg,#ef4444 0%,#b91c1c 100%);color:#fff;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 6px rgba(185,28,28,.4)">
+          🔗 Relacionar con tickets
+        </button>
+        <div style="display:inline-flex;align-items:center;gap:6px;flex-shrink:0">
+          <label for="bn-page-size" style="font-size:11px;color:var(--text-soft,#6b7280);font-weight:600">Mostrar</label>
+          <select id="bn-page-size" onchange="bn_setPageSize(this.value)"
+                  style="padding:7px 10px;border:1.5px solid var(--border,#d1d5db);background:var(--surface,#fff);color:var(--text,#374151);border-radius:8px;font-weight:600;font-size:12px;cursor:pointer">
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+          <span style="font-size:11px;color:var(--text-soft,#6b7280)">por página</span>
+        </div>
+        <div style="display:inline-flex;align-items:center;gap:6px;flex-shrink:0">
+          <div style="display:inline-flex;border:1.5px solid var(--border,#d1d5db);border-radius:8px;overflow:hidden">
+            <button id="bn-view-cards" type="button" onclick="bn_setView('cards')"
+                    style="padding:7px 12px;border:none;background:#475569;color:#fff;font-weight:600;font-size:12px;cursor:pointer">📇 Cards</button>
+            <button id="bn-view-table" type="button" onclick="bn_setView('table')"
+                    style="padding:7px 12px;border:none;background:#fff;color:#374151;font-weight:600;font-size:12px;cursor:pointer;border-left:1.5px solid var(--border,#d1d5db)">📋 Tabla</button>
+          </div>
+        </div>
+        <button type="button" onclick="bn_showDownloadPopup()"
+                title="Descargar datos filtrados"
+                style="padding:7px 14px;border:1.5px solid #2563eb;background:#fff;color:#2563eb;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0">
+          ⬇️ Descargar datos
+        </button>
+        <button id="bn-btn-sel-all" type="button" onclick="bn_selAllVisible()" class="hidden"
+                style="padding:7px 12px;border:1.5px solid var(--border,#d1d5db);background:var(--surface,#fff);color:var(--text,#374151);border-radius:8px;font-weight:600;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0">
+          Todos visibles
+        </button>
+        <button id="bn-btn-sel-clear" type="button" onclick="bn_selClear()" class="hidden"
+                style="padding:7px 12px;border:1.5px solid var(--border,#d1d5db);background:var(--surface,#fff);color:var(--text,#374151);border-radius:8px;font-weight:600;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0">
+          Limpiar selección
+        </button>
+        <span id="bn-sel-count" class="hidden" style="font-size:12px;color:#334155;font-weight:700"></span>
+      </div>
+
+      <!-- Barra: hamburguesa + buscador (table-row guarantees same line) -->
+      <div style="display:table;width:100%;border-collapse:separate;border-spacing:8px 0;margin-bottom:8px">
+        <div style="display:table-row">
+          <div style="display:table-cell;width:1px;vertical-align:middle;white-space:nowrap">
+            <button class="btn-filter-toggle" id="bn-btn-filter-toggle"
+                    onclick="bn_toggleFilters()" title="Filtros" style="margin:0">
+              <span class="hb-line"></span><span class="hb-line"></span><span class="hb-line"></span>
+            </button>
+          </div>
+          <div style="display:table-cell;vertical-align:middle;width:auto">
+            <input type="text" id="bn-f-text" placeholder="🔍  Buscar por descripción, categoría, concepto…"
+                   class="db-search-input" oninput="bn_onFilterChange()"
+                   style="width:100%;display:block;box-sizing:border-box">
+          </div>
+        </div>
+      </div>
+
+      <!-- Tarea 13: Botones Guardar/Limpiar (réplica de los inferiores) -->
+      <div id="bn-card-actions-top" class="hidden" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap"></div>
+
+      <!-- Panel de filtros multi-selects -->
+      <div class="db-filter-panel hidden" id="bn-filter-body" style="margin:8px 0 14px;padding:12px;background:#f9fafb;border:1px solid var(--border,#e5e7eb);border-radius:10px;overflow:visible">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+          <button type="button" onclick="bn_clearFilters()"
+                  style="padding:6px 12px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-weight:600;font-size:12px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:5px">
+            ✕ Limpiar filtros
+          </button>
+        </div>
+        <div id="bn-msel-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px"></div>
+      </div>
+
+      <!-- Cards view (Egresos / Ingresos) -->
+      <div id="bn-cards-container" class="hidden"></div>
+      <div id="bn-card-pagination" class="hidden"></div>
+
+      <!-- Bulk-bar horizontal arriba (sticky bajo el header del navegador) -->
+      <div id="bn-bulk-bar" class="hidden"
+           style="position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#f1f5f9;border:1.5px solid #cbd5e1;color:#374151;border-radius:14px;box-shadow:0 8px 22px rgba(71,85,105,.15);padding:8px 10px;display:flex;flex-direction:row;flex-wrap:wrap;gap:6px;z-index:9000;max-width:96vw;align-items:center">
+        <div id="bn-bulk-count" style="font-weight:800;color:#334155;font-size:11px;padding:6px 10px;border-right:1.5px solid #cbd5e1;margin-right:4px;white-space:nowrap"></div>
+        <button onclick="bn_bulkClasificar()"      style="padding:7px 12px;border:none;background:#334155;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px">🏷️</span><span>Clasificar</span></button>
+        <button onclick="bn_bulkToggleDuda()"      style="padding:7px 12px;border:none;background:#f59e0b;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px;font-weight:800">?</span><span>Marcar duda</span></button>
+        <button onclick="bn_bulkToggleValidar()"   style="padding:7px 12px;border:none;background:#16a34a;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px">✓</span><span>Marcar validado</span></button>
+        <button onclick="bn_bulkToggleDeducible()" style="padding:7px 12px;border:none;background:#0e7490;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px">💰</span><span>Deducible</span></button>
+        <button onclick="bn_bulkPromptMetodo()"    style="padding:7px 12px;border:none;background:#7c3aed;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px">💳</span><span>Método de pago</span></button>
+        <button onclick="bn_bulkPromptEncargado()" style="padding:7px 12px;border:none;background:#475569;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px">👤</span><span>Encargado</span></button>
+        <button onclick="bn_bulkPromptFecha()"     style="padding:7px 12px;border:none;background:#374151;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px">📅</span><span>Fecha</span></button>
+        <button onclick="bn_toggleSelMode()"       style="padding:7px 12px;border:1.5px solid #d1d5db;background:#fff;color:#6b7280;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:13px">✕</span><span>Salir</span></button>
+      </div>
+
+      <!-- Alert table (Alertas tab only) -->
+      <div id="bn-table-wrap" class="bn-table-wrap hidden">
+        <div class="bn-table-header">
+          <span class="bn-table-title" id="bn-table-title">Alertas</span>
+          <span class="bn-table-sub" id="bn-table-sub">Partidas fuera de umbral</span>
+        </div>
+        <div class="bn-table-scroll">
+          <table class="bn-table" id="bn-table">
+            <thead><tr id="bn-thead-row"></tr></thead>
+            <tbody id="bn-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Presupuesto — editor de la hoja Presupuesto_sys -->
+      <div id="bn-presupuesto" class="hidden" style="padding:14px 4px"></div>
+
+      <!-- Análisis por partida — agregado jerárquico con semáforo de presupuesto -->
+      <div id="bn-analisis-partida" class="hidden" style="padding:14px 4px">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap">
+          <h3 style="margin:0;font-size:16px;display:flex;align-items:center;gap:6px">🧮 Análisis por partida</h3>
+          <span style="font-size:11px;color:var(--text-soft,#6b7280);font-style:italic">Elige los niveles a desglosar</span>
+        </div>
+        <!-- Selector de nivel de desglose (dropdown único) -->
+        <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;padding:10px 12px;background:var(--surface,#f9fafb);border:1px solid var(--border,#e5e7eb);border-radius:10px;align-items:flex-end">
+          <div style="min-width:200px">
+            <label style="display:block;font-weight:700;color:var(--text-soft,#6b7280);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Nivel de desglose</label>
+            <select id="bn-ap-level-select" onchange="bn_setApLevel(this.value)"
+                    style="width:100%;padding:8px 12px;border:1px solid var(--border,#d1d5db);border-radius:6px;background:var(--surface,#fff);color:var(--text,#374151);cursor:pointer;font-size:13px">
+              <option value="1">🏷️ Cuenta</option>
+              <option value="2">📂 Subcuenta</option>
+              <option value="3">📁 Categoría</option>
+              <option value="4" selected>🔹 Concepto</option>
+            </select>
+          </div>
+          <div style="min-width:200px">
+            <label style="display:block;font-weight:700;color:var(--text-soft,#6b7280);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Fuente de datos</label>
+            <button id="bn-ap-data-toggle" type="button" onclick="bn_apToggleDataMode()"
+                    style="padding:8px 14px;border:1px solid #475569;background:#475569;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700">
+              📋 Todos los registros
+            </button>
+          </div>
+        </div>
+        <!-- Tabla resultado -->
+        <div id="bn-ap-table" style="overflow-x:auto"></div>
+      </div>
+
+      <!-- Modal de registros bajo una partida (Análisis por partida) -->
+      <div id="bn-ap-records-overlay" class="hidden"
+           style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px"
+           onclick="bn_apRecordsOverlayClick(event)">
+        <div id="bn-ap-records-modal"
+             style="background:#fff;border-radius:14px;width:100%;max-width:1100px;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(15,23,42,.4);padding:20px"
+             onclick="event.stopPropagation()">
+          <button onclick="bn_closeApRecordsModal()"
+                  style="position:absolute;top:10px;right:10px;width:34px;height:34px;border:none;background:#f1f5f9;border-radius:50%;font-size:18px;cursor:pointer;color:#475569;z-index:2"
+                  aria-label="Cerrar">✕</button>
+          <h2 id="bn-ap-records-title" style="margin:0 0 6px;font-size:16px;display:flex;align-items:center;gap:6px;padding-right:40px">📋 Registros</h2>
+          <p id="bn-ap-records-sub" style="margin:0 0 14px;font-size:12px;color:#64748b"></p>
+          <div id="bn-ap-records-body" style="overflow-x:auto"></div>
+        </div>
+      </div>
+
+      <!-- Indicadores modal overlay -->
+      <div id="bn-indicadores-overlay" class="hidden"
+           style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px"
+           onclick="bn_indicadoresOverlayClick(event)">
+        <div id="bn-indicadores-modal"
+             style="background:#fff;border-radius:14px;width:100%;max-width:980px;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.4);padding:24px 18px 22px"
+             onclick="event.stopPropagation()">
+          <button onclick="bn_closeIndicadoresModal()"
+                  style="position:absolute;top:10px;right:10px;width:34px;height:34px;border:none;background:#f3f4f6;border-radius:50%;font-size:18px;cursor:pointer;color:#374151;z-index:2"
+                  aria-label="Cerrar">✕</button>
+          <h2 style="margin:0 0 14px;font-size:18px;display:flex;align-items:center;gap:8px">📊 Indicadores</h2>
+          <!-- Filtros Año/Mes INDEPENDIENTES (dropdown multi-select estilo ventana principal) -->
+          <div style="margin-bottom:18px;padding:12px 14px;background:#fffbeb;border:1px solid #cbd5e1;border-radius:10px">
+            <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px">
+              <div class="bn-msel" data-field="ind_anio" style="position:relative;min-width:160px;flex:1">
+                <label style="display:block;font-weight:700;color:#92400e;font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Año</label>
+                <button class="bn-msel-trigger" onclick="bn_mselToggle('ind_anio',event)" type="button"
+                        style="width:100%;padding:8px 12px;border:1px solid #94a3b8;border-radius:6px;background:#fff;cursor:pointer;text-align:left;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+                  <span class="bn-msel-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Todos</span>
+                  <span style="font-size:10px;color:#92400e;margin-left:6px">▼</span>
+                </button>
+                <div class="bn-msel-panel hidden" id="bn-msel-panel-ind_anio"
+                     style="position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid #94a3b8;border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.12);max-height:260px;overflow-y:auto;z-index:9999;padding:6px;min-width:160px"></div>
+              </div>
+              <div class="bn-msel" data-field="ind_mes" style="position:relative;min-width:200px;flex:1">
+                <label style="display:block;font-weight:700;color:#92400e;font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">🗓️ Mes</label>
+                <button class="bn-msel-trigger" onclick="bn_mselToggle('ind_mes',event)" type="button"
+                        style="width:100%;padding:8px 12px;border:1px solid #94a3b8;border-radius:6px;background:#fff;cursor:pointer;text-align:left;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+                  <span class="bn-msel-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Todos</span>
+                  <span style="font-size:10px;color:#92400e;margin-left:6px">▼</span>
+                </button>
+                <div class="bn-msel-panel hidden" id="bn-msel-panel-ind_mes"
+                     style="position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid #94a3b8;border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.12);max-height:260px;overflow-y:auto;z-index:9999;padding:6px;min-width:200px"></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <span style="font-size:11px;color:#92400e;font-style:italic">Filtros independientes — no afectan la vista principal</span>
+              <button onclick="bn_indToggleChartType()" id="bn-ind-chart-type-btn"
+                      style="margin-left:auto;padding:6px 12px;border:1.5px solid #94a3b8;background:#fff;color:#92400e;font-weight:600;font-size:11px;cursor:pointer;border-radius:6px">
+                📊 Cambiar a Barras
+              </button>
+            </div>
+          </div>
+
+      <!-- Indicadores content (hidden unless tab F) -->
+      <div id="bn-indicadores" class="hidden">
+        <!-- Leyenda HTML externa (fuera del canvas) -->
+        <div id="bn-chart-legend" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:6px;padding:0 4px">
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#374151;font-weight:600">
+            <span style="display:inline-block;width:14px;height:14px;background:#10b981;border-radius:3px"></span>
+            Ingresos
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#374151;font-weight:600">
+            <span style="display:inline-block;width:14px;height:14px;background:#f59e0b;border-radius:3px"></span>
+            Egresos
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#374151;font-weight:600">
+            <span style="display:inline-block;width:14px;height:14px;background:#6366f1;border-radius:3px"></span>
+            Utilidad
+          </span>
+        </div>
+        <div class="bn-section-title">Tendencia mensual (Ingresos / Egresos / Utilidad)</div>
+        <div class="bn-chart-wrap">
+          <div style="position:relative;width:100%">
+            <canvas id="bn-trend-canvas" style="width:100%;display:block"></canvas>
+            <div id="bn-trend-tip" class="bn-chart-tip" style="display:none"></div>
+          </div>
+        </div>
+        <div class="bn-section-title">Margen neto mensual</div>
+        <div class="bn-chart-wrap">
+          <div style="position:relative;width:100%">
+            <canvas id="bn-margin-canvas" style="width:100%;display:block"></canvas>
+            <div id="bn-margin-tip" class="bn-chart-tip" style="display:none"></div>
+          </div>
+        </div>
+        <div class="bn-section-title">Alertas financieras automáticas</div>
+        <div class="bn-alerts-list" id="bn-alerts-list"></div>
+      </div>
+        </div><!-- /bn-indicadores-modal -->
+      </div><!-- /bn-indicadores-overlay -->
+
+      <!-- Loading / empty state -->
+      <div id="bn-empty" class="empty-state" style="padding:50px 20px;display:none">
+        <div class="empty-icon">📚</div>
+        <p id="bn-empty-msg" style="color:var(--text-soft);margin:0">Sin datos</p>
+      </div>
+
+    </div><!-- /module-registros -->
+
+    <!-- ══ MÓDULO: Información de huéspedes ════════════════════════ -->
+    <div id="module-huespedes" class="hidden">
+      <div class="db-top-bar" style="flex-wrap:wrap;gap:8px">
+        <div class="db-top-left">
+          <span class="db-todas-label">Información de huéspedes</span>
+        </div>
+        <div class="db-top-right">
+          <span class="db-count-inline" id="hu-status-label">—</span>
+          <button class="btn-limpiar" style="margin:0" onclick="huespedesLoad(true)">↻ Actualizar</button>
+          <button class="btn-limpiar" style="margin:0" onclick="huespedesClearFilters()">✕ Limpiar filtros</button>
+        </div>
+      </div>
+
+      <!-- Filtro Mes (auto-selecciona mes actual) -->
+      <div style="display:flex;gap:12px;align-items:end;margin:10px 0 8px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;flex-wrap:wrap">
+        <div style="min-width:180px">
+          <label style="display:block;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Mes de estancia</label>
+          <select id="hu-filtro-mes" onchange="huespedesRender()"
+                  style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff">
+            <option value="">Todos los meses</option>
+          </select>
+          <div style="font-size:10px;color:#94a3b8;margin-top:3px">Muestra registros cuya estancia toca al menos un día del mes.</div>
+        </div>
+
+        <!-- Ponderaciones del Índice de Lealtad (afectan la insignia + score) -->
+        <div style="flex:1;min-width:300px;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <label style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em">🏅 Ponderaciones del Índice de Lealtad</label>
+            <button type="button" onclick="huResetLoyaltyWeights()" style="padding:3px 8px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer">↺ Default</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <label style="font-size:10px;color:#64748b;font-weight:600">
+              🌙 Noches
+              <input type="number" id="hu-w-noches" min="0" max="100" step="5" value="30"
+                     oninput="huOnLoyaltyWeightChange()"
+                     style="width:100%;padding:5px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:2px;font-weight:700;color:#0f172a">
+            </label>
+            <label style="font-size:10px;color:#64748b;font-weight:600">
+              🧳 Visitas
+              <input type="number" id="hu-w-visitas" min="0" max="100" step="5" value="20"
+                     oninput="huOnLoyaltyWeightChange()"
+                     style="width:100%;padding:5px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:2px;font-weight:700;color:#0f172a">
+            </label>
+            <label style="font-size:10px;color:#64748b;font-weight:600">
+              💰 Monto
+              <input type="number" id="hu-w-monto" min="0" max="100" step="5" value="50"
+                     oninput="huOnLoyaltyWeightChange()"
+                     style="width:100%;padding:5px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:2px;font-weight:700;color:#0f172a">
+            </label>
+          </div>
+          <div id="hu-w-sum-note" style="font-size:10px;color:#94a3b8;margin-top:4px">Suma = 100. Score 0-100 → Oro ≥70 · Plata ≥45 · Bronce ≥25 · Recurrente ≥10.</div>
+        </div>
+      </div>
+
+      <!-- Filtros granulares (selects con valores únicos del backend) -->
+      <div id="hu-filters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:10px"></div>
+
+      <!-- Botones de acción del dashboard -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button onclick="huespedesLoad(true)"
+                style="padding:8px 16px;border:none;background:#334155;color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">🔍 Buscar registros</button>
+        <button onclick="huespedesExportCsv()"
+                style="padding:8px 14px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer">⬇ Exportar CSV</button>
+      </div>
+
+      <!-- KPIs (los 3 conteos + tarjeta ancha de Estado de tickets) -->
+      <div class="hu-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px">
+        <div class="hu-kpi-card">
+          <div class="hu-kpi-label">Registros encontrados</div>
+          <div class="hu-kpi-value" id="hu-kpi-total">0</div>
+        </div>
+        <div class="hu-kpi-card">
+          <div class="hu-kpi-label">Con factura</div>
+          <div class="hu-kpi-value" id="hu-kpi-con-factura">0</div>
+        </div>
+        <div class="hu-kpi-card">
+          <div class="hu-kpi-label">Sin factura</div>
+          <div class="hu-kpi-value" id="hu-kpi-sin-factura">0</div>
+        </div>
+      </div>
+
+      <!-- Estado de tickets — tarjeta ancha con barra stacked + métricas -->
+      <div class="hu-ticket-status-card" id="hu-ticket-status-card" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(15,23,42,.05)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+          <div>
+            <div class="hu-kpi-label">Estado de tickets</div>
+            <div style="font-size:18px;font-weight:800;color:#111827;margin-top:2px">Emitidos vs pendientes</div>
+          </div>
+          <div id="hu-tickets-total-requieren" style="display:inline-flex;align-items:center;padding:6px 14px;border:1.5px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:999px;font-weight:700;font-size:12px">
+            0 tickets requieren factura
+          </div>
+        </div>
+        <div style="display:flex;height:14px;border-radius:999px;overflow:hidden;background:#e5e7eb;margin-bottom:12px">
+          <div id="hu-bar-emitido"   style="height:100%;width:0%;background:linear-gradient(90deg,#16a34a,#86efac);transition:width .3s"></div>
+          <div id="hu-bar-pendiente" style="height:100%;width:0%;background:linear-gradient(90deg,#fca5a5,#dc2626);transition:width .3s"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px">
+          <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px">
+            <span style="width:10px;height:10px;border-radius:50%;background:#16a34a;display:inline-block;flex-shrink:0"></span>
+            <div>
+              <div style="font-size:11px;color:#14532d;text-transform:uppercase;font-weight:700;letter-spacing:.04em">Emitidos</div>
+              <div style="font-size:16px;font-weight:800;color:#14532d"><span id="hu-emitidos-num">0</span> (<span id="hu-pct-emitidos">0%</span>)</div>
+            </div>
+          </div>
+          <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px">
+            <span style="width:10px;height:10px;border-radius:50%;background:#dc2626;display:inline-block;flex-shrink:0"></span>
+            <div>
+              <div style="font-size:11px;color:#7f1d1d;text-transform:uppercase;font-weight:700;letter-spacing:.04em">Pendientes</div>
+              <div style="font-size:16px;font-weight:800;color:#7f1d1d"><span id="hu-pendientes-num">0</span> (<span id="hu-pct-pendientes">0%</span>)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alertas dashboard (pendientes en rojo / emitidos en verde) -->
+      <div id="hu-alerts" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+
+      <!-- Meta de resultados (texto descriptivo) -->
+      <div id="hu-meta" style="font-size:12px;color:#475569;margin-bottom:10px;font-style:italic">Sin consulta todavía.</div>
+
+      <!-- Switch de visualización: Lista / Calendario -->
+      <div style="display:inline-flex;border:1.5px solid #cbd5e1;border-radius:10px;overflow:hidden;margin-bottom:12px">
+        <button id="hu-view-lista" onclick="huespedesSetView('lista')"
+                style="padding:8px 18px;border:none;background:#334155;color:#fff;font-weight:700;font-size:13px;cursor:pointer;border-right:1.5px solid #cbd5e1">Lista</button>
+        <button id="hu-view-calendario" onclick="huespedesSetView('calendario')"
+                style="padding:8px 18px;border:none;background:#fff;color:#475569;font-weight:700;font-size:13px;cursor:pointer">Calendario</button>
+      </div>
+
+      <!-- Empty / loading -->
+      <div id="hu-empty" class="empty-state" style="text-align:center;padding:30px;color:#94a3b8;font-size:13px">Cargando datos…</div>
+
+      <!-- Vista Lista — cards expandibles -->
+      <div id="hu-records-wrap" class="hidden" style="display:flex;flex-direction:column;gap:8px"></div>
+
+      <!-- Vista Calendario -->
+      <div id="hu-calendar-wrap" class="hidden" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px"></div>
+
+      <!-- Paginador -->
+      <div id="hu-pager" style="display:flex;justify-content:center;gap:6px;padding:12px;margin-top:8px"></div>
+
+      <!-- Modal Facturapi (iframe embebido) -->
+      <div id="hu-facturapi-overlay" class="hidden"
+           style="position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px"
+           onclick="if(event.target===this)huespedesCloseFacturapi()">
+        <div style="background:#fff;border-radius:14px;width:100%;max-width:1100px;height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(15,23,42,.5);position:relative">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#334155;color:#fff;flex-shrink:0">
+            <div style="font-weight:800;font-size:14px">🧾 Generar ticket Facturapi</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <a id="hu-facturapi-external" href="#" target="_blank" rel="noopener"
+                 style="padding:6px 12px;border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">↗ Abrir aparte</a>
+              <button onclick="huespedesCloseFacturapi()"
+                      style="width:32px;height:32px;border:none;background:rgba(255,255,255,.15);color:#fff;border-radius:50%;font-size:18px;cursor:pointer">✕</button>
+            </div>
+          </div>
+          <iframe id="hu-facturapi-frame" src="about:blank"
+                  style="flex:1;border:none;background:#fff;width:100%"
+                  allow="clipboard-write *; clipboard-read *"></iframe>
+        </div>
+      </div>
+
+      <!-- Modal detalle -->
+      <div id="hu-detail-overlay" class="hidden"
+           style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px"
+           onclick="if(event.target===this)this.classList.add('hidden')">
+        <div style="background:#fff;border-radius:14px;width:100%;max-width:760px;max-height:88vh;overflow:auto;padding:20px;box-shadow:0 20px 60px rgba(15,23,42,.4)" onclick="event.stopPropagation()">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <h3 style="margin:0;font-size:16px;color:#1f2937" id="hu-detail-title">Detalle</h3>
+            <button onclick="document.getElementById('hu-detail-overlay').classList.add('hidden')"
+                    style="width:32px;height:32px;border:none;background:#f1f5f9;border-radius:50%;font-size:16px;cursor:pointer">✕</button>
+          </div>
+          <div id="hu-detail-body"></div>
+        </div>
+      </div>
+    </div><!-- /module-huespedes -->
+
+    <!-- ───────── Módulo: Reservas Lodgify ───────── -->
+    <div id="module-lodgify" class="hidden">
+      <div class="db-top-bar" style="margin-bottom:14px">
+        <div class="db-top-left">
+          <span class="db-todas-label">Reservas Lodgify</span>
+        </div>
+        <div class="db-top-right">
+          <span class="db-count-inline" id="lg-status-label">—</span>
+          <button class="btn-limpiar" style="margin:0" onclick="lodgifyLoad(true)">↻ Actualizar</button>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div style="display:flex;gap:12px;align-items:end;margin:10px 0 8px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;flex-wrap:wrap">
+        <div style="min-width:180px">
+          <label style="display:block;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Rango</label>
+          <select id="lg-filtro-rango" onchange="lodgifyLoad(true)"
+                  style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff">
+            <option value="7">Últimos 7 días</option>
+            <option value="14">Últimos 14 días</option>
+            <option value="30" selected>Últimos 30 días</option>
+            <option value="60">Últimos 60 días</option>
+            <option value="90">Últimos 90 días</option>
+          </select>
+        </div>
+        <div style="min-width:160px">
+          <label style="display:block;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">🔌 Fuente</label>
+          <select id="lg-filtro-source" onchange="lodgifyRender()"
+                  style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div style="min-width:160px">
+          <label style="display:block;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📊 Estado</label>
+          <select id="lg-filtro-status" onchange="lodgifyRender()"
+                  style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div style="min-width:200px;flex:1">
+          <label style="display:block;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">🔍 Huésped</label>
+          <input type="text" id="lg-filtro-nombre" placeholder="Buscar por nombre…" oninput="lodgifyRender()"
+                 style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff">
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="hu-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px">
+        <div class="hu-kpi-card"><div class="hu-kpi-label">Reservaciones</div><div class="hu-kpi-value" id="lg-kpi-count">0</div></div>
+        <div class="hu-kpi-card"><div class="hu-kpi-label">Noches totales</div><div class="hu-kpi-value" id="lg-kpi-nights">0</div></div>
+        <div class="hu-kpi-card"><div class="hu-kpi-label">Ingreso bruto</div><div class="hu-kpi-value" id="lg-kpi-gross">—</div></div>
+        <div class="hu-kpi-card"><div class="hu-kpi-label">Tarifa promedio/noche</div><div class="hu-kpi-value" id="lg-kpi-avg">—</div></div>
+      </div>
+
+      <!-- Cards container -->
+      <div id="lg-cards" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div id="lg-empty" class="empty hidden">Sin reservaciones en el rango seleccionado.</div>
+    </div><!-- /module-lodgify -->
+
+    <!-- Detail modal for Bancos drilldown -->
+    <div id="bn-modal-overlay" class="bn-modal-overlay hidden" onclick="bn_closeDetail()">
+      <div class="bn-modal" onclick="event.stopPropagation()">
+        <div class="bn-modal-header">
+          <div>
+            <div class="bn-modal-title" id="bn-modal-title">Detalle</div>
+            <div class="bn-modal-sub" id="bn-modal-sub"></div>
+          </div>
+          <button class="bn-modal-close" onclick="bn_closeDetail()">×</button>
+        </div>
+        <div class="bn-table-scroll" style="max-height:60vh">
+          <table class="bn-table">
+            <thead>
+              <tr>
+                <th>Mes</th><th>Cuenta bancaria</th><th>Tipo</th>
+                <th>Categoría</th><th>Concepto</th><th>Descripción</th>
+                <th>Factura</th><th class="num">Monto</th>
+              </tr>
+            </thead>
+            <tbody id="bn-modal-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /app-root -->
+
+  <!-- Bank Classify popup -->
+  <div id="bn-classify-overlay" class="hidden"
+       style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px"
+       onclick="bn_classifyOverlayClick(event)">
+    <div id="bn-classify-modal"
+         style="background:#fff;border-radius:14px;width:100%;max-width:780px;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.4);padding:18px 18px 22px"
+         onclick="event.stopPropagation()">
+      <button onclick="bn_closeClassifyModal()"
+              style="position:absolute;top:10px;right:10px;width:34px;height:34px;border:none;background:#f3f4f6;border-radius:50%;font-size:18px;cursor:pointer;color:#374151;z-index:2"
+              aria-label="Cerrar">✕</button>
+      <div id="bn-classify-actions-top" class="hidden" style="display:flex;justify-content:flex-end;gap:8px;margin:6px 0 10px"></div>
+      <div id="bn-classify-modal-resumen" style="margin-top:8px;margin-bottom:14px"></div>
+      <div id="bn-classify-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- 💬 Chatbot financiero (flotante, esquina inferior derecha) -->
+  <button id="bn-chat-fab" onclick="bn_chatToggle()"
+          title="Asistente financiero"
+          style="position:fixed;bottom:20px;right:20px;width:58px;height:58px;border-radius:50%;border:none;background:linear-gradient(135deg,#475569,#334155);color:#fff;font-size:24px;cursor:pointer;box-shadow:0 8px 22px rgba(15,23,42,.25);z-index:9500;display:flex;align-items:center;justify-content:center;transition:transform .15s"
+          onmouseover="this.style.transform='scale(1.08)'"
+          onmouseout="this.style.transform=''">💬</button>
+
+  <div id="bn-chat-panel" class="hidden"
+       style="position:fixed;bottom:90px;right:20px;width:380px;max-width:calc(100vw - 30px);height:540px;max-height:calc(100vh - 120px);background:#fff;border:1px solid #cbd5e1;border-radius:16px;box-shadow:0 20px 60px rgba(15,23,42,.25);z-index:9499;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:linear-gradient(135deg,#475569,#334155);color:#fff">
+      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:18px">💬</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px">Asistente financiero</div>
+        <div style="font-size:11px;opacity:.85">Pregúntame sobre tus datos</div>
+      </div>
+      <button onclick="bn_chatClear()" title="Limpiar conversación"
+              style="background:transparent;border:none;color:#fff;font-size:14px;cursor:pointer;opacity:.85">🗑</button>
+      <button onclick="bn_chatToggle()" title="Cerrar"
+              style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div id="bn-chat-messages" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f8fafc"></div>
+    <div style="padding:10px 12px;border-top:1px solid #e2e8f0;background:#fff">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px" id="bn-chat-suggestions"></div>
+      <form onsubmit="event.preventDefault();bn_chatSend()" style="display:flex;gap:6px">
+        <input type="text" id="bn-chat-input" placeholder="Ej. 'Dame la utilidad de febrero 2026'"
+               autocomplete="off"
+               style="flex:1;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:13px;outline:none">
+        <button type="submit" id="bn-chat-send"
+                style="padding:10px 16px;border:none;background:#475569;color:#fff;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer">↑</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Image lightbox -->
+  <div id="imageLightbox" class="lightbox hidden" onclick="closeLightbox()">
+    <div class="lightbox-inner" onclick="event.stopPropagation()">
+      <button class="lightbox-close" onclick="closeLightbox()">×</button>
+      <img id="lightboxImg" src="" alt="Ticket" onclick="toggleLightboxZoom(event)">
+    </div>
+  </div>
+
+  <!-- Upload action sheet (solo móvil) -->
+  <div id="uploadSheetOverlay" class="sheet-overlay hidden" onclick="closeUploadSheet()"></div>
+  <div id="uploadSheet" class="upload-sheet" aria-hidden="true">
+    <div class="sheet-handle"></div>
+    <p class="sheet-title">Agregar tickets</p>
+    <label class="sheet-option" onclick="closeUploadSheet()">
+      <input type="file" id="sheet-camera" accept="image/*" capture="environment" multiple style="display:none">
+      <span class="sheet-option-icon">📷</span>
+      <span class="sheet-option-label">Cámara</span>
+    </label>
+    <label class="sheet-option" onclick="closeUploadSheet()">
+      <input type="file" id="sheet-files" accept="image/*,application/pdf" multiple style="display:none">
+      <span class="sheet-option-icon">📁</span>
+      <span class="sheet-option-label">Archivos</span>
+    </label>
+    <label class="sheet-option" onclick="closeUploadSheet()">
+      <input type="file" id="sheet-gallery" accept="image/*,video/*" multiple style="display:none">
+      <span class="sheet-option-icon">🖼</span>
+      <span class="sheet-option-label">Fotos y videos</span>
+    </label>
+    <button class="sheet-cancel" onclick="closeUploadSheet()">Cancelar</button>
+  </div>
+
+  <!-- Custom confirm dialog -->
+  <div id="confirmModal" class="confirm-modal-overlay hidden" onclick="confirmModalOverlayClick(event)">
+    <div class="confirm-modal">
+      <div class="confirm-modal-icon" id="confirmModalIcon">🗑</div>
+      <h3 class="confirm-modal-title" id="confirmModalTitle"></h3>
+      <p class="confirm-modal-msg" id="confirmModalMsg"></p>
+      <div class="confirm-modal-actions">
+        <button class="btn-confirm-danger" id="confirmModalOk">Eliminar</button>
+        <button class="btn-limpiar-ticket" id="confirmModalCancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF.js para previsualizar PDFs como imágenes -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="app.js?v=147"></script>
+</body>
+</html>
