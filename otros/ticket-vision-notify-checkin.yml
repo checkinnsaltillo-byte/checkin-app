@@ -1,6 +1,6 @@
 name: Notify · check-in (sync /admin/)
 
-# Cuando se hace push al branch `master` de este repo (ticket-vision),
+# Cuando se hace push al branch `main` de este repo (ticket-vision),
 # disparar el workflow "Sync · Ticket Vision → /admin/" en el repo
 # checkinnsaltillo-byte/checkin-app vía repository_dispatch. Esto hace
 # que /admin/ del sitio check-inn.mx se actualice en segundos.
@@ -10,7 +10,7 @@ name: Notify · check-in (sync /admin/)
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
 
 jobs:

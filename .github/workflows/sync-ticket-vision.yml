@@ -1,7 +1,7 @@
 name: Sync · Ticket Vision → /admin/
 
 # Mantiene el contenido de la carpeta /admin/ en sincronía con el branch
-# `master` del repo `checkinnsaltillo-byte/ticket-vision`. Cuando el repo
+# `main` del repo `checkinnsaltillo-byte/ticket-vision`. Cuando el repo
 # de Ticket Vision se actualice (o cada 6 horas como fallback), este
 # workflow descarga su contenido estático (index.html, styles.css, app.js)
 # y lo commitea aquí. El pipeline de deploy-pages.yml luego lo publica
@@ -37,11 +37,11 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Checkout ticket-vision master (read-only)
+      - name: Checkout ticket-vision main (read-only)
         uses: actions/checkout@v4
         with:
           repository: checkinnsaltillo-byte/ticket-vision
-          ref: master
+          ref: main
           path: tv-src
 
       - name: Copy static files to /admin/
@@ -71,5 +71,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add admin/
-          git commit -m "chore(admin): sync ticket-vision master → /admin/"
+          git commit -m "chore(admin): sync ticket-vision main → /admin/"
           git push origin main
