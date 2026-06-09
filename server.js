@@ -349,7 +349,8 @@ app.post("/api/create-receipt", async (req, res) => {
           row_number: rowNumber || "",
           external_id: externalId || "",
           folio_facturapi: facturapiFolio,
-          monto_facturado: Number(quantity) || ""   // ← se persiste en "$ Monto facturado Total"
+          monto_facturado: Number(quantity) || "",   // ← se persiste en "$ Monto facturado Total"
+          org: org || "",                            // ← Apps Script lo mapea a "ACR"/"ACL"
         };
         const data = await checkinFetchJson(resolvedCheckinUrl, {
           method: "POST",
