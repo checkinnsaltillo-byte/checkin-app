@@ -18,19 +18,46 @@ app.use("/registro", express.static(path.join(publicDir, "registro")));
 app.use("/facturapi", express.static(path.join(publicDir, "facturapi")));
 
 const FACTURAPI_BASE = "https://www.facturapi.io/v2";
-const FACTURAPI_SECRET_KEY = process.env.FACTURAPI_SECRET_KEY;
+// Llaves por organización. Configurar en Cloud Run:
+//   FACTURAPI_SECRET_KEY_ORG1, FACTURAPI_SECRET_KEY_ORG2
+// Si solo está la vieja FACTURAPI_SECRET_KEY, se usa como ORG1 (back-compat).
+// El frontend manda ?org=1|2; aquí elegimos qué secret usar.
+const FACTURAPI_SECRET_KEY_ORG1 = process.env.FACTURAPI_SECRET_KEY_ORG1
+  || process.env.FACTURAPI_SECRET_KEY
+  || "";
+const FACTURAPI_SECRET_KEY_ORG2 = process.env.FACTURAPI_SECRET_KEY_ORG2 || "";
+const FACTURAPI_DEFAULT_ORG = String(process.env.FACTURAPI_DEFAULT_ORG || "2");
 const PORT = process.env.PORT || 8080;
 const DEFAULT_CHECKIN_WEB_APP_URL = process.env.CHECKIN_WEB_APP_URL || "";
 
-if (!FACTURAPI_SECRET_KEY) {
-  console.warn("⚠️ FACTURAPI_SECRET_KEY no definida. Algunas funciones no funcionarán.");
+if (!FACTURAPI_SECRET_KEY_ORG1 && !FACTURAPI_SECRET_KEY_ORG2) {
+  console.warn("⚠️ Ninguna FACTURAPI_SECRET_KEY_ORG* configurada. Facturapi no funcionará.");
+} else {
+  console.info(`[facturapi] ORG1=${FACTURAPI_SECRET_KEY_ORG1 ? "✓" : "✗"}, ORG2=${FACTURAPI_SECRET_KEY_ORG2 ? "✓" : "✗"}, default=${FACTURAPI_DEFAULT_ORG}`);
 }
 
-async function facturapiFetch(pathname, options = {}) {
+function resolveFacturapiSecret(org) {
+  const o = (org === "1" || org === 1) ? "1"
+          : (org === "2" || org === 2) ? "2"
+          : FACTURAPI_DEFAULT_ORG;
+  if (o === "1" && FACTURAPI_SECRET_KEY_ORG1) return FACTURAPI_SECRET_KEY_ORG1;
+  if (o === "2" && FACTURAPI_SECRET_KEY_ORG2) return FACTURAPI_SECRET_KEY_ORG2;
+  // Fallback si la org pedida no está configurada.
+  return FACTURAPI_SECRET_KEY_ORG2 || FACTURAPI_SECRET_KEY_ORG1 || "";
+}
+
+function readOrgFromReq(req) {
+  const raw = (req && (req.query?.org || req.body?.org)) || "";
+  const s = String(raw).trim();
+  return (s === "1" || s === "2") ? s : FACTURAPI_DEFAULT_ORG;
+}
+
+async function facturapiFetch(pathname, options = {}, org) {
+  const secret = resolveFacturapiSecret(org);
   const res = await fetch(`${FACTURAPI_BASE}${pathname}`, {
     ...options,
     headers: {
-      Authorization: `Bearer ${FACTURAPI_SECRET_KEY}`,
+      Authorization: `Bearer ${secret}`,
       Accept: "application/json",
       ...(options.body ? { "Content-Type": "application/json" } : {}),
       ...(options.headers || {}),
@@ -130,7 +157,7 @@ async function saveFacturapiFolioStrict_(recordId, folio, externalId, overrideUr
 }
 
 
-async function saveReceiptPdfToCheckin_(receiptId, { recordId, rowNumber, externalId, folio, overrideUrl } = {}) {
+async function saveReceiptPdfToCheckin_(receiptId, { recordId, rowNumber, externalId, folio, overrideUrl, org } = {}) {
   if (!receiptId) {
     throw new Error("Falta receiptId para guardar el PDF.");
   }
@@ -140,7 +167,7 @@ async function saveReceiptPdfToCheckin_(receiptId, { recordId, rowNumber, extern
 
   const pdfRes = await facturapiFetch(`/receipts/${encodeURIComponent(receiptId)}/pdf`, {
     headers: { Accept: "application/pdf" },
-  });
+  }, org);
 
   if (!pdfRes.ok) {
     const contentType = pdfRes.headers.get("content-type") || "";
@@ -200,9 +227,10 @@ app.get("/registro", (_req, res) => {
   return res.redirect("/registro/");
 });
 
-app.get("/api/products", async (_req, res) => {
+app.get("/api/products", async (req, res) => {
   try {
-    const apiRes = await facturapiFetch("/products?limit=100");
+    const org = readOrgFromReq(req);
+    const apiRes = await facturapiFetch("/products?limit=100", {}, org);
     const data = await parseFacturapiResponse(apiRes);
 
     if (!apiRes.ok) {
@@ -241,6 +269,7 @@ app.post("/api/create-receipt", async (req, res) => {
       assignedFolio,
       checkinWebAppUrl,
     } = req.body || {};
+    const org = readOrgFromReq(req);
 
     if (Number(amount) !== 1) {
       return res.status(400).json({ message: "El monto unitario está fijo en 1 para esta versión." });
@@ -252,7 +281,7 @@ app.post("/api/create-receipt", async (req, res) => {
       return res.status(400).json({ message: "La cantidad debe ser mayor a cero." });
     }
 
-    const productRes = await facturapiFetch(`/products/${encodeURIComponent(productId)}`);
+    const productRes = await facturapiFetch(`/products/${encodeURIComponent(productId)}`, {}, org);
     const product = await parseFacturapiResponse(productRes);
 
     if (!productRes.ok) {
@@ -292,7 +321,7 @@ app.post("/api/create-receipt", async (req, res) => {
     const receiptRes = await facturapiFetch("/receipts", {
       method: "POST",
       body: JSON.stringify(payload),
-    });
+    }, org);
 
     const receipt = await parseFacturapiResponse(receiptRes);
 
@@ -345,7 +374,8 @@ app.post("/api/create-receipt", async (req, res) => {
           rowNumber,
           externalId,
           folio: facturapiFolio,
-          overrideUrl: resolvedCheckinUrl
+          overrideUrl: resolvedCheckinUrl,
+          org,
         });
       } else {
         pdfDriveSaveError = "Falta recordId/externalId/rowNumber para guardar el PDF en Drive.";
@@ -408,6 +438,7 @@ app.post("/api/create-receipt", async (req, res) => {
 app.post("/api/send-receipt-email", async (req, res) => {
   try {
     const { receiptId, email } = req.body || {};
+    const org = readOrgFromReq(req);
 
     if (!receiptId) {
       return res.status(400).json({ message: "Falta receiptId." });
@@ -419,7 +450,7 @@ app.post("/api/send-receipt-email", async (req, res) => {
     const apiRes = await facturapiFetch(`/receipts/${encodeURIComponent(receiptId)}/email`, {
       method: "POST",
       body: JSON.stringify({ email }),
-    });
+    }, org);
 
     const data = await parseFacturapiResponse(apiRes);
 
@@ -446,9 +477,10 @@ app.post("/api/send-receipt-email", async (req, res) => {
 app.get("/api/receipt-pdf/:receiptId", async (req, res) => {
   try {
     const { receiptId } = req.params;
+    const org = readOrgFromReq(req);
     const pdfRes = await facturapiFetch(`/receipts/${encodeURIComponent(receiptId)}/pdf`, {
       headers: { Accept: "application/pdf" },
-    });
+    }, org);
 
     if (!pdfRes.ok) {
       const contentType = pdfRes.headers.get("content-type") || "";

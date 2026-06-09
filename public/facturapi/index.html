@@ -512,6 +512,16 @@
   </div>
 
 <script>
+    // Lee ?org=1|2 de la URL. Default = "2" (la organización más reciente).
+    // El padre (Ticket Vision) lo manda en el href del iframe.
+    function getOrgParam() {
+      try {
+        const v = new URLSearchParams(window.location.search).get('org');
+        if (v === '1' || v === '2') return v;
+      } catch(_) {}
+      return '2';
+    }
+
     const els = {
       form: document.getElementById("receiptForm"),
       quantity: document.getElementById("quantity"),
@@ -798,7 +808,7 @@
       clearStatus();
       try {
         els.productId.innerHTML = `<option value="">Cargando productos...</option>`;
-        const res = await fetch("/api/products");
+        const res = await fetch(`/api/products?org=${getOrgParam()}`);
         const data = await safeJson(res);
         if (!res.ok) throw new Error(data?.message || "No fue posible cargar los productos.");
         renderProducts(data?.data || []);
@@ -912,7 +922,7 @@ URL de la factura: ${invoiceUrl}`;
         const res = await fetch("/api/send-receipt-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ receiptId: appState.receiptId, email })
+          body: JSON.stringify({ receiptId: appState.receiptId, email, org: getOrgParam() })
         });
 
         const data = await safeJson(res);
@@ -1035,7 +1045,7 @@ URL de la factura: ${invoiceUrl}`;
         const res = await fetch("/api/create-receipt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({ ...payload, org: getOrgParam() })
         });
 
         const data = await safeJson(res);
@@ -1053,7 +1063,7 @@ URL de la factura: ${invoiceUrl}`;
 
         renderSummary(payload, data);
 
-        const pdfUrl = `/api/receipt-pdf/${encodeURIComponent(data.receipt.id)}`;
+        const pdfUrl = `/api/receipt-pdf/${encodeURIComponent(data.receipt.id)}?org=${getOrgParam()}`;
         const drivePdfUrl = data?.pdfDriveSave?.url || data?.pdfDriveSave?.file_url || data?.pdfDriveSave?.pdf_url || '';
         appState.receiptId = data.receipt.id;
         appState.pdfUrl = pdfUrl;
