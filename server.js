@@ -315,6 +315,11 @@ app.post("/api/create-receipt", async (req, res) => {
       exchange: Number(exchange || 1),
       ...(branch ? { branch } : {}),
       ...(externalId ? { external_id: externalId } : {}),
+      // Folio asignado por el cliente = MAX("Folio facturapi" en Reservaciones)+1.
+      // Facturapi acepta folio_number en /receipts para forzar el folio.
+      ...(assignedFolio != null && String(assignedFolio).trim() !== "" && Number(assignedFolio) > 0
+          ? { folio_number: Number(assignedFolio) }
+          : {}),
       idempotency_key: crypto.randomUUID(),
     };
 

@@ -1034,6 +1034,9 @@ URL de la factura: ${invoiceUrl}`;
           includeTaxes: els.includeTaxes.checked,
           recordId: appState.recordId || undefined,
           rowNumber: appState.rowNumber || undefined,
+          // Folio = MAX("Folio facturapi" en Reservaciones) + 1.
+          // El backend lo traduce a folio_number al crear el receipt.
+          assignedFolio: appState.nextFolio ? Number(appState.nextFolio) : undefined,
           checkinWebAppUrl: appState.checkinWebAppUrl || undefined
         };
 
