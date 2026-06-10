@@ -2185,3 +2185,588 @@ button[title], a[title], .info-chip[title], [role="button"][title], [onclick][ti
     justify-self: start;
   }
 }
+
+/* ─── Multi-select widget de Reservas Lodgify ───────────────────────────── */
+.lg-multi-wrap { position: relative; }
+.lg-multi-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  box-sizing: border-box;
+}
+.lg-multi-btn-lbl {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.lg-multi-btn-caret {
+  color: #94a3b8;
+  flex-shrink: 0;
+  font-size: 10px;
+  pointer-events: none;
+}
+.lg-multi-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  box-shadow: 0 6px 22px rgba(15, 23, 42, .15);
+  z-index: 50;
+  max-height: 320px;
+  overflow-y: auto;
+  min-width: 220px;
+  width: max-content;
+  max-width: 360px;
+}
+.lg-multi-actions {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.lg-multi-action {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #475569;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lg-multi-action:hover { background: #f1f5f9; }
+.lg-multi-options { padding: 4px 6px; }
+.lg-multi-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #1f2937;
+  line-height: 1.3;
+  user-select: none;
+}
+.lg-multi-opt:hover { background: #f1f5f9; }
+/* Override agresivo: muchos sitios estilizan input[type=*] con width:100%.
+   Forzamos las dimensiones del checkbox para que vuelva a su tamaño nativo. */
+.lg-multi-cb,
+input.lg-multi-cb,
+input[type="checkbox"].lg-multi-cb {
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px;
+  flex: 0 0 14px;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  appearance: auto;
+  -webkit-appearance: checkbox;
+}
+.lg-multi-opt-txt {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Loader Check-inn (pin 3D animado + texto "Check-inn") ───────────── */
+.checkinn-loader {
+  --ci-pin-h: 56px;
+  --ci-dur: 3.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--ci-pin-h) * 0.05);
+  line-height: 0;
+}
+.checkinn-loader.size-sm { --ci-pin-h: 21px; --ci-dur: 2.8s; }
+.checkinn-loader.size-md { --ci-pin-h: 36px; }
+.checkinn-loader.size-lg { --ci-pin-h: 56px; --ci-dur: 3.2s; }
+.ci-pin-scene {
+  perspective: 700px;
+  height: var(--ci-pin-h);
+}
+.ci-pin {
+  position: relative;
+  height: var(--ci-pin-h);
+  transform-style: preserve-3d;
+  animation: ci-spin var(--ci-dur) linear infinite;
+  will-change: transform;
+}
+.ci-face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: var(--ci-pin-h);
+  backface-visibility: hidden;
+}
+.ci-face img,
+.ci-spacer {
+  display: block;
+  height: var(--ci-pin-h);
+  width: auto;
+}
+.ci-face.back { transform: rotateY(180deg); }
+.ci-spacer { visibility: hidden; }
+.ci-text {
+  display: block;
+  height: calc(var(--ci-pin-h) * 0.552);
+  width: auto;
+}
+@keyframes ci-spin { to { transform: rotateY(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ci-pin { animation: none; }
+}
+
+/* Contenedor del estado de carga del módulo Lodgify */
+.lg-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 60px 20px;
+  text-align: center;
+}
+.lg-loading-state .lg-loading-msg {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+/* ─── Hover de filas en la vista Tabla de Reservas Lodgify ───────────── */
+.lg-tbl-row { transition: background 120ms; }
+.lg-tbl-row:hover > td { background: #f8fafc !important; }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Módulo "Reservas - detalles" — réplica del UI de Lodgify
+   ═════════════════════════════════════════════════════════════════════════ */
+.rd-shell {
+  display: grid;
+  grid-template-columns: 280px 1fr 320px;
+  gap: 0;
+  height: calc(100vh - 140px);
+  min-height: 600px;
+  background: #f4f6f8;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+@media (max-width: 1100px) {
+  .rd-shell { grid-template-columns: 260px 1fr; }
+  .rd-rightbar { display: none; }
+}
+@media (max-width: 760px) {
+  .rd-shell { grid-template-columns: 1fr; height: auto; }
+  .rd-sidebar { max-height: 340px; }
+}
+
+/* ─── Sidebar izquierdo ─── */
+.rd-sidebar {
+  background: #fff;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.rd-sidebar-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.rd-sidebar-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.rd-sidebar-count {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+.rd-sidebar-icons {
+  display: flex;
+  gap: 4px;
+}
+.rd-icon-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #475569;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.rd-icon-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+.rd-search-box {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.rd-search-box input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.rd-list {
+  flex: 1;
+  overflow-y: auto;
+}
+.rd-item {
+  padding: 10px 12px;
+  margin: 0 8px 8px;             /* separación visible entre celdas */
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  transition: transform 140ms ease-out, box-shadow 140ms ease-out, border-color 140ms ease-out;
+  position: relative;
+}
+.rd-item:hover {
+  /* Hover sutil: un tono ligeramente más obscuro sobre el bg tenue actual. */
+  filter: brightness(.96);
+}
+.rd-item.rd-active {
+  /* Color e sombra se aplican inline desde JS por estado de programación
+     (LG_STATE_META.bgIntense / shadowAccent). Solo aseguramos el peso visual. */
+  font-weight: 700;
+}
+.rd-item-thumb {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  color: #64748b;
+}
+.rd-item-body { flex: 1; min-width: 0; }
+.rd-item-row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.rd-status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.rd-status-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.rd-status-Reservada { color: #dc2626; }
+.rd-status-Reservada::before { background: #dc2626; }
+.rd-status-Abierta { color: #16a34a; }
+.rd-status-Abierta::before { background: #16a34a; }
+.rd-status-Provisional { color: #ea580c; }
+.rd-status-Provisional::before { background: #ea580c; }
+.rd-status-Concluida { color: #94a3b8; }
+.rd-status-Concluida::before { background: #94a3b8; }
+.rd-item-date {
+  font-size: 10px;
+  color: #64748b;
+  white-space: nowrap;
+}
+.rd-item-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 1px;
+}
+.rd-item-amount {
+  font-size: 11px;
+  color: #475569;
+  font-weight: 600;
+  text-align: right;
+  margin-top: 2px;
+}
+.rd-item-meta {
+  font-size: 10px;
+  color: #64748b;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 2px;
+}
+.rd-sidebar-footer {
+  padding: 10px 12px;
+  border-top: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+.rd-btn-create {
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: #0f172a;
+  color: #fff;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.rd-btn-create:hover { background: #1e293b; }
+
+/* ─── Panel principal ─── */
+.rd-main {
+  padding: 20px 28px;
+  overflow-y: auto;
+  background: #f4f6f8;
+}
+.rd-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+.rd-section {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.rd-section-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.rd-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 13px;
+  color: #1f2937;
+}
+.rd-row.rd-row-strong {
+  font-weight: 800;
+  font-size: 14px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 10px;
+  margin-top: 6px;
+}
+.rd-row .rd-row-label { color: #475569; }
+.rd-amount-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 14px;
+  text-align: left;
+}
+.rd-amount-card-label {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+.rd-amount-card-value {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 2px;
+}
+.rd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 11px;
+  border: 1px solid transparent;
+}
+.rd-chip-aceptada { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+.rd-chip-aceptada::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #dc2626; }
+.rd-chip-emitida { background: #dcfce7; color: #166534; border-color: #86efac; }
+.rd-chip-pendiente { background: #fff7ed; color: #c2410c; border-color: #fdba74; }
+.rd-chip-airbnb { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+
+/* ─── Sidebar derecho ─── */
+.rd-rightbar {
+  background: #fff;
+  border-left: 1px solid #e5e7eb;
+  padding: 20px 18px;
+  overflow-y: auto;
+}
+.rd-side-section {
+  background: #fff;
+  margin-bottom: 18px;
+}
+.rd-side-section-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rd-side-field { margin-bottom: 12px; }
+.rd-side-field-label {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.rd-side-field-value {
+  font-size: 13px;
+  color: #1f2937;
+}
+.rd-side-field-value a { color: #0d9488; text-decoration: none; }
+.rd-side-field-value a:hover { text-decoration: underline; }
+.rd-phone-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rd-wa-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #25d366;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+/* ─── Header del detalle ─── */
+.rd-detail-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.rd-detail-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+.rd-detail-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+.rd-detail-stats {
+  display: flex;
+  gap: 8px;
+}
+
+/* ─── Vista "Detalles" de Reservas Lodgify (sidebar + área amplia) ─── */
+.lg-detail-shell {
+  display: grid;
+  grid-template-columns: 365px 1fr;
+  gap: 14px;
+  align-items: stretch;
+  /* Altura fija para que el sidebar muestre exactamente ~10 cards y la caja
+     derecha tenga la misma altura. Cards promedian ~120px + 8px gap, más
+     header (~50) + leyendas Factura (~75) + Programación (~75) = ~1400px. */
+  --lg-detail-h: 1400px;
+}
+.lg-detail-shell .rd-sidebar {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  height: var(--lg-detail-h);
+  max-height: var(--lg-detail-h);
+}
+.lg-detail-main {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 22px;
+  height: var(--lg-detail-h);
+  max-height: var(--lg-detail-h);
+  overflow-y: auto;
+}
+
+/* Panel derecho con header propio. Misma altura que el sidebar; el body
+   scrollea internamente si las 3 columnas exceden esa altura. */
+.lg-detail-panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  height: var(--lg-detail-h);
+  max-height: var(--lg-detail-h);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.lg-detail-panel-header {
+  padding: 14px 16px 10px;                    /* mismo padding que .rd-sidebar-header */
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.lg-detail-panel-body {
+  flex: 1;
+  overflow-y: auto;       /* scroll interno cuando 3-col excede altura fija */
+  padding: 18px 20px;
+}
+@media (max-width: 800px) {
+  .lg-detail-shell { grid-template-columns: 1fr; }
+  .lg-detail-shell .rd-sidebar { min-height: 0 !important; }
+}
+
+/* (Slider dual de fechas removido; ahora se usan dos <input type="date">.) */
