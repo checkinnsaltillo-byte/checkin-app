@@ -15051,9 +15051,11 @@ function bzwRenderAlertItem(a) {
 
   // ─── Chips superiores ───
   const chipDept = `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:${meta.chipBg};color:${meta.fg};font-weight:800;font-size:10px;border:1px solid ${meta.border};letter-spacing:.02em"><span style="font-size:11px;line-height:1">${meta.emoji}</span>${esc(meta.label)}</span>`;
-  const chipStatus = finished
-    ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:800;font-size:10px;border:1px solid #86efac">✓ Finalizada</span>`
-    : `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#dbeafe;color:#1e40af;font-weight:800;font-size:10px;border:1px solid #93c5fd">⏳ Programada</span>`;
+  // Chip de status (verde ✓ Finalizada o rojo ✗ Pendiente) — vive en el
+  // header derecho de la card, NO en la fila de chips superiores.
+  const chipStatusBig = finished
+    ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:800;font-size:11px;border:1.5px solid #86efac;box-shadow:0 1px 3px rgba(22,163,74,.18);letter-spacing:.02em">✓ Finalizada</span>`
+    : `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:800;font-size:11px;border:1.5px solid #fca5a5;box-shadow:0 1px 3px rgba(220,38,38,.18);letter-spacing:.02em">✗ Pendiente</span>`;
   const prio = String(raw.type_priority || '').toLowerCase();
   const pMeta = BZW_PRIORITY_META[prio];
   const chipPriority = pMeta
@@ -15122,18 +15124,33 @@ function bzwRenderAlertItem(a) {
     <div style="background:#fff;border:1.5px solid #e2e8f0;border-left:7px solid ${meta.border};border-radius:12px;padding:12px 14px;margin-bottom:10px;box-shadow:0 2px 6px rgba(15,23,42,.05);transition:box-shadow 180ms cubic-bezier(.16,1,.3,1)"
          onmouseover="this.style.boxShadow='0 4px 12px rgba(15,23,42,.10)'"
          onmouseout="this.style.boxShadow='0 2px 6px rgba(15,23,42,.05)'">
-      <!-- Top: chips -->
+      <!-- Top: chips (Status se movió al lado derecho del header) -->
       <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-        ${chipDept}${chipStatus}${chipPriority}${chipPaused}${chipFinishedBy}${chipReserva}
+        ${chipDept}${chipPriority}${chipPaused}${chipFinishedBy}${chipReserva}
       </div>
-      <!-- Centro: PROPIEDAD como título + nombre de tarea como subtítulo -->
+      <!-- Centro: PROPIEDAD como título (izq) + Status + Date/Time Completed (der) -->
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap">
         <div style="min-width:0;flex:1">
           <div style="font-size:16px;font-weight:900;color:#0f172a;line-height:1.2;letter-spacing:-.005em">🏠 ${esc(propName)}</div>
           <div style="font-size:12px;color:#475569;font-weight:600;margin-top:3px">📅 ${esc(whenLargo)}${whenRel ? ` <span style="color:#94a3b8;font-weight:500"> · ${esc(whenRel)}</span>` : ''}</div>
           <div style="font-size:12px;color:${meta.fg};font-weight:700;margin-top:2px">${meta.emoji} ${esc(taskName)}</div>
         </div>
-        ${reportUrl ? `<a href="${esc(reportUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:999px;background:#ecfdf5;color:#047857;font-weight:800;font-size:11px;border:1px solid #6ee7b7;text-decoration:none;white-space:nowrap;flex-shrink:0">📄 Reporte</a>` : ''}
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;min-width:130px">
+          ${chipStatusBig}
+          ${finished ? `
+            <div style="text-align:right;line-height:1.2">
+              <div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase">Date completed</div>
+              <div style="font-size:12px;color:#0f172a;font-weight:800">${esc(bzwFmtFechaCorta(t.finished_at))}</div>
+              <div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-top:4px">Time completed</div>
+              <div style="font-size:12px;color:#0f172a;font-weight:800">${esc((t.finished_at||'').match(/T(\d{2}:\d{2})/)?.[1] || '—')}</div>
+            </div>` : `
+            <div style="text-align:right;line-height:1.2">
+              <div style="font-size:10px;color:#94a3b8;font-style:italic">Sin fecha de completado</div>
+              ${raw.scheduled_date ? `<div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-top:4px;letter-spacing:.04em">Programada</div>
+              <div style="font-size:12px;color:#0f172a;font-weight:700">${esc(bzwFmtFechaCorta(raw.scheduled_date))}${raw.scheduled_time ? ' · ' + esc(raw.scheduled_time) : ''}</div>` : ''}
+            </div>`}
+          ${reportUrl ? `<a href="${esc(reportUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:999px;background:#ecfdf5;color:#047857;font-weight:800;font-size:10px;border:1px solid #6ee7b7;text-decoration:none;white-space:nowrap;margin-top:4px">📄 Reporte</a>` : ''}
+        </div>
       </div>
       <!-- Detalle expandible: tabla de payload -->
       <details style="margin-top:10px;border-top:1px dashed #e2e8f0;padding-top:8px">
@@ -15147,6 +15164,88 @@ function bzwRenderAlertItem(a) {
 
 // Cache del último resultado histórico (para no re-fetch al cambiar de tab).
 let BZW_LAST_HISTORY = null;
+// Snapshot completo (sin filtrar) para poder filtrar localmente sin re-fetch.
+let BZW_ALL_TASKS = [];
+
+/** Repuebla los <select> de filtros con los valores únicos presentes en
+ *  BZW_ALL_TASKS. Se invoca tras cada importación. */
+function bzwRebuildFilterOptions() {
+  const tasks = BZW_ALL_TASKS;
+  const depts = new Set();
+  const props = new Set();
+  const assigns = new Set();
+  for (const t of tasks) {
+    const raw = t.raw || {};
+    const dept = String(t.task?.type || raw.type_department || '').trim();
+    if (dept) depts.add(dept);
+    const propName = t.property?.name;
+    if (propName) props.add(propName);
+    // Asignaciones: cada task tiene un array de personas asignadas
+    for (const a of (raw.assignments || [])) {
+      const nm = (a.name || '').trim();
+      if (nm) assigns.add(nm);
+    }
+    const fb = t.task?.finished_by;
+    if (fb) assigns.add(fb);
+  }
+  const populate = (id, values, allLabel = 'Todos') => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    const opts = [`<option value="">${allLabel}</option>`]
+      .concat([...values].sort((a,b)=>a.localeCompare(b,'es')).map(v =>
+        `<option value="${esc(v)}">${esc(BZW_DEPT_META[v]?.label || v)}</option>`));
+    sel.innerHTML = opts.join('');
+    if (cur && [...values].includes(cur)) sel.value = cur;
+  };
+  populate('bzw-f-dept',   depts, 'Todos');
+  populate('bzw-f-prop',   props, 'Todas');
+  populate('bzw-f-assign', assigns, 'Todas');
+  const box = document.getElementById('bzw-filters');
+  if (box) box.classList.remove('hidden');
+}
+
+window.bzwResetFilters = function() {
+  ['bzw-f-status','bzw-f-dept','bzw-f-prop','bzw-f-assign'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  bzwApplyFilters();
+};
+
+window.bzwApplyFilters = function() {
+  if (!BZW_ALL_TASKS.length) return;
+  const status = document.getElementById('bzw-f-status')?.value || '';
+  const dept   = document.getElementById('bzw-f-dept')?.value   || '';
+  const prop   = document.getElementById('bzw-f-prop')?.value   || '';
+  const assign = document.getElementById('bzw-f-assign')?.value || '';
+  const filtered = BZW_ALL_TASKS.filter(t => {
+    const raw = t.raw || {};
+    if (status === 'finished' && !t.task?.finished_at) return false;
+    if (status === 'pending'  &&  t.task?.finished_at) return false;
+    if (dept) {
+      const td = String(t.task?.type || raw.type_department || '');
+      if (td !== dept) return false;
+    }
+    if (prop && t.property?.name !== prop) return false;
+    if (assign) {
+      const names = new Set();
+      for (const a of (raw.assignments || [])) if (a.name) names.add(a.name);
+      if (t.task?.finished_by) names.add(t.task.finished_by);
+      if (!names.has(assign)) return false;
+    }
+    return true;
+  });
+  const list = document.getElementById('bzw-alerts-list');
+  const cntEl = document.getElementById('bzw-filter-count');
+  const subEl = document.getElementById('bzw-list-sub');
+  if (cntEl) cntEl.textContent = `${filtered.length} de ${BZW_ALL_TASKS.length}`;
+  if (subEl) subEl.textContent = `${filtered.length} tareas`;
+  if (!filtered.length) {
+    if (list) list.innerHTML = `<div style="text-align:center;color:#64748b;padding:30px 20px"><div style="font-size:32px;opacity:.4">🔍</div><div style="font-weight:700;margin-top:8px">Sin tareas que cumplan los filtros</div></div>`;
+    return;
+  }
+  if (list) list.innerHTML = filtered.map(bzwRenderAlertItem).join('');
+};
 
 window.bzwFetchHistory = async function() {
   const fromEl = document.getElementById('bzw-from');
@@ -15174,11 +15273,15 @@ window.bzwFetchHistory = async function() {
     if (status) status.innerHTML = `✅ <b>${json.count}</b> tareas encontradas — ${json.scanned_homes} propiedades, rango ${json.from} → ${json.to}${deptVal?` (depto: ${deptVal})`:''}.`;
     if (titleEl) titleEl.textContent = `📅 Histórico de tareas (${deptVal || 'todas'})`;
     if (subEl) subEl.textContent = `${json.count} tareas · ${json.from} → ${json.to}`;
-    if (!json.tasks.length) {
+    BZW_ALL_TASKS = json.tasks || [];
+    if (!BZW_ALL_TASKS.length) {
+      const fbox = document.getElementById('bzw-filters');
+      if (fbox) fbox.classList.add('hidden');
       if (list) list.innerHTML = `<div style="text-align:center;color:#64748b;padding:40px 20px"><div style="font-size:38px;opacity:.4;margin-bottom:10px">📭</div><div style="font-weight:700;color:#334155;margin-bottom:4px">Sin tareas en este rango</div></div>`;
       return;
     }
-    if (list) list.innerHTML = json.tasks.map(bzwRenderAlertItem).join('');
+    bzwRebuildFilterOptions();
+    bzwApplyFilters();
   } catch (e) {
     console.warn('[BZW] history error:', e);
     if (status) status.innerHTML = `<span style="color:#b91c1c">⚠ ${esc(e.message)}</span>`;
@@ -15220,8 +15323,10 @@ window.bzwShowWebhookAlerts = function() {
   // Vuelve a la vista de webhook (buffer en vivo).
   const titleEl = document.getElementById('bzw-list-title');
   const subEl = document.getElementById('bzw-list-sub');
+  const fbox = document.getElementById('bzw-filters');
   if (titleEl) titleEl.textContent = '📋 Historial de alertas (webhook en vivo)';
   if (subEl) subEl.textContent = 'Más recientes arriba';
+  if (fbox) fbox.classList.add('hidden');
   bzwRefreshAlerts();
 };
 
