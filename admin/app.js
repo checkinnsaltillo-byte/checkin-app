@@ -14994,11 +14994,23 @@ window.bzwSubscribeAll = async function() {
         body: JSON.stringify({ webhook_type: t }),
       });
       const json = await res.json();
-      summary.push(`${t}: ${res.ok && json.ok !== false ? '✓' : '✗ ' + (json.error || res.status)}`);
+      if (res.ok && json.ok) {
+        const label = json.already_subscribed
+          ? '✓ Ya estaba suscrito (ok)'
+          : '✓ Suscrito';
+        summary.push(`${t}: ${label}`);
+      } else {
+        const errMsg = json.breezeway?.description
+                    || json.breezeway?.error
+                    || json.error
+                    || json.message
+                    || `HTTP ${res.status}`;
+        summary.push(`${t}: ✗ ${errMsg}`);
+      }
     } catch (e) {
       summary.push(`${t}: ✗ ${e.message}`);
     }
   }
-  alert('Resultado de suscripción:\n\n' + summary.join('\n'));
+  alert('Resultado de suscripción de webhooks:\n\n' + summary.join('\n'));
   bzwRefreshAlerts();
 };
