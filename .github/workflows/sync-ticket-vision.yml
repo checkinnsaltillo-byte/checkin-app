@@ -30,6 +30,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
+      actions: write
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -73,3 +74,16 @@ jobs:
           git add admin/
           git commit -m "chore(admin): sync ticket-vision main → /admin/"
           git push origin main
+
+      # IMPORTANTE: el push del paso anterior se hace con GITHUB_TOKEN, y
+      # GitHub por diseño NO dispara otros workflows cuando se autentica
+      # con ese token (anti-loop). Por eso deploy-pages.yml se quedaba en
+      # el commit previo al sync, y www.check-inn.mx/admin/ servía la
+      # versión vieja hasta que alguien disparara Pages manualmente.
+      # Aquí lo encadenamos explícitamente vía workflow_dispatch (que sí
+      # se puede invocar con GITHUB_TOKEN).
+      - name: Trigger deploy-pages.yml
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy-pages.yml --ref main --repo ${{ github.repository }}
