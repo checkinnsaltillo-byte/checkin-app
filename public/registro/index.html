@@ -1717,8 +1717,22 @@ body.has-session .lang-bar-logo{ display:none !important; }
 
 .autofilled-field{
   background:linear-gradient(180deg,#eefaf3 0%, #e2f7ea 100%) !important;
+  background-color:#eefaf3 !important;
   border-color:#7cc79a !important;
   box-shadow:0 0 0 3px rgba(34,197,94,.10);
+}
+/* iOS Safari y algunos browsers desktop no respetan `background` en <select>
+   nativo. Forzamos appearance:none + background-color para que SIEMPRE se vea
+   el resaltado verde, igual que en inputs/textarea. */
+select.autofilled-field{
+  -webkit-appearance:none !important;
+  -moz-appearance:none !important;
+  appearance:none !important;
+  background-color:#eefaf3 !important;
+  background-image:linear-gradient(180deg,#eefaf3 0%, #e2f7ea 100%) !important;
+}
+textarea.autofilled-field{
+  background-color:#eefaf3 !important;
 }
 .autofilled-field:focus{
   border-color:#4caf72 !important;
@@ -1726,6 +1740,7 @@ body.has-session .lang-bar-logo{ display:none !important; }
 }
 .autofilled-label{
   color:#256b45 !important;
+  font-weight:700 !important;
 }
 .autofilled-wrapper{
   border-color:#7cc79a !important;
@@ -6136,15 +6151,15 @@ body.has-session input[name="nombre"] {
 </div>
 <div class="note hidden" id="guestAutofillStatus" style="margin-top:10px;"></div>
 </div>
-<div class="visible" id="formulario_principal"><div class="section"><h2 class="section-title" data-i18n="sec1Title">Datos de la reservación</h2><p class="section-subtitle" data-i18n="sec1Sub"></p><label data-i18n="bookingSource">Medio de reservación</label>
+<div class="visible" id="formulario_principal"><div class="section" id="section_admin_principal"><label data-i18n="bookingName">Nombre del administrador (usuario del Número de celular)</label>
+<input name="nombre" type="text"/></div><div class="section"><h2 class="section-title" data-i18n="sec1Title">Datos de la reservación</h2><p class="section-subtitle" data-i18n="sec1Sub"></p><label data-i18n="bookingSource">Medio de reservación</label>
 <select name="medio">
 <option value="">Selecciona</option>
 <option value="Airbnb">Airbnb</option>
 <option value="Check-inn-Saltillo.com">Check-inn-Saltillo.com (website / link de whatsapp)</option>
 <option value="Trato directo">Trato directo</option>
 </select>
-<label data-i18n="bookingName">Nombre de la persona que hizo la reservación</label>
-<input name="nombre" type="text"/><div id="field_propiedad_departamento"><label data-i18n="property">Propiedad</label>
+<div id="field_propiedad_departamento"><label data-i18n="property">Propiedad</label>
 <select id="propiedad" name="propiedad">
 <option value="">Selecciona</option>
 <option value="Calle Cumbres">Calle Cumbres</option>
@@ -6183,7 +6198,7 @@ body.has-session input[name="nombre"] {
 <input name="huesped[]" placeholder="Huésped 1" type="text"/>
 <label class="copiar-reservante-wrap" style="font-weight:normal; margin-top:8px; display:flex; align-items:center; gap:8px;">
 <input class="copiar-reservante" onchange="toggleCopiarReservante(this)" style="width:auto;" type="checkbox"/>
-        Es la misma persona que realizó la reservación
+        Es el mismo administrador
       </label>
 </div>
 </div>
@@ -6398,7 +6413,7 @@ body.has-session input[name="nombre"] {
 <input name="huesped[]" placeholder="Huésped 1" type="text"/>
 <label class="copiar-reservante-wrap" style="font-weight:normal; margin-top:8px; display:flex; align-items:center; gap:8px;">
 <input class="copiar-reservante" onchange="toggleCopiarReservante(this)" style="width:auto;" type="checkbox"/>
-        Es la misma persona que realizó la reservación
+        Es el mismo administrador
       </label>
 </div>
 </div>
@@ -7050,7 +7065,7 @@ function addGuest(){
       <input type="text" name="huesped[]" placeholder="">
       <label class="copiar-reservante-wrap" style="font-weight:normal; margin-top:8px; display:none; align-items:center; gap:8px;">
         <input type="checkbox" class="copiar-reservante" style="width:auto;" onchange="toggleCopiarReservante(this)">
-        Es la misma persona que realizó la reservación
+        Es el mismo administrador
       </label>
     </div>
     <button type="button" class="btn-remove" aria-label="Eliminar huésped">×</button>
@@ -7880,7 +7895,7 @@ document.getElementById("form").addEventListener("submit", async function(e){
           <input type="text" name="huesped[]" placeholder="Huésped 1">
           <label class="copiar-reservante-wrap" style="font-weight:normal; margin-top:8px; display:flex; align-items:center; gap:8px;">
             <input type="checkbox" class="copiar-reservante" style="width:auto;" onchange="toggleCopiarReservante(this)">
-            Es la misma persona que realizó la reservación
+            Es el mismo administrador
           </label>
         </div>
       </div>`;
@@ -7958,7 +7973,7 @@ const I18N = {
     sec4Title: "Registro de vehículo",
     sec4Sub: "",
     bookingSource: "Medio de reservación",
-    bookingName: "Nombre de la persona que hizo la reservación",
+    bookingName: "Nombre del administrador (usuario del Número de celular)",
     checkinDate: "Fecha de ingreso",
     arrivalTime: "Hora estimada de llegada (a partir de las 2 P.M.)",
     checkoutDate: "Fecha de salida",
@@ -7975,7 +7990,7 @@ const I18N = {
     guestsCount: "# Huéspedes",
     guestNames: "Nombres de los huéspedes",
     guestHint:"",
-    sameAsBooker: "Es la misma persona que realizó la reservación",
+    sameAsBooker: "Es el mismo administrador",
     addGuest: "+ Agregar huésped",
     guestPhone: "Celular del huésped",
     emergencyContact: "Contacto emergencia",
@@ -8053,7 +8068,7 @@ const I18N = {
     sec4Title: "Vehicle registration",
     sec4Sub: "",
     bookingSource: "Booking source",
-    bookingName: "Name of the person who made the reservation",
+    bookingName: "Administrator name (mobile number owner)",
     checkinDate: "Check-in date",
     arrivalTime: "Estimated arrival time (from 2 P.M.)",
     checkoutDate: "Check-out date",
@@ -8070,7 +8085,7 @@ const I18N = {
     guestsCount: "Guests #",
     guestNames: "Guest names",
     guestHint:"",
-    sameAsBooker: "Same person who made the reservation",
+    sameAsBooker: "Same as the administrator",
     addGuest: "+ Add guest",
     guestPhone: "Guest phone",
     emergencyContact: "Emergency contact",
@@ -8191,7 +8206,7 @@ function applyTranslations(lang){
   labels.forEach(label => {
     const text = label.textContent.trim();
     if (text === "Medio de reservación" || text === "Booking source") label.textContent = t.bookingSource;
-    else if (text === "Nombre de la persona que hizo la reservación" || text === "Name of the person who made the reservation") label.textContent = t.bookingName;
+    else if (text === "Nombre de la persona que hizo la reservación" || text === "Name of the person who made the reservation" || text === "Nombre del administrador (usuario del Número de celular)" || text === "Administrator name (mobile number owner)") label.textContent = t.bookingName;
     else if (text === "Fecha de ingreso" || text === "Check-in date") label.textContent = t.checkinDate;
     else if (text.includes("Hora estimada de llegada") || text.includes("Estimated arrival time")) label.textContent = t.arrivalTime;
     else if (text === "Fecha de salida" || text === "Check-out date") label.textContent = t.checkoutDate;
@@ -8353,7 +8368,7 @@ const SIMPLE_I18N = {
     sec6Title:"Comentarios",
     sec6Sub:"",
     bookingSource:"Medio de reservación",
-    bookingName:"Nombre de la persona que hizo la reservación",
+    bookingName:"Nombre del administrador (usuario del Número de celular)",
     checkinDate:"Fecha de ingreso",
     arrivalTime:"Hora estimada de llegada (a partir de las 2 P.M.)",
     checkoutDate:"Fecha de salida",
@@ -8667,7 +8682,7 @@ const SIMPLE_I18N = {
     sec6Title:"Comments",
     sec6Sub:"",
     bookingSource:"Booking source",
-    bookingName:"Name of the person who made the reservation",
+    bookingName:"Administrator name (mobile number owner)",
     checkinDate:"Check-in date",
     arrivalTime:"Estimated arrival time (from 2 P.M.)",
     checkoutDate:"Check-out date",
