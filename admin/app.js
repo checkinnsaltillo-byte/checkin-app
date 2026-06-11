@@ -14960,32 +14960,137 @@ window.bzwRefreshAlerts = async function() {
   }
 };
 
+// Paletas de color por DEPARTAMENTO (referencia: chip izquierdo de la card)
+const BZW_DEPT_META = {
+  housekeeping: { label: 'Aseo',          emoji: '🧹', bg: '#ecfeff', border: '#06b6d4', fg: '#155e75', chipBg: '#cffafe' },
+  maintenance:  { label: 'Mantenimiento', emoji: '🔧', bg: '#fff7ed', border: '#f97316', fg: '#9a3412', chipBg: '#fed7aa' },
+  inspection:   { label: 'Inspección',    emoji: '🔍', bg: '#f5f3ff', border: '#7c3aed', fg: '#5b21b6', chipBg: '#ddd6fe' },
+  safety:       { label: 'Seguridad',     emoji: '🛡️', bg: '#fef2f2', border: '#dc2626', fg: '#991b1b', chipBg: '#fecaca' },
+  _default:     { label: 'Tarea',         emoji: '📝', bg: '#f8fafc', border: '#94a3b8', fg: '#475569', chipBg: '#e2e8f0' },
+};
+// Paletas por PRIORIDAD
+const BZW_PRIORITY_META = {
+  high:    { label: 'Alta',   emoji: '🔴', bg: '#fef2f2', fg: '#991b1b', border: '#fca5a5' },
+  medium:  { label: 'Media',  emoji: '🟡', bg: '#fef3c7', fg: '#92400e', border: '#fde68a' },
+  low:     { label: 'Baja',   emoji: '🟢', bg: '#dcfce7', fg: '#166534', border: '#86efac' },
+};
+
+function bzwFmtFechaLargo(iso) {
+  if (!iso) return '—';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/);
+  if (!m) return String(iso);
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const dia = parseInt(m[3], 10);
+  const mes = meses[parseInt(m[2], 10) - 1] || '';
+  const hora = m[4] ? ` · ${m[4]}:${m[5]}` : '';
+  return `${dia} de ${mes} ${m[1]}${hora}`;
+}
+function bzwFmtFechaCorta(iso) {
+  if (!iso) return '—';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+function bzwRelativo(iso) {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return '';
+  const diff = (Date.now() - t) / 1000;
+  if (diff < 60) return 'hace segundos';
+  if (diff < 3600) return `hace ${Math.floor(diff/60)} min`;
+  if (diff < 86400) return `hace ${Math.floor(diff/3600)} h`;
+  if (diff < 86400*7) return `hace ${Math.floor(diff/86400)} d`;
+  if (diff < 86400*30) return `hace ${Math.floor(diff/86400/7)} sem`;
+  return `hace ${Math.floor(diff/86400/30)} meses`;
+}
+
 function bzwRenderAlertItem(a) {
-  const ev = String(a.event_type || a.type || '—');
-  const when = a.last_updated || a.received_at || a.finished_at;
-  const whenStr = when ? new Date(when).toLocaleString('es-MX') : '—';
-  const home = (a.task && a.task.home) || a.home || a.property || {};
-  const homeName = home.name || home.title || a.property_name || '';
-  const homeId   = home.id   || home.house_id || a.property_id || '';
-  // Color por tipo de evento
-  let bg = '#f8fafc', accent = '#94a3b8', emoji = '🔔';
-  if (/completed|ready|clean/i.test(ev)) { bg = '#dcfce7'; accent = '#16a34a'; emoji = '✅'; }
-  else if (/started|in.?progress/i.test(ev)) { bg = '#dbeafe'; accent = '#2563eb'; emoji = '🔄'; }
-  else if (/paused|cancelled/i.test(ev))    { bg = '#fef3c7'; accent = '#d97706'; emoji = '⏸'; }
-  else if (/error|failed/i.test(ev))        { bg = '#fee2e2'; accent = '#dc2626'; emoji = '⚠️'; }
-  const rawJson = JSON.stringify(a, null, 2);
+  const t = a.task || {};
+  const raw = a.raw || {};
+  const dept = String(t.type || raw.type_department || '').toLowerCase();
+  const meta = BZW_DEPT_META[dept] || BZW_DEPT_META._default;
+  const finished = !!t.finished_at;
+  const propName = a.property?.name || '—';
+  const propId   = a.property?.id;
+  const taskName = t.name || a.title?.replace(/^[^:]+:\s*/, '') || 'Tarea';
+  // Fechas
+  const whenIso = t.finished_at || t.scheduled_date || raw.created_at || a.last_updated;
+  const whenLargo = bzwFmtFechaLargo(whenIso);
+  const whenRel = bzwRelativo(whenIso);
+
+  // ─── Chips superiores ───
+  const chipDept = `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:${meta.chipBg};color:${meta.fg};font-weight:800;font-size:10px;border:1px solid ${meta.border};letter-spacing:.02em"><span style="font-size:11px;line-height:1">${meta.emoji}</span>${esc(meta.label)}</span>`;
+  const chipStatus = finished
+    ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:800;font-size:10px;border:1px solid #86efac">✓ Finalizada</span>`
+    : `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#dbeafe;color:#1e40af;font-weight:800;font-size:10px;border:1px solid #93c5fd">⏳ Programada</span>`;
+  const prio = String(raw.type_priority || '').toLowerCase();
+  const pMeta = BZW_PRIORITY_META[prio];
+  const chipPriority = pMeta
+    ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:${pMeta.bg};color:${pMeta.fg};font-weight:800;font-size:10px;border:1px solid ${pMeta.border}"><span style="font-size:9px">${pMeta.emoji}</span>${pMeta.label}</span>`
+    : '';
+  const chipPaused = raw.paused
+    ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:800;font-size:10px;border:1px solid #fde68a">⏸ Pausada</span>`
+    : '';
+  const finishedBy = t.finished_by || raw.finished_by?.name;
+  const chipFinishedBy = finishedBy
+    ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#f1f5f9;color:#0f172a;font-weight:700;font-size:10px;border:1px solid #cbd5e1">👤 ${esc(finishedBy)}</span>`
+    : '';
+
+  // ─── Tabla del payload (campos relevantes) ───
+  const reportUrl = t.report_url || raw.report_url || '';
+  const linkedReservation = raw.linked_reservation;
+  const description = raw.description || raw.summary || '';
+  const assignments = Array.isArray(raw.assignments) ? raw.assignments : [];
+  const assigneesStr = assignments
+    .map(x => `${x.name || x.assignee_id}${x.type_task_user_status ? ' (' + x.type_task_user_status + ')' : ''}`)
+    .join(', ');
+  const tagsArr = (Array.isArray(raw.task_tags) ? raw.task_tags : []).concat(Array.isArray(raw.tags) ? raw.tags : []);
+  const tagsStr = tagsArr.map(x => x.name || x).filter(Boolean).join(', ');
+  const fld = (label, value) => `
+    <div style="display:grid;grid-template-columns:140px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid #f1f5f9">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#a16207;font-weight:700;align-self:center">${esc(label)}</div>
+      <div style="font-size:12px;color:#1f2937;line-height:1.4">${value === '' || value == null ? '—' : value}</div>
+    </div>`;
+  const tableHtml = `
+    ${fld('ID', `<code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:11px;color:#475569">${esc(t.id || raw.id || '—')}</code>`)}
+    ${fld('Departamento', `${meta.emoji} <b>${esc(meta.label)}</b>`)}
+    ${pMeta ? fld('Prioridad', `${pMeta.emoji} <b style="color:${pMeta.fg}">${esc(pMeta.label)}</b>`) : ''}
+    ${fld('Propiedad', `🏠 ${esc(propName)}${propId ? ` <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:10px;color:#64748b">${esc(propId)}</code>` : ''}`)}
+    ${fld('Programada', raw.scheduled_date ? `📅 ${bzwFmtFechaLargo(raw.scheduled_date)}${raw.scheduled_time ? ' · ' + esc(raw.scheduled_time) : ''}` : '—')}
+    ${fld('Iniciada', raw.started_at ? `▶ ${bzwFmtFechaLargo(raw.started_at)}` : '—')}
+    ${fld('Terminada', t.finished_at ? `✓ ${bzwFmtFechaLargo(t.finished_at)}` : '—')}
+    ${fld('Realizada por', finishedBy ? `👤 <b>${esc(finishedBy)}</b>` : '—')}
+    ${assigneesStr ? fld('Asignaciones', `👥 ${esc(assigneesStr)}`) : ''}
+    ${fld('Creada', raw.created_at ? `🕐 ${bzwFmtFechaLargo(raw.created_at)}${raw.created_by?.name ? ' · por ' + esc(raw.created_by.name) : ''}` : '—')}
+    ${description ? fld('Descripción', `<div style="background:#f8fafc;padding:6px 9px;border-radius:6px;border-left:3px solid #94a3b8;font-style:italic;color:#334155">${esc(description)}</div>`) : ''}
+    ${linkedReservation ? fld('Reservación', `🔗 <code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:11px">${esc(linkedReservation.external_reservation_id || linkedReservation.id || '')}</code>`) : ''}
+    ${tagsStr ? fld('Tags', tagsArr.map(x => `<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:#e0e7ff;color:#3730a3;font-size:10px;font-weight:700;margin-right:4px">${esc(x.name || x)}</span>`).join('')) : ''}
+    ${reportUrl ? fld('Reporte', `<a href="${esc(reportUrl)}" target="_blank" rel="noopener" style="color:#0d9488;font-weight:700;text-decoration:none">📄 Abrir reporte de Breezeway →</a>`) : ''}`;
+
+  // ─── Card final (mismo lenguaje visual de Gestión de Reservas) ───
   return `
-    <div style="background:${bg};border-left:4px solid ${accent};border-radius:8px;padding:10px 12px;margin-bottom:8px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
-        <div style="min-width:0">
-          <div style="font-size:13px;font-weight:800;color:#0f172a">${emoji} ${esc(ev)}</div>
-          ${homeName || homeId ? `<div style="font-size:12px;color:#475569;margin-top:2px">🏠 ${esc(homeName || '')}${homeId?` <code style="background:#fff;padding:1px 6px;border-radius:4px;font-size:10px;color:#64748b">${esc(homeId)}</code>`:''}</div>` : ''}
-        </div>
-        <div style="font-size:11px;color:#64748b;white-space:nowrap;flex-shrink:0">${esc(whenStr)}</div>
+    <div style="background:#fff;border:1.5px solid #e2e8f0;border-left:7px solid ${meta.border};border-radius:12px;padding:12px 14px;margin-bottom:10px;box-shadow:0 2px 6px rgba(15,23,42,.05);transition:box-shadow 180ms cubic-bezier(.16,1,.3,1)"
+         onmouseover="this.style.boxShadow='0 4px 12px rgba(15,23,42,.10)'"
+         onmouseout="this.style.boxShadow='0 2px 6px rgba(15,23,42,.05)'">
+      <!-- Top: chips -->
+      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        ${chipDept}${chipStatus}${chipPriority}${chipPaused}${chipFinishedBy}
       </div>
-      <details style="margin-top:8px">
-        <summary style="cursor:pointer;font-size:10px;color:#64748b;letter-spacing:.04em;text-transform:uppercase;font-weight:700">Ver payload</summary>
-        <pre style="margin:6px 0 0;background:#fff;padding:8px 10px;border-radius:6px;border:1px solid #e2e8f0;font-size:10px;color:#334155;overflow-x:auto;max-height:200px">${esc(rawJson)}</pre>
+      <!-- Centro: nombre grande + meta -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap">
+        <div style="min-width:0;flex:1">
+          <div style="font-size:16px;font-weight:900;color:#0f172a;line-height:1.2;letter-spacing:-.005em">${esc(taskName)}</div>
+          <div style="font-size:12px;color:#475569;font-weight:600;margin-top:3px">📅 ${esc(whenLargo)}${whenRel ? ` <span style="color:#94a3b8;font-weight:500"> · ${esc(whenRel)}</span>` : ''}</div>
+          <div style="font-size:12px;color:#0f766e;font-weight:700;margin-top:2px">🏠 ${esc(propName)}</div>
+        </div>
+        ${reportUrl ? `<a href="${esc(reportUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:999px;background:#ecfdf5;color:#047857;font-weight:800;font-size:11px;border:1px solid #6ee7b7;text-decoration:none;white-space:nowrap;flex-shrink:0">📄 Reporte</a>` : ''}
+      </div>
+      <!-- Detalle expandible: tabla de payload -->
+      <details style="margin-top:10px;border-top:1px dashed #e2e8f0;padding-top:8px">
+        <summary style="cursor:pointer;font-size:10px;color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-weight:700;user-select:none">▸ Ver detalle completo</summary>
+        <div style="margin-top:8px">
+          ${tableHtml}
+        </div>
       </details>
     </div>`;
 }
