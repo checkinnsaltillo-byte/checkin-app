@@ -251,6 +251,31 @@ function handlePropertyStatusEvent(payload) {
   });
 }
 
+// --------------------------- Cache de propiedades ---------------------------
+const PROPERTIES_TTL_MS = 10 * 60 * 1000; // 10 min
+let propertiesCache = { fetchedAt: 0, list: [] };
+
+async function fetchPropertiesCached() {
+  if (Date.now() - propertiesCache.fetchedAt < PROPERTIES_TTL_MS && propertiesCache.list.length) {
+    return propertiesCache.list;
+  }
+  const all = [];
+  for (let page = 1; page <= 20; page++) {
+    const params = new URLSearchParams({ status: "active", limit: "100", page: String(page) });
+    const apiRes = await breezewayFetch(
+      `/public/inventory/v1/property?${params.toString()}`,
+      { method: "GET" }
+    );
+    if (!apiRes.ok) break;
+    const data = await apiRes.json().catch(() => ({}));
+    const items = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
+    all.push(...items);
+    if (!data.next || items.length < 100) break;
+  }
+  propertiesCache = { fetchedAt: Date.now(), list: all };
+  return all;
+}
+
 // --------------------------- Registro de rutas Express ---------------------------
 export function registerBreezewayRoutes(app) {
   // ---- Webhook receptor (lo que Breezeway llama) ----
@@ -354,28 +379,61 @@ export function registerBreezewayRoutes(app) {
     }
   });
 
-  // ---- Lista de webhooks activos en Breezeway (introspección) ----
-  app.get("/api/breezeway/webhooks", async (_req, res) => {
+  // ---- Lista de propiedades de Breezeway (paginada, agregada) ----
+  app.get("/api/breezeway/properties", async (req, res) => {
     try {
-      const apiRes = await breezewayFetch("/public/webhook/v1/", { method: "GET" });
-      const data = await apiRes.json().catch(() => ({}));
-      if (!apiRes.ok) {
-        return res.status(apiRes.status).json({ ok: false, breezeway: data });
+      const q = req.query || {};
+      const status = String(q.status || "active");
+      const maxPages = Math.min(Number(q.max_pages) || 20, 50);
+      const limit = Math.min(Number(q.limit) || 100, 100);
+
+      const all = [];
+      const pagesMeta = [];
+      for (let page = 1; page <= maxPages; page++) {
+        const params = new URLSearchParams({
+          status,
+          limit: String(limit),
+          page: String(page),
+        });
+        const apiRes = await breezewayFetch(
+          `/public/inventory/v1/property?${params.toString()}`,
+          { method: "GET" }
+        );
+        const data = await apiRes.json().catch(() => ({}));
+        if (!apiRes.ok) {
+          return res.status(apiRes.status).json({ ok: false, breezeway: data, page });
+        }
+        const items = Array.isArray(data.results)
+          ? data.results
+          : Array.isArray(data) ? data : [];
+        pagesMeta.push({ page, fetched: items.length, has_next: Boolean(data.next) });
+        all.push(...items);
+        if (!data.next || items.length < limit) break;
       }
-      res.json({ ok: true, webhooks: data });
+      res.json({ ok: true, count: all.length, pages: pagesMeta, properties: all });
     } catch (err) {
       res.status(500).json({ ok: false, error: String(err?.message || err) });
     }
   });
 
-  // ---- HISTÓRICO de tareas (consulta la API de Breezeway con paginación) ----
+  // ---- HISTÓRICO de tareas (consulta Breezeway por propiedad, agrega todo) ----
+  // Breezeway exige home_id O reference_property_id por consulta. Estrategia:
+  //   1) Lista propiedades activas (cacheada en memoria 10 min).
+  //   2) Para cada propiedad → consulta /public/inventory/v1/task/ con el
+  //      filtro de fechas; agrega todos los resultados.
+  //   3) Concurrencia limitada (default 6) para no saturar la API.
+  //
   // Query params:
-  //   from        ISO YYYY-MM-DD       (default: hace 30 días)
-  //   to          ISO YYYY-MM-DD       (default: hoy + 1)
-  //   status      "completed"|"open"|... (opcional, lo pasa tal cual)
-  //   max_pages   límite de páginas a traer (default 10, máx 50)
-  //   page_size   tamaño de página solicitado (default 100)
-  //   key         "finished_at"|"scheduled_date" (default finished_at = aseos terminados)
+  //   from           ISO YYYY-MM-DD     (default: hace 30 días)
+  //   to             ISO YYYY-MM-DD     (default: hoy + 1)
+  //   key            "finished_at" | "scheduled_date" | "created_at" | "updated_at"
+  //                  (default: finished_at = aseos terminados)
+  //   type_department "housekeeping" | "maintenance" | "inspection" | "safety"
+  //                  (default: housekeeping para aseo)
+  //   home_id        si se pasa, salta el listado de propiedades y consulta solo esa
+  //   max_pages      por propiedad (default 5)
+  //   limit          por página (default 100)
+  //   concurrency    propiedades en paralelo (default 6, máx 12)
   app.get("/api/breezeway/tasks", async (req, res) => {
     try {
       const q = req.query || {};
@@ -384,64 +442,83 @@ export function registerBreezewayRoutes(app) {
       const defTo   = new Date(today.getTime() + 86400000);
       const fromIso = String(q.from || defFrom.toISOString().slice(0, 10));
       const toIso   = String(q.to   || defTo.toISOString().slice(0, 10));
-      const status  = q.status ? String(q.status) : "";
-      const maxPages = Math.min(Number(q.max_pages) || 10, 50);
-      const pageSize = Math.min(Number(q.page_size) || 100, 200);
-      const key      = String(q.key || "finished_at"); // o "scheduled_date"
+      const key     = String(q.key || "finished_at");
+      const typeDept = q.type_department != null
+        ? String(q.type_department)
+        : "housekeeping";
+      const homeIdFilter = q.home_id ? String(q.home_id) : "";
+      const maxPagesPerHome = Math.min(Number(q.max_pages) || 5, 20);
+      const limit = Math.min(Number(q.limit) || 100, 100);
+      const concurrency = Math.max(1, Math.min(Number(q.concurrency) || 6, 12));
 
-      // Breezeway: GET /public/task/v1/ con query params.
-      // El esquema exacto de filtros varía por cuenta — probamos un combo
-      // permisivo que tiende a funcionar (after/before).
-      const baseParams = new URLSearchParams();
-      baseParams.set("page_size", String(pageSize));
-      // Soporte tanto YYYY-MM-DD como ISO completo.
-      baseParams.set(`${key}_after`,  fromIso);
-      baseParams.set(`${key}_before`, toIso);
-      if (status) baseParams.set("status", status);
-
-      const allTasks = [];
-      const pagesMeta = [];
-      let page = 1;
-      let lastStatus = null;
-      let lastBreezewayPayload = null;
-      while (page <= maxPages) {
-        const params = new URLSearchParams(baseParams);
-        params.set("page", String(page));
-        const apiRes = await breezewayFetch(
-          `/public/task/v1/?${params.toString()}`,
-          { method: "GET" }
-        );
-        const data = await apiRes.json().catch(() => ({}));
-        lastStatus = apiRes.status;
-        lastBreezewayPayload = data;
-        if (!apiRes.ok) break;
-        // Breezeway suele devolver { results: [...], next: "...", count: N } (DRF).
-        // Aceptamos variaciones: results | tasks | data.
-        const items = Array.isArray(data.results)
-          ? data.results
-          : Array.isArray(data.tasks)
-          ? data.tasks
-          : Array.isArray(data)
-          ? data
-          : [];
-        pagesMeta.push({ page, fetched: items.length, has_next: Boolean(data.next) });
-        allTasks.push(...items);
-        if (!data.next || items.length === 0 || items.length < pageSize) break;
-        page++;
+      // 1) Conseguir lista de propiedades a iterar.
+      let homes = [];
+      if (homeIdFilter) {
+        homes = [{ id: Number(homeIdFilter) }];
+      } else {
+        homes = await fetchPropertiesCached();
       }
-
-      if (!allTasks.length && lastStatus && lastStatus >= 400) {
-        return res.status(lastStatus).json({
-          ok: false,
-          message: "Breezeway rechazó la consulta de tareas. Revisa el payload.",
-          breezeway_status: lastStatus,
-          breezeway: lastBreezewayPayload,
-          tried_endpoint: `/public/task/v1/?${baseParams.toString()}`,
+      if (!homes.length) {
+        return res.json({
+          ok: true,
+          count: 0,
+          from: fromIso, to: toIso,
+          message: "Sin propiedades activas en Breezeway.",
+          tasks: [],
         });
       }
 
-      // Convierte cada task a la misma forma de "alert" para que la UI lo
-      // pinte con el mismo render que las alertas en vivo.
+      // 2) Para cada propiedad → consulta tasks (con paginación interna).
+      const dateFilterValue = `${fromIso},${toIso}`;
+      async function fetchHomeTasks(homeId) {
+        const out = [];
+        for (let page = 1; page <= maxPagesPerHome; page++) {
+          const params = new URLSearchParams({
+            home_id: String(homeId),
+            [key]: dateFilterValue,
+            limit: String(limit),
+            page: String(page),
+            sort_by: key,
+            sort_order: "desc",
+          });
+          if (typeDept) params.set("type_department", typeDept);
+          const apiRes = await breezewayFetch(
+            `/public/inventory/v1/task/?${params.toString()}`,
+            { method: "GET" }
+          );
+          if (!apiRes.ok) {
+            const txt = await apiRes.text().catch(() => "");
+            console.warn(`[BZW] home ${homeId} page ${page}: ${apiRes.status}`, txt.slice(0, 200));
+            return out;
+          }
+          const data = await apiRes.json().catch(() => ({}));
+          const items = Array.isArray(data.results)
+            ? data.results
+            : Array.isArray(data) ? data : [];
+          out.push(...items);
+          if (!data.next || items.length < limit) break;
+        }
+        return out;
+      }
+
+      // 3) Pool de concurrencia.
+      const queue = homes.slice();
+      const allTasks = [];
+      const workers = Array.from({ length: concurrency }, async () => {
+        while (queue.length) {
+          const h = queue.shift();
+          if (!h) break;
+          try {
+            const ts = await fetchHomeTasks(h.id);
+            allTasks.push(...ts);
+          } catch (e) {
+            console.warn(`[BZW] err home ${h.id}:`, e?.message || e);
+          }
+        }
+      });
+      await Promise.all(workers);
+
+      // 4) Convertir a la forma "alert" usada por el resto de la UI.
       const alerts = allTasks.map((t) => ({
         kind: "task-historical",
         event_type: t.finished_at ? "task-completed" : "task",
@@ -453,20 +530,24 @@ export function registerBreezewayRoutes(app) {
         task: {
           id: t.id,
           name: t.name,
-          type: t.type?.name,
+          type: t.type?.name || t.type_department,
           finished_at: t.finished_at,
           finished_by: t.finished_by?.name || t.finished_by,
           status: t.status,
+          scheduled_date: t.scheduled_date,
         },
         raw: t,
       }));
+      // Más reciente arriba (por defecto)
+      alerts.sort((a, b) => String(b.last_updated || "").localeCompare(String(a.last_updated || "")));
 
       res.json({
         ok: true,
         count: alerts.length,
-        from: fromIso,
-        to: toIso,
-        pages: pagesMeta,
+        from: fromIso, to: toIso,
+        scanned_homes: homes.length,
+        type_department: typeDept || "(any)",
+        date_key: key,
         tasks: alerts,
       });
     } catch (err) {
