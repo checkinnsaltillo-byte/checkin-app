@@ -14,6 +14,31 @@ const app = express();
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
+// ─── CORS para llamadas desde Ticket Vision (GitHub Pages / www.check-inn.mx) ───
+// La UI vive en otro origen y necesita consumir /api/breezeway/* y otros
+// endpoints AJAX. Middleware mínimo sin dependencia externa.
+const CORS_ALLOWED_ORIGINS = new Set([
+  "https://www.check-inn.mx",
+  "https://check-inn.mx",
+  "https://checkinnsaltillo-byte.github.io",
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:8080",
+]);
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && CORS_ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Breezeway-Token");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Max-Age", "600");
+  }
+  if (req.method === "OPTIONS") return res.status(204).end();
+  next();
+});
+
 const publicDir = path.join(__dirname, "public");
 app.use("/registro", express.static(path.join(publicDir, "registro")));
 app.use("/facturapi", express.static(path.join(publicDir, "facturapi")));
