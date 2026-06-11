@@ -327,6 +327,23 @@ function toggleDarkMode() {
   const btn = document.getElementById('btn-dark-mode');
   if (btn) btn.textContent = on ? '☀️' : '🌙';
 }
+
+/** Cierra sesión: limpia la marca de login y redirige al Portal del
+ *  huésped (página de bienvenida en /public/registro/). Mantiene
+ *  intactas otras preferencias (tema, filtros, etc.). */
+window.logoutToPortal = function() {
+  try {
+    // Quitar SOLO las llaves de autenticación. Conservamos preferencias
+    // (tema oscuro, etc.) para que la próxima sesión las respete.
+    ['bn-logged-in','bn-pass','bn-org','bn-user','bn-login-ts'].forEach(k => {
+      try { localStorage.removeItem(k); } catch(_) {}
+      try { sessionStorage.removeItem(k); } catch(_) {}
+    });
+  } catch(_) {}
+  // Portal del huésped. URL absoluta para que funcione tanto desde
+  // www.check-inn.mx/admin/ como desde el preview de GH Pages.
+  window.location.href = 'https://www.check-inn.mx/public/registro/';
+};
 // Restaurar preferencia al cargar
 try {
   if (localStorage.getItem('bn-dark') === '1') {
