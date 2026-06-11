@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema Financiero | Check Inn Saltillo</title>
-  <link rel="stylesheet" href="styles.css?v=85">
+  <link rel="stylesheet" href="styles.css?v=87">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -157,7 +157,7 @@
         </li>
         <li class="nav-item" id="nav-item-lodgify"
             onclick="switchModule('lodgify');closeNavMenu()">
-          🌐 Reservas Lodgify
+          🌐 Gestión de reservas
         </li>
         <li class="nav-item" id="nav-item-reservas-detalles"
             onclick="switchModule('reservas-detalles');closeNavMenu()">
@@ -931,7 +931,7 @@
     <div id="module-lodgify" class="hidden">
       <div class="db-top-bar" style="margin-bottom:14px">
         <div class="db-top-left">
-          <span class="db-todas-label">Reservas Lodgify</span>
+          <span class="db-todas-label">Gestión de reservas</span>
         </div>
         <div class="db-top-right" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span class="db-count-inline" id="lg-status-label">—</span>
@@ -949,19 +949,11 @@
         <div style="min-width:170px" id="lg-multi-status"></div>
         <div style="min-width:170px" id="lg-multi-propiedad"></div>
         <div style="min-width:170px" id="lg-multi-factura"></div>
-        <!-- Rango de fechas: dos calendarios (inicio / fin). Default = día 1
-             y último día del mes en curso. Filtra bookings cuya estancia
-             "toca" cualquier fecha del rango. -->
-        <div style="min-width:160px">
-          <label style="display:block;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Fecha inicio</label>
-          <input type="date" id="lg-filtro-fecha-inicio" onchange="lodgifyRender()"
-                 style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff">
-        </div>
-        <div style="min-width:160px">
-          <label style="display:block;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Fecha fin</label>
-          <input type="date" id="lg-filtro-fecha-fin" onchange="lodgifyRender()"
-                 style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff">
-        </div>
+        <!-- Multi-select de meses (reemplaza los rangos de fecha). El
+             contenido se rellena dinámicamente desde lgRebuildFilterOptions
+             en función de los meses presentes en LG_STATE.bookings +
+             HU_STATE.rows. Default = mes en curso. -->
+        <div style="min-width:200px" id="lg-multi-meses"></div>
         <div style="min-width:200px;flex:1">
           <label style="display:block;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">🔍 Buscar</label>
           <input type="text" id="lg-filtro-nombre" placeholder="Nombre, correo, teléfono o Booking ID…" oninput="lodgifyRender()"
@@ -1203,6 +1195,6 @@
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="app.js?v=215"></script>
+  <script src="app.js?v=234"></script>
 </body>
 </html>
