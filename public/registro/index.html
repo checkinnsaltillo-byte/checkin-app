@@ -151,6 +151,13 @@ body{
   display:block;
 }
 #viewRegistro .section{ width:100%; }
+/* Modo express (sin sesión): el resto del formulario queda oculto hasta
+   que el celular tenga 10 dígitos y termine la búsqueda de registros previos.
+   La clase .await-phone-lookup se aplica al abrir el modal en gotoExpressForm
+   y se quita al completar detectExistingGuestByPhone. */
+#viewRegistro #formulario_principal.await-phone-lookup{
+  display:none !important;
+}
 .container{
   width:100%;
   max-width:760px;
@@ -6122,7 +6129,7 @@ body.has-session input[name="nombre"] {
 <button type="button" class="back-home-btn" data-back-home data-i18n="backHomeBtn">← Volver al inicio</button>
 <form id="form">
 <input id="tipo_registro" name="tipo_registro" type="hidden" value="nuevo"/>
-<div class="section" id="section_celular_principal"><h2 class="section-title" data-i18n="phoneLookupTitle">Número de celular</h2><p class="section-subtitle" data-i18n="phoneLookupSub">Escribe tu número para buscar si ya existe un registro previo y completar automáticamente algunos datos.</p>
+<div class="section" id="section_celular_principal"><h2 class="section-title" data-i18n="phoneLookupTitle">Número de celular</h2><p class="section-subtitle" data-i18n="phoneLookupSub">⚠️ Ingresa el MISMO NÚMERO CEL con el que se generó tu reservación de Airbnb o Check-Inn. Se completarán automáticamente algunos datos si ya existe registro.</p>
 <div class="phone-group">
 <select id="lada1" name="lada1"></select>
 <input autocomplete="tel-national" id="celular_principal_input" inputmode="numeric" name="cel" type="tel"/>
@@ -6905,6 +6912,13 @@ function resetAutofillToNewMode(){
   actualizarTextoUploads(false);
 }
 
+// Quita la clase .await-phone-lookup para revelar el resto del formulario.
+// Llamado al finalizar detectExistingGuestByPhone, sin importar el resultado.
+function revealExpressFormBody(){
+  const fp = document.getElementById("formulario_principal");
+  if (fp) fp.classList.remove("await-phone-lookup");
+}
+
 async function detectExistingGuestByPhone(){
   const lookupId = ++guestLookupInFlight;
   const digits = getPrimaryPhoneCandidate();
@@ -6928,12 +6942,14 @@ async function detectExistingGuestByPhone(){
       setGuestAutofillMessage("", (window.currentLang === "en")
         ? "No previous match was found for this phone number."
         : "No se encontró un registro previo para este número.");
+      revealExpressFormBody();
       return;
     }
 
     if (guestLookupLastMatchedPhone === exact.raw) {
       actualizarTextoUploads(true);
       setGuestAutofillMessage("success", `<span class="auto-detected-badge">${(window.currentLang === "en") ? "Returning guest detected" : "Huésped ya registrado detectado"}</span>`);
+      revealExpressFormBody();
       return;
     }
 
@@ -6942,6 +6958,7 @@ async function detectExistingGuestByPhone(){
 
     if (!row) {
       resetAutofillToNewMode();
+      revealExpressFormBody();
       return;
     }
 
@@ -6957,9 +6974,11 @@ async function detectExistingGuestByPhone(){
     setGuestAutofillMessage("success",
       `<span class="auto-detected-badge">${(window.currentLang === "en") ? "Previous guest found" : "Huésped encontrado"}</span><div>${(window.currentLang === "en") ? "The available fields were completed automatically for" : "Se completaron automáticamente los campos disponibles de"} <strong>${String(nombre || "").trim() || ((window.currentLang === "en") ? "this guest" : "este huésped")}</strong>.</div>`
     );
+    revealExpressFormBody();
   } catch (err) {
     if (lookupId !== guestLookupInFlight) return;
     setGuestAutofillMessage("error", ((window.currentLang === "en") ? "Could not verify previous records: " : "No se pudieron verificar registros previos: ") + err.message);
+    revealExpressFormBody();
   }
 }
 
@@ -7928,7 +7947,7 @@ const I18N = {
   es: {
     title: "Portal del huésped",
     phoneLookupTitle: "Número de celular",
-    phoneLookupSub: "Escribe tu número para buscar si ya existe un registro previo y completar automáticamente algunos datos.",
+    phoneLookupSub: "⚠️ Ingresa el MISMO NÚMERO CEL con el que se generó tu reservación de Airbnb o Check-Inn. Se completarán automáticamente algunos datos si ya existe registro.",
     guestPhoneNumber: "Número de celular",
     sec1Title: "Datos de la reservación",
     sec1Sub: "",
@@ -8023,7 +8042,7 @@ const I18N = {
   en: {
     title: "Guest portal",
     phoneLookupTitle: "Mobile number",
-    phoneLookupSub: "Enter your number to check whether a previous guest record exists and auto-fill some fields.",
+    phoneLookupSub: "⚠️ Enter the SAME MOBILE NUMBER used for your Airbnb or Check-Inn reservation. Some fields will be auto-filled if a record already exists.",
     guestPhoneNumber: "Mobile number",
     sec1Title: "Reservation details",
     sec1Sub: "Información general de la estancia y de la persona que realizó la reservación.",
@@ -8302,7 +8321,7 @@ const SIMPLE_I18N = {
     optionRegisteredText:"Si ya subiste tu identificación personal",
     title:"Portal del huésped",
     phoneLookupTitle:"Número de celular",
-    phoneLookupSub:"Escribe tu número para buscar si ya existe un registro previo y completar automáticamente algunos datos.",
+    phoneLookupSub:"⚠️ Ingresa el MISMO NÚMERO CEL con el que se generó tu reservación de Airbnb o Check-Inn. Se completarán automáticamente algunos datos si ya existe registro.",
     guestPhoneNumber:"Número de celular",
     sec1Title:"Datos de la reservación",
     sec1Sub:"",
@@ -12843,6 +12862,14 @@ document.addEventListener("DOMContentLoaded", function(){
     const session = getSession();
     const hasSession = !!session;
     if (viewRegistro) viewRegistro.classList.add("as-popup");
+    // Modo express (sin sesión): ocultar el resto del formulario hasta que
+    // se complete la búsqueda por número de celular (10 dígitos). Con sesión,
+    // mostrar todo de inmediato — ya conocemos al huésped.
+    const fp = document.getElementById("formulario_principal");
+    if (fp) {
+      if (hasSession) fp.classList.remove("await-phone-lookup");
+      else fp.classList.add("await-phone-lookup");
+    }
     // El topMenu (tabs Registro/Vehículos) siempre se oculta en el form,
     // sin importar si hay sesión o no. Antes solo se ocultaba con sesión.
     setMenuVisible(false);
