@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import crypto from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
+import { registerBreezewayRoutes } from "./breezeway.js";
 
 dotenv.config();
 
@@ -503,6 +504,9 @@ app.post("/api/save-facturapi-folio", async (req, res) => {
   }
 });
 
+
+// Rutas de integración Breezeway (alertas de aseo / estado de alojamientos)
+registerBreezewayRoutes(app);
 
 app.use((req, res) => {
   return res.status(404).json({
