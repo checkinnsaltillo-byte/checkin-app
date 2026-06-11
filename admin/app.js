@@ -8016,11 +8016,14 @@ function esc(v) {
 
 /** Cambia entre módulos de nivel superior */
 function switchModule(mod) {
-  ["tickets", "registros", "huespedes", "lodgify", "reservas-detalles"].forEach(m => {
+  ["tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== mod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === mod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === mod);
   });
+  if (mod === "breezeway") {
+    if (typeof bzwInit === 'function') bzwInit();
+  }
   if (mod === "huespedes") {
     if (!HU_STATE.loaded && !HU_STATE.loading) huespedesLoad(true);
     else huespedesRender();
@@ -14862,3 +14865,140 @@ function rdBuildRightbarHtml(b, huesped) {
         : '<div style="font-size:11px;color:#94a3b8;font-style:italic">Sin notas.</div>'}
     </div>`;
 }
+
+// ─── Módulo Breezeway ───────────────────────────────────────────────────────
+// Backend: server Node de checkin-app (Cloud Run), endpoints /api/breezeway/*.
+// El Client Secret NUNCA vive aquí — solo en BREEZEWAY_CLIENT_SECRET del .env
+// del Cloud Run. Frontend solo consume los endpoints del backend.
+
+// URL base del backend de Breezeway. Comparte host con Facturapi (mismo
+// Cloud Run de checkin-app). Override via localStorage.BZW_API_BASE.
+const BZW_API_DEFAULT = 'https://checkin-app-957627511957.us-central1.run.app';
+function bzwApiBase() {
+  try {
+    const o = localStorage.getItem('BZW_API_BASE');
+    if (o && o.trim()) return o.trim().replace(/\/+$/, '');
+  } catch(_) {}
+  return BZW_API_DEFAULT;
+}
+
+let BZW_LOADED_ONCE = false;
+async function bzwInit() {
+  // Carga inicial: token + alertas. Idempotente: si ya cargó, sólo refresca alertas.
+  if (!BZW_LOADED_ONCE) {
+    BZW_LOADED_ONCE = true;
+    bzwTestToken({ silent: true });
+  }
+  bzwRefreshAlerts();
+}
+window.bzwInit = bzwInit;
+
+window.bzwTestToken = async function(opts) {
+  const silent = !!(opts && opts.silent);
+  const val = document.getElementById('bzw-status-token-val');
+  const det = document.getElementById('bzw-status-token-detail');
+  const card = document.getElementById('bzw-status-token');
+  if (!silent && val) val.textContent = 'Probando…';
+  if (!silent && det) det.textContent = 'Llamando a /api/breezeway/token-test';
+  try {
+    const res = await fetch(`${bzwApiBase()}/api/breezeway/token-test`, { cache: 'no-store' });
+    const json = await res.json();
+    if (!res.ok || json.ok === false) throw new Error(json.error || `HTTP ${res.status}`);
+    if (val) { val.textContent = '✓ Activo'; val.style.color = '#15803d'; }
+    if (det) det.textContent = json.token_expires_at
+      ? `Expira: ${new Date(json.token_expires_at).toLocaleString('es-MX')}`
+      : 'Credenciales válidas. Token JWT cacheado server-side.';
+    if (card) card.style.borderColor = '#86efac';
+  } catch (e) {
+    if (val) { val.textContent = '✗ Error'; val.style.color = '#dc2626'; }
+    if (det) det.textContent = e.message;
+    if (card) card.style.borderColor = '#fca5a5';
+    if (!silent) console.warn('[BZW] token-test error:', e);
+  }
+};
+
+window.bzwRefreshAlerts = async function() {
+  const list = document.getElementById('bzw-alerts-list');
+  const cnt  = document.getElementById('bzw-stat-count');
+  const lastEl = document.getElementById('bzw-stat-last');
+  if (list) list.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:30px 0;font-style:italic">Cargando alertas…</div>';
+  try {
+    const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts`, { cache: 'no-store' });
+    const json = await res.json();
+    if (!res.ok || json.ok === false) throw new Error(json.error || `HTTP ${res.status}`);
+    const alerts = Array.isArray(json.alerts) ? json.alerts : [];
+    if (cnt) cnt.textContent = String(alerts.length);
+    if (lastEl) lastEl.textContent = new Date().toLocaleTimeString('es-MX');
+    if (!alerts.length) {
+      if (list) list.innerHTML = `
+        <div style="text-align:center;color:#64748b;padding:40px 20px">
+          <div style="font-size:38px;opacity:.4;margin-bottom:10px">📭</div>
+          <div style="font-weight:700;color:#334155;margin-bottom:4px">Sin alertas todavía</div>
+          <div style="font-size:12px;color:#94a3b8">Cuando Breezeway envíe un evento al webhook aparecerá aquí.</div>
+        </div>`;
+      return;
+    }
+    // Más recientes arriba (asume last_updated ISO)
+    alerts.sort((a, b) => String(b.last_updated || b.received_at || '').localeCompare(String(a.last_updated || a.received_at || '')));
+    if (list) list.innerHTML = alerts.map(bzwRenderAlertItem).join('');
+  } catch (e) {
+    console.warn('[BZW] alerts error:', e);
+    if (list) list.innerHTML = `
+      <div style="text-align:center;color:#b91c1c;padding:30px 20px">
+        <div style="font-size:28px;margin-bottom:8px">⚠️</div>
+        <div style="font-weight:700;margin-bottom:4px">No se pudo cargar el historial</div>
+        <div style="font-size:12px;color:#7f1d1d">${esc(e.message)}</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:8px;font-style:italic">Verifica que el server de checkin-app esté corriendo y que CORS permita el origen actual.</div>
+      </div>`;
+  }
+};
+
+function bzwRenderAlertItem(a) {
+  const ev = String(a.event_type || a.type || '—');
+  const when = a.last_updated || a.received_at || a.finished_at;
+  const whenStr = when ? new Date(when).toLocaleString('es-MX') : '—';
+  const home = (a.task && a.task.home) || a.home || a.property || {};
+  const homeName = home.name || home.title || a.property_name || '';
+  const homeId   = home.id   || home.house_id || a.property_id || '';
+  // Color por tipo de evento
+  let bg = '#f8fafc', accent = '#94a3b8', emoji = '🔔';
+  if (/completed|ready|clean/i.test(ev)) { bg = '#dcfce7'; accent = '#16a34a'; emoji = '✅'; }
+  else if (/started|in.?progress/i.test(ev)) { bg = '#dbeafe'; accent = '#2563eb'; emoji = '🔄'; }
+  else if (/paused|cancelled/i.test(ev))    { bg = '#fef3c7'; accent = '#d97706'; emoji = '⏸'; }
+  else if (/error|failed/i.test(ev))        { bg = '#fee2e2'; accent = '#dc2626'; emoji = '⚠️'; }
+  const rawJson = JSON.stringify(a, null, 2);
+  return `
+    <div style="background:${bg};border-left:4px solid ${accent};border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+        <div style="min-width:0">
+          <div style="font-size:13px;font-weight:800;color:#0f172a">${emoji} ${esc(ev)}</div>
+          ${homeName || homeId ? `<div style="font-size:12px;color:#475569;margin-top:2px">🏠 ${esc(homeName || '')}${homeId?` <code style="background:#fff;padding:1px 6px;border-radius:4px;font-size:10px;color:#64748b">${esc(homeId)}</code>`:''}</div>` : ''}
+        </div>
+        <div style="font-size:11px;color:#64748b;white-space:nowrap;flex-shrink:0">${esc(whenStr)}</div>
+      </div>
+      <details style="margin-top:8px">
+        <summary style="cursor:pointer;font-size:10px;color:#64748b;letter-spacing:.04em;text-transform:uppercase;font-weight:700">Ver payload</summary>
+        <pre style="margin:6px 0 0;background:#fff;padding:8px 10px;border-radius:6px;border:1px solid #e2e8f0;font-size:10px;color:#334155;overflow-x:auto;max-height:200px">${esc(rawJson)}</pre>
+      </details>
+    </div>`;
+}
+
+window.bzwSubscribeAll = async function() {
+  const types = ['task', 'property-status'];
+  const summary = [];
+  for (const t of types) {
+    try {
+      const res = await fetch(`${bzwApiBase()}/api/breezeway/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webhook_type: t }),
+      });
+      const json = await res.json();
+      summary.push(`${t}: ${res.ok && json.ok !== false ? '✓' : '✗ ' + (json.error || res.status)}`);
+    } catch (e) {
+      summary.push(`${t}: ✗ ${e.message}`);
+    }
+  }
+  alert('Resultado de suscripción:\n\n' + summary.join('\n'));
+  bzwRefreshAlerts();
+};
