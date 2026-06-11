@@ -589,6 +589,33 @@ export function registerBreezewayRoutes(app) {
     }
   });
 
+  // ---- DEBUG: respuesta cruda de Breezeway para una sola propiedad ----
+  // Para diagnosticar el formato real de la API. Quitar después.
+  app.get("/api/breezeway/_debug-tasks", async (req, res) => {
+    try {
+      const q = req.query || {};
+      const home_id = q.home_id || "1254057";
+      const params = new URLSearchParams({ home_id: String(home_id) });
+      ["finished_at","scheduled_date","created_at","updated_at","type_department","limit","status","page"].forEach(k => {
+        if (q[k] != null && String(q[k]) !== "") params.set(k, String(q[k]));
+      });
+      if (!params.has("limit")) params.set("limit", "5");
+      const url = `/public/inventory/v1/task/?${params.toString()}`;
+      const apiRes = await breezewayFetch(url, { method: "GET" });
+      const text = await apiRes.text();
+      let json = null;
+      try { json = JSON.parse(text); } catch (_) {}
+      res.json({
+        ok: apiRes.ok,
+        status: apiRes.status,
+        url_called: `https://api.breezeway.io${url}`,
+        response: json || text.slice(0, 2000),
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err?.message || err) });
+    }
+  });
+
   console.log("🌬️  Rutas Breezeway montadas en /api/breezeway/*");
 }
 
