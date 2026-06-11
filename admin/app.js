@@ -15076,12 +15076,12 @@ function bzwRenderAlertItem(a) {
       <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
         ${chipDept}${chipStatus}${chipPriority}${chipPaused}${chipFinishedBy}
       </div>
-      <!-- Centro: nombre grande + meta -->
+      <!-- Centro: PROPIEDAD como título + nombre de tarea como subtítulo -->
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap">
         <div style="min-width:0;flex:1">
-          <div style="font-size:16px;font-weight:900;color:#0f172a;line-height:1.2;letter-spacing:-.005em">${esc(taskName)}</div>
+          <div style="font-size:16px;font-weight:900;color:#0f172a;line-height:1.2;letter-spacing:-.005em">🏠 ${esc(propName)}</div>
           <div style="font-size:12px;color:#475569;font-weight:600;margin-top:3px">📅 ${esc(whenLargo)}${whenRel ? ` <span style="color:#94a3b8;font-weight:500"> · ${esc(whenRel)}</span>` : ''}</div>
-          <div style="font-size:12px;color:#0f766e;font-weight:700;margin-top:2px">🏠 ${esc(propName)}</div>
+          <div style="font-size:12px;color:${meta.fg};font-weight:700;margin-top:2px">${meta.emoji} ${esc(taskName)}</div>
         </div>
         ${reportUrl ? `<a href="${esc(reportUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:999px;background:#ecfdf5;color:#047857;font-weight:800;font-size:11px;border:1px solid #6ee7b7;text-decoration:none;white-space:nowrap;flex-shrink:0">📄 Reporte</a>` : ''}
       </div>
