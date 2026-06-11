@@ -308,19 +308,26 @@ async function persistAlertToSheet(alert) {
     console.warn("CHECKIN_WEB_APP_URL no configurado — alerta NO persistida.");
     return;
   }
-  const payload = {
-    action: "breezeway_alert",
-    data: flatAlertForSheet(alert),
-  };
+  // El Apps Script lee el body como text/plain (sin preflight CORS) y los
+  // campos van al primer nivel del JSON junto con la action — convención del
+  // resto del backend (ver server.js → update_facturapi_folio_strict).
+  const payload = { action: "breezeway_alert", ...flatAlertForSheet(alert) };
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify(payload),
-    // Apps Script puede tardar 1-3 s; el timeout default del runtime ya cubre.
     redirect: "follow",
   });
   if (!res.ok) {
     throw new Error(`Apps Script HTTP ${res.status}`);
+  }
+  const txt = await res.text();
+  // Apps Script puede devolver HTML de error si el deployment está mal; si
+  // no es JSON, lanzamos el preview en el log.
+  try { const j = JSON.parse(txt); if (j && j.ok === false) throw new Error(j.error || "save failed"); }
+  catch (e) {
+    if (txt.startsWith("<")) throw new Error("Apps Script devolvió HTML (¿deployment con auth?)");
+    throw e;
   }
 }
 
