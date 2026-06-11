@@ -14895,6 +14895,13 @@ async function bzwInit() {
     const toEl   = document.getElementById('bzw-to');
     if (fromEl && !fromEl.value) fromEl.value = def90.toISOString().slice(0,10);
     if (toEl   && !toEl.value)   toEl.value   = today.toISOString().slice(0,10);
+    // Precargar Lodgify + Huéspedes en background para que el match de
+    // propiedad y el chip "🔗 Reserva #XXX" funcionen cuando el usuario
+    // importe el histórico (sin bloquear la UI de Breezeway).
+    try {
+      if (typeof lodgifyLoad === 'function' && !LG_STATE?.loaded && !LG_STATE?.loading) lodgifyLoad(true);
+      if (typeof huespedesLoad === 'function' && !HU_STATE?.loaded && !HU_STATE?.loading) huespedesLoad(true);
+    } catch(_) {}
   }
   bzwRefreshAlerts();
 }
@@ -15010,9 +15017,33 @@ function bzwRenderAlertItem(a) {
   const dept = String(t.type || raw.type_department || '').toLowerCase();
   const meta = BZW_DEPT_META[dept] || BZW_DEPT_META._default;
   const finished = !!t.finished_at;
-  const propName = a.property?.name || '—';
+  let propName = a.property?.name || '—';
   const propId   = a.property?.id;
   const taskName = t.name || a.title?.replace(/^[^:]+:\s*/, '') || 'Tarea';
+
+  // ─── JOIN con Gestión de reservas vía linked_reservation ───
+  // external_reservation_id de Breezeway === Lodgify Id en Reservaciones
+  // (validado: 90 matches reales de 181 reservaciones, 50%).
+  const lodgifyId = raw.linked_reservation?.external_reservation_id
+                 || raw.linked_reservation?.external_id
+                 || '';
+  let matchedBooking = null;
+  let matchedHuesped = null;
+  if (lodgifyId) {
+    matchedBooking = (LG_STATE?.bookings || []).find(b => String(b.Id) === String(lodgifyId)) || null;
+    matchedHuesped = (HU_STATE?.rows || []).find(x => String(x['Lodgify Id'] || '').trim() === String(lodgifyId)) || null;
+    // Si hay match, override propiedad con la versión homologada del catálogo "alojamientos"
+    if (matchedBooking && typeof lgPropOf === 'function') {
+      const homol = lgPropOf(matchedBooking);
+      if (homol && homol !== '—') propName = homol;
+    } else if (matchedHuesped && typeof lgFmtPropiedad === 'function') {
+      const homol = lgFmtPropiedad({
+        propiedad: matchedHuesped['Propiedad'] || '',
+        departamento: matchedHuesped['# Departamento'] || ''
+      });
+      if (homol && homol !== '—') propName = homol;
+    }
+  }
   // Fechas
   const whenIso = t.finished_at || t.scheduled_date || raw.created_at || a.last_updated;
   const whenLargo = bzwFmtFechaLargo(whenIso);
@@ -15035,6 +15066,21 @@ function bzwRenderAlertItem(a) {
   const chipFinishedBy = finishedBy
     ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#f1f5f9;color:#0f172a;font-weight:700;font-size:10px;border:1px solid #cbd5e1">👤 ${esc(finishedBy)}</span>`
     : '';
+  // Chip de enlace a la reservación en Gestión de Reservas.
+  // Si tenemos match Lodgify, es clickeable y abre el detalle.
+  // Si no tenemos match (Reservaciones no llega tan atrás), muestra el ID como referencia visual.
+  let chipReserva = '';
+  if (lodgifyId) {
+    const hasMatch = !!(matchedBooking || matchedHuesped);
+    if (hasMatch) {
+      chipReserva = `<button type="button" onclick="event.stopPropagation();bzwGotoReservation('${esc(lodgifyId)}')"
+              title="Abrir esta reservación en Gestión de reservas"
+              style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#e0e7ff;color:#3730a3;font-weight:800;font-size:10px;border:1.5px solid #818cf8;cursor:pointer;letter-spacing:.02em">🔗 Reserva #${esc(lodgifyId)}</button>`;
+    } else {
+      chipReserva = `<span title="Lodgify Id (sin match en Reservaciones — probablemente anterior a abril 2026)"
+              style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#f1f5f9;color:#64748b;font-weight:700;font-size:10px;border:1px dashed #cbd5e1">🔗 #${esc(lodgifyId)}</span>`;
+    }
+  }
 
   // ─── Tabla del payload (campos relevantes) ───
   const reportUrl = t.report_url || raw.report_url || '';
@@ -15063,7 +15109,11 @@ function bzwRenderAlertItem(a) {
     ${assigneesStr ? fld('Asignaciones', `👥 ${esc(assigneesStr)}`) : ''}
     ${fld('Creada', raw.created_at ? `🕐 ${bzwFmtFechaLargo(raw.created_at)}${raw.created_by?.name ? ' · por ' + esc(raw.created_by.name) : ''}` : '—')}
     ${description ? fld('Descripción', `<div style="background:#f8fafc;padding:6px 9px;border-radius:6px;border-left:3px solid #94a3b8;font-style:italic;color:#334155">${esc(description)}</div>`) : ''}
-    ${linkedReservation ? fld('Reservación', `🔗 <code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:11px">${esc(linkedReservation.external_reservation_id || linkedReservation.id || '')}</code>`) : ''}
+    ${linkedReservation ? fld('Reservación',
+      (matchedBooking || matchedHuesped)
+        ? `<a href="#" onclick="event.preventDefault();bzwGotoReservation('${esc(lodgifyId)}');return false" style="color:#3730a3;font-weight:800;text-decoration:none;display:inline-flex;align-items:center;gap:5px">🔗 <code style="background:#e0e7ff;padding:1px 6px;border-radius:4px;font-size:11px;color:#3730a3">Lodgify Id ${esc(lodgifyId)}</code> · Abrir en Gestión de reservas →</a>`
+        : `<code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:11px;color:#64748b">🔗 Lodgify Id ${esc(lodgifyId)}</code> <span style="font-size:11px;color:#94a3b8;font-style:italic">(no en Reservaciones)</span>`
+    ) : ''}
     ${tagsStr ? fld('Tags', tagsArr.map(x => `<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:#e0e7ff;color:#3730a3;font-size:10px;font-weight:700;margin-right:4px">${esc(x.name || x)}</span>`).join('')) : ''}
     ${reportUrl ? fld('Reporte', `<a href="${esc(reportUrl)}" target="_blank" rel="noopener" style="color:#0d9488;font-weight:700;text-decoration:none">📄 Abrir reporte de Breezeway →</a>`) : ''}`;
 
@@ -15074,7 +15124,7 @@ function bzwRenderAlertItem(a) {
          onmouseout="this.style.boxShadow='0 2px 6px rgba(15,23,42,.05)'">
       <!-- Top: chips -->
       <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-        ${chipDept}${chipStatus}${chipPriority}${chipPaused}${chipFinishedBy}
+        ${chipDept}${chipStatus}${chipPriority}${chipPaused}${chipFinishedBy}${chipReserva}
       </div>
       <!-- Centro: PROPIEDAD como título + nombre de tarea como subtítulo -->
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap">
@@ -15134,6 +15184,36 @@ window.bzwFetchHistory = async function() {
     if (status) status.innerHTML = `<span style="color:#b91c1c">⚠ ${esc(e.message)}</span>`;
     if (list) list.innerHTML = `<div style="text-align:center;color:#b91c1c;padding:30px 20px"><div style="font-size:28px;margin-bottom:8px">⚠️</div><div style="font-weight:700">No se pudo consultar el histórico</div><div style="font-size:12px;color:#7f1d1d;margin-top:6px">${esc(e.message)}</div></div>`;
   }
+};
+
+/** Salta al módulo "Gestión de reservas" y abre la card de la reserva
+ *  cuyo Lodgify Id coincida. Si los datos aún no cargan, espera (hasta 10 s).
+ *  Si no encuentra match, intenta seleccionar por Lodgify Id directo. */
+window.bzwGotoReservation = async function(lodgifyId) {
+  if (!lodgifyId) return;
+  // Cambia al módulo Lodgify (dispara lodgifyLoad si no estaba cargado).
+  if (typeof switchModule === 'function') switchModule('lodgify');
+  // Forzar vista "detail" si no lo está (es donde el sidebar lista huéspedes).
+  if (typeof LG_STATE !== 'undefined') LG_STATE.viewMode = 'detail';
+  // Esperar a que tanto LG_STATE como HU_STATE estén cargados (carga lazy).
+  let tries = 0;
+  while (tries < 40 && (!LG_STATE?.loaded || !HU_STATE?.loaded)) {
+    await new Promise(r => setTimeout(r, 250));
+    tries++;
+  }
+  // Re-render por si la vista quedó en placeholder
+  if (typeof lodgifyRender === 'function') lodgifyRender();
+  // Prioridad 1: row de Reservaciones con ese Lodgify Id → su ID UUID
+  // hace que el sidebar resalte la card. Si la reserva fue antes de abril
+  // 2026, no estará en Reservaciones — caemos al fallback.
+  const huRow = (HU_STATE?.rows || []).find(x => String(x['Lodgify Id'] || '').trim() === String(lodgifyId));
+  if (huRow) {
+    const sid = String(huRow['ID'] || huRow['row_number'] || '');
+    if (sid && typeof lgDetailSelect === 'function') { lgDetailSelect(sid); return; }
+  }
+  // Prioridad 2: booking de Lodgify directo (renderiza detalle aunque
+  // el sidebar no resalte ninguna card).
+  if (typeof lgDetailSelect === 'function') lgDetailSelect(String(lodgifyId));
 };
 
 window.bzwShowWebhookAlerts = function() {
