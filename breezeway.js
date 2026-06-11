@@ -175,6 +175,12 @@ function pushAlert(alert) {
 
   console.log(`🔔 ALERTA Breezeway [${alert.kind}] ${alert.title} — ${alert.detail}`);
 
+  // Persistir al Sheet (fire-and-forget — no bloquea la respuesta del webhook).
+  // Sin esto, el buffer en memoria se pierde con cada cold-start del Cloud Run.
+  persistAlertToSheet(enriched).catch(err =>
+    console.warn("⚠️ Persist alert to sheet falló:", err?.message || err)
+  );
+
   // TODO (siguiente paso): redirigir aquí a WhatsApp / correo / hoja de Check in.
   //   - WhatsApp: notifyWhatsApp(enriched)
   //   - Correo:   sendMail(enriched)
@@ -267,6 +273,70 @@ function handlePropertyStatusEvent(payload) {
   });
 }
 
+// --------------------------- Persistencia a Sheet ---------------------------
+// El buffer en memoria (recentAlerts) se pierde en cada cold-start o cuando
+// Cloud Run escala a nuevas instancias. Para sobrevivir, escribimos cada
+// alerta a una hoja "Breezeway_Alerts" via el Apps Script CHECKIN_WEB_APP_URL
+// y leemos desde ahí en /api/breezeway/alerts.
+
+function flatAlertForSheet(a) {
+  // Aplana la alerta a las columnas de la hoja Breezeway_Alerts.
+  return {
+    event_type:    a.event_type || "",
+    kind:          a.kind || "",
+    task_id:       a.task?.id ?? "",
+    task_name:     a.task?.name ?? "",
+    task_type:     a.task?.type ?? "",
+    scheduled_date: a.task?.scheduled_date ?? "",
+    finished_at:   a.task?.finished_at ?? "",
+    finished_by:   a.task?.finished_by ?? "",
+    home_id:       a.property?.id ?? "",
+    property_name: a.property?.name ?? "",
+    lodgify_id:    a.raw?.linked_reservation?.external_reservation_id
+                || a.raw?.linked_reservation?.external_id
+                || "",
+    priority:      a.raw?.type_priority ?? "",
+    status:        a.raw?.status ?? "",
+    detail:        a.detail ?? a.title ?? "",
+    raw_json:      JSON.stringify(a.raw || a),
+  };
+}
+
+async function persistAlertToSheet(alert) {
+  const url = process.env.CHECKIN_WEB_APP_URL;
+  if (!url) {
+    console.warn("CHECKIN_WEB_APP_URL no configurado — alerta NO persistida.");
+    return;
+  }
+  const payload = {
+    action: "breezeway_alert",
+    data: flatAlertForSheet(alert),
+  };
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    // Apps Script puede tardar 1-3 s; el timeout default del runtime ya cubre.
+    redirect: "follow",
+  });
+  if (!res.ok) {
+    throw new Error(`Apps Script HTTP ${res.status}`);
+  }
+}
+
+async function fetchAlertsFromSheet(limit = 100) {
+  const url = process.env.CHECKIN_WEB_APP_URL;
+  if (!url) return null;
+  const sep = url.includes("?") ? "&" : "?";
+  const res = await fetch(
+    `${url}${sep}action=breezeway_alerts_list&limit=${limit}`,
+    { method: "GET", redirect: "follow" }
+  );
+  if (!res.ok) throw new Error(`Apps Script HTTP ${res.status}`);
+  const json = await res.json().catch(() => ({}));
+  return Array.isArray(json.alerts) ? json.alerts : [];
+}
+
 // --------------------------- Cache de propiedades ---------------------------
 const PROPERTIES_TTL_MS = 10 * 60 * 1000; // 10 min
 let propertiesCache = { fetchedAt: 0, list: [] };
@@ -326,10 +396,44 @@ export function registerBreezewayRoutes(app) {
     }
   });
 
-  // ---- Consultar alertas recientes (para la prueba/UI) ----
-  app.get("/api/breezeway/alerts", (req, res) => {
-    const limit = Math.min(Number(req.query?.limit) || 25, MAX_ALERTS);
-    res.json({ ok: true, count: recentAlerts.length, alerts: recentAlerts.slice(0, limit) });
+  // ---- Consultar alertas recientes (Sheet-backed, sobrevive cold starts) ----
+  app.get("/api/breezeway/alerts", async (req, res) => {
+    const limit = Math.min(Number(req.query?.limit) || 100, 1000);
+    try {
+      // 1) Lee del Sheet (fuente de verdad persistente).
+      const fromSheet = await fetchAlertsFromSheet(limit);
+      if (fromSheet) {
+        // Re-hidrata cada fila plana al formato que la UI espera (task, property, raw…).
+        const reshaped = fromSheet.map(r => ({
+          id: r.id,
+          received_at: r.received_at,
+          event_type: r.event_type,
+          kind: r.kind,
+          title: r.detail || "",
+          detail: r.detail || "",
+          last_updated: r.finished_at || r.scheduled_date || r.received_at,
+          property: { id: r.home_id, name: r.property_name },
+          task: {
+            id: r.task_id,
+            name: r.task_name,
+            type: r.task_type,
+            scheduled_date: r.scheduled_date,
+            finished_at: r.finished_at,
+            finished_by: r.finished_by,
+            status: r.status,
+          },
+          raw: r.raw || (() => { try { return JSON.parse(r.raw_json || "{}"); } catch (_) { return {}; } })(),
+          // Campo extra para que la UI sepa que vino del sheet
+          _persisted: true,
+        }));
+        return res.json({ ok: true, count: reshaped.length, source: "sheet", alerts: reshaped });
+      }
+      // 2) Fallback: buffer en memoria (solo si la app script no responde)
+      res.json({ ok: true, count: recentAlerts.length, source: "memory-fallback", alerts: recentAlerts.slice(0, limit) });
+    } catch (err) {
+      console.warn("⚠️ /alerts read from sheet falló, usando buffer:", err?.message || err);
+      res.json({ ok: true, count: recentAlerts.length, source: "memory-fallback", alerts: recentAlerts.slice(0, limit) });
+    }
   });
 
   // ---- Probar la autenticación (debug) ----
