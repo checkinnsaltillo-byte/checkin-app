@@ -331,6 +331,20 @@ export function registerBreezewayRoutes(app) {
         body: JSON.stringify({ webhook_type, url }),
       });
       const data = await apiRes.json().catch(() => ({}));
+      // "Same webhook config already exists" (422) NO es realmente un error
+      // desde la perspectiva del usuario — significa que la suscripción ya
+      // existe con esa misma URL + token. Devolvemos OK con un flag.
+      const isAlreadySubscribed =
+        apiRes.status === 422 &&
+        /already exists/i.test(String(data?.description || data?.error || ""));
+      if (isAlreadySubscribed) {
+        return res.json({
+          ok: true,
+          already_subscribed: true,
+          subscribed: { webhook_type, url },
+          breezeway: data,
+        });
+      }
       if (!apiRes.ok) {
         return res.status(apiRes.status).json({ ok: false, breezeway: data });
       }
