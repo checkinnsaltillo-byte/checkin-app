@@ -56,35 +56,51 @@ function getCredentials() {
 }
 
 // --------------------------- Autenticación ---------------------------
+// Mutex: si varias requests concurrentes piden token al mismo tiempo (común
+// en cold-start del Cloud Run con un pool de 6+ workers), TODAS comparten
+// la misma promesa en vuelo — solo 1 POST a Breezeway, respeta el rate
+// limit de 1 req/min sin estrangular las requests legítimas.
+let _authInFlight = null;
+
 async function authenticate() {
-  const sinceLast = Date.now() - tokenState.lastAuthAttempt;
-  if (sinceLast < AUTH_MIN_INTERVAL_MS) {
-    const waitS = Math.ceil((AUTH_MIN_INTERVAL_MS - sinceLast) / 1000);
-    throw new Error(
-      `Auth de Breezeway limitada a 1 req/min. Espera ~${waitS}s antes de reintentar.`
-    );
-  }
-  tokenState.lastAuthAttempt = Date.now();
+  if (_authInFlight) return _authInFlight;
+  _authInFlight = (async () => {
+    try {
+      const sinceLast = Date.now() - tokenState.lastAuthAttempt;
+      if (sinceLast < AUTH_MIN_INTERVAL_MS) {
+        const waitS = Math.ceil((AUTH_MIN_INTERVAL_MS - sinceLast) / 1000);
+        throw new Error(
+          `Auth de Breezeway limitada a 1 req/min. Espera ~${waitS}s antes de reintentar.`
+        );
+      }
+      tokenState.lastAuthAttempt = Date.now();
 
-  const { client_id, client_secret } = getCredentials();
-  const res = await fetch(`${BREEZEWAY_API_BASE}${AUTH_PATH}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ client_id, client_secret }),
-  });
+      const { client_id, client_secret } = getCredentials();
+      const res = await fetch(`${BREEZEWAY_API_BASE}${AUTH_PATH}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ client_id, client_secret }),
+      });
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(
-      `Auth Breezeway falló (${res.status}): ${data?.message || JSON.stringify(data)}`
-    );
-  }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          `Auth Breezeway falló (${res.status}): ${data?.message || JSON.stringify(data)}`
+        );
+      }
 
-  tokenState.accessToken = data.access_token;
-  tokenState.refreshToken = data.refresh_token;
-  tokenState.fetchedAt = Date.now();
-  console.log("🔑 Breezeway: nuevo access token obtenido (válido ~24 h).");
-  return tokenState.accessToken;
+      tokenState.accessToken = data.access_token;
+      tokenState.refreshToken = data.refresh_token;
+      tokenState.fetchedAt = Date.now();
+      console.log("🔑 Breezeway: nuevo access token obtenido (válido ~24 h).");
+      return tokenState.accessToken;
+    } finally {
+      // Limpiamos el mutex tras un breve delay para que requests inmediatas
+      // posteriores tomen el token recién cacheado, no inicien otra auth.
+      setTimeout(() => { _authInFlight = null; }, 50);
+    }
+  })();
+  return _authInFlight;
 }
 
 async function refreshAccessToken() {
