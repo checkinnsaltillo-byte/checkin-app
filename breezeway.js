@@ -723,6 +723,93 @@ export function registerBreezewayRoutes(app) {
     }
   });
 
+  // ---- BOOTSTRAP HISTÓRICO: trae N tareas y las persiste al sheet ----
+  // Reutiliza la lógica del histórico (api/breezeway/tasks) y empuja al
+  // sheet en bloques de 500 vía action=breezeway_alerts_bulk (1 escritura
+  // por bloque). Mucho más rápido que persistir una por una.
+  app.post("/api/breezeway/bootstrap-history", async (req, res) => {
+    try {
+      const fromIso = String(req.query?.from || "2026-01-01");
+      const toIso   = String(req.query?.to   || new Date().toISOString().slice(0,10));
+      const url = process.env.CHECKIN_WEB_APP_URL;
+      if (!url) return res.status(500).json({ ok:false, error:"CHECKIN_WEB_APP_URL no configurado." });
+
+      // Reutilizamos /tasks armando la query interna.
+      const port = process.env.PORT || 8080;
+      const tasksRes = await fetch(`http://127.0.0.1:${port}/api/breezeway/tasks?from=${fromIso}&to=${toIso}`);
+      const tasksData = await tasksRes.json();
+      if (!tasksData.ok) return res.status(500).json({ ok:false, error:"fetch tasks falló", inner: tasksData });
+      const tasks = tasksData.tasks || [];
+      if (!tasks.length) return res.json({ ok:true, inserted:0, scanned:0, message:"Sin tasks en el rango." });
+
+      // Aplanar al schema del sheet.
+      const flat = tasks.map(t => ({
+        event_type:    t.event_type || (t.task?.finished_at ? "task-completed" : "task"),
+        kind:          t.kind || "task-historical",
+        task_id:       t.task?.id ?? "",
+        task_name:     t.task?.name ?? "",
+        task_type:     t.task?.type ?? "",
+        scheduled_date: t.task?.scheduled_date ?? "",
+        finished_at:   t.task?.finished_at ?? "",
+        finished_by:   t.task?.finished_by ?? "",
+        home_id:       t.property?.id ?? "",
+        property_name: t.property?.name ?? "",
+        lodgify_id:    t.raw?.linked_reservation?.external_reservation_id
+                    || t.raw?.linked_reservation?.external_id
+                    || "",
+        priority:      t.raw?.type_priority ?? "",
+        status:        t.raw?.status ?? "",
+        detail:        t.title || "",
+        raw_json:      JSON.stringify(t.raw || {}),
+        received_at:   t.task?.finished_at || t.task?.scheduled_date || new Date().toISOString(),
+      }));
+      // Bloques de 500 para no pasar el límite de payload + ejecución de
+      // Apps Script (6 min). 500 × 4 = 2000, dentro del budget.
+      const CHUNK = 500;
+      let inserted = 0, skipped = 0;
+      for (let i = 0; i < flat.length; i += CHUNK) {
+        const slice = flat.slice(i, i + CHUNK);
+        const r = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "breezeway_alerts_bulk", alerts: slice }),
+          redirect: "follow",
+        });
+        const txt = await r.text();
+        let j = {};
+        try { j = JSON.parse(txt); } catch (_) { j = { ok:false, raw: txt.slice(0,200) }; }
+        if (!j.ok) {
+          return res.status(500).json({ ok:false, error:"bulk insert falló", chunk_index: i, breezeway_response: j });
+        }
+        inserted += j.inserted || 0;
+        skipped  += j.skipped  || 0;
+      }
+      res.json({ ok:true, inserted, skipped, scanned: flat.length, from: fromIso, to: toIso });
+    } catch (err) {
+      res.status(500).json({ ok:false, error: String(err?.message || err) });
+    }
+  });
+
+  // ---- CLEANUP: borra filas de prueba del sheet ----
+  app.post("/api/breezeway/cleanup-test-rows", async (_req, res) => {
+    try {
+      const url = process.env.CHECKIN_WEB_APP_URL;
+      if (!url) return res.status(500).json({ ok:false, error:"CHECKIN_WEB_APP_URL no configurado." });
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "breezeway_alerts_cleanup" }),
+        redirect: "follow",
+      });
+      const txt = await r.text();
+      let j = {};
+      try { j = JSON.parse(txt); } catch (_) { return res.status(500).json({ ok:false, error:"non-JSON", raw: txt.slice(0,200) }); }
+      res.json(j);
+    } catch (err) {
+      res.status(500).json({ ok:false, error: String(err?.message || err) });
+    }
+  });
+
   // ---- DEBUG: respuesta cruda de Breezeway para una sola propiedad ----
   // Para diagnosticar el formato real de la API. Quitar después.
   app.get("/api/breezeway/_debug-tasks", async (req, res) => {
