@@ -438,37 +438,37 @@ export function registerBreezewayRoutes(app) {
     try {
       const q = req.query || {};
       const today = new Date();
-      const defFrom = new Date(today.getTime() - 30 * 86400000);
+      const defFrom = new Date(today.getTime() - 365 * 86400000);
       const defTo   = new Date(today.getTime() + 86400000);
       const fromIso = String(q.from || defFrom.toISOString().slice(0, 10));
       const toIso   = String(q.to   || defTo.toISOString().slice(0, 10));
       const key     = String(q.key || "finished_at");
-      const typeDept = q.type_department != null
-        ? String(q.type_department)
-        : "housekeeping";
+      // Por default, "any" → no filtramos por departamento. Antes era
+      // "housekeeping" por defecto, lo cual ocultaba mantenimiento/inspección.
+      const typeDept = q.type_department != null ? String(q.type_department) : "";
       const homeIdFilter = q.home_id ? String(q.home_id) : "";
       const maxPagesPerHome = Math.min(Number(q.max_pages) || 5, 20);
       const limit = Math.min(Number(q.limit) || 100, 100);
       const concurrency = Math.max(1, Math.min(Number(q.concurrency) || 6, 12));
 
-      // 1) Conseguir lista de propiedades a iterar.
-      let homes = [];
-      if (homeIdFilter) {
-        homes = [{ id: Number(homeIdFilter) }];
-      } else {
-        homes = await fetchPropertiesCached();
-      }
+      // 1) Lista de propiedades + índice id → name (para enriquecer las tasks).
+      const propsList = await fetchPropertiesCached();
+      const propIdx = new Map();
+      for (const p of propsList) propIdx.set(p.id, p);
+      const homes = homeIdFilter
+        ? [{ id: Number(homeIdFilter), name: propIdx.get(Number(homeIdFilter))?.name }]
+        : propsList;
       if (!homes.length) {
         return res.json({
-          ok: true,
-          count: 0,
-          from: fromIso, to: toIso,
+          ok: true, count: 0, from: fromIso, to: toIso,
           message: "Sin propiedades activas en Breezeway.",
           tasks: [],
         });
       }
 
       // 2) Para cada propiedad → consulta tasks (con paginación interna).
+      // Breezeway: filtro de rango = "YYYY-MM-DD,YYYY-MM-DD" en un solo param.
+      // Respuesta DRF: { limit, page, results, total_pages, total_results }.
       const dateFilterValue = `${fromIso},${toIso}`;
       async function fetchHomeTasks(homeId) {
         const out = [];
@@ -496,7 +496,9 @@ export function registerBreezewayRoutes(app) {
             ? data.results
             : Array.isArray(data) ? data : [];
           out.push(...items);
-          if (!data.next || items.length < limit) break;
+          const totalPages = Number(data.total_pages || 0);
+          if (totalPages && page >= totalPages) break;
+          if (items.length < limit) break;
         }
         return out;
       }
@@ -518,27 +520,34 @@ export function registerBreezewayRoutes(app) {
       });
       await Promise.all(workers);
 
-      // 4) Convertir a la forma "alert" usada por el resto de la UI.
-      const alerts = allTasks.map((t) => ({
-        kind: "task-historical",
-        event_type: t.finished_at ? "task-completed" : "task",
-        title: t.finished_at
-          ? `✅ Aseo terminado: ${t.home?.name || "Alojamiento " + (t.home?.id || "")}`
-          : `📝 Tarea: ${t.name || t.type?.name || "—"}`,
-        last_updated: t.finished_at || t.scheduled_date || t.updated_at || t.created_at,
-        property: { id: t.home?.id, name: t.home?.name },
-        task: {
-          id: t.id,
-          name: t.name,
-          type: t.type?.name || t.type_department,
-          finished_at: t.finished_at,
-          finished_by: t.finished_by?.name || t.finished_by,
-          status: t.status,
-          scheduled_date: t.scheduled_date,
-        },
-        raw: t,
-      }));
-      // Más reciente arriba (por defecto)
+      // 4) Convertir a la forma "alert".
+      // Schema real Breezeway: home_id (number), name, type_department,
+      // finished_at, finished_by:{id,name}|null, scheduled_date, created_at, status.
+      const alerts = allTasks.map((t) => {
+        const homeId = t.home_id;
+        const homeName = propIdx.get(homeId)?.name || `Alojamiento ${homeId || "?"}`;
+        const finished = !!t.finished_at;
+        return {
+          kind: "task-historical",
+          event_type: finished ? "task-completed" : "task",
+          title: finished
+            ? `✅ Aseo terminado: ${homeName}`
+            : `📝 ${t.name || t.type_department || "Tarea"}: ${homeName}`,
+          last_updated: t.finished_at || t.scheduled_date || t.updated_at || t.created_at,
+          property: { id: homeId, name: homeName },
+          task: {
+            id: t.id,
+            name: t.name,
+            type: t.type_department,
+            finished_at: t.finished_at,
+            finished_by: t.finished_by?.name || null,
+            status: t.status,
+            scheduled_date: t.scheduled_date,
+            report_url: t.report_url,
+          },
+          raw: t,
+        };
+      });
       alerts.sort((a, b) => String(b.last_updated || "").localeCompare(String(a.last_updated || "")));
 
       res.json({
