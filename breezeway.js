@@ -354,6 +354,160 @@ export function registerBreezewayRoutes(app) {
     }
   });
 
+  // ---- Lista de webhooks activos en Breezeway (introspección) ----
+  app.get("/api/breezeway/webhooks", async (_req, res) => {
+    try {
+      const apiRes = await breezewayFetch("/public/webhook/v1/", { method: "GET" });
+      const data = await apiRes.json().catch(() => ({}));
+      if (!apiRes.ok) {
+        return res.status(apiRes.status).json({ ok: false, breezeway: data });
+      }
+      res.json({ ok: true, webhooks: data });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err?.message || err) });
+    }
+  });
+
+  // ---- HISTÓRICO de tareas (consulta la API de Breezeway con paginación) ----
+  // Query params:
+  //   from        ISO YYYY-MM-DD       (default: hace 30 días)
+  //   to          ISO YYYY-MM-DD       (default: hoy + 1)
+  //   status      "completed"|"open"|... (opcional, lo pasa tal cual)
+  //   max_pages   límite de páginas a traer (default 10, máx 50)
+  //   page_size   tamaño de página solicitado (default 100)
+  //   key         "finished_at"|"scheduled_date" (default finished_at = aseos terminados)
+  app.get("/api/breezeway/tasks", async (req, res) => {
+    try {
+      const q = req.query || {};
+      const today = new Date();
+      const defFrom = new Date(today.getTime() - 30 * 86400000);
+      const defTo   = new Date(today.getTime() + 86400000);
+      const fromIso = String(q.from || defFrom.toISOString().slice(0, 10));
+      const toIso   = String(q.to   || defTo.toISOString().slice(0, 10));
+      const status  = q.status ? String(q.status) : "";
+      const maxPages = Math.min(Number(q.max_pages) || 10, 50);
+      const pageSize = Math.min(Number(q.page_size) || 100, 200);
+      const key      = String(q.key || "finished_at"); // o "scheduled_date"
+
+      // Breezeway: GET /public/task/v1/ con query params.
+      // El esquema exacto de filtros varía por cuenta — probamos un combo
+      // permisivo que tiende a funcionar (after/before).
+      const baseParams = new URLSearchParams();
+      baseParams.set("page_size", String(pageSize));
+      // Soporte tanto YYYY-MM-DD como ISO completo.
+      baseParams.set(`${key}_after`,  fromIso);
+      baseParams.set(`${key}_before`, toIso);
+      if (status) baseParams.set("status", status);
+
+      const allTasks = [];
+      const pagesMeta = [];
+      let page = 1;
+      let lastStatus = null;
+      let lastBreezewayPayload = null;
+      while (page <= maxPages) {
+        const params = new URLSearchParams(baseParams);
+        params.set("page", String(page));
+        const apiRes = await breezewayFetch(
+          `/public/task/v1/?${params.toString()}`,
+          { method: "GET" }
+        );
+        const data = await apiRes.json().catch(() => ({}));
+        lastStatus = apiRes.status;
+        lastBreezewayPayload = data;
+        if (!apiRes.ok) break;
+        // Breezeway suele devolver { results: [...], next: "...", count: N } (DRF).
+        // Aceptamos variaciones: results | tasks | data.
+        const items = Array.isArray(data.results)
+          ? data.results
+          : Array.isArray(data.tasks)
+          ? data.tasks
+          : Array.isArray(data)
+          ? data
+          : [];
+        pagesMeta.push({ page, fetched: items.length, has_next: Boolean(data.next) });
+        allTasks.push(...items);
+        if (!data.next || items.length === 0 || items.length < pageSize) break;
+        page++;
+      }
+
+      if (!allTasks.length && lastStatus && lastStatus >= 400) {
+        return res.status(lastStatus).json({
+          ok: false,
+          message: "Breezeway rechazó la consulta de tareas. Revisa el payload.",
+          breezeway_status: lastStatus,
+          breezeway: lastBreezewayPayload,
+          tried_endpoint: `/public/task/v1/?${baseParams.toString()}`,
+        });
+      }
+
+      // Convierte cada task a la misma forma de "alert" para que la UI lo
+      // pinte con el mismo render que las alertas en vivo.
+      const alerts = allTasks.map((t) => ({
+        kind: "task-historical",
+        event_type: t.finished_at ? "task-completed" : "task",
+        title: t.finished_at
+          ? `✅ Aseo terminado: ${t.home?.name || "Alojamiento " + (t.home?.id || "")}`
+          : `📝 Tarea: ${t.name || t.type?.name || "—"}`,
+        last_updated: t.finished_at || t.scheduled_date || t.updated_at || t.created_at,
+        property: { id: t.home?.id, name: t.home?.name },
+        task: {
+          id: t.id,
+          name: t.name,
+          type: t.type?.name,
+          finished_at: t.finished_at,
+          finished_by: t.finished_by?.name || t.finished_by,
+          status: t.status,
+        },
+        raw: t,
+      }));
+
+      res.json({
+        ok: true,
+        count: alerts.length,
+        from: fromIso,
+        to: toIso,
+        pages: pagesMeta,
+        tasks: alerts,
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err?.message || err) });
+    }
+  });
+
+  // ---- IMPORTAR histórico al buffer (para que aparezcan en /alerts) ----
+  app.post("/api/breezeway/import-history", async (req, res) => {
+    try {
+      // Reutiliza la lógica del GET — copia los query a fetch interno.
+      const params = new URLSearchParams();
+      Object.entries(req.body || {}).forEach(([k, v]) => params.set(k, String(v)));
+      const apiRes = await fetch(`http://127.0.0.1:${process.env.PORT || 8080}/api/breezeway/tasks?${params.toString()}`);
+      const data = await apiRes.json().catch(() => ({}));
+      if (!apiRes.ok || !data.ok) {
+        return res.status(apiRes.status || 500).json(data);
+      }
+      // Empuja cada task al buffer de recentAlerts (deduplicando por task.id).
+      const seenTaskIds = new Set(
+        recentAlerts.map((a) => a.task?.id).filter(Boolean)
+      );
+      let inserted = 0;
+      for (const alert of data.tasks) {
+        if (seenTaskIds.has(alert.task?.id)) continue;
+        recentAlerts.unshift({ ...alert, received_at: new Date().toISOString() });
+        inserted++;
+      }
+      // Respeta el límite del buffer.
+      if (recentAlerts.length > MAX_ALERTS) recentAlerts.length = MAX_ALERTS;
+      res.json({
+        ok: true,
+        inserted,
+        scanned: data.count,
+        total_in_buffer: recentAlerts.length,
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err?.message || err) });
+    }
+  });
+
   console.log("🌬️  Rutas Breezeway montadas en /api/breezeway/*");
 }
 
