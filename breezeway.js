@@ -478,8 +478,6 @@ export function registerBreezewayRoutes(app) {
             [key]: dateFilterValue,
             limit: String(limit),
             page: String(page),
-            sort_by: key,
-            sort_order: "desc",
           });
           if (typeDept) params.set("type_department", typeDept);
           const apiRes = await breezewayFetch(
@@ -488,7 +486,7 @@ export function registerBreezewayRoutes(app) {
           );
           if (!apiRes.ok) {
             const txt = await apiRes.text().catch(() => "");
-            console.warn(`[BZW] home ${homeId} page ${page}: ${apiRes.status}`, txt.slice(0, 200));
+            console.warn(`[BZW] home ${homeId} page ${page} q=${params.toString()}: ${apiRes.status}`, txt.slice(0, 300));
             return out;
           }
           const data = await apiRes.json().catch(() => ({}));
