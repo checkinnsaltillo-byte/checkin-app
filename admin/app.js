@@ -15143,6 +15143,7 @@ function bzwRenderAlertItem(a, opts) {
   let matchedHuesped = null;
   let homolPropName = ''; // Nombre homologado (Calle Oaxaca - #1) — para subtitle
   let resvDateArrival = '', resvDateDeparture = '', resvNights = 0, resvGuestName = '';
+  let resvSource = '', resvHoraLlegada = '', resvHoraSalida = '', resvTier = null;
   if (lodgifyId) {
     matchedBooking = (LG_STATE?.bookings || []).find(b => String(b.Id) === String(lodgifyId)) || null;
     matchedHuesped = (HU_STATE?.rows || []).find(x => String(x['Lodgify Id'] || '').trim() === String(lodgifyId)) || null;
@@ -15161,6 +15162,26 @@ function bzwRenderAlertItem(a, opts) {
       }
       resvDateArrival   = matchedHuesped['Fecha de ingreso'] || '';
       resvDateDeparture = matchedHuesped['Fecha de salida']  || '';
+    }
+    // Datos adicionales para el encabezado de la card (4 nuevos):
+    //   Source / Medio de reservación, Hora llegada, Hora salida, Tier huésped
+    resvSource = (matchedBooking?.Source)
+              || (matchedHuesped && (matchedHuesped['Medio de reservación'] || matchedHuesped['Medio de reservacion']))
+              || '';
+    if (matchedHuesped) {
+      resvHoraLlegada = matchedHuesped['Hora estimada de llegada']
+                     || matchedHuesped['Hora de llegada'] || '';
+      resvHoraSalida  = matchedHuesped['Hora estimada de salida']
+                     || matchedHuesped['Hora de salida'] || '';
+      if (typeof huComputeGuestStats === 'function') {
+        try {
+          const _stats = huComputeGuestStats(matchedHuesped, HU_STATE?.rows || []);
+          const _score = (typeof huComputeLoyaltyScore === 'function')
+                       ? huComputeLoyaltyScore(_stats) : 0;
+          resvTier = (typeof huGuestTier === 'function')
+                   ? huGuestTier(_score, _stats) : null;
+        } catch(_) { resvTier = null; }
+      }
       resvNights = Number(matchedHuesped['# Noches']) || 0;
       resvGuestName = matchedHuesped['Nombre de la persona que hizo la reservación']
                    || matchedHuesped['Nombre del huésped'] || '';
@@ -15174,6 +15195,14 @@ function bzwRenderAlertItem(a, opts) {
 
   // ─── Chips superiores ───
   const chipDept = `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:${meta.chipBg};color:${meta.fg};font-weight:800;font-size:10px;border:1px solid ${meta.border};letter-spacing:.02em"><span style="font-size:11px;line-height:1">${meta.emoji}</span>${esc(meta.label)}</span>`;
+  // Chip Medio de reservación (Source) — solo si la task tiene reserva ligada.
+  const chipSource = resvSource && typeof lgSourceChipMini === 'function'
+    ? lgSourceChipMini(resvSource)
+    : '';
+  // Chip Clasificación del huésped (tier — Oro/Plata/Bronce/Recurrente).
+  const chipTier = resvTier
+    ? `<span title="${esc(resvTier.tooltip || '')}" style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:${resvTier.bg};color:${resvTier.fg};font-weight:800;font-size:10px;border:1px solid ${resvTier.border};box-shadow:0 1px 3px ${resvTier.shadow};letter-spacing:.02em">${resvTier.icon} ${esc(resvTier.label)} <b>${resvTier.score}</b></span>`
+    : '';
   // Chip de status (verde ✓ Finalizada o rojo ✗ Pendiente) — vive en el
   // header derecho de la card, NO en la fila de chips superiores.
   const chipStatusBig = finished
@@ -15294,7 +15323,7 @@ function bzwRenderAlertItem(a, opts) {
       <summary class="bzw-list-card-summary">
       <!-- Top: chips (Status + Asignaciones/Realizada por se movieron a la derecha del header) -->
       <div class="bzw-list-card-topchips">
-        ${chevron}${chipDept}${chipPriority}${chipPaused}${chipReserva}
+        ${chevron}${chipDept}${chipPriority}${chipPaused}${chipSource}${chipTier}${chipReserva}
       </div>
       <!-- Centro: PROPIEDAD como título (izq) + Asignaciones + Status + Date/Time (der) -->
       <div class="bzw-list-card-row">
@@ -15303,6 +15332,7 @@ function bzwRenderAlertItem(a, opts) {
           <div class="bzw-list-card-sub" style="color:#475569;font-weight:700">📅 Fecha límite: <b style="color:#0f172a">${esc(fechaLimiteTxt)}</b></div>
           ${matchedBooking || matchedHuesped ? `
             ${(resvDateArrival && resvDateDeparture) ? `<div class="bzw-list-card-sub" style="color:#475569;font-weight:600">${esc(bzwFmtRangoFechas(resvDateArrival, resvDateDeparture))}${resvNights > 0 ? ` <span style="color:#7c3aed;font-weight:700">· 🌙 ${resvNights} noche${resvNights===1?'':'s'}</span>` : ''}</div>` : ''}
+            ${(resvHoraLlegada || resvHoraSalida) ? `<div class="bzw-list-card-sub" style="color:#475569;font-weight:600">${resvHoraLlegada ? `🛬 <b style="color:#0f172a">${esc(typeof huFmtHoraSimple === 'function' ? huFmtHoraSimple(resvHoraLlegada) : resvHoraLlegada)}</b>` : ''}${resvHoraLlegada && resvHoraSalida ? ' · ' : ''}${resvHoraSalida ? `🛫 <b style="color:#0f172a">${esc(typeof huFmtHoraSimple === 'function' ? huFmtHoraSimple(resvHoraSalida) : resvHoraSalida)}</b>` : ''}</div>` : ''}
             ${resvGuestName ? `<div class="bzw-list-card-sub" style="color:#475569;font-weight:600">👤 Nombre del huésped: <b style="color:#0f172a">${esc(resvGuestName)}</b></div>` : ''}
           ` : ''}
           <div class="bzw-list-card-sub" style="color:${meta.fg};font-weight:700">${meta.emoji} ${esc(taskName)}</div>
