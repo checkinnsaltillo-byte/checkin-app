@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema Financiero | Check Inn Saltillo</title>
-  <link rel="stylesheet" href="styles.css?v=87">
+  <link rel="stylesheet" href="styles.css?v=88">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1055,7 +1055,7 @@
 
     <!-- ══ MÓDULO: Breezeway ═══════════════════════════════════════ -->
     <div id="module-breezeway" class="hidden" style="padding:20px 24px 60px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px">
         <div>
           <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em">🧹 Breezeway</div>
           <div style="font-size:13px;color:#64748b;margin-top:2px">Alertas en tiempo real de alojamientos listos / tareas de limpieza completadas.</div>
@@ -1066,6 +1066,22 @@
           <button onclick="bzwSubscribeAll()" style="padding:8px 16px;border:1.5px solid #7c3aed;background:#fff;color:#5b21b6;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">🔔 Suscribir webhooks</button>
         </div>
       </div>
+
+      <!-- View toggle: Lista de Tasks | Calendario -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <span style="font-size:11px;color:#94a3b8;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-right:4px">Vista:</span>
+        <button id="bzw-view-btn-list" onclick="bzwSetView('list')"
+                style="padding:8px 16px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer">
+          📋 Lista de Tasks
+        </button>
+        <button id="bzw-view-btn-calendar" onclick="bzwSetView('calendar')"
+                style="padding:8px 16px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">
+          📅 Calendario
+        </button>
+      </div>
+
+      <!-- ═══════ Vista: Lista de Tasks ═══════ -->
+      <div id="bzw-view-list-pane">
 
       <!-- Estado: conexión + último ping del webhook -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:22px">
@@ -1186,6 +1202,25 @@
           </div>
         </div>
       </details>
+      </div><!-- /bzw-view-list-pane -->
+
+      <!-- ═══════ Vista: Calendario ═══════ -->
+      <div id="bzw-view-calendar-pane" class="hidden">
+        <!-- Toolbar del calendario -->
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 14px;box-shadow:0 2px 8px rgba(15,23,42,.04)">
+          <button onclick="bzwCalThisWeek()" style="padding:6px 12px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:7px;font-weight:700;font-size:12px;cursor:pointer">Esta semana</button>
+          <button onclick="bzwCalNav(-7)" title="Semana anterior" style="padding:6px 10px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:7px;font-weight:700;font-size:13px;cursor:pointer;line-height:1">‹</button>
+          <button onclick="bzwCalNav(7)" title="Semana siguiente" style="padding:6px 10px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:7px;font-weight:700;font-size:13px;cursor:pointer;line-height:1">›</button>
+          <span id="bzw-cal-range" style="font-size:13px;color:#475569;font-weight:700;margin-left:6px">—</span>
+          <span style="margin-left:auto;font-size:11px;color:#94a3b8;font-style:italic" id="bzw-cal-count">—</span>
+        </div>
+        <!-- Grid del calendario (se renderiza dinámicamente) -->
+        <div id="bzw-cal-grid" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,.04);overflow:auto"></div>
+      </div>
+
+      <!-- Panel lateral de detalle (slide-in desde la derecha) -->
+      <aside id="bzw-detail-panel" class="bzw-detail-panel hidden" aria-hidden="true"></aside>
+      <div id="bzw-detail-backdrop" class="bzw-detail-backdrop hidden" onclick="bzwCloseDetailPanel()"></div>
     </div><!-- /module-breezeway -->
 
     <!-- Detail modal for Bancos drilldown -->
@@ -1338,6 +1373,6 @@
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="app.js?v=245"></script>
+  <script src="app.js?v=246"></script>
 </body>
 </html>

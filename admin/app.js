@@ -15398,6 +15398,434 @@ window.bzwGotoReservation = async function(lodgifyId) {
   if (typeof lgDetailSelect === 'function') lgDetailSelect(String(lodgifyId));
 };
 
+// ═══════════ Vista Calendario ═══════════
+let BZW_VIEW = 'list';                 // 'list' | 'calendar'
+let BZW_CAL_WEEK_START = null;         // Date — primer día (miércoles típico, ver init)
+const BZW_DIAS_SEMANA = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const BZW_DIAS_ABBR   = ['dom.','lun.','mar.','mié.','jue.','vie.','sáb.'];
+const BZW_MES_NOMBRE  = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+function bzwIsoYmd(d) {
+  if (!(d instanceof Date)) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
+}
+function bzwParseAnyToDate(s) {
+  if (!s) return null;
+  if (s instanceof Date) return s;
+  const t = String(s).trim();
+  let m;
+  if ((m = t.match(/^(\d{4})-(\d{2})-(\d{2})/))) return new Date(+m[1], +m[2]-1, +m[3]);
+  if ((m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return new Date(+m[3], +m[1]-1, +m[2]);
+  return null;
+}
+function bzwDaysBetween(a, b) {
+  if (!a || !b) return 0;
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
+function bzwStartOfThisWeek() {
+  // Empieza el miércoles (igual a las imágenes). Si hoy es antes del miércoles,
+  // retrocede al miércoles anterior; si es después, retrocede al miércoles más
+  // reciente. Tweak fácil si quieren empezar otro día.
+  const d = new Date();
+  d.setHours(0,0,0,0);
+  const dow = d.getDay(); // 0=dom..6=sáb
+  // Diferencia desde miércoles (3). Si hoy>=miércoles: dow-3; si no: dow+4.
+  const delta = (dow >= 3) ? (dow - 3) : (dow + 4);
+  d.setDate(d.getDate() - delta);
+  return d;
+}
+
+window.bzwSetView = function(mode) {
+  BZW_VIEW = (mode === 'calendar') ? 'calendar' : 'list';
+  const listPane = document.getElementById('bzw-view-list-pane');
+  const calPane  = document.getElementById('bzw-view-calendar-pane');
+  const btnList = document.getElementById('bzw-view-btn-list');
+  const btnCal  = document.getElementById('bzw-view-btn-calendar');
+  const activeStyle = 'padding:8px 16px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer';
+  const inactiveStyle = 'padding:8px 16px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer';
+  if (BZW_VIEW === 'calendar') {
+    if (listPane) listPane.classList.add('hidden');
+    if (calPane)  calPane.classList.remove('hidden');
+    if (btnList) btnList.setAttribute('style', inactiveStyle);
+    if (btnCal)  btnCal.setAttribute('style', activeStyle);
+    if (!BZW_CAL_WEEK_START) BZW_CAL_WEEK_START = bzwStartOfThisWeek();
+    bzwCalRender();
+  } else {
+    if (listPane) listPane.classList.remove('hidden');
+    if (calPane)  calPane.classList.add('hidden');
+    if (btnList) btnList.setAttribute('style', activeStyle);
+    if (btnCal)  btnCal.setAttribute('style', inactiveStyle);
+  }
+};
+
+window.bzwCalThisWeek = function() {
+  BZW_CAL_WEEK_START = bzwStartOfThisWeek();
+  bzwCalRender();
+};
+window.bzwCalNav = function(deltaDays) {
+  if (!BZW_CAL_WEEK_START) BZW_CAL_WEEK_START = bzwStartOfThisWeek();
+  const d = new Date(BZW_CAL_WEEK_START);
+  d.setDate(d.getDate() + deltaDays);
+  BZW_CAL_WEEK_START = d;
+  bzwCalRender();
+};
+
+/** Construye los 7 días de la semana actual a partir de BZW_CAL_WEEK_START. */
+function bzwCalWeekDays() {
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(BZW_CAL_WEEK_START);
+    d.setDate(d.getDate() + i);
+    out.push(d);
+  }
+  return out;
+}
+
+/** Filtra BZW_ALL_TASKS y LG_STATE.bookings al rango de la semana mostrada,
+ *  y devuelve una estructura agrupada por nombre de propiedad de Breezeway:
+ *    propMap.get(propName) = { tasks: [...], bookings: [...] }
+ *  Las bookings se asocian a la propiedad vía el match
+ *  task.linked_reservation.external_reservation_id === booking.Id. */
+function bzwCalBuildPropMap() {
+  const days = bzwCalWeekDays();
+  const weekStart = days[0];
+  const weekEnd = new Date(days[6]); weekEnd.setHours(23,59,59,999);
+  const propMap = new Map();
+  const ensure = (name, id) => {
+    if (!propMap.has(name)) propMap.set(name, { id, name, tasks: [], bookings: new Map() });
+    return propMap.get(name);
+  };
+
+  // 1) Tasks de Breezeway en el rango
+  for (const t of (BZW_ALL_TASKS || [])) {
+    const propName = t.property?.name;
+    if (!propName) continue;
+    const dateIso = t.task?.finished_at || t.task?.scheduled_date;
+    const d = bzwParseAnyToDate(dateIso);
+    if (!d || d < weekStart || d > weekEnd) continue;
+    const grp = ensure(propName, t.property?.id);
+    grp.tasks.push(t);
+    // Booking asociado vía linked_reservation
+    const lodId = t.raw?.linked_reservation?.external_reservation_id
+               || t.raw?.linked_reservation?.external_id;
+    if (lodId) {
+      const b = (LG_STATE?.bookings || []).find(bk => String(bk.Id) === String(lodId));
+      if (b) grp.bookings.set(String(b.Id), b);
+    }
+  }
+
+  // 2) Sort tasks y devolver estructura
+  for (const grp of propMap.values()) {
+    grp.tasks.sort((a,b) => {
+      const da = bzwParseAnyToDate(a.task?.finished_at || a.task?.scheduled_date)?.getTime() || 0;
+      const db = bzwParseAnyToDate(b.task?.finished_at || b.task?.scheduled_date)?.getTime() || 0;
+      return da - db;
+    });
+    grp.bookings = Array.from(grp.bookings.values());
+  }
+  // Sort propMap por nombre
+  return Array.from(propMap.values()).sort((a,b) => a.name.localeCompare(b.name, 'es'));
+}
+
+/** Render principal del calendario. */
+function bzwCalRender() {
+  const grid = document.getElementById('bzw-cal-grid');
+  const rangeEl = document.getElementById('bzw-cal-range');
+  const countEl = document.getElementById('bzw-cal-count');
+  if (!grid) return;
+  if (!BZW_CAL_WEEK_START) BZW_CAL_WEEK_START = bzwStartOfThisWeek();
+  const days = bzwCalWeekDays();
+  const todayIso = bzwIsoYmd(new Date());
+
+  if (rangeEl) {
+    const a = days[0], b = days[6];
+    rangeEl.textContent = `${BZW_DIAS_ABBR[a.getDay()]} ${BZW_MES_NOMBRE[a.getMonth()].slice(0,3)}. ${a.getDate()} – ${BZW_DIAS_ABBR[b.getDay()]} ${BZW_MES_NOMBRE[b.getMonth()].slice(0,3)}. ${b.getDate()}, ${b.getFullYear()}`;
+  }
+
+  const propsArr = bzwCalBuildPropMap();
+  if (countEl) countEl.textContent = `${propsArr.length} propiedades · ${propsArr.reduce((s,p)=>s+p.tasks.length,0)} tareas`;
+
+  if (!propsArr.length) {
+    grid.innerHTML = `<div style="padding:40px 20px;text-align:center;color:#94a3b8;font-style:italic">No hay tareas ni reservaciones en esta semana. Cambia el rango con ‹ › o sincroniza desde la lista.</div>`;
+    return;
+  }
+
+  // Encabezado: 1 celda vacía + 7 días
+  const headHtml = `
+    <div class="bzw-cal-head" style="display:contents">
+      <div style="background:#f8fafc;padding:10px 12px;border-bottom:1.5px solid #e2e8f0">Propiedades</div>
+      ${days.map(d => {
+        const iso = bzwIsoYmd(d);
+        const isToday = iso === todayIso;
+        return `<div class="bzw-cal-daycol ${isToday ? 'bzw-cal-today' : ''}">
+          <div class="bzw-cal-dayname">${esc(BZW_DIAS_SEMANA[d.getDay()])}</div>
+          <div class="bzw-cal-daydate">${BZW_MES_NOMBRE[d.getMonth()]} ${d.getDate()}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  // Filas
+  const rowsHtml = propsArr.map(prop => bzwCalRowHtml(prop, days, todayIso)).join('');
+  grid.innerHTML = `<div class="bzw-cal">${headHtml}${rowsHtml}</div>`;
+}
+
+/** HTML de una fila: prop cell + 7 celdas con reservaciones (en la primera
+ *  celda que las contiene, con span lateral) y task cards en su día. */
+function bzwCalRowHtml(prop, days, todayIso) {
+  // Próxima reserva (futura)
+  const today = new Date(); today.setHours(0,0,0,0);
+  let proxRes = '';
+  if (prop.bookings.length) {
+    const future = prop.bookings
+      .map(b => ({ b, d: bzwParseAnyToDate(b.DateArrival) }))
+      .filter(x => x.d && x.d >= today)
+      .sort((a, b) => a.d - b.d)[0];
+    if (future) {
+      const diasFalta = bzwDaysBetween(today, future.d);
+      proxRes = `Próxima reserva<br>${BZW_MES_NOMBRE[future.d.getMonth()].slice(0,3)} ${future.d.getDate()} (${diasFalta} d)`;
+    }
+  }
+  // Homologar nombre de propiedad si hay alguna booking matcheada (alojamientos)
+  const someBooking = prop.bookings[0];
+  const homol = someBooking && typeof lgPropOf === 'function' ? lgPropOf(someBooking) : '';
+  const propCell = `
+    <div class="bzw-cal-propcell">
+      <a class="bzw-cal-propname" href="#" onclick="event.preventDefault();return false">${esc(prop.name)}</a>
+      ${homol && homol !== '—' ? `<div class="bzw-cal-propsub">${esc(homol)}</div>` : ''}
+      ${proxRes ? `<div class="bzw-cal-propnext">${proxRes}</div>` : ''}
+    </div>`;
+
+  // Mapa día (YMD) → array de tasks
+  const tasksByDay = new Map();
+  for (const t of prop.tasks) {
+    const iso = (t.task?.finished_at || t.task?.scheduled_date || '').slice(0,10);
+    if (!iso) continue;
+    if (!tasksByDay.has(iso)) tasksByDay.set(iso, []);
+    tasksByDay.get(iso).push(t);
+  }
+
+  // Build celdas
+  const cells = days.map((d, idx) => {
+    const iso = bzwIsoYmd(d);
+    const isToday = iso === todayIso;
+    const tasksHere = tasksByDay.get(iso) || [];
+    return `<div class="bzw-cal-cell ${isToday ? 'bzw-cal-today' : ''}" data-day="${iso}" data-col="${idx}">
+      ${tasksHere.map(t => bzwCalTaskCardHtml(t)).join('')}
+    </div>`;
+  }).join('');
+
+  // Build barras de reservación: cada booking ocupa un rango grid-column.
+  // Apilamos barras una sobre otra (stacked) usando margin-top — son la
+  // primera cosa visible en la celda donde inician.
+  // Para simplicidad, las dibujo dentro de un <div> overlay absoluto.
+  const weekStart = days[0];
+  const weekEnd = new Date(days[6]); weekEnd.setHours(23,59,59,999);
+  const barsHtml = prop.bookings.map((b, i) => {
+    const arr = bzwParseAnyToDate(b.DateArrival);
+    const dep = bzwParseAnyToDate(b.DateDeparture);
+    if (!arr || !dep) return '';
+    // Recorta a la semana visible
+    const start = arr < weekStart ? weekStart : arr;
+    const end   = dep > weekEnd ? new Date(days[6]) : dep;
+    const colStart = bzwDaysBetween(weekStart, start) + 2; // +1 propCell, +1 1-indexed
+    const colEnd   = bzwDaysBetween(weekStart, end) + 3;    // exclusive
+    if (colEnd <= colStart) return '';
+    const clipLeft = arr < weekStart;
+    const clipRight = dep > weekEnd;
+    const label = `${b.Id} – ${b.GuestName || 'Sin nombre'}${b.Nights ? ` (${b.Nights}n)` : ''}`;
+    return `<div class="bzw-cal-resvbar ${clipLeft ? 'bzw-cal-resvbar-clip-left' : ''} ${clipRight ? 'bzw-cal-resvbar-clip-right' : ''}"
+                 style="grid-column:${colStart} / ${colEnd};margin-top:${4 + i*26}px"
+                 onclick="event.stopPropagation();bzwOpenReservationDetail('${esc(b.Id)}')"
+                 title="${esc(label)}">${esc(label)}</div>`;
+  }).join('');
+
+  // Las barras tienen que ir en el grid del row, dentro de una capa que las
+  // posicione con grid-column. Las renderizamos directamente como hermanas
+  // de las celdas — pero como están con grid-column 2..N, se sobreponen
+  // sin afectar las celdas.
+  return `<div class="bzw-cal-row" style="display:contents">${propCell}${cells}${barsHtml}</div>`;
+}
+
+/** Card de tarea dentro de una celda de día. */
+function bzwCalTaskCardHtml(t) {
+  const finished = !!t.task?.finished_at;
+  const taskName = t.task?.name || 'Tarea';
+  const assignee = t.task?.finished_by
+                 || (Array.isArray(t.raw?.assignments) && t.raw.assignments[0]?.name)
+                 || 'Sin asignar';
+  const dept = String(t.task?.type || t.raw?.type_department || '').toLowerCase();
+  const meta = BZW_DEPT_META[dept] || BZW_DEPT_META._default;
+  // "Tipo de tarea padre" arriba (ej. "Limpieza Checkout" o el nombre del template)
+  const parentName = t.raw?.task_tags?.[0]?.name || t.raw?.template_name || '';
+  const finishedTime = (() => {
+    if (!finished) return '';
+    const m = String(t.task.finished_at).match(/T(\d{2}):(\d{2})/);
+    if (m) {
+      // Calcula minutos relativos a "hace X min" si fue hoy — mejor mostrar la hora corta
+      return `${m[1]}:${m[2]}`;
+    }
+    return '';
+  })();
+  return `<div class="bzw-cal-taskcard ${finished ? 'bzw-cal-task-finished' : 'bzw-cal-task-pending'}"
+               onclick="bzwOpenTaskDetail('${esc(String(t.task?.id || ''))}')">
+    ${parentName ? `<div class="bzw-cal-taskcard-mini">${esc(parentName)}</div>` : ''}
+    <div class="bzw-cal-taskcard-name">${meta.emoji} ${esc(taskName)}</div>
+    <div class="bzw-cal-taskcard-assignee"><span class="bzw-cal-dot" style="background:${meta.border}"></span>${esc(assignee)}</div>
+    <div class="bzw-cal-taskcard-bottom">${finished ? (finishedTime || '✓') : 'Sin asignar'}</div>
+  </div>`;
+}
+
+// ═══════════ Panel deslizante de detalle ═══════════
+window.bzwOpenTaskDetail = function(taskId) {
+  const t = (BZW_ALL_TASKS || []).find(x => String(x.task?.id) === String(taskId));
+  if (!t) return;
+  bzwShowDetailPanel(bzwDetailHtmlForTask(t));
+};
+window.bzwOpenReservationDetail = function(lodgifyId) {
+  const b = (LG_STATE?.bookings || []).find(x => String(x.Id) === String(lodgifyId));
+  if (!b) {
+    // Fallback: busca cualquier task que tenga ese lodgify_id
+    const t = (BZW_ALL_TASKS || []).find(x =>
+      String(x.raw?.linked_reservation?.external_reservation_id || '') === String(lodgifyId));
+    if (t) return bzwOpenTaskDetail(t.task?.id);
+    return;
+  }
+  bzwShowDetailPanel(bzwDetailHtmlForBooking(b));
+};
+window.bzwCloseDetailPanel = function() {
+  const panel = document.getElementById('bzw-detail-panel');
+  const bk = document.getElementById('bzw-detail-backdrop');
+  if (panel) {
+    panel.classList.remove('bzw-detail-open');
+    setTimeout(() => { panel.classList.add('hidden'); panel.setAttribute('aria-hidden','true'); }, 280);
+  }
+  if (bk) bk.classList.add('hidden');
+};
+function bzwShowDetailPanel(html) {
+  const panel = document.getElementById('bzw-detail-panel');
+  const bk = document.getElementById('bzw-detail-backdrop');
+  if (!panel) return;
+  panel.innerHTML = html;
+  panel.classList.remove('hidden');
+  panel.setAttribute('aria-hidden','false');
+  if (bk) bk.classList.remove('hidden');
+  // Anima la entrada en el siguiente frame
+  requestAnimationFrame(() => panel.classList.add('bzw-detail-open'));
+}
+
+function bzwFmtFechaDetalle(s, withTime) {
+  const d = bzwParseAnyToDate(s);
+  if (!d) return '—';
+  const dayName = BZW_DIAS_ABBR[d.getDay()];
+  const mon = BZW_MES_NOMBRE[d.getMonth()].slice(0,3);
+  const datePart = `${dayName}, ${mon}. ${d.getDate()}`;
+  if (!withTime) return datePart;
+  const m = String(s).match(/T(\d{2}):(\d{2})/);
+  if (!m) return datePart;
+  let hh = +m[1], mm = m[2];
+  const ampm = hh >= 12 ? 'pm' : 'am';
+  hh = hh % 12 || 12;
+  return `${datePart} at ${hh}:${mm}${ampm}`;
+}
+
+function bzwDetailHtmlForBooking(b) {
+  // Tareas vinculadas: encuentra tasks de BZW_ALL_TASKS con linked_reservation = b.Id
+  const linkedTasks = (BZW_ALL_TASKS || []).filter(t =>
+    String(t.raw?.linked_reservation?.external_reservation_id || '') === String(b.Id));
+  const homol = typeof lgPropOf === 'function' ? lgPropOf(b) : '';
+  // Agrupa tasks por template_name o tag
+  const grouped = new Map();
+  for (const t of linkedTasks) {
+    const k = t.raw?.task_tags?.[0]?.name || t.task?.type || 'Tareas';
+    if (!grouped.has(k)) grouped.set(k, []);
+    grouped.get(k).push(t);
+  }
+  const groupsHtml = Array.from(grouped.entries()).map(([gname, ts]) => `
+    <div style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#475569;margin-bottom:6px">⛓ ${esc(gname)}</div>
+      ${ts.map(t => {
+        const finished = !!t.task?.finished_at;
+        const meta = BZW_DEPT_META[String(t.task?.type || '').toLowerCase()] || BZW_DEPT_META._default;
+        const dateRef = t.task?.finished_at || t.task?.scheduled_date;
+        const d = bzwParseAnyToDate(dateRef);
+        const dateTxt = d ? `${BZW_MES_NOMBRE[d.getMonth()].slice(0,3)}. ${d.getDate()}` : '—';
+        return `<div class="bzw-detail-tasklink ${finished ? 'bzw-detail-tasklink-finished' : ''}"
+                     onclick="bzwOpenTaskDetail('${esc(String(t.task?.id || ''))}')">
+          <span>${meta.emoji} ${esc(t.task?.name || 'Tarea')}</span>
+          <span class="bzw-detail-tasklink-date">${dateTxt}</span>
+        </div>`;
+      }).join('')}
+    </div>
+  `).join('');
+
+  const phone = b.GuestPhone ? `+${esc(b.GuestPhone)}` : '—';
+  const email = b.GuestEmail ? `<a href="mailto:${esc(b.GuestEmail)}">${esc(b.GuestEmail)}</a>` : '—';
+  return `
+    <header class="bzw-detail-header">
+      <div>
+        <div class="bzw-detail-title">${esc(b.GuestName || 'Huésped')}</div>
+        <div class="bzw-detail-subtitle">Reserva de huéspedes · ${Number(b.Nights)||0} noche${Number(b.Nights)===1?'':'s'}</div>
+      </div>
+      <button class="bzw-detail-close" onclick="bzwCloseDetailPanel()">×</button>
+    </header>
+    <section class="bzw-detail-section">
+      <div class="bzw-detail-section-title">📑 Reserva
+        <span style="margin-left:auto" class="bzw-detail-chip">Ocupado</span>
+      </div>
+      <div style="font-size:14px;font-weight:800;color:#0f172a">${esc(homol || b.HouseName || '—')}</div>
+      <div style="font-size:12px;color:#64748b;margin-top:2px">${esc(b.HouseName || '')}</div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Lodgify ID</span><span class="bzw-detail-row-value">${esc(b.Id)}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Llegada</span><span class="bzw-detail-row-value">${esc(bzwFmtFechaDetalle(b.DateArrival, true))}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Salida</span><span class="bzw-detail-row-value">${esc(bzwFmtFechaDetalle(b.DateDeparture, true))}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Huéspedes</span><span class="bzw-detail-row-value">${Number(b.NumberOfGuests)||'—'}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Teléfono Huésped</span><span class="bzw-detail-row-value">${phone}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Correo Huésped</span><span class="bzw-detail-row-value">${email}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Abrir en Gestión</span><span class="bzw-detail-row-value"><a href="#" onclick="event.preventDefault();bzwCloseDetailPanel();bzwGotoReservation('${esc(b.Id)}');return false">Ver reserva →</a></span></div>
+    </section>
+    <section class="bzw-detail-section">
+      <div class="bzw-detail-section-title">✅ Tareas vinculadas</div>
+      ${groupsHtml || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin tareas vinculadas en la bitácora actual.</div>'}
+    </section>
+    <section class="bzw-detail-section" style="border-bottom:none">
+      <div class="bzw-detail-section-title">⚠ Problemas reportados</div>
+      <div style="font-size:12px;color:#94a3b8;font-style:italic">No hay problemas reportados.</div>
+    </section>
+  `;
+}
+
+function bzwDetailHtmlForTask(t) {
+  // Si la task tiene linked_reservation, abre el panel de la booking
+  // (que ya tiene tareas vinculadas incluyendo ésta).
+  const lodId = t.raw?.linked_reservation?.external_reservation_id;
+  if (lodId) {
+    const b = (LG_STATE?.bookings || []).find(x => String(x.Id) === String(lodId));
+    if (b) return bzwDetailHtmlForBooking(b);
+  }
+  // Sin reserva ligada: panel resumido de la task sola
+  const meta = BZW_DEPT_META[String(t.task?.type || '').toLowerCase()] || BZW_DEPT_META._default;
+  const finished = !!t.task?.finished_at;
+  return `
+    <header class="bzw-detail-header">
+      <div>
+        <div class="bzw-detail-title">${meta.emoji} ${esc(t.task?.name || 'Tarea')}</div>
+        <div class="bzw-detail-subtitle">${esc(t.property?.name || '—')}</div>
+      </div>
+      <button class="bzw-detail-close" onclick="bzwCloseDetailPanel()">×</button>
+    </header>
+    <section class="bzw-detail-section">
+      <div class="bzw-detail-section-title">🧹 Detalle de la tarea</div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">ID</span><span class="bzw-detail-row-value">${esc(t.task?.id || '—')}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Departamento</span><span class="bzw-detail-row-value">${esc(meta.label)}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Programada</span><span class="bzw-detail-row-value">${esc(bzwFmtFechaDetalle(t.task?.scheduled_date))}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Terminada</span><span class="bzw-detail-row-value">${finished ? esc(bzwFmtFechaDetalle(t.task?.finished_at, true)) : '<span style="color:#f97316">Pendiente</span>'}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Realizada por</span><span class="bzw-detail-row-value">${esc(t.task?.finished_by || '—')}</span></div>
+    </section>
+  `;
+}
+
 window.bzwSubscribeAll = async function() {
   const types = ['task', 'property-status'];
   const summary = [];

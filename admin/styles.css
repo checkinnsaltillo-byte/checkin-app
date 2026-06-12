@@ -2773,3 +2773,329 @@ input[type="checkbox"].lg-multi-cb {
 }
 
 /* (Slider dual de fechas removido; ahora se usan dos <input type="date">.) */
+
+/* ═══════════ Calendario Breezeway ═══════════ */
+.bzw-cal {
+  display: grid;
+  grid-template-columns: 220px repeat(7, minmax(140px, 1fr));
+  min-width: 1180px;
+  font-size: 12px;
+  color: #0f172a;
+}
+.bzw-cal-head {
+  display: contents;
+}
+.bzw-cal-head > div {
+  background: #f8fafc;
+  padding: 10px 12px;
+  border-bottom: 1.5px solid #e2e8f0;
+  font-weight: 700;
+  color: #64748b;
+  font-size: 11px;
+  letter-spacing: .02em;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.bzw-cal-head .bzw-cal-daycol {
+  text-align: center;
+  border-left: 1px solid #f1f5f9;
+}
+.bzw-cal-head .bzw-cal-daycol > .bzw-cal-dayname {
+  font-size: 11px;
+  color: #94a3b8;
+  text-transform: lowercase;
+}
+.bzw-cal-head .bzw-cal-daycol > .bzw-cal-daydate {
+  font-size: 13px;
+  color: #0ea5e9;
+  font-weight: 800;
+  margin-top: 2px;
+}
+.bzw-cal-row {
+  display: contents;
+}
+.bzw-cal-row > .bzw-cal-propcell {
+  padding: 14px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+.bzw-cal-row > .bzw-cal-propcell .bzw-cal-propname {
+  color: #0ea5e9;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1.25;
+  text-decoration: none;
+  display: block;
+}
+.bzw-cal-row > .bzw-cal-propcell .bzw-cal-propsub {
+  color: #64748b;
+  font-size: 11px;
+  margin-top: 3px;
+}
+.bzw-cal-row > .bzw-cal-propcell .bzw-cal-propnext {
+  color: #64748b;
+  font-size: 11px;
+  margin-top: 10px;
+  font-style: normal;
+}
+.bzw-cal-cell {
+  border-bottom: 1px solid #e2e8f0;
+  border-left: 1px solid #f1f5f9;
+  background: #fff;
+  position: relative;
+  min-height: 110px;
+  padding: 6px 4px 4px;
+}
+.bzw-cal-cell.bzw-cal-today {
+  background: #f0f9ff;
+}
+.bzw-cal-head .bzw-cal-today {
+  background: #e0f2fe;
+}
+/* Barra de reservación: spans columnas con grid-column inline-style */
+.bzw-cal-resvbar {
+  height: 22px;
+  margin: 2px 0 4px;
+  background: repeating-linear-gradient(135deg, #e2e8f0 0 6px, #f1f5f9 6px 12px);
+  border-radius: 4px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: #475569;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+}
+.bzw-cal-resvbar:hover {
+  background: repeating-linear-gradient(135deg, #cbd5e1 0 6px, #e2e8f0 6px 12px);
+}
+.bzw-cal-resvbar.bzw-cal-resvbar-clip-left::before {
+  content: "‹";
+  display: inline-block;
+  margin-right: 4px;
+  font-weight: 900;
+  color: #94a3b8;
+}
+.bzw-cal-resvbar.bzw-cal-resvbar-clip-right::after {
+  content: "›";
+  display: inline-block;
+  margin-left: auto;
+  font-weight: 900;
+  color: #94a3b8;
+}
+/* Card de tarea dentro de un día */
+.bzw-cal-taskcard {
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px 0;
+  margin: 4px 2px;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 1px 3px rgba(15,23,42,.04);
+  transition: box-shadow 160ms, transform 160ms;
+}
+.bzw-cal-taskcard:hover {
+  box-shadow: 0 4px 12px rgba(15,23,42,.10);
+  transform: translateY(-1px);
+}
+.bzw-cal-taskcard-mini {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 700;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.bzw-cal-taskcard-name {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.bzw-cal-taskcard-assignee {
+  font-size: 11px;
+  color: #475569;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.bzw-cal-taskcard-assignee .bzw-cal-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #06b6d4;
+}
+.bzw-cal-taskcard-bottom {
+  margin: 6px -10px 0;
+  padding: 4px 10px;
+  border-radius: 0 0 6px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-align: right;
+}
+.bzw-cal-taskcard.bzw-cal-task-finished .bzw-cal-taskcard-bottom {
+  background: #16a34a;
+}
+.bzw-cal-taskcard.bzw-cal-task-pending .bzw-cal-taskcard-bottom {
+  background: #f97316;
+}
+
+/* ═══════════ Panel deslizante de detalle ═══════════ */
+.bzw-detail-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, .25);
+  z-index: 9998;
+  opacity: 1;
+  transition: opacity 220ms;
+}
+.bzw-detail-backdrop.hidden {
+  display: none;
+}
+.bzw-detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 440px;
+  max-width: 92vw;
+  height: 100vh;
+  background: #fff;
+  box-shadow: -8px 0 24px rgba(15, 23, 42, .12);
+  z-index: 9999;
+  overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform 280ms cubic-bezier(.16, 1, .3, 1);
+}
+.bzw-detail-panel.bzw-detail-open {
+  transform: translateX(0);
+}
+.bzw-detail-panel.hidden {
+  display: none;
+}
+.bzw-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.bzw-detail-title {
+  font-size: 19px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.2;
+}
+.bzw-detail-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+  font-weight: 600;
+}
+.bzw-detail-close {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.bzw-detail-close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.bzw-detail-section {
+  padding: 14px 20px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.bzw-detail-section-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bzw-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 13px;
+}
+.bzw-detail-row-label {
+  color: #64748b;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.bzw-detail-row-value {
+  color: #0f172a;
+  font-weight: 700;
+  text-align: right;
+  word-break: break-word;
+}
+.bzw-detail-row-value a {
+  color: #0d9488;
+  text-decoration: none;
+}
+.bzw-detail-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 11px;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #6ee7b7;
+}
+.bzw-detail-tasklink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9a3412;
+  cursor: pointer;
+}
+.bzw-detail-tasklink.bzw-detail-tasklink-finished {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #047857;
+}
+.bzw-detail-tasklink-date {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+@media (max-width: 1100px) {
+  .bzw-cal { min-width: 980px; }
+}
