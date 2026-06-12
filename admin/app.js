@@ -14995,6 +14995,26 @@ function bzwFmtFechaCorta(iso) {
   if (!m) return iso;
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
+/** Formatea un rango "MM/DD/YYYY"→"MM/DD/YYYY" o "YYYY-MM-DD"→"YYYY-MM-DD"
+ *  a "{D} {mes3} - {D} {mes3}" (ej. "2 jun - 16 jun").  Si ambos son del
+ *  mismo mes, no repite el mes: "2 - 16 jun". */
+const BZW_MESES_ABBR = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function bzwParseDateAny(s) {
+  const t = String(s || '').trim();
+  let m;
+  if ((m = t.match(/^(\d{4})-(\d{2})-(\d{2})/))) return { y: +m[1], m: +m[2]-1, d: +m[3] };
+  if ((m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return { y: +m[3], m: +m[1]-1, d: +m[2] };
+  return null;
+}
+function bzwFmtRangoFechas(from, to) {
+  const a = bzwParseDateAny(from), b = bzwParseDateAny(to);
+  if (!a || !b) return '';
+  const aFmt = `${a.d} ${BZW_MESES_ABBR[a.m]}`;
+  const bFmt = `${b.d} ${BZW_MESES_ABBR[b.m]}`;
+  if (a.y === b.y && a.m === b.m) return `${a.d} - ${b.d} ${BZW_MESES_ABBR[a.m]}`;
+  return `${aFmt} - ${bFmt}`;
+}
+
 function bzwRelativo(iso) {
   if (!iso) return '';
   const t = new Date(iso).getTime();
@@ -15026,20 +15046,31 @@ function bzwRenderAlertItem(a) {
                  || '';
   let matchedBooking = null;
   let matchedHuesped = null;
+  let homolPropName = ''; // Nombre homologado (Calle Oaxaca - #1) — para subtitle
+  let resvDateArrival = '', resvDateDeparture = '', resvNights = 0, resvGuestName = '';
   if (lodgifyId) {
     matchedBooking = (LG_STATE?.bookings || []).find(b => String(b.Id) === String(lodgifyId)) || null;
     matchedHuesped = (HU_STATE?.rows || []).find(x => String(x['Lodgify Id'] || '').trim() === String(lodgifyId)) || null;
-    // Si hay match, override propiedad con la versión homologada del catálogo "alojamientos"
-    if (matchedBooking && typeof lgPropOf === 'function') {
-      const homol = lgPropOf(matchedBooking);
-      if (homol && homol !== '—') propName = homol;
-    } else if (matchedHuesped && typeof lgFmtPropiedad === 'function') {
-      const homol = lgFmtPropiedad({
-        propiedad: matchedHuesped['Propiedad'] || '',
-        departamento: matchedHuesped['# Departamento'] || ''
-      });
-      if (homol && homol !== '—') propName = homol;
+    if (matchedBooking) {
+      if (typeof lgPropOf === 'function') homolPropName = lgPropOf(matchedBooking) || '';
+      resvDateArrival   = matchedBooking.DateArrival   || '';
+      resvDateDeparture = matchedBooking.DateDeparture || '';
+      resvNights = Number(matchedBooking.Nights) || 0;
+      resvGuestName = matchedBooking.GuestName || '';
+    } else if (matchedHuesped) {
+      if (typeof lgFmtPropiedad === 'function') {
+        homolPropName = lgFmtPropiedad({
+          propiedad: matchedHuesped['Propiedad'] || '',
+          departamento: matchedHuesped['# Departamento'] || ''
+        }) || '';
+      }
+      resvDateArrival   = matchedHuesped['Fecha de ingreso'] || '';
+      resvDateDeparture = matchedHuesped['Fecha de salida']  || '';
+      resvNights = Number(matchedHuesped['# Noches']) || 0;
+      resvGuestName = matchedHuesped['Nombre de la persona que hizo la reservación']
+                   || matchedHuesped['Nombre del huésped'] || '';
     }
+    if (homolPropName === '—') homolPropName = '';
   }
   // Fechas
   const whenIso = t.finished_at || t.scheduled_date || raw.created_at || a.last_updated;
@@ -15055,9 +15086,18 @@ function bzwRenderAlertItem(a) {
     : `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:800;font-size:11px;border:1.5px solid #fca5a5;box-shadow:0 1px 3px rgba(220,38,38,.18);letter-spacing:.02em">✗ Pendiente</span>`;
   const prio = String(raw.type_priority || '').toLowerCase();
   const pMeta = BZW_PRIORITY_META[prio];
-  const chipPriority = pMeta
-    ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:${pMeta.bg};color:${pMeta.fg};font-weight:800;font-size:10px;border:1px solid ${pMeta.border}"><span style="font-size:9px">${pMeta.emoji}</span>${pMeta.label}</span>`
-    : '';
+  // Semáforo visual de prioridad (3 círculos apilados, solo el activo
+  // se muestra a 100% de opacidad).
+  const semHigh = prio === 'high'   ? 1 : .18;
+  const semMid  = prio === 'medium' ? 1 : .18;
+  const semLow  = prio === 'low'    ? 1 : .18;
+  const chipPriority = prio ? `
+    <span title="Prioridad: ${esc(pMeta?.label || prio)}"
+          style="display:inline-flex;flex-direction:column;gap:2px;padding:3px 5px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;align-items:center;line-height:0;vertical-align:middle">
+      <span style="display:block;width:9px;height:9px;border-radius:50%;background:#dc2626;opacity:${semHigh};transition:opacity 200ms"></span>
+      <span style="display:block;width:9px;height:9px;border-radius:50%;background:#eab308;opacity:${semMid}"></span>
+      <span style="display:block;width:9px;height:9px;border-radius:50%;background:#16a34a;opacity:${semLow}"></span>
+    </span>` : '';
   const chipPaused = raw.paused
     ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:800;font-size:10px;border:1px solid #fde68a">⏸ Pausada</span>`
     : '';
@@ -15129,7 +15169,13 @@ function bzwRenderAlertItem(a) {
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap">
         <div style="min-width:0;flex:1">
           <div style="font-size:16px;font-weight:900;color:#0f172a;line-height:1.2;letter-spacing:-.005em">🏠 ${esc(propName)}</div>
-          <div style="font-size:12px;color:#475569;font-weight:600;margin-top:3px">📅 ${esc(whenLargo)}${whenRel ? ` <span style="color:#94a3b8;font-weight:500"> · ${esc(whenRel)}</span>` : ''}</div>
+          ${matchedBooking || matchedHuesped ? `
+            ${homolPropName ? `<div style="font-size:12px;color:#0f766e;font-weight:700;margin-top:3px">🗺️ ${esc(homolPropName)}</div>` : ''}
+            ${(resvDateArrival && resvDateDeparture) ? `<div style="font-size:12px;color:#475569;font-weight:600;margin-top:2px">${esc(bzwFmtRangoFechas(resvDateArrival, resvDateDeparture))}${resvNights > 0 ? ` <span style="color:#7c3aed;font-weight:700">· 🌙 ${resvNights} noche${resvNights===1?'':'s'}</span>` : ''}</div>` : ''}
+            ${resvGuestName ? `<div style="font-size:12px;color:#475569;font-weight:600;margin-top:2px">👤 Creado por: <b style="color:#0f172a">${esc(resvGuestName)}</b></div>` : ''}
+          ` : `
+            <div style="font-size:12px;color:#475569;font-weight:600;margin-top:3px">📅 ${esc(whenLargo)}${whenRel ? ` <span style="color:#94a3b8;font-weight:500"> · ${esc(whenRel)}</span>` : ''}</div>
+          `}
           <div style="font-size:12px;color:${meta.fg};font-weight:700;margin-top:2px">${meta.emoji} ${esc(taskName)}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;min-width:130px">
