@@ -15499,22 +15499,47 @@ function bzwCalBuildPropMap() {
     return propMap.get(name);
   };
 
-  // 1) Tasks de Breezeway en el rango
+  // PASO A) Mapa global booking → propiedad Breezeway (con TODAS las tasks,
+  // no solo las de la semana visible). Necesario para mostrar barras de
+  // reservaciones cuyo checkout está fuera de la semana pero la estancia sí
+  // la cruza.
+  const bookingToProperty = new Map(); // lodgifyId → propName
   for (const t of (BZW_ALL_TASKS || [])) {
     const propName = t.property?.name;
     if (!propName) continue;
-    const dateIso = t.task?.finished_at || t.task?.scheduled_date;
+    const lodId = t.raw?.linked_reservation?.external_reservation_id
+               || t.raw?.linked_reservation?.external_id;
+    if (lodId && !bookingToProperty.has(String(lodId))) {
+      bookingToProperty.set(String(lodId), propName);
+    }
+  }
+
+  // PASO B) Tasks de Breezeway en el rango — UBICADAS POR scheduled_date
+  // (Fecha límite — la fecha en que la tarea debe hacerse, normalmente el
+  // checkout). Antes usábamos finished_at, lo cual movía las cards al día
+  // de ejecución y no al día programado.
+  for (const t of (BZW_ALL_TASKS || [])) {
+    const propName = t.property?.name;
+    if (!propName) continue;
+    const dateIso = t.task?.scheduled_date || t.task?.finished_at;
     const d = bzwParseAnyToDate(dateIso);
     if (!d || d < weekStart || d > weekEnd) continue;
     const grp = ensure(propName, t.property?.id);
     grp.tasks.push(t);
-    // Booking asociado vía linked_reservation
-    const lodId = t.raw?.linked_reservation?.external_reservation_id
-               || t.raw?.linked_reservation?.external_id;
-    if (lodId) {
-      const b = (LG_STATE?.bookings || []).find(bk => String(bk.Id) === String(lodId));
-      if (b) grp.bookings.set(String(b.Id), b);
-    }
+  }
+
+  // PASO C) Bookings que tocan la semana visible: cualquiera cuyo
+  // [DateArrival, DateDeparture] interseca con [weekStart, weekEnd]. Se
+  // asignan a la propiedad Breezeway vía el mapa global.
+  for (const b of (LG_STATE?.bookings || [])) {
+    const propName = bookingToProperty.get(String(b.Id));
+    if (!propName) continue;
+    const arr = bzwParseAnyToDate(b.DateArrival);
+    const dep = bzwParseAnyToDate(b.DateDeparture);
+    if (!arr || !dep) continue;
+    if (dep < weekStart || arr > weekEnd) continue; // sin overlap
+    const grp = ensure(propName, null);
+    grp.bookings.set(String(b.Id), b);
   }
 
   // 2) Sort tasks y devolver estructura
@@ -15553,10 +15578,10 @@ function bzwCalRender() {
     return;
   }
 
-  // Encabezado: 1 celda vacía + 7 días
+  // Encabezado: 1 celda vacía (corner — sticky en ambos ejes) + 7 días
   const headHtml = `
     <div class="bzw-cal-head" style="display:contents">
-      <div style="background:#f8fafc;padding:10px 12px;border-bottom:1.5px solid #e2e8f0">Propiedades</div>
+      <div class="bzw-cal-corner">Propiedades</div>
       ${days.map(d => {
         const iso = bzwIsoYmd(d);
         const isToday = iso === todayIso;

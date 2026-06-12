@@ -2775,6 +2775,14 @@ input[type="checkbox"].lg-multi-cb {
 /* (Slider dual de fechas removido; ahora se usan dos <input type="date">.) */
 
 /* ═══════════ Calendario Breezeway ═══════════ */
+/* Contenedor con scroll en ambos ejes; el grid interno usa sticky para
+   fijar la primera columna (left:0) y el header (top:0). */
+#bzw-cal-grid {
+  max-height: calc(100vh - 280px);
+  min-height: 420px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
 .bzw-cal {
   display: grid;
   grid-template-columns: 220px repeat(7, minmax(140px, 1fr));
@@ -2796,6 +2804,12 @@ input[type="checkbox"].lg-multi-cb {
   position: sticky;
   top: 0;
   z-index: 3;
+}
+/* Esquina superior-izquierda: por encima del header normal Y de la primera
+   columna sticky, para que no quede tapada al hacer scroll en ambos ejes. */
+.bzw-cal-head > div.bzw-cal-corner {
+  left: 0;
+  z-index: 5;
 }
 .bzw-cal-head .bzw-cal-daycol {
   text-align: center;

@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema Financiero | Check Inn Saltillo</title>
-  <link rel="stylesheet" href="styles.css?v=88">
+  <link rel="stylesheet" href="styles.css?v=89">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1214,8 +1214,9 @@
           <span id="bzw-cal-range" style="font-size:13px;color:#475569;font-weight:700;margin-left:6px">—</span>
           <span style="margin-left:auto;font-size:11px;color:#94a3b8;font-style:italic" id="bzw-cal-count">—</span>
         </div>
-        <!-- Grid del calendario (se renderiza dinámicamente) -->
-        <div id="bzw-cal-grid" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,.04);overflow:auto"></div>
+        <!-- Grid del calendario (se renderiza dinámicamente).
+             max-height + overflow se definen en CSS para que sticky funcione. -->
+        <div id="bzw-cal-grid" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,.04)"></div>
       </div>
 
       <!-- Panel lateral de detalle (slide-in desde la derecha) -->
@@ -1373,6 +1374,6 @@
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="app.js?v=246"></script>
+  <script src="app.js?v=247"></script>
 </body>
 </html>
