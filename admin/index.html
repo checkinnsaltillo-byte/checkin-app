@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema Financiero | Check Inn Saltillo</title>
-  <link rel="stylesheet" href="styles.css?v=90">
+  <link rel="stylesheet" href="styles.css?v=91">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1125,38 +1125,24 @@
         </div>
       </div>
 
-      <!-- Filtros (siempre visibles, se pueblan dinámicamente) -->
+      <!-- Filtros multi-select (siempre visibles, se pueblan dinámicamente) -->
       <div id="bzw-filters" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:12px 18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(15,23,42,.04)">
         <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
           <div>
             <label style="display:block;font-size:10px;color:#64748b;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Status</label>
-            <select id="bzw-f-status" onchange="bzwApplyFilters()" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;color:#0f172a;background:#fff;min-width:140px">
-              <option value="">Todos</option>
-              <option value="finished">✓ Finalizada</option>
-              <option value="pending">✗ Pendiente</option>
-            </select>
+            <div id="bzw-f-status" class="bzw-filt"></div>
           </div>
           <div>
             <label style="display:block;font-size:10px;color:#64748b;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Tipo de task</label>
-            <select id="bzw-f-dept" onchange="bzwApplyFilters()" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;color:#0f172a;background:#fff;min-width:160px">
-              <option value="">Todos</option>
-              <option value="housekeeping">Aseo</option>
-              <option value="maintenance">Mantenimiento</option>
-              <option value="inspection">Inspección</option>
-              <option value="safety">Seguridad</option>
-            </select>
+            <div id="bzw-f-dept" class="bzw-filt"></div>
           </div>
           <div>
             <label style="display:block;font-size:10px;color:#64748b;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Propiedad</label>
-            <select id="bzw-f-prop" onchange="bzwApplyFilters()" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;color:#0f172a;background:#fff;min-width:200px;max-width:280px">
-              <option value="">Todas</option>
-            </select>
+            <div id="bzw-f-prop" class="bzw-filt"></div>
           </div>
           <div>
             <label style="display:block;font-size:10px;color:#64748b;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Asignaciones</label>
-            <select id="bzw-f-assign" onchange="bzwApplyFilters()" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;color:#0f172a;background:#fff;min-width:180px;max-width:260px">
-              <option value="">Todas</option>
-            </select>
+            <div id="bzw-f-assign" class="bzw-filt"></div>
           </div>
           <button onclick="bzwResetFilters()" style="padding:6px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#64748b;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">✕ Limpiar</button>
           <div style="margin-left:auto;font-size:12px;color:#64748b" id="bzw-filter-count">—</div>
@@ -1374,6 +1360,6 @@
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="app.js?v=252"></script>
+  <script src="app.js?v=253"></script>
 </body>
 </html>

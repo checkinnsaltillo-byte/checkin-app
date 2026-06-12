@@ -15036,14 +15036,31 @@ const BZW_PRIORITY_META = {
   urgent:  { label: 'Urgente',     color: '#dc2626', fg: '#991b1b', bg: '#fee2e2', border: '#fca5a5' },
 };
 
-function bzwFmtFechaLargo(iso) {
+function bzwFmtFechaLargo(iso, opts) {
   if (!iso) return '—';
-  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/);
-  if (!m) return String(iso);
+  const s = String(iso);
+  const dateOnly = opts === true || (opts && opts.dateOnly);
   const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  // Si trae marca de zona (Z o ±HH:MM) y tiene hora, convertimos a hora
+  // LOCAL del navegador (la sheet guarda en UTC; el usuario está en CDMX
+  // UTC-6 — sin esta conversión veía "17:27" cuando en local era "11:27").
+  if (!dateOnly && /T\d{2}:\d{2}/.test(s) && /(Z|[+\-]\d{2}:?\d{2})$/.test(s)) {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      const dia = d.getDate();
+      const mes = meses[d.getMonth()] || '';
+      const yyyy = d.getFullYear();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      return `${dia} de ${mes} ${yyyy} · ${hh}:${mm}`;
+    }
+  }
+  // Solo fecha (o iso sin TZ marker)
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/);
+  if (!m) return s;
   const dia = parseInt(m[3], 10);
   const mes = meses[parseInt(m[2], 10) - 1] || '';
-  const hora = m[4] ? ` · ${m[4]}:${m[5]}` : '';
+  const hora = (!dateOnly && m[4]) ? ` · ${m[4]}:${m[5]}` : '';
   return `${dia} de ${mes} ${m[1]}${hora}`;
 }
 function bzwFmtFechaCorta(iso) {
@@ -15085,7 +15102,8 @@ function bzwRelativo(iso) {
   return `hace ${Math.floor(diff/86400/30)} meses`;
 }
 
-function bzwRenderAlertItem(a) {
+function bzwRenderAlertItem(a, opts) {
+  const isToday = !!(opts && opts.isToday);
   const t = a.task || {};
   const raw = a.raw || {};
   const dept = String(t.type || raw.type_department || '').toLowerCase();
@@ -15161,9 +15179,23 @@ function bzwRenderAlertItem(a) {
     ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:800;font-size:10px;border:1px solid #fde68a">⏸ Pausada</span>`
     : '';
   const finishedBy = t.finished_by || raw.finished_by?.name;
-  const chipFinishedBy = finishedBy
-    ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#f1f5f9;color:#0f172a;font-weight:700;font-size:10px;border:1px solid #cbd5e1">👤 ${esc(finishedBy)}</span>`
-    : '';
+  // Asignaciones: nombres distintos sin status para mostrar en chip cuando
+  // todavía no haya "Realizada por". Si más de 2, abrevia: "Juan, María +1".
+  const assignNames = Array.isArray(raw.assignments)
+    ? Array.from(new Set(raw.assignments.map(x => x?.full_name || x?.name).filter(Boolean)))
+    : [];
+  const assignDisplay = assignNames.length <= 2
+    ? assignNames.join(', ')
+    : `${assignNames.slice(0,2).join(', ')} +${assignNames.length - 2}`;
+  // Chip que vive en la columna DERECHA del encabezado (arriba del status):
+  //   - Si finishedBy → 👤 Realizada por: X
+  //   - Si no, y hay asignaciones → 👥 Asignaciones: X
+  let chipHeaderRight = '';
+  if (finishedBy) {
+    chipHeaderRight = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;background:#f1f5f9;color:#0f172a;font-weight:700;font-size:11px;border:1px solid #cbd5e1;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis" title="Realizada por: ${esc(finishedBy)}">👤 ${esc(finishedBy)}</span>`;
+  } else if (assignDisplay) {
+    chipHeaderRight = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:11px;border:1px solid #fdba74;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis" title="Asignaciones: ${esc(assignNames.join(', '))}">👥 ${esc(assignDisplay)}</span>`;
+  }
   // Chip de enlace a la reservación en Gestión de Reservas.
   // Si tenemos match Lodgify, es clickeable y abre el detalle.
   // Si no tenemos match (Reservaciones no llega tan atrás), muestra el ID como referencia visual.
@@ -15200,7 +15232,7 @@ function bzwRenderAlertItem(a) {
     ${fld('Departamento', `${meta.emoji} <b>${esc(meta.label)}</b>`)}
     ${pMeta ? fld('Prioridad', `${pMeta.emoji} <b style="color:${pMeta.fg}">${esc(pMeta.label)}</b>`) : ''}
     ${fld('Propiedad', `🏠 ${esc(propName)}${propId ? ` <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:10px;color:#64748b">${esc(propId)}</code>` : ''}`)}
-    ${fld('Programada', raw.scheduled_date ? `📅 ${bzwFmtFechaLargo(raw.scheduled_date)}${raw.scheduled_time ? ' · ' + esc(raw.scheduled_time) : ''}` : '—')}
+    ${fld('Programada', raw.scheduled_date ? `📅 ${bzwFmtFechaLargo(raw.scheduled_date, true)}${raw.scheduled_time ? ' · ' + esc(raw.scheduled_time) : ''}` : '—')}
     ${fld('Iniciada', raw.started_at ? `▶ ${bzwFmtFechaLargo(raw.started_at)}` : '—')}
     ${fld('Terminada', t.finished_at ? `✓ ${bzwFmtFechaLargo(t.finished_at)}` : '—')}
     ${fld('Realizada por', finishedBy ? `👤 <b>${esc(finishedBy)}</b>` : '—')}
@@ -15218,49 +15250,67 @@ function bzwRenderAlertItem(a) {
   // ─── Card final (mismo lenguaje visual de Gestión de Reservas) ───
   // Fecha límite (scheduled_date) — formato corto: "8 jun 2026"
   const fechaLimiteIso = raw.scheduled_date || t.scheduled_date || '';
-  const fechaLimiteTxt = fechaLimiteIso ? bzwFmtFechaLargo(fechaLimiteIso) : '—';
+  const fechaLimiteTxt = fechaLimiteIso ? bzwFmtFechaLargo(fechaLimiteIso, true) : '—';
+  // Convierte hora UTC a HH:MM local para el "Time completed" del header
+  // (antes mostraba la hora en UTC, descuadrada del huso del usuario).
+  const finishedTimeLocal = (() => {
+    if (!t.finished_at) return '—';
+    const d = new Date(t.finished_at);
+    if (isNaN(d.getTime())) return '—';
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  })();
+  const finishedDateLocal = (() => {
+    if (!t.finished_at) return '—';
+    const d = new Date(t.finished_at);
+    if (isNaN(d.getTime())) return bzwFmtFechaCorta(t.finished_at);
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  })();
+  // Chevron rotativo: ▸ cuando colapsado, ▾ cuando abierto. CSS aplica la
+  // rotación con [open] selector.
+  const chevron = `<span class="bzw-list-chev" aria-hidden="true">▸</span>`;
   return `
-    <details class="bzw-list-card"
-         style="background:#fff;border:1.5px solid #e2e8f0;border-left:7px solid ${meta.border};border-radius:12px;padding:0;margin-bottom:10px;box-shadow:0 2px 6px rgba(15,23,42,.05);transition:box-shadow 180ms cubic-bezier(.16,1,.3,1)"
-         onmouseover="this.style.boxShadow='0 4px 12px rgba(15,23,42,.10)'"
-         onmouseout="this.style.boxShadow='0 2px 6px rgba(15,23,42,.05)'">
-      <summary style="list-style:none;cursor:pointer;padding:12px 14px;display:block;outline:none" class="bzw-list-card-summary">
-      <!-- Top: chips (Status se movió al lado derecho del header) -->
-      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-        ${chipDept}${chipPriority}${chipPaused}${chipFinishedBy}${chipReserva}
+    <details class="bzw-list-card ${isToday ? 'bzw-list-card-today' : ''}"
+         style="border-left:7px solid ${meta.border}">
+      <summary class="bzw-list-card-summary">
+      <!-- Top: chips (Status + Asignaciones/Realizada por se movieron a la derecha del header) -->
+      <div class="bzw-list-card-topchips">
+        ${chevron}${chipDept}${chipPriority}${chipPaused}${chipReserva}
       </div>
-      <!-- Centro: PROPIEDAD como título (izq) + Status + Date/Time Completed (der) -->
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap">
-        <div style="min-width:0;flex:1">
-          <div style="font-size:16px;font-weight:900;color:#0f172a;line-height:1.2;letter-spacing:-.005em">🏠 ${esc(propName)}</div>
-          <div style="font-size:12px;color:#475569;font-weight:700;margin-top:4px">📅 Fecha límite: <b style="color:#0f172a">${esc(fechaLimiteTxt)}</b></div>
+      <!-- Centro: PROPIEDAD como título (izq) + Asignaciones + Status + Date/Time (der) -->
+      <div class="bzw-list-card-row">
+        <div class="bzw-list-card-left">
+          <div class="bzw-list-card-title">🏠 ${esc(propName)}</div>
+          <div class="bzw-list-card-sub" style="color:#475569;font-weight:700">📅 Fecha límite: <b style="color:#0f172a">${esc(fechaLimiteTxt)}</b></div>
           ${matchedBooking || matchedHuesped ? `
-            ${homolPropName ? `<div style="font-size:12px;color:#0f766e;font-weight:700;margin-top:3px">🗺️ ${esc(homolPropName)}</div>` : ''}
-            ${(resvDateArrival && resvDateDeparture) ? `<div style="font-size:12px;color:#475569;font-weight:600;margin-top:2px">${esc(bzwFmtRangoFechas(resvDateArrival, resvDateDeparture))}${resvNights > 0 ? ` <span style="color:#7c3aed;font-weight:700">· 🌙 ${resvNights} noche${resvNights===1?'':'s'}</span>` : ''}</div>` : ''}
-            ${resvGuestName ? `<div style="font-size:12px;color:#475569;font-weight:600;margin-top:2px">👤 Nombre del huésped: <b style="color:#0f172a">${esc(resvGuestName)}</b></div>` : ''}
+            ${homolPropName ? `<div class="bzw-list-card-sub" style="color:#0f766e;font-weight:700">🗺️ ${esc(homolPropName)}</div>` : ''}
+            ${(resvDateArrival && resvDateDeparture) ? `<div class="bzw-list-card-sub" style="color:#475569;font-weight:600">${esc(bzwFmtRangoFechas(resvDateArrival, resvDateDeparture))}${resvNights > 0 ? ` <span style="color:#7c3aed;font-weight:700">· 🌙 ${resvNights} noche${resvNights===1?'':'s'}</span>` : ''}</div>` : ''}
+            ${resvGuestName ? `<div class="bzw-list-card-sub" style="color:#475569;font-weight:600">👤 Nombre del huésped: <b style="color:#0f172a">${esc(resvGuestName)}</b></div>` : ''}
           ` : ''}
-          <div style="font-size:12px;color:${meta.fg};font-weight:700;margin-top:2px">${meta.emoji} ${esc(taskName)}</div>
+          <div class="bzw-list-card-sub" style="color:${meta.fg};font-weight:700">${meta.emoji} ${esc(taskName)}</div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;min-width:130px">
+        <div class="bzw-list-card-right">
+          ${chipHeaderRight}
           ${chipStatusBig}
           ${finished ? `
             <div style="text-align:right;line-height:1.2">
               <div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase">Date completed</div>
-              <div style="font-size:12px;color:#0f172a;font-weight:800">${esc(bzwFmtFechaCorta(t.finished_at))}</div>
+              <div style="font-size:12px;color:#0f172a;font-weight:800">${esc(finishedDateLocal)}</div>
               <div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-top:4px">Time completed</div>
-              <div style="font-size:12px;color:#0f172a;font-weight:800">${esc((t.finished_at||'').match(/T(\d{2}:\d{2})/)?.[1] || '—')}</div>
+              <div style="font-size:12px;color:#0f172a;font-weight:800">${esc(finishedTimeLocal)}</div>
             </div>` : `
             <div style="text-align:right;line-height:1.2">
               <div style="font-size:10px;color:#94a3b8;font-style:italic">Sin fecha de completado</div>
               ${raw.scheduled_date ? `<div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-top:4px;letter-spacing:.04em">Programada</div>
               <div style="font-size:12px;color:#0f172a;font-weight:700">${esc(bzwFmtFechaCorta(raw.scheduled_date))}${raw.scheduled_time ? ' · ' + esc(raw.scheduled_time) : ''}</div>` : ''}
             </div>`}
-          ${reportUrl ? `<a href="${esc(reportUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:999px;background:#ecfdf5;color:#047857;font-weight:800;font-size:10px;border:1px solid #6ee7b7;text-decoration:none;white-space:nowrap;margin-top:4px">📄 Reporte</a>` : ''}
+          ${reportUrl ? `<button type="button" onclick="event.stopPropagation();event.preventDefault();bzwOpenReportPanel('${esc(reportUrl)}','${esc(taskName)}','${esc(propName)}')"
+              class="bzw-list-card-reportbtn"
+              title="Ver reporte de Breezeway en panel lateral">📄 Reporte</button>` : ''}
         </div>
       </div>
       </summary>
       <!-- Detalle: tabla de payload (se despliega al oprimir el encabezado) -->
-      <div style="padding:0 14px 12px;margin-top:-2px;border-top:1px dashed #e2e8f0">
+      <div class="bzw-list-card-body">
         ${tableHtml}
       </div>
     </details>`;
@@ -15271,8 +15321,21 @@ let BZW_LAST_HISTORY = null;
 // Snapshot completo (sin filtrar) para poder filtrar localmente sin re-fetch.
 let BZW_ALL_TASKS = [];
 
-/** Repuebla los <select> de filtros con los valores únicos presentes en
- *  BZW_ALL_TASKS. Se invoca tras cada importación. */
+// ─── Multi-select filter state ───
+// Cada id mantiene: { all: [...todos los valores posibles], selected: Set, labels: Map }
+// "selected" = Set vacío → ninguno; Set con todos los all → todos.
+const BZW_FILT_STATE = {
+  'bzw-f-status': { all: ['finished','pending'],
+                    labels: new Map([['finished','✓ Finalizada'],['pending','✗ Pendiente']]) },
+  'bzw-f-dept':   { all: ['housekeeping','maintenance','inspection','safety'],
+                    labels: new Map([['housekeeping','🧹 Aseo'],['maintenance','🔧 Mantenimiento'],
+                                     ['inspection','🔍 Inspección'],['safety','🛡️ Seguridad']]) },
+  'bzw-f-prop':   { all: [], labels: new Map() },
+  'bzw-f-assign': { all: [], labels: new Map() },
+};
+// Inicializa selected como "todos"
+Object.values(BZW_FILT_STATE).forEach(s => { s.selected = new Set(s.all); });
+
 function bzwRebuildFilterOptions() {
   const tasks = BZW_ALL_TASKS;
   const depts = new Set();
@@ -15284,34 +15347,97 @@ function bzwRebuildFilterOptions() {
     if (dept) depts.add(dept);
     const propName = t.property?.name;
     if (propName) props.add(propName);
-    // Asignaciones: cada task tiene un array de personas asignadas
     for (const a of (raw.assignments || [])) {
-      const nm = (a.name || '').trim();
+      const nm = (a.full_name || a.name || '').trim();
       if (nm) assigns.add(nm);
     }
     const fb = t.task?.finished_by;
     if (fb) assigns.add(fb);
   }
-  const populate = (id, values, allLabel = 'Todos') => {
-    const sel = document.getElementById(id);
-    if (!sel) return;
-    const cur = sel.value;
-    const opts = [`<option value="">${allLabel}</option>`]
-      .concat([...values].sort((a,b)=>a.localeCompare(b,'es')).map(v =>
-        `<option value="${esc(v)}">${esc(BZW_DEPT_META[v]?.label || v)}</option>`));
-    sel.innerHTML = opts.join('');
-    if (cur && [...values].includes(cur)) sel.value = cur;
-  };
-  populate('bzw-f-dept',   depts, 'Todos');
-  populate('bzw-f-prop',   props, 'Todas');
-  populate('bzw-f-assign', assigns, 'Todas');
+  // Repuebla state para los dinámicos
+  BZW_FILT_STATE['bzw-f-dept'].all = [...depts].sort((a,b) => a.localeCompare(b,'es'));
+  BZW_FILT_STATE['bzw-f-prop'].all = [...props].sort((a,b) => a.localeCompare(b,'es'));
+  BZW_FILT_STATE['bzw-f-prop'].labels = new Map([...props].map(p => [p, p]));
+  BZW_FILT_STATE['bzw-f-assign'].all = [...assigns].sort((a,b) => a.localeCompare(b,'es'));
+  BZW_FILT_STATE['bzw-f-assign'].labels = new Map([...assigns].map(a => [a, a]));
+  // Si state.selected NO incluye alguno de los all (porque era vacío al inicio),
+  // marcamos todos por default — comportamiento "Todos" inicial.
+  ['bzw-f-dept','bzw-f-prop','bzw-f-assign'].forEach(id => {
+    const s = BZW_FILT_STATE[id];
+    const wasAll = s.selected.size === 0 || s.selected.size === s.all.length;
+    if (wasAll) s.selected = new Set(s.all);
+  });
+  // Render widgets
+  ['bzw-f-status','bzw-f-dept','bzw-f-prop','bzw-f-assign'].forEach(bzwFiltRender);
   const box = document.getElementById('bzw-filters');
   if (box) box.classList.remove('hidden');
 }
 
+function bzwFiltRender(id) {
+  const el = document.getElementById(id);
+  const s = BZW_FILT_STATE[id];
+  if (!el || !s) return;
+  const total = s.all.length;
+  const sel = s.selected.size;
+  const label = sel === total ? 'Todos' : sel === 0 ? 'Ninguno' : `${sel} de ${total}`;
+  const opts = s.all.map(v => {
+    const checked = s.selected.has(v) ? 'checked' : '';
+    const txt = s.labels.get(v) || v;
+    return `<label class="bzw-filt-opt">
+      <input type="checkbox" value="${esc(v)}" ${checked} onchange="bzwFiltToggle('${id}','${esc(v)}')">
+      <span>${esc(txt)}</span>
+    </label>`;
+  }).join('');
+  el.innerHTML = `
+    <button type="button" class="bzw-filt-btn" onclick="event.stopPropagation();bzwFiltTogglePop('${id}')">
+      <span>${esc(label)}</span>
+    </button>
+    <div class="bzw-filt-pop hidden" id="${id}-pop">
+      <div class="bzw-filt-actions">
+        <button type="button" class="bzw-filt-action" onclick="bzwFiltSetAll('${id}')">✓ Todos</button>
+        <button type="button" class="bzw-filt-action" onclick="bzwFiltSetNone('${id}')">✕ Ninguno</button>
+      </div>
+      ${opts || '<div style="padding:8px;font-size:11px;color:#94a3b8;font-style:italic">Sin opciones</div>'}
+    </div>`;
+}
+
+window.bzwFiltTogglePop = function(id) {
+  // Cierra todos los demás
+  document.querySelectorAll('.bzw-filt-pop').forEach(p => {
+    if (p.id !== `${id}-pop`) p.classList.add('hidden');
+  });
+  const p = document.getElementById(`${id}-pop`);
+  if (p) p.classList.toggle('hidden');
+};
+window.bzwFiltToggle = function(id, value) {
+  const s = BZW_FILT_STATE[id]; if (!s) return;
+  if (s.selected.has(value)) s.selected.delete(value); else s.selected.add(value);
+  bzwFiltRender(id);
+  bzwApplyFilters();
+};
+window.bzwFiltSetAll = function(id) {
+  const s = BZW_FILT_STATE[id]; if (!s) return;
+  s.selected = new Set(s.all);
+  bzwFiltRender(id);
+  bzwApplyFilters();
+};
+window.bzwFiltSetNone = function(id) {
+  const s = BZW_FILT_STATE[id]; if (!s) return;
+  s.selected = new Set();
+  bzwFiltRender(id);
+  bzwApplyFilters();
+};
+// Cerrar pop al click fuera
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.bzw-filt')) {
+    document.querySelectorAll('.bzw-filt-pop').forEach(p => p.classList.add('hidden'));
+  }
+});
+
 window.bzwResetFilters = function() {
-  ['bzw-f-status','bzw-f-dept','bzw-f-prop','bzw-f-assign'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
+  Object.entries(BZW_FILT_STATE).forEach(([id, s]) => {
+    s.selected = new Set(s.all); // todos seleccionados = sin filtro
+    bzwFiltRender(id);
   });
   bzwApplyFilters();
 };
@@ -15343,24 +15469,42 @@ function bzwTaskFechaIso(t) {
 
 window.bzwApplyFilters = function() {
   if (!BZW_ALL_TASKS.length) return;
-  const status = document.getElementById('bzw-f-status')?.value || '';
-  const dept   = document.getElementById('bzw-f-dept')?.value   || '';
-  const prop   = document.getElementById('bzw-f-prop')?.value   || '';
-  const assign = document.getElementById('bzw-f-assign')?.value || '';
+  // Helper: si el Set está vacío → "Ninguno" (no pasa nada); si tiene tantos
+  // como el total → "Todos" (no filtra); cualquier otro → filtra por miembros.
+  const setOf = (id) => BZW_FILT_STATE[id]?.selected || new Set();
+  const allOf = (id) => BZW_FILT_STATE[id]?.all || [];
+  const isAll = (id) => setOf(id).size === allOf(id).length && allOf(id).length > 0;
+  const passes = (id, value) => {
+    const sel = setOf(id);
+    if (sel.size === 0) return false;          // ninguno → todo se filtra
+    if (isAll(id)) return true;                // todos → no filtra
+    return sel.has(value);
+  };
   const filtered = BZW_ALL_TASKS.filter(t => {
     const raw = t.raw || {};
-    if (status === 'finished' && !t.task?.finished_at) return false;
-    if (status === 'pending'  &&  t.task?.finished_at) return false;
-    if (dept) {
-      const td = String(t.task?.type || raw.type_department || '');
-      if (td !== dept) return false;
-    }
-    if (prop && t.property?.name !== prop) return false;
-    if (assign) {
+    // Status
+    const statusVal = t.task?.finished_at ? 'finished' : 'pending';
+    if (!passes('bzw-f-status', statusVal)) return false;
+    // Depto
+    const dept = String(t.task?.type || raw.type_department || '');
+    if (!passes('bzw-f-dept', dept)) return false;
+    // Propiedad
+    const propVal = t.property?.name || '';
+    if (!passes('bzw-f-prop', propVal)) return false;
+    // Asignaciones — la task pasa si CUALQUIERA de sus asignados/realizada-por
+    // está dentro del set seleccionado.
+    const assignSet = setOf('bzw-f-assign');
+    const assignAll = isAll('bzw-f-assign');
+    if (assignSet.size === 0) return false;
+    if (!assignAll) {
       const names = new Set();
-      for (const a of (raw.assignments || [])) if (a.name) names.add(a.name);
+      for (const a of (raw.assignments || [])) {
+        const nm = a.full_name || a.name;
+        if (nm) names.add(nm);
+      }
       if (t.task?.finished_by) names.add(t.task.finished_by);
-      if (!names.has(assign)) return false;
+      const intersect = [...names].some(n => assignSet.has(n));
+      if (!intersect) return false;
     }
     return true;
   });
@@ -15400,13 +15544,11 @@ window.bzwApplyFilters = function() {
     </div>`;
   const today = todayTasks.length
     ? `${header('📍 Hoy', todayTasks.length, '#dc2626')}
-       <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:10px 12px;margin-bottom:14px">
-         ${todayTasks.map(bzwRenderAlertItem).join('')}
-       </div>`
+       ${todayTasks.map(t => bzwRenderAlertItem(t, { isToday: true })).join('')}`
     : '';
   const past = pastTasks.length
     ? `${header('📚 Anteriores', pastTasks.length, '#64748b')}
-       ${pastTasks.map(bzwRenderAlertItem).join('')}`
+       ${pastTasks.map(t => bzwRenderAlertItem(t, { isToday: false })).join('')}`
     : '';
   if (list) list.innerHTML = today + past;
 };
@@ -15768,6 +15910,28 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
   // Sin task seleccionada (vino del click en la barra de reservación).
   bzwShowDetailPanel(bzwDetailHtmlForBooking(b, null));
 };
+/** Abre el panel lateral con el reporte de Breezeway embebido en iframe.
+ *  Si el iframe es bloqueado por X-Frame-Options o CSP, mostramos un
+ *  fallback con link "Abrir en pestaña nueva". */
+window.bzwOpenReportPanel = function(url, taskName, propName) {
+  if (!url) return;
+  const html = `
+    <header class="bzw-detail-header">
+      <div>
+        <div class="bzw-detail-title">📄 Reporte</div>
+        <div class="bzw-detail-subtitle">${esc(taskName || '')} · ${esc(propName || '')}</div>
+      </div>
+      <button class="bzw-detail-close" onclick="bzwCloseDetailPanel()">×</button>
+    </header>
+    <iframe class="bzw-report-frame" src="${esc(url)}" loading="lazy"
+            referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+    <div class="bzw-report-fallback">
+      Si el reporte no carga en este panel (Breezeway puede bloquear el embed):
+      <a href="${esc(url)}" target="_blank" rel="noopener" style="color:#0d9488;font-weight:800;text-decoration:none">📂 Abrir en nueva pestaña →</a>
+    </div>`;
+  bzwShowDetailPanel(html);
+};
+
 window.bzwCloseDetailPanel = function() {
   const panel = document.getElementById('bzw-detail-panel');
   const bk = document.getElementById('bzw-detail-backdrop');
@@ -15790,13 +15954,29 @@ function bzwShowDetailPanel(html) {
 }
 
 function bzwFmtFechaDetalle(s, withTime) {
-  const d = bzwParseAnyToDate(s);
+  if (!s) return '—';
+  const str = String(s);
+  // Si trae marca de TZ y queremos hora → convertir a hora LOCAL.
+  if (withTime && /T\d{2}:\d{2}/.test(str) && /(Z|[+\-]\d{2}:?\d{2})$/.test(str)) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const dayName = BZW_DIAS_ABBR[d.getDay()];
+      const mon = BZW_MES_NOMBRE[d.getMonth()].slice(0,3);
+      const datePart = `${dayName}, ${mon}. ${d.getDate()}`;
+      let hh = d.getHours();
+      const mm = String(d.getMinutes()).padStart(2,'0');
+      const ampm = hh >= 12 ? 'pm' : 'am';
+      hh = hh % 12 || 12;
+      return `${datePart} at ${hh}:${mm}${ampm}`;
+    }
+  }
+  const d = bzwParseAnyToDate(str);
   if (!d) return '—';
   const dayName = BZW_DIAS_ABBR[d.getDay()];
   const mon = BZW_MES_NOMBRE[d.getMonth()].slice(0,3);
   const datePart = `${dayName}, ${mon}. ${d.getDate()}`;
   if (!withTime) return datePart;
-  const m = String(s).match(/T(\d{2}):(\d{2})/);
+  const m = str.match(/T(\d{2}):(\d{2})/);
   if (!m) return datePart;
   let hh = +m[1], mm = m[2];
   const ampm = hh >= 12 ? 'pm' : 'am';

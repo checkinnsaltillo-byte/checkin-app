@@ -2774,13 +2774,226 @@ input[type="checkbox"].lg-multi-cb {
 
 /* (Slider dual de fechas removido; ahora se usan dos <input type="date">.) */
 
-/* Card de la lista (<details>) — oculta el triángulo nativo del summary */
-.bzw-list-card > summary { list-style: none; outline: none; }
+/* Card de la lista (<details>) — diseño consistente con Gestión de Reservas. */
+.bzw-list-card {
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 6px rgba(15,23,42,.05);
+  transition: box-shadow 180ms cubic-bezier(.16,1,.3,1),
+              background-color 200ms ease,
+              transform 160ms ease;
+}
+.bzw-list-card:hover {
+  box-shadow: 0 4px 12px rgba(15,23,42,.10);
+}
+.bzw-list-card > summary {
+  list-style: none;
+  outline: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  display: block;
+  border-radius: 10px 10px 0 0;
+  transition: background-color 200ms ease;
+}
 .bzw-list-card > summary::-webkit-details-marker { display: none; }
 .bzw-list-card > summary::marker { display: none; }
-.bzw-list-card[open] > summary {
-  border-bottom: 1px dashed transparent;
+
+/* Card de HOY: fondo rojizo CLARO en el encabezado (no en wrapper) */
+.bzw-list-card-today > summary {
+  background: #fef2f2;
 }
+/* Cuando se despliega (open): tonalidad más intensa */
+.bzw-list-card[open] > summary {
+  background: #f1f5f9;
+}
+.bzw-list-card-today[open] > summary {
+  background: #fee2e2;
+}
+.bzw-list-card[open] {
+  box-shadow: 0 6px 18px rgba(15,23,42,.12);
+  transform: translateY(-1px);
+}
+
+/* Chevron rotativo (colapsado ▸ / abierto ▾ con rotación de 90°) */
+.bzw-list-chev {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid #cbd5e1;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  margin-right: 4px;
+  transition: transform 220ms cubic-bezier(.16,1,.3,1), border-color 200ms, background-color 200ms;
+}
+.bzw-list-card[open] .bzw-list-chev {
+  transform: rotate(90deg);
+  border-color: #94a3b8;
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Layout interno del card */
+.bzw-list-card-topchips {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.bzw-list-card-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.bzw-list-card-left {
+  min-width: 0;
+  flex: 1;
+}
+.bzw-list-card-title {
+  font-size: 16px;
+  font-weight: 900;
+  color: #0f172a;
+  line-height: 1.2;
+  letter-spacing: -.005em;
+}
+.bzw-list-card-sub {
+  font-size: 12px;
+  margin-top: 3px;
+}
+.bzw-list-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  flex-shrink: 0;
+  min-width: 130px;
+  max-width: 220px;
+}
+.bzw-list-card-reportbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+  font-weight: 800;
+  font-size: 10px;
+  border: 1px solid #6ee7b7;
+  white-space: nowrap;
+  margin-top: 4px;
+  cursor: pointer;
+  transition: background-color 160ms, box-shadow 160ms;
+}
+.bzw-list-card-reportbtn:hover {
+  background: #d1fae5;
+  box-shadow: 0 2px 6px rgba(5,150,105,.20);
+}
+.bzw-list-card-body {
+  padding: 0 14px 12px;
+  margin-top: -2px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+/* iframe del reporte dentro del panel lateral */
+.bzw-detail-panel iframe.bzw-report-frame {
+  width: 100%;
+  height: calc(100vh - 130px);
+  border: none;
+  display: block;
+}
+.bzw-detail-panel .bzw-report-fallback {
+  padding: 14px 20px;
+  font-size: 12px;
+  color: #64748b;
+  border-top: 1px solid #e2e8f0;
+  background: #fafbfc;
+}
+
+/* Multi-select filter (Status/Depto/Propiedad/Asignaciones) */
+.bzw-filt {
+  position: relative;
+  display: inline-block;
+}
+.bzw-filt-btn {
+  padding: 6px 12px 6px 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #0f172a;
+  background: #fff;
+  cursor: pointer;
+  min-width: 150px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-weight: 700;
+}
+.bzw-filt-btn:hover { border-color: #94a3b8; }
+.bzw-filt-btn::after {
+  content: "▾";
+  font-size: 9px;
+  color: #94a3b8;
+}
+.bzw-filt-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  min-width: 220px;
+  max-width: 320px;
+  max-height: 320px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15,23,42,.12);
+  padding: 6px;
+}
+.bzw-filt-pop.hidden { display: none; }
+.bzw-filt-actions {
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px 6px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 4px;
+}
+.bzw-filt-action {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.bzw-filt-action:hover { background: #e2e8f0; }
+.bzw-filt-opt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #0f172a;
+  cursor: pointer;
+  user-select: none;
+}
+.bzw-filt-opt:hover { background: #f1f5f9; }
+.bzw-filt-opt input { margin: 0; }
 
 /* ═══════════ Calendario Breezeway ═══════════ */
 /* Contenedor con scroll en ambos ejes; el grid interno usa sticky para
