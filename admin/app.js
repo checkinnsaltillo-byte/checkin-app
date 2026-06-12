@@ -14972,11 +14972,16 @@ const BZW_DEPT_META = {
   safety:       { label: 'Seguridad',     emoji: '🛡️', bg: '#fef2f2', border: '#dc2626', fg: '#991b1b', chipBg: '#fecaca' },
   _default:     { label: 'Tarea',         emoji: '📝', bg: '#f8fafc', border: '#94a3b8', fg: '#475569', chipBg: '#e2e8f0' },
 };
-// Paletas por PRIORIDAD
+// Paletas por PRIORIDAD — Breezeway tiene 5 niveles (orden ascendente):
+// lowest, low, normal, high, urgent. La cuenta del usuario sólo usa 3 (normal,
+// high, urgent) pero soportamos los 5 para robustez. Etiquetas en español.
+const BZW_PRIORITY_LEVELS = ['lowest','low','normal','high','urgent'];
 const BZW_PRIORITY_META = {
-  high:    { label: 'Alta',   emoji: '🔴', bg: '#fef2f2', fg: '#991b1b', border: '#fca5a5' },
-  medium:  { label: 'Media',  emoji: '🟡', bg: '#fef3c7', fg: '#92400e', border: '#fde68a' },
-  low:     { label: 'Baja',   emoji: '🟢', bg: '#dcfce7', fg: '#166534', border: '#86efac' },
+  lowest:  { label: 'El más bajo', color: '#22c55e', fg: '#15803d', bg: '#dcfce7', border: '#86efac' },
+  low:     { label: 'Bajo',        color: '#84cc16', fg: '#3f6212', bg: '#ecfccb', border: '#bef264' },
+  normal:  { label: 'Mediano',     color: '#eab308', fg: '#854d0e', bg: '#fef3c7', border: '#fde68a' },
+  high:    { label: 'Alto',        color: '#f97316', fg: '#9a3412', bg: '#ffedd5', border: '#fdba74' },
+  urgent:  { label: 'Urgente',     color: '#dc2626', fg: '#991b1b', bg: '#fee2e2', border: '#fca5a5' },
 };
 
 function bzwFmtFechaLargo(iso) {
@@ -15086,17 +15091,19 @@ function bzwRenderAlertItem(a) {
     : `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:800;font-size:11px;border:1.5px solid #fca5a5;box-shadow:0 1px 3px rgba(220,38,38,.18);letter-spacing:.02em">✗ Pendiente</span>`;
   const prio = String(raw.type_priority || '').toLowerCase();
   const pMeta = BZW_PRIORITY_META[prio];
-  // Semáforo visual de prioridad (3 círculos apilados, solo el activo
-  // se muestra a 100% de opacidad).
-  const semHigh = prio === 'high'   ? 1 : .18;
-  const semMid  = prio === 'medium' ? 1 : .18;
-  const semLow  = prio === 'low'    ? 1 : .18;
+  // Semáforo HORIZONTAL de prioridad: 5 círculos en fila (del menor al
+  // mayor). Solo el activo se ve sólido; los demás al 18 %. Etiqueta en
+  // español a la derecha con el color del nivel.
+  const semDots = BZW_PRIORITY_LEVELS.map(lvl => {
+    const m = BZW_PRIORITY_META[lvl];
+    const active = lvl === prio;
+    return `<span style="display:block;width:9px;height:9px;border-radius:50%;background:${m.color};opacity:${active ? 1 : .18};${active ? 'box-shadow:0 0 0 2px '+m.color+'40;' : ''}transition:opacity 200ms"></span>`;
+  }).join('');
   const chipPriority = prio ? `
     <span title="Prioridad: ${esc(pMeta?.label || prio)}"
-          style="display:inline-flex;flex-direction:column;gap:2px;padding:3px 5px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;align-items:center;line-height:0;vertical-align:middle">
-      <span style="display:block;width:9px;height:9px;border-radius:50%;background:#dc2626;opacity:${semHigh};transition:opacity 200ms"></span>
-      <span style="display:block;width:9px;height:9px;border-radius:50%;background:#eab308;opacity:${semMid}"></span>
-      <span style="display:block;width:9px;height:9px;border-radius:50%;background:#16a34a;opacity:${semLow}"></span>
+          style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px 3px 6px;border-radius:999px;border:1px solid ${pMeta?.border || '#cbd5e1'};background:${pMeta?.bg || '#f8fafc'};vertical-align:middle">
+      <span style="display:inline-flex;align-items:center;gap:3px;line-height:0">${semDots}</span>
+      <span style="font-size:10px;font-weight:800;color:${pMeta?.fg || '#475569'};letter-spacing:.02em">${esc(pMeta?.label || prio)}</span>
     </span>` : '';
   const chipPaused = raw.paused
     ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:800;font-size:10px;border:1px solid #fde68a">⏸ Pausada</span>`
@@ -15172,7 +15179,7 @@ function bzwRenderAlertItem(a) {
           ${matchedBooking || matchedHuesped ? `
             ${homolPropName ? `<div style="font-size:12px;color:#0f766e;font-weight:700;margin-top:3px">🗺️ ${esc(homolPropName)}</div>` : ''}
             ${(resvDateArrival && resvDateDeparture) ? `<div style="font-size:12px;color:#475569;font-weight:600;margin-top:2px">${esc(bzwFmtRangoFechas(resvDateArrival, resvDateDeparture))}${resvNights > 0 ? ` <span style="color:#7c3aed;font-weight:700">· 🌙 ${resvNights} noche${resvNights===1?'':'s'}</span>` : ''}</div>` : ''}
-            ${resvGuestName ? `<div style="font-size:12px;color:#475569;font-weight:600;margin-top:2px">👤 Creado por: <b style="color:#0f172a">${esc(resvGuestName)}</b></div>` : ''}
+            ${resvGuestName ? `<div style="font-size:12px;color:#475569;font-weight:600;margin-top:2px">👤 Nombre del huésped: <b style="color:#0f172a">${esc(resvGuestName)}</b></div>` : ''}
           ` : `
             <div style="font-size:12px;color:#475569;font-weight:600;margin-top:3px">📅 ${esc(whenLargo)}${whenRel ? ` <span style="color:#94a3b8;font-weight:500"> · ${esc(whenRel)}</span>` : ''}</div>
           `}
