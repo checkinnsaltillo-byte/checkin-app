@@ -298,6 +298,11 @@ function flatAlertForSheet(a) {
     priority:      a.raw?.type_priority ?? "",
     status:        a.raw?.status ?? "",
     detail:        a.detail ?? a.title ?? "",
+    // ─── Nuevas columnas (4 fechas extra) ───
+    created_at:    a.raw?.created_at ?? a.task?.created_at ?? "",
+    updated_at:    a.raw?.updated_at ?? a.task?.updated_at ?? "",
+    arrival_date:  a._arrival_date ?? "",   // poblado por bootstrap via lookup Lodgify
+    departure_date: a._departure_date ?? "",
     raw_json:      JSON.stringify(a.raw || a),
   };
 }
@@ -428,6 +433,12 @@ export function registerBreezewayRoutes(app) {
             finished_at: r.finished_at,
             finished_by: r.finished_by,
             status: r.status,
+            // Si el sheet trae las nuevas columnas, las pasamos para que
+            // el frontend pueda mostrarlas sin volver a buscar en LG_STATE.
+            created_at: r.created_at || undefined,
+            updated_at: r.updated_at || undefined,
+            arrival_date: r.arrival_date || undefined,
+            departure_date: r.departure_date || undefined,
           },
           raw: r.raw || (() => { try { return JSON.parse(r.raw_json || "{}"); } catch (_) { return {}; } })(),
           // Campo extra para que la UI sepa que vino del sheet
@@ -731,38 +742,77 @@ export function registerBreezewayRoutes(app) {
     try {
       const fromIso = String(req.query?.from || "2026-01-01");
       const toIso   = String(req.query?.to   || new Date().toISOString().slice(0,10));
+      // Por default filtramos por scheduled_date (Fecha límite) — así las
+      // tasks PENDIENTES de hoy también se incluyen aunque aún no tengan
+      // finished_at. Antes el default era finished_at, lo que excluía
+      // completamente todo lo que estuviera en curso o por hacerse.
+      const key = String(req.query?.key || "scheduled_date");
       const url = process.env.CHECKIN_WEB_APP_URL;
       if (!url) return res.status(500).json({ ok:false, error:"CHECKIN_WEB_APP_URL no configurado." });
 
       // Reutilizamos /tasks armando la query interna.
       const port = process.env.PORT || 8080;
-      const tasksRes = await fetch(`http://127.0.0.1:${port}/api/breezeway/tasks?from=${fromIso}&to=${toIso}`);
+      const tasksRes = await fetch(`http://127.0.0.1:${port}/api/breezeway/tasks?from=${fromIso}&to=${toIso}&key=${key}`);
       const tasksData = await tasksRes.json();
       if (!tasksData.ok) return res.status(500).json({ ok:false, error:"fetch tasks falló", inner: tasksData });
       const tasks = tasksData.tasks || [];
       if (!tasks.length) return res.json({ ok:true, inserted:0, scanned:0, message:"Sin tasks en el rango." });
 
+      // Lookup de bookings Lodgify para enriquecer con Fecha entrada/salida.
+      // 1 sola llamada al Apps Script para todos los bookings; se construye
+      // un mapa lodgifyId → {arrival, departure}.
+      let bookingsMap = new Map();
+      try {
+        const r = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "lodgify_list" }),
+          redirect: "follow",
+        });
+        const j = await r.json().catch(() => ({}));
+        const rows = Array.isArray(j.rows) ? j.rows : Array.isArray(j.reservations) ? j.reservations : [];
+        for (const b of rows) {
+          const id = String(b.Id || b.id || b["Lodgify Id"] || "").trim();
+          if (!id) continue;
+          bookingsMap.set(id, {
+            arrival:   b.DateArrival   || b["Fecha de ingreso"] || "",
+            departure: b.DateDeparture || b["Fecha de salida"]  || "",
+          });
+        }
+        console.log(`📚 Lodgify lookup: ${bookingsMap.size} bookings indexados`);
+      } catch (e) {
+        console.warn("⚠️ No se pudo cargar Lodgify para enriquecer fechas:", e?.message || e);
+      }
+
       // Aplanar al schema del sheet.
-      const flat = tasks.map(t => ({
-        event_type:    t.event_type || (t.task?.finished_at ? "task-completed" : "task"),
-        kind:          t.kind || "task-historical",
-        task_id:       t.task?.id ?? "",
-        task_name:     t.task?.name ?? "",
-        task_type:     t.task?.type ?? "",
-        scheduled_date: t.task?.scheduled_date ?? "",
-        finished_at:   t.task?.finished_at ?? "",
-        finished_by:   t.task?.finished_by ?? "",
-        home_id:       t.property?.id ?? "",
-        property_name: t.property?.name ?? "",
-        lodgify_id:    t.raw?.linked_reservation?.external_reservation_id
-                    || t.raw?.linked_reservation?.external_id
-                    || "",
-        priority:      t.raw?.type_priority ?? "",
-        status:        t.raw?.status ?? "",
-        detail:        t.title || "",
-        raw_json:      JSON.stringify(t.raw || {}),
-        received_at:   t.task?.finished_at || t.task?.scheduled_date || new Date().toISOString(),
-      }));
+      const flat = tasks.map(t => {
+        const lodId = t.raw?.linked_reservation?.external_reservation_id
+                   || t.raw?.linked_reservation?.external_id
+                   || "";
+        const booking = lodId ? bookingsMap.get(String(lodId)) : null;
+        return {
+          event_type:    t.event_type || (t.task?.finished_at ? "task-completed" : "task"),
+          kind:          t.kind || "task-historical",
+          task_id:       t.task?.id ?? "",
+          task_name:     t.task?.name ?? "",
+          task_type:     t.task?.type ?? "",
+          scheduled_date: t.task?.scheduled_date ?? "",
+          finished_at:   t.task?.finished_at ?? "",
+          finished_by:   t.task?.finished_by ?? "",
+          home_id:       t.property?.id ?? "",
+          property_name: t.property?.name ?? "",
+          lodgify_id:    lodId,
+          priority:      t.raw?.type_priority ?? "",
+          status:        t.raw?.status ?? "",
+          detail:        t.title || "",
+          created_at:    t.raw?.created_at ?? "",
+          updated_at:    t.raw?.updated_at ?? "",
+          arrival_date:  booking?.arrival   || "",
+          departure_date: booking?.departure || "",
+          raw_json:      JSON.stringify(t.raw || {}),
+          received_at:   t.task?.finished_at || t.task?.scheduled_date || new Date().toISOString(),
+        };
+      });
       // Bloques de 500 para no pasar el límite de payload + ejecución de
       // Apps Script (6 min). 500 × 4 = 2000, dentro del budget.
       const CHUNK = 500;
