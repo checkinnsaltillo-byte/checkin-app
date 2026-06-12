@@ -2774,6 +2774,14 @@ input[type="checkbox"].lg-multi-cb {
 
 /* (Slider dual de fechas removido; ahora se usan dos <input type="date">.) */
 
+/* Card de la lista (<details>) — oculta el triángulo nativo del summary */
+.bzw-list-card > summary { list-style: none; outline: none; }
+.bzw-list-card > summary::-webkit-details-marker { display: none; }
+.bzw-list-card > summary::marker { display: none; }
+.bzw-list-card[open] > summary {
+  border-bottom: 1px dashed transparent;
+}
+
 /* ═══════════ Calendario Breezeway ═══════════ */
 /* Contenedor con scroll en ambos ejes; el grid interno usa sticky para
    fijar la primera columna (left:0) y el header (top:0). */
@@ -2783,61 +2791,78 @@ input[type="checkbox"].lg-multi-cb {
   overflow: auto;
   overscroll-behavior: contain;
 }
+/* Reestructurado: cada fila es un grid independiente (220px prop + 1fr body).
+   El body de cada fila apila bars EN LA PARTE SUPERIOR + cells abajo, así
+   nunca se solapan y las cards de tasks viven únicamente en sus celdas
+   de día (no aparecen en la columna de propiedades). */
 .bzw-cal {
-  display: grid;
-  grid-template-columns: 220px repeat(7, minmax(140px, 1fr));
   min-width: 1180px;
   font-size: 12px;
   color: #0f172a;
+  display: block;
 }
-.bzw-cal-head {
-  display: contents;
+.bzw-cal-headstrip,
+.bzw-cal-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
 }
-.bzw-cal-head > div {
-  background: #f8fafc;
-  padding: 10px 12px;
-  border-bottom: 1.5px solid #e2e8f0;
-  font-weight: 700;
-  color: #64748b;
-  font-size: 11px;
-  letter-spacing: .02em;
+.bzw-cal-headstrip {
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: 4;
+  background: #f8fafc;
+  border-bottom: 1.5px solid #e2e8f0;
 }
-/* Esquina superior-izquierda: por encima del header normal Y de la primera
-   columna sticky, para que no quede tapada al hacer scroll en ambos ejes. */
-.bzw-cal-head > div.bzw-cal-corner {
+.bzw-cal-corner {
+  position: sticky;
   left: 0;
-  z-index: 5;
+  z-index: 6;
+  background: #f8fafc;
+  padding: 10px 12px;
+  font-weight: 800;
+  color: #64748b;
+  font-size: 11px;
+  letter-spacing: .04em;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
 }
-.bzw-cal-head .bzw-cal-daycol {
+.bzw-cal-headday-list {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(140px, 1fr));
+}
+.bzw-cal-headday {
   text-align: center;
+  padding: 10px 4px;
   border-left: 1px solid #f1f5f9;
 }
-.bzw-cal-head .bzw-cal-daycol > .bzw-cal-dayname {
+.bzw-cal-headday.bzw-cal-today { background: #e0f2fe; }
+.bzw-cal-headday .bzw-cal-dayname {
   font-size: 11px;
   color: #94a3b8;
   text-transform: lowercase;
 }
-.bzw-cal-head .bzw-cal-daycol > .bzw-cal-daydate {
+.bzw-cal-headday .bzw-cal-daydate {
   font-size: 13px;
   color: #0ea5e9;
   font-weight: 800;
   margin-top: 2px;
 }
-.bzw-cal-row {
-  display: contents;
-}
-.bzw-cal-row > .bzw-cal-propcell {
-  padding: 14px 12px;
-  border-bottom: 1px solid #e2e8f0;
-  background: #fff;
+
+/* Row */
+.bzw-cal-row { border-bottom: 1px solid #e2e8f0; }
+.bzw-cal-propcell {
   position: sticky;
   left: 0;
   z-index: 2;
+  background: #fff;
+  padding: 14px 12px;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
-.bzw-cal-row > .bzw-cal-propcell .bzw-cal-propname {
+.bzw-cal-propcell .bzw-cal-propname {
   color: #0ea5e9;
   font-weight: 800;
   font-size: 13px;
@@ -2845,19 +2870,31 @@ input[type="checkbox"].lg-multi-cb {
   text-decoration: none;
   display: block;
 }
-.bzw-cal-row > .bzw-cal-propcell .bzw-cal-propsub {
+.bzw-cal-propcell .bzw-cal-propsub {
   color: #64748b;
   font-size: 11px;
-  margin-top: 3px;
+  margin-top: 4px;
 }
-.bzw-cal-row > .bzw-cal-propcell .bzw-cal-propnext {
-  color: #64748b;
-  font-size: 11px;
-  margin-top: 10px;
-  font-style: normal;
+
+/* Body: 2 capas verticales — bars (arriba) + cells (abajo) */
+.bzw-cal-rowbody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.bzw-cal-bars {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(140px, 1fr));
+  grid-auto-rows: minmax(24px, auto);
+  padding: 4px 0;
+  gap: 3px 0;
+  align-content: start;
+}
+.bzw-cal-cells {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(140px, 1fr));
 }
 .bzw-cal-cell {
-  border-bottom: 1px solid #e2e8f0;
   border-left: 1px solid #f1f5f9;
   background: #fff;
   position: relative;
@@ -2867,16 +2904,14 @@ input[type="checkbox"].lg-multi-cb {
 .bzw-cal-cell.bzw-cal-today {
   background: #f0f9ff;
 }
-.bzw-cal-head .bzw-cal-today {
-  background: #e0f2fe;
-}
+
 /* Barra de reservación: spans columnas con grid-column inline-style */
 .bzw-cal-resvbar {
-  height: 22px;
-  margin: 2px 0 4px;
+  height: 24px;
   background: repeating-linear-gradient(135deg, #e2e8f0 0 6px, #f1f5f9 6px 12px);
   border-radius: 4px;
-  padding: 0 8px;
+  padding: 0 10px;
+  margin: 0 3px;
   display: flex;
   align-items: center;
   font-size: 11px;

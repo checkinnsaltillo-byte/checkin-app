@@ -15164,10 +15164,15 @@ function bzwRenderAlertItem(a) {
     ${reportUrl ? fld('Reporte', `<a href="${esc(reportUrl)}" target="_blank" rel="noopener" style="color:#0d9488;font-weight:700;text-decoration:none">📄 Abrir reporte de Breezeway →</a>`) : ''}`;
 
   // ─── Card final (mismo lenguaje visual de Gestión de Reservas) ───
+  // Fecha límite (scheduled_date) — formato corto: "8 jun 2026"
+  const fechaLimiteIso = raw.scheduled_date || t.scheduled_date || '';
+  const fechaLimiteTxt = fechaLimiteIso ? bzwFmtFechaLargo(fechaLimiteIso) : '—';
   return `
-    <div style="background:#fff;border:1.5px solid #e2e8f0;border-left:7px solid ${meta.border};border-radius:12px;padding:12px 14px;margin-bottom:10px;box-shadow:0 2px 6px rgba(15,23,42,.05);transition:box-shadow 180ms cubic-bezier(.16,1,.3,1)"
+    <details class="bzw-list-card"
+         style="background:#fff;border:1.5px solid #e2e8f0;border-left:7px solid ${meta.border};border-radius:12px;padding:0;margin-bottom:10px;box-shadow:0 2px 6px rgba(15,23,42,.05);transition:box-shadow 180ms cubic-bezier(.16,1,.3,1)"
          onmouseover="this.style.boxShadow='0 4px 12px rgba(15,23,42,.10)'"
          onmouseout="this.style.boxShadow='0 2px 6px rgba(15,23,42,.05)'">
+      <summary style="list-style:none;cursor:pointer;padding:12px 14px;display:block;outline:none" class="bzw-list-card-summary">
       <!-- Top: chips (Status se movió al lado derecho del header) -->
       <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
         ${chipDept}${chipPriority}${chipPaused}${chipFinishedBy}${chipReserva}
@@ -15176,13 +15181,12 @@ function bzwRenderAlertItem(a) {
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap">
         <div style="min-width:0;flex:1">
           <div style="font-size:16px;font-weight:900;color:#0f172a;line-height:1.2;letter-spacing:-.005em">🏠 ${esc(propName)}</div>
+          <div style="font-size:12px;color:#475569;font-weight:700;margin-top:4px">📅 Fecha límite: <b style="color:#0f172a">${esc(fechaLimiteTxt)}</b></div>
           ${matchedBooking || matchedHuesped ? `
             ${homolPropName ? `<div style="font-size:12px;color:#0f766e;font-weight:700;margin-top:3px">🗺️ ${esc(homolPropName)}</div>` : ''}
             ${(resvDateArrival && resvDateDeparture) ? `<div style="font-size:12px;color:#475569;font-weight:600;margin-top:2px">${esc(bzwFmtRangoFechas(resvDateArrival, resvDateDeparture))}${resvNights > 0 ? ` <span style="color:#7c3aed;font-weight:700">· 🌙 ${resvNights} noche${resvNights===1?'':'s'}</span>` : ''}</div>` : ''}
             ${resvGuestName ? `<div style="font-size:12px;color:#475569;font-weight:600;margin-top:2px">👤 Nombre del huésped: <b style="color:#0f172a">${esc(resvGuestName)}</b></div>` : ''}
-          ` : `
-            <div style="font-size:12px;color:#475569;font-weight:600;margin-top:3px">📅 ${esc(whenLargo)}${whenRel ? ` <span style="color:#94a3b8;font-weight:500"> · ${esc(whenRel)}</span>` : ''}</div>
-          `}
+          ` : ''}
           <div style="font-size:12px;color:${meta.fg};font-weight:700;margin-top:2px">${meta.emoji} ${esc(taskName)}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;min-width:130px">
@@ -15202,14 +15206,12 @@ function bzwRenderAlertItem(a) {
           ${reportUrl ? `<a href="${esc(reportUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:999px;background:#ecfdf5;color:#047857;font-weight:800;font-size:10px;border:1px solid #6ee7b7;text-decoration:none;white-space:nowrap;margin-top:4px">📄 Reporte</a>` : ''}
         </div>
       </div>
-      <!-- Detalle expandible: tabla de payload -->
-      <details style="margin-top:10px;border-top:1px dashed #e2e8f0;padding-top:8px">
-        <summary style="cursor:pointer;font-size:10px;color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-weight:700;user-select:none">▸ Ver detalle completo</summary>
-        <div style="margin-top:8px">
-          ${tableHtml}
-        </div>
-      </details>
-    </div>`;
+      </summary>
+      <!-- Detalle: tabla de payload (se despliega al oprimir el encabezado) -->
+      <div style="padding:0 14px 12px;margin-top:-2px;border-top:1px dashed #e2e8f0">
+        ${tableHtml}
+      </div>
+    </details>`;
 }
 
 // Cache del último resultado histórico (para no re-fetch al cambiar de tab).
@@ -15578,100 +15580,86 @@ function bzwCalRender() {
     return;
   }
 
-  // Encabezado: 1 celda vacía (corner — sticky en ambos ejes) + 7 días
+  // Encabezado — strip (220px corner + 7 day headers en grid interno).
   const headHtml = `
-    <div class="bzw-cal-head" style="display:contents">
+    <div class="bzw-cal-headstrip">
       <div class="bzw-cal-corner">Propiedades</div>
-      ${days.map(d => {
-        const iso = bzwIsoYmd(d);
-        const isToday = iso === todayIso;
-        return `<div class="bzw-cal-daycol ${isToday ? 'bzw-cal-today' : ''}">
-          <div class="bzw-cal-dayname">${esc(BZW_DIAS_SEMANA[d.getDay()])}</div>
-          <div class="bzw-cal-daydate">${BZW_MES_NOMBRE[d.getMonth()]} ${d.getDate()}</div>
-        </div>`;
-      }).join('')}
+      <div class="bzw-cal-headday-list">
+        ${days.map(d => {
+          const iso = bzwIsoYmd(d);
+          const isToday = iso === todayIso;
+          return `<div class="bzw-cal-headday ${isToday ? 'bzw-cal-today' : ''}">
+            <div class="bzw-cal-dayname">${esc(BZW_DIAS_SEMANA[d.getDay()])}</div>
+            <div class="bzw-cal-daydate">${BZW_MES_NOMBRE[d.getMonth()]} ${d.getDate()}</div>
+          </div>`;
+        }).join('')}
+      </div>
     </div>`;
 
-  // Filas
   const rowsHtml = propsArr.map(prop => bzwCalRowHtml(prop, days, todayIso)).join('');
   grid.innerHTML = `<div class="bzw-cal">${headHtml}${rowsHtml}</div>`;
 }
 
-/** HTML de una fila: prop cell + 7 celdas con reservaciones (en la primera
- *  celda que las contiene, con span lateral) y task cards en su día. */
+/** HTML de una fila: SOLO nombre de propiedad en la columna fija + body
+ *  con 2 capas verticales (bars arriba, cells abajo). Cero solapamiento. */
 function bzwCalRowHtml(prop, days, todayIso) {
-  // Próxima reserva (futura)
-  const today = new Date(); today.setHours(0,0,0,0);
-  let proxRes = '';
-  if (prop.bookings.length) {
-    const future = prop.bookings
-      .map(b => ({ b, d: bzwParseAnyToDate(b.DateArrival) }))
-      .filter(x => x.d && x.d >= today)
-      .sort((a, b) => a.d - b.d)[0];
-    if (future) {
-      const diasFalta = bzwDaysBetween(today, future.d);
-      proxRes = `Próxima reserva<br>${BZW_MES_NOMBRE[future.d.getMonth()].slice(0,3)} ${future.d.getDate()} (${diasFalta} d)`;
-    }
-  }
-  // Homologar nombre de propiedad si hay alguna booking matcheada (alojamientos)
+  // Homologar nombre si hay match con catálogo alojamientos
   const someBooking = prop.bookings[0];
   const homol = someBooking && typeof lgPropOf === 'function' ? lgPropOf(someBooking) : '';
   const propCell = `
     <div class="bzw-cal-propcell">
       <a class="bzw-cal-propname" href="#" onclick="event.preventDefault();return false">${esc(prop.name)}</a>
       ${homol && homol !== '—' ? `<div class="bzw-cal-propsub">${esc(homol)}</div>` : ''}
-      ${proxRes ? `<div class="bzw-cal-propnext">${proxRes}</div>` : ''}
     </div>`;
 
-  // Mapa día (YMD) → array de tasks
+  // Mapa día (YMD) → array de tasks. Ubicación por scheduled_date (Fecha límite).
   const tasksByDay = new Map();
   for (const t of prop.tasks) {
-    const iso = (t.task?.finished_at || t.task?.scheduled_date || '').slice(0,10);
+    const iso = (t.task?.scheduled_date || t.task?.finished_at || '').slice(0,10);
     if (!iso) continue;
     if (!tasksByDay.has(iso)) tasksByDay.set(iso, []);
     tasksByDay.get(iso).push(t);
   }
 
-  // Build celdas
+  // Celdas (parte de abajo del body) — solo task cards van aquí.
   const cells = days.map((d, idx) => {
     const iso = bzwIsoYmd(d);
     const isToday = iso === todayIso;
     const tasksHere = tasksByDay.get(iso) || [];
-    return `<div class="bzw-cal-cell ${isToday ? 'bzw-cal-today' : ''}" data-day="${iso}" data-col="${idx}">
+    return `<div class="bzw-cal-cell ${isToday ? 'bzw-cal-today' : ''}" data-day="${iso}" data-col="${idx+1}">
       ${tasksHere.map(t => bzwCalTaskCardHtml(t)).join('')}
     </div>`;
   }).join('');
 
-  // Build barras de reservación: cada booking ocupa un rango grid-column.
-  // Apilamos barras una sobre otra (stacked) usando margin-top — son la
-  // primera cosa visible en la celda donde inician.
-  // Para simplicidad, las dibujo dentro de un <div> overlay absoluto.
+  // Barras de reservación (parte de arriba del body) — cada una en su
+  // propio grid-row para evitar superposición si hay más de 1.
   const weekStart = days[0];
   const weekEnd = new Date(days[6]); weekEnd.setHours(23,59,59,999);
   const barsHtml = prop.bookings.map((b, i) => {
     const arr = bzwParseAnyToDate(b.DateArrival);
     const dep = bzwParseAnyToDate(b.DateDeparture);
     if (!arr || !dep) return '';
-    // Recorta a la semana visible
     const start = arr < weekStart ? weekStart : arr;
-    const end   = dep > weekEnd ? new Date(days[6]) : dep;
-    const colStart = bzwDaysBetween(weekStart, start) + 2; // +1 propCell, +1 1-indexed
-    const colEnd   = bzwDaysBetween(weekStart, end) + 3;    // exclusive
+    const end   = dep > weekEnd   ? new Date(days[6]) : dep;
+    const colStart = bzwDaysBetween(weekStart, start) + 1; // 1-indexed dentro del sub-grid de 7 cols
+    const colEnd   = bzwDaysBetween(weekStart, end) + 2;    // exclusive
     if (colEnd <= colStart) return '';
     const clipLeft = arr < weekStart;
     const clipRight = dep > weekEnd;
     const label = `${b.Id} – ${b.GuestName || 'Sin nombre'}${b.Nights ? ` (${b.Nights}n)` : ''}`;
     return `<div class="bzw-cal-resvbar ${clipLeft ? 'bzw-cal-resvbar-clip-left' : ''} ${clipRight ? 'bzw-cal-resvbar-clip-right' : ''}"
-                 style="grid-column:${colStart} / ${colEnd};margin-top:${4 + i*26}px"
+                 style="grid-column:${colStart} / ${colEnd};grid-row:${i+1}"
                  onclick="event.stopPropagation();bzwOpenReservationDetail('${esc(b.Id)}')"
                  title="${esc(label)}">${esc(label)}</div>`;
   }).join('');
 
-  // Las barras tienen que ir en el grid del row, dentro de una capa que las
-  // posicione con grid-column. Las renderizamos directamente como hermanas
-  // de las celdas — pero como están con grid-column 2..N, se sobreponen
-  // sin afectar las celdas.
-  return `<div class="bzw-cal-row" style="display:contents">${propCell}${cells}${barsHtml}</div>`;
+  return `<div class="bzw-cal-row">
+    ${propCell}
+    <div class="bzw-cal-rowbody">
+      <div class="bzw-cal-bars">${barsHtml}</div>
+      <div class="bzw-cal-cells">${cells}</div>
+    </div>
+  </div>`;
 }
 
 /** Card de tarea dentro de una celda de día. */
