@@ -1105,6 +1105,9 @@
       <!-- Sincronizar con Breezeway (re-fetch a la API + persiste al sheet) -->
       <div style="background:#fff;border:1.5px solid #c4b5fd;border-radius:14px;padding:14px 18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(124,58,237,.08)">
         <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+          <button id="bzw-filters-toggle" type="button" onclick="bzwToggleFilters()"
+                  title="Mostrar / ocultar filtros"
+                  style="padding:0;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:18px;line-height:1;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center">☰</button>
           <div>
             <label style="display:block;font-size:10px;color:#64748b;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Desde</label>
             <input type="date" id="bzw-from" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;color:#0f172a;background:#fff">
@@ -1360,6 +1363,6 @@
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="app.js?v=253"></script>
+  <script src="app.js?v=254"></script>
 </body>
 </html>

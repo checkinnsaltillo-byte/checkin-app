@@ -15341,12 +15341,30 @@ function bzwRebuildFilterOptions() {
   const depts = new Set();
   const props = new Set();
   const assigns = new Set();
+  // Map propName → homologado vía JOIN con linked_reservation → booking → lgPropOf.
+  // Para una propiedad de Breezeway, basta con UNA task que tenga
+  // linked_reservation para resolver su nombre homologado.
+  const propHomol = new Map();
   for (const t of tasks) {
     const raw = t.raw || {};
     const dept = String(t.task?.type || raw.type_department || '').trim();
     if (dept) depts.add(dept);
     const propName = t.property?.name;
-    if (propName) props.add(propName);
+    if (propName) {
+      props.add(propName);
+      // Si aún no resolvimos su homologado, intentar
+      if (!propHomol.has(propName)) {
+        const lodId = raw.linked_reservation?.external_reservation_id
+                   || raw.linked_reservation?.external_id;
+        if (lodId && typeof lgPropOf === 'function') {
+          const b = (LG_STATE?.bookings || []).find(x => String(x.Id) === String(lodId));
+          if (b) {
+            const homol = lgPropOf(b);
+            if (homol && homol !== '—') propHomol.set(propName, homol);
+          }
+        }
+      }
+    }
     for (const a of (raw.assignments || [])) {
       const nm = (a.full_name || a.name || '').trim();
       if (nm) assigns.add(nm);
@@ -15357,7 +15375,19 @@ function bzwRebuildFilterOptions() {
   // Repuebla state para los dinámicos
   BZW_FILT_STATE['bzw-f-dept'].all = [...depts].sort((a,b) => a.localeCompare(b,'es'));
   BZW_FILT_STATE['bzw-f-prop'].all = [...props].sort((a,b) => a.localeCompare(b,'es'));
-  BZW_FILT_STATE['bzw-f-prop'].labels = new Map([...props].map(p => [p, p]));
+  // Labels homologadas. Si no se pudo homologar, deja el nombre Breezeway crudo
+  // (mejor que romper el filtro). Formato "Calle Cumbres - #1 · BC1 Baja..."
+  // para que el usuario sepa qué propiedad real está filtrando.
+  BZW_FILT_STATE['bzw-f-prop'].labels = new Map([...props].map(p => {
+    const h = propHomol.get(p);
+    return [p, h ? h : p];
+  }));
+  // Ordena las opciones por la etiqueta homologada
+  BZW_FILT_STATE['bzw-f-prop'].all.sort((a, b) => {
+    const la = BZW_FILT_STATE['bzw-f-prop'].labels.get(a) || a;
+    const lb = BZW_FILT_STATE['bzw-f-prop'].labels.get(b) || b;
+    return la.localeCompare(lb, 'es');
+  });
   BZW_FILT_STATE['bzw-f-assign'].all = [...assigns].sort((a,b) => a.localeCompare(b,'es'));
   BZW_FILT_STATE['bzw-f-assign'].labels = new Map([...assigns].map(a => [a, a]));
   // Si state.selected NO incluye alguno de los all (porque era vacío al inicio),
@@ -15379,31 +15409,39 @@ function bzwFiltRender(id) {
   if (!el || !s) return;
   const total = s.all.length;
   const sel = s.selected.size;
-  const label = sel === total ? 'Todos' : sel === 0 ? 'Ninguno' : `${sel} de ${total}`;
+  const label = sel === total ? `Todas (${total})`
+              : sel === 0     ? 'Ninguna'
+              : sel === 1     ? (s.labels.get([...s.selected][0]) || [...s.selected][0])
+              : `${sel} de ${total}`;
   const opts = s.all.map(v => {
     const checked = s.selected.has(v) ? 'checked' : '';
     const txt = s.labels.get(v) || v;
-    return `<label class="bzw-filt-opt">
-      <input type="checkbox" value="${esc(v)}" ${checked} onchange="bzwFiltToggle('${id}','${esc(v)}')">
-      <span>${esc(txt)}</span>
+    return `<label class="lg-multi-opt">
+      <input type="checkbox" class="lg-multi-cb" value="${esc(v)}" ${checked} onchange="bzwFiltToggle('${id}','${esc(v)}')">
+      <span class="lg-multi-opt-txt">${esc(txt)}</span>
     </label>`;
   }).join('');
+  // Mismo look-and-feel que el multi-select de Gestión de reservas.
+  el.classList.add('lg-multi-wrap');
   el.innerHTML = `
-    <button type="button" class="bzw-filt-btn" onclick="event.stopPropagation();bzwFiltTogglePop('${id}')">
-      <span>${esc(label)}</span>
+    <button type="button" class="lg-multi-btn" onclick="event.stopPropagation();bzwFiltTogglePop('${id}')">
+      <span class="lg-multi-btn-lbl">${esc(label)}</span>
+      <span class="lg-multi-btn-caret">▾</span>
     </button>
-    <div class="bzw-filt-pop hidden" id="${id}-pop">
-      <div class="bzw-filt-actions">
-        <button type="button" class="bzw-filt-action" onclick="bzwFiltSetAll('${id}')">✓ Todos</button>
-        <button type="button" class="bzw-filt-action" onclick="bzwFiltSetNone('${id}')">✕ Ninguno</button>
+    <div class="lg-multi-panel hidden" id="${id}-pop">
+      <div class="lg-multi-actions">
+        <button type="button" class="lg-multi-action" onclick="bzwFiltSetAll('${id}')">✓ Todas</button>
+        <button type="button" class="lg-multi-action" onclick="bzwFiltSetNone('${id}')">✕ Ninguna</button>
       </div>
-      ${opts || '<div style="padding:8px;font-size:11px;color:#94a3b8;font-style:italic">Sin opciones</div>'}
+      <div class="lg-multi-options">
+        ${opts || '<div style="padding:8px;font-size:11px;color:#94a3b8;font-style:italic">Sin opciones</div>'}
+      </div>
     </div>`;
 }
 
 window.bzwFiltTogglePop = function(id) {
-  // Cierra todos los demás
-  document.querySelectorAll('.bzw-filt-pop').forEach(p => {
+  // Cierra los demás popups Breezeway (no toca los de Lodgify).
+  document.querySelectorAll('#bzw-filters .lg-multi-panel').forEach(p => {
     if (p.id !== `${id}-pop`) p.classList.add('hidden');
   });
   const p = document.getElementById(`${id}-pop`);
@@ -15427,10 +15465,10 @@ window.bzwFiltSetNone = function(id) {
   bzwFiltRender(id);
   bzwApplyFilters();
 };
-// Cerrar pop al click fuera
+// Cerrar pop al click fuera (solo los del módulo Breezeway)
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.bzw-filt')) {
-    document.querySelectorAll('.bzw-filt-pop').forEach(p => p.classList.add('hidden'));
+  if (!e.target.closest('#bzw-filters .lg-multi-wrap')) {
+    document.querySelectorAll('#bzw-filters .lg-multi-panel').forEach(p => p.classList.add('hidden'));
   }
 });
 
@@ -15441,6 +15479,37 @@ window.bzwResetFilters = function() {
   });
   bzwApplyFilters();
 };
+
+// Estado de visibilidad del bloque de filtros (persistido en sessionStorage).
+window.bzwToggleFilters = function() {
+  const box = document.getElementById('bzw-filters');
+  const btn = document.getElementById('bzw-filters-toggle');
+  if (!box) return;
+  const willHide = !box.classList.contains('hidden');
+  box.classList.toggle('hidden', willHide);
+  if (btn) {
+    btn.style.background = willHide ? '#f1f5f9' : '#fff';
+    btn.style.color      = willHide ? '#0f172a' : '#475569';
+  }
+  try { sessionStorage.setItem('bzw-filters-open', willHide ? '0' : '1'); } catch(_) {}
+};
+// Restaurar estado al cargar
+(function() {
+  function applyVisibility() {
+    let open = true;
+    try { open = sessionStorage.getItem('bzw-filters-open') !== '0'; } catch(_) {}
+    const box = document.getElementById('bzw-filters');
+    const btn = document.getElementById('bzw-filters-toggle');
+    if (!box) return;
+    box.classList.toggle('hidden', !open);
+    if (btn) {
+      btn.style.background = open ? '#fff' : '#f1f5f9';
+      btn.style.color      = open ? '#475569' : '#0f172a';
+    }
+  }
+  if (document.readyState !== 'loading') applyVisibility();
+  else document.addEventListener('DOMContentLoaded', applyVisibility);
+})();
 
 /** Devuelve YYYY-MM-DD de "hoy" en zona local. */
 function bzwHoyIso() {
