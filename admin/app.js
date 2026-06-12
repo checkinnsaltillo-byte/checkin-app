@@ -14882,10 +14882,13 @@ function bzwApiBase() {
   return BZW_API_DEFAULT;
 }
 
-let BZW_LOADED_ONCE = false;
+// Throttle del auto-sync: no spamea Breezeway si el usuario brinca entre
+// módulos rápido. Default 60 s — cubre cambios accidentales y rate-limiting.
+const BZW_AUTOSYNC_THROTTLE_MS = 60 * 1000;
+let BZW_INITED_ONCE = false;
 async function bzwInit() {
-  if (!BZW_LOADED_ONCE) {
-    BZW_LOADED_ONCE = true;
+  if (!BZW_INITED_ONCE) {
+    BZW_INITED_ONCE = true;
     bzwTestToken({ silent: true });
     // Default: rango de los últimos 30 días en los inputs de sincronización.
     const today = new Date();
@@ -14899,32 +14902,44 @@ async function bzwInit() {
       if (typeof lodgifyLoad === 'function' && !LG_STATE?.loaded && !LG_STATE?.loading) lodgifyLoad(true);
       if (typeof huespedesLoad === 'function' && !HU_STATE?.loaded && !HU_STATE?.loading) huespedesLoad(true);
     } catch(_) {}
-    // Auto-sync de los últimos 7 días en background (1 vez por sesión).
-    // Trae las tasks de hoy/recientes que aún no estén en el sheet sin que
-    // el usuario tenga que oprimir "Sincronizar" manualmente.
-    setTimeout(async () => {
-      try {
-        const today = new Date();
-        const def7  = new Date(today.getTime() - 7*86400000);
-        const to    = today.toISOString().slice(0,10);
-        const from  = def7.toISOString().slice(0,10);
-        const statusEl = document.getElementById('bzw-sync-status');
-        if (statusEl) statusEl.innerHTML = '⏳ Auto-sync de últimos 7 días…';
-        const res = await fetch(`${bzwApiBase()}/api/breezeway/bootstrap-history?from=${from}&to=${to}`,
-          { method: 'POST', cache: 'no-store' });
-        const json = await res.json().catch(() => ({}));
-        if (json.ok) {
-          if (statusEl) statusEl.innerHTML = `✅ Auto-sync · <b>${json.inserted}</b> nuevas`;
-          await bzwRefreshAlerts();
-        } else {
-          if (statusEl) statusEl.innerHTML = '';
-        }
-      } catch (e) {
-        console.warn('[BZW] auto-sync error:', e?.message || e);
-      }
-    }, 1500);
   }
+  // Carga inmediata desde el sheet (rápido, ya tenemos lo que estaba persistido).
   bzwRefreshAlerts();
+  // Auto-sync con Breezeway: corre EN CADA entrada al módulo, con throttle
+  // de 60 s para no spamear si el usuario brinca tabs. Trae los cambios
+  // (nuevos, actualizados, status, asignaciones) de los últimos 7 días.
+  let last = 0;
+  try { last = Number(sessionStorage.getItem('bzw-autosync-last') || '0'); } catch(_) {}
+  const sinceLast = Date.now() - last;
+  if (sinceLast < BZW_AUTOSYNC_THROTTLE_MS) {
+    const remain = Math.ceil((BZW_AUTOSYNC_THROTTLE_MS - sinceLast) / 1000);
+    console.info(`[BZW] auto-sync skipped (last hace ${Math.round(sinceLast/1000)}s; próxima en ~${remain}s)`);
+    return;
+  }
+  try { sessionStorage.setItem('bzw-autosync-last', String(Date.now())); } catch(_) {}
+  setTimeout(async () => {
+    try {
+      const today = new Date();
+      const def7  = new Date(today.getTime() - 7*86400000);
+      const to    = today.toISOString().slice(0,10);
+      const from  = def7.toISOString().slice(0,10);
+      const statusEl = document.getElementById('bzw-sync-status');
+      if (statusEl) statusEl.innerHTML = '⏳ Auto-sync con Breezeway…';
+      const res = await fetch(`${bzwApiBase()}/api/breezeway/bootstrap-history?from=${from}&to=${to}`,
+        { method: 'POST', cache: 'no-store' });
+      const json = await res.json().catch(() => ({}));
+      if (json.ok) {
+        if (statusEl) statusEl.innerHTML = `✅ Auto-sync · <b>${json.inserted}</b> nuevas / ${json.scanned} escaneadas`;
+        await bzwRefreshAlerts();
+        // Reset el status después de 4 s
+        setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 4000);
+      } else {
+        if (statusEl) statusEl.innerHTML = '';
+      }
+    } catch (e) {
+      console.warn('[BZW] auto-sync error:', e?.message || e);
+    }
+  }, 800);
 }
 window.bzwInit = bzwInit;
 
@@ -14992,6 +15007,8 @@ window.bzwRefreshAlerts = async function() {
     }
     const alerts = Array.from(dedupe.values());
     BZW_ALL_TASKS = alerts;
+    // Reconstruye el map de homologación de propiedades para esta data.
+    try { bzwRebuildHomolMap(); } catch(_) {}
     if (cnt) cnt.textContent = String(alerts.length);
     if (lastEl) lastEl.textContent = new Date().toLocaleTimeString('es-MX');
     if (!alerts.length) {
@@ -15109,7 +15126,10 @@ function bzwRenderAlertItem(a, opts) {
   const dept = String(t.type || raw.type_department || '').toLowerCase();
   const meta = BZW_DEPT_META[dept] || BZW_DEPT_META._default;
   const finished = !!t.finished_at;
-  let propName = a.property?.name || '—';
+  const rawPropName = a.property?.name || '—';
+  // Nombre a mostrar en TODA la card: "Propiedad - #Depto." homologado.
+  // Si la homologación no es posible, usa el nombre Breezeway crudo.
+  const propName = bzwPropDisplay(rawPropName);
   const propId   = a.property?.id;
   const taskName = t.name || a.title?.replace(/^[^:]+:\s*/, '') || 'Tarea';
 
@@ -15282,7 +15302,6 @@ function bzwRenderAlertItem(a, opts) {
           <div class="bzw-list-card-title">🏠 ${esc(propName)}</div>
           <div class="bzw-list-card-sub" style="color:#475569;font-weight:700">📅 Fecha límite: <b style="color:#0f172a">${esc(fechaLimiteTxt)}</b></div>
           ${matchedBooking || matchedHuesped ? `
-            ${homolPropName ? `<div class="bzw-list-card-sub" style="color:#0f766e;font-weight:700">🗺️ ${esc(homolPropName)}</div>` : ''}
             ${(resvDateArrival && resvDateDeparture) ? `<div class="bzw-list-card-sub" style="color:#475569;font-weight:600">${esc(bzwFmtRangoFechas(resvDateArrival, resvDateDeparture))}${resvNights > 0 ? ` <span style="color:#7c3aed;font-weight:700">· 🌙 ${resvNights} noche${resvNights===1?'':'s'}</span>` : ''}</div>` : ''}
             ${resvGuestName ? `<div class="bzw-list-card-sub" style="color:#475569;font-weight:600">👤 Nombre del huésped: <b style="color:#0f172a">${esc(resvGuestName)}</b></div>` : ''}
           ` : ''}
@@ -15320,6 +15339,96 @@ function bzwRenderAlertItem(a, opts) {
 let BZW_LAST_HISTORY = null;
 // Snapshot completo (sin filtrar) para poder filtrar localmente sin re-fetch.
 let BZW_ALL_TASKS = [];
+// Map global: nombre Breezeway → "Propiedad - #Depto." (homologado).
+// Se reconstruye cada vez que llegan datos nuevos.
+let BZW_HOMOL_MAP = new Map();
+
+/** Parsea "BC3 Baja California #3 - Descripción" → {propiedad, depto}.
+ *  Maneja casos sin prefijo ni descripción. Devuelve null si el patrón
+ *  no aplica (ej. "AREAS COMUNES"). */
+function bzwParsePropBreezeway(name) {
+  if (!name) return null;
+  const s = String(name).trim();
+  // Acepta opcionalmente prefijo "XX#" (BC3, OX5, MT10…) y descripción tras "-"
+  const m = s.match(/^(?:[A-Z]{1,4}\d+\s+)?([^#]+?)\s*#\s*([\w-]+)(?:\s*-.*)?$/i);
+  if (!m) return null;
+  return { propiedad: m[1].trim(), depto: m[2].trim() };
+}
+
+/** Intenta homologar nombre Breezeway → "Propiedad - #Depto." usando la
+ *  hoja `alojamientos`. Estrategia:
+ *    1) Parsea "Propiedad" + "Depto" del nombre Breezeway
+ *    2) Busca exacto en ALOJ_STATE.byPropDepto (normalizado)
+ *    3) Fallback: busca cualquier fila cuyo Propiedad **termine** con el parsed
+ *       (ej. parsed="Baja California" → hoja="Calle Baja California")
+ *    4) Si nada matchea, regresa null. */
+function bzwHomolViaAlojamientos(rawName) {
+  if (!rawName || typeof ALOJ_STATE === 'undefined' || !ALOJ_STATE.loaded) return null;
+  const parsed = bzwParsePropBreezeway(rawName);
+  if (!parsed) return null;
+  const propN = alojNorm(parsed.propiedad);
+  const deptN = alojNorm(parsed.depto);
+  // 1) Exacto
+  let row = ALOJ_STATE.byPropDepto.get(`${propN}|${deptN}`);
+  if (row) return formatPropDeptoFromAloj_(row);
+  // 2) Suffix match (Breezeway "Baja California" ↔ alojamientos "Calle Baja California")
+  for (const r of ALOJ_STATE.rows) {
+    const pN = alojNorm(r['Propiedad']);
+    const dN = alojNorm(r['# Departamento']);
+    if (pN.endsWith(propN) && dN === deptN) return formatPropDeptoFromAloj_(r);
+  }
+  return null;
+}
+
+/** Reconstruye BZW_HOMOL_MAP cruzando BZW_ALL_TASKS con LG_STATE.bookings
+ *  y ALOJ_STATE.rows. Prioridad:
+ *    1) Match vía linked_reservation → Lodgify booking → lgPropOf (más exacto)
+ *    2) Parser del nombre Breezeway + lookup en alojamientos
+ *    3) Fallback: nombre Breezeway crudo. */
+function bzwRebuildHomolMap() {
+  BZW_HOMOL_MAP.clear();
+  const seen = new Set();
+  // Pasada 1 — linked_reservation
+  for (const t of (BZW_ALL_TASKS || [])) {
+    const propName = t.property?.name;
+    if (!propName || seen.has(propName)) continue;
+    const lodId = t.raw?.linked_reservation?.external_reservation_id
+               || t.raw?.linked_reservation?.external_id;
+    if (!lodId) continue;
+    const b = (LG_STATE?.bookings || []).find(x => String(x.Id) === String(lodId));
+    if (!b || typeof lgPropOf !== 'function') continue;
+    const h = lgPropOf(b);
+    if (h && h !== '—') {
+      BZW_HOMOL_MAP.set(propName, h);
+      seen.add(propName);
+    }
+  }
+  // Pasada 2 — parser + alojamientos
+  for (const t of (BZW_ALL_TASKS || [])) {
+    const propName = t.property?.name;
+    if (!propName || seen.has(propName)) continue;
+    const h = bzwHomolViaAlojamientos(propName);
+    if (h) {
+      BZW_HOMOL_MAP.set(propName, h);
+      seen.add(propName);
+    }
+  }
+  // Pasada 3 — fallback Breezeway name (para que getter siempre devuelva algo)
+  for (const t of (BZW_ALL_TASKS || [])) {
+    const propName = t.property?.name;
+    if (!propName) continue;
+    if (!BZW_HOMOL_MAP.has(propName)) BZW_HOMOL_MAP.set(propName, propName);
+  }
+}
+
+/** Devuelve el nombre de propiedad homologado para mostrar en UI. */
+function bzwPropDisplay(rawName) {
+  if (!rawName) return '—';
+  if (BZW_HOMOL_MAP.has(rawName)) return BZW_HOMOL_MAP.get(rawName);
+  // Si el map aún no se construyó, intenta resolver al vuelo
+  const h = bzwHomolViaAlojamientos(rawName);
+  return h || rawName;
+}
 
 // ─── Multi-select filter state ───
 // Cada id mantiene: { all: [...todos los valores posibles], selected: Set, labels: Map }
@@ -15330,8 +15439,9 @@ const BZW_FILT_STATE = {
   'bzw-f-dept':   { all: ['housekeeping','maintenance','inspection','safety'],
                     labels: new Map([['housekeeping','🧹 Aseo'],['maintenance','🔧 Mantenimiento'],
                                      ['inspection','🔍 Inspección'],['safety','🛡️ Seguridad']]) },
-  'bzw-f-prop':   { all: [], labels: new Map() },
-  'bzw-f-assign': { all: [], labels: new Map() },
+  'bzw-f-prop':     { all: [], labels: new Map() },
+  'bzw-f-assign':   { all: [], labels: new Map() },
+  'bzw-f-realizada':{ all: [], labels: new Map() },
 };
 // Inicializa selected como "todos"
 Object.values(BZW_FILT_STATE).forEach(s => { s.selected = new Set(s.all); });
@@ -15341,48 +15451,25 @@ function bzwRebuildFilterOptions() {
   const depts = new Set();
   const props = new Set();
   const assigns = new Set();
-  // Map propName → homologado vía JOIN con linked_reservation → booking → lgPropOf.
-  // Para una propiedad de Breezeway, basta con UNA task que tenga
-  // linked_reservation para resolver su nombre homologado.
-  const propHomol = new Map();
+  const realizadas = new Set();
   for (const t of tasks) {
     const raw = t.raw || {};
     const dept = String(t.task?.type || raw.type_department || '').trim();
     if (dept) depts.add(dept);
     const propName = t.property?.name;
-    if (propName) {
-      props.add(propName);
-      // Si aún no resolvimos su homologado, intentar
-      if (!propHomol.has(propName)) {
-        const lodId = raw.linked_reservation?.external_reservation_id
-                   || raw.linked_reservation?.external_id;
-        if (lodId && typeof lgPropOf === 'function') {
-          const b = (LG_STATE?.bookings || []).find(x => String(x.Id) === String(lodId));
-          if (b) {
-            const homol = lgPropOf(b);
-            if (homol && homol !== '—') propHomol.set(propName, homol);
-          }
-        }
-      }
-    }
+    if (propName) props.add(propName);
     for (const a of (raw.assignments || [])) {
       const nm = (a.full_name || a.name || '').trim();
       if (nm) assigns.add(nm);
     }
     const fb = t.task?.finished_by;
-    if (fb) assigns.add(fb);
+    if (fb) realizadas.add(fb);
   }
   // Repuebla state para los dinámicos
   BZW_FILT_STATE['bzw-f-dept'].all = [...depts].sort((a,b) => a.localeCompare(b,'es'));
-  BZW_FILT_STATE['bzw-f-prop'].all = [...props].sort((a,b) => a.localeCompare(b,'es'));
-  // Labels homologadas. Si no se pudo homologar, deja el nombre Breezeway crudo
-  // (mejor que romper el filtro). Formato "Calle Cumbres - #1 · BC1 Baja..."
-  // para que el usuario sepa qué propiedad real está filtrando.
-  BZW_FILT_STATE['bzw-f-prop'].labels = new Map([...props].map(p => {
-    const h = propHomol.get(p);
-    return [p, h ? h : p];
-  }));
-  // Ordena las opciones por la etiqueta homologada
+  // Propiedad: ordena por la etiqueta homologada (bzwPropDisplay).
+  BZW_FILT_STATE['bzw-f-prop'].all = [...props];
+  BZW_FILT_STATE['bzw-f-prop'].labels = new Map([...props].map(p => [p, bzwPropDisplay(p)]));
   BZW_FILT_STATE['bzw-f-prop'].all.sort((a, b) => {
     const la = BZW_FILT_STATE['bzw-f-prop'].labels.get(a) || a;
     const lb = BZW_FILT_STATE['bzw-f-prop'].labels.get(b) || b;
@@ -15390,15 +15477,17 @@ function bzwRebuildFilterOptions() {
   });
   BZW_FILT_STATE['bzw-f-assign'].all = [...assigns].sort((a,b) => a.localeCompare(b,'es'));
   BZW_FILT_STATE['bzw-f-assign'].labels = new Map([...assigns].map(a => [a, a]));
+  BZW_FILT_STATE['bzw-f-realizada'].all = [...realizadas].sort((a,b) => a.localeCompare(b,'es'));
+  BZW_FILT_STATE['bzw-f-realizada'].labels = new Map([...realizadas].map(a => [a, a]));
   // Si state.selected NO incluye alguno de los all (porque era vacío al inicio),
   // marcamos todos por default — comportamiento "Todos" inicial.
-  ['bzw-f-dept','bzw-f-prop','bzw-f-assign'].forEach(id => {
+  ['bzw-f-dept','bzw-f-prop','bzw-f-assign','bzw-f-realizada'].forEach(id => {
     const s = BZW_FILT_STATE[id];
     const wasAll = s.selected.size === 0 || s.selected.size === s.all.length;
     if (wasAll) s.selected = new Set(s.all);
   });
   // Render widgets
-  ['bzw-f-status','bzw-f-dept','bzw-f-prop','bzw-f-assign'].forEach(bzwFiltRender);
+  ['bzw-f-status','bzw-f-dept','bzw-f-prop','bzw-f-assign','bzw-f-realizada'].forEach(bzwFiltRender);
   const box = document.getElementById('bzw-filters');
   if (box) box.classList.remove('hidden');
 }
@@ -15560,8 +15649,8 @@ window.bzwApplyFilters = function() {
     // Propiedad
     const propVal = t.property?.name || '';
     if (!passes('bzw-f-prop', propVal)) return false;
-    // Asignaciones — la task pasa si CUALQUIERA de sus asignados/realizada-por
-    // está dentro del set seleccionado.
+    // Asignaciones — la task pasa si CUALQUIERA de sus asignados está
+    // dentro del set seleccionado.
     const assignSet = setOf('bzw-f-assign');
     const assignAll = isAll('bzw-f-assign');
     if (assignSet.size === 0) return false;
@@ -15571,9 +15660,18 @@ window.bzwApplyFilters = function() {
         const nm = a.full_name || a.name;
         if (nm) names.add(nm);
       }
-      if (t.task?.finished_by) names.add(t.task.finished_by);
       const intersect = [...names].some(n => assignSet.has(n));
       if (!intersect) return false;
+    }
+    // Realizada por — pasa si finished_by está en el set seleccionado.
+    // Una tarea pendiente (finished_by vacío) pasa solo cuando "Todos"
+    // está seleccionado, no cuando hay un subset específico.
+    const realSet = setOf('bzw-f-realizada');
+    const realAll = isAll('bzw-f-realizada');
+    if (realSet.size === 0) return false;
+    if (!realAll) {
+      const fb = t.task?.finished_by || '';
+      if (!fb || !realSet.has(fb)) return false;
     }
     return true;
   });
@@ -15873,13 +15971,12 @@ function bzwCalRender() {
 /** HTML de una fila: SOLO nombre de propiedad en la columna fija + body
  *  con 2 capas verticales (bars arriba, cells abajo). Cero solapamiento. */
 function bzwCalRowHtml(prop, days, todayIso) {
-  // Homologar nombre si hay match con catálogo alojamientos
-  const someBooking = prop.bookings[0];
-  const homol = someBooking && typeof lgPropOf === 'function' ? lgPropOf(someBooking) : '';
+  // Nombre homologado vía bzwPropDisplay (linked_reservation → lgPropOf O
+  // parser + alojamientos). Si no hay match, regresa el nombre Breezeway crudo.
+  const propDisplay = bzwPropDisplay(prop.name);
   const propCell = `
     <div class="bzw-cal-propcell">
-      <a class="bzw-cal-propname" href="#" onclick="event.preventDefault();return false">${esc(prop.name)}</a>
-      ${homol && homol !== '—' ? `<div class="bzw-cal-propsub">${esc(homol)}</div>` : ''}
+      <a class="bzw-cal-propname" href="#" onclick="event.preventDefault();return false">${esc(propDisplay)}</a>
     </div>`;
 
   // Mapa día (YMD) → array de tasks. Ubicación por scheduled_date (Fecha límite).
@@ -16153,7 +16250,7 @@ function bzwDetailHtmlForTask(t) {
     <header class="bzw-detail-header">
       <div>
         <div class="bzw-detail-title">${meta.emoji} ${esc(t.task?.name || 'Tarea')}</div>
-        <div class="bzw-detail-subtitle">${esc(t.property?.name || '—')}</div>
+        <div class="bzw-detail-subtitle">${esc(bzwPropDisplay(t.property?.name))}</div>
       </div>
       <button class="bzw-detail-close" onclick="bzwCloseDetailPanel()">×</button>
     </header>
