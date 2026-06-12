@@ -14884,20 +14884,17 @@ function bzwApiBase() {
 
 let BZW_LOADED_ONCE = false;
 async function bzwInit() {
-  // Carga inicial: token + alertas. Idempotente: si ya cargó, sólo refresca alertas.
   if (!BZW_LOADED_ONCE) {
     BZW_LOADED_ONCE = true;
     bzwTestToken({ silent: true });
-    // Pre-rellenar fechas con últimos 90 días.
+    // Default: rango de los últimos 30 días en los inputs de sincronización.
     const today = new Date();
-    const def90 = new Date(today.getTime() - 90*86400000);
+    const def30 = new Date(today.getTime() - 30*86400000);
     const fromEl = document.getElementById('bzw-from');
     const toEl   = document.getElementById('bzw-to');
-    if (fromEl && !fromEl.value) fromEl.value = def90.toISOString().slice(0,10);
+    if (fromEl && !fromEl.value) fromEl.value = def30.toISOString().slice(0,10);
     if (toEl   && !toEl.value)   toEl.value   = today.toISOString().slice(0,10);
-    // Precargar Lodgify + Huéspedes en background para que el match de
-    // propiedad y el chip "🔗 Reserva #XXX" funcionen cuando el usuario
-    // importe el histórico (sin bloquear la UI de Breezeway).
+    // Precargar Lodgify + Huéspedes en background para el chip "🔗 Reserva".
     try {
       if (typeof lodgifyLoad === 'function' && !LG_STATE?.loaded && !LG_STATE?.loading) lodgifyLoad(true);
       if (typeof huespedesLoad === 'function' && !HU_STATE?.loaded && !HU_STATE?.loading) huespedesLoad(true);
@@ -14935,34 +14932,34 @@ window.bzwRefreshAlerts = async function() {
   const list = document.getElementById('bzw-alerts-list');
   const cnt  = document.getElementById('bzw-stat-count');
   const lastEl = document.getElementById('bzw-stat-last');
-  if (list) list.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:30px 0;font-style:italic">Cargando alertas…</div>';
+  if (list) list.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:30px 0;font-style:italic">Cargando bitácora…</div>';
   try {
-    const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts`, { cache: 'no-store' });
+    // Pedimos un buen chunk del sheet — el sheet ya tiene tope de 5000.
+    const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts?limit=1000`, { cache: 'no-store' });
     const json = await res.json();
     if (!res.ok || json.ok === false) throw new Error(json.error || `HTTP ${res.status}`);
     const alerts = Array.isArray(json.alerts) ? json.alerts : [];
+    BZW_ALL_TASKS = alerts;
     if (cnt) cnt.textContent = String(alerts.length);
     if (lastEl) lastEl.textContent = new Date().toLocaleTimeString('es-MX');
     if (!alerts.length) {
       if (list) list.innerHTML = `
         <div style="text-align:center;color:#64748b;padding:40px 20px">
           <div style="font-size:38px;opacity:.4;margin-bottom:10px">📭</div>
-          <div style="font-weight:700;color:#334155;margin-bottom:4px">Sin alertas todavía</div>
-          <div style="font-size:12px;color:#94a3b8">Cuando Breezeway envíe un evento al webhook aparecerá aquí.</div>
+          <div style="font-weight:700;color:#334155;margin-bottom:4px">Bitácora vacía</div>
+          <div style="font-size:12px;color:#94a3b8">Oprime <b>🔄 Sincronizar</b> para traer tareas desde Breezeway.</div>
         </div>`;
       return;
     }
-    // Más recientes arriba (asume last_updated ISO)
-    alerts.sort((a, b) => String(b.last_updated || b.received_at || '').localeCompare(String(a.last_updated || a.received_at || '')));
-    if (list) list.innerHTML = alerts.map(bzwRenderAlertItem).join('');
+    bzwRebuildFilterOptions();
+    bzwApplyFilters();
   } catch (e) {
     console.warn('[BZW] alerts error:', e);
     if (list) list.innerHTML = `
       <div style="text-align:center;color:#b91c1c;padding:30px 20px">
         <div style="font-size:28px;margin-bottom:8px">⚠️</div>
-        <div style="font-weight:700;margin-bottom:4px">No se pudo cargar el historial</div>
+        <div style="font-weight:700;margin-bottom:4px">No se pudo cargar la bitácora</div>
         <div style="font-size:12px;color:#7f1d1d">${esc(e.message)}</div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:8px;font-style:italic">Verifica que el server de checkin-app esté corriendo y que CORS permita el origen actual.</div>
       </div>`;
   }
 };
@@ -15212,6 +15209,31 @@ window.bzwResetFilters = function() {
   bzwApplyFilters();
 };
 
+/** Devuelve YYYY-MM-DD de "hoy" en zona local. */
+function bzwHoyIso() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+/** Extrae YYYY-MM-DD de un valor ISO o "—". */
+function bzwTaskFechaIso(t) {
+  // Prioriza la fecha que más relevancia da al "hoy":
+  // finished_at (si terminó hoy) > scheduled_date (programada hoy) > received_at
+  const candidates = [
+    t.task?.finished_at,
+    t.task?.scheduled_date,
+    t.received_at,
+    t.last_updated,
+  ].filter(Boolean);
+  for (const c of candidates) {
+    const m = String(c).match(/^(\d{4}-\d{2}-\d{2})/);
+    if (m) return m[1];
+  }
+  return '';
+}
+
 window.bzwApplyFilters = function() {
   if (!BZW_ALL_TASKS.length) return;
   const status = document.getElementById('bzw-f-status')?.value || '';
@@ -15239,53 +15261,57 @@ window.bzwApplyFilters = function() {
   const cntEl = document.getElementById('bzw-filter-count');
   const subEl = document.getElementById('bzw-list-sub');
   if (cntEl) cntEl.textContent = `${filtered.length} de ${BZW_ALL_TASKS.length}`;
-  if (subEl) subEl.textContent = `${filtered.length} tareas`;
   if (!filtered.length) {
+    if (subEl) subEl.textContent = '0 tareas';
     if (list) list.innerHTML = `<div style="text-align:center;color:#64748b;padding:30px 20px"><div style="font-size:32px;opacity:.4">🔍</div><div style="font-weight:700;margin-top:8px">Sin tareas que cumplan los filtros</div></div>`;
     return;
   }
-  if (list) list.innerHTML = filtered.map(bzwRenderAlertItem).join('');
+  // Split en "Hoy" (fondo rojizo) y "Anteriores" (default).
+  const hoyIso = bzwHoyIso();
+  const todayTasks = [];
+  const pastTasks  = [];
+  for (const t of filtered) {
+    const iso = bzwTaskFechaIso(t);
+    if (iso === hoyIso) todayTasks.push(t); else pastTasks.push(t);
+  }
+  // Sort desc por fecha
+  const byDateDesc = (a, b) => String(b.last_updated || b.received_at || '').localeCompare(String(a.last_updated || a.received_at || ''));
+  todayTasks.sort(byDateDesc);
+  pastTasks.sort(byDateDesc);
+  if (subEl) subEl.textContent = `${todayTasks.length} hoy · ${pastTasks.length} anteriores`;
+  const header = (label, n, accent) => `
+    <div style="display:flex;align-items:center;gap:10px;margin:14px 2px 8px;padding-bottom:5px;border-bottom:1px solid ${accent}40">
+      <div style="font-size:11px;letter-spacing:.18em;color:${accent};font-weight:800;text-transform:uppercase">${label}</div>
+      <span style="font-size:11px;padding:2px 9px;border-radius:999px;background:${accent}20;color:${accent};font-weight:800">${n}</span>
+    </div>`;
+  const today = todayTasks.length
+    ? `${header('📍 Hoy', todayTasks.length, '#dc2626')}
+       <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:10px 12px;margin-bottom:14px">
+         ${todayTasks.map(bzwRenderAlertItem).join('')}
+       </div>`
+    : '';
+  const past = pastTasks.length
+    ? `${header('📚 Anteriores', pastTasks.length, '#64748b')}
+       ${pastTasks.map(bzwRenderAlertItem).join('')}`
+    : '';
+  if (list) list.innerHTML = today + past;
 };
 
-window.bzwFetchHistory = async function() {
-  const fromEl = document.getElementById('bzw-from');
-  const toEl   = document.getElementById('bzw-to');
-  const deptEl = document.getElementById('bzw-dept');
-  const status = document.getElementById('bzw-history-status');
-  // Default: últimos 90 días si el usuario no eligió fechas.
-  const today = new Date();
-  const def90 = new Date(today.getTime() - 90*86400000);
-  const fromVal = (fromEl?.value || def90.toISOString().slice(0,10));
-  const toVal   = (toEl?.value   || today.toISOString().slice(0,10));
-  const deptVal = deptEl?.value || '';
-  if (status) status.innerHTML = '⏳ Consultando Breezeway… esto puede tardar 30-90 s la primera vez (49 propiedades en paralelo).';
-  const titleEl = document.getElementById('bzw-list-title');
-  const subEl = document.getElementById('bzw-list-sub');
-  const list = document.getElementById('bzw-alerts-list');
-  if (list) list.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:30px 0;font-style:italic">Consultando histórico…</div>';
+window.bzwSync = async function() {
+  const fromVal = document.getElementById('bzw-from')?.value || new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+  const toVal   = document.getElementById('bzw-to')?.value   || new Date().toISOString().slice(0,10);
+  const statusEl = document.getElementById('bzw-sync-status');
+  if (statusEl) statusEl.innerHTML = '⏳ Sincronizando con Breezeway… (30-90 s)';
   try {
-    const params = new URLSearchParams({ from: fromVal, to: toVal });
-    if (deptVal) params.set('type_department', deptVal);
-    const res = await fetch(`${bzwApiBase()}/api/breezeway/tasks?${params.toString()}`, { cache: 'no-store' });
+    const res = await fetch(`${bzwApiBase()}/api/breezeway/bootstrap-history?from=${fromVal}&to=${toVal}`,
+      { method: 'POST', cache: 'no-store' });
     const json = await res.json();
     if (!res.ok || !json.ok) throw new Error(json.error || json.message || `HTTP ${res.status}`);
-    BZW_LAST_HISTORY = json;
-    if (status) status.innerHTML = `✅ <b>${json.count}</b> tareas encontradas — ${json.scanned_homes} propiedades, rango ${json.from} → ${json.to}${deptVal?` (depto: ${deptVal})`:''}.`;
-    if (titleEl) titleEl.textContent = `📅 Histórico de tareas (${deptVal || 'todas'})`;
-    if (subEl) subEl.textContent = `${json.count} tareas · ${json.from} → ${json.to}`;
-    BZW_ALL_TASKS = json.tasks || [];
-    if (!BZW_ALL_TASKS.length) {
-      const fbox = document.getElementById('bzw-filters');
-      if (fbox) fbox.classList.add('hidden');
-      if (list) list.innerHTML = `<div style="text-align:center;color:#64748b;padding:40px 20px"><div style="font-size:38px;opacity:.4;margin-bottom:10px">📭</div><div style="font-weight:700;color:#334155;margin-bottom:4px">Sin tareas en este rango</div></div>`;
-      return;
-    }
-    bzwRebuildFilterOptions();
-    bzwApplyFilters();
+    if (statusEl) statusEl.innerHTML = `✅ Sincronizado · <b>${json.inserted}</b> nuevas / ${json.scanned} escaneadas`;
+    await bzwRefreshAlerts();
   } catch (e) {
-    console.warn('[BZW] history error:', e);
-    if (status) status.innerHTML = `<span style="color:#b91c1c">⚠ ${esc(e.message)}</span>`;
-    if (list) list.innerHTML = `<div style="text-align:center;color:#b91c1c;padding:30px 20px"><div style="font-size:28px;margin-bottom:8px">⚠️</div><div style="font-weight:700">No se pudo consultar el histórico</div><div style="font-size:12px;color:#7f1d1d;margin-top:6px">${esc(e.message)}</div></div>`;
+    console.warn('[BZW] sync error:', e);
+    if (statusEl) statusEl.innerHTML = `<span style="color:#b91c1c">⚠ ${esc(e.message)}</span>`;
   }
 };
 
@@ -15317,17 +15343,6 @@ window.bzwGotoReservation = async function(lodgifyId) {
   // Prioridad 2: booking de Lodgify directo (renderiza detalle aunque
   // el sidebar no resalte ninguna card).
   if (typeof lgDetailSelect === 'function') lgDetailSelect(String(lodgifyId));
-};
-
-window.bzwShowWebhookAlerts = function() {
-  // Vuelve a la vista de webhook (buffer en vivo).
-  const titleEl = document.getElementById('bzw-list-title');
-  const subEl = document.getElementById('bzw-list-sub');
-  const fbox = document.getElementById('bzw-filters');
-  if (titleEl) titleEl.textContent = '📋 Historial de alertas (webhook en vivo)';
-  if (subEl) subEl.textContent = 'Más recientes arriba';
-  if (fbox) fbox.classList.add('hidden');
-  bzwRefreshAlerts();
 };
 
 window.bzwSubscribeAll = async function() {
