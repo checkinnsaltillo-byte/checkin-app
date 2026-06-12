@@ -14899,6 +14899,30 @@ async function bzwInit() {
       if (typeof lodgifyLoad === 'function' && !LG_STATE?.loaded && !LG_STATE?.loading) lodgifyLoad(true);
       if (typeof huespedesLoad === 'function' && !HU_STATE?.loaded && !HU_STATE?.loading) huespedesLoad(true);
     } catch(_) {}
+    // Auto-sync de los últimos 7 días en background (1 vez por sesión).
+    // Trae las tasks de hoy/recientes que aún no estén en el sheet sin que
+    // el usuario tenga que oprimir "Sincronizar" manualmente.
+    setTimeout(async () => {
+      try {
+        const today = new Date();
+        const def7  = new Date(today.getTime() - 7*86400000);
+        const to    = today.toISOString().slice(0,10);
+        const from  = def7.toISOString().slice(0,10);
+        const statusEl = document.getElementById('bzw-sync-status');
+        if (statusEl) statusEl.innerHTML = '⏳ Auto-sync de últimos 7 días…';
+        const res = await fetch(`${bzwApiBase()}/api/breezeway/bootstrap-history?from=${from}&to=${to}`,
+          { method: 'POST', cache: 'no-store' });
+        const json = await res.json().catch(() => ({}));
+        if (json.ok) {
+          if (statusEl) statusEl.innerHTML = `✅ Auto-sync · <b>${json.inserted}</b> nuevas`;
+          await bzwRefreshAlerts();
+        } else {
+          if (statusEl) statusEl.innerHTML = '';
+        }
+      } catch (e) {
+        console.warn('[BZW] auto-sync error:', e?.message || e);
+      }
+    }, 1500);
   }
   bzwRefreshAlerts();
 }
@@ -15359,7 +15383,14 @@ window.bzwApplyFilters = function() {
   }
   // Sort desc por fecha
   const byDateDesc = (a, b) => String(b.last_updated || b.received_at || '').localeCompare(String(a.last_updated || a.received_at || ''));
-  todayTasks.sort(byDateDesc);
+  // Dentro de "HOY": PENDIENTES primero (sin finished_at), luego finalizadas.
+  // Dentro de cada subgrupo, ordenadas por fecha desc.
+  todayTasks.sort((a, b) => {
+    const aFin = !!a.task?.finished_at;
+    const bFin = !!b.task?.finished_at;
+    if (aFin !== bFin) return aFin ? 1 : -1; // pendiente (false) primero
+    return byDateDesc(a, b);
+  });
   pastTasks.sort(byDateDesc);
   if (subEl) subEl.textContent = `${todayTasks.length} hoy · ${pastTasks.length} anteriores`;
   const header = (label, n, accent) => `
