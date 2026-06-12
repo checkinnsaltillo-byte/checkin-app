@@ -15718,7 +15718,8 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
     if (t) return bzwOpenTaskDetail(t.task?.id);
     return;
   }
-  bzwShowDetailPanel(bzwDetailHtmlForBooking(b));
+  // Sin task seleccionada (vino del click en la barra de reservación).
+  bzwShowDetailPanel(bzwDetailHtmlForBooking(b, null));
 };
 window.bzwCloseDetailPanel = function() {
   const panel = document.getElementById('bzw-detail-panel');
@@ -15756,7 +15757,26 @@ function bzwFmtFechaDetalle(s, withTime) {
   return `${datePart} at ${hh}:${mm}${ampm}`;
 }
 
-function bzwDetailHtmlForBooking(b) {
+/** Renderiza el bloque común de 4 fechas + asignación para una task. */
+function bzwTaskDatesSection(t) {
+  const meta = BZW_DEPT_META[String(t.task?.type || '').toLowerCase()] || BZW_DEPT_META._default;
+  const finished = !!t.task?.finished_at;
+  const updatedAt = t.raw?.updated_at || '';
+  return `
+    <section class="bzw-detail-section">
+      <div class="bzw-detail-section-title">🧹 Tarea seleccionada</div>
+      <div style="font-size:14px;font-weight:800;color:#0f172a">${meta.emoji} ${esc(t.task?.name || 'Tarea')}</div>
+      <div style="font-size:12px;color:${meta.fg};font-weight:700;margin-top:2px">${esc(meta.label)}</div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">ID</span><span class="bzw-detail-row-value">${esc(t.task?.id || '—')}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Fecha límite</span><span class="bzw-detail-row-value">${esc(bzwFmtFechaDetalle(t.task?.scheduled_date))}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Fecha de creación</span><span class="bzw-detail-row-value">${esc(bzwFmtFechaDetalle(t.raw?.created_at, true))}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Fecha de finalización</span><span class="bzw-detail-row-value">${finished ? esc(bzwFmtFechaDetalle(t.task?.finished_at, true)) : '<span style="color:#f97316;font-weight:700">Pendiente</span>'}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Fecha actualizada</span><span class="bzw-detail-row-value">${esc(bzwFmtFechaDetalle(updatedAt, true))}</span></div>
+      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Realizada por</span><span class="bzw-detail-row-value">${esc(t.task?.finished_by || '—')}</span></div>
+    </section>`;
+}
+
+function bzwDetailHtmlForBooking(b, selectedTask) {
   // Tareas vinculadas: encuentra tasks de BZW_ALL_TASKS con linked_reservation = b.Id
   const linkedTasks = (BZW_ALL_TASKS || []).filter(t =>
     String(t.raw?.linked_reservation?.external_reservation_id || '') === String(b.Id));
@@ -15788,6 +15808,7 @@ function bzwDetailHtmlForBooking(b) {
 
   const phone = b.GuestPhone ? `+${esc(b.GuestPhone)}` : '—';
   const email = b.GuestEmail ? `<a href="mailto:${esc(b.GuestEmail)}">${esc(b.GuestEmail)}</a>` : '—';
+  const taskSection = selectedTask ? bzwTaskDatesSection(selectedTask) : '';
   return `
     <header class="bzw-detail-header">
       <div>
@@ -15796,6 +15817,7 @@ function bzwDetailHtmlForBooking(b) {
       </div>
       <button class="bzw-detail-close" onclick="bzwCloseDetailPanel()">×</button>
     </header>
+    ${taskSection}
     <section class="bzw-detail-section">
       <div class="bzw-detail-section-title">📑 Reserva
         <span style="margin-left:auto" class="bzw-detail-chip">Ocupado</span>
@@ -15823,15 +15845,14 @@ function bzwDetailHtmlForBooking(b) {
 
 function bzwDetailHtmlForTask(t) {
   // Si la task tiene linked_reservation, abre el panel de la booking
-  // (que ya tiene tareas vinculadas incluyendo ésta).
+  // pasando la task seleccionada (para mostrar sus 4 fechas arriba).
   const lodId = t.raw?.linked_reservation?.external_reservation_id;
   if (lodId) {
     const b = (LG_STATE?.bookings || []).find(x => String(x.Id) === String(lodId));
-    if (b) return bzwDetailHtmlForBooking(b);
+    if (b) return bzwDetailHtmlForBooking(b, t);
   }
-  // Sin reserva ligada: panel resumido de la task sola
+  // Sin reserva ligada: panel resumido de la task sola con las 4 fechas.
   const meta = BZW_DEPT_META[String(t.task?.type || '').toLowerCase()] || BZW_DEPT_META._default;
-  const finished = !!t.task?.finished_at;
   return `
     <header class="bzw-detail-header">
       <div>
@@ -15840,14 +15861,7 @@ function bzwDetailHtmlForTask(t) {
       </div>
       <button class="bzw-detail-close" onclick="bzwCloseDetailPanel()">×</button>
     </header>
-    <section class="bzw-detail-section">
-      <div class="bzw-detail-section-title">🧹 Detalle de la tarea</div>
-      <div class="bzw-detail-row"><span class="bzw-detail-row-label">ID</span><span class="bzw-detail-row-value">${esc(t.task?.id || '—')}</span></div>
-      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Departamento</span><span class="bzw-detail-row-value">${esc(meta.label)}</span></div>
-      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Programada</span><span class="bzw-detail-row-value">${esc(bzwFmtFechaDetalle(t.task?.scheduled_date))}</span></div>
-      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Terminada</span><span class="bzw-detail-row-value">${finished ? esc(bzwFmtFechaDetalle(t.task?.finished_at, true)) : '<span style="color:#f97316">Pendiente</span>'}</span></div>
-      <div class="bzw-detail-row"><span class="bzw-detail-row-label">Realizada por</span><span class="bzw-detail-row-value">${esc(t.task?.finished_by || '—')}</span></div>
-    </section>
+    ${bzwTaskDatesSection(t)}
   `;
 }
 
