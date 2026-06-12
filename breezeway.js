@@ -770,7 +770,10 @@ export function registerBreezewayRoutes(app) {
           redirect: "follow",
         });
         const j = await r.json().catch(() => ({}));
-        const rows = Array.isArray(j.rows) ? j.rows : Array.isArray(j.reservations) ? j.reservations : [];
+        // El Apps Script devuelve {ok, bookings:[...]} (el frontend lo usa así).
+        const rows = Array.isArray(j.bookings) ? j.bookings
+                   : Array.isArray(j.rows) ? j.rows
+                   : Array.isArray(j.reservations) ? j.reservations : [];
         for (const b of rows) {
           const id = String(b.Id || b.id || b["Lodgify Id"] || "").trim();
           if (!id) continue;
@@ -779,7 +782,7 @@ export function registerBreezewayRoutes(app) {
             departure: b.DateDeparture || b["Fecha de salida"]  || "",
           });
         }
-        console.log(`📚 Lodgify lookup: ${bookingsMap.size} bookings indexados`);
+        console.log(`📚 Lodgify lookup: ${bookingsMap.size} bookings indexados (${rows.length} rows raw)`);
       } catch (e) {
         console.warn("⚠️ No se pudo cargar Lodgify para enriquecer fechas:", e?.message || e);
       }
