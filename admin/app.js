@@ -14938,7 +14938,17 @@ window.bzwRefreshAlerts = async function() {
     const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts?limit=1000`, { cache: 'no-store' });
     const json = await res.json();
     if (!res.ok || json.ok === false) throw new Error(json.error || `HTTP ${res.status}`);
-    const alerts = Array.isArray(json.alerts) ? json.alerts : [];
+    const allAlerts = Array.isArray(json.alerts) ? json.alerts : [];
+    // Excluye eventos de tipo "property-status" — son cambios de estado
+    // de propiedad de Breezeway (dirty/clean/etc.), no traen task_id/name
+    // y no tienen sentido en una "lista de tasks".
+    const alerts = allAlerts.filter(a => {
+      const ev = String(a.event_type || a.kind || '').toLowerCase();
+      if (ev === 'property-status' || ev === 'property-ready') return false;
+      // También filtra los que no tienen ningún identificador de task ni nombre
+      const hasTaskInfo = !!(a.task?.id || a.task?.name || a.raw?.id);
+      return hasTaskInfo;
+    });
     BZW_ALL_TASKS = alerts;
     if (cnt) cnt.textContent = String(alerts.length);
     if (lastEl) lastEl.textContent = new Date().toLocaleTimeString('es-MX');
