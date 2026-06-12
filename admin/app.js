@@ -14942,13 +14942,31 @@ window.bzwRefreshAlerts = async function() {
     // Excluye eventos de tipo "property-status" — son cambios de estado
     // de propiedad de Breezeway (dirty/clean/etc.), no traen task_id/name
     // y no tienen sentido en una "lista de tasks".
-    const alerts = allAlerts.filter(a => {
+    // Webhooks de Breezeway emiten eventos intermedios (task-assignment-updated,
+    // task-comment-added, etc.) que SOLO traen id + name — sin scheduled_date,
+    // finished_at ni created_at. Ese subset es inútil para una card.
+    //
+    // Reglas de filtro:
+    //   1) Excluye eventos de status de propiedad (no son tasks).
+    //   2) Excluye eventos sin fechas útiles (scheduled_date Y finished_at vacíos).
+    //   3) Dedupe por task.id — quédate con la versión que más info traiga
+    //      (la que tenga scheduled_date Y/O finished_at).
+    const dedupe = new Map(); // task.id → alert con MÁS info
+    for (const a of allAlerts) {
       const ev = String(a.event_type || a.kind || '').toLowerCase();
-      if (ev === 'property-status' || ev === 'property-ready') return false;
-      // También filtra los que no tienen ningún identificador de task ni nombre
-      const hasTaskInfo = !!(a.task?.id || a.task?.name || a.raw?.id);
-      return hasTaskInfo;
-    });
+      if (ev === 'property-status' || ev === 'property-ready') continue;
+      const tid = String(a.task?.id || a.raw?.id || '');
+      if (!tid) continue;
+      const hasDates = !!(a.task?.scheduled_date || a.task?.finished_at);
+      if (!hasDates) continue;
+      const prev = dedupe.get(tid);
+      if (!prev) { dedupe.set(tid, a); continue; }
+      // Mismo task_id ya tenía algo — preferir el que tenga MÁS campos llenos.
+      const score = (x) => (x.task?.scheduled_date?1:0) + (x.task?.finished_at?1:0) +
+                          (x.raw?.created_at?1:0) + (x.raw?.updated_at?1:0);
+      if (score(a) > score(prev)) dedupe.set(tid, a);
+    }
+    const alerts = Array.from(dedupe.values());
     BZW_ALL_TASKS = alerts;
     if (cnt) cnt.textContent = String(alerts.length);
     if (lastEl) lastEl.textContent = new Date().toLocaleTimeString('es-MX');
