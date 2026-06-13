@@ -15199,9 +15199,10 @@ function bzwRenderAlertItem(a, opts) {
   const chipSource = resvSource && typeof lgSourceChipMini === 'function'
     ? lgSourceChipMini(resvSource)
     : '';
-  // Chip Clasificación del huésped (tier — Oro/Plata/Bronce/Recurrente).
-  const chipTier = resvTier
-    ? `<span title="${esc(resvTier.tooltip || '')}" style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:${resvTier.bg};color:${resvTier.fg};font-weight:800;font-size:10px;border:1px solid ${resvTier.border};box-shadow:0 1px 3px ${resvTier.shadow};letter-spacing:.02em">${resvTier.icon} ${esc(resvTier.label)} <b>${resvTier.score}</b></span>`
+  // Tier INLINE (sin chip, solo texto resaltado con animación) — se inyecta
+  // al lado del nombre del huésped abajo, no en la fila de chips superiores.
+  const tierInline = resvTier
+    ? `<span class="bzw-tier-inline" title="${esc(resvTier.tooltip || '')}" style="color:${resvTier.fg}">${resvTier.icon} ${esc(resvTier.label)} <b style="color:#0f172a">${resvTier.score}</b></span>`
     : '';
   // Chip de status (verde ✓ Finalizada o rojo ✗ Pendiente) — vive en el
   // header derecho de la card, NO en la fila de chips superiores.
@@ -15276,25 +15277,52 @@ function bzwRenderAlertItem(a, opts) {
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#a16207;font-weight:700;align-self:center">${esc(label)}</div>
       <div style="font-size:12px;color:#1f2937;line-height:1.4">${value === '' || value == null ? '—' : value}</div>
     </div>`;
-  const tableHtml = `
-    ${fld('ID', `<code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:11px;color:#475569">${esc(t.id || raw.id || '—')}</code>`)}
-    ${fld('Departamento', `${meta.emoji} <b>${esc(meta.label)}</b>`)}
-    ${pMeta ? fld('Prioridad', `${pMeta.emoji} <b style="color:${pMeta.fg}">${esc(pMeta.label)}</b>`) : ''}
-    ${fld('Propiedad', `🏠 ${esc(propName)}${propId ? ` <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:10px;color:#64748b">${esc(propId)}</code>` : ''}`)}
-    ${fld('Programada', raw.scheduled_date ? `📅 ${bzwFmtFechaLargo(raw.scheduled_date, true)}${raw.scheduled_time ? ' · ' + esc(raw.scheduled_time) : ''}` : '—')}
-    ${fld('Iniciada', raw.started_at ? `▶ ${bzwFmtFechaLargo(raw.started_at)}` : '—')}
-    ${fld('Terminada', t.finished_at ? `✓ ${bzwFmtFechaLargo(t.finished_at)}` : '—')}
-    ${fld('Realizada por', finishedBy ? `👤 <b>${esc(finishedBy)}</b>` : '—')}
-    ${assigneesStr ? fld('Asignaciones', `👥 ${esc(assigneesStr)}`) : ''}
-    ${fld('Creada', raw.created_at ? `🕐 ${bzwFmtFechaLargo(raw.created_at)}${raw.created_by?.name ? ' · por ' + esc(raw.created_by.name) : ''}` : '—')}
-    ${description ? fld('Descripción', `<div style="background:#f8fafc;padding:6px 9px;border-radius:6px;border-left:3px solid #94a3b8;font-style:italic;color:#334155">${esc(description)}</div>`) : ''}
+  // Section header helper.
+  const sectionHeader = (title, color) => `
+    <div style="margin:14px 0 6px;padding:6px 10px;border-radius:6px;background:${color}12;border-left:3px solid ${color};font-size:10px;font-weight:800;letter-spacing:.16em;color:${color};text-transform:uppercase">${esc(title)}</div>`;
+
+  // ─── Sección 1: Reservación ───
+  // Reservación, Propiedad, Nombre del huésped, Fecha de entrada, Fecha de salida, # noches
+  const section1 = `
+    ${sectionHeader('🛏 Reservación', '#3730a3')}
     ${linkedReservation ? fld('Reservación',
       (matchedBooking || matchedHuesped)
         ? `<a href="#" onclick="event.preventDefault();bzwGotoReservation('${esc(lodgifyId)}');return false" style="color:#3730a3;font-weight:800;text-decoration:none;display:inline-flex;align-items:center;gap:5px">🔗 <code style="background:#e0e7ff;padding:1px 6px;border-radius:4px;font-size:11px;color:#3730a3">Lodgify Id ${esc(lodgifyId)}</code> · Abrir en Gestión de reservas →</a>`
         : `<code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:11px;color:#64748b">🔗 Lodgify Id ${esc(lodgifyId)}</code> <span style="font-size:11px;color:#94a3b8;font-style:italic">(no en Reservaciones)</span>`
-    ) : ''}
-    ${tagsStr ? fld('Tags', tagsArr.map(x => `<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:#e0e7ff;color:#3730a3;font-size:10px;font-weight:700;margin-right:4px">${esc(x.name || x)}</span>`).join('')) : ''}
-    ${reportUrl ? fld('Reporte', `<a href="${esc(reportUrl)}" target="_blank" rel="noopener" style="color:#0d9488;font-weight:700;text-decoration:none">📄 Abrir reporte de Breezeway →</a>`) : ''}`;
+    ) : fld('Reservación', '—')}
+    ${fld('Propiedad', `🏠 ${esc(propName)}${propId ? ` <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:10px;color:#64748b">${esc(propId)}</code>` : ''}`)}
+    ${fld('Nombre del huésped', resvGuestName ? `👤 <b>${esc(resvGuestName)}</b>${tierInline ? ' &nbsp; ' + tierInline : ''}` : '—')}
+    ${fld('Fecha de entrada', resvDateArrival ? `🛬 ${bzwFmtFechaLargo(resvDateArrival, true)}${resvHoraLlegada ? ` · ${esc(typeof huFmtHoraSimple === 'function' ? huFmtHoraSimple(resvHoraLlegada) : resvHoraLlegada)}` : ''}` : '—')}
+    ${fld('Fecha de salida',  resvDateDeparture ? `🛫 ${bzwFmtFechaLargo(resvDateDeparture, true)}${resvHoraSalida ? ` · ${esc(typeof huFmtHoraSimple === 'function' ? huFmtHoraSimple(resvHoraSalida) : resvHoraSalida)}` : ''}` : '—')}
+    ${fld('# Noches', resvNights > 0 ? `🌙 <b>${resvNights}</b>` : '—')}`;
+
+  // ─── Sección 2: Detalles de la Tarea ───
+  // ID, Prioridad, Departamento, Creada, Programada, Realizada por, Descripción
+  const section2 = `
+    ${sectionHeader('🧹 Detalles de la Tarea', '#0f766e')}
+    ${fld('ID', `<code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:11px;color:#475569">${esc(t.id || raw.id || '—')}</code>`)}
+    ${fld('Prioridad', pMeta ? `${pMeta.emoji} <b style="color:${pMeta.fg}">${esc(pMeta.label)}</b>` : '—')}
+    ${fld('Departamento', `${meta.emoji} <b>${esc(meta.label)}</b>`)}
+    ${fld('Creada', raw.created_at ? `🕐 ${bzwFmtFechaLargo(raw.created_at)}${raw.created_by?.name ? ' · por ' + esc(raw.created_by.name) : ''}` : '—')}
+    ${fld('Programada', raw.scheduled_date ? `📅 ${bzwFmtFechaLargo(raw.scheduled_date, true)}${raw.scheduled_time ? ' · ' + esc(raw.scheduled_time) : ''}` : '—')}
+    ${fld('Realizada por', finishedBy ? `👤 <b>${esc(finishedBy)}</b>` : '—')}
+    ${fld('Descripción', description ? `<div style="background:#f8fafc;padding:6px 9px;border-radius:6px;border-left:3px solid #94a3b8;font-style:italic;color:#334155">${esc(description)}</div>` : '—')}`;
+
+  // ─── Sección 3: Ejecución ───
+  // Status, Asignaciones, Iniciada, Terminada, Reporte
+  const statusFldValue = finished
+    ? '<span style="color:#15803d;font-weight:800">✓ Finalizada</span>'
+    : '<span style="color:#b91c1c;font-weight:800">✗ Pendiente</span>';
+  const section3 = `
+    ${sectionHeader('⚙ Ejecución', '#92400e')}
+    ${fld('Status', statusFldValue)}
+    ${fld('Asignaciones', assigneesStr ? `👥 ${esc(assigneesStr)}` : '—')}
+    ${fld('Iniciada', raw.started_at ? `▶ ${bzwFmtFechaLargo(raw.started_at)}` : '—')}
+    ${fld('Terminada', t.finished_at ? `✓ ${bzwFmtFechaLargo(t.finished_at)}` : '—')}
+    ${fld('Reporte', reportUrl ? `<a href="${esc(reportUrl)}" target="_blank" rel="noopener" style="color:#0d9488;font-weight:700;text-decoration:none">📄 Abrir reporte de Breezeway →</a>` : '—')}`;
+
+  const tableHtml = `${section1}${section2}${section3}
+    ${tagsStr ? fld('Tags', tagsArr.map(x => `<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:#e0e7ff;color:#3730a3;font-size:10px;font-weight:700;margin-right:4px">${esc(x.name || x)}</span>`).join('')) : ''}`;
 
   // ─── Card final (mismo lenguaje visual de Gestión de Reservas) ───
   // Fecha límite (scheduled_date) — formato corto: "8 jun 2026"
@@ -15323,7 +15351,7 @@ function bzwRenderAlertItem(a, opts) {
       <summary class="bzw-list-card-summary">
       <!-- Top: chips (Status + Asignaciones/Realizada por se movieron a la derecha del header) -->
       <div class="bzw-list-card-topchips">
-        ${chevron}${chipDept}${chipPriority}${chipPaused}${chipSource}${chipTier}${chipReserva}
+        ${chevron}${chipDept}${chipPriority}${chipPaused}${chipSource}${chipReserva}
       </div>
       <!-- Centro: PROPIEDAD como título (izq) + Asignaciones + Status + Date/Time (der) -->
       <div class="bzw-list-card-row">
@@ -15333,7 +15361,7 @@ function bzwRenderAlertItem(a, opts) {
           ${matchedBooking || matchedHuesped ? `
             ${(resvDateArrival && resvDateDeparture) ? `<div class="bzw-list-card-sub" style="color:#475569;font-weight:600">${esc(bzwFmtRangoFechas(resvDateArrival, resvDateDeparture))}${resvNights > 0 ? ` <span style="color:#7c3aed;font-weight:700">· 🌙 ${resvNights} noche${resvNights===1?'':'s'}</span>` : ''}</div>` : ''}
             ${(resvHoraLlegada || resvHoraSalida) ? `<div class="bzw-list-card-sub" style="color:#475569;font-weight:600">${resvHoraLlegada ? `🛬 <b style="color:#0f172a">${esc(typeof huFmtHoraSimple === 'function' ? huFmtHoraSimple(resvHoraLlegada) : resvHoraLlegada)}</b>` : ''}${resvHoraLlegada && resvHoraSalida ? ' · ' : ''}${resvHoraSalida ? `🛫 <b style="color:#0f172a">${esc(typeof huFmtHoraSimple === 'function' ? huFmtHoraSimple(resvHoraSalida) : resvHoraSalida)}</b>` : ''}</div>` : ''}
-            ${resvGuestName ? `<div class="bzw-list-card-sub" style="color:#475569;font-weight:600">👤 Nombre del huésped: <b style="color:#0f172a">${esc(resvGuestName)}</b></div>` : ''}
+            ${resvGuestName ? `<div class="bzw-list-card-sub" style="color:#475569;font-weight:600">👤 Nombre del huésped: <b style="color:#0f172a">${esc(resvGuestName)}</b>${tierInline ? ' &nbsp; ' + tierInline : ''}</div>` : (tierInline ? `<div class="bzw-list-card-sub">${tierInline}</div>` : '')}
           ` : ''}
           <div class="bzw-list-card-sub" style="color:${meta.fg};font-weight:700">${meta.emoji} ${esc(taskName)}</div>
         </div>
@@ -15342,10 +15370,8 @@ function bzwRenderAlertItem(a, opts) {
           ${chipStatusBig}
           ${finished ? `
             <div style="text-align:right;line-height:1.2">
-              <div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase">Date completed</div>
-              <div style="font-size:12px;color:#0f172a;font-weight:800">${esc(finishedDateLocal)}</div>
-              <div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-top:4px">Time completed</div>
-              <div style="font-size:12px;color:#0f172a;font-weight:800">${esc(finishedTimeLocal)}</div>
+              <div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase">Fecha y hora de término</div>
+              <div style="font-size:12px;color:#0f172a;font-weight:800">${esc(finishedDateLocal)} ${esc(finishedTimeLocal)}</div>
             </div>` : `
             <div style="text-align:right;line-height:1.2">
               <div style="font-size:10px;color:#94a3b8;font-style:italic">Sin fecha de completado</div>

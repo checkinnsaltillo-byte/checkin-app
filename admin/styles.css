@@ -2899,6 +2899,29 @@ input[type="checkbox"].lg-multi-cb {
   background: #d1fae5;
   box-shadow: 0 2px 6px rgba(5,150,105,.20);
 }
+
+/* Tier inline (Clasificación del huésped) — sin chip, solo texto resaltado
+   con animación de "shimmer" suave para llamar la atención. */
+.bzw-tier-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: .02em;
+  text-shadow: 0 0 0 currentColor;
+  animation: bzw-tier-pulse 2.4s ease-in-out infinite;
+}
+@keyframes bzw-tier-pulse {
+  0%, 100% {
+    text-shadow: 0 0 0 currentColor;
+    filter: brightness(1);
+  }
+  50% {
+    text-shadow: 0 0 6px currentColor;
+    filter: brightness(1.18);
+  }
+}
 .bzw-list-card-body {
   padding: 0 14px 12px;
   margin-top: -2px;
