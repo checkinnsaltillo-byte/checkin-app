@@ -10741,6 +10741,7 @@ function huBuildReservationDetail(r) {
         ${fldRow('¿Requiere factura?', huReqFacturaBadge(reqFactura))}
         ${comentarios ? fldRow('Comentarios', `<div style="font-size:12px;line-height:1.5;background:#f8fafc;padding:8px 10px;border-radius:6px;border-left:3px solid #94a3b8;font-style:italic;color:#334155">${esc(comentarios)}</div>`) : ''}
         ${comentFact ? fldRow('Comentarios sobre factura', `<div style="font-size:12px;line-height:1.5;background:#fef3c7;padding:8px 10px;border-radius:6px;border-left:3px solid #f59e0b;font-style:italic;color:#78350f">${esc(comentFact)}</div>`) : ''}
+        ${lgBuildAseoSectionForBooking(r)}
       </div>
 
       ${airbnbBox}
@@ -13828,13 +13829,22 @@ function lgBuildSection1DetailHtml(b, huesped) {
     </div>`;
 }
 
-/** Construye la sección "🧹 Aseo" con los campos de Ejecución de Breezeway
- *  para la booking dada. Busca el task de housekeeping vinculado vía
- *  linked_reservation.external_reservation_id === b.Id en BZW_ALL_TASKS.
+/** Construye la sección "🧹 Aseo" con los campos de Ejecución de Breezeway.
+ *  Acepta:
+ *    - un objeto booking de Lodgify (tomará b.Id)
+ *    - un row de Reservaciones (tomará r['Lodgify Id'])
+ *    - un string con el Lodgify Id directo
+ *  Busca el task de housekeeping vinculado vía
+ *  linked_reservation.external_reservation_id === lodId en BZW_ALL_TASKS.
  *  Si no hay match, retorna nada. */
-function lgBuildAseoSectionForBooking(b) {
-  if (!b || typeof BZW_ALL_TASKS === 'undefined' || !BZW_ALL_TASKS.length) return '';
-  const lodId = String(b.Id || '');
+function lgBuildAseoSectionForBooking(arg) {
+  if (typeof BZW_ALL_TASKS === 'undefined' || !BZW_ALL_TASKS.length) return '';
+  let lodId = '';
+  if (typeof arg === 'string') {
+    lodId = arg.trim();
+  } else if (arg && typeof arg === 'object') {
+    lodId = String(arg.Id || arg['Lodgify Id'] || arg.lodgify_id || '').trim();
+  }
   if (!lodId) return '';
   // Filtra todas las tasks ligadas a esta reserva
   const linked = BZW_ALL_TASKS.filter(t =>
