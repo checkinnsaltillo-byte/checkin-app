@@ -10461,11 +10461,25 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
             fechaTermStr = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
           }
         }
+        // Chip de asignaciones (operarios asignados, nombres únicos abreviados)
+        const tkAssignNames = Array.isArray(tk.raw?.assignments)
+          ? Array.from(new Set(tk.raw.assignments.map(x => x?.full_name || x?.name).filter(Boolean)))
+          : [];
+        let tkAssignDisplay = '';
+        if (tkAssignNames.length) {
+          tkAssignDisplay = tkAssignNames.length <= 2
+            ? tkAssignNames.join(', ')
+            : `${tkAssignNames.slice(0,2).join(', ')} +${tkAssignNames.length - 2}`;
+        }
+        const asignacionesChip = tkAssignDisplay
+          ? `<span title="Asignaciones: ${esc(tkAssignNames.join(', '))}" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:9px;border:1px solid #fdba74;letter-spacing:.02em;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">👥 ${esc(tkAssignDisplay)}</span>`
+          : '';
         aseoChipHtml = `
           <div style="margin-top:6px;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
             ${tFinished
               ? '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:800;font-size:9px;border:1px solid #86efac;letter-spacing:.02em">✓ Aseo · Finalizada</span>'
               : '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:800;font-size:9px;border:1px solid #fca5a5;letter-spacing:.02em">✗ Aseo · Pendiente</span>'}
+            ${asignacionesChip}
             ${fechaTermStr ? `<span style="font-size:9px;color:#64748b;font-weight:700;letter-spacing:.02em">${esc(fechaTermStr)}</span>` : ''}
           </div>`;
       }
@@ -13647,7 +13661,8 @@ function lgBuildCombinedDetailColumn(b, huesped) {
     ${fldRow('Nombres de huéspedes', nombresT ? `<span style="font-size:12px;line-height:1.5">${esc(nombresT)}</span>` : '—')}
     ${fldRow('Motivo', motivo ? esc(motivo) : '—')}
     ${fldRow('¿Requiere factura?', reqFactChip || '—')}
-    ${fldRow('Comentarios', comen ? `<div style="font-size:12px;line-height:1.5;background:#f8fafc;padding:8px 10px;border-radius:6px;border-left:3px solid #94a3b8;font-style:italic;color:#334155">${esc(comen)}</div>` : '—')}`;
+    ${fldRow('Comentarios', comen ? `<div style="font-size:12px;line-height:1.5;background:#f8fafc;padding:8px 10px;border-radius:6px;border-left:3px solid #94a3b8;font-style:italic;color:#334155">${esc(comen)}</div>` : '—')}
+    ${lgBuildAseoSectionForBooking(b)}`;
 
   // ─── Sección 2: Líneas de cobro ───
   // Prioridad 1: Lodgify LineItemsJSON agrupado por kind (RoomRate / Fee /
@@ -15027,7 +15042,9 @@ async function bzwInit() {
     } catch(_) {}
   }
   // Carga inmediata desde el sheet (rápido, ya tenemos lo que estaba persistido).
-  bzwRefreshAlerts();
+  // Awaitamos para que el caller (ej. switchModule lodgify) pueda hacer
+  // re-render DESPUÉS de que BZW_ALL_TASKS esté poblado.
+  await bzwRefreshAlerts();
   // Auto-sync con Breezeway: corre EN CADA entrada al módulo, con throttle
   // de 60 s para no spamear si el usuario brinca tabs. Trae los cambios
   // (nuevos, actualizados, status, asignaciones) de los últimos 7 días.
