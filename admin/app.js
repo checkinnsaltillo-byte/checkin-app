@@ -10741,7 +10741,6 @@ function huBuildReservationDetail(r) {
         ${fldRow('¿Requiere factura?', huReqFacturaBadge(reqFactura))}
         ${comentarios ? fldRow('Comentarios', `<div style="font-size:12px;line-height:1.5;background:#f8fafc;padding:8px 10px;border-radius:6px;border-left:3px solid #94a3b8;font-style:italic;color:#334155">${esc(comentarios)}</div>`) : ''}
         ${comentFact ? fldRow('Comentarios sobre factura', `<div style="font-size:12px;line-height:1.5;background:#fef3c7;padding:8px 10px;border-radius:6px;border-left:3px solid #f59e0b;font-style:italic;color:#78350f">${esc(comentFact)}</div>`) : ''}
-        ${lgBuildAseoSectionForBooking(r)}
       </div>
 
       ${airbnbBox}
@@ -13662,8 +13661,7 @@ function lgBuildCombinedDetailColumn(b, huesped) {
     ${fldRow('Nombres de huéspedes', nombresT ? `<span style="font-size:12px;line-height:1.5">${esc(nombresT)}</span>` : '—')}
     ${fldRow('Motivo', motivo ? esc(motivo) : '—')}
     ${fldRow('¿Requiere factura?', reqFactChip || '—')}
-    ${fldRow('Comentarios', comen ? `<div style="font-size:12px;line-height:1.5;background:#f8fafc;padding:8px 10px;border-radius:6px;border-left:3px solid #94a3b8;font-style:italic;color:#334155">${esc(comen)}</div>` : '—')}
-    ${lgBuildAseoSectionForBooking(b)}`;
+    ${fldRow('Comentarios', comen ? `<div style="font-size:12px;line-height:1.5;background:#f8fafc;padding:8px 10px;border-radius:6px;border-left:3px solid #94a3b8;font-style:italic;color:#334155">${esc(comen)}</div>` : '—')}`;
 
   // ─── Sección 2: Líneas de cobro ───
   // Prioridad 1: Lodgify LineItemsJSON agrupado por kind (RoomRate / Fee /
@@ -13824,7 +13822,6 @@ function lgBuildSection1DetailHtml(b, huesped) {
       ${fldRow('Motivo', motivo ? esc(motivo) : '—')}
       ${fldRow('¿Requiere factura?', reqFactChip || '—')}
       ${fldRow('Comentarios', comen ? `<div style="font-size:12px;line-height:1.5;background:#f8fafc;padding:8px 10px;border-radius:6px;border-left:3px solid #94a3b8;font-style:italic;color:#334155">${esc(comen)}</div>` : '—')}
-      ${lgBuildAseoSectionForBooking(b)}
       </div>
     </div>`;
 }
@@ -13837,26 +13834,32 @@ function lgBuildSection1DetailHtml(b, huesped) {
  *  La sección SIEMPRE se renderiza para que el usuario vea que está integrada,
  *  con placeholders claros cuando no hay datos. */
 function lgBuildAseoSectionForBooking(arg) {
-  // Extrae el Lodgify Id sea cual sea la forma del argumento
+  // Extrae el Lodgify Id. Para Reservaciones row: prioriza 'Lodgify Id'
+  // antes de 'Id' (porque arg.Id en una row es el UUID, no el Lodgify).
   let lodId = '';
   if (typeof arg === 'string') {
     lodId = arg.trim();
   } else if (arg && typeof arg === 'object') {
-    lodId = String(arg.Id || arg['Lodgify Id'] || arg.lodgify_id || '').trim();
+    lodId = String(
+      arg['Lodgify Id'] || arg.lodgify_id || arg.LodgifyId || arg.Id || ''
+    ).trim();
   }
-  // Header de la sección (siempre presente)
+  // Valida que sea un Lodgify Id REAL: solo dígitos, longitud 6-12.
+  // UUIDs como "0933bd3a-..." tienen guiones y fallan esta validación.
+  if (!/^\d{6,12}$/.test(lodId)) {
+    // No es un Lodgify Id válido → no muestra nada (mejor que mostrar el UUID).
+    return '';
+  }
+  // Header de la sección (siempre presente cuando hay Lodgify Id válido)
   const sectionHeader = `<div style="margin-top:18px;padding:10px 12px;border-radius:8px;background:#ecfeff10;border-left:3px solid #06b6d4;font-size:10px;font-weight:800;letter-spacing:.16em;color:#0e7490;text-transform:uppercase">🧹 Aseo · ejecución (Breezeway)</div>`;
+  // Grid responsivo: en columna estrecha, las etiquetas y valores se apilan.
   const aseoRow = (label, value) => `
-    <div style="display:grid;grid-template-columns:170px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+    <div style="display:grid;grid-template-columns:minmax(100px,140px) 1fr;gap:8px;padding:8px 4px;border-bottom:1px solid #f1f5f9;min-width:0">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#0f766e;font-weight:700;align-self:center">${esc(label)}</div>
-      <div style="font-size:13px;color:#1f2937">${value === '' || value == null ? '—' : value}</div>
+      <div style="font-size:12px;color:#1f2937;min-width:0;word-break:break-word">${value === '' || value == null ? '—' : value}</div>
     </div>`;
   const placeholder = (msg) => sectionHeader +
-    `<div style="padding:14px 12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px;margin-top:6px">${esc(msg)}</div>`;
-  // 0) Sin Lodgify Id → no se puede vincular
-  if (!lodId) {
-    return placeholder('Esta reservación no tiene Lodgify Id (no se puede vincular a Breezeway).');
-  }
+    `<div style="padding:12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px;margin-top:6px;word-break:break-word">${esc(msg)}</div>`;
   // 1) Breezeway aún no cargado
   if (typeof BZW_ALL_TASKS === 'undefined' || !Array.isArray(BZW_ALL_TASKS) || !BZW_ALL_TASKS.length) {
     return sectionHeader +
