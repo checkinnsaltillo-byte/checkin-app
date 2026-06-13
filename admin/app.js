@@ -13834,22 +13834,43 @@ function lgBuildSection1DetailHtml(b, huesped) {
  *    - un objeto booking de Lodgify (tomará b.Id)
  *    - un row de Reservaciones (tomará r['Lodgify Id'])
  *    - un string con el Lodgify Id directo
- *  Busca el task de housekeeping vinculado vía
- *  linked_reservation.external_reservation_id === lodId en BZW_ALL_TASKS.
- *  Si no hay match, retorna nada. */
+ *  La sección SIEMPRE se renderiza para que el usuario vea que está integrada,
+ *  con placeholders claros cuando no hay datos. */
 function lgBuildAseoSectionForBooking(arg) {
-  if (typeof BZW_ALL_TASKS === 'undefined' || !BZW_ALL_TASKS.length) return '';
+  // Extrae el Lodgify Id sea cual sea la forma del argumento
   let lodId = '';
   if (typeof arg === 'string') {
     lodId = arg.trim();
   } else if (arg && typeof arg === 'object') {
     lodId = String(arg.Id || arg['Lodgify Id'] || arg.lodgify_id || '').trim();
   }
-  if (!lodId) return '';
+  // Header de la sección (siempre presente)
+  const sectionHeader = `<div style="margin-top:18px;padding:10px 12px;border-radius:8px;background:#ecfeff10;border-left:3px solid #06b6d4;font-size:10px;font-weight:800;letter-spacing:.16em;color:#0e7490;text-transform:uppercase">🧹 Aseo · ejecución (Breezeway)</div>`;
+  const aseoRow = (label, value) => `
+    <div style="display:grid;grid-template-columns:170px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#0f766e;font-weight:700;align-self:center">${esc(label)}</div>
+      <div style="font-size:13px;color:#1f2937">${value === '' || value == null ? '—' : value}</div>
+    </div>`;
+  const placeholder = (msg) => sectionHeader +
+    `<div style="padding:14px 12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px;margin-top:6px">${esc(msg)}</div>`;
+  // 0) Sin Lodgify Id → no se puede vincular
+  if (!lodId) {
+    return placeholder('Esta reservación no tiene Lodgify Id (no se puede vincular a Breezeway).');
+  }
+  // 1) Breezeway aún no cargado
+  if (typeof BZW_ALL_TASKS === 'undefined' || !Array.isArray(BZW_ALL_TASKS) || !BZW_ALL_TASKS.length) {
+    return sectionHeader +
+      `<div style="padding:14px 12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px;margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+         <span>⏳ Cargando datos de Breezeway…</span>
+         <button type="button" onclick="event.preventDefault();event.stopPropagation();(typeof bzwInit==='function'?bzwInit():null);if(typeof lodgifyRender==='function')setTimeout(lodgifyRender,2000)" style="padding:4px 10px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">Reintentar</button>
+       </div>`;
+  }
   // Filtra todas las tasks ligadas a esta reserva
   const linked = BZW_ALL_TASKS.filter(t =>
     String(t.raw?.linked_reservation?.external_reservation_id || '') === lodId);
-  if (!linked.length) return '';
+  if (!linked.length) {
+    return placeholder(`Sin tarea de Breezeway vinculada a la reservación ${lodId}.`);
+  }
   // Prioriza: housekeeping primero, dentro de esos prefiere "Checkout"/"Limpieza"
   const score = (t) => {
     const dept = String(t.task?.type || t.raw?.type_department || '').toLowerCase();
@@ -13891,22 +13912,16 @@ function lgBuildAseoSectionForBooking(arg) {
     if (isNaN(d.getTime())) return iso;
     return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   };
-  const aseoRow = (label, value) => `
-    <div style="display:grid;grid-template-columns:170px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#0f766e;font-weight:700;align-self:center">${esc(label)}</div>
-      <div style="font-size:13px;color:#1f2937">${value === '' || value == null ? '—' : value}</div>
-    </div>`;
   const reporteBtn = reportUrl
     ? `<button type="button" onclick="event.stopPropagation();bzwOpenReportPanel('${esc(reportUrl)}','${esc(taskName)}','${esc(propDisplay)}')"
             style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;background:#ecfdf5;color:#047857;font-weight:800;font-size:12px;border:1.5px solid #6ee7b7;cursor:pointer;letter-spacing:.02em">📄 Abrir reporte</button>`
     : '<span style="color:#94a3b8;font-style:italic;font-size:12px">Sin reporte</span>';
-  return `
-    <div style="margin-top:18px;padding:10px 12px;border-radius:8px;background:#ecfeff10;border-left:3px solid #06b6d4;font-size:10px;font-weight:800;letter-spacing:.16em;color:#0e7490;text-transform:uppercase">🧹 Aseo · ejecución (Breezeway)</div>
-    ${aseoRow('Status', statusChip + (finished ? `<span style="margin-left:8px;font-size:11px;color:#64748b">${esc(fechaTermino)}</span>` : ''))}
-    ${aseoRow('Asignaciones', assignStr ? `👥 ${esc(assignStr)}` : '—')}
-    ${aseoRow('Iniciada', raw.started_at ? `▶ ${esc(fmtLocal(raw.started_at))}` : '—')}
-    ${aseoRow('Terminada', t.task.finished_at ? `✓ ${esc(fmtLocal(t.task.finished_at))}` : '—')}
-    ${aseoRow('Reporte', reporteBtn)}`;
+  return sectionHeader +
+    aseoRow('Status', statusChip + (finished ? `<span style="margin-left:8px;font-size:11px;color:#64748b">${esc(fechaTermino)}</span>` : '')) +
+    aseoRow('Asignaciones', assignStr ? `👥 ${esc(assignStr)}` : '—') +
+    aseoRow('Iniciada', raw.started_at ? `▶ ${esc(fmtLocal(raw.started_at))}` : '—') +
+    aseoRow('Terminada', t.task.finished_at ? `✓ ${esc(fmtLocal(t.task.finished_at))}` : '—') +
+    aseoRow('Reporte', reporteBtn);
 }
 
 /** Solo Sección 2 (cobros) + Importar $Montos + Ticket auto-facturación. */
