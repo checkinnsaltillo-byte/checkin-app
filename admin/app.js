@@ -15174,6 +15174,22 @@ window.bzwRefreshAlerts = async function() {
     BZW_ALL_TASKS = alerts;
     // Reconstruye el map de homologación de propiedades para esta data.
     try { bzwRebuildHomolMap(); } catch(_) {}
+    // Resetea el flag de "aseo inyectado" en TODOS los paneles de detalle
+    // visibles, y vuelve a escanear → cada panel recibe la nueva versión
+    // (con datos de Breezeway recién cargados) en lugar del placeholder.
+    try {
+      document.querySelectorAll('[data-aseo-injected="1"]').forEach(el => {
+        // Borra el bloque inyectado y resetea el flag
+        const lastChild = el.lastElementChild;
+        if (lastChild && /Aseo · ejecución/i.test(lastChild.textContent || '')) {
+          lastChild.remove();
+        }
+        el.removeAttribute('data-aseo-injected');
+      });
+      if (typeof window.bzwAseoInjectorScan === 'function') {
+        requestAnimationFrame(() => window.bzwAseoInjectorScan());
+      }
+    } catch(_) {}
     if (cnt) cnt.textContent = String(alerts.length);
     if (lastEl) lastEl.textContent = new Date().toLocaleTimeString('es-MX');
     if (!alerts.length) {
@@ -16297,6 +16313,77 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
   // Sin task seleccionada (vino del click en la barra de reservación).
   bzwShowDetailPanel(bzwDetailHtmlForBooking(b, null));
 };
+/** Inyector DEFENSIVO de la sección "🧹 Aseo" en cualquier columna de
+ *  Detalle de Reservación del módulo Lodgify. Independiente de cuál
+ *  función la renderice — un MutationObserver detecta el DOM y mete la
+ *  sección al final. Marca con data-aseo-injected="1" para no duplicar.
+ *  Se vuelve a evaluar cada vez que BZW_ALL_TASKS cambia.
+ */
+(function setupAseoInjector() {
+  if (typeof window === 'undefined') return;
+  function lookupLodgifyIdForDetailEl(el) {
+    // 1) data-hu-resv-id en algún ancestro → buscar HU_STATE.rows
+    const ancestor = el.closest('[data-hu-resv-id]');
+    if (ancestor) {
+      const recId = ancestor.getAttribute('data-hu-resv-id');
+      const r = (typeof HU_STATE !== 'undefined' && HU_STATE.rows || []).find(x =>
+        String(x['ID']||x['row_number']||'') === String(recId));
+      if (r) return r['Lodgify Id'] || '';
+    }
+    // 2) data-lg-booking-id en algún ancestro
+    const wrap = el.closest('[data-lg-booking-id]');
+    if (wrap) {
+      const bid = wrap.getAttribute('data-lg-booking-id');
+      if (bid) return bid;
+    }
+    // 3) Buscar "Lodgify Id" como text dentro del panel (último recurso)
+    const code = el.querySelector('code');
+    if (code) {
+      const txt = code.textContent || '';
+      if (/^\d{6,}$/.test(txt.trim())) return txt.trim();
+    }
+    return '';
+  }
+  function injectInto(el) {
+    if (!el || el.dataset.aseoInjected === '1') return;
+    if (typeof lgBuildAseoSectionForBooking !== 'function') return;
+    const lodId = lookupLodgifyIdForDetailEl(el);
+    if (!lodId) return;
+    const html = lgBuildAseoSectionForBooking(String(lodId));
+    if (!html) return;
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+    el.appendChild(wrapper);
+    el.dataset.aseoInjected = '1';
+  }
+  function scan() {
+    // Selecciona columnas de detalle. El selector cubre todas las variantes:
+    document.querySelectorAll(
+      '.hu-col-detail, .hu-resv-detail, [data-hu-resv-id]'
+    ).forEach(injectInto);
+  }
+  // Re-scan cuando el DOM cambie en el contenedor del módulo Lodgify.
+  if (typeof MutationObserver === 'function') {
+    const obs = new MutationObserver((muts) => {
+      // Throttle: ya hubo cambios → corre scan una sola vez al fin del frame.
+      if (window.__bzwAseoScanQueued) return;
+      window.__bzwAseoScanQueued = true;
+      requestAnimationFrame(() => {
+        window.__bzwAseoScanQueued = false;
+        scan();
+      });
+    });
+    function startObs() {
+      const target = document.body;
+      if (target) obs.observe(target, { childList: true, subtree: true });
+    }
+    if (document.readyState !== 'loading') startObs();
+    else document.addEventListener('DOMContentLoaded', startObs);
+  }
+  // Exponer scan público para que sea posible forzarlo
+  window.bzwAseoInjectorScan = scan;
+})();
+
 /** Abre el panel lateral con el reporte de Breezeway embebido en iframe.
  *  Si el iframe es bloqueado por X-Frame-Options o CSP, mostramos un
  *  fallback con link "Abrir en pestaña nueva". */
