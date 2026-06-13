@@ -8040,6 +8040,20 @@ function switchModule(mod) {
     // En paralelo, traer Información de huéspedes para cruzar registros
     // y mostrar el ícono 📋 en bookings que ya tienen registro manual.
     lgEnsureHuespedesAndMatch();
+    // Paso 3: Cargar Breezeway en background para que las cards de Reservas
+    // totales muestren el chip "Aseo: Finalizada/Pendiente" + Fecha y hora
+    // de término, y la sección "🧹 Aseo" del Detalle de Reservación aparezca
+    // con datos. Sin throttle no spamea: bzwInit ya tiene su propio
+    // throttle de 60 s.
+    try {
+      if (typeof bzwInit === 'function') {
+        bzwInit().then(() => {
+          // Re-render porque tal vez Breezeway llegó después de la primera
+          // pintura del módulo Lodgify (las cards no tenían el chip).
+          if (typeof lodgifyRender === 'function') lodgifyRender();
+        }).catch(() => {});
+      }
+    } catch(_) {}
   }
   if (mod === "reservas-detalles") {
     // Reusa LG_STATE.bookings (ya cargado por el módulo Lodgify). Si no
@@ -10422,6 +10436,40 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
     } else if (status === 'pendiente' || /s[ií]/i.test(String(reqFacHist||''))) {
       ticketChipHtml = `<span style="display:inline-block;padding:3px 9px;border-radius:999px;background:#fff7ed;color:#c2410c;font-weight:800;font-size:9px;border:1px solid #fdba74;letter-spacing:.02em">🧾 Pendiente</span>`;
     }
+    // Aseo Breezeway: busca task de housekeeping ligada a Lodgify Id
+    let aseoChipHtml = '';
+    if (lodId && typeof BZW_ALL_TASKS !== 'undefined' && BZW_ALL_TASKS.length) {
+      const linkedB = BZW_ALL_TASKS.filter(tk =>
+        String(tk.raw?.linked_reservation?.external_reservation_id || '') === String(lodId));
+      if (linkedB.length) {
+        const scoreB = (tk) => {
+          const dept = String(tk.task?.type || tk.raw?.type_department || '').toLowerCase();
+          const nm = String(tk.task?.name || '').toLowerCase();
+          let s = 0;
+          if (dept === 'housekeeping') s += 10;
+          if (/checkout|limpieza/.test(nm)) s += 5;
+          if (tk.task?.finished_at) s += 1;
+          return s;
+        };
+        linkedB.sort((a, b) => scoreB(b) - scoreB(a));
+        const tk = linkedB[0];
+        const tFinished = !!tk.task?.finished_at;
+        let fechaTermStr = '';
+        if (tFinished && tk.task.finished_at) {
+          const d = new Date(tk.task.finished_at);
+          if (!isNaN(d.getTime())) {
+            fechaTermStr = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+          }
+        }
+        aseoChipHtml = `
+          <div style="margin-top:6px;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+            ${tFinished
+              ? '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:800;font-size:9px;border:1px solid #86efac;letter-spacing:.02em">✓ Aseo · Finalizada</span>'
+              : '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:800;font-size:9px;border:1px solid #fca5a5;letter-spacing:.02em">✗ Aseo · Pendiente</span>'}
+            ${fechaTermStr ? `<span style="font-size:9px;color:#64748b;font-weight:700;letter-spacing:.02em">${esc(fechaTermStr)}</span>` : ''}
+          </div>`;
+      }
+    }
     return `
       <div onclick="event.stopPropagation();huSelectReservation('${esc(outerCardRecId)}','${esc(xid)}')"
            data-hu-history-id="${esc(xid)}"
@@ -10430,12 +10478,15 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
            onmouseover="if(!this.classList.contains('hu-history-active')){this.style.boxShadow='0 4px 10px rgba(15,23,42,.10)';this.style.transform='translateX(2px)'}"
            onmouseout="if(!this.classList.contains('hu-history-active')){this.style.boxShadow='0 1px 2px rgba(15,23,42,.06)';this.style.transform=''}">
         ${ticketChipHtml ? `<div style="margin-bottom:6px">${ticketChipHtml}</div>` : ''}
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;gap:8px">
           <div style="font-size:11px;font-weight:800;color:#1f2937;letter-spacing:.02em">${huFmtFecha(ingreso)} → ${huFmtFecha(salida)}</div>
-          <span style="display:inline-flex;align-items:center;gap:5px" title="${dotTitle}">
-            <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${dotColor};box-shadow:0 0 0 2px rgba(255,255,255,.7);${dotPulse}"></span>
-            <span style="font-size:9px;font-weight:700;color:${dotColor};text-transform:uppercase;letter-spacing:.04em">${esc(dotTitle)}</span>
-          </span>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <span style="display:inline-flex;align-items:center;gap:5px" title="${dotTitle}">
+              <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${dotColor};box-shadow:0 0 0 2px rgba(255,255,255,.7);${dotPulse}"></span>
+              <span style="font-size:9px;font-weight:700;color:${dotColor};text-transform:uppercase;letter-spacing:.04em">${esc(dotTitle)}</span>
+            </span>
+            ${aseoChipHtml}
+          </div>
         </div>
         <div style="font-size:11px;color:#64748b;font-weight:600">${esc(prop || '—')}${depto?' · # '+esc(depto):''}</div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
@@ -13757,8 +13808,80 @@ function lgBuildSection1DetailHtml(b, huesped) {
       ${fldRow('Motivo', motivo ? esc(motivo) : '—')}
       ${fldRow('¿Requiere factura?', reqFactChip || '—')}
       ${fldRow('Comentarios', comen ? `<div style="font-size:12px;line-height:1.5;background:#f8fafc;padding:8px 10px;border-radius:6px;border-left:3px solid #94a3b8;font-style:italic;color:#334155">${esc(comen)}</div>` : '—')}
+      ${lgBuildAseoSectionForBooking(b)}
       </div>
     </div>`;
+}
+
+/** Construye la sección "🧹 Aseo" con los campos de Ejecución de Breezeway
+ *  para la booking dada. Busca el task de housekeeping vinculado vía
+ *  linked_reservation.external_reservation_id === b.Id en BZW_ALL_TASKS.
+ *  Si no hay match, retorna nada. */
+function lgBuildAseoSectionForBooking(b) {
+  if (!b || typeof BZW_ALL_TASKS === 'undefined' || !BZW_ALL_TASKS.length) return '';
+  const lodId = String(b.Id || '');
+  if (!lodId) return '';
+  // Filtra todas las tasks ligadas a esta reserva
+  const linked = BZW_ALL_TASKS.filter(t =>
+    String(t.raw?.linked_reservation?.external_reservation_id || '') === lodId);
+  if (!linked.length) return '';
+  // Prioriza: housekeeping primero, dentro de esos prefiere "Checkout"/"Limpieza"
+  const score = (t) => {
+    const dept = String(t.task?.type || t.raw?.type_department || '').toLowerCase();
+    const name = String(t.task?.name || '').toLowerCase();
+    let s = 0;
+    if (dept === 'housekeeping') s += 10;
+    if (/checkout|limpieza/.test(name)) s += 5;
+    if (t.task?.finished_at) s += 1; // prefiere finalizada para que muestre datos completos
+    return s;
+  };
+  linked.sort((a, b) => score(b) - score(a));
+  const t = linked[0];
+  const raw = t.raw || {};
+  const finished = !!t.task?.finished_at;
+  // Asignaciones (nombres únicos)
+  const assignNames = Array.isArray(raw.assignments)
+    ? Array.from(new Set(raw.assignments.map(x => x?.full_name || x?.name).filter(Boolean)))
+    : [];
+  const assignStr = assignNames.join(', ');
+  const reportUrl = t.task?.report_url || raw.report_url || raw.task_report_url || '';
+  const taskName = t.task?.name || 'Tarea';
+  const propDisplay = typeof bzwPropDisplay === 'function' ? bzwPropDisplay(t.property?.name) : (t.property?.name || '');
+  // Status chip
+  const statusChip = finished
+    ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:800;font-size:11px;border:1.5px solid #86efac">✓ Finalizada</span>'
+    : '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:800;font-size:11px;border:1.5px solid #fca5a5">✗ Pendiente</span>';
+  // Fecha y hora de término (combinada local)
+  let fechaTermino = '—';
+  if (finished && t.task.finished_at) {
+    const d = new Date(t.task.finished_at);
+    if (!isNaN(d.getTime())) {
+      fechaTermino = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    }
+  }
+  // Helper para formatear datetime UTC → local
+  const fmtLocal = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  };
+  const aseoRow = (label, value) => `
+    <div style="display:grid;grid-template-columns:170px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#0f766e;font-weight:700;align-self:center">${esc(label)}</div>
+      <div style="font-size:13px;color:#1f2937">${value === '' || value == null ? '—' : value}</div>
+    </div>`;
+  const reporteBtn = reportUrl
+    ? `<button type="button" onclick="event.stopPropagation();bzwOpenReportPanel('${esc(reportUrl)}','${esc(taskName)}','${esc(propDisplay)}')"
+            style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;background:#ecfdf5;color:#047857;font-weight:800;font-size:12px;border:1.5px solid #6ee7b7;cursor:pointer;letter-spacing:.02em">📄 Abrir reporte</button>`
+    : '<span style="color:#94a3b8;font-style:italic;font-size:12px">Sin reporte</span>';
+  return `
+    <div style="margin-top:18px;padding:10px 12px;border-radius:8px;background:#ecfeff10;border-left:3px solid #06b6d4;font-size:10px;font-weight:800;letter-spacing:.16em;color:#0e7490;text-transform:uppercase">🧹 Aseo · ejecución (Breezeway)</div>
+    ${aseoRow('Status', statusChip + (finished ? `<span style="margin-left:8px;font-size:11px;color:#64748b">${esc(fechaTermino)}</span>` : ''))}
+    ${aseoRow('Asignaciones', assignStr ? `👥 ${esc(assignStr)}` : '—')}
+    ${aseoRow('Iniciada', raw.started_at ? `▶ ${esc(fmtLocal(raw.started_at))}` : '—')}
+    ${aseoRow('Terminada', t.task.finished_at ? `✓ ${esc(fmtLocal(t.task.finished_at))}` : '—')}
+    ${aseoRow('Reporte', reporteBtn)}`;
 }
 
 /** Solo Sección 2 (cobros) + Importar $Montos + Ticket auto-facturación. */
