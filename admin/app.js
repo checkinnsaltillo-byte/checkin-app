@@ -13850,10 +13850,17 @@ function lgBuildAseoSectionForBooking(arg) {
     // No es un Lodgify Id válido → no muestra nada (mejor que mostrar el UUID).
     return '';
   }
-  // Wrapper que respeta los márgenes de la card padre (sin overflow lateral).
-  const wrap = (inner) => `<div style="margin-top:18px;width:100%;box-sizing:border-box;overflow:hidden">${inner}</div>`;
-  // Header sin border-left externo (evita que sobresalga del borde de la card).
-  const sectionHeader = `<div style="padding:10px 12px;border-radius:8px;background:#ecfeff;font-size:10px;font-weight:800;letter-spacing:.16em;color:#0e7490;text-transform:uppercase;box-sizing:border-box;width:100%">🧹 Aseo · ejecución (Breezeway)</div>`;
+  // Card completa con el mismo chrome que "Detalle de reservación" / "Cobros":
+  // border 1.5px, radius 16, shadow, gradient top stripe, padding interno.
+  const wrap = (inner) => `
+    <div class="hu-col-card bzw-aseo-card" style="margin-top:14px;background:#fff;border-radius:16px;padding:0;box-shadow:0 4px 16px rgba(15,23,42,.08);border:1.5px solid #e2e8f0;overflow:hidden;box-sizing:border-box;width:100%">
+      <div style="height:4px;background:linear-gradient(90deg,#06b6d4,#14b8a6,#22c55e)"></div>
+      <div style="padding:14px 16px;box-sizing:border-box">${inner}</div>
+    </div>`;
+  // Header con el mismo estilo que el header de "Detalle de reservación".
+  const sectionHeader = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">🧹 ASEO · EJECUCIÓN (BREEZEWAY)</div>
+  </div>`;
   // Grid responsivo: en columna estrecha, las etiquetas y valores se apilan.
   const aseoRow = (label, value) => `
     <div style="display:grid;grid-template-columns:minmax(100px,140px) 1fr;gap:8px;padding:8px 4px;border-bottom:1px solid #f1f5f9;min-width:0;box-sizing:border-box">
