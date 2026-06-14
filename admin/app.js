@@ -8029,6 +8029,11 @@ function switchModule(mod) {
     else huespedesRender();
   }
   if (mod === "lodgify") {
+    // Reset el flag de interacción cada vez que entras al módulo —
+    // empiezas con la lista fresca y bzwInit puede re-renderizar para
+    // pintar los chips de Aseo. En cuanto el usuario clickea una card,
+    // se vuelve a setear y se bloquean los re-renders automáticos.
+    window.LG_USER_INTERACTED = false;
     // Paso 1: lectura instantánea desde Sheets (lo que el usuario ya
     // sincronizó queda intacto y se muestra de inmediato).
     if (!LG_STATE.loaded && !LG_STATE.loading) lodgifyLoad(true);
@@ -8050,6 +8055,13 @@ function switchModule(mod) {
         bzwInit().then(() => {
           // Re-render porque tal vez Breezeway llegó después de la primera
           // pintura del módulo Lodgify (las cards no tenían el chip).
+          // PERO: si el usuario ya interactuó con una card del historial,
+          // NO re-renderizamos — eso resetearía su selección. El chip se
+          // pintará la próxima vez que entre limpio al módulo.
+          if (window.LG_USER_INTERACTED) {
+            console.info('[LG] skip auto re-render: user already selected a history card');
+            return;
+          }
           if (typeof lodgifyRender === 'function') lodgifyRender();
         }).catch(() => {});
       }
@@ -14159,6 +14171,9 @@ function lgBuildHuespedSectionHtml_real(huesped, booking, phoneOnlyB) {
 window.lgHistorySelect = function(bookingId, outerRecIdQuoted, selectedRecIdQuoted) {
   // huBuildHistoryList llama así: huSelectReservation('outer','selected')
   // Después del replace queda: lgHistorySelect('bookingId','outer','selected')
+  // Marcamos que el usuario ya interactuó → ningún auto-render posterior
+  // (ej. el de bzwInit().then) debe resetear esta selección.
+  window.LG_USER_INTERACTED = true;
   const outerRecId = String(outerRecIdQuoted || '');
   const selectedRecId = String(selectedRecIdQuoted || '');
   const r = (HU_STATE.rows || []).find(x => String(x['ID']||x['row_number']||'') === selectedRecId);
