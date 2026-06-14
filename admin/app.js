@@ -13850,23 +13850,25 @@ function lgBuildAseoSectionForBooking(arg) {
     // No es un Lodgify Id válido → no muestra nada (mejor que mostrar el UUID).
     return '';
   }
-  // Header de la sección (siempre presente cuando hay Lodgify Id válido)
-  const sectionHeader = `<div style="margin-top:18px;padding:10px 12px;border-radius:8px;background:#ecfeff10;border-left:3px solid #06b6d4;font-size:10px;font-weight:800;letter-spacing:.16em;color:#0e7490;text-transform:uppercase">🧹 Aseo · ejecución (Breezeway)</div>`;
+  // Wrapper que respeta los márgenes de la card padre (sin overflow lateral).
+  const wrap = (inner) => `<div style="margin-top:18px;width:100%;box-sizing:border-box;overflow:hidden">${inner}</div>`;
+  // Header sin border-left externo (evita que sobresalga del borde de la card).
+  const sectionHeader = `<div style="padding:10px 12px;border-radius:8px;background:#ecfeff;font-size:10px;font-weight:800;letter-spacing:.16em;color:#0e7490;text-transform:uppercase;box-sizing:border-box;width:100%">🧹 Aseo · ejecución (Breezeway)</div>`;
   // Grid responsivo: en columna estrecha, las etiquetas y valores se apilan.
   const aseoRow = (label, value) => `
-    <div style="display:grid;grid-template-columns:minmax(100px,140px) 1fr;gap:8px;padding:8px 4px;border-bottom:1px solid #f1f5f9;min-width:0">
+    <div style="display:grid;grid-template-columns:minmax(100px,140px) 1fr;gap:8px;padding:8px 4px;border-bottom:1px solid #f1f5f9;min-width:0;box-sizing:border-box">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#0f766e;font-weight:700;align-self:center">${esc(label)}</div>
-      <div style="font-size:12px;color:#1f2937;min-width:0;word-break:break-word">${value === '' || value == null ? '—' : value}</div>
+      <div style="font-size:12px;color:#1f2937;min-width:0;word-break:break-word;overflow-wrap:anywhere">${value === '' || value == null ? '—' : value}</div>
     </div>`;
-  const placeholder = (msg) => sectionHeader +
-    `<div style="padding:12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px;margin-top:6px;word-break:break-word">${esc(msg)}</div>`;
+  const placeholder = (msg) => wrap(sectionHeader +
+    `<div style="padding:12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px;margin-top:6px;word-break:break-word;box-sizing:border-box;width:100%">${esc(msg)}</div>`);
   // 1) Breezeway aún no cargado
   if (typeof BZW_ALL_TASKS === 'undefined' || !Array.isArray(BZW_ALL_TASKS) || !BZW_ALL_TASKS.length) {
-    return sectionHeader +
-      `<div style="padding:14px 12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px;margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+    return wrap(sectionHeader +
+      `<div style="padding:14px 12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px;margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-sizing:border-box;width:100%;flex-wrap:wrap">
          <span>⏳ Cargando datos de Breezeway…</span>
          <button type="button" onclick="event.preventDefault();event.stopPropagation();(typeof bzwInit==='function'?bzwInit():null);if(typeof lodgifyRender==='function')setTimeout(lodgifyRender,2000)" style="padding:4px 10px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">Reintentar</button>
-       </div>`;
+       </div>`);
   }
   // Filtra todas las tasks ligadas a esta reserva
   const linked = BZW_ALL_TASKS.filter(t =>
@@ -13919,12 +13921,12 @@ function lgBuildAseoSectionForBooking(arg) {
     ? `<button type="button" onclick="event.stopPropagation();bzwOpenReportPanel('${esc(reportUrl)}','${esc(taskName)}','${esc(propDisplay)}')"
             style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;background:#ecfdf5;color:#047857;font-weight:800;font-size:12px;border:1.5px solid #6ee7b7;cursor:pointer;letter-spacing:.02em">📄 Abrir reporte</button>`
     : '<span style="color:#94a3b8;font-style:italic;font-size:12px">Sin reporte</span>';
-  return sectionHeader +
+  return wrap(sectionHeader +
     aseoRow('Status', statusChip + (finished ? `<span style="margin-left:8px;font-size:11px;color:#64748b">${esc(fechaTermino)}</span>` : '')) +
     aseoRow('Asignaciones', assignStr ? `👥 ${esc(assignStr)}` : '—') +
     aseoRow('Iniciada', raw.started_at ? `▶ ${esc(fmtLocal(raw.started_at))}` : '—') +
     aseoRow('Terminada', t.task.finished_at ? `✓ ${esc(fmtLocal(t.task.finished_at))}` : '—') +
-    aseoRow('Reporte', reporteBtn);
+    aseoRow('Reporte', reporteBtn));
 }
 
 /** Solo Sección 2 (cobros) + Importar $Montos + Ticket auto-facturación. */
@@ -16361,9 +16363,10 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
   }
   function scan() {
     // Selecciona columnas de detalle. El selector cubre todas las variantes:
-    document.querySelectorAll(
-      '.hu-col-detail, .hu-resv-detail, [data-hu-resv-id]'
-    ).forEach(injectInto);
+    // SOLO la columna de Detalle de reservación. NO usar [data-hu-resv-id]
+    // porque ese selector matchea el wrapper externo que contiene tanto
+    // .hu-col-detail como .hu-col-cobros → inyectaría también bajo Cobros.
+    document.querySelectorAll('.hu-col-detail, .hu-resv-detail').forEach(injectInto);
   }
   // Re-scan cuando el DOM cambie en el contenedor del módulo Lodgify.
   if (typeof MutationObserver === 'function') {
