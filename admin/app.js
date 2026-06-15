@@ -15206,21 +15206,21 @@ window.bzwRefreshAlerts = async function() {
     //
     // Reglas de filtro:
     //   1) Excluye eventos de status de propiedad (no son tasks).
-    //   2) Excluye eventos sin fechas útiles (scheduled_date Y finished_at vacíos).
-    //   3) Dedupe por task.id — quédate con la versión que más info traiga
-    //      (la que tenga scheduled_date Y/O finished_at).
+    //   2) Dedupe por task.id — quédate con la versión que más info traiga.
+    // YA NO filtramos por scheduled_date/finished_at — tasks recién creadas
+    // por webhook llegan sin esas fechas. Caemos a due_date, created_at,
+    // received_at en orden de preferencia para ordenamiento.
     const dedupe = new Map(); // task.id → alert con MÁS info
     for (const a of allAlerts) {
       const ev = String(a.event_type || a.kind || '').toLowerCase();
       if (ev === 'property-status' || ev === 'property-ready') continue;
       const tid = String(a.task?.id || a.raw?.id || '');
       if (!tid) continue;
-      const hasDates = !!(a.task?.scheduled_date || a.task?.finished_at);
-      if (!hasDates) continue;
       const prev = dedupe.get(tid);
       if (!prev) { dedupe.set(tid, a); continue; }
       // Mismo task_id ya tenía algo — preferir el que tenga MÁS campos llenos.
       const score = (x) => (x.task?.scheduled_date?1:0) + (x.task?.finished_at?1:0) +
+                          (x.task?.due_date?1:0) +
                           (x.raw?.created_at?1:0) + (x.raw?.updated_at?1:0);
       if (score(a) > score(prev)) dedupe.set(tid, a);
     }
