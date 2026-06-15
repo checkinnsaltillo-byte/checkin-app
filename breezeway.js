@@ -201,24 +201,56 @@ function isDuplicate(key, lastUpdated) {
   return false;
 }
 
-function handleTaskEvent(payload) {
-  const { event_type, task = {}, last_updated } = payload;
-  const home = task.home || {};
+async function fetchTaskById(taskId) {
+  // Trae el task COMPLETO desde la API de BZW. El webhook a veces llega
+  // con datos parciales (sin scheduled_date / due_date) — esto enriquece.
+  if (!taskId) return null;
+  try {
+    const r = await breezewayFetch(`/public/inventory/v1/task/${taskId}`);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) {
+    console.warn(`[BZW] fetchTaskById ${taskId} falló:`, e?.message || e);
+    return null;
+  }
+}
+
+async function handleTaskEvent(payload) {
+  const { event_type, last_updated } = payload;
+  const webhookTask = payload.task || {};
+  // ENRICH: si el webhook trae solo id+name+status, traer el task completo
+  // de la API. Esto puebla scheduled_date, due_date, finished_at, etc.
+  const full = await fetchTaskById(webhookTask.id);
+  // Merge: full prevalece (más completo), pero conserva campos del webhook
+  // si la API no los devuelve.
+  const task = { ...webhookTask, ...(full || {}) };
+  const home = task.home || (full?.home_id ? { id: full.home_id, name: full.home_name } : {});
   const key = `task:${task.id}`;
   if (isDuplicate(key, last_updated)) return null;
 
   // Nos interesa principalmente cuando el aseo queda terminado.
   const isCompleted = event_type === "task-completed" || Boolean(task.finished_at);
   if (!isCompleted) {
-    // Otros eventos de tarea: los registramos pero sin disparar alerta "lista".
+    // Otros eventos de tarea: los registramos con TODOS los campos disponibles
+    // para que aparezcan en el sheet (scheduled_date, due_date, etc.).
     return pushAlert({
       kind: "task",
       event_type,
       title: `Tarea: ${task.name || task.id}`,
-      detail: `${home.name || "—"} · estado: ${task.status?.name || task.status?.code || "?"}`,
-      property: { id: home.id, name: home.name },
-      task: { id: task.id, name: task.name, status: task.status?.name },
-      raw: payload,
+      detail: `${home.name || task.home_name || "—"} · estado: ${task.status?.name || task.status?.code || task.status || "?"}`,
+      property: { id: home.id || task.home_id, name: home.name || task.home_name },
+      task: {
+        id: task.id,
+        name: task.name,
+        type: task.type_department || task.type?.name,
+        status: task.status?.name || task.status,
+        scheduled_date: task.scheduled_date || "",
+        due_date: task.due_date || task.task_date || "",
+        finished_at: task.finished_at || "",
+        finished_by: task.finished_by?.name || task.finished_by || "",
+        report_url: task.report_url || "",
+      },
+      raw: { ...payload, task },
     });
   }
 
@@ -232,17 +264,21 @@ function handleTaskEvent(payload) {
   return pushAlert({
     kind: "task-completed",
     event_type,
-    title: `✅ Aseo terminado: ${home.name || "Alojamiento " + home.id}`,
+    title: `✅ Aseo terminado: ${home.name || task.home_name || "Alojamiento " + (home.id || task.home_id)}`,
     detail: `Tarea "${task.name || ""}" finalizada${task.finished_at ? " a las " + task.finished_at : ""}`,
-    property: { id: home.id, name: home.name },
+    property: { id: home.id || task.home_id, name: home.name || task.home_name },
     task: {
       id: task.id,
       name: task.name,
-      type: task.type?.name,
+      type: task.type_department || task.type?.name,
+      scheduled_date: task.scheduled_date || "",
+      due_date: task.due_date || task.task_date || "",
       finished_at: task.finished_at,
-      finished_by: task.finished_by?.name || task.finished_by,
+      finished_by: task.finished_by?.name || task.finished_by || "",
+      status: task.status?.name || task.status,
+      report_url: task.report_url || "",
     },
-    raw: payload,
+    raw: { ...payload, task },
   });
 }
 
@@ -287,8 +323,9 @@ function flatAlertForSheet(a) {
     task_id:       a.task?.id ?? "",
     task_name:     a.task?.name ?? "",
     task_type:     a.task?.type ?? "",
-    scheduled_date: a.task?.scheduled_date ?? "",
-    finished_at:   a.task?.finished_at ?? "",
+    scheduled_date: a.task?.scheduled_date ?? a.raw?.task?.scheduled_date ?? "",
+    due_date:      a.task?.due_date ?? a.raw?.task?.due_date ?? a.raw?.task?.task_date ?? "",
+    finished_at:   a.task?.finished_at ?? a.raw?.task?.finished_at ?? "",
     finished_by:   a.task?.finished_by ?? "",
     home_id:       a.property?.id ?? "",
     property_name: a.property?.name ?? "",
@@ -399,7 +436,9 @@ export function registerBreezewayRoutes(app) {
 
     try {
       if (body.task || /^task/.test(body.event_type || "")) {
-        handleTaskEvent(body);
+        // handleTaskEvent ahora es async (enriquece con API). Fire-and-forget.
+        handleTaskEvent(body).catch(err =>
+          console.error("❌ Error procesando webhook task:", err?.message || err));
       } else {
         handlePropertyStatusEvent(body);
       }
@@ -423,13 +462,14 @@ export function registerBreezewayRoutes(app) {
           kind: r.kind,
           title: r.detail || "",
           detail: r.detail || "",
-          last_updated: r.finished_at || r.scheduled_date || r.received_at,
+          last_updated: r.finished_at || r.scheduled_date || r.due_date || r.received_at,
           property: { id: r.home_id, name: r.property_name },
           task: {
             id: r.task_id,
             name: r.task_name,
             type: r.task_type,
             scheduled_date: r.scheduled_date,
+            due_date: r.due_date || "",
             finished_at: r.finished_at,
             finished_by: r.finished_by,
             status: r.status,

@@ -21,8 +21,20 @@ const FOLDER_CACHE_ = {};
 const PERFILES_SHEET = "Perfiles";
 const VEHICULOS_SHEET = "Vehiculos";
 const RESERVACIONES_SHEET = "Reservaciones";
+const ALOJAMIENTOS_SHEET = "alojamientos";
 const LEGACY_SHEET = "Check in";
 const LEGACY_ARCHIVE = "Check in (archivo)";
+const BREEZEWAY_ALERTS_SHEET = "Breezeway_Alerts";
+const BREEZEWAY_ALERTS_HEADERS = [
+  "id","received_at","event_type","kind","task_id","task_name","task_type",
+  "scheduled_date","due_date","finished_at","finished_by","home_id","property_name",
+  "lodgify_id","priority","status","detail",
+  // ─── Nuevas columnas (4 fechas extra) ───
+  "created_at","updated_at","arrival_date","departure_date",
+  "raw_json"
+];
+const BREEZEWAY_ALERTS_MAX = 5000; // tope para evitar crecimiento infinito
+
 const PUSH_SUBS_SHEET = "Push_Subscriptions";
 const PUSH_SUBS_HEADERS = ["phoneKey","endpoint","p256dh","auth","ua","created_at","updated_at","badge_count","last_sent_at","categories"];
 const OTP_CODES_SHEET = "OTP_Codes";
@@ -77,10 +89,11 @@ const RESERVACIONES_HEADERS = [
   "Correo electrónico","...enviar copia al siguiente correo:",
   "$ Noches","$ Cuota de limpieza","$ MONTO TOTAL Airbnb","$ Comisión Airbnb","$ Monto antes de impuestos",
   "($) Monto Total pagado","$ Monto facturado Total",
-  "Folio facturapi","Folio CFDI","Folio Relación","Folio complemento de pago","Estatus",
+  "Folio facturapi","Organización facturapi","Folio CFDI","Folio Relación","Folio complemento de pago","Estatus",
   "Fecha de emisión","Concepto Factura","Método de pago",
   "Ticket facturapi url","Ticket facturapi id archivo","Ticket facturapi nombre archivo","Ticket facturapi carpeta url","Ticket facturapi carpeta ruta",
-  "Envía tus comentarios","Envía tus comentarios con relación a la factura","Notas","Enviado por"
+  "Envía tus comentarios","Envía tus comentarios con relación a la factura","Notas","Enviado por",
+  "Lodgify Id"
 ];
 
 // ─── ENTRY POINTS ────────────────────────────────────────────────────────────
@@ -113,6 +126,12 @@ function doPost(e) {
     if (action === "update_push_categories") return jsonOutput_(updatePushCategories_(data));
     if (action === "queue_notification") return jsonOutput_(queueNotification_(data));
     if (action === "mark_notification_processed") return jsonOutput_(markNotificationProcessed_(data));
+    if (action === "delete_reservacion") return jsonOutput_(deleteReservacion_(data));
+    if (action === "lodgify_list") return jsonOutput_(getLodgifyReservations_(data));
+    if (action === "lodgify_sync") return jsonOutput_(syncLodgifyReservations_(data));
+    if (action === "breezeway_alert") return jsonOutput_(saveBreezewayAlert_(data));
+    if (action === "breezeway_alerts_bulk") return jsonOutput_(saveBreezewayAlertsBulk_(data));
+    if (action === "breezeway_alerts_cleanup") return jsonOutput_(cleanBreezewayTestRows_());
     return jsonOutput_({ ok: false, error: "Acción no reconocida." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -129,6 +148,8 @@ function doGet(e) {
     if (action === "get_next_facturapi_folio") return jsonOutput_(getNextFacturapiFolio_());
     if (action === "update_reservacion_cell") return jsonOutput_(updateReservacionCell_(e.parameter || {}));
     if (action === "get_vapid_public_key") return jsonOutput_({ ok: true, key: VAPID_PUBLIC_KEY });
+    if (action === "list_alojamientos") return jsonOutput_(listAlojamientos_());
+    if (action === "breezeway_alerts_list") return jsonOutput_(listBreezewayAlerts_(e.parameter || {}));
     if (action === "get_otp_methods") return jsonOutput_(getOtpMethods_(e.parameter || {}));
     if (action === "list_push_subscriptions") return jsonOutput_(listPushSubscriptions_(e.parameter || {}));
     if (action === "send_push_to_user") return jsonOutput_(sendPushToUserFromAppsScript_(e.parameter || {}));
@@ -138,6 +159,8 @@ function doGet(e) {
     if (action === "list_notifications") return jsonOutput_(listNotifications_(e.parameter || {}));
     if (action === "get_profile") return jsonOutput_(getProfile_(e.parameter || {}));
     if (action === "get_image_b64") return jsonOutput_(getImageB64_(e.parameter || {}));
+    if (action === "lodgify_list") return jsonOutput_(getLodgifyReservations_(e.parameter || {}));
+    if (action === "lodgify_sync") return jsonOutput_(syncLodgifyReservations_(e.parameter || {}));
     return jsonOutput_({ ok: true, message: "Web app activo (normalizado)." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -330,8 +353,18 @@ function insertReservacion_(data, cel, idVehiculo) {
   const headers = getHeaders_(sheet);
   const now = new Date();
   const ingresoDate = parseDateSafe_(data.ingreso) || now;
-  const recordId = Utilities.getUuid();
 
+  // ANTI-DUPLICADOS: si ya existe una fila con mismo teléfono (últimos 10
+  // dígitos) + misma Fecha de ingreso (ISO), FUSIONAR el formulario manual
+  // en esa fila en lugar de insertar otra. Se aplica tanto si la fila ya
+  // tiene Lodgify Id (auto-propagada) como si NO lo tiene (manual previo
+  // del mismo huésped) — en ambos casos es la misma reserva.
+  const existingRow = findReservacionByPhoneArrival_(sheet, headers, cel, safe_(data.ingreso));
+  if (existingRow) {
+    return updateReservacionWithFormData_(sheet, headers, existingRow.row, existingRow.id, data, cel, idVehiculo, now, ingresoDate);
+  }
+
+  const recordId = Utilities.getUuid();
   const m = {};
   m["ID"] = recordId;
   m["Cel/Whatsapp (principal)"] = cel;
@@ -365,6 +398,579 @@ function insertReservacion_(data, cel, idVehiculo) {
 
   const rowNumber = appendRow_(sheet, headers, m);
   return { row_number: rowNumber, record_id: recordId };
+}
+
+/** Busca una fila en Reservaciones que matchee phone(últimos 10 dígitos) +
+ *  fecha de ingreso (ISO). Devuelve { row, id } o null.
+ *
+ *  IMPORTANTE: usa `.getValues()` (no `getDisplayValues()`) para evitar el
+ *  bug del locale es-MX donde las fechas tipadas como Date se renderizan
+ *  "DD/MM/YYYY" y el parser previo las leía como "MM/DD/YYYY" (Lodgify),
+ *  invirtiendo día y mes. La normalización pasa por `lodgifyDateToIso_`
+ *  que maneja correctamente Date objects, ISO y MM/DD/YYYY (Lodgify). */
+function findReservacionByPhoneArrival_(sheet, headers, cel, ingreso) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  const idxCel = headers.indexOf("Cel/Whatsapp (principal)");
+  const idxFi  = headers.indexOf("Fecha de ingreso");
+  const idxId  = headers.indexOf("ID");
+  if (idxCel < 0 || idxFi < 0 || idxId < 0) return null;
+  const tail = String(cel || "").replace(/\D/g, "").slice(-10);
+  const ingIso = (lodgifyDateToIso_(ingreso) || String(ingreso || "").slice(0, 10));
+  if (!tail || !ingIso) return null;
+  const data = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  for (let i = 0; i < data.length; i++) {
+    const rTail = String(data[i][idxCel] || "").replace(/\D/g, "").slice(-10);
+    if (rTail !== tail) continue;
+    const rIng = lodgifyDateToIso_(data[i][idxFi]);
+    if (rIng !== ingIso) continue;
+    return { row: i + 2, id: String(data[i][idxId] || "") };
+  }
+  return null;
+}
+
+/** Fusiona los campos del formulario manual en la fila existente (que ya
+ *  tiene Lodgify Id). No sobrescribe campos identitarios (ID, Cel, Lodgify
+ *  Id, Fecha de ingreso/salida). */
+function updateReservacionWithFormData_(sheet, headers, row, recordId, data, cel, idVehiculo, now, ingresoDate) {
+  const m = {};
+  m["ID_Vehiculo"]                  = idVehiculo || "";
+  m["Marca temporal"]                = now;
+  m["MES"]                           = Utilities.formatDate(now, Session.getScriptTimeZone(), "MMMM");
+  m["Mes correspondiente"]           = Utilities.formatDate(ingresoDate, Session.getScriptTimeZone(), "MMMM yyyy");
+  m["Tipo de factura"]               = normalizeInvoiceType_(data.factura);
+  m["Cuenta"]                        = "";
+  m["Propiedad otra"]                = safe_(data.propiedad_otra);
+  m["# Departamento"]                = safe_(data.depto);
+  m["Motivo de tu hospedaje"]        = resolveOtherValue_(data.motivo, data.motivo_otro, ["Otro","Other"]);
+  m["Motivo otro"]                   = safe_(data.motivo_otro);
+  m["Hora estimada de llegada"]      = safe_(data.hora_llegada_estimada);
+  m["Hora estimada de salida"]       = safe_(data.hora_salida_estimada);
+  m["# Huéspedes"]                   = safe_(data.num_huespedes);
+  m["Nombres de TODOS los huéspedes (separados por comas)"] = arrayToCsv_(data.huespedes);
+  m["Forma de pago"]                 = safe_(data.medio_pago);
+  m["Divisa monto pagado"]           = safe_(data.divisa_monto);
+  m["Correo electrónico"]            = safe_(data.correo1);
+  m["...enviar copia al siguiente correo:"] = safe_(data.correo2);
+  m["($) Monto Total pagado"]        = safe_(data.monto_pagado);
+  m["Envía tus comentarios"]         = safe_(data.comentarios);
+  m["Envía tus comentarios con relación a la factura"] = safe_(data.comentarios_factura);
+  // Sobrescribir solo si hay valor (no borrar lo que la propagación dejó)
+  Object.keys(m).forEach(k => {
+    const idx = headers.indexOf(k);
+    if (idx < 0) return;
+    const v = m[k];
+    if (v === "" || v == null) return;     // no sobrescribir con vacío
+    sheet.getRange(row, idx + 1).setValue(v);
+  });
+  return { row_number: row, record_id: recordId, merged_with_lodgify_row: true };
+}
+
+/** Wrapper PÚBLICO para correr el backfill de Propiedad/# Departamento
+ *  contra el catálogo "alojamientos" sobre filas YA importadas de Lodgify. */
+/** Test ultra-mínimo. No toca nada. Si esta falla, el problema es del
+ *  entorno del editor (motor, autorización, sesión), no del código. */
+function pingScript() {
+  Logger.log("pong");
+  return "pong";
+}
+
+function homologarPropiedades() {
+  try {
+    const res = homologarPropiedadesDesdeCatalogo_();
+    Logger.log(JSON.stringify(res, null, 2));
+    return res;
+  } catch (e) {
+    const errInfo = {
+      ok: false,
+      error: "Exception en wrapper: " + (e && e.message ? e.message : String(e)),
+      stack: e && e.stack ? String(e.stack).split('\n').slice(0, 6).join(' | ') : '',
+      type: e && e.name ? e.name : 'unknown',
+    };
+    Logger.log(JSON.stringify(errInfo, null, 2));
+    return errInfo;
+  }
+}
+
+/** Diagnóstico mínimo — NO toca datos. Verifica acceso a las 3 hojas y
+ *  reporta sus dimensiones. Si esta falla, el problema es de
+ *  permisos/autorización, no de la lógica. */
+function diagAlojamientos() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const out = {
+      ok: true,
+      spreadsheet: ss.getName(),
+      sheets: ss.getSheets().map(s => ({
+        name: s.getName(),
+        rows: s.getLastRow(),
+        cols: s.getLastColumn()
+      })),
+    };
+    // Buscar específicamente las 3 hojas
+    const find = (name) => {
+      let s = ss.getSheetByName(name);
+      if (s) return { found: true, exact: true, name: s.getName(), rows: s.getLastRow() };
+      const all = ss.getSheets();
+      for (var k = 0; k < all.length; k++) {
+        if (all[k].getName().toLowerCase() === name.toLowerCase()) {
+          return { found: true, exact: false, name: all[k].getName(), rows: all[k].getLastRow() };
+        }
+      }
+      return { found: false };
+    };
+    out.alojamientos  = find(ALOJAMIENTOS_SHEET);
+    out.reservas_lod  = find(LODGIFY_SHEET);
+    out.reservaciones = find(RESERVACIONES_SHEET);
+    Logger.log(JSON.stringify(out, null, 2));
+    return out;
+  } catch (e) {
+    const errInfo = { ok: false, error: String(e && e.message || e), stack: String(e && e.stack || '').split('\n').slice(0,5).join(' | ') };
+    Logger.log(JSON.stringify(errInfo, null, 2));
+    return errInfo;
+  }
+}
+
+/** One-shot cleanup: para cada fila de Reservaciones con "Lodgify Id" no
+ *  vacío, busca el booking en Reservas_Lodgify para obtener HouseId/
+ *  HouseName, resuelve la Propiedad/# Departamento canónica vía el
+ *  catálogo "alojamientos", y reescribe esos campos si difieren.
+ *  Idempotente: si ya está correcto, no toca. */
+function homologarPropiedadesDesdeCatalogo_() {
+  try {
+    ensureNormalizedSheets_();
+    const ss = getSpreadsheet_();
+    const shR = ss.getSheetByName(RESERVACIONES_SHEET);
+    if (!shR) return { ok:false, error:"No existe la hoja '" + RESERVACIONES_SHEET + "'." };
+    // Tolerancia al case del nombre de la hoja Lodgify
+    let shL = ss.getSheetByName(LODGIFY_SHEET);
+    if (!shL) {
+      const all = ss.getSheets();
+      for (var k = 0; k < all.length; k++) {
+        if (all[k].getName().toLowerCase() === LODGIFY_SHEET.toLowerCase()) { shL = all[k]; break; }
+      }
+    }
+    if (!shL) return { ok:false, error:"No existe la hoja '" + LODGIFY_SHEET + "'." };
+
+    const alojIdx = buildAlojamientosIndex_();
+    const alojCount = Object.keys(alojIdx.byHouseId).length + Object.keys(alojIdx.byHouseName).length;
+    if (!alojCount) {
+      return { ok:false, error:"Catálogo '" + ALOJAMIENTOS_SHEET + "' vacío o no existe. Verifica que la hoja exista y tenga columnas: HouseName, HouseId, Propiedad, '# Departamento'." };
+    }
+
+    const headersR = shR.getRange(1, 1, 1, shR.getLastColumn()).getValues()[0];
+    const idxLod  = headersR.indexOf("Lodgify Id");
+    const idxProp = headersR.indexOf("Propiedad");
+    const idxDpt  = headersR.indexOf("# Departamento");
+    if (idxLod < 0 || idxProp < 0 || idxDpt < 0) {
+      return { ok:false, error:"Faltan columnas en Reservaciones (Lodgify Id / Propiedad / # Departamento)." };
+    }
+
+    // Index Lodgify bookings por Id
+    const headersL = shL.getRange(1, 1, 1, shL.getLastColumn()).getValues()[0];
+    const colLId = headersL.indexOf("Id");
+    const colLHId = headersL.indexOf("HouseId");
+    const colLHN  = headersL.indexOf("HouseName");
+    const colLRTN = headersL.indexOf("RoomTypeNames");
+    if (colLId < 0) return { ok:false, error:"En hoja '" + LODGIFY_SHEET + "' no encontré la columna 'Id'." };
+    const lastL = shL.getLastRow();
+    const lgById = {};
+    if (lastL >= 2) {
+      const dataL = shL.getRange(2, 1, lastL - 1, headersL.length).getDisplayValues();
+      for (var i = 0; i < dataL.length; i++) {
+        const id = String(dataL[i][colLId] || "").trim();
+        if (!id) continue;
+        lgById[id] = {
+          HouseId: colLHId >= 0 ? String(dataL[i][colLHId] || "").trim() : "",
+          HouseName: colLHN >= 0 ? String(dataL[i][colLHN] || "").trim() : "",
+          RoomTypeNames: colLRTN >= 0 ? String(dataL[i][colLRTN] || "").trim() : "",
+        };
+      }
+    }
+
+    const lastR = shR.getLastRow();
+    if (lastR < 2) return { ok:true, scanned:0, fixed:0 };
+
+    // BATCH WRITE: leemos las 2 columnas, modificamos en memoria, escribimos
+    // todas las celdas en una sola llamada setValues. Esto evita el timeout
+    // que tiene Apps Script al hacer 600+ setValue individuales.
+    const numRows = lastR - 1;
+    const propRange = shR.getRange(2, idxProp + 1, numRows, 1);
+    const dptRange  = shR.getRange(2, idxDpt  + 1, numRows, 1);
+    const lodRange  = shR.getRange(2, idxLod  + 1, numRows, 1);
+    const propVals = propRange.getValues();
+    const dptVals  = dptRange.getValues();
+    const lodVals  = lodRange.getDisplayValues();
+    let scanned = 0, fixed = 0;
+    for (var r = 0; r < numRows; r++) {
+      const lodId = String(lodVals[r][0] || "").trim();
+      if (!lodId) continue;
+      const lg = lgById[lodId];
+      if (!lg) continue;
+      scanned++;
+      const expected = resolvePropiedadFromAloj_(alojIdx, lg);
+      const currProp = String(propVals[r][0] || "").trim();
+      const currDpt  = String(dptVals[r][0]  || "").trim();
+      if (currProp !== expected.propiedad || currDpt !== expected.departamento) {
+        if (expected.propiedad)    propVals[r][0] = expected.propiedad;
+        if (expected.departamento) dptVals[r][0]  = expected.departamento;
+        fixed++;
+      }
+    }
+    // Escritura batch — 2 llamadas en total, no 1200
+    propRange.setValues(propVals);
+    dptRange.setValues(dptVals);
+    SpreadsheetApp.flush();
+    return { ok:true, scanned:scanned, fixed:fixed, aloj_count:alojCount };
+  } catch (e) {
+    return { ok:false, error:"Exception: " + (e && e.message ? e.message : String(e)),
+             stack: e && e.stack ? String(e.stack).split('\n').slice(0, 5).join(' | ') : '' };
+  }
+}
+
+/** Wrapper PÚBLICO para ejecutar la deduplicación one-shot desde el editor. */
+function dedupeReservaciones() {
+  const res = dedupeReservacionesByPhoneArrival_();
+  Logger.log(JSON.stringify(res, null, 2));
+  return res;
+}
+
+/** One-shot cleanup: agrupa filas de Reservaciones por (phoneTail10 +
+ *  Fecha de ingreso ISO) y, cuando hay >1 filas en el grupo, las fusiona
+ *  en una sola "keeper" preservando los valores no-vacíos de TODAS. Borra
+ *  las duplicadas. Idempotente: si ya está limpio, no hace nada.
+ *
+ *  Política de "keeper" dentro del grupo (en este orden):
+ *    1) La fila CON Lodgify Id (auto-propagada). Si hay varias con distintos
+ *       Lodgify Id, se asume que son reservas distintas (mismo huésped,
+ *       mismas fechas) — NO se tocan.
+ *    2) Si ninguna tiene Lodgify Id (2 manuales): se queda la primera (la
+ *       de menor número de fila) y el resto se merge en ella.
+ *
+ *  Merge: para cada columna (excepto ID/Cel/Lodgify Id/Fechas), si el
+ *  keeper tiene vacío y alguna otra fila tiene valor, se copia ese valor.
+ *  Se prioriza el valor más largo (formularios manuales > datos básicos
+ *  de Lodgify-sync).
+ *
+ *  USA `.getValues()` para evitar el bug locale es-MX que invertía mes/día
+ *  cuando "Fecha de ingreso" se almacenaba como Date object.
+ *
+ *  Llámala desde el editor (dropdown "dedupeReservaciones" → ▶ Ejecutar). */
+function dedupeReservacionesByPhoneArrival_() {
+  ensureNormalizedSheets_();
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  const idxCel = headers.indexOf("Cel/Whatsapp (principal)");
+  const idxFi  = headers.indexOf("Fecha de ingreso");
+  const idxLod = headers.indexOf("Lodgify Id");
+  const idxId  = headers.indexOf("ID");
+  if (idxCel < 0 || idxFi < 0 || idxLod < 0 || idxId < 0) {
+    return { ok:false, error:"Faltan columnas (Cel/Fecha/Lodgify Id/ID)." };
+  }
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 3) return { ok:true, scanned:0, merged:0, deleted:0 };
+
+  const data = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  // Agrupa por (phoneTail|ingresoIso)
+  const groups = {};
+  for (let i = 0; i < data.length; i++) {
+    const tail = String(data[i][idxCel] || "").replace(/\D/g, "").slice(-10);
+    const ingIso = lodgifyDateToIso_(data[i][idxFi]);
+    if (!tail || !ingIso) continue;
+    const key = tail + "|" + ingIso;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({ row: i + 2, idx: i, lodId: String(data[i][idxLod] || "").trim() });
+  }
+
+  // Identificadores que NO se merge / no se sobrescriben
+  const PROTECTED = new Set([
+    "ID", "Cel/Whatsapp (principal)",
+    "Fecha de ingreso", "Fecha de salida",
+  ]);
+
+  const rowsToDelete = [];
+  let mergedCount = 0;
+  let skippedDifferentLodgify = 0;
+  Object.keys(groups).forEach(key => {
+    const grp = groups[key];
+    if (grp.length < 2) return;
+    // ¿Varias filas con DISTINTOS Lodgify Id? → son reservas distintas
+    const distinctLodIds = new Set(grp.map(g => g.lodId).filter(Boolean));
+    if (distinctLodIds.size > 1) { skippedDifferentLodgify++; return; }
+    // Keeper: la fila con Lodgify Id (si existe), o la primera por número de
+    // fila (estable, predecible).
+    const withLod = grp.find(g => g.lodId);
+    const keeper = withLod || grp.slice().sort((a,b) => a.row - b.row)[0];
+    const others = grp.filter(g => g.row !== keeper.row);
+
+    // Merge column-by-column: preserva el valor más informativo.
+    //   - PROTECTED y "Lodgify Id" no se sobrescriben en el keeper.
+    //   - Si el keeper está vacío y alguna otra fila tiene valor → copia ese.
+    //   - Si ambos tienen valor, conserva el del keeper (no sobrescribir
+    //     datos que el usuario ya vio).
+    for (let col = 0; col < headers.length; col++) {
+      const header = headers[col];
+      if (PROTECTED.has(header) || header === "Lodgify Id") continue;
+      const keepVal = String(data[keeper.idx][col] == null ? "" : data[keeper.idx][col]).trim();
+      if (keepVal) continue; // ya tiene algo, no tocar
+      // Busca el primer valor no vacío entre las demás
+      let bestVal = "", bestRaw = null;
+      for (const o of others) {
+        const raw = data[o.idx][col];
+        const s = String(raw == null ? "" : raw).trim();
+        if (s && s.length > bestVal.length) { bestVal = s; bestRaw = raw; }
+      }
+      if (bestVal) sheet.getRange(keeper.row, col + 1).setValue(bestRaw);
+    }
+    others.forEach(o => rowsToDelete.push(o.row));
+    mergedCount++;
+  });
+
+  // Borrar de mayor a menor para no invalidar índices
+  rowsToDelete.sort((a, b) => b - a);
+  rowsToDelete.forEach(r => sheet.deleteRow(r));
+  SpreadsheetApp.flush();
+
+  return {
+    ok: true,
+    scanned: data.length,
+    groups_with_dupes: mergedCount,
+    rows_deleted: rowsToDelete.length,
+    skipped_different_lodgify: skippedDifferentLodgify,
+  };
+}
+
+/** Devuelve TODAS las filas de la hoja "alojamientos" como objetos
+ *  { columna: valor }. Se usa desde el frontend para homologar los
+ *  nombres de propiedad entre las hojas "Reservas_Lodgify" (HouseName /
+ *  HouseId) y "Reservaciones" (Propiedad / # Departamento). */
+// ─── Breezeway: persistencia de alertas en sheet ───────────────────────────
+/** Inserta una alerta del webhook de Breezeway en la hoja Breezeway_Alerts.
+ *  Crea la hoja con encabezados si no existe. Hace dedupe por (task_id +
+ *  event_type + finished_at) para que reintentos de Breezeway no metan
+ *  filas duplicadas.  El backend Cloud Run llama esto vía CHECKIN_WEB_APP_URL
+ *  con action="breezeway_alert" en cada webhook recibido. */
+function saveBreezewayAlert_(data) {
+  if (!data || typeof data !== "object") {
+    return { ok: false, error: "Payload vacío." };
+  }
+  const ss = getSpreadsheet_();
+  let sh = ss.getSheetByName(BREEZEWAY_ALERTS_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(BREEZEWAY_ALERTS_SHEET);
+    sh.getRange(1, 1, 1, BREEZEWAY_ALERTS_HEADERS.length)
+      .setValues([BREEZEWAY_ALERTS_HEADERS])
+      .setFontWeight("bold")
+      .setBackground("#7c3aed")
+      .setFontColor("#ffffff");
+    sh.setFrozenRows(1);
+  }
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  // Dedupe — busca el mismo task_id + event_type + finished_at en últimas 500 filas.
+  const idxTaskId = headers.indexOf("task_id");
+  const idxEvent  = headers.indexOf("event_type");
+  const idxFin    = headers.indexOf("finished_at");
+  const lastRow = sh.getLastRow();
+  if (lastRow > 1 && idxTaskId >= 0) {
+    const window = Math.min(500, lastRow - 1);
+    const startRow = lastRow - window + 1;
+    const rows = sh.getRange(startRow, 1, window, headers.length).getValues();
+    const tId = String(data.task_id || "");
+    const tEv = String(data.event_type || "");
+    const tFin = String(data.finished_at || "");
+    for (let i = 0; i < rows.length; i++) {
+      if (String(rows[i][idxTaskId]) === tId &&
+          String(rows[i][idxEvent])  === tEv &&
+          String(rows[i][idxFin])    === tFin && tId && tEv) {
+        return { ok: true, skipped: "duplicate" };
+      }
+    }
+  }
+  const id = Utilities.getUuid();
+  const row = headers.map(h => {
+    if (h === "id") return id;
+    if (h === "received_at") return nowIso_();
+    const v = data[h];
+    if (v == null) return "";
+    if (typeof v === "object") return JSON.stringify(v);
+    return String(v);
+  });
+  sh.appendRow(row);
+  // Recorta si crece demasiado (mantener solo BREEZEWAY_ALERTS_MAX filas)
+  const after = sh.getLastRow();
+  if (after - 1 > BREEZEWAY_ALERTS_MAX) {
+    const excess = after - 1 - BREEZEWAY_ALERTS_MAX;
+    sh.deleteRows(2, excess);
+  }
+  // Notificación push al admin SOLO en eventos accionables:
+  //   - event_type = task-completed
+  //   - task_type = housekeeping (los Checkouts terminados son los importantes)
+  // Otros eventos (in-progress, scheduled, mantenimiento) NO disparan push
+  // para evitar spam.
+  try {
+    const ev = String(data.event_type || "").toLowerCase();
+    const td = String(data.task_type || "").toLowerCase();
+    if (ev === "task-completed" && td.indexOf("housekeeping") >= 0) {
+      const propName = String(data.property_name || "Alojamiento").trim();
+      const finishedBy = String(data.finished_by || "").trim();
+      const taskName = String(data.task_name || "Aseo").trim();
+      queueNotification_({
+        target: ADMIN_PHONE_KEY,
+        category: "recordatorios",
+        title: "✅ Aseo terminado",
+        body: propName + " · " + taskName + (finishedBy ? " · por " + finishedBy : ""),
+        tag: "bzw-task-" + String(data.task_id || id),
+        source: "breezeway",
+      });
+    }
+  } catch (e) {
+    // Si la notificación falla, no rompemos la persistencia.
+    Logger.log("[BZW] notify push falló: " + (e && e.message ? e.message : e));
+  }
+  return { ok: true, id, inserted: true };
+}
+
+/** Inserta MUCHAS alertas en una sola invocación. Esperado:
+ *  data.alerts = [{event_type, task_id, ...}, ...]
+ *  Dedupe contra el sheet en una sola lectura (no por cada inserción) →
+ *  mucho más rápido que llamar saveBreezewayAlert_ 2000 veces. */
+function saveBreezewayAlertsBulk_(data) {
+  const incoming = Array.isArray(data && data.alerts) ? data.alerts : [];
+  if (!incoming.length) return { ok: true, inserted: 0, skipped: 0 };
+  const ss = getSpreadsheet_();
+  let sh = ss.getSheetByName(BREEZEWAY_ALERTS_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(BREEZEWAY_ALERTS_SHEET);
+    sh.getRange(1, 1, 1, BREEZEWAY_ALERTS_HEADERS.length)
+      .setValues([BREEZEWAY_ALERTS_HEADERS])
+      .setFontWeight("bold")
+      .setBackground("#7c3aed")
+      .setFontColor("#ffffff");
+    sh.setFrozenRows(1);
+  }
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const idxTaskId = headers.indexOf("task_id");
+  const idxEvent  = headers.indexOf("event_type");
+  const idxFin    = headers.indexOf("finished_at");
+  // Construye set de keys ya existentes (todo el sheet, una sola lectura).
+  const existing = new Set();
+  const lastRow = sh.getLastRow();
+  if (lastRow > 1 && idxTaskId >= 0) {
+    const rows = sh.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    for (let i = 0; i < rows.length; i++) {
+      const k = String(rows[i][idxTaskId]) + "|" +
+                String(rows[i][idxEvent])  + "|" +
+                String(rows[i][idxFin]);
+      existing.add(k);
+    }
+  }
+  const toInsert = [];
+  let skipped = 0;
+  const now = nowIso_();
+  for (const a of incoming) {
+    const tId  = String(a.task_id || "");
+    const tEv  = String(a.event_type || "");
+    const tFin = String(a.finished_at || "");
+    const k    = tId + "|" + tEv + "|" + tFin;
+    if (tId && tEv && existing.has(k)) { skipped++; continue; }
+    existing.add(k);
+    const row = headers.map(h => {
+      if (h === "id") return Utilities.getUuid();
+      if (h === "received_at") return a.received_at || now;
+      const v = a[h];
+      if (v == null) return "";
+      if (typeof v === "object") return JSON.stringify(v);
+      return String(v);
+    });
+    toInsert.push(row);
+  }
+  if (toInsert.length) {
+    const startRow = sh.getLastRow() + 1;
+    sh.getRange(startRow, 1, toInsert.length, headers.length).setValues(toInsert);
+    // Recorta si crece demasiado
+    const after = sh.getLastRow();
+    if (after - 1 > BREEZEWAY_ALERTS_MAX) {
+      sh.deleteRows(2, (after - 1) - BREEZEWAY_ALERTS_MAX);
+    }
+  }
+  return { ok: true, inserted: toInsert.length, skipped };
+}
+
+/** Borra filas de prueba/smoke-test del sheet de alertas. Detecta por
+ *  task_id que empieza con TEST-/SMOKE- o es 99999999, o por raw_json vacío. */
+function cleanBreezewayTestRows_() {
+  const ss = getSpreadsheet_();
+  const sh = ss.getSheetByName(BREEZEWAY_ALERTS_SHEET);
+  if (!sh) return { ok: true, deleted: 0, reason: "Sheet no existe." };
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: true, deleted: 0 };
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const idxTaskId = headers.indexOf("task_id");
+  const idxRaw    = headers.indexOf("raw_json");
+  const idxEvent  = headers.indexOf("event_type");
+  if (idxTaskId < 0) return { ok: false, error: "Falta columna task_id." };
+  const data = sh.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  const rowsToDelete = [];
+  for (let i = 0; i < data.length; i++) {
+    const tId = String(data[i][idxTaskId] || "");
+    const ev  = String(data[i][idxEvent] || "");
+    const raw = String(data[i][idxRaw] || "");
+    const isTest =
+      /^(TEST|SMOKE)[-_]/i.test(tId) ||
+      tId === "99999999" ||
+      /smoke|test/i.test(ev) ||
+      (!tId && !ev && !raw); // filas totalmente vacías
+    if (isTest) rowsToDelete.push(i + 2);
+  }
+  // Borra de mayor a menor para no invalidar índices
+  rowsToDelete.sort(function(a, b) { return b - a; });
+  rowsToDelete.forEach(function(r) { sh.deleteRow(r); });
+  SpreadsheetApp.flush();
+  return { ok: true, deleted: rowsToDelete.length };
+}
+
+/** Devuelve las últimas N alertas (más recientes primero). */
+function listBreezewayAlerts_(params) {
+  const limit = Math.min(parseInt(params.limit, 10) || 100, 1000);
+  const ss = getSpreadsheet_();
+  const sh = ss.getSheetByName(BREEZEWAY_ALERTS_SHEET);
+  if (!sh) return { ok: true, alerts: [], count: 0 };
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return { ok: true, alerts: [], count: 0 };
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  // Lee desde el final (más recientes) hacia atrás.
+  const window = Math.min(limit, lastRow - 1);
+  const startRow = lastRow - window + 1;
+  const rows = sh.getRange(startRow, 1, window, headers.length).getValues();
+  const alerts = rows.map(r => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = r[i]; });
+    // Re-hidrata raw_json si está
+    if (obj.raw_json) {
+      try { obj.raw = JSON.parse(obj.raw_json); } catch (_) {}
+    }
+    return obj;
+  }).reverse(); // más reciente arriba
+  return { ok: true, count: alerts.length, alerts };
+}
+
+function listAlojamientos_() {
+  const ss = getSpreadsheet_();
+  const sh = ss.getSheetByName(ALOJAMIENTOS_SHEET);
+  if (!sh) return { ok: true, rows: [], note: 'Hoja "alojamientos" no existe.' };
+  const lastRow = sh.getLastRow();
+  const lastCol = sh.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return { ok: true, rows: [] };
+  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(v => String(v || '').trim());
+  const data = sh.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+  const rows = data.map(r => {
+    const obj = {};
+    for (let i = 0; i < headers.length; i++) {
+      if (headers[i]) obj[headers[i]] = r[i];
+    }
+    return obj;
+  });
+  return { ok: true, rows, total: rows.length };
 }
 
 function buildPerfilFromData_(data, cel) {
@@ -725,7 +1331,23 @@ function updateFacturadoTotal_(data) {
   if (!row) row = findRowByRowNumber_(sheet, recordId);
   if (!row) throw new Error("No se encontró la reservación.");
   setCellByHeader_(sheet, headers, row, "$ Monto facturado Total", normalized);
-  return { ok: true, row_number: row, record_id: recordId, monto_facturado_total: normalized };
+  // Cuando el frontend manda también los montos de Airbnb (auto-cálculo en el
+  // card o auto-fill desde Lodgify Líneas de cobro), persistirlos también para
+  // que las 3 columnas queden sincronizadas.
+  const comisionAirbnb = safe_(data.comision_airbnb);
+  const totalAirbnb    = safe_(data.monto_total_airbnb);
+  const comNorm  = String(comisionAirbnb || "").trim();
+  const totNorm  = String(totalAirbnb    || "").trim();
+  if (comNorm && isNaN(Number(comNorm.replace(/,/g, "")))) throw new Error("Comisión Airbnb debe ser numérica.");
+  if (totNorm && isNaN(Number(totNorm.replace(/,/g, "")))) throw new Error("Monto total Airbnb debe ser numérico.");
+  if (comNorm) setCellByHeader_(sheet, headers, row, "$ Comisión Airbnb",     comNorm);
+  if (totNorm) setCellByHeader_(sheet, headers, row, "$ MONTO TOTAL Airbnb",  totNorm);
+  return {
+    ok: true, row_number: row, record_id: recordId,
+    monto_facturado_total: normalized,
+    comision_airbnb:    comNorm || null,
+    monto_total_airbnb: totNorm || null,
+  };
 }
 
 // Copia idéntica de updateFacturadoTotal_ pero para "$ MONTO TOTAL Airbnb"
@@ -860,6 +1482,19 @@ function updateFacturapiFolioStrict_(data) {
   const prevFolio = String(readRow_(sheet, headers, row)["Folio facturapi"] || "").trim();
   sheet.getRange(row, targetCol + 1).setNumberFormat("@");
   sheet.getRange(row, targetCol + 1).setValue(normalized);
+  // También persistir la organización (ACR/ACL) que emitió el folio.
+  // Acepta cualquiera de: org_label, organizacion_facturapi, org (con map 1→ACR, 2→ACL).
+  const orgRaw = safe_(data.org_label || data.organizacion_facturapi || data.org);
+  let orgLabel = String(orgRaw || "").trim();
+  if (orgLabel === "1") orgLabel = "ACR";
+  else if (orgLabel === "2") orgLabel = "ACL";
+  if (orgLabel) {
+    const orgCol = headers.indexOf("Organización facturapi");
+    if (orgCol >= 0) {
+      sheet.getRange(row, orgCol + 1).setNumberFormat("@");
+      sheet.getRange(row, orgCol + 1).setValue(orgLabel);
+    }
+  }
   SpreadsheetApp.flush();
   if (!prevFolio && normalized) {
     const updatedRow = readRow_(sheet, headers, row);
@@ -989,7 +1624,16 @@ function mergeReservacionWithProfile_(resRow, perfil, vehiculo) {
     "Correo electrónico": resRow["Correo electrónico"] || p["Correo electrónico para el envío de la factura"] || "",
     "Propiedad": resRow["Propiedad"] || "",
     "# Departamento": resRow["# Departamento"] || "",
-    "# Huéspedes": resRow["# Huéspedes"] || ""
+    "# Huéspedes": resRow["# Huéspedes"] || "",
+    "# Noches": resRow["# Noches"] || "",
+    "Nombres de TODOS los huéspedes (separados por comas)": resRow["Nombres de TODOS los huéspedes (separados por comas)"] || "",
+    "Motivo de tu hospedaje": resRow["Motivo de tu hospedaje"] || "",
+    "Envía tus comentarios": resRow["Envía tus comentarios"] || "",
+    "Lodgify Id": resRow["Lodgify Id"] || "",
+    "$ Noches": resRow["$ Noches"] || "",
+    "$ Cuota de limpieza": resRow["$ Cuota de limpieza"] || "",
+    "$ MONTO TOTAL Airbnb": resRow["$ MONTO TOTAL Airbnb"] || "",
+    "Organización facturapi": resRow["Organización facturapi"] || ""
   };
 }
 
@@ -2712,4 +3356,727 @@ function menuShowPending_() {
   SpreadsheetApp.getUi().alert("Pendientes: " + list.total + (list.total
     ? "\n\nEjecuta: python3 otros/push_sender.py --drain"
     : ""));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── MÓDULO: Reservas Lodgify (cache persistente en Google Sheets) ─────────
+//
+// La hoja "Reservas_Lodgify" guarda una fila por booking Id (agregando
+// LineItems en una columna JSON). El frontend lee desde aquí (lodgify_list),
+// y el sync (lodgify_sync, manual o time-driven) pulla desde el Cloud Run de
+// Lodgify y upsertea.
+// ═══════════════════════════════════════════════════════════════════════════
+const LODGIFY_SHEET = "Reservas_Lodgify";
+const LODGIFY_API_BASE = "https://checkinnreservas-1044570371371.northamerica-south1.run.app";
+const LODGIFY_HEADERS = [
+  "Id","Source","Status","DateArrival","DateDeparture","Nights",
+  "HouseName","HouseId","RoomTypeNames","RoomTypeIds",
+  "GuestName","GuestEmail","GuestPhone","GuestCountryCode",
+  "NumberOfGuests","Adults","Children","Infants","Pets",
+  "Currency","ConfirmationCode","ListingId","ThreadId","ChannelBooking","DateCancelled",
+  "GrossTotal","NetTotal","VatTotal","LineItemsJSON",
+  "first_synced_at","last_synced_at"
+];
+
+function ensureLodgifySheet_() {
+  const ss = getSpreadsheet_();
+  let sh = ss.getSheetByName(LODGIFY_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(LODGIFY_SHEET);
+    sh.getRange(1, 1, 1, LODGIFY_HEADERS.length).setValues([LODGIFY_HEADERS]);
+    sh.getRange(1, 1, 1, LODGIFY_HEADERS.length).setFontWeight("bold").setBackground("#f1f5f9");
+    sh.setFrozenRows(1);
+    sh.autoResizeColumns(1, LODGIFY_HEADERS.length);
+  } else {
+    // Si la hoja existe pero está vacía, escribe headers
+    if (sh.getLastRow() === 0) {
+      sh.getRange(1, 1, 1, LODGIFY_HEADERS.length).setValues([LODGIFY_HEADERS]);
+    }
+  }
+  // CRÍTICO: forzar formato texto ("@") en las columnas de fecha para que
+  // Sheets NO las auto-parsee usando el locale es-MX (que las invierte).
+  // Lodgify envía MM/DD/YYYY; sin esto, Sheets las convierte a Date(DD/MM)
+  // y al leerlas vienen como ISO "2026-05-08T..." con día y mes swapped.
+  ['DateArrival','DateDeparture','DateCancelled'].forEach(colName => {
+    const idx = LODGIFY_HEADERS.indexOf(colName);
+    if (idx < 0) return;
+    const rows = Math.max(1, sh.getMaxRows() - 1);
+    sh.getRange(2, idx + 1, rows, 1).setNumberFormat('@');
+  });
+  return sh;
+}
+
+/** Agrupa los rows del Lodgify API (uno por LineItem) por booking Id. */
+function aggregateLodgifyRows_(rows) {
+  const map = new Map();
+  (rows || []).forEach(r => {
+    const id = r.Id;
+    if (!id) return;
+    let agg = map.get(id);
+    if (!agg) {
+      let meta = {};
+      try { meta = JSON.parse(r.SourceText || "{}"); } catch(_) {}
+      agg = {
+        Id: id,
+        Source: r.Source || "",
+        Status: r.Status || "",
+        DateArrival: r.DateArrival || "",
+        DateDeparture: r.DateDeparture || "",
+        Nights: Number(r.Nights) || 0,
+        HouseName: r.HouseName || "",
+        HouseId: r.HouseId || "",
+        RoomTypeNames: r.RoomTypeNames || "",
+        RoomTypeIds: r.RoomTypeIds || "",
+        GuestName: r.GuestName || "",
+        GuestEmail: r.GuestEmail || "",
+        GuestPhone: r.GuestPhone || "",
+        GuestCountryCode: r.GuestCountryCode || "",
+        NumberOfGuests: Number(r.NumberOfGuests) || 0,
+        Adults: Number(r.Adults) || 0,
+        Children: Number(r.Children) || 0,
+        Infants: Number(r.Infants) || 0,
+        Pets: Number(r.Pets) || 0,
+        Currency: r.Currency || "MXN",
+        ConfirmationCode: meta.confirmationCode || "",
+        ListingId: meta.listingId || "",
+        ThreadId: meta.threadId || "",
+        ChannelBooking: r.ChannelBooking || "",
+        DateCancelled: r.DateCancelled || "",
+        GrossTotal: 0, NetTotal: 0, VatTotal: 0,
+        LineItems: [],
+      };
+      map.set(id, agg);
+    }
+    agg.GrossTotal += Number(r.GrossAmount) || 0;
+    agg.NetTotal   += Number(r.NetAmount)   || 0;
+    agg.VatTotal   += Number(r.VatAmount)   || 0;
+    agg.LineItems.push({
+      kind: r.LineItem || "",
+      desc: r.LineItemDescription || "",
+      gross: Number(r.GrossAmount) || 0,
+      net: Number(r.NetAmount) || 0,
+      vat: Number(r.VatAmount) || 0,
+    });
+  });
+  return Array.from(map.values());
+}
+
+/** Convierte un booking agregado en row (array) en orden de LODGIFY_HEADERS. */
+function lodgifyBookingToRow_(b, nowIso, prevFirstSync) {
+  return [
+    String(b.Id), b.Source, b.Status, b.DateArrival, b.DateDeparture, b.Nights,
+    b.HouseName, String(b.HouseId||""), b.RoomTypeNames, b.RoomTypeIds,
+    b.GuestName, b.GuestEmail, b.GuestPhone, b.GuestCountryCode,
+    b.NumberOfGuests, b.Adults, b.Children, b.Infants, b.Pets,
+    b.Currency, b.ConfirmationCode, b.ListingId, b.ThreadId, b.ChannelBooking, b.DateCancelled,
+    Number(b.GrossTotal.toFixed(2)), Number(b.NetTotal.toFixed(2)), Number(b.VatTotal.toFixed(2)),
+    JSON.stringify(b.LineItems || []),
+    prevFirstSync || nowIso,
+    nowIso
+  ];
+}
+
+/** Fetch a Lodgify Cloud Run (que ya consulta y pagina la API). */
+function fetchLodgifyOTC_(fromDate, toDate) {
+  const url = `${LODGIFY_API_BASE}/api/otc?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`;
+  const resp = UrlFetchApp.fetch(url, {
+    method: "get",
+    muteHttpExceptions: true,
+    headers: { Accept: "application/json" },
+  });
+  const text = resp.getContentText();
+  if (resp.getResponseCode() !== 200) throw new Error("Lodgify HTTP " + resp.getResponseCode() + ": " + text.slice(0,200));
+  const data = JSON.parse(text);
+  if (!data.ok) throw new Error(data.error || "Lodgify returned ok=false");
+  return data.rows || [];
+}
+
+/** ACCIÓN: lodgify_sync — pulla Lodgify y upsertea en la hoja.
+ *  params:
+ *    days_back  (default 60)  ventana hacia atrás desde hoy
+ *    days_fwd   (default 365) ventana hacia adelante desde hoy
+ *    full       (default false) si true: rango amplio (2 años atrás/adelante) */
+function syncLodgifyReservations_(data) {
+  data = data || {};
+  const full = String(data.full || "").toLowerCase() === "true" || data.full === true;
+  const daysBack = full ? 730 : (Number(data.days_back) || 60);
+  const daysFwd  = full ? 730 : (Number(data.days_fwd)  || 365);
+  const today = new Date();
+  const from = new Date(today.getTime() - daysBack * 86400000).toISOString().slice(0,10);
+  const to   = new Date(today.getTime() + daysFwd  * 86400000).toISOString().slice(0,10);
+
+  const startMs = Date.now();
+  const rows = fetchLodgifyOTC_(from, to);
+  const bookings = aggregateLodgifyRows_(rows);
+
+  const sh = ensureLodgifySheet_();
+  const lastRow = sh.getLastRow();
+  const headers = sh.getRange(1, 1, 1, LODGIFY_HEADERS.length).getValues()[0];
+  const colId = headers.indexOf("Id");
+  const colFirstSync = headers.indexOf("first_synced_at");
+
+  // Mapeo Id → row_number actual. Si hay filas duplicadas con el mismo Id
+  // (consecuencia de sincronizaciones previas con bug), marcamos las
+  // duplicadas para borrar y conservamos sólo la primera. Sin esto, el
+  // upsert sólo actualiza la última, dejando datos viejos en la otra y
+  // confundiendo al frontend que las lee todas.
+  const existing = {};
+  let dupRowsToDelete = [];
+  if (lastRow >= 2) {
+    const ids = sh.getRange(2, colId + 1, lastRow - 1, 1).getValues();
+    const firsts = sh.getRange(2, colFirstSync + 1, lastRow - 1, 1).getValues();
+    for (let i = 0; i < ids.length; i++) {
+      const idVal = String(ids[i][0] || "").trim();
+      if (!idVal) continue;
+      const rowIdx = i + 2;
+      if (existing[idVal]) {
+        dupRowsToDelete.push(rowIdx); // duplicado → borrar
+      } else {
+        existing[idVal] = { row: rowIdx, firstSync: firsts[i][0] || "" };
+      }
+    }
+  }
+  // Borrar duplicados de atrás hacia adelante para no shiftear índices
+  const dupCount = dupRowsToDelete.length;
+  if (dupCount > 0) {
+    dupRowsToDelete.sort(function(a, b) { return b - a; });
+    dupRowsToDelete.forEach(function(r) { sh.deleteRow(r); });
+    // Después de borrar filas, los índices de los keepers (todos < a los
+    // borrados) ya no son válidos. Reconstruimos el mapa existing leyendo
+    // de nuevo desde el sheet actualizado.
+    Object.keys(existing).forEach(function(k) { delete existing[k]; });
+    const newLast = sh.getLastRow();
+    if (newLast >= 2) {
+      const ids2 = sh.getRange(2, colId + 1, newLast - 1, 1).getValues();
+      const firsts2 = sh.getRange(2, colFirstSync + 1, newLast - 1, 1).getValues();
+      for (let i = 0; i < ids2.length; i++) {
+        const idVal = String(ids2[i][0] || "").trim();
+        if (idVal) existing[idVal] = { row: i + 2, firstSync: firsts2[i][0] || "" };
+      }
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+  const toAppend = [];
+  let updated = 0, inserted = 0;
+  bookings.forEach(b => {
+    const key = String(b.Id);
+    const ex = existing[key];
+    const arr = lodgifyBookingToRow_(b, nowIso, ex ? ex.firstSync : nowIso);
+    if (ex) {
+      sh.getRange(ex.row, 1, 1, LODGIFY_HEADERS.length).setValues([arr]);
+      updated++;
+    } else {
+      toAppend.push(arr);
+      inserted++;
+    }
+  });
+  if (toAppend.length) {
+    sh.getRange(sh.getLastRow() + 1, 1, toAppend.length, LODGIFY_HEADERS.length).setValues(toAppend);
+  }
+
+  // Guarda metadatos en Document Properties (rápido de leer)
+  const props = PropertiesService.getDocumentProperties();
+  props.setProperty("LODGIFY_LAST_SYNC", nowIso);
+  props.setProperty("LODGIFY_LAST_SYNC_RANGE", from + "→" + to);
+
+  // Propaga cada booking a las hojas canónicas (Perfiles / Reservaciones).
+  // Perfiles: 1 fila por celular único (no se duplica si ya existe).
+  // Reservaciones: 1 fila por booking de Lodgify (idempotente por "Lodgify Id").
+  let canonical = { perfiles_inserted: 0, reservaciones_inserted: 0, reservaciones_skipped: 0 };
+  try { canonical = propagateLodgifyToCanonical_(bookings); }
+  catch (err) { canonical.error = err.message || String(err); }
+
+  return {
+    ok: true,
+    from, to,
+    rows_fetched: rows.length,
+    bookings: bookings.length,
+    inserted, updated,
+    duplicates_removed: dupCount,
+    total_in_sheet: sh.getLastRow() - 1,
+    elapsed_ms: Date.now() - startMs,
+    last_synced_at: nowIso,
+    perfiles_inserted: canonical.perfiles_inserted,
+    reservaciones_inserted: canonical.reservaciones_inserted,
+    reservaciones_linked: canonical.reservaciones_linked,
+    reservaciones_skipped: canonical.reservaciones_skipped,
+    bookings_filtered_out: canonical.bookings_filtered_out,
+    canonical_error: canonical.error,
+  };
+}
+
+/** Devuelve los últimos 10 dígitos de un teléfono (para match cross-fuente). */
+function lodgifyPhoneKey_(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  return digits.slice(-10);
+}
+
+/** Normaliza una fecha (Date u string en MM/DD/YYYY o YYYY-MM-DD) a "YYYYMMDD"
+ *  para comparación robusta entre check-ins manuales y Lodgify. */
+/** Wrapper PÚBLICO para correr el backfill desde el editor de Apps Script.
+ *  Las funciones que terminan en "_" son privadas y no aparecen en el
+ *  selector de funciones del editor → necesitamos un wrapper sin "_". */
+function fixLodgifyDates() {
+  const res = fixLodgifyDatesInReservaciones_();
+  Logger.log(JSON.stringify(res, null, 2));
+  return res;
+}
+
+/** Backfill one-shot: para cada fila de Reservaciones con "Lodgify Id" no
+ *  vacío, busca el booking en Reservas_Lodgify y re-escribe sus
+ *  "Fecha de ingreso" / "Fecha de salida" en ISO YYYY-MM-DD. Corrige el
+ *  daño causado por escrituras anteriores que sufrieron el swap DD/MM
+ *  por locale es-MX. Idempotente: si ya está en ISO correcto, no toca.
+ *  Llámala vía el wrapper fixLodgifyDates() desde el editor. */
+function fixLodgifyDatesInReservaciones_() {
+  ensureNormalizedSheets_();
+  const ss = getSpreadsheet_();
+  const shR = ss.getSheetByName(RESERVACIONES_SHEET);
+  const shL = ss.getSheetByName(LODGIFY_SHEET);
+  if (!shR || !shL) return { ok:false, error:"Faltan hojas." };
+
+  const headersR = shR.getRange(1, 1, 1, shR.getLastColumn()).getValues()[0];
+  const idxLodId = headersR.indexOf("Lodgify Id");
+  const idxFi    = headersR.indexOf("Fecha de ingreso");
+  const idxFs    = headersR.indexOf("Fecha de salida");
+  if (idxLodId < 0 || idxFi < 0 || idxFs < 0) {
+    return { ok:false, error:"Faltan columnas (Lodgify Id / Fecha de ingreso / Fecha de salida)." };
+  }
+
+  // Mapa Lodgify Id → { arrival, departure } leyendo Reservas_Lodgify.
+  const headersL = shL.getRange(1, 1, 1, shL.getLastColumn()).getValues()[0];
+  const idxLId   = headersL.indexOf("Id");
+  const idxLArr  = headersL.indexOf("DateArrival");
+  const idxLDep  = headersL.indexOf("DateDeparture");
+  const lastL    = shL.getLastRow();
+  const lodgifyById = {};
+  if (lastL >= 2) {
+    const data = shL.getRange(2, 1, lastL - 1, headersL.length).getDisplayValues();
+    for (let i = 0; i < data.length; i++) {
+      const id = String(data[i][idxLId] || "").trim();
+      if (!id) continue;
+      lodgifyById[id] = {
+        arrival:   lodgifyDateToIso_(data[i][idxLArr]),
+        departure: lodgifyDateToIso_(data[i][idxLDep]),
+      };
+    }
+  }
+
+  const lastR = shR.getLastRow();
+  if (lastR < 2) return { ok:true, scanned:0, fixed:0 };
+  // Forzar formato @ en ambas columnas antes de escribir
+  shR.getRange(2, idxFi + 1, lastR - 1, 1).setNumberFormat('@');
+  shR.getRange(2, idxFs + 1, lastR - 1, 1).setNumberFormat('@');
+
+  const data = shR.getRange(2, 1, lastR - 1, headersR.length).getDisplayValues();
+  let scanned = 0, fixed = 0;
+  for (let i = 0; i < data.length; i++) {
+    const lodId = String(data[i][idxLodId] || "").trim();
+    if (!lodId) continue;
+    const expected = lodgifyById[lodId];
+    if (!expected) continue;
+    scanned++;
+    const currArr = lodgifyDateToIso_(data[i][idxFi]);
+    const currDep = lodgifyDateToIso_(data[i][idxFs]);
+    if (currArr !== expected.arrival || currDep !== expected.departure) {
+      const row = i + 2;
+      shR.getRange(row, idxFi + 1).setValue(expected.arrival);
+      shR.getRange(row, idxFs + 1).setValue(expected.departure);
+      fixed++;
+    }
+  }
+  SpreadsheetApp.flush();
+  return { ok:true, scanned, fixed };
+}
+
+/** Convierte una fecha Lodgify (MM/DD/YYYY o ISO o Date) a "YYYY-MM-DD"
+ *  para guardar en Reservaciones SIN ambigüedad de locale. Lodgify envía
+ *  MM/DD/YYYY y Sheets en es-MX lo interpretaría como DD/MM/YYYY → swap
+ *  de día y mes. ISO YYYY-MM-DD es locale-independiente. */
+/** Carga el catálogo "alojamientos" como índices Map por HouseId y por
+ *  HouseName normalizado, para resolver Propiedad/# Departamento canónicos
+ *  durante la propagación de Lodgify → Reservaciones. */
+function buildAlojamientosIndex_() {
+  const ss = getSpreadsheet_();
+  const idx = { byHouseId: {}, byHouseName: {} };
+  let sh = ss.getSheetByName(ALOJAMIENTOS_SHEET);
+  if (!sh) {
+    // Tolerancia al case (ej. "Alojamientos" vs "alojamientos")
+    const all = ss.getSheets();
+    for (var k = 0; k < all.length; k++) {
+      if (all[k].getName().toLowerCase() === ALOJAMIENTOS_SHEET.toLowerCase()) { sh = all[k]; break; }
+    }
+  }
+  if (!sh) return idx;
+  const lastRow = sh.getLastRow();
+  const lastCol = sh.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return idx;
+  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(v => String(v || '').trim());
+  const colHId  = headers.indexOf("HouseId");
+  const colHN   = headers.indexOf("HouseName");
+  const colProp = headers.indexOf("Propiedad");
+  const colDpt  = headers.indexOf("# Departamento");
+  if (colProp < 0 || colDpt < 0) return idx;
+  const data = sh.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+  const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  for (let i = 0; i < data.length; i++) {
+    const propiedad = String(data[i][colProp] || "").trim();
+    const departamento = String(data[i][colDpt] || "").trim();
+    if (!propiedad && !departamento) continue;
+    const rec = { propiedad, departamento };
+    if (colHId >= 0) {
+      const hid = String(data[i][colHId] || "").trim();
+      if (hid) idx.byHouseId[hid] = rec;
+    }
+    if (colHN >= 0) {
+      const hn = norm(data[i][colHN]);
+      if (hn) idx.byHouseName[hn] = rec;
+    }
+  }
+  return idx;
+}
+
+/** Resuelve { propiedad, departamento } canónicos desde el catálogo
+ *  alojamientos para un booking de Lodgify. Fallback a HouseName/RoomTypeNames
+ *  si no hay match. */
+function resolvePropiedadFromAloj_(idx, b) {
+  if (!idx) return { propiedad: b.HouseName || "", departamento: b.RoomTypeNames || "" };
+  const hid = String(b.HouseId || "").trim();
+  if (hid && idx.byHouseId[hid]) return idx.byHouseId[hid];
+  const norm = String(b.HouseName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (norm && idx.byHouseName[norm]) return idx.byHouseName[norm];
+  return { propiedad: b.HouseName || "", departamento: b.RoomTypeNames || "" };
+}
+
+function lodgifyDateToIso_(value) {
+  if (!value) return "";
+  if (Object.prototype.toString.call(value) === "[object Date]") {
+    if (isNaN(value.getTime())) return "";
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, "0");
+    const d = String(value.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  const s = String(value).trim();
+  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  return s;
+}
+
+function lodgifyDateKey_(value) {
+  if (!value) return "";
+  if (Object.prototype.toString.call(value) === "[object Date]") {
+    if (isNaN(value.getTime())) return "";
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, "0");
+    const d = String(value.getDate()).padStart(2, "0");
+    return y + m + d;
+  }
+  const s = String(value).trim();
+  let m;
+  if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) {
+    return m[3] + m[1].padStart(2, "0") + m[2].padStart(2, "0");
+  }
+  if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) {
+    return m[1] + m[2] + m[3];
+  }
+  return s.replace(/\D/g, "").slice(0, 8);
+}
+
+/** Propaga bookings de Lodgify a Perfiles y Reservaciones.
+ *  Reglas:
+ *    - Sólo Status === 'Booked' (descarta Declined/Tentative/Open).
+ *    - Perfiles: inserta sólo si el celular (últimos 10 dígitos) no existe.
+ *    - Reservaciones:
+ *        a) Si el "Lodgify Id" ya está → skip.
+ *        b) Si existe fila con mismo phone+fecha de ingreso → escribe el
+ *           Lodgify Id en esa fila (enlace; no toca el resto de los datos).
+ *        c) Si no hay match → inserta nueva fila. */
+function propagateLodgifyToCanonical_(bookings) {
+  ensureNormalizedSheets_();
+  const ss = getSpreadsheet_();
+  const shP = ss.getSheetByName(PERFILES_SHEET);
+  const shR = ss.getSheetByName(RESERVACIONES_SHEET);
+  if (!shP || !shR) {
+    return { perfiles_inserted: 0, reservaciones_inserted: 0, reservaciones_linked: 0, reservaciones_skipped: 0, bookings_filtered_out: 0 };
+  }
+
+  // Catálogo "alojamientos" para homologar Propiedad/# Departamento.
+  const alojIdx = buildAlojamientosIndex_();
+
+  // Sólo bookings confirmados.
+  const confirmed = bookings.filter(b => String(b.Status || "").toLowerCase() === "booked");
+  const filteredOut = bookings.length - confirmed.length;
+
+  // --- Index Perfiles por phoneKey ---
+  const headersP = shP.getRange(1, 1, 1, shP.getLastColumn()).getValues()[0];
+  const idxPCel  = headersP.indexOf("Cel/Whatsapp (principal)");
+  const lastP    = shP.getLastRow();
+  const perfilesPhones = new Set();
+  if (lastP >= 2 && idxPCel >= 0) {
+    const cels = shP.getRange(2, idxPCel + 1, lastP - 1, 1).getValues();
+    for (let i = 0; i < cels.length; i++) {
+      const k = lodgifyPhoneKey_(cels[i][0]);
+      if (k) perfilesPhones.add(k);
+    }
+  }
+
+  // --- Index Reservaciones por (Lodgify Id) y por (phoneKey + fechaIngreso) ---
+  const headersR = shR.getRange(1, 1, 1, shR.getLastColumn()).getValues()[0];
+  const idxRLod  = headersR.indexOf("Lodgify Id");
+  const idxRCel  = headersR.indexOf("Cel/Whatsapp (principal)");
+  const idxRFi   = headersR.indexOf("Fecha de ingreso");
+  const lastR    = shR.getLastRow();
+  const reservasLodIds = new Set();
+  const reservasByPhoneDate = new Map(); // key → { row, hasLodId }
+  if (lastR >= 2 && idxRLod >= 0 && idxRCel >= 0 && idxRFi >= 0) {
+    const data = shR.getRange(2, 1, lastR - 1, headersR.length).getValues();
+    for (let i = 0; i < data.length; i++) {
+      const row = i + 2;
+      const lodVal = String(data[i][idxRLod] || "").trim();
+      if (lodVal) reservasLodIds.add(lodVal);
+      const phoneK = lodgifyPhoneKey_(data[i][idxRCel]);
+      const dateK  = lodgifyDateKey_(data[i][idxRFi]);
+      if (phoneK && dateK) {
+        const key = phoneK + "|" + dateK;
+        if (!reservasByPhoneDate.has(key)) {
+          reservasByPhoneDate.set(key, { row: row, hasLodId: !!lodVal });
+        }
+      }
+    }
+  }
+
+  const now = nowIso_();
+  const perfilesToAppend = [];
+  const reservasToAppend = [];
+  const linkUpdates = []; // [{row, lodId}]
+  let resSkipped = 0;
+  const batchPhones = new Set();
+
+  confirmed.forEach(b => {
+    const phoneKey = lodgifyPhoneKey_(b.GuestPhone);
+    const name  = String(b.GuestName  || "").trim();
+    const email = String(b.GuestEmail || "").trim();
+
+    // PERFILES — sólo si hay teléfono y no existe ya.
+    if (phoneKey && !perfilesPhones.has(phoneKey) && !batchPhones.has(phoneKey)) {
+      const rowP = headersP.map(h => {
+        switch (h) {
+          case "ID_Perfil": return Utilities.getUuid();
+          case "Cel/Whatsapp (principal)": return b.GuestPhone || "";
+          case "Lada celular huésped": return b.GuestCountryCode || "";
+          case "Nombre del huésped": return name;
+          case "Correo electrónico para el envío de la factura": return email;
+          case "Fecha creación": return now;
+          case "Fecha actualización": return now;
+          default: return "";
+        }
+      });
+      perfilesToAppend.push(rowP);
+      batchPhones.add(phoneKey);
+    }
+
+    // RESERVACIONES
+    const lodId = String(b.Id || "").trim();
+    if (!lodId) return;
+    if (reservasLodIds.has(lodId)) { resSkipped++; return; }
+
+    // ¿Hay fila manual existente con mismo phone + fecha de ingreso?
+    const dateK = lodgifyDateKey_(b.DateArrival);
+    const matchKey = (phoneKey && dateK) ? (phoneKey + "|" + dateK) : "";
+    const match = matchKey ? reservasByPhoneDate.get(matchKey) : null;
+
+    if (match && !match.hasLodId) {
+      // Enlazar: escribir Lodgify Id en la fila manual existente.
+      linkUpdates.push({ row: match.row, lodId: lodId });
+      match.hasLodId = true;
+      reservasLodIds.add(lodId);
+      return;
+    }
+    if (match && match.hasLodId) {
+      // Ya enlazado (a otra reserva Lodgify previa). Skip para no duplicar.
+      resSkipped++;
+      return;
+    }
+
+    // Sin match → insertar nueva fila.
+    reservasLodIds.add(lodId);
+    if (matchKey) reservasByPhoneDate.set(matchKey, { row: -1, hasLodId: true });
+    // Homologa Propiedad/# Departamento desde el catálogo alojamientos.
+    const aloj = resolvePropiedadFromAloj_(alojIdx, b);
+    const rowR = headersR.map(h => {
+      switch (h) {
+        case "ID": return Utilities.getUuid();
+        case "Cel/Whatsapp (principal)": return b.GuestPhone || "";
+        case "Marca temporal": return now;
+        case "Medio de reservación": return b.Source || "";
+        case "Propiedad": return aloj.propiedad;
+        case "# Departamento": return aloj.departamento;
+        case "Fecha de ingreso": return lodgifyDateToIso_(b.DateArrival);
+        case "Fecha de salida": return lodgifyDateToIso_(b.DateDeparture);
+        case "# Noches": return Number(b.Nights) || 0;
+        case "# Huéspedes": return Number(b.NumberOfGuests) || 0;
+        case "Nombre de la persona que hizo la reservación": return name;
+        case "Correo electrónico": return email;
+        case "Lodgify Id": return lodId;
+        default: return "";
+      }
+    });
+    reservasToAppend.push(rowR);
+  });
+
+  if (perfilesToAppend.length) {
+    shP.getRange(shP.getLastRow() + 1, 1, perfilesToAppend.length, headersP.length)
+       .setValues(perfilesToAppend);
+  }
+  // Escribir links (Lodgify Id en filas manuales existentes).
+  linkUpdates.forEach(u => {
+    shR.getRange(u.row, idxRLod + 1).setValue(u.lodId);
+  });
+  if (reservasToAppend.length) {
+    const startRow = shR.getLastRow() + 1;
+    // Forzar formato texto en las columnas de fecha ANTES de escribir, para
+    // que Sheets NO auto-parsee MM/DD/YYYY como DD/MM/YYYY (locale es-MX).
+    // Usamos ISO YYYY-MM-DD desde lodgifyDateToIso_, pero el @ es seguro
+    // extra en caso de cualquier formato edge.
+    ['Fecha de ingreso','Fecha de salida'].forEach(colName => {
+      const idx = headersR.indexOf(colName);
+      if (idx < 0) return;
+      shR.getRange(startRow, idx + 1, reservasToAppend.length, 1).setNumberFormat('@');
+    });
+    shR.getRange(startRow, 1, reservasToAppend.length, headersR.length)
+       .setValues(reservasToAppend);
+  }
+
+  return {
+    perfiles_inserted: perfilesToAppend.length,
+    reservaciones_inserted: reservasToAppend.length,
+    reservaciones_linked: linkUpdates.length,
+    reservaciones_skipped: resSkipped,
+    bookings_filtered_out: filteredOut,
+  };
+}
+
+/** ACCIÓN: lodgify_list — devuelve todas las filas de la hoja (rápido).
+ *  Filtro opcional: source, status, name_contains, limit, since (ISO). */
+function getLodgifyReservations_(data) {
+  data = data || {};
+  const sh = ensureLodgifySheet_();
+  const last = sh.getLastRow();
+  if (last < 2) {
+    return { ok: true, bookings: [], total: 0, last_synced_at: getLodgifyMeta_().last_synced_at };
+  }
+  const headers = sh.getRange(1, 1, 1, LODGIFY_HEADERS.length).getValues()[0];
+  const values = sh.getRange(2, 1, last - 1, LODGIFY_HEADERS.length).getValues();
+  let rows = values.map(function(r, idx) {
+    var o = {};
+    headers.forEach(function(h, i) { o[h] = r[i]; });
+    o.__row_number = idx + 2;
+    if (o.LineItemsJSON) {
+      try { o.LineItems = JSON.parse(o.LineItemsJSON); } catch(_) { o.LineItems = []; }
+    } else { o.LineItems = []; }
+    return o;
+  });
+
+  // ─── DEDUP DEFINITIVO ─────────────────────────────────────────────────────
+  // Si hay filas duplicadas por Id, conservamos la de last_synced_at MÁS
+  // RECIENTE y BORRAMOS físicamente las otras. Esto resuelve el bug donde
+  // tras un sync el monto se actualizaba en una fila pero la vieja seguía
+  // siendo leída por el frontend.
+  var byId = {};
+  var rowsToDelete = [];
+  rows.forEach(function(r) {
+    var id = String(r.Id == null ? "" : r.Id).trim();
+    if (!id) return;
+    var lsa = String(r.last_synced_at || "");
+    if (!byId[id]) {
+      byId[id] = r;
+    } else if (lsa > String(byId[id].last_synced_at || "")) {
+      // Esta fila es MÁS reciente → la vieja sale del sheet.
+      rowsToDelete.push(byId[id].__row_number);
+      byId[id] = r;
+    } else {
+      // Esta fila es la duplicada/vieja → sale del sheet.
+      rowsToDelete.push(r.__row_number);
+    }
+  });
+  if (rowsToDelete.length) {
+    // Borrar de atrás hacia adelante para no shiftear índices
+    rowsToDelete.sort(function(a, b) { return b - a; });
+    rowsToDelete.forEach(function(rn) { sh.deleteRow(rn); });
+  }
+  rows = Object.keys(byId).map(function(k) { return byId[k]; });
+
+  // Filtros opcionales
+  const src = String(data.source || "").trim().toLowerCase();
+  const st  = String(data.status || "").trim().toLowerCase();
+  const nm  = String(data.name_contains || "").trim().toLowerCase();
+  if (src) rows = rows.filter(r => String(r.Source||"").toLowerCase() === src);
+  if (st)  rows = rows.filter(r => String(r.Status||"").toLowerCase() === st);
+  if (nm)  rows = rows.filter(r => String(r.GuestName||"").toLowerCase().indexOf(nm) >= 0);
+
+  // Orden descendente por DateArrival (MM/DD/YYYY)
+  rows.sort((a,b) => {
+    const ma = String(a.DateArrival||"").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    const mb = String(b.DateArrival||"").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    const da = ma ? new Date(+ma[3], +ma[1]-1, +ma[2]).getTime() : 0;
+    const db = mb ? new Date(+mb[3], +mb[1]-1, +mb[2]).getTime() : 0;
+    return db - da;
+  });
+
+  const limit = Number(data.limit) || 0;
+  if (limit > 0) rows = rows.slice(0, limit);
+
+  return {
+    ok: true,
+    bookings: rows,
+    total: rows.length,
+    last_synced_at: getLodgifyMeta_().last_synced_at,
+    last_synced_range: getLodgifyMeta_().last_synced_range,
+  };
+}
+
+function getLodgifyMeta_() {
+  const props = PropertiesService.getDocumentProperties();
+  return {
+    last_synced_at: props.getProperty("LODGIFY_LAST_SYNC") || "",
+    last_synced_range: props.getProperty("LODGIFY_LAST_SYNC_RANGE") || "",
+  };
+}
+
+/** OPCIONAL: Trigger time-driven. Para activarlo desde el editor:
+ *    1. Apps Script editor → Triggers (ícono ⏰) → + Add Trigger
+ *    2. Function: lodgifySyncCronJob_
+ *    3. Event source: Time-driven
+ *    4. Type: Hour timer, every 6 hours (por ejemplo).
+ */
+function lodgifySyncCronJob_() {
+  try {
+    const res = syncLodgifyReservations_({ days_back: 60, days_fwd: 365 });
+    Logger.log("Lodgify sync OK: " + JSON.stringify(res));
+  } catch (e) {
+    Logger.log("Lodgify sync ERROR: " + (e && e.message));
+  }
+}
+
+/** Elimina una reservación de la hoja "Reservaciones" (la fila completa)
+ *  identificada por record_id (columna "ID") o por row_number. */
+function deleteReservacion_(data) {
+  const recordId   = safe_(data.record_id || data.id || data.row_id);
+  const explicitRow = safe_(data.row_number || data.rowNumber);
+  if (!recordId && !explicitRow) throw new Error("Falta record_id o row_number.");
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = null;
+  if (explicitRow) row = findRowByRowNumber_(sheet, explicitRow);
+  if (!row && recordId) {
+    row = findRowByValue_(sheet, headers, "ID", recordId);
+    if (!row) row = findRowByRowNumber_(sheet, recordId);
+  }
+  if (!row) throw new Error("No se encontró la reservación.");
+  sheet.deleteRow(row);
+  return { ok: true, deleted_row: row, record_id: recordId || "" };
 }
