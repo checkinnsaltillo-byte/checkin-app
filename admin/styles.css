@@ -2175,7 +2175,7 @@ button[title], a[title], .info-chip[title], [role="button"][title], [onclick][ti
 /* Historial: highlight de card activa en tonos grises/blancos */
 .hu-history-item.hu-history-active {
   background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 55%, #cbd5e1 100%) !important;
-  box-shadow: 0 0 0 2.5px #64748b, 0 8px 22px rgba(71,85,105,.30) !important;
+  box-shadow: 0 8px 22px rgba(71,85,105,.30) !important;
   transform: translateY(-1px);
   position: relative;
   z-index: 2;
