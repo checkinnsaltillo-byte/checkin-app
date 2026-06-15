@@ -11455,7 +11455,13 @@ async function lgEnsureHuespedesAndMatch() {
     // Si las dos colecciones ya están listas, cruzar.
     if (LG_STATE.loaded && HU_STATE.loaded) {
       lgComputeMatches();
-      lodgifyRender();
+      // Si el usuario ya seleccionó una card, NO re-renderizamos — perdería
+      // su selección. Solo cruzamos matches en memoria.
+      if (window.LG_USER_INTERACTED) {
+        console.info('[LG] skip re-render tras match huéspedes: user interacted');
+      } else {
+        lodgifyRender();
+      }
     }
   } catch (e) {
     console.warn('[LG] cruce con huéspedes falló:', e.message);
@@ -11835,7 +11841,14 @@ async function lodgifyLoad(force, opts) {
     lgRebuildFilterOptions();
     // Si huéspedes ya está cargado, computar matches antes de renderizar
     if (HU_STATE.loaded) lgComputeMatches();
-    lodgifyRender();
+    // Si el usuario ya seleccionó una card (ej. lodgifyLoad fue silencioso
+    // detrás de un módulo ya visible), NO re-renderizamos — perdería su
+    // selección. La data ya está en memoria; lo verá al cambiar de card.
+    if (window.LG_USER_INTERACTED) {
+      console.info('[LG] skip re-render tras load: user interacted');
+    } else {
+      lodgifyRender();
+    }
   } catch (e) {
     if (lbl) lbl.textContent = 'Error: ' + e.message;
     if (empty) { empty.textContent = '⚠ ' + e.message; empty.classList.remove('hidden'); }
