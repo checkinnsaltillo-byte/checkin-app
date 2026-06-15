@@ -2172,11 +2172,10 @@ button[title], a[title], .info-chip[title], [role="button"][title], [onclick][ti
 /* Lightbox de fotos — no rotar el botón ✕ del lightbox al hover */
 #hu-img-zoom-overlay button { transition: transform 200ms cubic-bezier(.34,1.56,.64,1), background-color 120ms; }
 #hu-img-zoom-overlay button:hover { transform: scale(1.1); background: #f1f5f9 !important; }
-/* Historial: highlight INTENSO para el activo — mismo estilo que las cards
-   destacadas de la columna de huéspedes izquierda */
+/* Historial: highlight de card activa en tonos grises/blancos */
 .hu-history-item.hu-history-active {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 60%, #93c5fd 100%) !important;
-  box-shadow: 0 0 0 2.5px #3b82f6, 0 8px 22px rgba(59,130,246,.35) !important;
+  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 55%, #cbd5e1 100%) !important;
+  box-shadow: 0 0 0 2.5px #64748b, 0 8px 22px rgba(71,85,105,.30) !important;
   transform: translateY(-1px);
   position: relative;
   z-index: 2;
@@ -2190,7 +2189,7 @@ button[title], a[title], .info-chip[title], [role="button"][title], [onclick][ti
   right: 8px;
   font-size: 11px;
   font-weight: 900;
-  color: #1d4ed8;
+  color: #334155;
   background: #fff;
   border-radius: 999px;
   width: 18px;
@@ -2198,7 +2197,8 @@ button[title], a[title], .info-chip[title], [role="button"][title], [onclick][ti
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(29,78,216,.4);
+  box-shadow: 0 2px 6px rgba(51,65,85,.35);
+  border: 1.5px solid #64748b;
 }
 /* Summary del card: en móviles colapsa los KPIs/monto/chevron en dos filas */
 @media (max-width: 820px) {

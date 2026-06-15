@@ -12044,18 +12044,18 @@ window.lgMultiToggle = function(id, value) {
   if (set.has(value)) set.delete(value);
   else set.add(value);
   lgMultiUpdateLabel(id);
-  lodgifyRender();
+  lodgifyRenderForce();
 };
 window.lgMultiSetAll = function(id) {
   const opts = LG_FILTER_OPTIONS[id] || [];
   LG_STATE.multiSel[id] = new Set(opts);
   lgRebuildFilterOptions();
-  lodgifyRender();
+  lodgifyRenderForce();
 };
 window.lgMultiSetNone = function(id) {
   LG_STATE.multiSel[id] = new Set();
   lgRebuildFilterOptions();
-  lodgifyRender();
+  lodgifyRenderForce();
 };
 function lgMultiUpdateLabel(id) {
   const opts = LG_FILTER_OPTIONS[id] || [];
@@ -12387,7 +12387,21 @@ function lgGetFiltered(sourceList) {
 }
 
 /** Renderiza KPIs + lista de cards. */
-function lodgifyRender() {
+// Re-render explícito disparado por usuario (filtros, paginación, etc.).
+// Resetea la selección actual (ese es el comportamiento esperado para filtros).
+window.lodgifyRenderForce = function() {
+  window.LG_USER_INTERACTED = false;
+  lodgifyRender({ force: true });
+};
+function lodgifyRender(opts) {
+  // BAIL EARLY: una vez el usuario selecciona una card (lgHistorySelect),
+  // CUALQUIER re-render programático destruye la selección y vuelve al
+  // booking #1 — eso es exactamente lo que el usuario reporta.
+  // Filtros y acciones explícitas pasan {force:true} para forzar el render.
+  if (!(opts && opts.force) && window.LG_USER_INTERACTED) {
+    console.info('[LG] lodgifyRender BLOQUEADO: usuario interactuó. force:true para forzar.');
+    return;
+  }
   const mode = LG_STATE.viewMode || 'list';
   // En modo "detail" el sidebar muestra Reservaciones. Si HU_STATE aún no
   // está cargado (las páginas están en curso), evitamos renderizar con datos
@@ -12953,7 +12967,7 @@ window.lgRefreshAll = async function() {
     ]);
     if (LG_STATE.loaded && HU_STATE.loaded) {
       lgComputeMatches();
-      lodgifyRender();
+      lodgifyRenderForce();
     }
   } catch (e) {
     console.warn('[LG] refresh-all error:', e?.message || e);
@@ -12974,7 +12988,7 @@ window.lgClearFilters = function() {
   LG_STATE.sortKey = '';
   LG_STATE.sortDir = '';
   lgRebuildFilterOptions();
-  lodgifyRender();
+  lodgifyRenderForce();
 };
 
 // ─── Rango de fechas (dos inputs date) ─────────────────────────────────────
@@ -13015,7 +13029,7 @@ window.lgSetViewMode = function(mode) {
   if (btnKb)   btnKb.setAttribute('style',   style(mode==='kanban'));
   if (btnTb)   btnTb.setAttribute('style',   style(mode==='table'));
   if (btnDt)   btnDt.setAttribute('style',   style(mode==='detail'));
-  lodgifyRender();
+  lodgifyRenderForce();
 };
 
 /** Cambia la columna de orden de la tabla. Si ya está en ese key,
@@ -13029,7 +13043,7 @@ window.lgSetSort = function(key) {
     LG_STATE.sortKey = key;
     LG_STATE.sortDir = 'asc';
   }
-  lodgifyRender();
+  lodgifyRenderForce();
 };
 
 /** Vista en tabla. Aplica a TODOS los registros filtrados (no solo a
