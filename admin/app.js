@@ -12684,26 +12684,9 @@ function lgBuildDetailSidebarItem(b, selectedId) {
         </div>
         ${progDot ? `<span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;margin-left:auto">${progDot}</span>` : ''}
       </div>
-      <!-- Chips Aseo + Asignaciones (Breezeway) — usa Lodgify Id REAL
-           (b.LodgifyId si es synthetic, b.Id si es booking real) -->
-      ${(() => {
-        const lodIdReal = String(b.LodgifyId || b.Id || '').trim();
-        const { aseoChip, asignacionesChip, fechaTermStr } = (typeof huBuildAseoBadgesForLodId === 'function')
-          ? huBuildAseoBadgesForLodId(lodIdReal)
-          : { aseoChip:'', asignacionesChip:'', fechaTermStr:'' };
-        if (!aseoChip && !asignacionesChip) return '';
-        // Chips compactos para encajar en el ancho del sidebar
-        const aseoMini = aseoChip
-          .replace('padding:4px 10px', 'padding:1px 7px')
-          .replace('font-size:11px', 'font-size:9px')
-          .replace('border:1.5px', 'border:1px');
-        const asignMini = asignacionesChip
-          .replace('padding:4px 10px', 'padding:1px 7px')
-          .replace('font-size:11px', 'font-size:9px')
-          .replace('border:1.5px', 'border:1px')
-          .replace('max-width:200px', 'max-width:140px');
-        return `<div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:6px;min-width:0">${aseoMini}${asignMini}${fechaTermStr ? `<span style="font-size:9px;color:#64748b;font-weight:700">${esc(fechaTermStr)}</span>` : ''}</div>`;
-      })()}
+      <!-- Chips Aseo + Asignaciones se inyectan por bzwInjectSidebarChips
+           (DOM) para sobrevivir al timing entre el render del sidebar y la
+           carga async de BZW_ALL_TASKS. NO renderizar aquí — duplicaría. -->
       <!-- Centro: nombre, propiedad, fechas, status, monto. -->
       <div style="min-width:0">
         <div class="rd-item-row1">
