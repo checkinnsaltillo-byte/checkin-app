@@ -12670,6 +12670,24 @@ function lgBuildDetailSidebarItem(b, selectedId) {
         </div>
         ${progDot ? `<span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;margin-left:auto">${progDot}</span>` : ''}
       </div>
+      <!-- Chips Aseo + Asignaciones (Breezeway) — usa Lodgify Id de la booking -->
+      ${(() => {
+        const { aseoChip, asignacionesChip, fechaTermStr } = (typeof huBuildAseoBadgesForLodId === 'function')
+          ? huBuildAseoBadgesForLodId(String(b.Id || ''))
+          : { aseoChip:'', asignacionesChip:'', fechaTermStr:'' };
+        if (!aseoChip && !asignacionesChip) return '';
+        // Chips compactos para encajar en el ancho del sidebar
+        const aseoMini = aseoChip
+          .replace('padding:4px 10px', 'padding:1px 7px')
+          .replace('font-size:11px', 'font-size:9px')
+          .replace('border:1.5px', 'border:1px');
+        const asignMini = asignacionesChip
+          .replace('padding:4px 10px', 'padding:1px 7px')
+          .replace('font-size:11px', 'font-size:9px')
+          .replace('border:1.5px', 'border:1px')
+          .replace('max-width:200px', 'max-width:140px');
+        return `<div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:6px;min-width:0">${aseoMini}${asignMini}${fechaTermStr ? `<span style="font-size:9px;color:#64748b;font-weight:700">${esc(fechaTermStr)}</span>` : ''}</div>`;
+      })()}
       <!-- Centro: nombre, propiedad, fechas, status, monto. -->
       <div style="min-width:0">
         <div class="rd-item-row1">
