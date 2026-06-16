@@ -15365,7 +15365,7 @@ window.bzwRefreshAlerts = async function() {
   if (list) list.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:30px 0;font-style:italic">Cargando bitácora…</div>';
   try {
     // Pedimos un buen chunk del sheet — el sheet ya tiene tope de 5000.
-    const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts?limit=1000`, { cache: 'no-store' });
+    const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts?limit=5000`, { cache: 'no-store' });
     const json = await res.json();
     if (!res.ok || json.ok === false) throw new Error(json.error || `HTTP ${res.status}`);
     const allAlerts = Array.isArray(json.alerts) ? json.alerts : [];
