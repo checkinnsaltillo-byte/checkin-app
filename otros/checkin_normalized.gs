@@ -44,6 +44,9 @@ const BREEZEWAY_ALERTS_HEADERS = [
   // departure_date  : Check-out de la reservación ligada
   "scheduled_date","scheduled_time","started_at","finished_at",
   "created_at","updated_at","arrival_date","departure_date",
+  // ─── Estado simplificado (computado en backend) ───
+  // status_label: una de 3 etiquetas — "Terminado" | "En proceso" | "Pendiente"
+  "status_label",
   // ─── Personas ───
   "finished_by","assigned_to",
   // ─── Propiedad ───
@@ -948,6 +951,58 @@ function saveBreezewayAlertsBulk_(data) {
 
 /** Borra filas de prueba/smoke-test del sheet de alertas. Detecta por
  *  task_id que empieza con TEST-/SMOKE- o es 99999999, o por raw_json vacío. */
+/** LIMPIA DUPLICADOS de la hoja Breezeway_Alerts.
+ *  Una fila es duplicado de otra si comparten task_id + event_type + finished_at.
+ *  Conserva la MÁS RECIENTE de cada grupo (por received_at) y borra el resto.
+ *  Llamable manualmente desde el editor de Apps Script.
+ *  Uso: en el editor, selecciona la función y dale Ejecutar. */
+function cleanBreezewayDuplicates() {
+  const ss = getSpreadsheet_();
+  const sh = ss.getSheetByName(BREEZEWAY_ALERTS_SHEET);
+  if (!sh) return Logger.log("Sheet Breezeway_Alerts no existe.");
+  const lastRow = sh.getLastRow();
+  if (lastRow < 3) return Logger.log("Nada que limpiar (≤1 fila de datos).");
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const idxTaskId = headers.indexOf("task_id");
+  const idxEvent  = headers.indexOf("event_type");
+  const idxFin    = headers.indexOf("finished_at");
+  const idxRecv   = headers.indexOf("received_at");
+  if (idxTaskId < 0 || idxEvent < 0) {
+    return Logger.log("Faltan columnas task_id / event_type.");
+  }
+  const data = sh.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  // Para cada key, encuentra el índice de fila con received_at MÁS RECIENTE.
+  const winners = new Map(); // key → row index (0-based dentro de data)
+  for (let i = 0; i < data.length; i++) {
+    const key = String(data[i][idxTaskId] || "").trim().toLowerCase() + "|" +
+                String(data[i][idxEvent]  || "").trim().toLowerCase() + "|" +
+                String(data[i][idxFin]    || "").trim();
+    if (!data[i][idxTaskId]) continue; // ignora filas sin task_id
+    const prev = winners.get(key);
+    if (prev == null) {
+      winners.set(key, i);
+    } else {
+      const a = String(data[i][idxRecv] || "");
+      const b = String(data[prev][idxRecv] || "");
+      if (a > b) winners.set(key, i);
+    }
+  }
+  // Filas a borrar = todas las que NO son winners
+  const toDelete = [];
+  for (let i = 0; i < data.length; i++) {
+    const key = String(data[i][idxTaskId] || "").trim().toLowerCase() + "|" +
+                String(data[i][idxEvent]  || "").trim().toLowerCase() + "|" +
+                String(data[i][idxFin]    || "").trim();
+    if (!data[i][idxTaskId]) continue;
+    if (winners.get(key) !== i) toDelete.push(i + 2); // +2 = header row + 0-based
+  }
+  // Borra de abajo hacia arriba para no cambiar índices
+  toDelete.sort((a, b) => b - a);
+  for (const rowNum of toDelete) sh.deleteRow(rowNum);
+  Logger.log(`Limpieza: ${toDelete.length} duplicados borrados. Quedan ${sh.getLastRow() - 1} filas.`);
+  return { deleted: toDelete.length, remaining: sh.getLastRow() - 1 };
+}
+
 function cleanBreezewayTestRows_() {
   const ss = getSpreadsheet_();
   const sh = ss.getSheetByName(BREEZEWAY_ALERTS_SHEET);

@@ -315,6 +315,27 @@ function handlePropertyStatusEvent(payload) {
 // alerta a una hoja "Breezeway_Alerts" via el Apps Script CHECKIN_WEB_APP_URL
 // y leemos desde ahí en /api/breezeway/alerts.
 
+/** Colapsa el estado raw de BZW a 3 etiquetas humanas:
+ *  "Terminado" | "En proceso" | "Pendiente".
+ *  Lógica (gana la más definitiva):
+ *   - finished_at presente → Terminado
+ *   - started_at o status in_progress/paused → En proceso
+ *   - cualquier otra cosa → Pendiente */
+function resolveStatusLabel(t, r) {
+  if (t?.finished_at || r?.finished_at) return "Terminado";
+  const rawStatus = String(
+    t?.status?.name || t?.status ||
+    r?.type_task_status?.code || r?.type_task_status?.name ||
+    r?.status?.name || r?.status || ""
+  ).toLowerCase().replace(/[\s_-]+/g, "");
+  if (/finish|complet|done/.test(rawStatus)) return "Terminado";
+  const hasStarted = !!(t?.started_at || r?.started_at);
+  if (hasStarted || /inprogress|progress|started|running|active|paus/.test(rawStatus)) {
+    return "En proceso";
+  }
+  return "Pendiente";
+}
+
 function flatAlertForSheet(a) {
   // Aplana la alerta a las columnas de la hoja Breezeway_Alerts.
   //
@@ -370,6 +391,8 @@ function flatAlertForSheet(a) {
     priority:      r.type_priority ?? "",
     // status: BZW lo entrega como objeto type_task_status:{code,name,stage}
     status:        str(r.type_task_status || t.status || r.status),
+    // status_label: colapsado a 3 etiquetas humanas para mostrar en UI
+    status_label:  resolveStatusLabel(t, r),
     description:   r.description ?? t.description ?? "",
     summary:       r.summary ?? "",
     total_time:    r.total_time ?? "",       // tiempo real ejecutado (BZW)
