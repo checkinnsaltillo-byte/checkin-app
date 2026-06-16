@@ -1062,8 +1062,6 @@
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button onclick="bzwRefreshAlerts()" class="btn-limpiar" style="margin:0">↻ Actualizar</button>
-          <button onclick="bzwTestToken()" style="padding:8px 16px;border:1.5px solid #0d9488;background:#fff;color:#0f766e;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">🔑 Probar token</button>
-          <button onclick="bzwSubscribeAll()" style="padding:8px 16px;border:1.5px solid #7c3aed;background:#fff;color:#5b21b6;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">🔔 Suscribir webhooks</button>
         </div>
       </div>
 
@@ -1179,31 +1177,6 @@
         </div>
       </div>
 
-      <!-- Bloque de prueba ya realizada (registro de la sesión 2026-06-11) -->
-      <details style="margin-top:22px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:12px 16px">
-        <summary style="cursor:pointer;font-weight:800;color:#166534;font-size:13px">✅ Prueba ya realizada (2026-06-11)</summary>
-        <div style="margin-top:10px;font-size:12px;color:#14532d;line-height:1.6">
-          Probado <b>localmente</b> en el server Node de <code>checkin-app</code> antes
-          de desplegar a Cloud Run:
-          <ul style="margin:6px 0 6px 18px;padding:0">
-            <li>✓ Auth JWT — token obtenido, cache 24 h funcionando, refresh OK.</li>
-            <li>✓ <code>POST /api/breezeway/webhook</code> — validación del ping
-              <code>{"event":"test_webhook_event"}</code> responde 200 en &lt;10 s.</li>
-            <li>✓ Evento <code>task-completed</code> — payload procesado, <code>pushAlert()</code>
-              llamado con <code>task.home.name</code> + <code>task.finished_at</code>.</li>
-            <li>✓ Evento <code>property-status</code> "Ready" — dedupe por
-              <code>last_updated</code> evita procesar el mismo evento 2 veces.</li>
-            <li>⏳ <b>Pendiente</b>: suscribir el webhook en producción una vez Cloud Run
-              esté con URL pública HTTPS, y conectar <code>pushAlert()</code> a un canal
-              real (WhatsApp / correo / hoja de Check in).</li>
-          </ul>
-          <div style="margin-top:8px;font-size:11px;color:#15803d">
-            Credenciales: viven en <code>BREEZEWAY_CLIENT_ID</code> +
-            <code>BREEZEWAY_CLIENT_SECRET</code> del <code>.env</code> del Cloud Run.
-            <b>No</b> están en este repo (sería público en GitHub Pages).
-          </div>
-        </div>
-      </details>
       </div><!-- /bzw-view-list-pane -->
 
       <!-- ═══════ Vista: Calendario ═══════ -->
@@ -1376,6 +1349,6 @@
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="app.js?v=283"></script>
+  <script src="app.js?v=284"></script>
 </body>
 </html>
