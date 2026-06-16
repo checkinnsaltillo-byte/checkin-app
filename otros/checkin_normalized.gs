@@ -883,11 +883,27 @@ function saveBreezewayAlert_(data) {
 
 /** Inserta MUCHAS alertas en una sola invocación. Esperado:
  *  data.alerts = [{event_type, task_id, ...}, ...]
- *  Dedupe contra el sheet en una sola lectura (no por cada inserción) →
- *  mucho más rápido que llamar saveBreezewayAlert_ 2000 veces. */
+ *  Dedupe contra el sheet en una sola lectura (no por cada inserción).
+ *  USA LockService para SERIALIZAR: si manual-sync + auto-sync corren
+ *  en paralelo, sin lock ambos leen el sheet vacío y AMBOS insertan
+ *  todo → duplicados. El lock fuerza ejecución secuencial. */
 function saveBreezewayAlertsBulk_(data) {
   const incoming = Array.isArray(data && data.alerts) ? data.alerts : [];
   if (!incoming.length) return { ok: true, inserted: 0, skipped: 0 };
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000); // espera hasta 30s
+  } catch (e) {
+    return { ok: false, error: "No se pudo adquirir lock (otro sync en curso)." };
+  }
+  try {
+    return saveBreezewayAlertsBulkLocked_(incoming);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function saveBreezewayAlertsBulkLocked_(incoming) {
   const ss = getSpreadsheet_();
   let sh = ss.getSheetByName(BREEZEWAY_ALERTS_SHEET);
   if (!sh) {

@@ -537,6 +537,7 @@ export function registerBreezewayRoutes(app) {
             finished_at: r.finished_at,
             finished_by: r.finished_by,
             status: r.status,
+            status_label: r.status_label || "",
             description: r.description || "",
             summary: r.summary || "",
             total_time: r.total_time || "",
