@@ -16016,22 +16016,40 @@ window.bzwFiltTogglePop = function(id) {
   const p = document.getElementById(`${id}-pop`);
   if (p) p.classList.toggle('hidden');
 };
+/** Refresca SOLO el label del botón + el estado checked de los checkboxes
+ *  sin reconstruir el HTML del panel. Así el dropdown no se cierra ni
+ *  pierde foco al marcar/desmarcar opciones, "Todas" o "Ninguna". */
+function bzwFiltSyncDom(id) {
+  const s = BZW_FILT_STATE[id]; if (!s) return;
+  const el = document.getElementById(id); if (!el) return;
+  const total = s.all.length;
+  const sel = s.selected.size;
+  const label = sel === total ? `Todas (${total})`
+              : sel === 0     ? 'Ninguna'
+              : sel === 1     ? (s.labels.get([...s.selected][0]) || [...s.selected][0])
+              : `${sel} de ${total}`;
+  const lblEl = el.querySelector('.lg-multi-btn-lbl');
+  if (lblEl) lblEl.textContent = label;
+  el.querySelectorAll('.lg-multi-cb').forEach(cb => {
+    cb.checked = s.selected.has(cb.value);
+  });
+}
 window.bzwFiltToggle = function(id, value) {
   const s = BZW_FILT_STATE[id]; if (!s) return;
   if (s.selected.has(value)) s.selected.delete(value); else s.selected.add(value);
-  bzwFiltRender(id);
+  bzwFiltSyncDom(id);
   bzwApplyFilters();
 };
 window.bzwFiltSetAll = function(id) {
   const s = BZW_FILT_STATE[id]; if (!s) return;
   s.selected = new Set(s.all);
-  bzwFiltRender(id);
+  bzwFiltSyncDom(id);
   bzwApplyFilters();
 };
 window.bzwFiltSetNone = function(id) {
   const s = BZW_FILT_STATE[id]; if (!s) return;
   s.selected = new Set();
-  bzwFiltRender(id);
+  bzwFiltSyncDom(id);
   bzwApplyFilters();
 };
 // Cerrar pop al click fuera (solo los del módulo Breezeway)
