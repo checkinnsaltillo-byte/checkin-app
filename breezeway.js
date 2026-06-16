@@ -317,29 +317,64 @@ function handlePropertyStatusEvent(payload) {
 
 function flatAlertForSheet(a) {
   // Aplana la alerta a las columnas de la hoja Breezeway_Alerts.
+  //
+  // ─── Glosario de fechas (terminología BZW vs UI) ───
+  // scheduled_date  : "Programada para" — fecha en que la task DEBE ejecutarse
+  //                   (planificación del operario). Es la fecha que aparece en
+  //                   el calendario diario de Breezeway.
+  // due_date        : "Fecha límite" — deadline impuesto por el sistema (p. ej.
+  //                   antes del checkout). En la UI de BZW se muestra como
+  //                   "📅 jun. 15, 2026" en el header de la task.
+  // started_at      : "Iniciada" — momento en que el operario picó "Iniciar".
+  // finished_at     : "Terminada" — momento en que se marcó como completada.
+  // created_at      : "Creada" — cuándo se generó la task en BZW.
+  // updated_at      : "Actualizada" — última modificación.
+  // received_at     : Timestamp local de Cloud Run al recibir el webhook (NO
+  //                   es de BZW; es nuestro reloj para auditoría/diagnóstico).
+  // arrival_date    : Check-in de la reservación Lodgify ligada.
+  // departure_date  : Check-out de la reservación Lodgify ligada.
+  const t = a.task || {};
+  const r = a.raw || {};
+  const rt = r.task || {};
+  // Helpers para colapsar a string sin importar si el campo es objeto/string
+  const str = (v) => (v == null) ? "" : (typeof v === "object" ? (v.name || v.code || JSON.stringify(v)) : String(v));
+  const assignNames = Array.isArray(r.assignments)
+    ? Array.from(new Set(r.assignments.map(x => x?.full_name || x?.name).filter(Boolean))).join(", ")
+    : "";
   return {
     event_type:    a.event_type || "",
     kind:          a.kind || "",
-    task_id:       a.task?.id ?? "",
-    task_name:     a.task?.name ?? "",
-    task_type:     a.task?.type ?? "",
-    scheduled_date: a.task?.scheduled_date ?? a.raw?.task?.scheduled_date ?? "",
-    due_date:      a.task?.due_date ?? a.raw?.task?.due_date ?? a.raw?.task?.task_date ?? "",
-    finished_at:   a.task?.finished_at ?? a.raw?.task?.finished_at ?? "",
-    finished_by:   a.task?.finished_by ?? "",
+    task_id:       t.id ?? "",
+    task_name:     t.name ?? "",
+    task_type:     str(t.type || r.type_department),
+    // ─── Fechas ───
+    scheduled_date: t.scheduled_date ?? rt.scheduled_date ?? r.scheduled_date ?? "",
+    due_date:      t.due_date ?? rt.due_date ?? r.due_date ?? rt.task_date ?? "",
+    started_at:    t.started_at ?? r.started_at ?? rt.started_at ?? "",
+    finished_at:   t.finished_at ?? rt.finished_at ?? "",
+    created_at:    r.created_at ?? t.created_at ?? rt.created_at ?? "",
+    updated_at:    r.updated_at ?? t.updated_at ?? rt.updated_at ?? "",
+    arrival_date:  a._arrival_date ?? "",
+    departure_date: a._departure_date ?? "",
+    // ─── Personas / asignación ───
+    finished_by:   str(t.finished_by),
+    assigned_to:   assignNames,
+    // ─── Propiedad ───
     home_id:       a.property?.id ?? "",
     property_name: a.property?.name ?? "",
-    lodgify_id:    a.raw?.linked_reservation?.external_reservation_id
-                || a.raw?.linked_reservation?.external_id
+    // ─── Vinculación a reserva ───
+    lodgify_id:    r.linked_reservation?.external_reservation_id
+                || r.linked_reservation?.external_id
                 || "",
-    priority:      a.raw?.type_priority ?? "",
-    status:        a.raw?.status ?? "",
+    // ─── Detalle de la task ───
+    priority:      r.type_priority ?? "",
+    status:        str(t.status || r.status),
+    description:   r.description ?? r.notes ?? t.description ?? "",
+    estimated_minutes: r.estimated_minutes ?? t.estimated_minutes ?? "",
+    actual_minutes:    r.actual_minutes ?? t.actual_minutes ?? "",
+    task_template_id:  r.task_template_id ?? r.template_id ?? "",
+    report_url:    t.report_url ?? r.report_url ?? r.task_report_url ?? "",
     detail:        a.detail ?? a.title ?? "",
-    // ─── Nuevas columnas (4 fechas extra) ───
-    created_at:    a.raw?.created_at ?? a.task?.created_at ?? "",
-    updated_at:    a.raw?.updated_at ?? a.task?.updated_at ?? "",
-    arrival_date:  a._arrival_date ?? "",   // poblado por bootstrap via lookup Lodgify
-    departure_date: a._departure_date ?? "",
     raw_json:      JSON.stringify(a.raw || a),
   };
 }
@@ -470,9 +505,16 @@ export function registerBreezewayRoutes(app) {
             type: r.task_type,
             scheduled_date: r.scheduled_date,
             due_date: r.due_date || "",
+            started_at: r.started_at || "",
             finished_at: r.finished_at,
             finished_by: r.finished_by,
             status: r.status,
+            description: r.description || "",
+            estimated_minutes: r.estimated_minutes || "",
+            actual_minutes: r.actual_minutes || "",
+            task_template_id: r.task_template_id || "",
+            report_url: r.report_url || "",
+            assigned_to: r.assigned_to || "",
             // Si el sheet trae las nuevas columnas, las pasamos para que
             // el frontend pueda mostrarlas sin volver a buscar en LG_STATE.
             created_at: r.created_at || undefined,

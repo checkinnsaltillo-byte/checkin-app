@@ -26,11 +26,33 @@ const LEGACY_SHEET = "Check in";
 const LEGACY_ARCHIVE = "Check in (archivo)";
 const BREEZEWAY_ALERTS_SHEET = "Breezeway_Alerts";
 const BREEZEWAY_ALERTS_HEADERS = [
-  "id","received_at","event_type","kind","task_id","task_name","task_type",
-  "scheduled_date","due_date","finished_at","finished_by","home_id","property_name",
-  "lodgify_id","priority","status","detail",
-  // ─── Nuevas columnas (4 fechas extra) ───
+  // ─── Identificación + clasificación ───
+  "id","received_at","event_type","kind",
+  "task_id","task_name","task_type",
+  // ─── Fechas (terminología BZW) ───
+  // scheduled_date  : Programada para (cuándo debe ejecutarse)
+  // due_date        : Fecha límite (deadline; "📅 jun. 15, 2026" en BZW UI)
+  // started_at      : Iniciada (cuando el operario picó iniciar)
+  // finished_at     : Terminada
+  // created_at      : Creada en BZW
+  // updated_at      : Última modificación en BZW
+  // arrival_date    : Check-in de la reservación ligada
+  // departure_date  : Check-out de la reservación ligada
+  // received_at     : Nuestro reloj al recibir el webhook (no es de BZW)
+  "scheduled_date","due_date","started_at","finished_at",
   "created_at","updated_at","arrival_date","departure_date",
+  // ─── Personas ───
+  "finished_by","assigned_to",
+  // ─── Propiedad ───
+  "home_id","property_name",
+  // ─── Vinculación a reservación ───
+  "lodgify_id",
+  // ─── Detalle de la task ───
+  "priority","status","description",
+  "estimated_minutes","actual_minutes",
+  "task_template_id","report_url",
+  "detail",
+  // ─── Payload crudo (debug) ───
   "raw_json"
 ];
 const BREEZEWAY_ALERTS_MAX = 5000; // tope para evitar crecimiento infinito
