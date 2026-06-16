@@ -772,6 +772,23 @@ function dedupeReservacionesByPhoneArrival_() {
  *  event_type + finished_at) para que reintentos de Breezeway no metan
  *  filas duplicadas.  El backend Cloud Run llama esto vía CHECKIN_WEB_APP_URL
  *  con action="breezeway_alert" en cada webhook recibido. */
+/** Detecta columnas de BREEZEWAY_ALERTS_HEADERS que faltan en la hoja
+ *  existente y las AGREGA al final (sin tocar las posiciones de las
+ *  existentes, así no rompemos referencias). Idempotente. */
+function migrateBreezewayHeaders_(sh) {
+  if (!sh) return;
+  const lastCol = Math.max(sh.getLastColumn(), 1);
+  const current = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(v => String(v || ""));
+  const missing = BREEZEWAY_ALERTS_HEADERS.filter(h => current.indexOf(h) < 0);
+  if (!missing.length) return;
+  // Agrega las que faltan al final
+  sh.getRange(1, lastCol + 1, 1, missing.length)
+    .setValues([missing])
+    .setFontWeight("bold")
+    .setBackground("#7c3aed")
+    .setFontColor("#ffffff");
+}
+
 function saveBreezewayAlert_(data) {
   if (!data || typeof data !== "object") {
     return { ok: false, error: "Payload vacío." };
@@ -786,6 +803,10 @@ function saveBreezewayAlert_(data) {
       .setBackground("#7c3aed")
       .setFontColor("#ffffff");
     sh.setFrozenRows(1);
+  } else {
+    // Auto-migra: si la hoja existe pero le faltan columnas nuevas
+    // (due_date, started_at, assigned_to, etc.), las agrega al final.
+    migrateBreezewayHeaders_(sh);
   }
   const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
   // Dedupe — busca el mismo task_id + event_type + finished_at en últimas 500 filas.
@@ -869,6 +890,9 @@ function saveBreezewayAlertsBulk_(data) {
       .setBackground("#7c3aed")
       .setFontColor("#ffffff");
     sh.setFrozenRows(1);
+  } else {
+    // Auto-migra columnas faltantes (idempotente)
+    migrateBreezewayHeaders_(sh);
   }
   const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
   const idxTaskId = headers.indexOf("task_id");
