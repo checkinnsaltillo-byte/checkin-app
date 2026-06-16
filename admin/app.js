@@ -10803,6 +10803,42 @@ window.huSelectReservation = function(outerRecId, selectedRecId) {
 /** Devuelve { aseoChip, asignacionesChip, fechaTermStr } para el Lodgify Id dado,
  *  reutilizando exactamente los mismos estilos/lógica que las cards de
  *  "Reservas totales". Si no hay task ligada → strings vacíos. */
+/** Mapea el estado raw de Breezeway a uno de 5 estados normalizados, con su
+ *  paleta de color, label en español, e ícono. Si finished_at está poblado,
+ *  SIEMPRE retorna 'finished' (gana sobre status raw — Breezeway a veces deja
+ *  status:created aún terminada). */
+function bzwResolveTaskStatus(tk) {
+  if (!tk) return { key:'unknown', label:'—', icon:'•', bg:'#f1f5f9', fg:'#475569', border:'#cbd5e1' };
+  if (tk.task?.finished_at) {
+    return { key:'finished', label:'Finalizada', icon:'✓', bg:'#dcfce7', fg:'#15803d', border:'#86efac' };
+  }
+  // Lee de múltiples fuentes posibles según cómo llegó el dato
+  const rawStatus = String(
+    tk.task?.status?.name ||
+    tk.task?.status ||
+    tk.raw?.status?.name ||
+    tk.raw?.status ||
+    tk.raw?.task_status ||
+    ''
+  ).toLowerCase().replace(/[\s_-]+/g, '');
+  // Normaliza variantes a un key canónico
+  if (/finish|complet|done/.test(rawStatus)) {
+    return { key:'finished', label:'Finalizada', icon:'✓', bg:'#dcfce7', fg:'#15803d', border:'#86efac' };
+  }
+  if (/paus/.test(rawStatus)) {
+    return { key:'paused', label:'Pausada', icon:'⏸', bg:'#fef3c7', fg:'#854d0e', border:'#fde68a' };
+  }
+  if (/inprogress|progress|started|running|active/.test(rawStatus)) {
+    return { key:'in_progress', label:'En progreso', icon:'▶', bg:'#dbeafe', fg:'#1e40af', border:'#93c5fd' };
+  }
+  if (/declin|cancel|reject/.test(rawStatus)) {
+    return { key:'declined', label:'Rechazada', icon:'✗', bg:'#f1f5f9', fg:'#475569', border:'#cbd5e1' };
+  }
+  // pending / created / not_started / "" → todos pendiente
+  return { key:'pending', label:'Pendiente', icon:'✗', bg:'#fee2e2', fg:'#b91c1c', border:'#fca5a5' };
+}
+window.bzwResolveTaskStatus = bzwResolveTaskStatus;
+
 function huBuildAseoBadgesForLodId(lodId) {
   if (!lodId || typeof BZW_ALL_TASKS === 'undefined' || !BZW_ALL_TASKS.length) {
     return { aseoChip: '', asignacionesChip: '', fechaTermStr: '' };
@@ -10838,9 +10874,9 @@ function huBuildAseoBadgesForLodId(lodId) {
       ? assignNames.join(', ')
       : `${assignNames.slice(0,2).join(', ')} +${assignNames.length - 2}`;
   }
-  const aseoChip = tFinished
-    ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:800;font-size:11px;border:1.5px solid #86efac;letter-spacing:.02em">✓ Aseo · Finalizada</span>'
-    : '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:800;font-size:11px;border:1.5px solid #fca5a5;letter-spacing:.02em">✗ Aseo · Pendiente</span>';
+  // Status real (Finalizada / Pausada / En progreso / Pendiente / Rechazada)
+  const st = bzwResolveTaskStatus(tk);
+  const aseoChip = `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:${st.bg};color:${st.fg};font-weight:800;font-size:11px;border:1.5px solid ${st.border};letter-spacing:.02em">${st.icon} Aseo · ${st.label}</span>`;
   const asignacionesChip = assignDisplay
     ? `<span title="Asignaciones: ${esc(assignNames.join(', '))}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:11px;border:1.5px solid #fdba74;letter-spacing:.02em;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">👥 ${esc(assignDisplay)}</span>`
     : '';
@@ -14015,10 +14051,9 @@ function lgBuildAseoSectionForBooking(arg) {
   const reportUrl = t.task?.report_url || raw.report_url || raw.task_report_url || '';
   const taskName = t.task?.name || 'Tarea';
   const propDisplay = typeof bzwPropDisplay === 'function' ? bzwPropDisplay(t.property?.name) : (t.property?.name || '');
-  // Status chip
-  const statusChip = finished
-    ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:800;font-size:11px;border:1.5px solid #86efac">✓ Finalizada</span>'
-    : '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:800;font-size:11px;border:1.5px solid #fca5a5">✗ Pendiente</span>';
+  // Status chip — usa el helper centralizado (Finalizada/Pausada/En progreso/Pendiente/Rechazada)
+  const stPanel = bzwResolveTaskStatus(t);
+  const statusChip = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:${stPanel.bg};color:${stPanel.fg};font-weight:800;font-size:11px;border:1.5px solid ${stPanel.border}">${stPanel.icon} ${stPanel.label}</span>`;
   // Fecha y hora de término (combinada local)
   let fechaTermino = '—';
   if (finished && t.task.finished_at) {
@@ -15513,11 +15548,10 @@ function bzwRenderAlertItem(a, opts) {
   const tierInline = resvTier
     ? `<span class="bzw-tier-inline" title="${esc(resvTier.tooltip || '')}" style="color:${resvTier.fg}">${resvTier.icon} ${esc(resvTier.label)} <b style="color:#0f172a">${resvTier.score}</b></span>`
     : '';
-  // Chip de status (verde ✓ Finalizada o rojo ✗ Pendiente) — vive en el
-  // header derecho de la card, NO en la fila de chips superiores.
-  const chipStatusBig = finished
-    ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:800;font-size:11px;border:1.5px solid #86efac;box-shadow:0 1px 3px rgba(22,163,74,.18);letter-spacing:.02em">✓ Finalizada</span>`
-    : `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:800;font-size:11px;border:1.5px solid #fca5a5;box-shadow:0 1px 3px rgba(220,38,38,.18);letter-spacing:.02em">✗ Pendiente</span>`;
+  // Chip de status — usa el helper centralizado: Finalizada / Pausada /
+  // En progreso / Pendiente / Rechazada (vive en el header derecho).
+  const stBig = bzwResolveTaskStatus(t);
+  const chipStatusBig = `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:999px;background:${stBig.bg};color:${stBig.fg};font-weight:800;font-size:11px;border:1.5px solid ${stBig.border};box-shadow:0 1px 3px rgba(15,23,42,.12);letter-spacing:.02em">${stBig.icon} ${stBig.label}</span>`;
   const prio = String(raw.type_priority || '').toLowerCase();
   const pMeta = BZW_PRIORITY_META[prio];
   // Semáforo HORIZONTAL de prioridad: 5 círculos en fila (del menor al
@@ -15619,9 +15653,8 @@ function bzwRenderAlertItem(a, opts) {
 
   // ─── Sección 3: Ejecución ───
   // Status, Asignaciones, Iniciada, Terminada, Reporte
-  const statusFldValue = finished
-    ? '<span style="color:#15803d;font-weight:800">✓ Finalizada</span>'
-    : '<span style="color:#b91c1c;font-weight:800">✗ Pendiente</span>';
+  const stFld = bzwResolveTaskStatus(t);
+  const statusFldValue = `<span style="color:${stFld.fg};font-weight:800">${stFld.icon} ${stFld.label}</span>`;
   const section3 = `
     ${sectionHeader('⚙ Ejecución', '#92400e')}
     ${fld('Status', statusFldValue)}
@@ -15799,8 +15832,14 @@ function bzwPropDisplay(rawName) {
 // Cada id mantiene: { all: [...todos los valores posibles], selected: Set, labels: Map }
 // "selected" = Set vacío → ninguno; Set con todos los all → todos.
 const BZW_FILT_STATE = {
-  'bzw-f-status': { all: ['finished','pending'],
-                    labels: new Map([['finished','✓ Finalizada'],['pending','✗ Pendiente']]) },
+  'bzw-f-status': { all: ['finished','in_progress','paused','pending','declined'],
+                    labels: new Map([
+                      ['finished','✓ Finalizada'],
+                      ['in_progress','▶ En progreso'],
+                      ['paused','⏸ Pausada'],
+                      ['pending','✗ Pendiente'],
+                      ['declined','✗ Rechazada'],
+                    ]) },
   'bzw-f-dept':   { all: ['housekeeping','maintenance','inspection','safety'],
                     labels: new Map([['housekeeping','🧹 Aseo'],['maintenance','🔧 Mantenimiento'],
                                      ['inspection','🔍 Inspección'],['safety','🛡️ Seguridad']]) },
@@ -16005,8 +16044,10 @@ window.bzwApplyFilters = function() {
   };
   const filtered = BZW_ALL_TASKS.filter(t => {
     const raw = t.raw || {};
-    // Status
-    const statusVal = t.task?.finished_at ? 'finished' : 'pending';
+    // Status — usa el helper para que Pausada/En progreso/Rechazada sean distinguibles
+    const statusVal = (typeof bzwResolveTaskStatus === 'function')
+      ? bzwResolveTaskStatus(t).key
+      : (t.task?.finished_at ? 'finished' : 'pending');
     if (!passes('bzw-f-status', statusVal)) return false;
     // Depto
     const dept = String(t.task?.type || raw.type_department || '');
