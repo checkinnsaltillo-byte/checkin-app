@@ -918,13 +918,32 @@ export function registerBreezewayRoutes(app) {
         row.received_at = t.task?.finished_at || t.task?.scheduled_date || new Date().toISOString();
         return row;
       });
+      // DEDUPE defensivo dentro del batch: si BZW API devuelve el mismo task
+      // dos veces, o si dos workers procesaron homes superpuestos, agrupamos
+      // por (task_id, event_type, finished_at) y conservamos el último.
+      const seenKeys = new Map();
+      for (const r of flat) {
+        const k = String(r.task_id || "") + "|" +
+                  String(r.event_type || "") + "|" +
+                  String(r.finished_at || "");
+        if (!r.task_id) continue;
+        seenKeys.set(k, r); // last-write-wins
+      }
+      const dedupedFlat = Array.from(seenKeys.values());
+      const internalDupes = flat.length - dedupedFlat.length;
+      if (internalDupes > 0) {
+        console.log(`[BZW] dedupe interno: ${internalDupes} duplicados eliminados del batch (${flat.length} → ${dedupedFlat.length})`);
+      }
       // Ordena ASCENDENTE por scheduled_date (primero las más viejas) ANTES
       // del bulk insert. Apps Script appendea al final del sheet, y
       // listBreezewayAlerts_ devuelve las ÚLTIMAS N filas — así la cola del
       // sheet (lo que el frontend ve) contiene las tasks más recientes,
       // incluidas las pendientes de hoy.
-      flat.sort((a, b) => String(a.scheduled_date || a.received_at || "")
-                          .localeCompare(String(b.scheduled_date || b.received_at || "")));
+      dedupedFlat.sort((a, b) => String(a.scheduled_date || a.received_at || "")
+                                 .localeCompare(String(b.scheduled_date || b.received_at || "")));
+      // Reasigna flat para que el resto del código funcione igual
+      flat.length = 0;
+      Array.prototype.push.apply(flat, dedupedFlat);
 
       // Bloques de 500 para no pasar el límite de payload + ejecución de
       // Apps Script (6 min). 500 × 4 = 2000, dentro del budget.
