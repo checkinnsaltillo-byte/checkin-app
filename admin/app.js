@@ -12669,6 +12669,7 @@ function lgBuildDetailSidebarItem(b, selectedId) {
   return `
     <div class="rd-item ${isSel?'rd-active':''}" onclick="lgDetailSelect('${esc(b.Id)}')"
          data-lg-booking-id="${esc(b.Id)}"
+         data-lodgify-id="${esc(b.LodgifyId || b.Id || '')}"
          data-lg-state="${stayState||'concluida'}"
          data-lg-bg="${finalBg}"
          data-lg-bg-sel="${itemBgSel}"
@@ -12683,10 +12684,12 @@ function lgBuildDetailSidebarItem(b, selectedId) {
         </div>
         ${progDot ? `<span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;margin-left:auto">${progDot}</span>` : ''}
       </div>
-      <!-- Chips Aseo + Asignaciones (Breezeway) — usa Lodgify Id de la booking -->
+      <!-- Chips Aseo + Asignaciones (Breezeway) — usa Lodgify Id REAL
+           (b.LodgifyId si es synthetic, b.Id si es booking real) -->
       ${(() => {
+        const lodIdReal = String(b.LodgifyId || b.Id || '').trim();
         const { aseoChip, asignacionesChip, fechaTermStr } = (typeof huBuildAseoBadgesForLodId === 'function')
-          ? huBuildAseoBadgesForLodId(String(b.Id || ''))
+          ? huBuildAseoBadgesForLodId(lodIdReal)
           : { aseoChip:'', asignacionesChip:'', fechaTermStr:'' };
         if (!aseoChip && !asignacionesChip) return '';
         // Chips compactos para encajar en el ancho del sidebar
@@ -16533,11 +16536,20 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
  *  Se llama desde bzwRefreshAlerts + un MutationObserver dedicado. */
 window.bzwInjectSidebarChips = function() {
   if (typeof huBuildAseoBadgesForLodId !== 'function') return;
-  const items = document.querySelectorAll('.rd-item[data-lg-booking-id]');
+  // Selecciona TODOS los items con cualquiera de los dos atributos.
+  // El data-lg-booking-id puede ser UUID (synthetic booking) — el real
+  // Lodgify Id está en data-lodgify-id.
+  const items = document.querySelectorAll('.rd-item[data-lg-booking-id], .rd-item[data-lodgify-id]');
   items.forEach(el => {
     if (el.querySelector('[data-bzw-aseo-chip]')) return; // ya inyectado
-    const lodId = el.getAttribute('data-lg-booking-id') || '';
-    if (!lodId) return;
+    // Preferimos data-lodgify-id (real); fallback a data-lg-booking-id si
+    // es numérico (cards no-sintéticas todavía tienen el ID Lodgify ahí).
+    let lodId = el.getAttribute('data-lodgify-id') || '';
+    if (!lodId || !/^\d{6,12}$/.test(lodId)) {
+      const fallback = el.getAttribute('data-lg-booking-id') || '';
+      if (/^\d{6,12}$/.test(fallback)) lodId = fallback;
+    }
+    if (!lodId || !/^\d{6,12}$/.test(lodId)) return; // no es Lodgify Id válido
     const { aseoChip, asignacionesChip, fechaTermStr } = huBuildAseoBadgesForLodId(String(lodId));
     if (!aseoChip && !asignacionesChip) return;
     const aseoMini = aseoChip
