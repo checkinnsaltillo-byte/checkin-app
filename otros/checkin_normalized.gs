@@ -825,13 +825,14 @@ function saveBreezewayAlert_(data) {
     const window = Math.min(500, lastRow - 1);
     const startRow = lastRow - window + 1;
     const rows = sh.getRange(startRow, 1, window, headers.length).getValues();
-    const tId = String(data.task_id || "");
-    const tEv = String(data.event_type || "");
-    const tFin = String(data.finished_at || "");
+    // normalizeKeyValue_ serializa Date→ISO igual que strings, evita falsos negativos
+    const tId = normalizeKeyValue_(data.task_id);
+    const tEv = normalizeKeyValue_(data.event_type);
+    const tFin = normalizeKeyValue_(data.finished_at);
     for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][idxTaskId]) === tId &&
-          String(rows[i][idxEvent])  === tEv &&
-          String(rows[i][idxFin])    === tFin && tId && tEv) {
+      if (normalizeKeyValue_(rows[i][idxTaskId]) === tId &&
+          normalizeKeyValue_(rows[i][idxEvent])  === tEv &&
+          normalizeKeyValue_(rows[i][idxFin])    === tFin && tId && tEv) {
         return { ok: true, skipped: "duplicate" };
       }
     }
@@ -906,14 +907,18 @@ function saveBreezewayAlertsBulk_(data) {
   const idxEvent  = headers.indexOf("event_type");
   const idxFin    = headers.indexOf("finished_at");
   // Construye set de keys ya existentes (todo el sheet, una sola lectura).
+  // CRÍTICO: usa normalizeKeyValue_ para que Date objects se serialicen
+  // igual que strings ISO. Si no, la key del Set leído del sheet (donde
+  // los timestamps quedaron como Date) NO matcheaba con la key incoming
+  // (string ISO directa del backend) → todo se duplicaba.
   const existing = new Set();
   const lastRow = sh.getLastRow();
   if (lastRow > 1 && idxTaskId >= 0) {
     const rows = sh.getRange(2, 1, lastRow - 1, headers.length).getValues();
     for (let i = 0; i < rows.length; i++) {
-      const k = String(rows[i][idxTaskId]) + "|" +
-                String(rows[i][idxEvent])  + "|" +
-                String(rows[i][idxFin]);
+      const k = normalizeKeyValue_(rows[i][idxTaskId]) + "|" +
+                normalizeKeyValue_(rows[i][idxEvent])  + "|" +
+                normalizeKeyValue_(rows[i][idxFin]);
       existing.add(k);
     }
   }
@@ -921,9 +926,9 @@ function saveBreezewayAlertsBulk_(data) {
   let skipped = 0;
   const now = nowIso_();
   for (const a of incoming) {
-    const tId  = String(a.task_id || "");
-    const tEv  = String(a.event_type || "");
-    const tFin = String(a.finished_at || "");
+    const tId  = normalizeKeyValue_(a.task_id);
+    const tEv  = normalizeKeyValue_(a.event_type);
+    const tFin = normalizeKeyValue_(a.finished_at);
     const k    = tId + "|" + tEv + "|" + tFin;
     if (tId && tEv && existing.has(k)) { skipped++; continue; }
     existing.add(k);
@@ -951,56 +956,35 @@ function saveBreezewayAlertsBulk_(data) {
 
 /** Borra filas de prueba/smoke-test del sheet de alertas. Detecta por
  *  task_id que empieza con TEST-/SMOKE- o es 99999999, o por raw_json vacío. */
-/** LIMPIA DUPLICADOS de la hoja Breezeway_Alerts.
- *  Una fila es duplicado de otra si comparten task_id + event_type + finished_at.
- *  Conserva la MÁS RECIENTE de cada grupo (por received_at) y borra el resto.
- *  Llamable manualmente desde el editor de Apps Script.
- *  Uso: en el editor, selecciona la función y dale Ejecutar. */
-function cleanBreezewayDuplicates() {
+/** Normaliza un valor para usarlo como key de dedupe.
+ *  CRÍTICO: Sheets auto-convierte strings ISO a Date objects al escribir.
+ *  Al leer de vuelta, String(date) devuelve formato local
+ *  ("Mon Jun 15 2026 11:56:48 GMT-0600") — distinto del ISO original.
+ *  Sin esta normalización las keys no matcheaban → todo se duplicaba. */
+function normalizeKeyValue_(v) {
+  if (v == null || v === "") return "";
+  if (Object.prototype.toString.call(v) === "[object Date]") {
+    return v.toISOString(); // formato estable (UTC)
+  }
+  return String(v).trim();
+}
+
+/** RESET TOTAL de la hoja Breezeway_Alerts.
+ *  Borra TODAS las filas de datos (conserva el header). Una sola operación
+ *  → no hay timeout. Después de esto, hacer 🔄 Sincronizar en el módulo
+ *  Breezeway repoblará la hoja con los datos correctos y SIN duplicados
+ *  (gracias al dedupe normalizado).
+ *  USO: en el editor de Apps Script, selecciona esta función y dale ▶. */
+function resetBreezewayAlerts() {
   const ss = getSpreadsheet_();
   const sh = ss.getSheetByName(BREEZEWAY_ALERTS_SHEET);
-  if (!sh) return Logger.log("Sheet Breezeway_Alerts no existe.");
+  if (!sh) { Logger.log("Sheet Breezeway_Alerts no existe."); return; }
   const lastRow = sh.getLastRow();
-  if (lastRow < 3) return Logger.log("Nada que limpiar (≤1 fila de datos).");
-  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-  const idxTaskId = headers.indexOf("task_id");
-  const idxEvent  = headers.indexOf("event_type");
-  const idxFin    = headers.indexOf("finished_at");
-  const idxRecv   = headers.indexOf("received_at");
-  if (idxTaskId < 0 || idxEvent < 0) {
-    return Logger.log("Faltan columnas task_id / event_type.");
-  }
-  const data = sh.getRange(2, 1, lastRow - 1, headers.length).getValues();
-  // Para cada key, encuentra el índice de fila con received_at MÁS RECIENTE.
-  const winners = new Map(); // key → row index (0-based dentro de data)
-  for (let i = 0; i < data.length; i++) {
-    const key = String(data[i][idxTaskId] || "").trim().toLowerCase() + "|" +
-                String(data[i][idxEvent]  || "").trim().toLowerCase() + "|" +
-                String(data[i][idxFin]    || "").trim();
-    if (!data[i][idxTaskId]) continue; // ignora filas sin task_id
-    const prev = winners.get(key);
-    if (prev == null) {
-      winners.set(key, i);
-    } else {
-      const a = String(data[i][idxRecv] || "");
-      const b = String(data[prev][idxRecv] || "");
-      if (a > b) winners.set(key, i);
-    }
-  }
-  // Filas a borrar = todas las que NO son winners
-  const toDelete = [];
-  for (let i = 0; i < data.length; i++) {
-    const key = String(data[i][idxTaskId] || "").trim().toLowerCase() + "|" +
-                String(data[i][idxEvent]  || "").trim().toLowerCase() + "|" +
-                String(data[i][idxFin]    || "").trim();
-    if (!data[i][idxTaskId]) continue;
-    if (winners.get(key) !== i) toDelete.push(i + 2); // +2 = header row + 0-based
-  }
-  // Borra de abajo hacia arriba para no cambiar índices
-  toDelete.sort((a, b) => b - a);
-  for (const rowNum of toDelete) sh.deleteRow(rowNum);
-  Logger.log(`Limpieza: ${toDelete.length} duplicados borrados. Quedan ${sh.getLastRow() - 1} filas.`);
-  return { deleted: toDelete.length, remaining: sh.getLastRow() - 1 };
+  if (lastRow < 2) { Logger.log("Hoja ya vacía."); return; }
+  // Borra rango de datos (mantiene header)
+  sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).clearContent();
+  Logger.log("Reset OK: " + (lastRow - 1) + " filas borradas. Header conservado.");
+  return { deleted: lastRow - 1 };
 }
 
 function cleanBreezewayTestRows_() {
