@@ -10808,31 +10808,38 @@ window.huSelectReservation = function(outerRecId, selectedRecId) {
  *  PRIORIDAD: si tk.task.status_label viene del backend, ese es source of
  *  truth (resolveStatusLabel en breezeway.js ya lo computó al persistir).
  *  Si no, caemos al cálculo local. */
-function bzwResolveTaskStatus(tk) {
+function bzwResolveTaskStatus(input) {
   const FIN = { key:'finished', label:'Terminado', icon:'✓', bg:'#dcfce7', fg:'#15803d', border:'#86efac' };
   const PROC = { key:'in_progress', label:'En proceso', icon:'▶', bg:'#dbeafe', fg:'#1e40af', border:'#93c5fd' };
   const PEND = { key:'pending', label:'Pendiente', icon:'✗', bg:'#fee2e2', fg:'#b91c1c', border:'#fca5a5' };
-  if (!tk) return PEND;
-  // 0) Si el backend ya computó status_label, úsalo
-  const labelFromBackend = String(tk.task?.status_label || tk.raw?.status_label || '').trim().toLowerCase();
+  if (!input) return PEND;
+  // Tolerante a 2 shapes: el caller puede pasar un alert completo
+  // {task,raw,...} o solo el task object. Normalizamos para que ambos
+  // funcionen — en algunos call sites se pasaba a.task directo y el chip
+  // siempre caía a Pendiente porque task.finished_at era undefined.
+  const task = input.task || input;
+  const raw = input.raw || input;
+  // 1) finished_at SIEMPRE gana
+  if (task.finished_at || raw.finished_at) return FIN;
+  // 2) started_at sin finished_at → En proceso
+  if (task.started_at || raw.started_at) return PROC;
+  // 3) Si el backend ya computó status_label, úsalo
+  const labelFromBackend = String(task.status_label || raw.status_label || '').trim().toLowerCase();
   if (labelFromBackend === 'terminado') return FIN;
   if (labelFromBackend === 'en proceso' || labelFromBackend === 'enproceso') return PROC;
   if (labelFromBackend === 'pendiente') return PEND;
-  // 1) finished_at gana sobre cualquier otra señal
-  if (tk.task?.finished_at || tk.raw?.finished_at) return FIN;
-  // Lee de múltiples fuentes posibles según cómo llegó el dato
+  // 4) Fallback: leer status raw
   const rawStatus = String(
-    tk.task?.status?.name ||
-    tk.task?.status ||
-    tk.raw?.type_task_status?.code ||
-    tk.raw?.type_task_status?.name ||
-    tk.raw?.status?.name ||
-    tk.raw?.status ||
+    task.status?.name ||
+    task.status ||
+    raw.type_task_status?.code ||
+    raw.type_task_status?.name ||
+    raw.status?.name ||
+    raw.status ||
     ''
   ).toLowerCase().replace(/[\s_-]+/g, '');
-  const hasStarted = !!(tk.task?.started_at || tk.raw?.started_at);
   if (/finish|complet|done/.test(rawStatus)) return FIN;
-  if (hasStarted || /inprogress|progress|started|running|active|paus/.test(rawStatus)) return PROC;
+  if (/inprogress|progress|started|running|active|paus/.test(rawStatus)) return PROC;
   return PEND;
 }
 window.bzwResolveTaskStatus = bzwResolveTaskStatus;
