@@ -8034,6 +8034,19 @@ function switchModule(mod) {
     // pintar los chips de Aseo. En cuanto el usuario clickea una card,
     // se vuelve a setear y se bloquean los re-renders automáticos.
     window.LG_USER_INTERACTED = false;
+    // BRUTE-FORCE: cada 500ms por 15s, intenta inyectar chips Aseo en el
+    // sidebar. Es idempotente — solo inserta donde falta. Esto bullet-proof
+    // las condiciones de carrera entre el render del sidebar y BZW_ALL_TASKS.
+    if (window._bzwSidebarChipsInterval) clearInterval(window._bzwSidebarChipsInterval);
+    let _ticks = 0;
+    window._bzwSidebarChipsInterval = setInterval(() => {
+      _ticks++;
+      try { if (typeof window.bzwInjectSidebarChips === 'function') window.bzwInjectSidebarChips(); } catch(_) {}
+      if (_ticks >= 30) {
+        clearInterval(window._bzwSidebarChipsInterval);
+        window._bzwSidebarChipsInterval = null;
+      }
+    }, 500);
     // Paso 1: lectura instantánea desde Sheets (lo que el usuario ya
     // sincronizó queda intacto y se muestra de inmediato).
     if (!LG_STATE.loaded && !LG_STATE.loading) lodgifyLoad(true);
