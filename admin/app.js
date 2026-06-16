@@ -16106,8 +16106,40 @@ window.bzwApplyFilters = function() {
     if (isAll(id)) return true;                // todos → no filtra
     return sel.has(value);
   };
+  // Búsqueda libre: tokeniza el query, cada token debe matchear en el
+  // "haystack" (concat de todos los campos relevantes lower-cased).
+  const searchQuery = String(document.getElementById('bzw-search')?.value || '').trim().toLowerCase();
+  const searchTokens = searchQuery ? searchQuery.split(/\s+/).filter(Boolean) : [];
+  const buildHaystack = (t) => {
+    const r = t.raw || {};
+    const tk = t.task || {};
+    const parts = [
+      tk.name, tk.type, tk.status, tk.status_label, tk.description, tk.summary, tk.report_url,
+      tk.scheduled_date, tk.scheduled_time, tk.started_at, tk.finished_at, tk.finished_by,
+      tk.assigned_to, tk.template_id, tk.id,
+      t.property?.name, t.property?.id,
+      t.detail, t.title, t.kind, t.event_type,
+      r.id, r.type_department, r.type_priority, r.description, r.summary, r.notes,
+      r.scheduled_date, r.started_at, r.finished_at, r.created_at, r.updated_at,
+      r.linked_reservation?.external_reservation_id, r.linked_reservation?.external_id,
+      r.report_url, r.template_id,
+      // Asignaciones (nombres + emails si los hubiera)
+      ...(Array.isArray(r.assignments) ? r.assignments.flatMap(a => [a?.full_name, a?.name, a?.email]) : []),
+      // type_task_status puede venir como objeto
+      r.type_task_status?.code, r.type_task_status?.name,
+      // Tags
+      ...(Array.isArray(r.tags) ? r.tags.map(x => typeof x === 'object' ? x?.name : x) : []),
+      ...(Array.isArray(r.task_tags) ? r.task_tags.map(x => typeof x === 'object' ? x?.name : x) : []),
+    ];
+    return parts.filter(Boolean).map(v => String(v)).join('  ').toLowerCase();
+  };
   const filtered = BZW_ALL_TASKS.filter(t => {
     const raw = t.raw || {};
+    // Búsqueda libre
+    if (searchTokens.length) {
+      const hay = buildHaystack(t);
+      if (!searchTokens.every(tk => hay.includes(tk))) return false;
+    }
     // Status — usa el helper para que Pausada/En progreso/Rechazada sean distinguibles
     const statusVal = (typeof bzwResolveTaskStatus === 'function')
       ? bzwResolveTaskStatus(t).key
