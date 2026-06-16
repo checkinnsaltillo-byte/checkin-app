@@ -10805,18 +10805,21 @@ window.huSelectReservation = function(outerRecId, selectedRecId) {
  *  "Reservas totales". Si no hay task ligada → strings vacíos. */
 /** Mapea el estado raw de Breezeway a 3 estados simplificados:
  *  Terminado / En proceso / Pendiente.
- *  Lógica:
- *   - Si finished_at está poblado → Terminado (definitivo).
- *   - Si started_at está poblado o status es in_progress/paused → En proceso.
- *   - Cualquier otra cosa (created/pending/declined/etc.) → Pendiente.
- *  paused se considera "En proceso" porque la task YA fue iniciada
- *  (solo está pausada temporalmente). */
+ *  PRIORIDAD: si tk.task.status_label viene del backend, ese es source of
+ *  truth (resolveStatusLabel en breezeway.js ya lo computó al persistir).
+ *  Si no, caemos al cálculo local. */
 function bzwResolveTaskStatus(tk) {
-  if (!tk) return { key:'pending', label:'Pendiente', icon:'•', bg:'#fee2e2', fg:'#b91c1c', border:'#fca5a5' };
+  const FIN = { key:'finished', label:'Terminado', icon:'✓', bg:'#dcfce7', fg:'#15803d', border:'#86efac' };
+  const PROC = { key:'in_progress', label:'En proceso', icon:'▶', bg:'#dbeafe', fg:'#1e40af', border:'#93c5fd' };
+  const PEND = { key:'pending', label:'Pendiente', icon:'✗', bg:'#fee2e2', fg:'#b91c1c', border:'#fca5a5' };
+  if (!tk) return PEND;
+  // 0) Si el backend ya computó status_label, úsalo
+  const labelFromBackend = String(tk.task?.status_label || tk.raw?.status_label || '').trim().toLowerCase();
+  if (labelFromBackend === 'terminado') return FIN;
+  if (labelFromBackend === 'en proceso' || labelFromBackend === 'enproceso') return PROC;
+  if (labelFromBackend === 'pendiente') return PEND;
   // 1) finished_at gana sobre cualquier otra señal
-  if (tk.task?.finished_at || tk.raw?.finished_at) {
-    return { key:'finished', label:'Terminado', icon:'✓', bg:'#dcfce7', fg:'#15803d', border:'#86efac' };
-  }
+  if (tk.task?.finished_at || tk.raw?.finished_at) return FIN;
   // Lee de múltiples fuentes posibles según cómo llegó el dato
   const rawStatus = String(
     tk.task?.status?.name ||
@@ -10828,16 +10831,9 @@ function bzwResolveTaskStatus(tk) {
     ''
   ).toLowerCase().replace(/[\s_-]+/g, '');
   const hasStarted = !!(tk.task?.started_at || tk.raw?.started_at);
-  // 2) Terminado (también captura "completed" en status raw, por si acaso)
-  if (/finish|complet|done/.test(rawStatus)) {
-    return { key:'finished', label:'Terminado', icon:'✓', bg:'#dcfce7', fg:'#15803d', border:'#86efac' };
-  }
-  // 3) En proceso = ya empezó, aunque esté pausada
-  if (hasStarted || /inprogress|progress|started|running|active|paus/.test(rawStatus)) {
-    return { key:'in_progress', label:'En proceso', icon:'▶', bg:'#dbeafe', fg:'#1e40af', border:'#93c5fd' };
-  }
-  // 4) Todo lo demás (created / pending / declined / "") → Pendiente
-  return { key:'pending', label:'Pendiente', icon:'✗', bg:'#fee2e2', fg:'#b91c1c', border:'#fca5a5' };
+  if (/finish|complet|done/.test(rawStatus)) return FIN;
+  if (hasStarted || /inprogress|progress|started|running|active|paus/.test(rawStatus)) return PROC;
+  return PEND;
 }
 window.bzwResolveTaskStatus = bzwResolveTaskStatus;
 
