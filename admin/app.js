@@ -10787,6 +10787,53 @@ window.huSelectReservation = function(outerRecId, selectedRecId) {
   }
 };
 
+/** Devuelve { aseoChip, asignacionesChip, fechaTermStr } para el Lodgify Id dado,
+ *  reutilizando exactamente los mismos estilos/lógica que las cards de
+ *  "Reservas totales". Si no hay task ligada → strings vacíos. */
+function huBuildAseoBadgesForLodId(lodId) {
+  if (!lodId || typeof BZW_ALL_TASKS === 'undefined' || !BZW_ALL_TASKS.length) {
+    return { aseoChip: '', asignacionesChip: '', fechaTermStr: '' };
+  }
+  const linked = BZW_ALL_TASKS.filter(tk =>
+    String(tk.raw?.linked_reservation?.external_reservation_id || '') === String(lodId));
+  if (!linked.length) return { aseoChip: '', asignacionesChip: '', fechaTermStr: '' };
+  const score = (tk) => {
+    const dept = String(tk.task?.type || tk.raw?.type_department || '').toLowerCase();
+    const nm = String(tk.task?.name || '').toLowerCase();
+    let s = 0;
+    if (dept === 'housekeeping') s += 10;
+    if (/checkout|limpieza/.test(nm)) s += 5;
+    if (tk.task?.finished_at) s += 1;
+    return s;
+  };
+  linked.sort((a, b) => score(b) - score(a));
+  const tk = linked[0];
+  const tFinished = !!tk.task?.finished_at;
+  let fechaTermStr = '';
+  if (tFinished && tk.task.finished_at) {
+    const d = new Date(tk.task.finished_at);
+    if (!isNaN(d.getTime())) {
+      fechaTermStr = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    }
+  }
+  const assignNames = Array.isArray(tk.raw?.assignments)
+    ? Array.from(new Set(tk.raw.assignments.map(x => x?.full_name || x?.name).filter(Boolean)))
+    : [];
+  let assignDisplay = '';
+  if (assignNames.length) {
+    assignDisplay = assignNames.length <= 2
+      ? assignNames.join(', ')
+      : `${assignNames.slice(0,2).join(', ')} +${assignNames.length - 2}`;
+  }
+  const aseoChip = tFinished
+    ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:800;font-size:11px;border:1.5px solid #86efac;letter-spacing:.02em">✓ Aseo · Finalizada</span>'
+    : '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:800;font-size:11px;border:1.5px solid #fca5a5;letter-spacing:.02em">✗ Aseo · Pendiente</span>';
+  const asignacionesChip = assignDisplay
+    ? `<span title="Asignaciones: ${esc(assignNames.join(', '))}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:11px;border:1.5px solid #fdba74;letter-spacing:.02em;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">👥 ${esc(assignDisplay)}</span>`
+    : '';
+  return { aseoChip, asignacionesChip, fechaTermStr };
+}
+
 function huBuildRecordCard(r) {
   const status     = huGetFacturaStatus(r);
   const recId      = String(r['ID'] || r['row_number'] || '');
@@ -10869,11 +10916,18 @@ function huBuildRecordCard(r) {
       ${tierBadge}
     </div>`;
 
+  // Chips Aseo + Asignaciones (Breezeway) por Lodgify Id del registro
+  const lodIdForAseo = String(r['Lodgify Id'] || '').trim();
+  const { aseoChip, asignacionesChip, fechaTermStr } = huBuildAseoBadgesForLodId(lodIdForAseo);
+  const fechaTermChip = fechaTermStr
+    ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#f1f5f9;color:#475569;font-weight:700;font-size:10px;border:1px solid #cbd5e1;letter-spacing:.02em">🕓 ${esc(fechaTermStr)}</span>`
+    : '';
+
   // Header SUMMARY — clic abre/cierra (sin marker nativo)
   const summary = `
     <summary style="cursor:pointer;list-style:none;padding:16px 18px;background:${palette.bg};display:grid;grid-template-columns:1fr auto auto auto;gap:14px;align-items:center">
       <div>
-        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px">${medioBadge}${huespedesChip}</div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px">${medioBadge}${huespedesChip}${aseoChip}${asignacionesChip}${fechaTermChip}</div>
         <div style="font-size:18px;font-weight:800;color:#111827;line-height:1.25;margin-bottom:6px">${esc(nombre || '—')}</div>
         <div style="font-size:13px;color:#64748b;font-weight:500">${esc(propiedad || '—')}${departamento ? ' · # ' + esc(departamento) : ''}</div>
         <div style="font-size:13px;color:#64748b;font-weight:500;margin-top:2px">${huFmtFecha(ingreso)} → ${huFmtFecha(salida)}</div>
