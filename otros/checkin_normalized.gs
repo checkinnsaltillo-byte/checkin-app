@@ -1037,7 +1037,7 @@ function cleanBreezewayTestRows_() {
 
 /** Devuelve las últimas N alertas (más recientes primero). */
 function listBreezewayAlerts_(params) {
-  const limit = Math.min(parseInt(params.limit, 10) || 100, 1000);
+  const limit = Math.min(parseInt(params.limit, 10) || 100, 5000);
   const ss = getSpreadsheet_();
   const sh = ss.getSheetByName(BREEZEWAY_ALERTS_SHEET);
   if (!sh) return { ok: true, alerts: [], count: 0 };

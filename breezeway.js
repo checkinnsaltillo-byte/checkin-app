@@ -512,7 +512,7 @@ export function registerBreezewayRoutes(app) {
 
   // ---- Consultar alertas recientes (Sheet-backed, sobrevive cold starts) ----
   app.get("/api/breezeway/alerts", async (req, res) => {
-    const limit = Math.min(Number(req.query?.limit) || 100, 1000);
+    const limit = Math.min(Number(req.query?.limit) || 100, 5000);
     try {
       // 1) Lee del Sheet (fuente de verdad persistente).
       const fromSheet = await fetchAlertsFromSheet(limit);
