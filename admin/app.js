@@ -10598,6 +10598,13 @@ function huBuildAirbnbBox(r, opts) {
             style="padding:7px 14px;border:none;background:#475569;color:#fff;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">
       📋 Copiar mensaje para consultar ticket emitido
     </button>` : '';
+  // "Re-emitir ticket": archiva el folio actual en "Folio facturapi antiguo"
+  // y abre Facturapi para generar uno nuevo con los mismos montos.
+  const btnReemitir = hasTicket ? `
+    <button type="button" onclick="event.stopPropagation();huespedesReemitirTicket('${esc(recId)}')"
+            style="padding:7px 14px;border:none;background:linear-gradient(180deg,#f97316 0%,#c2410c 100%);color:#fff;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 4px rgba(194,65,12,.3)">
+      🔄 Re-emitir ticket
+    </button>` : '';
   // "Generar Ticket" visible siempre que NO haya ticket emitido aún.
   const btnGenerar = !hasTicket ? `
     <button onclick="event.stopPropagation();huespedesGenerarTicket('${esc(recId)}')"
@@ -10632,7 +10639,7 @@ function huBuildAirbnbBox(r, opts) {
                style="width:100%;padding:7px 10px;border:1px solid #a78bfa;border-radius:6px;background:${esAirbnb?'#c4b5fd':'#fff'};font-size:13px;color:#4c1d95;font-weight:700;outline:none">
         ${esAirbnb?'<div style="font-size:10px;color:#6d28d9;margin-top:4px;font-weight:600">🔒 Airbnb − Comisión</div>':''}
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${btnVerTicket}${btnCopiarMsg}${btnGenerar}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${btnVerTicket}${btnCopiarMsg}${btnReemitir}${btnGenerar}</div>
     </div>`;
 }
 
@@ -11248,6 +11255,60 @@ async function huespedesGenerarTicket(recordId) {
   // Abrir en modal con iframe embebido (en lugar de pestaña independiente)
   huespedesOpenFacturapi(url);
 }
+
+/** Re-emitir ticket: archiva el folio actual (lo mueve a la columna "Folio
+ *  facturapi antiguo" del sheet de Reservaciones), limpia los campos del
+ *  ticket actual, y abre Facturapi con los mismos montos para que el usuario
+ *  emita uno nuevo. El nuevo folio reemplazará al archivado.
+ *  Pide confirmación porque NO se puede deshacer desde la UI. */
+window.huespedesReemitirTicket = async function(recordId) {
+  if (!recordId) { alert('No se pudo identificar el registro.'); return; }
+  const row = (HU_STATE.rows || []).find(r => String(r['ID']||r['row_number']||'') === String(recordId));
+  if (!row) { alert('No se encontró la información del registro.'); return; }
+  const folioActual = huValueFlexible(row, ['Folio facturapi','Folio Facturapi','Folio']);
+  const ok = await (typeof showConfirm === 'function' ? showConfirm({
+    icon: '🔄',
+    title: '¿Re-emitir ticket?',
+    msg: `El folio actual ${folioActual ? '#' + folioActual + ' ' : ''}se moverá a la columna "Folio facturapi antiguo" y se abrirá Facturapi para emitir uno nuevo. No se puede deshacer.`,
+    okLabel: 'Sí, re-emitir',
+  }) : Promise.resolve(window.confirm(`¿Re-emitir ticket? El folio ${folioActual||''} se archivará y se generará uno nuevo.`)));
+  if (!ok) return;
+  // 1) Archivar el folio actual en el sheet
+  try {
+    if (typeof showLoading === 'function') showLoading('Archivando folio actual…', 'Sheets');
+    const res = await fetch(HU_CHECKIN_WEBAPP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'archive_folio_for_reemit',
+        record_id: recordId,
+      }),
+      redirect: 'follow',
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!json.ok) {
+      throw new Error(json.error || json.message || 'Falló el archivado');
+    }
+    // Reflejar limpieza local (para que el render siguiente no muestre el folio viejo)
+    row['Folio facturapi'] = '';
+    row['Folio CFDI'] = '';
+    row['Ticket facturapi url'] = '';
+    row['Estatus'] = '';
+    row['Fecha de emisión'] = '';
+    if (json.previous_folio) {
+      const prev = String(row['Folio facturapi antiguo'] || '').trim();
+      row['Folio facturapi antiguo'] = prev ? `${prev}, ${json.previous_folio}` : json.previous_folio;
+    }
+  } catch (e) {
+    console.error('[HU] archive error:', e);
+    alert('No se pudo archivar el folio actual: ' + (e.message || e));
+    return;
+  } finally {
+    if (typeof hideLoading === 'function') hideLoading();
+  }
+  // 2) Abrir Facturapi con los mismos montos — mismo flujo que Generar Ticket
+  await huespedesGenerarTicket(recordId);
+};
 
 /** Abre el modal de Facturapi con el iframe apuntando a la URL dada. */
 function huespedesOpenFacturapi(url) {
