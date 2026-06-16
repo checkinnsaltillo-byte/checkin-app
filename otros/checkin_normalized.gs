@@ -118,7 +118,7 @@ const RESERVACIONES_HEADERS = [
   "Correo electrónico","...enviar copia al siguiente correo:",
   "$ Noches","$ Cuota de limpieza","$ MONTO TOTAL Airbnb","$ Comisión Airbnb","$ Monto antes de impuestos",
   "($) Monto Total pagado","$ Monto facturado Total",
-  "Folio facturapi","Organización facturapi","Folio CFDI","Folio Relación","Folio complemento de pago","Estatus",
+  "Folio facturapi","Folio facturapi antiguo","Organización facturapi","Folio CFDI","Folio Relación","Folio complemento de pago","Estatus",
   "Fecha de emisión","Concepto Factura","Método de pago",
   "Ticket facturapi url","Ticket facturapi id archivo","Ticket facturapi nombre archivo","Ticket facturapi carpeta url","Ticket facturapi carpeta ruta",
   "Envía tus comentarios","Envía tus comentarios con relación a la factura","Notas","Enviado por",
@@ -142,6 +142,7 @@ function doPost(e) {
     if (action === "update_airbnb_amounts") return jsonOutput_(updateAirbnbAmounts_(data));
     if (action === "update_facturapi_folio") return jsonOutput_(updateFacturapiFolio_(data));
     if (action === "update_facturapi_folio_strict") return jsonOutput_(updateFacturapiFolioStrict_(data));
+    if (action === "archive_folio_for_reemit") return jsonOutput_(archiveFolioForReemit_(data));
     if (action === "save_facturapi_pdf") return jsonOutput_(saveFacturapiPdf_(data));
     if (action === "send_otp") return jsonOutput_(sendOtp_(data));
     if (action === "verify_otp") return jsonOutput_(verifyOtp_(data));
@@ -1614,6 +1615,75 @@ function updateFacturapiFolioStrict_(data) {
     target_column: "Folio facturapi",
     sheet_name: sheet.getName(),
     spreadsheet_name: getSpreadsheet_().getName()
+  };
+}
+
+/** Auto-migra la hoja de Reservaciones: agrega cualquier header de
+ *  RESERVACIONES_HEADERS que no exista, al FINAL de la fila 1. Sin tocar
+ *  posiciones de columnas existentes. Idempotente. */
+function migrateReservacionesHeaders_(sh) {
+  if (!sh) return;
+  const lastCol = Math.max(sh.getLastColumn(), 1);
+  const current = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(v => String(v || ""));
+  const missing = RESERVACIONES_HEADERS.filter(h => current.indexOf(h) < 0);
+  if (!missing.length) return;
+  sh.getRange(1, lastCol + 1, 1, missing.length).setValues([missing]).setFontWeight("bold");
+}
+
+/** ARCHIVA el folio actual antes de re-emitir un ticket.
+ *  Mueve el valor actual de "Folio facturapi" → "Folio facturapi antiguo"
+ *  y limpia las celdas relacionadas para que Facturapi escriba los nuevos
+ *  valores. Idempotente — si no hay folio actual, no hace nada.
+ *  Recibido vía action="archive_folio_for_reemit" con { record_id } o
+ *  { row_number } o { external_id }. */
+function archiveFolioForReemit_(data) {
+  const recordId = safe_(data.record_id || data.id || data.row_id);
+  const explicitRow = safe_(data.row_number || data.rowNumber);
+  const externalId = safe_(data.external_id || data.externalId);
+  if (!recordId && !externalId && !explicitRow) throw new Error("Falta identificador de reservación.");
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  // Auto-agrega "Folio facturapi antiguo" si no existe en la hoja
+  migrateReservacionesHeaders_(sheet);
+  const headers = getHeaders_(sheet);
+  let row = null;
+  if (explicitRow) row = findRowByRowNumber_(sheet, explicitRow);
+  if (!row && recordId) { row = findRowByValue_(sheet, headers, "ID", recordId); if (!row) row = findRowByRowNumber_(sheet, recordId); }
+  if (!row && externalId) {
+    const clean = String(externalId).replace(/^CHECKIN-/, "").trim();
+    row = findRowByValue_(sheet, headers, "ID", clean);
+    if (!row) row = findRowByRowNumber_(sheet, clean);
+  }
+  if (!row) throw new Error("No se encontró la reservación.");
+  const prev = readRow_(sheet, headers, row);
+  const prevFolio = String(prev["Folio facturapi"] || "").trim();
+  if (!prevFolio) {
+    // Nada que archivar — caller puede proceder con la emisión nueva
+    return { ok: true, archived: false, message: "Sin folio previo." };
+  }
+  // 1) Mueve "Folio facturapi" → "Folio facturapi antiguo"
+  //    Si "antiguo" ya tenía un valor previo, lo concatenamos con ", "
+  //    (historial de re-emisiones).
+  const prevAntiguo = String(prev["Folio facturapi antiguo"] || "").trim();
+  const newAntiguo = prevAntiguo ? `${prevAntiguo}, ${prevFolio}` : prevFolio;
+  setCellByHeader_(sheet, headers, row, "Folio facturapi antiguo", newAntiguo);
+  // 2) Limpia campos que Facturapi va a reescribir
+  const fieldsToClear = [
+    "Folio facturapi","Folio CFDI","Folio Relación","Folio complemento de pago",
+    "Fecha de emisión","Estatus",
+    "Ticket facturapi url","Ticket facturapi id archivo","Ticket facturapi nombre archivo",
+    "Ticket facturapi carpeta url","Ticket facturapi carpeta ruta",
+  ];
+  for (const f of fieldsToClear) {
+    if (headers.indexOf(f) >= 0) setCellByHeader_(sheet, headers, row, f, "");
+  }
+  SpreadsheetApp.flush();
+  return {
+    ok: true,
+    archived: true,
+    row_number: row,
+    record_id: recordId || String(externalId || "").replace(/^CHECKIN-/, "").trim(),
+    previous_folio: prevFolio,
+    archived_to: "Folio facturapi antiguo",
   };
 }
 
