@@ -15315,6 +15315,9 @@ window.bzwRefreshAlerts = async function() {
       if (typeof window.bzwAseoInjectorScan === 'function') {
         requestAnimationFrame(() => window.bzwAseoInjectorScan());
       }
+      if (typeof window.bzwInjectSidebarChips === 'function') {
+        requestAnimationFrame(() => window.bzwInjectSidebarChips());
+      }
     } catch(_) {}
     if (cnt) cnt.textContent = String(alerts.length);
     if (lastEl) lastEl.textContent = new Date().toLocaleTimeString('es-MX');
@@ -16509,6 +16512,63 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
   }
   // Exponer scan público para que sea posible forzarlo
   window.bzwAseoInjectorScan = scan;
+})();
+
+/** Inyecta los chips Aseo + Asignaciones en CADA .rd-item del sidebar de
+ *  Lodgify detail. Idempotente: solo inserta si no existen ya. Lo hacemos
+ *  defensivamente porque el sidebar se renderiza ANTES de que BZW cargue.
+ *  Se llama desde bzwRefreshAlerts + un MutationObserver dedicado. */
+window.bzwInjectSidebarChips = function() {
+  if (typeof huBuildAseoBadgesForLodId !== 'function') return;
+  const items = document.querySelectorAll('.rd-item[data-lg-booking-id]');
+  items.forEach(el => {
+    if (el.querySelector('[data-bzw-aseo-chip]')) return; // ya inyectado
+    const lodId = el.getAttribute('data-lg-booking-id') || '';
+    if (!lodId) return;
+    const { aseoChip, asignacionesChip, fechaTermStr } = huBuildAseoBadgesForLodId(String(lodId));
+    if (!aseoChip && !asignacionesChip) return;
+    const aseoMini = aseoChip
+      .replace('padding:4px 10px', 'padding:1px 7px')
+      .replace('font-size:11px', 'font-size:9px')
+      .replace('border:1.5px', 'border:1px');
+    const asignMini = asignacionesChip
+      .replace('padding:4px 10px', 'padding:1px 7px')
+      .replace('font-size:11px', 'font-size:9px')
+      .replace('border:1.5px', 'border:1px')
+      .replace('max-width:200px', 'max-width:140px');
+    const chipsHtml = `<div data-bzw-aseo-chip="1" style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin:0 0 6px 0;min-width:0">${aseoMini}${asignMini}${fechaTermStr ? `<span style="font-size:9px;color:#64748b;font-weight:700">${fechaTermStr}</span>` : ''}</div>`;
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = chipsHtml;
+    const node = wrapper.firstElementChild;
+    // Inserta DESPUÉS de la primera fila (chips Fuente/REGISTRADO/Programación)
+    const firstChild = el.firstElementChild;
+    if (firstChild && firstChild.nextSibling) {
+      el.insertBefore(node, firstChild.nextSibling);
+    } else {
+      el.appendChild(node);
+    }
+  });
+};
+
+// MutationObserver dedicado al sidebar de Lodgify detail. Cada vez que se
+// añaden .rd-item al DOM, escaneamos e inyectamos los chips de Aseo.
+(function setupSidebarChipsObserver() {
+  if (typeof MutationObserver !== 'function') return;
+  let queued = false;
+  const obs = new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      try { window.bzwInjectSidebarChips(); } catch(_) {}
+    });
+  });
+  function start() {
+    const body = document.body;
+    if (body) obs.observe(body, { childList: true, subtree: true });
+  }
+  if (document.readyState !== 'loading') start();
+  else document.addEventListener('DOMContentLoaded', start);
 })();
 
 /** Abre el panel lateral con el reporte de Breezeway embebido en iframe.
