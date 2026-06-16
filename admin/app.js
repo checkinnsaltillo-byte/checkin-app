@@ -15910,6 +15910,14 @@ const BZW_FILT_STATE = {
   'bzw-f-prop':     { all: [], labels: new Map() },
   'bzw-f-assign':   { all: [], labels: new Map() },
   'bzw-f-realizada':{ all: [], labels: new Map() },
+  'bzw-f-priority': { all: ['lowest','low','normal','high','urgent'],
+                      labels: new Map([
+                        ['lowest','🟢 El más bajo'],
+                        ['low','🍋 Bajo'],
+                        ['normal','🟡 Mediano'],
+                        ['high','🟠 Alto'],
+                        ['urgent','🔴 Urgente'],
+                      ]) },
 };
 // Inicializa selected como "todos"
 Object.values(BZW_FILT_STATE).forEach(s => { s.selected = new Set(s.all); });
@@ -15955,7 +15963,7 @@ function bzwRebuildFilterOptions() {
     if (wasAll) s.selected = new Set(s.all);
   });
   // Render widgets
-  ['bzw-f-status','bzw-f-dept','bzw-f-prop','bzw-f-assign','bzw-f-realizada'].forEach(bzwFiltRender);
+  ['bzw-f-status','bzw-f-dept','bzw-f-prop','bzw-f-assign','bzw-f-realizada','bzw-f-priority'].forEach(bzwFiltRender);
   const box = document.getElementById('bzw-filters');
   if (box) box.classList.remove('hidden');
 }
@@ -15964,6 +15972,10 @@ function bzwFiltRender(id) {
   const el = document.getElementById(id);
   const s = BZW_FILT_STATE[id];
   if (!el || !s) return;
+  // Preserva si el panel estaba abierto antes de re-renderizar (para que al
+  // marcar/desmarcar un checkbox el dropdown NO se cierre solo).
+  const prevPop = document.getElementById(`${id}-pop`);
+  const wasOpen = prevPop ? !prevPop.classList.contains('hidden') : false;
   const total = s.all.length;
   const sel = s.selected.size;
   const label = sel === total ? `Todas (${total})`
@@ -15985,7 +15997,7 @@ function bzwFiltRender(id) {
       <span class="lg-multi-btn-lbl">${esc(label)}</span>
       <span class="lg-multi-btn-caret">▾</span>
     </button>
-    <div class="lg-multi-panel hidden" id="${id}-pop">
+    <div class="lg-multi-panel ${wasOpen ? '' : 'hidden'}" id="${id}-pop">
       <div class="lg-multi-actions">
         <button type="button" class="lg-multi-action" onclick="bzwFiltSetAll('${id}')">✓ Todas</button>
         <button type="button" class="lg-multi-action" onclick="bzwFiltSetNone('${id}')">✕ Ninguna</button>
@@ -16175,6 +16187,9 @@ window.bzwApplyFilters = function() {
       const fb = t.task?.finished_by || '';
       if (!fb || !realSet.has(fb)) return false;
     }
+    // Prioridad — BZW_PRIORITY_LEVELS: lowest/low/normal/high/urgent
+    const prioVal = String(raw.type_priority || '').toLowerCase().trim();
+    if (!passes('bzw-f-priority', prioVal)) return false;
     return true;
   });
   const list = document.getElementById('bzw-alerts-list');
