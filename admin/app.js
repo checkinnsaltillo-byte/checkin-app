@@ -10803,38 +10803,40 @@ window.huSelectReservation = function(outerRecId, selectedRecId) {
 /** Devuelve { aseoChip, asignacionesChip, fechaTermStr } para el Lodgify Id dado,
  *  reutilizando exactamente los mismos estilos/lógica que las cards de
  *  "Reservas totales". Si no hay task ligada → strings vacíos. */
-/** Mapea el estado raw de Breezeway a uno de 5 estados normalizados, con su
- *  paleta de color, label en español, e ícono. Si finished_at está poblado,
- *  SIEMPRE retorna 'finished' (gana sobre status raw — Breezeway a veces deja
- *  status:created aún terminada). */
+/** Mapea el estado raw de Breezeway a 3 estados simplificados:
+ *  Terminado / En proceso / Pendiente.
+ *  Lógica:
+ *   - Si finished_at está poblado → Terminado (definitivo).
+ *   - Si started_at está poblado o status es in_progress/paused → En proceso.
+ *   - Cualquier otra cosa (created/pending/declined/etc.) → Pendiente.
+ *  paused se considera "En proceso" porque la task YA fue iniciada
+ *  (solo está pausada temporalmente). */
 function bzwResolveTaskStatus(tk) {
-  if (!tk) return { key:'unknown', label:'—', icon:'•', bg:'#f1f5f9', fg:'#475569', border:'#cbd5e1' };
-  if (tk.task?.finished_at) {
-    return { key:'finished', label:'Finalizada', icon:'✓', bg:'#dcfce7', fg:'#15803d', border:'#86efac' };
+  if (!tk) return { key:'pending', label:'Pendiente', icon:'•', bg:'#fee2e2', fg:'#b91c1c', border:'#fca5a5' };
+  // 1) finished_at gana sobre cualquier otra señal
+  if (tk.task?.finished_at || tk.raw?.finished_at) {
+    return { key:'finished', label:'Terminado', icon:'✓', bg:'#dcfce7', fg:'#15803d', border:'#86efac' };
   }
   // Lee de múltiples fuentes posibles según cómo llegó el dato
   const rawStatus = String(
     tk.task?.status?.name ||
     tk.task?.status ||
+    tk.raw?.type_task_status?.code ||
+    tk.raw?.type_task_status?.name ||
     tk.raw?.status?.name ||
     tk.raw?.status ||
-    tk.raw?.task_status ||
     ''
   ).toLowerCase().replace(/[\s_-]+/g, '');
-  // Normaliza variantes a un key canónico
+  const hasStarted = !!(tk.task?.started_at || tk.raw?.started_at);
+  // 2) Terminado (también captura "completed" en status raw, por si acaso)
   if (/finish|complet|done/.test(rawStatus)) {
-    return { key:'finished', label:'Finalizada', icon:'✓', bg:'#dcfce7', fg:'#15803d', border:'#86efac' };
+    return { key:'finished', label:'Terminado', icon:'✓', bg:'#dcfce7', fg:'#15803d', border:'#86efac' };
   }
-  if (/paus/.test(rawStatus)) {
-    return { key:'paused', label:'Pausada', icon:'⏸', bg:'#fef3c7', fg:'#854d0e', border:'#fde68a' };
+  // 3) En proceso = ya empezó, aunque esté pausada
+  if (hasStarted || /inprogress|progress|started|running|active|paus/.test(rawStatus)) {
+    return { key:'in_progress', label:'En proceso', icon:'▶', bg:'#dbeafe', fg:'#1e40af', border:'#93c5fd' };
   }
-  if (/inprogress|progress|started|running|active/.test(rawStatus)) {
-    return { key:'in_progress', label:'En progreso', icon:'▶', bg:'#dbeafe', fg:'#1e40af', border:'#93c5fd' };
-  }
-  if (/declin|cancel|reject/.test(rawStatus)) {
-    return { key:'declined', label:'Rechazada', icon:'✗', bg:'#f1f5f9', fg:'#475569', border:'#cbd5e1' };
-  }
-  // pending / created / not_started / "" → todos pendiente
+  // 4) Todo lo demás (created / pending / declined / "") → Pendiente
   return { key:'pending', label:'Pendiente', icon:'✗', bg:'#fee2e2', fg:'#b91c1c', border:'#fca5a5' };
 }
 window.bzwResolveTaskStatus = bzwResolveTaskStatus;
@@ -15832,13 +15834,11 @@ function bzwPropDisplay(rawName) {
 // Cada id mantiene: { all: [...todos los valores posibles], selected: Set, labels: Map }
 // "selected" = Set vacío → ninguno; Set con todos los all → todos.
 const BZW_FILT_STATE = {
-  'bzw-f-status': { all: ['finished','in_progress','paused','pending','declined'],
+  'bzw-f-status': { all: ['finished','in_progress','pending'],
                     labels: new Map([
-                      ['finished','✓ Finalizada'],
-                      ['in_progress','▶ En progreso'],
-                      ['paused','⏸ Pausada'],
+                      ['finished','✓ Terminado'],
+                      ['in_progress','▶ En proceso'],
                       ['pending','✗ Pendiente'],
-                      ['declined','✗ Rechazada'],
                     ]) },
   'bzw-f-dept':   { all: ['housekeeping','maintenance','inspection','safety'],
                     labels: new Map([['housekeeping','🧹 Aseo'],['maintenance','🔧 Mantenimiento'],
