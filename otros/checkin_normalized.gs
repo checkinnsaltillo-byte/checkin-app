@@ -29,17 +29,20 @@ const BREEZEWAY_ALERTS_HEADERS = [
   // ─── Identificación + clasificación ───
   "id","received_at","event_type","kind",
   "task_id","task_name","task_type",
-  // ─── Fechas (terminología BZW) ───
-  // scheduled_date  : Programada para (cuándo debe ejecutarse)
-  // due_date        : Fecha límite (deadline; "📅 jun. 15, 2026" en BZW UI)
-  // started_at      : Iniciada (cuando el operario picó iniciar)
-  // finished_at     : Terminada
-  // created_at      : Creada en BZW
+  // ─── Fechas (schema BZW VERIFICADO) ───
+  // BZW NO tiene un campo "due_date" separado. La "fecha límite" que se ve
+  // en su UI ES scheduled_date. La columna due_date legacy queda vacía y
+  // puede eliminarse manualmente del Sheet.
+  // scheduled_date  : Cuándo debe ejecutarse (fecha "📅 jun 15" en BZW UI)
+  // scheduled_time  : Hora prevista (puede ser null)
+  // started_at      : Cuando el operario picó iniciar
+  // finished_at     : Cuando se marcó como completada
+  // created_at      : Cuando se generó la task en BZW
   // updated_at      : Última modificación en BZW
+  // received_at     : Nuestro reloj al recibir webhook (NO es de BZW)
   // arrival_date    : Check-in de la reservación ligada
   // departure_date  : Check-out de la reservación ligada
-  // received_at     : Nuestro reloj al recibir el webhook (no es de BZW)
-  "scheduled_date","due_date","started_at","finished_at",
+  "scheduled_date","scheduled_time","started_at","finished_at",
   "created_at","updated_at","arrival_date","departure_date",
   // ─── Personas ───
   "finished_by","assigned_to",
@@ -47,10 +50,11 @@ const BREEZEWAY_ALERTS_HEADERS = [
   "home_id","property_name",
   // ─── Vinculación a reservación ───
   "lodgify_id",
-  // ─── Detalle de la task ───
-  "priority","status","description",
-  "estimated_minutes","actual_minutes",
-  "task_template_id","report_url",
+  // ─── Detalle de la task (schema BZW real) ───
+  "priority","status","description","summary",
+  "total_time","paused","tags",
+  "rate_type","rate_paid",
+  "template_id","report_url",
   "detail",
   // ─── Payload crudo (debug) ───
   "raw_json"

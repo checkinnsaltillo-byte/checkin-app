@@ -318,19 +318,17 @@ function handlePropertyStatusEvent(payload) {
 function flatAlertForSheet(a) {
   // Aplana la alerta a las columnas de la hoja Breezeway_Alerts.
   //
-  // ─── Glosario de fechas (terminología BZW vs UI) ───
-  // scheduled_date  : "Programada para" — fecha en que la task DEBE ejecutarse
-  //                   (planificación del operario). Es la fecha que aparece en
-  //                   el calendario diario de Breezeway.
-  // due_date        : "Fecha límite" — deadline impuesto por el sistema (p. ej.
-  //                   antes del checkout). En la UI de BZW se muestra como
-  //                   "📅 jun. 15, 2026" en el header de la task.
-  // started_at      : "Iniciada" — momento en que el operario picó "Iniciar".
-  // finished_at     : "Terminada" — momento en que se marcó como completada.
-  // created_at      : "Creada" — cuándo se generó la task en BZW.
-  // updated_at      : "Actualizada" — última modificación.
-  // received_at     : Timestamp local de Cloud Run al recibir el webhook (NO
-  //                   es de BZW; es nuestro reloj para auditoría/diagnóstico).
+  // ─── Glosario de fechas REALES (schema verificado contra API BZW) ───
+  // scheduled_date  : Fecha en que la task DEBE ejecutarse (la fecha que se
+  //                   ve en BZW UI como "📅 jun. 15, 2026" — BZW NO tiene un
+  //                   campo "due_date" separado; "fecha límite" en su UI
+  //                   ES scheduled_date).
+  // scheduled_time  : Hora prevista (puede ser null si no se especificó).
+  // started_at      : Cuándo el operario picó "Iniciar".
+  // finished_at     : Cuándo se marcó como completada.
+  // created_at      : Cuándo se generó la task en BZW.
+  // updated_at      : Última modificación en BZW.
+  // received_at     : Reloj local de Cloud Run al recibir el webhook.
   // arrival_date    : Check-in de la reservación Lodgify ligada.
   // departure_date  : Check-out de la reservación Lodgify ligada.
   const t = a.task || {};
@@ -341,17 +339,19 @@ function flatAlertForSheet(a) {
   const assignNames = Array.isArray(r.assignments)
     ? Array.from(new Set(r.assignments.map(x => x?.full_name || x?.name).filter(Boolean))).join(", ")
     : "";
+  const tagsArr = [...(Array.isArray(r.tags) ? r.tags : []), ...(Array.isArray(r.task_tags) ? r.task_tags : [])]
+    .map(x => typeof x === "object" ? (x?.name || x?.label) : x).filter(Boolean);
   return {
     event_type:    a.event_type || "",
     kind:          a.kind || "",
-    task_id:       t.id ?? "",
-    task_name:     t.name ?? "",
+    task_id:       t.id ?? r.id ?? "",
+    task_name:     t.name ?? r.name ?? "",
     task_type:     str(t.type || r.type_department),
     // ─── Fechas ───
-    scheduled_date: t.scheduled_date ?? rt.scheduled_date ?? r.scheduled_date ?? "",
-    due_date:      t.due_date ?? rt.due_date ?? r.due_date ?? rt.task_date ?? "",
-    started_at:    t.started_at ?? r.started_at ?? rt.started_at ?? "",
-    finished_at:   t.finished_at ?? rt.finished_at ?? "",
+    scheduled_date: t.scheduled_date ?? r.scheduled_date ?? rt.scheduled_date ?? "",
+    scheduled_time: r.scheduled_time ?? rt.scheduled_time ?? "",
+    started_at:    r.started_at ?? t.started_at ?? rt.started_at ?? "",
+    finished_at:   t.finished_at ?? r.finished_at ?? rt.finished_at ?? "",
     created_at:    r.created_at ?? t.created_at ?? rt.created_at ?? "",
     updated_at:    r.updated_at ?? t.updated_at ?? rt.updated_at ?? "",
     arrival_date:  a._arrival_date ?? "",
@@ -360,20 +360,25 @@ function flatAlertForSheet(a) {
     finished_by:   str(t.finished_by),
     assigned_to:   assignNames,
     // ─── Propiedad ───
-    home_id:       a.property?.id ?? "",
+    home_id:       a.property?.id ?? r.home_id ?? "",
     property_name: a.property?.name ?? "",
     // ─── Vinculación a reserva ───
     lodgify_id:    r.linked_reservation?.external_reservation_id
                 || r.linked_reservation?.external_id
                 || "",
-    // ─── Detalle de la task ───
+    // ─── Detalle de la task (schema BZW real) ───
     priority:      r.type_priority ?? "",
-    status:        str(t.status || r.status),
-    description:   r.description ?? r.notes ?? t.description ?? "",
-    estimated_minutes: r.estimated_minutes ?? t.estimated_minutes ?? "",
-    actual_minutes:    r.actual_minutes ?? t.actual_minutes ?? "",
-    task_template_id:  r.task_template_id ?? r.template_id ?? "",
-    report_url:    t.report_url ?? r.report_url ?? r.task_report_url ?? "",
+    // status: BZW lo entrega como objeto type_task_status:{code,name,stage}
+    status:        str(r.type_task_status || t.status || r.status),
+    description:   r.description ?? t.description ?? "",
+    summary:       r.summary ?? "",
+    total_time:    r.total_time ?? "",       // tiempo real ejecutado (BZW)
+    paused:        r.paused === true ? "true" : (r.paused === false ? "false" : ""),
+    tags:          tagsArr.join(", "),
+    rate_type:     r.rate_type ?? "",
+    rate_paid:     r.rate_paid ?? "",
+    template_id:   r.template_id ?? t.template_id ?? "",
+    report_url:    t.report_url ?? r.report_url ?? "",
     detail:        a.detail ?? a.title ?? "",
     raw_json:      JSON.stringify(a.raw || a),
   };
@@ -504,15 +509,19 @@ export function registerBreezewayRoutes(app) {
             name: r.task_name,
             type: r.task_type,
             scheduled_date: r.scheduled_date,
-            due_date: r.due_date || "",
+            scheduled_time: r.scheduled_time || "",
             started_at: r.started_at || "",
             finished_at: r.finished_at,
             finished_by: r.finished_by,
             status: r.status,
             description: r.description || "",
-            estimated_minutes: r.estimated_minutes || "",
-            actual_minutes: r.actual_minutes || "",
-            task_template_id: r.task_template_id || "",
+            summary: r.summary || "",
+            total_time: r.total_time || "",
+            paused: r.paused || "",
+            tags: r.tags || "",
+            rate_type: r.rate_type || "",
+            rate_paid: r.rate_paid || "",
+            template_id: r.template_id || "",
             report_url: r.report_url || "",
             assigned_to: r.assigned_to || "",
             // Si el sheet trae las nuevas columnas, las pasamos para que
@@ -869,34 +878,22 @@ export function registerBreezewayRoutes(app) {
         console.warn("⚠️ No se pudo cargar Lodgify para enriquecer fechas:", e?.message || e);
       }
 
-      // Aplanar al schema del sheet.
+      // Aplanar al schema del sheet — USA flatAlertForSheet para consistencia
+      // con el path de webhook (un solo source-of-truth para los nombres de
+      // campos). Solo agregamos arrival_date/departure_date enriquecidos.
       const flat = tasks.map(t => {
         const lodId = t.raw?.linked_reservation?.external_reservation_id
                    || t.raw?.linked_reservation?.external_id
                    || "";
         const booking = lodId ? bookingsMap.get(String(lodId)) : null;
-        return {
-          event_type:    t.event_type || (t.task?.finished_at ? "task-completed" : "task"),
-          kind:          t.kind || "task-historical",
-          task_id:       t.task?.id ?? "",
-          task_name:     t.task?.name ?? "",
-          task_type:     t.task?.type ?? "",
-          scheduled_date: t.task?.scheduled_date ?? "",
-          finished_at:   t.task?.finished_at ?? "",
-          finished_by:   t.task?.finished_by ?? "",
-          home_id:       t.property?.id ?? "",
-          property_name: t.property?.name ?? "",
-          lodgify_id:    lodId,
-          priority:      t.raw?.type_priority ?? "",
-          status:        t.raw?.status ?? "",
-          detail:        t.title || "",
-          created_at:    t.raw?.created_at ?? "",
-          updated_at:    t.raw?.updated_at ?? "",
-          arrival_date:  booking?.arrival   || "",
-          departure_date: booking?.departure || "",
-          raw_json:      JSON.stringify(t.raw || {}),
-          received_at:   t.task?.finished_at || t.task?.scheduled_date || new Date().toISOString(),
+        const alert = {
+          ...t,
+          _arrival_date: booking?.arrival || "",
+          _departure_date: booking?.departure || "",
         };
+        const row = flatAlertForSheet(alert);
+        row.received_at = t.task?.finished_at || t.task?.scheduled_date || new Date().toISOString();
+        return row;
       });
       // Ordena ASCENDENTE por scheduled_date (primero las más viejas) ANTES
       // del bulk insert. Apps Script appendea al final del sheet, y
