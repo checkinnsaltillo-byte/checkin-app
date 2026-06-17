@@ -11569,7 +11569,7 @@ function lgMMDDtoIsoDate(mmdd) {
 function lgNormalizeText(s) {
   return String(s || '')
     .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')   // quita tildes
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // quita tildes
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 }
@@ -17350,25 +17350,51 @@ function bnUploadDiaToIso(s) {
   return str;
 }
 
+/** Normalización canónica de strings para dedupe robusto.
+ *  Aplica: trim, lowercase, quita acentos, NBSP→space, colapsa whitespace,
+ *  uniformiza guiones (—, –, -) a un solo guión. */
+function bnUploadNormStr(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // quita acentos
+    .replace(/[\u00a0]/g, " ")                           // NBSP → space
+    .replace(/[–—]/g, '-')                   // en-dash/em-dash → -
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');                             // colapsa whitespace
+}
+
+/** Normalización canónica de números para dedupe robusto.
+ *  Acepta: número JS, "3000", "3,000.00", "$3,000.00", "$ 3000", "(3000)" (parens negativo).
+ *  Resultado: string como "3000" o "-37165.04" o "" si vacío. */
+function bnUploadNumStr(v) {
+  if (v === '' || v === null || v === undefined) return '';
+  if (typeof v === 'number' && isFinite(v)) return String(Math.round(v * 100) / 100);
+  let s = String(v).trim();
+  if (!s) return '';
+  // Detecta paréntesis como negativo: "(3000)" → "-3000"
+  const isParenNeg = /^\(.*\)$/.test(s);
+  if (isParenNeg) s = '-' + s.slice(1, -1);
+  // Quita símbolos no-numéricos comunes
+  s = s.replace(/[$\s,]/g, '');
+  const n = Number(s);
+  if (isFinite(n)) return String(Math.round(n * 100) / 100);
+  // Si nada funciona, queda como texto normalizado
+  return s.trim();
+}
+
 /** Asigna contador #N por grupo (DíaISO|Cuenta|Subcuenta|Desc|CARGO|ABONO)
  *  y marca cada fila con _status: 'new' | 'duplicate'. */
 function bnUploadAssignCountersAndDedupe(rows) {
   const counters = {};
-  const norm = (s) => String(s || '').trim().toLowerCase();
-  const numStr = (v) => {
-    if (v === '' || v === null || v === undefined) return '';
-    const n = Number(v);
-    return isFinite(n) ? String(Math.round(n * 100) / 100) : String(v).trim();
-  };
   for (const r of rows) {
     if (r._error) continue;
     const base = [
       bnUploadDiaToIso(r['Día']),                       // canonical ISO
-      String(r['Cuenta bancaria'] || '').trim(),
-      String(r['Subcuenta'] || '').trim(),
-      norm(r['DESCRIPCION']),
-      numStr(r['CARGO']),
-      numStr(r['ABONO']),
+      bnUploadNormStr(r['Cuenta bancaria']),
+      bnUploadNormStr(r['Subcuenta']),
+      bnUploadNormStr(r['DESCRIPCION']),
+      bnUploadNumStr(r['CARGO']),
+      bnUploadNumStr(r['ABONO']),
     ].join('|');
     counters[base] = (counters[base] || 0) + 1;
     const key = base + '|#' + counters[base];
