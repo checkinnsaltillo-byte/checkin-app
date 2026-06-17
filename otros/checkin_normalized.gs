@@ -4431,8 +4431,8 @@ function bnBancosDedupeIndex_() {
     const diaIso = diaToIso_(diaRaw);
     const base = [
       diaIso,
-      iCta >= 0 ? String(row[iCta] || "").trim() : "",
-      iSub >= 0 ? String(row[iSub] || "").trim() : "",
+      iCta >= 0 ? norm_(row[iCta]) : "",   // ← CRÍTICO: usa norm_ no solo trim
+      iSub >= 0 ? norm_(row[iSub]) : "",   // ← CRÍTICO: usa norm_ no solo trim
       iDes >= 0 ? norm_(row[iDes]) : "",
       iCar >= 0 ? numStr_(row[iCar]) : "",
       iAbo >= 0 ? numStr_(row[iAbo]) : "",
