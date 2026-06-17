@@ -17192,6 +17192,10 @@ async function bnUploadRefreshDedupe() {
 async function bnUploadHandleFiles(files) {
   if (!files || !files.length) return;
   const status = document.getElementById('bn-upload-status');
+  // SIEMPRE refresca el índice de dedupe contra BANCOS. Evita el caso
+  // "redeployé el Apps Script pero el frontend sigue con la versión vieja
+  // del Set en memoria" que causaba falsos negativos.
+  BN_UPLOAD_STATE.dedupeKeys = null;
   if (!BN_UPLOAD_STATE.cuentasMap || !BN_UPLOAD_STATE.dedupeKeys) {
     await bnUploadInit();
   }
