@@ -8054,20 +8054,24 @@ function switchModule(mod) {
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === mod);
   });
   if (mod === "breezeway") {
-    // Auto-flow al entrar: muestra overlay → init (lee sheet) → sync (re-fetch API)
-    // → recarga UI. El overlay solo se quita cuando AMBAS terminan.
+    // Auto-flow al entrar — NO bloquea la UI. El overlay solo aparece si
+    // BZW_ALL_TASKS está vacío (primera carga sin caché); de lo contrario
+    // ya hay cards en pantalla y el usuario puede interactuar mientras
+    // los procesos corren en segundo plano. El status del sync se muestra
+    // en el indicador inline #bzw-sync-status del header.
     (async () => {
-      pushLoading('Cargando Breezeway…', 'Leyendo bitácora del sheet');
+      const hasCache = typeof BZW_ALL_TASKS !== 'undefined' && BZW_ALL_TASKS.length > 0;
+      const useOverlay = !hasCache;
+      if (useOverlay) pushLoading('Cargando Breezeway…', 'Leyendo bitácora del sheet');
       try {
         if (typeof bzwInit === 'function') await bzwInit();
       } catch (e) { console.warn('[BZW] init error:', e?.message || e); }
+      finally { if (useOverlay) popLoading(); }
+      // Sync SIEMPRE en background, sin overlay. El usuario puede seguir
+      // interactuando. Status visible en #bzw-sync-status (header).
       try {
-        if (typeof bzwSync === 'function') {
-          pushLoading('Sincronizando con Breezeway…', 'Re-fetch del API (30–90s)');
-          try { await bzwSync(); } finally { popLoading(); }
-        }
+        if (typeof bzwSync === 'function') await bzwSync();
       } catch (e) { console.warn('[BZW] auto-sync error:', e?.message || e); }
-      popLoading();
     })();
   }
   if (mod === "huespedes") {
@@ -8075,9 +8079,13 @@ function switchModule(mod) {
     else huespedesRender();
   }
   if (mod === "lodgify") {
-    // Overlay global: cubre TODO el flujo de carga (Lodgify + Huéspedes +
-    // auto-sync Lodgify + bzwInit). Solo se quita cuando TODAS terminan.
-    pushLoading('Cargando Gestión de reservas…', 'Leyendo reservaciones');
+    // El overlay BLOQUEA la interacción → solo lo mostramos cuando NO hay
+    // datos cacheados aún (primera vez sin LG_STATE). Cuando ya hay caché,
+    // renderizamos de inmediato lo que tenemos y dejamos que sync/huespedes/
+    // bzw corran en SEGUNDO PLANO sin bloquear las cards.
+    const lgHasCache = LG_STATE.loaded && Array.isArray(LG_STATE.bookings) && LG_STATE.bookings.length > 0;
+    const lgUseOverlay = !lgHasCache;
+    if (lgUseOverlay) pushLoading('Cargando Gestión de reservas…', 'Leyendo reservaciones');
     // Reset el flag de interacción cada vez que entras al módulo —
     // empiezas con la lista fresca y bzwInit puede re-renderizar para
     // pintar los chips de Aseo. En cuanto el usuario clickea una card,
@@ -8096,45 +8104,34 @@ function switchModule(mod) {
         window._bzwSidebarChipsInterval = null;
       }
     }, 500);
-    // Tracker que espera a que TODAS las operaciones async terminen para
-    // cerrar el overlay global. Cada promesa hace su propio push/pop por
-    // si quiere su mensaje, y al final hacemos UN popLoading global.
-    const trackers = [];
-    // Paso 1: lectura instantánea desde Sheets.
-    if (!LG_STATE.loaded && !LG_STATE.loading) {
-      const p = (async () => {
-        pushLoading('Cargando reservas Lodgify…', 'Leyendo desde Sheets');
-        try { await lodgifyLoad(true); } finally { popLoading(); }
-      })();
-      trackers.push(p);
-    } else {
-      lodgifyRender();
-    }
-    // Paso 2: auto-sync Lodgify (rango NARROW -7d a hoy)
-    trackers.push((async () => {
-      pushLoading('Auto-sync Lodgify…', 'Trayendo últimos cambios');
-      try { await lodgifyMaybeAutoSync(); } finally { popLoading(); }
-    })());
-    // Huéspedes para cruzar registros
-    trackers.push((async () => {
-      pushLoading('Cargando huéspedes…', 'Cruzando registros manuales');
-      try { await lgEnsureHuespedesAndMatch(); } finally { popLoading(); }
-    })());
-    // Paso 3: Breezeway en background para chips Aseo
-    trackers.push((async () => {
-      pushLoading('Cargando Breezeway…', 'Tasks de limpieza');
+    // Paso 1: lectura desde Sheets. SOLO esta operación bloquea con overlay
+    // (cuando no hay caché). El resto corre en background sin bloquear.
+    (async () => {
       try {
-        if (typeof bzwInit === 'function') await bzwInit();
-        if (window.LG_USER_INTERACTED) {
-          console.info('[LG] skip auto re-render: user already selected a history card');
-        } else if (typeof lodgifyRender === 'function') {
+        if (!LG_STATE.loaded && !LG_STATE.loading) {
+          await lodgifyLoad(true);
+        } else {
           lodgifyRender();
         }
-      } catch (e) { console.warn('[LG] bzw init err:', e?.message || e); }
-      finally { popLoading(); }
-    })());
-    // Cuando TODAS terminen, cerramos el overlay global.
-    Promise.allSettled(trackers).finally(() => popLoading());
+      } finally {
+        if (lgUseOverlay) popLoading();
+      }
+    })();
+    // Background: auto-sync Lodgify, huéspedes, y bzwInit corren sin
+    // overlay. El usuario puede interactuar con las cards inmediatamente.
+    lodgifyMaybeAutoSync();
+    lgEnsureHuespedesAndMatch();
+    try {
+      if (typeof bzwInit === 'function') {
+        bzwInit().then(() => {
+          if (window.LG_USER_INTERACTED) {
+            console.info('[LG] skip auto re-render: user already selected a history card');
+            return;
+          }
+          if (typeof lodgifyRender === 'function') lodgifyRender();
+        }).catch(() => {});
+      }
+    } catch(_) {}
   }
   if (mod === "reservas-detalles") {
     // Reusa LG_STATE.bookings (ya cargado por el módulo Lodgify). Si no
