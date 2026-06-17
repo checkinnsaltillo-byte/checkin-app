@@ -17104,7 +17104,7 @@ const BN_UPLOAD_COLS = [
   { id: '_status',         label: 'Estado',      align: 'left',  type: 'string' },
   { id: 'Día',             label: 'Día',         align: 'left',  type: 'date'   },
   { id: 'Cuenta bancaria', label: 'Cuenta',      align: 'left',  type: 'string' },
-  { id: 'Subcuenta',       label: 'Subcuenta',   align: 'left',  type: 'string' },
+  { id: 'Subcuenta_bancaria', label: 'Subcuenta', align: 'left',  type: 'string' },
   { id: 'DESCRIPCION',     label: 'Descripción', align: 'left',  type: 'string' },
   { id: 'CARGO',           label: 'CARGO',       align: 'right', type: 'number' },
   { id: 'ABONO',           label: 'ABONO',       align: 'right', type: 'number' },
@@ -17293,10 +17293,10 @@ async function bnUploadParseXlsx(file) {
         'Año': anio,
         'Mes': mes,
         'Día': dia,
-        'Cuenta bancaria': curMap ? curMap.cuenta_nombre  : '(sin mapeo)',
-        '# Cuenta':        curMap ? curMap.cuenta_numero  : '',
-        'Subcuenta':       curMap ? curMap.cuenta_tag     : '(sin mapeo)',
-        'Reportado por':   (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '',
+        'Cuenta bancaria':    curMap ? curMap.cuenta_nombre  : '(sin mapeo)',
+        '# Cuenta':           curMap ? curMap.cuenta_numero  : '',
+        'Subcuenta_bancaria': curMap ? curMap.cuenta_tag     : '(sin mapeo)',
+        'Reportado por':      (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '',
         'DESCRIPCION': desc,
         'CARGO': cargo !== null ? cargo : '',
         'ABONO': abono !== null ? abono : '',
@@ -17400,7 +17400,7 @@ function bnUploadAssignCountersAndDedupe(rows) {
     if (r._error) continue;
     const dia = bnUploadDiaToIso(r['Día']);
     const cta = bnUploadNormStr(r['Cuenta bancaria']);
-    const sub = bnUploadNormStr(r['Subcuenta']);
+    const sub = bnUploadNormStr(r['Subcuenta_bancaria']);
     const desc = bnUploadNormStr(r['DESCRIPCION']);
     const car = bnUploadNumStr(r['CARGO']);
     const abo = bnUploadNumStr(r['ABONO']);
@@ -17489,7 +17489,7 @@ function bnUploadRenderPreview() {
       <td style="padding:6px 8px">${badge}</td>
       <td style="padding:6px 8px;white-space:nowrap">${esc(r['Día'])}</td>
       <td style="padding:6px 8px;font-size:10px;color:#475569">${esc(r['Cuenta bancaria'])}</td>
-      <td style="padding:6px 8px;font-size:10px;color:#475569">${esc(r['Subcuenta'])}</td>
+      <td style="padding:6px 8px;font-size:10px;color:#475569">${esc(r['Subcuenta_bancaria'])}</td>
       <td style="padding:6px 8px;color:#0f172a">${esc(r['DESCRIPCION'])}${r.COMENTARIOS ? ` <span title="${esc(r.COMENTARIOS)}" style="color:#7c3aed">⚠</span>` : ''}</td>
       <td style="padding:6px 8px;text-align:right;color:#b91c1c">${fmt$(r['CARGO'])}</td>
       <td style="padding:6px 8px;text-align:right;color:#15803d">${fmt$(r['ABONO'])}</td>
