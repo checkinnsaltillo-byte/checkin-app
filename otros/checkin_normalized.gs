@@ -817,16 +817,19 @@ function saveBreezewayAlert_(data) {
     migrateBreezewayHeaders_(sh);
   }
   const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-  // Dedupe — busca el mismo task_id + event_type + finished_at en últimas 500 filas.
+  // UPSERT — busca mismo task_id + event_type + finished_at en últimas 500
+  // filas. Si existe, SOBRESCRIBE esa fila con los datos nuevos (reprogramaciones
+  // u otros cambios sin event_type distinto se reflejan). Si no, inserta.
   const idxTaskId = headers.indexOf("task_id");
   const idxEvent  = headers.indexOf("event_type");
   const idxFin    = headers.indexOf("finished_at");
+  const idxId     = headers.indexOf("id");
   const lastRow = sh.getLastRow();
+  let matchRow = -1, matchId = "";
   if (lastRow > 1 && idxTaskId >= 0) {
     const window = Math.min(500, lastRow - 1);
     const startRow = lastRow - window + 1;
     const rows = sh.getRange(startRow, 1, window, headers.length).getValues();
-    // normalizeKeyValue_ serializa Date→ISO igual que strings, evita falsos negativos
     const tId = normalizeKeyValue_(data.task_id);
     const tEv = normalizeKeyValue_(data.event_type);
     const tFin = normalizeKeyValue_(data.finished_at);
@@ -834,11 +837,13 @@ function saveBreezewayAlert_(data) {
       if (normalizeKeyValue_(rows[i][idxTaskId]) === tId &&
           normalizeKeyValue_(rows[i][idxEvent])  === tEv &&
           normalizeKeyValue_(rows[i][idxFin])    === tFin && tId && tEv) {
-        return { ok: true, skipped: "duplicate" };
+        matchRow = startRow + i;
+        if (idxId >= 0) matchId = rows[i][idxId];
+        break;
       }
     }
   }
-  const id = Utilities.getUuid();
+  const id = matchId || Utilities.getUuid();
   const row = headers.map(h => {
     if (h === "id") return id;
     if (h === "received_at") return nowIso_();
@@ -847,6 +852,10 @@ function saveBreezewayAlert_(data) {
     if (typeof v === "object") return JSON.stringify(v);
     return String(v);
   });
+  if (matchRow > 0) {
+    sh.getRange(matchRow, 1, 1, headers.length).setValues([row]);
+    return { ok: true, upserted: "updated", row_number: matchRow };
+  }
   sh.appendRow(row);
   // Recorta si crece demasiado (mantener solo BREEZEWAY_ALERTS_MAX filas)
   const after = sh.getLastRow();
@@ -923,12 +932,12 @@ function saveBreezewayAlertsBulkLocked_(incoming) {
   const idxTaskId = headers.indexOf("task_id");
   const idxEvent  = headers.indexOf("event_type");
   const idxFin    = headers.indexOf("finished_at");
-  // Construye set de keys ya existentes (todo el sheet, una sola lectura).
-  // CRÍTICO: usa normalizeKeyValue_ para que Date objects se serialicen
-  // igual que strings ISO. Si no, la key del Set leído del sheet (donde
-  // los timestamps quedaron como Date) NO matcheaba con la key incoming
-  // (string ISO directa del backend) → todo se duplicaba.
-  const existing = new Set();
+  const idxId     = headers.indexOf("id");
+  // Mapa key → rowNumber de las filas existentes (una sola lectura del sheet).
+  // CRÍTICO: normalizeKeyValue_ para que Date objects se serialicen igual
+  // que strings ISO. Si no, las keys no matcheaban → duplicados.
+  const existingRowByKey = new Map();
+  const existingIdByRow = new Map(); // rowNumber → uuid existente (para conservarlo)
   const lastRow = sh.getLastRow();
   if (lastRow > 1 && idxTaskId >= 0) {
     const rows = sh.getRange(2, 1, lastRow - 1, headers.length).getValues();
@@ -936,10 +945,13 @@ function saveBreezewayAlertsBulkLocked_(incoming) {
       const k = normalizeKeyValue_(rows[i][idxTaskId]) + "|" +
                 normalizeKeyValue_(rows[i][idxEvent])  + "|" +
                 normalizeKeyValue_(rows[i][idxFin]);
-      existing.add(k);
+      const rowNum = i + 2; // +2 = header + 0-based
+      existingRowByKey.set(k, rowNum);
+      if (idxId >= 0) existingIdByRow.set(rowNum, rows[i][idxId]);
     }
   }
   const toInsert = [];
+  const toUpdate = []; // [{rowNum, rowValues}]
   let skipped = 0;
   const now = nowIso_();
   for (const a of incoming) {
@@ -947,8 +959,26 @@ function saveBreezewayAlertsBulkLocked_(incoming) {
     const tEv  = normalizeKeyValue_(a.event_type);
     const tFin = normalizeKeyValue_(a.finished_at);
     const k    = tId + "|" + tEv + "|" + tFin;
-    if (tId && tEv && existing.has(k)) { skipped++; continue; }
-    existing.add(k);
+    if (tId && tEv && existingRowByKey.has(k)) {
+      // UPSERT: ya hay una fila con esta key → la reescribimos con los datos
+      // nuevos. Conservamos el UUID original (id) y el received_at original
+      // si vienen en la fila vieja (para no perder timeline). Esto resuelve
+      // el caso "reprogramé scheduled_date pero el webhook no llegó → al
+      // sincronizar no se actualiza la fecha".
+      const rowNum = existingRowByKey.get(k);
+      const existingId = existingIdByRow.get(rowNum);
+      const rowValues = headers.map(h => {
+        if (h === "id") return existingId || Utilities.getUuid();
+        if (h === "received_at") return a.received_at || now;
+        const v = a[h];
+        if (v == null) return "";
+        if (typeof v === "object") return JSON.stringify(v);
+        return String(v);
+      });
+      toUpdate.push({ rowNum, rowValues });
+      continue;
+    }
+    if (tId && tEv) existingRowByKey.set(k, -1); // marca dentro del batch
     const row = headers.map(h => {
       if (h === "id") return Utilities.getUuid();
       if (h === "received_at") return a.received_at || now;
@@ -959,6 +989,11 @@ function saveBreezewayAlertsBulkLocked_(incoming) {
     });
     toInsert.push(row);
   }
+  // UPDATES en bloque — una llamada setValues por fila (no hay forma batch
+  // de update no-contiguo en Apps Script, pero son pocas filas usualmente).
+  for (const u of toUpdate) {
+    sh.getRange(u.rowNum, 1, 1, headers.length).setValues([u.rowValues]);
+  }
   if (toInsert.length) {
     const startRow = sh.getLastRow() + 1;
     sh.getRange(startRow, 1, toInsert.length, headers.length).setValues(toInsert);
@@ -968,7 +1003,7 @@ function saveBreezewayAlertsBulkLocked_(incoming) {
       sh.deleteRows(2, (after - 1) - BREEZEWAY_ALERTS_MAX);
     }
   }
-  return { ok: true, inserted: toInsert.length, skipped };
+  return { ok: true, inserted: toInsert.length, updated: toUpdate.length, skipped };
 }
 
 /** Borra filas de prueba/smoke-test del sheet de alertas. Detecta por
