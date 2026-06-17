@@ -4431,9 +4431,20 @@ function bnBancosInsertBulk_(data) {
   try {
     const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
                       .map(function(h){ return String(h || "").trim(); });
+    // Match case/accent-insensitive: frontend manda keys "CARGO", "Día",
+    // "DESCRIPCION", "# Cuenta" pero el sheet puede tener "Cargo", "Día",
+    // "Descripción", "# cuenta". Normalizamos para que matchee siempre.
+    function _norm(s) {
+      return String(s || "").trim().toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
     const matrix = rows.map(function(r){
+      const rowNormMap = {};
+      Object.keys(r || {}).forEach(function(k){
+        rowNormMap[_norm(k)] = r[k];
+      });
       return headers.map(function(h){
-        const v = r[h];
+        const v = rowNormMap[_norm(h)];
         if (v === undefined || v === null) return "";
         return v;
       });
