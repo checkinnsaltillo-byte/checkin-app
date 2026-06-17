@@ -4369,7 +4369,10 @@ function bnBancosDedupeIndex_() {
   };
   const iDia = pickIdx_(["DÍA","DIA","FECHA"]);
   const iCta = pickIdx_(["CUENTA BANCARIA"]);
-  const iSub = pickIdx_(["SUBCUENTA","SUB-CUENTA"]);
+  // Lee de la nueva columna 'Subcuenta_bancaria'. La columna 'SUBCUENTA'
+  // legacy se ignora intencionalmente (puede tener clasificación contable
+  // distinta de la subcuenta bancaria — no la queremos en la dedupe key).
+  const iSub = pickIdx_(["SUBCUENTA_BANCARIA","SUBCUENTA BANCARIA"]);
   const iDes = pickIdx_(["DESCRIPCION","DESCRIPCIÓN"]);
   const iCar = pickIdx_(["CARGO"]);
   const iAbo = pickIdx_(["ABONO"]);
@@ -4475,13 +4478,18 @@ function bnBancosInsertBulk_(data) {
       return String(s || "").trim().toLowerCase()
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
+    // Headers que NUNCA se llenan desde el upload (clasificación contable,
+    // notas internas, etc. — no son responsabilidad del importador bancario).
+    const SKIP_HEADERS = { "subcuenta": true, "categoria": true, "concepto": true };
     const matrix = rows.map(function(r){
       const rowNormMap = {};
       Object.keys(r || {}).forEach(function(k){
         rowNormMap[_norm(k)] = r[k];
       });
       return headers.map(function(h){
-        const v = rowNormMap[_norm(h)];
+        const hn = _norm(h);
+        if (SKIP_HEADERS[hn]) return ""; // ignora columnas de clasificación
+        const v = rowNormMap[hn];
         if (v === undefined || v === null) return "";
         return v;
       });
