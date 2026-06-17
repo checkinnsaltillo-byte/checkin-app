@@ -17219,7 +17219,7 @@ async function bnUploadParseXlsx(file) {
       const abono = bnUploadParseNum(abonoRaw);
       const saldoNum = bnUploadParseNum(saldoRaw);
       const saldoIsText = (saldoRaw !== null && saldoRaw !== undefined && saldoRaw !== '' && saldoNum === null);
-      const tipo = curMap ? curMap.cuenta_tipo : 'Tarjeta de crédito';
+      const tipo = curMap ? curMap.cuenta_tipo : '';
       // Monto firmado según naturaleza de la cuenta
       let monto = '';
       const garbled = /\?\?\?+/.test(desc);
@@ -17227,8 +17227,9 @@ async function bnUploadParseXlsx(file) {
         monto = ''; // anomalía → Monto vacío para revisión
       } else {
         const c = cargo || 0, a = abono || 0;
-        if (tipo === 'Tarjeta de crédito') monto = +(-c + -a).toFixed(2);
-        else monto = +(c + -a).toFixed(2);
+        const isTC = bnUploadIsCreditCard(tipo);
+        if (isTC) monto = +(-c + -a).toFixed(2);
+        else      monto = +( c + -a).toFixed(2);
       }
       const date = new Date(dia + 'T00:00:00');
       const anio = String(date.getFullYear());
@@ -17257,6 +17258,23 @@ function bnUploadParseNum(v) {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(String(v).replace(/,/g, '').trim());
   return isFinite(n) ? n : null;
+}
+
+/** Detecta si el cuenta_tipo corresponde a una Tarjeta de crédito.
+ *  Tolerante a variantes: case, acentos, abreviaturas ("TC"), parciales.
+ *  Si cuenta_tipo viene VACÍO → asume TC por defecto (caso más común
+ *  en los uploads de esta carpeta /Bancos/.../TC ...). */
+function bnUploadIsCreditCard(tipo) {
+  if (!tipo) return true;
+  const s = String(tipo).toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita acentos
+    .trim();
+  if (!s) return true;
+  // Detecta: "tarjeta de credito", "credito", "tc", "credit", etc.
+  if (/credit/.test(s)) return true;
+  if (/^tc\b/.test(s)) return true;
+  if (/\btarjeta\b/.test(s)) return true; // "tarjeta" sola sugiere TC
+  return false;
 }
 
 /** Asigna contador #N por grupo (Día|Cuenta|Subcuenta|Desc|CARGO|ABONO)
