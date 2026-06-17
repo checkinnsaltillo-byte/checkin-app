@@ -15378,11 +15378,33 @@ window.bzwRefreshAlerts = async function() {
     //
     // Reglas de filtro:
     //   1) Excluye eventos de status de propiedad (no son tasks).
-    //   2) Dedupe por task.id — quédate con la versión que más info traiga.
-    // YA NO filtramos por scheduled_date/finished_at — tasks recién creadas
-    // por webhook llegan sin esas fechas. Caemos a due_date, created_at,
-    // received_at en orden de preferencia para ordenamiento.
-    const dedupe = new Map(); // task.id → alert con MÁS info
+    //   2) Dedupe por task.id — quédate con la versión MÁS RECIENTE.
+    // Una misma task genera N filas en el sheet (una por webhook event:
+    // task-created, task-updated, task-completed, etc.). Cada update
+    // (reprogramación, cambio de asignación) llega como task-updated con
+    // datos NUEVOS. El dedupe debe quedarse con la versión más reciente,
+    // NO con la que tenga más campos llenos (criterio anterior, buggy).
+    // Si finished_at viene poblado, la considera definitiva (ese estado
+    // gana sobre updates posteriores que pudieran ser stale).
+    const dedupe = new Map(); // task.id → alert más reciente
+    // Timestamp en ms para comparar — primero updated_at, luego received_at,
+    // last_updated, created_at, scheduled_date, finished_at. Si no parsea,
+    // 0 (cualquier otro le gana).
+    const tsOf = (x) => {
+      const candidates = [
+        x.task?.updated_at, x.raw?.updated_at,
+        x.received_at, x.last_updated,
+        x.task?.finished_at, x.raw?.finished_at,
+        x.task?.created_at, x.raw?.created_at,
+        x.task?.scheduled_date, x.raw?.scheduled_date,
+      ];
+      for (const c of candidates) {
+        if (!c) continue;
+        const t = new Date(c).getTime();
+        if (Number.isFinite(t) && t > 0) return t;
+      }
+      return 0;
+    };
     for (const a of allAlerts) {
       const ev = String(a.event_type || a.kind || '').toLowerCase();
       if (ev === 'property-status' || ev === 'property-ready') continue;
@@ -15390,11 +15412,14 @@ window.bzwRefreshAlerts = async function() {
       if (!tid) continue;
       const prev = dedupe.get(tid);
       if (!prev) { dedupe.set(tid, a); continue; }
-      // Mismo task_id ya tenía algo — preferir el que tenga MÁS campos llenos.
-      const score = (x) => (x.task?.scheduled_date?1:0) + (x.task?.finished_at?1:0) +
-                          (x.task?.due_date?1:0) +
-                          (x.raw?.created_at?1:0) + (x.raw?.updated_at?1:0);
-      if (score(a) > score(prev)) dedupe.set(tid, a);
+      // finished_at gana SIEMPRE (estado definitivo); si ambos lo tienen,
+      // el más reciente; si solo uno → ese.
+      const aFin = !!(a.task?.finished_at || a.raw?.finished_at);
+      const pFin = !!(prev.task?.finished_at || prev.raw?.finished_at);
+      if (aFin && !pFin) { dedupe.set(tid, a); continue; }
+      if (pFin && !aFin) continue;
+      // Empate en finished_at — el más reciente por timestamp gana
+      if (tsOf(a) > tsOf(prev)) dedupe.set(tid, a);
     }
     const alerts = Array.from(dedupe.values());
     BZW_ALL_TASKS = alerts;
