@@ -4385,15 +4385,32 @@ function bnBancosDedupeIndex_() {
     if (isFinite(n)) return String(Math.round(n * 100) / 100);
     return String(v).trim();
   };
+  // Normaliza CUALQUIER formato de fecha a ISO YYYY-MM-DD para la key.
+  // CRÍTICO: el frontend hace la misma normalización. Sin esto, filas viejas
+  // guardadas como "2026-05-09" no matchean con uploads nuevos "9/5/2026".
+  const diaToIso_ = function(s){
+    if (!s) return "";
+    const str = String(s).trim();
+    let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return m[1] + "-" + String(m[2]).padStart(2,"0") + "-" + String(m[3]).padStart(2,"0");
+    m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) return m[3] + "-" + String(m[2]).padStart(2,"0") + "-" + String(m[1]).padStart(2,"0");
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+    }
+    return str;
+  };
   const seen = {};
   const keys = [];
   for (let r = 1; r < data.length; r++) {
     const row = data[r];
     if (row.join("").toString().trim() === "") continue;
-    const dia = iDia >= 0 ? String(displ[r][iDia] || "").trim() : "";
-    if (!dia) continue;
+    const diaRaw = iDia >= 0 ? String(displ[r][iDia] || "").trim() : "";
+    if (!diaRaw) continue;
+    const diaIso = diaToIso_(diaRaw);
     const base = [
-      dia,
+      diaIso,
       iCta >= 0 ? String(row[iCta] || "").trim() : "",
       iSub >= 0 ? String(row[iSub] || "").trim() : "",
       iDes >= 0 ? norm_(row[iDes]) : "",
