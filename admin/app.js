@@ -14186,7 +14186,10 @@ function lgBuildAseoSectionForBooking(arg) {
     ? `<button type="button" onclick="event.stopPropagation();bzwOpenReportPanel('${esc(reportUrl)}','${esc(taskName)}','${esc(propDisplay)}')"
             style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;background:#ecfdf5;color:#047857;font-weight:800;font-size:12px;border:1.5px solid #6ee7b7;cursor:pointer;letter-spacing:.02em">📄 Abrir reporte</button>`
     : '<span style="color:#94a3b8;font-style:italic;font-size:12px">Sin reporte</span>';
+  const taskId = t.task?.id || raw.id || '';
   return wrap(sectionHeader +
+    aseoRow('Task ID', taskId ? `<code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:11px">${esc(String(taskId))}</code>` : '—') +
+    aseoRow('Task name', taskName && taskName !== 'Tarea' ? esc(taskName) : (raw.name ? esc(raw.name) : '—')) +
     aseoRow('Status', statusChip + (finished ? `<span style="margin-left:8px;font-size:11px;color:#64748b">${esc(fechaTermino)}</span>` : '')) +
     aseoRow('Asignaciones', assignStr ? `👥 ${esc(assignStr)}` : '—') +
     aseoRow('Iniciada', raw.started_at ? `▶ ${esc(fmtLocal(raw.started_at))}` : '—') +
