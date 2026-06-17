@@ -162,6 +162,10 @@ function doPost(e) {
     if (action === "breezeway_alert") return jsonOutput_(saveBreezewayAlert_(data));
     if (action === "breezeway_alerts_bulk") return jsonOutput_(saveBreezewayAlertsBulk_(data));
     if (action === "breezeway_alerts_cleanup") return jsonOutput_(cleanBreezewayTestRows_());
+    // ─── Carga de datos bancarios (Registros contables → BANCOS) ───
+    if (action === "bn_cuentas_bancarias_list") return jsonOutput_(bnCuentasBancariasList_());
+    if (action === "bn_bancos_dedupe_index")    return jsonOutput_(bnBancosDedupeIndex_());
+    if (action === "bn_bancos_insert_bulk")     return jsonOutput_(bnBancosInsertBulk_(data));
     return jsonOutput_({ ok: false, error: "Acción no reconocida." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -4289,4 +4293,156 @@ function deleteReservacion_(data) {
   if (!row) throw new Error("No se encontró la reservación.");
   sheet.deleteRow(row);
   return { ok: true, deleted_row: row, record_id: recordId || "" };
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// ║  CARGA DE DATOS BANCARIOS — acciones de Apps Script                 ║
+// ║                                                                      ║
+// ║  Soporta la subsección "Carga de datos bancarios" del módulo        ║
+// ║  Registros contables: lectura de cuentas_bancarias, dedupe contra   ║
+// ║  BANCOS existente, e inserción por lotes desde el frontend.          ║
+// ╚════════════════════════════════════════════════════════════════════════
+
+/** Devuelve los registros de la hoja `cuentas_bancarias` para el frontend.
+ *  Schema esperado: cuenta_nombre | cuenta_numero | cuenta_tag |
+ *                   cuenta_tag_original | cuenta_tipo
+ *  El frontend matchea el texto literal del marker en el Excel
+ *  (ej. "Digital *2220") contra `cuenta_tag_original` y obtiene
+ *  cuenta_nombre + cuenta_tag + cuenta_tipo.
+ */
+function bnCuentasBancariasList_() {
+  const ss = getSpreadsheet_();
+  // Detección case-insensitive del nombre (cuentas_bancarias o el viejo
+  // cuentas_bancaria).
+  const sheets = ss.getSheets();
+  const sh = sheets.find(function(s){
+    const n = String(s.getName() || "").trim().toLowerCase();
+    return n === "cuentas_bancarias" || n === "cuentas_bancaria";
+  });
+  if (!sh) return { ok: false, error: "No se encontró la hoja 'cuentas_bancarias'." };
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return { ok: true, rows: [] };
+  const headers = data[0].map(function(h){ return String(h || "").trim().toLowerCase(); });
+  const idx = function(name){ return headers.indexOf(name); };
+  const iNom = idx("cuenta_nombre"),
+        iNum = idx("cuenta_numero"),
+        iTag = idx("cuenta_tag"),
+        iOri = idx("cuenta_tag_original"),
+        iTip = idx("cuenta_tipo");
+  const rows = [];
+  for (let r = 1; r < data.length; r++) {
+    const row = data[r];
+    const nombre = iNom >= 0 ? String(row[iNom] || "").trim() : "";
+    if (!nombre) continue;
+    rows.push({
+      cuenta_nombre:       nombre,
+      cuenta_numero:       iNum >= 0 ? String(row[iNum] || "").trim() : "",
+      cuenta_tag:          iTag >= 0 ? String(row[iTag] || "").trim() : "",
+      cuenta_tag_original: iOri >= 0 ? String(row[iOri] || "").trim() : "",
+      cuenta_tipo:         iTip >= 0 ? String(row[iTip] || "").trim() : "",
+    });
+  }
+  return { ok: true, rows: rows };
+}
+
+/** Devuelve el índice de keys de dedupe de la hoja BANCOS para que el
+ *  frontend pueda detectar duplicados ANTES de pedir la inserción.
+ *  Key = Día|Cuenta bancaria|Subcuenta|DESCRIPCION(norm)|CARGO|ABONO|#N
+ *  El contador #N se asigna por orden de aparición dentro del mismo grupo
+ *  (distingue cargos legítimos idénticos: 2 MERPAGO mismo día = #1 y #2).
+ */
+function bnBancosDedupeIndex_() {
+  const ss = getSpreadsheet_();
+  const sh = ss.getSheets().find(function(s){
+    return String(s.getName() || "").trim().toUpperCase() === "BANCOS";
+  });
+  if (!sh) return { ok: false, error: "No se encontró la hoja BANCOS." };
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return { ok: true, keys: [] };
+  const headers = data[0].map(function(h){ return String(h || "").trim().toUpperCase(); });
+  const pickIdx_ = function(opts){
+    for (let i = 0; i < opts.length; i++) {
+      const k = headers.indexOf(opts[i].toUpperCase());
+      if (k >= 0) return k;
+    }
+    return -1;
+  };
+  const iDia = pickIdx_(["DÍA","DIA","FECHA"]);
+  const iCta = pickIdx_(["CUENTA BANCARIA"]);
+  const iSub = pickIdx_(["SUBCUENTA","SUB-CUENTA"]);
+  const iDes = pickIdx_(["DESCRIPCION","DESCRIPCIÓN"]);
+  const iCar = pickIdx_(["CARGO"]);
+  const iAbo = pickIdx_(["ABONO"]);
+  if (iDia < 0 || iDes < 0) {
+    return { ok: false, error: "Faltan columnas DÍA o DESCRIPCION en BANCOS." };
+  }
+  // Día usar DisplayValues para evitar que celdas Date se serialicen con timezone.
+  const displ = sh.getDataRange().getDisplayValues();
+  const norm_ = function(s){ return String(s || "").trim().toLowerCase(); };
+  const numStr_ = function(v){
+    if (v === null || v === undefined || v === "") return "";
+    const n = Number(v);
+    if (isFinite(n)) return String(Math.round(n * 100) / 100);
+    return String(v).trim();
+  };
+  const seen = {};
+  const keys = [];
+  for (let r = 1; r < data.length; r++) {
+    const row = data[r];
+    if (row.join("").toString().trim() === "") continue;
+    const dia = iDia >= 0 ? String(displ[r][iDia] || "").trim() : "";
+    if (!dia) continue;
+    const base = [
+      dia,
+      iCta >= 0 ? String(row[iCta] || "").trim() : "",
+      iSub >= 0 ? String(row[iSub] || "").trim() : "",
+      iDes >= 0 ? norm_(row[iDes]) : "",
+      iCar >= 0 ? numStr_(row[iCar]) : "",
+      iAbo >= 0 ? numStr_(row[iAbo]) : "",
+    ].join("|");
+    seen[base] = (seen[base] || 0) + 1;
+    keys.push(base + "|#" + seen[base]);
+  }
+  return { ok: true, keys: keys };
+}
+
+/** Inserta filas validadas en BANCOS. El frontend manda un array de objetos
+ *  con los campos ya calculados (Monto firmado, Subcuenta, Cuenta bancaria,
+ *  Año, Mes, etc.). NO recalcula nada — solo escribe a la hoja respetando
+ *  los headers actuales (mapeo por nombre de columna, no por posición).
+ *  Usa LockService para serializar contra escrituras concurrentes.
+ *  data.rows = [{ "Día":"YYYY-MM-DD", "DESCRIPCION":"…", "CARGO":… , "ABONO":… ,
+ *                 "SALDO":…|texto, "Monto":…|"", "Cuenta bancaria":"…",
+ *                 "Subcuenta":"…", "Año":"…", "Mes":"…", "COMENTARIOS":"…" }, …]
+ */
+function bnBancosInsertBulk_(data) {
+  const rows = (data && data.rows) || [];
+  if (!Array.isArray(rows) || !rows.length) {
+    return { ok: true, inserted: 0, message: "Sin filas para insertar." };
+  }
+  const ss = getSpreadsheet_();
+  const sh = ss.getSheets().find(function(s){
+    return String(s.getName() || "").trim().toUpperCase() === "BANCOS";
+  });
+  if (!sh) return { ok: false, error: "No se encontró la hoja BANCOS." };
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(30000); }
+  catch (e) { return { ok: false, error: "No se pudo adquirir lock (otra escritura en curso)." }; }
+  try {
+    const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
+                      .map(function(h){ return String(h || "").trim(); });
+    const matrix = rows.map(function(r){
+      return headers.map(function(h){
+        const v = r[h];
+        if (v === undefined || v === null) return "";
+        return v;
+      });
+    });
+    const startRow = sh.getLastRow() + 1;
+    sh.getRange(startRow, 1, matrix.length, headers.length).setValues(matrix);
+    SpreadsheetApp.flush();
+    return { ok: true, inserted: matrix.length, startRow: startRow };
+  } finally {
+    lock.releaseLock();
+  }
 }
