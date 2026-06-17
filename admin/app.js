@@ -8054,24 +8054,18 @@ function switchModule(mod) {
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === mod);
   });
   if (mod === "breezeway") {
-    // Auto-flow al entrar — NO bloquea la UI. El overlay solo aparece si
-    // BZW_ALL_TASKS está vacío (primera carga sin caché); de lo contrario
-    // ya hay cards en pantalla y el usuario puede interactuar mientras
-    // los procesos corren en segundo plano. El status del sync se muestra
-    // en el indicador inline #bzw-sync-status del header.
+    // Breezeway es rápido — overlay cubre AMBOS procesos (init + sync) para
+    // que cuando el overlay desaparezca el usuario YA vea la data
+    // sincronizada con BZW. No necesita oprimir Sincronizar manualmente.
     (async () => {
-      const hasCache = typeof BZW_ALL_TASKS !== 'undefined' && BZW_ALL_TASKS.length > 0;
-      const useOverlay = !hasCache;
-      if (useOverlay) pushLoading('Cargando Breezeway…', 'Leyendo bitácora del sheet');
+      pushLoading('Cargando Breezeway…', 'Leyendo bitácora y sincronizando con API');
       try {
         if (typeof bzwInit === 'function') await bzwInit();
       } catch (e) { console.warn('[BZW] init error:', e?.message || e); }
-      finally { if (useOverlay) popLoading(); }
-      // Sync SIEMPRE en background, sin overlay. El usuario puede seguir
-      // interactuando. Status visible en #bzw-sync-status (header).
       try {
         if (typeof bzwSync === 'function') await bzwSync();
       } catch (e) { console.warn('[BZW] auto-sync error:', e?.message || e); }
+      popLoading();
     })();
   }
   if (mod === "huespedes") {
