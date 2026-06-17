@@ -17084,10 +17084,12 @@ window.bzwSubscribeAll = async function() {
 // ║  inserción por lotes vía Apps Script.                                ║
 // ╚════════════════════════════════════════════════════════════════════════
 
-// URL del Apps Script de Ticket Vision (mismo doPost que /get-bancos).
-// Se llama directamente desde el browser con text/plain para evitar
-// preflight CORS (los Apps Script Web Apps no lo soportan).
-const BN_TV_APPSSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyq-k_fOSXwF3V6naFCfqKwovLujuvmoPECUIwpvp1q3PfhN9jbg3WunnxwlnGIFmJhAg/exec';
+// URL del Apps Script master (checkin_normalized.gs). Es el mismo doPost
+// que ya maneja Breezeway, Huéspedes, Reservaciones y ahora también las
+// acciones de Carga de datos bancarios (bn_cuentas_bancarias_list,
+// bn_bancos_dedupe_index, bn_bancos_insert_bulk).
+// Se llama directamente con text/plain para evitar preflight CORS.
+const BN_TV_APPSSCRIPT_URL = HU_CHECKIN_WEBAPP_URL;
 
 const BN_UPLOAD_STATE = {
   cuentasMap: null,      // [{cuenta_nombre, cuenta_numero, cuenta_tag, cuenta_tag_original, cuenta_tipo}]
