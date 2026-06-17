@@ -17287,7 +17287,29 @@ function bnUploadIsCreditCard(tipo) {
   return false;
 }
 
-/** Asigna contador #N por grupo (Día|Cuenta|Subcuenta|Desc|CARGO|ABONO)
+/** Normaliza cualquier formato de fecha a ISO YYYY-MM-DD para dedupe.
+ *  Maneja: "9/5/2026" (D/M/YYYY), "09/05/2026" (con padding), "2026-05-09" (ISO),
+ *  Date objects via toString. Si no se puede parsear, retorna el original.
+ *  CRÍTICO: ambos lados (frontend + Apps Script) deben usar esta misma
+ *  normalización para que las keys matcheen. */
+function bnUploadDiaToIso(s) {
+  if (!s) return '';
+  const str = String(s).trim();
+  // ISO directo: "2026-05-09"
+  let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  // D/M/YYYY: "9/5/2026", "09/05/2026"
+  m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  // Date object's toString
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  return str;
+}
+
+/** Asigna contador #N por grupo (DíaISO|Cuenta|Subcuenta|Desc|CARGO|ABONO)
  *  y marca cada fila con _status: 'new' | 'duplicate'. */
 function bnUploadAssignCountersAndDedupe(rows) {
   const counters = {};
@@ -17300,7 +17322,7 @@ function bnUploadAssignCountersAndDedupe(rows) {
   for (const r of rows) {
     if (r._error) continue;
     const base = [
-      r['Día'],
+      bnUploadDiaToIso(r['Día']),                       // canonical ISO
       String(r['Cuenta bancaria'] || '').trim(),
       String(r['Subcuenta'] || '').trim(),
       norm(r['DESCRIPCION']),
