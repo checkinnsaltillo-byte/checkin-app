@@ -2523,7 +2523,7 @@ function getOrCreateFolder_(parent, name) {
 
 function cleanFolderName_(value) {
   return String(value || "Sin nombre")
-    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[\\/:*?"<>|#%]/g, "")
     .replace(/\s+/g, " ")
     .trim()
@@ -2587,7 +2587,7 @@ function safe_(value) { return value == null ? "" : String(value); }
 function normalizeText_(value) {
   return String(value || "")
     .toLowerCase()
-    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -4378,12 +4378,32 @@ function bnBancosDedupeIndex_() {
   }
   // Día usar DisplayValues para evitar que celdas Date se serialicen con timezone.
   const displ = sh.getDataRange().getDisplayValues();
-  const norm_ = function(s){ return String(s || "").trim().toLowerCase(); };
+  // Normalización canónica de strings ROBUSTA: trim, lower, sin acentos,
+  // NBSP→space, colapsa whitespace, uniformiza guiones. Debe ser idéntica
+  // a bnUploadNormStr() del frontend.
+  const norm_ = function(s){
+    return String(s || "")
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\u00a0]/g, " ")
+      .replace(/[–—]/g, "-")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  };
+  // Normalización canónica de números ROBUSTA: maneja "3000", "3,000.00",
+  // "$3,000.00", "$ 3000", "(3000)" (parens negativo). Debe ser idéntica
+  // a bnUploadNumStr() del frontend.
   const numStr_ = function(v){
     if (v === null || v === undefined || v === "") return "";
-    const n = Number(v);
+    if (typeof v === "number" && isFinite(v)) return String(Math.round(v * 100) / 100);
+    let s = String(v).trim();
+    if (!s) return "";
+    const isParenNeg = /^\(.*\)$/.test(s);
+    if (isParenNeg) s = "-" + s.slice(1, -1);
+    s = s.replace(/[$\s,]/g, "");
+    const n = Number(s);
     if (isFinite(n)) return String(Math.round(n * 100) / 100);
-    return String(v).trim();
+    return s.trim();
   };
   // Normaliza CUALQUIER formato de fecha a ISO YYYY-MM-DD para la key.
   // CRÍTICO: el frontend hace la misma normalización. Sin esto, filas viejas
