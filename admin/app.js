@@ -15805,12 +15805,20 @@ function bzwRenderAlertItem(a, opts) {
             <div style="text-align:right;line-height:1.2">
               <div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase">Fecha y hora de término</div>
               <div style="font-size:12px;color:#0f172a;font-weight:800">${esc(finishedDateLocal)} ${esc(finishedTimeLocal)}</div>
-            </div>` : `
+            </div>` : (() => {
+              // raw.scheduled_date viene del JSON crudo del webhook — webhooks
+              // tipo task-updated a veces traen payload reducido sin ese campo.
+              // Fallback a t.scheduled_date (columna directa del sheet) que el
+              // backend siempre poblá vía enrichment de la API.
+              const schedDate = raw.scheduled_date || t.scheduled_date || '';
+              const schedTime = raw.scheduled_time || t.scheduled_time || '';
+              return `
             <div style="text-align:right;line-height:1.2">
               <div style="font-size:10px;color:#94a3b8;font-style:italic">Sin fecha de completado</div>
-              ${raw.scheduled_date ? `<div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-top:4px;letter-spacing:.04em">Programada</div>
-              <div style="font-size:12px;color:#0f172a;font-weight:700">${esc(bzwFmtFechaCorta(raw.scheduled_date))}${raw.scheduled_time ? ' · ' + esc(raw.scheduled_time) : ''}</div>` : ''}
-            </div>`}
+              ${schedDate ? `<div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-top:4px;letter-spacing:.04em">Programada</div>
+              <div style="font-size:12px;color:#0f172a;font-weight:700">${esc(bzwFmtFechaCorta(schedDate))}${schedTime ? ' · ' + esc(schedTime) : ''}</div>` : ''}
+            </div>`;
+            })()}
           ${reportUrl ? `<button type="button" onclick="event.stopPropagation();event.preventDefault();bzwOpenReportPanel('${esc(reportUrl)}','${esc(taskName)}','${esc(propName)}')"
               class="bzw-list-card-reportbtn"
               title="Ver reporte de Breezeway en panel lateral">📄 Reporte</button>` : ''}
