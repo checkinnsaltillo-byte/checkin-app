@@ -17212,7 +17212,15 @@ async function bnUploadParseXlsx(file) {
       const fechaStr = String(row[0] ?? '').trim();
       const mFecha = fechaStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
       if (!mFecha) continue;
-      const dia = `${mFecha[3]}-${mFecha[2].padStart(2,'0')}-${mFecha[1].padStart(2,'0')}`;
+      // Sheet usa formato D/M/YYYY SIN ceros a la izquierda (ej. "6/4/2026"
+      // para 6 abril 2026). Generamos en ese formato para que el dedupe
+      // matchee con los displayValues del sheet.
+      const ddNum = parseInt(mFecha[1], 10);
+      const mmNum = parseInt(mFecha[2], 10);
+      const yyyy  = mFecha[3];
+      const dia = `${ddNum}/${mmNum}/${yyyy}`;
+      // ISO interno solo para parsear Año/Mes (no se guarda)
+      const diaIso = `${yyyy}-${String(mmNum).padStart(2,'0')}-${String(ddNum).padStart(2,'0')}`;
       const desc = String(row[1] ?? '').trim();
       const cargoRaw = row[2], abonoRaw = row[3], saldoRaw = row[4];
       const cargo = bnUploadParseNum(cargoRaw);
@@ -17231,7 +17239,7 @@ async function bnUploadParseXlsx(file) {
         if (isTC) monto = +(-c + -a).toFixed(2);
         else      monto = +( c + -a).toFixed(2);
       }
-      const date = new Date(dia + 'T00:00:00');
+      const date = new Date(diaIso + 'T00:00:00');
       const anio = String(date.getFullYear());
       const mes  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][date.getMonth()];
       out.push({
@@ -17240,8 +17248,10 @@ async function bnUploadParseXlsx(file) {
         'Año': anio,
         'Mes': mes,
         'Día': dia,
-        'Cuenta bancaria': curMap ? curMap.cuenta_nombre : '(sin mapeo)',
-        'Subcuenta':       curMap ? curMap.cuenta_tag    : '(sin mapeo)',
+        'Cuenta bancaria': curMap ? curMap.cuenta_nombre  : '(sin mapeo)',
+        '# Cuenta':        curMap ? curMap.cuenta_numero  : '',
+        'Subcuenta':       curMap ? curMap.cuenta_tag     : '(sin mapeo)',
+        'Reportado por':   (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '',
         'DESCRIPCION': desc,
         'CARGO': cargo !== null ? cargo : '',
         'ABONO': abono !== null ? abono : '',
