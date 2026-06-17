@@ -12114,9 +12114,13 @@ async function lodgifySync(full) {
  *  está viendo las cards. Si la hoja no cambió (insertadas==0 + updated==0),
  *  ni siquiera se recarga. */
 async function lodgifyMaybeAutoSync() {
+  // Sin throttle: cada entrada al módulo de Gestión de reservas dispara
+  // un auto-sync con Lodgify API → sheet. El usuario explícitamente pidió
+  // ver siempre la data más actualizada al entrar. Si necesitas evitar
+  // spam por brincar entre tabs, hay un mínimo de 30s de cortesía.
   const lastMs = Number(LG_STATE.lastAutoSyncMs || 0);
-  if (lastMs && (Date.now() - lastMs) < 10 * 60 * 1000) {
-    console.info('[LG] auto-sync skipped: thrown <10 min ago');
+  if (lastMs && (Date.now() - lastMs) < 30 * 1000) {
+    console.info('[LG] auto-sync skipped: <30s ago (cortesía anti-spam)');
     return;
   }
   LG_STATE.lastAutoSyncMs = Date.now();
