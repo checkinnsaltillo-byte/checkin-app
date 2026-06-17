@@ -678,19 +678,7 @@
             </div>
             <div style="max-height:520px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px">
               <table id="bn-upload-preview" style="width:100%;border-collapse:collapse;font-size:11px">
-                <thead style="position:sticky;top:0;background:#f8fafc;z-index:1">
-                  <tr style="color:#64748b">
-                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0">Estado</th>
-                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0">Día</th>
-                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0">Cuenta</th>
-                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0">Subcuenta</th>
-                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0">Descripción</th>
-                    <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e2e8f0">CARGO</th>
-                    <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e2e8f0">ABONO</th>
-                    <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e2e8f0">SALDO</th>
-                    <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e2e8f0">Monto</th>
-                  </tr>
-                </thead>
+                <thead id="bn-upload-preview-head" style="position:sticky;top:0;background:#f8fafc;z-index:1"></thead>
                 <tbody id="bn-upload-preview-body"></tbody>
               </table>
             </div>
@@ -1405,6 +1393,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=299"></script>
+  <script src="app.js?v=300"></script>
 </body>
 </html>

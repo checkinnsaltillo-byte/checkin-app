@@ -17095,7 +17095,48 @@ const BN_UPLOAD_STATE = {
   cuentasMap: null,      // [{cuenta_nombre, cuenta_numero, cuenta_tag, cuenta_tag_original, cuenta_tipo}]
   dedupeKeys: null,      // Set de keys ya en BANCOS
   parsedRows: [],        // filas que se mostrarán en preview
+  sortKey: null,         // columna activa (clave dentro del row) o null
+  sortDir: null,         // 'asc' | 'desc' | null
 };
+
+// Definición de columnas de la preview: (label, key del row, alineación, tipo)
+const BN_UPLOAD_COLS = [
+  { id: '_status',         label: 'Estado',      align: 'left',  type: 'string' },
+  { id: 'Día',             label: 'Día',         align: 'left',  type: 'date'   },
+  { id: 'Cuenta bancaria', label: 'Cuenta',      align: 'left',  type: 'string' },
+  { id: 'Subcuenta',       label: 'Subcuenta',   align: 'left',  type: 'string' },
+  { id: 'DESCRIPCION',     label: 'Descripción', align: 'left',  type: 'string' },
+  { id: 'CARGO',           label: 'CARGO',       align: 'right', type: 'number' },
+  { id: 'ABONO',           label: 'ABONO',       align: 'right', type: 'number' },
+  { id: 'SALDO',           label: 'SALDO',       align: 'right', type: 'number' },
+  { id: 'Monto',           label: 'Monto',       align: 'right', type: 'number' },
+];
+
+/** Click en flecha A-Z / Z-A del header. Cicla asc → desc → sin orden. */
+window.bnUploadSetSort = function(key) {
+  const st = BN_UPLOAD_STATE;
+  if (st.sortKey === key) {
+    st.sortDir = st.sortDir === 'asc' ? 'desc' : st.sortDir === 'desc' ? null : 'asc';
+    if (!st.sortDir) st.sortKey = null;
+  } else {
+    st.sortKey = key;
+    st.sortDir = 'asc';
+  }
+  bnUploadRenderPreview();
+};
+
+/** Devuelve el valor comparable de una fila para una columna dada. */
+function bnUploadSortValue(r, col) {
+  const v = r[col.id];
+  if (col.type === 'date') {
+    return bnUploadDiaToIso(v) || '';
+  }
+  if (col.type === 'number') {
+    const n = Number(v);
+    return isFinite(n) ? n : (v === '' || v == null ? null : NaN);
+  }
+  return String(v ?? '').toLowerCase();
+}
 
 /** Carga mapeos de cuentas_bancarias e índice de dedupe vs BANCOS.
  *  Se llama al entrar a la pestaña UPLOAD (cacheado en memoria). */
@@ -17339,21 +17380,58 @@ function bnUploadAssignCountersAndDedupe(rows) {
 /** Renderiza la tabla de preview con badges de estado por fila. */
 function bnUploadRenderPreview() {
   const wrap = document.getElementById('bn-upload-preview-wrap');
+  const head = document.getElementById('bn-upload-preview-head');
   const body = document.getElementById('bn-upload-preview-body');
   const counts = document.getElementById('bn-upload-counts');
   if (!wrap || !body) return;
-  const rows = BN_UPLOAD_STATE.parsedRows || [];
-  const newCount = rows.filter(r => r._status === 'new').length;
-  const dupCount = rows.filter(r => r._status === 'duplicate').length;
-  const errCount = rows.filter(r => r._error).length;
-  const anomCount = rows.filter(r => r.COMENTARIOS).length;
+  const allRows = BN_UPLOAD_STATE.parsedRows || [];
+  const newCount = allRows.filter(r => r._status === 'new').length;
+  const dupCount = allRows.filter(r => r._status === 'duplicate').length;
+  const errCount = allRows.filter(r => r._error).length;
+  const anomCount = allRows.filter(r => r.COMENTARIOS).length;
   if (counts) {
     counts.innerHTML = `<span style="color:#15803d;font-weight:700">${newCount} nuevas</span> · <span style="color:#92400e;font-weight:700">${dupCount} duplicadas</span> · <span style="color:#7c3aed;font-weight:700">${anomCount} con anomalías</span>` +
       (errCount ? ` · <span style="color:#dc2626;font-weight:700">${errCount} errores</span>` : '');
   }
+  // ── Render del thead con flechas de orden por columna ──
+  if (head) {
+    const st = BN_UPLOAD_STATE;
+    head.innerHTML = `<tr style="color:#64748b">${BN_UPLOAD_COLS.map(c => {
+      const active = (st.sortKey === c.id);
+      const dir = active ? st.sortDir : null;
+      // Flechas: dos botones (↑ A-Z y ↓ Z-A). El activo se resalta.
+      const arrUp   = `<span data-dir="asc"  onclick="event.stopPropagation();bnUploadSetSort('${c.id}')" style="cursor:pointer;display:inline-block;line-height:.6;font-size:9px;color:${dir==='asc'?'#0f172a':'#cbd5e1'};font-weight:${dir==='asc'?'800':'400'}" title="Ordenar A-Z">▲</span>`;
+      const arrDown = `<span data-dir="desc" onclick="event.stopPropagation();bnUploadSetSort('${c.id}')" style="cursor:pointer;display:inline-block;line-height:.6;font-size:9px;color:${dir==='desc'?'#0f172a':'#cbd5e1'};font-weight:${dir==='desc'?'800':'400'}" title="Ordenar Z-A">▼</span>`;
+      const arrows = `<span style="display:inline-flex;flex-direction:column;margin-left:4px;vertical-align:middle">${arrUp}${arrDown}</span>`;
+      return `<th style="text-align:${c.align};padding:6px 8px;border-bottom:1px solid #e2e8f0;user-select:none;white-space:nowrap"><span onclick="bnUploadSetSort('${c.id}')" style="cursor:pointer">${esc(c.label)}</span>${arrows}</th>`;
+    }).join('')}</tr>`;
+  }
+  // ── Orden: clona la lista para no mutar el orden original de inserción ──
+  let rows = allRows.slice();
+  if (BN_UPLOAD_STATE.sortKey && BN_UPLOAD_STATE.sortDir) {
+    const col = BN_UPLOAD_COLS.find(c => c.id === BN_UPLOAD_STATE.sortKey);
+    if (col) {
+      const dir = BN_UPLOAD_STATE.sortDir === 'asc' ? 1 : -1;
+      rows.sort((a, b) => {
+        if (a._error || b._error) return 0; // errores quedan donde estén
+        const va = bnUploadSortValue(a, col);
+        const vb = bnUploadSortValue(b, col);
+        // null/NaN/empty al final
+        const aEmpty = (va === null || va === '' || (typeof va === 'number' && isNaN(va)));
+        const bEmpty = (vb === null || vb === '' || (typeof vb === 'number' && isNaN(vb)));
+        if (aEmpty && !bEmpty) return 1;
+        if (!aEmpty && bEmpty) return -1;
+        if (aEmpty && bEmpty) return 0;
+        if (va < vb) return -1 * dir;
+        if (va > vb) return  1 * dir;
+        return 0;
+      });
+    }
+  }
+  // ── Render del tbody ──
   const fmt$ = (v) => (v === '' || v === null || v === undefined) ? '' : Number(v).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const html = rows.map(r => {
-    if (r._error) return `<tr style="background:#fef2f2"><td colspan="9" style="padding:6px 8px;color:#b91c1c;font-style:italic">${esc(r._error)}</td></tr>`;
+    if (r._error) return `<tr style="background:#fef2f2"><td colspan="${BN_UPLOAD_COLS.length}" style="padding:6px 8px;color:#b91c1c;font-style:italic">${esc(r._error)}</td></tr>`;
     const badge = r._status === 'duplicate'
       ? '<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:700;font-size:10px;border:1px solid #fde68a">⊝ Duplicada</span>'
       : '<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:700;font-size:10px;border:1px solid #86efac">+ Nueva</span>';
