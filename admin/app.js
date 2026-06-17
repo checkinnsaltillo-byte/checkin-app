@@ -17387,23 +17387,38 @@ function bnUploadNumStr(v) {
 }
 
 /** Asigna contador #N por grupo (DíaISO|Cuenta|Subcuenta|Desc|CARGO|ABONO)
- *  y marca cada fila con _status: 'new' | 'duplicate'. */
+ *  y marca cada fila con _status: 'new' | 'duplicate'.
+ *  Dedupe robusto a Subcuenta vacía en BANCOS: filas viejas insertadas
+ *  antes de mapear subcuentas tienen Subcuenta="". Si la key exacta no
+ *  matchea pero la key con Subcuenta vacía SÍ, también se marca duplicada
+ *  (asumimos que BANCOS sin subcuenta es compatible con cualquiera). */
 function bnUploadAssignCountersAndDedupe(rows) {
-  const counters = {};
+  const countersFull = {};
+  const countersLoose = {}; // key con Subcuenta vacía
+  const set = BN_UPLOAD_STATE.dedupeKeys;
   for (const r of rows) {
     if (r._error) continue;
-    const base = [
-      bnUploadDiaToIso(r['Día']),                       // canonical ISO
-      bnUploadNormStr(r['Cuenta bancaria']),
-      bnUploadNormStr(r['Subcuenta']),
-      bnUploadNormStr(r['DESCRIPCION']),
-      bnUploadNumStr(r['CARGO']),
-      bnUploadNumStr(r['ABONO']),
-    ].join('|');
-    counters[base] = (counters[base] || 0) + 1;
-    const key = base + '|#' + counters[base];
-    r._dedupeKey = key;
-    r._status = BN_UPLOAD_STATE.dedupeKeys && BN_UPLOAD_STATE.dedupeKeys.has(key) ? 'duplicate' : 'new';
+    const dia = bnUploadDiaToIso(r['Día']);
+    const cta = bnUploadNormStr(r['Cuenta bancaria']);
+    const sub = bnUploadNormStr(r['Subcuenta']);
+    const desc = bnUploadNormStr(r['DESCRIPCION']);
+    const car = bnUploadNumStr(r['CARGO']);
+    const abo = bnUploadNumStr(r['ABONO']);
+    const baseFull  = [dia, cta, sub, desc, car, abo].join('|');
+    const baseLoose = [dia, cta, '',  desc, car, abo].join('|'); // sin sub
+    countersFull[baseFull]   = (countersFull[baseFull]   || 0) + 1;
+    countersLoose[baseLoose] = (countersLoose[baseLoose] || 0) + 1;
+    const keyFull  = baseFull  + '|#' + countersFull[baseFull];
+    const keyLoose = baseLoose + '|#' + countersLoose[baseLoose];
+    r._dedupeKey = keyFull;
+    if (set && set.has(keyFull)) {
+      r._status = 'duplicate';
+    } else if (set && set.has(keyLoose)) {
+      r._status = 'duplicate';
+      r._matchedLoose = true; // visible en la preview con un mini-tag
+    } else {
+      r._status = 'new';
+    }
   }
 }
 
@@ -17463,7 +17478,9 @@ function bnUploadRenderPreview() {
   const html = rows.map(r => {
     if (r._error) return `<tr style="background:#fef2f2"><td colspan="${BN_UPLOAD_COLS.length}" style="padding:6px 8px;color:#b91c1c;font-style:italic">${esc(r._error)}</td></tr>`;
     const badge = r._status === 'duplicate'
-      ? '<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:700;font-size:10px;border:1px solid #fde68a">⊝ Duplicada</span>'
+      ? (r._matchedLoose
+          ? '<span title="BANCOS tiene una fila igual pero sin Subcuenta — se considera duplicada" style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:700;font-size:10px;border:1px solid #fde68a">⊝ Duplicada<span style="font-size:9px;opacity:.7"> ·sin sub</span></span>'
+          : '<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:700;font-size:10px;border:1px solid #fde68a">⊝ Duplicada</span>')
       : '<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:700;font-size:10px;border:1px solid #86efac">+ Nueva</span>';
     const bg = r._status === 'duplicate' ? 'background:#fffbeb' : (r.COMENTARIOS ? 'background:#faf5ff' : '');
     const montoFmt = (r.Monto === '' || r.Monto === null || r.Monto === undefined) ? '<span style="color:#94a3b8;font-style:italic">vacío</span>' : fmt$(r.Monto);
