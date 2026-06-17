@@ -4002,6 +4002,7 @@ const BN_TIPO_PARENT = {
   PC:'pc', PC_I:'pc', PC_E:'pc', PC_AC:'pc', PC_PA:'pc', PC_CA:'pc',
   A:'pres', AP:'pres', PR:'pres',
   F:'ind',
+  UPLOAD:'upload',
 };
 
 // Sub-tabs por categoría — renderizadas como chips horizontales en row 2
@@ -4030,6 +4031,9 @@ const BN_CAT_SUBS = {
   ind: [
     { id: 'F',  label: '📊 Indicadores' },
   ],
+  upload: [
+    { id: 'UPLOAD', label: '📂 Subir archivos' },
+  ],
 };
 
 /** Cambia la categoría activa (Por clasificar / Registros / Control presup.).
@@ -4046,16 +4050,17 @@ const BN_GREY_PALETTE = {
   parentTextInactive:'#475569',
 };
 const BN_CAT_PALETTE = {
-  pc:   BN_GREY_PALETTE,
-  reg:  BN_GREY_PALETTE,
-  pres: BN_GREY_PALETTE,
-  ind:  BN_GREY_PALETTE,
+  pc:     BN_GREY_PALETTE,
+  reg:    BN_GREY_PALETTE,
+  pres:   BN_GREY_PALETTE,
+  ind:    BN_GREY_PALETTE,
+  upload: BN_GREY_PALETTE,
 };
 
 function bn_setCat(cat) {
   const pal = BN_CAT_PALETTE[cat] || BN_CAT_PALETTE.pc;
   // Resaltar el botón de categoría activo con el tono de su paleta
-  ['pc','reg','pres','ind'].forEach(k => {
+  ['pc','reg','pres','ind','upload'].forEach(k => {
     const btn = document.getElementById('bn-cat-' + k);
     if (!btn) return;
     const active = (k === cat);
@@ -4122,7 +4127,7 @@ function bn_setTipo(t) {
   });
   // Sincronizar resaltado del botón de CATEGORÍA padre
   if (parent) {
-    ['pc','reg','pres','ind'].forEach(k => {
+    ['pc','reg','pres','ind','upload'].forEach(k => {
       const btn = document.getElementById('bn-cat-' + k);
       if (!btn) return;
       const a = (k === parent);
@@ -4254,6 +4259,27 @@ function bn_render() {
   const iw=document.getElementById('bn-indicadores');
   const iov=document.getElementById('bn-indicadores-overlay');
   const ap=document.getElementById('bn-analisis-partida');
+  const up=document.getElementById('bn-upload-pane');
+
+  if(BN_TIPO==='UPLOAD'){
+    // Carga de datos bancarios: oculta TODO lo demás y muestra el pane de upload.
+    tw?.classList.add('hidden'); cw?.classList.add('hidden'); pw?.classList.add('hidden');
+    ap?.classList.add('hidden'); iw?.classList.add('hidden'); iov?.classList.add('hidden');
+    document.getElementById('bn-presupuesto')?.classList.add('hidden');
+    document.getElementById('bn-kpi-row')?.classList.add('hidden');
+    document.getElementById('bn-actions-row')?.classList.add('hidden');
+    document.getElementById('bn-review-panel')?.classList.add('hidden');
+    document.getElementById('bn-filter-body')?.classList.add('hidden');
+    const mesAnioU = document.getElementById('bn-mes-anio-row');
+    if (mesAnioU) mesAnioU.style.display = 'none';
+    const searchBarU = document.getElementById('bn-f-text')?.parentElement;
+    if (searchBarU) searchBarU.style.display = 'none';
+    up?.classList.remove('hidden');
+    // Pre-cargar mapeos de cuentas_bancarias y dedupe-index en background
+    if (typeof bnUploadInit === 'function') bnUploadInit();
+    return;
+  }
+  up?.classList.add('hidden');
 
   if(BN_TIPO==='F'){
     // Indicadores como sección inline aislada: ocultar todo lo demás
@@ -17049,3 +17075,300 @@ window.bzwSubscribeAll = async function() {
   alert('Resultado de suscripción de webhooks:\n\n' + summary.join('\n'));
   bzwRefreshAlerts();
 };
+
+// ════════════════════════════════════════════════════════════════════════
+// ║  CARGA DE DATOS BANCARIOS — frontend                                ║
+// ║                                                                      ║
+// ║  Parser xlsx (SheetJS), match contra cuentas_bancarias, cálculo de  ║
+// ║  Monto firmado según cuenta_tipo, dedupe vs BANCOS, preview e       ║
+// ║  inserción por lotes vía Apps Script.                                ║
+// ╚════════════════════════════════════════════════════════════════════════
+
+// URL del Apps Script de Ticket Vision (mismo doPost que /get-bancos).
+// Se llama directamente desde el browser con text/plain para evitar
+// preflight CORS (los Apps Script Web Apps no lo soportan).
+const BN_TV_APPSSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyq-k_fOSXwF3V6naFCfqKwovLujuvmoPECUIwpvp1q3PfhN9jbg3WunnxwlnGIFmJhAg/exec';
+
+const BN_UPLOAD_STATE = {
+  cuentasMap: null,      // [{cuenta_nombre, cuenta_numero, cuenta_tag, cuenta_tag_original, cuenta_tipo}]
+  dedupeKeys: null,      // Set de keys ya en BANCOS
+  parsedRows: [],        // filas que se mostrarán en preview
+};
+
+/** Carga mapeos de cuentas_bancarias e índice de dedupe vs BANCOS.
+ *  Se llama al entrar a la pestaña UPLOAD (cacheado en memoria). */
+async function bnUploadInit() {
+  const status = document.getElementById('bn-upload-status');
+  // Si no hay mapeos cacheados, los traemos
+  if (!BN_UPLOAD_STATE.cuentasMap) {
+    if (status) status.textContent = '⏳ Cargando mapeo de cuentas bancarias…';
+    try {
+      const res = await fetch(BN_TV_APPSSCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'bn_cuentas_bancarias_list' }),
+        redirect: 'follow',
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'No se pudo cargar cuentas_bancarias');
+      BN_UPLOAD_STATE.cuentasMap = j.rows || [];
+    } catch (e) {
+      if (status) status.textContent = `⚠ Error cargando cuentas_bancarias: ${e.message}`;
+      return;
+    }
+  }
+  if (!BN_UPLOAD_STATE.dedupeKeys) {
+    if (status) status.textContent = '⏳ Indexando BANCOS para dedupe…';
+    try {
+      const res = await fetch(BN_TV_APPSSCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'bn_bancos_dedupe_index' }),
+        redirect: 'follow',
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'No se pudo indexar BANCOS');
+      BN_UPLOAD_STATE.dedupeKeys = new Set(j.keys || []);
+    } catch (e) {
+      if (status) status.textContent = `⚠ Error indexando BANCOS: ${e.message}`;
+      return;
+    }
+  }
+  if (status) {
+    status.textContent = `✓ Listo · ${BN_UPLOAD_STATE.cuentasMap.length} cuentas mapeadas · ${BN_UPLOAD_STATE.dedupeKeys.size.toLocaleString('es-MX')} filas en BANCOS para dedupe`;
+  }
+}
+
+/** Refresca el índice de dedupe (útil tras una inserción exitosa). */
+async function bnUploadRefreshDedupe() {
+  BN_UPLOAD_STATE.dedupeKeys = null;
+  await bnUploadInit();
+}
+
+/** Click en "Seleccionar archivos" → parsea cada uno y construye el preview. */
+async function bnUploadHandleFiles(files) {
+  if (!files || !files.length) return;
+  const status = document.getElementById('bn-upload-status');
+  if (!BN_UPLOAD_STATE.cuentasMap || !BN_UPLOAD_STATE.dedupeKeys) {
+    await bnUploadInit();
+  }
+  if (typeof XLSX === 'undefined') {
+    if (status) status.textContent = '⚠ La librería SheetJS no se cargó. Recarga la página.';
+    return;
+  }
+  if (status) status.textContent = `⏳ Procesando ${files.length} archivo(s)…`;
+  const allRows = [];
+  for (const f of files) {
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    if (ext === 'xlsx' || ext === 'xls') {
+      try {
+        const rows = await bnUploadParseXlsx(f);
+        allRows.push(...rows);
+      } catch (e) {
+        console.warn('[BN] error parseando', f.name, e);
+        allRows.push({ _error: `Error en ${f.name}: ${e.message}` });
+      }
+    } else {
+      allRows.push({ _error: `Formato .${ext} aún no soportado (${f.name})` });
+    }
+  }
+  // Asignación de contador #N por grupo + cálculo de status de dedupe
+  bnUploadAssignCountersAndDedupe(allRows);
+  BN_UPLOAD_STATE.parsedRows = allRows;
+  bnUploadRenderPreview();
+}
+
+/** Parsea un xlsx según el formato BBVA: marcadores de subcuenta + filas. */
+async function bnUploadParseXlsx(file) {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array', cellDates: false });
+  const out = [];
+  for (const sheetName of wb.SheetNames) {
+    const sh = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sh, { header: 1, defval: '', raw: true });
+    let curTagOrig = null, curMap = null;
+    for (const row of rows) {
+      if (!row || row.every(c => c === '' || c === null || c === undefined)) continue;
+      const a0 = String(row[0] ?? '').trim();
+      // ignora encabezados/footer
+      if (!a0) continue;
+      if (a0.startsWith('Número de Tarjeta') || a0 === 'DETALLE DE MOVIMIENTOS' || a0 === 'FECHA' || /^BBVA México/i.test(a0)) continue;
+      // Marker de subcuenta: "Digital *2220" / "Titular *9131" (el resto vacío)
+      const restEmpty = row.slice(1, 5).every(c => c === '' || c === null || c === undefined);
+      const mMarker = a0.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s+\*(\d{4})$/);
+      if (restEmpty && mMarker) {
+        curTagOrig = a0; // texto literal "Digital *2220"
+        curMap = BN_UPLOAD_STATE.cuentasMap.find(c =>
+          (c.cuenta_tag_original || '').trim() === a0
+        ) || null;
+        if (!curMap) {
+          console.warn('[BN] subcuenta no mapeada:', a0);
+        }
+        continue;
+      }
+      // Movimiento normal
+      const fechaStr = String(row[0] ?? '').trim();
+      const mFecha = fechaStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (!mFecha) continue;
+      const dia = `${mFecha[3]}-${mFecha[2].padStart(2,'0')}-${mFecha[1].padStart(2,'0')}`;
+      const desc = String(row[1] ?? '').trim();
+      const cargoRaw = row[2], abonoRaw = row[3], saldoRaw = row[4];
+      const cargo = bnUploadParseNum(cargoRaw);
+      const abono = bnUploadParseNum(abonoRaw);
+      const saldoNum = bnUploadParseNum(saldoRaw);
+      const saldoIsText = (saldoRaw !== null && saldoRaw !== undefined && saldoRaw !== '' && saldoNum === null);
+      const tipo = curMap ? curMap.cuenta_tipo : 'Tarjeta de crédito';
+      // Monto firmado según naturaleza de la cuenta
+      let monto = '';
+      const garbled = /\?\?\?+/.test(desc);
+      if (saldoIsText || garbled) {
+        monto = ''; // anomalía → Monto vacío para revisión
+      } else {
+        const c = cargo || 0, a = abono || 0;
+        if (tipo === 'Tarjeta de crédito') monto = +(-c + -a).toFixed(2);
+        else monto = +(c + -a).toFixed(2);
+      }
+      const date = new Date(dia + 'T00:00:00');
+      const anio = String(date.getFullYear());
+      const mes  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][date.getMonth()];
+      out.push({
+        _archivo: file.name,
+        _tagOrig: curTagOrig,
+        'Año': anio,
+        'Mes': mes,
+        'Día': dia,
+        'Cuenta bancaria': curMap ? curMap.cuenta_nombre : '(sin mapeo)',
+        'Subcuenta':       curMap ? curMap.cuenta_tag    : '(sin mapeo)',
+        'DESCRIPCION': desc,
+        'CARGO': cargo !== null ? cargo : '',
+        'ABONO': abono !== null ? abono : '',
+        'SALDO': saldoIsText ? String(saldoRaw).trim() : (saldoNum !== null ? saldoNum : ''),
+        'Monto': monto,
+        'COMENTARIOS': garbled ? 'Revisar: descripción con caracteres garbled' : (saldoIsText ? `Revisar: SALDO="${String(saldoRaw).trim()}"` : ''),
+      });
+    }
+  }
+  return out;
+}
+
+function bnUploadParseNum(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(String(v).replace(/,/g, '').trim());
+  return isFinite(n) ? n : null;
+}
+
+/** Asigna contador #N por grupo (Día|Cuenta|Subcuenta|Desc|CARGO|ABONO)
+ *  y marca cada fila con _status: 'new' | 'duplicate'. */
+function bnUploadAssignCountersAndDedupe(rows) {
+  const counters = {};
+  const norm = (s) => String(s || '').trim().toLowerCase();
+  const numStr = (v) => {
+    if (v === '' || v === null || v === undefined) return '';
+    const n = Number(v);
+    return isFinite(n) ? String(Math.round(n * 100) / 100) : String(v).trim();
+  };
+  for (const r of rows) {
+    if (r._error) continue;
+    const base = [
+      r['Día'],
+      String(r['Cuenta bancaria'] || '').trim(),
+      String(r['Subcuenta'] || '').trim(),
+      norm(r['DESCRIPCION']),
+      numStr(r['CARGO']),
+      numStr(r['ABONO']),
+    ].join('|');
+    counters[base] = (counters[base] || 0) + 1;
+    const key = base + '|#' + counters[base];
+    r._dedupeKey = key;
+    r._status = BN_UPLOAD_STATE.dedupeKeys && BN_UPLOAD_STATE.dedupeKeys.has(key) ? 'duplicate' : 'new';
+  }
+}
+
+/** Renderiza la tabla de preview con badges de estado por fila. */
+function bnUploadRenderPreview() {
+  const wrap = document.getElementById('bn-upload-preview-wrap');
+  const body = document.getElementById('bn-upload-preview-body');
+  const counts = document.getElementById('bn-upload-counts');
+  if (!wrap || !body) return;
+  const rows = BN_UPLOAD_STATE.parsedRows || [];
+  const newCount = rows.filter(r => r._status === 'new').length;
+  const dupCount = rows.filter(r => r._status === 'duplicate').length;
+  const errCount = rows.filter(r => r._error).length;
+  const anomCount = rows.filter(r => r.COMENTARIOS).length;
+  if (counts) {
+    counts.innerHTML = `<span style="color:#15803d;font-weight:700">${newCount} nuevas</span> · <span style="color:#92400e;font-weight:700">${dupCount} duplicadas</span> · <span style="color:#7c3aed;font-weight:700">${anomCount} con anomalías</span>` +
+      (errCount ? ` · <span style="color:#dc2626;font-weight:700">${errCount} errores</span>` : '');
+  }
+  const fmt$ = (v) => (v === '' || v === null || v === undefined) ? '' : Number(v).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const html = rows.map(r => {
+    if (r._error) return `<tr style="background:#fef2f2"><td colspan="9" style="padding:6px 8px;color:#b91c1c;font-style:italic">${esc(r._error)}</td></tr>`;
+    const badge = r._status === 'duplicate'
+      ? '<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:700;font-size:10px;border:1px solid #fde68a">⊝ Duplicada</span>'
+      : '<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:700;font-size:10px;border:1px solid #86efac">+ Nueva</span>';
+    const bg = r._status === 'duplicate' ? 'background:#fffbeb' : (r.COMENTARIOS ? 'background:#faf5ff' : '');
+    const montoFmt = (r.Monto === '' || r.Monto === null || r.Monto === undefined) ? '<span style="color:#94a3b8;font-style:italic">vacío</span>' : fmt$(r.Monto);
+    const montoColor = (r.Monto !== '' && Number(r.Monto) < 0) ? '#b91c1c' : '#15803d';
+    return `<tr style="${bg};border-bottom:1px solid #f1f5f9">
+      <td style="padding:6px 8px">${badge}</td>
+      <td style="padding:6px 8px;white-space:nowrap">${esc(r['Día'])}</td>
+      <td style="padding:6px 8px;font-size:10px;color:#475569">${esc(r['Cuenta bancaria'])}</td>
+      <td style="padding:6px 8px;font-size:10px;color:#475569">${esc(r['Subcuenta'])}</td>
+      <td style="padding:6px 8px;color:#0f172a">${esc(r['DESCRIPCION'])}${r.COMENTARIOS ? ` <span title="${esc(r.COMENTARIOS)}" style="color:#7c3aed">⚠</span>` : ''}</td>
+      <td style="padding:6px 8px;text-align:right;color:#b91c1c">${fmt$(r['CARGO'])}</td>
+      <td style="padding:6px 8px;text-align:right;color:#15803d">${fmt$(r['ABONO'])}</td>
+      <td style="padding:6px 8px;text-align:right;color:#475569">${typeof r['SALDO']==='string' ? esc(r['SALDO']) : fmt$(r['SALDO'])}</td>
+      <td style="padding:6px 8px;text-align:right;font-weight:700;color:${montoColor}">${montoFmt}</td>
+    </tr>`;
+  }).join('');
+  body.innerHTML = html;
+  wrap.style.display = '';
+  const confirmBtn = document.getElementById('bn-upload-confirm');
+  if (confirmBtn) {
+    confirmBtn.disabled = newCount === 0;
+    confirmBtn.style.opacity = newCount === 0 ? '.5' : '';
+    confirmBtn.style.cursor = newCount === 0 ? 'not-allowed' : 'pointer';
+    confirmBtn.textContent = newCount === 0 ? '✓ Sin filas nuevas' : `✓ Insertar ${newCount} en BANCOS`;
+  }
+}
+
+function bnUploadClearPreview() {
+  BN_UPLOAD_STATE.parsedRows = [];
+  document.getElementById('bn-upload-preview-wrap').style.display = 'none';
+  const status = document.getElementById('bn-upload-status');
+  if (status) status.textContent = '';
+  const inp = document.getElementById('bn-upload-input');
+  if (inp) inp.value = '';
+}
+
+/** Confirma la inserción. Solo manda al backend las filas con _status='new'. */
+async function bnUploadConfirmInsert() {
+  const rows = (BN_UPLOAD_STATE.parsedRows || []).filter(r => !r._error && r._status === 'new');
+  if (!rows.length) { alert('No hay filas nuevas para insertar.'); return; }
+  // Strip campos internos antes de mandar
+  const clean = rows.map(r => {
+    const o = {};
+    for (const k of Object.keys(r)) {
+      if (k.startsWith('_')) continue;
+      o[k] = r[k];
+    }
+    return o;
+  });
+  const status = document.getElementById('bn-upload-status');
+  if (status) status.textContent = `⏳ Insertando ${clean.length} filas a BANCOS…`;
+  try {
+    const res = await fetch(BN_TV_APPSSCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'bn_bancos_insert_bulk', rows: clean }),
+      redirect: 'follow',
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'Insert falló');
+    if (status) status.textContent = `✓ ${j.inserted} filas insertadas en BANCOS. Refrescando índice…`;
+    await bnUploadRefreshDedupe();
+    bnUploadClearPreview();
+    if (status) status.textContent = `✓ Listo. ${j.inserted} filas insertadas correctamente.`;
+  } catch (e) {
+    if (status) status.textContent = `⚠ Error al insertar: ${e.message}`;
+  }
+}

@@ -516,7 +516,7 @@
       <!-- Menú principal — barras full-width con jerarquía padre→hijos -->
       <div class="bn-menu-bar" style="margin-bottom:12px;border:1px solid var(--border,#e2e8f0);border-radius:10px;overflow:hidden">
         <!-- Row 1: categorías padre, divididas en cuadros contiguos full-width -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0">
           <button class="bn-cat-btn" id="bn-cat-pc" data-cat="pc" onclick="bn_setCat('pc')"
                   style="padding:12px 10px;border:none;border-right:1px solid rgba(255,255,255,.25);background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">🏷️ Por clasificar</button>
           <button class="bn-cat-btn" id="bn-cat-reg" data-cat="reg" onclick="bn_setCat('reg')"
@@ -524,7 +524,9 @@
           <button class="bn-cat-btn" id="bn-cat-pres" data-cat="pres" onclick="bn_setCat('pres')"
                   style="padding:12px 10px;border:none;border-right:1px solid rgba(255,255,255,.25);background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📐 Planeación</button>
           <button class="bn-cat-btn" id="bn-cat-ind" data-cat="ind" onclick="bn_setCat('ind')"
-                  style="padding:12px 10px;border:none;background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📊 Indicadores</button>
+                  style="padding:12px 10px;border:none;border-right:1px solid rgba(255,255,255,.25);background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📊 Indicadores</button>
+          <button class="bn-cat-btn" id="bn-cat-upload" data-cat="upload" onclick="bn_setCat('upload')"
+                  style="padding:12px 10px;border:none;background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📥 Carga de datos bancarios</button>
         </div>
         <!-- Row 2: subcategorías del padre activo — cuadros contiguos full-width en tono más claro -->
         <div id="bn-subcat-row" style="display:grid;gap:0"></div>
@@ -646,6 +648,55 @@
 
       <!-- Presupuesto — editor de la hoja Presupuesto_sys -->
       <div id="bn-presupuesto" class="hidden" style="padding:14px 4px"></div>
+
+      <!-- Carga de datos bancarios — sube xlsx/csv/txt/pdf, parsea, dedupe vs BANCOS, inserta -->
+      <div id="bn-upload-pane" class="hidden" style="padding:14px 4px">
+        <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(15,23,42,.04)">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+            <div style="flex:1;min-width:240px">
+              <div style="font-size:15px;font-weight:800;color:#0f172a">📥 Carga de datos bancarios</div>
+              <div style="font-size:12px;color:#64748b;margin-top:2px">Sube uno o varios estados de cuenta. El sistema deduplica vs BANCOS, calcula el Monto firmado según el tipo de cuenta y mapea Subcuenta/Cuenta bancaria desde <code>cuentas_bancarias</code>.</div>
+            </div>
+            <label for="bn-upload-input"
+                   style="padding:10px 16px;border:1.5px solid #7c3aed;background:linear-gradient(180deg,#ede9fe,#fff);color:#5b21b6;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 2px 6px rgba(124,58,237,.18)">
+              <span style="font-size:16px">📂</span> Seleccionar archivos
+            </label>
+            <input id="bn-upload-input" type="file" multiple accept=".xlsx,.xls,.csv,.txt,.pdf"
+                   onchange="bnUploadHandleFiles(this.files)" style="display:none">
+          </div>
+          <div id="bn-upload-status" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
+          <div id="bn-upload-preview-wrap" style="display:none">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+              <div style="font-size:13px;font-weight:800;color:#0f172a">Vista previa</div>
+              <span id="bn-upload-counts" style="font-size:11px;color:#475569"></span>
+              <div style="margin-left:auto;display:flex;gap:8px">
+                <button onclick="bnUploadClearPreview()"
+                        style="padding:6px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">✕ Cancelar</button>
+                <button id="bn-upload-confirm" onclick="bnUploadConfirmInsert()"
+                        style="padding:6px 14px;border:1.5px solid #16a34a;background:linear-gradient(180deg,#dcfce7,#fff);color:#15803d;border-radius:6px;font-weight:800;font-size:12px;cursor:pointer">✓ Insertar en BANCOS</button>
+              </div>
+            </div>
+            <div style="max-height:520px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px">
+              <table id="bn-upload-preview" style="width:100%;border-collapse:collapse;font-size:11px">
+                <thead style="position:sticky;top:0;background:#f8fafc;z-index:1">
+                  <tr style="color:#64748b">
+                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0">Estado</th>
+                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0">Día</th>
+                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0">Cuenta</th>
+                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0">Subcuenta</th>
+                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0">Descripción</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e2e8f0">CARGO</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e2e8f0">ABONO</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e2e8f0">SALDO</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e2e8f0">Monto</th>
+                  </tr>
+                </thead>
+                <tbody id="bn-upload-preview-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- Análisis por partida — agregado jerárquico con semáforo de presupuesto -->
       <div id="bn-analisis-partida" class="hidden" style="padding:14px 4px">
@@ -1352,6 +1403,8 @@
 
   <!-- PDF.js para previsualizar PDFs como imágenes -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="app.js?v=295"></script>
+  <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="app.js?v=296"></script>
 </body>
 </html>
