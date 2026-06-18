@@ -167,6 +167,10 @@ function doPost(e) {
     if (action === "bn_bancos_dedupe_index")    return jsonOutput_(bnBancosDedupeIndex_());
     if (action === "bn_bancos_insert_bulk")     return jsonOutput_(bnBancosInsertBulk_(data));
     if (action === "bn_bancos_classified_history") return jsonOutput_(bnBancosClassifiedHistory_());
+    if (action === "bn_drive_list_files")       return jsonOutput_(bnDriveListFiles_(data));
+    if (action === "bn_drive_get_file")         return jsonOutput_(bnDriveGetFile_(data));
+    if (action === "bn_imported_files_list")    return jsonOutput_(bnImportedFilesList_());
+    if (action === "bn_imported_files_mark")    return jsonOutput_(bnImportedFilesMark_(data));
     return jsonOutput_({ ok: false, error: "Acción no reconocida." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -4561,4 +4565,125 @@ function bnBancosInsertBulk_(data) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// ║  DRIVE FOLDER IMPORTER — lectura de carpeta + tracking de importados ║
+// ╚════════════════════════════════════════════════════════════════════════
+
+const BN_DRIVE_DEFAULT_FOLDER_ID = "1pnUUvWpt0yzYjIwtkiYM2F2T_iLN9lNZ";
+const BN_IMPORTED_FILES_SHEET    = "Bancos_Imported_Files";
+const BN_IMPORTED_FILES_HEADERS  = [
+  "file_id","filename","folder_id","imported_at","imported_by","rows_inserted"
+];
+
+/** Lista archivos xlsx/xls/csv de una carpeta de Drive. La carpeta debe
+ *  estar compartida con el usuario que deployó el Apps Script (o ser
+ *  pública). Devuelve [{id, name, mimeType, size, lastModified}]. */
+function bnDriveListFiles_(data) {
+  const folderId = (data && data.folder_id) || BN_DRIVE_DEFAULT_FOLDER_ID;
+  try {
+    const folder = DriveApp.getFolderById(folderId);
+    const files = [];
+    const iter = folder.getFiles();
+    while (iter.hasNext()) {
+      const f = iter.next();
+      const name = f.getName();
+      const ext = String(name.split(".").pop() || "").toLowerCase();
+      if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") continue;
+      files.push({
+        id: f.getId(),
+        name: name,
+        mimeType: f.getMimeType(),
+        size: f.getSize(),
+        lastModified: f.getLastUpdated().toISOString(),
+      });
+    }
+    // Más recientes primero
+    files.sort(function(a, b){ return b.lastModified.localeCompare(a.lastModified); });
+    return { ok: true, folder_id: folderId, files: files };
+  } catch (e) {
+    return {
+      ok: false,
+      error: "No se pudo leer la carpeta de Drive. Verifica que esté compartida con el dueño del Apps Script. (" + (e.message || e) + ")"
+    };
+  }
+}
+
+/** Descarga el contenido de un archivo de Drive como base64. El frontend lo
+ *  convierte a ArrayBuffer y lo pasa al parser de SheetJS. */
+function bnDriveGetFile_(data) {
+  const fileId = data && data.file_id;
+  if (!fileId) return { ok: false, error: "Falta file_id" };
+  try {
+    const file = DriveApp.getFileById(fileId);
+    const blob = file.getBlob();
+    const bytes = blob.getBytes();
+    return {
+      ok: true,
+      file_id: fileId,
+      name: file.getName(),
+      mimeType: blob.getContentType(),
+      size: bytes.length,
+      base64: Utilities.base64Encode(bytes),
+    };
+  } catch (e) {
+    return { ok: false, error: "No se pudo leer el archivo: " + (e.message || e) };
+  }
+}
+
+/** Devuelve la lista de archivos ya importados a BANCOS (file_id + meta). */
+function bnImportedFilesList_() {
+  const ss = getSpreadsheet_();
+  const sh = ss.getSheetByName(BN_IMPORTED_FILES_SHEET);
+  if (!sh) return { ok: true, files: [] };
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return { ok: true, files: [] };
+  const headers = data[0].map(function(h){ return String(h || "").trim().toLowerCase(); });
+  const idx = function(name){ return headers.indexOf(name); };
+  const iId   = idx("file_id");
+  const iName = idx("filename");
+  const iAt   = idx("imported_at");
+  const iBy   = idx("imported_by");
+  const iRows = idx("rows_inserted");
+  const files = [];
+  for (var r = 1; r < data.length; r++) {
+    const row = data[r];
+    const id = iId >= 0 ? String(row[iId] || "").trim() : "";
+    if (!id) continue;
+    files.push({
+      file_id:       id,
+      filename:      iName >= 0 ? String(row[iName] || "") : "",
+      imported_at:   iAt   >= 0 ? String(row[iAt]   || "") : "",
+      imported_by:   iBy   >= 0 ? String(row[iBy]   || "") : "",
+      rows_inserted: iRows >= 0 ? Number(row[iRows] || 0)  : 0,
+    });
+  }
+  return { ok: true, files: files };
+}
+
+/** Registra un archivo como importado. Si ya existe (same file_id),
+ *  agrega una nueva fila — para tener histórico de reimportaciones. */
+function bnImportedFilesMark_(data) {
+  if (!data || !data.file_id) return { ok: false, error: "Falta file_id" };
+  const ss = getSpreadsheet_();
+  let sh = ss.getSheetByName(BN_IMPORTED_FILES_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(BN_IMPORTED_FILES_SHEET);
+    sh.getRange(1, 1, 1, BN_IMPORTED_FILES_HEADERS.length)
+      .setValues([BN_IMPORTED_FILES_HEADERS])
+      .setFontWeight("bold")
+      .setBackground("#0d9488")
+      .setFontColor("#ffffff");
+    sh.setFrozenRows(1);
+  }
+  sh.appendRow([
+    String(data.file_id),
+    String(data.filename || ""),
+    String(data.folder_id || ""),
+    new Date().toISOString(),
+    String(data.imported_by || ""),
+    Number(data.rows_inserted) || 0,
+  ]);
+  return { ok: true };
 }
