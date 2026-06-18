@@ -17795,6 +17795,8 @@ function bnDriveRenderPicker() {
     const tag = f._imported
       ? '<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:9px;font-weight:700;border:1px solid #fde68a">ya importado</span>'
       : '<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:#dcfce7;color:#15803d;font-size:9px;font-weight:700;border:1px solid #86efac">nuevo</span>';
+    // Subcarpeta = todo el path excepto el filename final
+    const subPath = (f.path && f.path.includes('/')) ? f.path.substring(0, f.path.lastIndexOf('/')) : '';
     return `
       <label style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;background:${bg};opacity:${opacity};border-bottom:1px solid #f1f5f9">
         <input type="checkbox" name="bn-drive-file" value="${esc(f.id)}" ${checked} onchange="bnDriveUpdateSelectedInfo()" style="cursor:pointer">
@@ -17803,6 +17805,7 @@ function bnDriveRenderPicker() {
             <span style="font-size:13px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span>
             ${tag}
           </div>
+          ${subPath ? `<div style="font-size:10px;color:#0f766e;margin-top:1px"><span style="display:inline-block">📂 ${esc(subPath)}</span></div>` : ''}
           <div style="font-size:10px;color:#64748b;margin-top:2px">${fmt$(f.size)} · modificado ${fmtDate(f.lastModified)}</div>
         </div>
       </label>`;
