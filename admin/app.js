@@ -17797,9 +17797,12 @@ function bnDriveRenderPicker() {
       : '<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:#dcfce7;color:#15803d;font-size:9px;font-weight:700;border:1px solid #86efac">nuevo</span>';
     // Subcarpeta = todo el path excepto el filename final
     const subPath = (f.path && f.path.includes('/')) ? f.path.substring(0, f.path.lastIndexOf('/')) : '';
+    // Explícitamente forzamos checkbox 16x16 con flex-shrink:0 + appearance
+    // resetada para que cualquier CSS global no lo distorsione.
     return `
-      <label style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;background:${bg};opacity:${opacity};border-bottom:1px solid #f1f5f9">
-        <input type="checkbox" name="bn-drive-file" value="${esc(f.id)}" ${checked} onchange="bnDriveUpdateSelectedInfo()" style="cursor:pointer">
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;background:${bg};opacity:${opacity};border-bottom:1px solid #f1f5f9">
+        <input type="checkbox" name="bn-drive-file" value="${esc(f.id)}" ${checked} onchange="bnDriveUpdateSelectedInfo()"
+               style="width:16px;height:16px;min-width:16px;max-width:16px;min-height:16px;max-height:16px;flex:0 0 16px;margin:2px 0 0;padding:0;cursor:pointer;accent-color:#0d9488;appearance:auto;-webkit-appearance:checkbox;-moz-appearance:checkbox">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-size:13px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span>
