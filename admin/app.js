@@ -17113,6 +17113,7 @@ const BN_UPLOAD_COLS = [
   { id: 'Monto',           label: 'Monto',       align: 'right', type: 'number' },
   { id: 'Probabilidad_clasif', label: 'Prob.',  align: 'right', type: 'number' },
   { id: 'Argumentos_clasif',   label: 'Match con', align: 'left',  type: 'string' },
+  { id: '_archivo',            label: 'Origen',    align: 'left',  type: 'string' },
 ];
 
 /** Click en flecha A-Z / Z-A del header. Cicla asc → desc → sin orden. */
@@ -17638,6 +17639,18 @@ function bnUploadRenderPreview() {
         : '#94a3b8'
       }">${r['Probabilidad_clasif'] !== undefined && r['Probabilidad_clasif'] !== '' ? `${r['Probabilidad_clasif']}%` : '—'}</td>
       <td style="padding:6px 8px;font-size:10px;color:#475569;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(r['Argumentos_clasif'] || '')}">${esc((r['Argumentos_clasif'] || '').slice(0, 80))}${(r['Argumentos_clasif'] || '').length > 80 ? '…' : ''}</td>
+      <td style="padding:6px 8px;font-size:10px;color:#475569;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(r._archivo || '')}">${
+        (() => {
+          const path = String(r._archivo || '');
+          if (!path) return '<span style="color:#94a3b8">—</span>';
+          // Si tiene subcarpetas, resalta el filename final en negrita y muestra el path completo
+          const lastSlash = path.lastIndexOf('/');
+          if (lastSlash >= 0) {
+            return `<span style="color:#0f766e">📂 ${esc(path.substring(0, lastSlash))}/</span><span style="font-weight:700;color:#0f172a">${esc(path.substring(lastSlash + 1))}</span>`;
+          }
+          return `<span style="font-weight:700;color:#0f172a">${esc(path)}</span>`;
+        })()
+      }</td>
     </tr>`;
   }).join('');
   body.innerHTML = html;
@@ -17898,7 +17911,11 @@ window.bnDriveProcessSelected = async function() {
         continue;
       }
       // Marca cada fila con su _driveFileId para tracking post-insert
-      parsed.forEach(p => { p._driveFileId = id; p._driveFileName = meta.name; });
+      parsed.forEach(p => {
+        p._driveFileId = id;
+        p._driveFileName = meta.name;
+        p._archivo = meta.path || meta.name; // ruta completa con subcarpetas
+      });
       allRows.push(...parsed);
       BN_DRIVE_STATE.processedThisRun.push({ file_id: id, name: meta.name, parsed_count: parsed.length });
     } catch (e) {
