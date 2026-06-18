@@ -17268,12 +17268,53 @@ async function bnUploadParseXlsxFromBuffer(buf, fileName) {
   return _bnUploadParseWorkbook(wb, fileName);
 }
 
+/** Busca en las primeras N filas del Excel cualquier secuencia de 4+ dígitos
+ *  que matchee un cuenta_numero en cuentas_bancarias. Usado como fallback
+ *  cuando el archivo NO tiene marcadores tipo "Digital *2220" antes de
+ *  cada tabla, sino solo un encabezado tipo "Cuenta: 0176164773" arriba
+ *  del todo. Devuelve la primera coincidencia (o null). */
+function bnUploadFindDefaultCuentaFromTop(rows, maxRowsScan) {
+  const cuentas = BN_UPLOAD_STATE.cuentasMap || [];
+  if (!cuentas.length) return null;
+  // Construye Map cuenta_numero (string normalizado) → entry para lookup O(1)
+  const byNumero = new Map();
+  for (const c of cuentas) {
+    const num = String(c.cuenta_numero || '').trim();
+    if (num) byNumero.set(num, c);
+  }
+  if (!byNumero.size) return null;
+  const N = Math.min(rows.length, maxRowsScan || 10);
+  for (let i = 0; i < N; i++) {
+    const row = rows[i];
+    if (!row) continue;
+    const text = row.map(c => String(c == null ? '' : c)).join(' ');
+    // Extrae todas las secuencias de 4 o más dígitos
+    const matches = text.match(/\d{4,}/g);
+    if (!matches) continue;
+    for (const m of matches) {
+      // Match exacto
+      if (byNumero.has(m)) return byNumero.get(m);
+      // Match por sufijo: si el cuenta_numero registrado es más corto y es
+      // sufijo del dígito hallado (caso "*2220" → cuenta_numero "2220" sin asterisco)
+      for (const [num, entry] of byNumero) {
+        if (num.length >= 4 && m.endsWith(num)) return entry;
+      }
+    }
+  }
+  return null;
+}
+
 async function _bnUploadParseWorkbook(wb, fileName) {
   const out = [];
   for (const sheetName of wb.SheetNames) {
     const sh = wb.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json(sh, { header: 1, defval: '', raw: true });
-    let curTagOrig = null, curMap = null;
+    // ─── Pre-escaneo: busca cuenta_numero en las primeras 10 filas. Si
+    //     existe, se usa como default para TODA la hoja. Los marcadores
+    //     "Digital *2220" (si existen) seguirán overrideando per-sección.
+    const defaultMap = bnUploadFindDefaultCuentaFromTop(rows, 10);
+    let curTagOrig = defaultMap ? `cuenta_numero: ${defaultMap.cuenta_numero}` : null;
+    let curMap = defaultMap;
     for (const row of rows) {
       if (!row || row.every(c => c === '' || c === null || c === undefined)) continue;
       const a0 = String(row[0] ?? '').trim();
