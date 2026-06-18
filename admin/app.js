@@ -17094,6 +17094,7 @@ const BN_TV_APPSSCRIPT_URL = HU_CHECKIN_WEBAPP_URL;
 const BN_UPLOAD_STATE = {
   cuentasMap: null,      // [{cuenta_nombre, cuenta_numero, cuenta_tag, cuenta_tag_original, cuenta_tipo}]
   dedupeKeys: null,      // Set de keys ya en BANCOS
+  classifiedHistory: null, // [{descripcion, monto, cuenta, subcuenta, categoria, concepto}]
   parsedRows: [],        // filas que se mostrarán en preview
   sortKey: null,         // columna activa (clave dentro del row) o null
   sortDir: null,         // 'asc' | 'desc' | null
@@ -17177,14 +17178,37 @@ async function bnUploadInit() {
       return;
     }
   }
+  if (!BN_UPLOAD_STATE.classifiedHistory) {
+    if (status) status.textContent = '⏳ Cargando historial de clasificaciones…';
+    try {
+      const res = await fetch(BN_TV_APPSSCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'bn_bancos_classified_history' }),
+        redirect: 'follow',
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'No se pudo cargar historial');
+      // Pre-tokenize cada fila histórica para acelerar el matching
+      BN_UPLOAD_STATE.classifiedHistory = (j.rows || []).map(h => ({
+        ...h,
+        _tokens: bnUploadTokenize(h.descripcion || ''),
+      }));
+    } catch (e) {
+      console.warn('[BN] historial de clasificaciones falló:', e?.message || e);
+      BN_UPLOAD_STATE.classifiedHistory = []; // continúa sin auto-clasificación
+    }
+  }
   if (status) {
-    status.textContent = `✓ Listo · ${BN_UPLOAD_STATE.cuentasMap.length} cuentas mapeadas · ${BN_UPLOAD_STATE.dedupeKeys.size.toLocaleString('es-MX')} filas en BANCOS para dedupe`;
+    status.textContent = `✓ Listo · ${BN_UPLOAD_STATE.cuentasMap.length} cuentas · ${BN_UPLOAD_STATE.dedupeKeys.size.toLocaleString('es-MX')} dedupe keys · ${BN_UPLOAD_STATE.classifiedHistory.length.toLocaleString('es-MX')} filas clasificadas`;
   }
 }
 
-/** Refresca el índice de dedupe (útil tras una inserción exitosa). */
+/** Refresca el índice de dedupe + historial de clasificaciones (útil tras
+ *  una inserción exitosa para que el sistema "aprenda" de lo recién insertado). */
 async function bnUploadRefreshDedupe() {
   BN_UPLOAD_STATE.dedupeKeys = null;
+  BN_UPLOAD_STATE.classifiedHistory = null;
   await bnUploadInit();
 }
 
@@ -17221,6 +17245,8 @@ async function bnUploadHandleFiles(files) {
   }
   // Asignación de contador #N por grupo + cálculo de status de dedupe
   bnUploadAssignCountersAndDedupe(allRows);
+  // Auto-clasificar las filas NUEVAS basándose en historial de BANCOS
+  bnUploadClassifyRows(allRows);
   BN_UPLOAD_STATE.parsedRows = allRows;
   bnUploadRenderPreview();
 }
@@ -17395,6 +17421,75 @@ function bnUploadNumStr(v) {
  *     el saldo corriente tendría que cambiar entre ellos.
  *  2. VS BANCOS: con la key normal (sin SALDO porque BANCOS lo puede tener
  *     vacío), match exacto o "loose" si BANCOS tiene Subcuenta vacía. */
+/** Tokeniza una descripción: lowercase, sin acentos, split por no-alfanumérico,
+ *  descarta tokens cortos (<3 chars) y stopwords comunes. Devuelve Set. */
+const BN_TOKEN_STOPWORDS = new Set(['de','la','el','los','las','del','y','en','por','con','para','sa','cv','sas','sl','sas','rl','com','www','mx','gob']);
+function bnUploadTokenize(s) {
+  const norm = String(s || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+  const toks = norm.split(/[^a-z0-9]+/).filter(t => t.length >= 3 && !BN_TOKEN_STOPWORDS.has(t));
+  return new Set(toks);
+}
+
+/** Similitud Jaccard entre dos Sets de tokens: |A∩B| / |A∪B|. Devuelve 0..1. */
+function bnUploadJaccard(a, b) {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  for (const t of a) if (b.has(t)) inter++;
+  const union = a.size + b.size - inter;
+  return union > 0 ? inter / union : 0;
+}
+
+/** Similitud de monto: 1.0 si idéntico (signo + magnitud), decrece con la
+ *  diferencia relativa. Si signos opuestos → 0 (gasto vs ingreso). */
+function bnUploadMontoSim(a, b) {
+  const na = Number(a), nb = Number(b);
+  if (!isFinite(na) || !isFinite(nb) || nb === 0) return 0;
+  if (Math.sign(na) !== Math.sign(nb)) return 0;
+  const diff = Math.abs(na - nb);
+  const max = Math.max(Math.abs(na), Math.abs(nb));
+  return Math.max(0, 1 - (diff / max));
+}
+
+/** Para cada fila NUEVA (no duplicada), busca el mejor match en el historial
+ *  clasificado y copia CUENTA/SUBCUENTA/CATEGORIA/CONCEPTO si la probabilidad
+ *  supera el umbral. Probabilidad = 0.7*Jaccard(desc) + 0.3*MontoSim. */
+function bnUploadClassifyRows(rows) {
+  const history = BN_UPLOAD_STATE.classifiedHistory;
+  if (!history || !history.length) return;
+  const THRESHOLD = 0.5; // mínimo 50% de confianza
+  for (const r of rows) {
+    if (r._error || r._status === 'duplicate') continue;
+    const tokens = bnUploadTokenize(r['DESCRIPCION']);
+    if (!tokens.size) continue;
+    const monto = bnUploadParseNum(r['Monto']);
+    let best = null;
+    for (const h of history) {
+      const descSim = bnUploadJaccard(tokens, h._tokens);
+      if (descSim === 0) continue; // sin tokens en común → saltar
+      const montoSim = bnUploadMontoSim(monto, h.monto);
+      const score = 0.7 * descSim + 0.3 * montoSim;
+      if (!best || score > best.score) {
+        best = { score, h, descSim, montoSim };
+      }
+    }
+    if (best && best.score >= THRESHOLD) {
+      r['CUENTA']    = best.h.cuenta;
+      r['SUBCUENTA'] = best.h.subcuenta;
+      r['CATEGORIA'] = best.h.categoria;
+      r['CONCEPTO']  = best.h.concepto;
+      r['Probabilidad_clasif'] = Math.round(best.score * 100);
+      const descPrev = String(best.h.descripcion || '').slice(0, 35);
+      r['Argumentos_clasif'] =
+        `Match con "${descPrev}" — desc ${Math.round(best.descSim*100)}%, monto ${Math.round(best.montoSim*100)}% (hist: ${best.h.monto})`;
+      // Flag interno para badge visual en el preview
+      r._classified = true;
+      r._classifProb = Math.round(best.score * 100);
+    }
+  }
+}
+
 function bnUploadAssignCountersAndDedupe(rows) {
   const countersFull = {};
   const countersLoose = {};
@@ -17509,7 +17604,11 @@ function bnUploadRenderPreview() {
       <td style="padding:6px 8px;white-space:nowrap">${esc(r['Día'])}</td>
       <td style="padding:6px 8px;font-size:10px;color:#475569">${esc(r['Cuenta bancaria'])}</td>
       <td style="padding:6px 8px;font-size:10px;color:#475569">${esc(r['Subcuenta_bancaria'])}</td>
-      <td style="padding:6px 8px;color:#0f172a">${esc(r['DESCRIPCION'])}${r.COMENTARIOS ? ` <span title="${esc(r.COMENTARIOS)}" style="color:#7c3aed">⚠</span>` : ''}</td>
+      <td style="padding:6px 8px;color:#0f172a">${esc(r['DESCRIPCION'])}${r.COMENTARIOS ? ` <span title="${esc(r.COMENTARIOS)}" style="color:#7c3aed">⚠</span>` : ''}${
+        r._classified
+          ? ` <span title="${esc(r['Argumentos_clasif'] || '')}\n\nCuenta: ${esc(r['CUENTA'] || '—')}\nSubcuenta: ${esc(r['SUBCUENTA'] || '—')}\nCategoría: ${esc(r['CATEGORIA'] || '—')}\nConcepto: ${esc(r['CONCEPTO'] || '—')}" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-weight:700;font-size:9px;border:1px solid #93c5fd;cursor:help">🏷 ${r._classifProb}%</span>`
+          : ''
+      }</td>
       <td style="padding:6px 8px;text-align:right;color:#b91c1c">${fmt$(r['CARGO'])}</td>
       <td style="padding:6px 8px;text-align:right;color:#15803d">${fmt$(r['ABONO'])}</td>
       <td style="padding:6px 8px;text-align:right;color:#475569">${typeof r['SALDO']==='string' ? esc(r['SALDO']) : fmt$(r['SALDO'])}</td>
