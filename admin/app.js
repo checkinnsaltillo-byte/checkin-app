@@ -17750,8 +17750,9 @@ async function bnUploadConfirmInsert() {
         if (!byFile[r._driveFileId]) byFile[r._driveFileId] = { name: r._driveFileName, count: 0 };
         byFile[r._driveFileId].count++;
       }
+      const markErrors = [];
       for (const [fileId, info] of Object.entries(byFile)) {
-        await fetch(BN_TV_APPSSCRIPT_URL, {
+        const res = await fetch(BN_TV_APPSSCRIPT_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
@@ -17764,9 +17765,22 @@ async function bnUploadConfirmInsert() {
           }),
           redirect: 'follow',
         });
+        const jm = await res.json().catch(() => ({}));
+        if (!jm.ok) {
+          markErrors.push(`${info.name}: ${jm.error || 'sin detalle'}`);
+        }
+      }
+      if (markErrors.length) {
+        console.warn('[BN drive] Algunos archivos no se marcaron como importados:', markErrors);
+        if (status) {
+          status.textContent = `⚠ ${j.inserted} filas insertadas, pero ${markErrors.length} archivo(s) no se marcaron en Bancos_Imported_Files (¿redeploy de Apps Script pendiente?). Detalle en consola.`;
+        }
       }
     } catch (e) {
       console.warn('[BN drive] No se pudo marcar archivos como importados:', e?.message || e);
+      if (status) {
+        status.textContent = `⚠ ${j.inserted} filas insertadas, pero falló el marcado de archivos. Detalle en consola.`;
+      }
     }
     await bnUploadRefreshDedupe();
     bnUploadClearPreview();
