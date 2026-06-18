@@ -17102,10 +17102,11 @@ const BN_UPLOAD_STATE = {
 
 // Definición de columnas de la preview: (label, key del row, alineación, tipo)
 const BN_UPLOAD_COLS = [
-  { id: '_status',         label: 'Estado',      align: 'left',  type: 'string' },
-  { id: 'Día',             label: 'Día',         align: 'left',  type: 'date'   },
-  { id: 'Cuenta bancaria', label: 'Cuenta',      align: 'left',  type: 'string' },
-  { id: 'Subcuenta_bancaria', label: 'Subcuenta', align: 'left',  type: 'string' },
+  { id: '_status',         label: 'Estado',         align: 'left',  type: 'string' },
+  { id: 'Día',             label: 'Día',            align: 'left',  type: 'date'   },
+  { id: 'Cuenta bancaria', label: 'Cuenta bancaria',align: 'left',  type: 'string' },
+  { id: 'CUENTA',          label: 'CUENTA',         align: 'left',  type: 'string' },
+  { id: 'Subcuenta_bancaria', label: 'Subcuenta',   align: 'left',  type: 'string' },
   { id: 'DESCRIPCION',     label: 'Descripción', align: 'left',  type: 'string' },
   { id: 'CARGO',           label: 'CARGO',       align: 'right', type: 'number' },
   { id: 'ABONO',           label: 'ABONO',       align: 'right', type: 'number' },
@@ -17375,7 +17376,7 @@ async function _bnUploadParseWorkbook(wb, fileName) {
         'Mes': mes,
         'Día': dia,
         'Cuenta bancaria':    curMap ? curMap.cuenta_nombre  : '(sin mapeo)',
-        '# Cuenta':           curMap ? curMap.cuenta_numero  : '',
+        'CUENTA':             curMap ? curMap.cuenta_numero  : '',
         'Subcuenta_bancaria': curMap ? curMap.cuenta_tag     : '(sin mapeo)',
         'Reportado por':      (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '',
         'DESCRIPCION': desc,
@@ -17668,6 +17669,7 @@ function bnUploadRenderPreview() {
       <td style="padding:6px 8px">${badge}</td>
       <td style="padding:6px 8px;white-space:nowrap">${esc(r['Día'])}</td>
       <td style="padding:6px 8px;font-size:10px;color:#475569">${esc(r['Cuenta bancaria'])}</td>
+      <td style="padding:6px 8px;font-size:10px;color:#475569"><code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:10px">${esc(r['CUENTA'] || '')}</code></td>
       <td style="padding:6px 8px;font-size:10px;color:#475569">${esc(r['Subcuenta_bancaria'])}</td>
       <td style="padding:6px 8px;color:#0f172a">${esc(r['DESCRIPCION'])}${r.COMENTARIOS ? ` <span title="${esc(r.COMENTARIOS)}" style="color:#7c3aed">⚠</span>` : ''}</td>
       <td style="padding:6px 8px;text-align:right;color:#b91c1c">${fmt$(r['CARGO'])}</td>
