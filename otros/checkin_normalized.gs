@@ -166,6 +166,7 @@ function doPost(e) {
     if (action === "bn_cuentas_bancarias_list") return jsonOutput_(bnCuentasBancariasList_());
     if (action === "bn_bancos_dedupe_index")    return jsonOutput_(bnBancosDedupeIndex_());
     if (action === "bn_bancos_insert_bulk")     return jsonOutput_(bnBancosInsertBulk_(data));
+    if (action === "bn_bancos_classified_history") return jsonOutput_(bnBancosClassifiedHistory_());
     return jsonOutput_({ ok: false, error: "Acción no reconocida." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -4455,6 +4456,60 @@ function bnBancosDedupeIndex_() {
  *                 "SALDO":…|texto, "Monto":…|"", "Cuenta bancaria":"…",
  *                 "Subcuenta":"…", "Año":"…", "Mes":"…", "COMENTARIOS":"…" }, …]
  */
+/** Devuelve el subset de filas de BANCOS que tienen al menos UNA
+ *  clasificación contable (CUENTA, SUBCUENTA, CATEGORIA, CONCEPTO).
+ *  El frontend lo usa como base de "memoria" para auto-clasificar nuevas
+ *  filas similares (por DESCRIPCION + MONTO).
+ *  Output mínimo por fila: { descripcion, monto, cuenta, subcuenta,
+ *                             categoria, concepto }
+ *  Se omiten filas vacías o sin descripcion para optimizar payload. */
+function bnBancosClassifiedHistory_() {
+  const ss = getSpreadsheet_();
+  const sh = ss.getSheets().find(function(s){
+    return String(s.getName() || "").trim().toUpperCase() === "BANCOS";
+  });
+  if (!sh) return { ok: false, error: "No se encontró la hoja BANCOS." };
+  const data = sh.getDataRange().getValues();
+  if (data.length < 2) return { ok: true, rows: [] };
+  const headers = data[0].map(function(h){ return String(h || "").trim().toUpperCase(); });
+  const pickIdx = function(opts){
+    for (var i = 0; i < opts.length; i++) {
+      var k = headers.indexOf(opts[i].toUpperCase());
+      if (k >= 0) return k;
+    }
+    return -1;
+  };
+  const iDes = pickIdx(["DESCRIPCION","DESCRIPCIÓN"]);
+  const iMon = pickIdx(["MONTO"]);
+  const iCue = pickIdx(["CUENTA"]);
+  const iSub = pickIdx(["SUBCUENTA"]);
+  const iCat = pickIdx(["CATEGORIA","CATEGORÍA"]);
+  const iCon = pickIdx(["CONCEPTO"]);
+  if (iDes < 0) return { ok: false, error: "BANCOS no tiene columna DESCRIPCION." };
+  const rows = [];
+  for (var r = 1; r < data.length; r++) {
+    const row = data[r];
+    const desc = iDes >= 0 ? String(row[iDes] || "").trim() : "";
+    if (!desc) continue;
+    const cuenta    = iCue >= 0 ? String(row[iCue] || "").trim() : "";
+    const subcuenta = iSub >= 0 ? String(row[iSub] || "").trim() : "";
+    const categoria = iCat >= 0 ? String(row[iCat] || "").trim() : "";
+    const concepto  = iCon >= 0 ? String(row[iCon] || "").trim() : "";
+    // Skip si no tiene NINGUNA clasificación
+    if (!cuenta && !subcuenta && !categoria && !concepto) continue;
+    const monto = iMon >= 0 ? Number(row[iMon]) : 0;
+    rows.push({
+      descripcion: desc,
+      monto: isFinite(monto) ? monto : 0,
+      cuenta: cuenta,
+      subcuenta: subcuenta,
+      categoria: categoria,
+      concepto: concepto,
+    });
+  }
+  return { ok: true, rows: rows };
+}
+
 function bnBancosInsertBulk_(data) {
   const rows = (data && data.rows) || [];
   if (!Array.isArray(rows) || !rows.length) {
@@ -4475,12 +4530,17 @@ function bnBancosInsertBulk_(data) {
     // "DESCRIPCION", "# Cuenta" pero el sheet puede tener "Cargo", "Día",
     // "Descripción", "# cuenta". Normalizamos para que matchee siempre.
     function _norm(s) {
+      // Lower + sin acentos + colapsa espacios/underscores como equivalentes.
+      // Ej.: "Subcuenta_bancaria" == "Subcuenta bancaria" == "SUBCUENTA  BANCARIA"
       return String(s || "").trim().toLowerCase()
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[_\s]+/g, "_");
     }
-    // Headers que NUNCA se llenan desde el upload (clasificación contable,
-    // notas internas, etc. — no son responsabilidad del importador bancario).
-    const SKIP_HEADERS = { "subcuenta": true, "categoria": true, "concepto": true };
+    // Headers que NUNCA se llenan desde el upload. CUENTA/SUBCUENTA/CATEGORIA/
+    // CONCEPTO sí se pueden llenar (clasificación automática vía
+    // bn_bancos_classified_history). Solo dejamos vacío lo que no es del
+    // dominio bancario (nada por ahora — el set queda vacío).
+    const SKIP_HEADERS = {};
     const matrix = rows.map(function(r){
       const rowNormMap = {};
       Object.keys(r || {}).forEach(function(k){
