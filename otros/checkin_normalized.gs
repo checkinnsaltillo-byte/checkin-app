@@ -4577,31 +4577,60 @@ const BN_IMPORTED_FILES_HEADERS  = [
   "file_id","filename","folder_id","imported_at","imported_by","rows_inserted"
 ];
 
-/** Lista archivos xlsx/xls/csv de una carpeta de Drive. La carpeta debe
- *  estar compartida con el usuario que deployó el Apps Script (o ser
- *  pública). Devuelve [{id, name, mimeType, size, lastModified}]. */
+/** Lista archivos xlsx/xls/csv de una carpeta de Drive RECURSIVAMENTE
+ *  (recorre todas las subcarpetas anidadas). La carpeta raíz debe estar
+ *  compartida con el usuario que deployó el Apps Script.
+ *  Devuelve [{id, name, path, mimeType, size, lastModified}] — 'path'
+ *  incluye la ruta relativa "Subcarpeta/Subcarpeta2/archivo.xlsx".
+ *  Opciones: max_depth (10), max_files (2000). */
 function bnDriveListFiles_(data) {
   const folderId = (data && data.folder_id) || BN_DRIVE_DEFAULT_FOLDER_ID;
+  const maxDepth = Math.max(1, Math.min((data && Number(data.max_depth)) || 10, 20));
+  const maxFiles = Math.max(1, Math.min((data && Number(data.max_files)) || 2000, 5000));
   try {
-    const folder = DriveApp.getFolderById(folderId);
-    const files = [];
-    const iter = folder.getFiles();
-    while (iter.hasNext()) {
-      const f = iter.next();
-      const name = f.getName();
-      const ext = String(name.split(".").pop() || "").toLowerCase();
-      if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") continue;
-      files.push({
-        id: f.getId(),
-        name: name,
-        mimeType: f.getMimeType(),
-        size: f.getSize(),
-        lastModified: f.getLastUpdated().toISOString(),
-      });
+    const root = DriveApp.getFolderById(folderId);
+    const allFiles = [];
+    const visited = {}; // anti-cycle (shortcuts, etc.)
+    function walk(folder, depth, prefix) {
+      if (depth > maxDepth || allFiles.length >= maxFiles) return;
+      // 1) Archivos directos
+      const fIter = folder.getFiles();
+      while (fIter.hasNext() && allFiles.length < maxFiles) {
+        const f = fIter.next();
+        const id = f.getId();
+        if (visited[id]) continue;
+        visited[id] = true;
+        const name = f.getName();
+        const ext = String(name.split(".").pop() || "").toLowerCase();
+        if (ext !== "xlsx" && ext !== "xls" && ext !== "csv") continue;
+        allFiles.push({
+          id: id,
+          name: name,
+          path: prefix ? (prefix + "/" + name) : name,
+          mimeType: f.getMimeType(),
+          size: f.getSize(),
+          lastModified: f.getLastUpdated().toISOString(),
+        });
+      }
+      // 2) Subcarpetas (recursivo)
+      const dIter = folder.getFolders();
+      while (dIter.hasNext() && allFiles.length < maxFiles) {
+        const sub = dIter.next();
+        const subId = sub.getId();
+        if (visited[subId]) continue;
+        visited[subId] = true;
+        const subName = sub.getName();
+        walk(sub, depth + 1, prefix ? (prefix + "/" + subName) : subName);
+      }
     }
-    // Más recientes primero
-    files.sort(function(a, b){ return b.lastModified.localeCompare(a.lastModified); });
-    return { ok: true, folder_id: folderId, files: files };
+    walk(root, 0, "");
+    allFiles.sort(function(a, b){ return b.lastModified.localeCompare(a.lastModified); });
+    return {
+      ok: true,
+      folder_id: folderId,
+      files: allFiles,
+      truncated: allFiles.length >= maxFiles,
+    };
   } catch (e) {
     return {
       ok: false,
