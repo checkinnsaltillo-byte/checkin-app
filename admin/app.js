@@ -17111,6 +17111,8 @@ const BN_UPLOAD_COLS = [
   { id: 'ABONO',           label: 'ABONO',       align: 'right', type: 'number' },
   { id: 'SALDO',           label: 'SALDO',       align: 'right', type: 'number' },
   { id: 'Monto',           label: 'Monto',       align: 'right', type: 'number' },
+  { id: 'Probabilidad_clasif', label: 'Prob.',  align: 'right', type: 'number' },
+  { id: 'Argumentos_clasif',   label: 'Match con', align: 'left',  type: 'string' },
 ];
 
 /** Click en flecha A-Z / Z-A del header. Cicla asc → desc → sin orden. */
@@ -17453,37 +17455,47 @@ function bnUploadMontoSim(a, b) {
 }
 
 /** Para cada fila NUEVA (no duplicada), busca el mejor match en el historial
- *  clasificado y copia CUENTA/SUBCUENTA/CATEGORIA/CONCEPTO si la probabilidad
- *  supera el umbral. Probabilidad = 0.7*Jaccard(desc) + 0.3*MontoSim. */
+ *  clasificado. SIEMPRE registra el mejor candidato en Probabilidad_clasif y
+ *  Argumentos_clasif (incluso si está bajo el umbral) para que sea visible
+ *  en el preview. APLICA las clasificaciones solo si supera el umbral.
+ *  Probabilidad = 0.7 * Jaccard(desc tokens) + 0.3 * MontoSim. */
 function bnUploadClassifyRows(rows) {
   const history = BN_UPLOAD_STATE.classifiedHistory;
   if (!history || !history.length) return;
-  const THRESHOLD = 0.5; // mínimo 50% de confianza
+  const THRESHOLD = 0.5; // mínimo 50% para APLICAR (debajo solo se muestra)
   for (const r of rows) {
     if (r._error || r._status === 'duplicate') continue;
     const tokens = bnUploadTokenize(r['DESCRIPCION']);
-    if (!tokens.size) continue;
+    if (!tokens.size) {
+      r['Probabilidad_clasif'] = 0;
+      r['Argumentos_clasif'] = 'Sin tokens útiles en descripción';
+      continue;
+    }
     const monto = bnUploadParseNum(r['Monto']);
     let best = null;
     for (const h of history) {
       const descSim = bnUploadJaccard(tokens, h._tokens);
-      if (descSim === 0) continue; // sin tokens en común → saltar
+      if (descSim === 0) continue;
       const montoSim = bnUploadMontoSim(monto, h.monto);
       const score = 0.7 * descSim + 0.3 * montoSim;
-      if (!best || score > best.score) {
-        best = { score, h, descSim, montoSim };
-      }
+      if (!best || score > best.score) best = { score, h, descSim, montoSim };
     }
-    if (best && best.score >= THRESHOLD) {
+    if (!best) {
+      r['Probabilidad_clasif'] = 0;
+      r['Argumentos_clasif'] = 'Sin match en historial';
+      continue;
+    }
+    // SIEMPRE guarda probabilidad + args para que el usuario los vea
+    r['Probabilidad_clasif'] = Math.round(best.score * 100);
+    const descPrev = String(best.h.descripcion || '').slice(0, 40);
+    r['Argumentos_clasif'] =
+      `"${descPrev}" — desc:${Math.round(best.descSim*100)}% monto:${Math.round(best.montoSim*100)}% [${best.h.cuenta||''}/${best.h.subcuenta||''}/${best.h.categoria||''}/${best.h.concepto||''}]`;
+    // APLICA clasificación solo si supera el umbral
+    if (best.score >= THRESHOLD) {
       r['CUENTA']    = best.h.cuenta;
       r['SUBCUENTA'] = best.h.subcuenta;
       r['CATEGORIA'] = best.h.categoria;
       r['CONCEPTO']  = best.h.concepto;
-      r['Probabilidad_clasif'] = Math.round(best.score * 100);
-      const descPrev = String(best.h.descripcion || '').slice(0, 35);
-      r['Argumentos_clasif'] =
-        `Match con "${descPrev}" — desc ${Math.round(best.descSim*100)}%, monto ${Math.round(best.montoSim*100)}% (hist: ${best.h.monto})`;
-      // Flag interno para badge visual en el preview
       r._classified = true;
       r._classifProb = Math.round(best.score * 100);
     }
@@ -17604,15 +17616,17 @@ function bnUploadRenderPreview() {
       <td style="padding:6px 8px;white-space:nowrap">${esc(r['Día'])}</td>
       <td style="padding:6px 8px;font-size:10px;color:#475569">${esc(r['Cuenta bancaria'])}</td>
       <td style="padding:6px 8px;font-size:10px;color:#475569">${esc(r['Subcuenta_bancaria'])}</td>
-      <td style="padding:6px 8px;color:#0f172a">${esc(r['DESCRIPCION'])}${r.COMENTARIOS ? ` <span title="${esc(r.COMENTARIOS)}" style="color:#7c3aed">⚠</span>` : ''}${
-        r._classified
-          ? ` <span title="${esc(r['Argumentos_clasif'] || '')}\n\nCuenta: ${esc(r['CUENTA'] || '—')}\nSubcuenta: ${esc(r['SUBCUENTA'] || '—')}\nCategoría: ${esc(r['CATEGORIA'] || '—')}\nConcepto: ${esc(r['CONCEPTO'] || '—')}" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-weight:700;font-size:9px;border:1px solid #93c5fd;cursor:help">🏷 ${r._classifProb}%</span>`
-          : ''
-      }</td>
+      <td style="padding:6px 8px;color:#0f172a">${esc(r['DESCRIPCION'])}${r.COMENTARIOS ? ` <span title="${esc(r.COMENTARIOS)}" style="color:#7c3aed">⚠</span>` : ''}</td>
       <td style="padding:6px 8px;text-align:right;color:#b91c1c">${fmt$(r['CARGO'])}</td>
       <td style="padding:6px 8px;text-align:right;color:#15803d">${fmt$(r['ABONO'])}</td>
       <td style="padding:6px 8px;text-align:right;color:#475569">${typeof r['SALDO']==='string' ? esc(r['SALDO']) : fmt$(r['SALDO'])}</td>
       <td style="padding:6px 8px;text-align:right;font-weight:700;color:${montoColor}">${montoFmt}</td>
+      <td style="padding:6px 8px;text-align:right;font-weight:700;color:${
+        r['Probabilidad_clasif'] >= 50 ? '#15803d'
+        : r['Probabilidad_clasif'] >= 30 ? '#a16207'
+        : '#94a3b8'
+      }">${r['Probabilidad_clasif'] !== undefined && r['Probabilidad_clasif'] !== '' ? `${r['Probabilidad_clasif']}%` : '—'}</td>
+      <td style="padding:6px 8px;font-size:10px;color:#475569;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(r['Argumentos_clasif'] || '')}">${esc((r['Argumentos_clasif'] || '').slice(0, 80))}${(r['Argumentos_clasif'] || '').length > 80 ? '…' : ''}</td>
     </tr>`;
   }).join('');
   body.innerHTML = html;
