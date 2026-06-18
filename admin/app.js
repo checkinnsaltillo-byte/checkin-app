@@ -17253,10 +17253,21 @@ async function bnUploadHandleFiles(files) {
   bnUploadRenderPreview();
 }
 
-/** Parsea un xlsx según el formato BBVA: marcadores de subcuenta + filas. */
+/** Parsea un xlsx según el formato BBVA: marcadores de subcuenta + filas.
+ *  Wrapper que acepta File del input (lee como ArrayBuffer). */
 async function bnUploadParseXlsx(file) {
   const buf = await file.arrayBuffer();
+  return bnUploadParseXlsxFromBuffer(buf, file.name);
+}
+
+/** Versión low-level: parsea desde un ArrayBuffer + filename ya conocido.
+ *  Reusable para Drive (download como base64 → bytes → ArrayBuffer). */
+async function bnUploadParseXlsxFromBuffer(buf, fileName) {
   const wb = XLSX.read(buf, { type: 'array', cellDates: false });
+  return _bnUploadParseWorkbook(wb, fileName);
+}
+
+async function _bnUploadParseWorkbook(wb, fileName) {
   const out = [];
   for (const sheetName of wb.SheetNames) {
     const sh = wb.Sheets[sheetName];
@@ -17316,7 +17327,7 @@ async function bnUploadParseXlsx(file) {
       const anio = String(date.getFullYear());
       const mes  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][date.getMonth()];
       out.push({
-        _archivo: file.name,
+        _archivo: fileName,
         _tagOrig: curTagOrig,
         'Año': anio,
         'Mes': mes,
@@ -17674,6 +17685,33 @@ async function bnUploadConfirmInsert() {
     const j = await res.json();
     if (!j.ok) throw new Error(j.error || 'Insert falló');
     if (status) status.textContent = `✓ ${j.inserted} filas insertadas en BANCOS. Refrescando índice…`;
+    // Si el origen fue Drive, marca cada file_id como importado para que
+    // la próxima vez aparezca deseleccionado en el picker.
+    try {
+      const byFile = {};
+      for (const r of rows) {
+        if (!r._driveFileId) continue;
+        if (!byFile[r._driveFileId]) byFile[r._driveFileId] = { name: r._driveFileName, count: 0 };
+        byFile[r._driveFileId].count++;
+      }
+      for (const [fileId, info] of Object.entries(byFile)) {
+        await fetch(BN_TV_APPSSCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'bn_imported_files_mark',
+            file_id: fileId,
+            filename: info.name,
+            folder_id: typeof BN_DRIVE_FOLDER_ID !== 'undefined' ? BN_DRIVE_FOLDER_ID : '',
+            rows_inserted: info.count,
+            imported_by: typeof currentUser !== 'undefined' ? currentUser : '',
+          }),
+          redirect: 'follow',
+        });
+      }
+    } catch (e) {
+      console.warn('[BN drive] No se pudo marcar archivos como importados:', e?.message || e);
+    }
     await bnUploadRefreshDedupe();
     bnUploadClearPreview();
     if (status) status.textContent = `✓ Listo. ${j.inserted} filas insertadas correctamente.`;
@@ -17681,3 +17719,195 @@ async function bnUploadConfirmInsert() {
     if (status) status.textContent = `⚠ Error al insertar: ${e.message}`;
   }
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// ║  DRIVE FOLDER IMPORTER — UI + lógica de selección + descarga         ║
+// ╚════════════════════════════════════════════════════════════════════════
+
+const BN_DRIVE_FOLDER_ID = "1pnUUvWpt0yzYjIwtkiYM2F2T_iLN9lNZ";
+const BN_DRIVE_STATE = {
+  files: [],          // [{id, name, mimeType, size, lastModified, _imported}]
+  importedIds: null,  // Set de file_ids ya importados
+  processedThisRun: [], // [{file_id, name, rows_inserted}] para marcar tras insert exitoso
+};
+
+/** Click en "Leer archivos de Drive" → muestra el panel con la lista. */
+window.bnDrivePickerOpen = async function() {
+  const status = document.getElementById('bn-upload-status');
+  const panel = document.getElementById('bn-drive-panel');
+  if (status) status.textContent = '⏳ Listando archivos de Drive…';
+  try {
+    const [filesRes, importedRes] = await Promise.all([
+      fetch(BN_TV_APPSSCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'bn_drive_list_files', folder_id: BN_DRIVE_FOLDER_ID }),
+        redirect: 'follow',
+      }).then(r => r.json()),
+      fetch(BN_TV_APPSSCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'bn_imported_files_list' }),
+        redirect: 'follow',
+      }).then(r => r.json()),
+    ]);
+    if (!filesRes.ok) throw new Error(filesRes.error || 'No se pudo listar Drive');
+    const importedIds = new Set((importedRes.files || []).map(f => f.file_id));
+    BN_DRIVE_STATE.files = (filesRes.files || []).map(f => ({ ...f, _imported: importedIds.has(f.id) }));
+    BN_DRIVE_STATE.importedIds = importedIds;
+    bnDriveRenderPicker();
+    if (panel) panel.style.display = '';
+    if (status) {
+      const newCount = BN_DRIVE_STATE.files.filter(f => !f._imported).length;
+      status.textContent = `✓ ${BN_DRIVE_STATE.files.length} archivos en Drive · ${importedIds.size} ya importados · ${newCount} nuevos`;
+    }
+  } catch (e) {
+    if (status) status.textContent = `⚠ Error al listar Drive: ${e.message}`;
+  }
+};
+
+window.bnDriveClosePanel = function() {
+  const panel = document.getElementById('bn-drive-panel');
+  if (panel) panel.style.display = 'none';
+};
+
+function bnDriveRenderPicker() {
+  const list = document.getElementById('bn-drive-files-list');
+  const countEl = document.getElementById('bn-drive-count');
+  if (!list) return;
+  const files = BN_DRIVE_STATE.files;
+  const fmt$ = (n) => {
+    if (n < 1024) return `${n} B`;
+    if (n < 1024*1024) return `${(n/1024).toFixed(1)} KB`;
+    return `${(n/(1024*1024)).toFixed(2)} MB`;
+  };
+  const fmtDate = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  };
+  list.innerHTML = files.map(f => {
+    // Por default: nuevos = checked, importados = unchecked
+    const checked = !f._imported ? 'checked' : '';
+    const bg = f._imported ? '#f1f5f9' : '#fff';
+    const opacity = f._imported ? '.7' : '1';
+    const tag = f._imported
+      ? '<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:9px;font-weight:700;border:1px solid #fde68a">ya importado</span>'
+      : '<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:#dcfce7;color:#15803d;font-size:9px;font-weight:700;border:1px solid #86efac">nuevo</span>';
+    return `
+      <label style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;background:${bg};opacity:${opacity};border-bottom:1px solid #f1f5f9">
+        <input type="checkbox" name="bn-drive-file" value="${esc(f.id)}" ${checked} onchange="bnDriveUpdateSelectedInfo()" style="cursor:pointer">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:13px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span>
+            ${tag}
+          </div>
+          <div style="font-size:10px;color:#64748b;margin-top:2px">${fmt$(f.size)} · modificado ${fmtDate(f.lastModified)}</div>
+        </div>
+      </label>`;
+  }).join('') || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic">Sin archivos xlsx/csv en la carpeta.</div>';
+  if (countEl) countEl.textContent = `${files.length} archivos`;
+  bnDriveUpdateSelectedInfo();
+}
+
+window.bnDriveUpdateSelectedInfo = function() {
+  const sel = document.querySelectorAll('input[name="bn-drive-file"]:checked').length;
+  const info = document.getElementById('bn-drive-selected-info');
+  if (info) info.textContent = `${sel} archivo${sel===1?'':'s'} seleccionado${sel===1?'':'s'}`;
+  const btn = document.getElementById('bn-drive-process-btn');
+  if (btn) {
+    btn.disabled = sel === 0;
+    btn.style.opacity = sel === 0 ? '.5' : '';
+    btn.style.cursor = sel === 0 ? 'not-allowed' : 'pointer';
+  }
+};
+
+window.bnDriveSelectAll = function() {
+  document.querySelectorAll('input[name="bn-drive-file"]').forEach(cb => cb.checked = true);
+  bnDriveUpdateSelectedInfo();
+};
+window.bnDriveSelectNone = function() {
+  document.querySelectorAll('input[name="bn-drive-file"]').forEach(cb => cb.checked = false);
+  bnDriveUpdateSelectedInfo();
+};
+window.bnDriveSelectAllNew = function() {
+  document.querySelectorAll('input[name="bn-drive-file"]').forEach(cb => {
+    const id = cb.value;
+    const f = BN_DRIVE_STATE.files.find(x => x.id === id);
+    cb.checked = f && !f._imported;
+  });
+  bnDriveUpdateSelectedInfo();
+};
+
+/** Convierte base64 a ArrayBuffer (necesario para XLSX.read type:'array'). */
+function bnDriveBase64ToArrayBuffer(base64) {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+
+/** Descarga cada archivo seleccionado, parsea (xlsx o csv), construye preview. */
+window.bnDriveProcessSelected = async function() {
+  const checks = [...document.querySelectorAll('input[name="bn-drive-file"]:checked')];
+  if (!checks.length) { alert('Selecciona al menos un archivo.'); return; }
+  const status = document.getElementById('bn-upload-status');
+  if (!BN_UPLOAD_STATE.cuentasMap || !BN_UPLOAD_STATE.dedupeKeys) {
+    await bnUploadInit();
+  }
+  if (typeof XLSX === 'undefined') {
+    if (status) status.textContent = '⚠ SheetJS no se cargó. Recarga la página.';
+    return;
+  }
+  const selectedIds = checks.map(c => c.value);
+  BN_DRIVE_STATE.processedThisRun = [];
+  const allRows = [];
+  let done = 0;
+  for (const id of selectedIds) {
+    const meta = BN_DRIVE_STATE.files.find(f => f.id === id) || { name: id };
+    done++;
+    if (status) status.textContent = `⏳ Descargando ${done}/${selectedIds.length}: ${meta.name}…`;
+    try {
+      const res = await fetch(BN_TV_APPSSCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'bn_drive_get_file', file_id: id }),
+        redirect: 'follow',
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'download failed');
+      const ext = (meta.name.split('.').pop() || '').toLowerCase();
+      let parsed = [];
+      const buf = bnDriveBase64ToArrayBuffer(j.base64);
+      if (ext === 'xlsx' || ext === 'xls') {
+        parsed = await bnUploadParseXlsxFromBuffer(buf, meta.name);
+      } else if (ext === 'csv') {
+        // CSV: decode bytes a string y parse con SheetJS
+        const text = new TextDecoder('utf-8').decode(new Uint8Array(buf));
+        const wb = XLSX.read(text, { type: 'string' });
+        parsed = await _bnUploadParseWorkbook(wb, meta.name);
+      } else {
+        allRows.push({ _error: `Formato .${ext} aún no soportado (${meta.name})` });
+        continue;
+      }
+      // Marca cada fila con su _driveFileId para tracking post-insert
+      parsed.forEach(p => { p._driveFileId = id; p._driveFileName = meta.name; });
+      allRows.push(...parsed);
+      BN_DRIVE_STATE.processedThisRun.push({ file_id: id, name: meta.name, parsed_count: parsed.length });
+    } catch (e) {
+      console.warn('[BN drive]', meta.name, e);
+      allRows.push({ _error: `Error en ${meta.name}: ${e.message}` });
+    }
+  }
+  if (status) status.textContent = `⏳ Procesando ${allRows.length} filas…`;
+  bnUploadAssignCountersAndDedupe(allRows);
+  bnUploadClassifyRows(allRows);
+  BN_UPLOAD_STATE.parsedRows = allRows;
+  bnUploadRenderPreview();
+  bnDriveClosePanel();
+  if (status) {
+    const newCount = allRows.filter(r => r._status === 'new').length;
+    status.textContent = `✓ ${allRows.length} filas parseadas de ${selectedIds.length} archivo(s) · ${newCount} nuevas para insertar`;
+  }
+};

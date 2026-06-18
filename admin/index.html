@@ -663,12 +663,34 @@
             </label>
             <input id="bn-upload-input" type="file" multiple accept=".xlsx,.xls,.csv,.txt,.pdf"
                    onchange="bnUploadHandleFiles(this.files)" style="display:none">
+            <button type="button" onclick="bnDrivePickerOpen()" title="Lee todos los archivos xlsx/csv de la carpeta de Drive configurada"
+                    style="padding:10px 14px;border:1.5px solid #0d9488;background:linear-gradient(180deg,#ccfbf1,#fff);color:#0f766e;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(13,148,136,.18)">
+              <span style="font-size:15px">📁</span> Leer archivos de Drive
+            </button>
             <button type="button" onclick="bnUploadRefreshDedupe()" title="Re-lee el índice de BANCOS desde el sheet. Útil si redeployaste el Apps Script o si otra sesión escribió a BANCOS."
                     style="padding:8px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px">
               <span style="font-size:13px">🔄</span> Refrescar índice
             </button>
           </div>
           <div id="bn-upload-status" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
+          <!-- Panel de selección de archivos de Drive (oculto por default) -->
+          <div id="bn-drive-panel" style="display:none;background:#f0fdfa;border:1.5px solid #5eead4;border-radius:10px;padding:14px;margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+              <div style="font-weight:800;font-size:13px;color:#0f766e">📁 Archivos en Drive</div>
+              <span id="bn-drive-count" style="font-size:11px;color:#475569"></span>
+              <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+                <button type="button" onclick="bnDriveSelectAllNew()" style="padding:5px 9px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;cursor:pointer">✓ Solo nuevos</button>
+                <button type="button" onclick="bnDriveSelectAll()" style="padding:5px 9px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;cursor:pointer">✓ Todos</button>
+                <button type="button" onclick="bnDriveSelectNone()" style="padding:5px 9px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;cursor:pointer">✕ Ninguno</button>
+                <button type="button" onclick="bnDriveClosePanel()" style="padding:5px 9px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;cursor:pointer">⤬ Cerrar</button>
+              </div>
+            </div>
+            <div id="bn-drive-files-list" style="max-height:320px;overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:4px"></div>
+            <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span id="bn-drive-selected-info" style="font-size:11px;color:#475569"></span>
+              <button id="bn-drive-process-btn" onclick="bnDriveProcessSelected()" style="margin-left:auto;padding:8px 16px;border:1.5px solid #0d9488;background:linear-gradient(180deg,#ccfbf1,#fff);color:#0f766e;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer">📥 Procesar seleccionados</button>
+            </div>
+          </div>
           <div id="bn-upload-preview-wrap" style="display:none">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
               <div style="font-size:13px;font-weight:800;color:#0f172a">Vista previa</div>
@@ -1397,6 +1419,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=308"></script>
+  <script src="app.js?v=309"></script>
 </body>
 </html>
