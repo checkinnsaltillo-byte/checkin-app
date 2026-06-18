@@ -17192,10 +17192,10 @@ async function bnUploadRefreshDedupe() {
 async function bnUploadHandleFiles(files) {
   if (!files || !files.length) return;
   const status = document.getElementById('bn-upload-status');
-  // SIEMPRE refresca el índice de dedupe contra BANCOS. Evita el caso
-  // "redeployé el Apps Script pero el frontend sigue con la versión vieja
-  // del Set en memoria" que causaba falsos negativos.
-  BN_UPLOAD_STATE.dedupeKeys = null;
+  // Solo carga si no está cacheado. Cargar 5000+ filas de BANCOS toma
+  // 5-15 segundos, no queremos hacerlo en cada upload. Si necesitas
+  // forzar refresh tras un redeploy del Apps Script, usa el botón
+  // "Refrescar índice" o ejecuta bnUploadRefreshDedupe() en consola.
   if (!BN_UPLOAD_STATE.cuentasMap || !BN_UPLOAD_STATE.dedupeKeys) {
     await bnUploadInit();
   }
@@ -17386,15 +17386,19 @@ function bnUploadNumStr(v) {
   return s.trim();
 }
 
-/** Asigna contador #N por grupo (DíaISO|Cuenta|Subcuenta|Desc|CARGO|ABONO)
- *  y marca cada fila con _status: 'new' | 'duplicate'.
- *  Dedupe robusto a Subcuenta vacía en BANCOS: filas viejas insertadas
- *  antes de mapear subcuentas tienen Subcuenta="". Si la key exacta no
- *  matchea pero la key con Subcuenta vacía SÍ, también se marca duplicada
- *  (asumimos que BANCOS sin subcuenta es compatible con cualquiera). */
+/** Asigna estado de dedupe a cada fila. Dos niveles:
+ *  1. WITHIN-UPLOAD: si 2 filas son IDÉNTICAS (incluyendo SALDO no-vacío),
+ *     son la misma transacción listada dos veces en el archivo fuente.
+ *     La segunda se marca 'duplicate' con _withinUploadDup=true → no se
+ *     inserta. Esto pasa cuando dos statements solapados incluyen el mismo
+ *     movimiento. SALDO es la huella canónica: si fueran 2 cargos legítimos,
+ *     el saldo corriente tendría que cambiar entre ellos.
+ *  2. VS BANCOS: con la key normal (sin SALDO porque BANCOS lo puede tener
+ *     vacío), match exacto o "loose" si BANCOS tiene Subcuenta vacía. */
 function bnUploadAssignCountersAndDedupe(rows) {
   const countersFull = {};
-  const countersLoose = {}; // key con Subcuenta vacía
+  const countersLoose = {};
+  const seenInUpload = {};                // detecta within-upload dups
   const set = BN_UPLOAD_STATE.dedupeKeys;
   for (const r of rows) {
     if (r._error) continue;
@@ -17404,8 +17408,21 @@ function bnUploadAssignCountersAndDedupe(rows) {
     const desc = bnUploadNormStr(r['DESCRIPCION']);
     const car = bnUploadNumStr(r['CARGO']);
     const abo = bnUploadNumStr(r['ABONO']);
+    const sal = bnUploadNumStr(r['SALDO']);
+    // ─── Paso 1: within-upload dedupe por SALDO (huella canónica) ───
+    if (sal) {
+      const fingerprint = [dia, cta, sub, desc, car, abo, sal].join('|');
+      if (seenInUpload[fingerprint]) {
+        r._status = 'duplicate';
+        r._withinUploadDup = true;
+        r._dedupeKey = fingerprint + '|withinUpload';
+        continue;
+      }
+      seenInUpload[fingerprint] = true;
+    }
+    // ─── Paso 2: contador #N + check vs BANCOS ───
     const baseFull  = [dia, cta, sub, desc, car, abo].join('|');
-    const baseLoose = [dia, cta, '',  desc, car, abo].join('|'); // sin sub
+    const baseLoose = [dia, cta, '',  desc, car, abo].join('|');
     countersFull[baseFull]   = (countersFull[baseFull]   || 0) + 1;
     countersLoose[baseLoose] = (countersLoose[baseLoose] || 0) + 1;
     const keyFull  = baseFull  + '|#' + countersFull[baseFull];
@@ -17415,7 +17432,7 @@ function bnUploadAssignCountersAndDedupe(rows) {
       r._status = 'duplicate';
     } else if (set && set.has(keyLoose)) {
       r._status = 'duplicate';
-      r._matchedLoose = true; // visible en la preview con un mini-tag
+      r._matchedLoose = true;
     } else {
       r._status = 'new';
     }
@@ -17478,9 +17495,11 @@ function bnUploadRenderPreview() {
   const html = rows.map(r => {
     if (r._error) return `<tr style="background:#fef2f2"><td colspan="${BN_UPLOAD_COLS.length}" style="padding:6px 8px;color:#b91c1c;font-style:italic">${esc(r._error)}</td></tr>`;
     const badge = r._status === 'duplicate'
-      ? (r._matchedLoose
-          ? '<span title="BANCOS tiene una fila igual pero sin Subcuenta — se considera duplicada" style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:700;font-size:10px;border:1px solid #fde68a">⊝ Duplicada<span style="font-size:9px;opacity:.7"> ·sin sub</span></span>'
-          : '<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:700;font-size:10px;border:1px solid #fde68a">⊝ Duplicada</span>')
+      ? (r._withinUploadDup
+          ? '<span title="Esta fila es idéntica a otra del mismo upload (mismo SALDO) — fue ignorada para evitar duplicar" style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fce7f3;color:#9d174d;font-weight:700;font-size:10px;border:1px solid #fbcfe8">⊝ Duplicada<span style="font-size:9px;opacity:.7"> ·en archivo</span></span>'
+          : r._matchedLoose
+            ? '<span title="BANCOS tiene una fila igual pero sin Subcuenta — se considera duplicada" style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:700;font-size:10px;border:1px solid #fde68a">⊝ Duplicada<span style="font-size:9px;opacity:.7"> ·sin sub</span></span>'
+            : '<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:700;font-size:10px;border:1px solid #fde68a">⊝ Duplicada</span>')
       : '<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:700;font-size:10px;border:1px solid #86efac">+ Nueva</span>';
     const bg = r._status === 'duplicate' ? 'background:#fffbeb' : (r.COMENTARIOS ? 'background:#faf5ff' : '');
     const montoFmt = (r.Monto === '' || r.Monto === null || r.Monto === undefined) ? '<span style="color:#94a3b8;font-style:italic">vacío</span>' : fmt$(r.Monto);

@@ -663,6 +663,10 @@
             </label>
             <input id="bn-upload-input" type="file" multiple accept=".xlsx,.xls,.csv,.txt,.pdf"
                    onchange="bnUploadHandleFiles(this.files)" style="display:none">
+            <button type="button" onclick="bnUploadRefreshDedupe()" title="Re-lee el índice de BANCOS desde el sheet. Útil si redeployaste el Apps Script o si otra sesión escribió a BANCOS."
+                    style="padding:8px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px">
+              <span style="font-size:13px">🔄</span> Refrescar índice
+            </button>
           </div>
           <div id="bn-upload-status" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
           <div id="bn-upload-preview-wrap" style="display:none">
@@ -1393,6 +1397,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=304"></script>
+  <script src="app.js?v=306"></script>
 </body>
 </html>
