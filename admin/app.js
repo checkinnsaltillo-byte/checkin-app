@@ -17544,12 +17544,15 @@ function bnUploadClassifyRows(rows) {
     const descPrev = String(best.h.descripcion || '').slice(0, 40);
     r['Argumentos_clasif'] =
       `"${descPrev}" — desc:${Math.round(best.descSim*100)}% monto:${Math.round(best.montoSim*100)}% [${best.h.cuenta||''}/${best.h.subcuenta||''}/${best.h.categoria||''}/${best.h.concepto||''}]`;
-    // APLICA clasificación solo si supera el umbral
+    // APLICA clasificación solo si supera el umbral. Se escribe a las
+    // columnas *_auto (sugerencia automática) y NO a las CUENTA/SUBCUENTA/
+    // CATEGORIA/CONCEPTO originales — esas quedan reservadas para la
+    // clasificación manual final del usuario en el módulo Registros.
     if (best.score >= THRESHOLD) {
-      r['CUENTA']    = best.h.cuenta;
-      r['SUBCUENTA'] = best.h.subcuenta;
-      r['CATEGORIA'] = best.h.categoria;
-      r['CONCEPTO']  = best.h.concepto;
+      r['CUENTA_auto']    = best.h.cuenta;
+      r['SUBCUENTA_auto'] = best.h.subcuenta;
+      r['CATEGORIA_auto'] = best.h.categoria;
+      r['CONCEPTO_auto']  = best.h.concepto;
       r._classified = true;
       r._classifProb = Math.round(best.score * 100);
     }
