@@ -12807,58 +12807,41 @@ function lodgifyRender(opts) {
         return s.length >= 10 ? s.slice(-10) : '';
       };
       const latestByTail = new Map();
-      const noPhone = []; // filas sin teléfono → no dedup por teléfono
       for (const r of hu) {
         const tail = phoneTail(r['Cel/Whatsapp (principal)']);
-        if (!tail) { noPhone.push(r); continue; }
+        if (!tail) continue;
         const cur = latestByTail.get(tail);
         const dThis = String(r['Fecha de ingreso'] || '');
         if (!cur || dThis > String(cur['Fecha de ingreso'] || '')) {
           latestByTail.set(tail, r);
         }
       }
-      // Segundo pase de dedupe: por (propiedad + fechas). Cuando una misma
-      // reserva está duplicada con dos teléfonos distintos (ej. la propagada
-      // de Lodgify usa otro celular que el registro manual del huésped),
-      // colapsamos ambas filas en una sola — preferimos la que tenga
-      // registro manual completo; si ninguna lo tiene, la más reciente.
-      const survivors = Array.from(latestByTail.values()).concat(noPhone);
-      const byPropDates = new Map();
-      for (const r of survivors) {
+      LG_STATE.__syntheticCache = Array.from(latestByTail.values()).map(huRowToSyntheticBooking).filter(Boolean);
+      // Marcar bookings con probable match (propiedad+fechas, distinto celular)
+      const propIndex = new Map();
+      for (const r of hu) {
         const propKey = lgNormPropName(r['Propiedad'] || '');
         const arrIso  = String(r['Fecha de ingreso'] || '').slice(0,10);
         const depIso  = String(r['Fecha de salida'] || '').slice(0,10);
         if (!propKey || !arrIso || !depIso) continue;
         const key = `${propKey}|${arrIso}|${depIso}`;
-        if (!byPropDates.has(key)) byPropDates.set(key, []);
-        byPropDates.get(key).push(r);
+        if (!propIndex.has(key)) propIndex.set(key, []);
+        propIndex.get(key).push(r);
       }
-      const dropped = new Set();
-      const probableIds = new Set();
-      for (const rows of byPropDates.values()) {
-        if (rows.length <= 1) continue;
-        rows.sort((a, b) => {
-          const ma = huHasManualRegistration(a) ? 1 : 0;
-          const mb = huHasManualRegistration(b) ? 1 : 0;
-          if (ma !== mb) return mb - ma;
-          return String(b['Fecha de ingreso']||'').localeCompare(String(a['Fecha de ingreso']||''));
-        });
-        const winner = rows[0];
-        const losers = rows.slice(1);
-        losers.forEach(r => dropped.add(r));
-        const wTail = phoneTail(winner['Cel/Whatsapp (principal)']);
-        const diffPhone = losers.some(l => {
-          const lt = phoneTail(l['Cel/Whatsapp (principal)']);
-          return lt && lt !== wTail;
-        });
-        if (diffPhone) {
-          probableIds.add(String(winner['ID'] || winner['row_number'] || ''));
-        }
-      }
-      const finalRows = survivors.filter(r => !dropped.has(r));
-      LG_STATE.__syntheticCache = finalRows.map(huRowToSyntheticBooking).filter(Boolean);
       LG_STATE.__syntheticCache.forEach(b => {
-        if (probableIds.has(String(b.Id))) b.__reservacionMatchKind = 'probable';
+        const rsv = b.__reservacion; if (!rsv) return;
+        const propKey = lgNormPropName(rsv['Propiedad'] || '');
+        const arrIso  = String(rsv['Fecha de ingreso'] || '').slice(0,10);
+        const depIso  = String(rsv['Fecha de salida'] || '').slice(0,10);
+        if (!propKey || !arrIso || !depIso) return;
+        const peers = propIndex.get(`${propKey}|${arrIso}|${depIso}`) || [];
+        if (peers.length < 2) return;
+        const myTail = phoneTail(rsv['Cel/Whatsapp (principal)']);
+        const diffPhone = peers.some(p => {
+          const pt = phoneTail(p['Cel/Whatsapp (principal)']);
+          return pt && pt !== myTail;
+        });
+        if (diffPhone) b.__reservacionMatchKind = 'probable';
       });
       LG_STATE.__syntheticCacheKey = cacheKey;
     }
@@ -14781,17 +14764,56 @@ function lgBuildHuespedSectionHtml_lite(huesped) {
       </div>` : ''}
     </div>`;
 
-  // ─── Col 2: Reservas totales (filtrado por teléfono, máx 30) ───
+  // ─── Col 2: Reservas totales (filtrado por teléfono + probables) ───
   const celTail = lgNormalizePhone(cel).slice(-10);
-  const history = celTail
-    ? (HU_STATE.rows || []).filter(x => lgExtractHuespedPhoneTail(x) === celTail)
+  const allRows = HU_STATE.rows || [];
+  const exactList = celTail
+    ? allRows.filter(x => lgExtractHuespedPhoneTail(x) === celTail)
     : [huesped];
-  // Orden descendente por fecha de ingreso
+  // Probable: misma propiedad + fechas, pero teléfono distinto
+  const exactIds = new Set(exactList.map(x => String(x['ID']||x['row_number']||'')));
+  const propDateKeys = new Set();
+  for (const x of exactList) {
+    const pk = lgNormPropName(huValueFlexible(x, ['Propiedad']));
+    const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
+    const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
+    if (pk && ar && dp) propDateKeys.add(`${pk}|${ar}|${dp}`);
+  }
+  const probableList = allRows.filter(x => {
+    const xid = String(x['ID']||x['row_number']||'');
+    if (exactIds.has(xid)) return false;
+    const pk = lgNormPropName(huValueFlexible(x, ['Propiedad']));
+    const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
+    const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
+    if (!pk || !ar || !dp) return false;
+    return propDateKeys.has(`${pk}|${ar}|${dp}`);
+  });
+  const probableIdsSet = new Set(probableList.map(x => String(x['ID']||x['row_number']||'')));
+  const history = [...exactList, ...probableList];
   history.sort((a, b) => {
     const da = String(huValueFlexible(a, ['Fecha de ingreso']) || '');
     const db = String(huValueFlexible(b, ['Fecha de ingreso']) || '');
     return db.localeCompare(da);
   });
+  // Color por grupo (mismo prop+fechas con >1 fila) para que se vean relacionadas
+  const palette2 = ['#a78bfa','#f472b6','#34d399','#fb923c','#60a5fa','#facc15'];
+  const groupOfId2 = new Map();
+  const groupCount2 = new Map();
+  history.forEach(x => {
+    const xid = String(x['ID']||x['row_number']||'');
+    const pk = lgNormPropName(huValueFlexible(x, ['Propiedad']));
+    const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
+    const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
+    if (!pk || !ar || !dp) return;
+    const gk = `${pk}|${ar}|${dp}`;
+    groupOfId2.set(xid, gk);
+    groupCount2.set(gk, (groupCount2.get(gk)||0)+1);
+  });
+  const colorOfGroup2 = new Map();
+  let pi2 = 0;
+  for (const [gk, n] of groupCount2) {
+    if (n > 1) { colorOfGroup2.set(gk, palette2[pi2 % palette2.length]); pi2++; }
+  }
   const currentRecId = String(huesped['ID']||huesped['row_number']||'');
   const maxHistory = Math.min(history.length, 30);
   const historyItems = history.slice(0, maxHistory).map(x => {
@@ -14802,14 +14824,28 @@ function lgBuildHuespedSectionHtml_lite(huesped) {
     const depto   = huValueFlexible(x, ['# Departamento']);
     const noches  = huValueFlexible(x, ['# Noches']);
     const monto   = huValueFlexible(x, ['$ Monto facturado Total','($) Monto Total pagado']);
+    const xCel    = String(huValueFlexible(x, ['Cel/Whatsapp (principal)','Celular principal']) || '');
     const isCurr  = xid === currentRecId;
+    const isProb  = probableIdsSet.has(xid);
+    const gk      = groupOfId2.get(xid) || '';
+    const groupColor = gk ? (colorOfGroup2.get(gk) || '') : '';
+    const groupBar   = groupColor ? `border-left:5px solid ${groupColor};` : '';
+    const linkChip = groupColor
+      ? `<span title="Relacionada por propiedad+fechas" style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;border-radius:999px;background:${groupColor}22;color:#334155;font-weight:800;font-size:8px;border:1px solid ${groupColor}"><span style="color:${groupColor}">⇄</span> REL</span>`
+      : '';
+    const probChip = isProb ? `<span style="font-size:8px;padding:1px 6px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:800;letter-spacing:.04em;border:1px solid #fcd34d">⚠ PROB</span>` : '';
     return `
-      <div style="padding:9px 11px;border:1.5px solid ${isCurr?'#fbbf24':'transparent'};border-radius:8px;background:#fff;margin-bottom:5px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px">
+      <div style="padding:9px 11px;border:1.5px solid ${isCurr?'#fbbf24':'transparent'};${groupBar}border-radius:8px;background:#fff;margin-bottom:5px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px;flex-wrap:wrap">
           <div style="font-size:11px;font-weight:800;color:#0f172a">${fmtFecha(ingreso)} → ${fmtFecha(salida)}</div>
-          ${isCurr ? '<span style="font-size:8px;padding:1px 6px;border-radius:999px;background:#fbbf24;color:#451a03;font-weight:800;letter-spacing:.04em">ESTA</span>' : ''}
+          <div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap">
+            ${linkChip}
+            ${probChip}
+            ${isCurr ? '<span style="font-size:8px;padding:1px 6px;border-radius:999px;background:#fbbf24;color:#451a03;font-weight:800;letter-spacing:.04em">ESTA</span>' : ''}
+          </div>
         </div>
         <div style="font-size:10px;color:#64748b;font-weight:500">${esc(prop||'—')}${depto?' · # '+esc(depto):''}</div>
+        ${isProb && xCel ? `<div style="font-size:9px;color:#92400e;margin-top:1px">📱 ${esc(xCel)}</div>` : ''}
         <div style="display:flex;justify-content:space-between;margin-top:2px;font-size:10px">
           <span style="color:#94a3b8">${esc(noches||'—')} noche${String(noches)==='1'?'':'s'}</span>
           ${monto ? `<span style="color:#0f766e;font-weight:700">${(typeof huFmtMonto==='function')?huFmtMonto(monto):esc(monto)}</span>` : ''}
@@ -15036,20 +15072,62 @@ function lgBuildHuespedProfile(h) {
 function lgBuildHuespedHistory(h, currentBooking) {
   if (!h) return '';
   const cel = huValueFlexible(h, ['Cel/Whatsapp (principal)','Celular principal']);
-  if (!cel) return '';
-  const list = (HU_STATE.rows || []).filter(x =>
-    lgNormalizePhone(huValueFlexible(x, ['Cel/Whatsapp (principal)','Celular principal'])).slice(-10) ===
-    lgNormalizePhone(cel).slice(-10)
-  );
-  if (list.length <= 1) return '';
+  const tail = lgNormalizePhone(cel).slice(-10);
+  const allRows = HU_STATE.rows || [];
+  // 1) Reservaciones del mismo teléfono (match exacto)
+  const exactList = tail
+    ? allRows.filter(x => lgNormalizePhone(huValueFlexible(x, ['Cel/Whatsapp (principal)','Celular principal'])).slice(-10) === tail)
+    : [h];
+  // 2) Reservaciones "probable" — comparten propiedad + fechas con alguna
+  //    del set exacto, pero su teléfono es DISTINTO (no estaba ya incluida).
+  const exactIds = new Set(exactList.map(x => String(x['ID']||x['row_number']||'')));
+  const propDateKeys = new Set();
+  for (const x of exactList) {
+    const pk = lgNormPropName(huValueFlexible(x, ['Propiedad']));
+    const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
+    const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
+    if (pk && ar && dp) propDateKeys.add(`${pk}|${ar}|${dp}`);
+  }
+  const probableList = allRows.filter(x => {
+    const xid = String(x['ID']||x['row_number']||'');
+    if (exactIds.has(xid)) return false;
+    const pk = lgNormPropName(huValueFlexible(x, ['Propiedad']));
+    const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
+    const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
+    if (!pk || !ar || !dp) return false;
+    return propDateKeys.has(`${pk}|${ar}|${dp}`);
+  });
+  const probableIds = new Set(probableList.map(x => String(x['ID']||x['row_number']||'')));
+  // Mapa rowId → "grupo" de relacionadas (mismo prop+fechas). Usado para
+  // colorear con un mismo tono lateral las cards relacionadas.
+  const groupOfId = new Map();
+  const colorOfGroup = new Map();
+  const palette = ['#a78bfa','#f472b6','#34d399','#fb923c','#60a5fa','#facc15'];
+  const all = [...exactList, ...probableList];
+  all.forEach(x => {
+    const xid = String(x['ID']||x['row_number']||'');
+    const pk = lgNormPropName(huValueFlexible(x, ['Propiedad']));
+    const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
+    const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
+    const gk = (pk && ar && dp) ? `${pk}|${ar}|${dp}` : '';
+    if (gk) groupOfId.set(xid, gk);
+  });
+  // Cuenta filas por grupo; solo asignamos color a grupos con >1 elemento.
+  const groupCount = new Map();
+  for (const gk of groupOfId.values()) groupCount.set(gk, (groupCount.get(gk)||0)+1);
+  let pi = 0;
+  for (const [gk, n] of groupCount) {
+    if (n > 1) { colorOfGroup.set(gk, palette[pi % palette.length]); pi++; }
+  }
+
+  if (all.length <= 1) return '';
   const currentRecId = String(h['ID'] || h['row_number'] || '');
-  // Ordenar por fecha de ingreso descendente
-  list.sort((a, b) => {
+  all.sort((a, b) => {
     const da = String(huValueFlexible(a, ['Fecha de ingreso'])||'').slice(0,10);
     const db = String(huValueFlexible(b, ['Fecha de ingreso'])||'').slice(0,10);
     return db.localeCompare(da);
   });
-  const items = list.map(x => {
+  const items = all.map(x => {
     const xid     = String(x['ID'] || x['row_number'] || '');
     const ingreso = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
     const salida  = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
@@ -15057,23 +15135,43 @@ function lgBuildHuespedHistory(h, currentBooking) {
     const depto   = huValueFlexible(x, ['# Departamento']);
     const noches  = huValueFlexible(x, ['# Noches']);
     const monto   = huValueFlexible(x, ['$ Monto facturado Total','Monto Total pagado','($) Monto Total pagado']);
+    const xCel    = String(huValueFlexible(x, ['Cel/Whatsapp (principal)','Celular principal']) || '');
     const isCurr  = xid === currentRecId;
+    const isProb  = probableIds.has(xid);
+    const gk      = groupOfId.get(xid) || '';
+    const groupColor = gk ? (colorOfGroup.get(gk) || '') : '';
+    // Borde izquierdo del color del grupo cuando la reserva pertenece a un
+    // grupo de "relacionadas" (mismo prop+fechas). Una flechita ⇄ avisa que
+    // hay otras cards ligadas a ésta.
+    const groupBar = groupColor ? `border-left:6px solid ${groupColor};` : '';
+    const linkChip = groupColor
+      ? `<span title="Esta card está relacionada con otra(s) del mismo grupo (misma propiedad y fechas)" style="display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:999px;background:${groupColor}22;color:#334155;font-weight:800;font-size:9px;border:1px solid ${groupColor}"><span style="color:${groupColor};font-size:11px;line-height:1">⇄</span> RELACIONADA</span>`
+      : '';
+    const probChip = isProb ? `<span style="font-size:9px;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:800;letter-spacing:.04em;border:1px solid #fcd34d">⚠ PROBABLE</span>` : '';
     return `
-      <div style="padding:10px 12px;border:1.5px solid ${isCurr?'#fbbf24':'#e2e8f0'};border-radius:8px;background:${isCurr?'#fffbeb':'#fff'};margin-bottom:6px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px">
+      <div style="padding:10px 12px;border:1.5px solid ${isCurr?'#fbbf24':'#e2e8f0'};${groupBar}border-radius:8px;background:${isCurr?'#fffbeb':'#fff'};margin-bottom:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px;flex-wrap:wrap">
           <div style="font-size:12px;font-weight:800;color:#0f172a">${esc(ingreso)} → ${esc(salida)}</div>
-          ${isCurr ? '<span style="font-size:9px;padding:2px 7px;border-radius:999px;background:#fbbf24;color:#451a03;font-weight:800;letter-spacing:.04em">ESTA RESERVACIÓN</span>' : ''}
+          <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+            ${linkChip}
+            ${probChip}
+            ${isCurr ? '<span style="font-size:9px;padding:2px 7px;border-radius:999px;background:#fbbf24;color:#451a03;font-weight:800;letter-spacing:.04em">ESTA RESERVACIÓN</span>' : ''}
+          </div>
         </div>
         <div style="font-size:11px;color:#64748b">${esc(prop||'—')}${depto ? ' · # '+esc(depto) : ''}</div>
+        ${isProb && xCel ? `<div style="font-size:10px;color:#92400e;margin-top:2px">📱 ${esc(xCel)} <span style="color:#94a3b8">(celular distinto al match exacto)</span></div>` : ''}
         <div style="display:flex;justify-content:space-between;margin-top:3px;font-size:11px">
           <span style="color:#94a3b8">${esc(noches||'—')} noche${noches==='1'?'':'s'}</span>
           ${monto ? `<span style="font-weight:700;color:#0f766e">${(typeof huFmtMonto==='function')?huFmtMonto(monto):esc(monto)}</span>` : ''}
         </div>
       </div>`;
   }).join('');
+  const headerExtra = probableList.length
+    ? ` <span style="font-size:9px;color:#92400e;font-weight:700;letter-spacing:.04em">+ ${probableList.length} probable${probableList.length===1?'':'s'}</span>`
+    : '';
   return `
     <div style="background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 4px 16px rgba(15,23,42,.06);border:1.5px solid #e2e8f0;margin-top:12px">
-      <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800;margin-bottom:10px">📚 RESERVAS TOTALES (${list.length})</div>
+      <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800;margin-bottom:10px">📚 RESERVAS TOTALES (${all.length})${headerExtra}</div>
       ${items}
     </div>`;
 }
