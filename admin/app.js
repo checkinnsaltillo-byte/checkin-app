@@ -10544,18 +10544,54 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
   // SIEMPRE debe mostrar TODAS las reservaciones del mismo teléfono, no
   // solo la elegida por el sidebar. Por eso filtramos HU_STATE.rows
   // directamente, sin pasar por LG_STATE.lastFilteredList.
-  let list;
-  if (false) {
-    list = [];
-  } else {
-    list = (allRows || HU_STATE.rows || [])
-      .filter(x => tail && phoneTail(huValueFlexible(x, ['Cel/Whatsapp (principal)'])) === tail);
+  const _allRowsSrc = allRows || HU_STATE.rows || [];
+  // 1) Match exacto por teléfono
+  const exactList = _allRowsSrc.filter(x =>
+    tail && phoneTail(huValueFlexible(x, ['Cel/Whatsapp (principal)'])) === tail);
+  // 2) Match probable: misma propiedad + fechas exactas, teléfono distinto
+  const _exactIds = new Set(exactList.map(x => String(x['ID']||x['row_number']||'')));
+  const _propDateKeys = new Set();
+  for (const x of exactList) {
+    const pk = (typeof lgNormPropName === 'function') ? lgNormPropName(huValueFlexible(x, ['Propiedad'])) : String(huValueFlexible(x, ['Propiedad'])||'').toLowerCase().trim();
+    const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
+    const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
+    if (pk && ar && dp) _propDateKeys.add(`${pk}|${ar}|${dp}`);
   }
+  const probableList = _allRowsSrc.filter(x => {
+    const xid = String(x['ID']||x['row_number']||'');
+    if (_exactIds.has(xid)) return false;
+    const pk = (typeof lgNormPropName === 'function') ? lgNormPropName(huValueFlexible(x, ['Propiedad'])) : String(huValueFlexible(x, ['Propiedad'])||'').toLowerCase().trim();
+    const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
+    const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
+    if (!pk || !ar || !dp) return false;
+    return _propDateKeys.has(`${pk}|${ar}|${dp}`);
+  });
+  const _probIds = new Set(probableList.map(x => String(x['ID']||x['row_number']||'')));
+  const list = [...exactList, ...probableList];
   list.sort((a, b) => {
     const da = huValueFlexible(a, ['Fecha de ingreso']) || '';
     const db = huValueFlexible(b, ['Fecha de ingreso']) || '';
     return db.localeCompare(da);
   });
+  // Color por grupo (mismo prop+fechas con >1 fila)
+  const _palette = ['#a78bfa','#f472b6','#34d399','#fb923c','#60a5fa','#facc15'];
+  const _groupOfId = new Map();
+  const _groupCount = new Map();
+  list.forEach(x => {
+    const xid = String(x['ID']||x['row_number']||'');
+    const pk = (typeof lgNormPropName === 'function') ? lgNormPropName(huValueFlexible(x, ['Propiedad'])) : String(huValueFlexible(x, ['Propiedad'])||'').toLowerCase().trim();
+    const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
+    const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
+    if (!pk || !ar || !dp) return;
+    const gk = `${pk}|${ar}|${dp}`;
+    _groupOfId.set(xid, gk);
+    _groupCount.set(gk, (_groupCount.get(gk)||0)+1);
+  });
+  const _colorOfGroup = new Map();
+  let _pi = 0;
+  for (const [gk, n] of _groupCount) {
+    if (n > 1) { _colorOfGroup.set(gk, _palette[_pi % _palette.length]); _pi++; }
+  }
   const items = list.map(x => {
     const xid     = String(x['ID'] || x['row_number'] || '');
     const ingreso = huValueFlexible(x, ['Fecha de ingreso']);
@@ -10659,13 +10695,24 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
           </div>`;
       }
     }
+    const _gk = _groupOfId.get(xid) || '';
+    const _gColor = _gk ? (_colorOfGroup.get(_gk) || '') : '';
+    const _isProb = _probIds.has(xid);
+    const _xCel = String(huValueFlexible(x, ['Cel/Whatsapp (principal)','Celular principal']) || '');
+    const _groupBar = _gColor ? `box-shadow:inset 4px 0 0 ${_gColor};` : '';
+    const _linkChip = _gColor
+      ? `<span title="Esta card está relacionada con otra(s) del grupo (misma propiedad y fechas)" style="display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:999px;background:${_gColor}22;color:#334155;font-weight:800;font-size:9px;border:1px solid ${_gColor}"><span style="color:${_gColor};font-size:11px;line-height:1">⇄</span> RELACIONADA</span>`
+      : '';
+    const _probChip = _isProb ? `<span style="font-size:9px;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:800;letter-spacing:.04em;border:1px solid #fcd34d">⚠ PROBABLE</span>` : '';
     return `
       <div onclick="event.stopPropagation();huSelectReservation('${esc(outerCardRecId)}','${esc(xid)}')"
            data-hu-history-id="${esc(xid)}"
            class="hu-history-item ${isSel?'hu-history-active':''}"
-           style="padding:11px 11px 11px 13px;border:none;border-left:7px solid ${progBorder};border-radius:10px;cursor:pointer;background:#fff;transition:all 180ms cubic-bezier(.16,1,.3,1);${isSel?'box-shadow:0 4px 14px rgba(15,23,42,.14);transform:translateX(3px)':'box-shadow:0 1px 2px rgba(15,23,42,.06)'}"
-           onmouseover="if(!this.classList.contains('hu-history-active')){this.style.boxShadow='0 4px 10px rgba(15,23,42,.10)';this.style.transform='translateX(2px)'}"
-           onmouseout="if(!this.classList.contains('hu-history-active')){this.style.boxShadow='0 1px 2px rgba(15,23,42,.06)';this.style.transform=''}">
+           style="padding:11px 11px 11px 13px;border:none;border-left:7px solid ${progBorder};border-radius:10px;cursor:pointer;background:#fff;${_groupBar}transition:all 180ms cubic-bezier(.16,1,.3,1);${isSel?'box-shadow:0 4px 14px rgba(15,23,42,.14)'+(_gColor?', inset 4px 0 0 '+_gColor:'')+';transform:translateX(3px)':_gColor?'box-shadow:0 1px 2px rgba(15,23,42,.06), inset 4px 0 0 '+_gColor:'box-shadow:0 1px 2px rgba(15,23,42,.06)'}"
+           onmouseover="if(!this.classList.contains('hu-history-active')){this.style.boxShadow='0 4px 10px rgba(15,23,42,.10)'+(${_gColor?`', inset 4px 0 0 ${_gColor}'`:`''`});this.style.transform='translateX(2px)'}"
+           onmouseout="if(!this.classList.contains('hu-history-active')){this.style.boxShadow='0 1px 2px rgba(15,23,42,.06)'+(${_gColor?`', inset 4px 0 0 ${_gColor}'`:`''`});this.style.transform=''}">
+        ${(_linkChip || _probChip) ? `<div style="margin-bottom:6px;display:flex;gap:4px;flex-wrap:wrap">${_linkChip}${_probChip}</div>` : ''}
+        ${_isProb && _xCel ? `<div style="font-size:10px;color:#92400e;margin-bottom:4px">📱 ${esc(_xCel)} <span style="color:#94a3b8">(celular distinto)</span></div>` : ''}
         ${ticketChipHtml ? `<div style="margin-bottom:6px">${ticketChipHtml}</div>` : ''}
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;gap:8px">
           <div style="font-size:11px;font-weight:800;color:#1f2937;letter-spacing:.02em">${huFmtFecha(ingreso)} → ${huFmtFecha(salida)}</div>
@@ -10691,7 +10738,10 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
       <div style="padding:14px 16px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
           <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">📚 RESERVAS TOTALES</div>
-          <div style="font-size:9px;color:#0d9488;text-transform:uppercase;font-weight:700;padding:2px 8px;background:#ccfbf1;border-radius:999px">${list.length} ${list.length===1?'reserva':'reservas'}</div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <div style="font-size:9px;color:#0d9488;text-transform:uppercase;font-weight:700;padding:2px 8px;background:#ccfbf1;border-radius:999px">${list.length} ${list.length===1?'reserva':'reservas'}</div>
+            ${probableList.length ? `<div title="${probableList.length} reservación(es) relacionada(s) por propiedad+fechas con celular distinto" style="font-size:9px;color:#92400e;text-transform:uppercase;font-weight:800;padding:2px 8px;background:#fef3c7;border:1px solid #fcd34d;border-radius:999px;letter-spacing:.04em">+${probableList.length} probable${probableList.length===1?'':'s'}</div>` : ''}
+          </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:680px;padding:8px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">
           ${items || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic">Sin historial.</div>'}
