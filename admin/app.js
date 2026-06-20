@@ -11801,40 +11801,67 @@ function lgNormPropName(s) {
     .trim();
 }
 
+/** Construye índices de HU_STATE.rows para que lgMatchHuesped sea O(1).
+ *  Se llama una vez por sesión / recarga de huéspedes. */
+function lgBuildHuespedIndexes_() {
+  const rows = HU_STATE.rows || [];
+  const byPhoneDates = new Map();   // tail|arrIso|depIso → h
+  const byPropDates  = new Map();   // propKey|arrIso|depIso → h[]
+  for (const h of rows) {
+    const tail = lgExtractHuespedPhoneTail(h);
+    const arr  = String(huValueFlexible(h, ['Fecha de ingreso','Fecha de entrada']) || '').slice(0,10);
+    const dep  = String(huValueFlexible(h, ['Fecha de salida']) || '').slice(0,10);
+    if (!arr || !dep) continue;
+    if (tail && tail.length === 10) {
+      const k = `${tail}|${arr}|${dep}`;
+      if (!byPhoneDates.has(k)) byPhoneDates.set(k, h);
+    }
+    const prop = lgNormPropName(huValueFlexible(h, ['Propiedad','Alojamiento','Casa']));
+    if (prop) {
+      const k = `${prop}|${arr}|${dep}`;
+      if (!byPropDates.has(k)) byPropDates.set(k, []);
+      byPropDates.get(k).push(h);
+    }
+  }
+  LG_STATE.__huIdxPhoneDates = byPhoneDates;
+  LG_STATE.__huIdxPropDates  = byPropDates;
+  LG_STATE.__huIdxRowsCount  = rows.length;
+}
+
 /** Devuelve { h, kind } donde kind = 'exact' (phone + fechas exactos) o
  *  'probable' (propiedad + fechas exactos, pero phone NO matchea o falta).
  *  Devuelve null si ningún criterio matchea. */
 function lgMatchHuesped(booking) {
   const rows = HU_STATE.rows || [];
   if (!rows.length) return null;
+  // (Re)construir índices si HU_STATE cambió
+  if (!LG_STATE.__huIdxPhoneDates || LG_STATE.__huIdxRowsCount !== rows.length) {
+    lgBuildHuespedIndexes_();
+  }
   const bPhoneAll = lgNormalizePhone(booking.GuestPhone);
   const bPhone10 = bPhoneAll.slice(-10);
   const bArrIso = lgMMDDtoIsoDate(booking.DateArrival);
   const bDepIso = lgMMDDtoIsoDate(booking.DateDeparture);
   if (!bArrIso || !bDepIso) return null;
 
-  // 1) Exact: phone + fechas
+  // 1) Exact: phone + fechas — lookup directo
   if (bPhone10.length === 10) {
-    for (const h of rows) {
-      const hPhone10 = lgExtractHuespedPhoneTail(h);
-      if (hPhone10 !== bPhone10) continue;
-      const hArr = String(huValueFlexible(h, ['Fecha de ingreso','Fecha de entrada']) || '').slice(0,10);
-      const hDep = String(huValueFlexible(h, ['Fecha de salida']) || '').slice(0,10);
-      if (hArr === bArrIso && hDep === bDepIso) return { h, kind: 'exact' };
-    }
+    const hit = LG_STATE.__huIdxPhoneDates.get(`${bPhone10}|${bArrIso}|${bDepIso}`);
+    if (hit) return { h: hit, kind: 'exact' };
   }
 
   // 2) Probable: propiedad + fechas (phone distinto o ausente)
   const bPropNorm = lgNormPropName(lgPropOf(booking));
   if (!bPropNorm) return null;
-  for (const h of rows) {
-    const hArr = String(huValueFlexible(h, ['Fecha de ingreso','Fecha de entrada']) || '').slice(0,10);
-    const hDep = String(huValueFlexible(h, ['Fecha de salida']) || '').slice(0,10);
-    if (hArr !== bArrIso || hDep !== bDepIso) continue;
-    const hPropNorm = lgNormPropName(huValueFlexible(h, ['Propiedad','Alojamiento','Casa']));
-    if (!hPropNorm) continue;
-    if (hPropNorm === bPropNorm || hPropNorm.includes(bPropNorm) || bPropNorm.includes(hPropNorm)) {
-      return { h, kind: 'probable' };
+  // Match exacto por propiedad
+  const direct = LG_STATE.__huIdxPropDates.get(`${bPropNorm}|${bArrIso}|${bDepIso}`);
+  if (direct && direct.length) return { h: direct[0], kind: 'probable' };
+  // Match por contains (más caro pero ya filtramos por arrIso|depIso)
+  for (const [key, hs] of LG_STATE.__huIdxPropDates) {
+    if (!key.endsWith(`|${bArrIso}|${bDepIso}`)) continue;
+    const propKey = key.slice(0, key.length - bArrIso.length - bDepIso.length - 2);
+    if (propKey.includes(bPropNorm) || bPropNorm.includes(propKey)) {
+      return { h: hs[0], kind: 'probable' };
     }
   }
   return null;
@@ -13754,7 +13781,10 @@ async function lgUnifyReservaciones(winnerId, loserId) {
   // Calcular campos faltantes: para cada header presente en loser, si el
   // winner está vacío y el loser tiene valor, lo copiamos.
   const fields = {};
-  const skip = new Set(['ID','row_number','__row_number','Marca temporal','Lodgify Id']);
+  // El "Lodgify Id" SÍ se transfiere — es la llave que el frontend usa para
+  // jalar Cobros (de Reservas_Lodgify) y Aseo (de Breezeway tasks) hacia
+  // la card del winner. Sin él, esos bloques quedan vacíos.
+  const skip = new Set(['ID','row_number','__row_number','Marca temporal']);
   const isBlank = (v) => v == null || String(v).trim() === '';
   Object.keys(loser).forEach(k => {
     if (skip.has(k)) return;
@@ -13781,6 +13811,9 @@ async function lgUnifyReservaciones(winnerId, loserId) {
     // Invalidar caches y re-render
     LG_STATE.__syntheticCache = null;
     LG_STATE.__syntheticCacheKey = null;
+    LG_STATE.__huIdxPhoneDates = null;
+    LG_STATE.__huIdxPropDates  = null;
+    LG_STATE.__huIdxRowsCount  = null;
     if (typeof lgComputeMatches === 'function') lgComputeMatches();
     window.LG_USER_INTERACTED = false;
     if (typeof lodgifyRender === 'function') lodgifyRender({ force: true });
