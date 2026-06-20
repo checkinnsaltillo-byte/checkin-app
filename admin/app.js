@@ -11697,22 +11697,51 @@ function lgExtractHuespedPhoneTail(h) {
  *  CRITERIOS ESTRICTOS (los 2 deben cumplirse):
  *    1) Últimos 10 dígitos del teléfono (omitiendo espacios) coinciden.
  *    2) Fechas de entrada y salida coinciden exactamente. */
+/** Normaliza nombre de propiedad para comparación (lowercase, sin acentos ni
+ *  espacios extras ni símbolos). Usado por el matching "probable". */
+function lgNormPropName(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/** Devuelve { h, kind } donde kind = 'exact' (phone + fechas exactos) o
+ *  'probable' (propiedad + fechas exactos, pero phone NO matchea o falta).
+ *  Devuelve null si ningún criterio matchea. */
 function lgMatchHuesped(booking) {
   const rows = HU_STATE.rows || [];
   if (!rows.length) return null;
   const bPhoneAll = lgNormalizePhone(booking.GuestPhone);
   const bPhone10 = bPhoneAll.slice(-10);
-  if (bPhone10.length < 10) return null;
   const bArrIso = lgMMDDtoIsoDate(booking.DateArrival);
   const bDepIso = lgMMDDtoIsoDate(booking.DateDeparture);
   if (!bArrIso || !bDepIso) return null;
 
+  // 1) Exact: phone + fechas
+  if (bPhone10.length === 10) {
+    for (const h of rows) {
+      const hPhone10 = lgExtractHuespedPhoneTail(h);
+      if (hPhone10 !== bPhone10) continue;
+      const hArr = String(huValueFlexible(h, ['Fecha de ingreso','Fecha de entrada']) || '').slice(0,10);
+      const hDep = String(huValueFlexible(h, ['Fecha de salida']) || '').slice(0,10);
+      if (hArr === bArrIso && hDep === bDepIso) return { h, kind: 'exact' };
+    }
+  }
+
+  // 2) Probable: propiedad + fechas (phone distinto o ausente)
+  const bPropNorm = lgNormPropName(lgPropOf(booking));
+  if (!bPropNorm) return null;
   for (const h of rows) {
-    const hPhone10 = lgExtractHuespedPhoneTail(h);
-    if (hPhone10 !== bPhone10) continue;
     const hArr = String(huValueFlexible(h, ['Fecha de ingreso','Fecha de entrada']) || '').slice(0,10);
     const hDep = String(huValueFlexible(h, ['Fecha de salida']) || '').slice(0,10);
-    if (hArr === bArrIso && hDep === bDepIso) return h;
+    if (hArr !== bArrIso || hDep !== bDepIso) continue;
+    const hPropNorm = lgNormPropName(huValueFlexible(h, ['Propiedad','Alojamiento','Casa']));
+    if (!hPropNorm) continue;
+    if (hPropNorm === bPropNorm || hPropNorm.includes(bPropNorm) || bPropNorm.includes(hPropNorm)) {
+      return { h, kind: 'probable' };
+    }
   }
   return null;
 }
@@ -11741,13 +11770,18 @@ function lgFindHuespedRepresentativeByPhone(booking) {
 /** Recalcula LG_STATE.matches para todos los bookings cacheados. */
 function lgComputeMatches() {
   const map = new Map();
+  const kindMap = new Map();
   const bookings = LG_STATE.bookings || [];
   const huRows = HU_STATE.rows || [];
   for (const b of bookings) {
-    const h = lgMatchHuesped(b);
-    if (h) map.set(String(b.Id), h);
+    const res = lgMatchHuesped(b);
+    if (res && res.h) {
+      map.set(String(b.Id), res.h);
+      kindMap.set(String(b.Id), res.kind || 'exact');
+    }
   }
   LG_STATE.matches = map;
+  LG_STATE.matchKinds = kindMap;
   console.info(`[LG] matches: ${map.size} de ${bookings.length} bookings (huéspedes: ${huRows.length} rows)`);
   // Diagnóstico: muestra info de huéspedes para verificar campos
   if (huRows.length) {
@@ -12414,6 +12448,18 @@ function lgGetHuespedForBooking(b) {
   return b.__reservacion || LG_STATE.matches?.get(String(b.Id)) || null;
 }
 
+/** Devuelve 'exact' | 'probable' | null para un booking dado. */
+function lgGetMatchKind(b) {
+  if (!b) return null;
+  if (b.__reservacionMatchKind) return b.__reservacionMatchKind;
+  return LG_STATE.matchKinds?.get(String(b.Id)) || null;
+}
+
+/** HTML del chip "Probable match" (solo cuando kind === 'probable'). */
+function lgProbableMatchChip() {
+  return `<span title="Match por propiedad + fechas (el celular del booking no coincide con el del registro manual)" style="display:inline-block;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:800;font-size:9px;border:1px solid #fcd34d;letter-spacing:.04em">⚠ PROBABLE MATCH</span>`;
+}
+
 /** Decide si una fila de Reservaciones representa un REGISTRO MANUAL real
  *  (el huésped llenó el formulario de check-in) vs. una fila básica
  *  auto-creada por la propagación de Lodgify (que NO completa los campos
@@ -12939,6 +12985,7 @@ function lgBuildDetailSidebarItem(b, selectedId) {
         <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;min-width:0">
           ${sourceChip}
           ${hasMatch?'<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:linear-gradient(135deg,#475569,#334155);color:#fff;font-weight:800;font-size:9px;border:1px solid #1e293b;letter-spacing:.04em">REGISTRADO</span>':''}
+          ${lgGetMatchKind(b) === 'probable' ? lgProbableMatchChip() : ''}
           ${tktChip}
         </div>
         ${progDot ? `<span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;margin-left:auto">${progDot}</span>` : ''}
@@ -13715,6 +13762,7 @@ function lgBuildCardSummary(b) {
   const matchBadge = huHasManualRegistration(huespedMatch)
     ? `<span title="Registro manual completado por el huésped" style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:linear-gradient(135deg,#475569,#334155);color:#fff;font-weight:800;font-size:9px;border:1px solid #1e293b;letter-spacing:.04em;box-shadow:0 1px 4px rgba(15,23,42,.35)">📋 REGISTRADO</span>`
     : '';
+  const probableBadge = (lgGetMatchKind(b) === 'probable') ? lgProbableMatchChip() : '';
 
   // ─── Si hay match, calculamos los chips y KPIs del módulo huéspedes ───
   let kpisBarHtml = '';            // barra horizontal con KPIs
@@ -13807,6 +13855,7 @@ function lgBuildCardSummary(b) {
     <div style="cursor:pointer;padding:12px 14px;background:${headerBg};border-left:7px solid ${meta.border}">
       <div style="display:flex;align-items:baseline;justify-content:flex-start;gap:14px;margin-bottom:10px;flex-wrap:wrap">
         <div style="font-size:22px;font-weight:900;color:#0f172a;line-height:1.15;letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nombre)}</div>
+        ${probableBadge}
         ${kpisBarHtml_tierInline}
       </div>
       ${kpisBarHtml}
