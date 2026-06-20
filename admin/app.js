@@ -10592,7 +10592,21 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
   for (const [gk, n] of _groupCount) {
     if (n > 1) { _colorOfGroup.set(gk, _palette[_pi % _palette.length]); _pi++; }
   }
-  const items = list.map(x => {
+  // Identificar el "winner" (manual reg) por grupo, para el botón Unificar.
+  const winnerOfGroup = new Map();
+  list.forEach(x => {
+    const xid = String(x['ID']||x['row_number']||'');
+    const gk  = _groupOfId.get(xid) || '';
+    if (!gk) return;
+    const hasManual = (typeof huHasManualRegistration === 'function')
+      ? huHasManualRegistration(x)
+      : !!huValueFlexible(x, ['Nombres de TODOS los huéspedes (separados por comas)']);
+    const cur = winnerOfGroup.get(gk);
+    if (!cur) { winnerOfGroup.set(gk, { id: xid, manual: hasManual, row: x }); return; }
+    // Preferir manual; en empate, fila con mayor ID por longitud (= la real)
+    if (hasManual && !cur.manual) winnerOfGroup.set(gk, { id: xid, manual: true, row: x });
+  });
+  const itemsArr = list.map(x => {
     const xid     = String(x['ID'] || x['row_number'] || '');
     const ingreso = huValueFlexible(x, ['Fecha de ingreso']);
     const salida  = huValueFlexible(x, ['Fecha de salida']);
@@ -10730,6 +10744,36 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
           ${monto ? `<span style="font-size:11px;font-weight:700;color:#0f766e">${huFmtMonto(monto)}</span>` : '<span style="font-size:11px;color:#94a3b8;font-weight:700">N/A</span>'}
         </div>
       </div>`;
+  });
+  // Juntar items intercalando botón "↕ Unificar" entre cards del mismo grupo
+  const items = list.map((x, i) => {
+    const xid  = String(x['ID']||x['row_number']||'');
+    const html = itemsArr[i];
+    if (i === 0) return html;
+    const prevX = list[i-1];
+    const prevId = String(prevX['ID']||prevX['row_number']||'');
+    const gk     = _groupOfId.get(xid) || '';
+    const gkPrev = _groupOfId.get(prevId) || '';
+    if (!gk || gk !== gkPrev || !_colorOfGroup.get(gk)) return html;
+    // Pareja del mismo grupo → insertar botón Unificar antes de esta card.
+    const w = winnerOfGroup.get(gk);
+    if (!w) return html;
+    const winnerId = w.id;
+    const loserId  = (winnerId === xid) ? prevId : xid;
+    const gColor   = _colorOfGroup.get(gk);
+    const unifyBtn = `
+      <div style="display:flex;justify-content:center;margin:-2px 0 4px 0;position:relative">
+        <button onclick="event.stopPropagation();lgUnifyReservaciones('${esc(winnerId)}','${esc(loserId)}')"
+                title="Unificar estas dos reservaciones: llena los campos faltantes del registro manual con los del registro de Lodgify y oculta el de Lodgify"
+                style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border:1.5px solid ${gColor};background:#fff;color:#334155;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.04em;cursor:pointer;box-shadow:0 1px 4px rgba(15,23,42,.08);text-transform:uppercase">
+          <span style="display:inline-flex;flex-direction:column;line-height:.8;color:${gColor}">
+            <span style="font-size:9px">▲</span>
+            <span style="font-size:9px">▼</span>
+          </span>
+          Unificar
+        </button>
+      </div>`;
+    return unifyBtn + html;
   }).join('');
 
   return `
@@ -13694,6 +13738,55 @@ function lgBuildCard(b) {
               style="position:absolute;top:6px;left:6px;z-index:5;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:13px;font-weight:900;line-height:1;cursor:pointer;box-shadow:0 1px 3px rgba(15,23,42,.08)">×</button>
       ${lgBuildCardSummary(b)}
     </div>`;
+}
+
+/** Unifica dos filas de Reservaciones del mismo grupo (probable match):
+ *  copia campos faltantes del registro manual desde el registro loser
+ *  (propagado por Lodgify), y oculta el loser del frontend. */
+async function lgUnifyReservaciones(winnerId, loserId) {
+  if (!winnerId || !loserId) return;
+  if (winnerId === loserId) { alert('IDs iguales, no se puede unificar.'); return; }
+  if (!confirm('¿Unificar estas reservaciones?\n\nSe llenarán los datos faltantes del registro manual con los datos del registro de Lodgify. La reserva de Lodgify quedará oculta.')) return;
+  const rows = HU_STATE.rows || [];
+  const winner = rows.find(r => String(r['ID']||r['row_number']||'') === String(winnerId));
+  const loser  = rows.find(r => String(r['ID']||r['row_number']||'') === String(loserId));
+  if (!winner || !loser) { alert('No se encontraron las filas en memoria.'); return; }
+  // Calcular campos faltantes: para cada header presente en loser, si el
+  // winner está vacío y el loser tiene valor, lo copiamos.
+  const fields = {};
+  const skip = new Set(['ID','row_number','__row_number','Marca temporal','Lodgify Id']);
+  const isBlank = (v) => v == null || String(v).trim() === '';
+  Object.keys(loser).forEach(k => {
+    if (skip.has(k)) return;
+    if (!isBlank(loser[k]) && isBlank(winner[k])) {
+      fields[k] = loser[k];
+    }
+  });
+  try {
+    const resp = await fetch(`${BACKEND}/lg-unify-records`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        winner_id: winnerId,
+        loser_id: loserId,
+        fields,
+        hidden_by: (typeof currentUser !== 'undefined' ? currentUser : ''),
+      }),
+    });
+    const j = await resp.json();
+    if (!j.ok) throw new Error(j.error || 'unify_failed');
+    // Actualizar winner localmente y eliminar loser
+    Object.keys(fields).forEach(k => { winner[k] = fields[k]; });
+    HU_STATE.rows = rows.filter(r => String(r['ID']||r['row_number']||'') !== String(loserId));
+    // Invalidar caches y re-render
+    LG_STATE.__syntheticCache = null;
+    LG_STATE.__syntheticCacheKey = null;
+    if (typeof lgComputeMatches === 'function') lgComputeMatches();
+    window.LG_USER_INTERACTED = false;
+    if (typeof lodgifyRender === 'function') lodgifyRender({ force: true });
+  } catch (e) {
+    alert('Error al unificar: ' + (e.message || e));
+  }
 }
 
 async function lgHideBooking(id) {
