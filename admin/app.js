@@ -11620,7 +11620,25 @@ function huespedesCloseFacturapi() {
   if (HU_STATE.loaded) {
     const lbl = document.getElementById('hu-status-label');
     if (lbl) lbl.textContent = 'Actualizando…';
-    setTimeout(() => huespedesLoad(true), 600);
+    setTimeout(async () => {
+      try { await huespedesLoad(true); } catch(_) {}
+      // También re-renderizar Gestión de reservas: las cards toman el color
+      // de huGetFacturaStatus(huesped), que cambió de 'pendiente' a
+      // 'emitida'. Sin esto, la card permanece roja hasta navegar.
+      try {
+        // Invalidar caches y recomputar matches
+        LG_STATE.__syntheticCache = null;
+        LG_STATE.__syntheticCacheKey = null;
+        LG_STATE.__huIdxPhoneDates = null;
+        LG_STATE.__huIdxPropDates  = null;
+        LG_STATE.__huIdxRowsCount  = null;
+        if (typeof lgComputeMatches === 'function') lgComputeMatches();
+        window.LG_USER_INTERACTED = false;
+        if (typeof lodgifyRender === 'function' && LG_STATE.loaded) {
+          lodgifyRender({ force: true });
+        }
+      } catch (e) { console.warn('[HU] re-render lodgify tras facturapi:', e); }
+    }, 600);
   }
 }
 
