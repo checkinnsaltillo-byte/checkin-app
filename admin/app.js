@@ -10538,22 +10538,23 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
     const s = String(v || '').replace(/\D/g, '');
     return s.length >= 10 ? s.slice(-10) : '';
   };
-  const cel  = huValueFlexible(currentR, ['Cel/Whatsapp (principal)']);
-  const tail = phoneTail(cel);
-  // El sidebar ahora muestra 1 card por huésped (deduplicado). El historial
-  // SIEMPRE debe mostrar TODAS las reservaciones del mismo teléfono, no
-  // solo la elegida por el sidebar. Por eso filtramos HU_STATE.rows
-  // directamente, sin pasar por LG_STATE.lastFilteredList.
+  // La lista de "Reservas totales" SIEMPRE se basa en la fila del card
+  // padre (sidebar), NO en la que el usuario acaba de clickear adentro.
+  // Si clickea una probable con celular distinto, no queremos que el
+  // historial se rebuilde alrededor de ese teléfono y pierda el contexto.
   const _allRowsSrc = allRows || HU_STATE.rows || [];
-  // 1) Match exacto por teléfono. Si la fila actual no tiene celular
-  //    (caso filas propagadas desde Lodgify con "Sin nombre"), al menos
-  //    incluimos currentR para que el historial no quede vacío y el merge
-  //    por propiedad+fechas pueda encontrar relacionadas.
+  const outerR = outerCardRecId
+    ? (_allRowsSrc.find(x => String(x['ID']||x['row_number']||'') === String(outerCardRecId)) || currentR)
+    : currentR;
+  const cel  = huValueFlexible(outerR, ['Cel/Whatsapp (principal)']);
+  const tail = phoneTail(cel);
+  // 1) Match exacto por teléfono del outerR. Si no tiene celular, al menos
+  //    incluimos outerR para que el matching por propiedad+fechas funcione.
   let exactList = _allRowsSrc.filter(x =>
     tail && phoneTail(huValueFlexible(x, ['Cel/Whatsapp (principal)'])) === tail);
-  const _currentId = String(currentR['ID']||currentR['row_number']||'');
-  if (!exactList.some(x => String(x['ID']||x['row_number']||'') === _currentId)) {
-    exactList = [currentR, ...exactList];
+  const _outerId = String(outerR['ID']||outerR['row_number']||'');
+  if (!exactList.some(x => String(x['ID']||x['row_number']||'') === _outerId)) {
+    exactList = [outerR, ...exactList];
   }
   // 2) Match probable: misma propiedad + fechas exactas, teléfono distinto
   const _exactIds = new Set(exactList.map(x => String(x['ID']||x['row_number']||'')));
