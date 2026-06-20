@@ -12930,9 +12930,12 @@ function lgBuildDetailSidebarItem(b, selectedId) {
          data-lg-bg="${finalBg}"
          data-lg-bg-sel="${itemBgSel}"
          data-lg-bg-norm="${itemBg}"
-         style="background:${finalBg};border-left:7px solid ${accentColor};padding-left:9px;display:block;${activeShadow}">
+         style="position:relative;background:${finalBg};border-left:7px solid ${accentColor};padding-left:9px;display:block;${activeShadow}">
+      <button onclick="event.stopPropagation();lgHideBooking('${esc(b.Id)}')"
+              title="Ocultar esta reserva del frontend"
+              style="position:absolute;top:4px;left:4px;z-index:5;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:900;line-height:1;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.08)">×</button>
       <!-- Top: chips Fuente + Registrado/Ticket (izquierda)  + Programación (derecha) -->
-      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:6px;min-width:0;justify-content:space-between">
+      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:6px;min-width:0;justify-content:space-between;padding-left:22px">
         <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;min-width:0">
           ${sourceChip}
           ${hasMatch?'<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:linear-gradient(135deg,#475569,#334155);color:#fff;font-weight:800;font-size:9px;border:1px solid #1e293b;letter-spacing:.04em">REGISTRADO</span>':''}
