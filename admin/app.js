@@ -10735,14 +10735,18 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
       ? `<span title="Esta card está relacionada con otra(s) del grupo (misma propiedad y fechas)" style="display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:999px;background:${_gColor}22;color:#334155;font-weight:800;font-size:9px;border:1px solid ${_gColor}"><span style="color:${_gColor};font-size:11px;line-height:1">⇄</span> RELACIONADA</span>`
       : '';
     const _probChip = _isProb ? `<span style="font-size:9px;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:800;letter-spacing:.04em;border:1px solid #fcd34d">⚠ PROBABLE</span>` : '';
+    const _xLodId = String(x['Lodgify Id'] || '').trim();
     return `
       <div onclick="event.stopPropagation();huSelectReservation('${esc(outerCardRecId)}','${esc(xid)}')"
            data-hu-history-id="${esc(xid)}"
            class="hu-history-item ${isSel?'hu-history-active':''}"
-           style="padding:11px 11px 11px 13px;border:none;border-left:7px solid ${progBorder};border-radius:10px;cursor:pointer;background:#fff;${_groupBar}transition:all 180ms cubic-bezier(.16,1,.3,1);${isSel?'box-shadow:0 4px 14px rgba(15,23,42,.14)'+(_gColor?', inset 4px 0 0 '+_gColor:'')+';transform:translateX(3px)':_gColor?'box-shadow:0 1px 2px rgba(15,23,42,.06), inset 4px 0 0 '+_gColor:'box-shadow:0 1px 2px rgba(15,23,42,.06)'}"
+           style="position:relative;padding:11px 11px 11px 13px;border:none;border-left:7px solid ${progBorder};border-radius:10px;cursor:pointer;background:#fff;${_groupBar}transition:all 180ms cubic-bezier(.16,1,.3,1);${isSel?'box-shadow:0 4px 14px rgba(15,23,42,.14)'+(_gColor?', inset 4px 0 0 '+_gColor:'')+';transform:translateX(3px)':_gColor?'box-shadow:0 1px 2px rgba(15,23,42,.06), inset 4px 0 0 '+_gColor:'box-shadow:0 1px 2px rgba(15,23,42,.06)'}"
            onmouseover="if(!this.classList.contains('hu-history-active')){this.style.boxShadow='0 4px 10px rgba(15,23,42,.10)'+(${_gColor?`', inset 4px 0 0 ${_gColor}'`:`''`});this.style.transform='translateX(2px)'}"
            onmouseout="if(!this.classList.contains('hu-history-active')){this.style.boxShadow='0 1px 2px rgba(15,23,42,.06)'+(${_gColor?`', inset 4px 0 0 ${_gColor}'`:`''`});this.style.transform=''}">
-        ${(_linkChip || _probChip) ? `<div style="margin-bottom:6px;display:flex;gap:4px;flex-wrap:wrap">${_linkChip}${_probChip}</div>` : ''}
+        <button onclick="event.stopPropagation();lgHideCard('${esc(_xLodId)}','${esc(xid)}')"
+                title="Ocultar esta reserva del frontend"
+                style="position:absolute;top:4px;right:4px;z-index:5;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:900;line-height:1;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.08)">×</button>
+        ${(_linkChip || _probChip) ? `<div style="margin-bottom:6px;display:flex;gap:4px;flex-wrap:wrap;padding-right:22px">${_linkChip}${_probChip}</div>` : ''}
         ${_isProb && _xCel ? `<div style="font-size:10px;color:#92400e;margin-bottom:4px">📱 ${esc(_xCel)} <span style="color:#94a3b8">(celular distinto)</span></div>` : ''}
         ${ticketChipHtml ? `<div style="margin-bottom:6px">${ticketChipHtml}</div>` : ''}
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;gap:8px">
@@ -13213,7 +13217,7 @@ function lgBuildDetailSidebarItem(b, selectedId) {
          data-lg-bg-sel="${itemBgSel}"
          data-lg-bg-norm="${itemBg}"
          style="position:relative;background:${finalBg};border-left:7px solid ${accentColor};padding-left:9px;display:block;${activeShadow}">
-      <button onclick="event.stopPropagation();lgHideBooking('${esc(b.Id)}')"
+      <button onclick="event.stopPropagation();lgHideCard('${esc(b.LodgifyId || '')}','${esc(b.Id || '')}')"
               title="Ocultar esta reserva del frontend"
               style="position:absolute;top:4px;left:4px;z-index:5;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:900;line-height:1;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.08)">×</button>
       <!-- Top: chips Fuente + Registrado/Ticket (izquierda)  + Programación (derecha) -->
@@ -13888,30 +13892,56 @@ async function lgUnifyReservaciones(winnerId, loserId) {
   }
 }
 
-async function lgHideBooking(id) {
-  if (!id) return;
+/** Oculta UNA reserva del frontend.
+ *  - lodgifyId: si se pasa, oculta el booking de Reservas_Lodgify.
+ *  - reservacionId: si se pasa, oculta la fila de Reservaciones.
+ *  Pueden venir ambos (cuando la card está respaldada por ambos) o solo uno.
+ *  La acción es por reserva, no por huésped: el resto de las reservaciones
+ *  del mismo huésped no se tocan. */
+async function lgHideCard(lodgifyId, reservacionId) {
+  const lod = String(lodgifyId || '').trim();
+  const rsv = String(reservacionId || '').trim();
+  if (!lod && !rsv) { alert('No hay IDs para ocultar.'); return; }
   if (!confirm('¿Deseas eliminar esta reserva?')) return;
+  const tasks = [];
+  if (lod) {
+    tasks.push(fetch(`${BACKEND}/lg-hide-booking`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: lod, hidden_by: (typeof currentUser !== 'undefined' ? currentUser : '') }),
+    }).then(r=>r.json()));
+  }
+  if (rsv) {
+    tasks.push(fetch(`${BACKEND}/lg-hide-reservacion`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: rsv, hidden_by: (typeof currentUser !== 'undefined' ? currentUser : '') }),
+    }).then(r=>r.json()));
+  }
   try {
-    const resp = await fetch(`${BACKEND}/lg-hide-booking`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, hidden_by: (typeof currentUser !== 'undefined' ? currentUser : '') }),
-    });
-    const j = await resp.json();
-    if (!j.ok) throw new Error(j.error || 'hide_failed');
-    // Quitar de memoria y re-render
-    if (Array.isArray(LG_STATE.bookings)) {
-      LG_STATE.bookings = LG_STATE.bookings.filter(bk => String(bk.Id) !== String(id));
+    const results = await Promise.all(tasks);
+    const failed = results.find(j => !j || j.ok === false);
+    if (failed) throw new Error(failed.error || 'hide_failed');
+    // Limpiar caches locales
+    if (lod && Array.isArray(LG_STATE.bookings)) {
+      LG_STATE.bookings = LG_STATE.bookings.filter(bk => String(bk.Id) !== lod);
     }
-    if (LG_STATE.__syntheticCache) {
-      LG_STATE.__syntheticCache = LG_STATE.__syntheticCache.filter(bk => String(bk.Id) !== String(id));
+    if (rsv && Array.isArray(HU_STATE.rows)) {
+      HU_STATE.rows = HU_STATE.rows.filter(r => String(r['ID']||r['row_number']||'') !== rsv);
     }
+    LG_STATE.__syntheticCache = null;
+    LG_STATE.__syntheticCacheKey = null;
+    LG_STATE.__huIdxPhoneDates = null;
+    LG_STATE.__huIdxPropDates  = null;
+    LG_STATE.__huIdxRowsCount  = null;
+    if (typeof lgComputeMatches === 'function') lgComputeMatches();
     window.LG_USER_INTERACTED = false;
     if (typeof lodgifyRender === 'function') lodgifyRender({ force: true });
   } catch (e) {
     alert('Error al ocultar la reserva: ' + (e.message || e));
   }
 }
+
+// Compat: el viejo callsite del list mode pasaba solo el bookingId Lodgify.
+async function lgHideBooking(id) { return lgHideCard(id, ''); }
 
 /** Construye SOLO el contenido del header de una card de reservación
  *  (sin el wrapper clickeable). Reusable en el panel de la vista Detalles. */
