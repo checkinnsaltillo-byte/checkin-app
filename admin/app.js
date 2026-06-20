@@ -10552,7 +10552,7 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
   const _exactIds = new Set(exactList.map(x => String(x['ID']||x['row_number']||'')));
   const _propDateKeys = new Set();
   for (const x of exactList) {
-    const pk = (typeof lgNormPropName === 'function') ? lgNormPropName(huValueFlexible(x, ['Propiedad'])) : String(huValueFlexible(x, ['Propiedad'])||'').toLowerCase().trim();
+    const pk = (typeof lgNormPropName === 'function') ? lgPropDeptKey(huValueFlexible(x, ['Propiedad']), huValueFlexible(x, ['# Departamento','Departamento'])) : String(huValueFlexible(x, ['Propiedad'])||'').toLowerCase().trim();
     const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
     const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
     if (pk && ar && dp) _propDateKeys.add(`${pk}|${ar}|${dp}`);
@@ -10560,7 +10560,7 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
   const probableList = _allRowsSrc.filter(x => {
     const xid = String(x['ID']||x['row_number']||'');
     if (_exactIds.has(xid)) return false;
-    const pk = (typeof lgNormPropName === 'function') ? lgNormPropName(huValueFlexible(x, ['Propiedad'])) : String(huValueFlexible(x, ['Propiedad'])||'').toLowerCase().trim();
+    const pk = (typeof lgNormPropName === 'function') ? lgPropDeptKey(huValueFlexible(x, ['Propiedad']), huValueFlexible(x, ['# Departamento','Departamento'])) : String(huValueFlexible(x, ['Propiedad'])||'').toLowerCase().trim();
     const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
     const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
     if (!pk || !ar || !dp) return false;
@@ -10579,7 +10579,7 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
   const _groupCount = new Map();
   list.forEach(x => {
     const xid = String(x['ID']||x['row_number']||'');
-    const pk = (typeof lgNormPropName === 'function') ? lgNormPropName(huValueFlexible(x, ['Propiedad'])) : String(huValueFlexible(x, ['Propiedad'])||'').toLowerCase().trim();
+    const pk = (typeof lgNormPropName === 'function') ? lgPropDeptKey(huValueFlexible(x, ['Propiedad']), huValueFlexible(x, ['# Departamento','Departamento'])) : String(huValueFlexible(x, ['Propiedad'])||'').toLowerCase().trim();
     const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
     const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
     if (!pk || !ar || !dp) return;
@@ -11801,12 +11801,35 @@ function lgNormPropName(s) {
     .trim();
 }
 
+/** Normaliza # Departamento (deja solo dígitos/letras significativas). */
+function lgNormDeptNum(s) {
+  return String(s == null ? '' : s).replace(/[^0-9a-z]/gi, '').toLowerCase();
+}
+
+/** Construye la clave canónica "propiedad+departamento" para agrupar
+ *  reservaciones. SIEMPRE incluye el departamento — sin él, "Calle X · #1"
+ *  y "Calle X · #10" se confundirían como la misma propiedad. */
+function lgPropDeptKey(propRaw, deptRaw) {
+  const p = lgNormPropName(propRaw);
+  const d = lgNormDeptNum(deptRaw);
+  if (!p) return '';
+  return d ? `${p}|d${d}` : p;
+}
+
+/** Extrae la clave prop+depto de cualquier objeto (huesped row o booking). */
+function lgPropDeptKeyFromAny(o) {
+  if (!o) return '';
+  const prop = o['Propiedad'] || o.PropiedadRaw || o.HouseName || (o.__reservacion && o.__reservacion['Propiedad']) || '';
+  const dept = o['# Departamento'] || o.DepartamentoRaw || (o.__reservacion && o.__reservacion['# Departamento']) || '';
+  return lgPropDeptKey(prop, dept);
+}
+
 /** Construye índices de HU_STATE.rows para que lgMatchHuesped sea O(1).
  *  Se llama una vez por sesión / recarga de huéspedes. */
 function lgBuildHuespedIndexes_() {
   const rows = HU_STATE.rows || [];
   const byPhoneDates = new Map();   // tail|arrIso|depIso → h
-  const byPropDates  = new Map();   // propKey|arrIso|depIso → h[]
+  const byPropDates  = new Map();   // propDeptKey|arrIso|depIso → h[]
   for (const h of rows) {
     const tail = lgExtractHuespedPhoneTail(h);
     const arr  = String(huValueFlexible(h, ['Fecha de ingreso','Fecha de entrada']) || '').slice(0,10);
@@ -11816,9 +11839,10 @@ function lgBuildHuespedIndexes_() {
       const k = `${tail}|${arr}|${dep}`;
       if (!byPhoneDates.has(k)) byPhoneDates.set(k, h);
     }
-    const prop = lgNormPropName(huValueFlexible(h, ['Propiedad','Alojamiento','Casa']));
-    if (prop) {
-      const k = `${prop}|${arr}|${dep}`;
+    const propKey = lgPropDeptKey(huValueFlexible(h, ['Propiedad','Alojamiento','Casa']),
+                                   huValueFlexible(h, ['# Departamento','Departamento']));
+    if (propKey) {
+      const k = `${propKey}|${arr}|${dep}`;
       if (!byPropDates.has(k)) byPropDates.set(k, []);
       byPropDates.get(k).push(h);
     }
@@ -11850,20 +11874,11 @@ function lgMatchHuesped(booking) {
     if (hit) return { h: hit, kind: 'exact' };
   }
 
-  // 2) Probable: propiedad + fechas (phone distinto o ausente)
-  const bPropNorm = lgNormPropName(lgPropOf(booking));
-  if (!bPropNorm) return null;
-  // Match exacto por propiedad
-  const direct = LG_STATE.__huIdxPropDates.get(`${bPropNorm}|${bArrIso}|${bDepIso}`);
+  // 2) Probable: propiedad+departamento + fechas exactas (sin includes)
+  const bPropKey = lgPropDeptKeyFromAny(booking);
+  if (!bPropKey) return null;
+  const direct = LG_STATE.__huIdxPropDates.get(`${bPropKey}|${bArrIso}|${bDepIso}`);
   if (direct && direct.length) return { h: direct[0], kind: 'probable' };
-  // Match por contains (más caro pero ya filtramos por arrIso|depIso)
-  for (const [key, hs] of LG_STATE.__huIdxPropDates) {
-    if (!key.endsWith(`|${bArrIso}|${bDepIso}`)) continue;
-    const propKey = key.slice(0, key.length - bArrIso.length - bDepIso.length - 2);
-    if (propKey.includes(bPropNorm) || bPropNorm.includes(propKey)) {
-      return { h: hs[0], kind: 'probable' };
-    }
-  }
   return null;
 }
 
@@ -12947,7 +12962,7 @@ function lodgifyRender(opts) {
       // HU_STATE.rows para que aparezcan en "Reservas totales" con chip
       // ⚠ PROBABLE.
       const groupKeyOf = (r) => {
-        const pk = lgNormPropName(r['Propiedad'] || '');
+        const pk = lgPropDeptKey(r['Propiedad'], r['# Departamento']);
         const ar = String(r['Fecha de ingreso'] || '').slice(0,10);
         const dp = String(r['Fecha de salida'] || '').slice(0,10);
         return (pk && ar && dp) ? `${pk}|${ar}|${dp}` : '';
@@ -14973,7 +14988,7 @@ function lgBuildHuespedSectionHtml_lite(huesped) {
   const exactIds = new Set(exactList.map(x => String(x['ID']||x['row_number']||'')));
   const propDateKeys = new Set();
   for (const x of exactList) {
-    const pk = lgNormPropName(huValueFlexible(x, ['Propiedad']));
+    const pk = lgPropDeptKey(huValueFlexible(x, ['Propiedad']), huValueFlexible(x, ['# Departamento','Departamento']));
     const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
     const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
     if (pk && ar && dp) propDateKeys.add(`${pk}|${ar}|${dp}`);
@@ -14981,7 +14996,7 @@ function lgBuildHuespedSectionHtml_lite(huesped) {
   const probableList = allRows.filter(x => {
     const xid = String(x['ID']||x['row_number']||'');
     if (exactIds.has(xid)) return false;
-    const pk = lgNormPropName(huValueFlexible(x, ['Propiedad']));
+    const pk = lgPropDeptKey(huValueFlexible(x, ['Propiedad']), huValueFlexible(x, ['# Departamento','Departamento']));
     const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
     const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
     if (!pk || !ar || !dp) return false;
@@ -15000,7 +15015,7 @@ function lgBuildHuespedSectionHtml_lite(huesped) {
   const groupCount2 = new Map();
   history.forEach(x => {
     const xid = String(x['ID']||x['row_number']||'');
-    const pk = lgNormPropName(huValueFlexible(x, ['Propiedad']));
+    const pk = lgPropDeptKey(huValueFlexible(x, ['Propiedad']), huValueFlexible(x, ['# Departamento','Departamento']));
     const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
     const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
     if (!pk || !ar || !dp) return;
@@ -15282,7 +15297,7 @@ function lgBuildHuespedHistory(h, currentBooking) {
   const exactIds = new Set(exactList.map(x => String(x['ID']||x['row_number']||'')));
   const propDateKeys = new Set();
   for (const x of exactList) {
-    const pk = lgNormPropName(huValueFlexible(x, ['Propiedad']));
+    const pk = lgPropDeptKey(huValueFlexible(x, ['Propiedad']), huValueFlexible(x, ['# Departamento','Departamento']));
     const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
     const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
     if (pk && ar && dp) propDateKeys.add(`${pk}|${ar}|${dp}`);
@@ -15290,7 +15305,7 @@ function lgBuildHuespedHistory(h, currentBooking) {
   const probableList = allRows.filter(x => {
     const xid = String(x['ID']||x['row_number']||'');
     if (exactIds.has(xid)) return false;
-    const pk = lgNormPropName(huValueFlexible(x, ['Propiedad']));
+    const pk = lgPropDeptKey(huValueFlexible(x, ['Propiedad']), huValueFlexible(x, ['# Departamento','Departamento']));
     const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
     const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
     if (!pk || !ar || !dp) return false;
@@ -15305,7 +15320,7 @@ function lgBuildHuespedHistory(h, currentBooking) {
   const all = [...exactList, ...probableList];
   all.forEach(x => {
     const xid = String(x['ID']||x['row_number']||'');
-    const pk = lgNormPropName(huValueFlexible(x, ['Propiedad']));
+    const pk = lgPropDeptKey(huValueFlexible(x, ['Propiedad']), huValueFlexible(x, ['# Departamento','Departamento']));
     const ar = String(huValueFlexible(x, ['Fecha de ingreso'])||'').slice(0,10);
     const dp = String(huValueFlexible(x, ['Fecha de salida'])||'').slice(0,10);
     const gk = (pk && ar && dp) ? `${pk}|${ar}|${dp}` : '';
