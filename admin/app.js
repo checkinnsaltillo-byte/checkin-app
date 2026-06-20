@@ -5467,28 +5467,39 @@ function bn_createCard(rec, idx) {
   const probPct = Math.round(_probRaw > 1 ? _probRaw : _probRaw * 100);
   const probCol = probPct >= 80 ? '#16a34a' : probPct >= 50 ? '#f59e0b' : '#dc2626';
   const probBg  = probPct >= 80 ? '#dcfce7' : probPct >= 50 ? '#fef3c7' : '#fee2e2';
+  // ¿Fue auto-clasificado originalmente? (valores actuales coinciden con *_auto)
+  const wasAutoValidated = isClasif && !!rec._cuenta_auto &&
+    (rec._cuenta||'') === (rec._cuenta_auto||'') &&
+    (rec._subcuenta||'') === (rec._subcuenta_auto||'') &&
+    (rec._categoria_gasto||'') === (rec._categoria_auto||'') &&
+    (rec._concepto||'') === (rec._concepto_auto||'');
+
+  // Estilo común para todos los textos de la pestaña inferior (tamaño/peso/centrado)
+  const tabTextStyle = 'font-size:10px;text-transform:none;letter-spacing:.01em;font-weight:700;line-height:1';
+  const probChipHtml = (color, bg) => `<span title="${esc(rec._args_clasif||'')}" style="padding:3px 8px;background:${bg};color:${color};border-radius:6px;${tabTextStyle};font-weight:800;white-space:nowrap;cursor:help">${probPct}%</span>`;
+  const robotValidatedHtml = (color) => `<span style="display:inline-flex;align-items:center;gap:4px;${tabTextStyle};color:${color};white-space:nowrap">🤖 Auto-clasificación validada</span>`;
+
   const autoTabHtml = `
-    <div class="classify-tab" id="bn-btn-classify-${idx}" style="background:#fff7ed;border-color:#fed7aa">
-      <span class="classify-tab-arrow" style="color:#9a3412">›</span>
-      <span class="classify-tab-label" onclick="bn_toggleBnClassify(${idx})" style="cursor:pointer;font-size:10px;text-transform:none;letter-spacing:.01em;font-weight:700;color:#9a3412;flex:1;text-align:left">🤖 ${esc(pathText)}</span>
+    <div class="classify-tab" id="bn-btn-classify-${idx}" style="background:#fff7ed;border-color:#fed7aa;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
+      <span onclick="bn_toggleBnClassify(${idx})" style="cursor:pointer;${tabTextStyle};color:#9a3412;display:inline-flex;align-items:center;gap:4px">🤖 ${esc(pathText)}</span>
       <button onclick="event.stopPropagation();bn_validateAutoClasif(${idx})"
-              style="margin-left:6px;padding:3px 8px;border:1px solid #16a34a;background:#fff;color:#16a34a;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">
+              style="padding:3px 8px;border:1px solid #16a34a;background:#fff;color:#16a34a;border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">
         ✓ Validar auto-clasificación
       </button>
-      <span title="${esc(rec._args_clasif||'')}" style="margin-left:6px;padding:3px 8px;background:${probBg};color:${probCol};border-radius:6px;font-size:10px;font-weight:800;white-space:nowrap">
-        ${probPct}%
-      </span>
+      ${probChipHtml(probCol, probBg)}
     </div>`;
+
+  const classifiedTabHtml = `<div class="classify-tab classified ${clasifColorCls}" id="bn-btn-classify-${idx}" onclick="bn_toggleBnClassify(${idx})" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
+       <span style="${tabTextStyle};color:${tabTxtColor}">${esc(pathText)}</span>
+       ${wasAutoValidated ? robotValidatedHtml(tabTxtColor) + probChipHtml(probCol, probBg) : ''}
+     </div>`;
+
   const tabHtml = isClasif
-    ? `<div class="classify-tab classified ${clasifColorCls}" id="bn-btn-classify-${idx}" onclick="bn_toggleBnClassify(${idx})">
-         <span class="classify-tab-arrow" style="color:${tabTxtColor}">›</span>
-         <span class="classify-tab-label" style="font-size:10px;text-transform:none;letter-spacing:.01em;font-weight:700;color:${tabTxtColor};">${esc(pathText)}</span>
-       </div>`
+    ? classifiedTabHtml
     : (hasAuto
       ? autoTabHtml
-      : `<div class="classify-tab" id="bn-btn-classify-${idx}" onclick="bn_toggleBnClassify(${idx})">
-           <span class="classify-tab-arrow">›</span>
-           <span class="classify-tab-label">Clasificar</span>
+      : `<div class="classify-tab" id="bn-btn-classify-${idx}" onclick="bn_toggleBnClassify(${idx})" style="display:flex;align-items:center;justify-content:center;gap:6px">
+           <span style="${tabTextStyle}">› Clasificar</span>
          </div>`);
 
   const deptOptions = Array.from({length:14},(_,j)=>`<option>${j+1}</option>`).join('');
