@@ -12807,16 +12807,59 @@ function lodgifyRender(opts) {
         return s.length >= 10 ? s.slice(-10) : '';
       };
       const latestByTail = new Map();
+      const noPhone = []; // filas sin teléfono → no dedup por teléfono
       for (const r of hu) {
         const tail = phoneTail(r['Cel/Whatsapp (principal)']);
-        if (!tail) continue;
+        if (!tail) { noPhone.push(r); continue; }
         const cur = latestByTail.get(tail);
         const dThis = String(r['Fecha de ingreso'] || '');
         if (!cur || dThis > String(cur['Fecha de ingreso'] || '')) {
           latestByTail.set(tail, r);
         }
       }
-      LG_STATE.__syntheticCache = Array.from(latestByTail.values()).map(huRowToSyntheticBooking).filter(Boolean);
+      // Segundo pase de dedupe: por (propiedad + fechas). Cuando una misma
+      // reserva está duplicada con dos teléfonos distintos (ej. la propagada
+      // de Lodgify usa otro celular que el registro manual del huésped),
+      // colapsamos ambas filas en una sola — preferimos la que tenga
+      // registro manual completo; si ninguna lo tiene, la más reciente.
+      const survivors = Array.from(latestByTail.values()).concat(noPhone);
+      const byPropDates = new Map();
+      for (const r of survivors) {
+        const propKey = lgNormPropName(r['Propiedad'] || '');
+        const arrIso  = String(r['Fecha de ingreso'] || '').slice(0,10);
+        const depIso  = String(r['Fecha de salida'] || '').slice(0,10);
+        if (!propKey || !arrIso || !depIso) continue;
+        const key = `${propKey}|${arrIso}|${depIso}`;
+        if (!byPropDates.has(key)) byPropDates.set(key, []);
+        byPropDates.get(key).push(r);
+      }
+      const dropped = new Set();
+      const probableIds = new Set();
+      for (const rows of byPropDates.values()) {
+        if (rows.length <= 1) continue;
+        rows.sort((a, b) => {
+          const ma = huHasManualRegistration(a) ? 1 : 0;
+          const mb = huHasManualRegistration(b) ? 1 : 0;
+          if (ma !== mb) return mb - ma;
+          return String(b['Fecha de ingreso']||'').localeCompare(String(a['Fecha de ingreso']||''));
+        });
+        const winner = rows[0];
+        const losers = rows.slice(1);
+        losers.forEach(r => dropped.add(r));
+        const wTail = phoneTail(winner['Cel/Whatsapp (principal)']);
+        const diffPhone = losers.some(l => {
+          const lt = phoneTail(l['Cel/Whatsapp (principal)']);
+          return lt && lt !== wTail;
+        });
+        if (diffPhone) {
+          probableIds.add(String(winner['ID'] || winner['row_number'] || ''));
+        }
+      }
+      const finalRows = survivors.filter(r => !dropped.has(r));
+      LG_STATE.__syntheticCache = finalRows.map(huRowToSyntheticBooking).filter(Boolean);
+      LG_STATE.__syntheticCache.forEach(b => {
+        if (probableIds.has(String(b.Id))) b.__reservacionMatchKind = 'probable';
+      });
       LG_STATE.__syntheticCacheKey = cacheKey;
     }
     detailSource = LG_STATE.__syntheticCache;
