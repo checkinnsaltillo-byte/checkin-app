@@ -11808,12 +11808,27 @@ function lgNormDeptNum(s) {
 
 /** Construye la clave canónica "propiedad+departamento" para agrupar
  *  reservaciones. SIEMPRE incluye el departamento — sin él, "Calle X · #1"
- *  y "Calle X · #10" se confundirían como la misma propiedad. */
+ *  y "Calle X · #10" se confundirían como la misma propiedad.
+ *
+ *  Si `deptRaw` viene vacío, intenta extraer el `#N` del final de `propRaw`
+ *  (ej. "Calle Cumbres - #8" → prop="calle cumbres", dept="8"). Esto es
+ *  necesario porque las filas propagadas desde Lodgify a Reservaciones
+ *  llegan con el nombre concatenado y el # Departamento en blanco. */
 function lgPropDeptKey(propRaw, deptRaw) {
-  const p = lgNormPropName(propRaw);
-  const d = lgNormDeptNum(deptRaw);
-  if (!p) return '';
-  return d ? `${p}|d${d}` : p;
+  let p = String(propRaw == null ? '' : propRaw);
+  let d = lgNormDeptNum(deptRaw);
+  if (!d) {
+    // Buscar "...# N", "...#N", "...- #N", "...#  10", "...· # 8" al final
+    const m = p.match(/[#]\s*([0-9]+[a-z]?)\s*$/i);
+    if (m) {
+      d = lgNormDeptNum(m[1]);
+      // Quitar el "[separadores] #N" del final para dejar solo el nombre
+      p = p.replace(/[\s\-·•|,]*[#]\s*[0-9]+[a-z]?\s*$/i, '').trim();
+    }
+  }
+  const pNorm = lgNormPropName(p);
+  if (!pNorm) return '';
+  return d ? `${pNorm}|d${d}` : pNorm;
 }
 
 /** Extrae la clave prop+depto de cualquier objeto (huesped row o booking). */
