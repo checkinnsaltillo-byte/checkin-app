@@ -12806,42 +12806,65 @@ function lodgifyRender(opts) {
         const s = String(v || '').replace(/\D/g, '');
         return s.length >= 10 ? s.slice(-10) : '';
       };
+      // PASE 1 — dedupe por teléfono (1 card por persona).
       const latestByTail = new Map();
+      const noPhone = [];
       for (const r of hu) {
         const tail = phoneTail(r['Cel/Whatsapp (principal)']);
-        if (!tail) continue;
+        if (!tail) { noPhone.push(r); continue; }
         const cur = latestByTail.get(tail);
         const dThis = String(r['Fecha de ingreso'] || '');
         if (!cur || dThis > String(cur['Fecha de ingreso'] || '')) {
           latestByTail.set(tail, r);
         }
       }
-      LG_STATE.__syntheticCache = Array.from(latestByTail.values()).map(huRowToSyntheticBooking).filter(Boolean);
-      // Marcar bookings con probable match (propiedad+fechas, distinto celular)
-      const propIndex = new Map();
-      for (const r of hu) {
-        const propKey = lgNormPropName(r['Propiedad'] || '');
-        const arrIso  = String(r['Fecha de ingreso'] || '').slice(0,10);
-        const depIso  = String(r['Fecha de salida'] || '').slice(0,10);
-        if (!propKey || !arrIso || !depIso) continue;
-        const key = `${propKey}|${arrIso}|${depIso}`;
-        if (!propIndex.has(key)) propIndex.set(key, []);
-        propIndex.get(key).push(r);
+      const afterPhone = Array.from(latestByTail.values()).concat(noPhone);
+      // PASE 2 — merge por (propiedad + fechas). Cuando dos filas comparten
+      // ese trío pero tienen teléfono distinto, las colapsamos en UNA sola
+      // (preferimos la que tenga registro manual; en empate, la más reciente).
+      // Las "perdedoras" desaparecen del sidebar pero siguen vivas en
+      // HU_STATE.rows para que aparezcan en "Reservas totales" con chip
+      // ⚠ PROBABLE.
+      const groupKeyOf = (r) => {
+        const pk = lgNormPropName(r['Propiedad'] || '');
+        const ar = String(r['Fecha de ingreso'] || '').slice(0,10);
+        const dp = String(r['Fecha de salida'] || '').slice(0,10);
+        return (pk && ar && dp) ? `${pk}|${ar}|${dp}` : '';
+      };
+      const groups = new Map();
+      const ungrouped = [];
+      for (const r of afterPhone) {
+        const k = groupKeyOf(r);
+        if (!k) { ungrouped.push(r); continue; }
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(r);
       }
-      LG_STATE.__syntheticCache.forEach(b => {
-        const rsv = b.__reservacion; if (!rsv) return;
-        const propKey = lgNormPropName(rsv['Propiedad'] || '');
-        const arrIso  = String(rsv['Fecha de ingreso'] || '').slice(0,10);
-        const depIso  = String(rsv['Fecha de salida'] || '').slice(0,10);
-        if (!propKey || !arrIso || !depIso) return;
-        const peers = propIndex.get(`${propKey}|${arrIso}|${depIso}`) || [];
-        if (peers.length < 2) return;
-        const myTail = phoneTail(rsv['Cel/Whatsapp (principal)']);
-        const diffPhone = peers.some(p => {
-          const pt = phoneTail(p['Cel/Whatsapp (principal)']);
-          return pt && pt !== myTail;
+      const winners = [];
+      const probableWinnerIds = new Set();
+      for (const [k, rows] of groups) {
+        rows.sort((a, b) => {
+          const ma = huHasManualRegistration(a) ? 1 : 0;
+          const mb = huHasManualRegistration(b) ? 1 : 0;
+          if (ma !== mb) return mb - ma;
+          return String(b['Fecha de ingreso']||'').localeCompare(String(a['Fecha de ingreso']||''));
         });
-        if (diffPhone) b.__reservacionMatchKind = 'probable';
+        const winner = rows[0];
+        winners.push(winner);
+        if (rows.length > 1) {
+          const wTail = phoneTail(winner['Cel/Whatsapp (principal)']);
+          const diffPhone = rows.slice(1).some(l => {
+            const lt = phoneTail(l['Cel/Whatsapp (principal)']);
+            return lt && lt !== wTail;
+          });
+          if (diffPhone) {
+            probableWinnerIds.add(String(winner['ID'] || winner['row_number'] || ''));
+          }
+        }
+      }
+      const finalRows = [...winners, ...ungrouped];
+      LG_STATE.__syntheticCache = finalRows.map(huRowToSyntheticBooking).filter(Boolean);
+      LG_STATE.__syntheticCache.forEach(b => {
+        if (probableWinnerIds.has(String(b.Id))) b.__reservacionMatchKind = 'probable';
       });
       LG_STATE.__syntheticCacheKey = cacheKey;
     }
