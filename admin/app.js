@@ -13533,14 +13533,43 @@ function lgBuildTable(list) {
 function lgBuildCard(b) {
   const stayState = lgGetStayState(b.DateArrival, b.DateDeparture);
   const meta = LG_STATE_META[stayState] || LG_STATE_META.concluida;
+  const bookingId = String(b.Id || '');
   return `
     <div class="lg-card hu-record" data-lg-id="${esc(b.Id)}"
          onclick="lgOpenDetailModal('${esc(b.Id)}')"
-         style="border:1.5px solid ${meta.border};border-radius:10px;background:#fff;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.04);transition:transform 120ms ease-out, box-shadow 120ms ease-out"
+         style="position:relative;border:1.5px solid ${meta.border};border-radius:10px;background:#fff;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.04);transition:transform 120ms ease-out, box-shadow 120ms ease-out"
          onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(15,23,42,.10)'"
          onmouseout="this.style.transform='';this.style.boxShadow='0 1px 3px rgba(15,23,42,.04)'">
+      <button onclick="event.stopPropagation();lgHideBooking('${esc(bookingId)}')"
+              title="Ocultar esta reserva del frontend"
+              style="position:absolute;top:6px;left:6px;z-index:5;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:13px;font-weight:900;line-height:1;cursor:pointer;box-shadow:0 1px 3px rgba(15,23,42,.08)">×</button>
       ${lgBuildCardSummary(b)}
     </div>`;
+}
+
+async function lgHideBooking(id) {
+  if (!id) return;
+  if (!confirm('¿Deseas eliminar esta reserva?')) return;
+  try {
+    const resp = await fetch(`${BACKEND}/lg-hide-booking`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, hidden_by: (typeof currentUser !== 'undefined' ? currentUser : '') }),
+    });
+    const j = await resp.json();
+    if (!j.ok) throw new Error(j.error || 'hide_failed');
+    // Quitar de memoria y re-render
+    if (Array.isArray(LG_STATE.bookings)) {
+      LG_STATE.bookings = LG_STATE.bookings.filter(bk => String(bk.Id) !== String(id));
+    }
+    if (LG_STATE.__syntheticCache) {
+      LG_STATE.__syntheticCache = LG_STATE.__syntheticCache.filter(bk => String(bk.Id) !== String(id));
+    }
+    window.LG_USER_INTERACTED = false;
+    if (typeof lodgifyRender === 'function') lodgifyRender({ force: true });
+  } catch (e) {
+    alert('Error al ocultar la reserva: ' + (e.message || e));
+  }
 }
 
 /** Construye SOLO el contenido del header de una card de reservación
