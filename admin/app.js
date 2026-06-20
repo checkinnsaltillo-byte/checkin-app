@@ -10745,8 +10745,8 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
            onmouseout="if(!this.classList.contains('hu-history-active')){this.style.boxShadow='0 1px 2px rgba(15,23,42,.06)'+(${_gColor?`', inset 4px 0 0 ${_gColor}'`:`''`});this.style.transform=''}">
         <button onclick="event.stopPropagation();lgHideCard('${esc(_xLodId)}','${esc(xid)}')"
                 title="Ocultar esta reserva del frontend"
-                style="position:absolute;top:4px;right:4px;z-index:5;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:900;line-height:1;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.08)">×</button>
-        ${(_linkChip || _probChip) ? `<div style="margin-bottom:6px;display:flex;gap:4px;flex-wrap:wrap;padding-right:22px">${_linkChip}${_probChip}</div>` : ''}
+                style="position:absolute;top:4px;left:4px;z-index:5;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid #fecaca;background:#fff;color:#dc2626;font-size:11px;font-weight:900;line-height:1;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.08)">×</button>
+        ${(_linkChip || _probChip) ? `<div style="margin-bottom:6px;display:flex;gap:4px;flex-wrap:wrap;padding-left:22px">${_linkChip}${_probChip}</div>` : `<div style="height:18px"></div>`}
         ${_isProb && _xCel ? `<div style="font-size:10px;color:#92400e;margin-bottom:4px">📱 ${esc(_xCel)} <span style="color:#94a3b8">(celular distinto)</span></div>` : ''}
         ${ticketChipHtml ? `<div style="margin-bottom:6px">${ticketChipHtml}</div>` : ''}
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;gap:8px">
