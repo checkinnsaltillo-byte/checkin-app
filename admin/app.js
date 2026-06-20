@@ -1976,6 +1976,13 @@ async function bn_loadData() {
       rec._duda_nota       = rec.DUDA_NOTA || '';
       rec._validado        = rec.VALIDADO  || '';
       rec._comentarios     = rec.COMENTARIOS || rec.Comentarios || '';
+      // Auto-clasificación (solo se muestra si no hay clasificación manual)
+      rec._cuenta_auto     = rec.CUENTA_auto    || '';
+      rec._subcuenta_auto  = rec.SUBCUENTA_auto || '';
+      rec._categoria_auto  = rec.CATEGORIA_auto || '';
+      rec._concepto_auto   = rec.CONCEPTO_auto  || '';
+      rec._prob_clasif     = Number(rec.Probabilidad_clasif) || 0;
+      rec._args_clasif     = rec.Argumentos_clasif || '';
       // _tipo: clasificación manual > TIPO del sheet > signo del monto
       // Normalizar a forma canónica para que CUENTA_COLOR_CLASS y filtros funcionen
       const monto = Number(rec.Monto) || 0;
@@ -5445,22 +5452,44 @@ function bn_createCard(rec, idx) {
 
   // Tab Clasificar
   const isClasif  = !!rec._cuenta;
-  const pathParts = [rec._cuenta, rec._subcuenta, rec._categoria_gasto, rec._concepto].filter(Boolean);
+  const hasAuto   = !isClasif && !!rec._cuenta_auto;
+  const pathParts = isClasif
+    ? [rec._cuenta, rec._subcuenta, rec._categoria_gasto, rec._concepto].filter(Boolean)
+    : [rec._cuenta_auto, rec._subcuenta_auto, rec._categoria_auto, rec._concepto_auto].filter(Boolean);
   const pathText  = pathParts.join(' › ');
   // En "Por clasificar" la pestaña inferior tampoco lleva color (sólo el chip de CUENTA lo conserva)
   const clasifColorCls = (CUENTA_COLOR_CLASS[rec._cuenta] && !inPC) ? CUENTA_COLOR_CLASS[rec._cuenta] : '';
   // Color del texto de la pestaña: blanco cuando hay color de fondo (clasificado fuera de PC);
   // texto oscuro cuando la pestaña queda sin color (no clasificado o en Por clasificar).
   const tabTxtColor = clasifColorCls ? '#fff' : 'var(--text,#111827)';
+  // Auto: probabilidad semaforizada (acepta 0-1 o 0-100)
+  const _probRaw = Number(rec._prob_clasif) || 0;
+  const probPct = Math.round(_probRaw > 1 ? _probRaw : _probRaw * 100);
+  const probCol = probPct >= 80 ? '#16a34a' : probPct >= 50 ? '#f59e0b' : '#dc2626';
+  const probBg  = probPct >= 80 ? '#dcfce7' : probPct >= 50 ? '#fef3c7' : '#fee2e2';
+  const autoTabHtml = `
+    <div class="classify-tab" id="bn-btn-classify-${idx}" style="background:#fff7ed;border-color:#fed7aa">
+      <span class="classify-tab-arrow" style="color:#9a3412">›</span>
+      <span class="classify-tab-label" onclick="bn_toggleBnClassify(${idx})" style="cursor:pointer;font-size:10px;text-transform:none;letter-spacing:.01em;font-weight:700;color:#9a3412;flex:1;text-align:left">🤖 ${esc(pathText)}</span>
+      <button onclick="event.stopPropagation();bn_validateAutoClasif(${idx})"
+              style="margin-left:6px;padding:3px 8px;border:1px solid #16a34a;background:#fff;color:#16a34a;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">
+        ✓ Validar auto-clasificación
+      </button>
+      <span title="${esc(rec._args_clasif||'')}" style="margin-left:6px;padding:3px 8px;background:${probBg};color:${probCol};border-radius:6px;font-size:10px;font-weight:800;white-space:nowrap">
+        ${probPct}%
+      </span>
+    </div>`;
   const tabHtml = isClasif
     ? `<div class="classify-tab classified ${clasifColorCls}" id="bn-btn-classify-${idx}" onclick="bn_toggleBnClassify(${idx})">
          <span class="classify-tab-arrow" style="color:${tabTxtColor}">›</span>
          <span class="classify-tab-label" style="font-size:10px;text-transform:none;letter-spacing:.01em;font-weight:700;color:${tabTxtColor};">${esc(pathText)}</span>
        </div>`
-    : `<div class="classify-tab" id="bn-btn-classify-${idx}" onclick="bn_toggleBnClassify(${idx})">
-         <span class="classify-tab-arrow">›</span>
-         <span class="classify-tab-label">Clasificar</span>
-       </div>`;
+    : (hasAuto
+      ? autoTabHtml
+      : `<div class="classify-tab" id="bn-btn-classify-${idx}" onclick="bn_toggleBnClassify(${idx})">
+           <span class="classify-tab-arrow">›</span>
+           <span class="classify-tab-label">Clasificar</span>
+         </div>`);
 
   const deptOptions = Array.from({length:14},(_,j)=>`<option>${j+1}</option>`).join('');
 
@@ -5567,6 +5596,43 @@ function bn_showBnTab(idx, tab, btn) {
 }
 
 /** Abre el modal Clasificar (popup) con la tabla Resumen + panel Clasificar. */
+async function bn_validateAutoClasif(idx) {
+  const rec = BN_CUR_RECS[idx];
+  if (!rec || !rec.rowNum) return;
+  if (!rec._cuenta_auto) { alert('Sin auto-clasificación para validar'); return; }
+  // Copiar *_auto → real
+  rec._cuenta          = rec._cuenta_auto;
+  rec._subcuenta       = rec._subcuenta_auto;
+  rec._categoria_gasto = rec._categoria_auto;
+  rec._concepto        = rec._concepto_auto;
+  rec.CUENTA           = rec._cuenta_auto;
+  rec.SUBCUENTA        = rec._subcuenta_auto;
+  rec.CATEGORIA        = rec._categoria_auto;
+  rec.CONCEPTO         = rec._concepto_auto;
+  // Feedback visual inmediato en la pestaña
+  const tab = document.getElementById('bn-btn-classify-' + idx);
+  if (tab) {
+    tab.style.background = '#dcfce7';
+    tab.style.borderColor = '#16a34a';
+    tab.innerHTML = `<span class="classify-tab-arrow" style="color:#166534">✓</span>
+      <span class="classify-tab-label" style="font-size:10px;font-weight:700;color:#166534">Auto-clasificación validada</span>`;
+  }
+  try {
+    const payload = bn_buildSavePayload(rec, {});
+    const resp = await fetch(`${BACKEND}/save-banco-clasificacion`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const j = await resp.json();
+    if (!j.ok) throw new Error(j.error || 'save_failed');
+    // Re-render para aplicar color/chip definitivo
+    setTimeout(() => bn_renderCards(), 900);
+  } catch (e) {
+    alert('Error al guardar: ' + (e.message || e));
+    if (tab) tab.style.background = '#fee2e2';
+  }
+}
+
 function bn_toggleBnClassify(idx) {
   const rec = BN_CUR_RECS[idx];
   if (!rec) return;
