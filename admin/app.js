@@ -12738,11 +12738,18 @@ function lgRebuildFilterOptions() {
   lgMultiRender('programacion', '🗓️ Programación', LG_FILTER_OPTIONS.programacion, {
     optionRenderer: (v) => { const m = LG_STATE_META[v]; return m ? `${m.emoji} ${esc(m.label)}` : esc(v); },
   });
-  lgMultiRender('source',    '🔌 Fuente',     LG_FILTER_OPTIONS.source);
+  // Cualquier valor de "Fuente" nuevo (aparece tras un sync) se selecciona
+  // automáticamente — el filtro siempre arranca con TODAS las fuentes activas.
+  if (LG_STATE.multiSel.source instanceof Set) {
+    (LG_FILTER_OPTIONS.source || []).forEach(v => LG_STATE.multiSel.source.add(v));
+  }
+  lgMultiRender('source',    '🔌 Fuente',     LG_FILTER_OPTIONS.source, {
+    defaultSelected: LG_FILTER_OPTIONS.source,
+  });
   lgMultiRender('status',    '📊 Estado',     LG_FILTER_OPTIONS.status, { defaultSelected: ['Booked','Tentative'] });
   lgMultiRender('propiedad', '🏠 Propiedad',  LG_FILTER_OPTIONS.propiedad);
   lgMultiRender('factura',   '📄 Factura',    LG_FILTER_OPTIONS.factura, {
-    optionRenderer: (v) => v === 'Con factura' ? '✅ Con factura' : '❌ Sin factura',
+    optionRenderer: (v) => v === 'Con factura' ? '✅ Requiere factura' : '❌ No requiere factura',
   });
   // Meses: default = mes en curso. Formatea como "Enero 2026".
   const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -13273,15 +13280,15 @@ function lgBuildFacturaLegendHtml() {
   lgMultiInitIfNeeded('factura', allValues);
   const sel = LG_STATE.multiSel['factura'] || new Set();
   const styles = {
-    'Con factura': { bgIntense:'#dcfce7', border:'#86efac', accentFg:'#166534', shadow:'rgba(22,163,74,.22)', icon:'✅' },
-    'Sin factura': { bgIntense:'#fee2e2', border:'#fca5a5', accentFg:'#991b1b', shadow:'rgba(220,38,38,.22)', icon:'❌' },
+    'Con factura': { bgIntense:'#dcfce7', border:'#86efac', accentFg:'#166534', shadow:'rgba(22,163,74,.22)', icon:'✅', label:'Requiere factura' },
+    'Sin factura': { bgIntense:'#fee2e2', border:'#fca5a5', accentFg:'#991b1b', shadow:'rgba(220,38,38,.22)', icon:'❌', label:'No requiere factura' },
   };
   const chip = (v) => {
     const s = styles[v]; if (!s) return '';
     const active = sel.has(v);
     return `
       <button type="button" onclick="event.stopPropagation();lgMultiToggle('factura','${esc(v)}');lodgifyRender()"
-              title="${esc(v)}"
+              title="${esc(s.label)}"
               style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:999px;
                      border:1.5px solid ${s.border};
                      background:${active ? s.bgIntense : '#fff'};
@@ -13290,7 +13297,7 @@ function lgBuildFacturaLegendHtml() {
                      transition:transform 120ms ease, box-shadow 120ms ease;
                      ${active ? `box-shadow:0 2px 6px ${s.shadow};` : 'opacity:.55;'}
                      white-space:nowrap">
-        <span style="font-size:11px;line-height:1">${s.icon}</span>${esc(v)}
+        <span style="font-size:11px;line-height:1">${s.icon}</span>${esc(s.label)}
       </button>`;
   };
   const todasBtn = `
@@ -13360,6 +13367,42 @@ function lgBuildProgLegendHtml() {
  *  a la derecha con el MISMO contenido del modal pop-up (header Lodgify +
  *  detalle + bloque huéspedes 3-columnas). Cuando se selecciona un item del
  *  sidebar, solo se re-renderiza el área de detalle. */
+/** Barra de progreso de Facturación — emitidas vs pendientes — solo dentro
+ *  del universo "requiere factura". Mismo estilo que la barra "Por clasificar"
+ *  de Registros contables. */
+function lgBuildFacturaProgressHtml(list) {
+  let requeridas = 0, emitidas = 0, pendientes = 0;
+  (list || []).forEach(b => {
+    const h = (typeof lgGetHuespedForBooking === 'function') ? lgGetHuespedForBooking(b) : null;
+    if (!h) return;
+    const req = String(huValueFlexible(h, ['¿Requiere factura?']) || '').trim();
+    const st  = (typeof huGetFacturaStatus === 'function') ? huGetFacturaStatus(h) : '';
+    const conFact = /^s[ií]?$/i.test(req) || st === 'emitida' || st === 'pendiente';
+    if (!conFact) return;
+    requeridas++;
+    if (st === 'emitida') emitidas++;
+    else pendientes++;
+  });
+  const total = requeridas;
+  const pctE  = total > 0 ? (emitidas   / total * 100) : 0;
+  const pctP  = total > 0 ? (pendientes / total * 100) : 0;
+  return `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#14532d;white-space:nowrap">
+        <span style="width:9px;height:9px;border-radius:50%;background:#16a34a;display:inline-block"></span>
+        ${emitidas} (${pctE.toFixed(0)}%) Emitidas
+      </div>
+      <div style="flex:1;display:flex;height:12px;border-radius:999px;overflow:hidden;background:#e5e7eb">
+        <div title="Emitidas: ${emitidas}"   style="width:${pctE.toFixed(2)}%;background:linear-gradient(90deg,#16a34a,#86efac);transition:width .3s"></div>
+        <div title="Pendientes: ${pendientes}" style="width:${pctP.toFixed(2)}%;background:linear-gradient(90deg,#fca5a5,#dc2626);transition:width .3s"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#7f1d1d;white-space:nowrap">
+        Pendientes ${pendientes} (${pctP.toFixed(0)}%)
+        <span style="width:9px;height:9px;border-radius:50%;background:#dc2626;display:inline-block"></span>
+      </div>
+    </div>`;
+}
+
 function lgBuildDetailView(list, cont) {
   // Determina el booking seleccionado: prioridad LG_STATE.detailSelectedId,
   // si no, el primero de la lista filtrada.
@@ -13374,6 +13417,7 @@ function lgBuildDetailView(list, cont) {
   const sidebarItems = list.slice(0, 200).map(b => lgBuildDetailSidebarItem(b, selectedId)).join('');
   const facturaLegendHtml = lgBuildFacturaLegendHtml();
   const legendHtml = lgBuildProgLegendHtml();
+  const facturaProgressHtml = lgBuildFacturaProgressHtml(list);
 
   // Hamburguesa de filtros: predeterminadamente desplegada (LG_STATE.filtersOpen).
   if (LG_STATE.filtersOpen === undefined) LG_STATE.filtersOpen = true;
@@ -13390,6 +13434,7 @@ function lgBuildDetailView(list, cont) {
             <div class="rd-sidebar-count">${list.length} huésped${list.length===1?'':'es'}</div>
           </div>
         </div>
+        ${facturaProgressHtml}
         <div id="lg-sidebar-filters" style="${filtersExpanded ? '' : 'display:none'}">
           ${facturaLegendHtml}
           ${legendHtml}
