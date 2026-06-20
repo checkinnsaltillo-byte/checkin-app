@@ -10545,9 +10545,16 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
   // solo la elegida por el sidebar. Por eso filtramos HU_STATE.rows
   // directamente, sin pasar por LG_STATE.lastFilteredList.
   const _allRowsSrc = allRows || HU_STATE.rows || [];
-  // 1) Match exacto por teléfono
-  const exactList = _allRowsSrc.filter(x =>
+  // 1) Match exacto por teléfono. Si la fila actual no tiene celular
+  //    (caso filas propagadas desde Lodgify con "Sin nombre"), al menos
+  //    incluimos currentR para que el historial no quede vacío y el merge
+  //    por propiedad+fechas pueda encontrar relacionadas.
+  let exactList = _allRowsSrc.filter(x =>
     tail && phoneTail(huValueFlexible(x, ['Cel/Whatsapp (principal)'])) === tail);
+  const _currentId = String(currentR['ID']||currentR['row_number']||'');
+  if (!exactList.some(x => String(x['ID']||x['row_number']||'') === _currentId)) {
+    exactList = [currentR, ...exactList];
+  }
   // 2) Match probable: misma propiedad + fechas exactas, teléfono distinto
   const _exactIds = new Set(exactList.map(x => String(x['ID']||x['row_number']||'')));
   const _propDateKeys = new Set();
