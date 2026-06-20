@@ -9463,6 +9463,15 @@ function huRecalcAirbnb(inputAirbnb) {
 /** Sincroniza el campo (+) Monto facturado Total del card con la columna
  *  "$ Monto facturado Total" del sheet. Sin debounce, sin skips: si el
  *  input tiene un valor numérico > 0, lo guarda. */
+// Registry global de POSTs de persist en vuelo. huespedesGenerarTicket espera
+// a que todos estén finalizados antes de abrir el popup de Facturapi, evitando
+// que el popup lea el sheet con el monto antiguo.
+window.__huPendingPersists = window.__huPendingPersists || new Set();
+function __huTrackPersist(p) {
+  window.__huPendingPersists.add(p);
+  p.finally(() => window.__huPendingPersists.delete(p));
+  return p;
+}
 async function huPersistCardMonto(cardEl) {
   if (!cardEl) { console.warn('[HU] persist: no card'); return; }
   // Si el cardEl es un wrapper de reservación seleccionada (3-col layout),
@@ -9624,7 +9633,7 @@ async function huEnrichRowAndRerenderIdCard(detailsEl) {
 let HU_RECALC_TIMER = null;
 function huMaybePersistCardMonto(cardEl) {
   if (HU_RECALC_TIMER) clearTimeout(HU_RECALC_TIMER);
-  HU_RECALC_TIMER = setTimeout(() => huPersistCardMonto(cardEl), 600);
+  HU_RECALC_TIMER = setTimeout(() => __huTrackPersist(huPersistCardMonto(cardEl)), 600);
 }
 
 /** Click handler del botón "Importar $Montos" en la col 3 del detalle Lodgify.
@@ -9682,7 +9691,7 @@ window.huImportLodgifyMontos = function(btn) {
   }
   // Persist INMEDIATO (cancela cualquier debounce previo)
   if (HU_RECALC_TIMER) { clearTimeout(HU_RECALC_TIMER); HU_RECALC_TIMER = null; }
-  try { huPersistCardMonto(card); } catch (e) { console.warn('[HU] persist err:', e); }
+  try { __huTrackPersist(huPersistCardMonto(card)); } catch (e) { console.warn('[HU] persist err:', e); }
   // Feedback visual
   const original = btn.innerHTML;
   btn.innerHTML = '✓ Importado';
@@ -11468,6 +11477,25 @@ function huBuildFacturapiUrlFromRow(row, baseUrl, cantidadOverride) {
 /** Genera ticket facturapi para un registro. */
 async function huespedesGenerarTicket(recordId) {
   if (!recordId) { alert('No se pudo identificar el registro.'); return; }
+
+  // CRÍTICO: si hay un debounce de persist pendiente, dispararlo YA y
+  // esperar. Después, awaitar TODOS los POSTs de persist en vuelo. Sin esto,
+  // el popup de Facturapi se abre con recordId y lee del sheet ANTES de que
+  // el monto recién importado se haya guardado → quantity queda en "1".
+  if (typeof HU_RECALC_TIMER !== 'undefined' && HU_RECALC_TIMER) {
+    clearTimeout(HU_RECALC_TIMER);
+    HU_RECALC_TIMER = null;
+    // Disparar persist inmediato del card actual antes de awaitar
+    const cardNow = document.querySelector(`.hu-record[data-record-id="${recordId}"]`)
+                 || document.querySelector(`.hu-resv-cobros[data-hu-resv-id="${recordId}"]`)
+                 || document.querySelector(`.hu-resv-detail[data-hu-resv-id="${recordId}"]`);
+    if (cardNow) {
+      try { __huTrackPersist(huPersistCardMonto(cardNow)); } catch (_) {}
+    }
+  }
+  if (window.__huPendingPersists && window.__huPendingPersists.size) {
+    try { await Promise.all([...window.__huPendingPersists]); } catch (_) {}
+  }
 
   // Buscar row en cache local
   let row = (HU_STATE.rows || []).find(r => String(r['ID']||r['row_number']||'') === String(recordId));
