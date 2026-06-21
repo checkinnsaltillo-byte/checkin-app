@@ -15126,10 +15126,31 @@ function lgBuildAseoSectionForBooking(arg) {
          <button type="button" onclick="event.preventDefault();event.stopPropagation();(typeof bzwInit==='function'?bzwInit():null);if(typeof lodgifyRender==='function')setTimeout(lodgifyRender,2000)" style="padding:4px 10px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">Reintentar</button>
        </div>`);
   }
-  if (!arrIso || !depIso || !propKey) return placeholder('Sin fechas/propiedad para cruzar con tareas.');
+  if (!arrIso || !depIso) return placeholder('Sin fechas para cruzar con tareas.');
 
   if (!BZW_IDX_BY_PROPKEY) { try { bzwBuildTaskIndexes_(); } catch(_) {} }
-  const tasksProp = (BZW_IDX_BY_PROPKEY && BZW_IDX_BY_PROPKEY.get(propKey)) || [];
+  // Match primario por propKey (homologación de nombre). Fallback por
+  // HouseId del booking ↔ task.property.id — robusto a fallas de homol
+  // (mismo criterio que usa bzwBuildReservasAsociadasSection en sentido
+  // inverso). Si solo aplica uno, se usa solo; si aplican ambos, unimos
+  // sin duplicar por t.task.id.
+  const tasksByProp = (BZW_IDX_BY_PROPKEY && propKey && BZW_IDX_BY_PROPKEY.get(propKey)) || [];
+  const houseId = String(arg.HouseId || '').trim();
+  const tasksByHouse = (BZW_IDX_BY_PROPID && houseId && BZW_IDX_BY_PROPID.get(houseId)) || [];
+  let tasksProp;
+  if (tasksByProp.length && tasksByHouse.length) {
+    const seen = new Set();
+    tasksProp = [];
+    for (const t of [...tasksByProp, ...tasksByHouse]) {
+      const id = String(t.task?.id || t.raw?.id || '');
+      if (id && seen.has(id)) continue;
+      if (id) seen.add(id);
+      tasksProp.push(t);
+    }
+  } else {
+    tasksProp = tasksByProp.length ? tasksByProp : tasksByHouse;
+  }
+  if (!tasksProp.length && !propKey && !houseId) return placeholder('Sin propiedad para cruzar con tareas.');
 
   const schedIsoOf = (t) => {
     const s = t.raw?.scheduled_date || t.task?.scheduled_date || '';
@@ -15137,22 +15158,27 @@ function lgBuildAseoSectionForBooking(arg) {
     return m ? m[1] : '';
   };
 
+  // Primera pasada: encontrar fechas más cercanas para Anterior/Siguiente.
   const enCurso = [];
-  let anterior = null, anteriorSched = '';
-  let siguiente = null, siguienteSched = '';
+  let anteriorSched = '', siguienteSched = '';
   for (const t of tasksProp) {
     const s = schedIsoOf(t);
     if (!s) continue;
     if (s > arrIso && s < depIso) {
       enCurso.push(t);
     } else if (s <= arrIso) {
-      if (!anteriorSched || s > anteriorSched) { anterior = t; anteriorSched = s; }
+      if (!anteriorSched || s > anteriorSched) anteriorSched = s;
     } else if (s >= depIso) {
-      if (!siguienteSched || s < siguienteSched) { siguiente = t; siguienteSched = s; }
+      if (!siguienteSched || s < siguienteSched) siguienteSched = s;
     }
   }
+  // Segunda pasada: recolectar TODAS las tasks que comparten esa fecha.
+  // Si varias tasks coinciden en la fecha más cercana (Anterior/Siguiente)
+  // todas deben mostrarse — antes solo aparecía la primera iterada.
+  const anteriores = anteriorSched ? tasksProp.filter(t => schedIsoOf(t) === anteriorSched) : [];
+  const siguientes = siguienteSched ? tasksProp.filter(t => schedIsoOf(t) === siguienteSched) : [];
 
-  if (!enCurso.length && !anterior && !siguiente) {
+  if (!enCurso.length && !anteriores.length && !siguientes.length) {
     return placeholder(`Sin tareas en la propiedad para el rango ${arrIso} → ${depIso}.`);
   }
 
@@ -15193,11 +15219,15 @@ function lgBuildAseoSectionForBooking(arg) {
   };
 
   let body = '';
-  if (anterior)  body += renderTaskCard(anterior, '◀ Anterior', { bg:'#fef3c7', fg:'#92400e', border:'#fcd34d' }, anteriorSched);
+  for (const t of anteriores) {
+    body += renderTaskCard(t, '◀ Anterior', { bg:'#fef3c7', fg:'#92400e', border:'#fcd34d' }, anteriorSched);
+  }
   for (const t of enCurso) {
     body += renderTaskCard(t, '⊙ En curso', { bg:'#dcfce7', fg:'#166534', border:'#86efac' }, schedIsoOf(t));
   }
-  if (siguiente) body += renderTaskCard(siguiente, 'Siguiente ▶', { bg:'#dbeafe', fg:'#1e40af', border:'#93c5fd' }, siguienteSched);
+  for (const t of siguientes) {
+    body += renderTaskCard(t, 'Siguiente ▶', { bg:'#dbeafe', fg:'#1e40af', border:'#93c5fd' }, siguienteSched);
+  }
   return wrap(sectionHeader + body);
 }
 
@@ -17036,8 +17066,9 @@ let BZW_ALL_TASKS = [];
 let BZW_IDX_BY_LODID = null;        // Map<lodId, tasks[]>
 let BZW_IDX_BY_PROPDATE = null;     // Map<propKey|YYYY-MM-DD, tasks[]>
 let BZW_IDX_BY_PROPKEY = null;      // Map<propKey, tasks[]>
+let BZW_IDX_BY_PROPID  = null;      // Map<bzw property.id, tasks[]>
 function bzwBuildTaskIndexes_() {
-  const byLod = new Map(), byPD = new Map(), byProp = new Map();
+  const byLod = new Map(), byPD = new Map(), byProp = new Map(), byPropId = new Map();
   for (const t of BZW_ALL_TASKS) {
     const lod = String(t.raw?.linked_reservation?.external_reservation_id || '').trim();
     if (lod) {
@@ -17057,10 +17088,16 @@ function bzwBuildTaskIndexes_() {
       if (!byProp.has(pk)) byProp.set(pk, []);
       byProp.get(pk).push(t);
     }
+    const propId = t.property?.id != null ? String(t.property.id) : '';
+    if (propId) {
+      if (!byPropId.has(propId)) byPropId.set(propId, []);
+      byPropId.get(propId).push(t);
+    }
   }
   BZW_IDX_BY_LODID = byLod;
   BZW_IDX_BY_PROPDATE = byPD;
   BZW_IDX_BY_PROPKEY = byProp;
+  BZW_IDX_BY_PROPID = byPropId;
 }
 // Map global: nombre Breezeway → "Propiedad - #Depto." (homologado).
 // Se reconstruye cada vez que llegan datos nuevos.
