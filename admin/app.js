@@ -10663,13 +10663,24 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
   });
   const itemsArr = list.map(x => {
     const xid     = String(x['ID'] || x['row_number'] || '');
-    const ingreso = huValueFlexible(x, ['Fecha de ingreso']);
-    const salida  = huValueFlexible(x, ['Fecha de salida']);
+    // Lookup del booking Lodgify vinculado: Lodgify es source-of-truth para
+    // fechas/noches (cuando el huésped extiende). Caemos a la fila de
+    // Reservaciones solo si no hay Lodgify Id o no se encuentra el booking.
+    const _lodId = String(x['Lodgify Id'] || '').trim();
+    const _lg    = _lodId
+      ? ((LG_STATE.bookings || []).find(bk => String(bk.Id) === _lodId) || null)
+      : null;
+    const ingreso = (_lg && _lg.DateArrival)   || huValueFlexible(x, ['Fecha de ingreso']);
+    const salida  = (_lg && _lg.DateDeparture) || huValueFlexible(x, ['Fecha de salida']);
     const prop    = huValueFlexible(x, ['Propiedad']);
     const depto   = huValueFlexible(x, ['# Departamento']);
-    let   noches  = huValueFlexible(x, ['# Noches']);
+    let   noches  = (_lg && Number(_lg.Nights) > 0) ? String(_lg.Nights) : huValueFlexible(x, ['# Noches']);
+    // Si ingreso/salida vienen en Lodgify MM/DD/YYYY, huParseDate los interpreta
+    // como DD/MM/YYYY (bug). Normalizar a ISO YYYY-MM-DD vía lgFmtDateUI.
+    const _ingIso = (typeof lgFmtDateUI === 'function') ? lgFmtDateUI(ingreso) : ingreso;
+    const _salIso = (typeof lgFmtDateUI === 'function') ? lgFmtDateUI(salida)  : salida;
     if (!noches || Number(noches) <= 0) {
-      const di = huParseDate(ingreso); const ds = huParseDate(salida);
+      const di = huParseDate(_ingIso); const ds = huParseDate(_salIso);
       if (di && ds) {
         const n = Math.max(0, Math.round((ds - di) / 86400000));
         if (n > 0) noches = String(n);
