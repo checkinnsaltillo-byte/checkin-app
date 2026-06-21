@@ -11793,6 +11793,31 @@ function lgMMDDtoIsoDate(mmdd) {
   return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
 }
 
+/** Normaliza CUALQUIER formato de fecha a "YYYY-MM-DD".
+ *  Acepta:
+ *    - "2026-06-13T06:00:00.000Z" (ISO con timezone — usa solo la parte de fecha)
+ *    - "2026-06-13"               (ya en formato canónico)
+ *    - "06/13/2026"               (MM/DD/YYYY Lodgify)
+ *    - "13/06/2026"               (DD/MM/YYYY no usado pero por seguridad)
+ *    - Date object
+ *  Devuelve string vacío si no es parseable. */
+function lgFmtDateUI(v) {
+  if (v == null) return '';
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
+  }
+  const s = String(v).trim();
+  if (!s) return '';
+  // ISO: "2026-06-13" o "2026-06-13T06:00:00.000Z" → tomar solo los primeros 10 chars
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  // MM/DD/YYYY (Lodgify nativo)
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+  // Última opción: dejar tal cual
+  return s;
+}
+
 /** Normaliza texto para comparación tolerante: minúsculas + sin acentos +
  *  sin caracteres especiales. Útil para comparar nombres y propiedades. */
 function lgNormalizeText(s) {
@@ -14269,8 +14294,8 @@ function lgBuildCardSummary(b) {
         ${fldRow('Estado', lgStatusBadge(b.Status))}
         ${fldRow('Propiedad', esc(lgPropOf(b)))}
         ${b.RoomTypeNames ? fldRow('Tipo de habitación', esc(b.RoomTypeNames)) : ''}
-        ${fldRow('Llegada', esc(b.DateArrival))}
-        ${fldRow('Salida', esc(b.DateDeparture))}
+        ${fldRow('Llegada', esc(lgFmtDateUI(b.DateArrival)))}
+        ${fldRow('Salida', esc(lgFmtDateUI(b.DateDeparture)))}
         ${fldRow('# Noches', `<b>${b.Nights}</b>`)}
         ${b.DateCancelled ? fldRow('Fecha cancelación', esc(b.DateCancelled)) : ''}
         ${fldRow('Nombre del huésped', esc(b.GuestName))}
@@ -14483,9 +14508,9 @@ function lgBuildCombinedDetailColumn(b, huesped) {
     ${fldRow('Fuente',   lgSourceBadge(b.Source))}
     ${fldRow('Estado',   lgStatusBadge(b.Status))}
     ${fldRow('Propiedad', esc(lgPropOf(b) || ''))}
-    ${fldRow('Llegada',  esc(llegada || ''))}
+    ${fldRow('Llegada', esc(lgFmtDateUI(llegada)))}
     ${fldRow('Hora llegada', horaIng ? esc(fmtHora(horaIng)) : '—')}
-    ${fldRow('Salida',   esc(salida  || ''))}
+    ${fldRow('Salida', esc(lgFmtDateUI(salida)))}
     ${fldRow('Hora salida',  horaSal ? esc(fmtHora(horaSal)) : '—')}
     ${fldRow('# Noches', noches ? `🌙 <b>${esc(String(noches))}</b>` : '—')}
     ${fldRow('Personas', personas ? `👥 <b>${esc(String(personas))}</b>` : '—')}
@@ -14643,9 +14668,9 @@ function lgBuildSection1DetailHtml(b, huesped) {
       ${fldRow('Fuente',   lgSourceBadge(b.Source))}
       ${fldRow('Estado',   lgStatusBadge(b.Status))}
       ${fldRow('Propiedad', esc(lgPropOf(b) || ''))}
-      ${fldRow('Llegada',  esc(llegada || ''))}
+      ${fldRow('Llegada', esc(lgFmtDateUI(llegada)))}
       ${fldRow('Hora llegada', horaIng ? esc(fmtHora(horaIng)) : '—')}
-      ${fldRow('Salida',   esc(salida  || ''))}
+      ${fldRow('Salida', esc(lgFmtDateUI(salida)))}
       ${fldRow('Hora salida',  horaSal ? esc(fmtHora(horaSal)) : '—')}
       ${fldRow('# Noches', noches ? `🌙 <b>${esc(String(noches))}</b>` : '—')}
       ${fldRow('Personas', personas ? `👥 <b>${esc(String(personas))}</b>` : '—')}
@@ -14860,8 +14885,8 @@ function lgBuildLodgifyDetailBlock(b) {
       ${b.ConfirmationCode ? fldRow('Confirmation code', `<code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:11px">${esc(b.ConfirmationCode)}</code>`) : ''}
       ${fldRow('Propiedad', esc(lgPropOf(b)))}
       ${b.RoomTypeNames ? fldRow('Tipo de habitación', esc(b.RoomTypeNames)) : ''}
-      ${fldRow('Llegada', esc(b.DateArrival))}
-      ${fldRow('Salida', esc(b.DateDeparture))}
+      ${fldRow('Llegada', esc(lgFmtDateUI(b.DateArrival)))}
+      ${fldRow('Salida', esc(lgFmtDateUI(b.DateDeparture)))}
       ${fldRow('# Noches', `<b>${b.Nights}</b>`)}
       ${b.DateCancelled ? fldRow('Cancelada', esc(b.DateCancelled)) : ''}
       ${fldRow('Personas', `👥 ${b.NumberOfGuests} (Adultos: ${b.Adults}, Niños: ${b.Children}${b.Infants?`, Infantes: ${b.Infants}`:''}${b.Pets?`, Mascotas: ${b.Pets}`:''})`)}
@@ -14916,8 +14941,8 @@ function lgBuildModalLodgifyHtml(b, hasHuesped) {
       ${b.ConfirmationCode ? fldRow('Confirmation code', `<code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:11px">${esc(b.ConfirmationCode)}</code>`) : ''}
       ${fldRow('Propiedad', esc(lgPropOf(b)))}
       ${b.RoomTypeNames ? fldRow('Tipo de habitación', esc(b.RoomTypeNames)) : ''}
-      ${fldRow('Llegada', esc(b.DateArrival))}
-      ${fldRow('Salida', esc(b.DateDeparture))}
+      ${fldRow('Llegada', esc(lgFmtDateUI(b.DateArrival)))}
+      ${fldRow('Salida', esc(lgFmtDateUI(b.DateDeparture)))}
       ${fldRow('# Noches', `<b>${b.Nights}</b>`)}
       ${b.DateCancelled ? fldRow('Cancelada', esc(b.DateCancelled)) : ''}
       ${fldRow('Personas', `👥 ${b.NumberOfGuests} (Adultos: ${b.Adults}, Niños: ${b.Children}${b.Infants?`, Infantes: ${b.Infants}`:''}${b.Pets?`, Mascotas: ${b.Pets}`:''})`)}
@@ -15332,8 +15357,8 @@ function lgBuildModalContent(b, huesped) {
       ${b.ConfirmationCode ? fldRow('Confirmation code', `<code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:11px">${esc(b.ConfirmationCode)}</code>`) : ''}
       ${fldRow('Propiedad', esc(lgPropOf(b)))}
       ${b.RoomTypeNames ? fldRow('Tipo de habitación', esc(b.RoomTypeNames)) : ''}
-      ${fldRow('Llegada', esc(b.DateArrival))}
-      ${fldRow('Salida', esc(b.DateDeparture))}
+      ${fldRow('Llegada', esc(lgFmtDateUI(b.DateArrival)))}
+      ${fldRow('Salida', esc(lgFmtDateUI(b.DateDeparture)))}
       ${fldRow('# Noches', `<b>${b.Nights}</b>`)}
       ${b.DateCancelled ? fldRow('Cancelada', esc(b.DateCancelled)) : ''}
       ${fldRow('Personas', `👥 ${b.NumberOfGuests} (Adultos: ${b.Adults}, Niños: ${b.Children}${b.Infants?`, Infantes: ${b.Infants}`:''}${b.Pets?`, Mascotas: ${b.Pets}`:''})`)}
