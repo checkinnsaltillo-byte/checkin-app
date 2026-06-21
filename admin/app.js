@@ -18067,6 +18067,7 @@ function bzwBuildReservasAsociadasSection(t) {
   const renderCard = (b, badgeLabel, badgeColor) => {
     const arr = bzwFmtFechaDetalle(b.DateArrival, true);
     const dep = bzwFmtFechaDetalle(b.DateDeparture, true);
+    const propTxt = (typeof lgPropOf === 'function') ? (lgPropOf(b) || b.HouseName || '') : (b.HouseName || '');
     return `
       <div onclick="event.stopPropagation();bzwCloseDetailPanel();bzwGotoReservation('${esc(b.Id)}')"
            style="padding:9px 11px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;margin-bottom:6px;cursor:pointer;transition:background .15s"
@@ -18076,6 +18077,7 @@ function bzwBuildReservasAsociadasSection(t) {
           <div style="font-size:12px;font-weight:800;color:#0f172a">${esc(b.GuestName || 'Huésped')}</div>
           <span style="font-size:9px;padding:1px 7px;border-radius:999px;background:${badgeColor.bg};color:${badgeColor.fg};font-weight:800;letter-spacing:.04em;border:1px solid ${badgeColor.border};white-space:nowrap">${esc(badgeLabel)}</span>
         </div>
+        ${propTxt ? `<div style="font-size:11px;color:#3730a3;font-weight:700;margin-bottom:2px">🏠 ${esc(propTxt)}</div>` : ''}
         <div style="font-size:11px;color:#475569">${esc(arr)} → ${esc(dep)} · ${Number(b.Nights)||0}n</div>
         <div style="font-size:10px;color:#94a3b8;margin-top:2px">Lodgify Id ${esc(b.Id)}</div>
       </div>`;
