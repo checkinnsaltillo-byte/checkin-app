@@ -17956,11 +17956,113 @@ function bzwDetailHtmlForBooking(b, selectedTask) {
       <div class="bzw-detail-section-title">✅ Tareas vinculadas</div>
       ${groupsHtml || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin tareas vinculadas en la bitácora actual.</div>'}
     </section>
+    ${selectedTask ? bzwBuildReservasAsociadasSection(selectedTask) : ''}
     <section class="bzw-detail-section" style="border-bottom:none">
       <div class="bzw-detail-section-title">⚠ Problemas reportados</div>
       <div style="font-size:12px;color:#94a3b8;font-style:italic">No hay problemas reportados.</div>
     </section>
   `;
+}
+
+/** Sección "Reservas asociadas" para una task de Breezeway.
+ *  Cruza con LG_STATE.bookings buscando reservas en la misma propiedad y
+ *  con relación temporal a scheduled_date:
+ *    - includes:  la estancia INCLUYE la fecha de la task (arr ≤ sched ≤ dep)
+ *    - previous:  reserva inmediatamente anterior (mayor DateDeparture ≤ sched)
+ *    - next:      reserva inmediatamente siguiente (menor DateArrival ≥ sched)
+ *  Renderiza cards con click → abre la reserva en Gestión de reservas. */
+function bzwBuildReservasAsociadasSection(t) {
+  if (!t || !Array.isArray(LG_STATE?.bookings) || !LG_STATE.bookings.length) {
+    return '';
+  }
+  const schedRaw = t.task?.scheduled_date || t.raw?.scheduled_date;
+  const m = String(schedRaw||'').match(/^(\d{4}-\d{2}-\d{2})/);
+  if (!m) return '';
+  const schedIso = m[1];
+  // Resolver propKey de la task (normalizado a forma canónica vía bzwPropDisplay)
+  const taskPropName = (typeof bzwPropDisplay === 'function')
+    ? bzwPropDisplay(t.property?.name)
+    : (t.property?.name || '');
+  const taskPropKey = (typeof lgPropDeptKey === 'function')
+    ? lgPropDeptKey(taskPropName, '')
+    : String(taskPropName||'').toLowerCase();
+  if (!taskPropKey) return '';
+  const taskHomeId = t.property?.id != null ? String(t.property.id) : '';
+  // Filtrar bookings de la misma propiedad
+  const mmddToIso = (s) => {
+    const mm = String(s||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (!mm) return '';
+    return `${mm[3]}-${String(mm[1]).padStart(2,'0')}-${String(mm[2]).padStart(2,'0')}`;
+  };
+  const sameProp = LG_STATE.bookings.filter(b => {
+    // Match por HouseId si está presente (más confiable que el nombre)
+    if (taskHomeId && String(b.HouseId||'') === taskHomeId) return true;
+    // Fallback: por propKey homologado
+    const bKey = (typeof lgPropOf === 'function')
+      ? (typeof lgPropDeptKey === 'function' ? lgPropDeptKey(lgPropOf(b), '') : '')
+      : '';
+    return bKey && bKey === taskPropKey;
+  });
+  if (!sameProp.length) {
+    return `<section class="bzw-detail-section">
+      <div class="bzw-detail-section-title">🏨 Reservas asociadas</div>
+      <div style="font-size:12px;color:#94a3b8;font-style:italic">Sin reservas en esta propiedad.</div>
+    </section>`;
+  }
+  // Clasificar
+  const includes = [];
+  let previous = null, next = null;
+  for (const b of sameProp) {
+    const arrIso = mmddToIso(b.DateArrival);
+    const depIso = mmddToIso(b.DateDeparture);
+    if (!arrIso || !depIso) continue;
+    if (arrIso <= schedIso && schedIso <= depIso) {
+      includes.push(b);
+    } else if (depIso <= schedIso) {
+      if (!previous || depIso > mmddToIso(previous.DateDeparture)) previous = b;
+    } else if (arrIso >= schedIso) {
+      if (!next || arrIso < mmddToIso(next.DateArrival)) next = b;
+    }
+  }
+  // Dedupe: si previous/next coinciden con un "includes", no duplicar
+  const inclIds = new Set(includes.map(b => String(b.Id)));
+  if (previous && inclIds.has(String(previous.Id))) previous = null;
+  if (next     && inclIds.has(String(next.Id)))     next     = null;
+  const renderCard = (b, badgeLabel, badgeColor) => {
+    const arr = bzwFmtFechaDetalle(b.DateArrival, true);
+    const dep = bzwFmtFechaDetalle(b.DateDeparture, true);
+    return `
+      <div onclick="event.stopPropagation();bzwCloseDetailPanel();bzwGotoReservation('${esc(b.Id)}')"
+           style="padding:9px 11px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;margin-bottom:6px;cursor:pointer;transition:background .15s"
+           onmouseover="this.style.background='#f8fafc'"
+           onmouseout="this.style.background='#fff'">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px">
+          <div style="font-size:12px;font-weight:800;color:#0f172a">${esc(b.GuestName || 'Huésped')}</div>
+          <span style="font-size:9px;padding:1px 7px;border-radius:999px;background:${badgeColor.bg};color:${badgeColor.fg};font-weight:800;letter-spacing:.04em;border:1px solid ${badgeColor.border};white-space:nowrap">${esc(badgeLabel)}</span>
+        </div>
+        <div style="font-size:11px;color:#475569">${esc(arr)} → ${esc(dep)} · ${Number(b.Nights)||0}n</div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:2px">Lodgify Id ${esc(b.Id)}</div>
+      </div>`;
+  };
+  let body = '';
+  if (includes.length) {
+    for (const b of includes) {
+      body += renderCard(b, '⊙ En curso', { bg:'#dcfce7', fg:'#166534', border:'#86efac' });
+    }
+  }
+  if (previous) {
+    body += renderCard(previous, '◀ Anterior', { bg:'#fef3c7', fg:'#92400e', border:'#fcd34d' });
+  }
+  if (next) {
+    body += renderCard(next, 'Siguiente ▶', { bg:'#dbeafe', fg:'#1e40af', border:'#93c5fd' });
+  }
+  if (!body) {
+    body = '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin reservas asociadas en el rango.</div>';
+  }
+  return `<section class="bzw-detail-section">
+    <div class="bzw-detail-section-title">🏨 Reservas asociadas</div>
+    ${body}
+  </section>`;
 }
 
 function bzwDetailHtmlForTask(t) {
@@ -17982,6 +18084,7 @@ function bzwDetailHtmlForTask(t) {
       <button class="bzw-detail-close" onclick="bzwCloseDetailPanel()">×</button>
     </header>
     ${bzwTaskDatesSection(t)}
+    ${bzwBuildReservasAsociadasSection(t)}
   `;
 }
 
