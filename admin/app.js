@@ -17633,24 +17633,32 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
     }
     return '';
   }
+  function bookingKeyOf(arg) {
+    if (!arg) return '';
+    if (typeof arg === 'string') return 'lg:' + arg.trim();
+    const lod = arg['Lodgify Id'] || arg.LodgifyId || arg.lodgify_id || '';
+    if (lod) return 'lg:' + String(lod).trim();
+    const rid = (arg.__reservacion && (arg.__reservacion['ID'] || arg.__reservacion['row_number'])) || arg.Id || '';
+    if (rid) return 'rsv:' + String(rid).trim();
+    return '';
+  }
   function injectInto(el) {
     if (!el || el.dataset.aseoInjected === '1') return;
     if (typeof lgBuildAseoSectionForBooking !== 'function') return;
-    // Dedupe entre múltiples paneles solapados: el sidebar de la vista
-    // Detalles contiene tanto `.hu-col-detail` como `.hu-resv-detail` para
-    // distintas variantes de render. Si ya hay una `.bzw-aseo-card` en el
-    // mismo "panel padre", NO inyectamos otra.
-    const parentPanel = el.closest('[data-hu-resv-id]') || el.closest('[data-lg-booking-id]') || el.parentElement;
-    if (parentPanel && parentPanel.querySelector('.bzw-aseo-card')) {
-      el.dataset.aseoInjected = '1';
-      return;
-    }
     const arg = lookupBookingForDetailEl(el);
     if (!arg) return;
+    // Dedup GLOBAL por bookingKey: si ya hay una card .bzw-aseo-card con la
+    // misma data-bzw-key en cualquier parte del documento, no inyectar otra.
+    const key = bookingKeyOf(arg);
+    if (key) {
+      const existing = document.querySelector(`.bzw-aseo-card[data-bzw-key="${CSS.escape(key)}"]`);
+      if (existing) { el.dataset.aseoInjected = '1'; return; }
+    }
     const html = lgBuildAseoSectionForBooking(arg);
     if (!html) return;
     const wrapper = document.createElement('div');
-    wrapper.innerHTML = html;
+    // Inyectar el atributo data-bzw-key en la card para futuras detecciones.
+    wrapper.innerHTML = key ? html.replace('class="hu-col-card bzw-aseo-card"', `class="hu-col-card bzw-aseo-card" data-bzw-key="${esc(key)}"`) : html;
     el.appendChild(wrapper);
     el.dataset.aseoInjected = '1';
   }
