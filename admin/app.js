@@ -11156,15 +11156,23 @@ window.huSelectReservation = function(outerRecId, selectedRecId) {
   if (!card) return;
   const detailCol = card.querySelector('.hu-col-detail');
   const historyCol = card.querySelector('.hu-col-history');
+  // Preservar scroll: el re-render colapsa temporalmente la columna detalle
+  // (más corta antes de que la sección Tareas relacionadas se re-inyecte),
+  // lo que hace que el navegador ajuste scrollY hacia arriba.
+  const _prevScrollY = window.scrollY;
+  const _restoreScroll = () => { if (Math.abs(window.scrollY - _prevScrollY) > 1) window.scrollTo({ top: _prevScrollY, behavior: 'instant' }); };
   if (detailCol) {
     detailCol.innerHTML = huBuildReservationDetail(r);
-    detailCol.style.animation = 'hu-fade-in 280ms cubic-bezier(.16,1,.3,1)';
-    setTimeout(() => { detailCol.style.animation = ''; }, 300);
+    // Sin animación — fade causa salto visual + dispara reflow que mueve scroll.
+    detailCol.style.animation = '';
   }
   if (historyCol) {
-    // Re-renderizar history con nuevo selected
     historyCol.innerHTML = huBuildHistoryList(r, HU_STATE.rows, selectedRecId, outerRecId);
   }
+  requestAnimationFrame(_restoreScroll);
+  setTimeout(_restoreScroll, 50);
+  setTimeout(_restoreScroll, 200);
+  setTimeout(_restoreScroll, 500);
 };
 
 /** Devuelve { aseoChip, asignacionesChip, fechaTermStr } para el Lodgify Id dado,
