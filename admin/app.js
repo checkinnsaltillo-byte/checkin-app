@@ -13723,8 +13723,12 @@ function lgCardsExpandedHtml(b) {
   const huesped = (typeof lgGetHuespedForBooking === 'function') ? lgGetHuespedForBooking(b) : null;
   const bookingId = String(b.Id || '');
   const recId = huesped ? String(huesped['ID'] || huesped['row_number'] || '') : '';
+  // Palette derivada del stayState para que lgBuildProfileHeaderHtml no truene.
+  const _stayState = (typeof lgGetStayState === 'function') ? lgGetStayState(b.DateArrival, b.DateDeparture) : '';
+  const _meta = (typeof LG_STATE_META !== 'undefined') ? (LG_STATE_META[_stayState] || LG_STATE_META.concluida) : { border:'#cbd5e1', bg:'#f8fafc' };
+  const _palette = { border: _meta.border, bg: _meta.bg };
   const profileHtml = (typeof lgBuildProfileHeaderHtml === 'function' && huesped)
-    ? lgBuildProfileHeaderHtml(huesped, null)
+    ? lgBuildProfileHeaderHtml(huesped, _palette)
     : '';
   // Sintético + secciones (mismas que detail panel)
   const detailHtml = (typeof lgBuildSection1DetailHtml === 'function') ? lgBuildSection1DetailHtml(b, huesped) : '';
@@ -13763,8 +13767,13 @@ window.lgCardsToggle = function(bookingId) {
     body.style.display = 'none';
     body.innerHTML = '';
   } else {
-    const b = (LG_STATE.bookings || []).find(x => String(x.Id) === id)
-           || (LG_STATE.__syntheticCache || []).find(x => String(x.Id) === id);
+    let b = (LG_STATE.bookings || []).find(x => String(x.Id) === id)
+         || (LG_STATE.__syntheticCache || []).find(x => String(x.Id) === id);
+    // Fallback: si el cache se invalidó, regenerar el synthetic desde HU_STATE.rows
+    if (!b && typeof huRowToSyntheticBooking === 'function') {
+      const r = (HU_STATE.rows || []).find(x => String(x['ID']||x['row_number']||'') === id);
+      if (r) b = huRowToSyntheticBooking(r);
+    }
     if (!b) { console.warn('[lgCardsToggle] booking no encontrado:', id); return; }
     try {
       body.innerHTML = lgCardsExpandedHtml(b);
