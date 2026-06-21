@@ -14558,14 +14558,16 @@ function lgBuildCombinedDetailColumn(b, huesped) {
   // Registro Id: ID de Reservaciones (solo aplica a synthetic bookings).
   const registroId = b.__reservacion ? (b.__reservacion['ID'] || b.__reservacion['row_number'] || '') : '';
 
-  // ─── Datos combinados (preferencia Reservaciones > Lodgify para fechas
-  //     / personas / # noches; Lodgify para HouseName, Source, Status) ───
-  const llegada   = hv(['Fecha de ingreso']) || b.DateArrival;
-  const salida    = hv(['Fecha de salida'])  || b.DateDeparture;
+  // ─── Datos combinados — Lodgify es source-of-truth para fechas, noches,
+  // personas y propiedad porque Lodgify se actualiza cuando el huésped
+  // extiende/modifica la reserva, mientras que la fila de Reservaciones
+  // queda con los valores originales del check-in manual.
+  const llegada   = b.DateArrival   || hv(['Fecha de ingreso']);
+  const salida    = b.DateDeparture || hv(['Fecha de salida']);
   const horaIng   = hv(['Hora estimada de llegada','Hora de llegada']);
   const horaSal   = hv(['Hora estimada de salida','Hora de salida']);
-  const noches    = hv(['# Noches']) || b.Nights;
-  const personas  = hv(['# Huéspedes']) || b.NumberOfGuests;
+  const noches    = b.Nights || hv(['# Noches']);
+  const personas  = b.NumberOfGuests || hv(['# Huéspedes']);
   const nombresT  = hv(['Nombres de TODOS los huéspedes (separados por comas)']);
   const motivo    = hv(['Motivo de tu hospedaje','Motivo']);
   const reqFactRaw= String(hv(['¿Requiere factura?','Tipo de factura']) || '').trim();
@@ -14717,12 +14719,13 @@ function lgBuildSection1DetailHtml(b, huesped) {
   };
   const lodgifyId = (b.__lodgify && b.__lodgify.Id) || b.LodgifyId || (b.__reservacion ? '' : (b.Id || ''));
   const registroId = b.__reservacion ? (b.__reservacion['ID'] || b.__reservacion['row_number'] || '') : '';
-  const llegada   = hv(['Fecha de ingreso']) || b.DateArrival;
-  const salida    = hv(['Fecha de salida'])  || b.DateDeparture;
+  // Lodgify es source-of-truth (ver nota en lgBuildSection1DetailHtml).
+  const llegada   = b.DateArrival   || hv(['Fecha de ingreso']);
+  const salida    = b.DateDeparture || hv(['Fecha de salida']);
   const horaIng   = hv(['Hora estimada de llegada','Hora de llegada']);
   const horaSal   = hv(['Hora estimada de salida','Hora de salida']);
-  const noches    = hv(['# Noches']) || b.Nights;
-  const personas  = hv(['# Huéspedes']) || b.NumberOfGuests;
+  const noches    = b.Nights || hv(['# Noches']);
+  const personas  = b.NumberOfGuests || hv(['# Huéspedes']);
   const nombresT  = hv(['Nombres de TODOS los huéspedes (separados por comas)']);
   const motivo    = hv(['Motivo de tu hospedaje','Motivo']);
   const reqFactRaw= String(hv(['¿Requiere factura?','Tipo de factura']) || '').trim();
