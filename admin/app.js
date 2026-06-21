@@ -13397,25 +13397,32 @@ function lgBuildDetailSidebarItem(b, selectedId) {
     }
   }
 
-  // ─── Bottom: cajas Noches + Tier (solo si hay match) ───
+  // ─── Bottom: 3 cajas Noches + Visitas + Monto + tier inline (sólo si hay match) ───
   let bottomBoxesHtml = '';
+  let tierInlineHtml = '';
   if (huesped && typeof huComputeGuestStats === 'function') {
     try {
       const stats = huComputeGuestStats(huesped, HU_STATE.rows);
       const score = (typeof huComputeLoyaltyScore === 'function') ? huComputeLoyaltyScore(stats) : 0;
       const tier  = (typeof huGuestTier === 'function') ? huGuestTier(score, stats) : null;
-      const nochesBox = `
-        <div style="flex:1;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:3px 7px;text-align:center;min-width:0" title="Noches globales del huésped">
-          <div style="font-size:7px;color:#64748b;font-weight:800;letter-spacing:.04em;text-transform:uppercase">🌙 Noches</div>
-          <div style="font-size:11px;font-weight:800;color:#0f172a;line-height:1.1">${stats.totalNoches}</div>
+      const boxHtml = (icon, label, value, flex) => `
+        <div style="flex:${flex};background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:3px 7px;text-align:center;min-width:0">
+          <div style="font-size:7px;color:#64748b;font-weight:800;letter-spacing:.04em;text-transform:uppercase">${icon} ${esc(label)}</div>
+          <div style="font-size:11px;font-weight:800;color:#0f172a;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${value}</div>
         </div>`;
-      const tierBox = tier ? `
-        <div title="${esc(tier.tooltip)}" style="flex:1.2;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3px 6px;border-radius:6px;background:${tier.bg};color:${tier.fg};font-weight:800;letter-spacing:.04em;border:1px solid ${tier.border};box-shadow:0 1px 3px ${tier.shadow};min-width:0">
-          <div style="display:flex;align-items:center;gap:2px;font-size:9px;text-transform:uppercase"><span style="font-size:11px">${tier.icon}</span>${esc(tier.label)}</div>
-          <div style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:12px;padding:0 4px;border-radius:6px;background:rgba(255,255,255,.65);color:${tier.fg};font-size:9px;font-weight:800">${tier.score}</div>
-        </div>` : '<div style="flex:1.2"></div>';
+      const fmt$ = (n) => (typeof huFmtMonto === 'function') ? huFmtMonto(n) : ('$ '+Number(n||0).toFixed(0));
       bottomBoxesHtml = `
-        <div style="display:flex;gap:5px;margin-top:7px">${nochesBox}${tierBox}</div>`;
+        <div style="display:flex;gap:5px;margin-top:7px">
+          ${boxHtml('🌙', 'Noches', String(stats.totalNoches), '1')}
+          ${boxHtml('🧳', 'Visitas', String(stats.visitas), '1')}
+          ${boxHtml('💰', 'Monto', stats.montoTotal > 0 ? fmt$(stats.montoTotal) : '—', '1.4')}
+        </div>`;
+      // Tier+score inline para colocarlo junto al nombre
+      tierInlineHtml = tier ? `
+        <span title="${esc(tier.tooltip)}" style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:800;color:${tier.fg};background:${tier.bg};border:1px solid ${tier.border};padding:1px 6px;border-radius:999px;letter-spacing:.04em;text-transform:uppercase;line-height:1.2;white-space:nowrap">
+          <span style="font-size:11px">${tier.icon}</span>${esc(tier.label)}
+          <span style="background:rgba(255,255,255,.7);color:${tier.fg};padding:0 4px;border-radius:6px;font-weight:800">${tier.score}</span>
+        </span>` : '';
     } catch (e) { /* silent */ }
   }
 
@@ -13464,7 +13471,10 @@ function lgBuildDetailSidebarItem(b, selectedId) {
           <span class="rd-status-badge rd-status-${statusUi}">${esc(statusUi)}</span>
           <span class="rd-item-date">${esc(rdFmtFechaCorta(b.DateArrival))}</span>
         </div>
-        <div class="rd-item-name">${esc(b.GuestName||'Sin nombre')}</div>
+        <div class="rd-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span>${esc(b.GuestName||'Sin nombre')}</span>
+          ${tierInlineHtml}
+        </div>
         <div style="font-size:11px;color:#475569;font-weight:600;margin-top:2px">${esc(lgPropOf(b) || '—')}</div>
         <div class="rd-item-meta"><span>🌙 ${esc(ing)} - ${esc(sal)}</span><span>· 👥 ${b.NumberOfGuests||0}</span></div>
         <div class="rd-item-amount">${b.Gross>0 ? lgFmtMoney(b.Gross, b.Currency) : '<span style="color:#94a3b8;font-weight:700;font-size:11px">N/A</span>'}</div>
@@ -13718,10 +13728,10 @@ function lgBuildCardsView(list, cont) {
 }
 
 /** Contenido expandido de una card en vista Cards.
- *  Reusa EXACTAMENTE las mismas funciones que la vista Detalles:
- *  - headerCard con lgBuildCardSummary (perfil del huésped + KPIs)
- *  - lgBuildHuespedSectionHtml para las 3 columnas (history, detail, cobros)
- *  Si no hay huesped vinculado, cae a lgBuildEmpty3ColLayout. */
+ *  Como el header colapsable ya muestra nombre + tier + KPIs (Noches/Visitas/
+ *  Monto), aquí solo renderizamos:
+ *  - Datos del perfil (INE / Contacto / Fiscales / Vehículo) en fondo BLANCO
+ *  - 3 columnas (history / detail / cobros) vía lgBuildHuespedSectionHtml */
 function lgCardsExpandedHtml(b) {
   let huesped = null;
   try {
@@ -13730,12 +13740,17 @@ function lgCardsExpandedHtml(b) {
       huesped = lgFindHuespedRepresentativeByPhone(b);
     }
   } catch (_) {}
-  const stayState = (typeof lgGetStayState === 'function') ? lgGetStayState(b.DateArrival, b.DateDeparture) : '';
-  const meta = (typeof LG_STATE_META !== 'undefined' ? (LG_STATE_META[stayState] || LG_STATE_META.concluida) : { border:'#cbd5e1', bg:'#f8fafc' });
-  const headerCard = `
-    <div style="border:1.5px solid ${meta.border};border-radius:12px;background:#fff;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.04);margin-bottom:14px">
-      ${(typeof lgBuildCardSummary === 'function') ? lgBuildCardSummary(b) : ''}
-    </div>`;
+  // Datos del perfil en fondo BLANCO (palette neutro).
+  const _whitePalette = { border: '#e2e8f0', bg: '#ffffff' };
+  let profileHtml = '';
+  try {
+    if (huesped && typeof lgBuildProfileHeaderHtml === 'function') {
+      const inner = lgBuildProfileHeaderHtml(huesped, _whitePalette);
+      if (inner) {
+        profileHtml = `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:14px">${inner}</div>`;
+      }
+    }
+  } catch (e) { console.error('[lgCardsExpandedHtml] profile error:', e); }
   let body = '';
   try {
     if (huesped && typeof lgBuildHuespedSectionHtml === 'function') {
@@ -13747,7 +13762,7 @@ function lgCardsExpandedHtml(b) {
     console.error('[lgCardsExpandedHtml] body error:', e);
     body = `<div style="padding:14px;color:#dc2626;font-size:12px">Error al cargar detalles: ${esc(e.message||String(e))}</div>`;
   }
-  return headerCard + body;
+  return profileHtml + body;
 }
 
 /** Toggle expand/collapse de una card en vista Cards. */
