@@ -13676,14 +13676,20 @@ function lgBuildCardsView(list, cont) {
   const legendHtml = lgBuildProgLegendHtml();
 
   // Construir items: cada uno es header (igual que sidebar) + slot expandible.
+  // Reemplazamos el onclick interno (lgDetailSelect) por lgCardsToggle para
+  // que el click del usuario expanda/colapse la card en vez de intentar
+  // seleccionar un sidebar que no existe en esta vista.
   const itemsHtml = list.slice(0, 200).map(b => {
-    const sidebarHeader = lgBuildDetailSidebarItem(b, ''); // sin selected → estilo base
+    const idStr = esc(b.Id);
+    let sidebarHeader = lgBuildDetailSidebarItem(b, ''); // sin selected → estilo base
+    sidebarHeader = sidebarHeader.replace(
+      /onclick="lgDetailSelect\('[^']*'\)"/g,
+      `onclick="lgCardsToggle('${idStr}')"`
+    );
     const isOpen = expandedSet.has(String(b.Id));
     return `
-      <div class="lg-cards-item" data-lg-cards-id="${esc(b.Id)}" style="margin-bottom:8px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#fff">
-        <div onclick="lgCardsToggle('${esc(b.Id)}')" style="cursor:pointer;background:#fff" data-lg-cards-header>
-          ${sidebarHeader}
-        </div>
+      <div class="lg-cards-item" data-lg-cards-id="${idStr}" style="margin-bottom:8px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#fff">
+        ${sidebarHeader}
         <div class="lg-cards-body" data-lg-cards-body style="${isOpen ? '' : 'display:none;'}background:#f8fafc;padding:14px;border-top:1px solid #e2e8f0">
           ${isOpen ? lgCardsExpandedHtml(b) : ''}
         </div>
