@@ -13187,7 +13187,7 @@ function lodgifyRender(opts) {
   // está cargado (las páginas están en curso), evitamos renderizar con datos
   // parciales — sería el flicker que ve el usuario. Mostramos placeholder
   // y volvemos a llamar a lodgifyRender desde huespedesLoad al finalizar.
-  if (mode === 'detail' && !HU_STATE.loaded) {
+  if ((mode === 'detail' || mode === 'cards') && !HU_STATE.loaded) {
     const cont = document.getElementById('lg-cards');
     if (cont && !cont.querySelector('.lg-detail-loading-placeholder')) {
       cont.innerHTML = `
@@ -13205,7 +13205,7 @@ function lodgifyRender(opts) {
   // el tamaño de HU_STATE.rows o LG_STATE.bookings. Construir 785 sintéticos
   // por cada filter/click es prohibitivo (≈300ms por re-render).
   let detailSource = null;
-  if (mode === 'detail') {
+  if (mode === 'detail' || mode === 'cards') {
     const hu = HU_STATE.rows || [];
     const lg = LG_STATE.bookings || [];
     const cacheKey = `${hu.length}|${lg.length}`;
@@ -13303,6 +13303,11 @@ function lodgifyRender(opts) {
   // chips desde Ninguna sin perder el control.
   if (mode === 'detail') {
     lgBuildDetailView(list, cont);
+    if (empty) empty.classList.add('hidden');
+    return;
+  }
+  if (mode === 'cards') {
+    lgBuildCardsView(list, cont);
     if (empty) empty.classList.add('hidden');
     return;
   }
@@ -13652,6 +13657,116 @@ function lgBuildDetailView(list, cont) {
   if (selected) lgDetailRenderMain(selected);
 }
 
+/** Vista "Cards" — full width:
+ *    [barra de progreso] [filtros Factura | Programación] [hamburguesa ☰]
+ *    [lista de cards a todo el ancho]
+ *  Cada card es el mismo header que el sidebar de Detalles; al hacer click
+ *  se EXPANDE hacia abajo con el panel completo (perfil + 3 columnas). */
+function lgBuildCardsView(list, cont) {
+  if (!list.length) {
+    cont.innerHTML = '<div style="padding:60px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic">Sin reservaciones según los filtros.</div>';
+    return;
+  }
+  if (LG_STATE.filtersOpen === undefined) LG_STATE.filtersOpen = true;
+  const filtersExpanded = !!LG_STATE.filtersOpen;
+  if (!window.__lgCardsExpanded) window.__lgCardsExpanded = new Set();
+  const expandedSet = window.__lgCardsExpanded;
+  const facturaProgressHtml = lgBuildFacturaProgressHtml(list);
+  const facturaLegendHtml = lgBuildFacturaLegendHtml();
+  const legendHtml = lgBuildProgLegendHtml();
+
+  // Construir items: cada uno es header (igual que sidebar) + slot expandible.
+  const itemsHtml = list.slice(0, 200).map(b => {
+    const sidebarHeader = lgBuildDetailSidebarItem(b, ''); // sin selected → estilo base
+    const isOpen = expandedSet.has(String(b.Id));
+    return `
+      <div class="lg-cards-item" data-lg-cards-id="${esc(b.Id)}" style="margin-bottom:8px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#fff">
+        <div onclick="lgCardsToggle('${esc(b.Id)}')" style="cursor:pointer;background:#fff" data-lg-cards-header>
+          ${sidebarHeader}
+        </div>
+        <div class="lg-cards-body" data-lg-cards-body style="${isOpen ? '' : 'display:none;'}background:#f8fafc;padding:14px;border-top:1px solid #e2e8f0">
+          ${isOpen ? lgCardsExpandedHtml(b) : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  cont.innerHTML = `
+    <div class="lg-cards-shell" style="display:block;width:100%">
+      ${facturaProgressHtml}
+      <!-- Hamburguesa + filtros a lo ancho. -->
+      <div style="display:flex;align-items:stretch;gap:10px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:center;width:4px;background:linear-gradient(180deg,#10b981,#06b6d4,#3b82f6);border-radius:2px;flex-shrink:0"></div>
+        <button type="button" onclick="lgToggleSidebarFilters(this)"
+                title="Mostrar/ocultar filtros"
+                style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center">☰</button>
+        <div id="lg-sidebar-filters" style="flex:1;display:${filtersExpanded ? 'grid' : 'none'};grid-template-columns:1fr 1fr;gap:10px;align-items:start">
+          <div>${facturaLegendHtml}</div>
+          <div>${legendHtml}</div>
+        </div>
+      </div>
+      <div class="lg-cards-list" style="display:block">
+        ${itemsHtml}
+      </div>
+      ${list.length > 200 ? `<div style="margin:14px 2px 8px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;font-size:11px;color:#9a3412;text-align:center"><b>+ ${list.length - 200}</b> reservaciones más no mostradas. Refina los filtros.</div>` : ''}
+    </div>`;
+}
+
+/** Contenido expandido de una card en vista Cards: perfil + 3 columnas. */
+function lgCardsExpandedHtml(b) {
+  // Resolver huésped vinculado y datos del perfil.
+  const huesped = (typeof lgGetHuespedForBooking === 'function') ? lgGetHuespedForBooking(b) : null;
+  const bookingId = String(b.Id || '');
+  const recId = huesped ? String(huesped['ID'] || huesped['row_number'] || '') : '';
+  const profileHtml = (typeof lgBuildProfileHeaderHtml === 'function' && huesped)
+    ? lgBuildProfileHeaderHtml(huesped, null)
+    : '';
+  // Sintético + secciones (mismas que detail panel)
+  const detailHtml = (typeof lgBuildSection1DetailHtml === 'function') ? lgBuildSection1DetailHtml(b, huesped) : '';
+  const cobrosHtml = (typeof lgBuildSection2CobrosHtml === 'function') ? lgBuildSection2CobrosHtml(b, huesped) : '';
+  // History column
+  const histRaw = (typeof huBuildHistoryList === 'function' && huesped)
+    ? huBuildHistoryList(huesped, HU_STATE.rows, recId, recId)
+    : '';
+  const histHtml = histRaw.replace(
+    /huSelectReservation\(([^)]+)\)/g,
+    `lgHistorySelect('${esc(bookingId)}',$1)`
+  );
+  return `
+    <div class="hu-record-body" data-lg-booking-id="${esc(bookingId)}" data-hu-resv-id="${esc(recId)}">
+      ${profileHtml ? `<div style="margin-bottom:14px">${profileHtml}</div>` : ''}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;align-items:start">
+        <div class="hu-col-history" data-hu-resv-id="${esc(recId)}">${histHtml}</div>
+        <div class="hu-col-detail"  data-hu-resv-id="${esc(recId)}">${detailHtml}</div>
+        <div class="hu-col-cobros"  data-hu-resv-id="${esc(recId)}">${cobrosHtml}</div>
+      </div>
+    </div>`;
+}
+
+/** Toggle expand/collapse de una card en vista Cards. */
+window.lgCardsToggle = function(bookingId) {
+  if (!window.__lgCardsExpanded) window.__lgCardsExpanded = new Set();
+  const set = window.__lgCardsExpanded;
+  const id = String(bookingId);
+  const wasOpen = set.has(id);
+  if (wasOpen) set.delete(id); else set.add(id);
+  const item = document.querySelector(`.lg-cards-item[data-lg-cards-id="${id}"]`);
+  if (!item) return;
+  const body = item.querySelector('[data-lg-cards-body]');
+  if (!body) return;
+  if (wasOpen) {
+    body.style.display = 'none';
+    body.innerHTML = '';
+  } else {
+    const b = (LG_STATE.bookings || []).find(x => String(x.Id) === id)
+           || (LG_STATE.__syntheticCache || []).find(x => String(x.Id) === id);
+    if (!b) return;
+    body.innerHTML = lgCardsExpandedHtml(b);
+    body.style.display = '';
+    // Marcar usuario interactuó para que renders automáticos no rompan el estado
+    window.LG_USER_INTERACTED = true;
+  }
+};
+
 /** Click en una card del sidebar de Detalles. */
 window.lgToggleSidebarFilters = function(btn) {
   LG_STATE.filtersOpen = !LG_STATE.filtersOpen;
@@ -13910,6 +14025,7 @@ window.lgSetViewMode = function(mode) {
   const btnKb   = document.getElementById('lg-view-kanban');
   const btnTb   = document.getElementById('lg-view-table');
   const btnDt   = document.getElementById('lg-view-detail');
+  const btnCd   = document.getElementById('lg-view-cards');
   const active   = 'background:#0d9488;color:#fff;border-color:#0d9488';
   const inactive = 'background:#fff;color:#475569;border-color:#cbd5e1';
   const style = (act) => `padding:6px 12px;border:1.5px solid;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;${act ? active : inactive}`;
@@ -13917,6 +14033,7 @@ window.lgSetViewMode = function(mode) {
   if (btnKb)   btnKb.setAttribute('style',   style(mode==='kanban'));
   if (btnTb)   btnTb.setAttribute('style',   style(mode==='table'));
   if (btnDt)   btnDt.setAttribute('style',   style(mode==='detail'));
+  if (btnCd)   btnCd.setAttribute('style',   style(mode==='cards'));
   lodgifyRenderForce();
 };
 
