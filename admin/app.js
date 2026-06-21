@@ -14004,6 +14004,22 @@ async function lgHideCard(lodgifyId, reservacionId) {
       body: JSON.stringify({ id: rsv, hidden_by: (typeof currentUser !== 'undefined' ? currentUser : '') }),
     }).then(r=>r.json()));
   }
+  // Memorizar la identidad del huésped seleccionado en el sidebar ANTES del
+  // re-render. Usamos teléfono (últimos 10 dígitos) + propiedad+fechas — más
+  // robusto que el ID, porque tras un dedupe puede sobrevivir una fila
+  // distinta del mismo huésped.
+  const prevSelId = String(LG_STATE.detailSelectedId || '');
+  let prevTail = '', prevPropKey = '', prevArr = '', prevDep = '';
+  if (prevSelId) {
+    const prevRow = (HU_STATE.rows || []).find(r => String(r['ID']||r['row_number']||'') === prevSelId);
+    if (prevRow) {
+      const cel = huValueFlexible(prevRow, ['Cel/Whatsapp (principal)','Celular principal']);
+      const s = String(cel || '').replace(/\D/g,''); prevTail = s.length >= 10 ? s.slice(-10) : '';
+      prevPropKey = lgPropDeptKey(prevRow['Propiedad'], prevRow['# Departamento']);
+      prevArr = String(prevRow['Fecha de ingreso']||'').slice(0,10);
+      prevDep = String(prevRow['Fecha de salida']||'').slice(0,10);
+    }
+  }
   try {
     const results = await Promise.all(tasks);
     const failed = results.find(j => !j || j.ok === false);
@@ -14021,6 +14037,28 @@ async function lgHideCard(lodgifyId, reservacionId) {
     LG_STATE.__huIdxPropDates  = null;
     LG_STATE.__huIdxRowsCount  = null;
     if (typeof lgComputeMatches === 'function') lgComputeMatches();
+    // Re-seleccionar el huésped previo: buscar en HU_STATE.rows una fila que
+    // matchee por (1) mismo ID, (2) mismo teléfono, o (3) misma prop+fechas.
+    // Asignar antes del render para que lgBuildDetailView lo respete.
+    if (prevSelId) {
+      const rows = HU_STATE.rows || [];
+      let cand = rows.find(r => String(r['ID']||r['row_number']||'') === prevSelId);
+      if (!cand && prevTail) {
+        cand = rows.find(r => {
+          const s = String(huValueFlexible(r, ['Cel/Whatsapp (principal)','Celular principal']) || '').replace(/\D/g,'');
+          return s.length >= 10 && s.slice(-10) === prevTail;
+        });
+      }
+      if (!cand && prevPropKey && prevArr && prevDep) {
+        cand = rows.find(r => {
+          const pk = lgPropDeptKey(r['Propiedad'], r['# Departamento']);
+          return pk === prevPropKey
+              && String(r['Fecha de ingreso']||'').slice(0,10) === prevArr
+              && String(r['Fecha de salida']||'').slice(0,10) === prevDep;
+        });
+      }
+      if (cand) LG_STATE.detailSelectedId = String(cand['ID']||cand['row_number']||'');
+    }
     window.LG_USER_INTERACTED = false;
     if (typeof lodgifyRender === 'function') lodgifyRender({ force: true });
   } catch (e) {
