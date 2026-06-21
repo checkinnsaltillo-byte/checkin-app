@@ -16722,7 +16722,18 @@ function bzwRenderAlertItem(a, opts) {
     ${fld('Terminada', t.finished_at ? `✓ ${bzwFmtFechaLargo(t.finished_at)}` : '—')}
     ${fld('Reporte', reportUrl ? `<a href="${esc(reportUrl)}" target="_blank" rel="noopener" style="color:#0d9488;font-weight:700;text-decoration:none">📄 Abrir reporte de Breezeway →</a>` : '—')}`;
 
-  const tableHtml = `${section1}${section2}${section3}
+  // ─── Sección 4: Reservas asociadas ───
+  // Reserva anterior, en curso y siguiente en la misma propiedad — derivadas
+  // automáticamente de scheduled_date + HouseId, sin necesidad de
+  // linked_reservation explícito.
+  const _section4Inner = (typeof bzwBuildReservasAsociadasSection === 'function')
+    ? bzwBuildReservasAsociadasSection(a).replace(/^[\s\S]*?<section[^>]*>/, '').replace(/<\/section>\s*$/, '')
+    : '';
+  const section4 = _section4Inner
+    ? `${sectionHeader('🏨 Reservas asociadas', '#0d9488')}<div style="padding:6px 4px">${_section4Inner}</div>`
+    : '';
+
+  const tableHtml = `${section1}${section2}${section3}${section4}
     ${tagsStr ? fld('Tags', tagsArr.map(x => `<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:#e0e7ff;color:#3730a3;font-size:10px;font-weight:700;margin-right:4px">${esc(x.name || x)}</span>`).join('')) : ''}`;
 
   // ─── Card final (mismo lenguaje visual de Gestión de Reservas) ───
