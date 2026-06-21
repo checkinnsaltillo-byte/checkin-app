@@ -14827,10 +14827,18 @@ function lgBuildAseoSectionForBooking(arg) {
     lodId = /^\d{6,12}$/.test(rawId) ? rawId : (/^\d{6,12}$/.test(String(arg.Id||'')) ? String(arg.Id) : '');
     arrIso = lgFmtDateUI(arg.DateArrival) || String((arg.__reservacion && arg.__reservacion['Fecha de ingreso']) || '').slice(0,10);
     depIso = lgFmtDateUI(arg.DateDeparture) || String((arg.__reservacion && arg.__reservacion['Fecha de salida']) || '').slice(0,10);
-    propKey = lgPropDeptKey(
-      arg.PropiedadRaw || arg.HouseName || (arg.__reservacion && arg.__reservacion['Propiedad']) || '',
-      arg.DepartamentoRaw || (arg.__reservacion && arg.__reservacion['# Departamento']) || ''
-    );
+    // Usar lgPropOf(arg) — resuelve "Propiedad - #Depto" canónico desde
+    // HouseId vía alojamientos. Misma normalización que el índice usa para
+    // las tasks (bzwPropDisplay), garantizando que matchee.
+    const _canonical = (typeof lgPropOf === 'function') ? lgPropOf(arg) : '';
+    if (_canonical && _canonical !== '—') {
+      propKey = lgPropDeptKey(_canonical, '');
+    } else {
+      propKey = lgPropDeptKey(
+        arg.PropiedadRaw || arg.HouseName || (arg.__reservacion && arg.__reservacion['Propiedad']) || '',
+        arg.DepartamentoRaw || (arg.__reservacion && arg.__reservacion['# Departamento']) || ''
+      );
+    }
   }
   // Card chrome
   const wrap = (inner) => `
