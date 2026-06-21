@@ -13708,17 +13708,17 @@ function lgBuildCardsView(list, cont) {
 
   cont.innerHTML = `
     <div class="lg-cards-shell" style="display:block;width:100%">
-      ${facturaProgressHtml}
-      <!-- Hamburguesa + filtros a lo ancho. -->
-      <div style="display:flex;align-items:stretch;gap:10px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;justify-content:center;width:4px;background:linear-gradient(180deg,#10b981,#06b6d4,#3b82f6);border-radius:2px;flex-shrink:0"></div>
+      <!-- Línea 1: hamburguesa + barra de progreso de facturación, a lo ancho. -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <button type="button" onclick="lgToggleSidebarFilters(this)"
                 title="Mostrar/ocultar filtros"
                 style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center">☰</button>
-        <div id="lg-sidebar-filters" style="flex:1;display:${filtersExpanded ? 'grid' : 'none'};grid-template-columns:1fr 1fr;gap:10px;align-items:start">
-          <div>${facturaLegendHtml}</div>
-          <div>${legendHtml}</div>
-        </div>
+        <div style="flex:1;min-width:0">${facturaProgressHtml}</div>
+      </div>
+      <!-- Línea 2: filtros (toggleables con el botón ☰) -->
+      <div id="lg-sidebar-filters" style="display:${filtersExpanded ? 'grid' : 'none'};grid-template-columns:1fr 1fr;gap:10px;align-items:start;margin-bottom:10px">
+        <div>${facturaLegendHtml}</div>
+        <div>${legendHtml}</div>
       </div>
       <div class="lg-cards-list" style="display:block">
         ${itemsHtml}
