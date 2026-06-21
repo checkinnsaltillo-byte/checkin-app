@@ -18045,25 +18045,26 @@ function bzwBuildReservasAsociadasSection(t) {
       <div style="font-size:12px;color:#94a3b8;font-style:italic">Sin reservas en esta propiedad.</div>
     </section>`;
   }
-  // Clasificar
-  const includes = [];
-  let previous = null, next = null;
+  // Clasificación estricta:
+  //   Anterior: reserva cuya salida es ≤ fecha de la task (y entrada < task).
+  //             Se elige la de salida MÁS RECIENTE (más cercana a la task).
+  //   Siguiente: reserva cuya entrada es ≥ fecha de la task.
+  //             Se elige la de entrada MÁS TEMPRANA (más cercana a la task).
+  //   Las reservas estrictamente "en curso" (arr < task < dep) se EXCLUYEN.
+  let previous = null, previousDep = '';
+  let next = null,     nextArr = '';
   for (const b of sameProp) {
     const arrIso = mmddToIso(b.DateArrival);
     const depIso = mmddToIso(b.DateDeparture);
     if (!arrIso || !depIso) continue;
-    if (arrIso <= schedIso && schedIso <= depIso) {
-      includes.push(b);
-    } else if (depIso <= schedIso) {
-      if (!previous || depIso > mmddToIso(previous.DateDeparture)) previous = b;
+    if (depIso <= schedIso && arrIso < schedIso) {
+      if (!previousDep || depIso > previousDep) { previous = b; previousDep = depIso; }
     } else if (arrIso >= schedIso) {
-      if (!next || arrIso < mmddToIso(next.DateArrival)) next = b;
+      if (!nextArr || arrIso < nextArr) { next = b; nextArr = arrIso; }
     }
+    // Si arr < schedIso < dep (estrictamente en curso) → no se incluye
   }
-  // Dedupe: si previous/next coinciden con un "includes", no duplicar
-  const inclIds = new Set(includes.map(b => String(b.Id)));
-  if (previous && inclIds.has(String(previous.Id))) previous = null;
-  if (next     && inclIds.has(String(next.Id)))     next     = null;
+  const includes = []; // mantenida vacía: ya no usamos "En curso"
   const renderCard = (b, badgeLabel, badgeColor) => {
     const arr = bzwFmtFechaDetalle(b.DateArrival, true);
     const dep = bzwFmtFechaDetalle(b.DateDeparture, true);
