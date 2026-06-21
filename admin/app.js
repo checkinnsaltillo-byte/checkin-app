@@ -14728,34 +14728,29 @@ function lgBuildSection1DetailHtml(b, huesped) {
  *  La sección SIEMPRE se renderiza para que el usuario vea que está integrada,
  *  con placeholders claros cuando no hay datos. */
 function lgBuildAseoSectionForBooking(arg) {
-  // Extrae el Lodgify Id. Para Reservaciones row: prioriza 'Lodgify Id'
-  // antes de 'Id' (porque arg.Id en una row es el UUID, no el Lodgify).
-  let lodId = '';
+  // Extrae Lodgify Id + fechas + propiedad de la reserva.
+  let lodId = '', arrIso = '', depIso = '', propKey = '';
   if (typeof arg === 'string') {
     lodId = arg.trim();
   } else if (arg && typeof arg === 'object') {
-    lodId = String(
-      arg['Lodgify Id'] || arg.lodgify_id || arg.LodgifyId || arg.Id || ''
-    ).trim();
+    const rawId = String(arg['Lodgify Id'] || arg.lodgify_id || arg.LodgifyId || '').trim();
+    lodId = /^\d{6,12}$/.test(rawId) ? rawId : (/^\d{6,12}$/.test(String(arg.Id||'')) ? String(arg.Id) : '');
+    arrIso = lgFmtDateUI(arg.DateArrival) || String((arg.__reservacion && arg.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+    depIso = lgFmtDateUI(arg.DateDeparture) || String((arg.__reservacion && arg.__reservacion['Fecha de salida']) || '').slice(0,10);
+    propKey = lgPropDeptKey(
+      arg.PropiedadRaw || arg.HouseName || (arg.__reservacion && arg.__reservacion['Propiedad']) || '',
+      arg.DepartamentoRaw || (arg.__reservacion && arg.__reservacion['# Departamento']) || ''
+    );
   }
-  // Valida que sea un Lodgify Id REAL: solo dígitos, longitud 6-12.
-  // UUIDs como "0933bd3a-..." tienen guiones y fallan esta validación.
-  if (!/^\d{6,12}$/.test(lodId)) {
-    // No es un Lodgify Id válido → no muestra nada (mejor que mostrar el UUID).
-    return '';
-  }
-  // Card completa con el mismo chrome que "Detalle de reservación" / "Cobros":
-  // border 1.5px, radius 16, shadow, gradient top stripe, padding interno.
+  // Card chrome
   const wrap = (inner) => `
     <div class="hu-col-card bzw-aseo-card" style="margin-top:14px;background:#fff;border-radius:16px;padding:0;box-shadow:0 4px 16px rgba(15,23,42,.08);border:1.5px solid #e2e8f0;overflow:hidden;box-sizing:border-box;width:100%">
       <div style="height:4px;background:linear-gradient(90deg,#06b6d4,#14b8a6,#22c55e)"></div>
       <div style="padding:14px 16px;box-sizing:border-box">${inner}</div>
     </div>`;
-  // Header con el mismo estilo que el header de "Detalle de reservación".
   const sectionHeader = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
     <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">🧹 ASEO · EJECUCIÓN (BREEZEWAY)</div>
   </div>`;
-  // Grid responsivo: en columna estrecha, las etiquetas y valores se apilan.
   const aseoRow = (label, value) => `
     <div style="display:grid;grid-template-columns:minmax(100px,140px) 1fr;gap:8px;padding:8px 4px;border-bottom:1px solid #f1f5f9;min-width:0;box-sizing:border-box">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#0f766e;font-weight:700;align-self:center">${esc(label)}</div>
@@ -14763,7 +14758,6 @@ function lgBuildAseoSectionForBooking(arg) {
     </div>`;
   const placeholder = (msg) => wrap(sectionHeader +
     `<div style="padding:12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px;margin-top:6px;word-break:break-word;box-sizing:border-box;width:100%">${esc(msg)}</div>`);
-  // 1) Breezeway aún no cargado
   if (typeof BZW_ALL_TASKS === 'undefined' || !Array.isArray(BZW_ALL_TASKS) || !BZW_ALL_TASKS.length) {
     return wrap(sectionHeader +
       `<div style="padding:14px 12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px;margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-sizing:border-box;width:100%;flex-wrap:wrap">
@@ -14771,65 +14765,145 @@ function lgBuildAseoSectionForBooking(arg) {
          <button type="button" onclick="event.preventDefault();event.stopPropagation();(typeof bzwInit==='function'?bzwInit():null);if(typeof lodgifyRender==='function')setTimeout(lodgifyRender,2000)" style="padding:4px 10px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">Reintentar</button>
        </div>`);
   }
-  // Filtra todas las tasks ligadas a esta reserva
-  const linked = BZW_ALL_TASKS.filter(t =>
-    String(t.raw?.linked_reservation?.external_reservation_id || '') === lodId);
-  if (!linked.length) {
-    return placeholder(`Sin tarea de Breezeway vinculada a la reservación ${lodId}.`);
-  }
-  // Prioriza: housekeeping primero, dentro de esos prefiere "Checkout"/"Limpieza"
+
+  // Score: housekeeping primero, finalizada de segundo (mejor info), checkout/limpieza desempata.
   const score = (t) => {
     const dept = String(t.task?.type || t.raw?.type_department || '').toLowerCase();
     const name = String(t.task?.name || '').toLowerCase();
     let s = 0;
     if (dept === 'housekeeping') s += 10;
     if (/checkout|limpieza/.test(name)) s += 5;
-    if (t.task?.finished_at) s += 1; // prefiere finalizada para que muestre datos completos
+    if (t.task?.finished_at) s += 1;
     return s;
   };
-  linked.sort((a, b) => score(b) - score(a));
-  const t = linked[0];
-  const raw = t.raw || {};
-  const finished = !!t.task?.finished_at;
-  // Asignaciones (nombres únicos)
-  const assignNames = Array.isArray(raw.assignments)
-    ? Array.from(new Set(raw.assignments.map(x => x?.full_name || x?.name).filter(Boolean)))
-    : [];
-  const assignStr = assignNames.join(', ');
-  const reportUrl = t.task?.report_url || raw.report_url || raw.task_report_url || '';
-  const taskName = t.task?.name || 'Tarea';
-  const propDisplay = typeof bzwPropDisplay === 'function' ? bzwPropDisplay(t.property?.name) : (t.property?.name || '');
-  // Status chip — usa el helper centralizado (Finalizada/Pausada/En progreso/Pendiente/Rechazada)
-  const stPanel = bzwResolveTaskStatus(t);
-  const statusChip = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:${stPanel.bg};color:${stPanel.fg};font-weight:800;font-size:11px;border:1.5px solid ${stPanel.border}">${stPanel.icon} ${stPanel.label}</span>`;
-  // Fecha y hora de término (combinada local)
-  let fechaTermino = '—';
-  if (finished && t.task.finished_at) {
-    const d = new Date(t.task.finished_at);
-    if (!isNaN(d.getTime())) {
-      fechaTermino = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+
+  // Selecciona la mejor task de una lista
+  const pickBest = (arr) => {
+    if (!arr.length) return null;
+    arr.sort((a, b) => score(b) - score(a));
+    return arr[0];
+  };
+
+  const taskSchedIso = (t) => {
+    const s = t.raw?.scheduled_date || t.task?.scheduled_date || '';
+    const m = String(s||'').match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : '';
+  };
+  const taskPropKey = (t) => {
+    const name = t.property?.name || '';
+    return lgPropDeptKey(name, '');
+  };
+
+  // Match candidate sets:
+  //   - Por Lodgify Id linked (cualquier fecha)
+  //   - Por propiedad + fecha entrada
+  //   - Por propiedad + fecha salida
+  const byLink = lodId ? BZW_ALL_TASKS.filter(t =>
+    String(t.raw?.linked_reservation?.external_reservation_id || '') === lodId) : [];
+  const byArr = (arrIso && propKey) ? BZW_ALL_TASKS.filter(t => {
+    if (taskSchedIso(t) !== arrIso) return false;
+    const pk = taskPropKey(t);
+    return pk === propKey || pk.includes(propKey) || propKey.includes(pk);
+  }) : [];
+  const byDep = (depIso && propKey) ? BZW_ALL_TASKS.filter(t => {
+    if (taskSchedIso(t) !== depIso) return false;
+    const pk = taskPropKey(t);
+    return pk === propKey || pk.includes(propKey) || propKey.includes(pk);
+  }) : [];
+
+  // Separar las linked por scheduled_date para asignarlas a entrada/salida.
+  const linkedArr = byLink.filter(t => taskSchedIso(t) === arrIso);
+  const linkedDep = byLink.filter(t => taskSchedIso(t) === depIso);
+  const linkedOther = byLink.filter(t => {
+    const s = taskSchedIso(t);
+    return s !== arrIso && s !== depIso;
+  });
+
+  // Combinar candidatos (sin duplicar por task.id)
+  const dedupBy = (arr, key) => {
+    const seen = new Set(); const out = [];
+    for (const t of arr) {
+      const k = String(t.task?.id || t.raw?.id || '') + '|' + key;
+      if (seen.has(k)) continue;
+      seen.add(k); out.push(t);
     }
+    return out;
+  };
+  const candEntrada = dedupBy([...linkedArr, ...byArr], 'e');
+  const candSalida  = dedupBy([...linkedDep, ...byDep], 's');
+  const entradaTask = pickBest(candEntrada);
+  const salidaTask  = pickBest(candSalida);
+  const otherTask   = pickBest(linkedOther); // backup si las dos anteriores faltan
+
+  if (!entradaTask && !salidaTask && !otherTask) {
+    const msg = lodId
+      ? `Sin tarea de Breezeway vinculada por Lodgify Id ${lodId} ni por propiedad+fechas (${arrIso} / ${depIso}).`
+      : `Sin tarea de Breezeway por propiedad+fechas (${arrIso} / ${depIso}).`;
+    return placeholder(msg);
   }
-  // Helper para formatear datetime UTC → local
+
   const fmtLocal = (iso) => {
     if (!iso) return '—';
     const d = new Date(iso);
     if (isNaN(d.getTime())) return iso;
     return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   };
-  const reporteBtn = reportUrl
-    ? `<button type="button" onclick="event.stopPropagation();bzwOpenReportPanel('${esc(reportUrl)}','${esc(taskName)}','${esc(propDisplay)}')"
-            style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;background:#ecfdf5;color:#047857;font-weight:800;font-size:12px;border:1.5px solid #6ee7b7;cursor:pointer;letter-spacing:.02em">📄 Abrir reporte</button>`
-    : '<span style="color:#94a3b8;font-style:italic;font-size:12px">Sin reporte</span>';
-  const taskId = t.task?.id || raw.id || '';
-  return wrap(sectionHeader +
-    aseoRow('Task ID', taskId ? `<code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:11px">${esc(String(taskId))}</code>` : '—') +
-    aseoRow('Task name', taskName && taskName !== 'Tarea' ? esc(taskName) : (raw.name ? esc(raw.name) : '—')) +
-    aseoRow('Status', statusChip + (finished ? `<span style="margin-left:8px;font-size:11px;color:#64748b">${esc(fechaTermino)}</span>` : '')) +
-    aseoRow('Asignaciones', assignStr ? `👥 ${esc(assignStr)}` : '—') +
-    aseoRow('Iniciada', raw.started_at ? `▶ ${esc(fmtLocal(raw.started_at))}` : '—') +
-    aseoRow('Terminada', t.task.finished_at ? `✓ ${esc(fmtLocal(t.task.finished_at))}` : '—') +
-    aseoRow('Reporte', reporteBtn));
+
+  // Renderiza UNA task como sub-bloque etiquetado (Entrada / Salida / Otra).
+  const renderTaskBlock = (label, t, dateIso) => {
+    if (!t) {
+      return `
+        <div style="margin-top:10px;padding:10px 12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#0f766e;font-weight:800;margin-bottom:4px">${esc(label)}${dateIso ? ` · ${esc(dateIso)}` : ''}</div>
+          <div style="font-size:11px;color:#94a3b8;font-style:italic">Sin tarea registrada.</div>
+        </div>`;
+    }
+    const raw = t.raw || {};
+    const finished = !!t.task?.finished_at;
+    const assignNames = Array.isArray(raw.assignments)
+      ? Array.from(new Set(raw.assignments.map(x => x?.full_name || x?.name).filter(Boolean)))
+      : [];
+    const assignStr = assignNames.join(', ');
+    const reportUrl = t.task?.report_url || raw.report_url || raw.task_report_url || '';
+    const taskName = t.task?.name || raw.name || 'Tarea';
+    const propDisplay = typeof bzwPropDisplay === 'function' ? bzwPropDisplay(t.property?.name) : (t.property?.name || '');
+    const stPanel = bzwResolveTaskStatus(t);
+    const statusChip = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:${stPanel.bg};color:${stPanel.fg};font-weight:800;font-size:11px;border:1.5px solid ${stPanel.border}">${stPanel.icon} ${stPanel.label}</span>`;
+    let fechaTermino = '—';
+    if (finished && t.task.finished_at) {
+      const d = new Date(t.task.finished_at);
+      if (!isNaN(d.getTime())) {
+        fechaTermino = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      }
+    }
+    const reporteBtn = reportUrl
+      ? `<button type="button" onclick="event.stopPropagation();bzwOpenReportPanel('${esc(reportUrl)}','${esc(taskName)}','${esc(propDisplay)}')"
+              style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;background:#ecfdf5;color:#047857;font-weight:800;font-size:12px;border:1.5px solid #6ee7b7;cursor:pointer;letter-spacing:.02em">📄 Abrir reporte</button>`
+      : '<span style="color:#94a3b8;font-style:italic;font-size:12px">Sin reporte</span>';
+    const taskId = t.task?.id || raw.id || '';
+    return `
+      <div style="margin-top:12px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#0f766e;font-weight:800;margin-bottom:6px">
+          ${esc(label)}${dateIso ? ` · ${esc(dateIso)}` : ''}
+        </div>
+        ${aseoRow('Task ID', taskId ? `<code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:11px">${esc(String(taskId))}</code>` : '—')}
+        ${aseoRow('Task name', taskName && taskName !== 'Tarea' ? esc(taskName) : '—')}
+        ${aseoRow('Status', statusChip + (finished ? `<span style="margin-left:8px;font-size:11px;color:#64748b">${esc(fechaTermino)}</span>` : ''))}
+        ${aseoRow('Asignaciones', assignStr ? `👥 ${esc(assignStr)}` : '—')}
+        ${aseoRow('Iniciada', raw.started_at ? `▶ ${esc(fmtLocal(raw.started_at))}` : '—')}
+        ${aseoRow('Terminada', t.task.finished_at ? `✓ ${esc(fmtLocal(t.task.finished_at))}` : '—')}
+        ${aseoRow('Reporte', reporteBtn)}
+      </div>`;
+  };
+
+  let inner = sectionHeader;
+  inner += renderTaskBlock('🛬 Entrada', entradaTask, arrIso);
+  inner += renderTaskBlock('🛫 Salida',  salidaTask,  depIso);
+  // Si hay tarea linked que no encaja en ninguna fecha, mostrarla también
+  if (otherTask && !entradaTask && !salidaTask) {
+    inner += renderTaskBlock('Otra tarea vinculada', otherTask, '');
+  }
+  return wrap(inner);
 }
 
 /** Solo Sección 2 (cobros) + Importar $Montos + Ticket auto-facturación. */
@@ -17452,20 +17526,33 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
  */
 (function setupAseoInjector() {
   if (typeof window === 'undefined') return;
-  function lookupLodgifyIdForDetailEl(el) {
+  function lookupBookingForDetailEl(el) {
     // 1) data-hu-resv-id en algún ancestro → buscar HU_STATE.rows
     const ancestor = el.closest('[data-hu-resv-id]');
     if (ancestor) {
       const recId = ancestor.getAttribute('data-hu-resv-id');
       const r = (typeof HU_STATE !== 'undefined' && HU_STATE.rows || []).find(x =>
         String(x['ID']||x['row_number']||'') === String(recId));
-      if (r) return r['Lodgify Id'] || '';
+      if (r) {
+        // Sintético: el aseo necesita Lodgify Id + fechas + propiedad
+        if (typeof huRowToSyntheticBooking === 'function') {
+          const syn = huRowToSyntheticBooking(r);
+          if (syn) return syn;
+        }
+        return { __reservacion: r, 'Lodgify Id': r['Lodgify Id'] || '' };
+      }
     }
-    // 2) data-lg-booking-id en algún ancestro
+    // 2) data-lg-booking-id en algún ancestro → buscar LG_STATE.bookings o synthetic
     const wrap = el.closest('[data-lg-booking-id]');
     if (wrap) {
       const bid = wrap.getAttribute('data-lg-booking-id');
-      if (bid) return bid;
+      if (bid) {
+        const lg = (typeof LG_STATE !== 'undefined' && LG_STATE.bookings || []).find(x => String(x.Id) === String(bid));
+        if (lg) return lg;
+        const sym = (typeof LG_STATE !== 'undefined' && LG_STATE.__syntheticCache || []).find(x => String(x.Id) === String(bid));
+        if (sym) return sym;
+        return bid; // fallback string
+      }
     }
     // 3) Buscar "Lodgify Id" como text dentro del panel (último recurso)
     const code = el.querySelector('code');
@@ -17478,9 +17565,9 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
   function injectInto(el) {
     if (!el || el.dataset.aseoInjected === '1') return;
     if (typeof lgBuildAseoSectionForBooking !== 'function') return;
-    const lodId = lookupLodgifyIdForDetailEl(el);
-    if (!lodId) return;
-    const html = lgBuildAseoSectionForBooking(String(lodId));
+    const arg = lookupBookingForDetailEl(el);
+    if (!arg) return;
+    const html = lgBuildAseoSectionForBooking(arg);
     if (!html) return;
     const wrapper = document.createElement('div');
     wrapper.innerHTML = html;
