@@ -13717,39 +13717,37 @@ function lgBuildCardsView(list, cont) {
     </div>`;
 }
 
-/** Contenido expandido de una card en vista Cards: perfil + 3 columnas. */
+/** Contenido expandido de una card en vista Cards.
+ *  Reusa EXACTAMENTE las mismas funciones que la vista Detalles:
+ *  - headerCard con lgBuildCardSummary (perfil del huésped + KPIs)
+ *  - lgBuildHuespedSectionHtml para las 3 columnas (history, detail, cobros)
+ *  Si no hay huesped vinculado, cae a lgBuildEmpty3ColLayout. */
 function lgCardsExpandedHtml(b) {
-  // Resolver huésped vinculado y datos del perfil.
-  const huesped = (typeof lgGetHuespedForBooking === 'function') ? lgGetHuespedForBooking(b) : null;
-  const bookingId = String(b.Id || '');
-  const recId = huesped ? String(huesped['ID'] || huesped['row_number'] || '') : '';
-  // Palette derivada del stayState para que lgBuildProfileHeaderHtml no truene.
-  const _stayState = (typeof lgGetStayState === 'function') ? lgGetStayState(b.DateArrival, b.DateDeparture) : '';
-  const _meta = (typeof LG_STATE_META !== 'undefined') ? (LG_STATE_META[_stayState] || LG_STATE_META.concluida) : { border:'#cbd5e1', bg:'#f8fafc' };
-  const _palette = { border: _meta.border, bg: _meta.bg };
-  const profileHtml = (typeof lgBuildProfileHeaderHtml === 'function' && huesped)
-    ? lgBuildProfileHeaderHtml(huesped, _palette)
-    : '';
-  // Sintético + secciones (mismas que detail panel)
-  const detailHtml = (typeof lgBuildSection1DetailHtml === 'function') ? lgBuildSection1DetailHtml(b, huesped) : '';
-  const cobrosHtml = (typeof lgBuildSection2CobrosHtml === 'function') ? lgBuildSection2CobrosHtml(b, huesped) : '';
-  // History column
-  const histRaw = (typeof huBuildHistoryList === 'function' && huesped)
-    ? huBuildHistoryList(huesped, HU_STATE.rows, recId, recId)
-    : '';
-  const histHtml = histRaw.replace(
-    /huSelectReservation\(([^)]+)\)/g,
-    `lgHistorySelect('${esc(bookingId)}',$1)`
-  );
-  return `
-    <div class="hu-record-body" data-lg-booking-id="${esc(bookingId)}" data-hu-resv-id="${esc(recId)}">
-      ${profileHtml ? `<div style="margin-bottom:14px">${profileHtml}</div>` : ''}
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;align-items:start">
-        <div class="hu-col-history" data-hu-resv-id="${esc(recId)}">${histHtml}</div>
-        <div class="hu-col-detail"  data-hu-resv-id="${esc(recId)}">${detailHtml}</div>
-        <div class="hu-col-cobros"  data-hu-resv-id="${esc(recId)}">${cobrosHtml}</div>
-      </div>
+  let huesped = null;
+  try {
+    huesped = (typeof lgGetHuespedForBooking === 'function') ? lgGetHuespedForBooking(b) : null;
+    if (!huesped && typeof lgFindHuespedRepresentativeByPhone === 'function') {
+      huesped = lgFindHuespedRepresentativeByPhone(b);
+    }
+  } catch (_) {}
+  const stayState = (typeof lgGetStayState === 'function') ? lgGetStayState(b.DateArrival, b.DateDeparture) : '';
+  const meta = (typeof LG_STATE_META !== 'undefined' ? (LG_STATE_META[stayState] || LG_STATE_META.concluida) : { border:'#cbd5e1', bg:'#f8fafc' });
+  const headerCard = `
+    <div style="border:1.5px solid ${meta.border};border-radius:12px;background:#fff;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.04);margin-bottom:14px">
+      ${(typeof lgBuildCardSummary === 'function') ? lgBuildCardSummary(b) : ''}
     </div>`;
+  let body = '';
+  try {
+    if (huesped && typeof lgBuildHuespedSectionHtml === 'function') {
+      body = lgBuildHuespedSectionHtml(huesped, b, null);
+    } else if (typeof lgBuildEmpty3ColLayout === 'function') {
+      body = lgBuildEmpty3ColLayout(b);
+    }
+  } catch (e) {
+    console.error('[lgCardsExpandedHtml] body error:', e);
+    body = `<div style="padding:14px;color:#dc2626;font-size:12px">Error al cargar detalles: ${esc(e.message||String(e))}</div>`;
+  }
+  return headerCard + body;
 }
 
 /** Toggle expand/collapse de una card en vista Cards. */
@@ -13757,47 +13755,37 @@ window.lgCardsToggle = function(bookingId) {
   if (!window.__lgCardsExpanded) window.__lgCardsExpanded = new Set();
   const set = window.__lgCardsExpanded;
   const id = String(bookingId);
-  const wasOpen = set.has(id);
-  if (wasOpen) set.delete(id); else set.add(id);
   const item = document.querySelector(`.lg-cards-item[data-lg-cards-id="${CSS.escape(id)}"]`);
   if (!item) { console.warn('[lgCardsToggle] item no encontrado:', id); return; }
   const body = item.querySelector('[data-lg-cards-body]');
   if (!body) { console.warn('[lgCardsToggle] body no encontrado:', id); return; }
+  const wasOpen = set.has(id);
   if (wasOpen) {
+    set.delete(id);
     body.style.display = 'none';
     body.innerHTML = '';
-  } else {
-    let b = (LG_STATE.bookings || []).find(x => String(x.Id) === id)
-         || (LG_STATE.__syntheticCache || []).find(x => String(x.Id) === id);
-    // Fallback: si el cache se invalidó, regenerar el synthetic desde HU_STATE.rows
-    if (!b && typeof huRowToSyntheticBooking === 'function') {
-      const r = (HU_STATE.rows || []).find(x => String(x['ID']||x['row_number']||'') === id);
-      if (r) b = huRowToSyntheticBooking(r);
-    }
-    if (!b) { console.warn('[lgCardsToggle] booking no encontrado:', id); return; }
-    try {
-      body.innerHTML = lgCardsExpandedHtml(b);
-    } catch (e) {
-      console.error('[lgCardsToggle] error renderizando expanded:', e);
-      body.innerHTML = `<div style="padding:20px;color:#dc2626;font-size:12px">Error al cargar detalles: ${esc(e.message||String(e))}</div>`;
-    }
-    body.style.display = 'block';
-    window.LG_USER_INTERACTED = true;
+    return;
   }
+  // Buscar el booking. Si no se encuentra, NO mutamos el set (evita
+  // estados inconsistentes UI ↔ estado).
+  let b = (LG_STATE.bookings || []).find(x => String(x.Id) === id)
+       || (LG_STATE.__syntheticCache || []).find(x => String(x.Id) === id);
+  if (!b && typeof huRowToSyntheticBooking === 'function') {
+    const r = (HU_STATE.rows || []).find(x => String(x['ID']||x['row_number']||'') === id);
+    if (r) b = huRowToSyntheticBooking(r);
+  }
+  if (!b) { console.warn('[lgCardsToggle] booking no encontrado:', id); return; }
+  try {
+    body.innerHTML = lgCardsExpandedHtml(b);
+  } catch (e) {
+    console.error('[lgCardsToggle] error renderizando expanded:', e);
+    body.innerHTML = `<div style="padding:20px;color:#dc2626;font-size:12px">Error al cargar detalles: ${esc(e.message||String(e))}</div>`;
+  }
+  body.style.display = 'block';
+  set.add(id);
+  window.LG_USER_INTERACTED = true;
 };
 
-// Delegación global de click — respaldo en caso de que el onclick inline
-// del rd-item se pierda por algún re-render parcial. Ignora el botón ✕
-// (que tiene su propio stopPropagation).
-document.addEventListener('click', function(e) {
-  const item = e.target.closest && e.target.closest('.lg-cards-item');
-  if (!item) return;
-  // Si el click viene del botón de eliminar o del body ya expandido, ignorar.
-  if (e.target.closest('[data-lg-cards-body]')) return;
-  if (e.target.closest('button')) return; // dejar botones internos (eliminar, etc.)
-  const id = item.getAttribute('data-lg-cards-id');
-  if (id) window.lgCardsToggle(id);
-}, true);
 
 /** Click en una card del sidebar de Detalles. */
 window.lgToggleSidebarFilters = function(btn) {
