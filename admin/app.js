@@ -10042,19 +10042,55 @@ function huFmtMonto(raw) {
 // ─── Cálculos de historial (noches totales + nº de visitas) ────────────────
 // Una "visita" agrupa reservaciones consecutivas (sin días-hueco entre salida
 // y siguiente ingreso). Reservaciones separadas por ≥1 día son visitas distintas.
+// ─── Indexes globales para acelerar huComputeGuestStats ──────────────────────
+// Construir el índice por phone-tail una sola vez por sesión de render,
+// en lugar de iterar HU_STATE.rows (7k+) por cada card del sidebar (200+).
+// Antes: O(N×M)=1.4M ops por render → freeze del navegador.
+// Ahora: O(N) una vez + O(1) por card.
+window.__huGuestIndex = null;            // Map<tail, { rows: [], stats: cached }>
+window.__huGuestIndexSig = '';           // firma para invalidación
+function huBuildGuestIndex_(allRows) {
+  const rows = allRows || HU_STATE.rows || [];
+  const idx = new Map();
+  const phoneTail = (v) => {
+    const s = String(v || '').replace(/\D/g, '');
+    return s.length >= 10 ? s.slice(-10) : '';
+  };
+  for (const x of rows) {
+    const tail = phoneTail(huValueFlexible(x, ['Cel/Whatsapp (principal)']));
+    if (!tail) continue;
+    if (!idx.has(tail)) idx.set(tail, []);
+    idx.get(tail).push(x);
+  }
+  window.__huGuestIndex = idx;
+  window.__huGuestIndexSig = `${rows.length}`;
+  window.__huGuestStatsCache = new Map(); // memoize stats por tail
+}
+function huGetGuestRowsByTail_(allRows, tail) {
+  const rows = allRows || HU_STATE.rows || [];
+  const sig = `${rows.length}`;
+  if (!window.__huGuestIndex || window.__huGuestIndexSig !== sig) {
+    huBuildGuestIndex_(rows);
+  }
+  return window.__huGuestIndex.get(tail) || [];
+}
+
 function huComputeGuestStats(currentRow, allRows) {
   // Comparación por LAST-10-DIGITS, no por igualdad exacta de string.
-  // Los teléfonos en el sheet pueden venir con formatos distintos
-  // ("+528115569120", "52 8115569120", "528115569120") y la igualdad
-  // estricta tratabaal mismo huésped como personas distintas → noches/
-  // visitas/tier se calculaban por subconjuntos.
   const phoneTail = (v) => {
     const s = String(v || '').replace(/\D/g, '');
     return s.length >= 10 ? s.slice(-10) : '';
   };
   const tail = phoneTail(huValueFlexible(currentRow, ['Cel/Whatsapp (principal)']));
-  const list = (allRows || HU_STATE.rows || [])
-    .filter(x => tail && phoneTail(huValueFlexible(x, ['Cel/Whatsapp (principal)'])) === tail);
+  if (!tail) return { totalNoches: 0, visitas: 0, reservaciones: 0, montoGlobal: 0, montoTotal: 0 };
+  // Cache memoizado: stats por tail no dependen de currentRow.
+  const rows = allRows || HU_STATE.rows || [];
+  const sig = `${rows.length}`;
+  if (!window.__huGuestIndex || window.__huGuestIndexSig !== sig) huBuildGuestIndex_(rows);
+  if (window.__huGuestStatsCache && window.__huGuestStatsCache.has(tail)) {
+    return window.__huGuestStatsCache.get(tail);
+  }
+  const list = window.__huGuestIndex.get(tail) || [];
   // Parseo + ordenamiento por fecha de ingreso ascendente
   const parsed = list.map(x => {
     const ing = huParseDate(huValueFlexible(x, ['Fecha de ingreso']));
@@ -10085,7 +10121,9 @@ function huComputeGuestStats(currentRow, allRows) {
   // sección Cobros para cada reservación del mismo huésped. Mismas reglas
   // de prioridad que lgBuildSection2CobrosHtml.
   const montoTotal = list.reduce((acc, x) => acc + huComputeRowTotal(x), 0);
-  return { totalNoches, visitas, reservaciones: parsed.length, montoGlobal, montoTotal };
+  const stats = { totalNoches, visitas, reservaciones: parsed.length, montoGlobal, montoTotal };
+  if (window.__huGuestStatsCache) window.__huGuestStatsCache.set(tail, stats);
+  return stats;
 }
 
 /** Calcula el "TOTAL" mostrado en la sección Cobros para una fila de
@@ -10681,8 +10719,8 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
     // Aseo Breezeway: busca task de housekeeping ligada a Lodgify Id
     let aseoChipHtml = '';
     if (lodId && typeof BZW_ALL_TASKS !== 'undefined' && BZW_ALL_TASKS.length) {
-      const linkedB = BZW_ALL_TASKS.filter(tk =>
-        String(tk.raw?.linked_reservation?.external_reservation_id || '') === String(lodId));
+      if (!BZW_IDX_BY_LODID) { try { bzwBuildTaskIndexes_(); } catch(_) {} }
+      const linkedB = (BZW_IDX_BY_LODID && BZW_IDX_BY_LODID.get(String(lodId))) || [];
       if (linkedB.length) {
         const scoreB = (tk) => {
           const dept = String(tk.task?.type || tk.raw?.type_department || '').toLowerCase();
@@ -11120,8 +11158,8 @@ function huBuildAseoBadgesForLodId(lodId) {
   if (!lodId || typeof BZW_ALL_TASKS === 'undefined' || !BZW_ALL_TASKS.length) {
     return { aseoChip: '', asignacionesChip: '', fechaTermStr: '' };
   }
-  const linked = BZW_ALL_TASKS.filter(tk =>
-    String(tk.raw?.linked_reservation?.external_reservation_id || '') === String(lodId));
+  if (!BZW_IDX_BY_LODID) { try { bzwBuildTaskIndexes_(); } catch(_) {} }
+  const linked = (BZW_IDX_BY_LODID && BZW_IDX_BY_LODID.get(String(lodId))) || [];
   if (!linked.length) return { aseoChip: '', asignacionesChip: '', fechaTermStr: '' };
   const score = (tk) => {
     const dept = String(tk.task?.type || tk.raw?.type_department || '').toLowerCase();
@@ -11632,6 +11670,8 @@ function huespedesCloseFacturapi() {
         LG_STATE.__huIdxPhoneDates = null;
         LG_STATE.__huIdxPropDates  = null;
         LG_STATE.__huIdxRowsCount  = null;
+        window.__huGuestIndex = null;
+        window.__huGuestStatsCache = null;
         if (typeof lgComputeMatches === 'function') lgComputeMatches();
         window.LG_USER_INTERACTED = false;
         if (typeof lodgifyRender === 'function' && LG_STATE.loaded) {
@@ -14036,6 +14076,8 @@ async function lgHideCard(lodgifyId, reservacionId) {
     LG_STATE.__huIdxPhoneDates = null;
     LG_STATE.__huIdxPropDates  = null;
     LG_STATE.__huIdxRowsCount  = null;
+    window.__huGuestIndex = null;
+    window.__huGuestStatsCache = null;
     if (typeof lgComputeMatches === 'function') lgComputeMatches();
     // Re-seleccionar el huésped previo: buscar en HU_STATE.rows una fila que
     // matchee por (1) mismo ID, (2) mismo teléfono, o (3) misma prop+fechas.
@@ -14794,22 +14836,14 @@ function lgBuildAseoSectionForBooking(arg) {
     return lgPropDeptKey(name, '');
   };
 
-  // Match candidate sets:
-  //   - Por Lodgify Id linked (cualquier fecha)
-  //   - Por propiedad + fecha entrada
-  //   - Por propiedad + fecha salida
-  const byLink = lodId ? BZW_ALL_TASKS.filter(t =>
-    String(t.raw?.linked_reservation?.external_reservation_id || '') === lodId) : [];
-  const byArr = (arrIso && propKey) ? BZW_ALL_TASKS.filter(t => {
-    if (taskSchedIso(t) !== arrIso) return false;
-    const pk = taskPropKey(t);
-    return pk === propKey || pk.includes(propKey) || propKey.includes(pk);
-  }) : [];
-  const byDep = (depIso && propKey) ? BZW_ALL_TASKS.filter(t => {
-    if (taskSchedIso(t) !== depIso) return false;
-    const pk = taskPropKey(t);
-    return pk === propKey || pk.includes(propKey) || propKey.includes(pk);
-  }) : [];
+  // Asegurar índices (se construyen al cargar BZW_ALL_TASKS, pero por si acaso)
+  if (!BZW_IDX_BY_LODID || !BZW_IDX_BY_PROPDATE) {
+    try { bzwBuildTaskIndexes_(); } catch(_) {}
+  }
+  // Lookups O(1) por índice
+  const byLink = (lodId && BZW_IDX_BY_LODID) ? (BZW_IDX_BY_LODID.get(lodId) || []) : [];
+  const byArr  = (arrIso && propKey && BZW_IDX_BY_PROPDATE) ? (BZW_IDX_BY_PROPDATE.get(`${propKey}|${arrIso}`) || []) : [];
+  const byDep  = (depIso && propKey && BZW_IDX_BY_PROPDATE) ? (BZW_IDX_BY_PROPDATE.get(`${propKey}|${depIso}`) || []) : [];
 
   // Separar las linked por scheduled_date para asignarlas a entrada/salida.
   const linkedArr = byLink.filter(t => taskSchedIso(t) === arrIso);
@@ -16297,6 +16331,10 @@ window.bzwRefreshAlerts = async function() {
     }
     const alerts = Array.from(dedupe.values());
     BZW_ALL_TASKS = alerts;
+    // Pre-indexar tasks por linked_reservation Lodgify Id y por
+    // (propiedad+scheduled_date) — usado por la sección Aseo y por los
+    // chips del sidebar. Evita escanear BZW_ALL_TASKS por cada card render.
+    try { bzwBuildTaskIndexes_(); } catch(_) {}
     // Reconstruye el map de homologación de propiedades para esta data.
     try { bzwRebuildHomolMap(); } catch(_) {}
     // Resetea el flag de "aseo inyectado" en TODOS los paneles de detalle
@@ -16710,6 +16748,31 @@ function bzwRenderAlertItem(a, opts) {
 let BZW_LAST_HISTORY = null;
 // Snapshot completo (sin filtrar) para poder filtrar localmente sin re-fetch.
 let BZW_ALL_TASKS = [];
+// Indexes para evitar O(N×M) en renders del sidebar / sección Aseo.
+let BZW_IDX_BY_LODID = null;        // Map<lodId, tasks[]>
+let BZW_IDX_BY_PROPDATE = null;     // Map<propKey|YYYY-MM-DD, tasks[]>
+function bzwBuildTaskIndexes_() {
+  const byLod = new Map(), byPD = new Map();
+  for (const t of BZW_ALL_TASKS) {
+    const lod = String(t.raw?.linked_reservation?.external_reservation_id || '').trim();
+    if (lod) {
+      if (!byLod.has(lod)) byLod.set(lod, []);
+      byLod.get(lod).push(t);
+    }
+    const sched = String(t.raw?.scheduled_date || t.task?.scheduled_date || '').match(/^(\d{4}-\d{2}-\d{2})/);
+    if (sched) {
+      const propName = t.property?.name || '';
+      const pk = (typeof lgPropDeptKey === 'function') ? lgPropDeptKey(propName, '') : propName.toLowerCase();
+      if (pk) {
+        const key = `${pk}|${sched[1]}`;
+        if (!byPD.has(key)) byPD.set(key, []);
+        byPD.get(key).push(t);
+      }
+    }
+  }
+  BZW_IDX_BY_LODID = byLod;
+  BZW_IDX_BY_PROPDATE = byPD;
+}
 // Map global: nombre Breezeway → "Propiedad - #Depto." (homologado).
 // Se reconstruye cada vez que llegan datos nuevos.
 let BZW_HOMOL_MAP = new Map();
