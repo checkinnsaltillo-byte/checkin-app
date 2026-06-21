@@ -14813,49 +14813,44 @@ function lgBuildSection1DetailHtml(b, huesped) {
  *    - un string con el Lodgify Id directo
  *  La sección SIEMPRE se renderiza para que el usuario vea que está integrada,
  *  con placeholders claros cuando no hay datos. */
+// "Tareas relacionadas" (antes "Aseo · Ejecución"). Lista las tasks de
+// Breezeway asociadas a la reserva con los mismos criterios que se usan
+// en Breezeway para "Reservas asociadas", pero invertido:
+//   En curso: scheduled_date estrictamente dentro de (arrival, departure)
+//   Anterior: task con scheduled_date <= arrival, la MÁS CERCANA por fecha
+//   Siguiente: task con scheduled_date >= departure, la MÁS CERCANA por fecha
 function lgBuildAseoSectionForBooking(arg) {
-  // Extrae Lodgify Id + fechas + propiedad de la reserva.
-  let lodId = '', arrIso = '', depIso = '', propKey = '';
   if (typeof arg === 'string') {
-    const s = arg.trim();
-    // Solo Lodgify Ids numéricos (6-12 dígitos). UUIDs u otros formatos →
-    // descartar para que NO se inyecte el placeholder con UUID.
-    if (!/^\d{6,12}$/.test(s)) return '';
-    lodId = s;
-  } else if (arg && typeof arg === 'object') {
-    const rawId = String(arg['Lodgify Id'] || arg.lodgify_id || arg.LodgifyId || '').trim();
-    lodId = /^\d{6,12}$/.test(rawId) ? rawId : (/^\d{6,12}$/.test(String(arg.Id||'')) ? String(arg.Id) : '');
-    arrIso = lgFmtDateUI(arg.DateArrival) || String((arg.__reservacion && arg.__reservacion['Fecha de ingreso']) || '').slice(0,10);
-    depIso = lgFmtDateUI(arg.DateDeparture) || String((arg.__reservacion && arg.__reservacion['Fecha de salida']) || '').slice(0,10);
-    // Usar lgPropOf(arg) — resuelve "Propiedad - #Depto" canónico desde
-    // HouseId vía alojamientos. Misma normalización que el índice usa para
-    // las tasks (bzwPropDisplay), garantizando que matchee.
-    const _canonical = (typeof lgPropOf === 'function') ? lgPropOf(arg) : '';
-    if (_canonical && _canonical !== '—') {
-      propKey = lgPropDeptKey(_canonical, '');
-    } else {
-      propKey = lgPropDeptKey(
-        arg.PropiedadRaw || arg.HouseName || (arg.__reservacion && arg.__reservacion['Propiedad']) || '',
-        arg.DepartamentoRaw || (arg.__reservacion && arg.__reservacion['# Departamento']) || ''
-      );
-    }
+    if (!/^\d{6,12}$/.test(arg.trim())) return '';
+    const b = (LG_STATE?.bookings || []).find(x => String(x.Id) === arg.trim());
+    if (!b) return '';
+    arg = b;
   }
-  // Card chrome
+  if (!arg || typeof arg !== 'object') return '';
+  const arrIso = lgFmtDateUI(arg.DateArrival)   || String((arg.__reservacion && arg.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = lgFmtDateUI(arg.DateDeparture) || String((arg.__reservacion && arg.__reservacion['Fecha de salida']) || '').slice(0,10);
+  const _canonical = (typeof lgPropOf === 'function') ? lgPropOf(arg) : '';
+  let propKey = '';
+  if (_canonical && _canonical !== '—') {
+    propKey = lgPropDeptKey(_canonical, '');
+  } else {
+    propKey = lgPropDeptKey(
+      arg.PropiedadRaw || arg.HouseName || (arg.__reservacion && arg.__reservacion['Propiedad']) || '',
+      arg.DepartamentoRaw || (arg.__reservacion && arg.__reservacion['# Departamento']) || ''
+    );
+  }
+
   const wrap = (inner) => `
     <div class="hu-col-card bzw-aseo-card" style="margin-top:14px;background:#fff;border-radius:16px;padding:0;box-shadow:0 4px 16px rgba(15,23,42,.08);border:1.5px solid #e2e8f0;overflow:hidden;box-sizing:border-box;width:100%">
       <div style="height:4px;background:linear-gradient(90deg,#06b6d4,#14b8a6,#22c55e)"></div>
       <div style="padding:14px 16px;box-sizing:border-box">${inner}</div>
     </div>`;
   const sectionHeader = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-    <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">🧹 ASEO · EJECUCIÓN (BREEZEWAY)</div>
+    <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">📋 TAREAS RELACIONADAS</div>
   </div>`;
-  const aseoRow = (label, value) => `
-    <div style="display:grid;grid-template-columns:minmax(100px,140px) 1fr;gap:8px;padding:8px 4px;border-bottom:1px solid #f1f5f9;min-width:0;box-sizing:border-box">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#0f766e;font-weight:700;align-self:center">${esc(label)}</div>
-      <div style="font-size:12px;color:#1f2937;min-width:0;word-break:break-word;overflow-wrap:anywhere">${value === '' || value == null ? '—' : value}</div>
-    </div>`;
   const placeholder = (msg) => wrap(sectionHeader +
     `<div style="padding:12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px;margin-top:6px;word-break:break-word;box-sizing:border-box;width:100%">${esc(msg)}</div>`);
+
   if (typeof BZW_ALL_TASKS === 'undefined' || !Array.isArray(BZW_ALL_TASKS) || !BZW_ALL_TASKS.length) {
     return wrap(sectionHeader +
       `<div style="padding:14px 12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px;margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-sizing:border-box;width:100%;flex-wrap:wrap">
@@ -14863,137 +14858,79 @@ function lgBuildAseoSectionForBooking(arg) {
          <button type="button" onclick="event.preventDefault();event.stopPropagation();(typeof bzwInit==='function'?bzwInit():null);if(typeof lodgifyRender==='function')setTimeout(lodgifyRender,2000)" style="padding:4px 10px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">Reintentar</button>
        </div>`);
   }
+  if (!arrIso || !depIso || !propKey) return placeholder('Sin fechas/propiedad para cruzar con tareas.');
 
-  // Score: housekeeping primero, finalizada de segundo (mejor info), checkout/limpieza desempata.
-  const score = (t) => {
-    const dept = String(t.task?.type || t.raw?.type_department || '').toLowerCase();
-    const name = String(t.task?.name || '').toLowerCase();
-    let s = 0;
-    if (dept === 'housekeeping') s += 10;
-    if (/checkout|limpieza/.test(name)) s += 5;
-    if (t.task?.finished_at) s += 1;
-    return s;
-  };
+  if (!BZW_IDX_BY_PROPKEY) { try { bzwBuildTaskIndexes_(); } catch(_) {} }
+  const tasksProp = (BZW_IDX_BY_PROPKEY && BZW_IDX_BY_PROPKEY.get(propKey)) || [];
 
-  // Selecciona la mejor task de una lista
-  const pickBest = (arr) => {
-    if (!arr.length) return null;
-    arr.sort((a, b) => score(b) - score(a));
-    return arr[0];
-  };
-
-  const taskSchedIso = (t) => {
+  const schedIsoOf = (t) => {
     const s = t.raw?.scheduled_date || t.task?.scheduled_date || '';
     const m = String(s||'').match(/^(\d{4}-\d{2}-\d{2})/);
     return m ? m[1] : '';
   };
-  const taskPropKey = (t) => {
-    const name = t.property?.name || '';
-    return lgPropDeptKey(name, '');
-  };
 
-  // Asegurar índices (se construyen al cargar BZW_ALL_TASKS, pero por si acaso)
-  if (!BZW_IDX_BY_LODID || !BZW_IDX_BY_PROPDATE) {
-    try { bzwBuildTaskIndexes_(); } catch(_) {}
-  }
-  // Lookups O(1) por índice
-  const byLink = (lodId && BZW_IDX_BY_LODID) ? (BZW_IDX_BY_LODID.get(lodId) || []) : [];
-  const byArr  = (arrIso && propKey && BZW_IDX_BY_PROPDATE) ? (BZW_IDX_BY_PROPDATE.get(`${propKey}|${arrIso}`) || []) : [];
-  const byDep  = (depIso && propKey && BZW_IDX_BY_PROPDATE) ? (BZW_IDX_BY_PROPDATE.get(`${propKey}|${depIso}`) || []) : [];
-
-  // Separar las linked por scheduled_date para asignarlas a entrada/salida.
-  const linkedArr = byLink.filter(t => taskSchedIso(t) === arrIso);
-  const linkedDep = byLink.filter(t => taskSchedIso(t) === depIso);
-  const linkedOther = byLink.filter(t => {
-    const s = taskSchedIso(t);
-    return s !== arrIso && s !== depIso;
-  });
-
-  // Combinar candidatos (sin duplicar por task.id)
-  const dedupBy = (arr, key) => {
-    const seen = new Set(); const out = [];
-    for (const t of arr) {
-      const k = String(t.task?.id || t.raw?.id || '') + '|' + key;
-      if (seen.has(k)) continue;
-      seen.add(k); out.push(t);
+  const enCurso = [];
+  let anterior = null, anteriorSched = '';
+  let siguiente = null, siguienteSched = '';
+  for (const t of tasksProp) {
+    const s = schedIsoOf(t);
+    if (!s) continue;
+    if (s > arrIso && s < depIso) {
+      enCurso.push(t);
+    } else if (s <= arrIso) {
+      if (!anteriorSched || s > anteriorSched) { anterior = t; anteriorSched = s; }
+    } else if (s >= depIso) {
+      if (!siguienteSched || s < siguienteSched) { siguiente = t; siguienteSched = s; }
     }
-    return out;
-  };
-  const candEntrada = dedupBy([...linkedArr, ...byArr], 'e');
-  const candSalida  = dedupBy([...linkedDep, ...byDep], 's');
-  const entradaTask = pickBest(candEntrada);
-  const salidaTask  = pickBest(candSalida);
-  const otherTask   = pickBest(linkedOther); // backup si las dos anteriores faltan
-
-  if (!entradaTask && !salidaTask && !otherTask) {
-    const msg = lodId
-      ? `Sin tarea de Breezeway vinculada por Lodgify Id ${lodId} ni por propiedad+fechas (${arrIso} / ${depIso}).`
-      : `Sin tarea de Breezeway por propiedad+fechas (${arrIso} / ${depIso}).`;
-    return placeholder(msg);
   }
 
-  const fmtLocal = (iso) => {
+  if (!enCurso.length && !anterior && !siguiente) {
+    return placeholder(`Sin tareas en la propiedad para el rango ${arrIso} → ${depIso}.`);
+  }
+
+  const fmtDate = (iso) => {
     if (!iso) return '—';
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return iso;
-    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return iso;
+    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return `${parseInt(m[3],10)} ${meses[parseInt(m[2],10)-1]} ${m[1]}`;
   };
 
-  // Renderiza UNA task como sub-bloque etiquetado (Entrada / Salida / Otra).
-  const renderTaskBlock = (label, t, dateIso) => {
-    if (!t) {
-      return `
-        <div style="margin-top:10px;padding:10px 12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#0f766e;font-weight:800;margin-bottom:4px">${esc(label)}${dateIso ? ` · ${esc(dateIso)}` : ''}</div>
-          <div style="font-size:11px;color:#94a3b8;font-style:italic">Sin tarea registrada.</div>
-        </div>`;
-    }
+  const renderTaskCard = (t, badgeLabel, badgeColor, schedIso) => {
     const raw = t.raw || {};
-    const finished = !!t.task?.finished_at;
+    const taskId = t.task?.id || raw.id || '';
+    const taskType = t.task?.type || raw.type_department || '—';
     const assignNames = Array.isArray(raw.assignments)
       ? Array.from(new Set(raw.assignments.map(x => x?.full_name || x?.name).filter(Boolean)))
       : [];
-    const assignStr = assignNames.join(', ');
-    const reportUrl = t.task?.report_url || raw.report_url || raw.task_report_url || '';
-    const taskName = t.task?.name || raw.name || 'Tarea';
-    const propDisplay = typeof bzwPropDisplay === 'function' ? bzwPropDisplay(t.property?.name) : (t.property?.name || '');
-    const stPanel = bzwResolveTaskStatus(t);
-    const statusChip = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:${stPanel.bg};color:${stPanel.fg};font-weight:800;font-size:11px;border:1.5px solid ${stPanel.border}">${stPanel.icon} ${stPanel.label}</span>`;
-    let fechaTermino = '—';
-    if (finished && t.task.finished_at) {
-      const d = new Date(t.task.finished_at);
-      if (!isNaN(d.getTime())) {
-        fechaTermino = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-      }
-    }
-    const reporteBtn = reportUrl
-      ? `<button type="button" onclick="event.stopPropagation();bzwOpenReportPanel('${esc(reportUrl)}','${esc(taskName)}','${esc(propDisplay)}')"
-              style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;background:#ecfdf5;color:#047857;font-weight:800;font-size:12px;border:1.5px solid #6ee7b7;cursor:pointer;letter-spacing:.02em">📄 Abrir reporte</button>`
-      : '<span style="color:#94a3b8;font-style:italic;font-size:12px">Sin reporte</span>';
-    const taskId = t.task?.id || raw.id || '';
+    const assignStr = assignNames.length ? '👥 ' + assignNames.join(', ') : '—';
+    const stPanel = (typeof bzwResolveTaskStatus === 'function')
+      ? bzwResolveTaskStatus(t)
+      : { bg:'#f1f5f9', fg:'#64748b', border:'#cbd5e1', icon:'•', label:'—' };
+    const statusChip = `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;background:${stPanel.bg};color:${stPanel.fg};font-weight:800;font-size:10px;border:1px solid ${stPanel.border}">${stPanel.icon} ${esc(stPanel.label)}</span>`;
     return `
-      <div style="margin-top:12px">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#0f766e;font-weight:800;margin-bottom:6px">
-          ${esc(label)}${dateIso ? ` · ${esc(dateIso)}` : ''}
+      <div style="padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;margin-bottom:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+          <div style="font-size:12px;font-weight:800;color:#0f172a">${esc(t.task?.name || raw.name || 'Tarea')}</div>
+          <span style="font-size:9px;padding:1px 7px;border-radius:999px;background:${badgeColor.bg};color:${badgeColor.fg};font-weight:800;letter-spacing:.04em;border:1px solid ${badgeColor.border};white-space:nowrap">${esc(badgeLabel)}</span>
         </div>
-        ${aseoRow('Task ID', taskId ? `<code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:11px">${esc(String(taskId))}</code>` : '—')}
-        ${aseoRow('Task name', taskName && taskName !== 'Tarea' ? esc(taskName) : '—')}
-        ${aseoRow('Status', statusChip + (finished ? `<span style="margin-left:8px;font-size:11px;color:#64748b">${esc(fechaTermino)}</span>` : ''))}
-        ${aseoRow('Asignaciones', assignStr ? `👥 ${esc(assignStr)}` : '—')}
-        ${aseoRow('Iniciada', raw.started_at ? `▶ ${esc(fmtLocal(raw.started_at))}` : '—')}
-        ${aseoRow('Terminada', t.task.finished_at ? `✓ ${esc(fmtLocal(t.task.finished_at))}` : '—')}
-        ${aseoRow('Reporte', reporteBtn)}
+        <div style="display:grid;grid-template-columns:100px 1fr;gap:4px 8px;font-size:11px;color:#475569">
+          <div style="color:#64748b;font-weight:600">Tipo</div><div>${esc(taskType)}</div>
+          <div style="color:#64748b;font-weight:600">Fecha límite</div><div><b>${esc(fmtDate(schedIso))}</b></div>
+          <div style="color:#64748b;font-weight:600">Asignaciones</div><div>${esc(assignStr)}</div>
+          <div style="color:#64748b;font-weight:600">Status</div><div>${statusChip}</div>
+          <div style="color:#64748b;font-weight:600">Task ID</div><div><code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:10px">${esc(String(taskId))}</code></div>
+        </div>
       </div>`;
   };
 
-  let inner = sectionHeader;
-  inner += renderTaskBlock('🛬 Entrada', entradaTask, arrIso);
-  inner += renderTaskBlock('🛫 Salida',  salidaTask,  depIso);
-  // Si hay tarea linked que no encaja en ninguna fecha, mostrarla también
-  if (otherTask && !entradaTask && !salidaTask) {
-    inner += renderTaskBlock('Otra tarea vinculada', otherTask, '');
+  let body = '';
+  if (anterior)  body += renderTaskCard(anterior, '◀ Anterior', { bg:'#fef3c7', fg:'#92400e', border:'#fcd34d' }, anteriorSched);
+  for (const t of enCurso) {
+    body += renderTaskCard(t, '⊙ En curso', { bg:'#dcfce7', fg:'#166534', border:'#86efac' }, schedIsoOf(t));
   }
-  return wrap(inner);
+  if (siguiente) body += renderTaskCard(siguiente, 'Siguiente ▶', { bg:'#dbeafe', fg:'#1e40af', border:'#93c5fd' }, siguienteSched);
+  return wrap(sectionHeader + body);
 }
 
 /** Solo Sección 2 (cobros) + Importar $Montos + Ticket auto-facturación. */
@@ -16722,18 +16659,15 @@ function bzwRenderAlertItem(a, opts) {
     ${fld('Terminada', t.finished_at ? `✓ ${bzwFmtFechaLargo(t.finished_at)}` : '—')}
     ${fld('Reporte', reportUrl ? `<a href="${esc(reportUrl)}" target="_blank" rel="noopener" style="color:#0d9488;font-weight:700;text-decoration:none">📄 Abrir reporte de Breezeway →</a>` : '—')}`;
 
-  // ─── Sección 4: Reservas asociadas ───
-  // Reserva anterior, en curso y siguiente en la misma propiedad — derivadas
-  // automáticamente de scheduled_date + HouseId, sin necesidad de
-  // linked_reservation explícito.
+  // ─── Sección 4: Reservas asociadas (TOP — antes que Reservación) ───
   const _section4Inner = (typeof bzwBuildReservasAsociadasSection === 'function')
-    ? bzwBuildReservasAsociadasSection(a).replace(/^[\s\S]*?<section[^>]*>/, '').replace(/<\/section>\s*$/, '')
+    ? bzwBuildReservasAsociadasSection(a)
     : '';
   const section4 = _section4Inner
     ? `${sectionHeader('🏨 Reservas asociadas', '#0d9488')}<div style="padding:6px 4px">${_section4Inner}</div>`
     : '';
 
-  const tableHtml = `${section1}${section2}${section3}${section4}
+  const tableHtml = `${section4}${section1}${section2}${section3}
     ${tagsStr ? fld('Tags', tagsArr.map(x => `<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:#e0e7ff;color:#3730a3;font-size:10px;font-weight:700;margin-right:4px">${esc(x.name || x)}</span>`).join('')) : ''}`;
 
   // ─── Card final (mismo lenguaje visual de Gestión de Reservas) ───
@@ -16818,8 +16752,9 @@ let BZW_ALL_TASKS = [];
 // Indexes para evitar O(N×M) en renders del sidebar / sección Aseo.
 let BZW_IDX_BY_LODID = null;        // Map<lodId, tasks[]>
 let BZW_IDX_BY_PROPDATE = null;     // Map<propKey|YYYY-MM-DD, tasks[]>
+let BZW_IDX_BY_PROPKEY = null;      // Map<propKey, tasks[]>
 function bzwBuildTaskIndexes_() {
-  const byLod = new Map(), byPD = new Map();
+  const byLod = new Map(), byPD = new Map(), byProp = new Map();
   for (const t of BZW_ALL_TASKS) {
     const lod = String(t.raw?.linked_reservation?.external_reservation_id || '').trim();
     if (lod) {
@@ -16827,22 +16762,22 @@ function bzwBuildTaskIndexes_() {
       byLod.get(lod).push(t);
     }
     const sched = String(t.raw?.scheduled_date || t.task?.scheduled_date || '').match(/^(\d{4}-\d{2}-\d{2})/);
-    if (sched) {
-      // Usar nombre HOMOLOGADO: "MT10 Matamoros #10 - Amplio..." (Breezeway)
-      // se convierte a "Calle Matamoros - #10" (canónico) ANTES de la propKey,
-      // para que matchee con el nombre que viene del booking Lodgify.
-      const rawPropName = t.property?.name || '';
-      const propName = (typeof bzwPropDisplay === 'function') ? bzwPropDisplay(rawPropName) : rawPropName;
-      const pk = (typeof lgPropDeptKey === 'function') ? lgPropDeptKey(propName, '') : propName.toLowerCase();
-      if (pk) {
-        const key = `${pk}|${sched[1]}`;
-        if (!byPD.has(key)) byPD.set(key, []);
-        byPD.get(key).push(t);
-      }
+    const rawPropName = t.property?.name || '';
+    const propName = (typeof bzwPropDisplay === 'function') ? bzwPropDisplay(rawPropName) : rawPropName;
+    const pk = (typeof lgPropDeptKey === 'function') ? lgPropDeptKey(propName, '') : propName.toLowerCase();
+    if (sched && pk) {
+      const key = `${pk}|${sched[1]}`;
+      if (!byPD.has(key)) byPD.set(key, []);
+      byPD.get(key).push(t);
+    }
+    if (pk) {
+      if (!byProp.has(pk)) byProp.set(pk, []);
+      byProp.get(pk).push(t);
     }
   }
   BZW_IDX_BY_LODID = byLod;
   BZW_IDX_BY_PROPDATE = byPD;
+  BZW_IDX_BY_PROPKEY = byProp;
 }
 // Map global: nombre Breezeway → "Propiedad - #Depto." (homologado).
 // Se reconstruye cada vez que llegan datos nuevos.
@@ -17967,7 +17902,7 @@ function bzwDetailHtmlForBooking(b, selectedTask) {
       <div class="bzw-detail-section-title">✅ Tareas vinculadas</div>
       ${groupsHtml || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin tareas vinculadas en la bitácora actual.</div>'}
     </section>
-    ${selectedTask ? bzwBuildReservasAsociadasSection(selectedTask) : ''}
+    ${selectedTask ? `<section class="bzw-detail-section"><div class="bzw-detail-section-title">🏨 Reservas asociadas</div>${bzwBuildReservasAsociadasSection(selectedTask)}</section>` : ''}
     <section class="bzw-detail-section" style="border-bottom:none">
       <div class="bzw-detail-section-title">⚠ Problemas reportados</div>
       <div style="font-size:12px;color:#94a3b8;font-style:italic">No hay problemas reportados.</div>
@@ -18097,10 +18032,7 @@ function bzwBuildReservasAsociadasSection(t) {
   if (!body) {
     body = '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin reservas asociadas en el rango.</div>';
   }
-  return `<section class="bzw-detail-section">
-    <div class="bzw-detail-section-title">🏨 Reservas asociadas</div>
-    ${body}
-  </section>`;
+  return body;
 }
 
 function bzwDetailHtmlForTask(t) {
@@ -18122,7 +18054,7 @@ function bzwDetailHtmlForTask(t) {
       <button class="bzw-detail-close" onclick="bzwCloseDetailPanel()">×</button>
     </header>
     ${bzwTaskDatesSection(t)}
-    ${bzwBuildReservasAsociadasSection(t)}
+    <section class="bzw-detail-section"><div class="bzw-detail-section-title">🏨 Reservas asociadas</div>${bzwBuildReservasAsociadasSection(t)}</section>
   `;
 }
 
