@@ -16328,8 +16328,8 @@ window.bzwRefreshAlerts = async function() {
   const lastEl = document.getElementById('bzw-stat-last');
   if (list) list.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:30px 0;font-style:italic">Cargando bitácora…</div>';
   try {
-    // Pedimos un buen chunk del sheet — el sheet ya tiene tope de 5000.
-    const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts?limit=5000`, { cache: 'no-store' });
+    // Pedimos el universo completo (cap actual del sheet: 200k).
+    const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts?limit=200000`, { cache: 'no-store' });
     const json = await res.json();
     if (!res.ok || json.ok === false) throw new Error(json.error || `HTTP ${res.status}`);
     const allAlerts = Array.isArray(json.alerts) ? json.alerts : [];
