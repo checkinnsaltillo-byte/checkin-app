@@ -10919,37 +10919,52 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
       </div>
     </div>`;
 }
-// Toggle del colapso de "Reservas totales" — preserva scroll antes/después.
+// Toggle del colapso de "Reservas totales" — preserva scroll + selección.
+// __rtCollapse Map<key, boolean|null> almacena el colapsado actual.
+// __rtSelected Map<key, recId> guarda la card seleccionada por card-padre,
+// sobrevive el ciclo colapsar→expandir.
+window.__rtSelected = window.__rtSelected || new Map();
 window.__rtToggle = function(key) {
   if (!window.__rtCollapse) window.__rtCollapse = new Map();
   const cur = !!window.__rtCollapse.get(key);
   window.__rtCollapse.set(key, !cur);
   const prevY = window.scrollY;
-  // Re-render del card padre: identificamos por outerCardRecId en `key`
   const rid = String(key).replace(/^rt:/, '');
-  // Disparar el render correcto según el contexto:
-  if (typeof huSelectReservation === 'function') {
-    // Si estamos en huéspedes módulo, re-renderizamos history del card actual
-    const card = document.querySelector(`.hu-record[data-record-id="${rid}"]`);
-    if (card) {
-      const historyCol = card.querySelector('.hu-col-history');
-      const r = (HU_STATE.rows||[]).find(x => String(x['ID']||x['row_number']||'') === rid);
-      if (historyCol && r && typeof huBuildHistoryList === 'function') {
-        historyCol.innerHTML = huBuildHistoryList(r, HU_STATE.rows, rid, rid);
-        requestAnimationFrame(() => window.scrollTo({ top: prevY, behavior: 'instant' }));
-        return;
-      }
-    }
+  let historyCol = null;
+  const evtTarget = (window.event && window.event.target) ? window.event.target : null;
+  if (evtTarget) {
+    const wrapper = evtTarget.closest('.hu-col-history');
+    if (wrapper) historyCol = wrapper;
   }
-  // Lodgify detail: re-renderiza vía lgHistorySelect-ish — busca wrapper
-  const wrap = document.querySelector(`.hu-record-body [data-hu-resv-id="${rid}"]`)?.closest('.hu-record-body');
-  if (wrap) {
-    const bookingId = wrap.getAttribute('data-lg-booking-id');
-    if (bookingId && typeof window.lgHistorySelect === 'function') {
-      window.lgHistorySelect(bookingId, rid, rid);
-      requestAnimationFrame(() => window.scrollTo({ top: prevY, behavior: 'instant' }));
-    }
+  if (!historyCol) {
+    const parentCard = document.querySelector(`.hu-record[data-record-id="${rid}"]`)
+                    || document.querySelector(`.hu-record-body[data-hu-resv-id="${rid}"]`);
+    historyCol = parentCard?.querySelector('.hu-col-history') || null;
   }
+  if (!historyCol) {
+    requestAnimationFrame(() => window.scrollTo({ top: prevY, behavior: 'instant' }));
+    return;
+  }
+  // Antes de colapsar, capturar selección actual (si aún está en DOM).
+  const activeItem = historyCol.querySelector('.hu-history-item.hu-history-active');
+  if (activeItem) {
+    const aid = activeItem.getAttribute('data-hu-history-id');
+    if (aid) window.__rtSelected.set(key, aid);
+  }
+  const currentSelected = window.__rtSelected.get(key) || rid;
+  const r = (HU_STATE.rows||[]).find(x => String(x['ID']||x['row_number']||'') === rid);
+  if (!r || typeof huBuildHistoryList !== 'function') {
+    requestAnimationFrame(() => window.scrollTo({ top: prevY, behavior: 'instant' }));
+    return;
+  }
+  let html = huBuildHistoryList(r, HU_STATE.rows, currentSelected, rid);
+  const bookingWrap = historyCol.closest('.hu-record-body');
+  const bookingId = bookingWrap?.getAttribute('data-lg-booking-id');
+  if (bookingId) {
+    html = html.replace(/huSelectReservation\(([^)]+)\)/g, `lgHistorySelect('${esc(bookingId)}',$1)`);
+  }
+  historyCol.innerHTML = html;
+  requestAnimationFrame(() => window.scrollTo({ top: prevY, behavior: 'instant' }));
 };
 
 /** Construye el contenido de la columna derecha (detalle de la reservación seleccionada).
@@ -13469,7 +13484,6 @@ function lgBuildDetailSidebarItem(b, selectedId) {
       <div style="min-width:0">
         <div class="rd-item-row1">
           <span class="rd-status-badge rd-status-${statusUi}">${esc(statusUi)}</span>
-          <span class="rd-item-date">${esc(rdFmtFechaCorta(b.DateArrival))}</span>
         </div>
         <div class="rd-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span>${esc(b.GuestName||'Sin nombre')}</span>
@@ -16146,7 +16160,6 @@ function rdBuildListItem(b) {
       <div class="rd-item-body">
         <div class="rd-item-row1">
           <span class="rd-status-badge rd-status-${statusUi}">${esc(statusUi)}</span>
-          <span class="rd-item-date">${esc(rdFmtFechaCorta(b.DateArrival))}</span>
         </div>
         <div class="rd-item-name">${esc(b.GuestName||'Sin nombre')}${hasMatch?' <span style="font-size:9px;color:#475569" title="Registro manual">📋</span>':''}</div>
         <div class="rd-item-meta">

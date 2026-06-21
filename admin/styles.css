@@ -2543,11 +2543,11 @@ input[type="checkbox"].lg-multi-cb {
   margin-bottom: 1px;
 }
 .rd-item-amount {
-  font-size: 11px;
-  color: #475569;
-  font-weight: 600;
+  font-size: 16px;
+  color: #0f172a;
+  font-weight: 800;
   text-align: right;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 .rd-item-meta {
   font-size: 10px;
