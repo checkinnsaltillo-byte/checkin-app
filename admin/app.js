@@ -17982,6 +17982,37 @@ function bzwDetailHtmlForBooking(b, selectedTask) {
  *    - previous:  reserva inmediatamente anterior (mayor DateDeparture ≤ sched)
  *    - next:      reserva inmediatamente siguiente (menor DateArrival ≥ sched)
  *  Renderiza cards con click → abre la reserva en Gestión de reservas. */
+/** Construye (una sola vez por sesión de render) índices de bookings por
+ *  HouseId y por propKey homologado. Reutilizados en bzwBuildReservasAsociadasSection
+ *  para evitar O(N) por card del bitácora (~5k tasks × ~7k bookings = freeze). */
+function bzwBuildBookingPropIdx_() {
+  const byHouse = new Map();
+  const byPropKey = new Map();
+  const bookings = (LG_STATE?.bookings) || [];
+  for (const b of bookings) {
+    const hid = String(b.HouseId||'').trim();
+    if (hid) {
+      if (!byHouse.has(hid)) byHouse.set(hid, []);
+      byHouse.get(hid).push(b);
+    }
+    if (typeof lgPropOf === 'function' && typeof lgPropDeptKey === 'function') {
+      const pk = lgPropDeptKey(lgPropOf(b) || '', '');
+      if (pk) {
+        if (!byPropKey.has(pk)) byPropKey.set(pk, []);
+        byPropKey.get(pk).push(b);
+      }
+    }
+  }
+  return { byHouse, byPropKey, sig: bookings.length };
+}
+function bzwGetBookingPropIdx_() {
+  const sig = (LG_STATE?.bookings || []).length;
+  if (!LG_STATE.__bzwBookingPropIdx || LG_STATE.__bzwBookingPropIdx.sig !== sig) {
+    LG_STATE.__bzwBookingPropIdx = bzwBuildBookingPropIdx_();
+  }
+  return LG_STATE.__bzwBookingPropIdx;
+}
+
 function bzwBuildReservasAsociadasSection(t) {
   if (!t || !Array.isArray(LG_STATE?.bookings) || !LG_STATE.bookings.length) {
     return '';
@@ -17990,7 +18021,6 @@ function bzwBuildReservasAsociadasSection(t) {
   const m = String(schedRaw||'').match(/^(\d{4}-\d{2}-\d{2})/);
   if (!m) return '';
   const schedIso = m[1];
-  // Resolver propKey de la task (normalizado a forma canónica vía bzwPropDisplay)
   const taskPropName = (typeof bzwPropDisplay === 'function')
     ? bzwPropDisplay(t.property?.name)
     : (t.property?.name || '');
@@ -17999,21 +18029,16 @@ function bzwBuildReservasAsociadasSection(t) {
     : String(taskPropName||'').toLowerCase();
   if (!taskPropKey) return '';
   const taskHomeId = t.property?.id != null ? String(t.property.id) : '';
-  // Filtrar bookings de la misma propiedad
+  // Lookup O(1) por índice precomputado, en vez de filter sobre 7k bookings
+  const idx = bzwGetBookingPropIdx_();
+  let sameProp = [];
+  if (taskHomeId && idx.byHouse.has(taskHomeId)) sameProp = idx.byHouse.get(taskHomeId);
+  else if (idx.byPropKey.has(taskPropKey)) sameProp = idx.byPropKey.get(taskPropKey);
   const mmddToIso = (s) => {
     const mm = String(s||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     if (!mm) return '';
     return `${mm[3]}-${String(mm[1]).padStart(2,'0')}-${String(mm[2]).padStart(2,'0')}`;
   };
-  const sameProp = LG_STATE.bookings.filter(b => {
-    // Match por HouseId si está presente (más confiable que el nombre)
-    if (taskHomeId && String(b.HouseId||'') === taskHomeId) return true;
-    // Fallback: por propKey homologado
-    const bKey = (typeof lgPropOf === 'function')
-      ? (typeof lgPropDeptKey === 'function' ? lgPropDeptKey(lgPropOf(b), '') : '')
-      : '';
-    return bKey && bKey === taskPropKey;
-  });
   if (!sameProp.length) {
     return `<section class="bzw-detail-section">
       <div class="bzw-detail-section-title">🏨 Reservas asociadas</div>
