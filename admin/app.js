@@ -13690,10 +13690,6 @@ function lgBuildDetailView(list, cont) {
  *  Cada card es el mismo header que el sidebar de Detalles; al hacer click
  *  se EXPANDE hacia abajo con el panel completo (perfil + 3 columnas). */
 function lgBuildCardsView(list, cont) {
-  if (!list.length) {
-    cont.innerHTML = '<div style="padding:60px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic">Sin reservaciones según los filtros.</div>';
-    return;
-  }
   if (LG_STATE.filtersOpen === undefined) LG_STATE.filtersOpen = true;
   const filtersExpanded = !!LG_STATE.filtersOpen;
   if (!window.__lgCardsExpanded) window.__lgCardsExpanded = new Set();
@@ -13702,11 +13698,13 @@ function lgBuildCardsView(list, cont) {
   const facturaLegendHtml = lgBuildFacturaLegendHtml();
   const legendHtml = lgBuildProgLegendHtml();
 
-  // Construir items: cada uno es header (igual que sidebar) + slot expandible.
-  // Reemplazamos el onclick interno (lgDetailSelect) por lgCardsToggle para
-  // que el click del usuario expanda/colapse la card en vez de intentar
-  // seleccionar un sidebar que no existe en esta vista.
-  const itemsHtml = list.slice(0, 200).map(b => {
+  // Lista vacía (ej. "Ninguna" en Factura/Programación): se renderiza el
+  // mismo shell de filtros + un placeholder en lugar de las cards. Antes
+  // se reemplazaba todo el contenedor → los filtros desaparecían y el
+  // usuario quedaba sin forma de re-seleccionar.
+  const itemsHtml = !list.length
+    ? '<div style="padding:60px 20px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic">Sin reservaciones según los filtros.</div>'
+    : list.slice(0, 200).map(b => {
     const idStr = esc(b.Id);
     let sidebarHeader = lgBuildDetailSidebarItem(b, ''); // sin selected → estilo base
     sidebarHeader = sidebarHeader.replace(
