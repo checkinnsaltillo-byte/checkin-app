@@ -10672,8 +10672,19 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
       : null;
     const ingreso = (_lg && _lg.DateArrival)   || huValueFlexible(x, ['Fecha de ingreso']);
     const salida  = (_lg && _lg.DateDeparture) || huValueFlexible(x, ['Fecha de salida']);
-    const prop    = huValueFlexible(x, ['Propiedad']);
-    const depto   = huValueFlexible(x, ['# Departamento']);
+    // Propiedad/Departamento: Lodgify es source-of-truth. Si el booking
+    // vinculado existe, usamos lgPropOf(b) que resuelve "Propiedad - #Depto"
+    // a partir de HouseId/HouseName. Si no, caemos al sheet.
+    let prop = '', depto = '';
+    if (_lg && typeof lgPropOf === 'function') {
+      const _full = lgPropOf(_lg) || '';
+      const _m = _full.match(/^(.*?)\s*-\s*#\s*([\w-]+)\s*$/);
+      if (_m) { prop = _m[1].trim(); depto = _m[2].trim(); }
+      else    { prop = _full; depto = ''; }
+    } else {
+      prop  = huValueFlexible(x, ['Propiedad']);
+      depto = huValueFlexible(x, ['# Departamento']);
+    }
     let   noches  = (_lg && Number(_lg.Nights) > 0) ? String(_lg.Nights) : huValueFlexible(x, ['# Noches']);
     // Si ingreso/salida vienen en Lodgify MM/DD/YYYY, huParseDate los interpreta
     // como DD/MM/YYYY (bug). Normalizar a ISO YYYY-MM-DD vía lgFmtDateUI.
