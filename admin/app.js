@@ -14806,7 +14806,11 @@ function lgBuildAseoSectionForBooking(arg) {
   // Extrae Lodgify Id + fechas + propiedad de la reserva.
   let lodId = '', arrIso = '', depIso = '', propKey = '';
   if (typeof arg === 'string') {
-    lodId = arg.trim();
+    const s = arg.trim();
+    // Solo Lodgify Ids numéricos (6-12 dígitos). UUIDs u otros formatos →
+    // descartar para que NO se inyecte el placeholder con UUID.
+    if (!/^\d{6,12}$/.test(s)) return '';
+    lodId = s;
   } else if (arg && typeof arg === 'object') {
     const rawId = String(arg['Lodgify Id'] || arg.lodgify_id || arg.LodgifyId || '').trim();
     lodId = /^\d{6,12}$/.test(rawId) ? rawId : (/^\d{6,12}$/.test(String(arg.Id||'')) ? String(arg.Id) : '');
@@ -17652,7 +17656,9 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
         if (lg) return lg;
         const sym = (typeof LG_STATE !== 'undefined' && LG_STATE.__syntheticCache || []).find(x => String(x.Id) === String(bid));
         if (sym) return sym;
-        return bid; // fallback string
+        // Si bid es un Lodgify Id real (6-12 dígitos) lo devolvemos. Si es
+        // UUID u otro formato, devolvemos '' para que la inyección se omita.
+        return /^\d{6,12}$/.test(String(bid)) ? bid : '';
       }
     }
     // 3) Buscar "Lodgify Id" como text dentro del panel (último recurso)
