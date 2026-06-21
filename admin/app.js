@@ -17633,6 +17633,15 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
   function injectInto(el) {
     if (!el || el.dataset.aseoInjected === '1') return;
     if (typeof lgBuildAseoSectionForBooking !== 'function') return;
+    // Dedupe entre múltiples paneles solapados: el sidebar de la vista
+    // Detalles contiene tanto `.hu-col-detail` como `.hu-resv-detail` para
+    // distintas variantes de render. Si ya hay una `.bzw-aseo-card` en el
+    // mismo "panel padre", NO inyectamos otra.
+    const parentPanel = el.closest('[data-hu-resv-id]') || el.closest('[data-lg-booking-id]') || el.parentElement;
+    if (parentPanel && parentPanel.querySelector('.bzw-aseo-card')) {
+      el.dataset.aseoInjected = '1';
+      return;
+    }
     const arg = lookupBookingForDetailEl(el);
     if (!arg) return;
     const html = lgBuildAseoSectionForBooking(arg);
