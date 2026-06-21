@@ -1,5 +1,36 @@
 const BACKEND = "https://ticket-vision-957627511957.northamerica-south1.run.app";
 
+// ─── Indicador global de "ocupado" via favicon ──────────────────────────────
+// Alterna el favicon de 🏨 (idle) a ⏳ (ocupado). Usa ref counter para soportar
+// múltiples operaciones concurrentes. Llamar setSystemBusy(true,'label') al
+// iniciar, setSystemBusy(false) al terminar.
+(function(){
+  const ICON_IDLE = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>";
+  const ICON_BUSY = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>⏳</text></svg>";
+  let busyCount = 0;
+  let busyLabel = '';
+  const apply = () => {
+    const link = document.getElementById('app-favicon') || (function(){
+      const l = document.createElement('link');
+      l.rel = 'icon'; l.id = 'app-favicon'; l.type = 'image/svg+xml';
+      document.head.appendChild(l);
+      return l;
+    })();
+    link.href = busyCount > 0 ? ICON_BUSY : ICON_IDLE;
+    const baseTitle = 'Sistema Financiero | Check Inn Saltillo';
+    document.title = busyCount > 0 ? `⏳ ${busyLabel || 'Procesando…'} · ${baseTitle}` : baseTitle;
+  };
+  window.setSystemBusy = function(active, label) {
+    if (active) { busyCount++; busyLabel = label || busyLabel; }
+    else { busyCount = Math.max(0, busyCount - 1); if (busyCount === 0) busyLabel = ''; }
+    apply();
+  };
+  window.withSystemBusy = async function(label, fn) {
+    setSystemBusy(true, label);
+    try { return await fn(); } finally { setSystemBusy(false); }
+  };
+})();
+
 // ─── Catálogo de clasificaciones ───────────────────────────────────────────
 // CATALOG[cuenta][subcuenta] = Object{categoria:[conceptos]} | Array[conceptos]
 
@@ -9140,6 +9171,10 @@ const HU_FILTERS = {
 
 /** Auto-selecciona el mes en curso si está vacío y carga datos. */
 async function huespedesLoad(forceRefetch) {
+  setSystemBusy(true, 'Cargando huéspedes…');
+  try { return await __huespedesLoadInner(forceRefetch); } finally { setSystemBusy(false); }
+}
+async function __huespedesLoadInner(forceRefetch) {
   const empty = document.getElementById('hu-empty');
   const wrap  = document.getElementById('hu-table-wrap');
   const lbl   = document.getElementById('hu-status-label');
@@ -12419,6 +12454,10 @@ function lgLoaderHtml(msg) {
 /** Lee desde el sheet (vía Cloud Run → Apps Script → hoja "Reservas_Lodgify").
  *  Es la lectura rápida (default). No consulta Lodgify directamente. */
 async function lodgifyLoad(force, opts) {
+  setSystemBusy(true, 'Cargando reservas…');
+  try { return await __lodgifyLoadInner(force, opts); } finally { setSystemBusy(false); }
+}
+async function __lodgifyLoadInner(force, opts) {
   opts = opts || {};
   const silent = !!opts.silent; // si true, no limpia el contenedor ni muestra spinner
   const lbl = document.getElementById('lg-status-label');
@@ -16189,6 +16228,10 @@ function bzwApiBase() {
 const BZW_AUTOSYNC_THROTTLE_MS = 60 * 1000;
 let BZW_INITED_ONCE = false;
 async function bzwInit() {
+  setSystemBusy(true, 'Cargando Breezeway…');
+  try { return await __bzwInitInner(); } finally { setSystemBusy(false); }
+}
+async function __bzwInitInner() {
   if (!BZW_INITED_ONCE) {
     BZW_INITED_ONCE = true;
     bzwTestToken({ silent: true });
@@ -17111,6 +17154,17 @@ function bzwTaskFechaIso(t) {
   return '';
 }
 
+// Debounce centralizado de bzwApplyFilters — el search oninput dispara muy
+// rápido y con 5k+ tasks la búsqueda+sort+render bloquea la UI.
+let __bzwFiltersTimer = null;
+window.bzwApplyFiltersDebounced = function() {
+  if (__bzwFiltersTimer) clearTimeout(__bzwFiltersTimer);
+  // Pista visual mínima — sin overlay pesado.
+  const cntEl = document.getElementById('bzw-filter-count');
+  if (cntEl) cntEl.textContent = '…';
+  __bzwFiltersTimer = setTimeout(() => { __bzwFiltersTimer = null; window.bzwApplyFilters(); }, 220);
+};
+
 window.bzwApplyFilters = function() {
   if (!BZW_ALL_TASKS.length) return;
   // Helper: si el Set está vacío → "Ninguno" (no pasa nada); si tiene tantos
@@ -17232,18 +17286,33 @@ window.bzwApplyFilters = function() {
       <div style="font-size:11px;letter-spacing:.18em;color:${accent};font-weight:800;text-transform:uppercase">${label}</div>
       <span style="font-size:11px;padding:2px 9px;border-radius:999px;background:${accent}20;color:${accent};font-weight:800">${n}</span>
     </div>`;
-  const today = todayTasks.length
+  // Cap de renderizado: 5k+ cards congelan el navegador. Mostramos las
+  // primeras 300 y un aviso para los demás (usuario filtra/busca para
+  // bajar el set).
+  const RENDER_CAP = 300;
+  const todayShown = todayTasks.slice(0, RENDER_CAP);
+  const remainingForPast = Math.max(0, RENDER_CAP - todayShown.length);
+  const pastShown = pastTasks.slice(0, remainingForPast);
+  const truncatedCount = (todayTasks.length - todayShown.length) + (pastTasks.length - pastShown.length);
+  const truncatedNote = truncatedCount > 0
+    ? `<div style="margin:16px 2px 8px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;font-size:11px;color:#9a3412;text-align:center"><b>+ ${truncatedCount}</b> tareas más no mostradas. Refina los filtros para verlas todas.</div>`
+    : '';
+  const today = todayShown.length
     ? `${header('📍 Hoy', todayTasks.length, '#dc2626')}
-       ${todayTasks.map(t => bzwRenderAlertItem(t, { isToday: true })).join('')}`
+       ${todayShown.map(t => bzwRenderAlertItem(t, { isToday: true })).join('')}`
     : '';
-  const past = pastTasks.length
+  const past = pastShown.length
     ? `${header('📚 Anteriores', pastTasks.length, '#64748b')}
-       ${pastTasks.map(t => bzwRenderAlertItem(t, { isToday: false })).join('')}`
+       ${pastShown.map(t => bzwRenderAlertItem(t, { isToday: false })).join('')}`
     : '';
-  if (list) list.innerHTML = today + past;
+  if (list) list.innerHTML = today + past + truncatedNote;
 };
 
 window.bzwSync = async function() {
+  setSystemBusy(true, 'Sincronizando Breezeway…');
+  try { return await __bzwSyncInner(); } finally { setSystemBusy(false); }
+};
+async function __bzwSyncInner() {
   const fromVal = document.getElementById('bzw-from')?.value || new Date(Date.now()-30*86400000).toISOString().slice(0,10);
   const toVal   = document.getElementById('bzw-to')?.value   || new Date().toISOString().slice(0,10);
   const statusEl = document.getElementById('bzw-sync-status');

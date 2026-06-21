@@ -4,6 +4,7 @@
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema Financiero | Check Inn Saltillo</title>
+  <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
   <link rel="stylesheet" href="styles.css?v=95">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
@@ -1185,9 +1186,9 @@
           <div style="flex:1;min-width:220px;max-width:360px">
             <label style="display:block;font-size:10px;color:#64748b;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">🔎 Buscar</label>
             <div style="position:relative">
-              <input type="search" id="bzw-search" oninput="bzwApplyFilters()" placeholder="Nombre, propiedad, asignado, lodgify id, descripción…"
+              <input type="search" id="bzw-search" oninput="bzwApplyFiltersDebounced()" placeholder="Nombre, propiedad, asignado, lodgify id, descripción…"
                      style="width:100%;padding:6px 28px 6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;color:#0f172a;background:#fff;outline:none">
-              <button type="button" onclick="(()=>{const el=document.getElementById('bzw-search');if(el){el.value='';bzwApplyFilters();el.focus();}})()" title="Limpiar"
+              <button type="button" onclick="(()=>{const el=document.getElementById('bzw-search');if(el){el.value='';bzwApplyFiltersDebounced();el.focus();}})()" title="Limpiar"
                       style="position:absolute;right:4px;top:50%;transform:translateY(-50%);border:none;background:transparent;color:#94a3b8;font-size:14px;cursor:pointer;padding:2px 6px;line-height:1">✕</button>
             </div>
           </div>
@@ -1423,6 +1424,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=364"></script>
+  <script src="app.js?v=365"></script>
 </body>
 </html>
