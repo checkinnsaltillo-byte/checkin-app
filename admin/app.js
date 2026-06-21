@@ -13623,23 +13623,26 @@ function lgBuildDetailView(list, cont) {
   const sidebarOpen = !!LG_STATE.sidebarOpen;
   cont.innerHTML = `
     <div class="lg-detail-shell">
-      <aside class="rd-sidebar" style="${sidebarOpen ? '' : 'flex:0 0 auto;width:auto;max-width:none'}">
-        <div class="rd-sidebar-header" style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none" onclick="lgToggleSidebarOpen()">
-          <span style="font-size:16px;color:#475569;width:18px;text-align:center">${sidebarOpen ? '▾' : '▸'}</span>
-          ${sidebarOpen ? `<button type="button" onclick="event.stopPropagation();lgToggleSidebarFilters(this)"
-                  title="Mostrar/ocultar filtros"
-                  style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center">☰</button>` : ''}
-          <div>
-            <div class="rd-sidebar-title">Huéspedes</div>
-            ${sidebarOpen ? `<div class="rd-sidebar-count">${list.length} huésped${list.length===1?'':'es'}</div>` : ''}
-          </div>
-        </div>
-        ${sidebarOpen ? `${facturaProgressHtml}
+      <aside class="rd-sidebar">
+        <!-- Filtros y barra de progreso ARRIBA — siempre visibles aunque la
+             lista de huéspedes esté colapsada. -->
+        ${facturaProgressHtml}
         <div id="lg-sidebar-filters" style="${filtersExpanded ? '' : 'display:none'}">
           ${facturaLegendHtml}
           ${legendHtml}
         </div>
-        <div class="rd-list">${sidebarItems || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic">Sin reservaciones</div>'}</div>` : ''}
+        <!-- Header colapsable: solo controla la visibilidad de la lista. -->
+        <div class="rd-sidebar-header" style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;margin-top:6px" onclick="lgToggleSidebarOpen()">
+          <span style="font-size:16px;color:#475569;width:18px;text-align:center">${sidebarOpen ? '▾' : '▸'}</span>
+          <button type="button" onclick="event.stopPropagation();lgToggleSidebarFilters(this)"
+                  title="Mostrar/ocultar filtros"
+                  style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center">☰</button>
+          <div>
+            <div class="rd-sidebar-title">Huéspedes</div>
+            <div class="rd-sidebar-count">${list.length} huésped${list.length===1?'':'es'}</div>
+          </div>
+        </div>
+        ${sidebarOpen ? `<div class="rd-list">${sidebarItems || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic">Sin reservaciones</div>'}</div>` : ''}
       </aside>
       <div class="lg-detail-panel">
         <div id="lg-detail-main" class="lg-detail-panel-body"></div>
