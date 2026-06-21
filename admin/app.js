@@ -15169,6 +15169,14 @@ window.lgHistorySelect = function(bookingId, outerRecIdQuoted, selectedRecIdQuot
   const booking = (LG_STATE.bookings || []).find(x => String(x.Id) === String(bookingId));
   const historyCol = wrapper.querySelector('.hu-col-history');
   const detailCol  = wrapper.querySelector('.hu-col-detail');
+  const cobrosCol  = wrapper.querySelector('.hu-col-cobros');
+  // Preservar posición de scroll: el re-render colapsa temporalmente las
+  // columnas (más cortas mientras se reconstruyen), lo que el navegador
+  // interpreta como contenido reducido y ajusta el scrollY hacia arriba.
+  // Capturamos antes y restauramos en múltiples tics para cubrir la
+  // re-inyección async de 'Tareas relacionadas' por el MutationObserver.
+  const _prevScrollY = window.scrollY;
+  const _restoreScroll = () => { if (window.scrollY !== _prevScrollY) window.scrollTo({ top: _prevScrollY, behavior: 'instant' }); };
   // Re-render history con nuevo selected (igual que huéspedes original)
   if (historyCol) {
     let html = huBuildHistoryList(r, HU_STATE.rows, selectedRecId, outerRecId);
@@ -15178,8 +15186,6 @@ window.lgHistorySelect = function(bookingId, outerRecIdQuoted, selectedRecIdQuot
     );
     historyCol.innerHTML = html;
   }
-  // Re-render: ahora son DOS columnas separadas — detail (sección 1) y cobros (sección 2)
-  const cobrosCol = wrapper.querySelector('.hu-col-cobros');
   if (detailCol || cobrosCol) {
     const syn = huRowToSyntheticBooking(r);
     if (syn) {
@@ -15187,10 +15193,16 @@ window.lgHistorySelect = function(bookingId, outerRecIdQuoted, selectedRecIdQuot
       if (cobrosCol) cobrosCol.innerHTML = lgBuildSection2CobrosHtml(syn, r);
     }
     if (detailCol) {
-      detailCol.style.animation = 'hu-fade-in 280ms cubic-bezier(.16,1,.3,1)';
-      setTimeout(() => { detailCol.style.animation = ''; }, 300);
+      // Se elimina la animación de fade — provocaba salto visual además del scroll reset.
+      detailCol.style.animation = '';
     }
   }
+  // Restaurar scrollY ahora + después de los frames donde la sección Aseo/
+  // Tareas relacionadas se re-inyecta.
+  requestAnimationFrame(_restoreScroll);
+  setTimeout(_restoreScroll, 50);
+  setTimeout(_restoreScroll, 200);
+  setTimeout(_restoreScroll, 500);
 };
 
 /** Alias: la versión "real" reemplaza a la liviana. */
