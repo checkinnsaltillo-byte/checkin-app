@@ -12951,14 +12951,33 @@ function lgGetFiltered(sourceList) {
       if (!facSet.has(lgBookingFacturaState(b).toLowerCase())) return false;
     }
     if (nb) {
-      // Búsqueda libre: nombre, correo, teléfono, booking ID
-      const hay = [
-        String(b.GuestName||''),
-        String(b.GuestEmail||''),
-        String(b.GuestPhone||''),
-        String(b.Id||''),
-        String(b.ConfirmationCode||''),
-      ].join(' ').toLowerCase();
+      // Búsqueda libre en TODOS los campos del booking + del huesped
+      // vinculado + del booking Lodgify real (si existe). Aplana cualquier
+      // valor primitivo a string; ignora objetos anidados gigantes (LineItems,
+      // __reservacion, __lodgify) excepto sus claves seleccionadas.
+      const acc = [];
+      const push = (v) => {
+        if (v == null) return;
+        const t = typeof v;
+        if (t === 'string' || t === 'number' || t === 'boolean') acc.push(String(v));
+      };
+      for (const k of Object.keys(b)) {
+        if (k.startsWith('__')) continue;
+        if (k === 'LineItems') continue;
+        push(b[k]);
+      }
+      const huR = b.__reservacion;
+      if (huR && typeof huR === 'object') {
+        for (const k of Object.keys(huR)) push(huR[k]);
+      }
+      const lgR = b.__lodgify;
+      if (lgR && typeof lgR === 'object') {
+        for (const k of Object.keys(lgR)) {
+          if (k === 'LineItems' || k === 'LineItemsJSON') continue;
+          push(lgR[k]);
+        }
+      }
+      const hay = acc.join(' ').toLowerCase();
       if (!hay.includes(nb)) return false;
     }
     // Filtro por MESES: booking pasa si la fecha de llegada cae en alguno
