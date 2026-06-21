@@ -11924,7 +11924,7 @@ const LG_STATE = {
   loading: false,
   from: '',
   to: '',
-  viewMode: 'detail', // 'detail' | 'kanban' | 'table' | 'list' (default: detail)
+  viewMode: 'cards', // 'cards' | 'kanban' | 'table' | 'detail' | 'list' (default: cards)
   sortKey: '',      // columna activa para sort (vista tabla)
   sortDir: '',      // 'asc' | 'desc' | ''
   lastAutoSyncMs: 0,
@@ -13611,18 +13611,21 @@ function lgBuildFacturaProgressHtml(list) {
   const pctE  = total > 0 ? (emitidas   / total * 100) : 0;
   const pctP  = total > 0 ? (pendientes / total * 100) : 0;
   return `
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#14532d;white-space:nowrap">
-        <span style="width:9px;height:9px;border-radius:50%;background:#16a34a;display:inline-block"></span>
-        ${emitidas} (${pctE.toFixed(0)}%) Emitidas
-      </div>
-      <div style="flex:1;display:flex;height:12px;border-radius:999px;overflow:hidden;background:#e5e7eb">
-        <div title="Emitidas: ${emitidas}"   style="width:${pctE.toFixed(2)}%;background:linear-gradient(90deg,#16a34a,#86efac);transition:width .3s"></div>
-        <div title="Pendientes: ${pendientes}" style="width:${pctP.toFixed(2)}%;background:linear-gradient(90deg,#fca5a5,#dc2626);transition:width .3s"></div>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#7f1d1d;white-space:nowrap">
-        Pendientes ${pendientes} (${pctP.toFixed(0)}%)
-        <span style="width:9px;height:9px;border-radius:50%;background:#dc2626;display:inline-block"></span>
+    <div style="padding:8px 12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;margin-bottom:10px">
+      <div style="font-size:10px;letter-spacing:.14em;color:#64748b;font-weight:800;text-transform:uppercase;margin-bottom:6px">🧾 Reservas con ticket de auto-facturación</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#14532d;white-space:nowrap">
+          <span style="width:9px;height:9px;border-radius:50%;background:#16a34a;display:inline-block"></span>
+          ${emitidas} (${pctE.toFixed(0)}%) Emitidas
+        </div>
+        <div style="flex:1;display:flex;height:12px;border-radius:999px;overflow:hidden;background:#e5e7eb">
+          <div title="Emitidas: ${emitidas}"   style="width:${pctE.toFixed(2)}%;background:linear-gradient(90deg,#16a34a,#86efac);transition:width .3s"></div>
+          <div title="Pendientes: ${pendientes}" style="width:${pctP.toFixed(2)}%;background:linear-gradient(90deg,#fca5a5,#dc2626);transition:width .3s"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#7f1d1d;white-space:nowrap">
+          Pendientes ${pendientes} (${pctP.toFixed(0)}%)
+          <span style="width:9px;height:9px;border-radius:50%;background:#dc2626;display:inline-block"></span>
+        </div>
       </div>
     </div>`;
 }
