@@ -16328,8 +16328,10 @@ window.bzwRefreshAlerts = async function() {
   const lastEl = document.getElementById('bzw-stat-last');
   if (list) list.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:30px 0;font-style:italic">Cargando bitácora…</div>';
   try {
-    // Pedimos el universo completo (cap actual del sheet: 200k).
-    const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts?limit=200000`, { cache: 'no-store' });
+    // Pedimos 15k — el máximo que Apps Script puede serializar y devolver
+    // dentro del timeout de 30s del Cloud Run intermediario. Limits mayores
+    // generaban 500 + payload >40MB. Tu sheet tiene ~13k tasks hoy.
+    const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts?limit=15000`, { cache: 'no-store' });
     const json = await res.json();
     if (!res.ok || json.ok === false) throw new Error(json.error || `HTTP ${res.status}`);
     const allAlerts = Array.isArray(json.alerts) ? json.alerts : [];
