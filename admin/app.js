@@ -18045,26 +18045,25 @@ function bzwBuildReservasAsociadasSection(t) {
       <div style="font-size:12px;color:#94a3b8;font-style:italic">Sin reservas en esta propiedad.</div>
     </section>`;
   }
-  // Clasificación estricta:
-  //   Anterior: reserva cuya salida es ≤ fecha de la task (y entrada < task).
-  //             Se elige la de salida MÁS RECIENTE (más cercana a la task).
-  //   Siguiente: reserva cuya entrada es ≥ fecha de la task.
-  //             Se elige la de entrada MÁS TEMPRANA (más cercana a la task).
-  //   Las reservas estrictamente "en curso" (arr < task < dep) se EXCLUYEN.
+  // Clasificación:
+  //   En curso: arr < task < dep (estancia que CONTIENE estrictamente la fecha)
+  //   Anterior: dep ≤ task (salida en o antes de la task) — la MÁS RECIENTE
+  //   Siguiente: arr ≥ task (entrada en o después de la task) — la MÁS TEMPRANA
+  const includes = [];
   let previous = null, previousDep = '';
   let next = null,     nextArr = '';
   for (const b of sameProp) {
     const arrIso = mmddToIso(b.DateArrival);
     const depIso = mmddToIso(b.DateDeparture);
     if (!arrIso || !depIso) continue;
-    if (depIso <= schedIso && arrIso < schedIso) {
+    if (arrIso < schedIso && schedIso < depIso) {
+      includes.push(b);
+    } else if (depIso <= schedIso) {
       if (!previousDep || depIso > previousDep) { previous = b; previousDep = depIso; }
     } else if (arrIso >= schedIso) {
       if (!nextArr || arrIso < nextArr) { next = b; nextArr = arrIso; }
     }
-    // Si arr < schedIso < dep (estrictamente en curso) → no se incluye
   }
-  const includes = []; // mantenida vacía: ya no usamos "En curso"
   const renderCard = (b, badgeLabel, badgeColor) => {
     const arr = bzwFmtFechaDetalle(b.DateArrival, true);
     const dep = bzwFmtFechaDetalle(b.DateDeparture, true);
