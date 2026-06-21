@@ -16328,10 +16328,15 @@ window.bzwRefreshAlerts = async function() {
   const lastEl = document.getElementById('bzw-stat-last');
   if (list) list.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:30px 0;font-style:italic">Cargando bitácora…</div>';
   try {
-    // Pedimos 15k — el máximo que Apps Script puede serializar y devolver
-    // dentro del timeout de 30s del Cloud Run intermediario. Limits mayores
-    // generaban 500 + payload >40MB. Tu sheet tiene ~13k tasks hoy.
-    const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts?limit=15000`, { cache: 'no-store' });
+    // Filtramos server-side por scheduled_date ≥ hace 18 meses — incluye
+    // estancias actuales, futuras y un buen colchón histórico. El orden de
+    // inserción del sheet ya NO importa: el backend filtra+ordena por fecha
+    // antes de truncar al límite, así que ninguna task reciente se queda fuera.
+    const _fromSched = (() => {
+      const d = new Date(); d.setMonth(d.getMonth() - 18);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    })();
+    const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts?limit=15000&from_sched=${_fromSched}`, { cache: 'no-store' });
     const json = await res.json();
     if (!res.ok || json.ok === false) throw new Error(json.error || `HTTP ${res.status}`);
     const allAlerts = Array.isArray(json.alerts) ? json.alerts : [];
