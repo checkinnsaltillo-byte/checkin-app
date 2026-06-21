@@ -16331,12 +16331,13 @@ window.bzwRefreshAlerts = async function() {
     }
     const alerts = Array.from(dedupe.values());
     BZW_ALL_TASKS = alerts;
-    // Pre-indexar tasks por linked_reservation Lodgify Id y por
-    // (propiedad+scheduled_date) — usado por la sección Aseo y por los
-    // chips del sidebar. Evita escanear BZW_ALL_TASKS por cada card render.
-    try { bzwBuildTaskIndexes_(); } catch(_) {}
-    // Reconstruye el map de homologación de propiedades para esta data.
+    // Reconstruye el map de homologación de propiedades PRIMERO (usado por
+    // bzwBuildTaskIndexes_ para normalizar nombres tipo "MT10 Matamoros #10
+    // - Amplio..." → "Calle Matamoros - #10" antes de derivar la propKey).
     try { bzwRebuildHomolMap(); } catch(_) {}
+    // Pre-indexar tasks por linked_reservation Lodgify Id y por
+    // (propiedad+scheduled_date). Evita escanear BZW_ALL_TASKS por cada card.
+    try { bzwBuildTaskIndexes_(); } catch(_) {}
     // Resetea el flag de "aseo inyectado" en TODOS los paneles de detalle
     // visibles, y vuelve a escanear → cada panel recibe la nueva versión
     // (con datos de Breezeway recién cargados) en lugar del placeholder.
@@ -16761,7 +16762,11 @@ function bzwBuildTaskIndexes_() {
     }
     const sched = String(t.raw?.scheduled_date || t.task?.scheduled_date || '').match(/^(\d{4}-\d{2}-\d{2})/);
     if (sched) {
-      const propName = t.property?.name || '';
+      // Usar nombre HOMOLOGADO: "MT10 Matamoros #10 - Amplio..." (Breezeway)
+      // se convierte a "Calle Matamoros - #10" (canónico) ANTES de la propKey,
+      // para que matchee con el nombre que viene del booking Lodgify.
+      const rawPropName = t.property?.name || '';
+      const propName = (typeof bzwPropDisplay === 'function') ? bzwPropDisplay(rawPropName) : rawPropName;
       const pk = (typeof lgPropDeptKey === 'function') ? lgPropDeptKey(propName, '') : propName.toLowerCase();
       if (pk) {
         const key = `${pk}|${sched[1]}`;
