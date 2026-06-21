@@ -13755,23 +13755,40 @@ window.lgCardsToggle = function(bookingId) {
   const id = String(bookingId);
   const wasOpen = set.has(id);
   if (wasOpen) set.delete(id); else set.add(id);
-  const item = document.querySelector(`.lg-cards-item[data-lg-cards-id="${id}"]`);
-  if (!item) return;
+  const item = document.querySelector(`.lg-cards-item[data-lg-cards-id="${CSS.escape(id)}"]`);
+  if (!item) { console.warn('[lgCardsToggle] item no encontrado:', id); return; }
   const body = item.querySelector('[data-lg-cards-body]');
-  if (!body) return;
+  if (!body) { console.warn('[lgCardsToggle] body no encontrado:', id); return; }
   if (wasOpen) {
     body.style.display = 'none';
     body.innerHTML = '';
   } else {
     const b = (LG_STATE.bookings || []).find(x => String(x.Id) === id)
            || (LG_STATE.__syntheticCache || []).find(x => String(x.Id) === id);
-    if (!b) return;
-    body.innerHTML = lgCardsExpandedHtml(b);
-    body.style.display = '';
-    // Marcar usuario interactuó para que renders automáticos no rompan el estado
+    if (!b) { console.warn('[lgCardsToggle] booking no encontrado:', id); return; }
+    try {
+      body.innerHTML = lgCardsExpandedHtml(b);
+    } catch (e) {
+      console.error('[lgCardsToggle] error renderizando expanded:', e);
+      body.innerHTML = `<div style="padding:20px;color:#dc2626;font-size:12px">Error al cargar detalles: ${esc(e.message||String(e))}</div>`;
+    }
+    body.style.display = 'block';
     window.LG_USER_INTERACTED = true;
   }
 };
+
+// Delegación global de click — respaldo en caso de que el onclick inline
+// del rd-item se pierda por algún re-render parcial. Ignora el botón ✕
+// (que tiene su propio stopPropagation).
+document.addEventListener('click', function(e) {
+  const item = e.target.closest && e.target.closest('.lg-cards-item');
+  if (!item) return;
+  // Si el click viene del botón de eliminar o del body ya expandido, ignorar.
+  if (e.target.closest('[data-lg-cards-body]')) return;
+  if (e.target.closest('button')) return; // dejar botones internos (eliminar, etc.)
+  const id = item.getAttribute('data-lg-cards-id');
+  if (id) window.lgCardsToggle(id);
+}, true);
 
 /** Click en una card del sidebar de Detalles. */
 window.lgToggleSidebarFilters = function(btn) {
