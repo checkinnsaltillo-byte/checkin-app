@@ -17993,12 +17993,24 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
     if (typeof lgBuildAseoSectionForBooking !== 'function') return;
     const arg = lookupBookingForDetailEl(el);
     if (!arg) return;
-    // Dedup GLOBAL por bookingKey: si ya hay una card .bzw-aseo-card con la
-    // misma data-bzw-key en cualquier parte del documento, no inyectar otra.
+    // Dedup por bookingKey, PERO solo cuenta una card existente si está en
+    // un contenedor visible. Las cards inyectadas dentro de módulos ocultos
+    // (ej. #module-huespedes.hidden, donde el booking aparece como reserva
+    // asociada de otro huésped) no deben bloquear la inyección en el módulo
+    // visible — antes el dedup global las contaba y la sección desaparecía.
     const key = bookingKeyOf(arg);
     if (key) {
-      const existing = document.querySelector(`.bzw-aseo-card[data-bzw-key="${CSS.escape(key)}"]`);
-      if (existing) { el.dataset.aseoInjected = '1'; return; }
+      const candidates = document.querySelectorAll(`.bzw-aseo-card[data-bzw-key="${CSS.escape(key)}"]`);
+      let blocking = null;
+      for (const c of candidates) {
+        if (c === el || el.contains(c)) continue;
+        if (c.closest('.hidden, [hidden]')) continue;
+        const rect = c.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) continue;
+        blocking = c;
+        break;
+      }
+      if (blocking) { el.dataset.aseoInjected = '1'; return; }
     }
     const html = lgBuildAseoSectionForBooking(arg);
     if (!html) return;
