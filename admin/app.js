@@ -10892,23 +10892,65 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
     return unifyBtn + html;
   }).join('');
 
+  // Estado por-card del colapso (persistente en sesión). Mobile: colapsado
+  // por default; desktop: expandido.
+  const _isMobile = (typeof window !== 'undefined') && window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+  if (!window.__rtCollapse) window.__rtCollapse = new Map();
+  const _key = 'rt:' + outerCardRecId;
+  if (!window.__rtCollapse.has(_key)) window.__rtCollapse.set(_key, _isMobile);
+  const _collapsed = window.__rtCollapse.get(_key);
   return `
     <div class="hu-col-card" style="background:#fff;border-radius:16px;padding:0;color:#0f172a;box-shadow:0 4px 16px rgba(15,23,42,.08);position:relative;overflow:hidden;border:1.5px solid #e2e8f0">
       <div style="height:4px;background:linear-gradient(90deg,#10b981,#06b6d4,#3b82f6)"></div>
       <div style="padding:14px 16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">📚 RESERVAS TOTALES</div>
+        <div onclick="window.__rtToggle('${esc(_key)}')" style="display:flex;align-items:center;justify-content:space-between;${_collapsed?'':'margin-bottom:12px;'}cursor:pointer;user-select:none">
+          <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800;display:flex;align-items:center;gap:6px">
+            <span style="font-size:14px;line-height:1;color:#94a3b8">${_collapsed?'▸':'▾'}</span>
+            📚 RESERVAS TOTALES
+          </div>
           <div style="display:flex;align-items:center;gap:5px">
             <div style="font-size:9px;color:#0d9488;text-transform:uppercase;font-weight:700;padding:2px 8px;background:#ccfbf1;border-radius:999px">${list.length} ${list.length===1?'reserva':'reservas'}</div>
             ${probableList.length ? `<div title="${probableList.length} reservación(es) relacionada(s) por propiedad+fechas con celular distinto" style="font-size:9px;color:#92400e;text-transform:uppercase;font-weight:800;padding:2px 8px;background:#fef3c7;border:1px solid #fcd34d;border-radius:999px;letter-spacing:.04em">+${probableList.length} probable${probableList.length===1?'':'s'}</div>` : ''}
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:680px;padding:8px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">
+        ${_collapsed ? '' : `<div style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:680px;padding:8px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">
           ${items || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic">Sin historial.</div>'}
-        </div>
+        </div>`}
       </div>
     </div>`;
 }
+// Toggle del colapso de "Reservas totales" — preserva scroll antes/después.
+window.__rtToggle = function(key) {
+  if (!window.__rtCollapse) window.__rtCollapse = new Map();
+  const cur = !!window.__rtCollapse.get(key);
+  window.__rtCollapse.set(key, !cur);
+  const prevY = window.scrollY;
+  // Re-render del card padre: identificamos por outerCardRecId en `key`
+  const rid = String(key).replace(/^rt:/, '');
+  // Disparar el render correcto según el contexto:
+  if (typeof huSelectReservation === 'function') {
+    // Si estamos en huéspedes módulo, re-renderizamos history del card actual
+    const card = document.querySelector(`.hu-record[data-record-id="${rid}"]`);
+    if (card) {
+      const historyCol = card.querySelector('.hu-col-history');
+      const r = (HU_STATE.rows||[]).find(x => String(x['ID']||x['row_number']||'') === rid);
+      if (historyCol && r && typeof huBuildHistoryList === 'function') {
+        historyCol.innerHTML = huBuildHistoryList(r, HU_STATE.rows, rid, rid);
+        requestAnimationFrame(() => window.scrollTo({ top: prevY, behavior: 'instant' }));
+        return;
+      }
+    }
+  }
+  // Lodgify detail: re-renderiza vía lgHistorySelect-ish — busca wrapper
+  const wrap = document.querySelector(`.hu-record-body [data-hu-resv-id="${rid}"]`)?.closest('.hu-record-body');
+  if (wrap) {
+    const bookingId = wrap.getAttribute('data-lg-booking-id');
+    if (bookingId && typeof window.lgHistorySelect === 'function') {
+      window.lgHistorySelect(bookingId, rid, rid);
+      requestAnimationFrame(() => window.scrollTo({ top: prevY, behavior: 'instant' }));
+    }
+  }
+};
 
 /** Construye el contenido de la columna derecha (detalle de la reservación seleccionada).
  *  Incluye la caja de auto-facturación con sus inputs editables/calculados. */
@@ -13575,24 +13617,29 @@ function lgBuildDetailView(list, cont) {
   // Hamburguesa de filtros: predeterminadamente desplegada (LG_STATE.filtersOpen).
   if (LG_STATE.filtersOpen === undefined) LG_STATE.filtersOpen = true;
   const filtersExpanded = !!LG_STATE.filtersOpen;
+  // Sidebar de Huéspedes: colapsable. Mobile colapsado por default, desktop expandido.
+  const _isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+  if (LG_STATE.sidebarOpen === undefined) LG_STATE.sidebarOpen = !_isMobile;
+  const sidebarOpen = !!LG_STATE.sidebarOpen;
   cont.innerHTML = `
     <div class="lg-detail-shell">
-      <aside class="rd-sidebar">
-        <div class="rd-sidebar-header" style="display:flex;align-items:center;gap:10px">
-          <button type="button" onclick="lgToggleSidebarFilters(this)"
+      <aside class="rd-sidebar" style="${sidebarOpen ? '' : 'flex:0 0 auto;width:auto;max-width:none'}">
+        <div class="rd-sidebar-header" style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none" onclick="lgToggleSidebarOpen()">
+          <span style="font-size:16px;color:#475569;width:18px;text-align:center">${sidebarOpen ? '▾' : '▸'}</span>
+          ${sidebarOpen ? `<button type="button" onclick="event.stopPropagation();lgToggleSidebarFilters(this)"
                   title="Mostrar/ocultar filtros"
-                  style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center">☰</button>
+                  style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center">☰</button>` : ''}
           <div>
             <div class="rd-sidebar-title">Huéspedes</div>
-            <div class="rd-sidebar-count">${list.length} huésped${list.length===1?'':'es'}</div>
+            ${sidebarOpen ? `<div class="rd-sidebar-count">${list.length} huésped${list.length===1?'':'es'}</div>` : ''}
           </div>
         </div>
-        ${facturaProgressHtml}
+        ${sidebarOpen ? `${facturaProgressHtml}
         <div id="lg-sidebar-filters" style="${filtersExpanded ? '' : 'display:none'}">
           ${facturaLegendHtml}
           ${legendHtml}
         </div>
-        <div class="rd-list">${sidebarItems || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic">Sin reservaciones</div>'}</div>
+        <div class="rd-list">${sidebarItems || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic">Sin reservaciones</div>'}</div>` : ''}
       </aside>
       <div class="lg-detail-panel">
         <div id="lg-detail-main" class="lg-detail-panel-body"></div>
@@ -13607,6 +13654,11 @@ window.lgToggleSidebarFilters = function(btn) {
   LG_STATE.filtersOpen = !LG_STATE.filtersOpen;
   const box = document.getElementById('lg-sidebar-filters');
   if (box) box.style.display = LG_STATE.filtersOpen ? '' : 'none';
+};
+window.lgToggleSidebarOpen = function() {
+  LG_STATE.sidebarOpen = !LG_STATE.sidebarOpen;
+  window.LG_USER_INTERACTED = false;
+  if (typeof lodgifyRender === 'function') lodgifyRender({ force: true });
 };
 
 window.lgDetailSelect = function(id) {
