@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema Financiero | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=101">
+  <link rel="stylesheet" href="styles.css?v=102">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1286,15 +1286,10 @@
             <h1 class="inc-hero-title">🚨 Incidencias</h1>
             <p class="inc-hero-sub">Captura reportes con catálogos del sistema y genera el PDF listo para imprimir.</p>
           </div>
-          <button type="button" id="inc-print-btn" onclick="incImprimir()" class="inc-btn-print">
-            🖨️ Imprimir reporte
-          </button>
         </div>
 
-        <!-- Layout dinámico: 1 col (form full-width) hasta que se genera el
-             reporte. En ese momento se agrega .inc-has-preview y pasa a 2 cols. -->
-        <div id="inc-layout" style="display:grid;grid-template-columns:1fr;gap:18px;align-items:start">
-          <!-- Formulario -->
+        <!-- Formulario: a todo el ancho. El reporte ahora vive en un modal. -->
+        <div id="inc-layout" style="display:block">
           <div id="inc-form" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px">
             <h2 style="margin:0 0 12px;font-size:16px;color:#0f172a">Captura del reporte</h2>
 
@@ -1393,11 +1388,25 @@
             </div>
           </div>
 
-          <!-- Vista previa — oculta hasta que se pulsa Generar reporte. -->
-          <div id="inc-preview-card" style="display:none;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;min-height:600px;position:sticky;top:14px">
-            <div id="inc-preview"></div>
-          </div>
         </div>
+      </div>
+
+      <!-- Modal del reporte (popup) -->
+      <div id="inc-report-modal" class="inc-modal hidden" onclick="incSalir()">
+        <div class="inc-modal-content" onclick="event.stopPropagation()">
+          <div class="inc-modal-actions">
+            <button type="button" onclick="incImprimir()" class="inc-modal-btn inc-btn-imprimir" title="Imprimir reporte">🖨️ Imprimir</button>
+            <button type="button" onclick="incGuardarSalir()" class="inc-modal-btn inc-btn-guardar" title="Guardar y salir">💾 Guardar y Salir</button>
+            <button type="button" onclick="incSalir()" class="inc-modal-btn inc-btn-salir" title="Salir">✕ Salir</button>
+          </div>
+          <div id="inc-preview" class="inc-report-body"></div>
+        </div>
+      </div>
+
+      <!-- Modal de zoom de imagen -->
+      <div id="inc-zoom-modal" class="inc-zoom-modal hidden" onclick="incCloseZoom()">
+        <button type="button" onclick="incCloseZoom()" class="inc-zoom-close" title="Cerrar">✕</button>
+        <img id="inc-zoom-img" src="" alt="" onclick="event.stopPropagation()">
       </div>
     </div><!-- /module-incidencias -->
 
@@ -1553,6 +1562,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=384"></script>
+  <script src="app.js?v=385"></script>
 </body>
 </html>

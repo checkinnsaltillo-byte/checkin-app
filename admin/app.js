@@ -19647,26 +19647,68 @@ window.incAgregar = function(tipo) {
 
 function incManejarFotos(ev) {
   const files = Array.from(ev.target.files || []);
-  if (!files.length) { INC_STATE.fotos = []; incRenderFotoPreview(); return; }
+  if (!files.length) { incRenderFotoPreview(); return; }
   Promise.all(files.map(f => new Promise(resolve => {
     const r = new FileReader();
     r.onload = () => resolve({ name: f.name, src: r.result });
     r.readAsDataURL(f);
   }))).then(results => {
-    INC_STATE.fotos = results;
+    // APPEND a las existentes (no replace) — el botón "+" agrega más.
+    INC_STATE.fotos = INC_STATE.fotos.concat(results);
     incRenderFotoPreview();
+    // Reset input para poder re-cargar el mismo archivo
+    ev.target.value = '';
   });
 }
 
 function incRenderFotoPreview() {
   const c = document.getElementById('inc-foto-preview');
   if (!c) return;
-  c.innerHTML = INC_STATE.fotos.map(f => `
-    <div class="inc-photo-thumb">
+  const thumbs = INC_STATE.fotos.map((f, i) => `
+    <div class="inc-photo-thumb" onclick="incOpenZoom(${i})" title="Click para ampliar">
+      <button type="button" class="inc-photo-remove" onclick="event.stopPropagation();incRemoveFoto(${i})" title="Eliminar imagen">✕</button>
       <img src="${f.src}" alt="${esc(f.name)}">
       <div class="inc-photo-cap">${esc(f.name)}</div>
     </div>`).join('');
+  // Placeholder "+" SIEMPRE al final para agregar más imágenes
+  const addCard = `
+    <div class="inc-photo-add" onclick="document.getElementById('inc-fotos').click()" title="Agregar más imágenes">
+      <span class="inc-photo-add-icon">＋</span>
+      <span class="inc-photo-add-text">Agregar imagen</span>
+    </div>`;
+  c.innerHTML = thumbs + addCard;
 }
+
+window.incRemoveFoto = function(i) {
+  INC_STATE.fotos.splice(i, 1);
+  incRenderFotoPreview();
+  // Reset el input file para que se pueda re-cargar la misma imagen si se desea
+  const inp = document.getElementById('inc-fotos');
+  if (inp) inp.value = '';
+};
+
+window.incOpenZoom = function(i) {
+  const f = INC_STATE.fotos[i];
+  if (!f) return;
+  const modal = document.getElementById('inc-zoom-modal');
+  const img = document.getElementById('inc-zoom-img');
+  if (!modal || !img) return;
+  img.src = f.src;
+  img.alt = f.name;
+  modal.classList.remove('hidden');
+  // Esc cierra
+  if (!window._incZoomEscBound) {
+    window._incZoomEscBound = true;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') incCloseZoom();
+    });
+  }
+};
+
+window.incCloseZoom = function() {
+  const modal = document.getElementById('inc-zoom-modal');
+  if (modal) modal.classList.add('hidden');
+};
 
 function incGetFormData() {
   const propiedad = document.getElementById('inc-propiedad')?.value || '';
@@ -19699,70 +19741,82 @@ function incBuildReporteHtml(d) {
   const reportante = d.reportante || 'Sin especificar';
   const nivelCls = incNivelClass(d.nivel);
   const chip = (txt, cls = '') => `<span class="inc-chip ${cls}">${esc(txt)}</span>`;
-  const section = (title, body) => `
-    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:12px;background:#fff">
-      <div style="font-size:11px;letter-spacing:.12em;color:#475569;font-weight:800;text-transform:uppercase;margin-bottom:8px">${esc(title)}</div>
-      <div style="font-size:13px;color:#1f2937;line-height:1.55">${body}</div>
+  // Campo compacto: label corto a la izquierda, valor a la derecha. Ocupa
+  // mínimo espacio vertical (5px de padding) para reporte tipo ejecutivo.
+  const field = (label, value) => `
+    <div class="inc-report-field">
+      <div class="inc-report-field-label">${esc(label)}</div>
+      <div class="inc-report-field-value">${value || '—'}</div>
+    </div>`;
+  const chipsList = (arr) => `<div style="display:flex;gap:4px;flex-wrap:wrap">${arr.map(x => chip(x)).join('')}</div>`;
+  const block = (title, body) => `
+    <div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fff">
+      <div style="font-size:10px;letter-spacing:.10em;color:#dc2626;font-weight:800;text-transform:uppercase;margin-bottom:6px">${esc(title)}</div>
+      ${body}
     </div>`;
   const fotosHtml = d.fotos.length ? `
-    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:12px;background:#fff">
-      <div style="font-size:11px;letter-spacing:.12em;color:#475569;font-weight:800;text-transform:uppercase;margin-bottom:10px">Evidencia fotográfica</div>
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+    <div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fff">
+      <div style="font-size:10px;letter-spacing:.10em;color:#dc2626;font-weight:800;text-transform:uppercase;margin-bottom:8px">Evidencia fotográfica · ${d.fotos.length} imagen(es)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
         ${d.fotos.map((f, i) => `
-          <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#fff;page-break-inside:avoid">
-            <img src="${f.src}" alt="${esc(f.name)}" style="display:block;width:100%;height:240px;object-fit:cover;background:#f1f5f9">
-            <div style="padding:6px 8px;font-size:11px;color:#64748b">Foto ${i + 1} — ${esc(f.name)}</div>
+          <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;background:#fff;page-break-inside:avoid">
+            <img src="${f.src}" alt="${esc(f.name)}" style="display:block;width:100%;height:140px;object-fit:cover;background:#f1f5f9">
+            <div style="padding:3px 6px;font-size:10px;color:#64748b">Foto ${i + 1}</div>
           </div>`).join('')}
       </div>
     </div>` : '';
   return `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #e2e8f0;padding-bottom:12px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:2px solid #dc2626;padding-bottom:8px;margin-bottom:12px">
       <div>
-        <div style="font-size:10px;letter-spacing:.14em;color:#2563eb;font-weight:800;text-transform:uppercase">Formato operativo</div>
-        <h2 style="margin:4px 0 6px;font-size:20px;color:#0f172a">Reporte de incidencia de limpieza</h2>
-        <span class="inc-chip" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8">${esc(d.estatus)}</span>
+        <div style="font-size:9px;letter-spacing:.14em;color:#dc2626;font-weight:800;text-transform:uppercase">Formato operativo</div>
+        <h2 style="margin:2px 0 4px;font-size:18px;color:#0f172a;font-weight:800">Reporte de incidencia</h2>
+        <span class="inc-chip" style="background:#fef2f2;border-color:#fecaca;color:#991b1b">${esc(d.estatus)}</span>
       </div>
-      <div style="text-align:right;font-size:12px;color:#475569">
+      <div style="text-align:right;font-size:11px;color:#475569">
         <div><strong>Fecha:</strong> ${esc(incFmtFecha(d.fecha))}</div>
         <div><strong>Alojamiento:</strong> ${esc(d.alojamiento || '—')}</div>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      ${section('Datos operativos', `
-        <div style="margin-bottom:6px"><strong>Nivel:</strong> ${chip(d.nivel, nivelCls)}</div>
-        <div><strong>Reporte realizado por:</strong> ${esc(reportante)}</div>`)}
-      ${section('Personas involucradas',
-        `<div style="display:flex;gap:6px;flex-wrap:wrap">${personas.map(p => chip(p)).join('')}</div>`)}
+    <!-- Datos clave en 3 columnas — todo cabe en un renglón -->
+    <div class="inc-report-grid-3" style="margin-bottom:8px">
+      ${field('Nivel', chip(d.nivel, nivelCls))}
+      ${field('Estatus', esc(d.estatus))}
+      ${field('Reportó', esc(reportante))}
     </div>
 
-    ${section('Motivos del reporte',
-      `<div style="display:flex;gap:6px;flex-wrap:wrap">${motivos.map(m => chip(m)).join('')}</div>`)}
+    <!-- Personas + Motivos + Clasificación: 2 columnas, mismo alto -->
+    <div class="inc-report-grid-2" style="margin-bottom:8px">
+      ${block('Personas involucradas', chipsList(personas))}
+      ${block('Motivos del reporte',  chipsList(motivos))}
+    </div>
 
-    ${section('Clasificación de la incidencia',
-      `<ul style="margin:0;padding-left:18px">${clasificaciones.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`)}
+    ${block('Clasificación de la incidencia', chipsList(clasificaciones))}
 
-    ${section('Descripción detallada', esc(d.descripcion || 'Sin descripción').replace(/\n/g, '<br>'))}
-    ${section('Acciones realizadas',  esc(d.acciones || 'Sin acciones registradas').replace(/\n/g, '<br>'))}
-    ${section('Seguimiento requerido', esc(d.seguimiento || 'Sin seguimiento registrado').replace(/\n/g, '<br>'))}
+    <!-- Tres bloques de texto en 3 columnas (ejecutivo, no un renglón por campo) -->
+    <div class="inc-report-grid-3" style="margin-bottom:8px">
+      ${block('Descripción detallada', `<div style="font-size:12px;color:#1f2937;line-height:1.5">${esc(d.descripcion || 'Sin descripción').replace(/\n/g, '<br>')}</div>`)}
+      ${block('Acciones realizadas',  `<div style="font-size:12px;color:#1f2937;line-height:1.5">${esc(d.acciones    || 'Sin acciones').replace(/\n/g, '<br>')}</div>`)}
+      ${block('Seguimiento requerido', `<div style="font-size:12px;color:#1f2937;line-height:1.5">${esc(d.seguimiento || 'Sin seguimiento').replace(/\n/g, '<br>')}</div>`)}
+    </div>
 
-    ${section('Acuerdos', `
-      <div style="border:1.5px dashed #94a3b8;border-radius:8px;min-height:150px;background:#fff;padding:10px">
-        <div style="min-height:130px;background-image:linear-gradient(to bottom, transparent 28px, #e5e7eb 29px);background-size:100% 29px"></div>
+    ${block('Acuerdos', `
+      <div style="border:1.5px dashed #94a3b8;border-radius:6px;min-height:80px;background:#fff;padding:6px">
+        <div style="min-height:60px;background-image:linear-gradient(to bottom, transparent 22px, #e5e7eb 23px);background-size:100% 23px"></div>
       </div>`)}
 
     ${fotosHtml}
 
-    <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:24px">
-      <div style="padding-top:42px;text-align:center;font-size:12px">
-        <div style="border-top:1px solid #6b7280;margin-bottom:6px"></div>
+    <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:18px">
+      <div style="padding-top:28px;text-align:center;font-size:11px">
+        <div style="border-top:1px solid #6b7280;margin-bottom:4px"></div>
         <div><strong>${esc(reportante)}</strong></div>
-        <div style="color:#64748b">Persona que realizó el reporte</div>
+        <div style="color:#64748b;font-size:10px">Persona que realizó el reporte</div>
       </div>
-      <div style="padding-top:42px;text-align:center;font-size:12px">
-        <div style="border-top:1px solid #6b7280;margin-bottom:6px"></div>
+      <div style="padding-top:28px;text-align:center;font-size:11px">
+        <div style="border-top:1px solid #6b7280;margin-bottom:4px"></div>
         <div><strong>${personas.map(p => esc(p)).join(', ')}</strong></div>
-        <div style="color:#64748b">Personas involucradas</div>
+        <div style="color:#64748b;font-size:10px">Personas involucradas</div>
       </div>
     </div>
   `;
@@ -19771,12 +19825,24 @@ function incBuildReporteHtml(d) {
 window.incGenerar = function() {
   const d = incGetFormData();
   const preview = document.getElementById('inc-preview');
-  const card    = document.getElementById('inc-preview-card');
-  const layout  = document.getElementById('inc-layout');
+  const modal   = document.getElementById('inc-report-modal');
   if (!preview) return;
   preview.innerHTML = incBuildReporteHtml(d);
-  if (card)   card.style.display = '';
-  if (layout) layout.classList.add('inc-has-preview');
+  if (modal) modal.classList.remove('hidden');
+};
+
+window.incSalir = function() {
+  const modal = document.getElementById('inc-report-modal');
+  if (modal) modal.classList.add('hidden');
+};
+
+window.incGuardarSalir = function() {
+  // v1: persistencia pendiente — por ahora confirma con el usuario y cierra
+  // + limpia el formulario. (TODO: enviar a hoja Incidencias vía Apps Script.)
+  const ok = confirm('"Guardar y salir" guardará el reporte y limpiará el formulario.\n\nNota: la persistencia en hoja todavía no está implementada (v1 frontend-only). ¿Deseas continuar?');
+  if (!ok) return;
+  incSalir();
+  incLimpiar();
 };
 
 window.incLimpiar = function() {
@@ -19797,31 +19863,32 @@ window.incLimpiar = function() {
   }
   INC_STATE.fotos = [];
   incRenderFotoPreview();
-  // Oculta el preview hasta que se vuelva a generar
+  // Cierra el modal del reporte si estaba abierto
+  const modal = document.getElementById('inc-report-modal');
+  if (modal) modal.classList.add('hidden');
   const preview = document.getElementById('inc-preview');
-  const card    = document.getElementById('inc-preview-card');
-  const layout  = document.getElementById('inc-layout');
   if (preview) preview.innerHTML = '';
-  if (card)    card.style.display = 'none';
-  if (layout)  layout.classList.remove('inc-has-preview');
 };
 
 window.incImprimir = function() {
   const d = incGetFormData();
-  // Asegura preview actualizado
-  incGenerar();
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <title>Reporte de incidencia</title>
   <style>
-    @page { size: A4; margin: 14mm; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; color: #0f172a; background: #fff; }
-    .inc-chip { display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#f1f5f9;border:1px solid #e2e8f0;font-size:11px;color:#1f2937;font-weight:600 }
+    @page { size: A4; margin: 12mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; color: #0f172a; background: #fff; font-size: 12px; }
+    .inc-chip { display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;background:#f1f5f9;border:1px solid #e2e8f0;font-size:11px;color:#1f2937;font-weight:600 }
     .inc-chip.high   { background:#fee2e2;border-color:#fca5a5;color:#991b1b }
     .inc-chip.medium { background:#fef3c7;border-color:#fcd34d;color:#92400e }
     .inc-chip.low    { background:#dcfce7;border-color:#86efac;color:#166534 }
+    .inc-report-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+    .inc-report-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 14px; }
+    .inc-report-field { display: grid; grid-template-columns: 90px 1fr; gap: 4px; padding: 4px 0; border-bottom: 1px dashed #f1f5f9; font-size: 11px; }
+    .inc-report-field-label { color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: 9px; }
+    .inc-report-field-value { color: #0f172a; font-weight: 600; }
     img { max-width: 100%; }
   </style>
 </head>
