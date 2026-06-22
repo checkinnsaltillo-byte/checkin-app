@@ -19836,13 +19836,58 @@ window.incSalir = function() {
   if (modal) modal.classList.add('hidden');
 };
 
-window.incGuardarSalir = function() {
-  // v1: persistencia pendiente — por ahora confirma con el usuario y cierra
-  // + limpia el formulario. (TODO: enviar a hoja Incidencias vía Apps Script.)
-  const ok = confirm('"Guardar y salir" guardará el reporte y limpiará el formulario.\n\nNota: la persistencia en hoja todavía no está implementada (v1 frontend-only). ¿Deseas continuar?');
-  if (!ok) return;
-  incSalir();
-  incLimpiar();
+window.incGuardarSalir = async function() {
+  const d = incGetFormData();
+  // Validación mínima
+  if (!d.propiedad || !d.depto) {
+    alert('Selecciona Propiedad y # Departamento antes de guardar.');
+    return;
+  }
+  if (!d.personas.length) {
+    if (!confirm('No seleccionaste ninguna persona involucrada. ¿Guardar de todas formas?')) return;
+  }
+  // Convertir fotos (data: URLs) a {name, base64, mimeType}
+  const fotos = (d.fotos || []).map(f => {
+    const m = String(f.src || '').match(/^data:([^;]+);base64,(.+)$/);
+    if (!m) return null;
+    return { name: f.name || 'foto.jpg', mimeType: m[1], base64: m[2] };
+  }).filter(Boolean);
+  const payload = {
+    fecha:           d.fecha,
+    propiedad:       d.propiedad,
+    depto:           d.depto,
+    alojamiento:     d.alojamiento,
+    personas:        d.personas,
+    motivos:         d.motivos,
+    clasificaciones: d.clasificaciones,
+    nivel:           d.nivel,
+    estatus:         d.estatus,
+    reportante:      d.reportante,
+    descripcion:     d.descripcion,
+    acciones:        d.acciones,
+    seguimiento:     d.seguimiento,
+  };
+  // Estado de loading en el botón
+  const btn = document.querySelector('.inc-btn-guardar');
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Guardando…'; }
+  try {
+    const res = await fetch(`${BACKEND}/save-incidencia`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload, fotos }),
+    });
+    const out = await res.json();
+    if (!out.ok) throw new Error(out.error || 'Error al guardar');
+    alert(`✓ Reporte guardado.\n\nID: ${out.id}\nFotos subidas: ${out.fotos_uploaded}/${fotos.length}\n\nVer en: Hoja "Incidencias" + carpeta /Drive/Incidencias/`);
+    incSalir();
+    incLimpiar();
+  } catch (e) {
+    console.error('[INC] save error:', e);
+    alert('No se pudo guardar el reporte:\n\n' + (e.message || e));
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+  }
 };
 
 window.incLimpiar = function() {
