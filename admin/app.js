@@ -8182,7 +8182,7 @@ function esc(v) {
 
 /** Cambia entre módulos de nivel superior */
 function switchModule(mod) {
-  ["tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway"].forEach(m => {
+  ["tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== mod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === mod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === mod);
@@ -8267,6 +8267,9 @@ function switchModule(mod) {
     if (!LG_STATE.loaded && !LG_STATE.loading) lodgifyLoad(true);
     lgEnsureHuespedesAndMatch();
     rdRender();
+  }
+  if (mod === "incidencias") {
+    if (typeof incInit === 'function') incInit();
   }
 }
 
@@ -19376,4 +19379,356 @@ window.bnDriveProcessSelected = async function() {
     const newCount = allRows.filter(r => r._status === 'new').length;
     status.textContent = `✓ ${allRows.length} filas parseadas de ${selectedIds.length} archivo(s) · ${newCount} nuevas para insertar`;
   }
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║  MÓDULO INCIDENCIAS — captura + vista previa + impresión              ║
+// ║  v1: solo frontend (sin persistencia en Sheets/Drive todavía).        ║
+// ═══════════════════════════════════════════════════════════════════════
+const INC_PERSONAL = [
+  { nombre: 'Claudia Carreón',                  puesto: 'Administrativo' },
+  { nombre: 'Andrés Carreón',                   puesto: 'Administrativo' },
+  { nombre: 'Mariana Durán',                    puesto: 'Administrativo' },
+  { nombre: 'Damariz Abigail Álvarez Ibarra',   puesto: 'Supervisión' },
+  { nombre: 'Juana María Silva Maldonado',      puesto: 'Limpieza' },
+  { nombre: 'Francisco López Valdés',           puesto: 'Limpieza' },
+  { nombre: 'Alma Abigail Robledo Gutiérrez',   puesto: 'Limpieza' },
+  { nombre: 'Brenda Esmeralda Robledo Gutiérrez', puesto: 'Limpieza' },
+  { nombre: 'Gabriela Judith Robleto Gutiérrez', puesto: 'Limpieza' },
+];
+const INC_CLASIF_POR_MOTIVO = {
+  'Limpieza':       ['Baño sucio', 'Sábanas sucias', 'Basura detectada', 'Plaga o insectos'],
+  'Mantenimiento':  ['Fuga de agua', 'Falla eléctrica', 'Falla de electrodomésticos', 'Ausencia de controles'],
+  'Insumos':        ['Toallas faltantes', 'Pilas faltantes', 'Productos de limpieza faltantes'],
+};
+const INC_STATE = {
+  initialized: false,
+  personas:        INC_PERSONAL.map(p => p.nombre),
+  motivos:         Object.keys(INC_CLASIF_POR_MOTIVO),
+  clasificaciones: Array.from(new Set(Object.values(INC_CLASIF_POR_MOTIVO).flat())),
+  fotos: [], // [{name, src}]
+};
+
+function incTodayIso() {
+  const d = new Date();
+  const off = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - off).toISOString().slice(0, 10);
+}
+
+function incFmtFecha(iso) {
+  if (!iso) return '—';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+function incNivelClass(nivel) {
+  const n = String(nivel || '').toLowerCase();
+  if (n === 'alta')  return 'high';
+  if (n === 'media') return 'medium';
+  return 'low';
+}
+
+function incRenderCheckList(containerId, items, name, includePuesto = false) {
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  c.innerHTML = items.map(item => {
+    const p = includePuesto ? INC_PERSONAL.find(x => x.nombre === item) : null;
+    const label = p ? `${p.nombre} — ${p.puesto}` : item;
+    return `<label><input type="checkbox" name="${name}" value="${esc(item)}"><span>${esc(label)}</span></label>`;
+  }).join('');
+}
+
+function incRenderSelect(id, options, includeBlank = false) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  const opts = includeBlank ? ['', ...options] : options;
+  sel.innerHTML = opts.map(o => `<option value="${esc(o)}">${esc(o || 'Seleccionar…')}</option>`).join('');
+}
+
+function incBuildAlojamientosList() {
+  // Si ALOJ_STATE está cargado, usa "Propiedad - #Depto" canónico.
+  // Si no, fallback al catálogo hardcoded del HTML original.
+  if (typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.loaded && ALOJ_STATE.rows.length) {
+    return ALOJ_STATE.rows
+      .map(r => {
+        const prop = String(r['Propiedad'] || '').trim();
+        const dpt  = String(r['# Departamento'] || '').trim().replace(/^#\s*/, '');
+        if (prop && dpt) return `${prop} - #${dpt}`;
+        return prop || '';
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, 'es'));
+  }
+  const fallback = [
+    { nombre: 'Cumbres', hasta: 14 }, { nombre: 'Baja California', hasta: 10 },
+    { nombre: 'Oaxaca', hasta: 8 }, { nombre: 'José Cárdenas', hasta: 6 },
+    { nombre: 'Matamoros', hasta: 10 },
+  ];
+  return fallback.flatMap(p => Array.from({ length: p.hasta }, (_, i) => `${p.nombre} #${i + 1}`));
+}
+
+function incInit() {
+  if (INC_STATE.initialized) return;
+  INC_STATE.initialized = true;
+  // Asegura alojamientos cargados (si no, intenta cargar en background)
+  if (typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded && !ALOJ_STATE.loading) {
+    if (typeof lgLoadAlojamientos === 'function') {
+      lgLoadAlojamientos().then(() => {
+        // Re-render select cuando llegue
+        incRenderSelect('inc-alojamiento', incBuildAlojamientosList());
+      }).catch(() => {});
+    }
+  }
+  incRenderCheckList('inc-personas', INC_STATE.personas, 'inc-personas', true);
+  incRenderCheckList('inc-motivos', INC_STATE.motivos, 'inc-motivos');
+  incRenderCheckList('inc-clasificaciones', INC_STATE.clasificaciones, 'inc-clasificaciones');
+  incRenderSelect('inc-alojamiento', incBuildAlojamientosList());
+  // Reportante: solo administrativos
+  const admins = INC_PERSONAL.filter(p => p.puesto === 'Administrativo').map(p => p.nombre);
+  incRenderSelect('inc-reportante', admins, true);
+  // Default fecha = hoy
+  const fechaEl = document.getElementById('inc-fecha');
+  if (fechaEl && !fechaEl.value) fechaEl.value = incTodayIso();
+  // Manejador de fotos
+  const fotosInput = document.getElementById('inc-fotos');
+  if (fotosInput) fotosInput.addEventListener('change', incManejarFotos);
+  // Cuando cambian motivos → re-filtrar clasificaciones disponibles
+  const motivosEl = document.getElementById('inc-motivos');
+  if (motivosEl) motivosEl.addEventListener('change', incActualizarClasifPorMotivo);
+}
+
+function incActualizarClasifPorMotivo() {
+  const motivosSel = incGetChecked('inc-personas') ? null : null; // placeholder no-op para evitar lint
+  const motivos = incGetCheckedByName('inc-motivos');
+  const disponibles = motivos.length
+    ? Array.from(new Set(motivos.flatMap(m => INC_CLASIF_POR_MOTIVO[m] || [])))
+    : INC_STATE.clasificaciones;
+  const previas = incGetCheckedByName('inc-clasificaciones');
+  incRenderCheckList('inc-clasificaciones', disponibles, 'inc-clasificaciones');
+  document.querySelectorAll('input[name="inc-clasificaciones"]').forEach(el => {
+    if (previas.includes(el.value)) el.checked = true;
+  });
+}
+
+function incGetCheckedByName(name) {
+  return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(el => el.value);
+}
+// Compat alias
+function incGetChecked(name) { return incGetCheckedByName(name); }
+
+window.incAgregar = function(tipo) {
+  const inputMap = {
+    personas:        'inc-nueva-persona',
+    motivos:         'inc-nuevo-motivo',
+    clasificaciones: 'inc-nueva-clasif',
+  };
+  const stateKey = tipo;
+  const input = document.getElementById(inputMap[tipo]);
+  if (!input) return;
+  const valor = input.value.trim();
+  if (!valor) return;
+  if (!INC_STATE[stateKey].includes(valor)) INC_STATE[stateKey].push(valor);
+  if (tipo === 'personas') {
+    incRenderCheckList('inc-personas', INC_STATE.personas, 'inc-personas', true);
+  } else if (tipo === 'motivos') {
+    incRenderCheckList('inc-motivos', INC_STATE.motivos, 'inc-motivos');
+  } else if (tipo === 'clasificaciones') {
+    incRenderCheckList('inc-clasificaciones', INC_STATE.clasificaciones, 'inc-clasificaciones');
+  }
+  input.value = '';
+};
+
+function incManejarFotos(ev) {
+  const files = Array.from(ev.target.files || []);
+  if (!files.length) { INC_STATE.fotos = []; incRenderFotoPreview(); return; }
+  Promise.all(files.map(f => new Promise(resolve => {
+    const r = new FileReader();
+    r.onload = () => resolve({ name: f.name, src: r.result });
+    r.readAsDataURL(f);
+  }))).then(results => {
+    INC_STATE.fotos = results;
+    incRenderFotoPreview();
+  });
+}
+
+function incRenderFotoPreview() {
+  const c = document.getElementById('inc-foto-preview');
+  if (!c) return;
+  c.innerHTML = INC_STATE.fotos.map(f => `
+    <div class="inc-photo-thumb">
+      <img src="${f.src}" alt="${esc(f.name)}">
+      <div class="inc-photo-cap">${esc(f.name)}</div>
+    </div>`).join('');
+}
+
+function incGetFormData() {
+  return {
+    fecha:           document.getElementById('inc-fecha')?.value || '',
+    alojamiento:     document.getElementById('inc-alojamiento')?.value || '',
+    personas:        incGetCheckedByName('inc-personas'),
+    motivos:         incGetCheckedByName('inc-motivos'),
+    clasificaciones: incGetCheckedByName('inc-clasificaciones'),
+    nivel:           document.getElementById('inc-nivel')?.value || 'Baja',
+    estatus:         document.getElementById('inc-estatus')?.value || 'Pendiente',
+    reportante:      document.getElementById('inc-reportante')?.value || '',
+    descripcion:     (document.getElementById('inc-descripcion')?.value || '').trim(),
+    acciones:        (document.getElementById('inc-acciones')?.value || '').trim(),
+    seguimiento:     (document.getElementById('inc-seguimiento')?.value || '').trim(),
+    fotos:           INC_STATE.fotos.slice(),
+  };
+}
+
+function incBuildReporteHtml(d) {
+  const personas        = d.personas.length        ? d.personas        : ['Sin especificar'];
+  const motivos         = d.motivos.length         ? d.motivos         : ['Sin especificar'];
+  const clasificaciones = d.clasificaciones.length ? d.clasificaciones : ['Sin especificar'];
+  const reportante = d.reportante || 'Sin especificar';
+  const nivelCls = incNivelClass(d.nivel);
+  const chip = (txt, cls = '') => `<span class="inc-chip ${cls}">${esc(txt)}</span>`;
+  const section = (title, body) => `
+    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:12px;background:#fff">
+      <div style="font-size:11px;letter-spacing:.12em;color:#475569;font-weight:800;text-transform:uppercase;margin-bottom:8px">${esc(title)}</div>
+      <div style="font-size:13px;color:#1f2937;line-height:1.55">${body}</div>
+    </div>`;
+  const fotosHtml = d.fotos.length ? `
+    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:12px;background:#fff">
+      <div style="font-size:11px;letter-spacing:.12em;color:#475569;font-weight:800;text-transform:uppercase;margin-bottom:10px">Evidencia fotográfica</div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+        ${d.fotos.map((f, i) => `
+          <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#fff;page-break-inside:avoid">
+            <img src="${f.src}" alt="${esc(f.name)}" style="display:block;width:100%;height:240px;object-fit:cover;background:#f1f5f9">
+            <div style="padding:6px 8px;font-size:11px;color:#64748b">Foto ${i + 1} — ${esc(f.name)}</div>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #e2e8f0;padding-bottom:12px;margin-bottom:14px">
+      <div>
+        <div style="font-size:10px;letter-spacing:.14em;color:#2563eb;font-weight:800;text-transform:uppercase">Formato operativo</div>
+        <h2 style="margin:4px 0 6px;font-size:20px;color:#0f172a">Reporte de incidencia de limpieza</h2>
+        <span class="inc-chip" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8">${esc(d.estatus)}</span>
+      </div>
+      <div style="text-align:right;font-size:12px;color:#475569">
+        <div><strong>Fecha:</strong> ${esc(incFmtFecha(d.fecha))}</div>
+        <div><strong>Alojamiento:</strong> ${esc(d.alojamiento || '—')}</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      ${section('Datos operativos', `
+        <div style="margin-bottom:6px"><strong>Nivel:</strong> ${chip(d.nivel, nivelCls)}</div>
+        <div><strong>Reporte realizado por:</strong> ${esc(reportante)}</div>`)}
+      ${section('Personas involucradas',
+        `<div style="display:flex;gap:6px;flex-wrap:wrap">${personas.map(p => chip(p)).join('')}</div>`)}
+    </div>
+
+    ${section('Motivos del reporte',
+      `<div style="display:flex;gap:6px;flex-wrap:wrap">${motivos.map(m => chip(m)).join('')}</div>`)}
+
+    ${section('Clasificación de la incidencia',
+      `<ul style="margin:0;padding-left:18px">${clasificaciones.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`)}
+
+    ${section('Descripción detallada', esc(d.descripcion || 'Sin descripción').replace(/\n/g, '<br>'))}
+    ${section('Acciones realizadas',  esc(d.acciones || 'Sin acciones registradas').replace(/\n/g, '<br>'))}
+    ${section('Seguimiento requerido', esc(d.seguimiento || 'Sin seguimiento registrado').replace(/\n/g, '<br>'))}
+
+    ${section('Acuerdos', `
+      <div style="border:1.5px dashed #94a3b8;border-radius:8px;min-height:150px;background:#fff;padding:10px">
+        <div style="min-height:130px;background-image:linear-gradient(to bottom, transparent 28px, #e5e7eb 29px);background-size:100% 29px"></div>
+      </div>`)}
+
+    ${fotosHtml}
+
+    <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div style="padding-top:42px;text-align:center;font-size:12px">
+        <div style="border-top:1px solid #6b7280;margin-bottom:6px"></div>
+        <div><strong>${esc(reportante)}</strong></div>
+        <div style="color:#64748b">Persona que realizó el reporte</div>
+      </div>
+      <div style="padding-top:42px;text-align:center;font-size:12px">
+        <div style="border-top:1px solid #6b7280;margin-bottom:6px"></div>
+        <div><strong>${personas.map(p => esc(p)).join(', ')}</strong></div>
+        <div style="color:#64748b">Personas involucradas</div>
+      </div>
+    </div>
+  `;
+}
+
+window.incGenerar = function() {
+  const d = incGetFormData();
+  const preview = document.getElementById('inc-preview');
+  if (!preview) return;
+  preview.innerHTML = incBuildReporteHtml(d);
+  preview.style.padding = '0';
+  preview.style.color = '';
+  preview.style.textAlign = '';
+};
+
+window.incLimpiar = function() {
+  document.querySelectorAll('#module-incidencias input[type="checkbox"]').forEach(el => el.checked = false);
+  document.querySelectorAll('#module-incidencias textarea').forEach(el => el.value = '');
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal('inc-nivel', 'Baja');
+  setVal('inc-estatus', 'Pendiente');
+  setVal('inc-fecha', incTodayIso());
+  setVal('inc-reportante', '');
+  setVal('inc-fotos', '');
+  INC_STATE.fotos = [];
+  incRenderFotoPreview();
+  const preview = document.getElementById('inc-preview');
+  if (preview) {
+    preview.style.padding = '80px 20px';
+    preview.style.color = '#94a3b8';
+    preview.style.textAlign = 'center';
+    preview.innerHTML = `
+      <div style="font-size:11px;letter-spacing:.14em;color:#2563eb;font-weight:700;text-transform:uppercase;margin-bottom:10px">Vista previa</div>
+      <div style="font-size:16px;color:#0f172a;margin-bottom:8px;font-weight:700">Tu reporte aparecerá aquí</div>
+      <div>Completa el formulario y pulsa <strong>Generar reporte</strong>.</div>`;
+  }
+};
+
+window.incImprimir = function() {
+  const d = incGetFormData();
+  // Asegura preview actualizado
+  incGenerar();
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Reporte de incidencia</title>
+  <style>
+    @page { size: A4; margin: 14mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; color: #0f172a; background: #fff; }
+    .inc-chip { display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#f1f5f9;border:1px solid #e2e8f0;font-size:11px;color:#1f2937;font-weight:600 }
+    .inc-chip.high   { background:#fee2e2;border-color:#fca5a5;color:#991b1b }
+    .inc-chip.medium { background:#fef3c7;border-color:#fcd34d;color:#92400e }
+    .inc-chip.low    { background:#dcfce7;border-color:#86efac;color:#166534 }
+    img { max-width: 100%; }
+  </style>
+</head>
+<body>${incBuildReporteHtml(d)}</body>
+</html>`;
+  let iframe = document.getElementById('inc-print-frame');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'inc-print-frame';
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none';
+    document.body.appendChild(iframe);
+  }
+  const win = iframe.contentWindow;
+  const doc = iframe.contentDocument || (win && win.document);
+  if (!doc || !win) { alert('No se pudo preparar la impresión.'); return; }
+  doc.open(); doc.write(html); doc.close();
+  const lanzar = () => {
+    const imgs = Array.from(doc.images || []);
+    const doPrint = () => setTimeout(() => { try { win.focus(); win.print(); } catch (e) { console.error(e); alert('No se pudo abrir la impresión.'); } }, 250);
+    if (!imgs.length) return doPrint();
+    Promise.all(imgs.map(img => img.complete && img.naturalWidth > 0 ? Promise.resolve() :
+      new Promise(res => { const done = () => res(); img.addEventListener('load', done, { once: true }); img.addEventListener('error', done, { once: true }); })
+    )).then(doPrint);
+  };
+  if (doc.readyState === 'complete') lanzar();
+  else iframe.onload = () => { iframe.onload = null; lanzar(); };
 };
