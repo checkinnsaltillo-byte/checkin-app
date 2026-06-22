@@ -20081,12 +20081,26 @@ function incRenderCardOne(row) {
   const estClass = estatus === 'Resuelto' ? 'est-Resuelto'
                  : estatus === 'Pendiente' ? 'est-Pendiente'
                  : estatus.indexOf('Parcial') !== -1 ? 'est-Parcial' : '';
-  const nivelIcon = nivel === 'Alta' ? '🔴' : nivel === 'Media' ? '🟡' : '🟢';
+  // Semáforo de Nivel: 3 puntos (Alto/Medio/Bajo, top→bottom), solo el
+  // correspondiente al nivel actual queda iluminado.
+  const nivelLabel = nivel === 'Alta' ? 'Alto' : nivel === 'Media' ? 'Medio' : 'Bajo';
+  const semaforoHtml = `
+    <span class="inc-semaforo" data-nivel="${esc(nivel)}" title="Nivel ${esc(nivelLabel)}">
+      <span class="inc-semaforo-dots">
+        <span class="inc-semaforo-dot dot-Alto"></span>
+        <span class="inc-semaforo-dot dot-Medio"></span>
+        <span class="inc-semaforo-dot dot-Bajo"></span>
+      </span>
+      <span class="inc-semaforo-label">${esc(nivelLabel)}</span>
+    </span>`;
   return `
     <div class="inc-card motivo-border-${esc(motivoCls)} ${expanded ? 'expanded' : ''}" data-inc-id="${esc(id)}">
       <div class="inc-card-header motivo-bg-${esc(motivoCls)}" onclick="incToggleCard('${esc(id)}')">
         <div>
-          <h3 class="inc-card-title">${esc(titulo)}</h3>
+          <div class="inc-card-title-row">
+            <h3 class="inc-card-title">${esc(titulo)}</h3>
+            ${semaforoHtml}
+          </div>
           ${alojamiento ? `<div class="inc-card-aloj">📍 ${esc(alojamiento)}</div>` : ''}
           <div class="inc-card-sub">
             <span>📅 <strong>${esc(incFmtFecha(fecha))}</strong></span>
@@ -20094,7 +20108,6 @@ function incRenderCardOne(row) {
           </div>
         </div>
         <div class="inc-card-chips">
-          <span class="inc-card-chip nivel-${esc(nivel)}">${nivelIcon} ${esc(nivel)}</span>
           <span class="inc-card-chip ${estClass}">${estIcon} ${esc(estatus)}</span>
           <span class="inc-card-chevron">▾</span>
         </div>
@@ -20158,45 +20171,62 @@ function incCardBodyHtml(row) {
 // ║  INCIDENCIAS — Filtros (chips Motivo + dropdowns multi-select)        ║
 // ═══════════════════════════════════════════════════════════════════════
 INC_STATE.filters = {
-  motivo: new Set(),         // Set<string>
+  motivo: new Set(),         // controlado solo por chips
   clasificaciones: new Set(),
   nivel: new Set(['Baja', 'Media', 'Alta']),
   estatus: new Set(['Pendiente', 'Parcialmente resuelto', 'Resuelto']),
-  // Fechas: default mes en curso (se asignan en incInitFilters)
-  from: '',
-  to: '',
+  month: '', // formato 'YYYY-MM' o '' = todos los meses
 };
 INC_STATE.filtersInitialized = false;
 
+const INC_MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// Construye el <select> de meses: derivado de las fechas en INC_STATE.list
+// + el mes en curso siempre disponible. Default = mes en curso.
+function incBuildMonthOptions() {
+  const sel = document.getElementById('inc-f-month');
+  if (!sel) return;
+  const today = new Date();
+  const cy = today.getFullYear(), cm = today.getMonth();
+  const pad = n => String(n).padStart(2, '0');
+  const currentKey = `${cy}-${pad(cm + 1)}`;
+  // Colecta meses únicos presentes en la lista
+  const set = new Set([currentKey]);
+  (INC_STATE.list || []).forEach(r => {
+    const m = String(r['Fecha'] || r['Timestamp'] || '').match(/^(\d{4})-(\d{2})/);
+    if (m) set.add(`${m[1]}-${m[2]}`);
+  });
+  // Orden descendente (más reciente primero)
+  const keys = Array.from(set).sort((a, b) => b.localeCompare(a));
+  // Opción "Todos los meses" arriba
+  const opts = ['<option value="">— Todos los meses —</option>']
+    .concat(keys.map(k => {
+      const [y, mm] = k.split('-');
+      const label = `${INC_MESES_ES[parseInt(mm, 10) - 1]} ${y}`;
+      return `<option value="${k}">${label}</option>`;
+    }));
+  // Conservar selección si ya había una; si no, default = mes en curso
+  const prev = INC_STATE.filters.month || sel.value || currentKey;
+  sel.innerHTML = opts.join('');
+  // Set value (verifica que la opción exista, si no fallback al actual)
+  sel.value = Array.from(sel.options).some(o => o.value === prev) ? prev : currentKey;
+  INC_STATE.filters.month = sel.value;
+}
+
 // Inicializa filtros con valores derivados de INC_STATE.list y defaults.
 function incInitFilters() {
-  // Defaults de fecha: primer y último día del mes en curso (Monterrey)
-  const today = new Date();
-  const y = today.getFullYear(), m = today.getMonth();
-  const pad = n => String(n).padStart(2, '0');
-  const first = `${y}-${pad(m + 1)}-01`;
-  const lastDay = new Date(y, m + 1, 0).getDate();
-  const last = `${y}-${pad(m + 1)}-${pad(lastDay)}`;
-  const fromEl = document.getElementById('inc-f-from');
-  const toEl = document.getElementById('inc-f-to');
-  if (fromEl && !fromEl.value) { fromEl.value = first; INC_STATE.filters.from = first; }
-  if (toEl   && !toEl.value)   { toEl.value   = last;  INC_STATE.filters.to   = last; }
-  // Set vacío para Motivo + Clasificaciones → se rellenan con TODOS al
-  // momento de leer las opciones únicas de la lista
-  const allMotivos = incCollectUnique('motivo');
+  incBuildMonthOptions();
   const allClasif  = incCollectUnique('clasificaciones');
+  const allMotivos = incCollectUnique('motivo');
   if (!INC_STATE.filtersInitialized) {
     INC_STATE.filters.motivo          = new Set(allMotivos);
     INC_STATE.filters.clasificaciones = new Set(allClasif);
     INC_STATE.filtersInitialized = true;
   } else {
-    // Asegurar que valores nuevos también queden seleccionados (UX:
-    // un reporte nuevo no debe ocultarse del histórico)
     allMotivos.forEach(v => INC_STATE.filters.motivo.add(v));
     allClasif.forEach(v => INC_STATE.filters.clasificaciones.add(v));
   }
   incRenderMotivoChips();
-  incRenderFilterDropdown('inc-f-motivo', 'motivo', allMotivos);
   incRenderFilterDropdown('inc-f-clasif', 'clasificaciones', allClasif);
   incRenderFilterDropdown('inc-f-nivel', 'nivel', ['Baja', 'Media', 'Alta']);
   incRenderFilterDropdown('inc-f-estatus', 'estatus', ['Pendiente', 'Parcialmente resuelto', 'Resuelto']);
@@ -20233,10 +20263,6 @@ window.incToggleMotivoChip = function (motivo) {
   if (INC_STATE.filters.motivo.has(motivo)) INC_STATE.filters.motivo.delete(motivo);
   else INC_STATE.filters.motivo.add(motivo);
   incRenderMotivoChips();
-  // También sincroniza el checkbox del dropdown
-  const cb = document.querySelector(`#inc-f-motivo input[value="${CSS.escape(motivo)}"]`);
-  if (cb) cb.checked = INC_STATE.filters.motivo.has(motivo);
-  incUpdateDropdownLabel('motivo');
   incApplyFilters();
 };
 
@@ -20334,10 +20360,8 @@ window.incFilterSetNone = function (filterKey) {
 };
 
 window.incApplyFilters = function () {
-  const fromEl = document.getElementById('inc-f-from');
-  const toEl   = document.getElementById('inc-f-to');
-  if (fromEl) INC_STATE.filters.from = fromEl.value || '';
-  if (toEl)   INC_STATE.filters.to   = toEl.value   || '';
+  const mEl = document.getElementById('inc-f-month');
+  if (mEl) INC_STATE.filters.month = mEl.value || '';
   incRenderCards();
 };
 
@@ -20345,12 +20369,11 @@ window.incApplyFilters = function () {
 function incFilteredRows() {
   const f = INC_STATE.filters;
   const rows = INC_STATE.list || [];
+  // f.month vacío = todos los meses; si tiene "YYYY-MM" filtra coincidencias
   const inRange = (iso) => {
-    if (!iso) return true;
-    const d = String(iso).slice(0, 10);
-    if (f.from && d < f.from) return false;
-    if (f.to   && d > f.to)   return false;
-    return true;
+    if (!f.month) return true;
+    if (!iso) return false;
+    return String(iso).slice(0, 7) === f.month;
   };
   const anyMatch = (csv, sel) => {
     if (sel.size === 0) return false; // "Ninguno" → no muestra nada

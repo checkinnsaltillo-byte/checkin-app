@@ -3497,12 +3497,58 @@ input[type="checkbox"].lg-multi-cb {
   margin-bottom: 12px;
   box-shadow: 0 1px 3px rgba(15,23,42,.04);
 }
+.inc-motivo-block {
+  margin-bottom: 12px;
+}
 .inc-motivo-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 12px;
 }
+
+/* ─── Semáforo de Nivel (en el header de la card, junto al título) ─── */
+.inc-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.inc-semaforo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.18);
+  font-size: 12px;
+  font-weight: 800;
+  color: inherit;
+  white-space: nowrap;
+}
+.inc-card-header.motivo-bg-default .inc-semaforo {
+  background: #f1f5f9;
+}
+.inc-semaforo-dots {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px 4px;
+  background: rgba(0,0,0,.30);
+  border-radius: 4px;
+}
+.inc-card-header.motivo-bg-default .inc-semaforo-dots { background: #334155; }
+.inc-semaforo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #475569;
+  opacity: .25;
+  transition: opacity .15s ease, box-shadow .15s ease;
+}
+.inc-semaforo[data-nivel="Alta"]  .inc-semaforo-dot.dot-Alto  { background: #dc2626; opacity: 1; box-shadow: 0 0 6px rgba(220,38,38,.7); }
+.inc-semaforo[data-nivel="Media"] .inc-semaforo-dot.dot-Medio { background: #f59e0b; opacity: 1; box-shadow: 0 0 6px rgba(245,158,11,.7); }
+.inc-semaforo[data-nivel="Baja"]  .inc-semaforo-dot.dot-Bajo  { background: #16a34a; opacity: 1; box-shadow: 0 0 6px rgba(22,163,74,.7); }
+.inc-semaforo-label { letter-spacing: .03em; }
 .inc-motivo-chip {
   padding: 6px 14px;
   border-radius: 999px;
