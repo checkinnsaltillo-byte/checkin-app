@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema Financiero | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=102">
+  <link rel="stylesheet" href="styles.css?v=103">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1284,14 +1284,26 @@
           <div>
             <div class="inc-hero-kicker">Control operativo · limpieza y mantenimiento</div>
             <h1 class="inc-hero-title">🚨 Incidencias</h1>
-            <p class="inc-hero-sub">Captura reportes con catálogos del sistema y genera el PDF listo para imprimir.</p>
+            <p class="inc-hero-sub">Historial de reportes. Pulsa una card para expandir el reporte completo.</p>
           </div>
+          <button type="button" onclick="incAbrirCaptura()" class="inc-btn-nuevo" title="Generar nuevo reporte">
+            ＋ Generar nuevo reporte
+          </button>
         </div>
 
-        <!-- Formulario: a todo el ancho. El reporte ahora vive en un modal. -->
-        <div id="inc-layout" style="display:block">
-          <div id="inc-form" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px">
-            <h2 style="margin:0 0 12px;font-size:16px;color:#0f172a">Captura del reporte</h2>
+        <!-- Lista de incidencias (cards desplegables) -->
+        <div id="inc-cards-list">
+          <div id="inc-cards-loading" style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando reportes…</div>
+        </div>
+
+        <!-- Slide-in panel: captura de nuevo reporte (oculto por defecto) -->
+        <div id="inc-capture-backdrop" class="inc-capture-backdrop hidden" onclick="incCerrarCaptura()"></div>
+        <div id="inc-capture-panel" class="inc-capture-panel hidden">
+          <div class="inc-capture-header">
+            <h2 style="margin:0;font-size:16px;color:#0f172a">📝 Captura de reporte</h2>
+            <button type="button" onclick="incCerrarCaptura()" class="inc-capture-close" title="Cerrar">✕</button>
+          </div>
+          <div id="inc-form" style="padding:16px">
 
             <div class="inc-section inc-section-data">
               <div class="inc-section-title">📅 Datos generales</div>
@@ -1562,6 +1574,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=386"></script>
+  <script src="app.js?v=387"></script>
 </body>
 </html>

@@ -8270,6 +8270,7 @@ function switchModule(mod) {
   }
   if (mod === "incidencias") {
     if (typeof incInit === 'function') incInit();
+    if (typeof incLoadIncidencias === 'function') incLoadIncidencias();
   }
 }
 
@@ -19882,6 +19883,9 @@ window.incGuardarSalir = async function() {
     alert(`✓ Reporte guardado.\n\nID: ${out.id}\nFotos subidas: ${out.fotos_uploaded}/${fotos.length}\n\nVer en: Hoja "Incidencias" + carpeta /Drive/Incidencias/`);
     incSalir();
     incLimpiar();
+    // Cierra el slide-in panel y refresca la lista de cards
+    if (typeof incCerrarCaptura === 'function') incCerrarCaptura();
+    if (typeof incLoadIncidencias === 'function') incLoadIncidencias();
   } catch (e) {
     console.error('[INC] save error:', e);
     alert('No se pudo guardar el reporte:\n\n' + (e.message || e));
@@ -19962,3 +19966,158 @@ window.incImprimir = function() {
   if (doc.readyState === 'complete') lanzar();
   else iframe.onload = () => { iframe.onload = null; lanzar(); };
 };
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║  INCIDENCIAS — historial (cards desplegables) + slide-in panel       ║
+// ═══════════════════════════════════════════════════════════════════════
+INC_STATE.list = [];          // filas tal como vienen de /incidencias-list
+INC_STATE.expanded = new Set(); // IDs de cards expandidas
+
+window.incAbrirCaptura = function () {
+  const panel = document.getElementById('inc-capture-panel');
+  const back  = document.getElementById('inc-capture-backdrop');
+  if (!panel || !back) return;
+  back.classList.remove('hidden');
+  // Forzar reflow para que la transición de opacidad corra
+  // eslint-disable-next-line no-unused-expressions
+  back.offsetHeight;
+  back.classList.add('visible');
+  panel.classList.remove('hidden');
+  panel.classList.add('open');
+};
+
+window.incCerrarCaptura = function () {
+  const panel = document.getElementById('inc-capture-panel');
+  const back  = document.getElementById('inc-capture-backdrop');
+  if (!panel || !back) return;
+  panel.classList.remove('open');
+  back.classList.remove('visible');
+  setTimeout(() => {
+    panel.classList.add('hidden');
+    back.classList.add('hidden');
+  }, 280); // = duración de la transición
+};
+
+async function incLoadIncidencias() {
+  const cont = document.getElementById('inc-cards-list');
+  if (!cont) return;
+  cont.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando reportes…</div>';
+  try {
+    const res = await fetch(`${BACKEND}/incidencias-list`, { cache: 'no-store' });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'fetch failed');
+    INC_STATE.list = data.rows || [];
+    incRenderCards();
+  } catch (e) {
+    console.error('[INC] load error:', e);
+    cont.innerHTML = `<div style="text-align:center;padding:60px;color:#dc2626;font-size:13px">
+      ⚠ No se pudieron cargar los reportes: ${esc(e.message || String(e))}
+      <div style="margin-top:10px"><button onclick="incLoadIncidencias()" class="inc-btn-sec">Reintentar</button></div>
+    </div>`;
+  }
+}
+
+function incRenderCards() {
+  const cont = document.getElementById('inc-cards-list');
+  if (!cont) return;
+  const rows = INC_STATE.list || [];
+  if (!rows.length) {
+    cont.innerHTML = `<div style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px;background:#fff;border:1px dashed #e2e8f0;border-radius:12px">
+      <div style="font-size:28px;margin-bottom:8px">📋</div>
+      <div style="font-size:14px;color:#475569;font-weight:700;margin-bottom:6px">Sin reportes todavía</div>
+      <div>Pulsa <strong>＋ Generar nuevo reporte</strong> arriba para crear el primero.</div>
+    </div>`;
+    return;
+  }
+  cont.innerHTML = rows.map(incRenderCardOne).join('');
+}
+
+// Construye una card cerrada (header). El body se inyecta al expandir.
+function incRenderCardOne(row) {
+  const id = String(row['ID'] || '');
+  const motivos = String(row['Motivos'] || '').trim();
+  const clasif  = String(row['Clasificacion'] || '').trim();
+  const titulo = [motivos, clasif].filter(Boolean).join(' — ') || 'Reporte';
+  const fecha = String(row['Fecha'] || row['Timestamp'] || '').slice(0, 10);
+  const reportante = String(row['Reportante'] || 'Sin reportante').trim();
+  const nivel = String(row['Nivel'] || 'Baja');
+  const estatus = String(row['Estatus'] || 'Pendiente');
+  const expanded = INC_STATE.expanded.has(id);
+  // Iconos por estatus
+  const estIcon = estatus === 'Resuelto' ? '✓'
+                : estatus === 'Pendiente' ? '✗'
+                : estatus.indexOf('Parcial') !== -1 ? '◐' : '•';
+  const estClass = estatus === 'Resuelto' ? 'est-Resuelto'
+                 : estatus === 'Pendiente' ? 'est-Pendiente'
+                 : estatus.indexOf('Parcial') !== -1 ? 'est-Parcial' : '';
+  const nivelIcon = nivel === 'Alta' ? '🔴' : nivel === 'Media' ? '🟡' : '🟢';
+  return `
+    <div class="inc-card nivel-${esc(nivel)} ${expanded ? 'expanded' : ''}" data-inc-id="${esc(id)}">
+      <div class="inc-card-header" onclick="incToggleCard('${esc(id)}')">
+        <div>
+          <h3 class="inc-card-title">${esc(titulo)}</h3>
+          <div class="inc-card-sub">
+            <span>📅 <strong>${esc(incFmtFecha(fecha))}</strong></span>
+            <span>✍️ ${esc(reportante)}</span>
+          </div>
+        </div>
+        <div class="inc-card-chips">
+          <span class="inc-card-chip nivel-${esc(nivel)}">${nivelIcon} ${esc(nivel)}</span>
+          <span class="inc-card-chip ${estClass}">${estIcon} ${esc(estatus)}</span>
+          <span class="inc-card-chevron">▾</span>
+        </div>
+      </div>
+      <div class="inc-card-body">${expanded ? incCardBodyHtml(row) : ''}</div>
+    </div>`;
+}
+
+window.incToggleCard = function (id) {
+  const card = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(id)}"]`);
+  if (!card) return;
+  const row = (INC_STATE.list || []).find(r => String(r['ID'] || '') === id);
+  if (!row) return;
+  const body = card.querySelector('.inc-card-body');
+  const isOpen = card.classList.contains('expanded');
+  if (isOpen) {
+    INC_STATE.expanded.delete(id);
+    card.classList.remove('expanded');
+    if (body) body.innerHTML = '';
+  } else {
+    INC_STATE.expanded.add(id);
+    if (body) body.innerHTML = incCardBodyHtml(row);
+    card.classList.add('expanded');
+  }
+};
+
+// Convierte una fila de la hoja al formato que espera incBuildReporteHtml
+// para reutilizar EL MISMO diseño del popup de "Generar reporte".
+function incRowToReportData(row) {
+  const split = (s) => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
+  const fotosUrls = split(row['Fotos_URLs']);
+  return {
+    fecha:           String(row['Fecha'] || ''),
+    propiedad:       String(row['Propiedad'] || ''),
+    depto:           String(row['# Departamento'] || ''),
+    alojamiento:     String(row['Alojamiento'] || ''),
+    personas:        split(row['Personas']),
+    motivos:         split(row['Motivos']),
+    clasificaciones: split(row['Clasificacion']),
+    nivel:           String(row['Nivel'] || 'Baja'),
+    estatus:         String(row['Estatus'] || ''),
+    reportante:      String(row['Reportante'] || ''),
+    descripcion:     String(row['Descripcion'] || ''),
+    acciones:        String(row['Acciones'] || ''),
+    seguimiento:     String(row['Seguimiento'] || ''),
+    fotos:           fotosUrls.map((u, i) => ({ src: u, name: `Foto ${i + 1}` })),
+  };
+}
+
+function incCardBodyHtml(row) {
+  try {
+    const d = incRowToReportData(row);
+    // El mismo HTML del popup, pero envuelto en un contenedor sin botones
+    return incBuildReporteHtml(d);
+  } catch (e) {
+    return `<div style="color:#dc2626;font-size:12px">Error al renderizar reporte: ${esc(e.message || e)}</div>`;
+  }
+}
