@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema Financiero | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=103">
+  <link rel="stylesheet" href="styles.css?v=104">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1291,6 +1291,38 @@
           </button>
         </div>
 
+        <!-- Filtros -->
+        <div id="inc-filters" class="inc-filters">
+          <div id="inc-motivo-chips" class="inc-motivo-chips"></div>
+          <div class="inc-filter-row">
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Motivo</label>
+              <div id="inc-f-motivo" class="inc-mselect" data-filter="motivo"></div>
+            </div>
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Clasificación</label>
+              <div id="inc-f-clasif" class="inc-mselect" data-filter="clasificaciones"></div>
+            </div>
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Nivel</label>
+              <div id="inc-f-nivel" class="inc-mselect" data-filter="nivel"></div>
+            </div>
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Estatus</label>
+              <div id="inc-f-estatus" class="inc-mselect" data-filter="estatus"></div>
+            </div>
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Fecha desde</label>
+              <input type="date" id="inc-f-from" class="inc-filter-date" onchange="incApplyFilters()">
+            </div>
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Fecha hasta</label>
+              <input type="date" id="inc-f-to" class="inc-filter-date" onchange="incApplyFilters()">
+            </div>
+          </div>
+          <div class="inc-filter-count" id="inc-filter-count"></div>
+        </div>
+
         <!-- Lista de incidencias (cards desplegables) -->
         <div id="inc-cards-list">
           <div id="inc-cards-loading" style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando reportes…</div>
@@ -1574,6 +1606,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=387"></script>
+  <script src="app.js?v=388"></script>
 </body>
 </html>

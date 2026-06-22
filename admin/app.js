@@ -20007,6 +20007,7 @@ async function incLoadIncidencias() {
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'fetch failed');
     INC_STATE.list = data.rows || [];
+    incInitFilters();
     incRenderCards();
   } catch (e) {
     console.error('[INC] load error:', e);
@@ -20020,16 +20021,41 @@ async function incLoadIncidencias() {
 function incRenderCards() {
   const cont = document.getElementById('inc-cards-list');
   if (!cont) return;
-  const rows = INC_STATE.list || [];
-  if (!rows.length) {
+  const allRows = INC_STATE.list || [];
+  // Empty state real: la hoja vacía
+  if (!allRows.length) {
     cont.innerHTML = `<div style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px;background:#fff;border:1px dashed #e2e8f0;border-radius:12px">
       <div style="font-size:28px;margin-bottom:8px">📋</div>
       <div style="font-size:14px;color:#475569;font-weight:700;margin-bottom:6px">Sin reportes todavía</div>
       <div>Pulsa <strong>＋ Generar nuevo reporte</strong> arriba para crear el primero.</div>
     </div>`;
+    const cntEl = document.getElementById('inc-filter-count');
+    if (cntEl) cntEl.textContent = '';
     return;
   }
-  cont.innerHTML = rows.map(incRenderCardOne).join('');
+  const rows = (typeof incFilteredRows === 'function') ? incFilteredRows() : allRows;
+  if (!rows.length) {
+    cont.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#94a3b8;font-size:13px;background:#fff;border:1px dashed #e2e8f0;border-radius:12px">
+      <div style="font-size:24px;margin-bottom:6px">🔍</div>
+      <div style="font-size:13px;color:#475569;font-weight:700;margin-bottom:4px">Ningún reporte coincide con los filtros</div>
+      <div>Ajusta los filtros arriba o pulsa <strong>✓ Todos</strong> en cada uno.</div>
+    </div>`;
+  } else {
+    cont.innerHTML = rows.map(incRenderCardOne).join('');
+  }
+  const cntEl = document.getElementById('inc-filter-count');
+  if (cntEl) cntEl.textContent = `Mostrando ${rows.length} de ${allRows.length} reporte(s)`;
+}
+
+// Motivos canónicos conocidos → clase de color. Otros caen en 'default'.
+function incMotivoColorClass(motivos) {
+  const arr = String(motivos || '').split(',').map(s => s.trim()).filter(Boolean);
+  // Si hay varios motivos, usa el primer canónico que matchee
+  const known = ['Limpieza', 'Mantenimiento', 'Insumos'];
+  for (const m of arr) {
+    if (known.includes(m)) return m;
+  }
+  return 'default';
 }
 
 // Construye una card cerrada (header). El body se inyecta al expandir.
@@ -20038,11 +20064,16 @@ function incRenderCardOne(row) {
   const motivos = String(row['Motivos'] || '').trim();
   const clasif  = String(row['Clasificacion'] || '').trim();
   const titulo = [motivos, clasif].filter(Boolean).join(' — ') || 'Reporte';
+  const propiedad = String(row['Propiedad'] || '').trim();
+  const depto     = String(row['# Departamento'] || '').trim();
+  const alojamiento = String(row['Alojamiento'] || '').trim()
+                    || ((propiedad && depto) ? `${propiedad} - #${depto}` : (propiedad || ''));
   const fecha = String(row['Fecha'] || row['Timestamp'] || '').slice(0, 10);
   const reportante = String(row['Reportante'] || 'Sin reportante').trim();
   const nivel = String(row['Nivel'] || 'Baja');
   const estatus = String(row['Estatus'] || 'Pendiente');
   const expanded = INC_STATE.expanded.has(id);
+  const motivoCls = incMotivoColorClass(motivos);
   // Iconos por estatus
   const estIcon = estatus === 'Resuelto' ? '✓'
                 : estatus === 'Pendiente' ? '✗'
@@ -20052,10 +20083,11 @@ function incRenderCardOne(row) {
                  : estatus.indexOf('Parcial') !== -1 ? 'est-Parcial' : '';
   const nivelIcon = nivel === 'Alta' ? '🔴' : nivel === 'Media' ? '🟡' : '🟢';
   return `
-    <div class="inc-card nivel-${esc(nivel)} ${expanded ? 'expanded' : ''}" data-inc-id="${esc(id)}">
-      <div class="inc-card-header" onclick="incToggleCard('${esc(id)}')">
+    <div class="inc-card motivo-border-${esc(motivoCls)} ${expanded ? 'expanded' : ''}" data-inc-id="${esc(id)}">
+      <div class="inc-card-header motivo-bg-${esc(motivoCls)}" onclick="incToggleCard('${esc(id)}')">
         <div>
           <h3 class="inc-card-title">${esc(titulo)}</h3>
+          ${alojamiento ? `<div class="inc-card-aloj">📍 ${esc(alojamiento)}</div>` : ''}
           <div class="inc-card-sub">
             <span>📅 <strong>${esc(incFmtFecha(fecha))}</strong></span>
             <span>✍️ ${esc(reportante)}</span>
@@ -20120,4 +20152,222 @@ function incCardBodyHtml(row) {
   } catch (e) {
     return `<div style="color:#dc2626;font-size:12px">Error al renderizar reporte: ${esc(e.message || e)}</div>`;
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║  INCIDENCIAS — Filtros (chips Motivo + dropdowns multi-select)        ║
+// ═══════════════════════════════════════════════════════════════════════
+INC_STATE.filters = {
+  motivo: new Set(),         // Set<string>
+  clasificaciones: new Set(),
+  nivel: new Set(['Baja', 'Media', 'Alta']),
+  estatus: new Set(['Pendiente', 'Parcialmente resuelto', 'Resuelto']),
+  // Fechas: default mes en curso (se asignan en incInitFilters)
+  from: '',
+  to: '',
+};
+INC_STATE.filtersInitialized = false;
+
+// Inicializa filtros con valores derivados de INC_STATE.list y defaults.
+function incInitFilters() {
+  // Defaults de fecha: primer y último día del mes en curso (Monterrey)
+  const today = new Date();
+  const y = today.getFullYear(), m = today.getMonth();
+  const pad = n => String(n).padStart(2, '0');
+  const first = `${y}-${pad(m + 1)}-01`;
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  const last = `${y}-${pad(m + 1)}-${pad(lastDay)}`;
+  const fromEl = document.getElementById('inc-f-from');
+  const toEl = document.getElementById('inc-f-to');
+  if (fromEl && !fromEl.value) { fromEl.value = first; INC_STATE.filters.from = first; }
+  if (toEl   && !toEl.value)   { toEl.value   = last;  INC_STATE.filters.to   = last; }
+  // Set vacío para Motivo + Clasificaciones → se rellenan con TODOS al
+  // momento de leer las opciones únicas de la lista
+  const allMotivos = incCollectUnique('motivo');
+  const allClasif  = incCollectUnique('clasificaciones');
+  if (!INC_STATE.filtersInitialized) {
+    INC_STATE.filters.motivo          = new Set(allMotivos);
+    INC_STATE.filters.clasificaciones = new Set(allClasif);
+    INC_STATE.filtersInitialized = true;
+  } else {
+    // Asegurar que valores nuevos también queden seleccionados (UX:
+    // un reporte nuevo no debe ocultarse del histórico)
+    allMotivos.forEach(v => INC_STATE.filters.motivo.add(v));
+    allClasif.forEach(v => INC_STATE.filters.clasificaciones.add(v));
+  }
+  incRenderMotivoChips();
+  incRenderFilterDropdown('inc-f-motivo', 'motivo', allMotivos);
+  incRenderFilterDropdown('inc-f-clasif', 'clasificaciones', allClasif);
+  incRenderFilterDropdown('inc-f-nivel', 'nivel', ['Baja', 'Media', 'Alta']);
+  incRenderFilterDropdown('inc-f-estatus', 'estatus', ['Pendiente', 'Parcialmente resuelto', 'Resuelto']);
+}
+
+function incCollectUnique(filterKey) {
+  // Para 'motivo' y 'clasificaciones' los valores vienen como CSV
+  const set = new Set();
+  const column = filterKey === 'motivo' ? 'Motivos' : 'Clasificacion';
+  (INC_STATE.list || []).forEach(r => {
+    String(r[column] || '').split(',').forEach(v => {
+      const t = v.trim();
+      if (t) set.add(t);
+    });
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+// Pinta los chips coloreados de Motivo (quick filter). Click → toggle.
+function incRenderMotivoChips() {
+  const cont = document.getElementById('inc-motivo-chips');
+  if (!cont) return;
+  const motivos = incCollectUnique('motivo');
+  if (!motivos.length) { cont.innerHTML = ''; return; }
+  cont.innerHTML = motivos.map(m => {
+    const color = incMotivoColorClass(m);
+    const active = INC_STATE.filters.motivo.has(m);
+    return `<button type="button" class="inc-motivo-chip color-${esc(color)} ${active ? 'active' : ''}"
+              onclick="incToggleMotivoChip('${esc(m)}')">${esc(m)}</button>`;
+  }).join('');
+}
+
+window.incToggleMotivoChip = function (motivo) {
+  if (INC_STATE.filters.motivo.has(motivo)) INC_STATE.filters.motivo.delete(motivo);
+  else INC_STATE.filters.motivo.add(motivo);
+  incRenderMotivoChips();
+  // También sincroniza el checkbox del dropdown
+  const cb = document.querySelector(`#inc-f-motivo input[value="${CSS.escape(motivo)}"]`);
+  if (cb) cb.checked = INC_STATE.filters.motivo.has(motivo);
+  incUpdateDropdownLabel('motivo');
+  incApplyFilters();
+};
+
+function incLabelFor(filterKey) {
+  const sel = INC_STATE.filters[filterKey];
+  const all = filterKey === 'motivo' ? incCollectUnique('motivo')
+            : filterKey === 'clasificaciones' ? incCollectUnique('clasificaciones')
+            : filterKey === 'nivel' ? ['Baja', 'Media', 'Alta']
+            : filterKey === 'estatus' ? ['Pendiente', 'Parcialmente resuelto', 'Resuelto']
+            : [];
+  if (!all.length) return 'Sin opciones';
+  if (sel.size === 0) return 'Ninguno';
+  if (sel.size === all.length) return `Todos (${all.length})`;
+  if (sel.size === 1) return [...sel][0];
+  return `${sel.size} de ${all.length}`;
+}
+
+function incUpdateDropdownLabel(filterKey) {
+  const lbl = document.querySelector(`.inc-mselect[data-filter="${filterKey}"] .inc-mselect-btn-lbl`);
+  if (lbl) lbl.textContent = incLabelFor(filterKey);
+}
+
+function incRenderFilterDropdown(containerId, filterKey, options) {
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  const sel = INC_STATE.filters[filterKey];
+  const opts = options.map(v => {
+    const id = `inc-opt-${filterKey}-${esc(v).replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const checked = sel.has(v) ? 'checked' : '';
+    return `<label class="inc-mselect-opt">
+      <input type="checkbox" value="${esc(v)}" ${checked}
+             onchange="incToggleFilterOption('${esc(filterKey)}','${esc(v)}',this.checked)">
+      <span>${esc(v)}</span>
+    </label>`;
+  }).join('');
+  c.innerHTML = `
+    <button type="button" class="inc-mselect-btn" onclick="incToggleDropdown(event,'${esc(containerId)}')">
+      <span class="inc-mselect-btn-lbl">${esc(incLabelFor(filterKey))}</span>
+    </button>
+    <div class="inc-mselect-panel hidden">
+      <div class="inc-mselect-actions">
+        <button type="button" class="inc-mselect-action" onclick="incFilterSetAll('${esc(filterKey)}')">✓ Todos</button>
+        <button type="button" class="inc-mselect-action" onclick="incFilterSetNone('${esc(filterKey)}')">✕ Ninguno</button>
+      </div>
+      <div class="inc-mselect-opts">${opts}</div>
+    </div>`;
+}
+
+window.incToggleDropdown = function (ev, containerId) {
+  ev.stopPropagation();
+  // Cierra otros paneles
+  document.querySelectorAll('.inc-mselect-panel').forEach(p => {
+    if (p.closest(`#${containerId}`)) return;
+    p.classList.add('hidden');
+  });
+  const panel = document.querySelector(`#${containerId} .inc-mselect-panel`);
+  if (panel) panel.classList.toggle('hidden');
+};
+
+// Cerrar dropdowns al click fuera
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.inc-mselect')) return;
+  document.querySelectorAll('.inc-mselect-panel').forEach(p => p.classList.add('hidden'));
+});
+
+window.incToggleFilterOption = function (filterKey, value, checked) {
+  if (checked) INC_STATE.filters[filterKey].add(value);
+  else INC_STATE.filters[filterKey].delete(value);
+  incUpdateDropdownLabel(filterKey);
+  if (filterKey === 'motivo') incRenderMotivoChips();
+  incApplyFilters();
+};
+
+window.incFilterSetAll = function (filterKey) {
+  const all = filterKey === 'motivo' ? incCollectUnique('motivo')
+            : filterKey === 'clasificaciones' ? incCollectUnique('clasificaciones')
+            : filterKey === 'nivel' ? ['Baja', 'Media', 'Alta']
+            : ['Pendiente', 'Parcialmente resuelto', 'Resuelto'];
+  INC_STATE.filters[filterKey] = new Set(all);
+  // Re-pinta los checkboxes
+  document.querySelectorAll(`.inc-mselect[data-filter="${filterKey}"] input[type="checkbox"]`)
+    .forEach(cb => { cb.checked = true; });
+  incUpdateDropdownLabel(filterKey);
+  if (filterKey === 'motivo') incRenderMotivoChips();
+  incApplyFilters();
+};
+
+window.incFilterSetNone = function (filterKey) {
+  INC_STATE.filters[filterKey] = new Set();
+  document.querySelectorAll(`.inc-mselect[data-filter="${filterKey}"] input[type="checkbox"]`)
+    .forEach(cb => { cb.checked = false; });
+  incUpdateDropdownLabel(filterKey);
+  if (filterKey === 'motivo') incRenderMotivoChips();
+  incApplyFilters();
+};
+
+window.incApplyFilters = function () {
+  const fromEl = document.getElementById('inc-f-from');
+  const toEl   = document.getElementById('inc-f-to');
+  if (fromEl) INC_STATE.filters.from = fromEl.value || '';
+  if (toEl)   INC_STATE.filters.to   = toEl.value   || '';
+  incRenderCards();
+};
+
+// Devuelve las filas que pasan TODOS los filtros activos.
+function incFilteredRows() {
+  const f = INC_STATE.filters;
+  const rows = INC_STATE.list || [];
+  const inRange = (iso) => {
+    if (!iso) return true;
+    const d = String(iso).slice(0, 10);
+    if (f.from && d < f.from) return false;
+    if (f.to   && d > f.to)   return false;
+    return true;
+  };
+  const anyMatch = (csv, sel) => {
+    if (sel.size === 0) return false; // "Ninguno" → no muestra nada
+    const parts = String(csv || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!parts.length) return true; // sin valor: no excluyas
+    return parts.some(p => sel.has(p));
+  };
+  const singleMatch = (val, sel) => {
+    if (sel.size === 0) return false;
+    return sel.has(String(val || '').trim());
+  };
+  return rows.filter(r => {
+    if (!inRange(r['Fecha'] || r['Timestamp'])) return false;
+    if (!anyMatch(r['Motivos'], f.motivo)) return false;
+    if (!anyMatch(r['Clasificacion'], f.clasificaciones)) return false;
+    if (!singleMatch(r['Nivel'], f.nivel)) return false;
+    if (!singleMatch(r['Estatus'], f.estatus)) return false;
+    return true;
+  });
 }

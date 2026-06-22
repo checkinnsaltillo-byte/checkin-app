@@ -3478,6 +3478,209 @@ input[type="checkbox"].lg-multi-cb {
   background: #fff;
 }
 
+/* ─── Colores por Motivo (header + chip filtro) ─── */
+.motivo-bg-Limpieza      { background: #06b6d4; color: #fff; }
+.motivo-bg-Mantenimiento { background: #ea580c; color: #fff; }
+.motivo-bg-Insumos       { background: #9333ea; color: #fff; }
+.motivo-bg-default       { background: #475569; color: #fff; }
+.motivo-border-Limpieza      { border-left-color: #06b6d4 !important; }
+.motivo-border-Mantenimiento { border-left-color: #ea580c !important; }
+.motivo-border-Insumos       { border-left-color: #9333ea !important; }
+.motivo-border-default       { border-left-color: #475569 !important; }
+
+/* ─── Barra de filtros superior ─── */
+.inc-filters {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(15,23,42,.04);
+}
+.inc-motivo-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.inc-motivo-chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  background: #f1f5f9;
+  color: #475569;
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+  user-select: none;
+}
+.inc-motivo-chip:hover { transform: translateY(-1px); }
+.inc-motivo-chip.active { color: #fff; box-shadow: 0 3px 8px rgba(15,23,42,.18); }
+.inc-motivo-chip:not(.active) { opacity: .60; }
+.inc-motivo-chip.active.color-Limpieza      { background: #06b6d4; border-color: #06b6d4; }
+.inc-motivo-chip.active.color-Mantenimiento { background: #ea580c; border-color: #ea580c; }
+.inc-motivo-chip.active.color-Insumos       { background: #9333ea; border-color: #9333ea; }
+.inc-motivo-chip.active.color-default       { background: #475569; border-color: #475569; }
+
+.inc-filter-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+.inc-filter-cell { min-width: 0; position: relative; }
+.inc-filter-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 4px;
+}
+.inc-filter-date {
+  width: 100%;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 6px !important;
+  padding: 7px 10px !important;
+  font-size: 12px !important;
+  background: #fff !important;
+  box-sizing: border-box;
+  font-family: inherit;
+  box-shadow: none !important;
+}
+.inc-filter-date:focus { outline: none; border-color: #2563eb !important; box-shadow: 0 0 0 3px rgba(59,130,246,.12) !important; }
+.inc-filter-count {
+  margin-top: 10px;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* Dropdown multi-select custom (igual estilo que filtros Lodgify pero con
+   checkbox cuadrado simple + palomita, no el nativo del browser). */
+.inc-mselect { position: relative; }
+.inc-mselect-btn {
+  width: 100%;
+  padding: 7px 28px 7px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  position: relative;
+  font-family: inherit;
+  color: #1f2937;
+}
+.inc-mselect-btn::after {
+  content: "▾";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 10px;
+  pointer-events: none;
+}
+.inc-mselect-btn-lbl {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inc-mselect-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(15,23,42,.18);
+  z-index: 100;
+  min-width: 220px;
+  width: max-content;
+  max-width: 320px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.inc-mselect-panel.hidden { display: none; }
+.inc-mselect-actions {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.inc-mselect-action {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #475569;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.inc-mselect-action:hover { background: #f1f5f9; color: #0f172a; }
+.inc-mselect-opts { padding: 4px 6px; }
+.inc-mselect-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #1f2937;
+  line-height: 1.3;
+  user-select: none;
+}
+.inc-mselect-opt:hover { background: #f8fafc; }
+/* Checkbox custom — cuadrado simple con palomita blanca */
+.inc-mselect-opt input[type="checkbox"] {
+  flex-shrink: 0;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 1.5px solid #94a3b8 !important;
+  border-radius: 3px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  position: relative;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.inc-mselect-opt input[type="checkbox"]:hover { border-color: #2563eb; }
+.inc-mselect-opt input[type="checkbox"]:checked {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+}
+.inc-mselect-opt input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0;
+  width: 5px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
 /* ─── Lista de cards de incidencias (histórico) ─── */
 .inc-card {
   background: #fff;
@@ -3499,24 +3702,40 @@ input[type="checkbox"].lg-multi-cb {
   padding: 14px 18px;
   cursor: pointer;
   align-items: center;
+  color: #fff;
 }
-.inc-card-header:hover { background: #f8fafc; }
+.inc-card-header.motivo-bg-default { background: #f8fafc; color: #0f172a; }
+.inc-card-header:hover { filter: brightness(1.05); }
+.inc-card-header.motivo-bg-default:hover { background: #f1f5f9; }
 .inc-card-title {
   margin: 0;
   font-size: 18px;
   font-weight: 800;
-  color: #0f172a;
+  color: inherit;
   line-height: 1.25;
+}
+.inc-card-aloj {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 700;
+  color: inherit;
+  opacity: .95;
 }
 .inc-card-sub {
   margin-top: 4px;
   font-size: 12px;
-  color: #64748b;
+  color: inherit;
+  opacity: .92;
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
 }
-.inc-card-sub strong { color: #475569; font-weight: 700; }
+.inc-card-sub strong { font-weight: 700; }
+.inc-card-chevron {
+  font-size: 16px;
+  color: inherit;
+  opacity: .85;
+}
 .inc-card-chips {
   display: flex;
   gap: 6px;
