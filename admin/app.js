@@ -18744,8 +18744,10 @@ async function _bnUploadParseWorkbook(wb, fileName) {
       } else {
         const c = cargo || 0, a = abono || 0;
         const isTC = bnUploadIsCreditCard(tipo);
-        if (isTC) monto = +(-c + -a).toFixed(2);
-        else      monto = +( c + -a).toFixed(2);
+        // TC:    Monto = -Cargo - Abono
+        // Otros: Monto =  Cargo + Abono
+        if (isTC) monto = +(-c - a).toFixed(2);
+        else      monto = +( c + a).toFixed(2);
       }
       const date = new Date(diaIso + 'T00:00:00');
       const anio = String(date.getFullYear());
