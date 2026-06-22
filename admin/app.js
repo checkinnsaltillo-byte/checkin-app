@@ -19658,11 +19658,12 @@ function incBuildReporteHtml(d) {
 window.incGenerar = function() {
   const d = incGetFormData();
   const preview = document.getElementById('inc-preview');
+  const card    = document.getElementById('inc-preview-card');
+  const layout  = document.getElementById('inc-layout');
   if (!preview) return;
   preview.innerHTML = incBuildReporteHtml(d);
-  preview.style.padding = '0';
-  preview.style.color = '';
-  preview.style.textAlign = '';
+  if (card)   card.style.display = '';
+  if (layout) layout.classList.add('inc-has-preview');
 };
 
 window.incLimpiar = function() {
@@ -19676,16 +19677,13 @@ window.incLimpiar = function() {
   setVal('inc-fotos', '');
   INC_STATE.fotos = [];
   incRenderFotoPreview();
+  // Oculta el preview hasta que se vuelva a generar
   const preview = document.getElementById('inc-preview');
-  if (preview) {
-    preview.style.padding = '80px 20px';
-    preview.style.color = '#94a3b8';
-    preview.style.textAlign = 'center';
-    preview.innerHTML = `
-      <div style="font-size:11px;letter-spacing:.14em;color:#2563eb;font-weight:700;text-transform:uppercase;margin-bottom:10px">Vista previa</div>
-      <div style="font-size:16px;color:#0f172a;margin-bottom:8px;font-weight:700">Tu reporte aparecerá aquí</div>
-      <div>Completa el formulario y pulsa <strong>Generar reporte</strong>.</div>`;
-  }
+  const card    = document.getElementById('inc-preview-card');
+  const layout  = document.getElementById('inc-layout');
+  if (preview) preview.innerHTML = '';
+  if (card)    card.style.display = 'none';
+  if (layout)  layout.classList.remove('inc-has-preview');
 };
 
 window.incImprimir = function() {

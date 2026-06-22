@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema Financiero | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=97">
+  <link rel="stylesheet" href="styles.css?v=98">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1289,9 +1289,11 @@
                   style="padding:10px 16px;border:1.5px solid #f59e0b;background:#f59e0b;color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">🖨️ Imprimir reporte</button>
         </div>
 
-        <div id="inc-layout" style="display:grid;grid-template-columns:480px minmax(0,1fr);gap:18px;align-items:start">
+        <!-- Layout dinámico: 1 col (form full-width) hasta que se genera el
+             reporte. En ese momento se agrega .inc-has-preview y pasa a 2 cols. -->
+        <div id="inc-layout" style="display:grid;grid-template-columns:1fr;gap:18px;align-items:start">
           <!-- Formulario -->
-          <div id="inc-form" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;position:sticky;top:14px">
+          <div id="inc-form" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px">
             <h2 style="margin:0 0 12px;font-size:16px;color:#0f172a">Captura del reporte</h2>
 
             <div class="inc-section">
@@ -1385,13 +1387,9 @@
             </div>
           </div>
 
-          <!-- Vista previa -->
-          <div id="inc-preview-card" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;min-height:600px">
-            <div id="inc-preview" style="color:#94a3b8;text-align:center;padding:80px 20px;font-size:13px">
-              <div style="font-size:11px;letter-spacing:.14em;color:#2563eb;font-weight:700;text-transform:uppercase;margin-bottom:10px">Vista previa</div>
-              <div style="font-size:16px;color:#0f172a;margin-bottom:8px;font-weight:700">Tu reporte aparecerá aquí</div>
-              <div>Completa el formulario y pulsa <strong>Generar reporte</strong>.</div>
-            </div>
+          <!-- Vista previa — oculta hasta que se pulsa Generar reporte. -->
+          <div id="inc-preview-card" style="display:none;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;min-height:600px;position:sticky;top:14px">
+            <div id="inc-preview"></div>
           </div>
         </div>
       </div>
@@ -1549,6 +1547,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=382"></script>
+  <script src="app.js?v=383"></script>
 </body>
 </html>
