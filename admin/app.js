@@ -19403,11 +19403,69 @@ const INC_CLASIF_POR_MOTIVO = {
 };
 const INC_STATE = {
   initialized: false,
+  // Personas: empieza con hardcoded como fallback; cuando carga /personal-list
+  // se reemplaza por los nombres de la hoja Personal.
   personas:        INC_PERSONAL.map(p => p.nombre),
+  personasFromSheet: false,    // true cuando ya vino del backend
+  personalRows:    [],          // [{Nombre, Puesto, ...}] de la hoja Personal
   motivos:         Object.keys(INC_CLASIF_POR_MOTIVO),
   clasificaciones: Array.from(new Set(Object.values(INC_CLASIF_POR_MOTIVO).flat())),
   fotos: [], // [{name, src}]
 };
+
+/** Carga la hoja "Personal" desde el backend. Reemplaza el catálogo
+ *  hardcoded por los nombres reales una vez que llegan. */
+async function incLoadPersonal() {
+  try {
+    const res = await fetch(`${BACKEND}/personal-list`, { cache: 'no-store' });
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.rows)) throw new Error(data.error || 'fetch failed');
+    INC_STATE.personalRows = data.rows;
+    const nombres = data.rows
+      .map(r => String(r['Nombre'] || '').trim())
+      .filter(Boolean);
+    if (nombres.length) {
+      INC_STATE.personas = Array.from(new Set(nombres));
+      INC_STATE.personasFromSheet = true;
+      // Re-render checklist + select reportante con los nombres reales
+      incRenderCheckList('inc-personas', INC_STATE.personas, 'inc-personas', true);
+      incRenderReportante();
+    }
+    console.info(`[INC] Personal cargado: ${nombres.length} nombres`);
+  } catch (e) {
+    console.warn('[INC] Personal no cargó (usando fallback):', e.message);
+  }
+}
+
+/** Devuelve el puesto para un nombre dado, buscando primero en la hoja
+ *  Personal y luego en el catálogo INC_PERSONAL hardcoded. */
+function incPuestoDe(nombre) {
+  if (INC_STATE.personasFromSheet) {
+    const r = INC_STATE.personalRows.find(x => String(x['Nombre'] || '').trim() === nombre);
+    if (r) {
+      return String(r['Puesto'] || r['Rol'] || r['Cargo'] || '').trim();
+    }
+  }
+  const p = INC_PERSONAL.find(x => x.nombre === nombre);
+  return p ? p.puesto : '';
+}
+
+/** Renderiza el select de "Persona que realizó el reporte" — solo
+ *  Administrativos cuando se sepa el puesto, de lo contrario todos. */
+function incRenderReportante() {
+  let opts;
+  if (INC_STATE.personasFromSheet) {
+    // Si la hoja Personal trae puesto, filtra administrativos; si no, lista todos.
+    const admins = INC_STATE.personalRows
+      .filter(r => /administr/i.test(String(r['Puesto'] || r['Rol'] || r['Cargo'] || '')))
+      .map(r => String(r['Nombre'] || '').trim())
+      .filter(Boolean);
+    opts = admins.length ? admins : INC_STATE.personas.slice();
+  } else {
+    opts = INC_PERSONAL.filter(p => p.puesto === 'Administrativo').map(p => p.nombre);
+  }
+  incRenderSelect('inc-reportante', opts, true);
+}
 
 function incTodayIso() {
   const d = new Date();
@@ -19433,8 +19491,11 @@ function incRenderCheckList(containerId, items, name, includePuesto = false) {
   const c = document.getElementById(containerId);
   if (!c) return;
   c.innerHTML = items.map(item => {
-    const p = includePuesto ? INC_PERSONAL.find(x => x.nombre === item) : null;
-    const label = p ? `${p.nombre} — ${p.puesto}` : item;
+    let label = item;
+    if (includePuesto) {
+      const puesto = incPuestoDe(item);
+      if (puesto) label = `${item} — ${puesto}`;
+    }
     return `<label><input type="checkbox" name="${name}" value="${esc(item)}"><span>${esc(label)}</span></label>`;
   }).join('');
 }
@@ -19446,47 +19507,92 @@ function incRenderSelect(id, options, includeBlank = false) {
   sel.innerHTML = opts.map(o => `<option value="${esc(o)}">${esc(o || 'Seleccionar…')}</option>`).join('');
 }
 
-function incBuildAlojamientosList() {
-  // Si ALOJ_STATE está cargado, usa "Propiedad - #Depto" canónico.
-  // Si no, fallback al catálogo hardcoded del HTML original.
+/** Lista de propiedades únicas desde ALOJ_STATE (o fallback hardcoded). */
+function incBuildPropiedades() {
   if (typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.loaded && ALOJ_STATE.rows.length) {
-    return ALOJ_STATE.rows
-      .map(r => {
-        const prop = String(r['Propiedad'] || '').trim();
-        const dpt  = String(r['# Departamento'] || '').trim().replace(/^#\s*/, '');
-        if (prop && dpt) return `${prop} - #${dpt}`;
-        return prop || '';
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b, 'es'));
+    const set = new Set(
+      ALOJ_STATE.rows
+        .map(r => String(r['Propiedad'] || '').trim())
+        .filter(Boolean)
+    );
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
   }
-  const fallback = [
-    { nombre: 'Cumbres', hasta: 14 }, { nombre: 'Baja California', hasta: 10 },
-    { nombre: 'Oaxaca', hasta: 8 }, { nombre: 'José Cárdenas', hasta: 6 },
-    { nombre: 'Matamoros', hasta: 10 },
-  ];
-  return fallback.flatMap(p => Array.from({ length: p.hasta }, (_, i) => `${p.nombre} #${i + 1}`));
+  return ['Cumbres', 'Baja California', 'Oaxaca', 'José Cárdenas', 'Matamoros'];
+}
+
+/** Departamentos para una propiedad dada (cascada). Si ALOJ_STATE
+ *  no está cargado, usa rangos hardcoded por propiedad. */
+function incBuildDepartamentos(propiedad) {
+  if (!propiedad) return [];
+  if (typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.loaded && ALOJ_STATE.rows.length) {
+    const set = new Set(
+      ALOJ_STATE.rows
+        .filter(r => String(r['Propiedad'] || '').trim() === propiedad)
+        .map(r => String(r['# Departamento'] || '').trim().replace(/^#\s*/, ''))
+        .filter(Boolean)
+    );
+    return Array.from(set).sort((a, b) => {
+      const na = parseInt(a, 10), nb = parseInt(b, 10);
+      if (isFinite(na) && isFinite(nb)) return na - nb;
+      return a.localeCompare(b, 'es');
+    });
+  }
+  const fallback = { 'Cumbres': 14, 'Baja California': 10, 'Oaxaca': 8, 'José Cárdenas': 6, 'Matamoros': 10 };
+  const max = fallback[propiedad] || 0;
+  return Array.from({ length: max }, (_, i) => String(i + 1));
+}
+
+/** Pinta los dos selects (Propiedad + #Depto) y configura la cascada. */
+function incRenderPropDeptoSelects() {
+  const props = incBuildPropiedades();
+  incRenderSelect('inc-propiedad', props, true);
+  // Departamento empieza vacío hasta que se elija Propiedad
+  const deptoSel = document.getElementById('inc-depto');
+  if (deptoSel) {
+    deptoSel.innerHTML = '<option value="">— Selecciona propiedad —</option>';
+    deptoSel.disabled = true;
+  }
+  // Cuando cambia propiedad → repobla departamentos
+  const propSel = document.getElementById('inc-propiedad');
+  if (propSel && !propSel._incCascadeBound) {
+    propSel._incCascadeBound = true;
+    propSel.addEventListener('change', () => {
+      const propiedad = propSel.value;
+      const deptos = incBuildDepartamentos(propiedad);
+      if (deptoSel) {
+        if (!propiedad) {
+          deptoSel.innerHTML = '<option value="">— Selecciona propiedad —</option>';
+          deptoSel.disabled = true;
+        } else {
+          deptoSel.innerHTML = ['<option value="">— Selecciona —</option>']
+            .concat(deptos.map(d => `<option value="${esc(d)}">#${esc(d)}</option>`))
+            .join('');
+          deptoSel.disabled = false;
+        }
+      }
+    });
+  }
 }
 
 function incInit() {
   if (INC_STATE.initialized) return;
   INC_STATE.initialized = true;
-  // Asegura alojamientos cargados (si no, intenta cargar en background)
+  // Asegura alojamientos cargados (background); cuando llegue, re-renderiza
+  // los dos selects Propiedad/#Depto con valores reales.
   if (typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded && !ALOJ_STATE.loading) {
     if (typeof lgLoadAlojamientos === 'function') {
       lgLoadAlojamientos().then(() => {
-        // Re-render select cuando llegue
-        incRenderSelect('inc-alojamiento', incBuildAlojamientosList());
+        incRenderPropDeptoSelects();
       }).catch(() => {});
     }
   }
+  // Carga Personal en background (reemplaza el catálogo hardcoded cuando llegue)
+  incLoadPersonal();
   incRenderCheckList('inc-personas', INC_STATE.personas, 'inc-personas', true);
   incRenderCheckList('inc-motivos', INC_STATE.motivos, 'inc-motivos');
   incRenderCheckList('inc-clasificaciones', INC_STATE.clasificaciones, 'inc-clasificaciones');
-  incRenderSelect('inc-alojamiento', incBuildAlojamientosList());
-  // Reportante: solo administrativos
-  const admins = INC_PERSONAL.filter(p => p.puesto === 'Administrativo').map(p => p.nombre);
-  incRenderSelect('inc-reportante', admins, true);
+  incRenderPropDeptoSelects();
+  incRenderReportante();
   // Default fecha = hoy
   const fechaEl = document.getElementById('inc-fecha');
   if (fechaEl && !fechaEl.value) fechaEl.value = incTodayIso();
@@ -19563,9 +19669,16 @@ function incRenderFotoPreview() {
 }
 
 function incGetFormData() {
+  const propiedad = document.getElementById('inc-propiedad')?.value || '';
+  const depto = document.getElementById('inc-depto')?.value || '';
+  // alojamiento canónico tipo "José Cárdenas - #1" para mostrar en reporte
+  const alojamiento = (propiedad && depto) ? `${propiedad} - #${depto}`
+                    : (propiedad || '');
   return {
     fecha:           document.getElementById('inc-fecha')?.value || '',
-    alojamiento:     document.getElementById('inc-alojamiento')?.value || '',
+    propiedad,
+    depto,
+    alojamiento,
     personas:        incGetCheckedByName('inc-personas'),
     motivos:         incGetCheckedByName('inc-motivos'),
     clasificaciones: incGetCheckedByName('inc-clasificaciones'),
@@ -19675,6 +19788,13 @@ window.incLimpiar = function() {
   setVal('inc-fecha', incTodayIso());
   setVal('inc-reportante', '');
   setVal('inc-fotos', '');
+  setVal('inc-propiedad', '');
+  // Reset cascada: depto vuelve a estado vacío/disabled
+  const deptoSel = document.getElementById('inc-depto');
+  if (deptoSel) {
+    deptoSel.innerHTML = '<option value="">— Selecciona propiedad —</option>';
+    deptoSel.disabled = true;
+  }
   INC_STATE.fotos = [];
   incRenderFotoPreview();
   // Oculta el preview hasta que se vuelva a generar

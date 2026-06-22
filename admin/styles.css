@@ -3408,20 +3408,89 @@ input[type="checkbox"].lg-multi-cb {
 }
 
 /* ─── Módulo Incidencias ──────────────────────────────── */
+.inc-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding: 20px 24px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #0ea5e9 100%);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(30,58,138,.20);
+  position: relative;
+  overflow: hidden;
+}
+.inc-hero::after {
+  content: "";
+  position: absolute;
+  right: -60px; top: -60px;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,.15), transparent 65%);
+  pointer-events: none;
+}
+.inc-hero > div, .inc-hero > button { position: relative; z-index: 1; }
+.inc-hero-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.8);
+  margin-bottom: 6px;
+}
+.inc-hero-title { margin: 0 0 4px; font-size: 26px; font-weight: 800; color: #fff; }
+.inc-hero-sub { margin: 0; font-size: 13px; color: rgba(255,255,255,.85); max-width: 600px; }
+.inc-btn-print {
+  padding: 12px 20px;
+  border: 1px solid rgba(255,255,255,.3);
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(217,119,6,.30);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.inc-btn-print:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(217,119,6,.40);
+}
+
 .inc-section {
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 14px 16px;
   margin-bottom: 12px;
-  background: #fafbfc;
+  background: #fff;
+  border-left-width: 4px;
+  box-shadow: 0 1px 3px rgba(15,23,42,.04);
+  transition: box-shadow .15s ease;
 }
+.inc-section:hover { box-shadow: 0 4px 12px rgba(15,23,42,.06); }
+/* Color de acento por sección (banda izquierda) */
+.inc-section-data       { border-left-color: #2563eb; }
+.inc-section-personas   { border-left-color: #8b5cf6; }
+.inc-section-motivos    { border-left-color: #ec4899; }
+.inc-section-clasif     { border-left-color: #f59e0b; }
+.inc-section-nivel      { border-left-color: #ef4444; }
+.inc-section-reportante { border-left-color: #14b8a6; }
+.inc-section-fotos      { border-left-color: #06b6d4; }
+.inc-section-desc       { border-left-color: #64748b; }
+
 .inc-section-title {
-  font-size: 11px;
-  letter-spacing: .12em;
-  color: #475569;
+  font-size: 12px;
+  letter-spacing: .08em;
+  color: #0f172a;
   font-weight: 800;
   text-transform: uppercase;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .inc-label {
   display: block;

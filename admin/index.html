@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema Financiero | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=100">
+  <link rel="stylesheet" href="styles.css?v=101">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1280,13 +1280,15 @@
     <!-- ═══════════════ MÓDULO INCIDENCIAS ═══════════════ -->
     <div id="module-incidencias" class="hidden" style="padding:20px 24px 60px">
       <div style="max-width:1440px;margin:0 auto">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px">
+        <div class="inc-hero">
           <div>
-            <h1 style="margin:0 0 4px;font-size:24px;color:#0f172a">🚨 Incidencias</h1>
-            <p style="margin:0;color:#64748b;font-size:13px">Captura, vista previa y generación de PDF de reportes de limpieza/mantenimiento.</p>
+            <div class="inc-hero-kicker">Control operativo · limpieza y mantenimiento</div>
+            <h1 class="inc-hero-title">🚨 Incidencias</h1>
+            <p class="inc-hero-sub">Captura reportes con catálogos del sistema y genera el PDF listo para imprimir.</p>
           </div>
-          <button type="button" id="inc-print-btn" onclick="incImprimir()"
-                  style="padding:10px 16px;border:1.5px solid #f59e0b;background:#f59e0b;color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">🖨️ Imprimir reporte</button>
+          <button type="button" id="inc-print-btn" onclick="incImprimir()" class="inc-btn-print">
+            🖨️ Imprimir reporte
+          </button>
         </div>
 
         <!-- Layout dinámico: 1 col (form full-width) hasta que se genera el
@@ -1296,22 +1298,26 @@
           <div id="inc-form" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px">
             <h2 style="margin:0 0 12px;font-size:16px;color:#0f172a">Captura del reporte</h2>
 
-            <div class="inc-section">
-              <div class="inc-section-title">Datos generales</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="inc-section inc-section-data">
+              <div class="inc-section-title">📅 Datos generales</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
                 <div>
                   <label class="inc-label">Fecha</label>
                   <input type="date" id="inc-fecha" class="inc-input">
                 </div>
                 <div>
-                  <label class="inc-label">Alojamiento</label>
-                  <select id="inc-alojamiento" class="inc-input"></select>
+                  <label class="inc-label">Propiedad</label>
+                  <select id="inc-propiedad" class="inc-input"></select>
+                </div>
+                <div>
+                  <label class="inc-label"># Departamento</label>
+                  <select id="inc-depto" class="inc-input"></select>
                 </div>
               </div>
             </div>
 
-            <div class="inc-section">
-              <div class="inc-section-title">Personas involucradas</div>
+            <div class="inc-section inc-section-personas">
+              <div class="inc-section-title">👥 Personas involucradas</div>
               <div id="inc-personas" class="inc-checklist"></div>
               <div style="display:flex;gap:6px;margin-top:8px">
                 <input type="text" id="inc-nueva-persona" placeholder="Agregar persona" class="inc-input" style="flex:1">
@@ -1319,8 +1325,8 @@
               </div>
             </div>
 
-            <div class="inc-section">
-              <div class="inc-section-title">Motivos del reporte</div>
+            <div class="inc-section inc-section-motivos">
+              <div class="inc-section-title">🎯 Motivos del reporte</div>
               <div id="inc-motivos" class="inc-checklist"></div>
               <div style="display:flex;gap:6px;margin-top:8px">
                 <input type="text" id="inc-nuevo-motivo" placeholder="Agregar motivo" class="inc-input" style="flex:1">
@@ -1328,8 +1334,8 @@
               </div>
             </div>
 
-            <div class="inc-section">
-              <div class="inc-section-title">Clasificación de la incidencia</div>
+            <div class="inc-section inc-section-clasif">
+              <div class="inc-section-title">🏷️ Clasificación de la incidencia</div>
               <div id="inc-clasificaciones" class="inc-checklist"></div>
               <div style="display:flex;gap:6px;margin-top:8px">
                 <input type="text" id="inc-nueva-clasif" placeholder="Agregar clasificación" class="inc-input" style="flex:1">
@@ -1337,42 +1343,42 @@
               </div>
             </div>
 
-            <div class="inc-section">
-              <div class="inc-section-title">Nivel y seguimiento</div>
+            <div class="inc-section inc-section-nivel">
+              <div class="inc-section-title">⚡ Nivel y seguimiento</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                 <div>
                   <label class="inc-label">Nivel de prioridad</label>
                   <select id="inc-nivel" class="inc-input">
-                    <option value="Baja">Baja</option>
-                    <option value="Media">Media</option>
-                    <option value="Alta">Alta</option>
+                    <option value="Baja">🟢 Baja</option>
+                    <option value="Media">🟡 Media</option>
+                    <option value="Alta">🔴 Alta</option>
                   </select>
                 </div>
                 <div>
                   <label class="inc-label">Estatus</label>
                   <select id="inc-estatus" class="inc-input">
-                    <option value="Pendiente">Pendiente</option>
-                    <option value="Parcialmente resuelto">Parcialmente resuelto</option>
-                    <option value="Resuelto">Resuelto</option>
+                    <option value="Pendiente">✗ Pendiente</option>
+                    <option value="Parcialmente resuelto">◐ Parcialmente resuelto</option>
+                    <option value="Resuelto">✓ Resuelto</option>
                   </select>
                 </div>
               </div>
             </div>
 
-            <div class="inc-section">
-              <div class="inc-section-title">Persona que realizó el reporte</div>
+            <div class="inc-section inc-section-reportante">
+              <div class="inc-section-title">✍️ Persona que realizó el reporte</div>
               <select id="inc-reportante" class="inc-input"></select>
             </div>
 
-            <div class="inc-section">
-              <div class="inc-section-title">Fotos / evidencia</div>
+            <div class="inc-section inc-section-fotos">
+              <div class="inc-section-title">📸 Fotos / evidencia</div>
               <input type="file" id="inc-fotos" accept="image/*" multiple class="inc-input">
               <div style="font-size:11px;color:#64748b;margin-top:4px">Una o varias imágenes. Se mostrarán en vista previa y al imprimir.</div>
-              <div id="inc-foto-preview" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px"></div>
+              <div id="inc-foto-preview" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:10px"></div>
             </div>
 
-            <div class="inc-section">
-              <div class="inc-section-title">Descripción y observaciones</div>
+            <div class="inc-section inc-section-desc">
+              <div class="inc-section-title">📝 Descripción y observaciones</div>
               <label class="inc-label">Descripción detallada</label>
               <textarea id="inc-descripcion" class="inc-input" rows="3" placeholder="Describe qué ocurrió, dónde y el contexto."></textarea>
               <label class="inc-label" style="margin-top:8px">Acciones realizadas</label>
@@ -1547,6 +1553,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=383"></script>
+  <script src="app.js?v=384"></script>
 </body>
 </html>
