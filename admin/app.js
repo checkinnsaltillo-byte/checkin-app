@@ -21998,6 +21998,35 @@ function ocupRender() {
       // Que el rango toque el mes
       return dep >= monthStart && arr <= monthEnd;
     });
+    // Pre-calcula ocupación por día del mes:
+    //  - middle: día completo dentro de una estancia (no es arrival ni
+    //    departure visible)
+    //  - arrivals[d]/departures[d]: conteo de bookings que LLEGAN/SALEN
+    //    ese día (sirve para detectar continuidad checkout+checkin).
+    const middleDays = new Set();
+    const arrivalsDay = new Map();
+    const departuresDay = new Map();
+    houseBookings.forEach(b => {
+      const arr = ocupParseDate(b.DateArrival);
+      const dep = ocupParseDate(b.DateDeparture);
+      if (arr.getFullYear() === y && arr.getMonth() === m) {
+        const d = arr.getDate();
+        arrivalsDay.set(d, (arrivalsDay.get(d) || 0) + 1);
+      }
+      if (dep.getFullYear() === y && dep.getMonth() === m) {
+        const d = dep.getDate();
+        departuresDay.set(d, (departuresDay.get(d) || 0) + 1);
+      }
+      // Días intermedios: arr+1 hasta dep-1
+      const midStart = new Date(arr.getFullYear(), arr.getMonth(), arr.getDate() + 1);
+      const midEnd = new Date(dep.getFullYear(), dep.getMonth(), dep.getDate());
+      for (let cur = new Date(midStart); cur < midEnd; cur.setDate(cur.getDate() + 1)) {
+        if (cur.getFullYear() === y && cur.getMonth() === m) {
+          middleDays.add(cur.getDate());
+        }
+      }
+    });
+
     html += `<div class="ocup-cal-row" data-aloj-id="${esc(aloj.houseId)}">`;
     html += `<div class="ocup-aloj-cell">
       <div class="ocup-aloj-img">🏠</div>
@@ -22006,32 +22035,46 @@ function ocupRender() {
         <div class="ocup-aloj-id">${esc(aloj.tag || aloj.houseId)}</div>
       </div>
     </div>`;
-    // Celdas de día (vacías, sirven de grid base)
+    // Celdas de día con clases de ocupación
     for (let d = 1; d <= daysInMonth; d++) {
       const date = new Date(y, m, d);
       const dow = date.getDay();
       const isToday = date.getTime() === today.getTime();
       const isWeekend = dow === 0 || dow === 6;
-      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}"></div>`;
+      const arrCnt = arrivalsDay.get(d) || 0;
+      const depCnt = departuresDay.get(d) || 0;
+      const isMid = middleDays.has(d);
+      let occCls = '';
+      if (isMid || (arrCnt > 0 && depCnt > 0)) {
+        // Continuidad (checkout+checkin) o medio de estancia → gris completo
+        occCls = 'is-occupied';
+      } else if (arrCnt > 0) {
+        occCls = 'is-arrival';     // triángulo inferior-derecho
+      } else if (depCnt > 0) {
+        occCls = 'is-departure';   // triángulo superior-izquierdo
+      }
+      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''} ${occCls}"></div>`;
     }
-    // Barras absolute, posicionadas relativas a la celda primera de día.
-    // Cada día = var(--ocup-day-w) = 64px. left = (díaInicio-1)*64 + offset aloj
-    // pero como están dentro de la row, el offset del aloj column hay que sumarlo.
-    // Lo más simple: posicionamos la barra dentro de la row con left calculado
-    // a partir de var(--ocup-aloj-w) + (díaInicio-1)*var(--ocup-day-w).
+    // Barras con posición HALF-CELL:
+    //   startFrac = arrInMonth ? (arrDay - 0.5) : 0           (0 = edge si viene de antes)
+    //   endFrac   = depInMonth ? (depDay - 0.5) : daysInMonth (daysInMonth = edge si sigue después)
+    //   left  = aloj-w + startFrac * dayW
+    //   width = (endFrac - startFrac) * dayW
+    // Esto hace que arrival ↔ departure compartan exactamente el centro
+    // de la celda → checkout y checkin del mismo día NO se traslapan.
     houseBookings.forEach(b => {
       const arr = ocupParseDate(b.DateArrival);
       const dep = ocupParseDate(b.DateDeparture);
-      // Clamp al mes mostrado
-      const visArr = arr < monthStart ? monthStart : arr;
-      const visDep = dep > monthEnd ? new Date(y, m, daysInMonth + 1) : dep; // dep es exclusivo
-      const startDay = visArr.getDate(); // 1..daysInMonth
-      const nights = Math.max(1, ocupDaysBetween(visArr, visDep));
+      const arrInMonth = arr.getFullYear() === y && arr.getMonth() === m;
+      const depInMonth = dep.getFullYear() === y && dep.getMonth() === m;
+      const startFrac = arrInMonth ? (arr.getDate() - 0.5) : 0;
+      const endFrac   = depInMonth ? (dep.getDate() - 0.5) : daysInMonth;
+      const widthFrac = Math.max(0.1, endFrac - startFrac); // mínimo visible
+      const leftCalc  = `calc(var(--ocup-aloj-w) + ${startFrac} * var(--ocup-day-w))`;
+      const widthCalc = `calc(${widthFrac} * var(--ocup-day-w))`;
       const srcCls = ocupSourceClass(b.Source);
       const srcIcon = ocupSourceIcon(b.Source);
       const guest = String(b.GuestName || 'Reserva').trim();
-      const leftCalc = `calc(var(--ocup-aloj-w) + ${startDay - 1} * var(--ocup-day-w) + 6px)`;
-      const widthCalc = `calc(${nights} * var(--ocup-day-w) - 12px)`;
       html += `<div class="ocup-bar src-${srcCls}" style="left:${leftCalc};width:${widthCalc}"
                 onclick="ocupOpenDetail('${esc(String(b.Id))}')" title="${esc(guest)}">
         <span class="ocup-bar-icon">${srcIcon}</span>

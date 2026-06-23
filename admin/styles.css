@@ -4899,6 +4899,31 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   background: rgba(15,23,42,.04);
   border-right-color: #cbd5e1;
 }
+/* Estados de ocupación — sombreado gris claro */
+/* Día completo ocupado (medio de estancia o día con continuidad
+   checkout+checkin) */
+.ocup-day-cell.is-occupied { background: #e5e7eb; }
+/* Día de llegada SIN continuidad: triángulo inferior-derecho gris
+   (representa la mitad de la tarde/noche). */
+.ocup-day-cell.is-arrival {
+  background: linear-gradient(to top left, #e5e7eb 0%, #e5e7eb 50%, transparent 50%, transparent 100%);
+}
+/* Día de salida SIN continuidad: triángulo superior-izquierdo gris
+   (representa la mitad de la mañana). */
+.ocup-day-cell.is-departure {
+  background: linear-gradient(to bottom right, #e5e7eb 0%, #e5e7eb 50%, transparent 50%, transparent 100%);
+}
+/* Weekend + arrival/departure: superponer el gradiente sobre tono gris suave */
+.ocup-day-cell.is-weekend.is-arrival {
+  background:
+    linear-gradient(to top left, #e5e7eb 0%, #e5e7eb 50%, transparent 50%, transparent 100%),
+    #fafbfc;
+}
+.ocup-day-cell.is-weekend.is-departure {
+  background:
+    linear-gradient(to bottom right, #e5e7eb 0%, #e5e7eb 50%, transparent 50%, transparent 100%),
+    #fafbfc;
+}
 
 /* Barras de reserva (absolute, posicionadas con left/width en %) */
 .ocup-bar {
