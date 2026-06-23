@@ -17,7 +17,7 @@ const BACKEND = "https://ticket-vision-957627511957.northamerica-south1.run.app"
       return l;
     })();
     link.href = busyCount > 0 ? ICON_BUSY : ICON_IDLE;
-    const baseTitle = 'Sistema Financiero | Check Inn Saltillo';
+    const baseTitle = 'Sistema de gestión de Corta estancia | Check Inn Saltillo';
     document.title = busyCount > 0 ? `⏳ ${busyLabel || 'Procesando…'} · ${baseTitle}` : baseTitle;
   };
   window.setSystemBusy = function(active, label) {
@@ -5017,7 +5017,7 @@ function bn_downloadPDF() {
            alt="Check Inn Saltillo"
            style="height:40px;width:auto;object-fit:contain"
            onerror="this.style.display='none'">
-      <h1 style="margin:0">${esc(ds.title)} — Sistema Financiero</h1>
+      <h1 style="margin:0">${esc(ds.title)} — Sistema de gestión de Corta estancia</h1>
     </div>
     <div class="meta">Generado: ${new Date().toLocaleString('es-MX')} · ${ds.rows.length} registro(s)</div>
     <table>
@@ -20153,7 +20153,13 @@ function incRowToReportData(row) {
     descripcion:     String(row['Descripcion'] || ''),
     acciones:        String(row['Acciones'] || ''),
     seguimiento:     String(row['Seguimiento'] || ''),
-    fotos:           fotosUrls.map((u, i) => ({ src: u, name: `Foto ${i + 1}` })),
+    // Cualquier URL (viejas viewer o nuevas thumbnail) pasa por el
+    // proxy de Cloud Run que la baja server-side y la stream-ea como
+    // imagen real. Bypassa CORS/hot-link blocking de Drive.
+    fotos: fotosUrls.map((u, i) => ({
+      src: u ? `${BACKEND}/huespedes-image-proxy?url=${encodeURIComponent(u)}&size=w1600` : u,
+      name: `Foto ${i + 1}`,
+    })),
   };
 }
 
