@@ -202,9 +202,18 @@
           <span class="hb-line"></span><span class="hb-line"></span><span class="hb-line"></span>
         </button>
         <div class="header-logo" style="display:flex;align-items:center;gap:12px">
-          <img src="https://drive.google.com/thumbnail?id=1We0TuuoTb0fDa5xLVMzDqzMZZWwgkb0v&sz=w600"
-               alt="Logo"
-               style="height:90px;width:auto;max-width:220px;object-fit:contain;background:transparent;padding:0;border-radius:0;box-shadow:none;margin-top:-21px;margin-bottom:-21px">
+          <!-- Logo animado (pin 3D + texto Check-inn) — mismo del Portal del huésped.
+               size-md ≈ 36px, aprox la mitad del logo estático anterior (90px). -->
+          <div class="checkinn-loader size-md header-logo-anim" role="img" aria-label="Check-inn Saltillo">
+            <div class="ci-pin-scene">
+              <div class="ci-pin">
+                <div class="ci-face front"><img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt=""></div>
+                <div class="ci-face back"><img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt=""></div>
+                <img class="ci-spacer" src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt="">
+              </div>
+            </div>
+            <img class="ci-text" src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png" alt="Check-inn">
+          </div>
           <div class="logo-text">
             <h1>Sistema de gestión de Corta estancia</h1>
             <span>Check Inn Saltillo</span>
