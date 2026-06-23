@@ -5215,3 +5215,18 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
 .ocup-chart-legend-swatch {
   width: 14px; height: 3px; border-radius: 2px;
 }
+
+/* Total $ debajo del porcentaje en celdas de Indicadores */
+.ocup-cell-revenue {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #16a34a;
+  text-align: right;
+  letter-spacing: .01em;
+}
+.ocup-cell-revenue-total {
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 12px;
+}

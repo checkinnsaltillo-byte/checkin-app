@@ -22286,17 +22286,48 @@ document.addEventListener('click', (e) => {
   document.querySelectorAll('#ocup-filters .inc-mselect-panel').forEach(p => p.classList.add('hidden'));
 });
 
+// IMPORTANTE — los multi-select dropdowns NO se cierran al marcar.
+// Por eso aquí NUNCA reconstruimos el HTML del dropdown que el usuario
+// está manipulando: solo actualizamos su label y re-renderizamos el
+// área de resultados. Para el caso de cascada (propiedades → alojs)
+// reconstruimos SOLO el dropdown dependiente (alojamientos), nunca
+// el que el usuario tiene abierto.
+function ocupUpdateMSelectLabel(filterKey, optionsAll) {
+  const container = document.querySelector(`#ocup-filters .inc-mselect[data-filter="${filterKey}"]`);
+  if (!container) return;
+  const lbl = container.querySelector('.inc-mselect-btn-lbl');
+  if (lbl) lbl.textContent = ocupMSelectLabel(filterKey, optionsAll);
+}
+
+function ocupOptionsForFilter(key) {
+  if (key === 'meses') return ocupGetMonthRange().map(m => ({ value: m.key, label: ocupMonthYearLabel(m.year, m.month) }));
+  if (key === 'propiedades') {
+    const alojs = ocupGetAlojamientos();
+    const set = new Set(alojs.map(a => a.propiedad));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es')).map(p => ({ value: p, label: p }));
+  }
+  if (key === 'alojamientos') {
+    const alojs = ocupGetAlojamientos();
+    const visibles = alojs.filter(a => OCUP_STATE.filters.propiedades.size === 0 || OCUP_STATE.filters.propiedades.has(a.propiedad));
+    return visibles.map(a => ({ value: a.houseId, label: a.nombre }));
+  }
+  return [];
+}
+
 window.ocupToggleFilter = function (key, value, checked) {
   if (checked) OCUP_STATE.filters[key].add(value);
   else OCUP_STATE.filters[key].delete(value);
-  // Cascada: si se cambia propiedades, depurar alojamientos
+  // Actualiza SOLO el label del filtro tocado
+  ocupUpdateMSelectLabel(key, ocupOptionsForFilter(key));
+  // Cascada: propiedades → alojamientos
   if (key === 'propiedades') {
     const alojs = ocupGetAlojamientos();
     OCUP_STATE.filters.alojamientos = new Set(
       alojs.filter(a => OCUP_STATE.filters.propiedades.has(a.propiedad)).map(a => a.houseId)
     );
+    // Re-build SOLO el dropdown de alojamientos (no el que el user tiene abierto)
+    ocupBuildMSelect('ocup-f-aloj', 'alojamientos', ocupOptionsForFilter('alojamientos'));
   }
-  ocupRenderFilters();
   ocupRefreshCurrentView();
 };
 
@@ -22305,17 +22336,26 @@ window.ocupFilterSetAll = function (key) {
   else if (key === 'propiedades') {
     OCUP_STATE.filters.propiedades = new Set(ocupGetAlojamientos().map(a => a.propiedad));
     OCUP_STATE.filters.alojamientos = new Set(ocupGetAlojamientos().map(a => a.houseId));
+    ocupBuildMSelect('ocup-f-aloj', 'alojamientos', ocupOptionsForFilter('alojamientos'));
   } else if (key === 'alojamientos') {
     const visibles = ocupGetAlojamientos().filter(a => OCUP_STATE.filters.propiedades.has(a.propiedad));
     OCUP_STATE.filters.alojamientos = new Set(visibles.map(a => a.houseId));
   }
-  ocupRenderFilters();
+  // Marca todos los checkboxes visibles del filtro tocado (in-place)
+  const cbs = document.querySelectorAll(`#ocup-filters .inc-mselect[data-filter="${key}"] input[type="checkbox"]`);
+  cbs.forEach(cb => { cb.checked = true; });
+  ocupUpdateMSelectLabel(key, ocupOptionsForFilter(key));
   ocupRefreshCurrentView();
 };
 window.ocupFilterSetNone = function (key) {
   OCUP_STATE.filters[key] = new Set();
-  if (key === 'propiedades') OCUP_STATE.filters.alojamientos = new Set();
-  ocupRenderFilters();
+  if (key === 'propiedades') {
+    OCUP_STATE.filters.alojamientos = new Set();
+    ocupBuildMSelect('ocup-f-aloj', 'alojamientos', ocupOptionsForFilter('alojamientos'));
+  }
+  const cbs = document.querySelectorAll(`#ocup-filters .inc-mselect[data-filter="${key}"] input[type="checkbox"]`);
+  cbs.forEach(cb => { cb.checked = false; });
+  ocupUpdateMSelectLabel(key, ocupOptionsForFilter(key));
   ocupRefreshCurrentView();
 };
 
@@ -22325,28 +22365,58 @@ function ocupRefreshCurrentView() {
 }
 
 // ─── Cálculo de ocupación ───
-// Cuenta NOCHES de un alojamiento en un mes (year, month 0-indexed).
-// Una "noche" = un día entre arrival (incl) y departure (excl) que cae
-// dentro del mes. La capacidad total del mes = días del mes.
+// Considera SOLO reservas confirmadas (status "Booked", case-insensitive).
+// Excluye Tentative, Open, Declined, Expired, Cancelled, etc.
+function ocupIsConfirmed(b) {
+  const s = String(b && b.Status || '').trim().toLowerCase();
+  return s === 'booked';
+}
+
+// Cuenta NOCHES + REVENUE de un alojamiento en un mes (year, month 0-indexed).
+// - Una "noche" = un día entre arrival (incl) y departure (excl) dentro
+//   del mes. La capacidad total del mes = días del mes.
+// - Revenue = sum(Gross × nochesEnEsteMes / nochesTotalesDeLaReserva)
+//   (asignación proporcional cuando la estancia cruza varios meses).
+// Solo reservas con status "Booked" (confirmadas).
 function ocupNightsForAloj(houseId, y, m) {
   const bookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
   const monthStart = new Date(y, m, 1);
-  const monthEnd = new Date(y, m + 1, 1); // exclusivo
-  let occupied = 0;
+  const monthEnd = new Date(y, m + 1, 1);
+  let occupied = 0, revenue = 0, currency = '';
   bookings.forEach(b => {
     if (String(b.HouseId || '') !== String(houseId)) return;
-    if (b.Status && /cancel/i.test(b.Status)) return;
+    if (!ocupIsConfirmed(b)) return;
     const arr = ocupParseDate(b.DateArrival);
     const dep = ocupParseDate(b.DateDeparture);
     if (!arr || !dep) return;
     const a = arr < monthStart ? monthStart : arr;
     const d = dep > monthEnd ? monthEnd : dep;
-    const nights = Math.max(0, Math.round((d - a) / 86400000));
-    occupied += nights;
+    const nightsInMonth = Math.max(0, Math.round((d - a) / 86400000));
+    if (nightsInMonth <= 0) return;
+    occupied += nightsInMonth;
+    const totalNights = Math.max(1, Math.round((dep - arr) / 86400000));
+    const gross = Number(b.Gross || 0);
+    if (isFinite(gross) && gross > 0) {
+      revenue += gross * (nightsInMonth / totalNights);
+      if (!currency && b.Currency) currency = String(b.Currency);
+    }
   });
   const total = new Date(y, m + 1, 0).getDate();
-  return { occupied, total, percent: total ? (occupied * 100 / total) : 0 };
+  return { occupied, total, percent: total ? (occupied * 100 / total) : 0, revenue, currency: currency || 'MXN' };
 }
+
+function ocupFmtMoney(n, ccy) {
+  if (!n) return '$0';
+  try {
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: ccy || 'MXN', maximumFractionDigits: 0 }).format(n);
+  } catch (_) {
+    return '$' + Math.round(n).toLocaleString('es-MX');
+  }
+}
+
+// También para el canalsync (bookings de calendario): respeta el mismo
+// criterio. ocupRender usa byHouse → necesita filtrar canceladas igual.
+// Para no romper el calendario, mantenemos su filtro propio inline.
 
 function ocupPercentClass(pct) {
   if (pct < 50) return 'lvl-low';
@@ -22375,12 +22445,14 @@ function ocupRenderTable() {
   head += `<th class="ocup-th-avg">Promedio (${selectedMonthKeys.size} ${selectedMonthKeys.size === 1 ? 'mes' : 'meses'})</th></tr>`;
   // Rows
   const rows = alojs.map(a => {
-    let totalOccupied = 0, totalCapacity = 0;
+    let totalOccupied = 0, totalCapacity = 0, totalRevenue = 0, ccyAcc = 'MXN';
     const cells = months.map(m => {
       const r = ocupNightsForAloj(a.houseId, m.year, m.month);
       if (selectedMonthKeys.has(m.key)) {
         totalOccupied += r.occupied;
         totalCapacity += r.total;
+        totalRevenue += r.revenue;
+        if (r.currency) ccyAcc = r.currency;
       }
       const pct = r.percent;
       const cls = ocupPercentClass(pct);
@@ -22392,6 +22464,7 @@ function ocupRenderTable() {
         <div class="ocup-cell-bar">
           <div class="ocup-cell-bar-fill ${cls}" style="width:${Math.min(100, pct).toFixed(1)}%"></div>
         </div>
+        <div class="ocup-cell-revenue">${esc(ocupFmtMoney(r.revenue, r.currency))}</div>
       </td>`;
     }).join('');
     const avgPct = totalCapacity ? (totalOccupied * 100 / totalCapacity) : 0;
@@ -22404,6 +22477,7 @@ function ocupRenderTable() {
       <div class="ocup-cell-bar">
         <div class="ocup-cell-bar-fill ${avgCls}" style="width:${Math.min(100, avgPct).toFixed(1)}%"></div>
       </div>
+      <div class="ocup-cell-revenue ocup-cell-revenue-total">${esc(ocupFmtMoney(totalRevenue, ccyAcc))}</div>
     </td>`;
     return `<tr><td class="ocup-td-aloj">${esc(a.nombre)}</td>${cells}${avgCell}</tr>`;
   }).join('');
