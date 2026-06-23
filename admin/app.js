@@ -20987,6 +20987,7 @@ function objGetFormData() {
     reportante: document.getElementById('obj-reportante')?.value || '',
     categoria: document.getElementById('obj-categoria')?.value || '',
     categoria_otro: (document.getElementById('obj-categoria-otro')?.value || '').trim(),
+    descripcion: (document.getElementById('obj-descripcion')?.value || '').trim(),
     lugar_resguardo: document.getElementById('obj-lugar')?.value || '',
     lugar_otro: (document.getElementById('obj-lugar-otro')?.value || '').trim(),
     comentarios: (document.getElementById('obj-comentarios')?.value || '').trim(),
@@ -21041,6 +21042,8 @@ function objBuildReporteHtml(d) {
     </div>
 
     ${d.entregado_a ? block('Entregado a', `<div style="font-size:12px;color:#1f2937">${esc(d.entregado_a)}</div>`) : ''}
+
+    ${d.descripcion ? block('Descripción del objeto', `<div style="font-size:12px;color:#1f2937;line-height:1.5">${esc(d.descripcion).replace(/\n/g, '<br>')}</div>`) : ''}
 
     ${block('Comentarios', `<div style="font-size:12px;color:#1f2937;line-height:1.5">${esc(d.comentarios || 'Sin comentarios').replace(/\n/g, '<br>')}</div>`)}
 
@@ -21120,8 +21123,10 @@ img { max-width:100% }
 
 window.objGuardarSalir = async function () {
   const d = objGetFormData();
-  if (!d.propiedad || !d.depto) {
-    alert('Selecciona Propiedad y # Departamento antes de guardar.');
+  // # Departamento ya NO es obligatorio (puede haber objetos hallados
+  // en áreas comunes sin departamento asociado).
+  if (!d.propiedad) {
+    alert('Selecciona una Propiedad antes de guardar.');
     return;
   }
   if (!d.categoria) {
@@ -21140,6 +21145,7 @@ window.objGuardarSalir = async function () {
     propiedad: d.propiedad, depto: d.depto, alojamiento: d.alojamiento,
     reportante: d.reportante,
     categoria: d.categoria, categoria_otro: d.categoria_otro,
+    descripcion: d.descripcion,
     lugar_resguardo: d.lugar_resguardo, lugar_otro: d.lugar_otro,
     comentarios: d.comentarios,
   };
@@ -21484,6 +21490,7 @@ function objRowToReportData(row) {
     reportante:       String(row['Reportante'] || ''),
     categoria:        String(row['Categoria'] || ''),
     categoria_otro:   String(row['Categoria_otro'] || ''),
+    descripcion:      String(row['Descripcion'] || ''),
     lugar_resguardo:  String(row['Lugar_resguardo'] || ''),
     lugar_otro:       String(row['Lugar_otro'] || ''),
     comentarios:      String(row['Comentarios'] || ''),
@@ -21560,6 +21567,10 @@ function objCardBodyHtmlEditable(row, id) {
       <div style="margin-top:8px;${d.categoria === 'Otro' ? '' : 'display:none'}" data-edit-otro="categoria">
         <label class="inc-label">Especificar categoría</label>
         <input type="text" class="inc-input" data-edit-field="categoria_otro" value="${esc(d.categoria_otro)}" oninput="objEditOnChange('${esc(id)}')">
+      </div>
+      <div style="margin-top:10px">
+        <label class="inc-label">Descripción</label>
+        <textarea class="inc-input" data-edit-field="descripcion" rows="2" oninput="objEditOnChange('${esc(id)}')">${esc(d.descripcion)}</textarea>
       </div>
     </div>
 
@@ -21756,6 +21767,7 @@ window.objSaveEdit = async function (id) {
         entregado_a: 'Entregado_a', propiedad: 'Propiedad', depto: '# Departamento',
         alojamiento: 'Alojamiento', reportante: 'Reportante',
         categoria: 'Categoria', categoria_otro: 'Categoria_otro',
+        descripcion: 'Descripcion',
         lugar_resguardo: 'Lugar_resguardo', lugar_otro: 'Lugar_otro',
         comentarios: 'Comentarios',
       };

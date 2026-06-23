@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema de gestión de Corta estancia | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=110">
+  <link rel="stylesheet" href="styles.css?v=111">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1577,7 +1577,7 @@
         <div id="obj-capture-backdrop" class="inc-capture-backdrop hidden" onclick="objCerrarCaptura()"></div>
         <div id="obj-capture-panel" class="inc-capture-panel hidden">
           <div class="inc-capture-header">
-            <h2 style="margin:0;font-size:16px;color:#0f172a">🧳 Registro de objeto</h2>
+            <h2 style="margin:0;font-size:16px;color:#0f172a">🧳 Registro de objeto olvidado</h2>
             <button type="button" onclick="objCerrarCaptura()" class="inc-capture-close" title="Cerrar">✕</button>
           </div>
           <div id="obj-form" style="padding:16px">
@@ -1628,6 +1628,10 @@
               <div id="obj-categoria-otro-wrap" style="margin-top:8px;display:none">
                 <label class="inc-label">Especificar categoría</label>
                 <input type="text" id="obj-categoria-otro" class="inc-input" placeholder="Describe la categoría">
+              </div>
+              <div style="margin-top:10px">
+                <label class="inc-label">Descripción</label>
+                <textarea id="obj-descripcion" class="inc-input" rows="2" placeholder="Describe el objeto (marca, color, tamaño, características distintivas)."></textarea>
               </div>
             </div>
 
@@ -1837,6 +1841,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=395"></script>
+  <script src="app.js?v=396"></script>
 </body>
 </html>

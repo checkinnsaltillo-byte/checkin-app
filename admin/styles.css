@@ -3925,7 +3925,8 @@ input[type="checkbox"].lg-multi-cb {
   cursor: pointer;
 }
 .inc-capture-close:hover { background: #e2e8f0; color: #0f172a; }
-.inc-capture-panel #inc-form { overflow-y: auto; flex: 1; padding-bottom: 24px !important; }
+.inc-capture-panel #inc-form,
+.inc-capture-panel #obj-form { overflow-y: auto; flex: 1; padding-bottom: 24px !important; }
 
 /* Footer sticky con botones de acción — siempre visible al pie del
    panel. Antes los botones quedaban dentro del scroll del form y en
