@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema Financiero | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=105">
+  <link rel="stylesheet" href="styles.css?v=106">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -120,6 +120,10 @@
         <button class="nav-close-btn" onclick="closeNavMenu()">✕</button>
       </div>
       <ul class="nav-menu">
+        <li class="nav-item" id="nav-item-home"
+            onclick="switchModule('home');closeNavMenu()">
+          🏠 Inicio
+        </li>
         <li class="nav-item active" id="nav-item-registros"
             onclick="switchModule('registros');closeNavMenu()">
           📚 Registros contables
@@ -208,6 +212,59 @@
         </div>
       </div>
     </header>
+
+    <!-- ══ MÓDULO: Home (pantalla de bienvenida con cards de módulos) ══ -->
+    <div id="module-home" class="hidden">
+      <div class="home-wrap">
+        <div class="home-hero">
+          <div class="home-hero-eyebrow">Bienvenido</div>
+          <h1 class="home-hero-title">Sistema Financiero</h1>
+          <p class="home-hero-sub">Selecciona un módulo para comenzar</p>
+        </div>
+        <div class="home-grid">
+          <button type="button" class="home-card home-card-registros" onclick="switchModule('registros')">
+            <div class="home-card-icon">📚</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Registros contables</h3>
+              <p class="home-card-desc">Movimientos bancarios, clasificación, indicadores y planeación.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-tickets" onclick="switchModule('tickets');switchSection('capturados')">
+            <div class="home-card-icon">🎫</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Tickets</h3>
+              <p class="home-card-desc">Captura, OCR y gestión de tickets y comprobantes de gasto.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-lodgify" onclick="switchModule('lodgify')">
+            <div class="home-card-icon">🌐</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Gestión de reservas</h3>
+              <p class="home-card-desc">Reservaciones Lodgify, huéspedes, facturación y cobros.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-breezeway" onclick="switchModule('breezeway')">
+            <div class="home-card-icon">🧹</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Breezeway</h3>
+              <p class="home-card-desc">Tareas operativas de limpieza, mantenimiento e inspecciones.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-incidencias" onclick="switchModule('incidencias')">
+            <div class="home-card-icon">🚨</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Incidencias</h3>
+              <p class="home-card-desc">Reportes de limpieza y mantenimiento con evidencia fotográfica.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+        </div>
+      </div>
+    </div><!-- /module-home -->
 
     <!-- ══ MÓDULO: Tickets ══════════════════════════════════════ -->
     <div id="module-tickets" class="hidden">
@@ -1603,6 +1660,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=389"></script>
+  <script src="app.js?v=390"></script>
 </body>
 </html>

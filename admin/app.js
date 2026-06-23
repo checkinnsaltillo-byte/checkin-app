@@ -341,9 +341,9 @@ function tryLogin() {
   document.getElementById("loginOverlay")?.classList.add("hidden");
   document.getElementById("app-root")?.classList.remove("hidden");
   const _ub = document.getElementById("current-user-badge"); if (_ub) _ub.textContent = currentUser.toUpperCase();
-  // Módulo predeterminado: Reservas Lodgify (la carga real es asíncrona y
-  // muestra un spinner mientras tanto; no bloquea la UI).
-  setTimeout(() => { try { switchModule("lodgify"); } catch(_) {} }, 0);
+  // Pantalla de bienvenida: el usuario elige el módulo. Sin carga pesada
+  // — los módulos cargan datos solo cuando el usuario los abre.
+  setTimeout(() => { try { switchModule("home"); } catch(_) {} }, 0);
 }
 
 function handleLoginKey(e) {
@@ -397,8 +397,8 @@ window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("loginOverlay")?.classList.add("hidden");
     document.getElementById("app-root")?.classList.remove("hidden");
     const ub = document.getElementById("current-user-badge"); if (ub) ub.textContent = "ADMIN (dev)";
-    // Cargar automáticamente el módulo Registros contables al entrar
-    setTimeout(() => { try { switchModule("lodgify"); } catch(_) {} }, 0);
+    // Pantalla de bienvenida (home) — el usuario elige el módulo.
+    setTimeout(() => { try { switchModule("home"); } catch(_) {} }, 0);
   } else {
     document.getElementById("loginOverlay")?.classList.remove("hidden");
     document.getElementById("app-root")?.classList.add("hidden");
@@ -8182,7 +8182,7 @@ function esc(v) {
 
 /** Cambia entre módulos de nivel superior */
 function switchModule(mod) {
-  ["tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== mod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === mod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === mod);
