@@ -22414,6 +22414,83 @@ function ocupFmtMoney(n, ccy) {
   }
 }
 
+// Stats extendidos por (alojamiento, mes): además de noches y revenue
+// devuelve # reservas, precio prom/noche, precio prom/reserva,
+// duración promedio y noches por canal. Solo reservas confirmadas.
+function ocupStatsForAloj(houseId, y, m) {
+  const bookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+  const monthStart = new Date(y, m, 1);
+  const monthEnd = new Date(y, m + 1, 1);
+  let occupied = 0, revenue = 0, currency = '';
+  let resCount = 0, durationSum = 0;
+  const byChannel = new Map();
+  bookings.forEach(b => {
+    if (String(b.HouseId || '') !== String(houseId)) return;
+    if (!ocupIsConfirmed(b)) return;
+    const arr = ocupParseDate(b.DateArrival);
+    const dep = ocupParseDate(b.DateDeparture);
+    if (!arr || !dep) return;
+    const a = arr < monthStart ? monthStart : arr;
+    const d = dep > monthEnd ? monthEnd : dep;
+    const nightsInMonth = Math.max(0, Math.round((d - a) / 86400000));
+    if (nightsInMonth <= 0) return;
+    occupied += nightsInMonth;
+    const totalNights = Math.max(1, Math.round((dep - arr) / 86400000));
+    const gross = Number(b.Gross || 0);
+    if (isFinite(gross) && gross > 0) {
+      revenue += gross * (nightsInMonth / totalNights);
+      if (!currency && b.Currency) currency = String(b.Currency);
+    }
+    resCount++;
+    durationSum += totalNights;
+    const ch = (String(b.Source || 'Direct').trim()) || 'Direct';
+    byChannel.set(ch, (byChannel.get(ch) || 0) + nightsInMonth);
+  });
+  const total = new Date(y, m + 1, 0).getDate();
+  return {
+    occupied, total, percent: total ? (occupied * 100 / total) : 0,
+    revenue, currency: currency || 'MXN',
+    resCount,
+    avgPriceNight: occupied ? (revenue / occupied) : 0,
+    avgPriceRes: resCount ? (revenue / resCount) : 0,
+    avgDuration: resCount ? (durationSum / resCount) : 0,
+    byChannel: Array.from(byChannel.entries()), // [['Airbnb', 15], ...]
+  };
+}
+
+// Color por canal (consistente con calendario)
+function ocupChannelColor(src) {
+  const s = String(src || '').toLowerCase();
+  if (s.includes('airbnb')) return '#dc2626';
+  if (s.includes('booking')) return '#1e40af';
+  if (s.includes('expedia')) return '#d97706';
+  if (s.includes('vrbo')) return '#16a34a';
+  if (s.includes('manual') || s.includes('direct')) return '#7c3aed';
+  return '#64748b';
+}
+
+// Renderiza un mini bar stacked horizontal de noches por canal
+function ocupChannelBarHtml(byChannel) {
+  if (!byChannel || !byChannel.length) {
+    return '<div class="ocup-cell-channels-empty">—</div>';
+  }
+  const total = byChannel.reduce((s, [, n]) => s + n, 0);
+  if (!total) return '<div class="ocup-cell-channels-empty">—</div>';
+  const sorted = byChannel.slice().sort((a, b) => b[1] - a[1]);
+  const segs = sorted.map(([ch, n]) => {
+    const w = (n / total * 100).toFixed(1);
+    const col = ocupChannelColor(ch);
+    return `<div class="ocup-cell-channel-seg" style="width:${w}%;background:${col}" title="${esc(ch)}: ${n} noche${n===1?'':'s'} (${Math.round(n/total*100)}%)"></div>`;
+  }).join('');
+  const labels = sorted.slice(0, 3).map(([ch, n]) => {
+    const col = ocupChannelColor(ch);
+    return `<span class="ocup-cell-channel-tag" style="--ch-color:${col}"><span class="ocup-cell-channel-dot"></span>${esc(ch.slice(0,8))} ${n}</span>`;
+  }).join('');
+  return `
+    <div class="ocup-cell-channel-bar">${segs}</div>
+    <div class="ocup-cell-channel-labels">${labels}</div>`;
+}
+
 // También para el canalsync (bookings de calendario): respeta el mismo
 // criterio. ocupRender usa byHouse → necesita filtrar canceladas igual.
 // Para no romper el calendario, mantenemos su filtro propio inline.
@@ -22422,6 +22499,46 @@ function ocupPercentClass(pct) {
   if (pct < 50) return 'lvl-low';
   if (pct < 80) return 'lvl-mid';
   return 'lvl-good';
+}
+
+// Helper: HTML de una celda de Indicadores (extendida).
+function ocupCellHtml(r, isAvg) {
+  const pct = r.percent;
+  const cls = ocupPercentClass(pct);
+  const tdCls = isAvg ? 'ocup-td-month ocup-td-avg' : 'ocup-td-month';
+  return `<td class="${tdCls}">
+    <div class="ocup-cell-line">
+      <span class="ocup-cell-nights">${r.occupied}/${r.total} noches</span>
+      <span class="ocup-cell-pct">${Math.round(pct)}%</span>
+    </div>
+    <div class="ocup-cell-bar">
+      <div class="ocup-cell-bar-fill ${cls}" style="width:${Math.min(100, pct).toFixed(1)}%"></div>
+    </div>
+    <div class="ocup-cell-stats">
+      <div class="ocup-cell-stat-row">
+        <span class="ocup-cell-stat-icon">💰</span>
+        <span class="ocup-cell-stat-label">$/noche</span>
+        <span class="ocup-cell-stat-val">${esc(ocupFmtMoney(r.avgPriceNight, r.currency))}</span>
+      </div>
+      <div class="ocup-cell-stat-row">
+        <span class="ocup-cell-stat-icon">🧾</span>
+        <span class="ocup-cell-stat-label">$/reserva</span>
+        <span class="ocup-cell-stat-val">${esc(ocupFmtMoney(r.avgPriceRes, r.currency))}</span>
+      </div>
+      <div class="ocup-cell-stat-row">
+        <span class="ocup-cell-stat-icon">📋</span>
+        <span class="ocup-cell-stat-label">Reservas</span>
+        <span class="ocup-cell-stat-val">${r.resCount}</span>
+      </div>
+      <div class="ocup-cell-stat-row">
+        <span class="ocup-cell-stat-icon">⏱</span>
+        <span class="ocup-cell-stat-label">Duración prom.</span>
+        <span class="ocup-cell-stat-val">${r.avgDuration ? r.avgDuration.toFixed(1) : '—'} ${r.avgDuration ? (r.avgDuration === 1 ? 'noche' : 'noches') : ''}</span>
+      </div>
+    </div>
+    <div class="ocup-cell-channels">${ocupChannelBarHtml(r.byChannel)}</div>
+    <div class="ocup-cell-revenue ${isAvg ? 'ocup-cell-revenue-total' : ''}">${esc(ocupFmtMoney(r.revenue, r.currency))}</div>
+  </td>`;
 }
 
 // ─── Vista Indicadores (tabla) ───
@@ -22443,43 +22560,36 @@ function ocupRenderTable() {
   let head = `<tr><th class="ocup-th-aloj">Alojamiento</th>`;
   months.forEach(m => { head += `<th>${esc(m.key)}</th>`; });
   head += `<th class="ocup-th-avg">Promedio (${selectedMonthKeys.size} ${selectedMonthKeys.size === 1 ? 'mes' : 'meses'})</th></tr>`;
-  // Rows
+  // Rows con celda extendida (noches + %, $/noche, $/res, # reservas,
+  // duración prom y barra de canales)
   const rows = alojs.map(a => {
-    let totalOccupied = 0, totalCapacity = 0, totalRevenue = 0, ccyAcc = 'MXN';
+    // Acumuladores para promedio
+    let tOcc = 0, tCap = 0, tRev = 0, tRes = 0, tDur = 0, ccyAcc = 'MXN';
+    const tByCh = new Map();
     const cells = months.map(m => {
-      const r = ocupNightsForAloj(a.houseId, m.year, m.month);
+      const r = ocupStatsForAloj(a.houseId, m.year, m.month);
       if (selectedMonthKeys.has(m.key)) {
-        totalOccupied += r.occupied;
-        totalCapacity += r.total;
-        totalRevenue += r.revenue;
+        tOcc += r.occupied;
+        tCap += r.total;
+        tRev += r.revenue;
+        tRes += r.resCount;
+        tDur += r.avgDuration * r.resCount; // sum de duraciones totales
         if (r.currency) ccyAcc = r.currency;
+        r.byChannel.forEach(([ch, n]) => tByCh.set(ch, (tByCh.get(ch) || 0) + n));
       }
-      const pct = r.percent;
-      const cls = ocupPercentClass(pct);
-      return `<td class="ocup-td-month">
-        <div class="ocup-cell-line">
-          <span>${r.occupied}/${r.total} noches</span>
-          <span class="ocup-cell-pct">${Math.round(pct)}%</span>
-        </div>
-        <div class="ocup-cell-bar">
-          <div class="ocup-cell-bar-fill ${cls}" style="width:${Math.min(100, pct).toFixed(1)}%"></div>
-        </div>
-        <div class="ocup-cell-revenue">${esc(ocupFmtMoney(r.revenue, r.currency))}</div>
-      </td>`;
+      return ocupCellHtml(r, false);
     }).join('');
-    const avgPct = totalCapacity ? (totalOccupied * 100 / totalCapacity) : 0;
-    const avgCls = ocupPercentClass(avgPct);
-    const avgCell = `<td class="ocup-td-month">
-      <div class="ocup-cell-line">
-        <span>${totalOccupied}/${totalCapacity} noches</span>
-        <span class="ocup-cell-pct">${Math.round(avgPct)}%</span>
-      </div>
-      <div class="ocup-cell-bar">
-        <div class="ocup-cell-bar-fill ${avgCls}" style="width:${Math.min(100, avgPct).toFixed(1)}%"></div>
-      </div>
-      <div class="ocup-cell-revenue ocup-cell-revenue-total">${esc(ocupFmtMoney(totalRevenue, ccyAcc))}</div>
-    </td>`;
-    return `<tr><td class="ocup-td-aloj">${esc(a.nombre)}</td>${cells}${avgCell}</tr>`;
+    const avgPct = tCap ? (tOcc * 100 / tCap) : 0;
+    const avgStats = {
+      occupied: tOcc, total: tCap, percent: avgPct,
+      revenue: tRev, currency: ccyAcc,
+      resCount: tRes,
+      avgPriceNight: tOcc ? tRev / tOcc : 0,
+      avgPriceRes: tRes ? tRev / tRes : 0,
+      avgDuration: tRes ? tDur / tRes : 0,
+      byChannel: Array.from(tByCh.entries()),
+    };
+    return `<tr><td class="ocup-td-aloj">${esc(a.nombre)}</td>${cells}${ocupCellHtml(avgStats, true)}</tr>`;
   }).join('');
   cont.innerHTML = `<table class="ocup-table"><thead>${head}</thead><tbody>${rows}</tbody></table>`;
 }
@@ -22931,13 +23041,18 @@ function ocupRenderChart() {
           <rect class="ocup-gx-brush-out" x="${brushML}" y="${brushMT}" width="${brushStartPx - brushML}" height="${brushInnerH}"></rect>
           <rect class="ocup-gx-brush-out" x="${brushEndPx}" y="${brushMT}" width="${brushW - brushMR - brushEndPx}" height="${brushInnerH}"></rect>
           <rect class="ocup-gx-brush-window" id="ocup-gx-brush-window" x="${brushStartPx}" y="${brushMT}" width="${brushEndPx - brushStartPx}" height="${brushInnerH}" rx="3"></rect>
+          <!-- Handles con hit-area amplia (20px transparente) + visible
+               'tab' al centro. Renderizados al final para quedar arriba
+               del window/out y poder agarrarlos siempre. -->
           <g id="ocup-gx-brush-handle-left" class="ocup-gx-brush-handle" data-handle="left">
-            <rect x="${brushStartPx - 4}" y="${brushMT}" width="8" height="${brushInnerH}" rx="2"></rect>
-            <rect class="ocup-gx-brush-handle-bar" x="${brushStartPx - 1}" y="${brushMT + brushInnerH / 2 - 6}" width="2" height="12"></rect>
+            <rect x="${brushStartPx - 10}" y="${brushMT - 4}" width="20" height="${brushInnerH + 8}" fill="transparent" pointer-events="all"></rect>
+            <rect x="${brushStartPx - 5}" y="${brushMT}" width="10" height="${brushInnerH}" rx="3" pointer-events="all"></rect>
+            <rect class="ocup-gx-brush-handle-bar" x="${brushStartPx - 1}" y="${brushMT + brushInnerH / 2 - 7}" width="2" height="14" pointer-events="none"></rect>
           </g>
           <g id="ocup-gx-brush-handle-right" class="ocup-gx-brush-handle" data-handle="right">
-            <rect x="${brushEndPx - 4}" y="${brushMT}" width="8" height="${brushInnerH}" rx="2"></rect>
-            <rect class="ocup-gx-brush-handle-bar" x="${brushEndPx - 1}" y="${brushMT + brushInnerH / 2 - 6}" width="2" height="12"></rect>
+            <rect x="${brushEndPx - 10}" y="${brushMT - 4}" width="20" height="${brushInnerH + 8}" fill="transparent" pointer-events="all"></rect>
+            <rect x="${brushEndPx - 5}" y="${brushMT}" width="10" height="${brushInnerH}" rx="3" pointer-events="all"></rect>
+            <rect class="ocup-gx-brush-handle-bar" x="${brushEndPx - 1}" y="${brushMT + brushInnerH / 2 - 7}" width="2" height="14" pointer-events="none"></rect>
           </g>
           ${brushLabels}
         </svg>
