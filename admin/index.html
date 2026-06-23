@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema de gestión de Corta estancia | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=111">
+  <link rel="stylesheet" href="styles.css?v=112">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -186,6 +186,10 @@
             onclick="switchModule('objetos');closeNavMenu()">
           🧳 Objetos olvidados
         </li>
+        <li class="nav-item" id="nav-item-ocupacion"
+            onclick="switchModule('ocupacion');closeNavMenu()">
+          📅 Ocupación
+        </li>
       </ul>
       <div style="margin-top:auto;padding:16px;border-top:1px solid var(--border,#e5e7eb);display:flex;flex-direction:column;gap:10px;align-items:stretch">
         <button id="btn-dark-mode" onclick="toggleDarkMode()" title="Alternar tema claro/oscuro"
@@ -280,6 +284,14 @@
             <div class="home-card-body">
               <h3 class="home-card-title">Objetos olvidados</h3>
               <p class="home-card-desc">Registro y devolución de objetos encontrados en los alojamientos.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-ocupacion" onclick="switchModule('ocupacion')">
+            <div class="home-card-icon">📅</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Ocupación</h3>
+              <p class="home-card-desc">Calendario mensual de reservas Lodgify por alojamiento.</p>
             </div>
             <div class="home-card-arrow">→</div>
           </button>
@@ -1689,6 +1701,44 @@
       </div>
     </div><!-- /module-objetos -->
 
+    <!-- ═══════════════ MÓDULO OCUPACIÓN — calendario de reservas ═══════════════ -->
+    <div id="module-ocupacion" class="hidden">
+      <div class="ocup-shell">
+        <!-- Toolbar superior -->
+        <div class="ocup-toolbar">
+          <div class="ocup-toolbar-left">
+            <h2 class="ocup-month-label">
+              <span id="ocup-month-name">—</span>
+              <span class="ocup-month-year" id="ocup-month-year">—</span>
+            </h2>
+          </div>
+          <div class="ocup-toolbar-right">
+            <button type="button" class="ocup-nav-btn" onclick="ocupNavMonth(-1)" title="Mes anterior">‹</button>
+            <button type="button" class="ocup-nav-btn" onclick="ocupNavMonth(1)" title="Mes siguiente">›</button>
+            <button type="button" class="ocup-today-btn" onclick="ocupGoToday()" title="Ir a hoy">📅 Ir a hoy</button>
+            <button type="button" class="ocup-reload-btn" onclick="ocupReload(true)" title="Sincronizar con Lodgify">🔄</button>
+          </div>
+        </div>
+
+        <!-- Calendario -->
+        <div id="ocup-cal-container" class="ocup-cal-container">
+          <div id="ocup-cal-loading" style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px">
+            ⏳ Cargando reservas…
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel lateral de detalle (slide-in desde derecha) -->
+      <div id="ocup-detail-backdrop" class="ocup-detail-backdrop hidden" onclick="ocupCloseDetail()"></div>
+      <aside id="ocup-detail-panel" class="ocup-detail-panel hidden">
+        <div class="ocup-detail-header">
+          <h3 style="margin:0;font-size:14px;color:#475569;letter-spacing:.04em;text-transform:uppercase;font-weight:800">Reserva</h3>
+          <button type="button" onclick="ocupCloseDetail()" class="ocup-detail-close" title="Cerrar">✕</button>
+        </div>
+        <div id="ocup-detail-body" class="ocup-detail-body"></div>
+      </aside>
+    </div><!-- /module-ocupacion -->
+
     <!-- Detail modal for Bancos drilldown -->
     <div id="bn-modal-overlay" class="bn-modal-overlay hidden" onclick="bn_closeDetail()">
       <div class="bn-modal" onclick="event.stopPropagation()">
@@ -1841,6 +1891,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=397"></script>
+  <script src="app.js?v=398"></script>
 </body>
 </html>

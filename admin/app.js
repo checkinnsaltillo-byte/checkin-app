@@ -8182,7 +8182,7 @@ function esc(v) {
 
 /** Cambia entre módulos de nivel superior */
 function switchModule(mod) {
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== mod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === mod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === mod);
@@ -8275,6 +8275,9 @@ function switchModule(mod) {
   if (mod === "objetos") {
     if (typeof objInit === 'function') objInit();
     if (typeof objLoadObjetos === 'function') objLoadObjetos();
+  }
+  if (mod === "ocupacion") {
+    if (typeof ocupInit === 'function') ocupInit();
   }
 }
 
@@ -21798,3 +21801,322 @@ window.objSaveEdit = async function (id) {
     if (cancelBtn) cancelBtn.disabled = false;
   }
 };
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║  MÓDULO OCUPACIÓN — calendario mensual de reservas Lodgify           ║
+// ║  Reusa LG_STATE.bookings (ya cargado por Lodgify) + ALOJ_STATE       ║
+// ║  Datos: lodgifyLoad sincroniza desde la hoja Reservas_Lodgify        ║
+// ═══════════════════════════════════════════════════════════════════════
+const OCUP_STATE = {
+  // Fecha "pivote" del mes mostrado (siempre el día 1 a las 00:00 local)
+  currentMonth: null,
+  initialized: false,
+};
+const OCUP_MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const OCUP_DOW = ['dom','lun','mar','mié','jue','vie','sáb'];
+
+async function ocupInit() {
+  if (!OCUP_STATE.initialized) {
+    OCUP_STATE.initialized = true;
+    const today = new Date();
+    OCUP_STATE.currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  }
+  ocupShowLoading();
+  // Asegura datos cargados (silencioso si ya están)
+  try {
+    if (typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded && !ALOJ_STATE.loading) {
+      if (typeof lgLoadAlojamientos === 'function') await lgLoadAlojamientos();
+    }
+    if (typeof LG_STATE !== 'undefined' && !LG_STATE.loaded && !LG_STATE.loading) {
+      if (typeof lodgifyLoad === 'function') await lodgifyLoad(true, { silent: true });
+    }
+  } catch (e) {
+    console.warn('[OCUP] load error:', e?.message || e);
+  }
+  ocupRender();
+}
+
+function ocupShowLoading() {
+  const c = document.getElementById('ocup-cal-container');
+  if (c) c.innerHTML = `<div id="ocup-cal-loading" style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px">⏳ Cargando reservas…</div>`;
+}
+
+window.ocupReload = async function (sync) {
+  ocupShowLoading();
+  try {
+    if (sync && typeof lodgifySync === 'function') {
+      await lodgifySync({ silent: true });
+    } else if (typeof lodgifyLoad === 'function') {
+      await lodgifyLoad(true, { silent: true });
+    }
+  } catch (e) { console.warn('[OCUP] reload:', e?.message || e); }
+  ocupRender();
+};
+
+window.ocupNavMonth = function (delta) {
+  if (!OCUP_STATE.currentMonth) OCUP_STATE.currentMonth = new Date();
+  const d = OCUP_STATE.currentMonth;
+  OCUP_STATE.currentMonth = new Date(d.getFullYear(), d.getMonth() + delta, 1);
+  ocupRender();
+};
+
+window.ocupGoToday = function () {
+  const t = new Date();
+  OCUP_STATE.currentMonth = new Date(t.getFullYear(), t.getMonth(), 1);
+  ocupRender();
+};
+
+// Convierte fecha en cualquier formato lodgify ("MM/DD/YYYY" o ISO) a Date
+function ocupParseDate(s) {
+  if (!s) return null;
+  const str = String(s).trim();
+  let m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})/);  // MM/DD/YYYY
+  if (m) return new Date(parseInt(m[3],10), parseInt(m[1],10)-1, parseInt(m[2],10));
+  m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);          // YYYY-MM-DD
+  if (m) return new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+  const d = new Date(str);
+  return isFinite(d.getTime()) ? d : null;
+}
+
+// Días entre dos fechas (descartando hora)
+function ocupDaysBetween(a, b) {
+  const ms = b.getTime() - a.getTime();
+  return Math.round(ms / 86400000);
+}
+
+function ocupSourceClass(src) {
+  const s = String(src || '').toLowerCase();
+  if (s.includes('airbnb')) return 'airbnb';
+  if (s.includes('booking')) return 'booking';
+  if (s.includes('expedia')) return 'expedia';
+  if (s.includes('vrbo')) return 'vrbo';
+  if (s.includes('manual') || s.includes('direct')) return 'manual';
+  return 'default';
+}
+function ocupSourceIcon(src) {
+  const s = String(src || '').toLowerCase();
+  if (s.includes('airbnb')) return '🅰';
+  if (s.includes('booking')) return '🅱';
+  if (s.includes('expedia')) return 'Ⓔ';
+  if (s.includes('vrbo')) return 'Ⓥ';
+  if (s.includes('manual') || s.includes('direct')) return '✋';
+  return '🌐';
+}
+
+// Construye la lista de alojamientos sortada (Propiedad, #N numérico).
+function ocupGetAlojamientos() {
+  if (typeof ALOJ_STATE === 'undefined' || !ALOJ_STATE.loaded) return [];
+  return ALOJ_STATE.rows
+    .map(r => ({
+      houseId: String(r['HouseId'] || '').trim(),
+      propiedad: String(r['Propiedad'] || '').trim(),
+      depto: String(r['# Departamento'] || '').trim().replace(/^#\s*/, ''),
+      nombre: (function () {
+        const p = String(r['Propiedad'] || '').trim();
+        const d = String(r['# Departamento'] || '').trim().replace(/^#\s*/, '');
+        if (p && d) return `${p} - #${d}`;
+        return p || String(r['HouseName'] || '—');
+      })(),
+      tag: String(r['cuenta_tag'] || r['Tag'] || '').trim() || `${String(r['Propiedad'] || '?').slice(0,2).toUpperCase()}${(r['# Departamento'] || '').toString().replace(/[^\d]/g,'')}`,
+      raw: r,
+    }))
+    .filter(a => a.houseId)
+    .sort((a, b) => {
+      const pc = a.propiedad.localeCompare(b.propiedad, 'es');
+      if (pc !== 0) return pc;
+      const na = parseInt(a.depto, 10), nb = parseInt(b.depto, 10);
+      if (isFinite(na) && isFinite(nb)) return na - nb;
+      return String(a.depto).localeCompare(String(b.depto), 'es');
+    });
+}
+
+// Render principal del calendario
+function ocupRender() {
+  const cont = document.getElementById('ocup-cal-container');
+  if (!cont) return;
+  if (!OCUP_STATE.currentMonth) {
+    const t = new Date();
+    OCUP_STATE.currentMonth = new Date(t.getFullYear(), t.getMonth(), 1);
+  }
+  const month = OCUP_STATE.currentMonth;
+  const y = month.getFullYear(), m = month.getMonth();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const monthStart = new Date(y, m, 1);
+  const monthEnd = new Date(y, m, daysInMonth);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  // Header label
+  const lblName = document.getElementById('ocup-month-name');
+  const lblYear = document.getElementById('ocup-month-year');
+  if (lblName) lblName.textContent = OCUP_MESES[m];
+  if (lblYear) lblYear.textContent = String(y);
+
+  // Alojamientos
+  const alojamientos = ocupGetAlojamientos();
+  if (!alojamientos.length) {
+    cont.innerHTML = `<div style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px">
+      <div style="font-size:28px;margin-bottom:8px">📋</div>
+      <div style="font-size:14px;color:#475569;font-weight:700">No hay catálogo de alojamientos cargado</div>
+    </div>`;
+    return;
+  }
+
+  // Pre-indexa bookings por HouseId
+  const byHouse = new Map();
+  const bookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+  bookings.forEach(b => {
+    if (b.Status && /cancel/i.test(b.Status)) return; // ignora canceladas
+    const hid = String(b.HouseId || '').trim();
+    if (!hid) return;
+    if (!byHouse.has(hid)) byHouse.set(hid, []);
+    byHouse.get(hid).push(b);
+  });
+
+  // Construye filas
+  let html = `<div class="ocup-cal" style="--ocup-days:${daysInMonth}">`;
+  // Header
+  html += `<div class="ocup-cal-head">
+    <div class="ocup-head-aloj">📦 Alojamientos · ${alojamientos.length}</div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(y, m, d);
+    const dow = date.getDay();
+    const isToday = date.getTime() === today.getTime();
+    const isWeekend = dow === 0 || dow === 6;
+    html += `<div class="ocup-head-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}">
+      <div class="ocup-head-dow">${OCUP_DOW[dow]}</div>
+      <div class="ocup-head-day">${d}</div>
+    </div>`;
+  }
+  html += `</div>`;
+
+  // Filas por alojamiento
+  alojamientos.forEach(aloj => {
+    const houseBookings = (byHouse.get(aloj.houseId) || []).filter(b => {
+      const arr = ocupParseDate(b.DateArrival);
+      const dep = ocupParseDate(b.DateDeparture);
+      if (!arr || !dep) return false;
+      // Que el rango toque el mes
+      return dep >= monthStart && arr <= monthEnd;
+    });
+    html += `<div class="ocup-cal-row" data-aloj-id="${esc(aloj.houseId)}">`;
+    html += `<div class="ocup-aloj-cell">
+      <div class="ocup-aloj-img">🏠</div>
+      <div class="ocup-aloj-info">
+        <div class="ocup-aloj-name" title="${esc(aloj.nombre)}">${esc(aloj.nombre)}</div>
+        <div class="ocup-aloj-id">${esc(aloj.tag || aloj.houseId)}</div>
+      </div>
+    </div>`;
+    // Celdas de día (vacías, sirven de grid base)
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(y, m, d);
+      const dow = date.getDay();
+      const isToday = date.getTime() === today.getTime();
+      const isWeekend = dow === 0 || dow === 6;
+      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}"></div>`;
+    }
+    // Barras absolute, posicionadas relativas a la celda primera de día.
+    // Cada día = var(--ocup-day-w) = 64px. left = (díaInicio-1)*64 + offset aloj
+    // pero como están dentro de la row, el offset del aloj column hay que sumarlo.
+    // Lo más simple: posicionamos la barra dentro de la row con left calculado
+    // a partir de var(--ocup-aloj-w) + (díaInicio-1)*var(--ocup-day-w).
+    houseBookings.forEach(b => {
+      const arr = ocupParseDate(b.DateArrival);
+      const dep = ocupParseDate(b.DateDeparture);
+      // Clamp al mes mostrado
+      const visArr = arr < monthStart ? monthStart : arr;
+      const visDep = dep > monthEnd ? new Date(y, m, daysInMonth + 1) : dep; // dep es exclusivo
+      const startDay = visArr.getDate(); // 1..daysInMonth
+      const nights = Math.max(1, ocupDaysBetween(visArr, visDep));
+      const srcCls = ocupSourceClass(b.Source);
+      const srcIcon = ocupSourceIcon(b.Source);
+      const guest = String(b.GuestName || 'Reserva').trim();
+      const leftCalc = `calc(var(--ocup-aloj-w) + ${startDay - 1} * var(--ocup-day-w) + 6px)`;
+      const widthCalc = `calc(${nights} * var(--ocup-day-w) - 12px)`;
+      html += `<div class="ocup-bar src-${srcCls}" style="left:${leftCalc};width:${widthCalc}"
+                onclick="ocupOpenDetail('${esc(String(b.Id))}')" title="${esc(guest)}">
+        <span class="ocup-bar-icon">${srcIcon}</span>
+        <span class="ocup-bar-name">${esc(guest)}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  html += `</div>`;
+  cont.innerHTML = html;
+}
+
+// Panel lateral de detalle
+window.ocupOpenDetail = function (bookingId) {
+  const b = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings))
+    ? LG_STATE.bookings.find(x => String(x.Id) === String(bookingId)) : null;
+  if (!b) return;
+  const body = document.getElementById('ocup-detail-body');
+  const panel = document.getElementById('ocup-detail-panel');
+  const back = document.getElementById('ocup-detail-backdrop');
+  if (!body || !panel || !back) return;
+  body.innerHTML = ocupBuildDetailHtml(b);
+  back.classList.remove('hidden');
+  back.offsetHeight; // reflow
+  back.classList.add('visible');
+  panel.classList.remove('hidden');
+  panel.classList.add('open');
+};
+
+window.ocupCloseDetail = function () {
+  const panel = document.getElementById('ocup-detail-panel');
+  const back = document.getElementById('ocup-detail-backdrop');
+  if (!panel || !back) return;
+  panel.classList.remove('open');
+  back.classList.remove('visible');
+  setTimeout(() => { panel.classList.add('hidden'); back.classList.add('hidden'); }, 280);
+};
+
+function ocupBuildDetailHtml(b) {
+  const guest = String(b.GuestName || 'Sin nombre').trim();
+  const phone = String(b.GuestPhone || '').trim();
+  const arr = ocupParseDate(b.DateArrival);
+  const dep = ocupParseDate(b.DateDeparture);
+  const nights = (arr && dep) ? ocupDaysBetween(arr, dep) : (b.Nights || '—');
+  const aloj = (typeof lgPropOf === 'function') ? lgPropOf(b) : (b.HouseName || '—');
+  const gross = (typeof lgFmtMoney === 'function' && b.Gross) ? lgFmtMoney(b.Gross, b.Currency || 'MXN') : (b.Gross || '—');
+  const fmtFecha = (d) => d ? `${d.getDate()} ${OCUP_MESES[d.getMonth()]} ${d.getFullYear()}` : '—';
+  const src = String(b.Source || '—');
+  const srcCls = ocupSourceClass(src);
+  const srcIcon = ocupSourceIcon(src);
+  const status = String(b.Status || '—');
+  const personas = b.NumberOfGuests ? `${b.NumberOfGuests} persona(s)` : '—';
+  return `
+    <h2 style="margin:0 0 4px;font-size:20px;color:#0f172a;font-weight:800">${esc(guest)}</h2>
+    <div style="margin-bottom:14px"><span class="ocup-bar src-${srcCls}" style="position:static;height:auto;padding:4px 10px;font-size:11px;cursor:default;box-shadow:none">${srcIcon} ${esc(src)}</span> <span class="ocup-bar src-default" style="position:static;height:auto;padding:4px 10px;font-size:11px;cursor:default;box-shadow:none">${esc(status)}</span></div>
+
+    <div class="ocup-detail-section">
+      <div class="ocup-detail-section-title">📅 Estancia</div>
+      <div class="ocup-detail-field"><div class="ocup-detail-field-label">Llegada</div><div class="ocup-detail-field-value">${esc(fmtFecha(arr))}</div></div>
+      <div class="ocup-detail-field"><div class="ocup-detail-field-label">Salida</div><div class="ocup-detail-field-value">${esc(fmtFecha(dep))}</div></div>
+      <div class="ocup-detail-field"><div class="ocup-detail-field-label">Noches</div><div class="ocup-detail-field-value">${esc(String(nights))}</div></div>
+      <div class="ocup-detail-field"><div class="ocup-detail-field-label">Personas</div><div class="ocup-detail-field-value">${esc(personas)}</div></div>
+    </div>
+
+    <div class="ocup-detail-section">
+      <div class="ocup-detail-section-title">🏠 Alojamiento</div>
+      <div class="ocup-detail-field"><div class="ocup-detail-field-label">Propiedad</div><div class="ocup-detail-field-value">${esc(aloj)}</div></div>
+      <div class="ocup-detail-field"><div class="ocup-detail-field-label">HouseId</div><div class="ocup-detail-field-value">${esc(String(b.HouseId || '—'))}</div></div>
+    </div>
+
+    <div class="ocup-detail-section">
+      <div class="ocup-detail-section-title">💰 Cobro</div>
+      <div class="ocup-detail-field"><div class="ocup-detail-field-label">Total</div><div class="ocup-detail-field-value">${esc(String(gross))}</div></div>
+      <div class="ocup-detail-field"><div class="ocup-detail-field-label">Lodgify Id</div><div class="ocup-detail-field-value">${esc(String(b.Id || '—'))}</div></div>
+    </div>
+
+    ${phone ? `
+    <div class="ocup-detail-section">
+      <div class="ocup-detail-section-title">📞 Contacto</div>
+      <div class="ocup-detail-field"><div class="ocup-detail-field-label">Teléfono</div>
+        <div class="ocup-detail-field-value"><a href="https://wa.me/${esc(phone.replace(/\\D/g,''))}" target="_blank" style="color:#16a34a;text-decoration:none;font-weight:800">${esc(phone)}</a></div>
+      </div>
+    </div>` : ''}
+
+    <div style="margin-top:18px;display:flex;gap:8px">
+      <button type="button" onclick="switchModule('lodgify');setTimeout(()=>lgDetailSelect&&lgDetailSelect('${esc(String(b.Id))}'),300);ocupCloseDetail()" style="flex:1;padding:10px 14px;border:0;border-radius:8px;background:#4f46e5;color:#fff;font-weight:700;font-size:13px;cursor:pointer">Abrir en Gestión de reservas →</button>
+    </div>`;
+}

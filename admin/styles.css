@@ -4697,3 +4697,336 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
 .obj-cat-chip.active.color-Joyeria      { background: #f59e0b; border-color: #f59e0b; }
 .obj-cat-chip.active.color-Documentos   { background: #16a34a; border-color: #16a34a; }
 .obj-cat-chip.active.color-default      { background: #475569; border-color: #475569; }
+
+/* ═════ Módulo Ocupación — calendario Lodgify ═════ */
+.home-card-ocupacion {
+  --card-accent: #4f46e5;
+  --card-icon-bg: #e0e7ff;
+  --card-grad: linear-gradient(135deg, rgba(79,70,229,.06), rgba(99,102,241,.07));
+}
+#module-ocupacion {
+  padding: 0;
+}
+.ocup-shell {
+  padding: 16px 20px 40px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.ocup-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.ocup-toolbar-left { display: flex; align-items: baseline; gap: 12px; }
+.ocup-month-label {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  color: #0f172a;
+  text-transform: lowercase;
+  letter-spacing: -.02em;
+  line-height: 1;
+}
+.ocup-month-year {
+  font-size: 14px;
+  color: #94a3b8;
+  font-weight: 600;
+  letter-spacing: .02em;
+  margin-left: 6px;
+}
+.ocup-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ocup-nav-btn, .ocup-reload-btn {
+  width: 38px; height: 38px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 18px;
+  color: #475569;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .12s ease, color .12s ease;
+}
+.ocup-nav-btn:hover, .ocup-reload-btn:hover { background: #f1f5f9; color: #0f172a; }
+.ocup-today-btn {
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid #0f172a;
+  background: #0f172a;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ocup-today-btn:hover { background: #1e293b; }
+
+.ocup-cal-container {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: auto;
+  box-shadow: 0 2px 10px rgba(15,23,42,.04);
+  max-height: calc(100vh - 180px);
+}
+
+/* Grid del calendario: 1 columna fija para alojamiento + N para días.
+   Cada celda de día tiene ancho fijo (--ocup-day-w). */
+.ocup-cal {
+  --ocup-day-w: 64px;
+  --ocup-aloj-w: 240px;
+  --ocup-row-h: 60px;
+  display: grid;
+  grid-auto-rows: minmax(var(--ocup-row-h), auto);
+  position: relative;
+}
+
+/* Header row (días) — sticky-top */
+.ocup-cal-head {
+  display: grid;
+  grid-template-columns: var(--ocup-aloj-w) repeat(var(--ocup-days, 30), var(--ocup-day-w));
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  border-bottom: 2px solid #e2e8f0;
+}
+.ocup-head-cell {
+  padding: 10px 6px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  border-right: 1px solid #f1f5f9;
+  text-transform: lowercase;
+  letter-spacing: .03em;
+  line-height: 1.2;
+  background: #fff;
+}
+.ocup-head-cell.is-today {
+  background: #0f172a;
+  color: #fff;
+  border-radius: 8px;
+}
+.ocup-head-cell.is-weekend { background: #f8fafc; color: #475569; }
+.ocup-head-cell.is-today.is-weekend { background: #0f172a; color: #fff; }
+.ocup-head-cell .ocup-head-dow { font-size: 11px; color: inherit; opacity: .8; }
+.ocup-head-cell .ocup-head-day { font-size: 14px; color: inherit; font-weight: 800; }
+
+.ocup-head-aloj {
+  padding: 10px 12px;
+  background: #fff;
+  border-right: 1px solid #e2e8f0;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  position: sticky;
+  left: 0;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Filas: una por alojamiento */
+.ocup-cal-row {
+  display: grid;
+  grid-template-columns: var(--ocup-aloj-w) repeat(var(--ocup-days, 30), var(--ocup-day-w));
+  border-bottom: 1px solid #f1f5f9;
+  min-height: var(--ocup-row-h);
+  position: relative;
+}
+.ocup-cal-row:hover .ocup-day-cell { background-color: #fafbfc; }
+
+.ocup-aloj-cell {
+  padding: 8px 10px;
+  background: #fff;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  min-width: 0;
+}
+.ocup-aloj-img {
+  width: 40px; height: 40px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #94a3b8;
+}
+.ocup-aloj-info { min-width: 0; flex: 1; }
+.ocup-aloj-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ocup-aloj-id {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.ocup-day-cell {
+  border-right: 1px dashed #f1f5f9;
+  position: relative;
+  min-height: var(--ocup-row-h);
+}
+.ocup-day-cell.is-weekend { background: #fafbfc; }
+.ocup-day-cell.is-today {
+  background: rgba(15,23,42,.04);
+  border-right-color: #cbd5e1;
+}
+
+/* Barras de reserva (absolute, posicionadas con left/width en %) */
+.ocup-bar {
+  position: absolute;
+  top: 12px;
+  height: 32px;
+  border-radius: 999px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  background: #fff;
+  border: 1.5px solid #cbd5e1;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15,23,42,.08);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 3;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.ocup-bar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15,23,42,.18);
+  z-index: 4;
+}
+.ocup-bar-icon { font-size: 13px; flex-shrink: 0; }
+.ocup-bar-name { overflow: hidden; text-overflow: ellipsis; }
+/* Color por fuente */
+.ocup-bar.src-airbnb   { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+.ocup-bar.src-booking  { background: #dbeafe; border-color: #93c5fd; color: #1e3a8a; }
+.ocup-bar.src-expedia  { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+.ocup-bar.src-vrbo     { background: #dcfce7; border-color: #86efac; color: #166534; }
+.ocup-bar.src-manual   { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
+.ocup-bar.src-default  { background: #f8fafc; border-color: #cbd5e1; color: #475569; }
+
+/* Panel lateral de detalle */
+.ocup-detail-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 8800;
+  background: rgba(15,23,42,.45);
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+.ocup-detail-backdrop.hidden { display: none; }
+.ocup-detail-backdrop.visible { opacity: 1; }
+.ocup-detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 100%;
+  max-width: 500px;
+  background: #fff;
+  z-index: 8900;
+  box-shadow: -16px 0 40px rgba(15,23,42,.18);
+  transform: translateX(100%);
+  transition: transform .28s cubic-bezier(.2,.7,.3,1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ocup-detail-panel.hidden { transform: translateX(100%); pointer-events: none; }
+.ocup-detail-panel.open { transform: translateX(0); pointer-events: auto; }
+.ocup-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #fff, #f8fafc);
+  flex-shrink: 0;
+}
+.ocup-detail-close {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.ocup-detail-close:hover { background: #e2e8f0; color: #0f172a; }
+.ocup-detail-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 18px;
+}
+.ocup-detail-field {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px dashed #f1f5f9;
+  font-size: 13px;
+}
+.ocup-detail-field-label {
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-size: 10px;
+  align-self: center;
+}
+.ocup-detail-field-value { color: #0f172a; font-weight: 600; }
+.ocup-detail-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  background: #fff;
+}
+.ocup-detail-section-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #4f46e5;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 700px) {
+  .ocup-cal { --ocup-day-w: 56px; --ocup-aloj-w: 180px; }
+  .ocup-month-label { font-size: 22px; }
+  .ocup-detail-panel { max-width: 100%; }
+}
