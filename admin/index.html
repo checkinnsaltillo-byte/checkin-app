@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema de gestión de Corta estancia | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=113">
+  <link rel="stylesheet" href="styles.css?v=114">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1704,15 +1704,20 @@
     <!-- ═══════════════ MÓDULO OCUPACIÓN — calendario de reservas ═══════════════ -->
     <div id="module-ocupacion" class="hidden">
       <div class="ocup-shell">
-        <!-- Toolbar superior -->
+        <!-- Toolbar: selector de vista + título + nav -->
         <div class="ocup-toolbar">
           <div class="ocup-toolbar-left">
-            <h2 class="ocup-month-label">
+            <div class="ocup-view-tabs">
+              <button type="button" class="ocup-view-tab active" data-view="calendario" onclick="ocupSetView('calendario')">📅 Calendario</button>
+              <button type="button" class="ocup-view-tab" data-view="indicadores" onclick="ocupSetView('indicadores')">📊 Indicadores</button>
+              <button type="button" class="ocup-view-tab" data-view="graficas" onclick="ocupSetView('graficas')">📈 Gráficas</button>
+            </div>
+            <h2 class="ocup-month-label" id="ocup-month-label-wrap">
               <span id="ocup-month-name">—</span>
               <span class="ocup-month-year" id="ocup-month-year">—</span>
             </h2>
           </div>
-          <div class="ocup-toolbar-right">
+          <div class="ocup-toolbar-right" id="ocup-toolbar-right-cal">
             <button type="button" class="ocup-nav-btn" onclick="ocupNavMonth(-1)" title="Mes anterior">‹</button>
             <button type="button" class="ocup-nav-btn" onclick="ocupNavMonth(1)" title="Mes siguiente">›</button>
             <button type="button" class="ocup-today-btn" onclick="ocupGoToday()" title="Ir a hoy">📅 Ir a hoy</button>
@@ -1720,12 +1725,31 @@
           </div>
         </div>
 
-        <!-- Calendario -->
-        <div id="ocup-cal-container" class="ocup-cal-container">
-          <div id="ocup-cal-loading" style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px">
-            ⏳ Cargando reservas…
+        <!-- Filtros (solo visibles en Indicadores y Gráficas) -->
+        <div id="ocup-filters" class="ocup-filters" style="display:none">
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Promedio (mes-año)</label>
+            <div id="ocup-f-meses" class="inc-mselect" data-filter="meses"></div>
           </div>
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Propiedad</label>
+            <div id="ocup-f-prop" class="inc-mselect" data-filter="propiedades"></div>
+          </div>
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Alojamientos</label>
+            <div id="ocup-f-aloj" class="inc-mselect" data-filter="alojamientos"></div>
+          </div>
+          <div class="ocup-filter-tip">Tip: si no seleccionas nada en un filtro, se asume "todos".</div>
         </div>
+
+        <!-- Vista Calendario -->
+        <div id="ocup-cal-container" class="ocup-cal-container">
+          <div id="ocup-cal-loading" style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px">⏳ Cargando reservas…</div>
+        </div>
+        <!-- Vista Indicadores (tabla) -->
+        <div id="ocup-table-container" class="ocup-cal-container" style="display:none"></div>
+        <!-- Vista Gráficas -->
+        <div id="ocup-chart-container" class="ocup-chart-container" style="display:none"></div>
       </div>
 
       <!-- Panel lateral de detalle (slide-in desde derecha) -->
@@ -1891,6 +1915,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=400"></script>
+  <script src="app.js?v=401"></script>
 </body>
 </html>

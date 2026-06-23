@@ -22163,3 +22163,321 @@ function ocupBuildDetailHtml(b) {
       <button type="button" onclick="switchModule('lodgify');setTimeout(()=>lgDetailSelect&&lgDetailSelect('${esc(String(b.Id))}'),300);ocupCloseDetail()" style="flex:1;padding:10px 14px;border:0;border-radius:8px;background:#4f46e5;color:#fff;font-weight:700;font-size:13px;cursor:pointer">Abrir en Gestión de reservas →</button>
     </div>`;
 }
+
+// ─── OCUPACIÓN — Vistas Indicadores y Gráficas ─────────────────────────
+OCUP_STATE.view = 'calendario';
+OCUP_STATE.filters = {
+  meses: new Set(),          // 'YYYY-MM' seleccionados para el promedio
+  propiedades: new Set(),    // Propiedad
+  alojamientos: new Set(),   // HouseId
+};
+OCUP_STATE.filtersInit = false;
+
+// Rango por defecto: últimos 18 meses incluyendo el actual
+function ocupGetMonthRange() {
+  const t = new Date();
+  const out = [];
+  for (let i = 17; i >= 0; i--) {
+    const d = new Date(t.getFullYear(), t.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    out.push({ key, year: d.getFullYear(), month: d.getMonth() });
+  }
+  return out;
+}
+
+window.ocupSetView = function (v) {
+  OCUP_STATE.view = v;
+  // Tabs activos
+  document.querySelectorAll('.ocup-view-tab').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-view') === v);
+  });
+  // Containers
+  document.getElementById('ocup-cal-container').style.display = v === 'calendario' ? '' : 'none';
+  document.getElementById('ocup-table-container').style.display = v === 'indicadores' ? '' : 'none';
+  document.getElementById('ocup-chart-container').style.display = v === 'graficas' ? '' : 'none';
+  // Header de mes / nav solo en calendario
+  document.getElementById('ocup-month-label-wrap').style.display = v === 'calendario' ? '' : 'none';
+  document.getElementById('ocup-toolbar-right-cal').style.display = v === 'calendario' ? '' : 'none';
+  // Filtros solo en Indicadores y Gráficas
+  document.getElementById('ocup-filters').style.display = (v === 'calendario') ? 'none' : '';
+  if (v === 'calendario') ocupRender();
+  else {
+    ocupInitFiltersOnce();
+    if (v === 'indicadores') ocupRenderTable();
+    else ocupRenderChart();
+  }
+};
+
+function ocupInitFiltersOnce() {
+  if (!OCUP_STATE.filtersInit) {
+    OCUP_STATE.filtersInit = true;
+    // Default: todos los meses + props + alojamientos
+    ocupGetMonthRange().forEach(m => OCUP_STATE.filters.meses.add(m.key));
+    const alojs = ocupGetAlojamientos();
+    new Set(alojs.map(a => a.propiedad)).forEach(p => OCUP_STATE.filters.propiedades.add(p));
+    alojs.forEach(a => OCUP_STATE.filters.alojamientos.add(a.houseId));
+  }
+  ocupRenderFilters();
+}
+
+function ocupRenderFilters() {
+  const months = ocupGetMonthRange();
+  const alojs = ocupGetAlojamientos();
+  const propsSet = new Set(alojs.map(a => a.propiedad));
+  const props = Array.from(propsSet).sort((a, b) => a.localeCompare(b, 'es'));
+  ocupBuildMSelect('ocup-f-meses', 'meses', months.map(m => ({ value: m.key, label: ocupMonthYearLabel(m.year, m.month) })));
+  ocupBuildMSelect('ocup-f-prop', 'propiedades', props.map(p => ({ value: p, label: p })));
+  // Alojamientos filtrados por propiedades seleccionadas
+  const visibleAlojs = alojs.filter(a => OCUP_STATE.filters.propiedades.has(a.propiedad));
+  ocupBuildMSelect('ocup-f-aloj', 'alojamientos', visibleAlojs.map(a => ({ value: a.houseId, label: a.nombre })));
+}
+
+function ocupMonthYearLabel(y, m) {
+  return `${OCUP_MESES[m]} ${y}`;
+}
+
+function ocupMSelectLabel(filterKey, all) {
+  const sel = OCUP_STATE.filters[filterKey];
+  if (!all.length) return '—';
+  if (sel.size === 0) return 'Todos';
+  if (sel.size === all.length) return `Todos (${all.length})`;
+  if (sel.size === 1) {
+    const v = [...sel][0];
+    const found = all.find(o => o.value === v);
+    return found ? found.label : v;
+  }
+  return `${sel.size} de ${all.length}`;
+}
+
+function ocupBuildMSelect(containerId, filterKey, options) {
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  const sel = OCUP_STATE.filters[filterKey];
+  const opts = options.map(o => `
+    <label class="inc-mselect-opt">
+      <input type="checkbox" value="${esc(o.value)}" ${sel.has(o.value) ? 'checked' : ''}
+             onchange="ocupToggleFilter('${esc(filterKey)}','${esc(o.value)}',this.checked)">
+      <span>${esc(o.label)}</span>
+    </label>`).join('');
+  c.innerHTML = `
+    <button type="button" class="inc-mselect-btn" onclick="ocupToggleDropdown(event,'${esc(containerId)}')">
+      <span class="inc-mselect-btn-lbl">${esc(ocupMSelectLabel(filterKey, options))}</span>
+    </button>
+    <div class="inc-mselect-panel hidden">
+      <div class="inc-mselect-actions">
+        <button type="button" class="inc-mselect-action" onclick="ocupFilterSetAll('${esc(filterKey)}')">✓ Todos</button>
+        <button type="button" class="inc-mselect-action" onclick="ocupFilterSetNone('${esc(filterKey)}')">✕ Ninguno</button>
+      </div>
+      <div class="inc-mselect-opts">${opts}</div>
+    </div>`;
+}
+
+window.ocupToggleDropdown = function (ev, containerId) {
+  ev.stopPropagation();
+  document.querySelectorAll('#ocup-filters .inc-mselect-panel').forEach(p => {
+    if (p.closest(`#${containerId}`)) return;
+    p.classList.add('hidden');
+  });
+  const panel = document.querySelector(`#${containerId} .inc-mselect-panel`);
+  if (panel) panel.classList.toggle('hidden');
+};
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#ocup-filters .inc-mselect')) return;
+  document.querySelectorAll('#ocup-filters .inc-mselect-panel').forEach(p => p.classList.add('hidden'));
+});
+
+window.ocupToggleFilter = function (key, value, checked) {
+  if (checked) OCUP_STATE.filters[key].add(value);
+  else OCUP_STATE.filters[key].delete(value);
+  // Cascada: si se cambia propiedades, depurar alojamientos
+  if (key === 'propiedades') {
+    const alojs = ocupGetAlojamientos();
+    OCUP_STATE.filters.alojamientos = new Set(
+      alojs.filter(a => OCUP_STATE.filters.propiedades.has(a.propiedad)).map(a => a.houseId)
+    );
+  }
+  ocupRenderFilters();
+  ocupRefreshCurrentView();
+};
+
+window.ocupFilterSetAll = function (key) {
+  if (key === 'meses') OCUP_STATE.filters.meses = new Set(ocupGetMonthRange().map(m => m.key));
+  else if (key === 'propiedades') {
+    OCUP_STATE.filters.propiedades = new Set(ocupGetAlojamientos().map(a => a.propiedad));
+    OCUP_STATE.filters.alojamientos = new Set(ocupGetAlojamientos().map(a => a.houseId));
+  } else if (key === 'alojamientos') {
+    const visibles = ocupGetAlojamientos().filter(a => OCUP_STATE.filters.propiedades.has(a.propiedad));
+    OCUP_STATE.filters.alojamientos = new Set(visibles.map(a => a.houseId));
+  }
+  ocupRenderFilters();
+  ocupRefreshCurrentView();
+};
+window.ocupFilterSetNone = function (key) {
+  OCUP_STATE.filters[key] = new Set();
+  if (key === 'propiedades') OCUP_STATE.filters.alojamientos = new Set();
+  ocupRenderFilters();
+  ocupRefreshCurrentView();
+};
+
+function ocupRefreshCurrentView() {
+  if (OCUP_STATE.view === 'indicadores') ocupRenderTable();
+  else if (OCUP_STATE.view === 'graficas') ocupRenderChart();
+}
+
+// ─── Cálculo de ocupación ───
+// Cuenta NOCHES de un alojamiento en un mes (year, month 0-indexed).
+// Una "noche" = un día entre arrival (incl) y departure (excl) que cae
+// dentro del mes. La capacidad total del mes = días del mes.
+function ocupNightsForAloj(houseId, y, m) {
+  const bookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+  const monthStart = new Date(y, m, 1);
+  const monthEnd = new Date(y, m + 1, 1); // exclusivo
+  let occupied = 0;
+  bookings.forEach(b => {
+    if (String(b.HouseId || '') !== String(houseId)) return;
+    if (b.Status && /cancel/i.test(b.Status)) return;
+    const arr = ocupParseDate(b.DateArrival);
+    const dep = ocupParseDate(b.DateDeparture);
+    if (!arr || !dep) return;
+    const a = arr < monthStart ? monthStart : arr;
+    const d = dep > monthEnd ? monthEnd : dep;
+    const nights = Math.max(0, Math.round((d - a) / 86400000));
+    occupied += nights;
+  });
+  const total = new Date(y, m + 1, 0).getDate();
+  return { occupied, total, percent: total ? (occupied * 100 / total) : 0 };
+}
+
+function ocupPercentClass(pct) {
+  if (pct < 50) return 'lvl-low';
+  if (pct < 80) return 'lvl-mid';
+  return 'lvl-good';
+}
+
+// ─── Vista Indicadores (tabla) ───
+function ocupRenderTable() {
+  const cont = document.getElementById('ocup-table-container');
+  if (!cont) return;
+  const months = ocupGetMonthRange();
+  const alojs = ocupGetAlojamientos()
+    .filter(a => OCUP_STATE.filters.propiedades.size === 0 || OCUP_STATE.filters.propiedades.has(a.propiedad))
+    .filter(a => OCUP_STATE.filters.alojamientos.size === 0 || OCUP_STATE.filters.alojamientos.has(a.houseId));
+  if (!alojs.length) {
+    cont.innerHTML = `<div style="padding:60px;text-align:center;color:#94a3b8;font-size:13px">Sin alojamientos según los filtros.</div>`;
+    return;
+  }
+  const selectedMonthKeys = OCUP_STATE.filters.meses.size > 0
+    ? OCUP_STATE.filters.meses
+    : new Set(months.map(m => m.key));
+  // Header
+  let head = `<tr><th class="ocup-th-aloj">Alojamiento</th>`;
+  months.forEach(m => { head += `<th>${esc(m.key)}</th>`; });
+  head += `<th class="ocup-th-avg">Promedio (${selectedMonthKeys.size} ${selectedMonthKeys.size === 1 ? 'mes' : 'meses'})</th></tr>`;
+  // Rows
+  const rows = alojs.map(a => {
+    let totalOccupied = 0, totalCapacity = 0;
+    const cells = months.map(m => {
+      const r = ocupNightsForAloj(a.houseId, m.year, m.month);
+      if (selectedMonthKeys.has(m.key)) {
+        totalOccupied += r.occupied;
+        totalCapacity += r.total;
+      }
+      const pct = r.percent;
+      const cls = ocupPercentClass(pct);
+      return `<td class="ocup-td-month">
+        <div class="ocup-cell-line">
+          <span>${r.occupied}/${r.total} noches</span>
+          <span class="ocup-cell-pct">${Math.round(pct)}%</span>
+        </div>
+        <div class="ocup-cell-bar">
+          <div class="ocup-cell-bar-fill ${cls}" style="width:${Math.min(100, pct).toFixed(1)}%"></div>
+        </div>
+      </td>`;
+    }).join('');
+    const avgPct = totalCapacity ? (totalOccupied * 100 / totalCapacity) : 0;
+    const avgCls = ocupPercentClass(avgPct);
+    const avgCell = `<td class="ocup-td-month">
+      <div class="ocup-cell-line">
+        <span>${totalOccupied}/${totalCapacity} noches</span>
+        <span class="ocup-cell-pct">${Math.round(avgPct)}%</span>
+      </div>
+      <div class="ocup-cell-bar">
+        <div class="ocup-cell-bar-fill ${avgCls}" style="width:${Math.min(100, avgPct).toFixed(1)}%"></div>
+      </div>
+    </td>`;
+    return `<tr><td class="ocup-td-aloj">${esc(a.nombre)}</td>${cells}${avgCell}</tr>`;
+  }).join('');
+  cont.innerHTML = `<table class="ocup-table"><thead>${head}</thead><tbody>${rows}</tbody></table>`;
+}
+
+// ─── Vista Gráficas (SVG) ───
+// Paleta para líneas (cycling)
+const OCUP_COLORS = ['#0ea5e9','#f59e0b','#10b981','#8b5cf6','#ef4444','#06b6d4','#84cc16','#f97316','#a855f7','#3b82f6','#d946ef','#22c55e'];
+
+function ocupRenderChart() {
+  const cont = document.getElementById('ocup-chart-container');
+  if (!cont) return;
+  const months = ocupGetMonthRange();
+  const alojs = ocupGetAlojamientos()
+    .filter(a => OCUP_STATE.filters.propiedades.size === 0 || OCUP_STATE.filters.propiedades.has(a.propiedad))
+    .filter(a => OCUP_STATE.filters.alojamientos.size === 0 || OCUP_STATE.filters.alojamientos.has(a.houseId));
+  // Datos: para cada aloj, array de % por mes
+  const series = alojs.map((a, i) => {
+    const pcts = months.map(m => ocupNightsForAloj(a.houseId, m.year, m.month).percent);
+    return { aloj: a, color: OCUP_COLORS[i % OCUP_COLORS.length], pcts };
+  });
+  // Promedio: media simple de TODOS los alojamientos del catálogo (no filtrados)
+  const allAlojs = ocupGetAlojamientos();
+  const avgPcts = months.map(m => {
+    if (!allAlojs.length) return 0;
+    const sum = allAlojs.reduce((s, a) => s + ocupNightsForAloj(a.houseId, m.year, m.month).percent, 0);
+    return sum / allAlojs.length;
+  });
+  // Dimensions
+  const W = 900, H = 380;
+  const ML = 40, MR = 20, MT = 20, MB = 40;
+  const innerW = W - ML - MR, innerH = H - MT - MB;
+  const xStep = innerW / Math.max(1, months.length - 1);
+  const yFor = (pct) => MT + innerH - (Math.min(100, Math.max(0, pct)) / 100) * innerH;
+  // Grid Y
+  let grid = '';
+  [0, 20, 40, 60, 80, 100].forEach(p => {
+    const yy = yFor(p);
+    grid += `<line x1="${ML}" y1="${yy}" x2="${W - MR}" y2="${yy}"></line>`;
+    grid += `<text x="${ML - 6}" y="${yy + 4}" text-anchor="end">${p}%</text>`;
+  });
+  // X labels (cada 2)
+  let xLabels = '';
+  months.forEach((m, i) => {
+    if (i % 2 === 0) {
+      const xx = ML + i * xStep;
+      xLabels += `<text x="${xx}" y="${H - 10}" text-anchor="middle">${m.key}</text>`;
+    }
+  });
+  // Series paths
+  const makePath = (pcts) => {
+    return pcts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${ML + i * xStep} ${yFor(p)}`).join(' ');
+  };
+  const seriesPaths = series.map(s =>
+    `<path class="ocup-chart-line" stroke="${s.color}" d="${makePath(s.pcts)}"/>`
+  ).join('');
+  const avgPath = `<path class="ocup-chart-line ocup-chart-line-avg" d="${makePath(avgPcts)}"/>`;
+  // Legend
+  const legend = `<div class="ocup-chart-legend">
+    <span class="ocup-chart-legend-item"><span class="ocup-chart-legend-swatch" style="background:#ec4899;height:4px"></span><strong>Promedio general</strong></span>
+    ${series.map(s => `<span class="ocup-chart-legend-item"><span class="ocup-chart-legend-swatch" style="background:${s.color}"></span>${esc(s.aloj.nombre)}</span>`).join('')}
+  </div>`;
+  const empty = series.length === 0
+    ? `<div style="text-align:center;padding:40px;color:#94a3b8;font-size:13px;font-style:italic">Selecciona al menos un alojamiento para ver su serie.</div>`
+    : '';
+  cont.innerHTML = `
+    <div class="ocup-chart-svg-wrap">
+      <svg class="ocup-chart-svg" viewBox="0 0 ${W} ${H}" width="100%" height="${H}">
+        <g class="ocup-chart-grid">${grid}${xLabels}</g>
+        ${seriesPaths}
+        ${avgPath}
+      </svg>
+    </div>
+    ${empty}
+    ${legend}`;
+}
