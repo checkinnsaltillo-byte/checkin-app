@@ -5230,3 +5230,216 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   font-weight: 800;
   font-size: 12px;
 }
+
+/* ─── Gráficas Ocupación v2 ─── */
+.ocup-gx-shell {
+  background: linear-gradient(180deg, #ffffff, #fafbfc);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(15,23,42,.06);
+  padding: 18px;
+}
+.ocup-gx-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #475569;
+  margin: 0 0 4px;
+}
+.ocup-gx-sub {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0 0 12px;
+}
+.ocup-gx-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+.ocup-gx-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1.5px solid #cbd5e1;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all .15s ease;
+  user-select: none;
+}
+.ocup-gx-pill:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(15,23,42,.10); }
+.ocup-gx-pill.is-active { background: var(--pill-bg, #0f172a); color: #fff; border-color: var(--pill-bg, #0f172a); box-shadow: 0 4px 12px rgba(15,23,42,.18); }
+.ocup-gx-pill.is-hidden { opacity: .35; filter: grayscale(.5); }
+.ocup-gx-pill-swatch {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--pill-color, #94a3b8);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1.5px var(--pill-color, #94a3b8);
+}
+.ocup-gx-pill.is-interest .ocup-gx-pill-swatch {
+  width: 14px; height: 14px;
+  background: linear-gradient(135deg, var(--pill-color, #ec4899), #fff);
+}
+
+.ocup-gx-canvas {
+  position: relative;
+  user-select: none;
+}
+.ocup-gx-svg { display: block; width: 100%; height: auto; }
+.ocup-gx-grid line { stroke: #e2e8f0; stroke-width: 1; }
+.ocup-gx-grid text { fill: #94a3b8; font-size: 11px; font-weight: 600; font-family: inherit; }
+.ocup-gx-grid .axis-baseline { stroke: #cbd5e1; stroke-width: 1.5; }
+
+/* Velas japonesas (background) */
+.ocup-gx-candle { transition: opacity .15s ease; }
+.ocup-gx-candle-body { fill-opacity: .55; stroke-width: 1; }
+.ocup-gx-candle.pos .ocup-gx-candle-body { fill: #16a34a; stroke: #15803d; }
+.ocup-gx-candle.neg .ocup-gx-candle-body { fill: #dc2626; stroke: #991b1b; }
+
+/* Líneas */
+.ocup-gx-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: opacity .15s ease, stroke-width .15s ease, filter .15s ease;
+}
+.ocup-gx-line.is-interest {
+  stroke-width: 3.5;
+  filter: drop-shadow(0 1px 2px rgba(15,23,42,.25));
+}
+.ocup-gx-line.is-hidden { opacity: .12; }
+.ocup-gx-line.is-highlight { stroke-width: 4.5; opacity: 1; filter: drop-shadow(0 2px 6px rgba(15,23,42,.30)); }
+.ocup-gx-line.is-dimmed { opacity: .25; }
+.ocup-gx-dot { transition: r .12s ease; cursor: pointer; }
+.ocup-gx-dot.is-hover { r: 6; stroke: #fff; stroke-width: 2; }
+
+/* Tooltip flotante */
+.ocup-gx-tip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(15,23,42,.95);
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  transition: opacity .12s ease, transform .12s ease;
+  opacity: 0;
+  min-width: 180px;
+  z-index: 10;
+}
+.ocup-gx-tip.is-visible { opacity: 1; }
+.ocup-gx-tip-title {
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+  padding-bottom: 4px;
+}
+.ocup-gx-tip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+}
+.ocup-gx-tip-row > span:first-child { display: inline-flex; align-items: center; gap: 6px; color: #e5e7eb; }
+.ocup-gx-tip-row > span:last-child { font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+.ocup-gx-tip-swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.ocup-gx-tip-cursor {
+  stroke: #0f172a;
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+  opacity: .35;
+}
+
+/* Brush (selector de rango estilo bolsa de valores) */
+.ocup-gx-brush {
+  margin-top: 16px;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 14px;
+}
+.ocup-gx-brush-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+.ocup-gx-brush-svg {
+  display: block;
+  width: 100%;
+  height: 70px;
+  cursor: ew-resize;
+  background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.ocup-gx-brush-mini-line {
+  fill: none;
+  stroke: #94a3b8;
+  stroke-width: 1;
+  opacity: .55;
+}
+.ocup-gx-brush-mini-area {
+  fill: rgba(99,102,241,.10);
+  stroke: none;
+}
+.ocup-gx-brush-window {
+  fill: rgba(99,102,241,.18);
+  stroke: #4f46e5;
+  stroke-width: 1.5;
+  cursor: grab;
+}
+.ocup-gx-brush-window:active { cursor: grabbing; }
+.ocup-gx-brush-handle {
+  fill: #4f46e5;
+  cursor: ew-resize;
+}
+.ocup-gx-brush-handle-bar { fill: #fff; }
+.ocup-gx-brush-out {
+  fill: rgba(15,23,42,.06);
+}
+.ocup-gx-brush-label {
+  fill: #475569;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Range info bar */
+.ocup-gx-range-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+.ocup-gx-range-reset {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.ocup-gx-range-reset:hover { background: #f1f5f9; color: #0f172a; }

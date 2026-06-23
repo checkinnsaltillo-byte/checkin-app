@@ -22187,24 +22187,24 @@ function ocupGetMonthRange() {
 
 window.ocupSetView = function (v) {
   OCUP_STATE.view = v;
-  // Tabs activos
   document.querySelectorAll('.ocup-view-tab').forEach(b => {
     b.classList.toggle('active', b.getAttribute('data-view') === v);
   });
-  // Containers
   document.getElementById('ocup-cal-container').style.display = v === 'calendario' ? '' : 'none';
   document.getElementById('ocup-table-container').style.display = v === 'indicadores' ? '' : 'none';
   document.getElementById('ocup-chart-container').style.display = v === 'graficas' ? '' : 'none';
-  // Header de mes / nav solo en calendario
   document.getElementById('ocup-month-label-wrap').style.display = v === 'calendario' ? '' : 'none';
   document.getElementById('ocup-toolbar-right-cal').style.display = v === 'calendario' ? '' : 'none';
-  // Filtros solo en Indicadores y Gráficas
-  document.getElementById('ocup-filters').style.display = (v === 'calendario') ? 'none' : '';
+  // Filtros distintos por vista
+  document.getElementById('ocup-filters').style.display = (v === 'indicadores') ? '' : 'none';
+  document.getElementById('ocup-chart-filters').style.display = (v === 'graficas') ? '' : 'none';
   if (v === 'calendario') ocupRender();
-  else {
+  else if (v === 'indicadores') {
     ocupInitFiltersOnce();
-    if (v === 'indicadores') ocupRenderTable();
-    else ocupRenderChart();
+    ocupRenderTable();
+  } else {
+    ocupChartInitFiltersOnce();
+    ocupRenderChart();
   }
 };
 
@@ -22488,70 +22488,483 @@ function ocupRenderTable() {
 // Paleta para líneas (cycling)
 const OCUP_COLORS = ['#0ea5e9','#f59e0b','#10b981','#8b5cf6','#ef4444','#06b6d4','#84cc16','#f97316','#a855f7','#3b82f6','#d946ef','#22c55e'];
 
+// ─── OCUPACIÓN — Gráficas v2: interés vs referencias, candles, brush, tooltip ───
+OCUP_STATE.chart = {
+  interestId: null,
+  references: new Set(['__global__']),
+  hiddenSeries: new Set(),        // keys ocultas (toggle de leyenda)
+  highlightSeries: new Set(),     // keys destacadas (click sostenido en leyenda)
+  range: null,                    // [startIdx, endIdx] (índices dentro de months) o null
+  chartFiltersInit: false,
+};
+
+const OCUP_REF_COLORS = {
+  '__global__': '#ec4899',
+};
+const OCUP_REF_PALETTE = ['#0ea5e9', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316', '#a855f7', '#3b82f6', '#d946ef'];
+const OCUP_INTEREST_COLOR = '#0f172a';
+
+function ocupChartInitFiltersOnce() {
+  if (OCUP_STATE.chart.chartFiltersInit) {
+    ocupChartRenderFilters();
+    return;
+  }
+  OCUP_STATE.chart.chartFiltersInit = true;
+  // Default interés = primer alojamiento
+  const alojs = ocupGetAlojamientos();
+  if (alojs.length && !OCUP_STATE.chart.interestId) {
+    OCUP_STATE.chart.interestId = alojs[0].houseId;
+  }
+  // Default referencias = Global
+  if (OCUP_STATE.chart.references.size === 0) {
+    OCUP_STATE.chart.references.add('__global__');
+  }
+  ocupChartRenderFilters();
+}
+
+function ocupChartRenderFilters() {
+  // Select de interés
+  const sel = document.getElementById('ocup-chart-interest');
+  if (sel) {
+    const alojs = ocupGetAlojamientos();
+    sel.innerHTML = alojs.map(a => `<option value="${esc(a.houseId)}" ${a.houseId === OCUP_STATE.chart.interestId ? 'selected' : ''}>${esc(a.nombre)}</option>`).join('');
+  }
+  // Multi-select de referencias
+  const refOptions = ocupChartGetReferenceOptions();
+  ocupChartBuildRefMSelect('ocup-chart-refs', refOptions);
+}
+
+function ocupChartGetReferenceOptions() {
+  const alojs = ocupGetAlojamientos();
+  const props = Array.from(new Set(alojs.map(a => a.propiedad))).sort((a, b) => a.localeCompare(b, 'es'));
+  return [
+    { value: '__global__', label: '🌐 Global (todos los alojamientos)' },
+    ...props.map(p => ({ value: p, label: p })),
+  ];
+}
+
+function ocupChartBuildRefMSelect(containerId, options) {
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  const sel = OCUP_STATE.chart.references;
+  const lblText = sel.size === 0 ? 'Ninguna'
+                 : sel.size === options.length ? `Todas (${options.length})`
+                 : sel.size === 1 ? (options.find(o => o.value === [...sel][0])?.label || [...sel][0])
+                 : `${sel.size} de ${options.length}`;
+  const opts = options.map(o => `
+    <label class="inc-mselect-opt">
+      <input type="checkbox" value="${esc(o.value)}" ${sel.has(o.value) ? 'checked' : ''}
+             onchange="ocupChartToggleRef('${esc(o.value)}', this.checked)">
+      <span>${esc(o.label)}</span>
+    </label>`).join('');
+  c.innerHTML = `
+    <button type="button" class="inc-mselect-btn" onclick="ocupChartToggleDropdown(event,'${esc(containerId)}')">
+      <span class="inc-mselect-btn-lbl">${esc(lblText)}</span>
+    </button>
+    <div class="inc-mselect-panel hidden">
+      <div class="inc-mselect-actions">
+        <button type="button" class="inc-mselect-action" onclick="ocupChartRefSetAll()">✓ Todas</button>
+        <button type="button" class="inc-mselect-action" onclick="ocupChartRefSetNone()">✕ Ninguna</button>
+      </div>
+      <div class="inc-mselect-opts">${opts}</div>
+    </div>`;
+}
+
+window.ocupChartToggleDropdown = function (ev, containerId) {
+  ev.stopPropagation();
+  document.querySelectorAll('#ocup-chart-filters .inc-mselect-panel').forEach(p => {
+    if (p.closest(`#${containerId}`)) return;
+    p.classList.add('hidden');
+  });
+  const panel = document.querySelector(`#${containerId} .inc-mselect-panel`);
+  if (panel) panel.classList.toggle('hidden');
+};
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#ocup-chart-filters .inc-mselect')) return;
+  document.querySelectorAll('#ocup-chart-filters .inc-mselect-panel').forEach(p => p.classList.add('hidden'));
+});
+
+window.ocupChartToggleRef = function (value, checked) {
+  if (checked) OCUP_STATE.chart.references.add(value);
+  else OCUP_STATE.chart.references.delete(value);
+  // Update label only — NO rebuild del dropdown
+  const refOptions = ocupChartGetReferenceOptions();
+  const sel = OCUP_STATE.chart.references;
+  const lblText = sel.size === 0 ? 'Ninguna'
+                 : sel.size === refOptions.length ? `Todas (${refOptions.length})`
+                 : sel.size === 1 ? (refOptions.find(o => o.value === [...sel][0])?.label || [...sel][0])
+                 : `${sel.size} de ${refOptions.length}`;
+  const lbl = document.querySelector('#ocup-chart-refs .inc-mselect-btn-lbl');
+  if (lbl) lbl.textContent = lblText;
+  ocupRenderChart();
+};
+window.ocupChartRefSetAll = function () {
+  ocupChartGetReferenceOptions().forEach(o => OCUP_STATE.chart.references.add(o.value));
+  document.querySelectorAll('#ocup-chart-refs input[type="checkbox"]').forEach(cb => { cb.checked = true; });
+  const refOptions = ocupChartGetReferenceOptions();
+  const lbl = document.querySelector('#ocup-chart-refs .inc-mselect-btn-lbl');
+  if (lbl) lbl.textContent = `Todas (${refOptions.length})`;
+  ocupRenderChart();
+};
+window.ocupChartRefSetNone = function () {
+  OCUP_STATE.chart.references = new Set();
+  document.querySelectorAll('#ocup-chart-refs input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+  const lbl = document.querySelector('#ocup-chart-refs .inc-mselect-btn-lbl');
+  if (lbl) lbl.textContent = 'Ninguna';
+  ocupRenderChart();
+};
+
+window.ocupChartSetInterest = function (houseId) {
+  OCUP_STATE.chart.interestId = houseId;
+  ocupRenderChart();
+};
+
+// Color por serie (memoizado para consistencia visual)
+function ocupChartColorFor(key, fallbackIdx) {
+  if (key === '__interest__') return OCUP_INTEREST_COLOR;
+  if (OCUP_REF_COLORS[key]) return OCUP_REF_COLORS[key];
+  const c = OCUP_REF_PALETTE[fallbackIdx % OCUP_REF_PALETTE.length];
+  OCUP_REF_COLORS[key] = c;
+  return c;
+}
+
+// Calcula serie promedio para un grupo de referencia.
+//   '__global__' → todos los alojamientos del catálogo
+//   '<Propiedad>' → todos los alojamientos de esa propiedad
+function ocupChartSeriesForRef(refKey, months) {
+  const allAlojs = ocupGetAlojamientos();
+  const subset = refKey === '__global__' ? allAlojs : allAlojs.filter(a => a.propiedad === refKey);
+  if (!subset.length) return months.map(() => 0);
+  return months.map(m => {
+    const sum = subset.reduce((s, a) => s + ocupNightsForAloj(a.houseId, m.year, m.month).percent, 0);
+    return sum / subset.length;
+  });
+}
+
+// Tooltip helpers
+function ocupChartShowTip(cont, x, y, html) {
+  let tip = cont.querySelector('.ocup-gx-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.className = 'ocup-gx-tip';
+    cont.querySelector('.ocup-gx-canvas')?.appendChild(tip);
+  }
+  tip.innerHTML = html;
+  tip.classList.add('is-visible');
+  // Posición relativa al canvas (clamp para que no se salga)
+  const canvas = cont.querySelector('.ocup-gx-canvas');
+  const rect = canvas.getBoundingClientRect();
+  let tx = x + 14, ty = y + 14;
+  const tipW = tip.offsetWidth, tipH = tip.offsetHeight;
+  if (tx + tipW > rect.width) tx = x - tipW - 14;
+  if (ty + tipH > rect.height) ty = y - tipH - 14;
+  tip.style.left = tx + 'px';
+  tip.style.top = ty + 'px';
+}
+function ocupChartHideTip(cont) {
+  const tip = cont.querySelector('.ocup-gx-tip');
+  if (tip) tip.classList.remove('is-visible');
+  const cur = cont.querySelector('.ocup-gx-tip-cursor');
+  if (cur) cur.setAttribute('x1', '-10'), cur.setAttribute('x2', '-10');
+}
+
+window.ocupChartToggleLegend = function (key) {
+  if (OCUP_STATE.chart.hiddenSeries.has(key)) OCUP_STATE.chart.hiddenSeries.delete(key);
+  else OCUP_STATE.chart.hiddenSeries.add(key);
+  ocupRenderChart();
+};
+window.ocupChartHighlightLegend = function (key) {
+  // Alterna highlight (resalta esa serie atenuando otras)
+  if (OCUP_STATE.chart.highlightSeries.has(key)) OCUP_STATE.chart.highlightSeries.delete(key);
+  else OCUP_STATE.chart.highlightSeries.add(key);
+  ocupRenderChart();
+};
+
+window.ocupChartResetRange = function () {
+  OCUP_STATE.chart.range = null;
+  ocupRenderChart();
+};
+
 function ocupRenderChart() {
   const cont = document.getElementById('ocup-chart-container');
   if (!cont) return;
-  const months = ocupGetMonthRange();
-  const alojs = ocupGetAlojamientos()
-    .filter(a => OCUP_STATE.filters.propiedades.size === 0 || OCUP_STATE.filters.propiedades.has(a.propiedad))
-    .filter(a => OCUP_STATE.filters.alojamientos.size === 0 || OCUP_STATE.filters.alojamientos.has(a.houseId));
-  // Datos: para cada aloj, array de % por mes
-  const series = alojs.map((a, i) => {
-    const pcts = months.map(m => ocupNightsForAloj(a.houseId, m.year, m.month).percent);
-    return { aloj: a, color: OCUP_COLORS[i % OCUP_COLORS.length], pcts };
-  });
-  // Promedio: media simple de TODOS los alojamientos del catálogo (no filtrados)
+  const allMonths = ocupGetMonthRange();
+  // Rango visible (subselección del brush)
+  const range = OCUP_STATE.chart.range;
+  const startIdx = range ? Math.max(0, Math.min(range[0], allMonths.length - 1)) : 0;
+  const endIdx = range ? Math.max(startIdx, Math.min(range[1], allMonths.length - 1)) : allMonths.length - 1;
+  const months = allMonths.slice(startIdx, endIdx + 1);
+
+  // Interés
   const allAlojs = ocupGetAlojamientos();
-  const avgPcts = months.map(m => {
-    if (!allAlojs.length) return 0;
-    const sum = allAlojs.reduce((s, a) => s + ocupNightsForAloj(a.houseId, m.year, m.month).percent, 0);
-    return sum / allAlojs.length;
+  const interest = allAlojs.find(a => a.houseId === OCUP_STATE.chart.interestId) || allAlojs[0];
+
+  // Series
+  const series = [];
+  if (interest) {
+    const pcts = months.map(m => ocupNightsForAloj(interest.houseId, m.year, m.month).percent);
+    series.push({ key: '__interest__', label: interest.nombre, color: OCUP_INTEREST_COLOR, pcts, isInterest: true });
+  }
+  const refOptions = ocupChartGetReferenceOptions();
+  Array.from(OCUP_STATE.chart.references).forEach((refKey) => {
+    const opt = refOptions.find(o => o.value === refKey);
+    const label = opt ? opt.label : refKey;
+    const idx = refOptions.findIndex(o => o.value === refKey);
+    series.push({ key: refKey, label, color: ocupChartColorFor(refKey, idx), pcts: ocupChartSeriesForRef(refKey, months), isInterest: false });
   });
+
+  // Sin nada
+  if (!interest) {
+    cont.innerHTML = `<div class="ocup-gx-shell"><div style="padding:40px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic">No hay alojamientos en el catálogo.</div></div>`;
+    return;
+  }
+
+  // Velas: diferencia INTERÉS vs primera referencia activa (si hay)
+  const firstRefVisible = series.find(s => !s.isInterest && !OCUP_STATE.chart.hiddenSeries.has(s.key));
+  const candleData = months.map((m, i) => {
+    const iv = series[0].pcts[i];
+    const rv = firstRefVisible ? firstRefVisible.pcts[i] : null;
+    if (rv == null) return null;
+    return { i, iv, rv, diff: iv - rv };
+  });
+
   // Dimensions
-  const W = 900, H = 380;
-  const ML = 40, MR = 20, MT = 20, MB = 40;
+  const W = 1100, H = 360;
+  const ML = 48, MR = 24, MT = 18, MB = 36;
   const innerW = W - ML - MR, innerH = H - MT - MB;
-  const xStep = innerW / Math.max(1, months.length - 1);
+  const xStep = months.length > 1 ? innerW / (months.length - 1) : innerW;
   const yFor = (pct) => MT + innerH - (Math.min(100, Math.max(0, pct)) / 100) * innerH;
-  // Grid Y
+
+  // Grid + Y labels
   let grid = '';
   [0, 20, 40, 60, 80, 100].forEach(p => {
     const yy = yFor(p);
     grid += `<line x1="${ML}" y1="${yy}" x2="${W - MR}" y2="${yy}"></line>`;
-    grid += `<text x="${ML - 6}" y="${yy + 4}" text-anchor="end">${p}%</text>`;
+    grid += `<text x="${ML - 8}" y="${yy + 4}" text-anchor="end">${p}%</text>`;
   });
-  // X labels (cada 2)
+  // Baseline
+  grid += `<line class="axis-baseline" x1="${ML}" y1="${yFor(0)}" x2="${W - MR}" y2="${yFor(0)}"></line>`;
+  // X labels (cada N para evitar overlap)
+  const xLabelEvery = Math.max(1, Math.ceil(months.length / 12));
   let xLabels = '';
   months.forEach((m, i) => {
-    if (i % 2 === 0) {
+    if (i % xLabelEvery === 0 || i === months.length - 1) {
       const xx = ML + i * xStep;
       xLabels += `<text x="${xx}" y="${H - 10}" text-anchor="middle">${m.key}</text>`;
     }
   });
-  // Series paths
-  const makePath = (pcts) => {
-    return pcts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${ML + i * xStep} ${yFor(p)}`).join(' ');
-  };
-  const seriesPaths = series.map(s =>
-    `<path class="ocup-chart-line" stroke="${s.color}" d="${makePath(s.pcts)}"/>`
-  ).join('');
-  const avgPath = `<path class="ocup-chart-line ocup-chart-line-avg" d="${makePath(avgPcts)}"/>`;
-  // Legend
-  const legend = `<div class="ocup-chart-legend">
-    <span class="ocup-chart-legend-item"><span class="ocup-chart-legend-swatch" style="background:#ec4899;height:4px"></span><strong>Promedio general</strong></span>
-    ${series.map(s => `<span class="ocup-chart-legend-item"><span class="ocup-chart-legend-swatch" style="background:${s.color}"></span>${esc(s.aloj.nombre)}</span>`).join('')}
-  </div>`;
-  const empty = series.length === 0
-    ? `<div style="text-align:center;padding:40px;color:#94a3b8;font-size:13px;font-style:italic">Selecciona al menos un alojamiento para ver su serie.</div>`
-    : '';
+
+  // Velas (background): centradas en cada mes, body = |diff|, anclado al
+  // promedio entre interés y referencia. Verde si interés > ref, rojo
+  // si interés < ref.
+  let candles = '';
+  const candleW = Math.max(4, Math.min(18, xStep * 0.45));
+  candleData.forEach((c, i) => {
+    if (!c) return;
+    const cx = ML + i * xStep;
+    const yTop = yFor(Math.max(c.iv, c.rv));
+    const yBot = yFor(Math.min(c.iv, c.rv));
+    const cls = c.diff >= 0 ? 'pos' : 'neg';
+    candles += `<g class="ocup-gx-candle ${cls}" data-i="${i}">
+      <rect class="ocup-gx-candle-body" x="${(cx - candleW / 2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${candleW}" height="${Math.max(1, yBot - yTop).toFixed(1)}" rx="2"></rect>
+    </g>`;
+  });
+
+  // Series paths + dots
+  const makePath = (pcts) => pcts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${ML + i * xStep} ${yFor(p)}`).join(' ');
+  const hasHighlight = OCUP_STATE.chart.highlightSeries.size > 0;
+  let seriesEls = '';
+  series.forEach(s => {
+    const hidden = OCUP_STATE.chart.hiddenSeries.has(s.key);
+    if (hidden) return;
+    const highlighted = OCUP_STATE.chart.highlightSeries.has(s.key);
+    const dimmed = hasHighlight && !highlighted;
+    const cls = `ocup-gx-line ${s.isInterest ? 'is-interest' : ''} ${highlighted ? 'is-highlight' : ''} ${dimmed ? 'is-dimmed' : ''}`;
+    seriesEls += `<path class="${cls}" stroke="${s.color}" d="${makePath(s.pcts)}"/>`;
+    // Dots para hover (solo interés tiene dots visibles por default)
+    if (s.isInterest) {
+      s.pcts.forEach((p, i) => {
+        seriesEls += `<circle class="ocup-gx-dot" cx="${ML + i * xStep}" cy="${yFor(p)}" r="3" fill="${s.color}" stroke="#fff" stroke-width="1"/>`;
+      });
+    }
+  });
+
+  // Cursor vertical (tooltip)
+  const cursor = `<line class="ocup-gx-tip-cursor" x1="-10" y1="${MT}" x2="-10" y2="${MT + innerH}"></line>`;
+
+  // ─── Leyendas (pills) ───
+  const legendHtml = series.map(s => {
+    const hidden = OCUP_STATE.chart.hiddenSeries.has(s.key);
+    const highlighted = OCUP_STATE.chart.highlightSeries.has(s.key);
+    return `<span class="ocup-gx-pill ${s.isInterest ? 'is-interest' : ''} ${highlighted ? 'is-active' : ''} ${hidden ? 'is-hidden' : ''}"
+       style="--pill-color:${s.color};--pill-bg:${s.color}"
+       onclick="event.shiftKey || event.metaKey || event.ctrlKey ? ocupChartToggleLegend('${esc(s.key)}') : ocupChartHighlightLegend('${esc(s.key)}')"
+       title="Click: resaltar · Shift+Click: ocultar/mostrar">
+        <span class="ocup-gx-pill-swatch"></span>
+        ${esc(s.label)}${s.isInterest ? ' · Interés' : ''}
+      </span>`;
+  }).join('');
+
+  // ─── Brush (range selector) ───
+  const brushH = 70;
+  const brushW = W;
+  const brushMT = 10, brushMB = 22, brushML = ML, brushMR = MR;
+  const brushInnerW = brushW - brushML - brushMR;
+  const brushInnerH = brushH - brushMT - brushMB;
+  const brushXStep = allMonths.length > 1 ? brushInnerW / (allMonths.length - 1) : brushInnerW;
+  const interestMiniPcts = allMonths.map(m => ocupNightsForAloj(interest.houseId, m.year, m.month).percent);
+  const brushYFor = (p) => brushMT + brushInnerH - (p / 100) * brushInnerH;
+  const brushPath = interestMiniPcts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${brushML + i * brushXStep} ${brushYFor(p)}`).join(' ');
+  const brushArea = brushPath + ` L ${brushML + (allMonths.length - 1) * brushXStep} ${brushMT + brushInnerH} L ${brushML} ${brushMT + brushInnerH} Z`;
+  const brushStartPx = brushML + startIdx * brushXStep;
+  const brushEndPx = brushML + endIdx * brushXStep;
+  // Etiquetas de inicio/fin
+  let brushLabels = '';
+  if (allMonths.length) {
+    brushLabels += `<text class="ocup-gx-brush-label" x="${brushML}" y="${brushH - 6}" text-anchor="start">${allMonths[0].key}</text>`;
+    brushLabels += `<text class="ocup-gx-brush-label" x="${brushW - brushMR}" y="${brushH - 6}" text-anchor="end">${allMonths[allMonths.length - 1].key}</text>`;
+  }
+
+  const rangeInfo = `${months[0]?.key || '—'} → ${months[months.length - 1]?.key || '—'}`;
+
   cont.innerHTML = `
-    <div class="ocup-chart-svg-wrap">
-      <svg class="ocup-chart-svg" viewBox="0 0 ${W} ${H}" width="100%" height="${H}">
-        <g class="ocup-chart-grid">${grid}${xLabels}</g>
-        ${seriesPaths}
-        ${avgPath}
-      </svg>
-    </div>
-    ${empty}
-    ${legend}`;
+    <div class="ocup-gx-shell">
+      <h3 class="ocup-gx-title">📈 Desempeño en el tiempo</h3>
+      <p class="ocup-gx-sub">Click en una leyenda para <strong>resaltar</strong>; Shift+Click para ocultar/mostrar. Velas de fondo muestran la diferencia del interés vs la primera referencia.</p>
+      <div class="ocup-gx-legend">${legendHtml}</div>
+      <div class="ocup-gx-canvas">
+        <svg class="ocup-gx-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" id="ocup-gx-svg-main">
+          <g class="ocup-gx-grid">${grid}${xLabels}</g>
+          <g class="ocup-gx-candles">${candles}</g>
+          ${seriesEls}
+          ${cursor}
+          <rect id="ocup-gx-hover-rect" x="${ML}" y="${MT}" width="${innerW}" height="${innerH}" fill="transparent"></rect>
+        </svg>
+      </div>
+      <div class="ocup-gx-brush">
+        <div class="ocup-gx-brush-title">⬌ Ventana de tiempo</div>
+        <svg class="ocup-gx-brush-svg" viewBox="0 0 ${brushW} ${brushH}" preserveAspectRatio="none" id="ocup-gx-brush-svg">
+          <path class="ocup-gx-brush-mini-area" d="${brushArea}"></path>
+          <path class="ocup-gx-brush-mini-line" d="${brushPath}"></path>
+          <rect class="ocup-gx-brush-out" x="${brushML}" y="${brushMT}" width="${brushStartPx - brushML}" height="${brushInnerH}"></rect>
+          <rect class="ocup-gx-brush-out" x="${brushEndPx}" y="${brushMT}" width="${brushW - brushMR - brushEndPx}" height="${brushInnerH}"></rect>
+          <rect class="ocup-gx-brush-window" id="ocup-gx-brush-window" x="${brushStartPx}" y="${brushMT}" width="${brushEndPx - brushStartPx}" height="${brushInnerH}" rx="3"></rect>
+          <g id="ocup-gx-brush-handle-left" class="ocup-gx-brush-handle" data-handle="left">
+            <rect x="${brushStartPx - 4}" y="${brushMT}" width="8" height="${brushInnerH}" rx="2"></rect>
+            <rect class="ocup-gx-brush-handle-bar" x="${brushStartPx - 1}" y="${brushMT + brushInnerH / 2 - 6}" width="2" height="12"></rect>
+          </g>
+          <g id="ocup-gx-brush-handle-right" class="ocup-gx-brush-handle" data-handle="right">
+            <rect x="${brushEndPx - 4}" y="${brushMT}" width="8" height="${brushInnerH}" rx="2"></rect>
+            <rect class="ocup-gx-brush-handle-bar" x="${brushEndPx - 1}" y="${brushMT + brushInnerH / 2 - 6}" width="2" height="12"></rect>
+          </g>
+          ${brushLabels}
+        </svg>
+        <div class="ocup-gx-range-info">
+          <span>Mostrando: <strong>${esc(rangeInfo)}</strong> · ${months.length} ${months.length === 1 ? 'mes' : 'meses'}</span>
+          <button type="button" class="ocup-gx-range-reset" onclick="ocupChartResetRange()">Restablecer rango</button>
+        </div>
+      </div>
+    </div>`;
+
+  // Bind hover + brush
+  ocupChartBindHover(cont, series, months, ML, MT, innerW, innerH, xStep, yFor);
+  ocupChartBindBrush(cont, allMonths, brushML, brushMT, brushInnerW, brushInnerH, brushXStep);
+}
+
+function ocupChartBindHover(cont, series, months, ML, MT, innerW, innerH, xStep, yFor) {
+  const svg = cont.querySelector('#ocup-gx-svg-main');
+  const cursor = cont.querySelector('.ocup-gx-tip-cursor');
+  const hoverRect = cont.querySelector('#ocup-gx-hover-rect');
+  if (!svg || !hoverRect) return;
+  const onMove = (ev) => {
+    const pt = svg.createSVGPoint();
+    pt.x = ev.clientX; pt.y = ev.clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    const loc = pt.matrixTransform(ctm.inverse());
+    const xInside = loc.x - ML;
+    if (xInside < 0 || xInside > innerW) { ocupChartHideTip(cont); return; }
+    const idx = Math.max(0, Math.min(months.length - 1, Math.round(xInside / xStep)));
+    const m = months[idx];
+    if (!m) return;
+    const xPx = ML + idx * xStep;
+    cursor.setAttribute('x1', xPx);
+    cursor.setAttribute('x2', xPx);
+    // Tooltip
+    const rows = series
+      .filter(s => !OCUP_STATE.chart.hiddenSeries.has(s.key))
+      .map(s => `<div class="ocup-gx-tip-row">
+        <span><span class="ocup-gx-tip-swatch" style="background:${s.color}"></span>${esc(s.label)}${s.isInterest ? ' ⭐' : ''}</span>
+        <span>${Math.round(s.pcts[idx])}%</span>
+      </div>`).join('');
+    // Diff highlight if 2+ visible
+    let diffRow = '';
+    const visible = series.filter(s => !OCUP_STATE.chart.hiddenSeries.has(s.key));
+    if (visible.length >= 2) {
+      const di = visible[0].pcts[idx] - visible[1].pcts[idx];
+      const cls = di >= 0 ? 'color:#86efac' : 'color:#fca5a5';
+      diffRow = `<div class="ocup-gx-tip-row" style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.15)">
+        <span style="color:#cbd5e1">Δ Interés - Ref</span>
+        <span style="${cls}">${di >= 0 ? '+' : ''}${Math.round(di)} pp</span>
+      </div>`;
+    }
+    // Posición en pixeles del canvas (no SVG coords)
+    const canvas = cont.querySelector('.ocup-gx-canvas');
+    const canvasRect = canvas.getBoundingClientRect();
+    const cx = ev.clientX - canvasRect.left;
+    const cy = ev.clientY - canvasRect.top;
+    ocupChartShowTip(cont, cx, cy,
+      `<div class="ocup-gx-tip-title">${esc(m.key)}</div>${rows}${diffRow}`);
+  };
+  hoverRect.addEventListener('mousemove', onMove);
+  hoverRect.addEventListener('mouseleave', () => ocupChartHideTip(cont));
+}
+
+function ocupChartBindBrush(cont, allMonths, brushML, brushMT, brushInnerW, brushInnerH, brushXStep) {
+  const brushSvg = cont.querySelector('#ocup-gx-brush-svg');
+  if (!brushSvg || allMonths.length === 0) return;
+  let drag = null; // { mode: 'window'|'left'|'right', startX, startIdx, endIdx }
+  const range = OCUP_STATE.chart.range || [0, allMonths.length - 1];
+  const xToIdx = (x) => {
+    const inside = Math.max(0, Math.min(brushInnerW, x - brushML));
+    return Math.round(inside / brushXStep);
+  };
+  const getX = (ev) => {
+    const pt = brushSvg.createSVGPoint();
+    pt.x = ev.clientX; pt.y = ev.clientY;
+    return pt.matrixTransform(brushSvg.getScreenCTM().inverse()).x;
+  };
+  const onDown = (ev, mode) => {
+    ev.preventDefault();
+    drag = { mode, startX: getX(ev), startRange: range.slice() };
+    document.addEventListener('mousemove', onDrag);
+    document.addEventListener('mouseup', onUp);
+  };
+  const onDrag = (ev) => {
+    if (!drag) return;
+    const x = getX(ev);
+    let [s, e] = drag.startRange;
+    if (drag.mode === 'left') {
+      s = Math.max(0, Math.min(e - 1, xToIdx(x)));
+    } else if (drag.mode === 'right') {
+      e = Math.max(s + 1, Math.min(allMonths.length - 1, xToIdx(x)));
+    } else if (drag.mode === 'window') {
+      const dxIdx = Math.round((x - drag.startX) / brushXStep);
+      const w = e - s;
+      s = Math.max(0, Math.min(allMonths.length - 1 - w, drag.startRange[0] + dxIdx));
+      e = s + w;
+    }
+    OCUP_STATE.chart.range = [s, e];
+    ocupRenderChart();
+  };
+  const onUp = () => {
+    drag = null;
+    document.removeEventListener('mousemove', onDrag);
+    document.removeEventListener('mouseup', onUp);
+  };
+  cont.querySelector('#ocup-gx-brush-window')?.addEventListener('mousedown', (e) => onDown(e, 'window'));
+  cont.querySelector('#ocup-gx-brush-handle-left')?.addEventListener('mousedown', (e) => onDown(e, 'left'));
+  cont.querySelector('#ocup-gx-brush-handle-right')?.addEventListener('mousedown', (e) => onDown(e, 'right'));
+  // Inicializa rango si era null
+  if (!OCUP_STATE.chart.range) OCUP_STATE.chart.range = [0, allMonths.length - 1];
 }
