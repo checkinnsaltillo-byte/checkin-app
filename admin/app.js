@@ -19485,6 +19485,16 @@ function incFmtFecha(iso) {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
+// Formato largo en español, ej. "16 de junio de 2026". Usado en los
+// encabezados de las cards de Incidencias y Objetos olvidados.
+function incFmtFechaLarga(iso) {
+  if (!iso) return '—';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return iso;
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  return `${parseInt(m[3], 10)} de ${meses[parseInt(m[2], 10) - 1]} de ${m[1]}`;
+}
+
 function incNivelClass(nivel) {
   const n = String(nivel || '').toLowerCase();
   if (n === 'alta')  return 'high';
@@ -20073,7 +20083,8 @@ function incRenderCardOne(row) {
   const alojamiento = String(row['Alojamiento'] || '').trim()
                     || ((propiedad && depto) ? `${propiedad} - #${depto}` : (propiedad || ''));
   const fecha = String(row['Fecha'] || row['Timestamp'] || '').slice(0, 10);
-  const reportante = String(row['Reportante'] || 'Sin reportante').trim();
+  const personas = String(row['Personas'] || '').split(',').map(s => s.trim()).filter(Boolean);
+  const personasTxt = personas.length ? personas.join(', ') : 'Sin personas';
   const nivel = String(row['Nivel'] || 'Baja');
   const estatus = String(row['Estatus'] || 'Pendiente');
   const expanded = INC_STATE.expanded.has(id);
@@ -20109,8 +20120,8 @@ function incRenderCardOne(row) {
           </div>
           ${alojamiento ? `<div class="inc-card-aloj">📍 ${esc(alojamiento)}</div>` : ''}
           <div class="inc-card-sub">
-            <span>📅 <strong>${esc(incFmtFecha(fecha))}</strong></span>
-            <span>✍️ ${esc(reportante)}</span>
+            <span>📅 <strong>${esc(incFmtFechaLarga(fecha))}</strong></span>
+            <span>👥 ${esc(personasTxt)}</span>
           </div>
         </div>
         <div class="inc-card-chips">
@@ -21432,7 +21443,7 @@ function objRenderCardOne(row) {
           </div>
           ${alojamiento ? `<div class="inc-card-aloj">📍 ${esc(alojamiento)}</div>` : ''}
           <div class="inc-card-sub">
-            <span>📅 <strong>${esc(incFmtFecha(fechaEnc))}</strong></span>
+            <span>📅 <strong>${esc(incFmtFechaLarga(fechaEnc))}</strong></span>
             <span>✍️ ${esc(reportante)}</span>
             <span>📦 ${esc(lugarTxt)}</span>
           </div>
