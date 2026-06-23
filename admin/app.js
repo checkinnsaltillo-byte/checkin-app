@@ -20148,18 +20148,23 @@ function incCardBodyHtmlReadonly(row, id) {
     ${incCardBodyHtml(row)}`;
 }
 
+// Replica EXACTAMENTE la estructura del formulario de captura
+// (mismas secciones, mismos colores de banda izquierda, mismos
+// iconos en títulos). Solo difiere en: IDs scopeados a la card,
+// oninput dispara incEditOnChange en lugar de los handlers del form,
+// y las fotos pueden ser tanto existentes (URLs) como nuevas (base64).
 function incCardBodyHtmlEditable(row, id) {
   const d = incRowToReportData(row);
-  const allMotivos = ['Limpieza', 'Mantenimiento', 'Insumos'];
-  const allClasifByMotivo = {
-    'Limpieza': ['Baño sucio', 'Sábanas sucias', 'Basura detectada', 'Plaga o insectos'],
-    'Mantenimiento': ['Fuga de agua', 'Falla eléctrica', 'Falla de electrodomésticos', 'Ausencia de controles'],
-    'Insumos': ['Toallas faltantes', 'Pilas faltantes', 'Productos de limpieza faltantes'],
-  };
-  const allClasif = Array.from(new Set([
-    ...Object.values(allClasifByMotivo).flat(),
-    ...d.clasificaciones,
-  ]));
+  // ─── Catálogos ───
+  const allMotivos = (typeof INC_STATE.motivos !== 'undefined' && INC_STATE.motivos.length)
+    ? INC_STATE.motivos.slice() : ['Limpieza', 'Mantenimiento', 'Insumos'];
+  d.motivos.forEach(m => { if (!allMotivos.includes(m)) allMotivos.push(m); });
+  const allClasif = (typeof INC_STATE.clasificaciones !== 'undefined' && INC_STATE.clasificaciones.length)
+    ? INC_STATE.clasificaciones.slice()
+    : ['Baño sucio','Sábanas sucias','Basura detectada','Plaga o insectos',
+       'Fuga de agua','Falla eléctrica','Falla de electrodomésticos','Ausencia de controles',
+       'Toallas faltantes','Pilas faltantes','Productos de limpieza faltantes'];
+  d.clasificaciones.forEach(c => { if (!allClasif.includes(c)) allClasif.push(c); });
   const personas = (INC_STATE.personasFromSheet ? INC_STATE.personas : INC_PERSONAL.map(p => p.nombre)).slice();
   d.personas.forEach(p => { if (!personas.includes(p)) personas.push(p); });
   let props = [];
@@ -20176,43 +20181,195 @@ function incCardBodyHtmlEditable(row, id) {
   }
   if (!reportantes.length) reportantes = INC_PERSONAL.filter(p => p.puesto === 'Administrativo').map(p => p.nombre);
   if (d.reportante && !reportantes.includes(d.reportante)) reportantes.push(d.reportante);
+
+  // ─── Estado de fotos para edición ───
+  if (!INC_STATE.editPhotos) INC_STATE.editPhotos = {};
+  if (!INC_STATE.editPhotos[id]) {
+    // existingUrls = URLs de Drive que están actualmente en el reporte
+    // newOnes = fotos agregadas en esta sesión de edición (base64)
+    const fotosUrls = String(row['Fotos_URLs'] || '').split(',').map(s => s.trim()).filter(Boolean);
+    INC_STATE.editPhotos[id] = {
+      existingUrls: fotosUrls.slice(),
+      newOnes: [], // [{name, src, base64, mimeType}]
+    };
+  }
+
+  // ─── Helpers ───
   const checklistHtml = (items, name, selected) => items.map(v => `
     <label><input type="checkbox" data-edit-field="${esc(name)}" value="${esc(v)}" ${selected.includes(v) ? 'checked' : ''} oninput="incEditOnChange('${esc(id)}')">
     <span>${esc(v)}</span></label>`).join('');
   const selectHtml = (name, items, selected, withBlank) => {
     const opts = (withBlank ? ['<option value="">— Seleccionar —</option>'] : [])
       .concat(items.map(v => `<option value="${esc(v)}" ${v === selected ? 'selected' : ''}>${esc(v)}</option>`));
-    return `<select class="inc-edit-select" data-edit-field="${esc(name)}" oninput="incEditOnChange('${esc(id)}')">${opts.join('')}</select>`;
+    return `<select class="inc-input" data-edit-field="${esc(name)}" oninput="incEditOnChange('${esc(id)}')">${opts.join('')}</select>`;
   };
+
+  // ─── Toolbar de edición ───
   const toolbarHtml = `
     <div class="inc-edit-toolbar" data-edit-toolbar>
       <button type="button" class="inc-edit-btn inc-edit-btn-save" data-edit-save style="display:none" onclick="event.stopPropagation();incSaveEdit('${esc(id)}')">💾 Guardar cambios y Salir</button>
       <button type="button" class="inc-edit-btn inc-edit-btn-cancel" onclick="event.stopPropagation();incCancelEdit('${esc(id)}')">✕ Salir</button>
     </div>`;
-  const field = (label, html) => `
-    <div style="margin-bottom:10px">
-      <label style="display:block;font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${esc(label)}</label>
-      ${html}
-    </div>`;
+
   return `
     ${toolbarHtml}
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-      ${field('Fecha', `<input type="date" class="inc-edit-input" data-edit-field="fecha" value="${esc(d.fecha)}" oninput="incEditOnChange('${esc(id)}')">`)}
-      ${field('Propiedad', selectHtml('propiedad', props, d.propiedad, true))}
-      ${field('# Departamento', selectHtml('depto', deptos, d.depto, true))}
+
+    <div class="inc-section inc-section-data">
+      <div class="inc-section-title">📅 Datos generales</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div>
+          <label class="inc-label">Fecha</label>
+          <input type="date" class="inc-input" data-edit-field="fecha" value="${esc(d.fecha)}" oninput="incEditOnChange('${esc(id)}')">
+        </div>
+        <div>
+          <label class="inc-label">Propiedad</label>
+          ${selectHtml('propiedad', props, d.propiedad, true)}
+        </div>
+        <div>
+          <label class="inc-label"># Departamento</label>
+          ${selectHtml('depto', deptos, d.depto, true)}
+        </div>
+      </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-      ${field('Nivel', selectHtml('nivel', ['Baja','Media','Alta'], d.nivel))}
-      ${field('Estatus', selectHtml('estatus', ['Pendiente','Parcialmente resuelto','Resuelto'], d.estatus))}
-      ${field('Reportante', selectHtml('reportante', reportantes, d.reportante, true))}
+
+    <div class="inc-section inc-section-personas">
+      <div class="inc-section-title">👥 Personas involucradas</div>
+      <div class="inc-checklist">${checklistHtml(personas, 'personas', d.personas)}</div>
     </div>
-    ${field('Personas involucradas', `<div class="inc-edit-checklist">${checklistHtml(personas, 'personas', d.personas)}</div>`)}
-    ${field('Motivos del reporte',   `<div class="inc-edit-checklist">${checklistHtml(allMotivos, 'motivos', d.motivos)}</div>`)}
-    ${field('Clasificación',          `<div class="inc-edit-checklist">${checklistHtml(allClasif, 'clasificaciones', d.clasificaciones)}</div>`)}
-    ${field('Descripción detallada',  `<textarea class="inc-edit-textarea" data-edit-field="descripcion" oninput="incEditOnChange('${esc(id)}')">${esc(d.descripcion)}</textarea>`)}
-    ${field('Acciones realizadas',    `<textarea class="inc-edit-textarea" data-edit-field="acciones" oninput="incEditOnChange('${esc(id)}')">${esc(d.acciones)}</textarea>`)}
-    ${field('Seguimiento requerido',  `<textarea class="inc-edit-textarea" data-edit-field="seguimiento" oninput="incEditOnChange('${esc(id)}')">${esc(d.seguimiento)}</textarea>`)}`;
+
+    <div class="inc-section inc-section-motivos">
+      <div class="inc-section-title">🎯 Motivos del reporte</div>
+      <div class="inc-checklist">${checklistHtml(allMotivos, 'motivos', d.motivos)}</div>
+    </div>
+
+    <div class="inc-section inc-section-clasif">
+      <div class="inc-section-title">🏷️ Clasificación de la incidencia</div>
+      <div class="inc-checklist">${checklistHtml(allClasif, 'clasificaciones', d.clasificaciones)}</div>
+    </div>
+
+    <div class="inc-section inc-section-nivel">
+      <div class="inc-section-title">⚡ Nivel y seguimiento</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="inc-label">Nivel de prioridad</label>
+          <select class="inc-input" data-edit-field="nivel" oninput="incEditOnChange('${esc(id)}')">
+            <option value="Baja" ${d.nivel==='Baja'?'selected':''}>🟢 Baja</option>
+            <option value="Media" ${d.nivel==='Media'?'selected':''}>🟡 Media</option>
+            <option value="Alta" ${d.nivel==='Alta'?'selected':''}>🔴 Alta</option>
+          </select>
+        </div>
+        <div>
+          <label class="inc-label">Estatus</label>
+          <select class="inc-input" data-edit-field="estatus" oninput="incEditOnChange('${esc(id)}')">
+            <option value="Pendiente" ${d.estatus==='Pendiente'?'selected':''}>✗ Pendiente</option>
+            <option value="Parcialmente resuelto" ${d.estatus==='Parcialmente resuelto'?'selected':''}>◐ Parcialmente resuelto</option>
+            <option value="Resuelto" ${d.estatus==='Resuelto'?'selected':''}>✓ Resuelto</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="inc-section inc-section-reportante">
+      <div class="inc-section-title">✍️ Persona que realizó el reporte</div>
+      ${selectHtml('reportante', reportantes, d.reportante, true)}
+    </div>
+
+    <div class="inc-section inc-section-fotos">
+      <div class="inc-section-title">📸 Fotos / evidencia</div>
+      <input type="file" id="inc-edit-fotos-${esc(id)}" accept="image/*" multiple class="inc-input" onchange="incEditOnAddFotos('${esc(id)}', event)">
+      <div style="font-size:11px;color:#64748b;margin-top:4px">Una o varias imágenes. El ✕ elimina; el ＋ agrega más.</div>
+      <div id="inc-edit-foto-preview-${esc(id)}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:10px">
+        ${incEditRenderFotos(id)}
+      </div>
+    </div>
+
+    <div class="inc-section inc-section-desc">
+      <div class="inc-section-title">📝 Descripción y observaciones</div>
+      <label class="inc-label">Descripción detallada</label>
+      <textarea class="inc-input" data-edit-field="descripcion" rows="3" oninput="incEditOnChange('${esc(id)}')">${esc(d.descripcion)}</textarea>
+      <label class="inc-label" style="margin-top:8px">Acciones realizadas</label>
+      <textarea class="inc-input" data-edit-field="acciones" rows="3" oninput="incEditOnChange('${esc(id)}')">${esc(d.acciones)}</textarea>
+      <label class="inc-label" style="margin-top:8px">Seguimiento requerido</label>
+      <textarea class="inc-input" data-edit-field="seguimiento" rows="3" oninput="incEditOnChange('${esc(id)}')">${esc(d.seguimiento)}</textarea>
+    </div>`;
 }
+
+// Render del preview de fotos en modo edición. Muestra existentes
+// (via proxy) y nuevas (base64), cada una con ✕ para eliminar, y al
+// final un placeholder ＋ que abre el file picker.
+function incEditRenderFotos(id) {
+  const state = (INC_STATE.editPhotos || {})[id];
+  if (!state) return '';
+  const items = [];
+  state.existingUrls.forEach((u, i) => {
+    const proxied = `${BACKEND}/huespedes-image-proxy?url=${encodeURIComponent(u)}&size=w800`;
+    items.push(`
+      <div class="inc-photo-thumb" title="Foto existente">
+        <button type="button" class="inc-photo-remove" onclick="event.stopPropagation();incEditRemoveExisting('${esc(id)}',${i})" title="Eliminar">✕</button>
+        <img src="${proxied}" alt="">
+        <div class="inc-photo-cap">Foto guardada</div>
+      </div>`);
+  });
+  state.newOnes.forEach((f, i) => {
+    items.push(`
+      <div class="inc-photo-thumb" title="Foto nueva (no guardada aún)">
+        <button type="button" class="inc-photo-remove" onclick="event.stopPropagation();incEditRemoveNew('${esc(id)}',${i})" title="Eliminar">✕</button>
+        <img src="${f.src}" alt="${esc(f.name)}">
+        <div class="inc-photo-cap">${esc(f.name)} <span style="color:#16a34a;font-weight:800">· nueva</span></div>
+      </div>`);
+  });
+  // Placeholder "+"
+  items.push(`
+    <div class="inc-photo-add" onclick="document.getElementById('inc-edit-fotos-${esc(id)}').click()" title="Agregar más imágenes">
+      <span class="inc-photo-add-icon">＋</span>
+      <span class="inc-photo-add-text">Agregar imagen</span>
+    </div>`);
+  return items.join('');
+}
+
+window.incEditOnAddFotos = function (id, ev) {
+  const files = Array.from(ev.target.files || []);
+  if (!files.length) return;
+  Promise.all(files.map(f => new Promise(resolve => {
+    const r = new FileReader();
+    r.onload = () => resolve({
+      name: f.name,
+      src: r.result,
+      mimeType: f.type || 'image/jpeg',
+      base64: String(r.result).split(',')[1] || '',
+    });
+    r.readAsDataURL(f);
+  }))).then(results => {
+    const state = INC_STATE.editPhotos[id];
+    if (!state) return;
+    state.newOnes = state.newOnes.concat(results);
+    // Reset input (poder re-cargar mismo archivo)
+    ev.target.value = '';
+    // Re-renderiza solo el grid de fotos
+    const grid = document.getElementById(`inc-edit-foto-preview-${id}`);
+    if (grid) grid.innerHTML = incEditRenderFotos(id);
+    // Cambio detectado → mostrar Guardar
+    incEditOnChange(id);
+  });
+};
+
+window.incEditRemoveExisting = function (id, idx) {
+  const state = INC_STATE.editPhotos[id];
+  if (!state) return;
+  state.existingUrls.splice(idx, 1);
+  const grid = document.getElementById(`inc-edit-foto-preview-${id}`);
+  if (grid) grid.innerHTML = incEditRenderFotos(id);
+  incEditOnChange(id);
+};
+
+window.incEditRemoveNew = function (id, idx) {
+  const state = INC_STATE.editPhotos[id];
+  if (!state) return;
+  state.newOnes.splice(idx, 1);
+  const grid = document.getElementById(`inc-edit-foto-preview-${id}`);
+  if (grid) grid.innerHTML = incEditRenderFotos(id);
+  incEditOnChange(id);
+};
 
 window.incEnterEdit = function (id) {
   const card = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(id)}"]`);
@@ -20220,7 +20377,12 @@ window.incEnterEdit = function (id) {
   if (!card || !row) return;
   INC_STATE.editing.add(id);
   INC_STATE.editDirty.delete(id);
-  INC_STATE.editOriginal[id] = JSON.stringify(incRowToReportData(row));
+  // Snapshot original (incluye fotos URLs originales)
+  const snap = incRowToReportData(row);
+  snap._fotosUrls = String(row['Fotos_URLs'] || '').split(',').map(s => s.trim()).filter(Boolean);
+  INC_STATE.editOriginal[id] = JSON.stringify(snap);
+  // Reset estado de fotos por si quedó de una sesión previa
+  if (INC_STATE.editPhotos) delete INC_STATE.editPhotos[id];
   const body = card.querySelector('.inc-card-body');
   if (body) {
     body.innerHTML = incCardBodyHtmlEditable(row, id);
@@ -20242,6 +20404,17 @@ window.incEditOnChange = function (id) {
       const sa = Array.isArray(a) ? a.slice().sort().join('|') : String(a || '');
       const sb = Array.isArray(b) ? b.slice().sort().join('|') : String(b || '');
       if (sa !== sb) { isDirty = true; break; }
+    }
+    // También considera cambios en fotos
+    if (!isDirty) {
+      const ph = (INC_STATE.editPhotos || {})[id];
+      const origFotos = origData._fotosUrls || [];
+      if (ph) {
+        const keptSorted = ph.existingUrls.slice().sort().join('|');
+        const origSorted = origFotos.slice().sort().join('|');
+        if (keptSorted !== origSorted) isDirty = true;
+        if (!isDirty && ph.newOnes.length) isDirty = true;
+      }
     }
   } catch (_) { isDirty = true; }
   if (isDirty) INC_STATE.editDirty.add(id);
@@ -20276,6 +20449,7 @@ window.incCancelEdit = function (id) {
   INC_STATE.editing.delete(id);
   INC_STATE.editDirty.delete(id);
   delete INC_STATE.editOriginal[id];
+  if (INC_STATE.editPhotos) delete INC_STATE.editPhotos[id];
   const body = card.querySelector('.inc-card-body');
   if (body) {
     body.innerHTML = incCardBodyHtmlReadonly(row, id);
@@ -20287,6 +20461,14 @@ window.incSaveEdit = async function (id) {
   const card = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(id)}"]`);
   if (!card) return;
   const fields = incCollectEditFields(card);
+  // Fotos: enviar las nuevas para que el backend las suba a Drive y
+  // arme el CSV final = keepUrls + nuevas URLs subidas.
+  const photoState = (INC_STATE.editPhotos || {})[id] || { existingUrls: [], newOnes: [] };
+  const newFotos = photoState.newOnes.map(f => ({
+    name: f.name, base64: f.base64, mimeType: f.mimeType,
+  }));
+  const keepUrls = photoState.existingUrls.slice();
+
   const saveBtn = card.querySelector('[data-edit-save]');
   const cancelBtn = card.querySelector('.inc-edit-btn-cancel');
   if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '⏳ Guardando…'; }
@@ -20295,10 +20477,11 @@ window.incSaveEdit = async function (id) {
     const res = await fetch(`${BACKEND}/update-incidencia`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, fields }),
+      body: JSON.stringify({ id, fields, fotos: newFotos, keepUrls }),
     });
     const out = await res.json();
     if (!out.ok) throw new Error(out.error || 'Error al actualizar');
+    // Actualiza INC_STATE.list localmente
     const row = (INC_STATE.list || []).find(r => String(r['ID'] || '') === id);
     if (row) {
       const colMap = {
@@ -20312,10 +20495,14 @@ window.incSaveEdit = async function (id) {
         const c = colMap[k]; if (!c) return;
         row[c] = Array.isArray(fields[k]) ? fields[k].join(', ') : String(fields[k] || '');
       });
+      // Si el backend devolvió fotos_urls final, sincronízalo
+      if (typeof out.fotos_urls === 'string') row['Fotos_URLs'] = out.fotos_urls;
+      if (typeof out.fotos_count === 'number') row['Fotos_count'] = out.fotos_count;
     }
     INC_STATE.editing.delete(id);
     INC_STATE.editDirty.delete(id);
     delete INC_STATE.editOriginal[id];
+    if (INC_STATE.editPhotos) delete INC_STATE.editPhotos[id];
     INC_STATE.expanded.add(id);
     incRenderCards();
   } catch (e) {
