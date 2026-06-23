@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema de gestión de Corta estancia | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=107">
+  <link rel="stylesheet" href="styles.css?v=108">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1480,10 +1480,12 @@
               <textarea id="inc-seguimiento" class="inc-input" rows="3" placeholder="Mantenimiento, compras, revisión administrativa, etc."></textarea>
             </div>
 
-            <div style="display:flex;gap:8px;margin-top:12px">
-              <button type="button" onclick="incGenerar()" class="inc-btn-pri">Generar reporte</button>
-              <button type="button" onclick="incLimpiar()" class="inc-btn-sec">Limpiar</button>
-            </div>
+          </div>
+          <!-- Footer sticky: SIEMPRE visible al pie del panel, fuera del
+               scroll del form. Padding safe-area para iOS notch + home bar. -->
+          <div class="inc-capture-footer">
+            <button type="button" onclick="incGenerar()" class="inc-btn-pri" style="flex:1">Generar reporte</button>
+            <button type="button" onclick="incLimpiar()" class="inc-btn-sec">Limpiar</button>
           </div>
 
         </div>

@@ -3531,26 +3531,33 @@ input[type="checkbox"].lg-multi-cb {
 .inc-semaforo-dots {
   display: inline-flex;
   flex-direction: row;
-  gap: 4px;
+  align-items: center;
+  gap: 5px;
   padding: 0;
   background: transparent;
   border-radius: 0;
 }
 .inc-card-header.motivo-bg-default .inc-semaforo-dots { background: transparent; }
+/* No seleccionados: pequeños y grises */
 .inc-semaforo-dot {
-  width: 10px;
-  height: 10px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  transition: box-shadow .15s ease, transform .15s ease;
+  background: #cbd5e1;
+  transition: width .18s ease, height .18s ease, background .18s ease, box-shadow .18s ease;
+  flex-shrink: 0;
 }
-/* Colores tenues por defecto (no seleccionado) */
-.inc-semaforo-dot.dot-Alto  { background: #fecaca; }
-.inc-semaforo-dot.dot-Medio { background: #fef3c7; }
-.inc-semaforo-dot.dot-Bajo  { background: #dcfce7; }
-/* Punto activo: color saturado + glow + ligera escala */
-.inc-semaforo[data-nivel="Alta"]  .inc-semaforo-dot.dot-Alto  { background: #dc2626; box-shadow: 0 0 6px rgba(220,38,38,.55); transform: scale(1.15); }
-.inc-semaforo[data-nivel="Media"] .inc-semaforo-dot.dot-Medio { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,.55); transform: scale(1.15); }
-.inc-semaforo[data-nivel="Baja"]  .inc-semaforo-dot.dot-Bajo  { background: #16a34a; box-shadow: 0 0 6px rgba(22,163,74,.55); transform: scale(1.15); }
+/* Punto activo: notoriamente más grande (más del doble), color
+   saturado, glow. */
+.inc-semaforo[data-nivel="Alta"]  .inc-semaforo-dot.dot-Alto,
+.inc-semaforo[data-nivel="Media"] .inc-semaforo-dot.dot-Medio,
+.inc-semaforo[data-nivel="Baja"]  .inc-semaforo-dot.dot-Bajo {
+  width: 16px;
+  height: 16px;
+}
+.inc-semaforo[data-nivel="Alta"]  .inc-semaforo-dot.dot-Alto  { background: #dc2626; box-shadow: 0 0 8px rgba(220,38,38,.65); }
+.inc-semaforo[data-nivel="Media"] .inc-semaforo-dot.dot-Medio { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,.65); }
+.inc-semaforo[data-nivel="Baja"]  .inc-semaforo-dot.dot-Bajo  { background: #16a34a; box-shadow: 0 0 8px rgba(22,163,74,.65); }
 .inc-semaforo-label { letter-spacing: .03em; }
 .inc-motivo-chip {
   padding: 6px 14px;
@@ -3881,7 +3888,26 @@ input[type="checkbox"].lg-multi-cb {
   cursor: pointer;
 }
 .inc-capture-close:hover { background: #e2e8f0; color: #0f172a; }
-.inc-capture-panel #inc-form { overflow-y: auto; flex: 1; }
+.inc-capture-panel #inc-form { overflow-y: auto; flex: 1; padding-bottom: 24px !important; }
+
+/* Footer sticky con botones de acción — siempre visible al pie del
+   panel. Antes los botones quedaban dentro del scroll del form y en
+   móvil podían quedar fuera del viewport (sobre todo si la URL bar
+   o el teclado los tapaban). Ahora viven en un footer flex-shrink:0
+   con safe-area para iPhones con notch/home bar. */
+.inc-capture-footer {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, rgba(255,255,255,.92), #fff);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 -4px 12px rgba(15,23,42,.06);
+  z-index: 2;
+}
 
 @media (max-width: 700px) {
   .inc-capture-panel { max-width: 100%; }
