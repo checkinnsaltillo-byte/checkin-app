@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema de gestión de Corta estancia | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=116">
+  <link rel="stylesheet" href="styles.css?v=117">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1742,17 +1742,24 @@
           <div class="ocup-filter-tip">Tip: si no seleccionas nada en un filtro, se asume "todos".</div>
         </div>
 
-        <!-- Filtros para Gráficas (Interés + Referencia) -->
+        <!-- Filtros para Gráficas (Interés + Referencia + Tipo) -->
         <div id="ocup-chart-filters" class="ocup-filters" style="display:none">
           <div class="ocup-filter-cell">
-            <label class="ocup-filter-label">Alojamiento de interés</label>
-            <select id="ocup-chart-interest" class="inc-input" onchange="ocupChartSetInterest(this.value)"></select>
+            <label class="ocup-filter-label">Alojamiento(s) de interés</label>
+            <div id="ocup-chart-interest" class="inc-mselect" data-filter="interests"></div>
           </div>
           <div class="ocup-filter-cell">
             <label class="ocup-filter-label">Referencia</label>
             <div id="ocup-chart-refs" class="inc-mselect" data-filter="references"></div>
           </div>
-          <div class="ocup-filter-tip">El alojamiento de interés se grafica destacado. Las referencias son promedios por grupo: <strong>Global</strong> = todos los alojamientos; por <strong>propiedad</strong> = promedio de sus departamentos.</div>
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Tipo de serie</label>
+            <div class="ocup-gx-typeswitch">
+              <button type="button" class="ocup-gx-type-btn active" data-type="original" onclick="ocupChartSetType('original')">📊 Original</button>
+              <button type="button" class="ocup-gx-type-btn" data-type="differences" onclick="ocupChartSetType('differences')">Δ Diferencias</button>
+            </div>
+          </div>
+          <div class="ocup-filter-tip">Los <strong>alojamientos de interés</strong> se grafican destacados. <strong>Referencias</strong>: Global = todos; por propiedad = promedio de sus depts. Las <em>velas de fondo</em> aparecen solo con 1 interés. <em>Diferencias</em> grafica el cambio mes a mes (Δ vs el mes anterior).</div>
         </div>
 
         <!-- Vista Calendario -->
@@ -1928,6 +1935,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=403"></script>
+  <script src="app.js?v=404"></script>
 </body>
 </html>

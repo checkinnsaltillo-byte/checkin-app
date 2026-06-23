@@ -5443,3 +5443,31 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   font-weight: 700;
 }
 .ocup-gx-range-reset:hover { background: #f1f5f9; color: #0f172a; }
+
+/* Switch Original / Diferencias */
+.ocup-gx-typeswitch {
+  display: inline-flex;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+.ocup-gx-type-btn {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+  white-space: nowrap;
+}
+.ocup-gx-type-btn:hover { color: #0f172a; }
+.ocup-gx-type-btn.active {
+  background: #4f46e5;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(79,70,229,.30);
+}

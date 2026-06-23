@@ -22490,11 +22490,12 @@ const OCUP_COLORS = ['#0ea5e9','#f59e0b','#10b981','#8b5cf6','#ef4444','#06b6d4'
 
 // ─── OCUPACIÓN — Gráficas v2: interés vs referencias, candles, brush, tooltip ───
 OCUP_STATE.chart = {
-  interestId: null,
+  interests: new Set(),         // Set<houseId> — multi-select
   references: new Set(['__global__']),
   hiddenSeries: new Set(),        // keys ocultas (toggle de leyenda)
-  highlightSeries: new Set(),     // keys destacadas (click sostenido en leyenda)
-  range: null,                    // [startIdx, endIdx] (índices dentro de months) o null
+  highlightSeries: new Set(),     // keys destacadas (click en leyenda)
+  range: null,                    // [startIdx, endIdx] o null = todo el histórico
+  seriesType: 'original',         // 'original' | 'differences'
   chartFiltersInit: false,
 };
 
@@ -22510,12 +22511,10 @@ function ocupChartInitFiltersOnce() {
     return;
   }
   OCUP_STATE.chart.chartFiltersInit = true;
-  // Default interés = primer alojamiento
   const alojs = ocupGetAlojamientos();
-  if (alojs.length && !OCUP_STATE.chart.interestId) {
-    OCUP_STATE.chart.interestId = alojs[0].houseId;
+  if (alojs.length && OCUP_STATE.chart.interests.size === 0) {
+    OCUP_STATE.chart.interests.add(alojs[0].houseId);
   }
-  // Default referencias = Global
   if (OCUP_STATE.chart.references.size === 0) {
     OCUP_STATE.chart.references.add('__global__');
   }
@@ -22523,16 +22522,95 @@ function ocupChartInitFiltersOnce() {
 }
 
 function ocupChartRenderFilters() {
-  // Select de interés
-  const sel = document.getElementById('ocup-chart-interest');
-  if (sel) {
-    const alojs = ocupGetAlojamientos();
-    sel.innerHTML = alojs.map(a => `<option value="${esc(a.houseId)}" ${a.houseId === OCUP_STATE.chart.interestId ? 'selected' : ''}>${esc(a.nombre)}</option>`).join('');
-  }
-  // Multi-select de referencias
+  const interestOpts = ocupChartGetInterestOptions();
+  ocupChartBuildGenericMSelect('ocup-chart-interest', 'interests', interestOpts);
   const refOptions = ocupChartGetReferenceOptions();
-  ocupChartBuildRefMSelect('ocup-chart-refs', refOptions);
+  ocupChartBuildGenericMSelect('ocup-chart-refs', 'references', refOptions);
+  // Type switch buttons
+  document.querySelectorAll('.ocup-gx-type-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-type') === OCUP_STATE.chart.seriesType);
+  });
 }
+
+function ocupChartGetInterestOptions() {
+  return ocupGetAlojamientos().map(a => ({ value: a.houseId, label: a.nombre }));
+}
+
+// Generic multi-select para Gráficas (interés y referencia comparten estructura).
+// Importante: marcar/desmarcar NO re-renderiza el dropdown completo
+// (regla anti-cierre). Solo actualiza label + re-renderiza el chart.
+function ocupChartBuildGenericMSelect(containerId, key, options) {
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  const sel = OCUP_STATE.chart[key];
+  const lblText = ocupChartMSelectLabel(sel, options);
+  const opts = options.map(o => `
+    <label class="inc-mselect-opt">
+      <input type="checkbox" value="${esc(o.value)}" ${sel.has(o.value) ? 'checked' : ''}
+             onchange="ocupChartToggleSet('${esc(key)}','${esc(o.value)}',this.checked)">
+      <span>${esc(o.label)}</span>
+    </label>`).join('');
+  c.innerHTML = `
+    <button type="button" class="inc-mselect-btn" onclick="ocupChartToggleDropdown(event,'${esc(containerId)}')">
+      <span class="inc-mselect-btn-lbl">${esc(lblText)}</span>
+    </button>
+    <div class="inc-mselect-panel hidden">
+      <div class="inc-mselect-actions">
+        <button type="button" class="inc-mselect-action" onclick="ocupChartSetAll('${esc(key)}')">✓ Todos</button>
+        <button type="button" class="inc-mselect-action" onclick="ocupChartSetNone('${esc(key)}')">✕ Ninguno</button>
+      </div>
+      <div class="inc-mselect-opts">${opts}</div>
+    </div>`;
+}
+
+function ocupChartMSelectLabel(sel, options) {
+  if (!options.length) return '—';
+  if (sel.size === 0) return 'Ninguno';
+  if (sel.size === options.length) return `Todos (${options.length})`;
+  if (sel.size === 1) {
+    const v = [...sel][0];
+    const found = options.find(o => o.value === v);
+    return found ? found.label : v;
+  }
+  return `${sel.size} de ${options.length}`;
+}
+
+window.ocupChartToggleSet = function (key, value, checked) {
+  if (checked) OCUP_STATE.chart[key].add(value);
+  else OCUP_STATE.chart[key].delete(value);
+  // Actualiza solo el label del filtro tocado, NO el dropdown completo
+  const containerId = key === 'interests' ? 'ocup-chart-interest' : 'ocup-chart-refs';
+  const options = key === 'interests' ? ocupChartGetInterestOptions() : ocupChartGetReferenceOptions();
+  const lbl = document.querySelector(`#${containerId} .inc-mselect-btn-lbl`);
+  if (lbl) lbl.textContent = ocupChartMSelectLabel(OCUP_STATE.chart[key], options);
+  ocupRenderChart();
+};
+
+window.ocupChartSetAll = function (key) {
+  const options = key === 'interests' ? ocupChartGetInterestOptions() : ocupChartGetReferenceOptions();
+  OCUP_STATE.chart[key] = new Set(options.map(o => o.value));
+  const containerId = key === 'interests' ? 'ocup-chart-interest' : 'ocup-chart-refs';
+  document.querySelectorAll(`#${containerId} input[type="checkbox"]`).forEach(cb => { cb.checked = true; });
+  const lbl = document.querySelector(`#${containerId} .inc-mselect-btn-lbl`);
+  if (lbl) lbl.textContent = `Todos (${options.length})`;
+  ocupRenderChart();
+};
+window.ocupChartSetNone = function (key) {
+  OCUP_STATE.chart[key] = new Set();
+  const containerId = key === 'interests' ? 'ocup-chart-interest' : 'ocup-chart-refs';
+  document.querySelectorAll(`#${containerId} input[type="checkbox"]`).forEach(cb => { cb.checked = false; });
+  const lbl = document.querySelector(`#${containerId} .inc-mselect-btn-lbl`);
+  if (lbl) lbl.textContent = 'Ninguno';
+  ocupRenderChart();
+};
+
+window.ocupChartSetType = function (type) {
+  OCUP_STATE.chart.seriesType = type;
+  document.querySelectorAll('.ocup-gx-type-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-type') === type);
+  });
+  ocupRenderChart();
+};
 
 function ocupChartGetReferenceOptions() {
   const alojs = ocupGetAlojamientos();
@@ -22543,33 +22621,7 @@ function ocupChartGetReferenceOptions() {
   ];
 }
 
-function ocupChartBuildRefMSelect(containerId, options) {
-  const c = document.getElementById(containerId);
-  if (!c) return;
-  const sel = OCUP_STATE.chart.references;
-  const lblText = sel.size === 0 ? 'Ninguna'
-                 : sel.size === options.length ? `Todas (${options.length})`
-                 : sel.size === 1 ? (options.find(o => o.value === [...sel][0])?.label || [...sel][0])
-                 : `${sel.size} de ${options.length}`;
-  const opts = options.map(o => `
-    <label class="inc-mselect-opt">
-      <input type="checkbox" value="${esc(o.value)}" ${sel.has(o.value) ? 'checked' : ''}
-             onchange="ocupChartToggleRef('${esc(o.value)}', this.checked)">
-      <span>${esc(o.label)}</span>
-    </label>`).join('');
-  c.innerHTML = `
-    <button type="button" class="inc-mselect-btn" onclick="ocupChartToggleDropdown(event,'${esc(containerId)}')">
-      <span class="inc-mselect-btn-lbl">${esc(lblText)}</span>
-    </button>
-    <div class="inc-mselect-panel hidden">
-      <div class="inc-mselect-actions">
-        <button type="button" class="inc-mselect-action" onclick="ocupChartRefSetAll()">✓ Todas</button>
-        <button type="button" class="inc-mselect-action" onclick="ocupChartRefSetNone()">✕ Ninguna</button>
-      </div>
-      <div class="inc-mselect-opts">${opts}</div>
-    </div>`;
-}
-
+// Dropdown toggle compartido (reusa el click-fuera-cierra global)
 window.ocupChartToggleDropdown = function (ev, containerId) {
   ev.stopPropagation();
   document.querySelectorAll('#ocup-chart-filters .inc-mselect-panel').forEach(p => {
@@ -22583,41 +22635,6 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('#ocup-chart-filters .inc-mselect')) return;
   document.querySelectorAll('#ocup-chart-filters .inc-mselect-panel').forEach(p => p.classList.add('hidden'));
 });
-
-window.ocupChartToggleRef = function (value, checked) {
-  if (checked) OCUP_STATE.chart.references.add(value);
-  else OCUP_STATE.chart.references.delete(value);
-  // Update label only — NO rebuild del dropdown
-  const refOptions = ocupChartGetReferenceOptions();
-  const sel = OCUP_STATE.chart.references;
-  const lblText = sel.size === 0 ? 'Ninguna'
-                 : sel.size === refOptions.length ? `Todas (${refOptions.length})`
-                 : sel.size === 1 ? (refOptions.find(o => o.value === [...sel][0])?.label || [...sel][0])
-                 : `${sel.size} de ${refOptions.length}`;
-  const lbl = document.querySelector('#ocup-chart-refs .inc-mselect-btn-lbl');
-  if (lbl) lbl.textContent = lblText;
-  ocupRenderChart();
-};
-window.ocupChartRefSetAll = function () {
-  ocupChartGetReferenceOptions().forEach(o => OCUP_STATE.chart.references.add(o.value));
-  document.querySelectorAll('#ocup-chart-refs input[type="checkbox"]').forEach(cb => { cb.checked = true; });
-  const refOptions = ocupChartGetReferenceOptions();
-  const lbl = document.querySelector('#ocup-chart-refs .inc-mselect-btn-lbl');
-  if (lbl) lbl.textContent = `Todas (${refOptions.length})`;
-  ocupRenderChart();
-};
-window.ocupChartRefSetNone = function () {
-  OCUP_STATE.chart.references = new Set();
-  document.querySelectorAll('#ocup-chart-refs input[type="checkbox"]').forEach(cb => { cb.checked = false; });
-  const lbl = document.querySelector('#ocup-chart-refs .inc-mselect-btn-lbl');
-  if (lbl) lbl.textContent = 'Ninguna';
-  ocupRenderChart();
-};
-
-window.ocupChartSetInterest = function (houseId) {
-  OCUP_STATE.chart.interestId = houseId;
-  ocupRenderChart();
-};
 
 // Color por serie (memoizado para consistencia visual)
 function ocupChartColorFor(key, fallbackIdx) {
@@ -22685,65 +22702,110 @@ window.ocupChartResetRange = function () {
   ocupRenderChart();
 };
 
+// Transformación según tipo de serie. 'differences' = valor[t] - valor[t-1].
+// El primer mes queda en NaN (no se puede calcular diff). El renderer
+// salta puntos NaN.
+function ocupChartTransform(pcts, type) {
+  if (type !== 'differences') return pcts.slice();
+  return pcts.map((v, i) => i === 0 ? NaN : (v - pcts[i - 1]));
+}
+
 function ocupRenderChart() {
   const cont = document.getElementById('ocup-chart-container');
   if (!cont) return;
   const allMonths = ocupGetMonthRange();
-  // Rango visible (subselección del brush)
   const range = OCUP_STATE.chart.range;
   const startIdx = range ? Math.max(0, Math.min(range[0], allMonths.length - 1)) : 0;
   const endIdx = range ? Math.max(startIdx, Math.min(range[1], allMonths.length - 1)) : allMonths.length - 1;
   const months = allMonths.slice(startIdx, endIdx + 1);
 
-  // Interés
   const allAlojs = ocupGetAlojamientos();
-  const interest = allAlojs.find(a => a.houseId === OCUP_STATE.chart.interestId) || allAlojs[0];
-
-  // Series
-  const series = [];
-  if (interest) {
-    const pcts = months.map(m => ocupNightsForAloj(interest.houseId, m.year, m.month).percent);
-    series.push({ key: '__interest__', label: interest.nombre, color: OCUP_INTEREST_COLOR, pcts, isInterest: true });
+  if (!allAlojs.length) {
+    cont.innerHTML = `<div class="ocup-gx-shell"><div style="padding:40px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic">No hay alojamientos en el catálogo.</div></div>`;
+    return;
   }
+  const interests = allAlojs.filter(a => OCUP_STATE.chart.interests.has(a.houseId));
   const refOptions = ocupChartGetReferenceOptions();
+  const type = OCUP_STATE.chart.seriesType;
+
+  // Series — primero todos los interés, luego todas las referencias
+  const series = [];
+  interests.forEach((a, i) => {
+    const rawPcts = months.map(m => ocupNightsForAloj(a.houseId, m.year, m.month).percent);
+    const pcts = ocupChartTransform(rawPcts, type);
+    const color = ocupChartColorFor('int:' + a.houseId, i);
+    series.push({ key: 'int:' + a.houseId, label: a.nombre, color, pcts, isInterest: true });
+  });
   Array.from(OCUP_STATE.chart.references).forEach((refKey) => {
     const opt = refOptions.find(o => o.value === refKey);
     const label = opt ? opt.label : refKey;
     const idx = refOptions.findIndex(o => o.value === refKey);
-    series.push({ key: refKey, label, color: ocupChartColorFor(refKey, idx), pcts: ocupChartSeriesForRef(refKey, months), isInterest: false });
+    const rawPcts = ocupChartSeriesForRef(refKey, months);
+    const pcts = ocupChartTransform(rawPcts, type);
+    series.push({ key: refKey, label, color: ocupChartColorFor(refKey, idx), pcts, isInterest: false });
   });
 
-  // Sin nada
-  if (!interest) {
-    cont.innerHTML = `<div class="ocup-gx-shell"><div style="padding:40px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic">No hay alojamientos en el catálogo.</div></div>`;
-    return;
+  // Velas: SOLO con UN interés + al menos una referencia visible
+  // (cuando hay multi-interés, las velas se ocultan porque no
+  // tiene sentido una diff única). Tampoco aparecen en tipo Diferencias.
+  let candleData = null;
+  if (type === 'original' && interests.length === 1) {
+    const firstInterestSerie = series.find(s => s.isInterest);
+    const firstRefVisible = series.find(s => !s.isInterest && !OCUP_STATE.chart.hiddenSeries.has(s.key));
+    if (firstInterestSerie && firstRefVisible) {
+      candleData = months.map((m, i) => {
+        const iv = firstInterestSerie.pcts[i];
+        const rv = firstRefVisible.pcts[i];
+        if (rv == null || iv == null || isNaN(iv) || isNaN(rv)) return null;
+        return { i, iv, rv, diff: iv - rv };
+      });
+    }
   }
-
-  // Velas: diferencia INTERÉS vs primera referencia activa (si hay)
-  const firstRefVisible = series.find(s => !s.isInterest && !OCUP_STATE.chart.hiddenSeries.has(s.key));
-  const candleData = months.map((m, i) => {
-    const iv = series[0].pcts[i];
-    const rv = firstRefVisible ? firstRefVisible.pcts[i] : null;
-    if (rv == null) return null;
-    return { i, iv, rv, diff: iv - rv };
-  });
 
   // Dimensions
   const W = 1100, H = 360;
-  const ML = 48, MR = 24, MT = 18, MB = 36;
+  const ML = 56, MR = 24, MT = 18, MB = 36;
   const innerW = W - ML - MR, innerH = H - MT - MB;
   const xStep = months.length > 1 ? innerW / (months.length - 1) : innerW;
-  const yFor = (pct) => MT + innerH - (Math.min(100, Math.max(0, pct)) / 100) * innerH;
 
+  // Y scale dinámico: en 'original' es [0, 100]; en 'differences' se
+  // calcula simétrico alrededor de 0 con margen 10%.
+  let yMin = 0, yMax = 100;
+  if (type === 'differences') {
+    let max = 0;
+    series.forEach(s => s.pcts.forEach(v => { if (!isNaN(v) && isFinite(v)) max = Math.max(max, Math.abs(v)); }));
+    if (max < 5) max = 5;
+    max = Math.ceil(max / 10) * 10; // redondea a múltiplo de 10
+    yMin = -max; yMax = max;
+  }
+  const yFor = (v) => {
+    if (isNaN(v) || !isFinite(v)) return null;
+    const clamped = Math.min(yMax, Math.max(yMin, v));
+    return MT + innerH - ((clamped - yMin) / (yMax - yMin)) * innerH;
+  };
   // Grid + Y labels
   let grid = '';
-  [0, 20, 40, 60, 80, 100].forEach(p => {
+  let yTicks;
+  if (type === 'differences') {
+    const step = Math.max(1, Math.round((yMax - yMin) / 6));
+    yTicks = [];
+    for (let v = yMin; v <= yMax + 0.01; v += step) yTicks.push(Math.round(v));
+  } else {
+    yTicks = [0, 20, 40, 60, 80, 100];
+  }
+  yTicks.forEach(p => {
     const yy = yFor(p);
+    if (yy == null) return;
     grid += `<line x1="${ML}" y1="${yy}" x2="${W - MR}" y2="${yy}"></line>`;
-    grid += `<text x="${ML - 8}" y="${yy + 4}" text-anchor="end">${p}%</text>`;
+    grid += `<text x="${ML - 8}" y="${yy + 4}" text-anchor="end">${p > 0 && type === 'differences' ? '+' : ''}${p}%</text>`;
   });
-  // Baseline
-  grid += `<line class="axis-baseline" x1="${ML}" y1="${yFor(0)}" x2="${W - MR}" y2="${yFor(0)}"></line>`;
+  // Línea de 0 más gruesa cuando es differences
+  if (type === 'differences') {
+    const y0 = yFor(0);
+    if (y0 != null) grid += `<line class="axis-baseline" x1="${ML}" y1="${y0}" x2="${W - MR}" y2="${y0}"></line>`;
+  } else {
+    grid += `<line class="axis-baseline" x1="${ML}" y1="${yFor(0)}" x2="${W - MR}" y2="${yFor(0)}"></line>`;
+  }
   // X labels (cada N para evitar overlap)
   const xLabelEvery = Math.max(1, Math.ceil(months.length / 12));
   let xLabels = '';
@@ -22754,24 +22816,34 @@ function ocupRenderChart() {
     }
   });
 
-  // Velas (background): centradas en cada mes, body = |diff|, anclado al
-  // promedio entre interés y referencia. Verde si interés > ref, rojo
-  // si interés < ref.
+  // Velas (background): solo si candleData existe (1 interés + 1+ ref).
   let candles = '';
-  const candleW = Math.max(4, Math.min(18, xStep * 0.45));
-  candleData.forEach((c, i) => {
-    if (!c) return;
-    const cx = ML + i * xStep;
-    const yTop = yFor(Math.max(c.iv, c.rv));
-    const yBot = yFor(Math.min(c.iv, c.rv));
-    const cls = c.diff >= 0 ? 'pos' : 'neg';
-    candles += `<g class="ocup-gx-candle ${cls}" data-i="${i}">
-      <rect class="ocup-gx-candle-body" x="${(cx - candleW / 2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${candleW}" height="${Math.max(1, yBot - yTop).toFixed(1)}" rx="2"></rect>
-    </g>`;
-  });
+  if (candleData) {
+    const candleW = Math.max(4, Math.min(18, xStep * 0.45));
+    candleData.forEach((c, i) => {
+      if (!c) return;
+      const cx = ML + i * xStep;
+      const yTop = yFor(Math.max(c.iv, c.rv));
+      const yBot = yFor(Math.min(c.iv, c.rv));
+      if (yTop == null || yBot == null) return;
+      const cls = c.diff >= 0 ? 'pos' : 'neg';
+      candles += `<g class="ocup-gx-candle ${cls}" data-i="${i}">
+        <rect class="ocup-gx-candle-body" x="${(cx - candleW / 2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${candleW}" height="${Math.max(1, yBot - yTop).toFixed(1)}" rx="2"></rect>
+      </g>`;
+    });
+  }
 
-  // Series paths + dots
-  const makePath = (pcts) => pcts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${ML + i * xStep} ${yFor(p)}`).join(' ');
+  // Series paths + dots — soporta NaN (rompe la línea)
+  const makePath = (pcts) => {
+    let d = '', moveNext = true;
+    pcts.forEach((p, i) => {
+      const y = yFor(p);
+      if (y == null) { moveNext = true; return; }
+      d += (moveNext ? 'M' : 'L') + ' ' + (ML + i * xStep) + ' ' + y + ' ';
+      moveNext = false;
+    });
+    return d;
+  };
   const hasHighlight = OCUP_STATE.chart.highlightSeries.size > 0;
   let seriesEls = '';
   series.forEach(s => {
@@ -22781,10 +22853,11 @@ function ocupRenderChart() {
     const dimmed = hasHighlight && !highlighted;
     const cls = `ocup-gx-line ${s.isInterest ? 'is-interest' : ''} ${highlighted ? 'is-highlight' : ''} ${dimmed ? 'is-dimmed' : ''}`;
     seriesEls += `<path class="${cls}" stroke="${s.color}" d="${makePath(s.pcts)}"/>`;
-    // Dots para hover (solo interés tiene dots visibles por default)
     if (s.isInterest) {
       s.pcts.forEach((p, i) => {
-        seriesEls += `<circle class="ocup-gx-dot" cx="${ML + i * xStep}" cy="${yFor(p)}" r="3" fill="${s.color}" stroke="#fff" stroke-width="1"/>`;
+        const y = yFor(p);
+        if (y == null) return;
+        seriesEls += `<circle class="ocup-gx-dot" cx="${ML + i * xStep}" cy="${y}" r="3" fill="${s.color}" stroke="#fff" stroke-width="1"/>`;
       });
     }
   });
@@ -22812,9 +22885,18 @@ function ocupRenderChart() {
   const brushInnerW = brushW - brushML - brushMR;
   const brushInnerH = brushH - brushMT - brushMB;
   const brushXStep = allMonths.length > 1 ? brushInnerW / (allMonths.length - 1) : brushInnerW;
-  const interestMiniPcts = allMonths.map(m => ocupNightsForAloj(interest.houseId, m.year, m.month).percent);
+  // El mini-chart del brush usa el PROMEDIO de todos los interés
+  // seleccionados (si hay varios) sobre el histórico completo en
+  // ORIGINAL (siempre, aunque seriesType sea diferences) — el brush
+  // es una vista de navegación, no de detalle.
+  const brushBase = interests.length
+    ? allMonths.map(m => {
+        const sum = interests.reduce((s, a) => s + ocupNightsForAloj(a.houseId, m.year, m.month).percent, 0);
+        return sum / interests.length;
+      })
+    : ocupChartSeriesForRef('__global__', allMonths);
   const brushYFor = (p) => brushMT + brushInnerH - (p / 100) * brushInnerH;
-  const brushPath = interestMiniPcts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${brushML + i * brushXStep} ${brushYFor(p)}`).join(' ');
+  const brushPath = brushBase.map((p, i) => `${i === 0 ? 'M' : 'L'} ${brushML + i * brushXStep} ${brushYFor(p)}`).join(' ');
   const brushArea = brushPath + ` L ${brushML + (allMonths.length - 1) * brushXStep} ${brushMT + brushInnerH} L ${brushML} ${brushMT + brushInnerH} Z`;
   const brushStartPx = brushML + startIdx * brushXStep;
   const brushEndPx = brushML + endIdx * brushXStep;
@@ -22890,23 +22972,29 @@ function ocupChartBindHover(cont, series, months, ML, MT, innerW, innerH, xStep,
     const xPx = ML + idx * xStep;
     cursor.setAttribute('x1', xPx);
     cursor.setAttribute('x2', xPx);
-    // Tooltip
+    // Tooltip — unidad % (misma que el eje Y)
+    const fmtVal = (v) => isNaN(v) || !isFinite(v) ? '—' : `${v >= 0 && OCUP_STATE.chart.seriesType === 'differences' ? '+' : ''}${Math.round(v)}%`;
     const rows = series
       .filter(s => !OCUP_STATE.chart.hiddenSeries.has(s.key))
       .map(s => `<div class="ocup-gx-tip-row">
         <span><span class="ocup-gx-tip-swatch" style="background:${s.color}"></span>${esc(s.label)}${s.isInterest ? ' ⭐' : ''}</span>
-        <span>${Math.round(s.pcts[idx])}%</span>
+        <span>${fmtVal(s.pcts[idx])}</span>
       </div>`).join('');
-    // Diff highlight if 2+ visible
+    // Diff: solo aparece si hay 1 interés + 1+ ref visible (mismo caso de velas)
     let diffRow = '';
-    const visible = series.filter(s => !OCUP_STATE.chart.hiddenSeries.has(s.key));
-    if (visible.length >= 2) {
-      const di = visible[0].pcts[idx] - visible[1].pcts[idx];
-      const cls = di >= 0 ? 'color:#86efac' : 'color:#fca5a5';
-      diffRow = `<div class="ocup-gx-tip-row" style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.15)">
-        <span style="color:#cbd5e1">Δ Interés - Ref</span>
-        <span style="${cls}">${di >= 0 ? '+' : ''}${Math.round(di)} pp</span>
-      </div>`;
+    const visibleInts = series.filter(s => s.isInterest && !OCUP_STATE.chart.hiddenSeries.has(s.key));
+    const visibleRefs = series.filter(s => !s.isInterest && !OCUP_STATE.chart.hiddenSeries.has(s.key));
+    if (visibleInts.length === 1 && visibleRefs.length >= 1) {
+      const iv = visibleInts[0].pcts[idx];
+      const rv = visibleRefs[0].pcts[idx];
+      if (!isNaN(iv) && !isNaN(rv)) {
+        const di = iv - rv;
+        const cls = di >= 0 ? 'color:#86efac' : 'color:#fca5a5';
+        diffRow = `<div class="ocup-gx-tip-row" style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.15)">
+          <span style="color:#cbd5e1">Δ Interés − Ref</span>
+          <span style="${cls}">${di >= 0 ? '+' : ''}${Math.round(di)}%</span>
+        </div>`;
+      }
     }
     // Posición en pixeles del canvas (no SVG coords)
     const canvas = cont.querySelector('.ocup-gx-canvas');
