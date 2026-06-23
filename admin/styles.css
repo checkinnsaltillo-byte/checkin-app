@@ -3755,9 +3755,46 @@ input[type="checkbox"].lg-multi-cb {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 12px;
-  padding: 14px 18px;
+  padding: 14px 18px 14px 42px; /* extra-left para el botón ✕ */
   cursor: pointer;
   align-items: center;
+  color: #fff;
+  position: relative;
+}
+/* Botón eliminar (solo frontend) en esquina superior izquierda */
+.inc-card-remove {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.95);
+  color: #dc2626;
+  border: 1.5px solid rgba(255,255,255,.7);
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,.18);
+  padding: 0;
+  z-index: 2;
+  transition: transform .12s ease, background .12s ease;
+}
+.inc-card-remove:hover {
+  background: #dc2626;
+  color: #fff;
+  transform: scale(1.08);
+}
+.inc-card-header.motivo-bg-default .inc-card-remove {
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+.inc-card-header.motivo-bg-default .inc-card-remove:hover {
+  background: #dc2626;
   color: #fff;
 }
 .inc-card-header.motivo-bg-default { background: #f8fafc; color: #0f172a; }

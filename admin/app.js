@@ -20096,6 +20096,8 @@ function incRenderCardOne(row) {
   return `
     <div class="inc-card motivo-border-${esc(motivoCls)} ${expanded ? 'expanded' : ''}" data-inc-id="${esc(id)}">
       <div class="inc-card-header motivo-bg-${esc(motivoCls)}" onclick="incToggleCard('${esc(id)}')">
+        <button type="button" class="inc-card-remove" title="Eliminar de la lista"
+                onclick="event.stopPropagation();incRemoveCard('${esc(id)}')">✕</button>
         <div>
           <div class="inc-card-title-row">
             <h3 class="inc-card-title">${esc(titulo)}</h3>
@@ -20115,6 +20117,23 @@ function incRenderCardOne(row) {
       <div class="inc-card-body">${expanded ? incCardBodyHtml(row) : ''}</div>
     </div>`;
 }
+
+// Elimina la card SOLO del frontend (no toca la hoja). Pide confirmación
+// con preview de Motivo + Clasificación para evitar errores.
+window.incRemoveCard = function (id) {
+  const row = (INC_STATE.list || []).find(r => String(r['ID'] || '') === id);
+  if (!row) return;
+  const titulo = [String(row['Motivos'] || ''), String(row['Clasificacion'] || '')]
+    .filter(Boolean).join(' — ') || 'este reporte';
+  const fecha = String(row['Fecha'] || '').slice(0, 10);
+  const ok = confirm(`¿Eliminar "${titulo}" (${fecha}) de la vista?\n\nEsta acción solo lo oculta en pantalla — el registro permanece en la hoja "Incidencias".`);
+  if (!ok) return;
+  INC_STATE.list = (INC_STATE.list || []).filter(r => String(r['ID'] || '') !== id);
+  INC_STATE.expanded.delete(id);
+  if (INC_STATE.editing) INC_STATE.editing.delete(id);
+  if (INC_STATE.editPhotos) delete INC_STATE.editPhotos[id];
+  incRenderCards();
+};
 
 window.incToggleCard = function (id) {
   const card = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(id)}"]`);
