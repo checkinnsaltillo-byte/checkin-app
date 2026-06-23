@@ -20125,12 +20125,204 @@ window.incToggleCard = function (id) {
   const isOpen = card.classList.contains('expanded');
   if (isOpen) {
     INC_STATE.expanded.delete(id);
+    if (INC_STATE.editing) INC_STATE.editing.delete(id);
     card.classList.remove('expanded');
-    if (body) body.innerHTML = '';
+    if (body) { body.innerHTML = ''; body.classList.remove('editing'); }
   } else {
     INC_STATE.expanded.add(id);
-    if (body) body.innerHTML = incCardBodyHtml(row);
+    if (body) body.innerHTML = incCardBodyHtmlReadonly(row, id);
     card.classList.add('expanded');
+  }
+};
+
+// ─── Edición de reportes guardados ─────────────────────────────────────
+INC_STATE.editing = new Set();
+INC_STATE.editDirty = new Set();
+INC_STATE.editOriginal = {};
+
+function incCardBodyHtmlReadonly(row, id) {
+  return `
+    <div class="inc-edit-toolbar">
+      <button type="button" class="inc-edit-btn inc-edit-btn-edit" onclick="event.stopPropagation();incEnterEdit('${esc(id)}')">✏️ Editar reporte</button>
+    </div>
+    ${incCardBodyHtml(row)}`;
+}
+
+function incCardBodyHtmlEditable(row, id) {
+  const d = incRowToReportData(row);
+  const allMotivos = ['Limpieza', 'Mantenimiento', 'Insumos'];
+  const allClasifByMotivo = {
+    'Limpieza': ['Baño sucio', 'Sábanas sucias', 'Basura detectada', 'Plaga o insectos'],
+    'Mantenimiento': ['Fuga de agua', 'Falla eléctrica', 'Falla de electrodomésticos', 'Ausencia de controles'],
+    'Insumos': ['Toallas faltantes', 'Pilas faltantes', 'Productos de limpieza faltantes'],
+  };
+  const allClasif = Array.from(new Set([
+    ...Object.values(allClasifByMotivo).flat(),
+    ...d.clasificaciones,
+  ]));
+  const personas = (INC_STATE.personasFromSheet ? INC_STATE.personas : INC_PERSONAL.map(p => p.nombre)).slice();
+  d.personas.forEach(p => { if (!personas.includes(p)) personas.push(p); });
+  let props = [];
+  try { props = (typeof incBuildPropiedades === 'function') ? incBuildPropiedades() : []; } catch (_) {}
+  if (d.propiedad && !props.includes(d.propiedad)) props.push(d.propiedad);
+  let deptos = [];
+  try { deptos = (typeof incBuildDepartamentos === 'function') ? incBuildDepartamentos(d.propiedad) : []; } catch (_) {}
+  if (d.depto && !deptos.includes(d.depto)) deptos.push(d.depto);
+  let reportantes = [];
+  if (INC_STATE.personasFromSheet) {
+    reportantes = INC_STATE.personalRows
+      .filter(r => /administr/i.test(String(r['Puesto'] || r['Rol'] || r['Cargo'] || '')))
+      .map(r => String(r['Nombre'] || '').trim()).filter(Boolean);
+  }
+  if (!reportantes.length) reportantes = INC_PERSONAL.filter(p => p.puesto === 'Administrativo').map(p => p.nombre);
+  if (d.reportante && !reportantes.includes(d.reportante)) reportantes.push(d.reportante);
+  const checklistHtml = (items, name, selected) => items.map(v => `
+    <label><input type="checkbox" data-edit-field="${esc(name)}" value="${esc(v)}" ${selected.includes(v) ? 'checked' : ''} oninput="incEditOnChange('${esc(id)}')">
+    <span>${esc(v)}</span></label>`).join('');
+  const selectHtml = (name, items, selected, withBlank) => {
+    const opts = (withBlank ? ['<option value="">— Seleccionar —</option>'] : [])
+      .concat(items.map(v => `<option value="${esc(v)}" ${v === selected ? 'selected' : ''}>${esc(v)}</option>`));
+    return `<select class="inc-edit-select" data-edit-field="${esc(name)}" oninput="incEditOnChange('${esc(id)}')">${opts.join('')}</select>`;
+  };
+  const toolbarHtml = `
+    <div class="inc-edit-toolbar" data-edit-toolbar>
+      <button type="button" class="inc-edit-btn inc-edit-btn-save" data-edit-save style="display:none" onclick="event.stopPropagation();incSaveEdit('${esc(id)}')">💾 Guardar cambios y Salir</button>
+      <button type="button" class="inc-edit-btn inc-edit-btn-cancel" onclick="event.stopPropagation();incCancelEdit('${esc(id)}')">✕ Salir</button>
+    </div>`;
+  const field = (label, html) => `
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${esc(label)}</label>
+      ${html}
+    </div>`;
+  return `
+    ${toolbarHtml}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+      ${field('Fecha', `<input type="date" class="inc-edit-input" data-edit-field="fecha" value="${esc(d.fecha)}" oninput="incEditOnChange('${esc(id)}')">`)}
+      ${field('Propiedad', selectHtml('propiedad', props, d.propiedad, true))}
+      ${field('# Departamento', selectHtml('depto', deptos, d.depto, true))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+      ${field('Nivel', selectHtml('nivel', ['Baja','Media','Alta'], d.nivel))}
+      ${field('Estatus', selectHtml('estatus', ['Pendiente','Parcialmente resuelto','Resuelto'], d.estatus))}
+      ${field('Reportante', selectHtml('reportante', reportantes, d.reportante, true))}
+    </div>
+    ${field('Personas involucradas', `<div class="inc-edit-checklist">${checklistHtml(personas, 'personas', d.personas)}</div>`)}
+    ${field('Motivos del reporte',   `<div class="inc-edit-checklist">${checklistHtml(allMotivos, 'motivos', d.motivos)}</div>`)}
+    ${field('Clasificación',          `<div class="inc-edit-checklist">${checklistHtml(allClasif, 'clasificaciones', d.clasificaciones)}</div>`)}
+    ${field('Descripción detallada',  `<textarea class="inc-edit-textarea" data-edit-field="descripcion" oninput="incEditOnChange('${esc(id)}')">${esc(d.descripcion)}</textarea>`)}
+    ${field('Acciones realizadas',    `<textarea class="inc-edit-textarea" data-edit-field="acciones" oninput="incEditOnChange('${esc(id)}')">${esc(d.acciones)}</textarea>`)}
+    ${field('Seguimiento requerido',  `<textarea class="inc-edit-textarea" data-edit-field="seguimiento" oninput="incEditOnChange('${esc(id)}')">${esc(d.seguimiento)}</textarea>`)}`;
+}
+
+window.incEnterEdit = function (id) {
+  const card = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(id)}"]`);
+  const row = (INC_STATE.list || []).find(r => String(r['ID'] || '') === id);
+  if (!card || !row) return;
+  INC_STATE.editing.add(id);
+  INC_STATE.editDirty.delete(id);
+  INC_STATE.editOriginal[id] = JSON.stringify(incRowToReportData(row));
+  const body = card.querySelector('.inc-card-body');
+  if (body) {
+    body.innerHTML = incCardBodyHtmlEditable(row, id);
+    body.classList.add('editing');
+  }
+};
+
+window.incEditOnChange = function (id) {
+  const card = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(id)}"]`);
+  if (!card) return;
+  const current = incCollectEditFields(card);
+  const orig = INC_STATE.editOriginal[id] || '';
+  let isDirty = false;
+  try {
+    const origData = JSON.parse(orig);
+    for (const k of Object.keys(current)) {
+      const a = current[k];
+      const b = origData[k];
+      const sa = Array.isArray(a) ? a.slice().sort().join('|') : String(a || '');
+      const sb = Array.isArray(b) ? b.slice().sort().join('|') : String(b || '');
+      if (sa !== sb) { isDirty = true; break; }
+    }
+  } catch (_) { isDirty = true; }
+  if (isDirty) INC_STATE.editDirty.add(id);
+  else INC_STATE.editDirty.delete(id);
+  const saveBtn = card.querySelector('[data-edit-save]');
+  if (saveBtn) saveBtn.style.display = isDirty ? '' : 'none';
+};
+
+function incCollectEditFields(card) {
+  const out = { personas: [], motivos: [], clasificaciones: [] };
+  card.querySelectorAll('[data-edit-field]').forEach(el => {
+    const name = el.getAttribute('data-edit-field');
+    if (el.type === 'checkbox') {
+      if (el.checked) {
+        if (!Array.isArray(out[name])) out[name] = [];
+        out[name].push(el.value);
+      }
+    } else {
+      out[name] = el.value || '';
+    }
+  });
+  if (out.propiedad && out.depto) out.alojamiento = `${out.propiedad} - #${out.depto}`;
+  else if (out.propiedad) out.alojamiento = out.propiedad;
+  else out.alojamiento = '';
+  return out;
+}
+
+window.incCancelEdit = function (id) {
+  const card = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(id)}"]`);
+  const row = (INC_STATE.list || []).find(r => String(r['ID'] || '') === id);
+  if (!card || !row) return;
+  INC_STATE.editing.delete(id);
+  INC_STATE.editDirty.delete(id);
+  delete INC_STATE.editOriginal[id];
+  const body = card.querySelector('.inc-card-body');
+  if (body) {
+    body.innerHTML = incCardBodyHtmlReadonly(row, id);
+    body.classList.remove('editing');
+  }
+};
+
+window.incSaveEdit = async function (id) {
+  const card = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(id)}"]`);
+  if (!card) return;
+  const fields = incCollectEditFields(card);
+  const saveBtn = card.querySelector('[data-edit-save]');
+  const cancelBtn = card.querySelector('.inc-edit-btn-cancel');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '⏳ Guardando…'; }
+  if (cancelBtn) cancelBtn.disabled = true;
+  try {
+    const res = await fetch(`${BACKEND}/update-incidencia`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, fields }),
+    });
+    const out = await res.json();
+    if (!out.ok) throw new Error(out.error || 'Error al actualizar');
+    const row = (INC_STATE.list || []).find(r => String(r['ID'] || '') === id);
+    if (row) {
+      const colMap = {
+        fecha: 'Fecha', propiedad: 'Propiedad', depto: '# Departamento',
+        alojamiento: 'Alojamiento', personas: 'Personas', motivos: 'Motivos',
+        clasificaciones: 'Clasificacion', nivel: 'Nivel', estatus: 'Estatus',
+        reportante: 'Reportante', descripcion: 'Descripcion',
+        acciones: 'Acciones', seguimiento: 'Seguimiento',
+      };
+      Object.keys(fields).forEach(k => {
+        const c = colMap[k]; if (!c) return;
+        row[c] = Array.isArray(fields[k]) ? fields[k].join(', ') : String(fields[k] || '');
+      });
+    }
+    INC_STATE.editing.delete(id);
+    INC_STATE.editDirty.delete(id);
+    delete INC_STATE.editOriginal[id];
+    INC_STATE.expanded.add(id);
+    incRenderCards();
+  } catch (e) {
+    console.error('[INC] update error:', e);
+    alert('No se pudo actualizar el reporte:\n\n' + (e.message || e));
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '💾 Guardar cambios y Salir'; }
+    if (cancelBtn) cancelBtn.disabled = false;
   }
 };
 
