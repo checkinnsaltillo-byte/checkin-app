@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema de gestión de Corta estancia | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=109">
+  <link rel="stylesheet" href="styles.css?v=110">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -182,6 +182,10 @@
             onclick="switchModule('incidencias');closeNavMenu()">
           🚨 Incidencias
         </li>
+        <li class="nav-item" id="nav-item-objetos"
+            onclick="switchModule('objetos');closeNavMenu()">
+          🧳 Objetos olvidados
+        </li>
       </ul>
       <div style="margin-top:auto;padding:16px;border-top:1px solid var(--border,#e5e7eb);display:flex;flex-direction:column;gap:10px;align-items:stretch">
         <button id="btn-dark-mode" onclick="toggleDarkMode()" title="Alternar tema claro/oscuro"
@@ -268,6 +272,14 @@
             <div class="home-card-body">
               <h3 class="home-card-title">Incidencias</h3>
               <p class="home-card-desc">Reportes de limpieza y mantenimiento con evidencia fotográfica.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-objetos" onclick="switchModule('objetos')">
+            <div class="home-card-icon">🧳</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Objetos olvidados</h3>
+              <p class="home-card-desc">Registro y devolución de objetos encontrados en los alojamientos.</p>
             </div>
             <div class="home-card-arrow">→</div>
           </button>
@@ -1519,6 +1531,160 @@
       </div>
     </div><!-- /module-incidencias -->
 
+    <!-- ═══════════════ MÓDULO OBJETOS OLVIDADOS ═══════════════ -->
+    <div id="module-objetos" class="hidden" style="padding:20px 24px 60px">
+      <div style="max-width:1440px;margin:0 auto">
+        <div class="obj-hero">
+          <div>
+            <div class="obj-hero-kicker">Control operativo · objetos encontrados</div>
+            <h1 class="obj-hero-title">🧳 Objetos olvidados</h1>
+            <p class="obj-hero-sub">Historial de objetos. Pulsa una card para ver el detalle.</p>
+          </div>
+          <button type="button" onclick="objAbrirCaptura()" class="obj-btn-nuevo" title="Registrar nuevo objeto">
+            ＋ Registrar nuevo objeto
+          </button>
+        </div>
+
+        <!-- Filtros -->
+        <div id="obj-filters" class="inc-filters">
+          <div class="inc-motivo-block">
+            <label class="inc-filter-label">Categoría</label>
+            <div id="obj-cat-chips" class="inc-motivo-chips"></div>
+          </div>
+          <div class="inc-filter-row">
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Lugar de resguardo</label>
+              <div id="obj-f-lugar" class="inc-mselect" data-filter="lugar"></div>
+            </div>
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Estado</label>
+              <div id="obj-f-estado" class="inc-mselect" data-filter="estado"></div>
+            </div>
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Mes (encontrado)</label>
+              <select id="obj-f-month" class="inc-filter-date" onchange="objApplyFilters()"></select>
+            </div>
+          </div>
+          <div class="inc-filter-count" id="obj-filter-count"></div>
+        </div>
+
+        <!-- Lista de cards -->
+        <div id="obj-cards-list">
+          <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando objetos…</div>
+        </div>
+
+        <!-- Slide-in panel: captura -->
+        <div id="obj-capture-backdrop" class="inc-capture-backdrop hidden" onclick="objCerrarCaptura()"></div>
+        <div id="obj-capture-panel" class="inc-capture-panel hidden">
+          <div class="inc-capture-header">
+            <h2 style="margin:0;font-size:16px;color:#0f172a">🧳 Registro de objeto</h2>
+            <button type="button" onclick="objCerrarCaptura()" class="inc-capture-close" title="Cerrar">✕</button>
+          </div>
+          <div id="obj-form" style="padding:16px">
+
+            <div class="inc-section inc-section-data">
+              <div class="inc-section-title">📅 Datos generales</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <div>
+                  <label class="inc-label">Fecha de encontrado</label>
+                  <input type="date" id="obj-fecha-enc" class="inc-input">
+                </div>
+                <div>
+                  <label class="inc-label">Fecha de entregado</label>
+                  <input type="date" id="obj-fecha-ent" class="inc-input">
+                </div>
+              </div>
+              <div style="margin-bottom:10px">
+                <label class="inc-label">Nombre de persona a quien se entregó</label>
+                <input type="text" id="obj-entregado-a" class="inc-input" placeholder="Nombre (vacío si aún no se ha entregado)">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div>
+                  <label class="inc-label">Propiedad</label>
+                  <select id="obj-propiedad" class="inc-input"></select>
+                </div>
+                <div>
+                  <label class="inc-label"># Departamento</label>
+                  <select id="obj-depto" class="inc-input"></select>
+                </div>
+              </div>
+            </div>
+
+            <div class="inc-section inc-section-reportante">
+              <div class="inc-section-title">✍️ Persona que reporta</div>
+              <select id="obj-reportante" class="inc-input"></select>
+            </div>
+
+            <div class="inc-section inc-section-clasif">
+              <div class="inc-section-title">🏷️ Categoría</div>
+              <select id="obj-categoria" class="inc-input" onchange="objToggleCategoriaOtro()">
+                <option value="">— Seleccionar —</option>
+                <option value="Electrónico">📱 Electrónico</option>
+                <option value="Vestimenta">👕 Vestimenta</option>
+                <option value="Joyería/accesorios">💍 Joyería/accesorios</option>
+                <option value="Documentos">📄 Documentos</option>
+                <option value="Otro">❓ Otro</option>
+              </select>
+              <div id="obj-categoria-otro-wrap" style="margin-top:8px;display:none">
+                <label class="inc-label">Especificar categoría</label>
+                <input type="text" id="obj-categoria-otro" class="inc-input" placeholder="Describe la categoría">
+              </div>
+            </div>
+
+            <div class="inc-section inc-section-fotos">
+              <div class="inc-section-title">📸 Evidencia de devolución</div>
+              <input type="file" id="obj-fotos" accept="image/*" multiple class="inc-input">
+              <div style="font-size:11px;color:#64748b;margin-top:4px">Una o varias imágenes. Click en una para ampliar.</div>
+              <div id="obj-foto-preview" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:10px"></div>
+            </div>
+
+            <div class="inc-section inc-section-nivel">
+              <div class="inc-section-title">📦 Lugar donde se resguarda</div>
+              <select id="obj-lugar" class="inc-input" onchange="objToggleLugarOtro()">
+                <option value="">— Seleccionar —</option>
+                <option value="Gabinete">🗄️ Gabinete</option>
+                <option value="Oficina">🏢 Oficina</option>
+                <option value="Otro">❓ Otro</option>
+              </select>
+              <div id="obj-lugar-otro-wrap" style="margin-top:8px;display:none">
+                <label class="inc-label">Especificar lugar</label>
+                <input type="text" id="obj-lugar-otro" class="inc-input" placeholder="Describe el lugar de resguardo">
+              </div>
+            </div>
+
+            <div class="inc-section inc-section-desc">
+              <div class="inc-section-title">📝 Comentarios</div>
+              <textarea id="obj-comentarios" class="inc-input" rows="4" placeholder="Descripción del objeto, contexto, observaciones."></textarea>
+            </div>
+
+          </div>
+          <div class="inc-capture-footer">
+            <button type="button" onclick="objGenerar()" class="inc-btn-pri" style="flex:1">Generar reporte</button>
+            <button type="button" onclick="objLimpiar()" class="inc-btn-sec">Limpiar</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal del reporte (popup) -->
+      <div id="obj-report-modal" class="inc-modal hidden" onclick="objSalir()">
+        <div class="inc-modal-content" onclick="event.stopPropagation()">
+          <div class="inc-modal-actions">
+            <button type="button" onclick="objImprimir()" class="inc-modal-btn inc-btn-imprimir" title="Imprimir reporte">🖨️ Imprimir</button>
+            <button type="button" onclick="objGuardarSalir()" class="inc-modal-btn inc-btn-guardar" title="Guardar y salir">💾 Guardar y Salir</button>
+            <button type="button" onclick="objSalir()" class="inc-modal-btn inc-btn-salir" title="Salir">✕ Salir</button>
+          </div>
+          <div id="obj-preview" class="inc-report-body"></div>
+        </div>
+      </div>
+
+      <!-- Modal de zoom de imagen (compartido con Incidencias se reusa el de inc, pero abrimos uno propio para no chocar) -->
+      <div id="obj-zoom-modal" class="inc-zoom-modal hidden" onclick="objCloseZoom()">
+        <button type="button" onclick="objCloseZoom()" class="inc-zoom-close" title="Cerrar">✕</button>
+        <img id="obj-zoom-img" src="" alt="" onclick="event.stopPropagation()">
+      </div>
+    </div><!-- /module-objetos -->
+
     <!-- Detail modal for Bancos drilldown -->
     <div id="bn-modal-overlay" class="bn-modal-overlay hidden" onclick="bn_closeDetail()">
       <div class="bn-modal" onclick="event.stopPropagation()">
@@ -1671,6 +1837,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=394"></script>
+  <script src="app.js?v=395"></script>
 </body>
 </html>

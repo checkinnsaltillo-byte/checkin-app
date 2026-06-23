@@ -4602,3 +4602,97 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
 .inc-card-body.editing {
   background: linear-gradient(180deg, #eff6ff, #f8fafc);
 }
+
+/* ═════ Módulo Objetos olvidados ═════ */
+/* Paleta home card */
+.home-card-objetos {
+  --card-accent: #0891b2;
+  --card-icon-bg: #cffafe;
+  --card-grad: linear-gradient(135deg, rgba(8,145,178,.06), rgba(6,182,212,.07));
+}
+
+/* Hero del módulo: cyan/teal en lugar del rojo de Incidencias */
+.obj-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding: 20px 24px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #155e75 0%, #0891b2 50%, #06b6d4 100%);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(8,145,178,.22);
+  position: relative;
+  overflow: hidden;
+}
+.obj-hero::after {
+  content: "";
+  position: absolute;
+  right: -60px; top: -60px;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,.18), transparent 65%);
+  pointer-events: none;
+}
+.obj-hero > div, .obj-hero > button { position: relative; z-index: 1; }
+.obj-hero-kicker {
+  font-size: 10px; font-weight: 800; letter-spacing: .16em;
+  text-transform: uppercase; color: rgba(255,255,255,.8);
+  margin-bottom: 6px;
+}
+.obj-hero-title { margin: 0 0 4px; font-size: 26px; font-weight: 800; color: #fff; }
+.obj-hero-sub { margin: 0; font-size: 13px; color: rgba(255,255,255,.85); max-width: 600px; }
+.obj-btn-nuevo {
+  padding: 12px 22px;
+  border: 1px solid rgba(255,255,255,.3);
+  background: rgba(255,255,255,.96);
+  color: #0e7490;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0,0,0,.22);
+  transition: transform .15s ease, box-shadow .15s ease;
+  white-space: nowrap;
+}
+.obj-btn-nuevo:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(0,0,0,.30);
+  background: #fff;
+}
+
+/* Card header coloreado por categoría (mismo patrón que motivo-bg-) */
+.cat-bg-Electronico            { background: #2563eb; color: #fff; }
+.cat-bg-Vestimenta             { background: #ec4899; color: #fff; }
+.cat-bg-Joyeria                { background: #f59e0b; color: #fff; }
+.cat-bg-Documentos             { background: #16a34a; color: #fff; }
+.cat-bg-default                { background: #475569; color: #fff; }
+.cat-border-Electronico        { border-left-color: #2563eb !important; }
+.cat-border-Vestimenta         { border-left-color: #ec4899 !important; }
+.cat-border-Joyeria            { border-left-color: #f59e0b !important; }
+.cat-border-Documentos         { border-left-color: #16a34a !important; }
+.cat-border-default            { border-left-color: #475569 !important; }
+
+/* Chips de filtro categoría (idem motivo) */
+.obj-cat-chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  background: #f1f5f9;
+  color: #475569;
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+  user-select: none;
+}
+.obj-cat-chip:hover { transform: translateY(-1px); }
+.obj-cat-chip.active { color: #fff; box-shadow: 0 3px 8px rgba(15,23,42,.18); }
+.obj-cat-chip:not(.active) { opacity: .60; }
+.obj-cat-chip.active.color-Electronico  { background: #2563eb; border-color: #2563eb; }
+.obj-cat-chip.active.color-Vestimenta   { background: #ec4899; border-color: #ec4899; }
+.obj-cat-chip.active.color-Joyeria      { background: #f59e0b; border-color: #f59e0b; }
+.obj-cat-chip.active.color-Documentos   { background: #16a34a; border-color: #16a34a; }
+.obj-cat-chip.active.color-default      { background: #475569; border-color: #475569; }

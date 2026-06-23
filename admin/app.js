@@ -8182,7 +8182,7 @@ function esc(v) {
 
 /** Cambia entre módulos de nivel superior */
 function switchModule(mod) {
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== mod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === mod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === mod);
@@ -8271,6 +8271,10 @@ function switchModule(mod) {
   if (mod === "incidencias") {
     if (typeof incInit === 'function') incInit();
     if (typeof incLoadIncidencias === 'function') incLoadIncidencias();
+  }
+  if (mod === "objetos") {
+    if (typeof objInit === 'function') objInit();
+    if (typeof objLoadObjetos === 'function') objLoadObjetos();
   }
 }
 
@@ -20798,3 +20802,976 @@ function incFilteredRows() {
     return true;
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║  MÓDULO OBJETOS OLVIDADOS — paralelo a Incidencias                   ║
+// ═══════════════════════════════════════════════════════════════════════
+const OBJ_CATEGORIAS = ['Electrónico', 'Vestimenta', 'Joyería/accesorios', 'Documentos', 'Otro'];
+const OBJ_LUGARES = ['Gabinete', 'Oficina', 'Otro'];
+
+const OBJ_STATE = {
+  initialized: false,
+  list: [],
+  expanded: new Set(),
+  editing: new Set(),
+  editDirty: new Set(),
+  editOriginal: {},
+  editPhotos: {},
+  fotos: [], // captura: [{name, src, base64, mimeType}]
+  filtersInitialized: false,
+  filters: {
+    categoria: new Set(),
+    lugar: new Set(OBJ_LUGARES),
+    estado: new Set(['Entregado', 'Pendiente']),
+    month: '',
+  },
+};
+
+// Color class por categoría (espejo de incMotivoColorClass)
+function objCategoriaColorClass(cat) {
+  const c = String(cat || '').trim();
+  if (c === 'Electrónico') return 'Electronico';
+  if (c === 'Vestimenta') return 'Vestimenta';
+  if (c === 'Joyería/accesorios') return 'Joyeria';
+  if (c === 'Documentos') return 'Documentos';
+  return 'default';
+}
+
+function objInit() {
+  if (OBJ_STATE.initialized) return;
+  OBJ_STATE.initialized = true;
+  // Asegurar alojamientos cargados (reutilizamos ALOJ_STATE de Lodgify)
+  if (typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded && !ALOJ_STATE.loading) {
+    if (typeof lgLoadAlojamientos === 'function') {
+      lgLoadAlojamientos().then(() => objRenderPropDeptoSelects()).catch(() => {});
+    }
+  }
+  // Personal — reusa el catálogo del módulo Incidencias si ya cargó
+  if (typeof incLoadPersonal === 'function' && !INC_STATE.personasFromSheet) {
+    incLoadPersonal().then(() => objRenderReportante()).catch(() => {});
+  }
+  objRenderPropDeptoSelects();
+  objRenderReportante();
+  // Default fecha encontrado = hoy
+  const fEnc = document.getElementById('obj-fecha-enc');
+  if (fEnc && !fEnc.value) fEnc.value = incTodayIso();
+  // Manejador de fotos
+  const fotosInput = document.getElementById('obj-fotos');
+  if (fotosInput) fotosInput.addEventListener('change', objManejarFotos);
+}
+
+function objRenderPropDeptoSelects() {
+  // Reutiliza helpers de Incidencias (mismo catálogo de alojamientos)
+  const props = (typeof incBuildPropiedades === 'function') ? incBuildPropiedades() : [];
+  const sel = document.getElementById('obj-propiedad');
+  if (sel) {
+    sel.innerHTML = ['<option value="">— Seleccionar —</option>']
+      .concat(props.map(p => `<option value="${esc(p)}">${esc(p)}</option>`)).join('');
+  }
+  const deptoSel = document.getElementById('obj-depto');
+  if (deptoSel) {
+    deptoSel.innerHTML = '<option value="">— Selecciona propiedad —</option>';
+    deptoSel.disabled = true;
+  }
+  const propSel = document.getElementById('obj-propiedad');
+  if (propSel && !propSel._objCascadeBound) {
+    propSel._objCascadeBound = true;
+    propSel.addEventListener('change', () => {
+      const p = propSel.value;
+      const deptos = (typeof incBuildDepartamentos === 'function') ? incBuildDepartamentos(p) : [];
+      if (deptoSel) {
+        if (!p) {
+          deptoSel.innerHTML = '<option value="">— Selecciona propiedad —</option>';
+          deptoSel.disabled = true;
+        } else {
+          deptoSel.innerHTML = ['<option value="">— Selecciona —</option>']
+            .concat(deptos.map(d => `<option value="${esc(d)}">#${esc(d)}</option>`)).join('');
+          deptoSel.disabled = false;
+        }
+      }
+    });
+  }
+}
+
+function objRenderReportante() {
+  const personas = (INC_STATE.personasFromSheet ? INC_STATE.personas : INC_PERSONAL.map(p => p.nombre)).slice();
+  const sel = document.getElementById('obj-reportante');
+  if (sel) {
+    sel.innerHTML = ['<option value="">— Seleccionar —</option>']
+      .concat(personas.map(p => `<option value="${esc(p)}">${esc(p)}</option>`)).join('');
+  }
+}
+
+window.objToggleCategoriaOtro = function () {
+  const sel = document.getElementById('obj-categoria');
+  const wrap = document.getElementById('obj-categoria-otro-wrap');
+  if (wrap) wrap.style.display = (sel?.value === 'Otro') ? '' : 'none';
+};
+window.objToggleLugarOtro = function () {
+  const sel = document.getElementById('obj-lugar');
+  const wrap = document.getElementById('obj-lugar-otro-wrap');
+  if (wrap) wrap.style.display = (sel?.value === 'Otro') ? '' : 'none';
+};
+
+function objManejarFotos(ev) {
+  const files = Array.from(ev.target.files || []);
+  if (!files.length) { objRenderFotoPreview(); return; }
+  Promise.all(files.map(f => new Promise(resolve => {
+    const r = new FileReader();
+    r.onload = () => resolve({
+      name: f.name, src: r.result,
+      mimeType: f.type || 'image/jpeg',
+      base64: String(r.result).split(',')[1] || '',
+    });
+    r.readAsDataURL(f);
+  }))).then(results => {
+    OBJ_STATE.fotos = OBJ_STATE.fotos.concat(results);
+    objRenderFotoPreview();
+    ev.target.value = '';
+  });
+}
+
+function objRenderFotoPreview() {
+  const c = document.getElementById('obj-foto-preview');
+  if (!c) return;
+  const thumbs = OBJ_STATE.fotos.map((f, i) => `
+    <div class="inc-photo-thumb" onclick="objOpenZoom(${i})" title="Click para ampliar">
+      <button type="button" class="inc-photo-remove" onclick="event.stopPropagation();objRemoveFoto(${i})" title="Eliminar imagen">✕</button>
+      <img src="${f.src}" alt="${esc(f.name)}">
+      <div class="inc-photo-cap">${esc(f.name)}</div>
+    </div>`).join('');
+  const addCard = `
+    <div class="inc-photo-add" onclick="document.getElementById('obj-fotos').click()" title="Agregar más imágenes">
+      <span class="inc-photo-add-icon">＋</span>
+      <span class="inc-photo-add-text">Agregar imagen</span>
+    </div>`;
+  c.innerHTML = thumbs + addCard;
+}
+
+window.objRemoveFoto = function (i) {
+  OBJ_STATE.fotos.splice(i, 1);
+  objRenderFotoPreview();
+  const inp = document.getElementById('obj-fotos');
+  if (inp) inp.value = '';
+};
+
+window.objOpenZoom = function (i) {
+  const f = OBJ_STATE.fotos[i];
+  if (!f) return;
+  const modal = document.getElementById('obj-zoom-modal');
+  const img = document.getElementById('obj-zoom-img');
+  if (!modal || !img) return;
+  img.src = f.src;
+  img.alt = f.name || '';
+  modal.classList.remove('hidden');
+  if (!window._objZoomEscBound) {
+    window._objZoomEscBound = true;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') objCloseZoom();
+    });
+  }
+};
+window.objCloseZoom = function () {
+  document.getElementById('obj-zoom-modal')?.classList.add('hidden');
+};
+
+function objGetFormData() {
+  const propiedad = document.getElementById('obj-propiedad')?.value || '';
+  const depto = document.getElementById('obj-depto')?.value || '';
+  const alojamiento = (propiedad && depto) ? `${propiedad} - #${depto}` : (propiedad || '');
+  return {
+    fecha_encontrado: document.getElementById('obj-fecha-enc')?.value || '',
+    fecha_entregado:  document.getElementById('obj-fecha-ent')?.value || '',
+    entregado_a:      (document.getElementById('obj-entregado-a')?.value || '').trim(),
+    propiedad, depto, alojamiento,
+    reportante: document.getElementById('obj-reportante')?.value || '',
+    categoria: document.getElementById('obj-categoria')?.value || '',
+    categoria_otro: (document.getElementById('obj-categoria-otro')?.value || '').trim(),
+    lugar_resguardo: document.getElementById('obj-lugar')?.value || '',
+    lugar_otro: (document.getElementById('obj-lugar-otro')?.value || '').trim(),
+    comentarios: (document.getElementById('obj-comentarios')?.value || '').trim(),
+    fotos: OBJ_STATE.fotos.slice(),
+  };
+}
+
+function objBuildReporteHtml(d) {
+  const categoriaTxt = d.categoria === 'Otro' ? `Otro: ${d.categoria_otro || '—'}` : (d.categoria || '—');
+  const lugarTxt = d.lugar_resguardo === 'Otro' ? `Otro: ${d.lugar_otro || '—'}` : (d.lugar_resguardo || '—');
+  const chip = (txt, cls = '') => `<span class="inc-chip ${cls}">${esc(txt)}</span>`;
+  const entregado = !!d.fecha_entregado;
+  const field = (label, value) => `
+    <div class="inc-report-field">
+      <div class="inc-report-field-label">${esc(label)}</div>
+      <div class="inc-report-field-value">${value || '—'}</div>
+    </div>`;
+  const block = (title, body) => `
+    <div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fff">
+      <div style="font-size:10px;letter-spacing:.10em;color:#0e7490;font-weight:800;text-transform:uppercase;margin-bottom:6px">${esc(title)}</div>
+      ${body}
+    </div>`;
+  const fotosHtml = d.fotos && d.fotos.length ? `
+    <div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fff">
+      <div style="font-size:10px;letter-spacing:.10em;color:#0e7490;font-weight:800;text-transform:uppercase;margin-bottom:8px">Evidencia · ${d.fotos.length} imagen(es)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+        ${d.fotos.map((f, i) => `
+          <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;background:#fff;page-break-inside:avoid">
+            <img src="${f.src}" alt="" style="display:block;width:100%;height:140px;object-fit:cover;background:#f1f5f9">
+            <div style="padding:3px 6px;font-size:10px;color:#64748b">Foto ${i + 1}</div>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:2px solid #0891b2;padding-bottom:8px;margin-bottom:12px">
+      <div>
+        <div style="font-size:9px;letter-spacing:.14em;color:#0891b2;font-weight:800;text-transform:uppercase">Formato operativo</div>
+        <h2 style="margin:2px 0 4px;font-size:18px;color:#0f172a;font-weight:800">Reporte de objeto olvidado</h2>
+        <span class="inc-chip" style="background:${entregado?'#dcfce7':'#fef3c7'};border-color:${entregado?'#86efac':'#fcd34d'};color:${entregado?'#166534':'#92400e'}">${entregado ? '✓ Entregado' : '⏳ Pendiente'}</span>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#475569">
+        <div><strong>Encontrado:</strong> ${esc(incFmtFecha(d.fecha_encontrado))}</div>
+        ${d.fecha_entregado ? `<div><strong>Entregado:</strong> ${esc(incFmtFecha(d.fecha_entregado))}</div>` : ''}
+        <div><strong>Alojamiento:</strong> ${esc(d.alojamiento || '—')}</div>
+      </div>
+    </div>
+
+    <div class="inc-report-grid-3" style="margin-bottom:8px">
+      ${field('Categoría', chip(categoriaTxt))}
+      ${field('Resguardo', chip(lugarTxt))}
+      ${field('Reportó', esc(d.reportante || '—'))}
+    </div>
+
+    ${d.entregado_a ? block('Entregado a', `<div style="font-size:12px;color:#1f2937">${esc(d.entregado_a)}</div>`) : ''}
+
+    ${block('Comentarios', `<div style="font-size:12px;color:#1f2937;line-height:1.5">${esc(d.comentarios || 'Sin comentarios').replace(/\n/g, '<br>')}</div>`)}
+
+    ${fotosHtml}`;
+}
+
+window.objGenerar = function () {
+  const d = objGetFormData();
+  const preview = document.getElementById('obj-preview');
+  const modal = document.getElementById('obj-report-modal');
+  if (!preview) return;
+  preview.innerHTML = objBuildReporteHtml(d);
+  if (modal) modal.classList.remove('hidden');
+};
+
+window.objSalir = function () {
+  document.getElementById('obj-report-modal')?.classList.add('hidden');
+};
+
+window.objLimpiar = function () {
+  document.querySelectorAll('#module-objetos input[type="text"], #module-objetos textarea').forEach(el => el.value = '');
+  document.querySelectorAll('#module-objetos input[type="date"]').forEach(el => el.value = '');
+  document.querySelectorAll('#module-objetos select').forEach(el => { if (el.id !== 'obj-f-month') el.value = ''; });
+  const fechaEnc = document.getElementById('obj-fecha-enc');
+  if (fechaEnc) fechaEnc.value = incTodayIso();
+  OBJ_STATE.fotos = [];
+  objRenderFotoPreview();
+  objToggleCategoriaOtro();
+  objToggleLugarOtro();
+  // Reset cascada de depto
+  const deptoSel = document.getElementById('obj-depto');
+  if (deptoSel) {
+    deptoSel.innerHTML = '<option value="">— Selecciona propiedad —</option>';
+    deptoSel.disabled = true;
+  }
+  document.getElementById('obj-report-modal')?.classList.add('hidden');
+  document.getElementById('obj-preview').innerHTML = '';
+};
+
+window.objImprimir = function () {
+  const d = objGetFormData();
+  const html = `<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><title>Reporte de objeto</title>
+<style>
+@page { size: A4; margin: 12mm; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin:0; color:#0f172a; background:#fff; font-size:12px; }
+.inc-chip { display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;background:#f1f5f9;border:1px solid #e2e8f0;font-size:11px;color:#1f2937;font-weight:600 }
+.inc-report-grid-3 { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 14px }
+.inc-report-field { display:grid;grid-template-columns:90px 1fr;gap:4px;padding:4px 0;border-bottom:1px dashed #f1f5f9;font-size:11px }
+.inc-report-field-label { color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:9px }
+.inc-report-field-value { color:#0f172a;font-weight:600 }
+img { max-width:100% }
+</style></head><body>${objBuildReporteHtml(d)}</body></html>`;
+  let iframe = document.getElementById('obj-print-frame');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'obj-print-frame';
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none';
+    document.body.appendChild(iframe);
+  }
+  const win = iframe.contentWindow;
+  const doc = iframe.contentDocument || (win && win.document);
+  if (!doc || !win) { alert('No se pudo preparar la impresión.'); return; }
+  doc.open(); doc.write(html); doc.close();
+  const lanzar = () => {
+    const imgs = Array.from(doc.images || []);
+    const doPrint = () => setTimeout(() => { try { win.focus(); win.print(); } catch (e) { alert('No se pudo abrir la impresión.'); } }, 250);
+    if (!imgs.length) return doPrint();
+    Promise.all(imgs.map(img => img.complete && img.naturalWidth > 0 ? Promise.resolve() :
+      new Promise(res => { const done = () => res(); img.addEventListener('load', done, { once: true }); img.addEventListener('error', done, { once: true }); })
+    )).then(doPrint);
+  };
+  if (doc.readyState === 'complete') lanzar();
+  else iframe.onload = () => { iframe.onload = null; lanzar(); };
+};
+
+window.objGuardarSalir = async function () {
+  const d = objGetFormData();
+  if (!d.propiedad || !d.depto) {
+    alert('Selecciona Propiedad y # Departamento antes de guardar.');
+    return;
+  }
+  if (!d.categoria) {
+    alert('Selecciona una Categoría antes de guardar.');
+    return;
+  }
+  const fotos = (d.fotos || []).map(f => ({
+    name: f.name || 'foto.jpg',
+    mimeType: f.mimeType || 'image/jpeg',
+    base64: f.base64 || (String(f.src || '').match(/^data:[^;]+;base64,(.+)$/)?.[1] || ''),
+  })).filter(f => f.base64);
+  const payload = {
+    fecha_encontrado: d.fecha_encontrado,
+    fecha_entregado:  d.fecha_entregado,
+    entregado_a:      d.entregado_a,
+    propiedad: d.propiedad, depto: d.depto, alojamiento: d.alojamiento,
+    reportante: d.reportante,
+    categoria: d.categoria, categoria_otro: d.categoria_otro,
+    lugar_resguardo: d.lugar_resguardo, lugar_otro: d.lugar_otro,
+    comentarios: d.comentarios,
+  };
+  const btn = document.querySelector('#obj-report-modal .inc-btn-guardar');
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Guardando…'; }
+  try {
+    const res = await fetch(`${BACKEND}/save-objeto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload, fotos }),
+    });
+    const out = await res.json();
+    if (!out.ok) throw new Error(out.error || 'Error al guardar');
+    alert(`✓ Objeto registrado.\n\nID: ${out.id}\nFotos subidas: ${out.fotos_uploaded}/${fotos.length}`);
+    objSalir();
+    objLimpiar();
+    objCerrarCaptura();
+    objLoadObjetos();
+  } catch (e) {
+    alert('No se pudo guardar:\n\n' + (e.message || e));
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+  }
+};
+
+// ─── Slide-in panel ───
+window.objAbrirCaptura = function () {
+  const panel = document.getElementById('obj-capture-panel');
+  const back = document.getElementById('obj-capture-backdrop');
+  if (!panel || !back) return;
+  back.classList.remove('hidden');
+  back.offsetHeight;
+  back.classList.add('visible');
+  panel.classList.remove('hidden');
+  panel.classList.add('open');
+};
+window.objCerrarCaptura = function () {
+  const panel = document.getElementById('obj-capture-panel');
+  const back = document.getElementById('obj-capture-backdrop');
+  if (!panel || !back) return;
+  panel.classList.remove('open');
+  back.classList.remove('visible');
+  setTimeout(() => { panel.classList.add('hidden'); back.classList.add('hidden'); }, 280);
+};
+
+// ─── Lista de cards + filtros ───
+async function objLoadObjetos() {
+  const cont = document.getElementById('obj-cards-list');
+  if (!cont) return;
+  cont.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando objetos…</div>';
+  try {
+    const res = await fetch(`${BACKEND}/objetos-list`, { cache: 'no-store' });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'fetch failed');
+    OBJ_STATE.list = data.rows || [];
+    objInitFilters();
+    objRenderCards();
+  } catch (e) {
+    cont.innerHTML = `<div style="text-align:center;padding:60px;color:#dc2626;font-size:13px">⚠ No se pudieron cargar: ${esc(e.message || String(e))}
+      <div style="margin-top:10px"><button onclick="objLoadObjetos()" class="inc-btn-sec">Reintentar</button></div></div>`;
+  }
+}
+
+function objCollectUniqueCategorias() {
+  const set = new Set();
+  (OBJ_STATE.list || []).forEach(r => {
+    const c = String(r['Categoria'] || '').trim();
+    if (c) set.add(c);
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+function objInitFilters() {
+  objBuildMonthOptions();
+  const allCats = objCollectUniqueCategorias();
+  if (!OBJ_STATE.filtersInitialized) {
+    OBJ_STATE.filters.categoria = new Set(allCats);
+    OBJ_STATE.filtersInitialized = true;
+  } else {
+    allCats.forEach(v => OBJ_STATE.filters.categoria.add(v));
+  }
+  objRenderCatChips();
+  objRenderFilterDropdown('obj-f-lugar', 'lugar', OBJ_LUGARES);
+  objRenderFilterDropdown('obj-f-estado', 'estado', ['Entregado', 'Pendiente']);
+}
+
+function objBuildMonthOptions() {
+  const sel = document.getElementById('obj-f-month');
+  if (!sel) return;
+  const today = new Date();
+  const cy = today.getFullYear(), cm = today.getMonth();
+  const pad = n => String(n).padStart(2, '0');
+  const currentKey = `${cy}-${pad(cm + 1)}`;
+  const set = new Set([currentKey]);
+  (OBJ_STATE.list || []).forEach(r => {
+    const m = String(r['Fecha_encontrado'] || r['Timestamp'] || '').match(/^(\d{4})-(\d{2})/);
+    if (m) set.add(`${m[1]}-${m[2]}`);
+  });
+  const keys = Array.from(set).sort((a, b) => b.localeCompare(a));
+  const opts = ['<option value="">— Todos los meses —</option>']
+    .concat(keys.map(k => {
+      const [y, mm] = k.split('-');
+      const label = `${INC_MESES_ES[parseInt(mm, 10) - 1]} ${y}`;
+      return `<option value="${k}">${label}</option>`;
+    }));
+  const prev = OBJ_STATE.filters.month || sel.value || currentKey;
+  sel.innerHTML = opts.join('');
+  sel.value = Array.from(sel.options).some(o => o.value === prev) ? prev : currentKey;
+  OBJ_STATE.filters.month = sel.value;
+}
+
+function objRenderCatChips() {
+  const cont = document.getElementById('obj-cat-chips');
+  if (!cont) return;
+  const cats = OBJ_CATEGORIAS;
+  cont.innerHTML = cats.map(c => {
+    const color = objCategoriaColorClass(c);
+    const active = OBJ_STATE.filters.categoria.has(c);
+    return `<button type="button" class="obj-cat-chip color-${esc(color)} ${active ? 'active' : ''}"
+            onclick="objToggleCatChip('${esc(c)}')">${esc(c)}</button>`;
+  }).join('');
+}
+
+window.objToggleCatChip = function (cat) {
+  if (OBJ_STATE.filters.categoria.has(cat)) OBJ_STATE.filters.categoria.delete(cat);
+  else OBJ_STATE.filters.categoria.add(cat);
+  objRenderCatChips();
+  objApplyFilters();
+};
+
+function objLabelFor(filterKey) {
+  const sel = OBJ_STATE.filters[filterKey];
+  const all = filterKey === 'lugar' ? OBJ_LUGARES
+            : filterKey === 'estado' ? ['Entregado', 'Pendiente']
+            : [];
+  if (!all.length) return 'Sin opciones';
+  if (sel.size === 0) return 'Ninguno';
+  if (sel.size === all.length) return `Todos (${all.length})`;
+  if (sel.size === 1) return [...sel][0];
+  return `${sel.size} de ${all.length}`;
+}
+
+function objRenderFilterDropdown(containerId, filterKey, options) {
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  const sel = OBJ_STATE.filters[filterKey];
+  const opts = options.map(v => {
+    const checked = sel.has(v) ? 'checked' : '';
+    return `<label class="inc-mselect-opt">
+      <input type="checkbox" value="${esc(v)}" ${checked}
+             onchange="objToggleFilterOption('${esc(filterKey)}','${esc(v)}',this.checked)">
+      <span>${esc(v)}</span>
+    </label>`;
+  }).join('');
+  c.innerHTML = `
+    <button type="button" class="inc-mselect-btn" onclick="objToggleDropdown(event,'${esc(containerId)}')">
+      <span class="inc-mselect-btn-lbl">${esc(objLabelFor(filterKey))}</span>
+    </button>
+    <div class="inc-mselect-panel hidden">
+      <div class="inc-mselect-actions">
+        <button type="button" class="inc-mselect-action" onclick="objFilterSetAll('${esc(filterKey)}')">✓ Todos</button>
+        <button type="button" class="inc-mselect-action" onclick="objFilterSetNone('${esc(filterKey)}')">✕ Ninguno</button>
+      </div>
+      <div class="inc-mselect-opts">${opts}</div>
+    </div>`;
+}
+
+window.objToggleDropdown = function (ev, containerId) {
+  ev.stopPropagation();
+  document.querySelectorAll(`#${containerId} ~ * .inc-mselect-panel, #obj-filters .inc-mselect-panel`).forEach(p => {
+    if (p.closest(`#${containerId}`)) return;
+    p.classList.add('hidden');
+  });
+  const panel = document.querySelector(`#${containerId} .inc-mselect-panel`);
+  if (panel) panel.classList.toggle('hidden');
+};
+
+window.objToggleFilterOption = function (filterKey, value, checked) {
+  if (checked) OBJ_STATE.filters[filterKey].add(value);
+  else OBJ_STATE.filters[filterKey].delete(value);
+  const lbl = document.querySelector(`#obj-f-${filterKey === 'lugar' ? 'lugar' : 'estado'} .inc-mselect-btn-lbl`);
+  if (lbl) lbl.textContent = objLabelFor(filterKey);
+  objApplyFilters();
+};
+window.objFilterSetAll = function (filterKey) {
+  const all = filterKey === 'lugar' ? OBJ_LUGARES : ['Entregado', 'Pendiente'];
+  OBJ_STATE.filters[filterKey] = new Set(all);
+  document.querySelectorAll(`#obj-f-${filterKey === 'lugar' ? 'lugar' : 'estado'} input[type="checkbox"]`).forEach(cb => { cb.checked = true; });
+  const lbl = document.querySelector(`#obj-f-${filterKey === 'lugar' ? 'lugar' : 'estado'} .inc-mselect-btn-lbl`);
+  if (lbl) lbl.textContent = objLabelFor(filterKey);
+  objApplyFilters();
+};
+window.objFilterSetNone = function (filterKey) {
+  OBJ_STATE.filters[filterKey] = new Set();
+  document.querySelectorAll(`#obj-f-${filterKey === 'lugar' ? 'lugar' : 'estado'} input[type="checkbox"]`).forEach(cb => { cb.checked = false; });
+  const lbl = document.querySelector(`#obj-f-${filterKey === 'lugar' ? 'lugar' : 'estado'} .inc-mselect-btn-lbl`);
+  if (lbl) lbl.textContent = objLabelFor(filterKey);
+  objApplyFilters();
+};
+
+window.objApplyFilters = function () {
+  const m = document.getElementById('obj-f-month');
+  if (m) OBJ_STATE.filters.month = m.value || '';
+  objRenderCards();
+};
+
+function objFilteredRows() {
+  const f = OBJ_STATE.filters;
+  const rows = OBJ_STATE.list || [];
+  return rows.filter(r => {
+    const fecha = r['Fecha_encontrado'] || r['Timestamp'] || '';
+    if (f.month) {
+      if (String(fecha).slice(0, 7) !== f.month) return false;
+    }
+    const cat = String(r['Categoria'] || '').trim();
+    if (f.categoria.size === 0) return false;
+    if (cat && !f.categoria.has(cat)) return false;
+    const lugar = String(r['Lugar_resguardo'] || '').trim();
+    if (f.lugar.size === 0) return false;
+    if (lugar && !f.lugar.has(lugar)) return false;
+    const entregado = !!String(r['Fecha_entregado'] || '').trim();
+    const estado = entregado ? 'Entregado' : 'Pendiente';
+    if (f.estado.size === 0) return false;
+    if (!f.estado.has(estado)) return false;
+    return true;
+  });
+}
+
+function objRenderCards() {
+  const cont = document.getElementById('obj-cards-list');
+  if (!cont) return;
+  const all = OBJ_STATE.list || [];
+  if (!all.length) {
+    cont.innerHTML = `<div style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px;background:#fff;border:1px dashed #e2e8f0;border-radius:12px">
+      <div style="font-size:28px;margin-bottom:8px">🧳</div>
+      <div style="font-size:14px;color:#475569;font-weight:700;margin-bottom:6px">Sin objetos registrados</div>
+      <div>Pulsa <strong>＋ Registrar nuevo objeto</strong> arriba.</div>
+    </div>`;
+    document.getElementById('obj-filter-count').textContent = '';
+    return;
+  }
+  const rows = objFilteredRows();
+  if (!rows.length) {
+    cont.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#94a3b8;font-size:13px;background:#fff;border:1px dashed #e2e8f0;border-radius:12px">
+      <div style="font-size:24px;margin-bottom:6px">🔍</div>
+      <div style="font-size:13px;color:#475569;font-weight:700">Ningún objeto coincide con los filtros</div>
+    </div>`;
+  } else {
+    cont.innerHTML = rows.map(objRenderCardOne).join('');
+  }
+  document.getElementById('obj-filter-count').textContent = `Mostrando ${rows.length} de ${all.length} objeto(s)`;
+}
+
+function objRenderCardOne(row) {
+  const id = String(row['ID'] || '');
+  const cat = String(row['Categoria'] || '').trim();
+  const catOtro = String(row['Categoria_otro'] || '').trim();
+  const catLabel = cat === 'Otro' ? `Otro: ${catOtro || '—'}` : (cat || 'Sin categoría');
+  const propiedad = String(row['Propiedad'] || '').trim();
+  const depto = String(row['# Departamento'] || '').trim();
+  const alojamiento = String(row['Alojamiento'] || '').trim()
+                    || ((propiedad && depto) ? `${propiedad} - #${depto}` : propiedad);
+  const fechaEnc = String(row['Fecha_encontrado'] || '').slice(0, 10);
+  const fechaEnt = String(row['Fecha_entregado'] || '').slice(0, 10);
+  const reportante = String(row['Reportante'] || 'Sin reportante').trim();
+  const lugar = String(row['Lugar_resguardo'] || '').trim();
+  const lugarOtro = String(row['Lugar_otro'] || '').trim();
+  const lugarTxt = lugar === 'Otro' ? `Otro: ${lugarOtro || '—'}` : (lugar || '—');
+  const entregado = !!fechaEnt;
+  const catCls = objCategoriaColorClass(cat);
+  const expanded = OBJ_STATE.expanded.has(id);
+  const estChip = entregado
+    ? `<span class="inc-card-chip est-Resuelto">✓ Entregado</span>`
+    : `<span class="inc-card-chip est-Pendiente">⏳ Pendiente</span>`;
+  return `
+    <div class="inc-card cat-border-${esc(catCls)} ${expanded ? 'expanded' : ''}" data-obj-id="${esc(id)}">
+      <div class="inc-card-header cat-bg-${esc(catCls)}" onclick="objToggleCard('${esc(id)}')">
+        <button type="button" class="inc-card-remove" title="Ocultar de la lista"
+                onclick="event.stopPropagation();objRemoveCard('${esc(id)}')">✕</button>
+        <div>
+          <div class="inc-card-title-row">
+            <h3 class="inc-card-title">${esc(catLabel)}</h3>
+          </div>
+          ${alojamiento ? `<div class="inc-card-aloj">📍 ${esc(alojamiento)}</div>` : ''}
+          <div class="inc-card-sub">
+            <span>📅 <strong>${esc(incFmtFecha(fechaEnc))}</strong></span>
+            <span>✍️ ${esc(reportante)}</span>
+            <span>📦 ${esc(lugarTxt)}</span>
+          </div>
+        </div>
+        <div class="inc-card-chips">
+          ${estChip}
+          <span class="inc-card-chevron">▾</span>
+        </div>
+      </div>
+      <div class="inc-card-body">${expanded ? objCardBodyHtmlReadonly(row, id) : ''}</div>
+    </div>`;
+}
+
+window.objToggleCard = function (id) {
+  const card = document.querySelector(`.inc-card[data-obj-id="${CSS.escape(id)}"]`);
+  if (!card) return;
+  const row = (OBJ_STATE.list || []).find(r => String(r['ID'] || '') === id);
+  if (!row) return;
+  const body = card.querySelector('.inc-card-body');
+  const isOpen = card.classList.contains('expanded');
+  if (isOpen) {
+    OBJ_STATE.expanded.delete(id);
+    OBJ_STATE.editing.delete(id);
+    card.classList.remove('expanded');
+    if (body) { body.innerHTML = ''; body.classList.remove('editing'); }
+  } else {
+    OBJ_STATE.expanded.add(id);
+    if (body) body.innerHTML = objCardBodyHtmlReadonly(row, id);
+    card.classList.add('expanded');
+  }
+};
+
+window.objRemoveCard = function (id) {
+  const row = (OBJ_STATE.list || []).find(r => String(r['ID'] || '') === id);
+  if (!row) return;
+  const cat = String(row['Categoria'] || 'objeto');
+  const fecha = String(row['Fecha_encontrado'] || '').slice(0, 10);
+  if (!confirm(`¿Ocultar "${cat}" (${fecha}) de la vista?\n\nSolo se oculta en pantalla — el registro permanece en la hoja.`)) return;
+  OBJ_STATE.list = (OBJ_STATE.list || []).filter(r => String(r['ID'] || '') !== id);
+  OBJ_STATE.expanded.delete(id);
+  OBJ_STATE.editing.delete(id);
+  objRenderCards();
+};
+
+function objRowToReportData(row) {
+  const split = s => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
+  const fotosUrls = split(row['Fotos_URLs']);
+  return {
+    fecha_encontrado: String(row['Fecha_encontrado'] || ''),
+    fecha_entregado:  String(row['Fecha_entregado'] || ''),
+    entregado_a:      String(row['Entregado_a'] || ''),
+    propiedad:        String(row['Propiedad'] || ''),
+    depto:            String(row['# Departamento'] || ''),
+    alojamiento:      String(row['Alojamiento'] || ''),
+    reportante:       String(row['Reportante'] || ''),
+    categoria:        String(row['Categoria'] || ''),
+    categoria_otro:   String(row['Categoria_otro'] || ''),
+    lugar_resguardo:  String(row['Lugar_resguardo'] || ''),
+    lugar_otro:       String(row['Lugar_otro'] || ''),
+    comentarios:      String(row['Comentarios'] || ''),
+    fotos: fotosUrls.map((u, i) => ({
+      src: u ? `${BACKEND}/huespedes-image-proxy?url=${encodeURIComponent(u)}&size=w1600` : u,
+      name: `Foto ${i + 1}`,
+    })),
+  };
+}
+
+function objCardBodyHtmlReadonly(row, id) {
+  return `
+    <div class="inc-edit-toolbar">
+      <button type="button" class="inc-edit-btn inc-edit-btn-edit" onclick="event.stopPropagation();objEnterEdit('${esc(id)}')">✏️ Editar reporte</button>
+    </div>
+    ${objBuildReporteHtml(objRowToReportData(row))}`;
+}
+
+function objCardBodyHtmlEditable(row, id) {
+  const d = objRowToReportData(row);
+  let props = [];
+  try { props = (typeof incBuildPropiedades === 'function') ? incBuildPropiedades() : []; } catch (_) {}
+  if (d.propiedad && !props.includes(d.propiedad)) props.push(d.propiedad);
+  let deptos = [];
+  try { deptos = (typeof incBuildDepartamentos === 'function') ? incBuildDepartamentos(d.propiedad) : []; } catch (_) {}
+  if (d.depto && !deptos.includes(d.depto)) deptos.push(d.depto);
+  const personas = (INC_STATE.personasFromSheet ? INC_STATE.personas : INC_PERSONAL.map(p => p.nombre)).slice();
+  if (d.reportante && !personas.includes(d.reportante)) personas.push(d.reportante);
+
+  if (!OBJ_STATE.editPhotos[id]) {
+    const fotosUrls = String(row['Fotos_URLs'] || '').split(',').map(s => s.trim()).filter(Boolean);
+    OBJ_STATE.editPhotos[id] = { existingUrls: fotosUrls.slice(), newOnes: [] };
+  }
+
+  const selectHtml = (name, items, selected, withBlank) => {
+    const opts = (withBlank ? ['<option value="">— Seleccionar —</option>'] : [])
+      .concat(items.map(v => `<option value="${esc(v)}" ${v === selected ? 'selected' : ''}>${esc(v)}</option>`));
+    return `<select class="inc-input" data-edit-field="${esc(name)}" oninput="objEditOnChange('${esc(id)}')">${opts.join('')}</select>`;
+  };
+  return `
+    <div class="inc-edit-toolbar" data-edit-toolbar>
+      <button type="button" class="inc-edit-btn inc-edit-btn-save" data-edit-save style="display:none" onclick="event.stopPropagation();objSaveEdit('${esc(id)}')">💾 Guardar cambios y Salir</button>
+      <button type="button" class="inc-edit-btn inc-edit-btn-cancel" onclick="event.stopPropagation();objCancelEdit('${esc(id)}')">✕ Salir</button>
+    </div>
+
+    <div class="inc-section inc-section-data">
+      <div class="inc-section-title">📅 Datos generales</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div><label class="inc-label">Fecha de encontrado</label>
+          <input type="date" class="inc-input" data-edit-field="fecha_encontrado" value="${esc(d.fecha_encontrado)}" oninput="objEditOnChange('${esc(id)}')">
+        </div>
+        <div><label class="inc-label">Fecha de entregado</label>
+          <input type="date" class="inc-input" data-edit-field="fecha_entregado" value="${esc(d.fecha_entregado)}" oninput="objEditOnChange('${esc(id)}')">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label class="inc-label">Nombre de persona a quien se entregó</label>
+        <input type="text" class="inc-input" data-edit-field="entregado_a" value="${esc(d.entregado_a)}" oninput="objEditOnChange('${esc(id)}')">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label class="inc-label">Propiedad</label>${selectHtml('propiedad', props, d.propiedad, true)}</div>
+        <div><label class="inc-label"># Departamento</label>${selectHtml('depto', deptos, d.depto, true)}</div>
+      </div>
+    </div>
+
+    <div class="inc-section inc-section-reportante">
+      <div class="inc-section-title">✍️ Persona que reporta</div>
+      ${selectHtml('reportante', personas, d.reportante, true)}
+    </div>
+
+    <div class="inc-section inc-section-clasif">
+      <div class="inc-section-title">🏷️ Categoría</div>
+      ${selectHtml('categoria', OBJ_CATEGORIAS, d.categoria, true)}
+      <div style="margin-top:8px;${d.categoria === 'Otro' ? '' : 'display:none'}" data-edit-otro="categoria">
+        <label class="inc-label">Especificar categoría</label>
+        <input type="text" class="inc-input" data-edit-field="categoria_otro" value="${esc(d.categoria_otro)}" oninput="objEditOnChange('${esc(id)}')">
+      </div>
+    </div>
+
+    <div class="inc-section inc-section-fotos">
+      <div class="inc-section-title">📸 Evidencia de devolución</div>
+      <input type="file" id="obj-edit-fotos-${esc(id)}" accept="image/*" multiple class="inc-input" onchange="objEditOnAddFotos('${esc(id)}', event)">
+      <div style="font-size:11px;color:#64748b;margin-top:4px">El ✕ elimina; el ＋ agrega más.</div>
+      <div id="obj-edit-foto-preview-${esc(id)}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:10px">
+        ${objEditRenderFotos(id)}
+      </div>
+    </div>
+
+    <div class="inc-section inc-section-nivel">
+      <div class="inc-section-title">📦 Lugar donde se resguarda</div>
+      ${selectHtml('lugar_resguardo', OBJ_LUGARES, d.lugar_resguardo, true)}
+      <div style="margin-top:8px;${d.lugar_resguardo === 'Otro' ? '' : 'display:none'}" data-edit-otro="lugar_resguardo">
+        <label class="inc-label">Especificar lugar</label>
+        <input type="text" class="inc-input" data-edit-field="lugar_otro" value="${esc(d.lugar_otro)}" oninput="objEditOnChange('${esc(id)}')">
+      </div>
+    </div>
+
+    <div class="inc-section inc-section-desc">
+      <div class="inc-section-title">📝 Comentarios</div>
+      <textarea class="inc-input" data-edit-field="comentarios" rows="4" oninput="objEditOnChange('${esc(id)}')">${esc(d.comentarios)}</textarea>
+    </div>`;
+}
+
+function objEditRenderFotos(id) {
+  const state = (OBJ_STATE.editPhotos || {})[id];
+  if (!state) return '';
+  const items = [];
+  state.existingUrls.forEach((u, i) => {
+    const proxied = `${BACKEND}/huespedes-image-proxy?url=${encodeURIComponent(u)}&size=w800`;
+    items.push(`
+      <div class="inc-photo-thumb" title="Foto guardada">
+        <button type="button" class="inc-photo-remove" onclick="event.stopPropagation();objEditRemoveExisting('${esc(id)}',${i})" title="Eliminar">✕</button>
+        <img src="${proxied}" alt="">
+        <div class="inc-photo-cap">Foto guardada</div>
+      </div>`);
+  });
+  state.newOnes.forEach((f, i) => {
+    items.push(`
+      <div class="inc-photo-thumb" title="Foto nueva">
+        <button type="button" class="inc-photo-remove" onclick="event.stopPropagation();objEditRemoveNew('${esc(id)}',${i})" title="Eliminar">✕</button>
+        <img src="${f.src}" alt="${esc(f.name)}">
+        <div class="inc-photo-cap">${esc(f.name)} <span style="color:#16a34a;font-weight:800">· nueva</span></div>
+      </div>`);
+  });
+  items.push(`
+    <div class="inc-photo-add" onclick="document.getElementById('obj-edit-fotos-${esc(id)}').click()" title="Agregar más imágenes">
+      <span class="inc-photo-add-icon">＋</span>
+      <span class="inc-photo-add-text">Agregar imagen</span>
+    </div>`);
+  return items.join('');
+}
+
+window.objEditOnAddFotos = function (id, ev) {
+  const files = Array.from(ev.target.files || []);
+  if (!files.length) return;
+  Promise.all(files.map(f => new Promise(resolve => {
+    const r = new FileReader();
+    r.onload = () => resolve({
+      name: f.name, src: r.result,
+      mimeType: f.type || 'image/jpeg',
+      base64: String(r.result).split(',')[1] || '',
+    });
+    r.readAsDataURL(f);
+  }))).then(results => {
+    const state = OBJ_STATE.editPhotos[id];
+    if (!state) return;
+    state.newOnes = state.newOnes.concat(results);
+    ev.target.value = '';
+    const grid = document.getElementById(`obj-edit-foto-preview-${id}`);
+    if (grid) grid.innerHTML = objEditRenderFotos(id);
+    objEditOnChange(id);
+  });
+};
+window.objEditRemoveExisting = function (id, idx) {
+  const state = OBJ_STATE.editPhotos[id];
+  if (!state) return;
+  state.existingUrls.splice(idx, 1);
+  const grid = document.getElementById(`obj-edit-foto-preview-${id}`);
+  if (grid) grid.innerHTML = objEditRenderFotos(id);
+  objEditOnChange(id);
+};
+window.objEditRemoveNew = function (id, idx) {
+  const state = OBJ_STATE.editPhotos[id];
+  if (!state) return;
+  state.newOnes.splice(idx, 1);
+  const grid = document.getElementById(`obj-edit-foto-preview-${id}`);
+  if (grid) grid.innerHTML = objEditRenderFotos(id);
+  objEditOnChange(id);
+};
+
+window.objEnterEdit = function (id) {
+  const card = document.querySelector(`.inc-card[data-obj-id="${CSS.escape(id)}"]`);
+  const row = (OBJ_STATE.list || []).find(r => String(r['ID'] || '') === id);
+  if (!card || !row) return;
+  OBJ_STATE.editing.add(id);
+  OBJ_STATE.editDirty.delete(id);
+  const snap = objRowToReportData(row);
+  snap._fotosUrls = String(row['Fotos_URLs'] || '').split(',').map(s => s.trim()).filter(Boolean);
+  OBJ_STATE.editOriginal[id] = JSON.stringify(snap);
+  delete OBJ_STATE.editPhotos[id];
+  const body = card.querySelector('.inc-card-body');
+  if (body) {
+    body.innerHTML = objCardBodyHtmlEditable(row, id);
+    body.classList.add('editing');
+  }
+};
+
+function objCollectEditFields(card) {
+  const out = {};
+  card.querySelectorAll('[data-edit-field]').forEach(el => {
+    out[el.getAttribute('data-edit-field')] = el.value || '';
+  });
+  if (out.propiedad && out.depto) out.alojamiento = `${out.propiedad} - #${out.depto}`;
+  else if (out.propiedad) out.alojamiento = out.propiedad;
+  else out.alojamiento = '';
+  // Toggle "otro" wrappers en vivo
+  const catOtroWrap = card.querySelector('[data-edit-otro="categoria"]');
+  if (catOtroWrap) catOtroWrap.style.display = out.categoria === 'Otro' ? '' : 'none';
+  const lugarOtroWrap = card.querySelector('[data-edit-otro="lugar_resguardo"]');
+  if (lugarOtroWrap) lugarOtroWrap.style.display = out.lugar_resguardo === 'Otro' ? '' : 'none';
+  return out;
+}
+
+window.objEditOnChange = function (id) {
+  const card = document.querySelector(`.inc-card[data-obj-id="${CSS.escape(id)}"]`);
+  if (!card) return;
+  const current = objCollectEditFields(card);
+  const orig = OBJ_STATE.editOriginal[id] || '';
+  let isDirty = false;
+  try {
+    const origData = JSON.parse(orig);
+    for (const k of Object.keys(current)) {
+      const a = current[k], b = origData[k];
+      if (String(a || '') !== String(b || '')) { isDirty = true; break; }
+    }
+    if (!isDirty) {
+      const ph = (OBJ_STATE.editPhotos || {})[id];
+      const origFotos = origData._fotosUrls || [];
+      if (ph) {
+        const keptSorted = ph.existingUrls.slice().sort().join('|');
+        const origSorted = origFotos.slice().sort().join('|');
+        if (keptSorted !== origSorted) isDirty = true;
+        if (!isDirty && ph.newOnes.length) isDirty = true;
+      }
+    }
+  } catch (_) { isDirty = true; }
+  if (isDirty) OBJ_STATE.editDirty.add(id); else OBJ_STATE.editDirty.delete(id);
+  const saveBtn = card.querySelector('[data-edit-save]');
+  if (saveBtn) saveBtn.style.display = isDirty ? '' : 'none';
+};
+
+window.objCancelEdit = function (id) {
+  const card = document.querySelector(`.inc-card[data-obj-id="${CSS.escape(id)}"]`);
+  const row = (OBJ_STATE.list || []).find(r => String(r['ID'] || '') === id);
+  if (!card || !row) return;
+  OBJ_STATE.editing.delete(id);
+  OBJ_STATE.editDirty.delete(id);
+  delete OBJ_STATE.editOriginal[id];
+  delete OBJ_STATE.editPhotos[id];
+  const body = card.querySelector('.inc-card-body');
+  if (body) {
+    body.innerHTML = objCardBodyHtmlReadonly(row, id);
+    body.classList.remove('editing');
+  }
+};
+
+window.objSaveEdit = async function (id) {
+  const card = document.querySelector(`.inc-card[data-obj-id="${CSS.escape(id)}"]`);
+  if (!card) return;
+  const fields = objCollectEditFields(card);
+  const photoState = (OBJ_STATE.editPhotos || {})[id] || { existingUrls: [], newOnes: [] };
+  const newFotos = photoState.newOnes.map(f => ({ name: f.name, base64: f.base64, mimeType: f.mimeType }));
+  const keepUrls = photoState.existingUrls.slice();
+  const saveBtn = card.querySelector('[data-edit-save]');
+  const cancelBtn = card.querySelector('.inc-edit-btn-cancel');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '⏳ Guardando…'; }
+  if (cancelBtn) cancelBtn.disabled = true;
+  try {
+    const res = await fetch(`${BACKEND}/update-objeto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, fields, fotos: newFotos, keepUrls }),
+    });
+    const out = await res.json();
+    if (!out.ok) throw new Error(out.error || 'Error al actualizar');
+    const row = (OBJ_STATE.list || []).find(r => String(r['ID'] || '') === id);
+    if (row) {
+      const colMap = {
+        fecha_encontrado: 'Fecha_encontrado', fecha_entregado: 'Fecha_entregado',
+        entregado_a: 'Entregado_a', propiedad: 'Propiedad', depto: '# Departamento',
+        alojamiento: 'Alojamiento', reportante: 'Reportante',
+        categoria: 'Categoria', categoria_otro: 'Categoria_otro',
+        lugar_resguardo: 'Lugar_resguardo', lugar_otro: 'Lugar_otro',
+        comentarios: 'Comentarios',
+      };
+      Object.keys(fields).forEach(k => { const c = colMap[k]; if (c) row[c] = String(fields[k] || ''); });
+      if (typeof out.fotos_urls === 'string') row['Fotos_URLs'] = out.fotos_urls;
+      if (typeof out.fotos_count === 'number') row['Fotos_count'] = out.fotos_count;
+    }
+    OBJ_STATE.editing.delete(id);
+    OBJ_STATE.editDirty.delete(id);
+    delete OBJ_STATE.editOriginal[id];
+    delete OBJ_STATE.editPhotos[id];
+    OBJ_STATE.expanded.add(id);
+    objRenderCards();
+  } catch (e) {
+    alert('No se pudo actualizar:\n\n' + (e.message || e));
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '💾 Guardar cambios y Salir'; }
+    if (cancelBtn) cancelBtn.disabled = false;
+  }
+};
