@@ -5954,3 +5954,87 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   color: #fff;
   box-shadow: 0 2px 6px rgba(234,88,12,.3);
 }
+
+/* ─── Pago de Nómina: cejas + cajas concepto + tabla grupal ─── */
+.nom-cejas {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid #fed7aa;
+  margin-bottom: 14px;
+}
+.nom-ceja {
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: color .15s, border-color .15s;
+}
+.nom-ceja:hover { color: #ea580c; }
+.nom-ceja.active {
+  color: #ea580c;
+  border-bottom-color: #ea580c;
+}
+.nom-conc-box {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px 6px;
+  margin-bottom: 12px;
+  background: #fafafa;
+}
+.nom-conc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-weight: 800;
+  color: #475569;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.nom-conc-del {
+  background: #fee2e2;
+  color: #dc2626;
+  border: none;
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+}
+.nom-conc-del:hover { background: #fecaca; }
+.nom-grupal-top {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 14px;
+  background: linear-gradient(180deg, #fff7ed, #ffedd5);
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+}
+.nom-grupal-tbl th {
+  background: #fff7ed;
+  font-size: 12px;
+}
+.nom-grupal-tbl td {
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+.nom-grupal-tbl select,
+.nom-grupal-tbl input[type="text"],
+.nom-grupal-tbl input[type="date"] {
+  width: 100%;
+  padding: 5px 7px;
+  font-size: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+}
+.nom-grupal-tbl tr:hover { background: #fff7ed; }
