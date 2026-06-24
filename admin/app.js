@@ -23511,11 +23511,13 @@ function rhRenderCompensaciones() {
       ? `<div class="rh-empty">${all.length === 0 ? 'Sin compensaciones registradas.' : 'Ningún registro coincide con los filtros.'}</div>`
       : `<div style="overflow-x:auto"><table class="rh-table">
           <thead><tr>
+            <th style="width:90px"></th>
             <th>Empleado</th><th>Concepto</th><th>Periodo</th>
             <th style="text-align:right">Monto</th><th>Fecha pago</th><th>Comentarios</th>
           </tr></thead>
           <tbody>${rows.map(r => `
             <tr onclick="rhOpenForm('compensacion','${esc(r.ID)}')">
+              <td onclick="event.stopPropagation()"><button type="button" class="comp-del-btn" onclick="rhDeleteCompensacion('${esc(r.ID)}', event)">🗑 Eliminar</button></td>
               <td><strong>${esc(rhEmpleadoNombre(r.Empleado_ID) || r.Empleado_Nombre || '—')}</strong></td>
               <td><span class="rh-chip rh-chip-tipo">${esc(r.Concepto || '—')}</span></td>
               <td>${esc(r.Periodo || '—')}</td>
@@ -24218,4 +24220,18 @@ window.nomClear = function () {
     NOM_STATE.grupalRows.forEach(r => { r.monto = 0; r.notas = ''; });
   }
   nomRenderPane();
+};
+
+window.rhDeleteCompensacion = async function (id, ev) {
+  if (ev) ev.stopPropagation();
+  if (!confirm('¿Eliminar este registro de nómina? Esta acción no se puede deshacer.')) return;
+  try {
+    const res = await fetch(`${BACKEND}/rh/compensaciones/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const out = await res.json();
+    if (!out.ok) throw new Error(out.error || 'Error');
+    await rhLoadCompensaciones();
+    rhSetTab('compensaciones');
+  } catch (e) {
+    alert('No se pudo eliminar:\n' + (e.message || e));
+  }
 };

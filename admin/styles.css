@@ -6142,3 +6142,18 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
 .nom-grupal-tbl th:nth-child(6),
 .nom-grupal-tbl td:nth-child(6) { min-width: 280px; }
 .nom-grupal-tbl td:nth-child(6) input { min-height: 56px; padding: 8px 10px; }
+
+/* ─── Botón Eliminar en tabla resumen Pago de Nómina ─── */
+.comp-del-btn {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s;
+}
+.comp-del-btn:hover { background: #fecaca; color: #991b1b; }
