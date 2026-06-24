@@ -23434,19 +23434,81 @@ function rhRenderAusencias() {
         </table></div>`}`;
 }
 
+const COMP_FILTERS = { empleado: '', concepto: '', desde: '', hasta: '' };
+
+window.rhCompSetFilter = function (k, v) { COMP_FILTERS[k] = v; rhRenderCompensaciones(); };
+window.rhCompClearFilters = function () {
+  COMP_FILTERS.empleado = ''; COMP_FILTERS.concepto = ''; COMP_FILTERS.desde = ''; COMP_FILTERS.hasta = '';
+  rhRenderCompensaciones();
+};
+
+function compPeriodSpan(record) {
+  const fp = record.Fecha_pago;
+  if (!fp) return [null, null];
+  const d = new Date(fp); if (isNaN(d)) return [null, null];
+  const type = String(record.Periodo || '').split(':')[0].trim();
+  if (type === 'Semanal') { const end = new Date(d); end.setDate(d.getDate() + 6); return [d, end]; }
+  if (type === 'Quincenal') {
+    if (d.getDate() <= 15) return [new Date(d.getFullYear(), d.getMonth(), 1), new Date(d.getFullYear(), d.getMonth(), 15)];
+    return [new Date(d.getFullYear(), d.getMonth(), 16), new Date(d.getFullYear(), d.getMonth()+1, 0)];
+  }
+  if (type === 'Mensual') return [new Date(d.getFullYear(), d.getMonth(), 1), new Date(d.getFullYear(), d.getMonth()+1, 0)];
+  return [d, d];
+}
+
 function rhRenderCompensaciones() {
   const view = document.getElementById('rh-view');
-  const rows = RH_STATE.compensaciones || [];
+  const all = RH_STATE.compensaciones || [];
+  const f = COMP_FILTERS;
+  const fDesde = f.desde ? new Date(f.desde) : null;
+  const fHasta = f.hasta ? new Date(f.hasta) : null;
+  const rows = all.filter(r => {
+    if (f.empleado && String(r.Empleado_ID) !== String(f.empleado)) return false;
+    if (f.concepto && String(r.Concepto) !== f.concepto) return false;
+    if (fDesde || fHasta) {
+      const [s, e] = compPeriodSpan(r);
+      if (!s || !e) return false;
+      // overlap test: s <= fHasta && e >= fDesde
+      if (fHasta && s > fHasta) return false;
+      if (fDesde && e < fDesde) return false;
+    }
+    return true;
+  });
+  const empOpts = (RH_STATE.empleados || []).map(e => {
+    const n = [e.Nombre, e.Apellido_paterno, e.Apellido_materno].filter(Boolean).join(' ') || e.Nombre || '';
+    return `<option value="${esc(e.ID)}" ${String(e.ID) === String(f.empleado) ? 'selected':''}>${esc(n)}</option>`;
+  }).join('');
+  const conceptos = Array.from(new Set(all.map(r => r.Concepto).filter(Boolean))).sort();
   view.innerHTML = `
     <div class="rh-toolbar">
       <div>
         <div class="rh-toolbar-title">💵 Pago de Nómina</div>
-        <div class="rh-toolbar-count">${rows.length} registro(s)</div>
+        <div class="rh-toolbar-count">${rows.length} de ${all.length} registro(s)</div>
       </div>
       <button type="button" class="rh-btn-add" onclick="rhOpenNominaForm()">＋ Registrar nuevo pago</button>
     </div>
+    <div class="comp-filters">
+      <div class="rh-field"><label>Empleado</label>
+        <select onchange="rhCompSetFilter('empleado', this.value)">
+          <option value="">— Todos —</option>${empOpts}
+        </select>
+      </div>
+      <div class="rh-field"><label>Concepto</label>
+        <select onchange="rhCompSetFilter('concepto', this.value)">
+          <option value="">— Todos —</option>
+          ${conceptos.map(c => `<option value="${esc(c)}" ${c === f.concepto ? 'selected':''}>${esc(c)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="rh-field"><label>Desde</label>
+        <input type="date" value="${esc(f.desde)}" onchange="rhCompSetFilter('desde', this.value)">
+      </div>
+      <div class="rh-field"><label>Hasta</label>
+        <input type="date" value="${esc(f.hasta)}" onchange="rhCompSetFilter('hasta', this.value)">
+      </div>
+      <button type="button" class="comp-filter-clear" onclick="rhCompClearFilters()">Limpiar filtros</button>
+    </div>
     ${rows.length === 0
-      ? `<div class="rh-empty">Sin compensaciones registradas.</div>`
+      ? `<div class="rh-empty">${all.length === 0 ? 'Sin compensaciones registradas.' : 'Ningún registro coincide con los filtros.'}</div>`
       : `<div style="overflow-x:auto"><table class="rh-table">
           <thead><tr>
             <th>Empleado</th><th>Concepto</th><th>Periodo</th>
@@ -23469,8 +23531,8 @@ window.rhOpenForm = function (kind, id) {
   // Reset footer buttons al estado por defecto (por si el form de nómina los cambió)
   const _btnPri = document.querySelector('#rh-form-panel .inc-btn-pri');
   const _btnSec = document.querySelector('#rh-form-panel .inc-btn-sec');
-  if (_btnPri) { _btnPri.innerHTML = '💾 Guardar'; _btnPri.onclick = () => rhSaveCurrentForm(); }
-  if (_btnSec) { _btnSec.innerHTML = 'Cancelar'; _btnSec.onclick = () => rhCloseForm(); }
+  if (_btnPri) { _btnPri.innerHTML = '💾 Guardar'; _btnPri.onclick = () => rhSaveCurrentForm(); _btnPri.style.display = ''; _btnPri.style.flex = '1'; }
+  if (_btnSec) { _btnSec.innerHTML = 'Cancelar'; _btnSec.onclick = () => rhCloseForm(); _btnSec.style.flex = ''; }
   const empleadoOpts = (RH_STATE.empleados || [])
     .map(e => `<option value="${esc(e.ID)}">${esc(e.Nombre)}${e.Puesto ? ' — ' + esc(e.Puesto) : ''}</option>`).join('');
   let editing = null;
@@ -23575,7 +23637,7 @@ window.rhOpenForm = function (kind, id) {
     bodyHtml = `
       ${rhFieldEmpleadoSelect(editing?.Empleado_ID, empleadoOpts)}
       <div class="rh-grid-2">
-        ${rhFieldSelect('Concepto','Concepto',['Aguinaldo','Prima vacacional','Vales de despensa','Bono desempeño','Bono productividad','Comisión','Otra prestación'],editing?.Concepto)}
+        ${rhFieldSelect('Concepto','Concepto',['Salario','Compensación','Préstamo','Ahorro','Otro'],editing?.Concepto)}
         ${rhFieldText('Periodo','Periodo (ej. Diciembre 2026, S2-2026)',editing?.Periodo)}
         ${rhFieldNumber('Monto','Monto ($)',editing?.Monto)}
         ${rhFieldDate('Fecha_pago','Fecha de pago',editing?.Fecha_pago)}
@@ -23600,6 +23662,32 @@ window.rhOpenForm = function (kind, id) {
       const refresh = () => { if (out) out.value = rhCalcAntiguedad(fi?.value, fr?.value); };
       if (fi) fi.addEventListener('change', refresh);
       if (fr) fr.addEventListener('change', refresh);
+    }, 50);
+  }
+  // Dirty-state para edición de compensaciones: solo mostrar "Guardar cambios" si cambió algo
+  if (kind === 'compensacion' && editing) {
+    setTimeout(() => {
+      const body = document.getElementById('rh-form-body');
+      const btnPri = document.querySelector('#rh-form-panel .inc-btn-pri');
+      const btnSec = document.querySelector('#rh-form-panel .inc-btn-sec');
+      const snapshot = (() => {
+        const o = {};
+        body.querySelectorAll('[data-rh-field]').forEach(el => { o[el.getAttribute('data-rh-field')] = el.value || ''; });
+        return o;
+      })();
+      if (btnPri) { btnPri.style.display = 'none'; btnPri.innerHTML = '💾 Guardar cambios y Salir'; btnPri.onclick = () => rhSaveCurrentForm(); }
+      if (btnSec) { btnSec.innerHTML = '🚪 Salir'; btnSec.onclick = () => rhCloseForm(); btnSec.style.flex = '1'; }
+      const checkDirty = () => {
+        let dirty = false;
+        body.querySelectorAll('[data-rh-field]').forEach(el => {
+          const k = el.getAttribute('data-rh-field');
+          if ((el.value || '') !== (snapshot[k] || '')) dirty = true;
+        });
+        if (btnPri) btnPri.style.display = dirty ? '' : 'none';
+        if (btnSec) btnSec.style.flex = dirty ? '' : '1';
+      };
+      body.addEventListener('input', checkDirty);
+      body.addEventListener('change', checkDirty);
     }, 50);
   }
 };
@@ -23857,9 +23945,6 @@ window.nomChangeUnitPeriodo = function (i, v) {
 };
 
 function nomRenderGrupal() {
-  if (!NOM_STATE.grupalRows.length) {
-    return `<div class="rh-empty">Sin empleados cargados. Agrega personal en la pestaña 👥 Personal primero.</div>`;
-  }
   return `
     <div class="nom-grupal-top">
       <div class="rh-field"><label>Concepto de pago</label>
@@ -23882,18 +23967,37 @@ function nomRenderGrupal() {
       <table class="rh-table nom-grupal-tbl">
         <thead><tr>
           <th>Nombre</th><th>Concepto</th><th>Periodo</th><th>Fecha</th>
-          <th style="text-align:right">$ Monto</th><th>Notas</th>
+          <th style="text-align:right">$ Monto</th><th>Notas</th><th style="width:36px"></th>
         </tr></thead>
-        <tbody id="nom-grupal-tbody">
-          ${NOM_STATE.grupalRows.map((r, i) => nomGrupalRow(r, i)).join('')}
-        </tbody>
+        <tbody id="nom-grupal-tbody">${nomRenderGrupalRows()}</tbody>
       </table>
     </div>`;
 }
 
+function nomRenderGrupalRows() {
+  const inserter = (pos) => `<tr class="nom-inserter"><td colspan="7"><button type="button" class="nom-inserter-btn" onclick="nomInsertGrupalRow(${pos})" title="Insertar renglón aquí">＋</button></td></tr>`;
+  if (!NOM_STATE.grupalRows.length) {
+    return inserter(0) + `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:14px">Sin renglones. Pulsa el <strong>＋</strong> de arriba para agregar.</td></tr>`;
+  }
+  let out = inserter(0);
+  NOM_STATE.grupalRows.forEach((r, i) => {
+    out += nomGrupalRow(r, i);
+    out += inserter(i + 1);
+  });
+  return out;
+}
+
 function nomGrupalRow(r, i) {
+  const empOpts = (RH_STATE.empleados || []).map(e => {
+    const n = [e.Nombre, e.Apellido_paterno, e.Apellido_materno].filter(Boolean).join(' ') || e.Nombre || '';
+    return `<option value="${esc(e.ID)}" ${String(e.ID) === String(r.empleadoId) ? 'selected':''}>${esc(n)}${e.Puesto ? ' — ' + esc(e.Puesto) : ''}</option>`;
+  }).join('');
   return `<tr data-idx="${i}">
-    <td><strong>${esc(r.nombre)}</strong></td>
+    <td>
+      <select onchange="nomGrupalSetEmpleado(${i}, this.value)">
+        <option value="">— Seleccionar —</option>${empOpts}
+      </select>
+    </td>
     <td>
       <select onchange="NOM_STATE.grupalRows[${i}].concepto=this.value">
         ${NOM_CONCEPTOS.map(o => `<option ${o===r.concepto?'selected':''}>${o}</option>`).join('')}
@@ -23910,8 +24014,30 @@ function nomGrupalRow(r, i) {
         onblur="this.value = NOM_STATE.grupalRows[${i}].monto ? nomFmtCurrency(NOM_STATE.grupalRows[${i}].monto) : ''"
         style="text-align:right;font-weight:600"></td>
     <td><input type="text" value="${esc(r.notas||'')}" oninput="NOM_STATE.grupalRows[${i}].notas=this.value"></td>
+    <td><button type="button" class="nom-conc-del" onclick="nomDelGrupalRow(${i})" title="Quitar renglón">✕</button></td>
   </tr>`;
 }
+
+window.nomInsertGrupalRow = function (pos) {
+  NOM_STATE.grupalRows.splice(pos, 0, {
+    empleadoId: '', nombre: '',
+    concepto: 'Salario', periodo: 'Semanal',
+    fecha: nomDefaultPeriodValue('Semanal'),
+    monto: 2205.28, notas: '',
+  });
+  const tbody = document.getElementById('nom-grupal-tbody');
+  if (tbody) tbody.innerHTML = nomRenderGrupalRows();
+};
+window.nomDelGrupalRow = function (i) {
+  NOM_STATE.grupalRows.splice(i, 1);
+  const tbody = document.getElementById('nom-grupal-tbody');
+  if (tbody) tbody.innerHTML = nomRenderGrupalRows();
+};
+window.nomGrupalSetEmpleado = function (i, id) {
+  const e = (RH_STATE.empleados || []).find(x => String(x.ID) === String(id));
+  NOM_STATE.grupalRows[i].empleadoId = id;
+  NOM_STATE.grupalRows[i].nombre = e ? ([e.Nombre, e.Apellido_paterno, e.Apellido_materno].filter(Boolean).join(' ') || e.Nombre || '') : '';
+};
 
 window.nomChangeGrupalPeriodo = function (i, v) {
   NOM_STATE.grupalRows[i].periodo = v;

@@ -6038,3 +6038,79 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   background: #fff;
 }
 .nom-grupal-tbl tr:hover { background: #fff7ed; }
+
+/* ─── Insertador "+" entre renglones del registro grupal ─── */
+.nom-inserter td {
+  padding: 0 !important;
+  height: 4px;
+  border: none !important;
+  background: transparent;
+  position: relative;
+}
+.nom-inserter-btn {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: #ea580c;
+  color: #fff;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: .15;
+  transition: opacity .12s, transform .12s, box-shadow .12s;
+  z-index: 3;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(234,88,12,.3);
+}
+.nom-grupal-tbl tbody:hover .nom-inserter-btn { opacity: .55; }
+.nom-inserter-btn:hover {
+  opacity: 1 !important;
+  transform: translate(-50%, -50%) scale(1.35);
+  box-shadow: 0 3px 10px rgba(234,88,12,.6);
+}
+/* Línea divisoria sutil al hover sobre el inserter */
+.nom-inserter:hover td::before {
+  content: '';
+  position: absolute;
+  left: 8px; right: 8px; top: 50%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #fdba74, transparent);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* ─── Filtros tabla resumen Pago de Nómina ─── */
+.comp-filters {
+  display: grid;
+  grid-template-columns: 2fr 1.4fr 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px 14px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+.comp-filter-clear {
+  padding: 9px 14px;
+  background: #fff;
+  color: #ea580c;
+  border: 1.5px solid #fdba74;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  height: 38px;
+}
+.comp-filter-clear:hover {
+  background: #fed7aa;
+}
