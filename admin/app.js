@@ -23641,6 +23641,7 @@ window.rhOpenForm = function (kind, id) {
         ${rhFieldSelect('Concepto','Concepto',['Salario','Compensación','Préstamo','Ahorro','Otro'],editing?.Concepto)}
         ${rhFieldText('Periodo','Periodo (ej. Diciembre 2026, S2-2026)',editing?.Periodo)}
         ${rhFieldNumber('Monto','Monto ($)',editing?.Monto)}
+        ${rhFieldSelect('Metodo_pago','Método de pago',['Transferencia bancaria','Efectivo'],editing?.Metodo_pago || 'Transferencia bancaria')}
         ${rhFieldDate('Fecha_pago','Fecha de pago',editing?.Fecha_pago)}
       </div>
       ${rhFieldTextarea('Comentarios','Comentarios',editing?.Comentarios)}`;
@@ -23824,6 +23825,7 @@ function rhCalcAntiguedad(ingreso, retiro) {
 // ║  PAGO DE NÓMINA — formulario multi-modo (Unitario / Grupal)           ║
 // ═══════════════════════════════════════════════════════════════════════
 const NOM_CONCEPTOS = ['Salario','Compensación','Préstamo','Ahorro','Otro'];
+const NOM_METODOS   = ['Transferencia bancaria','Efectivo'];
 const NOM_PERIODOS  = ['Pago único','Semanal','Quincenal','Mensual'];
 const NOM_MONTHS_ABR  = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const NOM_MONTHS_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -23854,6 +23856,7 @@ window.rhOpenNominaForm = function () {
     periodo: 'Semanal',
     fecha: nomDefaultPeriodValue('Semanal'),
     monto: 2205.28,
+    metodoPago: 'Transferencia bancaria',
     notas: '',
   }));
   nomRenderPane();
@@ -23869,7 +23872,7 @@ window.rhOpenNominaForm = function () {
 };
 
 function nomEmptyConcepto() {
-  return { concepto: 'Salario', periodo: 'Semanal', fecha: nomDefaultPeriodValue('Semanal'), monto: '', notas: '' };
+  return { concepto: 'Salario', periodo: 'Semanal', fecha: nomDefaultPeriodValue('Semanal'), monto: '', metodoPago: 'Transferencia bancaria', notas: '' };
 }
 
 window.nomSetMode = function (m) {
@@ -23931,6 +23934,11 @@ function nomRenderConceptoBox(c, i) {
           onblur="this.value = NOM_STATE.unitConceptos[${i}].monto ? nomFmtCurrency(NOM_STATE.unitConceptos[${i}].monto) : ''">
       </div>
     </div>
+    <div class="rh-field"><label>Método de pago</label>
+      <select onchange="NOM_STATE.unitConceptos[${i}].metodoPago=this.value">
+        ${NOM_METODOS.map(o => `<option value="${o}" ${o===(c.metodoPago||'Transferencia bancaria')?'selected':''}>${o}</option>`).join('')}
+      </select>
+    </div>
     <div class="rh-field"><label>Notas</label>
       <textarea rows="2" oninput="NOM_STATE.unitConceptos[${i}].notas=this.value">${esc(c.notas||'')}</textarea>
     </div>
@@ -23969,7 +23977,7 @@ function nomRenderGrupal() {
         <thead><tr>
           <th style="width:28px"></th>
           <th>Nombre</th><th>Concepto</th><th>Periodo</th><th>Fecha</th>
-          <th style="text-align:right">$ Monto</th><th>Notas</th>
+          <th style="text-align:right">$ Monto</th><th>Método de pago</th><th>Notas</th>
         </tr></thead>
         <tbody id="nom-grupal-tbody">${nomRenderGrupalRows()}</tbody>
       </table>
@@ -23977,9 +23985,9 @@ function nomRenderGrupal() {
 }
 
 function nomRenderGrupalRows() {
-  const inserter = (pos) => `<tr class="nom-inserter"><td colspan="7"><button type="button" class="nom-inserter-btn" onclick="nomInsertGrupalRow(${pos})" title="Insertar renglón aquí">＋</button></td></tr>`;
+  const inserter = (pos) => `<tr class="nom-inserter"><td colspan="8"><button type="button" class="nom-inserter-btn" onclick="nomInsertGrupalRow(${pos})" title="Insertar renglón aquí">＋</button></td></tr>`;
   if (!NOM_STATE.grupalRows.length) {
-    return inserter(0) + `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:14px">Sin renglones. Pulsa el <strong>＋</strong> de arriba para agregar.</td></tr>`;
+    return inserter(0) + `<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:14px">Sin renglones. Pulsa el <strong>＋</strong> de arriba para agregar.</td></tr>`;
   }
   let out = inserter(0);
   NOM_STATE.grupalRows.forEach((r, i) => {
@@ -24016,6 +24024,9 @@ function nomGrupalRow(r, i) {
         oninput="NOM_STATE.grupalRows[${i}].monto=nomParseMoney(this.value)"
         onblur="this.value = NOM_STATE.grupalRows[${i}].monto ? nomFmtCurrency(NOM_STATE.grupalRows[${i}].monto) : ''"
         style="text-align:right;font-weight:600;width:96px;min-width:96px"></td>
+    <td><select onchange="NOM_STATE.grupalRows[${i}].metodoPago=this.value">
+      ${NOM_METODOS.map(o => `<option value="${o}" ${o===(r.metodoPago||'Transferencia bancaria')?'selected':''}>${o}</option>`).join('')}
+    </select></td>
     <td><input type="text" value="${esc(r.notas||'')}" oninput="NOM_STATE.grupalRows[${i}].notas=this.value" style="width:100%;padding:5px 8px;font-size:12px;border:1px solid #e2e8f0;border-radius:6px"></td>
   </tr>`;
 }
@@ -24025,7 +24036,7 @@ window.nomInsertGrupalRow = function (pos) {
     empleadoId: '', nombre: '',
     concepto: 'Salario', periodo: 'Semanal',
     fecha: nomDefaultPeriodValue('Semanal'),
-    monto: 2205.28, notas: '',
+    monto: 2205.28, metodoPago: 'Transferencia bancaria', notas: '',
   });
   const tbody = document.getElementById('nom-grupal-tbody');
   if (tbody) tbody.innerHTML = nomRenderGrupalRows();
@@ -24169,6 +24180,7 @@ async function nomSave() {
         Concepto: c.concepto,
         Periodo: `${c.periodo}: ${nomPeriodLabel(c.periodo, c.fecha)}`,
         Monto: monto,
+        Metodo_pago: c.metodoPago || 'Transferencia bancaria',
         Fecha_pago: nomFechaCanonical(c.periodo, c.fecha),
         Comentarios: c.notas || '',
       });
@@ -24183,6 +24195,7 @@ async function nomSave() {
         Concepto: r.concepto,
         Periodo: `${r.periodo}: ${nomPeriodLabel(r.periodo, r.fecha)}`,
         Monto: monto,
+        Metodo_pago: r.metodoPago || 'Transferencia bancaria',
         Fecha_pago: nomFechaCanonical(r.periodo, r.fecha),
         Comentarios: r.notas || '',
       });
