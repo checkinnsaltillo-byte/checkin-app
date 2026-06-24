@@ -23249,8 +23249,7 @@ window.rhSetTab = function (tab) {
   if (!view) return;
   view.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`;
   if (tab === 'expediente') rhRenderExpediente();
-  else if (tab === 'asistencia') rhLoadAsistencia().then(rhRenderAsistencia);
-  else if (tab === 'ausencias') rhLoadAusencias().then(rhRenderAusencias);
+  else if (tab === 'asist_ause') Promise.all([rhLoadAsistencia(), rhLoadAusencias()]).then(rhRenderAsistAuse);
   else if (tab === 'compensaciones') rhLoadCompensaciones().then(rhRenderCompensaciones);
 };
 
@@ -23309,7 +23308,7 @@ function rhRenderExpediente() {
   view.innerHTML = `
     <div class="rh-toolbar">
       <div>
-        <div class="rh-toolbar-title">👥 Personal</div>
+        <div class="rh-toolbar-title">👥 Datos generales del personal</div>
         <div class="rh-toolbar-count">${rows.length} empleado(s)</div>
       </div>
       <button type="button" class="rh-btn-add" onclick="rhOpenForm('empleado', null)">＋ Agregar empleado</button>
@@ -23511,13 +23510,13 @@ function rhRenderCompensaciones() {
       ? `<div class="rh-empty">${all.length === 0 ? 'Sin compensaciones registradas.' : 'Ningún registro coincide con los filtros.'}</div>`
       : `<div style="overflow-x:auto"><table class="rh-table">
           <thead><tr>
-            <th style="width:90px"></th>
+            <th style="width:28px"></th>
             <th>Empleado</th><th>Concepto</th><th>Periodo</th>
             <th style="text-align:right">Monto</th><th>Fecha pago</th><th>Comentarios</th>
           </tr></thead>
           <tbody>${rows.map(r => `
             <tr onclick="rhOpenForm('compensacion','${esc(r.ID)}')">
-              <td onclick="event.stopPropagation()"><button type="button" class="comp-del-btn" onclick="rhDeleteCompensacion('${esc(r.ID)}', event)">🗑 Eliminar</button></td>
+              <td onclick="event.stopPropagation()"><button type="button" class="nom-conc-del" onclick="rhDeleteCompensacion('${esc(r.ID)}', event)" title="Eliminar">✕</button></td>
               <td><strong>${esc(rhEmpleadoNombre(r.Empleado_ID) || r.Empleado_Nombre || '—')}</strong></td>
               <td><span class="rh-chip rh-chip-tipo">${esc(r.Concepto || '—')}</span></td>
               <td>${esc(r.Periodo || '—')}</td>
@@ -23968,8 +23967,9 @@ function nomRenderGrupal() {
     <div style="overflow-x:auto;margin-top:14px">
       <table class="rh-table nom-grupal-tbl">
         <thead><tr>
+          <th style="width:28px"></th>
           <th>Nombre</th><th>Concepto</th><th>Periodo</th><th>Fecha</th>
-          <th style="text-align:right">$ Monto</th><th>Notas</th><th style="width:36px"></th>
+          <th style="text-align:right">$ Monto</th><th>Notas</th>
         </tr></thead>
         <tbody id="nom-grupal-tbody">${nomRenderGrupalRows()}</tbody>
       </table>
@@ -23995,6 +23995,7 @@ function nomGrupalRow(r, i) {
     return `<option value="${esc(e.ID)}" ${String(e.ID) === String(r.empleadoId) ? 'selected':''}>${esc(n)}${e.Puesto ? ' — ' + esc(e.Puesto) : ''}</option>`;
   }).join('');
   return `<tr data-idx="${i}">
+    <td><button type="button" class="nom-conc-del" onclick="nomDelGrupalRow(${i})" title="Quitar renglón">✕</button></td>
     <td>
       <select onchange="nomGrupalSetEmpleado(${i}, this.value)">
         <option value="">— Seleccionar —</option>${empOpts}
@@ -24014,9 +24015,8 @@ function nomGrupalRow(r, i) {
     <td><input type="text" value="${r.monto !== '' && r.monto != null ? nomFmtCurrency(r.monto) : ''}"
         oninput="NOM_STATE.grupalRows[${i}].monto=nomParseMoney(this.value)"
         onblur="this.value = NOM_STATE.grupalRows[${i}].monto ? nomFmtCurrency(NOM_STATE.grupalRows[${i}].monto) : ''"
-        style="text-align:right;font-weight:600"></td>
+        style="text-align:right;font-weight:600;width:96px;min-width:96px"></td>
     <td><input type="text" value="${esc(r.notas||'')}" oninput="NOM_STATE.grupalRows[${i}].notas=this.value" style="width:100%;padding:5px 8px;font-size:12px;border:1px solid #e2e8f0;border-radius:6px"></td>
-    <td><button type="button" class="nom-conc-del" onclick="nomDelGrupalRow(${i})" title="Quitar renglón">✕</button></td>
   </tr>`;
 }
 
@@ -24235,3 +24235,70 @@ window.rhDeleteCompensacion = async function (id, ev) {
     alert('No se pudo eliminar:\n' + (e.message || e));
   }
 };
+
+// ── Vista combinada Asistencias y Ausencias ──
+function rhRenderAsistAuse() {
+  const view = document.getElementById('rh-view');
+  const ast = RH_STATE.asistencia || [];
+  const aus = RH_STATE.ausencias  || [];
+  view.innerHTML = `
+    <div class="rh-toolbar">
+      <div>
+        <div class="rh-toolbar-title">🕐 Asistencias y ausencias</div>
+        <div class="rh-toolbar-count">${ast.length} asistencia(s) · ${aus.length} ausencia(s)</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="rh-btn-add" onclick="rhOpenForm('asistencia', null)">＋ Agregar asistencia</button>
+        <button type="button" class="rh-btn-add" onclick="rhOpenForm('ausencia', null)">＋ Agregar ausencia</button>
+      </div>
+    </div>
+    <div class="rh-section">
+      <div class="rh-section-title">🕐 Asistencia (${ast.length})</div>
+      ${ast.length === 0
+        ? `<div class="rh-empty" style="margin:0">Sin registros de asistencia.</div>`
+        : `<div style="overflow-x:auto"><table class="rh-table">
+            <thead><tr>
+              <th>Empleado</th><th>Fecha</th><th>Entrada</th><th>Salida</th>
+              <th>Horas</th><th>Extra</th><th>Observaciones</th>
+            </tr></thead>
+            <tbody>${ast.map(r => `
+              <tr onclick="rhOpenForm('asistencia','${esc(r.ID)}')">
+                <td><strong>${esc(rhEmpleadoNombre(r.Empleado_ID) || r.Empleado_Nombre || '—')}</strong></td>
+                <td>${esc(r.Fecha || '—')}</td>
+                <td>${esc(r.Entrada || '—')}</td>
+                <td>${esc(r.Salida || '—')}</td>
+                <td>${esc(r.Horas || '—')}</td>
+                <td>${r.Horas_extra ? `<strong style="color:#ea580c">${esc(r.Horas_extra)}</strong>` : '—'}</td>
+                <td>${esc(r.Observaciones || '—')}</td>
+              </tr>`).join('')}</tbody>
+          </table></div>`}
+    </div>
+    <div class="rh-section">
+      <div class="rh-section-title">🌴 Ausencias (${aus.length})</div>
+      ${aus.length === 0
+        ? `<div class="rh-empty" style="margin:0">Sin ausencias registradas.</div>`
+        : `<div style="overflow-x:auto"><table class="rh-table">
+            <thead><tr>
+              <th>Empleado</th><th>Tipo</th><th>Inicio</th><th>Fin</th>
+              <th>Días</th><th>Estatus</th><th>Comentarios</th>
+            </tr></thead>
+            <tbody>${aus.map(r => {
+              const est = String(r.Estatus || '').toLowerCase();
+              const chip = est.includes('aprob') ? `<span class="rh-chip rh-chip-est-ap">✓ ${esc(r.Estatus)}</span>`
+                         : est.includes('rech')  ? `<span class="rh-chip rh-chip-est-rc">✕ ${esc(r.Estatus)}</span>`
+                         : est.includes('sol') || est.includes('pend') ? `<span class="rh-chip rh-chip-est-pe">⏳ ${esc(r.Estatus)}</span>`
+                         : esc(r.Estatus || '—');
+              return `
+              <tr onclick="rhOpenForm('ausencia','${esc(r.ID)}')">
+                <td><strong>${esc(rhEmpleadoNombre(r.Empleado_ID) || r.Empleado_Nombre || '—')}</strong></td>
+                <td><span class="rh-chip rh-chip-tipo">${esc(r.Tipo || '—')}</span></td>
+                <td>${esc(r.Fecha_inicio || '—')}</td>
+                <td>${esc(r.Fecha_fin || '—')}</td>
+                <td><strong>${esc(r.Dias || '—')}</strong></td>
+                <td>${chip}</td>
+                <td>${esc(r.Comentarios || '—')}</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table></div>`}
+    </div>`;
+}
