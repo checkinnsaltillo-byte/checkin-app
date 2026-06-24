@@ -4449,7 +4449,7 @@ function bn_renderTable(tipo,sE,sI) {
   }
 
   if(!rows.length){
-    tbody.innerHTML=`<tr><td colspan="8" style="color:var(--text-soft);padding:20px;text-align:center">Sin movimientos para los filtros seleccionados</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="9" style="color:var(--text-soft);padding:20px;text-align:center">Sin movimientos para los filtros seleccionados</td></tr>`;
     return;
   }
 
@@ -4511,7 +4511,7 @@ function bn_showDetail(cat,con,mes,tipo) {
   });
   tbody.innerHTML='';
   if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="8" style="color:var(--text-soft);padding:16px;text-align:center">Sin movimientos</td></tr>';
+    tbody.innerHTML='<tr><td colspan="9" style="color:var(--text-soft);padding:16px;text-align:center">Sin movimientos</td></tr>';
   } else {
     for(const r of rows){
       const fac=bn_norm(r.Factura||'');
@@ -23512,7 +23512,7 @@ function rhRenderCompensaciones() {
           <thead><tr>
             <th style="width:28px"></th>
             <th>Empleado</th><th>Concepto</th><th>Periodo</th>
-            <th style="text-align:right">Monto</th><th>Fecha pago</th><th>Comentarios</th>
+            <th style="text-align:right">Monto</th><th>Fecha de pago</th><th>Comentarios</th>
           </tr></thead>
           <tbody>${rows.map(r => `
             <tr onclick="rhOpenForm('compensacion','${esc(r.ID)}')">
@@ -23857,6 +23857,7 @@ window.rhOpenNominaForm = function () {
     fecha: nomDefaultPeriodValue('Semanal'),
     monto: 2205.28,
     metodoPago: 'Transferencia bancaria',
+    fechaPago: nomComputeFechaPago('Semanal', nomDefaultPeriodValue('Semanal')),
     notas: '',
   }));
   nomRenderPane();
@@ -23872,7 +23873,8 @@ window.rhOpenNominaForm = function () {
 };
 
 function nomEmptyConcepto() {
-  return { concepto: 'Salario', periodo: 'Semanal', fecha: nomDefaultPeriodValue('Semanal'), monto: '', metodoPago: 'Transferencia bancaria', notas: '' };
+  const fecha = nomDefaultPeriodValue('Semanal');
+  return { concepto: 'Salario', periodo: 'Semanal', fecha, fechaPago: nomComputeFechaPago('Semanal', fecha), monto: '', metodoPago: 'Transferencia bancaria', notas: '' };
 }
 
 window.nomSetMode = function (m) {
@@ -23918,26 +23920,31 @@ function nomRenderConceptoBox(c, i) {
           ${NOM_CONCEPTOS.map(o => `<option value="${o}" ${o===c.concepto?'selected':''}>${o}</option>`).join('')}
         </select>
       </div>
-      <div class="rh-field"><label>Periodo</label>
+      <div class="rh-field"><label>Periodicidad</label>
         <select onchange="nomChangeUnitPeriodo(${i}, this.value)">
           ${NOM_PERIODOS.map(o => `<option value="${o}" ${o===c.periodo?'selected':''}>${o}</option>`).join('')}
         </select>
       </div>
     </div>
     <div class="rh-grid-2">
-      <div class="rh-field"><label>Fecha / periodo específico</label>
-        ${nomPeriodInput(c.periodo, c.fecha, `NOM_STATE.unitConceptos[${i}].fecha=this.value`)}
+      <div class="rh-field"><label>Periodo laborado</label>
+        ${nomPeriodInput(c.periodo, c.fecha, `nomSetUnitFecha(${i}, this.value)`)}
       </div>
+      <div class="rh-field"><label>Fecha de pago</label>
+        <input type="date" id="nom-fp-unit-${i}" value="${esc(c.fechaPago||'')}" onchange="NOM_STATE.unitConceptos[${i}].fechaPago=this.value">
+      </div>
+    </div>
+    <div class="rh-grid-2">
       <div class="rh-field"><label>$ Monto</label>
         <input type="text" value="${c.monto !== '' ? nomFmtCurrency(c.monto) : ''}"
           oninput="NOM_STATE.unitConceptos[${i}].monto=nomParseMoney(this.value)"
           onblur="this.value = NOM_STATE.unitConceptos[${i}].monto ? nomFmtCurrency(NOM_STATE.unitConceptos[${i}].monto) : ''">
       </div>
-    </div>
-    <div class="rh-field"><label>Método de pago</label>
-      <select onchange="NOM_STATE.unitConceptos[${i}].metodoPago=this.value">
-        ${NOM_METODOS.map(o => `<option value="${o}" ${o===(c.metodoPago||'Transferencia bancaria')?'selected':''}>${o}</option>`).join('')}
-      </select>
+      <div class="rh-field"><label>Método de pago</label>
+        <select onchange="NOM_STATE.unitConceptos[${i}].metodoPago=this.value">
+          ${NOM_METODOS.map(o => `<option value="${o}" ${o===(c.metodoPago||'Transferencia bancaria')?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
     </div>
     <div class="rh-field"><label>Notas</label>
       <textarea rows="2" oninput="NOM_STATE.unitConceptos[${i}].notas=this.value">${esc(c.notas||'')}</textarea>
@@ -23950,7 +23957,14 @@ window.nomDelConcepto = function (i) { NOM_STATE.unitConceptos.splice(i, 1); nom
 window.nomChangeUnitPeriodo = function (i, v) {
   NOM_STATE.unitConceptos[i].periodo = v;
   NOM_STATE.unitConceptos[i].fecha = nomDefaultPeriodValue(v);
+  NOM_STATE.unitConceptos[i].fechaPago = nomComputeFechaPago(v, NOM_STATE.unitConceptos[i].fecha);
   nomRenderPane();
+};
+window.nomSetUnitFecha = function (i, v) {
+  NOM_STATE.unitConceptos[i].fecha = v;
+  NOM_STATE.unitConceptos[i].fechaPago = nomComputeFechaPago(NOM_STATE.unitConceptos[i].periodo, v);
+  const fp = document.querySelector(`#nom-fp-unit-${i}`);
+  if (fp) fp.value = NOM_STATE.unitConceptos[i].fechaPago || '';
 };
 
 function nomRenderGrupal() {
@@ -23961,7 +23975,7 @@ function nomRenderGrupal() {
           ${NOM_CONCEPTOS.map(o => `<option ${o==='Salario'?'selected':''}>${o}</option>`).join('')}
         </select>
       </div>
-      <div class="rh-field"><label>Periodo</label>
+      <div class="rh-field"><label>Periodicidad</label>
         <select onchange="nomGrupalSetAll('periodo', this.value)">
           ${NOM_PERIODOS.map(o => `<option ${o==='Semanal'?'selected':''}>${o}</option>`).join('')}
         </select>
@@ -23976,7 +23990,7 @@ function nomRenderGrupal() {
       <table class="rh-table nom-grupal-tbl">
         <thead><tr>
           <th style="width:28px"></th>
-          <th>Nombre</th><th>Concepto</th><th>Periodo</th><th>Fecha</th>
+          <th>Nombre</th><th>Concepto</th><th>Periodicidad</th><th>Periodo laborado</th><th>Fecha de pago</th>
           <th style="text-align:right">$ Monto</th><th>Método de pago</th><th>Notas</th>
         </tr></thead>
         <tbody id="nom-grupal-tbody">${nomRenderGrupalRows()}</tbody>
@@ -23985,9 +23999,9 @@ function nomRenderGrupal() {
 }
 
 function nomRenderGrupalRows() {
-  const inserter = (pos) => `<tr class="nom-inserter"><td colspan="8"><button type="button" class="nom-inserter-btn" onclick="nomInsertGrupalRow(${pos})" title="Insertar renglón aquí">＋</button></td></tr>`;
+  const inserter = (pos) => `<tr class="nom-inserter"><td colspan="9"><button type="button" class="nom-inserter-btn" onclick="nomInsertGrupalRow(${pos})" title="Insertar renglón aquí">＋</button></td></tr>`;
   if (!NOM_STATE.grupalRows.length) {
-    return inserter(0) + `<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:14px">Sin renglones. Pulsa el <strong>＋</strong> de arriba para agregar.</td></tr>`;
+    return inserter(0) + `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:14px">Sin renglones. Pulsa el <strong>＋</strong> de arriba para agregar.</td></tr>`;
   }
   let out = inserter(0);
   NOM_STATE.grupalRows.forEach((r, i) => {
@@ -24019,7 +24033,8 @@ function nomGrupalRow(r, i) {
         ${NOM_PERIODOS.map(o => `<option ${o===r.periodo?'selected':''}>${o}</option>`).join('')}
       </select>
     </td>
-    <td>${nomPeriodInput(r.periodo, r.fecha, `NOM_STATE.grupalRows[${i}].fecha=this.value`)}</td>
+    <td>${nomPeriodInput(r.periodo, r.fecha, `nomSetGrupalFecha(${i}, this.value)`)}</td>
+    <td><input type="date" id="nom-fp-grp-${i}" value="${esc(r.fechaPago||'')}" onchange="NOM_STATE.grupalRows[${i}].fechaPago=this.value"></td>
     <td><input type="text" value="${r.monto !== '' && r.monto != null ? nomFmtCurrency(r.monto) : ''}"
         oninput="NOM_STATE.grupalRows[${i}].monto=nomParseMoney(this.value)"
         onblur="this.value = NOM_STATE.grupalRows[${i}].monto ? nomFmtCurrency(NOM_STATE.grupalRows[${i}].monto) : ''"
@@ -24036,7 +24051,9 @@ window.nomInsertGrupalRow = function (pos) {
     empleadoId: '', nombre: '',
     concepto: 'Salario', periodo: 'Semanal',
     fecha: nomDefaultPeriodValue('Semanal'),
-    monto: 2205.28, metodoPago: 'Transferencia bancaria', notas: '',
+    monto: 2205.28, metodoPago: 'Transferencia bancaria',
+    fechaPago: nomComputeFechaPago('Semanal', nomDefaultPeriodValue('Semanal')),
+    notas: '',
   });
   const tbody = document.getElementById('nom-grupal-tbody');
   if (tbody) tbody.innerHTML = nomRenderGrupalRows();
@@ -24055,14 +24072,24 @@ window.nomGrupalSetEmpleado = function (i, id) {
 window.nomChangeGrupalPeriodo = function (i, v) {
   NOM_STATE.grupalRows[i].periodo = v;
   NOM_STATE.grupalRows[i].fecha = nomDefaultPeriodValue(v);
+  NOM_STATE.grupalRows[i].fechaPago = nomComputeFechaPago(v, NOM_STATE.grupalRows[i].fecha);
   const tbody = document.getElementById('nom-grupal-tbody');
   const tr = tbody?.querySelector(`tr[data-idx="${i}"]`);
   if (tr) tr.outerHTML = nomGrupalRow(NOM_STATE.grupalRows[i], i);
 };
+window.nomSetGrupalFecha = function (i, v) {
+  NOM_STATE.grupalRows[i].fecha = v;
+  NOM_STATE.grupalRows[i].fechaPago = nomComputeFechaPago(NOM_STATE.grupalRows[i].periodo, v);
+  const fp = document.querySelector(`#nom-fp-grp-${i}`);
+  if (fp) fp.value = NOM_STATE.grupalRows[i].fechaPago || '';
+};
 window.nomGrupalSetAll = function (field, value) {
   NOM_STATE.grupalRows.forEach(r => {
     r[field] = value;
-    if (field === 'periodo') r.fecha = nomDefaultPeriodValue(value);
+    if (field === 'periodo') {
+      r.fecha = nomDefaultPeriodValue(value);
+      r.fechaPago = nomComputeFechaPago(value, r.fecha);
+    }
   });
   const tbody = document.getElementById('nom-grupal-tbody');
   if (tbody) tbody.innerHTML = NOM_STATE.grupalRows.map((r, i) => nomGrupalRow(r, i)).join('');
@@ -24078,6 +24105,32 @@ function nomPeriodInput(periodo, val, onchangeCode) {
     ${opts.map(o => `<option value="${esc(o.value)}" ${o.value === val ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
   </select>`;
 }
+function nomComputeFechaPago(periodo, fecha) {
+  if (!fecha) return '';
+  if (periodo === 'Pago único') return fecha;
+  if (periodo === 'Semanal') {
+    const m = String(fecha).match(/S:(\d{4}-\d{2}-\d{2})_/);
+    if (!m) return '';
+    const d = new Date(m[1] + 'T00:00:00');
+    d.setDate(d.getDate() + 4); // viernes
+    return d.toISOString().slice(0,10);
+  }
+  if (periodo === 'Quincenal') {
+    const m = String(fecha).match(/Q([12])-(\d{4})-(\d{2})/);
+    if (!m) return '';
+    if (m[1] === '1') return `${m[2]}-${m[3]}-15`;
+    const lastDay = new Date(parseInt(m[2]), parseInt(m[3]), 0).getDate();
+    return `${m[2]}-${m[3]}-${String(lastDay).padStart(2,'0')}`;
+  }
+  if (periodo === 'Mensual') {
+    const m = String(fecha).match(/M-(\d{4})-(\d{2})/);
+    if (!m) return '';
+    const lastDay = new Date(parseInt(m[1]), parseInt(m[2]), 0).getDate();
+    return `${m[1]}-${m[2]}-${String(lastDay).padStart(2,'0')}`;
+  }
+  return '';
+}
+
 function nomDefaultPeriodValue(periodo) {
   if (periodo === 'Pago único') return new Date().toISOString().slice(0,10);
   const opts = nomPeriodOptions(periodo);
@@ -24181,7 +24234,7 @@ async function nomSave() {
         Periodo: `${c.periodo}: ${nomPeriodLabel(c.periodo, c.fecha)}`,
         Monto: monto,
         Metodo_pago: c.metodoPago || 'Transferencia bancaria',
-        Fecha_pago: nomFechaCanonical(c.periodo, c.fecha),
+        Fecha_pago: c.fechaPago || nomComputeFechaPago(c.periodo, c.fecha),
         Comentarios: c.notas || '',
       });
     });
@@ -24196,7 +24249,7 @@ async function nomSave() {
         Periodo: `${r.periodo}: ${nomPeriodLabel(r.periodo, r.fecha)}`,
         Monto: monto,
         Metodo_pago: r.metodoPago || 'Transferencia bancaria',
-        Fecha_pago: nomFechaCanonical(r.periodo, r.fecha),
+        Fecha_pago: r.fechaPago || nomComputeFechaPago(r.periodo, r.fecha),
         Comentarios: r.notas || '',
       });
     });
