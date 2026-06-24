@@ -6157,3 +6157,22 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   transition: background .12s;
 }
 .comp-del-btn:hover { background: #fecaca; color: #991b1b; }
+
+/* ─── Tabla grupal: compactar horizontalmente y dejar columnas auto ─── */
+#rh-form-panel { max-width: 980px !important; }
+.nom-grupal-tbl { width: auto !important; border-collapse: collapse; }
+.nom-grupal-tbl th,
+.nom-grupal-tbl td {
+  padding: 3px 6px !important;
+  white-space: nowrap;
+  width: 1%;            /* dejar que el contenido determine el ancho */
+}
+.nom-grupal-tbl th:nth-child(6),
+.nom-grupal-tbl td:nth-child(6) { min-width: 0 !important; }
+.nom-grupal-tbl td:nth-child(6) input { min-height: 0 !important; height: 28px; }
+.nom-grupal-tbl select,
+.nom-grupal-tbl input[type="text"],
+.nom-grupal-tbl input[type="date"] {
+  width: auto;
+  min-width: 80px;
+}

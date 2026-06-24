@@ -24015,7 +24015,7 @@ function nomGrupalRow(r, i) {
         oninput="NOM_STATE.grupalRows[${i}].monto=nomParseMoney(this.value)"
         onblur="this.value = NOM_STATE.grupalRows[${i}].monto ? nomFmtCurrency(NOM_STATE.grupalRows[${i}].monto) : ''"
         style="text-align:right;font-weight:600"></td>
-    <td><textarea rows="2" oninput="NOM_STATE.grupalRows[${i}].notas=this.value" style="width:100%;min-height:56px;resize:vertical;padding:6px 8px;font-size:12px;border:1px solid #e2e8f0;border-radius:6px;font-family:inherit">${esc(r.notas||'')}</textarea></td>
+    <td><input type="text" value="${esc(r.notas||'')}" oninput="NOM_STATE.grupalRows[${i}].notas=this.value" style="width:100%;padding:5px 8px;font-size:12px;border:1px solid #e2e8f0;border-radius:6px"></td>
     <td><button type="button" class="nom-conc-del" onclick="nomDelGrupalRow(${i})" title="Quitar renglón">✕</button></td>
   </tr>`;
 }
