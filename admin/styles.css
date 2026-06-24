@@ -6114,3 +6114,31 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
 .comp-filter-clear:hover {
   background: #fed7aa;
 }
+
+/* ─── RH: panel lateral 30% más ancho que el default (620 → 806) ─── */
+#rh-form-panel { max-width: 806px !important; }
+
+/* ─── Inserter "+" más pequeño y estable (override) ─── */
+.nom-inserter td { height: 2px; }
+.nom-inserter-btn {
+  width: 12px !important;
+  height: 12px !important;
+  font-size: 9px !important;
+  opacity: .35 !important;
+  transition: opacity .12s, background .12s !important;
+  transform: translate(-50%, -50%) !important;
+  box-shadow: none !important;
+}
+.nom-grupal-tbl tbody:hover .nom-inserter-btn { opacity: .5 !important; }
+.nom-inserter-btn:hover {
+  opacity: 1 !important;
+  transform: translate(-50%, -50%) !important;
+  background: #c2410c !important;
+  box-shadow: none !important;
+}
+.nom-inserter:hover td::before { display: none; }
+
+/* ─── Notas más amplias en tabla grupal ─── */
+.nom-grupal-tbl th:nth-child(6),
+.nom-grupal-tbl td:nth-child(6) { min-width: 280px; }
+.nom-grupal-tbl td:nth-child(6) input { min-height: 56px; padding: 8px 10px; }

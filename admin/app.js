@@ -23485,7 +23485,7 @@ function rhRenderCompensaciones() {
         <div class="rh-toolbar-title">💵 Pago de Nómina</div>
         <div class="rh-toolbar-count">${rows.length} de ${all.length} registro(s)</div>
       </div>
-      <button type="button" class="rh-btn-add" onclick="rhOpenNominaForm()">＋ Registrar nuevo pago</button>
+      <button type="button" class="rh-btn-add" onclick="rhOpenNominaForm()">＋ Nueva operación</button>
     </div>
     <div class="comp-filters">
       <div class="rh-field"><label>Empleado</label>
@@ -23836,7 +23836,7 @@ const NOM_STATE = {
 
 window.rhOpenNominaForm = function () {
   RH_STATE.formContext = { kind: 'nomina_multi', editing: null };
-  document.getElementById('rh-form-title').textContent = '＋ Registrar nuevo pago';
+  document.getElementById('rh-form-title').textContent = '＋ Nueva operación';
   document.getElementById('rh-form-body').innerHTML = `
     <div class="nom-cejas">
       <button type="button" class="nom-ceja active" data-mode="unit" onclick="nomSetMode('unit')">📝 Registro unitario</button>
@@ -24013,7 +24013,7 @@ function nomGrupalRow(r, i) {
         oninput="NOM_STATE.grupalRows[${i}].monto=nomParseMoney(this.value)"
         onblur="this.value = NOM_STATE.grupalRows[${i}].monto ? nomFmtCurrency(NOM_STATE.grupalRows[${i}].monto) : ''"
         style="text-align:right;font-weight:600"></td>
-    <td><input type="text" value="${esc(r.notas||'')}" oninput="NOM_STATE.grupalRows[${i}].notas=this.value"></td>
+    <td><textarea rows="2" oninput="NOM_STATE.grupalRows[${i}].notas=this.value" style="width:100%;min-height:56px;resize:vertical;padding:6px 8px;font-size:12px;border:1px solid #e2e8f0;border-radius:6px;font-family:inherit">${esc(r.notas||'')}</textarea></td>
     <td><button type="button" class="nom-conc-del" onclick="nomDelGrupalRow(${i})" title="Quitar renglón">✕</button></td>
   </tr>`;
 }
