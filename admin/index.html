@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema de gestión de Corta estancia | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=119">
+  <link rel="stylesheet" href="styles.css?v=120">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1739,7 +1739,15 @@
             <label class="ocup-filter-label">Alojamientos</label>
             <div id="ocup-f-aloj" class="inc-mselect" data-filter="alojamientos"></div>
           </div>
-          <div class="ocup-filter-tip">Tip: si no seleccionas nada en un filtro, se asume "todos".</div>
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Detalles</label>
+            <label class="ocup-toggle">
+              <input type="checkbox" id="ocup-toggle-details" checked onchange="ocupToggleDetails(this.checked)">
+              <span class="ocup-toggle-track"><span class="ocup-toggle-thumb"></span></span>
+              <span class="ocup-toggle-label">Mostrar detalles</span>
+            </label>
+          </div>
+          <div class="ocup-filter-tip">Tip: si no seleccionas nada en un filtro, se asume "todos". El toggle "Mostrar detalles" oculta $/noche, $/reserva, # reservas, duración y canales — dejando solo la barra de ocupación.</div>
         </div>
 
         <!-- Filtros para Gráficas (Interés + Referencia + Tipo) -->
@@ -1935,6 +1943,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=405"></script>
+  <script src="app.js?v=406"></script>
 </body>
 </html>

@@ -22591,8 +22591,19 @@ function ocupRenderTable() {
     };
     return `<tr><td class="ocup-td-aloj">${esc(a.nombre)}</td>${cells}${ocupCellHtml(avgStats, true)}</tr>`;
   }).join('');
-  cont.innerHTML = `<table class="ocup-table"><thead>${head}</thead><tbody>${rows}</tbody></table>`;
+  const compactCls = OCUP_STATE.indicadoresShowDetails === false ? 'is-compact' : '';
+  cont.innerHTML = `<table class="ocup-table ${compactCls}"><thead>${head}</thead><tbody>${rows}</tbody></table>`;
 }
+
+// Toggle "Mostrar detalles" — oculta/muestra stats extra y compacta celdas
+OCUP_STATE.indicadoresShowDetails = true;
+window.ocupToggleDetails = function (checked) {
+  OCUP_STATE.indicadoresShowDetails = !!checked;
+  // Re-render solo agregando/quitando la clase compacta — sin reconstruir
+  // la tabla entera para mejor UX (anim CSS hace su parte).
+  const tbl = document.querySelector('#ocup-table-container .ocup-table');
+  if (tbl) tbl.classList.toggle('is-compact', !checked);
+};
 
 // ─── Vista Gráficas (SVG) ───
 // Paleta para líneas (cycling)
@@ -23123,51 +23134,82 @@ function ocupChartBindHover(cont, series, months, ML, MT, innerW, innerH, xStep,
   hoverRect.addEventListener('mouseleave', () => ocupChartHideTip(cont));
 }
 
-function ocupChartBindBrush(cont, allMonths, brushML, brushMT, brushInnerW, brushInnerH, brushXStep) {
-  const brushSvg = cont.querySelector('#ocup-gx-brush-svg');
-  if (!brushSvg || allMonths.length === 0) return;
-  let drag = null; // { mode: 'window'|'left'|'right', startX, startIdx, endIdx }
-  const range = OCUP_STATE.chart.range || [0, allMonths.length - 1];
-  const xToIdx = (x) => {
-    const inside = Math.max(0, Math.min(brushInnerW, x - brushML));
-    return Math.round(inside / brushXStep);
-  };
-  const getX = (ev) => {
-    const pt = brushSvg.createSVGPoint();
+// Brush con pointer events globales — sobrevive a los re-renders del
+// chart (el approach anterior fallaba porque la SVG referenciada en el
+// closure se quedaba detached tras cada render, y getScreenCTM() de un
+// nodo huérfano devuelve null o NaN, rompiendo el cálculo de posición).
+// Aquí los handlers están registrados UNA VEZ a nivel de document y
+// consultan la SVG fresca por id en cada evento.
+let _ocupBrushDrag = null; // { mode, startX, startRange, totalMonths }
+let _ocupBrushHandlersInstalled = false;
+
+function ocupBrushInstallGlobalHandlers() {
+  if (_ocupBrushHandlersInstalled) return;
+  _ocupBrushHandlersInstalled = true;
+  const getBrushCoords = (ev) => {
+    const svg = document.getElementById('ocup-gx-brush-svg');
+    if (!svg) return null;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return null;
+    const pt = svg.createSVGPoint();
     pt.x = ev.clientX; pt.y = ev.clientY;
-    return pt.matrixTransform(brushSvg.getScreenCTM().inverse()).x;
+    return pt.matrixTransform(ctm.inverse());
   };
-  const onDown = (ev, mode) => {
-    ev.preventDefault();
-    drag = { mode, startX: getX(ev), startRange: range.slice() };
-    document.addEventListener('mousemove', onDrag);
-    document.addEventListener('mouseup', onUp);
-  };
-  const onDrag = (ev) => {
-    if (!drag) return;
-    const x = getX(ev);
-    let [s, e] = drag.startRange;
-    if (drag.mode === 'left') {
-      s = Math.max(0, Math.min(e - 1, xToIdx(x)));
-    } else if (drag.mode === 'right') {
-      e = Math.max(s + 1, Math.min(allMonths.length - 1, xToIdx(x)));
-    } else if (drag.mode === 'window') {
-      const dxIdx = Math.round((x - drag.startX) / brushXStep);
+  document.addEventListener('pointermove', (ev) => {
+    if (!_ocupBrushDrag) return;
+    const loc = getBrushCoords(ev);
+    if (!loc) return;
+    const { mode, startX, startRange, totalMonths, brushML, brushInnerW, brushXStep } = _ocupBrushDrag;
+    const xToIdx = (x) => {
+      const inside = Math.max(0, Math.min(brushInnerW, x - brushML));
+      return Math.round(inside / brushXStep);
+    };
+    let [s, e] = startRange;
+    if (mode === 'left') {
+      s = Math.max(0, Math.min(e - 1, xToIdx(loc.x)));
+    } else if (mode === 'right') {
+      e = Math.max(s + 1, Math.min(totalMonths - 1, xToIdx(loc.x)));
+    } else if (mode === 'window') {
+      const dxIdx = Math.round((loc.x - startX) / brushXStep);
       const w = e - s;
-      s = Math.max(0, Math.min(allMonths.length - 1 - w, drag.startRange[0] + dxIdx));
+      s = Math.max(0, Math.min(totalMonths - 1 - w, startRange[0] + dxIdx));
       e = s + w;
     }
-    OCUP_STATE.chart.range = [s, e];
-    ocupRenderChart();
-  };
-  const onUp = () => {
-    drag = null;
-    document.removeEventListener('mousemove', onDrag);
-    document.removeEventListener('mouseup', onUp);
-  };
-  cont.querySelector('#ocup-gx-brush-window')?.addEventListener('mousedown', (e) => onDown(e, 'window'));
-  cont.querySelector('#ocup-gx-brush-handle-left')?.addEventListener('mousedown', (e) => onDown(e, 'left'));
-  cont.querySelector('#ocup-gx-brush-handle-right')?.addEventListener('mousedown', (e) => onDown(e, 'right'));
-  // Inicializa rango si era null
+    const cur = OCUP_STATE.chart.range || [0, totalMonths - 1];
+    if (cur[0] !== s || cur[1] !== e) {
+      OCUP_STATE.chart.range = [s, e];
+      ocupRenderChart();
+    }
+  });
+  document.addEventListener('pointerup', () => { _ocupBrushDrag = null; });
+  document.addEventListener('pointercancel', () => { _ocupBrushDrag = null; });
+}
+
+function ocupChartBindBrush(cont, allMonths, brushML, brushMT, brushInnerW, brushInnerH, brushXStep) {
+  if (!cont || allMonths.length === 0) return;
+  ocupBrushInstallGlobalHandlers();
   if (!OCUP_STATE.chart.range) OCUP_STATE.chart.range = [0, allMonths.length - 1];
+  // Al pointerdown solo guardamos el estado de drag — el movimiento lo
+  // maneja el handler global de document que ya está vivo.
+  const startDrag = (ev, mode) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const svg = document.getElementById('ocup-gx-brush-svg');
+    if (!svg) return;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    const pt = svg.createSVGPoint();
+    pt.x = ev.clientX; pt.y = ev.clientY;
+    const loc = pt.matrixTransform(ctm.inverse());
+    _ocupBrushDrag = {
+      mode,
+      startX: loc.x,
+      startRange: (OCUP_STATE.chart.range || [0, allMonths.length - 1]).slice(),
+      totalMonths: allMonths.length,
+      brushML, brushInnerW, brushXStep,
+    };
+  };
+  cont.querySelector('#ocup-gx-brush-window')?.addEventListener('pointerdown', (e) => startDrag(e, 'window'));
+  cont.querySelector('#ocup-gx-brush-handle-left')?.addEventListener('pointerdown', (e) => startDrag(e, 'left'));
+  cont.querySelector('#ocup-gx-brush-handle-right')?.addEventListener('pointerdown', (e) => startDrag(e, 'right'));
 }
