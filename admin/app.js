@@ -23439,25 +23439,70 @@ window.rhOpenForm = function (kind, id) {
   if (kind === 'empleado') {
     editing = id ? (RH_STATE.empleados || []).find(r => String(r.ID) === String(id)) : null;
     title = editing ? '✏️ Editar empleado' : '＋ Nuevo empleado';
+    const noEmp = editing?.ID || '(se asignará al guardar)';
+    const antig = rhCalcAntiguedad(editing?.Fecha_ingreso, editing?.Fecha_retiro);
+    const diasDef = String(editing?.Dias_trabajo || '').split(',').map(s => s.trim()).filter(Boolean);
     bodyHtml = `
-      <div class="rh-grid-2">
-        ${rhFieldText('Nombre','Nombre completo',editing?.Nombre)}
-        ${rhFieldText('Puesto','Puesto',editing?.Puesto)}
-        ${rhFieldText('RFC','RFC',editing?.RFC)}
-        ${rhFieldText('CURP','CURP',editing?.CURP)}
-        ${rhFieldDate('Fecha_nacimiento','Fecha de nacimiento',editing?.Fecha_nacimiento)}
-        ${rhFieldDate('Fecha_ingreso','Fecha de ingreso',editing?.Fecha_ingreso)}
-        ${rhFieldSelect('Tipo_contrato','Tipo de contrato',['Indeterminado','Determinado','Honorarios','Por obra','Eventual'],editing?.Tipo_contrato)}
-        ${rhFieldNumber('Salario_mensual','Salario mensual ($)',editing?.Salario_mensual)}
-        ${rhFieldText('Email','Email',editing?.Email)}
-        ${rhFieldText('Telefono','Teléfono',editing?.Telefono)}
+      <div class="rh-section">
+        <div class="rh-section-title">👤 Datos generales</div>
+        <div class="rh-grid-2">
+          ${rhFieldText('Nombre','Nombre(s)',editing?.Nombre)}
+          ${rhFieldText('Apellido_paterno','Apellido paterno',editing?.Apellido_paterno)}
+          ${rhFieldText('Apellido_materno','Apellido materno',editing?.Apellido_materno)}
+          ${rhFieldDate('Fecha_nacimiento','Fecha de nacimiento',editing?.Fecha_nacimiento)}
+          ${rhFieldText('CURP','CURP',editing?.CURP)}
+          ${rhFieldText('Telefono','Teléfono',editing?.Telefono)}
+          ${rhFieldText('Celular','Celular',editing?.Celular)}
+          ${rhFieldText('Email','Email',editing?.Email)}
+        </div>
+        ${rhFieldText('Direccion','Dirección',editing?.Direccion)}
       </div>
-      ${rhFieldText('Direccion','Dirección',editing?.Direccion)}
-      <div class="rh-grid-2">
-        ${rhFieldText('Contacto_emergencia','Contacto de emergencia (nombre)',editing?.Contacto_emergencia)}
-        ${rhFieldText('Tel_emergencia','Teléfono de emergencia',editing?.Tel_emergencia)}
+
+      <div class="rh-section">
+        <div class="rh-section-title">💼 Nómina</div>
+        <div class="rh-grid-2">
+          <div class="rh-field"><label>No. de empleado</label><input type="text" value="${esc(noEmp)}" readonly style="background:#f1f5f9;color:#64748b"></div>
+          ${rhFieldText('Puesto','Cargo',editing?.Puesto)}
+          ${rhFieldSelect('Estado','Estado',['Activo','Inactivo','Suspendido'], editing?.Estado || (String(editing?.Activo||'').toLowerCase() === 'inactivo' ? 'Inactivo' : 'Activo'))}
+          ${rhFieldSelect('Tipo_contrato','Tipo de contrato',['Indeterminado','Determinado','Honorarios','Por obra','Eventual'],editing?.Tipo_contrato)}
+          ${rhFieldDate('Fecha_ingreso','Fecha de ingreso',editing?.Fecha_ingreso)}
+          ${rhFieldDate('Fecha_retiro','Fecha de retiro',editing?.Fecha_retiro)}
+          <div class="rh-field"><label>Antigüedad</label><input type="text" id="rh-antiguedad" value="${esc(antig)}" readonly style="background:#f1f5f9;color:#0f172a;font-weight:600"></div>
+          ${rhFieldSelect('Periodicidad_pago','Periodicidad de pago',['Por día','Semanal','Quincenal','Mensual'],editing?.Periodicidad_pago)}
+          ${rhFieldNumber('Salario_mensual','Salario mensual ($)',editing?.Salario_mensual)}
+        </div>
+        <div class="rh-grid-2">
+          ${rhFieldTime('Hora_entrada','Hora de entrada',editing?.Hora_entrada)}
+          ${rhFieldTime('Hora_salida','Hora de salida',editing?.Hora_salida)}
+        </div>
+        ${rhFieldDays('Dias_trabajo','Días de la semana que trabaja', diasDef)}
       </div>
-      ${rhFieldSelect('Activo','Estado',['Activo','Inactivo'], String(editing?.Activo||'').toLowerCase() === 'inactivo' ? 'Inactivo' : 'Activo')}`;
+
+      <div class="rh-section">
+        <div class="rh-section-title">🏥 IMSS y SAT</div>
+        <div class="rh-grid-2">
+          ${rhFieldText('NSS','No. de Seguridad Social (IMSS)',editing?.NSS)}
+          ${rhFieldText('RFC','RFC',editing?.RFC)}
+        </div>
+      </div>
+
+      <div class="rh-section">
+        <div class="rh-section-title">🏦 Datos bancarios</div>
+        <div class="rh-grid-2">
+          ${rhFieldText('Banco','Banco',editing?.Banco)}
+          ${rhFieldText('CLABE','CLABE / Cuenta',editing?.CLABE)}
+          ${rhFieldSelect('Tipo_cuenta','Tipo de cuenta',['Nómina','Ahorro','Cheques','Débito'],editing?.Tipo_cuenta)}
+          ${rhFieldText('Cuentahabiente','Cuentahabiente',editing?.Cuentahabiente)}
+        </div>
+      </div>
+
+      <div class="rh-section">
+        <div class="rh-section-title">🚨 Contacto de emergencia</div>
+        <div class="rh-grid-2">
+          ${rhFieldText('Contacto_emergencia','Nombre del contacto',editing?.Contacto_emergencia)}
+          ${rhFieldText('Tel_emergencia','Teléfono',editing?.Tel_emergencia)}
+        </div>
+      </div>`;
   } else if (kind === 'asistencia') {
     editing = id ? (RH_STATE.asistencia || []).find(r => String(r.ID) === String(id)) : null;
     title = editing ? '✏️ Editar asistencia' : '＋ Registrar asistencia';
@@ -23507,6 +23552,16 @@ window.rhOpenForm = function (kind, id) {
   back.classList.add('visible');
   panel.classList.remove('hidden');
   panel.classList.add('open');
+  if (kind === 'empleado') {
+    setTimeout(() => {
+      const fi = document.querySelector('#rh-form-body [data-rh-field="Fecha_ingreso"]');
+      const fr = document.querySelector('#rh-form-body [data-rh-field="Fecha_retiro"]');
+      const out = document.getElementById('rh-antiguedad');
+      const refresh = () => { if (out) out.value = rhCalcAntiguedad(fi?.value, fr?.value); };
+      if (fi) fi.addEventListener('change', refresh);
+      if (fr) fr.addEventListener('change', refresh);
+    }, 50);
+  }
 };
 
 window.rhCloseForm = function () {
@@ -23525,6 +23580,15 @@ window.rhSaveCurrentForm = async function () {
   inputs.forEach(el => { payload[el.getAttribute('data-rh-field')] = el.value || ''; });
   // Si es edición, conserva el ID
   if (ctx.editing && ctx.editing.ID) payload.ID = ctx.editing.ID;
+  // Empacar Dias_trabajo desde checkboxes
+  const diasBoxes = document.querySelectorAll('#rh-form-body input[data-rh-day]:checked');
+  if (diasBoxes.length || document.querySelector('#rh-form-body input[data-rh-day]')) {
+    payload.Dias_trabajo = Array.from(diasBoxes).map(b => b.getAttribute('data-rh-day')).join(',');
+  }
+  // Sincronizar Estado <-> Activo (backward compat)
+  if (ctx.kind === 'empleado' && payload.Estado) {
+    payload.Activo = (payload.Estado === 'Activo') ? 'Activo' : 'Inactivo';
+  }
   // Validación mínima
   if (ctx.kind === 'empleado') {
     if (!payload.Nombre) { alert('El nombre es obligatorio.'); return; }
@@ -23589,4 +23653,40 @@ function rhFieldEmpleadoSelect(val, empleadoOpts) {
   return `<div class="rh-field"><label>Empleado</label><select data-rh-field="Empleado_ID">
     <option value="">— Seleccionar empleado —</option>${empleadoOpts.replace(/value="([^"]+)"/g, (m, v) => v === val ? `value="${v}" selected` : `value="${v}"`)}
   </select></div>`;
+}
+function rhFieldTime(name, label, val) {
+  return `<div class="rh-field"><label>${esc(label)}</label><input type="time" data-rh-field="${esc(name)}" value="${esc(val || '')}"></div>`;
+}
+function rhFieldDays(name, label, selected) {
+  const DIAS = [['L','Lun'],['M','Mar'],['Mi','Mié'],['J','Jue'],['V','Vie'],['S','Sáb'],['D','Dom']];
+  const sel = new Set(selected || []);
+  return `<div class="rh-field"><label>${esc(label)}</label>
+    <div class="rh-days">${DIAS.map(([k, lbl]) => `
+      <label class="rh-day ${sel.has(k) ? 'on' : ''}">
+        <input type="checkbox" data-rh-day="${k}" ${sel.has(k) ? 'checked' : ''}
+          onchange="this.parentElement.classList.toggle('on', this.checked)">
+        <span>${lbl}</span>
+      </label>`).join('')}</div>
+  </div>`;
+}
+function rhCalcAntiguedad(ingreso, retiro) {
+  if (!ingreso) return '—';
+  const a = new Date(ingreso);
+  if (isNaN(a)) return '—';
+  const b = retiro ? new Date(retiro) : new Date();
+  if (isNaN(b) || b < a) return '—';
+  let years = b.getFullYear() - a.getFullYear();
+  let months = b.getMonth() - a.getMonth();
+  let days = b.getDate() - a.getDate();
+  if (days < 0) {
+    months--;
+    const prev = new Date(b.getFullYear(), b.getMonth(), 0);
+    days += prev.getDate();
+  }
+  if (months < 0) { months += 12; years--; }
+  const parts = [];
+  if (years) parts.push(years + ' año' + (years === 1 ? '' : 's'));
+  if (months) parts.push(months + ' mes' + (months === 1 ? '' : 'es'));
+  if (!years && !months) parts.push(days + ' día' + (days === 1 ? '' : 's'));
+  return parts.join(', ') || '—';
 }

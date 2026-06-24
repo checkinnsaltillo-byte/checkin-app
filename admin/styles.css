@@ -5905,3 +5905,52 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   gap: 0 12px;
 }
 @media (max-width: 700px) { .rh-grid-2 { grid-template-columns: 1fr; } }
+
+/* ─── RH: secciones del formulario empleado ─── */
+.rh-section {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px 16px 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.03);
+}
+.rh-section-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #ea580c;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #fed7aa;
+}
+.rh-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.rh-day {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  background: #fff;
+  transition: all .15s;
+  user-select: none;
+}
+.rh-day input { display: none; }
+.rh-day:hover { border-color: #fdba74; color: #ea580c; }
+.rh-day.on {
+  background: linear-gradient(180deg, #fb923c, #ea580c);
+  border-color: #ea580c;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(234,88,12,.3);
+}
