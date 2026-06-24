@@ -8182,7 +8182,7 @@ function esc(v) {
 
 /** Cambia entre módulos de nivel superior */
 function switchModule(mod) {
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== mod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === mod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === mod);
@@ -8278,6 +8278,9 @@ function switchModule(mod) {
   }
   if (mod === "ocupacion") {
     if (typeof ocupInit === 'function') ocupInit();
+  }
+  if (mod === "rh") {
+    if (typeof rhInit === 'function') rhInit();
   }
 }
 
@@ -23212,4 +23215,378 @@ function ocupChartBindBrush(cont, allMonths, brushML, brushMT, brushInnerW, brus
   cont.querySelector('#ocup-gx-brush-window')?.addEventListener('pointerdown', (e) => startDrag(e, 'window'));
   cont.querySelector('#ocup-gx-brush-handle-left')?.addEventListener('pointerdown', (e) => startDrag(e, 'left'));
   cont.querySelector('#ocup-gx-brush-handle-right')?.addEventListener('pointerdown', (e) => startDrag(e, 'right'));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║  MÓDULO RECURSOS HUMANOS                                              ║
+// ║  4 sub-tabs: Expediente, Asistencia, Ausencias, Compensaciones        ║
+// ║  CRUD simple via /rh/{empleados|asistencia|ausencias|compensaciones}  ║
+// ═══════════════════════════════════════════════════════════════════════
+const RH_STATE = {
+  initialized: false,
+  tab: 'expediente',
+  empleados: [],       // catalogo de empleados
+  asistencia: [],
+  ausencias: [],
+  compensaciones: [],
+  formContext: null,   // { kind: 'empleado'|..., editing: row|null }
+};
+
+function rhInit() {
+  if (RH_STATE.initialized) {
+    rhSetTab(RH_STATE.tab);
+    return;
+  }
+  RH_STATE.initialized = true;
+  // Carga catalogo de empleados primero — todos los demás tabs lo necesitan
+  rhLoadEmpleados().then(() => rhSetTab('expediente'));
+}
+
+window.rhSetTab = function (tab) {
+  RH_STATE.tab = tab;
+  document.querySelectorAll('.rh-tab').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === tab));
+  const view = document.getElementById('rh-view');
+  if (!view) return;
+  view.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`;
+  if (tab === 'expediente') rhRenderExpediente();
+  else if (tab === 'asistencia') rhLoadAsistencia().then(rhRenderAsistencia);
+  else if (tab === 'ausencias') rhLoadAusencias().then(rhRenderAusencias);
+  else if (tab === 'compensaciones') rhLoadCompensaciones().then(rhRenderCompensaciones);
+};
+
+// ── Loaders ──
+async function rhLoadEmpleados() {
+  try {
+    const res = await fetch(`${BACKEND}/rh/empleados?_cb=${Date.now()}`, { cache: 'no-store' });
+    const data = await res.json();
+    if (data.ok) RH_STATE.empleados = data.rows || [];
+  } catch (e) { console.warn('[RH] empleados:', e.message); }
+}
+async function rhLoadAsistencia() {
+  try {
+    const res = await fetch(`${BACKEND}/rh/asistencia?_cb=${Date.now()}`, { cache: 'no-store' });
+    const data = await res.json();
+    if (data.ok) RH_STATE.asistencia = data.rows || [];
+  } catch (e) { console.warn('[RH] asistencia:', e.message); }
+}
+async function rhLoadAusencias() {
+  try {
+    const res = await fetch(`${BACKEND}/rh/ausencias?_cb=${Date.now()}`, { cache: 'no-store' });
+    const data = await res.json();
+    if (data.ok) RH_STATE.ausencias = data.rows || [];
+  } catch (e) { console.warn('[RH] ausencias:', e.message); }
+}
+async function rhLoadCompensaciones() {
+  try {
+    const res = await fetch(`${BACKEND}/rh/compensaciones?_cb=${Date.now()}`, { cache: 'no-store' });
+    const data = await res.json();
+    if (data.ok) RH_STATE.compensaciones = data.rows || [];
+  } catch (e) { console.warn('[RH] compensaciones:', e.message); }
+}
+
+// ── Helpers UI ──
+function rhFmtMoney(n) {
+  const v = Number(n || 0);
+  try { return new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN', maximumFractionDigits:0 }).format(v); }
+  catch (_) { return '$' + Math.round(v).toLocaleString('es-MX'); }
+}
+function rhEmpleadoNombre(id) {
+  const e = (RH_STATE.empleados || []).find(x => String(x.ID) === String(id));
+  return e ? e.Nombre : id;
+}
+
+// ── Vistas (listas) ──
+function rhRenderExpediente() {
+  const view = document.getElementById('rh-view');
+  const rows = RH_STATE.empleados || [];
+  view.innerHTML = `
+    <div class="rh-toolbar">
+      <div>
+        <div class="rh-toolbar-title">📋 Expediente del personal</div>
+        <div class="rh-toolbar-count">${rows.length} empleado(s)</div>
+      </div>
+      <button type="button" class="rh-btn-add" onclick="rhOpenForm('empleado', null)">＋ Agregar empleado</button>
+    </div>
+    ${rows.length === 0
+      ? `<div class="rh-empty">Sin empleados registrados. Pulsa <strong>＋ Agregar empleado</strong> para crear el primero.</div>`
+      : `<div style="overflow-x:auto"><table class="rh-table">
+          <thead><tr>
+            <th>Nombre</th><th>Puesto</th><th>RFC</th><th>Ingreso</th><th>Contrato</th>
+            <th style="text-align:right">Salario</th><th>Teléfono</th><th>Estado</th>
+          </tr></thead>
+          <tbody>${rows.map(r => `
+            <tr onclick="rhOpenForm('empleado','${esc(r.ID)}')">
+              <td><strong>${esc(r.Nombre || '—')}</strong></td>
+              <td>${esc(r.Puesto || '—')}</td>
+              <td>${esc(r.RFC || '—')}</td>
+              <td>${esc(r.Fecha_ingreso || '—')}</td>
+              <td>${r.Tipo_contrato ? `<span class="rh-chip rh-chip-tipo">${esc(r.Tipo_contrato)}</span>` : '—'}</td>
+              <td style="text-align:right;font-weight:700">${r.Salario_mensual ? rhFmtMoney(r.Salario_mensual) : '—'}</td>
+              <td>${esc(r.Telefono || '—')}</td>
+              <td>${(String(r.Activo||'').toLowerCase() === 'false' || r.Activo === '' || r.Activo === '0')
+                ? `<span class="rh-chip rh-chip-inactivo">✕ Inactivo</span>`
+                : `<span class="rh-chip rh-chip-activo">✓ Activo</span>`}</td>
+            </tr>`).join('')}</tbody>
+        </table></div>`}`;
+}
+
+function rhRenderAsistencia() {
+  const view = document.getElementById('rh-view');
+  const rows = RH_STATE.asistencia || [];
+  view.innerHTML = `
+    <div class="rh-toolbar">
+      <div>
+        <div class="rh-toolbar-title">🕐 Asistencia</div>
+        <div class="rh-toolbar-count">${rows.length} registro(s)</div>
+      </div>
+      <button type="button" class="rh-btn-add" onclick="rhOpenForm('asistencia', null)">＋ Registrar asistencia</button>
+    </div>
+    ${rows.length === 0
+      ? `<div class="rh-empty">Sin registros de asistencia.</div>`
+      : `<div style="overflow-x:auto"><table class="rh-table">
+          <thead><tr>
+            <th>Empleado</th><th>Fecha</th><th>Entrada</th><th>Salida</th>
+            <th>Horas</th><th>Extra</th><th>Observaciones</th>
+          </tr></thead>
+          <tbody>${rows.map(r => `
+            <tr onclick="rhOpenForm('asistencia','${esc(r.ID)}')">
+              <td><strong>${esc(rhEmpleadoNombre(r.Empleado_ID) || r.Empleado_Nombre || '—')}</strong></td>
+              <td>${esc(r.Fecha || '—')}</td>
+              <td>${esc(r.Entrada || '—')}</td>
+              <td>${esc(r.Salida || '—')}</td>
+              <td>${esc(r.Horas || '—')}</td>
+              <td>${r.Horas_extra ? `<strong style="color:#ea580c">${esc(r.Horas_extra)}</strong>` : '—'}</td>
+              <td>${esc(r.Observaciones || '—')}</td>
+            </tr>`).join('')}</tbody>
+        </table></div>`}`;
+}
+
+function rhRenderAusencias() {
+  const view = document.getElementById('rh-view');
+  const rows = RH_STATE.ausencias || [];
+  view.innerHTML = `
+    <div class="rh-toolbar">
+      <div>
+        <div class="rh-toolbar-title">🌴 Ausencias (vacaciones, permisos, incapacidades)</div>
+        <div class="rh-toolbar-count">${rows.length} registro(s)</div>
+      </div>
+      <button type="button" class="rh-btn-add" onclick="rhOpenForm('ausencia', null)">＋ Registrar ausencia</button>
+    </div>
+    ${rows.length === 0
+      ? `<div class="rh-empty">Sin ausencias registradas.</div>`
+      : `<div style="overflow-x:auto"><table class="rh-table">
+          <thead><tr>
+            <th>Empleado</th><th>Tipo</th><th>Inicio</th><th>Fin</th>
+            <th>Días</th><th>Estatus</th><th>Comentarios</th>
+          </tr></thead>
+          <tbody>${rows.map(r => {
+            const est = String(r.Estatus || '').toLowerCase();
+            const chip = est.includes('aprob') ? `<span class="rh-chip rh-chip-est-ap">✓ ${esc(r.Estatus)}</span>`
+                       : est.includes('rech')  ? `<span class="rh-chip rh-chip-est-rc">✕ ${esc(r.Estatus)}</span>`
+                       : est.includes('sol') || est.includes('pend') ? `<span class="rh-chip rh-chip-est-pe">⏳ ${esc(r.Estatus)}</span>`
+                       : esc(r.Estatus || '—');
+            return `
+            <tr onclick="rhOpenForm('ausencia','${esc(r.ID)}')">
+              <td><strong>${esc(rhEmpleadoNombre(r.Empleado_ID) || r.Empleado_Nombre || '—')}</strong></td>
+              <td><span class="rh-chip rh-chip-tipo">${esc(r.Tipo || '—')}</span></td>
+              <td>${esc(r.Fecha_inicio || '—')}</td>
+              <td>${esc(r.Fecha_fin || '—')}</td>
+              <td><strong>${esc(r.Dias || '—')}</strong></td>
+              <td>${chip}</td>
+              <td>${esc(r.Comentarios || '—')}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>`}`;
+}
+
+function rhRenderCompensaciones() {
+  const view = document.getElementById('rh-view');
+  const rows = RH_STATE.compensaciones || [];
+  view.innerHTML = `
+    <div class="rh-toolbar">
+      <div>
+        <div class="rh-toolbar-title">💰 Compensaciones (aguinaldo, prima vacacional, vales, bonos)</div>
+        <div class="rh-toolbar-count">${rows.length} registro(s)</div>
+      </div>
+      <button type="button" class="rh-btn-add" onclick="rhOpenForm('compensacion', null)">＋ Registrar compensación</button>
+    </div>
+    ${rows.length === 0
+      ? `<div class="rh-empty">Sin compensaciones registradas.</div>`
+      : `<div style="overflow-x:auto"><table class="rh-table">
+          <thead><tr>
+            <th>Empleado</th><th>Concepto</th><th>Periodo</th>
+            <th style="text-align:right">Monto</th><th>Fecha pago</th><th>Comentarios</th>
+          </tr></thead>
+          <tbody>${rows.map(r => `
+            <tr onclick="rhOpenForm('compensacion','${esc(r.ID)}')">
+              <td><strong>${esc(rhEmpleadoNombre(r.Empleado_ID) || r.Empleado_Nombre || '—')}</strong></td>
+              <td><span class="rh-chip rh-chip-tipo">${esc(r.Concepto || '—')}</span></td>
+              <td>${esc(r.Periodo || '—')}</td>
+              <td style="text-align:right;font-weight:800;color:#16a34a">${r.Monto ? rhFmtMoney(r.Monto) : '—'}</td>
+              <td>${esc(r.Fecha_pago || '—')}</td>
+              <td>${esc(r.Comentarios || '—')}</td>
+            </tr>`).join('')}</tbody>
+        </table></div>`}`;
+}
+
+// ── Form (slide-in panel) ──
+window.rhOpenForm = function (kind, id) {
+  const empleadoOpts = (RH_STATE.empleados || [])
+    .map(e => `<option value="${esc(e.ID)}">${esc(e.Nombre)}${e.Puesto ? ' — ' + esc(e.Puesto) : ''}</option>`).join('');
+  let editing = null;
+  let title = '';
+  let bodyHtml = '';
+  if (kind === 'empleado') {
+    editing = id ? (RH_STATE.empleados || []).find(r => String(r.ID) === String(id)) : null;
+    title = editing ? '✏️ Editar empleado' : '＋ Nuevo empleado';
+    bodyHtml = `
+      <div class="rh-grid-2">
+        ${rhFieldText('Nombre','Nombre completo',editing?.Nombre)}
+        ${rhFieldText('Puesto','Puesto',editing?.Puesto)}
+        ${rhFieldText('RFC','RFC',editing?.RFC)}
+        ${rhFieldText('CURP','CURP',editing?.CURP)}
+        ${rhFieldDate('Fecha_nacimiento','Fecha de nacimiento',editing?.Fecha_nacimiento)}
+        ${rhFieldDate('Fecha_ingreso','Fecha de ingreso',editing?.Fecha_ingreso)}
+        ${rhFieldSelect('Tipo_contrato','Tipo de contrato',['Indeterminado','Determinado','Honorarios','Por obra','Eventual'],editing?.Tipo_contrato)}
+        ${rhFieldNumber('Salario_mensual','Salario mensual ($)',editing?.Salario_mensual)}
+        ${rhFieldText('Email','Email',editing?.Email)}
+        ${rhFieldText('Telefono','Teléfono',editing?.Telefono)}
+      </div>
+      ${rhFieldText('Direccion','Dirección',editing?.Direccion)}
+      <div class="rh-grid-2">
+        ${rhFieldText('Contacto_emergencia','Contacto de emergencia (nombre)',editing?.Contacto_emergencia)}
+        ${rhFieldText('Tel_emergencia','Teléfono de emergencia',editing?.Tel_emergencia)}
+      </div>
+      ${rhFieldSelect('Activo','Estado',['Activo','Inactivo'], String(editing?.Activo||'').toLowerCase() === 'inactivo' ? 'Inactivo' : 'Activo')}`;
+  } else if (kind === 'asistencia') {
+    editing = id ? (RH_STATE.asistencia || []).find(r => String(r.ID) === String(id)) : null;
+    title = editing ? '✏️ Editar asistencia' : '＋ Registrar asistencia';
+    bodyHtml = `
+      ${rhFieldEmpleadoSelect(editing?.Empleado_ID, empleadoOpts)}
+      <div class="rh-grid-2">
+        ${rhFieldDate('Fecha','Fecha',editing?.Fecha || new Date().toISOString().slice(0,10))}
+        ${rhFieldText('Entrada','Hora de entrada (ej. 08:00)',editing?.Entrada)}
+        ${rhFieldText('Salida','Hora de salida (ej. 17:00)',editing?.Salida)}
+        ${rhFieldNumber('Horas','Horas trabajadas',editing?.Horas)}
+        ${rhFieldNumber('Horas_extra','Horas extra',editing?.Horas_extra)}
+      </div>
+      ${rhFieldTextarea('Observaciones','Observaciones',editing?.Observaciones)}`;
+  } else if (kind === 'ausencia') {
+    editing = id ? (RH_STATE.ausencias || []).find(r => String(r.ID) === String(id)) : null;
+    title = editing ? '✏️ Editar ausencia' : '＋ Registrar ausencia';
+    bodyHtml = `
+      ${rhFieldEmpleadoSelect(editing?.Empleado_ID, empleadoOpts)}
+      <div class="rh-grid-2">
+        ${rhFieldSelect('Tipo','Tipo',['Vacaciones','Permiso con goce','Permiso sin goce','Incapacidad','Maternidad','Paternidad','Otro'],editing?.Tipo)}
+        ${rhFieldSelect('Estatus','Estatus',['Solicitada','Aprobada','Rechazada'],editing?.Estatus || 'Solicitada')}
+        ${rhFieldDate('Fecha_inicio','Fecha de inicio',editing?.Fecha_inicio)}
+        ${rhFieldDate('Fecha_fin','Fecha de fin',editing?.Fecha_fin)}
+        ${rhFieldNumber('Dias','Días',editing?.Dias)}
+      </div>
+      ${rhFieldTextarea('Comentarios','Comentarios',editing?.Comentarios)}`;
+  } else if (kind === 'compensacion') {
+    editing = id ? (RH_STATE.compensaciones || []).find(r => String(r.ID) === String(id)) : null;
+    title = editing ? '✏️ Editar compensación' : '＋ Registrar compensación';
+    bodyHtml = `
+      ${rhFieldEmpleadoSelect(editing?.Empleado_ID, empleadoOpts)}
+      <div class="rh-grid-2">
+        ${rhFieldSelect('Concepto','Concepto',['Aguinaldo','Prima vacacional','Vales de despensa','Bono desempeño','Bono productividad','Comisión','Otra prestación'],editing?.Concepto)}
+        ${rhFieldText('Periodo','Periodo (ej. Diciembre 2026, S2-2026)',editing?.Periodo)}
+        ${rhFieldNumber('Monto','Monto ($)',editing?.Monto)}
+        ${rhFieldDate('Fecha_pago','Fecha de pago',editing?.Fecha_pago)}
+      </div>
+      ${rhFieldTextarea('Comentarios','Comentarios',editing?.Comentarios)}`;
+  }
+  RH_STATE.formContext = { kind, editing };
+  document.getElementById('rh-form-title').textContent = title;
+  document.getElementById('rh-form-body').innerHTML = bodyHtml;
+  const panel = document.getElementById('rh-form-panel');
+  const back  = document.getElementById('rh-form-backdrop');
+  back.classList.remove('hidden');
+  back.offsetHeight;
+  back.classList.add('visible');
+  panel.classList.remove('hidden');
+  panel.classList.add('open');
+};
+
+window.rhCloseForm = function () {
+  const panel = document.getElementById('rh-form-panel');
+  const back  = document.getElementById('rh-form-backdrop');
+  panel.classList.remove('open');
+  back.classList.remove('visible');
+  setTimeout(() => { panel.classList.add('hidden'); back.classList.add('hidden'); }, 280);
+};
+
+window.rhSaveCurrentForm = async function () {
+  const ctx = RH_STATE.formContext;
+  if (!ctx) return;
+  const inputs = document.querySelectorAll('#rh-form-body [data-rh-field]');
+  const payload = {};
+  inputs.forEach(el => { payload[el.getAttribute('data-rh-field')] = el.value || ''; });
+  // Si es edición, conserva el ID
+  if (ctx.editing && ctx.editing.ID) payload.ID = ctx.editing.ID;
+  // Validación mínima
+  if (ctx.kind === 'empleado') {
+    if (!payload.Nombre) { alert('El nombre es obligatorio.'); return; }
+  } else if (!payload.Empleado_ID) {
+    alert('Selecciona un empleado.'); return;
+  }
+  // Empleado_Nombre para mostrar en tablas (denormalizado)
+  if (payload.Empleado_ID) {
+    payload.Empleado_Nombre = rhEmpleadoNombre(payload.Empleado_ID);
+  }
+  const endpoint = {
+    empleado: '/rh/empleados',
+    asistencia: '/rh/asistencia',
+    ausencia: '/rh/ausencias',
+    compensacion: '/rh/compensaciones',
+  }[ctx.kind];
+  const btn = document.querySelector('#rh-form-panel .inc-btn-pri');
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Guardando…'; }
+  try {
+    const res = await fetch(`${BACKEND}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload }),
+    });
+    const out = await res.json();
+    if (!out.ok) throw new Error(out.error || 'Error');
+    rhCloseForm();
+    // Recargar el catálogo si era empleado, luego re-render
+    if (ctx.kind === 'empleado') await rhLoadEmpleados();
+    if (ctx.kind === 'asistencia') await rhLoadAsistencia();
+    if (ctx.kind === 'ausencia') await rhLoadAusencias();
+    if (ctx.kind === 'compensacion') await rhLoadCompensaciones();
+    rhSetTab(RH_STATE.tab);
+  } catch (e) {
+    alert('No se pudo guardar:\n' + (e.message || e));
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+  }
+};
+
+// ── Helpers de campos ──
+function rhFieldText(name, label, val) {
+  return `<div class="rh-field"><label>${esc(label)}</label><input type="text" data-rh-field="${esc(name)}" value="${esc(val || '')}"></div>`;
+}
+function rhFieldDate(name, label, val) {
+  return `<div class="rh-field"><label>${esc(label)}</label><input type="date" data-rh-field="${esc(name)}" value="${esc(val || '')}"></div>`;
+}
+function rhFieldNumber(name, label, val) {
+  return `<div class="rh-field"><label>${esc(label)}</label><input type="number" step="0.01" data-rh-field="${esc(name)}" value="${esc(val || '')}"></div>`;
+}
+function rhFieldTextarea(name, label, val) {
+  return `<div class="rh-field"><label>${esc(label)}</label><textarea rows="3" data-rh-field="${esc(name)}">${esc(val || '')}</textarea></div>`;
+}
+function rhFieldSelect(name, label, opts, val) {
+  return `<div class="rh-field"><label>${esc(label)}</label><select data-rh-field="${esc(name)}">
+    <option value="">— Seleccionar —</option>
+    ${opts.map(o => `<option value="${esc(o)}" ${o === val ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+  </select></div>`;
+}
+function rhFieldEmpleadoSelect(val, empleadoOpts) {
+  return `<div class="rh-field"><label>Empleado</label><select data-rh-field="Empleado_ID">
+    <option value="">— Seleccionar empleado —</option>${empleadoOpts.replace(/value="([^"]+)"/g, (m, v) => v === val ? `value="${v}" selected` : `value="${v}"`)}
+  </select></div>`;
 }
