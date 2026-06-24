@@ -23299,10 +23299,17 @@ function rhEmpleadoNombre(id) {
 function rhRenderExpediente() {
   const view = document.getElementById('rh-view');
   const rows = RH_STATE.empleados || [];
+  const nombreCompleto = (r) => [r.Nombre, r.Apellido_paterno, r.Apellido_materno].filter(Boolean).join(' ') || '—';
+  const estadoChip = (r) => {
+    const est = r.Estado || (String(r.Activo||'').toLowerCase() === 'inactivo' ? 'Inactivo' : 'Activo');
+    const cls = est === 'Activo' ? 'rh-chip-activo' : est === 'Suspendido' ? 'rh-chip-est-pe' : 'rh-chip-inactivo';
+    const ico = est === 'Activo' ? '✓' : est === 'Suspendido' ? '⏸' : '✕';
+    return `<span class="rh-chip ${cls}">${ico} ${esc(est)}</span>`;
+  };
   view.innerHTML = `
     <div class="rh-toolbar">
       <div>
-        <div class="rh-toolbar-title">📋 Expediente del personal</div>
+        <div class="rh-toolbar-title">👥 Personal</div>
         <div class="rh-toolbar-count">${rows.length} empleado(s)</div>
       </div>
       <button type="button" class="rh-btn-add" onclick="rhOpenForm('empleado', null)">＋ Agregar empleado</button>
@@ -23311,22 +23318,50 @@ function rhRenderExpediente() {
       ? `<div class="rh-empty">Sin empleados registrados. Pulsa <strong>＋ Agregar empleado</strong> para crear el primero.</div>`
       : `<div style="overflow-x:auto"><table class="rh-table">
           <thead><tr>
-            <th>Nombre</th><th>Puesto</th><th>RFC</th><th>Ingreso</th><th>Contrato</th>
-            <th style="text-align:right">Salario</th><th>Teléfono</th><th>Estado</th>
+            <th>No. emp.</th>
+            <th>Nombre completo</th>
+            <th>Cargo</th>
+            <th>Estado</th>
+            <th>Ingreso</th>
+            <th>Antigüedad</th>
+            <th>Horario</th>
+            <th>Días</th>
+            <th>Periodicidad</th>
+            <th style="text-align:right">Salario</th>
+            <th>Celular</th>
+            <th>Email</th>
+            <th>RFC</th>
+            <th>CURP</th>
+            <th>NSS</th>
+            <th>Banco</th>
+            <th>CLABE</th>
+            <th>Tipo cta.</th>
           </tr></thead>
-          <tbody>${rows.map(r => `
+          <tbody>${rows.map(r => {
+            const horario = (r.Hora_entrada || r.Hora_salida) ? `${esc(r.Hora_entrada||'—')}–${esc(r.Hora_salida||'—')}` : '—';
+            const ant = rhCalcAntiguedad(r.Fecha_ingreso, r.Fecha_retiro);
+            return `
             <tr onclick="rhOpenForm('empleado','${esc(r.ID)}')">
-              <td><strong>${esc(r.Nombre || '—')}</strong></td>
+              <td style="font-family:ui-monospace,monospace;font-size:11px;color:#64748b">${esc(r.ID || '—')}</td>
+              <td><strong>${esc(nombreCompleto(r))}</strong></td>
               <td>${esc(r.Puesto || '—')}</td>
-              <td>${esc(r.RFC || '—')}</td>
+              <td>${estadoChip(r)}</td>
               <td>${esc(r.Fecha_ingreso || '—')}</td>
-              <td>${r.Tipo_contrato ? `<span class="rh-chip rh-chip-tipo">${esc(r.Tipo_contrato)}</span>` : '—'}</td>
+              <td>${esc(ant)}</td>
+              <td style="font-family:ui-monospace,monospace;font-size:12px">${horario}</td>
+              <td style="font-size:12px">${esc(r.Dias_trabajo || '—')}</td>
+              <td>${r.Periodicidad_pago ? `<span class="rh-chip rh-chip-tipo">${esc(r.Periodicidad_pago)}</span>` : '—'}</td>
               <td style="text-align:right;font-weight:700">${r.Salario_mensual ? rhFmtMoney(r.Salario_mensual) : '—'}</td>
-              <td>${esc(r.Telefono || '—')}</td>
-              <td>${(String(r.Activo||'').toLowerCase() === 'false' || r.Activo === '' || r.Activo === '0')
-                ? `<span class="rh-chip rh-chip-inactivo">✕ Inactivo</span>`
-                : `<span class="rh-chip rh-chip-activo">✓ Activo</span>`}</td>
-            </tr>`).join('')}</tbody>
+              <td>${esc(r.Celular || r.Telefono || '—')}</td>
+              <td>${esc(r.Email || '—')}</td>
+              <td style="font-family:ui-monospace,monospace;font-size:11px">${esc(r.RFC || '—')}</td>
+              <td style="font-family:ui-monospace,monospace;font-size:11px">${esc(r.CURP || '—')}</td>
+              <td style="font-family:ui-monospace,monospace;font-size:11px">${esc(r.NSS || '—')}</td>
+              <td>${esc(r.Banco || '—')}</td>
+              <td style="font-family:ui-monospace,monospace;font-size:11px">${esc(r.CLABE || '—')}</td>
+              <td>${r.Tipo_cuenta ? `<span class="rh-chip rh-chip-tipo">${esc(r.Tipo_cuenta)}</span>` : '—'}</td>
+            </tr>`;
+          }).join('')}</tbody>
         </table></div>`}`;
 }
 
