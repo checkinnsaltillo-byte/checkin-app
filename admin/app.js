@@ -25169,3 +25169,38 @@ window.huespedesEnviarTicketCorreo = async function (recordId) {
     if (typeof hideLoading === 'function') hideLoading();
   }
 };
+
+// ─── Panel slide-in: Crear registro manual (iframe → www.check-inn.mx/public/registro/) ───
+window.lgOpenManualRegistro = function () {
+  const back = document.getElementById('lg-manual-backdrop');
+  const panel = document.getElementById('lg-manual-panel');
+  const iframe = document.getElementById('lg-manual-iframe');
+  if (!back || !panel || !iframe) return;
+  if (iframe.src === 'about:blank' || !iframe.src.includes('check-inn.mx')) {
+    iframe.src = 'https://www.check-inn.mx/public/registro/#express';
+  }
+  back.classList.remove('hidden');
+  panel.classList.remove('hidden');
+  back.offsetHeight; // force reflow
+  back.style.opacity = '1';
+  panel.style.transform = 'translateX(0)';
+  document.body.style.overflow = 'hidden';
+};
+window.lgCloseManualRegistro = function () {
+  const back = document.getElementById('lg-manual-backdrop');
+  const panel = document.getElementById('lg-manual-panel');
+  if (!back || !panel) return;
+  back.style.opacity = '0';
+  panel.style.transform = 'translateX(100%)';
+  document.body.style.overflow = '';
+  setTimeout(() => {
+    back.classList.add('hidden');
+    panel.classList.add('hidden');
+  }, 300);
+};
+// Cierre con Esc
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const p = document.getElementById('lg-manual-panel');
+  if (p && !p.classList.contains('hidden')) lgCloseManualRegistro();
+});

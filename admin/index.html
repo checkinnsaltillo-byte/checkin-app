@@ -1173,6 +1173,7 @@
           <button class="btn-limpiar" style="margin:0" onclick="lgRefreshAll()" title="Recarga Lodgify + Reservaciones desde Sheets (instantáneo, no consulta Lodgify API)">↻ Refrescar</button>
           <button class="btn-limpiar" style="margin:0;background:#0d9488;color:#fff;border-color:#0d9488" onclick="lodgifySync(false)" title="Sincroniza últimos 60d + futuro 1 año desde Lodgify">🔄 Sincronizar</button>
           <button class="btn-limpiar" style="margin:0" onclick="lodgifySync(true)" title="Sincronización completa: 2 años atrás/adelante (2-5 min)">⏳ Sync completa</button>
+          <button class="btn-limpiar" style="margin:0;background:#7c3aed;color:#fff;border-color:#7c3aed" onclick="lgOpenManualRegistro()" title="Abre el formulario express de registro manual">＋ Crear registro manual</button>
         </div>
       </div>
 
@@ -1240,6 +1241,29 @@
                   style="position:absolute;top:14px;right:14px;width:36px;height:36px;border:none;background:#fff;color:#1f2937;border-radius:50%;font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18);z-index:10">✕</button>
           <div id="lg-detail-body" style="padding:22px"></div>
         </div>
+      </div>
+      <!-- Panel slide-in: Crear registro manual (express) -->
+      <div id="lg-manual-backdrop" class="hidden" onclick="lgCloseManualRegistro()"
+           style="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9100;opacity:0;transition:opacity .25s"></div>
+      <div id="lg-manual-panel" class="hidden"
+           style="position:fixed;top:0;right:0;height:100vh;width:100%;max-width:980px;background:#fff;z-index:9200;box-shadow:-16px 0 40px rgba(15,23,42,.18);transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:linear-gradient(180deg,#faf5ff,#fff)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">⚡</span>
+            <div>
+              <div style="font-size:14px;font-weight:800;color:#0f172a">Crear registro manual</div>
+              <div style="font-size:11px;color:#64748b">Adentro: pulsa "Registro exprés de nueva reservación"</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <a id="lg-manual-open-new" href="https://www.check-inn.mx/public/registro/" target="_blank" rel="noopener"
+               style="padding:6px 10px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none">↗ Nueva pestaña</a>
+            <button type="button" onclick="lgCloseManualRegistro()" aria-label="Cerrar"
+                    style="width:32px;height:32px;border:none;background:#f1f5f9;color:#475569;border-radius:8px;font-weight:900;font-size:16px;cursor:pointer">✕</button>
+          </div>
+        </div>
+        <iframe id="lg-manual-iframe" src="about:blank"
+                style="flex:1;width:100%;border:0;background:#fff"></iframe>
       </div>
     </div><!-- /module-lodgify -->
 
@@ -2062,6 +2086,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=442"></script>
+  <script src="app.js?v=443"></script>
 </body>
 </html>
