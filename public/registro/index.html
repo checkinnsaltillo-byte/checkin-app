@@ -14558,6 +14558,14 @@ document.addEventListener("DOMContentLoaded", function(){
   function bindEvents(){
     $("btnGoLogin")?.addEventListener("click", gotoLoginPhone);
     $("btnGoExpress")?.addEventListener("click", gotoExpressForm);
+    // Deep-link: ?express=1 o #express abre directo el form exprés
+    try {
+      const hash = String(window.location.hash || '').toLowerCase();
+      const qs   = new URLSearchParams(window.location.search || '');
+      if (hash === '#express' || qs.get('express') === '1') {
+        setTimeout(() => { try { gotoExpressForm(); } catch(_e){} }, 50);
+      }
+    } catch(_e){}
     $("btnGoVehiculos")?.addEventListener("click", () => openVehiculosPopup());
     $("btnLoginBack1")?.addEventListener("click", gotoWelcome);
     $("btnLoginBackFromPin")?.addEventListener("click", gotoLoginPhone);
