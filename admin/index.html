@@ -91,12 +91,8 @@
       <h2 class="login-title">Sistema de gestión de Corta estancia</h2>
       <p class="login-subtitle">Check Inn Saltillo</p>
       <div class="login-field">
-        <input type="text" id="loginUser" class="login-input"
-               placeholder="Usuario" onkeydown="handleLoginKey(event)" autocomplete="username" autocapitalize="off">
-      </div>
-      <div class="login-field">
         <input type="password" id="loginPassword" class="login-input"
-               placeholder="Contraseña" onkeydown="handleLoginKey(event)" autocomplete="current-password">
+               placeholder="Contraseña" onkeydown="handleLoginKey(event)" autocomplete="current-password" autofocus>
       </div>
       <p class="login-error hidden" id="loginError"></p>
       <button class="btn-login" id="btnLogin" onclick="tryLogin()">Entrar</button>
@@ -1998,6 +1994,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=418"></script>
+  <script src="app.js?v=419"></script>
 </body>
 </html>

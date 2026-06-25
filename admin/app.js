@@ -375,12 +375,11 @@ window.sysLogout = function () {
 };
 
 async function tryLogin() {
-  const userInput = (document.getElementById("loginUser")?.value || "").trim();
-  const pw        = (document.getElementById("loginPassword")?.value || "").trim();
+  const pw  = (document.getElementById("loginPassword")?.value || "").trim();
   const err = document.getElementById("loginError");
   const btn = document.getElementById("btnLogin");
-  if (!userInput || !pw) {
-    if (err) { err.textContent = "Captura usuario y contraseña."; err.classList.remove("hidden"); }
+  if (!pw) {
+    if (err) { err.textContent = "Captura tu contraseña."; err.classList.remove("hidden"); }
     return;
   }
   if (err) err.classList.add("hidden");
@@ -389,7 +388,7 @@ async function tryLogin() {
     const res = await fetch(`${BACKEND}/sys/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre: userInput, password: pw }),
+      body: JSON.stringify({ password: pw }),
     });
     const out = await res.json();
     if (!out.ok) throw new Error(out.error || 'Error de autenticación');
@@ -475,7 +474,7 @@ window.addEventListener("DOMContentLoaded", () => {
     } else {
       document.getElementById("loginOverlay")?.classList.remove("hidden");
       document.getElementById("app-root")?.classList.add("hidden");
-      document.getElementById("loginUser")?.focus();
+      document.getElementById("loginPassword")?.focus();
     }
   }
 
