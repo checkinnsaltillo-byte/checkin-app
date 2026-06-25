@@ -23591,10 +23591,10 @@ function rhRenderCompensaciones() {
             <tr onclick="rhOpenForm('compensacion','${esc(r.ID)}')">
               <td onclick="event.stopPropagation()"><button type="button" class="nom-conc-del" onclick="rhDeleteCompensacion('${esc(r.ID)}', event)" title="Eliminar">✕</button></td>
               <td><strong>${esc(rhEmpleadoNombre(r.Empleado_ID) || r.Empleado_Nombre || '—')}</strong></td>
-              <td><span class="rh-chip rh-chip-tipo">${esc(r.Concepto || '—')}</span></td>
+              <td>${r.Concepto ? `<span class="rh-chip ${nomConceptoClass(r.Concepto)}">${esc(r.Concepto)}</span>` : '—'}</td>
               <td>${esc(r.Periodo || '—')}</td>
               <td style="text-align:right;font-weight:800;color:#16a34a">${r.Monto ? rhFmtMoney(r.Monto) : '—'}</td>
-              <td>${r.Metodo_pago ? `<span class="rh-chip rh-chip-tipo">${esc(r.Metodo_pago)}</span>` : '—'}</td>
+              <td>${r.Metodo_pago ? `<span class="rh-chip ${nomMetodoClass(r.Metodo_pago)}">${esc(r.Metodo_pago)}</span>` : '—'}</td>
               <td>${esc(r.Fecha_pago || '—')}</td>
               <td>${esc(r.Comentarios || '—')}</td>
             </tr>`).join('')}</tbody>
@@ -24391,7 +24391,7 @@ window.nomClear = function () {
 
 window.rhDeleteCompensacion = async function (id, ev) {
   if (ev) ev.stopPropagation();
-  if (!confirm('¿Eliminar este registro de nómina? Esta acción no se puede deshacer.')) return;
+  if (!confirm('¿Estás seguro que deseas eliminar el registro?')) return;
   try {
     const res = await fetch(`${BACKEND}/rh/compensaciones/${encodeURIComponent(id)}`, { method: 'DELETE' });
     const out = await res.json();
@@ -24468,4 +24468,23 @@ function rhRenderAsistAuse() {
             }).join('')}</tbody>
           </table></div>`}
     </div>`;
+}
+
+// ── Chips de Concepto y Método de pago: clase por valor ──
+function nomConceptoClass(v) {
+  const map = {
+    'Salario':          'nom-chip-salario',
+    'Compensación':     'nom-chip-comp',
+    'Prima vacacional': 'nom-chip-prima',
+    'Día festivo':      'nom-chip-festivo',
+    'Préstamo':         'nom-chip-prestamo',
+    'Ahorro':           'nom-chip-ahorro',
+    'Otro':             'nom-chip-otro',
+  };
+  return map[v] || 'nom-chip-otro';
+}
+function nomMetodoClass(v) {
+  if (v === 'Transferencia bancaria') return 'nom-chip-trans';
+  if (v === 'Efectivo') return 'nom-chip-cash';
+  return 'nom-chip-otro';
 }

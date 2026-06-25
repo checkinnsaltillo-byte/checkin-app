@@ -6288,3 +6288,15 @@ body.dark .ug-logout:hover { background: #334155; }
   max-width: 100vw !important;
   width: 100vw !important;
 }
+
+/* ─── Chips coloreados por Concepto y Método de pago ─── */
+.nom-chip-salario   { background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:3px 9px; border-radius:999px; font-weight:700; font-size:11px; }
+.nom-chip-comp      { background:#fef3c7; color:#a16207; border:1px solid #fde68a; padding:3px 9px; border-radius:999px; font-weight:700; font-size:11px; }
+.nom-chip-prima     { background:#fce7f3; color:#be185d; border:1px solid #fbcfe8; padding:3px 9px; border-radius:999px; font-weight:700; font-size:11px; }
+.nom-chip-festivo   { background:#ede9fe; color:#6d28d9; border:1px solid #ddd6fe; padding:3px 9px; border-radius:999px; font-weight:700; font-size:11px; }
+.nom-chip-prestamo  { background:#ffedd5; color:#c2410c; border:1px solid #fed7aa; padding:3px 9px; border-radius:999px; font-weight:700; font-size:11px; }
+.nom-chip-ahorro    { background:#dbeafe; color:#1d4ed8; border:1px solid #bfdbfe; padding:3px 9px; border-radius:999px; font-weight:700; font-size:11px; }
+.nom-chip-otro      { background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; padding:3px 9px; border-radius:999px; font-weight:700; font-size:11px; }
+/* Método de pago */
+.nom-chip-trans     { background:#cffafe; color:#0e7490; border:1px solid #a5f3fc; padding:3px 9px; border-radius:999px; font-weight:700; font-size:11px; }
+.nom-chip-cash      { background:#fef9c3; color:#854d0e; border:1px solid #fde68a; padding:3px 9px; border-radius:999px; font-weight:700; font-size:11px; }
