@@ -23711,7 +23711,7 @@ window.rhOpenForm = function (kind, id) {
     bodyHtml = `
       ${rhFieldEmpleadoSelect(editing?.Empleado_ID, empleadoOpts)}
       <div class="rh-grid-2">
-        ${rhFieldSelect('Concepto','Concepto',['Salario','Compensación','Prima vacacional','Préstamo','Ahorro','Otro'],editing?.Concepto)}
+        ${rhFieldSelect('Concepto','Concepto',['Salario','Compensación','Prima vacacional','Día festivo','Préstamo','Ahorro','Otro'],editing?.Concepto)}
         ${rhFieldText('Periodo','Periodo (ej. Diciembre 2026, S2-2026)',editing?.Periodo)}
         ${rhFieldNumber('Monto','Monto ($)',editing?.Monto)}
         ${rhFieldSelect('Metodo_pago','Método de pago',['Transferencia bancaria','Efectivo'],editing?.Metodo_pago || 'Transferencia bancaria')}
@@ -23897,7 +23897,7 @@ function rhCalcAntiguedad(ingreso, retiro) {
 // ═══════════════════════════════════════════════════════════════════════
 // ║  PAGO DE NÓMINA — formulario multi-modo (Unitario / Grupal)           ║
 // ═══════════════════════════════════════════════════════════════════════
-const NOM_CONCEPTOS = ['Salario','Compensación','Prima vacacional','Préstamo','Ahorro','Otro'];
+const NOM_CONCEPTOS = ['Salario','Compensación','Prima vacacional','Día festivo','Préstamo','Ahorro','Otro'];
 const NOM_METODOS   = ['Transferencia bancaria','Efectivo'];
 const NOM_PERIODOS  = ['Pago único','Semanal','Quincenal','Mensual'];
 const NOM_MONTHS_ABR  = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
