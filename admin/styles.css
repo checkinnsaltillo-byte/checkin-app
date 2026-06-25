@@ -6341,3 +6341,7 @@ input.bn-efe-chk[type="checkbox"]:checked::after {
 .ocup-cell-line { gap: 4px !important; flex-wrap: nowrap !important; }
 .ocup-cell-nights { font-size: 10px !important; white-space: nowrap !important; }
 .ocup-cell-pct    { font-size: 11px !important; white-space: nowrap !important; }
+
+/* ─── Ocupación · Calendario: primera columna semi-transparente ─── */
+.ocup-aloj-cell { opacity: .55; }
+.ocup-head-aloj { opacity: .55; }
