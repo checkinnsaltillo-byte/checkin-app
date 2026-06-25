@@ -331,7 +331,7 @@ async function computeHashes(startIdx) {
 
 // ── Permisos por módulo (basado en hoja sys_users) ──
 const SYS_MODULE_PERMS = {
-  I:    ['registros'],
+  I:    ['registros','efectivo'],
   II:   ['tickets'],
   III:  ['huespedes','lodgify','reservas-detalles'],
   IV:   ['breezeway'],
@@ -4114,6 +4114,7 @@ const BN_TIPO_PARENT = {
   A:'pres', AP:'pres', PR:'pres',
   F:'ind',
   UPLOAD:'upload',
+  EFECTIVO:'upload',
 };
 
 // Sub-tabs por categoría — renderizadas como chips horizontales en row 2
@@ -4143,7 +4144,8 @@ const BN_CAT_SUBS = {
     { id: 'F',  label: '📊 Indicadores' },
   ],
   upload: [
-    { id: 'UPLOAD', label: '📂 Subir archivos' },
+    { id: 'UPLOAD',   label: '📂 Subir archivos' },
+    { id: 'EFECTIVO', label: '💵 Efectivo' },
   ],
 };
 
@@ -4372,8 +4374,8 @@ function bn_render() {
   const ap=document.getElementById('bn-analisis-partida');
   const up=document.getElementById('bn-upload-pane');
 
-  if(BN_TIPO==='UPLOAD'){
-    // Carga de datos bancarios: oculta TODO lo demás y muestra el pane de upload.
+  if(BN_TIPO==='UPLOAD' || BN_TIPO==='EFECTIVO'){
+    // Carga de datos bancarios: oculta TODO lo demás y muestra el pane correcto.
     tw?.classList.add('hidden'); cw?.classList.add('hidden'); pw?.classList.add('hidden');
     ap?.classList.add('hidden'); iw?.classList.add('hidden'); iov?.classList.add('hidden');
     document.getElementById('bn-presupuesto')?.classList.add('hidden');
@@ -4385,12 +4387,21 @@ function bn_render() {
     if (mesAnioU) mesAnioU.style.display = 'none';
     const searchBarU = document.getElementById('bn-f-text')?.parentElement;
     if (searchBarU) searchBarU.style.display = 'none';
-    up?.classList.remove('hidden');
-    // Pre-cargar mapeos de cuentas_bancarias y dedupe-index en background
-    if (typeof bnUploadInit === 'function') bnUploadInit();
+    const efePane = document.getElementById('bn-efectivo-pane');
+    if (BN_TIPO === 'EFECTIVO') {
+      up?.classList.add('hidden');
+      efePane?.classList.remove('hidden');
+      if (typeof bnUploadInit === 'function') bnUploadInit();
+      if (typeof bnEfectivoInit === 'function') bnEfectivoInit();
+    } else {
+      efePane?.classList.add('hidden');
+      up?.classList.remove('hidden');
+      if (typeof bnUploadInit === 'function') bnUploadInit();
+    }
     return;
   }
   up?.classList.add('hidden');
+  document.getElementById('bn-efectivo-pane')?.classList.add('hidden');
 
   if(BN_TIPO==='F'){
     // Indicadores como sección inline aislada: ocultar todo lo demás
@@ -24488,3 +24499,273 @@ function nomMetodoClass(v) {
   if (v === 'Efectivo') return 'nom-chip-cash';
   return 'nom-chip-otro';
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║  EFECTIVO — captura manual de movimientos que se insertan a BANCOS   ║
+// ║  Reutiliza la clasificación + dedupe + insertBulk del flujo Drive    ║
+// ═══════════════════════════════════════════════════════════════════════
+const BN_EFE_STATE = {
+  rows: [],          // [{ id, dia (YYYY-MM-DD), desc, cargo, abono, saldo, monto, cuenta, sub, cat, concepto }]
+  sortKey: 'dia',    // default: por Día
+  sortDir: 'desc',   // más reciente arriba
+};
+
+const BN_EFE_COLS = [
+  { id: 'dia',      label: 'Día',         type: 'date',   align: 'left'  },
+  { id: 'desc',     label: 'DESCRIPCION', type: 'string', align: 'left'  },
+  { id: 'cargo',    label: 'Cargo',       type: 'number', align: 'right' },
+  { id: 'abono',    label: 'Abono',       type: 'number', align: 'right' },
+  { id: 'saldo',    label: 'Saldo',       type: 'number', align: 'right' },
+  { id: 'monto',    label: 'Monto',       type: 'number', align: 'right' },
+  { id: 'cuenta',   label: 'CUENTA',      type: 'string', align: 'left'  },
+  { id: 'sub',      label: 'SUBCUENTA',   type: 'string', align: 'left'  },
+  { id: 'cat',      label: 'CATEGORIA',   type: 'string', align: 'left'  },
+  { id: 'concepto', label: 'CONCEPTO',    type: 'string', align: 'left'  },
+];
+
+let _bnEfeRowSeq = 0;
+function bnEfeNewRow() {
+  const today = new Date().toISOString().slice(0,10);
+  return { id: ++_bnEfeRowSeq, dia: today, desc: '', cargo: '', abono: '', saldo: '', monto: '', cuenta: '', sub: '', cat: '', concepto: '' };
+}
+
+function bnEfectivoInit() {
+  // Asegura que BN_BUDGET / BN_CATALOG estén cargados (catálogo Presupuesto_sys)
+  if ((!BN_BUDGET || !BN_BUDGET.length) && typeof bn_loadData === 'function') {
+    try { bn_loadData().then(() => { bn_buildBnCatalog?.(); bnEfectivoRender(); }); } catch (_) {}
+  } else {
+    if (typeof bn_buildBnCatalog === 'function' && (!BN_CATALOG || !Object.keys(BN_CATALOG).length)) bn_buildBnCatalog();
+  }
+  if (!BN_EFE_STATE.rows.length) {
+    BN_EFE_STATE.rows = [bnEfeNewRow()];
+  }
+  bnEfectivoRender();
+}
+
+window.bnEfectivoAddRows = function () {
+  const inp = document.getElementById('bn-efectivo-add-n');
+  let n = parseInt(inp?.value || '1', 10);
+  if (!isFinite(n) || n < 1) n = 1;
+  if (n > 200) n = 200;
+  const newOnes = Array.from({ length: n }, () => bnEfeNewRow());
+  BN_EFE_STATE.rows = [...newOnes, ...BN_EFE_STATE.rows];
+  bnEfectivoRender();
+};
+
+window.bnEfectivoSetSort = function (key) {
+  const st = BN_EFE_STATE;
+  if (st.sortKey === key) {
+    st.sortDir = st.sortDir === 'asc' ? 'desc' : st.sortDir === 'desc' ? null : 'asc';
+    if (!st.sortDir) st.sortKey = null;
+  } else {
+    st.sortKey = key;
+    st.sortDir = 'asc';
+  }
+  bnEfectivoRender();
+};
+
+window.bnEfectivoUpdate = function (id, field, value) {
+  const r = BN_EFE_STATE.rows.find(x => x.id === id);
+  if (!r) return;
+  r[field] = value;
+  // Recalcular Monto cuando cambia Cargo/Abono (efectivo: signo = abono - cargo)
+  if (field === 'cargo' || field === 'abono') {
+    const c = Number(r.cargo) || 0;
+    const a = Number(r.abono) || 0;
+    r.monto = (a - c).toFixed(2);
+    const cell = document.querySelector(`tr[data-efe-id="${id}"] .bn-efe-monto`);
+    if (cell) {
+      cell.value = r.monto;
+      const n = Number(r.monto) || 0;
+      cell.style.color = n < 0 ? '#dc2626' : n > 0 ? '#16a34a' : '#0f172a';
+    }
+  }
+  // Cascada en clasificación
+  if (field === 'cuenta') { r.sub = ''; r.cat = ''; r.concepto = ''; bnEfectivoRender(); }
+  else if (field === 'sub') { r.cat = ''; r.concepto = ''; bnEfectivoRender(); }
+  else if (field === 'cat') { r.concepto = ''; bnEfectivoRender(); }
+};
+
+window.bnEfectivoDelete = function (id) {
+  BN_EFE_STATE.rows = BN_EFE_STATE.rows.filter(r => r.id !== id);
+  if (!BN_EFE_STATE.rows.length) BN_EFE_STATE.rows = [bnEfeNewRow()];
+  bnEfectivoRender();
+};
+
+function bnEfeOptionsForLevel(r, level) {
+  // level: 'cuenta'|'sub'|'cat'|'concepto'
+  const cat = BN_CATALOG || {};
+  if (level === 'cuenta') return Object.keys(cat).sort();
+  if (level === 'sub') {
+    const node = cat[r.cuenta]; if (!node || Array.isArray(node)) return [];
+    return Object.keys(node).sort();
+  }
+  if (level === 'cat') {
+    const node = cat[r.cuenta]; if (!node || Array.isArray(node)) return [];
+    const subNode = node[r.sub]; if (!subNode || Array.isArray(subNode)) return [];
+    return Object.keys(subNode).sort();
+  }
+  if (level === 'concepto') {
+    const node = cat[r.cuenta] || {};
+    // 4 niveles: cuenta>sub>cat>conceptos[]
+    if (r.sub && node[r.sub] && !Array.isArray(node[r.sub])) {
+      const subNode = node[r.sub];
+      if (r.cat && Array.isArray(subNode[r.cat])) return subNode[r.cat].slice().sort();
+      // 3 niveles: cuenta>sub>conceptos[]
+      if (Array.isArray(subNode[''])) return subNode[''].slice().sort();
+    }
+    // 3 niveles: cuenta>sub>conceptos[]
+    if (r.sub && Array.isArray(node[r.sub])) return node[r.sub].slice().sort();
+    // 3 niveles: cuenta>cat>conceptos[] (sin sub)
+    if (r.cat && Array.isArray(node[r.cat])) return node[r.cat].slice().sort();
+    return [];
+  }
+  return [];
+}
+
+function bnEfeSortValue(r, key) {
+  const col = BN_EFE_COLS.find(c => c.id === key);
+  if (!col) return '';
+  const v = r[key];
+  if (col.type === 'date') return v || '';
+  if (col.type === 'number') { const n = Number(v); return isFinite(n) ? n : -Infinity; }
+  return String(v ?? '').toLowerCase();
+}
+
+function bnEfectivoRender() {
+  const thead = document.getElementById('bn-efectivo-thead');
+  const tbody = document.getElementById('bn-efectivo-tbody');
+  if (!thead || !tbody) return;
+  // Header con flechas de ordenamiento
+  thead.innerHTML = `<tr>
+    <th style="width:28px;padding:6px 4px"></th>
+    ${BN_EFE_COLS.map(c => {
+      const isActive = BN_EFE_STATE.sortKey === c.id;
+      const arrow = isActive ? (BN_EFE_STATE.sortDir === 'asc' ? '▲' : '▼') : '⇅';
+      return `<th style="padding:6px 6px;text-align:${c.align};font-size:11px;font-weight:800;color:#334155;cursor:pointer;white-space:nowrap"
+                onclick="bnEfectivoSetSort('${c.id}')">
+        ${esc(c.label)} <span style="opacity:${isActive?'1':'.35'};font-size:10px">${arrow}</span>
+      </th>`;
+    }).join('')}
+  </tr>`;
+  // Orden visible
+  const rows = BN_EFE_STATE.rows.slice();
+  if (BN_EFE_STATE.sortKey) {
+    const key = BN_EFE_STATE.sortKey;
+    const dir = BN_EFE_STATE.sortDir === 'asc' ? 1 : -1;
+    rows.sort((a, b) => {
+      const av = bnEfeSortValue(a, key), bv = bnEfeSortValue(b, key);
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+  }
+  tbody.innerHTML = rows.map(r => bnEfectivoRowHtml(r)).join('');
+}
+
+function bnEfectivoRowHtml(r) {
+  const num = (v) => Number(v) || 0;
+  const colorize = (v, mode) => {
+    const n = num(v);
+    if (mode === 'cargo' && n > 0) return 'color:#dc2626;font-weight:600';
+    if (mode === 'abono' && n > 0) return 'color:#16a34a;font-weight:600';
+    if (mode === 'sign') {
+      if (n < 0) return 'color:#dc2626;font-weight:600';
+      if (n > 0) return 'color:#16a34a;font-weight:600';
+    }
+    return '';
+  };
+  const inputStyle = 'width:100%;padding:4px 6px;font-size:12px;border:1px solid #e2e8f0;border-radius:5px;background:#fff';
+  const cuentaOpts = bnEfeOptionsForLevel(r, 'cuenta');
+  const subOpts    = bnEfeOptionsForLevel(r, 'sub');
+  const catOpts    = bnEfeOptionsForLevel(r, 'cat');
+  const conOpts    = bnEfeOptionsForLevel(r, 'concepto');
+  const sel = (opts, val) => `<option value=""></option>${opts.map(o => `<option value="${esc(o)}" ${o===val?'selected':''}>${esc(o)}</option>`).join('')}`;
+  return `<tr data-efe-id="${r.id}" style="border-top:1px solid #f1f5f9">
+    <td style="padding:2px 4px;text-align:center">
+      <button type="button" onclick="bnEfectivoDelete(${r.id})" title="Eliminar renglón"
+        style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:5px;width:22px;height:22px;cursor:pointer;font-weight:800;line-height:1">✕</button>
+    </td>
+    <td style="padding:2px 4px"><input type="date" value="${esc(r.dia||'')}" oninput="bnEfectivoUpdate(${r.id},'dia',this.value)" style="${inputStyle}"></td>
+    <td style="padding:2px 4px"><input type="text" value="${esc(r.desc||'')}" oninput="bnEfectivoUpdate(${r.id},'desc',this.value)" style="${inputStyle}"></td>
+    <td style="padding:2px 4px"><input type="number" step="0.01" value="${esc(r.cargo||'')}" oninput="bnEfectivoUpdate(${r.id},'cargo',this.value)" style="${inputStyle};text-align:right;${colorize(r.cargo,'cargo')}"></td>
+    <td style="padding:2px 4px"><input type="number" step="0.01" value="${esc(r.abono||'')}" oninput="bnEfectivoUpdate(${r.id},'abono',this.value)" style="${inputStyle};text-align:right;${colorize(r.abono,'abono')}"></td>
+    <td style="padding:2px 4px"><input type="number" step="0.01" value="${esc(r.saldo||'')}" oninput="bnEfectivoUpdate(${r.id},'saldo',this.value)" style="${inputStyle};text-align:right;${colorize(r.saldo,'sign')}"></td>
+    <td style="padding:2px 4px"><input class="bn-efe-monto" type="number" step="0.01" value="${esc(r.monto||'')}" oninput="bnEfectivoUpdate(${r.id},'monto',this.value)" style="${inputStyle};text-align:right;${colorize(r.monto,'sign')}"></td>
+    <td style="padding:2px 4px"><select onchange="bnEfectivoUpdate(${r.id},'cuenta',this.value)" style="${inputStyle}">${sel(cuentaOpts, r.cuenta)}</select></td>
+    <td style="padding:2px 4px"><select onchange="bnEfectivoUpdate(${r.id},'sub',this.value)" style="${inputStyle}" ${subOpts.length?'':'disabled'}>${sel(subOpts, r.sub)}</select></td>
+    <td style="padding:2px 4px"><select onchange="bnEfectivoUpdate(${r.id},'cat',this.value)" style="${inputStyle}" ${catOpts.length?'':'disabled'}>${sel(catOpts, r.cat)}</select></td>
+    <td style="padding:2px 4px"><select onchange="bnEfectivoUpdate(${r.id},'concepto',this.value)" style="${inputStyle}" ${conOpts.length?'':'disabled'}>${sel(conOpts, r.concepto)}</select></td>
+  </tr>`;
+}
+
+/** "2026-06-24" → "24/6/2026" como espera la hoja BANCOS. */
+function bnEfeIsoToDmy(iso) {
+  if (!iso) return '';
+  const m = String(iso).match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!m) return iso;
+  return `${parseInt(m[3],10)}/${parseInt(m[2],10)}/${m[1]}`;
+}
+
+/** Convierte los rows de Efectivo a la forma BANCOS y dispara el flujo
+ *  estándar de clasificación + dedupe + preview + insert. */
+window.bnEfectivoSave = async function () {
+  const status = document.getElementById('bn-efectivo-status');
+  // Filtrar renglones con al menos Día + (Cargo o Abono)
+  const valid = (BN_EFE_STATE.rows || []).filter(r => r.dia && ((Number(r.cargo) || 0) !== 0 || (Number(r.abono) || 0) !== 0));
+  if (!valid.length) { alert('No hay renglones con Día y monto > 0.'); return; }
+  const MES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const usuario = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '';
+  const mapped = valid.map(r => {
+    const date = new Date((r.dia || '') + 'T00:00:00');
+    const anio = isFinite(date.getTime()) ? String(date.getFullYear()) : '';
+    const mes  = isFinite(date.getTime()) ? MES[date.getMonth()] : '';
+    const cargo = Number(r.cargo) || 0;
+    const abono = Number(r.abono) || 0;
+    const saldo = r.saldo === '' || r.saldo == null ? '' : Number(r.saldo);
+    const monto = r.monto === '' || r.monto == null ? +(abono - cargo).toFixed(2) : Number(r.monto);
+    const out = {
+      _archivo: 'Captura manual · Efectivo',
+      'Año': anio,
+      'Mes': mes,
+      'Día': bnEfeIsoToDmy(r.dia),
+      'Cuenta bancaria': 'Efectivo',
+      '# Cuenta': 'Efectivo',
+      'Subcuenta_bancaria': '',
+      'Reportado por': usuario,
+      'DESCRIPCION': r.desc || '',
+      'CARGO': cargo || '',
+      'ABONO': abono || '',
+      'SALDO': saldo === '' ? '' : saldo,
+      'Monto': monto,
+      'COMENTARIOS': '',
+    };
+    // Si el usuario clasificó manualmente, marcarlo como _auto para que se respete
+    if (r.cuenta)   out.CUENTA_auto    = r.cuenta;
+    if (r.sub)      out.SUBCUENTA_auto = r.sub;
+    if (r.cat)      out.CATEGORIA_auto = r.cat;
+    if (r.concepto) out.CONCEPTO_auto  = r.concepto;
+    return out;
+  });
+  // Asegurar que el upload-pane tenga inicializados los caches
+  if (status) status.textContent = '⏳ Preparando vista previa…';
+  if (typeof bnUploadInit === 'function') await bnUploadInit();
+  BN_UPLOAD_STATE.parsedRows = mapped;
+  if (typeof bnUploadClassifyRows === 'function') bnUploadClassifyRows(mapped);
+  if (typeof bnUploadAssignCountersAndDedupe === 'function') bnUploadAssignCountersAndDedupe(mapped);
+  // Cambia visualmente al pane de Upload para ver el preview estándar
+  document.getElementById('bn-efectivo-pane')?.classList.add('hidden');
+  document.getElementById('bn-upload-pane')?.classList.remove('hidden');
+  if (typeof bnUploadRenderPreview === 'function') bnUploadRenderPreview();
+  if (status) status.textContent = '';
+  const upStatus = document.getElementById('bn-upload-status');
+  if (upStatus) upStatus.innerHTML = `📋 <strong>${mapped.length}</strong> renglones de Efectivo listos para revisar. Confirma con <strong>Insertar en BANCOS</strong>.`;
+};
+
+window.bnEfectivoOpenFromHome = function () {
+  try { switchModule('registros'); } catch(_) {}
+  setTimeout(() => {
+    try { bn_setCat('upload'); } catch(_) {}
+    try { bn_setTipo('EFECTIVO'); } catch(_) {}
+  }, 50);
+};

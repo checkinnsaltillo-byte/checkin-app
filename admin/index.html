@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema de gestión de Corta estancia | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=133">
+  <link rel="stylesheet" href="styles.css?v=134">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -252,6 +252,14 @@
             <div class="home-card-body">
               <h3 class="home-card-title">Registros contables</h3>
               <p class="home-card-desc">Movimientos bancarios, clasificación, indicadores y planeación.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-efectivo" onclick="bnEfectivoOpenFromHome()">
+            <div class="home-card-icon">💵</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Efectivo</h3>
+              <p class="home-card-desc">Captura manual de movimientos en efectivo — clasificación automática e inserción a BANCOS.</p>
             </div>
             <div class="home-card-arrow">→</div>
           </button>
@@ -823,6 +831,31 @@
                 <tbody id="bn-upload-preview-body"></tbody>
               </table>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ EFECTIVO — tabla editable que se inserta a BANCOS ═══ -->
+      <div id="bn-efectivo-pane" class="hidden" style="padding:14px 4px">
+        <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(15,23,42,.04)">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+            <div style="flex:1;min-width:240px">
+              <div style="font-size:15px;font-weight:800;color:#0f172a">💵 Carga de movimientos en efectivo</div>
+              <div style="font-size:12px;color:#64748b;margin-top:2px">Captura manual de movimientos en efectivo. Se insertan a BANCOS con <code>Cuenta bancaria</code> y <code># Cuenta</code> = <strong>Efectivo</strong>, con la misma lógica de clasificación automática que los archivos de Drive.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <button type="button" onclick="bnEfectivoAddRows()" style="padding:8px 14px;border:1.5px solid #7c3aed;background:linear-gradient(180deg,#ede9fe,#fff);color:#5b21b6;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">＋ Añade</button>
+              <input id="bn-efectivo-add-n" type="number" min="1" max="200" value="5" style="width:64px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;text-align:center">
+              <span style="font-size:12px;color:#475569">filas más a la tabla</span>
+            </div>
+            <button type="button" onclick="bnEfectivoSave()" style="padding:8px 14px;border:1.5px solid #16a34a;background:linear-gradient(180deg,#dcfce7,#fff);color:#15803d;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">💾 Guardar registros</button>
+          </div>
+          <div id="bn-efectivo-status" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
+          <div style="overflow:auto;max-height:62vh;border:1px solid #e2e8f0;border-radius:8px">
+            <table id="bn-efectivo-tbl" style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead id="bn-efectivo-thead" style="background:#f1f5f9;position:sticky;top:0;z-index:2"></thead>
+              <tbody id="bn-efectivo-tbody"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1994,6 +2027,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=424"></script>
+  <script src="app.js?v=425"></script>
 </body>
 </html>
