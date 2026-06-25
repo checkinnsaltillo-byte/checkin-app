@@ -14554,7 +14554,7 @@ function lgBuildProfileHeaderHtml(r, palette) {
   const marcaTxt = (marca && marca.toLowerCase() === 'otro') ? (marcaOtr || marca) : marca;
   const modeloTxt= (modelo && modelo.toLowerCase() === 'otro') ? (modeloOtr || modelo) : modelo;
 
-  // Mini foto cuadrada (solo si hay URL)
+  // Mini foto cuadrada (thumbnail pequeño + blur; click → zoom carga full)
   const photo = (url, label, icon) => {
     if (!url) return `
       <div style="height:80px;border:1px dashed #e2e8f0;border-radius:8px;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#cbd5e1;font-size:9px;letter-spacing:.04em">
@@ -14562,24 +14562,27 @@ function lgBuildProfileHeaderHtml(r, palette) {
         <div style="font-weight:700;text-transform:uppercase">${esc(label)}</div>
         <div style="font-size:8px;font-style:italic">No disponible</div>
       </div>`;
-    const thumb = huDriveThumb(url, 'w200');
-    const full  = huDriveThumb(url, 'w1600');
     let driveId = '';
     const sRaw = String(url).trim();
     let mm = sRaw.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);  if (mm) driveId = mm[1];
     if (!driveId) { mm = sRaw.match(/\/d\/([a-zA-Z0-9_-]+)/);    if (mm) driveId = mm[1]; }
     if (!driveId) { mm = sRaw.match(/[?&]id=([a-zA-Z0-9_-]+)/);  if (mm) driveId = mm[1]; }
-    const fb1 = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w400` : '';
-    const onerr = `(function(img){if(!img.dataset.t&&'${esc(fb1)}'){img.dataset.t='1';img.src='${esc(fb1)}';return;}img.style.display='none';img.nextElementSibling.style.display='flex';})(this)`;
+    // PRIMARY: lh3.googleusercontent (CDN, más confiable). FALLBACK: drive thumbnail.
+    const thumb = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w160` : esc(url);
+    const fb    = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w160` : '';
+    const full  = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w1600` : esc(url);
+    const onerr = `(function(img){if(!img.dataset.t&&'${esc(fb)}'){img.dataset.t='1';img.src='${esc(fb)}';return;}img.style.display='none';img.nextElementSibling.style.display='flex';})(this)`;
     return `
       <div style="position:relative;height:80px;cursor:zoom-in;border-radius:8px;overflow:hidden;border:1.5px solid #e2e8f0;background:#f8fafc"
            onclick="event.stopPropagation();huImageZoom('${esc(full)}','${esc(label)}')">
         <img src="${esc(thumb)}" alt="${esc(label)}" loading="lazy" referrerpolicy="no-referrer"
-             style="width:100%;height:100%;object-fit:cover;display:block" onerror="${onerr}">
+             style="width:100%;height:100%;object-fit:cover;display:block;filter:blur(1.5px);transition:filter .2s ease"
+             onmouseenter="this.style.filter='blur(0)'" onmouseleave="this.style.filter='blur(1.5px)'"
+             onerror="${onerr}">
         <div style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;font-size:9px;background:#f8fafc">
           <div style="font-size:18px;opacity:.5">${icon}</div><div style="font-weight:700;text-transform:uppercase">${esc(label)}</div>
         </div>
-        <div style="position:absolute;bottom:0;left:0;right:0;padding:2px 5px;background:linear-gradient(180deg,transparent,rgba(15,23,42,.7));color:#fff;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">${esc(label)} 🔍</div>
+        <div style="position:absolute;bottom:0;left:0;right:0;padding:2px 5px;background:linear-gradient(180deg,transparent,rgba(15,23,42,.7));color:#fff;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;pointer-events:none">${esc(label)} 🔍</div>
       </div>`;
   };
 
@@ -14636,7 +14639,7 @@ function lgBuildProfileHeaderHtml(r, palette) {
 
   if (!idBlock && !contactoBlock && !fiscalesBlock && !vehBlock) return '';
   return `
-    <div style="margin-top:10px;padding-top:10px;border-top:1px solid ${palette.border};display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;align-items:start">
+    <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;align-items:start">
       ${idBlock}${contactoBlock}${fiscalesBlock}${vehBlock}
     </div>`;
 }
@@ -15656,15 +15659,21 @@ function lgBuildHuespedSectionHtml_lite(huesped) {
         <div style="font-weight:700;text-transform:uppercase;letter-spacing:.04em">${esc(label)}</div>
       </div>`;
     }
-    // Extraer ID de Drive para usar thumbnail directo
-    const m = String(url).match(/\/d\/([a-zA-Z0-9_-]+)/) || String(url).match(/[?&]id=([a-zA-Z0-9_-]+)/);
-    const driveId = m ? m[1] : '';
-    const thumb = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w400` : esc(url);
-    const full  = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1600` : esc(url);
-    return `<div data-zoom-url="${esc(full)}" data-zoom-label="${esc(label)}" style="position:relative;cursor:zoom-in;border-radius:10px;overflow:hidden;border:1.5px solid #e2e8f0;background:#f8fafc;aspect-ratio:1.5/1">
+    let driveId = '';
+    const sRaw = String(url).trim();
+    let mm = sRaw.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);  if (mm) driveId = mm[1];
+    if (!driveId) { mm = sRaw.match(/\/d\/([a-zA-Z0-9_-]+)/);    if (mm) driveId = mm[1]; }
+    if (!driveId) { mm = sRaw.match(/[?&]id=([a-zA-Z0-9_-]+)/);  if (mm) driveId = mm[1]; }
+    const thumb = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w240` : esc(url);
+    const fb    = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w240` : '';
+    const full  = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w1600` : esc(url);
+    const onerr = `(function(img){if(!img.dataset.t&&'${esc(fb)}'){img.dataset.t='1';img.src='${esc(fb)}';return;}img.style.opacity='0';})(this)`;
+    return `<div data-zoom-url="${esc(full)}" data-zoom-label="${esc(label)}" onclick="event.stopPropagation();huImageZoom('${esc(full)}','${esc(label)}')" style="position:relative;cursor:zoom-in;border-radius:10px;overflow:hidden;border:1.5px solid #e2e8f0;background:#f8fafc;aspect-ratio:1.5/1">
       <img src="${thumb}" alt="${esc(label)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
-           style="width:100%;height:100%;object-fit:cover;display:block">
-      <div style="position:absolute;bottom:0;left:0;right:0;padding:4px 8px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.65));color:#fff;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">${esc(label)}</div>
+           style="width:100%;height:100%;object-fit:cover;display:block;filter:blur(1.5px);transition:filter .2s ease"
+           onmouseenter="this.style.filter='blur(0)'" onmouseleave="this.style.filter='blur(1.5px)'"
+           onerror="${onerr}">
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:4px 8px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.65));color:#fff;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;pointer-events:none">${esc(label)} 🔍</div>
     </div>`;
   };
 
