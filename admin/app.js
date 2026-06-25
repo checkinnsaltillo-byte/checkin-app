@@ -23585,7 +23585,7 @@ function rhRenderCompensaciones() {
           <thead><tr>
             <th style="width:28px"></th>
             <th>Empleado</th><th>Concepto</th><th>Periodo</th>
-            <th style="text-align:right">Monto</th><th>Fecha de pago</th><th>Comentarios</th>
+            <th style="text-align:right">Monto</th><th>Método de pago</th><th>Fecha de pago</th><th>Comentarios</th>
           </tr></thead>
           <tbody>${rows.map(r => `
             <tr onclick="rhOpenForm('compensacion','${esc(r.ID)}')">
@@ -23594,6 +23594,7 @@ function rhRenderCompensaciones() {
               <td><span class="rh-chip rh-chip-tipo">${esc(r.Concepto || '—')}</span></td>
               <td>${esc(r.Periodo || '—')}</td>
               <td style="text-align:right;font-weight:800;color:#16a34a">${r.Monto ? rhFmtMoney(r.Monto) : '—'}</td>
+              <td>${r.Metodo_pago ? `<span class="rh-chip rh-chip-tipo">${esc(r.Metodo_pago)}</span>` : '—'}</td>
               <td>${esc(r.Fecha_pago || '—')}</td>
               <td>${esc(r.Comentarios || '—')}</td>
             </tr>`).join('')}</tbody>
@@ -23607,6 +23608,7 @@ window.rhOpenForm = function (kind, id) {
   const _btnSec = document.querySelector('#rh-form-panel .inc-btn-sec');
   if (_btnPri) { _btnPri.innerHTML = '💾 Guardar'; _btnPri.onclick = () => rhSaveCurrentForm(); _btnPri.style.display = ''; _btnPri.style.flex = '1'; }
   if (_btnSec) { _btnSec.innerHTML = 'Cancelar'; _btnSec.onclick = () => rhCloseForm(); _btnSec.style.flex = ''; }
+  document.getElementById('rh-form-panel')?.classList.remove('panel-fullwidth');
   const empleadoOpts = (RH_STATE.empleados || [])
     .map(e => `<option value="${esc(e.ID)}">${esc(e.Nombre)}${e.Puesto ? ' — ' + esc(e.Puesto) : ''}</option>`).join('');
   let editing = null;
@@ -23938,6 +23940,7 @@ window.rhOpenNominaForm = function () {
   const back  = document.getElementById('rh-form-backdrop');
   back.classList.remove('hidden'); back.offsetHeight; back.classList.add('visible');
   panel.classList.remove('hidden'); panel.classList.add('open');
+  panel.classList.add('panel-fullwidth');
   // Footer: Guardar y Salir + Limpiar
   const btnPri = document.querySelector('#rh-form-panel .inc-btn-pri');
   const btnSec = document.querySelector('#rh-form-panel .inc-btn-sec');

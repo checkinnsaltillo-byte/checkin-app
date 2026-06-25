@@ -6282,3 +6282,9 @@ body.dark .ug-logout:hover { background: #334155; }
   font-size: 11px !important;
   line-height: 1.2 !important;
 }
+
+/* ─── Panel lateral a todo lo ancho (Nueva operación) ─── */
+#rh-form-panel.panel-fullwidth {
+  max-width: 100vw !important;
+  width: 100vw !important;
+}
