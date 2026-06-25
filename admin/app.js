@@ -16208,7 +16208,7 @@ const LG_STATE_META = {
 const RD_STATE = {
   selectedId: null,
   search: '',
-  searchVisible: false,
+  searchVisible: true,
 };
 
 window.rdToggleSearch = function() {
@@ -16333,6 +16333,32 @@ function rdRenderSelected() {
   const huesped = LG_STATE.matches?.get(String(b.Id)) || null;
   main.innerHTML  = rdBuildMainHtml(b, huesped);
   right.innerHTML = rdBuildRightbarHtml(b, huesped);
+  // Auto-enriquecer huésped con fotos INE/vehículo si faltan (vienen en /huespedes-detail, no en /list)
+  if (huesped && !huesped.__rdEnriched) {
+    const hasPhotoFields = !!(huesped['Link INE frontal']||huesped['INE frontal']||huesped['Link INE trasero']||huesped['INE trasero']||huesped['Link foto vehículo']||huesped['Foto vehículo']);
+    if (!hasPhotoFields) {
+      const recId = String(huesped['ID']||huesped['row_number']||'');
+      if (recId) {
+        fetch(`${BACKEND}/huespedes-detail?record_id=${encodeURIComponent(recId)}`)
+          .then(r => r.json())
+          .then(j => {
+            if (!j?.ok || !j.record) return;
+            const merged = { ...huesped, ...j.record, __rdEnriched: true };
+            const idx = (HU_STATE.rows || []).findIndex(x => String(x['ID']||x['row_number']||'') === recId);
+            if (idx >= 0) HU_STATE.rows[idx] = merged;
+            LG_STATE.matches.set(String(b.Id), merged);
+            if (String(RD_STATE.selectedId) !== String(b.Id)) return;
+            const mainEl = document.getElementById('rd-main');
+            const rightEl = document.getElementById('rd-rightbar');
+            if (mainEl) mainEl.innerHTML = rdBuildMainHtml(b, merged);
+            if (rightEl) rightEl.innerHTML = rdBuildRightbarHtml(b, merged);
+          })
+          .catch(e => console.warn('[RD] enrich foto:', e.message));
+      }
+    } else {
+      huesped.__rdEnriched = true;
+    }
+  }
 }
 
 function rdBuildMainHtml(b, huesped) {
@@ -16455,6 +16481,48 @@ function rdBuildMainHtml(b, huesped) {
 
 function rdBuildHuespedSection(huesped) {
   const v = (cands) => huValueFlexible(huesped, Array.isArray(cands) ? cands : [cands]);
+  // Fotos INE + Vehículo (lh3 primario, drive fallback, blur preview, click → zoom full)
+  const recId = String(huesped['ID']||huesped['row_number']||'');
+  const ineF  = v(['Link INE frontal','INE frontal','Link foto INE frontal']);
+  const ineB  = v(['Link INE trasero','INE trasero','Link foto INE trasero']);
+  const idU   = v(['Link identificación única','Identificación única']);
+  const fotoV = v(['Link foto vehículo','Foto vehículo']);
+  const rdPhoto = (url, label, icon) => {
+    if (!url) return `<div style="aspect-ratio:1.5/1;border:1.5px dashed #cbd5e1;border-radius:10px;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;text-align:center;padding:8px"><div style="font-size:22px;opacity:.5">${icon}</div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">${esc(label)}</div><div style="font-size:9px;font-style:italic;opacity:.7">No disponible</div></div>`;
+    let driveId = '';
+    const sRaw = String(url).trim();
+    let mm = sRaw.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);  if (mm) driveId = mm[1];
+    if (!driveId) { mm = sRaw.match(/\/d\/([a-zA-Z0-9_-]+)/);    if (mm) driveId = mm[1]; }
+    if (!driveId) { mm = sRaw.match(/[?&]id=([a-zA-Z0-9_-]+)/);  if (mm) driveId = mm[1]; }
+    const thumb = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w200` : esc(url);
+    const fb    = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w200` : '';
+    const full  = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w1600` : esc(url);
+    const onerr = `(function(img){if(!img.dataset.t&&'${esc(fb)}'){img.dataset.t='1';img.src='${esc(fb)}';return;}img.style.display='none';img.nextElementSibling.style.display='flex';})(this)`;
+    return `<div style="position:relative;cursor:zoom-in;border-radius:10px;overflow:hidden;border:1.5px solid #e2e8f0;background:#f8fafc;aspect-ratio:1.5/1"
+      onclick="event.stopPropagation();huImageZoom('${esc(full)}','${esc(label)}')">
+      <img src="${esc(thumb)}" alt="${esc(label)}" loading="lazy" referrerpolicy="no-referrer"
+           style="width:100%;height:100%;object-fit:cover;display:block;filter:blur(1.5px);transition:filter .2s"
+           onmouseenter="this.style.filter='blur(0)'" onmouseleave="this.style.filter='blur(1.5px)'"
+           onerror="${onerr}">
+      <div style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;background:#f8fafc">
+        <div style="font-size:22px;opacity:.5">${icon}</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase">${esc(label)}</div>
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:3px 7px;background:linear-gradient(180deg,transparent,rgba(15,23,42,.7));color:#fff;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;display:flex;justify-content:space-between;pointer-events:none">
+        <span>${esc(label)}</span><span style="opacity:.85">🔍</span>
+      </div>
+    </div>`;
+  };
+  const photosHtml = (ineF || ineB || idU || fotoV) ? `
+    <div class="rd-section">
+      <div class="rd-section-title"><span>📸 Identificación y vehículo</span></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:8px">
+        ${rdPhoto(ineF, 'INE frontal', '🪪')}
+        ${rdPhoto(ineB, 'INE trasero', '🪪')}
+        ${idU ? rdPhoto(idU, 'ID única', '🆔') : ''}
+        ${fotoV ? rdPhoto(fotoV, 'Vehículo', '🚗') : ''}
+      </div>
+    </div>` : '';
   const horaIn = v(['Hora estimada de llegada']);
   const horaOut= v(['Hora estimada de salida']);
   const motivo = v(['Motivo de tu hospedaje','Motivo']);
@@ -16482,6 +16550,7 @@ function rdBuildHuespedSection(huesped) {
     </div>` : '';
 
   return `
+    ${photosHtml}
     <div class="rd-section">
       <div class="rd-section-title">
         <span style="display:flex;align-items:center;gap:8px">📋 Información del registro manual del huésped
