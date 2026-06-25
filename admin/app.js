@@ -2814,7 +2814,7 @@ async function bn_relacionarConTickets() {
     const updates = [];
     for (const rec of BN_RAW) {
       const r = bn_findBestTicket(rec, BN_TICKETS_CACHE);
-      if (r && r.score >= 0.65) {
+      if (r && r.score >= 0.75) {
         const tk = bn_ticketFields(r.ticket);
         rec._matchedTicket = {
           score:   r.score,
