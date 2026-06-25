@@ -6262,3 +6262,23 @@ body.dark .ug-logout:hover { background: #334155; }
   vertical-align: middle !important;
 }
 .nom-grupal-tbl tr.nom-inserter { height: 2px !important; }
+
+/* ─── Pago de Nómina: maximizar altura de la tabla grupal ─── */
+/* Compactar header y cejas para que el área de tabla aproveche todo el alto */
+#rh-form-panel .inc-capture-header { padding: 10px 14px !important; }
+#rh-form-panel #rh-form-body { padding: 8px 14px !important; }
+#rh-form-panel .inc-capture-footer { padding: 8px 14px !important; }
+#rh-form-panel .nom-cejas { margin-bottom: 8px; }
+#rh-form-panel .nom-ceja { padding: 6px 12px; font-size: 12px; }
+#rh-form-panel .nom-grupal-top { padding: 8px 10px; gap: 8px; }
+#rh-form-panel .nom-grupal-top .rh-field label { font-size: 11px; margin-bottom: 2px; }
+/* Filas más compactas para que quepan más sin scroll */
+#rh-form-panel .nom-grupal-tbl th { padding: 4px 6px !important; font-size: 11px; }
+#rh-form-panel .nom-grupal-tbl td { padding: 2px 6px !important; }
+#rh-form-panel .nom-grupal-tbl select,
+#rh-form-panel .nom-grupal-tbl input[type="text"],
+#rh-form-panel .nom-grupal-tbl input[type="date"] {
+  padding: 3px 6px !important;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+}
