@@ -6237,3 +6237,13 @@ body.dark .ug-logout:hover { background: #334155; }
   flex-shrink: 0;
 }
 .header-logo-anim { flex-shrink: 0; }
+
+/* ─── Top bar grupal: ahora 4 columnas (incluye Periodo laborado) ─── */
+.nom-grupal-top {
+  grid-template-columns: repeat(4, 1fr) !important;
+}
+@media (max-width: 720px) {
+  .nom-grupal-top {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}

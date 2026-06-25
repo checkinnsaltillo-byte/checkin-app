@@ -23297,7 +23297,7 @@ function ocupChartBindBrush(cont, allMonths, brushML, brushMT, brushInnerW, brus
 // ═══════════════════════════════════════════════════════════════════════
 const RH_STATE = {
   initialized: false,
-  tab: 'expediente',
+  tab: 'compensaciones',
   empleados: [],       // catalogo de empleados
   asistencia: [],
   ausencias: [],
@@ -23312,7 +23312,7 @@ function rhInit() {
   }
   RH_STATE.initialized = true;
   // Carga catalogo de empleados primero — todos los demás tabs lo necesitan
-  rhLoadEmpleados().then(() => rhSetTab('expediente'));
+  rhLoadEmpleados().then(() => rhSetTab('compensaciones'));
 }
 
 window.rhSetTab = function (tab) {
@@ -24041,24 +24041,10 @@ window.nomSetUnitFecha = function (i, v) {
 };
 
 function nomRenderGrupal() {
+  if (NOM_STATE.grupalTopPeriodo == null) NOM_STATE.grupalTopPeriodo = 'Semanal';
+  if (NOM_STATE.grupalTopFecha  == null) NOM_STATE.grupalTopFecha  = nomDefaultPeriodValue('Semanal');
   return `
-    <div class="nom-grupal-top">
-      <div class="rh-field"><label>Concepto de pago</label>
-        <select onchange="nomGrupalSetAll('concepto', this.value)">
-          ${NOM_CONCEPTOS.map(o => `<option ${o==='Salario'?'selected':''}>${o}</option>`).join('')}
-        </select>
-      </div>
-      <div class="rh-field"><label>Periodicidad</label>
-        <select onchange="nomGrupalSetAll('periodo', this.value)">
-          ${NOM_PERIODOS.map(o => `<option ${o==='Semanal'?'selected':''}>${o}</option>`).join('')}
-        </select>
-      </div>
-      <div class="rh-field"><label>$ Monto</label>
-        <input type="text" value="${nomFmtCurrency(2205.28)}"
-          oninput="nomGrupalSetAll('monto', nomParseMoney(this.value))"
-          onblur="this.value=nomFmtCurrency(nomParseMoney(this.value))">
-      </div>
-    </div>
+    <div class="nom-grupal-top" id="nom-grupal-top">${nomRenderGrupalTop()}</div>
     <div style="overflow-x:auto;margin-top:14px">
       <table class="rh-table nom-grupal-tbl">
         <thead><tr>
@@ -24070,6 +24056,43 @@ function nomRenderGrupal() {
       </table>
     </div>`;
 }
+
+function nomRenderGrupalTop() {
+  const per = NOM_STATE.grupalTopPeriodo || 'Semanal';
+  const fec = NOM_STATE.grupalTopFecha || '';
+  return `
+    <div class="rh-field"><label>Concepto de pago</label>
+      <select onchange="nomGrupalSetAll('concepto', this.value)">
+        ${NOM_CONCEPTOS.map(o => `<option ${o==='Salario'?'selected':''}>${o}</option>`).join('')}
+      </select>
+    </div>
+    <div class="rh-field"><label>Periodicidad</label>
+      <select onchange="nomGrupalSetGlobalPeriodo(this.value)">
+        ${NOM_PERIODOS.map(o => `<option ${o===per?'selected':''}>${o}</option>`).join('')}
+      </select>
+    </div>
+    <div class="rh-field"><label>Periodo laborado</label>
+      ${nomPeriodInput(per, fec, 'nomGrupalSetGlobalFecha(this.value)')}
+    </div>
+    <div class="rh-field"><label>$ Monto</label>
+      <input type="text" value="${nomFmtCurrency(2205.28)}"
+        oninput="nomGrupalSetAll('monto', nomParseMoney(this.value))"
+        onblur="this.value=nomFmtCurrency(nomParseMoney(this.value))">
+    </div>`;
+}
+
+window.nomGrupalSetGlobalPeriodo = function (v) {
+  NOM_STATE.grupalTopPeriodo = v;
+  NOM_STATE.grupalTopFecha   = nomDefaultPeriodValue(v);
+  nomGrupalSetAll('periodo', v);
+  nomGrupalSetAll('fecha',   NOM_STATE.grupalTopFecha);
+  const top = document.getElementById('nom-grupal-top');
+  if (top) top.innerHTML = nomRenderGrupalTop();
+};
+window.nomGrupalSetGlobalFecha = function (v) {
+  NOM_STATE.grupalTopFecha = v;
+  nomGrupalSetAll('fecha', v);
+};
 
 function nomRenderGrupalRows() {
   const inserter = (pos) => `<tr class="nom-inserter"><td colspan="9"><button type="button" class="nom-inserter-btn" onclick="nomInsertGrupalRow(${pos})" title="Insertar renglón aquí">＋</button></td></tr>`;
@@ -24162,6 +24185,8 @@ window.nomGrupalSetAll = function (field, value) {
     if (field === 'periodo') {
       r.fecha = nomDefaultPeriodValue(value);
       r.fechaPago = nomComputeFechaPago(value, r.fecha);
+    } else if (field === 'fecha') {
+      r.fechaPago = nomComputeFechaPago(r.periodo, value);
     }
   });
   const tbody = document.getElementById('nom-grupal-tbody');
