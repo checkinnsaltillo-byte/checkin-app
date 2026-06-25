@@ -22293,6 +22293,7 @@ OCUP_STATE.filters = {
   meses: new Set(),          // 'YYYY-MM' seleccionados para el promedio
   propiedades: new Set(),    // Propiedad
   alojamientos: new Set(),   // HouseId
+  estados: new Set(),        // Status (vacío = solo Booked, default)
 };
 OCUP_STATE.filtersInit = false;
 
@@ -22355,6 +22356,14 @@ function ocupRenderFilters() {
   // Alojamientos filtrados por propiedades seleccionadas
   const visibleAlojs = alojs.filter(a => OCUP_STATE.filters.propiedades.has(a.propiedad));
   ocupBuildMSelect('ocup-f-aloj', 'alojamientos', visibleAlojs.map(a => ({ value: a.houseId, label: a.nombre })));
+  // Estados disponibles desde bookings
+  ocupBuildMSelect('ocup-f-estados', 'estados', ocupGetEstadoOptions());
+}
+
+function ocupGetEstadoOptions() {
+  const bookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+  const estados = Array.from(new Set(bookings.map(b => String(b.Status || '').trim()).filter(Boolean))).sort();
+  return estados.map(s => ({ value: s, label: s }));
 }
 
 function ocupMonthYearLabel(y, m) {
@@ -22436,6 +22445,7 @@ function ocupOptionsForFilter(key) {
     const visibles = alojs.filter(a => OCUP_STATE.filters.propiedades.size === 0 || OCUP_STATE.filters.propiedades.has(a.propiedad));
     return visibles.map(a => ({ value: a.houseId, label: a.nombre }));
   }
+  if (key === 'estados') return ocupGetEstadoOptions();
   return [];
 }
 
@@ -22493,8 +22503,15 @@ function ocupRefreshCurrentView() {
 // Considera SOLO reservas confirmadas (status "Booked", case-insensitive).
 // Excluye Tentative, Open, Declined, Expired, Cancelled, etc.
 function ocupIsConfirmed(b) {
-  const s = String(b && b.Status || '').trim().toLowerCase();
-  return s === 'booked';
+  const status = String(b && b.Status || '').trim();
+  // Filtro Estado activo según la vista actual (Indicadores / Gráficas)
+  const v = OCUP_STATE.view;
+  let est = null;
+  if (v === 'indicadores') est = OCUP_STATE.filters && OCUP_STATE.filters.estados;
+  else if (v === 'graficas') est = OCUP_STATE.chart && OCUP_STATE.chart.estados;
+  if (est && est.size > 0) return est.has(status);
+  // Default: solo Booked (comportamiento previo)
+  return status.toLowerCase() === 'booked';
 }
 
 // Cuenta NOCHES + REVENUE de un alojamiento en un mes (year, month 0-indexed).
@@ -22738,6 +22755,7 @@ const OCUP_COLORS = ['#0ea5e9','#f59e0b','#10b981','#8b5cf6','#ef4444','#06b6d4'
 OCUP_STATE.chart = {
   interests: new Set(),         // Set<houseId> — multi-select
   references: new Set(['__global__']),
+  estados: new Set(),             // Status filter (vacío = solo Booked)
   hiddenSeries: new Set(),        // keys ocultas (toggle de leyenda)
   highlightSeries: new Set(),     // keys destacadas (click en leyenda)
   range: null,                    // [startIdx, endIdx] o null = todo el histórico
@@ -22772,6 +22790,7 @@ function ocupChartRenderFilters() {
   ocupChartBuildGenericMSelect('ocup-chart-interest', 'interests', interestOpts);
   const refOptions = ocupChartGetReferenceOptions();
   ocupChartBuildGenericMSelect('ocup-chart-refs', 'references', refOptions);
+  ocupChartBuildGenericMSelect('ocup-chart-estados', 'estados', ocupGetEstadoOptions());
   // Type switch buttons
   document.querySelectorAll('.ocup-gx-type-btn').forEach(b => {
     b.classList.toggle('active', b.getAttribute('data-type') === OCUP_STATE.chart.seriesType);
