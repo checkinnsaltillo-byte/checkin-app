@@ -18684,9 +18684,7 @@ async function bnUploadInit() {
       BN_UPLOAD_STATE.classifiedHistory = []; // continúa sin auto-clasificación
     }
   }
-  if (status) {
-    status.textContent = `✓ Listo · ${BN_UPLOAD_STATE.cuentasMap.length} cuentas · ${BN_UPLOAD_STATE.dedupeKeys.size.toLocaleString('es-MX')} dedupe keys · ${BN_UPLOAD_STATE.classifiedHistory.length.toLocaleString('es-MX')} filas clasificadas`;
-  }
+  if (status) status.textContent = '';
 }
 
 /** Refresca el índice de dedupe + historial de clasificaciones (útil tras
@@ -24829,6 +24827,12 @@ function bnEfeMountPreview() {
 }
 function bnEfeUnmountPreview() {
   const wrap = document.getElementById('bn-upload-preview-wrap');
+  if (wrap) {
+    // Limpia el preview siempre que salgamos de EFECTIVO o entremos a UPLOAD
+    wrap.style.display = 'none';
+    if (typeof BN_UPLOAD_STATE !== 'undefined') BN_UPLOAD_STATE.parsedRows = [];
+    const st = document.getElementById('bn-upload-status'); if (st) st.textContent = '';
+  }
   if (!wrap || !_bnEfePreviewOrigParent) return;
   if (wrap.parentElement === _bnEfePreviewOrigParent) return;
   if (_bnEfePreviewOrigNext && _bnEfePreviewOrigNext.parentElement === _bnEfePreviewOrigParent) {
