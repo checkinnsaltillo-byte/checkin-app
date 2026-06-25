@@ -6247,3 +6247,18 @@ body.dark .ug-logout:hover { background: #334155; }
     grid-template-columns: repeat(2, 1fr) !important;
   }
 }
+
+/* ─── Inserter "+": forzar override sobre la regla compacta posterior ─── */
+.nom-grupal-tbl tr.nom-inserter td,
+.nom-grupal-tbl tr.nom-inserter:hover td {
+  padding: 0 !important;
+  height: 2px !important;
+  min-height: 2px !important;
+  border: none !important;
+  white-space: normal !important;
+  width: auto !important;
+  background: transparent !important;
+  position: relative !important;
+  vertical-align: middle !important;
+}
+.nom-grupal-tbl tr.nom-inserter { height: 2px !important; }
