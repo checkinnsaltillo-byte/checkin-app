@@ -6300,3 +6300,38 @@ body.dark .ug-logout:hover { background: #334155; }
 /* Método de pago */
 .nom-chip-trans     { background:#cffafe; color:#0e7490; border:1px solid #a5f3fc; padding:3px 9px; border-radius:999px; font-weight:700; font-size:11px; }
 .nom-chip-cash      { background:#fef9c3; color:#854d0e; border:1px solid #fde68a; padding:3px 9px; border-radius:999px; font-weight:700; font-size:11px; }
+
+/* ─── Checkbox simple cuadrado para tabla Efectivo (mismo estilo que módulos) ─── */
+input.bn-efe-chk[type="checkbox"] {
+  flex-shrink: 0;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 1.5px solid #94a3b8 !important;
+  border-radius: 3px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  position: relative;
+  transition: background-color .12s ease, border-color .12s ease;
+  vertical-align: middle;
+}
+input.bn-efe-chk[type="checkbox"]:hover { border-color: #2563eb !important; }
+input.bn-efe-chk[type="checkbox"]:checked {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+}
+input.bn-efe-chk[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0;
+  width: 5px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}

@@ -24505,9 +24505,10 @@ function nomMetodoClass(v) {
 // ║  Reutiliza la clasificación + dedupe + insertBulk del flujo Drive    ║
 // ═══════════════════════════════════════════════════════════════════════
 const BN_EFE_STATE = {
-  rows: [],          // [{ id, dia (YYYY-MM-DD), desc, cargo, abono, saldo, monto, cuenta, sub, cat, concepto }]
-  sortKey: 'dia',    // default: por Día
-  sortDir: 'desc',   // más reciente arriba
+  rows: [],
+  sortKey: 'dia',
+  sortDir: 'desc',
+  selectMode: false,
 };
 
 const BN_EFE_ORIGEN_DESTINO = ['Caja chica','Caja mediana','Caja grande','Recursos propios'];
@@ -24587,6 +24588,18 @@ window.bnEfectivoUpdate = function (id, field, value) {
   else if (field === 'cat') { r.concepto = ''; bnEfectivoRender(); }
 };
 
+window.bnEfectivoToggleSelectMode = function () {
+  BN_EFE_STATE.selectMode = !BN_EFE_STATE.selectMode;
+  if (!BN_EFE_STATE.selectMode) {
+    BN_EFE_STATE.rows.forEach(r => { r.selected = false; });
+  }
+  bnEfectivoRender();
+};
+function bnEfeExitSelectMode() {
+  BN_EFE_STATE.selectMode = false;
+  BN_EFE_STATE.rows.forEach(r => { r.selected = false; });
+  bnEfectivoRender();
+}
 window.bnEfectivoToggleRow = function (id, checked) {
   const r = BN_EFE_STATE.rows.find(x => x.id === id);
   if (!r) return;
@@ -24603,12 +24616,13 @@ window.bnEfectivoDeleteSelected = function () {
   if (!confirm(`¿Eliminar ${sel.length} renglón(es) seleccionado(s)?`)) return;
   BN_EFE_STATE.rows = BN_EFE_STATE.rows.filter(r => !r.selected);
   if (!BN_EFE_STATE.rows.length) BN_EFE_STATE.rows = [bnEfeNewRow()];
-  bnEfectivoRender();
+  bnEfeExitSelectMode();
 };
-window.bnEfectivoSaveSelected = function () {
+window.bnEfectivoSaveSelected = async function () {
   const sel = BN_EFE_STATE.rows.filter(r => r.selected);
   if (!sel.length) { alert('No hay renglones seleccionados.'); return; }
-  bnEfectivoSave({ onlySelected: true });
+  await bnEfectivoSave({ onlySelected: true });
+  bnEfeExitSelectMode();
 };
 window.bnEfectivoClear = function () {
   if (!confirm('¿Limpiar todos los renglones capturados?')) return;
@@ -24668,8 +24682,20 @@ function bnEfectivoRender() {
   if (!thead || !tbody) return;
   const rows = BN_EFE_STATE.rows || [];
   const allSel = rows.length > 0 && rows.every(r => r.selected);
+  const selMode = BN_EFE_STATE.selectMode;
+  const anySel = rows.some(r => r.selected);
+  // Toggle visibilidad del banner de acciones bulk y del label del botón
+  const bar = document.getElementById('bn-efectivo-bulk-bar');
+  if (bar) bar.style.display = (selMode && anySel) ? 'flex' : 'none';
+  const togBtn = document.getElementById('bn-efectivo-toggle-select');
+  if (togBtn) {
+    togBtn.innerHTML = selMode ? '✕ Salir de selección' : '☑ Seleccionar varios';
+    togBtn.style.background = selMode ? '#dbeafe' : '#f8fafc';
+    togBtn.style.borderColor = selMode ? '#3b82f6' : '#cbd5e1';
+    togBtn.style.color = selMode ? '#1d4ed8' : '#475569';
+  }
   thead.innerHTML = `<tr>
-    <th style="width:28px;padding:6px 4px;text-align:center"><input type="checkbox" ${allSel?'checked':''} onchange="bnEfectivoToggleAll(this.checked)" title="Seleccionar todos"></th>
+    ${selMode ? `<th style="width:28px;padding:6px 4px;text-align:center"><input type="checkbox" class="bn-efe-chk" ${allSel?'checked':''} onchange="bnEfectivoToggleAll(this.checked)" title="Seleccionar todos"></th>` : ''}
     <th style="width:28px;padding:6px 4px"></th>
     ${BN_EFE_COLS.map(c => {
       const isActive = BN_EFE_STATE.sortKey === c.id;
@@ -24713,10 +24739,11 @@ function bnEfectivoRowHtml(r) {
   const catOpts    = bnEfeOptionsForLevel(r, 'cat');
   const conOpts    = bnEfeOptionsForLevel(r, 'concepto');
   const sel = (opts, val) => `<option value=""></option>${opts.map(o => `<option value="${esc(o)}" ${o===val?'selected':''}>${esc(o)}</option>`).join('')}`;
-  return `<tr data-efe-id="${r.id}" style="border-top:1px solid #f1f5f9${r.selected?';background:#eff6ff':''}">
-    <td style="padding:2px 4px;text-align:center">
-      <input type="checkbox" ${r.selected?'checked':''} onchange="bnEfectivoToggleRow(${r.id},this.checked)">
-    </td>
+  const selMode = BN_EFE_STATE.selectMode;
+  return `<tr data-efe-id="${r.id}" style="border-top:1px solid #f1f5f9${(selMode && r.selected)?';background:#eff6ff':''}">
+    ${selMode ? `<td style="padding:2px 4px;text-align:center">
+      <input type="checkbox" class="bn-efe-chk" ${r.selected?'checked':''} onchange="bnEfectivoToggleRow(${r.id},this.checked)">
+    </td>` : ''}
     <td style="padding:2px 4px;text-align:center">
       <button type="button" onclick="bnEfectivoDelete(${r.id})" title="Eliminar renglón"
         style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:5px;width:22px;height:22px;cursor:pointer;font-weight:800;line-height:1">✕</button>
