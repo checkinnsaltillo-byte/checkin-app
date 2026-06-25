@@ -849,6 +849,12 @@
               <span style="font-size:12px;color:#475569">filas más a la tabla</span>
             </div>
             <button type="button" onclick="bnEfectivoSave()" style="padding:8px 14px;border:1.5px solid #16a34a;background:linear-gradient(180deg,#dcfce7,#fff);color:#15803d;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">💾 Guardar registros</button>
+            <button type="button" onclick="bnEfectivoClear()" style="padding:8px 14px;border:1.5px solid #94a3b8;background:#f8fafc;color:#475569;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">🧹 Limpiar</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:8px 10px;background:#eff6ff;border:1px dashed #93c5fd;border-radius:8px">
+            <span style="font-size:11px;font-weight:700;color:#1d4ed8">Acciones en seleccionados:</span>
+            <button type="button" onclick="bnEfectivoSaveSelected()" style="padding:5px 10px;border:1.5px solid #16a34a;background:#fff;color:#15803d;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer">💾 Guardar registros seleccionados</button>
+            <button type="button" onclick="bnEfectivoDeleteSelected()" style="padding:5px 10px;border:1.5px solid #dc2626;background:#fff;color:#b91c1c;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer">🗑 Eliminar registros seleccionados</button>
           </div>
           <div id="bn-efectivo-status" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
           <div style="overflow:auto;max-height:62vh;border:1px solid #e2e8f0;border-radius:8px">
@@ -2027,6 +2033,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=425"></script>
+  <script src="app.js?v=426"></script>
 </body>
 </html>

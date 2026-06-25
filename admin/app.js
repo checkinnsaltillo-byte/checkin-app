@@ -24510,23 +24510,26 @@ const BN_EFE_STATE = {
   sortDir: 'desc',   // más reciente arriba
 };
 
+const BN_EFE_ORIGEN_DESTINO = ['Caja chica','Caja mediana','Caja grande','Recursos propios'];
 const BN_EFE_COLS = [
-  { id: 'dia',      label: 'Día',         type: 'date',   align: 'left'  },
-  { id: 'desc',     label: 'DESCRIPCION', type: 'string', align: 'left'  },
-  { id: 'cargo',    label: 'Cargo',       type: 'number', align: 'right' },
-  { id: 'abono',    label: 'Abono',       type: 'number', align: 'right' },
-  { id: 'saldo',    label: 'Saldo',       type: 'number', align: 'right' },
-  { id: 'monto',    label: 'Monto',       type: 'number', align: 'right' },
-  { id: 'cuenta',   label: 'CUENTA',      type: 'string', align: 'left'  },
-  { id: 'sub',      label: 'SUBCUENTA',   type: 'string', align: 'left'  },
-  { id: 'cat',      label: 'CATEGORIA',   type: 'string', align: 'left'  },
-  { id: 'concepto', label: 'CONCEPTO',    type: 'string', align: 'left'  },
+  { id: 'dia',            label: 'Día',                    type: 'date',   align: 'left'  },
+  { id: 'desc',           label: 'DESCRIPCION',            type: 'string', align: 'left'  },
+  { id: 'cargo',          label: 'Cargo',                  type: 'number', align: 'right' },
+  { id: 'abono',          label: 'Abono',                  type: 'number', align: 'right' },
+  { id: 'saldo',          label: 'Saldo',                  type: 'number', align: 'right' },
+  { id: 'monto',          label: 'Monto',                  type: 'number', align: 'right' },
+  { id: 'origenDestino',  label: 'ORIGEN/DESTINO',         type: 'string', align: 'left'  },
+  { id: 'origenDestinoComments', label: 'ORIGEN/DESTINO_comments', type: 'string', align: 'left' },
+  { id: 'cuenta',         label: 'CUENTA',                 type: 'string', align: 'left'  },
+  { id: 'sub',            label: 'SUBCUENTA',              type: 'string', align: 'left'  },
+  { id: 'cat',            label: 'CATEGORIA',              type: 'string', align: 'left'  },
+  { id: 'concepto',       label: 'CONCEPTO',               type: 'string', align: 'left'  },
 ];
 
 let _bnEfeRowSeq = 0;
 function bnEfeNewRow() {
   const today = new Date().toISOString().slice(0,10);
-  return { id: ++_bnEfeRowSeq, dia: today, desc: '', cargo: '', abono: '', saldo: '', monto: '', cuenta: '', sub: '', cat: '', concepto: '' };
+  return { id: ++_bnEfeRowSeq, dia: today, desc: '', cargo: '', abono: '', saldo: '', monto: '', origenDestino: '', origenDestinoComments: '', cuenta: '', sub: '', cat: '', concepto: '', selected: false };
 }
 
 function bnEfectivoInit() {
@@ -24568,7 +24571,6 @@ window.bnEfectivoUpdate = function (id, field, value) {
   const r = BN_EFE_STATE.rows.find(x => x.id === id);
   if (!r) return;
   r[field] = value;
-  // Recalcular Monto cuando cambia Cargo/Abono (efectivo: signo = abono - cargo)
   if (field === 'cargo' || field === 'abono') {
     const c = Number(r.cargo) || 0;
     const a = Number(r.abono) || 0;
@@ -24580,10 +24582,38 @@ window.bnEfectivoUpdate = function (id, field, value) {
       cell.style.color = n < 0 ? '#dc2626' : n > 0 ? '#16a34a' : '#0f172a';
     }
   }
-  // Cascada en clasificación
   if (field === 'cuenta') { r.sub = ''; r.cat = ''; r.concepto = ''; bnEfectivoRender(); }
   else if (field === 'sub') { r.cat = ''; r.concepto = ''; bnEfectivoRender(); }
   else if (field === 'cat') { r.concepto = ''; bnEfectivoRender(); }
+};
+
+window.bnEfectivoToggleRow = function (id, checked) {
+  const r = BN_EFE_STATE.rows.find(x => x.id === id);
+  if (!r) return;
+  r.selected = !!checked;
+  bnEfectivoRender();
+};
+window.bnEfectivoToggleAll = function (checked) {
+  BN_EFE_STATE.rows.forEach(r => { r.selected = !!checked; });
+  bnEfectivoRender();
+};
+window.bnEfectivoDeleteSelected = function () {
+  const sel = BN_EFE_STATE.rows.filter(r => r.selected);
+  if (!sel.length) { alert('No hay renglones seleccionados.'); return; }
+  if (!confirm(`¿Eliminar ${sel.length} renglón(es) seleccionado(s)?`)) return;
+  BN_EFE_STATE.rows = BN_EFE_STATE.rows.filter(r => !r.selected);
+  if (!BN_EFE_STATE.rows.length) BN_EFE_STATE.rows = [bnEfeNewRow()];
+  bnEfectivoRender();
+};
+window.bnEfectivoSaveSelected = function () {
+  const sel = BN_EFE_STATE.rows.filter(r => r.selected);
+  if (!sel.length) { alert('No hay renglones seleccionados.'); return; }
+  bnEfectivoSave({ onlySelected: true });
+};
+window.bnEfectivoClear = function () {
+  if (!confirm('¿Limpiar todos los renglones capturados?')) return;
+  BN_EFE_STATE.rows = [bnEfeNewRow()];
+  bnEfectivoRender();
 };
 
 window.bnEfectivoDelete = function (id) {
@@ -24636,8 +24666,10 @@ function bnEfectivoRender() {
   const thead = document.getElementById('bn-efectivo-thead');
   const tbody = document.getElementById('bn-efectivo-tbody');
   if (!thead || !tbody) return;
-  // Header con flechas de ordenamiento
+  const rows = BN_EFE_STATE.rows || [];
+  const allSel = rows.length > 0 && rows.every(r => r.selected);
   thead.innerHTML = `<tr>
+    <th style="width:28px;padding:6px 4px;text-align:center"><input type="checkbox" ${allSel?'checked':''} onchange="bnEfectivoToggleAll(this.checked)" title="Seleccionar todos"></th>
     <th style="width:28px;padding:6px 4px"></th>
     ${BN_EFE_COLS.map(c => {
       const isActive = BN_EFE_STATE.sortKey === c.id;
@@ -24681,7 +24713,10 @@ function bnEfectivoRowHtml(r) {
   const catOpts    = bnEfeOptionsForLevel(r, 'cat');
   const conOpts    = bnEfeOptionsForLevel(r, 'concepto');
   const sel = (opts, val) => `<option value=""></option>${opts.map(o => `<option value="${esc(o)}" ${o===val?'selected':''}>${esc(o)}</option>`).join('')}`;
-  return `<tr data-efe-id="${r.id}" style="border-top:1px solid #f1f5f9">
+  return `<tr data-efe-id="${r.id}" style="border-top:1px solid #f1f5f9${r.selected?';background:#eff6ff':''}">
+    <td style="padding:2px 4px;text-align:center">
+      <input type="checkbox" ${r.selected?'checked':''} onchange="bnEfectivoToggleRow(${r.id},this.checked)">
+    </td>
     <td style="padding:2px 4px;text-align:center">
       <button type="button" onclick="bnEfectivoDelete(${r.id})" title="Eliminar renglón"
         style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:5px;width:22px;height:22px;cursor:pointer;font-weight:800;line-height:1">✕</button>
@@ -24691,7 +24726,11 @@ function bnEfectivoRowHtml(r) {
     <td style="padding:2px 4px"><input type="number" step="0.01" value="${esc(r.cargo||'')}" oninput="bnEfectivoUpdate(${r.id},'cargo',this.value)" style="${inputStyle};text-align:right;${colorize(r.cargo,'cargo')}"></td>
     <td style="padding:2px 4px"><input type="number" step="0.01" value="${esc(r.abono||'')}" oninput="bnEfectivoUpdate(${r.id},'abono',this.value)" style="${inputStyle};text-align:right;${colorize(r.abono,'abono')}"></td>
     <td style="padding:2px 4px"><input type="number" step="0.01" value="${esc(r.saldo||'')}" oninput="bnEfectivoUpdate(${r.id},'saldo',this.value)" style="${inputStyle};text-align:right;${colorize(r.saldo,'sign')}"></td>
-    <td style="padding:2px 4px"><input class="bn-efe-monto" type="number" step="0.01" value="${esc(r.monto||'')}" oninput="bnEfectivoUpdate(${r.id},'monto',this.value)" style="${inputStyle};text-align:right;${colorize(r.monto,'sign')}"></td>
+    <td style="padding:2px 4px"><input class="bn-efe-monto" type="number" step="0.01" value="${esc(r.monto||'')}" readonly title="Calculado automáticamente como Abono − Cargo" style="${inputStyle};text-align:right;background:#f1f5f9;color:${(Number(r.monto)||0)<0?'#dc2626':(Number(r.monto)||0)>0?'#16a34a':'#0f172a'};font-weight:700;cursor:not-allowed"></td>
+    <td style="padding:2px 4px"><select onchange="bnEfectivoUpdate(${r.id},'origenDestino',this.value)" style="${inputStyle}">
+      <option value=""></option>${BN_EFE_ORIGEN_DESTINO.map(o => `<option value="${esc(o)}" ${o===r.origenDestino?'selected':''}>${esc(o)}</option>`).join('')}
+    </select></td>
+    <td style="padding:2px 4px"><input type="text" value="${esc(r.origenDestinoComments||'')}" oninput="bnEfectivoUpdate(${r.id},'origenDestinoComments',this.value)" style="${inputStyle}"></td>
     <td style="padding:2px 4px"><select onchange="bnEfectivoUpdate(${r.id},'cuenta',this.value)" style="${inputStyle}">${sel(cuentaOpts, r.cuenta)}</select></td>
     <td style="padding:2px 4px"><select onchange="bnEfectivoUpdate(${r.id},'sub',this.value)" style="${inputStyle}" ${subOpts.length?'':'disabled'}>${sel(subOpts, r.sub)}</select></td>
     <td style="padding:2px 4px"><select onchange="bnEfectivoUpdate(${r.id},'cat',this.value)" style="${inputStyle}" ${catOpts.length?'':'disabled'}>${sel(catOpts, r.cat)}</select></td>
@@ -24709,11 +24748,13 @@ function bnEfeIsoToDmy(iso) {
 
 /** Convierte los rows de Efectivo a la forma BANCOS y dispara el flujo
  *  estándar de clasificación + dedupe + preview + insert. */
-window.bnEfectivoSave = async function () {
+window.bnEfectivoSave = async function (opts) {
+  opts = opts || {};
   const status = document.getElementById('bn-efectivo-status');
-  // Filtrar renglones con al menos Día + (Cargo o Abono)
-  const valid = (BN_EFE_STATE.rows || []).filter(r => r.dia && ((Number(r.cargo) || 0) !== 0 || (Number(r.abono) || 0) !== 0));
-  if (!valid.length) { alert('No hay renglones con Día y monto > 0.'); return; }
+  let pool = BN_EFE_STATE.rows || [];
+  if (opts.onlySelected) pool = pool.filter(r => r.selected);
+  const valid = pool.filter(r => r.dia && ((Number(r.cargo) || 0) !== 0 || (Number(r.abono) || 0) !== 0));
+  if (!valid.length) { alert(opts.onlySelected ? 'Ningún renglón seleccionado tiene Día y monto > 0.' : 'No hay renglones con Día y monto > 0.'); return; }
   const MES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const usuario = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '';
   const mapped = valid.map(r => {
@@ -24738,6 +24779,8 @@ window.bnEfectivoSave = async function () {
       'ABONO': abono || '',
       'SALDO': saldo === '' ? '' : saldo,
       'Monto': monto,
+      'ORIGEN/DESTINO': r.origenDestino || '',
+      'ORIGEN/DESTINO_comments': r.origenDestinoComments || '',
       'COMENTARIOS': '',
     };
     // Si el usuario clasificó manualmente, marcarlo como _auto para que se respete
