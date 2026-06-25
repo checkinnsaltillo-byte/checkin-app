@@ -1852,6 +1852,8 @@ const BN_MSEL_FIELDS = [
   { key: 'metodoPago',   label: 'Método de pago',  from: r => r._metodo_pago        || '' },
   { key: 'reembolso',    label: 'Reembolso',       from: r => r._reembolso          || '' },
   { key: 'encargado',    label: 'Encargado de operación', from: r => r._encargado   || '' },
+  { key: 'ticketMatch',  label: '🔗 Relacionados con tickets', from: r =>
+      (r._ticket_relacionado === 'Sí' || r._matchedTicket) ? 'Sí' : 'No' },
 ];
 const BN_BCACHE = { E: null, I: null };
 let BN_CATALOG = {};           // catálogo construido desde Presupuesto_sys
@@ -2080,6 +2082,17 @@ async function bn_loadData() {
       rec._duda_nota       = rec.DUDA_NOTA || '';
       rec._validado        = rec.VALIDADO  || '';
       rec._comentarios     = rec.COMENTARIOS || rec.Comentarios || '';
+      rec._ticket_relacionado = rec.Ticket_relacionado || rec.TICKET_RELACIONADO || '';
+      // Reconstruye _matchedTicket si la fila ya trae score/match persistido
+      if (rec._ticket_relacionado === 'Sí') {
+        rec._matchedTicket = {
+          score:  Number(rec.Ticket_match_score) || 0,
+          tienda: rec.Ticket_match_tienda || '',
+          fecha:  rec.Ticket_match_fecha  || '',
+          folio:  rec.Ticket_match_folio  || '',
+          total:  Number(rec.Ticket_match_total) || 0,
+        };
+      }
       // Auto-clasificación (solo se muestra si no hay clasificación manual)
       rec._cuenta_auto     = rec.CUENTA_auto    || '';
       rec._subcuenta_auto  = rec.SUBCUENTA_auto || '';
@@ -2808,6 +2821,7 @@ async function bn_relacionarConTickets() {
       BN_TICKETS_CACHE = data.tickets || [];
     }
     let matched = 0;
+    const updates = [];
     for (const rec of BN_RAW) {
       const r = bn_findBestTicket(rec, BN_TICKETS_CACHE);
       if (r && r.score >= 0.4) {
@@ -2819,13 +2833,39 @@ async function bn_relacionarConTickets() {
           total:   tk.total  || 0,
           folio:   tk.folio  || '',
         };
+        rec._ticket_relacionado = 'Sí';
         matched++;
+        if (rec.rowNum) {
+          updates.push({
+            rowNum: rec.rowNum,
+            ticket_relacionado: 'Sí',
+            ticket_match_score:  +(r.score * 100).toFixed(1),
+            ticket_match_tienda: tk.tienda || '',
+            ticket_match_fecha:  tk.fecha  || '',
+            ticket_match_folio:  tk.folio  || '',
+            ticket_match_total:  Number(tk.total) || 0,
+          });
+        }
       } else {
         rec._matchedTicket = null;
+        if (rec._ticket_relacionado === 'Sí' && rec.rowNum) {
+          updates.push({ rowNum: rec.rowNum, ticket_relacionado: 'No' });
+        }
+        rec._ticket_relacionado = 'No';
       }
     }
     bn_render();
-    alert(`${matched} posible(s) coincidencia(s) encontrada(s) sobre ${BN_RAW.length} registros (umbral 40%).`);
+    // Persistir matches a BANCOS en background (no bloquea el alert)
+    if (updates.length) {
+      fetch(`${BACKEND}/bn/set-ticket-matches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      }).then(r => r.json())
+        .then(j => { if (!j.ok) console.warn('[BN] persist matches:', j.error); })
+        .catch(e => console.warn('[BN] persist matches falló:', e.message));
+    }
+    alert(`${matched} posible(s) coincidencia(s) encontrada(s) sobre ${BN_RAW.length} registros (umbral 40%).${updates.length ? '\n\nGuardando en BANCOS…' : ''}`);
   } catch (e) {
     alert('Error: ' + e.message);
   } finally {
