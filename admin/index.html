@@ -790,10 +790,6 @@
                     style="padding:10px 14px;border:1.5px solid #0d9488;background:linear-gradient(180deg,#ccfbf1,#fff);color:#0f766e;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(13,148,136,.18)">
               <span style="font-size:15px">📁</span> Leer archivos de Drive
             </button>
-            <button type="button" onclick="bnUploadRefreshDedupe()" title="Re-lee el índice de BANCOS desde el sheet. Útil si redeployaste el Apps Script o si otra sesión escribió a BANCOS."
-                    style="padding:8px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px">
-              <span style="font-size:13px">🔄</span> Refrescar índice
-            </button>
           </div>
           <div id="bn-upload-status" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
           <!-- Panel de selección de archivos de Drive (oculto por default) -->
@@ -841,7 +837,6 @@
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
             <div style="flex:1;min-width:240px">
               <div style="font-size:15px;font-weight:800;color:#0f172a">💵 Carga de movimientos en efectivo</div>
-              <div style="font-size:12px;color:#64748b;margin-top:2px">Captura manual de movimientos en efectivo. Se insertan a BANCOS con <code>Cuenta bancaria</code> y <code># Cuenta</code> = <strong>Efectivo</strong>, con la misma lógica de clasificación automática que los archivos de Drive.</div>
             </div>
             <div style="display:flex;align-items:center;gap:6px">
               <button type="button" onclick="bnEfectivoAddRows()" style="padding:8px 14px;border:1.5px solid #7c3aed;background:linear-gradient(180deg,#ede9fe,#fff);color:#5b21b6;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">＋ Añade</button>
@@ -864,6 +859,7 @@
               <tbody id="bn-efectivo-tbody"></tbody>
             </table>
           </div>
+          <div id="bn-efectivo-preview-host" style="margin-top:16px"></div>
         </div>
       </div>
 
@@ -2034,6 +2030,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=428"></script>
+  <script src="app.js?v=429"></script>
 </body>
 </html>

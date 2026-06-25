@@ -4224,7 +4224,7 @@ function bn_setTipo(t) {
   const pageSize = document.getElementById('bn-page-size');
   const pageSizeWrap = pageSize?.parentElement;
   if (pageSizeWrap) pageSizeWrap.style.display = isPresOrInd ? 'none' : '';
-  const allTabs = ['T','E','I','AC','PA','CA','PC','PC_I','PC_E','PC_AC','PC_PA','PC_CA','A','F','AP','PR'];
+  const allTabs = ['T','E','I','AC','PA','CA','PC','PC_I','PC_E','PC_AC','PC_PA','PC_CA','A','F','AP','PR','UPLOAD','EFECTIVO'];
   const pal = BN_CAT_PALETTE[parent] || BN_CAT_PALETTE.pc;
   // Resaltar el chip activo (hijo activo en tono medio; resto en tono claro)
   allTabs.forEach(x => {
@@ -4389,11 +4389,13 @@ function bn_render() {
     if (searchBarU) searchBarU.style.display = 'none';
     const efePane = document.getElementById('bn-efectivo-pane');
     if (BN_TIPO === 'EFECTIVO') {
+      if (typeof bnEfeUnmountPreview === 'function') {} // ya está en su sitio mientras no se mueva
       up?.classList.add('hidden');
       efePane?.classList.remove('hidden');
       if (typeof bnUploadInit === 'function') bnUploadInit();
       if (typeof bnEfectivoInit === 'function') bnEfectivoInit();
     } else {
+      if (typeof bnEfeUnmountPreview === 'function') bnEfeUnmountPreview();
       efePane?.classList.add('hidden');
       up?.classList.remove('hidden');
       if (typeof bnUploadInit === 'function') bnUploadInit();
@@ -24521,10 +24523,6 @@ const BN_EFE_COLS = [
   { id: 'monto',          label: 'Monto',                  type: 'number', align: 'right' },
   { id: 'origenDestino',  label: 'ORIGEN/DESTINO',         type: 'string', align: 'left'  },
   { id: 'origenDestinoComments', label: 'ORIGEN/DESTINO_comments', type: 'string', align: 'left' },
-  { id: 'cuenta',         label: 'CUENTA',                 type: 'string', align: 'left'  },
-  { id: 'sub',            label: 'SUBCUENTA',              type: 'string', align: 'left'  },
-  { id: 'cat',            label: 'CATEGORIA',              type: 'string', align: 'left'  },
-  { id: 'concepto',       label: 'CONCEPTO',               type: 'string', align: 'left'  },
 ];
 
 let _bnEfeRowSeq = 0;
@@ -24583,9 +24581,6 @@ window.bnEfectivoUpdate = function (id, field, value) {
       cell.style.color = n < 0 ? '#dc2626' : n > 0 ? '#16a34a' : '#0f172a';
     }
   }
-  if (field === 'cuenta') { r.sub = ''; r.cat = ''; r.concepto = ''; bnEfectivoRender(); }
-  else if (field === 'sub') { r.cat = ''; r.concepto = ''; bnEfectivoRender(); }
-  else if (field === 'cat') { r.concepto = ''; bnEfectivoRender(); }
 };
 
 window.bnEfectivoToggleSelectMode = function () {
@@ -24734,11 +24729,6 @@ function bnEfectivoRowHtml(r) {
     return '';
   };
   const inputStyle = 'width:100%;padding:4px 6px;font-size:12px;border:1px solid #e2e8f0;border-radius:5px;background:#fff';
-  const cuentaOpts = bnEfeOptionsForLevel(r, 'cuenta');
-  const subOpts    = bnEfeOptionsForLevel(r, 'sub');
-  const catOpts    = bnEfeOptionsForLevel(r, 'cat');
-  const conOpts    = bnEfeOptionsForLevel(r, 'concepto');
-  const sel = (opts, val) => `<option value=""></option>${opts.map(o => `<option value="${esc(o)}" ${o===val?'selected':''}>${esc(o)}</option>`).join('')}`;
   const selMode = BN_EFE_STATE.selectMode;
   return `<tr data-efe-id="${r.id}" style="border-top:1px solid #f1f5f9${(selMode && r.selected)?';background:#eff6ff':''}">
     ${selMode ? `<td style="padding:2px 4px;text-align:center">
@@ -24758,10 +24748,6 @@ function bnEfectivoRowHtml(r) {
       <option value=""></option>${BN_EFE_ORIGEN_DESTINO.map(o => `<option value="${esc(o)}" ${o===r.origenDestino?'selected':''}>${esc(o)}</option>`).join('')}
     </select></td>
     <td style="padding:2px 4px"><input type="text" value="${esc(r.origenDestinoComments||'')}" oninput="bnEfectivoUpdate(${r.id},'origenDestinoComments',this.value)" style="${inputStyle}"></td>
-    <td style="padding:2px 4px"><select onchange="bnEfectivoUpdate(${r.id},'cuenta',this.value)" style="${inputStyle}">${sel(cuentaOpts, r.cuenta)}</select></td>
-    <td style="padding:2px 4px"><select onchange="bnEfectivoUpdate(${r.id},'sub',this.value)" style="${inputStyle}" ${subOpts.length?'':'disabled'}>${sel(subOpts, r.sub)}</select></td>
-    <td style="padding:2px 4px"><select onchange="bnEfectivoUpdate(${r.id},'cat',this.value)" style="${inputStyle}" ${catOpts.length?'':'disabled'}>${sel(catOpts, r.cat)}</select></td>
-    <td style="padding:2px 4px"><select onchange="bnEfectivoUpdate(${r.id},'concepto',this.value)" style="${inputStyle}" ${conOpts.length?'':'disabled'}>${sel(conOpts, r.concepto)}</select></td>
   </tr>`;
 }
 
@@ -24823,14 +24809,34 @@ window.bnEfectivoSave = async function (opts) {
   BN_UPLOAD_STATE.parsedRows = mapped;
   if (typeof bnUploadClassifyRows === 'function') bnUploadClassifyRows(mapped);
   if (typeof bnUploadAssignCountersAndDedupe === 'function') bnUploadAssignCountersAndDedupe(mapped);
-  // Cambia visualmente al pane de Upload para ver el preview estándar
-  document.getElementById('bn-efectivo-pane')?.classList.add('hidden');
-  document.getElementById('bn-upload-pane')?.classList.remove('hidden');
+  // Mantén el pane de Efectivo visible y mueve el preview-wrap aquí
+  bnEfeMountPreview();
   if (typeof bnUploadRenderPreview === 'function') bnUploadRenderPreview();
-  if (status) status.textContent = '';
-  const upStatus = document.getElementById('bn-upload-status');
-  if (upStatus) upStatus.innerHTML = `📋 <strong>${mapped.length}</strong> renglones de Efectivo listos para revisar. Confirma con <strong>Insertar en BANCOS</strong>.`;
+  if (status) status.innerHTML = `📋 <strong>${mapped.length}</strong> renglones listos para revisar. Confirma con <strong>Insertar en BANCOS</strong>.`;
 };
+
+let _bnEfePreviewOrigParent = null;
+let _bnEfePreviewOrigNext = null;
+function bnEfeMountPreview() {
+  const wrap = document.getElementById('bn-upload-preview-wrap');
+  const host = document.getElementById('bn-efectivo-preview-host');
+  if (!wrap || !host) return;
+  if (!_bnEfePreviewOrigParent) {
+    _bnEfePreviewOrigParent = wrap.parentElement;
+    _bnEfePreviewOrigNext   = wrap.nextSibling;
+  }
+  if (wrap.parentElement !== host) host.appendChild(wrap);
+}
+function bnEfeUnmountPreview() {
+  const wrap = document.getElementById('bn-upload-preview-wrap');
+  if (!wrap || !_bnEfePreviewOrigParent) return;
+  if (wrap.parentElement === _bnEfePreviewOrigParent) return;
+  if (_bnEfePreviewOrigNext && _bnEfePreviewOrigNext.parentElement === _bnEfePreviewOrigParent) {
+    _bnEfePreviewOrigParent.insertBefore(wrap, _bnEfePreviewOrigNext);
+  } else {
+    _bnEfePreviewOrigParent.appendChild(wrap);
+  }
+}
 
 window.bnEfectivoOpenFromHome = function () {
   try { switchModule('registros'); } catch(_) {}
