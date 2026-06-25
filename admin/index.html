@@ -84,9 +84,17 @@
   <!-- Login Overlay -->
   <div id="loginOverlay" class="login-overlay">
     <div class="login-card">
-      <div class="login-logo">
-        <img src="https://drive.google.com/thumbnail?id=1We0TuuoTb0fDa5xLVMzDqzMZZWwgkb0v&sz=w300"
-             alt="Logo" style="width:64px;height:64px;object-fit:contain;border-radius:12px;background:#fff;padding:4px;box-shadow:0 4px 12px rgba(15,23,42,.12)">
+      <div class="login-logo" style="background:transparent;border:none;padding:0;box-shadow:none;display:flex;justify-content:center;margin-bottom:14px">
+        <div class="checkinn-loader size-lg" role="img" aria-label="Check-inn Saltillo">
+          <div class="ci-pin-scene">
+            <div class="ci-pin">
+              <div class="ci-face front"><img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt=""></div>
+              <div class="ci-face back"><img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt=""></div>
+              <img class="ci-spacer" src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt="">
+            </div>
+          </div>
+          <img class="ci-text" src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png" alt="Check-inn">
+        </div>
       </div>
       <h2 class="login-title">Sistema de gestión de Corta estancia</h2>
       <p class="login-subtitle">Check Inn Saltillo</p>
@@ -2030,6 +2038,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=430"></script>
+  <script src="app.js?v=431"></script>
 </body>
 </html>
