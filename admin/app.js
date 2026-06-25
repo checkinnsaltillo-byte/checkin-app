@@ -11185,6 +11185,11 @@ function huBuildAirbnbBox(r, opts) {
             style="padding:7px 14px;border:none;background:linear-gradient(180deg,#f97316 0%,#c2410c 100%);color:#fff;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 4px rgba(194,65,12,.3)">
       🔄 Re-emitir ticket
     </button>` : '';
+  const btnEnviarCorreo = hasTicket ? `
+    <button type="button" onclick="event.stopPropagation();huespedesEnviarTicketCorreo('${esc(recId)}')"
+            style="padding:7px 14px;border:none;background:linear-gradient(180deg,#0ea5e9 0%,#0369a1 100%);color:#fff;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 4px rgba(3,105,161,.3)">
+      📧 Enviar ticket por correo
+    </button>` : '';
   // "Generar Ticket" visible siempre que NO haya ticket emitido aún.
   const btnGenerar = !hasTicket ? `
     <button onclick="event.stopPropagation();huespedesGenerarTicket('${esc(recId)}')"
@@ -11219,7 +11224,7 @@ function huBuildAirbnbBox(r, opts) {
                style="width:100%;padding:7px 10px;border:1px solid #a78bfa;border-radius:6px;background:${esAirbnb?'#c4b5fd':'#fff'};font-size:13px;color:#4c1d95;font-weight:700;outline:none">
         ${esAirbnb?'<div style="font-size:10px;color:#6d28d9;margin-top:4px;font-weight:600">🔒 Airbnb − Comisión</div>':''}
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${btnVerTicket}${btnCopiarMsg}${btnReemitir}${btnGenerar}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${btnVerTicket}${btnCopiarMsg}${btnReemitir}${btnEnviarCorreo}${btnGenerar}</div>
     </div>`;
 }
 
@@ -25128,4 +25133,39 @@ window.bnEfectivoOpenFromHome = function () {
     try { bn_setCat('upload'); } catch(_) {}
     try { bn_setTipo('EFECTIVO'); } catch(_) {}
   }, 50);
+};
+
+// ─── Enviar ticket por correo (Facturapi) ──────────────────────────────────
+window.huespedesEnviarTicketCorreo = async function (recordId) {
+  if (!recordId) { alert('No se pudo identificar el registro.'); return; }
+  const row = (HU_STATE.rows || []).find(r => String(r['ID']||r['row_number']||'') === String(recordId));
+  if (!row) { alert('No se encontró el registro.'); return; }
+  const folio = String(huValueFlexible(row, ['Folio facturapi','Folio Facturapi','Folio']) || '').trim();
+  if (!folio) { alert('Este registro no tiene un folio de ticket emitido.'); return; }
+  const correo = String(huValueFlexible(row, ['Correo electrónico','Correo electrónico para el envío de la factura']) || '').trim();
+  if (!correo) { alert('El registro no tiene correo electrónico capturado.'); return; }
+  const orgRaw = String(huValueFlexible(row, ['Organización facturapi']) || '').trim();
+  const org = orgRaw.includes('1') ? '1' : '2';
+  const ok = await (typeof showConfirm === 'function' ? showConfirm({
+    icon: '📧',
+    title: '¿Enviar ticket por correo?',
+    msg: `Se enviará el ticket #${folio} a:\n${correo}`,
+    okLabel: 'Sí, enviar',
+  }) : Promise.resolve(window.confirm(`¿Enviar ticket ${folio} a ${correo}?`)));
+  if (!ok) return;
+  try {
+    if (typeof showLoading === 'function') showLoading('Enviando ticket por correo…', 'Facturapi');
+    const res = await fetch(`${BACKEND}/facturapi/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folio, email: correo, org }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'Error');
+    alert(`✓ Ticket enviado a ${j.sent_to || correo}`);
+  } catch (e) {
+    alert('No se pudo enviar: ' + (e.message || e));
+  } finally {
+    if (typeof hideLoading === 'function') hideLoading();
+  }
 };
