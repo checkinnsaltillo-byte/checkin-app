@@ -329,21 +329,83 @@ async function computeHashes(startIdx) {
 
 // ─── Login ─────────────────────────────────────────────────────────────────
 
-function tryLogin() {
-  const pw  = (document.getElementById("loginPassword")?.value || "").trim();
+// ── Permisos por módulo (basado en hoja sys_users) ──
+const SYS_MODULE_PERMS = {
+  I:    ['registros'],
+  II:   ['tickets'],
+  III:  ['huespedes','lodgify','reservas-detalles'],
+  IV:   ['breezeway'],
+  V:    ['incidencias'],
+  VI:   ['objetos'],
+  VII:  ['ocupacion'],
+  VIII: ['rh'],
+};
+function sysGetStoredUser() {
+  try { return JSON.parse(localStorage.getItem('sys_user') || 'null'); } catch (_) { return null; }
+}
+function sysStoreUser(u) { try { localStorage.setItem('sys_user', JSON.stringify(u)); } catch(_) {} }
+function sysApplyPermissions(user) {
+  const allowed = new Set(['home']);
+  if (user && user.modulos) {
+    for (const k in SYS_MODULE_PERMS) {
+      if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
+    }
+  }
+  document.querySelectorAll('[id^="nav-item-"]').forEach(el => {
+    const key = el.id.replace('nav-item-', '');
+    if (key === 'home') return;
+    if (!allowed.has(key)) el.style.display = 'none';
+  });
+  document.querySelectorAll('button.home-card').forEach(btn => {
+    for (const cls of btn.classList) {
+      if (cls === 'home-card') continue;
+      if (cls.startsWith('home-card-')) {
+        const key = cls.substring('home-card-'.length);
+        if (!allowed.has(key)) { btn.style.display = 'none'; }
+      }
+    }
+  });
+  const greet = document.getElementById('user-greeting');
+  const nm    = document.getElementById('ug-name');
+  if (greet && nm && user) { nm.textContent = user.Nombre || ''; greet.classList.remove('hidden'); }
+}
+window.sysLogout = function () {
+  try { localStorage.removeItem('sys_user'); } catch(_) {}
+  location.reload();
+};
+
+async function tryLogin() {
+  const userInput = (document.getElementById("loginUser")?.value || "").trim();
+  const pw        = (document.getElementById("loginPassword")?.value || "").trim();
   const err = document.getElementById("loginError");
-  const user = VALID_PASSWORDS[pw];
-  if (!user) {
-    if (err) { err.textContent = "Contraseña incorrecta."; err.classList.remove("hidden"); }
+  const btn = document.getElementById("btnLogin");
+  if (!userInput || !pw) {
+    if (err) { err.textContent = "Captura usuario y contraseña."; err.classList.remove("hidden"); }
     return;
   }
-  currentUser = user;
-  document.getElementById("loginOverlay")?.classList.add("hidden");
-  document.getElementById("app-root")?.classList.remove("hidden");
-  const _ub = document.getElementById("current-user-badge"); if (_ub) _ub.textContent = currentUser.toUpperCase();
-  // Pantalla de bienvenida: el usuario elige el módulo. Sin carga pesada
-  // — los módulos cargan datos solo cuando el usuario los abre.
-  setTimeout(() => { try { switchModule("home"); } catch(_) {} }, 0);
+  if (err) err.classList.add("hidden");
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ Verificando…"; }
+  try {
+    const res = await fetch(`${BACKEND}/sys/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre: userInput, password: pw }),
+    });
+    const out = await res.json();
+    if (!out.ok) throw new Error(out.error || 'Error de autenticación');
+    sysStoreUser(out.user);
+    currentUser = out.user.Nombre;
+    sysApplyPermissions(out.user);
+    document.getElementById("loginOverlay")?.classList.add("hidden");
+    document.getElementById("app-root")?.classList.remove("hidden");
+    const _ub = document.getElementById("current-user-badge");
+    if (_ub) _ub.textContent = String(currentUser || '').toUpperCase();
+    setTimeout(() => { try { switchModule("home"); } catch(_) {} }, 0);
+  } catch (e) {
+    if (err) { err.textContent = e.message || String(e); err.classList.remove("hidden"); }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Entrar"; }
+  }
 }
 
 function handleLoginKey(e) {
@@ -400,9 +462,21 @@ window.addEventListener("DOMContentLoaded", () => {
     // Pantalla de bienvenida (home) — el usuario elige el módulo.
     setTimeout(() => { try { switchModule("home"); } catch(_) {} }, 0);
   } else {
-    document.getElementById("loginOverlay")?.classList.remove("hidden");
-    document.getElementById("app-root")?.classList.add("hidden");
-    document.getElementById("loginPassword")?.focus();
+    // Auto-login si hay usuario válido en localStorage
+    const stored = sysGetStoredUser();
+    if (stored && stored.Nombre) {
+      currentUser = stored.Nombre;
+      sysApplyPermissions(stored);
+      document.getElementById("loginOverlay")?.classList.add("hidden");
+      document.getElementById("app-root")?.classList.remove("hidden");
+      const _ub = document.getElementById("current-user-badge");
+      if (_ub) _ub.textContent = String(currentUser || '').toUpperCase();
+      setTimeout(() => { try { switchModule("home"); } catch(_) {} }, 0);
+    } else {
+      document.getElementById("loginOverlay")?.classList.remove("hidden");
+      document.getElementById("app-root")?.classList.add("hidden");
+      document.getElementById("loginUser")?.focus();
+    }
   }
 
   // Configurar PDF.js worker

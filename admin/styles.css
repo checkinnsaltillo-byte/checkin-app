@@ -6176,3 +6176,64 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   width: auto;
   min-width: 80px;
 }
+
+/* ─── Saludo de usuario bajo el header ─── */
+.user-greeting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 18px;
+  background: linear-gradient(180deg, #f0f9ff, #e0f2fe);
+  border-bottom: 1px solid #bae6fd;
+  font-size: 13px;
+  color: #0f172a;
+}
+.user-greeting.hidden { display: none; }
+.ug-hello { font-weight: 600; }
+.ug-hello strong { color: #0369a1; }
+.ug-logout {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.ug-logout:hover { background: #f1f5f9; border-color: #94a3b8; color: #0f172a; }
+body.dark .user-greeting { background: #1e3a5f; border-color: #1e40af; color: #e2e8f0; }
+body.dark .ug-hello strong { color: #7dd3fc; }
+body.dark .ug-logout { background: #1e293b; border-color: #334155; color: #cbd5e1; }
+body.dark .ug-logout:hover { background: #334155; }
+
+/* ─── Logo animado: bloquear proporciones (no estirar en mobile/desktop) ─── */
+.checkinn-loader {
+  flex-shrink: 0;
+}
+.checkinn-loader.size-md { --ci-pin-h: 36px; }
+.ci-pin-scene {
+  width: var(--ci-pin-h);
+  flex: 0 0 var(--ci-pin-h);
+  aspect-ratio: 1 / 1;
+  display: inline-block;
+}
+.ci-pin {
+  width: var(--ci-pin-h);
+}
+.ci-face,
+.ci-face img,
+.ci-spacer {
+  width: var(--ci-pin-h);
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+}
+.ci-text {
+  width: auto;
+  height: calc(var(--ci-pin-h) * 0.552);
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.header-logo-anim { flex-shrink: 0; }
