@@ -1830,6 +1830,22 @@
           <div class="ocup-filter-tip">Los <strong>alojamientos de interés</strong> se grafican destacados. <strong>Referencias</strong>: Global = todos; por propiedad = promedio de sus depts. Las <em>velas de fondo</em> aparecen solo con 1 interés. <em>Diferencias</em> grafica el cambio mes a mes (Δ vs el mes anterior).</div>
         </div>
 
+        <!-- Filtros para vista Calendario -->
+        <div id="ocup-cal-filters" class="ocup-cal-filters" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:10px">
+          <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;min-width:160px">
+            <label class="ocup-filter-label" style="font-size:11px;font-weight:700;color:#475569">Estado</label>
+            <select id="ocup-cal-f-estado" onchange="ocupCalSetFilter('estado', this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff"><option value="">Todos</option></select>
+          </div>
+          <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;min-width:180px">
+            <label class="ocup-filter-label" style="font-size:11px;font-weight:700;color:#475569">Propiedad</label>
+            <select id="ocup-cal-f-propiedad" onchange="ocupCalSetFilter('propiedad', this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff"><option value="">Todas</option></select>
+          </div>
+          <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;min-width:160px">
+            <label class="ocup-filter-label" style="font-size:11px;font-weight:700;color:#475569">Fuente</label>
+            <select id="ocup-cal-f-fuente" onchange="ocupCalSetFilter('fuente', this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff"><option value="">Todas</option></select>
+          </div>
+          <button type="button" onclick="ocupCalClearFilters()" style="padding:7px 12px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;height:32px">Limpiar filtros</button>
+        </div>
         <!-- Vista Calendario -->
         <div id="ocup-cal-container" class="ocup-cal-container">
           <div id="ocup-cal-loading" style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px">⏳ Cargando reservas…</div>
@@ -2038,6 +2054,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=431"></script>
+  <script src="app.js?v=432"></script>
 </body>
 </html>

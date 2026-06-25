@@ -21898,7 +21898,33 @@ const OCUP_STATE = {
   // Fecha "pivote" del mes mostrado (siempre el día 1 a las 00:00 local)
   currentMonth: null,
   initialized: false,
+  calFilters: { estado: '', propiedad: '', fuente: '' },
 };
+
+window.ocupCalSetFilter = function (key, value) {
+  OCUP_STATE.calFilters[key] = value || '';
+  ocupRender();
+};
+window.ocupCalClearFilters = function () {
+  OCUP_STATE.calFilters = { estado: '', propiedad: '', fuente: '' };
+  ocupRender();
+};
+
+function ocupCalPopulateFilters(allAlojs) {
+  const bookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+  const estados   = Array.from(new Set(bookings.map(b => String(b.Status || '').trim()).filter(Boolean))).sort();
+  const fuentes   = Array.from(new Set(bookings.map(b => String(b.Source || '').trim()).filter(Boolean))).sort();
+  const propiedades = Array.from(new Set((allAlojs || []).map(a => a.propiedad).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es'));
+  const f = OCUP_STATE.calFilters || {};
+  const fill = (id, opts, current) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = `<option value="">Todos</option>${opts.map(o => `<option value="${esc(o)}" ${o===current?'selected':''}>${esc(o)}</option>`).join('')}`;
+  };
+  fill('ocup-cal-f-estado',    estados,     f.estado);
+  fill('ocup-cal-f-propiedad', propiedades, f.propiedad);
+  fill('ocup-cal-f-fuente',    fuentes,     f.fuente);
+}
 const OCUP_MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const OCUP_DOW = ['dom','lun','mar','mié','jue','vie','sáb'];
 
@@ -22038,21 +22064,31 @@ function ocupRender() {
   if (lblName) lblName.textContent = OCUP_MESES[m];
   if (lblYear) lblYear.textContent = String(y);
 
-  // Alojamientos
-  const alojamientos = ocupGetAlojamientos();
-  if (!alojamientos.length) {
+  // Alojamientos (filtrados por Propiedad si aplica)
+  const allAlojs = ocupGetAlojamientos();
+  if (!allAlojs.length) {
     cont.innerHTML = `<div style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px">
       <div style="font-size:28px;margin-bottom:8px">📋</div>
       <div style="font-size:14px;color:#475569;font-weight:700">No hay catálogo de alojamientos cargado</div>
     </div>`;
     return;
   }
+  const f = OCUP_STATE.calFilters || {};
+  const alojamientos = f.propiedad ? allAlojs.filter(a => a.propiedad === f.propiedad) : allAlojs;
 
-  // Pre-indexa bookings por HouseId
+  // Poblar dropdowns de filtros con valores disponibles
+  ocupCalPopulateFilters(allAlojs);
+
+  // Pre-indexa bookings por HouseId (aplicando filtros de Estado y Fuente)
   const byHouse = new Map();
   const bookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
   bookings.forEach(b => {
-    if (b.Status && /cancel/i.test(b.Status)) return; // ignora canceladas
+    if (f.estado) {
+      if (String(b.Status || '').trim() !== f.estado) return;
+    } else {
+      if (b.Status && /cancel/i.test(b.Status)) return; // default: ignora canceladas
+    }
+    if (f.fuente && String(b.Source || '').trim() !== f.fuente) return;
     const hid = String(b.HouseId || '').trim();
     if (!hid) return;
     if (!byHouse.has(hid)) byHouse.set(hid, []);
@@ -22285,6 +22321,8 @@ window.ocupSetView = function (v) {
   // Filtros distintos por vista
   document.getElementById('ocup-filters').style.display = (v === 'indicadores') ? '' : 'none';
   document.getElementById('ocup-chart-filters').style.display = (v === 'graficas') ? '' : 'none';
+  const calF = document.getElementById('ocup-cal-filters');
+  if (calF) calF.style.display = (v === 'calendario') ? '' : 'none';
   if (v === 'calendario') ocupRender();
   else if (v === 'indicadores') {
     ocupInitFiltersOnce();
