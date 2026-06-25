@@ -6335,3 +6335,9 @@ input.bn-efe-chk[type="checkbox"]:checked::after {
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
+
+/* ─── Ocupación · Indicadores: alojamiento semi-transparente + noches compactas ─── */
+.ocup-td-aloj { opacity: .55; }
+.ocup-cell-line { gap: 4px !important; flex-wrap: nowrap !important; }
+.ocup-cell-nights { font-size: 10px !important; white-space: nowrap !important; }
+.ocup-cell-pct    { font-size: 11px !important; white-space: nowrap !important; }
