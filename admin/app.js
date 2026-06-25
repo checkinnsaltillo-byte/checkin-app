@@ -9319,12 +9319,35 @@ async function __huespedesLoadInner(forceRefetch) {
   wrap?.classList.add('hidden');
   if (lbl) lbl.textContent = 'Cargando…';
 
+  // Cache localStorage (TTL 5 min) — primera carga lenta, siguientes instantáneas.
+  const HU_CACHE_KEY = 'hu_cache_v1';
+  const HU_CACHE_TTL = 5 * 60 * 1000;
+  if (!forceRefetch) {
+    try {
+      const raw = localStorage.getItem(HU_CACHE_KEY);
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (c && c.ts && (Date.now() - c.ts) < HU_CACHE_TTL && Array.isArray(c.rows)) {
+          HU_STATE.rows = c.rows;
+          HU_STATE.serverTotal = c.total || c.rows.length;
+          HU_STATE.totalConFactura = c.totalConFactura || 0;
+          HU_STATE.totalSinFactura = c.totalSinFactura || 0;
+          HU_STATE.totalMediosUnicos = c.totalMediosUnicos || 0;
+          HU_STATE.loaded = true;
+          HU_STATE.loading = false;
+          if (lbl) lbl.textContent = `${c.rows.length} reservaciones (cache)`;
+          huPopulateMesOptions();
+          huespedesRender();
+          return;
+        }
+      }
+    } catch(_) {}
+  }
+
   try {
-    // El Apps Script tiene un page_size cap interno de 200. Para tener TODAS
-    // las reservaciones cacheadas (necesario para cross-match con Lodgify
-    // por teléfono), iteramos todas las páginas y concatenamos.
+    // page_size=1000 (cap del backend). 5K reservaciones → 6 páginas.
     const baseParams = {
-      page_size: '200',
+      page_size: '1000',
       nombre_reservacion: HU_FILTERS.nombre_reservacion,
       medio_reservacion:  HU_FILTERS.medio_reservacion,
       celular_principal:  HU_FILTERS.celular_principal,
@@ -9347,8 +9370,8 @@ async function __huespedesLoadInner(forceRefetch) {
       if (lbl) lbl.textContent = `Cargando 1 de ${totalPages}…`;
       const pageNums = [];
       for (let p = 2; p <= totalPages; p++) pageNums.push(p);
-      // Paralelo en lotes de 4 para no saturar Apps Script.
-      const BATCH = 4;
+      // Paralelo en lotes de 6 para más velocidad sin saturar.
+      const BATCH = 6;
       for (let i = 0; i < pageNums.length; i += BATCH) {
         const batch = pageNums.slice(i, i + BATCH);
         const results = await Promise.all(batch.map(fetchPage));
@@ -9357,6 +9380,16 @@ async function __huespedesLoadInner(forceRefetch) {
       }
     }
     const data = { ...first, rows };
+    try {
+      localStorage.setItem(HU_CACHE_KEY, JSON.stringify({
+        ts: Date.now(),
+        rows,
+        total: data.total,
+        totalConFactura: data.total_con_factura,
+        totalSinFactura: data.total_sin_factura,
+        totalMediosUnicos: data.total_medios_unicos,
+      }));
+    } catch(_) {}
     HU_STATE.rows = data.rows;
     HU_STATE.serverTotal = data.total || 0;
     HU_STATE.totalConFactura = data.total_con_factura || 0;
