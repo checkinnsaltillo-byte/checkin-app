@@ -4174,8 +4174,8 @@ const BN_CAT_SUBS = {
     { id: 'F',  label: '📊 Indicadores' },
   ],
   upload: [
-    { id: 'UPLOAD',   label: '📂 Subir archivos' },
-    { id: 'EFECTIVO', label: '💵 Efectivo' },
+    { id: 'UPLOAD',   label: '📂 Subir archivos bancarios' },
+    { id: 'EFECTIVO', label: '💵 Registros de Efectivo' },
   ],
 };
 
@@ -18807,7 +18807,52 @@ const BN_UPLOAD_STATE = {
   parsedRows: [],        // filas que se mostrarán en preview
   sortKey: null,         // columna activa (clave dentro del row) o null
   sortDir: null,         // 'asc' | 'desc' | null
+  monthFilter: '',       // 'YYYY-MM' o '' (todos)
+  unchecked: new Set(),  // claves de filas (rowKey) desmarcadas
 };
+function _bnUploadRowKey(r, idx) {
+  return r._dedupeKey || r._rowKey || `idx:${idx}`;
+}
+window.bnUploadSetMonthFilter = function (v) {
+  BN_UPLOAD_STATE.monthFilter = v || '';
+  bnUploadRenderPreview();
+};
+window.bnUploadSetSelectAll = function (mode) {
+  const rows = BN_UPLOAD_STATE.parsedRows || [];
+  const fMes = BN_UPLOAD_STATE.monthFilter;
+  rows.forEach((r, i) => {
+    if (r._status !== 'new') return;
+    if (fMes && (bnUploadDiaToIso(r['Día']) || '').slice(0,7) !== fMes) return;
+    const k = _bnUploadRowKey(r, i);
+    if (mode === 'all')   BN_UPLOAD_STATE.unchecked.delete(k);
+    if (mode === 'none')  BN_UPLOAD_STATE.unchecked.add(k);
+  });
+  bnUploadRenderPreview();
+};
+window.bnUploadToggleRow = function (key, checked) {
+  if (!key) return;
+  if (checked) BN_UPLOAD_STATE.unchecked.delete(key);
+  else BN_UPLOAD_STATE.unchecked.add(key);
+  bnUploadUpdateConfirmCount();
+};
+function bnUploadUpdateConfirmCount() {
+  const rows = BN_UPLOAD_STATE.parsedRows || [];
+  const fMes = BN_UPLOAD_STATE.monthFilter;
+  const sel = rows.filter((r, i) => {
+    if (r._status !== 'new') return false;
+    if (fMes && (bnUploadDiaToIso(r['Día']) || '').slice(0,7) !== fMes) return false;
+    return !BN_UPLOAD_STATE.unchecked.has(_bnUploadRowKey(r, i));
+  }).length;
+  const btn = document.getElementById('bn-upload-confirm');
+  if (btn) {
+    btn.disabled = sel === 0;
+    btn.style.opacity = sel === 0 ? '.5' : '';
+    btn.style.cursor = sel === 0 ? 'not-allowed' : 'pointer';
+    btn.textContent = sel === 0 ? '✓ Sin filas seleccionadas' : `✓ Insertar ${sel} seleccionados en Bancos`;
+  }
+  const info = document.getElementById('bn-upload-sel-info');
+  if (info) info.textContent = `${sel} seleccionados`;
+}
 
 // Definición de columnas de la preview: (label, key del row, alineación, tipo)
 const BN_UPLOAD_COLS = [
@@ -19328,10 +19373,19 @@ function bnUploadRenderPreview() {
     counts.innerHTML = `<span style="color:#15803d;font-weight:700">${newCount} nuevas</span> · <span style="color:#92400e;font-weight:700">${dupCount} duplicadas</span> · <span style="color:#7c3aed;font-weight:700">${anomCount} con anomalías</span>` +
       (errCount ? ` · <span style="color:#dc2626;font-weight:700">${errCount} errores</span>` : '');
   }
+  // ── Poblar dropdown de Mes con los meses presentes en parsed rows ──
+  const mesSel = document.getElementById('bn-upload-filter-mes');
+  if (mesSel) {
+    const meses = Array.from(new Set(allRows.map(r => (bnUploadDiaToIso(r['Día']) || '').slice(0,7)).filter(s => /^\d{4}-\d{2}$/.test(s)))).sort().reverse();
+    const cur = BN_UPLOAD_STATE.monthFilter || '';
+    const MES_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const label = (m) => { const [y, mo] = m.split('-'); return `${MES_NAMES[parseInt(mo,10)-1] || mo} ${y}`; };
+    mesSel.innerHTML = `<option value="">Todos</option>${meses.map(m => `<option value="${esc(m)}" ${m===cur?'selected':''}>${esc(label(m))}</option>`).join('')}`;
+  }
   // ── Render del thead con flechas de orden por columna ──
   if (head) {
     const st = BN_UPLOAD_STATE;
-    head.innerHTML = `<tr style="color:#64748b">${BN_UPLOAD_COLS.map(c => {
+    head.innerHTML = `<tr style="color:#64748b"><th style="padding:6px 4px;border-bottom:1px solid #e2e8f0;width:28px"></th>${BN_UPLOAD_COLS.map(c => {
       const active = (st.sortKey === c.id);
       const dir = active ? st.sortDir : null;
       // Flechas: dos botones (↑ A-Z y ↓ Z-A). El activo se resalta.
@@ -19341,8 +19395,13 @@ function bnUploadRenderPreview() {
       return `<th style="text-align:${c.align};padding:6px 8px;border-bottom:1px solid #e2e8f0;user-select:none;white-space:nowrap"><span onclick="bnUploadSetSort('${c.id}')" style="cursor:pointer">${esc(c.label)}</span>${arrows}</th>`;
     }).join('')}</tr>`;
   }
-  // ── Orden: clona la lista para no mutar el orden original de inserción ──
-  let rows = allRows.slice();
+  // ── Filtro por Mes (YYYY-MM) ──
+  const fMes = BN_UPLOAD_STATE.monthFilter;
+  let rows = fMes
+    ? allRows.filter(r => (bnUploadDiaToIso(r['Día']) || '').slice(0,7) === fMes)
+    : allRows.slice();
+  // Conserva el índice original para la rowKey (importante para sort estable)
+  rows.forEach((r) => { r._origIdx = allRows.indexOf(r); });
   if (BN_UPLOAD_STATE.sortKey && BN_UPLOAD_STATE.sortDir) {
     const col = BN_UPLOAD_COLS.find(c => c.id === BN_UPLOAD_STATE.sortKey);
     if (col) {
@@ -19366,7 +19425,12 @@ function bnUploadRenderPreview() {
   // ── Render del tbody ──
   const fmt$ = (v) => (v === '' || v === null || v === undefined) ? '' : Number(v).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const html = rows.map(r => {
-    if (r._error) return `<tr style="background:#fef2f2"><td colspan="${BN_UPLOAD_COLS.length}" style="padding:6px 8px;color:#b91c1c;font-style:italic">${esc(r._error)}</td></tr>`;
+    if (r._error) return `<tr style="background:#fef2f2"><td colspan="${BN_UPLOAD_COLS.length + 1}" style="padding:6px 8px;color:#b91c1c;font-style:italic">${esc(r._error)}</td></tr>`;
+    const _key = _bnUploadRowKey(r, r._origIdx);
+    const _checked = r._status === 'new' && !BN_UPLOAD_STATE.unchecked.has(_key);
+    const _chkCell = r._status === 'new'
+      ? `<td style="padding:6px 4px;text-align:center"><input type="checkbox" class="bn-up-chk" ${_checked?'checked':''} onchange="bnUploadToggleRow('${esc(_key)}',this.checked)"></td>`
+      : `<td style="padding:6px 4px"></td>`;
     const badge = r._status === 'duplicate'
       ? (r._withinUploadDup
           ? '<span title="Esta fila es idéntica a otra del mismo upload (mismo SALDO) — fue ignorada para evitar duplicar" style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fce7f3;color:#9d174d;font-weight:700;font-size:10px;border:1px solid #fbcfe8">⊝ Duplicada<span style="font-size:9px;opacity:.7"> ·en archivo</span></span>'
@@ -19378,6 +19442,7 @@ function bnUploadRenderPreview() {
     const montoFmt = (r.Monto === '' || r.Monto === null || r.Monto === undefined) ? '<span style="color:#94a3b8;font-style:italic">vacío</span>' : fmt$(r.Monto);
     const montoColor = (r.Monto !== '' && Number(r.Monto) < 0) ? '#b91c1c' : '#15803d';
     return `<tr style="${bg};border-bottom:1px solid #f1f5f9">
+      ${_chkCell}
       <td style="padding:6px 8px">${badge}</td>
       <td style="padding:6px 8px;white-space:nowrap">${esc(r['Día'])}</td>
       <td style="padding:6px 8px;font-size:10px;color:#475569">${esc(r['Cuenta bancaria'])}</td>
@@ -19410,17 +19475,13 @@ function bnUploadRenderPreview() {
   }).join('');
   body.innerHTML = html;
   wrap.style.display = '';
-  const confirmBtn = document.getElementById('bn-upload-confirm');
-  if (confirmBtn) {
-    confirmBtn.disabled = newCount === 0;
-    confirmBtn.style.opacity = newCount === 0 ? '.5' : '';
-    confirmBtn.style.cursor = newCount === 0 ? 'not-allowed' : 'pointer';
-    confirmBtn.textContent = newCount === 0 ? '✓ Sin filas nuevas' : `✓ Insertar ${newCount} en BANCOS`;
-  }
+  bnUploadUpdateConfirmCount();
 }
 
 function bnUploadClearPreview() {
   BN_UPLOAD_STATE.parsedRows = [];
+  BN_UPLOAD_STATE.unchecked = new Set();
+  BN_UPLOAD_STATE.monthFilter = '';
   document.getElementById('bn-upload-preview-wrap').style.display = 'none';
   const status = document.getElementById('bn-upload-status');
   if (status) status.textContent = '';
@@ -19430,8 +19491,13 @@ function bnUploadClearPreview() {
 
 /** Confirma la inserción. Solo manda al backend las filas con _status='new'. */
 async function bnUploadConfirmInsert() {
-  const rows = (BN_UPLOAD_STATE.parsedRows || []).filter(r => !r._error && r._status === 'new');
-  if (!rows.length) { alert('No hay filas nuevas para insertar.'); return; }
+  const fMes = BN_UPLOAD_STATE.monthFilter;
+  const rows = (BN_UPLOAD_STATE.parsedRows || []).filter((r, i) => {
+    if (r._error || r._status !== 'new') return false;
+    if (fMes && (bnUploadDiaToIso(r['Día']) || '').slice(0,7) !== fMes) return false;
+    return !BN_UPLOAD_STATE.unchecked.has(_bnUploadRowKey(r, i));
+  });
+  if (!rows.length) { alert('No hay filas seleccionadas para insertar.'); return; }
   // Strip campos internos antes de mandar
   const clean = rows.map(r => {
     const o = {};
@@ -25203,4 +25269,88 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   const p = document.getElementById('lg-manual-panel');
   if (p && !p.classList.contains('hidden')) lgCloseManualRegistro();
+});
+
+// ─── Panel slide-in: Carga de datos (Subir archivos bancarios / Registros de Efectivo) ───
+let _BN_CARGA_PARENTS = null; // backup de padres originales para restaurar
+window.bnCargaDatosOpen = function () {
+  // Asegura estar en el módulo Registros (las dependencias bnUploadInit / bn_buildBnCatalog viven allí)
+  if (document.getElementById('module-registros')?.classList.contains('hidden')) {
+    try { switchModule('registros'); } catch(_) {}
+  }
+  const back  = document.getElementById('bn-cargadatos-backdrop');
+  const panel = document.getElementById('bn-cargadatos-panel');
+  const host  = document.getElementById('bn-cargadatos-host');
+  const upPane = document.getElementById('bn-upload-pane');
+  const efePane = document.getElementById('bn-efectivo-pane');
+  if (!back || !panel || !host || !upPane || !efePane) return;
+  // Re-parent los panes al host del panel (guardando los padres originales)
+  if (!_BN_CARGA_PARENTS) {
+    _BN_CARGA_PARENTS = {
+      up:  { parent: upPane.parentElement,  next: upPane.nextSibling },
+      efe: { parent: efePane.parentElement, next: efePane.nextSibling },
+    };
+  }
+  if (upPane.parentElement !== host)  host.appendChild(upPane);
+  if (efePane.parentElement !== host) host.appendChild(efePane);
+  upPane.classList.remove('hidden'); efePane.classList.add('hidden');
+  bnCargaDatosSetTab('archivos');
+  back.classList.remove('hidden');
+  panel.classList.remove('hidden');
+  back.offsetHeight;
+  back.style.opacity = '1';
+  panel.style.transform = 'translateX(0)';
+  document.body.style.overflow = 'hidden';
+  if (typeof bnUploadInit === 'function') bnUploadInit();
+};
+window.bnCargaDatosClose = function () {
+  const back  = document.getElementById('bn-cargadatos-backdrop');
+  const panel = document.getElementById('bn-cargadatos-panel');
+  if (!back || !panel) return;
+  back.style.opacity = '0';
+  panel.style.transform = 'translateX(100%)';
+  document.body.style.overflow = '';
+  setTimeout(() => {
+    back.classList.add('hidden');
+    panel.classList.add('hidden');
+    // Restaura los panes a sus padres originales (escondidos)
+    const up  = document.getElementById('bn-upload-pane');
+    const efe = document.getElementById('bn-efectivo-pane');
+    if (_BN_CARGA_PARENTS) {
+      const restore = (el, info) => {
+        if (!el || !info?.parent) return;
+        if (info.next && info.next.parentElement === info.parent) info.parent.insertBefore(el, info.next);
+        else info.parent.appendChild(el);
+      };
+      restore(up,  _BN_CARGA_PARENTS.up);
+      restore(efe, _BN_CARGA_PARENTS.efe);
+    }
+    up?.classList.add('hidden');
+    efe?.classList.add('hidden');
+  }, 300);
+};
+window.bnCargaDatosSetTab = function (tab) {
+  const up  = document.getElementById('bn-upload-pane');
+  const efe = document.getElementById('bn-efectivo-pane');
+  const tA = document.getElementById('bn-cargadatos-tab-archivos');
+  const tE = document.getElementById('bn-cargadatos-tab-efectivo');
+  const setActive = (el, on) => {
+    if (!el) return;
+    el.style.color = on ? '#0f172a' : '#64748b';
+    el.style.fontWeight = on ? '800' : '600';
+    el.style.borderBottomColor = on ? '#7c3aed' : 'transparent';
+  };
+  if (tab === 'efectivo') {
+    up?.classList.add('hidden'); efe?.classList.remove('hidden');
+    setActive(tA, false); setActive(tE, true);
+    if (typeof bnEfectivoInit === 'function') bnEfectivoInit();
+  } else {
+    up?.classList.remove('hidden'); efe?.classList.add('hidden');
+    setActive(tA, true);  setActive(tE, false);
+  }
+};
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const p = document.getElementById('bn-cargadatos-panel');
+  if (p && !p.classList.contains('hidden')) bnCargaDatosClose();
 });

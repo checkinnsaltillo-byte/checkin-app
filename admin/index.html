@@ -153,8 +153,8 @@
           📊 &nbsp;Indicadores
         </li>
         <li class="nav-sub-item"
-            onclick="switchModule('registros');bn_setCat('upload');closeNavMenu()">
-          📥 &nbsp;Carga de datos bancarios
+            onclick="switchModule('registros');setTimeout(bnCargaDatosOpen,150);closeNavMenu()">
+          📥 &nbsp;Carga de datos
         </li>
         <li class="nav-item" id="nav-item-tickets"
             onclick="switchModule('tickets');switchSection('capturados');closeNavMenu()">
@@ -560,6 +560,7 @@
           <span class="db-count-inline" id="bn-filter-subtitle"></span>
           <button class="btn-limpiar" style="margin:0" onclick="bn_loadData()">↻ Actualizar</button>
           <button class="btn-limpiar" style="margin:0" onclick="bn_clearFilters()">✕ Limpiar</button>
+          <button class="btn-limpiar" style="margin:0;background:#7c3aed;color:#fff;border-color:#7c3aed" onclick="bnCargaDatosOpen()">📥 Carga de datos</button>
         </div>
       </div>
 
@@ -647,7 +648,7 @@
       <!-- Menú principal — barras full-width con jerarquía padre→hijos -->
       <div class="bn-menu-bar" style="margin-bottom:12px;border:1px solid var(--border,#e2e8f0);border-radius:10px;overflow:hidden">
         <!-- Row 1: categorías padre, divididas en cuadros contiguos full-width -->
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0">
           <button class="bn-cat-btn" id="bn-cat-pc" data-cat="pc" onclick="bn_setCat('pc')"
                   style="padding:12px 10px;border:none;border-right:1px solid rgba(255,255,255,.25);background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">🏷️ Por clasificar</button>
           <button class="bn-cat-btn" id="bn-cat-reg" data-cat="reg" onclick="bn_setCat('reg')"
@@ -655,9 +656,7 @@
           <button class="bn-cat-btn" id="bn-cat-pres" data-cat="pres" onclick="bn_setCat('pres')"
                   style="padding:12px 10px;border:none;border-right:1px solid rgba(255,255,255,.25);background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📐 Planeación</button>
           <button class="bn-cat-btn" id="bn-cat-ind" data-cat="ind" onclick="bn_setCat('ind')"
-                  style="padding:12px 10px;border:none;border-right:1px solid rgba(255,255,255,.25);background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📊 Indicadores</button>
-          <button class="bn-cat-btn" id="bn-cat-upload" data-cat="upload" onclick="bn_setCat('upload')"
-                  style="padding:12px 10px;border:none;background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📥 Carga de datos bancarios</button>
+                  style="padding:12px 10px;border:none;background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📊 Indicadores</button>
         </div>
         <!-- Row 2: subcategorías del padre activo — cuadros contiguos full-width en tono más claro -->
         <div id="bn-subcat-row" style="display:grid;gap:0"></div>
@@ -826,8 +825,23 @@
                 <button onclick="bnUploadClearPreview()"
                         style="padding:6px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">✕ Cancelar</button>
                 <button id="bn-upload-confirm" onclick="bnUploadConfirmInsert()"
-                        style="padding:6px 14px;border:1.5px solid #16a34a;background:linear-gradient(180deg,#dcfce7,#fff);color:#15803d;border-radius:6px;font-weight:800;font-size:12px;cursor:pointer">✓ Insertar en BANCOS</button>
+                        style="padding:6px 14px;border:1.5px solid #16a34a;background:linear-gradient(180deg,#dcfce7,#fff);color:#15803d;border-radius:6px;font-weight:800;font-size:12px;cursor:pointer">✓ Insertar 0 seleccionados en Bancos</button>
               </div>
+            </div>
+            <div style="display:flex;align-items:end;gap:10px;margin-bottom:8px;flex-wrap:wrap;padding:8px 10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px">
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <label style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em">📅 Mes</label>
+                <select id="bn-upload-filter-mes" onchange="bnUploadSetMonthFilter(this.value)" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;min-width:140px"><option value="">Todos</option></select>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <label style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em">☑ Seleccionar</label>
+                <select id="bn-upload-sel-mode" onchange="bnUploadSetSelectAll(this.value);this.value=''" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;min-width:120px">
+                  <option value="">— Elegir —</option>
+                  <option value="all">Todos</option>
+                  <option value="none">Ninguno</option>
+                </select>
+              </div>
+              <span id="bn-upload-sel-info" style="font-size:11px;color:#475569;font-weight:600"></span>
             </div>
             <div style="max-height:520px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px">
               <table id="bn-upload-preview" style="width:100%;border-collapse:collapse;font-size:11px">
@@ -869,6 +883,28 @@
           </div>
           <div id="bn-efectivo-preview-host" style="margin-top:16px"></div>
         </div>
+      </div>
+
+      <!-- Panel slide-in: Carga de datos (Subir archivos bancarios + Registros de Efectivo) -->
+      <div id="bn-cargadatos-backdrop" class="hidden" onclick="bnCargaDatosClose()"
+           style="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9100;opacity:0;transition:opacity .25s"></div>
+      <div id="bn-cargadatos-panel" class="hidden"
+           style="position:fixed;top:0;right:0;height:100vh;width:100%;max-width:1200px;background:#fff;z-index:9200;box-shadow:-16px 0 40px rgba(15,23,42,.18);transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:linear-gradient(180deg,#faf5ff,#fff)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">📥</span>
+            <div style="font-size:14px;font-weight:800;color:#0f172a">Carga de datos</div>
+          </div>
+          <button type="button" onclick="bnCargaDatosClose()" aria-label="Cerrar"
+                  style="width:32px;height:32px;border:none;background:#f1f5f9;color:#475569;border-radius:8px;font-weight:900;font-size:16px;cursor:pointer">✕</button>
+        </div>
+        <div style="display:flex;gap:0;padding:0 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc">
+          <button type="button" id="bn-cargadatos-tab-archivos" onclick="bnCargaDatosSetTab('archivos')"
+                  style="padding:10px 16px;border:none;background:transparent;color:#0f172a;font-weight:800;font-size:13px;cursor:pointer;border-bottom:3px solid #7c3aed;margin-bottom:-1px">📂 Subir archivos bancarios</button>
+          <button type="button" id="bn-cargadatos-tab-efectivo" onclick="bnCargaDatosSetTab('efectivo')"
+                  style="padding:10px 16px;border:none;background:transparent;color:#64748b;font-weight:600;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px">💵 Registros de Efectivo</button>
+        </div>
+        <div id="bn-cargadatos-host" style="flex:1;overflow:auto;padding:14px;background:#fff"></div>
       </div>
 
       <!-- Análisis por partida — agregado jerárquico con semáforo de presupuesto -->
@@ -2086,6 +2122,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=443"></script>
+  <script src="app.js?v=444"></script>
 </body>
 </html>
