@@ -13440,7 +13440,59 @@ function lodgifyRender(opts) {
     cont.innerHTML = lgBuildTable(list);
   } else {
     cont.innerHTML = list.map(lgBuildCard).join('');
+    if (typeof lgSetupCardEnrichObserver === 'function') lgSetupCardEnrichObserver();
   }
+}
+
+// IntersectionObserver: cuando una card entra en viewport y su huésped tiene
+// registro manual pero aún no se cargan los URLs de INE/vehículo, fetch
+// /huespedes-detail una sola vez y re-render esa card.
+const _LG_CARD_ENRICHED = new Set();
+let _lgCardObserver = null;
+function lgSetupCardEnrichObserver() {
+  if (typeof IntersectionObserver === 'undefined') return;
+  if (_lgCardObserver) _lgCardObserver.disconnect();
+  _lgCardObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      const bid = el.getAttribute('data-lg-id');
+      _lgCardObserver.unobserve(el);
+      if (!bid || _LG_CARD_ENRICHED.has(bid)) return;
+      _LG_CARD_ENRICHED.add(bid);
+      lgEnrichCardPhotos(bid, el);
+    });
+  }, { rootMargin: '300px' });
+  document.querySelectorAll('.lg-card[data-lg-id]').forEach(el => {
+    const bid = el.getAttribute('data-lg-id');
+    if (!bid) return;
+    const h = LG_STATE.matches?.get(bid);
+    if (!h || !huHasManualRegistration(h)) return;
+    if (h.__lgCardEnriched) return;
+    const hasUrls = h['Link INE frontal'] || h['INE frontal'] || h['Link INE trasero'] || h['INE trasero'] || h['Link foto vehículo'] || h['Foto vehículo'];
+    if (hasUrls) { h.__lgCardEnriched = true; return; }
+    _lgCardObserver.observe(el);
+  });
+}
+async function lgEnrichCardPhotos(bookingId, cardEl) {
+  const h = LG_STATE.matches?.get(String(bookingId));
+  if (!h) return;
+  const recId = String(h.ID || h.row_number || '');
+  if (!recId) return;
+  try {
+    const j = await fetch(`${BACKEND}/huespedes-detail?record_id=${encodeURIComponent(recId)}`).then(r => r.json());
+    if (!j?.ok || !j.record) return;
+    const merged = { ...h, ...j.record, __lgCardEnriched: true };
+    const idx = (HU_STATE.rows || []).findIndex(x => String(x['ID']||x['row_number']||'') === recId);
+    if (idx >= 0) HU_STATE.rows[idx] = merged;
+    LG_STATE.matches.set(String(bookingId), merged);
+    const b = (LG_STATE.bookings || []).find(x => String(x.Id) === String(bookingId));
+    if (!b || !cardEl.isConnected) return;
+    const tpl = document.createElement('template');
+    tpl.innerHTML = lgBuildCard(b).trim();
+    const fresh = tpl.content.firstElementChild;
+    if (fresh) cardEl.replaceWith(fresh);
+  } catch (e) { console.warn('[LG cards] enrich:', e.message); }
 }
 
 /** Versión compacta del chip de fuente para los items del sidebar de la
@@ -13914,6 +13966,36 @@ window.lgCardsToggle = function(bookingId) {
   body.style.display = 'block';
   set.add(id);
   window.LG_USER_INTERACTED = true;
+  // Enrich fotos INE/vehículo si no están en cache (URLs solo vienen de /huespedes-detail)
+  try {
+    const h = lgGetHuespedForBooking(b) || (typeof lgFindHuespedRepresentativeByPhone==='function' ? lgFindHuespedRepresentativeByPhone(b) : null);
+    if (h && huHasManualRegistration(h) && !h.__lgCardEnriched) {
+      const hasUrls = h['Link INE frontal']||h['INE frontal']||h['Link INE trasero']||h['INE trasero']||h['Link foto vehículo']||h['Foto vehículo'];
+      if (hasUrls) { h.__lgCardEnriched = true; }
+      else {
+        const recId = String(h.ID||h.row_number||'');
+        if (recId) {
+          fetch(`${BACKEND}/huespedes-detail?record_id=${encodeURIComponent(recId)}`)
+            .then(r => r.json())
+            .then(j => {
+              if (!j?.ok || !j.record) return;
+              const merged = { ...h, ...j.record, __lgCardEnriched: true };
+              const idx = (HU_STATE.rows || []).findIndex(x => String(x['ID']||x['row_number']||'') === recId);
+              if (idx >= 0) HU_STATE.rows[idx] = merged;
+              if (LG_STATE.matches) LG_STATE.matches.set(String(b.Id), merged);
+              // Sincronizar también __reservacion del booking sintético y caché
+              if (b.__reservacion) b.__reservacion = merged;
+              (LG_STATE.__syntheticCache || []).forEach(s => { if (s.__reservacion && String(s.__reservacion.ID||s.__reservacion.row_number) === recId) s.__reservacion = merged; });
+              if (!set.has(id)) return;
+              const stillBody = document.querySelector(`.lg-cards-item[data-lg-cards-id="${CSS.escape(id)}"] [data-lg-cards-body]`);
+              if (!stillBody) return;
+              try { stillBody.innerHTML = lgCardsExpandedHtml(b); } catch(_) {}
+            })
+            .catch(e => console.warn('[lgCardsToggle] enrich foto:', e.message));
+        }
+      }
+    }
+  } catch (_) {}
 };
 
 
