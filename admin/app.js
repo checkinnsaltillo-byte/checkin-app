@@ -24681,18 +24681,18 @@ function bnEfectivoRender() {
     }).join('')}
   </tr>`;
   // Orden visible
-  const rows = BN_EFE_STATE.rows.slice();
+  const sortedRows = rows.slice();
   if (BN_EFE_STATE.sortKey) {
     const key = BN_EFE_STATE.sortKey;
     const dir = BN_EFE_STATE.sortDir === 'asc' ? 1 : -1;
-    rows.sort((a, b) => {
+    sortedRows.sort((a, b) => {
       const av = bnEfeSortValue(a, key), bv = bnEfeSortValue(b, key);
       if (av < bv) return -1 * dir;
       if (av > bv) return 1 * dir;
       return 0;
     });
   }
-  tbody.innerHTML = rows.map(r => bnEfectivoRowHtml(r)).join('');
+  tbody.innerHTML = sortedRows.map(r => bnEfectivoRowHtml(r)).join('');
 }
 
 function bnEfectivoRowHtml(r) {
