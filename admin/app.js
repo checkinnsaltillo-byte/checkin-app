@@ -21898,7 +21898,7 @@ const OCUP_STATE = {
   // Fecha "pivote" del mes mostrado (siempre el día 1 a las 00:00 local)
   currentMonth: null,
   initialized: false,
-  calFilters: { estado: '', propiedad: '', fuente: '' },
+  calFilters: { estado: 'Booked', propiedad: '', fuente: '' },
 };
 
 window.ocupCalSetFilter = function (key, value) {
@@ -21906,7 +21906,7 @@ window.ocupCalSetFilter = function (key, value) {
   ocupRender();
 };
 window.ocupCalClearFilters = function () {
-  OCUP_STATE.calFilters = { estado: '', propiedad: '', fuente: '' };
+  OCUP_STATE.calFilters = { estado: 'Booked', propiedad: '', fuente: '' };
   ocupRender();
 };
 
@@ -22293,7 +22293,7 @@ OCUP_STATE.filters = {
   meses: new Set(),          // 'YYYY-MM' seleccionados para el promedio
   propiedades: new Set(),    // Propiedad
   alojamientos: new Set(),   // HouseId
-  estados: new Set(),        // Status (vacío = solo Booked, default)
+  estados: new Set(['Booked']), // Status (default: Booked)
 };
 OCUP_STATE.filtersInit = false;
 
@@ -22755,7 +22755,7 @@ const OCUP_COLORS = ['#0ea5e9','#f59e0b','#10b981','#8b5cf6','#ef4444','#06b6d4'
 OCUP_STATE.chart = {
   interests: new Set(),         // Set<houseId> — multi-select
   references: new Set(['__global__']),
-  estados: new Set(),             // Status filter (vacío = solo Booked)
+  estados: new Set(['Booked']),   // Status filter (default: Booked)
   hiddenSeries: new Set(),        // keys ocultas (toggle de leyenda)
   highlightSeries: new Set(),     // keys destacadas (click en leyenda)
   range: null,                    // [startIdx, endIdx] o null = todo el histórico
