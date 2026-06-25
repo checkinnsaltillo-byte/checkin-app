@@ -2730,40 +2730,30 @@ function bn_matchScore(rec, ticket) {
   const tkTotal  = bn_parseMonto(tk.total);
   if (!recMonto || !tkTotal) return 0;
 
-  // ── Monto (0..0.5) — descarta si la diferencia es enorme ──
+  // ── 1) MONTO: exacto (< 1 %) o descarta ──
   const diff = Math.abs(recMonto - tkTotal) / Math.max(recMonto, tkTotal);
-  let s = 0;
-  if (diff < 0.01)       s += 0.50;
-  else if (diff < 0.05)  s += 0.35;
-  else if (diff < 0.15)  s += 0.15;
-  else                   return 0;
+  if (diff >= 0.01) return 0;
+  let s = 0.40; // monto match
 
-  // ── Fecha (0..0.3) ──
+  // ── 2) FECHA: mismo día o ±1 día, o descarta ──
   const recDate = bn_formatDiaISO(rec.Día || rec.Dia || '');
   const tkDate  = String(tk.fecha || '').slice(0,10);
-  if (recDate && tkDate && /^\d{4}-\d{2}-\d{2}/.test(tkDate)) {
-    if (recDate === tkDate) s += 0.30;
-    else {
-      const d1 = new Date(recDate), d2 = new Date(tkDate);
-      const dd = Math.abs((d1 - d2) / 86400000);
-      if (dd <= 1)      s += 0.22;
-      else if (dd <= 3) s += 0.12;
-      else if (dd <= 7) s += 0.05;
-    }
-  }
+  if (!recDate || !tkDate || !/^\d{4}-\d{2}-\d{2}/.test(tkDate)) return 0;
+  const dd = Math.abs((new Date(recDate) - new Date(tkDate)) / 86400000);
+  if (dd > 1) return 0;
+  s += dd === 0 ? 0.35 : 0.25;
 
-  // ── Descripción (0..0.2) — overlap de palabras significativas ──
+  // ── 3) TIENDA dentro de DESCRIPCION: al menos 1 palabra ≥4 letras debe matchear ──
   const norm = (x) => bn_canon(String(x||'')).replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
   const recDesc = norm(rec.DESCRIPCION || '');
-  const tkText  = norm((tk.tienda || '') + ' ' + (tk.folio || ''));
-  if (recDesc && tkText) {
-    const words = tkText.split(' ').filter(w => w.length >= 3);
-    if (words.length) {
-      let matches = 0;
-      for (const w of words) if (recDesc.includes(w)) matches++;
-      s += Math.min(matches / words.length, 1) * 0.20;
-    }
-  }
+  const tienda  = norm(tk.tienda || '');
+  if (!recDesc || !tienda) return 0;
+  const words = tienda.split(' ').filter(w => w.length >= 4);
+  if (!words.length) return 0; // tienda demasiado genérica → no se puede validar
+  let matched = 0;
+  for (const w of words) if (recDesc.includes(w)) matched++;
+  if (matched === 0) return 0; // exige al menos 1 palabra significativa en común
+  s += Math.min(matched / words.length, 1) * 0.25;
   return Math.min(s, 1);
 }
 
@@ -2781,8 +2771,8 @@ function bn_findBestTicket(rec, tickets) {
 function bn_matchChipHtml(rec, idx) {
   const m = rec._matchedTicket;
   if (!m || !(m.score > 0)) return '';
-  const color = m.score >= 0.7 ? '#16a34a' : m.score >= 0.45 ? '#f59e0b' : '#dc2626';
-  const label = m.score >= 0.7 ? 'Alta' : m.score >= 0.45 ? 'Media' : 'Baja';
+  const color = m.score >= 0.85 ? '#16a34a' : m.score >= 0.70 ? '#f59e0b' : '#dc2626';
+  const label = m.score >= 0.85 ? 'Alta' : m.score >= 0.70 ? 'Media' : 'Baja';
   const tienda = (m.tienda || '—').slice(0, 30);
   return `
     <div onclick="event.stopPropagation();bn_showMatchDetail(${idx})"
@@ -2824,7 +2814,7 @@ async function bn_relacionarConTickets() {
     const updates = [];
     for (const rec of BN_RAW) {
       const r = bn_findBestTicket(rec, BN_TICKETS_CACHE);
-      if (r && r.score >= 0.4) {
+      if (r && r.score >= 0.65) {
         const tk = bn_ticketFields(r.ticket);
         rec._matchedTicket = {
           score:   r.score,
