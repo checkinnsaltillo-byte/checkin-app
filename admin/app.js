@@ -7005,26 +7005,30 @@ async function bn_tblSearchPick(idx, enc) {
 window.BN_RECLASIF_STAGED = window.BN_RECLASIF_STAGED || {};
 
 function bn_classifyTabSearch(idx, input) {
-  const q = (input.value || '').trim().toLowerCase();
+  const q = (input.value || '').trim();
   const dd = document.getElementById('bn-tbl-search-dropdown');
   if (!dd) return;
-  if (q.length < 2) { dd.classList.add('hidden'); return; }
+  if (!q) { dd.classList.add('hidden'); return; }
+  // Mismo filtro que onClassifySearch (panel Clasificar): substring lowercase
+  // en cualquiera de los 4 campos. Mismo tope de 12 resultados.
+  const lower = q.toLowerCase();
   const idx_ = (typeof SEARCH_INDEX !== 'undefined' && SEARCH_INDEX) ? SEARCH_INDEX : [];
-  const matches = idx_.filter(o => {
-    const t = ((o.cuenta||'')+' '+(o.subcuenta||'')+' '+(o.categoria||'')+' '+(o.concepto||'')).toLowerCase();
-    return q.split(/\s+/).every(w => t.includes(w));
-  }).slice(0, 12);
+  const matches = idx_.filter(e =>
+    [e.cuenta, e.subcuenta, e.categoria, e.concepto].some(f => String(f||'').toLowerCase().includes(lower))
+  ).slice(0, 12);
   const staged = !!BN_RECLASIF_STAGED['__open_' + idx];
   if (!matches.length) {
-    dd.innerHTML = `<div style="padding:10px;font-size:12px;color:#9ca3af">Sin coincidencias</div>`;
+    dd.innerHTML = `<div class="search-no-results" style="padding:10px;font-size:12px;color:#9ca3af">Sin resultados para "${esc(q)}"</div>`;
     bn_tblSearchPositionAt(input); dd.classList.remove('hidden'); return;
   }
-  dd.innerHTML = matches.map(o => {
-    const path = [o.cuenta, o.subcuenta, o.categoria, o.concepto].filter(Boolean).join(' › ');
-    const enc = encodeURIComponent(JSON.stringify(o));
-    return `<div onmousedown="event.preventDefault();bn_classifyTabPick(${idx}, '${enc}', ${staged})"
+  // Mismo render que onClassifySearch: chips por nivel separados por ' › '
+  dd.innerHTML = matches.map(m => {
+    const parts = [m.cuenta, m.subcuenta, m.categoria, m.concepto].filter(Boolean);
+    const html  = parts.map(p => `<span>${esc(p)}</span>`).join(`<span class="search-sep"> › </span>`);
+    const enc = encodeURIComponent(JSON.stringify(m));
+    return `<div class="search-result-item" onmousedown="event.preventDefault();bn_classifyTabPick(${idx}, '${enc}', ${staged})"
                  onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"
-                 style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;cursor:pointer;color:#1f2937">${esc(path)}</div>`;
+                 style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;cursor:pointer;color:#1f2937">${html}</div>`;
   }).join('');
   bn_tblSearchPositionAt(input);
   dd.classList.remove('hidden');
