@@ -8616,10 +8616,7 @@ async function loadDashboard() {
     if (!data.ok) throw new Error(data.error || "Error al cargar tickets");
     dashboardTickets = data.tickets || [];
     populateDashboardFilters();
-    // Siempre resetear al cargar: limpiar inputs y encender el switch
     clearDashboardFiltersInternal();
-    const todasEl = document.getElementById("db-f-todas");
-    if (todasEl) todasEl.checked = true;
     dbCurrentPage = 1;
     applyDashboardFilters();
   } catch (err) {
@@ -8712,20 +8709,6 @@ function getDashboardFilters() {
   };
 }
 
-/** Activa/desactiva el switch "Todos los tickets" */
-function syncTodasSwitch(checked) {
-  if (checked) {
-    // Activar = limpiar todos los filtros y mostrar todos
-    clearDashboardFiltersInternal();
-    const el = document.getElementById("db-f-todas");
-    if (el) el.checked = true;
-    applyDashboardFilters();
-  } else {
-    // Desactivar = abrir panel de filtros como pista al usuario (nada más)
-    if (!dbFiltersOpen) toggleDbFilters();
-  }
-}
-
 /** Devuelve true si hay algún filtro activo */
 function hasActiveFilters() {
   const f = getDashboardFilters();
@@ -8734,17 +8717,12 @@ function hasActiveFilters() {
             f.tienda || f.clasificadoPor || f.descripcion || f.totalMin !== null || f.totalMax !== null);
 }
 
-/** Llamado desde cada input/select de filtro: desactiva el switch y filtra */
 function onFilterChange() {
-  const todasEl = document.getElementById("db-f-todas");
-  if (todasEl) todasEl.checked = false;
   dbCurrentPage = 1;
   applyDashboardFilters();
 }
 
 function applyDashboardFilters() {
-  // applyDashboardFilters NO toca el switch — ese estado lo manejan
-  // onFilterChange / clearDashboardFilters / syncTodasSwitch / loadDashboard
   const active = hasActiveFilters();
 
   // Sin filtros activos — mostrar todos
@@ -8820,11 +8798,9 @@ function clearDashboardFiltersInternal() {
   resetRangeSliders();
 }
 
-/** Botón "✕ Limpiar": limpia filtros, activa switch y muestra todos */
+/** Botón "✕ Limpiar": limpia filtros y muestra todos */
 function clearDashboardFilters() {
   clearDashboardFiltersInternal();
-  const el = document.getElementById("db-f-todas");
-  if (el) el.checked = true;
   dbCurrentPage = 1;
   applyDashboardFilters();
 }
