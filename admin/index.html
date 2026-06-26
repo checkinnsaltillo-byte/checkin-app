@@ -829,9 +829,21 @@
               </div>
             </div>
             <div style="display:flex;align-items:end;gap:10px;margin-bottom:8px;flex-wrap:wrap;padding:8px 10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px">
-              <div style="display:flex;flex-direction:column;gap:3px">
+              <div style="display:flex;flex-direction:column;gap:3px;position:relative" id="bn-upload-mes-wrap">
                 <label style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em">📅 Mes</label>
-                <select id="bn-upload-filter-mes" onchange="bnUploadSetMonthFilter(this.value)" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;min-width:140px"><option value="">Todos</option></select>
+                <button type="button" id="bn-upload-mes-trigger" onclick="event.stopPropagation();bnUploadMesToggle()"
+                        style="padding:5px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;min-width:160px;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:6px">
+                  <span id="bn-upload-mes-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Todos</span>
+                  <span style="font-size:9px;color:#64748b">▼</span>
+                </button>
+                <div id="bn-upload-mes-panel" class="hidden"
+                     style="position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.15);z-index:100;min-width:200px;max-height:300px;overflow:auto">
+                  <div style="display:flex;gap:4px;padding:6px;border-bottom:1px solid #f1f5f9">
+                    <button type="button" onclick="bnUploadMesSetAll('all')" style="flex:1;padding:4px 8px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">Todos</button>
+                    <button type="button" onclick="bnUploadMesSetAll('none')" style="flex:1;padding:4px 8px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">Ninguno</button>
+                  </div>
+                  <div id="bn-upload-mes-opts" style="padding:4px"></div>
+                </div>
               </div>
               <div style="display:flex;flex-direction:column;gap:3px">
                 <label style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em">☑ Seleccionar</label>
@@ -2122,6 +2134,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=444"></script>
+  <script src="app.js?v=445"></script>
 </body>
 </html>

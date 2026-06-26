@@ -18807,22 +18807,85 @@ const BN_UPLOAD_STATE = {
   parsedRows: [],        // filas que se mostrarán en preview
   sortKey: null,         // columna activa (clave dentro del row) o null
   sortDir: null,         // 'asc' | 'desc' | null
-  monthFilter: '',       // 'YYYY-MM' o '' (todos)
-  unchecked: new Set(),  // claves de filas (rowKey) desmarcadas
+  monthFilter: new Set(),  // Set<'YYYY-MM'>; vacío = sin filtro (todos)
+  unchecked: new Set(),    // claves de filas (rowKey) desmarcadas
 };
 function _bnUploadRowKey(r, idx) {
   return r._dedupeKey || r._rowKey || `idx:${idx}`;
 }
-window.bnUploadSetMonthFilter = function (v) {
-  BN_UPLOAD_STATE.monthFilter = v || '';
+function _bnUploadMesPasses(row) {
+  const f = BN_UPLOAD_STATE.monthFilter;
+  if (!f || !f.size) return true;
+  const mes = (bnUploadDiaToIso(row['Día']) || '').slice(0, 7);
+  return f.has(mes);
+}
+function _bnUploadAvailableMeses() {
+  return Array.from(new Set((BN_UPLOAD_STATE.parsedRows || []).map(r => (bnUploadDiaToIso(r['Día']) || '').slice(0,7)).filter(s => /^\d{4}-\d{2}$/.test(s)))).sort().reverse();
+}
+function _bnUploadMesLabel(m) {
+  const MES_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const [y, mo] = m.split('-');
+  return `${MES_NAMES[parseInt(mo,10)-1] || mo} ${y}`;
+}
+window.bnUploadMesToggle = function () {
+  const panel = document.getElementById('bn-upload-mes-panel');
+  if (!panel) return;
+  const wasHidden = panel.classList.contains('hidden');
+  panel.classList.toggle('hidden');
+  if (wasHidden) {
+    bnUploadMesRenderOpts();
+    setTimeout(() => {
+      const off = (e) => {
+        if (!document.getElementById('bn-upload-mes-wrap')?.contains(e.target)) {
+          panel.classList.add('hidden');
+          document.removeEventListener('click', off);
+        }
+      };
+      document.addEventListener('click', off);
+    }, 0);
+  }
+};
+function bnUploadMesRenderOpts() {
+  const cont = document.getElementById('bn-upload-mes-opts');
+  if (!cont) return;
+  const meses = _bnUploadAvailableMeses();
+  const sel = BN_UPLOAD_STATE.monthFilter;
+  cont.innerHTML = meses.map(m => `
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;cursor:pointer;font-size:12px" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+      <input type="checkbox" class="bn-up-chk" ${sel.has(m)?'checked':''} onchange="bnUploadMesToggleOne('${esc(m)}', this.checked)">
+      <span>${esc(_bnUploadMesLabel(m))}</span>
+    </label>`).join('') || '<div style="padding:8px;color:#94a3b8;font-size:11px;font-style:italic;text-align:center">Sin meses</div>';
+}
+window.bnUploadMesToggleOne = function (m, checked) {
+  if (checked) BN_UPLOAD_STATE.monthFilter.add(m);
+  else BN_UPLOAD_STATE.monthFilter.delete(m);
+  bnUploadMesUpdateLabel();
   bnUploadRenderPreview();
 };
+window.bnUploadMesSetAll = function (mode) {
+  if (mode === 'all') {
+    BN_UPLOAD_STATE.monthFilter = new Set(_bnUploadAvailableMeses());
+  } else {
+    BN_UPLOAD_STATE.monthFilter = new Set();
+  }
+  bnUploadMesRenderOpts();
+  bnUploadMesUpdateLabel();
+  bnUploadRenderPreview();
+};
+function bnUploadMesUpdateLabel() {
+  const lbl = document.getElementById('bn-upload-mes-label');
+  if (!lbl) return;
+  const all = _bnUploadAvailableMeses();
+  const sel = BN_UPLOAD_STATE.monthFilter;
+  if (!sel.size || sel.size === all.length) lbl.textContent = 'Todos';
+  else if (sel.size === 1) lbl.textContent = _bnUploadMesLabel(Array.from(sel)[0]);
+  else lbl.textContent = `${sel.size} meses`;
+}
 window.bnUploadSetSelectAll = function (mode) {
   const rows = BN_UPLOAD_STATE.parsedRows || [];
-  const fMes = BN_UPLOAD_STATE.monthFilter;
   rows.forEach((r, i) => {
     if (r._status !== 'new') return;
-    if (fMes && (bnUploadDiaToIso(r['Día']) || '').slice(0,7) !== fMes) return;
+    if (!_bnUploadMesPasses(r)) return;
     const k = _bnUploadRowKey(r, i);
     if (mode === 'all')   BN_UPLOAD_STATE.unchecked.delete(k);
     if (mode === 'none')  BN_UPLOAD_STATE.unchecked.add(k);
@@ -18837,10 +18900,9 @@ window.bnUploadToggleRow = function (key, checked) {
 };
 function bnUploadUpdateConfirmCount() {
   const rows = BN_UPLOAD_STATE.parsedRows || [];
-  const fMes = BN_UPLOAD_STATE.monthFilter;
   const sel = rows.filter((r, i) => {
     if (r._status !== 'new') return false;
-    if (fMes && (bnUploadDiaToIso(r['Día']) || '').slice(0,7) !== fMes) return false;
+    if (!_bnUploadMesPasses(r)) return false;
     return !BN_UPLOAD_STATE.unchecked.has(_bnUploadRowKey(r, i));
   }).length;
   const btn = document.getElementById('bn-upload-confirm');
@@ -19373,15 +19435,11 @@ function bnUploadRenderPreview() {
     counts.innerHTML = `<span style="color:#15803d;font-weight:700">${newCount} nuevas</span> · <span style="color:#92400e;font-weight:700">${dupCount} duplicadas</span> · <span style="color:#7c3aed;font-weight:700">${anomCount} con anomalías</span>` +
       (errCount ? ` · <span style="color:#dc2626;font-weight:700">${errCount} errores</span>` : '');
   }
-  // ── Poblar dropdown de Mes con los meses presentes en parsed rows ──
-  const mesSel = document.getElementById('bn-upload-filter-mes');
-  if (mesSel) {
-    const meses = Array.from(new Set(allRows.map(r => (bnUploadDiaToIso(r['Día']) || '').slice(0,7)).filter(s => /^\d{4}-\d{2}$/.test(s)))).sort().reverse();
-    const cur = BN_UPLOAD_STATE.monthFilter || '';
-    const MES_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    const label = (m) => { const [y, mo] = m.split('-'); return `${MES_NAMES[parseInt(mo,10)-1] || mo} ${y}`; };
-    mesSel.innerHTML = `<option value="">Todos</option>${meses.map(m => `<option value="${esc(m)}" ${m===cur?'selected':''}>${esc(label(m))}</option>`).join('')}`;
-  }
+  // ── Actualizar label del filtro Mes (multi-select) ──
+  bnUploadMesUpdateLabel();
+  // Si el panel está abierto, re-renderiza las opciones para reflejar cambios
+  const mesPanel = document.getElementById('bn-upload-mes-panel');
+  if (mesPanel && !mesPanel.classList.contains('hidden')) bnUploadMesRenderOpts();
   // ── Render del thead con flechas de orden por columna ──
   if (head) {
     const st = BN_UPLOAD_STATE;
@@ -19395,11 +19453,8 @@ function bnUploadRenderPreview() {
       return `<th style="text-align:${c.align};padding:6px 8px;border-bottom:1px solid #e2e8f0;user-select:none;white-space:nowrap"><span onclick="bnUploadSetSort('${c.id}')" style="cursor:pointer">${esc(c.label)}</span>${arrows}</th>`;
     }).join('')}</tr>`;
   }
-  // ── Filtro por Mes (YYYY-MM) ──
-  const fMes = BN_UPLOAD_STATE.monthFilter;
-  let rows = fMes
-    ? allRows.filter(r => (bnUploadDiaToIso(r['Día']) || '').slice(0,7) === fMes)
-    : allRows.slice();
+  // ── Filtro por Mes (multi-select; vacío = todos) ──
+  let rows = allRows.filter(r => _bnUploadMesPasses(r));
   // Conserva el índice original para la rowKey (importante para sort estable)
   rows.forEach((r) => { r._origIdx = allRows.indexOf(r); });
   if (BN_UPLOAD_STATE.sortKey && BN_UPLOAD_STATE.sortDir) {
@@ -19481,7 +19536,7 @@ function bnUploadRenderPreview() {
 function bnUploadClearPreview() {
   BN_UPLOAD_STATE.parsedRows = [];
   BN_UPLOAD_STATE.unchecked = new Set();
-  BN_UPLOAD_STATE.monthFilter = '';
+  BN_UPLOAD_STATE.monthFilter = new Set();
   document.getElementById('bn-upload-preview-wrap').style.display = 'none';
   const status = document.getElementById('bn-upload-status');
   if (status) status.textContent = '';
@@ -19491,10 +19546,9 @@ function bnUploadClearPreview() {
 
 /** Confirma la inserción. Solo manda al backend las filas con _status='new'. */
 async function bnUploadConfirmInsert() {
-  const fMes = BN_UPLOAD_STATE.monthFilter;
   const rows = (BN_UPLOAD_STATE.parsedRows || []).filter((r, i) => {
     if (r._error || r._status !== 'new') return false;
-    if (fMes && (bnUploadDiaToIso(r['Día']) || '').slice(0,7) !== fMes) return false;
+    if (!_bnUploadMesPasses(r)) return false;
     return !BN_UPLOAD_STATE.unchecked.has(_bnUploadRowKey(r, i));
   });
   if (!rows.length) { alert('No hay filas seleccionadas para insertar.'); return; }
