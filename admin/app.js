@@ -5669,7 +5669,7 @@ function bn_createCard(rec, idx) {
            onfocus="bn_classifyTabSearch(${idx}, this)"
            onblur="setTimeout(bn_tblSearchHide, 200)"
            style="flex:1;min-width:0;max-width:520px;padding:5px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:600;background:#fff;outline:none;text-align:center;color:#1f2937">`;
-  const cogBtnHtml = `<button onclick="event.stopPropagation();bn_toggleBnClassify(${idx})" title="Abrir panel completo" style="padding:4px 7px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;${tabTextStyle};cursor:pointer">⚙</button>`;
+  const hamburgerBtnHtml = `<button onclick="event.stopPropagation();bn_toggleBnClassify(${idx})" title="Abrir panel Clasificar" style="padding:4px 9px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:14px;font-weight:800;line-height:1;cursor:pointer">≡</button>`;
 
   const classifiedTabHtml = reclasifyOpen
     ? `<div class="classify-tab classified ${clasifColorCls}" id="bn-btn-classify-${idx}" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">
@@ -5685,8 +5685,8 @@ function bn_createCard(rec, idx) {
 
   const unclasifTabHtml = `
     <div class="classify-tab" id="bn-btn-classify-${idx}" style="display:flex;align-items:center;justify-content:center;gap:6px" onclick="event.stopPropagation()">
+      ${hamburgerBtnHtml}
       ${inlineSearchInputHtml}
-      ${cogBtnHtml}
     </div>`;
 
   const tabHtml = isClasif
