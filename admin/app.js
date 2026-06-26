@@ -25052,6 +25052,61 @@ window.bnEfectivoClear = function () {
   bnEfectivoRender();
 };
 
+window.bnEfectivoLoadLastFromBancos = async function () {
+  const inp = document.getElementById('bn-efectivo-load-n');
+  let n = parseInt(inp?.value || '10', 10);
+  if (!isFinite(n) || n < 1) n = 10;
+  if (n > 500) n = 500;
+  // Asegura BN_RAW cargado
+  if (!Array.isArray(BN_RAW) || !BN_RAW.length) {
+    try { if (typeof bn_loadData === 'function') await bn_loadData(); } catch(_) {}
+  }
+  if (!Array.isArray(BN_RAW) || !BN_RAW.length) {
+    alert('No se pudieron cargar registros de BANCOS.'); return;
+  }
+  // Filtra solo registros marcados como Efectivo
+  const isEfe = (r) => {
+    const ct = String(r['Cuenta bancaria'] || '').toLowerCase().trim();
+    const nc = String(r['# Cuenta']        || '').toLowerCase().trim();
+    return ct === 'efectivo' || nc === 'efectivo' || ct.includes('efectivo') || nc.includes('efectivo');
+  };
+  const efeRows = BN_RAW.filter(isEfe);
+  if (!efeRows.length) {
+    alert('No hay registros con Cuenta bancaria = "Efectivo" en BANCOS.'); return;
+  }
+  // Ordena por Día desc (más reciente primero)
+  efeRows.sort((a, b) => {
+    const da = bnUploadDiaToIso(a['Día'] || a['Dia'] || '') || '';
+    const db = bnUploadDiaToIso(b['Día'] || b['Dia'] || '') || '';
+    return db.localeCompare(da);
+  });
+  const slice = efeRows.slice(0, n);
+  // Mapea a la forma de BN_EFE_STATE.rows
+  BN_EFE_STATE.rows = slice.map(r => {
+    const iso = bnUploadDiaToIso(r['Día'] || r['Dia'] || '') || '';
+    const cargo = Number(r['CARGO']) || 0;
+    const abono = Number(r['ABONO']) || 0;
+    const saldo = r['SALDO'] === '' || r['SALDO'] == null ? '' : Number(r['SALDO']);
+    const monto = r['Monto'] === '' || r['Monto'] == null ? +(abono - cargo).toFixed(2) : Number(r['Monto']);
+    return {
+      id: ++_bnEfeRowSeq,
+      dia: iso,
+      desc: String(r['DESCRIPCION'] || ''),
+      cargo: cargo || '',
+      abono: abono || '',
+      saldo: saldo === '' ? '' : saldo,
+      monto: monto,
+      origenDestino: String(r['ORIGEN/DESTINO'] || ''),
+      origenDestinoComments: String(r['ORIGEN/DESTINO_comments'] || ''),
+      selected: false,
+      _bancosRowNum: r.rowNum || null,  // referencia al renglón original
+    };
+  });
+  bnEfectivoRender();
+  const status = document.getElementById('bn-efectivo-status');
+  if (status) status.innerHTML = `📋 Mostrando últimos <strong>${BN_EFE_STATE.rows.length}</strong> registros de Efectivo desde BANCOS.`;
+};
+
 window.bnEfectivoDelete = function (id) {
   BN_EFE_STATE.rows = BN_EFE_STATE.rows.filter(r => r.id !== id);
   if (!BN_EFE_STATE.rows.length) BN_EFE_STATE.rows = [bnEfeNewRow()];
@@ -25274,9 +25329,9 @@ function bnEfeUnmountPreview() {
 window.bnEfectivoOpenFromHome = function () {
   try { switchModule('registros'); } catch(_) {}
   setTimeout(() => {
-    try { bn_setCat('upload'); } catch(_) {}
-    try { bn_setTipo('EFECTIVO'); } catch(_) {}
-  }, 50);
+    try { bnCargaDatosOpen(); } catch(_) {}
+    setTimeout(() => { try { bnCargaDatosSetTab('efectivo'); } catch(_) {} }, 200);
+  }, 100);
 };
 
 // ─── Enviar ticket por correo (Facturapi) ──────────────────────────────────
