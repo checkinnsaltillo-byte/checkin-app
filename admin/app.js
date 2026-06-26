@@ -2735,13 +2735,17 @@ function bn_matchScore(rec, ticket) {
   if (diff >= 0.01) return 0;
   let s = 0.50; // monto pass = 50 %
 
-  // ── 2) FECHA: mismo día o ±1 día, o descarta ──
+  // ── 2) FECHA: BONUS opcional. Si ambas existen y difieren >1 día → descarta.
+  //    Si falta alguna fecha o no parsea, no se descarta — solo no aporta bonus.
   const recDate = bn_formatDiaISO(rec.Día || rec.Dia || '');
   const tkDate  = String(tk.fecha || '').slice(0,10);
-  if (!recDate || !tkDate || !/^\d{4}-\d{2}-\d{2}/.test(tkDate)) return 0;
-  const dd = Math.abs((new Date(recDate) - new Date(tkDate)) / 86400000);
-  if (dd > 1) return 0;
-  s += dd === 0 ? 0.10 : 0.07; // fecha = 10 % (mismo día) / 7 % (±1)
+  const tkDateOk = /^\d{4}-\d{2}-\d{2}/.test(tkDate);
+  if (recDate && tkDateOk) {
+    const dd = Math.abs((new Date(recDate) - new Date(tkDate)) / 86400000);
+    if (dd > 1) return 0;
+    s += dd === 0 ? 0.10 : 0.07; // fecha = 10 % (mismo día) / 7 % (±1)
+  }
+  // Si alguna fecha falta: continúa sin bonus (no penaliza).
 
   // ── 3) TIENDA dentro de DESCRIPCION: al menos 1 palabra ≥4 letras debe matchear ──
   const norm = (x) => bn_canon(String(x||'')).replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
