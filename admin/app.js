@@ -3960,6 +3960,30 @@ document.addEventListener('mousedown', (e) => {
     document.querySelectorAll('.bn-msel-panel').forEach(p => p.classList.add('hidden'));
   }
 }, true);
+
+// Reposicionar paneles abiertos al hacer scroll/resize — sin esto la caja
+// queda "fija" en la pantalla y se despega del trigger.
+function bn_mselReposition() {
+  document.querySelectorAll('.bn-msel-panel').forEach(panel => {
+    if (panel.classList.contains('hidden')) return;
+    const field = panel.id.replace('bn-msel-panel-', '');
+    const trigger = document.querySelector(`.bn-msel[data-field="${field}"] .bn-msel-trigger`);
+    if (!trigger) return;
+    const r = trigger.getBoundingClientRect();
+    // Si el trigger ya no está visible, cierra el panel.
+    if (r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth) {
+      panel.classList.add('hidden');
+      return;
+    }
+    panel.style.top  = (r.bottom + 4) + 'px';
+    panel.style.left = r.left + 'px';
+    panel.style.width = r.width + 'px';
+    panel.style.maxHeight = Math.min(360, window.innerHeight - r.bottom - 20) + 'px';
+  });
+}
+// Capture-phase para reaccionar a scroll de cualquier contenedor interno.
+window.addEventListener('scroll', bn_mselReposition, true);
+window.addEventListener('resize', bn_mselReposition);
 // Escape cierra todos los paneles multi-select
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
