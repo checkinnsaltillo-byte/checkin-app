@@ -24960,9 +24960,18 @@ function bnEfeNewRow() {
 }
 
 function bnEfectivoInit() {
-  // Asegura que BN_BUDGET / BN_CATALOG estén cargados (catálogo Presupuesto_sys)
+  // Render inmediato para que el usuario vea algo (placeholder) mientras carga
+  if (!BN_EFE_STATE.rows.length) BN_EFE_STATE.rows = [bnEfeNewRow()];
+  bnEfectivoRender();
+  // Re-fuerza visibilidad del pane: bn_loadData → bn_setCat/Tipo puede ocultarlo
+  const _reshow = () => {
+    const efe = document.getElementById('bn-efectivo-pane');
+    const up  = document.getElementById('bn-upload-pane');
+    if (efe) efe.classList.remove('hidden');
+    if (up)  up.classList.add('hidden');
+  };
   if ((!BN_BUDGET || !BN_BUDGET.length) && typeof bn_loadData === 'function') {
-    try { bn_loadData().then(() => { bn_buildBnCatalog?.(); bnEfectivoAutoLoadIfFirst(); }); } catch (_) {}
+    try { bn_loadData().then(() => { bn_buildBnCatalog?.(); _reshow(); bnEfectivoAutoLoadIfFirst(); _reshow(); }); } catch (_) {}
   } else {
     if (typeof bn_buildBnCatalog === 'function' && (!BN_CATALOG || !Object.keys(BN_CATALOG).length)) bn_buildBnCatalog();
     bnEfectivoAutoLoadIfFirst();
@@ -25095,6 +25104,11 @@ window.bnEfectivoLoadLastFromBancos = async function () {
   if (!Array.isArray(BN_RAW) || !BN_RAW.length) {
     try { if (typeof bn_loadData === 'function') await bn_loadData(); } catch(_) {}
   }
+  // bn_loadData puede haber ocultado el pane (efe→hidden) vía bn_setCat. Re-fuerzo.
+  const _efe = document.getElementById('bn-efectivo-pane');
+  const _up  = document.getElementById('bn-upload-pane');
+  if (_efe) _efe.classList.remove('hidden');
+  if (_up)  _up.classList.add('hidden');
   if (!Array.isArray(BN_RAW) || !BN_RAW.length) {
     alert('No se pudieron cargar registros de BANCOS.'); return;
   }
@@ -25208,7 +25222,6 @@ function bnEfectivoRender() {
   }
   thead.innerHTML = `<tr>
     ${selMode ? `<th style="width:28px;padding:6px 4px;text-align:center"><input type="checkbox" class="bn-efe-chk" ${allSel?'checked':''} onchange="bnEfectivoToggleAll(this.checked)" title="Seleccionar todos"></th>` : ''}
-    <th style="width:28px;padding:6px 4px"></th>
     ${BN_EFE_COLS.map(c => {
       const isActive = BN_EFE_STATE.sortKey === c.id;
       const arrow = isActive ? (BN_EFE_STATE.sortDir === 'asc' ? '▲' : '▼') : '⇅';
@@ -25255,23 +25268,19 @@ function bnEfectivoRowHtml(r) {
   const di = locked ? 'disabled' : '';
   const rowBg = locked ? 'background:#f1f5f9' : (selMode && r.selected) ? 'background:#eff6ff' : '';
   const inputStyle = inputStyleBase + ';background:' + (locked ? '#e2e8f0;color:#475569;cursor:not-allowed' : '#fff');
-  // Celda Import.: centrada con flex; muestra ✓ verde + ✏ azul (importado) o "–" (nuevo)
-  const impCell = `<td style="padding:2px 4px;text-align:center">
+  // Celda Import.: centrada con flex; muestra ✓ verde + ✏ azul (importado) o ❌ rojo (nuevo, eliminable)
+  const impCell = `<td style="padding:2px 4px;text-align:center;vertical-align:middle">
     <div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${imp
       ? `<span title="Importado desde BANCOS" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:#16a34a;color:#fff;font-weight:900;font-size:12px;line-height:1">✓</span>
          <button type="button" onclick="bnEfectivoToggleEdit(${r.id})" title="${r._editing?'Cancelar edición':'Editar renglón'}"
            style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:${r._editing?'#1d4ed8':'#dbeafe'};color:${r._editing?'#fff':'#1d4ed8'};border:1px solid #93c5fd;font-weight:700;font-size:11px;line-height:1;cursor:pointer">✎</button>`
-      : `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;opacity:.3;font-size:14px;line-height:1">–</span>`}
+      : `<button type="button" onclick="bnEfectivoDelete(${r.id})" title="Eliminar renglón"
+           style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:800;font-size:11px;line-height:1;cursor:pointer">✕</button>`}
     </div></td>`;
   return `<tr data-efe-id="${r.id}" style="border-top:1px solid #f1f5f9;${rowBg}">
     ${selMode ? `<td style="padding:2px 4px;text-align:center">
       <input type="checkbox" class="bn-efe-chk" ${r.selected?'checked':''} ${imp&&!r._editing?'disabled':''} onchange="bnEfectivoToggleRow(${r.id},this.checked)">
     </td>` : ''}
-    <td style="padding:2px 4px;text-align:center">
-      ${imp ? '<span style="display:inline-block;width:22px;height:22px"></span>' :
-        `<button type="button" onclick="bnEfectivoDelete(${r.id})" title="Eliminar renglón"
-          style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:5px;width:22px;height:22px;cursor:pointer;font-weight:800;line-height:1">✕</button>`}
-    </td>
     ${impCell}
     <td style="padding:2px 4px"><input type="date" value="${esc(r.dia||'')}" ${ro} oninput="bnEfectivoUpdate(${r.id},'dia',this.value)" style="${inputStyle}"></td>
     <td style="padding:2px 4px"><input type="text" value="${esc(r.desc||'')}" ${ro} oninput="bnEfectivoUpdate(${r.id},'desc',this.value)" style="${inputStyle}"></td>
