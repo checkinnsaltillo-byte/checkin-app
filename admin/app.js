@@ -7004,9 +7004,20 @@ async function bn_tblSearchPick(idx, enc) {
 // ─── Búsqueda inline en la pestaña inferior de las cards ─────────────────────
 window.BN_RECLASIF_STAGED = window.BN_RECLASIF_STAGED || {};
 
+function bn_ensureSearchDropdown_() {
+  let dd = document.getElementById('bn-tbl-search-dropdown');
+  if (dd) return dd;
+  dd = document.createElement('div');
+  dd.id = 'bn-tbl-search-dropdown';
+  dd.className = 'hidden';
+  dd.style.cssText = 'position:fixed;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 22px rgba(15,23,42,.15);max-height:260px;overflow-y:auto;z-index:8500;min-width:280px';
+  document.body.appendChild(dd);
+  return dd;
+}
+
 function bn_classifyTabSearch(idx, input) {
   const q = (input.value || '').trim();
-  const dd = document.getElementById('bn-tbl-search-dropdown');
+  const dd = bn_ensureSearchDropdown_();
   if (!dd) return;
   if (!q) { dd.classList.add('hidden'); return; }
   // Mismo filtro que onClassifySearch (panel Clasificar): substring lowercase
