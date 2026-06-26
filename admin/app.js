@@ -4516,7 +4516,7 @@ function bn_render() {
   // Restaurar elementos ocultados al salir de F
   document.getElementById('bn-actions-row')?.classList.remove('hidden');
   const mesAnio2 = document.getElementById('bn-mes-anio-row');
-  if (mesAnio2) mesAnio2.style.display = '';
+  if (mesAnio2) mesAnio2.style.display = 'grid';
   const searchBar2 = document.getElementById('bn-f-text')?.parentElement;
   if (searchBar2) searchBar2.style.display = '';
 
