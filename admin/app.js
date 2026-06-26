@@ -24942,7 +24942,7 @@ const BN_EFE_STATE = {
 
 const BN_EFE_ORIGEN_DESTINO = ['Caja chica','Caja mediana','Caja grande','Recursos propios'];
 const BN_EFE_COLS = [
-  { id: 'imported',       label: 'Importado',              type: 'string', align: 'center' },
+  { id: 'imported',       label: 'Import.',                type: 'string', align: 'center' },
   { id: 'dia',            label: 'Día',                    type: 'date',   align: 'left'  },
   { id: 'desc',           label: 'DESCRIPCION',            type: 'string', align: 'left'  },
   { id: 'cargo',          label: 'Cargo',                  type: 'number', align: 'right' },
@@ -25023,6 +25023,10 @@ window.bnEfectivoUpdate = function (id, field, value) {
       cell.style.color = n < 0 ? '#dc2626' : n > 0 ? '#16a34a' : '#0f172a';
     }
   }
+  if (r._imported && r._editing) {
+    r._dirty = true;
+    if (typeof bnEfectivoUpdateSaveBtnLabel === 'function') bnEfectivoUpdateSaveBtnLabel();
+  }
 };
 
 window.bnEfectivoToggleSelectMode = function () {
@@ -25066,6 +25070,21 @@ window.bnEfectivoClear = function () {
   BN_EFE_STATE.rows = [bnEfeNewRow()];
   bnEfectivoRender();
 };
+
+window.bnEfectivoToggleEdit = function (id) {
+  const r = BN_EFE_STATE.rows.find(x => x.id === id);
+  if (!r || !r._imported) return;
+  r._editing = !r._editing;
+  if (r._editing) r._dirty = false; // arranca limpio al entrar a editar
+  bnEfectivoRender();
+  bnEfectivoUpdateSaveBtnLabel();
+};
+function bnEfectivoUpdateSaveBtnLabel() {
+  const btn = document.querySelector('button[onclick="bnEfectivoSave()"]');
+  if (!btn) return;
+  const hasEditedImported = (BN_EFE_STATE.rows || []).some(r => r._imported && r._editing && r._dirty);
+  btn.innerHTML = hasEditedImported ? '💾 Guardar nuevos registros y cambios' : '💾 Guardar registros';
+}
 
 window.bnEfectivoLoadLastFromBancos = async function () {
   const inp = document.getElementById('bn-efectivo-load-n');
@@ -25179,7 +25198,7 @@ function bnEfectivoRender() {
   const anySel = rows.some(r => r.selected);
   // Toggle visibilidad del banner de acciones bulk y del label del botón
   const bar = document.getElementById('bn-efectivo-bulk-bar');
-  if (bar) bar.style.display = (selMode && anySel) ? 'flex' : 'none';
+  if (bar) bar.style.display = selMode ? 'flex' : 'none';
   const togBtn = document.getElementById('bn-efectivo-toggle-select');
   if (togBtn) {
     togBtn.innerHTML = selMode ? '✕ Salir de selección' : '☑ Seleccionar varios';
@@ -25193,7 +25212,8 @@ function bnEfectivoRender() {
     ${BN_EFE_COLS.map(c => {
       const isActive = BN_EFE_STATE.sortKey === c.id;
       const arrow = isActive ? (BN_EFE_STATE.sortDir === 'asc' ? '▲' : '▼') : '⇅';
-      return `<th style="padding:6px 6px;text-align:${c.align};font-size:11px;font-weight:800;color:#334155;cursor:pointer;white-space:nowrap"
+      const wAttr = c.id === 'imported' ? 'width:64px;' : '';
+      return `<th style="padding:6px 6px;text-align:${c.align};font-size:11px;font-weight:800;color:#334155;cursor:pointer;white-space:nowrap;${wAttr}"
                 onclick="bnEfectivoSetSort('${c.id}')">
         ${esc(c.label)} <span style="opacity:${isActive?'1':'.35'};font-size:10px">${arrow}</span>
       </th>`;
@@ -25229,17 +25249,23 @@ function bnEfectivoRowHtml(r) {
   const inputStyleBase = 'width:100%;padding:4px 6px;font-size:12px;border:1px solid #e2e8f0;border-radius:5px';
   const selMode = BN_EFE_STATE.selectMode;
   const imp = !!r._imported;
-  // Si es importado: sombreado gris claro, inputs readonly/disabled, no editable.
-  const ro = imp ? 'readonly tabindex="-1"' : '';
-  const di = imp ? 'disabled' : '';
-  const rowBg = imp ? 'background:#f1f5f9' : (selMode && r.selected) ? 'background:#eff6ff' : '';
-  const inputStyle = inputStyleBase + ';background:' + (imp ? '#e2e8f0;color:#475569;cursor:not-allowed' : '#fff');
-  const impCell = `<td style="padding:2px 4px;text-align:center">${imp
-    ? '<span title="Importado desde BANCOS — no editable" style="display:inline-block;width:18px;height:18px;border-radius:4px;background:#16a34a;color:#fff;font-weight:900;line-height:18px;font-size:12px">✓</span>'
-    : '<span style="opacity:.25;font-size:14px">–</span>'}</td>`;
+  // Filas importadas son readonly EXCEPTO si están en modo edición (_editing=true)
+  const locked = imp && !r._editing;
+  const ro = locked ? 'readonly tabindex="-1"' : '';
+  const di = locked ? 'disabled' : '';
+  const rowBg = locked ? 'background:#f1f5f9' : (selMode && r.selected) ? 'background:#eff6ff' : '';
+  const inputStyle = inputStyleBase + ';background:' + (locked ? '#e2e8f0;color:#475569;cursor:not-allowed' : '#fff');
+  // Celda Import.: centrada con flex; muestra ✓ verde + ✏ azul (importado) o "–" (nuevo)
+  const impCell = `<td style="padding:2px 4px;text-align:center">
+    <div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${imp
+      ? `<span title="Importado desde BANCOS" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:#16a34a;color:#fff;font-weight:900;font-size:12px;line-height:1">✓</span>
+         <button type="button" onclick="bnEfectivoToggleEdit(${r.id})" title="${r._editing?'Cancelar edición':'Editar renglón'}"
+           style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:${r._editing?'#1d4ed8':'#dbeafe'};color:${r._editing?'#fff':'#1d4ed8'};border:1px solid #93c5fd;font-weight:700;font-size:11px;line-height:1;cursor:pointer">✎</button>`
+      : `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;opacity:.3;font-size:14px;line-height:1">–</span>`}
+    </div></td>`;
   return `<tr data-efe-id="${r.id}" style="border-top:1px solid #f1f5f9;${rowBg}">
     ${selMode ? `<td style="padding:2px 4px;text-align:center">
-      <input type="checkbox" class="bn-efe-chk" ${r.selected?'checked':''} ${imp?'disabled':''} onchange="bnEfectivoToggleRow(${r.id},this.checked)">
+      <input type="checkbox" class="bn-efe-chk" ${r.selected?'checked':''} ${imp&&!r._editing?'disabled':''} onchange="bnEfectivoToggleRow(${r.id},this.checked)">
     </td>` : ''}
     <td style="padding:2px 4px;text-align:center">
       ${imp ? '<span style="display:inline-block;width:22px;height:22px"></span>' :
@@ -25275,8 +25301,44 @@ window.bnEfectivoSave = async function (opts) {
   const status = document.getElementById('bn-efectivo-status');
   let pool = BN_EFE_STATE.rows || [];
   if (opts.onlySelected) pool = pool.filter(r => r.selected);
+  // Filas NUEVAS para insertar
   const valid = pool.filter(r => !r._imported && r.dia && ((Number(r.cargo) || 0) !== 0 || (Number(r.abono) || 0) !== 0));
-  if (!valid.length) { alert(opts.onlySelected ? 'Ningún renglón seleccionado tiene Día y monto > 0.' : 'No hay renglones con Día y monto > 0.'); return; }
+  // Filas IMPORTADAS editadas → update directo a BANCOS por rowNum
+  const edited = pool.filter(r => r._imported && r._editing && r._dirty && r._bancosRowNum);
+  if (!valid.length && !edited.length) { alert(opts.onlySelected ? 'Nada seleccionado para guardar.' : 'No hay renglones nuevos ni cambios para guardar.'); return; }
+  // Persistir ediciones primero (UPDATE en BANCOS + limpia CUENTA/SUB/CAT/CONCEPTO)
+  if (edited.length) {
+    if (status) status.textContent = `⏳ Guardando ${edited.length} cambio(s) en BANCOS…`;
+    try {
+      const updates = edited.map(r => ({
+        rowNum: r._bancosRowNum,
+        fields: {
+          'Día':          bnEfeIsoToDmy(r.dia),
+          'DESCRIPCION':  r.desc || '',
+          'CARGO':        Number(r.cargo) || '',
+          'ABONO':        Number(r.abono) || '',
+          'SALDO':        r.saldo === '' || r.saldo == null ? '' : Number(r.saldo),
+          'Monto':        Number(r.monto) || 0,
+          'ORIGEN/DESTINO':           r.origenDestino || '',
+          'ORIGEN/DESTINO_comments':  r.origenDestinoComments || '',
+        },
+        clearClasif: true, // borra CUENTA/SUBCUENTA/CATEGORIA/CONCEPTO
+      }));
+      const res = await fetch(`${BACKEND}/bn/update-rows`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'Update falló');
+      edited.forEach(r => { r._dirty = false; r._editing = false; });
+      if (status) status.innerHTML = `✓ ${j.written || edited.length} cambios guardados en BANCOS.`;
+      bnEfectivoRender();
+    } catch (e) {
+      alert('No se pudieron guardar los cambios: ' + (e.message || e));
+      return;
+    }
+  }
+  if (!valid.length) return; // solo ediciones, no hay nuevas → terminamos
   const MES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const usuario = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '';
   const mapped = valid.map(r => {

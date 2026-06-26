@@ -868,23 +868,23 @@
       <!-- ═══ EFECTIVO — tabla editable que se inserta a BANCOS ═══ -->
       <div id="bn-efectivo-pane" class="hidden" style="padding:14px 4px">
         <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(15,23,42,.04)">
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
             <div style="flex:1;min-width:240px">
               <div style="font-size:15px;font-weight:800;color:#0f172a">💵 Carga de movimientos en efectivo</div>
             </div>
             <div style="display:flex;align-items:center;gap:6px">
-              <button type="button" onclick="bnEfectivoAddRows()" style="padding:8px 14px;border:1.5px solid #7c3aed;background:linear-gradient(180deg,#ede9fe,#fff);color:#5b21b6;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">＋ Añade</button>
-              <input id="bn-efectivo-add-n" type="number" min="1" max="200" value="5" style="width:64px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;text-align:center">
-              <span style="font-size:12px;color:#475569">filas más a la tabla</span>
-            </div>
-            <button type="button" onclick="bnEfectivoSave()" style="padding:8px 14px;border:1.5px solid #16a34a;background:linear-gradient(180deg,#dcfce7,#fff);color:#15803d;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">💾 Guardar registros</button>
-            <button type="button" onclick="bnEfectivoClear()" style="padding:8px 14px;border:1.5px solid #94a3b8;background:#f8fafc;color:#475569;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">🧹 Limpiar</button>
-            <button id="bn-efectivo-toggle-select" type="button" onclick="bnEfectivoToggleSelectMode()" style="padding:8px 14px;border:1.5px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">☑ Seleccionar varios</button>
-            <div style="display:flex;align-items:center;gap:6px;padding-left:6px;border-left:1px solid #e2e8f0">
               <button type="button" onclick="bnEfectivoLoadLastFromBancos()" style="padding:8px 12px;border:1.5px solid #0d9488;background:linear-gradient(180deg,#ccfbf1,#fff);color:#0f766e;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">📥 Mostrar últimos</button>
               <input id="bn-efectivo-load-n" type="number" min="1" max="500" value="10" style="width:64px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;text-align:center">
               <span style="font-size:12px;color:#475569">registros</span>
             </div>
+            <button type="button" onclick="bnEfectivoSave()" style="padding:8px 14px;border:1.5px solid #16a34a;background:linear-gradient(180deg,#dcfce7,#fff);color:#15803d;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">💾 Guardar registros</button>
+            <button type="button" onclick="bnEfectivoClear()" style="padding:8px 14px;border:1.5px solid #94a3b8;background:#f8fafc;color:#475569;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">🧹 Limpiar</button>
+            <button id="bn-efectivo-toggle-select" type="button" onclick="bnEfectivoToggleSelectMode()" style="padding:8px 14px;border:1.5px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">☑ Seleccionar varios</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+            <button type="button" onclick="bnEfectivoAddRows()" style="padding:7px 12px;border:1.5px solid #7c3aed;background:linear-gradient(180deg,#ede9fe,#fff);color:#5b21b6;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">＋ Añade</button>
+            <input id="bn-efectivo-add-n" type="number" min="1" max="200" value="5" style="width:64px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;text-align:center">
+            <span style="font-size:12px;color:#475569">filas más a la tabla</span>
           </div>
           <div id="bn-efectivo-bulk-bar" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:8px 10px;background:#eff6ff;border:1px dashed #93c5fd;border-radius:8px">
             <span style="font-size:11px;font-weight:700;color:#1d4ed8">Acciones en seleccionados:</span>
@@ -2139,6 +2139,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=448"></script>
+  <script src="app.js?v=449"></script>
 </body>
 </html>
