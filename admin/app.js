@@ -24942,6 +24942,7 @@ const BN_EFE_STATE = {
 
 const BN_EFE_ORIGEN_DESTINO = ['Caja chica','Caja mediana','Caja grande','Recursos propios'];
 const BN_EFE_COLS = [
+  { id: 'imported',       label: 'Importado',              type: 'string', align: 'center' },
   { id: 'dia',            label: 'Día',                    type: 'date',   align: 'left'  },
   { id: 'desc',           label: 'DESCRIPCION',            type: 'string', align: 'left'  },
   { id: 'cargo',          label: 'Cargo',                  type: 'number', align: 'right' },
@@ -24961,14 +24962,28 @@ function bnEfeNewRow() {
 function bnEfectivoInit() {
   // Asegura que BN_BUDGET / BN_CATALOG estén cargados (catálogo Presupuesto_sys)
   if ((!BN_BUDGET || !BN_BUDGET.length) && typeof bn_loadData === 'function') {
-    try { bn_loadData().then(() => { bn_buildBnCatalog?.(); bnEfectivoRender(); }); } catch (_) {}
+    try { bn_loadData().then(() => { bn_buildBnCatalog?.(); bnEfectivoAutoLoadIfFirst(); }); } catch (_) {}
   } else {
     if (typeof bn_buildBnCatalog === 'function' && (!BN_CATALOG || !Object.keys(BN_CATALOG).length)) bn_buildBnCatalog();
+    bnEfectivoAutoLoadIfFirst();
   }
-  if (!BN_EFE_STATE.rows.length) {
-    BN_EFE_STATE.rows = [bnEfeNewRow()];
+}
+
+// Auto-carga los últimos 10 registros desde BANCOS al entrar a la sección
+// por primera vez (o si la tabla está vacía / solo tiene un renglón vacío).
+function bnEfectivoAutoLoadIfFirst() {
+  const rows = BN_EFE_STATE.rows || [];
+  const isEmpty = !rows.length ||
+    (rows.length === 1 && !rows[0].desc && !Number(rows[0].cargo) && !Number(rows[0].abono));
+  if (isEmpty && !BN_EFE_STATE._autoLoaded) {
+    BN_EFE_STATE._autoLoaded = true;
+    const inp = document.getElementById('bn-efectivo-load-n');
+    if (inp && !inp.value) inp.value = '10';
+    bnEfectivoLoadLastFromBancos();
+  } else {
+    if (!rows.length) BN_EFE_STATE.rows = [bnEfeNewRow()];
+    bnEfectivoRender();
   }
-  bnEfectivoRender();
 }
 
 window.bnEfectivoAddRows = function () {
@@ -25099,6 +25114,7 @@ window.bnEfectivoLoadLastFromBancos = async function () {
       origenDestino: String(r['ORIGEN/DESTINO'] || ''),
       origenDestinoComments: String(r['ORIGEN/DESTINO_comments'] || ''),
       selected: false,
+      _imported: true,                  // viene de BANCOS → no editable
       _bancosRowNum: r.rowNum || null,  // referencia al renglón original
     };
   });
@@ -25210,26 +25226,37 @@ function bnEfectivoRowHtml(r) {
     }
     return '';
   };
-  const inputStyle = 'width:100%;padding:4px 6px;font-size:12px;border:1px solid #e2e8f0;border-radius:5px;background:#fff';
+  const inputStyleBase = 'width:100%;padding:4px 6px;font-size:12px;border:1px solid #e2e8f0;border-radius:5px';
   const selMode = BN_EFE_STATE.selectMode;
-  return `<tr data-efe-id="${r.id}" style="border-top:1px solid #f1f5f9${(selMode && r.selected)?';background:#eff6ff':''}">
+  const imp = !!r._imported;
+  // Si es importado: sombreado gris claro, inputs readonly/disabled, no editable.
+  const ro = imp ? 'readonly tabindex="-1"' : '';
+  const di = imp ? 'disabled' : '';
+  const rowBg = imp ? 'background:#f1f5f9' : (selMode && r.selected) ? 'background:#eff6ff' : '';
+  const inputStyle = inputStyleBase + ';background:' + (imp ? '#e2e8f0;color:#475569;cursor:not-allowed' : '#fff');
+  const impCell = `<td style="padding:2px 4px;text-align:center">${imp
+    ? '<span title="Importado desde BANCOS — no editable" style="display:inline-block;width:18px;height:18px;border-radius:4px;background:#16a34a;color:#fff;font-weight:900;line-height:18px;font-size:12px">✓</span>'
+    : '<span style="opacity:.25;font-size:14px">–</span>'}</td>`;
+  return `<tr data-efe-id="${r.id}" style="border-top:1px solid #f1f5f9;${rowBg}">
     ${selMode ? `<td style="padding:2px 4px;text-align:center">
-      <input type="checkbox" class="bn-efe-chk" ${r.selected?'checked':''} onchange="bnEfectivoToggleRow(${r.id},this.checked)">
+      <input type="checkbox" class="bn-efe-chk" ${r.selected?'checked':''} ${imp?'disabled':''} onchange="bnEfectivoToggleRow(${r.id},this.checked)">
     </td>` : ''}
     <td style="padding:2px 4px;text-align:center">
-      <button type="button" onclick="bnEfectivoDelete(${r.id})" title="Eliminar renglón"
-        style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:5px;width:22px;height:22px;cursor:pointer;font-weight:800;line-height:1">✕</button>
+      ${imp ? '<span style="display:inline-block;width:22px;height:22px"></span>' :
+        `<button type="button" onclick="bnEfectivoDelete(${r.id})" title="Eliminar renglón"
+          style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:5px;width:22px;height:22px;cursor:pointer;font-weight:800;line-height:1">✕</button>`}
     </td>
-    <td style="padding:2px 4px"><input type="date" value="${esc(r.dia||'')}" oninput="bnEfectivoUpdate(${r.id},'dia',this.value)" style="${inputStyle}"></td>
-    <td style="padding:2px 4px"><input type="text" value="${esc(r.desc||'')}" oninput="bnEfectivoUpdate(${r.id},'desc',this.value)" style="${inputStyle}"></td>
-    <td style="padding:2px 4px"><input type="number" step="0.01" value="${esc(r.cargo||'')}" oninput="bnEfectivoUpdate(${r.id},'cargo',this.value)" style="${inputStyle};text-align:right;${colorize(r.cargo,'cargo')}"></td>
-    <td style="padding:2px 4px"><input type="number" step="0.01" value="${esc(r.abono||'')}" oninput="bnEfectivoUpdate(${r.id},'abono',this.value)" style="${inputStyle};text-align:right;${colorize(r.abono,'abono')}"></td>
-    <td style="padding:2px 4px"><input type="number" step="0.01" value="${esc(r.saldo||'')}" oninput="bnEfectivoUpdate(${r.id},'saldo',this.value)" style="${inputStyle};text-align:right;${colorize(r.saldo,'sign')}"></td>
-    <td style="padding:2px 4px"><input class="bn-efe-monto" type="number" step="0.01" value="${esc(r.monto||'')}" readonly title="Calculado automáticamente como Abono − Cargo" style="${inputStyle};text-align:right;background:#f1f5f9;color:${(Number(r.monto)||0)<0?'#dc2626':(Number(r.monto)||0)>0?'#16a34a':'#0f172a'};font-weight:700;cursor:not-allowed"></td>
-    <td style="padding:2px 4px"><select onchange="bnEfectivoUpdate(${r.id},'origenDestino',this.value)" style="${inputStyle}">
+    ${impCell}
+    <td style="padding:2px 4px"><input type="date" value="${esc(r.dia||'')}" ${ro} oninput="bnEfectivoUpdate(${r.id},'dia',this.value)" style="${inputStyle}"></td>
+    <td style="padding:2px 4px"><input type="text" value="${esc(r.desc||'')}" ${ro} oninput="bnEfectivoUpdate(${r.id},'desc',this.value)" style="${inputStyle}"></td>
+    <td style="padding:2px 4px"><input type="number" step="0.01" value="${esc(r.cargo||'')}" ${ro} oninput="bnEfectivoUpdate(${r.id},'cargo',this.value)" style="${inputStyle};text-align:right;${colorize(r.cargo,'cargo')}"></td>
+    <td style="padding:2px 4px"><input type="number" step="0.01" value="${esc(r.abono||'')}" ${ro} oninput="bnEfectivoUpdate(${r.id},'abono',this.value)" style="${inputStyle};text-align:right;${colorize(r.abono,'abono')}"></td>
+    <td style="padding:2px 4px"><input type="number" step="0.01" value="${esc(r.saldo||'')}" ${ro} oninput="bnEfectivoUpdate(${r.id},'saldo',this.value)" style="${inputStyle};text-align:right;${colorize(r.saldo,'sign')}"></td>
+    <td style="padding:2px 4px"><input class="bn-efe-monto" type="number" step="0.01" value="${esc(r.monto||'')}" readonly title="Calculado automáticamente como Abono − Cargo" style="${inputStyleBase};text-align:right;background:${imp?'#e2e8f0':'#f1f5f9'};color:${(Number(r.monto)||0)<0?'#dc2626':(Number(r.monto)||0)>0?'#16a34a':'#0f172a'};font-weight:700;cursor:not-allowed"></td>
+    <td style="padding:2px 4px"><select ${di} onchange="bnEfectivoUpdate(${r.id},'origenDestino',this.value)" style="${inputStyle}">
       <option value=""></option>${BN_EFE_ORIGEN_DESTINO.map(o => `<option value="${esc(o)}" ${o===r.origenDestino?'selected':''}>${esc(o)}</option>`).join('')}
     </select></td>
-    <td style="padding:2px 4px"><input type="text" value="${esc(r.origenDestinoComments||'')}" oninput="bnEfectivoUpdate(${r.id},'origenDestinoComments',this.value)" style="${inputStyle}"></td>
+    <td style="padding:2px 4px"><input type="text" value="${esc(r.origenDestinoComments||'')}" ${ro} oninput="bnEfectivoUpdate(${r.id},'origenDestinoComments',this.value)" style="${inputStyle}"></td>
   </tr>`;
 }
 
@@ -25248,7 +25275,7 @@ window.bnEfectivoSave = async function (opts) {
   const status = document.getElementById('bn-efectivo-status');
   let pool = BN_EFE_STATE.rows || [];
   if (opts.onlySelected) pool = pool.filter(r => r.selected);
-  const valid = pool.filter(r => r.dia && ((Number(r.cargo) || 0) !== 0 || (Number(r.abono) || 0) !== 0));
+  const valid = pool.filter(r => !r._imported && r.dia && ((Number(r.cargo) || 0) !== 0 || (Number(r.abono) || 0) !== 0));
   if (!valid.length) { alert(opts.onlySelected ? 'Ningún renglón seleccionado tiene Día y monto > 0.' : 'No hay renglones con Día y monto > 0.'); return; }
   const MES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const usuario = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '';
@@ -25426,8 +25453,8 @@ window.bnCargaDatosOpen = function () {
   }
   if (upPane.parentElement !== host)  host.appendChild(upPane);
   if (efePane.parentElement !== host) host.appendChild(efePane);
-  upPane.classList.remove('hidden'); efePane.classList.add('hidden');
-  bnCargaDatosSetTab('archivos');
+  upPane.classList.add('hidden'); efePane.classList.remove('hidden');
+  bnCargaDatosSetTab('efectivo');
   back.classList.remove('hidden');
   panel.classList.remove('hidden');
   back.offsetHeight;
