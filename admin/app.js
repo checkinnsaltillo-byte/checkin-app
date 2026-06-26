@@ -5660,18 +5660,38 @@ function bn_createCard(rec, idx) {
       ${probChipHtml(probCol, probBg)}
     </div>`;
 
-  const classifiedTabHtml = `<div class="classify-tab classified ${clasifColorCls}" id="bn-btn-classify-${idx}" onclick="bn_toggleBnClassify(${idx})" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
-       <span style="${tabTextStyle};color:${tabTxtColor}">${esc(pathText)}</span>
-       ${wasAutoValidated ? robotValidatedHtml(tabTxtColor) + probChipHtml(probCol, probBg) : ''}
-     </div>`;
+  const reclasifyOpen = !!(window.BN_RECLASIF_STAGED && BN_RECLASIF_STAGED['__open_' + idx]);
+  const inlineSearchInputHtml = `
+    <input type="text" id="bn-classify-tab-input-${idx}"
+           placeholder="🔍 Buscar por cuenta, subcuenta, categoría o concepto..."
+           oninput="bn_classifyTabSearch(${idx}, this)"
+           onclick="event.stopPropagation()"
+           onfocus="bn_classifyTabSearch(${idx}, this)"
+           onblur="setTimeout(bn_tblSearchHide, 200)"
+           style="flex:1;min-width:0;max-width:520px;padding:5px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:600;background:#fff;outline:none;text-align:center;color:#1f2937">`;
+  const cogBtnHtml = `<button onclick="event.stopPropagation();bn_toggleBnClassify(${idx})" title="Abrir panel completo" style="padding:4px 7px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;${tabTextStyle};cursor:pointer">⚙</button>`;
+
+  const classifiedTabHtml = reclasifyOpen
+    ? `<div class="classify-tab classified ${clasifColorCls}" id="bn-btn-classify-${idx}" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">
+         ${inlineSearchInputHtml}
+         <button onclick="event.stopPropagation();bn_saveReclasify(${idx})" style="padding:4px 10px;border:1px solid #16a34a;background:#16a34a;color:#fff;border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">💾 Guardar</button>
+         <button onclick="event.stopPropagation();bn_cancelReclasify(${idx})" style="padding:4px 8px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">Cancelar</button>
+       </div>`
+    : `<div class="classify-tab classified ${clasifColorCls}" id="bn-btn-classify-${idx}" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
+         <span style="${tabTextStyle};color:${tabTxtColor};cursor:pointer" onclick="bn_toggleBnClassify(${idx})">${esc(pathText)}</span>
+         <button onclick="event.stopPropagation();bn_toggleReclasify(${idx})" style="padding:3px 8px;border:1px solid ${clasifColorCls ? 'rgba(255,255,255,.6)' : '#cbd5e1'};background:${clasifColorCls ? 'rgba(255,255,255,.18)' : '#fff'};color:${tabTxtColor};border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">✏️ Re-clasificar</button>
+         ${wasAutoValidated ? robotValidatedHtml(tabTxtColor) + probChipHtml(probCol, probBg) : ''}
+       </div>`;
+
+  const unclasifTabHtml = `
+    <div class="classify-tab" id="bn-btn-classify-${idx}" style="display:flex;align-items:center;justify-content:center;gap:6px" onclick="event.stopPropagation()">
+      ${inlineSearchInputHtml}
+      ${cogBtnHtml}
+    </div>`;
 
   const tabHtml = isClasif
     ? classifiedTabHtml
-    : (hasAuto
-      ? autoTabHtml
-      : `<div class="classify-tab" id="bn-btn-classify-${idx}" onclick="bn_toggleBnClassify(${idx})" style="display:flex;align-items:center;justify-content:center;gap:6px">
-           <span style="${tabTextStyle}">› Clasificar</span>
-         </div>`);
+    : (hasAuto ? autoTabHtml : unclasifTabHtml);
 
   const deptOptions = Array.from({length:14},(_,j)=>`<option>${j+1}</option>`).join('');
 
@@ -6979,6 +6999,94 @@ async function bn_tblSearchPick(idx, enc) {
       body: JSON.stringify(payload),
     });
   } catch (e) { console.warn('Error guardando clasificación:', e.message); }
+}
+
+// ─── Búsqueda inline en la pestaña inferior de las cards ─────────────────────
+window.BN_RECLASIF_STAGED = window.BN_RECLASIF_STAGED || {};
+
+function bn_classifyTabSearch(idx, input) {
+  const q = (input.value || '').trim().toLowerCase();
+  const dd = document.getElementById('bn-tbl-search-dropdown');
+  if (!dd) return;
+  if (q.length < 2) { dd.classList.add('hidden'); return; }
+  const idx_ = (typeof SEARCH_INDEX !== 'undefined' && SEARCH_INDEX) ? SEARCH_INDEX : [];
+  const matches = idx_.filter(o => {
+    const t = ((o.cuenta||'')+' '+(o.subcuenta||'')+' '+(o.categoria||'')+' '+(o.concepto||'')).toLowerCase();
+    return q.split(/\s+/).every(w => t.includes(w));
+  }).slice(0, 12);
+  const staged = !!BN_RECLASIF_STAGED['__open_' + idx];
+  if (!matches.length) {
+    dd.innerHTML = `<div style="padding:10px;font-size:12px;color:#9ca3af">Sin coincidencias</div>`;
+    bn_tblSearchPositionAt(input); dd.classList.remove('hidden'); return;
+  }
+  dd.innerHTML = matches.map(o => {
+    const path = [o.cuenta, o.subcuenta, o.categoria, o.concepto].filter(Boolean).join(' › ');
+    const enc = encodeURIComponent(JSON.stringify(o));
+    return `<div onmousedown="event.preventDefault();bn_classifyTabPick(${idx}, '${enc}', ${staged})"
+                 onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"
+                 style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;cursor:pointer;color:#1f2937">${esc(path)}</div>`;
+  }).join('');
+  bn_tblSearchPositionAt(input);
+  dd.classList.remove('hidden');
+}
+
+async function bn_classifyTabPick(idx, enc, staged) {
+  let opt; try { opt = JSON.parse(decodeURIComponent(enc)); } catch(_) { return; }
+  bn_tblSearchHide();
+  if (staged) {
+    BN_RECLASIF_STAGED[idx] = opt;
+    const input = document.getElementById('bn-classify-tab-input-' + idx);
+    if (input) input.value = [opt.cuenta, opt.subcuenta, opt.categoria, opt.concepto].filter(Boolean).join(' › ');
+    return;
+  }
+  await bn_classifyTabApply(idx, opt);
+}
+
+async function bn_classifyTabApply(idx, opt) {
+  const rec = BN_CUR_RECS[idx]; if (!rec) return;
+  rec._cuenta          = opt.cuenta    || '';
+  rec._subcuenta       = opt.subcuenta || '';
+  rec._categoria_gasto = opt.categoria || '';
+  rec._concepto        = opt.concepto  || '';
+  rec.CUENTA    = rec._cuenta;
+  rec.SUBCUENTA = rec._subcuenta;
+  rec.CATEGORIA = rec._categoria_gasto;
+  rec.CONCEPTO  = rec._concepto;
+  const monto = Number(rec.Monto) || 0;
+  const _raw = rec._cuenta || rec.TIPO || (monto < 0 ? 'Egresos' : monto > 0 ? 'Ingresos' : '');
+  const _c   = bn_canon(_raw);
+  rec._tipo = _c.includes('egr') ? 'Egresos' : _c.includes('ing') ? 'Ingresos' :
+              _c.includes('activ') ? 'Activos' : _c.includes('pasiv') ? 'Pasivos' :
+              _c.includes('capital') ? 'Capital' : _raw;
+  bn_renderCards();
+  if (!rec.rowNum) return;
+  try {
+    const payload = bn_buildSavePayload(rec);
+    await fetch(`${BACKEND}/save-banco-clasificacion`, {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+  } catch (e) { console.warn('Error guardando clasificación:', e.message); }
+}
+
+function bn_toggleReclasify(idx) {
+  BN_RECLASIF_STAGED['__open_' + idx] = true;
+  delete BN_RECLASIF_STAGED[idx];
+  bn_renderCards();
+  setTimeout(() => { document.getElementById('bn-classify-tab-input-' + idx)?.focus(); }, 50);
+}
+
+async function bn_saveReclasify(idx) {
+  const opt = BN_RECLASIF_STAGED[idx];
+  delete BN_RECLASIF_STAGED['__open_' + idx];
+  delete BN_RECLASIF_STAGED[idx];
+  if (!opt) { bn_renderCards(); return; }
+  await bn_classifyTabApply(idx, opt);
+}
+
+function bn_cancelReclasify(idx) {
+  delete BN_RECLASIF_STAGED['__open_' + idx];
+  delete BN_RECLASIF_STAGED[idx];
+  bn_renderCards();
 }
 
 function bn_renderCards() {
