@@ -2722,8 +2722,8 @@ function bn_ticketFields(ticket) {
 }
 
 /** Calcula la similitud (score 0..1) entre un registro bancario y un ticket.
- *  El monto se compara siempre en valor absoluto — robusto al signo
- *  (un ticket de compra es positivo en Tickets y negativo en Registros). */
+ *  Ponderaciones: Monto 50% (filtro duro <1%), Tienda 30% (al menos 1 palabra
+ *  ≥4 letras debe matchear), Fecha 10% (mismo día o ±1). Máx = 0.90. */
 function bn_matchScore(rec, ticket) {
   const tk = bn_ticketFields(ticket);
   const recMonto = bn_parseMonto(rec.Monto);
@@ -2733,7 +2733,7 @@ function bn_matchScore(rec, ticket) {
   // ── 1) MONTO: exacto (< 1 %) o descarta ──
   const diff = Math.abs(recMonto - tkTotal) / Math.max(recMonto, tkTotal);
   if (diff >= 0.01) return 0;
-  let s = 0.40; // monto match
+  let s = 0.50; // monto pass = 50 %
 
   // ── 2) FECHA: mismo día o ±1 día, o descarta ──
   const recDate = bn_formatDiaISO(rec.Día || rec.Dia || '');
@@ -2741,7 +2741,7 @@ function bn_matchScore(rec, ticket) {
   if (!recDate || !tkDate || !/^\d{4}-\d{2}-\d{2}/.test(tkDate)) return 0;
   const dd = Math.abs((new Date(recDate) - new Date(tkDate)) / 86400000);
   if (dd > 1) return 0;
-  s += dd === 0 ? 0.35 : 0.25;
+  s += dd === 0 ? 0.10 : 0.07; // fecha = 10 % (mismo día) / 7 % (±1)
 
   // ── 3) TIENDA dentro de DESCRIPCION: al menos 1 palabra ≥4 letras debe matchear ──
   const norm = (x) => bn_canon(String(x||'')).replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
@@ -2749,52 +2749,76 @@ function bn_matchScore(rec, ticket) {
   const tienda  = norm(tk.tienda || '');
   if (!recDesc || !tienda) return 0;
   const words = tienda.split(' ').filter(w => w.length >= 4);
-  if (!words.length) return 0; // tienda demasiado genérica → no se puede validar
+  if (!words.length) return 0;
   let matched = 0;
   for (const w of words) if (recDesc.includes(w)) matched++;
-  if (matched === 0) return 0; // exige al menos 1 palabra significativa en común
-  s += Math.min(matched / words.length, 1) * 0.25;
+  if (matched === 0) return 0;
+  s += Math.min(matched / words.length, 1) * 0.30; // tienda = 30 % proporcional
   return Math.min(s, 1);
 }
 
-/** Encuentra el ticket con mayor score para un registro bancario. */
-function bn_findBestTicket(rec, tickets) {
-  let best = null, bestScore = 0;
+/** Umbral mínimo para conservar un match. */
+const BN_MATCH_THRESHOLD = 0.80;
+
+/** Devuelve TODOS los tickets cuyo score ≥ BN_MATCH_THRESHOLD, ordenados desc. */
+function bn_findMatchingTickets(rec, tickets) {
+  const out = [];
   for (const t of (tickets || [])) {
     const sc = bn_matchScore(rec, t);
-    if (sc > bestScore) { bestScore = sc; best = t; }
+    if (sc >= BN_MATCH_THRESHOLD) out.push({ ticket: t, score: sc });
   }
-  return best ? { ticket: best, score: bestScore } : null;
+  out.sort((a, b) => b.score - a.score);
+  return out;
 }
 
-/** HTML del chip "Ticket encontrado" con semáforo (debajo del Deducible). */
+/** Back-compat: devuelve el de mayor score (o null). */
+function bn_findBestTicket(rec, tickets) {
+  const arr = bn_findMatchingTickets(rec, tickets);
+  return arr.length ? arr[0] : null;
+}
+
+/** Color + label de un score individual. */
+function bn_matchTierFor(score) {
+  if (score >= 0.90) return { color: '#16a34a', bg: '#f0fdf4', label: 'Alta' };
+  if (score >= 0.80) return { color: '#f59e0b', bg: '#fffbeb', label: 'Media' };
+  return { color: '#dc2626', bg: '#fef2f2', label: 'Baja' };
+}
+
+/** HTML de los chips "Ticket encontrado" (uno por cada match ≥ umbral). */
 function bn_matchChipHtml(rec, idx) {
-  const m = rec._matchedTicket;
-  if (!m || !(m.score > 0)) return '';
-  const color = m.score >= 0.85 ? '#16a34a' : m.score >= 0.70 ? '#f59e0b' : '#dc2626';
-  const label = m.score >= 0.85 ? 'Alta' : m.score >= 0.70 ? 'Media' : 'Baja';
-  const tienda = (m.tienda || '—').slice(0, 30);
-  return `
-    <div onclick="event.stopPropagation();bn_showMatchDetail(${idx})"
-         title="${esc(tienda)} · ${(m.score*100).toFixed(0)}% match — clic para detalles"
-         style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;margin-top:6px;
-                background:#fff;border:1.5px solid ${color};color:${color};
-                border-radius:999px;font-weight:600;font-size:11px;cursor:pointer">
-      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${color}"></span>
-      <span>🧾 Ticket encontrado · ${label}</span>
-    </div>`;
+  const list = (rec._matchedTickets && rec._matchedTickets.length)
+    ? rec._matchedTickets
+    : (rec._matchedTicket && rec._matchedTicket.score >= BN_MATCH_THRESHOLD ? [rec._matchedTicket] : []);
+  if (!list.length) return '';
+  return `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;margin-top:6px">` +
+    list.map((m, i) => {
+      const t = bn_matchTierFor(m.score);
+      const tienda = (m.tienda || '—').slice(0, 30);
+      return `
+        <div onclick="event.stopPropagation();bn_showMatchDetail(${idx}, ${i})"
+             title="${esc(tienda)} · ${(m.score*100).toFixed(0)}% match — clic para detalles"
+             style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;
+                    background:${t.bg};border:1.5px solid ${t.color};color:${t.color};
+                    border-radius:999px;font-weight:600;font-size:11px;cursor:pointer">
+          <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${t.color}"></span>
+          <span>🧾 ${esc(tienda)} · ${(m.score*100).toFixed(0)}% (${t.label})</span>
+        </div>`;
+    }).join('') +
+  `</div>`;
 }
 
-function bn_showMatchDetail(idx) {
+function bn_showMatchDetail(idx, mi) {
   const rec = BN_CUR_RECS[idx];
-  const m = rec?._matchedTicket;
-  if (!m) return;
-  alert(`Posible coincidencia (${(m.score*100).toFixed(0)}%):\n\n` +
-        `Tienda: ${m.tienda || '—'}\n` +
-        `Fecha:  ${m.fecha  || '—'}\n` +
-        `Total:  ${bn_fmt$(Number(m.total)||0)}\n` +
-        (m.folio ? `Folio:  ${m.folio}\n` : '') +
-        `\nMonto del registro bancario: ${bn_fmt$(Number(rec.Monto)||0)}`);
+  const list = (rec?._matchedTickets && rec._matchedTickets.length)
+    ? rec._matchedTickets
+    : (rec?._matchedTicket ? [rec._matchedTicket] : []);
+  if (!list.length) return;
+  const ms = (typeof mi === 'number' && list[mi]) ? [list[mi]] : list;
+  const body = ms.map(m =>
+    `${(m.score*100).toFixed(0)}%  ·  Tienda: ${m.tienda || '—'}  ·  Fecha: ${m.fecha || '—'}  ·  ` +
+    `Total: ${bn_fmt$(Number(m.total)||0)}` + (m.folio ? `  ·  Folio: ${m.folio}` : '')
+  ).join('\n');
+  alert(`Posibles coincidencias para registro bancario ${bn_fmt$(Number(rec.Monto)||0)}:\n\n${body}`);
 }
 
 /** Función principal: descarga tickets si hace falta y calcula matches
@@ -2813,30 +2837,35 @@ async function bn_relacionarConTickets() {
     let matched = 0;
     const updates = [];
     for (const rec of BN_RAW) {
-      const r = bn_findBestTicket(rec, BN_TICKETS_CACHE);
-      if (r && r.score >= 0.75) {
-        const tk = bn_ticketFields(r.ticket);
-        rec._matchedTicket = {
-          score:   r.score,
-          tienda:  tk.tienda || '',
-          fecha:   tk.fecha  || '',
-          total:   tk.total  || 0,
-          folio:   tk.folio  || '',
-        };
+      const arr = bn_findMatchingTickets(rec, BN_TICKETS_CACHE);
+      if (arr.length) {
+        rec._matchedTickets = arr.map(({ ticket, score }) => {
+          const tk = bn_ticketFields(ticket);
+          return {
+            score,
+            tienda: tk.tienda || '',
+            fecha:  tk.fecha  || '',
+            total:  tk.total  || 0,
+            folio:  tk.folio  || '',
+          };
+        });
+        rec._matchedTicket = rec._matchedTickets[0]; // back-compat (mejor match)
         rec._ticket_relacionado = 'Sí';
         matched++;
         if (rec.rowNum) {
+          const best = rec._matchedTicket;
           updates.push({
             rowNum: rec.rowNum,
             ticket_relacionado: 'Sí',
-            ticket_match_score:  +(r.score * 100).toFixed(1),
-            ticket_match_tienda: tk.tienda || '',
-            ticket_match_fecha:  tk.fecha  || '',
-            ticket_match_folio:  tk.folio  || '',
-            ticket_match_total:  Number(tk.total) || 0,
+            ticket_match_score:  +(best.score * 100).toFixed(1),
+            ticket_match_tienda: best.tienda || '',
+            ticket_match_fecha:  best.fecha  || '',
+            ticket_match_folio:  best.folio  || '',
+            ticket_match_total:  Number(best.total) || 0,
           });
         }
       } else {
+        rec._matchedTickets = [];
         rec._matchedTicket = null;
         if (rec._ticket_relacionado === 'Sí' && rec.rowNum) {
           updates.push({ rowNum: rec.rowNum, ticket_relacionado: 'No' });
@@ -2855,7 +2884,7 @@ async function bn_relacionarConTickets() {
         .then(j => { if (!j.ok) console.warn('[BN] persist matches:', j.error); })
         .catch(e => console.warn('[BN] persist matches falló:', e.message));
     }
-    alert(`${matched} posible(s) coincidencia(s) encontrada(s) sobre ${BN_RAW.length} registros (umbral 40%).${updates.length ? '\n\nGuardando en BANCOS…' : ''}`);
+    alert(`${matched} registro(s) con match encontrado(s) sobre ${BN_RAW.length} (umbral ${(BN_MATCH_THRESHOLD*100).toFixed(0)}%).${updates.length ? '\n\nGuardando en BANCOS…' : ''}`);
   } catch (e) {
     alert('Error: ' + e.message);
   } finally {
