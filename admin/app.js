@@ -2818,6 +2818,57 @@ function bn_matchChipHtml(rec, idx) {
   `</div>`;
 }
 
+/** Variante del chip para celdas de tabla del popup "Análisis por partida".
+ *  Mismo estilo y criterios que bn_matchChipHtml, pero resuelve el rec por
+ *  rowNum (no necesita BN_CUR_RECS — el popup recibe records arbitrarios). */
+function bn_matchChipsForApPopup(rec) {
+  const list = (rec._matchedTickets && rec._matchedTickets.length)
+    ? rec._matchedTickets
+    : (rec._matchedTicket && rec._matchedTicket.score >= BN_MATCH_THRESHOLD ? [rec._matchedTicket] : []);
+  if (!list.length) return '<span style="color:#cbd5e1;font-size:11px">—</span>';
+  if (!window.BN_AP_MATCH_RECS) window.BN_AP_MATCH_RECS = {};
+  BN_AP_MATCH_RECS[rec.rowNum] = rec;
+  return `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">` +
+    list.map((m, i) => {
+      const t = bn_matchTierFor(m.score);
+      const tienda = (m.tienda || '—').slice(0, 26);
+      return `<div onclick="event.stopPropagation();bn_apOpenMatchPanel(${rec.rowNum}, ${i})"
+                   title="${esc(tienda)} · ${(m.score*100).toFixed(0)}% match"
+                   style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;
+                          background:${t.bg};border:1.5px solid ${t.color};color:${t.color};
+                          border-radius:999px;font-weight:600;font-size:10px;cursor:pointer;white-space:nowrap">
+                <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${t.color}"></span>
+                <span>🧾 ${esc(tienda)} · ${(m.score*100).toFixed(0)}% (${t.label})</span>
+              </div>`;
+    }).join('') +
+  `</div>`;
+}
+
+async function bn_apOpenMatchPanel(rowNum, mi) {
+  const rec = (window.BN_AP_MATCH_RECS || {})[rowNum];
+  if (!rec) return;
+  const list = (rec._matchedTickets && rec._matchedTickets.length) ? rec._matchedTickets
+    : (rec._matchedTicket ? [rec._matchedTicket] : []);
+  const m = list[mi];
+  if (!m) return;
+  if (!BN_TICKETS_CACHE) {
+    try {
+      const res = await fetch(`${BACKEND}/get-tickets`, { cache: 'no-store' });
+      const data = await res.json();
+      if (data.ok) BN_TICKETS_CACHE = data.tickets || [];
+    } catch(_) {}
+  }
+  let full = null;
+  for (const t of (BN_TICKETS_CACHE || [])) {
+    const tk = bn_ticketFields(t);
+    if (m.folio && String(tk.folio || '') === String(m.folio)
+        && Math.abs((Number(tk.total)||0) - (Number(m.total)||0)) < 0.01) { full = t; break; }
+    if (!m.folio && (tk.tienda||'') === (m.tienda||'')
+        && Math.abs((Number(tk.total)||0) - (Number(m.total)||0)) < 0.01) { full = t; break; }
+  }
+  bn_openMatchDetailPanel(full || null, m, rec);
+}
+
 async function bn_showMatchDetail(idx, mi) {
   const rec = BN_CUR_RECS[idx];
   const list = (rec?._matchedTickets && rec._matchedTickets.length)
@@ -3329,6 +3380,7 @@ function bn_apOpenRecordsModal(pathEnc) {
     { label: 'Método pago',   w: 130 },
     { label: 'Comentarios',   w: 200 },
     { label: 'Duda',          w: 70  },
+    { label: 'Ticket relacionado', w: 240 },
   ];
 
   const thead = cols.map(c =>
@@ -3352,6 +3404,7 @@ function bn_apOpenRecordsModal(pathEnc) {
     const mp   = r._metodo_pago || '';
     const com  = r._comentarios || '';
     const duda = r._duda === 'Sí' ? '<span title="Marcado: Duda" style="display:inline-block;width:22px;height:22px;border-radius:50%;background:#fef3c7;color:#b45309;font-weight:900;line-height:22px;text-align:center">?</span>' : '';
+    const matchCellHtml = bn_matchChipsForApPopup(r);
     const cu = r._cuenta || '', su = r._subcuenta || '', ca = r._categoria_gasto || '', co = r._concepto || '';
     return `<tr>
       <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#475569;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(cu)}">${esc(cu)}</td>
@@ -3373,6 +3426,7 @@ function bn_apOpenRecordsModal(pathEnc) {
       <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#475569">${esc(mp)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#475569;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(com)}">${esc(com)}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;text-align:center">${duda}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0">${matchCellHtml}</td>
     </tr>`;
   }).join('');
 
