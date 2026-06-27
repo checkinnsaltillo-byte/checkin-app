@@ -15741,6 +15741,128 @@ function lgCloseRelatedPanel() {
   document.body.style.overflow = '';
 }
 window.lgCloseRelatedPanel = lgCloseRelatedPanel;
+// ─── Wrappers scope-aware para edición dentro del slide-in panel ────────────
+// Sin esto, los selectores `document.querySelector('.inc-card[data-inc-id=X]')`
+// de incEnterEdit/Save/Cancel pueden devolver el card DUPLICADO del módulo
+// Incidencias oculto, dejando el form editable invisible al usuario.
+function lgPanelScopeQuery(sel) {
+  const p = document.getElementById('lg-related-panel');
+  return p ? p.querySelector(sel) : null;
+}
+function lgRewriteEditOnclicks(html, kind, id) {
+  // Reescribe los onclicks de los buttons editables para usar las versiones
+  // scoped al slide-in panel. Mantiene event.stopPropagation() prefix.
+  const safeId = String(id).replace(/'/g, "\\'");
+  return html
+    .replace(/incEnterEdit\('([^']+)'\)/g,   `lgScopedEnterEdit('${kind}','$1')`)
+    .replace(/incSaveEdit\('([^']+)'\)/g,    `lgScopedSaveEdit('${kind}','$1')`)
+    .replace(/incCancelEdit\('([^']+)'\)/g,  `lgScopedCancelEdit('${kind}','$1')`)
+    .replace(/incEditOnChange\('([^']+)'\)/g,`lgScopedEditOnChange('${kind}','$1')`)
+    .replace(/objEnterEdit\('([^']+)'\)/g,   `lgScopedEnterEdit('obj','$1')`)
+    .replace(/objSaveEdit\('([^']+)'\)/g,    `lgScopedSaveEdit('obj','$1')`)
+    .replace(/objCancelEdit\('([^']+)'\)/g,  `lgScopedCancelEdit('obj','$1')`)
+    .replace(/objEditOnChange\('([^']+)'\)/g,`lgScopedEditOnChange('obj','$1')`);
+}
+window.lgScopedEnterEdit = function(kind, id) {
+  const STATE = kind === 'inc' ? INC_STATE : OBJ_STATE;
+  const sel = kind === 'inc' ? `.inc-card[data-inc-id="${CSS.escape(id)}"]` : `.inc-card[data-obj-id="${CSS.escape(id)}"]`;
+  const card = lgPanelScopeQuery(sel);
+  const row = (STATE.list||[]).find(r => String(r['ID']||'') === id);
+  if (!card || !row) { console.warn('[LG-EDIT] no card/row', kind, id); return; }
+  STATE.editing.add(id);
+  STATE.editDirty.delete(id);
+  const toData = kind === 'inc' ? incRowToReportData : objRowToReportData;
+  const snap = toData(row);
+  snap._fotosUrls = String(row['Fotos_URLs']||'').split(',').map(s=>s.trim()).filter(Boolean);
+  STATE.editOriginal[id] = JSON.stringify(snap);
+  if (STATE.editPhotos) delete STATE.editPhotos[id];
+  const body = card.querySelector('.inc-card-body');
+  if (body) {
+    const editableFn = kind === 'inc' ? incCardBodyHtmlEditable : objCardBodyHtmlEditable;
+    body.innerHTML = lgRewriteEditOnclicks(editableFn(row, id), kind, id);
+    body.classList.add('editing');
+  }
+};
+window.lgScopedCancelEdit = function(kind, id) {
+  const STATE = kind === 'inc' ? INC_STATE : OBJ_STATE;
+  const sel = kind === 'inc' ? `.inc-card[data-inc-id="${CSS.escape(id)}"]` : `.inc-card[data-obj-id="${CSS.escape(id)}"]`;
+  const card = lgPanelScopeQuery(sel);
+  const row = (STATE.list||[]).find(r => String(r['ID']||'') === id);
+  if (!card || !row) return;
+  STATE.editing.delete(id);
+  STATE.editDirty.delete(id);
+  delete STATE.editOriginal[id];
+  if (STATE.editPhotos) delete STATE.editPhotos[id];
+  const body = card.querySelector('.inc-card-body');
+  if (body) {
+    const roFn = kind === 'inc' ? incCardBodyHtmlReadonly : objCardBodyHtmlReadonly;
+    body.innerHTML = lgRewriteEditOnclicks(roFn(row, id), kind, id);
+    body.classList.remove('editing');
+  }
+};
+window.lgScopedEditOnChange = function(kind, id) {
+  // Mirror de inc/objEditOnChange pero scoped al panel — sólo actualiza el
+  // estado dirty y la visibilidad del botón Guardar.
+  const sel = kind === 'inc' ? `.inc-card[data-inc-id="${CSS.escape(id)}"]` : `.inc-card[data-obj-id="${CSS.escape(id)}"]`;
+  const card = lgPanelScopeQuery(sel);
+  if (!card) return;
+  const STATE = kind === 'inc' ? INC_STATE : OBJ_STATE;
+  STATE.editDirty.add(id);
+  const saveBtn = card.querySelector('[data-edit-save]');
+  if (saveBtn) saveBtn.style.display = '';
+};
+window.lgScopedSaveEdit = async function(kind, id) {
+  const sel = kind === 'inc' ? `.inc-card[data-inc-id="${CSS.escape(id)}"]` : `.inc-card[data-obj-id="${CSS.escape(id)}"]`;
+  const card = lgPanelScopeQuery(sel);
+  if (!card) return;
+  const STATE = kind === 'inc' ? INC_STATE : OBJ_STATE;
+  const collectFn = kind === 'inc' ? incCollectEditFields : objCollectEditFields;
+  const fields = collectFn(card);
+  const photoState = (STATE.editPhotos || {})[id] || { existingUrls: [], newOnes: [] };
+  const newFotos = photoState.newOnes.map(f => ({ name: f.name, base64: f.base64, mimeType: f.mimeType }));
+  const keepUrls = photoState.existingUrls.slice();
+  const saveBtn = card.querySelector('[data-edit-save]');
+  const cancelBtn = card.querySelector('.inc-edit-btn-cancel');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '⏳ Guardando…'; }
+  if (cancelBtn) cancelBtn.disabled = true;
+  try {
+    const action = kind === 'inc' ? 'update_incidencia' : 'update_objeto';
+    const payload = { action, id, fields, keep_urls: keepUrls, new_fotos: newFotos };
+    const res = await fetch(`${BACKEND}/${kind === 'inc' ? 'incidencias-update' : 'objetos-update'}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'save failed');
+    // Actualizar la fila en memoria
+    const row = (STATE.list||[]).find(r => String(r['ID']||'') === id);
+    if (row) {
+      const fieldMap = kind === 'inc'
+        ? { fecha:'Fecha', motivos:'Motivos', clasificaciones:'Clasificacion', propiedad:'Propiedad', depto:'# Departamento', alojamiento:'Alojamiento', reportante:'Reportante', personas:'Personas', nivel:'Nivel', estatus:'Estatus', descripcion:'Descripcion', acciones:'Acciones', seguimiento:'Seguimiento', comentarios:'Comentarios' }
+        : { fecha_encontrado:'Fecha_encontrado', fecha_entregado:'Fecha_entregado', entregado_a:'Entregado_a', propiedad:'Propiedad', depto:'# Departamento', alojamiento:'Alojamiento', reportante:'Reportante', categoria:'Categoria', categoria_otro:'Categoria_otro', descripcion:'Descripcion', lugar_resguardo:'Lugar_resguardo', lugar_otro:'Lugar_otro', comentarios:'Comentarios' };
+      for (const k of Object.keys(fields)) {
+        const colName = fieldMap[k];
+        if (colName) row[colName] = Array.isArray(fields[k]) ? fields[k].join(', ') : (fields[k] != null ? String(fields[k]) : '');
+      }
+      if (data.fotos_urls) row['Fotos_URLs'] = String(data.fotos_urls).trim();
+    }
+    STATE.editing.delete(id);
+    STATE.editDirty.delete(id);
+    delete STATE.editOriginal[id];
+    if (STATE.editPhotos) delete STATE.editPhotos[id];
+    // Salir del modo edición y mostrar el detalle actualizado
+    const body = card.querySelector('.inc-card-body');
+    if (body) {
+      const roFn = kind === 'inc' ? incCardBodyHtmlReadonly : objCardBodyHtmlReadonly;
+      body.innerHTML = lgRewriteEditOnclicks(roFn(row, id), kind, id);
+      body.classList.remove('editing');
+    }
+  } catch (e) {
+    alert('Error al guardar: ' + (e.message || e));
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '💾 Guardar cambios y Salir'; }
+    if (cancelBtn) cancelBtn.disabled = false;
+  }
+};
+
 window.lgOpenIncDetailFromBooking = function(id) {
   const row = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list) ? INC_STATE.list : []).find(r => String(r['ID']||'') === id);
   if (!row) { lgOpenRelatedPanel('Incidencia', '<div style="padding:14px;color:#dc2626">No se encontró el registro.</div>'); return; }
@@ -15748,9 +15870,7 @@ window.lgOpenIncDetailFromBooking = function(id) {
   const fecha = String(row['Fecha'] || '').slice(0,10);
   let inner = '';
   try { inner = (typeof incCardBodyHtmlReadonly === 'function') ? incCardBodyHtmlReadonly(row, id) : (typeof incCardBodyHtml === 'function' ? incCardBodyHtml(row) : ''); } catch (_) {}
-  // Envolver en la estructura .inc-card[data-inc-id] > .inc-card-body para que
-  // incEnterEdit('id') encuentre el contenedor y pueda reemplazar el body con
-  // la versión editable.
+  inner = lgRewriteEditOnclicks(inner, 'inc', id);
   const body = `<div class="inc-card expanded" data-inc-id="${esc(id)}">
     <div class="inc-card-body">${inner}</div>
   </div>`;
@@ -15766,7 +15886,7 @@ window.lgOpenObjDetailFromBooking = function(id) {
     if (typeof objCardBodyHtmlReadonly === 'function') inner = objCardBodyHtmlReadonly(row, id);
     else if (typeof objBuildReporteHtml === 'function' && typeof objRowToReportData === 'function') inner = objBuildReporteHtml(objRowToReportData(row));
   } catch (_) {}
-  // Envolver para que objEnterEdit('id') encuentre .inc-card[data-obj-id]>.inc-card-body
+  inner = lgRewriteEditOnclicks(inner, 'obj', id);
   const body = `<div class="inc-card expanded" data-obj-id="${esc(id)}">
     <div class="inc-card-body">${inner}</div>
   </div>`;
