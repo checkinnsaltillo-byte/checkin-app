@@ -15713,19 +15713,23 @@ function lgOpenRelatedPanel(title, html, headerColor) {
   const back  = document.getElementById('lg-related-backdrop');
   const host  = document.getElementById('lg-related-host');
   const t     = document.getElementById('lg-related-title');
-  if (!panel || !host) return;
+  if (!panel || !host) { console.error('[LG-PANEL] elementos no encontrados', { panel: !!panel, back: !!back, host: !!host }); return; }
+  // Mover panel + backdrop a document.body para evitar contextos de apilamiento
+  // de padres (overflow:hidden, transform, etc.) que puedan ocultarlo.
+  if (panel.parentNode !== document.body) document.body.appendChild(panel);
+  if (back && back.parentNode !== document.body) document.body.appendChild(back);
   if (t) t.textContent = title || 'Detalle';
   const headerEl = panel.firstElementChild;
   if (headerEl && headerColor) headerEl.style.background = headerColor;
   host.innerHTML = html || '';
+  // Mostrar SYNCHRONOUSLY — sin rAF/setTimeout. Si la animación de slide no
+  // se ve, el panel igual aparece (mejor que invisible).
   back.classList.remove('hidden');
   panel.classList.remove('hidden');
-  // setTimeout es más confiable que requestAnimationFrame (no fire en tabs
-  // background / iframes pequeños). 30ms da tiempo al browser para que
-  // procese 'remove hidden' antes del transform, asegurando que la transición
-  // CSS se anime en lugar de aplicarse instantáneamente.
-  setTimeout(() => { back.style.opacity = '1'; panel.style.transform = 'translateX(0)'; }, 30);
+  back.style.opacity = '1';
+  panel.style.transform = 'translateX(0)';
   document.body.style.overflow = 'hidden';
+  console.info('[LG-PANEL] abierto:', title);
 }
 function lgCloseRelatedPanel() {
   const panel = document.getElementById('lg-related-panel');
