@@ -2814,18 +2814,102 @@ function bn_matchChipHtml(rec, idx) {
   `</div>`;
 }
 
-function bn_showMatchDetail(idx, mi) {
+async function bn_showMatchDetail(idx, mi) {
   const rec = BN_CUR_RECS[idx];
   const list = (rec?._matchedTickets && rec._matchedTickets.length)
     ? rec._matchedTickets
     : (rec?._matchedTicket ? [rec._matchedTicket] : []);
   if (!list.length) return;
-  const ms = (typeof mi === 'number' && list[mi]) ? [list[mi]] : list;
-  const body = ms.map(m =>
-    `${(m.score*100).toFixed(0)}%  ·  Tienda: ${m.tienda || '—'}  ·  Fecha: ${m.fecha || '—'}  ·  ` +
-    `Total: ${bn_fmt$(Number(m.total)||0)}` + (m.folio ? `  ·  Folio: ${m.folio}` : '')
-  ).join('\n');
-  alert(`Posibles coincidencias para registro bancario ${bn_fmt$(Number(rec.Monto)||0)}:\n\n${body}`);
+  const m = (typeof mi === 'number' && list[mi]) ? list[mi] : list[0];
+  // Asegura cache de tickets
+  if (!BN_TICKETS_CACHE) {
+    try {
+      const res = await fetch(`${BACKEND}/get-tickets`, { cache: 'no-store' });
+      const data = await res.json();
+      if (data.ok) BN_TICKETS_CACHE = data.tickets || [];
+    } catch(_) {}
+  }
+  // Localizar el ticket completo por folio + total (más estable que sólo folio)
+  let full = null;
+  for (const t of (BN_TICKETS_CACHE || [])) {
+    const tk = bn_ticketFields(t);
+    if (m.folio && String(tk.folio || '') === String(m.folio)
+        && Math.abs((Number(tk.total)||0) - (Number(m.total)||0)) < 0.01) { full = t; break; }
+    if (!m.folio && (tk.tienda||'') === (m.tienda||'')
+        && Math.abs((Number(tk.total)||0) - (Number(m.total)||0)) < 0.01) { full = t; break; }
+  }
+  bn_openMatchDetailPanel(full || null, m, rec);
+}
+
+function bn_openMatchDetailPanel(ticket, meta, rec) {
+  const host = document.getElementById('bn-match-detail-host');
+  const panel = document.getElementById('bn-match-detail-panel');
+  const back = document.getElementById('bn-match-detail-backdrop');
+  if (!host || !panel || !back) return;
+  const tk = ticket ? bn_ticketFields(ticket) : meta;
+  const tienda = tk.tienda || meta.tienda || '—';
+  const fecha  = tk.fecha  || meta.fecha  || '—';
+  const total  = Number(tk.total || meta.total || 0);
+  const folio  = tk.folio  || meta.folio  || '';
+  const tier   = bn_matchTierFor(meta.score);
+  // i = 'mp' (match-panel) para que showTicketTab('mp',...) funcione
+  const i = 'mp';
+  const headerHtml = `
+    <div class="ticket-card" style="margin:0">
+      <div class="ticket-card-header" style="cursor:default">
+        <div class="ticket-info">
+          <div class="header-chips">
+            <span class="info-chip" style="font-size:11px;padding:3px 8px;background:${tier.bg};color:${tier.color};border:1px solid ${tier.color};border-radius:999px">
+              ● ${(meta.score*100).toFixed(0)}% · ${tier.label}
+            </span>
+            ${folio ? `<span class="info-chip" style="font-size:11px;padding:3px 8px">Folio: ${esc(folio)}</span>` : ''}
+            <span class="info-chip" style="font-size:11px;padding:3px 8px">Registro: ${bn_fmt$(Number(rec.Monto)||0)}</span>
+          </div>
+          <div class="ticket-store-row">
+            <span class="ticket-store" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25">${esc(tienda)}</span>
+          </div>
+          <div class="ticket-meta">${esc(fecha)}</div>
+        </div>
+        <div class="ticket-header-right">
+          <div class="ticket-total-badge"><span class="total-main">${bn_fmt$(total)}</span></div>
+        </div>
+      </div>
+      <div class="ticket-table-wrap" id="table-${i}" data-tidx="${i}" data-tmod="match">
+        <div class="ticket-tabs">
+          <button class="ticket-tab active" onclick="showTicketTab('${i}','transcripcion',this)">Transcripción</button>
+          <button class="ticket-tab" onclick="showTicketTab('${i}','resumen',this)">Resumen</button>
+          <button class="ticket-tab" onclick="showTicketTab('${i}','cruce',this)">Cruce bancario</button>
+        </div>
+        <div id="tab-transcripcion-${i}" class="ticket-tab-content">
+          ${ticket ? buildProductTable(ticket.productos || []) : '<div style="padding:18px;color:#94a3b8;font-style:italic">Ticket completo no disponible en caché. Aprieta "🔗 Relacionar con tickets" para refrescar.</div>'}
+        </div>
+        <div id="tab-resumen-${i}" class="ticket-tab-content hidden">${buildResumenTable((ticket && ticket.resumen) || tk)}</div>
+        <div id="tab-cruce-${i}" class="ticket-tab-content hidden">${buildCruceTable((ticket && ticket.cruce) || null)}</div>
+      </div>
+    </div>`;
+  host.innerHTML = headerHtml;
+  back.classList.remove('hidden');
+  panel.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    back.style.opacity = '1';
+    panel.style.transform = 'translateX(0)';
+  });
+  document.body.style.overflow = 'hidden';
+}
+
+function bn_closeMatchDetailPanel() {
+  const panel = document.getElementById('bn-match-detail-panel');
+  const back  = document.getElementById('bn-match-detail-backdrop');
+  if (!panel || !back) return;
+  panel.style.transform = 'translateX(100%)';
+  back.style.opacity = '0';
+  setTimeout(() => {
+    panel.classList.add('hidden');
+    back.classList.add('hidden');
+    const host = document.getElementById('bn-match-detail-host');
+    if (host) host.innerHTML = '';
+  }, 300);
+  document.body.style.overflow = '';
 }
 
 /** Función principal: descarga tickets si hace falta y calcula matches

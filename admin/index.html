@@ -913,6 +913,22 @@
         <div id="bn-cargadatos-host" style="flex:1;overflow:auto;padding:14px;background:#fff"></div>
       </div>
 
+      <!-- Slide-in: detalle del ticket relacionado al chip de match -->
+      <div id="bn-match-detail-backdrop" class="hidden" onclick="bn_closeMatchDetailPanel()"
+           style="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9100;opacity:0;transition:opacity .25s"></div>
+      <div id="bn-match-detail-panel" class="hidden"
+           style="position:fixed;top:0;right:0;height:100vh;width:100%;max-width:1100px;background:#fff;z-index:9200;box-shadow:-16px 0 40px rgba(15,23,42,.18);transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:linear-gradient(180deg,#ecfdf5,#fff)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">🧾</span>
+            <div style="font-size:14px;font-weight:800;color:#0f172a">Ticket relacionado</div>
+          </div>
+          <button type="button" onclick="bn_closeMatchDetailPanel()" aria-label="Cerrar"
+                  style="width:32px;height:32px;border:none;background:#f1f5f9;color:#475569;border-radius:8px;font-weight:900;font-size:16px;cursor:pointer">✕</button>
+        </div>
+        <div id="bn-match-detail-host" style="flex:1;overflow:auto;padding:14px;background:#fff"></div>
+      </div>
+
       <!-- Análisis por partida — agregado jerárquico con semáforo de presupuesto -->
       <div id="bn-analisis-partida" class="hidden" style="padding:14px 4px">
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap">
@@ -2128,6 +2144,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=460"></script>
+  <script src="app.js?v=461"></script>
 </body>
 </html>
