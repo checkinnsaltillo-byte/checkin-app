@@ -1408,7 +1408,7 @@ function buildDashboardCruceTable(ticket) {
 
 function showTicketTab(i, tab, btn) {
   ["transcripcion", "resumen", "cruce"].forEach(t => {
-    document.getElementById(`tab-${t}-${i}`).classList.toggle("hidden", t !== tab);
+    document.getElementById(`tab-${t}-${i}`)?.classList.toggle("hidden", t !== tab);
   });
   btn.closest(".ticket-tabs").querySelectorAll(".ticket-tab").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
@@ -2088,8 +2088,12 @@ async function bn_loadData() {
       rec._ticket_relacionado = (_trCanon === 'si' || _trCanon === 'sí' || _trCanon === 'yes' || _trCanon === 'true') ? 'Sí' : (_trRaw ? 'No' : '');
       // Reconstruye _matchedTicket si la fila ya trae score/match persistido
       if (rec._ticket_relacionado === 'Sí') {
+        // Persistido en BANCOS como % (0-100). Lo convertimos a 0-1 para uniformar con
+        // los matches calculados en sesión. Si ya viene en 0-1 (valor < 1), se respeta.
+        const _persistedScore = Number(rec.Ticket_match_score) || 0;
+        const _normScore = _persistedScore > 1 ? _persistedScore / 100 : _persistedScore;
         rec._matchedTicket = {
-          score:  Number(rec.Ticket_match_score) || 0,
+          score:  _normScore,
           tienda: rec.Ticket_match_tienda || '',
           fecha:  rec.Ticket_match_fecha  || '',
           folio:  rec.Ticket_match_folio  || '',
@@ -2878,13 +2882,11 @@ function bn_openMatchDetailPanel(ticket, meta, rec) {
         <div class="ticket-tabs">
           <button class="ticket-tab active" onclick="showTicketTab('${i}','transcripcion',this)">Transcripción</button>
           <button class="ticket-tab" onclick="showTicketTab('${i}','resumen',this)">Resumen</button>
-          <button class="ticket-tab" onclick="showTicketTab('${i}','cruce',this)">Cruce bancario</button>
         </div>
         <div id="tab-transcripcion-${i}" class="ticket-tab-content">
           ${ticket ? buildProductTable(ticket.productos || []) : '<div style="padding:18px;color:#94a3b8;font-style:italic">Ticket completo no disponible en caché. Aprieta "🔗 Relacionar con tickets" para refrescar.</div>'}
         </div>
         <div id="tab-resumen-${i}" class="ticket-tab-content hidden">${buildResumenTable((ticket && ticket.resumen) || tk)}</div>
-        <div id="tab-cruce-${i}" class="ticket-tab-content hidden">${buildCruceTable((ticket && ticket.cruce) || null)}</div>
       </div>
     </div>`;
   host.innerHTML = headerHtml;
