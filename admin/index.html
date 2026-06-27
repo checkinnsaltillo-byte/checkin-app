@@ -349,7 +349,8 @@
         <h2 style="margin:0;font-size:20px;display:flex;align-items:center;gap:8px">🏠 Dispositivos</h2>
         <span id="tuya-summary" style="font-size:12px;color:var(--text-soft,#64748b)">—</span>
         <div style="margin-left:auto;display:flex;gap:8px">
-          <button class="btn-limpiar" style="margin:0" onclick="tuyaLoad(true)" title="Refrescar desde Tuya Cloud">↻ Refrescar</button>
+          <button id="tuya-btn-refresh" onclick="tuyaLoad(true)" title="Actualizar desde Tuya Cloud (ignora caché)"
+                  style="margin:0;padding:9px 18px;border:none;background:#0d9488;color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">↻ Actualizar</button>
         </div>
       </div>
       <div id="tuya-alerts"></div>
@@ -2185,6 +2186,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=467"></script>
+  <script src="app.js?v=469"></script>
 </body>
 </html>

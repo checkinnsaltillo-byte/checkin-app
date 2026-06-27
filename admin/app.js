@@ -12735,6 +12735,7 @@ const ALOJ_STATE = {
   byHouseId: new Map(),       // "602128" → row
   byHouseName: new Map(),     // lowercase normalized → row
   byPropDepto: new Map(),     // "propiedad|depto" → row
+  byDeviceName: new Map(),    // device_name normalizado → row (módulo Tuya)
   loaded: false,
   loading: false,
 };
@@ -12752,6 +12753,7 @@ async function lgLoadAlojamientos() {
     ALOJ_STATE.byHouseId.clear();
     ALOJ_STATE.byHouseName.clear();
     ALOJ_STATE.byPropDepto.clear();
+    ALOJ_STATE.byDeviceName.clear();
     for (const r of ALOJ_STATE.rows) {
       const hid = String(r['HouseId'] || '').trim();
       if (hid) ALOJ_STATE.byHouseId.set(hid, r);
@@ -12760,6 +12762,8 @@ async function lgLoadAlojamientos() {
       const prop = alojNorm(r['Propiedad']);
       const dpt  = alojNorm(r['# Departamento']);
       if (prop || dpt) ALOJ_STATE.byPropDepto.set(`${prop}|${dpt}`, r);
+      const dev = alojNorm(r['Device_name']);
+      if (dev) ALOJ_STATE.byDeviceName.set(dev, r);
     }
     ALOJ_STATE.loaded = true;
     console.info(`[ALOJ] catálogo: ${ALOJ_STATE.rows.length} alojamientos`);
@@ -25867,7 +25871,7 @@ document.addEventListener('keydown', (e) => {
 // ════════════════════════════════════════════════════════════════════════════
 // MÓDULO TUYA (Dispositivos Smart Life) — view-only + historial
 // ════════════════════════════════════════════════════════════════════════════
-const TUYA_STATE = { loaded: false, loading: false, data: null, ts: 0 };
+const TUYA_STATE = { loaded: false, loading: false, data: null, ts: 0, tab: '__todas', alertsOpen: false };
 
 // Iconos por categoría Tuya. Listado parcial de los más comunes; el resto cae a 📟.
 const TUYA_ICON = {
@@ -25889,8 +25893,27 @@ const TUYA_ICON = {
 const TUYA_ICON_FALLBACK = '📟';
 
 async function tuyaInit() {
+  // Asegura catálogo alojamientos para homologar Device_name → Propiedad/Depto
+  if (!ALOJ_STATE.loaded && !ALOJ_STATE.loading) {
+    lgLoadAlojamientos().then(() => { if (TUYA_STATE.loaded) tuyaRender(); });
+  }
   if (TUYA_STATE.loaded) { tuyaRender(); return; }
   await tuyaLoad(false);
+}
+
+/** Resuelve la fila de alojamientos para un device (case-robust). */
+function tuyaResolveAloj(d) {
+  if (!ALOJ_STATE.loaded || !d) return null;
+  return ALOJ_STATE.byDeviceName.get(alojNorm(d.name)) || null;
+}
+
+/** Nombre a mostrar: "Propiedad · # Departamento · product_name" si hay match,
+ *  si no, el nombre original del device. */
+function tuyaDisplayName(d) {
+  const r = tuyaResolveAloj(d);
+  if (!r) return d.name || '';
+  const parts = [r['Propiedad'], r['# Departamento'] != null ? String(r['# Departamento']) : '', d.product_name || ''].filter(Boolean);
+  return parts.join(' · ');
 }
 
 async function tuyaLoad(forceFresh) {
@@ -25923,87 +25946,160 @@ function tuyaRender() {
   const alertsEl = document.getElementById('tuya-alerts');
   if (!body) return;
   const data = TUYA_STATE.data || {};
-  const homes = data.homes || [];
   const devices = data.devices || [];
   const onlineN = devices.filter(d => d.online).length;
-  if (sum) sum.textContent = `${devices.length} dispositivos · ${onlineN} online · ${homes.length} propiedades${data.cached ? ' · caché' : ''}`;
 
-  // Alerts: offline, abierto, alarma, batería baja
+  // Resolver propiedad/depto desde alojamientos (case-robust por Device_name).
+  // Si no hay match, cae a "(Sin propiedad)" / "(Sin departamento)".
+  const enriched = devices.map(d => {
+    const r = tuyaResolveAloj(d);
+    const propiedad = r ? String(r['Propiedad'] || '').trim() : '';
+    const dpt = r ? (r['# Departamento'] != null ? String(r['# Departamento']).trim() : '') : '';
+    return { d, propiedad: propiedad || '(Sin propiedad)', departamento: dpt || '(Sin depto)', display: tuyaDisplayName(d) };
+  });
+
+  // Lista de propiedades ordenadas (de alojamientos primero, luego "(Sin propiedad)" al final si aplica)
+  const propsSet = new Set();
+  for (const e of enriched) propsSet.add(e.propiedad);
+  const props = [...propsSet].sort((a, b) => {
+    if (a === '(Sin propiedad)') return 1;
+    if (b === '(Sin propiedad)') return -1;
+    return a.localeCompare(b, 'es');
+  });
+
+  if (sum) sum.textContent = `${devices.length} dispositivos · ${onlineN} online · ${props.length} propiedad${props.length===1?'':'es'}${data.cached ? ' · caché' : ''}`;
+
+  // ── Alertas (dropdown colapsable arriba de las pestañas) ──
   const alerts = [];
-  for (const d of devices) {
-    if (!d.online) { alerts.push({ d, level: 'warn', msg: 'Offline' }); continue; }
+  for (const e of enriched) {
+    const d = e.d;
+    if (!d.online) { alerts.push({ e, level: 'warn', msg: 'Offline' }); continue; }
     for (const s of (d.status || [])) {
       const k = String(s.code || '').toLowerCase();
       const v = s.value;
-      if (k === 'doorcontact_state' && v === true) alerts.push({ d, level: 'warn', msg: '🚪 Abierto' });
-      if (k === 'smoke_sensor_status' && v === 'alarm') alerts.push({ d, level: 'crit', msg: '🔥 ALARMA HUMO' });
-      if (k === 'gas_sensor_state' && v === 'alarm')   alerts.push({ d, level: 'crit', msg: '⚠️ ALARMA GAS' });
-      if (k === 'watersensor_state' && v === 'alarm')  alerts.push({ d, level: 'crit', msg: '💧 ALARMA AGUA' });
-      if (k === 'pir' && v === 'pir')                  alerts.push({ d, level: 'info', msg: '👁️ Movimiento' });
-      if ((k === 'battery_percentage' || k === 'battery_state' || k === 'va_battery') && typeof v === 'number' && v < 15) {
-        alerts.push({ d, level: 'warn', msg: `🔋 Batería ${v}%` });
+      if (k === 'doorcontact_state' && v === true) alerts.push({ e, level: 'warn', msg: '🚪 Abierto' });
+      if (k === 'smoke_sensor_status' && v === 'alarm') alerts.push({ e, level: 'crit', msg: '🔥 ALARMA HUMO' });
+      if (k === 'gas_sensor_state' && v === 'alarm')   alerts.push({ e, level: 'crit', msg: '⚠️ ALARMA GAS' });
+      if (k === 'watersensor_state' && v === 'alarm')  alerts.push({ e, level: 'crit', msg: '💧 ALARMA AGUA' });
+      if (k === 'pir' && v === 'pir')                  alerts.push({ e, level: 'info', msg: '👁️ Movimiento' });
+      if ((k === 'battery_percentage' || k === 'va_battery') && typeof v === 'number' && v < 15) {
+        alerts.push({ e, level: 'warn', msg: `🔋 Batería ${v}%` });
       }
-      if (k === 'battery_state' && (v === 'low' || v === 'lower')) alerts.push({ d, level: 'warn', msg: '🔋 Batería baja' });
+      if (k === 'battery_state' && (v === 'low' || v === 'lower')) alerts.push({ e, level: 'warn', msg: '🔋 Batería baja' });
     }
   }
   if (alertsEl) {
-    if (!alerts.length) alertsEl.innerHTML = '';
+    if (!alerts.length) { alertsEl.innerHTML = ''; }
     else {
-      alertsEl.innerHTML = `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;margin-bottom:12px">
-        <div style="font-size:12px;font-weight:800;color:#991b1b;margin-bottom:6px">⚠️ ${alerts.length} alerta${alerts.length===1?'':'s'}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">${alerts.slice(0, 30).map(a =>
-          `<div onclick="tuyaOpenDetail('${esc(a.d.id)}')" style="cursor:pointer;padding:4px 10px;background:#fff;border:1px solid ${a.level==='crit'?'#dc2626':a.level==='warn'?'#f59e0b':'#0284c7'};color:${a.level==='crit'?'#dc2626':a.level==='warn'?'#b45309':'#075985'};border-radius:999px;font-size:11px;font-weight:700">${esc(a.msg)} · ${esc(a.d.name)}</div>`
-        ).join('')}</div>
+      const open = !!TUYA_STATE.alertsOpen;
+      const crit = alerts.filter(a => a.level === 'crit').length;
+      const headerBg = crit ? '#fef2f2' : '#fff7ed';
+      const headerBd = crit ? '#fecaca' : '#fed7aa';
+      const headerCl = crit ? '#991b1b' : '#9a3412';
+      alertsEl.innerHTML = `<div style="background:${headerBg};border:1px solid ${headerBd};border-radius:10px;margin-bottom:10px;overflow:hidden">
+        <div onclick="tuyaToggleAlerts()" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:8px 12px;user-select:none">
+          <span style="font-size:12px;font-weight:800;color:${headerCl}">⚠️ ${alerts.length} alerta${alerts.length===1?'':'s'}${crit?` · ${crit} crítica${crit===1?'':'s'}`:''}</span>
+          <span style="margin-left:auto;font-size:11px;color:${headerCl}">${open ? '▲ Ocultar' : '▼ Mostrar detalles'}</span>
+        </div>
+        ${open ? `<div style="background:#fff;padding:8px 12px;border-top:1px solid ${headerBd}">
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead><tr style="text-align:left;color:#64748b">
+              <th style="padding:4px 6px;font-weight:700">Alerta</th>
+              <th style="padding:4px 6px;font-weight:700">Propiedad</th>
+              <th style="padding:4px 6px;font-weight:700">Depto</th>
+              <th style="padding:4px 6px;font-weight:700">Dispositivo</th>
+            </tr></thead>
+            <tbody>${alerts.map(a => `<tr style="cursor:pointer;border-top:1px solid #f1f5f9" onclick="tuyaOpenDetail('${esc(a.e.d.id)}')">
+              <td style="padding:5px 6px;color:${a.level==='crit'?'#dc2626':a.level==='warn'?'#b45309':'#075985'};font-weight:700;white-space:nowrap">${esc(a.msg)}</td>
+              <td style="padding:5px 6px;color:#475569">${esc(a.e.propiedad)}</td>
+              <td style="padding:5px 6px;color:#475569">${esc(a.e.departamento)}</td>
+              <td style="padding:5px 6px;color:#0f172a">${esc(a.e.display)}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>` : ''}
       </div>`;
     }
   }
 
-  // Agrupar por home → room
-  const byHome = {};
-  for (const h of homes) byHome[h.id] = { home: h, byRoom: {} };
-  byHome['__sin_home'] = { home: { id: '', name: '(Sin propiedad)', rooms: [] }, byRoom: {} };
-  for (const d of devices) {
-    const hid = d.home_id || '__sin_home';
-    const bucket = byHome[hid] || byHome['__sin_home'];
-    const rid = d.room_id || '__sin_room';
-    if (!bucket.byRoom[rid]) bucket.byRoom[rid] = [];
-    bucket.byRoom[rid].push(d);
-  }
-  const homeOrder = homes.map(h => h.id);
-  if (Object.values(byHome['__sin_home'].byRoom).some(arr => arr.length)) homeOrder.push('__sin_home');
+  // ── Pestañas Propiedad ──
+  const activeTab = TUYA_STATE.tab || '__todas';
+  const tabsHtml = `<div style="display:flex;gap:0;border-bottom:2px solid var(--border,#e5e7eb);margin-bottom:12px;overflow-x:auto;flex-wrap:nowrap">
+    ${[['__todas', 'Todas'], ...props.map(p => [p, p])].map(([key, label]) => {
+      const count = key === '__todas' ? enriched.length : enriched.filter(e => e.propiedad === key).length;
+      const isActive = activeTab === key;
+      return `<button onclick="tuyaSetTab('${esc(key)}')" style="padding:9px 16px;border:none;background:transparent;border-bottom:3px solid ${isActive ? '#0d9488' : 'transparent'};color:${isActive ? '#0d9488' : '#64748b'};font-weight:${isActive?'800':'600'};font-size:13px;cursor:pointer;white-space:nowrap;margin-bottom:-2px">${esc(label)} <span style="color:#94a3b8;font-weight:600;font-size:11px">(${count})</span></button>`;
+    }).join('')}
+  </div>`;
 
-  body.innerHTML = homeOrder.filter(hid => byHome[hid]).map(hid => {
-    const { home, byRoom } = byHome[hid];
-    const roomOrder = (home.rooms || []).map(r => r.id);
-    if (byRoom['__sin_room']?.length) roomOrder.push('__sin_room');
-    const roomsHtml = roomOrder.filter(rid => byRoom[rid]?.length).map(rid => {
-      const room = (home.rooms || []).find(r => r.id === rid);
-      const roomName = room ? room.name : '(Sin departamento)';
-      const cards = byRoom[rid].map(d => tuyaDeviceCardHtml(d)).join('');
-      return `<div style="margin-bottom:10px">
-        <div style="font-size:11px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;padding-left:2px">${esc(roomName)}</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">${cards}</div>
+  // ── Cuerpo: dispositivos filtrados por pestaña ──
+  const filtered = activeTab === '__todas' ? enriched : enriched.filter(e => e.propiedad === activeTab);
+  let cardsHtml = '';
+  if (!filtered.length) {
+    cardsHtml = '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px">Sin dispositivos en esta propiedad</div>';
+  } else if (activeTab === '__todas') {
+    // Agrupar por Propiedad → Departamento
+    const byProp = {};
+    for (const e of filtered) {
+      if (!byProp[e.propiedad]) byProp[e.propiedad] = {};
+      if (!byProp[e.propiedad][e.departamento]) byProp[e.propiedad][e.departamento] = [];
+      byProp[e.propiedad][e.departamento].push(e);
+    }
+    cardsHtml = props.filter(p => byProp[p]).map(p => {
+      const deptos = Object.keys(byProp[p]).sort();
+      const inner = deptos.map(dp => {
+        const list = byProp[p][dp];
+        return `<div style="margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;padding-left:2px">${esc(dp)}</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">${list.map(e => tuyaDeviceCardHtml(e.d, e)).join('')}</div>
+        </div>`;
+      }).join('');
+      return `<div style="background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:12px;overflow:hidden;margin-bottom:10px">
+        <div style="padding:10px 14px;background:#f1f5f9;font-size:13px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px">
+          🏠 ${esc(p)} <span style="font-size:11px;color:#64748b;font-weight:600">· ${filtered.filter(e => e.propiedad === p).length} dispositivos</span>
+        </div>
+        <div style="padding:12px">${inner}</div>
       </div>`;
     }).join('');
-    return `<div style="background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:12px;overflow:hidden">
-      <div style="padding:10px 14px;background:#f1f5f9;font-size:13px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px">
-        🏠 ${esc(home.name)} <span style="font-size:11px;color:#64748b;font-weight:600">· ${Object.values(byRoom).reduce((s,arr)=>s+arr.length,0)} dispositivos</span>
-      </div>
-      <div style="padding:12px">${roomsHtml || '<div style="color:#94a3b8;font-size:12px;padding:6px">Sin dispositivos</div>'}</div>
+  } else {
+    // Pestaña específica: agrupar sólo por Departamento
+    const byDep = {};
+    for (const e of filtered) {
+      if (!byDep[e.departamento]) byDep[e.departamento] = [];
+      byDep[e.departamento].push(e);
+    }
+    const deptos = Object.keys(byDep).sort();
+    cardsHtml = `<div style="background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:12px">
+      ${deptos.map(dp => `<div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;padding-left:2px">${esc(dp)}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">${byDep[dp].map(e => tuyaDeviceCardHtml(e.d, e)).join('')}</div>
+      </div>`).join('')}
     </div>`;
-  }).join('');
+  }
+
+  body.innerHTML = tabsHtml + cardsHtml;
 }
 
-function tuyaDeviceCardHtml(d) {
+function tuyaSetTab(key) {
+  TUYA_STATE.tab = key;
+  tuyaRender();
+}
+
+function tuyaToggleAlerts() {
+  TUYA_STATE.alertsOpen = !TUYA_STATE.alertsOpen;
+  tuyaRender();
+}
+
+function tuyaDeviceCardHtml(d, enriched) {
   const icon = TUYA_ICON[d.category] || TUYA_ICON_FALLBACK;
   const st = tuyaStatusFor(d);
   const updated = d.update_time ? tuyaRelTime(d.update_time * 1000) : '';
+  const display = (enriched && enriched.display) || tuyaDisplayName(d);
   return `<div onclick="tuyaOpenDetail('${esc(d.id)}')"
        style="cursor:pointer;background:#fff;border:1.5px solid ${st.border};border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;transition:transform .15s"
        onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
     <div style="display:flex;align-items:center;gap:6px">
       <span style="font-size:18px">${icon}</span>
-      <div style="flex:1;min-width:0;font-size:12px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.name)}">${esc(d.name)}</div>
+      <div style="flex:1;min-width:0;font-size:12px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(display)}">${esc(display)}</div>
     </div>
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
       <span style="font-size:10px;font-weight:700;color:${st.color};background:${st.bg};border-radius:999px;padding:2px 8px">${esc(st.label)}</span>
@@ -26056,7 +26152,7 @@ async function tuyaOpenDetail(id) {
   const host = document.getElementById('tuya-detail-host');
   const title = document.getElementById('tuya-detail-title');
   if (!panel || !host) return;
-  if (title) title.textContent = (TUYA_ICON[d.category] || TUYA_ICON_FALLBACK) + ' ' + d.name;
+  if (title) title.textContent = (TUYA_ICON[d.category] || TUYA_ICON_FALLBACK) + ' ' + tuyaDisplayName(d);
   const statusRows = (d.status || []).map(s => {
     const v = (typeof s.value === 'object') ? JSON.stringify(s.value) : String(s.value);
     return `<tr><td style="padding:5px 8px;font-size:11px;color:#64748b;border-bottom:1px solid #f1f5f9">${esc(s.code)}</td><td style="padding:5px 8px;font-size:12px;color:#0f172a;border-bottom:1px solid #f1f5f9;font-weight:600">${esc(v)}</td></tr>`;
