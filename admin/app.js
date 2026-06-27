@@ -15682,6 +15682,31 @@ function lgReinjectRelatedSections(kind) {
   }
 }
 
+// ─── Click delegation global (capture phase) para cards Inc/Obj relacionadas.
+// Intercepta el click ANTES que cualquier handler descendiente o ancestral
+// pueda interferir. Garantiza apertura del slide-in.
+if (!window.__lgRelatedClickInstalled) {
+  window.__lgRelatedClickInstalled = true;
+  document.addEventListener('click', function(e) {
+    const incEl = e.target.closest('[data-lg-inc-id]');
+    if (incEl) {
+      e.preventDefault();
+      e.stopPropagation();
+      try { console.info('[LG-INC] click ->', incEl.dataset.lgIncId); } catch(_) {}
+      window.lgOpenIncDetailFromBooking(incEl.dataset.lgIncId);
+      return;
+    }
+    const objEl = e.target.closest('[data-lg-obj-id]');
+    if (objEl) {
+      e.preventDefault();
+      e.stopPropagation();
+      try { console.info('[LG-OBJ] click ->', objEl.dataset.lgObjId); } catch(_) {}
+      window.lgOpenObjDetailFromBooking(objEl.dataset.lgObjId);
+      return;
+    }
+  }, true); // capture
+}
+
 // ─── Slide-in genérico para detalle de Incidencia / Objeto desde reserva ───
 function lgOpenRelatedPanel(title, html, headerColor) {
   const panel = document.getElementById('lg-related-panel');
@@ -15695,7 +15720,11 @@ function lgOpenRelatedPanel(title, html, headerColor) {
   host.innerHTML = html || '';
   back.classList.remove('hidden');
   panel.classList.remove('hidden');
-  requestAnimationFrame(() => { back.style.opacity = '1'; panel.style.transform = 'translateX(0)'; });
+  // setTimeout es más confiable que requestAnimationFrame (no fire en tabs
+  // background / iframes pequeños). 30ms da tiempo al browser para que
+  // procese 'remove hidden' antes del transform, asegurando que la transición
+  // CSS se anime en lugar de aplicarse instantáneamente.
+  setTimeout(() => { back.style.opacity = '1'; panel.style.transform = 'translateX(0)'; }, 30);
   document.body.style.overflow = 'hidden';
 }
 function lgCloseRelatedPanel() {
@@ -15802,11 +15831,9 @@ function lgBuildIncSectionForBooking(arg) {
     const estBg = estatus === 'Resuelto' ? '#dcfce7' : estatus === 'Pendiente' ? '#fee2e2' : '#fef3c7';
     const estCl = estatus === 'Resuelto' ? '#166534' : estatus === 'Pendiente' ? '#991b1b' : '#92400e';
     const nivelDot = nivel === 'Alta' ? '#dc2626' : nivel === 'Media' ? '#f59e0b' : '#16a34a';
-    return `<button type="button" onclick="lgOpenIncDetailFromBooking('${esc(id)}')"
-              style="all:unset;display:block;cursor:pointer;width:100%;box-sizing:border-box;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;transition:transform .12s,box-shadow .12s"
-              onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 18px rgba(15,23,42,.08)'"
-              onmouseout="this.style.transform='';this.style.boxShadow=''">
-        <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+    return `<div data-lg-inc-id="${esc(id)}" role="button" tabindex="0"
+              style="display:block;cursor:pointer;width:100%;box-sizing:border-box;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;transition:transform .12s,box-shadow .12s">
+        <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;pointer-events:none">
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:800;display:flex;align-items:center;gap:8px">
               <span>${esc(titulo)}</span>
@@ -15820,7 +15847,7 @@ function lgBuildIncSectionForBooking(arg) {
             <span style="font-size:11px;opacity:.7">▸</span>
           </div>
         </div>
-      </button>`;
+      </div>`;
   }).join('');
   return wrap(header + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`);
 }
@@ -15897,11 +15924,9 @@ function lgBuildObjSectionForBooking(arg) {
     const estBg = entregado ? '#dcfce7' : '#fef3c7';
     const estCl = entregado ? '#166534' : '#92400e';
     const estLbl = entregado ? '✓ Entregado' : '⏳ Pendiente';
-    return `<button type="button" onclick="lgOpenObjDetailFromBooking('${esc(id)}')"
-              style="all:unset;display:block;cursor:pointer;width:100%;box-sizing:border-box;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;transition:transform .12s,box-shadow .12s"
-              onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 18px rgba(15,23,42,.08)'"
-              onmouseout="this.style.transform='';this.style.boxShadow=''">
-        <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+    return `<div data-lg-obj-id="${esc(id)}" role="button" tabindex="0"
+              style="display:block;cursor:pointer;width:100%;box-sizing:border-box;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;transition:transform .12s,box-shadow .12s">
+        <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;pointer-events:none">
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:800">${esc(catLabel)}</div>
             ${aloj ? `<div style="font-size:11px;opacity:.92;margin-top:2px">📍 ${esc(aloj)}</div>` : ''}
@@ -15912,7 +15937,7 @@ function lgBuildObjSectionForBooking(arg) {
             <span style="font-size:11px;opacity:.7">▸</span>
           </div>
         </div>
-      </button>`;
+      </div>`;
   }).join('');
   return wrap(header + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`);
 }
