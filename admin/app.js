@@ -15785,14 +15785,42 @@ function lgBuildIncSectionForBooking(arg) {
     if (reason.length) console.warn('[LG-INC] sin match para reserva', { propRaw, deptRaw, arrIso, depIso }, 'descartados:', reason);
   }
   if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin incidencias en este rango.</div>`);
-  // Strip todos los onclick internos para que el único handler activo sea el
-  // del wrapper. Sin esto, incToggleCard / incRemoveCard atrapan el evento.
+  // Cards minimalistas desde cero (no reuso incRenderCardOne para evitar
+  // que onclicks/elementos internos roben el evento). Click abre slide-in.
   const cards = matches.map(row => {
     const id = String(row['ID']||'');
-    let inner = (typeof incRenderCardOne === 'function') ? incRenderCardOne(row) : '';
-    inner = inner.replace(/\s+onclick="[^"]*"/g, '');
-    inner = inner.replace(/<button[^>]*class="inc-card-remove"[\s\S]*?<\/button>/g, '');
-    return `<div data-lg-inc-wrap="${esc(id)}" onclick="lgOpenIncDetailFromBooking('${esc(id)}')" style="cursor:pointer">${inner}</div>`;
+    const titulo = [String(row['Motivos']||''), String(row['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Reporte';
+    const propiedad = String(row['Propiedad']||'').trim();
+    const depto = String(row['# Departamento']||'').trim();
+    const aloj = String(row['Alojamiento']||'').trim() || (propiedad && depto ? `${propiedad} - #${depto}` : propiedad);
+    const fecha = String(row['Fecha']||row['Timestamp']||'').slice(0,10);
+    const nivel = String(row['Nivel']||'Baja');
+    const estatus = String(row['Estatus']||'Pendiente');
+    const motivoCls = (typeof incMotivoColorClass === 'function') ? incMotivoColorClass(row['Motivos']||'') : 'default';
+    const BG = { Limpieza:'#06b6d4', Mantenimiento:'#f59e0b', Insumos:'#8b5cf6', default:'#64748b' };
+    const headerBg = BG[motivoCls] || BG.default;
+    const estBg = estatus === 'Resuelto' ? '#dcfce7' : estatus === 'Pendiente' ? '#fee2e2' : '#fef3c7';
+    const estCl = estatus === 'Resuelto' ? '#166534' : estatus === 'Pendiente' ? '#991b1b' : '#92400e';
+    const nivelDot = nivel === 'Alta' ? '#dc2626' : nivel === 'Media' ? '#f59e0b' : '#16a34a';
+    return `<button type="button" onclick="lgOpenIncDetailFromBooking('${esc(id)}')"
+              style="all:unset;display:block;cursor:pointer;width:100%;box-sizing:border-box;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;transition:transform .12s,box-shadow .12s"
+              onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 18px rgba(15,23,42,.08)'"
+              onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:800;display:flex;align-items:center;gap:8px">
+              <span>${esc(titulo)}</span>
+              <span title="Nivel ${esc(nivel)}" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${nivelDot};flex-shrink:0"></span>
+            </div>
+            ${aloj ? `<div style="font-size:11px;opacity:.92;margin-top:2px">📍 ${esc(aloj)}</div>` : ''}
+            ${fecha ? `<div style="font-size:11px;opacity:.85;margin-top:2px">📅 ${esc(fecha)}</div>` : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <span style="padding:3px 10px;background:${estBg};color:${estCl};border-radius:999px;font-size:10px;font-weight:800">${esc(estatus)}</span>
+            <span style="font-size:11px;opacity:.7">▸</span>
+          </div>
+        </div>
+      </button>`;
   }).join('');
   return wrap(header + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`);
 }
@@ -15853,12 +15881,38 @@ function lgBuildObjSectionForBooking(arg) {
     if (reason.length) console.warn('[LG-OBJ] sin match para reserva', { propRaw, deptRaw, arrIso, depIso }, 'descartados:', reason);
   }
   if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin objetos olvidados en este rango.</div>`);
+  // Cards minimalistas desde cero. Click abre slide-in.
   const cards = matches.map(row => {
     const id = String(row['ID']||'');
-    let inner = (typeof objRenderCardOne === 'function') ? objRenderCardOne(row) : '';
-    inner = inner.replace(/\s+onclick="[^"]*"/g, '');
-    inner = inner.replace(/<button[^>]*class="inc-card-remove"[\s\S]*?<\/button>/g, '');
-    return `<div data-lg-obj-wrap="${esc(id)}" onclick="lgOpenObjDetailFromBooking('${esc(id)}')" style="cursor:pointer">${inner}</div>`;
+    const cat = String(row['Categoria']||'').trim();
+    const catOtro = String(row['Categoria_otro']||'').trim();
+    const catLabel = cat === 'Otro' ? `Otro: ${catOtro || '—'}` : (cat || 'Sin categoría');
+    const propiedad = String(row['Propiedad']||'').trim();
+    const depto = String(row['# Departamento']||'').trim();
+    const aloj = String(row['Alojamiento']||'').trim() || (propiedad && depto ? `${propiedad} - #${depto}` : propiedad);
+    const fechaEnc = String(row['Fecha_encontrado']||'').slice(0,10);
+    const fechaEnt = String(row['Fecha_entregado']||'').slice(0,10);
+    const entregado = !!fechaEnt;
+    const headerBg = '#059669';
+    const estBg = entregado ? '#dcfce7' : '#fef3c7';
+    const estCl = entregado ? '#166534' : '#92400e';
+    const estLbl = entregado ? '✓ Entregado' : '⏳ Pendiente';
+    return `<button type="button" onclick="lgOpenObjDetailFromBooking('${esc(id)}')"
+              style="all:unset;display:block;cursor:pointer;width:100%;box-sizing:border-box;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;transition:transform .12s,box-shadow .12s"
+              onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 18px rgba(15,23,42,.08)'"
+              onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:800">${esc(catLabel)}</div>
+            ${aloj ? `<div style="font-size:11px;opacity:.92;margin-top:2px">📍 ${esc(aloj)}</div>` : ''}
+            ${fechaEnc ? `<div style="font-size:11px;opacity:.85;margin-top:2px">📅 ${esc(fechaEnc)}</div>` : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <span style="padding:3px 10px;background:${estBg};color:${estCl};border-radius:999px;font-size:10px;font-weight:800">${esc(estLbl)}</span>
+            <span style="font-size:11px;opacity:.7">▸</span>
+          </div>
+        </div>
+      </button>`;
   }).join('');
   return wrap(header + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`);
 }
