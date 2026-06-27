@@ -15652,6 +15652,36 @@ function lgBuildSection1DetailHtml(b, huesped) {
  *    - un string con el Lodgify Id directo
  *  La sección SIEMPRE se renderiza para que el usuario vea que está integrada,
  *  con placeholders claros cuando no hay datos. */
+// ─── Re-injection de Incidencias/Objetos cuando llegan sus listas async ────
+function lgReinjectRelatedSections(kind) {
+  // kind: 'inc' | 'obj'
+  const detailEls = document.querySelectorAll('.hu-col-detail, .hu-resv-detail');
+  for (const el of detailEls) {
+    if (el.dataset.aseoInjected !== '1') continue;
+    const arg = (typeof lookupBookingForDetailEl_fromAseo !== 'undefined')
+      ? null
+      : (window.__lgBookingForDetail && window.__lgBookingForDetail.get(el));
+    // Reconstruir arg desde data-attrs si está disponible
+    let booking = arg;
+    if (!booking) {
+      // Fallback: parsea el ID de booking del DOM
+      const idAttr = el.getAttribute('data-hu-resv-id') || el.getAttribute('data-lg-id') || '';
+      if (idAttr) booking = idAttr;
+    }
+    if (!booking) continue;
+    const builder = kind === 'inc' ? (window.lgBuildIncSectionForBooking) : (window.lgBuildObjSectionForBooking);
+    const cls = kind === 'inc' ? 'lg-inc-card' : 'lg-obj-card';
+    if (typeof builder !== 'function') continue;
+    const newHtml = builder(booking);
+    if (!newHtml) continue;
+    // Remove existing same-kind card under this detail, then re-append.
+    el.querySelectorAll(`:scope > div > .${cls}, :scope > .${cls}`).forEach(n => n.parentElement.remove());
+    const w = document.createElement('div');
+    w.innerHTML = newHtml;
+    el.appendChild(w);
+  }
+}
+
 // ─── Slide-in genérico para detalle de Incidencia / Objeto desde reserva ───
 function lgOpenRelatedPanel(title, html, headerColor) {
   const panel = document.getElementById('lg-related-panel');
@@ -15738,6 +15768,22 @@ function lgBuildIncSectionForBooking(arg) {
     const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
     return f && f >= arrIso && f <= depIso;
   });
+  if (!matches.length) {
+    const reason = [];
+    for (const r of INC_STATE.list) {
+      const rp = alojNorm(r['Propiedad']);
+      const rd = alojNorm(r['# Departamento']);
+      const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+      let why = '';
+      if (rp !== propN) why = `propiedad: "${r['Propiedad']}"(${rp}) ≠ "${propRaw}"(${propN})`;
+      else if (rd !== deptN) why = `depto: "${r['# Departamento']}"(${rd}) ≠ "${deptRaw}"(${deptN})`;
+      else if (!f) why = 'sin Fecha/Timestamp';
+      else if (f < arrIso) why = `fecha ${f} < entrada ${arrIso}`;
+      else if (f > depIso) why = `fecha ${f} > salida ${depIso}`;
+      if (why) reason.push({ id: r['ID'], why });
+    }
+    if (reason.length) console.warn('[LG-INC] sin match para reserva', { propRaw, deptRaw, arrIso, depIso }, 'descartados:', reason);
+  }
   if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin incidencias en este rango.</div>`);
   // Re-usamos incRenderCardOne pero interceptamos los clicks para abrir el slide-in.
   const cards = matches.map(row => {
@@ -15790,6 +15836,24 @@ function lgBuildObjSectionForBooking(arg) {
     const f = String(r['Fecha_encontrado'] || '').slice(0,10);
     return f && f >= arrIso && f <= depIso;
   });
+  // Debug: si NO hubo matches pero la reservación tiene prop/depto, listar a consola
+  // los registros descartados con el motivo. Útil para detectar normalizaciones rotas.
+  if (!matches.length) {
+    const reason = [];
+    for (const r of OBJ_STATE.list) {
+      const rp = alojNorm(r['Propiedad']);
+      const rd = alojNorm(r['# Departamento']);
+      const f = String(r['Fecha_encontrado'] || '').slice(0,10);
+      let why = '';
+      if (rp !== propN) why = `propiedad: "${r['Propiedad']}"(${rp}) ≠ "${propRaw}"(${propN})`;
+      else if (rd !== deptN) why = `depto: "${r['# Departamento']}"(${rd}) ≠ "${deptRaw}"(${deptN})`;
+      else if (!f) why = 'sin Fecha_encontrado';
+      else if (f < arrIso) why = `fecha ${f} < entrada ${arrIso}`;
+      else if (f > depIso) why = `fecha ${f} > salida ${depIso}`;
+      if (why) reason.push({ id: r['ID'], why });
+    }
+    if (reason.length) console.warn('[LG-OBJ] sin match para reserva', { propRaw, deptRaw, arrIso, depIso }, 'descartados:', reason);
+  }
   if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin objetos olvidados en este rango.</div>`);
   const cards = matches.map(row => {
     let html = (typeof objRenderCardOne === 'function') ? objRenderCardOne(row) : '';
@@ -21072,18 +21136,18 @@ window.incCerrarCaptura = function () {
 
 async function incLoadIncidencias() {
   const cont = document.getElementById('inc-cards-list');
-  if (!cont) return;
-  cont.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando reportes…</div>';
+  if (cont) cont.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando reportes…</div>';
   try {
     const res = await fetch(`${BACKEND}/incidencias-list`, { cache: 'no-store' });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'fetch failed');
     INC_STATE.list = data.rows || [];
-    incInitFilters();
-    incRenderCards();
+    if (cont) { incInitFilters(); incRenderCards(); }
+    // Re-render secciones "Incidencias relacionadas" en detalles de reserva visibles
+    if (typeof lgReinjectRelatedSections === 'function') lgReinjectRelatedSections('inc');
   } catch (e) {
     console.error('[INC] load error:', e);
-    cont.innerHTML = `<div style="text-align:center;padding:60px;color:#dc2626;font-size:13px">
+    if (cont) cont.innerHTML = `<div style="text-align:center;padding:60px;color:#dc2626;font-size:13px">
       ⚠ No se pudieron cargar los reportes: ${esc(e.message || String(e))}
       <div style="margin-top:10px"><button onclick="incLoadIncidencias()" class="inc-btn-sec">Reintentar</button></div>
     </div>`;
@@ -22264,17 +22328,17 @@ window.objCerrarCaptura = function () {
 // ─── Lista de cards + filtros ───
 async function objLoadObjetos() {
   const cont = document.getElementById('obj-cards-list');
-  if (!cont) return;
-  cont.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando objetos…</div>';
+  if (cont) cont.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando objetos…</div>';
   try {
     const res = await fetch(`${BACKEND}/objetos-list`, { cache: 'no-store' });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'fetch failed');
     OBJ_STATE.list = data.rows || [];
-    objInitFilters();
-    objRenderCards();
+    if (cont) { objInitFilters(); objRenderCards(); }
+    // Re-render secciones "Objetos relacionados" en detalles de reserva visibles
+    if (typeof lgReinjectRelatedSections === 'function') lgReinjectRelatedSections('obj');
   } catch (e) {
-    cont.innerHTML = `<div style="text-align:center;padding:60px;color:#dc2626;font-size:13px">⚠ No se pudieron cargar: ${esc(e.message || String(e))}
+    if (cont) cont.innerHTML = `<div style="text-align:center;padding:60px;color:#dc2626;font-size:13px">⚠ No se pudieron cargar: ${esc(e.message || String(e))}
       <div style="margin-top:10px"><button onclick="objLoadObjetos()" class="inc-btn-sec">Reintentar</button></div></div>`;
   }
 }
