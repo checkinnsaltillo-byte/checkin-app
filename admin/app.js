@@ -345,7 +345,7 @@ function sysGetStoredUser() {
 }
 function sysStoreUser(u) { try { localStorage.setItem('sys_user', JSON.stringify(u)); } catch(_) {} }
 function sysApplyPermissions(user) {
-  const allowed = new Set(['home']);
+  const allowed = new Set(['home', 'tuya']);
   if (user && user.modulos) {
     for (const k in SYS_MODULE_PERMS) {
       if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
