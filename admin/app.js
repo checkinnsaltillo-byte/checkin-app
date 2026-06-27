@@ -12754,6 +12754,14 @@ async function lgLoadAlojamientos() {
     ALOJ_STATE.byHouseName.clear();
     ALOJ_STATE.byPropDepto.clear();
     ALOJ_STATE.byDeviceName.clear();
+    // Detectar la columna Device_name de forma case/whitespace-insensitive:
+    // acepta "Device_name", "Device name", "device_name", "DEVICE NAME", etc.
+    const firstRow = ALOJ_STATE.rows[0] || {};
+    let devColKey = null;
+    for (const k of Object.keys(firstRow)) {
+      const nk = String(k).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (nk === 'devicename' || nk === 'device' || nk === 'tuyaname' || nk === 'tuya') { devColKey = k; break; }
+    }
     for (const r of ALOJ_STATE.rows) {
       const hid = String(r['HouseId'] || '').trim();
       if (hid) ALOJ_STATE.byHouseId.set(hid, r);
@@ -12762,9 +12770,12 @@ async function lgLoadAlojamientos() {
       const prop = alojNorm(r['Propiedad']);
       const dpt  = alojNorm(r['# Departamento']);
       if (prop || dpt) ALOJ_STATE.byPropDepto.set(`${prop}|${dpt}`, r);
-      const dev = alojNorm(r['Device_name']);
-      if (dev) ALOJ_STATE.byDeviceName.set(dev, r);
+      if (devColKey) {
+        const dev = alojNorm(r[devColKey]);
+        if (dev) ALOJ_STATE.byDeviceName.set(dev, r);
+      }
     }
+    console.info(`[ALOJ] Device_name col: ${devColKey || 'NO ENCONTRADA'} · ${ALOJ_STATE.byDeviceName.size} mapeos`);
     ALOJ_STATE.loaded = true;
     console.info(`[ALOJ] catálogo: ${ALOJ_STATE.rows.length} alojamientos`);
     // Rebuild filter options now that Propiedad can be homologated to
