@@ -15752,7 +15752,7 @@ function lgBuildIncSectionForBooking(arg) {
       <div style="padding:14px 16px;box-sizing:border-box">${inner}</div>
     </div>`;
   const header = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-    <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">🚨 INCIDENCIAS RELACIONADAS</div>
+    <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">🚨 INCIDENCIAS</div>
   </div>`;
   const placeholder = (msg) => wrap(header + `<div style="padding:12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px">${esc(msg)}</div>`);
   if (!arrIso || !depIso) return placeholder('Sin fechas para cruzar.');
@@ -15785,16 +15785,14 @@ function lgBuildIncSectionForBooking(arg) {
     if (reason.length) console.warn('[LG-INC] sin match para reserva', { propRaw, deptRaw, arrIso, depIso }, 'descartados:', reason);
   }
   if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin incidencias en este rango.</div>`);
-  // Re-usamos incRenderCardOne pero interceptamos los clicks para abrir el slide-in.
+  // Wrapper clicable + pointer-events:none en el contenido para que TODO el
+  // área de la card abra el slide-in sin importar dónde se haga click.
   const cards = matches.map(row => {
-    let html = (typeof incRenderCardOne === 'function') ? incRenderCardOne(row) : '';
     const id = String(row['ID']||'');
-    // Reemplaza el onclick del header para abrir el slide-in en lugar de toggle
-    html = html.replace(/onclick="incToggleCard\('[^']+'\)"/, `onclick="event.stopPropagation();lgOpenIncDetailFromBooking('${esc(id)}')"`);
-    // Quita el botón X (no aplica aquí) y el body inline
-    html = html.replace(/<button type="button" class="inc-card-remove"[\s\S]*?<\/button>/, '');
-    html = html.replace(/<div class="inc-card-body">[\s\S]*?<\/div>\s*<\/div>$/, '<div class="inc-card-body"></div></div>');
-    return html;
+    const inner = (typeof incRenderCardOne === 'function') ? incRenderCardOne(row) : '';
+    return `<div onclick="lgOpenIncDetailFromBooking('${esc(id)}')" style="cursor:pointer">
+              <div style="pointer-events:none">${inner}</div>
+            </div>`;
   }).join('');
   return wrap(header + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`);
 }
@@ -15820,7 +15818,7 @@ function lgBuildObjSectionForBooking(arg) {
       <div style="padding:14px 16px;box-sizing:border-box">${inner}</div>
     </div>`;
   const header = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-    <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">🧳 OBJETOS OLVIDADOS RELACIONADOS</div>
+    <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">🧳 OBJETOS OLVIDADOS</div>
   </div>`;
   const placeholder = (msg) => wrap(header + `<div style="padding:12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px">${esc(msg)}</div>`);
   if (!arrIso || !depIso) return placeholder('Sin fechas para cruzar.');
@@ -15856,12 +15854,11 @@ function lgBuildObjSectionForBooking(arg) {
   }
   if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin objetos olvidados en este rango.</div>`);
   const cards = matches.map(row => {
-    let html = (typeof objRenderCardOne === 'function') ? objRenderCardOne(row) : '';
     const id = String(row['ID']||'');
-    html = html.replace(/onclick="objToggleCard\('[^']+'\)"/, `onclick="event.stopPropagation();lgOpenObjDetailFromBooking('${esc(id)}')"`);
-    html = html.replace(/<button type="button" class="inc-card-remove"[\s\S]*?<\/button>/, '');
-    html = html.replace(/<div class="inc-card-body">[\s\S]*?<\/div>\s*<\/div>$/, '<div class="inc-card-body"></div></div>');
-    return html;
+    const inner = (typeof objRenderCardOne === 'function') ? objRenderCardOne(row) : '';
+    return `<div onclick="lgOpenObjDetailFromBooking('${esc(id)}')" style="cursor:pointer">
+              <div style="pointer-events:none">${inner}</div>
+            </div>`;
   }).join('');
   return wrap(header + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`);
 }
