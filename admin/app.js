@@ -2082,7 +2082,10 @@ async function bn_loadData() {
       rec._duda_nota       = rec.DUDA_NOTA || '';
       rec._validado        = rec.VALIDADO  || '';
       rec._comentarios     = rec.COMENTARIOS || rec.Comentarios || '';
-      rec._ticket_relacionado = rec.Ticket_relacionado || rec.TICKET_RELACIONADO || '';
+      // Normaliza "sí/si/SI/Sí" → 'Sí' siempre; cualquier otra cosa → ''
+      const _trRaw = rec.Ticket_relacionado || rec.TICKET_RELACIONADO || rec.ticket_relacionado || '';
+      const _trCanon = String(_trRaw).normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toLowerCase();
+      rec._ticket_relacionado = (_trCanon === 'si' || _trCanon === 'sí' || _trCanon === 'yes' || _trCanon === 'true') ? 'Sí' : (_trRaw ? 'No' : '');
       // Reconstruye _matchedTicket si la fila ya trae score/match persistido
       if (rec._ticket_relacionado === 'Sí') {
         rec._matchedTicket = {
