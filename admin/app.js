@@ -15746,9 +15746,14 @@ window.lgOpenIncDetailFromBooking = function(id) {
   if (!row) { lgOpenRelatedPanel('Incidencia', '<div style="padding:14px;color:#dc2626">No se encontró el registro.</div>'); return; }
   const titulo = [String(row['Motivos']||''), String(row['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Reporte';
   const fecha = String(row['Fecha'] || '').slice(0,10);
-  let body = '';
-  // Usa la versión readonly que incluye toolbar con "✏️ Editar reporte".
-  try { body = (typeof incCardBodyHtmlReadonly === 'function') ? incCardBodyHtmlReadonly(row, id) : (typeof incCardBodyHtml === 'function' ? incCardBodyHtml(row) : ''); } catch (_) {}
+  let inner = '';
+  try { inner = (typeof incCardBodyHtmlReadonly === 'function') ? incCardBodyHtmlReadonly(row, id) : (typeof incCardBodyHtml === 'function' ? incCardBodyHtml(row) : ''); } catch (_) {}
+  // Envolver en la estructura .inc-card[data-inc-id] > .inc-card-body para que
+  // incEnterEdit('id') encuentre el contenedor y pueda reemplazar el body con
+  // la versión editable.
+  const body = `<div class="inc-card expanded" data-inc-id="${esc(id)}">
+    <div class="inc-card-body">${inner}</div>
+  </div>`;
   lgOpenRelatedPanel(`📋 ${titulo}${fecha?' · '+fecha:''}`, body, 'linear-gradient(180deg,#fef3c7,#fff)');
 };
 window.lgOpenObjDetailFromBooking = function(id) {
@@ -15756,12 +15761,15 @@ window.lgOpenObjDetailFromBooking = function(id) {
   if (!row) { lgOpenRelatedPanel('Objeto olvidado', '<div style="padding:14px;color:#dc2626">No se encontró el registro.</div>'); return; }
   const cat = String(row['Categoria']||'').trim() || 'Objeto';
   const fecha = String(row['Fecha_encontrado']||'').slice(0,10);
-  let body = '';
+  let inner = '';
   try {
-    // Usa la versión readonly que incluye toolbar con "✏️ Editar reporte".
-    if (typeof objCardBodyHtmlReadonly === 'function') body = objCardBodyHtmlReadonly(row, id);
-    else if (typeof objBuildReporteHtml === 'function' && typeof objRowToReportData === 'function') body = objBuildReporteHtml(objRowToReportData(row));
+    if (typeof objCardBodyHtmlReadonly === 'function') inner = objCardBodyHtmlReadonly(row, id);
+    else if (typeof objBuildReporteHtml === 'function' && typeof objRowToReportData === 'function') inner = objBuildReporteHtml(objRowToReportData(row));
   } catch (_) {}
+  // Envolver para que objEnterEdit('id') encuentre .inc-card[data-obj-id]>.inc-card-body
+  const body = `<div class="inc-card expanded" data-obj-id="${esc(id)}">
+    <div class="inc-card-body">${inner}</div>
+  </div>`;
   lgOpenRelatedPanel(`🧳 ${cat}${fecha?' · '+fecha:''}`, body, 'linear-gradient(180deg,#ecfdf5,#fff)');
 };
 
