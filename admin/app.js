@@ -7383,6 +7383,9 @@ function bn_goToCardPage(p) {
       if (!BN_LOADED) bn_loadData();
       else bn_activateCatalog(); // ya cargado: reactivar catálogo Bancos
     }
+    if (mod === 'tuya') {
+      if (typeof tuyaInit === 'function') tuyaInit();
+    }
   };
 })();
 
@@ -8621,7 +8624,7 @@ function esc(v) {
 
 /** Cambia entre módulos de nivel superior */
 function switchModule(mod) {
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "tuya"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== mod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === mod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === mod);
@@ -25860,3 +25863,267 @@ document.addEventListener('keydown', (e) => {
   const p = document.getElementById('bn-cargadatos-panel');
   if (p && !p.classList.contains('hidden')) bnCargaDatosClose();
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// MÓDULO TUYA (Dispositivos Smart Life) — view-only + historial
+// ════════════════════════════════════════════════════════════════════════════
+const TUYA_STATE = { loaded: false, loading: false, data: null, ts: 0 };
+
+// Iconos por categoría Tuya. Listado parcial de los más comunes; el resto cae a 📟.
+const TUYA_ICON = {
+  mcs: '🚪',     // sensor de puerta/ventana
+  ywbj: '🔥',    // detector de humo
+  cobj: '☣️',    // monóxido de carbono
+  rqbj: '🔥',    // gas/LP
+  sj: '💧',      // fuga de agua
+  pir: '👁️',     // movimiento PIR
+  hps: '🚶',     // presencia humana
+  wsdcg: '🌡️',   // sensor temp/humedad
+  cz: '🔌',      // enchufe
+  dj: '💡',      // luz
+  kg: '🎚️',     // switch
+  ldcg: '☀️',    // iluminación
+  zd: '🛎️',     // doorbell
+  sp: '📹',     // cámara
+};
+const TUYA_ICON_FALLBACK = '📟';
+
+async function tuyaInit() {
+  if (TUYA_STATE.loaded) { tuyaRender(); return; }
+  await tuyaLoad(false);
+}
+
+async function tuyaLoad(forceFresh) {
+  const body = document.getElementById('tuya-body');
+  const sum = document.getElementById('tuya-summary');
+  if (TUYA_STATE.loading) return;
+  TUYA_STATE.loading = true;
+  if (body) body.innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8">⏳ Cargando dispositivos…</div>';
+  if (sum) sum.textContent = 'Cargando…';
+  try {
+    const url = `${BACKEND}/tuya/devices${forceFresh ? '?fresh=1' : ''}`;
+    const r = await fetch(url, { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Error de Tuya');
+    TUYA_STATE.data = j;
+    TUYA_STATE.loaded = true;
+    TUYA_STATE.ts = Date.now();
+    tuyaRender();
+  } catch (e) {
+    if (body) body.innerHTML = `<div style="padding:30px;text-align:center;color:#dc2626">❌ ${esc(e.message)}</div>`;
+    if (sum) sum.textContent = '';
+  } finally {
+    TUYA_STATE.loading = false;
+  }
+}
+
+function tuyaRender() {
+  const body = document.getElementById('tuya-body');
+  const sum = document.getElementById('tuya-summary');
+  const alertsEl = document.getElementById('tuya-alerts');
+  if (!body) return;
+  const data = TUYA_STATE.data || {};
+  const homes = data.homes || [];
+  const devices = data.devices || [];
+  const onlineN = devices.filter(d => d.online).length;
+  if (sum) sum.textContent = `${devices.length} dispositivos · ${onlineN} online · ${homes.length} propiedades${data.cached ? ' · caché' : ''}`;
+
+  // Alerts: offline, abierto, alarma, batería baja
+  const alerts = [];
+  for (const d of devices) {
+    if (!d.online) { alerts.push({ d, level: 'warn', msg: 'Offline' }); continue; }
+    for (const s of (d.status || [])) {
+      const k = String(s.code || '').toLowerCase();
+      const v = s.value;
+      if (k === 'doorcontact_state' && v === true) alerts.push({ d, level: 'warn', msg: '🚪 Abierto' });
+      if (k === 'smoke_sensor_status' && v === 'alarm') alerts.push({ d, level: 'crit', msg: '🔥 ALARMA HUMO' });
+      if (k === 'gas_sensor_state' && v === 'alarm')   alerts.push({ d, level: 'crit', msg: '⚠️ ALARMA GAS' });
+      if (k === 'watersensor_state' && v === 'alarm')  alerts.push({ d, level: 'crit', msg: '💧 ALARMA AGUA' });
+      if (k === 'pir' && v === 'pir')                  alerts.push({ d, level: 'info', msg: '👁️ Movimiento' });
+      if ((k === 'battery_percentage' || k === 'battery_state' || k === 'va_battery') && typeof v === 'number' && v < 15) {
+        alerts.push({ d, level: 'warn', msg: `🔋 Batería ${v}%` });
+      }
+      if (k === 'battery_state' && (v === 'low' || v === 'lower')) alerts.push({ d, level: 'warn', msg: '🔋 Batería baja' });
+    }
+  }
+  if (alertsEl) {
+    if (!alerts.length) alertsEl.innerHTML = '';
+    else {
+      alertsEl.innerHTML = `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:800;color:#991b1b;margin-bottom:6px">⚠️ ${alerts.length} alerta${alerts.length===1?'':'s'}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${alerts.slice(0, 30).map(a =>
+          `<div onclick="tuyaOpenDetail('${esc(a.d.id)}')" style="cursor:pointer;padding:4px 10px;background:#fff;border:1px solid ${a.level==='crit'?'#dc2626':a.level==='warn'?'#f59e0b':'#0284c7'};color:${a.level==='crit'?'#dc2626':a.level==='warn'?'#b45309':'#075985'};border-radius:999px;font-size:11px;font-weight:700">${esc(a.msg)} · ${esc(a.d.name)}</div>`
+        ).join('')}</div>
+      </div>`;
+    }
+  }
+
+  // Agrupar por home → room
+  const byHome = {};
+  for (const h of homes) byHome[h.id] = { home: h, byRoom: {} };
+  byHome['__sin_home'] = { home: { id: '', name: '(Sin propiedad)', rooms: [] }, byRoom: {} };
+  for (const d of devices) {
+    const hid = d.home_id || '__sin_home';
+    const bucket = byHome[hid] || byHome['__sin_home'];
+    const rid = d.room_id || '__sin_room';
+    if (!bucket.byRoom[rid]) bucket.byRoom[rid] = [];
+    bucket.byRoom[rid].push(d);
+  }
+  const homeOrder = homes.map(h => h.id);
+  if (Object.values(byHome['__sin_home'].byRoom).some(arr => arr.length)) homeOrder.push('__sin_home');
+
+  body.innerHTML = homeOrder.filter(hid => byHome[hid]).map(hid => {
+    const { home, byRoom } = byHome[hid];
+    const roomOrder = (home.rooms || []).map(r => r.id);
+    if (byRoom['__sin_room']?.length) roomOrder.push('__sin_room');
+    const roomsHtml = roomOrder.filter(rid => byRoom[rid]?.length).map(rid => {
+      const room = (home.rooms || []).find(r => r.id === rid);
+      const roomName = room ? room.name : '(Sin departamento)';
+      const cards = byRoom[rid].map(d => tuyaDeviceCardHtml(d)).join('');
+      return `<div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;padding-left:2px">${esc(roomName)}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">${cards}</div>
+      </div>`;
+    }).join('');
+    return `<div style="background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:12px;overflow:hidden">
+      <div style="padding:10px 14px;background:#f1f5f9;font-size:13px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px">
+        🏠 ${esc(home.name)} <span style="font-size:11px;color:#64748b;font-weight:600">· ${Object.values(byRoom).reduce((s,arr)=>s+arr.length,0)} dispositivos</span>
+      </div>
+      <div style="padding:12px">${roomsHtml || '<div style="color:#94a3b8;font-size:12px;padding:6px">Sin dispositivos</div>'}</div>
+    </div>`;
+  }).join('');
+}
+
+function tuyaDeviceCardHtml(d) {
+  const icon = TUYA_ICON[d.category] || TUYA_ICON_FALLBACK;
+  const st = tuyaStatusFor(d);
+  const updated = d.update_time ? tuyaRelTime(d.update_time * 1000) : '';
+  return `<div onclick="tuyaOpenDetail('${esc(d.id)}')"
+       style="cursor:pointer;background:#fff;border:1.5px solid ${st.border};border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;transition:transform .15s"
+       onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:18px">${icon}</span>
+      <div style="flex:1;min-width:0;font-size:12px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.name)}">${esc(d.name)}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:10px;font-weight:700;color:${st.color};background:${st.bg};border-radius:999px;padding:2px 8px">${esc(st.label)}</span>
+      ${st.battery != null ? `<span style="font-size:10px;color:${st.battery < 20 ? '#dc2626' : '#64748b'}">🔋 ${st.battery}%</span>` : ''}
+      ${!d.online ? '<span style="font-size:10px;color:#94a3b8">⚪ offline</span>' : ''}
+    </div>
+    ${updated ? `<div style="font-size:9px;color:#94a3b8">↻ ${esc(updated)}</div>` : ''}
+  </div>`;
+}
+
+function tuyaStatusFor(d) {
+  let label = d.online ? 'OK' : 'Offline';
+  let color = d.online ? '#16a34a' : '#94a3b8';
+  let bg = d.online ? '#dcfce7' : '#f1f5f9';
+  let border = d.online ? '#bbf7d0' : '#e2e8f0';
+  let battery = null;
+  for (const s of (d.status || [])) {
+    const k = String(s.code || '').toLowerCase();
+    const v = s.value;
+    if (k === 'doorcontact_state') { label = v === true ? 'Abierto' : 'Cerrado'; if (v === true) { color = '#b45309'; bg = '#fef3c7'; border = '#fde68a'; } }
+    else if (k === 'smoke_sensor_status') { if (v === 'alarm') { label = 'ALARMA'; color = '#dc2626'; bg = '#fee2e2'; border = '#fecaca'; } else { label = 'OK'; } }
+    else if (k === 'gas_sensor_state' || k === 'watersensor_state') { if (v === 'alarm') { label = 'ALARMA'; color = '#dc2626'; bg = '#fee2e2'; border = '#fecaca'; } else { label = 'OK'; } }
+    else if (k === 'pir') { label = v === 'pir' ? 'Movimiento' : 'Sin movimiento'; }
+    else if (k === 'switch_1' || k === 'switch') { label = v ? 'Encendido' : 'Apagado'; color = v ? '#16a34a' : '#64748b'; bg = v ? '#dcfce7' : '#f1f5f9'; }
+    else if (k === 'battery_percentage' || k === 'va_battery') { if (typeof v === 'number') battery = v; }
+    else if (k === 'battery_state') { if (typeof v === 'string') battery = v === 'low' ? 10 : (v === 'middle' ? 50 : (v === 'high' ? 90 : null)); }
+    else if (k === 'temp_current') { /* visible en detalle */ }
+  }
+  if (!d.online) { color = '#94a3b8'; bg = '#f1f5f9'; border = '#e2e8f0'; }
+  return { label, color, bg, border, battery };
+}
+
+function tuyaRelTime(ms) {
+  const d = Date.now() - ms;
+  if (d < 60_000) return 'hace segundos';
+  const m = Math.round(d / 60_000);
+  if (m < 60) return `hace ${m} min`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `hace ${h} h`;
+  const days = Math.round(h / 24);
+  if (days < 30) return `hace ${days} d`;
+  return new Date(ms).toLocaleDateString('es-MX');
+}
+
+async function tuyaOpenDetail(id) {
+  const d = (TUYA_STATE.data?.devices || []).find(x => x.id === id);
+  if (!d) return;
+  const panel = document.getElementById('tuya-detail-panel');
+  const back = document.getElementById('tuya-detail-backdrop');
+  const host = document.getElementById('tuya-detail-host');
+  const title = document.getElementById('tuya-detail-title');
+  if (!panel || !host) return;
+  if (title) title.textContent = (TUYA_ICON[d.category] || TUYA_ICON_FALLBACK) + ' ' + d.name;
+  const statusRows = (d.status || []).map(s => {
+    const v = (typeof s.value === 'object') ? JSON.stringify(s.value) : String(s.value);
+    return `<tr><td style="padding:5px 8px;font-size:11px;color:#64748b;border-bottom:1px solid #f1f5f9">${esc(s.code)}</td><td style="padding:5px 8px;font-size:12px;color:#0f172a;border-bottom:1px solid #f1f5f9;font-weight:600">${esc(v)}</td></tr>`;
+  }).join('') || `<tr><td colspan="2" style="padding:10px;color:#94a3b8;font-size:11px">Sin estado reportado</td></tr>`;
+  host.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <span style="padding:4px 10px;background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;border-radius:999px;font-size:11px;font-weight:700">${esc(d.product_name || d.category || '—')}</span>
+      <span style="padding:4px 10px;background:${d.online?'#dcfce7':'#f1f5f9'};color:${d.online?'#15803d':'#64748b'};border-radius:999px;font-size:11px;font-weight:700">${d.online?'🟢 Online':'⚪ Offline'}</span>
+      <span style="font-size:11px;color:#94a3b8">ID: ${esc(d.id)}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div>
+        <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:6px">Estado actual</div>
+        <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden"><table style="width:100%;border-collapse:collapse">${statusRows}</table></div>
+      </div>
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="font-size:12px;font-weight:800;color:#0f172a">Historial</div>
+          <select id="tuya-logs-days" onchange="tuyaLoadLogs('${esc(d.id)}')" style="font-size:11px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px">
+            <option value="1">24 h</option>
+            <option value="7" selected>7 días</option>
+            <option value="30">30 días</option>
+          </select>
+        </div>
+        <div id="tuya-logs-host" style="border:1px solid #e2e8f0;border-radius:8px;max-height:60vh;overflow-y:auto;background:#fafafa"></div>
+      </div>
+    </div>`;
+  back.classList.remove('hidden');
+  panel.classList.remove('hidden');
+  requestAnimationFrame(() => { back.style.opacity = '1'; panel.style.transform = 'translateX(0)'; });
+  document.body.style.overflow = 'hidden';
+  tuyaLoadLogs(d.id);
+}
+
+async function tuyaLoadLogs(id) {
+  const host = document.getElementById('tuya-logs-host');
+  const daysEl = document.getElementById('tuya-logs-days');
+  if (!host) return;
+  const days = Number(daysEl?.value || 7);
+  host.innerHTML = '<div style="padding:14px;color:#94a3b8;font-size:11px">⏳ Cargando…</div>';
+  try {
+    const r = await fetch(`${BACKEND}/tuya/device/${encodeURIComponent(id)}/logs?days=${days}&size=100`, { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error);
+    const logs = j.logs || [];
+    if (!logs.length) { host.innerHTML = '<div style="padding:14px;color:#94a3b8;font-size:11px">Sin eventos en este rango</div>'; return; }
+    host.innerHTML = logs.map(l => {
+      const ts = l.event_time ? new Date(Number(l.event_time)).toLocaleString('es-MX') : '—';
+      const code = l.code || l.event_id || '';
+      const val = l.value !== undefined ? (typeof l.value === 'object' ? JSON.stringify(l.value) : String(l.value)) : '';
+      return `<div style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:11px;display:flex;gap:8px;align-items:center">
+        <span style="color:#94a3b8;min-width:140px">${esc(ts)}</span>
+        <span style="color:#475569;font-weight:600;min-width:120px">${esc(code)}</span>
+        <span style="color:#0f172a;font-weight:700">${esc(val)}</span>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    host.innerHTML = `<div style="padding:14px;color:#dc2626;font-size:11px">❌ ${esc(e.message)}</div>`;
+  }
+}
+
+function tuyaCloseDetail() {
+  const panel = document.getElementById('tuya-detail-panel');
+  const back = document.getElementById('tuya-detail-backdrop');
+  if (!panel) return;
+  panel.style.transform = 'translateX(100%)';
+  back.style.opacity = '0';
+  setTimeout(() => { panel.classList.add('hidden'); back.classList.add('hidden'); }, 300);
+  document.body.style.overflow = '';
+}
