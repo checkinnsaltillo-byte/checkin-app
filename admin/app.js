@@ -19476,9 +19476,9 @@ async function _bnUploadParseWorkbook(wb, fileName) {
       } else {
         const c = cargo || 0, a = abono || 0;
         const isTC = bnUploadIsCreditCard(tipo);
-        // TC:    Monto = -Cargo - Abono
+        // TC:    Monto = -Cargo + Abono (Abono viene ya negativo en TC → se respeta su signo)
         // Otros: Monto =  Cargo + Abono
-        if (isTC) monto = +(-c - a).toFixed(2);
+        if (isTC) monto = +(-c + a).toFixed(2);
         else      monto = +( c + a).toFixed(2);
       }
       const date = new Date(diaIso + 'T00:00:00');
