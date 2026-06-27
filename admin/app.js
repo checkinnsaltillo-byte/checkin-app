@@ -15652,6 +15652,127 @@ function lgBuildSection1DetailHtml(b, huesped) {
  *    - un string con el Lodgify Id directo
  *  La sección SIEMPRE se renderiza para que el usuario vea que está integrada,
  *  con placeholders claros cuando no hay datos. */
+// "Dispositivos relacionados" — debajo de Tareas relacionadas.
+// Cruza propiedad + # departamento + rango de fechas (entrada/salida) con
+// los dispositivos Tuya (vía alojamientos.Device_name) y muestra cards de
+// los que tuvieron actividad dentro del rango.
+function lgBuildTuyaSectionForBooking(arg) {
+  if (typeof arg === 'string') {
+    if (!/^\d{6,12}$/.test(arg.trim())) return '';
+    const b = (LG_STATE?.bookings || []).find(x => String(x.Id) === arg.trim());
+    if (!b) return '';
+    arg = b;
+  }
+  if (!arg || typeof arg !== 'object') return '';
+  const arrIso = lgFmtDateUI(arg.DateArrival)   || String((arg.__reservacion && arg.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = lgFmtDateUI(arg.DateDeparture) || String((arg.__reservacion && arg.__reservacion['Fecha de salida']) || '').slice(0,10);
+  const propRaw = arg.PropiedadRaw || (arg.__reservacion && arg.__reservacion['Propiedad']) || '';
+  const deptRaw = arg.DepartamentoRaw || (arg.__reservacion && arg.__reservacion['# Departamento']) || '';
+  const propN = alojNorm(propRaw);
+  const deptN = alojNorm(deptRaw);
+
+  const wrap = (inner) => `
+    <div class="hu-col-card lg-tuya-card" style="margin-top:14px;background:#fff;border-radius:16px;padding:0;box-shadow:0 4px 16px rgba(15,23,42,.08);border:1.5px solid #e2e8f0;overflow:hidden;box-sizing:border-box;width:100%">
+      <div style="height:4px;background:linear-gradient(90deg,#0d9488,#0284c7,#7c3aed)"></div>
+      <div style="padding:14px 16px;box-sizing:border-box">${inner}</div>
+    </div>`;
+  const header = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">📟 DISPOSITIVOS RELACIONADOS</div>
+  </div>`;
+  const placeholder = (msg) => wrap(header +
+    `<div style="padding:12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px">${esc(msg)}</div>`);
+
+  if (!arrIso || !depIso) return placeholder('Sin fechas para cruzar con dispositivos.');
+  if (!propN || !deptN) return placeholder('Sin propiedad/depto para cruzar con dispositivos.');
+  if (!TUYA_STATE.data || !TUYA_STATE.data.devices || !TUYA_STATE.data.devices.length) {
+    // Disparar carga en background y mostrar placeholder; el observer re-renderiza
+    if (typeof tuyaLoad === 'function' && !TUYA_STATE.loading && !TUYA_STATE.loaded) tuyaLoad(false);
+    return placeholder('⏳ Cargando dispositivos…');
+  }
+  if (!ALOJ_STATE.loaded) {
+    if (typeof lgLoadAlojamientos === 'function') lgLoadAlojamientos();
+    return placeholder('⏳ Cargando catálogo de alojamientos…');
+  }
+
+  // Candidatos: devices cuyo alojamiento matchee propiedad + # departamento.
+  const candidates = TUYA_STATE.data.devices.filter(d => {
+    const r = tuyaResolveAloj(d);
+    if (!r) return false;
+    return alojNorm(r['Propiedad']) === propN && alojNorm(r['# Departamento']) === deptN;
+  });
+  if (!candidates.length) return placeholder('Sin dispositivos asociados a esta propiedad/depto.');
+
+  // Render con placeholder "cargando…"; el inyector hidratará async.
+  const startMs = new Date(arrIso + 'T00:00:00').getTime();
+  const endMs   = new Date(depIso + 'T23:59:59').getTime();
+  const hostId = `lg-tuya-host-${(arg.Id || arg.HouseId || Math.random()).toString().replace(/[^a-z0-9]/gi,'')}`;
+  return wrap(header +
+    `<div id="${hostId}" data-lg-tuya="1"
+          data-cand-ids="${esc(candidates.map(c=>c.id).join(','))}"
+          data-start-ms="${startMs}" data-end-ms="${endMs}"
+          style="display:flex;flex-direction:column;gap:8px">
+      <div style="padding:10px;color:#64748b;font-size:12px;font-style:italic">⏳ Cargando eventos del rango ${esc(arrIso)} → ${esc(depIso)}…</div>
+    </div>`);
+}
+
+/** Hidratación async: para cada host inyectado, llama logs-bulk con el rango
+ *  de la reserva y muestra cards para los devices que tuvieron eventos. */
+async function lgHydrateTuyaSection(hostEl) {
+  if (!hostEl || hostEl.dataset.lgTuyaHydrated === '1') return;
+  hostEl.dataset.lgTuyaHydrated = '1';
+  const ids = (hostEl.dataset.candIds || '').split(',').filter(Boolean);
+  const start = Number(hostEl.dataset.startMs) || 0;
+  const end = Number(hostEl.dataset.endMs) || 0;
+  if (!ids.length || !start || !end) return;
+  try {
+    const r = await fetch(`${BACKEND}/tuya/logs-bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, size: 5, start_time: start, end_time: end }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'fetch failed');
+    const devices = TUYA_STATE.data?.devices || [];
+    const withActivity = [];
+    for (const id of ids) {
+      const logs = j.byId[id] || [];
+      if (!logs.length) continue;
+      const d = devices.find(x => x.id === id);
+      if (d) withActivity.push({ d, logs });
+    }
+    if (!withActivity.length) {
+      hostEl.innerHTML = `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin actividad de dispositivos en este rango.</div>`;
+      return;
+    }
+    hostEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">
+      ${withActivity.map(({d, logs}) => {
+        const r = tuyaResolveAloj(d);
+        const propiedad = r ? String(r['Propiedad']||'').trim() : '';
+        const dpt = r ? (r['# Departamento'] != null ? String(r['# Departamento']).trim() : '') : '';
+        const enriched = { display: tuyaDisplayName(d), propiedad, departamento: dpt };
+        // Reusa la card del módulo Tuya; añadimos los últimos 2 eventos directamente del rango
+        let card = tuyaDeviceCardHtml(d, enriched);
+        // Reemplaza el placeholder vacío de eventos por los del rango
+        const evtsHtml = logs.slice(0, 2).map(l => {
+          const ts = l.event_time ? tuyaRelTime(Number(l.event_time)) : '—';
+          const code = String(l.code || l.event_id || '').toLowerCase();
+          const val = l.value !== undefined ? String(l.value) : '';
+          let lbl = code, cl = '#475569';
+          if (code === 'doorcontact_state') { lbl = val === 'true' ? '🚪 Abierto' : '🚪 Cerrado'; cl = val === 'true' ? '#b45309' : '#16a34a'; }
+          else if (code === 'smoke_sensor_status') { lbl = val === 'alarm' ? '🔥 ALARMA HUMO' : '🔥 OK'; cl = val === 'alarm' ? '#dc2626' : '#16a34a'; }
+          else if (code === 'pir') { lbl = '👁️ ' + (val === 'pir' ? 'Movimiento' : 'Sin mov.'); }
+          else if (val) { lbl = `${code}: ${val}`; }
+          return `<div style="font-size:9.5px;color:${cl};display:flex;gap:5px;line-height:1.2"><span style="font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lbl)}</span><span style="color:#94a3b8;white-space:nowrap">${esc(ts)}</span></div>`;
+        }).join('');
+        card = card.replace(/<div class="tuya-card-events"[^>]*><\/div>/, `<div class="tuya-card-events">${evtsHtml}</div>`);
+        return card;
+      }).join('')}
+    </div>`;
+  } catch (e) {
+    hostEl.innerHTML = `<div style="padding:10px;color:#dc2626;font-size:12px">❌ ${esc(e.message)}</div>`;
+  }
+}
+
 // "Tareas relacionadas" (antes "Aseo · Ejecución"). Lista las tasks de
 // Breezeway asociadas a la reserva con los mismos criterios que se usan
 // en Breezeway para "Reservas asociadas", pero invertido:
@@ -18665,6 +18786,23 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
     wrapper.innerHTML = key ? html.replace('class="hu-col-card bzw-aseo-card"', `class="hu-col-card bzw-aseo-card" data-bzw-key="${esc(key)}"`) : html;
     el.appendChild(wrapper);
     el.dataset.aseoInjected = '1';
+    // Tras Tareas relacionadas, inyectamos Dispositivos relacionados (Tuya).
+    try {
+      if (typeof lgBuildTuyaSectionForBooking === 'function') {
+        const tuyaHtml = lgBuildTuyaSectionForBooking(arg);
+        if (tuyaHtml) {
+          const tWrap = document.createElement('div');
+          tWrap.innerHTML = key ? tuyaHtml.replace('class="hu-col-card lg-tuya-card"', `class="hu-col-card lg-tuya-card" data-bzw-key="${esc(key)}"`) : tuyaHtml;
+          el.appendChild(tWrap);
+          // Hidratar async el host con data-lg-tuya
+          requestAnimationFrame(() => {
+            tWrap.querySelectorAll('[data-lg-tuya="1"]').forEach(h => {
+              if (typeof lgHydrateTuyaSection === 'function') lgHydrateTuyaSection(h);
+            });
+          });
+        }
+      }
+    } catch (_) { /* silent */ }
   }
   function scan() {
     // Selecciona columnas de detalle. El selector cubre todas las variantes:
