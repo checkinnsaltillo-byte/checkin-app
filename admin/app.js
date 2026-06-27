@@ -15785,14 +15785,14 @@ function lgBuildIncSectionForBooking(arg) {
     if (reason.length) console.warn('[LG-INC] sin match para reserva', { propRaw, deptRaw, arrIso, depIso }, 'descartados:', reason);
   }
   if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin incidencias en este rango.</div>`);
-  // Wrapper clicable + pointer-events:none en el contenido para que TODO el
-  // área de la card abra el slide-in sin importar dónde se haga click.
+  // Strip todos los onclick internos para que el único handler activo sea el
+  // del wrapper. Sin esto, incToggleCard / incRemoveCard atrapan el evento.
   const cards = matches.map(row => {
     const id = String(row['ID']||'');
-    const inner = (typeof incRenderCardOne === 'function') ? incRenderCardOne(row) : '';
-    return `<div onclick="lgOpenIncDetailFromBooking('${esc(id)}')" style="cursor:pointer">
-              <div style="pointer-events:none">${inner}</div>
-            </div>`;
+    let inner = (typeof incRenderCardOne === 'function') ? incRenderCardOne(row) : '';
+    inner = inner.replace(/\s+onclick="[^"]*"/g, '');
+    inner = inner.replace(/<button[^>]*class="inc-card-remove"[\s\S]*?<\/button>/g, '');
+    return `<div data-lg-inc-wrap="${esc(id)}" onclick="lgOpenIncDetailFromBooking('${esc(id)}')" style="cursor:pointer">${inner}</div>`;
   }).join('');
   return wrap(header + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`);
 }
@@ -15855,10 +15855,10 @@ function lgBuildObjSectionForBooking(arg) {
   if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin objetos olvidados en este rango.</div>`);
   const cards = matches.map(row => {
     const id = String(row['ID']||'');
-    const inner = (typeof objRenderCardOne === 'function') ? objRenderCardOne(row) : '';
-    return `<div onclick="lgOpenObjDetailFromBooking('${esc(id)}')" style="cursor:pointer">
-              <div style="pointer-events:none">${inner}</div>
-            </div>`;
+    let inner = (typeof objRenderCardOne === 'function') ? objRenderCardOne(row) : '';
+    inner = inner.replace(/\s+onclick="[^"]*"/g, '');
+    inner = inner.replace(/<button[^>]*class="inc-card-remove"[\s\S]*?<\/button>/g, '');
+    return `<div data-lg-obj-wrap="${esc(id)}" onclick="lgOpenObjDetailFromBooking('${esc(id)}')" style="cursor:pointer">${inner}</div>`;
   }).join('');
   return wrap(header + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`);
 }
