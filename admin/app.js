@@ -15747,7 +15747,8 @@ window.lgOpenIncDetailFromBooking = function(id) {
   const titulo = [String(row['Motivos']||''), String(row['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Reporte';
   const fecha = String(row['Fecha'] || '').slice(0,10);
   let body = '';
-  try { body = (typeof incCardBodyHtml === 'function') ? incCardBodyHtml(row) : ''; } catch (_) {}
+  // Usa la versión readonly que incluye toolbar con "✏️ Editar reporte".
+  try { body = (typeof incCardBodyHtmlReadonly === 'function') ? incCardBodyHtmlReadonly(row, id) : (typeof incCardBodyHtml === 'function' ? incCardBodyHtml(row) : ''); } catch (_) {}
   lgOpenRelatedPanel(`📋 ${titulo}${fecha?' · '+fecha:''}`, body, 'linear-gradient(180deg,#fef3c7,#fff)');
 };
 window.lgOpenObjDetailFromBooking = function(id) {
@@ -15757,9 +15758,9 @@ window.lgOpenObjDetailFromBooking = function(id) {
   const fecha = String(row['Fecha_encontrado']||'').slice(0,10);
   let body = '';
   try {
-    if (typeof objBuildReporteHtml === 'function' && typeof objRowToReportData === 'function') {
-      body = objBuildReporteHtml(objRowToReportData(row));
-    }
+    // Usa la versión readonly que incluye toolbar con "✏️ Editar reporte".
+    if (typeof objCardBodyHtmlReadonly === 'function') body = objCardBodyHtmlReadonly(row, id);
+    else if (typeof objBuildReporteHtml === 'function' && typeof objRowToReportData === 'function') body = objBuildReporteHtml(objRowToReportData(row));
   } catch (_) {}
   lgOpenRelatedPanel(`🧳 ${cat}${fecha?' · '+fecha:''}`, body, 'linear-gradient(180deg,#ecfdf5,#fff)');
 };
