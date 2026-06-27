@@ -26527,6 +26527,22 @@ async function tuyaLoad(forceFresh) {
   }
 }
 
+// Etiqueta de divisor de departamento: si es numérico → "Departamento #X";
+// si no, se respeta el valor original (ej. "(Sin depto)").
+function tuyaDeptoLabel(dp) {
+  const s = String(dp || '').trim();
+  return /^\d+$/.test(s) ? `Departamento #${s}` : s;
+}
+// Orden de departamentos: numéricos ascendentes primero, luego texto alfa.
+function tuyaDeptoSort(a, b) {
+  const na = /^\d+$/.test(String(a||'').trim()) ? parseInt(a, 10) : null;
+  const nb = /^\d+$/.test(String(b||'').trim()) ? parseInt(b, 10) : null;
+  if (na != null && nb != null) return na - nb;
+  if (na != null) return -1;
+  if (nb != null) return 1;
+  return String(a).localeCompare(String(b), 'es');
+}
+
 function tuyaRender() {
   const body = document.getElementById('tuya-body');
   const sum = document.getElementById('tuya-summary');
@@ -26632,11 +26648,11 @@ function tuyaRender() {
       byProp[e.propiedad][e.departamento].push(e);
     }
     cardsHtml = props.filter(p => byProp[p]).map(p => {
-      const deptos = Object.keys(byProp[p]).sort();
+      const deptos = Object.keys(byProp[p]).sort(tuyaDeptoSort);
       const inner = deptos.map(dp => {
         const list = byProp[p][dp];
         return `<div style="margin-bottom:10px">
-          <div style="font-size:11px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;padding-left:2px">${esc(dp)}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;padding-left:2px">${esc(tuyaDeptoLabel(dp))}</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">${list.map(e => tuyaDeviceCardHtml(e.d, e)).join('')}</div>
         </div>`;
       }).join('');
@@ -26654,10 +26670,10 @@ function tuyaRender() {
       if (!byDep[e.departamento]) byDep[e.departamento] = [];
       byDep[e.departamento].push(e);
     }
-    const deptos = Object.keys(byDep).sort();
+    const deptos = Object.keys(byDep).sort(tuyaDeptoSort);
     cardsHtml = `<div style="background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:12px">
       ${deptos.map(dp => `<div style="margin-bottom:10px">
-        <div style="font-size:11px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;padding-left:2px">${esc(dp)}</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;padding-left:2px">${esc(tuyaDeptoLabel(dp))}</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">${byDep[dp].map(e => tuyaDeviceCardHtml(e.d, e)).join('')}</div>
       </div>`).join('')}
     </div>`;
