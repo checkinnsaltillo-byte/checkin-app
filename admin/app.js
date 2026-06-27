@@ -15652,6 +15652,156 @@ function lgBuildSection1DetailHtml(b, huesped) {
  *    - un string con el Lodgify Id directo
  *  La sección SIEMPRE se renderiza para que el usuario vea que está integrada,
  *  con placeholders claros cuando no hay datos. */
+// ─── Slide-in genérico para detalle de Incidencia / Objeto desde reserva ───
+function lgOpenRelatedPanel(title, html, headerColor) {
+  const panel = document.getElementById('lg-related-panel');
+  const back  = document.getElementById('lg-related-backdrop');
+  const host  = document.getElementById('lg-related-host');
+  const t     = document.getElementById('lg-related-title');
+  if (!panel || !host) return;
+  if (t) t.textContent = title || 'Detalle';
+  const headerEl = panel.firstElementChild;
+  if (headerEl && headerColor) headerEl.style.background = headerColor;
+  host.innerHTML = html || '';
+  back.classList.remove('hidden');
+  panel.classList.remove('hidden');
+  requestAnimationFrame(() => { back.style.opacity = '1'; panel.style.transform = 'translateX(0)'; });
+  document.body.style.overflow = 'hidden';
+}
+function lgCloseRelatedPanel() {
+  const panel = document.getElementById('lg-related-panel');
+  const back  = document.getElementById('lg-related-backdrop');
+  if (!panel) return;
+  panel.style.transform = 'translateX(100%)';
+  back.style.opacity = '0';
+  setTimeout(() => { panel.classList.add('hidden'); back.classList.add('hidden'); }, 300);
+  document.body.style.overflow = '';
+}
+window.lgCloseRelatedPanel = lgCloseRelatedPanel;
+window.lgOpenIncDetailFromBooking = function(id) {
+  const row = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list) ? INC_STATE.list : []).find(r => String(r['ID']||'') === id);
+  if (!row) { lgOpenRelatedPanel('Incidencia', '<div style="padding:14px;color:#dc2626">No se encontró el registro.</div>'); return; }
+  const titulo = [String(row['Motivos']||''), String(row['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Reporte';
+  const fecha = String(row['Fecha'] || '').slice(0,10);
+  let body = '';
+  try { body = (typeof incCardBodyHtml === 'function') ? incCardBodyHtml(row) : ''; } catch (_) {}
+  lgOpenRelatedPanel(`📋 ${titulo}${fecha?' · '+fecha:''}`, body, 'linear-gradient(180deg,#fef3c7,#fff)');
+};
+window.lgOpenObjDetailFromBooking = function(id) {
+  const row = (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list) ? OBJ_STATE.list : []).find(r => String(r['ID']||'') === id);
+  if (!row) { lgOpenRelatedPanel('Objeto olvidado', '<div style="padding:14px;color:#dc2626">No se encontró el registro.</div>'); return; }
+  const cat = String(row['Categoria']||'').trim() || 'Objeto';
+  const fecha = String(row['Fecha_encontrado']||'').slice(0,10);
+  let body = '';
+  try {
+    if (typeof objBuildReporteHtml === 'function' && typeof objRowToReportData === 'function') {
+      body = objBuildReporteHtml(objRowToReportData(row));
+    }
+  } catch (_) {}
+  lgOpenRelatedPanel(`🧳 ${cat}${fecha?' · '+fecha:''}`, body, 'linear-gradient(180deg,#ecfdf5,#fff)');
+};
+
+// ─── Sección "Incidencias relacionadas" en detalle de reserva ───────────────
+function lgBuildIncSectionForBooking(arg) {
+  if (typeof arg === 'string') {
+    if (!/^\d{6,12}$/.test(arg.trim())) return '';
+    const b = (LG_STATE?.bookings || []).find(x => String(x.Id) === arg.trim());
+    if (!b) return '';
+    arg = b;
+  }
+  if (!arg || typeof arg !== 'object') return '';
+  const arrIso = lgFmtDateUI(arg.DateArrival)   || String((arg.__reservacion && arg.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = lgFmtDateUI(arg.DateDeparture) || String((arg.__reservacion && arg.__reservacion['Fecha de salida']) || '').slice(0,10);
+  const propRaw = arg.PropiedadRaw || (arg.__reservacion && arg.__reservacion['Propiedad']) || '';
+  const deptRaw = arg.DepartamentoRaw || (arg.__reservacion && arg.__reservacion['# Departamento']) || '';
+  const propN = alojNorm(propRaw);
+  const deptN = alojNorm(deptRaw);
+  const wrap = (inner) => `
+    <div class="hu-col-card lg-inc-card" style="margin-top:14px;background:#fff;border-radius:16px;padding:0;box-shadow:0 4px 16px rgba(15,23,42,.08);border:1.5px solid #e2e8f0;overflow:hidden;box-sizing:border-box;width:100%">
+      <div style="height:4px;background:linear-gradient(90deg,#f59e0b,#ef4444,#dc2626)"></div>
+      <div style="padding:14px 16px;box-sizing:border-box">${inner}</div>
+    </div>`;
+  const header = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">🚨 INCIDENCIAS RELACIONADAS</div>
+  </div>`;
+  const placeholder = (msg) => wrap(header + `<div style="padding:12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px">${esc(msg)}</div>`);
+  if (!arrIso || !depIso) return placeholder('Sin fechas para cruzar.');
+  if (!propN || !deptN) return placeholder('Sin propiedad/depto para cruzar.');
+  if (typeof INC_STATE === 'undefined' || !Array.isArray(INC_STATE.list)) return placeholder('⏳ Cargando incidencias…');
+  if (!INC_STATE.list.length) {
+    if (typeof incLoadIncidencias === 'function') incLoadIncidencias();
+    return placeholder('⏳ Cargando incidencias…');
+  }
+  const matches = INC_STATE.list.filter(r => {
+    if (alojNorm(r['Propiedad']) !== propN) return false;
+    if (alojNorm(r['# Departamento']) !== deptN) return false;
+    const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+    return f && f >= arrIso && f <= depIso;
+  });
+  if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin incidencias en este rango.</div>`);
+  // Re-usamos incRenderCardOne pero interceptamos los clicks para abrir el slide-in.
+  const cards = matches.map(row => {
+    let html = (typeof incRenderCardOne === 'function') ? incRenderCardOne(row) : '';
+    const id = String(row['ID']||'');
+    // Reemplaza el onclick del header para abrir el slide-in en lugar de toggle
+    html = html.replace(/onclick="incToggleCard\('[^']+'\)"/, `onclick="event.stopPropagation();lgOpenIncDetailFromBooking('${esc(id)}')"`);
+    // Quita el botón X (no aplica aquí) y el body inline
+    html = html.replace(/<button type="button" class="inc-card-remove"[\s\S]*?<\/button>/, '');
+    html = html.replace(/<div class="inc-card-body">[\s\S]*?<\/div>\s*<\/div>$/, '<div class="inc-card-body"></div></div>');
+    return html;
+  }).join('');
+  return wrap(header + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`);
+}
+
+// ─── Sección "Objetos olvidados relacionados" en detalle de reserva ─────────
+function lgBuildObjSectionForBooking(arg) {
+  if (typeof arg === 'string') {
+    if (!/^\d{6,12}$/.test(arg.trim())) return '';
+    const b = (LG_STATE?.bookings || []).find(x => String(x.Id) === arg.trim());
+    if (!b) return '';
+    arg = b;
+  }
+  if (!arg || typeof arg !== 'object') return '';
+  const arrIso = lgFmtDateUI(arg.DateArrival)   || String((arg.__reservacion && arg.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = lgFmtDateUI(arg.DateDeparture) || String((arg.__reservacion && arg.__reservacion['Fecha de salida']) || '').slice(0,10);
+  const propRaw = arg.PropiedadRaw || (arg.__reservacion && arg.__reservacion['Propiedad']) || '';
+  const deptRaw = arg.DepartamentoRaw || (arg.__reservacion && arg.__reservacion['# Departamento']) || '';
+  const propN = alojNorm(propRaw);
+  const deptN = alojNorm(deptRaw);
+  const wrap = (inner) => `
+    <div class="hu-col-card lg-obj-card" style="margin-top:14px;background:#fff;border-radius:16px;padding:0;box-shadow:0 4px 16px rgba(15,23,42,.08);border:1.5px solid #e2e8f0;overflow:hidden;box-sizing:border-box;width:100%">
+      <div style="height:4px;background:linear-gradient(90deg,#10b981,#059669,#047857)"></div>
+      <div style="padding:14px 16px;box-sizing:border-box">${inner}</div>
+    </div>`;
+  const header = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">🧳 OBJETOS OLVIDADOS RELACIONADOS</div>
+  </div>`;
+  const placeholder = (msg) => wrap(header + `<div style="padding:12px;font-size:12px;color:#64748b;font-style:italic;background:#f8fafc;border-radius:6px">${esc(msg)}</div>`);
+  if (!arrIso || !depIso) return placeholder('Sin fechas para cruzar.');
+  if (!propN || !deptN) return placeholder('Sin propiedad/depto para cruzar.');
+  if (typeof OBJ_STATE === 'undefined' || !Array.isArray(OBJ_STATE.list)) return placeholder('⏳ Cargando objetos olvidados…');
+  if (!OBJ_STATE.list.length) {
+    if (typeof objLoadObjetos === 'function') objLoadObjetos();
+    return placeholder('⏳ Cargando objetos olvidados…');
+  }
+  const matches = OBJ_STATE.list.filter(r => {
+    if (alojNorm(r['Propiedad']) !== propN) return false;
+    if (alojNorm(r['# Departamento']) !== deptN) return false;
+    const f = String(r['Fecha_encontrado'] || '').slice(0,10);
+    return f && f >= arrIso && f <= depIso;
+  });
+  if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin objetos olvidados en este rango.</div>`);
+  const cards = matches.map(row => {
+    let html = (typeof objRenderCardOne === 'function') ? objRenderCardOne(row) : '';
+    const id = String(row['ID']||'');
+    html = html.replace(/onclick="objToggleCard\('[^']+'\)"/, `onclick="event.stopPropagation();lgOpenObjDetailFromBooking('${esc(id)}')"`);
+    html = html.replace(/<button type="button" class="inc-card-remove"[\s\S]*?<\/button>/, '');
+    html = html.replace(/<div class="inc-card-body">[\s\S]*?<\/div>\s*<\/div>$/, '<div class="inc-card-body"></div></div>');
+    return html;
+  }).join('');
+  return wrap(header + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`);
+}
+
 // "Dispositivos relacionados" — debajo de Tareas relacionadas.
 // Cruza propiedad + # departamento + rango de fechas (entrada/salida) con
 // los dispositivos Tuya (vía alojamientos.Device_name) y muestra cards de
@@ -18786,7 +18936,7 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
     wrapper.innerHTML = key ? html.replace('class="hu-col-card bzw-aseo-card"', `class="hu-col-card bzw-aseo-card" data-bzw-key="${esc(key)}"`) : html;
     el.appendChild(wrapper);
     el.dataset.aseoInjected = '1';
-    // Tras Tareas relacionadas, inyectamos Dispositivos relacionados (Tuya).
+    // Tras Tareas relacionadas, inyectamos Dispositivos / Incidencias / Objetos.
     try {
       if (typeof lgBuildTuyaSectionForBooking === 'function') {
         const tuyaHtml = lgBuildTuyaSectionForBooking(arg);
@@ -18794,12 +18944,27 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
           const tWrap = document.createElement('div');
           tWrap.innerHTML = key ? tuyaHtml.replace('class="hu-col-card lg-tuya-card"', `class="hu-col-card lg-tuya-card" data-bzw-key="${esc(key)}"`) : tuyaHtml;
           el.appendChild(tWrap);
-          // Hidratar async el host con data-lg-tuya
           requestAnimationFrame(() => {
             tWrap.querySelectorAll('[data-lg-tuya="1"]').forEach(h => {
               if (typeof lgHydrateTuyaSection === 'function') lgHydrateTuyaSection(h);
             });
           });
+        }
+      }
+      if (typeof lgBuildIncSectionForBooking === 'function') {
+        const incHtml = lgBuildIncSectionForBooking(arg);
+        if (incHtml) {
+          const w = document.createElement('div');
+          w.innerHTML = key ? incHtml.replace('class="hu-col-card lg-inc-card"', `class="hu-col-card lg-inc-card" data-bzw-key="${esc(key)}"`) : incHtml;
+          el.appendChild(w);
+        }
+      }
+      if (typeof lgBuildObjSectionForBooking === 'function') {
+        const objHtml = lgBuildObjSectionForBooking(arg);
+        if (objHtml) {
+          const w = document.createElement('div');
+          w.innerHTML = key ? objHtml.replace('class="hu-col-card lg-obj-card"', `class="hu-col-card lg-obj-card" data-bzw-key="${esc(key)}"`) : objHtml;
+          el.appendChild(w);
         }
       }
     } catch (_) { /* silent */ }
