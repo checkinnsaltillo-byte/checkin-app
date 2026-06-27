@@ -26088,6 +26088,44 @@ function tuyaRender() {
   }
 
   body.innerHTML = tabsHtml + cardsHtml;
+  // Bulk fetch últimos 2 eventos por device para mostrarlos en cada card
+  const visibleIds = filtered.map(e => e.d.id);
+  if (visibleIds.length) tuyaFetchRecentLogs(visibleIds);
+}
+
+async function tuyaFetchRecentLogs(ids) {
+  try {
+    const r = await fetch(`${BACKEND}/tuya/logs-bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, size: 2, days: 2 }),
+    });
+    const j = await r.json();
+    if (!j.ok) return;
+    for (const id of ids) {
+      const host = document.getElementById('tuya-evt-' + id);
+      if (!host) continue;
+      const logs = j.byId[id] || [];
+      if (!logs.length) {
+        host.innerHTML = '<div style="font-size:9px;color:#cbd5e1;font-style:italic">Sin eventos recientes</div>';
+        continue;
+      }
+      host.innerHTML = logs.map(l => {
+        const ts = l.event_time ? tuyaRelTime(Number(l.event_time)) : '—';
+        const code = String(l.code || l.event_id || '').toLowerCase();
+        const val = l.value !== undefined ? String(l.value) : '';
+        // Etiqueta amigable según code
+        let lbl = code;
+        let cl = '#475569';
+        if (code === 'doorcontact_state') { lbl = val === 'true' ? '🚪 Abierto' : '🚪 Cerrado'; cl = val === 'true' ? '#b45309' : '#16a34a'; }
+        else if (code === 'smoke_sensor_status') { lbl = val === 'alarm' ? '🔥 ALARMA HUMO' : '🔥 OK'; cl = val === 'alarm' ? '#dc2626' : '#16a34a'; }
+        else if (code === 'pir') { lbl = '👁️ ' + (val === 'pir' ? 'Movimiento' : 'Sin mov.'); cl = '#475569'; }
+        else if (code === 'battery_state' || code === 'battery_percentage' || code === 'va_battery') { lbl = '🔋 ' + val; }
+        else if (val) { lbl = `${code}: ${val}`; }
+        return `<div style="font-size:9.5px;color:${cl};display:flex;gap:5px;align-items:center;line-height:1.2"><span style="font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lbl)}</span><span style="color:#94a3b8;white-space:nowrap">${esc(ts)}</span></div>`;
+      }).join('');
+    }
+  } catch (_) { /* silent — la card simplemente queda con el placeholder */ }
 }
 
 function tuyaSetTab(key) {
@@ -26105,7 +26143,7 @@ function tuyaDeviceCardHtml(d, enriched) {
   const st = tuyaStatusFor(d);
   const updated = d.update_time ? tuyaRelTime(d.update_time * 1000) : '';
   const display = (enriched && enriched.display) || tuyaDisplayName(d);
-  return `<div onclick="tuyaOpenDetail('${esc(d.id)}')"
+  return `<div onclick="tuyaOpenDetail('${esc(d.id)}')" data-tuya-id="${esc(d.id)}"
        style="cursor:pointer;background:#fff;border:1.5px solid ${st.border};border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;transition:transform .15s"
        onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
     <div style="display:flex;align-items:center;gap:6px">
@@ -26118,6 +26156,7 @@ function tuyaDeviceCardHtml(d, enriched) {
       ${!d.online ? '<span style="font-size:10px;color:#94a3b8">⚪ offline</span>' : ''}
     </div>
     ${updated ? `<div style="font-size:9px;color:#94a3b8">↻ ${esc(updated)}</div>` : ''}
+    <div class="tuya-card-events" id="tuya-evt-${esc(d.id)}" style="margin-top:3px;padding-top:4px;border-top:1px dashed #e2e8f0;display:flex;flex-direction:column;gap:1px;min-height:24px"></div>
   </div>`;
 }
 
