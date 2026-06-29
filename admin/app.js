@@ -27330,6 +27330,12 @@ const GUIAS_TABS = [
 
 async function guiasInit() {
   if (!ALOJ_STATE.loaded && !ALOJ_STATE.loading) await lgLoadAlojamientos();
+  // Defensa: limpia filtros que ya no existen en la data actual (evita
+  // estados zombie que dejan la sidebar con "ningún alojamiento coincide").
+  const propsSet = new Set((ALOJ_STATE.rows||[]).map(r => String(r['Propiedad']||'').trim()).filter(Boolean));
+  const deptsSet = new Set((ALOJ_STATE.rows||[]).map(r => String(r['# Departamento']!=null?r['# Departamento']:'').trim()).filter(Boolean));
+  for (const v of [...GUIAS_STATE.filters.propiedad]) if (!propsSet.has(v)) GUIAS_STATE.filters.propiedad.delete(v);
+  for (const v of [...GUIAS_STATE.filters.departamento]) if (!deptsSet.has(v)) GUIAS_STATE.filters.departamento.delete(v);
   guiasRenderSidebar();
   if (GUIAS_STATE.selectedIds.size === 0 && ALOJ_STATE.rows.length) {
     const first = ALOJ_STATE.rows[0];
@@ -27351,6 +27357,8 @@ function guiasItemId(r) {
   return (prop && dpt) ? `${prop}__${dpt}` : prop;
 }
 function guiasItemLabel(r) {
+  const titulo = String(r['titulo_txt'] || '').trim();
+  if (titulo) return titulo;
   const prop = String(r['Propiedad'] || '').trim();
   const dpt = String(r['# Departamento'] != null ? r['# Departamento'] : '').trim();
   if (prop && dpt) return `${prop} · #${dpt}`;
@@ -27462,17 +27470,21 @@ function guiasRenderSidebar() {
     return `<button type="button" onclick="guiasToggleFilter('${kind}','${esc(opt)}')" style="all:unset;cursor:pointer;display:inline-block;padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:700;border:1.5px solid ${active?'#0d9488':'#cbd5e1'};background:${active?'#0d9488':'#fff'};color:${active?'#fff':'#475569'};margin:2px">${esc(opt)}</button>`;
   }).join('');
 
+  const hasActiveFilters = (GUIAS_STATE.filters.propiedad.size + GUIAS_STATE.filters.departamento.size) > 0;
   const itemsHtml = rows.length ? rows.map(r => {
     const id = guiasItemId(r);
     const label = guiasItemLabel(r);
     const isSel = GUIAS_STATE.selectedIds.has(id);
-    return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:3px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#0f172a;background:${isSel?'#ecfdf5':'transparent'};border:1px solid ${isSel?'#bbf7d0':'transparent'}"
-      onmouseover="if(!this.querySelector('input').checked)this.style.background='#f1f5f9'"
-      onmouseout="if(!this.querySelector('input').checked)this.style.background='transparent'">
-      <input type="checkbox" ${isSel?'checked':''} onchange="guiasToggleItem('${esc(id)}')" style="width:16px;height:16px;flex-shrink:0;accent-color:#0d9488">
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍 ${esc(label)}</span>
-    </label>`;
-  }).join('') : '<div style="padding:20px 10px;text-align:center;color:#94a3b8;font-size:12px">Ningún alojamiento coincide con los filtros.</div>';
+    return `<div onclick="guiasToggleItem('${esc(id)}')" data-sel="${isSel?'1':'0'}"
+      style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:3px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#0f172a;background:${isSel?'#ecfdf5':'transparent'};border:1px solid ${isSel?'#bbf7d0':'transparent'}"
+      onmouseover="if(this.dataset.sel!=='1')this.style.background='#f1f5f9'"
+      onmouseout="if(this.dataset.sel!=='1')this.style.background='transparent'">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid ${isSel?'#0d9488':'#cbd5e1'};background:${isSel?'#0d9488':'#fff'};color:#fff;font-size:12px;font-weight:900;flex-shrink:0;line-height:1">${isSel?'✓':''}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(label)}">${esc(label)}</span>
+    </div>`;
+  }).join('') : (hasActiveFilters
+    ? '<div style="padding:20px 10px;text-align:center;color:#94a3b8;font-size:12px">Ningún alojamiento coincide con los filtros.</div>'
+    : '<div style="padding:20px 10px;text-align:center;color:#94a3b8;font-size:12px">Sin alojamientos cargados.</div>');
 
   sb.innerHTML = `
     <div style="margin-bottom:10px">
@@ -27515,12 +27527,21 @@ function guiasRenderContent() {
          <button type="button" onclick="guiasToggleEdit()" style="all:unset;cursor:pointer;background:#fff;color:#475569;border:1px solid #cbd5e1;padding:6px 12px;border-radius:8px;font-weight:700;font-size:12px">Cancelar</button>
        </div>`
     : `<button type="button" onclick="guiasToggleEdit()" style="all:unset;cursor:pointer;background:#1e3a8a;color:#fff;padding:6px 14px;border-radius:8px;font-weight:700;font-size:12px">✏️ Editar</button>`;
+  // Foto desde url_lodgify (sólo cuando hay 1 alojamiento; con varios omitimos
+  // foto porque podría inducir a pensar que el cambio es sólo para ese).
+  const photoUrl = (alojs.length === 1) ? String(alojs[0]['url_lodgify'] || '').trim() : '';
+  const photoHtml = photoUrl
+    ? `<div style="margin-bottom:14px;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0;background:#f8fafc">
+         <img src="${esc(photoUrl)}" alt="${esc(guiasItemLabel(alojs[0]))}" style="display:block;width:100%;height:200px;object-fit:cover" onerror="this.style.display='none'">
+       </div>`
+    : '';
   host.innerHTML = `
     <div style="max-width:560px;margin:0 auto">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
         <div style="font-size:12px;color:#64748b;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(heading)}</div>
         ${editBtn}
       </div>
+      ${photoHtml}
       <div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:14px;overflow-x:auto">${tabs}</div>
       <div id="guias-tab-content">${guiasBuildTabHtml(GUIAS_STATE.activeTab, alojs)}</div>
     </div>`;
