@@ -26687,12 +26687,12 @@ function tuyaRender() {
 
 async function tuyaFetchRecentLogs(ids) {
   try {
-    // size=10 para que las cards Rotoplas tengan suficiente data para la
-    // mini-gráfica de últimos 5 (las card normales sólo usan los primeros 2).
+    // size=50 para que las cards Rotoplas tengan suficiente data para la
+    // mini-gráfica de últimas 24h (las card normales sólo usan los primeros 2).
     const r = await fetch(`${BACKEND}/tuya/logs-bulk`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids, size: 10, days: 2 }),
+      body: JSON.stringify({ ids, size: 50, days: 2 }),
     });
     const j = await r.json();
     if (!j.ok) return;
@@ -26832,56 +26832,65 @@ function tuyaRotoplasParseLogs(logs) {
 // Estado global para la gráfica Rotoplas del panel de detalle
 window.TUYA_ROTOPLAS = window.TUYA_ROTOPLAS || { logs: [], show: { depth: true, pct: false } };
 
-// SVG chart: depth como línea, pct como STACKED BAR (filled + remanente)
-// semaforizado contra 100% en eje Y derecho. Tooltip dinámico que sigue al cursor.
+// Chart con 3 capas: eje Y izquierdo (fijo) + área scrollable central + eje Y derecho (fijo).
+// Profundidad como línea continua que conecta TODOS los puntos disponibles.
+// % Llenado como stacked bar semaforizado (100% del alto = referencia).
 function tuyaBuildRotoplasChart(logs, opts) {
   const show = (opts && opts.show) || { depth: true, pct: false };
   const N = Math.max(2, Math.min(200, Number(opts && opts.n) || 10));
   const full = tuyaRotoplasParseLogs(logs).series;
   const series = full.slice(-N);
   if (!series.length) return '<div style="padding:10px;color:#94a3b8;font-size:11px;font-style:italic">Sin lecturas de liquid_depth/liquid_level_percent</div>';
-  const H = 220, padL = 42, padR = 50, padT = 14, padB = 32;
-  const stepX = 44;
-  const W = Math.max(360, padL + padR + series.length * stepX);
+  const H = 240, padT = 28, padB = 36;
+  const stepX = 22; // compacto: ~2x más observaciones por unidad de ancho
   const innerH = H - padT - padB;
   const fmtTs = (ts) => new Date(ts).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+
+  // Anchos de los ejes laterales (FIJOS) — los datos viven en el SVG central scrollable.
+  const axisLW = show.depth ? 50 : 0;
+  const axisRW = show.pct ? 50 : 0;
+  const dataW = Math.max(280, series.length * stepX);
 
   const depths = series.map(r => r.depth).filter(v => v != null);
   const dMin = depths.length ? Math.min(...depths) : 0;
   const dMax = depths.length ? Math.max(...depths) : 1;
   const dSpan = (dMax - dMin) || 1;
-  const x = (i) => padL + i * stepX + stepX / 2;
+  const x = (i) => i * stepX + stepX / 2;
   const yDepth = (v) => padT + innerH - ((v - dMin) / dSpan) * innerH;
   const yPct = (p) => padT + innerH - (Math.max(0, Math.min(100, p)) / 100) * innerH;
 
-  // Semáforo: <30 rojo, 30-70 ámbar, ≥70 verde (tanque lleno = sano).
   const pctColor = (p) => p >= 70 ? '#16a34a' : p >= 30 ? '#f59e0b' : '#dc2626';
 
-  // Grid
+  // Grid del área de datos
   const grid = Array.from({length:5}, (_,i) => {
     const y = padT + (innerH * i / 4);
-    return `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>`;
+    return `<line x1="0" y1="${y}" x2="${dataW}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>`;
   }).join('');
 
-  // Eje Y izquierdo (depth, cm)
-  const yLeft = show.depth ? Array.from({length:5}, (_,i) => {
-    const v = dMin + (dSpan * (4-i) / 4);
-    const y = padT + (innerH * i / 4);
-    return `<text x="${padL-5}" y="${y+3}" text-anchor="end" font-size="9" fill="#0d9488">${v.toFixed(0)}</text>`;
-  }).join('') + `<text x="${padL-5}" y="${padT-3}" text-anchor="end" font-size="9" fill="#0d9488" font-weight="700">cm</text>` : '';
+  // ── Eje Y izquierdo FIJO (depth, cm) ──
+  const yLeftSvg = show.depth ? `<svg width="${axisLW}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0">
+    <text x="${axisLW-6}" y="14" text-anchor="end" font-size="10" font-weight="800" fill="#0d9488">cm</text>
+    ${Array.from({length:5}, (_,i) => {
+      const v = dMin + (dSpan * (4-i) / 4);
+      const y = padT + (innerH * i / 4);
+      return `<text x="${axisLW-6}" y="${y+3}" text-anchor="end" font-size="10" fill="#0d9488">${v.toFixed(0)}</text>`;
+    }).join('')}
+  </svg>` : '';
 
-  // Eje Y derecho (pct, 0-100) — referencia de 100%
-  const yRight = show.pct ? Array.from({length:5}, (_,i) => {
-    const p = 100 - (i*25);
-    const y = padT + (innerH * i / 4);
-    return `<text x="${W-padR+5}" y="${y+3}" text-anchor="start" font-size="9" fill="#475569">${p}</text>`;
-  }).join('') + `<text x="${W-padR+5}" y="${padT-3}" text-anchor="start" font-size="9" fill="#475569" font-weight="700">%</text>` +
-    `<line x1="${padL}" y1="${padT}" x2="${W-padR}" y2="${padT}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3"/>` : '';
+  // ── Eje Y derecho FIJO (pct, 0-100) ──
+  const yRightSvg = show.pct ? `<svg width="${axisRW}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0">
+    <text x="6" y="14" text-anchor="start" font-size="10" font-weight="800" fill="#475569">%</text>
+    ${Array.from({length:5}, (_,i) => {
+      const p = 100 - (i*25);
+      const y = padT + (innerH * i / 4);
+      return `<text x="6" y="${y+3}" text-anchor="start" font-size="10" fill="#475569">${p}</text>`;
+    }).join('')}
+  </svg>` : '';
 
-  // Stacked bars de pct (atrás): remanente arriba (gris claro) + filled abajo (semáforo).
+  // ── Stacked bars (pct) ──
   let barsHtml = '';
   if (show.pct) {
-    const barW = Math.max(10, stepX - 10);
+    const barW = Math.max(6, stepX - 6);
     barsHtml = series.map((r,i) => {
       if (r.pct == null) return '';
       const p = Math.max(0, Math.min(100, r.pct));
@@ -26894,38 +26903,45 @@ function tuyaBuildRotoplasChart(logs, opts) {
       return `<g data-tt="${esc(tt)}" style="cursor:crosshair">
         <rect x="${bx}" y="${padT}" width="${barW}" height="${emptyH}" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.5"/>
         <rect x="${bx}" y="${filledY}" width="${barW}" height="${filledH}" fill="${col}" fill-opacity="0.7" stroke="${col}" stroke-width="0.8"/>
-        <text x="${(Number(bx) + barW/2).toFixed(1)}" y="${Number(filledY)-3}" text-anchor="middle" font-size="9" font-weight="700" fill="${col}">${p}%</text>
       </g>`;
     }).join('');
   }
 
-  // Depth line + puntos (al frente)
+  // ── Depth: línea CONTINUA que conecta todos los puntos disponibles + puntos ──
   let depthEls = '';
   if (show.depth) {
-    const pathD = series.map((r,i) => r.depth==null?'':`${i===0?'M':'L'} ${x(i).toFixed(1)} ${yDepth(r.depth).toFixed(1)}`).filter(Boolean).join(' ');
+    let pathD = '';
+    let started = false;
+    series.forEach((r, i) => {
+      if (r.depth == null) return;
+      pathD += (started ? ' L ' : 'M ') + x(i).toFixed(1) + ' ' + yDepth(r.depth).toFixed(1);
+      started = true;
+    });
     const dots = series.map((r,i) => {
       if (r.depth==null) return '';
       const tt = `${fmtTs(r.ts)} · ${r.depth} cm${r.pct!=null ? ' · ' + r.pct + '%' : ''}`;
-      return `<circle data-tt="${esc(tt)}" cx="${x(i)}" cy="${yDepth(r.depth)}" r="5" fill="#0d9488" stroke="#fff" stroke-width="2" style="cursor:crosshair"/>`;
+      return `<circle data-tt="${esc(tt)}" cx="${x(i)}" cy="${yDepth(r.depth)}" r="3.5" fill="#0d9488" stroke="#fff" stroke-width="1.5" style="cursor:crosshair"/>`;
     }).join('');
     depthEls = (pathD ? `<path d="${pathD}" fill="none" stroke="#0d9488" stroke-width="2"/>` : '') + dots;
   }
 
-  // Labels X
-  const stride = Math.max(1, Math.ceil(series.length / 8));
-  const labelsX = series.map((r,i) => (i % stride === 0) ? `<text x="${x(i)}" y="${H-10}" text-anchor="middle" font-size="9" fill="#94a3b8">${esc(new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</text>` : '').join('');
+  // Labels X cada stride
+  const stride = Math.max(1, Math.ceil(series.length / 12));
+  const labelsX = series.map((r,i) => (i % stride === 0) ? `<text x="${x(i)}" y="${H-12}" text-anchor="middle" font-size="9" fill="#94a3b8">${esc(new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</text>` : '').join('');
 
-  const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block"
+  // SVG central scrollable (sólo datos)
+  const dataSvg = `<svg width="${dataW}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block"
        onmousemove="tuyaRotoplasOnMove(event)" onmouseleave="tuyaRotoplasHideTooltip()">
     ${grid}
     ${barsHtml}
-    ${yLeft}
-    ${yRight}
     ${depthEls}
     ${labelsX}
   </svg>`;
-  return `<div style="position:relative">
-    <div data-rotoplas-scroll="1" style="width:100%;overflow-x:auto;overflow-y:hidden;border:1px solid #e2e8f0;border-radius:8px;background:#fff">${svg}</div>
+
+  return `<div style="position:relative;display:flex;align-items:stretch;border:1px solid #e2e8f0;border-radius:8px;background:#fff;overflow:hidden">
+    ${yLeftSvg}
+    <div data-rotoplas-scroll="1" style="flex:1;overflow-x:auto;overflow-y:hidden">${dataSvg}</div>
+    ${yRightSvg}
     <div id="tuya-rotoplas-tooltip" style="position:absolute;display:none;pointer-events:none;background:#0f172a;color:#fff;padding:5px 9px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.25);transform:translate(-50%,-130%)"></div>
   </div>`;
 }
@@ -26976,26 +26992,26 @@ window.tuyaRotoplasRedraw = function(id) {
   if (scrollEl) scrollEl.scrollLeft = scrollEl.scrollWidth;
 };
 
-// Mini-chart para card: resumen línea depth de la ÚLTIMA HORA.
-// Si no hay datos en la última hora, fallback a últimos 5 (mejor que vacío).
+// Mini-chart para card: % Llenado en las últimas 24 horas, con líneas de
+// referencia a 20% (rojo, mínimo) y 80% (verde, máximo). Escala fija 0-100.
 function tuyaBuildRotoplasMiniChart(logs) {
   const { series } = tuyaRotoplasParseLogs(logs);
-  const hourAgo = Date.now() - 60*60*1000;
-  let pts = series.filter(r => r.ts >= hourAgo);
-  if (pts.length < 2) pts = series.slice(-5);
+  const dayAgo = Date.now() - 24*60*60*1000;
+  let pts = series.filter(r => r.ts >= dayAgo && r.pct != null);
+  if (pts.length < 2) pts = series.filter(r => r.pct != null).slice(-10);
   if (pts.length < 2) return '';
-  const W = 80, H = 22;
-  const depths = pts.map(r => r.depth).filter(v => v != null);
-  if (!depths.length) return '';
-  const dMin = Math.min(...depths), dMax = Math.max(...depths);
-  const dSpan = (dMax - dMin) || 1;
+  const W = 100, H = 28;
   const x = (i) => 2 + (i / (pts.length - 1)) * (W - 4);
-  const y = (v) => H - 2 - ((v - dMin) / dSpan) * (H - 6);
-  const pathD = pts.map((r,i) => r.depth==null ? '' : `${i===0?'M':'L'} ${x(i).toFixed(1)} ${y(r.depth).toFixed(1)}`).filter(Boolean).join(' ');
-  // Último punto resaltado para indicar "lectura actual"
+  const y = (p) => H - 2 - (Math.max(0, Math.min(100, p)) / 100) * (H - 4);
+  const pathD = pts.map((r,i) => `${i===0?'M':'L'} ${x(i).toFixed(1)} ${y(r.pct).toFixed(1)}`).join(' ');
   const last = pts[pts.length - 1];
-  const lastDot = (last && last.depth != null) ? `<circle cx="${x(pts.length-1).toFixed(1)}" cy="${y(last.depth).toFixed(1)}" r="2" fill="#0d9488"/>` : '';
-  return `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block"><title>Última hora · ${pts.length} lecturas</title><path d="${pathD}" fill="none" stroke="#0d9488" stroke-width="1.5"/>${lastDot}</svg>`;
+  const lastCol = last.pct >= 80 ? '#16a34a' : last.pct <= 20 ? '#dc2626' : '#f59e0b';
+  return `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block"><title>Últimas 24h · ${pts.length} lecturas · actual ${last.pct}%</title>
+    <line x1="2" y1="${y(20).toFixed(1)}" x2="${W-2}" y2="${y(20).toFixed(1)}" stroke="#dc2626" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.6"/>
+    <line x1="2" y1="${y(80).toFixed(1)}" x2="${W-2}" y2="${y(80).toFixed(1)}" stroke="#16a34a" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.6"/>
+    <path d="${pathD}" fill="none" stroke="#0284c7" stroke-width="1.5"/>
+    <circle cx="${x(pts.length-1).toFixed(1)}" cy="${y(last.pct).toFixed(1)}" r="2.2" fill="${lastCol}"/>
+  </svg>`;
 }
 
 async function tuyaOpenDetail(id) {
