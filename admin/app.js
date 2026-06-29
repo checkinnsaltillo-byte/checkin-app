@@ -26991,6 +26991,16 @@ window.tuyaRotoplasToggleSeries = function(kind, id) {
   });
   tuyaRotoplasRedraw(id);
 };
+// Toggle dropdown "Historial" en el panel de detalle.
+window.tuyaToggleHistorial = function() {
+  const body = document.getElementById('tuya-hist-body');
+  const chev = document.getElementById('tuya-hist-chev');
+  if (!body) return;
+  const open = !body.classList.contains('hidden');
+  if (open) { body.classList.add('hidden'); if (chev) chev.textContent = '▸'; }
+  else      { body.classList.remove('hidden'); if (chev) chev.textContent = '▾'; }
+};
+
 // Refresh manual desde el panel de detalle: refresca lista de dispositivos
 // y vuelve a cargar los logs del device actualmente visible.
 window.tuyaRefreshFromDetail = async function(id) {
@@ -27061,6 +27071,8 @@ async function tuyaOpenDetail(id) {
       <span style="padding:4px 10px;background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;border-radius:999px;font-size:11px;font-weight:700">${esc(d.product_name || d.category || '—')}</span>
       <span style="padding:4px 10px;background:${d.online?'#dcfce7':'#f1f5f9'};color:${d.online?'#15803d':'#64748b'};border-radius:999px;font-size:11px;font-weight:700">${d.online?'🟢 Online':'⚪ Offline'}</span>
       <span style="font-size:11px;color:#94a3b8">ID: ${esc(d.id)}</span>
+      <button type="button" onclick="tuyaRefreshFromDetail('${esc(d.id)}')"
+              style="margin-left:auto;padding:5px 12px;border:none;background:#0d9488;color:#fff;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">↻ Actualizar</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px">
       <div>
@@ -27074,8 +27086,6 @@ async function tuyaOpenDetail(id) {
                   style="padding:4px 10px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">Profundidad (cm)</button>
           <button type="button" data-tuya-rseries="pct" onclick="tuyaRotoplasToggleSeries('pct','${esc(d.id)}')"
                   style="padding:4px 10px;border:1.5px solid #0284c7;background:#fff;color:#0284c7;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">% Llenado</button>
-          <button type="button" onclick="tuyaRefreshFromDetail('${esc(d.id)}')"
-                  style="padding:4px 10px;border:none;background:#0d9488;color:#fff;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">↻ Actualizar</button>
           <label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#475569;margin-left:auto">
             Mostrar
             <input type="number" id="tuya-rotoplas-n" min="2" max="500" value="100" onchange="tuyaRotoplasRedraw('${esc(d.id)}')"
@@ -27085,16 +27095,19 @@ async function tuyaOpenDetail(id) {
         </div>
         <div id="tuya-rotoplas-host" style="min-height:60px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando lecturas…</div>
       </div>` : ''}
-      <div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <div style="font-size:12px;font-weight:800;color:#0f172a">Historial</div>
-          <select id="tuya-logs-days" onchange="tuyaLoadLogs('${esc(d.id)}')" style="font-size:11px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px">
+      <div id="tuya-hist-wrap" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+        <div onclick="tuyaToggleHistorial()" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f8fafc;user-select:none">
+          <span id="tuya-hist-chev" style="font-size:11px;color:#64748b">▸</span>
+          <div style="font-size:12px;font-weight:800;color:#0f172a;flex:1">Historial</div>
+          <select id="tuya-logs-days" onclick="event.stopPropagation()" onchange="tuyaLoadLogs('${esc(d.id)}')" style="font-size:11px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px">
             <option value="1">24 h</option>
             <option value="7" selected>7 días</option>
             <option value="30">30 días</option>
           </select>
         </div>
-        <div id="tuya-logs-host" style="border:1px solid #e2e8f0;border-radius:8px;max-height:60vh;overflow-y:auto;background:#fafafa"></div>
+        <div id="tuya-hist-body" class="hidden" style="border-top:1px solid #e2e8f0">
+          <div id="tuya-logs-host" style="max-height:60vh;overflow-y:auto;background:#fafafa"></div>
+        </div>
       </div>
     </div>`;
   back.classList.remove('hidden');
