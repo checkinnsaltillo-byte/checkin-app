@@ -24705,6 +24705,7 @@ const RH_OBL_STATE = {
   year: (new Date()).getFullYear(),
   expanded: null,        // 1..12 (mes expandido) o null
   files: {},             // map "M|kind|empleadoId" → { url, name, id }
+  totales: {},           // map month → { total, actualizado }
   loading: false,
 };
 const RH_OBL_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -24741,9 +24742,55 @@ async function rhRenderObligaciones() {
   // Carga empleados si aún no, y los archivos del año
   if (!RH_STATE.empleados || !RH_STATE.empleados.length) await rhLoadEmpleados();
   view.innerHTML = `<div style="text-align:center;padding:40px;color:#94a3b8;font-size:13px">⏳ Cargando obligaciones…</div>`;
-  await rhLoadObligaciones(RH_OBL_STATE.year);
+  await Promise.all([rhLoadObligaciones(RH_OBL_STATE.year), rhLoadObligacionTotales(RH_OBL_STATE.year)]);
   rhPaintObligaciones();
 }
+
+async function rhLoadObligacionTotales(year) {
+  try {
+    const res = await fetch(`${BACKEND}/rh/obligacion/totales?year=${year}&_cb=${Date.now()}`, { cache: 'no-store' });
+    const data = await res.json();
+    RH_OBL_STATE.totales = (data && data.ok && data.totales) ? data.totales : {};
+  } catch (e) {
+    console.warn('[RH] totales:', e.message);
+    RH_OBL_STATE.totales = {};
+  }
+}
+
+function rhFmtMoneyShort(n) {
+  const v = Number(n || 0);
+  try { return new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN', maximumFractionDigits:2 }).format(v); }
+  catch (_) { return '$' + v.toLocaleString('es-MX'); }
+}
+
+window.rhObligacionSetTotal = async function (month, inputEl) {
+  const raw = String(inputEl.value || '').replace(/[^\d.]/g, '');
+  const total = parseFloat(raw);
+  if (!isFinite(total) || total < 0) { inputEl.value = ''; return; }
+  const prev = RH_OBL_STATE.totales[month];
+  if (prev && Number(prev.total) === total) return; // sin cambios
+  inputEl.disabled = true;
+  const origBg = inputEl.style.background;
+  inputEl.style.background = '#fef3c7';
+  try {
+    const res = await fetch(`${BACKEND}/rh/obligacion/total`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year: RH_OBL_STATE.year, month, total }),
+    });
+    const text = await res.text();
+    let data; try { data = JSON.parse(text); } catch (_) { throw new Error('Respuesta no-JSON: ' + text.slice(0,120)); }
+    if (!data || !data.ok) throw new Error((data && data.error) || 'No se pudo guardar');
+    RH_OBL_STATE.totales[month] = { total, actualizado: data.actualizado || '' };
+    inputEl.style.background = '#d1fae5';
+    setTimeout(() => { inputEl.style.background = origBg; rhPaintObligaciones(); const els = document.querySelectorAll('#rh-section-obligaciones [onclick]'); for (const el of els) { if (el.getAttribute('onclick')?.includes(`rhToggleMonth(${month})`)) { el.scrollIntoView({block:'start'}); break; } } }, 350);
+  } catch (e) {
+    inputEl.style.background = '#fee2e2';
+    alert('Error al guardar total: ' + e.message);
+  } finally {
+    inputEl.disabled = false;
+  }
+};
 
 function rhObligacionesEmpleadosActivos() {
   return (RH_STATE.empleados || []).filter(r => {
@@ -24774,6 +24821,13 @@ function rhPaintObligaciones() {
     const body = isOpen ? rhObligacionesMonthBody(month, Q_PALETTE[Math.floor(idx/3)]) : '';
     const pal = Q_PALETTE[Math.floor(idx/3)];
     const mm = ('0' + month).slice(-2);
+    const totObj = RH_OBL_STATE.totales[month];
+    const totalRow = (totObj && Number(totObj.total) > 0)
+      ? `<div style="margin-top:4px;display:flex;align-items:center;gap:5px;justify-content:flex-end">
+           <span style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Total pagado</span>
+           <span style="font-size:13px;color:#065f46;font-weight:900;background:#d1fae5;border:1px solid #6ee7b7;padding:2px 9px;border-radius:99px">${esc(rhFmtMoneyShort(totObj.total))}</span>
+         </div>`
+      : '';
     return `
       <div style="background:#fff;border:1px solid ${isOpen?pal.from:'#e2e8f0'};border-radius:18px;overflow:hidden;transition:all .2s;${isOpen?`box-shadow:0 10px 30px ${pal.from}22, 0 2px 8px rgba(15,23,42,.06)`:'box-shadow:0 1px 2px rgba(15,23,42,.04)'}">
         <div onclick="rhToggleMonth(${month})" style="cursor:pointer;position:relative;display:flex;align-items:stretch;gap:0;background:${isOpen?`linear-gradient(135deg,${pal.soft} 0%,#fff 60%)`:'#fff'}">
@@ -24784,7 +24838,10 @@ function rhPaintObligaciones() {
               <div style="font-weight:800;font-size:15px;color:#0f172a;letter-spacing:-.01em">${mesName}</div>
               <div style="font-size:11px;color:#94a3b8;font-weight:600">${year}</div>
             </div>
-            <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;align-items:center">${monthChips}</div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0;min-width:0">
+              <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;align-items:center">${monthChips}</div>
+              ${totalRow}
+            </div>
             <span style="font-size:14px;color:${isOpen?pal.from:'#cbd5e1'};font-weight:900;margin-left:4px">${isOpen?'▾':'▸'}</span>
           </div>
         </div>
@@ -24896,12 +24953,26 @@ function rhObligacionesMonthBody(month, pal) {
       </div>
     </div>`;
 
+  const totObj = RH_OBL_STATE.totales[month];
+  const totalVal = (totObj && Number(totObj.total) > 0) ? Number(totObj.total) : '';
+  const totalInputId = `rh-obl-total-${month}`;
   const cuotasBlock = `
     <div style="background:linear-gradient(135deg,#fafbff 0%,#fff 100%);border:1px solid #e0e7ff;border-radius:14px;padding:14px 14px 16px;margin:0 0 14px">
       ${sectionHeader('','💼','Pago de cuotas obrero patronales','Aportaciones IMSS del mes','#6366f1','#4f46e5')}
       <div style="display:grid;gap:8px">
         ${fileBox('cuota_formato', '', cuotaFormato)}
         ${fileBox('cuota_comprobante', '', cuotaCompr)}
+      </div>
+      <div style="margin-top:12px;background:#fff;border:1.5px solid #e0e7ff;border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px">
+        <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0">💰</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;color:#065f46;font-weight:800;text-transform:uppercase;letter-spacing:.4px">Total pagado</div>
+          <div style="font-size:10.5px;color:#94a3b8;font-weight:500">${totObj && totObj.actualizado ? 'Actualizado: ' + esc(totObj.actualizado) : 'Captura el monto en MXN'}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+          <span style="color:#64748b;font-weight:800;font-size:13px">$</span>
+          <input type="number" inputmode="decimal" step="0.01" min="0" id="${totalInputId}" value="${totalVal}" placeholder="0.00" onblur="rhObligacionSetTotal(${month}, this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" style="width:130px;padding:7px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-weight:700;color:#0f172a;text-align:right;outline:none;transition:all .15s" onfocus="this.style.borderColor='#10b981'">
+        </div>
       </div>
     </div>`;
 
