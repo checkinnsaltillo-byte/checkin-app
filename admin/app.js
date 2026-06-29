@@ -27459,6 +27459,84 @@ window.guiasToggleSelectMode = function() {
 };
 window.guiasSetTab = function(key) { GUIAS_STATE.activeTab = key; guiasRenderContent(); };
 
+// Configuración de campos por tab para el PDF (label, key).
+const GUIAS_PDF_TABS = [
+  { title: 'Wi-Fi', icon: '📶', fields: [['Red (SSID)','WIFI_SSID'],['Contraseña','WIFI_Password']] },
+  { title: 'Check-in', icon: '🔑', fields: [['Dirección','Dirección'],['City Tax','City_Tax'],['Teléfono','Host_Telefono'],['WhatsApp','Host_WhatsApp'],['Email','Host_Email']] },
+  { title: 'Acceso', icon: '🚪', fields: [['Código de puerta','Acceso_Codigo'],['Instrucciones de llegada','Acceso_Instrucciones'],['Estacionamiento','Acceso_Estacionamiento'],['Ubicación de llaves','Acceso_Llaves']] },
+  { title: 'Rules', icon: '📋', fields: [['Reglas de la casa','Reglas'],['Manual A/C','Manual_AC'],['Manual Agua / Boiler','Manual_Agua'],['Manual Smart TV','Manual_SmartTV'],['SOS / Emergencias','SOS']] },
+  { title: 'Waste', icon: '♻️', fields: [['Horarios de recolección','Reciclaje_Horarios'],['Separación de residuos','Reciclaje_Separacion']] },
+  { title: 'Services', icon: '💎', fields: [['Amenidades','Servicios_Amenidades'],['Servicios adicionales / precios','Servicios_Adicionales']] },
+  { title: 'Guía Local', icon: '🗺️', fields: [['Lugares recomendados','Guia_Lugares'],['Restaurantes','Guia_Restaurantes'],['Transporte','Guia_Transporte'],['Tours / Excursiones','Guia_Tours']] },
+];
+
+// Descarga un PDF imprimible (interactivo: links se preservan). Sólo aplica
+// cuando hay UN alojamiento seleccionado. El nombre sugerido = "Propiedad - # Departamento".
+window.guiasDownloadPdf = function() {
+  const alojs = guiasSelectedAlojs();
+  if (alojs.length !== 1) { alert('Selecciona un solo alojamiento para descargar PDF.'); return; }
+  const a = alojs[0];
+  const prop = String(a['Propiedad']||'').trim();
+  const dpt = String(a['# Departamento']!=null?a['# Departamento']:'').trim();
+  const fname = (prop && dpt) ? `${prop} - ${dpt}` : (prop || guiasItemLabel(a) || 'Guía');
+  const title = guiasItemLabel(a);
+  const photoPageUrl = String(a['url_lodgify']||'').trim();
+  const mapsUrl = (a['Dirección']||a['Direccion']||'') ? `https://maps.google.com/?q=${encodeURIComponent(a['Dirección']||a['Direccion']||'')}` : '';
+
+  const row = (label, val) => {
+    const text = String(val == null ? '' : val).trim();
+    if (!text) return '';
+    return `<div class="row"><div class="lbl">${esc(label)}</div><div class="val">${esc(text).replace(/\n/g,'<br>')}</div></div>`;
+  };
+  const section = (t) => {
+    const body = t.fields.map(([lbl, key]) => row(lbl, a[key])).join('');
+    if (!body) return ''; // Si no hay ningún campo con dato, omite la sección
+    return `<section><h2>${t.icon} ${esc(t.title)}</h2><div class="card">${body}</div></section>`;
+  };
+  const sections = GUIAS_PDF_TABS.map(section).join('');
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${esc(fname)}</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0;padding:24px;color:#0f172a;background:#fff}
+    h1{font-size:24px;margin:0 0 4px;color:#0f172a}
+    .sub{font-size:12px;color:#64748b;margin-bottom:16px}
+    h2{font-size:14px;margin:18px 0 8px;padding-bottom:5px;border-bottom:2px solid #0d9488;color:#0d9488;display:flex;align-items:center;gap:6px}
+    .card{border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;background:#fff}
+    .row{display:flex;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid #f1f5f9}
+    .row:last-child{border-bottom:none}
+    .lbl{font-size:11px;color:#64748b;font-weight:700;flex-shrink:0}
+    .val{font-size:13px;font-weight:600;text-align:right}
+    a{color:#0d9488;text-decoration:none}
+    .links{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
+    .links a{background:#0d9488;color:#fff;padding:7px 12px;border-radius:8px;font-weight:700;font-size:12px}
+    @media print{
+      @page{margin:14mm}
+      body{padding:0}
+      section{break-inside:avoid;page-break-inside:avoid}
+      a{color:#0d9488;text-decoration:underline}
+    }
+  </style></head><body>
+    <h1>${esc(title)}</h1>
+    <div class="sub">${esc(prop)}${dpt?' · #'+esc(dpt):''}</div>
+    <div class="links">
+      ${photoPageUrl ? `<a href="${esc(photoPageUrl)}" target="_blank" rel="noopener">🌐 Ver listing</a>` : ''}
+      ${mapsUrl ? `<a href="${esc(mapsUrl)}" target="_blank" rel="noopener">🗺️ Google Maps</a>` : ''}
+    </div>
+    ${sections}
+  </body></html>`;
+
+  // Window emergente: aquí el browser usa document.title como nombre sugerido del PDF.
+  const w = window.open('', '_blank');
+  if (!w) { alert('Permite las ventanas emergentes para descargar el PDF.'); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  const triggerPrint = () => { try { w.focus(); w.print(); } catch(_) {} };
+  if (w.document.readyState === 'complete') setTimeout(triggerPrint, 200);
+  else w.addEventListener('load', () => setTimeout(triggerPrint, 200));
+};
+
 function guiasFilteredRows() {
   const fp = GUIAS_STATE.filters.propiedad;
   const fd = GUIAS_STATE.filters.departamento;
@@ -27555,12 +27633,19 @@ function guiasRenderContent() {
       <div style="font-size:9.5px;font-weight:800;letter-spacing:.06em;margin-top:4px">${esc(t.label)}</div>
     </button>`;
   }).join('');
+  const canPdf = alojs.length === 1;
+  const pdfBtn = (!GUIAS_STATE.editMode && canPdf)
+    ? `<button type="button" onclick="guiasDownloadPdf()" style="all:unset;cursor:pointer;background:#0d9488;color:#fff;padding:6px 12px;border-radius:8px;font-weight:700;font-size:12px">📄 Descargar PDF</button>`
+    : '';
   const editBtn = GUIAS_STATE.editMode
     ? `<div style="display:flex;gap:6px">
          <button type="button" onclick="guiasSaveEdits()" style="all:unset;cursor:pointer;background:#16a34a;color:#fff;padding:6px 14px;border-radius:8px;font-weight:800;font-size:12px">💾 Guardar</button>
          <button type="button" onclick="guiasToggleEdit()" style="all:unset;cursor:pointer;background:#fff;color:#475569;border:1px solid #cbd5e1;padding:6px 12px;border-radius:8px;font-weight:700;font-size:12px">Cancelar</button>
        </div>`
-    : `<button type="button" onclick="guiasToggleEdit()" style="all:unset;cursor:pointer;background:#1e3a8a;color:#fff;padding:6px 14px;border-radius:8px;font-weight:700;font-size:12px">✏️ Editar</button>`;
+    : `<div style="display:flex;gap:6px">
+         <button type="button" onclick="guiasToggleEdit()" style="all:unset;cursor:pointer;background:#1e3a8a;color:#fff;padding:6px 14px;border-radius:8px;font-weight:700;font-size:12px">✏️ Editar</button>
+         ${pdfBtn}
+       </div>`;
   // Foto desde url_lodgify (página de listing — no imagen directa). Usamos
   // api.microlink.io para extraer el og:image. Sólo cuando hay 1 alojamiento.
   const photoPageUrl = (alojs.length === 1) ? String(alojs[0]['url_lodgify'] || '').trim() : '';
