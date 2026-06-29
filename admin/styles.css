@@ -6100,7 +6100,7 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
 /* ─── Filtros tabla resumen Pago de Nómina ─── */
 .comp-filters {
   display: grid;
-  grid-template-columns: 2fr 1.4fr 1fr 1fr auto;
+  grid-template-columns: 2fr 1.4fr 1.2fr auto;
   gap: 10px;
   align-items: end;
   padding: 12px 14px;
@@ -6108,6 +6108,15 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   border: 1px solid #fed7aa;
   border-radius: 10px;
   margin-bottom: 14px;
+}
+.comp-filters .rh-field label {
+  font-size: 13px;
+  letter-spacing: .02em;
+}
+.comp-filters .rh-field input,
+.comp-filters .rh-field select {
+  font-size: 14px !important;
+  padding: 9px 11px !important;
 }
 @media (max-width: 768px) {
   .comp-filters {

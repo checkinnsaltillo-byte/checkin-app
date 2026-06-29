@@ -25268,11 +25268,11 @@ function rhRenderAusencias() {
         </table></div>`}`;
 }
 
-const COMP_FILTERS = { empleado: '', concepto: '', desde: '', hasta: '' };
+const COMP_FILTERS = { empleado: '', concepto: '', periodo: '' };
 
 window.rhCompSetFilter = function (k, v) { COMP_FILTERS[k] = v; rhRenderCompensaciones(); };
 window.rhCompClearFilters = function () {
-  COMP_FILTERS.empleado = ''; COMP_FILTERS.concepto = ''; COMP_FILTERS.desde = ''; COMP_FILTERS.hasta = '';
+  COMP_FILTERS.empleado = ''; COMP_FILTERS.concepto = ''; COMP_FILTERS.periodo = '';
   rhRenderCompensaciones();
 };
 
@@ -25294,17 +25294,12 @@ function rhRenderCompensaciones() {
   const view = document.getElementById('rh-view');
   const all = RH_STATE.compensaciones || [];
   const f = COMP_FILTERS;
-  const fDesde = f.desde ? new Date(f.desde) : null;
-  const fHasta = f.hasta ? new Date(f.hasta) : null;
   const rows = all.filter(r => {
     if (f.empleado && String(r.Empleado_ID) !== String(f.empleado)) return false;
     if (f.concepto && String(r.Concepto) !== f.concepto) return false;
-    if (fDesde || fHasta) {
-      const [s, e] = compPeriodSpan(r);
-      if (!s || !e) return false;
-      // overlap test: s <= fHasta && e >= fDesde
-      if (fHasta && s > fHasta) return false;
-      if (fDesde && e < fDesde) return false;
+    if (f.periodo) {
+      const type = String(r.Periodo || '').split(':')[0].trim();
+      if (type !== f.periodo) return false;
     }
     return true;
   });
@@ -25333,11 +25328,11 @@ function rhRenderCompensaciones() {
           ${conceptos.map(c => `<option value="${esc(c)}" ${c === f.concepto ? 'selected':''}>${esc(c)}</option>`).join('')}
         </select>
       </div>
-      <div class="rh-field"><label>Desde</label>
-        <input type="date" value="${esc(f.desde)}" onchange="rhCompSetFilter('desde', this.value)">
-      </div>
-      <div class="rh-field"><label>Hasta</label>
-        <input type="date" value="${esc(f.hasta)}" onchange="rhCompSetFilter('hasta', this.value)">
+      <div class="rh-field"><label>Periodo</label>
+        <select onchange="rhCompSetFilter('periodo', this.value)">
+          <option value="">— Todos —</option>
+          ${['Semanal','Quincenal','Mensual'].map(p => `<option value="${p}" ${p===f.periodo?'selected':''}>${p}</option>`).join('')}
+        </select>
       </div>
       <button type="button" class="comp-filter-clear" onclick="rhCompClearFilters()">Limpiar</button>
     </div>
