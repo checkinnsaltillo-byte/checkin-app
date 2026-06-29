@@ -26799,6 +26799,126 @@ function tuyaRelTime(ms) {
   return new Date(ms).toLocaleDateString('es-MX');
 }
 
+// ─── Sensores de PUERTA: gráfica de eventos (verde Cerrado / rojo Abierto) ──
+function tuyaIsDoor(d) {
+  if (!d) return false;
+  if (String(d.category || '').toLowerCase() === 'mcs') return true;
+  return (d.status || []).some(s => String(s.code || '').toLowerCase() === 'doorcontact_state');
+}
+
+// Parse logs → [{ts, open: bool}] ordenados ASC.
+function tuyaDoorParseLogs(logs) {
+  const out = [];
+  for (const l of (logs || [])) {
+    const ts = Number(l.event_time) || 0;
+    if (!ts) continue;
+    const code = String(l.code || '').toLowerCase();
+    if (code !== 'doorcontact_state') continue;
+    const v = l.value;
+    const open = (v === true || v === 'true' || v === 1 || v === '1');
+    out.push({ ts, open });
+  }
+  out.sort((a,b) => a.ts - b.ts);
+  return out;
+}
+
+// Chart de eventos puerta: cada evento como punto coloreado + step bar de fondo.
+function tuyaBuildDoorChart(logs, opts) {
+  const N = Math.max(2, Math.min(500, Number(opts && opts.n) || 100));
+  const all = tuyaDoorParseLogs(logs);
+  const series = all.slice(-N);
+  if (!series.length) return '<div style="padding:10px;color:#94a3b8;font-size:11px;font-style:italic">Sin eventos de puerta registrados</div>';
+  const H = 130, padT = 28, padB = 36;
+  const stepX = 22;
+  const innerH = H - padT - padB;
+  const dataW = Math.max(280, series.length * stepX);
+  const axisLW = 56;
+  const fmtTs = (ts) => new Date(ts).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+  const x = (i) => i * stepX + stepX / 2;
+  const yMid = padT + innerH / 2;
+
+  // Step bands de fondo: entre evento i e i+1, colorea según el estado en i.
+  // Para el último evento, extender hasta el final del ancho.
+  const bands = series.map((r, i) => {
+    const x1 = (i === 0 ? 0 : x(i)).toFixed(1);
+    const x2 = (i === series.length - 1 ? dataW : x(i+1)).toFixed(1);
+    const w = (Number(x2) - Number(x1)).toFixed(1);
+    const col = r.open ? '#fecaca' : '#bbf7d0';
+    return `<rect x="${x1}" y="${padT}" width="${w}" height="${innerH}" fill="${col}" fill-opacity="0.7"/>`;
+  }).join('');
+
+  // Puntos en cada evento
+  const dots = series.map((r, i) => {
+    const tt = `${fmtTs(r.ts)} · ${r.open ? '🚪 Abierto' : '✓ Cerrado'}`;
+    const col = r.open ? '#dc2626' : '#16a34a';
+    return `<g data-tt="${esc(tt)}" style="cursor:crosshair">
+      <circle cx="${x(i)}" cy="${yMid}" r="5" fill="${col}" stroke="#fff" stroke-width="1.5"/>
+    </g>`;
+  }).join('');
+
+  // Labels X cada stride
+  const stride = Math.max(1, Math.ceil(series.length / 12));
+  const labelsX = series.map((r, i) => (i % stride === 0) ? `<text x="${x(i)}" y="${H-12}" text-anchor="middle" font-size="9" fill="#94a3b8">${esc(new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</text>` : '').join('');
+
+  // Conteo
+  const opens = series.filter(r => r.open).length;
+  const closes = series.length - opens;
+
+  const dataSvg = `<svg width="${dataW}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block"
+       onmousemove="tuyaDoorOnMove(event)" onmouseleave="tuyaDoorHideTooltip()">
+    ${bands}
+    ${dots}
+    ${labelsX}
+  </svg>`;
+
+  const leftAxisSvg = `<svg width="${axisLW}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0">
+    <text x="${axisLW-6}" y="14" text-anchor="end" font-size="10" font-weight="800" fill="#475569">Estado</text>
+    <text x="${axisLW-6}" y="${(yMid-4).toFixed(1)}" text-anchor="end" font-size="9" fill="#16a34a">✓ Cerrado</text>
+    <text x="${axisLW-6}" y="${(yMid+11).toFixed(1)}" text-anchor="end" font-size="9" fill="#dc2626">🚪 Abierto</text>
+  </svg>`;
+
+  return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;font-size:11px;color:#475569">
+    <span style="font-size:12px;font-weight:800;color:#0f172a">🚪 Eventos de puerta</span>
+    <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#16a34a"></span> ${closes} Cerrado</span>
+    <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dc2626"></span> ${opens} Abierto</span>
+    <label style="display:inline-flex;align-items:center;gap:5px;margin-left:auto">
+      Mostrar
+      <input type="number" id="tuya-door-n" min="2" max="500" value="${N}" onchange="tuyaDoorRedraw()" style="width:64px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;font-size:11px;text-align:center">
+      datos
+    </label>
+  </div>
+  <div style="position:relative;display:flex;align-items:stretch;border:1px solid #e2e8f0;border-radius:8px;background:#fff;overflow:hidden">
+    ${leftAxisSvg}
+    <div data-door-scroll="1" style="flex:1;overflow-x:auto;overflow-y:hidden">${dataSvg}</div>
+    <div id="tuya-door-tooltip" style="position:absolute;display:none;pointer-events:none;background:#0f172a;color:#fff;padding:5px 9px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.25);transform:translate(-50%,-130%)"></div>
+  </div>`;
+}
+window.tuyaDoorOnMove = function(e) {
+  const t = e.target.closest('[data-tt]');
+  const tip = document.getElementById('tuya-door-tooltip');
+  if (!tip) return;
+  if (!t) { tip.style.display = 'none'; return; }
+  tip.textContent = t.getAttribute('data-tt');
+  const wRect = tip.parentElement.getBoundingClientRect();
+  tip.style.left = (e.clientX - wRect.left) + 'px';
+  tip.style.top = (e.clientY - wRect.top) + 'px';
+  tip.style.display = 'block';
+};
+window.tuyaDoorHideTooltip = function() {
+  const tip = document.getElementById('tuya-door-tooltip');
+  if (tip) tip.style.display = 'none';
+};
+window.TUYA_DOOR = window.TUYA_DOOR || { logs: [] };
+window.tuyaDoorRedraw = function() {
+  const host = document.getElementById('tuya-door-host');
+  if (!host) return;
+  const nEl = document.getElementById('tuya-door-n');
+  const n = Number(nEl?.value) || 100;
+  host.innerHTML = tuyaBuildDoorChart(window.TUYA_DOOR.logs || [], { n });
+  const scrollEl = host.querySelector('[data-door-scroll]');
+  if (scrollEl) scrollEl.scrollLeft = scrollEl.scrollWidth;
+};
+
 // ─── Rotoplas: gráficas liquid_depth (línea) + liquid_level_percent (barras) ──
 function tuyaIsRotoplas(d) {
   return /rotoplas/i.test(String(d?.name || '') + ' ' + String(d?.product_name || ''));
@@ -27079,6 +27199,9 @@ async function tuyaOpenDetail(id) {
         <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:6px">Estado actual</div>
         <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden"><table style="width:100%;border-collapse:collapse">${statusRows}</table></div>
       </div>
+      ${tuyaIsDoor(d) ? `<div>
+        <div id="tuya-door-host" style="min-height:80px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando eventos de puerta…</div>
+      </div>` : ''}
       ${tuyaIsRotoplas(d) ? `<div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
           <div style="font-size:12px;font-weight:800;color:#0f172a">📈 Lecturas Rotoplas</div>
@@ -27135,6 +27258,13 @@ async function tuyaLoadLogs(id) {
       window.TUYA_ROTOPLAS = window.TUYA_ROTOPLAS || { show: { depth: true, pct: false } };
       window.TUYA_ROTOPLAS.logs = logs;
       tuyaRotoplasRedraw(id);
+    }
+    // Si es puerta, igual: stash + redraw.
+    const doorHost = document.getElementById('tuya-door-host');
+    if (doorHost) {
+      window.TUYA_DOOR = window.TUYA_DOOR || {};
+      window.TUYA_DOOR.logs = logs;
+      tuyaDoorRedraw();
     }
     if (!logs.length) { host.innerHTML = '<div style="padding:14px;color:#94a3b8;font-size:11px">Sin eventos en este rango</div>'; return; }
     host.innerHTML = logs.map(l => {
