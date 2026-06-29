@@ -27310,11 +27310,18 @@ function tuyaCloseDetail() {
 // ════════════════════════════════════════════════════════════════════════════
 // MÓDULO GUÍAS DE BIENVENIDA — prueba inicial (esqueleto + tabs)
 // ════════════════════════════════════════════════════════════════════════════
-const GUIAS_STATE = { selectedId: null, activeTab: 'check-in', loaded: false };
+const GUIAS_STATE = {
+  selectedIds: new Set(),      // ids de alojamientos seleccionados (multi)
+  activeTab: 'check-in',
+  editMode: false,             // toggle Editar / Guardar
+  filters: { propiedad: new Set(), departamento: new Set() },
+  dirty: {},                   // { id: { campo: nuevoValor } } cambios pendientes
+};
 
 const GUIAS_TABS = [
   { key: 'wifi',     label: 'WIFI',     icon: '📶' },
   { key: 'check-in', label: 'CHECK-IN', icon: '🔑' },
+  { key: 'acceso',   label: 'ACCESO',   icon: '🚪' },
   { key: 'rules',    label: 'RULES',    icon: '📋' },
   { key: 'waste',    label: 'WASTE',    icon: '♻️' },
   { key: 'services', label: 'SERVICES', icon: '💎' },
@@ -27322,35 +27329,18 @@ const GUIAS_TABS = [
 ];
 
 async function guiasInit() {
-  if (!ALOJ_STATE.loaded && !ALOJ_STATE.loading) {
-    await lgLoadAlojamientos();
-  }
+  if (!ALOJ_STATE.loaded && !ALOJ_STATE.loading) await lgLoadAlojamientos();
   guiasRenderSidebar();
-  // Auto-seleccionar primer alojamiento si nada seleccionado
-  if (!GUIAS_STATE.selectedId && ALOJ_STATE.rows.length) {
+  if (GUIAS_STATE.selectedIds.size === 0 && ALOJ_STATE.rows.length) {
     const first = ALOJ_STATE.rows[0];
-    const fid = String(first['HouseId'] || first['Propiedad'] || 'aloj-0').trim();
-    guiasSelect(fid);
+    GUIAS_STATE.selectedIds.add(guiasItemId(first));
   }
+  guiasRenderSidebar(); guiasRenderContent();
 }
 
 async function guiasLoad(force) {
   if (force) { ALOJ_STATE.loaded = false; ALOJ_STATE.loading = false; await lgLoadAlojamientos(); }
-  guiasRenderSidebar();
-  if (GUIAS_STATE.selectedId) guiasRenderContent();
-}
-
-function guiasAlojById(id) {
-  if (!id) return null;
-  // Match por HouseId o por "Propiedad - #Departamento"
-  return (ALOJ_STATE.rows || []).find(r => {
-    const hid = String(r['HouseId'] || '').trim();
-    if (hid && hid === String(id)) return true;
-    const prop = String(r['Propiedad'] || '').trim();
-    const dpt = String(r['# Departamento'] != null ? r['# Departamento'] : '').trim();
-    const composite = (prop && dpt) ? `${prop}__${dpt}` : prop;
-    return composite === String(id);
-  }) || null;
+  guiasRenderSidebar(); guiasRenderContent();
 }
 
 function guiasItemId(r) {
@@ -27360,56 +27350,158 @@ function guiasItemId(r) {
   const dpt = String(r['# Departamento'] != null ? r['# Departamento'] : '').trim();
   return (prop && dpt) ? `${prop}__${dpt}` : prop;
 }
-
 function guiasItemLabel(r) {
   const prop = String(r['Propiedad'] || '').trim();
   const dpt = String(r['# Departamento'] != null ? r['# Departamento'] : '').trim();
   if (prop && dpt) return `${prop} · #${dpt}`;
   return prop || String(r['HouseName'] || '').trim() || '(sin nombre)';
 }
+function guiasAlojById(id) {
+  if (!id) return null;
+  return (ALOJ_STATE.rows || []).find(r => guiasItemId(r) === String(id)) || null;
+}
+function guiasSelectedAlojs() {
+  return [...GUIAS_STATE.selectedIds].map(guiasAlojById).filter(Boolean);
+}
+// Devuelve el valor "efectivo" de un campo:
+//  - si hay un solo alojamiento seleccionado → su valor (o el dirty si existe).
+//  - si hay varios y todos coinciden → ese valor común.
+//  - si difieren → '' (placeholder "(varios)" sólo en modo edición).
+function guiasFieldValue(alojs, fieldKey) {
+  if (!alojs.length) return { value: '', mixed: false };
+  const vals = alojs.map(a => {
+    const id = guiasItemId(a);
+    const dirty = GUIAS_STATE.dirty[id];
+    if (dirty && Object.prototype.hasOwnProperty.call(dirty, fieldKey)) return String(dirty[fieldKey] || '');
+    return String(a[fieldKey] || '');
+  });
+  const allSame = vals.every(v => v === vals[0]);
+  return { value: allSame ? vals[0] : '', mixed: !allSame };
+}
+// Aplica un cambio de campo a TODOS los alojamientos seleccionados.
+window.guiasOnFieldChange = function(fieldKey, value) {
+  for (const a of guiasSelectedAlojs()) {
+    const id = guiasItemId(a);
+    GUIAS_STATE.dirty[id] = GUIAS_STATE.dirty[id] || {};
+    GUIAS_STATE.dirty[id][fieldKey] = value;
+  }
+};
+window.guiasToggleEdit = function() {
+  GUIAS_STATE.editMode = !GUIAS_STATE.editMode;
+  if (!GUIAS_STATE.editMode) GUIAS_STATE.dirty = {}; // Cancelar limpia los pending
+  guiasRenderContent();
+};
+window.guiasSaveEdits = async function() {
+  const ids = Object.keys(GUIAS_STATE.dirty);
+  if (!ids.length) { alert('Sin cambios para guardar.'); GUIAS_STATE.editMode = false; guiasRenderContent(); return; }
+  // Aplica los cambios a ALOJ_STATE.rows en memoria
+  for (const a of (ALOJ_STATE.rows || [])) {
+    const id = guiasItemId(a);
+    const changes = GUIAS_STATE.dirty[id];
+    if (!changes) continue;
+    for (const k of Object.keys(changes)) a[k] = changes[k];
+  }
+  // TODO: persistir al backend (Apps Script) — requiere endpoint update_alojamiento.
+  alert(`Guardados localmente en ${ids.length} alojamiento(s). (Persistencia al sheet pendiente.)`);
+  GUIAS_STATE.dirty = {};
+  GUIAS_STATE.editMode = false;
+  guiasRenderContent();
+};
+
+// ── Filtros + selección de la sidebar ──
+window.guiasToggleFilter = function(kind, value) {
+  const set = GUIAS_STATE.filters[kind];
+  if (set.has(value)) set.delete(value); else set.add(value);
+  // Limpiar selecciones que ya no estén visibles
+  const visibleIds = new Set(guiasFilteredRows().map(guiasItemId));
+  for (const id of [...GUIAS_STATE.selectedIds]) if (!visibleIds.has(id)) GUIAS_STATE.selectedIds.delete(id);
+  guiasRenderSidebar(); guiasRenderContent();
+};
+window.guiasSelectAll = function() {
+  for (const r of guiasFilteredRows()) GUIAS_STATE.selectedIds.add(guiasItemId(r));
+  guiasRenderSidebar(); guiasRenderContent();
+};
+window.guiasSelectNone = function() {
+  GUIAS_STATE.selectedIds.clear();
+  guiasRenderSidebar(); guiasRenderContent();
+};
+window.guiasToggleItem = function(id) {
+  if (GUIAS_STATE.selectedIds.has(id)) GUIAS_STATE.selectedIds.delete(id);
+  else GUIAS_STATE.selectedIds.add(id);
+  guiasRenderSidebar(); guiasRenderContent();
+};
+window.guiasSetTab = function(key) { GUIAS_STATE.activeTab = key; guiasRenderContent(); };
+
+function guiasFilteredRows() {
+  const fp = GUIAS_STATE.filters.propiedad;
+  const fd = GUIAS_STATE.filters.departamento;
+  return (ALOJ_STATE.rows || []).filter(r => {
+    if (fp.size && !fp.has(String(r['Propiedad'] || '').trim())) return false;
+    if (fd.size && !fd.has(String(r['# Departamento'] != null ? r['# Departamento'] : '').trim())) return false;
+    return true;
+  });
+}
 
 function guiasRenderSidebar() {
   const sb = document.getElementById('guias-sidebar');
   const sum = document.getElementById('guias-summary');
   if (!sb) return;
-  const rows = ALOJ_STATE.rows || [];
-  if (sum) sum.textContent = `${rows.length} propiedad${rows.length===1?'':'es'}`;
-  if (!rows.length) {
-    sb.innerHTML = '<div style="padding:30px 10px;text-align:center;color:#94a3b8;font-size:12px">Sin alojamientos cargados</div>';
-    return;
-  }
-  sb.innerHTML = rows.map(r => {
+  const allRows = ALOJ_STATE.rows || [];
+  const rows = guiasFilteredRows();
+  if (sum) sum.textContent = `${GUIAS_STATE.selectedIds.size}/${rows.length} seleccionados`;
+
+  const props = [...new Set(allRows.map(r => String(r['Propiedad'] || '').trim()).filter(Boolean))].sort();
+  const depts = [...new Set(allRows.map(r => String(r['# Departamento'] != null ? r['# Departamento'] : '').trim()).filter(Boolean))].sort((a,b)=>{
+    const na = parseInt(a,10), nb = parseInt(b,10);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return a.localeCompare(b);
+  });
+
+  const filterChips = (kind, options) => options.map(opt => {
+    const active = GUIAS_STATE.filters[kind].has(opt);
+    return `<button type="button" onclick="guiasToggleFilter('${kind}','${esc(opt)}')" style="all:unset;cursor:pointer;display:inline-block;padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:700;border:1.5px solid ${active?'#0d9488':'#cbd5e1'};background:${active?'#0d9488':'#fff'};color:${active?'#fff':'#475569'};margin:2px">${esc(opt)}</button>`;
+  }).join('');
+
+  const itemsHtml = rows.length ? rows.map(r => {
     const id = guiasItemId(r);
     const label = guiasItemLabel(r);
-    const isSel = GUIAS_STATE.selectedId === id;
-    return `<button type="button" onclick="guiasSelect('${esc(id)}')"
-      style="all:unset;display:block;width:100%;box-sizing:border-box;cursor:pointer;padding:10px 12px;margin-bottom:4px;border-radius:8px;font-size:13px;font-weight:${isSel?'700':'600'};color:${isSel?'#fff':'#0f172a'};background:${isSel?'#0d9488':'transparent'};border:1px solid ${isSel?'#0d9488':'transparent'};transition:background .12s"
-      onmouseover="if(this.dataset.sel!=='1')this.style.background='#e2e8f0'"
-      onmouseout="if(this.dataset.sel!=='1')this.style.background='transparent'"
-      data-sel="${isSel?'1':'0'}">📍 ${esc(label)}</button>`;
-  }).join('');
+    const isSel = GUIAS_STATE.selectedIds.has(id);
+    return `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:3px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#0f172a;background:${isSel?'#ecfdf5':'transparent'};border:1px solid ${isSel?'#bbf7d0':'transparent'}"
+      onmouseover="if(!this.querySelector('input').checked)this.style.background='#f1f5f9'"
+      onmouseout="if(!this.querySelector('input').checked)this.style.background='transparent'">
+      <input type="checkbox" ${isSel?'checked':''} onchange="guiasToggleItem('${esc(id)}')" style="width:16px;height:16px;flex-shrink:0;accent-color:#0d9488">
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍 ${esc(label)}</span>
+    </label>`;
+  }).join('') : '<div style="padding:20px 10px;text-align:center;color:#94a3b8;font-size:12px">Ningún alojamiento coincide con los filtros.</div>';
+
+  sb.innerHTML = `
+    <div style="margin-bottom:10px">
+      <div style="font-size:10.5px;font-weight:800;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Propiedad</div>
+      <div>${filterChips('propiedad', props) || '<span style="color:#94a3b8;font-size:11px">—</span>'}</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10.5px;font-weight:800;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px"># Departamento</div>
+      <div>${filterChips('departamento', depts) || '<span style="color:#94a3b8;font-size:11px">—</span>'}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #e2e8f0;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:#475569">Seleccionar:</span>
+      <button type="button" onclick="guiasSelectAll()" style="all:unset;cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;background:#334155;color:#fff">Todos</button>
+      <button type="button" onclick="guiasSelectNone()" style="all:unset;cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;border:1px solid #cbd5e1;background:#fff;color:#475569">Ninguno</button>
+    </div>
+    ${itemsHtml}`;
 }
-
-window.guiasSelect = function(id) {
-  GUIAS_STATE.selectedId = id;
-  guiasRenderSidebar();
-  guiasRenderContent();
-};
-
-window.guiasSetTab = function(key) {
-  GUIAS_STATE.activeTab = key;
-  guiasRenderContent();
-};
 
 function guiasRenderContent() {
   const host = document.getElementById('guias-content');
   if (!host) return;
-  const aloj = guiasAlojById(GUIAS_STATE.selectedId);
-  if (!aloj) {
-    host.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#94a3b8;font-size:13px">Selecciona una propiedad a la izquierda</div>';
+  const alojs = guiasSelectedAlojs();
+  if (!alojs.length) {
+    host.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#94a3b8;font-size:13px">Selecciona uno o más alojamientos a la izquierda.</div>';
     return;
   }
-  const label = guiasItemLabel(aloj);
+  const heading = alojs.length === 1
+    ? `📍 ${guiasItemLabel(alojs[0])}`
+    : `📍 ${alojs.length} alojamientos seleccionados (los cambios aplican a todos)`;
   const tabs = GUIAS_TABS.map(t => {
     const active = GUIAS_STATE.activeTab === t.key;
     return `<button type="button" onclick="guiasSetTab('${esc(t.key)}')" style="all:unset;cursor:pointer;flex:1;min-width:0;text-align:center;padding:14px 6px;background:${active?'#1e3a8a':'transparent'};color:${active?'#fff':'#0f172a'};border-radius:${active?'10px':'0'};transition:background .15s">
@@ -27417,22 +27509,32 @@ function guiasRenderContent() {
       <div style="font-size:9.5px;font-weight:800;letter-spacing:.06em;margin-top:4px">${esc(t.label)}</div>
     </button>`;
   }).join('');
+  const editBtn = GUIAS_STATE.editMode
+    ? `<div style="display:flex;gap:6px">
+         <button type="button" onclick="guiasSaveEdits()" style="all:unset;cursor:pointer;background:#16a34a;color:#fff;padding:6px 14px;border-radius:8px;font-weight:800;font-size:12px">💾 Guardar</button>
+         <button type="button" onclick="guiasToggleEdit()" style="all:unset;cursor:pointer;background:#fff;color:#475569;border:1px solid #cbd5e1;padding:6px 12px;border-radius:8px;font-weight:700;font-size:12px">Cancelar</button>
+       </div>`
+    : `<button type="button" onclick="guiasToggleEdit()" style="all:unset;cursor:pointer;background:#1e3a8a;color:#fff;padding:6px 14px;border-radius:8px;font-weight:700;font-size:12px">✏️ Editar</button>`;
   host.innerHTML = `
-    <div style="max-width:520px;margin:0 auto">
-      <div style="font-size:12px;color:#64748b;font-weight:700;margin-bottom:6px">${esc(label)}</div>
-      <div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:14px">${tabs}</div>
-      <div id="guias-tab-content">${guiasBuildTabHtml(GUIAS_STATE.activeTab, aloj)}</div>
+    <div style="max-width:560px;margin:0 auto">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <div style="font-size:12px;color:#64748b;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(heading)}</div>
+        ${editBtn}
+      </div>
+      <div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:14px;overflow-x:auto">${tabs}</div>
+      <div id="guias-tab-content">${guiasBuildTabHtml(GUIAS_STATE.activeTab, alojs)}</div>
     </div>`;
 }
 
-function guiasBuildTabHtml(key, aloj) {
+function guiasBuildTabHtml(key, alojs) {
   switch (key) {
-    case 'wifi':     return guiasTabWifi(aloj);
-    case 'check-in': return guiasTabCheckin(aloj);
-    case 'rules':    return guiasTabRules(aloj);
-    case 'waste':    return guiasTabWaste(aloj);
-    case 'services': return guiasTabServices(aloj);
-    case 'guide':    return guiasTabGuide(aloj);
+    case 'wifi':     return guiasTabWifi(alojs);
+    case 'check-in': return guiasTabCheckin(alojs);
+    case 'acceso':   return guiasTabAcceso(alojs);
+    case 'rules':    return guiasTabRules(alojs);
+    case 'waste':    return guiasTabWaste(alojs);
+    case 'services': return guiasTabServices(alojs);
+    case 'guide':    return guiasTabGuide(alojs);
     default: return '<div style="padding:20px;color:#94a3b8">Sin contenido</div>';
   }
 }
@@ -27446,65 +27548,92 @@ function guiasCard(title, icon, inner) {
   </div>`;
 }
 
-function guiasField(label, value) {
-  return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0">
+// Campo configurable: lectura o input según editMode + multi-select.
+function guiasField(label, fieldKey, alojs, opts) {
+  const { value, mixed } = guiasFieldValue(alojs, fieldKey);
+  const placeholder = mixed ? '(varios — escribe para sobrescribir)' : '—';
+  const inputType = (opts && opts.type) || 'text';
+  if (GUIAS_STATE.editMode) {
+    const input = inputType === 'textarea'
+      ? `<textarea oninput="guiasOnFieldChange('${esc(fieldKey)}', this.value)" placeholder="${esc(placeholder)}" rows="3" style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;font-family:inherit;box-sizing:border-box">${esc(value)}</textarea>`
+      : `<input type="${esc(inputType)}" oninput="guiasOnFieldChange('${esc(fieldKey)}', this.value)" value="${esc(value)}" placeholder="${esc(placeholder)}" style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">`;
+    return `<div style="padding:6px 0">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px;font-weight:700">${esc(label)}</div>
+      ${input}
+    </div>`;
+  }
+  return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:6px 0">
     <span style="font-size:11px;color:#64748b">${esc(label)}</span>
-    <span style="font-size:13px;color:#0f172a;font-weight:600;text-align:right">${esc(value || '—')}</span>
+    <span style="font-size:13px;color:${mixed?'#94a3b8':'#0f172a'};font-weight:600;text-align:right;font-style:${mixed?'italic':'normal'};white-space:pre-wrap">${esc(mixed ? '(varios)' : (value || '—'))}</span>
   </div>`;
 }
 
-function guiasTabWifi(a) {
+function guiasTabWifi(alojs) {
   return guiasCard('Wi-Fi', '📶',
-    guiasField('Red (SSID)', a['WIFI_SSID'] || '—') +
-    guiasField('Contraseña', a['WIFI_Password'] || a['WIFI_Pass'] || '—'));
+    guiasField('Red (SSID)', 'WIFI_SSID', alojs) +
+    guiasField('Contraseña', 'WIFI_Password', alojs));
 }
 
-function guiasTabCheckin(a) {
-  const dir = a['Dirección'] || a['Direccion'] || a['Address'] || '';
-  const tax = a['City_Tax'] || a['Impuesto'] || '';
-  const phone = a['Host_Telefono'] || a['Telefono'] || '';
-  const wa = a['Host_WhatsApp'] || phone;
-  const email = a['Host_Email'] || a['Email'] || '';
+function guiasTabCheckin(alojs) {
+  // Sin el banner "¿Llegada temprana?".
+  const dirInfo = guiasFieldValue(alojs, 'Dirección');
+  const dir = dirInfo.mixed ? '' : dirInfo.value;
+  const phoneInfo = guiasFieldValue(alojs, 'Host_Telefono');
+  const phone = phoneInfo.mixed ? '' : phoneInfo.value;
+  const waInfo = guiasFieldValue(alojs, 'Host_WhatsApp');
+  const wa = (waInfo.mixed ? '' : waInfo.value) || phone;
+  const emailInfo = guiasFieldValue(alojs, 'Host_Email');
+  const email = emailInfo.mixed ? '' : emailInfo.value;
   return guiasCard('Check-in', '🔑',
-    `<div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:10px 12px;border-radius:6px;margin-bottom:12px">
-       <div style="font-size:12px;font-weight:800;color:#92400e">🧳 ¿Llegada temprana o salida tardía?</div>
-       <div style="font-size:11px;color:#78350f;margin-top:2px">Busca consigna cercana</div>
-     </div>` +
-    guiasField('Dirección', dir) +
-    `<a href="${dir ? 'https://maps.google.com/?q=' + encodeURIComponent(dir) : '#'}" target="_blank" rel="noopener" style="display:block;text-align:center;background:#1e293b;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px;margin:8px 0">Navegar con Google Maps</a>` +
+    guiasField('Dirección', 'Dirección', alojs) +
+    (!GUIAS_STATE.editMode && dir ? `<a href="https://maps.google.com/?q=${encodeURIComponent(dir)}" target="_blank" rel="noopener" style="display:block;text-align:center;background:#1e293b;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px;margin:8px 0">Navegar con Google Maps</a>` : '') +
     `<div style="border-top:1px solid #e2e8f0;margin:10px 0"></div>` +
-    guiasField('City Tax', tax) +
+    guiasField('City Tax', 'City_Tax', alojs, { type: 'textarea' }) +
     `<div style="border-top:1px solid #e2e8f0;margin:10px 0"></div>` +
-    `<div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px">📞 Contacto Anfitrión</div>
-     <div style="display:flex;flex-direction:column;gap:6px">
+    `<div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px">📞 Contacto Anfitrión</div>` +
+    guiasField('Teléfono', 'Host_Telefono', alojs) +
+    guiasField('WhatsApp', 'Host_WhatsApp', alojs) +
+    guiasField('Email', 'Host_Email', alojs) +
+    (!GUIAS_STATE.editMode ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
        ${phone ? `<a href="tel:${esc(phone)}" style="text-align:center;background:#3b82f6;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px">📞 ${esc(phone)}</a>` : ''}
        ${wa ? `<a href="https://wa.me/${esc(String(wa).replace(/[^0-9]/g,''))}" target="_blank" rel="noopener" style="text-align:center;background:#25d366;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px">💬 WhatsApp</a>` : ''}
        ${email ? `<a href="mailto:${esc(email)}" style="text-align:center;background:#475569;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px">✉️ ${esc(email)}</a>` : ''}
-     </div>`);
+     </div>` : ''));
 }
 
-function guiasTabRules(a) {
+function guiasTabAcceso(alojs) {
+  return guiasCard('Acceso', '🚪',
+    guiasField('Código de puerta / cerradura', 'Acceso_Codigo', alojs) +
+    guiasField('Instrucciones de llegada', 'Acceso_Instrucciones', alojs, { type: 'textarea' }) +
+    guiasField('Estacionamiento', 'Acceso_Estacionamiento', alojs, { type: 'textarea' }) +
+    guiasField('Ubicación de llaves', 'Acceso_Llaves', alojs));
+}
+
+function guiasTabRules(alojs) {
   return guiasCard('House Rules', '📋',
-    `<div style="text-align:center;font-weight:800;font-size:13px;color:#0f172a;margin-bottom:10px">Manuales</div>
-     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-       ${['🌡️ A/C','🚿 Agua','📺 Smart TV'].map(t => `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:18px 8px;text-align:center;font-size:11px;font-weight:600">${t}</div>`).join('')}
-     </div>
-     <button type="button" style="all:unset;cursor:pointer;display:block;text-align:center;width:100%;box-sizing:border-box;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;font-weight:800;padding:10px;border-radius:8px;margin-top:14px">🆘 SOS</button>`);
+    guiasField('Reglas de la casa', 'Reglas', alojs, { type: 'textarea' }) +
+    guiasField('Manual A/C', 'Manual_AC', alojs, { type: 'textarea' }) +
+    guiasField('Manual Agua / Boiler', 'Manual_Agua', alojs, { type: 'textarea' }) +
+    guiasField('Manual Smart TV', 'Manual_SmartTV', alojs, { type: 'textarea' }) +
+    guiasField('SOS / Emergencias', 'SOS', alojs, { type: 'textarea' }));
 }
 
-function guiasTabWaste(a) {
+function guiasTabWaste(alojs) {
   return guiasCard('Reciclaje', '♻️',
-    '<div style="font-size:12px;color:#64748b;font-style:italic">Información de separación de residuos (pendiente de cargar desde alojamientos).</div>');
+    guiasField('Días y horarios de recolección', 'Reciclaje_Horarios', alojs, { type: 'textarea' }) +
+    guiasField('Separación de residuos', 'Reciclaje_Separacion', alojs, { type: 'textarea' }));
 }
 
-function guiasTabServices(a) {
-  const amenities = ['Wi-Fi Gratis','Aire Acondicionado','Calefacción','Estacionamiento','TV','Cocina equipada','Refrigerador','Cafetera','Microondas','Lavadora','Secadora','Balcón','Terraza','Jardín'];
+function guiasTabServices(alojs) {
   return guiasCard('Servicios', '💎',
-    `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${amenities.map(s => `<span style="background:#ecfeff;border:1px solid #a5f3fc;color:#0e7490;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:600">✓ ${esc(s)}</span>`).join('')}</div>
-     <div style="font-size:11px;color:#64748b;font-style:italic">Servicios adicionales y precios (pendiente de cargar).</div>`);
+    guiasField('Amenidades (separadas por coma)', 'Servicios_Amenidades', alojs, { type: 'textarea' }) +
+    guiasField('Servicios adicionales / precios', 'Servicios_Adicionales', alojs, { type: 'textarea' }));
 }
 
-function guiasTabGuide(a) {
+function guiasTabGuide(alojs) {
   return guiasCard('Guía Local', '🗺️',
-    '<div style="font-size:12px;color:#64748b;font-style:italic">Lugares cercanos, recomendaciones y galería (pendiente de cargar).</div>');
+    guiasField('Lugares recomendados', 'Guia_Lugares', alojs, { type: 'textarea' }) +
+    guiasField('Restaurantes', 'Guia_Restaurantes', alojs, { type: 'textarea' }) +
+    guiasField('Transporte', 'Guia_Transporte', alojs, { type: 'textarea' }) +
+    guiasField('Tours / Excursiones', 'Guia_Tours', alojs, { type: 'textarea' }));
 }
