@@ -26828,7 +26828,7 @@ function tuyaBuildDoorChart(logs, opts) {
   const all = tuyaDoorParseLogs(logs);
   const series = all.slice(-N);
   if (!series.length) return '<div style="padding:10px;color:#94a3b8;font-size:11px;font-style:italic">Sin eventos de puerta registrados</div>';
-  const H = 130, padT = 28, padB = 36;
+  const H = 170, padT = 28, padB = 72;
   const stepX = 22;
   const innerH = H - padT - padB;
   const dataW = Math.max(280, series.length * stepX);
@@ -26856,9 +26856,11 @@ function tuyaBuildDoorChart(logs, opts) {
     </g>`;
   }).join('');
 
-  // Labels X cada stride
-  const stride = Math.max(1, Math.ceil(series.length / 12));
-  const labelsX = series.map((r, i) => (i % stride === 0) ? `<text x="${x(i)}" y="${H-12}" text-anchor="middle" font-size="9" fill="#94a3b8">${esc(new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</text>` : '').join('');
+  // Labels X rotadas 90° (verticales). Sin stride: no se traslapan al ser
+  // estrechas verticalmente. Y cerca del fondo, text-anchor=end para que
+  // tras rotar, la fecha quede pegada a la línea del eje X.
+  const labelY = H - 4;
+  const labelsX = series.map((r, i) => `<text x="${x(i)}" y="${labelY}" text-anchor="end" font-size="9" fill="#94a3b8" transform="rotate(-90, ${x(i)}, ${labelY})">${esc(new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</text>`).join('');
 
   // Conteo
   const opens = series.filter(r => r.open).length;
@@ -26961,7 +26963,7 @@ function tuyaBuildRotoplasChart(logs, opts) {
   const full = tuyaRotoplasParseLogs(logs).series;
   const series = full.slice(-N);
   if (!series.length) return '<div style="padding:10px;color:#94a3b8;font-size:11px;font-style:italic">Sin lecturas de liquid_depth/liquid_level_percent</div>';
-  const H = 240, padT = 28, padB = 36;
+  const H = 280, padT = 28, padB = 76;
   const stepX = 22; // compacto: ~2x más observaciones por unidad de ancho
   const innerH = H - padT - padB;
   const fmtTs = (ts) => new Date(ts).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
@@ -27055,9 +27057,9 @@ function tuyaBuildRotoplasChart(logs, opts) {
     depthEls = (pathD ? `<path d="${pathD}" fill="none" stroke="#0d9488" stroke-width="2"/>` : '') + dots;
   }
 
-  // Labels X cada stride
-  const stride = Math.max(1, Math.ceil(series.length / 12));
-  const labelsX = series.map((r,i) => (i % stride === 0) ? `<text x="${x(i)}" y="${H-12}" text-anchor="middle" font-size="9" fill="#94a3b8">${esc(new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</text>` : '').join('');
+  // Labels X rotadas 90° (verticales) — sin stride, no se traslapan.
+  const labelY = H - 4;
+  const labelsX = series.map((r,i) => `<text x="${x(i)}" y="${labelY}" text-anchor="end" font-size="9" fill="#94a3b8" transform="rotate(-90, ${x(i)}, ${labelY})">${esc(new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</text>`).join('');
 
   // SVG central scrollable (sólo datos)
   const dataSvg = `<svg width="${dataW}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block"
