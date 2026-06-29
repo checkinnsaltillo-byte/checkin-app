@@ -24759,19 +24759,34 @@ function rhPaintObligaciones() {
   const yearsRange = []; for (let y = year - 2; y <= year + 1; y++) yearsRange.push(y);
   const yearOpts = yearsRange.map(y => `<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('');
 
+  // Paleta por trimestre — cada mes hereda el acento de su Q
+  const Q_PALETTE = [
+    { from: '#06b6d4', to: '#0891b2', soft: '#ecfeff', ink: '#155e75' },  // Q1
+    { from: '#10b981', to: '#059669', soft: '#ecfdf5', ink: '#065f46' },  // Q2
+    { from: '#f59e0b', to: '#d97706', soft: '#fffbeb', ink: '#92400e' },  // Q3
+    { from: '#f43f5e', to: '#e11d48', soft: '#fff1f2', ink: '#9f1239' },  // Q4
+  ];
+
   const cards = RH_OBL_MESES.map((mesName, idx) => {
     const month = idx + 1;
     const isOpen = RH_OBL_STATE.expanded === month;
     const monthChips = rhObligacionesMonthChips(month);
-    const body = isOpen ? rhObligacionesMonthBody(month) : '';
+    const body = isOpen ? rhObligacionesMonthBody(month, Q_PALETTE[Math.floor(idx/3)]) : '';
+    const pal = Q_PALETTE[Math.floor(idx/3)];
+    const mm = ('0' + month).slice(-2);
     return `
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;${isOpen?'box-shadow:0 4px 18px rgba(15,23,42,.08)':''}">
-        <div onclick="rhToggleMonth(${month})" style="cursor:pointer;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:${isOpen?'#f8fafc':'#fff'}">
-          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-            <span style="font-size:18px;color:${isOpen?'#0d9488':'#64748b'};font-weight:900">${isOpen?'▾':'▸'}</span>
-            <div style="font-weight:800;font-size:15px;color:#0f172a">${mesName} <span style="color:#94a3b8;font-weight:600;font-size:12px">${year}</span></div>
+      <div style="background:#fff;border:1px solid ${isOpen?pal.from:'#e2e8f0'};border-radius:18px;overflow:hidden;transition:all .2s;${isOpen?`box-shadow:0 10px 30px ${pal.from}22, 0 2px 8px rgba(15,23,42,.06)`:'box-shadow:0 1px 2px rgba(15,23,42,.04)'}">
+        <div onclick="rhToggleMonth(${month})" style="cursor:pointer;position:relative;display:flex;align-items:stretch;gap:0;background:${isOpen?`linear-gradient(135deg,${pal.soft} 0%,#fff 60%)`:'#fff'}">
+          <div style="width:6px;background:linear-gradient(180deg,${pal.from},${pal.to})"></div>
+          <div style="flex:1;padding:14px 16px;display:flex;align-items:center;gap:12px;min-width:0">
+            <div style="width:42px;height:42px;border-radius:12px;background:${isOpen?`linear-gradient(135deg,${pal.from},${pal.to})`:'#f1f5f9'};color:${isOpen?'#fff':pal.ink};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;flex-shrink:0">${mm}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:800;font-size:15px;color:#0f172a;letter-spacing:-.01em">${mesName}</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600">${year}</div>
+            </div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;align-items:center">${monthChips}</div>
+            <span style="font-size:14px;color:${isOpen?pal.from:'#cbd5e1'};font-weight:900;margin-left:4px">${isOpen?'▾':'▸'}</span>
           </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${monthChips}</div>
         </div>
         ${body}
       </div>
@@ -24779,13 +24794,19 @@ function rhPaintObligaciones() {
   }).join('');
 
   view.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;margin:0 0 14px">
-      <div style="font-weight:800;color:#0f172a;font-size:15px">📋 Obligaciones</div>
+    <div style="display:flex;align-items:center;gap:10px;margin:0 0 16px;padding:0 2px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px">📋</div>
+        <div>
+          <div style="font-weight:800;color:#0f172a;font-size:16px;letter-spacing:-.01em">Obligaciones</div>
+          <div style="font-size:11px;color:#94a3b8;font-weight:600">Cuotas IMSS y recibos de nómina</div>
+        </div>
+      </div>
       <div style="flex:1"></div>
-      <label style="font-size:12px;color:#64748b;font-weight:600">Año</label>
-      <select onchange="rhObligacionesSetYear(this.value)" style="padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff;cursor:pointer">${yearOpts}</select>
+      <label style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Año</label>
+      <select onchange="rhObligacionesSetYear(this.value)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:9px;font-size:13px;background:#fff;cursor:pointer;font-weight:700;color:#0f172a">${yearOpts}</select>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px">
       ${cards}
     </div>
   `;
@@ -24805,86 +24826,116 @@ window.rhToggleMonth = function (month) {
 function rhObligacionesMonthChips(month) {
   const f = RH_OBL_STATE.files;
   const has = (kind, emp) => !!f[rhObligacionesKey(month, kind, emp || '')];
-  const chips = [];
-  const okStyle = 'background:#d1fae5;color:#065f46;border:1px solid #6ee7b7';
-  const missStyle = 'background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0';
-  const wrap = (txt, ok) => `<span style="${ok?okStyle:missStyle};font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap">${txt}</span>`;
   const formato = has('cuota_formato');
   const compr = has('cuota_comprobante');
-  chips.push(wrap('Cuotas', formato && compr));
   const activos = rhObligacionesEmpleadosActivos();
   let recibosOk = 0;
   activos.forEach(e => {
     const id = String(e.ID || '');
     if (has('recibo_xml', id) && has('recibo_pdf', id)) recibosOk++;
   });
-  chips.push(wrap(`Recibos ${recibosOk}/${activos.length}`, activos.length && recibosOk === activos.length));
-  return chips.join('');
+  const cuotasOk = formato && compr;
+  const recibosFull = activos.length && recibosOk === activos.length;
+  const chip = (txt, ok, ico) => {
+    const okSt = 'background:#ecfdf5;color:#047857;border:1px solid #6ee7b7';
+    const partSt = 'background:#fef3c7;color:#92400e;border:1px solid #fde68a';
+    const missSt = 'background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0';
+    const st = ok === 'full' ? okSt : ok === 'part' ? partSt : missSt;
+    return `<span style="${st};font-size:10.5px;font-weight:800;padding:4px 9px;border-radius:99px;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">${ico}${txt}</span>`;
+  };
+  return [
+    chip('Cuotas', cuotasOk ? 'full' : (formato || compr ? 'part' : 'miss'), cuotasOk?'✓ ':''),
+    chip(`${recibosOk}/${activos.length}`, recibosFull ? 'full' : (recibosOk ? 'part' : 'miss'), recibosFull?'✓ ':''),
+  ].join('');
 }
 
-function rhObligacionesMonthBody(month) {
+// Configuración por tipo: color, ícono, restricción accept, gradiente
+const RH_OBL_KIND_THEME = {
+  cuota_formato:     { ico:'📄', from:'#6366f1', to:'#4f46e5', soft:'#eef2ff', ink:'#3730a3', accept:'*/*',   label:'Formato' },
+  cuota_comprobante: { ico:'🧾', from:'#8b5cf6', to:'#7c3aed', soft:'#f5f3ff', ink:'#5b21b6', accept:'*/*',   label:'Comprobante' },
+  recibo_xml:        { ico:'{ }', from:'#0ea5e9', to:'#0284c7', soft:'#f0f9ff', ink:'#075985', accept:'.xml,application/xml,text/xml', label:'Recibo XML' },
+  recibo_pdf:        { ico:'📕', from:'#ef4444', to:'#dc2626', soft:'#fef2f2', ink:'#991b1b', accept:'.pdf,application/pdf',           label:'Recibo PDF' },
+};
+
+function rhObligacionesMonthBody(month, pal) {
   const f = RH_OBL_STATE.files;
   const activos = rhObligacionesEmpleadosActivos();
   const cuotaFormato = f[rhObligacionesKey(month, 'cuota_formato', '')];
   const cuotaCompr   = f[rhObligacionesKey(month, 'cuota_comprobante', '')];
 
-  const fileBox = (label, kind, empleadoId, current) => {
+  const fileBox = (kind, empleadoId, current) => {
+    const t = RH_OBL_KIND_THEME[kind];
     const empSafe = empleadoId || '';
     const inputId = `rh-obl-in-${month}-${kind}-${empSafe || 'g'}`;
+    const filled = !!current;
     return `
-      <div style="border:1.5px dashed ${current?'#10b981':'#cbd5e1'};background:${current?'#ecfdf5':'#f8fafc'};border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;min-width:0">
+      <div style="position:relative;border:1.5px ${filled?'solid':'dashed'} ${filled?t.from:'#cbd5e1'};background:${filled?`linear-gradient(135deg,${t.soft} 0%,#fff 70%)`:'#fafbfc'};border-radius:12px;padding:10px;display:flex;align-items:center;gap:8px;min-width:0;transition:all .15s">
+        <div style="width:30px;height:30px;border-radius:8px;background:${filled?`linear-gradient(135deg,${t.from},${t.to})`:'#fff'};border:${filled?'none':`1.5px solid ${t.from}33`};color:${filled?'#fff':t.from};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0">${t.ico}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.4px">${label}</div>
+          <div style="font-size:10px;color:${t.ink};font-weight:800;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.label}</div>
           ${current
-            ? `<a href="${esc(current.url)}" target="_blank" rel="noopener" style="font-size:12.5px;color:#065f46;font-weight:600;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:100%">✓ ${esc(current.name || 'Archivo cargado')}</a>`
-            : `<div style="font-size:12.5px;color:#94a3b8">Sin cargar</div>`}
+            ? `<a href="${esc(current.url)}" target="_blank" rel="noopener" style="font-size:11.5px;color:#0f172a;font-weight:700;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:100%" title="${esc(current.name||'')}">${esc(current.name || 'Cargado')}</a>`
+            : `<div style="font-size:11px;color:#94a3b8;font-weight:500;font-style:italic">Sin cargar</div>`}
         </div>
-        <input type="file" id="${inputId}" style="display:none" onchange="rhObligacionUpload(this, ${month}, '${kind}', '${empSafe}')">
-        <button type="button" onclick="document.getElementById('${inputId}').click()" style="all:unset;cursor:pointer;background:${current?'#0d9488':'#0f172a'};color:#fff;font-weight:700;font-size:12px;padding:7px 12px;border-radius:7px;white-space:nowrap">${current?'Reemplazar':'Subir'}</button>
+        <input type="file" id="${inputId}" accept="${t.accept}" style="display:none" onchange="rhObligacionUpload(this, ${month}, '${kind}', '${empSafe}')">
+        <button type="button" onclick="document.getElementById('${inputId}').click()" style="all:unset;cursor:pointer;background:${filled?'#fff':`linear-gradient(135deg,${t.from},${t.to})`};color:${filled?t.from:'#fff'};border:${filled?`1.5px solid ${t.from}`:'none'};font-weight:800;font-size:11px;padding:6px 11px;border-radius:7px;white-space:nowrap;box-shadow:${filled?'none':`0 2px 6px ${t.from}40`};flex-shrink:0">${filled?'Reemplazar':'Subir'}</button>
       </div>
     `;
   };
 
+  const sectionHeader = (icoBg, ico, title, subtitle, accentFrom, accentTo) => `
+    <div style="display:flex;align-items:center;gap:10px;margin:0 0 12px">
+      <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,${accentFrom},${accentTo});color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 3px 8px ${accentFrom}40">${ico}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;font-size:13.5px;color:#0f172a;letter-spacing:-.005em">${title}</div>
+        <div style="font-size:11px;color:#94a3b8;font-weight:600">${subtitle}</div>
+      </div>
+    </div>`;
+
   const cuotasBlock = `
-    <div style="margin:0 0 18px">
-      <div style="font-weight:800;font-size:13px;color:#0f172a;margin:0 0 8px">💼 Pago de cuotas obrero patronales</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        ${fileBox('Formato de pago', 'cuota_formato', '', cuotaFormato)}
-        ${fileBox('Comprobante de pago', 'cuota_comprobante', '', cuotaCompr)}
+    <div style="background:linear-gradient(135deg,#fafbff 0%,#fff 100%);border:1px solid #e0e7ff;border-radius:14px;padding:14px 14px 16px;margin:0 0 14px">
+      ${sectionHeader('','💼','Pago de cuotas obrero patronales','Aportaciones IMSS del mes','#6366f1','#4f46e5')}
+      <div style="display:grid;gap:8px">
+        ${fileBox('cuota_formato', '', cuotaFormato)}
+        ${fileBox('cuota_comprobante', '', cuotaCompr)}
       </div>
     </div>`;
 
   const empleadosCards = activos.map(e => {
     const id = String(e.ID || '');
     const nombre = [e.Nombre, e.Apellido_paterno, e.Apellido_materno].filter(Boolean).join(' ') || (e.Nombre || '—');
+    const iniciales = (nombre.match(/\b\w/g) || []).slice(0,2).join('').toUpperCase() || '?';
     const xml = f[rhObligacionesKey(month, 'recibo_xml', id)];
     const pdf = f[rhObligacionesKey(month, 'recibo_pdf', id)];
-    const okChip = (ok, txt) => `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;${ok?'background:#d1fae5;color:#065f46;border:1px solid #6ee7b7':'background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0'}">${txt}</span>`;
+    const both = !!xml && !!pdf;
+    const accent = both ? '#10b981' : (xml||pdf) ? '#f59e0b' : '#cbd5e1';
+    const okChip = (ok, txt, color) => `<span style="font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:3px;${ok?`background:${color}1a;color:${color};border:1px solid ${color}66`:'background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0'}">${ok?'✓ ':''}${txt}</span>`;
     return `
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid ${accent};border-radius:12px;padding:12px 14px;transition:all .15s">
+        <div style="display:flex;align-items:center;gap:10px;margin:0 0 10px">
+          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#475569,#334155);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0;letter-spacing:.5px">${iniciales}</div>
           <div style="font-weight:700;font-size:13px;color:#0f172a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nombre)}</div>
-          <div style="display:flex;gap:4px">
-            ${okChip(!!xml, 'XML')}
-            ${okChip(!!pdf, 'PDF')}
+          <div style="display:flex;gap:4px;flex-shrink:0">
+            ${okChip(!!xml, 'XML', '#0ea5e9')}
+            ${okChip(!!pdf, 'PDF', '#ef4444')}
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          ${fileBox('Recibo XML', 'recibo_xml', id, xml)}
-          ${fileBox('Recibo PDF', 'recibo_pdf', id, pdf)}
+          ${fileBox('recibo_xml', id, xml)}
+          ${fileBox('recibo_pdf', id, pdf)}
         </div>
       </div>`;
   }).join('');
 
   const recibosBlock = `
-    <div>
-      <div style="font-weight:800;font-size:13px;color:#0f172a;margin:0 0 8px">🧾 Recibos de nómina (${activos.length} empleados activos)</div>
+    <div style="background:linear-gradient(135deg,#fffbf5 0%,#fff 100%);border:1px solid #fde68a;border-radius:14px;padding:14px 14px 16px">
+      ${sectionHeader('','🧾','Recibos de nómina',`${activos.length} empleado${activos.length===1?'':'s'} activo${activos.length===1?'':'s'}`,'#f59e0b','#d97706')}
       ${activos.length === 0
-        ? `<div style="text-align:center;padding:18px;color:#94a3b8;font-size:12px;background:#f8fafc;border-radius:10px">Sin empleados activos.</div>`
-        : `<div style="display:grid;gap:8px">${empleadosCards}</div>`}
+        ? `<div style="text-align:center;padding:22px;color:#94a3b8;font-size:12px;background:#fff;border:1px dashed #e2e8f0;border-radius:10px">Sin empleados activos.</div>`
+        : `<div style="display:grid;gap:9px">${empleadosCards}</div>`}
     </div>`;
 
-  return `<div style="padding:14px 18px 18px;border-top:1px solid #f1f5f9;background:#fff">${cuotasBlock}${recibosBlock}</div>`;
+  return `<div style="padding:16px 18px 18px;border-top:1px solid ${pal.from}22;background:linear-gradient(180deg,${pal.soft}66 0%,#fff 100%)">${cuotasBlock}${recibosBlock}</div>`;
 }
 
 window.rhObligacionUpload = async function (input, month, kind, empleadoId) {
