@@ -24646,8 +24646,8 @@ window.rhSetSection = function (section) {
   const secN = document.getElementById('rh-section-nomina');
   const secO = document.getElementById('rh-section-obligaciones');
   if (btnN && btnO) {
-    const on = 'background:#fff;color:#0f172a;box-shadow:0 1px 2px rgba(15,23,42,.05);font-weight:800';
-    const off = 'background:transparent;color:#475569;font-weight:600';
+    const on = 'background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;box-shadow:0 3px 10px rgba(234,88,12,.35);font-weight:900';
+    const off = 'background:transparent;color:#64748b;font-weight:700';
     const base = 'all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-size:13px;';
     btnN.setAttribute('style', base + (section === 'nomina' ? on : off));
     btnO.setAttribute('style', base + (section === 'obligaciones' ? on : off));
@@ -25339,7 +25339,7 @@ function rhRenderCompensaciones() {
       <div class="rh-field"><label>Hasta</label>
         <input type="date" value="${esc(f.hasta)}" onchange="rhCompSetFilter('hasta', this.value)">
       </div>
-      <button type="button" class="comp-filter-clear" onclick="rhCompClearFilters()">Limpiar filtros</button>
+      <button type="button" class="comp-filter-clear" onclick="rhCompClearFilters()">Limpiar</button>
     </div>
     ${rows.length === 0
       ? `<div class="rh-empty">${all.length === 0 ? 'Sin compensaciones registradas.' : 'Ningún registro coincide con los filtros.'}</div>`

@@ -5761,6 +5761,15 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   padding: 5px;
   border-radius: 12px;
   width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.rh-tabs::-webkit-scrollbar { height: 6px; }
+.rh-tabs::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+@media (max-width: 640px) {
+  .rh-tabs { width: 100%; }
 }
 .rh-tab {
   border: 0;
@@ -6099,6 +6108,15 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   border: 1px solid #fed7aa;
   border-radius: 10px;
   margin-bottom: 14px;
+}
+@media (max-width: 768px) {
+  .comp-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+  .comp-filter-clear {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
 }
 .comp-filter-clear {
   padding: 9px 14px;
