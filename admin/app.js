@@ -25268,11 +25268,11 @@ function rhRenderAusencias() {
         </table></div>`}`;
 }
 
-const COMP_FILTERS = { empleado: '', concepto: '', periodo: '' };
+const COMP_FILTERS = { empleado: '', concepto: '', periodo: '', periodoLaborado: '' };
 
 window.rhCompSetFilter = function (k, v) { COMP_FILTERS[k] = v; rhRenderCompensaciones(); };
 window.rhCompClearFilters = function () {
-  COMP_FILTERS.empleado = ''; COMP_FILTERS.concepto = ''; COMP_FILTERS.periodo = '';
+  COMP_FILTERS.empleado = ''; COMP_FILTERS.concepto = ''; COMP_FILTERS.periodo = ''; COMP_FILTERS.periodoLaborado = '';
   rhRenderCompensaciones();
 };
 
@@ -25300,6 +25300,17 @@ function rhRenderCompensaciones() {
     if (f.periodo) {
       const type = String(r.Periodo || '').split(':')[0].trim();
       if (type !== f.periodo) return false;
+    }
+    if (f.periodoLaborado) {
+      // YYYY-MM seleccionado: mantener registros cuyo span laborado se solape con ese mes
+      const [yy, mm] = f.periodoLaborado.split('-').map(n => parseInt(n, 10));
+      if (yy && mm) {
+        const monthStart = new Date(yy, mm - 1, 1);
+        const monthEnd = new Date(yy, mm, 0);
+        const [s, e] = compPeriodSpan(r);
+        if (!s || !e) return false;
+        if (e < monthStart || s > monthEnd) return false;
+      }
     }
     return true;
   });
@@ -25333,6 +25344,9 @@ function rhRenderCompensaciones() {
           <option value="">— Todos —</option>
           ${['Semanal','Quincenal','Mensual'].map(p => `<option value="${p}" ${p===f.periodo?'selected':''}>${p}</option>`).join('')}
         </select>
+      </div>
+      <div class="rh-field"><label>Periodo laborado</label>
+        <input type="month" value="${esc(f.periodoLaborado)}" onchange="rhCompSetFilter('periodoLaborado', this.value)">
       </div>
       <button type="button" class="comp-filter-clear" onclick="rhCompClearFilters()">Limpiar</button>
     </div>
