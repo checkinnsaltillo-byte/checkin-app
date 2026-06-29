@@ -27467,9 +27467,13 @@ function guiasPdfSections() {
   }));
 }
 
-// Descarga un PDF imprimible (interactivo: links se preservan). Sólo aplica
-// cuando hay UN alojamiento seleccionado. El nombre sugerido = "Propiedad - # Departamento".
-window.guiasDownloadPdf = function() {
+// Descarga un PDF interactivo con el MISMO diseño que la UI:
+//   - Foto del listing arriba (resuelta vía microlink).
+//   - Barra de tabs (cada tab es un link interno al header de su sección).
+//   - Botones rápidos (Maps, tel, WhatsApp, email) como links.
+//   - Cada sección con su id; los anchors funcionan en el PDF final.
+// Nombre sugerido = "Propiedad - # Departamento".
+window.guiasDownloadPdf = async function() {
   const alojs = guiasSelectedAlojs();
   if (alojs.length !== 1) { alert('Selecciona un solo alojamiento para descargar PDF.'); return; }
   const a = alojs[0];
@@ -27478,60 +27482,108 @@ window.guiasDownloadPdf = function() {
   const fname = (prop && dpt) ? `${prop} - ${dpt}` : (prop || guiasItemLabel(a) || 'Guía');
   const title = guiasItemLabel(a);
   const photoPageUrl = String(a['url_lodgify']||'').trim();
-  const mapsUrl = (a['Dirección']||a['Direccion']||'') ? `https://maps.google.com/?q=${encodeURIComponent(a['Dirección']||a['Direccion']||'')}` : '';
+  const ubic = String(a['ubicacion']||'').trim();
+  const gmCol = String(a['url_google_maps']||'').trim();
+  const mapsUrl = gmCol || (ubic ? `https://maps.google.com/?q=${encodeURIComponent(ubic)}` : '');
+  // Extrae phone/email de contactos_txt para botones rápidos.
+  const ctxt = String(a['contactos_txt']||'');
+  const phone = (ctxt.match(/\+?\d[\d\s\-()]{6,}/) || [''])[0].trim();
+  const email = (ctxt.match(/[\w.+-]+@[\w-]+\.[\w.-]+/) || [''])[0].trim();
 
+  // Resolver foto (async) vía microlink.io. Si falla, omite foto.
+  let photoUrl = '';
+  if (photoPageUrl) {
+    try {
+      const r = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(photoPageUrl)}&screenshot=false`, { cache: 'no-store' });
+      const j = await r.json();
+      photoUrl = j?.data?.image?.url || j?.data?.logo?.url || '';
+    } catch (_) { photoUrl = ''; }
+  }
+
+  // Construye secciones: cada una con su id para anchor interno.
   const row = (label, val) => {
     const text = String(val == null ? '' : val).trim();
     if (!text) return '';
-    return `<div class="row"><div class="lbl">${esc(label)}</div><div class="val">${esc(text).replace(/\n/g,'<br>')}</div></div>`;
+    // Detecta URLs dentro del texto y las convierte en links clickeables.
+    const safe = esc(text).replace(/\n/g,'<br>').replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+    return `<div class="row"><div class="lbl">${esc(label)}</div><div class="val">${safe}</div></div>`;
   };
-  const section = (t) => {
-    const body = t.fields.map(([lbl, key]) => row(lbl, a[key])).join('');
-    if (!body) return ''; // Si no hay ningún campo con dato, omite la sección
-    return `<section><h2>${t.icon} ${esc(t.title)}</h2><div class="card">${body}</div></section>`;
-  };
-  const sections = guiasPdfSections().map(section).join('');
+  const tabsAvailable = []; // sólo tabs que tendrán contenido
+  const sections = GUIAS_TABS.map(t => {
+    const fields = GUIAS_TAB_FIELDS[t.key] || [];
+    const body = fields.map(([lbl, key]) => row(lbl, a[key])).join('');
+    if (!body) return '';
+    tabsAvailable.push(t);
+    return `<section id="sec-${esc(t.key)}"><h2>${t.icon} ${esc(t.label)}</h2><div class="card">${body}</div></section>`;
+  }).join('');
+
+  // Barra de tabs (cada uno → anchor a su sección).
+  const tabBarHtml = tabsAvailable.map(t => `<a class="tab" href="#sec-${esc(t.key)}">
+    <div class="tab-ico">${t.icon}</div>
+    <div class="tab-lbl">${esc(t.label)}</div>
+  </a>`).join('');
+
+  // Botones de acción rápida (Maps, tel, WhatsApp, mailto, listing).
+  const actionHtml = `<div class="actions">
+    ${mapsUrl ? `<a class="act maps" href="${esc(mapsUrl)}" target="_blank" rel="noopener">🗺️ Google Maps</a>` : ''}
+    ${phone ? `<a class="act phone" href="tel:${esc(phone)}">📞 ${esc(phone)}</a>` : ''}
+    ${phone ? `<a class="act wa" href="https://wa.me/${esc(String(phone).replace(/[^0-9]/g,''))}" target="_blank" rel="noopener">💬 WhatsApp</a>` : ''}
+    ${email ? `<a class="act mail" href="mailto:${esc(email)}">✉️ ${esc(email)}</a>` : ''}
+    ${photoPageUrl ? `<a class="act listing" href="${esc(photoPageUrl)}" target="_blank" rel="noopener">🌐 Ver listing</a>` : ''}
+  </div>`;
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${esc(fname)}</title>
   <style>
     *{box-sizing:border-box}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0;padding:24px;color:#0f172a;background:#fff}
+    html,body{margin:0;padding:0;background:#fff}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;padding:24px;max-width:720px;margin:0 auto}
+    .hero{width:100%;height:240px;object-fit:cover;border-radius:14px;display:block;margin-bottom:14px;border:1px solid #e2e8f0}
     h1{font-size:24px;margin:0 0 4px;color:#0f172a}
-    .sub{font-size:12px;color:#64748b;margin-bottom:16px}
-    h2{font-size:14px;margin:18px 0 8px;padding-bottom:5px;border-bottom:2px solid #0d9488;color:#0d9488;display:flex;align-items:center;gap:6px}
+    .sub{font-size:12px;color:#64748b;margin-bottom:14px}
+    .actions{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+    .actions a{text-decoration:none;font-weight:700;font-size:11px;padding:7px 11px;border-radius:8px;color:#fff;display:inline-flex;align-items:center;gap:5px}
+    .act.maps{background:#1e293b}
+    .act.phone{background:#3b82f6}
+    .act.wa{background:#25d366}
+    .act.mail{background:#475569}
+    .act.listing{background:#0d9488}
+    .tabs{display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:18px;overflow:hidden}
+    .tab{flex:1;min-width:0;text-align:center;text-decoration:none;color:#0f172a;padding:10px 4px;border-radius:9px;transition:background .15s}
+    .tab:hover{background:#fff}
+    .tab-ico{font-size:18px;line-height:1}
+    .tab-lbl{font-size:9.5px;font-weight:800;letter-spacing:.06em;margin-top:4px;color:#1e3a8a}
+    section{margin-bottom:18px;scroll-margin-top:12px}
+    h2{font-size:14px;margin:0 0 8px;padding-bottom:5px;border-bottom:2px solid #0d9488;color:#0d9488;display:flex;align-items:center;gap:6px}
     .card{border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;background:#fff}
     .row{display:flex;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid #f1f5f9}
     .row:last-child{border-bottom:none}
-    .lbl{font-size:11px;color:#64748b;font-weight:700;flex-shrink:0}
+    .lbl{font-size:11px;color:#64748b;font-weight:700;flex-shrink:0;max-width:42%}
     .val{font-size:13px;font-weight:600;text-align:right}
-    a{color:#0d9488;text-decoration:none}
-    .links{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
-    .links a{background:#0d9488;color:#fff;padding:7px 12px;border-radius:8px;font-weight:700;font-size:12px}
+    .val a{color:#0d9488;text-decoration:underline;word-break:break-all}
     @media print{
       @page{margin:14mm}
-      body{padding:0}
+      body{padding:0;max-width:none}
+      .hero{height:180px}
       section{break-inside:avoid;page-break-inside:avoid}
-      a{color:#0d9488;text-decoration:underline}
+      .tab{break-inside:avoid}
+      a{color:inherit}
+      .val a{color:#0d9488}
     }
   </style></head><body>
+    ${photoUrl ? `<img class="hero" src="${esc(photoUrl)}" alt="">` : ''}
     <h1>${esc(title)}</h1>
     <div class="sub">${esc(prop)}${dpt?' · #'+esc(dpt):''}</div>
-    <div class="links">
-      ${photoPageUrl ? `<a href="${esc(photoPageUrl)}" target="_blank" rel="noopener">🌐 Ver listing</a>` : ''}
-      ${mapsUrl ? `<a href="${esc(mapsUrl)}" target="_blank" rel="noopener">🗺️ Google Maps</a>` : ''}
-    </div>
+    ${actionHtml}
+    <div class="tabs">${tabBarHtml}</div>
     ${sections}
   </body></html>`;
 
-  // Window emergente: aquí el browser usa document.title como nombre sugerido del PDF.
   const w = window.open('', '_blank');
   if (!w) { alert('Permite las ventanas emergentes para descargar el PDF.'); return; }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
+  w.document.open(); w.document.write(html); w.document.close();
   const triggerPrint = () => { try { w.focus(); w.print(); } catch(_) {} };
-  if (w.document.readyState === 'complete') setTimeout(triggerPrint, 200);
-  else w.addEventListener('load', () => setTimeout(triggerPrint, 200));
+  if (w.document.readyState === 'complete') setTimeout(triggerPrint, 400);
+  else w.addEventListener('load', () => setTimeout(triggerPrint, 400));
 };
 
 function guiasFilteredRows() {
