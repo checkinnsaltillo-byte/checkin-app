@@ -26856,11 +26856,11 @@ function tuyaBuildDoorChart(logs, opts) {
     </g>`;
   }).join('');
 
-  // Labels X rotadas 90° (verticales). Sin stride: no se traslapan al ser
-  // estrechas verticalmente. Y cerca del fondo, text-anchor=end para que
-  // tras rotar, la fecha quede pegada a la línea del eje X.
-  const labelY = H - 4;
-  const labelsX = series.map((r, i) => `<text x="${x(i)}" y="${labelY}" text-anchor="end" font-size="9" fill="#94a3b8" transform="rotate(-90, ${x(i)}, ${labelY})">${esc(new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</text>`).join('');
+  // Labels X rotadas 90° clockwise + text-anchor=start: el inicio del texto
+  // queda en el pivot (justo bajo el área de datos) y se extiende hacia abajo,
+  // pegado a la gráfica.
+  const labelY = padT + innerH + 4;
+  const labelsX = series.map((r, i) => `<text x="${x(i)}" y="${labelY}" text-anchor="start" font-size="9" fill="#94a3b8" transform="rotate(90, ${x(i)}, ${labelY})">${esc(new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</text>`).join('');
 
   // Conteo
   const opens = series.filter(r => r.open).length;
@@ -27057,9 +27057,9 @@ function tuyaBuildRotoplasChart(logs, opts) {
     depthEls = (pathD ? `<path d="${pathD}" fill="none" stroke="#0d9488" stroke-width="2"/>` : '') + dots;
   }
 
-  // Labels X rotadas 90° (verticales) — sin stride, no se traslapan.
-  const labelY = H - 4;
-  const labelsX = series.map((r,i) => `<text x="${x(i)}" y="${labelY}" text-anchor="end" font-size="9" fill="#94a3b8" transform="rotate(-90, ${x(i)}, ${labelY})">${esc(new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</text>`).join('');
+  // Labels X rotadas 90° clockwise pegadas al área de datos.
+  const labelY = padT + innerH + 4;
+  const labelsX = series.map((r,i) => `<text x="${x(i)}" y="${labelY}" text-anchor="start" font-size="9" fill="#94a3b8" transform="rotate(90, ${x(i)}, ${labelY})">${esc(new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</text>`).join('');
 
   // SVG central scrollable (sólo datos)
   const dataSvg = `<svg width="${dataW}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block"
