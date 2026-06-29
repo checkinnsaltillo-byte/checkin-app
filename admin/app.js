@@ -24879,7 +24879,10 @@ function rhObligacionesMonthBody(month, pal) {
             : `<div style="font-size:11px;color:#94a3b8;font-weight:500;font-style:italic">Sin cargar</div>`}
         </div>
         <input type="file" id="${inputId}" accept="${t.accept}" style="display:none" onchange="rhObligacionUpload(this, ${month}, '${kind}', '${empSafe}')">
-        <button type="button" onclick="document.getElementById('${inputId}').click()" style="all:unset;cursor:pointer;background:${filled?'#fff':`linear-gradient(135deg,${t.from},${t.to})`};color:${filled?t.from:'#fff'};border:${filled?`1.5px solid ${t.from}`:'none'};font-weight:800;font-size:11px;padding:6px 11px;border-radius:7px;white-space:nowrap;box-shadow:${filled?'none':`0 2px 6px ${t.from}40`};flex-shrink:0">${filled?'Reemplazar':'Subir'}</button>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button type="button" onclick="document.getElementById('${inputId}').click()" style="all:unset;cursor:pointer;background:${filled?'#fff':`linear-gradient(135deg,${t.from},${t.to})`};color:${filled?t.from:'#fff'};border:${filled?`1.5px solid ${t.from}`:'none'};font-weight:800;font-size:11px;padding:6px 11px;border-radius:7px;white-space:nowrap;box-shadow:${filled?'none':`0 2px 6px ${t.from}40`}">${filled?'Reemplazar':'Subir'}</button>
+          ${filled ? `<button type="button" title="Eliminar archivo" onclick="rhObligacionDelete(${month}, '${kind}', '${empSafe}', '${esc(current.id||'')}')" style="all:unset;cursor:pointer;background:#fff;color:#dc2626;border:1.5px solid #fecaca;font-weight:900;font-size:13px;padding:5px 9px;border-radius:7px;line-height:1">✕</button>` : ''}
+        </div>
       </div>
     `;
   };
@@ -24938,6 +24941,31 @@ function rhObligacionesMonthBody(month, pal) {
 
   return `<div style="padding:16px 18px 18px;border-top:1px solid ${pal.from}22;background:linear-gradient(180deg,${pal.soft}66 0%,#fff 100%)">${cuotasBlock}${recibosBlock}</div>`;
 }
+
+window.rhObligacionDelete = async function (month, kind, empleadoId, fileId) {
+  if (!fileId) { alert('Sin ID de archivo'); return; }
+  const t = RH_OBL_KIND_THEME[kind];
+  if (!confirm(`¿Eliminar este archivo de ${t?.label || kind}? Se moverá a la papelera de Drive.`)) return;
+  const empSafe = empleadoId || '';
+  const boxId = `rh-obl-box-${month}-${kind}-${empSafe || 'g'}`;
+  const box = document.getElementById(boxId);
+  if (box) box.style.opacity = '0.5';
+  try {
+    const res = await fetch(`${BACKEND}/rh/obligacion/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileId }),
+    });
+    const text = await res.text();
+    let data; try { data = JSON.parse(text); } catch (_) { throw new Error('Respuesta no-JSON: ' + text.slice(0, 120)); }
+    if (!data || !data.ok) throw new Error((data && data.error) || 'No se pudo eliminar');
+    delete RH_OBL_STATE.files[rhObligacionesKey(month, kind, empSafe)];
+    rhPaintObligaciones();
+  } catch (e) {
+    alert('Error al eliminar: ' + e.message);
+    if (box) box.style.opacity = '1';
+  }
+};
 
 function rhObligacionShowUploading(month, kind, empSafe, fileName) {
   const t = RH_OBL_KIND_THEME[kind] || { from:'#0d9488', to:'#0f766e', soft:'#f0fdfa', ink:'#115e59', ico:'⬆' };
