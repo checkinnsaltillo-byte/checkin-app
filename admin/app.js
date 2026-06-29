@@ -24867,9 +24867,10 @@ function rhObligacionesMonthBody(month, pal) {
     const t = RH_OBL_KIND_THEME[kind];
     const empSafe = empleadoId || '';
     const inputId = `rh-obl-in-${month}-${kind}-${empSafe || 'g'}`;
+    const boxId = `rh-obl-box-${month}-${kind}-${empSafe || 'g'}`;
     const filled = !!current;
     return `
-      <div style="position:relative;border:1.5px ${filled?'solid':'dashed'} ${filled?t.from:'#cbd5e1'};background:${filled?`linear-gradient(135deg,${t.soft} 0%,#fff 70%)`:'#fafbfc'};border-radius:12px;padding:10px;display:flex;align-items:center;gap:8px;min-width:0;transition:all .15s">
+      <div id="${boxId}" style="position:relative;border:1.5px ${filled?'solid':'dashed'} ${filled?t.from:'#cbd5e1'};background:${filled?`linear-gradient(135deg,${t.soft} 0%,#fff 70%)`:'#fafbfc'};border-radius:12px;padding:10px;display:flex;align-items:center;gap:8px;min-width:0;transition:all .15s">
         <div style="width:30px;height:30px;border-radius:8px;background:${filled?`linear-gradient(135deg,${t.from},${t.to})`:'#fff'};border:${filled?'none':`1.5px solid ${t.from}33`};color:${filled?'#fff':t.from};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0">${t.ico}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:10px;color:${t.ink};font-weight:800;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.label}</div>
@@ -24938,29 +24939,57 @@ function rhObligacionesMonthBody(month, pal) {
   return `<div style="padding:16px 18px 18px;border-top:1px solid ${pal.from}22;background:linear-gradient(180deg,${pal.soft}66 0%,#fff 100%)">${cuotasBlock}${recibosBlock}</div>`;
 }
 
+function rhObligacionShowUploading(month, kind, empSafe, fileName) {
+  const t = RH_OBL_KIND_THEME[kind] || { from:'#0d9488', to:'#0f766e', soft:'#f0fdfa', ink:'#115e59', ico:'⬆' };
+  const boxId = `rh-obl-box-${month}-${kind}-${empSafe || 'g'}`;
+  const box = document.getElementById(boxId);
+  if (!box) return;
+  if (!document.getElementById('rh-obl-spin-style')) {
+    const st = document.createElement('style');
+    st.id = 'rh-obl-spin-style';
+    st.textContent = `@keyframes rhOblSpin{to{transform:rotate(360deg)}}@keyframes rhOblPulse{0%,100%{opacity:.55}50%{opacity:1}}`;
+    document.head.appendChild(st);
+  }
+  box.style.borderStyle = 'solid';
+  box.style.borderColor = t.from;
+  box.style.background = `linear-gradient(135deg,${t.soft} 0%,#fff 70%)`;
+  box.innerHTML = `
+    <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,${t.from},${t.to});color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;flex-shrink:0;animation:rhOblPulse 1.2s ease-in-out infinite">${t.ico}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:10px;color:${t.ink};font-weight:800;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:6px">
+        <span style="display:inline-block;width:11px;height:11px;border:2px solid ${t.from}44;border-top-color:${t.from};border-radius:50%;animation:rhOblSpin .7s linear infinite"></span>
+        Subiendo…
+      </div>
+      <div style="font-size:11.5px;color:#0f172a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(fileName || 'archivo')}</div>
+    </div>
+    <div style="font-size:10.5px;color:${t.ink};font-weight:800;padding:6px 11px;border-radius:7px;background:${t.from}1a;border:1px solid ${t.from}33;flex-shrink:0">⏳</div>
+  `;
+}
+
 window.rhObligacionUpload = async function (input, month, kind, empleadoId) {
   const file = input.files && input.files[0];
   if (!file) return;
   const MAX = 25 * 1024 * 1024;
   if (file.size > MAX) { alert('Archivo > 25 MB. Reduce el tamaño.'); input.value = ''; return; }
-  // Validación básica de extensión por kind
   const ext = (file.name.split('.').pop() || '').toLowerCase();
   if (kind === 'recibo_xml' && ext !== 'xml') { alert('Recibo XML debe tener extensión .xml'); input.value = ''; return; }
   if (kind === 'recibo_pdf' && ext !== 'pdf') { alert('Recibo PDF debe tener extensión .pdf'); input.value = ''; return; }
-  // Lee como base64
-  const base64 = await new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onerror = () => reject(r.error);
-    r.onload = () => {
-      const s = String(r.result || '');
-      const i = s.indexOf(',');
-      resolve(i >= 0 ? s.slice(i + 1) : s);
-    };
-    r.readAsDataURL(file);
-  });
-  // Marca visual: deshabilitar entrada
+
+  // Muestra estado "Subiendo…" inmediatamente
+  rhObligacionShowUploading(month, kind, empleadoId || '', file.name);
   input.disabled = true;
+
   try {
+    const base64 = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onerror = () => reject(r.error);
+      r.onload = () => {
+        const s = String(r.result || '');
+        const i = s.indexOf(',');
+        resolve(i >= 0 ? s.slice(i + 1) : s);
+      };
+      r.readAsDataURL(file);
+    });
     const res = await fetch(`${BACKEND}/rh/obligacion/upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -24973,12 +25002,15 @@ window.rhObligacionUpload = async function (input, month, kind, empleadoId) {
         file: { fileName: file.name, mimeType: file.type || 'application/octet-stream', base64: base64 }
       })
     });
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch (_) { throw new Error('Respuesta no-JSON del servidor: ' + text.slice(0, 120)); }
     if (!data || !data.ok) throw new Error((data && data.error) || 'Upload falló');
     RH_OBL_STATE.files[rhObligacionesKey(month, kind, empleadoId || '')] = { url: data.url, name: data.name || file.name, id: data.id };
     rhPaintObligaciones();
   } catch (e) {
     alert('Error al subir: ' + e.message);
+    rhPaintObligaciones();
   } finally {
     input.disabled = false;
     input.value = '';
