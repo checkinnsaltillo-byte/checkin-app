@@ -26687,17 +26687,29 @@ function tuyaRender() {
 
 async function tuyaFetchRecentLogs(ids) {
   try {
+    // size=10 para que las cards Rotoplas tengan suficiente data para la
+    // mini-gráfica de últimos 5 (las card normales sólo usan los primeros 2).
     const r = await fetch(`${BACKEND}/tuya/logs-bulk`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids, size: 2, days: 2 }),
+      body: JSON.stringify({ ids, size: 10, days: 2 }),
     });
     const j = await r.json();
     if (!j.ok) return;
+    const devices = TUYA_STATE.data?.devices || [];
     for (const id of ids) {
+      // Mini-gráfica Rotoplas (si aplica)
+      const miniHost = document.getElementById('tuya-mini-' + id);
+      if (miniHost) {
+        const d = devices.find(x => x.id === id);
+        if (d && tuyaIsRotoplas(d)) {
+          const mini = tuyaBuildRotoplasMiniChart(j.byId[id] || []);
+          if (mini) miniHost.innerHTML = mini;
+        }
+      }
       const host = document.getElementById('tuya-evt-' + id);
       if (!host) continue;
-      const logs = j.byId[id] || [];
+      const logs = (j.byId[id] || []).slice(0, 2);
       if (!logs.length) {
         host.innerHTML = '<div style="font-size:9px;color:#cbd5e1;font-style:italic">Sin eventos recientes</div>';
         continue;
@@ -26748,6 +26760,7 @@ function tuyaDeviceCardHtml(d, enriched) {
       ${!d.online ? '<span style="font-size:10px;color:#94a3b8">⚪ offline</span>' : ''}
     </div>
     ${updated ? `<div style="font-size:9px;color:#94a3b8">↻ ${esc(updated)}</div>` : ''}
+    ${tuyaIsRotoplas(d) ? `<div class="tuya-card-mini" id="tuya-mini-${esc(d.id)}" style="margin-top:3px;min-height:24px"></div>` : ''}
     <div class="tuya-card-events" id="tuya-evt-${esc(d.id)}" style="margin-top:3px;padding-top:4px;border-top:1px dashed #e2e8f0;display:flex;flex-direction:column;gap:1px;min-height:24px"></div>
   </div>`;
 }
@@ -26786,6 +26799,104 @@ function tuyaRelTime(ms) {
   return new Date(ms).toLocaleDateString('es-MX');
 }
 
+// ─── Rotoplas: gráficas liquid_depth (línea) + liquid_level_percent (barras) ──
+function tuyaIsRotoplas(d) {
+  return /rotoplas/i.test(String(d?.name || '') + ' ' + String(d?.product_name || ''));
+}
+
+// Devuelve { series: [{ts, depth, pct}], min, max } a partir de logs (ordenados ASC por ts).
+function tuyaRotoplasParseLogs(logs) {
+  const byTs = new Map();
+  for (const l of (logs || [])) {
+    const ts = Number(l.event_time) || 0;
+    if (!ts) continue;
+    const code = String(l.code || '').toLowerCase();
+    const valNum = (() => {
+      if (typeof l.value === 'number') return l.value;
+      const n = Number(l.value);
+      return isFinite(n) ? n : null;
+    })();
+    if (valNum == null) continue;
+    if (!byTs.has(ts)) byTs.set(ts, { ts, depth: null, pct: null });
+    const row = byTs.get(ts);
+    if (code === 'liquid_depth') row.depth = valNum;
+    else if (code === 'liquid_level_percent') row.pct = valNum;
+  }
+  const series = Array.from(byTs.values()).filter(r => r.depth != null || r.pct != null).sort((a,b) => a.ts - b.ts);
+  let min = Infinity, max = -Infinity;
+  for (const r of series) { if (r.depth != null) { min = Math.min(min, r.depth); max = Math.max(max, r.depth); } }
+  if (!isFinite(min)) { min = 0; max = 0; }
+  return { series, min, max };
+}
+
+// SVG chart grande (detalle): barras pct atrás + línea depth adelante. Scroll horizontal.
+function tuyaBuildRotoplasChart(logs) {
+  const { series, min, max } = tuyaRotoplasParseLogs(logs);
+  if (!series.length) return '<div style="padding:10px;color:#94a3b8;font-size:11px;font-style:italic">Sin lecturas de liquid_depth/liquid_level_percent</div>';
+  const H = 160, padL = 38, padR = 10, padT = 10, padB = 28;
+  const stepX = 28;
+  const W = Math.max(360, padL + padR + series.length * stepX);
+  const innerH = H - padT - padB;
+  const innerW = W - padL - padR;
+  const dMin = min, dMax = max;
+  const dSpan = (dMax - dMin) || 1;
+  const x = (i) => padL + i * stepX + stepX / 2;
+  const yDepth = (v) => padT + innerH - ((v - dMin) / dSpan) * innerH;
+  const yPct = (p) => padT + innerH - (Math.max(0, Math.min(100, p)) / 100) * innerH;
+  const barW = Math.max(8, stepX - 6);
+  const pathD = series.map((r,i) => (r.depth != null ? `${i===0?'M':'L'} ${x(i)} ${yDepth(r.depth)}` : '')).filter(Boolean).join(' ');
+  const fmtTs = (ts) => new Date(ts).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+  const bars = series.map((r,i) => r.pct == null ? '' : `<rect x="${x(i)-barW/2}" y="${yPct(r.pct)}" width="${barW}" height="${padT+innerH-yPct(r.pct)}" fill="#dbeafe" stroke="#bfdbfe" stroke-width="0.5"><title>${esc(fmtTs(r.ts))} · ${r.pct}% · ${r.depth!=null?r.depth+' cm':'—'}</title></rect>`).join('');
+  const dots = series.map((r,i) => r.depth == null ? '' : `<circle cx="${x(i)}" cy="${yDepth(r.depth)}" r="3.5" fill="#0d9488" stroke="#fff" stroke-width="1.5" style="cursor:crosshair"><title>${esc(fmtTs(r.ts))} · ${r.depth} cm · ${r.pct!=null?r.pct+'%':'—'}</title></circle>`).join('');
+  // Eje Y (depth) + ticks de 0/50/100 para pct (alineados visualmente)
+  const yTicks = 4;
+  const axisY = Array.from({length:yTicks+1}, (_,i) => {
+    const v = dMin + (dSpan * i / yTicks);
+    const y = yDepth(v);
+    return `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>` +
+           `<text x="${padL-4}" y="${y+3}" text-anchor="end" font-size="9" fill="#94a3b8">${v.toFixed(0)}</text>`;
+  }).join('');
+  // Labels X cada N
+  const stride = Math.max(1, Math.ceil(series.length / 8));
+  const labelsX = series.map((r,i) => (i % stride === 0) ? `<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9" fill="#94a3b8">${esc(new Date(r.ts).toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit'}))}</text>` : '').join('');
+  const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">
+    ${axisY}
+    ${bars}
+    ${pathD ? `<path d="${pathD}" fill="none" stroke="#0d9488" stroke-width="2"/>` : ''}
+    ${dots}
+    ${labelsX}
+    <text x="${padL-4}" y="${padT+8}" text-anchor="end" font-size="9" fill="#0d9488" font-weight="700">cm</text>
+  </svg>`;
+  return `<div style="display:flex;align-items:center;gap:10px;margin:8px 0 4px;font-size:11px;color:#475569">
+    <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:8px;background:#dbeafe;border:1px solid #bfdbfe"></span> liquid_level_percent</span>
+    <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:2px;background:#0d9488"></span> liquid_depth (cm)</span>
+  </div>
+  <div id="tuya-rotoplas-scroll-${Math.random().toString(36).slice(2,9)}" data-rotoplas-scroll="1" style="width:100%;overflow-x:auto;overflow-y:hidden;border:1px solid #e2e8f0;border-radius:8px;background:#fff">${svg}</div>`;
+}
+
+// Mini-chart para card (últimos 5 puntos, sin ejes).
+function tuyaBuildRotoplasMiniChart(logs) {
+  const { series } = tuyaRotoplasParseLogs(logs);
+  const last5 = series.slice(-5);
+  if (last5.length < 2) return '';
+  const W = 80, H = 22;
+  const depths = last5.map(r => r.depth).filter(v => v != null);
+  if (!depths.length) return '';
+  const dMin = Math.min(...depths), dMax = Math.max(...depths);
+  const dSpan = (dMax - dMin) || 1;
+  const x = (i) => 2 + (i / (last5.length - 1)) * (W - 4);
+  const y = (v) => H - 2 - ((v - dMin) / dSpan) * (H - 6);
+  const pathD = last5.map((r,i) => r.depth==null ? '' : `${i===0?'M':'L'} ${x(i).toFixed(1)} ${y(r.depth).toFixed(1)}`).filter(Boolean).join(' ');
+  const bars = last5.map((r,i) => {
+    if (r.pct == null) return '';
+    const bH = ((r.pct/100) * (H - 4)).toFixed(1);
+    const bx = (x(i) - 3).toFixed(1);
+    const by = (H - 2 - Number(bH)).toFixed(1);
+    return `<rect x="${bx}" y="${by}" width="6" height="${bH}" fill="#dbeafe"/>`;
+  }).join('');
+  return `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${bars}<path d="${pathD}" fill="none" stroke="#0d9488" stroke-width="1.5"/></svg>`;
+}
+
 async function tuyaOpenDetail(id) {
   const d = (TUYA_STATE.data?.devices || []).find(x => x.id === id);
   if (!d) return;
@@ -26809,6 +26920,8 @@ async function tuyaOpenDetail(id) {
       <div>
         <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:6px">Estado actual</div>
         <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden"><table style="width:100%;border-collapse:collapse">${statusRows}</table></div>
+        ${tuyaIsRotoplas(d) ? `<div style="font-size:12px;font-weight:800;color:#0f172a;margin:12px 0 4px">📈 Lecturas Rotoplas</div>
+          <div id="tuya-rotoplas-host" style="min-height:60px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando lecturas…</div>` : ''}
       </div>
       <div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -26840,6 +26953,14 @@ async function tuyaLoadLogs(id) {
     const j = await r.json();
     if (!j.ok) throw new Error(j.error);
     const logs = j.logs || [];
+    // Si es Rotoplas, renderiza la gráfica con TODOS los logs (no sólo
+    // liquid_*), y auto-scrollea al extremo derecho (datos más recientes).
+    const rotoHost = document.getElementById('tuya-rotoplas-host');
+    if (rotoHost) {
+      rotoHost.innerHTML = tuyaBuildRotoplasChart(logs);
+      const scrollEl = rotoHost.querySelector('[data-rotoplas-scroll]');
+      if (scrollEl) scrollEl.scrollLeft = scrollEl.scrollWidth;
+    }
     if (!logs.length) { host.innerHTML = '<div style="padding:14px;color:#94a3b8;font-size:11px">Sin eventos en este rango</div>'; return; }
     host.innerHTML = logs.map(l => {
       const ts = l.event_time ? new Date(Number(l.event_time)).toLocaleString('es-MX') : '—';
