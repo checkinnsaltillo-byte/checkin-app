@@ -24765,10 +24765,12 @@ function rhFmtMoneyShort(n) {
 
 window.rhObligacionSetTotal = async function (month, inputEl) {
   const raw = String(inputEl.value || '').replace(/[^\d.]/g, '');
-  const total = parseFloat(raw);
+  // Campo vacío = 0 (permite borrar el monto)
+  const total = raw === '' ? 0 : parseFloat(raw);
   if (!isFinite(total) || total < 0) { inputEl.value = ''; return; }
   const prev = RH_OBL_STATE.totales[month];
-  if (prev && Number(prev.total) === total) return; // sin cambios
+  const prevTotal = prev ? Number(prev.total) : 0;
+  if (prevTotal === total) return; // sin cambios
   inputEl.disabled = true;
   const origBg = inputEl.style.background;
   inputEl.style.background = '#fef3c7';
