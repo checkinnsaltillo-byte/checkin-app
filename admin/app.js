@@ -27536,7 +27536,7 @@ window.guiasDownloadPdf = async function() {
   <style>
     *{box-sizing:border-box}
     html,body{margin:0;padding:0;background:#fff}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;padding:24px;max-width:720px;margin:0 auto}
+    body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-.005em;color:#0f172a;padding:24px;max-width:720px;margin:0 auto;font-weight:400}
     .hero{width:100%;height:240px;object-fit:cover;border-radius:14px;display:block;margin-bottom:14px;border:1px solid #e2e8f0}
     h1{font-size:24px;margin:0 0 4px;color:#0f172a}
     .sub{font-size:12px;color:#64748b;margin-bottom:14px}
@@ -27555,10 +27555,10 @@ window.guiasDownloadPdf = async function() {
     section{margin-bottom:18px;scroll-margin-top:12px}
     h2{font-size:14px;margin:0 0 8px;padding-bottom:5px;border-bottom:2px solid #0d9488;color:#0d9488;display:flex;align-items:center;gap:6px}
     .card{border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;background:#fff}
-    .row{display:grid;grid-template-columns:38% 1fr;gap:14px;align-items:start;padding:6px 0;border-bottom:1px solid #f1f5f9}
+    .row{display:grid;grid-template-columns:38% 1fr;gap:14px;align-items:start;padding:7px 0;border-bottom:1px solid #f1f5f9}
     .row:last-child{border-bottom:none}
-    .lbl{font-size:11px;color:#64748b;font-weight:700;text-align:left}
-    .val{font-size:13px;font-weight:600;text-align:left;white-space:pre-wrap;word-break:break-word}
+    .lbl{font-size:12px;color:#64748b;font-weight:500;text-align:left}
+    .val{font-size:13.5px;font-weight:400;text-align:left;white-space:pre-wrap;word-break:break-word;line-height:1.45}
     .val a{color:#0d9488;text-decoration:underline;word-break:break-all}
     @media print{
       @page{margin:14mm}
@@ -27805,9 +27805,9 @@ function guiasField(label, fieldKey, alojs, opts) {
       ${input}
     </div>`;
   }
-  return `<div style="display:grid;grid-template-columns:38% 1fr;gap:14px;align-items:start;padding:6px 0;border-bottom:1px solid #f1f5f9">
-    <div style="font-size:11px;color:#64748b;font-weight:700;text-align:left">${esc(label)}</div>
-    <div style="font-size:13px;color:${mixed?'#94a3b8':'#0f172a'};font-weight:600;text-align:left;font-style:${mixed?'italic':'normal'};white-space:pre-wrap;word-break:break-word">${esc(mixed ? '(varios)' : (value || '—'))}</div>
+  return `<div style="display:grid;grid-template-columns:38% 1fr;gap:14px;align-items:start;padding:7px 0;border-bottom:1px solid #f1f5f9">
+    <div style="font-size:12px;color:#64748b;font-weight:500;text-align:left">${esc(label)}</div>
+    <div style="font-size:13.5px;color:${mixed?'#94a3b8':'#0f172a'};font-weight:400;text-align:left;font-style:${mixed?'italic':'normal'};white-space:pre-wrap;word-break:break-word;line-height:1.45">${esc(mixed ? '(varios)' : (value || '—'))}</div>
   </div>`;
 }
 
