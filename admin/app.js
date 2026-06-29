@@ -27311,11 +27311,12 @@ function tuyaCloseDetail() {
 // MÓDULO GUÍAS DE BIENVENIDA — prueba inicial (esqueleto + tabs)
 // ════════════════════════════════════════════════════════════════════════════
 const GUIAS_STATE = {
-  selectedIds: new Set(),      // ids de alojamientos seleccionados (multi)
+  selectedIds: new Set(),      // ids de alojamientos seleccionados
+  selectMode: false,           // false=single (click reemplaza); true=multi
   activeTab: 'check-in',
-  editMode: false,             // toggle Editar / Guardar
+  editMode: false,
   filters: { propiedad: new Set(), departamento: new Set() },
-  dirty: {},                   // { id: { campo: nuevoValor } } cambios pendientes
+  dirty: {},
 };
 
 const GUIAS_TABS = [
@@ -27433,9 +27434,27 @@ window.guiasSelectNone = function() {
   GUIAS_STATE.selectedIds.clear();
   guiasRenderSidebar(); guiasRenderContent();
 };
+// En modo multi: toggle del item en/fuera del set.
 window.guiasToggleItem = function(id) {
   if (GUIAS_STATE.selectedIds.has(id)) GUIAS_STATE.selectedIds.delete(id);
   else GUIAS_STATE.selectedIds.add(id);
+  guiasRenderSidebar(); guiasRenderContent();
+};
+// En modo single: reemplaza selección con un solo item.
+window.guiasPickSingle = function(id) {
+  GUIAS_STATE.selectedIds.clear();
+  GUIAS_STATE.selectedIds.add(id);
+  guiasRenderSidebar(); guiasRenderContent();
+};
+// Toggle del modo "Seleccionar" (multi). Al volver a single, conserva sólo
+// el primer alojamiento seleccionado.
+window.guiasToggleSelectMode = function() {
+  GUIAS_STATE.selectMode = !GUIAS_STATE.selectMode;
+  if (!GUIAS_STATE.selectMode && GUIAS_STATE.selectedIds.size > 1) {
+    const first = GUIAS_STATE.selectedIds.values().next().value;
+    GUIAS_STATE.selectedIds.clear();
+    GUIAS_STATE.selectedIds.add(first);
+  }
   guiasRenderSidebar(); guiasRenderContent();
 };
 window.guiasSetTab = function(key) { GUIAS_STATE.activeTab = key; guiasRenderContent(); };
@@ -27471,20 +27490,37 @@ function guiasRenderSidebar() {
   }).join('');
 
   const hasActiveFilters = (GUIAS_STATE.filters.propiedad.size + GUIAS_STATE.filters.departamento.size) > 0;
+  const multi = GUIAS_STATE.selectMode;
   const itemsHtml = rows.length ? rows.map(r => {
     const id = guiasItemId(r);
     const label = guiasItemLabel(r);
     const isSel = GUIAS_STATE.selectedIds.has(id);
-    return `<div onclick="guiasToggleItem('${esc(id)}')" data-sel="${isSel?'1':'0'}"
-      style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:3px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#0f172a;background:${isSel?'#ecfdf5':'transparent'};border:1px solid ${isSel?'#bbf7d0':'transparent'}"
+    const clickFn = multi ? 'guiasToggleItem' : 'guiasPickSingle';
+    const checkSpan = multi
+      ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid ${isSel?'#0d9488':'#cbd5e1'};background:${isSel?'#0d9488':'#fff'};color:#fff;font-size:12px;font-weight:900;flex-shrink:0;line-height:1">${isSel?'✓':''}</span>`
+      : '';
+    const icon = multi ? '' : `<span style="font-size:14px;flex-shrink:0">📍</span>`;
+    return `<div onclick="${clickFn}('${esc(id)}')" data-sel="${isSel?'1':'0'}"
+      style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:3px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:${isSel?'700':'600'};color:${isSel && !multi?'#fff':'#0f172a'};background:${isSel?(multi?'#ecfdf5':'#0d9488'):'transparent'};border:1px solid ${isSel?(multi?'#bbf7d0':'#0d9488'):'transparent'};transition:background .12s"
       onmouseover="if(this.dataset.sel!=='1')this.style.background='#f1f5f9'"
       onmouseout="if(this.dataset.sel!=='1')this.style.background='transparent'">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid ${isSel?'#0d9488':'#cbd5e1'};background:${isSel?'#0d9488':'#fff'};color:#fff;font-size:12px;font-weight:900;flex-shrink:0;line-height:1">${isSel?'✓':''}</span>
+      ${checkSpan}${icon}
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(label)}">${esc(label)}</span>
     </div>`;
   }).join('') : (hasActiveFilters
     ? '<div style="padding:20px 10px;text-align:center;color:#94a3b8;font-size:12px">Ningún alojamiento coincide con los filtros.</div>'
     : '<div style="padding:20px 10px;text-align:center;color:#94a3b8;font-size:12px">Sin alojamientos cargados.</div>');
+
+  // Toggle "Seleccionar" como palomita: cerrado=single, abierto=multi con Todos/Limpiar.
+  const seleccionarHtml = `
+    <div onclick="guiasToggleSelectMode()" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 10px;border-radius:8px;background:${multi?'#0d9488':'#f1f5f9'};color:${multi?'#fff':'#475569'};font-weight:700;font-size:12px;user-select:none">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid ${multi?'#fff':'#cbd5e1'};background:${multi?'#fff':'#fff'};color:${multi?'#0d9488':'#fff'};font-size:12px;font-weight:900;flex-shrink:0;line-height:1">${multi?'✓':''}</span>
+      <span>Seleccionar</span>
+    </div>
+    ${multi ? `<div style="display:flex;align-items:center;gap:6px;padding:6px 0 4px 28px;margin-bottom:4px">
+      <button type="button" onclick="guiasSelectAll()" style="all:unset;cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;background:#334155;color:#fff">Todos</button>
+      <button type="button" onclick="guiasSelectNone()" style="all:unset;cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;border:1px solid #cbd5e1;background:#fff;color:#475569">Limpiar</button>
+    </div>` : ''}`;
 
   sb.innerHTML = `
     <div style="margin-bottom:10px">
@@ -27495,10 +27531,8 @@ function guiasRenderSidebar() {
       <div style="font-size:10.5px;font-weight:800;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px"># Departamento</div>
       <div>${filterChips('departamento', depts) || '<span style="color:#94a3b8;font-size:11px">—</span>'}</div>
     </div>
-    <div style="display:flex;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #e2e8f0;margin-bottom:6px">
-      <span style="font-size:11px;font-weight:700;color:#475569">Seleccionar:</span>
-      <button type="button" onclick="guiasSelectAll()" style="all:unset;cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;background:#334155;color:#fff">Todos</button>
-      <button type="button" onclick="guiasSelectNone()" style="all:unset;cursor:pointer;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;border:1px solid #cbd5e1;background:#fff;color:#475569">Ninguno</button>
+    <div style="padding:8px 0;border-top:1px solid #e2e8f0;margin-bottom:6px">
+      ${seleccionarHtml}
     </div>
     ${itemsHtml}`;
 }
@@ -27527,12 +27561,17 @@ function guiasRenderContent() {
          <button type="button" onclick="guiasToggleEdit()" style="all:unset;cursor:pointer;background:#fff;color:#475569;border:1px solid #cbd5e1;padding:6px 12px;border-radius:8px;font-weight:700;font-size:12px">Cancelar</button>
        </div>`
     : `<button type="button" onclick="guiasToggleEdit()" style="all:unset;cursor:pointer;background:#1e3a8a;color:#fff;padding:6px 14px;border-radius:8px;font-weight:700;font-size:12px">✏️ Editar</button>`;
-  // Foto desde url_lodgify (sólo cuando hay 1 alojamiento; con varios omitimos
-  // foto porque podría inducir a pensar que el cambio es sólo para ese).
-  const photoUrl = (alojs.length === 1) ? String(alojs[0]['url_lodgify'] || '').trim() : '';
-  const photoHtml = photoUrl
-    ? `<div style="margin-bottom:14px;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0;background:#f8fafc">
-         <img src="${esc(photoUrl)}" alt="${esc(guiasItemLabel(alojs[0]))}" style="display:block;width:100%;height:200px;object-fit:cover" onerror="this.style.display='none'">
+  // Foto desde url_lodgify (página de listing — no imagen directa). Usamos
+  // api.microlink.io para extraer el og:image. Sólo cuando hay 1 alojamiento.
+  const photoPageUrl = (alojs.length === 1) ? String(alojs[0]['url_lodgify'] || '').trim() : '';
+  const photoHtml = photoPageUrl
+    ? `<div id="guias-photo-wrap" style="margin-bottom:14px;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0;background:#f8fafc;position:relative;min-height:200px">
+         <a href="${esc(photoPageUrl)}" target="_blank" rel="noopener" style="display:block;text-decoration:none">
+           <img id="guias-photo-img" alt="${esc(guiasItemLabel(alojs[0]))}" style="display:block;width:100%;height:200px;object-fit:cover;opacity:0;transition:opacity .25s" onload="this.style.opacity='1'" onerror="this.style.display='none';document.getElementById('guias-photo-fallback')?.classList.remove('hidden')">
+         </a>
+         <div id="guias-photo-fallback" class="hidden" style="display:flex;align-items:center;justify-content:center;padding:60px 20px;text-align:center">
+           <a href="${esc(photoPageUrl)}" target="_blank" rel="noopener" style="background:#0d9488;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px 16px;border-radius:8px">🌐 Ver listing en check-inn-saltillo.com</a>
+         </div>
        </div>`
     : '';
   host.innerHTML = `
@@ -27545,6 +27584,22 @@ function guiasRenderContent() {
       <div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:14px;overflow-x:auto">${tabs}</div>
       <div id="guias-tab-content">${guiasBuildTabHtml(GUIAS_STATE.activeTab, alojs)}</div>
     </div>`;
+
+  // Resolver og:image vía microlink.io (free, no auth) cuando hay url_lodgify.
+  if (photoPageUrl) {
+    fetch(`https://api.microlink.io/?url=${encodeURIComponent(photoPageUrl)}&screenshot=false`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => {
+        const url = j?.data?.image?.url || j?.data?.logo?.url || '';
+        const img = document.getElementById('guias-photo-img');
+        const fb = document.getElementById('guias-photo-fallback');
+        if (url && img) img.src = url;
+        else if (fb) fb.classList.remove('hidden');
+      })
+      .catch(() => {
+        document.getElementById('guias-photo-fallback')?.classList.remove('hidden');
+      });
+  }
 }
 
 function guiasBuildTabHtml(key, alojs) {
