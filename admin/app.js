@@ -26887,6 +26887,9 @@ function tuyaBuildRotoplasChart(logs, opts) {
     }).join('')}
   </svg>` : '';
 
+  // Stride para etiquetas de valor (evita saturación con N grande).
+  const labelStride = Math.max(1, Math.ceil(series.length / 25));
+
   // ── Stacked bars (pct) ──
   let barsHtml = '';
   if (show.pct) {
@@ -26900,14 +26903,17 @@ function tuyaBuildRotoplasChart(logs, opts) {
       const emptyH = (innerH - Number(filledH)).toFixed(1);
       const col = pctColor(p);
       const tt = `${fmtTs(r.ts)} · ${p}%${r.depth!=null ? ' · ' + r.depth + ' cm' : ''}`;
+      const showLbl = (i % labelStride === 0);
+      const lblY = Math.max(padT + 8, Number(filledY) - 3);
       return `<g data-tt="${esc(tt)}" style="cursor:crosshair">
         <rect x="${bx}" y="${padT}" width="${barW}" height="${emptyH}" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.5"/>
         <rect x="${bx}" y="${filledY}" width="${barW}" height="${filledH}" fill="${col}" fill-opacity="0.7" stroke="${col}" stroke-width="0.8"/>
+        ${showLbl ? `<text x="${(Number(bx) + barW/2).toFixed(1)}" y="${lblY}" text-anchor="middle" font-size="9" font-weight="700" fill="${col}">${p}%</text>` : ''}
       </g>`;
     }).join('');
   }
 
-  // ── Depth: línea CONTINUA que conecta todos los puntos disponibles + puntos ──
+  // ── Depth: línea CONTINUA que conecta todos los puntos disponibles + puntos + valores ──
   let depthEls = '';
   if (show.depth) {
     let pathD = '';
@@ -26920,7 +26926,11 @@ function tuyaBuildRotoplasChart(logs, opts) {
     const dots = series.map((r,i) => {
       if (r.depth==null) return '';
       const tt = `${fmtTs(r.ts)} · ${r.depth} cm${r.pct!=null ? ' · ' + r.pct + '%' : ''}`;
-      return `<circle data-tt="${esc(tt)}" cx="${x(i)}" cy="${yDepth(r.depth)}" r="3.5" fill="#0d9488" stroke="#fff" stroke-width="1.5" style="cursor:crosshair"/>`;
+      const showLbl = (i % labelStride === 0);
+      return `<g data-tt="${esc(tt)}" style="cursor:crosshair">
+        <circle cx="${x(i)}" cy="${yDepth(r.depth)}" r="3.5" fill="#0d9488" stroke="#fff" stroke-width="1.5"/>
+        ${showLbl ? `<text x="${x(i)}" y="${(yDepth(r.depth) - 6).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="#0d9488">${r.depth}</text>` : ''}
+      </g>`;
     }).join('');
     depthEls = (pathD ? `<path d="${pathD}" fill="none" stroke="#0d9488" stroke-width="2"/>` : '') + dots;
   }
@@ -26981,6 +26991,14 @@ window.tuyaRotoplasToggleSeries = function(kind, id) {
   });
   tuyaRotoplasRedraw(id);
 };
+// Refresh manual desde el panel de detalle: refresca lista de dispositivos
+// y vuelve a cargar los logs del device actualmente visible.
+window.tuyaRefreshFromDetail = async function(id) {
+  try {
+    if (typeof tuyaLoad === 'function') await tuyaLoad(true);
+  } catch(_) {}
+  if (typeof tuyaLoadLogs === 'function') tuyaLoadLogs(id);
+};
 window.tuyaRotoplasRedraw = function(id) {
   const st = window.TUYA_ROTOPLAS;
   const host = document.getElementById('tuya-rotoplas-host');
@@ -26992,25 +27010,36 @@ window.tuyaRotoplasRedraw = function(id) {
   if (scrollEl) scrollEl.scrollLeft = scrollEl.scrollWidth;
 };
 
-// Mini-chart para card: % Llenado en las últimas 24 horas, con líneas de
-// referencia a 20% (rojo, mínimo) y 80% (verde, máximo). Escala fija 0-100.
+// Mini-chart para card: % Llenado de las últimas 24 horas (línea azul) con
+// líneas de referencia a 20% (rojo) y 80% (verde). Si sólo hay 1 lectura,
+// muestra esa lectura como punto único + el valor en texto.
 function tuyaBuildRotoplasMiniChart(logs) {
   const { series } = tuyaRotoplasParseLogs(logs);
   const dayAgo = Date.now() - 24*60*60*1000;
   let pts = series.filter(r => r.ts >= dayAgo && r.pct != null);
-  if (pts.length < 2) pts = series.filter(r => r.pct != null).slice(-10);
-  if (pts.length < 2) return '';
+  if (!pts.length) pts = series.filter(r => r.pct != null);
+  if (!pts.length) return '';
   const W = 100, H = 28;
-  const x = (i) => 2 + (i / (pts.length - 1)) * (W - 4);
+  const single = pts.length < 2;
+  const x = single ? (() => W/2) : (i) => 2 + (i / (pts.length - 1)) * (W - 4);
   const y = (p) => H - 2 - (Math.max(0, Math.min(100, p)) / 100) * (H - 4);
-  const pathD = pts.map((r,i) => `${i===0?'M':'L'} ${x(i).toFixed(1)} ${y(r.pct).toFixed(1)}`).join(' ');
+  const refLines =
+    `<line x1="2" y1="${y(20).toFixed(1)}" x2="${W-2}" y2="${y(20).toFixed(1)}" stroke="#dc2626" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.7"/>` +
+    `<line x1="2" y1="${y(80).toFixed(1)}" x2="${W-2}" y2="${y(80).toFixed(1)}" stroke="#16a34a" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.7"/>`;
   const last = pts[pts.length - 1];
   const lastCol = last.pct >= 80 ? '#16a34a' : last.pct <= 20 ? '#dc2626' : '#f59e0b';
+  if (single) {
+    return `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block"><title>Última lectura · ${last.pct}%</title>
+      ${refLines}
+      <circle cx="${x()}" cy="${y(last.pct).toFixed(1)}" r="3" fill="${lastCol}"/>
+      <text x="${W/2}" y="${y(last.pct).toFixed(1) - 5}" text-anchor="middle" font-size="9" font-weight="700" fill="${lastCol}">${last.pct}%</text>
+    </svg>`;
+  }
+  const pathD = pts.map((r,i) => `${i===0?'M':'L'} ${x(i).toFixed(1)} ${y(r.pct).toFixed(1)}`).join(' ');
   return `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block"><title>Últimas 24h · ${pts.length} lecturas · actual ${last.pct}%</title>
-    <line x1="2" y1="${y(20).toFixed(1)}" x2="${W-2}" y2="${y(20).toFixed(1)}" stroke="#dc2626" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.6"/>
-    <line x1="2" y1="${y(80).toFixed(1)}" x2="${W-2}" y2="${y(80).toFixed(1)}" stroke="#16a34a" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.6"/>
+    ${refLines}
     <path d="${pathD}" fill="none" stroke="#0284c7" stroke-width="1.5"/>
-    <circle cx="${x(pts.length-1).toFixed(1)}" cy="${y(last.pct).toFixed(1)}" r="2.2" fill="${lastCol}"/>
+    <circle cx="${x(pts.length-1).toFixed(1)}" cy="${y(last.pct).toFixed(1)}" r="2.5" fill="${lastCol}"/>
   </svg>`;
 }
 
@@ -27045,10 +27074,12 @@ async function tuyaOpenDetail(id) {
                   style="padding:4px 10px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">Profundidad (cm)</button>
           <button type="button" data-tuya-rseries="pct" onclick="tuyaRotoplasToggleSeries('pct','${esc(d.id)}')"
                   style="padding:4px 10px;border:1.5px solid #0284c7;background:#fff;color:#0284c7;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">% Llenado</button>
+          <button type="button" onclick="tuyaRefreshFromDetail('${esc(d.id)}')"
+                  style="padding:4px 10px;border:none;background:#0d9488;color:#fff;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">↻ Actualizar</button>
           <label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#475569;margin-left:auto">
             Mostrar
-            <input type="number" id="tuya-rotoplas-n" min="2" max="200" value="10" onchange="tuyaRotoplasRedraw('${esc(d.id)}')"
-                   style="width:60px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;font-size:11px;text-align:center">
+            <input type="number" id="tuya-rotoplas-n" min="2" max="500" value="100" onchange="tuyaRotoplasRedraw('${esc(d.id)}')"
+                   style="width:64px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;font-size:11px;text-align:center">
             datos históricos
           </label>
         </div>
