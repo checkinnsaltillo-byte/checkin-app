@@ -24629,13 +24629,33 @@ const RH_STATE = {
 
 function rhInit() {
   if (RH_STATE.initialized) {
-    rhSetTab(RH_STATE.tab);
+    rhSetSection(RH_STATE.section || 'nomina');
     return;
   }
   RH_STATE.initialized = true;
+  RH_STATE.section = 'nomina';
   // Carga catalogo de empleados primero — todos los demás tabs lo necesitan
   rhLoadEmpleados().then(() => rhSetTab('compensaciones'));
 }
+
+// ── Menú de secciones (Pago de nómina | Obligaciones) ──
+window.rhSetSection = function (section) {
+  RH_STATE.section = section;
+  const btnN = document.getElementById('rh-sec-nomina');
+  const btnO = document.getElementById('rh-sec-obligaciones');
+  const secN = document.getElementById('rh-section-nomina');
+  const secO = document.getElementById('rh-section-obligaciones');
+  if (btnN && btnO) {
+    const on = 'background:#fff;color:#0f172a;box-shadow:0 1px 2px rgba(15,23,42,.05);font-weight:800';
+    const off = 'background:transparent;color:#475569;font-weight:600';
+    const base = 'all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-size:13px;';
+    btnN.setAttribute('style', base + (section === 'nomina' ? on : off));
+    btnO.setAttribute('style', base + (section === 'obligaciones' ? on : off));
+  }
+  if (secN) secN.classList.toggle('hidden', section !== 'nomina');
+  if (secO) secO.classList.toggle('hidden', section !== 'obligaciones');
+  if (section === 'obligaciones') rhRenderObligaciones();
+};
 
 window.rhSetTab = function (tab) {
   RH_STATE.tab = tab;
@@ -24677,6 +24697,242 @@ async function rhLoadCompensaciones() {
     if (data.ok) RH_STATE.compensaciones = data.rows || [];
   } catch (e) { console.warn('[RH] compensaciones:', e.message); }
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║  RH › Obligaciones (cuotas IMSS + recibos de nómina por empleado)   ║
+// ═══════════════════════════════════════════════════════════════════════
+const RH_OBL_STATE = {
+  year: (new Date()).getFullYear(),
+  expanded: null,        // 1..12 (mes expandido) o null
+  files: {},             // map "M|kind|empleadoId" → { url, name, id }
+  loading: false,
+};
+const RH_OBL_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function rhObligacionesContainer() { return document.getElementById('rh-section-obligaciones'); }
+
+function rhObligacionesKey(month, kind, empleadoId) {
+  return String(month) + '|' + kind + '|' + (empleadoId || '');
+}
+
+async function rhLoadObligaciones(year) {
+  RH_OBL_STATE.loading = true;
+  try {
+    const res = await fetch(`${BACKEND}/rh/obligaciones?year=${year}&_cb=${Date.now()}`, { cache: 'no-store' });
+    const data = await res.json();
+    const map = {};
+    if (data && data.ok && Array.isArray(data.items)) {
+      data.items.forEach(it => {
+        const k = rhObligacionesKey(it.month, it.kind, it.empleadoId || '');
+        map[k] = { url: it.url, name: it.name, id: it.id };
+      });
+    }
+    RH_OBL_STATE.files = map;
+  } catch (e) {
+    console.warn('[RH] obligaciones:', e.message);
+    RH_OBL_STATE.files = {};
+  }
+  RH_OBL_STATE.loading = false;
+}
+
+async function rhRenderObligaciones() {
+  const view = rhObligacionesContainer();
+  if (!view) return;
+  // Carga empleados si aún no, y los archivos del año
+  if (!RH_STATE.empleados || !RH_STATE.empleados.length) await rhLoadEmpleados();
+  view.innerHTML = `<div style="text-align:center;padding:40px;color:#94a3b8;font-size:13px">⏳ Cargando obligaciones…</div>`;
+  await rhLoadObligaciones(RH_OBL_STATE.year);
+  rhPaintObligaciones();
+}
+
+function rhObligacionesEmpleadosActivos() {
+  return (RH_STATE.empleados || []).filter(r => {
+    const est = r.Estado || (String(r.Activo||'').toLowerCase() === 'inactivo' ? 'Inactivo' : 'Activo');
+    return est === 'Activo';
+  });
+}
+
+function rhPaintObligaciones() {
+  const view = rhObligacionesContainer();
+  if (!view) return;
+  const year = RH_OBL_STATE.year;
+  const yearsRange = []; for (let y = year - 2; y <= year + 1; y++) yearsRange.push(y);
+  const yearOpts = yearsRange.map(y => `<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('');
+
+  const cards = RH_OBL_MESES.map((mesName, idx) => {
+    const month = idx + 1;
+    const isOpen = RH_OBL_STATE.expanded === month;
+    const monthChips = rhObligacionesMonthChips(month);
+    const body = isOpen ? rhObligacionesMonthBody(month) : '';
+    return `
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;${isOpen?'box-shadow:0 4px 18px rgba(15,23,42,.08)':''}">
+        <div onclick="rhToggleMonth(${month})" style="cursor:pointer;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:${isOpen?'#f8fafc':'#fff'}">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+            <span style="font-size:18px;color:${isOpen?'#0d9488':'#64748b'};font-weight:900">${isOpen?'▾':'▸'}</span>
+            <div style="font-weight:800;font-size:15px;color:#0f172a">${mesName} <span style="color:#94a3b8;font-weight:600;font-size:12px">${year}</span></div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${monthChips}</div>
+        </div>
+        ${body}
+      </div>
+    `;
+  }).join('');
+
+  view.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin:0 0 14px">
+      <div style="font-weight:800;color:#0f172a;font-size:15px">📋 Obligaciones</div>
+      <div style="flex:1"></div>
+      <label style="font-size:12px;color:#64748b;font-weight:600">Año</label>
+      <select onchange="rhObligacionesSetYear(this.value)" style="padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff;cursor:pointer">${yearOpts}</select>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px">
+      ${cards}
+    </div>
+  `;
+}
+
+window.rhObligacionesSetYear = function (y) {
+  RH_OBL_STATE.year = parseInt(y, 10);
+  RH_OBL_STATE.expanded = null;
+  rhRenderObligaciones();
+};
+
+window.rhToggleMonth = function (month) {
+  RH_OBL_STATE.expanded = (RH_OBL_STATE.expanded === month) ? null : month;
+  rhPaintObligaciones();
+};
+
+function rhObligacionesMonthChips(month) {
+  const f = RH_OBL_STATE.files;
+  const has = (kind, emp) => !!f[rhObligacionesKey(month, kind, emp || '')];
+  const chips = [];
+  const okStyle = 'background:#d1fae5;color:#065f46;border:1px solid #6ee7b7';
+  const missStyle = 'background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0';
+  const wrap = (txt, ok) => `<span style="${ok?okStyle:missStyle};font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap">${txt}</span>`;
+  const formato = has('cuota_formato');
+  const compr = has('cuota_comprobante');
+  chips.push(wrap('Cuotas', formato && compr));
+  const activos = rhObligacionesEmpleadosActivos();
+  let recibosOk = 0;
+  activos.forEach(e => {
+    const id = String(e.ID || '');
+    if (has('recibo_xml', id) && has('recibo_pdf', id)) recibosOk++;
+  });
+  chips.push(wrap(`Recibos ${recibosOk}/${activos.length}`, activos.length && recibosOk === activos.length));
+  return chips.join('');
+}
+
+function rhObligacionesMonthBody(month) {
+  const f = RH_OBL_STATE.files;
+  const activos = rhObligacionesEmpleadosActivos();
+  const cuotaFormato = f[rhObligacionesKey(month, 'cuota_formato', '')];
+  const cuotaCompr   = f[rhObligacionesKey(month, 'cuota_comprobante', '')];
+
+  const fileBox = (label, kind, empleadoId, current) => {
+    const empSafe = empleadoId || '';
+    const inputId = `rh-obl-in-${month}-${kind}-${empSafe || 'g'}`;
+    return `
+      <div style="border:1.5px dashed ${current?'#10b981':'#cbd5e1'};background:${current?'#ecfdf5':'#f8fafc'};border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;min-width:0">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.4px">${label}</div>
+          ${current
+            ? `<a href="${esc(current.url)}" target="_blank" rel="noopener" style="font-size:12.5px;color:#065f46;font-weight:600;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:100%">✓ ${esc(current.name || 'Archivo cargado')}</a>`
+            : `<div style="font-size:12.5px;color:#94a3b8">Sin cargar</div>`}
+        </div>
+        <input type="file" id="${inputId}" style="display:none" onchange="rhObligacionUpload(this, ${month}, '${kind}', '${empSafe}')">
+        <button type="button" onclick="document.getElementById('${inputId}').click()" style="all:unset;cursor:pointer;background:${current?'#0d9488':'#0f172a'};color:#fff;font-weight:700;font-size:12px;padding:7px 12px;border-radius:7px;white-space:nowrap">${current?'Reemplazar':'Subir'}</button>
+      </div>
+    `;
+  };
+
+  const cuotasBlock = `
+    <div style="margin:0 0 18px">
+      <div style="font-weight:800;font-size:13px;color:#0f172a;margin:0 0 8px">💼 Pago de cuotas obrero patronales</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${fileBox('Formato de pago', 'cuota_formato', '', cuotaFormato)}
+        ${fileBox('Comprobante de pago', 'cuota_comprobante', '', cuotaCompr)}
+      </div>
+    </div>`;
+
+  const empleadosCards = activos.map(e => {
+    const id = String(e.ID || '');
+    const nombre = [e.Nombre, e.Apellido_paterno, e.Apellido_materno].filter(Boolean).join(' ') || (e.Nombre || '—');
+    const xml = f[rhObligacionesKey(month, 'recibo_xml', id)];
+    const pdf = f[rhObligacionesKey(month, 'recibo_pdf', id)];
+    const okChip = (ok, txt) => `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;${ok?'background:#d1fae5;color:#065f46;border:1px solid #6ee7b7':'background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0'}">${txt}</span>`;
+    return `
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px">
+          <div style="font-weight:700;font-size:13px;color:#0f172a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nombre)}</div>
+          <div style="display:flex;gap:4px">
+            ${okChip(!!xml, 'XML')}
+            ${okChip(!!pdf, 'PDF')}
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${fileBox('Recibo XML', 'recibo_xml', id, xml)}
+          ${fileBox('Recibo PDF', 'recibo_pdf', id, pdf)}
+        </div>
+      </div>`;
+  }).join('');
+
+  const recibosBlock = `
+    <div>
+      <div style="font-weight:800;font-size:13px;color:#0f172a;margin:0 0 8px">🧾 Recibos de nómina (${activos.length} empleados activos)</div>
+      ${activos.length === 0
+        ? `<div style="text-align:center;padding:18px;color:#94a3b8;font-size:12px;background:#f8fafc;border-radius:10px">Sin empleados activos.</div>`
+        : `<div style="display:grid;gap:8px">${empleadosCards}</div>`}
+    </div>`;
+
+  return `<div style="padding:14px 18px 18px;border-top:1px solid #f1f5f9;background:#fff">${cuotasBlock}${recibosBlock}</div>`;
+}
+
+window.rhObligacionUpload = async function (input, month, kind, empleadoId) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const MAX = 25 * 1024 * 1024;
+  if (file.size > MAX) { alert('Archivo > 25 MB. Reduce el tamaño.'); input.value = ''; return; }
+  // Validación básica de extensión por kind
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (kind === 'recibo_xml' && ext !== 'xml') { alert('Recibo XML debe tener extensión .xml'); input.value = ''; return; }
+  if (kind === 'recibo_pdf' && ext !== 'pdf') { alert('Recibo PDF debe tener extensión .pdf'); input.value = ''; return; }
+  // Lee como base64
+  const base64 = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(r.error);
+    r.onload = () => {
+      const s = String(r.result || '');
+      const i = s.indexOf(',');
+      resolve(i >= 0 ? s.slice(i + 1) : s);
+    };
+    r.readAsDataURL(file);
+  });
+  // Marca visual: deshabilitar entrada
+  input.disabled = true;
+  try {
+    const res = await fetch(`${BACKEND}/rh/obligacion/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        year: RH_OBL_STATE.year,
+        month: month,
+        kind: kind,
+        empleadoId: empleadoId || '',
+        empleadoNombre: empleadoId ? rhEmpleadoNombre(empleadoId) : '',
+        file: { fileName: file.name, mimeType: file.type || 'application/octet-stream', base64: base64 }
+      })
+    });
+    const data = await res.json();
+    if (!data || !data.ok) throw new Error((data && data.error) || 'Upload falló');
+    RH_OBL_STATE.files[rhObligacionesKey(month, kind, empleadoId || '')] = { url: data.url, name: data.name || file.name, id: data.id };
+    rhPaintObligaciones();
+  } catch (e) {
+    alert('Error al subir: ' + e.message);
+  } finally {
+    input.disabled = false;
+    input.value = '';
+  }
+};
 
 // ── Helpers UI ──
 function rhFmtMoney(n) {
