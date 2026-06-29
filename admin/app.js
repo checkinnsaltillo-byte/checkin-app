@@ -25369,6 +25369,13 @@ function rhRenderCompensaciones() {
               <td>${esc(r.Fecha_pago || '—')}</td>
               <td>${esc(r.Comentarios || '—')}</td>
             </tr>`).join('')}</tbody>
+          <tfoot>
+            <tr style="background:#f8fafc;border-top:2px solid #cbd5e1">
+              <td colspan="4" style="text-align:right;font-weight:800;color:#0f172a;padding:10px 12px">Total</td>
+              <td style="text-align:right;font-weight:900;color:#15803d;font-size:14px;padding:10px 12px">${rhFmtMoney(rows.reduce((s,r) => s + (Number(r.Monto)||0), 0))}</td>
+              <td colspan="3"></td>
+            </tr>
+          </tfoot>
         </table></div>`}`;
 }
 
