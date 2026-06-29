@@ -27459,16 +27459,13 @@ window.guiasToggleSelectMode = function() {
 };
 window.guiasSetTab = function(key) { GUIAS_STATE.activeTab = key; guiasRenderContent(); };
 
-// Configuración de campos por tab para el PDF (label, key).
-const GUIAS_PDF_TABS = [
-  { title: 'Wi-Fi', icon: '📶', fields: [['Red (SSID)','WIFI_SSID'],['Contraseña','WIFI_Password']] },
-  { title: 'Check-in', icon: '🔑', fields: [['Dirección','Dirección'],['City Tax','City_Tax'],['Teléfono','Host_Telefono'],['WhatsApp','Host_WhatsApp'],['Email','Host_Email']] },
-  { title: 'Acceso', icon: '🚪', fields: [['Código de puerta','Acceso_Codigo'],['Instrucciones de llegada','Acceso_Instrucciones'],['Estacionamiento','Acceso_Estacionamiento'],['Ubicación de llaves','Acceso_Llaves']] },
-  { title: 'Rules', icon: '📋', fields: [['Reglas de la casa','Reglas'],['Manual A/C','Manual_AC'],['Manual Agua / Boiler','Manual_Agua'],['Manual Smart TV','Manual_SmartTV'],['SOS / Emergencias','SOS']] },
-  { title: 'Waste', icon: '♻️', fields: [['Horarios de recolección','Reciclaje_Horarios'],['Separación de residuos','Reciclaje_Separacion']] },
-  { title: 'Services', icon: '💎', fields: [['Amenidades','Servicios_Amenidades'],['Servicios adicionales / precios','Servicios_Adicionales']] },
-  { title: 'Guía Local', icon: '🗺️', fields: [['Lugares recomendados','Guia_Lugares'],['Restaurantes','Guia_Restaurantes'],['Transporte','Guia_Transporte'],['Tours / Excursiones','Guia_Tours']] },
-];
+// PDF: mismas columnas reales que el render UI (derivadas de GUIAS_TAB_FIELDS).
+function guiasPdfSections() {
+  return GUIAS_TABS.map(t => ({
+    title: t.label, icon: t.icon,
+    fields: (GUIAS_TAB_FIELDS[t.key] || []).map(([lbl, col]) => [lbl, col]),
+  }));
+}
 
 // Descarga un PDF imprimible (interactivo: links se preservan). Sólo aplica
 // cuando hay UN alojamiento seleccionado. El nombre sugerido = "Propiedad - # Departamento".
@@ -27493,7 +27490,7 @@ window.guiasDownloadPdf = function() {
     if (!body) return ''; // Si no hay ningún campo con dato, omite la sección
     return `<section><h2>${t.icon} ${esc(t.title)}</h2><div class="card">${body}</div></section>`;
   };
-  const sections = GUIAS_PDF_TABS.map(section).join('');
+  const sections = guiasPdfSections().map(section).join('');
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${esc(fname)}</title>
   <style>
@@ -27687,17 +27684,50 @@ function guiasRenderContent() {
   }
 }
 
+// Definición de campos por tab usando las columnas REALES de la hoja
+// "alojamientos". Formato: [labelUI, columnKey, inputType?='text'].
+const GUIAS_TAB_FIELDS = {
+  'wifi': [
+    ['Red 1 (SSID)', 'wifi_name_1'],
+    ['Red 2 (SSID)', 'wifi_name_2'],
+    ['Instrucciones y contraseñas', 'wifi_txt', 'textarea'],
+  ],
+  'check-in': [
+    ['Ubicación', 'ubicacion'],
+    ['Detalles de ubicación', 'ubicacion_txt', 'textarea'],
+    ['Hora de llegada', 'hr_llegada'],
+    ['Hora de salida', 'hr_salida'],
+    ['Método de check-in', 'check_in_method'],
+    ['Instrucciones de check-in', 'checkin_txt', 'textarea'],
+    ['Contactos', 'contactos_txt', 'textarea'],
+  ],
+  'acceso': [
+    ['Clave de acceso', 'clave_acceso'],
+    ['Método de check-in', 'check_in_method'],
+    ['Estacionamiento', 'parking_txt', 'textarea'],
+  ],
+  'rules':    [['Reglas de la casa', 'rules_txt', 'textarea']],
+  'waste':    [['Mantenimiento / Limpieza / Residuos', 'mantenimiento_txt', 'textarea']],
+  'services': [
+    ['Tipo', 'tipo'],
+    ['Capacidad', 'capacidad'],
+    ['Recámaras', 'recamaras'],
+    ['Camas', 'camas'],
+    ['Baños', 'banos'],
+    ['Planta', 'planta'],
+    ['Estacionamiento', 'parking_txt', 'textarea'],
+  ],
+  'guide': [],
+};
+
 function guiasBuildTabHtml(key, alojs) {
-  switch (key) {
-    case 'wifi':     return guiasTabWifi(alojs);
-    case 'check-in': return guiasTabCheckin(alojs);
-    case 'acceso':   return guiasTabAcceso(alojs);
-    case 'rules':    return guiasTabRules(alojs);
-    case 'waste':    return guiasTabWaste(alojs);
-    case 'services': return guiasTabServices(alojs);
-    case 'guide':    return guiasTabGuide(alojs);
-    default: return '<div style="padding:20px;color:#94a3b8">Sin contenido</div>';
-  }
+  if (key === 'check-in') return guiasTabCheckinSpecial(alojs);
+  const fields = GUIAS_TAB_FIELDS[key] || [];
+  if (!fields.length) return guiasCard(GUIAS_TABS.find(t => t.key === key)?.label || '', '',
+    '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin campos definidos para esta sección.</div>');
+  const tabMeta = GUIAS_TABS.find(t => t.key === key);
+  const inner = fields.map(([lbl, col, type]) => guiasField(lbl, col, alojs, { type: type || 'text' })).join('');
+  return guiasCard(tabMeta?.label || '', tabMeta?.icon || '', inner);
 }
 
 function guiasCard(title, icon, inner) {
@@ -27729,72 +27759,33 @@ function guiasField(label, fieldKey, alojs, opts) {
   </div>`;
 }
 
-function guiasTabWifi(alojs) {
-  return guiasCard('Wi-Fi', '📶',
-    guiasField('Red (SSID)', 'WIFI_SSID', alojs) +
-    guiasField('Contraseña', 'WIFI_Password', alojs));
-}
-
-function guiasTabCheckin(alojs) {
-  // Sin el banner "¿Llegada temprana?".
-  const dirInfo = guiasFieldValue(alojs, 'Dirección');
-  const dir = dirInfo.mixed ? '' : dirInfo.value;
-  const phoneInfo = guiasFieldValue(alojs, 'Host_Telefono');
-  const phone = phoneInfo.mixed ? '' : phoneInfo.value;
-  const waInfo = guiasFieldValue(alojs, 'Host_WhatsApp');
-  const wa = (waInfo.mixed ? '' : waInfo.value) || phone;
-  const emailInfo = guiasFieldValue(alojs, 'Host_Email');
-  const email = emailInfo.mixed ? '' : emailInfo.value;
-  return guiasCard('Check-in', '🔑',
-    guiasField('Dirección', 'Dirección', alojs) +
-    (!GUIAS_STATE.editMode && dir ? `<a href="https://maps.google.com/?q=${encodeURIComponent(dir)}" target="_blank" rel="noopener" style="display:block;text-align:center;background:#1e293b;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px;margin:8px 0">Navegar con Google Maps</a>` : '') +
-    `<div style="border-top:1px solid #e2e8f0;margin:10px 0"></div>` +
-    guiasField('City Tax', 'City_Tax', alojs, { type: 'textarea' }) +
-    `<div style="border-top:1px solid #e2e8f0;margin:10px 0"></div>` +
-    `<div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px">📞 Contacto Anfitrión</div>` +
-    guiasField('Teléfono', 'Host_Telefono', alojs) +
-    guiasField('WhatsApp', 'Host_WhatsApp', alojs) +
-    guiasField('Email', 'Host_Email', alojs) +
-    (!GUIAS_STATE.editMode ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
-       ${phone ? `<a href="tel:${esc(phone)}" style="text-align:center;background:#3b82f6;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px">📞 ${esc(phone)}</a>` : ''}
-       ${wa ? `<a href="https://wa.me/${esc(String(wa).replace(/[^0-9]/g,''))}" target="_blank" rel="noopener" style="text-align:center;background:#25d366;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px">💬 WhatsApp</a>` : ''}
-       ${email ? `<a href="mailto:${esc(email)}" style="text-align:center;background:#475569;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px">✉️ ${esc(email)}</a>` : ''}
-     </div>` : ''));
-}
-
-function guiasTabAcceso(alojs) {
-  return guiasCard('Acceso', '🚪',
-    guiasField('Código de puerta / cerradura', 'Acceso_Codigo', alojs) +
-    guiasField('Instrucciones de llegada', 'Acceso_Instrucciones', alojs, { type: 'textarea' }) +
-    guiasField('Estacionamiento', 'Acceso_Estacionamiento', alojs, { type: 'textarea' }) +
-    guiasField('Ubicación de llaves', 'Acceso_Llaves', alojs));
-}
-
-function guiasTabRules(alojs) {
-  return guiasCard('House Rules', '📋',
-    guiasField('Reglas de la casa', 'Reglas', alojs, { type: 'textarea' }) +
-    guiasField('Manual A/C', 'Manual_AC', alojs, { type: 'textarea' }) +
-    guiasField('Manual Agua / Boiler', 'Manual_Agua', alojs, { type: 'textarea' }) +
-    guiasField('Manual Smart TV', 'Manual_SmartTV', alojs, { type: 'textarea' }) +
-    guiasField('SOS / Emergencias', 'SOS', alojs, { type: 'textarea' }));
-}
-
-function guiasTabWaste(alojs) {
-  return guiasCard('Reciclaje', '♻️',
-    guiasField('Días y horarios de recolección', 'Reciclaje_Horarios', alojs, { type: 'textarea' }) +
-    guiasField('Separación de residuos', 'Reciclaje_Separacion', alojs, { type: 'textarea' }));
-}
-
-function guiasTabServices(alojs) {
-  return guiasCard('Servicios', '💎',
-    guiasField('Amenidades (separadas por coma)', 'Servicios_Amenidades', alojs, { type: 'textarea' }) +
-    guiasField('Servicios adicionales / precios', 'Servicios_Adicionales', alojs, { type: 'textarea' }));
-}
-
-function guiasTabGuide(alojs) {
-  return guiasCard('Guía Local', '🗺️',
-    guiasField('Lugares recomendados', 'Guia_Lugares', alojs, { type: 'textarea' }) +
-    guiasField('Restaurantes', 'Guia_Restaurantes', alojs, { type: 'textarea' }) +
-    guiasField('Transporte', 'Guia_Transporte', alojs, { type: 'textarea' }) +
-    guiasField('Tours / Excursiones', 'Guia_Tours', alojs, { type: 'textarea' }));
+// Render especial del Check-in: agrega botón "Navegar con Google Maps" y
+// extrae teléfonos/emails del campo `contactos_txt` para mostrar botones
+// rápidos cuando NO está en modo edición.
+function guiasTabCheckinSpecial(alojs) {
+  const fields = GUIAS_TAB_FIELDS['check-in'];
+  const inner = fields.map(([lbl, col, type]) => guiasField(lbl, col, alojs, { type: type || 'text' })).join('');
+  const ubicInfo = guiasFieldValue(alojs, 'ubicacion');
+  const ubic = ubicInfo.mixed ? '' : ubicInfo.value;
+  // Usa la columna url_google_maps si existe; si no, construye desde ubicacion.
+  const gmInfo = guiasFieldValue(alojs, 'url_google_maps');
+  const gmUrl = (gmInfo.mixed ? '' : gmInfo.value) || (ubic ? `https://maps.google.com/?q=${encodeURIComponent(ubic)}` : '');
+  const mapsBtn = (!GUIAS_STATE.editMode && gmUrl)
+    ? `<a href="${esc(gmUrl)}" target="_blank" rel="noopener" style="display:block;text-align:center;background:#1e293b;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px;margin:8px 0">🗺️ Navegar con Google Maps</a>`
+    : '';
+  // Extrae teléfono / whatsapp / email de contactos_txt si existe.
+  const cInfo = guiasFieldValue(alojs, 'contactos_txt');
+  const ctxt = cInfo.mixed ? '' : cInfo.value;
+  const phoneMatch = ctxt.match(/\+?\d[\d\s\-()]{6,}/);
+  const emailMatch = ctxt.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+  const phone = phoneMatch ? phoneMatch[0].trim() : '';
+  const email = emailMatch ? emailMatch[0].trim() : '';
+  const quickBtns = (!GUIAS_STATE.editMode && (phone || email))
+    ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+        ${phone ? `<a href="tel:${esc(phone)}" style="text-align:center;background:#3b82f6;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px">📞 ${esc(phone)}</a>` : ''}
+        ${phone ? `<a href="https://wa.me/${esc(String(phone).replace(/[^0-9]/g,''))}" target="_blank" rel="noopener" style="text-align:center;background:#25d366;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px">💬 WhatsApp</a>` : ''}
+        ${email ? `<a href="mailto:${esc(email)}" style="text-align:center;background:#475569;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px">✉️ ${esc(email)}</a>` : ''}
+       </div>`
+    : '';
+  return guiasCard('Check-in', '🔑', inner + mapsBtn + quickBtns);
 }
