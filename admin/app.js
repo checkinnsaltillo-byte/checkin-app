@@ -27555,10 +27555,10 @@ window.guiasDownloadPdf = async function() {
     section{margin-bottom:18px;scroll-margin-top:12px}
     h2{font-size:14px;margin:0 0 8px;padding-bottom:5px;border-bottom:2px solid #0d9488;color:#0d9488;display:flex;align-items:center;gap:6px}
     .card{border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;background:#fff}
-    .row{display:flex;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid #f1f5f9}
+    .row{display:grid;grid-template-columns:38% 1fr;gap:14px;align-items:start;padding:6px 0;border-bottom:1px solid #f1f5f9}
     .row:last-child{border-bottom:none}
-    .lbl{font-size:11px;color:#64748b;font-weight:700;flex-shrink:0;max-width:42%}
-    .val{font-size:13px;font-weight:600;text-align:right}
+    .lbl{font-size:11px;color:#64748b;font-weight:700;text-align:left}
+    .val{font-size:13px;font-weight:600;text-align:left;white-space:pre-wrap;word-break:break-word}
     .val a{color:#0d9488;text-decoration:underline;word-break:break-all}
     @media print{
       @page{margin:14mm}
@@ -27805,9 +27805,9 @@ function guiasField(label, fieldKey, alojs, opts) {
       ${input}
     </div>`;
   }
-  return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:6px 0">
-    <span style="font-size:11px;color:#64748b">${esc(label)}</span>
-    <span style="font-size:13px;color:${mixed?'#94a3b8':'#0f172a'};font-weight:600;text-align:right;font-style:${mixed?'italic':'normal'};white-space:pre-wrap">${esc(mixed ? '(varios)' : (value || '—'))}</span>
+  return `<div style="display:grid;grid-template-columns:38% 1fr;gap:14px;align-items:start;padding:6px 0;border-bottom:1px solid #f1f5f9">
+    <div style="font-size:11px;color:#64748b;font-weight:700;text-align:left">${esc(label)}</div>
+    <div style="font-size:13px;color:${mixed?'#94a3b8':'#0f172a'};font-weight:600;text-align:left;font-style:${mixed?'italic':'normal'};white-space:pre-wrap;word-break:break-word">${esc(mixed ? '(varios)' : (value || '—'))}</div>
   </div>`;
 }
 
