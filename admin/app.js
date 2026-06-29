@@ -5836,13 +5836,15 @@ function bn_createCard(rec, idx) {
       ${probChipHtml(probCol, probBg)}
     </div>`;
 
-  const reclasifyOpen = !!(window.BN_RECLASIF_STAGED && BN_RECLASIF_STAGED['__open_' + idx]);
+  // Usar rec.rowNum como key estable (no idx) para el flujo de reclasificación.
+  const _rn = Number(rec.rowNum) || 0;
+  const reclasifyOpen = !!(window.BN_RECLASIF_STAGED && BN_RECLASIF_STAGED['__open_' + _rn]);
   const inlineSearchInputHtml = `
-    <input type="text" id="bn-classify-tab-input-${idx}"
+    <input type="text" id="bn-classify-tab-input-${_rn}"
            placeholder="🔍 Buscar por cuenta, subcuenta, categoría o concepto..."
-           oninput="bn_classifyTabSearch(${idx}, this)"
+           oninput="bn_classifyTabSearch(${_rn}, this)"
            onclick="event.stopPropagation()"
-           onfocus="bn_classifyTabSearch(${idx}, this)"
+           onfocus="bn_classifyTabSearch(${_rn}, this)"
            onblur="setTimeout(bn_tblSearchHide, 200)"
            style="flex:1;min-width:0;max-width:520px;padding:5px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:600;background:#fff;outline:none;text-align:center;color:#1f2937">`;
   const hamburgerBtnHtml = `<button onclick="event.stopPropagation();bn_toggleBnClassify(${idx})" title="Abrir panel Clasificar" style="padding:4px 9px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:14px;font-weight:800;line-height:1;cursor:pointer">≡</button>`;
@@ -5850,12 +5852,12 @@ function bn_createCard(rec, idx) {
   const classifiedTabHtml = reclasifyOpen
     ? `<div class="classify-tab classified ${clasifColorCls}" id="bn-btn-classify-${idx}" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">
          ${inlineSearchInputHtml}
-         <button onclick="event.stopPropagation();bn_saveReclasify(${idx})" style="padding:4px 10px;border:1px solid #16a34a;background:#16a34a;color:#fff;border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">💾 Guardar</button>
-         <button onclick="event.stopPropagation();bn_cancelReclasify(${idx})" style="padding:4px 8px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">Cancelar</button>
+         <button onclick="event.stopPropagation();bn_saveReclasify(${_rn})" style="padding:4px 10px;border:1px solid #16a34a;background:#16a34a;color:#fff;border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">💾 Guardar</button>
+         <button onclick="event.stopPropagation();bn_cancelReclasify(${_rn})" style="padding:4px 8px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">Cancelar</button>
        </div>`
     : `<div class="classify-tab classified ${clasifColorCls}" id="bn-btn-classify-${idx}" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
          <span style="${tabTextStyle};color:${tabTxtColor};cursor:pointer" onclick="bn_toggleBnClassify(${idx})">${esc(pathText)}</span>
-         <button onclick="event.stopPropagation();bn_toggleReclasify(${idx})" style="padding:3px 8px;border:1px solid ${clasifColorCls ? 'rgba(255,255,255,.6)' : '#cbd5e1'};background:${clasifColorCls ? 'rgba(255,255,255,.18)' : '#fff'};color:${tabTxtColor};border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">✏️ Re-clasificar</button>
+         <button onclick="event.stopPropagation();bn_toggleReclasify(${_rn})" style="padding:3px 8px;border:1px solid ${clasifColorCls ? 'rgba(255,255,255,.6)' : '#cbd5e1'};background:${clasifColorCls ? 'rgba(255,255,255,.18)' : '#fff'};color:${tabTxtColor};border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">✏️ Re-clasificar</button>
          ${wasAutoValidated ? robotValidatedHtml(tabTxtColor) + probChipHtml(probCol, probBg) : ''}
        </div>`;
 
@@ -7178,7 +7180,15 @@ async function bn_tblSearchPick(idx, enc) {
 }
 
 // ─── Búsqueda inline en la pestaña inferior de las cards ─────────────────────
+// Keys de este objeto son rowNum (id del sheet) — no idx — para sobrevivir
+// re-renders / cambios de filtro entre toggle, pick y save.
 window.BN_RECLASIF_STAGED = window.BN_RECLASIF_STAGED || {};
+
+// Helper: busca rec por rowNum en BN_RAW (más estable que BN_CUR_RECS[idx]).
+function bn_recByRowNum(rowNum) {
+  if (!rowNum) return null;
+  return (BN_RAW || []).find(r => r.rowNum === rowNum) || null;
+}
 
 function bn_ensureSearchDropdown_() {
   let dd = document.getElementById('bn-tbl-search-dropdown');
@@ -7191,29 +7201,29 @@ function bn_ensureSearchDropdown_() {
   return dd;
 }
 
-function bn_classifyTabSearch(idx, input) {
+// Todas las funciones de reclasificación operan por ROWNUM (id del sheet),
+// no por idx (índice de BN_CUR_RECS) — sobrevive re-renders / cambios de
+// filtro entre toggle, pick y save.
+function bn_classifyTabSearch(rowNum, input) {
   const q = (input.value || '').trim();
   const dd = bn_ensureSearchDropdown_();
   if (!dd) return;
   if (!q) { dd.classList.add('hidden'); return; }
-  // Mismo filtro que onClassifySearch (panel Clasificar): substring lowercase
-  // en cualquiera de los 4 campos. Mismo tope de 12 resultados.
   const lower = q.toLowerCase();
   const idx_ = (typeof SEARCH_INDEX !== 'undefined' && SEARCH_INDEX) ? SEARCH_INDEX : [];
   const matches = idx_.filter(e =>
     [e.cuenta, e.subcuenta, e.categoria, e.concepto].some(f => String(f||'').toLowerCase().includes(lower))
   ).slice(0, 12);
-  const staged = !!BN_RECLASIF_STAGED['__open_' + idx];
+  const staged = !!BN_RECLASIF_STAGED['__open_' + rowNum];
   if (!matches.length) {
     dd.innerHTML = `<div class="search-no-results" style="padding:10px;font-size:12px;color:#9ca3af">Sin resultados para "${esc(q)}"</div>`;
     bn_tblSearchPositionAt(input); dd.classList.remove('hidden'); return;
   }
-  // Mismo render que onClassifySearch: chips por nivel separados por ' › '
   dd.innerHTML = matches.map(m => {
     const parts = [m.cuenta, m.subcuenta, m.categoria, m.concepto].filter(Boolean);
     const html  = parts.map(p => `<span>${esc(p)}</span>`).join(`<span class="search-sep"> › </span>`);
     const enc = encodeURIComponent(JSON.stringify(m));
-    return `<div class="search-result-item" onmousedown="event.preventDefault();bn_classifyTabPick(${idx}, '${enc}', ${staged})"
+    return `<div class="search-result-item" onmousedown="event.preventDefault();bn_classifyTabPick(${rowNum}, '${enc}', ${staged})"
                  onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"
                  style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;cursor:pointer;color:#1f2937">${html}</div>`;
   }).join('');
@@ -7221,20 +7231,20 @@ function bn_classifyTabSearch(idx, input) {
   dd.classList.remove('hidden');
 }
 
-async function bn_classifyTabPick(idx, enc, staged) {
+async function bn_classifyTabPick(rowNum, enc, staged) {
   let opt; try { opt = JSON.parse(decodeURIComponent(enc)); } catch(_) { return; }
   bn_tblSearchHide();
   if (staged) {
-    BN_RECLASIF_STAGED[idx] = opt;
-    const input = document.getElementById('bn-classify-tab-input-' + idx);
+    BN_RECLASIF_STAGED[rowNum] = opt;
+    const input = document.getElementById('bn-classify-tab-input-' + rowNum);
     if (input) input.value = [opt.cuenta, opt.subcuenta, opt.categoria, opt.concepto].filter(Boolean).join(' › ');
     return;
   }
-  await bn_classifyTabApply(idx, opt);
+  await bn_classifyTabApply(rowNum, opt);
 }
 
-async function bn_classifyTabApply(idx, opt) {
-  const rec = BN_CUR_RECS[idx]; if (!rec) return;
+async function bn_classifyTabApply(rowNum, opt) {
+  const rec = bn_recByRowNum(rowNum); if (!rec) return;
   rec._cuenta          = opt.cuenta    || '';
   rec._subcuenta       = opt.subcuenta || '';
   rec._categoria_gasto = opt.categoria || '';
@@ -7259,24 +7269,24 @@ async function bn_classifyTabApply(idx, opt) {
   } catch (e) { console.warn('Error guardando clasificación:', e.message); }
 }
 
-function bn_toggleReclasify(idx) {
-  BN_RECLASIF_STAGED['__open_' + idx] = true;
-  delete BN_RECLASIF_STAGED[idx];
+function bn_toggleReclasify(rowNum) {
+  BN_RECLASIF_STAGED['__open_' + rowNum] = true;
+  delete BN_RECLASIF_STAGED[rowNum];
   bn_renderCards();
-  setTimeout(() => { document.getElementById('bn-classify-tab-input-' + idx)?.focus(); }, 50);
+  setTimeout(() => { document.getElementById('bn-classify-tab-input-' + rowNum)?.focus(); }, 50);
 }
 
-async function bn_saveReclasify(idx) {
-  const opt = BN_RECLASIF_STAGED[idx];
-  delete BN_RECLASIF_STAGED['__open_' + idx];
-  delete BN_RECLASIF_STAGED[idx];
+async function bn_saveReclasify(rowNum) {
+  const opt = BN_RECLASIF_STAGED[rowNum];
+  delete BN_RECLASIF_STAGED['__open_' + rowNum];
+  delete BN_RECLASIF_STAGED[rowNum];
   if (!opt) { bn_renderCards(); return; }
-  await bn_classifyTabApply(idx, opt);
+  await bn_classifyTabApply(rowNum, opt);
 }
 
-function bn_cancelReclasify(idx) {
-  delete BN_RECLASIF_STAGED['__open_' + idx];
-  delete BN_RECLASIF_STAGED[idx];
+function bn_cancelReclasify(rowNum) {
+  delete BN_RECLASIF_STAGED['__open_' + rowNum];
+  delete BN_RECLASIF_STAGED[rowNum];
   bn_renderCards();
 }
 
