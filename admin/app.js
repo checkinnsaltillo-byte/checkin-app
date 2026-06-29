@@ -345,7 +345,7 @@ function sysGetStoredUser() {
 }
 function sysStoreUser(u) { try { localStorage.setItem('sys_user', JSON.stringify(u)); } catch(_) {} }
 function sysApplyPermissions(user) {
-  const allowed = new Set(['home', 'tuya']);
+  const allowed = new Set(['home', 'tuya', 'guias']);
   if (user && user.modulos) {
     for (const k in SYS_MODULE_PERMS) {
       if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
@@ -7396,6 +7396,9 @@ function bn_goToCardPage(p) {
     if (mod === 'tuya') {
       if (typeof tuyaInit === 'function') tuyaInit();
     }
+    if (mod === 'guias') {
+      if (typeof guiasInit === 'function') guiasInit();
+    }
   };
 })();
 
@@ -8634,7 +8637,7 @@ function esc(v) {
 
 /** Cambia entre módulos de nivel superior */
 function switchModule(mod) {
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "tuya"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "tuya", "guias"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== mod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === mod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === mod);
@@ -27302,4 +27305,206 @@ function tuyaCloseDetail() {
   back.style.opacity = '0';
   setTimeout(() => { panel.classList.add('hidden'); back.classList.add('hidden'); }, 300);
   document.body.style.overflow = '';
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MÓDULO GUÍAS DE BIENVENIDA — prueba inicial (esqueleto + tabs)
+// ════════════════════════════════════════════════════════════════════════════
+const GUIAS_STATE = { selectedId: null, activeTab: 'check-in', loaded: false };
+
+const GUIAS_TABS = [
+  { key: 'wifi',     label: 'WIFI',     icon: '📶' },
+  { key: 'check-in', label: 'CHECK-IN', icon: '🔑' },
+  { key: 'rules',    label: 'RULES',    icon: '📋' },
+  { key: 'waste',    label: 'WASTE',    icon: '♻️' },
+  { key: 'services', label: 'SERVICES', icon: '💎' },
+  { key: 'guide',    label: 'GUIDE',    icon: '🗺️' },
+];
+
+async function guiasInit() {
+  if (!ALOJ_STATE.loaded && !ALOJ_STATE.loading) {
+    await lgLoadAlojamientos();
+  }
+  guiasRenderSidebar();
+  // Auto-seleccionar primer alojamiento si nada seleccionado
+  if (!GUIAS_STATE.selectedId && ALOJ_STATE.rows.length) {
+    const first = ALOJ_STATE.rows[0];
+    const fid = String(first['HouseId'] || first['Propiedad'] || 'aloj-0').trim();
+    guiasSelect(fid);
+  }
+}
+
+async function guiasLoad(force) {
+  if (force) { ALOJ_STATE.loaded = false; ALOJ_STATE.loading = false; await lgLoadAlojamientos(); }
+  guiasRenderSidebar();
+  if (GUIAS_STATE.selectedId) guiasRenderContent();
+}
+
+function guiasAlojById(id) {
+  if (!id) return null;
+  // Match por HouseId o por "Propiedad - #Departamento"
+  return (ALOJ_STATE.rows || []).find(r => {
+    const hid = String(r['HouseId'] || '').trim();
+    if (hid && hid === String(id)) return true;
+    const prop = String(r['Propiedad'] || '').trim();
+    const dpt = String(r['# Departamento'] != null ? r['# Departamento'] : '').trim();
+    const composite = (prop && dpt) ? `${prop}__${dpt}` : prop;
+    return composite === String(id);
+  }) || null;
+}
+
+function guiasItemId(r) {
+  const hid = String(r['HouseId'] || '').trim();
+  if (hid) return hid;
+  const prop = String(r['Propiedad'] || '').trim();
+  const dpt = String(r['# Departamento'] != null ? r['# Departamento'] : '').trim();
+  return (prop && dpt) ? `${prop}__${dpt}` : prop;
+}
+
+function guiasItemLabel(r) {
+  const prop = String(r['Propiedad'] || '').trim();
+  const dpt = String(r['# Departamento'] != null ? r['# Departamento'] : '').trim();
+  if (prop && dpt) return `${prop} · #${dpt}`;
+  return prop || String(r['HouseName'] || '').trim() || '(sin nombre)';
+}
+
+function guiasRenderSidebar() {
+  const sb = document.getElementById('guias-sidebar');
+  const sum = document.getElementById('guias-summary');
+  if (!sb) return;
+  const rows = ALOJ_STATE.rows || [];
+  if (sum) sum.textContent = `${rows.length} propiedad${rows.length===1?'':'es'}`;
+  if (!rows.length) {
+    sb.innerHTML = '<div style="padding:30px 10px;text-align:center;color:#94a3b8;font-size:12px">Sin alojamientos cargados</div>';
+    return;
+  }
+  sb.innerHTML = rows.map(r => {
+    const id = guiasItemId(r);
+    const label = guiasItemLabel(r);
+    const isSel = GUIAS_STATE.selectedId === id;
+    return `<button type="button" onclick="guiasSelect('${esc(id)}')"
+      style="all:unset;display:block;width:100%;box-sizing:border-box;cursor:pointer;padding:10px 12px;margin-bottom:4px;border-radius:8px;font-size:13px;font-weight:${isSel?'700':'600'};color:${isSel?'#fff':'#0f172a'};background:${isSel?'#0d9488':'transparent'};border:1px solid ${isSel?'#0d9488':'transparent'};transition:background .12s"
+      onmouseover="if(this.dataset.sel!=='1')this.style.background='#e2e8f0'"
+      onmouseout="if(this.dataset.sel!=='1')this.style.background='transparent'"
+      data-sel="${isSel?'1':'0'}">📍 ${esc(label)}</button>`;
+  }).join('');
+}
+
+window.guiasSelect = function(id) {
+  GUIAS_STATE.selectedId = id;
+  guiasRenderSidebar();
+  guiasRenderContent();
+};
+
+window.guiasSetTab = function(key) {
+  GUIAS_STATE.activeTab = key;
+  guiasRenderContent();
+};
+
+function guiasRenderContent() {
+  const host = document.getElementById('guias-content');
+  if (!host) return;
+  const aloj = guiasAlojById(GUIAS_STATE.selectedId);
+  if (!aloj) {
+    host.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#94a3b8;font-size:13px">Selecciona una propiedad a la izquierda</div>';
+    return;
+  }
+  const label = guiasItemLabel(aloj);
+  const tabs = GUIAS_TABS.map(t => {
+    const active = GUIAS_STATE.activeTab === t.key;
+    return `<button type="button" onclick="guiasSetTab('${esc(t.key)}')" style="all:unset;cursor:pointer;flex:1;min-width:0;text-align:center;padding:14px 6px;background:${active?'#1e3a8a':'transparent'};color:${active?'#fff':'#0f172a'};border-radius:${active?'10px':'0'};transition:background .15s">
+      <div style="font-size:18px;line-height:1">${t.icon}</div>
+      <div style="font-size:9.5px;font-weight:800;letter-spacing:.06em;margin-top:4px">${esc(t.label)}</div>
+    </button>`;
+  }).join('');
+  host.innerHTML = `
+    <div style="max-width:520px;margin:0 auto">
+      <div style="font-size:12px;color:#64748b;font-weight:700;margin-bottom:6px">${esc(label)}</div>
+      <div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:14px">${tabs}</div>
+      <div id="guias-tab-content">${guiasBuildTabHtml(GUIAS_STATE.activeTab, aloj)}</div>
+    </div>`;
+}
+
+function guiasBuildTabHtml(key, aloj) {
+  switch (key) {
+    case 'wifi':     return guiasTabWifi(aloj);
+    case 'check-in': return guiasTabCheckin(aloj);
+    case 'rules':    return guiasTabRules(aloj);
+    case 'waste':    return guiasTabWaste(aloj);
+    case 'services': return guiasTabServices(aloj);
+    case 'guide':    return guiasTabGuide(aloj);
+    default: return '<div style="padding:20px;color:#94a3b8">Sin contenido</div>';
+  }
+}
+
+function guiasCard(title, icon, inner) {
+  return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:12px;overflow:hidden">
+    <div style="padding:12px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;font-weight:700;color:#0f172a;font-size:14px">
+      ${icon ? `<span>${icon}</span>` : ''}<span>${esc(title)}</span>
+    </div>
+    <div style="padding:14px">${inner}</div>
+  </div>`;
+}
+
+function guiasField(label, value) {
+  return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0">
+    <span style="font-size:11px;color:#64748b">${esc(label)}</span>
+    <span style="font-size:13px;color:#0f172a;font-weight:600;text-align:right">${esc(value || '—')}</span>
+  </div>`;
+}
+
+function guiasTabWifi(a) {
+  return guiasCard('Wi-Fi', '📶',
+    guiasField('Red (SSID)', a['WIFI_SSID'] || '—') +
+    guiasField('Contraseña', a['WIFI_Password'] || a['WIFI_Pass'] || '—'));
+}
+
+function guiasTabCheckin(a) {
+  const dir = a['Dirección'] || a['Direccion'] || a['Address'] || '';
+  const tax = a['City_Tax'] || a['Impuesto'] || '';
+  const phone = a['Host_Telefono'] || a['Telefono'] || '';
+  const wa = a['Host_WhatsApp'] || phone;
+  const email = a['Host_Email'] || a['Email'] || '';
+  return guiasCard('Check-in', '🔑',
+    `<div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:10px 12px;border-radius:6px;margin-bottom:12px">
+       <div style="font-size:12px;font-weight:800;color:#92400e">🧳 ¿Llegada temprana o salida tardía?</div>
+       <div style="font-size:11px;color:#78350f;margin-top:2px">Busca consigna cercana</div>
+     </div>` +
+    guiasField('Dirección', dir) +
+    `<a href="${dir ? 'https://maps.google.com/?q=' + encodeURIComponent(dir) : '#'}" target="_blank" rel="noopener" style="display:block;text-align:center;background:#1e293b;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px;margin:8px 0">Navegar con Google Maps</a>` +
+    `<div style="border-top:1px solid #e2e8f0;margin:10px 0"></div>` +
+    guiasField('City Tax', tax) +
+    `<div style="border-top:1px solid #e2e8f0;margin:10px 0"></div>` +
+    `<div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px">📞 Contacto Anfitrión</div>
+     <div style="display:flex;flex-direction:column;gap:6px">
+       ${phone ? `<a href="tel:${esc(phone)}" style="text-align:center;background:#3b82f6;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px">📞 ${esc(phone)}</a>` : ''}
+       ${wa ? `<a href="https://wa.me/${esc(String(wa).replace(/[^0-9]/g,''))}" target="_blank" rel="noopener" style="text-align:center;background:#25d366;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px">💬 WhatsApp</a>` : ''}
+       ${email ? `<a href="mailto:${esc(email)}" style="text-align:center;background:#475569;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:9px;border-radius:8px">✉️ ${esc(email)}</a>` : ''}
+     </div>`);
+}
+
+function guiasTabRules(a) {
+  return guiasCard('House Rules', '📋',
+    `<div style="text-align:center;font-weight:800;font-size:13px;color:#0f172a;margin-bottom:10px">Manuales</div>
+     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+       ${['🌡️ A/C','🚿 Agua','📺 Smart TV'].map(t => `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:18px 8px;text-align:center;font-size:11px;font-weight:600">${t}</div>`).join('')}
+     </div>
+     <button type="button" style="all:unset;cursor:pointer;display:block;text-align:center;width:100%;box-sizing:border-box;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;font-weight:800;padding:10px;border-radius:8px;margin-top:14px">🆘 SOS</button>`);
+}
+
+function guiasTabWaste(a) {
+  return guiasCard('Reciclaje', '♻️',
+    '<div style="font-size:12px;color:#64748b;font-style:italic">Información de separación de residuos (pendiente de cargar desde alojamientos).</div>');
+}
+
+function guiasTabServices(a) {
+  const amenities = ['Wi-Fi Gratis','Aire Acondicionado','Calefacción','Estacionamiento','TV','Cocina equipada','Refrigerador','Cafetera','Microondas','Lavadora','Secadora','Balcón','Terraza','Jardín'];
+  return guiasCard('Servicios', '💎',
+    `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${amenities.map(s => `<span style="background:#ecfeff;border:1px solid #a5f3fc;color:#0e7490;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:600">✓ ${esc(s)}</span>`).join('')}</div>
+     <div style="font-size:11px;color:#64748b;font-style:italic">Servicios adicionales y precios (pendiente de cargar).</div>`);
+}
+
+function guiasTabGuide(a) {
+  return guiasCard('Guía Local', '🗺️',
+    '<div style="font-size:12px;color:#64748b;font-style:italic">Lugares cercanos, recomendaciones y galería (pendiente de cargar).</div>');
 }

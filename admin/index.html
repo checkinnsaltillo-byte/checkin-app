@@ -206,6 +206,10 @@
             onclick="switchModule('tuya');closeNavMenu()">
           🛰️ Dispositivos
         </li>
+        <li class="nav-item" id="nav-item-guias"
+            onclick="switchModule('guias');closeNavMenu()">
+          📖 Guías de Bienvenida
+        </li>
       </ul>
       <div style="margin-top:auto;padding:16px;border-top:1px solid var(--border,#e5e7eb);display:flex;flex-direction:column;gap:10px;align-items:stretch">
         <button id="btn-dark-mode" onclick="toggleDarkMode()" title="Alternar tema claro/oscuro"
@@ -339,9 +343,34 @@
             </div>
             <div class="home-card-arrow">→</div>
           </button>
+          <button type="button" class="home-card home-card-guias" onclick="switchModule('guias')">
+            <div class="home-card-icon">📖</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Guías de Bienvenida</h3>
+              <p class="home-card-desc">Información, reglas, servicios y guía local por alojamiento — la guía digital que ve el huésped.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
         </div>
       </div>
     </div><!-- /module-home -->
+
+    <!-- ══ MÓDULO: Guías de Bienvenida ════════════════════════════════════════ -->
+    <div id="module-guias" class="hidden" style="padding:0;height:calc(100vh - 80px);display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid #e2e8f0;background:#fff;flex-shrink:0">
+        <h2 style="margin:0;font-size:18px;display:flex;align-items:center;gap:8px">📖 Guías de Bienvenida</h2>
+        <span id="guias-summary" style="font-size:12px;color:#64748b">—</span>
+        <button class="btn-limpiar" style="margin-left:auto" onclick="guiasLoad(true)">↻ Actualizar</button>
+      </div>
+      <div style="flex:1;display:flex;overflow:hidden;min-height:0">
+        <aside id="guias-sidebar" style="width:280px;flex-shrink:0;border-right:1px solid #e2e8f0;background:#f8fafc;overflow-y:auto;padding:10px"></aside>
+        <main id="guias-content" style="flex:1;overflow-y:auto;background:#fff;padding:18px 22px">
+          <div style="text-align:center;padding:60px 20px;color:#94a3b8;font-size:13px">
+            Selecciona una propiedad a la izquierda para ver su guía.
+          </div>
+        </main>
+      </div>
+    </div>
 
     <!-- ══ MÓDULO: Tuya (Dispositivos Smart Life) ════════════════════════════ -->
     <div id="module-tuya" class="hidden" style="padding:20px 24px 60px">
@@ -2199,6 +2228,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=494"></script>
+  <script src="app.js?v=495"></script>
 </body>
 </html>
