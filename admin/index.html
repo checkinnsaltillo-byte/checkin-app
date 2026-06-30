@@ -319,19 +319,19 @@
             </div>
             <div class="home-card-arrow">→</div>
           </button>
-          <button type="button" class="home-card home-card-ocupacion" onclick="switchModule('ocupacion')">
-            <div class="home-card-icon">📅</div>
+          <button type="button" class="home-card home-card-ocupacion" onclick="switchModule('dashboard')">
+            <div class="home-card-icon">📊</div>
             <div class="home-card-body">
-              <h3 class="home-card-title">Ocupación</h3>
-              <p class="home-card-desc">Calendario mensual de reservas Lodgify por alojamiento.</p>
+              <h3 class="home-card-title">Dashboard</h3>
+              <p class="home-card-desc">Indicadores y gráficas de ocupación por alojamiento.</p>
             </div>
             <div class="home-card-arrow">→</div>
           </button>
-          <button type="button" class="home-card home-card-ocupacion" onclick="switchModule('ocupacion'); setTimeout(()=>{ if(typeof ocupSetView==='function') ocupSetView('calendario'); if(typeof ocupGoToday==='function') setTimeout(ocupGoToday, 300); }, 200)">
+          <button type="button" class="home-card home-card-ocupacion" onclick="switchModule('calendario')">
             <div class="home-card-icon">🗓️</div>
             <div class="home-card-body">
               <h3 class="home-card-title">Calendario</h3>
-              <p class="home-card-desc">Salta directo al calendario de ocupación centrado en hoy.</p>
+              <p class="home-card-desc">Calendario mensual de reservas Lodgify centrado en hoy.</p>
             </div>
             <div class="home-card-arrow">→</div>
           </button>
@@ -1938,20 +1938,27 @@
     <!-- ═══════════════ MÓDULO OCUPACIÓN — calendario de reservas ═══════════════ -->
     <div id="module-ocupacion" class="hidden">
       <div class="ocup-shell">
-        <!-- Título del módulo -->
+        <!-- Título del módulo (dinámico: Dashboard / Calendario) -->
         <h1 style="margin:0 0 14px;font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em;display:flex;align-items:center;gap:10px">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:18px;box-shadow:0 3px 8px rgba(99,102,241,.35)">📅</span>
-          Ocupación
+          <span id="ocup-module-icon" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:18px;box-shadow:0 3px 8px rgba(99,102,241,.35)">📊</span>
+          <span id="ocup-module-title">Dashboard</span>
         </h1>
-        <!-- Toolbar: selector de vista + filtro Mes + nav -->
+
+        <!-- Menú interno del Dashboard (estilo bn-menu-bar de Registros contables). Oculto cuando estamos en módulo Calendario. -->
+        <div id="dash-menu-bar" class="bn-menu-bar" style="margin-bottom:12px;border:1px solid var(--border,#e2e8f0);border-radius:10px;overflow:hidden">
+          <!-- Row 1: secciones (por ahora: Ocupación) -->
+          <div id="dash-sec-row" style="display:grid;grid-template-columns:repeat(1,1fr);gap:0">
+            <button class="dash-sec-btn" id="dash-sec-ocupacion" data-sec="ocupacion" onclick="dashSetSec('ocupacion')"
+                    style="padding:12px 10px;border:none;background:#6366f1;color:#fff;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)">📅 Ocupación</button>
+          </div>
+          <!-- Row 2: subsecciones dinámicas -->
+          <div id="dash-sub-row" style="display:grid;gap:0"></div>
+        </div>
+
+        <!-- Toolbar: filtro Mes + nav (siempre presente; las view-tabs antiguas se reemplazan por el dash-menu) -->
         <div class="ocup-toolbar">
           <div class="ocup-toolbar-left">
-            <div class="ocup-view-tabs">
-              <button type="button" class="ocup-view-tab active" data-view="calendario" onclick="ocupSetView('calendario')">📅 Calendario</button>
-              <button type="button" class="ocup-view-tab" data-view="indicadores" onclick="ocupSetView('indicadores')">📊 Indicadores</button>
-              <button type="button" class="ocup-view-tab" data-view="graficas" onclick="ocupSetView('graficas')">📈 Gráficas</button>
-            </div>
-            <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-left:6px">
+            <label id="ocup-month-wrap" style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.04em">
               Mes:
               <select id="ocup-month-select" onchange="ocupJumpToMonth(this.value)"
                       style="padding:7px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a;background:#fff;cursor:pointer"></select>
@@ -2249,6 +2256,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=549"></script>
+  <script src="app.js?v=550"></script>
 </body>
 </html>

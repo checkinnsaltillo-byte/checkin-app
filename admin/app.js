@@ -8637,11 +8637,18 @@ function esc(v) {
 
 /** Cambia entre módulos de nivel superior */
 function switchModule(mod) {
+  // Legacy: 'ocupacion' como módulo top-level se trata como Dashboard
+  if (mod === 'ocupacion') mod = 'dashboard';
+  // Aliases: 'dashboard' y 'calendario' comparten el contenedor module-ocupacion
+  const containerMod = (mod === 'dashboard' || mod === 'calendario') ? 'ocupacion' : mod;
   ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "tuya", "guias"].forEach(m => {
-    document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== mod);
-    document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === mod);
-    document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === mod);
+    document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
+    document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
+    document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
   });
+  if (mod === 'dashboard' || mod === 'calendario') {
+    setTimeout(() => { try { dashApplyMode(mod); } catch(_) {} }, 50);
+  }
   if (mod === "breezeway") {
     // Breezeway es rápido — overlay cubre AMBOS procesos (init + sync) para
     // que cuando el overlay desaparezca el usuario YA vea la data
@@ -23869,18 +23876,25 @@ window.ocupSetView = function (v) {
   document.querySelectorAll('.ocup-view-tab').forEach(b => {
     b.classList.toggle('active', b.getAttribute('data-view') === v);
   });
+  // Resalta el chip activo del dash-menu (subsección)
+  ['indicadores','graficas'].forEach(s => {
+    const el = document.getElementById('dash-sub-' + s);
+    if (!el) return;
+    const active = (s === v);
+    el.style.background = active ? '#a5b4fc' : '#eef2ff';
+    el.style.color      = active ? '#1e1b4b' : '#475569';
+    el.style.fontWeight = active ? '800' : '600';
+  });
   const setDisp = (id, disp) => { const el = document.getElementById(id); if (el) el.style.display = disp; };
   setDisp('ocup-cal-container',   v === 'calendario'  ? '' : 'none');
   setDisp('ocup-table-container', v === 'indicadores' ? '' : 'none');
   setDisp('ocup-chart-container', v === 'graficas'    ? '' : 'none');
-  setDisp('ocup-month-label-wrap', v === 'calendario' ? '' : 'none');
   setDisp('ocup-toolbar-right-cal', v === 'calendario' ? '' : 'none');
   setDisp('ocup-filters',       v === 'indicadores' ? '' : 'none');
   setDisp('ocup-chart-filters', v === 'graficas'    ? '' : 'none');
   setDisp('ocup-cal-filters',   v === 'calendario'  ? '' : 'none');
   // El selector Mes solo aplica a Calendario; ocúltalo en otras vistas
-  const monthSel = document.getElementById('ocup-month-select');
-  if (monthSel && monthSel.parentElement) monthSel.parentElement.style.display = v === 'calendario' ? '' : 'none';
+  setDisp('ocup-month-wrap', v === 'calendario' ? '' : 'none');
   if (v === 'calendario') ocupRender();
   else if (v === 'indicadores') {
     ocupInitFiltersOnce();
@@ -23889,6 +23903,57 @@ window.ocupSetView = function (v) {
     ocupChartInitFiltersOnce();
     ocupRenderChart();
   }
+};
+
+// ───────── Dashboard / Calendario: gestión de modo + menú interno ─────────
+window.DASH_STATE = window.DASH_STATE || { mode: 'dashboard', sec: 'ocupacion', sub: 'indicadores' };
+
+window.dashApplyMode = function (mode) {
+  DASH_STATE.mode = mode;
+  const titleEl = document.getElementById('ocup-module-title');
+  const iconEl  = document.getElementById('ocup-module-icon');
+  const menuBar = document.getElementById('dash-menu-bar');
+  if (mode === 'calendario') {
+    if (titleEl) titleEl.textContent = 'Calendario';
+    if (iconEl)  iconEl.textContent  = '🗓️';
+    if (menuBar) menuBar.style.display = 'none';
+    ocupSetView('calendario');
+    setTimeout(() => { try { ocupGoToday && ocupGoToday(); } catch(_) {} }, 250);
+  } else {
+    if (titleEl) titleEl.textContent = 'Dashboard';
+    if (iconEl)  iconEl.textContent  = '📊';
+    if (menuBar) menuBar.style.display = '';
+    dashSetSec(DASH_STATE.sec || 'ocupacion');
+  }
+};
+
+window.dashSetSec = function (sec) {
+  DASH_STATE.sec = sec;
+  // Resalta sección activa
+  document.querySelectorAll('.dash-sec-btn').forEach(b => {
+    const active = (b.dataset.sec === sec);
+    b.style.background = active ? '#6366f1' : '#f8fafc';
+    b.style.color      = active ? '#fff'   : '#334155';
+    b.style.boxShadow  = active ? 'inset 0 -3px 0 rgba(0,0,0,.18)' : 'none';
+    b.style.fontWeight = active ? '800' : '600';
+  });
+  const subRow = document.getElementById('dash-sub-row');
+  if (!subRow) return;
+  const subs = (sec === 'ocupacion')
+    ? [{ id: 'indicadores', label: '📊 Indicadores' }, { id: 'graficas', label: '📈 Gráficas' }]
+    : [];
+  subRow.style.gridTemplateColumns = `repeat(${Math.max(1, subs.length)}, 1fr)`;
+  subRow.innerHTML = subs.map((s, i) => `
+    <button class="dash-sub-btn" id="dash-sub-${s.id}" data-sub="${s.id}" onclick="dashSetSub('${s.id}')"
+            style="padding:10px 8px;border:none;${i < subs.length-1 ? 'border-right:1px solid #c7d2fe;' : ''}background:#eef2ff;color:#475569;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap">${s.label}</button>`).join('');
+  // Subsección por defecto
+  const def = DASH_STATE.sub && subs.some(s => s.id === DASH_STATE.sub) ? DASH_STATE.sub : (subs[0] && subs[0].id);
+  if (def) dashSetSub(def);
+};
+
+window.dashSetSub = function (sub) {
+  DASH_STATE.sub = sub;
+  ocupSetView(sub);
 };
 
 function ocupInitFiltersOnce() {
