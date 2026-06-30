@@ -27363,8 +27363,11 @@ function tuyaRenderGlobalMonitor(enriched, allTipos) {
       ${lastPct != null ? `<span style="font-size:12px;font-weight:900;color:#0c4a6e;background:#e0f2fe;border:1px solid #7dd3fc;padding:3px 10px;border-radius:99px">${lastPct.toFixed(0)}%</span>`:''}
     </div>`;
     const chartHost = `<div id="tuya-g-chart-${esc(d.id)}" style="flex:1;min-width:280px;min-height:80px;color:#94a3b8;font-size:11px;font-style:italic">⏳ Cargando…</div>`;
-    const tank = (opts && opts.kind === 'water') ? tuyaWaterTankHtml(d) : '';
-    const body = `<div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap">${chartHost}${tank}</div>`;
+    const sidePanel =
+      (opts && opts.kind === 'water') ? tuyaWaterTankHtml(d) :
+      (opts && opts.kind === 'door')  ? tuyaDoorStatusPanelHtml(d, TUYA_STATE.globalLogs?.[d.id] || []) :
+      '';
+    const body = `<div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap">${chartHost}${sidePanel}</div>`;
     return `<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px;background:#fff;margin:0 0 10px">${header}${body}</div>`;
   }
 
@@ -27497,6 +27500,9 @@ function tuyaGlobalRenderChart(id) {
   } else if (group === 'door') {
     const dc = TUYA_STATE.globalCtrl.door;
     host.innerHTML = tuyaBuildDoorChart(logs, { mode: dc.mode, n: Number(dc.n) || 500, hideToggle: true });
+    // Refrescar panel de estados con los logs frescos
+    const panel = document.querySelector(`[data-tuya-door-panel="${id}"]`);
+    if (panel) panel.outerHTML = tuyaDoorStatusPanelHtml(d, logs);
   } else {
     host.innerHTML = '<div style="padding:8px;color:#94a3b8;font-size:11px;font-style:italic">Sin gráfica disponible</div>';
   }
@@ -27675,8 +27681,9 @@ function tuyaDoorCurrentOpen(d) {
 }
 
 // Último timestamp (ms) para cada estado (Abierto/Cerrado). Devuelve {open,closed}.
-function tuyaDoorLastTsByState(d) {
-  const logs = window.TUYA_DOOR?.logs || [];
+// logsOverride opcional para Monitor global (cache por device).
+function tuyaDoorLastTsByState(d, logsOverride) {
+  const logs = logsOverride || window.TUYA_DOOR?.logs || [];
   let open = null, closed = null;
   // Logs vienen sin orden garantizado — buscamos el max por estado.
   for (const l of logs) {
@@ -27701,9 +27708,9 @@ function tuyaDoorLastTsByState(d) {
 }
 
 // Panel de 2 estados (Abierto / Cerrado) con semáforo y última fecha-hora por estado.
-function tuyaDoorStatusPanelHtml(d) {
+function tuyaDoorStatusPanelHtml(d, logsOverride) {
   const cur = tuyaDoorCurrentOpen(d);
-  const ts = tuyaDoorLastTsByState(d);
+  const ts = tuyaDoorLastTsByState(d, logsOverride);
   const fmt = (t) => t ? new Date(t).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
   const isOpen = cur === true;
   const isClosed = cur === false;
