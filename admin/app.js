@@ -27708,13 +27708,15 @@ function tuyaDoorStatusPanelHtml(d) {
   const isOpen = cur === true;
   const isClosed = cur === false;
   const cell = (active, label, lastTs, color, bg) => `
-    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:14px 8px;background:${active?bg:'#f8fafc'};border:${active?`2px solid ${color}`:`1.5px solid #e2e8f0`};border-radius:10px;opacity:${active?'1':'0.55'};transition:all .15s">
-      <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:${active?color:'#cbd5e1'};box-shadow:${active?`0 0 12px ${color}cc, inset 0 -3px 6px rgba(0,0,0,.25)`:'inset 0 -2px 4px rgba(0,0,0,.08)'}"></span>
-      <div style="font-size:14px;font-weight:900;color:${active?color:'#94a3b8'};text-transform:uppercase;letter-spacing:.08em">${label}</div>
-      <div style="font-size:10px;font-weight:600;color:${active?color:'#94a3b8'};opacity:.85;letter-spacing:.2px">${lastTs ? '🕒 ' + esc(fmt(lastTs)) : '—'}</div>
+    <div style="flex:1;min-height:0;display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:6px 10px;background:${active?bg:'#f8fafc'};border:${active?`1.5px solid ${color}`:`1px solid #e2e8f0`};border-radius:8px;opacity:${active?'1':'0.55'};transition:all .15s">
+      <span style="display:inline-block;width:14px;height:14px;border-radius:50%;flex-shrink:0;background:${active?color:'#cbd5e1'};box-shadow:${active?`0 0 8px ${color}cc, inset 0 -2px 4px rgba(0,0,0,.25)`:'inset 0 -2px 3px rgba(0,0,0,.08)'}"></span>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;line-height:1.15">
+        <div style="font-size:12px;font-weight:900;color:${active?color:'#94a3b8'};text-transform:uppercase;letter-spacing:.06em">${label}</div>
+        <div style="font-size:9.5px;font-weight:600;color:${active?color:'#94a3b8'};opacity:.85;letter-spacing:.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lastTs ? '🕒 ' + esc(fmt(lastTs)) : '—'}</div>
+      </div>
     </div>`;
-  return `<div data-tuya-door-panel="${esc(d.id||'')}" style="width:200px;flex-shrink:0;align-self:stretch;display:flex;flex-direction:column;gap:10px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:linear-gradient(135deg,#f8fafc 0%,#fff 100%)">
-    <div style="font-size:10px;font-weight:800;color:#475569;text-align:center;text-transform:uppercase;letter-spacing:.5px">Estado actual</div>
+  return `<div data-tuya-door-panel="${esc(d.id||'')}" style="width:200px;flex-shrink:0;align-self:stretch;display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:linear-gradient(135deg,#f8fafc 0%,#fff 100%);box-sizing:border-box">
+    <div style="font-size:9px;font-weight:800;color:#475569;text-align:center;text-transform:uppercase;letter-spacing:.5px">Estado actual</div>
     ${cell(isOpen,   'Abierto', ts.open,   '#16a34a', '#dcfce7')}
     ${cell(isClosed, 'Cerrado', ts.closed, '#dc2626', '#fee2e2')}
   </div>`;
