@@ -27624,6 +27624,100 @@ window.tuyaDoorRedraw = function() {
   if (scrollEl) scrollEl.scrollLeft = scrollEl.scrollWidth;
 };
 
+// ─── Sensor de nivel de agua: detección y visualización tipo tanque ──
+function tuyaIsWaterLevel(d) {
+  if (!d) return false;
+  // 1) Tipo en hoja Dispositivos
+  const r = tuyaResolveAloj(d);
+  if (r) {
+    for (const k of Object.keys(r)) {
+      const nk = String(k).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if ((nk === 'tipo' || nk === 'tipodispositivo') && /nivel.*agua|water.*level|rotoplas|tinaco/i.test(String(r[k]||''))) return true;
+    }
+  }
+  // 2) Por status: tiene liquid_level_percent
+  if ((d.status||[]).some(s => /liquid_level_percent|water_level|level_percent/i.test(String(s.code||'')))) return true;
+  // 3) Heurística: Rotoplas
+  return /rotoplas|tinaco|cisterna/i.test(String(d?.name || '') + ' ' + String(d?.product_name || ''));
+}
+
+function tuyaWaterLevelCurrentPct(d) {
+  // Busca el % más reciente del estado actual
+  for (const s of (d?.status || [])) {
+    const k = String(s.code || '').toLowerCase();
+    if (/liquid_level_percent|water_level|level_percent/i.test(k)) {
+      const v = Number(s.value);
+      if (isFinite(v) && v >= 0) return Math.min(100, Math.max(0, v));
+    }
+  }
+  // Fallback: derivar de liquid_depth si hay max (no estándar, devuelve null)
+  return null;
+}
+
+function tuyaWaterTankHtml(d) {
+  const pct = tuyaWaterLevelCurrentPct(d);
+  const W = 130, H = 200, padT = 22, padB = 10, padX = 18;
+  const tankX = padX, tankY = padT;
+  const tankW = W - padX*2, tankH = H - padT - padB;
+  const cornerR = 14;
+  // Color del agua según nivel: rojo bajo, ámbar medio, azul alto
+  let waterFrom = '#06b6d4', waterTo = '#0369a1', ink = '#0c4a6e';
+  if (pct != null) {
+    if (pct < 20) { waterFrom = '#f87171'; waterTo = '#dc2626'; ink = '#991b1b'; }
+    else if (pct < 40) { waterFrom = '#fbbf24'; waterTo = '#d97706'; ink = '#92400e'; }
+    else if (pct < 65) { waterFrom = '#22d3ee'; waterTo = '#0891b2'; ink = '#155e75'; }
+  }
+  const pctVal = pct == null ? 0 : pct;
+  const waterH = (tankH - 2) * (pctVal / 100);
+  const waterY = tankY + tankH - 1 - waterH;
+  // Marcas laterales (0, 25, 50, 75, 100)
+  const ticks = [0,25,50,75,100].map(p => {
+    const y = tankY + tankH - (tankH * (p/100));
+    return `<line x1="${tankX+tankW+2}" y1="${y.toFixed(1)}" x2="${tankX+tankW+8}" y2="${y.toFixed(1)}" stroke="#94a3b8" stroke-width="1"/>
+            <text x="${tankX+tankW+11}" y="${(y+3).toFixed(1)}" font-size="8.5" fill="#64748b" font-weight="600">${p}%</text>`;
+  }).join('');
+  // Ola (curva sinoidal en la superficie del agua)
+  const wavePath = pct == null ? '' : (() => {
+    const w = tankW - 4;
+    const x0 = tankX + 2;
+    const amp = 2.5;
+    const seg = w / 4;
+    return `M ${x0} ${waterY.toFixed(1)}
+            q ${(seg/2).toFixed(1)} ${-amp} ${seg.toFixed(1)} 0
+            t ${seg.toFixed(1)} 0
+            t ${seg.toFixed(1)} 0
+            t ${seg.toFixed(1)} 0`;
+  })();
+  const gradId = 'wgrad-' + (d.id || Math.random().toString(36).slice(2,8));
+  return `<div style="width:170px;flex-shrink:0;border:1px solid #e2e8f0;border-radius:10px;padding:8px 6px 6px;background:linear-gradient(135deg,#f8fafc 0%,#fff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center">
+    <div style="font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">💧 Nivel actual</div>
+    <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">
+      <defs>
+        <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${waterFrom}" stop-opacity="0.95"/>
+          <stop offset="100%" stop-color="${waterTo}" stop-opacity="1"/>
+        </linearGradient>
+        <clipPath id="${gradId}-clip">
+          <rect x="${tankX+1}" y="${tankY+1}" width="${tankW-2}" height="${tankH-2}" rx="${cornerR-2}" ry="${cornerR-2}"/>
+        </clipPath>
+      </defs>
+      <!-- Tanque (contorno) -->
+      <rect x="${tankX}" y="${tankY}" width="${tankW}" height="${tankH}" rx="${cornerR}" ry="${cornerR}" fill="#f1f5f9" stroke="#334155" stroke-width="2"/>
+      ${pct != null ? `
+      <!-- Agua con clip al interior del tanque -->
+      <g clip-path="url(#${gradId}-clip)">
+        <rect x="${tankX+1}" y="${waterY.toFixed(1)}" width="${tankW-2}" height="${(waterH+2).toFixed(1)}" fill="url(#${gradId})"/>
+        <path d="${wavePath} L ${tankX+tankW-2} ${(waterY+8).toFixed(1)} L ${tankX+2} ${(waterY+8).toFixed(1)} Z" fill="${waterFrom}" fill-opacity="0.55"/>
+      </g>
+      <!-- Texto del % centrado -->
+      <text x="${(W/2).toFixed(1)}" y="${(tankY + tankH/2 + 5).toFixed(1)}" text-anchor="middle" font-size="22" font-weight="900" fill="#fff" stroke="${ink}" stroke-width="0.6" paint-order="stroke" style="filter:drop-shadow(0 1px 2px rgba(15,23,42,.4))">${pctVal.toFixed(0)}%</text>
+      ` : `<text x="${(W/2).toFixed(1)}" y="${(tankY + tankH/2 + 5).toFixed(1)}" text-anchor="middle" font-size="11" fill="#94a3b8" font-style="italic">Sin lectura</text>`}
+      ${ticks}
+    </svg>
+    <div style="font-size:10px;color:#64748b;font-weight:600;margin-top:2px">${pct != null ? (pct < 20 ? '🔴 Bajo' : pct < 40 ? '🟠 Medio' : pct < 65 ? '🟢 Suficiente' : '🔵 Lleno') : '—'}</div>
+  </div>`;
+}
+
 // ─── Rotoplas: gráficas liquid_depth (línea) + liquid_level_percent (barras) ──
 function tuyaIsRotoplas(d) {
   return /rotoplas/i.test(String(d?.name || '') + ' ' + String(d?.product_name || ''));
@@ -27902,7 +27996,10 @@ async function tuyaOpenDetail(id) {
     <div style="display:flex;flex-direction:column;gap:14px">
       <div>
         <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:6px">Estado actual</div>
-        <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden"><table style="width:100%;border-collapse:collapse">${statusRows}</table></div>
+        <div style="display:flex;gap:14px;align-items:stretch;flex-wrap:wrap">
+          <div style="flex:1;min-width:260px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden"><table style="width:100%;border-collapse:collapse">${statusRows}</table></div>
+          ${tuyaIsWaterLevel(d) ? tuyaWaterTankHtml(d) : ''}
+        </div>
       </div>
       ${tuyaIsDoor(d) ? `<div>
         <div id="tuya-door-host" style="min-height:80px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando eventos de puerta…</div>
