@@ -16194,7 +16194,7 @@ async function lgHydrateTuyaSection(hostEl) {
           const code = String(l.code || l.event_id || '').toLowerCase();
           const val = l.value !== undefined ? String(l.value) : '';
           let lbl = code, cl = '#475569';
-          if (code === 'doorcontact_state') { lbl = val === 'true' ? '🚪 Abierto' : '🚪 Cerrado'; cl = val === 'true' ? '#b45309' : '#16a34a'; }
+          if (code === 'doorcontact_state') { lbl = val === 'true' ? '🚪 Abierto' : '🚪 Cerrado'; cl = val === 'true' ? '#16a34a' : '#dc2626'; }
           else if (code === 'smoke_sensor_status') { lbl = val === 'alarm' ? '🔥 ALARMA HUMO' : '🔥 OK'; cl = val === 'alarm' ? '#dc2626' : '#16a34a'; }
           else if (code === 'pir') { lbl = '👁️ ' + (val === 'pir' ? 'Movimiento' : 'Sin mov.'); }
           else if (val) { lbl = `${code}: ${val}`; }
@@ -27190,7 +27190,7 @@ async function tuyaFetchRecentLogs(ids) {
         // Etiqueta amigable según code
         let lbl = code;
         let cl = '#475569';
-        if (code === 'doorcontact_state') { lbl = val === 'true' ? '🚪 Abierto' : '🚪 Cerrado'; cl = val === 'true' ? '#b45309' : '#16a34a'; }
+        if (code === 'doorcontact_state') { lbl = val === 'true' ? '🚪 Abierto' : '🚪 Cerrado'; cl = val === 'true' ? '#16a34a' : '#dc2626'; }
         else if (code === 'smoke_sensor_status') { lbl = val === 'alarm' ? '🔥 ALARMA HUMO' : '🔥 OK'; cl = val === 'alarm' ? '#dc2626' : '#16a34a'; }
         else if (code === 'pir') { lbl = '👁️ ' + (val === 'pir' ? 'Movimiento' : 'Sin mov.'); cl = '#475569'; }
         else if (code === 'battery_state' || code === 'battery_percentage' || code === 'va_battery') { lbl = '🔋 ' + val; }
@@ -27243,7 +27243,7 @@ function tuyaStatusFor(d) {
   for (const s of (d.status || [])) {
     const k = String(s.code || '').toLowerCase();
     const v = s.value;
-    if (k === 'doorcontact_state') { label = v === true ? 'Abierto' : 'Cerrado'; if (v === true) { color = '#b45309'; bg = '#fef3c7'; border = '#fde68a'; } }
+    if (k === 'doorcontact_state') { label = v === true ? 'Abierto' : 'Cerrado'; if (v === true) { color = '#16a34a'; bg = '#dcfce7'; border = '#bbf7d0'; } else { color = '#dc2626'; bg = '#fee2e2'; border = '#fecaca'; } }
     else if (k === 'smoke_sensor_status') { if (v === 'alarm') { label = 'ALARMA'; color = '#dc2626'; bg = '#fee2e2'; border = '#fecaca'; } else { label = 'OK'; } }
     else if (k === 'gas_sensor_state' || k === 'watersensor_state') { if (v === 'alarm') { label = 'ALARMA'; color = '#dc2626'; bg = '#fee2e2'; border = '#fecaca'; } else { label = 'OK'; } }
     else if (k === 'pir') { label = v === 'pir' ? 'Movimiento' : 'Sin movimiento'; }
@@ -27268,7 +27268,7 @@ function tuyaRelTime(ms) {
   return new Date(ms).toLocaleDateString('es-MX');
 }
 
-// ─── Sensores de PUERTA: gráfica de eventos (verde Cerrado / rojo Abierto) ──
+// ─── Sensores de PUERTA: gráfica de eventos (rojo Cerrado / verde Abierto) ──
 function tuyaIsDoor(d) {
   if (!d) return false;
   if (String(d.category || '').toLowerCase() === 'mcs') return true;
@@ -27312,14 +27312,14 @@ function tuyaBuildDoorChart(logs, opts) {
     const x1 = (i === 0 ? 0 : x(i)).toFixed(1);
     const x2 = (i === series.length - 1 ? dataW : x(i+1)).toFixed(1);
     const w = (Number(x2) - Number(x1)).toFixed(1);
-    const col = r.open ? '#fecaca' : '#bbf7d0';
+    const col = r.open ? '#bbf7d0' : '#fecaca';
     return `<rect x="${x1}" y="${padT}" width="${w}" height="${innerH}" fill="${col}" fill-opacity="0.7"/>`;
   }).join('');
 
   // Puntos en cada evento
   const dots = series.map((r, i) => {
     const tt = `${fmtTs(r.ts)} · ${r.open ? '🚪 Abierto' : '✓ Cerrado'}`;
-    const col = r.open ? '#dc2626' : '#16a34a';
+    const col = r.open ? '#16a34a' : '#dc2626';
     return `<g data-tt="${esc(tt)}" style="cursor:crosshair">
       <circle cx="${x(i)}" cy="${yMid}" r="5" fill="${col}" stroke="#fff" stroke-width="1.5"/>
     </g>`;
@@ -27344,14 +27344,14 @@ function tuyaBuildDoorChart(logs, opts) {
 
   const leftAxisSvg = `<svg width="${axisLW}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0">
     <text x="${axisLW-6}" y="14" text-anchor="end" font-size="10" font-weight="800" fill="#475569">Estado</text>
-    <text x="${axisLW-6}" y="${(yMid-4).toFixed(1)}" text-anchor="end" font-size="9" fill="#16a34a">✓ Cerrado</text>
-    <text x="${axisLW-6}" y="${(yMid+11).toFixed(1)}" text-anchor="end" font-size="9" fill="#dc2626">🚪 Abierto</text>
+    <text x="${axisLW-6}" y="${(yMid-4).toFixed(1)}" text-anchor="end" font-size="9" fill="#dc2626">✓ Cerrado</text>
+    <text x="${axisLW-6}" y="${(yMid+11).toFixed(1)}" text-anchor="end" font-size="9" fill="#16a34a">🚪 Abierto</text>
   </svg>`;
 
   return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;font-size:11px;color:#475569">
     <span style="font-size:12px;font-weight:800;color:#0f172a">🚪 Eventos de puerta</span>
-    <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#16a34a"></span> ${closes} Cerrado</span>
-    <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dc2626"></span> ${opens} Abierto</span>
+    <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dc2626"></span> ${closes} Cerrado</span>
+    <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#16a34a"></span> ${opens} Abierto</span>
     <label style="display:inline-flex;align-items:center;gap:5px;margin-left:auto">
       Mostrar
       <input type="number" id="tuya-door-n" min="2" max="500" value="${N}" onchange="tuyaDoorRedraw()" style="width:64px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;font-size:11px;text-align:center">
