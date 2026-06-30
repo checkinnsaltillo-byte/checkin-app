@@ -23645,13 +23645,38 @@ window.ocupOpenDetail = function (bookingId) {
       if (!b.DepartamentoRaw) b.DepartamentoRaw = String(r['# Departamento'] || '');
     }
   }
-  body.innerHTML = ocupBuildDetailHtml(b) + ocupBuildRelatedSections(b);
+  body.innerHTML = ocupBuildDetailHtml(b) + `<div id="ocup-detail-related">${ocupBuildRelatedSections(b)}</div>`;
   back.classList.remove('hidden');
   back.offsetHeight; // reflow
   back.classList.add('visible');
   panel.classList.remove('hidden');
   panel.classList.add('open');
+  // Disparar cargas en background y re-renderizar las 3 secciones cuando lleguen
+  _ocupRelatedReadyState = '';
+  _ocupRelatedBookingId = String(b.Id);
+  if (typeof tuyaLoad === 'function' && !TUYA_STATE.loaded && !TUYA_STATE.loading) tuyaLoad(false);
+  if (typeof incLoadIncidencias === 'function' && (!INC_STATE || !INC_STATE.list?.length)) incLoadIncidencias();
+  if (typeof objLoadObjetos === 'function' && (!OBJ_STATE || !OBJ_STATE.list?.length)) objLoadObjetos();
+  if (_ocupRelatedPoll) clearInterval(_ocupRelatedPoll);
+  let ticks = 0;
+  _ocupRelatedPoll = setInterval(() => {
+    ticks++;
+    const sig = [
+      TUYA_STATE.loaded ? 'T' : '-',
+      (INC_STATE?.list?.length || 0) ? 'I' : '-',
+      (OBJ_STATE?.list?.length || 0) ? 'O' : '-',
+    ].join('');
+    if (sig !== _ocupRelatedReadyState) {
+      _ocupRelatedReadyState = sig;
+      const host = document.getElementById('ocup-detail-related');
+      if (host && _ocupRelatedBookingId === String(b.Id)) host.innerHTML = ocupBuildRelatedSections(b);
+    }
+    if (sig === 'TIO' || ticks > 40) { clearInterval(_ocupRelatedPoll); _ocupRelatedPoll = null; }
+  }, 400);
 };
+let _ocupRelatedPoll = null;
+let _ocupRelatedReadyState = '';
+let _ocupRelatedBookingId = '';
 
 // Genera las 3 secciones (Tuya / Incidencias / Objetos) reutilizando los
 // builders del módulo Gestión de reservas — filtran por Propiedad+#Depto+rango.
