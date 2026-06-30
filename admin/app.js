@@ -27492,15 +27492,12 @@ window.tuyaGlobalSetDoorMode = function(mode) {
 window.tuyaGlobalSetWaterN = function(v) {
   const n = Math.max(2, Math.min(2000, parseInt(v, 10) || 500));
   TUYA_STATE.globalCtrl.water.n = n;
-  // Re-render charts visibles sin re-pintar todo
-  const ids = Object.keys(TUYA_STATE.globalLogs);
-  ids.forEach(id => tuyaGlobalRenderChart(id));
+  tuyaRender();
 };
 window.tuyaGlobalSetDoorN = function(v) {
   const n = Math.max(2, Math.min(2000, parseInt(v, 10) || 500));
   TUYA_STATE.globalCtrl.door.n = n;
-  const ids = Object.keys(TUYA_STATE.globalLogs);
-  ids.forEach(id => tuyaGlobalRenderChart(id));
+  tuyaRender();
 };
 
 async function tuyaFetchRecentLogs(ids) {
