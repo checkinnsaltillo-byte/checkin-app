@@ -27919,6 +27919,14 @@ window.tuyaToggleHistorial = function() {
   if (open) { body.classList.add('hidden'); if (chev) chev.textContent = '▸'; }
   else      { body.classList.remove('hidden'); if (chev) chev.textContent = '▾'; }
 };
+window.tuyaToggleEstado = function() {
+  const body = document.getElementById('tuya-estado-body');
+  const chev = document.getElementById('tuya-estado-chev');
+  if (!body) return;
+  const open = !body.classList.contains('hidden');
+  if (open) { body.classList.add('hidden'); if (chev) chev.textContent = '▸'; }
+  else      { body.classList.remove('hidden'); if (chev) chev.textContent = '▾'; }
+};
 
 // Refresh manual desde el panel de detalle: refresca lista de dispositivos
 // y vuelve a cargar los logs del device actualmente visible.
@@ -27994,13 +28002,6 @@ async function tuyaOpenDetail(id) {
               style="margin-left:auto;padding:5px 12px;border:none;background:#0d9488;color:#fff;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">↻ Actualizar</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px">
-      <div>
-        <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:6px">Estado actual</div>
-        <div style="display:flex;gap:14px;align-items:stretch;flex-wrap:wrap">
-          <div style="flex:1;min-width:260px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden"><table style="width:100%;border-collapse:collapse">${statusRows}</table></div>
-          ${tuyaIsWaterLevel(d) ? tuyaWaterTankHtml(d) : ''}
-        </div>
-      </div>
       ${tuyaIsDoor(d) ? `<div>
         <div id="tuya-door-host" style="min-height:80px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando eventos de puerta…</div>
       </div>` : ''}
@@ -28018,8 +28019,21 @@ async function tuyaOpenDetail(id) {
             datos históricos
           </label>
         </div>
-        <div id="tuya-rotoplas-host" style="min-height:60px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando lecturas…</div>
-      </div>` : ''}
+        <div style="display:flex;gap:14px;align-items:stretch;flex-wrap:wrap">
+          <div id="tuya-rotoplas-host" style="flex:1;min-width:280px;min-height:60px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando lecturas…</div>
+          ${tuyaIsWaterLevel(d) ? tuyaWaterTankHtml(d) : ''}
+        </div>
+      </div>` : (tuyaIsWaterLevel(d) ? `<div style="display:flex;justify-content:flex-end">${tuyaWaterTankHtml(d)}</div>` : '')}
+      <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+        <div onclick="tuyaToggleEstado()" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f8fafc;user-select:none">
+          <span id="tuya-estado-chev" style="font-size:11px;color:#64748b">▸</span>
+          <div style="font-size:12px;font-weight:800;color:#0f172a;flex:1">Estado actual</div>
+          <span style="font-size:10.5px;color:#94a3b8;font-weight:600">${(d.status||[]).length} campo${(d.status||[]).length===1?'':'s'}</span>
+        </div>
+        <div id="tuya-estado-body" class="hidden" style="border-top:1px solid #e2e8f0">
+          <table style="width:100%;border-collapse:collapse">${statusRows}</table>
+        </div>
+      </div>
       <div id="tuya-hist-wrap" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
         <div onclick="tuyaToggleHistorial()" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f8fafc;user-select:none">
           <span id="tuya-hist-chev" style="font-size:11px;color:#64748b">▸</span>
