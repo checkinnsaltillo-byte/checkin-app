@@ -27520,10 +27520,33 @@ function tuyaBuildDoorChart(logs, opts) {
       return `<line x1="${xp}" y1="${padT}" x2="${xp}" y2="${padT+innerH}" stroke="#cbd5e1" stroke-width="0.6" stroke-dasharray="2,3" opacity="0.55"/>`;
     }).join('');
     const labelY = padT + innerH + 4;
-    const tickLabels = tickPositions.map(t => {
-      const xp = xScale(t).toFixed(1);
-      const lab = new Date(t).toLocaleString('es-MX', hours > 36 ? { day:'2-digit', month:'2-digit', hour:'2-digit' } : { hour:'2-digit', minute:'2-digit' });
-      return `<text x="${xp}" y="${labelY}" text-anchor="start" font-size="9" fill="#64748b" transform="rotate(90, ${xp}, ${labelY})">${esc(lab)}</text>`;
+    // ── Labels combinados: eventos (prioridad alta) + ticks; sin empalme ──
+    // Cada label rotado 90° ocupa ~12px de ancho horizontal en el pivot.
+    const MIN_GAP = 13;
+    const tickFmt = hours > 36 ? { day:'2-digit', month:'2-digit', hour:'2-digit' } : { hour:'2-digit', minute:'2-digit' };
+    const evFmt = hours > 36 ? { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' } : { hour:'2-digit', minute:'2-digit' };
+    // Candidatos
+    const candidates = [];
+    series.forEach(r => candidates.push({ x: xScale(r.ts), text: new Date(r.ts).toLocaleString('es-MX', evFmt), kind:'event', color: r.open ? '#16a34a' : '#dc2626' }));
+    tickPositions.forEach(t => candidates.push({ x: xScale(t), text: new Date(t).toLocaleString('es-MX', tickFmt), kind:'tick', color: '#64748b' }));
+    // Eventos primero, luego ticks; ordenados por X dentro de cada grupo
+    candidates.sort((a,b) => (a.kind === b.kind) ? a.x - b.x : (a.kind === 'event' ? -1 : 1));
+    const placed = [];
+    for (const c of candidates) {
+      const collision = placed.some(p => Math.abs(p.x - c.x) < MIN_GAP);
+      if (!collision) placed.push(c);
+    }
+    const tickLabels = placed.map(p => {
+      const xp = p.x.toFixed(1);
+      const fw = p.kind === 'event' ? '700' : '400';
+      const fs = p.kind === 'event' ? '10' : '9';
+      return `<text x="${xp}" y="${labelY}" text-anchor="start" font-size="${fs}" font-weight="${fw}" fill="${p.color}" transform="rotate(90, ${xp}, ${labelY})">${esc(p.text)}</text>`;
+    }).join('');
+    // Tick marks (líneas pequeñas) en CADA evento, para resaltar dónde hay registro
+    const eventTicks = series.map(r => {
+      const xp = xScale(r.ts).toFixed(1);
+      const col = r.open ? '#16a34a' : '#dc2626';
+      return `<line x1="${xp}" y1="${padT+innerH}" x2="${xp}" y2="${padT+innerH+5}" stroke="${col}" stroke-width="1.5"/>`;
     }).join('');
     // Marca "Ahora"
     const nowX = xScale(nowTs).toFixed(1);
@@ -27535,6 +27558,7 @@ function tuyaBuildDoorChart(logs, opts) {
       ${bands}
       ${gridLines}
       ${dots}
+      ${eventTicks}
       ${nowMarker}
       ${tickLabels}
     </svg>`;
