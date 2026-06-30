@@ -2017,20 +2017,20 @@
         </div>
 
         <!-- Filtros para vista Calendario -->
-        <div id="ocup-cal-filters" class="ocup-cal-filters" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:10px">
-          <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;min-width:160px">
+        <div id="ocup-cal-filters" class="ocup-cal-filters" style="display:flex;gap:10px;align-items:end;flex-wrap:nowrap;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:10px;overflow-x:auto">
+          <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px">
             <label class="ocup-filter-label" style="font-size:11px;font-weight:700;color:#475569">Estado</label>
-            <select id="ocup-cal-f-estado" onchange="ocupCalSetFilter('estado', this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff"><option value="">Todos</option></select>
+            <select id="ocup-cal-f-estado" onchange="ocupCalSetFilter('estado', this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;width:100%"><option value="">Todos</option></select>
           </div>
-          <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;min-width:180px">
+          <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px">
             <label class="ocup-filter-label" style="font-size:11px;font-weight:700;color:#475569">Propiedad</label>
-            <select id="ocup-cal-f-propiedad" onchange="ocupCalSetFilter('propiedad', this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff"><option value="">Todas</option></select>
+            <select id="ocup-cal-f-propiedad" onchange="ocupCalSetFilter('propiedad', this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;width:100%"><option value="">Todas</option></select>
           </div>
-          <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;min-width:160px">
+          <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px">
             <label class="ocup-filter-label" style="font-size:11px;font-weight:700;color:#475569">Fuente</label>
-            <select id="ocup-cal-f-fuente" onchange="ocupCalSetFilter('fuente', this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff"><option value="">Todas</option></select>
+            <select id="ocup-cal-f-fuente" onchange="ocupCalSetFilter('fuente', this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;width:100%"><option value="">Todas</option></select>
           </div>
-          <button type="button" onclick="ocupCalClearFilters()" style="padding:7px 12px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;height:32px">Limpiar filtros</button>
+          <button type="button" onclick="ocupCalClearFilters()" style="padding:7px 12px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;height:32px;flex-shrink:0;white-space:nowrap">Limpiar filtros</button>
         </div>
         <!-- Vista Calendario -->
         <div id="ocup-cal-container" class="ocup-cal-container">
@@ -2249,6 +2249,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=542"></script>
+  <script src="app.js?v=543"></script>
 </body>
 </html>
