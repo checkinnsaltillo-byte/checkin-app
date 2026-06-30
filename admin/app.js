@@ -27428,56 +27428,117 @@ function tuyaDoorParseLogs(logs) {
   return out;
 }
 
-// Chart de eventos puerta: cada evento como punto coloreado + step bar de fondo.
+// Chart de eventos puerta: dos modos.
+//  • 'events'  → cada evento como punto + step band con ancho uniforme.
+//  • 'timeline'→ eje X continuo proporcional al tiempo real; bandas se
+//    extienden por step-after (mantienen el estado previo hasta el siguiente
+//    evento). Ticks de tiempo a intervalos regulares.
 function tuyaBuildDoorChart(logs, opts) {
   const N = Math.max(2, Math.min(500, Number(opts && opts.n) || 100));
+  const mode = (opts && opts.mode) === 'timeline' ? 'timeline' : 'events';
   const all = tuyaDoorParseLogs(logs);
   const series = all.slice(-N);
   if (!series.length) return '<div style="padding:10px;color:#94a3b8;font-size:11px;font-style:italic">Sin eventos de puerta registrados</div>';
   const H = 170, padT = 28, padB = 72;
-  const stepX = 22;
   const innerH = H - padT - padB;
-  const dataW = Math.max(280, series.length * stepX);
   const axisLW = 56;
   const fmtTs = (ts) => new Date(ts).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
-  const x = (i) => i * stepX + stepX / 2;
   const yMid = padT + innerH / 2;
-
-  // Step bands de fondo: entre evento i e i+1, colorea según el estado en i.
-  // Para el último evento, extender hasta el final del ancho.
-  const bands = series.map((r, i) => {
-    const x1 = (i === 0 ? 0 : x(i)).toFixed(1);
-    const x2 = (i === series.length - 1 ? dataW : x(i+1)).toFixed(1);
-    const w = (Number(x2) - Number(x1)).toFixed(1);
-    const col = r.open ? '#bbf7d0' : '#fecaca';
-    return `<rect x="${x1}" y="${padT}" width="${w}" height="${innerH}" fill="${col}" fill-opacity="0.7"/>`;
-  }).join('');
-
-  // Puntos en cada evento
-  const dots = series.map((r, i) => {
-    const tt = `${fmtTs(r.ts)} · ${r.open ? '🚪 Abierto' : '✓ Cerrado'}`;
-    const col = r.open ? '#16a34a' : '#dc2626';
-    return `<g data-tt="${esc(tt)}" style="cursor:crosshair">
-      <circle cx="${x(i)}" cy="${yMid}" r="5" fill="${col}" stroke="#fff" stroke-width="1.5"/>
-    </g>`;
-  }).join('');
-
-  // Labels X rotadas 90° clockwise + text-anchor=start: el inicio del texto
-  // queda en el pivot (justo bajo el área de datos) y se extiende hacia abajo,
-  // pegado a la gráfica.
-  const labelY = padT + innerH + 4;
-  const labelsX = series.map((r, i) => `<text x="${x(i)}" y="${labelY}" text-anchor="start" font-size="9" fill="#94a3b8" transform="rotate(90, ${x(i)}, ${labelY})">${esc(new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</text>`).join('');
-
-  // Conteo
   const opens = series.filter(r => r.open).length;
   const closes = series.length - opens;
 
-  const dataSvg = `<svg width="${dataW}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block"
-       onmousemove="tuyaDoorOnMove(event)" onmouseleave="tuyaDoorHideTooltip()">
-    ${bands}
-    ${dots}
-    ${labelsX}
-  </svg>`;
+  let dataSvg, dataW;
+
+  if (mode === 'events') {
+    const stepX = 22;
+    dataW = Math.max(280, series.length * stepX);
+    const x = (i) => i * stepX + stepX / 2;
+    const bands = series.map((r, i) => {
+      const x1 = (i === 0 ? 0 : x(i)).toFixed(1);
+      const x2 = (i === series.length - 1 ? dataW : x(i+1)).toFixed(1);
+      const w = (Number(x2) - Number(x1)).toFixed(1);
+      const col = r.open ? '#bbf7d0' : '#fecaca';
+      return `<rect x="${x1}" y="${padT}" width="${w}" height="${innerH}" fill="${col}" fill-opacity="0.7"/>`;
+    }).join('');
+    const dots = series.map((r, i) => {
+      const tt = `${fmtTs(r.ts)} · ${r.open ? '🚪 Abierto' : '✓ Cerrado'}`;
+      const col = r.open ? '#16a34a' : '#dc2626';
+      return `<g data-tt="${esc(tt)}" style="cursor:crosshair">
+        <circle cx="${x(i)}" cy="${yMid}" r="5" fill="${col}" stroke="#fff" stroke-width="1.5"/>
+      </g>`;
+    }).join('');
+    const labelY = padT + innerH + 4;
+    const labelsX = series.map((r, i) => `<text x="${x(i)}" y="${labelY}" text-anchor="start" font-size="9" fill="#94a3b8" transform="rotate(90, ${x(i)}, ${labelY})">${esc(fmtTs(r.ts))}</text>`).join('');
+    dataSvg = `<svg width="${dataW}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block"
+         onmousemove="tuyaDoorOnMove(event)" onmouseleave="tuyaDoorHideTooltip()">
+      ${bands}
+      ${dots}
+      ${labelsX}
+    </svg>`;
+  } else {
+    // ── TIMELINE: eje X = tiempo real, step interpolation (carry-forward) ──
+    const minTs = series[0].ts;
+    const nowTs = Date.now();
+    const maxTs = Math.max(series[series.length - 1].ts, nowTs);
+    const durMs = Math.max(60_000, maxTs - minTs);
+    // ~120px por hora, min 600
+    const pxPerHour = 120;
+    dataW = Math.max(600, Math.round(durMs / 3600_000 * pxPerHour));
+    const xScale = (ts) => ((ts - minTs) / durMs) * dataW;
+
+    // Step bands (carry-forward del estado previo)
+    const bands = series.map((r, i) => {
+      const x1 = xScale(r.ts);
+      const x2 = (i === series.length - 1) ? dataW : xScale(series[i+1].ts);
+      const w = Math.max(0.5, x2 - x1);
+      const col = r.open ? '#bbf7d0' : '#fecaca';
+      return `<rect x="${x1.toFixed(1)}" y="${padT}" width="${w.toFixed(1)}" height="${innerH}" fill="${col}" fill-opacity="0.7"/>`;
+    }).join('');
+
+    // Puntos en cada evento real
+    const dots = series.map(r => {
+      const tt = `${fmtTs(r.ts)} · ${r.open ? '🚪 Abierto' : '✓ Cerrado'}`;
+      const col = r.open ? '#16a34a' : '#dc2626';
+      return `<g data-tt="${esc(tt)}" style="cursor:crosshair">
+        <circle cx="${xScale(r.ts).toFixed(1)}" cy="${yMid}" r="5" fill="${col}" stroke="#fff" stroke-width="1.5"/>
+      </g>`;
+    }).join('');
+
+    // Ticks de tiempo: cadencia según duración
+    const hours = durMs / 3600_000;
+    const tickIntervalMs = hours < 3 ? 15*60_000
+                         : hours < 12 ? 30*60_000
+                         : hours < 36 ? 60*60_000
+                         : hours < 96 ? 3*3600_000
+                         : 6*3600_000;
+    // Alinear el primer tick a múltiplo del intervalo (a partir de minTs)
+    const startTick = Math.ceil(minTs / tickIntervalMs) * tickIntervalMs;
+    const tickPositions = [];
+    for (let t = startTick; t <= maxTs; t += tickIntervalMs) tickPositions.push(t);
+    const gridLines = tickPositions.map(t => {
+      const xp = xScale(t).toFixed(1);
+      return `<line x1="${xp}" y1="${padT}" x2="${xp}" y2="${padT+innerH}" stroke="#cbd5e1" stroke-width="0.6" stroke-dasharray="2,3" opacity="0.55"/>`;
+    }).join('');
+    const labelY = padT + innerH + 4;
+    const tickLabels = tickPositions.map(t => {
+      const xp = xScale(t).toFixed(1);
+      const lab = new Date(t).toLocaleString('es-MX', hours > 36 ? { day:'2-digit', month:'2-digit', hour:'2-digit' } : { hour:'2-digit', minute:'2-digit' });
+      return `<text x="${xp}" y="${labelY}" text-anchor="start" font-size="9" fill="#64748b" transform="rotate(90, ${xp}, ${labelY})">${esc(lab)}</text>`;
+    }).join('');
+    // Marca "Ahora"
+    const nowX = xScale(nowTs).toFixed(1);
+    const nowMarker = `<line x1="${nowX}" y1="${padT-4}" x2="${nowX}" y2="${padT+innerH+2}" stroke="#0f172a" stroke-width="1" stroke-dasharray="4,2"/>
+      <text x="${nowX}" y="${padT-8}" text-anchor="middle" font-size="9" font-weight="800" fill="#0f172a">Ahora</text>`;
+
+    dataSvg = `<svg width="${dataW}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block"
+         onmousemove="tuyaDoorOnMove(event)" onmouseleave="tuyaDoorHideTooltip()">
+      ${bands}
+      ${gridLines}
+      ${dots}
+      ${nowMarker}
+      ${tickLabels}
+    </svg>`;
+  }
 
   const leftAxisSvg = `<svg width="${axisLW}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0">
     <text x="${axisLW-6}" y="14" text-anchor="end" font-size="10" font-weight="800" fill="#475569">Estado</text>
@@ -27485,11 +27546,19 @@ function tuyaBuildDoorChart(logs, opts) {
     <text x="${axisLW-6}" y="${(yMid+11).toFixed(1)}" text-anchor="end" font-size="9" fill="#16a34a">🚪 Abierto</text>
   </svg>`;
 
+  const toggleBase = 'cursor:pointer;padding:5px 11px;border:1.5px solid;border-radius:99px;font-size:11px;font-weight:700;user-select:none;transition:all .12s;line-height:1';
+  const onSt = 'background:#0d9488;color:#fff;border-color:#0d9488';
+  const offSt = 'background:#fff;color:#475569;border-color:#cbd5e1';
+
   return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;font-size:11px;color:#475569">
     <span style="font-size:12px;font-weight:800;color:#0f172a">🚪 Eventos de puerta</span>
     <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dc2626"></span> ${closes} Cerrado</span>
     <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#16a34a"></span> ${opens} Abierto</span>
-    <label style="display:inline-flex;align-items:center;gap:5px;margin-left:auto">
+    <span style="margin-left:auto;display:inline-flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:99px">
+      <span onclick="tuyaDoorSetMode('events')" style="${toggleBase};${mode==='events'?onSt:offSt}">Eventos</span>
+      <span onclick="tuyaDoorSetMode('timeline')" style="${toggleBase};${mode==='timeline'?onSt:offSt}">⏱ Línea de tiempo</span>
+    </span>
+    <label style="display:inline-flex;align-items:center;gap:5px">
       Mostrar
       <input type="number" id="tuya-door-n" min="2" max="500" value="${N}" onchange="tuyaDoorRedraw()" style="width:64px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;font-size:11px;text-align:center">
       datos
@@ -27516,13 +27585,17 @@ window.tuyaDoorHideTooltip = function() {
   const tip = document.getElementById('tuya-door-tooltip');
   if (tip) tip.style.display = 'none';
 };
-window.TUYA_DOOR = window.TUYA_DOOR || { logs: [] };
+window.TUYA_DOOR = window.TUYA_DOOR || { logs: [], mode: 'events' };
+window.tuyaDoorSetMode = function (mode) {
+  window.TUYA_DOOR.mode = mode === 'timeline' ? 'timeline' : 'events';
+  tuyaDoorRedraw();
+};
 window.tuyaDoorRedraw = function() {
   const host = document.getElementById('tuya-door-host');
   if (!host) return;
   const nEl = document.getElementById('tuya-door-n');
   const n = Number(nEl?.value) || 100;
-  host.innerHTML = tuyaBuildDoorChart(window.TUYA_DOOR.logs || [], { n });
+  host.innerHTML = tuyaBuildDoorChart(window.TUYA_DOOR.logs || [], { n, mode: window.TUYA_DOOR.mode });
   const scrollEl = host.querySelector('[data-door-scroll]');
   if (scrollEl) scrollEl.scrollLeft = scrollEl.scrollWidth;
 };
