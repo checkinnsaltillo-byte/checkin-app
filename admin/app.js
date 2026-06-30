@@ -27289,11 +27289,10 @@ function tuyaRender() {
   </div>`;
 
   if (TUYA_STATE.view === 'global') {
-    body.innerHTML = chipsHtml + viewHtml + tuyaRenderGlobalMonitor(tipoFiltered, allTipos);
-    tuyaGlobalEnsureLogs(tipoFiltered.map(e => e.d.id));
+    body.innerHTML = tabsHtml + chipsHtml + viewHtml + tuyaRenderGlobalMonitor(filtered, allTipos);
+    tuyaGlobalEnsureLogs(filtered.map(e => e.d.id));
   } else {
-    body.innerHTML = chipsHtml + viewHtml + tabsHtml + cardsHtml;
-    // Bulk fetch últimos 2 eventos por device para mostrarlos en cada card
+    body.innerHTML = tabsHtml + chipsHtml + viewHtml + cardsHtml;
     const visibleIds = filtered.map(e => e.d.id);
     if (visibleIds.length) tuyaFetchRecentLogs(visibleIds);
   }
@@ -27312,22 +27311,60 @@ function tuyaGlobalGroup(d) {
   return 'other';
 }
 
-// Renderiza el Monitor global: grupos por tipo con controles globales + chart por dispositivo.
+// Renderiza el Monitor global: grupos por tipo → propiedad → device.
 function tuyaRenderGlobalMonitor(enriched, allTipos) {
-  // Agrupar dispositivos visibles por grupo (water/door/other)
   const groups = { water: [], door: [], other: [] };
   for (const e of enriched) groups[tuyaGlobalGroup(e.d)].push(e);
 
+  function propsIn(list) {
+    const set = new Set(list.map(e => e.propiedad));
+    return [...set].sort((a,b) => {
+      if (a === '(Sin propiedad)') return 1;
+      if (b === '(Sin propiedad)') return -1;
+      return a.localeCompare(b, 'es');
+    });
+  }
+
+  function deviceCard(e, opts) {
+    const d = e.d;
+    const lastPct = (opts && opts.kind === 'water') ? tuyaWaterLevelCurrentPct(d) : null;
+    const ico = (opts && opts.kind === 'water') ? '💧' : (opts && opts.kind === 'door') ? '🚪' : tuyaTipoTheme(e.tipo).emoji;
+    const header = `<div style="display:flex;align-items:center;gap:8px;margin:0 0 8px">
+      <span style="font-size:14px">${ico}</span>
+      <div style="font-weight:700;font-size:12.5px;color:#0f172a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tuyaDisplayName(d))}</div>
+      <span style="font-size:11px;font-weight:800;color:${d.online?'#15803d':'#94a3b8'};background:${d.online?'#dcfce7':'#f1f5f9'};padding:2px 9px;border-radius:99px">${d.online?'Online':'Offline'}</span>
+      ${lastPct != null ? `<span style="font-size:12px;font-weight:900;color:#0c4a6e;background:#e0f2fe;border:1px solid #7dd3fc;padding:3px 10px;border-radius:99px">${lastPct.toFixed(0)}%</span>`:''}
+    </div>`;
+    const chartHost = `<div id="tuya-g-chart-${esc(d.id)}" style="flex:1;min-width:280px;min-height:80px;color:#94a3b8;font-size:11px;font-style:italic">⏳ Cargando…</div>`;
+    const tank = (opts && opts.kind === 'water') ? tuyaWaterTankHtml(d) : '';
+    const body = `<div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap">${chartHost}${tank}</div>`;
+    return `<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px;background:#fff;margin:0 0 10px">${header}${body}</div>`;
+  }
+
+  function propertySubgroup(list, kind) {
+    const props = propsIn(list);
+    return props.map(p => {
+      const inP = list.filter(e => e.propiedad === p);
+      const cards = inP.map(e => deviceCard(e, { kind })).join('');
+      return `<div style="margin:0 0 10px">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff;border-radius:8px 8px 0 0;font-weight:800;font-size:12.5px">
+          <span style="font-size:14px">🏠</span> ${esc(p)}
+          <span style="margin-left:auto;font-size:11px;color:#cbd5e1;font-weight:600">${inP.length} disp.</span>
+        </div>
+        <div style="padding:10px;background:#fafbfc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">${cards}</div>
+      </div>`;
+    }).join('');
+  }
+
   const sections = [];
 
-  // ── Sección Nivel de agua ──
   if (groups.water.length) {
     const wc = TUYA_STATE.globalCtrl.water;
     const ctrl = `<div style="display:flex;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap;padding:10px 12px;background:#ecfeff;border:1px solid #a5f3fc;border-radius:10px">
       <span style="font-size:11px;font-weight:800;color:#155e75;text-transform:uppercase;letter-spacing:.4px">💧 Nivel de agua · controles</span>
-      <button type="button" data-tuya-gw-series="depth" onclick="tuyaGlobalToggleWaterSeries('depth')"
+      <button type="button" onclick="tuyaGlobalToggleWaterSeries('depth')"
               style="padding:5px 12px;border:1.5px solid #0d9488;background:${wc.show.depth?'#0d9488':'#fff'};color:${wc.show.depth?'#fff':'#0d9488'};border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Profundidad (cm)</button>
-      <button type="button" data-tuya-gw-series="pct" onclick="tuyaGlobalToggleWaterSeries('pct')"
+      <button type="button" onclick="tuyaGlobalToggleWaterSeries('pct')"
               style="padding:5px 12px;border:1.5px solid #0284c7;background:${wc.show.pct?'#0284c7':'#fff'};color:${wc.show.pct?'#fff':'#0284c7'};border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">% Llenado</button>
       <span style="width:1px;height:18px;background:#a5f3fc;margin:0 2px"></span>
       <span style="font-size:11px;font-weight:700;color:#155e75">Ventana:</span>
@@ -27337,23 +27374,9 @@ function tuyaRenderGlobalMonitor(enriched, allTipos) {
         return `<button type="button" onclick="tuyaGlobalSetWaterWindow('${w}')" style="padding:5px 12px;border:1.5px solid #0d9488;background:${on?'#0d9488':'#fff'};color:${on?'#fff':'#0d9488'};border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">${lbl}</button>`;
       }).join('')}
     </div>`;
-    const charts = groups.water.map(e => {
-      const d = e.d;
-      const lastPct = tuyaWaterLevelCurrentPct(d);
-      return `<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px;background:#fff;margin:0 0 10px">
-        <div style="display:flex;align-items:center;gap:8px;margin:0 0 8px">
-          <span style="font-size:14px">💧</span>
-          <div style="font-weight:700;font-size:12.5px;color:#0f172a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tuyaDisplayName(d))}</div>
-          <span style="font-size:11px;font-weight:800;color:${d.online?'#15803d':'#94a3b8'};background:${d.online?'#dcfce7':'#f1f5f9'};padding:2px 9px;border-radius:99px">${d.online?'Online':'Offline'}</span>
-          ${lastPct != null ? `<span style="font-size:12px;font-weight:900;color:#0c4a6e;background:#e0f2fe;border:1px solid #7dd3fc;padding:3px 10px;border-radius:99px">${lastPct.toFixed(0)}%</span>`:''}
-        </div>
-        <div id="tuya-g-chart-${esc(d.id)}" style="min-height:80px;color:#94a3b8;font-size:11px;font-style:italic">⏳ Cargando…</div>
-      </div>`;
-    }).join('');
-    sections.push(`<div style="margin:0 0 16px"><div style="font-size:13px;font-weight:800;color:#0f172a;margin:0 0 8px">💧 Nivel de agua <span style="color:#64748b;font-weight:600;font-size:11px">(${groups.water.length})</span></div>${ctrl}${charts}</div>`);
+    sections.push(`<div style="margin:0 0 18px"><div style="font-size:13px;font-weight:800;color:#0f172a;margin:0 0 8px">💧 Nivel de agua <span style="color:#64748b;font-weight:600;font-size:11px">(${groups.water.length})</span></div>${ctrl}${propertySubgroup(groups.water, 'water')}</div>`);
   }
 
-  // ── Sección Puertas ──
   if (groups.door.length) {
     const dc = TUYA_STATE.globalCtrl.door;
     const ctrl = `<div style="display:flex;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px">
@@ -27364,31 +27387,27 @@ function tuyaRenderGlobalMonitor(enriched, allTipos) {
         return `<button type="button" onclick="tuyaGlobalSetDoorMode('${k}')" style="padding:5px 12px;border:1.5px solid #d97706;background:${on?'#d97706':'#fff'};color:${on?'#fff':'#d97706'};border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">${l}</button>`;
       }).join('')}
     </div>`;
-    const charts = groups.door.map(e => {
-      const d = e.d;
-      return `<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px;background:#fff;margin:0 0 10px">
-        <div style="display:flex;align-items:center;gap:8px;margin:0 0 8px">
-          <span style="font-size:14px">🚪</span>
-          <div style="font-weight:700;font-size:12.5px;color:#0f172a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tuyaDisplayName(d))}</div>
-          <span style="font-size:11px;font-weight:800;color:${d.online?'#15803d':'#94a3b8'};background:${d.online?'#dcfce7':'#f1f5f9'};padding:2px 9px;border-radius:99px">${d.online?'Online':'Offline'}</span>
-        </div>
-        <div id="tuya-g-chart-${esc(d.id)}" style="min-height:80px;color:#94a3b8;font-size:11px;font-style:italic">⏳ Cargando…</div>
-      </div>`;
-    }).join('');
-    sections.push(`<div style="margin:0 0 16px"><div style="font-size:13px;font-weight:800;color:#0f172a;margin:0 0 8px">🚪 Puertas <span style="color:#64748b;font-weight:600;font-size:11px">(${groups.door.length})</span></div>${ctrl}${charts}</div>`);
+    sections.push(`<div style="margin:0 0 18px"><div style="font-size:13px;font-weight:800;color:#0f172a;margin:0 0 8px">🚪 Puertas <span style="color:#64748b;font-weight:600;font-size:11px">(${groups.door.length})</span></div>${ctrl}${propertySubgroup(groups.door, 'door')}</div>`);
   }
 
-  // ── Otros (sin gráfica dedicada) ──
   if (groups.other.length) {
-    const cards = groups.other.map(e => {
-      const d = e.d;
-      return `<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff;display:flex;align-items:center;gap:8px;margin:0 0 6px">
+    const props = propsIn(groups.other);
+    const inner = props.map(p => {
+      const inP = groups.other.filter(e => e.propiedad === p);
+      const cards = inP.map(e => `<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff;display:flex;align-items:center;gap:8px;margin:0 0 6px">
         <span style="font-size:14px">${tuyaTipoTheme(e.tipo).emoji}</span>
-        <div style="font-weight:700;font-size:12.5px;color:#0f172a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tuyaDisplayName(d))}</div>
-        <span style="font-size:11px;font-weight:800;color:${d.online?'#15803d':'#94a3b8'};background:${d.online?'#dcfce7':'#f1f5f9'};padding:2px 9px;border-radius:99px">${d.online?'Online':'Offline'}</span>
+        <div style="font-weight:700;font-size:12.5px;color:#0f172a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tuyaDisplayName(e.d))}</div>
+        <span style="font-size:11px;font-weight:800;color:${e.d.online?'#15803d':'#94a3b8'};background:${e.d.online?'#dcfce7':'#f1f5f9'};padding:2px 9px;border-radius:99px">${e.d.online?'Online':'Offline'}</span>
+      </div>`).join('');
+      return `<div style="margin:0 0 10px">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff;border-radius:8px 8px 0 0;font-weight:800;font-size:12.5px">
+          <span style="font-size:14px">🏠</span> ${esc(p)}
+          <span style="margin-left:auto;font-size:11px;color:#cbd5e1;font-weight:600">${inP.length} disp.</span>
+        </div>
+        <div style="padding:10px;background:#fafbfc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">${cards}</div>
       </div>`;
     }).join('');
-    sections.push(`<div style="margin:0 0 16px"><div style="font-size:13px;font-weight:800;color:#0f172a;margin:0 0 8px">📦 Otros dispositivos <span style="color:#64748b;font-weight:600;font-size:11px">(${groups.other.length})</span></div>${cards}</div>`);
+    sections.push(`<div style="margin:0 0 16px"><div style="font-size:13px;font-weight:800;color:#0f172a;margin:0 0 8px">📦 Otros dispositivos <span style="color:#64748b;font-weight:600;font-size:11px">(${groups.other.length})</span></div>${inner}</div>`);
   }
 
   if (!sections.length) return `<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px">Sin dispositivos en los filtros seleccionados.</div>`;
@@ -27428,7 +27447,7 @@ function tuyaGlobalRenderChart(id) {
     host.innerHTML = tuyaBuildRotoplasChart(logs, { show: wc.show, n: 1000, window: wc.window });
   } else if (group === 'door') {
     const dc = TUYA_STATE.globalCtrl.door;
-    host.innerHTML = tuyaBuildDoorChart(logs, { mode: dc.mode, n: 500 });
+    host.innerHTML = tuyaBuildDoorChart(logs, { mode: dc.mode, n: 500, hideToggle: true });
   } else {
     host.innerHTML = '<div style="padding:8px;color:#94a3b8;font-size:11px;font-style:italic">Sin gráfica disponible</div>';
   }
@@ -27745,12 +27764,13 @@ function tuyaBuildDoorChart(logs, opts) {
   const toggleBase = 'cursor:pointer;padding:5px 11px;border:1.5px solid;border-radius:99px;font-size:11px;font-weight:700;user-select:none;transition:all .12s;line-height:1';
   const onSt = 'background:#0d9488;color:#fff;border-color:#0d9488';
   const offSt = 'background:#fff;color:#475569;border-color:#cbd5e1';
+  const hideToggle = !!(opts && opts.hideToggle);
 
   return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;font-size:11px;color:#475569">
     <span style="font-size:12px;font-weight:800;color:#0f172a">🚪 Eventos de puerta</span>
     <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dc2626"></span> ${closes} Cerrado</span>
     <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#16a34a"></span> ${opens} Abierto</span>
-    <span style="margin-left:auto;display:inline-flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:99px">
+    ${hideToggle ? '' : `<span style="margin-left:auto;display:inline-flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:99px">
       <span onclick="tuyaDoorSetMode('events')" style="${toggleBase};${mode==='events'?onSt:offSt}">Eventos</span>
       <span onclick="tuyaDoorSetMode('timeline')" style="${toggleBase};${mode==='timeline'?onSt:offSt}">⏱ Línea de tiempo</span>
     </span>
@@ -27758,7 +27778,7 @@ function tuyaBuildDoorChart(logs, opts) {
       Mostrar
       <input type="number" id="tuya-door-n" min="2" max="500" value="${N}" onchange="tuyaDoorRedraw()" style="width:64px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;font-size:11px;text-align:center">
       datos
-    </label>
+    </label>`}
   </div>
   <div style="position:relative;display:flex;align-items:stretch;border:1px solid #e2e8f0;border-radius:8px;background:#fff;overflow:hidden">
     ${leftAxisSvg}
@@ -27863,7 +27883,7 @@ function tuyaWaterTankHtml(d) {
   const gradId = 'wgrad-' + (d.id || Math.random().toString(36).slice(2,8));
   const lastTs = tuyaWaterTankLastPctTs(d);
   const lastStr = lastTs ? new Date(lastTs).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
-  return `<div data-tuya-water-tank="1" style="width:185px;flex-shrink:0;border:1px solid #e2e8f0;border-radius:10px;padding:8px 6px 6px;background:linear-gradient(135deg,#f8fafc 0%,#fff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center">
+  return `<div data-tuya-water-tank="${esc(d.id||'')}" style="width:185px;flex-shrink:0;border:1px solid #e2e8f0;border-radius:10px;padding:8px 6px 6px;background:linear-gradient(135deg,#f8fafc 0%,#fff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center">
     <div style="font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:1px;letter-spacing:.2px">${lastTs ? '🕒 ' + esc(lastStr) : ''}</div>
     <div style="font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">💧 Nivel actual</div>
     <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">
