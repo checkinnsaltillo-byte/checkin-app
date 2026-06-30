@@ -27011,6 +27011,32 @@ function tuyaDisplayName(d) {
   return parts.join(' · ');
 }
 
+// Mapa visual por tipo (emoji + paleta de color). Cae a fallback si no matchea.
+const TUYA_TIPO_THEMES = [
+  { match: /c[áa]mara|camera/i,                 emoji: '📹', from: '#0ea5e9', to: '#0284c7', soft: '#f0f9ff', ink: '#075985' },
+  { match: /puerta|door|contacto/i,             emoji: '🚪', from: '#f59e0b', to: '#d97706', soft: '#fffbeb', ink: '#92400e' },
+  { match: /humo|smoke/i,                       emoji: '🔥', from: '#ef4444', to: '#dc2626', soft: '#fef2f2', ink: '#991b1b' },
+  { match: /gas/i,                              emoji: '⚠️', from: '#f97316', to: '#ea580c', soft: '#fff7ed', ink: '#9a3412' },
+  { match: /agua|water|fuga|leak/i,             emoji: '💧', from: '#06b6d4', to: '#0891b2', soft: '#ecfeff', ink: '#155e75' },
+  { match: /pir|movimiento|motion/i,            emoji: '👁️', from: '#8b5cf6', to: '#7c3aed', soft: '#f5f3ff', ink: '#5b21b6' },
+  { match: /foco|luz|bombilla|light|bulb/i,     emoji: '💡', from: '#eab308', to: '#ca8a04', soft: '#fefce8', ink: '#854d0e' },
+  { match: /enchufe|plug|toma|outlet/i,         emoji: '🔌', from: '#10b981', to: '#059669', soft: '#ecfdf5', ink: '#065f46' },
+  { match: /hub|gateway/i,                      emoji: '📡', from: '#475569', to: '#334155', soft: '#f1f5f9', ink: '#1e293b' },
+  { match: /rotoplas|tinaco|tanque|nivel/i,     emoji: '🚰', from: '#0ea5e9', to: '#0369a1', soft: '#f0f9ff', ink: '#0c4a6e' },
+  { match: /term[óo]metro|temperatura|temp/i,   emoji: '🌡️', from: '#f43f5e', to: '#e11d48', soft: '#fff1f2', ink: '#9f1239' },
+  { match: /humedad|humidity/i,                 emoji: '💦', from: '#22d3ee', to: '#0891b2', soft: '#ecfeff', ink: '#155e75' },
+  { match: /cerradura|lock/i,                   emoji: '🔒', from: '#7c3aed', to: '#6d28d9', soft: '#f5f3ff', ink: '#4c1d95' },
+  { match: /control|remoto|switch|interruptor/i,emoji: '🎛️', from: '#64748b', to: '#475569', soft: '#f8fafc', ink: '#1e293b' },
+  { match: /timbre|doorbell/i,                  emoji: '🔔', from: '#facc15', to: '#eab308', soft: '#fefce8', ink: '#713f12' },
+];
+const TUYA_TIPO_FALLBACK = { emoji: '📦', from: '#94a3b8', to: '#64748b', soft: '#f1f5f9', ink: '#334155' };
+function tuyaTipoTheme(tipo) {
+  const t = String(tipo || '').trim();
+  if (!t || t === '(Sin tipo)') return { ...TUYA_TIPO_FALLBACK, emoji: '❓' };
+  for (const def of TUYA_TIPO_THEMES) if (def.match.test(t)) return def;
+  return TUYA_TIPO_FALLBACK;
+}
+
 function tuyaResolveTipo(d) {
   const r = tuyaResolveAloj(d);
   if (!r) return '(Sin tipo)';
@@ -27159,16 +27185,24 @@ function tuyaRender() {
     }
   }
 
-  // ── Chips filtro por Tipo ──
-  const chipBase = 'cursor:pointer;user-select:none;padding:5px 11px;border-radius:99px;font-size:11.5px;font-weight:700;border:1.5px solid;white-space:nowrap;transition:all .12s';
-  const chipOn = 'background:#0d9488;color:#fff;border-color:#0d9488';
-  const chipOff = 'background:#fff;color:#475569;border-color:#cbd5e1';
-  const chipsHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px;padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px">
-    <span style="font-size:11px;font-weight:700;color:#64748b;margin-right:4px">Tipo:</span>
-    <span onclick="tuyaSetAllTipos(true)" style="${chipBase};${allSelected?chipOn:chipOff}">Todos</span>
-    <span onclick="tuyaSetAllTipos(false)" style="${chipBase};${TUYA_STATE.tipos.size===0?chipOn:chipOff}">Ninguno</span>
-    <span style="width:1px;height:18px;background:#e2e8f0;margin:0 2px"></span>
-    ${allTipos.map(t => `<span onclick="tuyaToggleTipo('${esc(t)}')" style="${chipBase};${TUYA_STATE.tipos.has(t)?chipOn:chipOff}">${esc(t)}</span>`).join('')}
+  // ── Chips filtro por Tipo (con emoji + paleta coloreada por tipo) ──
+  const chipBase = 'cursor:pointer;user-select:none;padding:6px 12px;border-radius:99px;font-size:11.5px;font-weight:700;border:1.5px solid;white-space:nowrap;transition:all .12s;display:inline-flex;align-items:center;gap:5px;line-height:1';
+  const allOnSt = 'background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;border-color:#0d9488;box-shadow:0 2px 6px rgba(13,148,136,.35)';
+  const allOffSt = 'background:#fff;color:#475569;border-color:#cbd5e1';
+  const ninguno = TUYA_STATE.tipos.size === 0;
+  const chipsHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px;padding:10px 12px;background:linear-gradient(135deg,#f8fafc 0%,#fff 100%);border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 2px rgba(15,23,42,.03)">
+    <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.5px;margin-right:2px">🏷️ Tipo</span>
+    <span onclick="tuyaSetAllTipos(true)" style="${chipBase};${allSelected?allOnSt:allOffSt}">${allSelected?'✓ ':''}Todos</span>
+    <span onclick="tuyaSetAllTipos(false)" style="${chipBase};${ninguno?allOnSt:allOffSt}">${ninguno?'✓ ':''}Ninguno</span>
+    <span style="width:1px;height:20px;background:#cbd5e1;margin:0 4px"></span>
+    ${allTipos.map(t => {
+      const th = tuyaTipoTheme(t);
+      const on = TUYA_STATE.tipos.has(t);
+      const st = on
+        ? `background:linear-gradient(135deg,${th.from},${th.to});color:#fff;border-color:${th.from};box-shadow:0 2px 6px ${th.from}44`
+        : `background:#fff;color:${th.ink};border-color:${th.from}55`;
+      return `<span onclick="tuyaToggleTipo('${esc(t)}')" style="${chipBase};${st}">${th.emoji} ${esc(t)}</span>`;
+    }).join('')}
   </div>`;
 
   // Aplicar filtro de tipos sobre enriched
@@ -27185,78 +27219,53 @@ function tuyaRender() {
 
   // ── Pestañas Propiedad ──
   const activeTab = TUYA_STATE.tab || '__todas';
-  const tabsHtml = `<div style="display:flex;gap:0;border-bottom:2px solid var(--border,#e5e7eb);margin-bottom:12px;overflow-x:auto;flex-wrap:nowrap">
-    ${[['__todas', 'Todas'], ...props2.map(p => [p, p])].map(([key, label]) => {
+  // ── Pestañas Propiedad ──
+  const tabsHtml = `<div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:14px;overflow-x:auto;flex-wrap:nowrap">
+    ${[['__todas', '🏘️ Todas'], ...props2.map(p => [p, '🏠 ' + p])].map(([key, label]) => {
       const count = key === '__todas' ? tipoFiltered.length : tipoFiltered.filter(e => e.propiedad === key).length;
       const isActive = activeTab === key;
-      return `<button onclick="tuyaSetTab('${esc(key)}')" style="padding:9px 16px;border:none;background:transparent;border-bottom:3px solid ${isActive ? '#0d9488' : 'transparent'};color:${isActive ? '#0d9488' : '#64748b'};font-weight:${isActive?'800':'600'};font-size:13px;cursor:pointer;white-space:nowrap;margin-bottom:-2px">${esc(label)} <span style="color:#94a3b8;font-weight:600;font-size:11px">(${count})</span></button>`;
+      return `<button onclick="tuyaSetTab('${esc(key)}')" style="padding:10px 18px;border:none;background:${isActive?'linear-gradient(180deg,#fff,#f0fdfa)':'transparent'};border-bottom:3px solid ${isActive ? '#0d9488' : 'transparent'};color:${isActive ? '#0f766e' : '#64748b'};font-weight:${isActive?'800':'600'};font-size:13px;cursor:pointer;white-space:nowrap;margin-bottom:-2px;border-radius:8px 8px 0 0;transition:all .15s">${esc(label)} <span style="color:#94a3b8;font-weight:600;font-size:11px;background:${isActive?'#ccfbf1':'#f1f5f9'};padding:1px 7px;border-radius:99px">${count}</span></button>`;
     }).join('')}
   </div>`;
+
+  // ── Helper: render una sección de Tipo (header coloreado + grid de cards) ──
+  function tipoSection(tipo, list) {
+    const th = tuyaTipoTheme(tipo);
+    return `<div style="margin-bottom:14px;background:#fff;border:1px solid ${th.from}33;border-left:4px solid ${th.from};border-radius:10px;overflow:hidden;box-shadow:0 1px 3px ${th.from}11">
+      <div style="padding:8px 14px;background:linear-gradient(90deg,${th.soft} 0%,#fff 100%);display:flex;align-items:center;gap:10px;border-bottom:1px solid ${th.from}22">
+        <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,${th.from},${th.to});color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 5px ${th.from}55">${th.emoji}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:800;color:${th.ink};letter-spacing:-.005em">${esc(tipo)}</div>
+        </div>
+        <span style="font-size:11px;font-weight:800;color:${th.ink};background:${th.from}1a;border:1px solid ${th.from}44;padding:3px 10px;border-radius:99px">${list.length}</span>
+      </div>
+      <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">${list.map(e => tuyaDeviceCardHtml(e.d, e)).join('')}</div>
+    </div>`;
+  }
 
   // ── Cuerpo: dispositivos filtrados por pestaña + tipo ──
   const filtered = activeTab === '__todas' ? tipoFiltered : tipoFiltered.filter(e => e.propiedad === activeTab);
   let cardsHtml = '';
   if (!filtered.length) {
-    cardsHtml = '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px">Sin dispositivos que coincidan con los filtros.</div>';
-  } else if (allSelected) {
-    // ── Todos los tipos seleccionados: agrupar Propiedad → columnas por Tipo ──
-    // Cada propiedad muestra una cuadrícula con N columnas (una por tipo).
+    cardsHtml = `<div style="padding:36px;text-align:center;color:#94a3b8;font-size:13px;background:#fff;border:1px dashed #e2e8f0;border-radius:12px">🔍 Sin dispositivos que coincidan con los filtros.</div>`;
+  } else {
+    // Para cada Propiedad visible: agrupar por Tipo y apilar verticalmente.
     const propsToShow = activeTab === '__todas' ? props2 : [activeTab];
     cardsHtml = propsToShow.filter(p => filtered.some(e => e.propiedad === p)).map(p => {
       const inProp = filtered.filter(e => e.propiedad === p);
       const tiposPresentes = allTipos.filter(t => inProp.some(e => e.tipo === t));
-      const cols = tiposPresentes.map(t => {
-        const list = inProp.filter(e => e.tipo === t);
-        return `<div style="min-width:0">
-          <div style="font-size:11px;font-weight:800;color:#0d9488;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;padding:4px 8px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:6px;text-align:center">${esc(t)} <span style="color:#64748b;font-weight:600">(${list.length})</span></div>
-          <div style="display:flex;flex-direction:column;gap:8px">${list.map(e => tuyaDeviceCardHtml(e.d, e)).join('')}</div>
-        </div>`;
-      }).join('');
-      return `<div style="background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:12px;overflow:hidden;margin-bottom:10px">
-        <div style="padding:10px 14px;background:#f1f5f9;font-size:13px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px">
-          🏠 ${esc(p)} <span style="font-size:11px;color:#64748b;font-weight:600">· ${inProp.length} dispositivo${inProp.length===1?'':'s'}</span>
+      const sections = tiposPresentes.map(t => tipoSection(t, inProp.filter(e => e.tipo === t))).join('');
+      return `<div style="background:linear-gradient(135deg,#f8fafc 0%,#fff 100%);border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;margin-bottom:14px;box-shadow:0 2px 8px rgba(15,23,42,.04)">
+        <div style="padding:12px 16px;background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff;display:flex;align-items:center;gap:10px">
+          <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:17px">🏠</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:800;letter-spacing:-.01em">${esc(p)}</div>
+            <div style="font-size:11px;color:#cbd5e1;font-weight:500">${inProp.length} dispositivo${inProp.length===1?'':'s'} · ${tiposPresentes.length} tipo${tiposPresentes.length===1?'':'s'}</div>
+          </div>
         </div>
-        <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">${cols}</div>
+        <div style="padding:14px">${sections}</div>
       </div>`;
     }).join('');
-  } else if (activeTab === '__todas') {
-    // Subset de tipos: agrupar Propiedad → Departamento
-    const byProp = {};
-    for (const e of filtered) {
-      if (!byProp[e.propiedad]) byProp[e.propiedad] = {};
-      if (!byProp[e.propiedad][e.departamento]) byProp[e.propiedad][e.departamento] = [];
-      byProp[e.propiedad][e.departamento].push(e);
-    }
-    cardsHtml = props2.filter(p => byProp[p]).map(p => {
-      const deptos = Object.keys(byProp[p]).sort(tuyaDeptoSort);
-      const inner = deptos.map(dp => {
-        const list = byProp[p][dp];
-        return `<div style="margin-bottom:10px">
-          <div style="font-size:11px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;padding-left:2px">${esc(tuyaDeptoLabel(dp))}</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">${list.map(e => tuyaDeviceCardHtml(e.d, e)).join('')}</div>
-        </div>`;
-      }).join('');
-      return `<div style="background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:12px;overflow:hidden;margin-bottom:10px">
-        <div style="padding:10px 14px;background:#f1f5f9;font-size:13px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px">
-          🏠 ${esc(p)} <span style="font-size:11px;color:#64748b;font-weight:600">· ${filtered.filter(e => e.propiedad === p).length} dispositivos</span>
-        </div>
-        <div style="padding:12px">${inner}</div>
-      </div>`;
-    }).join('');
-  } else {
-    // Pestaña específica: agrupar sólo por Departamento
-    const byDep = {};
-    for (const e of filtered) {
-      if (!byDep[e.departamento]) byDep[e.departamento] = [];
-      byDep[e.departamento].push(e);
-    }
-    const deptos = Object.keys(byDep).sort(tuyaDeptoSort);
-    cardsHtml = `<div style="background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:12px">
-      ${deptos.map(dp => `<div style="margin-bottom:10px">
-        <div style="font-size:11px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;padding-left:2px">${esc(tuyaDeptoLabel(dp))}</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">${byDep[dp].map(e => tuyaDeviceCardHtml(e.d, e)).join('')}</div>
-      </div>`).join('')}
-    </div>`;
   }
 
   body.innerHTML = chipsHtml + tabsHtml + cardsHtml;
