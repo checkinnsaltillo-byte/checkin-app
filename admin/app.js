@@ -27360,32 +27360,54 @@ function tuyaRenderGlobalMonitor(enriched, allTipos) {
 
   if (groups.water.length) {
     const wc = TUYA_STATE.globalCtrl.water;
-    const ctrl = `<div style="display:flex;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap;padding:10px 12px;background:#ecfeff;border:1px solid #a5f3fc;border-radius:10px">
-      <span style="font-size:11px;font-weight:800;color:#155e75;text-transform:uppercase;letter-spacing:.4px">💧 Nivel de agua · controles</span>
-      <button type="button" onclick="tuyaGlobalToggleWaterSeries('depth')"
-              style="padding:5px 12px;border:1.5px solid #0d9488;background:${wc.show.depth?'#0d9488':'#fff'};color:${wc.show.depth?'#fff':'#0d9488'};border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Profundidad (cm)</button>
-      <button type="button" onclick="tuyaGlobalToggleWaterSeries('pct')"
-              style="padding:5px 12px;border:1.5px solid #0284c7;background:${wc.show.pct?'#0284c7':'#fff'};color:${wc.show.pct?'#fff':'#0284c7'};border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">% Llenado</button>
-      <span style="width:1px;height:18px;background:#a5f3fc;margin:0 2px"></span>
-      <span style="font-size:11px;font-weight:700;color:#155e75">Ventana:</span>
-      ${['day','week','month'].map(w => {
-        const lbl = w==='day'?'Día':w==='week'?'Semana':'Mes';
-        const on = wc.window === w;
-        return `<button type="button" onclick="tuyaGlobalSetWaterWindow('${w}')" style="padding:5px 12px;border:1.5px solid #0d9488;background:${on?'#0d9488':'#fff'};color:${on?'#fff':'#0d9488'};border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">${lbl}</button>`;
-      }).join('')}
+    if (wc.n == null) wc.n = 500;
+    const row = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+    const labelSt = 'font-size:11px;font-weight:800;color:#155e75;text-transform:uppercase;letter-spacing:.4px;min-width:84px';
+    const ctrl = `<div style="display:flex;flex-direction:column;gap:8px;margin:0 0 12px;padding:12px;background:#ecfeff;border:1px solid #a5f3fc;border-radius:10px">
+      <div style="font-size:11px;font-weight:800;color:#155e75;text-transform:uppercase;letter-spacing:.4px">💧 Nivel de agua · controles</div>
+      <div style="${row}">
+        <span style="${labelSt}">Series:</span>
+        <button type="button" onclick="tuyaGlobalToggleWaterSeries('depth')"
+                style="padding:5px 12px;border:1.5px solid #0d9488;background:${wc.show.depth?'#0d9488':'#fff'};color:${wc.show.depth?'#fff':'#0d9488'};border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Profundidad (cm)</button>
+        <button type="button" onclick="tuyaGlobalToggleWaterSeries('pct')"
+                style="padding:5px 12px;border:1.5px solid #0284c7;background:${wc.show.pct?'#0284c7':'#fff'};color:${wc.show.pct?'#fff':'#0284c7'};border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">% Llenado</button>
+      </div>
+      <div style="${row}">
+        <span style="${labelSt}">Ventana:</span>
+        ${['day','week','month'].map(w => {
+          const lbl = w==='day'?'Día':w==='week'?'Semana':'Mes';
+          const on = wc.window === w;
+          return `<button type="button" onclick="tuyaGlobalSetWaterWindow('${w}')" style="padding:5px 14px;border:1.5px solid #0d9488;background:${on?'#0d9488':'#fff'};color:${on?'#fff':'#0d9488'};border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">${lbl}</button>`;
+        }).join('')}
+      </div>
+      <div style="${row}">
+        <span style="${labelSt}">Máx datos:</span>
+        <input type="number" min="2" max="2000" value="${wc.n}" onchange="tuyaGlobalSetWaterN(this.value)"
+               style="width:100px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;text-align:center;background:#fff">
+      </div>
     </div>`;
     sections.push(`<div style="margin:0 0 18px"><div style="font-size:13px;font-weight:800;color:#0f172a;margin:0 0 8px">💧 Nivel de agua <span style="color:#64748b;font-weight:600;font-size:11px">(${groups.water.length})</span></div>${ctrl}${propertySubgroup(groups.water, 'water')}</div>`);
   }
 
   if (groups.door.length) {
     const dc = TUYA_STATE.globalCtrl.door;
-    const ctrl = `<div style="display:flex;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px">
-      <span style="font-size:11px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.4px">🚪 Puertas · controles</span>
-      <span style="font-size:11px;font-weight:700;color:#92400e">Modo:</span>
-      ${[['events','Eventos'],['timeline','⏱ Línea de tiempo']].map(([k,l]) => {
-        const on = dc.mode === k;
-        return `<button type="button" onclick="tuyaGlobalSetDoorMode('${k}')" style="padding:5px 12px;border:1.5px solid #d97706;background:${on?'#d97706':'#fff'};color:${on?'#fff':'#d97706'};border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">${l}</button>`;
-      }).join('')}
+    if (dc.n == null) dc.n = 500;
+    const row = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+    const labelSt = 'font-size:11px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.4px;min-width:84px';
+    const ctrl = `<div style="display:flex;flex-direction:column;gap:8px;margin:0 0 12px;padding:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px">
+      <div style="font-size:11px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.4px">🚪 Puertas · controles</div>
+      <div style="${row}">
+        <span style="${labelSt}">Modo:</span>
+        ${[['events','Eventos'],['timeline','⏱ Línea de tiempo']].map(([k,l]) => {
+          const on = dc.mode === k;
+          return `<button type="button" onclick="tuyaGlobalSetDoorMode('${k}')" style="padding:5px 14px;border:1.5px solid #d97706;background:${on?'#d97706':'#fff'};color:${on?'#fff':'#d97706'};border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">${l}</button>`;
+        }).join('')}
+      </div>
+      <div style="${row}">
+        <span style="${labelSt}">Máx datos:</span>
+        <input type="number" min="2" max="2000" value="${dc.n}" onchange="tuyaGlobalSetDoorN(this.value)"
+               style="width:100px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;text-align:center;background:#fff">
+      </div>
     </div>`;
     sections.push(`<div style="margin:0 0 18px"><div style="font-size:13px;font-weight:800;color:#0f172a;margin:0 0 8px">🚪 Puertas <span style="color:#64748b;font-weight:600;font-size:11px">(${groups.door.length})</span></div>${ctrl}${propertySubgroup(groups.door, 'door')}</div>`);
   }
@@ -27444,10 +27466,10 @@ function tuyaGlobalRenderChart(id) {
   const group = tuyaGlobalGroup(d);
   if (group === 'water') {
     const wc = TUYA_STATE.globalCtrl.water;
-    host.innerHTML = tuyaBuildRotoplasChart(logs, { show: wc.show, n: 1000, window: wc.window });
+    host.innerHTML = tuyaBuildRotoplasChart(logs, { show: wc.show, n: Number(wc.n) || 500, window: wc.window });
   } else if (group === 'door') {
     const dc = TUYA_STATE.globalCtrl.door;
-    host.innerHTML = tuyaBuildDoorChart(logs, { mode: dc.mode, n: 500, hideToggle: true });
+    host.innerHTML = tuyaBuildDoorChart(logs, { mode: dc.mode, n: Number(dc.n) || 500, hideToggle: true });
   } else {
     host.innerHTML = '<div style="padding:8px;color:#94a3b8;font-size:11px;font-style:italic">Sin gráfica disponible</div>';
   }
@@ -27466,6 +27488,19 @@ window.tuyaGlobalSetWaterWindow = function(win) {
 window.tuyaGlobalSetDoorMode = function(mode) {
   TUYA_STATE.globalCtrl.door.mode = mode === 'timeline' ? 'timeline' : 'events';
   tuyaRender();
+};
+window.tuyaGlobalSetWaterN = function(v) {
+  const n = Math.max(2, Math.min(2000, parseInt(v, 10) || 500));
+  TUYA_STATE.globalCtrl.water.n = n;
+  // Re-render charts visibles sin re-pintar todo
+  const ids = Object.keys(TUYA_STATE.globalLogs);
+  ids.forEach(id => tuyaGlobalRenderChart(id));
+};
+window.tuyaGlobalSetDoorN = function(v) {
+  const n = Math.max(2, Math.min(2000, parseInt(v, 10) || 500));
+  TUYA_STATE.globalCtrl.door.n = n;
+  const ids = Object.keys(TUYA_STATE.globalLogs);
+  ids.forEach(id => tuyaGlobalRenderChart(id));
 };
 
 async function tuyaFetchRecentLogs(ids) {
@@ -28268,25 +28303,28 @@ async function tuyaOpenDetail(id) {
             <div id="tuya-door-host" style="min-height:80px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando eventos de puerta…</div>
           </div>` : ''}
           ${tuyaIsRotoplas(d) ? `<div>
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
               <div style="font-size:12px;font-weight:800;color:#0f172a">📈 Lecturas Rotoplas</div>
-              <button type="button" data-tuya-rseries="depth" onclick="tuyaRotoplasToggleSeries('depth','${esc(d.id)}')"
-                      style="padding:4px 10px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">Profundidad (cm)</button>
-              <button type="button" data-tuya-rseries="pct" onclick="tuyaRotoplasToggleSeries('pct','${esc(d.id)}')"
-                      style="padding:4px 10px;border:1.5px solid #0284c7;background:#0284c7;color:#fff;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">% Llenado</button>
-              <span style="width:1px;height:18px;background:#e2e8f0;margin:0 2px"></span>
-              <span style="font-size:11px;font-weight:700;color:#64748b">Ventana:</span>
-              <span style="display:inline-flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:99px">
-                <button type="button" data-tuya-rwin="day"   onclick="tuyaRotoplasSetWindow('day','${esc(d.id)}')"   style="padding:4px 12px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Día</button>
-                <button type="button" data-tuya-rwin="week"  onclick="tuyaRotoplasSetWindow('week','${esc(d.id)}')"  style="padding:4px 12px;border:1.5px solid #0d9488;background:#fff;color:#0d9488;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Semana</button>
-                <button type="button" data-tuya-rwin="month" onclick="tuyaRotoplasSetWindow('month','${esc(d.id)}')" style="padding:4px 12px;border:1.5px solid #0d9488;background:#fff;color:#0d9488;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Mes</button>
-              </span>
-              <label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#475569;margin-left:auto">
-                Máx
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span style="font-size:11px;font-weight:700;color:#64748b;min-width:64px">Series:</span>
+                <button type="button" data-tuya-rseries="depth" onclick="tuyaRotoplasToggleSeries('depth','${esc(d.id)}')"
+                        style="padding:5px 12px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">Profundidad (cm)</button>
+                <button type="button" data-tuya-rseries="pct" onclick="tuyaRotoplasToggleSeries('pct','${esc(d.id)}')"
+                        style="padding:5px 12px;border:1.5px solid #0284c7;background:#0284c7;color:#fff;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">% Llenado</button>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span style="font-size:11px;font-weight:700;color:#64748b;min-width:64px">Ventana:</span>
+                <span style="display:inline-flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:99px">
+                  <button type="button" data-tuya-rwin="day"   onclick="tuyaRotoplasSetWindow('day','${esc(d.id)}')"   style="padding:5px 14px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Día</button>
+                  <button type="button" data-tuya-rwin="week"  onclick="tuyaRotoplasSetWindow('week','${esc(d.id)}')"  style="padding:5px 14px;border:1.5px solid #0d9488;background:#fff;color:#0d9488;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Semana</button>
+                  <button type="button" data-tuya-rwin="month" onclick="tuyaRotoplasSetWindow('month','${esc(d.id)}')" style="padding:5px 14px;border:1.5px solid #0d9488;background:#fff;color:#0d9488;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Mes</button>
+                </span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span style="font-size:11px;font-weight:700;color:#64748b;min-width:64px">Máx datos:</span>
                 <input type="number" id="tuya-rotoplas-n" min="2" max="2000" value="500" onchange="tuyaRotoplasRedraw('${esc(d.id)}')"
-                       style="width:70px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;font-size:11px;text-align:center">
-                datos
-              </label>
+                       style="width:90px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;text-align:center">
+              </div>
             </div>
             <div style="display:flex;gap:14px;align-items:stretch;flex-wrap:wrap">
               <div id="tuya-rotoplas-host" style="flex:1;min-width:280px;min-height:60px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando lecturas…</div>
