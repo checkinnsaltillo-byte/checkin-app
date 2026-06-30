@@ -27752,7 +27752,7 @@ function tuyaRotoplasParseLogs(logs) {
 }
 
 // Estado global para la gráfica Rotoplas del panel de detalle
-window.TUYA_ROTOPLAS = window.TUYA_ROTOPLAS || { logs: [], show: { depth: true, pct: false } };
+window.TUYA_ROTOPLAS = window.TUYA_ROTOPLAS || { logs: [], show: { depth: true, pct: true } };
 
 // Chart con 3 capas: eje Y izquierdo (fijo) + área scrollable central + eje Y derecho (fijo).
 // Profundidad como línea continua que conecta TODOS los puntos disponibles.
@@ -27971,7 +27971,7 @@ window.tuyaRotoplasRedraw = function(id) {
   tuyaWaterTankRefresh(id);
 };
 window.tuyaRotoplasSetWindow = function(win, id) {
-  const st = window.TUYA_ROTOPLAS = window.TUYA_ROTOPLAS || { show: { depth: true, pct: false } };
+  const st = window.TUYA_ROTOPLAS = window.TUYA_ROTOPLAS || { show: { depth: true, pct: true } };
   st.window = win;
   // Estilizar chips activos
   document.querySelectorAll('[data-tuya-rwin]').forEach(btn => {
@@ -28067,7 +28067,7 @@ async function tuyaOpenDetail(id) {
           <button type="button" data-tuya-rseries="depth" onclick="tuyaRotoplasToggleSeries('depth','${esc(d.id)}')"
                   style="padding:4px 10px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">Profundidad (cm)</button>
           <button type="button" data-tuya-rseries="pct" onclick="tuyaRotoplasToggleSeries('pct','${esc(d.id)}')"
-                  style="padding:4px 10px;border:1.5px solid #0284c7;background:#fff;color:#0284c7;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">% Llenado</button>
+                  style="padding:4px 10px;border:1.5px solid #0284c7;background:#0284c7;color:#fff;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">% Llenado</button>
           <span style="width:1px;height:18px;background:#e2e8f0;margin:0 2px"></span>
           <span style="font-size:11px;font-weight:700;color:#64748b">Ventana:</span>
           <span style="display:inline-flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:99px">
@@ -28134,7 +28134,7 @@ async function tuyaLoadLogs(id) {
     // los toggles + N actuales.
     const rotoHost = document.getElementById('tuya-rotoplas-host');
     if (rotoHost) {
-      window.TUYA_ROTOPLAS = window.TUYA_ROTOPLAS || { show: { depth: true, pct: false }, window: 'day' };
+      window.TUYA_ROTOPLAS = window.TUYA_ROTOPLAS || { show: { depth: true, pct: true }, window: 'day' };
       if (!window.TUYA_ROTOPLAS.window) window.TUYA_ROTOPLAS.window = 'day';
       window.TUYA_ROTOPLAS.logs = logs;
       tuyaRotoplasRedraw(id);
