@@ -23637,13 +23637,31 @@ window.ocupOpenDetail = function (bookingId) {
   const panel = document.getElementById('ocup-detail-panel');
   const back = document.getElementById('ocup-detail-backdrop');
   if (!body || !panel || !back) return;
-  body.innerHTML = ocupBuildDetailHtml(b);
+  // Derivar Propiedad / # Departamento desde HouseId si no vienen ya enriquecidos
+  if ((!b.PropiedadRaw || !b.DepartamentoRaw) && typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.byHouseId) {
+    const r = ALOJ_STATE.byHouseId.get(String(b.HouseId || '').trim());
+    if (r) {
+      if (!b.PropiedadRaw)    b.PropiedadRaw    = String(r['Propiedad'] || '');
+      if (!b.DepartamentoRaw) b.DepartamentoRaw = String(r['# Departamento'] || '');
+    }
+  }
+  body.innerHTML = ocupBuildDetailHtml(b) + ocupBuildRelatedSections(b);
   back.classList.remove('hidden');
   back.offsetHeight; // reflow
   back.classList.add('visible');
   panel.classList.remove('hidden');
   panel.classList.add('open');
 };
+
+// Genera las 3 secciones (Tuya / Incidencias / Objetos) reutilizando los
+// builders del módulo Gestión de reservas — filtran por Propiedad+#Depto+rango.
+function ocupBuildRelatedSections(b) {
+  let html = '';
+  try { if (typeof lgBuildTuyaSectionForBooking === 'function') html += lgBuildTuyaSectionForBooking(b); } catch (e) { console.warn('[OCUP detail] tuya:', e.message); }
+  try { if (typeof lgBuildIncSectionForBooking  === 'function') html += lgBuildIncSectionForBooking(b);  } catch (e) { console.warn('[OCUP detail] inc:', e.message); }
+  try { if (typeof lgBuildObjSectionForBooking  === 'function') html += lgBuildObjSectionForBooking(b);  } catch (e) { console.warn('[OCUP detail] obj:', e.message); }
+  return html;
+}
 
 window.ocupCloseDetail = function () {
   const panel = document.getElementById('ocup-detail-panel');
