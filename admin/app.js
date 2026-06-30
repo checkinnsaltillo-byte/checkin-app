@@ -16028,7 +16028,8 @@ function lgBuildIncSectionForBooking(arg) {
     }
     if (reason.length) console.warn('[LG-INC] sin match para reserva', { propRaw, deptRaw, arrIso, depIso }, 'descartados:', reason);
   }
-  if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin incidencias en este rango.</div>`);
+  const newBtn = `<button type="button" onclick="lgOpenIncCaptureFor('${esc(propRaw)}','${esc(deptRaw)}','${esc(arrIso)}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1.5px solid #dc2626;background:#fff;color:#dc2626;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;margin-top:8px">＋ Generar nuevo reporte</button>`;
+  if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin incidencias en este rango.</div>${newBtn}`);
   // Cards minimalistas desde cero (no reuso incRenderCardOne para evitar
   // que onclicks/elementos internos roben el evento). Click abre slide-in.
   const cards = matches.map(row => {
@@ -16122,7 +16123,8 @@ function lgBuildObjSectionForBooking(arg) {
     }
     if (reason.length) console.warn('[LG-OBJ] sin match para reserva', { propRaw, deptRaw, arrIso, depIso }, 'descartados:', reason);
   }
-  if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin objetos olvidados en este rango.</div>`);
+  const newBtn = `<button type="button" onclick="lgOpenObjCaptureFor('${esc(propRaw)}','${esc(deptRaw)}','${esc(depIso)}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1.5px solid #059669;background:#fff;color:#059669;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;margin-top:8px">＋ Registrar nuevo objeto</button>`;
+  if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin objetos olvidados en este rango.</div>${newBtn}`);
   // Cards minimalistas desde cero. Click abre slide-in.
   const cards = matches.map(row => {
     const id = String(row['ID']||'');
@@ -21399,6 +21401,57 @@ window.incImprimir = function() {
 // ═══════════════════════════════════════════════════════════════════════
 INC_STATE.list = [];          // filas tal como vienen de /incidencias-list
 INC_STATE.expanded = new Set(); // IDs de cards expandidas
+
+// Abre el form de Incidencias y pre-llena Propiedad + # Departamento.
+// Llamado desde el panel de detalle de reserva (Ocupación / Gestión).
+window.lgOpenIncCaptureFor = function (propRaw, deptRaw, fechaIso) {
+  if (typeof incAbrirCaptura !== 'function') return;
+  // Asegura que los selects de propiedad/depto estén poblados
+  if (typeof incInit === 'function') incInit();
+  if (typeof incRenderPropDeptoSelects === 'function') incRenderPropDeptoSelects();
+  incAbrirCaptura();
+  setTimeout(() => {
+    if (fechaIso) { const f = document.getElementById('inc-fecha'); if (f) f.value = fechaIso; }
+    const propSel = document.getElementById('inc-propiedad');
+    if (!propSel || !propRaw) return;
+    const targetProp = String(propRaw).trim();
+    const opt = Array.from(propSel.options).find(o => String(o.value).trim() === targetProp);
+    if (opt) {
+      propSel.value = opt.value;
+      propSel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    // Pre-llenar depto inmediato (listener corre sync)
+    const deptoSel = document.getElementById('inc-depto');
+    if (deptoSel && deptRaw) {
+      const tgtD = String(deptRaw).trim().replace(/^#/, '');
+      const od = Array.from(deptoSel.options).find(o => String(o.value).trim() === tgtD);
+      if (od) deptoSel.value = od.value;
+    }
+  }, 80);
+};
+window.lgOpenObjCaptureFor = function (propRaw, deptRaw, fechaIso) {
+  if (typeof objAbrirCaptura !== 'function') return;
+  if (typeof objInit === 'function') objInit();
+  if (typeof objRenderPropDeptoSelects === 'function') objRenderPropDeptoSelects();
+  objAbrirCaptura();
+  setTimeout(() => {
+    if (fechaIso) { const f = document.getElementById('obj-fecha-enc'); if (f) f.value = fechaIso; }
+    const propSel = document.getElementById('obj-propiedad');
+    if (!propSel || !propRaw) return;
+    const targetProp = String(propRaw).trim();
+    const opt = Array.from(propSel.options).find(o => String(o.value).trim() === targetProp);
+    if (opt) {
+      propSel.value = opt.value;
+      propSel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    const deptoSel = document.getElementById('obj-depto');
+    if (deptoSel && deptRaw) {
+      const tgtD = String(deptRaw).trim().replace(/^#/, '');
+      const od = Array.from(deptoSel.options).find(o => String(o.value).trim() === tgtD);
+      if (od) deptoSel.value = od.value;
+    }
+  }, 80);
+};
 
 window.incAbrirCaptura = function () {
   const panel = document.getElementById('inc-capture-panel');
