@@ -23296,10 +23296,31 @@ window.ocupNavMonth = function (delta) {
   ocupRender();
 };
 
+function _ocupCenterTodayHorizontally(behavior) {
+  const todayCell = document.querySelector('.ocup-day-cell.is-today, .ocup-head-cell.is-today');
+  if (!todayCell) return false;
+  let scroller = todayCell.parentElement;
+  while (scroller && scroller !== document.body) {
+    const cs = getComputedStyle(scroller);
+    if (/(auto|scroll)/.test(cs.overflowX)) break;
+    scroller = scroller.parentElement;
+  }
+  if (!scroller || scroller === document.body) scroller = document.getElementById('ocup-cal-container');
+  if (!scroller) return false;
+  const sRect = scroller.getBoundingClientRect();
+  const cRect = todayCell.getBoundingClientRect();
+  const target = (cRect.left - sRect.left) + scroller.scrollLeft - sRect.width/2 + cRect.width/2;
+  scroller.scrollTo({ left: Math.max(0, target), behavior: behavior || 'smooth' });
+  return true;
+}
 window.ocupGoToday = function () {
   const t = new Date();
   OCUP_STATE.currentMonth = new Date(t.getFullYear(), t.getMonth(), 1);
   ocupRender();
+  // Centrar después del scroll-to-month inicial de ocupRender. 'instant' porque
+  // este contenedor no soporta scroll suave (CSS lo bloquea); intentamos 2 veces.
+  setTimeout(() => _ocupCenterTodayHorizontally('instant'), 60);
+  setTimeout(() => _ocupCenterTodayHorizontally('instant'), 300);
 };
 
 // Salta a un mes específico (formato "YYYY-MM").
