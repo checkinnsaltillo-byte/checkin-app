@@ -27689,7 +27689,10 @@ function tuyaWaterTankHtml(d) {
             t ${seg.toFixed(1)} 0`;
   })();
   const gradId = 'wgrad-' + (d.id || Math.random().toString(36).slice(2,8));
-  return `<div style="width:170px;flex-shrink:0;border:1px solid #e2e8f0;border-radius:10px;padding:8px 6px 6px;background:linear-gradient(135deg,#f8fafc 0%,#fff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center">
+  const lastTs = tuyaWaterTankLastPctTs(d);
+  const lastStr = lastTs ? new Date(lastTs).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+  return `<div data-tuya-water-tank="1" style="width:185px;flex-shrink:0;border:1px solid #e2e8f0;border-radius:10px;padding:8px 6px 6px;background:linear-gradient(135deg,#f8fafc 0%,#fff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center">
+    <div style="font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:1px;letter-spacing:.2px">${lastTs ? '🕒 ' + esc(lastStr) : ''}</div>
     <div style="font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">💧 Nivel actual</div>
     <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">
       <defs>
@@ -27756,10 +27759,18 @@ window.TUYA_ROTOPLAS = window.TUYA_ROTOPLAS || { logs: [], show: { depth: true, 
 // % Llenado como stacked bar semaforizado (100% del alto = referencia).
 function tuyaBuildRotoplasChart(logs, opts) {
   const show = (opts && opts.show) || { depth: true, pct: false };
-  const N = Math.max(2, Math.min(200, Number(opts && opts.n) || 10));
+  const N = Math.max(2, Math.min(2000, Number(opts && opts.n) || 200));
+  const win = (opts && opts.window) || 'all';
   const full = tuyaRotoplasParseLogs(logs).series;
-  const series = full.slice(-N);
-  if (!series.length) return '<div style="padding:10px;color:#94a3b8;font-size:11px;font-style:italic">Sin lecturas de liquid_depth/liquid_level_percent</div>';
+  // Filtro por ventana temporal
+  let windowed = full;
+  if (win !== 'all') {
+    const now = Date.now();
+    const spanMs = win === 'day' ? 24*3600_000 : win === 'week' ? 7*24*3600_000 : win === 'month' ? 30*24*3600_000 : Infinity;
+    windowed = full.filter(r => (now - r.ts) <= spanMs);
+  }
+  const series = windowed.slice(-N);
+  if (!series.length) return '<div style="padding:10px;color:#94a3b8;font-size:11px;font-style:italic">Sin lecturas en la ventana seleccionada</div>';
   const H = 280, padT = 28, padB = 76;
   const stepX = 22; // compacto: ~2x más observaciones por unidad de ancho
   const innerH = H - padT - padB;
@@ -27806,8 +27817,16 @@ function tuyaBuildRotoplasChart(logs, opts) {
     }).join('')}
   </svg>` : '';
 
-  // Stride para etiquetas de valor (evita saturación con N grande).
-  const labelStride = Math.max(1, Math.ceil(series.length / 25));
+  // Stride adaptativo: ~30px por etiqueta rotada como mínimo para evitar empalme
+  const maxLabels = Math.max(4, Math.floor(dataW / 32));
+  const labelStride = Math.max(1, Math.ceil(series.length / maxLabels));
+  // Formato de la fecha-hora según la ventana (más compacto en ventanas largas)
+  const fmtX = (ts) => {
+    const d = new Date(ts);
+    if (win === 'month') return d.toLocaleString('es-MX', { day:'2-digit', month:'2-digit' });
+    if (win === 'week')  return d.toLocaleString('es-MX', { day:'2-digit', month:'2-digit', hour:'2-digit' });
+    return d.toLocaleString('es-MX', { hour:'2-digit', minute:'2-digit' });
+  };
 
   // ── Stacked bars (pct) ──
   let barsHtml = '';
@@ -27854,9 +27873,12 @@ function tuyaBuildRotoplasChart(logs, opts) {
     depthEls = (pathD ? `<path d="${pathD}" fill="none" stroke="#0d9488" stroke-width="2"/>` : '') + dots;
   }
 
-  // Labels X rotadas 90° clockwise pegadas al área de datos.
+  // Labels X rotadas 90° clockwise; aplica labelStride para evitar empalme.
   const labelY = padT + innerH + 4;
-  const labelsX = series.map((r,i) => `<text x="${x(i)}" y="${labelY}" text-anchor="start" font-size="9" fill="#94a3b8" transform="rotate(90, ${x(i)}, ${labelY})">${esc(new Date(r.ts).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</text>`).join('');
+  const labelsX = series.map((r,i) => {
+    if (i % labelStride !== 0 && i !== series.length - 1) return '';
+    return `<text x="${x(i)}" y="${labelY}" text-anchor="start" font-size="9" fill="#94a3b8" transform="rotate(90, ${x(i)}, ${labelY})">${esc(fmtX(r.ts))}</text>`;
+  }).join('');
 
   // SVG central scrollable (sólo datos)
   const dataSvg = `<svg width="${dataW}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block"
@@ -27941,11 +27963,45 @@ window.tuyaRotoplasRedraw = function(id) {
   const host = document.getElementById('tuya-rotoplas-host');
   if (!host) return;
   const nEl = document.getElementById('tuya-rotoplas-n');
-  const n = Number(nEl?.value) || 10;
-  host.innerHTML = tuyaBuildRotoplasChart(st.logs || [], { show: st.show, n });
+  const n = Number(nEl?.value) || 200;
+  host.innerHTML = tuyaBuildRotoplasChart(st.logs || [], { show: st.show, n, window: st.window || 'all' });
   const scrollEl = host.querySelector('[data-rotoplas-scroll]');
   if (scrollEl) scrollEl.scrollLeft = scrollEl.scrollWidth;
+  // Refresca tanque (timestamp última lectura)
+  tuyaWaterTankRefresh(id);
 };
+window.tuyaRotoplasSetWindow = function(win, id) {
+  const st = window.TUYA_ROTOPLAS = window.TUYA_ROTOPLAS || { show: { depth: true, pct: false } };
+  st.window = win;
+  // Estilizar chips activos
+  document.querySelectorAll('[data-tuya-rwin]').forEach(btn => {
+    const on = btn.getAttribute('data-tuya-rwin') === win;
+    btn.style.background = on ? '#0d9488' : '#fff';
+    btn.style.color = on ? '#fff' : '#0d9488';
+    btn.style.borderColor = '#0d9488';
+  });
+  tuyaRotoplasRedraw(id);
+};
+// Devuelve el timestamp (ms) de la lectura más reciente de % en logs; fallback a d.update_time
+function tuyaWaterTankLastPctTs(d) {
+  const logs = window.TUYA_ROTOPLAS?.logs || [];
+  for (let i = logs.length - 1; i >= 0; i--) {
+    const l = logs[i];
+    if (/liquid_level_percent|water_level|level_percent/i.test(String(l.code||''))) {
+      const v = Number(l.event_time);
+      if (isFinite(v) && v > 0) return v;
+    }
+  }
+  if (d?.update_time) return d.update_time * 1000;
+  return null;
+}
+function tuyaWaterTankRefresh(id) {
+  const wrap = document.querySelector('[data-tuya-water-tank]');
+  if (!wrap) return;
+  const d = (TUYA_STATE.data?.devices || []).find(x => x.id === id);
+  if (!d) return;
+  wrap.outerHTML = tuyaWaterTankHtml(d);
+}
 
 // Mini-chart para card: % Llenado de las últimas 24 horas (línea azul) con
 // líneas de referencia a 20% (rojo) y 80% (verde). Si sólo hay 1 lectura,
@@ -28006,17 +28062,24 @@ async function tuyaOpenDetail(id) {
         <div id="tuya-door-host" style="min-height:80px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando eventos de puerta…</div>
       </div>` : ''}
       ${tuyaIsRotoplas(d) ? `<div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
           <div style="font-size:12px;font-weight:800;color:#0f172a">📈 Lecturas Rotoplas</div>
           <button type="button" data-tuya-rseries="depth" onclick="tuyaRotoplasToggleSeries('depth','${esc(d.id)}')"
                   style="padding:4px 10px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">Profundidad (cm)</button>
           <button type="button" data-tuya-rseries="pct" onclick="tuyaRotoplasToggleSeries('pct','${esc(d.id)}')"
                   style="padding:4px 10px;border:1.5px solid #0284c7;background:#fff;color:#0284c7;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">% Llenado</button>
+          <span style="width:1px;height:18px;background:#e2e8f0;margin:0 2px"></span>
+          <span style="font-size:11px;font-weight:700;color:#64748b">Ventana:</span>
+          <span style="display:inline-flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:99px">
+            <button type="button" data-tuya-rwin="day"   onclick="tuyaRotoplasSetWindow('day','${esc(d.id)}')"   style="padding:4px 12px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Día</button>
+            <button type="button" data-tuya-rwin="week"  onclick="tuyaRotoplasSetWindow('week','${esc(d.id)}')"  style="padding:4px 12px;border:1.5px solid #0d9488;background:#fff;color:#0d9488;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Semana</button>
+            <button type="button" data-tuya-rwin="month" onclick="tuyaRotoplasSetWindow('month','${esc(d.id)}')" style="padding:4px 12px;border:1.5px solid #0d9488;background:#fff;color:#0d9488;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Mes</button>
+          </span>
           <label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#475569;margin-left:auto">
-            Mostrar
-            <input type="number" id="tuya-rotoplas-n" min="2" max="500" value="100" onchange="tuyaRotoplasRedraw('${esc(d.id)}')"
-                   style="width:64px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;font-size:11px;text-align:center">
-            datos históricos
+            Máx
+            <input type="number" id="tuya-rotoplas-n" min="2" max="2000" value="500" onchange="tuyaRotoplasRedraw('${esc(d.id)}')"
+                   style="width:70px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;font-size:11px;text-align:center">
+            datos
           </label>
         </div>
         <div style="display:flex;gap:14px;align-items:stretch;flex-wrap:wrap">
@@ -28071,7 +28134,8 @@ async function tuyaLoadLogs(id) {
     // los toggles + N actuales.
     const rotoHost = document.getElementById('tuya-rotoplas-host');
     if (rotoHost) {
-      window.TUYA_ROTOPLAS = window.TUYA_ROTOPLAS || { show: { depth: true, pct: false } };
+      window.TUYA_ROTOPLAS = window.TUYA_ROTOPLAS || { show: { depth: true, pct: false }, window: 'day' };
+      if (!window.TUYA_ROTOPLAS.window) window.TUYA_ROTOPLAS.window = 'day';
       window.TUYA_ROTOPLAS.logs = logs;
       tuyaRotoplasRedraw(id);
     }
