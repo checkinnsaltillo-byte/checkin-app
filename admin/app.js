@@ -23732,16 +23732,18 @@ window.ocupSetView = function (v) {
   document.querySelectorAll('.ocup-view-tab').forEach(b => {
     b.classList.toggle('active', b.getAttribute('data-view') === v);
   });
-  document.getElementById('ocup-cal-container').style.display = v === 'calendario' ? '' : 'none';
-  document.getElementById('ocup-table-container').style.display = v === 'indicadores' ? '' : 'none';
-  document.getElementById('ocup-chart-container').style.display = v === 'graficas' ? '' : 'none';
-  document.getElementById('ocup-month-label-wrap').style.display = v === 'calendario' ? '' : 'none';
-  document.getElementById('ocup-toolbar-right-cal').style.display = v === 'calendario' ? '' : 'none';
-  // Filtros distintos por vista
-  document.getElementById('ocup-filters').style.display = (v === 'indicadores') ? '' : 'none';
-  document.getElementById('ocup-chart-filters').style.display = (v === 'graficas') ? '' : 'none';
-  const calF = document.getElementById('ocup-cal-filters');
-  if (calF) calF.style.display = (v === 'calendario') ? '' : 'none';
+  const setDisp = (id, disp) => { const el = document.getElementById(id); if (el) el.style.display = disp; };
+  setDisp('ocup-cal-container',   v === 'calendario'  ? '' : 'none');
+  setDisp('ocup-table-container', v === 'indicadores' ? '' : 'none');
+  setDisp('ocup-chart-container', v === 'graficas'    ? '' : 'none');
+  setDisp('ocup-month-label-wrap', v === 'calendario' ? '' : 'none');
+  setDisp('ocup-toolbar-right-cal', v === 'calendario' ? '' : 'none');
+  setDisp('ocup-filters',       v === 'indicadores' ? '' : 'none');
+  setDisp('ocup-chart-filters', v === 'graficas'    ? '' : 'none');
+  setDisp('ocup-cal-filters',   v === 'calendario'  ? '' : 'none');
+  // El selector Mes solo aplica a Calendario; ocúltalo en otras vistas
+  const monthSel = document.getElementById('ocup-month-select');
+  if (monthSel && monthSel.parentElement) monthSel.parentElement.style.display = v === 'calendario' ? '' : 'none';
   if (v === 'calendario') ocupRender();
   else if (v === 'indicadores') {
     ocupInitFiltersOnce();
