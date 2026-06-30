@@ -21406,6 +21406,11 @@ INC_STATE.expanded = new Set(); // IDs de cards expandidas
 // Llamado desde el panel de detalle de reserva (Ocupación / Gestión).
 window.lgOpenIncCaptureFor = function (propRaw, deptRaw, fechaIso) {
   if (typeof incAbrirCaptura !== 'function') return;
+  // Mueve panel+backdrop a <body> si están dentro de #incidencias (display:none oculta position:fixed hijos)
+  ['inc-capture-backdrop','inc-capture-panel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.parentElement !== document.body) document.body.appendChild(el);
+  });
   // Asegura que los selects de propiedad/depto estén poblados
   if (typeof incInit === 'function') incInit();
   if (typeof incRenderPropDeptoSelects === 'function') incRenderPropDeptoSelects();
@@ -21431,6 +21436,10 @@ window.lgOpenIncCaptureFor = function (propRaw, deptRaw, fechaIso) {
 };
 window.lgOpenObjCaptureFor = function (propRaw, deptRaw, fechaIso) {
   if (typeof objAbrirCaptura !== 'function') return;
+  ['obj-capture-backdrop','obj-capture-panel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.parentElement !== document.body) document.body.appendChild(el);
+  });
   if (typeof objInit === 'function') objInit();
   if (typeof objRenderPropDeptoSelects === 'function') objRenderPropDeptoSelects();
   objAbrirCaptura();
