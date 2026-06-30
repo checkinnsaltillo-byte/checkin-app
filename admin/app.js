@@ -27885,8 +27885,7 @@ function tuyaBuildDoorChart(logs, opts) {
   const offSt = 'background:#fff;color:#475569;border-color:#cbd5e1';
   const hideToggle = !!(opts && opts.hideToggle);
 
-  return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;font-size:11px;color:#475569">
-    <span style="font-size:12px;font-weight:800;color:#0f172a">🚪 Eventos de puerta</span>
+  const legendInner = `<span style="font-size:12px;font-weight:800;color:#0f172a">🚪 Eventos de puerta</span>
     <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dc2626"></span> ${closes} Cerrado</span>
     <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#16a34a"></span> ${opens} Abierto</span>
     ${hideToggle ? '' : `<span style="margin-left:auto;display:inline-flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:99px">
@@ -27897,11 +27896,15 @@ function tuyaBuildDoorChart(logs, opts) {
       Mostrar
       <input type="number" id="tuya-door-n" min="2" max="500" value="${N}" onchange="tuyaDoorRedraw()" style="width:64px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;font-size:11px;text-align:center">
       datos
-    </label>`}
-  </div>
-  <div style="position:relative;display:flex;align-items:stretch;border:1px solid #e2e8f0;border-radius:8px;background:#fff;overflow:hidden">
-    ${leftAxisSvg}
-    <div data-door-scroll="1" style="flex:1;overflow-x:auto;overflow-y:hidden">${dataSvg}</div>
+    </label>`}`;
+  // Toda la gráfica (leyenda + área de datos) DENTRO del bordered wrapper
+  // para que el `align-self:stretch` del panel hermano matchee exactamente.
+  return `<div style="position:relative;display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:8px;background:#fff;overflow:hidden;height:100%">
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;flex-wrap:wrap;font-size:11px;color:#475569;border-bottom:1px solid #f1f5f9;flex-shrink:0">${legendInner}</div>
+    <div style="display:flex;align-items:stretch;flex:1;min-height:0">
+      ${leftAxisSvg}
+      <div data-door-scroll="1" style="flex:1;overflow-x:auto;overflow-y:hidden">${dataSvg}</div>
+    </div>
     <div id="tuya-door-tooltip" style="position:absolute;display:none;pointer-events:none;background:#0f172a;color:#fff;padding:5px 9px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.25);transform:translate(-50%,-130%)"></div>
   </div>`;
 }
