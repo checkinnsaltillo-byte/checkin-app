@@ -8738,7 +8738,7 @@ function switchModule(mod) {
     if (typeof objInit === 'function') objInit();
     if (typeof objLoadObjetos === 'function') objLoadObjetos();
   }
-  if (mod === "ocupacion") {
+  if (mod === "ocupacion" || mod === "dashboard" || mod === "calendario") {
     if (typeof ocupInit === 'function') ocupInit();
   }
   if (mod === "rh") {
@@ -23892,7 +23892,7 @@ window.ocupSetView = function (v) {
   setDisp('ocup-toolbar-right-cal', v === 'calendario' ? '' : 'none');
   setDisp('ocup-filters',       v === 'indicadores' ? '' : 'none');
   setDisp('ocup-chart-filters', v === 'graficas'    ? '' : 'none');
-  setDisp('ocup-cal-filters',   v === 'calendario'  ? '' : 'none');
+  setDisp('ocup-cal-filters',   v === 'calendario'  ? 'flex' : 'none');
   // El selector Mes solo aplica a Calendario; ocúltalo en otras vistas
   setDisp('ocup-month-wrap', v === 'calendario' ? '' : 'none');
   if (v === 'calendario') ocupRender();
