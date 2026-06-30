@@ -27205,10 +27205,22 @@ async function tuyaInit() {
   await tuyaLoad(false);
 }
 
-/** Resuelve la fila de Dispositivos para un device (case-robust por Device_name). */
+/** Resuelve la fila de Dispositivos para un device (case-robust por Device_name).
+ *  Si DISP_STATE no está cargado, dispara la carga y cae a ALOJ_STATE como
+ *  fallback (alojamientos también tiene Device_name → propiedad/depto). */
 function tuyaResolveAloj(d) {
-  if (!DISP_STATE.loaded || !d) return null;
-  return DISP_STATE.byDeviceName.get(alojNorm(d.name)) || null;
+  if (!d) return null;
+  if (!DISP_STATE.loaded && !DISP_STATE.loading) dispLoadDispositivos();
+  const key = alojNorm(d.name);
+  if (DISP_STATE.loaded) {
+    const r = DISP_STATE.byDeviceName.get(key);
+    if (r) return r;
+  }
+  // Fallback: alojamientos
+  if (typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.loaded) {
+    return ALOJ_STATE.byDeviceName.get(key) || null;
+  }
+  return null;
 }
 
 /** Nombre a mostrar: "Propiedad · # Departamento · product_name" si hay match,
