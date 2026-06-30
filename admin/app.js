@@ -23645,35 +23645,67 @@ window.ocupOpenDetail = function (bookingId) {
       if (!b.DepartamentoRaw) b.DepartamentoRaw = String(r['# Departamento'] || '');
     }
   }
-  body.innerHTML = ocupBuildDetailHtml(b) + `<div id="ocup-detail-related">${ocupBuildRelatedSections(b)}</div>`;
+  // Render con 3 hosts SEPARADOS — así el polling actualiza solo la sección
+  // cuya data acaba de cargar sin tocar las otras (evita re-hidratar Tuya).
+  body.innerHTML = ocupBuildDetailHtml(b)
+    + `<div id="ocup-detail-tuya">${_ocupSafeBuild('tuya', b)}</div>`
+    + `<div id="ocup-detail-inc">${_ocupSafeBuild('inc', b)}</div>`
+    + `<div id="ocup-detail-obj">${_ocupSafeBuild('obj', b)}</div>`;
   back.classList.remove('hidden');
   back.offsetHeight; // reflow
   back.classList.add('visible');
   panel.classList.remove('hidden');
   panel.classList.add('open');
-  // Disparar cargas en background y re-renderizar las 3 secciones cuando lleguen
-  _ocupRelatedReadyState = '';
+  // Hidrata Tuya inmediatamente (independiente del polling)
+  requestAnimationFrame(() => {
+    document.querySelectorAll('#ocup-detail-tuya [data-lg-tuya="1"]').forEach(h => {
+      if (typeof lgHydrateTuyaSection === 'function') lgHydrateTuyaSection(h);
+    });
+  });
+  // Dispara cargas en background
   _ocupRelatedBookingId = String(b.Id);
   if (typeof tuyaLoad === 'function' && !TUYA_STATE.loaded && !TUYA_STATE.loading) tuyaLoad(false);
   if (typeof incLoadIncidencias === 'function' && (!INC_STATE || !INC_STATE.list?.length)) incLoadIncidencias();
   if (typeof objLoadObjetos === 'function' && (!OBJ_STATE || !OBJ_STATE.list?.length)) objLoadObjetos();
   if (_ocupRelatedPoll) clearInterval(_ocupRelatedPoll);
   let ticks = 0;
+  let lastSig = '';
   _ocupRelatedPoll = setInterval(() => {
     ticks++;
+    if (_ocupRelatedBookingId !== String(b.Id)) { clearInterval(_ocupRelatedPoll); _ocupRelatedPoll = null; return; }
     const sig = [
       TUYA_STATE.loaded ? 'T' : '-',
       (INC_STATE?.list?.length || 0) ? 'I' : '-',
       (OBJ_STATE?.list?.length || 0) ? 'O' : '-',
     ].join('');
-    if (sig !== _ocupRelatedReadyState) {
-      _ocupRelatedReadyState = sig;
-      const host = document.getElementById('ocup-detail-related');
-      if (host && _ocupRelatedBookingId === String(b.Id)) host.innerHTML = ocupBuildRelatedSections(b);
+    // Re-render SOLO las secciones cuyo estado cambió
+    if (sig[0] !== lastSig[0]) {
+      const h = document.getElementById('ocup-detail-tuya');
+      if (h && !h.querySelector('[data-lg-tuya-hydrated="1"]')) {
+        h.innerHTML = _ocupSafeBuild('tuya', b);
+        h.querySelectorAll('[data-lg-tuya="1"]').forEach(el => { if (typeof lgHydrateTuyaSection === 'function') lgHydrateTuyaSection(el); });
+      }
     }
+    if (sig[1] !== lastSig[1]) {
+      const h = document.getElementById('ocup-detail-inc');
+      if (h) h.innerHTML = _ocupSafeBuild('inc', b);
+    }
+    if (sig[2] !== lastSig[2]) {
+      const h = document.getElementById('ocup-detail-obj');
+      if (h) h.innerHTML = _ocupSafeBuild('obj', b);
+    }
+    lastSig = sig;
     if (sig === 'TIO' || ticks > 40) { clearInterval(_ocupRelatedPoll); _ocupRelatedPoll = null; }
   }, 400);
 };
+function _ocupSafeBuild(kind, b) {
+  try {
+    if (kind === 'tuya' && typeof lgBuildTuyaSectionForBooking === 'function') return lgBuildTuyaSectionForBooking(b);
+    if (kind === 'inc'  && typeof lgBuildIncSectionForBooking  === 'function') return lgBuildIncSectionForBooking(b);
+    if (kind === 'obj'  && typeof lgBuildObjSectionForBooking  === 'function') return lgBuildObjSectionForBooking(b);
+  } catch (e) { console.warn('[OCUP detail]', kind, e.message); }
+  return '';
+}
 let _ocupRelatedPoll = null;
 let _ocupRelatedReadyState = '';
 let _ocupRelatedBookingId = '';
