@@ -28133,6 +28133,14 @@ window.tuyaToggleHistorial = function() {
   if (open) { body.classList.add('hidden'); if (chev) chev.textContent = '▸'; }
   else      { body.classList.remove('hidden'); if (chev) chev.textContent = '▾'; }
 };
+window.tuyaToggleDashboard = function() {
+  const body = document.getElementById('tuya-dash-body');
+  const chev = document.getElementById('tuya-dash-chev');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  if (open) { body.style.display = 'none'; if (chev) chev.textContent = '▸'; }
+  else      { body.style.display = ''; if (chev) chev.textContent = '▾'; }
+};
 window.tuyaToggleEstado = function() {
   const body = document.getElementById('tuya-estado-body');
   const chev = document.getElementById('tuya-estado-chev');
@@ -28250,35 +28258,43 @@ async function tuyaOpenDetail(id) {
               style="margin-left:auto;padding:5px 12px;border:none;background:#0d9488;color:#fff;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">↻ Actualizar</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px">
-      ${tuyaIsDoor(d) ? `<div>
-        <div id="tuya-door-host" style="min-height:80px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando eventos de puerta…</div>
+      ${(tuyaIsDoor(d) || tuyaIsRotoplas(d) || tuyaIsWaterLevel(d)) ? `<div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+        <div onclick="tuyaToggleDashboard()" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f8fafc;user-select:none">
+          <span id="tuya-dash-chev" style="font-size:11px;color:#64748b">▾</span>
+          <div style="font-size:12px;font-weight:800;color:#0f172a;flex:1">📊 Dashboard</div>
+        </div>
+        <div id="tuya-dash-body" style="border-top:1px solid #e2e8f0;padding:12px;background:#fff">
+          ${tuyaIsDoor(d) ? `<div>
+            <div id="tuya-door-host" style="min-height:80px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando eventos de puerta…</div>
+          </div>` : ''}
+          ${tuyaIsRotoplas(d) ? `<div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+              <div style="font-size:12px;font-weight:800;color:#0f172a">📈 Lecturas Rotoplas</div>
+              <button type="button" data-tuya-rseries="depth" onclick="tuyaRotoplasToggleSeries('depth','${esc(d.id)}')"
+                      style="padding:4px 10px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">Profundidad (cm)</button>
+              <button type="button" data-tuya-rseries="pct" onclick="tuyaRotoplasToggleSeries('pct','${esc(d.id)}')"
+                      style="padding:4px 10px;border:1.5px solid #0284c7;background:#0284c7;color:#fff;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">% Llenado</button>
+              <span style="width:1px;height:18px;background:#e2e8f0;margin:0 2px"></span>
+              <span style="font-size:11px;font-weight:700;color:#64748b">Ventana:</span>
+              <span style="display:inline-flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:99px">
+                <button type="button" data-tuya-rwin="day"   onclick="tuyaRotoplasSetWindow('day','${esc(d.id)}')"   style="padding:4px 12px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Día</button>
+                <button type="button" data-tuya-rwin="week"  onclick="tuyaRotoplasSetWindow('week','${esc(d.id)}')"  style="padding:4px 12px;border:1.5px solid #0d9488;background:#fff;color:#0d9488;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Semana</button>
+                <button type="button" data-tuya-rwin="month" onclick="tuyaRotoplasSetWindow('month','${esc(d.id)}')" style="padding:4px 12px;border:1.5px solid #0d9488;background:#fff;color:#0d9488;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Mes</button>
+              </span>
+              <label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#475569;margin-left:auto">
+                Máx
+                <input type="number" id="tuya-rotoplas-n" min="2" max="2000" value="500" onchange="tuyaRotoplasRedraw('${esc(d.id)}')"
+                       style="width:70px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;font-size:11px;text-align:center">
+                datos
+              </label>
+            </div>
+            <div style="display:flex;gap:14px;align-items:stretch;flex-wrap:wrap">
+              <div id="tuya-rotoplas-host" style="flex:1;min-width:280px;min-height:60px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando lecturas…</div>
+              ${tuyaIsWaterLevel(d) ? tuyaWaterTankHtml(d) : ''}
+            </div>
+          </div>` : (tuyaIsWaterLevel(d) ? `<div style="display:flex;justify-content:flex-end">${tuyaWaterTankHtml(d)}</div>` : '')}
+        </div>
       </div>` : ''}
-      ${tuyaIsRotoplas(d) ? `<div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
-          <div style="font-size:12px;font-weight:800;color:#0f172a">📈 Lecturas Rotoplas</div>
-          <button type="button" data-tuya-rseries="depth" onclick="tuyaRotoplasToggleSeries('depth','${esc(d.id)}')"
-                  style="padding:4px 10px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">Profundidad (cm)</button>
-          <button type="button" data-tuya-rseries="pct" onclick="tuyaRotoplasToggleSeries('pct','${esc(d.id)}')"
-                  style="padding:4px 10px;border:1.5px solid #0284c7;background:#0284c7;color:#fff;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer">% Llenado</button>
-          <span style="width:1px;height:18px;background:#e2e8f0;margin:0 2px"></span>
-          <span style="font-size:11px;font-weight:700;color:#64748b">Ventana:</span>
-          <span style="display:inline-flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:99px">
-            <button type="button" data-tuya-rwin="day"   onclick="tuyaRotoplasSetWindow('day','${esc(d.id)}')"   style="padding:4px 12px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Día</button>
-            <button type="button" data-tuya-rwin="week"  onclick="tuyaRotoplasSetWindow('week','${esc(d.id)}')"  style="padding:4px 12px;border:1.5px solid #0d9488;background:#fff;color:#0d9488;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Semana</button>
-            <button type="button" data-tuya-rwin="month" onclick="tuyaRotoplasSetWindow('month','${esc(d.id)}')" style="padding:4px 12px;border:1.5px solid #0d9488;background:#fff;color:#0d9488;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Mes</button>
-          </span>
-          <label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#475569;margin-left:auto">
-            Máx
-            <input type="number" id="tuya-rotoplas-n" min="2" max="2000" value="500" onchange="tuyaRotoplasRedraw('${esc(d.id)}')"
-                   style="width:70px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;font-size:11px;text-align:center">
-            datos
-          </label>
-        </div>
-        <div style="display:flex;gap:14px;align-items:stretch;flex-wrap:wrap">
-          <div id="tuya-rotoplas-host" style="flex:1;min-width:280px;min-height:60px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando lecturas…</div>
-          ${tuyaIsWaterLevel(d) ? tuyaWaterTankHtml(d) : ''}
-        </div>
-      </div>` : (tuyaIsWaterLevel(d) ? `<div style="display:flex;justify-content:flex-end">${tuyaWaterTankHtml(d)}</div>` : '')}
       <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
         <div onclick="tuyaToggleEstado()" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 12px;background:#f8fafc;user-select:none">
           <span id="tuya-estado-chev" style="font-size:11px;color:#64748b">▸</span>
