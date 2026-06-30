@@ -27647,41 +27647,49 @@ function tuyaDoorCurrentOpen(d) {
   return null;
 }
 
-// Timestamp de la última lectura door (logs cacheados o update_time del device).
-function tuyaDoorLastTs(d) {
+// Último timestamp (ms) para cada estado (Abierto/Cerrado). Devuelve {open,closed}.
+function tuyaDoorLastTsByState(d) {
   const logs = window.TUYA_DOOR?.logs || [];
-  for (let i = logs.length - 1; i >= 0; i--) {
-    const l = logs[i];
-    if (String(l.code || '').toLowerCase() === 'doorcontact_state') {
-      const v = Number(l.event_time);
-      if (isFinite(v) && v > 0) return v;
+  let open = null, closed = null;
+  // Logs vienen sin orden garantizado — buscamos el max por estado.
+  for (const l of logs) {
+    if (String(l.code || '').toLowerCase() !== 'doorcontact_state') continue;
+    const t = Number(l.event_time);
+    if (!isFinite(t) || t <= 0) continue;
+    const v = l.value;
+    const isOpen = (v === true || v === 'true' || v === 1 || v === '1');
+    if (isOpen) { if (open == null || t > open) open = t; }
+    else        { if (closed == null || t > closed) closed = t; }
+  }
+  // Fallback: usar update_time + estado actual si no hay logs
+  if (open == null && closed == null) {
+    const ut = d?.update_time ? d.update_time * 1000 : null;
+    if (ut != null) {
+      const cur = tuyaDoorCurrentOpen(d);
+      if (cur === true) open = ut;
+      else if (cur === false) closed = ut;
     }
   }
-  if (d?.update_time) return d.update_time * 1000;
-  return null;
+  return { open, closed };
 }
 
-// Panel de 2 estados (Abierto / Cerrado) con semáforo, ícono y resaltado del activo.
+// Panel de 2 estados (Abierto / Cerrado) con semáforo y última fecha-hora por estado.
 function tuyaDoorStatusPanelHtml(d) {
-  const open = tuyaDoorCurrentOpen(d);
-  const lastTs = tuyaDoorLastTs(d);
-  const lastStr = lastTs ? new Date(lastTs).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
-  const isOpen = open === true;
-  const isClosed = open === false;
-  // Cada celda: ícono + etiqueta + semáforo. Activa = saturada, inactiva = atenuada.
-  const cell = (active, ico, label, color, bg, border) => `
-    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:14px 8px;background:${active?bg:'#f8fafc'};border:${active?`2px solid ${color}`:`1.5px solid #e2e8f0`};border-radius:10px;opacity:${active?'1':'0.45'};transition:all .15s">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${active?color:'#cbd5e1'};box-shadow:${active?`0 0 10px ${color}cc, inset 0 -2px 4px rgba(0,0,0,.2)`:'none'}"></span>
-        <span style="font-size:28px;line-height:1">${ico}</span>
-      </div>
-      <div style="font-size:13px;font-weight:900;color:${active?color:'#94a3b8'};text-transform:uppercase;letter-spacing:.06em">${label}</div>
+  const cur = tuyaDoorCurrentOpen(d);
+  const ts = tuyaDoorLastTsByState(d);
+  const fmt = (t) => t ? new Date(t).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+  const isOpen = cur === true;
+  const isClosed = cur === false;
+  const cell = (active, label, lastTs, color, bg) => `
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:14px 8px;background:${active?bg:'#f8fafc'};border:${active?`2px solid ${color}`:`1.5px solid #e2e8f0`};border-radius:10px;opacity:${active?'1':'0.55'};transition:all .15s">
+      <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:${active?color:'#cbd5e1'};box-shadow:${active?`0 0 12px ${color}cc, inset 0 -3px 6px rgba(0,0,0,.25)`:'inset 0 -2px 4px rgba(0,0,0,.08)'}"></span>
+      <div style="font-size:14px;font-weight:900;color:${active?color:'#94a3b8'};text-transform:uppercase;letter-spacing:.08em">${label}</div>
+      <div style="font-size:10px;font-weight:600;color:${active?color:'#94a3b8'};opacity:.85;letter-spacing:.2px">${lastTs ? '🕒 ' + esc(fmt(lastTs)) : '—'}</div>
     </div>`;
-  return `<div data-tuya-door-panel="${esc(d.id||'')}" style="width:170px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:linear-gradient(135deg,#f8fafc 0%,#fff 100%)">
-    <div style="font-size:9px;font-weight:600;color:#94a3b8;text-align:center;letter-spacing:.2px">${lastTs ? '🕒 ' + esc(lastStr) : ''}</div>
-    <div style="font-size:10px;font-weight:800;color:#475569;text-align:center;text-transform:uppercase;letter-spacing:.5px">🚪 Estado actual</div>
-    ${cell(isOpen,   '🚪', 'Abierto', '#16a34a', '#dcfce7', '#bbf7d0')}
-    ${cell(isClosed, '🚪', 'Cerrado', '#dc2626', '#fee2e2', '#fecaca')}
+  return `<div data-tuya-door-panel="${esc(d.id||'')}" style="width:200px;flex-shrink:0;align-self:stretch;display:flex;flex-direction:column;gap:10px;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:linear-gradient(135deg,#f8fafc 0%,#fff 100%)">
+    <div style="font-size:10px;font-weight:800;color:#475569;text-align:center;text-transform:uppercase;letter-spacing:.5px">Estado actual</div>
+    ${cell(isOpen,   'Abierto', ts.open,   '#16a34a', '#dcfce7')}
+    ${cell(isClosed, 'Cerrado', ts.closed, '#dc2626', '#fee2e2')}
   </div>`;
 }
 
