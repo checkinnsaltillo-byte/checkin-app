@@ -27445,7 +27445,7 @@ async function tuyaGlobalEnsureLogs(ids) {
       const r = await fetch(`${BACKEND}/tuya/logs-bulk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: toFetch, size: 200, days: 30 }),
+        body: JSON.stringify({ ids: toFetch, size: 2000, days: 30 }),
       });
       const j = await r.json();
       if (j.ok) {
