@@ -12755,6 +12755,45 @@ const ALOJ_STATE = {
 
 function alojNorm(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
+// ── Catálogo "Dispositivos" (Propiedad / # Departamento / Tipo / Device_name) ──
+// Reemplaza a alojamientos como fuente de verdad en el módulo Tuya.
+const DISP_STATE = {
+  rows: [],
+  byDeviceName: new Map(),
+  loaded: false,
+  loading: false,
+};
+async function dispLoadDispositivos() {
+  if (DISP_STATE.loaded || DISP_STATE.loading) return;
+  DISP_STATE.loading = true;
+  try {
+    const res = await fetch(`${BACKEND}/dispositivos-list`, { cache: 'no-store' });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'fetch failed');
+    DISP_STATE.rows = data.rows || [];
+    DISP_STATE.byDeviceName.clear();
+    // Detectar columna Device_name de forma tolerante
+    const firstRow = DISP_STATE.rows[0] || {};
+    let devColKey = null;
+    for (const k of Object.keys(firstRow)) {
+      const nk = String(k).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (nk === 'devicename' || nk === 'device' || nk === 'tuyaname' || nk === 'tuya') { devColKey = k; break; }
+    }
+    for (const r of DISP_STATE.rows) {
+      if (devColKey) {
+        const dev = alojNorm(r[devColKey]);
+        if (dev) DISP_STATE.byDeviceName.set(dev, r);
+      }
+    }
+    DISP_STATE.loaded = true;
+    console.info(`[DISP] catálogo: ${DISP_STATE.rows.length} dispositivos · col Device: ${devColKey || 'NO ENCONTRADA'}`);
+  } catch (e) {
+    console.warn('[DISP] no cargó:', e.message);
+  } finally {
+    DISP_STATE.loading = false;
+  }
+}
+
 async function lgLoadAlojamientos() {
   if (ALOJ_STATE.loaded || ALOJ_STATE.loading) return;
   ALOJ_STATE.loading = true;
@@ -26927,7 +26966,7 @@ document.addEventListener('keydown', (e) => {
 // ════════════════════════════════════════════════════════════════════════════
 // MÓDULO TUYA (Dispositivos Smart Life) — view-only + historial
 // ════════════════════════════════════════════════════════════════════════════
-const TUYA_STATE = { loaded: false, loading: false, data: null, ts: 0, tab: '__todas', alertsOpen: false };
+const TUYA_STATE = { loaded: false, loading: false, data: null, ts: 0, tab: '__todas', alertsOpen: false, tipos: null /* Set<string> | null (null = todos) */ };
 
 // Iconos por categoría Tuya. Listado parcial de los más comunes; el resto cae a 📟.
 const TUYA_ICON = {
@@ -26949,18 +26988,18 @@ const TUYA_ICON = {
 const TUYA_ICON_FALLBACK = '📟';
 
 async function tuyaInit() {
-  // Asegura catálogo alojamientos para homologar Device_name → Propiedad/Depto
-  if (!ALOJ_STATE.loaded && !ALOJ_STATE.loading) {
-    lgLoadAlojamientos().then(() => { if (TUYA_STATE.loaded) tuyaRender(); });
+  // Carga catálogo Dispositivos (Propiedad / # Departamento / Tipo / Device_name).
+  if (!DISP_STATE.loaded && !DISP_STATE.loading) {
+    dispLoadDispositivos().then(() => { if (TUYA_STATE.loaded) tuyaRender(); });
   }
   if (TUYA_STATE.loaded) { tuyaRender(); return; }
   await tuyaLoad(false);
 }
 
-/** Resuelve la fila de alojamientos para un device (case-robust). */
+/** Resuelve la fila de Dispositivos para un device (case-robust por Device_name). */
 function tuyaResolveAloj(d) {
-  if (!ALOJ_STATE.loaded || !d) return null;
-  return ALOJ_STATE.byDeviceName.get(alojNorm(d.name)) || null;
+  if (!DISP_STATE.loaded || !d) return null;
+  return DISP_STATE.byDeviceName.get(alojNorm(d.name)) || null;
 }
 
 /** Nombre a mostrar: "Propiedad · # Departamento · product_name" si hay match,
@@ -26970,6 +27009,20 @@ function tuyaDisplayName(d) {
   if (!r) return d.name || '';
   const parts = [r['Propiedad'], r['# Departamento'] != null ? String(r['# Departamento']) : '', d.product_name || ''].filter(Boolean);
   return parts.join(' · ');
+}
+
+function tuyaResolveTipo(d) {
+  const r = tuyaResolveAloj(d);
+  if (!r) return '(Sin tipo)';
+  // Tolera "Tipo", "tipo", "TIPO", "Tipo dispositivo"
+  for (const k of Object.keys(r)) {
+    const nk = String(k).toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (nk === 'tipo' || nk === 'tipodispositivo') {
+      const v = String(r[k] || '').trim();
+      if (v) return v;
+    }
+  }
+  return '(Sin tipo)';
 }
 
 async function tuyaLoad(forceFresh) {
@@ -27021,14 +27074,27 @@ function tuyaRender() {
   const devices = data.devices || [];
   const onlineN = devices.filter(d => d.online).length;
 
-  // Resolver propiedad/depto desde alojamientos (case-robust por Device_name).
-  // Si no hay match, cae a "(Sin propiedad)" / "(Sin departamento)".
+  // Resolver propiedad/depto/tipo desde Dispositivos (case-robust por Device_name).
+  // Si no hay match, cae a "(Sin propiedad)" / "(Sin departamento)" / "(Sin tipo)".
   const enriched = devices.map(d => {
     const r = tuyaResolveAloj(d);
     const propiedad = r ? String(r['Propiedad'] || '').trim() : '';
     const dpt = r ? (r['# Departamento'] != null ? String(r['# Departamento']).trim() : '') : '';
-    return { d, propiedad: propiedad || '(Sin propiedad)', departamento: dpt || '(Sin depto)', display: tuyaDisplayName(d) };
+    const tipo = tuyaResolveTipo(d);
+    return { d, propiedad: propiedad || '(Sin propiedad)', departamento: dpt || '(Sin depto)', tipo, display: tuyaDisplayName(d) };
   });
+
+  // Tipos disponibles (todos los presentes en los datos)
+  const allTipos = [...new Set(enriched.map(e => e.tipo))].sort((a,b) => {
+    if (a === '(Sin tipo)') return 1;
+    if (b === '(Sin tipo)') return -1;
+    return a.localeCompare(b, 'es');
+  });
+  // Init tipos seleccionados = todos
+  if (TUYA_STATE.tipos === null) TUYA_STATE.tipos = new Set(allTipos);
+  // Limpieza: quita tipos que ya no existen
+  for (const t of Array.from(TUYA_STATE.tipos)) if (!allTipos.includes(t)) TUYA_STATE.tipos.delete(t);
+  const allSelected = allTipos.length > 0 && allTipos.every(t => TUYA_STATE.tipos.has(t));
 
   // Lista de propiedades ordenadas (de alojamientos primero, luego "(Sin propiedad)" al final si aplica)
   const propsSet = new Set();
@@ -27093,30 +27159,75 @@ function tuyaRender() {
     }
   }
 
+  // ── Chips filtro por Tipo ──
+  const chipBase = 'cursor:pointer;user-select:none;padding:5px 11px;border-radius:99px;font-size:11.5px;font-weight:700;border:1.5px solid;white-space:nowrap;transition:all .12s';
+  const chipOn = 'background:#0d9488;color:#fff;border-color:#0d9488';
+  const chipOff = 'background:#fff;color:#475569;border-color:#cbd5e1';
+  const chipsHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px;padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px">
+    <span style="font-size:11px;font-weight:700;color:#64748b;margin-right:4px">Tipo:</span>
+    <span onclick="tuyaSetAllTipos(true)" style="${chipBase};${allSelected?chipOn:chipOff}">Todos</span>
+    <span onclick="tuyaSetAllTipos(false)" style="${chipBase};${TUYA_STATE.tipos.size===0?chipOn:chipOff}">Ninguno</span>
+    <span style="width:1px;height:18px;background:#e2e8f0;margin:0 2px"></span>
+    ${allTipos.map(t => `<span onclick="tuyaToggleTipo('${esc(t)}')" style="${chipBase};${TUYA_STATE.tipos.has(t)?chipOn:chipOff}">${esc(t)}</span>`).join('')}
+  </div>`;
+
+  // Aplicar filtro de tipos sobre enriched
+  const tipoFiltered = enriched.filter(e => TUYA_STATE.tipos.has(e.tipo));
+
+  // Recalcular props/tabs en base al filtro de tipos
+  const propsSet2 = new Set();
+  for (const e of tipoFiltered) propsSet2.add(e.propiedad);
+  const props2 = [...propsSet2].sort((a,b) => {
+    if (a === '(Sin propiedad)') return 1;
+    if (b === '(Sin propiedad)') return -1;
+    return a.localeCompare(b, 'es');
+  });
+
   // ── Pestañas Propiedad ──
   const activeTab = TUYA_STATE.tab || '__todas';
   const tabsHtml = `<div style="display:flex;gap:0;border-bottom:2px solid var(--border,#e5e7eb);margin-bottom:12px;overflow-x:auto;flex-wrap:nowrap">
-    ${[['__todas', 'Todas'], ...props.map(p => [p, p])].map(([key, label]) => {
-      const count = key === '__todas' ? enriched.length : enriched.filter(e => e.propiedad === key).length;
+    ${[['__todas', 'Todas'], ...props2.map(p => [p, p])].map(([key, label]) => {
+      const count = key === '__todas' ? tipoFiltered.length : tipoFiltered.filter(e => e.propiedad === key).length;
       const isActive = activeTab === key;
       return `<button onclick="tuyaSetTab('${esc(key)}')" style="padding:9px 16px;border:none;background:transparent;border-bottom:3px solid ${isActive ? '#0d9488' : 'transparent'};color:${isActive ? '#0d9488' : '#64748b'};font-weight:${isActive?'800':'600'};font-size:13px;cursor:pointer;white-space:nowrap;margin-bottom:-2px">${esc(label)} <span style="color:#94a3b8;font-weight:600;font-size:11px">(${count})</span></button>`;
     }).join('')}
   </div>`;
 
-  // ── Cuerpo: dispositivos filtrados por pestaña ──
-  const filtered = activeTab === '__todas' ? enriched : enriched.filter(e => e.propiedad === activeTab);
+  // ── Cuerpo: dispositivos filtrados por pestaña + tipo ──
+  const filtered = activeTab === '__todas' ? tipoFiltered : tipoFiltered.filter(e => e.propiedad === activeTab);
   let cardsHtml = '';
   if (!filtered.length) {
-    cardsHtml = '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px">Sin dispositivos en esta propiedad</div>';
+    cardsHtml = '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px">Sin dispositivos que coincidan con los filtros.</div>';
+  } else if (allSelected) {
+    // ── Todos los tipos seleccionados: agrupar Propiedad → columnas por Tipo ──
+    // Cada propiedad muestra una cuadrícula con N columnas (una por tipo).
+    const propsToShow = activeTab === '__todas' ? props2 : [activeTab];
+    cardsHtml = propsToShow.filter(p => filtered.some(e => e.propiedad === p)).map(p => {
+      const inProp = filtered.filter(e => e.propiedad === p);
+      const tiposPresentes = allTipos.filter(t => inProp.some(e => e.tipo === t));
+      const cols = tiposPresentes.map(t => {
+        const list = inProp.filter(e => e.tipo === t);
+        return `<div style="min-width:0">
+          <div style="font-size:11px;font-weight:800;color:#0d9488;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;padding:4px 8px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:6px;text-align:center">${esc(t)} <span style="color:#64748b;font-weight:600">(${list.length})</span></div>
+          <div style="display:flex;flex-direction:column;gap:8px">${list.map(e => tuyaDeviceCardHtml(e.d, e)).join('')}</div>
+        </div>`;
+      }).join('');
+      return `<div style="background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:12px;overflow:hidden;margin-bottom:10px">
+        <div style="padding:10px 14px;background:#f1f5f9;font-size:13px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px">
+          🏠 ${esc(p)} <span style="font-size:11px;color:#64748b;font-weight:600">· ${inProp.length} dispositivo${inProp.length===1?'':'s'}</span>
+        </div>
+        <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">${cols}</div>
+      </div>`;
+    }).join('');
   } else if (activeTab === '__todas') {
-    // Agrupar por Propiedad → Departamento
+    // Subset de tipos: agrupar Propiedad → Departamento
     const byProp = {};
     for (const e of filtered) {
       if (!byProp[e.propiedad]) byProp[e.propiedad] = {};
       if (!byProp[e.propiedad][e.departamento]) byProp[e.propiedad][e.departamento] = [];
       byProp[e.propiedad][e.departamento].push(e);
     }
-    cardsHtml = props.filter(p => byProp[p]).map(p => {
+    cardsHtml = props2.filter(p => byProp[p]).map(p => {
       const deptos = Object.keys(byProp[p]).sort(tuyaDeptoSort);
       const inner = deptos.map(dp => {
         const list = byProp[p][dp];
@@ -27148,7 +27259,7 @@ function tuyaRender() {
     </div>`;
   }
 
-  body.innerHTML = tabsHtml + cardsHtml;
+  body.innerHTML = chipsHtml + tabsHtml + cardsHtml;
   // Bulk fetch últimos 2 eventos por device para mostrarlos en cada card
   const visibleIds = filtered.map(e => e.d.id);
   if (visibleIds.length) tuyaFetchRecentLogs(visibleIds);
@@ -27205,6 +27316,20 @@ function tuyaSetTab(key) {
   TUYA_STATE.tab = key;
   tuyaRender();
 }
+
+window.tuyaToggleTipo = function (tipo) {
+  if (!TUYA_STATE.tipos) TUYA_STATE.tipos = new Set();
+  if (TUYA_STATE.tipos.has(tipo)) TUYA_STATE.tipos.delete(tipo);
+  else TUYA_STATE.tipos.add(tipo);
+  tuyaRender();
+};
+
+window.tuyaSetAllTipos = function (all) {
+  const devices = (TUYA_STATE.data && TUYA_STATE.data.devices) || [];
+  const allTipos = [...new Set(devices.map(d => tuyaResolveTipo(d)))];
+  TUYA_STATE.tipos = new Set(all ? allTipos : []);
+  tuyaRender();
+};
 
 function tuyaToggleAlerts() {
   TUYA_STATE.alertsOpen = !TUYA_STATE.alertsOpen;
