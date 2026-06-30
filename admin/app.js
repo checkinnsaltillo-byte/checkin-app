@@ -27635,6 +27635,56 @@ function tuyaIsDoor(d) {
   return (d.status || []).some(s => String(s.code || '').toLowerCase() === 'doorcontact_state');
 }
 
+// Estado actual de la puerta: lee `doorcontact_state` del device.status.
+// Devuelve true=Abierto, false=Cerrado, null=desconocido.
+function tuyaDoorCurrentOpen(d) {
+  for (const s of (d?.status || [])) {
+    if (String(s.code || '').toLowerCase() === 'doorcontact_state') {
+      const v = s.value;
+      return (v === true || v === 'true' || v === 1 || v === '1');
+    }
+  }
+  return null;
+}
+
+// Timestamp de la última lectura door (logs cacheados o update_time del device).
+function tuyaDoorLastTs(d) {
+  const logs = window.TUYA_DOOR?.logs || [];
+  for (let i = logs.length - 1; i >= 0; i--) {
+    const l = logs[i];
+    if (String(l.code || '').toLowerCase() === 'doorcontact_state') {
+      const v = Number(l.event_time);
+      if (isFinite(v) && v > 0) return v;
+    }
+  }
+  if (d?.update_time) return d.update_time * 1000;
+  return null;
+}
+
+// Panel de 2 estados (Abierto / Cerrado) con semáforo, ícono y resaltado del activo.
+function tuyaDoorStatusPanelHtml(d) {
+  const open = tuyaDoorCurrentOpen(d);
+  const lastTs = tuyaDoorLastTs(d);
+  const lastStr = lastTs ? new Date(lastTs).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+  const isOpen = open === true;
+  const isClosed = open === false;
+  // Cada celda: ícono + etiqueta + semáforo. Activa = saturada, inactiva = atenuada.
+  const cell = (active, ico, label, color, bg, border) => `
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:14px 8px;background:${active?bg:'#f8fafc'};border:${active?`2px solid ${color}`:`1.5px solid #e2e8f0`};border-radius:10px;opacity:${active?'1':'0.45'};transition:all .15s">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${active?color:'#cbd5e1'};box-shadow:${active?`0 0 10px ${color}cc, inset 0 -2px 4px rgba(0,0,0,.2)`:'none'}"></span>
+        <span style="font-size:28px;line-height:1">${ico}</span>
+      </div>
+      <div style="font-size:13px;font-weight:900;color:${active?color:'#94a3b8'};text-transform:uppercase;letter-spacing:.06em">${label}</div>
+    </div>`;
+  return `<div data-tuya-door-panel="${esc(d.id||'')}" style="width:170px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:linear-gradient(135deg,#f8fafc 0%,#fff 100%)">
+    <div style="font-size:9px;font-weight:600;color:#94a3b8;text-align:center;letter-spacing:.2px">${lastTs ? '🕒 ' + esc(lastStr) : ''}</div>
+    <div style="font-size:10px;font-weight:800;color:#475569;text-align:center;text-transform:uppercase;letter-spacing:.5px">🚪 Estado actual</div>
+    ${cell(isOpen,   '🚪', 'Abierto', '#16a34a', '#dcfce7', '#bbf7d0')}
+    ${cell(isClosed, '🚪', 'Cerrado', '#dc2626', '#fee2e2', '#fecaca')}
+  </div>`;
+}
+
 // Parse logs → [{ts, open: bool}] ordenados ASC.
 function tuyaDoorParseLogs(logs) {
   const out = [];
@@ -27836,16 +27886,31 @@ window.tuyaDoorHideTooltip = function() {
 window.TUYA_DOOR = window.TUYA_DOOR || { logs: [], mode: 'events' };
 window.tuyaDoorSetMode = function (mode) {
   window.TUYA_DOOR.mode = mode === 'timeline' ? 'timeline' : 'events';
+  // Sincroniza estilos de los chips del toolbar
+  document.querySelectorAll('[data-tuya-dmode]').forEach(btn => {
+    const on = btn.getAttribute('data-tuya-dmode') === window.TUYA_DOOR.mode;
+    btn.style.background = on ? '#d97706' : '#fff';
+    btn.style.color = on ? '#fff' : '#d97706';
+  });
   tuyaDoorRedraw();
 };
 window.tuyaDoorRedraw = function() {
   const host = document.getElementById('tuya-door-host');
   if (!host) return;
   const nEl = document.getElementById('tuya-door-n');
-  const n = Number(nEl?.value) || 100;
-  host.innerHTML = tuyaBuildDoorChart(window.TUYA_DOOR.logs || [], { n, mode: window.TUYA_DOOR.mode });
+  const n = Number(nEl?.value) || 500;
+  // Si el toolbar externo (data-tuya-dmode) está presente, ocultar el interno
+  const hideToggle = !!document.querySelector('[data-tuya-dmode]');
+  host.innerHTML = tuyaBuildDoorChart(window.TUYA_DOOR.logs || [], { n, mode: window.TUYA_DOOR.mode, hideToggle });
   const scrollEl = host.querySelector('[data-door-scroll]');
   if (scrollEl) scrollEl.scrollLeft = scrollEl.scrollWidth;
+  // Refresca el panel de estados con el timestamp más reciente de los logs
+  const panel = document.querySelector('[data-tuya-door-panel]');
+  if (panel) {
+    const id = panel.getAttribute('data-tuya-door-panel');
+    const d = (TUYA_STATE.data?.devices || []).find(x => x.id === id);
+    if (d) panel.outerHTML = tuyaDoorStatusPanelHtml(d);
+  }
 };
 
 // ─── Sensor de nivel de agua: detección y visualización tipo tanque ──
@@ -28297,7 +28362,25 @@ async function tuyaOpenDetail(id) {
         </div>
         <div id="tuya-dash-body" style="border-top:1px solid #e2e8f0;padding:12px;background:#fff">
           ${tuyaIsDoor(d) ? `<div>
-            <div id="tuya-door-host" style="min-height:80px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando eventos de puerta…</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
+              <div style="font-size:12px;font-weight:800;color:#0f172a">🚪 Eventos de puerta</div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span style="font-size:11px;font-weight:700;color:#64748b;min-width:64px">Modo:</span>
+                <button type="button" data-tuya-dmode="events" onclick="tuyaDoorSetMode('events')"
+                        style="padding:5px 14px;border:1.5px solid #d97706;background:#fff;color:#d97706;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">Eventos</button>
+                <button type="button" data-tuya-dmode="timeline" onclick="tuyaDoorSetMode('timeline')"
+                        style="padding:5px 14px;border:1.5px solid #d97706;background:#d97706;color:#fff;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer">⏱ Línea de tiempo</button>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span style="font-size:11px;font-weight:700;color:#64748b;min-width:64px">Máx datos:</span>
+                <input type="number" id="tuya-door-n" min="2" max="2000" value="500" onchange="tuyaDoorRedraw()"
+                       style="width:90px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;text-align:center">
+              </div>
+            </div>
+            <div style="display:flex;gap:14px;align-items:stretch;flex-wrap:wrap">
+              <div id="tuya-door-host" style="flex:1;min-width:280px;min-height:80px;color:#94a3b8;font-size:11px;font-style:italic;padding:8px 0">⏳ Cargando eventos de puerta…</div>
+              ${tuyaDoorStatusPanelHtml(d)}
+            </div>
           </div>` : ''}
           ${tuyaIsRotoplas(d) ? `<div>
             <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
