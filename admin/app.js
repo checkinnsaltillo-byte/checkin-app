@@ -13307,6 +13307,9 @@ function lgMultiRender(id, label, allValues, opts) {
         <span class="lg-multi-opt-txt">${disp}</span>
       </label>`;
   };
+  // Conserva si el panel estaba abierto entre re-renders.
+  LG_STATE.multiOpen = LG_STATE.multiOpen || {};
+  const isOpen = !!LG_STATE.multiOpen[id];
   c.innerHTML = `
     <label style="display:block;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">${esc(label)}</label>
     <div class="lg-multi-wrap">
@@ -13314,10 +13317,10 @@ function lgMultiRender(id, label, allValues, opts) {
         <span class="lg-multi-btn-lbl" id="lg-multi-lbl-${id}">${esc(labelTxt)}</span>
         <span class="lg-multi-btn-caret">▾</span>
       </button>
-      <div id="lg-multi-panel-${id}" class="lg-multi-panel hidden">
+      <div id="lg-multi-panel-${id}" class="lg-multi-panel ${isOpen?'':'hidden'}" onclick="event.stopPropagation()">
         <div class="lg-multi-actions">
-          <button type="button" onclick="lgMultiSetAll('${id}')" class="lg-multi-action">✓ Todas</button>
-          <button type="button" onclick="lgMultiSetNone('${id}')" class="lg-multi-action">✕ Ninguna</button>
+          <button type="button" onclick="event.stopPropagation();lgMultiSetAll('${id}')" class="lg-multi-action">✓ Todas</button>
+          <button type="button" onclick="event.stopPropagation();lgMultiSetNone('${id}')" class="lg-multi-action">✕ Ninguna</button>
         </div>
         <div class="lg-multi-options">
           ${allValues.map(renderOption).join('')}
@@ -13328,13 +13331,37 @@ function lgMultiRender(id, label, allValues, opts) {
 
 window.lgMultiTogglePanel = function(id, ev) {
   if (ev) ev.stopPropagation();
-  // Cierra otros paneles
-  document.querySelectorAll('[id^="lg-multi-panel-"]').forEach(p => {
-    if (p.id !== `lg-multi-panel-${id}`) p.classList.add('hidden');
+  LG_STATE.multiOpen = LG_STATE.multiOpen || {};
+  // Cierra otros paneles (y resetea su estado persistido)
+  Object.keys(LG_STATE.multiOpen).forEach(k => {
+    if (k !== id) {
+      LG_STATE.multiOpen[k] = false;
+      const op = document.getElementById(`lg-multi-panel-${k}`);
+      if (op) op.classList.add('hidden');
+    }
   });
   const p = document.getElementById(`lg-multi-panel-${id}`);
-  if (p) p.classList.toggle('hidden');
+  const willOpen = p ? p.classList.contains('hidden') : !LG_STATE.multiOpen[id];
+  LG_STATE.multiOpen[id] = willOpen;
+  if (p) p.classList.toggle('hidden', !willOpen);
 };
+
+// Listener global: cerrar dropdowns abiertos al hacer click fuera de cualquier .lg-multi-wrap
+if (!window.__lgMultiOutsideClickBound) {
+  window.__lgMultiOutsideClickBound = true;
+  document.addEventListener('click', function(e) {
+    if (!LG_STATE || !LG_STATE.multiOpen) return;
+    if (!e.target.closest('.lg-multi-wrap')) {
+      let changed = false;
+      Object.keys(LG_STATE.multiOpen).forEach(k => {
+        if (LG_STATE.multiOpen[k]) { LG_STATE.multiOpen[k] = false; changed = true; }
+      });
+      if (changed) {
+        document.querySelectorAll('.lg-multi-panel').forEach(p => p.classList.add('hidden'));
+      }
+    }
+  });
+}
 window.lgMultiToggle = function(id, value) {
   const set = LG_STATE.multiSel[id];
   if (!set) return;
