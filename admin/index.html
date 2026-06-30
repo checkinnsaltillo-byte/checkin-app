@@ -1930,7 +1930,12 @@
     <!-- ═══════════════ MÓDULO OCUPACIÓN — calendario de reservas ═══════════════ -->
     <div id="module-ocupacion" class="hidden">
       <div class="ocup-shell">
-        <!-- Toolbar: selector de vista + título + nav -->
+        <!-- Título del módulo -->
+        <h1 style="margin:0 0 14px;font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em;display:flex;align-items:center;gap:10px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:18px;box-shadow:0 3px 8px rgba(99,102,241,.35)">📅</span>
+          Ocupación
+        </h1>
+        <!-- Toolbar: selector de vista + filtro Mes + nav -->
         <div class="ocup-toolbar">
           <div class="ocup-toolbar-left">
             <div class="ocup-view-tabs">
@@ -1938,14 +1943,13 @@
               <button type="button" class="ocup-view-tab" data-view="indicadores" onclick="ocupSetView('indicadores')">📊 Indicadores</button>
               <button type="button" class="ocup-view-tab" data-view="graficas" onclick="ocupSetView('graficas')">📈 Gráficas</button>
             </div>
-            <h2 class="ocup-month-label" id="ocup-month-label-wrap">
-              <span id="ocup-month-name">—</span>
-              <span class="ocup-month-year" id="ocup-month-year">—</span>
-            </h2>
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-left:6px">
+              Mes:
+              <select id="ocup-month-select" onchange="ocupJumpToMonth(this.value)"
+                      style="padding:7px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a;background:#fff;cursor:pointer"></select>
+            </label>
           </div>
           <div class="ocup-toolbar-right" id="ocup-toolbar-right-cal">
-            <button type="button" class="ocup-nav-btn" onclick="ocupNavMonth(-1)" title="Mes anterior">‹</button>
-            <button type="button" class="ocup-nav-btn" onclick="ocupNavMonth(1)" title="Mes siguiente">›</button>
             <button type="button" class="ocup-today-btn" onclick="ocupGoToday()" title="Ir a hoy">📅 Ir a hoy</button>
             <button type="button" class="ocup-reload-btn" onclick="ocupReload(true)" title="Sincronizar con Lodgify">🔄</button>
           </div>
@@ -2237,6 +2241,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=536"></script>
+  <script src="app.js?v=537"></script>
 </body>
 </html>

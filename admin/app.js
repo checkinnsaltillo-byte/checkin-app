@@ -23302,6 +23302,35 @@ window.ocupGoToday = function () {
   ocupRender();
 };
 
+// Salta a un mes específico (formato "YYYY-MM").
+window.ocupJumpToMonth = function (val) {
+  const m = String(val || '').match(/^(\d{4})-(\d{2})$/);
+  if (!m) return;
+  OCUP_STATE.currentMonth = new Date(parseInt(m[1],10), parseInt(m[2],10) - 1, 1);
+  ocupRender();
+  // Scroll a la sección del mes
+  requestAnimationFrame(() => {
+    const target = document.querySelector(`[data-ocup-month="${val}"]`);
+    if (target) target.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+  });
+};
+
+// Pobla el select de meses (rango current ± 12 meses).
+function ocupPopulateMonthSelect() {
+  const sel = document.getElementById('ocup-month-select');
+  if (!sel) return;
+  const cur = OCUP_STATE.currentMonth || new Date();
+  const ym = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
+  const opts = [];
+  for (let i = -24; i <= 24; i++) {
+    const d = new Date(cur.getFullYear(), cur.getMonth() + i, 1);
+    const v = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const lbl = `${OCUP_MESES[d.getMonth()]} ${d.getFullYear()}`;
+    opts.push(`<option value="${v}" ${v===ym?'selected':''}>${lbl}</option>`);
+  }
+  sel.innerHTML = opts.join('');
+}
+
 // Convierte fecha en cualquier formato lodgify ("MM/DD/YYYY" o ISO) a Date
 function ocupParseDate(s) {
   if (!s) return null;
@@ -23366,7 +23395,8 @@ function ocupGetAlojamientos() {
     });
 }
 
-// Render principal del calendario
+// Render principal del calendario — modo continuo: render N meses lado a lado
+// (current ± 6 meses) en un solo contenedor scrollable horizontal.
 function ocupRender() {
   const cont = document.getElementById('ocup-cal-container');
   if (!cont) return;
@@ -23374,18 +23404,15 @@ function ocupRender() {
     const t = new Date();
     OCUP_STATE.currentMonth = new Date(t.getFullYear(), t.getMonth(), 1);
   }
+  ocupPopulateMonthSelect();
   const month = OCUP_STATE.currentMonth;
-  const y = month.getFullYear(), m = month.getMonth();
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
-  const monthStart = new Date(y, m, 1);
-  const monthEnd = new Date(y, m, daysInMonth);
+  const y0 = month.getFullYear(), m0 = month.getMonth();
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
-  // Header label
-  const lblName = document.getElementById('ocup-month-name');
-  const lblYear = document.getElementById('ocup-month-year');
-  if (lblName) lblName.textContent = OCUP_MESES[m];
-  if (lblYear) lblYear.textContent = String(y);
+  // Rango: 6 meses antes y 6 después del actual (13 meses total)
+  const MONTHS_BEFORE = 6, MONTHS_AFTER = 6;
+  const rangeStart = new Date(y0, m0 - MONTHS_BEFORE, 1);
+  const rangeEnd = new Date(y0, m0 + MONTHS_AFTER + 1, 0); // último día del último mes
 
   // Alojamientos (filtrados por Propiedad si aplica)
   const allAlojs = ocupGetAlojamientos();
@@ -23418,19 +23445,40 @@ function ocupRender() {
     byHouse.get(hid).push(b);
   });
 
+  // Días totales en el rango (rangeStart..rangeEnd)
+  const totalDays = Math.round((rangeEnd - rangeStart) / 86400000) + 1;
+  // Helper: índice (0..totalDays-1) de una fecha relativo a rangeStart
+  const dayIdx = (d) => Math.round((d - rangeStart) / 86400000);
+
+  // Cabecera del primer día de cada mes → para badges flotantes
+  const monthBoundaries = [];
+  {
+    let cur = new Date(rangeStart);
+    while (cur <= rangeEnd) {
+      const v = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
+      monthBoundaries.push({ idx: dayIdx(cur), key: v, label: `${OCUP_MESES[cur.getMonth()]} ${cur.getFullYear()}` });
+      cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+    }
+  }
+
   // Construye filas
-  let html = `<div class="ocup-cal" style="--ocup-days:${daysInMonth}">`;
-  // Header
+  let html = `<div class="ocup-cal" data-ocup-cal="continuous" style="--ocup-days:${totalDays}">`;
+  // Header con badges de mes encima del primer día de cada mes
   html += `<div class="ocup-cal-head">
     <div class="ocup-head-aloj">📦 Alojamientos · ${alojamientos.length}</div>`;
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(y, m, d);
+  for (let i = 0; i < totalDays; i++) {
+    const date = new Date(rangeStart);
+    date.setDate(date.getDate() + i);
     const dow = date.getDay();
     const isToday = date.getTime() === today.getTime();
     const isWeekend = dow === 0 || dow === 6;
-    html += `<div class="ocup-head-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}">
+    const isFirstOfMonth = date.getDate() === 1;
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+    const monthBadge = isFirstOfMonth ? `<div style="position:absolute;top:-22px;left:0;font-size:10px;font-weight:900;color:#3730a3;background:#e0e7ff;border:1px solid #a5b4fc;padding:2px 8px;border-radius:99px;white-space:nowrap;z-index:2;pointer-events:none">${OCUP_MESES[date.getMonth()]} ${date.getFullYear()}</div>` : '';
+    html += `<div class="ocup-head-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" data-ocup-month="${monthKey}" data-day-idx="${i}" style="position:relative">
+      ${monthBadge}
       <div class="ocup-head-dow">${OCUP_DOW[dow]}</div>
-      <div class="ocup-head-day">${d}</div>
+      <div class="ocup-head-day">${date.getDate()}</div>
     </div>`;
   }
   html += `</div>`;
@@ -23441,35 +23489,29 @@ function ocupRender() {
       const arr = ocupParseDate(b.DateArrival);
       const dep = ocupParseDate(b.DateDeparture);
       if (!arr || !dep) return false;
-      // Que el rango toque el mes
-      return dep >= monthStart && arr <= monthEnd;
+      return dep >= rangeStart && arr <= rangeEnd;
     });
-    // Pre-calcula ocupación por día del mes:
-    //  - middle: día completo dentro de una estancia (no es arrival ni
-    //    departure visible)
-    //  - arrivals[d]/departures[d]: conteo de bookings que LLEGAN/SALEN
-    //    ese día (sirve para detectar continuidad checkout+checkin).
-    const middleDays = new Set();
+
+    // Pre-calcula ocupación por índice de día (0..totalDays-1)
+    const middleSet = new Set();
     const arrivalsDay = new Map();
     const departuresDay = new Map();
     houseBookings.forEach(b => {
       const arr = ocupParseDate(b.DateArrival);
       const dep = ocupParseDate(b.DateDeparture);
-      if (arr.getFullYear() === y && arr.getMonth() === m) {
-        const d = arr.getDate();
-        arrivalsDay.set(d, (arrivalsDay.get(d) || 0) + 1);
+      if (arr >= rangeStart && arr <= rangeEnd) {
+        const idx = dayIdx(arr);
+        arrivalsDay.set(idx, (arrivalsDay.get(idx) || 0) + 1);
       }
-      if (dep.getFullYear() === y && dep.getMonth() === m) {
-        const d = dep.getDate();
-        departuresDay.set(d, (departuresDay.get(d) || 0) + 1);
+      if (dep >= rangeStart && dep <= rangeEnd) {
+        const idx = dayIdx(dep);
+        departuresDay.set(idx, (departuresDay.get(idx) || 0) + 1);
       }
-      // Días intermedios: arr+1 hasta dep-1
+      // Días intermedios: arr+1 .. dep-1
       const midStart = new Date(arr.getFullYear(), arr.getMonth(), arr.getDate() + 1);
       const midEnd = new Date(dep.getFullYear(), dep.getMonth(), dep.getDate());
       for (let cur = new Date(midStart); cur < midEnd; cur.setDate(cur.getDate() + 1)) {
-        if (cur.getFullYear() === y && cur.getMonth() === m) {
-          middleDays.add(cur.getDate());
-        }
+        if (cur >= rangeStart && cur <= rangeEnd) middleSet.add(dayIdx(cur));
       }
     });
 
@@ -23481,41 +23523,29 @@ function ocupRender() {
         <div class="ocup-aloj-id">${esc(aloj.tag || aloj.houseId)}</div>
       </div>
     </div>`;
-    // Celdas de día con clases de ocupación
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(y, m, d);
+    for (let i = 0; i < totalDays; i++) {
+      const date = new Date(rangeStart);
+      date.setDate(date.getDate() + i);
       const dow = date.getDay();
       const isToday = date.getTime() === today.getTime();
       const isWeekend = dow === 0 || dow === 6;
-      const arrCnt = arrivalsDay.get(d) || 0;
-      const depCnt = departuresDay.get(d) || 0;
-      const isMid = middleDays.has(d);
+      const arrCnt = arrivalsDay.get(i) || 0;
+      const depCnt = departuresDay.get(i) || 0;
+      const isMid = middleSet.has(i);
       let occCls = '';
-      if (isMid || (arrCnt > 0 && depCnt > 0)) {
-        // Continuidad (checkout+checkin) o medio de estancia → gris completo
-        occCls = 'is-occupied';
-      } else if (arrCnt > 0) {
-        occCls = 'is-arrival';     // triángulo inferior-derecho
-      } else if (depCnt > 0) {
-        occCls = 'is-departure';   // triángulo superior-izquierdo
-      }
+      if (isMid || (arrCnt > 0 && depCnt > 0)) occCls = 'is-occupied';
+      else if (arrCnt > 0) occCls = 'is-arrival';
+      else if (depCnt > 0) occCls = 'is-departure';
       html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''} ${occCls}"></div>`;
     }
-    // Barras con posición HALF-CELL:
-    //   startFrac = arrInMonth ? (arrDay - 0.5) : 0           (0 = edge si viene de antes)
-    //   endFrac   = depInMonth ? (depDay - 0.5) : daysInMonth (daysInMonth = edge si sigue después)
-    //   left  = aloj-w + startFrac * dayW
-    //   width = (endFrac - startFrac) * dayW
-    // Esto hace que arrival ↔ departure compartan exactamente el centro
-    // de la celda → checkout y checkin del mismo día NO se traslapan.
     houseBookings.forEach(b => {
       const arr = ocupParseDate(b.DateArrival);
       const dep = ocupParseDate(b.DateDeparture);
-      const arrInMonth = arr.getFullYear() === y && arr.getMonth() === m;
-      const depInMonth = dep.getFullYear() === y && dep.getMonth() === m;
-      const startFrac = arrInMonth ? (arr.getDate() - 0.5) : 0;
-      const endFrac   = depInMonth ? (dep.getDate() - 0.5) : daysInMonth;
-      const widthFrac = Math.max(0.1, endFrac - startFrac); // mínimo visible
+      const arrIn = arr >= rangeStart && arr <= rangeEnd;
+      const depIn = dep >= rangeStart && dep <= rangeEnd;
+      const startFrac = arrIn ? (dayIdx(arr) + 0.5) : 0;
+      const endFrac   = depIn ? (dayIdx(dep) + 0.5) : totalDays;
+      const widthFrac = Math.max(0.1, endFrac - startFrac);
       const leftCalc  = `calc(var(--ocup-aloj-w) + ${startFrac} * var(--ocup-day-w))`;
       const widthCalc = `calc(${widthFrac} * var(--ocup-day-w))`;
       const srcCls = ocupSourceClass(b.Source);
@@ -23531,6 +23561,50 @@ function ocupRender() {
   });
   html += `</div>`;
   cont.innerHTML = html;
+
+  // Scroll fluido: detecta el mes más visible y actualiza el select
+  requestAnimationFrame(() => {
+    const target = document.querySelector(`[data-ocup-month="${y0}-${String(m0+1).padStart(2,'0')}"]`);
+    if (target) target.scrollIntoView({ inline: 'start', block: 'nearest' });
+    ocupBindScrollMonthSync(cont);
+  });
+}
+
+// Listener de scroll que actualiza el select de Mes según lo visible
+let _ocupScrollBound = false;
+function ocupBindScrollMonthSync(cont) {
+  if (_ocupScrollBound) return;
+  _ocupScrollBound = true;
+  // El contenedor con overflow real depende de la estructura — busca el ancestor scrollable
+  let scroller = cont;
+  while (scroller && scroller !== document.body) {
+    const cs = getComputedStyle(scroller);
+    if (/(auto|scroll)/.test(cs.overflowX)) break;
+    scroller = scroller.parentElement;
+  }
+  if (!scroller || scroller === document.body) scroller = cont;
+  let raf = null;
+  scroller.addEventListener('scroll', () => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      const sel = document.getElementById('ocup-month-select');
+      if (!sel) return;
+      const rect = scroller.getBoundingClientRect();
+      const centerX = rect.left + 80; // detecta el primer cuarto izquierdo
+      // Encuentra la celda de header más cerca de centerX
+      const heads = scroller.querySelectorAll('[data-ocup-month]');
+      let best = null, bestDist = Infinity;
+      for (const h of heads) {
+        const r = h.getBoundingClientRect();
+        const dist = Math.abs(r.left - centerX);
+        if (dist < bestDist) { bestDist = dist; best = h; }
+      }
+      if (best) {
+        const v = best.getAttribute('data-ocup-month');
+        if (v && sel.value !== v) sel.value = v;
+      }
+    });
+  }, { passive: true });
 }
 
 // Panel lateral de detalle
