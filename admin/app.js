@@ -12786,6 +12786,9 @@ async function dispLoadDispositivos() {
       }
     }
     DISP_STATE.loaded = true;
+    // Forzar re-init de chips Tuya: si Tuya renderizó antes con tipos vacíos
+    // (porque DISP aún no había cargado), reset para que tipos se repueblen.
+    if (typeof TUYA_STATE !== 'undefined') TUYA_STATE.tipos = null;
     console.info(`[DISP] catálogo: ${DISP_STATE.rows.length} dispositivos · col Device: ${devColKey || 'NO ENCONTRADA'}`);
   } catch (e) {
     console.warn('[DISP] no cargó:', e.message);
