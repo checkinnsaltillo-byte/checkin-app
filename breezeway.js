@@ -591,7 +591,13 @@ export function registerBreezewayRoutes(app) {
           }
         } catch (e) { probes[p] = { error: String(e?.message || e) }; }
       }
-      res.json({ ok: true, task_id: req.params.id, guest_rating, top_keys: detail ? Object.keys(detail) : [], probes });
+      // Full dump del path que sí funcionó
+      let requirements = null;
+      try {
+        const r = await breezewayFetch(`/public/inventory/v1/task/${req.params.id}/requirements`, { method: "GET" });
+        if (r.ok) requirements = await r.json().catch(() => null);
+      } catch(_) {}
+      res.json({ ok: true, task_id: req.params.id, guest_rating, top_keys: detail ? Object.keys(detail) : [], requirements_full: requirements });
     } catch (e) {
       res.status(500).json({ ok: false, error: String(e?.message || e) });
     }
