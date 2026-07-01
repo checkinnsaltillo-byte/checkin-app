@@ -547,48 +547,6 @@ export function registerBreezewayRoutes(app) {
     }
   });
 
-  // ---- Debug: task detail crudo (para ajustar extractGuestRating) ----
-  app.get("/api/breezeway/task/:id/debug", async (req, res) => {
-    try {
-      const detail = await fetchTaskById(req.params.id);
-      const guest_rating = extractGuestRating(detail);
-      // Probar varios subpaths posibles para line_items / requirements
-      const probes = {};
-      const paths = [
-        `/public/inventory/v1/task/${req.params.id}/line_items/`,
-        `/public/inventory/v1/task/${req.params.id}/line_items`,
-        `/public/inventory/v1/task/${req.params.id}/requirements/`,
-        `/public/inventory/v1/task/${req.params.id}/requirements`,
-        `/public/inventory/v1/task/${req.params.id}/checklist/`,
-        `/public/inventory/v1/task/${req.params.id}/checklist_items/`,
-        `/public/inventory/v1/task/${req.params.id}/report/`,
-        `/public/inventory/v1/line_items/?task_id=${req.params.id}`,
-        `/public/inventory/v1/line_items/?task=${req.params.id}`,
-        `/public/inventory/v1/task-line-items/?task_id=${req.params.id}`,
-      ];
-      for (const p of paths) {
-        try {
-          const r = await breezewayFetch(p, { method: "GET" });
-          if (r.ok) {
-            const j = await r.json().catch(() => null);
-            probes[p] = { status: r.status, keys: j ? (Array.isArray(j) ? `array(${j.length})` : Object.keys(j)) : null, sample: Array.isArray(j) ? j.slice(0,2) : (j?.results?.slice ? j.results.slice(0,2) : j) };
-          } else {
-            probes[p] = { status: r.status };
-          }
-        } catch (e) { probes[p] = { error: String(e?.message || e) }; }
-      }
-      // Full dump del path que sí funcionó
-      let requirements = null;
-      try {
-        const r = await breezewayFetch(`/public/inventory/v1/task/${req.params.id}/requirements`, { method: "GET" });
-        if (r.ok) requirements = await r.json().catch(() => null);
-      } catch(_) {}
-      res.json({ ok: true, task_id: req.params.id, guest_rating, top_keys: detail ? Object.keys(detail) : [], requirements_full: requirements });
-    } catch (e) {
-      res.status(500).json({ ok: false, error: String(e?.message || e) });
-    }
-  });
-
   // ---- Consultar alertas recientes (Sheet-backed, sobrevive cold starts) ----
   app.get("/api/breezeway/alerts", async (req, res) => {
     const limit = Math.min(Number(req.query?.limit) || 100, 5000);
