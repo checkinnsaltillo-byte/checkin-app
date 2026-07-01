@@ -13360,7 +13360,10 @@ function lgFmtRelativeTime(iso) {
 // ────────────────────────────────────────────────────────────────────────────
 
 function lgMultiInitIfNeeded(id, allValues, defaultSelected) {
-  if (LG_STATE.multiSel[id] !== null) return;
+  // Init tanto si es null (seed) como undefined (nunca declarada). Antes solo
+  // veía null → undefined caía a "ya inicializada" y sel.size en el render
+  // reventaba con "Cannot read properties of undefined ('size')".
+  if (LG_STATE.multiSel[id] != null) return;
   // Si todavía NO hay opciones (datos no cargados) NO inicializamos: dejamos
   // multiSel[id] en null para reintentar al próximo rebuild. lgMultiGetSet
   // tratará null como "sin filtro" (no esconde nada).
