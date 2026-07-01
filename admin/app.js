@@ -11296,11 +11296,14 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
         const asignacionesChip = tkAssignDisplay
           ? `<span title="Asignaciones: ${esc(tkAssignNames.join(', '))}" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:9px;border:1px solid #fdba74;letter-spacing:.02em;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">👥 ${esc(tkAssignDisplay)}</span>`
           : '';
+        const _rt = tk.task?.guest_rating ?? tk.raw?.guest_rating ?? null;
+        const _starsMini = (typeof bzwBuildGuestStarsChip === 'function') ? bzwBuildGuestStarsChip(_rt, { compact: true }) : '';
         aseoChipHtml = `
           <div style="margin-top:6px;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
             ${tFinished
               ? '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#15803d;font-weight:800;font-size:9px;border:1px solid #86efac;letter-spacing:.02em">✓ Aseo · Finalizada</span>'
               : '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:800;font-size:9px;border:1px solid #fca5a5;letter-spacing:.02em">✗ Aseo · Pendiente</span>'}
+            ${_starsMini}
             ${asignacionesChip}
             ${fechaTermStr ? `<span style="font-size:9px;color:#64748b;font-weight:700;letter-spacing:.02em">${esc(fechaTermStr)}</span>` : ''}
           </div>`;
@@ -11766,13 +11769,32 @@ function bzwResolveTaskStatus(input) {
 }
 window.bzwResolveTaskStatus = bzwResolveTaskStatus;
 
+/** Render de 5 estrellas para el rating (1..5) del huésped que dejó el personal
+ *  de limpieza en el template "Limpieza Checkout" de Breezeway.
+ *  Devuelve string vacío si rating no es válido. */
+function bzwBuildGuestStarsChip(rating, opts) {
+  const n = Number(rating);
+  if (!Number.isFinite(n) || n < 1 || n > 5) return '';
+  const filled = Math.round(n);
+  const size = (opts && opts.size) || 13;
+  const compact = !!(opts && opts.compact);
+  const stars = Array.from({ length: 5 }, (_, i) =>
+    `<span style="color:${i < filled ? '#f59e0b' : '#e5e7eb'};font-size:${size}px;line-height:1">★</span>`).join('');
+  const label = compact ? '' : `<span style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.02em;text-transform:uppercase">Calificación del huésped</span>`;
+  const wrap = compact
+    ? `<span title="Calificación del huésped: ${filled}/5" style="display:inline-flex;align-items:center;gap:2px;padding:3px 8px;border-radius:999px;background:#fffbeb;border:1.5px solid #fcd34d">${stars}</span>`
+    : `<div style="display:inline-flex;flex-direction:column;align-items:flex-start;gap:2px;padding:6px 10px;border-radius:10px;background:#fffbeb;border:1.5px solid #fcd34d">${label}<span style="display:inline-flex;gap:1px">${stars}</span></div>`;
+  return wrap;
+}
+window.bzwBuildGuestStarsChip = bzwBuildGuestStarsChip;
+
 function huBuildAseoBadgesForLodId(lodId) {
   if (!lodId || typeof BZW_ALL_TASKS === 'undefined' || !BZW_ALL_TASKS.length) {
-    return { aseoChip: '', asignacionesChip: '', fechaTermStr: '' };
+    return { aseoChip: '', asignacionesChip: '', fechaTermStr: '', starsChip: '' };
   }
   if (!BZW_IDX_BY_LODID) { try { bzwBuildTaskIndexes_(); } catch(_) {} }
   const linked = (BZW_IDX_BY_LODID && BZW_IDX_BY_LODID.get(String(lodId))) || [];
-  if (!linked.length) return { aseoChip: '', asignacionesChip: '', fechaTermStr: '' };
+  if (!linked.length) return { aseoChip: '', asignacionesChip: '', fechaTermStr: '', starsChip: '' };
   const score = (tk) => {
     const dept = String(tk.task?.type || tk.raw?.type_department || '').toLowerCase();
     const nm = String(tk.task?.name || '').toLowerCase();
@@ -11807,7 +11829,10 @@ function huBuildAseoBadgesForLodId(lodId) {
   const asignacionesChip = assignDisplay
     ? `<span title="Asignaciones: ${esc(assignNames.join(', '))}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:11px;border:1.5px solid #fdba74;letter-spacing:.02em;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">👥 ${esc(assignDisplay)}</span>`
     : '';
-  return { aseoChip, asignacionesChip, fechaTermStr };
+  // Estrellas del huésped: solo si hay guest_rating en la task ganadora
+  const rating = tk.task?.guest_rating ?? tk.raw?.guest_rating ?? null;
+  const starsChip = bzwBuildGuestStarsChip(rating, { compact: true });
+  return { aseoChip, asignacionesChip, fechaTermStr, starsChip };
 }
 
 function huBuildRecordCard(r) {
@@ -11894,7 +11919,7 @@ function huBuildRecordCard(r) {
 
   // Chips Aseo + Asignaciones (Breezeway) por Lodgify Id del registro
   const lodIdForAseo = String(r['Lodgify Id'] || '').trim();
-  const { aseoChip, asignacionesChip, fechaTermStr } = huBuildAseoBadgesForLodId(lodIdForAseo);
+  const { aseoChip, asignacionesChip, fechaTermStr, starsChip } = huBuildAseoBadgesForLodId(lodIdForAseo);
   const fechaTermChip = fechaTermStr
     ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#f1f5f9;color:#475569;font-weight:700;font-size:10px;border:1px solid #cbd5e1;letter-spacing:.02em">🕓 ${esc(fechaTermStr)}</span>`
     : '';
@@ -11903,7 +11928,7 @@ function huBuildRecordCard(r) {
   const summary = `
     <summary style="cursor:pointer;list-style:none;padding:16px 18px;background:${palette.bg};display:grid;grid-template-columns:1fr auto auto auto;gap:14px;align-items:center">
       <div>
-        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px">${medioBadge}${huespedesChip}${aseoChip}${asignacionesChip}${fechaTermChip}</div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px">${medioBadge}${huespedesChip}${aseoChip}${starsChip}${asignacionesChip}${fechaTermChip}</div>
         <div style="font-size:18px;font-weight:800;color:#111827;line-height:1.25;margin-bottom:6px">${esc(nombre || '—')}</div>
         <div style="font-size:13px;color:#64748b;font-weight:500">${esc(propiedad || '—')}${departamento ? ' · # ' + esc(departamento) : ''}</div>
         <div style="font-size:13px;color:#64748b;font-weight:500;margin-top:2px">${huFmtFecha(ingreso)} → ${huFmtFecha(salida)}</div>
@@ -23812,9 +23837,27 @@ function ocupBuildDetailHtml(b) {
   const srcIcon = ocupSourceIcon(src);
   const status = String(b.Status || '—');
   const personas = b.NumberOfGuests ? `${b.NumberOfGuests} persona(s)` : '—';
+  // Guest cleanliness rating (Breezeway) — busca la task ligada al Lodgify Id
+  let guestStarsBlock = '';
+  try {
+    const badges = (typeof huBuildAseoBadgesForLodId === 'function')
+      ? huBuildAseoBadgesForLodId(String(b.Id || ''))
+      : null;
+    if (badges && badges.starsChip) {
+      guestStarsBlock = `
+        <div class="ocup-detail-section" style="background:#fffbeb;border-color:#fcd34d">
+          <div class="ocup-detail-section-title">⭐ Calificación del huésped</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 0">
+            ${badges.starsChip}
+            <span style="font-size:10px;color:#64748b">según Limpieza Checkout</span>
+          </div>
+        </div>`;
+    }
+  } catch(_) {}
   return `
     <h2 style="margin:0 0 4px;font-size:20px;color:#0f172a;font-weight:800">${esc(guest)}</h2>
     <div style="margin-bottom:14px"><span class="ocup-bar src-${srcCls}" style="position:static;height:auto;padding:4px 10px;font-size:11px;cursor:default;box-shadow:none">${srcIcon} ${esc(src)}</span> <span class="ocup-bar src-default" style="position:static;height:auto;padding:4px 10px;font-size:11px;cursor:default;box-shadow:none">${esc(status)}</span></div>
+    ${guestStarsBlock}
 
     <div class="ocup-detail-section">
       <div class="ocup-detail-section-title">📅 Estancia</div>
