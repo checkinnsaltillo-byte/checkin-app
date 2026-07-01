@@ -13505,7 +13505,7 @@ document.addEventListener('click', (e) => {
 });
 
 // Cache global de las opciones disponibles para cada filtro categórico.
-const LG_FILTER_OPTIONS = { programacion: [], source: [], status: [], propiedad: [], factura: [] };
+const LG_FILTER_OPTIONS = { programacion: [], source: [], status: [], propiedad: [], factura: [], calificacion: ['Con calificación','Sin calificación'], incidencias: ['Con incidencia','Sin incidencia'], objetos: ['Con objeto olvidado','Sin objeto olvidado'] };
 
 /** Devuelve si un booking REQUIERE FACTURA según el match con huéspedes.
  *  Si el huésped declaró "Sí" → "Con factura". Cualquier otro caso → "Sin factura". */
@@ -13613,6 +13613,21 @@ function lgRebuildFilterOptions() {
   lgMultiRender('factura',   '📄 Factura',    LG_FILTER_OPTIONS.factura, {
     optionRenderer: (v) => v === 'Con factura' ? '✅ Requiere factura' : '❌ No requiere factura',
   });
+  // Filtros derivados de Breezeway / Incidencias / Objetos: cada uno con 2 opciones
+  // (Con / Sin). Por default ambas seleccionadas — no filtra hasta que el usuario
+  // deseleccione una explícitamente.
+  lgMultiRender('calificacion', '⭐ Calificación', LG_FILTER_OPTIONS.calificacion, {
+    defaultSelected: LG_FILTER_OPTIONS.calificacion,
+    optionRenderer: (v) => v === 'Con calificación' ? '⭐ Con calificación' : '☆ Sin calificación',
+  });
+  lgMultiRender('incidencias', '🚨 Incidencias', LG_FILTER_OPTIONS.incidencias, {
+    defaultSelected: LG_FILTER_OPTIONS.incidencias,
+    optionRenderer: (v) => v === 'Con incidencia' ? '🚨 Con incidencia' : '· Sin incidencia',
+  });
+  lgMultiRender('objetos', '🧳 Objetos olvidados', LG_FILTER_OPTIONS.objetos, {
+    defaultSelected: LG_FILTER_OPTIONS.objetos,
+    optionRenderer: (v) => v === 'Con objeto olvidado' ? '🧳 Con objeto olvidado' : '· Sin objeto olvidado',
+  });
   // Meses: default = mes en curso. Formatea como "Enero 2026".
   const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const fmtMes = (ym) => {
@@ -13693,6 +13708,50 @@ function huRowToSyntheticBooking(r) {
   };
 }
 
+/** ¿La reserva tiene calificación del huésped (Breezeway rating)? */
+function lgBookingHasCalificacion(b) {
+  if (typeof bzwGetRatingForLodId !== 'function') return false;
+  const id = String(b.Id||'').trim();
+  if (!id) return false;
+  const r = bzwGetRatingForLodId(id);
+  return r != null && Number.isFinite(r);
+}
+/** ¿La reserva tiene reporte de incidencia (INC_STATE.list matches por prop+depto+rango)? */
+function lgBookingHasIncidencia(b) {
+  if (typeof INC_STATE === 'undefined' || !Array.isArray(INC_STATE.list) || !INC_STATE.list.length) return false;
+  const arrIso = lgFmtDateUI(b.DateArrival)   || String((b.__reservacion && b.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = lgFmtDateUI(b.DateDeparture) || String((b.__reservacion && b.__reservacion['Fecha de salida']) || '').slice(0,10);
+  if (!arrIso || !depIso) return false;
+  const propN = alojNorm(b.PropiedadRaw || (b.__reservacion && b.__reservacion['Propiedad']) || '');
+  const deptN = alojNorm(b.DepartamentoRaw || (b.__reservacion && b.__reservacion['# Departamento']) || '');
+  if (!propN || !deptN) return false;
+  for (const r of INC_STATE.list) {
+    if (alojNorm(r['Propiedad']) !== propN) continue;
+    if (alojNorm(r['# Departamento']) !== deptN) continue;
+    const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+    if (f && f >= arrIso && f <= depIso) return true;
+  }
+  return false;
+}
+/** ¿La reserva tiene reporte de objeto olvidado? */
+function lgBookingHasObjeto(b) {
+  if (typeof OBJ_STATE === 'undefined' || !Array.isArray(OBJ_STATE.list) || !OBJ_STATE.list.length) return false;
+  const arrIso = lgFmtDateUI(b.DateArrival)   || String((b.__reservacion && b.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = lgFmtDateUI(b.DateDeparture) || String((b.__reservacion && b.__reservacion['Fecha de salida']) || '').slice(0,10);
+  if (!arrIso || !depIso) return false;
+  const propN = alojNorm(b.PropiedadRaw || (b.__reservacion && b.__reservacion['Propiedad']) || '');
+  const deptN = alojNorm(b.DepartamentoRaw || (b.__reservacion && b.__reservacion['# Departamento']) || '');
+  if (!propN || !deptN) return false;
+  for (const r of OBJ_STATE.list) {
+    if (alojNorm(r['Propiedad']) !== propN) continue;
+    if (alojNorm(r['# Departamento']) !== deptN) continue;
+    // Objetos usan "Fecha encontrado" o similar; probamos varios campos
+    const f = String(r['Fecha encontrado'] || r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+    if (f && f >= arrIso && f <= depIso) return true;
+  }
+  return false;
+}
+
 function lgGetFiltered(sourceList) {
   // Sets de valores activos para cada filtro multi-select (null = no filtra)
   const pgSet = lgMultiGetSet('programacion', LG_FILTER_OPTIONS.programacion || []);
@@ -13700,6 +13759,9 @@ function lgGetFiltered(sourceList) {
   const stSet  = lgMultiGetSet('status',     LG_FILTER_OPTIONS.status     || []);
   const prSet  = lgMultiGetSet('propiedad',  LG_FILTER_OPTIONS.propiedad  || []);
   const facSet = lgMultiGetSet('factura',    LG_FILTER_OPTIONS.factura    || []);
+  const calSet = lgMultiGetSet('calificacion', LG_FILTER_OPTIONS.calificacion || []);
+  const incSet = lgMultiGetSet('incidencias',  LG_FILTER_OPTIONS.incidencias  || []);
+  const objSet = lgMultiGetSet('objetos',      LG_FILTER_OPTIONS.objetos      || []);
   const nb  = (document.getElementById('lg-filtro-nombre')?.value || '').toLowerCase().trim();
   // Rango del slider (YYYY-MM-DD). Booking pasa si toca cualquier fecha:
   // DateArrival <= rangeEnd  AND  DateDeparture >= rangeStart
@@ -13735,6 +13797,21 @@ function lgGetFiltered(sourceList) {
     }
     if (facSet) {
       if (!facSet.has(lgBookingFacturaState(b).toLowerCase())) return false;
+    }
+    if (calSet) {
+      const has = lgBookingHasCalificacion(b);
+      const key = has ? 'con calificación' : 'sin calificación';
+      if (!calSet.has(key)) return false;
+    }
+    if (incSet) {
+      const has = lgBookingHasIncidencia(b);
+      const key = has ? 'con incidencia' : 'sin incidencia';
+      if (!incSet.has(key)) return false;
+    }
+    if (objSet) {
+      const has = lgBookingHasObjeto(b);
+      const key = has ? 'con objeto olvidado' : 'sin objeto olvidado';
+      if (!objSet.has(key)) return false;
     }
     if (nb) {
       // Búsqueda libre en TODOS los campos del booking + del huesped
@@ -14808,7 +14885,7 @@ window.lgRefreshAll = async function() {
 window.lgClearFilters = function() {
   // Multi-select: todo seleccionado = sin filtro (excepto meses, que mantiene
   // el mes en curso para no traer históricos infinitos)
-  ['programacion','source','status','propiedad','factura'].forEach(id => {
+  ['programacion','source','status','propiedad','factura','calificacion','incidencias','objetos'].forEach(id => {
     LG_STATE.multiSel[id] = new Set(LG_FILTER_OPTIONS[id] || []);
   });
   const now = new Date();
