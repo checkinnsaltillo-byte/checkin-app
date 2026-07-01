@@ -12523,6 +12523,9 @@ const LG_STATE = {
     propiedad: null,
     factura: null,
     meses: null,
+    calificacion: null,
+    incidencias: null,
+    objetos: null,
   },
   // Map booking.Id (string) → row de Información de huéspedes
   matches: new Map(),
