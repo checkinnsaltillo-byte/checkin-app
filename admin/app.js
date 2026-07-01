@@ -13714,26 +13714,60 @@ function huRowToSyntheticBooking(r) {
   };
 }
 
+/** Resuelve prop+depto normalizados de un booking (real o synthetic) usando
+ *  el catálogo alojamientos cuando es posible. Fallback a los campos crudos. */
+function lgBookingPropDepNorm_(b) {
+  // 1) Intenta mediante el catálogo (más robusto — normaliza HouseName)
+  try {
+    if (typeof lgFindAlojamiento === 'function') {
+      const aloj = lgFindAlojamiento({
+        houseId:      b.HouseId || '',
+        houseName:    b.HouseName || '',
+        propiedad:    b.PropiedadRaw    || (b.__reservacion ? b.__reservacion['Propiedad']      : ''),
+        departamento: b.DepartamentoRaw || (b.__reservacion ? b.__reservacion['# Departamento'] : ''),
+      });
+      if (aloj) {
+        return {
+          propN: alojNorm(aloj['Propiedad'] || ''),
+          deptN: alojNorm(String(aloj['# Departamento'] || '').replace(/^#\s*/, '')),
+        };
+      }
+    }
+  } catch(_) {}
+  // 2) Fallback a campos crudos
+  const propRaw = b.PropiedadRaw || (b.__reservacion && b.__reservacion['Propiedad']) || b.HouseName || '';
+  const deptRaw = b.DepartamentoRaw || (b.__reservacion && b.__reservacion['# Departamento']) || '';
+  return { propN: alojNorm(propRaw), deptN: alojNorm(String(deptRaw).replace(/^#\s*/,'')) };
+}
+
+/** Fechas ISO de estancia (arrival, departure) del booking, tolerante a shapes. */
+function lgBookingArrDepIso_(b) {
+  const arrIso = lgFmtDateUI(b.DateArrival)   || String((b.__reservacion && b.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = lgFmtDateUI(b.DateDeparture) || String((b.__reservacion && b.__reservacion['Fecha de salida']) || '').slice(0,10);
+  return { arrIso, depIso };
+}
+
 /** ¿La reserva tiene calificación del huésped (Breezeway rating)? */
 function lgBookingHasCalificacion(b) {
   if (typeof bzwGetRatingForLodId !== 'function') return false;
-  const id = String(b.Id||'').trim();
-  if (!id) return false;
-  const r = bzwGetRatingForLodId(id);
-  return r != null && Number.isFinite(r);
+  // Real Lodgify: b.Id. Sintético (huRow): b.LodgifyId. Probar ambos.
+  const ids = [String(b.LodgifyId||'').trim(), String(b.Id||'').trim()].filter(Boolean);
+  for (const id of ids) {
+    const r = bzwGetRatingForLodId(id);
+    if (r != null && Number.isFinite(r)) return true;
+  }
+  return false;
 }
 /** ¿La reserva tiene reporte de incidencia (INC_STATE.list matches por prop+depto+rango)? */
 function lgBookingHasIncidencia(b) {
   if (typeof INC_STATE === 'undefined' || !Array.isArray(INC_STATE.list) || !INC_STATE.list.length) return false;
-  const arrIso = lgFmtDateUI(b.DateArrival)   || String((b.__reservacion && b.__reservacion['Fecha de ingreso']) || '').slice(0,10);
-  const depIso = lgFmtDateUI(b.DateDeparture) || String((b.__reservacion && b.__reservacion['Fecha de salida']) || '').slice(0,10);
+  const { arrIso, depIso } = lgBookingArrDepIso_(b);
   if (!arrIso || !depIso) return false;
-  const propN = alojNorm(b.PropiedadRaw || (b.__reservacion && b.__reservacion['Propiedad']) || '');
-  const deptN = alojNorm(b.DepartamentoRaw || (b.__reservacion && b.__reservacion['# Departamento']) || '');
+  const { propN, deptN } = lgBookingPropDepNorm_(b);
   if (!propN || !deptN) return false;
   for (const r of INC_STATE.list) {
     if (alojNorm(r['Propiedad']) !== propN) continue;
-    if (alojNorm(r['# Departamento']) !== deptN) continue;
+    if (alojNorm(String(r['# Departamento']||'').replace(/^#\s*/,'')) !== deptN) continue;
     const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
     if (f && f >= arrIso && f <= depIso) return true;
   }
@@ -13742,15 +13776,13 @@ function lgBookingHasIncidencia(b) {
 /** ¿La reserva tiene reporte de objeto olvidado? */
 function lgBookingHasObjeto(b) {
   if (typeof OBJ_STATE === 'undefined' || !Array.isArray(OBJ_STATE.list) || !OBJ_STATE.list.length) return false;
-  const arrIso = lgFmtDateUI(b.DateArrival)   || String((b.__reservacion && b.__reservacion['Fecha de ingreso']) || '').slice(0,10);
-  const depIso = lgFmtDateUI(b.DateDeparture) || String((b.__reservacion && b.__reservacion['Fecha de salida']) || '').slice(0,10);
+  const { arrIso, depIso } = lgBookingArrDepIso_(b);
   if (!arrIso || !depIso) return false;
-  const propN = alojNorm(b.PropiedadRaw || (b.__reservacion && b.__reservacion['Propiedad']) || '');
-  const deptN = alojNorm(b.DepartamentoRaw || (b.__reservacion && b.__reservacion['# Departamento']) || '');
+  const { propN, deptN } = lgBookingPropDepNorm_(b);
   if (!propN || !deptN) return false;
   for (const r of OBJ_STATE.list) {
     if (alojNorm(r['Propiedad']) !== propN) continue;
-    if (alojNorm(r['# Departamento']) !== deptN) continue;
+    if (alojNorm(String(r['# Departamento']||'').replace(/^#\s*/,'')) !== deptN) continue;
     // Objetos usan "Fecha encontrado" o similar; probamos varios campos
     const f = String(r['Fecha encontrado'] || r['Fecha'] || r['Timestamp'] || '').slice(0,10);
     if (f && f >= arrIso && f <= depIso) return true;
