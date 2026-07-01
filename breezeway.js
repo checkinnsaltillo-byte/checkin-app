@@ -201,6 +201,54 @@ function isDuplicate(key, lastUpdated) {
   return false;
 }
 
+// Extrae la respuesta del line_item "Calificacion del Huesped" (1–5) del template
+// de Limpieza Checkout. Se busca por regex tolerante a acentos y a variaciones
+// mínimas del label (el personal de limpieza responde en Breezeway).
+// El endpoint /public/inventory/v1/task/{id} devuelve la task con la propiedad
+// line_items[] cuando el template tiene checklist. Cada item puede tener
+// distintos shapes según su tipo (número, opción, string). Probamos varios
+// paths de valor.
+// Devuelve un número 1..5 o null.
+function extractGuestRating(taskDetail) {
+  if (!taskDetail || typeof taskDetail !== "object") return null;
+  const items = [];
+  const collect = (arr) => Array.isArray(arr) && items.push(...arr);
+  collect(taskDetail.line_items);
+  collect(taskDetail.checklist_items);
+  collect(taskDetail.checklist);
+  // Algunos shapes anidan por secciones: task.sections[].items[]
+  if (Array.isArray(taskDetail.sections)) {
+    for (const sec of taskDetail.sections) {
+      collect(sec.line_items);
+      collect(sec.items);
+      collect(sec.checklist_items);
+    }
+  }
+  if (!items.length) return null;
+  const rx = /calificaci[oó]n.*hu[eé]sped|hu[eé]sped.*(limpio|calific)/i;
+  for (const it of items) {
+    const title = String(it?.title || it?.name || it?.label || it?.question || "").trim();
+    if (!title || !rx.test(title)) continue;
+    // Probar múltiples campos de valor
+    const candidates = [
+      it.value, it.response, it.answer, it.selected_value, it.rating,
+      it.numeric_value, it.number, it.result, it.data?.value, it.data?.answer,
+      Array.isArray(it.options) ? it.options.find(o => o?.selected)?.value : null,
+    ];
+    for (const c of candidates) {
+      if (c == null || c === "") continue;
+      const n = Number(String(c).match(/-?\d+/)?.[0]);
+      if (Number.isFinite(n) && n >= 1 && n <= 5) return n;
+    }
+  }
+  // Log una vez (por proceso) el shape para poder ajustar si no matchea
+  if (!globalThis.__bzwLineItemsShapeLogged) {
+    globalThis.__bzwLineItemsShapeLogged = true;
+    try { console.info("[BZW] line_items sample (para ajustar extractor):", JSON.stringify(items.slice(0,3)).slice(0,800)); } catch(_) {}
+  }
+  return null;
+}
+
 async function fetchTaskById(taskId) {
   // Trae el task COMPLETO desde la API de BZW. El webhook a veces llega
   // con datos parciales (sin scheduled_date / due_date) — esto enriquece.
@@ -261,6 +309,7 @@ async function handleTaskEvent(payload) {
     return null; // No es un aseo según el filtro; lo ignoramos.
   }
 
+  const guest_rating = extractGuestRating(full || task);
   return pushAlert({
     kind: "task-completed",
     event_type,
@@ -277,6 +326,7 @@ async function handleTaskEvent(payload) {
       finished_by: task.finished_by?.name || task.finished_by || "",
       status: task.status?.name || task.status,
       report_url: task.report_url || "",
+      guest_rating,
     },
     raw: { ...payload, task },
   });
@@ -402,6 +452,7 @@ function flatAlertForSheet(a) {
     rate_paid:     r.rate_paid ?? "",
     template_id:   r.template_id ?? t.template_id ?? "",
     report_url:    t.report_url ?? r.report_url ?? "",
+    guest_rating:  (t.guest_rating != null ? t.guest_rating : (rt.guest_rating != null ? rt.guest_rating : "")),
     detail:        a.detail ?? a.title ?? "",
     raw_json:      JSON.stringify(a.raw || a),
   };
@@ -547,6 +598,7 @@ export function registerBreezewayRoutes(app) {
             rate_paid: r.rate_paid || "",
             template_id: r.template_id || "",
             report_url: r.report_url || "",
+            guest_rating: (r.guest_rating === "" || r.guest_rating == null) ? null : Number(r.guest_rating),
             assigned_to: r.assigned_to || "",
             // Si el sheet trae las nuevas columnas, las pasamos para que
             // el frontend pueda mostrarlas sin volver a buscar en LG_STATE.
@@ -771,13 +823,35 @@ export function registerBreezewayRoutes(app) {
       });
       await Promise.all(workers);
 
-      // 4) Convertir a la forma "alert".
-      // Schema real Breezeway: home_id (number), name, type_department,
-      // finished_at, finished_by:{id,name}|null, scheduled_date, created_at, status.
+      // 4) Enriquecer tasks completadas con detalle (para line_items → guest_rating).
+      // La lista /task/?home_id=... suele no incluir line_items. Por eso, para
+      // las que tienen finished_at, hacemos fetch del detalle con concurrencia
+      // limitada. Solo tasks completadas — no todas, para no explotar la API.
+      const finishedTasks = allTasks.filter((t) => !!t.finished_at);
+      const enrichConcurrency = 5;
+      const enrichQueue = finishedTasks.slice();
+      const enrichedById = new Map();
+      const enrichWorkers = Array.from({ length: enrichConcurrency }, async () => {
+        while (enrichQueue.length) {
+          const t = enrichQueue.shift();
+          if (!t || !t.id) continue;
+          try {
+            const detail = await fetchTaskById(t.id);
+            if (detail) enrichedById.set(t.id, detail);
+          } catch (e) {
+            console.warn(`[BZW] enrich detail ${t.id} err:`, e?.message || e);
+          }
+        }
+      });
+      await Promise.all(enrichWorkers);
+
+      // 5) Convertir a la forma "alert".
       const alerts = allTasks.map((t) => {
         const homeId = t.home_id;
         const homeName = propIdx.get(homeId)?.name || `Alojamiento ${homeId || "?"}`;
         const finished = !!t.finished_at;
+        const detail = enrichedById.get(t.id) || t;
+        const guest_rating = finished ? extractGuestRating(detail) : null;
         return {
           kind: "task-historical",
           event_type: finished ? "task-completed" : "task",
@@ -795,6 +869,7 @@ export function registerBreezewayRoutes(app) {
             status: t.status,
             scheduled_date: t.scheduled_date,
             report_url: t.report_url,
+            guest_rating,
           },
           raw: t,
         };

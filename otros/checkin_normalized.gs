@@ -58,11 +58,16 @@ const BREEZEWAY_ALERTS_HEADERS = [
   "total_time","paused","tags",
   "rate_type","rate_paid",
   "template_id","report_url",
+  // Calificación del huésped que el personal de limpieza responde en el
+  // template "Limpieza Checkout" — item "Calificacion del Huesped Que tan
+  // Limpio dejo el departamento ? 5 = MUY Limpio 1= MUY Sucio". Se extrae
+  // de line_items del task detail en el backend Node.
+  "guest_rating",
   "detail",
   // ─── Payload crudo (debug) ───
   "raw_json"
 ];
-const BREEZEWAY_ALERTS_MAX = 5000; // tope para evitar crecimiento infinito
+const BREEZEWAY_ALERTS_MAX = 200000; // tope alto para conservar histórico completo
 
 const PUSH_SUBS_SHEET = "Push_Subscriptions";
 const PUSH_SUBS_HEADERS = ["phoneKey","endpoint","p256dh","auth","ua","created_at","updated_at","badge_count","last_sent_at","categories"];
@@ -159,9 +164,15 @@ function doPost(e) {
     if (action === "delete_reservacion") return jsonOutput_(deleteReservacion_(data));
     if (action === "lodgify_list") return jsonOutput_(getLodgifyReservations_(data));
     if (action === "lodgify_sync") return jsonOutput_(syncLodgifyReservations_(data));
+    if (action === "lg_hide_booking") return jsonOutput_(hideLodgifyBooking_(data));
+    if (action === "unify_reservaciones") return jsonOutput_(unifyReservacionesRows_(data));
+    if (action === "unhide_reservacion") return jsonOutput_(unhideReservacion_(data));
+    if (action === "hide_reservacion") return jsonOutput_(hideReservacion_(data));
     if (action === "breezeway_alert") return jsonOutput_(saveBreezewayAlert_(data));
     if (action === "breezeway_alerts_bulk") return jsonOutput_(saveBreezewayAlertsBulk_(data));
     if (action === "breezeway_alerts_cleanup") return jsonOutput_(cleanBreezewayTestRows_());
+    if (action === "breezeway_alerts_sort") return jsonOutput_(sortBreezewayBySched_());
+    if (action === "breezeway_alerts_dedupe") return jsonOutput_(dedupeBreezewayAlerts_());
     // ─── Carga de datos bancarios (Registros contables → BANCOS) ───
     if (action === "bn_cuentas_bancarias_list") return jsonOutput_(bnCuentasBancariasList_());
     if (action === "bn_bancos_dedupe_index")    return jsonOutput_(bnBancosDedupeIndex_());
@@ -171,6 +182,42 @@ function doPost(e) {
     if (action === "bn_drive_get_file")         return jsonOutput_(bnDriveGetFile_(data));
     if (action === "bn_imported_files_list")    return jsonOutput_(bnImportedFilesList_());
     if (action === "bn_imported_files_mark")    return jsonOutput_(bnImportedFilesMark_(data));
+    // ─── Tickets (Ticket Vision) ───
+    if (action === "upload_ticket_image")          return jsonOutput_(uploadTicketImage_(data));
+    if (action === "append_rows")                  return jsonOutput_(appendRows_(data));
+    // ─── Incidencias ───
+    if (action === "upload_incidencia_image")      return jsonOutput_(uploadIncidenciaImage_(data));
+    if (action === "save_incidencia")              return jsonOutput_(saveIncidencia_(data));
+    if (action === "update_incidencia")            return jsonOutput_(updateIncidencia_(data));
+    if (action === "upload_objeto_image")          return jsonOutput_(uploadObjetoImage_(data));
+    if (action === "save_objeto")                  return jsonOutput_(saveObjeto_(data));
+    if (action === "update_objeto")                return jsonOutput_(updateObjeto_(data));
+    if (action === "rh_upload_obligacion")         return jsonOutput_(rhUploadObligacion_(data));
+    if (action === "rh_list_obligaciones")         return jsonOutput_(rhListObligaciones_(data));
+    if (action === "rh_delete_obligacion")         return jsonOutput_(rhDeleteObligacion_(data));
+    if (action === "rh_set_obligacion_total")      return jsonOutput_(rhSetObligacionTotal_(data));
+    if (action === "rh_list_obligacion_totales")   return jsonOutput_(rhListObligacionTotales_(data));
+    if (action === "rh_list_empleados")            return jsonOutput_(rhListEmpleados_());
+    if (action === "rh_save_empleado")             return jsonOutput_(rhSaveEmpleado_(data));
+    if (action === "rh_list_asistencia")           return jsonOutput_(rhListSimple_('RH_Asistencia'));
+    if (action === "rh_save_asistencia")           return jsonOutput_(rhSaveSimple_('RH_Asistencia', data, RH_ASIST_HEADERS, 'AST'));
+    if (action === "rh_list_ausencias")            return jsonOutput_(rhListSimple_('RH_Ausencias'));
+    if (action === "rh_save_ausencia")             return jsonOutput_(rhSaveSimple_('RH_Ausencias', data, RH_AUSE_HEADERS, 'AUS'));
+    if (action === "rh_list_compensaciones")       return jsonOutput_(rhListSimple_('RH_Compensaciones'));
+    if (action === "rh_save_compensacion")         return jsonOutput_(rhSaveSimple_('RH_Compensaciones', data, RH_COMP_HEADERS, 'CMP'));
+    if (action === "rh_delete_compensacion")       return jsonOutput_(rhDeleteByID_('RH_Compensaciones', String((data && data.ID) || '')));
+    if (action === "rh_delete_asistencia")         return jsonOutput_(rhDeleteByID_('RH_Asistencia', String((data && data.ID) || '')));
+    if (action === "rh_delete_ausencia")           return jsonOutput_(rhDeleteByID_('RH_Ausencias', String((data && data.ID) || '')));
+    if (action === "sys_login")                    return jsonOutput_(sysLogin_(data));
+    if (action === "get_tickets_index")            return jsonOutput_(getTicketsIndex_());
+    if (action === "get_all_tickets")              return jsonOutput_(getAllTickets_());
+    if (action === "update_ticket_classification") return jsonOutput_(updateTicketClassification_(data));
+    if (action === "delete_ticket")                return jsonOutput_(deleteTicket_(data));
+    // ─── Lectura/escritura BANCOS (Registros contables) ───
+    if (action === "get_bancos_data")              return jsonOutput_(getBancosData_(SpreadsheetApp.openById(SPREADSHEET_ID)));
+    if (action === "save_banco_clasificacion")     return jsonOutput_(saveBancoClasificacion_(SpreadsheetApp.openById(SPREADSHEET_ID), data));
+    if (action === "bn_set_ticket_matches_bulk")   return jsonOutput_(bnSetTicketMatchesBulk_(SpreadsheetApp.openById(SPREADSHEET_ID), data));
+    if (action === "save_presupuesto")             return jsonOutput_(savePresupuesto_(SpreadsheetApp.openById(SPREADSHEET_ID), data));
     return jsonOutput_({ ok: false, error: "Acción no reconocida." });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message || String(err) });
@@ -188,6 +235,28 @@ function doGet(e) {
     if (action === "update_reservacion_cell") return jsonOutput_(updateReservacionCell_(e.parameter || {}));
     if (action === "get_vapid_public_key") return jsonOutput_({ ok: true, key: VAPID_PUBLIC_KEY });
     if (action === "list_alojamientos") return jsonOutput_(listAlojamientos_());
+    if (action === "list_dispositivos") return jsonOutput_(listDispositivos_());
+    if (action === "list_personal")     return jsonOutput_(listPersonal_());
+    if (action === "rh_list_empleados") return jsonOutput_(rhListEmpleados_());
+    if (action === "rh_save_empleado")  return jsonOutput_(rhSaveEmpleado_(e.parameter || {}));
+    if (action === "rh_list_asistencia") return jsonOutput_(rhListSimple_('RH_Asistencia'));
+    if (action === "rh_save_asistencia") return jsonOutput_(rhSaveSimple_('RH_Asistencia', e.parameter || {}, RH_ASIST_HEADERS, 'AST'));
+    if (action === "rh_list_ausencias") return jsonOutput_(rhListSimple_('RH_Ausencias'));
+    if (action === "rh_save_ausencia")  return jsonOutput_(rhSaveSimple_('RH_Ausencias', e.parameter || {}, RH_AUSE_HEADERS, 'AUS'));
+    if (action === "rh_list_compensaciones") return jsonOutput_(rhListSimple_('RH_Compensaciones'));
+    if (action === "rh_save_compensacion")   return jsonOutput_(rhSaveSimple_('RH_Compensaciones', e.parameter || {}, RH_COMP_HEADERS, 'CMP'));
+    if (action === "rh_delete_compensacion") return jsonOutput_(rhDeleteByID_('RH_Compensaciones', String((e.parameter && e.parameter.ID) || '')));
+    if (action === "rh_delete_asistencia")   return jsonOutput_(rhDeleteByID_('RH_Asistencia', String((e.parameter && e.parameter.ID) || '')));
+    if (action === "rh_delete_ausencia")     return jsonOutput_(rhDeleteByID_('RH_Ausencias', String((e.parameter && e.parameter.ID) || '')));
+    if (action === "sys_login")              return jsonOutput_(sysLogin_(e.parameter || {}));
+    if (action === "upload_incidencia_image") return jsonOutput_(uploadIncidenciaImage_(e.parameter || {}));
+    if (action === "save_incidencia")         return jsonOutput_(saveIncidencia_(e.parameter || {}));
+    if (action === "list_incidencias")        return jsonOutput_(listIncidencias_());
+    if (action === "update_incidencia")       return jsonOutput_(updateIncidencia_(e.parameter || {}));
+    if (action === "upload_objeto_image")     return jsonOutput_(uploadObjetoImage_(e.parameter || {}));
+    if (action === "save_objeto")             return jsonOutput_(saveObjeto_(e.parameter || {}));
+    if (action === "list_objetos")            return jsonOutput_(listObjetos_());
+    if (action === "update_objeto")           return jsonOutput_(updateObjeto_(e.parameter || {}));
     if (action === "breezeway_alerts_list") return jsonOutput_(listBreezewayAlerts_(e.parameter || {}));
     if (action === "get_otp_methods") return jsonOutput_(getOtpMethods_(e.parameter || {}));
     if (action === "list_push_subscriptions") return jsonOutput_(listPushSubscriptions_(e.parameter || {}));
@@ -1024,10 +1093,14 @@ function saveBreezewayAlertsBulkLocked_(incoming) {
  *  Sin esta normalización las keys no matcheaban → todo se duplicaba. */
 function normalizeKeyValue_(v) {
   if (v == null || v === "") return "";
+  // Date object → "yyyy-MM-ddTHH:mm:ss" en TZ del script (mismo formato que
+  // entrega la API de Breezeway, evita el shift UTC de .toISOString()).
   if (Object.prototype.toString.call(v) === "[object Date]") {
-    return v.toISOString(); // formato estable (UTC)
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss");
   }
-  return String(v).trim();
+  // String: trim + cortar a 19 chars (descarta milisegundos y zona horaria).
+  // Cubre "2026-05-18T14:00:59.000Z" vs "2026-05-18T14:00:59" como iguales.
+  return String(v).trim().slice(0, 19);
 }
 
 /** RESET TOTAL de la hoja Breezeway_Alerts.
@@ -1080,27 +1153,138 @@ function cleanBreezewayTestRows_() {
 }
 
 /** Devuelve las últimas N alertas (más recientes primero). */
+/** Elimina filas duplicadas en Breezeway_Alerts comparando por
+ *  (task_id|event_type|finished_at) — la misma key que usa el upsert.
+ *  Conserva la fila MÁS RECIENTE por received_at (la última escrita gana).
+ *  Devuelve { ok, scanned, deleted, remaining }. */
+function dedupeBreezewayAlerts_() {
+  const ss = getSpreadsheet_();
+  const sh = ss.getSheetByName(BREEZEWAY_ALERTS_SHEET);
+  if (!sh) return { ok: false, error: "sheet no encontrado" };
+  const lastRow = sh.getLastRow();
+  if (lastRow < 3) return { ok: true, scanned: 0, deleted: 0, remaining: lastRow - 1 };
+  const lastCol = sh.getLastColumn();
+  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  const idxTask = headers.indexOf("task_id");
+  const idxEv   = headers.indexOf("event_type");
+  const idxFin  = headers.indexOf("finished_at");
+  const idxRecv = headers.indexOf("received_at");
+  if (idxTask < 0 || idxEv < 0 || idxFin < 0) {
+    return { ok: false, error: "faltan columnas task_id/event_type/finished_at" };
+  }
+  const all = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  // Por cada key, conservar la fila completa con received_at más reciente.
+  const winnerByKey = new Map(); // key → row[]
+  for (let i = 0; i < all.length; i++) {
+    const row = all[i];
+    if (!row[idxTask] && !row[idxEv]) continue; // saltar vacías
+    const k = normalizeKeyValue_(row[idxTask]) + "|" +
+              normalizeKeyValue_(row[idxEv])   + "|" +
+              normalizeKeyValue_(row[idxFin]);
+    const recv = idxRecv >= 0 ? String(row[idxRecv] || "") : "";
+    const prev = winnerByKey.get(k);
+    if (!prev) { winnerByKey.set(k, { row, recv }); continue; }
+    if (recv > prev.recv) winnerByKey.set(k, { row, recv });
+  }
+  const winners = Array.from(winnerByKey.values()).map(w => w.row);
+  // Borrado masivo: limpiar datos en bloque + reescribir solo winners.
+  // (sh.deleteRow loop es O(N) cellEvent ≈ 50ms cada uno → tarda >6min con 22k.)
+  if (lastRow > 1) sh.getRange(2, 1, lastRow - 1, lastCol).clearContent();
+  if (winners.length) {
+    sh.getRange(2, 1, winners.length, lastCol).setValues(winners);
+  }
+  SpreadsheetApp.flush();
+  return {
+    ok: true,
+    scanned: all.length,
+    deleted: all.length - winners.length,
+    remaining: winners.length,
+  };
+}
+
+/** Ordena Breezeway_Alerts por scheduled_date ASC (data rows). Después de
+ *  esto, listBreezewayAlerts_ (que lee del final) devolverá siempre las
+ *  tasks con scheduled_date MÁS RECIENTE en sus N filas. */
+function sortBreezewayBySched_() {
+  const ss = getSpreadsheet_();
+  const sh = ss.getSheetByName(BREEZEWAY_ALERTS_SHEET);
+  if (!sh) return { ok: false, error: "sheet no encontrado" };
+  const lastRow = sh.getLastRow();
+  if (lastRow < 3) return { ok: true, sorted: 0, message: "nada que ordenar" };
+  const lastCol = sh.getLastColumn();
+  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  const schedIdx = headers.indexOf("scheduled_date");
+  if (schedIdx < 0) return { ok: false, error: "columna scheduled_date no existe" };
+  sh.getRange(2, 1, lastRow - 1, lastCol).sort({ column: schedIdx + 1, ascending: true });
+  return { ok: true, sorted: lastRow - 1 };
+}
+
 function listBreezewayAlerts_(params) {
-  const limit = Math.min(parseInt(params.limit, 10) || 100, 5000);
+  const limit = Math.min(parseInt(params.limit, 10) || 100, 200000);
+  // Filtro opcional por scheduled_date >= from_sched (formato YYYY-MM-DD).
+  // El orden de inserción del sheet no siempre corresponde al orden de
+  // scheduled_date — por eso si pedimos "latest N" puede haber tasks recientes
+  // fuera de la ventana. Con from_sched, leemos toda la hoja y filtramos por
+  // fecha en memoria, garantizando que TODAS las tasks con scheduled_date
+  // >= from_sched salgan en la respuesta.
+  const fromSched = String(params.from_sched || "").slice(0, 10);
   const ss = getSpreadsheet_();
   const sh = ss.getSheetByName(BREEZEWAY_ALERTS_SHEET);
   if (!sh) return { ok: true, alerts: [], count: 0 };
   const lastRow = sh.getLastRow();
   if (lastRow < 2) return { ok: true, alerts: [], count: 0 };
   const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-  // Lee desde el final (más recientes) hacia atrás.
-  const window = Math.min(limit, lastRow - 1);
-  const startRow = lastRow - window + 1;
-  const rows = sh.getRange(startRow, 1, window, headers.length).getValues();
-  const alerts = rows.map(r => {
-    const obj = {};
-    headers.forEach((h, i) => { obj[h] = r[i]; });
-    // Re-hidrata raw_json si está
-    if (obj.raw_json) {
-      try { obj.raw = JSON.parse(obj.raw_json); } catch (_) {}
+  let alerts;
+  if (fromSched) {
+    // Leer TODA la hoja y filtrar por scheduled_date en memoria.
+    const all = sh.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    const schedIdx = headers.indexOf("scheduled_date");
+    const finIdx = headers.indexOf("finished_at");
+    const filtered = [];
+    for (const r of all) {
+      let sched = "";
+      if (schedIdx >= 0) {
+        const v = r[schedIdx];
+        if (v instanceof Date) {
+          sched = Utilities.formatDate(v, Session.getScriptTimeZone(), "yyyy-MM-dd");
+        } else {
+          sched = String(v || "").slice(0, 10);
+        }
+      }
+      if (!sched && finIdx >= 0) {
+        const v = r[finIdx];
+        if (v instanceof Date) sched = Utilities.formatDate(v, Session.getScriptTimeZone(), "yyyy-MM-dd");
+        else sched = String(v || "").slice(0, 10);
+      }
+      if (sched && sched >= fromSched) filtered.push(r);
     }
-    return obj;
-  }).reverse(); // más reciente arriba
+    // Ordenar por scheduled_date DESC (más reciente primero) y cortar al límite
+    if (schedIdx >= 0) {
+      filtered.sort((a, b) => {
+        const sa = a[schedIdx] instanceof Date ? Utilities.formatDate(a[schedIdx], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(a[schedIdx]||"").slice(0,10);
+        const sb = b[schedIdx] instanceof Date ? Utilities.formatDate(b[schedIdx], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(b[schedIdx]||"").slice(0,10);
+        return sb.localeCompare(sa);
+      });
+    }
+    const sliced = filtered.slice(0, limit);
+    alerts = sliced.map(r => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = r[i]; });
+      if (obj.raw_json) { try { obj.raw = JSON.parse(obj.raw_json); } catch (_) {} }
+      return obj;
+    });
+  } else {
+    // Comportamiento legacy: leer desde el final (latest N por inserción).
+    const window = Math.min(limit, lastRow - 1);
+    const startRow = lastRow - window + 1;
+    const rows = sh.getRange(startRow, 1, window, headers.length).getValues();
+    alerts = rows.map(r => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = r[i]; });
+      if (obj.raw_json) { try { obj.raw = JSON.parse(obj.raw_json); } catch (_) {} }
+      return obj;
+    }).reverse();
+  }
   return { ok: true, count: alerts.length, alerts };
 }
 
@@ -1121,6 +1305,879 @@ function listAlojamientos_() {
     return obj;
   });
   return { ok: true, rows, total: rows.length };
+}
+
+function listDispositivos_() {
+  const ss = getSpreadsheet_();
+  function _normName(s){
+    return String(s || '').trim().toLowerCase()
+      .normalize("NFD").replace(new RegExp("[̀-ͯ]", "g"), "")
+      .replace(/[^a-z0-9]/g, '');
+  }
+  // Acepta "Dispositivos", "dispositivos", "DISPOSITIVOS", "Dispositívos", etc.
+  const sheets = ss.getSheets();
+  const sh = sheets.find(function(s){
+    var n = _normName(s.getName());
+    return n === 'dispositivos' || n === 'dispositivo' || n.indexOf('dispositiv') === 0;
+  });
+  if (!sh) {
+    var names = sheets.map(function(s){ return s.getName(); });
+    return { ok: true, rows: [], note: 'No se encontró hoja "Dispositivos". Hojas disponibles: ' + names.join(', ') };
+  }
+  const lastRow = sh.getLastRow();
+  const lastCol = sh.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return { ok: true, rows: [] };
+  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(v => String(v || '').trim());
+  const data = sh.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+  const rows = data.map(r => {
+    const obj = {};
+    for (let i = 0; i < headers.length; i++) {
+      if (headers[i]) obj[headers[i]] = r[i];
+    }
+    return obj;
+  });
+  return { ok: true, rows, total: rows.length };
+}
+
+/** Lista la hoja "Personal" como filas de objetos { <header>: <valor> }.
+ *  Consumido por el módulo Incidencias del frontend para poblar el
+ *  catálogo de personas involucradas. */
+function listPersonal_() {
+  const ss = getSpreadsheet_();
+  const sh = ss.getSheetByName('Personal');
+  if (!sh) return { ok: true, rows: [], note: 'Hoja "Personal" no existe.' };
+  const lastRow = sh.getLastRow();
+  const lastCol = sh.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return { ok: true, rows: [] };
+  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(v => String(v || '').trim());
+  const data = sh.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+  const rows = data.map(r => {
+    const obj = {};
+    for (let i = 0; i < headers.length; i++) {
+      if (headers[i]) obj[headers[i]] = r[i];
+    }
+    return obj;
+  }).filter(o => String(o['Nombre'] || '').trim()); // descarta filas sin Nombre
+  return { ok: true, rows, total: rows.length };
+}
+
+// ─── INCIDENCIAS ─────────────────────────────────────────────────────────────
+// Sube una foto base64 a la carpeta /Drive/Incidencias/{año}/{mesEs} y
+// devuelve la URL pública. Crea la jerarquía si no existe.
+function uploadIncidenciaImage_(data) {
+  try {
+    var fileObj = data.file ? (typeof data.file === 'string' ? JSON.parse(data.file) : data.file) : null;
+    if (!fileObj || !fileObj.base64) return { ok: false, error: 'Sin base64' };
+    var rawFecha = String(data.fecha || '').slice(0, 10) || Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'America/Monterrey', 'yyyy-MM-dd');
+    var parts = rawFecha.split('-');
+    var anio = parts[0] || String(new Date().getFullYear());
+    var mes = parseInt(parts[1] || '1', 10);
+    var meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    var mesStr = meses[mes - 1] || 'Enero';
+    var aloj = String(data.alojamiento || 'sin_alojamiento').replace(/[\/\\:*?"<>|]/g, '_').slice(0, 60);
+    var ts = Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyyMMdd_HHmmss');
+    var ext = (fileObj.fileName || '.jpg').split('.').pop().toLowerCase();
+    if (ext.length > 5) ext = 'jpg';
+    var name = aloj.replace(/\s+/g, '_').slice(0, 30) + '_' + ts + '.' + ext;
+    var folder = DriveApp.getRootFolder();
+    folder = getOrCreateFolder_(folder, 'Check Inn - Sistemas');
+    folder = getOrCreateFolder_(folder, 'Drive');
+    folder = getOrCreateFolder_(folder, 'Incidencias');
+    folder = getOrCreateFolder_(folder, anio);
+    folder = getOrCreateFolder_(folder, mesStr);
+    var bytes = Utilities.base64Decode(fileObj.base64);
+    var blob = Utilities.newBlob(bytes, fileObj.mimeType || 'image/jpeg', name);
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var id = file.getId();
+    // URL para EMBED en <img>: el thumbnail de Drive funciona cross-origin
+    // y devuelve la imagen real. file.getUrl() devuelve la página viewer.
+    var directUrl = 'https://drive.google.com/thumbnail?id=' + id + '&sz=w2000';
+    return { ok: true, url: directUrl, viewerUrl: file.getUrl(), id: id, name: file.getName() };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+function getOrCreateFolder_(parent, name) {
+  var iter = parent.getFoldersByName(name);
+  if (iter.hasNext()) return iter.next();
+  return parent.createFolder(name);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// RH › Obligaciones — sube archivos a la carpeta raíz de RH/Obligaciones
+// Estructura: {ROOT}/{year}/{MM-MesNombre}/{kind}/[empleado/]archivo.ext
+// ═══════════════════════════════════════════════════════════════════════
+var RH_OBL_ROOT_FOLDER_ID = '1S4M4PPG0UmSlDjY8QHu7-sr3Z3bhzCrs';
+var RH_OBL_KINDS = {
+  'cuota_formato':     { label: 'Formato_cuotas',      empleado: false },
+  'cuota_comprobante': { label: 'Comprobante_cuotas',  empleado: false },
+  'recibo_xml':        { label: 'Recibo_XML',          empleado: true  },
+  'recibo_pdf':        { label: 'Recibo_PDF',          empleado: true  },
+};
+var RH_OBL_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function rhObligacionMonthFolderName_(month) {
+  var mm = ('0' + month).slice(-2);
+  return mm + '-' + RH_OBL_MESES[month - 1];
+}
+function rhObligacionSafe_(s) {
+  return String(s || '').replace(/[\/\\:*?"<>|]/g, '_').replace(/\s+/g, '_').slice(0, 80);
+}
+
+function rhUploadObligacion_(data) {
+  try {
+    var year = parseInt(data.year, 10);
+    var month = parseInt(data.month, 10);
+    var kind = String(data.kind || '');
+    var kindDef = RH_OBL_KINDS[kind];
+    if (!year || !month || month < 1 || month > 12 || !kindDef) {
+      return { ok: false, error: 'Parámetros inválidos (year/month/kind)' };
+    }
+    var fileObj = data.file && (typeof data.file === 'string' ? JSON.parse(data.file) : data.file);
+    if (!fileObj || !fileObj.base64) return { ok: false, error: 'Sin archivo' };
+
+    var empleadoId = String(data.empleadoId || '');
+    var empleadoNombre = String(data.empleadoNombre || '');
+    if (kindDef.empleado && !empleadoId) return { ok: false, error: 'Falta empleadoId para ' + kind };
+
+    var root = DriveApp.getFolderById(RH_OBL_ROOT_FOLDER_ID);
+    var fYear = getOrCreateFolder_(root, String(year));
+    var fMonth = getOrCreateFolder_(fYear, rhObligacionMonthFolderName_(month));
+    var fKind = getOrCreateFolder_(fMonth, kindDef.label);
+    var targetFolder = fKind;
+    if (kindDef.empleado) {
+      var empFolderName = rhObligacionSafe_((empleadoNombre || empleadoId)) + '_' + rhObligacionSafe_(empleadoId);
+      targetFolder = getOrCreateFolder_(fKind, empFolderName);
+    }
+
+    // Borra archivos previos del mismo kind/empleado para que "subir" reemplace
+    var existing = targetFolder.getFiles();
+    while (existing.hasNext()) {
+      try { existing.next().setTrashed(true); } catch (_) {}
+    }
+
+    var origName = String(fileObj.fileName || 'archivo');
+    var ext = (origName.split('.').pop() || '').toLowerCase();
+    if (!ext || ext.length > 6) ext = (kind === 'recibo_xml' ? 'xml' : kind === 'recibo_pdf' ? 'pdf' : 'pdf');
+    var ts = Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyyMMdd_HHmmss');
+    var baseName = kindDef.label + (kindDef.empleado ? '_' + rhObligacionSafe_(empleadoNombre || empleadoId) : '') + '_' + ts + '.' + ext;
+
+    var bytes = Utilities.base64Decode(fileObj.base64);
+    var blob = Utilities.newBlob(bytes, fileObj.mimeType || 'application/octet-stream', baseName);
+    var file = targetFolder.createFile(blob);
+    try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (_) {}
+    return { ok: true, url: file.getUrl(), id: file.getId(), name: file.getName() };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+var RH_OBL_TOTALES_SHEET = 'RH_Obligaciones_Totales';
+function rhGetOrCreateTotalesSheet_() {
+  var ss = getSpreadsheet_();
+  var sh = ss.getSheetByName(RH_OBL_TOTALES_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(RH_OBL_TOTALES_SHEET);
+    sh.appendRow(['Año', 'Mes', 'Total_pagado', 'Actualizado']);
+    sh.getRange(1, 1, 1, 4).setFontWeight('bold').setBackground('#e0e7ff');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function rhSetObligacionTotal_(data) {
+  try {
+    var year = parseInt(data.year, 10);
+    var month = parseInt(data.month, 10);
+    var total = Number(data.total);
+    if (!year || !month || month < 1 || month > 12 || !isFinite(total) || total < 0) {
+      return { ok: false, error: 'Parámetros inválidos' };
+    }
+    var sh = rhGetOrCreateTotalesSheet_();
+    var rng = sh.getDataRange().getValues();
+    var ts = Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyy-MM-dd HH:mm:ss');
+    for (var i = 1; i < rng.length; i++) {
+      if (parseInt(rng[i][0], 10) === year && parseInt(rng[i][1], 10) === month) {
+        sh.getRange(i + 1, 3).setValue(total);
+        sh.getRange(i + 1, 4).setValue(ts);
+        return { ok: true, total: total, actualizado: ts };
+      }
+    }
+    sh.appendRow([year, month, total, ts]);
+    return { ok: true, total: total, actualizado: ts };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+function rhListObligacionTotales_(data) {
+  try {
+    var year = parseInt(data.year, 10) || (new Date()).getFullYear();
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName(RH_OBL_TOTALES_SHEET);
+    if (!sh) return { ok: true, totales: {} };
+    var rng = sh.getDataRange().getValues();
+    var out = {};
+    for (var i = 1; i < rng.length; i++) {
+      if (parseInt(rng[i][0], 10) === year) {
+        var m = parseInt(rng[i][1], 10);
+        if (m >= 1 && m <= 12) out[m] = { total: Number(rng[i][2]) || 0, actualizado: String(rng[i][3] || '') };
+      }
+    }
+    return { ok: true, totales: out };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+function rhDeleteObligacion_(data) {
+  try {
+    var fileId = String(data.fileId || '').trim();
+    if (!fileId) return { ok: false, error: 'Falta fileId' };
+    var file = DriveApp.getFileById(fileId);
+    file.setTrashed(true);
+    return { ok: true, id: fileId };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+function rhListObligaciones_(data) {
+  try {
+    var year = parseInt(data.year, 10) || (new Date()).getFullYear();
+    var root = DriveApp.getFolderById(RH_OBL_ROOT_FOLDER_ID);
+    var items = [];
+    var iterYear = root.getFoldersByName(String(year));
+    if (!iterYear.hasNext()) return { ok: true, items: items };
+    var fYear = iterYear.next();
+    var months = fYear.getFolders();
+    while (months.hasNext()) {
+      var fMonth = months.next();
+      var monthName = fMonth.getName();
+      // Espera "MM-Mes"
+      var mm = parseInt(monthName.slice(0, 2), 10);
+      if (!mm || mm < 1 || mm > 12) continue;
+      var kinds = fMonth.getFolders();
+      while (kinds.hasNext()) {
+        var fKind = kinds.next();
+        var kindLabel = fKind.getName();
+        var kindKey = null;
+        Object.keys(RH_OBL_KINDS).forEach(function (k) {
+          if (RH_OBL_KINDS[k].label === kindLabel) kindKey = k;
+        });
+        if (!kindKey) continue;
+        var kindDef = RH_OBL_KINDS[kindKey];
+        if (kindDef.empleado) {
+          var empFolders = fKind.getFolders();
+          while (empFolders.hasNext()) {
+            var fEmp = empFolders.next();
+            // nombre = "Nombre_seguro_ID"
+            var fname = fEmp.getName();
+            var idMatch = fname.match(/_([^_]+)$/);
+            var empleadoId = idMatch ? idMatch[1] : '';
+            var files = fEmp.getFiles();
+            while (files.hasNext()) {
+              var f = files.next();
+              items.push({ month: mm, kind: kindKey, empleadoId: empleadoId, name: f.getName(), url: f.getUrl(), id: f.getId() });
+            }
+          }
+        } else {
+          var ff = fKind.getFiles();
+          while (ff.hasNext()) {
+            var f2 = ff.next();
+            items.push({ month: mm, kind: kindKey, empleadoId: '', name: f2.getName(), url: f2.getUrl(), id: f2.getId() });
+          }
+        }
+      }
+    }
+    return { ok: true, items: items };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+// Inserta una fila en la hoja "Incidencias" con todos los campos del reporte.
+// Si la hoja no existe, la crea con los headers correctos. fotos_urls: array
+// de strings (URLs públicas de Drive) — se persisten como "url1, url2, ...".
+function saveIncidencia_(data) {
+  try {
+    var payload = data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : data;
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName('Incidencias');
+    var headers = [
+      'ID', 'Timestamp', 'Fecha', 'Propiedad', '# Departamento', 'Alojamiento',
+      'Personas', 'Motivos', 'Clasificacion', 'Nivel', 'Estatus', 'Reportante',
+      'Descripcion', 'Acciones', 'Seguimiento', 'Fotos_count', 'Fotos_URLs'
+    ];
+    if (!sh) {
+      sh = ss.insertSheet('Incidencias');
+      sh.appendRow(headers);
+      sh.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#fee2e2');
+      sh.setFrozenRows(1);
+    }
+    var id = 'INC-' + Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyyMMdd-HHmmss') +
+             '-' + Math.floor(Math.random() * 10000);
+    var ts = Utilities.formatDate(new Date(), 'America/Monterrey', "yyyy-MM-dd HH:mm:ss");
+    var personas = Array.isArray(payload.personas) ? payload.personas.join(', ') : String(payload.personas || '');
+    var motivos  = Array.isArray(payload.motivos)  ? payload.motivos.join(', ')  : String(payload.motivos  || '');
+    var clasif   = Array.isArray(payload.clasificaciones) ? payload.clasificaciones.join(', ') : String(payload.clasificaciones || '');
+    var fotosUrls = Array.isArray(payload.fotos_urls) ? payload.fotos_urls.join(', ') : String(payload.fotos_urls || '');
+    var fotosCount = Array.isArray(payload.fotos_urls) ? payload.fotos_urls.length : 0;
+    var row = [
+      id, ts,
+      String(payload.fecha || ''),
+      String(payload.propiedad || ''),
+      String(payload.depto || ''),
+      String(payload.alojamiento || ''),
+      personas, motivos, clasif,
+      String(payload.nivel || ''),
+      String(payload.estatus || ''),
+      String(payload.reportante || ''),
+      String(payload.descripcion || ''),
+      String(payload.acciones || ''),
+      String(payload.seguimiento || ''),
+      fotosCount, fotosUrls
+    ];
+    sh.appendRow(row);
+    return { ok: true, id: id, timestamp: ts };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+// Actualiza una fila existente en "Incidencias". Encuentra la fila por la
+// columna ID, y sobreescribe SOLO las columnas presentes en payload.fields.
+// Arrays (personas, motivos, clasificaciones) llegan como CSV o array.
+function updateIncidencia_(data) {
+  try {
+    var payload = data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : data;
+    var id = String(payload.id || '').trim();
+    if (!id) return { ok: false, error: 'Falta id' };
+    var fields = payload.fields || {};
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName('Incidencias');
+    if (!sh) return { ok: false, error: 'Hoja Incidencias no existe' };
+    var lastRow = sh.getLastRow();
+    var lastCol = sh.getLastColumn();
+    if (lastRow < 2) return { ok: false, error: 'Hoja vacía' };
+    var headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (v) { return String(v || '').trim(); });
+    var idCol = headers.indexOf('ID') + 1;
+    if (!idCol) return { ok: false, error: 'Columna ID no encontrada' };
+    // Busca la fila por ID (display values para match de string exacto)
+    var ids = sh.getRange(2, idCol, lastRow - 1, 1).getDisplayValues();
+    var rowIdx = -1;
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]).trim() === id) { rowIdx = i + 2; break; }
+    }
+    if (rowIdx < 0) return { ok: false, error: 'ID no encontrado: ' + id };
+    // Mapa de campos frontend → header en hoja
+    var fieldMap = {
+      fecha: 'Fecha',
+      propiedad: 'Propiedad',
+      depto: '# Departamento',
+      alojamiento: 'Alojamiento',
+      personas: 'Personas',
+      motivos: 'Motivos',
+      clasificaciones: 'Clasificacion',
+      nivel: 'Nivel',
+      estatus: 'Estatus',
+      reportante: 'Reportante',
+      descripcion: 'Descripcion',
+      acciones: 'Acciones',
+      seguimiento: 'Seguimiento',
+      fotos_urls: 'Fotos_URLs',
+      fotos_count: 'Fotos_count',
+    };
+    var updates = [];
+    Object.keys(fields).forEach(function (k) {
+      var header = fieldMap[k];
+      if (!header) return;
+      var col = headers.indexOf(header) + 1;
+      if (!col) return;
+      var v = fields[k];
+      if (Array.isArray(v)) v = v.join(', ');
+      sh.getRange(rowIdx, col).setValue(v == null ? '' : String(v));
+      updates.push(header);
+    });
+    return { ok: true, id: id, row: rowIdx, updated: updates };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// OBJETOS OLVIDADOS — paralelo a Incidencias con campos propios
+// ═══════════════════════════════════════════════════════════════════
+
+function uploadObjetoImage_(data) {
+  try {
+    var fileObj = data.file ? (typeof data.file === 'string' ? JSON.parse(data.file) : data.file) : null;
+    if (!fileObj || !fileObj.base64) return { ok: false, error: 'Sin base64' };
+    var rawFecha = String(data.fecha || '').slice(0, 10) || Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'America/Monterrey', 'yyyy-MM-dd');
+    var parts = rawFecha.split('-');
+    var anio = parts[0] || String(new Date().getFullYear());
+    var mes = parseInt(parts[1] || '1', 10);
+    var meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    var mesStr = meses[mes - 1] || 'Enero';
+    var aloj = String(data.alojamiento || 'sin_alojamiento').replace(/[\/\\:*?"<>|]/g, '_').slice(0, 60);
+    var ts = Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyyMMdd_HHmmss');
+    var ext = (fileObj.fileName || '.jpg').split('.').pop().toLowerCase();
+    if (ext.length > 5) ext = 'jpg';
+    var name = aloj.replace(/\s+/g, '_').slice(0, 30) + '_' + ts + '.' + ext;
+    var folder = DriveApp.getRootFolder();
+    folder = getOrCreateFolder_(folder, 'Check Inn - Sistemas');
+    folder = getOrCreateFolder_(folder, 'Drive');
+    folder = getOrCreateFolder_(folder, 'Objetos_olvidados');
+    folder = getOrCreateFolder_(folder, anio);
+    folder = getOrCreateFolder_(folder, mesStr);
+    var bytes = Utilities.base64Decode(fileObj.base64);
+    var blob = Utilities.newBlob(bytes, fileObj.mimeType || 'image/jpeg', name);
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var id = file.getId();
+    var directUrl = 'https://drive.google.com/thumbnail?id=' + id + '&sz=w2000';
+    return { ok: true, url: directUrl, viewerUrl: file.getUrl(), id: id, name: file.getName() };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+function saveObjeto_(data) {
+  try {
+    var payload = data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : data;
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName('Objetos_Olvidados');
+    var headers = [
+      'ID', 'Timestamp',
+      'Fecha_encontrado', 'Fecha_entregado', 'Entregado_a',
+      'Propiedad', '# Departamento', 'Alojamiento',
+      'Reportante',
+      'Categoria', 'Categoria_otro', 'Descripcion',
+      'Lugar_resguardo', 'Lugar_otro',
+      'Comentarios',
+      'Fotos_count', 'Fotos_URLs',
+    ];
+    if (!sh) {
+      sh = ss.insertSheet('Objetos_Olvidados');
+      sh.appendRow(headers);
+      sh.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#dbeafe');
+      sh.setFrozenRows(1);
+    }
+    var id = 'OBJ-' + Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyyMMdd-HHmmss') +
+             '-' + Math.floor(Math.random() * 10000);
+    var ts = Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyy-MM-dd HH:mm:ss');
+    var fotosUrls = Array.isArray(payload.fotos_urls) ? payload.fotos_urls.join(', ') : String(payload.fotos_urls || '');
+    var fotosCount = Array.isArray(payload.fotos_urls) ? payload.fotos_urls.length : 0;
+    // Mapa nombre-columna → valor. La fila se arma según el orden REAL de
+    // headers en el sheet (robusto a reorden / inserción manual de columnas).
+    var values = {
+      'ID': id,
+      'Timestamp': ts,
+      'Fecha_encontrado': String(payload.fecha_encontrado || ''),
+      'Fecha_entregado': String(payload.fecha_entregado || ''),
+      'Entregado_a': String(payload.entregado_a || ''),
+      'Propiedad': String(payload.propiedad || ''),
+      '# Departamento': String(payload.depto || ''),
+      'Alojamiento': String(payload.alojamiento || ''),
+      'Reportante': String(payload.reportante || ''),
+      'Categoria': String(payload.categoria || ''),
+      'Categoria_otro': String(payload.categoria_otro || ''),
+      'Descripcion': String(payload.descripcion || ''),
+      'Lugar_resguardo': String(payload.lugar_resguardo || ''),
+      'Lugar_otro': String(payload.lugar_otro || ''),
+      'Comentarios': String(payload.comentarios || ''),
+      'Fotos_count': fotosCount,
+      'Fotos_URLs': fotosUrls,
+    };
+    var lastCol = sh.getLastColumn();
+    var currentHeaders = lastCol ? sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h){ return String(h||'').trim(); }) : [];
+    // Si falta alguna columna esperada, la creamos al final preservando los datos.
+    Object.keys(values).forEach(function(name) {
+      if (currentHeaders.indexOf(name) === -1) {
+        currentHeaders.push(name);
+        sh.getRange(1, currentHeaders.length).setValue(name);
+      }
+    });
+    var row = currentHeaders.map(function(h) {
+      return Object.prototype.hasOwnProperty.call(values, h) ? values[h] : '';
+    });
+    sh.appendRow(row);
+    return { ok: true, id: id, timestamp: ts };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+function listObjetos_() {
+  try {
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName('Objetos_Olvidados');
+    if (!sh) return { ok: true, rows: [], note: 'Hoja "Objetos_Olvidados" no existe.' };
+    var lastRow = sh.getLastRow();
+    var lastCol = sh.getLastColumn();
+    if (lastRow < 2 || lastCol < 1) return { ok: true, rows: [] };
+    var headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (v) { return String(v || '').trim(); });
+    var data = sh.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+    var rows = data.map(function (r) {
+      var obj = {};
+      for (var i = 0; i < headers.length; i++) {
+        if (headers[i]) obj[headers[i]] = r[i];
+      }
+      return obj;
+    }).filter(function (o) { return String(o['ID'] || '').trim(); });
+    rows.sort(function (a, b) { return String(b['Timestamp'] || '').localeCompare(String(a['Timestamp'] || '')); });
+    return { ok: true, rows: rows, total: rows.length };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+function updateObjeto_(data) {
+  try {
+    var payload = data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : data;
+    var id = String(payload.id || '').trim();
+    if (!id) return { ok: false, error: 'Falta id' };
+    var fields = payload.fields || {};
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName('Objetos_Olvidados');
+    if (!sh) return { ok: false, error: 'Hoja Objetos_Olvidados no existe' };
+    var lastRow = sh.getLastRow();
+    var lastCol = sh.getLastColumn();
+    if (lastRow < 2) return { ok: false, error: 'Hoja vacía' };
+    var headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (v) { return String(v || '').trim(); });
+    var idCol = headers.indexOf('ID') + 1;
+    if (!idCol) return { ok: false, error: 'Columna ID no encontrada' };
+    var ids = sh.getRange(2, idCol, lastRow - 1, 1).getDisplayValues();
+    var rowIdx = -1;
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]).trim() === id) { rowIdx = i + 2; break; }
+    }
+    if (rowIdx < 0) return { ok: false, error: 'ID no encontrado: ' + id };
+    var fieldMap = {
+      fecha_encontrado: 'Fecha_encontrado',
+      fecha_entregado: 'Fecha_entregado',
+      entregado_a: 'Entregado_a',
+      propiedad: 'Propiedad',
+      depto: '# Departamento',
+      alojamiento: 'Alojamiento',
+      reportante: 'Reportante',
+      categoria: 'Categoria',
+      categoria_otro: 'Categoria_otro',
+      descripcion: 'Descripcion',
+      lugar_resguardo: 'Lugar_resguardo',
+      lugar_otro: 'Lugar_otro',
+      comentarios: 'Comentarios',
+      fotos_urls: 'Fotos_URLs',
+      fotos_count: 'Fotos_count',
+    };
+    var updates = [];
+    Object.keys(fields).forEach(function (k) {
+      var header = fieldMap[k];
+      if (!header) return;
+      var col = headers.indexOf(header) + 1;
+      if (!col) return;
+      var v = fields[k];
+      if (Array.isArray(v)) v = v.join(', ');
+      sh.getRange(rowIdx, col).setValue(v == null ? '' : String(v));
+      updates.push(header);
+    });
+    return { ok: true, id: id, row: rowIdx, updated: updates };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+// Lee todas las filas de la hoja "Incidencias" y las devuelve más nuevas
+// primero (por Timestamp descendente). Cada fila como objeto {<header>: valor}.
+function listIncidencias_() {
+  try {
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName('Incidencias');
+    if (!sh) return { ok: true, rows: [], note: 'Hoja "Incidencias" no existe.' };
+    var lastRow = sh.getLastRow();
+    var lastCol = sh.getLastColumn();
+    if (lastRow < 2 || lastCol < 1) return { ok: true, rows: [] };
+    var headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (v) { return String(v || '').trim(); });
+    var data = sh.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+    var rows = data.map(function (r) {
+      var obj = {};
+      for (var i = 0; i < headers.length; i++) {
+        if (headers[i]) obj[headers[i]] = r[i];
+      }
+      return obj;
+    }).filter(function (o) { return String(o['ID'] || '').trim(); });
+    // Orden descendente por Timestamp (string ISO ordena bien)
+    rows.sort(function (a, b) { return String(b['Timestamp'] || '').localeCompare(String(a['Timestamp'] || '')); });
+    return { ok: true, rows: rows, total: rows.length };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║  RECURSOS HUMANOS — Empleados, Asistencia, Ausencias, Compensaciones ║
+// ═══════════════════════════════════════════════════════════════════════
+// Columnas extendidas para la hoja "Personal". Si la hoja ya existe con
+// otras columnas (la actual solo tiene Nombre/Puesto), agregamos las
+// faltantes manteniendo lo que ya esté.
+var RH_PERSONAL_HEADERS = [
+  'ID',
+  // Datos generales
+  'Nombre', 'Apellido_paterno', 'Apellido_materno',
+  'Fecha_nacimiento', 'CURP', 'Direccion',
+  'Telefono', 'Celular', 'Email',
+  // Nómina
+  'Puesto', 'Estado', 'Activo',
+  'Fecha_ingreso', 'Fecha_retiro',
+  'Tipo_contrato', 'Salario_mensual', 'Periodicidad_pago',
+  'Hora_entrada', 'Hora_salida', 'Dias_trabajo',
+  // IMSS / SAT
+  'NSS', 'RFC',
+  // Bancarios
+  'Banco', 'CLABE', 'Tipo_cuenta', 'Cuentahabiente',
+  // Emergencia (legado)
+  'Contacto_emergencia', 'Tel_emergencia',
+];
+var RH_ASIST_HEADERS = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Fecha','Entrada','Salida','Horas','Horas_extra','Observaciones'];
+var RH_AUSE_HEADERS  = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Tipo','Fecha_inicio','Fecha_fin','Dias','Estatus','Comentarios'];
+var RH_COMP_HEADERS  = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Concepto','Periodo','Monto','Metodo_pago','Fecha_pago','Comentarios'];
+
+function rhEnsureHeaders_(sh, headers) {
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(headers);
+    sh.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#dbeafe');
+    sh.setFrozenRows(1);
+    return headers.slice();
+  }
+  var existing = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0].map(function (v) { return String(v || '').trim(); });
+  var missing = headers.filter(function (h) { return existing.indexOf(h) === -1; });
+  if (missing.length) {
+    var startCol = existing.length + 1;
+    sh.getRange(1, startCol, 1, missing.length).setValues([missing]).setFontWeight('bold').setBackground('#dbeafe');
+    return existing.concat(missing);
+  }
+  return existing;
+}
+
+function rhGenId_(prefix) {
+  return prefix + '-' + Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyyMMdd-HHmmss') +
+         '-' + Math.floor(Math.random() * 10000);
+}
+
+function rhRowsToObjects_(sh) {
+  if (!sh) return [];
+  var lastRow = sh.getLastRow();
+  var lastCol = sh.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return [];
+  var headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (v) { return String(v || '').trim(); });
+  var data = sh.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+  return data.map(function (r) {
+    var obj = {};
+    for (var i = 0; i < headers.length; i++) {
+      if (headers[i]) obj[headers[i]] = r[i];
+    }
+    return obj;
+  });
+}
+
+// ── Empleados (Personal) ──
+function rhListEmpleados_() {
+  try {
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName('Personal');
+    if (!sh) {
+      sh = ss.insertSheet('Personal');
+      rhEnsureHeaders_(sh, RH_PERSONAL_HEADERS);
+      return { ok: true, rows: [], headers: RH_PERSONAL_HEADERS };
+    }
+    rhEnsureHeaders_(sh, RH_PERSONAL_HEADERS);
+    var rows = rhRowsToObjects_(sh).filter(function (o) { return String(o['Nombre'] || '').trim(); });
+    // Asegurar que toda fila tenga ID (si fueron capturadas a mano sin ID,
+    // generamos uno y lo escribimos de vuelta)
+    var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (v) { return String(v || '').trim(); });
+    var idCol = headers.indexOf('ID') + 1;
+    if (idCol) {
+      for (var i = 0; i < rows.length; i++) {
+        if (!rows[i].ID) {
+          var newId = rhGenId_('EMP');
+          sh.getRange(i + 2, idCol).setValue(newId);
+          rows[i].ID = newId;
+        }
+      }
+    }
+    return { ok: true, rows: rows, headers: RH_PERSONAL_HEADERS };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+function rhSaveEmpleado_(data) {
+  try {
+    var payload = data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : data;
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName('Personal');
+    if (!sh) sh = ss.insertSheet('Personal');
+    var headers = rhEnsureHeaders_(sh, RH_PERSONAL_HEADERS);
+    var idCol = headers.indexOf('ID') + 1;
+    var id = String(payload.ID || payload.id || '').trim();
+    // Update si tiene ID y existe; insert si no
+    if (id && idCol) {
+      var lastRow = sh.getLastRow();
+      if (lastRow >= 2) {
+        var ids = sh.getRange(2, idCol, lastRow - 1, 1).getDisplayValues();
+        for (var i = 0; i < ids.length; i++) {
+          if (String(ids[i][0]).trim() === id) {
+            var rowIdx = i + 2;
+            // Update solo las columnas presentes en payload
+            for (var k in payload) {
+              var col = headers.indexOf(k) + 1;
+              if (col) sh.getRange(rowIdx, col).setValue(payload[k] == null ? '' : String(payload[k]));
+            }
+            return { ok: true, id: id, mode: 'update' };
+          }
+        }
+      }
+    }
+    // Insert
+    if (!id) id = rhGenId_('EMP');
+    payload.ID = id;
+    var row = headers.map(function (h) {
+      var v = payload[h];
+      return v == null ? '' : String(v);
+    });
+    sh.appendRow(row);
+    return { ok: true, id: id, mode: 'insert' };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+// ── List/Save genéricos para Asistencia, Ausencias, Compensaciones ──
+function rhListSimple_(sheetName) {
+  try {
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName(sheetName);
+    if (!sh) return { ok: true, rows: [] };
+    var rows = rhRowsToObjects_(sh).filter(function (o) { return String(o['ID'] || '').trim(); });
+    // Más nuevos primero (por Timestamp)
+    rows.sort(function (a, b) { return String(b['Timestamp'] || '').localeCompare(String(a['Timestamp'] || '')); });
+    return { ok: true, rows: rows };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+function sysLogin_(data) {
+  try {
+    var payload = data && data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : data;
+    var pwd = String((payload && (payload.password || payload.sys_password)) || '').trim();
+    if (!pwd) return { ok: false, error: 'Falta contraseña' };
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName('sys_users');
+    if (!sh) return { ok: false, error: 'Hoja sys_users no encontrada' };
+    var values = sh.getDataRange().getDisplayValues();
+    if (values.length < 2) return { ok: false, error: 'Sin usuarios registrados' };
+    var headers = values[0].map(function (h) { return String(h || '').trim(); });
+    var colName = -1, colPwd = -1, colSt = -1;
+    headers.forEach(function (h, idx) {
+      var hl = h.toLowerCase();
+      if (hl === 'nombre') colName = idx;
+      else if (hl === 'sys_password' || hl === 'password' || hl === 'contraseña') colPwd = idx;
+      else if (hl === 'status' || hl === 'estado' || hl === 'estatus') colSt = idx;
+    });
+    if (colName < 0 || colPwd < 0) return { ok: false, error: 'Encabezados sys_users inválidos (faltan Nombre / sys_password)' };
+    // Mapear columnas de módulos por número romano
+    var modCols = {};
+    headers.forEach(function (h, idx) {
+      var m = String(h).match(/m[oó]dulo\s+(VIII|VII|VI|IV|V|III|II|I)\b/i);
+      if (m) modCols[m[1].toUpperCase()] = idx;
+    });
+    for (var i = 1; i < values.length; i++) {
+      var row = values[i];
+      if (String(row[colPwd] || '').trim() !== pwd) continue;
+      if (colSt >= 0 && String(row[colSt] || '').trim().toLowerCase() !== 'activo') return { ok: false, error: 'Usuario inactivo' };
+      var modulos = {};
+      for (var key in modCols) {
+        modulos[key] = String(row[modCols[key]] || '').trim() === '1';
+      }
+      return { ok: true, user: { Nombre: String(row[colName]).trim(), modulos: modulos } };
+    }
+    return { ok: false, error: 'Contraseña incorrecta' };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+function rhDeleteByID_(sheetName, id) {
+  try {
+    id = String(id || '').trim();
+    if (!id) return { ok: false, error: 'ID requerido' };
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName(sheetName);
+    if (!sh) return { ok: false, error: 'Hoja no encontrada: ' + sheetName };
+    var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (v) { return String(v || '').trim(); });
+    var idCol = headers.indexOf('ID') + 1;
+    if (!idCol) return { ok: false, error: 'Columna ID no encontrada' };
+    var lastRow = sh.getLastRow();
+    if (lastRow < 2) return { ok: false, error: 'Hoja vacía' };
+    var ids = sh.getRange(2, idCol, lastRow - 1, 1).getDisplayValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]).trim() === id) {
+        sh.deleteRow(i + 2);
+        return { ok: true, id: id };
+      }
+    }
+    return { ok: false, error: 'ID no encontrado: ' + id };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+function rhSaveSimple_(sheetName, data, headersTemplate, idPrefix) {
+  try {
+    var payload = data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : data;
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName(sheetName);
+    if (!sh) {
+      sh = ss.insertSheet(sheetName);
+      rhEnsureHeaders_(sh, headersTemplate);
+    } else {
+      rhEnsureHeaders_(sh, headersTemplate);
+    }
+    var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (v) { return String(v || '').trim(); });
+    var idCol = headers.indexOf('ID') + 1;
+    var id = String(payload.ID || payload.id || '').trim();
+    var ts = Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyy-MM-dd HH:mm:ss');
+    // Update si tiene ID existente
+    if (id && idCol) {
+      var lastRow = sh.getLastRow();
+      if (lastRow >= 2) {
+        var ids = sh.getRange(2, idCol, lastRow - 1, 1).getDisplayValues();
+        for (var i = 0; i < ids.length; i++) {
+          if (String(ids[i][0]).trim() === id) {
+            var rowIdx = i + 2;
+            for (var k in payload) {
+              var col = headers.indexOf(k) + 1;
+              if (col) sh.getRange(rowIdx, col).setValue(payload[k] == null ? '' : String(payload[k]));
+            }
+            return { ok: true, id: id, mode: 'update' };
+          }
+        }
+      }
+    }
+    // Insert
+    if (!id) id = rhGenId_(idPrefix);
+    payload.ID = id;
+    payload.Timestamp = ts;
+    var row = headers.map(function (h) {
+      var v = payload[h];
+      return v == null ? '' : String(v);
+    });
+    sh.appendRow(row);
+    return { ok: true, id: id, mode: 'insert' };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
 }
 
 function buildPerfilFromData_(data, cel) {
@@ -1858,9 +2915,15 @@ function mergeReservacionWithProfile_(resRow, perfil, vehiculo) {
 
 function listGuestRecords_(params) {
   ensureNormalizedSheets_();
-  const { rows: reservaciones } = getAllRows_(RESERVACIONES_SHEET);
+  let { rows: reservaciones } = getAllRows_(RESERVACIONES_SHEET);
   const { rows: perfiles } = getAllRows_(PERFILES_SHEET);
   const { rows: vehiculos } = getAllRows_(VEHICULOS_SHEET);
+  // Excluir reservaciones marcadas como "unificadas" (ocultas tras un merge
+  // probable Lodgify ↔ manual). NO se borra del sheet, solo se oculta.
+  const hiddenSet = getReservacionesHiddenSet_();
+  if (hiddenSet.size) {
+    reservaciones = reservaciones.filter(r => !hiddenSet.has(String(r["ID"] || "").trim()));
+  }
 
   const perfilByCel = {};
   perfiles.forEach(p => {
@@ -3586,6 +4649,7 @@ function menuShowPending_() {
 // Lodgify y upsertea.
 // ═══════════════════════════════════════════════════════════════════════════
 const LODGIFY_SHEET = "Reservas_Lodgify";
+const LODGIFY_HIDDEN_SHEET = "Reservas_Lodgify_Hidden";
 const LODGIFY_API_BASE = "https://checkinnreservas-1044570371371.northamerica-south1.run.app";
 const LODGIFY_HEADERS = [
   "Id","Source","Status","DateArrival","DateDeparture","Nights",
@@ -3696,16 +4760,24 @@ function lodgifyBookingToRow_(b, nowIso, prevFirstSync) {
 }
 
 /** Fetch a Lodgify Cloud Run (que ya consulta y pagina la API). */
+// Endpoint nuestro (Cloud Run ticket-vision) que consume Lodgify v2 directo.
+// Incluye reservas SIN presupuesto que el OTC de Lodgify omitía.
+var LODGIFY_BOOKINGS_URL = "https://ticket-vision-957627511957.northamerica-south1.run.app/lodgify-bookings-all";
 function fetchLodgifyOTC_(fromDate, toDate) {
-  const url = `${LODGIFY_API_BASE}/api/otc?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`;
-  const resp = UrlFetchApp.fetch(url, {
+  // updatedSince: 30 días antes de fromDate para capturar reservas creadas/
+  // modificadas que toquen el rango.
+  var fd = new Date(fromDate + 'T00:00:00');
+  fd.setDate(fd.getDate() - 30);
+  var updatedSince = fd.toISOString().slice(0,10);
+  var url = LODGIFY_BOOKINGS_URL + "?from=" + encodeURIComponent(fromDate) + "&to=" + encodeURIComponent(toDate) + "&updatedSince=" + encodeURIComponent(updatedSince);
+  var resp = UrlFetchApp.fetch(url, {
     method: "get",
     muteHttpExceptions: true,
     headers: { Accept: "application/json" },
   });
-  const text = resp.getContentText();
+  var text = resp.getContentText();
   if (resp.getResponseCode() !== 200) throw new Error("Lodgify HTTP " + resp.getResponseCode() + ": " + text.slice(0,200));
-  const data = JSON.parse(text);
+  var data = JSON.parse(text);
   if (!data.ok) throw new Error(data.error || "Lodgify returned ok=false");
   return data.rows || [];
 }
@@ -4229,6 +5301,13 @@ function getLodgifyReservations_(data) {
   }
   rows = Object.keys(byId).map(function(k) { return byId[k]; });
 
+  // Ocultar bookings marcados como "eliminados" del frontend (sólo se ocultan,
+  // no se borran del sheet maestro)
+  const hiddenIds = getLodgifyHiddenIds_();
+  if (hiddenIds.size) {
+    rows = rows.filter(function(r){ return !hiddenIds.has(String(r.Id||"").trim()); });
+  }
+
   // Filtros opcionales
   const src = String(data.source || "").trim().toLowerCase();
   const st  = String(data.status || "").trim().toLowerCase();
@@ -4264,6 +5343,155 @@ function getLodgifyMeta_() {
     last_synced_at: props.getProperty("LODGIFY_LAST_SYNC") || "",
     last_synced_range: props.getProperty("LODGIFY_LAST_SYNC_RANGE") || "",
   };
+}
+
+// ─── Reservas ocultas del frontend (no se borran del sheet maestro) ─────────
+function ensureLodgifyHiddenSheet_() {
+  const ss = getSpreadsheet_();
+  let sh = ss.getSheetByName(LODGIFY_HIDDEN_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(LODGIFY_HIDDEN_SHEET);
+    sh.getRange(1, 1, 1, 3).setValues([["Id", "hidden_at", "hidden_by"]]);
+    sh.getRange(1, 1, 1, 3).setFontWeight("bold").setBackground("#fef3c7");
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function getLodgifyHiddenIds_() {
+  const sh = ensureLodgifyHiddenSheet_();
+  const last = sh.getLastRow();
+  const set = new Set();
+  if (last < 2) return set;
+  const ids = sh.getRange(2, 1, last - 1, 1).getValues();
+  ids.forEach(function(row){
+    const id = String(row[0] || "").trim();
+    if (id) set.add(id);
+  });
+  return set;
+}
+
+function hideLodgifyBooking_(data) {
+  data = data || {};
+  const id = String(data.id || "").trim();
+  if (!id) return { ok: false, error: "id requerido" };
+  const sh = ensureLodgifyHiddenSheet_();
+  // Evitar duplicados
+  const existing = getLodgifyHiddenIds_();
+  if (existing.has(id)) return { ok: true, already_hidden: true, id: id };
+  const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+  sh.appendRow([id, now, String(data.hidden_by || "")]);
+  return { ok: true, id: id, hidden_at: now };
+}
+
+// ─── Reservaciones ocultas (post-unificación) ────────────────────────────────
+const RESERVACIONES_HIDDEN_SHEET = "Reservaciones_Hidden";
+
+function ensureReservacionesHiddenSheet_() {
+  const ss = getSpreadsheet_();
+  let sh = ss.getSheetByName(RESERVACIONES_HIDDEN_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(RESERVACIONES_HIDDEN_SHEET);
+    sh.getRange(1, 1, 1, 4).setValues([["ID", "merged_into_ID", "hidden_at", "hidden_by"]]);
+    sh.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#fef3c7");
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function getReservacionesHiddenSet_() {
+  const sh = ensureReservacionesHiddenSheet_();
+  const last = sh.getLastRow();
+  const set = new Set();
+  if (last < 2) return set;
+  const ids = sh.getRange(2, 1, last - 1, 1).getValues();
+  ids.forEach(r => {
+    const v = String(r[0] || "").trim();
+    if (v) set.add(v);
+  });
+  return set;
+}
+
+/** Unifica dos filas de Reservaciones: copia campos faltantes desde loser
+ *  hacia winner y marca loser como oculta.
+ *  Input: { winner_id, loser_id, fields: {Header: value, ...}, hidden_by }
+ *  - winner_id: ID de la fila que sobrevive (la del registro manual)
+ *  - loser_id:  ID de la fila que se oculta (la propagada por Lodgify)
+ *  - fields:    pares header→valor a escribir en el winner (solo los que
+ *               estaban vacíos). El cliente decide cuáles.
+ */
+function unifyReservacionesRows_(data) {
+  data = data || {};
+  const winnerId = String(data.winner_id || "").trim();
+  const loserId  = String(data.loser_id  || "").trim();
+  if (!winnerId || !loserId) return { ok: false, error: "winner_id y loser_id requeridos" };
+  if (winnerId === loserId)   return { ok: false, error: "winner_id y loser_id no pueden ser iguales" };
+
+  const sh = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sh);
+  const winnerRow = findRowByValue_(sh, headers, "ID", winnerId);
+  if (!winnerRow) return { ok: false, error: "winner_id no encontrado: " + winnerId };
+
+  const fields = (data.fields && typeof data.fields === "object") ? data.fields : {};
+  const writes = [];
+  Object.keys(fields).forEach(h => {
+    const colIdx = headers.indexOf(h);
+    if (colIdx < 0) return; // header desconocido, ignorar
+    const v = fields[h];
+    if (v == null || v === "") return; // no sobrescribir con vacío
+    sh.getRange(winnerRow, colIdx + 1).setValue(v);
+    writes.push(h);
+  });
+
+  // Marcar loser como oculto
+  const hSh = ensureReservacionesHiddenSheet_();
+  const already = getReservacionesHiddenSet_();
+  if (!already.has(loserId)) {
+    const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+    hSh.appendRow([loserId, winnerId, now, String(data.hidden_by || "")]);
+  }
+
+  return { ok: true, winner_id: winnerId, loser_id: loserId, fields_written: writes };
+}
+
+/** Oculta una reservación del frontend (no la borra del sheet maestro).
+ *  Input: { id, hidden_by }
+ *  Solo agrega el ID a Reservaciones_Hidden con merged_into_ID vacío.
+ */
+function hideReservacion_(data) {
+  data = data || {};
+  const id = String(data.id || "").trim();
+  if (!id) return { ok: false, error: "id requerido" };
+  const sh = ensureReservacionesHiddenSheet_();
+  const existing = getReservacionesHiddenSet_();
+  if (existing.has(id)) return { ok: true, already_hidden: true, id: id };
+  const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+  sh.appendRow([id, "", now, String(data.hidden_by || "")]);
+  return { ok: true, id: id, hidden_at: now };
+}
+
+/** Deshace una unificación: quita el ID de Reservaciones_Hidden para que
+ *  la fila vuelva a verse en el frontend. NO restaura los campos del
+ *  winner (la copia fue aditiva: solo llenó campos que estaban vacíos).
+ *  Input: { id }  o  { loser_id }
+ *  Si se pasa `merged_into`, valida que esa relación exista antes de borrar.
+ */
+function unhideReservacion_(data) {
+  data = data || {};
+  const targetId = String(data.id || data.loser_id || "").trim();
+  if (!targetId) return { ok: false, error: "id requerido" };
+  const sh = ensureReservacionesHiddenSheet_();
+  const last = sh.getLastRow();
+  if (last < 2) return { ok: false, error: "Reservaciones_Hidden vacío" };
+  const values = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
+  const rowsToDelete = [];
+  for (let i = 0; i < values.length; i++) {
+    if (String(values[i][0] || "").trim() === targetId) rowsToDelete.push(i + 2);
+  }
+  if (!rowsToDelete.length) return { ok: false, error: "ID no encontrado en Reservaciones_Hidden: " + targetId };
+  // Borrar de atrás hacia adelante para no shiftear índices
+  rowsToDelete.sort((a, b) => b - a).forEach(rn => sh.deleteRow(rn));
+  return { ok: true, id: targetId, rows_deleted: rowsToDelete.length };
 }
 
 /** OPCIONAL: Trigger time-driven. Para activarlo desde el editor:
@@ -4514,6 +5742,26 @@ function bnBancosClassifiedHistory_() {
   return { ok: true, rows: rows };
 }
 
+function bnEnsureBancosColumns_(sh, requiredColumns) {
+  function _norm(s) {
+    return String(s || "").trim().toLowerCase()
+      .normalize("NFD").replace(new RegExp("[̀-ͯ]", "g"), "")
+      .replace(/[_\s]+/g, "_");
+  }
+  var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
+                  .map(function(h){ return String(h || "").trim(); });
+  var existingNorm = {};
+  headers.forEach(function(h){ existingNorm[_norm(h)] = true; });
+  var missing = requiredColumns.filter(function(c){ return !existingNorm[_norm(c)]; });
+  if (!missing.length) return;
+  // Append missing columns to the right
+  var startCol = sh.getLastColumn() + 1;
+  sh.insertColumnsAfter(sh.getLastColumn(), missing.length);
+  sh.getRange(1, startCol, 1, missing.length).setValues([missing])
+    .setFontWeight("bold").setBackground("#fee2e2");
+  SpreadsheetApp.flush();
+}
+
 function bnBancosInsertBulk_(data) {
   const rows = (data && data.rows) || [];
   if (!Array.isArray(rows) || !rows.length) {
@@ -4528,6 +5776,8 @@ function bnBancosInsertBulk_(data) {
   try { lock.waitLock(30000); }
   catch (e) { return { ok: false, error: "No se pudo adquirir lock (otra escritura en curso)." }; }
   try {
+    // Auto-crear columnas ORIGEN/DESTINO si no existen (módulo Efectivo)
+    bnEnsureBancosColumns_(sh, ["ORIGEN/DESTINO", "ORIGEN/DESTINO_comments"]);
     const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
                       .map(function(h){ return String(h || "").trim(); });
     // Match case/accent-insensitive: frontend manda keys "CARGO", "Día",
@@ -4715,4 +5965,725 @@ function bnImportedFilesMark_(data) {
     Number(data.rows_inserted) || 0,
   ]);
   return { ok: true };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ─── TICKET VISION + BANCOS read/save (migrado desde apps_script_completo.gs)
+// ════════════════════════════════════════════════════════════════════════════
+
+const SHEET_ID = SPREADSHEET_ID; // alias para compatibilidad con código migrado
+const MESES_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
+                  "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+// ─── Subir imagen de ticket a Drive ──────────────────────────────────────────
+function uploadTicketImage_(data) {
+  var fileObj = data.file;
+  if (!fileObj || !fileObj.base64) return { ok: false, error: "Sin base64" };
+  var rawFecha = data.fecha || new Date().toISOString().slice(0, 10);
+  var parts    = rawFecha.split("-");
+  var anio     = parts[0] || String(new Date().getFullYear());
+  var mes      = parseInt(parts[1] || "1", 10);
+  var mesStr   = MESES_ES[mes - 1] || "Enero";
+  var tienda   = (data.tienda || "sin_tienda").slice(0, 50).replace(/[\/\\:*?"<>|]/g, "_");
+  var ts   = Utilities.formatDate(new Date(), "America/Monterrey", "yyyyMMdd_HHmmss");
+  var ext  = (fileObj.fileName || ".jpg").split(".").pop().toLowerCase();
+  var name = tienda.replace(/\s+/g, "_").slice(0, 30) + "_" + ts + "." + ext;
+  var folder = DriveApp.getRootFolder();
+  folder = getOrCreateTicketFolder_(folder, "Check Inn - Sistemas");
+  folder = getOrCreateTicketFolder_(folder, "Ticket vision");
+  folder = getOrCreateTicketFolder_(folder, "Codigo");
+  folder = getOrCreateTicketFolder_(folder, "tickets_images");
+  folder = getOrCreateTicketFolder_(folder, anio);
+  folder = getOrCreateTicketFolder_(folder, mesStr);
+  folder = getOrCreateTicketFolder_(folder, tienda);
+  var bytes = Utilities.base64Decode(fileObj.base64);
+  var blob  = Utilities.newBlob(bytes, fileObj.mimeType || "image/jpeg", name);
+  var file  = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return { ok: true, url: file.getUrl(), id: file.getId(), name: file.getName() };
+}
+
+function getOrCreateTicketFolder_(parent, name) {
+  var iter = parent.getFoldersByName(name);
+  if (iter.hasNext()) return iter.next();
+  return parent.createFolder(name);
+}
+
+// ─── Agregar filas a Sheets ───────────────────────────────────────────────────
+function appendRows_(data) {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  if (data.productos && data.productos.length) appendToSheet_(ss, "Transcripcion",   data.productos);
+  if (data.resumen   && data.resumen.length)   appendToSheet_(ss, "Resumen tickets", data.resumen);
+  if (data.cruce     && data.cruce.length)     appendToSheet_(ss, "Cruce bancario",  data.cruce);
+  return { ok: true };
+}
+
+function appendToSheet_(ss, sheetName, rows) {
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) sheet = ss.insertSheet(sheetName);
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(Object.keys(rows[0]));
+  } else {
+    var lastCol = sheet.getLastColumn();
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    Object.keys(rows[0]).forEach(function(k) {
+      if (headers.indexOf(k) === -1) {
+        lastCol++;
+        sheet.getRange(1, lastCol).setValue(k);
+        headers.push(k);
+      }
+    });
+  }
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  rows.forEach(function(row) {
+    var values = headers.map(function(h) {
+      var v = row[h];
+      return (v === undefined || v === null) ? "" : v;
+    });
+    sheet.appendRow(values);
+  });
+}
+
+// ─── Índice para detección de duplicados ─────────────────────────────────────
+function getTicketsIndex_() {
+  var ss    = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName("Resumen tickets");
+  if (!sheet || sheet.getLastRow() < 2) return { ok: true, tickets: [] };
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var rows    = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var idx = {};
+  ["tienda","fecha","total","folio","archivo_hash"].forEach(function(k) {
+    idx[k] = headers.indexOf(k);
+  });
+  var tickets = rows.map(function(row) {
+    var rawFecha = idx.fecha >= 0 ? row[idx.fecha] : "";
+    var fecha = rawFecha instanceof Date
+      ? Utilities.formatDate(rawFecha, "America/Monterrey", "yyyy-MM-dd")
+      : String(rawFecha || "");
+    return {
+      tienda:       idx.tienda       >= 0 ? String(row[idx.tienda]       || "") : "",
+      fecha:        fecha,
+      total:        idx.total        >= 0 ? Number(row[idx.total]        || 0)  : 0,
+      folio:        idx.folio        >= 0 ? String(row[idx.folio]        || "") : "",
+      archivo_hash: idx.archivo_hash >= 0 ? String(row[idx.archivo_hash] || "") : "",
+    };
+  }).filter(function(t) { return t.tienda || t.fecha || t.archivo_hash; });
+  return { ok: true, tickets: tickets };
+}
+
+// ─── Dashboard: todos los tickets ────────────────────────────────────────────
+function getAllTickets_() {
+  var ss           = SpreadsheetApp.openById(SHEET_ID);
+  var resumenSheet = ss.getSheetByName("Resumen tickets");
+  if (!resumenSheet || resumenSheet.getLastRow() < 2) return { ok: true, tickets: [] };
+
+  var lastCol = resumenSheet.getLastColumn();
+  var headers = resumenSheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var rows    = resumenSheet.getRange(2, 1, resumenSheet.getLastRow() - 1, lastCol).getValues();
+
+  var productsByTicket = {};
+  var transcSheet = ss.getSheetByName("Transcripcion");
+  if (transcSheet && transcSheet.getLastRow() > 1) {
+    var tLastCol = transcSheet.getLastColumn();
+    var tHeaders = transcSheet.getRange(1, 1, 1, tLastCol).getValues()[0];
+    var tRows    = transcSheet.getRange(2, 1, transcSheet.getLastRow() - 1, tLastCol).getValues();
+    var tidIdx   = tHeaders.indexOf("ticket_id");
+    var lineaIdx = tHeaders.indexOf("linea_numero");
+    var descIdx  = tHeaders.indexOf("descripcion");
+    var cantIdx  = tHeaders.indexOf("cantidad");
+    var puIdx    = tHeaders.indexOf("precio_unitario");
+    var montoIdx = tHeaders.indexOf("monto");
+    tRows.forEach(function(tr) {
+      var tid = String(tr[tidIdx] || "");
+      if (!tid) return;
+      if (!productsByTicket[tid]) productsByTicket[tid] = [];
+      productsByTicket[tid].push({
+        linea_numero:    lineaIdx >= 0 ? tr[lineaIdx]               : "",
+        descripcion:     descIdx  >= 0 ? String(tr[descIdx]  || "") : "",
+        cantidad:        cantIdx  >= 0 ? tr[cantIdx]               : "",
+        precio_unitario: puIdx    >= 0 ? tr[puIdx]                 : "",
+        monto:           montoIdx >= 0 ? tr[montoIdx]              : ""
+      });
+    });
+  }
+
+  var tickets = rows.map(function(row) {
+    var resumen = {};
+    headers.forEach(function(h, j) {
+      var v = row[j];
+      if (v instanceof Date) {
+        if (v.getFullYear() <= 1900) {
+          v = Utilities.formatDate(v, "America/Monterrey", "HH:mm");
+        } else {
+          v = Utilities.formatDate(v, "America/Monterrey", "yyyy-MM-dd");
+        }
+      }
+      resumen[h] = (v === null || v === undefined) ? "" : v;
+    });
+    var tid = String(resumen.ticket_id || "");
+    return { ticket_id: tid, resumen: resumen, productos: productsByTicket[tid] || [] };
+  }).filter(function(t) { return t.ticket_id; });
+
+  return { ok: true, tickets: tickets };
+}
+
+// ─── Dashboard: actualizar clasificación de ticket existente ─────────────────
+function updateTicketClassification_(data) {
+  var ticketId = String(data.ticket_id || "");
+  var clasif   = data.clasificacion      || {};
+  var prodsEd  = data.productos_editados || [];
+  if (!ticketId) return { ok: false, error: "ticket_id requerido" };
+
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+
+  var sheetR = ss.getSheetByName("Resumen tickets");
+  if (sheetR && sheetR.getLastRow() > 1) {
+    var lastColR = sheetR.getLastColumn();
+    var headR    = sheetR.getRange(1, 1, 1, lastColR).getValues()[0];
+    var rowsR    = sheetR.getRange(2, 1, sheetR.getLastRow() - 1, lastColR).getValues();
+    var idColR   = headR.indexOf("ticket_id");
+    var CAMPOS_R = [
+      "fecha","cuenta","subcuenta","categoria_gasto","concepto",
+      "propiedad","departamento","comprador","deducible","reembolso",
+      "reembolso_a","metodo_pago","detalles_operacion","comentarios",
+      "tienda","rfc","hora","folio","tarjeta_ultimos4",
+      "subtotal","iva","ieps","descuentos","total","clasificado_por"
+    ];
+    for (var r = 0; r < rowsR.length; r++) {
+      if (String(rowsR[r][idColR]) === ticketId) {
+        CAMPOS_R.forEach(function(campo) {
+          if (clasif.hasOwnProperty(campo)) {
+            var col = headR.indexOf(campo);
+            if (col >= 0) sheetR.getRange(r + 2, col + 1).setValue(clasif[campo]);
+          }
+        });
+        break;
+      }
+    }
+  }
+
+  var sheetP = ss.getSheetByName("Transcripcion");
+  if (sheetP && sheetP.getLastRow() > 1) {
+    var lastColP = sheetP.getLastColumn();
+    var headP    = sheetP.getRange(1, 1, 1, lastColP).getValues()[0];
+    var rowsP    = sheetP.getRange(2, 1, sheetP.getLastRow() - 1, lastColP).getValues();
+    var idColP   = headP.indexOf("ticket_id");
+    var lineaCol = headP.indexOf("linea_numero");
+    var CAMPOS_P = ["cuenta","subcuenta","categoria_gasto","concepto",
+                    "propiedad","departamento","comprador","comentarios"];
+    var editMap = {};
+    prodsEd.forEach(function(pe) {
+      editMap[String(pe.linea_numero)] = pe;
+    });
+    for (var p = 0; p < rowsP.length; p++) {
+      if (String(rowsP[p][idColP]) === ticketId) {
+        CAMPOS_P.forEach(function(campo) {
+          if (clasif.hasOwnProperty(campo)) {
+            var col = headP.indexOf(campo);
+            if (col >= 0) sheetP.getRange(p + 2, col + 1).setValue(clasif[campo]);
+          }
+        });
+        if (lineaCol >= 0) {
+          var lineaNum = String(rowsP[p][lineaCol] || "");
+          var pe = editMap[lineaNum];
+          if (pe) {
+            ["descripcion","cantidad","precio_unitario","monto"].forEach(function(campo) {
+              if (pe.hasOwnProperty(campo)) {
+                var col = headP.indexOf(campo);
+                if (col >= 0) sheetP.getRange(p + 2, col + 1).setValue(pe[campo]);
+              }
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return { ok: true };
+}
+
+// ─── Eliminar un ticket de Sheets ─────────────────────────────────────────────
+function deleteTicket_(data) {
+  var ticketId = String(data.ticket_id || "");
+  if (!ticketId) return { ok: false, error: "ticket_id requerido" };
+
+  var ss         = SpreadsheetApp.openById(SHEET_ID);
+  var sheetNames = ["Transcripcion", "Resumen tickets", "Cruce bancario"];
+
+  sheetNames.forEach(function(name) {
+    var sheet = ss.getSheetByName(name);
+    if (!sheet) return;
+    var values = sheet.getDataRange().getValues();
+    if (values.length < 2) return;
+    var col = values[0].indexOf("ticket_id");
+    if (col === -1) return;
+    for (var r = values.length - 1; r >= 1; r--) {
+      if (String(values[r][col]) === ticketId) {
+        sheet.deleteRow(r + 1);
+      }
+    }
+  });
+
+  return { ok: true };
+}
+
+// ─── Registros contables: leer BANCOS + Presupuesto_sys ───────────────────────
+function getBancosData_(ss) {
+  const norm = (s) => (s ?? "").toString()
+    .replace(/[​-‍﻿]/g, "")
+    .replace(/ /g, " ")
+    .trim()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+
+  const pickSheet = (names) => {
+    const sheets = ss.getSheets();
+    const wanted = names.map(norm);
+    for (const sh of sheets) {
+      const n = norm(sh.getName());
+      if (wanted.includes(n)) return sh;
+    }
+    for (const sh of sheets) {
+      const n = norm(sh.getName());
+      if (wanted.some(w => n.includes(w) || w.includes(n))) return sh;
+    }
+    return null;
+  };
+
+  const pickIdx = (headers, names) => {
+    const H = headers.map(norm);
+    for (const n of names) {
+      const i = H.indexOf(norm(n));
+      if (i >= 0) return i;
+    }
+    for (const n of names) {
+      const key = norm(n);
+      const j = H.findIndex(h => h.includes(key));
+      if (j >= 0) return j;
+    }
+    return -1;
+  };
+
+  const toNumber = (v) => {
+    if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+    const s = (v ?? "").toString().trim();
+    if (!s) return 0;
+    const n = Number(s.replace(/[^0-9\-\.]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const TZ = Session.getScriptTimeZone();
+  const fmtDate = (v) => {
+    if (!v && v !== 0) return "";
+    if (v instanceof Date) {
+      return Utilities.formatDate(v, TZ, "yyyy-MM-dd");
+    }
+    const s = String(v).trim();
+    if (!s) return "";
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+    const ddmm = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (ddmm) return `${ddmm[3]}-${ddmm[2].padStart(2,"0")}-${ddmm[1].padStart(2,"0")}`;
+    if (s.includes("GMT") || /^\w{3}\s\w{3}\s\d/.test(s)) {
+      try { return Utilities.formatDate(new Date(s), TZ, "yyyy-MM-dd"); } catch(e) {}
+    }
+    return s;
+  };
+
+  const MESES_MIN = ["","enero","febrero","marzo","abril","mayo","junio",
+                     "julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const fmtMes = (v) => {
+    if (!v) return "";
+    if (v instanceof Date) return `${MESES_MIN[v.getMonth() + 1]} ${v.getFullYear()}`;
+    return String(v).trim();
+  };
+
+  const shB = pickSheet(["BANCOS"]);
+  const shP = pickSheet(["PRESUPUESTO_SYS", "PRESUPUESTO SYS", "PRESUPUESTO", "PRESUPUESTOS"]);
+
+  if (!shB || !shP) {
+    return {
+      ok: false,
+      error: "sheet_not_found",
+      message: "No se encontraron las hojas BANCOS o Presupuesto_sys"
+    };
+  }
+
+  (function migrateAndEnsureCols(){
+    const lastCol = shB.getLastColumn();
+    if (lastCol < 1) return;
+    let headers = shB.getRange(1, 1, 1, shB.getLastColumn()).getValues()[0]
+      .map(h => String(h ?? "").trim().toUpperCase());
+
+    if (!headers.includes("DUDA") && headers.includes("VALIDADO")) {
+      const idx = headers.indexOf("VALIDADO");
+      shB.getRange(1, idx + 1).setValue("DUDA");
+      headers[idx] = "DUDA";
+    }
+    if (!headers.includes("VALIDADO") && headers.includes("REVISADO")) {
+      const idx = headers.indexOf("REVISADO");
+      shB.getRange(1, idx + 1).setValue("VALIDADO");
+      headers[idx] = "VALIDADO";
+    }
+
+    const REQ = ["CUENTA","SUBCUENTA","CATEGORIA","CONCEPTO","PROPIEDAD","DEPARTAMENTO",
+                 "ENCARGADO","DEDUCIBLE","REEMBOLSO","REEMBOLSO_A","METODO_PAGO",
+                 "CLASIFICADO_POR","FECHA_CLASIF","DUDA","VALIDADO"];
+    REQ.forEach(name => {
+      if (!headers.includes(name)) {
+        const newCol = shB.getLastColumn() + 1;
+        shB.getRange(1, newCol).setValue(name);
+        headers.push(name);
+      }
+    });
+  })();
+
+  const bancos        = shB.getDataRange().getValues();
+  const bancosDisplay = shB.getDataRange().getDisplayValues();
+  const pres          = shP.getDataRange().getValues();
+  const hB = bancos[0] || [];
+  const hP = pres[0]   || [];
+
+  const iAno    = pickIdx(hB, ["AÑO", "ANO", "ANIO", "YEAR"]);
+  const iMes    = pickIdx(hB, ["MES"]);
+  const iDia    = pickIdx(hB, ["DÍA", "DIA", "DIA DE OPERACION", "FECHA"]);
+  const iCta    = pickIdx(hB, ["CUENTA BANCARIA"]);
+  const iCuenta = pickIdx(hB, ["CUENTA"]);
+  const iSub    = pickIdx(hB, ["SUBCUENTA", "SUB-CUENTA"]);
+  const iCat    = pickIdx(hB, ["CATEGORIA", "CATEGORÍA"]);
+  const iDes    = pickIdx(hB, ["DESCRIPCION", "DESCRIPCIÓN"]);
+  const iConRef = pickIdx(hB, ["CONCEPTO / REFERENCIA", "CONCEPTO/REFERENCIA",
+                                "CONCEPTO REFERENCIA", "REFERENCIA", "CONCEPTO"]);
+  const iCon    = pickIdx(hB, ["CONCEPTO"]);
+  const iFac    = pickIdx(hB, ["FACTURA"]);
+  const iMon    = pickIdx(hB, ["MONTO"]);
+  const iDud    = pickIdx(hB, ["DUDA"]);
+  const iDudN   = pickIdx(hB, ["DUDA_NOTA", "DUDA NOTA", "NOTA_DUDA"]);
+  const iVal    = pickIdx(hB, ["VALIDADO"]);
+  const iComB   = pickIdx(hB, ["COMENTARIOS", "COMENTARIO"]);
+  const iCuentaA = pickIdx(hB, ["CUENTA_AUTO", "CUENTA AUTO"]);
+  const iSubA    = pickIdx(hB, ["SUBCUENTA_AUTO", "SUBCUENTA AUTO"]);
+  const iCatA    = pickIdx(hB, ["CATEGORIA_AUTO", "CATEGORÍA_AUTO", "CATEGORIA AUTO"]);
+  const iConA    = pickIdx(hB, ["CONCEPTO_AUTO", "CONCEPTO AUTO"]);
+  const iProb    = pickIdx(hB, ["PROBABILIDAD_CLASIF", "PROBABILIDAD CLASIF", "PROBABILIDAD"]);
+  const iArgs    = pickIdx(hB, ["ARGUMENTOS_CLASIF", "ARGUMENTOS CLASIF", "ARGUMENTOS"]);
+  // Match Banco↔Ticket (persistido por bn_set_ticket_matches_bulk). Sin leerlas,
+  // el filtro "Relacionados con tickets" del frontend no detecta los 'Sí'.
+  const iTrel   = pickIdx(hB, ["TICKET_RELACIONADO", "TICKET RELACIONADO"]);
+  const iTms    = pickIdx(hB, ["TICKET_MATCH_SCORE", "TICKET MATCH SCORE"]);
+  const iTmt    = pickIdx(hB, ["TICKET_MATCH_TIENDA", "TICKET MATCH TIENDA"]);
+  const iTmf    = pickIdx(hB, ["TICKET_MATCH_FECHA", "TICKET MATCH FECHA"]);
+  const iTmfo   = pickIdx(hB, ["TICKET_MATCH_FOLIO", "TICKET MATCH FOLIO"]);
+  const iTmto   = pickIdx(hB, ["TICKET_MATCH_TOTAL", "TICKET MATCH TOTAL"]);
+
+  const records = bancos.slice(1)
+    .map((r, i) => ({ r, rowNum: i + 2 }))
+    .filter(({ r }) => r.join("").toString().trim() !== "")
+    .map(({ r, rowNum }) => {
+      const factura = (iFac >= 0 ? r[iFac] : "") || "";
+      const diaDisplay = iDia >= 0 ? String(bancosDisplay[rowNum - 1][iDia]).trim() : "";
+      return {
+        Año:               iAno    >= 0 ? String(r[iAno]).trim()    : "",
+        Mes:               iMes    >= 0 ? fmtMes(r[iMes])           : "",
+        Día:               diaDisplay,
+        "Cuenta bancaria": iCta    >= 0 ? String(r[iCta]).trim()    : "",
+        CUENTA:            iCuenta >= 0 ? String(r[iCuenta]).trim() : "",
+        SUBCUENTA:         iSub    >= 0 ? String(r[iSub]).trim()    : "",
+        CATEGORIA:         iCat    >= 0 ? String(r[iCat]).trim()    : "",
+        Concepto:          iConRef >= 0 ? String(r[iConRef]).trim() : "",
+        CONCEPTO:          iCon    >= 0 ? String(r[iCon]).trim()    : "",
+        DESCRIPCION:       iDes    >= 0 ? String(r[iDes]).trim()    : "",
+        Factura:           String(factura).trim(),
+        FacturaFlag:       String(factura).trim().length ? "Con factura" : "Sin factura",
+        Monto:             toNumber(iMon >= 0 ? r[iMon] : 0),
+        DUDA:              iDud    >= 0 ? String(r[iDud]).trim()    : "",
+        DUDA_NOTA:         iDudN   >= 0 ? String(r[iDudN]).trim()   : "",
+        VALIDADO:          iVal    >= 0 ? String(r[iVal]).trim()    : "",
+        COMENTARIOS:       iComB   >= 0 ? String(r[iComB]).trim()   : "",
+        CUENTA_auto:       iCuentaA>= 0 ? String(r[iCuentaA]).trim(): "",
+        SUBCUENTA_auto:    iSubA   >= 0 ? String(r[iSubA]).trim()   : "",
+        CATEGORIA_auto:    iCatA   >= 0 ? String(r[iCatA]).trim()   : "",
+        CONCEPTO_auto:     iConA   >= 0 ? String(r[iConA]).trim()   : "",
+        Probabilidad_clasif: iProb >= 0 ? toNumber(r[iProb])        : 0,
+        Argumentos_clasif: iArgs   >= 0 ? String(r[iArgs]).trim()   : "",
+        Ticket_relacionado:  iTrel >= 0 ? String(r[iTrel]).trim()  : "",
+        Ticket_match_score:  iTms  >= 0 ? toNumber(r[iTms])        : 0,
+        Ticket_match_tienda: iTmt  >= 0 ? String(r[iTmt]).trim()   : "",
+        Ticket_match_fecha:  iTmf  >= 0 ? String(r[iTmf]).trim()   : "",
+        Ticket_match_folio:  iTmfo >= 0 ? String(r[iTmfo]).trim()  : "",
+        Ticket_match_total:  iTmto >= 0 ? toNumber(r[iTmto])       : 0,
+        rowNum:            rowNum
+      };
+    });
+
+  const iCuentaP = pickIdx(hP, ["CUENTA"]);
+  const iTipoP   = pickIdx(hP, ["TIPO"]);
+  const iPerP    = pickIdx(hP, ["PERIODICIDAD"]);
+  const iNatP    = pickIdx(hP, ["NATURALEZA"]);
+  const iSubP    = pickIdx(hP, ["SUBCUENTA", "SUB-CUENTA"]);
+  const iCatP    = pickIdx(hP, ["CATEGORIA", "CATEGORÍA"]);
+  const iConP    = pickIdx(hP, ["CONCEPTO"]);
+  const iDesP    = pickIdx(hP, ["DESCRIPCION", "DESCRIPCIÓN"]);
+  const iConcP   = pickIdx(hP, ["CONCATENADO"]);
+  const iSemP    = pickIdx(hP, ["SEMANAL"]);
+  const iMenP    = pickIdx(hP, ["MENSUAL", "PRESUPUESTO MENSUAL"]);
+  const iBimP    = pickIdx(hP, ["BIMESTRAL"]);
+  const iAnuP    = pickIdx(hP, ["ANUAL", "PRESUPUESTO ANUAL"]);
+
+  const budget = pres.slice(1)
+    .filter(r => r.join("").toString().trim() !== "")
+    .filter(r => {
+      const cuenta = norm(iCuentaP >= 0 ? r[iCuentaP] : "");
+      const cat    = norm(iCatP    >= 0 ? r[iCatP]    : "");
+      const con    = norm(iConP    >= 0 ? r[iConP]    : "");
+      return !(cuenta.startsWith("SUBTOTAL") || cat.startsWith("SUBTOTAL") || con.startsWith("SUBTOTAL"));
+    })
+    .map(r => ({
+      CUENTA:       iCuentaP >= 0 ? String(r[iCuentaP]).trim() : "",
+      TIPO:         iTipoP   >= 0 ? String(r[iTipoP]).trim()   : "",
+      PERIODICIDAD: iPerP    >= 0 ? String(r[iPerP]).trim()    : "",
+      NATURALEZA:   iNatP    >= 0 ? String(r[iNatP]).trim()    : "",
+      SUBCUENTA:    iSubP    >= 0 ? String(r[iSubP]).trim()    : "",
+      CATEGORIA:    iCatP    >= 0 ? String(r[iCatP]).trim()    : "",
+      CONCEPTO:     iConP    >= 0 ? String(r[iConP]).trim()    : "",
+      DESCRIPCION:  iDesP    >= 0 ? String(r[iDesP]).trim()    : "",
+      CONCATENADO:  iConcP   >= 0 ? String(r[iConcP]).trim()   : "",
+      SEMANAL:      toNumber(iSemP >= 0 ? r[iSemP] : 0),
+      MENSUAL:      toNumber(iMenP >= 0 ? r[iMenP] : 0),
+      BIMESTRAL:    toNumber(iBimP >= 0 ? r[iBimP] : 0),
+      ANUAL:        toNumber(iAnuP >= 0 ? r[iAnuP] : 0)
+    }))
+    .filter(r => r.CUENTA);
+
+  return {
+    ok: true,
+    spreadsheetId:  ss.getId(),
+    spreadsheetUrl: ss.getUrl(),
+    sourceSheets: { bancos: shB.getName(), presupuesto: shP.getName() },
+    counts:       { records: records.length, budget: budget.length },
+    records,
+    budget
+  };
+}
+
+// ─── Guardar clasificación de un registro bancario en hoja BANCOS ────────────
+function saveBancoClasificacion_(ss, data) {
+  const norm = (s) => (s ?? "").toString()
+    .replace(/[​-‍﻿]/g, "")
+    .replace(/ /g, " ")
+    .trim()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+
+  const shB = ss.getSheets().find(sh => norm(sh.getName()) === "BANCOS") ||
+              ss.getSheets().find(sh => norm(sh.getName()).includes("BANCOS"));
+  if (!shB) {
+    return { ok: false, error: "sheet_not_found", message: "No se encontró la hoja BANCOS" };
+  }
+
+  const rowNum = Number(data.rowNum);
+  if (!rowNum || rowNum < 2) {
+    return { ok: false, error: "invalid_row", message: "rowNum inválido: " + data.rowNum };
+  }
+
+  const CLASIF_COLS = [
+    "CUENTA", "SUBCUENTA", "CATEGORIA", "CONCEPTO",
+    "PROPIEDAD", "DEPARTAMENTO", "ENCARGADO",
+    "DEDUCIBLE", "REEMBOLSO", "REEMBOLSO_A",
+    "METODO_PAGO", "CLASIFICADO_POR", "FECHA_CLASIF",
+    "DUDA", "DUDA_NOTA", "VALIDADO", "COMENTARIOS"
+  ];
+
+  const lastCol   = shB.getLastColumn();
+  const headerRow = shB.getRange(1, 1, 1, lastCol).getValues()[0];
+
+  const getOrCreateCol = (colName) => {
+    const normName = norm(colName);
+    let idx = headerRow.findIndex(h => norm(h) === normName);
+    if (idx >= 0) return idx + 1;
+    const newCol = shB.getLastColumn() + 1;
+    shB.getRange(1, newCol).setValue(colName);
+    headerRow.push(colName);
+    return newCol;
+  };
+
+  const colMap = {};
+  for (const col of CLASIF_COLS) {
+    colMap[col] = getOrCreateCol(col);
+  }
+
+  const c   = data.clasificacion || {};
+  const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+
+  const writeCell = (colName, value) => {
+    const col = colMap[colName];
+    if (col) shB.getRange(rowNum, col).setValue(value ?? "");
+  };
+
+  if (data.descripcion_edit) {
+    const descCol = getOrCreateCol("DESCRIPCION");
+    if (descCol) shB.getRange(rowNum, descCol).setValue(data.descripcion || "");
+  }
+
+  if (data.duda_edit) {
+    const dudCol = getOrCreateCol("DUDA");
+    if (dudCol) shB.getRange(rowNum, dudCol).setValue(data.duda || "");
+    if (data.duda_nota !== undefined) {
+      const ndCol = getOrCreateCol("DUDA_NOTA");
+      if (ndCol) shB.getRange(rowNum, ndCol).setValue(data.duda_nota || "");
+    }
+    return { ok: true, rowNum: rowNum, duda: data.duda, duda_nota: data.duda_nota || "" };
+  }
+
+  if (data.duda_nota_edit) {
+    const ndCol = getOrCreateCol("DUDA_NOTA");
+    if (ndCol) shB.getRange(rowNum, ndCol).setValue(data.duda_nota || "");
+    return { ok: true, rowNum: rowNum, duda_nota: data.duda_nota || "" };
+  }
+
+  if (data.validado_edit) {
+    const valCol = getOrCreateCol("VALIDADO");
+    if (valCol) shB.getRange(rowNum, valCol).setValue(data.validado || "");
+    return { ok: true, rowNum: rowNum, validado: data.validado };
+  }
+
+  if (data.fecha_edit) {
+    const headerRow2 = shB.getRange(1, 1, 1, shB.getLastColumn()).getValues()[0];
+    let diaCol = -1;
+    for (let i = 0; i < headerRow2.length; i++) {
+      const n = norm(headerRow2[i]);
+      if (n === "DIA" || n === "DÍA" || n === "FECHA") { diaCol = i + 1; break; }
+    }
+    if (diaCol > 0) {
+      const newDate = data.dia || (data.clasificacion && data.clasificacion.dia) || "";
+      shB.getRange(rowNum, diaCol).setValue(newDate);
+    }
+    return { ok: true, rowNum: rowNum, dia_updated: true };
+  }
+
+  writeCell("CUENTA",          c.cuenta          || "");
+  writeCell("SUBCUENTA",       c.subcuenta        || "");
+  writeCell("CATEGORIA",       c.categoria_gasto  || "");
+  writeCell("CONCEPTO",        c.concepto         || "");
+  writeCell("PROPIEDAD",       c.propiedad        || "");
+  writeCell("DEPARTAMENTO",    c.departamento     || "");
+  writeCell("ENCARGADO",       c.encargado        || "");
+  writeCell("DEDUCIBLE",       c.deducible        || "");
+  writeCell("REEMBOLSO",       c.reembolso        || "");
+  writeCell("REEMBOLSO_A",     c.reembolso_a      || "");
+  writeCell("METODO_PAGO",     c.metodo_pago      || "");
+  writeCell("CLASIFICADO_POR", c.clasificado_por  || "");
+  writeCell("FECHA_CLASIF",    now);
+  if (c.duda     !== undefined) writeCell("DUDA",     c.duda     || "");
+  if (c.duda_nota !== undefined) writeCell("DUDA_NOTA", c.duda_nota || "");
+  if (c.validado !== undefined) writeCell("VALIDADO", c.validado || "");
+  if (c.comentarios !== undefined) writeCell("COMENTARIOS", c.comentarios || "");
+
+  return { ok: true, rowNum: rowNum, columnsWritten: CLASIF_COLS.length };
+}
+
+// Persiste el resultado del match Banco↔Ticket en columnas de BANCOS.
+// data.updates = [{ rowNum, ticket_relacionado, ticket_match_score, ticket_match_tienda, ticket_match_fecha, ticket_match_folio, ticket_match_total }]
+function bnSetTicketMatchesBulk_(ss, data) {
+  try {
+    var payload = data && data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : data;
+    var updates = (payload && payload.updates) || [];
+    if (!Array.isArray(updates) || !updates.length) return { ok: false, error: 'updates vacío' };
+    var norm = function (s) { return String(s || '').trim().toUpperCase(); };
+    var shB = ss.getSheets().find(function (sh) { return norm(sh.getName()) === 'BANCOS'; }) ||
+              ss.getSheets().find(function (sh) { return norm(sh.getName()).indexOf('BANCOS') >= 0; });
+    if (!shB) return { ok: false, error: 'BANCOS no encontrada' };
+    var lastCol = shB.getLastColumn();
+    var header  = shB.getRange(1, 1, 1, lastCol).getValues()[0];
+    function getOrCreateCol(name) {
+      var n = norm(name);
+      for (var i = 0; i < header.length; i++) if (norm(header[i]) === n) return i + 1;
+      var c = shB.getLastColumn() + 1;
+      shB.getRange(1, c).setValue(name);
+      header.push(name);
+      return c;
+    }
+    var col = {
+      rel:    getOrCreateCol('Ticket_relacionado'),
+      score:  getOrCreateCol('Ticket_match_score'),
+      tienda: getOrCreateCol('Ticket_match_tienda'),
+      fecha:  getOrCreateCol('Ticket_match_fecha'),
+      folio:  getOrCreateCol('Ticket_match_folio'),
+      total:  getOrCreateCol('Ticket_match_total'),
+    };
+    var written = 0;
+    for (var i = 0; i < updates.length; i++) {
+      var u = updates[i];
+      var rn = Number(u.rowNum);
+      if (!rn || rn < 2) continue;
+      shB.getRange(rn, col.rel).setValue(u.ticket_relacionado || '');
+      if (u.ticket_relacionado === 'Sí') {
+        shB.getRange(rn, col.score).setValue(u.ticket_match_score != null ? u.ticket_match_score : '');
+        shB.getRange(rn, col.tienda).setValue(u.ticket_match_tienda || '');
+        shB.getRange(rn, col.fecha).setValue(u.ticket_match_fecha || '');
+        shB.getRange(rn, col.folio).setValue(u.ticket_match_folio || '');
+        shB.getRange(rn, col.total).setValue(u.ticket_match_total != null ? u.ticket_match_total : '');
+      } else {
+        shB.getRange(rn, col.score).setValue('');
+        shB.getRange(rn, col.tienda).setValue('');
+        shB.getRange(rn, col.fecha).setValue('');
+        shB.getRange(rn, col.folio).setValue('');
+        shB.getRange(rn, col.total).setValue('');
+      }
+      written++;
+    }
+    return { ok: true, written: written };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+// ─── Guardar Presupuesto_sys (reescribe la hoja con las filas dadas) ─────────
+function savePresupuesto_(ss, data) {
+  const norm = (s) => (s ?? "").toString().trim().normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase();
+  const sh = ss.getSheets().find(s => norm(s.getName()).includes("PRESUPUESTO"));
+  if (!sh) return { ok: false, error: "sheet_not_found", message: "No se encontró la hoja Presupuesto_sys" };
+
+  const columns = Array.isArray(data.columns) ? data.columns : [];
+  const rows    = Array.isArray(data.rows)    ? data.rows    : [];
+  if (!columns.length) return { ok: false, error: "no_columns" };
+
+  const lastCol = Math.max(sh.getLastColumn(), columns.length);
+  const headerRow = sh.getRange(1, 1, 1, lastCol).getValues()[0]
+    .map(h => String(h ?? "").trim());
+
+  const colIdx = {};
+  columns.forEach(name => {
+    let idx = headerRow.findIndex(h => h.toUpperCase() === String(name).toUpperCase());
+    if (idx < 0) {
+      const newCol = sh.getLastColumn() + 1;
+      sh.getRange(1, newCol).setValue(name);
+      headerRow.push(name);
+      idx = newCol - 1;
+    }
+    colIdx[name] = idx;
+  });
+
+  const totalLastRow = sh.getLastRow();
+  if (totalLastRow >= 2) {
+    sh.getRange(2, 1, totalLastRow - 1, Math.max(1, sh.getLastColumn())).clearContent();
+  }
+
+  if (rows.length) {
+    const width = sh.getLastColumn();
+    const matrix = rows.map(r => {
+      const out = new Array(width).fill("");
+      for (const col of columns) {
+        const v = r[col];
+        out[colIdx[col]] = (v == null) ? "" : v;
+      }
+      return out;
+    });
+    sh.getRange(2, 1, matrix.length, width).setValues(matrix);
+  }
+
+  return { ok: true, rowsWritten: rows.length };
 }
