@@ -561,6 +561,24 @@ export function registerBreezewayRoutes(app) {
     }
   });
 
+  // ---- Debug: task detail crudo (para ajustar extractGuestRating) ----
+  app.get("/api/breezeway/task/:id/debug", async (req, res) => {
+    try {
+      const detail = await fetchTaskById(req.params.id);
+      const guest_rating = extractGuestRating(detail);
+      const items = [];
+      if (Array.isArray(detail?.line_items)) items.push(...detail.line_items);
+      if (Array.isArray(detail?.checklist_items)) items.push(...detail.checklist_items);
+      if (Array.isArray(detail?.sections)) for (const s of detail.sections) {
+        if (Array.isArray(s.line_items)) items.push(...s.line_items);
+        if (Array.isArray(s.items)) items.push(...s.items);
+      }
+      res.json({ ok: true, task_id: req.params.id, guest_rating, top_keys: detail ? Object.keys(detail) : [], items_count: items.length, items_sample: items.slice(0, 8), raw_line_items: detail?.line_items ?? null });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e?.message || e) });
+    }
+  });
+
   // ---- Consultar alertas recientes (Sheet-backed, sobrevive cold starts) ----
   app.get("/api/breezeway/alerts", async (req, res) => {
     const limit = Math.min(Number(req.query?.limit) || 100, 5000);
