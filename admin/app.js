@@ -11788,6 +11788,59 @@ function bzwBuildGuestStarsChip(rating, opts) {
 }
 window.bzwBuildGuestStarsChip = bzwBuildGuestStarsChip;
 
+/** Rating (1..5) para UN Lodgify Id — busca la task de housekeeping ganadora
+ *  con rating persistido. Devuelve null si no hay. */
+function bzwGetRatingForLodId(lodId) {
+  if (!lodId || typeof BZW_ALL_TASKS === 'undefined' || !BZW_ALL_TASKS.length) return null;
+  if (!BZW_IDX_BY_LODID) { try { bzwBuildTaskIndexes_(); } catch(_) {} }
+  const linked = (BZW_IDX_BY_LODID && BZW_IDX_BY_LODID.get(String(lodId))) || [];
+  if (!linked.length) return null;
+  // Preferir housekeeping con finished_at + rating
+  const scored = linked.map(tk => {
+    const dept = String(tk.task?.type || tk.raw?.type_department || '').toLowerCase();
+    const nm = String(tk.task?.name || '').toLowerCase();
+    const r = tk.task?.guest_rating ?? tk.raw?.guest_rating ?? null;
+    let s = 0;
+    if (dept === 'housekeeping') s += 10;
+    if (/checkout|limpieza/.test(nm)) s += 5;
+    if (tk.task?.finished_at) s += 1;
+    return { tk, s, r };
+  }).filter(x => x.r != null && Number.isFinite(Number(x.r)));
+  if (!scored.length) return null;
+  scored.sort((a,b) => b.s - a.s);
+  return Number(scored[0].r);
+}
+window.bzwGetRatingForLodId = bzwGetRatingForLodId;
+
+/** Promedio de guest_rating a lo largo de TODAS las reservas del huésped
+ *  (usando el índice __huGuestIndex por phone tail). Devuelve {avg, count} o null. */
+function huAvgGuestRatingForRecord(r) {
+  if (!r) return null;
+  const phoneTail = (v) => {
+    const s = String(v || '').replace(/\D/g, '');
+    return s.length >= 10 ? s.slice(-10) : '';
+  };
+  const tail = phoneTail(huValueFlexible(r, ['Cel/Whatsapp (principal)']));
+  if (!tail) return null;
+  const rows = HU_STATE.rows || [];
+  const sig = `${rows.length}`;
+  if (!window.__huGuestIndex || window.__huGuestIndexSig !== sig) {
+    try { huBuildGuestIndex_(rows); } catch(_) { return null; }
+  }
+  const list = window.__huGuestIndex.get(tail) || [];
+  const ratings = [];
+  for (const row of list) {
+    const lodId = String(row['Lodgify Id'] || '').trim();
+    if (!lodId) continue;
+    const rating = bzwGetRatingForLodId(lodId);
+    if (rating != null && Number.isFinite(rating)) ratings.push(rating);
+  }
+  if (!ratings.length) return null;
+  const avg = ratings.reduce((a,b) => a+b, 0) / ratings.length;
+  return { avg, count: ratings.length, values: ratings };
+}
+window.huAvgGuestRatingForRecord = huAvgGuestRatingForRecord;
+
 function huBuildAseoBadgesForLodId(lodId) {
   if (!lodId || typeof BZW_ALL_TASKS === 'undefined' || !BZW_ALL_TASKS.length) {
     return { aseoChip: '', asignacionesChip: '', fechaTermStr: '', starsChip: '' };
@@ -11919,17 +11972,29 @@ function huBuildRecordCard(r) {
 
   // Chips Aseo + Asignaciones (Breezeway) por Lodgify Id del registro
   const lodIdForAseo = String(r['Lodgify Id'] || '').trim();
-  const { aseoChip, asignacionesChip, fechaTermStr, starsChip } = huBuildAseoBadgesForLodId(lodIdForAseo);
+  const { aseoChip, asignacionesChip, fechaTermStr } = huBuildAseoBadgesForLodId(lodIdForAseo);
   const fechaTermChip = fechaTermStr
     ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#f1f5f9;color:#475569;font-weight:700;font-size:10px;border:1px solid #cbd5e1;letter-spacing:.02em">🕓 ${esc(fechaTermStr)}</span>`
     : '';
+  // Calificación PROMEDIADA del huésped a lo largo de todas sus reservas.
+  // Se muestra inline con el nombre en el header.
+  const _avgRating = huAvgGuestRatingForRecord(r);
+  const guestAvgStarsInline = _avgRating ? (() => {
+    const filled = Math.round(_avgRating.avg);
+    const stars = Array.from({ length: 5 }, (_, i) =>
+      `<span style="color:${i < filled ? '#f59e0b' : '#e5e7eb'};font-size:15px;line-height:1">★</span>`).join('');
+    const label = _avgRating.count > 1
+      ? `promedio de ${_avgRating.count} reservas`
+      : 'calificación del huésped';
+    return `<span title="Calificación del huésped — ${label}: ${_avgRating.avg.toFixed(1)}/5" style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#fffbeb;border:1.5px solid #fcd34d;vertical-align:middle;margin-left:8px">${stars}<span style="font-size:10px;color:#92400e;font-weight:800;margin-left:3px">${_avgRating.avg.toFixed(1)}</span></span>`;
+  })() : '';
 
   // Header SUMMARY — clic abre/cierra (sin marker nativo)
   const summary = `
     <summary style="cursor:pointer;list-style:none;padding:16px 18px;background:${palette.bg};display:grid;grid-template-columns:1fr auto auto auto;gap:14px;align-items:center">
       <div>
-        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px">${medioBadge}${huespedesChip}${aseoChip}${starsChip}${asignacionesChip}${fechaTermChip}</div>
-        <div style="font-size:18px;font-weight:800;color:#111827;line-height:1.25;margin-bottom:6px">${esc(nombre || '—')}</div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px">${medioBadge}${huespedesChip}${aseoChip}${asignacionesChip}${fechaTermChip}</div>
+        <div style="font-size:18px;font-weight:800;color:#111827;line-height:1.25;margin-bottom:6px;display:flex;align-items:center;flex-wrap:wrap">${esc(nombre || '—')}${guestAvgStarsInline}</div>
         <div style="font-size:13px;color:#64748b;font-weight:500">${esc(propiedad || '—')}${departamento ? ' · # ' + esc(departamento) : ''}</div>
         <div style="font-size:13px;color:#64748b;font-weight:500;margin-top:2px">${huFmtFecha(ingreso)} → ${huFmtFecha(salida)}</div>
         <div style="font-size:12px;color:#475569;font-weight:600;margin-top:3px">🌙 <span data-hu-hdr-noches>${esc(noches && Number(noches)>0 ? noches : '—')}</span> noche${String(noches)==='1'?'':'s'}</div>
