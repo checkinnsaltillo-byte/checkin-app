@@ -201,50 +201,33 @@ function isDuplicate(key, lastUpdated) {
   return false;
 }
 
-// Extrae la respuesta del line_item "Calificacion del Huesped" (1–5) del template
-// de Limpieza Checkout. Se busca por regex tolerante a acentos y a variaciones
-// mínimas del label (el personal de limpieza responde en Breezeway).
-// El endpoint /public/inventory/v1/task/{id} devuelve la task con la propiedad
-// line_items[] cuando el template tiene checklist. Cada item puede tener
-// distintos shapes según su tipo (número, opción, string). Probamos varios
-// paths de valor.
-// Devuelve un número 1..5 o null.
-function extractGuestRating(taskDetail) {
-  if (!taskDetail || typeof taskDetail !== "object") return null;
-  const items = [];
-  const collect = (arr) => Array.isArray(arr) && items.push(...arr);
-  collect(taskDetail.line_items);
-  collect(taskDetail.checklist_items);
-  collect(taskDetail.checklist);
-  // Algunos shapes anidan por secciones: task.sections[].items[]
-  if (Array.isArray(taskDetail.sections)) {
-    for (const sec of taskDetail.sections) {
-      collect(sec.line_items);
-      collect(sec.items);
-      collect(sec.checklist_items);
-    }
+// Trae los "requirements" (line_items del template) de una task.
+// Endpoint verificado: /public/inventory/v1/task/{id}/requirements
+// Cada item: { action: string|string[], response: string, type_requirement, section_name, ... }
+async function fetchTaskRequirements(taskId) {
+  if (!taskId) return null;
+  try {
+    const r = await breezewayFetch(`/public/inventory/v1/task/${taskId}/requirements`, { method: "GET" });
+    if (!r.ok) return null;
+    const j = await r.json().catch(() => null);
+    return Array.isArray(j) ? j : null;
+  } catch (e) {
+    console.warn(`[BZW] fetchTaskRequirements ${taskId}:`, e?.message || e);
+    return null;
   }
-  if (!items.length) return null;
-  const rx = /calificaci[oó]n.*hu[eé]sped|hu[eé]sped.*(limpio|calific)/i;
-  for (const it of items) {
-    const title = String(it?.title || it?.name || it?.label || it?.question || "").trim();
-    if (!title || !rx.test(title)) continue;
-    // Probar múltiples campos de valor
-    const candidates = [
-      it.value, it.response, it.answer, it.selected_value, it.rating,
-      it.numeric_value, it.number, it.result, it.data?.value, it.data?.answer,
-      Array.isArray(it.options) ? it.options.find(o => o?.selected)?.value : null,
-    ];
-    for (const c of candidates) {
-      if (c == null || c === "") continue;
-      const n = Number(String(c).match(/-?\d+/)?.[0]);
-      if (Number.isFinite(n) && n >= 1 && n <= 5) return n;
-    }
-  }
-  // Log una vez (por proceso) el shape para poder ajustar si no matchea
-  if (!globalThis.__bzwLineItemsShapeLogged) {
-    globalThis.__bzwLineItemsShapeLogged = true;
-    try { console.info("[BZW] line_items sample (para ajustar extractor):", JSON.stringify(items.slice(0,3)).slice(0,800)); } catch(_) {}
+}
+
+// Extrae la calificación del huésped (1..5) del array de requirements.
+// Match por regex sobre `action` (multilinea) y verificando que sea rating.
+function extractGuestRating(requirements) {
+  if (!Array.isArray(requirements) || !requirements.length) return null;
+  const rx = /calificaci[oó]n\s+del\s+hu[eé]sped/i;
+  for (const it of requirements) {
+    const action = Array.isArray(it?.action) ? it.action.join(" ") : String(it?.action || "");
+    if (!rx.test(action)) continue;
+    const resp = String(it?.response ?? "").trim();
+    const n = Number(resp.match(/-?\d+/)?.[0]);
+    if (Number.isFinite(n) && n >= 1 && n <= 5) return n;
   }
   return null;
 }
@@ -309,7 +292,10 @@ async function handleTaskEvent(payload) {
     return null; // No es un aseo según el filtro; lo ignoramos.
   }
 
-  const guest_rating = extractGuestRating(full || task);
+  // Sólo pedimos requirements cuando la task queda terminada — es el único
+  // momento en que el rating tiene sentido.
+  const requirements = await fetchTaskRequirements(task.id);
+  const guest_rating = extractGuestRating(requirements);
   return pushAlert({
     kind: "task-completed",
     event_type,
@@ -865,23 +851,23 @@ export function registerBreezewayRoutes(app) {
       });
       await Promise.all(workers);
 
-      // 4) Enriquecer tasks completadas con detalle (para line_items → guest_rating).
-      // La lista /task/?home_id=... suele no incluir line_items. Por eso, para
-      // las que tienen finished_at, hacemos fetch del detalle con concurrencia
-      // limitada. Solo tasks completadas — no todas, para no explotar la API.
-      const finishedTasks = allTasks.filter((t) => !!t.finished_at);
+      // 4) Enriquecer tasks completadas con requirements (para guest_rating).
+      // Solo tasks completadas de housekeeping — no todas, para no explotar la API.
+      const finishedTasks = allTasks.filter((t) =>
+        !!t.finished_at && String(t.type_department || "").toLowerCase() === "housekeeping");
       const enrichConcurrency = 5;
       const enrichQueue = finishedTasks.slice();
-      const enrichedById = new Map();
+      const ratingById = new Map();
       const enrichWorkers = Array.from({ length: enrichConcurrency }, async () => {
         while (enrichQueue.length) {
           const t = enrichQueue.shift();
           if (!t || !t.id) continue;
           try {
-            const detail = await fetchTaskById(t.id);
-            if (detail) enrichedById.set(t.id, detail);
+            const reqs = await fetchTaskRequirements(t.id);
+            const rating = extractGuestRating(reqs);
+            if (rating != null) ratingById.set(t.id, rating);
           } catch (e) {
-            console.warn(`[BZW] enrich detail ${t.id} err:`, e?.message || e);
+            console.warn(`[BZW] enrich requirements ${t.id} err:`, e?.message || e);
           }
         }
       });
@@ -892,8 +878,7 @@ export function registerBreezewayRoutes(app) {
         const homeId = t.home_id;
         const homeName = propIdx.get(homeId)?.name || `Alojamiento ${homeId || "?"}`;
         const finished = !!t.finished_at;
-        const detail = enrichedById.get(t.id) || t;
-        const guest_rating = finished ? extractGuestRating(detail) : null;
+        const guest_rating = finished ? (ratingById.get(t.id) ?? null) : null;
         return {
           kind: "task-historical",
           event_type: finished ? "task-completed" : "task",
