@@ -11820,18 +11820,25 @@ function huAvgGuestRatingForRecord(r) {
     const s = String(v || '').replace(/\D/g, '');
     return s.length >= 10 ? s.slice(-10) : '';
   };
-  const tail = phoneTail(huValueFlexible(r, ['Cel/Whatsapp (principal)']));
-  if (!tail) return null;
-  const rows = HU_STATE.rows || [];
-  const sig = `${rows.length}`;
-  if (!window.__huGuestIndex || window.__huGuestIndexSig !== sig) {
-    try { huBuildGuestIndex_(rows); } catch(_) { return null; }
+  const tail = phoneTail(huValueFlexible(r, ['Cel/Whatsapp (principal)','Celular principal','Cel/Whatsapp','Cel principal']));
+  // Colecciona lodIds candidatos: primero el índice por teléfono; si no hay,
+  // fallback al Lodgify Id del propio registro.
+  let lodIds = [];
+  if (tail) {
+    const rows = HU_STATE.rows || [];
+    const sig = `${rows.length}`;
+    if (!window.__huGuestIndex || window.__huGuestIndexSig !== sig) {
+      try { huBuildGuestIndex_(rows); } catch(_) {}
+    }
+    const list = (window.__huGuestIndex && window.__huGuestIndex.get(tail)) || [];
+    lodIds = list.map(x => String(x['Lodgify Id']||'').trim()).filter(Boolean);
   }
-  const list = window.__huGuestIndex.get(tail) || [];
+  if (!lodIds.length) {
+    const self = String(r['Lodgify Id']||'').trim();
+    if (self) lodIds = [self];
+  }
   const ratings = [];
-  for (const row of list) {
-    const lodId = String(row['Lodgify Id'] || '').trim();
-    if (!lodId) continue;
+  for (const lodId of lodIds) {
     const rating = bzwGetRatingForLodId(lodId);
     if (rating != null && Number.isFinite(rating)) ratings.push(rating);
   }
