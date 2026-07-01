@@ -14178,6 +14178,30 @@ function lgBuildDetailSidebarItem(b, selectedId) {
       <span style="color:${stMeta.accentFg};font-weight:800">${esc(stMeta.label)}</span>
     </span>` : '';
 
+  // ─── Calificación del huésped: promedio de guest_rating a lo largo de sus reservas ───
+  // Preferimos usar el huésped registrado (para tener acceso al historial vía phone tail);
+  // si no hay huésped, cae al Lodgify Id del booking actual.
+  let guestAvgStarsInline = '';
+  try {
+    let _avg = null;
+    if (huesped && typeof huAvgGuestRatingForRecord === 'function') {
+      _avg = huAvgGuestRatingForRecord(huesped);
+    }
+    if (!_avg && typeof bzwGetRatingForLodId === 'function') {
+      const _r = bzwGetRatingForLodId(String(b.Id||''));
+      if (_r != null) _avg = { avg: _r, count: 1, values: [_r] };
+    }
+    if (_avg) {
+      const filled = Math.round(_avg.avg);
+      const stars = Array.from({ length: 5 }, (_, i) =>
+        `<span style="color:${i < filled ? '#f59e0b' : '#e5e7eb'};font-size:12px;line-height:1">★</span>`).join('');
+      const lbl = _avg.count > 1
+        ? `promedio de ${_avg.count} reservas`
+        : 'calificación del huésped';
+      guestAvgStarsInline = `<span title="Calificación del huésped — ${lbl}: ${_avg.avg.toFixed(1)}/5" style="display:inline-flex;align-items:center;gap:2px;padding:2px 7px;border-radius:999px;background:#fffbeb;border:1.5px solid #fcd34d;line-height:1.2">${stars}<span style="font-size:9px;color:#92400e;font-weight:800;margin-left:2px">${_avg.avg.toFixed(1)}</span></span>`;
+    }
+  } catch(_) {}
+
   return `
     <div class="rd-item ${isSel?'rd-active':''}" onclick="lgDetailSelect('${esc(b.Id)}')"
          data-lg-booking-id="${esc(b.Id)}"
@@ -14210,6 +14234,7 @@ function lgBuildDetailSidebarItem(b, selectedId) {
         </div>
         <div class="rd-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span>${esc(b.GuestName||'Sin nombre')}</span>
+          ${guestAvgStarsInline}
           ${tierInlineHtml}
         </div>
         <div style="font-size:11px;color:#475569;font-weight:600;margin-top:2px">${esc(lgPropOf(b) || '—')}</div>
