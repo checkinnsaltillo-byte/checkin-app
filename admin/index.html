@@ -5,7 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
   <title>Sistema de gestión de Corta estancia | Check Inn Saltillo</title>
   <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=139">
+  <link rel="stylesheet" href="styles.css?v=140">
   <style>
     /* ─── Modo nocturno ─────────────────────────────────────────────── */
     body.dark {
@@ -1994,7 +1994,7 @@
           <div class="ocup-filter-cell">
             <label class="ocup-filter-label">Detalles</label>
             <label class="ocup-toggle">
-              <input type="checkbox" id="ocup-toggle-details" checked onchange="ocupToggleDetails(this.checked)">
+              <input type="checkbox" id="ocup-toggle-details" onchange="ocupToggleDetails(this.checked)">
               <span class="ocup-toggle-track"><span class="ocup-toggle-thumb"></span></span>
               <span class="ocup-toggle-label">Mostrar detalles</span>
             </label>
@@ -2015,6 +2015,13 @@
           <div class="ocup-filter-cell">
             <label class="ocup-filter-label">Estado</label>
             <div id="ocup-chart-estados" class="inc-mselect" data-filter="estados"></div>
+          </div>
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Variable</label>
+            <div class="ocup-gx-typeswitch">
+              <button type="button" class="ocup-gx-metric-btn active" data-metric="occupancy" onclick="ocupChartSetMetric('occupancy')">📊 % Ocupación</button>
+              <button type="button" class="ocup-gx-metric-btn" data-metric="ingresoNeto" onclick="ocupChartSetMetric('ingresoNeto')">💵 $ Ingreso neto</button>
+            </div>
           </div>
           <div class="ocup-filter-cell">
             <label class="ocup-filter-label">Tipo de serie</label>
@@ -2259,6 +2266,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=563"></script>
+  <script src="app.js?v=564"></script>
 </body>
 </html>

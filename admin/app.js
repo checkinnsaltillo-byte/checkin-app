@@ -24505,15 +24505,17 @@ function ocupStatsForAloj(houseId, y, m) {
   };
 }
 
-// Color por canal (consistente con calendario)
+// Color por canal — paleta ampliamente distinguible incluso para daltónicos.
+// Cada canal usa una familia distinta (rojo, azul, amarillo, verde, magenta, gris)
+// sin repetir tono/saturación.
 function ocupChannelColor(src) {
   const s = String(src || '').toLowerCase();
-  if (s.includes('airbnb')) return '#dc2626';
-  if (s.includes('booking')) return '#1e40af';
-  if (s.includes('expedia')) return '#d97706';
-  if (s.includes('vrbo')) return '#16a34a';
-  if (s.includes('manual') || s.includes('direct')) return '#7c3aed';
-  return '#64748b';
+  if (s.includes('airbnb')) return '#e11d48';   // Rojo carmesí
+  if (s.includes('booking')) return '#1e3a8a';  // Azul marino profundo
+  if (s.includes('expedia')) return '#facc15';  // Amarillo saturado
+  if (s.includes('vrbo')) return '#059669';     // Verde esmeralda
+  if (s.includes('manual') || s.includes('direct')) return '#c026d3'; // Magenta/fucsia
+  return '#475569';                              // Slate oscuro para "otros"
 }
 
 // Renderiza un mini bar stacked horizontal de noches por canal
@@ -24560,9 +24562,14 @@ function ocupCellHtml(r, isAvg) {
       <div class="ocup-cell-stat-val">${val}</div>
     </div>`;
   const fmt = (v) => esc(ocupFmtMoney(v || 0, r.currency));
-  // Desglose contable — solo pintarlo si hay algo de revenue
+  // Desglose contable — INGRESO TOTAL arriba (incluye comisión), desglose por
+  // fuente en medio, INGRESO NETO abajo. Solo se pinta si hay revenue.
   const desgloseHtml = r.revenue > 0 ? `
     <div class="ocup-cell-desglose">
+      <div class="ocup-cell-desglose-row ocup-cell-desglose-total">
+        <span class="ocup-cell-desglose-lbl">Ingreso total</span>
+        <span class="ocup-cell-desglose-val">${fmt(r.revenue)}</span>
+      </div>
       ${r.revAirbnb > 0 ? `
         <div class="ocup-cell-desglose-row ocup-cell-desglose-airbnb">
           <span class="ocup-cell-desglose-lbl">🅰 Airbnb bruto</span>
@@ -24606,7 +24613,6 @@ function ocupCellHtml(r, isAvg) {
       ${stat('⏱',  'Duración prom.', (r.avgDuration ? r.avgDuration.toFixed(1) : '—') + (r.avgDuration ? (r.avgDuration === 1 ? ' noche' : ' noches') : ''))}
     </div>
     <div class="ocup-cell-channels">${ocupChannelBarHtml(r.byChannel)}</div>
-    <div class="ocup-cell-revenue ${isAvg ? 'ocup-cell-revenue-total' : ''}">${esc(ocupFmtMoney(r.revenue, r.currency))}</div>
     ${desgloseHtml}
   </td>`;
 }
@@ -24672,8 +24678,9 @@ function ocupRenderTable() {
   cont.innerHTML = `<table class="ocup-table ${compactCls}"><thead>${head}</thead><tbody>${rows}</tbody></table>`;
 }
 
-// Toggle "Mostrar detalles" — oculta/muestra stats extra y compacta celdas
-OCUP_STATE.indicadoresShowDetails = true;
+// Toggle "Mostrar detalles" — oculta/muestra stats extra y compacta celdas.
+// Default: OFF (compacto). Usuario lo activa manualmente si quiere ver los KPIs.
+OCUP_STATE.indicadoresShowDetails = false;
 window.ocupToggleDetails = function (checked) {
   OCUP_STATE.indicadoresShowDetails = !!checked;
   // Re-render solo agregando/quitando la clase compacta — sin reconstruir
@@ -24695,7 +24702,18 @@ OCUP_STATE.chart = {
   highlightSeries: new Set(),     // keys destacadas (click en leyenda)
   range: null,                    // [startIdx, endIdx] o null = todo el histórico
   seriesType: 'original',         // 'original' | 'differences'
+  metric: 'occupancy',            // 'occupancy' | 'ingresoNeto'
   chartFiltersInit: false,
+};
+
+// Cambia la variable graficada (Ocupación % vs Ingreso neto $).
+window.ocupChartSetMetric = function (metric) {
+  if (metric !== 'occupancy' && metric !== 'ingresoNeto') return;
+  OCUP_STATE.chart.metric = metric;
+  document.querySelectorAll('.ocup-gx-metric-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-metric') === metric);
+  });
+  ocupRenderChart();
 };
 
 const OCUP_REF_COLORS = {
@@ -24858,6 +24876,22 @@ function ocupChartSeriesForRef(refKey, months) {
   });
 }
 
+// Serie de $ Ingreso neto por alojamiento y mes.
+function ocupChartNetoForAloj(houseId, y, m) {
+  const s = ocupStatsForAloj(houseId, y, m);
+  return s.ingresoNeto || 0;
+}
+// Para referencias: promedio de ingreso neto por alojamiento del subset.
+function ocupChartNetoSeriesForRef(refKey, months) {
+  const allAlojs = ocupGetAlojamientos();
+  const subset = refKey === '__global__' ? allAlojs : allAlojs.filter(a => a.propiedad === refKey);
+  if (!subset.length) return months.map(() => 0);
+  return months.map(m => {
+    const sum = subset.reduce((s, a) => s + ocupChartNetoForAloj(a.houseId, m.year, m.month), 0);
+    return sum / subset.length;
+  });
+}
+
 // Tooltip helpers
 function ocupChartShowTip(cont, x, y, html) {
   let tip = cont.querySelector('.ocup-gx-tip');
@@ -24902,6 +24936,20 @@ window.ocupChartResetRange = function () {
   ocupRenderChart();
 };
 
+// Redondea un valor a la potencia de 10 "amigable" más cercana para ticks
+// de gráfica: 1, 2, 5, 10, 20, 50, 100, 200, 500, 1k, 2k, ...
+function ocupChartNiceStep(range) {
+  const r = Math.max(1, Math.abs(range));
+  const mag = Math.pow(10, Math.floor(Math.log10(r)));
+  const norm = r / mag;
+  let step;
+  if (norm <= 1) step = 1;
+  else if (norm <= 2) step = 2;
+  else if (norm <= 5) step = 5;
+  else step = 10;
+  return step * mag;
+}
+
 // Transformación según tipo de serie. 'differences' = valor[t] - valor[t-1].
 // El primer mes queda en NaN (no se puede calcular diff). El renderer
 // salta puntos NaN.
@@ -24927,11 +24975,20 @@ function ocupRenderChart() {
   const interests = allAlojs.filter(a => OCUP_STATE.chart.interests.has(a.houseId));
   const refOptions = ocupChartGetReferenceOptions();
   const type = OCUP_STATE.chart.seriesType;
+  const metric = OCUP_STATE.chart.metric || 'occupancy';
+
+  // Helpers dependientes de la métrica
+  const interestRaw = (a, months) => metric === 'ingresoNeto'
+    ? months.map(m => ocupChartNetoForAloj(a.houseId, m.year, m.month))
+    : months.map(m => ocupNightsForAloj(a.houseId, m.year, m.month).percent);
+  const refRaw = (refKey, months) => metric === 'ingresoNeto'
+    ? ocupChartNetoSeriesForRef(refKey, months)
+    : ocupChartSeriesForRef(refKey, months);
 
   // Series — primero todos los interés, luego todas las referencias
   const series = [];
   interests.forEach((a, i) => {
-    const rawPcts = months.map(m => ocupNightsForAloj(a.houseId, m.year, m.month).percent);
+    const rawPcts = interestRaw(a, months);
     const pcts = ocupChartTransform(rawPcts, type);
     const color = ocupChartColorFor('int:' + a.houseId, i);
     series.push({ key: 'int:' + a.houseId, label: a.nombre, color, pcts, isInterest: true });
@@ -24940,7 +24997,7 @@ function ocupRenderChart() {
     const opt = refOptions.find(o => o.value === refKey);
     const label = opt ? opt.label : refKey;
     const idx = refOptions.findIndex(o => o.value === refKey);
-    const rawPcts = ocupChartSeriesForRef(refKey, months);
+    const rawPcts = refRaw(refKey, months);
     const pcts = ocupChartTransform(rawPcts, type);
     series.push({ key: refKey, label, color: ocupChartColorFor(refKey, idx), pcts, isInterest: false });
   });
@@ -24968,10 +25025,31 @@ function ocupRenderChart() {
   const innerW = W - ML - MR, innerH = H - MT - MB;
   const xStep = months.length > 1 ? innerW / (months.length - 1) : innerW;
 
-  // Y scale dinámico: en 'original' es [0, 100]; en 'differences' se
-  // calcula simétrico alrededor de 0 con margen 10%.
+  // Y scale dinámico según métrica y tipo:
+  //   occupancy + original     → [0, 100]
+  //   occupancy + differences  → [-max, max]
+  //   ingresoNeto + original   → [0, max real]
+  //   ingresoNeto + differences→ [-max, max]
   let yMin = 0, yMax = 100;
-  if (type === 'differences') {
+  if (metric === 'ingresoNeto') {
+    let max = 0, min = 0;
+    series.forEach(s => s.pcts.forEach(v => {
+      if (isNaN(v) || !isFinite(v)) return;
+      if (v > max) max = v;
+      if (v < min) min = v;
+    }));
+    if (type === 'differences') {
+      const m = Math.max(Math.abs(min), Math.abs(max), 100);
+      const step = ocupChartNiceStep(m);
+      const rounded = Math.ceil(m / step) * step;
+      yMin = -rounded; yMax = rounded;
+    } else {
+      if (max < 100) max = 100;
+      const step = ocupChartNiceStep(max);
+      yMax = Math.ceil(max / step) * step;
+      yMin = 0;
+    }
+  } else if (type === 'differences') {
     let max = 0;
     series.forEach(s => s.pcts.forEach(v => { if (!isNaN(v) && isFinite(v)) max = Math.max(max, Math.abs(v)); }));
     if (max < 5) max = 5;
@@ -24986,18 +25064,35 @@ function ocupRenderChart() {
   // Grid + Y labels
   let grid = '';
   let yTicks;
-  if (type === 'differences') {
+  if (metric === 'ingresoNeto') {
+    const step = ocupChartNiceStep((yMax - yMin) / 6);
+    yTicks = [];
+    for (let v = yMin; v <= yMax + 0.01; v += step) yTicks.push(Math.round(v / step) * step);
+  } else if (type === 'differences') {
     const step = Math.max(1, Math.round((yMax - yMin) / 6));
     yTicks = [];
     for (let v = yMin; v <= yMax + 0.01; v += step) yTicks.push(Math.round(v));
   } else {
     yTicks = [0, 20, 40, 60, 80, 100];
   }
+  const suffix = metric === 'ingresoNeto' ? '' : '%';
+  const prefix = metric === 'ingresoNeto' ? '$' : '';
+  const fmtTick = (p) => {
+    if (metric !== 'ingresoNeto') return `${p > 0 && type === 'differences' ? '+' : ''}${p}${suffix}`;
+    // Formato dinero abreviado: 1.2k, 15k, 250k, 1.5M
+    const sign = p < 0 ? '-' : (p > 0 && type === 'differences' ? '+' : '');
+    const abs = Math.abs(p);
+    let short;
+    if (abs >= 1e6) short = (abs/1e6).toFixed(abs >= 10e6 ? 0 : 1) + 'M';
+    else if (abs >= 1e3) short = (abs/1e3).toFixed(abs >= 10e3 ? 0 : 1) + 'k';
+    else short = String(abs);
+    return `${sign}${prefix}${short}`;
+  };
   yTicks.forEach(p => {
     const yy = yFor(p);
     if (yy == null) return;
     grid += `<line x1="${ML}" y1="${yy}" x2="${W - MR}" y2="${yy}"></line>`;
-    grid += `<text x="${ML - 8}" y="${yy + 4}" text-anchor="end">${p > 0 && type === 'differences' ? '+' : ''}${p}%</text>`;
+    grid += `<text x="${ML - 8}" y="${yy + 4}" text-anchor="end">${fmtTick(p)}</text>`;
   });
   // Línea de 0 más gruesa cuando es differences
   if (type === 'differences') {
@@ -25177,8 +25272,14 @@ function ocupChartBindHover(cont, series, months, ML, MT, innerW, innerH, xStep,
     const xPx = ML + idx * xStep;
     cursor.setAttribute('x1', xPx);
     cursor.setAttribute('x2', xPx);
-    // Tooltip — unidad % (misma que el eje Y)
-    const fmtVal = (v) => isNaN(v) || !isFinite(v) ? '—' : `${v >= 0 && OCUP_STATE.chart.seriesType === 'differences' ? '+' : ''}${Math.round(v)}%`;
+    // Tooltip — formato depende de la métrica seleccionada
+    const isMoney = OCUP_STATE.chart.metric === 'ingresoNeto';
+    const fmtVal = (v) => {
+      if (isNaN(v) || !isFinite(v)) return '—';
+      const sign = v >= 0 && OCUP_STATE.chart.seriesType === 'differences' ? '+' : '';
+      if (isMoney) return `${sign}${ocupFmtMoney(v, 'MXN')}`;
+      return `${sign}${Math.round(v)}%`;
+    };
     const rows = series
       .filter(s => !OCUP_STATE.chart.hiddenSeries.has(s.key))
       .map(s => `<div class="ocup-gx-tip-row">
@@ -25195,9 +25296,12 @@ function ocupChartBindHover(cont, series, months, ML, MT, innerW, innerH, xStep,
       if (!isNaN(iv) && !isNaN(rv)) {
         const di = iv - rv;
         const cls = di >= 0 ? 'color:#86efac' : 'color:#fca5a5';
+        const diffStr = isMoney
+          ? `${di >= 0 ? '+' : ''}${ocupFmtMoney(di, 'MXN')}`
+          : `${di >= 0 ? '+' : ''}${Math.round(di)}%`;
         diffRow = `<div class="ocup-gx-tip-row" style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.15)">
           <span style="color:#cbd5e1">Δ Interés − Ref</span>
-          <span style="${cls}">${di >= 0 ? '+' : ''}${Math.round(di)}%</span>
+          <span style="${cls}">${diffStr}</span>
         </div>`;
       }
     }
