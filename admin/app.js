@@ -26931,29 +26931,33 @@ function bnEfectivoInit() {
     if (efe) efe.classList.remove('hidden');
     if (up)  up.classList.add('hidden');
   };
-  if ((!BN_BUDGET || !BN_BUDGET.length) && typeof bn_loadData === 'function') {
+  // SIEMPRE refresca BN_RAW al entrar — así registros recién insertados aparecen.
+  // Antes se skippeaba la recarga si BN_BUDGET ya estaba en memoria → stale.
+  if (typeof bn_loadData === 'function') {
     try { bn_loadData().then(() => { bn_buildBnCatalog?.(); _reshow(); bnEfectivoAutoLoadIfFirst(); _reshow(); }); } catch (_) {}
   } else {
-    if (typeof bn_buildBnCatalog === 'function' && (!BN_CATALOG || !Object.keys(BN_CATALOG).length)) bn_buildBnCatalog();
     bnEfectivoAutoLoadIfFirst();
   }
 }
 
-// Auto-carga los últimos 10 registros desde BANCOS al entrar a la sección
-// por primera vez (o si la tabla está vacía / solo tiene un renglón vacío).
+// Auto-carga los últimos 10 registros desde BANCOS al entrar a la sección.
+// SIEMPRE recarga desde BANCOS al re-entrar para que registros recién insertados
+// aparezcan como ya guardados (✓) — antes se preservaba estado stale.
+// Excepción: si el usuario tiene renglones NUEVOS (no importados) con datos
+// capturados, los preserva y solo agrega los importados abajo.
 function bnEfectivoAutoLoadIfFirst() {
   const rows = BN_EFE_STATE.rows || [];
-  const isEmpty = !rows.length ||
-    (rows.length === 1 && !rows[0].desc && !Number(rows[0].cargo) && !Number(rows[0].abono));
-  if (isEmpty && !BN_EFE_STATE._autoLoaded) {
-    BN_EFE_STATE._autoLoaded = true;
-    const inp = document.getElementById('bn-efectivo-load-n');
-    if (inp && !inp.value) inp.value = '10';
-    bnEfectivoLoadLastFromBancos();
-  } else {
-    if (!rows.length) BN_EFE_STATE.rows = [bnEfeNewRow()];
-    bnEfectivoRender();
-  }
+  // Conserva renglones NUEVOS con datos capturados por el usuario (WIP).
+  const wipNewRows = rows.filter(r => !r._imported && (r.desc || Number(r.cargo) || Number(r.abono)));
+  const inp = document.getElementById('bn-efectivo-load-n');
+  if (inp && !inp.value) inp.value = '10';
+  // Después de cargar los importados, prepende los WIP para no perderlos.
+  bnEfectivoLoadLastFromBancos().finally(() => {
+    if (wipNewRows.length) {
+      BN_EFE_STATE.rows = [...wipNewRows, ...BN_EFE_STATE.rows];
+      bnEfectivoRender();
+    }
+  });
 }
 
 window.bnEfectivoAddRows = function () {
@@ -27048,6 +27052,72 @@ window.bnEfectivoToggleEdit = function (id) {
   if (r._editing) r._dirty = false; // arranca limpio al entrar a editar
   bnEfectivoRender();
   bnEfectivoUpdateSaveBtnLabel();
+};
+
+/** Guarda los cambios de UN renglón editado directamente vía /bn/update-rows.
+ *  Al terminar, salir del modo edición y refrescar la vista. */
+window.bnEfectivoSaveRow = async function (id) {
+  const r = BN_EFE_STATE.rows.find(x => x.id === id);
+  if (!r || !r._imported || !r._editing || !r._dirty || !r._bancosRowNum) return;
+  const status = document.getElementById('bn-efectivo-status');
+  if (status) status.textContent = '⏳ Guardando cambios…';
+  try {
+    const updates = [{
+      rowNum: r._bancosRowNum,
+      fields: {
+        'Día':          bnEfeIsoToDmy(r.dia),
+        'DESCRIPCION':  r.desc || '',
+        'CARGO':        Number(r.cargo) || '',
+        'ABONO':        Number(r.abono) || '',
+        'SALDO':        r.saldo === '' || r.saldo == null ? '' : Number(r.saldo),
+        'Monto':        Number(r.monto) || 0,
+        'ORIGEN/DESTINO':           r.origenDestino || '',
+        'ORIGEN/DESTINO_comments':  r.origenDestinoComments || '',
+      },
+      clearClasif: true,
+    }];
+    const res = await fetch(`${BACKEND}/bn/update-rows`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'Update falló');
+    r._dirty = false;
+    r._editing = false;
+    if (status) status.innerHTML = `✓ Cambios guardados en BANCOS.`;
+    bnEfectivoRender();
+    if (typeof bnEfectivoUpdateSaveBtnLabel === 'function') bnEfectivoUpdateSaveBtnLabel();
+  } catch (e) {
+    alert('No se pudieron guardar los cambios: ' + (e.message || e));
+    if (status) status.textContent = '';
+  }
+};
+
+/** Elimina un renglón importado desde BANCOS (destructivo, con confirmación). */
+window.bnEfectivoDeleteImported = async function (id) {
+  const r = BN_EFE_STATE.rows.find(x => x.id === id);
+  if (!r || !r._imported || !r._bancosRowNum) return;
+  const label = `${r.dia || '(sin fecha)'} — ${r.desc || '(sin descripción)'} — $${r.monto || 0}`;
+  if (!confirm(`¿Eliminar este renglón de BANCOS?\n\n${label}\n\nEsta acción no se puede deshacer.`)) return;
+  const status = document.getElementById('bn-efectivo-status');
+  if (status) status.textContent = '⏳ Eliminando de BANCOS…';
+  try {
+    const res = await fetch(`${BACKEND}/bn/delete-row`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rowNum: r._bancosRowNum }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'Delete falló');
+    // Quita local + invalida BN_RAW para próxima carga
+    BN_EFE_STATE.rows = BN_EFE_STATE.rows.filter(x => x.id !== id);
+    if (!BN_EFE_STATE.rows.length) BN_EFE_STATE.rows = [bnEfeNewRow()];
+    if (Array.isArray(BN_RAW)) BN_RAW = BN_RAW.filter(x => x.rowNum !== r._bancosRowNum);
+    if (status) status.innerHTML = `✓ Renglón eliminado de BANCOS.`;
+    bnEfectivoRender();
+  } catch (e) {
+    alert('No se pudo eliminar el renglón: ' + (e.message || e));
+    if (status) status.textContent = '';
+  }
 };
 function bnEfectivoUpdateSaveBtnLabel() {
   const btn = document.querySelector('button[onclick="bnEfectivoSave()"]');
@@ -27229,15 +27299,32 @@ function bnEfectivoRowHtml(r) {
   const di = locked ? 'disabled' : '';
   const rowBg = locked ? 'background:#f1f5f9' : (selMode && r.selected) ? 'background:#eff6ff' : '';
   const inputStyle = inputStyleBase + ';background:' + (locked ? '#e2e8f0;color:#475569;cursor:not-allowed' : '#fff');
-  // Celda Import.: centrada con flex; muestra ✓ verde + ✏ azul (importado) o ❌ rojo (nuevo, eliminable)
-  const impCell = `<td style="padding:2px 4px;text-align:center;vertical-align:middle">
-    <div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${imp
-      ? `<span title="Importado desde BANCOS" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:#16a34a;color:#fff;font-weight:900;font-size:12px;line-height:1">✓</span>
-         <button type="button" onclick="bnEfectivoToggleEdit(${r.id})" title="${r._editing?'Cancelar edición':'Editar renglón'}"
-           style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:${r._editing?'#1d4ed8':'#dbeafe'};color:${r._editing?'#fff':'#1d4ed8'};border:1px solid #93c5fd;font-weight:700;font-size:11px;line-height:1;cursor:pointer">✎</button>`
-      : `<button type="button" onclick="bnEfectivoDelete(${r.id})" title="Eliminar renglón"
-           style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:800;font-size:11px;line-height:1;cursor:pointer">✕</button>`}
-    </div></td>`;
+  // Celda Import.:
+  //   Importado NO en edición: ✓  ✎ (editar)  ✕ (eliminar de BANCOS)
+  //   Importado EN edición:    ✓  💾 (guardar cambios)  ✕ (cancelar edición)
+  //   Nuevo (no importado):    ✕ (eliminar renglón local)
+  let impCellInner = '';
+  if (imp) {
+    const okChip = `<span title="Importado desde BANCOS" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:#16a34a;color:#fff;font-weight:900;font-size:12px;line-height:1">✓</span>`;
+    if (r._editing) {
+      const canSave = !!r._dirty;
+      const saveBtn = `<button type="button" onclick="bnEfectivoSaveRow(${r.id})" title="${canSave?'Guardar cambios':'Sin cambios que guardar'}" ${canSave?'':'disabled'}
+        style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:${canSave?'#16a34a':'#e5e7eb'};color:${canSave?'#fff':'#9ca3af'};border:1px solid ${canSave?'#15803d':'#d1d5db'};font-weight:700;font-size:11px;line-height:1;cursor:${canSave?'pointer':'not-allowed'}">💾</button>`;
+      const cancelBtn = `<button type="button" onclick="bnEfectivoToggleEdit(${r.id})" title="Cancelar edición"
+        style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:800;font-size:11px;line-height:1;cursor:pointer">✕</button>`;
+      impCellInner = `${okChip}${saveBtn}${cancelBtn}`;
+    } else {
+      const editBtn = `<button type="button" onclick="bnEfectivoToggleEdit(${r.id})" title="Editar renglón"
+        style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;font-weight:700;font-size:11px;line-height:1;cursor:pointer">✎</button>`;
+      const delBtn = `<button type="button" onclick="bnEfectivoDeleteImported(${r.id})" title="Eliminar renglón de BANCOS"
+        style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:800;font-size:11px;line-height:1;cursor:pointer">✕</button>`;
+      impCellInner = `${okChip}${editBtn}${delBtn}`;
+    }
+  } else {
+    impCellInner = `<button type="button" onclick="bnEfectivoDelete(${r.id})" title="Eliminar renglón"
+      style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:800;font-size:11px;line-height:1;cursor:pointer">✕</button>`;
+  }
+  const impCell = `<td style="padding:2px 4px;text-align:center;vertical-align:middle"><div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${impCellInner}</div></td>`;
   return `<tr data-efe-id="${r.id}" style="border-top:1px solid #f1f5f9;${rowBg}">
     ${selMode ? `<td style="padding:2px 4px;text-align:center">
       <input type="checkbox" class="bn-efe-chk" ${r.selected?'checked':''} ${imp&&!r._editing?'disabled':''} onchange="bnEfectivoToggleRow(${r.id},this.checked)">
