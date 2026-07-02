@@ -27176,9 +27176,24 @@ window.bnEfectivoLoadLastFromBancos = async function () {
   // Mapea a la forma de BN_EFE_STATE.rows
   BN_EFE_STATE.rows = slice.map(r => {
     const iso = bnUploadDiaToIso(r['Día'] || r['Dia'] || '') || '';
-    const cargo = Number(r['CARGO']) || 0;
-    const abono = Number(r['ABONO']) || 0;
-    const saldo = r['SALDO'] === '' || r['SALDO'] == null ? '' : Number(r['SALDO']);
+    // Fallback: si Apps Script aún no devuelve CARGO/ABONO/SALDO, deriva del
+    // Monto firmado (negativo → CARGO, positivo → ABONO). Con Apps Script
+    // actualizado se prefieren los valores directos del sheet.
+    const rawCargo = r['CARGO'];
+    const rawAbono = r['ABONO'];
+    const rawSaldo = r['SALDO'];
+    const hasDirect = rawCargo != null || rawAbono != null || rawSaldo != null;
+    let cargo, abono, saldo;
+    if (hasDirect) {
+      cargo = rawCargo === '' || rawCargo == null ? 0 : Number(rawCargo) || 0;
+      abono = rawAbono === '' || rawAbono == null ? 0 : Number(rawAbono) || 0;
+      saldo = rawSaldo === '' || rawSaldo == null ? '' : Number(rawSaldo);
+    } else {
+      const m = Number(r['Monto']) || 0;
+      cargo = m < 0 ? Math.abs(m) : 0;
+      abono = m > 0 ? m : 0;
+      saldo = '';
+    }
     const monto = r['Monto'] === '' || r['Monto'] == null ? +(abono - cargo).toFixed(2) : Number(r['Monto']);
     return {
       id: ++_bnEfeRowSeq,
