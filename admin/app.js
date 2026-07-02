@@ -26998,8 +26998,21 @@ window.bnEfectivoUpdate = function (id, field, value) {
     }
   }
   if (r._imported && r._editing) {
+    const wasDirty = !!r._dirty;
     r._dirty = true;
     if (typeof bnEfectivoUpdateSaveBtnLabel === 'function') bnEfectivoUpdateSaveBtnLabel();
+    // Habilita el botón 💾 in-place (sin re-render — no perdemos foco).
+    if (!wasDirty) {
+      const saveBtn = document.querySelector(`tr[data-efe-id="${id}"] button[onclick^="bnEfectivoSaveRow"]`);
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.style.background = '#16a34a';
+        saveBtn.style.color = '#fff';
+        saveBtn.style.border = '1px solid #15803d';
+        saveBtn.style.cursor = 'pointer';
+        saveBtn.title = 'Guardar cambios';
+      }
+    }
   }
 };
 
