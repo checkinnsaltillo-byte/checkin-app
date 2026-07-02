@@ -5568,6 +5568,76 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+/* Variante 2-líneas: label arriba (full name, sin truncar), valor abajo. */
+.ocup-cell-stat-row.ocup-cell-stat-2l {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+.ocup-cell-stat-row.ocup-cell-stat-2l .ocup-cell-stat-label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.15;
+  font-size: 9.5px;
+  color: #94a3b8;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.ocup-cell-stat-row.ocup-cell-stat-2l .ocup-cell-stat-val {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+}
+/* Desglose contable por fuente (Airbnb / Manual / OH) + Ingreso neto */
+.ocup-cell-desglose {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: rgba(15,23,42,.03);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  border: 1px solid rgba(15,23,42,.08);
+}
+.ocup-cell-desglose-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 10.5px;
+  color: #475569;
+}
+.ocup-cell-desglose-lbl {
+  font-weight: 700;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ocup-cell-desglose-val {
+  font-weight: 800;
+  color: #0f172a;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ocup-cell-desglose-airbnb .ocup-cell-desglose-lbl { color: #dc2626; }
+.ocup-cell-desglose-sub {
+  padding-left: 10px;
+  font-size: 10px;
+  color: #94a3b8;
+}
+.ocup-cell-desglose-sub .ocup-cell-desglose-lbl { color: #94a3b8; font-weight: 600; }
+.ocup-cell-desglose-sub .ocup-cell-desglose-val { color: #64748b; font-weight: 700; }
+.ocup-cell-desglose-neto {
+  margin-top: 4px;
+  padding-top: 5px;
+  border-top: 1.5px solid rgba(15,23,42,.15);
+  font-size: 11.5px;
+}
+.ocup-cell-desglose-neto .ocup-cell-desglose-lbl { color: #065f46; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.ocup-cell-desglose-neto .ocup-cell-desglose-val { color: #065f46; font-weight: 900; font-size: 12.5px; }
 /* Mini bar stacked de canales */
 .ocup-cell-channels {
   margin-bottom: 8px;

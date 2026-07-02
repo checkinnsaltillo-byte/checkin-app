@@ -24436,6 +24436,20 @@ function ocupFmtMoney(n, ccy) {
 // Stats extendidos por (alojamiento, mes): además de noches y revenue
 // devuelve # reservas, precio prom/noche, precio prom/reserva,
 // duración promedio y noches por canal. Solo reservas confirmadas.
+/** Clasifica una fuente de reserva en las 3 categorías del desglose contable:
+ *   - 'airbnb': cualquier variante de Airbnb (comisión 15.5%)
+ *   - 'manual': reservas manuales / direct / walk-in
+ *   - 'oh':     otras plataformas (Booking, Expedia, VRBO, etc.) */
+function ocupClassifySource(src) {
+  const s = String(src || '').toLowerCase();
+  if (s.includes('airbnb')) return 'airbnb';
+  if (s.includes('manual') || s.includes('direct') || s.includes('walk')) return 'manual';
+  return 'oh';
+}
+
+// Comisión Airbnb estándar (host-only). Total_Airbnb bruto = Total_Airbnb_neto * (1 + AIRBNB_COMM)
+const OCUP_AIRBNB_COMM = 0.155;
+
 function ocupStatsForAloj(houseId, y, m) {
   const bookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
   const monthStart = new Date(y, m, 1);
@@ -24443,6 +24457,8 @@ function ocupStatsForAloj(houseId, y, m) {
   let occupied = 0, revenue = 0, currency = '';
   let resCount = 0, durationSum = 0;
   const byChannel = new Map();
+  // Ingresos brutos por categoría contable
+  let revAirbnb = 0, revManual = 0, revOh = 0;
   bookings.forEach(b => {
     if (String(b.HouseId || '') !== String(houseId)) return;
     if (!ocupIsConfirmed(b)) return;
@@ -24456,9 +24472,14 @@ function ocupStatsForAloj(houseId, y, m) {
     occupied += nightsInMonth;
     const totalNights = Math.max(1, Math.round((dep - arr) / 86400000));
     const gross = Number(b.Gross || 0);
-    if (isFinite(gross) && gross > 0) {
-      revenue += gross * (nightsInMonth / totalNights);
+    const portion = gross > 0 ? gross * (nightsInMonth / totalNights) : 0;
+    if (portion > 0) {
+      revenue += portion;
       if (!currency && b.Currency) currency = String(b.Currency);
+      const cat = ocupClassifySource(b.Source);
+      if (cat === 'airbnb') revAirbnb += portion;
+      else if (cat === 'manual') revManual += portion;
+      else revOh += portion;
     }
     resCount++;
     durationSum += totalNights;
@@ -24466,6 +24487,10 @@ function ocupStatsForAloj(houseId, y, m) {
     byChannel.set(ch, (byChannel.get(ch) || 0) + nightsInMonth);
   });
   const total = new Date(y, m + 1, 0).getDate();
+  // Total_Airbnb (bruto) = Total_Airbnb_neto * (1 + comm)  →  neto = bruto / (1+comm)
+  const airbnbNeto = revAirbnb / (1 + OCUP_AIRBNB_COMM);
+  const airbnbComm = revAirbnb - airbnbNeto;
+  const ingresoNeto = airbnbNeto + revManual + revOh;
   return {
     occupied, total, percent: total ? (occupied * 100 / total) : 0,
     revenue, currency: currency || 'MXN',
@@ -24474,6 +24499,9 @@ function ocupStatsForAloj(houseId, y, m) {
     avgPriceRes: resCount ? (revenue / resCount) : 0,
     avgDuration: resCount ? (durationSum / resCount) : 0,
     byChannel: Array.from(byChannel.entries()), // [['Airbnb', 15], ...]
+    // Desglose contable
+    revAirbnb, airbnbNeto, airbnbComm,
+    revManual, revOh, ingresoNeto,
   };
 }
 
@@ -24525,6 +24553,44 @@ function ocupCellHtml(r, isAvg) {
   const pct = r.percent;
   const cls = ocupPercentClass(pct);
   const tdCls = isAvg ? 'ocup-td-month ocup-td-avg' : 'ocup-td-month';
+  // Stat en 2 renglones (label arriba full-name, valor abajo) → nunca corta texto
+  const stat = (icon, label, val) => `
+    <div class="ocup-cell-stat-row ocup-cell-stat-2l">
+      <div class="ocup-cell-stat-label"><span class="ocup-cell-stat-icon">${icon}</span> ${label}</div>
+      <div class="ocup-cell-stat-val">${val}</div>
+    </div>`;
+  const fmt = (v) => esc(ocupFmtMoney(v || 0, r.currency));
+  // Desglose contable — solo pintarlo si hay algo de revenue
+  const desgloseHtml = r.revenue > 0 ? `
+    <div class="ocup-cell-desglose">
+      ${r.revAirbnb > 0 ? `
+        <div class="ocup-cell-desglose-row ocup-cell-desglose-airbnb">
+          <span class="ocup-cell-desglose-lbl">🅰 Airbnb bruto</span>
+          <span class="ocup-cell-desglose-val">${fmt(r.revAirbnb)}</span>
+        </div>
+        <div class="ocup-cell-desglose-row ocup-cell-desglose-sub">
+          <span class="ocup-cell-desglose-lbl">↳ neto</span>
+          <span class="ocup-cell-desglose-val">${fmt(r.airbnbNeto)}</span>
+        </div>
+        <div class="ocup-cell-desglose-row ocup-cell-desglose-sub">
+          <span class="ocup-cell-desglose-lbl">↳ comisión (${(OCUP_AIRBNB_COMM*100).toFixed(1)}%)</span>
+          <span class="ocup-cell-desglose-val">${fmt(r.airbnbComm)}</span>
+        </div>` : ''}
+      ${r.revManual > 0 ? `
+        <div class="ocup-cell-desglose-row">
+          <span class="ocup-cell-desglose-lbl">✍ Manual</span>
+          <span class="ocup-cell-desglose-val">${fmt(r.revManual)}</span>
+        </div>` : ''}
+      ${r.revOh > 0 ? `
+        <div class="ocup-cell-desglose-row">
+          <span class="ocup-cell-desglose-lbl">🌐 OH (otras)</span>
+          <span class="ocup-cell-desglose-val">${fmt(r.revOh)}</span>
+        </div>` : ''}
+      <div class="ocup-cell-desglose-row ocup-cell-desglose-neto">
+        <span class="ocup-cell-desglose-lbl">Ingreso neto</span>
+        <span class="ocup-cell-desglose-val">${fmt(r.ingresoNeto)}</span>
+      </div>
+    </div>` : '';
   return `<td class="${tdCls}">
     <div class="ocup-cell-line">
       <span class="ocup-cell-nights">${r.occupied}/${r.total} noches</span>
@@ -24534,29 +24600,14 @@ function ocupCellHtml(r, isAvg) {
       <div class="ocup-cell-bar-fill ${cls}" style="width:${Math.min(100, pct).toFixed(1)}%"></div>
     </div>
     <div class="ocup-cell-stats">
-      <div class="ocup-cell-stat-row">
-        <span class="ocup-cell-stat-icon">💰</span>
-        <span class="ocup-cell-stat-label">$/noche</span>
-        <span class="ocup-cell-stat-val">${esc(ocupFmtMoney(r.avgPriceNight, r.currency))}</span>
-      </div>
-      <div class="ocup-cell-stat-row">
-        <span class="ocup-cell-stat-icon">🧾</span>
-        <span class="ocup-cell-stat-label">$/reserva</span>
-        <span class="ocup-cell-stat-val">${esc(ocupFmtMoney(r.avgPriceRes, r.currency))}</span>
-      </div>
-      <div class="ocup-cell-stat-row">
-        <span class="ocup-cell-stat-icon">📋</span>
-        <span class="ocup-cell-stat-label">Reservas</span>
-        <span class="ocup-cell-stat-val">${r.resCount}</span>
-      </div>
-      <div class="ocup-cell-stat-row">
-        <span class="ocup-cell-stat-icon">⏱</span>
-        <span class="ocup-cell-stat-label">Duración prom.</span>
-        <span class="ocup-cell-stat-val">${r.avgDuration ? r.avgDuration.toFixed(1) : '—'} ${r.avgDuration ? (r.avgDuration === 1 ? 'noche' : 'noches') : ''}</span>
-      </div>
+      ${stat('💰', '$/noche',        fmt(r.avgPriceNight))}
+      ${stat('🧾', '$/reserva',      fmt(r.avgPriceRes))}
+      ${stat('📋', '# Reservas',     r.resCount)}
+      ${stat('⏱',  'Duración prom.', (r.avgDuration ? r.avgDuration.toFixed(1) : '—') + (r.avgDuration ? (r.avgDuration === 1 ? ' noche' : ' noches') : ''))}
     </div>
     <div class="ocup-cell-channels">${ocupChannelBarHtml(r.byChannel)}</div>
     <div class="ocup-cell-revenue ${isAvg ? 'ocup-cell-revenue-total' : ''}">${esc(ocupFmtMoney(r.revenue, r.currency))}</div>
+    ${desgloseHtml}
   </td>`;
 }
 
@@ -24584,6 +24635,7 @@ function ocupRenderTable() {
   const rows = alojs.map(a => {
     // Acumuladores para promedio
     let tOcc = 0, tCap = 0, tRev = 0, tRes = 0, tDur = 0, ccyAcc = 'MXN';
+    let tAirbnb = 0, tManual = 0, tOh = 0;
     const tByCh = new Map();
     const cells = months.map(m => {
       const r = ocupStatsForAloj(a.houseId, m.year, m.month);
@@ -24595,10 +24647,14 @@ function ocupRenderTable() {
         tDur += r.avgDuration * r.resCount; // sum de duraciones totales
         if (r.currency) ccyAcc = r.currency;
         r.byChannel.forEach(([ch, n]) => tByCh.set(ch, (tByCh.get(ch) || 0) + n));
+        tAirbnb += r.revAirbnb;
+        tManual += r.revManual;
+        tOh     += r.revOh;
       }
       return ocupCellHtml(r, false);
     }).join('');
     const avgPct = tCap ? (tOcc * 100 / tCap) : 0;
+    const avgAirbnbNeto = tAirbnb / (1 + OCUP_AIRBNB_COMM);
     const avgStats = {
       occupied: tOcc, total: tCap, percent: avgPct,
       revenue: tRev, currency: ccyAcc,
@@ -24607,6 +24663,8 @@ function ocupRenderTable() {
       avgPriceRes: tRes ? tRev / tRes : 0,
       avgDuration: tRes ? tDur / tRes : 0,
       byChannel: Array.from(tByCh.entries()),
+      revAirbnb: tAirbnb, airbnbNeto: avgAirbnbNeto, airbnbComm: tAirbnb - avgAirbnbNeto,
+      revManual: tManual, revOh: tOh, ingresoNeto: avgAirbnbNeto + tManual + tOh,
     };
     return `<tr><td class="ocup-td-aloj">${esc(a.nombre)}</td>${cells}${ocupCellHtml(avgStats, true)}</tr>`;
   }).join('');
