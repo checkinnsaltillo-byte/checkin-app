@@ -2083,6 +2083,7 @@
         <div id="rh-section-menu" style="display:flex;gap:8px;margin:0 0 14px;background:#f1f5f9;padding:5px;border-radius:12px">
           <button type="button" id="rh-sec-nomina" onclick="rhSetSection('nomina')" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-weight:900;font-size:13px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;box-shadow:0 3px 10px rgba(234,88,12,.35)">💵 Nómina</button>
           <button type="button" id="rh-sec-obligaciones" onclick="rhSetSection('obligaciones')" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-weight:700;font-size:13px;background:transparent;color:#64748b">📋 Pago de obligaciones</button>
+          <button type="button" id="rh-sec-asistencias" onclick="rhSetSection('asistencias')" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-weight:700;font-size:13px;background:transparent;color:#64748b">🕐 Control de asistencias</button>
         </div>
         <div id="rh-section-nomina">
           <div class="rh-tabs">
@@ -2096,6 +2097,80 @@
         </div>
         <div id="rh-section-obligaciones" class="hidden">
           <div style="text-align:center;padding:40px;color:#94a3b8;font-size:13px">⏳ Cargando obligaciones…</div>
+        </div>
+        <div id="rh-section-asistencias" class="hidden">
+          <div class="rh-tabs" style="display:flex;gap:6px;margin:0 0 14px;background:#f1f5f9;padding:4px;border-radius:10px">
+            <button type="button" id="asist-tab-nuevo" onclick="asistSetTab('nuevo')"
+                    style="all:unset;cursor:pointer;flex:1;text-align:center;padding:9px 12px;border-radius:8px;font-weight:900;font-size:12.5px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;box-shadow:0 3px 8px rgba(14,165,233,.35)">➕ Registro de nueva asistencia</button>
+            <button type="button" id="asist-tab-tabla" onclick="asistSetTab('tabla')"
+                    style="all:unset;cursor:pointer;flex:1;text-align:center;padding:9px 12px;border-radius:8px;font-weight:700;font-size:12.5px;background:transparent;color:#64748b">📋 Tabla de control</button>
+          </div>
+          <div id="asist-view-nuevo">
+            <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:24px;box-shadow:0 3px 12px rgba(15,23,42,.05)">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+                <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(14,165,233,.35)">🕐</div>
+                <div>
+                  <h3 style="margin:0;font-size:16px;color:#0f172a;font-weight:800">Registro de asistencia</h3>
+                  <div style="font-size:12px;color:#64748b;margin-top:2px">Captura instantánea con detección automática de fecha, hora y ubicación.</div>
+                </div>
+              </div>
+              <button type="button" id="asist-btn-nuevo" onclick="asistNuevoRegistro()"
+                      style="all:unset;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:15px;font-weight:900;letter-spacing:.02em;border-radius:12px;box-shadow:0 6px 16px rgba(14,165,233,.4);transition:transform .15s ease">
+                <span style="font-size:20px">➕</span>
+                <span>Nuevo registro de asistencia</span>
+              </button>
+              <div id="asist-form" class="hidden" style="margin-top:20px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                  <div>
+                    <label style="display:block;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Fecha</label>
+                    <input type="text" id="asist-fecha" readonly style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;color:#0f172a;font-weight:700">
+                  </div>
+                  <div>
+                    <label style="display:block;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">🕐 Hora</label>
+                    <input type="text" id="asist-hora" readonly style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;color:#0f172a;font-weight:700">
+                  </div>
+                </div>
+                <div style="margin-bottom:12px">
+                  <label style="display:block;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">👤 Empleado</label>
+                  <select id="asist-empleado" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;color:#0f172a;font-weight:700">
+                    <option value="">— Selecciona —</option>
+                  </select>
+                </div>
+                <div style="margin-bottom:12px">
+                  <label style="display:block;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📌 Tipo</label>
+                  <select id="asist-tipo" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;color:#0f172a;font-weight:700">
+                    <option value="Entrada">🟢 Entrada</option>
+                    <option value="Salida">🔴 Salida</option>
+                    <option value="Break_inicio">⏸ Inicio de descanso</option>
+                    <option value="Break_fin">▶ Fin de descanso</option>
+                    <option value="Otro">📝 Otro</option>
+                  </select>
+                </div>
+                <div style="margin-bottom:12px">
+                  <label style="display:block;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📍 Ubicación</label>
+                  <div id="asist-ubicacion-info" style="padding:10px 12px;background:#eff6ff;border:1.5px solid #93c5fd;border-radius:8px;font-size:12px;color:#1e40af;font-weight:700">⏳ Detectando ubicación…</div>
+                  <input type="hidden" id="asist-lat">
+                  <input type="hidden" id="asist-lng">
+                  <input type="hidden" id="asist-accuracy">
+                </div>
+                <div style="margin-bottom:14px">
+                  <label style="display:block;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">💬 Observaciones (opcional)</label>
+                  <textarea id="asist-observaciones" placeholder="Nota, motivo especial, etc." rows="2" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;color:#0f172a;resize:vertical"></textarea>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button type="button" onclick="asistGuardarRegistro()" id="asist-btn-guardar" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:11px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:900;font-size:13px;border-radius:9px;box-shadow:0 3px 10px rgba(22,163,74,.4)">💾 Guardar registro</button>
+                  <button type="button" onclick="asistCancelarRegistro()" style="all:unset;cursor:pointer;padding:11px 18px;background:#fff;color:#475569;font-weight:700;font-size:13px;border-radius:9px;border:1.5px solid #cbd5e1">Cancelar</button>
+                </div>
+                <div id="asist-status" style="margin-top:10px;font-size:12px;color:#64748b;font-weight:600"></div>
+              </div>
+            </div>
+          </div>
+          <div id="asist-view-tabla" class="hidden">
+            <div style="text-align:center;padding:60px 20px;color:#94a3b8;font-size:13px;font-style:italic">
+              📋 Tabla de control — próximamente.<br>
+              <small>Aquí se listarán todos los registros de asistencia con filtros por empleado, fecha y tipo.</small>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2266,6 +2341,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=568"></script>
+  <script src="app.js?v=569"></script>
 </body>
 </html>

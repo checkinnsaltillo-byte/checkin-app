@@ -25423,23 +25423,27 @@ function rhInit() {
   rhLoadEmpleados().then(() => rhSetTab('compensaciones'));
 }
 
-// ── Menú de secciones (Pago de nómina | Obligaciones) ──
+// ── Menú de secciones (Nómina | Obligaciones | Control de asistencias) ──
 window.rhSetSection = function (section) {
   RH_STATE.section = section;
   const btnN = document.getElementById('rh-sec-nomina');
   const btnO = document.getElementById('rh-sec-obligaciones');
+  const btnA = document.getElementById('rh-sec-asistencias');
   const secN = document.getElementById('rh-section-nomina');
   const secO = document.getElementById('rh-section-obligaciones');
-  if (btnN && btnO) {
-    const on = 'background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;box-shadow:0 3px 10px rgba(234,88,12,.35);font-weight:900';
-    const off = 'background:transparent;color:#64748b;font-weight:700';
-    const base = 'all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-size:13px;';
-    btnN.setAttribute('style', base + (section === 'nomina' ? on : off));
-    btnO.setAttribute('style', base + (section === 'obligaciones' ? on : off));
-  }
+  const secA = document.getElementById('rh-section-asistencias');
+  const base = 'all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-size:13px;';
+  const onNom = 'background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;box-shadow:0 3px 10px rgba(234,88,12,.35);font-weight:900';
+  const onAsi = 'background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;box-shadow:0 3px 10px rgba(14,165,233,.35);font-weight:900';
+  const off = 'background:transparent;color:#64748b;font-weight:700';
+  if (btnN) btnN.setAttribute('style', base + (section === 'nomina' ? onNom : off));
+  if (btnO) btnO.setAttribute('style', base + (section === 'obligaciones' ? onNom : off));
+  if (btnA) btnA.setAttribute('style', base + (section === 'asistencias' ? onAsi : off));
   if (secN) secN.classList.toggle('hidden', section !== 'nomina');
   if (secO) secO.classList.toggle('hidden', section !== 'obligaciones');
+  if (secA) secA.classList.toggle('hidden', section !== 'asistencias');
   if (section === 'obligaciones') rhRenderObligaciones();
+  if (section === 'asistencias' && typeof asistInit === 'function') asistInit();
 };
 
 window.rhSetTab = function (tab) {
@@ -29922,3 +29926,176 @@ function guiasTabCheckinSpecial(alojs) {
     : '';
   return guiasCard('Check-in', '🔑', inner + mapsBtn + quickBtns);
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║  RH · CONTROL DE ASISTENCIAS — captura con geolocalización            ║
+// ║                                                                       ║
+// ║  Sub-secciones: Nuevo registro (activa) / Tabla de control (v1).      ║
+// ║  Nuevo registro: botón dispara geolocation.getCurrentPosition + set   ║
+// ║  auto de fecha/hora. Empleado desde hoja Personal (INC_STATE.personas).║
+// ║  Guardado vía rh_save_asistencia (Apps Script) con headers extendidos.║
+// ═══════════════════════════════════════════════════════════════════════
+
+const ASIST_STATE = {
+  tab: 'nuevo',              // 'nuevo' | 'tabla'
+  currentGeo: null,          // { lat, lng, accuracy, timestamp }
+  currentDate: null,         // ISO
+  currentTime: null,         // HH:MM:SS
+};
+
+function asistInit() {
+  asistSetTab(ASIST_STATE.tab || 'nuevo');
+  // Precarga lista de Personal si aún no está en memoria
+  if (typeof incLoadPersonal === 'function' && (!INC_STATE?.personasFromSheet || !INC_STATE?.personas?.length)) {
+    incLoadPersonal().then(() => asistPopulateEmpleadoSelect()).catch(() => asistPopulateEmpleadoSelect());
+  } else {
+    asistPopulateEmpleadoSelect();
+  }
+}
+window.asistInit = asistInit;
+
+window.asistSetTab = function (tab) {
+  ASIST_STATE.tab = tab;
+  const btnN = document.getElementById('asist-tab-nuevo');
+  const btnT = document.getElementById('asist-tab-tabla');
+  const viewN = document.getElementById('asist-view-nuevo');
+  const viewT = document.getElementById('asist-view-tabla');
+  const base = 'all:unset;cursor:pointer;flex:1;text-align:center;padding:9px 12px;border-radius:8px;font-size:12.5px;';
+  const on = 'background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;box-shadow:0 3px 8px rgba(14,165,233,.35);font-weight:900';
+  const off = 'background:transparent;color:#64748b;font-weight:700';
+  if (btnN) btnN.setAttribute('style', base + (tab === 'nuevo' ? on : off));
+  if (btnT) btnT.setAttribute('style', base + (tab === 'tabla' ? on : off));
+  if (viewN) viewN.classList.toggle('hidden', tab !== 'nuevo');
+  if (viewT) viewT.classList.toggle('hidden', tab !== 'tabla');
+};
+
+/** Puebla el <select> del empleado con nombres de la hoja Personal. */
+function asistPopulateEmpleadoSelect() {
+  const sel = document.getElementById('asist-empleado');
+  if (!sel) return;
+  const personas = (INC_STATE && Array.isArray(INC_STATE.personas)) ? INC_STATE.personas.slice() : [];
+  personas.sort((a, b) => String(a).localeCompare(String(b), 'es'));
+  sel.innerHTML = `<option value="">— Selecciona —</option>` +
+    personas.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+}
+
+/** Botón principal: abre el form, captura fecha/hora e inicia geolocalización. */
+window.asistNuevoRegistro = function () {
+  const form = document.getElementById('asist-form');
+  if (!form) return;
+  form.classList.remove('hidden');
+  // Pre-llenar fecha/hora AHORA (visible readonly)
+  const now = new Date();
+  const iso = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const hms = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  ASIST_STATE.currentDate = iso;
+  ASIST_STATE.currentTime = hms;
+  document.getElementById('asist-fecha').value = new Date(now).toLocaleDateString('es-MX', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+  document.getElementById('asist-hora').value = now.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
+  // Repoblar select por si Personal llegó tarde
+  asistPopulateEmpleadoSelect();
+  // Reset campos
+  document.getElementById('asist-empleado').value = '';
+  document.getElementById('asist-tipo').value = 'Entrada';
+  document.getElementById('asist-observaciones').value = '';
+  document.getElementById('asist-status').textContent = '';
+  document.getElementById('asist-btn-guardar').disabled = false;
+  // Iniciar captura de ubicación
+  asistCaptureGeo();
+  // Scroll al form
+  setTimeout(() => form.scrollIntoView({ block: 'center', behavior: 'smooth' }), 100);
+};
+
+/** Captura la ubicación GPS via navegador. */
+function asistCaptureGeo() {
+  const info = document.getElementById('asist-ubicacion-info');
+  ASIST_STATE.currentGeo = null;
+  document.getElementById('asist-lat').value = '';
+  document.getElementById('asist-lng').value = '';
+  document.getElementById('asist-accuracy').value = '';
+  if (!navigator.geolocation) {
+    info.style.background = '#fef2f2';
+    info.style.borderColor = '#fecaca';
+    info.style.color = '#991b1b';
+    info.textContent = '⚠ El navegador no soporta geolocalización.';
+    return;
+  }
+  info.style.background = '#eff6ff';
+  info.style.borderColor = '#93c5fd';
+  info.style.color = '#1e40af';
+  info.textContent = '⏳ Detectando ubicación… (permite el acceso si el navegador lo pide)';
+  navigator.geolocation.getCurrentPosition((pos) => {
+    const { latitude, longitude, accuracy } = pos.coords;
+    ASIST_STATE.currentGeo = { lat: latitude, lng: longitude, accuracy, timestamp: pos.timestamp };
+    document.getElementById('asist-lat').value = latitude;
+    document.getElementById('asist-lng').value = longitude;
+    document.getElementById('asist-accuracy').value = accuracy;
+    info.style.background = '#f0fdf4';
+    info.style.borderColor = '#bbf7d0';
+    info.style.color = '#065f46';
+    const acc = Math.round(accuracy);
+    info.innerHTML = `✓ Ubicación capturada · <b>${latitude.toFixed(6)}, ${longitude.toFixed(6)}</b> · precisión ±${acc}m
+      <a href="https://maps.google.com/?q=${latitude},${longitude}" target="_blank" rel="noopener" style="margin-left:8px;color:#065f46;font-weight:800;text-decoration:underline">🗺 ver en mapa</a>`;
+  }, (err) => {
+    let msg = '';
+    if (err.code === 1) msg = 'Permiso denegado. Habilita el acceso a ubicación en el navegador.';
+    else if (err.code === 2) msg = 'Ubicación no disponible.';
+    else if (err.code === 3) msg = 'Tiempo agotado.';
+    else msg = err.message || 'Error desconocido';
+    info.style.background = '#fef2f2';
+    info.style.borderColor = '#fecaca';
+    info.style.color = '#991b1b';
+    info.innerHTML = `⚠ ${esc(msg)} <button type="button" onclick="asistCaptureGeo()" style="margin-left:6px;font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #fca5a5;background:#fff;color:#991b1b;font-weight:800;cursor:pointer">↻ reintentar</button>`;
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+}
+window.asistCaptureGeo = asistCaptureGeo;
+
+window.asistCancelarRegistro = function () {
+  const form = document.getElementById('asist-form');
+  if (form) form.classList.add('hidden');
+};
+
+window.asistGuardarRegistro = async function () {
+  const empleado = document.getElementById('asist-empleado').value.trim();
+  const tipo = document.getElementById('asist-tipo').value;
+  const obs = document.getElementById('asist-observaciones').value.trim();
+  const lat = document.getElementById('asist-lat').value;
+  const lng = document.getElementById('asist-lng').value;
+  const acc = document.getElementById('asist-accuracy').value;
+  const status = document.getElementById('asist-status');
+  if (!empleado) { alert('Selecciona un empleado.'); return; }
+  if (!tipo) { alert('Selecciona el tipo de registro.'); return; }
+  const btn = document.getElementById('asist-btn-guardar');
+  btn.disabled = true;
+  if (status) { status.style.color = '#64748b'; status.textContent = '⏳ Guardando…'; }
+  const payload = {
+    Empleado_Nombre: empleado,
+    Fecha: ASIST_STATE.currentDate,
+    Hora: ASIST_STATE.currentTime,
+    Tipo: tipo,
+    Ubicacion_Lat: lat || '',
+    Ubicacion_Lng: lng || '',
+    GPS_Accuracy: acc || '',
+    Metodo: (lat && lng) ? 'GPS' : 'Manual',
+    Observaciones: obs,
+  };
+  try {
+    const res = await fetch(`${BACKEND}/rh/asistencia`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'Guardado falló');
+    if (status) {
+      status.style.color = '#065f46';
+      status.textContent = `✓ Registro guardado (ID ${j.id || '—'}). Puedes capturar otro con "Nuevo registro".`;
+    }
+    setTimeout(() => {
+      document.getElementById('asist-form').classList.add('hidden');
+      if (status) status.textContent = '';
+    }, 2500);
+  } catch (e) {
+    if (status) { status.style.color = '#991b1b'; status.textContent = `✗ Error: ${e.message || e}`; }
+    btn.disabled = false;
+  }
+};
