@@ -29941,6 +29941,23 @@ const ASIST_STATE = {
   currentGeo: null,          // { lat, lng, accuracy, timestamp }
   currentDate: null,         // ISO
   currentTime: null,         // HH:MM:SS
+  // ─── Tabla / Calendario ───
+  vis: 'tabla',              // 'tabla' | 'calendario'
+  editar: false,             // modo edición
+  rows: [],                  // filas de RH_Asistencia
+  headers: [],               // headers del sheet
+  sortKey: '',               // columna activa para sort
+  sortDir: 'asc',            // 'asc' | 'desc'
+  dirty: new Set(),          // IDs con cambios pendientes
+  loading: false,
+  loaded: false,
+  calMonth: null,            // primer día del mes visible
+};
+
+// Campos con lista cerrada (para dropdown en modo edición)
+const ASIST_LISTAS = {
+  Tipo: ['Entrada','Salida','Break_inicio','Break_fin','Otro'],
+  Metodo: ['GPS','Manual'],
 };
 
 function asistInit() {
@@ -29967,6 +29984,311 @@ window.asistSetTab = function (tab) {
   if (btnT) btnT.setAttribute('style', base + (tab === 'tabla' ? on : off));
   if (viewN) viewN.classList.toggle('hidden', tab !== 'nuevo');
   if (viewT) viewT.classList.toggle('hidden', tab !== 'tabla');
+  // Carga lista al entrar por primera vez a "Tabla de control"
+  if (tab === 'tabla' && !ASIST_STATE.loaded && !ASIST_STATE.loading) {
+    asistReloadList();
+  }
+};
+
+// ── Visualización Tabla / Calendario ──
+window.asistSetVis = function (vis) {
+  ASIST_STATE.vis = vis;
+  const btnT = document.getElementById('asist-vis-tabla');
+  const btnC = document.getElementById('asist-vis-calendario');
+  const wrapT = document.getElementById('asist-tabla-wrap');
+  const wrapC = document.getElementById('asist-cal-wrap');
+  const editWrap = document.getElementById('asist-editar-wrap');
+  const on  = 'all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;box-shadow:0 2px 6px rgba(79,70,229,.30)';
+  const off = 'all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b';
+  if (btnT) btnT.setAttribute('style', vis === 'tabla' ? on : off);
+  if (btnC) btnC.setAttribute('style', vis === 'calendario' ? on : off);
+  if (wrapT) wrapT.classList.toggle('hidden', vis !== 'tabla');
+  if (wrapC) wrapC.classList.toggle('hidden', vis !== 'calendario');
+  // Editar aplica solo a la tabla
+  if (editWrap) editWrap.style.display = vis === 'tabla' ? '' : 'none';
+  if (vis === 'calendario') asistRenderCalendar();
+};
+
+window.asistToggleEditar = function (checked) {
+  ASIST_STATE.editar = !!checked;
+  asistRenderTabla();
+};
+
+async function asistReloadList() {
+  const wrap = document.getElementById('asist-tabla-wrap');
+  if (wrap) wrap.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando registros…</div>`;
+  ASIST_STATE.loading = true;
+  try {
+    const res = await fetch(`${BACKEND}/rh/asistencia?_cb=${Date.now()}`, { cache: 'no-store' });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'fetch falló');
+    ASIST_STATE.rows = Array.isArray(j.rows) ? j.rows : [];
+    ASIST_STATE.headers = Array.isArray(j.headers) && j.headers.length
+      ? j.headers
+      : (ASIST_STATE.rows[0] ? Object.keys(ASIST_STATE.rows[0]) : []);
+    ASIST_STATE.loaded = true;
+    ASIST_STATE.dirty.clear();
+    asistStatusTabla('');
+    if (ASIST_STATE.vis === 'calendario') asistRenderCalendar(); else asistRenderTabla();
+    const c = document.getElementById('asist-list-count');
+    if (c) c.textContent = `${ASIST_STATE.rows.length} registro${ASIST_STATE.rows.length===1?'':'s'}`;
+  } catch (e) {
+    if (wrap) wrap.innerHTML = `<div style="text-align:center;padding:60px;color:#dc2626;font-size:13px">✗ Error: ${esc(e.message||String(e))}</div>`;
+  } finally {
+    ASIST_STATE.loading = false;
+  }
+}
+window.asistReloadList = asistReloadList;
+
+function asistStatusTabla(html, kind) {
+  const el = document.getElementById('asist-status-tabla');
+  if (!el) return;
+  if (!html) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.style.color = kind === 'err' ? '#991b1b' : kind === 'warn' ? '#92400e' : '#065f46';
+  el.innerHTML = html;
+}
+
+function asistSortedRows() {
+  const rows = ASIST_STATE.rows.slice();
+  const key = ASIST_STATE.sortKey;
+  if (!key) return rows;
+  const dir = ASIST_STATE.sortDir === 'desc' ? -1 : 1;
+  return rows.sort((a, b) => {
+    const va = String(a[key] ?? '');
+    const vb = String(b[key] ?? '');
+    // Numérico si ambos parsean a número
+    const na = Number(va), nb = Number(vb);
+    if (Number.isFinite(na) && Number.isFinite(nb) && va !== '' && vb !== '') return (na - nb) * dir;
+    return va.localeCompare(vb, 'es', { numeric: true }) * dir;
+  });
+}
+
+window.asistSortBy = function (col) {
+  if (ASIST_STATE.sortKey === col) {
+    ASIST_STATE.sortDir = ASIST_STATE.sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    ASIST_STATE.sortKey = col;
+    ASIST_STATE.sortDir = 'asc';
+  }
+  asistRenderTabla();
+};
+
+function asistCellHtml(row, col, edit) {
+  const v = row[col] == null ? '' : String(row[col]);
+  if (!edit) return `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#334155;white-space:nowrap">${esc(v)}</td>`;
+  // Editable — Empleado_Nombre y campos con lista → select; resto → input text
+  if (col === 'Empleado_Nombre') {
+    const opts = (INC_STATE?.personas || []).slice().sort((a,b)=>String(a).localeCompare(String(b),'es'));
+    const optionsHtml = [`<option value="">—</option>`, ...opts.map(n => `<option value="${esc(n)}"${n===v?' selected':''}>${esc(n)}</option>`)].join('');
+    return `<td style="padding:4px 6px;border-bottom:1px solid #f1f5f9"><select onchange="asistCellEdited('${esc(row.ID||'')}','${esc(col)}',this.value)" style="width:100%;min-width:150px;padding:5px 6px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:5px;background:#fff">${optionsHtml}</select></td>`;
+  }
+  if (ASIST_LISTAS[col]) {
+    const opts = ASIST_LISTAS[col];
+    const optionsHtml = [`<option value="">—</option>`, ...opts.map(n => `<option value="${esc(n)}"${n===v?' selected':''}>${esc(n)}</option>`)].join('');
+    return `<td style="padding:4px 6px;border-bottom:1px solid #f1f5f9"><select onchange="asistCellEdited('${esc(row.ID||'')}','${esc(col)}',this.value)" style="width:100%;min-width:110px;padding:5px 6px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:5px;background:#fff">${optionsHtml}</select></td>`;
+  }
+  // Read-only para ID/Timestamp — no permitir editar identificadores
+  if (col === 'ID' || col === 'Timestamp') {
+    return `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:11.5px;color:#94a3b8;background:#f8fafc;white-space:nowrap">${esc(v)}</td>`;
+  }
+  return `<td style="padding:4px 6px;border-bottom:1px solid #f1f5f9"><input type="text" value="${esc(v)}" oninput="asistCellEdited('${esc(row.ID||'')}','${esc(col)}',this.value)" style="width:100%;min-width:110px;padding:5px 6px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:5px;background:#fff"></td>`;
+}
+
+window.asistCellEdited = function (rowId, col, value) {
+  const r = ASIST_STATE.rows.find(x => String(x.ID||'') === String(rowId));
+  if (!r) return;
+  r[col] = value;
+  ASIST_STATE.dirty.add(rowId);
+  asistUpdateSaveBanner();
+};
+
+function asistUpdateSaveBanner() {
+  const n = ASIST_STATE.dirty.size;
+  if (!n) { asistStatusTabla(''); return; }
+  asistStatusTabla(
+    `<span>✏️ ${n} fila${n===1?'':'s'} con cambios sin guardar</span>
+     <button type="button" onclick="asistGuardarCambios()" style="all:unset;cursor:pointer;margin-left:10px;padding:5px 12px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:800;font-size:11.5px;border-radius:7px;box-shadow:0 2px 6px rgba(22,163,74,.35)">💾 Guardar cambios</button>
+     <button type="button" onclick="asistDescartarCambios()" style="all:unset;cursor:pointer;margin-left:6px;padding:5px 10px;background:#fff;border:1px solid #cbd5e1;color:#475569;font-weight:700;font-size:11.5px;border-radius:7px">✕ Descartar</button>`
+  );
+}
+
+window.asistDescartarCambios = function () {
+  ASIST_STATE.dirty.clear();
+  asistReloadList();
+};
+
+window.asistGuardarCambios = async function () {
+  const ids = Array.from(ASIST_STATE.dirty);
+  if (!ids.length) return;
+  asistStatusTabla('⏳ Guardando…');
+  let ok = 0, err = 0;
+  for (const id of ids) {
+    const r = ASIST_STATE.rows.find(x => String(x.ID||'') === id);
+    if (!r) continue;
+    try {
+      const res = await fetch(`${BACKEND}/rh/asistencia`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: r }),
+      });
+      const j = await res.json();
+      if (j.ok) { ok++; ASIST_STATE.dirty.delete(id); }
+      else err++;
+    } catch (e) { err++; }
+  }
+  if (err) asistStatusTabla(`⚠ ${ok} guardadas · ${err} con error`, 'warn');
+  else asistStatusTabla(`✓ ${ok} fila${ok===1?'':'s'} guardada${ok===1?'':'s'}`);
+  setTimeout(() => asistStatusTabla(''), 3500);
+};
+
+function asistRenderTabla() {
+  const wrap = document.getElementById('asist-tabla-wrap');
+  if (!wrap) return;
+  const rows = asistSortedRows();
+  const headers = ASIST_STATE.headers.length ? ASIST_STATE.headers : (rows[0] ? Object.keys(rows[0]) : []);
+  if (!headers.length) {
+    wrap.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">Sin registros aún. Usa "Nuevo registro de asistencia" para agregar el primero.</div>`;
+    return;
+  }
+  const edit = ASIST_STATE.editar;
+  const sortIcon = (col) => {
+    if (ASIST_STATE.sortKey !== col) return '<span style="color:#cbd5e1;font-size:9px">↕</span>';
+    return ASIST_STATE.sortDir === 'asc'
+      ? '<span style="color:#0369a1;font-size:10px;font-weight:900">↑ A-Z</span>'
+      : '<span style="color:#0369a1;font-size:10px;font-weight:900">↓ Z-A</span>';
+  };
+  const headHtml = headers.map(h => `
+    <th onclick="asistSortBy('${esc(h)}')"
+        style="position:sticky;top:0;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;white-space:nowrap;user-select:none">
+      <div style="display:inline-flex;align-items:center;gap:6px">${esc(h)} ${sortIcon(h)}</div>
+    </th>`).join('');
+  const bodyHtml = rows.length
+    ? rows.map(r => `<tr${ASIST_STATE.dirty.has(String(r.ID||''))?' style="background:#fefce8"':''}>${headers.map(h => asistCellHtml(r, h, edit)).join('')}</tr>`).join('')
+    : `<tr><td colspan="${headers.length}" style="text-align:center;padding:40px;color:#94a3b8;font-size:12px">Sin registros.</td></tr>`;
+  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+}
+
+// ── Vista Calendario (rows = personal · cols = días) ──
+function asistRenderCalendar() {
+  const cont = document.getElementById('asist-cal-wrap');
+  if (!cont) return;
+  if (!ASIST_STATE.calMonth) {
+    const t = new Date(); ASIST_STATE.calMonth = new Date(t.getFullYear(), t.getMonth(), 1);
+  }
+  const month = ASIST_STATE.calMonth;
+  const y0 = month.getFullYear(), m0 = month.getMonth();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const MB = 2, MA = 4; // meses antes/después
+  const rangeStart = new Date(y0, m0 - MB, 1);
+  const rangeEnd   = new Date(y0, m0 + MA + 1, 0);
+  const totalDays = Math.round((rangeEnd - rangeStart) / 86400000) + 1;
+  const dayIdx = (d) => Math.round((d - rangeStart) / 86400000);
+  // Personas: usa el catálogo Personal + los que aparecen en las asistencias
+  const personasSet = new Set(INC_STATE?.personas || []);
+  for (const r of ASIST_STATE.rows) {
+    const n = String(r.Empleado_Nombre||'').trim();
+    if (n) personasSet.add(n);
+  }
+  const personas = Array.from(personasSet).sort((a,b)=>String(a).localeCompare(String(b),'es'));
+  // Index: `${persona}|${YYYY-MM-DD}` → [rows]
+  const idx = new Map();
+  for (const r of ASIST_STATE.rows) {
+    const n = String(r.Empleado_Nombre||'').trim();
+    const f = String(r.Fecha||'').slice(0,10);
+    if (!n || !f) continue;
+    const k = `${n}|${f}`;
+    if (!idx.has(k)) idx.set(k, []);
+    idx.get(k).push(r);
+  }
+
+  const colorTipo = (t) => {
+    const s = String(t||'').toLowerCase();
+    if (s.includes('entrada')) return '#16a34a';
+    if (s.includes('salida'))  return '#dc2626';
+    if (s.includes('inicio'))  return '#f59e0b';
+    if (s.includes('fin'))     return '#0284c7';
+    return '#64748b';
+  };
+
+  let html = `<div style="display:flex;gap:8px;align-items:center;margin:0 0 10px">
+    <button type="button" onclick="asistCalNav(-1)" style="all:unset;cursor:pointer;padding:6px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;color:#334155">←</button>
+    <div style="font-weight:900;font-size:14px;color:#0f172a;min-width:170px;text-align:center">${OCUP_MESES[m0]} ${y0}</div>
+    <button type="button" onclick="asistCalNav(1)"  style="all:unset;cursor:pointer;padding:6px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;color:#334155">→</button>
+    <button type="button" onclick="asistCalHoy()"   style="all:unset;cursor:pointer;padding:6px 12px;background:#0f172a;color:#fff;border-radius:8px;font-weight:800;margin-left:6px">Hoy</button>
+    <div style="margin-left:auto;font-size:11px;color:#94a3b8">Colores por tipo: <span style="color:#16a34a;font-weight:800">■ Entrada</span> · <span style="color:#dc2626;font-weight:800">■ Salida</span> · <span style="color:#f59e0b;font-weight:800">■ Break inicio</span> · <span style="color:#0284c7;font-weight:800">■ Break fin</span> · <span style="color:#64748b;font-weight:800">■ Otro</span></div>
+  </div>`;
+
+  html += `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:${totalDays}">`;
+  html += `<div class="ocup-cal-head"><div class="ocup-head-aloj">👥 Personal · ${personas.length}</div>`;
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(rangeStart); d.setDate(d.getDate()+i);
+    const dow = d.getDay();
+    const isToday = d.getTime() === today.getTime();
+    const isWeekend = dow === 0 || dow === 6;
+    const isFirst = d.getDate() === 1;
+    const monthBadge = isFirst ? `<div style="position:absolute;top:-22px;left:0;font-size:10px;font-weight:900;color:#3730a3;background:#e0e7ff;border:1px solid #a5b4fc;padding:2px 8px;border-radius:99px;white-space:nowrap;z-index:2;pointer-events:none">${OCUP_MESES[d.getMonth()]} ${d.getFullYear()}</div>` : '';
+    html += `<div class="ocup-head-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" data-day-idx="${i}" style="position:relative">
+      ${monthBadge}
+      <div class="ocup-head-dow">${OCUP_DOW[dow]}</div>
+      <div class="ocup-head-day">${d.getDate()}</div>
+    </div>`;
+  }
+  html += `</div>`;
+
+  personas.forEach(nombre => {
+    html += `<div class="ocup-cal-row" data-persona="${esc(nombre)}">`;
+    html += `<div class="ocup-aloj-cell">
+      <div class="ocup-aloj-img">👤</div>
+      <div class="ocup-aloj-info">
+        <div class="ocup-aloj-name" title="${esc(nombre)}">${esc(nombre)}</div>
+      </div>
+    </div>`;
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date(rangeStart); d.setDate(d.getDate()+i);
+      const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const dow = d.getDay();
+      const isToday = d.getTime() === today.getTime();
+      const isWeekend = dow === 0 || dow === 6;
+      const recs = idx.get(`${nombre}|${iso}`) || [];
+      let dots = '';
+      if (recs.length) {
+        const upto = recs.slice(0, 4);
+        dots = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:2px;pointer-events:none">${upto.map(r => `<span style="width:6px;height:6px;border-radius:50%;background:${colorTipo(r.Tipo)};box-shadow:0 0 0 1px #fff"></span>`).join('')}${recs.length>4?`<span style="font-size:8px;color:#475569;font-weight:800;margin-left:1px">+${recs.length-4}</span>`:''}</div>`;
+      }
+      const tip = recs.length
+        ? recs.map(r => `${r.Tipo||'—'} · ${(r.Hora||'').slice(0,5)}`).join(' | ')
+        : '';
+      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" style="position:relative;cursor:${recs.length?'pointer':'default'}" title="${esc(tip)}" ${recs.length?`onclick="asistCalClick('${esc(nombre)}','${iso}')"`:''}>${dots}</div>`;
+    }
+    html += `</div>`;
+  });
+
+  html += `</div>`;
+  cont.innerHTML = html;
+
+  // Auto-scroll al primer día del mes actual del calendario
+  setTimeout(() => {
+    const firstDayIdx = Math.round((month - rangeStart) / 86400000);
+    const target = cont.querySelector(`[data-day-idx="${firstDayIdx}"]`);
+    if (target) target.scrollIntoView({ inline: 'start', block: 'nearest' });
+  }, 30);
+}
+
+window.asistCalNav = function (delta) {
+  const m = ASIST_STATE.calMonth || new Date();
+  ASIST_STATE.calMonth = new Date(m.getFullYear(), m.getMonth() + delta, 1);
+  asistRenderCalendar();
+};
+window.asistCalHoy = function () {
+  const t = new Date();
+  ASIST_STATE.calMonth = new Date(t.getFullYear(), t.getMonth(), 1);
+  asistRenderCalendar();
+};
+window.asistCalClick = function (nombre, iso) {
+  const recs = ASIST_STATE.rows.filter(r => String(r.Empleado_Nombre||'').trim() === nombre && String(r.Fecha||'').slice(0,10) === iso);
+  if (!recs.length) return;
+  const lines = recs.map(r => `${r.Tipo||'—'} · ${(r.Hora||'').slice(0,8)}${r.Metodo?` · ${r.Metodo}`:''}${r.Observaciones?`\n   ↳ ${r.Observaciones}`:''}`);
+  alert(`Asistencias de ${nombre} · ${iso}\n\n${lines.join('\n')}`);
 };
 
 /** Puebla el <select> del empleado con nombres de la hoja Personal. */

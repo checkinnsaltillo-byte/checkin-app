@@ -2101,24 +2101,24 @@
         <div id="rh-section-asistencias" class="hidden">
           <div class="rh-tabs" style="display:flex;gap:6px;margin:0 0 14px;background:#f1f5f9;padding:4px;border-radius:10px">
             <button type="button" id="asist-tab-nuevo" onclick="asistSetTab('nuevo')"
-                    style="all:unset;cursor:pointer;flex:1;text-align:center;padding:9px 12px;border-radius:8px;font-weight:900;font-size:12.5px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;box-shadow:0 3px 8px rgba(14,165,233,.35)">➕ Registro de nueva asistencia</button>
+                    style="all:unset;cursor:pointer;flex:1;text-align:center;padding:9px 12px;border-radius:8px;font-weight:900;font-size:12.5px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;box-shadow:0 3px 8px rgba(14,165,233,.35)">🕐 Asistencia</button>
             <button type="button" id="asist-tab-tabla" onclick="asistSetTab('tabla')"
                     style="all:unset;cursor:pointer;flex:1;text-align:center;padding:9px 12px;border-radius:8px;font-weight:700;font-size:12.5px;background:transparent;color:#64748b">📋 Tabla de control</button>
           </div>
           <div id="asist-view-nuevo">
-            <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:24px;box-shadow:0 3px 12px rgba(15,23,42,.05)">
-              <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
-                <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(14,165,233,.35)">🕐</div>
-                <div>
-                  <h3 style="margin:0;font-size:16px;color:#0f172a;font-weight:800">Registro de asistencia</h3>
-                  <div style="font-size:12px;color:#64748b;margin-top:2px">Captura instantánea con detección automática de fecha, hora y ubicación.</div>
+            <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 3px 12px rgba(15,23,42,.05)">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+                <div style="width:44px;height:44px;border-radius:11px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(14,165,233,.35);flex-shrink:0">🕐</div>
+                <div style="flex:1;min-width:0">
+                  <h3 style="margin:0;font-size:15px;color:#0f172a;font-weight:800">Registro de asistencia</h3>
+                  <div style="font-size:11.5px;color:#64748b;margin-top:2px">Detección automática de fecha, hora y ubicación.</div>
                 </div>
+                <button type="button" id="asist-btn-nuevo" onclick="asistNuevoRegistro()"
+                        style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:9px 14px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:12.5px;font-weight:900;letter-spacing:.02em;border-radius:9px;box-shadow:0 3px 10px rgba(14,165,233,.35);flex-shrink:0;white-space:nowrap">
+                  <span style="font-size:14px">➕</span>
+                  <span>Nuevo registro de asistencia</span>
+                </button>
               </div>
-              <button type="button" id="asist-btn-nuevo" onclick="asistNuevoRegistro()"
-                      style="all:unset;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:15px;font-weight:900;letter-spacing:.02em;border-radius:12px;box-shadow:0 6px 16px rgba(14,165,233,.4);transition:transform .15s ease">
-                <span style="font-size:20px">➕</span>
-                <span>Nuevo registro de asistencia</span>
-              </button>
               <div id="asist-form" class="hidden" style="margin-top:20px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
                   <div>
@@ -2166,10 +2166,23 @@
             </div>
           </div>
           <div id="asist-view-tabla" class="hidden">
-            <div style="text-align:center;padding:60px 20px;color:#94a3b8;font-size:13px;font-style:italic">
-              📋 Tabla de control — próximamente.<br>
-              <small>Aquí se listarán todos los registros de asistencia con filtros por empleado, fecha y tipo.</small>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+              <div style="display:inline-flex;background:#f1f5f9;padding:3px;border-radius:9px;gap:2px">
+                <button type="button" id="asist-vis-tabla" onclick="asistSetVis('tabla')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;box-shadow:0 2px 6px rgba(79,70,229,.30)">📋 Tabla</button>
+                <button type="button" id="asist-vis-calendario" onclick="asistSetVis('calendario')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b">📅 Calendario</button>
+              </div>
+              <label id="asist-editar-wrap" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;color:#475569">
+                <input type="checkbox" id="asist-editar-toggle" onchange="asistToggleEditar(this.checked)" style="margin:0;cursor:pointer">
+                <span>✏️ Editar</span>
+              </label>
+              <button type="button" onclick="asistReloadList()" style="all:unset;cursor:pointer;padding:7px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:9px;font-size:12px;font-weight:700;color:#475569">🔄 Refrescar</button>
+              <span id="asist-list-count" style="font-size:11px;color:#94a3b8;font-weight:600;margin-left:auto"></span>
             </div>
+            <div id="asist-status-tabla" style="margin-bottom:10px;font-size:12px;font-weight:600"></div>
+            <div id="asist-tabla-wrap" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:auto;max-height:70vh">
+              <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando registros…</div>
+            </div>
+            <div id="asist-cal-wrap" class="hidden ocup-cal-container" style="margin-top:0;padding:0"></div>
           </div>
         </div>
       </div>
@@ -2341,6 +2354,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=571"></script>
+  <script src="app.js?v=572"></script>
 </body>
 </html>
