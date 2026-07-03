@@ -30043,7 +30043,9 @@ async function tarifasGetRoomTypeId(houseId) {
     const res = await fetch(`${BACKEND}/lodgify-rooms?houseId=${encodeURIComponent(houseId)}`);
     const j = await res.json();
     if (j.ok && Array.isArray(j.rooms) && j.rooms.length) {
-      const rid = String(j.rooms[0].room_type_id || j.rooms[0].id || '');
+      // Lodgify's API of /rooms devuelve `id` (no `room_type_id`). Ese `id` ES
+      // el que /rates/calendar espera como RoomTypeId (inconsistencia de su naming).
+      const rid = String(j.rooms[0].id || j.rooms[0].room_type_id || '');
       if (rid) { TARIFAS_STATE.roomTypeByHouse.set(houseId, rid); return rid; }
     }
   } catch (e) {
@@ -30198,17 +30200,35 @@ function tarifasIngestRates(houseId, data) {
     const p = Number(price);
     if (Number.isFinite(p) && p > 0) TARIFAS_STATE.ratesByHouseDate.set(`${houseId}|${iso}`, p);
   };
+  // Shape real Lodgify v2 /rates/calendar: { calendar_items: [{ date, prices:[{min_stay,max_stay,price_per_day,...}] }] }
+  // Picamos la entry de menor min_stay (típicamente 1) como precio "base".
+  const pickBasePrice = (prices) => {
+    if (!Array.isArray(prices) || !prices.length) return null;
+    const sorted = prices.slice().sort((a,b) => (Number(a.min_stay)||1) - (Number(b.min_stay)||1));
+    for (const p of sorted) {
+      const v = Number(p.price_per_day ?? p.pricePerDay ?? p.price);
+      if (Number.isFinite(v) && v > 0) return v;
+    }
+    return null;
+  };
   const walk = (arr) => {
     if (!Array.isArray(arr)) return;
     for (const it of arr) {
       if (!it || typeof it !== 'object') continue;
-      // Shape A: { date, price_per_day }
+      // Shape A (Lodgify v2 real): { date, prices:[…] }
+      if (it.date && Array.isArray(it.prices)) {
+        const iso = String(it.date).slice(0,10);
+        const base = pickBasePrice(it.prices);
+        if (base != null) put(iso, base);
+        continue;
+      }
+      // Shape B: { date, price_per_day }
       if (it.date && (it.price_per_day != null || it.pricePerDay != null || it.price != null)) {
         const iso = String(it.date).slice(0,10);
         put(iso, it.price_per_day ?? it.pricePerDay ?? it.price);
         continue;
       }
-      // Shape B: { start_date, end_date, price_per_day }
+      // Shape C: { start_date, end_date, price_per_day }
       const s = it.start_date || it.startDate;
       const e = it.end_date || it.endDate;
       const p = it.price_per_day ?? it.pricePerDay ?? it.price;
@@ -30221,7 +30241,7 @@ function tarifasIngestRates(houseId, data) {
         }
         continue;
       }
-      // Shape C: nested arrays
+      // Shape D: nested arrays
       if (Array.isArray(it.rates)) walk(it.rates);
       if (Array.isArray(it.calendar_items)) walk(it.calendar_items);
     }
