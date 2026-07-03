@@ -30006,13 +30006,16 @@ window.asistNuevoRegistro = function () {
   setTimeout(() => form.scrollIntoView({ block: 'center', behavior: 'smooth' }), 100);
 };
 
-/** Captura la ubicación GPS via navegador. */
-function asistCaptureGeo() {
+/** Captura la ubicación GPS via navegador con fallback a baja precisión. */
+function asistCaptureGeo(opts) {
+  opts = opts || {};
   const info = document.getElementById('asist-ubicacion-info');
-  ASIST_STATE.currentGeo = null;
-  document.getElementById('asist-lat').value = '';
-  document.getElementById('asist-lng').value = '';
-  document.getElementById('asist-accuracy').value = '';
+  if (!opts._retry) {
+    ASIST_STATE.currentGeo = null;
+    document.getElementById('asist-lat').value = '';
+    document.getElementById('asist-lng').value = '';
+    document.getElementById('asist-accuracy').value = '';
+  }
   if (!navigator.geolocation) {
     info.style.background = '#fef2f2';
     info.style.borderColor = '#fecaca';
@@ -30023,7 +30026,10 @@ function asistCaptureGeo() {
   info.style.background = '#eff6ff';
   info.style.borderColor = '#93c5fd';
   info.style.color = '#1e40af';
-  info.textContent = '⏳ Detectando ubicación… (permite el acceso si el navegador lo pide)';
+  const highAcc = opts._retry ? false : true;
+  info.textContent = opts._retry
+    ? '⏳ Reintentando con precisión reducida (WiFi/IP)…'
+    : '⏳ Detectando ubicación… (permite el acceso si el navegador lo pide)';
   navigator.geolocation.getCurrentPosition((pos) => {
     const { latitude, longitude, accuracy } = pos.coords;
     ASIST_STATE.currentGeo = { lat: latitude, lng: longitude, accuracy, timestamp: pos.timestamp };
@@ -30037,18 +30043,48 @@ function asistCaptureGeo() {
     info.innerHTML = `✓ Ubicación capturada · <b>${latitude.toFixed(6)}, ${longitude.toFixed(6)}</b> · precisión ±${acc}m
       <a href="https://maps.google.com/?q=${latitude},${longitude}" target="_blank" rel="noopener" style="margin-left:8px;color:#065f46;font-weight:800;text-decoration:underline">🗺 ver en mapa</a>`;
   }, (err) => {
-    let msg = '';
-    if (err.code === 1) msg = 'Permiso denegado. Habilita el acceso a ubicación en el navegador.';
-    else if (err.code === 2) msg = 'Ubicación no disponible.';
-    else if (err.code === 3) msg = 'Tiempo agotado.';
-    else msg = err.message || 'Error desconocido';
+    // Fallback: si la primera falla (típico code 2 en desktop sin GPS), intenta con precisión baja.
+    if (!opts._retry && (err.code === 2 || err.code === 3)) {
+      return asistCaptureGeo({ _retry: true });
+    }
+    let msg = '', hint = '';
+    if (err.code === 1) {
+      msg = 'Permiso denegado.';
+      hint = 'Habilita el acceso a ubicación en las preferencias del navegador.';
+    } else if (err.code === 2) {
+      msg = 'Ubicación no disponible.';
+      hint = 'Posibles causas: Servicios de ubicación del sistema apagados, WiFi apagado, o dispositivo sin GPS. En macOS: Ajustes del sistema → Privacidad y seguridad → Servicios de localización → habilita el navegador.';
+    } else if (err.code === 3) {
+      msg = 'Tiempo agotado detectando ubicación.';
+      hint = 'La red o el GPS tardaron demasiado en responder.';
+    } else {
+      msg = err.message || 'Error desconocido';
+    }
     info.style.background = '#fef2f2';
     info.style.borderColor = '#fecaca';
     info.style.color = '#991b1b';
-    info.innerHTML = `⚠ ${esc(msg)} <button type="button" onclick="asistCaptureGeo()" style="margin-left:6px;font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #fca5a5;background:#fff;color:#991b1b;font-weight:800;cursor:pointer">↻ reintentar</button>`;
-  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    info.innerHTML = `⚠ <b>${esc(msg)}</b>${hint ? `<div style="font-weight:500;margin-top:4px;font-size:11px">${esc(hint)}</div>` : ''}
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        <button type="button" onclick="asistCaptureGeo()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid #fca5a5;background:#fff;color:#991b1b;font-weight:800;cursor:pointer">↻ Reintentar</button>
+        <button type="button" onclick="asistContinuarSinGeo()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-weight:800;cursor:pointer">Continuar sin ubicación</button>
+      </div>`;
+  }, { enableHighAccuracy: highAcc, timeout: highAcc ? 12000 : 20000, maximumAge: highAcc ? 0 : 60000 });
 }
 window.asistCaptureGeo = asistCaptureGeo;
+
+/** Permite guardar el registro sin ubicación (para dispositivos sin GPS/permiso). */
+window.asistContinuarSinGeo = function () {
+  const info = document.getElementById('asist-ubicacion-info');
+  ASIST_STATE.currentGeo = null;
+  document.getElementById('asist-lat').value = '';
+  document.getElementById('asist-lng').value = '';
+  document.getElementById('asist-accuracy').value = '';
+  info.style.background = '#fffbeb';
+  info.style.borderColor = '#fcd34d';
+  info.style.color = '#92400e';
+  info.innerHTML = `⚠ Registro sin ubicación (método Manual).
+    <button type="button" onclick="asistCaptureGeo()" style="margin-left:8px;font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #fcd34d;background:#fff;color:#92400e;font-weight:800;cursor:pointer">↻ intentar detectar</button>`;
+};
 
 window.asistCancelarRegistro = function () {
   const form = document.getElementById('asist-form');
