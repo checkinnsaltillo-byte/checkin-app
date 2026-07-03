@@ -335,6 +335,14 @@
             </div>
             <div class="home-card-arrow">→</div>
           </button>
+          <button type="button" class="home-card home-card-ocupacion" onclick="switchModule('tarifas')">
+            <div class="home-card-icon">💲</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Tarifas</h3>
+              <p class="home-card-desc">Ajuste remoto de precios por noche en el calendario Lodgify.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
           <button type="button" class="home-card home-card-rh" onclick="switchModule('rh')">
             <div class="home-card-icon">👥</div>
             <div class="home-card-body">
@@ -2070,6 +2078,38 @@
       </aside>
     </div><!-- /module-ocupacion -->
 
+    <!-- ═══════════════ MÓDULO TARIFAS — precios remotos vía Lodgify ═══════════════ -->
+    <div id="module-tarifas" class="hidden">
+      <div class="ocup-shell">
+        <h1 style="margin:0 0 14px;font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em;display:flex;align-items:center;gap:10px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#059669,#065f46);color:#fff;font-size:18px;box-shadow:0 3px 8px rgba(5,150,105,.35)">💲</span>
+          Tarifas
+        </h1>
+        <div class="ocup-toolbar">
+          <div class="ocup-toolbar-left">
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.04em">
+              Mes:
+              <select id="tarifas-month-select" onchange="tarifasJumpToMonth(this.value)"
+                      style="padding:7px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a;background:#fff;cursor:pointer"></select>
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-left:10px">
+              Propiedad:
+              <select id="tarifas-f-propiedad" onchange="tarifasSetFilter('propiedad', this.value)"
+                      style="padding:7px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a;background:#fff;cursor:pointer"><option value="">Todas</option></select>
+            </label>
+          </div>
+          <div class="ocup-toolbar-right">
+            <button type="button" class="ocup-today-btn" onclick="tarifasGoToday()" title="Ir a hoy">📅 Hoy</button>
+            <button type="button" class="ocup-reload-btn" onclick="tarifasReload()" title="Refrescar todas las tarifas">🔄</button>
+          </div>
+        </div>
+        <div id="tarifas-status" style="margin:0 0 10px;padding:8px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:11.5px;color:#065f46;font-weight:600;display:none"></div>
+        <div id="tarifas-cal-container" class="ocup-cal-container">
+          <div style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px">⏳ Cargando alojamientos…</div>
+        </div>
+      </div>
+    </div><!-- /module-tarifas -->
+
     <!-- ═══════════════ MÓDULO RECURSOS HUMANOS ═══════════════ -->
     <div id="module-rh" class="hidden" style="padding:20px 24px 60px">
       <div style="max-width:1440px;margin:0 auto">
@@ -2266,6 +2306,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=564"></script>
+  <script src="app.js?v=565"></script>
 </body>
 </html>
