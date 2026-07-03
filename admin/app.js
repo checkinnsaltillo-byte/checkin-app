@@ -30050,10 +30050,13 @@ function asistCaptureGeo(opts) {
     let msg = '', hint = '';
     if (err.code === 1) {
       msg = 'Permiso denegado.';
-      hint = 'Habilita el acceso a ubicación en las preferencias del navegador.';
+      hint = 'En Chrome: clic en el candado 🔒 al lado de la URL → Configuración del sitio → Ubicación → Permitir. Luego recarga.';
     } else if (err.code === 2) {
       msg = 'Ubicación no disponible.';
-      hint = 'Posibles causas: Servicios de ubicación del sistema apagados, WiFi apagado, o dispositivo sin GPS. En macOS: Ajustes del sistema → Privacidad y seguridad → Servicios de localización → habilita el navegador.';
+      // Chrome/Safari desktop en macOS necesitan Wi-Fi ENCENDIDO para triangular
+      // (usan escaneo de redes WiFi cercanas), incluso si estás por Ethernet.
+      // Este es el caso #1 de fallo cuando permisos están OK.
+      hint = 'Causa más común en Mac/PC de escritorio: <b>Wi-Fi apagado</b>. Enciende Wi-Fi aunque uses Ethernet — macOS triangula por redes WiFi cercanas. Alternativas: (a) en Chrome, revisa 🔒 → Configuración del sitio → Ubicación = "Permitir"; (b) desactiva VPN si tienes; (c) reinicia Chrome tras cambios de permisos.';
     } else if (err.code === 3) {
       msg = 'Tiempo agotado detectando ubicación.';
       hint = 'La red o el GPS tardaron demasiado en responder.';
@@ -30063,7 +30066,7 @@ function asistCaptureGeo(opts) {
     info.style.background = '#fef2f2';
     info.style.borderColor = '#fecaca';
     info.style.color = '#991b1b';
-    info.innerHTML = `⚠ <b>${esc(msg)}</b>${hint ? `<div style="font-weight:500;margin-top:4px;font-size:11px">${esc(hint)}</div>` : ''}
+    info.innerHTML = `⚠ <b>${esc(msg)}</b>${hint ? `<div style="font-weight:500;margin-top:4px;font-size:11px">${hint}</div>` : ''}
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
         <button type="button" onclick="asistCaptureGeo()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid #fca5a5;background:#fff;color:#991b1b;font-weight:800;cursor:pointer">↻ Reintentar</button>
         <button type="button" onclick="asistContinuarSinGeo()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-weight:800;cursor:pointer">Continuar sin ubicación</button>
