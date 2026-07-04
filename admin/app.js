@@ -29937,22 +29937,26 @@ function guiasTabCheckinSpecial(alojs) {
 // ═══════════════════════════════════════════════════════════════════════
 
 const ASIST_STATE = {
-  tab: 'nuevo',              // 'nuevo' | 'tabla'
   currentGeo: null,          // { lat, lng, accuracy, timestamp }
   currentDate: null,         // ISO
   currentTime: null,         // HH:MM:SS
   // ─── Tabla / Calendario ───
   vis: 'tabla',              // 'tabla' | 'calendario'
-  editar: false,             // modo edición
+  seleccionar: false,        // modo selección múltiple (con checkboxes)
+  selected: new Set(),       // IDs de filas seleccionadas
   rows: [],                  // filas de RH_Asistencia
   headers: [],               // headers del sheet
   sortKey: '',               // columna activa para sort
   sortDir: 'asc',            // 'asc' | 'desc'
-  dirty: new Set(),          // IDs con cambios pendientes
   loading: false,
   loaded: false,
   calMonth: null,            // primer día del mes visible
 };
+
+// Columnas que se ocultan de la tabla (redundantes o metadatos)
+const ASIST_HIDDEN_COLS = new Set(['Empleado_ID','Horas_extra','Hora']);
+// Columnas derivadas — no vienen del sheet, se calculan on-the-fly
+const ASIST_DERIVED_COLS = ['Entrada','Salida','Horas'];
 
 // Campos con lista cerrada (para dropdown en modo edición)
 const ASIST_LISTAS = {
@@ -30030,34 +30034,20 @@ function asistDeriveDayInfo(recs, date, today) {
 }
 
 function asistInit() {
-  asistSetTab(ASIST_STATE.tab || 'nuevo');
   // Precarga lista de Personal si aún no está en memoria
   if (typeof incLoadPersonal === 'function' && (!INC_STATE?.personasFromSheet || !INC_STATE?.personas?.length)) {
     incLoadPersonal().then(() => asistPopulateEmpleadoSelect()).catch(() => asistPopulateEmpleadoSelect());
   } else {
     asistPopulateEmpleadoSelect();
   }
+  // Carga la tabla al entrar (única vista al ingresar a la sección)
+  if (!ASIST_STATE.loaded && !ASIST_STATE.loading) {
+    asistReloadList();
+  } else {
+    asistRenderTabla();
+  }
 }
 window.asistInit = asistInit;
-
-window.asistSetTab = function (tab) {
-  ASIST_STATE.tab = tab;
-  const btnN = document.getElementById('asist-tab-nuevo');
-  const btnT = document.getElementById('asist-tab-tabla');
-  const viewN = document.getElementById('asist-view-nuevo');
-  const viewT = document.getElementById('asist-view-tabla');
-  const base = 'all:unset;cursor:pointer;flex:1;text-align:center;padding:9px 12px;border-radius:8px;font-size:12.5px;';
-  const on = 'background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;box-shadow:0 3px 8px rgba(14,165,233,.35);font-weight:900';
-  const off = 'background:transparent;color:#64748b;font-weight:700';
-  if (btnN) btnN.setAttribute('style', base + (tab === 'nuevo' ? on : off));
-  if (btnT) btnT.setAttribute('style', base + (tab === 'tabla' ? on : off));
-  if (viewN) viewN.classList.toggle('hidden', tab !== 'nuevo');
-  if (viewT) viewT.classList.toggle('hidden', tab !== 'tabla');
-  // Carga lista al entrar por primera vez a "Tabla de control"
-  if (tab === 'tabla' && !ASIST_STATE.loaded && !ASIST_STATE.loading) {
-    asistReloadList();
-  }
-};
 
 // ── Visualización Tabla / Calendario ──
 window.asistSetVis = function (vis) {
@@ -30078,9 +30068,69 @@ window.asistSetVis = function (vis) {
   if (vis === 'calendario') asistRenderCalendar();
 };
 
-window.asistToggleEditar = function (checked) {
-  ASIST_STATE.editar = !!checked;
+// ── Modo Seleccionar (multi-select con checkboxes) — estilo de Guías/BN ──
+window.asistToggleSeleccionar = function () {
+  ASIST_STATE.seleccionar = !ASIST_STATE.seleccionar;
+  const btn = document.getElementById('asist-btn-seleccionar');
+  const btnDel = document.getElementById('asist-btn-eliminar');
+  if (ASIST_STATE.seleccionar) {
+    btn.style.background = '#334155';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#334155';
+    btn.innerHTML = '☑️ Seleccionando…';
+    btnDel?.classList.remove('hidden');
+  } else {
+    btn.style.background = '#fff';
+    btn.style.color = '#374151';
+    btn.style.borderColor = '#cbd5e1';
+    btn.innerHTML = '☑️ Seleccionar';
+    btnDel?.classList.add('hidden');
+    ASIST_STATE.selected.clear();
+  }
+  asistUpdateSelBanner();
   asistRenderTabla();
+};
+
+window.asistToggleRowSel = function (id, checked) {
+  if (checked) ASIST_STATE.selected.add(id);
+  else ASIST_STATE.selected.delete(id);
+  asistUpdateSelBanner();
+};
+
+window.asistSelectAll = function (checked) {
+  if (checked) {
+    for (const r of asistSortedRows()) ASIST_STATE.selected.add(String(r.ID||''));
+  } else {
+    ASIST_STATE.selected.clear();
+  }
+  asistUpdateSelBanner();
+  asistRenderTabla();
+};
+
+function asistUpdateSelBanner() {
+  const n = ASIST_STATE.selected.size;
+  if (n) asistStatusTabla(`☑️ ${n} fila${n===1?'':'s'} seleccionada${n===1?'':'s'}`, 'warn');
+  else asistStatusTabla('');
+}
+
+window.asistEliminarSeleccion = async function () {
+  const ids = Array.from(ASIST_STATE.selected);
+  if (!ids.length) { alert('No hay filas seleccionadas.'); return; }
+  if (!confirm(`¿Eliminar ${ids.length} registro${ids.length===1?'':'s'} de asistencia? Esta acción no se puede deshacer.`)) return;
+  asistStatusTabla('⏳ Eliminando…');
+  let ok = 0, err = 0;
+  for (const id of ids) {
+    try {
+      const res = await fetch(`${BACKEND}/rh/asistencia/${encodeURIComponent(id)}`, { method:'DELETE' });
+      const j = await res.json();
+      if (j.ok) { ok++; ASIST_STATE.selected.delete(id); }
+      else err++;
+    } catch (e) { err++; }
+  }
+  await asistReloadList();
+  if (err) asistStatusTabla(`⚠ ${ok} eliminadas · ${err} con error`, 'warn');
+  else asistStatusTabla(`✓ ${ok} registro${ok===1?'':'s'} eliminado${ok===1?'':'s'}`);
+  setTimeout(() => asistStatusTabla(''), 3500);
 };
 
 async function asistReloadList() {
@@ -30143,98 +30193,115 @@ window.asistSortBy = function (col) {
   asistRenderTabla();
 };
 
-function asistCellHtml(row, col, edit) {
-  const v = row[col] == null ? '' : String(row[col]);
-  if (!edit) return `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#334155;white-space:nowrap">${esc(v)}</td>`;
-  // Editable — Empleado_Nombre y campos con lista → select; resto → input text
-  if (col === 'Empleado_Nombre') {
-    const opts = (INC_STATE?.personas || []).slice().sort((a,b)=>String(a).localeCompare(String(b),'es'));
-    const optionsHtml = [`<option value="">—</option>`, ...opts.map(n => `<option value="${esc(n)}"${n===v?' selected':''}>${esc(n)}</option>`)].join('');
-    return `<td style="padding:4px 6px;border-bottom:1px solid #f1f5f9"><select onchange="asistCellEdited('${esc(row.ID||'')}','${esc(col)}',this.value)" style="width:100%;min-width:150px;padding:5px 6px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:5px;background:#fff">${optionsHtml}</select></td>`;
+/** Índice (empleado|fecha) → { entrada, salida, horas } derivados de los rows. */
+function asistBuildDayIndex_() {
+  const idx = new Map();
+  for (const r of ASIST_STATE.rows) {
+    const nombre = String(r.Empleado_Nombre||'').trim();
+    const fecha  = String(r.Fecha||'').slice(0,10);
+    const tipo   = String(r.Tipo||'').toLowerCase();
+    if (!nombre || !fecha) continue;
+    const k = `${nombre}|${fecha}`;
+    let d = idx.get(k);
+    if (!d) { d = { entrada:'', salida:'', horas:'' }; idx.set(k, d); }
+    const hora = String(r.Hora || '').trim();
+    if (tipo === 'entrada' && hora && (!d.entrada || hora < d.entrada)) d.entrada = hora;
+    else if (tipo === 'salida' && hora && (!d.salida || hora > d.salida)) d.salida = hora;
   }
-  if (ASIST_LISTAS[col]) {
-    const opts = ASIST_LISTAS[col];
-    const optionsHtml = [`<option value="">—</option>`, ...opts.map(n => `<option value="${esc(n)}"${n===v?' selected':''}>${esc(n)}</option>`)].join('');
-    return `<td style="padding:4px 6px;border-bottom:1px solid #f1f5f9"><select onchange="asistCellEdited('${esc(row.ID||'')}','${esc(col)}',this.value)" style="width:100%;min-width:110px;padding:5px 6px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:5px;background:#fff">${optionsHtml}</select></td>`;
+  // Calcula horas
+  for (const d of idx.values()) {
+    const ent = asistParseTimeToMinutes(d.entrada);
+    const sal = asistParseTimeToMinutes(d.salida);
+    if (ent != null && sal != null && sal > ent) {
+      const diff = sal - ent;
+      d.horas = `${Math.floor(diff/60)}h${String(diff%60).padStart(2,'0')}`;
+    }
   }
-  // Read-only para ID/Timestamp — no permitir editar identificadores
-  if (col === 'ID' || col === 'Timestamp') {
-    return `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:11.5px;color:#94a3b8;background:#f8fafc;white-space:nowrap">${esc(v)}</td>`;
-  }
-  return `<td style="padding:4px 6px;border-bottom:1px solid #f1f5f9"><input type="text" value="${esc(v)}" oninput="asistCellEdited('${esc(row.ID||'')}','${esc(col)}',this.value)" style="width:100%;min-width:110px;padding:5px 6px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:5px;background:#fff"></td>`;
+  return idx;
 }
 
-window.asistCellEdited = function (rowId, col, value) {
-  const r = ASIST_STATE.rows.find(x => String(x.ID||'') === String(rowId));
-  if (!r) return;
-  r[col] = value;
-  ASIST_STATE.dirty.add(rowId);
-  asistUpdateSaveBanner();
-};
-
-function asistUpdateSaveBanner() {
-  const n = ASIST_STATE.dirty.size;
-  if (!n) { asistStatusTabla(''); return; }
-  asistStatusTabla(
-    `<span>✏️ ${n} fila${n===1?'':'s'} con cambios sin guardar</span>
-     <button type="button" onclick="asistGuardarCambios()" style="all:unset;cursor:pointer;margin-left:10px;padding:5px 12px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:800;font-size:11.5px;border-radius:7px;box-shadow:0 2px 6px rgba(22,163,74,.35)">💾 Guardar cambios</button>
-     <button type="button" onclick="asistDescartarCambios()" style="all:unset;cursor:pointer;margin-left:6px;padding:5px 10px;background:#fff;border:1px solid #cbd5e1;color:#475569;font-weight:700;font-size:11.5px;border-radius:7px">✕ Descartar</button>`
-  );
+/** Devuelve el valor de una columna para un row, incluye columnas derivadas. */
+function asistCellValue(row, col, dayIdx) {
+  if (col === 'Entrada' || col === 'Salida' || col === 'Horas') {
+    const nombre = String(row.Empleado_Nombre||'').trim();
+    const fecha  = String(row.Fecha||'').slice(0,10);
+    const d = dayIdx.get(`${nombre}|${fecha}`);
+    if (!d) return '';
+    if (col === 'Entrada') return d.entrada || '';
+    if (col === 'Salida')  return d.salida || '';
+    if (col === 'Horas')   return d.horas || '';
+  }
+  return row[col] == null ? '' : String(row[col]);
 }
 
-window.asistDescartarCambios = function () {
-  ASIST_STATE.dirty.clear();
-  asistReloadList();
-};
+function asistCellHtml(row, col, dayIdx) {
+  const v = asistCellValue(row, col, dayIdx);
+  const isDerived = ASIST_DERIVED_COLS.includes(col);
+  const isReadOnly = isDerived || col === 'ID' || col === 'Timestamp';
+  const bg = isReadOnly ? 'background:#f8fafc;color:#475569' : 'color:#334155';
+  return `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap;${bg}">${esc(v)}</td>`;
+}
 
-window.asistGuardarCambios = async function () {
-  const ids = Array.from(ASIST_STATE.dirty);
-  if (!ids.length) return;
-  asistStatusTabla('⏳ Guardando…');
-  let ok = 0, err = 0;
-  for (const id of ids) {
-    const r = ASIST_STATE.rows.find(x => String(x.ID||'') === id);
-    if (!r) continue;
-    try {
-      const res = await fetch(`${BACKEND}/rh/asistencia`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payload: r }),
-      });
-      const j = await res.json();
-      if (j.ok) { ok++; ASIST_STATE.dirty.delete(id); }
-      else err++;
-    } catch (e) { err++; }
+/** Headers visibles = headers del sheet + derivados − ocultos. Los derivados
+ *  (Entrada, Salida, Horas) se insertan después de Fecha. Si el sheet devuelve
+ *  las columnas legacy 'Entrada'/'Salida'/'Horas' se toman como equivalentes
+ *  a las derivadas (no se duplican). */
+function asistVisibleHeaders() {
+  const raw = ASIST_STATE.headers.length ? ASIST_STATE.headers : (ASIST_STATE.rows[0] ? Object.keys(ASIST_STATE.rows[0]) : []);
+  const has = new Set(raw);
+  const out = [];
+  for (const h of raw) {
+    if (ASIST_HIDDEN_COLS.has(h)) continue;
+    if (ASIST_DERIVED_COLS.includes(h)) continue; // las derivadas se insertan una sola vez tras Fecha
+    out.push(h);
+    if (h === 'Fecha') {
+      // Insertar Entrada/Salida/Horas justo después de Fecha
+      for (const d of ASIST_DERIVED_COLS) if (!out.includes(d)) out.push(d);
+    }
   }
-  if (err) asistStatusTabla(`⚠ ${ok} guardadas · ${err} con error`, 'warn');
-  else asistStatusTabla(`✓ ${ok} fila${ok===1?'':'s'} guardada${ok===1?'':'s'}`);
-  setTimeout(() => asistStatusTabla(''), 3500);
-};
+  // Si no hubo Fecha, añade al final
+  for (const d of ASIST_DERIVED_COLS) if (!out.includes(d)) out.push(d);
+  return out;
+}
 
 function asistRenderTabla() {
   const wrap = document.getElementById('asist-tabla-wrap');
   if (!wrap) return;
   const rows = asistSortedRows();
-  const headers = ASIST_STATE.headers.length ? ASIST_STATE.headers : (rows[0] ? Object.keys(rows[0]) : []);
+  const headers = asistVisibleHeaders();
   if (!headers.length) {
     wrap.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">Sin registros aún. Usa "Nuevo registro de asistencia" para agregar el primero.</div>`;
     return;
   }
-  const edit = ASIST_STATE.editar;
+  const sel = ASIST_STATE.seleccionar;
+  const dayIdx = asistBuildDayIndex_();
   const sortIcon = (col) => {
     if (ASIST_STATE.sortKey !== col) return '<span style="color:#cbd5e1;font-size:9px">↕</span>';
     return ASIST_STATE.sortDir === 'asc'
-      ? '<span style="color:#0369a1;font-size:10px;font-weight:900">↑ A-Z</span>'
-      : '<span style="color:#0369a1;font-size:10px;font-weight:900">↓ Z-A</span>';
+      ? '<span style="color:#93c5fd;font-size:10px;font-weight:900">↑ A-Z</span>'
+      : '<span style="color:#93c5fd;font-size:10px;font-weight:900">↓ Z-A</span>';
   };
+  const allSel = sel && rows.length > 0 && rows.every(r => ASIST_STATE.selected.has(String(r.ID||'')));
+  const selHead = sel
+    ? `<th style="position:sticky;top:0;background:#1e293b;padding:9px 6px;text-align:center;width:32px"><input type="checkbox" ${allSel?'checked':''} onchange="asistSelectAll(this.checked)" style="cursor:pointer"></th>`
+    : '';
   const headHtml = headers.map(h => `
     <th onclick="asistSortBy('${esc(h)}')"
         style="position:sticky;top:0;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;white-space:nowrap;user-select:none">
       <div style="display:inline-flex;align-items:center;gap:6px">${esc(h)} ${sortIcon(h)}</div>
     </th>`).join('');
   const bodyHtml = rows.length
-    ? rows.map(r => `<tr${ASIST_STATE.dirty.has(String(r.ID||''))?' style="background:#fefce8"':''}>${headers.map(h => asistCellHtml(r, h, edit)).join('')}</tr>`).join('')
-    : `<tr><td colspan="${headers.length}" style="text-align:center;padding:40px;color:#94a3b8;font-size:12px">Sin registros.</td></tr>`;
-  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+    ? rows.map(r => {
+        const id = String(r.ID||'');
+        const isSel = sel && ASIST_STATE.selected.has(id);
+        const trBg = isSel ? 'background:#dbeafe' : '';
+        const selCell = sel
+          ? `<td style="padding:6px;text-align:center;border-bottom:1px solid #f1f5f9"><input type="checkbox" ${isSel?'checked':''} onchange="asistToggleRowSel('${esc(id)}',this.checked)" style="cursor:pointer"></td>`
+          : '';
+        return `<tr style="${trBg}">${selCell}${headers.map(h => asistCellHtml(r, h, dayIdx)).join('')}</tr>`;
+      }).join('')
+    : `<tr><td colspan="${headers.length + (sel?1:0)}" style="text-align:center;padding:40px;color:#94a3b8;font-size:12px">Sin registros.</td></tr>`;
+  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr>${selHead}${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
 }
 
 // ── Vista Calendario (rows = personal operativo · cols = días) ──
@@ -30400,12 +30467,25 @@ function asistPopulateEmpleadoSelect() {
     personas.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
 }
 
-/** Botón principal: abre el form, captura fecha/hora e inicia geolocalización. */
+/** Botón principal: abre el panel deslizable (derecha → centro), captura
+ *  fecha/hora AHORA e inicia geolocalización. Mueve el panel a <body> por si
+ *  algún ancestro tiene display:none (mismo patrón que otros paneles inc/obj). */
 window.asistNuevoRegistro = function () {
-  const form = document.getElementById('asist-form');
-  if (!form) return;
-  form.classList.remove('hidden');
-  // Pre-llenar fecha/hora AHORA (visible readonly)
+  ['asist-form-backdrop','asist-form-panel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.parentElement !== document.body) document.body.appendChild(el);
+  });
+  const panel = document.getElementById('asist-form-panel');
+  const back  = document.getElementById('asist-form-backdrop');
+  if (!panel || !back) return;
+  back.classList.remove('hidden');
+  panel.classList.remove('hidden');
+  // trigger slide-in animation (setTimeout garantiza reflow entre remove/add)
+  setTimeout(() => {
+    back.classList.add('visible');
+    panel.classList.add('open');
+  }, 10);
+  // Pre-llenar fecha/hora AHORA
   const now = new Date();
   const iso = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   const hms = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
@@ -30413,18 +30493,13 @@ window.asistNuevoRegistro = function () {
   ASIST_STATE.currentTime = hms;
   document.getElementById('asist-fecha').value = new Date(now).toLocaleDateString('es-MX', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
   document.getElementById('asist-hora').value = now.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
-  // Repoblar select por si Personal llegó tarde
   asistPopulateEmpleadoSelect();
-  // Reset campos
   document.getElementById('asist-empleado').value = '';
   document.getElementById('asist-tipo').value = 'Entrada';
   document.getElementById('asist-observaciones').value = '';
   document.getElementById('asist-status').textContent = '';
   document.getElementById('asist-btn-guardar').disabled = false;
-  // Iniciar captura de ubicación
   asistCaptureGeo();
-  // Scroll al form
-  setTimeout(() => form.scrollIntoView({ block: 'center', behavior: 'smooth' }), 100);
 };
 
 /** Captura la ubicación GPS via navegador con fallback a baja precisión. */
@@ -30511,8 +30586,10 @@ window.asistContinuarSinGeo = function () {
 };
 
 window.asistCancelarRegistro = function () {
-  const form = document.getElementById('asist-form');
-  if (form) form.classList.add('hidden');
+  const panel = document.getElementById('asist-form-panel');
+  const back  = document.getElementById('asist-form-backdrop');
+  if (panel) { panel.classList.remove('open'); panel.classList.add('hidden'); }
+  if (back)  { back.classList.remove('visible'); back.classList.add('hidden'); }
 };
 
 window.asistGuardarRegistro = async function () {
@@ -30548,12 +30625,14 @@ window.asistGuardarRegistro = async function () {
     if (!j.ok) throw new Error(j.error || 'Guardado falló');
     if (status) {
       status.style.color = '#065f46';
-      status.textContent = `✓ Registro guardado (ID ${j.id || '—'}). Puedes capturar otro con "Nuevo registro".`;
+      status.textContent = `✓ Registro guardado (ID ${j.id || '—'}).`;
     }
+    // Cierra el panel y refresca la tabla
     setTimeout(() => {
-      document.getElementById('asist-form').classList.add('hidden');
+      asistCancelarRegistro();
       if (status) status.textContent = '';
-    }, 2500);
+      asistReloadList();
+    }, 1200);
   } catch (e) {
     if (status) { status.style.color = '#991b1b'; status.textContent = `✗ Error: ${e.message || e}`; }
     btn.disabled = false;
