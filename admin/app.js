@@ -29944,6 +29944,8 @@ const ASIST_STATE = {
   vis: 'tabla',              // 'tabla' | 'calendario'
   seleccionar: false,        // modo selección múltiple (con checkboxes)
   selected: new Set(),       // IDs de filas seleccionadas
+  editing: new Set(),        // IDs de filas en modo edición inline
+  dirty: new Set(),          // IDs de filas con cambios sin guardar
   rows: [],                  // filas de RH_Asistencia
   headers: [],               // headers del sheet
   sortKey: '',               // columna activa para sort
@@ -29954,7 +29956,7 @@ const ASIST_STATE = {
 };
 
 // Columnas que se ocultan de la tabla (redundantes o metadatos)
-const ASIST_HIDDEN_COLS = new Set(['Empleado_ID','Horas_extra','Hora']);
+const ASIST_HIDDEN_COLS = new Set(['Empleado_ID','Horas_extra']);
 // Columnas derivadas — no vienen del sheet, se calculan on-the-fly
 const ASIST_DERIVED_COLS = ['Entrada','Salida','Horas'];
 
@@ -30239,12 +30241,147 @@ function asistCellValue(row, col, dayIdx) {
   return row[col] == null ? '' : String(row[col]);
 }
 
-function asistCellHtml(row, col, dayIdx) {
+function asistCellHtml(row, col, dayIdx, editing) {
   const v = asistCellValue(row, col, dayIdx);
   const isDerived = ASIST_DERIVED_COLS.includes(col);
   const isReadOnly = isDerived || col === 'ID' || col === 'Timestamp';
-  const bg = isReadOnly ? 'background:#f8fafc;color:#475569' : 'color:#334155';
-  return `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap;${bg}">${esc(v)}</td>`;
+  const id = String(row.ID||'');
+  // Modo lectura (o campos read-only en modo edición)
+  if (!editing || isReadOnly) {
+    const bg = isReadOnly ? 'background:#f8fafc;color:#475569' : 'color:#334155';
+    return `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap;${bg}">${esc(v)}</td>`;
+  }
+  // Modo edición — dropdowns/inputs según el campo (mismo formato que form Nuevo)
+  const inputCss = 'width:100%;min-width:120px;padding:5px 7px;font-size:12px;border:1.5px solid #cbd5e1;border-radius:6px;background:#fff;color:#0f172a;font-weight:600';
+  let inner = '';
+  if (col === 'Empleado_Nombre') {
+    const opts = (INC_STATE?.personas || []).slice().sort((a,b)=>String(a).localeCompare(String(b),'es'));
+    inner = `<select onchange="asistCellChange('${esc(id)}','${esc(col)}',this.value)" style="${inputCss}">
+      <option value="">— Selecciona —</option>
+      ${opts.map(n => `<option value="${esc(n)}"${n===v?' selected':''}>${esc(n)}</option>`).join('')}
+    </select>`;
+  } else if (col === 'Tipo') {
+    const opts = ASIST_LISTAS.Tipo;
+    const labels = { Entrada:'🟢 Entrada', Salida:'🔴 Salida', Break_inicio:'⏸ Inicio de descanso', Break_fin:'▶ Fin de descanso', Vacaciones:'🏖 Vacaciones', Asueto:'🎉 Asueto', Otro:'📝 Otro' };
+    inner = `<select onchange="asistCellChange('${esc(id)}','${esc(col)}',this.value)" style="${inputCss}">
+      <option value="">—</option>
+      ${opts.map(o => `<option value="${esc(o)}"${o===v?' selected':''}>${esc(labels[o]||o)}</option>`).join('')}
+    </select>`;
+  } else if (col === 'Metodo') {
+    const opts = ASIST_LISTAS.Metodo;
+    inner = `<select onchange="asistCellChange('${esc(id)}','${esc(col)}',this.value)" style="${inputCss}">
+      <option value="">—</option>
+      ${opts.map(o => `<option value="${esc(o)}"${o===v?' selected':''}>${esc(o)}</option>`).join('')}
+    </select>`;
+  } else if (col === 'Fecha') {
+    inner = `<input type="date" value="${esc(v)}" onchange="asistCellChange('${esc(id)}','${esc(col)}',this.value)" style="${inputCss}">`;
+  } else if (col === 'Hora') {
+    // r.Hora suele ser "HH:MM:SS" pero input type=time acepta "HH:MM"
+    const timeVal = String(v).slice(0,5);
+    inner = `<input type="time" step="1" value="${esc(timeVal)}" onchange="asistCellChange('${esc(id)}','${esc(col)}',this.value)" style="${inputCss}">`;
+  } else if (col === 'Observaciones') {
+    inner = `<input type="text" value="${esc(v)}" oninput="asistCellChange('${esc(id)}','${esc(col)}',this.value)" placeholder="Nota…" style="${inputCss}">`;
+  } else if (col === 'Ubicacion_Lat' || col === 'Ubicacion_Lng' || col === 'GPS_Accuracy') {
+    inner = `<input type="number" step="any" value="${esc(v)}" oninput="asistCellChange('${esc(id)}','${esc(col)}',this.value)" style="${inputCss};text-align:right">`;
+  } else {
+    inner = `<input type="text" value="${esc(v)}" oninput="asistCellChange('${esc(id)}','${esc(col)}',this.value)" style="${inputCss}">`;
+  }
+  return `<td style="padding:3px 6px;border-bottom:1px solid #f1f5f9;background:#fefce8">${inner}</td>`;
+}
+
+// ── Handlers de la columna Acciones (editar / eliminar / guardar / salir) ──
+window.asistToggleRowEdit = function (id) {
+  if (ASIST_STATE.editing.has(id)) {
+    // Salir de edición — descarta cambios locales (recarga desde server)
+    ASIST_STATE.editing.delete(id);
+    ASIST_STATE.dirty.delete(id);
+    asistReloadList();
+  } else {
+    ASIST_STATE.editing.add(id);
+    asistRenderTabla();
+  }
+};
+
+window.asistCellChange = function (id, col, value) {
+  const r = ASIST_STATE.rows.find(x => String(x.ID||'') === String(id));
+  if (!r) return;
+  r[col] = value;
+  ASIST_STATE.dirty.add(id);
+  // Actualiza el estado del botón 💾 sin re-renderizar (mantiene foco en el input)
+  const saveBtn = document.querySelector(`tr[data-asist-id="${id}"] button[data-asist-btn="save"]`);
+  if (saveBtn) {
+    saveBtn.disabled = false;
+    saveBtn.style.background = '#16a34a';
+    saveBtn.style.color = '#fff';
+    saveBtn.style.borderColor = '#15803d';
+    saveBtn.style.cursor = 'pointer';
+    saveBtn.title = 'Guardar cambios';
+  }
+};
+
+window.asistSaveRowEdit = async function (id) {
+  const r = ASIST_STATE.rows.find(x => String(x.ID||'') === String(id));
+  if (!r) return;
+  if (!ASIST_STATE.dirty.has(id)) return;
+  asistStatusTabla('⏳ Guardando…');
+  try {
+    const res = await fetch(`${BACKEND}/rh/asistencia`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload: r }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'Guardado falló');
+    ASIST_STATE.dirty.delete(id);
+    ASIST_STATE.editing.delete(id);
+    asistStatusTabla(`✓ Registro ${id} guardado`);
+    setTimeout(() => asistStatusTabla(''), 2500);
+    asistReloadList();
+  } catch (e) {
+    asistStatusTabla(`✗ Error: ${esc(e.message||String(e))}`, 'err');
+  }
+};
+
+window.asistDeleteRow = async function (id) {
+  if (!confirm(`¿Eliminar el registro ${id}? Esta acción no se puede deshacer.`)) return;
+  asistStatusTabla('⏳ Eliminando…');
+  try {
+    const res = await fetch(`${BACKEND}/rh/asistencia/${encodeURIComponent(id)}`, { method:'DELETE' });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'Falló');
+    asistStatusTabla(`✓ Registro ${id} eliminado`);
+    setTimeout(() => asistStatusTabla(''), 2500);
+    ASIST_STATE.editing.delete(id);
+    ASIST_STATE.dirty.delete(id);
+    ASIST_STATE.selected.delete(id);
+    asistReloadList();
+  } catch (e) {
+    asistStatusTabla(`✗ Error: ${esc(e.message||String(e))}`, 'err');
+  }
+};
+
+/** HTML de la primera columna "Acciones" según estado de la fila. */
+function asistActionsCellHtml(id) {
+  const isEditing = ASIST_STATE.editing.has(id);
+  const isDirty = ASIST_STATE.dirty.has(id);
+  const btnStyle = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;font-weight:800;font-size:11px;line-height:1;cursor:pointer;border:1px solid';
+  if (isEditing) {
+    const canSave = isDirty;
+    const saveBg = canSave ? '#16a34a' : '#e5e7eb';
+    const saveFg = canSave ? '#fff' : '#9ca3af';
+    const saveBd = canSave ? '#15803d' : '#d1d5db';
+    const saveCur = canSave ? 'pointer' : 'not-allowed';
+    const saveBtn = `<button type="button" data-asist-btn="save" onclick="asistSaveRowEdit('${esc(id)}')" title="${canSave?'Guardar cambios':'Sin cambios que guardar'}" ${canSave?'':'disabled'}
+      style="${btnStyle} ${saveBd};background:${saveBg};color:${saveFg};cursor:${saveCur}">💾</button>`;
+    const exitBtn = `<button type="button" onclick="asistToggleRowEdit('${esc(id)}')" title="Salir de edición sin guardar"
+      style="display:inline-flex;align-items:center;justify-content:center;padding:0 8px;height:22px;border-radius:4px;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:800;font-size:10.5px;line-height:1;cursor:pointer;letter-spacing:.02em">Salir</button>`;
+    return `<td style="padding:2px 4px;text-align:center;vertical-align:middle;border-bottom:1px solid #f1f5f9;background:#fefce8"><div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${saveBtn}${exitBtn}</div></td>`;
+  } else {
+    const editBtn = `<button type="button" onclick="asistToggleRowEdit('${esc(id)}')" title="Editar renglón"
+      style="${btnStyle} #93c5fd;background:#dbeafe;color:#1d4ed8">✎</button>`;
+    const delBtn = `<button type="button" onclick="asistDeleteRow('${esc(id)}')" title="Eliminar renglón"
+      style="${btnStyle} #fecaca;background:#fee2e2;color:#b91c1c">✕</button>`;
+    return `<td style="padding:2px 4px;text-align:center;vertical-align:middle;border-bottom:1px solid #f1f5f9"><div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${editBtn}${delBtn}</div></td>`;
+  }
 }
 
 /** Headers visibles = headers del sheet + derivados − ocultos. Los derivados
@@ -30290,23 +30427,28 @@ function asistRenderTabla() {
   const selHead = sel
     ? `<th style="position:sticky;top:0;background:#1e293b;padding:9px 6px;text-align:center;width:36px">${asistSelBox(allSel, `asistSelectAll(${!allSel})`)}</th>`
     : '';
+  // Columna Acciones — siempre presente como primera columna (después de Seleccionar si activo)
+  const accHead = `<th style="position:sticky;top:0;background:#1e293b;color:#fff;padding:9px 8px;text-align:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;user-select:none;width:80px">Acciones</th>`;
   const headHtml = headers.map(h => `
     <th onclick="asistSortBy('${esc(h)}')"
         style="position:sticky;top:0;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;white-space:nowrap;user-select:none">
       <div style="display:inline-flex;align-items:center;gap:6px">${esc(h)} ${sortIcon(h)}</div>
     </th>`).join('');
+  const totalCols = headers.length + (sel?1:0) + 1;
   const bodyHtml = rows.length
     ? rows.map(r => {
         const id = String(r.ID||'');
         const isSel = sel && ASIST_STATE.selected.has(id);
-        const trBg = isSel ? 'background:#dbeafe' : '';
+        const isEditing = ASIST_STATE.editing.has(id);
+        const trBg = isEditing ? 'background:#fefce8' : (isSel ? 'background:#dbeafe' : '');
         const selCell = sel
           ? `<td style="padding:6px;text-align:center;border-bottom:1px solid #f1f5f9">${asistSelBox(isSel, `asistToggleRowSel('${esc(id)}',${!isSel})`)}</td>`
           : '';
-        return `<tr style="${trBg}">${selCell}${headers.map(h => asistCellHtml(r, h, dayIdx)).join('')}</tr>`;
+        const accCell = asistActionsCellHtml(id);
+        return `<tr data-asist-id="${esc(id)}" style="${trBg}">${selCell}${accCell}${headers.map(h => asistCellHtml(r, h, dayIdx, isEditing)).join('')}</tr>`;
       }).join('')
-    : `<tr><td colspan="${headers.length + (sel?1:0)}" style="text-align:center;padding:40px;color:#94a3b8;font-size:12px">Sin registros.</td></tr>`;
-  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr>${selHead}${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+    : `<tr><td colspan="${totalCols}" style="text-align:center;padding:40px;color:#94a3b8;font-size:12px">Sin registros.</td></tr>`;
+  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr>${selHead}${accHead}${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
 }
 
 // ── Vista Calendario (rows = personal operativo · cols = días) ──
