@@ -30100,6 +30100,7 @@ window.asistToggleRowSel = function (id, checked) {
   if (checked) ASIST_STATE.selected.add(id);
   else ASIST_STATE.selected.delete(id);
   asistUpdateSelBanner();
+  asistRenderTabla();
 };
 
 window.asistSelectAll = function (checked) {
@@ -30151,7 +30152,6 @@ async function asistReloadList() {
       ? j.headers
       : (ASIST_STATE.rows[0] ? Object.keys(ASIST_STATE.rows[0]) : []);
     ASIST_STATE.loaded = true;
-    ASIST_STATE.dirty.clear();
     asistStatusTabla('');
     if (ASIST_STATE.vis === 'calendario') asistRenderCalendar(); else asistRenderTabla();
     const c = document.getElementById('asist-list-count');
