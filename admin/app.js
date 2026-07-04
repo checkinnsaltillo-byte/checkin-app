@@ -29956,9 +29956,78 @@ const ASIST_STATE = {
 
 // Campos con lista cerrada (para dropdown en modo edición)
 const ASIST_LISTAS = {
-  Tipo: ['Entrada','Salida','Break_inicio','Break_fin','Otro'],
+  Tipo: ['Entrada','Salida','Break_inicio','Break_fin','Vacaciones','Asueto','Otro'],
   Metodo: ['GPS','Manual'],
 };
+
+/** True si el puesto es administrativo (excluye del calendario). */
+function asistEsAdministrativo(puesto) {
+  const p = String(puesto || '').toLowerCase();
+  return /administr/.test(p);
+}
+
+/** Devuelve la lista de personal para el calendario, EXCLUYE los puestos de
+ *  Administración según la columna Puesto de la hoja Personal. */
+function asistPersonalOperativo() {
+  const rows = (INC_STATE?.personalRows || []);
+  if (rows.length) {
+    return rows
+      .map(r => ({
+        nombre: String(r['Nombre'] || '').trim(),
+        puesto: String(r['Puesto'] || r['Rol'] || r['Cargo'] || '').trim(),
+      }))
+      .filter(x => x.nombre && !asistEsAdministrativo(x.puesto));
+  }
+  // Fallback: si aún no hay puestos, usa la lista plana de nombres
+  return (INC_STATE?.personas || []).map(n => ({ nombre: String(n).trim(), puesto: '' })).filter(x => x.nombre);
+}
+
+/** Parsea "HH:MM[:SS]" a minutos totales. Devuelve null si inválido. */
+function asistParseTimeToMinutes(s) {
+  const m = String(s || '').match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return null;
+  const h = Number(m[1]), mi = Number(m[2]);
+  if (h < 0 || h > 23 || mi < 0 || mi > 59) return null;
+  return h * 60 + mi;
+}
+
+/** Dado la lista de registros para un persona+día, devuelve:
+ *   { entrada, salida, horasStr, estado, semaforo }
+ *   estado: 'asistencia' | 'vacaciones' | 'asueto' | 'falta' | 'futuro' | 'finde'
+ *   semaforo: '#16a34a' verde | '#f59e0b' amarillo | '#dc2626' rojo | '' sin marcar
+ */
+function asistDeriveDayInfo(recs, date, today) {
+  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+  const isFuture = date > today;
+  // Vacaciones o Asueto — cualquier registro con ese Tipo domina
+  let hasVac = false, hasAsueto = false;
+  let entradaMin = null, salidaMin = null;
+  let entradaStr = '', salidaStr = '';
+  for (const r of recs) {
+    const t = String(r.Tipo || '').toLowerCase();
+    if (t === 'vacaciones') hasVac = true;
+    else if (t === 'asueto') hasAsueto = true;
+    else if (t === 'entrada') {
+      const m = asistParseTimeToMinutes(r.Hora || r.Entrada);
+      if (m != null && (entradaMin == null || m < entradaMin)) { entradaMin = m; entradaStr = (r.Hora || r.Entrada || '').slice(0,5); }
+    } else if (t === 'salida') {
+      const m = asistParseTimeToMinutes(r.Hora || r.Salida);
+      if (m != null && (salidaMin == null || m > salidaMin)) { salidaMin = m; salidaStr = (r.Hora || r.Salida || '').slice(0,5); }
+    }
+  }
+  let horasStr = '';
+  if (entradaMin != null && salidaMin != null && salidaMin > entradaMin) {
+    const diff = salidaMin - entradaMin;
+    horasStr = `${Math.floor(diff/60)}h${String(diff%60).padStart(2,'0')}`;
+  }
+  if (hasVac) return { entrada:entradaStr, salida:salidaStr, horasStr, estado:'vacaciones', semaforo:'#f59e0b' };
+  if (hasAsueto) return { entrada:entradaStr, salida:salidaStr, horasStr, estado:'asueto', semaforo:'#f59e0b' };
+  if (entradaMin != null) return { entrada:entradaStr, salida:salidaStr, horasStr, estado:'asistencia', semaforo:'#16a34a' };
+  // Sin registros: si es futuro o finde, sin semáforo; si es laboral pasado, rojo
+  if (isFuture) return { entrada:'', salida:'', horasStr:'', estado:'futuro', semaforo:'' };
+  if (isWeekend) return { entrada:'', salida:'', horasStr:'', estado:'finde', semaforo:'' };
+  return { entrada:'', salida:'', horasStr:'', estado:'falta', semaforo:'#dc2626' };
+}
 
 function asistInit() {
   asistSetTab(ASIST_STATE.tab || 'nuevo');
@@ -30168,7 +30237,7 @@ function asistRenderTabla() {
   wrap.innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
 }
 
-// ── Vista Calendario (rows = personal · cols = días) ──
+// ── Vista Calendario (rows = personal operativo · cols = días) ──
 function asistRenderCalendar() {
   const cont = document.getElementById('asist-cal-wrap');
   if (!cont) return;
@@ -30182,14 +30251,9 @@ function asistRenderCalendar() {
   const rangeStart = new Date(y0, m0 - MB, 1);
   const rangeEnd   = new Date(y0, m0 + MA + 1, 0);
   const totalDays = Math.round((rangeEnd - rangeStart) / 86400000) + 1;
-  const dayIdx = (d) => Math.round((d - rangeStart) / 86400000);
-  // Personas: usa el catálogo Personal + los que aparecen en las asistencias
-  const personasSet = new Set(INC_STATE?.personas || []);
-  for (const r of ASIST_STATE.rows) {
-    const n = String(r.Empleado_Nombre||'').trim();
-    if (n) personasSet.add(n);
-  }
-  const personas = Array.from(personasSet).sort((a,b)=>String(a).localeCompare(String(b),'es'));
+  // Personal operativo (sin administrativos). Ordena alfabéticamente.
+  const personalRows = asistPersonalOperativo().slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  const personas = personalRows.map(x => x.nombre);
   // Index: `${persona}|${YYYY-MM-DD}` → [rows]
   const idx = new Map();
   for (const r of ASIST_STATE.rows) {
@@ -30201,29 +30265,26 @@ function asistRenderCalendar() {
     idx.get(k).push(r);
   }
 
-  const colorTipo = (t) => {
-    const s = String(t||'').toLowerCase();
-    if (s.includes('entrada')) return '#16a34a';
-    if (s.includes('salida'))  return '#dc2626';
-    if (s.includes('inicio'))  return '#f59e0b';
-    if (s.includes('fin'))     return '#0284c7';
-    return '#64748b';
-  };
-
-  let html = `<div style="display:flex;gap:8px;align-items:center;margin:0 0 10px">
+  let html = `<div style="display:flex;gap:8px;align-items:center;margin:0 0 10px;flex-wrap:wrap">
     <button type="button" onclick="asistCalNav(-1)" style="all:unset;cursor:pointer;padding:6px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;color:#334155">←</button>
     <div style="font-weight:900;font-size:14px;color:#0f172a;min-width:170px;text-align:center">${OCUP_MESES[m0]} ${y0}</div>
     <button type="button" onclick="asistCalNav(1)"  style="all:unset;cursor:pointer;padding:6px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;color:#334155">→</button>
-    <button type="button" onclick="asistCalHoy()"   style="all:unset;cursor:pointer;padding:6px 12px;background:#0f172a;color:#fff;border-radius:8px;font-weight:800;margin-left:6px">Hoy</button>
-    <div style="margin-left:auto;font-size:11px;color:#94a3b8">Colores por tipo: <span style="color:#16a34a;font-weight:800">■ Entrada</span> · <span style="color:#dc2626;font-weight:800">■ Salida</span> · <span style="color:#f59e0b;font-weight:800">■ Break inicio</span> · <span style="color:#0284c7;font-weight:800">■ Break fin</span> · <span style="color:#64748b;font-weight:800">■ Otro</span></div>
+    <button type="button" onclick="asistCalHoy()"   style="all:unset;cursor:pointer;padding:7px 14px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border-radius:8px;font-weight:900;margin-left:6px;box-shadow:0 3px 8px rgba(14,165,233,.35)">📅 Ir a hoy</button>
+    <div style="margin-left:auto;font-size:11px;color:#475569;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 1px #fff,0 0 0 2px #16a34a"></span> asistencia</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 1px #fff,0 0 0 2px #f59e0b"></span> vacaciones/asueto</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 1px #fff,0 0 0 2px #dc2626"></span> falta</span>
+    </div>
   </div>`;
 
   html += `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:${totalDays}">`;
   html += `<div class="ocup-cal-head"><div class="ocup-head-aloj">👥 Personal · ${personas.length}</div>`;
+  let todayIdx = -1;
   for (let i = 0; i < totalDays; i++) {
     const d = new Date(rangeStart); d.setDate(d.getDate()+i);
     const dow = d.getDay();
     const isToday = d.getTime() === today.getTime();
+    if (isToday) todayIdx = i;
     const isWeekend = dow === 0 || dow === 6;
     const isFirst = d.getDate() === 1;
     const monthBadge = isFirst ? `<div style="position:absolute;top:-22px;left:0;font-size:10px;font-weight:900;color:#3730a3;background:#e0e7ff;border:1px solid #a5b4fc;padding:2px 8px;border-radius:99px;white-space:nowrap;z-index:2;pointer-events:none">${OCUP_MESES[d.getMonth()]} ${d.getFullYear()}</div>` : '';
@@ -30235,12 +30296,13 @@ function asistRenderCalendar() {
   }
   html += `</div>`;
 
-  personas.forEach(nombre => {
+  personalRows.forEach(({ nombre, puesto }) => {
     html += `<div class="ocup-cal-row" data-persona="${esc(nombre)}">`;
     html += `<div class="ocup-aloj-cell">
       <div class="ocup-aloj-img">👤</div>
       <div class="ocup-aloj-info">
-        <div class="ocup-aloj-name" title="${esc(nombre)}">${esc(nombre)}</div>
+        <div class="ocup-aloj-name" title="${esc(nombre)}${puesto?' · '+esc(puesto):''}">${esc(nombre)}</div>
+        ${puesto ? `<div class="ocup-aloj-id">${esc(puesto)}</div>` : ''}
       </div>
     </div>`;
     for (let i = 0; i < totalDays; i++) {
@@ -30250,15 +30312,30 @@ function asistRenderCalendar() {
       const isToday = d.getTime() === today.getTime();
       const isWeekend = dow === 0 || dow === 6;
       const recs = idx.get(`${nombre}|${iso}`) || [];
-      let dots = '';
-      if (recs.length) {
-        const upto = recs.slice(0, 4);
-        dots = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:2px;pointer-events:none">${upto.map(r => `<span style="width:6px;height:6px;border-radius:50%;background:${colorTipo(r.Tipo)};box-shadow:0 0 0 1px #fff"></span>`).join('')}${recs.length>4?`<span style="font-size:8px;color:#475569;font-weight:800;margin-left:1px">+${recs.length-4}</span>`:''}</div>`;
+      const info = asistDeriveDayInfo(recs, d, today);
+      // Semáforo (esquina superior izquierda) — círculo pequeño con color
+      const semHtml = info.semaforo
+        ? `<span style="position:absolute;top:2px;left:2px;width:7px;height:7px;border-radius:50%;background:${info.semaforo};box-shadow:0 0 0 1px #fff,0 0 0 2px ${info.semaforo}"></span>`
+        : '';
+      // Contenido: entrada · salida · horas o etiqueta de estado
+      let content = '';
+      if (info.estado === 'vacaciones') {
+        content = `<div style="font-size:8px;font-weight:900;color:#92400e;text-transform:uppercase;letter-spacing:.04em;line-height:1.1">Vac.</div>`;
+      } else if (info.estado === 'asueto') {
+        content = `<div style="font-size:8px;font-weight:900;color:#92400e;text-transform:uppercase;letter-spacing:.04em;line-height:1.1">Asueto</div>`;
+      } else if (info.estado === 'asistencia') {
+        const lines = [];
+        if (info.entrada) lines.push(`<div style="font-size:8px;font-weight:800;color:#065f46;line-height:1.05">▶${esc(info.entrada)}</div>`);
+        if (info.salida)  lines.push(`<div style="font-size:8px;font-weight:800;color:#7f1d1d;line-height:1.05">◀${esc(info.salida)}</div>`);
+        if (info.horasStr) lines.push(`<div style="font-size:8px;font-weight:900;color:#1e40af;line-height:1.05">${esc(info.horasStr)}</div>`);
+        content = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0px;padding-top:4px">${lines.join('')}</div>`;
+      } else if (info.estado === 'falta') {
+        content = `<div style="font-size:8px;font-weight:900;color:#7f1d1d;text-transform:uppercase;letter-spacing:.04em;line-height:1.1">Falta</div>`;
       }
       const tip = recs.length
         ? recs.map(r => `${r.Tipo||'—'} · ${(r.Hora||'').slice(0,5)}`).join(' | ')
-        : '';
-      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" style="position:relative;cursor:${recs.length?'pointer':'default'}" title="${esc(tip)}" ${recs.length?`onclick="asistCalClick('${esc(nombre)}','${iso}')"`:''}>${dots}</div>`;
+        : (info.estado === 'falta' ? 'Sin registro en día laboral' : '');
+      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" style="position:relative;cursor:${recs.length?'pointer':'default'}" title="${esc(tip)}" ${recs.length?`onclick="asistCalClick('${esc(nombre)}','${iso}')"`:''}>${semHtml}${content}</div>`;
     }
     html += `</div>`;
   });
@@ -30266,12 +30343,34 @@ function asistRenderCalendar() {
   html += `</div>`;
   cont.innerHTML = html;
 
-  // Auto-scroll al primer día del mes actual del calendario
-  setTimeout(() => {
-    const firstDayIdx = Math.round((month - rangeStart) / 86400000);
-    const target = cont.querySelector(`[data-day-idx="${firstDayIdx}"]`);
-    if (target) target.scrollIntoView({ inline: 'start', block: 'nearest' });
-  }, 30);
+  // Auto-scroll: si hay "hoy" visible, centra hoy; si no, muestra primer día del mes
+  setTimeout(() => asistCalCenterOnToday_(cont, rangeStart, month), 40);
+}
+
+/** Centra el día de hoy en el viewport del calendario (o el primer día del
+ *  mes visible si hoy está fuera del rango). */
+function asistCalCenterOnToday_(cont, rangeStart, month) {
+  if (!cont) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayIdx = Math.round((today - rangeStart) / 86400000);
+  let target = null;
+  if (todayIdx >= 0) target = cont.querySelector(`[data-day-idx="${todayIdx}"]`);
+  if (!target) {
+    const monthIdx = Math.round((month - rangeStart) / 86400000);
+    target = cont.querySelector(`[data-day-idx="${monthIdx}"]`);
+  }
+  if (!target) return;
+  // El contenedor scrolleable es .ocup-cal (overflow-x). Manualmente calcula
+  // para centrar (scrollIntoView block:'nearest' + inline:'center' no siempre
+  // centra bien cuando el header sticky influye).
+  const cal = cont.querySelector('.ocup-cal') || target.parentElement;
+  if (!cal || !cal.scrollTo) { target.scrollIntoView({ inline:'center', block:'nearest' }); return; }
+  const targetRect = target.getBoundingClientRect();
+  const calRect = cal.getBoundingClientRect();
+  const currentScroll = cal.scrollLeft;
+  const offsetInCal = targetRect.left - calRect.left + currentScroll;
+  const desired = offsetInCal - (calRect.width / 2) + (targetRect.width / 2);
+  cal.scrollTo({ left: Math.max(0, desired), behavior: 'smooth' });
 }
 
 window.asistCalNav = function (delta) {
