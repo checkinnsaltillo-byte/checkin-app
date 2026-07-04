@@ -26982,7 +26982,7 @@ function rhRenderAsistAuse() {
         <div class="rh-toolbar-count">${ast.length} asistencia(s) · ${aus.length} ausencia(s)</div>
       </div>
       <div style="display:flex;gap:8px">
-        <button type="button" class="rh-btn-add" onclick="rhOpenForm('asistencia', null)">＋ Agregar asistencia</button>
+        <button type="button" class="rh-btn-add" onclick="asistNomOpenAddPanel()">＋ Agregar asistencia</button>
         <button type="button" class="rh-btn-add" onclick="rhOpenForm('ausencia', null)">＋ Agregar ausencia</button>
       </div>
     </div>
@@ -26992,11 +26992,18 @@ function rhRenderAsistAuse() {
         ? `<div class="rh-empty" style="margin:0">Sin registros de asistencia.</div>`
         : `<div style="overflow-x:auto"><table class="rh-table">
             <thead><tr>
+              <th style="width:78px;text-align:center">Acciones</th>
               <th>Empleado</th><th>Fecha</th><th>Entrada</th><th>Salida</th>
               <th>Horas</th><th>Extra</th><th>Observaciones</th>
             </tr></thead>
             <tbody>${ast.map(r => `
-              <tr onclick="rhOpenForm('asistencia','${esc(r.ID)}')">
+              <tr>
+                <td style="padding:2px 4px;text-align:center;vertical-align:middle"><div style="display:inline-flex;gap:4px" onclick="event.stopPropagation()">
+                  <button type="button" onclick="rhOpenForm('asistencia','${esc(r.ID)}')" title="Editar renglón"
+                          style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;font-weight:800;font-size:11px;line-height:1;cursor:pointer">✎</button>
+                  <button type="button" onclick="rhDeleteAsistencia('${esc(r.ID)}')" title="Eliminar renglón"
+                          style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:800;font-size:11px;line-height:1;cursor:pointer">✕</button>
+                </div></td>
                 <td><strong>${esc(rhEmpleadoNombre(r.Empleado_ID) || r.Empleado_Nombre || '—')}</strong></td>
                 <td>${esc(r.Fecha || '—')}</td>
                 <td>${esc(r.Entrada || '—')}</td>
@@ -27013,6 +27020,7 @@ function rhRenderAsistAuse() {
         ? `<div class="rh-empty" style="margin:0">Sin ausencias registradas.</div>`
         : `<div style="overflow-x:auto"><table class="rh-table">
             <thead><tr>
+              <th style="width:78px;text-align:center">Acciones</th>
               <th>Empleado</th><th>Tipo</th><th>Inicio</th><th>Fin</th>
               <th>Días</th><th>Estatus</th><th>Comentarios</th>
             </tr></thead>
@@ -27023,7 +27031,13 @@ function rhRenderAsistAuse() {
                          : est.includes('sol') || est.includes('pend') ? `<span class="rh-chip rh-chip-est-pe">⏳ ${esc(r.Estatus)}</span>`
                          : esc(r.Estatus || '—');
               return `
-              <tr onclick="rhOpenForm('ausencia','${esc(r.ID)}')">
+              <tr>
+                <td style="padding:2px 4px;text-align:center;vertical-align:middle"><div style="display:inline-flex;gap:4px" onclick="event.stopPropagation()">
+                  <button type="button" onclick="rhOpenForm('ausencia','${esc(r.ID)}')" title="Editar renglón"
+                          style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;font-weight:800;font-size:11px;line-height:1;cursor:pointer">✎</button>
+                  <button type="button" onclick="rhDeleteAusencia('${esc(r.ID)}')" title="Eliminar renglón"
+                          style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:800;font-size:11px;line-height:1;cursor:pointer">✕</button>
+                </div></td>
                 <td><strong>${esc(rhEmpleadoNombre(r.Empleado_ID) || r.Empleado_Nombre || '—')}</strong></td>
                 <td><span class="rh-chip rh-chip-tipo">${esc(r.Tipo || '—')}</span></td>
                 <td>${esc(r.Fecha_inicio || '—')}</td>
@@ -27036,6 +27050,337 @@ function rhRenderAsistAuse() {
           </table></div>`}
     </div>`;
 }
+
+// ── Delete handlers para tabla Asistencias/Ausencias en Nómina ──
+window.rhDeleteAsistencia = async function (id) {
+  if (!confirm(`¿Eliminar el registro de asistencia ${id}? Esta acción no se puede deshacer.`)) return;
+  try {
+    const res = await fetch(`${BACKEND}/rh/asistencia/${encodeURIComponent(id)}`, { method:'DELETE' });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'Falló');
+    await rhLoadAsistencia();
+    rhRenderAsistAuse();
+  } catch (e) { alert(`Error: ${e.message||String(e)}`); }
+};
+window.rhDeleteAusencia = async function (id) {
+  if (!confirm(`¿Eliminar la ausencia ${id}? Esta acción no se puede deshacer.`)) return;
+  try {
+    const res = await fetch(`${BACKEND}/rh/ausencias/${encodeURIComponent(id)}`, { method:'DELETE' });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'Falló');
+    await rhLoadAusencias();
+    rhRenderAsistAuse();
+  } catch (e) { alert(`Error: ${e.message||String(e)}`); }
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║  ASISTENCIAS · Panel "+Agregar asistencia" con 2 pestañas             ║
+// ║  Réplica del patrón "+Nueva operación" de Pagos.                      ║
+// ║  Tabs: [Registro grupal] · [Registro unitario]                        ║
+// ║  Grupal: tabla con Nombre / Concepto / Fecha / Entrada / Salida /     ║
+// ║  Horas (auto) / Ubicación (desactivada) / Observaciones. Campos       ║
+// ║  superiores comunes: Concepto, Fecha, Entrada, Salida.                ║
+// ═══════════════════════════════════════════════════════════════════════
+const ASIST_NOM_STATE = {
+  mode: 'grupal',            // 'grupal' | 'unit'
+  topConcepto: 'Asistencia', // aplica a todos los renglones
+  topFecha: null,            // YYYY-MM-DD (hoy por default)
+  topEntrada: '08:00',       // HH:MM
+  topSalida: '17:00',
+  grupalRows: [],
+  unit: null,
+};
+const ASIST_CONCEPTOS = ['Asistencia','Ausencia','Permiso'];
+
+function asistNomToday_() { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; }
+
+/** Calcula horas trabajadas a partir de entrada y salida "HH:MM". */
+function asistNomHoras_(entrada, salida) {
+  const parse = (s) => { const m = String(s||'').match(/^(\d{1,2}):(\d{2})/); if (!m) return null; return Number(m[1])*60 + Number(m[2]); };
+  const e = parse(entrada), s = parse(salida);
+  if (e == null || s == null || s <= e) return '';
+  const diff = s - e;
+  return `${Math.floor(diff/60)}h${String(diff%60).padStart(2,'0')}`;
+}
+
+window.asistNomOpenAddPanel = function () {
+  RH_STATE.formContext = { kind: 'asist_multi', editing: null };
+  document.getElementById('rh-form-title').textContent = '＋ Agregar asistencia';
+  document.getElementById('rh-form-body').innerHTML = `
+    <div class="nom-cejas">
+      <button type="button" class="nom-ceja active" data-mode="grupal" onclick="asistNomSetMode('grupal')">👥 Registro grupal</button>
+      <button type="button" class="nom-ceja" data-mode="unit" onclick="asistNomSetMode('unit')">📝 Registro unitario</button>
+    </div>
+    <div id="asist-nom-pane"></div>`;
+  const today = asistNomToday_();
+  ASIST_NOM_STATE.mode = 'grupal';
+  ASIST_NOM_STATE.topConcepto = 'Asistencia';
+  ASIST_NOM_STATE.topFecha = today;
+  ASIST_NOM_STATE.topEntrada = '08:00';
+  ASIST_NOM_STATE.topSalida = '17:00';
+  ASIST_NOM_STATE.grupalRows = (RH_STATE.empleados || []).map(e => ({
+    empleadoId: e.ID,
+    nombre: [e.Nombre, e.Apellido_paterno, e.Apellido_materno].filter(Boolean).join(' ') || e.Nombre || '—',
+    concepto: 'Asistencia',
+    fecha: today,
+    entrada: '08:00',
+    salida: '17:00',
+    observaciones: '',
+  }));
+  ASIST_NOM_STATE.unit = {
+    empleadoId: '',
+    concepto: 'Asistencia',
+    fecha: today,
+    entrada: '08:00',
+    salida: '17:00',
+    observaciones: '',
+  };
+  asistNomRenderPane();
+  const panel = document.getElementById('rh-form-panel');
+  const back  = document.getElementById('rh-form-backdrop');
+  back.classList.remove('hidden'); back.offsetHeight; back.classList.add('visible');
+  panel.classList.remove('hidden'); panel.classList.add('open');
+  panel.classList.add('panel-fullwidth');
+  const btnPri = document.querySelector('#rh-form-panel .inc-btn-pri');
+  const btnSec = document.querySelector('#rh-form-panel .inc-btn-sec');
+  if (btnPri) { btnPri.innerHTML = '💾 Guardar y Salir'; btnPri.onclick = () => asistNomSave(); }
+  if (btnSec) { btnSec.innerHTML = '🗑 Limpiar'; btnSec.onclick = () => asistNomClear(); }
+};
+
+window.asistNomSetMode = function (m) {
+  ASIST_NOM_STATE.mode = m;
+  document.querySelectorAll('#rh-form-body .nom-ceja').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode') === m));
+  asistNomRenderPane();
+};
+
+function asistNomRenderPane() {
+  const pane = document.getElementById('asist-nom-pane');
+  if (!pane) return;
+  pane.innerHTML = ASIST_NOM_STATE.mode === 'grupal' ? asistNomRenderGrupal() : asistNomRenderUnit();
+}
+
+function asistNomRenderGrupal() {
+  return `
+    <div class="nom-grupal-top" id="asist-nom-grupal-top">${asistNomRenderGrupalTop()}</div>
+    <div style="overflow-x:auto;margin-top:14px">
+      <table class="rh-table nom-grupal-tbl">
+        <thead><tr>
+          <th style="width:28px"></th>
+          <th>Nombre</th><th>Concepto</th><th>Fecha</th>
+          <th>Hora entrada</th><th>Hora salida</th><th>Horas trabajadas</th>
+          <th>Ubicación</th><th>Observaciones</th>
+        </tr></thead>
+        <tbody id="asist-nom-grupal-tbody">${asistNomRenderGrupalRows()}</tbody>
+      </table>
+    </div>`;
+}
+
+function asistNomRenderGrupalTop() {
+  const c = ASIST_NOM_STATE.topConcepto;
+  const f = ASIST_NOM_STATE.topFecha || asistNomToday_();
+  const e = ASIST_NOM_STATE.topEntrada;
+  const s = ASIST_NOM_STATE.topSalida;
+  return `
+    <div class="rh-field"><label>Concepto</label>
+      <select onchange="asistNomSetAll('concepto', this.value)">
+        ${ASIST_CONCEPTOS.map(o => `<option ${o===c?'selected':''}>${o}</option>`).join('')}
+      </select>
+    </div>
+    <div class="rh-field"><label>Fecha</label>
+      <input type="date" value="${esc(f)}" onchange="asistNomSetAll('fecha', this.value)">
+    </div>
+    <div class="rh-field"><label>Hora entrada</label>
+      <input type="time" value="${esc(e)}" onchange="asistNomSetAll('entrada', this.value)">
+    </div>
+    <div class="rh-field"><label>Hora salida</label>
+      <input type="time" value="${esc(s)}" onchange="asistNomSetAll('salida', this.value)">
+    </div>`;
+}
+
+window.asistNomSetAll = function (field, value) {
+  if (field === 'concepto') ASIST_NOM_STATE.topConcepto = value;
+  else if (field === 'fecha')    ASIST_NOM_STATE.topFecha = value;
+  else if (field === 'entrada')  ASIST_NOM_STATE.topEntrada = value;
+  else if (field === 'salida')   ASIST_NOM_STATE.topSalida = value;
+  ASIST_NOM_STATE.grupalRows.forEach(r => { r[field] = value; });
+  const tbody = document.getElementById('asist-nom-grupal-tbody');
+  if (tbody) tbody.innerHTML = asistNomRenderGrupalRows();
+};
+
+function asistNomRenderGrupalRows() {
+  const inserter = (pos) => `<tr class="nom-inserter"><td colspan="9"><button type="button" class="nom-inserter-btn" onclick="asistNomInsertRow(${pos})" title="Insertar renglón aquí">＋</button></td></tr>`;
+  if (!ASIST_NOM_STATE.grupalRows.length) {
+    return inserter(0) + `<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:14px">Sin renglones. Pulsa el <strong>＋</strong> para agregar.</td></tr>`;
+  }
+  let out = inserter(0);
+  ASIST_NOM_STATE.grupalRows.forEach((r, i) => {
+    out += asistNomGrupalRow(r, i);
+    out += inserter(i + 1);
+  });
+  return out;
+}
+
+function asistNomGrupalRow(r, i) {
+  const empOpts = (RH_STATE.empleados || []).map(e => {
+    const n = [e.Nombre, e.Apellido_paterno, e.Apellido_materno].filter(Boolean).join(' ') || e.Nombre || '';
+    return `<option value="${esc(e.ID)}" ${String(e.ID) === String(r.empleadoId) ? 'selected':''}>${esc(n)}${e.Puesto ? ' — ' + esc(e.Puesto) : ''}</option>`;
+  }).join('');
+  const horas = asistNomHoras_(r.entrada, r.salida);
+  return `<tr data-asist-idx="${i}">
+    <td><button type="button" class="nom-conc-del" onclick="asistNomDelRow(${i})" title="Quitar renglón">✕</button></td>
+    <td>
+      <select onchange="asistNomSetEmpleado(${i}, this.value)">
+        <option value="">— Seleccionar —</option>${empOpts}
+      </select>
+    </td>
+    <td>
+      <select onchange="ASIST_NOM_STATE.grupalRows[${i}].concepto=this.value">
+        ${ASIST_CONCEPTOS.map(o => `<option ${o===r.concepto?'selected':''}>${o}</option>`).join('')}
+      </select>
+    </td>
+    <td><input type="date" value="${esc(r.fecha||'')}" onchange="ASIST_NOM_STATE.grupalRows[${i}].fecha=this.value"></td>
+    <td><input type="time" value="${esc(r.entrada||'')}" onchange="asistNomSetTime(${i},'entrada',this.value)"></td>
+    <td><input type="time" value="${esc(r.salida||'')}" onchange="asistNomSetTime(${i},'salida',this.value)"></td>
+    <td><input type="text" id="asist-nom-horas-${i}" value="${esc(horas)}" readonly style="text-align:center;font-weight:700;background:#f8fafc;color:#1e40af"></td>
+    <td>
+      <button type="button" disabled title="Ubicación se captura en Control de asistencias"
+              style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:#f1f5f9;color:#94a3b8;border:1px dashed #cbd5e1;font-size:11px;font-weight:600;cursor:not-allowed">📍 Desactivado</button>
+    </td>
+    <td><input type="text" value="${esc(r.observaciones||'')}" oninput="ASIST_NOM_STATE.grupalRows[${i}].observaciones=this.value" style="width:100%;padding:5px 8px;font-size:12px;border:1px solid #e2e8f0;border-radius:6px" placeholder="Nota…"></td>
+  </tr>`;
+}
+
+window.asistNomSetEmpleado = function (i, id) {
+  const e = (RH_STATE.empleados || []).find(x => String(x.ID) === String(id));
+  ASIST_NOM_STATE.grupalRows[i].empleadoId = id;
+  ASIST_NOM_STATE.grupalRows[i].nombre = e ? ([e.Nombre, e.Apellido_paterno, e.Apellido_materno].filter(Boolean).join(' ') || e.Nombre || '') : '';
+};
+window.asistNomSetTime = function (i, field, v) {
+  ASIST_NOM_STATE.grupalRows[i][field] = v;
+  const cell = document.getElementById(`asist-nom-horas-${i}`);
+  if (cell) cell.value = asistNomHoras_(ASIST_NOM_STATE.grupalRows[i].entrada, ASIST_NOM_STATE.grupalRows[i].salida);
+};
+window.asistNomInsertRow = function (pos) {
+  ASIST_NOM_STATE.grupalRows.splice(pos, 0, {
+    empleadoId: '', nombre: '',
+    concepto: ASIST_NOM_STATE.topConcepto,
+    fecha: ASIST_NOM_STATE.topFecha || asistNomToday_(),
+    entrada: ASIST_NOM_STATE.topEntrada,
+    salida: ASIST_NOM_STATE.topSalida,
+    observaciones: '',
+  });
+  const tbody = document.getElementById('asist-nom-grupal-tbody');
+  if (tbody) tbody.innerHTML = asistNomRenderGrupalRows();
+};
+window.asistNomDelRow = function (i) {
+  ASIST_NOM_STATE.grupalRows.splice(i, 1);
+  const tbody = document.getElementById('asist-nom-grupal-tbody');
+  if (tbody) tbody.innerHTML = asistNomRenderGrupalRows();
+};
+
+function asistNomRenderUnit() {
+  const u = ASIST_NOM_STATE.unit || {};
+  const empOpts = (RH_STATE.empleados || []).map(e => {
+    const n = [e.Nombre, e.Apellido_paterno, e.Apellido_materno].filter(Boolean).join(' ') || e.Nombre || '';
+    return `<option value="${esc(e.ID)}" ${String(e.ID) === String(u.empleadoId) ? 'selected':''}>${esc(n)}${e.Puesto ? ' — ' + esc(e.Puesto) : ''}</option>`;
+  }).join('');
+  const horas = asistNomHoras_(u.entrada, u.salida);
+  return `
+    <div class="rh-field"><label>Empleado</label>
+      <select onchange="ASIST_NOM_STATE.unit.empleadoId=this.value">
+        <option value="">— Seleccionar empleado —</option>${empOpts}
+      </select>
+    </div>
+    <div class="rh-grid-2">
+      <div class="rh-field"><label>Concepto</label>
+        <select onchange="ASIST_NOM_STATE.unit.concepto=this.value">
+          ${ASIST_CONCEPTOS.map(o => `<option ${o===u.concepto?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="rh-field"><label>Fecha</label>
+        <input type="date" value="${esc(u.fecha||'')}" onchange="ASIST_NOM_STATE.unit.fecha=this.value">
+      </div>
+    </div>
+    <div class="rh-grid-2">
+      <div class="rh-field"><label>Hora entrada</label>
+        <input type="time" value="${esc(u.entrada||'')}" onchange="asistNomUnitSetTime('entrada',this.value)">
+      </div>
+      <div class="rh-field"><label>Hora salida</label>
+        <input type="time" value="${esc(u.salida||'')}" onchange="asistNomUnitSetTime('salida',this.value)">
+      </div>
+    </div>
+    <div class="rh-field"><label>Horas trabajadas (calculado)</label>
+      <input type="text" id="asist-nom-unit-horas" value="${esc(horas)}" readonly style="text-align:center;font-weight:700;background:#f8fafc;color:#1e40af">
+    </div>
+    <div class="rh-field"><label>Ubicación</label>
+      <button type="button" disabled title="Ubicación se captura en Control de asistencias"
+              style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;background:#f1f5f9;color:#94a3b8;border:1px dashed #cbd5e1;font-weight:700;cursor:not-allowed">📍 Momentáneamente desactivada</button>
+    </div>
+    <div class="rh-field"><label>Observaciones</label>
+      <textarea rows="2" oninput="ASIST_NOM_STATE.unit.observaciones=this.value">${esc(u.observaciones||'')}</textarea>
+    </div>`;
+}
+
+window.asistNomUnitSetTime = function (field, v) {
+  ASIST_NOM_STATE.unit[field] = v;
+  const cell = document.getElementById('asist-nom-unit-horas');
+  if (cell) cell.value = asistNomHoras_(ASIST_NOM_STATE.unit.entrada, ASIST_NOM_STATE.unit.salida);
+};
+
+window.asistNomClear = function () {
+  const today = asistNomToday_();
+  ASIST_NOM_STATE.grupalRows.forEach(r => { r.entrada = ''; r.salida = ''; r.observaciones = ''; r.fecha = today; r.concepto = 'Asistencia'; });
+  ASIST_NOM_STATE.unit = { empleadoId:'', concepto:'Asistencia', fecha:today, entrada:'', salida:'', observaciones:'' };
+  asistNomRenderPane();
+};
+
+/** Guarda todos los renglones grupales / el único unitario como registros
+ *  de asistencia individual en RH_Asistencia. Un renglón "Asistencia" con
+ *  entrada+salida genera 2 POSTs (Tipo=Entrada + Tipo=Salida). */
+window.asistNomSave = async function () {
+  const status = document.getElementById('asist-status') || (() => { const d = document.createElement('div'); d.id='asist-status'; document.getElementById('rh-form-body').appendChild(d); return d; })();
+  status.style.cssText = 'margin-top:10px;font-size:12px;font-weight:600;color:#0369a1';
+  status.textContent = '⏳ Guardando…';
+  const items = ASIST_NOM_STATE.mode === 'grupal'
+    ? ASIST_NOM_STATE.grupalRows.filter(r => r.empleadoId)
+    : (ASIST_NOM_STATE.unit && ASIST_NOM_STATE.unit.empleadoId ? [ASIST_NOM_STATE.unit] : []);
+  if (!items.length) { status.style.color='#991b1b'; status.textContent = '⚠ No hay renglones con empleado seleccionado.'; return; }
+  const posts = [];
+  for (const r of items) {
+    const emp = (RH_STATE.empleados || []).find(x => String(x.ID) === String(r.empleadoId));
+    const nombre = emp ? ([emp.Nombre, emp.Apellido_paterno, emp.Apellido_materno].filter(Boolean).join(' ') || emp.Nombre || '') : '';
+    // Concepto → Tipo. Si Asistencia, se generan pares Entrada+Salida cuando hay horas.
+    const base = {
+      Empleado_ID: r.empleadoId,
+      Empleado_Nombre: nombre,
+      Fecha: r.fecha,
+      Metodo: 'Manual',
+      Observaciones: r.observaciones || '',
+    };
+    if (r.concepto === 'Asistencia') {
+      if (r.entrada) posts.push({ ...base, Hora: r.entrada + ':00', Tipo: 'Entrada' });
+      if (r.salida)  posts.push({ ...base, Hora: r.salida  + ':00', Tipo: 'Salida'  });
+    } else if (r.concepto === 'Ausencia') {
+      posts.push({ ...base, Tipo: 'Otro', Observaciones: 'Ausencia' + (r.observaciones ? ' · ' + r.observaciones : '') });
+    } else if (r.concepto === 'Permiso') {
+      posts.push({ ...base, Tipo: 'Vacaciones', Observaciones: 'Permiso' + (r.observaciones ? ' · ' + r.observaciones : '') });
+    }
+  }
+  let ok = 0, err = 0;
+  for (const p of posts) {
+    try {
+      const res = await fetch(`${BACKEND}/rh/asistencia`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ payload: p }) });
+      const j = await res.json();
+      if (j.ok) ok++; else err++;
+    } catch (e) { err++; }
+  }
+  if (err) { status.style.color='#92400e'; status.textContent = `⚠ ${ok} guardados · ${err} con error`; }
+  else { status.style.color='#065f46'; status.textContent = `✓ ${ok} registro${ok===1?'':'s'} guardado${ok===1?'':'s'}.`; }
+  // Refresca la tabla + cierra el panel al éxito
+  await rhLoadAsistencia();
+  rhRenderAsistAuse();
+  if (!err) setTimeout(() => rhCloseForm && rhCloseForm(), 1200);
+};
 
 // ── Chips de Concepto y Método de pago: clase por valor ──
 function nomConceptoClass(v) {
