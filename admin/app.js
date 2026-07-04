@@ -26990,29 +26990,85 @@ function rhRenderAsistAuse() {
       <div class="rh-section-title">🕐 Asistencia (${ast.length})</div>
       ${ast.length === 0
         ? `<div class="rh-empty" style="margin:0">Sin registros de asistencia.</div>`
-        : `<div style="overflow-x:auto"><table class="rh-table">
-            <thead><tr>
-              <th style="width:78px;text-align:center">Acciones</th>
-              <th>Empleado</th><th>Fecha</th><th>Entrada</th><th>Salida</th>
-              <th>Horas</th><th>Extra</th><th>Observaciones</th>
-            </tr></thead>
-            <tbody>${ast.map(r => `
-              <tr>
-                <td style="padding:2px 4px;text-align:center;vertical-align:middle"><div style="display:inline-flex;gap:4px" onclick="event.stopPropagation()">
-                  <button type="button" onclick="rhOpenForm('asistencia','${esc(r.ID)}')" title="Editar renglón"
-                          style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;font-weight:800;font-size:11px;line-height:1;cursor:pointer">✎</button>
-                  <button type="button" onclick="rhDeleteAsistencia('${esc(r.ID)}')" title="Eliminar renglón"
-                          style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:800;font-size:11px;line-height:1;cursor:pointer">✕</button>
-                </div></td>
-                <td><strong>${esc(rhEmpleadoNombre(r.Empleado_ID) || r.Empleado_Nombre || '—')}</strong></td>
-                <td>${esc(r.Fecha || '—')}</td>
-                <td>${esc(r.Entrada || '—')}</td>
-                <td>${esc(r.Salida || '—')}</td>
-                <td>${esc(r.Horas || '—')}</td>
-                <td>${r.Horas_extra ? `<strong style="color:#ea580c">${esc(r.Horas_extra)}</strong>` : '—'}</td>
-                <td>${esc(r.Observaciones || '—')}</td>
-              </tr>`).join('')}</tbody>
-          </table></div>`}
+        : (() => {
+            // Agrupa por Empleado+Fecha para derivar Entrada/Salida/Horas/Concepto
+            // como en el formato del panel de captura.
+            const groups = new Map();
+            for (const r of ast) {
+              const empId = String(r.Empleado_ID || r.Empleado_Nombre || '').trim();
+              const fecha = String(r.Fecha||'').slice(0,10);
+              const k = `${empId}|${fecha}`;
+              if (!groups.has(k)) groups.set(k, { empId, fecha, rows: [], firstId: r.ID });
+              groups.get(k).rows.push(r);
+            }
+            const parseTime = (s) => { const m = String(s||'').match(/^(\d{1,2}):(\d{2})/); if (!m) return null; return Number(m[1])*60 + Number(m[2]); };
+            const rows = Array.from(groups.values()).map(g => {
+              // Derivar entrada/salida a partir de los registros del día
+              let entrada = '', salida = '', concepto = 'Asistencia';
+              const obs = [];
+              const ubi = [];
+              let entMin = null, salMin = null;
+              for (const r of g.rows) {
+                const t = String(r.Tipo||'').toLowerCase();
+                const hora = String(r.Hora || r.Entrada || r.Salida || '').slice(0,5);
+                const hm = parseTime(hora);
+                if (t === 'entrada' && hm != null && (entMin == null || hm < entMin)) { entMin = hm; entrada = hora; }
+                else if (t === 'salida' && hm != null && (salMin == null || hm > salMin)) { salMin = hm; salida = hora; }
+                else if (t === 'vacaciones' || /permiso/i.test(r.Observaciones||'')) concepto = 'Permiso';
+                else if (/ausencia/i.test(r.Observaciones||'')) concepto = 'Ausencia';
+                if (r.Observaciones) obs.push(r.Observaciones);
+                if (r.Ubicacion_Lat && r.Ubicacion_Lng) ubi.push(`${Number(r.Ubicacion_Lat).toFixed(4)}, ${Number(r.Ubicacion_Lng).toFixed(4)}`);
+              }
+              // Fallback si el registro tiene columnas legacy Entrada/Salida ya llenas
+              if (!entrada && g.rows[0]?.Entrada) entrada = String(g.rows[0].Entrada).slice(0,5);
+              if (!salida && g.rows[0]?.Salida) salida = String(g.rows[0].Salida).slice(0,5);
+              let horas = g.rows[0]?.Horas || '';
+              if (!horas && entMin != null && salMin != null && salMin > entMin) {
+                const diff = salMin - entMin;
+                horas = `${Math.floor(diff/60)}h${String(diff%60).padStart(2,'0')}`;
+              }
+              // Editar/eliminar aplican al primer registro del grupo (ID)
+              return {
+                nombre: rhEmpleadoNombre(g.empId) || g.rows[0]?.Empleado_Nombre || '—',
+                concepto,
+                fecha: g.fecha || '—',
+                entrada: entrada || '—',
+                salida: salida || '—',
+                horas: horas || '—',
+                ubicacion: ubi[0] || '—',
+                observaciones: Array.from(new Set(obs)).join(' · ') || '—',
+                editId: g.firstId,
+                delIds: g.rows.map(r => r.ID).filter(Boolean),
+              };
+            });
+            // Ordena por Fecha desc
+            rows.sort((a,b) => String(b.fecha).localeCompare(String(a.fecha)));
+            return `<div style="overflow-x:auto"><table class="rh-table">
+              <thead><tr>
+                <th style="width:78px;text-align:center">Acciones</th>
+                <th>Nombre</th><th>Concepto</th><th>Fecha</th>
+                <th>Hora entrada</th><th>Hora salida</th><th>Horas trabajadas</th>
+                <th>Ubicación</th><th>Observaciones</th>
+              </tr></thead>
+              <tbody>${rows.map(r => `
+                <tr>
+                  <td style="padding:2px 4px;text-align:center;vertical-align:middle"><div style="display:inline-flex;gap:4px" onclick="event.stopPropagation()">
+                    <button type="button" onclick="rhOpenForm('asistencia','${esc(r.editId||'')}')" title="Editar renglón"
+                            style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;font-weight:800;font-size:11px;line-height:1;cursor:pointer">✎</button>
+                    <button type="button" onclick='rhDeleteAsistenciaGroup(${JSON.stringify(r.delIds)})' title="Eliminar renglón (${r.delIds.length} registros del día)"
+                            style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:800;font-size:11px;line-height:1;cursor:pointer">✕</button>
+                  </div></td>
+                  <td><strong>${esc(r.nombre)}</strong></td>
+                  <td><span class="rh-chip rh-chip-tipo">${esc(r.concepto)}</span></td>
+                  <td>${esc(r.fecha)}</td>
+                  <td>${esc(r.entrada)}</td>
+                  <td>${esc(r.salida)}</td>
+                  <td><strong style="color:${r.horas!=='—'?'#1e40af':'#94a3b8'}">${esc(r.horas)}</strong></td>
+                  <td>${r.ubicacion !== '—' ? `<a href="https://maps.google.com/?q=${esc(r.ubicacion.replace(/\s/g,''))}" target="_blank" rel="noopener" style="color:#0d9488;font-weight:700;text-decoration:none">📍 ${esc(r.ubicacion)}</a>` : '—'}</td>
+                  <td>${esc(r.observaciones)}</td>
+                </tr>`).join('')}</tbody>
+            </table></div>`;
+          })()}
     </div>
     <div class="rh-section">
       <div class="rh-section-title">🌴 Ausencias (${aus.length})</div>
@@ -27062,6 +27118,23 @@ window.rhDeleteAsistencia = async function (id) {
     rhRenderAsistAuse();
   } catch (e) { alert(`Error: ${e.message||String(e)}`); }
 };
+window.rhDeleteAsistenciaGroup = async function (ids) {
+  if (!Array.isArray(ids) || !ids.length) return;
+  const label = ids.length === 1 ? 'este registro' : `estos ${ids.length} registros del día`;
+  if (!confirm(`¿Eliminar ${label}? Esta acción no se puede deshacer.`)) return;
+  let ok = 0, err = 0;
+  for (const id of ids) {
+    try {
+      const res = await fetch(`${BACKEND}/rh/asistencia/${encodeURIComponent(id)}`, { method:'DELETE' });
+      const j = await res.json();
+      if (j.ok) ok++; else err++;
+    } catch (e) { err++; }
+  }
+  await rhLoadAsistencia();
+  rhRenderAsistAuse();
+  if (err) alert(`⚠ ${ok} eliminados · ${err} con error`);
+};
+
 window.rhDeleteAusencia = async function (id) {
   if (!confirm(`¿Eliminar la ausencia ${id}? Esta acción no se puede deshacer.`)) return;
   try {
@@ -27118,7 +27191,7 @@ window.asistNomOpenAddPanel = function () {
   ASIST_NOM_STATE.topFecha = today;
   ASIST_NOM_STATE.topEntrada = '08:00';
   ASIST_NOM_STATE.topSalida = '17:00';
-  ASIST_NOM_STATE.grupalRows = (RH_STATE.empleados || []).map(e => ({
+  ASIST_NOM_STATE.grupalRows = asistNomEmpleadosOperativos_().map(e => ({
     empleadoId: e.ID,
     nombre: [e.Nombre, e.Apellido_paterno, e.Apellido_materno].filter(Boolean).join(' ') || e.Nombre || '—',
     concepto: 'Asistencia',
@@ -27180,6 +27253,10 @@ function asistNomRenderGrupalTop() {
   const f = ASIST_NOM_STATE.topFecha || asistNomToday_();
   const e = ASIST_NOM_STATE.topEntrada;
   const s = ASIST_NOM_STATE.topSalida;
+  const isAsistencia = c === 'Asistencia';
+  const timeCss = 'width:100%;padding:6px 8px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;height:32px;line-height:1;font-family:inherit';
+  const timeDisabled = isAsistencia ? '' : 'disabled';
+  const timeDisStyle = isAsistencia ? '' : 'background:#e2e8f0;color:#94a3b8;cursor:not-allowed;';
   return `
     <div class="rh-field"><label>Concepto</label>
       <select onchange="asistNomSetAll('concepto', this.value)">
@@ -27190,10 +27267,10 @@ function asistNomRenderGrupalTop() {
       <input type="date" value="${esc(f)}" onchange="asistNomSetAll('fecha', this.value)">
     </div>
     <div class="rh-field"><label>Hora entrada</label>
-      <input type="time" value="${esc(e)}" onchange="asistNomSetAll('entrada', this.value)">
+      <input type="time" value="${esc(e)}" ${timeDisabled} onchange="asistNomSetAll('entrada', this.value)" style="${timeCss};${timeDisStyle}">
     </div>
     <div class="rh-field"><label>Hora salida</label>
-      <input type="time" value="${esc(s)}" onchange="asistNomSetAll('salida', this.value)">
+      <input type="time" value="${esc(s)}" ${timeDisabled} onchange="asistNomSetAll('salida', this.value)" style="${timeCss};${timeDisStyle}">
     </div>`;
 }
 
@@ -27205,6 +27282,11 @@ window.asistNomSetAll = function (field, value) {
   ASIST_NOM_STATE.grupalRows.forEach(r => { r[field] = value; });
   const tbody = document.getElementById('asist-nom-grupal-tbody');
   if (tbody) tbody.innerHTML = asistNomRenderGrupalRows();
+  // Re-render top cuando cambia concepto (para actualizar disabled de entrada/salida)
+  if (field === 'concepto') {
+    const top = document.getElementById('asist-nom-grupal-top');
+    if (top) top.innerHTML = asistNomRenderGrupalTop();
+  }
 };
 
 function asistNomRenderGrupalRows() {
@@ -27220,12 +27302,31 @@ function asistNomRenderGrupalRows() {
   return out;
 }
 
+/** Filtra empleados operativos (excluye Administración por Puesto). */
+function asistNomEmpleadosOperativos_() {
+  return (RH_STATE.empleados || []).filter(e => !/administr/i.test(String(e.Puesto || '')));
+}
+
 function asistNomGrupalRow(r, i) {
-  const empOpts = (RH_STATE.empleados || []).map(e => {
+  const empOpts = asistNomEmpleadosOperativos_().map(e => {
     const n = [e.Nombre, e.Apellido_paterno, e.Apellido_materno].filter(Boolean).join(' ') || e.Nombre || '';
     return `<option value="${esc(e.ID)}" ${String(e.ID) === String(r.empleadoId) ? 'selected':''}>${esc(n)}${e.Puesto ? ' — ' + esc(e.Puesto) : ''}</option>`;
   }).join('');
   const horas = asistNomHoras_(r.entrada, r.salida);
+  // Estilo compacto para inputs de tiempo (mismo alto que otros campos).
+  const timeCss = 'width:100%;min-width:80px;padding:5px 8px;font-size:12px;border:1px solid #e2e8f0;border-radius:6px;box-sizing:border-box;height:30px;line-height:1;font-family:inherit';
+  const isAsistencia = r.concepto === 'Asistencia';
+  // Cuando no es Asistencia, entrada/salida/horas/ubicación NO aplican → grises + no editables
+  const disabledAttr = isAsistencia ? '' : 'disabled';
+  const disabledStyle = isAsistencia ? '' : 'background:#e2e8f0;color:#94a3b8;cursor:not-allowed;';
+  const horasDisplay = isAsistencia ? horas : '—';
+  const horasStyle = isAsistencia
+    ? 'text-align:center;font-weight:700;background:#f8fafc;color:#1e40af'
+    : 'text-align:center;font-weight:600;background:#e2e8f0;color:#94a3b8;cursor:not-allowed';
+  const ubiBtn = isAsistencia
+    ? `<button type="button" disabled title="Ubicación se captura en Control de asistencias"
+              style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:#f1f5f9;color:#94a3b8;border:1px dashed #cbd5e1;font-size:11px;font-weight:600;cursor:not-allowed">📍 Desactivado</button>`
+    : `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:#e2e8f0;color:#94a3b8;font-size:11px;font-weight:600">— N/A —</span>`;
   return `<tr data-asist-idx="${i}">
     <td><button type="button" class="nom-conc-del" onclick="asistNomDelRow(${i})" title="Quitar renglón">✕</button></td>
     <td>
@@ -27234,21 +27335,26 @@ function asistNomGrupalRow(r, i) {
       </select>
     </td>
     <td>
-      <select onchange="ASIST_NOM_STATE.grupalRows[${i}].concepto=this.value">
+      <select onchange="asistNomSetConcepto(${i}, this.value)">
         ${ASIST_CONCEPTOS.map(o => `<option ${o===r.concepto?'selected':''}>${o}</option>`).join('')}
       </select>
     </td>
     <td><input type="date" value="${esc(r.fecha||'')}" onchange="ASIST_NOM_STATE.grupalRows[${i}].fecha=this.value"></td>
-    <td><input type="time" value="${esc(r.entrada||'')}" onchange="asistNomSetTime(${i},'entrada',this.value)"></td>
-    <td><input type="time" value="${esc(r.salida||'')}" onchange="asistNomSetTime(${i},'salida',this.value)"></td>
-    <td><input type="text" id="asist-nom-horas-${i}" value="${esc(horas)}" readonly style="text-align:center;font-weight:700;background:#f8fafc;color:#1e40af"></td>
-    <td>
-      <button type="button" disabled title="Ubicación se captura en Control de asistencias"
-              style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:#f1f5f9;color:#94a3b8;border:1px dashed #cbd5e1;font-size:11px;font-weight:600;cursor:not-allowed">📍 Desactivado</button>
-    </td>
+    <td><input type="time" value="${esc(r.entrada||'')}" ${disabledAttr} onchange="asistNomSetTime(${i},'entrada',this.value)" style="${timeCss};${disabledStyle}"></td>
+    <td><input type="time" value="${esc(r.salida||'')}" ${disabledAttr} onchange="asistNomSetTime(${i},'salida',this.value)" style="${timeCss};${disabledStyle}"></td>
+    <td><input type="text" id="asist-nom-horas-${i}" value="${esc(horasDisplay)}" readonly style="${horasStyle}"></td>
+    <td>${ubiBtn}</td>
     <td><input type="text" value="${esc(r.observaciones||'')}" oninput="ASIST_NOM_STATE.grupalRows[${i}].observaciones=this.value" style="width:100%;padding:5px 8px;font-size:12px;border:1px solid #e2e8f0;border-radius:6px" placeholder="Nota…"></td>
   </tr>`;
 }
+
+/** Cuando cambia el concepto de un renglón, re-render solo esa fila
+ *  (para activar/desactivar entrada/salida/horas/ubicación). */
+window.asistNomSetConcepto = function (i, v) {
+  ASIST_NOM_STATE.grupalRows[i].concepto = v;
+  const tr = document.querySelector(`#asist-nom-grupal-tbody tr[data-asist-idx="${i}"]`);
+  if (tr) tr.outerHTML = asistNomGrupalRow(ASIST_NOM_STATE.grupalRows[i], i);
+};
 
 window.asistNomSetEmpleado = function (i, id) {
   const e = (RH_STATE.empleados || []).find(x => String(x.ID) === String(id));
@@ -27280,11 +27386,15 @@ window.asistNomDelRow = function (i) {
 
 function asistNomRenderUnit() {
   const u = ASIST_NOM_STATE.unit || {};
-  const empOpts = (RH_STATE.empleados || []).map(e => {
+  const empOpts = asistNomEmpleadosOperativos_().map(e => {
     const n = [e.Nombre, e.Apellido_paterno, e.Apellido_materno].filter(Boolean).join(' ') || e.Nombre || '';
     return `<option value="${esc(e.ID)}" ${String(e.ID) === String(u.empleadoId) ? 'selected':''}>${esc(n)}${e.Puesto ? ' — ' + esc(e.Puesto) : ''}</option>`;
   }).join('');
   const horas = asistNomHoras_(u.entrada, u.salida);
+  const isAsistencia = u.concepto === 'Asistencia';
+  const disabled = isAsistencia ? '' : 'disabled';
+  const disabledStyle = isAsistencia ? '' : 'background:#e2e8f0;color:#94a3b8;cursor:not-allowed;';
+  const timeCss = 'width:100%;padding:6px 8px;font-size:12.5px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;height:32px;line-height:1;font-family:inherit';
   return `
     <div class="rh-field"><label>Empleado</label>
       <select onchange="ASIST_NOM_STATE.unit.empleadoId=this.value">
@@ -27293,7 +27403,7 @@ function asistNomRenderUnit() {
     </div>
     <div class="rh-grid-2">
       <div class="rh-field"><label>Concepto</label>
-        <select onchange="ASIST_NOM_STATE.unit.concepto=this.value">
+        <select onchange="asistNomUnitSetConcepto(this.value)">
           ${ASIST_CONCEPTOS.map(o => `<option ${o===u.concepto?'selected':''}>${o}</option>`).join('')}
         </select>
       </div>
@@ -27303,23 +27413,30 @@ function asistNomRenderUnit() {
     </div>
     <div class="rh-grid-2">
       <div class="rh-field"><label>Hora entrada</label>
-        <input type="time" value="${esc(u.entrada||'')}" onchange="asistNomUnitSetTime('entrada',this.value)">
+        <input type="time" value="${esc(u.entrada||'')}" ${disabled} onchange="asistNomUnitSetTime('entrada',this.value)" style="${timeCss};${disabledStyle}">
       </div>
       <div class="rh-field"><label>Hora salida</label>
-        <input type="time" value="${esc(u.salida||'')}" onchange="asistNomUnitSetTime('salida',this.value)">
+        <input type="time" value="${esc(u.salida||'')}" ${disabled} onchange="asistNomUnitSetTime('salida',this.value)" style="${timeCss};${disabledStyle}">
       </div>
     </div>
     <div class="rh-field"><label>Horas trabajadas (calculado)</label>
-      <input type="text" id="asist-nom-unit-horas" value="${esc(horas)}" readonly style="text-align:center;font-weight:700;background:#f8fafc;color:#1e40af">
+      <input type="text" id="asist-nom-unit-horas" value="${esc(isAsistencia ? horas : '—')}" readonly style="text-align:center;font-weight:700;${isAsistencia?'background:#f8fafc;color:#1e40af':'background:#e2e8f0;color:#94a3b8;cursor:not-allowed'}">
     </div>
     <div class="rh-field"><label>Ubicación</label>
-      <button type="button" disabled title="Ubicación se captura en Control de asistencias"
-              style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;background:#f1f5f9;color:#94a3b8;border:1px dashed #cbd5e1;font-weight:700;cursor:not-allowed">📍 Momentáneamente desactivada</button>
+      ${isAsistencia
+        ? `<button type="button" disabled title="Ubicación se captura en Control de asistencias"
+              style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;background:#f1f5f9;color:#94a3b8;border:1px dashed #cbd5e1;font-weight:700;cursor:not-allowed">📍 Momentáneamente desactivada</button>`
+        : `<span style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;background:#e2e8f0;color:#94a3b8;font-weight:600">— N/A (${esc(u.concepto)}) —</span>`}
     </div>
     <div class="rh-field"><label>Observaciones</label>
       <textarea rows="2" oninput="ASIST_NOM_STATE.unit.observaciones=this.value">${esc(u.observaciones||'')}</textarea>
     </div>`;
 }
+
+window.asistNomUnitSetConcepto = function (v) {
+  ASIST_NOM_STATE.unit.concepto = v;
+  asistNomRenderPane();
+};
 
 window.asistNomUnitSetTime = function (field, v) {
   ASIST_NOM_STATE.unit[field] = v;
