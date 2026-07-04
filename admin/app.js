@@ -30068,28 +30068,33 @@ window.asistSetVis = function (vis) {
   if (vis === 'calendario') asistRenderCalendar();
 };
 
-// ── Modo Seleccionar (multi-select con checkboxes) — estilo de Guías/BN ──
+// ── Modo Seleccionar — estilo idéntico a Guías: chip con span palomita 18x18 ──
 window.asistToggleSeleccionar = function () {
   ASIST_STATE.seleccionar = !ASIST_STATE.seleccionar;
   const btn = document.getElementById('asist-btn-seleccionar');
   const btnDel = document.getElementById('asist-btn-eliminar');
+  const check = btn?.querySelector('.asist-sel-check');
   if (ASIST_STATE.seleccionar) {
-    btn.style.background = '#334155';
-    btn.style.color = '#fff';
-    btn.style.borderColor = '#334155';
-    btn.innerHTML = '☑️ Seleccionando…';
+    if (btn) { btn.style.background = '#0d9488'; btn.style.color = '#fff'; }
+    if (check) { check.style.borderColor = '#fff'; check.style.background = '#fff'; check.style.color = '#0d9488'; check.textContent = '✓'; }
     btnDel?.classList.remove('hidden');
   } else {
-    btn.style.background = '#fff';
-    btn.style.color = '#374151';
-    btn.style.borderColor = '#cbd5e1';
-    btn.innerHTML = '☑️ Seleccionar';
+    if (btn) { btn.style.background = '#f1f5f9'; btn.style.color = '#475569'; }
+    if (check) { check.style.borderColor = '#cbd5e1'; check.style.background = '#fff'; check.style.color = '#0d9488'; check.textContent = ''; }
     btnDel?.classList.add('hidden');
     ASIST_STATE.selected.clear();
   }
   asistUpdateSelBanner();
   asistRenderTabla();
 };
+
+/** Genera un checkbox estilo "palomita" (span 18x18 con ✓) — nunca native. */
+function asistSelBox(checked, onclickCall) {
+  const bg = checked ? '#0d9488' : '#fff';
+  const border = checked ? '#0d9488' : '#cbd5e1';
+  const fg = checked ? '#fff' : 'transparent';
+  return `<span onclick="${onclickCall}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid ${border};background:${bg};color:${fg};font-size:12px;font-weight:900;flex-shrink:0;line-height:1;cursor:pointer">✓</span>`;
+}
 
 window.asistToggleRowSel = function (id, checked) {
   if (checked) ASIST_STATE.selected.add(id);
@@ -30283,7 +30288,7 @@ function asistRenderTabla() {
   };
   const allSel = sel && rows.length > 0 && rows.every(r => ASIST_STATE.selected.has(String(r.ID||'')));
   const selHead = sel
-    ? `<th style="position:sticky;top:0;background:#1e293b;padding:9px 6px;text-align:center;width:32px"><input type="checkbox" ${allSel?'checked':''} onchange="asistSelectAll(this.checked)" style="cursor:pointer"></th>`
+    ? `<th style="position:sticky;top:0;background:#1e293b;padding:9px 6px;text-align:center;width:36px">${asistSelBox(allSel, `asistSelectAll(${!allSel})`)}</th>`
     : '';
   const headHtml = headers.map(h => `
     <th onclick="asistSortBy('${esc(h)}')"
@@ -30296,7 +30301,7 @@ function asistRenderTabla() {
         const isSel = sel && ASIST_STATE.selected.has(id);
         const trBg = isSel ? 'background:#dbeafe' : '';
         const selCell = sel
-          ? `<td style="padding:6px;text-align:center;border-bottom:1px solid #f1f5f9"><input type="checkbox" ${isSel?'checked':''} onchange="asistToggleRowSel('${esc(id)}',this.checked)" style="cursor:pointer"></td>`
+          ? `<td style="padding:6px;text-align:center;border-bottom:1px solid #f1f5f9">${asistSelBox(isSel, `asistToggleRowSel('${esc(id)}',${!isSel})`)}</td>`
           : '';
         return `<tr style="${trBg}">${selCell}${headers.map(h => asistCellHtml(r, h, dayIdx)).join('')}</tr>`;
       }).join('')
@@ -30380,29 +30385,32 @@ function asistRenderCalendar() {
       const isWeekend = dow === 0 || dow === 6;
       const recs = idx.get(`${nombre}|${iso}`) || [];
       const info = asistDeriveDayInfo(recs, d, today);
-      // Semáforo (esquina superior izquierda) — círculo pequeño con color
-      const semHtml = info.semaforo
-        ? `<span style="position:absolute;top:2px;left:2px;width:7px;height:7px;border-radius:50%;background:${info.semaforo};box-shadow:0 0 0 1px #fff,0 0 0 2px ${info.semaforo}"></span>`
-        : '';
-      // Contenido: entrada · salida · horas o etiqueta de estado
+      // Semáforo como franja vertical al borde izquierdo — NO se sobrepone
+      // al texto de la celda.
+      const semStyle = info.semaforo ? `box-shadow:inset 3px 0 0 ${info.semaforo};` : '';
+      // Contenido: entrada · salida · horas o etiqueta de estado (padding
+      // izquierdo para respetar la franja del semáforo).
       let content = '';
       if (info.estado === 'vacaciones') {
-        content = `<div style="font-size:8px;font-weight:900;color:#92400e;text-transform:uppercase;letter-spacing:.04em;line-height:1.1">Vac.</div>`;
+        content = `<div style="font-size:8.5px;font-weight:900;color:#92400e;text-transform:uppercase;letter-spacing:.04em;line-height:1.1;text-align:center">Vac.</div>`;
       } else if (info.estado === 'asueto') {
-        content = `<div style="font-size:8px;font-weight:900;color:#92400e;text-transform:uppercase;letter-spacing:.04em;line-height:1.1">Asueto</div>`;
+        content = `<div style="font-size:8.5px;font-weight:900;color:#92400e;text-transform:uppercase;letter-spacing:.04em;line-height:1.1;text-align:center">Asueto</div>`;
       } else if (info.estado === 'asistencia') {
         const lines = [];
         if (info.entrada) lines.push(`<div style="font-size:8px;font-weight:800;color:#065f46;line-height:1.05">▶${esc(info.entrada)}</div>`);
         if (info.salida)  lines.push(`<div style="font-size:8px;font-weight:800;color:#7f1d1d;line-height:1.05">◀${esc(info.salida)}</div>`);
-        if (info.horasStr) lines.push(`<div style="font-size:8px;font-weight:900;color:#1e40af;line-height:1.05">${esc(info.horasStr)}</div>`);
-        content = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0px;padding-top:4px">${lines.join('')}</div>`;
+        if (info.horasStr) lines.push(`<div style="font-size:8.5px;font-weight:900;color:#1e40af;line-height:1.05">${esc(info.horasStr)}</div>`);
+        content = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">${lines.join('')}</div>`;
       } else if (info.estado === 'falta') {
-        content = `<div style="font-size:8px;font-weight:900;color:#7f1d1d;text-transform:uppercase;letter-spacing:.04em;line-height:1.1">Falta</div>`;
+        content = `<div style="font-size:8.5px;font-weight:900;color:#7f1d1d;text-transform:uppercase;letter-spacing:.04em;line-height:1.1;text-align:center">Falta</div>`;
       }
+      const wrap = content
+        ? `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding-left:5px">${content}</div>`
+        : '';
       const tip = recs.length
         ? recs.map(r => `${r.Tipo||'—'} · ${(r.Hora||'').slice(0,5)}`).join(' | ')
         : (info.estado === 'falta' ? 'Sin registro en día laboral' : '');
-      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" style="position:relative;cursor:${recs.length?'pointer':'default'}" title="${esc(tip)}" ${recs.length?`onclick="asistCalClick('${esc(nombre)}','${iso}')"`:''}>${semHtml}${content}</div>`;
+      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" style="${semStyle}cursor:${recs.length?'pointer':'default'}" title="${esc(tip)}" ${recs.length?`onclick="asistCalClick('${esc(nombre)}','${iso}')"`:''}>${wrap}</div>`;
     }
     html += `</div>`;
   });

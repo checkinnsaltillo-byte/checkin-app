@@ -2100,21 +2100,24 @@
         </div>
         <div id="rh-section-asistencias" class="hidden">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-            <button type="button" id="asist-btn-nuevo" onclick="asistNuevoRegistro()"
-                    style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:9px 14px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:12.5px;font-weight:900;letter-spacing:.02em;border-radius:9px;box-shadow:0 3px 10px rgba(14,165,233,.35);white-space:nowrap">
-              <span style="font-size:14px">➕</span>
-              <span>Nuevo registro de asistencia</span>
-            </button>
             <div style="display:inline-flex;background:#f1f5f9;padding:3px;border-radius:9px;gap:2px">
               <button type="button" id="asist-vis-tabla" onclick="asistSetVis('tabla')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;box-shadow:0 2px 6px rgba(79,70,229,.30)">📋 Tabla</button>
               <button type="button" id="asist-vis-calendario" onclick="asistSetVis('calendario')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b">📅 Calendario</button>
             </div>
-            <button type="button" id="asist-btn-seleccionar" onclick="asistToggleSeleccionar()"
-                    style="all:unset;cursor:pointer;padding:7px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:9px;font-size:12px;font-weight:700;color:#374151;display:inline-flex;align-items:center;gap:5px">☑️ Seleccionar</button>
+            <div id="asist-btn-seleccionar" onclick="asistToggleSeleccionar()"
+                 style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;padding:7px 12px;border-radius:8px;background:#f1f5f9;color:#475569;font-weight:700;font-size:12px;user-select:none">
+              <span class="asist-sel-check" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid #cbd5e1;background:#fff;color:#0d9488;font-size:12px;font-weight:900;flex-shrink:0;line-height:1"></span>
+              <span>Seleccionar</span>
+            </div>
             <button type="button" onclick="asistReloadList()" style="all:unset;cursor:pointer;padding:7px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:9px;font-size:12px;font-weight:700;color:#475569">🔄 Refrescar</button>
             <button type="button" id="asist-btn-eliminar" onclick="asistEliminarSeleccion()" class="hidden"
                     style="all:unset;cursor:pointer;padding:7px 12px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:9px;font-size:12px;font-weight:800;color:#991b1b">🗑 Eliminar seleccionados</button>
-            <span id="asist-list-count" style="font-size:11px;color:#94a3b8;font-weight:600;margin-left:auto"></span>
+            <span id="asist-list-count" style="font-size:11px;color:#94a3b8;font-weight:600"></span>
+            <button type="button" id="asist-btn-nuevo" onclick="asistNuevoRegistro()"
+                    style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:9px 14px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:12.5px;font-weight:900;letter-spacing:.02em;border-radius:9px;box-shadow:0 3px 10px rgba(14,165,233,.35);white-space:nowrap;margin-left:auto">
+              <span style="font-size:14px">➕</span>
+              <span>Nuevo registro de asistencia</span>
+            </button>
           </div>
           <div id="asist-status-tabla" style="margin-bottom:10px;font-size:12px;font-weight:600"></div>
           <div id="asist-tabla-wrap" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:auto;max-height:70vh">
@@ -2346,6 +2349,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=574"></script>
+  <script src="app.js?v=575"></script>
 </body>
 </html>
