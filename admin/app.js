@@ -30418,10 +30418,11 @@ const ASIST_STATE = {
 };
 
 // Columnas que se ocultan de la tabla (redundantes o metadatos)
-const ASIST_HIDDEN_COLS = new Set(['Empleado_ID','Horas_extra','ID']);
+const ASIST_HIDDEN_COLS = new Set(['Empleado_ID','Horas_extra','ID','Ubicacion_Lat','Ubicacion_Lng','GPS_Accuracy','Tipo','Hora']);
 const ASIST_PRIMA_COLS = ['$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)'];
+const ASIST_TOTAL_COL = '$ Salario total';
 // Columnas derivadas — no vienen del sheet, se calculan on-the-fly
-const ASIST_DERIVED_COLS = ['Entrada','Salida','Horas', ...['$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)']];
+const ASIST_DERIVED_COLS = ['Entrada','Salida','Horas','$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','$ Salario total'];
 
 // Campos con lista cerrada (para dropdown en modo edición)
 const ASIST_LISTAS = {
@@ -30765,6 +30766,14 @@ function asistCellValue(row, col, dayIdx) {
     if (col === '$ Prima dominical (25%)')    return fmt(p.primaDom);
     if (col === '$ Prima día feriado (200%)') return fmt(p.primaDF);
   }
+  if (col === ASIST_TOTAL_COL) {
+    const conceptos = asistDeriveConceptos_([row]);
+    const primary = conceptos.values().next().value;
+    const p = asistPanelPrimasPorConcepto_(primary);
+    const total = ['salBase','primaVac','primaDom','primaDF']
+      .reduce((s,k) => s + (typeof p[k] === 'number' ? p[k] : 0), 0);
+    return total ? asistPanelFmtMonto_(total) : '';
+  }
   const raw = row[col] == null ? '' : String(row[col]);
   // Oculta el texto "Registro por lote (…)" en Observaciones.
   if (col === 'Observaciones' && /Registro por lote/i.test(raw)) return '';
@@ -30943,19 +30952,28 @@ function asistActionsCellHtml(id) {
  *  a las derivadas (no se duplican). */
 function asistVisibleHeaders() {
   const raw = ASIST_STATE.headers.length ? ASIST_STATE.headers : (ASIST_STATE.rows[0] ? Object.keys(ASIST_STATE.rows[0]) : []);
-  const has = new Set(raw);
+  // Meta que va antes de los dinero (después de Fecha/Entrada/Salida/Horas).
+  const META_COLS = new Set(['Concepto','Metodo']);
   const out = [];
   for (const h of raw) {
     if (ASIST_HIDDEN_COLS.has(h)) continue;
-    if (ASIST_DERIVED_COLS.includes(h)) continue; // las derivadas se insertan una sola vez tras Fecha
+    if (ASIST_DERIVED_COLS.includes(h)) continue;
+    if (META_COLS.has(h)) continue;
+    if (h === 'Observaciones') continue;
     out.push(h);
     if (h === 'Fecha') {
-      // Insertar Entrada/Salida/Horas justo después de Fecha
-      for (const d of ASIST_DERIVED_COLS) if (!out.includes(d)) out.push(d);
+      // Entrada, Salida, Horas
+      for (const d of ['Entrada','Salida','Horas']) if (!out.includes(d)) out.push(d);
+      // Meta (Concepto, Metodo)
+      for (const m of ['Concepto','Metodo']) if (raw.includes(m) && !out.includes(m)) out.push(m);
+      // Columnas de dinero
+      for (const d of ['$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','$ Salario total']) if (!out.includes(d)) out.push(d);
     }
   }
-  // Si no hubo Fecha, añade al final
+  // Fallback si no hubo Fecha
   for (const d of ASIST_DERIVED_COLS) if (!out.includes(d)) out.push(d);
+  for (const m of ['Concepto','Metodo']) if (raw.includes(m) && !out.includes(m)) out.push(m);
+  if (raw.includes('Observaciones')) out.push('Observaciones');
   return out;
 }
 
