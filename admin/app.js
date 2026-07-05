@@ -31192,6 +31192,15 @@ function asistPopulateEmpleadoSelect() {
 // Formato Dias_trabajo en hoja Personal: "L,M,Mi,J,V,S,D"
 // L=1(Lun) M=2(Mar) Mi=3(Mié) J=4(Jue) V=5(Vie) S=6(Sáb) D=0(Dom)
 const ASIST_DIAS_MAP = { L:1, M:2, MI:3, J:4, V:5, S:6, D:0 };
+// Conceptos disponibles con su color asignado.
+const ASIST_PANEL_CONCEPTOS = [
+  { k:'Asistencia',  color:'#16a34a' },
+  { k:'Falta',       color:'#dc2626' },
+  { k:'Incapacidad', color:'#7c3aed' },
+  { k:'Vacaciones',  color:'#f59e0b' },
+  { k:'Día feriado', color:'#2563eb' },
+];
+const ASIST_PANEL_CONCEPTO_COLOR = Object.fromEntries(ASIST_PANEL_CONCEPTOS.map(c => [c.k, c.color]));
 function asistPanelParseDiasTrabajo_(str) {
   const out = new Set();
   String(str||'').split(/[,;\s]+/).map(t => t.trim().toUpperCase()).filter(Boolean).forEach(tok => {
@@ -31223,8 +31232,10 @@ window.asistNuevoRegistro = function () {
   const sel = document.getElementById('asist-panel-semana');
   if (sel) sel.innerHTML = weekOpts.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('');
   const semana = weekOpts[0]?.value || '';
-  ASIST_STATE.panel = { semana, celdas: new Set() };
+  ASIST_STATE.panel = { semana, celdas: new Map(), conceptosActivos: new Set(['Asistencia']) };
   if (sel) sel.value = semana;
+  asistPanelRenderConceptoMenu();
+  asistPanelUpdateConceptoLabel();
   const status = document.getElementById('asist-status');
   if (status) status.textContent = '';
   const btn = document.getElementById('asist-btn-guardar');
@@ -31232,25 +31243,104 @@ window.asistNuevoRegistro = function () {
   asistPanelRender();
 };
 
+function asistPanelState_() {
+  if (!ASIST_STATE.panel) ASIST_STATE.panel = { semana:'', celdas:new Map(), conceptosActivos:new Set(['Asistencia']) };
+  if (!(ASIST_STATE.panel.celdas instanceof Map)) ASIST_STATE.panel.celdas = new Map();
+  if (!(ASIST_STATE.panel.conceptosActivos instanceof Set)) ASIST_STATE.panel.conceptosActivos = new Set(['Asistencia']);
+  return ASIST_STATE.panel;
+}
+
 window.asistPanelSetSemana = function (val) {
-  ASIST_STATE.panel = ASIST_STATE.panel || { semana:'', celdas:new Set() };
-  ASIST_STATE.panel.semana = val;
-  ASIST_STATE.panel.celdas = new Set();
+  const st = asistPanelState_();
+  st.semana = val;
+  st.celdas = new Map();
+  st._userTouched = false;
   asistPanelRender();
 };
 
+// Click en celda: si la celda ya coincide con los conceptos activos, la limpia.
+// Si no, asigna una copia de los conceptos activos actuales.
 window.asistPanelToggleCell = function (nombre, iso) {
-  const st = ASIST_STATE.panel = ASIST_STATE.panel || { semana:'', celdas:new Set() };
+  const st = asistPanelState_();
   const k = `${nombre}|${iso}`;
-  if (st.celdas.has(k)) st.celdas.delete(k); else st.celdas.add(k);
+  const activos = Array.from(st.conceptosActivos);
+  const cur = st.celdas.get(k);
+  const same = cur && cur.size === activos.length && activos.every(c => cur.has(c));
+  if (same) st.celdas.delete(k);
+  else st.celdas.set(k, new Set(activos));
   st._userTouched = true;
   asistPanelRender();
 };
 
+window.asistPanelToggleConceptoMenu = function (ev) {
+  ev && ev.stopPropagation();
+  const m = document.getElementById('asist-panel-concepto-menu');
+  if (!m) return;
+  m.classList.toggle('hidden');
+  if (!m.classList.contains('hidden')) {
+    setTimeout(() => document.addEventListener('click', asistPanelCloseConceptoOnOutside_, { once:true }), 0);
+  }
+};
+function asistPanelCloseConceptoOnOutside_(ev) {
+  const m = document.getElementById('asist-panel-concepto-menu');
+  const btn = document.getElementById('asist-panel-concepto-btn');
+  if (m && !m.contains(ev.target) && !btn.contains(ev.target)) m.classList.add('hidden');
+  else document.addEventListener('click', asistPanelCloseConceptoOnOutside_, { once:true });
+}
+
+window.asistPanelToggleConcepto = function (k) {
+  const st = asistPanelState_();
+  if (st.conceptosActivos.has(k)) st.conceptosActivos.delete(k);
+  else st.conceptosActivos.add(k);
+  asistPanelRenderConceptoMenu();
+  asistPanelUpdateConceptoLabel();
+};
+
+function asistPanelRenderConceptoMenu() {
+  const m = document.getElementById('asist-panel-concepto-menu');
+  if (!m) return;
+  const st = asistPanelState_();
+  m.innerHTML = ASIST_PANEL_CONCEPTOS.map(c => {
+    const sel = st.conceptosActivos.has(c.k);
+    return `<div onclick="event.stopPropagation();asistPanelToggleConcepto('${c.k}')"
+      style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;user-select:none">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid ${sel?c.color:'#cbd5e1'};background:${sel?c.color:'#fff'};color:#fff;font-size:12px;font-weight:900;flex-shrink:0;line-height:1">${sel?'✓':''}</span>
+      <span style="width:10px;height:10px;border-radius:2px;background:${c.color};flex-shrink:0"></span>
+      <span style="font-size:12px;font-weight:700;color:#0f172a">${c.k}</span>
+    </div>`;
+  }).join('');
+}
+
+function asistPanelUpdateConceptoLabel() {
+  const lbl = document.getElementById('asist-panel-concepto-label');
+  if (!lbl) return;
+  const st = asistPanelState_();
+  const arr = Array.from(st.conceptosActivos);
+  lbl.textContent = arr.length ? arr.join(', ') : '— ninguno —';
+}
+
+/** Devuelve el background (color sólido o gradient) para un set de conceptos. */
+function asistPanelBgFor_(conceptos) {
+  const arr = Array.from(conceptos || []);
+  if (!arr.length) return '';
+  const cols = arr.map(k => ASIST_PANEL_CONCEPTO_COLOR[k]).filter(Boolean);
+  if (cols.length === 1) return cols[0] + '33'; // ~20% alpha para pastel
+  const n = cols.length;
+  const stops = cols.map((c, i) => `${c}55 ${(i*100/n).toFixed(1)}%, ${c}55 ${((i+1)*100/n).toFixed(1)}%`).join(', ');
+  return `linear-gradient(to right, ${stops})`;
+}
+
+/** Devuelve la franja izquierda (semáforo) — usa el primer color del set. */
+function asistPanelSemaforo_(conceptos) {
+  const arr = Array.from(conceptos || []);
+  const c = arr[0] ? ASIST_PANEL_CONCEPTO_COLOR[arr[0]] : null;
+  return c ? `box-shadow:inset 3px 0 0 ${c};` : '';
+}
+
 function asistPanelRender() {
   const cont = document.getElementById('asist-panel-cal-wrap');
   if (!cont) return;
-  const st = ASIST_STATE.panel = ASIST_STATE.panel || { semana:'', celdas:new Set() };
+  const st = asistPanelState_();
   const range = asistPanelParseSemanaValue_(st.semana);
   if (!range) { cont.innerHTML = ''; return; }
   const dias = [];
@@ -31259,15 +31349,12 @@ function asistPanelRender() {
     dias.push(d);
   }
   const personalRows = asistPersonalOperativo().slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
-  // Diccionario Nombre → set(dayOfWeek) según Dias_trabajo. Si el personal
-  // se cargó primera vez sin datos, este dict queda vacío y las celdas
-  // salen sin auto-marcar (usuario debe marcar manualmente).
   const diasDict = new Map();
   (INC_STATE?.personalRows || []).forEach(r => {
     const n = String(r.Nombre || '').trim();
     if (n) diasDict.set(n, asistPanelParseDiasTrabajo_(r.Dias_trabajo));
   });
-  // Auto-marcar celdas para asistencias predeterminadas (solo si celdas está vacío por defecto)
+  // Semilla: auto-marca celdas de días laborales como "Asistencia".
   const shouldSeed = st.celdas.size === 0 && !st._userTouched;
   if (shouldSeed) {
     personalRows.forEach(({ nombre }) => {
@@ -31275,7 +31362,7 @@ function asistPanelRender() {
       dias.forEach(d => {
         if (set.has(d.getDay())) {
           const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-          st.celdas.add(`${nombre}|${iso}`);
+          st.celdas.set(`${nombre}|${iso}`, new Set(['Asistencia']));
         }
       });
     });
@@ -31304,18 +31391,21 @@ function asistPanelRender() {
     </div>`;
     dias.forEach(d => {
       const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      const marcada = st.celdas.has(`${nombre}|${iso}`);
+      const conceptos = st.celdas.get(`${nombre}|${iso}`);
       const dow = d.getDay();
       const isWeekend = dow === 0 || dow === 6;
-      const bg = marcada ? 'background:#dcfce7;' : '';
-      const sem = marcada ? 'box-shadow:inset 3px 0 0 #16a34a;' : '';
-      const check = marcada
-        ? `<div style="font-size:8.5px;font-weight:900;color:#065f46;letter-spacing:.04em">✓</div>`
+      const bg = conceptos ? `background:${asistPanelBgFor_(conceptos)};` : '';
+      const sem = conceptos ? asistPanelSemaforo_(conceptos) : '';
+      // Etiqueta central: iniciales de los conceptos (A, F, I, V, DF).
+      const abbr = { 'Asistencia':'A', 'Falta':'F', 'Incapacidad':'I', 'Vacaciones':'V', 'Día feriado':'DF' };
+      const inner = conceptos && conceptos.size
+        ? Array.from(conceptos).map(k => `<span style="font-size:8.5px;font-weight:900;color:#0f172a;padding:0 3px">${abbr[k]||k[0]}</span>`).join('')
         : '';
       html += `<div class="ocup-day-cell ${isWeekend?'is-weekend':''}"
         style="${bg}${sem}cursor:pointer"
-        onclick="asistPanelToggleCell('${esc(nombre).replace(/'/g,"\\'")}','${iso}')">
-        <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%">${check}</div>
+        onclick="asistPanelToggleCell('${esc(nombre).replace(/'/g,"\\'")}','${iso}')"
+        title="${conceptos?Array.from(conceptos).join(' · '):''}">
+        <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;gap:1px">${inner}</div>
       </div>`;
     });
     html += `</div>`;
@@ -31416,37 +31506,48 @@ window.asistCancelarRegistro = function () {
 };
 
 window.asistGuardarRegistro = async function () {
-  const st = ASIST_STATE.panel || { celdas:new Set() };
-  const celdas = Array.from(st.celdas);
+  const st = asistPanelState_();
+  const entradas = Array.from(st.celdas.entries()).filter(([,cs]) => cs && cs.size);
   const status = document.getElementById('asist-status');
   const btn = document.getElementById('asist-btn-guardar');
-  if (!celdas.length) { alert('Marca al menos una celda de asistencia.'); return; }
+  if (!entradas.length) { alert('Marca al menos una celda.'); return; }
   btn.disabled = true;
-  if (status) { status.style.color = '#64748b'; status.textContent = `⏳ Guardando ${celdas.length} registro(s)…`; }
-  // Hora de entrada/salida por empleado (de la hoja Personal). Si no hay,
-  // usa 08:00 como default. Un registro Entrada + un registro Salida por día.
+  const totalRegs = entradas.reduce((n,[,cs]) => n + Array.from(cs).reduce((m,c) => m + (c==='Asistencia'?2:1), 0), 0);
+  if (status) { status.style.color = '#64748b'; status.textContent = `⏳ Guardando ${totalRegs} registro(s)…`; }
   const empDict = new Map();
   (INC_STATE?.personalRows || []).forEach(r => {
     const n = String(r.Nombre||'').trim();
     if (n) empDict.set(n, { entrada: String(r.Hora_entrada||'08:00').slice(0,5), salida: String(r.Hora_salida||'17:00').slice(0,5) });
   });
+  // Mapa concepto → Tipo(s) que se envían a la hoja RH_Asistencia.
+  const conceptoTipos = {
+    'Asistencia':  ['Entrada','Salida'],
+    'Falta':       ['Falta'],
+    'Incapacidad': ['Incapacidad'],
+    'Vacaciones':  ['Vacaciones'],
+    'Día feriado': ['Asueto'],
+  };
   let okCount = 0, errCount = 0;
-  for (const k of celdas) {
+  for (const [k, conceptos] of entradas) {
     const [nombre, fecha] = k.split('|');
     const horas = empDict.get(nombre) || { entrada:'08:00', salida:'17:00' };
-    for (const [tipo, hora] of [['Entrada', horas.entrada], ['Salida', horas.salida]]) {
-      try {
-        const res = await fetch(`${BACKEND}/rh/asistencia`, {
-          method:'POST', headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ payload: {
-            Empleado_Nombre: nombre, Fecha: fecha, Hora: hora, Tipo: tipo,
-            Ubicacion_Lat:'', Ubicacion_Lng:'', GPS_Accuracy:'',
-            Metodo:'Manual', Observaciones:'Registro por lote (semana)',
-          } }),
-        });
-        const j = await res.json();
-        if (j.ok) okCount++; else errCount++;
-      } catch { errCount++; }
+    for (const concepto of conceptos) {
+      const tipos = conceptoTipos[concepto] || ['Otro'];
+      for (const tipo of tipos) {
+        const hora = tipo === 'Entrada' ? horas.entrada : (tipo === 'Salida' ? horas.salida : '00:00');
+        try {
+          const res = await fetch(`${BACKEND}/rh/asistencia`, {
+            method:'POST', headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({ payload: {
+              Empleado_Nombre: nombre, Fecha: fecha, Hora: hora, Tipo: tipo,
+              Ubicacion_Lat:'', Ubicacion_Lng:'', GPS_Accuracy:'',
+              Metodo:'Manual', Observaciones: `Registro por lote (${concepto})`,
+            } }),
+          });
+          const j = await res.json();
+          if (j.ok) okCount++; else errCount++;
+        } catch { errCount++; }
+      }
     }
   }
   if (status) {
