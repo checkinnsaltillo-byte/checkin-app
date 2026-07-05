@@ -26145,24 +26145,46 @@ function rhRenderCompensaciones() {
           <thead><tr>
             <th style="width:28px"></th>
             <th>Empleado</th><th>Concepto</th><th>Periodo</th>
-            <th style="text-align:right">Monto</th><th>Método de pago</th><th>Fecha de pago</th><th>Comentarios</th>
+            <th style="text-align:right">Horas</th>
+            <th style="text-align:right">$ Salario base</th>
+            <th style="text-align:right">$ Prima vacacional (25%)</th>
+            <th style="text-align:right">$ Prima dominical (25%)</th>
+            <th style="text-align:right">$ Prima día feriado (200%)</th>
+            <th style="text-align:right">Monto</th>
+            <th>Método de pago</th>
+            <th>Estado de pago</th>
+            <th>Fecha de pago</th>
+            <th>Comentarios</th>
           </tr></thead>
-          <tbody>${rows.map(r => `
-            <tr onclick="rhOpenForm('compensacion','${esc(r.ID)}')">
+          <tbody>${rows.map(r => {
+            const pagado = String(r.Estado_pago||'').toLowerCase() === 'pagado';
+            const estadoChip = r.Estado_pago
+              ? (pagado
+                  ? '<span class="rh-chip" style="background:#dcfce7;color:#166534;border:1px solid #86efac;font-weight:800">✓ Pagado</span>'
+                  : '<span class="rh-chip" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;font-weight:700">Pendiente</span>')
+              : '—';
+            return `<tr onclick="rhOpenForm('compensacion','${esc(r.ID)}')">
               <td onclick="event.stopPropagation()"><button type="button" class="nom-conc-del" onclick="rhDeleteCompensacion('${esc(r.ID)}', event)" title="Eliminar">✕</button></td>
               <td><strong>${esc(rhEmpleadoNombre(r.Empleado_ID) || r.Empleado_Nombre || '—')}</strong></td>
               <td>${r.Concepto ? `<span class="rh-chip ${nomConceptoClass(r.Concepto)}">${esc(r.Concepto)}</span>` : '—'}</td>
               <td>${esc(r.Periodo || '—')}</td>
+              <td style="text-align:right">${esc(r.Horas || '—')}</td>
+              <td style="text-align:right">${esc(r['$ Salario base'] || '—')}</td>
+              <td style="text-align:right">${esc(r['$ Prima vacacional (25%)'] || '—')}</td>
+              <td style="text-align:right">${esc(r['$ Prima dominical (25%)'] || '—')}</td>
+              <td style="text-align:right">${esc(r['$ Prima día feriado (200%)'] || '—')}</td>
               <td style="text-align:right;font-weight:800;color:#16a34a">${r.Monto ? rhFmtMoney(r.Monto) : '—'}</td>
               <td>${r.Metodo_pago ? `<span class="rh-chip ${nomMetodoClass(r.Metodo_pago)}">${esc(r.Metodo_pago)}</span>` : '—'}</td>
+              <td>${estadoChip}</td>
               <td>${esc(r.Fecha_pago || '—')}</td>
               <td>${esc(r.Comentarios || '—')}</td>
-            </tr>`).join('')}</tbody>
+            </tr>`;
+          }).join('')}</tbody>
           <tfoot>
             <tr style="background:#f8fafc;border-top:2px solid #cbd5e1">
-              <td colspan="4" style="text-align:right;font-weight:800;color:#0f172a;padding:10px 12px">Total</td>
+              <td colspan="9" style="text-align:right;font-weight:800;color:#0f172a;padding:10px 12px">Total</td>
               <td style="text-align:right;font-weight:900;color:#15803d;font-size:14px;padding:10px 12px">${rhFmtMoney(rows.reduce((s,r) => s + (Number(r.Monto)||0), 0))}</td>
-              <td colspan="3"></td>
+              <td colspan="4"></td>
             </tr>
           </tfoot>
         </table></div>`}`;
