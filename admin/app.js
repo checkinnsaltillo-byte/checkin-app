@@ -30959,7 +30959,7 @@ function asistRenderCalendar() {
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px">
         <button type="button" onclick="asistCalNav(-1)" title="Mes anterior"
                 style="all:unset;cursor:pointer;padding:6px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;color:#334155">←</button>
-        <div style="font-weight:900;font-size:14px;color:#0f172a;min-width:150px;text-align:center">${OCUP_MESES[m0]} ${y0}</div>
+        <div id="asist-cal-month-label" style="font-weight:900;font-size:14px;color:#0f172a;min-width:150px;text-align:center">${OCUP_MESES[m0]} ${y0}</div>
         <button type="button" onclick="asistCalNav(1)" title="Mes siguiente"
                 style="all:unset;cursor:pointer;padding:6px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;color:#334155">→</button>
         <button type="button" onclick="asistCalHoy()"
@@ -31047,6 +31047,22 @@ function asistRenderCalendar() {
 
   html += `</div>`;
   cont.innerHTML = html;
+
+  // Al hacer scroll horizontal, actualiza el label del mes según el día central
+  // visible (sin re-renderear el calendario).
+  const rangeStartMs = rangeStart.getTime();
+  cont.onscroll = () => {
+    const label = document.getElementById('asist-cal-month-label');
+    if (!label) return;
+    const scrRect = cont.getBoundingClientRect();
+    const midX = scrRect.left + scrRect.width / 2;
+    const el = document.elementFromPoint(midX, scrRect.top + 30);
+    const cell = el && el.closest && el.closest('[data-day-idx]');
+    if (!cell) return;
+    const i = Number(cell.dataset.dayIdx);
+    const d = new Date(rangeStartMs + i * 86400000);
+    label.textContent = `${OCUP_MESES[d.getMonth()]} ${d.getFullYear()}`;
+  };
 
   // Auto-scroll: usa el modo pedido (default = mes seleccionado).
   //   'month' → centra el primer día del calMonth (usado por navegación con flechas)
