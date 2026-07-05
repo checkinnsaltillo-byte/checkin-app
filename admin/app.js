@@ -30802,6 +30802,12 @@ function asistCellHtml(row, col, dayIdx, editing) {
       <option value="">— Selecciona —</option>
       ${opts.map(n => `<option value="${esc(n)}"${n===v?' selected':''}>${esc(n)}</option>`).join('')}
     </select>`;
+  } else if (col === 'Concepto') {
+    const opts = ASIST_PANEL_CONCEPTOS.map(c => c.k);
+    inner = `<select onchange="asistCellChange('${esc(id)}','${esc(col)}',this.value)" style="${inputCss}">
+      <option value="">—</option>
+      ${opts.map(o => `<option value="${esc(o)}"${o===v?' selected':''}>${esc(o)}</option>`).join('')}
+    </select>`;
   } else if (col === 'Tipo') {
     const opts = ASIST_LISTAS.Tipo;
     const labels = { Entrada:'🟢 Entrada', Salida:'🔴 Salida', Break_inicio:'⏸ Inicio de descanso', Break_fin:'▶ Fin de descanso', Vacaciones:'🏖 Vacaciones', Asueto:'🎉 Asueto', Otro:'📝 Otro' };
@@ -30996,13 +31002,13 @@ function asistRenderTabla() {
   };
   const allSel = sel && rows.length > 0 && rows.every(r => ASIST_STATE.selected.has(String(r.ID||'')));
   const selHead = sel
-    ? `<th style="position:sticky;top:0;background:#1e293b;padding:9px 6px;text-align:center;width:36px">${asistSelBox(allSel, `asistSelectAll(${!allSel})`)}</th>`
+    ? `<th style="position:sticky;top:0;z-index:5;background:#1e293b;padding:9px 6px;text-align:center;width:36px">${asistSelBox(allSel, `asistSelectAll(${!allSel})`)}</th>`
     : '';
   // Columna Acciones — siempre presente como primera columna (después de Seleccionar si activo)
-  const accHead = `<th style="position:sticky;top:0;background:#1e293b;color:#fff;padding:9px 8px;text-align:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;user-select:none;width:80px">Acciones</th>`;
+  const accHead = `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 8px;text-align:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;user-select:none;width:80px">Acciones</th>`;
   const headHtml = headers.map(h => `
     <th onclick="asistSortBy('${esc(h)}')"
-        style="position:sticky;top:0;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;white-space:nowrap;user-select:none">
+        style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;white-space:nowrap;user-select:none">
       <div style="display:inline-flex;align-items:center;gap:6px">${esc(h)} ${sortIcon(h)}</div>
     </th>`).join('');
   const totalCols = headers.length + (sel?1:0) + 1;
