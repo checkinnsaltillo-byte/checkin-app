@@ -30756,11 +30756,14 @@ function asistCellValue(row, col, dayIdx) {
     if (col === 'Horas')   return d?.horas || legacy || '';
   }
   if (ASIST_PRIMA_COLS.includes(col)) {
-    const base = asistRowMonto_(row);
-    if (col === '$ Salario base')             return asistPanelFmtMonto_(base);
-    if (col === '$ Prima vacacional (25%)')   return asistPanelFmtMonto_(base * 0.25);
-    if (col === '$ Prima dominical (25%)')    return asistPanelFmtMonto_(base * 0.25);
-    if (col === '$ Prima día feriado (200%)') return asistPanelFmtMonto_(base * 2);
+    const conceptos = asistDeriveConceptos_([row]);
+    const primary = conceptos.values().next().value;
+    const p = asistPanelPrimasPorConcepto_(primary);
+    const fmt = v => v === '' ? '' : asistPanelFmtMonto_(v);
+    if (col === '$ Salario base')             return fmt(p.salBase);
+    if (col === '$ Prima vacacional (25%)')   return fmt(p.primaVac);
+    if (col === '$ Prima dominical (25%)')    return fmt(p.primaDom);
+    if (col === '$ Prima día feriado (200%)') return fmt(p.primaDF);
   }
   const raw = row[col] == null ? '' : String(row[col]);
   // Oculta el texto "Registro por lote (…)" en Observaciones.
@@ -31282,6 +31285,20 @@ function asistPanelMontoDe_(concepto) {
 function asistPanelFmtMonto_(n) {
   return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+/** Desglose ($ por columna) que corresponde a UN concepto. Cada columna se
+ *  llena solo cuando el concepto la justifica; el resto queda vacío. */
+function asistPanelPrimasPorConcepto_(concepto) {
+  const base = ASIST_PANEL_SAL_BASE;
+  const vac  = base * ASIST_PANEL_PRIMA_VAC;
+  switch (concepto) {
+    case 'Asistencia':  return { salBase: base, primaVac: '',  primaDom: '', primaDF: '' };
+    case 'Vacaciones':  return { salBase: base, primaVac: vac, primaDom: '', primaDF: '' };
+    case 'Día feriado': return { salBase: base, primaVac: '',  primaDom: '', primaDF: '' };
+    case 'Falta':       return { salBase: '',   primaVac: '',  primaDom: '', primaDF: '' };
+    case 'Incapacidad': return { salBase: '',   primaVac: '',  primaDom: '', primaDF: '' };
+    default:            return { salBase: '',   primaVac: '',  primaDom: '', primaDF: '' };
+  }
+}
 function asistPanelParseDiasTrabajo_(str) {
   const out = new Set();
   String(str||'').split(/[,;\s]+/).map(t => t.trim().toUpperCase()).filter(Boolean).forEach(tok => {
@@ -31625,7 +31642,8 @@ window.asistGuardarRegistro = async function () {
       const entrada = (concepto === 'Asistencia') ? horas.entrada : '';
       const salida  = (concepto === 'Asistencia') ? horas.salida  : '';
       const horasStr = (concepto === 'Asistencia') ? calcHoras(entrada, salida) : '';
-      const base = asistPanelMontoDe_(concepto);
+      const p = asistPanelPrimasPorConcepto_(concepto);
+      const fmt = v => v === '' ? '' : asistPanelFmtMonto_(v);
       const payload = {
         Empleado_Nombre: nombre,
         Fecha: fecha,
@@ -31633,10 +31651,10 @@ window.asistGuardarRegistro = async function () {
         Entrada: entrada,
         Salida:  salida,
         Horas:   horasStr,
-        '$ Salario base':             asistPanelFmtMonto_(base),
-        '$ Prima vacacional (25%)':   asistPanelFmtMonto_(base * 0.25),
-        '$ Prima dominical (25%)':    asistPanelFmtMonto_(base * 0.25),
-        '$ Prima día feriado (200%)': asistPanelFmtMonto_(base * 2),
+        '$ Salario base':             fmt(p.salBase),
+        '$ Prima vacacional (25%)':   fmt(p.primaVac),
+        '$ Prima dominical (25%)':    fmt(p.primaDom),
+        '$ Prima día feriado (200%)': fmt(p.primaDF),
         Metodo: 'Manual',
         Observaciones: '',
       };
