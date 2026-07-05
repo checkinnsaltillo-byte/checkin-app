@@ -31188,6 +31188,25 @@ function asistPopulateEmpleadoSelect() {
 /** Botón principal: abre el panel deslizable (derecha → centro), captura
  *  fecha/hora AHORA e inicia geolocalización. Mueve el panel a <body> por si
  *  algún ancestro tiene display:none (mismo patrón que otros paneles inc/obj). */
+// ── Panel lateral "Registro de asistencia": semana + mini-calendario ──
+// Formato Dias_trabajo en hoja Personal: "L,M,Mi,J,V,S,D"
+// L=1(Lun) M=2(Mar) Mi=3(Mié) J=4(Jue) V=5(Vie) S=6(Sáb) D=0(Dom)
+const ASIST_DIAS_MAP = { L:1, M:2, MI:3, J:4, V:5, S:6, D:0 };
+function asistPanelParseDiasTrabajo_(str) {
+  const out = new Set();
+  String(str||'').split(/[,;\s]+/).map(t => t.trim().toUpperCase()).filter(Boolean).forEach(tok => {
+    if (ASIST_DIAS_MAP[tok] != null) out.add(ASIST_DIAS_MAP[tok]);
+  });
+  return out;
+}
+function asistPanelParseSemanaValue_(val) {
+  const m = String(val||'').match(/^S:(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})$/);
+  if (!m) return null;
+  const [y1,mo1,d1] = m[1].split('-').map(Number);
+  const [y2,mo2,d2] = m[2].split('-').map(Number);
+  return { lunes: new Date(y1, mo1-1, d1), domingo: new Date(y2, mo2-1, d2) };
+}
+
 window.asistNuevoRegistro = function () {
   ['asist-form-backdrop','asist-form-panel'].forEach(id => {
     const el = document.getElementById(id);
@@ -31198,27 +31217,113 @@ window.asistNuevoRegistro = function () {
   if (!panel || !back) return;
   back.classList.remove('hidden');
   panel.classList.remove('hidden');
-  // trigger slide-in animation (setTimeout garantiza reflow entre remove/add)
-  setTimeout(() => {
-    back.classList.add('visible');
-    panel.classList.add('open');
-  }, 10);
-  // Pre-llenar fecha/hora AHORA
-  const now = new Date();
-  const iso = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-  const hms = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
-  ASIST_STATE.currentDate = iso;
-  ASIST_STATE.currentTime = hms;
-  document.getElementById('asist-fecha').value = new Date(now).toLocaleDateString('es-MX', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
-  document.getElementById('asist-hora').value = now.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
-  asistPopulateEmpleadoSelect();
-  document.getElementById('asist-empleado').value = '';
-  document.getElementById('asist-tipo').value = 'Entrada';
-  document.getElementById('asist-observaciones').value = '';
-  document.getElementById('asist-status').textContent = '';
-  document.getElementById('asist-btn-guardar').disabled = false;
-  asistCaptureGeo();
+  setTimeout(() => { back.classList.add('visible'); panel.classList.add('open'); }, 10);
+  // Estado inicial del panel: semana actual y celdas marcadas según Dias_trabajo
+  const weekOpts = (typeof nomWeekOptions === 'function') ? nomWeekOptions() : [];
+  const sel = document.getElementById('asist-panel-semana');
+  if (sel) sel.innerHTML = weekOpts.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('');
+  const semana = weekOpts[0]?.value || '';
+  ASIST_STATE.panel = { semana, celdas: new Set() };
+  if (sel) sel.value = semana;
+  const status = document.getElementById('asist-status');
+  if (status) status.textContent = '';
+  const btn = document.getElementById('asist-btn-guardar');
+  if (btn) btn.disabled = false;
+  asistPanelRender();
 };
+
+window.asistPanelSetSemana = function (val) {
+  ASIST_STATE.panel = ASIST_STATE.panel || { semana:'', celdas:new Set() };
+  ASIST_STATE.panel.semana = val;
+  ASIST_STATE.panel.celdas = new Set();
+  asistPanelRender();
+};
+
+window.asistPanelToggleCell = function (nombre, iso) {
+  const st = ASIST_STATE.panel = ASIST_STATE.panel || { semana:'', celdas:new Set() };
+  const k = `${nombre}|${iso}`;
+  if (st.celdas.has(k)) st.celdas.delete(k); else st.celdas.add(k);
+  st._userTouched = true;
+  asistPanelRender();
+};
+
+function asistPanelRender() {
+  const cont = document.getElementById('asist-panel-cal-wrap');
+  if (!cont) return;
+  const st = ASIST_STATE.panel = ASIST_STATE.panel || { semana:'', celdas:new Set() };
+  const range = asistPanelParseSemanaValue_(st.semana);
+  if (!range) { cont.innerHTML = ''; return; }
+  const dias = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(range.lunes); d.setDate(range.lunes.getDate() + i);
+    dias.push(d);
+  }
+  const personalRows = asistPersonalOperativo().slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  // Diccionario Nombre → set(dayOfWeek) según Dias_trabajo. Si el personal
+  // se cargó primera vez sin datos, este dict queda vacío y las celdas
+  // salen sin auto-marcar (usuario debe marcar manualmente).
+  const diasDict = new Map();
+  (INC_STATE?.personalRows || []).forEach(r => {
+    const n = String(r.Nombre || '').trim();
+    if (n) diasDict.set(n, asistPanelParseDiasTrabajo_(r.Dias_trabajo));
+  });
+  // Auto-marcar celdas para asistencias predeterminadas (solo si celdas está vacío por defecto)
+  const shouldSeed = st.celdas.size === 0 && !st._userTouched;
+  if (shouldSeed) {
+    personalRows.forEach(({ nombre }) => {
+      const set = diasDict.get(nombre) || new Set();
+      dias.forEach(d => {
+        if (set.has(d.getDay())) {
+          const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          st.celdas.add(`${nombre}|${iso}`);
+        }
+      });
+    });
+  }
+  let html = `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:7">`;
+  html += `<div class="ocup-cal-head"><div class="ocup-head-aloj">👥 Personal · ${personalRows.length}</div>`;
+  const today = new Date(); today.setHours(0,0,0,0);
+  dias.forEach(d => {
+    const dow = d.getDay();
+    const isToday = d.getTime() === today.getTime();
+    const isWeekend = dow === 0 || dow === 6;
+    html += `<div class="ocup-head-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}">
+      <div class="ocup-head-dow">${OCUP_DOW[dow]}</div>
+      <div class="ocup-head-day">${d.getDate()}</div>
+    </div>`;
+  });
+  html += `</div>`;
+  personalRows.forEach(({ nombre, puesto }) => {
+    html += `<div class="ocup-cal-row">`;
+    html += `<div class="ocup-aloj-cell">
+      <div class="ocup-aloj-img">👤</div>
+      <div class="ocup-aloj-info">
+        <div class="ocup-aloj-name" title="${esc(nombre)}${puesto?' · '+esc(puesto):''}">${esc(nombre)}</div>
+        ${puesto ? `<div class="ocup-aloj-id">${esc(puesto)}</div>` : ''}
+      </div>
+    </div>`;
+    dias.forEach(d => {
+      const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const marcada = st.celdas.has(`${nombre}|${iso}`);
+      const dow = d.getDay();
+      const isWeekend = dow === 0 || dow === 6;
+      const bg = marcada ? 'background:#dcfce7;' : '';
+      const sem = marcada ? 'box-shadow:inset 3px 0 0 #16a34a;' : '';
+      const check = marcada
+        ? `<div style="font-size:8.5px;font-weight:900;color:#065f46;letter-spacing:.04em">✓</div>`
+        : '';
+      html += `<div class="ocup-day-cell ${isWeekend?'is-weekend':''}"
+        style="${bg}${sem}cursor:pointer"
+        onclick="asistPanelToggleCell('${esc(nombre).replace(/'/g,"\\'")}','${iso}')">
+        <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%">${check}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  html += `</div>`;
+  cont.innerHTML = html;
+}
+window.asistPanelRender = asistPanelRender;
 
 /** Captura la ubicación GPS via navegador con fallback a baja precisión. */
 function asistCaptureGeo(opts) {
@@ -31311,48 +31416,47 @@ window.asistCancelarRegistro = function () {
 };
 
 window.asistGuardarRegistro = async function () {
-  const empleado = document.getElementById('asist-empleado').value.trim();
-  const tipo = document.getElementById('asist-tipo').value;
-  const obs = document.getElementById('asist-observaciones').value.trim();
-  const lat = document.getElementById('asist-lat').value;
-  const lng = document.getElementById('asist-lng').value;
-  const acc = document.getElementById('asist-accuracy').value;
+  const st = ASIST_STATE.panel || { celdas:new Set() };
+  const celdas = Array.from(st.celdas);
   const status = document.getElementById('asist-status');
-  if (!empleado) { alert('Selecciona un empleado.'); return; }
-  if (!tipo) { alert('Selecciona el tipo de registro.'); return; }
   const btn = document.getElementById('asist-btn-guardar');
+  if (!celdas.length) { alert('Marca al menos una celda de asistencia.'); return; }
   btn.disabled = true;
-  if (status) { status.style.color = '#64748b'; status.textContent = '⏳ Guardando…'; }
-  const payload = {
-    Empleado_Nombre: empleado,
-    Fecha: ASIST_STATE.currentDate,
-    Hora: ASIST_STATE.currentTime,
-    Tipo: tipo,
-    Ubicacion_Lat: lat || '',
-    Ubicacion_Lng: lng || '',
-    GPS_Accuracy: acc || '',
-    Metodo: (lat && lng) ? 'GPS' : 'Manual',
-    Observaciones: obs,
-  };
-  try {
-    const res = await fetch(`${BACKEND}/rh/asistencia`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payload }),
-    });
-    const j = await res.json();
-    if (!j.ok) throw new Error(j.error || 'Guardado falló');
-    if (status) {
-      status.style.color = '#065f46';
-      status.textContent = `✓ Registro guardado (ID ${j.id || '—'}).`;
+  if (status) { status.style.color = '#64748b'; status.textContent = `⏳ Guardando ${celdas.length} registro(s)…`; }
+  // Hora de entrada/salida por empleado (de la hoja Personal). Si no hay,
+  // usa 08:00 como default. Un registro Entrada + un registro Salida por día.
+  const empDict = new Map();
+  (INC_STATE?.personalRows || []).forEach(r => {
+    const n = String(r.Nombre||'').trim();
+    if (n) empDict.set(n, { entrada: String(r.Hora_entrada||'08:00').slice(0,5), salida: String(r.Hora_salida||'17:00').slice(0,5) });
+  });
+  let okCount = 0, errCount = 0;
+  for (const k of celdas) {
+    const [nombre, fecha] = k.split('|');
+    const horas = empDict.get(nombre) || { entrada:'08:00', salida:'17:00' };
+    for (const [tipo, hora] of [['Entrada', horas.entrada], ['Salida', horas.salida]]) {
+      try {
+        const res = await fetch(`${BACKEND}/rh/asistencia`, {
+          method:'POST', headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ payload: {
+            Empleado_Nombre: nombre, Fecha: fecha, Hora: hora, Tipo: tipo,
+            Ubicacion_Lat:'', Ubicacion_Lng:'', GPS_Accuracy:'',
+            Metodo:'Manual', Observaciones:'Registro por lote (semana)',
+          } }),
+        });
+        const j = await res.json();
+        if (j.ok) okCount++; else errCount++;
+      } catch { errCount++; }
     }
-    // Cierra el panel y refresca la tabla
-    setTimeout(() => {
-      asistCancelarRegistro();
-      if (status) status.textContent = '';
-      asistReloadList();
-    }, 1200);
-  } catch (e) {
-    if (status) { status.style.color = '#991b1b'; status.textContent = `✗ Error: ${e.message || e}`; }
-    btn.disabled = false;
   }
+  if (status) {
+    if (errCount) { status.style.color = '#991b1b'; status.textContent = `✓ ${okCount} guardado(s), ✗ ${errCount} con error.`; }
+    else { status.style.color = '#065f46'; status.textContent = `✓ ${okCount} registro(s) guardado(s).`; }
+  }
+  setTimeout(() => {
+    asistCancelarRegistro();
+    if (status) status.textContent = '';
+    asistReloadList();
+  }, 1400);
+  btn.disabled = false;
 };
