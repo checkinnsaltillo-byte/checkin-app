@@ -31201,6 +31201,22 @@ const ASIST_PANEL_CONCEPTOS = [
   { k:'Día feriado', color:'#2563eb' },
 ];
 const ASIST_PANEL_CONCEPTO_COLOR = Object.fromEntries(ASIST_PANEL_CONCEPTOS.map(c => [c.k, c.color]));
+// Tarifas por concepto — deben coincidir con los campos informativos del panel.
+const ASIST_PANEL_SAL_BASE = 2205.28;
+const ASIST_PANEL_PRIMA_VAC = 0.25;
+function asistPanelMontoDe_(concepto) {
+  switch (concepto) {
+    case 'Asistencia':  return ASIST_PANEL_SAL_BASE;
+    case 'Vacaciones':  return ASIST_PANEL_SAL_BASE * (1 + ASIST_PANEL_PRIMA_VAC);
+    case 'Día feriado': return ASIST_PANEL_SAL_BASE;
+    case 'Falta':       return 0;
+    case 'Incapacidad': return 0;
+    default:            return 0;
+  }
+}
+function asistPanelFmtMonto_(n) {
+  return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 function asistPanelParseDiasTrabajo_(str) {
   const out = new Set();
   String(str||'').split(/[,;\s]+/).map(t => t.trim().toUpperCase()).filter(Boolean).forEach(tok => {
@@ -31359,7 +31375,14 @@ function asistPanelRender() {
       });
     });
   }
-  let html = `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:7">`;
+  let html = `<div style="display:flex;flex-wrap:wrap;gap:10px;padding:6px 4px 10px;font-size:11px;color:#475569;font-weight:700">`;
+  ASIST_PANEL_CONCEPTOS.forEach(c => {
+    html += `<span style="display:inline-flex;align-items:center;gap:5px">
+      <span style="width:11px;height:11px;border-radius:3px;background:${c.color};box-shadow:0 0 0 1px rgba(0,0,0,.08)"></span>${c.k}
+    </span>`;
+  });
+  html += `</div>`;
+  html += `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:7">`;
   html += `<div class="ocup-cal-head"><div class="ocup-head-aloj">👥 Personal · ${personalRows.length}</div>`;
   const today = new Date(); today.setHours(0,0,0,0);
   dias.forEach(d => {
@@ -31388,11 +31411,12 @@ function asistPanelRender() {
       const isWeekend = dow === 0 || dow === 6;
       const bg = conceptos ? `background:${asistPanelBgFor_(conceptos)};` : '';
       const sem = conceptos ? asistPanelSemaforo_(conceptos) : '';
-      // Etiqueta central: iniciales de los conceptos (A, F, I, V, DF).
-      const abbr = { 'Asistencia':'A', 'Falta':'F', 'Incapacidad':'I', 'Vacaciones':'V', 'Día feriado':'DF' };
-      const inner = conceptos && conceptos.size
-        ? Array.from(conceptos).map(k => `<span style="font-size:8.5px;font-weight:900;color:#0f172a;padding:0 3px">${abbr[k]||k[0]}</span>`).join('')
-        : '';
+      // Etiqueta central: monto calculado (suma sobre los conceptos activos).
+      let inner = '';
+      if (conceptos && conceptos.size) {
+        const total = Array.from(conceptos).reduce((s, k) => s + asistPanelMontoDe_(k), 0);
+        inner = `<span style="font-size:9px;font-weight:900;color:#0f172a;line-height:1.05;text-align:center;padding:0 2px">${asistPanelFmtMonto_(total)}</span>`;
+      }
       html += `<div class="ocup-day-cell ${isWeekend?'is-weekend':''}"
         data-cell-key="${esc(nombre)}|${iso}"
         style="${bg}${sem}cursor:pointer"
