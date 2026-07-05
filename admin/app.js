@@ -26477,6 +26477,7 @@ const NOM_STATE = {
   unitEmpleadoId: '',
   unitConceptos: [],
   grupalRows: [],
+  pagoSem: null, // { semana, fechaPago, rows: [...] }
 };
 
 window.rhOpenNominaForm = function () {
@@ -26486,6 +26487,7 @@ window.rhOpenNominaForm = function () {
     <div class="nom-cejas">
       <button type="button" class="nom-ceja active" data-mode="unit" onclick="nomSetMode('unit')">📝 Registro unitario</button>
       <button type="button" class="nom-ceja" data-mode="grupal" onclick="nomSetMode('grupal')">👥 Registro grupal</button>
+      <button type="button" class="nom-ceja" data-mode="pagoSem" onclick="nomSetMode('pagoSem')">📊 Pago semanal</button>
     </div>
     <div id="nom-pane"></div>`;
   NOM_STATE.mode = 'unit';
@@ -26529,7 +26531,9 @@ window.nomSetMode = function (m) {
 function nomRenderPane() {
   const pane = document.getElementById('nom-pane');
   if (!pane) return;
-  pane.innerHTML = NOM_STATE.mode === 'unit' ? nomRenderUnit() : nomRenderGrupal();
+  if (NOM_STATE.mode === 'unit') pane.innerHTML = nomRenderUnit();
+  else if (NOM_STATE.mode === 'grupal') pane.innerHTML = nomRenderGrupal();
+  else if (NOM_STATE.mode === 'pagoSem') pane.innerHTML = nomRenderPagoSemanal();
 }
 
 function nomRenderUnit() {
@@ -26608,6 +26612,207 @@ window.nomSetUnitFecha = function (i, v) {
   NOM_STATE.unitConceptos[i].fechaPago = nomComputeFechaPago(NOM_STATE.unitConceptos[i].periodo, v);
   const fp = document.querySelector(`#nom-fp-unit-${i}`);
   if (fp) fp.value = NOM_STATE.unitConceptos[i].fechaPago || '';
+};
+
+// ── Pestaña "Pago semanal" ────────────────────────────────────────────────
+// Reutiliza el mismo lenguaje visual/agregado del Resumen semanal (RH >
+// Control de asistencias) pero cada fila es editable y tiene columnas
+// extras: Método de pago, Estado de pago (botón), Fecha de pago (viernes).
+
+function nomPagoSemInit_() {
+  const semana = nomDefaultPeriodValue('Semanal');
+  const fechaPago = nomComputeFechaPago('Semanal', semana);
+  NOM_STATE.pagoSem = { semana, fechaPago, rows: nomPagoSemBuildRows_(semana, fechaPago) };
+  // Si RH_Asistencia aún no se ha cargado en esta sesión (típico cuando el
+  // usuario entra directo a Nómina), lo cargamos ahora y rehacemos la tabla.
+  if (typeof ASIST_STATE !== 'undefined'
+      && !ASIST_STATE.loaded && !ASIST_STATE.loading
+      && typeof asistReloadList === 'function') {
+    asistReloadList().then(() => {
+      if (NOM_STATE.mode === 'pagoSem' && NOM_STATE.pagoSem) {
+        NOM_STATE.pagoSem.rows = nomPagoSemBuildRows_(NOM_STATE.pagoSem.semana, NOM_STATE.pagoSem.fechaPago);
+        const tb = document.getElementById('nom-pagoSem-tbody');
+        if (tb) tb.innerHTML = nomRenderPagoSemRows();
+      }
+    }).catch(()=>{});
+  }
+}
+
+/** Agrega los registros de ASIST_STATE.rows por (Empleado_Nombre × semana)
+ *  para la semana dada; devuelve un array de filas listas para renderear. */
+function nomPagoSemBuildRows_(semanaVal, fechaPagoDefault) {
+  const parseHoras = s => { const m = String(s||'').match(/^(\d+)h(\d{2})/); return m ? Number(m[1])*60+Number(m[2]) : 0; };
+  const parseMonto = s => { const n = Number(String(s||'').replace(/[$,\s]/g,'')); return Number.isFinite(n) ? n : 0; };
+  const m = String(semanaVal||'').match(/^S:(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})$/);
+  if (!m) return [];
+  const [y1,mo1,d1] = m[1].split('-').map(Number);
+  const [y2,mo2,d2] = m[2].split('-').map(Number);
+  const lun = new Date(y1, mo1-1, d1); const dom = new Date(y2, mo2-1, d2);
+  const M = (typeof NOM_MONTHS_ABR !== 'undefined') ? NOM_MONTHS_ABR : ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const semanaLabel = `Lun ${lun.getDate()} ${M[lun.getMonth()]} – Dom ${dom.getDate()} ${M[dom.getMonth()]} ${dom.getFullYear()}`;
+  const grupos = new Map();
+  for (const r of (ASIST_STATE?.rows || [])) {
+    const nombre = String(r.Empleado_Nombre||'').trim();
+    const fecha  = String(r.Fecha||'').slice(0,10);
+    if (!nombre || !fecha) continue;
+    // Filtra por la semana pedida.
+    const [ry,rmo,rd] = fecha.split('-').map(Number);
+    const rDate = new Date(ry, rmo-1, rd);
+    if (rDate < lun || rDate > dom) continue;
+    let g = grupos.get(nombre);
+    if (!g) { g = { nombre, horasMin:0, base:0, vac:0, dom:0, df:0, total:0 }; grupos.set(nombre, g); }
+    g.horasMin += parseHoras(r.Horas);
+    g.base  += parseMonto(r['$ Salario base']);
+    g.vac   += parseMonto(r['$ Prima vacacional (25%)']);
+    g.dom   += parseMonto(r['$ Prima dominical (25%)']);
+    g.df    += parseMonto(r['$ Prima día feriado (200%)']);
+    g.total += parseMonto(r['$ Salario total']);
+  }
+  return Array.from(grupos.values())
+    .sort((a,b) => a.nombre.localeCompare(b.nombre,'es'))
+    .map(g => ({
+      nombre: g.nombre,
+      semanaValue: semanaVal, semanaLabel,
+      horasMin: g.horasMin,
+      base: g.base, vac: g.vac, dom: g.dom, df: g.df, total: g.total,
+      metodoPago: 'Transferencia bancaria',
+      pagado: false,
+      fechaPago: fechaPagoDefault,
+    }));
+}
+
+function nomRenderPagoSemanal() {
+  if (!NOM_STATE.pagoSem) nomPagoSemInit_();
+  const st = NOM_STATE.pagoSem;
+  const opts = nomPeriodOptions('Semanal');
+  const semanaSel = `<select onchange="nomPagoSemSetSemana(this.value)">
+    ${opts.map(o => `<option value="${esc(o.value)}" ${o.value===st.semana?'selected':''}>${esc(o.label)}</option>`).join('')}
+  </select>`;
+  return `
+    <div class="nom-grupal-top" id="nom-pagoSem-top">
+      <div class="rh-field"><label>Semana</label>${semanaSel}</div>
+      <div class="rh-field"><label>Fecha de pago</label>
+        <input type="date" value="${esc(st.fechaPago)}" onchange="nomPagoSemSetFechaPagoGlobal(this.value)">
+      </div>
+    </div>
+    <div style="overflow-x:auto;margin-top:14px">
+      <table class="rh-table nom-grupal-tbl">
+        <thead><tr>
+          <th style="width:28px"></th>
+          <th>Empleado_Nombre</th>
+          <th>Semana</th>
+          <th style="text-align:right">Horas</th>
+          <th style="text-align:right">$ Salario base</th>
+          <th style="text-align:right">$ Prima vacacional (25%)</th>
+          <th style="text-align:right">$ Prima dominical (25%)</th>
+          <th style="text-align:right">$ Prima día feriado (200%)</th>
+          <th style="text-align:right">$ Salario total</th>
+          <th>Método de pago</th>
+          <th>Estado de pago</th>
+          <th>Fecha de pago</th>
+        </tr></thead>
+        <tbody id="nom-pagoSem-tbody">${nomRenderPagoSemRows()}</tbody>
+      </table>
+    </div>`;
+}
+
+function nomRenderPagoSemRows() {
+  const st = NOM_STATE.pagoSem;
+  if (!st?.rows?.length) {
+    return `<tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:14px">Sin registros para esta semana. Ve a Control de asistencias y captura la semana primero.</td></tr>`;
+  }
+  const fmtHoras = mins => mins ? `${Math.floor(mins/60)}h${String(mins%60).padStart(2,'0')}` : '';
+  const fmt = n => n ? asistPanelFmtMonto_(n) : '';
+  return st.rows.map((r, i) => {
+    const pagBg = r.pagado ? '#16a34a' : '#e2e8f0';
+    const pagFg = r.pagado ? '#fff'    : '#475569';
+    const pagBd = r.pagado ? '#15803d' : '#cbd5e1';
+    const pagTxt = r.pagado ? '✓ Pagado' : 'Pendiente';
+    return `<tr data-idx="${i}">
+      <td><button type="button" class="nom-conc-del" onclick="nomPagoSemDelRow(${i})" title="Quitar renglón">✕</button></td>
+      <td><input type="text" value="${esc(r.nombre)}" oninput="nomPagoSemSet(${i},'nombre',this.value)" style="min-width:200px"></td>
+      <td><input type="text" value="${esc(r.semanaLabel)}" oninput="nomPagoSemSet(${i},'semanaLabel',this.value)" style="min-width:220px"></td>
+      <td style="text-align:right"><input type="text" value="${esc(fmtHoras(r.horasMin))}" oninput="nomPagoSemSetHoras(${i},this.value)" style="text-align:right;width:80px"></td>
+      <td style="text-align:right"><input type="text" value="${esc(fmt(r.base))}" oninput="nomPagoSemSetMonto(${i},'base',this.value)" onblur="this.value=nomPagoSemFmt_(NOM_STATE.pagoSem.rows[${i}].base)" style="text-align:right;width:110px"></td>
+      <td style="text-align:right"><input type="text" value="${esc(fmt(r.vac))}" oninput="nomPagoSemSetMonto(${i},'vac',this.value)" onblur="this.value=nomPagoSemFmt_(NOM_STATE.pagoSem.rows[${i}].vac)" style="text-align:right;width:110px"></td>
+      <td style="text-align:right"><input type="text" value="${esc(fmt(r.dom))}" oninput="nomPagoSemSetMonto(${i},'dom',this.value)" onblur="this.value=nomPagoSemFmt_(NOM_STATE.pagoSem.rows[${i}].dom)" style="text-align:right;width:110px"></td>
+      <td style="text-align:right"><input type="text" value="${esc(fmt(r.df))}" oninput="nomPagoSemSetMonto(${i},'df',this.value)" onblur="this.value=nomPagoSemFmt_(NOM_STATE.pagoSem.rows[${i}].df)" style="text-align:right;width:110px"></td>
+      <td style="text-align:right"><input type="text" value="${esc(fmt(r.total))}" oninput="nomPagoSemSetMonto(${i},'total',this.value)" onblur="this.value=nomPagoSemFmt_(NOM_STATE.pagoSem.rows[${i}].total)" style="text-align:right;width:110px;font-weight:800"></td>
+      <td>
+        <select onchange="nomPagoSemSet(${i},'metodoPago',this.value)">
+          <option ${r.metodoPago==='Transferencia bancaria'?'selected':''}>Transferencia bancaria</option>
+          <option ${r.metodoPago==='Efectivo'?'selected':''}>Efectivo</option>
+        </select>
+      </td>
+      <td>
+        <button type="button" onclick="nomPagoSemToggle(${i})"
+          style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:6px;font-size:11.5px;font-weight:800;background:${pagBg};color:${pagFg};border:1.5px solid ${pagBd}">
+          ${r.pagado ? '<span>✓</span>' : '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1.5px solid '+pagFg+';background:#fff"></span>'}
+          <span>${pagTxt}</span>
+        </button>
+      </td>
+      <td><input type="date" value="${esc(r.fechaPago)}" onchange="nomPagoSemSet(${i},'fechaPago',this.value)"></td>
+    </tr>`;
+  }).join('');
+}
+
+window.nomPagoSemFmt_ = n => n ? asistPanelFmtMonto_(n) : '';
+
+window.nomPagoSemSetSemana = function (val) {
+  const st = NOM_STATE.pagoSem;
+  st.semana = val;
+  st.fechaPago = nomComputeFechaPago('Semanal', val);
+  st.rows = nomPagoSemBuildRows_(val, st.fechaPago);
+  nomRenderPane();
+};
+
+window.nomPagoSemSetFechaPagoGlobal = function (val) {
+  const st = NOM_STATE.pagoSem;
+  st.fechaPago = val;
+  st.rows.forEach(r => { r.fechaPago = val; });
+  const tb = document.getElementById('nom-pagoSem-tbody');
+  if (tb) tb.innerHTML = nomRenderPagoSemRows();
+};
+
+window.nomPagoSemSet = function (i, key, val) {
+  const r = NOM_STATE.pagoSem?.rows?.[i];
+  if (r) r[key] = val;
+};
+
+window.nomPagoSemSetMonto = function (i, key, val) {
+  const r = NOM_STATE.pagoSem?.rows?.[i];
+  if (!r) return;
+  const n = Number(String(val||'').replace(/[$,\s]/g,''));
+  r[key] = Number.isFinite(n) ? n : 0;
+  // Si se editan bases o primas, recalcular total automáticamente cuando aún
+  // no se ha tocado directamente el total. Simplificación: si el usuario
+  // edita 'total' explícitamente lo respetamos; si edita otros, recalcamos.
+  if (key !== 'total') r.total = r.base + r.vac + r.dom + r.df;
+  const tb = document.getElementById('nom-pagoSem-tbody');
+  if (tb) tb.innerHTML = nomRenderPagoSemRows();
+};
+
+window.nomPagoSemSetHoras = function (i, val) {
+  const r = NOM_STATE.pagoSem?.rows?.[i];
+  if (!r) return;
+  const m = String(val||'').match(/^(\d+)h?(\d{0,2})/);
+  r.horasMin = m ? Number(m[1])*60 + Number(m[2]||0) : 0;
+};
+
+window.nomPagoSemToggle = function (i) {
+  const r = NOM_STATE.pagoSem?.rows?.[i];
+  if (!r) return;
+  r.pagado = !r.pagado;
+  const tb = document.getElementById('nom-pagoSem-tbody');
+  if (tb) tb.innerHTML = nomRenderPagoSemRows();
+};
+
+window.nomPagoSemDelRow = function (i) {
+  const st = NOM_STATE.pagoSem;
+  if (!st?.rows) return;
+  st.rows.splice(i, 1);
+  const tb = document.getElementById('nom-pagoSem-tbody');
+  if (tb) tb.innerHTML = nomRenderPagoSemRows();
 };
 
 function nomRenderGrupal() {
@@ -26904,6 +27109,22 @@ async function nomSave() {
         Metodo_pago: c.metodoPago || 'Transferencia bancaria',
         Fecha_pago: c.fechaPago || nomComputeFechaPago(c.periodo, c.fecha),
         Comentarios: c.notas || '',
+      });
+    });
+  } else if (NOM_STATE.mode === 'pagoSem') {
+    const st = NOM_STATE.pagoSem || { rows: [] };
+    st.rows.forEach(r => {
+      const monto = Number(r.total || 0);
+      if (!monto) return;
+      records.push({
+        Empleado_Nombre: r.nombre,
+        Concepto: 'Salario',
+        Periodo: `Semanal: ${r.semanaLabel}`,
+        Monto: monto,
+        Metodo_pago: r.metodoPago || 'Transferencia bancaria',
+        Fecha_pago: r.fechaPago || st.fechaPago || '',
+        Estado_pago: r.pagado ? 'Pagado' : 'Pendiente',
+        Comentarios: `Horas: ${r.horasMin ? Math.floor(r.horasMin/60)+'h'+String(r.horasMin%60).padStart(2,'0') : '—'} · Base: ${asistPanelFmtMonto_(r.base||0)} · PVac: ${asistPanelFmtMonto_(r.vac||0)} · PDom: ${asistPanelFmtMonto_(r.dom||0)} · PDF: ${asistPanelFmtMonto_(r.df||0)}`,
       });
     });
   } else {
