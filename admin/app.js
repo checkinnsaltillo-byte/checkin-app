@@ -30418,9 +30418,10 @@ const ASIST_STATE = {
 };
 
 // Columnas que se ocultan de la tabla (redundantes o metadatos)
-const ASIST_HIDDEN_COLS = new Set(['Empleado_ID','Horas_extra']);
+const ASIST_HIDDEN_COLS = new Set(['Empleado_ID','Horas_extra','ID']);
+const ASIST_PRIMA_COLS = ['$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)'];
 // Columnas derivadas — no vienen del sheet, se calculan on-the-fly
-const ASIST_DERIVED_COLS = ['Entrada','Salida','Horas'];
+const ASIST_DERIVED_COLS = ['Entrada','Salida','Horas', ...['$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)']];
 
 // Campos con lista cerrada (para dropdown en modo edición)
 const ASIST_LISTAS = {
@@ -30471,6 +30472,10 @@ function asistDeriveConceptos_(recs) {
   const out = new Set();
   const CONCEPTO_KEYS = ['Asistencia','Falta','Incapacidad','Vacaciones','Día feriado'];
   for (const r of (recs || [])) {
+    // Campo Concepto (fuente preferida cuando existe la columna en el sheet).
+    const conc = String(r.Concepto || '').trim();
+    const foundC = conc && CONCEPTO_KEYS.find(k => k.toLowerCase() === conc.toLowerCase());
+    if (foundC) { out.add(foundC); continue; }
     const t = String(r.Tipo || '').toLowerCase();
     if      (t === 'vacaciones')  out.add('Vacaciones');
     else if (t === 'asueto')      out.add('Día feriado');
@@ -30729,24 +30734,47 @@ function asistBuildDayIndex_() {
   return idx;
 }
 
+/** Monto ($) que corresponde a esta fila según los conceptos derivados
+ *  del registro (Tipo/Observaciones/Entrada-Salida). */
+function asistRowMonto_(row) {
+  const conceptos = asistDeriveConceptos_([row]);
+  let n = 0;
+  conceptos.forEach(k => { n += asistPanelMontoDe_(k); });
+  return n;
+}
+
 /** Devuelve el valor de una columna para un row, incluye columnas derivadas. */
 function asistCellValue(row, col, dayIdx) {
   if (col === 'Entrada' || col === 'Salida' || col === 'Horas') {
     const nombre = String(row.Empleado_Nombre||'').trim();
     const fecha  = String(row.Fecha||'').slice(0,10);
     const d = dayIdx.get(`${nombre}|${fecha}`);
-    if (!d) return '';
-    if (col === 'Entrada') return d.entrada || '';
-    if (col === 'Salida')  return d.salida || '';
-    if (col === 'Horas')   return d.horas || '';
+    // Fallback: si el sheet trae Entrada/Salida/Horas como campos directos
+    const legacy = String(row[col] || '');
+    if (col === 'Entrada') return (d?.entrada || legacy || '').slice(0,5);
+    if (col === 'Salida')  return (d?.salida  || legacy || '').slice(0,5);
+    if (col === 'Horas')   return d?.horas || legacy || '';
   }
-  return row[col] == null ? '' : String(row[col]);
+  if (ASIST_PRIMA_COLS.includes(col)) {
+    const base = asistRowMonto_(row);
+    if (col === '$ Salario base')             return asistPanelFmtMonto_(base);
+    if (col === '$ Prima vacacional (25%)')   return asistPanelFmtMonto_(base * 0.25);
+    if (col === '$ Prima dominical (25%)')    return asistPanelFmtMonto_(base * 0.25);
+    if (col === '$ Prima día feriado (200%)') return asistPanelFmtMonto_(base * 2);
+  }
+  const raw = row[col] == null ? '' : String(row[col]);
+  // Oculta el texto "Registro por lote (…)" en Observaciones.
+  if (col === 'Observaciones' && /Registro por lote/i.test(raw)) return '';
+  return raw;
 }
 
 function asistCellHtml(row, col, dayIdx, editing) {
   const v = asistCellValue(row, col, dayIdx);
   const isDerived = ASIST_DERIVED_COLS.includes(col);
-  const isReadOnly = isDerived || col === 'ID' || col === 'Timestamp';
+  // Entrada/Salida son derivadas pero SÍ se editan (con time picker); Horas y
+  // las primas siempre son solo-lectura (se recalculan automáticamente).
+  const editableDerived = col === 'Entrada' || col === 'Salida';
+  const isReadOnly = (isDerived && !editableDerived) || col === 'ID' || col === 'Timestamp';
   const id = String(row.ID||'');
   // Modo lectura (o campos read-only en modo edición)
   if (!editing || isReadOnly) {
@@ -30781,6 +30809,10 @@ function asistCellHtml(row, col, dayIdx, editing) {
     // r.Hora suele ser "HH:MM:SS" pero input type=time acepta "HH:MM"
     const timeVal = String(v).slice(0,5);
     inner = `<input type="time" step="1" value="${esc(timeVal)}" onchange="asistCellChange('${esc(id)}','${esc(col)}',this.value)" style="${inputCss}">`;
+  } else if (col === 'Entrada' || col === 'Salida') {
+    const def = col === 'Entrada' ? '08:30' : '13:30';
+    const timeVal = String(v).slice(0,5) || def;
+    inner = `<input type="time" value="${esc(timeVal)}" onchange="asistEntradaSalidaChange('${esc(id)}','${col}',this.value)" style="${inputCss}">`;
   } else if (col === 'Observaciones') {
     inner = `<input type="text" value="${esc(v)}" oninput="asistCellChange('${esc(id)}','${esc(col)}',this.value)" placeholder="Nota…" style="${inputCss}">`;
   } else if (col === 'Ubicacion_Lat' || col === 'Ubicacion_Lng' || col === 'GPS_Accuracy') {
@@ -30802,6 +30834,22 @@ window.asistToggleRowEdit = function (id) {
     ASIST_STATE.editing.add(id);
     asistRenderTabla();
   }
+};
+
+// Cambia Entrada/Salida en un renglón (campo directo del row), recalcula
+// Horas y marca la fila como dirty. Re-renderiza la tabla para que el nuevo
+// valor de Horas aparezca inmediatamente.
+window.asistEntradaSalidaChange = function (id, col, value) {
+  const r = ASIST_STATE.rows.find(x => String(x.ID||'') === String(id));
+  if (!r) return;
+  r[col] = String(value || '').slice(0,5);
+  const ent = asistParseTimeToMinutes(r.Entrada);
+  const sal = asistParseTimeToMinutes(r.Salida);
+  r.Horas = (ent != null && sal != null && sal > ent)
+    ? `${Math.floor((sal-ent)/60)}h${String((sal-ent)%60).padStart(2,'0')}`
+    : '';
+  ASIST_STATE.dirty.add(id);
+  asistRenderTabla();
 };
 
 window.asistCellChange = function (id, col, value) {
@@ -31582,7 +31630,8 @@ window.asistGuardarRegistro = async function () {
             body: JSON.stringify({ payload: {
               Empleado_Nombre: nombre, Fecha: fecha, Hora: hora, Tipo: tipo,
               Ubicacion_Lat:'', Ubicacion_Lng:'', GPS_Accuracy:'',
-              Metodo:'Manual', Observaciones: `Registro por lote (${concepto})`,
+              Metodo:'Manual', Observaciones: '',
+              Concepto: concepto,
             } }),
           });
           const j = await res.json();
