@@ -31202,7 +31202,7 @@ const ASIST_PANEL_CONCEPTOS = [
 ];
 const ASIST_PANEL_CONCEPTO_COLOR = Object.fromEntries(ASIST_PANEL_CONCEPTOS.map(c => [c.k, c.color]));
 // Tarifas por concepto — deben coincidir con los campos informativos del panel.
-const ASIST_PANEL_SAL_BASE = 2205.28;
+const ASIST_PANEL_SAL_BASE = 315.04;
 const ASIST_PANEL_PRIMA_VAC = 0.25;
 function asistPanelMontoDe_(concepto) {
   switch (concepto) {
@@ -31271,20 +31271,20 @@ window.asistPanelSetSemana = function (val) {
   asistPanelRender();
 };
 
-// Menú por-celda: alterna un concepto en la celda dada. Múltiples conceptos
-// en una misma celda se apilan y se pintan como franjas horizontales.
+// Menú por-celda (single-select): al elegir un concepto se reemplaza el que
+// ya tuviera. Volver a elegir el mismo concepto lo quita (limpia la celda).
 window.asistPanelCellToggleConcepto = function (nombre, iso, concepto, ev) {
   if (ev) ev.stopPropagation();
   const st = asistPanelState_();
   const k = `${nombre}|${iso}`;
-  const cur = st.celdas.get(k) || new Set();
-  if (cur.has(concepto)) cur.delete(concepto);
-  else cur.add(concepto);
-  if (cur.size) st.celdas.set(k, cur);
-  else st.celdas.delete(k);
+  const cur = st.celdas.get(k);
+  if (cur && cur.size === 1 && cur.has(concepto)) st.celdas.delete(k);
+  else st.celdas.set(k, new Set([concepto]));
   st._userTouched = true;
   asistPanelRender();
-  asistPanelOpenCellMenu(nombre, iso);
+  // Cierra el menú tras la selección (single-select).
+  const m = document.getElementById('asist-panel-cell-menu');
+  if (m) m.remove();
 };
 
 // Popover con checkboxes de conceptos para una celda concreta. Se posiciona
@@ -31428,6 +31428,13 @@ function asistPanelRender() {
     html += `</div>`;
   });
   html += `</div>`;
+  // Total de la semana: suma sobre todas las celdas marcadas.
+  let totalSemana = 0;
+  st.celdas.forEach(cs => cs.forEach(k => { totalSemana += asistPanelMontoDe_(k); }));
+  html += `<div style="margin-top:10px;padding:10px 14px;background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;border-radius:8px;display:flex;justify-content:space-between;align-items:center;font-weight:800">
+    <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#cbd5e1">Total semana · todos los trabajadores</span>
+    <span style="font-size:16px">${asistPanelFmtMonto_(totalSemana)}</span>
+  </div>`;
   cont.innerHTML = html;
 }
 window.asistPanelRender = asistPanelRender;
