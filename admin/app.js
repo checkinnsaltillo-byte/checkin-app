@@ -30464,6 +30464,33 @@ function asistParseTimeToMinutes(s) {
  *   estado: 'asistencia' | 'vacaciones' | 'asueto' | 'falta' | 'futuro' | 'finde'
  *   semaforo: '#16a34a' verde | '#f59e0b' amarillo | '#dc2626' rojo | '' sin marcar
  */
+/** Deriva los conceptos activos de un día a partir de los registros de la
+ *  hoja RH_Asistencia. Devuelve un Set<string> con las claves que usa el
+ *  panel (Asistencia · Falta · Incapacidad · Vacaciones · Día feriado). */
+function asistDeriveConceptos_(recs) {
+  const out = new Set();
+  const CONCEPTO_KEYS = ['Asistencia','Falta','Incapacidad','Vacaciones','Día feriado'];
+  for (const r of (recs || [])) {
+    const t = String(r.Tipo || '').toLowerCase();
+    if      (t === 'vacaciones')  out.add('Vacaciones');
+    else if (t === 'asueto')      out.add('Día feriado');
+    else if (t === 'falta')       out.add('Falta');
+    else if (t === 'incapacidad') out.add('Incapacidad');
+    else if (t === 'entrada' || t === 'salida') out.add('Asistencia');
+    // Legacy: filas sin Tipo (formato antiguo Entrada/Salida/Horas). Se
+    // infiere el concepto desde Observaciones (patrón "(Concepto)") o, si
+    // hay Entrada/Salida con hora, se asume "Asistencia".
+    if (!t) {
+      const obs = String(r.Observaciones || '');
+      const m = obs.match(/\(([^)]+)\)/);
+      const found = m && CONCEPTO_KEYS.find(k => k.toLowerCase() === m[1].trim().toLowerCase());
+      if (found) out.add(found);
+      else if (String(r.Entrada || r.Salida || '').trim()) out.add('Asistencia');
+    }
+  }
+  return out;
+}
+
 function asistDeriveDayInfo(recs, date, today) {
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
   const isFuture = date > today;
@@ -31025,33 +31052,23 @@ function asistRenderCalendar() {
       const isToday = d.getTime() === today.getTime();
       const isWeekend = dow === 0 || dow === 6;
       const recs = idx.get(`${nombre}|${iso}`) || [];
-      const info = asistDeriveDayInfo(recs, d, today);
-      // Semáforo como franja vertical al borde izquierdo — NO se sobrepone
-      // al texto de la celda.
-      const semStyle = info.semaforo ? `box-shadow:inset 3px 0 0 ${info.semaforo};` : '';
-      // Contenido: entrada · salida · horas o etiqueta de estado (padding
-      // izquierdo para respetar la franja del semáforo).
-      let content = '';
-      if (info.estado === 'vacaciones') {
-        content = `<div style="font-size:8.5px;font-weight:900;color:#92400e;text-transform:uppercase;letter-spacing:.04em;line-height:1.1;text-align:center">Vac.</div>`;
-      } else if (info.estado === 'asueto') {
-        content = `<div style="font-size:8.5px;font-weight:900;color:#92400e;text-transform:uppercase;letter-spacing:.04em;line-height:1.1;text-align:center">Asueto</div>`;
-      } else if (info.estado === 'asistencia') {
-        const lines = [];
-        if (info.entrada) lines.push(`<div style="font-size:8px;font-weight:800;color:#065f46;line-height:1.05">▶${esc(info.entrada)}</div>`);
-        if (info.salida)  lines.push(`<div style="font-size:8px;font-weight:800;color:#7f1d1d;line-height:1.05">◀${esc(info.salida)}</div>`);
-        if (info.horasStr) lines.push(`<div style="font-size:8.5px;font-weight:900;color:#1e40af;line-height:1.05">${esc(info.horasStr)}</div>`);
-        content = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">${lines.join('')}</div>`;
-      } else if (info.estado === 'falta') {
-        content = `<div style="font-size:8.5px;font-weight:900;color:#7f1d1d;text-transform:uppercase;letter-spacing:.04em;line-height:1.1;text-align:center">Falta</div>`;
+      // Mismo lenguaje visual que el panel Registro de asistencia:
+      // celdas coloreadas por concepto + monto calculado.
+      const conceptos = asistDeriveConceptos_(recs);
+      const bgStyle = conceptos.size ? `background:${asistPanelBgFor_(conceptos)};` : '';
+      const semStyle = conceptos.size ? asistPanelSemaforo_(conceptos) : '';
+      let inner = '';
+      if (conceptos.size) {
+        const total = Array.from(conceptos).reduce((s, k) => s + asistPanelMontoDe_(k), 0);
+        inner = `<span style="font-size:9px;font-weight:900;color:#0f172a;line-height:1.05;text-align:center;padding:0 2px">${asistPanelFmtMonto_(total)}</span>`;
       }
-      const wrap = content
-        ? `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding-left:5px">${content}</div>`
+      const wrap = inner
+        ? `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%">${inner}</div>`
         : '';
       const tip = recs.length
         ? recs.map(r => `${r.Tipo||'—'} · ${(r.Hora||'').slice(0,5)}`).join(' | ')
-        : (info.estado === 'falta' ? 'Sin registro en día laboral' : '');
-      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" style="${semStyle}cursor:${recs.length?'pointer':'default'}" title="${esc(tip)}" ${recs.length?`onclick="asistCalClick('${esc(nombre)}','${iso}')"`:''}>${wrap}</div>`;
+        : '';
+      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" style="${bgStyle}${semStyle}cursor:${recs.length?'pointer':'default'}" title="${esc(tip)}" ${recs.length?`onclick="asistCalClick('${esc(nombre)}','${iso}')"`:''}>${wrap}</div>`;
     }
     html += `</div>`;
   });
