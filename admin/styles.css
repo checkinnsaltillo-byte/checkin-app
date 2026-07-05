@@ -3905,8 +3905,9 @@ input[type="checkbox"].lg-multi-cb {
 .inc-capture-panel.hidden { transform: translateX(100%); pointer-events: none; }
 .inc-capture-panel.open   { transform: translateX(0); pointer-events: auto; }
 /* El panel de Registro de asistencia contiene un mini-calendario de 7 días
-   × N empleados: le damos más ancho para verlo completo sin scroll. */
-#asist-form-panel { max-width: 1080px; }
+   × N empleados. Ancho justo = 240 (col Personal) + 7×64 (cols día) + 32
+   (padding del form) = 720px. Sin scroll horizontal ni espacio sobrante. */
+#asist-form-panel { max-width: 726px; }
 .inc-capture-header {
   display: flex;
   justify-content: space-between;
