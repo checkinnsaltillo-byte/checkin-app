@@ -30804,7 +30804,7 @@ function asistCellHtml(row, col, dayIdx, editing) {
     </select>`;
   } else if (col === 'Concepto') {
     const opts = ASIST_PANEL_CONCEPTOS.map(c => c.k);
-    inner = `<select onchange="asistCellChange('${esc(id)}','${esc(col)}',this.value)" style="${inputCss}">
+    inner = `<select onchange="asistConceptoChange('${esc(id)}',this.value)" style="${inputCss}">
       <option value="">—</option>
       ${opts.map(o => `<option value="${esc(o)}"${o===v?' selected':''}>${esc(o)}</option>`).join('')}
     </select>`;
@@ -30857,6 +30857,25 @@ window.asistToggleRowEdit = function (id) {
 // Cambia Entrada/Salida en un renglón (campo directo del row), recalcula
 // Horas y marca la fila como dirty. Re-renderiza la tabla para que el nuevo
 // valor de Horas aparezca inmediatamente.
+// Cambia el Concepto en un renglón y también las 4 columnas de dinero
+// derivadas ($ Salario base, primas) + $ Salario total, que se recalculan
+// al vuelo al re-render.
+window.asistConceptoChange = function (id, value) {
+  const r = ASIST_STATE.rows.find(x => String(x.ID||'') === String(id));
+  if (!r) return;
+  r.Concepto = value;
+  const p = asistPanelPrimasPorConcepto_(value);
+  const fmt = v => v === '' ? '' : asistPanelFmtMonto_(v);
+  r['$ Salario base']             = fmt(p.salBase);
+  r['$ Prima vacacional (25%)']   = fmt(p.primaVac);
+  r['$ Prima dominical (25%)']    = fmt(p.primaDom);
+  r['$ Prima día feriado (200%)'] = fmt(p.primaDF);
+  const total = ['salBase','primaVac','primaDom','primaDF'].reduce((s,k) => s + (typeof p[k] === 'number' ? p[k] : 0), 0);
+  r['$ Salario total'] = total ? asistPanelFmtMonto_(total) : '';
+  ASIST_STATE.dirty.add(id);
+  asistRenderTabla();
+};
+
 window.asistEntradaSalidaChange = function (id, col, value) {
   const r = ASIST_STATE.rows.find(x => String(x.ID||'') === String(id));
   if (!r) return;
