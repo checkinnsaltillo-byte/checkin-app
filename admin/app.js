@@ -30750,10 +30750,11 @@ function asistCellValue(row, col, dayIdx) {
     const nombre = String(row.Empleado_Nombre||'').trim();
     const fecha  = String(row.Fecha||'').slice(0,10);
     const d = dayIdx.get(`${nombre}|${fecha}`);
-    // Fallback: si el sheet trae Entrada/Salida/Horas como campos directos
     const legacy = String(row[col] || '');
-    if (col === 'Entrada') return (d?.entrada || legacy || '').slice(0,5);
-    if (col === 'Salida')  return (d?.salida  || legacy || '').slice(0,5);
+    // Normaliza "H:MM" → "HH:MM" (input type=time exige 2 dígitos de hora).
+    const norm = s => { const m = String(s||'').match(/^(\d{1,2}):(\d{2})/); return m ? String(m[1]).padStart(2,'0') + ':' + m[2] : ''; };
+    if (col === 'Entrada') return norm(d?.entrada || legacy);
+    if (col === 'Salida')  return norm(d?.salida  || legacy);
     if (col === 'Horas')   return d?.horas || legacy || '';
   }
   if (ASIST_PRIMA_COLS.includes(col)) {
