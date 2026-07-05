@@ -30557,25 +30557,139 @@ function asistInit() {
 }
 window.asistInit = asistInit;
 
-// ── Visualización Tabla / Calendario ──
+// ── Visualización Tabla / Calendario / Resumen semanal ──
 window.asistSetVis = function (vis) {
   ASIST_STATE.vis = vis;
   const btnT = document.getElementById('asist-vis-tabla');
   const btnC = document.getElementById('asist-vis-calendario');
+  const btnR = document.getElementById('asist-vis-resumen');
   const wrapT = document.getElementById('asist-tabla-wrap');
   const wrapC = document.getElementById('asist-cal-wrap');
+  const wrapR = document.getElementById('asist-resumen-wrap');
   const tbC   = document.getElementById('asist-cal-toolbar');
   const editWrap = document.getElementById('asist-editar-wrap');
   const on  = 'all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;box-shadow:0 2px 6px rgba(79,70,229,.30)';
   const off = 'all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b';
   if (btnT) btnT.setAttribute('style', vis === 'tabla' ? on : off);
   if (btnC) btnC.setAttribute('style', vis === 'calendario' ? on : off);
+  if (btnR) btnR.setAttribute('style', vis === 'resumen' ? on : off);
   if (wrapT) wrapT.classList.toggle('hidden', vis !== 'tabla');
   if (wrapC) wrapC.classList.toggle('hidden', vis !== 'calendario');
+  if (wrapR) wrapR.classList.toggle('hidden', vis !== 'resumen');
   if (tbC)   tbC.classList.toggle('hidden', vis !== 'calendario');
   // Editar aplica solo a la tabla
   if (editWrap) editWrap.style.display = vis === 'tabla' ? '' : 'none';
   if (vis === 'calendario') asistRenderCalendar();
+  if (vis === 'resumen') asistRenderResumen();
+};
+
+/** Vista "Resumen semanal": agrega (Empleado_Nombre × Semana Lun-Dom)
+ *  sumando Horas y las 5 columnas monetarias derivadas por concepto. */
+function asistRenderResumen() {
+  const wrap = document.getElementById('asist-resumen-wrap');
+  if (!wrap) return;
+  const parseHoras = s => {
+    const m = String(s||'').match(/^(\d+)h(\d{2})/);
+    return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
+  };
+  const fmtHoras = mins => mins ? `${Math.floor(mins/60)}h${String(mins%60).padStart(2,'0')}` : '';
+  const parseMonto = s => {
+    const n = Number(String(s||'').replace(/[$,\s]/g,''));
+    return Number.isFinite(n) ? n : 0;
+  };
+  // Semana ISO: lunes como inicio. Devuelve `{value, label}` compatible con nomWeekOptions.
+  const weekOf = (isoDate) => {
+    const [y,m,d] = isoDate.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    const dow = dt.getDay(); // 0=dom
+    const lun = new Date(dt); lun.setDate(dt.getDate() - ((dow + 6) % 7));
+    const dom = new Date(lun); dom.setDate(lun.getDate() + 6);
+    const iso = x => `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+    const value = `S:${iso(lun)}_${iso(dom)}`;
+    const M = (typeof NOM_MONTHS_ABR !== 'undefined') ? NOM_MONTHS_ABR : ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const label = `Lun ${lun.getDate()} ${M[lun.getMonth()]} – Dom ${dom.getDate()} ${M[dom.getMonth()]} ${dom.getFullYear()}`;
+    return { value, label, lun };
+  };
+  // Agrega
+  const grupos = new Map();
+  for (const r of ASIST_STATE.rows) {
+    const nombre = String(r.Empleado_Nombre||'').trim();
+    const fecha  = String(r.Fecha||'').slice(0,10);
+    if (!nombre || !fecha) continue;
+    const w = weekOf(fecha);
+    const k = `${nombre}||${w.value}`;
+    let g = grupos.get(k);
+    if (!g) { g = { nombre, semana: w, horas:0, base:0, vac:0, dom:0, df:0, total:0, ids:[] }; grupos.set(k, g); }
+    g.horas += parseHoras(r.Horas);
+    g.base  += parseMonto(r['$ Salario base']);
+    g.vac   += parseMonto(r['$ Prima vacacional (25%)']);
+    g.dom   += parseMonto(r['$ Prima dominical (25%)']);
+    g.df    += parseMonto(r['$ Prima día feriado (200%)']);
+    g.total += parseMonto(r['$ Salario total']);
+    g.ids.push(String(r.ID||''));
+  }
+  const rows = Array.from(grupos.values())
+    .sort((a,b) => (b.semana.lun - a.semana.lun) || a.nombre.localeCompare(b.nombre,'es'));
+  if (!rows.length) {
+    wrap.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">Sin registros aún.</div>`;
+    return;
+  }
+  const th = h => `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">${h}</th>`;
+  const thNum = h => `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 10px;text-align:right;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">${h}</th>`;
+  const thAcc = `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 8px;text-align:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;width:80px">Acciones</th>`;
+  const td = v => `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap;color:#334155">${esc(v)}</td>`;
+  const tdNum = v => `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap;color:#0f172a;text-align:right;font-weight:700">${esc(v)}</td>`;
+  const tdAcc = ids => {
+    const btnStyle = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;font-weight:800;font-size:11px;line-height:1;cursor:pointer;border:1px solid';
+    const jump = `<button type="button" title="Ver renglones agregados en la tabla" onclick="asistResumenIrATabla('${ids.join(',')}')" style="${btnStyle} #93c5fd;background:#dbeafe;color:#1d4ed8">↗</button>`;
+    const del  = `<button type="button" title="Eliminar todos los renglones de este grupo" onclick="asistResumenEliminarGrupo('${ids.join(',')}')" style="${btnStyle} #fecaca;background:#fee2e2;color:#b91c1c">✕</button>`;
+    return `<td style="padding:2px 4px;text-align:center;vertical-align:middle;border-bottom:1px solid #f1f5f9"><div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${jump}${del}</div></td>`;
+  };
+  const fmt = n => n ? asistPanelFmtMonto_(n) : '';
+  const body = rows.map(g => `<tr>
+    ${tdAcc(g.ids)}
+    ${td(g.nombre)}
+    ${td(g.semana.label)}
+    ${tdNum(fmtHoras(g.horas))}
+    ${tdNum(fmt(g.base))}
+    ${tdNum(fmt(g.vac))}
+    ${tdNum(fmt(g.dom))}
+    ${tdNum(fmt(g.df))}
+    ${tdNum(fmt(g.total))}
+  </tr>`).join('');
+  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr>
+    ${thAcc}${th('Empleado_Nombre')}${th('Semana')}${thNum('Horas')}${thNum('$ Salario base')}${thNum('$ Prima vacacional (25%)')}${thNum('$ Prima dominical (25%)')}${thNum('$ Prima día feriado (200%)')}${thNum('$ Salario total')}
+  </tr></thead><tbody>${body}</tbody></table>`;
+}
+window.asistRenderResumen = asistRenderResumen;
+
+// Acciones del resumen: saltar a la tabla filtrando los IDs, o borrar el grupo.
+window.asistResumenIrATabla = function (idsCsv) {
+  const ids = new Set(idsCsv.split(','));
+  asistSetVis('tabla');
+  const tbody = document.querySelector('#asist-tabla-wrap tbody');
+  if (!tbody) return;
+  const first = Array.from(tbody.querySelectorAll('tr')).find(tr => ids.has(tr.dataset.asistId));
+  if (first) first.scrollIntoView({ block:'center' });
+};
+
+window.asistResumenEliminarGrupo = async function (idsCsv) {
+  const ids = idsCsv.split(',').filter(Boolean);
+  if (!ids.length) return;
+  if (!confirm(`¿Eliminar los ${ids.length} registros de este grupo? No se puede deshacer.`)) return;
+  asistStatusTabla('⏳ Eliminando…');
+  let ok = 0, err = 0;
+  for (const id of ids) {
+    try {
+      const res = await fetch(`${BACKEND}/rh/asistencia/${encodeURIComponent(id)}`, { method:'DELETE' });
+      const j = await res.json();
+      if (j.ok) ok++; else err++;
+    } catch { err++; }
+  }
+  asistStatusTabla(err ? `✓ ${ok} eliminados, ✗ ${err} con error` : `✓ ${ok} eliminados`);
+  setTimeout(() => asistStatusTabla(''), 2500);
+  await asistReloadList();
+  asistRenderResumen();
 };
 
 // ── Modo Seleccionar — estilo idéntico a Guías: chip con span palomita 18x18 ──

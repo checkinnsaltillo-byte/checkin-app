@@ -2103,6 +2103,7 @@
             <div style="display:inline-flex;background:#f1f5f9;padding:3px;border-radius:9px;gap:2px">
               <button type="button" id="asist-vis-tabla" onclick="asistSetVis('tabla')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;box-shadow:0 2px 6px rgba(79,70,229,.30)">📋 Tabla</button>
               <button type="button" id="asist-vis-calendario" onclick="asistSetVis('calendario')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b">📅 Calendario</button>
+              <button type="button" id="asist-vis-resumen" onclick="asistSetVis('resumen')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b">📊 Resumen semanal</button>
             </div>
             <div id="asist-btn-seleccionar" onclick="asistToggleSeleccionar()"
                  style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;padding:7px 12px;border-radius:8px;background:#f1f5f9;color:#475569;font-weight:700;font-size:12px;user-select:none">
@@ -2125,6 +2126,7 @@
           </div>
           <div id="asist-cal-toolbar" class="hidden" style="margin-bottom:10px"></div>
           <div id="asist-cal-wrap" class="hidden ocup-cal-container" style="margin-top:0;padding:0"></div>
+          <div id="asist-resumen-wrap" class="hidden" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:auto;max-height:70vh"></div>
         </div>
 
         <!-- Slide-in panel: Nuevo registro de asistencia -->
@@ -2333,6 +2335,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=600"></script>
+  <script src="app.js?v=601"></script>
 </body>
 </html>
