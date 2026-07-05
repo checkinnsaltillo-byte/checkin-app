@@ -31673,6 +31673,7 @@ window.asistGuardarRegistro = async function () {
         '$ Prima vacacional (25%)':   fmt(p.primaVac),
         '$ Prima dominical (25%)':    fmt(p.primaDom),
         '$ Prima día feriado (200%)': fmt(p.primaDF),
+        '$ Salario total':            (() => { const t = ['salBase','primaVac','primaDom','primaDF'].reduce((s,k) => s + (typeof p[k] === 'number' ? p[k] : 0), 0); return t ? asistPanelFmtMonto_(t) : ''; })(),
         Metodo: 'Manual',
         Observaciones: '',
       };
