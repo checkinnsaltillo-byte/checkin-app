@@ -6470,3 +6470,7 @@ input.bn-efe-chk[type="checkbox"], input.bn-up-chk[type="checkbox"]:checked::aft
 /* ─── Ocupación · Calendario: primera columna semi-transparente ─── */
 .ocup-aloj-cell { opacity: .55; }
 .ocup-head-aloj { opacity: .55; }
+
+/* Asistencias reutiliza .ocup-cal pero muestra la columna "Personal" al 100% */
+[data-asist-cal="continuous"] .ocup-aloj-cell,
+[data-asist-cal="continuous"] .ocup-head-aloj { opacity: 1; }

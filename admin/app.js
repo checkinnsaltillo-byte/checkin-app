@@ -30504,10 +30504,16 @@ function asistDeriveDayInfo(recs, date, today) {
 
 function asistInit() {
   // Precarga lista de Personal si aún no está en memoria
-  if (typeof incLoadPersonal === 'function' && (!INC_STATE?.personasFromSheet || !INC_STATE?.personas?.length)) {
-    incLoadPersonal().then(() => asistPopulateEmpleadoSelect()).catch(() => asistPopulateEmpleadoSelect());
-  } else {
+  const afterPersonal = () => {
     asistPopulateEmpleadoSelect();
+    // Si el calendario ya está montado con el fallback (sin Puestos), rehazlo
+    // con la lista filtrada de personalRows (sin administrativos).
+    if (ASIST_STATE.vis === 'calendario') asistRenderCalendar();
+  };
+  if (typeof incLoadPersonal === 'function' && (!INC_STATE?.personalRows?.length)) {
+    incLoadPersonal().then(afterPersonal).catch(afterPersonal);
+  } else {
+    afterPersonal();
   }
   // Carga la tabla al entrar (única vista al ingresar a la sección)
   if (!ASIST_STATE.loaded && !ASIST_STATE.loading) {
