@@ -31232,10 +31232,8 @@ window.asistNuevoRegistro = function () {
   const sel = document.getElementById('asist-panel-semana');
   if (sel) sel.innerHTML = weekOpts.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('');
   const semana = weekOpts[0]?.value || '';
-  ASIST_STATE.panel = { semana, celdas: new Map(), conceptosActivos: new Set(['Asistencia']) };
+  ASIST_STATE.panel = { semana, celdas: new Map() };
   if (sel) sel.value = semana;
-  asistPanelRenderConceptoMenu();
-  asistPanelUpdateConceptoLabel();
   const status = document.getElementById('asist-status');
   if (status) status.textContent = '';
   const btn = document.getElementById('asist-btn-guardar');
@@ -31244,9 +31242,8 @@ window.asistNuevoRegistro = function () {
 };
 
 function asistPanelState_() {
-  if (!ASIST_STATE.panel) ASIST_STATE.panel = { semana:'', celdas:new Map(), conceptosActivos:new Set(['Asistencia']) };
+  if (!ASIST_STATE.panel) ASIST_STATE.panel = { semana:'', celdas:new Map() };
   if (!(ASIST_STATE.panel.celdas instanceof Map)) ASIST_STATE.panel.celdas = new Map();
-  if (!(ASIST_STATE.panel.conceptosActivos instanceof Set)) ASIST_STATE.panel.conceptosActivos = new Set(['Asistencia']);
   return ASIST_STATE.panel;
 }
 
@@ -31258,76 +31255,71 @@ window.asistPanelSetSemana = function (val) {
   asistPanelRender();
 };
 
-// Click en celda: si la celda ya coincide con los conceptos activos, la limpia.
-// Si no, asigna una copia de los conceptos activos actuales.
-window.asistPanelToggleCell = function (nombre, iso) {
+// Menú por-celda: alterna un concepto en la celda dada. Múltiples conceptos
+// en una misma celda se apilan y se pintan como franjas horizontales.
+window.asistPanelCellToggleConcepto = function (nombre, iso, concepto, ev) {
+  if (ev) ev.stopPropagation();
   const st = asistPanelState_();
   const k = `${nombre}|${iso}`;
-  const activos = Array.from(st.conceptosActivos);
-  const cur = st.celdas.get(k);
-  const same = cur && cur.size === activos.length && activos.every(c => cur.has(c));
-  if (same) st.celdas.delete(k);
-  else st.celdas.set(k, new Set(activos));
+  const cur = st.celdas.get(k) || new Set();
+  if (cur.has(concepto)) cur.delete(concepto);
+  else cur.add(concepto);
+  if (cur.size) st.celdas.set(k, cur);
+  else st.celdas.delete(k);
   st._userTouched = true;
   asistPanelRender();
+  asistPanelOpenCellMenu(nombre, iso);
 };
 
-window.asistPanelToggleConceptoMenu = function (ev) {
-  ev && ev.stopPropagation();
-  const m = document.getElementById('asist-panel-concepto-menu');
-  if (!m) return;
-  m.classList.toggle('hidden');
-  if (!m.classList.contains('hidden')) {
-    setTimeout(() => document.addEventListener('click', asistPanelCloseConceptoOnOutside_, { once:true }), 0);
+// Popover con checkboxes de conceptos para una celda concreta. Se posiciona
+// absolutamente sobre la celda.
+window.asistPanelOpenCellMenu = function (nombre, iso, ev) {
+  if (ev) ev.stopPropagation();
+  const cont = document.getElementById('asist-panel-cal-wrap');
+  if (!cont) return;
+  const cell = cont.querySelector(`[data-cell-key="${CSS.escape(`${nombre}|${iso}`)}"]`);
+  if (!cell) return;
+  let m = document.getElementById('asist-panel-cell-menu');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'asist-panel-cell-menu';
+    m.style.cssText = 'position:absolute;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 20px rgba(15,23,42,.18);z-index:20;padding:6px;min-width:160px';
+    cont.appendChild(m);
   }
-};
-function asistPanelCloseConceptoOnOutside_(ev) {
-  const m = document.getElementById('asist-panel-concepto-menu');
-  const btn = document.getElementById('asist-panel-concepto-btn');
-  if (m && !m.contains(ev.target) && !btn.contains(ev.target)) m.classList.add('hidden');
-  else document.addEventListener('click', asistPanelCloseConceptoOnOutside_, { once:true });
-}
-
-window.asistPanelToggleConcepto = function (k) {
   const st = asistPanelState_();
-  if (st.conceptosActivos.has(k)) st.conceptosActivos.delete(k);
-  else st.conceptosActivos.add(k);
-  asistPanelRenderConceptoMenu();
-  asistPanelUpdateConceptoLabel();
-};
-
-function asistPanelRenderConceptoMenu() {
-  const m = document.getElementById('asist-panel-concepto-menu');
-  if (!m) return;
-  const st = asistPanelState_();
+  const cur = st.celdas.get(`${nombre}|${iso}`) || new Set();
   m.innerHTML = ASIST_PANEL_CONCEPTOS.map(c => {
-    const sel = st.conceptosActivos.has(c.k);
-    return `<div onclick="event.stopPropagation();asistPanelToggleConcepto('${c.k}')"
+    const sel = cur.has(c.k);
+    return `<div onclick="event.stopPropagation();asistPanelCellToggleConcepto('${esc(nombre).replace(/'/g,"\\'")}','${iso}','${c.k}')"
       style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;user-select:none">
       <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid ${sel?c.color:'#cbd5e1'};background:${sel?c.color:'#fff'};color:#fff;font-size:12px;font-weight:900;flex-shrink:0;line-height:1">${sel?'✓':''}</span>
       <span style="width:10px;height:10px;border-radius:2px;background:${c.color};flex-shrink:0"></span>
       <span style="font-size:12px;font-weight:700;color:#0f172a">${c.k}</span>
     </div>`;
   }).join('');
+  const contRect = cont.getBoundingClientRect();
+  const cellRect = cell.getBoundingClientRect();
+  m.style.left = `${cellRect.left - contRect.left + cont.scrollLeft}px`;
+  m.style.top  = `${cellRect.bottom - contRect.top + cont.scrollTop + 2}px`;
+  setTimeout(() => document.addEventListener('click', asistPanelCloseCellMenu_, { once:true }), 0);
+};
+function asistPanelCloseCellMenu_(ev) {
+  const m = document.getElementById('asist-panel-cell-menu');
+  if (!m) return;
+  if (m.contains(ev.target)) { document.addEventListener('click', asistPanelCloseCellMenu_, { once:true }); return; }
+  m.remove();
 }
 
-function asistPanelUpdateConceptoLabel() {
-  const lbl = document.getElementById('asist-panel-concepto-label');
-  if (!lbl) return;
-  const st = asistPanelState_();
-  const arr = Array.from(st.conceptosActivos);
-  lbl.textContent = arr.length ? arr.join(', ') : '— ninguno —';
-}
-
-/** Devuelve el background (color sólido o gradient) para un set de conceptos. */
+/** Devuelve el background (color sólido o gradient horizontal) para un set de
+ *  conceptos. Franjas horizontales = gradient top→bottom. */
 function asistPanelBgFor_(conceptos) {
   const arr = Array.from(conceptos || []);
   if (!arr.length) return '';
   const cols = arr.map(k => ASIST_PANEL_CONCEPTO_COLOR[k]).filter(Boolean);
-  if (cols.length === 1) return cols[0] + '33'; // ~20% alpha para pastel
+  if (cols.length === 1) return cols[0] + '33';
   const n = cols.length;
   const stops = cols.map((c, i) => `${c}55 ${(i*100/n).toFixed(1)}%, ${c}55 ${((i+1)*100/n).toFixed(1)}%`).join(', ');
-  return `linear-gradient(to right, ${stops})`;
+  return `linear-gradient(to bottom, ${stops})`;
 }
 
 /** Devuelve la franja izquierda (semáforo) — usa el primer color del set. */
@@ -31402,9 +31394,10 @@ function asistPanelRender() {
         ? Array.from(conceptos).map(k => `<span style="font-size:8.5px;font-weight:900;color:#0f172a;padding:0 3px">${abbr[k]||k[0]}</span>`).join('')
         : '';
       html += `<div class="ocup-day-cell ${isWeekend?'is-weekend':''}"
+        data-cell-key="${esc(nombre)}|${iso}"
         style="${bg}${sem}cursor:pointer"
-        onclick="asistPanelToggleCell('${esc(nombre).replace(/'/g,"\\'")}','${iso}')"
-        title="${conceptos?Array.from(conceptos).join(' · '):''}">
+        onclick="asistPanelOpenCellMenu('${esc(nombre).replace(/'/g,"\\'")}','${iso}',event)"
+        title="${conceptos?Array.from(conceptos).join(' · '):'Click para seleccionar conceptos'}">
         <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;gap:1px">${inner}</div>
       </div>`;
     });
