@@ -25910,8 +25910,8 @@ window.rhObligacionUpload = async function (input, month, kind, empleadoId) {
 // ── Helpers UI ──
 function rhFmtMoney(n) {
   const v = Number(n || 0);
-  try { return new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN', maximumFractionDigits:0 }).format(v); }
-  catch (_) { return '$' + Math.round(v).toLocaleString('es-MX'); }
+  try { return new Intl.NumberFormat('es-MX', { style:'currency', currency:'MXN', minimumFractionDigits:2, maximumFractionDigits:2 }).format(v); }
+  catch (_) { return '$' + v.toLocaleString('es-MX', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
 }
 function rhEmpleadoNombre(id) {
   const e = (RH_STATE.empleados || []).find(x => String(x.ID) === String(id));
@@ -26727,7 +26727,7 @@ function nomRenderPagoSemRows() {
     const pagBg = r.pagado ? '#16a34a' : '#e2e8f0';
     const pagFg = r.pagado ? '#fff'    : '#475569';
     const pagBd = r.pagado ? '#15803d' : '#cbd5e1';
-    const pagTxt = r.pagado ? '✓ Pagado' : 'Pendiente';
+    const pagTxt = r.pagado ? 'Pagado' : 'Pendiente';
     return `<tr data-idx="${i}">
       <td><button type="button" class="nom-conc-del" onclick="nomPagoSemDelRow(${i})" title="Quitar renglón">✕</button></td>
       <td><input type="text" value="${esc(r.nombre)}" oninput="nomPagoSemSet(${i},'nombre',this.value)" style="min-width:200px"></td>
@@ -27124,7 +27124,7 @@ async function nomSave() {
         Metodo_pago: r.metodoPago || 'Transferencia bancaria',
         Fecha_pago: r.fechaPago || st.fechaPago || '',
         Estado_pago: r.pagado ? 'Pagado' : 'Pendiente',
-        Comentarios: `Horas: ${r.horasMin ? Math.floor(r.horasMin/60)+'h'+String(r.horasMin%60).padStart(2,'0') : '—'} · Base: ${asistPanelFmtMonto_(r.base||0)} · PVac: ${asistPanelFmtMonto_(r.vac||0)} · PDom: ${asistPanelFmtMonto_(r.dom||0)} · PDF: ${asistPanelFmtMonto_(r.df||0)}`,
+        Comentarios: '',
       });
     });
   } else {
