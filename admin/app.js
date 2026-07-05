@@ -30491,10 +30491,15 @@ function asistDeriveDayInfo(recs, date, today) {
   if (hasVac) return { entrada:entradaStr, salida:salidaStr, horasStr, estado:'vacaciones', semaforo:'#f59e0b' };
   if (hasAsueto) return { entrada:entradaStr, salida:salidaStr, horasStr, estado:'asueto', semaforo:'#f59e0b' };
   if (entradaMin != null) return { entrada:entradaStr, salida:salidaStr, horasStr, estado:'asistencia', semaforo:'#16a34a' };
-  // Sin registros: si es futuro o finde, sin semáforo; si es laboral pasado, rojo
-  if (isFuture) return { entrada:'', salida:'', horasStr:'', estado:'futuro', semaforo:'' };
-  if (isWeekend) return { entrada:'', salida:'', horasStr:'', estado:'finde', semaforo:'' };
-  return { entrada:'', salida:'', horasStr:'', estado:'falta', semaforo:'#dc2626' };
+  // Sin registros en la hoja RH_Asistencia → celda vacía, sin semáforo.
+  // "Falta" solo si existe un registro con Tipo=falta (revisar recs arriba)
+  // — nunca inferir por ausencia.
+  for (const r of recs) {
+    if (String(r.Tipo || '').toLowerCase() === 'falta') {
+      return { entrada:'', salida:'', horasStr:'', estado:'falta', semaforo:'#dc2626' };
+    }
+  }
+  return { entrada:'', salida:'', horasStr:'', estado:'', semaforo:'' };
 }
 
 function asistInit() {
