@@ -31048,18 +31048,24 @@ function asistRenderCalendar() {
   html += `</div>`;
   cont.innerHTML = html;
 
-  // Auto-scroll: si hay "hoy" visible, centra hoy; si no, muestra primer día del mes
-  setTimeout(() => asistCalCenterOnToday_(cont, rangeStart, month), 40);
+  // Auto-scroll: usa el modo pedido (default = mes seleccionado).
+  //   'month' → centra el primer día del calMonth (usado por navegación con flechas)
+  //   'today' → centra hoy (usado por botón "Ir a hoy")
+  //   'week'  → ya maneja asistCalGoToWeek su propio scroll aparte
+  const focusMode = ASIST_STATE._focusMode || 'month';
+  ASIST_STATE._focusMode = null; // reset después de usarlo
+  setTimeout(() => asistCalCenterOnMonthOrToday_(cont, rangeStart, month, focusMode), 40);
 }
 
-/** Centra el día de hoy en el viewport del calendario (o el primer día del
- *  mes visible si hoy está fuera del rango). */
-function asistCalCenterOnToday_(cont, rangeStart, month) {
+/** Centra en el viewport un día del calendario según el modo:
+ *   - 'today' : hoy (si está en rango)
+ *   - 'month' : primer día del mes visible (default) */
+function asistCalCenterOnMonthOrToday_(cont, rangeStart, month, mode) {
   if (!cont) return;
   const today = new Date(); today.setHours(0,0,0,0);
   const todayIdx = Math.round((today - rangeStart) / 86400000);
   let target = null;
-  if (todayIdx >= 0) target = cont.querySelector(`[data-day-idx="${todayIdx}"]`);
+  if (mode === 'today' && todayIdx >= 0) target = cont.querySelector(`[data-day-idx="${todayIdx}"]`);
   if (!target) {
     const monthIdx = Math.round((month - rangeStart) / 86400000);
     target = cont.querySelector(`[data-day-idx="${monthIdx}"]`);
@@ -31076,7 +31082,8 @@ function asistCalCenterOnToday_(cont, rangeStart, month) {
   const currentScroll = scroller.scrollLeft;
   const offsetInScr = targetRect.left - scrRect.left + currentScroll;
   const desired = offsetInScr - (scrRect.width / 2) + (targetRect.width / 2);
-  scroller.scrollTo({ left: Math.max(0, desired), behavior: 'smooth' });
+  const behavior = (mode === 'today') ? 'smooth' : 'auto';
+  scroller.scrollTo({ left: Math.max(0, desired), behavior });
 }
 
 window.asistCalNav = function (delta) {
@@ -31089,6 +31096,7 @@ window.asistCalHoy = function () {
   const t = new Date();
   ASIST_STATE.calMonth = new Date(t.getFullYear(), t.getMonth(), 1);
   ASIST_STATE.selWeek = '';
+  ASIST_STATE._focusMode = 'today';
   asistRenderCalendar();
 };
 
