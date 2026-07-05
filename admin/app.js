@@ -30520,6 +30520,7 @@ window.asistSetVis = function (vis) {
   const btnC = document.getElementById('asist-vis-calendario');
   const wrapT = document.getElementById('asist-tabla-wrap');
   const wrapC = document.getElementById('asist-cal-wrap');
+  const tbC   = document.getElementById('asist-cal-toolbar');
   const editWrap = document.getElementById('asist-editar-wrap');
   const on  = 'all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;box-shadow:0 2px 6px rgba(79,70,229,.30)';
   const off = 'all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b';
@@ -30527,6 +30528,7 @@ window.asistSetVis = function (vis) {
   if (btnC) btnC.setAttribute('style', vis === 'calendario' ? on : off);
   if (wrapT) wrapT.classList.toggle('hidden', vis !== 'tabla');
   if (wrapC) wrapC.classList.toggle('hidden', vis !== 'calendario');
+  if (tbC)   tbC.classList.toggle('hidden', vis !== 'calendario');
   // Editar aplica solo a la tabla
   if (editWrap) editWrap.style.display = vis === 'tabla' ? '' : 'none';
   if (vis === 'calendario') asistRenderCalendar();
@@ -30941,19 +30943,43 @@ function asistRenderCalendar() {
     idx.get(k).push(r);
   }
 
-  let html = `<div style="display:flex;gap:8px;align-items:center;margin:0 0 10px;flex-wrap:wrap">
-    <button type="button" onclick="asistCalNav(-1)" style="all:unset;cursor:pointer;padding:6px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;color:#334155">←</button>
-    <div style="font-weight:900;font-size:14px;color:#0f172a;min-width:170px;text-align:center">${OCUP_MESES[m0]} ${y0}</div>
-    <button type="button" onclick="asistCalNav(1)"  style="all:unset;cursor:pointer;padding:6px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;color:#334155">→</button>
-    <button type="button" onclick="asistCalHoy()"   style="all:unset;cursor:pointer;padding:7px 14px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border-radius:8px;font-weight:900;margin-left:6px;box-shadow:0 3px 8px rgba(14,165,233,.35)">📅 Ir a hoy</button>
-    <div style="margin-left:auto;font-size:11px;color:#475569;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 1px #fff,0 0 0 2px #16a34a"></span> asistencia</span>
-      <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 1px #fff,0 0 0 2px #f59e0b"></span> vacaciones/asueto</span>
-      <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 1px #fff,0 0 0 2px #dc2626"></span> falta</span>
-    </div>
-  </div>`;
+  // Toolbar renderiza en un contenedor SEPARADO (arriba del calendario, no
+  // dentro de la tabla) para no chocar con el header sticky de la grid.
+  const toolbar = document.getElementById('asist-cal-toolbar');
+  if (toolbar) {
+    toolbar.classList.remove('hidden');
+    const weekOpts = (typeof nomWeekOptions === 'function') ? nomWeekOptions() : [];
+    // Marca la semana que contiene TODAY como default (si no hay una previamente seleccionada)
+    let selWeekValue = ASIST_STATE.selWeek || '';
+    if (!selWeekValue && weekOpts.length) {
+      // primera opción (más reciente) es la semana en curso
+      selWeekValue = weekOpts[0]?.value || '';
+    }
+    toolbar.innerHTML = `
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px">
+        <button type="button" onclick="asistCalNav(-1)" title="Mes anterior"
+                style="all:unset;cursor:pointer;padding:6px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;color:#334155">←</button>
+        <div style="font-weight:900;font-size:14px;color:#0f172a;min-width:150px;text-align:center">${OCUP_MESES[m0]} ${y0}</div>
+        <button type="button" onclick="asistCalNav(1)" title="Mes siguiente"
+                style="all:unset;cursor:pointer;padding:6px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;color:#334155">→</button>
+        <button type="button" onclick="asistCalHoy()"
+                style="all:unset;cursor:pointer;padding:7px 14px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border-radius:8px;font-weight:900;box-shadow:0 3px 8px rgba(14,165,233,.35)">📅 Ir a hoy</button>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#475569;font-weight:700">
+          <span style="text-transform:uppercase;letter-spacing:.06em">Semana:</span>
+          <select onchange="asistCalGoToWeek(this.value)"
+                  style="padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;color:#0f172a;background:#fff;cursor:pointer;min-width:220px">
+            ${weekOpts.map(o => `<option value="${esc(o.value)}"${o.value===selWeekValue?' selected':''}>${esc(o.label)}</option>`).join('')}
+          </select>
+        </label>
+        <div style="margin-left:auto;font-size:11px;color:#475569;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 1px #fff,0 0 0 2px #16a34a"></span> asistencia</span>
+          <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 1px #fff,0 0 0 2px #f59e0b"></span> vacaciones/asueto</span>
+          <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 1px #fff,0 0 0 2px #dc2626"></span> falta</span>
+        </div>
+      </div>`;
+  }
 
-  html += `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:${totalDays}">`;
+  let html = `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:${totalDays}">`;
   html += `<div class="ocup-cal-head"><div class="ocup-head-aloj">👥 Personal · ${personas.length}</div>`;
   let todayIdx = -1;
   for (let i = 0; i < totalDays; i++) {
@@ -31039,28 +31065,73 @@ function asistCalCenterOnToday_(cont, rangeStart, month) {
     target = cont.querySelector(`[data-day-idx="${monthIdx}"]`);
   }
   if (!target) return;
-  // El contenedor scrolleable es .ocup-cal (overflow-x). Manualmente calcula
-  // para centrar (scrollIntoView block:'nearest' + inline:'center' no siempre
-  // centra bien cuando el header sticky influye).
-  const cal = cont.querySelector('.ocup-cal') || target.parentElement;
-  if (!cal || !cal.scrollTo) { target.scrollIntoView({ inline:'center', block:'nearest' }); return; }
+  // El scroller horizontal es el CONTENEDOR (#asist-cal-wrap con overflow:auto);
+  // fallback a .ocup-cal si el contenedor no tiene scroll.
+  const scroller = (cont.scrollWidth > cont.clientWidth)
+    ? cont
+    : (cont.querySelector('.ocup-cal') || target.parentElement);
+  if (!scroller || !scroller.scrollTo) { target.scrollIntoView({ inline:'center', block:'nearest' }); return; }
   const targetRect = target.getBoundingClientRect();
-  const calRect = cal.getBoundingClientRect();
-  const currentScroll = cal.scrollLeft;
-  const offsetInCal = targetRect.left - calRect.left + currentScroll;
-  const desired = offsetInCal - (calRect.width / 2) + (targetRect.width / 2);
-  cal.scrollTo({ left: Math.max(0, desired), behavior: 'smooth' });
+  const scrRect = scroller.getBoundingClientRect();
+  const currentScroll = scroller.scrollLeft;
+  const offsetInScr = targetRect.left - scrRect.left + currentScroll;
+  const desired = offsetInScr - (scrRect.width / 2) + (targetRect.width / 2);
+  scroller.scrollTo({ left: Math.max(0, desired), behavior: 'smooth' });
 }
 
 window.asistCalNav = function (delta) {
   const m = ASIST_STATE.calMonth || new Date();
   ASIST_STATE.calMonth = new Date(m.getFullYear(), m.getMonth() + delta, 1);
+  ASIST_STATE.selWeek = '';
   asistRenderCalendar();
 };
 window.asistCalHoy = function () {
   const t = new Date();
   ASIST_STATE.calMonth = new Date(t.getFullYear(), t.getMonth(), 1);
+  ASIST_STATE.selWeek = '';
   asistRenderCalendar();
+};
+
+/** Salta a la semana seleccionada (value `S:YYYY-MM-DD_YYYY-MM-DD`) y centra
+ *  el viewport en el rango. Si la semana cae en otro mes, ajusta calMonth. */
+window.asistCalGoToWeek = function (weekValue) {
+  const m = String(weekValue||'').match(/^S:(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})$/);
+  if (!m) return;
+  ASIST_STATE.selWeek = weekValue;
+  const start = new Date(m[1] + 'T00:00:00');
+  const end   = new Date(m[2] + 'T00:00:00');
+  // Ajusta calMonth al mes del centro de la semana si no está en rango visible
+  const mid = new Date((start.getTime() + end.getTime()) / 2);
+  ASIST_STATE.calMonth = new Date(mid.getFullYear(), mid.getMonth(), 1);
+  asistRenderCalendar();
+  // Después del render, centra el viewport en el rango de la semana
+  setTimeout(() => {
+    const cont = document.getElementById('asist-cal-wrap');
+    if (!cont) return;
+    // Recalcula rangeStart tal como asistRenderCalendar
+    const y0 = ASIST_STATE.calMonth.getFullYear(), m0 = ASIST_STATE.calMonth.getMonth();
+    const MB = 2;
+    const rangeStart = new Date(y0, m0 - MB, 1);
+    const startIdx = Math.round((start - rangeStart) / 86400000);
+    const endIdx   = Math.round((end   - rangeStart) / 86400000);
+    if (startIdx < 0) return;
+    const startCell = cont.querySelector(`[data-day-idx="${startIdx}"]`);
+    const endCell   = cont.querySelector(`[data-day-idx="${endIdx}"]`);
+    // El scroller horizontal es el CONTENEDOR (#asist-cal-wrap con overflow:auto),
+    // no el `.ocup-cal` interior. Detectamos cuál tiene el scroll disponible.
+    const scroller = (cont.scrollWidth > cont.clientWidth)
+      ? cont
+      : cont.querySelector('.ocup-cal');
+    if (!startCell || !endCell || !scroller || !scroller.scrollTo) return;
+    const startRect = startCell.getBoundingClientRect();
+    const endRect   = endCell.getBoundingClientRect();
+    const scrRect   = scroller.getBoundingClientRect();
+    const currentScroll = scroller.scrollLeft;
+    const startOffset = startRect.left - scrRect.left + currentScroll;
+    const endOffset   = endRect.right  - scrRect.left + currentScroll;
+    const midOffset   = (startOffset + endOffset) / 2;
+    scroller.scrollTo({ left: Math.max(0, midOffset - scrRect.width / 2), behavior: 'smooth' });
+  }, 80);
 };
 window.asistCalClick = function (nombre, iso) {
   const recs = ASIST_STATE.rows.filter(r => String(r.Empleado_Nombre||'').trim() === nombre && String(r.Fecha||'').slice(0,10) === iso);
