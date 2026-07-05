@@ -31601,43 +31601,53 @@ window.asistGuardarRegistro = async function () {
   const btn = document.getElementById('asist-btn-guardar');
   if (!entradas.length) { alert('Marca al menos una celda.'); return; }
   btn.disabled = true;
-  const totalRegs = entradas.reduce((n,[,cs]) => n + Array.from(cs).reduce((m,c) => m + (c==='Asistencia'?2:1), 0), 0);
+  // Un registro por par (empleado, día, concepto). Cada uno lleva TODOS los
+  // campos derivados (Entrada/Salida/Horas + primas) para que el sheet quede
+  // completo sin cálculos posteriores.
+  const totalRegs = entradas.reduce((n,[,cs]) => n + cs.size, 0);
   if (status) { status.style.color = '#64748b'; status.textContent = `⏳ Guardando ${totalRegs} registro(s)…`; }
   const empDict = new Map();
   (INC_STATE?.personalRows || []).forEach(r => {
     const n = String(r.Nombre||'').trim();
-    if (n) empDict.set(n, { entrada: String(r.Hora_entrada||'08:00').slice(0,5), salida: String(r.Hora_salida||'17:00').slice(0,5) });
+    if (n) empDict.set(n, { entrada: String(r.Hora_entrada||'08:30').slice(0,5), salida: String(r.Hora_salida||'13:30').slice(0,5) });
   });
-  // Mapa concepto → Tipo(s) que se envían a la hoja RH_Asistencia.
-  const conceptoTipos = {
-    'Asistencia':  ['Entrada','Salida'],
-    'Falta':       ['Falta'],
-    'Incapacidad': ['Incapacidad'],
-    'Vacaciones':  ['Vacaciones'],
-    'Día feriado': ['Asueto'],
+  const calcHoras = (ent, sal) => {
+    const e = asistParseTimeToMinutes(ent), s = asistParseTimeToMinutes(sal);
+    return (e != null && s != null && s > e) ? `${Math.floor((s-e)/60)}h${String((s-e)%60).padStart(2,'0')}` : '';
   };
   let okCount = 0, errCount = 0;
   for (const [k, conceptos] of entradas) {
     const [nombre, fecha] = k.split('|');
-    const horas = empDict.get(nombre) || { entrada:'08:00', salida:'17:00' };
+    const horas = empDict.get(nombre) || { entrada:'08:30', salida:'13:30' };
     for (const concepto of conceptos) {
-      const tipos = conceptoTipos[concepto] || ['Otro'];
-      for (const tipo of tipos) {
-        const hora = tipo === 'Entrada' ? horas.entrada : (tipo === 'Salida' ? horas.salida : '00:00');
-        try {
-          const res = await fetch(`${BACKEND}/rh/asistencia`, {
-            method:'POST', headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({ payload: {
-              Empleado_Nombre: nombre, Fecha: fecha, Hora: hora, Tipo: tipo,
-              Ubicacion_Lat:'', Ubicacion_Lng:'', GPS_Accuracy:'',
-              Metodo:'Manual', Observaciones: '',
-              Concepto: concepto,
-            } }),
-          });
-          const j = await res.json();
-          if (j.ok) okCount++; else errCount++;
-        } catch { errCount++; }
-      }
+      // Entrada/Salida solo aplican al concepto Asistencia. Los demás no ocupan
+      // horas por lo que se dejan en blanco (queda al usuario ajustar luego).
+      const entrada = (concepto === 'Asistencia') ? horas.entrada : '';
+      const salida  = (concepto === 'Asistencia') ? horas.salida  : '';
+      const horasStr = (concepto === 'Asistencia') ? calcHoras(entrada, salida) : '';
+      const base = asistPanelMontoDe_(concepto);
+      const payload = {
+        Empleado_Nombre: nombre,
+        Fecha: fecha,
+        Concepto: concepto,
+        Entrada: entrada,
+        Salida:  salida,
+        Horas:   horasStr,
+        '$ Salario base':             asistPanelFmtMonto_(base),
+        '$ Prima vacacional (25%)':   asistPanelFmtMonto_(base * 0.25),
+        '$ Prima dominical (25%)':    asistPanelFmtMonto_(base * 0.25),
+        '$ Prima día feriado (200%)': asistPanelFmtMonto_(base * 2),
+        Metodo: 'Manual',
+        Observaciones: '',
+      };
+      try {
+        const res = await fetch(`${BACKEND}/rh/asistencia`, {
+          method:'POST', headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ payload }),
+        });
+        const j = await res.json();
+        if (j.ok) okCount++; else errCount++;
+      } catch { errCount++; }
     }
   }
   if (status) {
