@@ -27113,6 +27113,8 @@ async function nomSave() {
     });
   } else if (NOM_STATE.mode === 'pagoSem') {
     const st = NOM_STATE.pagoSem || { rows: [] };
+    const fmtMoney = n => n ? asistPanelFmtMonto_(n) : '';
+    const fmtHoras = m => m ? `${Math.floor(m/60)}h${String(m%60).padStart(2,'0')}` : '';
     st.rows.forEach(r => {
       const monto = Number(r.total || 0);
       if (!monto) return;
@@ -27120,10 +27122,15 @@ async function nomSave() {
         Empleado_Nombre: r.nombre,
         Concepto: 'Salario',
         Periodo: `Semanal: ${r.semanaLabel}`,
+        Horas: fmtHoras(r.horasMin),
+        '$ Salario base':             fmtMoney(r.base),
+        '$ Prima vacacional (25%)':   fmtMoney(r.vac),
+        '$ Prima dominical (25%)':    fmtMoney(r.dom),
+        '$ Prima día feriado (200%)': fmtMoney(r.df),
         Monto: monto,
         Metodo_pago: r.metodoPago || 'Transferencia bancaria',
-        Fecha_pago: r.fechaPago || st.fechaPago || '',
         Estado_pago: r.pagado ? 'Pagado' : 'Pendiente',
+        Fecha_pago: r.fechaPago || st.fechaPago || '',
         Comentarios: '',
       });
     });
