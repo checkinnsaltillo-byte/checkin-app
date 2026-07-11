@@ -30691,6 +30691,123 @@ window.guiasOpenLodgifyModal_ = function (url, title) {
     });
 };
 
+/** Genera una imagen PNG tipo "card" con el link + QR del alojamiento y
+ *  la abre en una nueva pestaña para descargar/compartir. Sin botones. */
+window.guiasShareCard_ = async function (houseId, nombre, url) {
+  const W = 520, H = 780;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  // Fondo
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+  // Banda superior gris con logo
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, 0, W, 78);
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, 78); ctx.lineTo(W, 78); ctx.stroke();
+  const loadImg = src => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+  const [logoTxt, logoPin, qrImg] = await Promise.all([
+    loadImg('https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png').catch(() => null),
+    loadImg('https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png').catch(() => null),
+    loadImg(`https://api.qrserver.com/v1/create-qr-code/?size=440x440&margin=8&data=${encodeURIComponent(url)}`).catch(() => null),
+  ]);
+  // Logo centrado
+  if (logoTxt && logoPin) {
+    const txH = 34, pnH = 40;
+    const txW = logoTxt.width * (txH / logoTxt.height);
+    const pnW = logoPin.width * (pnH / logoPin.height);
+    const gap = 4;
+    const total = txW + gap + pnW;
+    const x0 = (W - total) / 2;
+    const y0 = 20;
+    ctx.drawImage(logoTxt, x0, y0 + (pnH - txH) / 2, txW, txH);
+    ctx.drawImage(logoPin, x0 + txW + gap, y0, pnW, pnH);
+  }
+  // Chip "Guía de Bienvenida"
+  const chipTxt = 'GUÍA DE BIENVENIDA';
+  ctx.font = '600 12px system-ui, -apple-system, "Segoe UI", sans-serif';
+  const chipW = ctx.measureText(chipTxt).width + 26;
+  const chipH = 26;
+  const chipX = (W - chipW) / 2, chipY = 112;
+  ctx.fillStyle = '#0f766e';
+  const r = 999;
+  ctx.beginPath();
+  ctx.moveTo(chipX + Math.min(r, chipW/2), chipY);
+  ctx.arcTo(chipX + chipW, chipY, chipX + chipW, chipY + chipH, chipH/2);
+  ctx.arcTo(chipX + chipW, chipY + chipH, chipX, chipY + chipH, chipH/2);
+  ctx.arcTo(chipX, chipY + chipH, chipX, chipY, chipH/2);
+  ctx.arcTo(chipX, chipY, chipX + chipW, chipY, chipH/2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(chipTxt, W / 2, chipY + chipH / 2);
+  // Nombre del alojamiento (envuelve si es largo)
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '800 22px system-ui, -apple-system, "Segoe UI", sans-serif';
+  const maxLine = W - 80;
+  const words = String(nombre || 'Alojamiento').split(/\s+/);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(test).width > maxLine && cur) { lines.push(cur); cur = w; } else cur = test;
+  }
+  if (cur) lines.push(cur);
+  let ny = 172;
+  for (const l of lines.slice(0, 3)) { ctx.fillText(l, W / 2, ny); ny += 28; }
+  // URL en caja gris
+  const urlBoxY = ny + 12;
+  const urlBoxH = 44;
+  ctx.fillStyle = '#f1f5f9';
+  ctx.fillRect(30, urlBoxY, W - 60, urlBoxH);
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.strokeRect(30, urlBoxY, W - 60, urlBoxH);
+  ctx.fillStyle = '#334155';
+  ctx.font = '600 12px "SF Mono", Menlo, Consolas, monospace';
+  // Trunca la URL si excede
+  let shownUrl = url;
+  if (ctx.measureText(shownUrl).width > W - 80) {
+    while (ctx.measureText(shownUrl + '…').width > W - 80 && shownUrl.length > 20) shownUrl = shownUrl.slice(0, -1);
+    shownUrl += '…';
+  }
+  ctx.fillText(shownUrl, W / 2, urlBoxY + urlBoxH / 2);
+  // QR grande centrado
+  const qrSize = 300;
+  const qrX = (W - qrSize) / 2;
+  const qrY = urlBoxY + urlBoxH + 30;
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(qrX - 14, qrY - 14, qrSize + 28, qrSize + 28);
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.strokeRect(qrX - 14, qrY - 14, qrSize + 28, qrSize + 28);
+  if (qrImg) ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+  // Texto info al pie
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '500 11px system-ui, -apple-system, "Segoe UI", sans-serif';
+  ctx.fillText('El huésped puede escanear el QR o abrir el link — solo verá esta guía.', W / 2, qrY + qrSize + 34);
+  // Export
+  const dataUrl = canvas.toDataURL('image/png');
+  const w = window.open('', '_blank');
+  if (!w) {
+    // Fallback: descarga directa
+    const a = document.createElement('a');
+    a.href = dataUrl; a.download = `guia-${houseId}.png`; a.click();
+    return;
+  }
+  const filename = `guia-${houseId}.png`;
+  w.document.write(`<!doctype html><html><head><title>${esc(nombre)} · Card</title><meta charset="utf-8"><style>body{margin:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff}img{max-width:100%;max-height:80vh;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.5)}a{display:inline-block;margin-top:16px;background:#0d9488;color:#fff;text-decoration:none;font-weight:700;padding:10px 20px;border-radius:10px;font-size:13px}</style></head><body><img src="${dataUrl}" alt="Card"><a href="${dataUrl}" download="${filename}">⬇ Descargar PNG</a></body></html>`);
+  w.document.close();
+};
+
 /** Copia al portapapeles la URL pública del alojamiento y muestra un modal
  *  con el link + QR code para compartir. */
 window.guiasShareLink_ = function (houseId, nombre) {
@@ -30714,6 +30831,8 @@ window.guiasShareLink_ = function (houseId, nombre) {
                 style="flex:1;padding:10px 12px;background:#0d9488;color:#fff;border:0;border-radius:8px;font-weight:700;font-size:12.5px;cursor:pointer">📋 Copiar link</button>
         <a href="${esc(url)}" target="_blank" rel="noopener"
            style="flex:1;padding:10px 12px;background:#f1f5f9;color:#0f172a;border-radius:8px;font-weight:700;font-size:12.5px;text-decoration:none;text-align:center;display:inline-block">↗ Abrir</a>
+        <button type="button" onclick="guiasShareCard_('${esc(houseId)}','${esc(nombre).replace(/'/g,"\\'")}','${url}')"
+                style="flex:1;padding:10px 12px;background:#1e293b;color:#fff;border:0;border-radius:8px;font-weight:700;font-size:12.5px;cursor:pointer">🎴 Card</button>
       </div>
       <div style="display:flex;justify-content:center;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0">
         <img src="${qr}" alt="QR" style="width:220px;height:220px;display:block">
