@@ -30495,7 +30495,23 @@ function guiasRenderContent() {
   // Foto desde url_lodgify (página de listing — no imagen directa). Usamos
   // api.microlink.io para extraer el og:image. Sólo cuando hay 1 alojamiento.
   const photoPageUrl = (alojs.length === 1) ? String(alojs[0]['url_lodgify'] || '').trim() : '';
-  const photoHtml = photoPageUrl
+  // ── HERO tipo "guía de llegada" (solo modo lectura, 1 alojamiento) ──
+  const isReadOne = !GUIAS_STATE.editMode && alojs.length === 1;
+  const nombreProp = isReadOne ? guiasItemLabel(alojs[0]) : '';
+  const descProp   = isReadOne ? (guiasVal_(alojs[0], 'titulo_txt') || 'Todo lo que necesitas para una estancia perfecta, en un solo lugar.') : '';
+  const heroHtml = isReadOne
+    ? `<header id="guias-hero" style="position:relative;color:#fff;padding:54px 22px 60px;text-align:center;overflow:hidden;border-radius:0 0 30px 30px;background:#1e293b">
+         <div id="guias-hero-bg" style="position:absolute;inset:0;background:linear-gradient(160deg,rgba(30,41,59,.82),rgba(234,88,12,.85))"></div>
+         <div style="position:relative;z-index:2">
+           <span style="display:inline-block;font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:6px 13px;border-radius:999px;backdrop-filter:blur(4px);white-space:nowrap;margin-bottom:20px">Guía de Bienvenida</span>
+           <h1 style="font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.2;margin:0 0 8px;color:#fff">${esc(nombreProp)}</h1>
+           <p style="font-size:15px;opacity:.92;max-width:340px;margin:0 auto 22px;color:#fff">${esc(descProp)}</p>
+           ${photoPageUrl ? `<a href="${esc(photoPageUrl)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:8px 18px;font-size:13px;font-weight:700;text-decoration:none;backdrop-filter:blur(6px)">📷 Ver fotos del alojamiento</a>` : ''}
+         </div>
+       </header>`
+    : '';
+  // Fallback (modo edición o multi-alojamiento): mantiene la foto simple.
+  const photoSimple = (!isReadOne && photoPageUrl)
     ? `<div id="guias-photo-wrap" style="margin-bottom:14px;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0;background:#f8fafc;position:relative;min-height:200px">
          <a href="${esc(photoPageUrl)}" target="_blank" rel="noopener" style="display:block;text-decoration:none">
            <img id="guias-photo-img" alt="${esc(guiasItemLabel(alojs[0]))}" style="display:block;width:100%;height:200px;object-fit:cover;opacity:0;transition:opacity .25s" onload="this.style.opacity='1'" onerror="this.style.display='none';document.getElementById('guias-photo-fallback')?.classList.remove('hidden')">
@@ -30505,19 +30521,30 @@ function guiasRenderContent() {
          </div>
        </div>`
     : '';
+  // Quicknav horizontal deslizable (solo en modo lectura con 1 aloj).
+  const quicknavHtml = isReadOne ? `
+    <nav id="guias-quicknav" style="position:sticky;top:0;z-index:20;background:rgba(241,245,249,.95);backdrop-filter:blur(10px);border-bottom:1px solid #e2e8f0;padding:10px 0;overflow-x:auto;white-space:nowrap;margin:0 -8px 14px" onwheel="if(!event.shiftKey&&event.deltaY!==0){this.scrollLeft+=event.deltaY;event.preventDefault();}">
+      ${[
+        ['gu-loc','📍 Ubicación'],['gu-house','🏠 Alojamiento'],['gu-amen','✨ Amenidades'],
+        ['gu-rules','📋 Reglamento'],['gu-time','🕐 Horarios'],['gu-arr','🚪 Llegada'],
+        ['gu-wifi','📶 WiFi'],['gu-park','🅿️ Estacionamiento'],['gu-wash','🧺 Lavandería'],
+        ['gu-supply','🧴 Insumos'],['gu-out','👋 Salida'],['gu-emerg','🚨 Emergencias'],
+      ].map(([id,t]) => `<a href="#${id}" onclick="return guiasJumpTo_('${id}')" style="display:inline-block;text-decoration:none;color:#64748b;font-size:13px;font-weight:600;padding:8px 14px;margin:0 4px;background:#fff;border:1px solid #e2e8f0;border-radius:999px">${t}</a>`).join('')}
+    </nav>` : '';
   // En modo EDICIÓN se conserva el layout de tabs (formulario por campo).
   // En modo LECTURA se pinta la guía tipo "guía de llegada" con acordeón.
   const body = GUIAS_STATE.editMode
     ? `<div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:14px;overflow-x:auto">${tabs}</div>
        <div id="guias-tab-content">${guiasBuildTabHtml(GUIAS_STATE.activeTab, alojs)}</div>`
-    : `<div id="guias-tab-content">${guiasBuildGuide(alojs)}</div>`;
+    : `${quicknavHtml}<div id="guias-tab-content">${guiasBuildGuide(alojs)}</div>`;
   host.innerHTML = `
-    <div style="max-width:640px;margin:0 auto">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+    ${heroHtml}
+    <div style="max-width:640px;margin:0 auto;padding:${isReadOne?'0':'0'} 4px">
+      <div style="display:flex;align-items:center;gap:10px;margin:${isReadOne?'14px 0 10px':'0 0 10px'};flex-wrap:wrap">
         <div style="font-size:12px;color:#64748b;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(heading)}</div>
         ${editBtn}
       </div>
-      ${photoHtml}
+      ${photoSimple}
       ${body}
     </div>`;
 
@@ -30527,6 +30554,11 @@ function guiasRenderContent() {
       .then(r => r.json())
       .then(j => {
         const url = j?.data?.image?.url || j?.data?.logo?.url || '';
+        // Hero: usa la imagen como background + overlay ámbar.
+        const heroBg = document.getElementById('guias-hero-bg');
+        if (url && heroBg) {
+          heroBg.style.background = `linear-gradient(160deg,rgba(30,41,59,.65),rgba(234,88,12,.72)), url("${url}") center/cover`;
+        }
         const img = document.getElementById('guias-photo-img');
         const fb = document.getElementById('guias-photo-fallback');
         if (url && img) img.src = url;
@@ -30537,6 +30569,15 @@ function guiasRenderContent() {
       });
   }
 }
+
+/** Salta a una sección del quicknav: abre el <details> y hace scroll suave. */
+window.guiasJumpTo_ = function (id) {
+  const el = document.getElementById(id);
+  if (!el) return false;
+  if (el.tagName === 'DETAILS' && !el.open) el.open = true;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  return false;
+};
 
 // Definición de campos por tab usando las columnas REALES de la hoja
 // "alojamientos". Formato: [labelUI, columnKey, inputType?='text'].
@@ -30597,9 +30638,12 @@ function guiasVal_(aloj, ...keys) {
   return '';
 }
 
-/** Divide una lista escrita en el sheet: acepta saltos de línea, ; o | */
-function guiasList_(str) {
-  return String(str||'').split(/\r?\n|;|\|/)
+/** Divide una lista escrita en el sheet: acepta saltos de línea, ;, |
+ *  y opcionalmente coma. Los pasos NO se dividen por coma (respetan
+ *  descripciones internas). */
+function guiasList_(str, opts) {
+  const sep = opts && opts.comma ? /\r?\n|;|\||,/ : /\r?\n|;|\|/;
+  return String(str||'').split(sep)
     .map(s => s.trim())
     // Quita bullets de inicio: •, -, –, *, letra) o dígito) o dígito.
     .map(s => s.replace(/^\s*(?:[•\-\–\*]|[a-zA-Z]\)|\d+[\.\)])\s*/, '').trim())
@@ -30610,6 +30654,15 @@ function guiasList_(str) {
 function guiIcon_(text) {
   const t = String(text||'').toLowerCase();
   const map = [
+    // ── Instrucciones de salida (patrones específicos primero) ──
+    [/lockbox|caja de seg|dep[oó]sit[oa].*llav|deja.*llav|entrega.*llav/, '🔐'],
+    [/apaga.*(luz|luces|aire|clima|aparat)/, '💡'],
+    [/cierra.*(ventana|puerta|con llave)|cerrar.*puerta/, '🚪'],
+    [/trastes|lavavajillas|fregader|platos sucios/, '🍽️'],
+    [/basura|contenedor|residuos/, '🗑️'],
+    [/limpieza|limpiar|ordenad|dejar limpio/, '🧽'],
+    [/revis|revisi[oó]n|check.?list/, '✅'],
+    // ── Amenidades / insumos ──
     [/wi ?fi|internet/, '📶'],
     [/aire acond|a\/c|\bac\b|clima/, '❄️'],
     [/calefac|calent(ador|amiento)|calor/, '🔥'],
@@ -30688,15 +30741,25 @@ function guiChips_(list) {
   }).join('')}</div>`;
 }
 
-/** Reglas (✓ / ✗ / !). Cada línea puede empezar con "no", "sí", "!"; sino info. */
+/** Reglas (✓ / ✗ / !). Detecta la naturaleza por keywords iniciales pero
+ *  respeta el texto original (no quita "No" ni "Sí"). */
 function guiRules_(list) {
   if (!list.length) return '';
   return list.map(t => {
-    let cls = 'info', mark = '!', bg = '#f59e0b';
-    if (/^\s*(no|prohibido|✗|✘)\b/i.test(t)) { cls='no'; mark='✗'; bg='#dc2626'; }
-    else if (/^\s*(sí|si|✓|✔|permitido)\b/i.test(t)) { cls='yes'; mark='✓'; bg='#16a34a'; }
-    const txt = t.replace(/^\s*(no|prohibido|sí|si|permitido|✓|✔|✗|✘|!)\s*[:\-]?\s*/i,'');
-    return `<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f1f5f9"><div style="flex:none;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;background:${bg}">${mark}</div><div style="font-size:13.5px;flex:1;color:#334155">${esc(txt)}</div></div>`;
+    let mark = '!', bg = '#f59e0b';
+    if (/^\s*(no|prohibid|✗|✘)/i.test(t)) { mark='✗'; bg='#dc2626'; }
+    else if (/^\s*(sí|si\b|✓|✔|permitid|se permit)/i.test(t)) { mark='✓'; bg='#16a34a'; }
+    return `<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f1f5f9"><div style="flex:none;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;background:${bg}">${mark}</div><div style="font-size:13.5px;flex:1;color:#334155">${esc(t)}</div></div>`;
+  }).join('');
+}
+
+/** Lista tipo "íconos" (para lavandería/salida): cada línea con ícono
+ *  contextual del guiIcon_. Sin cajitas ✗/✓. */
+function guiIconList_(list) {
+  if (!list.length) return '';
+  return list.map(t => {
+    const ic = guiIcon_(t);
+    return `<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f1f5f9"><div style="flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:15px;background:#f0fdfa">${ic}</div><div style="font-size:13.5px;flex:1;color:#334155">${esc(t)}</div></div>`;
   }).join('');
 }
 
@@ -30790,7 +30853,7 @@ function guiasBuildGuide(alojs) {
   })();
   // III. Amenidades
   const sec3 = (() => {
-    const list = guiasList_(V('amenidades'));
+    const list = guiasList_(V('amenidades'), { comma: true });
     return guiSection_('gu-amen', '✨', 'linear-gradient(135deg,#0f766e,#14b8a6)', 'Amenidades', 'Lo que incluye el espacio', guiChips_(list) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin amenidades listadas.</div>');
   })();
   // IV. Reglamento de la casa
@@ -30830,7 +30893,7 @@ function guiasBuildGuide(alojs) {
   // IX. Lavandería
   const sec9 = (() => {
     const regList = guiasList_(V('lavanderia_reglamento'));
-    const regBlock = regList.length ? `<div style="padding:8px 0"><div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:4px">Reglamento</div>${guiRules_(regList)}</div>` : '';
+    const regBlock = regList.length ? `<div style="padding:8px 0"><div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:4px">Reglamento</div>${guiIconList_(regList)}</div>` : '';
     const inner = `
       ${guiKv_('Ubicación', V('lavanderia_ubicacion'))}
       ${guiKv_('Acceso', V('lavanderia_acceso'))}
@@ -30842,19 +30905,14 @@ function guiasBuildGuide(alojs) {
   const sec10 = (() => {
     const inner = `
       ${guiKv_('Ubicación', V('insumos_ubicacion'))}
-      ${(() => { const list = guiasList_(V('insumos')); return list.length ? `<div style="padding:7px 0"><div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:6px">Algunos insumos disponibles</div>${guiChips_(list)}</div>` : ''; })()}
+      ${(() => { const list = guiasList_(V('insumos'), { comma: true }); return list.length ? `<div style="padding:7px 0"><div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:6px">Algunos insumos disponibles</div>${guiChips_(list)}</div>` : ''; })()}
       ${guiCallout_(V('insumos_aviso'), '🛒')}`;
     return guiSection_('gu-supply', '🧴', 'linear-gradient(135deg,#16a34a,#4ade80)', 'Insumos disponibles', 'Lo que encontrarás listo', inner);
   })();
   // XI. Instrucciones de salida
   const sec11 = (() => {
     const list = guiasList_(V('salida_instrucciones'));
-    const rules = list.length
-      ? list.map(t => {
-          const ic = guiIcon_(t);
-          return `<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f1f5f9"><div style="flex:none;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-size:14px;background:#f0fdfa">${ic}</div><div style="font-size:13.5px;flex:1;color:#334155">${esc(t)}</div></div>`;
-        }).join('')
-      : '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de salida.</div>';
+    const rules = list.length ? guiIconList_(list) : '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de salida.</div>';
     return guiSection_('gu-out', '👋', 'linear-gradient(135deg,#ea580c,#fb923c)', 'Instrucciones de salida', 'Antes de irte', rules + guiCallout_(V('salida_aviso'), '💚'));
   })();
   // XII. Contacto de emergencia
