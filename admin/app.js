@@ -30574,9 +30574,13 @@ function guiasRenderContent() {
          <div style="font-size:12px;color:#64748b;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(heading)}</div>
          ${editBtn}
        </div>`;
+  // En modo lectura (guía) el contenido usa TODO el ancho del contenedor
+  // derecho, así se ve angosto en móvil y amplio en desktop. En modo
+  // edición conservamos el max-width:640 para que el form no sea inmenso.
+  const wrapWidth = GUIAS_STATE.editMode ? 'max-width:640px;margin:0 auto;padding:0 4px' : 'width:100%;padding:0 16px';
   host.innerHTML = `
     ${heroHtml}
-    <div style="max-width:640px;margin:0 auto;padding:0 4px">
+    <div style="${wrapWidth}">
       ${headerRow}
       ${photoSimple}
       ${body}
