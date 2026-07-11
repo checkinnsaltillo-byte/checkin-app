@@ -30507,16 +30507,16 @@ function guiasRenderContent() {
   // Descripción: solo mostrar si es distinta al nombre del alojamiento.
   const descPropShown = (descProp && descProp.toLowerCase() !== nombreProp.toLowerCase()) ? descProp : '';
   const heroHtml = isReadOne
-    ? `<header id="guias-hero" style="position:relative;color:#fff;padding:32px 22px 60px;text-align:center;overflow:hidden;border-radius:0 0 30px 30px;background:#1e293b">
+    ? `<div id="guias-logo-bar" style="background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:10px 16px;display:flex;align-items:center;justify-content:center">
+         <div style="display:inline-flex;align-items:center;gap:4px">
+           <img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png" alt="Check-inn" style="display:block;height:32px">
+           <img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt="" style="display:block;height:36px">
+         </div>
+       </div>
+       <header id="guias-hero" style="position:relative;color:#fff;overflow:hidden;border-radius:0 0 30px 30px;background:#1e293b;min-height:340px;display:flex;align-items:center;justify-content:center;text-align:center;padding:40px 22px">
          <div id="guias-hero-bg" style="position:absolute;inset:0;background:linear-gradient(160deg,rgba(30,41,59,.82),rgba(234,88,12,.85))"></div>
          <div style="position:relative;z-index:2">
-           <div style="display:inline-flex;align-items:center;gap:6px;margin:0 auto 14px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))">
-             <img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png" alt="Check-inn" style="display:block;height:44px">
-             <img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt="" style="display:block;height:48px">
-           </div>
-           <div style="text-align:center">
-             <span style="display:inline-block;font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:6px 13px;border-radius:999px;backdrop-filter:blur(4px);white-space:nowrap;margin-bottom:20px">Guía de Bienvenida</span>
-           </div>
+           <span style="display:inline-block;font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:6px 13px;border-radius:999px;backdrop-filter:blur(4px);white-space:nowrap;margin-bottom:20px">Guía de Bienvenida</span>
            <h1 style="font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.2;margin:0 0 8px;color:#fff">${esc(nombreProp)}</h1>
            ${descPropShown ? `<p style="font-size:15px;opacity:.92;max-width:340px;margin:0 auto 22px;color:#fff">${esc(descPropShown)}</p>` : '<div style="height:14px"></div>'}
            ${photoPageUrl ? `<a href="${esc(photoPageUrl)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:8px 18px;font-size:13px;font-weight:700;backdrop-filter:blur(6px);text-decoration:none">📷 Ver fotos del alojamiento</a>` : ''}
@@ -30527,14 +30527,12 @@ function guiasRenderContent() {
   const wa = isReadOne ? guiasVal_(alojs[0], 'contacto_whatsapp') : '';
   const waPhone = wa.replace(/[^0-9+]/g,'');
   const waMsg = isReadOne ? `Hola, estoy hospedado en ${nombreProp}, tengo la siguiente duda/comentario: ` : '';
-  // El fab vive DENTRO del contenedor de la guía (position:absolute), no
-  // en la ventana global. `guias-content` ya es position:relative por su
-  // layout base; si no lo fuera, absolute caería al viewport.
+  // Fab WhatsApp flotante y fijo en la esquina inferior derecha del viewport.
   const waHtml = (isReadOne && waPhone)
-    ? `<div id="guias-wa-fab" style="position:absolute;top:14px;right:14px;z-index:150;display:flex;flex-direction:column;align-items:center;gap:4px">
+    ? `<div id="guias-wa-fab" style="position:fixed;bottom:24px;right:24px;z-index:150;display:flex;flex-direction:column;align-items:center;gap:4px">
          <a href="https://wa.me/${encodeURIComponent(waPhone)}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" title="Contactar por WhatsApp"
-            style="width:52px;height:52px;border-radius:50%;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;text-decoration:none;box-shadow:0 8px 18px -6px rgba(37,211,102,.6)">💬</a>
-         <span style="font-size:11px;font-weight:700;color:#0f172a;background:rgba(255,255,255,.95);padding:2px 8px;border-radius:8px;box-shadow:0 2px 6px rgba(15,23,42,.15)">Envíanos WhatsApp</span>
+            style="width:56px;height:56px;border-radius:50%;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;text-decoration:none;box-shadow:0 8px 22px -6px rgba(37,211,102,.7)">💬</a>
+         <span style="font-size:11px;font-weight:700;color:#0f172a;background:rgba(255,255,255,.95);padding:2px 8px;border-radius:8px;box-shadow:0 2px 6px rgba(15,23,42,.18)">Envíanos WhatsApp</span>
        </div>`
     : '';
   // Fallback (modo edición o multi-alojamiento): mantiene la foto simple.
@@ -30758,6 +30756,7 @@ function guiIcon_(text) {
     [/aire acond|a\/c|\bac\b|clima/, '❄️'],
     [/calefac|calent(ador|amiento)|calor/, '🔥'],
     [/smart\s?tv|\btv\b|televis/, '📺'],
+    [/utensili|cubierto|cuchar|tenedor|olla|sart[eé]n/, '🥄'],
     [/cocin/, '🍳'],
     [/cafetera|caf[eé]/, '☕'],
     [/\bt[eé]\b/, '🍵'],
@@ -30806,7 +30805,7 @@ function guiCallout_(text, icon) {
 /** Tarjeta acordeón: `<details>` con header y body. Sin subtítulo. */
 function guiSection_(id, iconEmoji, iconClass, title, _subtitle, inner, opts) {
   const open = opts && opts.open ? ' open' : '';
-  return `<details id="${id}" class="guia-section"${open} style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:0 2px 10px -4px rgba(15,23,42,.10)">
+  return `<details id="${id}" class="guia-section"${open} style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:0 2px 10px -4px rgba(15,23,42,.10);scroll-margin-top:70px">
     <summary style="display:flex;align-items:center;gap:14px;padding:16px;cursor:pointer;list-style:none;user-select:none">
       <div style="flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;background:${iconClass};color:#fff">${iconEmoji}</div>
       <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;color:#0f172a">${esc(title)}</div></div>
@@ -30933,7 +30932,7 @@ function guiasBuildGuide(alojs) {
   const sec2 = (() => {
     const inner = `
       ${guiKv_('Tipo', V('tipo'))}
-      ${guiKv_('Capacidad', V('capacidad'))}
+      ${guiKv_('Capacidad', (() => { const c = V('capacidad'); return c ? (/hu[eé]sped/i.test(c) ? c : `${c} huéspedes máx.`) : ''; })())}
       ${guiKv_('Recámaras', V('recamaras'))}
       ${guiKv_('Baños', V('banos','Banos','baños','Baños'))}
       ${guiKv_('Planta', V('planta','Planta'))}`;
