@@ -30514,11 +30514,11 @@ function guiasRenderContent() {
          </div>
        </div>
        <header id="guias-hero" style="position:relative;color:#fff;overflow:hidden;border-radius:0 0 30px 30px;background:#1e293b;min-height:340px;display:flex;align-items:center;justify-content:center;text-align:center;padding:40px 22px">
-         <div id="guias-hero-bg" style="position:absolute;inset:0;background:linear-gradient(160deg,rgba(30,41,59,.82),rgba(234,88,12,.85))"></div>
-         <div style="position:relative;z-index:2">
-           <span style="display:inline-block;font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:6px 13px;border-radius:999px;backdrop-filter:blur(4px);white-space:nowrap;margin-bottom:20px">Guía de Bienvenida</span>
-           <h1 style="font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.2;margin:0 0 8px;color:#fff">${esc(nombreProp)}</h1>
-           ${descPropShown ? `<p style="font-size:15px;opacity:.92;max-width:340px;margin:0 auto 22px;color:#fff">${esc(descPropShown)}</p>` : '<div style="height:14px"></div>'}
+         <div id="guias-hero-bg" style="position:absolute;inset:0;background:#1e293b"></div>
+         <div style="position:relative;z-index:2;max-width:440px;background:rgba(15,23,42,.35);border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(6px);border-radius:20px;padding:22px 26px">
+           <span style="display:inline-block;font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:6px 13px;border-radius:999px;backdrop-filter:blur(4px);white-space:nowrap;margin-bottom:18px">Guía de Bienvenida</span>
+           <h1 style="font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.2;margin:0 0 8px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.35)">${esc(nombreProp)}</h1>
+           ${descPropShown ? `<p style="font-size:15px;opacity:.92;max-width:340px;margin:0 auto 18px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.3)">${esc(descPropShown)}</p>` : '<div style="height:10px"></div>'}
            ${photoPageUrl ? `<a href="${esc(photoPageUrl)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:8px 18px;font-size:13px;font-weight:700;backdrop-filter:blur(6px);text-decoration:none">📷 Ver fotos del alojamiento</a>` : ''}
          </div>
        </header>`
@@ -30526,7 +30526,9 @@ function guiasRenderContent() {
   // Botón flotante WhatsApp (solo modo lectura, 1 alojamiento).
   const wa = isReadOne ? guiasVal_(alojs[0], 'contacto_whatsapp') : '';
   const waPhone = wa.replace(/[^0-9+]/g,'');
-  const waMsg = isReadOne ? `Hola, estoy hospedado en ${nombreProp}, tengo la siguiente duda/comentario: ` : '';
+  // Texto: usa titulo_txt (fallback al nombre del alojamiento si vacío).
+  const tituloTxt = isReadOne ? (guiasVal_(alojs[0], 'titulo_txt') || nombreProp) : '';
+  const waMsg = isReadOne ? `Hola, estoy hospedado en ${tituloTxt}. Mi nombre es: ` : '';
   // Fab WhatsApp flotante y fijo en la esquina inferior derecha del viewport.
   const waHtml = (isReadOne && waPhone)
     ? `<div id="guias-wa-fab" style="position:fixed;bottom:24px;right:24px;z-index:150;display:flex;flex-direction:column;align-items:center;gap:4px">
@@ -30585,10 +30587,11 @@ function guiasRenderContent() {
       .then(r => r.json())
       .then(j => {
         const url = j?.data?.image?.url || j?.data?.logo?.url || '';
-        // Hero: usa la imagen como background + overlay ámbar.
+        // Hero: usa la imagen como background sin overlay general. El texto
+        // lleva su propio card semitransparente para legibilidad.
         const heroBg = document.getElementById('guias-hero-bg');
         if (url && heroBg) {
-          heroBg.style.background = `linear-gradient(160deg,rgba(30,41,59,.65),rgba(234,88,12,.72)), url("${url}") center/cover`;
+          heroBg.style.background = `url("${url}") center/cover`;
         }
         const img = document.getElementById('guias-photo-img');
         const fb = document.getElementById('guias-photo-fallback');
