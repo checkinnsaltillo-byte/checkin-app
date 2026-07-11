@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1e293b">
+<meta name="robots" content="noindex,nofollow">
+<title>Guía de Bienvenida · Check-inn Saltillo</title>
+<!-- OpenGraph preview (se completa dinámicamente cuando cargan los datos) -->
+<meta property="og:title" id="og-title" content="Guía de Bienvenida · Check-inn Saltillo">
+<meta property="og:description" id="og-desc" content="Todo lo que necesitas para una estancia perfecta.">
+<meta property="og:image" id="og-image" content="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/public/registro/icon-192.png">
+<link rel="apple-touch-icon" href="/public/registro/apple-touch-icon.png">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:#f1f5f9;color:#1e293b;font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;line-height:1.55;overflow-x:hidden}
+img{max-width:100%;display:block}
+a{color:inherit}
+.logo-bar{background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:10px 16px;display:flex;align-items:center;justify-content:center}
+.logo-bar-inner{display:inline-flex;align-items:center;gap:4px}
+.logo-bar img.tx{height:32px}
+.logo-bar img.pn{height:36px}
+.hero{position:relative;color:#fff;overflow:hidden;border-radius:0 0 30px 30px;background:#1e293b;min-height:340px;display:flex;align-items:center;justify-content:center;text-align:center;padding:40px 22px}
+.hero-bg{position:absolute;inset:0;background:#1e293b}
+.hero-card{position:relative;z-index:2;max-width:440px;background:rgba(15,23,42,.35);border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(6px);border-radius:20px;padding:22px 26px}
+.hero-badge{display:inline-block;font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:6px 13px;border-radius:999px;backdrop-filter:blur(4px);white-space:nowrap;margin-bottom:18px}
+.hero h1{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.2;margin:0 0 8px;text-shadow:0 2px 8px rgba(0,0,0,.35)}
+.hero p{font-size:15px;opacity:.92;max-width:340px;margin:0 auto 18px;text-shadow:0 1px 4px rgba(0,0,0,.3)}
+.hero .btn-photos{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:8px 18px;font-size:13px;font-weight:700;backdrop-filter:blur(6px);text-decoration:none}
+.quicknav{position:sticky;top:0;z-index:20;background:rgba(241,245,249,.95);backdrop-filter:blur(10px);border-bottom:1px solid #e2e8f0;padding:10px 0;overflow-x:auto;white-space:nowrap;margin:0 0 14px}
+.quicknav::-webkit-scrollbar{display:none}
+.quicknav a{display:inline-block;text-decoration:none;color:#64748b;font-size:13px;font-weight:600;padding:8px 14px;margin:0 4px;background:#fff;border:1px solid #e2e8f0;border-radius:999px}
+.wrap{max-width:none;padding:14px 12px 32px}
+details.section{background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:0 2px 10px -4px rgba(15,23,42,.10);scroll-margin-top:70px}
+details.section>summary{display:flex;align-items:center;gap:14px;padding:16px;cursor:pointer;list-style:none;user-select:none}
+details.section>summary::-webkit-details-marker{display:none}
+.sec-ico{flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;color:#fff}
+.sec-title{flex:1;min-width:0;font-size:15px;font-weight:700;color:#0f172a}
+.chev{color:#94a3b8;font-size:12px}
+.sec-body{padding:2px 18px 18px}
+.kv{display:flex;gap:10px;padding:10px 0;border-bottom:1px dashed #e2e8f0}
+.kv .k{flex:none;width:120px;font-weight:600;font-size:13px;color:#0f172a}
+.kv .v{flex:1;font-size:13.5px;color:#334155}
+.callout{display:flex;gap:12px;background:#fffbeb;border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:12px;padding:13px;margin-top:12px;font-size:13px;color:#334155}
+.callout .ci{font-size:18px}
+.btn-map{display:block;text-align:center;text-decoration:none;margin-bottom:12px;background:#0f766e;color:#fff;font-weight:700;font-size:14px;padding:13px;border-radius:12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;padding:7px 12px;border-radius:10px;background:#f0fdfa;color:#0f766e;border:1px solid #99f6e4}
+.chip.no{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
+.rule{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f1f5f9}
+.rule .mk{flex:none;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff}
+.rule .mk.yes{background:#16a34a}
+.rule .mk.no{background:#dc2626}
+.rule .mk.info{background:#f59e0b}
+.rule .t{font-size:13.5px;flex:1;color:#334155}
+.iconrow{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f1f5f9}
+.iconrow .mk{flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:15px;background:#f0fdfa}
+.iconrow .t{font-size:13.5px;flex:1;color:#334155}
+.steps{position:relative;margin-top:6px}
+.step{position:relative;padding:2px 0 18px 44px}
+.step .num{position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;background:#0f766e;color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px}
+.step .line{position:absolute;left:14px;top:32px;bottom:2px;width:2px;background:#e2e8f0}
+.step h4{font-size:14px;font-weight:700;color:#0f172a;margin:0}
+.step p{font-size:13px;color:#64748b;margin:2px 0 0}
+.wifi{background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:16px;padding:18px;color:#fff;margin-top:4px}
+.wifi .row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.12)}
+.wifi .row:last-child{border-bottom:0}
+.wifi .lbl{font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:.7}
+.wifi .val{font-size:16px;font-weight:700;font-family:'Courier New',monospace}
+.wifi button{background:#f59e0b;color:#3b2500;border:0;font-weight:700;font-size:12px;padding:8px 14px;border-radius:10px;cursor:pointer}
+.emerg{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.emerg a{display:flex;align-items:center;gap:12px;text-decoration:none;color:#334155;background:#fef2f2;border:1px solid #fecaca;border-radius:13px;padding:13px 14px}
+.emerg .em-ico{width:40px;height:40px;border-radius:11px;color:#fff;display:grid;place-items:center;font-size:19px;flex:none;background:#dc2626}
+.emerg .em-t{flex:1}
+.emerg .em-t b{font-size:14px;display:block}
+.emerg .em-t span{font-size:12px;color:#64748b}
+.emerg .em-call{font-size:12px;font-weight:700;color:#dc2626}
+.wa-fab{position:fixed;bottom:24px;right:24px;z-index:9500;display:flex;flex-direction:column;align-items:center;gap:4px}
+.wa-fab a{width:56px;height:56px;border-radius:50%;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;text-decoration:none;box-shadow:0 8px 22px -6px rgba(37,211,102,.7)}
+.wa-fab span{font-size:11px;font-weight:700;color:#0f172a;background:rgba(255,255,255,.95);padding:2px 8px;border-radius:8px;box-shadow:0 2px 6px rgba(15,23,42,.18)}
+.state{padding:80px 20px;text-align:center;color:#64748b;font-size:14px}
+.state .sp{width:44px;height:44px;border:3px solid #e2e8f0;border-top-color:#f59e0b;border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 16px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="loader" class="state">
+  <div class="sp"></div>
+  <div>Cargando guía…</div>
+</div>
+<div id="root" style="display:none">
+  <div class="logo-bar">
+    <div class="logo-bar-inner">
+      <img class="tx" src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png" alt="Check-inn">
+      <img class="pn" src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt="">
+    </div>
+  </div>
+  <header class="hero">
+    <div id="hero-bg" class="hero-bg"></div>
+    <div class="hero-card">
+      <span class="hero-badge">Guía de Bienvenida</span>
+      <h1 id="hero-title">—</h1>
+      <p id="hero-desc" style="display:none"></p>
+      <a id="hero-photos" href="#" target="_blank" rel="noopener" class="btn-photos" style="display:none">📷 Ver fotos del alojamiento</a>
+    </div>
+  </header>
+  <main class="wrap">
+    <nav class="quicknav" id="quicknav"></nav>
+    <div id="sections"></div>
+    <div id="wa-fab" class="wa-fab" style="display:none">
+      <a id="wa-link" href="#" target="_blank" rel="noopener" title="Contactar por WhatsApp">💬</a>
+      <span>Envíanos WhatsApp</span>
+    </div>
+  </main>
+</div>
+<div id="notfound" class="state" style="display:none">
+  <div style="font-size:44px;margin-bottom:12px">🔍</div>
+  <div style="font-size:16px;color:#0f172a;font-weight:700;margin-bottom:8px">Guía no encontrada</div>
+  <div id="notfound-msg">El identificador no corresponde a ningún alojamiento.</div>
+</div>
+
+<script>
+const BACKEND = 'https://ticket-vision-957627511957.northamerica-south1.run.app';
+
+// ────────────────────────── helpers ──────────────────────────
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function V(a, ...keys) {
+  for (const k of keys) { const v = a && a[k]; if (v != null && String(v).trim() !== '') return String(v).trim(); }
+  return '';
+}
+function listOf(str, opts) {
+  const sep = opts && opts.comma ? /\r?\n|;|\||,/ : /\r?\n|;|\|/;
+  return String(str||'').split(sep)
+    .map(s => s.trim())
+    .map(s => s.replace(/^\s*(?:[•\-–*]|[a-zA-Z]\)|\d+[.)])\s*/, '').trim())
+    .filter(Boolean);
+}
+
+// Ícono por palabras clave (mismo mapa que app.js)
+function guiIcon(text) {
+  const t = String(text||'').toLowerCase();
+  const map = [
+    [/check.?out.*(esta|misma).*p[aá]gina|realiza.*check.?out|check.?out.*app/, '💻'],
+    [/lockbox|caja de seg|dep[oó]sit[oa].*llav|deja.*llav|entrega.*llav/, '🔐'],
+    [/apaga.*(luz|luces|aire|clima|aparat)/, '💡'],
+    [/cierra.*(ventana|puerta|con llave)|cerrar.*puerta/, '🚪'],
+    [/trastes|lavavajillas|fregader|platos sucios/, '🍽️'],
+    [/basura|contenedor|residuos/, '🗑️'],
+    [/limpieza|limpiar|ordenad|dejar limpio/, '🧽'],
+    [/revis|revisi[oó]n|check.?list/, '✅'],
+    [/wi ?fi|internet/, '📶'],
+    [/aire acond|a\/c|\bac\b|clima/, '❄️'],
+    [/calefac|calent(ador|amiento)|calor/, '🔥'],
+    [/smart\s?tv|\btv\b|televis/, '📺'],
+    [/utensili|cubierto|cuchar|tenedor|olla|sart[eé]n/, '🥄'],
+    [/cocin/, '🍳'],
+    [/cafetera|caf[eé]/, '☕'],
+    [/\bt[eé]\b/, '🍵'],
+    [/refrig|nevera|frigo/, '🧊'],
+    [/lavador|lavander/, '🧺'],
+    [/secador/, '🌀'],
+    [/estacion|parking|cochera|garage/, '🅿️'],
+    [/agua caliente|regader|duch/, '🚿'],
+    [/toalla/, '🛁'],
+    [/shampoo|gel|amenidades? de bañ/, '🧴'],
+    [/jab[oó]n/, '🧼'],
+    [/papel higi[eé]n/, '🧻'],
+    [/ropa de cama|s[aá]bana|almohada|cama|colch[oó]n/, '🛏️'],
+    [/sal|aceite|b[aá]sicos|especias|az[uú]car/, '🧂'],
+    [/basura|residuos/, '🗑️'],
+    [/llave|acceso|puerta/, '🔑'],
+    [/mascota|perro|gato/, '🐾'],
+    [/fumar|tabaco|cigarr/, '🚭'],
+    [/luz|luces|apaga/, '💡'],
+    [/ventana|cerrar/, '🪟'],
+    [/aire libre|terraza|patio|jard[ií]n/, '🌿'],
+    [/piscina|alberca/, '🏊'],
+    [/microondas/, '🍲'],
+    [/plancha/, '👔'],
+    [/tomacorriente|enchufe|carga/, '🔌'],
+    [/agua purificad|agua embotellad|garraf[oó]n/, '💧'],
+  ];
+  for (const [rx, ic] of map) if (rx.test(t)) return ic;
+  return '•';
+}
+
+function kv(k, v) {
+  if (!v) return '';
+  return `<div class="kv"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`;
+}
+function callout(text, icon) {
+  if (!text) return '';
+  return `<div class="callout"><span class="ci">${icon||'💡'}</span><div>${esc(text)}</div></div>`;
+}
+function chips(list) {
+  if (!list.length) return '';
+  return `<div class="chips">${list.map(c => {
+    const no = /^no\s|^sin\s|^prohib/i.test(c);
+    return `<span class="chip${no?' no':''}"><span style="font-size:14px">${guiIcon(c)}</span>${esc(c)}</span>`;
+  }).join('')}</div>`;
+}
+function rules(list) {
+  if (!list.length) return '';
+  return list.map(t => {
+    let mark = '!', cls = 'info';
+    if (/^\s*(no|prohibid|✗|✘)/i.test(t)) { mark='✗'; cls='no'; }
+    else if (/^\s*(sí|si\b|✓|✔|permitid|se permit)/i.test(t)) { mark='✓'; cls='yes'; }
+    return `<div class="rule"><div class="mk ${cls}">${mark}</div><div class="t">${esc(t)}</div></div>`;
+  }).join('');
+}
+function iconList(list) {
+  if (!list.length) return '';
+  return list.map(t => `<div class="iconrow"><div class="mk">${guiIcon(t)}</div><div class="t">${esc(t)}</div></div>`).join('');
+}
+function steps(list) {
+  if (!list.length) return '';
+  return `<div class="steps">${list.map((raw, i) => {
+    const p = raw.indexOf('('), c = raw.lastIndexOf(')');
+    let title = raw.trim(), desc = '';
+    if (p > 0 && c > p) { title = raw.slice(0,p).trim().replace(/[:\-–]\s*$/,''); desc = raw.slice(p+1,c).trim(); }
+    const last = i === list.length-1;
+    return `<div class="step"><div class="num">${i+1}</div>${!last?'<div class="line"></div>':''}<h4 style="font-weight:${desc?700:500}">${esc(title)}</h4>${desc?`<p>${esc(desc)}</p>`:''}</div>`;
+  }).join('')}</div>`;
+}
+function wifi(red, pass, aviso) {
+  if (!red && !pass && !aviso) return '<div style="font-size:12px;color:#94a3b8;font-style:italic">Datos de Wi-Fi no configurados.</div>';
+  return `<div class="wifi">
+    ${red?`<div class="row"><div><div class="lbl">Red</div><div class="val">${esc(red)}</div></div></div>`:''}
+    ${pass?`<div class="row"><div><div class="lbl">Contraseña</div><div class="val" id="wifi-pass">${esc(pass)}</div></div><button type="button" onclick="copyWifi('${esc(pass).replace(/'/g,"\\'")}',this)">Copiar</button></div>`:''}
+  </div>${callout(aviso,'📡')}`;
+}
+function copyWifi(txt, btn) {
+  navigator.clipboard?.writeText(txt).then(() => {
+    const o = btn.textContent; btn.textContent = '¡Copiado!';
+    setTimeout(()=>btn.textContent=o, 1800);
+  });
+}
+function emerg(n1, num1, n2, num2) {
+  const card = (nombre, num, i) => {
+    if (!nombre && !num) return '';
+    const bg = i === 0 ? '#dc2626' : '#0891b2';
+    return `<a href="${num?`tel:${esc(String(num).replace(/[^0-9+]/g,''))}`:'#'}">
+      <div class="em-ico" style="background:${bg}">👤</div>
+      <div class="em-t"><b>${esc(nombre||'Contacto')}</b><span>${esc(num||'Sin número')}</span></div>
+      ${num?'<div class="em-call">Llamar</div>':''}
+    </a>`;
+  };
+  return `<div class="emerg">${card(n1,num1,0)}${card(n2,num2,1)}</div>`;
+}
+function section(id, ico, icoBg, title, inner, open) {
+  return `<details class="section" id="${id}"${open?' open':''}><summary><div class="sec-ico" style="background:${icoBg}">${ico}</div><div class="sec-title">${esc(title)}</div><div class="chev">▼</div></summary><div class="sec-body">${inner}</div></details>`;
+}
+window.jumpTo = function (id) {
+  const el = document.getElementById(id);
+  if (!el) return false;
+  if (el.tagName === 'DETAILS' && !el.open) el.open = true;
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+  return false;
+};
+
+// ────────────────────────── render ──────────────────────────
+function buildGuide(a) {
+  const g = (...ks) => V(a, ...ks);
+  const nombre = g('HouseName','Alojamiento','titulo') || 'Alojamiento';
+  const desc = g('titulo_txt');
+  const descShown = desc && desc.toLowerCase() !== nombre.toLowerCase() ? desc : '';
+  $('hero-title').textContent = nombre;
+  if (descShown) { $('hero-desc').textContent = descShown; $('hero-desc').style.display = 'block'; }
+  const photoUrl = g('url_lodgify');
+  if (photoUrl) { $('hero-photos').href = photoUrl; $('hero-photos').style.display = 'inline-flex'; }
+  // WhatsApp
+  const wa = g('contacto_whatsapp').replace(/[^0-9+]/g,'');
+  if (wa) {
+    const msg = `Hola, estoy hospedado en ${desc||nombre}. Mi nombre es: `;
+    $('wa-link').href = `https://wa.me/${encodeURIComponent(wa)}?text=${encodeURIComponent(msg)}`;
+    $('wa-fab').style.display = 'flex';
+  }
+  // Meta OG
+  document.title = `${nombre} · Guía · Check-inn Saltillo`;
+  $('og-title').setAttribute('content', `${nombre} · Guía de Bienvenida`);
+  if (descShown) $('og-desc').setAttribute('content', descShown);
+  // Sections
+  const secList = [
+    ['gu-loc','📍','linear-gradient(135deg,#0ea5e9,#38bdf8)','Ubicación y cómo llegar'],
+    ['gu-house','🏠','linear-gradient(135deg,#8b5cf6,#a78bfa)','Características del alojamiento'],
+    ['gu-amen','✨','linear-gradient(135deg,#0f766e,#14b8a6)','Amenidades'],
+    ['gu-rules','📋','linear-gradient(135deg,#dc2626,#f87171)','Reglamento de la casa'],
+    ['gu-time','🕐','linear-gradient(135deg,#f59e0b,#fbbf24)','Horas de entrada y salida'],
+    ['gu-arr','🚪','linear-gradient(135deg,#2563eb,#60a5fa)','Método de llegada'],
+    ['gu-wifi','📶','linear-gradient(135deg,#7c3aed,#c084fc)','Conexión WiFi'],
+    ['gu-park','🅿️','linear-gradient(135deg,#475569,#94a3b8)','Estacionamiento'],
+    ['gu-wash','🧺','linear-gradient(135deg,#0891b2,#22d3ee)','Lavandería'],
+    ['gu-supply','🧴','linear-gradient(135deg,#16a34a,#4ade80)','Insumos disponibles'],
+    ['gu-out','👋','linear-gradient(135deg,#ea580c,#fb923c)','Instrucciones de salida'],
+    ['gu-emerg','🚨','linear-gradient(135deg,#b91c1c,#ef4444)','Contacto de emergencia'],
+  ];
+  $('quicknav').innerHTML = secList.map(([id,ic,,t]) => `<a href="#${id}" onclick="return jumpTo('${id}')">${ic} ${t.split(' ')[0]}</a>`).join('');
+  const capacidadRaw = g('capacidad');
+  const capacidad = capacidadRaw ? (/hu[eé]sped/i.test(capacidadRaw) ? capacidadRaw : `${capacidadRaw} huéspedes máx.`) : '';
+  const sec1Inner = `${g('url_google_maps')?`<a class="btn-map" href="${esc(g('url_google_maps'))}" target="_blank" rel="noopener">🧭 Abrir en Google Maps</a>`:''}${kv('Dirección', g('direccion'))}${kv('Referencia', g('referencia'))}${callout(g('referencia_googlemaps'),'💡')}`;
+  const sec2Inner = `${kv('Tipo', g('tipo'))}${kv('Capacidad', capacidad)}${kv('Recámaras', g('recamaras'))}${kv('Baños', g('banos','Banos'))}${kv('Planta', g('planta','Planta'))}`;
+  const sec3Inner = chips(listOf(g('amenidades'), {comma:true})) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin amenidades listadas.</div>';
+  const sec4Inner = rules(listOf(g('reglamento'))) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin reglamento listado.</div>';
+  const entrada = g('hora_llegada','hr_llegada'), salida = g('hora_salida','hr_salida');
+  const sec5Inner = `<div style="display:flex;gap:12px;margin-top:6px"><div style="flex:1;text-align:center;padding:16px 8px;border-radius:14px;border:1px solid #a5f3fc;background:linear-gradient(135deg,#ecfeff,#f0fdfa)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:4px">Entrada</div><div style="font-size:24px;font-weight:800;color:#0f172a">${esc(entrada||'—')}</div></div><div style="flex:1;text-align:center;padding:16px 8px;border-radius:14px;border:1px solid #fde68a;background:linear-gradient(135deg,#fff7ed,#fef9c3)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:4px">Salida</div><div style="font-size:24px;font-weight:800;color:#0f172a">${esc(salida||'—')}</div></div></div>`;
+  const sec6Inner = steps(listOf(g('metodo_llegada'))) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de llegada.</div>';
+  const sec7Inner = wifi(g('wifi_red','wifi_name_1'), g('wifi_contrasena'), g('wifi_aviso'));
+  const sec8Inner = `${kv('Tipo', g('estacionamiento_tipo'))}${kv('Instrucciones', g('estacionamiento_instrucciones'))}${kv('En la calle', g('estacionamiento_calle'))}${callout(g('estacionamiento_aviso'),'🚗')}`;
+  const regLav = listOf(g('lavanderia_reglamento'));
+  const sec9Inner = `${kv('Ubicación', g('lavanderia_ubicacion'))}${kv('Acceso', g('lavanderia_acceso'))}${regLav.length?`<div style="padding:12px 0 4px"><div style="font-size:12.5px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Reglamento</div>${rules(regLav)}</div>`:''}${callout(g('lavanderia_aviso'),'👕')}`;
+  const insList = listOf(g('insumos'), {comma:true});
+  const sec10Inner = `${kv('Ubicación', g('insumos_ubicacion'))}${insList.length?`<div style="padding:7px 0"><div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:6px">Algunos insumos disponibles</div>${chips(insList)}</div>`:''}${callout(g('insumos_aviso'),'🛒')}`;
+  const salList = listOf(g('salida_instrucciones'));
+  const sec11Inner = (salList.length ? iconList(salList) : '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de salida.</div>') + callout(g('salida_aviso'),'💚');
+  const sec12Inner = emerg(g('contacto_emergencia_1_nombre'), g('contacto_emergencia_1_numero'), g('contacto_emergencia_2_nombre'), g('contacto_emergencia_2_numero'));
+  const inners = [sec1Inner, sec2Inner, sec3Inner, sec4Inner, sec5Inner, sec6Inner, sec7Inner, sec8Inner, sec9Inner, sec10Inner, sec11Inner, sec12Inner];
+  $('sections').innerHTML = secList.map(([id,ic,bg,t], i) => section(id, ic, bg, t, inners[i], i === 0)).join('');
+  // Hero bg via microlink
+  if (photoUrl) {
+    fetch(`https://api.microlink.io/?url=${encodeURIComponent(photoUrl)}&screenshot=false`, {cache:'no-store'})
+      .then(r => r.json())
+      .then(j => {
+        const u = j?.data?.image?.url;
+        if (u) {
+          $('hero-bg').style.background = `url("${u}") center/cover`;
+          $('og-image').setAttribute('content', u);
+        }
+      }).catch(()=>{});
+  }
+}
+
+// ────────────────────────── boot ──────────────────────────
+(async function () {
+  const params = new URLSearchParams(location.search);
+  const id = (params.get('id') || '').trim();
+  if (!id) {
+    $('loader').style.display = 'none';
+    $('notfound').style.display = 'block';
+    $('notfound-msg').textContent = 'Falta el parámetro ?id= en la URL.';
+    return;
+  }
+  try {
+    const res = await fetch(`${BACKEND}/alojamientos-list`, { cache: 'no-store' });
+    const data = await res.json();
+    const rows = data.rows || [];
+    const target = rows.find(r => {
+      const rid = String(r.HouseId || r.HouseID || r.ID || '').trim();
+      return rid.toLowerCase() === id.toLowerCase();
+    });
+    if (!target) {
+      $('loader').style.display = 'none';
+      $('notfound').style.display = 'block';
+      $('notfound-msg').textContent = `No se encontró alojamiento con id "${id}".`;
+      return;
+    }
+    buildGuide(target);
+    $('loader').style.display = 'none';
+    $('root').style.display = 'block';
+  } catch (err) {
+    $('loader').style.display = 'none';
+    $('notfound').style.display = 'block';
+    $('notfound-msg').textContent = 'Error cargando datos. Intenta más tarde.';
+    console.error(err);
+  }
+})();
+</script>
+</body>
+</html>
