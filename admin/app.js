@@ -30505,15 +30505,20 @@ function guiasRenderContent() {
          </div>
        </div>`
     : '';
+  // En modo EDICIÓN se conserva el layout de tabs (formulario por campo).
+  // En modo LECTURA se pinta la guía tipo "guía de llegada" con acordeón.
+  const body = GUIAS_STATE.editMode
+    ? `<div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:14px;overflow-x:auto">${tabs}</div>
+       <div id="guias-tab-content">${guiasBuildTabHtml(GUIAS_STATE.activeTab, alojs)}</div>`
+    : `<div id="guias-tab-content">${guiasBuildGuide(alojs)}</div>`;
   host.innerHTML = `
-    <div style="max-width:560px;margin:0 auto">
+    <div style="max-width:640px;margin:0 auto">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
         <div style="font-size:12px;color:#64748b;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(heading)}</div>
         ${editBtn}
       </div>
       ${photoHtml}
-      <div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:14px;overflow-x:auto">${tabs}</div>
-      <div id="guias-tab-content">${guiasBuildTabHtml(GUIAS_STATE.activeTab, alojs)}</div>
+      ${body}
     </div>`;
 
   // Resolver og:image vía microlink.io (free, no auth) cuando hay url_lodgify.
@@ -30577,6 +30582,230 @@ function guiasBuildTabHtml(key, alojs) {
   const tabMeta = GUIAS_TABS.find(t => t.key === key);
   const inner = fields.map(([lbl, col, type]) => guiasField(lbl, col, alojs, { type: type || 'text' })).join('');
   return guiasCard(tabMeta?.label || '', tabMeta?.icon || '', inner);
+}
+
+// ─── Guía de bienvenida — layout tipo "guía de llegada" (12 secciones) ───
+// Lee columnas de la hoja "alojamientos". Cuando el usuario nombró una key
+// que difiere de la existente, hacemos fallback a la variante conocida.
+
+/** Lee el valor de una fila probando varios nombres de columna. */
+function guiasVal_(aloj, ...keys) {
+  for (const k of keys) {
+    const v = aloj && aloj[k];
+    if (v != null && String(v).trim() !== '') return String(v).trim();
+  }
+  return '';
+}
+
+/** Divide una lista escrita en el sheet: acepta saltos de línea, ; o | */
+function guiasList_(str) {
+  return String(str||'').split(/\r?\n|;|\|/).map(s => s.trim()).filter(Boolean);
+}
+
+/** Fila de dato Clave/Valor (K/V) — vacío ⇒ se omite. */
+function guiKv_(k, v) {
+  if (!v) return '';
+  return `<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px dashed #e2e8f0"><div style="flex:none;width:120px;font-weight:600;font-size:13px;color:#0f172a">${esc(k)}</div><div style="flex:1;font-size:13.5px;color:#334155">${esc(v)}</div></div>`;
+}
+
+function guiCallout_(text, icon) {
+  if (!text) return '';
+  return `<div style="display:flex;gap:12px;background:#fffbeb;border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:12px;padding:13px;margin-top:12px;font-size:13px;color:#334155"><span style="font-size:18px">${icon||'💡'}</span><div>${esc(text)}</div></div>`;
+}
+
+/** Tarjeta acordeón: `<details>` con header y body. */
+function guiSection_(id, iconEmoji, iconClass, title, subtitle, inner, opts) {
+  const open = opts && opts.open ? ' open' : '';
+  return `<details id="${id}" class="guia-section"${open} style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:0 2px 10px -4px rgba(15,23,42,.10)">
+    <summary style="display:flex;align-items:center;gap:14px;padding:16px;cursor:pointer;list-style:none;user-select:none">
+      <div style="flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;background:${iconClass};color:#fff">${iconEmoji}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:700;color:#0f172a">${esc(title)}</div>
+        ${subtitle ? `<div style="font-size:12px;color:#64748b">${esc(subtitle)}</div>` : ''}
+      </div>
+      <div style="color:#94a3b8;font-size:12px">▼</div>
+    </summary>
+    <div style="padding:2px 18px 18px">${inner}</div>
+  </details>`;
+}
+
+/** Chips (para amenidades / insumos). */
+function guiChips_(list) {
+  if (!list.length) return '';
+  return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${list.map(c => {
+    const no = /^no\s|^sin\s|^prohib/i.test(c);
+    const bg = no ? '#fef2f2' : '#f0fdfa';
+    const col = no ? '#b91c1c' : '#0f766e';
+    const bd = no ? '#fecaca' : '#99f6e4';
+    return `<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;background:${bg};color:${col};border:1px solid ${bd};padding:7px 12px;border-radius:10px">${esc(c)}</span>`;
+  }).join('')}</div>`;
+}
+
+/** Reglas (✓ / ✗ / !). Cada línea puede empezar con "no", "sí", "!"; sino info. */
+function guiRules_(list) {
+  if (!list.length) return '';
+  return list.map(t => {
+    let cls = 'info', mark = '!', bg = '#f59e0b';
+    if (/^\s*(no|prohibido|✗|✘)\b/i.test(t)) { cls='no'; mark='✗'; bg='#dc2626'; }
+    else if (/^\s*(sí|si|✓|✔|permitido)\b/i.test(t)) { cls='yes'; mark='✓'; bg='#16a34a'; }
+    const txt = t.replace(/^\s*(no|prohibido|sí|si|permitido|✓|✔|✗|✘|!)\s*[:\-]?\s*/i,'');
+    return `<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f1f5f9"><div style="flex:none;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;background:${bg}">${mark}</div><div style="font-size:13.5px;flex:1;color:#334155">${esc(txt)}</div></div>`;
+  }).join('');
+}
+
+/** Pasos numerados: cada item con formato "Título (descripción)". */
+function guiSteps_(list) {
+  if (!list.length) return '';
+  return `<div style="position:relative;margin-top:6px">${list.map((raw, i) => {
+    const m = raw.match(/^\s*(?:[a-z]\)|\d+[\.\)])?\s*(.+?)(?:\s*\(([\s\S]+)\))?\s*$/i);
+    const title = m ? m[1].trim() : raw;
+    const desc  = m && m[2] ? m[2].trim() : '';
+    const last = i === list.length - 1;
+    return `<div style="position:relative;padding:2px 0 18px 44px">
+      <div style="position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;background:#0f766e;color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px">${i+1}</div>
+      ${!last ? '<div style="position:absolute;left:14px;top:32px;bottom:2px;width:2px;background:#e2e8f0"></div>' : ''}
+      <div style="font-size:14px;font-weight:700;color:#0f172a">${esc(title)}</div>
+      ${desc ? `<div style="font-size:13px;color:#64748b">${esc(desc)}</div>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function guiWifi_(red, pass, aviso) {
+  if (!red && !pass && !aviso) return '<div style="font-size:12px;color:#94a3b8;font-style:italic">Datos de Wi-Fi no configurados.</div>';
+  return `<div style="background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:16px;padding:18px;color:#fff;margin-top:4px">
+    ${red ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.12)"><div><div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:.7">Red</div><div style="font-size:16px;font-weight:700;font-family:'Courier New',monospace">${esc(red)}</div></div></div>` : ''}
+    ${pass ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0"><div><div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:.7">Contraseña</div><div id="guia-wifi-pass" style="font-size:16px;font-weight:700;font-family:'Courier New',monospace">${esc(pass)}</div></div><button type="button" onclick="guiCopy_(this,'${esc(pass).replace(/'/g,"\\'")}')" style="background:#f59e0b;color:#3b2500;border:0;font-weight:700;font-size:12px;padding:8px 14px;border-radius:10px;cursor:pointer">Copiar</button></div>` : ''}
+  </div>${guiCallout_(aviso, '📡')}`;
+}
+
+window.guiCopy_ = function (btn, txt) {
+  navigator.clipboard?.writeText(txt).then(() => {
+    const orig = btn.textContent; btn.textContent = '¡Copiado!'; btn.style.background = '#16a34a'; btn.style.color = '#fff';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = '#f59e0b'; btn.style.color = '#3b2500'; }, 1800);
+  });
+};
+
+function guiEmerg_(nombre1, num1, nombre2, num2) {
+  const card = (nombre, num, i) => {
+    if (!nombre && !num) return '';
+    const bg = i === 0 ? '#dc2626' : '#0891b2';
+    return `<a href="${num ? `tel:${esc(String(num).replace(/[^0-9+]/g,''))}` : '#'}" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:#334155;background:#fef2f2;border:1px solid #fecaca;border-radius:13px;padding:13px 14px">
+      <div style="width:40px;height:40px;border-radius:11px;background:${bg};color:#fff;display:grid;place-items:center;font-size:19px;flex:none">👤</div>
+      <div style="flex:1"><b style="font-size:14px;display:block">${esc(nombre || 'Contacto')}</b><span style="font-size:12px;color:#64748b">${esc(num || 'Sin número')}</span></div>
+      ${num ? '<div style="font-size:12px;font-weight:700;color:#dc2626">Llamar</div>' : ''}
+    </a>`;
+  };
+  return `<div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+    ${card(nombre1, num1, 0)}
+    ${card(nombre2, num2, 1)}
+    <a href="tel:911" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:#334155;background:#fef2f2;border:1px solid #fecaca;border-radius:13px;padding:13px 14px">
+      <div style="width:40px;height:40px;border-radius:11px;background:#b91c1c;color:#fff;display:grid;place-items:center;font-size:19px;flex:none">🚑</div>
+      <div style="flex:1"><b style="font-size:14px;display:block">Emergencias 911</b><span style="font-size:12px;color:#64748b">Policía · Bomberos · Ambulancia</span></div>
+      <div style="font-size:12px;font-weight:700;color:#dc2626">911</div>
+    </a>
+  </div>`;
+}
+
+/** Construye la guía tipo "guía de llegada" para un solo alojamiento (o el
+ *  primero si hay varios). Sigue el layout del prototipo con 12 secciones. */
+function guiasBuildGuide(alojs) {
+  if (!alojs.length) return '';
+  const a = alojs[0]; // usamos el primero cuando hay varios
+  const V = (...keys) => guiasVal_(a, ...keys);
+  // I. Ubicación y cómo llegar
+  const sec1 = (() => {
+    const gmapUrl = V('url_google_maps');
+    const dir     = V('direccion');
+    const ref     = V('referencia');
+    const aviso   = V('referencia_googlemaps');
+    const inner = `
+      ${gmapUrl ? `<a class="btn-map" href="${esc(gmapUrl)}" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-bottom:12px;background:#0f766e;color:#fff;font-weight:700;font-size:14px;padding:13px;border-radius:12px">🧭 Abrir en Google Maps</a>` : ''}
+      ${guiKv_('Dirección', dir)}
+      ${guiKv_('Referencia', ref)}
+      ${guiCallout_(aviso, '💡')}`;
+    return guiSection_('gu-loc', '📍', 'linear-gradient(135deg,#0ea5e9,#38bdf8)', 'Ubicación y cómo llegar', 'Dirección, mapa y referencias', inner, { open: true });
+  })();
+  // II. Características del alojamiento
+  const sec2 = (() => {
+    const inner = `
+      ${guiKv_('Tipo', V('tipo'))}
+      ${guiKv_('Capacidad', V('capacidad'))}
+      ${guiKv_('Recámaras', V('recamaras'))}
+      ${guiKv_('Baños', V('banos','Banos','baños','Baños'))}
+      ${guiKv_('Planta', V('planta','Planta'))}`;
+    return guiSection_('gu-house', '🏠', 'linear-gradient(135deg,#8b5cf6,#a78bfa)', 'Características del alojamiento', 'Espacios y capacidad', inner);
+  })();
+  // III. Amenidades
+  const sec3 = (() => {
+    const list = guiasList_(V('amenidades'));
+    return guiSection_('gu-amen', '✨', 'linear-gradient(135deg,#0f766e,#14b8a6)', 'Amenidades', 'Lo que incluye el espacio', guiChips_(list) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin amenidades listadas.</div>');
+  })();
+  // IV. Reglamento de la casa
+  const sec4 = (() => {
+    const list = guiasList_(V('reglamento'));
+    return guiSection_('gu-rules', '📋', 'linear-gradient(135deg,#dc2626,#f87171)', 'Reglamento de la casa', 'Para una convivencia armónica', guiRules_(list) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin reglamento listado.</div>');
+  })();
+  // V. Horas de entrada y salida
+  const sec5 = (() => {
+    const entrada = V('hora_llegada','hr_llegada');
+    const salida  = V('hora_salida','hr_salida');
+    const inner = `<div style="display:flex;gap:12px;margin-top:6px">
+      <div style="flex:1;text-align:center;padding:16px 8px;border-radius:14px;border:1px solid #a5f3fc;background:linear-gradient(135deg,#ecfeff,#f0fdfa)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:4px">Entrada</div><div style="font-size:24px;font-weight:800;color:#0f172a">${esc(entrada || '—')}</div></div>
+      <div style="flex:1;text-align:center;padding:16px 8px;border-radius:14px;border:1px solid #fde68a;background:linear-gradient(135deg,#fff7ed,#fef9c3)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:4px">Salida</div><div style="font-size:24px;font-weight:800;color:#0f172a">${esc(salida || '—')}</div></div>
+    </div>`;
+    return guiSection_('gu-time', '🕐', 'linear-gradient(135deg,#f59e0b,#fbbf24)', 'Horas de entrada y salida', 'Check-in / Check-out', inner);
+  })();
+  // VI. Método de llegada
+  const sec6 = (() => {
+    const list = guiasList_(V('metodo_llegada'));
+    return guiSection_('gu-arr', '🚪', 'linear-gradient(135deg,#2563eb,#60a5fa)', 'Método de llegada', 'Acceso al alojamiento', guiSteps_(list) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de llegada.</div>');
+  })();
+  // VII. Conexión WiFi
+  const sec7 = (() => {
+    return guiSection_('gu-wifi', '📶', 'linear-gradient(135deg,#7c3aed,#c084fc)', 'Conexión WiFi', 'Red y contraseña',
+      guiWifi_(V('wifi_red','wifi_name_1'), V('wifi_contrasena'), V('wifi_aviso')));
+  })();
+  // VIII. Estacionamiento
+  const sec8 = (() => {
+    const inner = `
+      ${guiKv_('Tipo', V('estacionamiento_tipo'))}
+      ${guiKv_('Instrucciones', V('estacionamiento_instrucciones'))}
+      ${guiKv_('En la calle', V('estacionamiento_calle'))}
+      ${guiCallout_(V('estacionamiento_aviso'), '🚗')}`;
+    return guiSection_('gu-park', '🅿️', 'linear-gradient(135deg,#475569,#94a3b8)', 'Estacionamiento', 'Dónde dejar tu auto', inner);
+  })();
+  // IX. Lavandería
+  const sec9 = (() => {
+    const inner = `
+      ${guiKv_('Ubicación', V('lavanderia_ubicacion'))}
+      ${guiKv_('Acceso', V('lavanderia_acceso'))}
+      ${guiKv_('Reglamento', V('lavanderia_reglamento'))}
+      ${guiCallout_(V('lavanderia_aviso'), '👕')}`;
+    return guiSection_('gu-wash', '🧺', 'linear-gradient(135deg,#0891b2,#22d3ee)', 'Lavandería', 'Lavadora y secado', inner);
+  })();
+  // X. Insumos disponibles
+  const sec10 = (() => {
+    const inner = `
+      ${guiKv_('Ubicación', V('insumos_ubicacion'))}
+      ${(() => { const list = guiasList_(V('insumos')); return list.length ? `<div style="padding:7px 0"><div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:6px">Insumos</div>${guiChips_(list)}</div>` : ''; })()}
+      ${guiCallout_(V('insumos_aviso'), '🛒')}`;
+    return guiSection_('gu-supply', '🧴', 'linear-gradient(135deg,#16a34a,#4ade80)', 'Insumos disponibles', 'Lo que encontrarás listo', inner);
+  })();
+  // XI. Instrucciones de salida
+  const sec11 = (() => {
+    const list = guiasList_(V('salida_instrucciones'));
+    const rules = list.length
+      ? list.map(t => `<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f1f5f9"><div style="flex:none;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;background:#16a34a">✓</div><div style="font-size:13.5px;flex:1;color:#334155">${esc(t)}</div></div>`).join('')
+      : '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de salida.</div>';
+    return guiSection_('gu-out', '👋', 'linear-gradient(135deg,#ea580c,#fb923c)', 'Instrucciones de salida', 'Antes de irte', rules + guiCallout_(V('salida_aviso'), '💚'));
+  })();
+  // XII. Contacto de emergencia
+  const sec12 = (() => {
+    return guiSection_('gu-emerg', '🚨', 'linear-gradient(135deg,#b91c1c,#ef4444)', 'Contacto de emergencia', 'Estamos para ayudarte',
+      guiEmerg_(V('contacto_emergencia_1_nombre'), V('contacto_emergencia_1_numero'),
+                V('contacto_emergencia_2_nombre'), V('contacto_emergencia_2_numero')));
+  })();
+  return sec1 + sec2 + sec3 + sec4 + sec5 + sec6 + sec7 + sec8 + sec9 + sec10 + sec11 + sec12;
 }
 
 function guiasCard(title, icon, inner) {
