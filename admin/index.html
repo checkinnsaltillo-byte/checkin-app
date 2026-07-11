@@ -364,15 +364,15 @@
     </div><!-- /module-home -->
 
     <!-- ══ MÓDULO: Guías de Bienvenida ════════════════════════════════════════ -->
-    <div id="module-guias" class="hidden" style="padding:0;height:calc(100vh - 80px);display:flex;flex-direction:column;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-.005em">
+    <div id="module-guias" class="hidden" style="padding:0;display:flex;flex-direction:column;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-.005em">
       <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid #e2e8f0;background:#fff;flex-shrink:0">
         <h2 style="margin:0;font-size:18px;display:flex;align-items:center;gap:8px">📖 Guías de Bienvenida</h2>
         <span id="guias-summary" style="font-size:12px;color:#64748b">—</span>
         <button class="btn-limpiar" style="margin-left:auto" onclick="guiasLoad(true)">↻ Actualizar</button>
       </div>
-      <div style="flex:1;display:flex;overflow:hidden;min-height:0">
-        <aside id="guias-sidebar" style="width:280px;flex-shrink:0;border-right:1px solid #e2e8f0;background:#f8fafc;overflow-y:auto;padding:10px"></aside>
-        <main id="guias-content" style="flex:1;overflow-y:auto;background:#fff;padding:18px 22px">
+      <div style="display:flex;align-items:flex-start">
+        <aside id="guias-sidebar" style="width:280px;flex-shrink:0;border-right:1px solid #e2e8f0;background:#f8fafc;padding:10px;position:sticky;top:0;align-self:flex-start;max-height:100vh;overflow-y:auto"></aside>
+        <main id="guias-content" style="flex:1;background:#fff;padding:18px 22px">
           <div style="text-align:center;padding:60px 20px;color:#94a3b8;font-size:13px">
             Selecciona una propiedad a la izquierda para ver su guía.
           </div>
@@ -2335,6 +2335,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=616"></script>
+  <script src="app.js?v=617"></script>
 </body>
 </html>
