@@ -30808,6 +30808,49 @@ window.guiasShareCard_ = async function (houseId, nombre, url) {
   w.document.close();
 };
 
+/** Alterna la sidebar entre expandida (280px) y colapsada (0). Persiste
+ *  la preferencia en localStorage para que se recuerde en próximas
+ *  visitas — útil en móvil donde el usuario suele preferirla colapsada. */
+window.guiasToggleSidebar = function () {
+  const sb  = document.getElementById('guias-sidebar');
+  const btn = document.getElementById('guias-sidebar-toggle');
+  if (!sb) return;
+  const willCollapse = !sb.classList.contains('is-collapsed');
+  sb.classList.toggle('is-collapsed', willCollapse);
+  if (willCollapse) {
+    sb.style.width = '0'; sb.style.padding = '10px 0'; sb.style.opacity = '0'; sb.style.border = '0';
+    if (btn) { btn.textContent = '☰'; btn.title = 'Mostrar lista de alojamientos'; }
+  } else {
+    sb.style.width = '280px'; sb.style.padding = '10px'; sb.style.opacity = '1'; sb.style.borderRight = '1px solid #e2e8f0';
+    if (btn) { btn.textContent = '✕'; btn.title = 'Ocultar lista de alojamientos'; }
+  }
+  try { localStorage.setItem('guias-sidebar-collapsed', willCollapse ? '1' : '0'); } catch {}
+};
+
+// Al entrar por primera vez, respeta la preferencia guardada.
+(function () {
+  const apply = () => {
+    let saved = null;
+    try { saved = localStorage.getItem('guias-sidebar-collapsed'); } catch {}
+    // Auto-colapsar en pantallas angostas si no hay preferencia guardada.
+    if (saved == null && window.matchMedia && window.matchMedia('(max-width: 720px)').matches) saved = '1';
+    if (saved === '1') {
+      const sb = document.getElementById('guias-sidebar');
+      const btn = document.getElementById('guias-sidebar-toggle');
+      if (sb) {
+        sb.classList.add('is-collapsed');
+        sb.style.width = '0'; sb.style.padding = '10px 0'; sb.style.opacity = '0'; sb.style.border = '0';
+      }
+      if (btn) { btn.textContent = '☰'; btn.title = 'Mostrar lista de alojamientos'; }
+    } else {
+      const btn = document.getElementById('guias-sidebar-toggle');
+      if (btn) { btn.textContent = '✕'; btn.title = 'Ocultar lista de alojamientos'; }
+    }
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply);
+  else apply();
+})();
+
 /** Copia al portapapeles la URL pública del alojamiento y muestra un modal
  *  con el link + QR code para compartir. */
 window.guiasShareLink_ = function (houseId, nombre) {

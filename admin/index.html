@@ -366,12 +366,15 @@
     <!-- ══ MÓDULO: Guías de Bienvenida ════════════════════════════════════════ -->
     <div id="module-guias" class="hidden" style="padding:0;display:flex;flex-direction:column;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-.005em">
       <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid #e2e8f0;background:#fff;flex-shrink:0">
+        <button id="guias-sidebar-toggle" type="button" onclick="guiasToggleSidebar()"
+                title="Mostrar/ocultar lista de alojamientos"
+                style="all:unset;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:#f1f5f9;color:#334155;font-size:16px">☰</button>
         <h2 style="margin:0;font-size:18px;display:flex;align-items:center;gap:8px">📖 Guías de Bienvenida</h2>
         <span id="guias-summary" style="font-size:12px;color:#64748b">—</span>
         <button class="btn-limpiar" style="margin-left:auto" onclick="guiasLoad(true)">↻ Actualizar</button>
       </div>
       <div style="display:flex;align-items:flex-start">
-        <aside id="guias-sidebar" style="width:280px;flex-shrink:0;border-right:1px solid #e2e8f0;background:#f8fafc;padding:10px;position:sticky;top:0;align-self:flex-start;max-height:100vh;overflow-y:auto"></aside>
+        <aside id="guias-sidebar" style="width:280px;flex-shrink:0;border-right:1px solid #e2e8f0;background:#f8fafc;padding:10px;position:sticky;top:0;align-self:flex-start;max-height:100vh;overflow-y:auto;transition:width .25s ease,padding .25s ease,opacity .2s ease"></aside>
         <main id="guias-content" style="flex:1;background:#fff;padding:18px 12px;min-width:0">
           <div style="text-align:center;padding:60px 20px;color:#94a3b8;font-size:13px">
             Selecciona una propiedad a la izquierda para ver su guía.
@@ -2335,6 +2338,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=620"></script>
+  <script src="app.js?v=621"></script>
 </body>
 </html>
