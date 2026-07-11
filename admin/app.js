@@ -30510,11 +30510,16 @@ function guiasRenderContent() {
     ? `<header id="guias-hero" style="position:relative;color:#fff;padding:32px 22px 60px;text-align:center;overflow:hidden;border-radius:0 0 30px 30px;background:#1e293b">
          <div id="guias-hero-bg" style="position:absolute;inset:0;background:linear-gradient(160deg,rgba(30,41,59,.82),rgba(234,88,12,.85))"></div>
          <div style="position:relative;z-index:2">
-           <img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png" alt="Check-inn" style="display:block;margin:0 auto 14px;height:44px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))">
-           <span style="display:inline-block;font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:6px 13px;border-radius:999px;backdrop-filter:blur(4px);white-space:nowrap;margin-bottom:20px">Guía de Bienvenida</span>
+           <div style="display:inline-flex;align-items:center;gap:6px;margin:0 auto 14px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))">
+             <img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png" alt="Check-inn" style="display:block;height:44px">
+             <img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt="" style="display:block;height:48px">
+           </div>
+           <div style="text-align:center">
+             <span style="display:inline-block;font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:6px 13px;border-radius:999px;backdrop-filter:blur(4px);white-space:nowrap;margin-bottom:20px">Guía de Bienvenida</span>
+           </div>
            <h1 style="font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.2;margin:0 0 8px;color:#fff">${esc(nombreProp)}</h1>
            ${descPropShown ? `<p style="font-size:15px;opacity:.92;max-width:340px;margin:0 auto 22px;color:#fff">${esc(descPropShown)}</p>` : '<div style="height:14px"></div>'}
-           ${photoPageUrl ? `<button type="button" onclick="guiasOpenLodgifyModal_('${esc(photoPageUrl).replace(/'/g,"\\'")}','${esc(nombreProp).replace(/'/g,"\\'")}')" style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:8px 18px;font-size:13px;font-weight:700;backdrop-filter:blur(6px)">📷 Ver fotos del alojamiento</button>` : ''}
+           ${photoPageUrl ? `<a href="${esc(photoPageUrl)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:8px 18px;font-size:13px;font-weight:700;backdrop-filter:blur(6px);text-decoration:none">📷 Ver fotos del alojamiento</a>` : ''}
          </div>
        </header>`
     : '';
@@ -30522,11 +30527,14 @@ function guiasRenderContent() {
   const wa = isReadOne ? guiasVal_(alojs[0], 'contacto_whatsapp') : '';
   const waPhone = wa.replace(/[^0-9+]/g,'');
   const waMsg = isReadOne ? `Hola, estoy hospedado en ${nombreProp}, tengo la siguiente duda/comentario: ` : '';
+  // El fab vive DENTRO del contenedor de la guía (position:absolute), no
+  // en la ventana global. `guias-content` ya es position:relative por su
+  // layout base; si no lo fuera, absolute caería al viewport.
   const waHtml = (isReadOne && waPhone)
-    ? `<div id="guias-wa-fab" style="position:fixed;top:80px;right:24px;z-index:150;display:flex;flex-direction:column;align-items:center;gap:4px">
+    ? `<div id="guias-wa-fab" style="position:absolute;top:14px;right:14px;z-index:150;display:flex;flex-direction:column;align-items:center;gap:4px">
          <a href="https://wa.me/${encodeURIComponent(waPhone)}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" title="Contactar por WhatsApp"
             style="width:52px;height:52px;border-radius:50%;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;text-decoration:none;box-shadow:0 8px 18px -6px rgba(37,211,102,.6)">💬</a>
-         <span style="font-size:11px;font-weight:700;color:#0f172a;background:rgba(255,255,255,.9);padding:2px 8px;border-radius:8px;box-shadow:0 2px 6px rgba(15,23,42,.15)">Envíanos WhatsApp</span>
+         <span style="font-size:11px;font-weight:700;color:#0f172a;background:rgba(255,255,255,.95);padding:2px 8px;border-radius:8px;box-shadow:0 2px 6px rgba(15,23,42,.15)">Envíanos WhatsApp</span>
        </div>`
     : '';
   // Fallback (modo edición o multi-alojamiento): mantiene la foto simple.
@@ -30556,14 +30564,19 @@ function guiasRenderContent() {
     ? `<div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:14px;overflow-x:auto">${tabs}</div>
        <div id="guias-tab-content">${guiasBuildTabHtml(GUIAS_STATE.activeTab, alojs)}</div>`
     : `${quicknavHtml}<div id="guias-tab-content">${guiasBuildGuide(alojs)}</div>`;
+  // Asegura position:relative para que el fab de WhatsApp se ancle aquí.
+  host.style.position = 'relative';
+  const headerRow = isReadOne
+    ? ''
+    : `<div style="display:flex;align-items:center;gap:10px;margin:0 0 10px;flex-wrap:wrap">
+         <div style="font-size:12px;color:#64748b;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(heading)}</div>
+         ${editBtn}
+       </div>`;
   host.innerHTML = `
     ${heroHtml}
     ${waHtml}
-    <div style="max-width:640px;margin:0 auto;padding:${isReadOne?'0':'0'} 4px">
-      <div style="display:flex;align-items:center;gap:10px;margin:${isReadOne?'14px 0 10px':'0 0 10px'};flex-wrap:wrap">
-        <div style="font-size:12px;color:#64748b;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(heading)}</div>
-        ${editBtn}
-      </div>
+    <div style="max-width:640px;margin:0 auto;padding:0 4px">
+      ${headerRow}
       ${photoSimple}
       ${body}
     </div>`;
