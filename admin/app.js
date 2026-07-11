@@ -30523,8 +30523,11 @@ function guiasRenderContent() {
   const waPhone = wa.replace(/[^0-9+]/g,'');
   const waMsg = isReadOne ? `Hola, estoy hospedado en ${nombreProp}, tengo la siguiente duda/comentario: ` : '';
   const waHtml = (isReadOne && waPhone)
-    ? `<a id="guias-wa-fab" href="https://wa.me/${encodeURIComponent(waPhone)}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" title="Contactar por WhatsApp"
-         style="position:fixed;top:80px;right:24px;z-index:150;width:52px;height:52px;border-radius:50%;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;text-decoration:none;box-shadow:0 8px 18px -6px rgba(37,211,102,.6)">💬</a>`
+    ? `<div id="guias-wa-fab" style="position:fixed;top:80px;right:24px;z-index:150;display:flex;flex-direction:column;align-items:center;gap:4px">
+         <a href="https://wa.me/${encodeURIComponent(waPhone)}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" title="Contactar por WhatsApp"
+            style="width:52px;height:52px;border-radius:50%;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;text-decoration:none;box-shadow:0 8px 18px -6px rgba(37,211,102,.6)">💬</a>
+         <span style="font-size:11px;font-weight:700;color:#0f172a;background:rgba(255,255,255,.9);padding:2px 8px;border-radius:8px;box-shadow:0 2px 6px rgba(15,23,42,.15)">Envíanos WhatsApp</span>
+       </div>`
     : '';
   // Fallback (modo edición o multi-alojamiento): mantiene la foto simple.
   const photoSimple = (!isReadOne && photoPageUrl)
@@ -30587,25 +30590,61 @@ function guiasRenderContent() {
   }
 }
 
-/** Modal con las fotos del listing (iframe al url_lodgify). */
+/** Modal con las fotos del listing. Usa microlink.io para extraer las
+ *  imágenes del listado sin embed del sitio completo (evita el ✕ ajeno). */
 window.guiasOpenLodgifyModal_ = function (url, title) {
   if (!url) return;
-  const existing = document.getElementById('guias-lodgify-modal');
-  if (existing) existing.remove();
+  document.getElementById('guias-lodgify-modal')?.remove();
   const el = document.createElement('div');
   el.id = 'guias-lodgify-modal';
-  el.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.85);z-index:9999;display:flex;flex-direction:column;padding:0';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.94);z-index:9999;display:flex;flex-direction:column;padding:0';
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff;background:rgba(15,23,42,.9)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff">
       <div style="font-size:14px;font-weight:700">📷 ${esc(title || 'Fotos del alojamiento')}</div>
-      <div style="display:flex;gap:8px">
-        <a href="${esc(url)}" target="_blank" rel="noopener" style="background:#ea580c;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:8px 14px;border-radius:8px">🌐 Abrir listing</a>
-        <button type="button" onclick="document.getElementById('guias-lodgify-modal')?.remove()" style="all:unset;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;width:38px;height:38px;border-radius:50%;font-size:18px;display:grid;place-items:center">✕</button>
-      </div>
+      <button type="button" onclick="document.getElementById('guias-lodgify-modal')?.remove()" title="Cerrar" style="all:unset;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;width:38px;height:38px;border-radius:50%;font-size:18px;display:grid;place-items:center">✕</button>
     </div>
-    <iframe src="${esc(url)}" style="flex:1;width:100%;border:0;background:#fff" title="Fotos del alojamiento"></iframe>`;
+    <div id="guias-lodgify-body" style="flex:1;overflow-y:auto;padding:0 18px 24px">
+      <div id="guias-lodgify-loading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;color:#cbd5e1;padding:60px 20px;gap:12px">
+        <div style="width:44px;height:44px;border:3px solid rgba(255,255,255,.15);border-top-color:#ea580c;border-radius:50%;animation:guiasSpin 1s linear infinite"></div>
+        <div style="font-size:13px">Cargando fotos…</div>
+      </div>
+      <div id="guias-lodgify-photos" style="display:none;flex-wrap:wrap;gap:12px;justify-content:center"></div>
+    </div>
+    <style>@keyframes guiasSpin{to{transform:rotate(360deg)}}</style>`;
   el.addEventListener('click', ev => { if (ev.target === el) el.remove(); });
   document.body.appendChild(el);
+  // Cierra con Escape.
+  const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
+  document.addEventListener('keydown', onKey);
+  // Extrae imágenes vía microlink.io.
+  fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}&audio=false&video=false&iframe=false&meta=true&palette=false&data.images.pick=&screenshot=false`, { cache:'no-store' })
+    .then(r => r.json())
+    .then(j => {
+      const seen = new Set();
+      const pushImg = u => { if (u && !seen.has(u)) { seen.add(u); return u; } return null; };
+      const imgs = [];
+      const data = j?.data || {};
+      // Colecta: image principal, logo (evitar) y screenshot ignorado.
+      if (data.image?.url) { const u = pushImg(data.image.url); if (u) imgs.push(u); }
+      if (Array.isArray(data.images)) data.images.forEach(im => { const u = pushImg(im?.url); if (u) imgs.push(u); });
+      const body = document.getElementById('guias-lodgify-body');
+      const loading = document.getElementById('guias-lodgify-loading');
+      const grid = document.getElementById('guias-lodgify-photos');
+      if (!body || !grid) return;
+      if (!imgs.length) {
+        loading.innerHTML = `<div style="color:#fca5a5;font-size:13px;text-align:center">No se pudieron extraer las fotos automáticamente.</div>
+          <a href="${esc(url)}" target="_blank" rel="noopener" style="background:#ea580c;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:10px 18px;border-radius:10px;margin-top:10px">🌐 Abrir listing completo</a>`;
+        return;
+      }
+      loading.style.display = 'none';
+      grid.style.display = 'flex';
+      grid.innerHTML = imgs.map(u => `<div style="flex:1 1 280px;max-width:520px"><img src="${esc(u)}" alt="Foto del alojamiento" style="width:100%;height:auto;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.35);background:#0f172a"></div>`).join('');
+    })
+    .catch(() => {
+      const loading = document.getElementById('guias-lodgify-loading');
+      if (loading) loading.innerHTML = `<div style="color:#fca5a5;font-size:13px;text-align:center">Error cargando fotos.</div>
+        <a href="${esc(url)}" target="_blank" rel="noopener" style="background:#ea580c;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:10px 18px;border-radius:10px;margin-top:10px">🌐 Abrir listing completo</a>`;
+    });
 };
 
 /** Salta a una sección del quicknav: abre el <details> y hace scroll suave. */
