@@ -30599,7 +30599,53 @@ function guiasVal_(aloj, ...keys) {
 
 /** Divide una lista escrita en el sheet: acepta saltos de línea, ; o | */
 function guiasList_(str) {
-  return String(str||'').split(/\r?\n|;|\|/).map(s => s.trim()).filter(Boolean);
+  return String(str||'').split(/\r?\n|;|\|/)
+    .map(s => s.trim())
+    // Quita bullets de inicio: •, -, –, *, letra) o dígito) o dígito.
+    .map(s => s.replace(/^\s*(?:[•\-\–\*]|[a-zA-Z]\)|\d+[\.\)])\s*/, '').trim())
+    .filter(Boolean);
+}
+
+/** Emoji para un ítem de amenidad/insumo/salida según palabras clave. */
+function guiIcon_(text) {
+  const t = String(text||'').toLowerCase();
+  const map = [
+    [/wi ?fi|internet/, '📶'],
+    [/aire acond|a\/c|\bac\b|clima/, '❄️'],
+    [/calefac|calent(ador|amiento)|calor/, '🔥'],
+    [/smart\s?tv|\btv\b|televis/, '📺'],
+    [/cocin/, '🍳'],
+    [/cafetera|caf[eé]/, '☕'],
+    [/\bt[eé]\b/, '🍵'],
+    [/refrig|nevera|frigo/, '🧊'],
+    [/lavador|lavander/, '🧺'],
+    [/secador/, '🌀'],
+    [/estacion|parking|cochera|garage/, '🅿️'],
+    [/agua caliente|regader|duch/, '🚿'],
+    [/toalla/, '🛁'],
+    [/shampoo|gel|amenidades? de bañ/, '🧴'],
+    [/jab[oó]n/, '🧼'],
+    [/papel higi[eé]n/, '🧻'],
+    [/ropa de cama|s[aá]bana|almohada|cama|colch[oó]n/, '🛏️'],
+    [/sal|aceite|b[aá]sicos|especias|az[uú]car/, '🧂'],
+    [/limpieza|limpiador|productos de aseo/, '🧽'],
+    [/basura|residuos/, '🗑️'],
+    [/llave|acceso|puerta/, '🔑'],
+    [/mascota|perro|gato/, '🐾'],
+    [/fumar|tabaco|cigarr/, '🚭'],
+    [/luz|luces|apaga/, '💡'],
+    [/ventana|cerrar/, '🪟'],
+    [/aire libre|terraza|patio|jard[ií]n/, '🌿'],
+    [/piscina|alberca/, '🏊'],
+    [/microondas/, '🍲'],
+    [/plancha/, '👔'],
+    [/tomacorriente|enchufe|carga/, '🔌'],
+    [/agua purificad|agua embotellad|garraf[oó]n/, '💧'],
+    [/mesa|comedor|silla/, '🪑'],
+    [/aspiradora|escoba|trap/, '🧹'],
+  ];
+  for (const [rx, ic] of map) if (rx.test(t)) return ic;
+  return '•';
 }
 
 /** Fila de dato Clave/Valor (K/V) — vacío ⇒ se omite. */
@@ -30629,7 +30675,7 @@ function guiSection_(id, iconEmoji, iconClass, title, subtitle, inner, opts) {
   </details>`;
 }
 
-/** Chips (para amenidades / insumos). */
+/** Chips (para amenidades / insumos). Incluye ícono automático por keyword. */
 function guiChips_(list) {
   if (!list.length) return '';
   return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${list.map(c => {
@@ -30637,7 +30683,8 @@ function guiChips_(list) {
     const bg = no ? '#fef2f2' : '#f0fdfa';
     const col = no ? '#b91c1c' : '#0f766e';
     const bd = no ? '#fecaca' : '#99f6e4';
-    return `<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;background:${bg};color:${col};border:1px solid ${bd};padding:7px 12px;border-radius:10px">${esc(c)}</span>`;
+    const icon = guiIcon_(c);
+    return `<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;background:${bg};color:${col};border:1px solid ${bd};padding:7px 12px;border-radius:10px"><span style="font-size:14px">${icon}</span>${esc(c)}</span>`;
   }).join('')}</div>`;
 }
 
@@ -30653,19 +30700,30 @@ function guiRules_(list) {
   }).join('');
 }
 
-/** Pasos numerados: cada item con formato "Título (descripción)". */
+/** Pasos numerados: cada item con formato "Título (descripción)".
+ *  Si NO hay paréntesis, todo va como título (peso normal). Los que sí
+ *  tienen paréntesis se dividen en título negrita + descripción gris. */
 function guiSteps_(list) {
   if (!list.length) return '';
   return `<div style="position:relative;margin-top:6px">${list.map((raw, i) => {
-    const m = raw.match(/^\s*(?:[a-z]\)|\d+[\.\)])?\s*(.+?)(?:\s*\(([\s\S]+)\))?\s*$/i);
-    const title = m ? m[1].trim() : raw;
-    const desc  = m && m[2] ? m[2].trim() : '';
+    // Parte fuera de paréntesis vs. dentro del PRIMER par ( ... ).
+    const parenIdx = raw.indexOf('(');
+    let title = raw.trim();
+    let desc = '';
+    if (parenIdx > 0) {
+      // Extrae el primer contenido balanceado entre paréntesis.
+      const closeIdx = raw.lastIndexOf(')');
+      if (closeIdx > parenIdx) {
+        title = raw.slice(0, parenIdx).trim().replace(/[:\-–]\s*$/, '');
+        desc  = raw.slice(parenIdx + 1, closeIdx).trim();
+      }
+    }
     const last = i === list.length - 1;
     return `<div style="position:relative;padding:2px 0 18px 44px">
       <div style="position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;background:#0f766e;color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px">${i+1}</div>
       ${!last ? '<div style="position:absolute;left:14px;top:32px;bottom:2px;width:2px;background:#e2e8f0"></div>' : ''}
-      <div style="font-size:14px;font-weight:700;color:#0f172a">${esc(title)}</div>
-      ${desc ? `<div style="font-size:13px;color:#64748b">${esc(desc)}</div>` : ''}
+      <div style="font-size:14px;font-weight:${desc?'700':'500'};color:#0f172a">${esc(title)}</div>
+      ${desc ? `<div style="font-size:13px;color:#64748b;margin-top:2px">${esc(desc)}</div>` : ''}
     </div>`;
   }).join('')}</div>`;
 }
@@ -30698,11 +30756,6 @@ function guiEmerg_(nombre1, num1, nombre2, num2) {
   return `<div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
     ${card(nombre1, num1, 0)}
     ${card(nombre2, num2, 1)}
-    <a href="tel:911" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:#334155;background:#fef2f2;border:1px solid #fecaca;border-radius:13px;padding:13px 14px">
-      <div style="width:40px;height:40px;border-radius:11px;background:#b91c1c;color:#fff;display:grid;place-items:center;font-size:19px;flex:none">🚑</div>
-      <div style="flex:1"><b style="font-size:14px;display:block">Emergencias 911</b><span style="font-size:12px;color:#64748b">Policía · Bomberos · Ambulancia</span></div>
-      <div style="font-size:12px;font-weight:700;color:#dc2626">911</div>
-    </a>
   </div>`;
 }
 
@@ -30776,10 +30829,12 @@ function guiasBuildGuide(alojs) {
   })();
   // IX. Lavandería
   const sec9 = (() => {
+    const regList = guiasList_(V('lavanderia_reglamento'));
+    const regBlock = regList.length ? `<div style="padding:8px 0"><div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:4px">Reglamento</div>${guiRules_(regList)}</div>` : '';
     const inner = `
       ${guiKv_('Ubicación', V('lavanderia_ubicacion'))}
       ${guiKv_('Acceso', V('lavanderia_acceso'))}
-      ${guiKv_('Reglamento', V('lavanderia_reglamento'))}
+      ${regBlock}
       ${guiCallout_(V('lavanderia_aviso'), '👕')}`;
     return guiSection_('gu-wash', '🧺', 'linear-gradient(135deg,#0891b2,#22d3ee)', 'Lavandería', 'Lavadora y secado', inner);
   })();
@@ -30787,7 +30842,7 @@ function guiasBuildGuide(alojs) {
   const sec10 = (() => {
     const inner = `
       ${guiKv_('Ubicación', V('insumos_ubicacion'))}
-      ${(() => { const list = guiasList_(V('insumos')); return list.length ? `<div style="padding:7px 0"><div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:6px">Insumos</div>${guiChips_(list)}</div>` : ''; })()}
+      ${(() => { const list = guiasList_(V('insumos')); return list.length ? `<div style="padding:7px 0"><div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:6px">Algunos insumos disponibles</div>${guiChips_(list)}</div>` : ''; })()}
       ${guiCallout_(V('insumos_aviso'), '🛒')}`;
     return guiSection_('gu-supply', '🧴', 'linear-gradient(135deg,#16a34a,#4ade80)', 'Insumos disponibles', 'Lo que encontrarás listo', inner);
   })();
@@ -30795,7 +30850,10 @@ function guiasBuildGuide(alojs) {
   const sec11 = (() => {
     const list = guiasList_(V('salida_instrucciones'));
     const rules = list.length
-      ? list.map(t => `<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f1f5f9"><div style="flex:none;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;background:#16a34a">✓</div><div style="font-size:13.5px;flex:1;color:#334155">${esc(t)}</div></div>`).join('')
+      ? list.map(t => {
+          const ic = guiIcon_(t);
+          return `<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f1f5f9"><div style="flex:none;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-size:14px;background:#f0fdfa">${ic}</div><div style="font-size:13.5px;flex:1;color:#334155">${esc(t)}</div></div>`;
+        }).join('')
       : '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de salida.</div>';
     return guiSection_('gu-out', '👋', 'linear-gradient(135deg,#ea580c,#fb923c)', 'Instrucciones de salida', 'Antes de irte', rules + guiCallout_(V('salida_aviso'), '💚'));
   })();
