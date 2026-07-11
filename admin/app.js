@@ -30529,11 +30529,9 @@ function guiasRenderContent() {
   // Texto: usa titulo_txt (fallback al nombre del alojamiento si vacío).
   const tituloTxt = isReadOne ? (guiasVal_(alojs[0], 'titulo_txt') || nombreProp) : '';
   const waMsg = isReadOne ? `Hola, estoy hospedado en ${tituloTxt}. Mi nombre es: ` : '';
-  // Fab WhatsApp sticky dentro de la columna derecha de la guía (no fixed
-  // al viewport). Queda anclado al bottom del contenedor de scroll,
-  // alineado a la derecha del wrapper .max-width:640px.
+  // Fab WhatsApp flotante y fijo al viewport (esquina inferior derecha).
   const waHtml = (isReadOne && waPhone)
-    ? `<div id="guias-wa-fab" style="position:sticky;bottom:24px;margin-left:auto;margin-right:4px;margin-bottom:24px;width:fit-content;z-index:150;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:auto">
+    ? `<div id="guias-wa-fab" style="position:fixed;bottom:24px;right:24px;z-index:9500;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:auto">
          <a href="https://wa.me/${encodeURIComponent(waPhone)}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" title="Contactar por WhatsApp"
             style="width:56px;height:56px;border-radius:50%;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;text-decoration:none;box-shadow:0 8px 22px -6px rgba(37,211,102,.7)">💬</a>
          <span style="font-size:11px;font-weight:700;color:#0f172a;background:rgba(255,255,255,.95);padding:2px 8px;border-radius:8px;box-shadow:0 2px 6px rgba(15,23,42,.18)">Envíanos WhatsApp</span>
@@ -30574,10 +30572,10 @@ function guiasRenderContent() {
          <div style="font-size:12px;color:#64748b;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(heading)}</div>
          ${editBtn}
        </div>`;
-  // En modo lectura (guía) el contenido usa TODO el ancho del contenedor
-  // derecho, así se ve angosto en móvil y amplio en desktop. En modo
-  // edición conservamos el max-width:640 para que el form no sea inmenso.
-  const wrapWidth = GUIAS_STATE.editMode ? 'max-width:640px;margin:0 auto;padding:0 4px' : 'width:100%;padding:0 16px';
+  // En modo lectura (guía) el contenido usa TODO el ancho disponible sin
+  // límites, así se adapta al ancho de la ventana. En modo edición
+  // conservamos el max-width:640 para que el form no sea inmenso.
+  const wrapWidth = GUIAS_STATE.editMode ? 'max-width:640px;margin:0 auto;padding:0 4px' : 'width:100%;padding:0';
   host.innerHTML = `
     ${heroHtml}
     <div style="${wrapWidth}">
