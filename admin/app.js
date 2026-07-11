@@ -30127,7 +30127,12 @@ const GUIAS_TABS = [
 ];
 
 async function guiasInit() {
+  // Asegura la carga aunque estemos entrando directo desde el menú.
   if (!ALOJ_STATE.loaded && !ALOJ_STATE.loading) await lgLoadAlojamientos();
+  // Si otro flujo ya inició la carga, esperamos a que termine.
+  else if (ALOJ_STATE.loading) {
+    for (let i = 0; i < 100 && ALOJ_STATE.loading; i++) await new Promise(r => setTimeout(r, 100));
+  }
   // Defensa: limpia filtros que ya no existen en la data actual (evita
   // estados zombie que dejan la sidebar con "ningún alojamiento coincide").
   const propsSet = new Set((ALOJ_STATE.rows||[]).map(r => String(r['Propiedad']||'').trim()).filter(Boolean));
@@ -30499,16 +30504,27 @@ function guiasRenderContent() {
   const isReadOne = !GUIAS_STATE.editMode && alojs.length === 1;
   const nombreProp = isReadOne ? guiasItemLabel(alojs[0]) : '';
   const descProp   = isReadOne ? (guiasVal_(alojs[0], 'titulo_txt') || 'Todo lo que necesitas para una estancia perfecta, en un solo lugar.') : '';
+  // Descripción: solo mostrar si es distinta al nombre del alojamiento.
+  const descPropShown = (descProp && descProp.toLowerCase() !== nombreProp.toLowerCase()) ? descProp : '';
   const heroHtml = isReadOne
-    ? `<header id="guias-hero" style="position:relative;color:#fff;padding:54px 22px 60px;text-align:center;overflow:hidden;border-radius:0 0 30px 30px;background:#1e293b">
+    ? `<header id="guias-hero" style="position:relative;color:#fff;padding:32px 22px 60px;text-align:center;overflow:hidden;border-radius:0 0 30px 30px;background:#1e293b">
          <div id="guias-hero-bg" style="position:absolute;inset:0;background:linear-gradient(160deg,rgba(30,41,59,.82),rgba(234,88,12,.85))"></div>
          <div style="position:relative;z-index:2">
+           <img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png" alt="Check-inn" style="display:block;margin:0 auto 14px;height:44px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))">
            <span style="display:inline-block;font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:6px 13px;border-radius:999px;backdrop-filter:blur(4px);white-space:nowrap;margin-bottom:20px">Guía de Bienvenida</span>
            <h1 style="font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.2;margin:0 0 8px;color:#fff">${esc(nombreProp)}</h1>
-           <p style="font-size:15px;opacity:.92;max-width:340px;margin:0 auto 22px;color:#fff">${esc(descProp)}</p>
-           ${photoPageUrl ? `<a href="${esc(photoPageUrl)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:8px 18px;font-size:13px;font-weight:700;text-decoration:none;backdrop-filter:blur(6px)">📷 Ver fotos del alojamiento</a>` : ''}
+           ${descPropShown ? `<p style="font-size:15px;opacity:.92;max-width:340px;margin:0 auto 22px;color:#fff">${esc(descPropShown)}</p>` : '<div style="height:14px"></div>'}
+           ${photoPageUrl ? `<button type="button" onclick="guiasOpenLodgifyModal_('${esc(photoPageUrl).replace(/'/g,"\\'")}','${esc(nombreProp).replace(/'/g,"\\'")}')" style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:8px 18px;font-size:13px;font-weight:700;backdrop-filter:blur(6px)">📷 Ver fotos del alojamiento</button>` : ''}
          </div>
        </header>`
+    : '';
+  // Botón flotante WhatsApp (solo modo lectura, 1 alojamiento).
+  const wa = isReadOne ? guiasVal_(alojs[0], 'contacto_whatsapp') : '';
+  const waPhone = wa.replace(/[^0-9+]/g,'');
+  const waMsg = isReadOne ? `Hola, estoy hospedado en ${nombreProp}, tengo la siguiente duda/comentario: ` : '';
+  const waHtml = (isReadOne && waPhone)
+    ? `<a id="guias-wa-fab" href="https://wa.me/${encodeURIComponent(waPhone)}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" title="Contactar por WhatsApp"
+         style="position:fixed;top:80px;right:24px;z-index:150;width:52px;height:52px;border-radius:50%;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;text-decoration:none;box-shadow:0 8px 18px -6px rgba(37,211,102,.6)">💬</a>`
     : '';
   // Fallback (modo edición o multi-alojamiento): mantiene la foto simple.
   const photoSimple = (!isReadOne && photoPageUrl)
@@ -30539,6 +30555,7 @@ function guiasRenderContent() {
     : `${quicknavHtml}<div id="guias-tab-content">${guiasBuildGuide(alojs)}</div>`;
   host.innerHTML = `
     ${heroHtml}
+    ${waHtml}
     <div style="max-width:640px;margin:0 auto;padding:${isReadOne?'0':'0'} 4px">
       <div style="display:flex;align-items:center;gap:10px;margin:${isReadOne?'14px 0 10px':'0 0 10px'};flex-wrap:wrap">
         <div style="font-size:12px;color:#64748b;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(heading)}</div>
@@ -30569,6 +30586,27 @@ function guiasRenderContent() {
       });
   }
 }
+
+/** Modal con las fotos del listing (iframe al url_lodgify). */
+window.guiasOpenLodgifyModal_ = function (url, title) {
+  if (!url) return;
+  const existing = document.getElementById('guias-lodgify-modal');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.id = 'guias-lodgify-modal';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.85);z-index:9999;display:flex;flex-direction:column;padding:0';
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;color:#fff;background:rgba(15,23,42,.9)">
+      <div style="font-size:14px;font-weight:700">📷 ${esc(title || 'Fotos del alojamiento')}</div>
+      <div style="display:flex;gap:8px">
+        <a href="${esc(url)}" target="_blank" rel="noopener" style="background:#ea580c;color:#fff;text-decoration:none;font-weight:700;font-size:12px;padding:8px 14px;border-radius:8px">🌐 Abrir listing</a>
+        <button type="button" onclick="document.getElementById('guias-lodgify-modal')?.remove()" style="all:unset;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;width:38px;height:38px;border-radius:50%;font-size:18px;display:grid;place-items:center">✕</button>
+      </div>
+    </div>
+    <iframe src="${esc(url)}" style="flex:1;width:100%;border:0;background:#fff" title="Fotos del alojamiento"></iframe>`;
+  el.addEventListener('click', ev => { if (ev.target === el) el.remove(); });
+  document.body.appendChild(el);
+};
 
 /** Salta a una sección del quicknav: abre el <details> y hace scroll suave. */
 window.guiasJumpTo_ = function (id) {
@@ -30655,6 +30693,7 @@ function guiIcon_(text) {
   const t = String(text||'').toLowerCase();
   const map = [
     // ── Instrucciones de salida (patrones específicos primero) ──
+    [/check.?out.*(esta|misma).*p[aá]gina|realiza.*check.?out|check.?out.*app/, '💻'],
     [/lockbox|caja de seg|dep[oó]sit[oa].*llav|deja.*llav|entrega.*llav/, '🔐'],
     [/apaga.*(luz|luces|aire|clima|aparat)/, '💡'],
     [/cierra.*(ventana|puerta|con llave)|cerrar.*puerta/, '🚪'],
@@ -30712,16 +30751,13 @@ function guiCallout_(text, icon) {
   return `<div style="display:flex;gap:12px;background:#fffbeb;border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:12px;padding:13px;margin-top:12px;font-size:13px;color:#334155"><span style="font-size:18px">${icon||'💡'}</span><div>${esc(text)}</div></div>`;
 }
 
-/** Tarjeta acordeón: `<details>` con header y body. */
-function guiSection_(id, iconEmoji, iconClass, title, subtitle, inner, opts) {
+/** Tarjeta acordeón: `<details>` con header y body. Sin subtítulo. */
+function guiSection_(id, iconEmoji, iconClass, title, _subtitle, inner, opts) {
   const open = opts && opts.open ? ' open' : '';
   return `<details id="${id}" class="guia-section"${open} style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:0 2px 10px -4px rgba(15,23,42,.10)">
     <summary style="display:flex;align-items:center;gap:14px;padding:16px;cursor:pointer;list-style:none;user-select:none">
       <div style="flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;background:${iconClass};color:#fff">${iconEmoji}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:15px;font-weight:700;color:#0f172a">${esc(title)}</div>
-        ${subtitle ? `<div style="font-size:12px;color:#64748b">${esc(subtitle)}</div>` : ''}
-      </div>
+      <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;color:#0f172a">${esc(title)}</div></div>
       <div style="color:#94a3b8;font-size:12px">▼</div>
     </summary>
     <div style="padding:2px 18px 18px">${inner}</div>
@@ -30893,7 +30929,7 @@ function guiasBuildGuide(alojs) {
   // IX. Lavandería
   const sec9 = (() => {
     const regList = guiasList_(V('lavanderia_reglamento'));
-    const regBlock = regList.length ? `<div style="padding:8px 0"><div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:4px">Reglamento</div>${guiIconList_(regList)}</div>` : '';
+    const regBlock = regList.length ? `<div style="padding:12px 0 4px"><div style="font-size:12.5px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Reglamento</div>${guiRules_(regList)}</div>` : '';
     const inner = `
       ${guiKv_('Ubicación', V('lavanderia_ubicacion'))}
       ${guiKv_('Acceso', V('lavanderia_acceso'))}
