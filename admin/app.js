@@ -30205,15 +30205,34 @@ window.guiasToggleEdit = function() {
 window.guiasSaveEdits = async function() {
   const ids = Object.keys(GUIAS_STATE.dirty);
   if (!ids.length) { alert('Sin cambios para guardar.'); GUIAS_STATE.editMode = false; guiasRenderContent(); return; }
-  // Aplica los cambios a ALOJ_STATE.rows en memoria
-  for (const a of (ALOJ_STATE.rows || [])) {
-    const id = guiasItemId(a);
+  // Aplica los cambios a ALOJ_STATE.rows en memoria primero (para reflejo inmediato)
+  const byId = new Map((ALOJ_STATE.rows || []).map(a => [guiasItemId(a), a]));
+  for (const id of ids) {
+    const aloj = byId.get(id);
     const changes = GUIAS_STATE.dirty[id];
-    if (!changes) continue;
-    for (const k of Object.keys(changes)) a[k] = changes[k];
+    if (!aloj || !changes) continue;
+    for (const k of Object.keys(changes)) aloj[k] = changes[k];
   }
-  // TODO: persistir al backend (Apps Script) — requiere endpoint update_alojamiento.
-  alert(`Guardados localmente en ${ids.length} alojamiento(s). (Persistencia al sheet pendiente.)`);
+  // Persistencia al sheet vía Cloud Run → Apps Script save_alojamiento.
+  let ok = 0, err = 0;
+  for (const id of ids) {
+    const aloj = byId.get(id);
+    if (!aloj) { err++; continue; }
+    const houseId = String(aloj.HouseId || aloj.HouseID || aloj.ID || '').trim();
+    if (!houseId) { err++; continue; }
+    try {
+      const res = await fetch(`${BACKEND}/alojamientos/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: { HouseId: houseId, changes: GUIAS_STATE.dirty[id] } }),
+      });
+      const j = await res.json();
+      if (j.ok) ok++; else err++;
+    } catch { err++; }
+  }
+  alert(err
+    ? `✓ Guardados: ${ok}. ✗ Con error: ${err}.`
+    : `✓ ${ok} alojamiento(s) guardado(s). Los cambios ya son visibles en las URLs públicas.`);
   GUIAS_STATE.dirty = {};
   GUIAS_STATE.editMode = false;
   guiasRenderContent();
@@ -30429,12 +30448,19 @@ function guiasRenderSidebar() {
       ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid ${isSel?'#0d9488':'#cbd5e1'};background:${isSel?'#0d9488':'#fff'};color:#fff;font-size:12px;font-weight:900;flex-shrink:0;line-height:1">${isSel?'✓':''}</span>`
       : '';
     const icon = multi ? '' : `<span style="font-size:14px;flex-shrink:0">📍</span>`;
+    const houseId = String(r.HouseId || r.HouseID || r.ID || '').trim();
+    const shareBtn = houseId
+      ? `<button type="button" onclick="event.stopPropagation();guiasShareLink_('${esc(houseId)}','${esc(label).replace(/'/g,"\\'")}')"
+           title="Copiar link público de la guía"
+           style="all:unset;cursor:pointer;flex:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:${isSel && !multi?'rgba(255,255,255,.22)':'#f1f5f9'};color:${isSel && !multi?'#fff':'#0d9488'};font-size:12px">🔗</button>`
+      : '';
     return `<div onclick="${clickFn}('${esc(id)}')" data-sel="${isSel?'1':'0'}"
       style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:3px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:${isSel?'700':'600'};color:${isSel && !multi?'#fff':'#0f172a'};background:${isSel?(multi?'#ecfdf5':'#0d9488'):'transparent'};border:1px solid ${isSel?(multi?'#bbf7d0':'#0d9488'):'transparent'};transition:background .12s"
       onmouseover="if(this.dataset.sel!=='1')this.style.background='#f1f5f9'"
       onmouseout="if(this.dataset.sel!=='1')this.style.background='transparent'">
       ${checkSpan}${icon}
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(label)}">${esc(label)}</span>
+      ${shareBtn}
     </div>`;
   }).join('') : (hasActiveFilters
     ? '<div style="padding:20px 10px;text-align:center;color:#94a3b8;font-size:12px">Ningún alojamiento coincide con los filtros.</div>'
@@ -30663,6 +30689,39 @@ window.guiasOpenLodgifyModal_ = function (url, title) {
       if (loading) loading.innerHTML = `<div style="color:#fca5a5;font-size:13px;text-align:center">Error cargando fotos.</div>
         <a href="${esc(url)}" target="_blank" rel="noopener" style="background:#ea580c;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:10px 18px;border-radius:10px;margin-top:10px">🌐 Abrir listing completo</a>`;
     });
+};
+
+/** Copia al portapapeles la URL pública del alojamiento y muestra un modal
+ *  con el link + QR code para compartir. */
+window.guiasShareLink_ = function (houseId, nombre) {
+  const url = `https://www.check-inn.mx/public/guia/?id=${encodeURIComponent(houseId)}`;
+  // Intenta copiar al portapapeles.
+  try { navigator.clipboard?.writeText(url); } catch {}
+  document.getElementById('guias-share-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'guias-share-modal';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=8&data=${encodeURIComponent(url)}`;
+  el.innerHTML = `
+    <div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.3);position:relative">
+      <button type="button" onclick="document.getElementById('guias-share-modal')?.remove()"
+              style="position:absolute;top:12px;right:12px;background:#f1f5f9;border:0;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;color:#475569">✕</button>
+      <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:4px">🔗 Link de guía</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:16px">${esc(nombre)}</div>
+      <div style="background:#f1f5f9;padding:12px;border-radius:10px;font-family:'SF Mono',Menlo,monospace;font-size:11px;color:#334155;word-break:break-all;margin-bottom:12px">${esc(url)}</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button type="button" onclick="navigator.clipboard?.writeText('${url}');this.textContent='✓ Copiado';setTimeout(()=>this.textContent='📋 Copiar link',1500)"
+                style="flex:1;padding:10px 12px;background:#0d9488;color:#fff;border:0;border-radius:8px;font-weight:700;font-size:12.5px;cursor:pointer">📋 Copiar link</button>
+        <a href="${esc(url)}" target="_blank" rel="noopener"
+           style="flex:1;padding:10px 12px;background:#f1f5f9;color:#0f172a;border-radius:8px;font-weight:700;font-size:12.5px;text-decoration:none;text-align:center;display:inline-block">↗ Abrir</a>
+      </div>
+      <div style="display:flex;justify-content:center;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0">
+        <img src="${qr}" alt="QR" style="width:220px;height:220px;display:block">
+      </div>
+      <div style="font-size:11px;color:#94a3b8;text-align:center;margin-top:10px">El huésped puede escanear el QR o abrir el link — solo verá esta guía.</div>
+    </div>`;
+  el.addEventListener('click', ev => { if (ev.target === el) el.remove(); });
+  document.body.appendChild(el);
 };
 
 /** Salta a una sección del quicknav: abre el <details> y hace scroll suave. */
