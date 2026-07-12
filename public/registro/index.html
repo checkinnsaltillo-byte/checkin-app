@@ -3209,17 +3209,52 @@ a.link-btn[href^="https://wa.me/"]{
 /* ═══ MODO EMBED — cuando se abre en iframe con ?embed=1 ═══
    Oculta el fondo/welcome y muestra solo la ventana pop-up del
    registro exprés sobre un fondo transparente. */
-body.embed-mode { background: transparent !important; }
-body.embed-mode #viewWelcome,
-body.embed-mode .app-header,
-body.embed-mode .welcome-hero,
+html.embed-html, html.embed-html body.embed-mode {
+  background: transparent !important;
+  min-height: 0 !important;
+  height: auto !important;
+}
+/* Oculta absolutamente todo lo que NO sea el modal del registro exprés.
+   Se muestra solo #viewRegistro cuando ya está abierto como popup. */
+body.embed-mode > *:not(#viewRegistro):not(.popup-backdrop):not(.popup-overlay):not(script):not(style):not(#appLoader):not(#calendarCardModal):not(#pushCatsModal):not(#adminPushModal):not(.toast-container):not([data-embed-keep]) {
+  display: none !important;
+}
+body.embed-mode .page-logo-wrap,
+body.embed-mode .page-shell,
+body.embed-mode .container,
+body.embed-mode .admin-bar,
+body.embed-mode .lang-bar,
+body.embed-mode .lang-switch,
+body.embed-mode .lang-note,
+body.embed-mode .checkinn-loader,
+body.embed-mode #langSwitch,
 body.embed-mode #brandBanner,
 body.embed-mode #brandTop,
-body.embed-mode .lang-fab,
-body.embed-mode #langFab,
+body.embed-mode #notifPanel,
+body.embed-mode #notifBackdrop,
+body.embed-mode #popupOverlay,
+body.embed-mode #adminAccessBtn,
+body.embed-mode #sessionPill,
+body.embed-mode #navSidebar,
+body.embed-mode #navOverlay,
+body.embed-mode #adminAccessBar,
+body.embed-mode .app-header,
+body.embed-mode .welcome-hero,
 body.embed-mode footer,
-body.embed-mode .site-footer { display: none !important; }
-body.embed-mode { min-height: 0 !important; }
+body.embed-mode .site-footer {
+  display: none !important;
+}
+/* El view registro se muestra como pop-up flotante centrado */
+body.embed-mode #viewRegistro {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  overflow: auto !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  z-index: 2147483000;
+}
 
 </style>
 
