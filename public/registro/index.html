@@ -6945,8 +6945,8 @@ async function detectExistingGuestByPhone(){
 
   try {
     setGuestAutofillMessage("", (window.currentLang === "en")
-      ? "Checking previous guest records..."
-      : "Buscando registros previos del huésped...");
+      ? "Please wait a moment..."
+      : "Espera un momento...");
     const catalog = await loadGuestPhoneCatalog();
     if (lookupId !== guestLookupInFlight) return;
 
