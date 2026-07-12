@@ -3205,6 +3205,22 @@ a.link-btn[href^="https://wa.me/"]{
 @media(max-width:700px){
   .range-grid-simple{grid-template-columns:1fr !important;}
 }
+
+/* ═══ MODO EMBED — cuando se abre en iframe con ?embed=1 ═══
+   Oculta el fondo/welcome y muestra solo la ventana pop-up del
+   registro exprés sobre un fondo transparente. */
+body.embed-mode { background: transparent !important; }
+body.embed-mode #viewWelcome,
+body.embed-mode .app-header,
+body.embed-mode .welcome-hero,
+body.embed-mode #brandBanner,
+body.embed-mode #brandTop,
+body.embed-mode .lang-fab,
+body.embed-mode #langFab,
+body.embed-mode footer,
+body.embed-mode .site-footer { display: none !important; }
+body.embed-mode { min-height: 0 !important; }
+
 </style>
 
 <script>
@@ -5333,6 +5349,24 @@ body.has-session input[name="nombre"] {
 
 </head>
 <body>
+<script>
+(function(){
+  try {
+    var qs = new URLSearchParams(location.search || '');
+    if (qs.get('embed') === '1') document.documentElement.classList.add('embed-html'), (document.body || document.documentElement).classList.add('embed-mode');
+    document.addEventListener('DOMContentLoaded', function(){
+      if (qs.get('embed') === '1') {
+        document.body.classList.add('embed-mode');
+        // Si viene ?embed=1 solo, activamos también el flow express automáticamente.
+        if (typeof gotoExpressForm === 'function') {
+          setTimeout(function(){ try { gotoExpressForm(); } catch(_){} }, 60);
+        }
+      }
+    });
+  } catch(_){}
+})();
+</script>
+
 <!-- ═══ Splash de carga (bloquea la interacción hasta que la app cargue) ═══ -->
 <div id="appLoader" role="status" aria-live="polite" aria-label="Cargando datos">
   <div class="app-loader-card">
