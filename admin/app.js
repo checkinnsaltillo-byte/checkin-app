@@ -30833,7 +30833,7 @@ window.guiasOpenCheckin_ = function () {
       <div style="font-size:14px;font-weight:800">✅ Realizar registro (Check-in)</div>
       <button type="button" onclick="document.getElementById('guias-checkin-modal')?.remove()" title="Cerrar" style="all:unset;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;width:38px;height:38px;border-radius:50%;font-size:18px;display:grid;place-items:center">✕</button>
     </div>
-    <iframe src="https://www.check-inn.mx/public/registro/#express" style="flex:1;width:100%;border:0;background:#fff" title="Registro exprés" allow="camera; geolocation"></iframe>`;
+    <iframe src="https://www.check-inn.mx/public/registro/?embed=1#express" style="flex:1;width:100%;border:0;background:transparent" title="Registro exprés" allow="camera; geolocation"></iframe>`;
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
   document.body.appendChild(el);
