@@ -3211,7 +3211,20 @@ a.link-btn[href^="https://wa.me/"]{
    registro exprés sobre un fondo transparente. */
 html.embed-html, html.embed-html body.embed-mode {
   background: transparent !important;
-  min-height: 0 !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0 !important;
+}
+html.embed-html { height: 100%; }
+body.embed-mode #viewRegistro.as-popup {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 2147483000 !important;
+}
+body.embed-mode #viewRegistro:not(.as-popup) {
+  display: block !important;
 }
 /* Oculta solo los elementos visuales del fondo, NO los contenedores
    estructurales que rodean a #viewRegistro (page-shell, container).
