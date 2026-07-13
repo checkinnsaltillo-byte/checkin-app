@@ -30543,8 +30543,7 @@ function guiasRenderContent() {
          <div id="guias-hero-bg" style="position:absolute;inset:0;background:#1e293b"></div>
          <div style="position:relative;z-index:2;max-width:440px;background:rgba(15,23,42,.35);border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(6px);border-radius:20px;padding:22px 26px">
            <span style="display:inline-block;font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:6px 13px;border-radius:999px;backdrop-filter:blur(4px);white-space:nowrap;margin-bottom:18px">Guía de Bienvenida</span>
-           <h1 style="font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.2;margin:0 0 8px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.35)">${esc(nombreProp)}</h1>
-           ${descPropShown ? `<p style="font-size:15px;opacity:.92;max-width:340px;margin:0 auto 18px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.3)">${esc(descPropShown)}</p>` : '<div style="height:10px"></div>'}
+           <h1 style="font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1.2;margin:0 0 18px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.35)">${esc(nombreProp)}</h1>
            ${photoPageUrl ? `<a href="${esc(photoPageUrl)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:8px 18px;font-size:13px;font-weight:700;backdrop-filter:blur(6px);text-decoration:none">📷 Ver fotos del alojamiento</a>` : ''}
          </div>
        </header>`
