@@ -30826,7 +30826,30 @@ window.guiasShareCard_ = async function (houseId, nombre, url) {
     return;
   }
   const filename = `guia-${houseId}.png`;
-  w.document.write(`<!doctype html><html><head><title>${esc(nombre)} · Card</title><meta charset="utf-8"><style>body{margin:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff}img{max-width:100%;max-height:80vh;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.5)}a{display:inline-block;margin-top:16px;background:#0d9488;color:#fff;text-decoration:none;font-weight:700;padding:10px 20px;border-radius:10px;font-size:13px}</style></head><body><img src="${dataUrl}" alt="Card"><a href="${dataUrl}" download="${filename}">⬇ Descargar PNG</a></body></html>`);
+  w.document.write(`<!doctype html><html><head><title>${esc(nombre)} · Card</title><meta charset="utf-8"><style>body{margin:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#fff}img{max-width:100%;max-height:75vh;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.5)}.actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center}.actions a,.actions button{display:inline-flex;align-items:center;gap:6px;color:#fff;text-decoration:none;font-weight:700;padding:10px 20px;border-radius:10px;font-size:13px;border:0;cursor:pointer;font-family:inherit}.actions a{background:#0d9488}.actions button{background:#2563eb}#copyMsg{margin-top:10px;font-size:12px;min-height:16px;transition:opacity .25s;opacity:0}</style></head><body><img src="${dataUrl}" alt="Card"><div class="actions"><a href="${dataUrl}" download="${filename}">⬇ Descargar PNG</a><button id="copyBtn" type="button">📋 Copiar imagen</button></div><div id="copyMsg"></div><script>
+(function(){
+  var btn = document.getElementById('copyBtn');
+  var msg = document.getElementById('copyMsg');
+  var url = ${JSON.stringify(dataUrl)};
+  function flash(text, color){ msg.textContent = text; msg.style.color = color; msg.style.opacity = '1'; setTimeout(function(){ msg.style.opacity = '0'; }, 3500); }
+  btn.addEventListener('click', async function(){
+    try {
+      if (!navigator.clipboard || !window.ClipboardItem) throw new Error('no-clipboard');
+      var blobPromise = fetch(url).then(function(r){ return r.blob(); });
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })]);
+      flash('✓ Imagen copiada al portapapeles', '#22c55e');
+    } catch(e){
+      try {
+        var blob = await (await fetch(url)).blob();
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        flash('✓ Imagen copiada al portapapeles', '#22c55e');
+      } catch(e2){
+        flash('No se pudo copiar en este navegador. Usa "Descargar PNG" y compártela.', '#fca5a5');
+      }
+    }
+  });
+})();
+<\/script></body></html>`);
   w.document.close();
 };
 
