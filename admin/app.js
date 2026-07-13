@@ -30830,9 +30830,9 @@ window.guiasOpenCheckin_ = function () {
   el.id = 'guias-checkin-modal';
   el.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,.92);z-index:9999;overflow:hidden';
   el.innerHTML = `
-    <div style="position:absolute;top:0;left:0;right:0;height:${HEADER_H}px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#fff;box-sizing:border-box">
-      <div style="font-size:14px;font-weight:800">✅ Realizar registro (Check-in)</div>
-      <button type="button" onclick="document.getElementById('guias-checkin-modal')?.remove()" title="Cerrar" style="all:unset;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;width:38px;height:38px;border-radius:50%;font-size:18px;display:grid;place-items:center">✕</button>
+    <div style="position:absolute;top:0;left:0;right:0;height:${HEADER_H}px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#fff;box-sizing:border-box;gap:12px">
+      <div style="font-size:14px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">✅ Realizar registro (Check-in)</div>
+      <button type="button" onclick="document.getElementById('guias-checkin-modal')?.remove()" title="Regresar a Guía de Bienvenida" style="all:unset;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px;white-space:nowrap">← Regresar a Guía de Bienvenida</button>
     </div>
     <iframe src="https://www.check-inn.mx/public/registro/?embed=1#express" style="position:absolute;top:${HEADER_H}px;left:0;width:100%;height:calc(100% - ${HEADER_H}px);border:0;background:transparent;display:block" title="Registro exprés" allow="camera; geolocation"></iframe>`;
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
