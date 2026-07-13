@@ -30591,14 +30591,21 @@ function guiasRenderContent() {
        </div>`
     : '';
   // Quicknav horizontal deslizable (solo en modo lectura con 1 aloj).
+  // Orden final: Ubicación, Alojamiento, Llegada, Reglamento, Horarios,
+  // WiFi, Estacionamiento, Lavandería, Insumos, Amenidades, [Parrilla si
+  // tiene contenido], Salida, Emergencias.
+  const hasGrill = isReadOne && !!guiasVal_(alojs[0], 'parrilla');
+  const quicknavItems = [
+    ['gu-loc','📍 Ubicación'],['gu-house','🏠 Alojamiento'],['gu-arr','🚪 Llegada'],
+    ['gu-rules','📋 Reglamento'],['gu-time','🕐 Horarios'],['gu-wifi','📶 WiFi'],
+    ['gu-park','🅿️ Estacionamiento'],['gu-wash','🧺 Lavandería'],['gu-supply','🧴 Insumos'],
+    ['gu-amen','✨ Amenidades'],
+  ];
+  if (hasGrill) quicknavItems.push(['gu-grill','🔥 Parrilla']);
+  quicknavItems.push(['gu-out','👋 Salida'],['gu-emerg','🚨 Emergencias']);
   const quicknavHtml = isReadOne ? `
     <nav id="guias-quicknav" style="position:sticky;top:0;z-index:20;background:rgba(241,245,249,.95);backdrop-filter:blur(10px);border-bottom:1px solid #e2e8f0;padding:10px 0;overflow-x:auto;white-space:nowrap;margin:0 -8px 14px" onwheel="if(!event.shiftKey&&event.deltaY!==0){this.scrollLeft+=event.deltaY;event.preventDefault();}">
-      ${[
-        ['gu-loc','📍 Ubicación'],['gu-house','🏠 Alojamiento'],['gu-amen','✨ Amenidades'],
-        ['gu-rules','📋 Reglamento'],['gu-time','🕐 Horarios'],['gu-arr','🚪 Llegada'],
-        ['gu-wifi','📶 WiFi'],['gu-park','🅿️ Estacionamiento'],['gu-wash','🧺 Lavandería'],
-        ['gu-supply','🧴 Insumos'],['gu-out','👋 Salida'],['gu-emerg','🚨 Emergencias'],['gu-grill','🔥 Parrilla'],
-      ].map(([id,t]) => `<a href="#${id}" onclick="return guiasJumpTo_('${id}')" style="display:inline-block;text-decoration:none;color:#64748b;font-size:13px;font-weight:600;padding:8px 14px;margin:0 4px;background:#fff;border:1px solid #e2e8f0;border-radius:999px">${t}</a>`).join('')}
+      ${quicknavItems.map(([id,t]) => `<a href="#${id}" onclick="return guiasJumpTo_('${id}')" style="display:inline-block;text-decoration:none;color:#64748b;font-size:13px;font-weight:600;padding:8px 14px;margin:0 4px;background:#fff;border:1px solid #e2e8f0;border-radius:999px">${t}</a>`).join('')}
     </nav>` : '';
   // En modo EDICIÓN se conserva el layout de tabs (formulario por campo).
   // En modo LECTURA se pinta la guía tipo "guía de llegada" con acordeón.
@@ -31287,13 +31294,16 @@ function guiasBuildGuide(alojs) {
       guiEmerg_(V('contacto_emergencia_1_nombre'), V('contacto_emergencia_1_numero'),
                 V('contacto_emergencia_2_nombre'), V('contacto_emergencia_2_numero')));
   })();
-  // XIII. Parrilla eléctrica — pasos numerados
+  // XIII. Parrilla eléctrica — solo aparece si el alojamiento tiene contenido.
   const sec13 = (() => {
     const list = guiasList_(V('parrilla'));
-    const inner = list.length ? guiSteps_(list) : '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de parrilla.</div>';
-    return guiSection_('gu-grill', '🔥', 'linear-gradient(135deg,#c2410c,#f97316)', 'Parrilla eléctrica', 'Cómo usarla', inner);
+    if (!list.length) return '';
+    return guiSection_('gu-grill', '🔥', 'linear-gradient(135deg,#c2410c,#f97316)', 'Parrilla eléctrica', 'Cómo usarla', guiSteps_(list));
   })();
-  return sec1 + sec2 + sec3 + sec4 + sec5 + sec6 + sec7 + sec8 + sec9 + sec10 + sec11 + sec12 + sec13;
+  // Orden pedido: Ubicación, Alojamiento, Llegada, Reglamento, Horarios,
+  // WiFi, Estacionamiento, Lavandería, Insumos, Amenidades, [Parrilla],
+  // Salida, Emergencias.
+  return sec1 + sec2 + sec6 + sec4 + sec5 + sec7 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec12;
 }
 
 function guiasCard(title, icon, inner) {
