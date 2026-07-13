@@ -3216,6 +3216,17 @@ html.embed-html, html.embed-html body.embed-mode {
   margin: 0 !important;
 }
 html.embed-html { height: 100%; }
+
+/* En embed, popupEnvio debe estar POR ENCIMA del viewRegistro (que tiene
+   z-index 2147483000). */
+body.embed-mode #popupEnvio { z-index: 2147483647 !important; }
+body.embed-mode #popupEnvio button[onclick*="cerrarVentanaEnvio"] {
+  background: #ef4444 !important; color: #fff !important;
+  border: 0 !important; padding: 12px 20px !important; border-radius: 12px !important;
+  font-size: 14px !important; font-weight: 700 !important; cursor: pointer !important;
+  display: block !important; width: 100% !important;
+}
+
 body.embed-mode #viewRegistro.as-popup {
   position: fixed !important;
   inset: 0 !important;
@@ -18527,6 +18538,25 @@ document.addEventListener("DOMContentLoaded", function(){
 })();
 </script>
 
+<script>
+(function(){
+  try {
+    var qs = new URLSearchParams(location.search || '');
+    if (qs.get('embed') !== '1') return;
+    // Hook cerrarVentanaEnvio → postMessage al parent
+    var origClose = window.cerrarVentanaEnvio;
+    window.cerrarVentanaEnvio = function(){
+      try { if (origClose) origClose.apply(this, arguments); } catch(_){}
+      try { window.parent.postMessage({type:'checkin-close'}, '*'); } catch(_){}
+    };
+    // Hook abrirWhatsappDudas → pedir mensaje custom al parent
+    var origWA = window.abrirWhatsappDudas;
+    window.abrirWhatsappDudas = function(){
+      try { window.parent.postMessage({type:'checkin-wa-request'}, '*'); } catch(_){}
+    };
+  } catch(_){}
+})();
+</script>
 </body>
 </html>
 
