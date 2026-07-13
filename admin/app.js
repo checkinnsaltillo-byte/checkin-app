@@ -30597,7 +30597,7 @@ function guiasRenderContent() {
         ['gu-loc','📍 Ubicación'],['gu-house','🏠 Alojamiento'],['gu-amen','✨ Amenidades'],
         ['gu-rules','📋 Reglamento'],['gu-time','🕐 Horarios'],['gu-arr','🚪 Llegada'],
         ['gu-wifi','📶 WiFi'],['gu-park','🅿️ Estacionamiento'],['gu-wash','🧺 Lavandería'],
-        ['gu-supply','🧴 Insumos'],['gu-out','👋 Salida'],['gu-emerg','🚨 Emergencias'],
+        ['gu-supply','🧴 Insumos'],['gu-out','👋 Salida'],['gu-emerg','🚨 Emergencias'],['gu-grill','🔥 Parrilla'],
       ].map(([id,t]) => `<a href="#${id}" onclick="return guiasJumpTo_('${id}')" style="display:inline-block;text-decoration:none;color:#64748b;font-size:13px;font-weight:600;padding:8px 14px;margin:0 4px;background:#fff;border:1px solid #e2e8f0;border-radius:999px">${t}</a>`).join('')}
     </nav>` : '';
   // En modo EDICIÓN se conserva el layout de tabs (formulario por campo).
@@ -31287,7 +31287,13 @@ function guiasBuildGuide(alojs) {
       guiEmerg_(V('contacto_emergencia_1_nombre'), V('contacto_emergencia_1_numero'),
                 V('contacto_emergencia_2_nombre'), V('contacto_emergencia_2_numero')));
   })();
-  return sec1 + sec2 + sec3 + sec4 + sec5 + sec6 + sec7 + sec8 + sec9 + sec10 + sec11 + sec12;
+  // XIII. Parrilla eléctrica — pasos numerados
+  const sec13 = (() => {
+    const list = guiasList_(V('parrilla'));
+    const inner = list.length ? guiSteps_(list) : '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de parrilla.</div>';
+    return guiSection_('gu-grill', '🔥', 'linear-gradient(135deg,#c2410c,#f97316)', 'Parrilla eléctrica', 'Cómo usarla', inner);
+  })();
+  return sec1 + sec2 + sec3 + sec4 + sec5 + sec6 + sec7 + sec8 + sec9 + sec10 + sec11 + sec12 + sec13;
 }
 
 function guiasCard(title, icon, inner) {
