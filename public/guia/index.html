@@ -77,10 +77,14 @@ details.section>summary::-webkit-details-marker{display:none}
 .emerg .em-t b{font-size:14px;display:block}
 .emerg .em-t span{font-size:12px;color:#64748b}
 .emerg .em-call{font-size:12px;font-weight:700;color:#dc2626}
-.wa-fab{position:fixed;bottom:110px;right:24px;z-index:9500;display:flex;flex-direction:column;align-items:center;gap:4px}
 .checkin-fab{position:fixed;left:0;right:0;bottom:0;z-index:9400;padding:14px 16px 18px;background:linear-gradient(180deg,rgba(15,23,42,0),rgba(15,23,42,.55));pointer-events:none}
-.checkin-fab button{pointer-events:auto;display:block;width:100%;max-width:520px;margin:0 auto;padding:16px 20px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:0;border-radius:14px;font-size:15px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 12px 28px -6px rgba(220,38,38,.6);animation:cinPulse 2.2s ease-in-out infinite;text-shadow:0 1px 2px rgba(0,0,0,.2)}
-.checkin-fab button span{display:inline-flex;align-items:center;gap:10px;justify-content:center}
+.checkin-fab .cin-row{display:flex;align-items:stretch;gap:10px;max-width:520px;margin:0 auto;pointer-events:none}
+.checkin-fab #checkin-btn{pointer-events:auto;flex:1 1 auto;min-width:0;padding:16px 20px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:0;border-radius:14px;font-size:15px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 12px 28px -6px rgba(220,38,38,.6);animation:cinPulse 2.2s ease-in-out infinite;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+.checkin-fab #checkin-btn span{display:inline-flex;align-items:center;gap:10px;justify-content:center}
+.wa-fab{pointer-events:auto;display:flex;flex:none;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.wa-fab a{width:56px;height:56px;border-radius:16px;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 10px 24px -4px rgba(37,211,102,.55),inset 0 -3px 6px rgba(0,0,0,.12);border:1px solid rgba(255,255,255,.15)}
+.wa-fab a svg{width:28px;height:28px;fill:#fff;display:block}
+.wa-fab span{font-size:10px;font-weight:700;color:#0f172a;background:rgba(255,255,255,.95);padding:2px 6px;border-radius:8px;box-shadow:0 2px 6px rgba(15,23,42,.18);white-space:nowrap}
 @keyframes cinPulse{0%,100%{box-shadow:0 12px 28px -6px rgba(220,38,38,.6);transform:translateY(0)}50%{box-shadow:0 18px 40px -4px rgba(220,38,38,.85);transform:translateY(-2px)}}
 .cin-modal{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,.92);z-index:9999;overflow:hidden}
 .cin-modal-head{position:absolute;top:0;left:0;right:0;height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#fff;box-sizing:border-box;gap:12px}
@@ -119,14 +123,16 @@ details.section>summary::-webkit-details-marker{display:none}
   <main class="wrap">
     <nav class="quicknav" id="quicknav"></nav>
     <div id="sections"></div>
+  </main>
+</div>
+<div class="checkin-fab" id="checkin-fab" style="display:none">
+  <div class="cin-row">
+    <button type="button" id="checkin-btn" onclick="openCheckin()"><span><span style="font-size:18px">✅</span>Realizar registro (Check-in)</span></button>
     <div id="wa-fab" class="wa-fab" style="display:none">
       <a id="wa-link" href="#" target="_blank" rel="noopener" title="Contactar por WhatsApp"><svg viewBox="0 0 32 32"><path d="M16 3.2c-7.06 0-12.8 5.74-12.8 12.8 0 2.243.585 4.428 1.697 6.348L3.2 28.8l6.6-1.73A12.75 12.75 0 0 0 16 28.8c7.06 0 12.8-5.74 12.8-12.8S23.06 3.2 16 3.2zm7.32 18.24c-.31.87-1.53 1.66-2.48 1.76-.66.07-1.5.128-2.31-.148-.53-.181-1.212-.406-2.086-.784-3.674-1.592-6.075-5.297-6.259-5.54-.184-.243-1.503-2.004-1.503-3.822s.94-2.716 1.272-3.083c.33-.367.72-.458.964-.458.243 0 .486.002.7.013.226.011.526-.085.822.626.31.732 1.036 2.545 1.126 2.73.09.184.152.4.03.643-.122.244-.184.397-.366.61-.184.214-.386.478-.55.643-.184.183-.377.383-.163.75.214.366.955 1.573 2.05 2.548 1.408 1.253 2.596 1.64 2.965 1.823.366.184.579.153.793-.091.213-.244.915-1.07 1.16-1.436.244-.366.487-.305.822-.183.335.122 2.12.999 2.48 1.183.367.184.611.275.7.428.09.153.09.882-.213 1.734z"/></svg></a>
       <span>Envíanos WhatsApp</span>
     </div>
-  </main>
-</div>
-<div class="checkin-fab" id="checkin-fab" style="display:none">
-  <button type="button" onclick="openCheckin()"><span><span style="font-size:18px">✅</span>Realizar registro (Check-in)</span></button>
+  </div>
 </div>
 <div id="notfound" class="state" style="display:none">
   <div style="font-size:44px;margin-bottom:12px">🔍</div>
