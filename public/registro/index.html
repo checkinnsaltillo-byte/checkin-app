@@ -18555,23 +18555,31 @@ document.addEventListener("DOMContentLoaded", function(){
     };
     // Hook abrirWhatsappDudas → pedir mensaje custom al parent
     var origWA = window.abrirWhatsappDudas;
-        // En embed, mantén el formulario visible aunque el sitio original le
-    // añada .await-phone-lookup (la búsqueda por teléfono corre igual en
-    // segundo plano — solo evitamos el gate visual del primer paso).
-    document.addEventListener('DOMContentLoaded', function(){
-      try {
-        var fp = document.getElementById('formulario_principal');
-        if (!fp) return;
-        var strip = function(){ if (fp.classList.contains('await-phone-lookup')) fp.classList.remove('await-phone-lookup'); };
-        strip();
-        var mo = new MutationObserver(strip);
-        mo.observe(fp, { attributes:true, attributeFilter:['class'] });
-      } catch(_){}
-    });
     window.abrirWhatsappDudas = function(){
       try { window.parent.postMessage({type:'checkin-wa-request'}, '*'); } catch(_){}
     };
   } catch(_){}
+})();
+</script>
+<script>
+(function(){
+  // Mostrar el formulario exprés completo desde el inicio (aquí y en el
+  // embed). La búsqueda por teléfono para autofill corre en segundo
+  // plano y actualiza los campos cuando encuentra coincidencia, pero no
+  // bloquea la vista.
+  function stripAwaitLookup(){
+    try {
+      var fp = document.getElementById('formulario_principal');
+      if (fp && fp.classList.contains('await-phone-lookup')) fp.classList.remove('await-phone-lookup');
+    } catch(_){}
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    stripAwaitLookup();
+    var fp = document.getElementById('formulario_principal');
+    if (!fp) return;
+    var mo = new MutationObserver(stripAwaitLookup);
+    mo.observe(fp, { attributes:true, attributeFilter:['class'] });
+  });
 })();
 </script>
 </body>
