@@ -266,6 +266,15 @@ function emerg(n1, num1, n2, num2) {
 function section(id, ico, icoBg, title, inner, open) {
   return `<details class="section" id="${id}"${open?' open':''}><summary><div class="sec-ico" style="background:${icoBg}">${ico}</div><div class="sec-title">${esc(title)}</div><div class="chev">▼</div></summary><div class="sec-body">${inner}</div></details>`;
 }
+window.addEventListener('message', ev => {
+  const data = ev.data || {};
+  if (data.type === 'checkin-close') { document.getElementById('cin-modal')?.remove(); }
+  else if (data.type === 'checkin-wa-request') {
+    const phone = window.__waPhone || ''; const msg = window.__waMsg || '';
+    if (phone) window.open(`https://wa.me/${encodeURIComponent(phone)}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+  }
+});
+
 window.openCheckin = function () {
   document.getElementById('cin-modal')?.remove();
   const el = document.createElement('div');
@@ -306,6 +315,8 @@ function buildGuide(a) {
     const msg = `Hola, estoy hospedado en ${desc||nombre}. Mi nombre es: `;
     $('wa-link').href = `https://wa.me/${encodeURIComponent(wa)}?text=${encodeURIComponent(msg)}`;
     $('wa-fab').style.display = 'flex';
+    window.__waPhone = wa;
+    window.__waMsg = msg;
   }
   // Meta OG
   document.title = `${nombre} · Guía · Check-inn Saltillo`;
