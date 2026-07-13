@@ -323,20 +323,22 @@ function buildGuide(a) {
   $('og-title').setAttribute('content', `${nombre} · Guía de Bienvenida`);
   if (descShown) $('og-desc').setAttribute('content', descShown);
   // Sections
+  // Orden final. Parrilla solo si tiene contenido.
+  const hasGrill = listOf(g('parrilla')).length > 0;
   const secList = [
     ['gu-loc','📍','linear-gradient(135deg,#0ea5e9,#38bdf8)','Ubicación y cómo llegar'],
     ['gu-house','🏠','linear-gradient(135deg,#8b5cf6,#a78bfa)','Características del alojamiento'],
-    ['gu-amen','✨','linear-gradient(135deg,#0f766e,#14b8a6)','Amenidades'],
+    ['gu-arr','🚪','linear-gradient(135deg,#2563eb,#60a5fa)','Método de llegada'],
     ['gu-rules','📋','linear-gradient(135deg,#dc2626,#f87171)','Reglamento de la casa'],
     ['gu-time','🕐','linear-gradient(135deg,#f59e0b,#fbbf24)','Horas de entrada y salida'],
-    ['gu-arr','🚪','linear-gradient(135deg,#2563eb,#60a5fa)','Método de llegada'],
     ['gu-wifi','📶','linear-gradient(135deg,#7c3aed,#c084fc)','Conexión WiFi'],
     ['gu-park','🅿️','linear-gradient(135deg,#475569,#94a3b8)','Estacionamiento'],
     ['gu-wash','🧺','linear-gradient(135deg,#0891b2,#22d3ee)','Lavandería'],
     ['gu-supply','🧴','linear-gradient(135deg,#16a34a,#4ade80)','Insumos disponibles'],
+    ['gu-amen','✨','linear-gradient(135deg,#0f766e,#14b8a6)','Amenidades'],
+    ...(hasGrill ? [['gu-grill','🔥','linear-gradient(135deg,#c2410c,#f97316)','Parrilla eléctrica']] : []),
     ['gu-out','👋','linear-gradient(135deg,#ea580c,#fb923c)','Instrucciones de salida'],
     ['gu-emerg','🚨','linear-gradient(135deg,#b91c1c,#ef4444)','Contacto de emergencia'],
-    ['gu-grill','🔥','linear-gradient(135deg,#c2410c,#f97316)','Parrilla eléctrica'],
   ];
   $('quicknav').innerHTML = secList.map(([id,ic,,t]) => `<a href="#${id}" onclick="return jumpTo('${id}')">${ic} ${t.split(' ')[0]}</a>`).join('');
   const capacidadRaw = g('capacidad');
@@ -359,7 +361,12 @@ function buildGuide(a) {
   const sec12Inner = emerg(g('contacto_emergencia_1_nombre'), g('contacto_emergencia_1_numero'), g('contacto_emergencia_2_nombre'), g('contacto_emergencia_2_numero'));
   const parrList = listOf(g('parrilla'));
   const sec13Inner = parrList.length ? steps(parrList) : '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de parrilla.</div>';
-  const inners = [sec1Inner, sec2Inner, sec3Inner, sec4Inner, sec5Inner, sec6Inner, sec7Inner, sec8Inner, sec9Inner, sec10Inner, sec11Inner, sec12Inner, sec13Inner];
+  const inners = [
+    sec1Inner, sec2Inner, sec6Inner, sec4Inner, sec5Inner,
+    sec7Inner, sec8Inner, sec9Inner, sec10Inner, sec3Inner,
+    ...(hasGrill ? [sec13Inner] : []),
+    sec11Inner, sec12Inner,
+  ];
   $('sections').innerHTML = secList.map(([id,ic,bg,t], i) => section(id, ic, bg, t, inners[i], i === 0)).join('');
   // Hero bg via microlink
   if (photoUrl) {
