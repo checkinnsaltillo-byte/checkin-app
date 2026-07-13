@@ -30565,7 +30565,6 @@ function guiasRenderContent() {
     ? `<div id="guias-wa-fab" style="position:fixed;bottom:110px;right:24px;z-index:9500;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:auto">
          <a href="https://wa.me/${encodeURIComponent(waPhone)}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" title="Contactar por WhatsApp"
             style="width:60px;height:60px;border-radius:18px;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 10px 24px -4px rgba(37,211,102,.55),inset 0 -3px 6px rgba(0,0,0,.12);border:1px solid rgba(255,255,255,.15)">${waIconSvg}</a>
-         <span style="font-size:11px;font-weight:700;color:#0f172a;background:rgba(255,255,255,.95);padding:2px 8px;border-radius:8px;box-shadow:0 2px 6px rgba(15,23,42,.18)">Envíanos WhatsApp</span>
        </div>`
     : '';
   // Botón "Realizar registro (Check-in)" — fijo al fondo del viewport.
@@ -30573,7 +30572,7 @@ function guiasRenderContent() {
     ? `<div id="guias-checkin-fab" style="position:fixed;left:0;right:0;bottom:0;z-index:9400;padding:14px 16px 18px;background:linear-gradient(180deg,rgba(15,23,42,0),rgba(15,23,42,.55));pointer-events:none">
          <button type="button" onclick="guiasOpenCheckin_()"
                  style="pointer-events:auto;display:block;width:100%;max-width:520px;margin:0 auto;padding:16px 20px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:0;border-radius:14px;font-size:15px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 12px 28px -6px rgba(220,38,38,.6);animation:guiaCheckinPulse 2.2s ease-in-out infinite;text-shadow:0 1px 2px rgba(0,0,0,.2)">
-           <span style="display:inline-flex;align-items:center;gap:10px;justify-content:center"><span style="font-size:18px">✅</span>Realizar registro (Check-in)</span>
+           <span style="display:inline-flex;align-items:center;gap:10px;justify-content:center"><span style="font-size:18px">✅</span>Realizar registro</span>
          </button>
        </div>
        <style>@keyframes guiaCheckinPulse{0%,100%{box-shadow:0 12px 28px -6px rgba(220,38,38,.6);transform:translateY(0)}50%{box-shadow:0 18px 40px -4px rgba(220,38,38,.85);transform:translateY(-2px)}}</style>`
