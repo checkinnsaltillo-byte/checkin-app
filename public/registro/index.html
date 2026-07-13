@@ -3220,6 +3220,10 @@ html.embed-html { height: 100%; }
 /* En embed, popupEnvio debe estar POR ENCIMA del viewRegistro (que tiene
    z-index 2147483000). */
 body.embed-mode #popupEnvio { z-index: 2147483647 !important; }
+/* En embed, mostrar el formulario completo desde el inicio — la búsqueda
+   de registros previos por teléfono se hace igual en segundo plano. */
+body.embed-mode #viewRegistro #formulario_principal.await-phone-lookup { display: block !important; }
+
 body.embed-mode #popupEnvio button[onclick*="cerrarVentanaEnvio"] {
   background: #ef4444 !important; color: #fff !important;
   border: 0 !important; padding: 12px 20px !important; border-radius: 12px !important;
@@ -18551,6 +18555,19 @@ document.addEventListener("DOMContentLoaded", function(){
     };
     // Hook abrirWhatsappDudas → pedir mensaje custom al parent
     var origWA = window.abrirWhatsappDudas;
+        // En embed, mantén el formulario visible aunque el sitio original le
+    // añada .await-phone-lookup (la búsqueda por teléfono corre igual en
+    // segundo plano — solo evitamos el gate visual del primer paso).
+    document.addEventListener('DOMContentLoaded', function(){
+      try {
+        var fp = document.getElementById('formulario_principal');
+        if (!fp) return;
+        var strip = function(){ if (fp.classList.contains('await-phone-lookup')) fp.classList.remove('await-phone-lookup'); };
+        strip();
+        var mo = new MutationObserver(strip);
+        mo.observe(fp, { attributes:true, attributeFilter:['class'] });
+      } catch(_){}
+    });
     window.abrirWhatsappDudas = function(){
       try { window.parent.postMessage({type:'checkin-wa-request'}, '*'); } catch(_){}
     };
