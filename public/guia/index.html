@@ -336,6 +336,7 @@ function buildGuide(a) {
     ['gu-supply','🧴','linear-gradient(135deg,#16a34a,#4ade80)','Insumos disponibles'],
     ['gu-out','👋','linear-gradient(135deg,#ea580c,#fb923c)','Instrucciones de salida'],
     ['gu-emerg','🚨','linear-gradient(135deg,#b91c1c,#ef4444)','Contacto de emergencia'],
+    ['gu-grill','🔥','linear-gradient(135deg,#c2410c,#f97316)','Parrilla eléctrica'],
   ];
   $('quicknav').innerHTML = secList.map(([id,ic,,t]) => `<a href="#${id}" onclick="return jumpTo('${id}')">${ic} ${t.split(' ')[0]}</a>`).join('');
   const capacidadRaw = g('capacidad');
@@ -356,7 +357,9 @@ function buildGuide(a) {
   const salList = listOf(g('salida_instrucciones'));
   const sec11Inner = (salList.length ? iconList(salList) : '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de salida.</div>') + callout(g('salida_aviso'),'💚');
   const sec12Inner = emerg(g('contacto_emergencia_1_nombre'), g('contacto_emergencia_1_numero'), g('contacto_emergencia_2_nombre'), g('contacto_emergencia_2_numero'));
-  const inners = [sec1Inner, sec2Inner, sec3Inner, sec4Inner, sec5Inner, sec6Inner, sec7Inner, sec8Inner, sec9Inner, sec10Inner, sec11Inner, sec12Inner];
+  const parrList = listOf(g('parrilla'));
+  const sec13Inner = parrList.length ? steps(parrList) : '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de parrilla.</div>';
+  const inners = [sec1Inner, sec2Inner, sec3Inner, sec4Inner, sec5Inner, sec6Inner, sec7Inner, sec8Inner, sec9Inner, sec10Inner, sec11Inner, sec12Inner, sec13Inner];
   $('sections').innerHTML = secList.map(([id,ic,bg,t], i) => section(id, ic, bg, t, inners[i], i === 0)).join('');
   // Hero bg via microlink
   if (photoUrl) {
