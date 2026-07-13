@@ -83,9 +83,9 @@ details.section>summary::-webkit-details-marker{display:none}
 .checkin-fab button span{display:inline-flex;align-items:center;gap:10px;justify-content:center}
 @keyframes cinPulse{0%,100%{box-shadow:0 12px 28px -6px rgba(220,38,38,.6);transform:translateY(0)}50%{box-shadow:0 18px 40px -4px rgba(220,38,38,.85);transform:translateY(-2px)}}
 .cin-modal{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,.92);z-index:9999;overflow:hidden}
-.cin-modal-head{position:absolute;top:0;left:0;right:0;height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#fff;box-sizing:border-box}
-.cin-modal-head .t{font-size:14px;font-weight:800}
-.cin-modal-head button{all:unset;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;width:38px;height:38px;border-radius:50%;font-size:18px;display:grid;place-items:center}
+.cin-modal-head{position:absolute;top:0;left:0;right:0;height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#fff;box-sizing:border-box;gap:12px}
+.cin-modal-head .t{font-size:14px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cin-modal-head button{all:unset;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;white-space:nowrap}
 .cin-modal iframe{position:absolute;top:56px;left:0;width:100%;height:calc(100% - 56px);border:0;background:transparent;display:block}
 .wa-fab a{width:60px;height:60px;border-radius:18px;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 10px 24px -4px rgba(37,211,102,.55),inset 0 -3px 6px rgba(0,0,0,.12);border:1px solid rgba(255,255,255,.15)}
 .wa-fab a svg{width:32px;height:32px;fill:#fff;display:block}
@@ -274,7 +274,7 @@ window.openCheckin = function () {
   el.innerHTML = `
     <div class="cin-modal-head">
       <div class="t">✅ Realizar registro (Check-in)</div>
-      <button type="button" onclick="document.getElementById('cin-modal')?.remove()" title="Cerrar">✕</button>
+      <button type="button" onclick="document.getElementById('cin-modal')?.remove()" title="Regresar a Guía de Bienvenida">← Regresar a Guía de Bienvenida</button>
     </div>
     <iframe src="https://www.check-inn.mx/public/registro/?embed=1#express" title="Registro exprés" allow="camera; geolocation"></iframe>`;
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
