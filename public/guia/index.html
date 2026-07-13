@@ -314,7 +314,7 @@ function buildGuide(a) {
   // WhatsApp
   const wa = g('contacto_whatsapp').replace(/[^0-9+]/g,'');
   if (wa) {
-    const msg = `Hola, estoy hospedado en ${desc||nombre}. Mi nombre es: `;
+    const msg = `Hola, estoy hospedado en ${nombre}. Mi nombre es: `;
     $('wa-link').href = `https://wa.me/${encodeURIComponent(wa)}?text=${encodeURIComponent(msg)}`;
     $('wa-fab').style.display = 'flex';
     window.__waPhone = wa;
@@ -323,7 +323,7 @@ function buildGuide(a) {
   // Meta OG
   document.title = `${nombre} · Guía · Check-inn Saltillo`;
   $('og-title').setAttribute('content', `${nombre} · Guía de Bienvenida`);
-  if (descShown) $('og-desc').setAttribute('content', descShown);
+  $('og-desc').setAttribute('content', nombre);
   // Sections
   // Orden final. Parrilla solo si tiene contenido.
   const hasGrill = listOf(g('parrilla')).length > 0;
