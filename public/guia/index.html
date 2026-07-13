@@ -302,11 +302,13 @@ window.jumpTo = function (id) {
 // ────────────────────────── render ──────────────────────────
 function buildGuide(a) {
   const g = (...ks) => V(a, ...ks);
-  const nombre = g('HouseName','Alojamiento','titulo') || 'Alojamiento';
-  const desc = g('titulo_txt');
-  const descShown = desc && desc.toLowerCase() !== nombre.toLowerCase() ? desc : '';
+  // Mismo criterio que guiasItemLabel del admin: usa titulo_txt como
+  // título principal; si no hay, Propiedad · #Departamento; fallback HouseName.
+  const tituloTxt = g('titulo_txt');
+  const prop = g('Propiedad');
+  const dpt = g('# Departamento');
+  const nombre = tituloTxt || (prop && dpt ? `${prop} · #${dpt}` : (prop || g('HouseName') || 'Alojamiento'));
   $('hero-title').textContent = nombre;
-  if (descShown) { $('hero-desc').textContent = descShown; $('hero-desc').style.display = 'block'; }
   const photoUrl = g('url_lodgify');
   if (photoUrl) { $('hero-photos').href = photoUrl; $('hero-photos').style.display = 'inline-flex'; }
   // WhatsApp
