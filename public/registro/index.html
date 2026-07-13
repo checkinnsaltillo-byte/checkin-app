@@ -17443,6 +17443,38 @@ document.addEventListener("DOMContentLoaded", function(){
     border-color: var(--d2-accent) !important;
     box-shadow: 0 0 0 4px rgba(220,38,38,.10) !important;
   }
+  /* Autofill highlight: gana especificidad a la regla d2 de arriba */
+  input[type="text"].autofilled-field,
+  input[type="email"].autofilled-field,
+  input[type="tel"].autofilled-field,
+  input[type="number"].autofilled-field,
+  input[type="date"].autofilled-field,
+  input[type="time"].autofilled-field,
+  input[type="search"].autofilled-field,
+  input[type="password"].autofilled-field,
+  input.autofilled-field,
+  select.autofilled-field,
+  textarea.autofilled-field {
+    background: linear-gradient(180deg,#eefaf3 0%, #e2f7ea 100%) !important;
+    background-color: #eefaf3 !important;
+    color: #256b45 !important;
+    border-color: #7cc79a !important;
+    box-shadow: 0 0 0 3px rgba(34,197,94,.10) !important;
+  }
+  input[type="text"].autofilled-field:focus,
+  input[type="email"].autofilled-field:focus,
+  input[type="tel"].autofilled-field:focus,
+  input[type="number"].autofilled-field:focus,
+  input[type="date"].autofilled-field:focus,
+  input[type="time"].autofilled-field:focus,
+  input[type="search"].autofilled-field:focus,
+  input[type="password"].autofilled-field:focus,
+  input.autofilled-field:focus,
+  select.autofilled-field:focus,
+  textarea.autofilled-field:focus {
+    border-color: #4caf72 !important;
+    box-shadow: 0 0 0 4px rgba(34,197,94,.16) !important;
+  }
   label {
     font-size: 13px;
     font-weight: 600;
