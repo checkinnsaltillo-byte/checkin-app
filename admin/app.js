@@ -30869,6 +30869,24 @@ if (!window.__guiasCheckinListener) {
   });
 }
 
+/** Abre el modal con "Información de vehículos" de check-inn.mx en iframe. */
+window.guiasOpenVehiculos_ = function () {
+  document.getElementById('guias-checkin-modal')?.remove();
+  const HEADER_H = 56;
+  const el = document.createElement('div');
+  el.id = 'guias-checkin-modal';
+  el.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,.92);z-index:9999;overflow:hidden';
+  el.innerHTML = `
+    <div style="position:absolute;top:0;left:0;right:0;height:${HEADER_H}px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#fff;box-sizing:border-box;gap:12px">
+      <div style="font-size:14px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🚗 Información de vehículos</div>
+      <button type="button" onclick="document.getElementById('guias-checkin-modal')?.remove()" title="Regresar a Guía de Bienvenida" style="all:unset;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px;white-space:nowrap">← Regresar a Guía de Bienvenida</button>
+    </div>
+    <iframe src="https://www.check-inn.mx/public/registro/?embed=1#vehiculos" style="position:absolute;top:${HEADER_H}px;left:0;width:100%;height:calc(100% - ${HEADER_H}px);border:0;background:transparent;display:block" title="Información de vehículos" allow="camera; geolocation"></iframe>`;
+  const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(el);
+};
+
 /** Abre el modal con el registro exprés de check-inn.mx en un iframe. */
 window.guiasOpenCheckin_ = function () {
   document.getElementById('guias-checkin-modal')?.remove();
@@ -31321,10 +31339,18 @@ function guiasBuildGuide(alojs) {
     if (!list.length) return '';
     return guiSection_('gu-grill', '🔥', 'linear-gradient(135deg,#c2410c,#f97316)', 'Parrilla eléctrica', 'Cómo usarla', guiSteps_(list));
   })();
+  // XIV. Información de vehículos — botón que abre popup dentro de la Guía.
+  const sec14 = `<div onclick="guiasOpenVehiculos_()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();guiasOpenVehiculos_()}" style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:0 2px 10px -4px rgba(15,23,42,.10);cursor:pointer;transition:transform .12s,box-shadow .12s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 16px -6px rgba(15,23,42,.18)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px -4px rgba(15,23,42,.10)'">
+    <div style="display:flex;align-items:center;gap:14px;padding:16px">
+      <div style="flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff">🚗</div>
+      <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;color:#0f172a">Información de vehículos</div><div style="font-size:12.5px;color:#64748b;margin-top:2px">Coordinación de estacionamiento con otros huéspedes</div></div>
+      <div style="color:#94a3b8;font-size:16px">›</div>
+    </div>
+  </div>`;
   // Orden pedido: Ubicación, Alojamiento, Llegada, Reglamento, Horarios,
   // WiFi, Estacionamiento, Lavandería, Insumos, Amenidades, [Parrilla],
   // Salida, Emergencias.
-  return sec1 + sec2 + sec6 + sec4 + sec5 + sec7 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec12;
+  return sec1 + sec2 + sec6 + sec4 + sec5 + sec7 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec12;
 }
 
 function guiasCard(title, icon, inner) {
