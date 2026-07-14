@@ -14659,6 +14659,9 @@ document.addEventListener("DOMContentLoaded", function(){
       if (hash === '#express' || qs.get('express') === '1') {
         setTimeout(() => { try { gotoExpressForm(); } catch(_e){} }, 50);
       }
+      if (hash === '#vehiculos' || qs.get('vehiculos') === '1') {
+        setTimeout(() => { try { openVehiculosPopup(); } catch(_e){} }, 50);
+      }
     } catch(_e){}
     $("btnGoVehiculos")?.addEventListener("click", () => openVehiculosPopup());
     $("btnLoginBack1")?.addEventListener("click", gotoWelcome);
@@ -18590,9 +18593,31 @@ document.addEventListener("DOMContentLoaded", function(){
     window.abrirWhatsappDudas = function(){
       try { window.parent.postMessage({type:'checkin-wa-request'}, '*'); } catch(_){}
     };
+    // Hook closePopup (popup de "Información de vehículos") → cerrar iframe padre
+    var origClosePopup = window.closePopup;
+    window.closePopup = function(){
+      try { if (origClosePopup) origClosePopup.apply(this, arguments); } catch(_){}
+      try { window.parent.postMessage({type:'checkin-close'}, '*'); } catch(_){}
+    };
+    // Fallback: listener directo en el botón cuando esté disponible
+    document.addEventListener('DOMContentLoaded', function(){
+      var btn = document.getElementById('popupCloseBtn');
+      if (btn) btn.addEventListener('click', function(){
+        try { window.parent.postMessage({type:'checkin-close'}, '*'); } catch(_){}
+      });
+    });
   } catch(_){}
 })();
 </script>
+<style>
+/* Embed: popup de vehículos ocupa toda la ventana del iframe */
+body.embed-mode #popupOverlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483000 !important;
+}
+body.embed-mode #popupOverlay.hidden { display: none !important; }
+</style>
 <script>
 (function(){
   // Mostrar el formulario exprés completo desde el inicio (aquí y en el
