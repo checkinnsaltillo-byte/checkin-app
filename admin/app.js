@@ -29025,24 +29025,25 @@ function tuyaRenderGlobalMonitor(enriched, allTipos) {
   return sections.join('');
 }
 
-// Carga logs para Monitor global (lazy, una vez por dispositivo)
+// Carga logs para Monitor global. Refresca SIEMPRE (igual que el side panel
+// con cache:'no-store') para que los datos coincidan con los del detalle.
+// Antes se cacheaba en TUYA_STATE.globalLogs y solo se fetcheaban ids nuevos,
+// lo que dejaba las gráficas congeladas con la primera carga de la sesión.
 async function tuyaGlobalEnsureLogs(ids) {
-  const toFetch = ids.filter(id => !TUYA_STATE.globalLogs[id]);
-  // Para puertas e water cargamos suficiente data (30 días) para soportar la ventana Mes
-  if (toFetch.length) {
-    try {
-      const r = await fetch(`${BACKEND}/tuya/logs-bulk`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: toFetch, size: 5000, days: 30 }),
-      });
-      const j = await r.json();
-      if (j.ok) {
-        for (const id of toFetch) TUYA_STATE.globalLogs[id] = j.byId[id] || [];
-      }
-    } catch (e) { console.warn('[Tuya global] fetch logs:', e.message); }
-  }
-  // Render charts ya con logs disponibles
+  if (!ids.length) return;
+  try {
+    const r = await fetch(`${BACKEND}/tuya/logs-bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      body: JSON.stringify({ ids, size: 5000, days: 30 }),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      for (const id of ids) TUYA_STATE.globalLogs[id] = j.byId[id] || [];
+    }
+  } catch (e) { console.warn('[Tuya global] fetch logs:', e.message); }
+  // Render charts ya con logs frescos
   for (const id of ids) tuyaGlobalRenderChart(id);
 }
 
