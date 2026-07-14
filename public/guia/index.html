@@ -296,6 +296,22 @@ window.openCheckin = function () {
   document.body.appendChild(el);
 };
 
+window.openVehiculos = function () {
+  document.getElementById('cin-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'cin-modal';
+  el.className = 'cin-modal';
+  el.innerHTML = `
+    <div class="cin-modal-head">
+      <div class="t">🚗 Información de vehículos</div>
+      <button type="button" onclick="document.getElementById('cin-modal')?.remove()" title="Regresar a Guía de Bienvenida">← Regresar a Guía de Bienvenida</button>
+    </div>
+    <iframe src="https://www.check-inn.mx/public/registro/?embed=1#vehiculos" title="Información de vehículos" allow="camera; geolocation"></iframe>`;
+  const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(el);
+};
+
 window.jumpTo = function (id) {
   const el = document.getElementById(id);
   if (!el) return false;
@@ -375,6 +391,10 @@ function buildGuide(a) {
     sec11Inner, sec12Inner,
   ];
   $('sections').innerHTML = secList.map(([id,ic,bg,t], i) => section(id, ic, bg, t, inners[i], i === 0)).join('');
+  // Insertar tarjeta clickable "Información de vehículos" después de Estacionamiento
+  const vehCard = `<div id="gu-veh" onclick="openVehiculos()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openVehiculos()}" style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:0 2px 10px -4px rgba(15,23,42,.10);cursor:pointer;transition:transform .12s,box-shadow .12s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 16px -6px rgba(15,23,42,.18)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px -4px rgba(15,23,42,.10)'"><div style="display:flex;align-items:center;gap:14px;padding:16px"><div style="flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff">🚗</div><div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;color:#0f172a">Información de vehículos</div><div style="font-size:12.5px;color:#64748b;margin-top:2px">Coordinación de estacionamiento con otros huéspedes</div></div><div style="color:#94a3b8;font-size:16px">›</div></div></div>`;
+  const parkEl = document.getElementById('gu-park');
+  if (parkEl) parkEl.insertAdjacentHTML('afterend', vehCard);
   // Hero bg via microlink
   if (photoUrl) {
     fetch(`https://api.microlink.io/?url=${encodeURIComponent(photoUrl)}&screenshot=false`, {cache:'no-store'})
