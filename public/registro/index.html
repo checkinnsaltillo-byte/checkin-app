@@ -18626,14 +18626,20 @@ body.embed-vehiculos-mode #viewLogin,
 body.embed-vehiculos-mode #viewHome,
 body.embed-vehiculos-mode #viewVehiculos,
 body.embed-vehiculos-mode #viewProfileWizard,
-body.embed-vehiculos-mode .page-shell,
-body.embed-vehiculos-mode .container,
-body.embed-vehiculos-mode main,
-body.embed-vehiculos-mode #topMenu,
-body.embed-vehiculos-mode .menu-container {
+body.embed-vehiculos-mode #topMenu {
   display: none !important;
 }
-body.embed-vehiculos-mode { background: transparent !important; }
+/* NO ocultes .container ni .page-shell — #popupOverlay vive dentro y sus
+   dimensiones colapsan a 0 si el ancestro es display:none. */
+body.embed-vehiculos-mode .page-shell,
+body.embed-vehiculos-mode .container {
+  display: block !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: none !important;
+}
+body.embed-vehiculos-mode { background: #fff !important; }
 </style>
 <script>
 (function(){
