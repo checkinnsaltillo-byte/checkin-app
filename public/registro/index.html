@@ -18617,7 +18617,37 @@ body.embed-mode #popupOverlay {
   z-index: 2147483000 !important;
 }
 body.embed-mode #popupOverlay.hidden { display: none !important; }
+/* Cuando el iframe entró vía #vehiculos, oculta viewRegistro y todo el
+   fondo: solo debe verse el popup de vehículos sobre transparente. */
+body.embed-vehiculos-mode #viewRegistro,
+body.embed-vehiculos-mode #viewRegistro.as-popup,
+body.embed-vehiculos-mode #viewWelcome,
+body.embed-vehiculos-mode #viewLogin,
+body.embed-vehiculos-mode #viewHome,
+body.embed-vehiculos-mode #viewVehiculos,
+body.embed-vehiculos-mode #viewProfileWizard,
+body.embed-vehiculos-mode .page-shell,
+body.embed-vehiculos-mode .container,
+body.embed-vehiculos-mode main,
+body.embed-vehiculos-mode #topMenu,
+body.embed-vehiculos-mode .menu-container {
+  display: none !important;
+}
+body.embed-vehiculos-mode { background: transparent !important; }
 </style>
+<script>
+(function(){
+  try {
+    var qs = new URLSearchParams(location.search || '');
+    if (qs.get('embed') !== '1') return;
+    var hash = String(location.hash || '').toLowerCase();
+    if (hash === '#vehiculos' || qs.get('vehiculos') === '1') {
+      var apply = function(){ document.body && document.body.classList.add('embed-vehiculos-mode'); };
+      if (document.body) apply(); else document.addEventListener('DOMContentLoaded', apply);
+    }
+  } catch(_){}
+})();
+</script>
 <script>
 (function(){
   // Mostrar el formulario exprés completo desde el inicio (aquí y en el
