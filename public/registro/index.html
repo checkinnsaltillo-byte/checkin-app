@@ -18641,10 +18641,34 @@ body.embed-vehiculos-mode { background: transparent !important; }
     var qs = new URLSearchParams(location.search || '');
     if (qs.get('embed') !== '1') return;
     var hash = String(location.hash || '').toLowerCase();
-    if (hash === '#vehiculos' || qs.get('vehiculos') === '1') {
-      var apply = function(){ document.body && document.body.classList.add('embed-vehiculos-mode'); };
-      if (document.body) apply(); else document.addEventListener('DOMContentLoaded', apply);
+    if (hash !== '#vehiculos' && qs.get('vehiculos') !== '1') return;
+    function apply(){
+      try {
+        document.body && document.body.classList.add('embed-vehiculos-mode');
+        // Force-hide viewRegistro y contenedores por si algún estilo dinámico los reactiva
+        ['viewRegistro','viewWelcome','viewLogin','viewHome','viewVehiculos','viewProfileWizard','topMenu','pageH1','sessionPill','adminAccessBtn'].forEach(function(id){
+          var el = document.getElementById(id);
+          if (el) el.style.setProperty('display','none','important');
+        });
+        document.querySelectorAll('.page-shell,.container,main,footer,.site-footer').forEach(function(el){
+          el.style.setProperty('display','none','important');
+        });
+        // Asegura popup overlay a pantalla completa
+        var ov = document.getElementById('popupOverlay');
+        if (ov) {
+          ov.style.setProperty('position','fixed','important');
+          ov.style.setProperty('inset','0','important');
+          ov.style.setProperty('z-index','2147483000','important');
+          ov.style.setProperty('background','#fff','important');
+        }
+      } catch(_){}
     }
+    if (document.body) apply();
+    document.addEventListener('DOMContentLoaded', apply);
+    // Re-aplica varias veces por si algún init tardío reactiva vistas
+    setTimeout(apply, 100);
+    setTimeout(apply, 500);
+    setTimeout(apply, 1500);
   } catch(_){}
 })();
 </script>
