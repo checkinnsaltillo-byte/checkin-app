@@ -11234,7 +11234,10 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
     const isSel   = xid === selectedRecId;
     // El punto representa estado de la estancia (no de la factura):
     // verde = en curso, gris = concluida, azul = próxima.
-    const stayState = huGetStayState(ingreso, salida);
+    // IMPORTANTE: usar _ingIso/_salIso (ya normalizados por lgFmtDateUI). Si
+    // pasamos las fechas raw en formato Lodgify MM/DD/YYYY, huParseDate las
+    // interpreta como DD/MM/YYYY y calcula estados invertidos (Próxima↔Concluida).
+    const stayState = huGetStayState(_ingIso, _salIso);
     const dotMeta   = HU_STAY_DOT[stayState] || HU_STAY_DOT[''];
     const dotColor  = dotMeta.color;
     const dotTitle  = dotMeta.label;
