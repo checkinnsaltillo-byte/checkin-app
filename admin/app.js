@@ -9859,16 +9859,18 @@ function huGetStayState(ingreso, salida) {
   const endDay   = new Date(end);   endDay.setHours(0,0,0,0);
   if (endDay < today) return 'concluida';
   if (endDay.getTime() === today.getTime()) return 'salida_hoy';
+  if (startDay.getTime() === today.getTime()) return 'entrada_hoy';
   if (startDay > today) return 'proxima';
   return 'activa';
 }
 /** Mapa estado → color + leyenda. */
 const HU_STAY_DOT = {
-  concluida:  { color:'#94a3b8', label:'Concluida' },
-  activa:     { color:'#16a34a', label:'Activa' },
-  salida_hoy: { color:'#dc2626', label:'Salida hoy' },
-  proxima:    { color:'#f59e0b', label:'Próxima' },
-  '':         { color:'#cbd5e1', label:'—' },
+  concluida:   { color:'#94a3b8', label:'Concluida' },
+  activa:      { color:'#16a34a', label:'Activa' },
+  entrada_hoy: { color:'#22c55e', label:'Entrada hoy' },
+  salida_hoy:  { color:'#dc2626', label:'Salida hoy' },
+  proxima:     { color:'#f59e0b', label:'Próxima' },
+  '':          { color:'#cbd5e1', label:'—' },
 };
 
 /** Llena el <select id="hu-filtro-mes"> con los meses únicos presentes en
@@ -11237,8 +11239,9 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
     const dotColor  = dotMeta.color;
     const dotTitle  = dotMeta.label;
     // Verde "Activa" pulsa suave; rojo "Salida hoy" pulsa más fuerte para llamar la atención.
-    const dotPulse  = stayState === 'activa'     ? 'animation:hu-dot-pulse 1.4s ease-in-out infinite;'
-                    : stayState === 'salida_hoy' ? 'animation:hu-dot-pulse-strong 1s ease-in-out infinite;'
+    const dotPulse  = stayState === 'activa'      ? 'animation:hu-dot-pulse 1.4s ease-in-out infinite;'
+                    : stayState === 'salida_hoy'  ? 'animation:hu-dot-pulse-strong 1s ease-in-out infinite;'
+                    : stayState === 'entrada_hoy' ? 'animation:hu-dot-pulse 1.4s ease-in-out infinite;'
                     : '';
     const lgStateMeta = (typeof LG_STATE_META !== 'undefined') ? (LG_STATE_META[stayState] || LG_STATE_META.concluida) : null;
     const progBorder = lgStateMeta ? lgStateMeta.border : '#e2e8f0';
