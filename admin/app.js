@@ -31299,7 +31299,9 @@ function guiasBuildGuide(alojs) {
   })();
   // VI. Método de llegada — incluye "Tu departamento es el #N" antes del paso 1
   const sec6 = (() => {
-    const list = guiasList_(V('metodo_llegada'));
+    const list = guiasList_(V('metodo_llegada')).map(s =>
+      /¡?bienvenido[!¡]?/i.test(s) && !/🙂/.test(s) ? s.replace(/(¡?[Bb]ienvenido[!¡]?)/, '$1 🙂') : s
+    );
     const steps = guiSteps_(list) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de llegada.</div>';
     return guiSection_('gu-arr', '🚪', 'linear-gradient(135deg,#2563eb,#60a5fa)', 'Método de llegada', 'Acceso al alojamiento', deptoNote + steps);
   })();
