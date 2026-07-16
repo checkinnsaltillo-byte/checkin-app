@@ -30594,6 +30594,7 @@ function guiasRenderContent() {
   // WiFi, Estacionamiento, Lavandería, Insumos, Amenidades, [Parrilla si
   // tiene contenido], Salida, Emergencias.
   const hasGrill = isReadOne && !!guiasVal_(alojs[0], 'parrilla');
+  const hasRecos = isReadOne && !!guiasVal_(alojs[0], 'restaurantes');
   const quicknavItems = [
     ['gu-loc','📍 Ubicación'],['gu-house','🏠 Alojamiento'],['gu-arr','🚪 Llegada'],
     ['gu-rules','📋 Reglamento'],['gu-time','🕐 Horarios'],['gu-wifi','📶 WiFi'],
@@ -30601,7 +30602,9 @@ function guiasRenderContent() {
     ['gu-amen','✨ Amenidades'],
   ];
   if (hasGrill) quicknavItems.push(['gu-grill','🔥 Parrilla']);
-  quicknavItems.push(['gu-out','👋 Salida'],['gu-emerg','🚨 Emergencias']);
+  quicknavItems.push(['gu-out','👋 Salida']);
+  if (hasRecos) quicknavItems.push(['gu-reco','🍽️ Recomendaciones']);
+  quicknavItems.push(['gu-emerg','🚨 Emergencias']); // siempre al final
   const quicknavHtml = isReadOne ? `
     <nav id="guias-quicknav" style="position:sticky;top:0;z-index:20;background:rgba(241,245,249,.95);backdrop-filter:blur(10px);border-bottom:1px solid #e2e8f0;padding:10px 0;overflow-x:auto;white-space:nowrap;margin:0 -8px 14px" onwheel="if(!event.shiftKey&&event.deltaY!==0){this.scrollLeft+=event.deltaY;event.preventDefault();}">
       ${quicknavItems.map(([id,t]) => `<a href="#${id}" onclick="return guiasJumpTo_('${id}')" style="display:inline-block;text-decoration:none;color:#64748b;font-size:13px;font-weight:600;padding:8px 14px;margin:0 4px;background:#fff;border:1px solid #e2e8f0;border-radius:999px">${t}</a>`).join('')}
@@ -30633,6 +30636,11 @@ function guiasRenderContent() {
       ${waHtml}
       ${checkinHtml}
     </div>`;
+  // Hidratar cards de "Recomendaciones" (los <script> inline no corren dentro
+  // de innerHTML, así que disparamos manualmente aquí).
+  if (typeof window.guiasHydrateRecos_ === 'function') {
+    setTimeout(() => window.guiasHydrateRecos_(), 60);
+  }
 
   // Resolver og:image vía microlink.io (free, no auth) cuando hay url_lodgify.
   if (photoPageUrl) {
@@ -31367,13 +31375,12 @@ function guiasBuildGuide(alojs) {
         </div>
       </div>`;
     }).join('');
-    const inner = cards + `<script>(function(){setTimeout(guiasHydrateRecos_, 60);})();<\/script>`;
-    return guiSection_('gu-reco', '🍽️', 'linear-gradient(135deg,#7c2d12,#ea580c)', 'Recomendaciones', 'Lugares cerca del alojamiento', inner);
+    return guiSection_('gu-reco', '🍽️', 'linear-gradient(135deg,#7c2d12,#ea580c)', 'Recomendaciones', 'Lugares cerca del alojamiento', cards);
   })();
-  // Orden pedido: Ubicación, Alojamiento, Llegada, Reglamento, Horarios,
-  // WiFi, Estacionamiento, Lavandería, Insumos, Amenidades, [Parrilla],
-  // Salida, Emergencias, [Recomendaciones al final].
-  return sec1 + sec2 + sec6 + sec4 + sec5 + sec7 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec12 + sec15;
+  // Orden: Ubicación, Alojamiento, Llegada, Reglamento, Horarios, WiFi,
+  // Vehículos, Estacionamiento, Lavandería, Insumos, Amenidades, [Parrilla],
+  // Salida, [Recomendaciones], Emergencias SIEMPRE al final.
+  return sec1 + sec2 + sec6 + sec4 + sec5 + sec7 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec15 + sec12;
 }
 
 /** Hidrata cards de "Recomendaciones" pidiendo a Microlink título/imagen
