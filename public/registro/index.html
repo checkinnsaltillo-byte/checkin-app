@@ -5417,8 +5417,10 @@ body.has-session input[name="nombre"] {
     document.addEventListener('DOMContentLoaded', function(){
       if (qs.get('embed') === '1') {
         document.body.classList.add('embed-mode');
-        // Si viene ?embed=1 solo, activamos también el flow express automáticamente.
-        if (typeof gotoExpressForm === 'function') {
+        var h = String(location.hash || '').toLowerCase();
+        // Solo dispara express si NO viene con un hash de otro flujo (#vehiculos / #checkout).
+        var otherFlow = (h === '#vehiculos' || h === '#checkout' || qs.get('vehiculos') === '1' || qs.get('checkout') === '1');
+        if (!otherFlow && typeof gotoExpressForm === 'function') {
           setTimeout(function(){ try { gotoExpressForm(); } catch(_){} }, 60);
         }
       }
@@ -18847,6 +18849,28 @@ body.embed-vehiculos-mode .container {
   max-width: none !important;
 }
 body.embed-vehiculos-mode { background: #fff !important; }
+/* Embed #checkout: oculta todo lo demás y solo muestra viewCheckout. */
+body.embed-checkout-mode #viewRegistro,
+body.embed-checkout-mode #viewRegistro.as-popup,
+body.embed-checkout-mode #viewWelcome,
+body.embed-checkout-mode #viewLogin,
+body.embed-checkout-mode #viewHome,
+body.embed-checkout-mode #viewVehiculos,
+body.embed-checkout-mode #viewProfileWizard,
+body.embed-checkout-mode #topMenu {
+  display: none !important;
+}
+body.embed-checkout-mode .page-shell,
+body.embed-checkout-mode .container {
+  display: block !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: none !important;
+}
+body.embed-checkout-mode #viewCheckout { display: block !important; }
+body.embed-checkout-mode #viewCheckout .back-home-btn { display: none !important; }
+body.embed-checkout-mode { background: #fff !important; }
 </style>
 <script>
 (function(){
@@ -18884,6 +18908,65 @@ body.embed-vehiculos-mode { background: #fff !important; }
     setTimeout(apply, 1500);
   } catch(_){}
 })();
+// Deep-link #checkout: fuerza mostrar solo viewCheckout dentro del iframe.
+(function(){
+  try {
+    var qs = new URLSearchParams(location.search || '');
+    if (qs.get('embed') !== '1') return;
+    var hash = String(location.hash || '').toLowerCase();
+    if (hash !== '#checkout' && qs.get('checkout') !== '1') return;
+    function apply(){
+      try {
+        document.body && document.body.classList.add('embed-checkout-mode');
+        ['viewRegistro','viewWelcome','viewLogin','viewHome','viewVehiculos','viewProfileWizard','topMenu','pageH1','sessionPill','adminAccessBtn'].forEach(function(id){
+          var el = document.getElementById(id);
+          if (el) el.style.setProperty('display','none','important');
+        });
+        document.querySelectorAll('.page-title-row,.back-home-btn,.lang-bar,.lang-bar-logo,.lang-note,.page-logo-wrap,.admin-bar,footer,.site-footer,.app-header').forEach(function(el){
+          el.style.setProperty('display','none','important');
+        });
+        var vco = document.getElementById('viewCheckout');
+        if (vco) vco.classList.remove('hidden');
+        if (document.body) document.body.style.setProperty('background','#fff','important');
+        if (document.documentElement) document.documentElement.style.setProperty('background','#fff','important');
+        // Prefill Propiedad + # Departamento del checkout desde ?prop= / ?depto=
+        var prop  = qs.get('prop');
+        var depto = qs.get('depto');
+        function markGreen(el){
+          if (!el) return;
+          if (typeof window.markFieldAsAutofilled === 'function') window.markFieldAsAutofilled(el);
+          else el.classList.add('autofilled-field');
+        }
+        if (prop) {
+          var selP = document.getElementById('checkout_propiedad');
+          if (selP) {
+            var target = String(prop).trim().toLowerCase();
+            var opt = Array.from(selP.options).find(function(o){ return String(o.value||'').trim().toLowerCase() === target || String(o.textContent||'').trim().toLowerCase() === target; });
+            if (opt) selP.value = opt.value; else selP.value = 'Otra';
+            selP.dispatchEvent(new Event('change', {bubbles:true}));
+            markGreen(selP);
+          }
+        }
+        if (depto) {
+          var selD = document.getElementById('checkout_depto');
+          if (selD) {
+            selD.value = String(depto);
+            selD.dispatchEvent(new Event('change', {bubbles:true}));
+            markGreen(selD);
+          }
+        }
+      } catch(_){}
+    }
+    if (document.body) apply();
+    document.addEventListener('DOMContentLoaded', apply);
+    setTimeout(apply, 100);
+    setTimeout(apply, 500);
+    setTimeout(apply, 1500);
+  } catch(_){}
+})();
+// Cuando el checkout se envía con éxito (mostrarVentanaExito) y luego se cierra
+// desde dentro del iframe, el hook global de cerrarVentanaEnvio ya envía
+// 'checkin-close' al padre. Nada extra que hacer aquí.
 </script>
 <script>
 (function(){
