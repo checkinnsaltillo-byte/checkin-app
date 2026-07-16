@@ -384,7 +384,7 @@ function buildGuide(a) {
   const sec9Inner = `${kv('Ubicación', g('lavanderia_ubicacion'))}${kv('Acceso', g('lavanderia_acceso'))}${regLav.length?`<div style="padding:12px 0 4px"><div style="font-size:12.5px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Reglamento</div>${rules(regLav)}</div>`:''}${callout(g('lavanderia_aviso'),'👕')}`;
   const insList = listOf(g('insumos'), {comma:true});
   const sec10Inner = `${kv('Ubicación', g('insumos_ubicacion'))}${insList.length?`<div style="padding:7px 0"><div style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:6px">Algunos insumos disponibles</div>${chips(insList)}</div>`:''}${callout(g('insumos_aviso'),'🛒')}`;
-  const salList = listOf(g('salida_instrucciones'));
+  const salList = listOf(g('salida_instrucciones')).filter(s => !/realiza.*check-?out.*(esta|misma)/i.test(s));
   const sec11Inner = (salList.length ? iconList(salList) : '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de salida.</div>') + callout(g('salida_aviso'),'💚');
   const sec12Inner = emerg(g('contacto_emergencia_1_nombre'), g('contacto_emergencia_1_numero'), g('contacto_emergencia_2_nombre'), g('contacto_emergencia_2_numero'));
   const parrList = listOf(g('parrilla'));
