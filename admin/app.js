@@ -23584,7 +23584,37 @@ const OCUP_STATE = {
   currentMonth: null,
   initialized: false,
   calFilters: { estado: 'Booked', propiedad: '', fuente: '' },
+  // Modos de color de la barra. Puedes activar uno u otro (o ambos).
+  //  source     → color por Medio de reservación (Airbnb, Booking, etc.)
+  //  checkInOut → verde si hay registro de entrada, rojo si hay check-out,
+  //               gris si no hay ninguno de los dos.
+  colorModes: { source: true, checkInOut: false },
 };
+
+window.ocupCalToggleColorMode = function (mode, on) {
+  if (mode !== 'source' && mode !== 'checkInOut') return;
+  OCUP_STATE.colorModes[mode] = !!on;
+  // Al menos uno debe estar activo — si ambos quedan off, reactiva source.
+  if (!OCUP_STATE.colorModes.source && !OCUP_STATE.colorModes.checkInOut) {
+    OCUP_STATE.colorModes.source = true;
+    const src = document.getElementById('ocup-cal-cmode-source');
+    if (src) src.checked = true;
+  }
+  ocupRender();
+};
+
+/** Devuelve el color del modo Check-in-out para un booking dado. */
+function ocupCheckInOutColor_(b) {
+  try {
+    const propRaw = (typeof lgPropOf === 'function') ? lgPropOf(b) : (b.HouseName || '');
+    const salida  = b.DateDeparture;
+    const co = (typeof lgFindCheckoutFor_ === 'function') ? lgFindCheckoutFor_(propRaw, '', salida) : null;
+    if (co) return '#dc2626'; // rojo: check-out registrado (prioridad)
+    const hu = (typeof lgMatchHuesped === 'function') ? lgMatchHuesped(b) : null;
+    if (hu) return '#16a34a'; // verde: check-in (registro de entrada) filled
+    return '#94a3b8';         // gris: sin registros
+  } catch(_) { return '#94a3b8'; }
+}
 
 window.ocupCalSetFilter = function (key, value) {
   OCUP_STATE.calFilters[key] = value || '';
@@ -23934,7 +23964,19 @@ function ocupRender() {
       const srcCls = ocupSourceClass(b.Source);
       const srcIcon = ocupSourceIcon(b.Source);
       const guest = String(b.GuestName || 'Reserva').trim();
-      html += `<div class="ocup-bar src-${srcCls}" style="left:${leftCalc};width:${widthCalc}"
+      // Combinación de modos de color de la barra:
+      //  · source ON  → clase .src-{cls} pinta el fondo (comportamiento actual)
+      //  · checkInOut ON → color rojo/verde/gris según registros; si además
+      //    source está ON, se aplica como borde-izquierdo grueso encima del bg.
+      const cm = OCUP_STATE.colorModes || { source: true, checkInOut: false };
+      const cls = cm.source ? `ocup-bar src-${srcCls}` : 'ocup-bar';
+      let extraStyle = '';
+      if (cm.checkInOut) {
+        const c = ocupCheckInOutColor_(b);
+        if (cm.source) extraStyle = `box-shadow:inset 5px 0 0 ${c};`;
+        else           extraStyle = `background:${c};`;
+      }
+      html += `<div class="${cls}" style="left:${leftCalc};width:${widthCalc};${extraStyle}"
                 onclick="ocupOpenDetail('${esc(String(b.Id))}')" title="${esc(guest)}">
         <span class="ocup-bar-icon">${srcIcon}</span>
         <span class="ocup-bar-name">${esc(guest)}</span>
