@@ -31340,7 +31340,7 @@ function guiasBuildGuide(alojs) {
   })();
   // XI. Instrucciones de salida
   const sec11 = (() => {
-    const list = guiasList_(V('salida_instrucciones'));
+    const list = guiasList_(V('salida_instrucciones')).filter(s => !/realiza.*check-?out.*(esta|misma)/i.test(s));
     const rules = list.length ? guiIconList_(list) : '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de salida.</div>';
     return guiSection_('gu-out', '👋', 'linear-gradient(135deg,#ea580c,#fb923c)', 'Instrucciones de salida', 'Antes de irte', rules + guiCallout_(V('salida_aviso'), '💚'));
   })();
