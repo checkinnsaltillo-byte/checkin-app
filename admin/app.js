@@ -11339,6 +11339,12 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
               <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${dotColor};box-shadow:0 0 0 2px rgba(255,255,255,.7);${dotPulse}"></span>
               <span style="font-size:9px;font-weight:700;color:${dotColor};text-transform:uppercase;letter-spacing:.04em">${esc(dotTitle)}</span>
             </span>
+            ${(() => {
+              const co = lgFindCheckoutFor_(prop, depto, _salIso);
+              if (!co) return '';
+              const coTitle = co['Comentarios'] ? `Check-out registrado. Comentarios: ${String(co['Comentarios']).replace(/"/g,'&quot;')}` : 'Check-out registrado';
+              return `<span title="${esc(coTitle)}" style="display:inline-block;padding:2px 8px;border-radius:999px;background:#dc2626;color:#fff;font-weight:800;font-size:9px;letter-spacing:.04em">🚪 Check-out</span>`;
+            })()}
             ${aseoChipHtml}
           </div>
         </div>
@@ -12507,6 +12513,8 @@ const LG_API_BASE = "https://checkinnreservas-1044570371371.northamerica-south1.
 const LG_STATE = {
   raw: [],          // rows tal cual del backend (uno por line item)
   bookings: [],     // agregados por Id
+  checkOuts: [],    // filas de la hoja "check_out" (piggyback en lodgify-list)
+  checkOutIdx: null, // Map key=propNorm|deptoStr|salidaISO → row de check_out
   loaded: false,
   loading: false,
   from: '',
@@ -12664,6 +12672,51 @@ function lgPropDeptKey(propRaw, deptRaw) {
   const pNorm = lgNormPropName(p);
   if (!pNorm) return '';
   return d ? `${pNorm}|d${d}` : pNorm;
+}
+
+/** Normaliza una "Fecha y hora" del check_out a ISO YYYY-MM-DD.
+ *  Acepta Date (serializado a "2026-07-16T10:00:00.000Z"), "2026-07-16T10:00",
+ *  "16/07/2026", "07/16/2026", etc. */
+function lgNormCheckoutDate_(v) {
+  if (!v) return '';
+  const s = String(v).trim();
+  if (!s) return '';
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (dmy) {
+    // Ambiguo entre DD/MM/YYYY y MM/DD/YYYY. Si el primer número > 12, es día.
+    let a = +dmy[1], b = +dmy[2], y = +dmy[3];
+    let d, m;
+    if (a > 12) { d = a; m = b; } else if (b > 12) { m = a; d = b; } else { d = a; m = b; }
+    return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
+  return '';
+}
+
+/** Construye un índice Map key="propKey|YYYY-MM-DD" → row de check_out. */
+function lgBuildCheckOutIndex_(rows) {
+  const idx = new Map();
+  for (const r of (rows || [])) {
+    const pk = lgPropDeptKey(r['Propiedad'] || '', r['# Departamento'] || '');
+    const iso = lgNormCheckoutDate_(r['Fecha y hora']);
+    if (!pk || !iso) continue;
+    idx.set(`${pk}|${iso}`, r);
+  }
+  return idx;
+}
+
+/** Devuelve el registro de check_out que coincide con esta reserva, o null. */
+function lgFindCheckoutFor_(prop, depto, salidaAny) {
+  if (!LG_STATE.checkOutIdx) return null;
+  const pk = lgPropDeptKey(prop, depto);
+  if (!pk) return null;
+  let iso = '';
+  const s = String(salidaAny || '');
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) iso = s.slice(0,10);
+  else if (typeof lgFmtDateUI === 'function') iso = String(lgFmtDateUI(s) || '').slice(0,10);
+  if (!iso) return null;
+  return LG_STATE.checkOutIdx.get(`${pk}|${iso}`) || null;
 }
 
 /** Extrae la clave prop+depto de cualquier objeto (huesped row o booking). */
@@ -13228,6 +13281,9 @@ async function __lodgifyLoadInner(force, opts) {
     }));
     LG_STATE.loaded = true;
     LG_STATE.lastSync = data.last_synced_at || '';
+    // Piggyback: registros de la hoja "check_out" indexados por prop|depto|salida
+    LG_STATE.checkOuts = Array.isArray(data.check_outs) ? data.check_outs : [];
+    LG_STATE.checkOutIdx = lgBuildCheckOutIndex_(LG_STATE.checkOuts);
     if (lbl) lbl.textContent = `${LG_STATE.bookings.length} reservaciones`;
     if (lastSyncLbl) {
       lastSyncLbl.textContent = LG_STATE.lastSync
