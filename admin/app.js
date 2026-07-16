@@ -31249,10 +31249,10 @@ function guiasBuildGuide(alojs) {
   if (!alojs.length) return '';
   const a = alojs[0]; // usamos el primero cuando hay varios
   const V = (...keys) => guiasVal_(a, ...keys);
-  // 0. Encabezado con el # de departamento.
+  // # Departamento (se muestra dentro de "Método de llegada", antes del paso 1)
   const deptoNum = V('# Departamento','Departamento','departamento');
-  const deptoHeader = deptoNum
-    ? `<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:12px;padding:14px 16px;margin-bottom:14px;font-size:14.5px;color:#0f172a;text-align:center">Tu departamento es el <b style="font-weight:800;font-size:16px;color:#1d4ed8">#${esc(deptoNum)}</b></div>`
+  const deptoNote = deptoNum
+    ? `<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:14px;color:#0f172a;text-align:center">Tu departamento es el <b style="font-weight:800;font-size:16px;color:#1d4ed8">#${esc(deptoNum)}</b></div>`
     : '';
   // I. Ubicación y cómo llegar
   const sec1 = (() => {
@@ -31297,10 +31297,11 @@ function guiasBuildGuide(alojs) {
     </div>`;
     return guiSection_('gu-time', '🕐', 'linear-gradient(135deg,#f59e0b,#fbbf24)', 'Horas de entrada y salida', 'Check-in / Check-out', inner);
   })();
-  // VI. Método de llegada
+  // VI. Método de llegada — incluye "Tu departamento es el #N" antes del paso 1
   const sec6 = (() => {
     const list = guiasList_(V('metodo_llegada'));
-    return guiSection_('gu-arr', '🚪', 'linear-gradient(135deg,#2563eb,#60a5fa)', 'Método de llegada', 'Acceso al alojamiento', guiSteps_(list) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de llegada.</div>');
+    const steps = guiSteps_(list) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de llegada.</div>';
+    return guiSection_('gu-arr', '🚪', 'linear-gradient(135deg,#2563eb,#60a5fa)', 'Método de llegada', 'Acceso al alojamiento', deptoNote + steps);
   })();
   // VII. Conexión WiFi
   const sec7 = (() => {
@@ -31382,10 +31383,11 @@ function guiasBuildGuide(alojs) {
     }).join('');
     return guiSection_('gu-reco', '🍽️', 'linear-gradient(135deg,#7c2d12,#ea580c)', 'Recomendaciones', 'Lugares cerca del alojamiento', cards);
   })();
-  // Orden: [# Departamento], Ubicación, Alojamiento, Llegada, Reglamento,
-  // Horarios, WiFi, Vehículos, Estacionamiento, Lavandería, Insumos,
-  // Amenidades, [Parrilla], Salida, [Recomendaciones], Emergencias SIEMPRE al final.
-  return deptoHeader + sec1 + sec2 + sec6 + sec4 + sec5 + sec7 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec15 + sec12;
+  // Orden: Ubicación, Alojamiento, Llegada (con "# Departamento" antes del
+  // paso 1), Reglamento, Horarios, WiFi, Vehículos, Estacionamiento,
+  // Lavandería, Insumos, Amenidades, [Parrilla], Salida, [Recomendaciones],
+  // Emergencias SIEMPRE al final.
+  return sec1 + sec2 + sec6 + sec4 + sec5 + sec7 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec15 + sec12;
 }
 
 /** Hidrata cards de "Recomendaciones" pidiendo a Microlink título/imagen
