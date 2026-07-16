@@ -30557,6 +30557,11 @@ function guiasRenderContent() {
   const waMsg = isReadOne ? `Hola, estoy hospedado en ${tituloTxt}. Mi nombre es: ` : '';
   // Guarda para que el listener de postMessage del iframe pueda usarlos.
   window.__guiasCheckinWaPhone = waPhone;
+  // Pre-llenado del formulario de registro exprés (Propiedad + # Departamento)
+  window.__guiasCheckinPrefill = isReadOne ? {
+    prop:  guiasVal_(alojs[0], 'Propiedad', 'propiedad') || '',
+    depto: guiasVal_(alojs[0], '# Departamento', 'Departamento', 'departamento') || '',
+  } : { prop: '', depto: '' };
   window.__guiasCheckinWaMsg = waMsg;
   // Fab WhatsApp flotante y fijo al viewport (esquina inferior derecha).
   // Ícono estilo "app icon" con esquinas redondeadas y logo WhatsApp SVG.
@@ -30568,12 +30573,12 @@ function guiasRenderContent() {
             style="width:60px;height:60px;border-radius:18px;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 10px 24px -4px rgba(37,211,102,.55),inset 0 -3px 6px rgba(0,0,0,.12);border:1px solid rgba(255,255,255,.15)">${waIconSvg}</a>
        </div>`
     : '';
-  // Botón "Realizar registro (Check-in)" — fijo al fondo del viewport.
+  // Botón "Registrar entrada" — fijo al fondo del viewport.
   const checkinHtml = isReadOne
     ? `<div id="guias-checkin-fab" style="position:fixed;left:0;right:0;bottom:0;z-index:9400;padding:14px 16px 18px;background:linear-gradient(180deg,rgba(15,23,42,0),rgba(15,23,42,.55));pointer-events:none">
          <button type="button" onclick="guiasOpenCheckin_()"
                  style="pointer-events:auto;display:block;width:100%;max-width:520px;margin:0 auto;padding:16px 20px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:0;border-radius:14px;font-size:15px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 12px 28px -6px rgba(220,38,38,.6);animation:guiaCheckinPulse 2.2s ease-in-out infinite;text-shadow:0 1px 2px rgba(0,0,0,.2)">
-           <span style="display:inline-flex;align-items:center;gap:10px;justify-content:center"><span style="font-size:18px">✅</span>Realizar registro</span>
+           <span style="display:inline-flex;align-items:center;gap:10px;justify-content:center"><span style="font-size:18px">✅</span>Registrar entrada</span>
          </button>
        </div>
        <style>@keyframes guiaCheckinPulse{0%,100%{box-shadow:0 12px 28px -6px rgba(220,38,38,.6);transform:translateY(0)}50%{box-shadow:0 18px 40px -4px rgba(220,38,38,.85);transform:translateY(-2px)}}</style>`
@@ -30905,10 +30910,10 @@ window.guiasOpenCheckin_ = function () {
   el.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,.92);z-index:9999;overflow:hidden';
   el.innerHTML = `
     <div style="position:absolute;top:0;left:0;right:0;height:${HEADER_H}px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#fff;box-sizing:border-box;gap:12px">
-      <div style="font-size:14px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">✅ Realizar registro (Check-in)</div>
+      <div style="font-size:14px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">✅ Registrar entrada</div>
       <button type="button" onclick="document.getElementById('guias-checkin-modal')?.remove()" title="Regresar a Guía de Bienvenida" style="all:unset;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px;white-space:nowrap">← Regresar a Guía de Bienvenida</button>
     </div>
-    <iframe src="https://www.check-inn.mx/public/registro/?embed=1#express" style="position:absolute;top:${HEADER_H}px;left:0;width:100%;height:calc(100% - ${HEADER_H}px);border:0;background:transparent;display:block" title="Registro exprés" allow="camera; geolocation"></iframe>`;
+    <iframe src="${(() => { const p = window.__guiasCheckinPrefill || {}; const qs = []; if (p.prop)  qs.push('prop='  + encodeURIComponent(p.prop)); if (p.depto) qs.push('depto=' + encodeURIComponent(p.depto)); return 'https://www.check-inn.mx/public/registro/?embed=1' + (qs.length ? '&' + qs.join('&') : '') + '#express'; })()}" style="position:absolute;top:${HEADER_H}px;left:0;width:100%;height:calc(100% - ${HEADER_H}px);border:0;background:transparent;display:block" title="Registro exprés" allow="camera; geolocation"></iframe>`;
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
   document.body.appendChild(el);
