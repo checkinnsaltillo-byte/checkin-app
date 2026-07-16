@@ -18587,6 +18587,11 @@ document.addEventListener("DOMContentLoaded", function(){
     var depto = qs.get('depto');
     if (!prop && !depto) return;
     function applyPrefill(){
+      function markGreen(el){
+        if (!el) return;
+        if (typeof window.markFieldAsAutofilled === 'function') window.markFieldAsAutofilled(el);
+        else el.classList.add('autofilled-field');
+      }
       if (prop) {
         var selP = document.getElementById('propiedad');
         if (selP) {
@@ -18597,9 +18602,10 @@ document.addEventListener("DOMContentLoaded", function(){
           } else {
             selP.value = 'Otra';
             var otra = document.getElementById('propiedad_otra');
-            if (otra) { otra.value = prop; otra.classList.remove('hidden'); }
+            if (otra) { otra.value = prop; otra.classList.remove('hidden'); markGreen(otra); }
           }
           selP.dispatchEvent(new Event('change', {bubbles:true}));
+          markGreen(selP);
         }
       }
       if (depto) {
@@ -18607,6 +18613,7 @@ document.addEventListener("DOMContentLoaded", function(){
         if (selD) {
           selD.value = String(depto);
           selD.dispatchEvent(new Event('change', {bubbles:true}));
+          markGreen(selD);
         }
       }
     }
@@ -18617,7 +18624,41 @@ document.addEventListener("DOMContentLoaded", function(){
     setTimeout(applyPrefill, 1500);
   } catch(_){}
 })();
+// Reordena: mueve "Medio de reservación" debajo de "# Departamento"/"# Huéspedes"
+(function(){
+  function reorder(){
+    var medioLabel = document.querySelector('label[data-i18n="bookingSource"]');
+    var medioSel   = document.querySelector('select[name="medio"]');
+    var deptoSel   = document.querySelector('select[name="depto"]');
+    if (!medioLabel || !medioSel || !deptoSel) return;
+    var grid = deptoSel.closest('.grid-vertical');
+    if (!grid || grid.dataset.medioReordered === '1') return;
+    grid.dataset.medioReordered = '1';
+    var anchor = grid.nextSibling;
+    grid.parentNode.insertBefore(medioLabel, anchor);
+    grid.parentNode.insertBefore(medioSel, anchor);
+    // Quita el hint incorrecto que estaba bajo Depto
+    var hint = grid.querySelector('.hint');
+    if (hint) hint.remove();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', reorder);
+  else reorder();
+  setTimeout(reorder, 300);
+})();
 </script>
+<style>
+/* Formulario compacto: reduce el aire vertical entre campos del registro. */
+#formulario_principal .section { margin: 0 0 6px !important; padding: 6px 0 !important; }
+#formulario_principal .section-title { margin: 6px 0 2px !important; font-size: 15px !important; }
+#formulario_principal .section-subtitle { margin: 0 0 4px !important; font-size: 12px !important; line-height: 1.3 !important; }
+#formulario_principal label { margin: 6px 0 2px !important; display: block; }
+#formulario_principal input, #formulario_principal select, #formulario_principal textarea { margin-bottom: 2px !important; }
+#formulario_principal .grid-vertical { gap: 8px !important; margin: 0 0 2px !important; }
+#formulario_principal .hint { display: none !important; }
+#formulario_principal .huesped-row { margin-bottom: 4px !important; }
+#formulario_principal br { display: none !important; }
+#formulario_principal p:empty, #formulario_principal div:empty { display: none !important; }
+</style>
 <script>
 (function(){
   try {
