@@ -240,7 +240,7 @@ function steps(list) {
     let title = raw.trim(), desc = '';
     if (p > 0 && c > p) { title = raw.slice(0,p).trim().replace(/[:\-–]\s*$/,''); desc = raw.slice(p+1,c).trim(); }
     const last = i === list.length-1;
-    return `<div class="step"><div class="num">${i+1}</div>${!last?'<div class="line"></div>':''}<h4 style="font-weight:${/bienvenido/i.test(title)||desc?800:500}">${esc(title)}</h4>${desc?`<p>${esc(desc)}</p>`:''}</div>`;
+    return `<div class="step"><div class="num">${i+1}</div>${!last?'<div class="line"></div>':''}<h4 style="font-weight:${/bienvenido/i.test(title)||desc?800:500}">${esc(title)}</h4>${desc?`<p>${esc(desc).replace(/(c[oó]digo[:\s]*)(\d+)/i,'$1<b style="font-weight:800;font-size:16px;color:#1d4ed8">$2</b>')}</p>`:''}</div>`;
   }).join('')}</div>`;
 }
 function wifi(red, pass, aviso) {
