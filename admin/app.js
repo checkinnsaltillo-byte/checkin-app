@@ -31249,6 +31249,11 @@ function guiasBuildGuide(alojs) {
   if (!alojs.length) return '';
   const a = alojs[0]; // usamos el primero cuando hay varios
   const V = (...keys) => guiasVal_(a, ...keys);
+  // 0. Encabezado con el # de departamento.
+  const deptoNum = V('# Departamento','Departamento','departamento');
+  const deptoHeader = deptoNum
+    ? `<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:12px;padding:14px 16px;margin-bottom:14px;font-size:14.5px;color:#0f172a;text-align:center">Tu departamento es el <b style="font-weight:800;font-size:16px;color:#1d4ed8">#${esc(deptoNum)}</b></div>`
+    : '';
   // I. Ubicación y cómo llegar
   const sec1 = (() => {
     const gmapUrl = V('url_google_maps');
@@ -31377,10 +31382,10 @@ function guiasBuildGuide(alojs) {
     }).join('');
     return guiSection_('gu-reco', '🍽️', 'linear-gradient(135deg,#7c2d12,#ea580c)', 'Recomendaciones', 'Lugares cerca del alojamiento', cards);
   })();
-  // Orden: Ubicación, Alojamiento, Llegada, Reglamento, Horarios, WiFi,
-  // Vehículos, Estacionamiento, Lavandería, Insumos, Amenidades, [Parrilla],
-  // Salida, [Recomendaciones], Emergencias SIEMPRE al final.
-  return sec1 + sec2 + sec6 + sec4 + sec5 + sec7 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec15 + sec12;
+  // Orden: [# Departamento], Ubicación, Alojamiento, Llegada, Reglamento,
+  // Horarios, WiFi, Vehículos, Estacionamiento, Lavandería, Insumos,
+  // Amenidades, [Parrilla], Salida, [Recomendaciones], Emergencias SIEMPRE al final.
+  return deptoHeader + sec1 + sec2 + sec6 + sec4 + sec5 + sec7 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec15 + sec12;
 }
 
 /** Hidrata cards de "Recomendaciones" pidiendo a Microlink título/imagen
