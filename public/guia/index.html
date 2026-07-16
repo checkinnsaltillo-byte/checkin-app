@@ -363,8 +363,8 @@ function buildGuide(a) {
     ['gu-amen','✨','linear-gradient(135deg,#0f766e,#14b8a6)','Amenidades'],
     ...(hasGrill ? [['gu-grill','🔥','linear-gradient(135deg,#c2410c,#f97316)','Parrilla eléctrica']] : []),
     ['gu-out','👋','linear-gradient(135deg,#ea580c,#fb923c)','Instrucciones de salida'],
-    ['gu-emerg','🚨','linear-gradient(135deg,#b91c1c,#ef4444)','Contacto de emergencia'],
     ...(hasRecos ? [['gu-reco','🍽️','linear-gradient(135deg,#7c2d12,#ea580c)','Recomendaciones']] : []),
+    ['gu-emerg','🚨','linear-gradient(135deg,#b91c1c,#ef4444)','Contacto de emergencia'],
   ];
   $('quicknav').innerHTML = secList.map(([id,ic,,t]) => `<a href="#${id}" onclick="return jumpTo('${id}')">${ic} ${t.split(' ')[0]}</a>`).join('');
   const capacidadRaw = g('capacidad');
@@ -395,8 +395,9 @@ function buildGuide(a) {
     sec1Inner, sec2Inner, sec6Inner, sec4Inner, sec5Inner,
     sec7Inner, sec8Inner, sec9Inner, sec10Inner, sec3Inner,
     ...(hasGrill ? [sec13Inner] : []),
-    sec11Inner, sec12Inner,
+    sec11Inner,
     ...(hasRecos ? [recoInner] : []),
+    sec12Inner,
   ];
   $('sections').innerHTML = secList.map(([id,ic,bg,t], i) => section(id, ic, bg, t, inners[i], i === 0)).join('');
   // Insertar tarjeta clickable "Información de vehículos" después de Estacionamiento
