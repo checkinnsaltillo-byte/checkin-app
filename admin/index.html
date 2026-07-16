@@ -2054,12 +2054,12 @@
           <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
             <label class="ocup-filter-label" style="font-size:11px;font-weight:700;color:#475569">Colores de barras</label>
             <div style="display:flex;gap:12px;align-items:center;height:32px;padding:0 6px">
-              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#0f172a;cursor:pointer;user-select:none" onclick="const c=this.querySelector('[data-cb]');const n=c.getAttribute('data-on')!=='1';c.setAttribute('data-on',n?'1':'0');c.textContent=n?'✓':'';c.style.background=n?'#334155':'#fff';c.style.borderColor=n?'#334155':'#cbd5e1';c.style.color=n?'#fff':'transparent';ocupCalToggleColorMode('source',n)">
-                <span data-cb id="ocup-cal-cmode-source" data-on="1" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid #334155;background:#334155;color:#fff;border-radius:4px;font-size:12px;font-weight:900;line-height:1">✓</span>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#0f172a;cursor:pointer;user-select:none" onclick="ocupCalSetColorMode('source')">
+                <span id="ocup-cal-cmode-source" data-on="1" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid #334155;background:#334155;color:#fff;border-radius:50%;font-size:12px;font-weight:900;line-height:1">●</span>
                 Medio de reservación
               </label>
-              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#0f172a;cursor:pointer;user-select:none" onclick="const c=this.querySelector('[data-cb]');const n=c.getAttribute('data-on')!=='1';c.setAttribute('data-on',n?'1':'0');c.textContent=n?'✓':'';c.style.background=n?'#334155':'#fff';c.style.borderColor=n?'#334155':'#cbd5e1';c.style.color=n?'#fff':'transparent';ocupCalToggleColorMode('checkInOut',n)">
-                <span data-cb id="ocup-cal-cmode-checkinout" data-on="0" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid #cbd5e1;background:#fff;color:transparent;border-radius:4px;font-size:12px;font-weight:900;line-height:1"></span>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#0f172a;cursor:pointer;user-select:none" onclick="ocupCalSetColorMode('checkInOut')">
+                <span id="ocup-cal-cmode-checkinout" data-on="0" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid #cbd5e1;background:#fff;color:transparent;border-radius:50%;font-size:12px;font-weight:900;line-height:1"></span>
                 Check-in-out
               </label>
             </div>
@@ -2351,6 +2351,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=649"></script>
+  <script src="app.js?v=650"></script>
 </body>
 </html>

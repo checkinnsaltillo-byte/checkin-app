@@ -14393,7 +14393,14 @@ function lgBuildDetailSidebarItem(b, selectedId) {
           ${lgGetMatchKind(b) === 'probable' ? lgProbableMatchChip() : ''}
           ${tktChip}
         </div>
-        ${progDot ? `<span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;margin-left:auto">${progDot}</span>` : ''}
+        ${(() => {
+          const coHead = (typeof lgFindCheckoutFor_ === 'function') ? lgFindCheckoutFor_(lgPropOf(b), '', b.DateDeparture) : null;
+          const coChip = coHead
+            ? `<span title="${esc('Check-out registrado' + (coHead['Comentarios'] ? ' · ' + String(coHead['Comentarios']) : ''))}" style="display:inline-block;padding:1px 7px;border-radius:999px;background:#dc2626;color:#fff;font-weight:800;font-size:9px;letter-spacing:.04em">🚪 Check-out</span>`
+            : '';
+          if (!progDot && !coChip) return '';
+          return `<span style="margin-left:auto;display:inline-flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:9px;letter-spacing:.04em;text-transform:uppercase">${progDot}${coChip}</span>`;
+        })()}
       </div>
       <!-- Chips Aseo + Asignaciones se inyectan por bzwInjectSidebarChips
            (DOM) para sobrevivir al timing entre el render del sidebar y la
@@ -23591,17 +23598,24 @@ const OCUP_STATE = {
   colorModes: { source: true, checkInOut: false },
 };
 
-window.ocupCalToggleColorMode = function (mode, on) {
+window.ocupCalSetColorMode = function (mode) {
   if (mode !== 'source' && mode !== 'checkInOut') return;
-  OCUP_STATE.colorModes[mode] = !!on;
-  // Al menos uno debe estar activo — si ambos quedan off, reactiva source.
-  if (!OCUP_STATE.colorModes.source && !OCUP_STATE.colorModes.checkInOut) {
-    OCUP_STATE.colorModes.source = true;
-    const src = document.getElementById('ocup-cal-cmode-source');
-    if (src) src.checked = true;
-  }
+  OCUP_STATE.colorModes = { source: mode === 'source', checkInOut: mode === 'checkInOut' };
+  // Sincroniza el estilo visual de los "radios" en el DOM
+  const setOn = (el, on) => {
+    if (!el) return;
+    el.setAttribute('data-on', on ? '1' : '0');
+    el.textContent = on ? '●' : '';
+    el.style.background = on ? '#334155' : '#fff';
+    el.style.borderColor = on ? '#334155' : '#cbd5e1';
+    el.style.color = on ? '#fff' : 'transparent';
+  };
+  setOn(document.getElementById('ocup-cal-cmode-source'),     mode === 'source');
+  setOn(document.getElementById('ocup-cal-cmode-checkinout'), mode === 'checkInOut');
   ocupRender();
 };
+// Compat: nombre viejo si algún código lo llamó
+window.ocupCalToggleColorMode = function (mode) { window.ocupCalSetColorMode(mode); };
 
 /** Devuelve el color del modo Check-in-out para un booking dado. */
 function ocupCheckInOutColor_(b) {
@@ -23609,10 +23623,10 @@ function ocupCheckInOutColor_(b) {
     const propRaw = (typeof lgPropOf === 'function') ? lgPropOf(b) : (b.HouseName || '');
     const salida  = b.DateDeparture;
     const co = (typeof lgFindCheckoutFor_ === 'function') ? lgFindCheckoutFor_(propRaw, '', salida) : null;
-    if (co) return '#dc2626'; // rojo: check-out registrado (prioridad)
+    if (co) return '#fca5a5'; // rojo tenue: check-out registrado (prioridad)
     const hu = (typeof lgMatchHuesped === 'function') ? lgMatchHuesped(b) : null;
-    if (hu) return '#16a34a'; // verde: check-in (registro de entrada) filled
-    return '#94a3b8';         // gris: sin registros
+    if (hu) return '#86efac'; // verde tenue: check-in (registro de entrada) filled
+    return '#cbd5e1';         // gris tenue: sin registros
   } catch(_) { return '#94a3b8'; }
 }
 
