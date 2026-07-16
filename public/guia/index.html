@@ -78,9 +78,11 @@ details.section>summary::-webkit-details-marker{display:none}
 .emerg .em-t span{font-size:12px;color:#64748b}
 .emerg .em-call{font-size:12px;font-weight:700;color:#dc2626}
 .checkin-fab{position:fixed;left:0;right:0;bottom:0;z-index:9400;padding:14px 16px 18px;background:linear-gradient(180deg,rgba(15,23,42,0),rgba(15,23,42,.55));pointer-events:none}
-.checkin-fab .cin-row{display:flex;align-items:stretch;gap:10px;max-width:520px;margin:0 auto;pointer-events:none}
-.checkin-fab #checkin-btn{pointer-events:auto;flex:1 1 auto;min-width:0;padding:16px 20px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:0;border-radius:14px;font-size:15px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 12px 28px -6px rgba(220,38,38,.6);animation:cinPulse 2.2s ease-in-out infinite;text-shadow:0 1px 2px rgba(0,0,0,.2)}
-.checkin-fab #checkin-btn span{display:inline-flex;align-items:center;gap:10px;justify-content:center}
+.checkin-fab .cin-row{display:flex;align-items:stretch;gap:8px;max-width:520px;margin:0 auto;pointer-events:none}
+.checkin-fab #checkin-btn,.checkin-fab #checkout-btn{pointer-events:auto;flex:1 1 0;min-width:0;padding:14px 16px;color:#fff;border:0;border-radius:14px;font-size:14px;font-weight:800;letter-spacing:.02em;cursor:pointer;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+.checkin-fab #checkin-btn{background:linear-gradient(135deg,#dc2626,#ef4444);box-shadow:0 12px 28px -6px rgba(220,38,38,.6);animation:cinPulse 2.2s ease-in-out infinite}
+.checkin-fab #checkout-btn{background:linear-gradient(135deg,#0f766e,#14b8a6);box-shadow:0 12px 28px -6px rgba(15,118,110,.55)}
+.checkin-fab #checkin-btn span,.checkin-fab #checkout-btn span{display:inline-flex;align-items:center;gap:8px;justify-content:center}
 .wa-fab{pointer-events:auto;display:flex;flex:none;flex-direction:column;align-items:center;justify-content:center;gap:4px}
 .wa-fab a{width:56px;height:56px;border-radius:16px;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 10px 24px -4px rgba(37,211,102,.55),inset 0 -3px 6px rgba(0,0,0,.12);border:1px solid rgba(255,255,255,.15)}
 .wa-fab a svg{width:28px;height:28px;fill:#fff;display:block}
@@ -127,7 +129,8 @@ details.section>summary::-webkit-details-marker{display:none}
 </div>
 <div class="checkin-fab" id="checkin-fab" style="display:none">
   <div class="cin-row">
-    <button type="button" id="checkin-btn" onclick="openCheckin()"><span><span style="font-size:18px">✅</span>Registrar entrada</span></button>
+    <button type="button" id="checkin-btn" onclick="openCheckin()"><span><span style="font-size:17px">✅</span>Registrar entrada</span></button>
+    <button type="button" id="checkout-btn" onclick="openCheckout()"><span><span style="font-size:17px">🚪</span>Registrar salida</span></button>
     <div id="wa-fab" class="wa-fab" style="display:none">
       <a id="wa-link" href="#" target="_blank" rel="noopener" title="Contactar por WhatsApp"><svg viewBox="0 0 32 32"><path d="M16 3.2c-7.06 0-12.8 5.74-12.8 12.8 0 2.243.585 4.428 1.697 6.348L3.2 28.8l6.6-1.73A12.75 12.75 0 0 0 16 28.8c7.06 0 12.8-5.74 12.8-12.8S23.06 3.2 16 3.2zm7.32 18.24c-.31.87-1.53 1.66-2.48 1.76-.66.07-1.5.128-2.31-.148-.53-.181-1.212-.406-2.086-.784-3.674-1.592-6.075-5.297-6.259-5.54-.184-.243-1.503-2.004-1.503-3.822s.94-2.716 1.272-3.083c.33-.367.72-.458.964-.458.243 0 .486.002.7.013.226.011.526-.085.822.626.31.732 1.036 2.545 1.126 2.73.09.184.152.4.03.643-.122.244-.184.397-.366.61-.184.214-.386.478-.55.643-.184.183-.377.383-.163.75.214.366.955 1.573 2.05 2.548 1.408 1.253 2.596 1.64 2.965 1.823.366.184.579.153.793-.091.213-.244.915-1.07 1.16-1.436.244-.366.487-.305.822-.183.335.122 2.12.999 2.48 1.183.367.184.611.275.7.428.09.153.09.882-.213 1.734z"/></svg></a>
     </div>
@@ -291,6 +294,27 @@ window.openCheckin = function () {
       <button type="button" onclick="document.getElementById('cin-modal')?.remove()" title="Regresar a Guía de Bienvenida">← Regresar a Guía de Bienvenida</button>
     </div>
     <iframe src="${(() => { const p = window.__prefill || {}; const qs = []; if (p.prop) qs.push('prop=' + encodeURIComponent(p.prop)); if (p.depto) qs.push('depto=' + encodeURIComponent(p.depto)); return 'https://www.check-inn.mx/public/registro/?embed=1' + (qs.length ? '&' + qs.join('&') : '') + '#express'; })()}" title="Registro exprés" allow="camera; geolocation"></iframe>`;
+  const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(el);
+};
+
+window.openCheckout = function () {
+  document.getElementById('cin-modal')?.remove();
+  const p = window.__prefill || {};
+  const qs = [];
+  if (p.prop)  qs.push('prop='  + encodeURIComponent(p.prop));
+  if (p.depto) qs.push('depto=' + encodeURIComponent(p.depto));
+  const src = 'https://www.check-inn.mx/public/registro/?embed=1' + (qs.length ? '&' + qs.join('&') : '') + '#checkout';
+  const el = document.createElement('div');
+  el.id = 'cin-modal';
+  el.className = 'cin-modal';
+  el.innerHTML = `
+    <div class="cin-modal-head">
+      <div class="t">🚪 Registrar salida</div>
+      <button type="button" onclick="document.getElementById('cin-modal')?.remove()" title="Regresar a Guía de Bienvenida">← Regresar a Guía de Bienvenida</button>
+    </div>
+    <iframe src="${src}" title="Registrar salida" allow="camera; geolocation"></iframe>`;
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
   document.body.appendChild(el);
