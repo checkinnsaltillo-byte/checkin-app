@@ -399,7 +399,8 @@ function buildGuide(a) {
     ...(hasRecos ? [recoInner] : []),
     sec12Inner,
   ];
-  $('sections').innerHTML = secList.map(([id,ic,bg,t], i) => section(id, ic, bg, t, inners[i], i === 0)).join('');
+  const deptoHeader = dpt ? `<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:12px;padding:14px 16px;margin-bottom:14px;font-size:14.5px;color:#0f172a;text-align:center">Tu departamento es el <b style="font-weight:800;font-size:16px;color:#1d4ed8">#${esc(dpt)}</b></div>` : '';
+  $('sections').innerHTML = deptoHeader + secList.map(([id,ic,bg,t], i) => section(id, ic, bg, t, inners[i], i === 0)).join('');
   // Insertar tarjeta clickable "Información de vehículos" después de Estacionamiento
   const vehCard = `<div id="gu-veh" onclick="openVehiculos()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openVehiculos()}" style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:14px;overflow:hidden;box-shadow:0 2px 10px -4px rgba(15,23,42,.10);cursor:pointer;transition:transform .12s,box-shadow .12s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 16px -6px rgba(15,23,42,.18)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px -4px rgba(15,23,42,.10)'"><div style="display:flex;align-items:center;gap:14px;padding:16px"><div style="flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff">🚗</div><div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;color:#0f172a">Información de vehículos</div><div style="font-size:12.5px;color:#64748b;margin-top:2px">Coordinación de estacionamiento con otros huéspedes</div></div><div style="color:#94a3b8;font-size:16px">›</div></div></div>`;
   const parkEl = document.getElementById('gu-park');
