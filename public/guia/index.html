@@ -290,7 +290,7 @@ window.openCheckin = function () {
       <div class="t">✅ Realizar registro (Check-in)</div>
       <button type="button" onclick="document.getElementById('cin-modal')?.remove()" title="Regresar a Guía de Bienvenida">← Regresar a Guía de Bienvenida</button>
     </div>
-    <iframe src="https://www.check-inn.mx/public/registro/?embed=1#express" title="Registro exprés" allow="camera; geolocation"></iframe>`;
+    <iframe src="${(() => { const p = window.__prefill || {}; const qs = []; if (p.prop) qs.push('prop=' + encodeURIComponent(p.prop)); if (p.depto) qs.push('depto=' + encodeURIComponent(p.depto)); return 'https://www.check-inn.mx/public/registro/?embed=1' + (qs.length ? '&' + qs.join('&') : '') + '#express'; })()}" title="Registro exprés" allow="camera; geolocation"></iframe>`;
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
   document.body.appendChild(el);
@@ -328,6 +328,8 @@ function buildGuide(a) {
   const tituloTxt = g('titulo_txt');
   const prop = g('Propiedad');
   const dpt = g('# Departamento');
+  // Pre-llenado del formulario de registro exprés (Propiedad + # Departamento)
+  window.__prefill = { prop: prop || '', depto: dpt || '' };
   const nombre = tituloTxt || (prop && dpt ? `${prop} · #${dpt}` : (prop || g('HouseName') || 'Alojamiento'));
   $('hero-title').textContent = nombre;
   const photoUrl = g('url_lodgify');
