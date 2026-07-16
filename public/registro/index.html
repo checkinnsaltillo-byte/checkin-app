@@ -18634,9 +18634,17 @@ document.addEventListener("DOMContentLoaded", function(){
     var grid = deptoSel.closest('.grid-vertical');
     if (!grid || grid.dataset.medioReordered === '1') return;
     grid.dataset.medioReordered = '1';
-    var anchor = grid.nextSibling;
-    grid.parentNode.insertBefore(medioLabel, anchor);
-    grid.parentNode.insertBefore(medioSel, anchor);
+    // Insertar Medio entre # Departamento (col 1) y # Huéspedes (col 2) —
+    // como .grid-vertical es 1 columna, quedan uno debajo del otro.
+    var deptoCol = deptoSel.closest('.grid-vertical > *') || deptoSel.parentElement;
+    var wrap = document.createElement('div');
+    wrap.appendChild(medioLabel);
+    wrap.appendChild(medioSel);
+    if (deptoCol && deptoCol.parentElement === grid) {
+      grid.insertBefore(wrap, deptoCol.nextSibling);
+    } else {
+      grid.appendChild(wrap);
+    }
     // Quita el hint incorrecto que estaba bajo Depto
     var hint = grid.querySelector('.hint');
     if (hint) hint.remove();
