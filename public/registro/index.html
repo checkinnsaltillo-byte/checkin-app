@@ -18724,12 +18724,16 @@ document.addEventListener("DOMContentLoaded", function(){
       if (typeof mostrarVentanaEnvio === 'function') mostrarVentanaEnvio();
       try {
         if (typeof WEB_APP_URL === 'string' && WEB_APP_URL) {
-          var body = new URLSearchParams({
-            action: 'submit_checkout',
-            propiedad: prop, depto: depto,
-            fecha_hora: fechaHora, comentarios: com,
-          }).toString();
-          await fetch(WEB_APP_URL, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body });
+          // text/plain evita el preflight CORS; Apps Script parsea e.postData.contents con JSON.parse.
+          await fetch(WEB_APP_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'submit_checkout',
+              propiedad: prop, depto: depto,
+              fecha_hora: fechaHora, comentarios: com,
+            }),
+          });
         }
       } catch(_e) { /* best-effort: aún así mostramos éxito */ }
       if (typeof mostrarVentanaExito === 'function') mostrarVentanaExito();
@@ -18927,6 +18931,12 @@ body.embed-checkout-mode { background: #fff !important; }
         });
         var vco = document.getElementById('viewCheckout');
         if (vco) vco.classList.remove('hidden');
+        // Fecha por defecto = hoy
+        var fd = document.getElementById('checkout_fecha');
+        if (fd && !fd.value) {
+          var d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+          fd.value = d.toISOString().slice(0,10);
+        }
         if (document.body) document.body.style.setProperty('background','#fff','important');
         if (document.documentElement) document.documentElement.style.setProperty('background','#fff','important');
         // Prefill Propiedad + # Departamento del checkout desde ?prop= / ?depto=
