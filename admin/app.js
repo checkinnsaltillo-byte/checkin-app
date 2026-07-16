@@ -31207,7 +31207,7 @@ function guiSteps_(list) {
       <div style="position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#f97316,#f59e0b);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px">${i+1}</div>
       ${!last ? '<div style="position:absolute;left:14px;top:32px;bottom:2px;width:2px;background:#e2e8f0"></div>' : ''}
       <div style="font-size:14px;font-weight:${/bienvenido/i.test(title) || desc ? '800' : '500'};color:#0f172a">${esc(title)}</div>
-      ${desc ? `<div style="font-size:13px;color:#64748b;margin-top:2px">${esc(desc)}</div>` : ''}
+      ${desc ? `<div style="font-size:13px;color:#64748b;margin-top:2px">${esc(desc).replace(/(c[oó]digo[:\s]*)(\d+)/i, '$1<b style="font-weight:800;font-size:16px;color:#1d4ed8">$2</b>')}</div>` : ''}
     </div>`;
   }).join('')}</div>`;
 }
