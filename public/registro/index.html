@@ -18578,6 +18578,47 @@ document.addEventListener("DOMContentLoaded", function(){
 </script>
 
 <script>
+// Pre-llenado de Propiedad y # Departamento desde query params (?prop=..&depto=..)
+// Se dispara desde el iframe de Guías de Bienvenida (?embed=1&prop=X&depto=Y#express).
+(function(){
+  try {
+    var qs = new URLSearchParams(location.search || '');
+    var prop  = qs.get('prop');
+    var depto = qs.get('depto');
+    if (!prop && !depto) return;
+    function applyPrefill(){
+      if (prop) {
+        var selP = document.getElementById('propiedad');
+        if (selP) {
+          var target = String(prop).trim().toLowerCase();
+          var opt = Array.from(selP.options).find(function(o){ return String(o.value||'').trim().toLowerCase() === target || String(o.textContent||'').trim().toLowerCase() === target; });
+          if (opt) {
+            selP.value = opt.value;
+          } else {
+            selP.value = 'Otra';
+            var otra = document.getElementById('propiedad_otra');
+            if (otra) { otra.value = prop; otra.classList.remove('hidden'); }
+          }
+          selP.dispatchEvent(new Event('change', {bubbles:true}));
+        }
+      }
+      if (depto) {
+        var selD = document.querySelector('select[name="depto"]');
+        if (selD) {
+          selD.value = String(depto);
+          selD.dispatchEvent(new Event('change', {bubbles:true}));
+        }
+      }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyPrefill);
+    else applyPrefill();
+    // Re-aplica por si algún init tardío (autofill por teléfono, etc.) sobreescribe los valores.
+    setTimeout(applyPrefill, 400);
+    setTimeout(applyPrefill, 1500);
+  } catch(_){}
+})();
+</script>
+<script>
 (function(){
   try {
     var qs = new URLSearchParams(location.search || '');
