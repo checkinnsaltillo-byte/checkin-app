@@ -31274,7 +31274,7 @@ function guiasBuildGuide(alojs) {
       ${guiKv_('Capacidad', (() => { const c = V('capacidad'); return c ? (/hu[eé]sped/i.test(c) ? c : `${c} huéspedes máx.`) : ''; })())}
       ${guiKv_('Recámaras', V('recamaras'))}
       ${guiKv_('Baños', V('banos','Banos','baños','Baños'))}
-      ${guiKv_('Planta', V('planta','Planta'))}`;
+      ${guiKv_('Planta', String(V('planta','Planta')||'').replace(/\s*planta\s*$/i, '').trim())}`;
     return guiSection_('gu-house', '🏠', 'linear-gradient(135deg,#8b5cf6,#a78bfa)', 'Características del alojamiento', 'Espacios y capacidad', inner);
   })();
   // III. Amenidades
