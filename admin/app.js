@@ -30596,7 +30596,7 @@ function guiasRenderContent() {
   const hasGrill = isReadOne && !!guiasVal_(alojs[0], 'parrilla');
   const hasRecos = isReadOne && !!guiasVal_(alojs[0], 'restaurantes');
   const quicknavItems = [
-    ['gu-loc','📍 Ubicación'],['gu-house','🏠 Alojamiento'],['gu-arr','🚪 Llegada'],
+    ['gu-loc','📍 Ubicación'],['gu-arr','🚪 Llegada'],['gu-house','🏠 Alojamiento'],
     ['gu-rules','📋 Reglamento'],['gu-time','🕐 Horarios'],['gu-wifi','📶 WiFi'],
     ['gu-park','🅿️ Estacionamiento'],['gu-wash','🧺 Lavandería'],['gu-supply','🧴 Insumos'],
     ['gu-amen','✨ Amenidades'],
@@ -31206,7 +31206,7 @@ function guiSteps_(list) {
     return `<div style="position:relative;padding:2px 0 18px 44px">
       <div style="position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#f97316,#f59e0b);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px">${i+1}</div>
       ${!last ? '<div style="position:absolute;left:14px;top:32px;bottom:2px;width:2px;background:#e2e8f0"></div>' : ''}
-      <div style="font-size:14px;font-weight:${desc?'700':'500'};color:#0f172a">${esc(title)}</div>
+      <div style="font-size:14px;font-weight:${/bienvenido/i.test(title) || desc ? '800' : '500'};color:#0f172a">${esc(title)}</div>
       ${desc ? `<div style="font-size:13px;color:#64748b;margin-top:2px">${esc(desc)}</div>` : ''}
     </div>`;
   }).join('')}</div>`;
@@ -31303,7 +31303,7 @@ function guiasBuildGuide(alojs) {
       /¡?bienvenido[!¡]?/i.test(s) && !/🙂/.test(s) ? s.replace(/(¡?[Bb]ienvenido[!¡]?)/, '$1 🙂') : s
     );
     const steps = guiSteps_(list) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin instrucciones de llegada.</div>';
-    return guiSection_('gu-arr', '🚪', 'linear-gradient(135deg,#2563eb,#60a5fa)', 'Método de llegada', 'Acceso al alojamiento', deptoNote + steps);
+    return guiSection_('gu-arr', '🚪', 'linear-gradient(135deg,#2563eb,#60a5fa)', 'Método de llegada', 'Acceso al alojamiento', deptoNote + steps, { open: true });
   })();
   // VII. Conexión WiFi
   const sec7 = (() => {
@@ -31389,7 +31389,7 @@ function guiasBuildGuide(alojs) {
   // paso 1), Reglamento, Horarios, WiFi, Vehículos, Estacionamiento,
   // Lavandería, Insumos, Amenidades, [Parrilla], Salida, [Recomendaciones],
   // Emergencias SIEMPRE al final.
-  return sec1 + sec2 + sec6 + sec4 + sec5 + sec7 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec15 + sec12;
+  return sec1 + sec6 + sec2 + sec4 + sec5 + sec7 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec15 + sec12;
 }
 
 /** Hidrata cards de "Recomendaciones" pidiendo a Microlink título/imagen
