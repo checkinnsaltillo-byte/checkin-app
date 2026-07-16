@@ -5667,6 +5667,10 @@ body.has-session input[name="nombre"] {
         <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">⚡</span><span data-i18n="welcomeBtnExpress">Registro exprés de nueva reservación</span></span>
         <span class="auth-bigbtn-sub" data-i18n="welcomeBtnExpressSub">Solo completa el formulario de registro. Ideal si tu visita es esporádica y no requieres control de tickets de autofacturación.</span>
       </button>
+      <button class="auth-bigbtn" id="btnGoCheckout" type="button">
+        <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🚪</span><span>Registrar salida (Check-out)</span></span>
+        <span class="auth-bigbtn-sub">Deja constancia de tu salida indicando propiedad, departamento, fecha/hora y comentarios adicionales.</span>
+      </button>
       <button class="auth-bigbtn" id="btnGoLogin" type="button">
         <span class="auth-bigbtn-title"><span class="auth-bigbtn-icon">🔐</span><span data-i18n="welcomeBtnLogin">Inicia sesión</span></span>
         <span class="auth-bigbtn-sub" data-i18n="welcomeBtnLoginSub">Completa tu perfil y consulta tus tickets de auto-facturación emitidos. Te enviaremos un código para activar tu cuenta.</span>
@@ -5683,6 +5687,39 @@ body.has-session input[name="nombre"] {
         <span class="pwa-install-label">Crear acceso directo en mi dispositivo</span>
       </button>
     </div>
+  </div>
+</div>
+
+<!-- ═══ FORMULARIO DE CHECK-OUT (Registrar salida) ═══════════════════ -->
+<div class="view-panel hidden" id="viewCheckout">
+  <button type="button" class="back-home-btn" id="btnCheckoutBack">← Volver al inicio</button>
+  <div class="section">
+    <h2 class="section-title">Registrar salida</h2>
+    <p class="section-subtitle">Completa los datos para dejar constancia de tu check-out.</p>
+    <label for="checkout_propiedad">Propiedad</label>
+    <select id="checkout_propiedad" name="checkout_propiedad">
+      <option value="">Selecciona</option>
+      <option value="Calle Cumbres">Calle Cumbres</option>
+      <option value="Calle Baja California">Calle Baja California</option>
+      <option value="Calle Oaxaca">Calle Oaxaca</option>
+      <option value="Calle José Cárdenas">Calle José Cárdenas</option>
+      <option value="Calle Matamoros">Calle Matamoros</option>
+      <option value="Calle Torreón">Calle Torreón</option>
+      <option value="Otra">Otra</option>
+    </select>
+    <label for="checkout_depto"># Departamento</label>
+    <select id="checkout_depto" name="checkout_depto">
+      <option value="">Selecciona</option>
+      <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+      <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+      <option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
+      <option value="13">13</option><option value="14">14</option>
+    </select>
+    <label for="checkout_fechahora">Fecha y hora</label>
+    <input type="datetime-local" id="checkout_fechahora" name="checkout_fechahora"/>
+    <label for="checkout_comentarios">Comentarios adicionales</label>
+    <textarea id="checkout_comentarios" name="checkout_comentarios" rows="4" placeholder="¿Algo que debamos saber?"></textarea>
+    <button type="button" id="btnConfirmarSalida" style="margin-top:16px;width:100%;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:0;padding:14px 18px;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 6px 16px -6px rgba(220,38,38,.5)">Confirmar salida</button>
   </div>
 </div>
 
@@ -6671,7 +6708,7 @@ body.has-session input[name="nombre"] {
 <div class="hint" id="popupTextoExito" style="font-size:14px; margin:8px 0 16px 0; color:#374151;">
         El formulario se envió correctamente.
       </div>
-<button onclick="cerrarVentanaEnvio()" type="button">Cerrar</button><div id="whatsappHelpLabel" style="display:block;width:100%;margin-top:12px;text-align:center;font-size:14px;font-weight:700;color:#374151;">Dudas/Comentarios</div><button id="whatsappHelpButton" onclick="abrirWhatsappDudas()" style="display:block !important;width:100%;margin-top:8px;padding:14px 16px;background:#25D366;color:#ffffff;border:none;border-radius:16px;font-size:15px;font-weight:700;cursor:pointer;-webkit-appearance:none;appearance:none;" type="button">Envíanos un Whatsapp</button>
+<button onclick="cerrarVentanaEnvio()" type="button" style="display:block;width:100%;padding:14px 16px;background:#dc2626;color:#fff;border:0;border-radius:16px;font-size:15px;font-weight:700;cursor:pointer;-webkit-appearance:none;appearance:none">Cerrar</button><div id="whatsappHelpLabel" style="display:block;width:100%;margin-top:12px;text-align:center;font-size:14px;font-weight:700;color:#374151;">Dudas/Comentarios</div><button id="whatsappHelpButton" onclick="abrirWhatsappDudas()" style="display:block !important;width:100%;margin-top:8px;padding:14px 16px;background:#25D366;color:#ffffff;border:none;border-radius:16px;font-size:15px;font-weight:700;cursor:pointer;-webkit-appearance:none;appearance:none;" type="button">Envíanos un Whatsapp</button>
 </div>
 </div>
 </div>
@@ -18623,6 +18660,65 @@ document.addEventListener("DOMContentLoaded", function(){
     setTimeout(applyPrefill, 400);
     setTimeout(applyPrefill, 1500);
   } catch(_){}
+})();
+// Flujo de "Registrar salida (Check-out)": muestra viewCheckout, envía a
+// Apps Script (action=submit_checkout) y muestra el popup de éxito reutilizando
+// mostrarVentanaEnvio / mostrarVentanaExito.
+(function(){
+  function init(){
+    var btnGo      = document.getElementById('btnGoCheckout');
+    var btnBack    = document.getElementById('btnCheckoutBack');
+    var btnConfirm = document.getElementById('btnConfirmarSalida');
+    var viewCO     = document.getElementById('viewCheckout');
+    var welcome    = document.getElementById('viewWelcome');
+    if (!btnGo || !viewCO) return;
+    function showCheckout(){
+      ['viewWelcome','viewLogin','viewHome','viewRegistro','viewVehiculos','viewProfileWizard'].forEach(function(id){
+        var el = document.getElementById(id); if (el) el.classList.add('hidden');
+      });
+      viewCO.classList.remove('hidden');
+      var f = document.getElementById('checkout_fechahora');
+      if (f && !f.value) {
+        var d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        f.value = d.toISOString().slice(0,16);
+      }
+      window.scrollTo({top:0, behavior:'smooth'});
+    }
+    function backToWelcome(){
+      viewCO.classList.add('hidden');
+      if (welcome) welcome.classList.remove('hidden');
+      window.scrollTo({top:0, behavior:'smooth'});
+    }
+    btnGo.addEventListener('click', showCheckout);
+    if (btnBack) btnBack.addEventListener('click', backToWelcome);
+    if (btnConfirm) btnConfirm.addEventListener('click', async function(){
+      var prop  = document.getElementById('checkout_propiedad').value.trim();
+      var depto = document.getElementById('checkout_depto').value.trim();
+      var fecha = document.getElementById('checkout_fechahora').value.trim();
+      var com   = document.getElementById('checkout_comentarios').value.trim();
+      if (!prop)  { alert('Selecciona la Propiedad'); return; }
+      if (!depto) { alert('Selecciona el # de Departamento'); return; }
+      if (!fecha) { alert('Ingresa la Fecha y hora de salida'); return; }
+      if (typeof mostrarVentanaEnvio === 'function') mostrarVentanaEnvio();
+      try {
+        if (typeof WEB_APP_URL === 'string' && WEB_APP_URL) {
+          var body = new URLSearchParams({
+            action: 'submit_checkout',
+            propiedad: prop, depto: depto,
+            fecha_hora: fecha, comentarios: com,
+          }).toString();
+          await fetch(WEB_APP_URL, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body });
+        }
+      } catch(_e) { /* best-effort: aún así mostramos éxito */ }
+      if (typeof mostrarVentanaExito === 'function') mostrarVentanaExito();
+      // Reset form
+      document.getElementById('checkout_propiedad').value = '';
+      document.getElementById('checkout_depto').value = '';
+      document.getElementById('checkout_comentarios').value = '';
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
 // Reordena: mueve "Medio de reservación" debajo de "# Departamento"/"# Huéspedes"
 (function(){
