@@ -30578,16 +30578,16 @@ function guiasRenderContent() {
     ? `<div id="guias-checkin-fab" style="position:fixed;left:0;right:0;bottom:0;z-index:9400;padding:14px 16px 18px;background:linear-gradient(180deg,rgba(15,23,42,0),rgba(15,23,42,.55));pointer-events:none">
          <div style="max-width:520px;margin:0 auto;display:flex;gap:8px;pointer-events:none">
            <button type="button" onclick="guiasOpenCheckin_()"
-                   style="pointer-events:auto;flex:1;padding:14px 16px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:0;border-radius:14px;font-size:14px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 12px 28px -6px rgba(220,38,38,.6);animation:guiaCheckinPulse 2.2s ease-in-out infinite;text-shadow:0 1px 2px rgba(0,0,0,.2)">
+                   style="pointer-events:auto;flex:1;padding:14px 16px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;border:0;border-radius:14px;font-size:14px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 12px 28px -6px rgba(15,118,110,.55);animation:guiaCheckinPulse 2.2s ease-in-out infinite;text-shadow:0 1px 2px rgba(0,0,0,.2)">
              <span style="display:inline-flex;align-items:center;gap:8px;justify-content:center"><span style="font-size:17px">✅</span>Registrar entrada</span>
            </button>
            <button type="button" onclick="guiasOpenCheckout_()"
-                   style="pointer-events:auto;flex:1;padding:14px 16px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;border:0;border-radius:14px;font-size:14px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 12px 28px -6px rgba(15,118,110,.55);text-shadow:0 1px 2px rgba(0,0,0,.2)">
+                   style="pointer-events:auto;flex:1;padding:14px 16px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:0;border-radius:14px;font-size:14px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 12px 28px -6px rgba(220,38,38,.6);text-shadow:0 1px 2px rgba(0,0,0,.2)">
              <span style="display:inline-flex;align-items:center;gap:8px;justify-content:center"><span style="font-size:17px">🚪</span>Registrar salida</span>
            </button>
          </div>
        </div>
-       <style>@keyframes guiaCheckinPulse{0%,100%{box-shadow:0 12px 28px -6px rgba(220,38,38,.6);transform:translateY(0)}50%{box-shadow:0 18px 40px -4px rgba(220,38,38,.85);transform:translateY(-2px)}}</style>`
+       <style>@keyframes guiaCheckinPulse{0%,100%{box-shadow:0 12px 28px -6px rgba(15,118,110,.55);transform:translateY(0)}50%{box-shadow:0 18px 40px -4px rgba(15,118,110,.8);transform:translateY(-2px)}}</style>`
     : '';
   // Fallback (modo edición o multi-alojamiento): mantiene la foto simple.
   const photoSimple = (!isReadOne && photoPageUrl)
