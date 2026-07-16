@@ -31348,11 +31348,61 @@ function guiasBuildGuide(alojs) {
       <div style="color:#94a3b8;font-size:16px">›</div>
     </div>
   </div>`;
+  // XV. Recomendaciones — restaurantes/lugares cerca del alojamiento.
+  // Columna "restaurantes" en la hoja: URLs de Google Maps separados por ";".
+  // Cada card se hidrata con Microlink (título + imagen) al abrirse la guía.
+  const sec15 = (() => {
+    const raw = V('restaurantes','Restaurantes');
+    if (!raw) return '';
+    const urls = String(raw).split(';').map(s => s.trim()).filter(s => /^https?:\/\//i.test(s));
+    if (!urls.length) return '';
+    const cards = urls.map((u, i) => {
+      const rid = 'gu-reco-' + Math.random().toString(36).slice(2,9) + '-' + i;
+      return `<div id="${rid}" data-reco-url="${esc(u)}" style="display:flex;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:10px;background:#fff;box-shadow:0 1px 4px -1px rgba(15,23,42,.06)">
+        <div class="reco-img" style="flex:none;width:88px;height:88px;border-radius:10px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0) center/cover;overflow:hidden;position:relative"><div style="position:absolute;inset:0;display:grid;place-items:center;font-size:24px;color:#94a3b8">🍽️</div></div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+          <div class="reco-title" style="font-size:14px;font-weight:700;color:#0f172a;line-height:1.25;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">Cargando…</div>
+          <div class="reco-desc" style="font-size:11.5px;color:#64748b;line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical"></div>
+          <a href="${esc(u)}" target="_blank" rel="noopener" style="margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#fff;background:#0d9488;text-decoration:none;padding:6px 12px;border-radius:8px">🗺️ Google Maps</a>
+        </div>
+      </div>`;
+    }).join('');
+    const inner = cards + `<script>(function(){setTimeout(guiasHydrateRecos_, 60);})();<\/script>`;
+    return guiSection_('gu-reco', '🍽️', 'linear-gradient(135deg,#7c2d12,#ea580c)', 'Recomendaciones', 'Lugares cerca del alojamiento', inner);
+  })();
   // Orden pedido: Ubicación, Alojamiento, Llegada, Reglamento, Horarios,
   // WiFi, Estacionamiento, Lavandería, Insumos, Amenidades, [Parrilla],
-  // Salida, Emergencias.
-  return sec1 + sec2 + sec6 + sec4 + sec5 + sec7 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec12;
+  // Salida, Emergencias, [Recomendaciones al final].
+  return sec1 + sec2 + sec6 + sec4 + sec5 + sec7 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec12 + sec15;
 }
+
+/** Hidrata cards de "Recomendaciones" pidiendo a Microlink título/imagen
+ *  a partir del URL de Google Maps de cada card. Idempotente. */
+window.guiasHydrateRecos_ = function () {
+  document.querySelectorAll('[data-reco-url]').forEach(card => {
+    if (card.dataset.recoHydrated === '1') return;
+    card.dataset.recoHydrated = '1';
+    const url = card.getAttribute('data-reco-url');
+    fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => {
+        if (!j || j.status !== 'success' || !j.data) return;
+        const d = j.data;
+        const title = card.querySelector('.reco-title');
+        const desc  = card.querySelector('.reco-desc');
+        const imgEl = card.querySelector('.reco-img');
+        const cleanTitle = String(d.title || '').replace(/\s*-\s*Google Maps.*$/i, '').replace(/^Google Maps\s*[-·]\s*/i, '').trim();
+        if (title) title.textContent = cleanTitle || 'Lugar recomendado';
+        if (desc)  desc.textContent  = String(d.description || '').trim();
+        const imgUrl = d.image?.url || d.logo?.url || '';
+        if (imgEl && imgUrl) {
+          imgEl.style.background = `url("${imgUrl}") center/cover, linear-gradient(135deg,#f1f5f9,#e2e8f0)`;
+          const ph = imgEl.querySelector('div'); if (ph) ph.remove();
+        }
+      })
+      .catch(() => { /* deja el placeholder + botón Maps */ });
+  });
+};
 
 function guiasCard(title, icon, inner) {
   return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:12px;overflow:hidden">
