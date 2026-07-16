@@ -370,7 +370,7 @@ function buildGuide(a) {
   const capacidadRaw = g('capacidad');
   const capacidad = capacidadRaw ? (/hu[eé]sped/i.test(capacidadRaw) ? capacidadRaw : `${capacidadRaw} huéspedes máx.`) : '';
   const sec1Inner = `${g('url_google_maps')?`<a class="btn-map" href="${esc(g('url_google_maps'))}" target="_blank" rel="noopener">🧭 Abrir en Google Maps</a>`:''}${kv('Dirección', g('direccion'))}${kv('Referencia', g('referencia'))}${callout(g('referencia_googlemaps'),'💡')}`;
-  const sec2Inner = `${kv('Tipo', g('tipo'))}${kv('Capacidad', capacidad)}${kv('Recámaras', g('recamaras'))}${kv('Baños', g('banos','Banos'))}${kv('Planta', g('planta','Planta'))}`;
+  const sec2Inner = `${kv('Tipo', g('tipo'))}${kv('Capacidad', capacidad)}${kv('Recámaras', g('recamaras'))}${kv('Baños', g('banos','Banos'))}${kv('Planta', String(g('planta','Planta')||'').replace(/\s*planta\s*$/i, '').trim())}`;
   const sec3Inner = chips(listOf(g('amenidades'), {comma:true})) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin amenidades listadas.</div>';
   const sec4Inner = rules(listOf(g('reglamento'))) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin reglamento listado.</div>';
   const entrada = g('hora_llegada','hr_llegada'), salida = g('hora_salida','hr_salida');
