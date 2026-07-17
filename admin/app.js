@@ -13243,7 +13243,25 @@ async function __lodgifyLoadInner(force, opts) {
     if (cont) cont.innerHTML = lgLoaderHtml('Cargando reservaciones…');
   }
   try {
-    const res = await fetch(`${BACKEND}/lodgify-list`, { cache:'no-store' });
+    // Query server-side: por defecto solo cargamos reservas que TOCAN
+    // desde hace 7 días hasta el infinito, con status Booked o Tentative.
+    // Si el usuario expande el rango o cambia el status filter, se
+    // actualiza LG_STATE.query y se recarga.
+    if (!LG_STATE.query) {
+      const d = new Date(); d.setDate(d.getDate() - 7);
+      LG_STATE.query = {
+        from: d.toISOString().slice(0,10),
+        to: '',
+        statuses: 'Booked,Tentative',
+      };
+    }
+    const _q = LG_STATE.query || {};
+    const _qs = new URLSearchParams();
+    if (_q.from)     _qs.set('from', _q.from);
+    if (_q.to)       _qs.set('to', _q.to);
+    if (_q.statuses) _qs.set('statuses', _q.statuses);
+    const _url = `${BACKEND}/lodgify-list${_qs.toString() ? '?' + _qs.toString() : ''}`;
+    const res = await fetch(_url, { cache:'no-store' });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     // Normaliza nombres de campos del sheet (GrossTotal → Gross, etc.)
@@ -13318,6 +13336,24 @@ async function __lodgifyLoadInner(force, opts) {
     LG_STATE.loading = false;
   }
 }
+
+/** Ajusta la query server-side (from/to/statuses) y recarga en un solo
+ *  paso. Usa null en una propiedad para limpiarla ("todas las fechas" /
+ *  "todos los estados"). */
+window.lgSetQueryAndReload = async function (patch) {
+  if (!LG_STATE.query) LG_STATE.query = {};
+  LG_STATE.query = { ...LG_STATE.query, ...(patch || {}) };
+  LG_STATE.loaded = false;
+  await lodgifyLoad(true);
+};
+
+/** Limpia todos los filtros server-side y trae el histórico completo. */
+window.lgLoadFullHistory = async function () {
+  if (!confirm('Cargar todas las reservas históricas puede tardar más y descargar un payload grande. ¿Continuar?')) return;
+  LG_STATE.query = { from: '', to: '', statuses: '' };
+  LG_STATE.loaded = false;
+  await lodgifyLoad(true);
+};
 
 /** Dispara sincronización contra Lodgify (rolling o full). */
 async function lodgifySync(full) {
@@ -14661,6 +14697,22 @@ function lgBuildCardsView(list, cont) {
                 title="Mostrar/ocultar filtros"
                 style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center">☰</button>
         <div style="flex:1;min-width:0">${facturaProgressHtml}</div>
+        ${(() => {
+          const q = LG_STATE.query || {};
+          const isFiltered = !!(q.from || q.to || q.statuses);
+          if (!isFiltered) {
+            return `<span title="Se muestran todas las reservas históricas" style="flex-shrink:0;padding:5px 10px;border-radius:999px;background:#f1f5f9;color:#334155;font-size:11px;font-weight:700">📚 Histórico completo</span>`;
+          }
+          const parts = [];
+          if (q.from || q.to) parts.push((q.from || '—') + ' → ' + (q.to || '∞'));
+          if (q.statuses) parts.push(q.statuses);
+          const summary = parts.join(' · ');
+          return `<div style="flex-shrink:0;display:flex;align-items:center;gap:6px">
+            <span title="Filtro server-side activo: ${esc(summary)}" style="padding:5px 10px;border-radius:999px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700">🎯 ${esc(summary)}</span>
+            <button type="button" onclick="lgLoadFullHistory()" title="Traer todas las reservas históricas del sheet"
+                    style="padding:5px 10px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📚 Cargar histórico completo</button>
+          </div>`;
+        })()}
       </div>
       <!-- Línea 2: filtros (toggleables con el botón ☰) -->
       <div id="lg-sidebar-filters" style="display:${filtersExpanded ? 'grid' : 'none'};grid-template-columns:1fr 1fr;gap:10px;align-items:start;margin-bottom:10px">
