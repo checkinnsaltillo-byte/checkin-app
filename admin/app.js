@@ -14109,6 +14109,13 @@ function lodgifyRender(opts) {
   if (mode === 'detail' || mode === 'cards') {
     const hu = HU_STATE.rows || [];
     const lg = LG_STATE.bookings || [];
+    // Fallback rápido: si HU_STATE aún NO cargó (páginas en curso) pero
+    // LG_STATE ya tiene bookings, usamos los bookings de Lodgify directos
+    // como source. El re-render que dispara huespedesLoad al terminar lo
+    // reemplazará por synthetics (que agrupan por huésped/tel+fechas).
+    if (!hu.length && lg.length) {
+      detailSource = lg;
+    } else {
     const cacheKey = `${hu.length}|${lg.length}`;
     if (!LG_STATE.__syntheticCache || LG_STATE.__syntheticCacheKey !== cacheKey) {
       // SIDEBAR = HUÉSPEDES: 1 card por persona (dedupe por últimos 10
@@ -14181,6 +14188,7 @@ function lodgifyRender(opts) {
       LG_STATE.__syntheticCacheKey = cacheKey;
     }
     detailSource = LG_STATE.__syntheticCache;
+    } // cierra else de fallback rápido
   }
   const list = lgGetFiltered(detailSource);
   // Memoriza la lista filtrada actual para que el Historial use exactamente
