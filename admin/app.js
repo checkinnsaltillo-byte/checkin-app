@@ -13243,25 +13243,7 @@ async function __lodgifyLoadInner(force, opts) {
     if (cont) cont.innerHTML = lgLoaderHtml('Cargando reservaciones…');
   }
   try {
-    // Query server-side: por defecto solo cargamos reservas que TOCAN
-    // desde hace 7 días hasta el infinito, con status Booked o Tentative.
-    // Si el usuario expande el rango o cambia el status filter, se
-    // actualiza LG_STATE.query y se recarga.
-    if (!LG_STATE.query) {
-      const d = new Date(); d.setDate(d.getDate() - 7);
-      LG_STATE.query = {
-        from: d.toISOString().slice(0,10),
-        to: '',
-        statuses: 'Booked,Tentative',
-      };
-    }
-    const _q = LG_STATE.query || {};
-    const _qs = new URLSearchParams();
-    if (_q.from)     _qs.set('from', _q.from);
-    if (_q.to)       _qs.set('to', _q.to);
-    if (_q.statuses) _qs.set('statuses', _q.statuses);
-    const _url = `${BACKEND}/lodgify-list${_qs.toString() ? '?' + _qs.toString() : ''}`;
-    const res = await fetch(_url, { cache:'no-store' });
+    const res = await fetch(`${BACKEND}/lodgify-list`, { cache:'no-store' });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     // Normaliza nombres de campos del sheet (GrossTotal → Gross, etc.)
@@ -13336,24 +13318,6 @@ async function __lodgifyLoadInner(force, opts) {
     LG_STATE.loading = false;
   }
 }
-
-/** Ajusta la query server-side (from/to/statuses) y recarga en un solo
- *  paso. Usa null en una propiedad para limpiarla ("todas las fechas" /
- *  "todos los estados"). */
-window.lgSetQueryAndReload = async function (patch) {
-  if (!LG_STATE.query) LG_STATE.query = {};
-  LG_STATE.query = { ...LG_STATE.query, ...(patch || {}) };
-  LG_STATE.loaded = false;
-  await lodgifyLoad(true);
-};
-
-/** Limpia todos los filtros server-side y trae el histórico completo. */
-window.lgLoadFullHistory = async function () {
-  if (!confirm('Cargar todas las reservas históricas puede tardar más y descargar un payload grande. ¿Continuar?')) return;
-  LG_STATE.query = { from: '', to: '', statuses: '' };
-  LG_STATE.loaded = false;
-  await lodgifyLoad(true);
-};
 
 /** Dispara sincronización contra Lodgify (rolling o full). */
 async function lodgifySync(full) {
@@ -14082,20 +14046,18 @@ function lodgifyRender(opts) {
     return;
   }
   const mode = LG_STATE.viewMode || 'list';
-  // Antes bloqueaba el render hasta que HU_STATE tuviera todas las páginas
-  // — el usuario esperaba 1-3s viendo el placeholder. Ahora:
-  //  · Si YA hay bookings de Lodgify → render inmediato con lo que se tenga.
-  //    Los datos enriquecidos por HU_STATE (perfil, tier, factura) se
-  //    hidratan al re-render que dispara huespedesLoad al terminar.
-  //  · Solo mostramos placeholder si tampoco tenemos Lodgify (nada que pintar).
-  if ((mode === 'detail' || mode === 'cards') && !HU_STATE.loaded && !(LG_STATE.bookings || []).length) {
+  // En modo "detail" el sidebar muestra Reservaciones. Si HU_STATE aún no
+  // está cargado (las páginas están en curso), evitamos renderizar con datos
+  // parciales — sería el flicker que ve el usuario. Mostramos placeholder
+  // y volvemos a llamar a lodgifyRender desde huespedesLoad al finalizar.
+  if ((mode === 'detail' || mode === 'cards') && !HU_STATE.loaded) {
     const cont = document.getElementById('lg-cards');
     if (cont && !cont.querySelector('.lg-detail-loading-placeholder')) {
       cont.innerHTML = `
         <div class="lg-detail-loading-placeholder" style="padding:60px 20px;text-align:center;color:#64748b;font-size:13px">
           <div style="font-size:28px;margin-bottom:10px">⏳</div>
           <div style="font-weight:700;margin-bottom:4px">Cargando reservaciones…</div>
-          <div style="font-size:11px;color:#94a3b8">Trayendo las primeras reservas.</div>
+          <div style="font-size:11px;color:#94a3b8">Trayendo todas las páginas de Reservaciones. Tarda 1–3s.</div>
         </div>`;
     }
     return;
@@ -14109,13 +14071,6 @@ function lodgifyRender(opts) {
   if (mode === 'detail' || mode === 'cards') {
     const hu = HU_STATE.rows || [];
     const lg = LG_STATE.bookings || [];
-    // Fallback rápido: si HU_STATE aún NO cargó (páginas en curso) pero
-    // LG_STATE ya tiene bookings, usamos los bookings de Lodgify directos
-    // como source. El re-render que dispara huespedesLoad al terminar lo
-    // reemplazará por synthetics (que agrupan por huésped/tel+fechas).
-    if (!hu.length && lg.length) {
-      detailSource = lg;
-    } else {
     const cacheKey = `${hu.length}|${lg.length}`;
     if (!LG_STATE.__syntheticCache || LG_STATE.__syntheticCacheKey !== cacheKey) {
       // SIDEBAR = HUÉSPEDES: 1 card por persona (dedupe por últimos 10
@@ -14188,7 +14143,6 @@ function lodgifyRender(opts) {
       LG_STATE.__syntheticCacheKey = cacheKey;
     }
     detailSource = LG_STATE.__syntheticCache;
-    } // cierra else de fallback rápido
   }
   const list = lgGetFiltered(detailSource);
   // Memoriza la lista filtrada actual para que el Historial use exactamente
@@ -14707,23 +14661,6 @@ function lgBuildCardsView(list, cont) {
                 title="Mostrar/ocultar filtros"
                 style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center">☰</button>
         <div style="flex:1;min-width:0">${facturaProgressHtml}</div>
-        ${!HU_STATE.loaded ? `<span title="Los datos de Reservaciones (perfil, tier, factura) se están cargando en segundo plano" style="flex-shrink:0;padding:5px 10px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;animation:hu-dot-pulse 1.2s ease-in-out infinite"></span>Actualizando datos…</span>` : ''}
-        ${(() => {
-          const q = LG_STATE.query || {};
-          const isFiltered = !!(q.from || q.to || q.statuses);
-          if (!isFiltered) {
-            return `<span title="Se muestran todas las reservas históricas" style="flex-shrink:0;padding:5px 10px;border-radius:999px;background:#f1f5f9;color:#334155;font-size:11px;font-weight:700">📚 Histórico completo</span>`;
-          }
-          const parts = [];
-          if (q.from || q.to) parts.push((q.from || '—') + ' → ' + (q.to || '∞'));
-          if (q.statuses) parts.push(q.statuses);
-          const summary = parts.join(' · ');
-          return `<div style="flex-shrink:0;display:flex;align-items:center;gap:6px">
-            <span title="Filtro server-side activo: ${esc(summary)}" style="padding:5px 10px;border-radius:999px;background:#dbeafe;color:#1e40af;font-size:11px;font-weight:700">🎯 ${esc(summary)}</span>
-            <button type="button" onclick="lgLoadFullHistory()" title="Traer todas las reservas históricas del sheet"
-                    style="padding:5px 10px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📚 Cargar histórico completo</button>
-          </div>`;
-        })()}
       </div>
       <!-- Línea 2: filtros (toggleables con el botón ☰) -->
       <div id="lg-sidebar-filters" style="display:${filtersExpanded ? 'grid' : 'none'};grid-template-columns:1fr 1fr;gap:10px;align-items:start;margin-bottom:10px">
