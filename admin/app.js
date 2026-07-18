@@ -14082,18 +14082,20 @@ function lodgifyRender(opts) {
     return;
   }
   const mode = LG_STATE.viewMode || 'list';
-  // En modo "detail" el sidebar muestra Reservaciones. Si HU_STATE aún no
-  // está cargado (las páginas están en curso), evitamos renderizar con datos
-  // parciales — sería el flicker que ve el usuario. Mostramos placeholder
-  // y volvemos a llamar a lodgifyRender desde huespedesLoad al finalizar.
-  if ((mode === 'detail' || mode === 'cards') && !HU_STATE.loaded) {
+  // Antes bloqueaba el render hasta que HU_STATE tuviera todas las páginas
+  // — el usuario esperaba 1-3s viendo el placeholder. Ahora:
+  //  · Si YA hay bookings de Lodgify → render inmediato con lo que se tenga.
+  //    Los datos enriquecidos por HU_STATE (perfil, tier, factura) se
+  //    hidratan al re-render que dispara huespedesLoad al terminar.
+  //  · Solo mostramos placeholder si tampoco tenemos Lodgify (nada que pintar).
+  if ((mode === 'detail' || mode === 'cards') && !HU_STATE.loaded && !(LG_STATE.bookings || []).length) {
     const cont = document.getElementById('lg-cards');
     if (cont && !cont.querySelector('.lg-detail-loading-placeholder')) {
       cont.innerHTML = `
         <div class="lg-detail-loading-placeholder" style="padding:60px 20px;text-align:center;color:#64748b;font-size:13px">
           <div style="font-size:28px;margin-bottom:10px">⏳</div>
           <div style="font-weight:700;margin-bottom:4px">Cargando reservaciones…</div>
-          <div style="font-size:11px;color:#94a3b8">Trayendo todas las páginas de Reservaciones. Tarda 1–3s.</div>
+          <div style="font-size:11px;color:#94a3b8">Trayendo las primeras reservas.</div>
         </div>`;
     }
     return;
@@ -14697,6 +14699,7 @@ function lgBuildCardsView(list, cont) {
                 title="Mostrar/ocultar filtros"
                 style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center">☰</button>
         <div style="flex:1;min-width:0">${facturaProgressHtml}</div>
+        ${!HU_STATE.loaded ? `<span title="Los datos de Reservaciones (perfil, tier, factura) se están cargando en segundo plano" style="flex-shrink:0;padding:5px 10px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;animation:hu-dot-pulse 1.2s ease-in-out infinite"></span>Actualizando datos…</span>` : ''}
         ${(() => {
           const q = LG_STATE.query || {};
           const isFiltered = !!(q.from || q.to || q.statuses);
