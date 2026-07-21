@@ -278,8 +278,9 @@ window.addEventListener('message', ev => {
   const data = ev.data || {};
   if (data.type === 'checkin-close') { document.getElementById('cin-modal')?.remove(); }
   else if (data.type === 'checkin-wa-request') {
-    const phone = window.__waPhone || ''; const msg = window.__waMsg || '';
-    if (phone) window.open(`https://wa.me/${encodeURIComponent(phone)}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+    // Número FIJO del negocio (no el contacto del alojamiento).
+    const msg = window.__waMsg || '';
+    window.open(`https://wa.me/528444443922?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
   }
 });
 
@@ -297,6 +298,15 @@ window.openCheckin = function () {
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
   document.body.appendChild(el);
+  const _ifr = el.querySelector('iframe');
+  if (_ifr) {
+    _ifr.addEventListener('load', () => {
+      try {
+        const items = window.__reglamento || [];
+        _ifr.contentWindow?.postMessage({ type: 'guias-reglamento', items }, '*');
+      } catch(_){}
+    });
+  }
 };
 
 window.openCheckout = function () {
@@ -367,6 +377,8 @@ function buildGuide(a) {
     window.__waPhone = wa;
     window.__waMsg = msg;
   }
+  // Reglamento para inyectar en el popup de éxito del check-in.
+  window.__reglamento = listOf(g('reglamento')) || [];
   // Meta OG
   document.title = `${nombre} · Guía · Check-inn Saltillo`;
   $('og-title').setAttribute('content', `${nombre} · Guía de Bienvenida`);
