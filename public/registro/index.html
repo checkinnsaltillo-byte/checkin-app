@@ -6724,9 +6724,10 @@ body.has-session input[name="nombre"] {
 </div>
 <div id="popupSuccessState" style="display:none;">
 <h3 id="popupTituloExito">Registro exitoso</h3>
-<div class="hint" id="popupTextoExito" style="font-size:14px; margin:8px 0 16px 0; color:#374151;">
+<div class="hint" id="popupTextoExito" style="font-size:14px; margin:8px 0 12px 0; color:#374151;">
         El formulario se envió correctamente.
       </div>
+<div id="popupReglamentoContainer" style="display:none; text-align:left; margin:12px 0 16px; max-height:45vh; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; background:#f8fafc;"></div>
 <button onclick="cerrarVentanaEnvio()" type="button" style="display:block;width:100%;padding:14px 16px;background:#dc2626;color:#fff;border:0;border-radius:16px;font-size:15px;font-weight:700;cursor:pointer;-webkit-appearance:none;appearance:none">Cerrar</button><div id="whatsappHelpLabel" style="display:block;width:100%;margin-top:12px;text-align:center;font-size:14px;font-weight:700;color:#374151;">Dudas/Comentarios</div><button id="whatsappHelpButton" onclick="abrirWhatsappDudas()" style="display:block !important;width:100%;margin-top:8px;padding:14px 16px;background:#25D366;color:#ffffff;border:none;border-radius:16px;font-size:15px;font-weight:700;cursor:pointer;-webkit-appearance:none;appearance:none;" type="button">Envíanos un Whatsapp</button>
 </div>
 </div>
@@ -18805,6 +18806,38 @@ document.addEventListener("DOMContentLoaded", function(){
     var origWA = window.abrirWhatsappDudas;
     window.abrirWhatsappDudas = function(){
       try { window.parent.postMessage({type:'checkin-wa-request'}, '*'); } catch(_){}
+    };
+    // Reglamento de la casa: el parent (guía) envía la lista al cargar el
+    // iframe. La guardamos y la inyectamos dentro del popup de éxito cuando
+    // aparece, para que el huésped lo lea al terminar el registro.
+    var __guiasReglamento = null;
+    window.addEventListener('message', function(ev){
+      var d = ev.data || {};
+      if (d && d.type === 'guias-reglamento' && Array.isArray(d.items)) {
+        __guiasReglamento = d.items;
+      }
+    });
+    function __buildReglamentoHtml(list){
+      if (!list || !list.length) return '';
+      var esc = function(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]); }); };
+      var items = list.map(function(t){
+        var mark = '!', bg = '#f59e0b';
+        if (/^\s*(no|prohibid|✗|✘)/i.test(t)) { mark='✗'; bg='#dc2626'; }
+        else if (/^\s*(sí|si\b|✓|✔|permitid|se permit)/i.test(t)) { mark='✓'; bg='#16a34a'; }
+        return '<div style="display:flex;gap:9px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #e2e8f0"><div style="flex:none;width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;background:'+bg+'">'+mark+'</div><div style="font-size:12.5px;flex:1;color:#334155;line-height:1.35">'+esc(t)+'</div></div>';
+      }).join('');
+      return '<div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:#dc2626;margin-bottom:6px">📋 Reglamento de la casa</div>'+items;
+    }
+    var __origMostrarExito = window.mostrarVentanaExito;
+    window.mostrarVentanaExito = function(){
+      try { if (__origMostrarExito) __origMostrarExito.apply(this, arguments); } catch(_){}
+      try {
+        var cont = document.getElementById('popupReglamentoContainer');
+        if (cont && __guiasReglamento && __guiasReglamento.length) {
+          cont.innerHTML = __buildReglamentoHtml(__guiasReglamento);
+          cont.style.display = 'block';
+        }
+      } catch(_){}
     };
     // Hook closePopup (popup de "Información de vehículos") → cerrar iframe padre
     var origClosePopup = window.closePopup;
