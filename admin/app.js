@@ -30681,6 +30681,9 @@ function guiasRenderContent() {
     depto: guiasVal_(alojs[0], '# Departamento', 'Departamento', 'departamento') || '',
   } : { prop: '', depto: '' };
   window.__guiasCheckinWaMsg = waMsg;
+  // Reglamento de la casa: lo enviamos al iframe del registro para que
+  // aparezca dentro del popup de éxito tras confirmar el registro.
+  window.__guiasCheckinReglamento = isReadOne ? (guiasList_(guiasVal_(alojs[0], 'reglamento')) || []) : [];
   // Fab WhatsApp flotante y fijo al viewport (esquina inferior derecha).
   // Ícono estilo "app icon" con esquinas redondeadas y logo WhatsApp SVG.
   const waIconSvg = `<svg viewBox="0 0 32 32" width="32" height="32" fill="#fff" style="display:block"><path d="M16 3.2c-7.06 0-12.8 5.74-12.8 12.8 0 2.243.585 4.428 1.697 6.348L3.2 28.8l6.6-1.73A12.75 12.75 0 0 0 16 28.8c7.06 0 12.8-5.74 12.8-12.8S23.06 3.2 16 3.2zm7.32 18.24c-.31.87-1.53 1.66-2.48 1.76-.66.07-1.5.128-2.31-.148-.53-.181-1.212-.406-2.086-.784-3.674-1.592-6.075-5.297-6.259-5.54-.184-.243-1.503-2.004-1.503-3.822s.94-2.716 1.272-3.083c.33-.367.72-.458.964-.458.243 0 .486.002.7.013.226.011.526-.085.822.626.31.732 1.036 2.545 1.126 2.73.09.184.152.4.03.643-.122.244-.184.397-.366.61-.184.214-.386.478-.55.643-.184.183-.377.383-.163.75.214.366.955 1.573 2.05 2.548 1.408 1.253 2.596 1.64 2.965 1.823.366.184.579.153.793-.091.213-.244.915-1.07 1.16-1.436.244-.366.487-.305.822-.183.335.122 2.12.999 2.48 1.183.367.184.611.275.7.428.09.153.09.882-.213 1.734z"/></svg>`;
@@ -31000,9 +31003,10 @@ if (!window.__guiasCheckinListener) {
     if (data.type === 'checkin-close') {
       document.getElementById('guias-checkin-modal')?.remove();
     } else if (data.type === 'checkin-wa-request') {
-      const phone = window.__guiasCheckinWaPhone || '';
+      // Número FIJO del negocio (no el de contacto del alojamiento).
+      const BUSINESS_PHONE = '528444443922';
       const msg = window.__guiasCheckinWaMsg || '';
-      if (phone) window.open(`https://wa.me/${encodeURIComponent(phone)}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+      window.open(`https://wa.me/${BUSINESS_PHONE}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
     }
   });
 }
@@ -31064,6 +31068,17 @@ window.guiasOpenCheckin_ = function () {
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
   document.body.appendChild(el);
+  // Envía el reglamento al iframe una vez cargado — se renderiza dentro
+  // del popup de éxito tras confirmar el registro.
+  const _ifr = el.querySelector('iframe');
+  if (_ifr) {
+    _ifr.addEventListener('load', () => {
+      try {
+        const items = window.__guiasCheckinReglamento || [];
+        _ifr.contentWindow?.postMessage({ type: 'guias-reglamento', items }, '*');
+      } catch(_){}
+    });
+  }
 };
 
 /** Alterna la sidebar entre expandida (280px) y colapsada (0). Persiste
