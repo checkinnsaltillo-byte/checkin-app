@@ -328,6 +328,15 @@ window.openCheckout = function () {
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
   document.body.appendChild(el);
+  const _ifr = el.querySelector('iframe');
+  if (_ifr) {
+    _ifr.addEventListener('load', () => {
+      try {
+        const items = window.__salidaInstrucciones || [];
+        _ifr.contentWindow?.postMessage({ type: 'guias-instrucciones-salida', items }, '*');
+      } catch(_){}
+    });
+  }
 };
 
 window.openVehiculos = function () {
@@ -379,6 +388,8 @@ function buildGuide(a) {
   }
   // Reglamento para inyectar en el popup de éxito del check-in.
   window.__reglamento = listOf(g('reglamento')) || [];
+  // Instrucciones de salida para inyectar en el formulario de check-out.
+  window.__salidaInstrucciones = (listOf(g('salida_instrucciones')) || []).filter(s => !/realiza.*check-?out.*(esta|misma)/i.test(s));
   // Meta OG
   document.title = `${nombre} · Guía · Check-inn Saltillo`;
   $('og-title').setAttribute('content', `${nombre} · Guía de Bienvenida`);
