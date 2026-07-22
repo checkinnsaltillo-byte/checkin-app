@@ -30689,9 +30689,11 @@ function guiasRenderContent() {
   // Ícono estilo "app icon" con esquinas redondeadas y logo WhatsApp SVG.
   const waIconSvg = `<svg viewBox="0 0 32 32" width="32" height="32" fill="#fff" style="display:block"><path d="M16 3.2c-7.06 0-12.8 5.74-12.8 12.8 0 2.243.585 4.428 1.697 6.348L3.2 28.8l6.6-1.73A12.75 12.75 0 0 0 16 28.8c7.06 0 12.8-5.74 12.8-12.8S23.06 3.2 16 3.2zm7.32 18.24c-.31.87-1.53 1.66-2.48 1.76-.66.07-1.5.128-2.31-.148-.53-.181-1.212-.406-2.086-.784-3.674-1.592-6.075-5.297-6.259-5.54-.184-.243-1.503-2.004-1.503-3.822s.94-2.716 1.272-3.083c.33-.367.72-.458.964-.458.243 0 .486.002.7.013.226.011.526-.085.822.626.31.732 1.036 2.545 1.126 2.73.09.184.152.4.03.643-.122.244-.184.397-.366.61-.184.214-.386.478-.55.643-.184.183-.377.383-.163.75.214.366.955 1.573 2.05 2.548 1.408 1.253 2.596 1.64 2.965 1.823.366.184.579.153.793-.091.213-.244.915-1.07 1.16-1.436.244-.366.487-.305.822-.183.335.122 2.12.999 2.48 1.183.367.184.611.275.7.428.09.153.09.882-.213 1.734z"/></svg>`;
   // WhatsApp fab arriba, botón Check-in abajo (ambos fijos al viewport).
-  const waHtml = (isReadOne && waPhone)
+  // Usa SIEMPRE el número del negocio (no el contacto_whatsapp del alojamiento).
+  const BUSINESS_WA = '528444443922';
+  const waHtml = isReadOne
     ? `<div id="guias-wa-fab" style="position:fixed;bottom:110px;right:24px;z-index:9500;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:auto">
-         <a href="https://wa.me/${encodeURIComponent(waPhone)}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" title="Contactar por WhatsApp"
+         <a href="https://wa.me/${BUSINESS_WA}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" title="Contactar por WhatsApp"
             style="width:60px;height:60px;border-radius:18px;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 10px 24px -4px rgba(37,211,102,.55),inset 0 -3px 6px rgba(0,0,0,.12);border:1px solid rgba(255,255,255,.15)">${waIconSvg}</a>
        </div>`
     : '';
