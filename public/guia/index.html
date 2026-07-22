@@ -377,13 +377,13 @@ function buildGuide(a) {
   $('hero-title').textContent = nombre;
   const photoUrl = g('url_lodgify');
   if (photoUrl) { $('hero-photos').href = photoUrl; $('hero-photos').style.display = 'inline-flex'; }
-  // WhatsApp
-  const wa = g('contacto_whatsapp').replace(/[^0-9+]/g,'');
-  if (wa) {
+  // WhatsApp — SIEMPRE al número del negocio (+52 844 444 3922), no al
+  // contacto_whatsapp del alojamiento.
+  {
     const msg = `Hola, estoy hospedado en ${nombre}. Mi nombre es: `;
-    $('wa-link').href = `https://wa.me/${encodeURIComponent(wa)}?text=${encodeURIComponent(msg)}`;
+    $('wa-link').href = `https://wa.me/528444443922?text=${encodeURIComponent(msg)}`;
     $('wa-fab').style.display = 'flex';
-    window.__waPhone = wa;
+    window.__waPhone = '528444443922';
     window.__waMsg = msg;
   }
   // Reglamento para inyectar en el popup de éxito del check-in.
