@@ -3280,6 +3280,22 @@ body.embed-mode .container {
   box-shadow: none !important;
   max-width: none !important;
 }
+/* iOS Safari embebido: la barra inferior del navegador cubre los últimos
+   ~140px del iframe. Agregamos padding al fondo del formulario para que el
+   botón Enviar/Confirmar SIEMPRE quede sobre la barra, respetando además
+   el safe-area-inset-bottom. */
+body.embed-mode #formulario_principal,
+body.embed-mode #viewRegistro.as-popup #form,
+body.embed-mode #viewRegistro.as-popup .dashboard-wrap,
+body.embed-mode #viewCheckout,
+body.embed-checkout-mode #viewCheckout {
+  padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)) !important;
+}
+/* Popup de éxito: también con espacio inferior para que los botones
+   Cerrar / WhatsApp no queden ocultos por la barra del navegador. */
+body.embed-mode #popupEnvio .popup-card {
+  margin-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important;
+}
 
 </style>
 
