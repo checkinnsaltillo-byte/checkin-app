@@ -6749,7 +6749,7 @@ body.has-session input[name="nombre"] {
   <span id="popupAcceptCb" data-on="0" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:1.5px solid #94a3b8;background:#fff;color:transparent;border-radius:6px;font-size:14px;font-weight:900;line-height:1;flex-shrink:0"></span>
   <span style="font-size:14px;font-weight:700;color:#0f172a">Acepto las condiciones anteriores</span>
 </label>
-<button id="popupCloseBtn" onclick="cerrarVentanaEnvio()" type="button" style="display:block;width:100%;padding:14px 16px;background:#dc2626;color:#fff;border:0;border-radius:16px;font-size:15px;font-weight:700;cursor:not-allowed;opacity:.45;-webkit-appearance:none;appearance:none;pointer-events:none">Cerrar ventana</button><div id="whatsappHelpLabel" style="display:block;width:100%;margin-top:12px;text-align:center;font-size:14px;font-weight:700;color:#374151;">¿Dudas o comentarios?:</div><button id="whatsappHelpButton" onclick="abrirWhatsappDudas()" style="display:block !important;width:100%;margin-top:8px;padding:14px 16px;background:#25D366;color:#ffffff;border:none;border-radius:16px;font-size:15px;font-weight:700;cursor:not-allowed;opacity:.45;pointer-events:none;-webkit-appearance:none;appearance:none;" type="button">Envíanos un Whatsapp</button>
+<button id="popupEnvioCloseBtn" onclick="cerrarVentanaEnvio()" type="button" style="display:block;width:100%;padding:14px 16px;background:#dc2626;color:#fff;border:0;border-radius:16px;font-size:15px;font-weight:700;cursor:not-allowed;opacity:.45;-webkit-appearance:none;appearance:none;pointer-events:none">Cerrar ventana</button><div id="whatsappHelpLabel" style="display:block;width:100%;margin-top:12px;text-align:center;font-size:14px;font-weight:700;color:#374151;">¿Dudas o comentarios?:</div><button id="whatsappHelpButton" onclick="abrirWhatsappDudas()" style="display:block !important;width:100%;margin-top:8px;padding:14px 16px;background:#25D366;color:#ffffff;border:none;border-radius:16px;font-size:15px;font-weight:700;cursor:not-allowed;opacity:.45;pointer-events:none;-webkit-appearance:none;appearance:none;" type="button">Envíanos un Whatsapp</button>
 <script>
 window.popupToggleAccept = function(){
   var cb = document.getElementById('popupAcceptCb');
@@ -6766,7 +6766,7 @@ window.popupToggleAccept = function(){
     wrap.style.background = next ? '#dcfce7' : '#fef3c7';
     wrap.style.borderColor = next ? '#86efac' : '#fde68a';
   }
-  var closeBtn = document.getElementById('popupCloseBtn');
+  var closeBtn = document.getElementById('popupEnvioCloseBtn');
   var waBtn = document.getElementById('whatsappHelpButton');
   [closeBtn, waBtn].forEach(function(b){
     if (!b) return;
