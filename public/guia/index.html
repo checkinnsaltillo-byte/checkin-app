@@ -294,7 +294,7 @@ window.openCheckin = function () {
       <div class="t">✅ Check-in</div>
       <button type="button" onclick="document.getElementById('cin-modal')?.remove()" title="Regresar a Guía de Bienvenida">← Regresar a Guía de Bienvenida</button>
     </div>
-    <iframe src="${(() => { const p = window.__prefill || {}; const qs = []; if (p.prop) qs.push('prop=' + encodeURIComponent(p.prop)); if (p.depto) qs.push('depto=' + encodeURIComponent(p.depto)); return 'https://www.check-inn.mx/public/registro/?embed=1' + (qs.length ? '&' + qs.join('&') : '') + '#express'; })()}" title="Registro exprés" allow="camera; geolocation"></iframe>`;
+    <iframe src="${(() => { const p = window.__prefill || {}; const qs = []; if (p.prop) qs.push('prop=' + encodeURIComponent(p.prop)); if (p.depto) qs.push('depto=' + encodeURIComponent(p.depto)); return 'https://www.check-inn.mx/public/registro/?embed=1&_=' + Date.now() + (qs.length ? '&' + qs.join('&') : '') + '#express'; })()}" title="Registro exprés" allow="camera; geolocation"></iframe>`;
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
   document.body.appendChild(el);
@@ -315,7 +315,7 @@ window.openCheckout = function () {
   const qs = [];
   if (p.prop)  qs.push('prop='  + encodeURIComponent(p.prop));
   if (p.depto) qs.push('depto=' + encodeURIComponent(p.depto));
-  const src = 'https://www.check-inn.mx/public/registro/?embed=1' + (qs.length ? '&' + qs.join('&') : '') + '#checkout';
+  const src = 'https://www.check-inn.mx/public/registro/?embed=1&_=' + Date.now() + (qs.length ? '&' + qs.join('&') : '') + '#checkout';
   const el = document.createElement('div');
   el.id = 'cin-modal';
   el.className = 'cin-modal';
@@ -349,7 +349,7 @@ window.openVehiculos = function () {
       <div class="t">🚗 Información de vehículos</div>
       <button type="button" onclick="document.getElementById('cin-modal')?.remove()" title="Regresar a Guía de Bienvenida">← Regresar a Guía de Bienvenida</button>
     </div>
-    <iframe src="https://www.check-inn.mx/public/registro/?embed=1#vehiculos" title="Información de vehículos" allow="camera; geolocation"></iframe>`;
+    <iframe src="https://www.check-inn.mx/public/registro/?embed=1&_=${Date.now()}#vehiculos" title="Información de vehículos" allow="camera; geolocation"></iframe>`;
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
   document.body.appendChild(el);
