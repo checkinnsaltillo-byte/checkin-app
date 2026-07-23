@@ -30740,8 +30740,8 @@ function guiasRenderContent() {
   const hasGrill = isReadOne && !!guiasVal_(alojs[0], 'parrilla');
   const hasRecos = isReadOne && !!guiasVal_(alojs[0], 'restaurantes');
   const quicknavItems = [
-    ['gu-loc','📍 Ubicación'],['gu-arr','🚪 Llegada'],
-    ['gu-time','🕐 Horarios'],['gu-rules','📋 Reglamento'],['gu-wifi','📶 WiFi'],
+    ['gu-loc','📍 Ubicación'],['gu-time','🕐 Horarios'],['gu-arr','🚪 Llegada'],
+    ['gu-rules','📋 Reglamento'],['gu-wifi','📶 WiFi'],
     ['gu-house','🏠 Alojamiento'],
     ['gu-park','🅿️ Estacionamiento'],['gu-wash','🧺 Lavandería'],['gu-supply','🧴 Insumos'],
     ['gu-amen','✨ Amenidades'],
@@ -31580,10 +31580,10 @@ function guiasBuildGuide(alojs) {
   // paso 1), Reglamento, Horarios, WiFi, Vehículos, Estacionamiento,
   // Lavandería, Insumos, Amenidades, [Parrilla], Salida, [Recomendaciones],
   // Emergencias SIEMPRE al final.
-  // Orden: Ubicación, Llegada, Horarios, Reglamento, WiFi (todos abiertos por
+  // Orden: Ubicación, Horarios, Llegada, Reglamento, WiFi (todos abiertos por
   // default), luego Alojamiento, Vehículos, Estacionamiento, Lavandería,
   // Insumos, Amenidades, [Parrilla], Salida, [Recomendaciones], Emergencias.
-  return sec1 + sec6 + sec5 + sec4 + sec7 + sec2 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec15 + sec12;
+  return sec1 + sec5 + sec6 + sec4 + sec7 + sec2 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec15 + sec12;
 }
 
 /** Hidrata cards de "Recomendaciones" pidiendo a Microlink título/imagen
