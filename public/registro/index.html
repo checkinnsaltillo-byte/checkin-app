@@ -8418,8 +8418,8 @@ function applyTranslations(lang){
   if (popupTitle) popupTitle.textContent = t.successTitle;
   const popupHint = document.querySelector("#popupTextoExito");
   if (popupHint) popupHint.textContent = t.successText;
-  const popupBtn = document.querySelector('#popupSuccessState button');
-  if (popupBtn) popupBtn.textContent = t.close;
+  // El botón de cierre del popup de éxito tiene un texto propio
+  // ("Aceptar condiciones y Cerrar ventana") — NO lo pisamos con t.close.
 
   const submitBtn = document.getElementById("submitBtn");
   if (submitBtn && submitBtn.textContent !== "Enviando..." && submitBtn.textContent !== "Submitting registration...") submitBtn.textContent = t.send;
