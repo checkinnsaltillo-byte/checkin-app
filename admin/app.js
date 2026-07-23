@@ -31032,7 +31032,7 @@ window.guiasOpenCheckout_ = function () {
   const qs = [];
   if (p.prop)  qs.push('prop='  + encodeURIComponent(p.prop));
   if (p.depto) qs.push('depto=' + encodeURIComponent(p.depto));
-  const src = 'https://www.check-inn.mx/public/registro/?embed=1' + (qs.length ? '&' + qs.join('&') : '') + '#checkout';
+  const src = 'https://www.check-inn.mx/public/registro/?embed=1&_=' + Date.now() + (qs.length ? '&' + qs.join('&') : '') + '#checkout';
   const el = document.createElement('div');
   el.id = 'guias-checkin-modal';
   el.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,.92);z-index:9999;overflow:hidden';
@@ -31070,7 +31070,7 @@ window.guiasOpenVehiculos_ = function () {
       <div style="font-size:14px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🚗 Información de vehículos</div>
       <button type="button" onclick="document.getElementById('guias-checkin-modal')?.remove()" title="Regresar a Guía de Bienvenida" style="all:unset;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px;white-space:nowrap">← Regresar a Guía de Bienvenida</button>
     </div>
-    <iframe src="https://www.check-inn.mx/public/registro/?embed=1#vehiculos" style="position:absolute;top:${HEADER_H}px;left:0;width:100%;height:calc(100% - ${HEADER_H}px);border:0;background:transparent;display:block" title="Información de vehículos" allow="camera; geolocation"></iframe>`;
+    <iframe src="https://www.check-inn.mx/public/registro/?embed=1&_=${Date.now()}#vehiculos" style="position:absolute;top:${HEADER_H}px;left:0;width:100%;height:calc(100% - ${HEADER_H}px);border:0;background:transparent;display:block" title="Información de vehículos" allow="camera; geolocation"></iframe>`;
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
   document.body.appendChild(el);
@@ -31088,7 +31088,7 @@ window.guiasOpenCheckin_ = function () {
       <div style="font-size:14px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">✅ Check-in</div>
       <button type="button" onclick="document.getElementById('guias-checkin-modal')?.remove()" title="Regresar a Guía de Bienvenida" style="all:unset;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px;white-space:nowrap">← Regresar a Guía de Bienvenida</button>
     </div>
-    <iframe src="${(() => { const p = window.__guiasCheckinPrefill || {}; const qs = []; if (p.prop)  qs.push('prop='  + encodeURIComponent(p.prop)); if (p.depto) qs.push('depto=' + encodeURIComponent(p.depto)); return 'https://www.check-inn.mx/public/registro/?embed=1' + (qs.length ? '&' + qs.join('&') : '') + '#express'; })()}" style="position:absolute;top:${HEADER_H}px;left:0;width:100%;height:calc(100% - ${HEADER_H}px);border:0;background:transparent;display:block" title="Registro exprés" allow="camera; geolocation"></iframe>`;
+    <iframe src="${(() => { const p = window.__guiasCheckinPrefill || {}; const qs = []; if (p.prop)  qs.push('prop='  + encodeURIComponent(p.prop)); if (p.depto) qs.push('depto=' + encodeURIComponent(p.depto)); return 'https://www.check-inn.mx/public/registro/?embed=1&_=' + Date.now() + (qs.length ? '&' + qs.join('&') : '') + '#express'; })()}" style="position:absolute;top:${HEADER_H}px;left:0;width:100%;height:calc(100% - ${HEADER_H}px);border:0;background:transparent;display:block" title="Registro exprés" allow="camera; geolocation"></iframe>`;
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
   document.body.appendChild(el);
