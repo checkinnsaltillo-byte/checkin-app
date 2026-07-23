@@ -30672,7 +30672,16 @@ function guiasRenderContent() {
   const waPhone = wa.replace(/[^0-9+]/g,'');
   // Texto: usa titulo_txt (fallback al nombre del alojamiento si vacío).
   const tituloTxt = isReadOne ? (guiasVal_(alojs[0], 'titulo_txt') || nombreProp) : '';
-  const waMsg = isReadOne ? `Hola, estoy hospedado en ${tituloTxt}. Mi nombre es: ` : '';
+  // Nombre corto para WhatsApp: "Propiedad #Depto" (sin la descripción larga).
+  const waPropShort = isReadOne
+    ? (() => {
+        const p = String(guiasVal_(alojs[0], 'Propiedad', 'propiedad') || '').trim();
+        const d = String(guiasVal_(alojs[0], '# Departamento', 'Departamento', 'departamento') || '').trim();
+        if (p && d) return `${p} #${d}`;
+        return p || tituloTxt || 'el alojamiento';
+      })()
+    : '';
+  const waMsg = isReadOne ? `Hola, estoy hospedado en ${waPropShort}. Mi nombre es: ` : '';
   // Guarda para que el listener de postMessage del iframe pueda usarlos.
   window.__guiasCheckinWaPhone = waPhone;
   // Pre-llenado del formulario de registro exprés (Propiedad + # Departamento)
@@ -30731,8 +30740,9 @@ function guiasRenderContent() {
   const hasGrill = isReadOne && !!guiasVal_(alojs[0], 'parrilla');
   const hasRecos = isReadOne && !!guiasVal_(alojs[0], 'restaurantes');
   const quicknavItems = [
-    ['gu-loc','📍 Ubicación'],['gu-arr','🚪 Llegada'],['gu-house','🏠 Alojamiento'],
-    ['gu-rules','📋 Reglamento'],['gu-time','🕐 Horarios'],['gu-wifi','📶 WiFi'],
+    ['gu-loc','📍 Ubicación'],['gu-arr','🚪 Llegada'],
+    ['gu-time','🕐 Horarios'],['gu-rules','📋 Reglamento'],['gu-wifi','📶 WiFi'],
+    ['gu-house','🏠 Alojamiento'],
     ['gu-park','🅿️ Estacionamiento'],['gu-wash','🧺 Lavandería'],['gu-supply','🧴 Insumos'],
     ['gu-amen','✨ Amenidades'],
   ];
@@ -31466,7 +31476,7 @@ function guiasBuildGuide(alojs) {
   // IV. Reglamento de la casa
   const sec4 = (() => {
     const list = guiasList_(V('reglamento'));
-    return guiSection_('gu-rules', '📋', 'linear-gradient(135deg,#dc2626,#f87171)', 'Reglamento de la casa', 'Para una convivencia armónica', guiRules_(list) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin reglamento listado.</div>');
+    return guiSection_('gu-rules', '📋', 'linear-gradient(135deg,#dc2626,#f87171)', 'Reglamento de la casa', 'Para una convivencia armónica', guiRules_(list) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin reglamento listado.</div>', { open: true });
   })();
   // V. Horas de entrada y salida
   const sec5 = (() => {
@@ -31476,7 +31486,7 @@ function guiasBuildGuide(alojs) {
       <div style="flex:1;text-align:center;padding:16px 8px;border-radius:14px;border:1px solid #a5f3fc;background:linear-gradient(135deg,#ecfeff,#f0fdfa)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:4px">Entrada</div><div style="font-size:24px;font-weight:800;color:#0f172a">${esc(entrada || '—')}</div></div>
       <div style="flex:1;text-align:center;padding:16px 8px;border-radius:14px;border:1px solid #fde68a;background:linear-gradient(135deg,#fff7ed,#fef9c3)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:4px">Salida</div><div style="font-size:24px;font-weight:800;color:#0f172a">${esc(salida || '—')}</div></div>
     </div>`;
-    return guiSection_('gu-time', '🕐', 'linear-gradient(135deg,#f59e0b,#fbbf24)', 'Horas de entrada y salida', 'Check-in / Check-out', inner);
+    return guiSection_('gu-time', '🕐', 'linear-gradient(135deg,#f59e0b,#fbbf24)', 'Horas de entrada y salida', 'Check-in / Check-out', inner, { open: true });
   })();
   // VI. Método de llegada — incluye "Tu departamento es el #N" antes del paso 1
   const sec6 = (() => {
@@ -31489,7 +31499,7 @@ function guiasBuildGuide(alojs) {
   // VII. Conexión WiFi
   const sec7 = (() => {
     return guiSection_('gu-wifi', '📶', 'linear-gradient(135deg,#7c3aed,#c084fc)', 'Conexión WiFi', 'Red y contraseña',
-      guiWifi_(V('wifi_red','wifi_name_1'), V('wifi_contrasena'), V('wifi_aviso')));
+      guiWifi_(V('wifi_red','wifi_name_1'), V('wifi_contrasena'), V('wifi_aviso')), { open: true });
   })();
   // VIII. Estacionamiento
   const sec8 = (() => {
@@ -31570,7 +31580,10 @@ function guiasBuildGuide(alojs) {
   // paso 1), Reglamento, Horarios, WiFi, Vehículos, Estacionamiento,
   // Lavandería, Insumos, Amenidades, [Parrilla], Salida, [Recomendaciones],
   // Emergencias SIEMPRE al final.
-  return sec1 + sec6 + sec2 + sec4 + sec5 + sec7 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec15 + sec12;
+  // Orden: Ubicación, Llegada, Horarios, Reglamento, WiFi (todos abiertos por
+  // default), luego Alojamiento, Vehículos, Estacionamiento, Lavandería,
+  // Insumos, Amenidades, [Parrilla], Salida, [Recomendaciones], Emergencias.
+  return sec1 + sec6 + sec5 + sec4 + sec7 + sec2 + sec14 + sec8 + sec9 + sec10 + sec3 + sec13 + sec11 + sec15 + sec12;
 }
 
 /** Hidrata cards de "Recomendaciones" pidiendo a Microlink título/imagen
