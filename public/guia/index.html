@@ -535,13 +535,14 @@ async function fetchWithTimeout_(url, ms){
  *  cold start de Cloud Run, la 2ª llamada suele ir rápida (contenedor ya
  *  arrancado). Devuelve { rows, fromCache } — fromCache=true si sirvió el
  *  fallback de localStorage. */
-async function loadAlojamientos_(){
-  const attempts = [{ url:`${BACKEND}/alojamientos-list`, timeout:15000 },
-                    { url:`${BACKEND}/alojamientos-list`, timeout:20000 }];
+async function loadAlojamientos_(id){
+  // Server-side filter por id: payload baja de ~320 KB a ~5 KB en cellular.
+  const url = `${BACKEND}/alojamientos-list${id ? '?id=' + encodeURIComponent(id) : ''}`;
+  const attempts = [{ timeout:15000 }, { timeout:20000 }];
   let lastErr = null;
   for (const a of attempts) {
     try {
-      const r = await fetchWithTimeout_(a.url, a.timeout);
+      const r = await fetchWithTimeout_(url, a.timeout);
       const j = await r.json();
       const rows = j.rows || [];
       if (rows.length) writeCache_(rows);
@@ -578,8 +579,19 @@ function showOfflineBanner_(stale){
     $('notfound-msg').textContent = 'Falta el parámetro ?id= en la URL.';
     return;
   }
+  // Timer visible en el loader — el usuario ve que sí está progresando.
+  const loaderMsg = document.querySelector('#loader > div:last-child');
+  const t0 = Date.now();
+  const timerId = setInterval(() => {
+    const s = Math.round((Date.now() - t0) / 1000);
+    if (loaderMsg) loaderMsg.textContent = s < 5
+      ? 'Cargando guía…'
+      : `Cargando guía… (${s}s en red lenta)`;
+  }, 1000);
+  const stopTimer = () => clearInterval(timerId);
   try {
-    const { rows, fromCache, stale } = await loadAlojamientos_();
+    const { rows, fromCache, stale } = await loadAlojamientos_(id);
+    stopTimer();
     const target = rows.find(r => {
       const rid = String(r.HouseId || r.HouseID || r.ID || '').trim();
       return rid.toLowerCase() === id.toLowerCase();
@@ -596,6 +608,7 @@ function showOfflineBanner_(stale){
     $('checkin-fab').style.display = 'block';
     if (fromCache) showOfflineBanner_(stale);
   } catch (err) {
+    stopTimer();
     $('loader').style.display = 'none';
     $('notfound').style.display = 'block';
     const offline = (typeof navigator !== 'undefined') && (navigator.onLine === false);
