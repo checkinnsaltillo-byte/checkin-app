@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1e293b">
 <meta name="robots" content="noindex,nofollow">
+<!-- preconnect al backend Cloud Run: acelera el primer fetch ~150-400ms -->
+<link rel="preconnect" href="https://ticket-vision-957627511957.northamerica-south1.run.app" crossorigin>
+<link rel="dns-prefetch" href="https://ticket-vision-957627511957.northamerica-south1.run.app">
 <title>Guía de Bienvenida · Check-inn Saltillo</title>
 <!-- OpenGraph preview (se completa dinámicamente cuando cargan los datos) -->
 <meta property="og:title" id="og-title" content="Guía de Bienvenida · Check-inn Saltillo">
@@ -498,6 +501,74 @@ function buildGuide(a) {
 }
 
 // ────────────────────────── boot ──────────────────────────
+// Cache localStorage: si el fetch falla (cellular lento, cold start, offline)
+// servimos la última respuesta conocida. TTL 7 días — datos de alojamientos
+// cambian raramente.
+const CACHE_KEY = 'guia_alojs_v1';
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function readCache_(){
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const c = JSON.parse(raw);
+    if (!c || !Array.isArray(c.rows)) return null;
+    return c;
+  } catch(_) { return null; }
+}
+function writeCache_(rows){
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), rows })); } catch(_) {}
+}
+
+/** Fetch con timeout (default 15s). AbortController garantiza que en cellular
+ *  lento no quedemos colgados esperando indefinidamente. */
+async function fetchWithTimeout_(url, ms){
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms || 15000);
+  try {
+    const r = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+    return r;
+  } finally { clearTimeout(t); }
+}
+
+/** Trae la lista de alojamientos con reintento: 15s → 20s. En cellular con
+ *  cold start de Cloud Run, la 2ª llamada suele ir rápida (contenedor ya
+ *  arrancado). Devuelve { rows, fromCache } — fromCache=true si sirvió el
+ *  fallback de localStorage. */
+async function loadAlojamientos_(){
+  const attempts = [{ url:`${BACKEND}/alojamientos-list`, timeout:15000 },
+                    { url:`${BACKEND}/alojamientos-list`, timeout:20000 }];
+  let lastErr = null;
+  for (const a of attempts) {
+    try {
+      const r = await fetchWithTimeout_(a.url, a.timeout);
+      const j = await r.json();
+      const rows = j.rows || [];
+      if (rows.length) writeCache_(rows);
+      return { rows, fromCache: false };
+    } catch(e) { lastErr = e; }
+  }
+  const cache = readCache_();
+  if (cache) {
+    const ageMs = Date.now() - Number(cache.ts || 0);
+    const stale = ageMs > CACHE_TTL_MS;
+    return { rows: cache.rows, fromCache: true, stale };
+  }
+  throw lastErr || new Error('sin datos y sin cache');
+}
+
+function showOfflineBanner_(stale){
+  try {
+    const msg = stale
+      ? '⚠ Datos en caché (más de 7 días). Reconéctate para ver la versión más reciente.'
+      : '📴 Sin conexión — mostrando datos guardados de tu última visita.';
+    const b = document.createElement('div');
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;padding:8px 14px;background:#fef3c7;color:#78350f;font-size:12px;font-weight:700;text-align:center;box-shadow:0 2px 4px rgba(15,23,42,.12)';
+    b.textContent = msg;
+    document.body.appendChild(b);
+  } catch(_){}
+}
+
 (async function () {
   const params = new URLSearchParams(location.search);
   const id = (params.get('id') || '').trim();
@@ -508,9 +579,7 @@ function buildGuide(a) {
     return;
   }
   try {
-    const res = await fetch(`${BACKEND}/alojamientos-list`, { cache: 'no-store' });
-    const data = await res.json();
-    const rows = data.rows || [];
+    const { rows, fromCache, stale } = await loadAlojamientos_();
     const target = rows.find(r => {
       const rid = String(r.HouseId || r.HouseID || r.ID || '').trim();
       return rid.toLowerCase() === id.toLowerCase();
@@ -525,10 +594,14 @@ function buildGuide(a) {
     $('loader').style.display = 'none';
     $('root').style.display = 'block';
     $('checkin-fab').style.display = 'block';
+    if (fromCache) showOfflineBanner_(stale);
   } catch (err) {
     $('loader').style.display = 'none';
     $('notfound').style.display = 'block';
-    $('notfound-msg').textContent = 'Error cargando datos. Intenta más tarde.';
+    const offline = (typeof navigator !== 'undefined') && (navigator.onLine === false);
+    $('notfound-msg').textContent = offline
+      ? '📴 Sin conexión a internet. Conéctate a WiFi o datos móviles y vuelve a intentar.'
+      : 'Error cargando datos. Verifica tu conexión e intenta de nuevo.';
     console.error(err);
   }
 })();
