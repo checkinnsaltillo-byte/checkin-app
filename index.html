@@ -2,12 +2,69 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
 <title>Check-inn Saltillo</title>
-<meta http-equiv="refresh" content="0; url=public/registro/">
+
+<!-- Resource hints: dispara DNS+TLS del backend en paralelo con la carga del
+     HTML principal (~200-400ms ahorrados en cellular). -->
+<link rel="preconnect" href="https://ticket-vision-957627511957.northamerica-south1.run.app" crossorigin>
+<link rel="dns-prefetch" href="https://ticket-vision-957627511957.northamerica-south1.run.app">
+<!-- Prefetch de la página destino: el navegador empieza a bajar el HTML
+     grande (~193 KB gzip) mientras se ve el loader. En muchos casos, cuando
+     el redirect finalmente ejecuta, el HTML ya está cacheado y aparece
+     al instante. -->
+<link rel="prefetch" href="public/registro/index.html" as="document">
+
+<style>
+  html,body{margin:0;padding:0;background:#f8fafc;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#0f172a}
+  .wrap{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;gap:14px}
+  .logo{font-size:34px;font-weight:900;letter-spacing:-.02em;color:#0f172a}
+  .logo .dot{color:#dc2626}
+  .sp{width:44px;height:44px;border:4px solid #e2e8f0;border-top-color:#dc2626;border-radius:50%;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .msg{font-size:14px;color:#475569;font-weight:600;max-width:280px;line-height:1.4}
+  .tip{font-size:12px;color:#94a3b8;margin-top:8px}
+  .retry{margin-top:20px;padding:12px 22px;background:#dc2626;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;display:none;text-decoration:none}
+  .retry.show{display:inline-block}
+</style>
+
+<script>
+  // Redirect inmediato con soporte offline: si el usuario está sin conexión,
+  // mostramos mensaje claro en lugar de dejar la pantalla en blanco.
+  (function(){
+    var target = "public/registro/";
+    function goNow(){ location.replace(target); }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      // No hay red — el redirect fallaría igual, mejor esperar a que vuelva.
+      window.addEventListener('online', goNow, { once: true });
+    } else {
+      // Con red: dispara el redirect inmediatamente. El loader se ve mientras
+      // el navegador baja el HTML destino (833 KB / 193 KB gzip).
+      setTimeout(goNow, 30);
+    }
+    // Después de 12s sin que aparezca el destino, ofrece un botón para
+    // reintentar (por si el navegador quedó colgado en cellular lento).
+    setTimeout(function(){
+      var el = document.getElementById('retryBtn');
+      if (el) el.classList.add('show');
+      var msg = document.getElementById('loaderMsg');
+      if (msg) msg.textContent = 'Tardando más de lo normal. Puedes reintentar.';
+    }, 12000);
+  })();
+</script>
+
+<!-- Fallback para navegadores sin JS: <meta refresh> -->
+<meta http-equiv="refresh" content="1; url=public/registro/">
 <link rel="canonical" href="public/registro/">
-<style>html,body{margin:0;padding:0;background:#fff;height:100%;}</style>
-<script>location.replace("public/registro/");</script>
 </head>
-<body></body>
+<body>
+<div class="wrap">
+  <div class="logo">Check<span class="dot">·</span>inn Saltillo</div>
+  <div class="sp"></div>
+  <div id="loaderMsg" class="msg">Cargando…</div>
+  <div class="tip">Si estás en datos móviles, la primera carga puede tardar unos segundos.</div>
+  <a id="retryBtn" class="retry" href="public/registro/">Reintentar</a>
+</div>
+</body>
 </html>
