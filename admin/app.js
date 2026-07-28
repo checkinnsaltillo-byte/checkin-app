@@ -33445,6 +33445,8 @@ function inqBuildMueblesHtml_(d) {
     const enabled = !!state.enabled;
     const qty = state.qty != null ? state.qty : item.def;
     const desc = state.desc || '';
+    // Cantidad por default: `def` del catálogo si existe, si no, 1 para todos.
+    const qtyShown = qty != null ? qty : (item.def != null ? item.def : 1);
     const extrasHtml = (item.extras || []).map(ex => {
       const val = state[ex.key] != null ? state[ex.key] : ex.def;
       return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;margin-left:6px">${esc(ex.label)}: <input type="number" data-inq-mueble="${esc(item.key)}" data-inq-extra="${esc(ex.key)}" value="${esc(val)}" step="${ex.step||1}" min="0" style="width:60px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px"></span>`;
@@ -33453,7 +33455,7 @@ function inqBuildMueblesHtml_(d) {
       <span onclick="inqToggleMueble('${esc(item.key)}')" data-inq-mueble-cb="${esc(item.key)}" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid ${enabled?'#334155':'#cbd5e1'};background:${enabled?'#334155':'#fff'};color:${enabled?'#fff':'transparent'};border-radius:4px;font-size:12px;font-weight:900;line-height:1">${enabled?'✓':''}</span>
       <div style="min-width:0">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:#0f172a;font-weight:600">
-          ${item.type === 'num' ? `<input type="number" data-inq-mueble="${esc(item.key)}" data-inq-field="qty" value="${esc(qty)}" step="${item.step||1}" min="0" style="width:70px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">` : ''}
+          <input type="number" data-inq-mueble="${esc(item.key)}" data-inq-field="qty" value="${esc(qtyShown)}" step="${item.step||1}" min="0" style="width:70px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
           <span>${esc(item.label)}</span>
           ${extrasHtml}
         </div>
