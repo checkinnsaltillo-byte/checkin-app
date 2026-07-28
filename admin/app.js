@@ -33289,7 +33289,12 @@ function inqRenderRentas() {
               <td style="text-align:right;font-weight:700;color:#0f766e">${inqFmtMoney(p.Monto_pagado)}</td>
               <td>${esc(p.Metodo_pago || '—')}</td>
               <td>${esc(p.Fecha_pago || '—')}</td>
-              <td>${p.Comprobante_url ? `<a href="${esc(p.Comprobante_url)}" target="_blank" onclick="event.stopPropagation()" style="color:#0d9488;font-weight:700">Ver</a>` : '—'}</td>
+              <td>${(() => {
+                const files = Array.isArray(p.Comprobante_files) ? p.Comprobante_files : [];
+                if (files.length) return `<a href="${esc(files[0].url)}" target="_blank" onclick="event.stopPropagation()" style="color:#0d9488;font-weight:700">🧾 Ver${files.length>1?` (${files.length})`:''}</a>`;
+                if (p.Comprobante_url) return `<a href="${esc(p.Comprobante_url)}" target="_blank" onclick="event.stopPropagation()" style="color:#0d9488;font-weight:700">🧾 Ver</a>`;
+                return '—';
+              })()}</td>
               <td style="font-size:12px;max-width:180px;white-space:normal;color:#475569">${esc(p.Notas || '—')}</td>
               <td style="text-align:right">
                 <button type="button" onclick="event.stopPropagation();inqDeletePago('${esc(p.ID)}')" style="all:unset;cursor:pointer;color:#dc2626;font-weight:700;padding:4px 8px" title="Eliminar">✕</button>
@@ -33321,11 +33326,17 @@ window.inqOpenPagoForm = function (id) {
   const data = id ? ((INQ_STATE.pagos || []).find(x => String(x.ID) === String(id)) || {}) : {};
   INQ_STATE.formKind = 'pago';
   INQ_STATE.formData = JSON.parse(JSON.stringify(data));
+  // Comprobante_files: si venía Comprobante_url legacy, migra a array de 1 item
+  INQ_STATE.formData.Comprobante_files = Array.isArray(data.Comprobante_files) ? data.Comprobante_files.slice() : [];
+  if (!INQ_STATE.formData.Comprobante_files.length && data.Comprobante_url) {
+    INQ_STATE.formData.Comprobante_files.push({ url: data.Comprobante_url, name: 'comprobante', mime: '' });
+  }
   document.getElementById('inq-form-title').textContent = id ? 'Editar pago' : 'Registrar pago';
   document.getElementById('inq-form-body').innerHTML = inqBuildPagoFormHtml(INQ_STATE.formData);
   const ov = document.getElementById('inq-form-overlay');
   ov.classList.remove('hidden');
   ov.style.display = 'block';
+  inqRenderComprobanteFiles();
 };
 
 window.inqCloseForm = function () {
@@ -33431,7 +33442,10 @@ function inqBuildPagoFormHtml(d) {
       ${inqField('Monto pagado', 'Monto_pagado', 'number', d.Monto_pagado, '0.00')}
       ${inqField('Método de pago', 'Metodo_pago', 'select', d.Metodo_pago || '', '', { options: [['','—'], ['Efectivo','Efectivo'], ['Transferencia','Transferencia'], ['Depósito','Depósito'], ['Tarjeta','Tarjeta'], ['Cheque','Cheque'], ['Otro','Otro']] })}
       ${inqField('Fecha de pago', 'Fecha_pago', 'date', d.Fecha_pago || isoDate)}
-      ${inqField('URL comprobante (opcional)', 'Comprobante_url', 'url', d.Comprobante_url, 'https://...')}
+      <div style="margin:6px 0 12px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
+        <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px">🧾 Comprobante de pago (PDF/JPG)</div>
+        <div id="inq-comprobante-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
+      </div>
       ${inqField('Notas', 'Notas', 'textarea', d.Notas, '', { rows: 2 })}
     </form>`;
 }
@@ -33504,6 +33518,9 @@ function inqRenderContratoFiles() {
 function inqRenderIdentFiles() {
   inqRenderFileStrip('inq-ident-strip', INQ_STATE.formData.Identificacion_files || [], 'inqDeleteIdentFile', 'inqAddIdentFiles');
 }
+function inqRenderComprobanteFiles() {
+  inqRenderFileStrip('inq-comprobante-strip', INQ_STATE.formData.Comprobante_files || [], 'inqDeleteComprobanteFile', 'inqAddComprobanteFiles');
+}
 
 async function inqUploadFile_(kind, file) {
   // Base64 → POST /inquilinos/upload
@@ -33571,6 +33588,13 @@ window.inqAddContratoFiles = function (fileList) {
 window.inqAddIdentFiles = function (fileList) {
   return inqAddFilesWithFeedback_('identificacion', fileList, 'Identificacion_files', inqRenderIdentFiles);
 };
+window.inqAddComprobanteFiles = function (fileList) {
+  return inqAddFilesWithFeedback_('comprobante', fileList, 'Comprobante_files', inqRenderComprobanteFiles);
+};
+window.inqDeleteComprobanteFile = function (idx) {
+  INQ_STATE.formData.Comprobante_files.splice(idx, 1);
+  inqRenderComprobanteFiles();
+};
 window.inqDeleteContratoFile = function (idx) {
   INQ_STATE.formData.Contrato_files.splice(idx, 1);
   inqRenderContratoFiles();
@@ -33609,6 +33633,10 @@ window.inqSaveCurrentForm = async function () {
   if (kind === 'perfil') {
     data.Contrato_files = INQ_STATE.formData.Contrato_files || [];
     data.Identificacion_files = INQ_STATE.formData.Identificacion_files || [];
+  } else if (kind === 'pago') {
+    data.Comprobante_files = INQ_STATE.formData.Comprobante_files || [];
+    // Guarda el primer URL en Comprobante_url para compat con lectores viejos
+    data.Comprobante_url = (data.Comprobante_files[0] || {}).url || '';
   }
   const endpoint = kind === 'perfil' ? '/inquilinos' : '/inquilinos-pagos';
   try {
