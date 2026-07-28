@@ -33389,20 +33389,20 @@ const INQ_SERVICIOS_CATALOG = ['Ninguno', 'Agua', 'Luz', 'Gas', 'Internet', 'Man
 // Catálogo de muebles. type='num' = número editable (0 = no incluido).
 // type='check' = solo marcado/no. extras = campos numéricos adicionales.
 const INQ_MUEBLES_CATALOG = [
-  { key:'cocina_integral', label:'Cocina integral',            type:'num',   def:1 },
-  { key:'estufa',          label:'Estufa con quemadores',      type:'check', extras:[{key:'quemadores', label:'# quemadores', def:6}] },
-  { key:'refrigerador',    label:'Refrigerador',               type:'check' },
-  { key:'microondas',      label:'Horno de microondas',        type:'check' },
-  { key:'camas_matri',     label:'Camas matrimoniales',        type:'num',   def:2 },
-  { key:'closets',         label:'Closets',                    type:'num',   def:2 },
-  { key:'banos',           label:'Baños',                      type:'num',   def:1.5, step:0.5 },
-  { key:'comedor',         label:'Comedor con sillas',         type:'check', extras:[{key:'sillas',     label:'# sillas',    def:4}] },
-  { key:'abanicos',        label:'Abanicos de techo',          type:'num',   def:2 },
-  { key:'espejos',         label:'Espejos',                    type:'num',   def:2 },
-  { key:'minisplits',      label:'Minisplits',                 type:'num',   def:2, extras:[{key:'toneladas', label:'toneladas c/u', def:1, step:0.5}] },
-  { key:'juego_sala',      label:'Juego de sala',              type:'check' },
-  { key:'mesa_centro',     label:'Mesa de centro',             type:'check' },
-  { key:'tv',              label:"TV 32'",                     type:'num',   def:1 },
+  { key:'cocina_integral', label:'Cocina',            type:'num',   def:1 },
+  { key:'estufa',          label:'Estufa',            type:'check', extras:[{key:'quemadores', label:'# quemadores', def:6}] },
+  { key:'refrigerador',    label:'Refrigerador',      type:'check' },
+  { key:'microondas',      label:'Horno de microondas', type:'check' },
+  { key:'camas_matri',     label:'Camas',             type:'num',   def:2 },
+  { key:'closets',         label:'Closets',           type:'num',   def:2 },
+  { key:'banos',           label:'Baños',             type:'num',   def:1.5, step:0.5 },
+  { key:'comedor',         label:'Comedor',           type:'check', extras:[{key:'sillas',     label:'# sillas',    def:4}] },
+  { key:'abanicos',        label:'Abanicos de techo', type:'num',   def:2 },
+  { key:'espejos',         label:'Espejos',           type:'num',   def:2 },
+  { key:'minisplits',      label:'Minisplits',        type:'num',   def:2, extras:[{key:'toneladas', label:'toneladas c/u', def:1, step:0.5}] },
+  { key:'juego_sala',      label:'Sala',              type:'check' },
+  { key:'mesa_centro',     label:'Mesa de centro',    type:'check' },
+  { key:'tv',              label:'TV',                type:'num',   def:1 },
 ];
 
 function inqBuildServiciosHtml_(d) {
@@ -33440,32 +33440,49 @@ function inqBuildAmuebladoHtml_(d) {
 
 function inqBuildMueblesHtml_(d) {
   const m = d.Muebles || {};
-  // Evita duplicados accidentales del catálogo (mesa_centro aparecía 2x)
+  // Evita duplicados accidentales del catálogo
   const seen = new Set();
   const catalog = INQ_MUEBLES_CATALOG.filter(item => item.type !== 'centered' && !seen.has(item.key) && seen.add(item.key));
-  return catalog.map(item => {
-    const state = m[item.key] || {};
+  const renderRow = (item, state, isCustom) => {
+    state = state || {};
     const enabled = !!state.enabled;
-    const qty = state.qty != null ? state.qty : item.def;
+    // Sólo mostrar cantidad si está enabled; si no, input vacío + gris + disabled.
+    const qtyShown = enabled ? (state.qty != null ? state.qty : (item.def != null ? item.def : 1)) : '';
     const desc = state.desc || '';
-    // Cantidad por default: `def` del catálogo si existe, si no, 1 para todos.
-    const qtyShown = qty != null ? qty : (item.def != null ? item.def : 1);
+    const disabledStyle = enabled ? '' : 'background:#f1f5f9;color:#94a3b8;cursor:not-allowed';
     const extrasHtml = (item.extras || []).map(ex => {
-      const val = state[ex.key] != null ? state[ex.key] : ex.def;
-      return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;margin-left:6px">${esc(ex.label)}: <input type="number" data-inq-mueble="${esc(item.key)}" data-inq-extra="${esc(ex.key)}" value="${esc(val)}" step="${ex.step||1}" min="0" style="width:60px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px"></span>`;
+      const val = enabled ? (state[ex.key] != null ? state[ex.key] : ex.def) : '';
+      const dis = enabled ? '' : 'disabled';
+      return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:${enabled?'#64748b':'#cbd5e1'};margin-left:6px">${esc(ex.label)}: <input type="number" data-inq-mueble="${esc(item.key)}" data-inq-extra="${esc(ex.key)}" value="${esc(val)}" step="${ex.step||1}" min="0" ${dis} style="width:60px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;${disabledStyle}"></span>`;
     }).join('');
-    return `<div style="display:grid;grid-template-columns:24px 1fr;gap:6px 10px;align-items:center;padding:8px 0;border-top:1px solid #e2e8f0">
+    // Label editable (input) para custom; span para catálogo.
+    const labelHtml = isCustom
+      ? `<input type="text" data-inq-mueble="${esc(item.key)}" data-inq-field="label" value="${esc(item.label||'')}" placeholder="Nombre del mueble" style="flex:1;min-width:120px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;font-weight:600">`
+      : `<span>${esc(item.label)}</span>`;
+    const deleteBtn = isCustom
+      ? `<button type="button" onclick="inqDeleteCustomMueble('${esc(item.key)}')" title="Eliminar" style="all:unset;cursor:pointer;color:#dc2626;font-weight:900;padding:2px 8px;font-size:14px">×</button>`
+      : '';
+    return `<div style="display:grid;grid-template-columns:24px 1fr auto;gap:6px 10px;align-items:center;padding:8px 0;border-top:1px solid #e2e8f0">
       <span onclick="inqToggleMueble('${esc(item.key)}')" data-inq-mueble-cb="${esc(item.key)}" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid ${enabled?'#334155':'#cbd5e1'};background:${enabled?'#334155':'#fff'};color:${enabled?'#fff':'transparent'};border-radius:4px;font-size:12px;font-weight:900;line-height:1">${enabled?'✓':''}</span>
       <div style="min-width:0">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:#0f172a;font-weight:600">
-          <input type="number" data-inq-mueble="${esc(item.key)}" data-inq-field="qty" value="${esc(qtyShown)}" step="${item.step||1}" min="0" style="width:70px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
-          <span>${esc(item.label)}</span>
+          <input type="number" data-inq-mueble="${esc(item.key)}" data-inq-field="qty" value="${esc(qtyShown)}" step="${item.step||1}" min="0" ${enabled?'':'disabled'} placeholder="—" style="width:70px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;${disabledStyle}">
+          ${labelHtml}
           ${extrasHtml}
         </div>
         <input type="text" data-inq-mueble="${esc(item.key)}" data-inq-field="desc" placeholder="Descripción (opcional)" value="${esc(desc)}" style="width:100%;margin-top:5px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#475569">
       </div>
+      <div>${deleteBtn}</div>
     </div>`;
-  }).join('');
+  };
+  const catalogRows = catalog.map(item => renderRow(item, m[item.key], false)).join('');
+  // Custom muebles: guardados en el mismo objeto Muebles con keys que empiezan por "otro_"
+  const customKeys = Object.keys(m).filter(k => k.indexOf('otro_') === 0);
+  const customRows = customKeys.map(k => renderRow({ key: k, label: m[k].label || '', def: 1 }, m[k], true)).join('');
+  const addBtn = `<div style="padding-top:10px;text-align:right">
+    <button type="button" onclick="inqAddCustomMueble()" style="all:unset;cursor:pointer;padding:6px 12px;background:#0f766e;color:#fff;border-radius:8px;font-size:12px;font-weight:700">＋ Agregar otro mueble</button>
+  </div>`;
+  return catalogRows + customRows + addBtn;
 }
 
 window.inqToggleServicio = function (name) {
@@ -33509,19 +33526,78 @@ window.inqToggleAmueblado = function () {
 window.inqToggleMueble = function (key) {
   const m = INQ_STATE.formData.Muebles || (INQ_STATE.formData.Muebles = {});
   m[key] = m[key] || {};
+  // Captura los valores actuales del DOM ANTES de mutar (para no perder desc/label editados)
+  inqCollectMueblesFromDom_();
+  // Flipea estado
   m[key].enabled = !m[key].enabled;
-  // Aplicar defaults si acaba de habilitarse
-  if (m[key].enabled) {
+  const target = !!m[key].enabled;
+  // Aplicar defaults al habilitar
+  if (target) {
     const cat = INQ_MUEBLES_CATALOG.find(x => x.key === key);
-    if (cat && cat.type === 'num' && m[key].qty == null) m[key].qty = cat.def;
-    if (cat && cat.extras) cat.extras.forEach(ex => { if (m[key][ex.key] == null) m[key][ex.key] = ex.def; });
+    if (cat) {
+      if (m[key].qty == null || m[key].qty === '') m[key].qty = (cat.def != null ? cat.def : 1);
+      if (cat.extras) cat.extras.forEach(ex => { if (m[key][ex.key] == null || m[key][ex.key] === '') m[key][ex.key] = ex.def; });
+    } else if (m[key].qty == null || m[key].qty === '') {
+      m[key].qty = 1; // custom mueble default
+    }
+  } else {
+    // Al deshabilitar limpiamos qty/extras (para que muestren vacío y sombreados)
+    delete m[key].qty;
+    const cat = INQ_MUEBLES_CATALOG.find(x => x.key === key);
+    if (cat && cat.extras) cat.extras.forEach(ex => { delete m[key][ex.key]; });
   }
-  const cb = document.querySelector(`[data-inq-mueble-cb="${key}"]`);
-  if (cb) {
-    cb.textContent = m[key].enabled ? '✓' : '';
-    cb.style.background = m[key].enabled ? '#334155' : '#fff';
-    cb.style.borderColor = m[key].enabled ? '#334155' : '#cbd5e1';
-    cb.style.color = m[key].enabled ? '#fff' : 'transparent';
+  // Re-render sólo el bloque de muebles
+  const block = document.getElementById('inq-muebles-block');
+  if (block) {
+    const inner = block.querySelector('div:last-child');
+    // Reconstruir todo el HTML de muebles
+    const html = inqBuildMueblesHtml_(INQ_STATE.formData);
+    // Reemplazar los rows dejando el header
+    block.innerHTML = `<div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">🛋️ Lista de muebles (edítalos según el alojamiento)</div>${html}`;
+  }
+};
+
+/** Recoge del DOM los valores actuales de qty/extras/desc/label y los
+ *  fusiona en INQ_STATE.formData.Muebles. Se llama antes de re-renderizar. */
+function inqCollectMueblesFromDom_() {
+  const m = INQ_STATE.formData.Muebles || (INQ_STATE.formData.Muebles = {});
+  document.querySelectorAll('[data-inq-mueble]').forEach(el => {
+    if (el.disabled) return; // no leas inputs disabled
+    const key = el.getAttribute('data-inq-mueble');
+    const field = el.getAttribute('data-inq-field');
+    const extra = el.getAttribute('data-inq-extra');
+    m[key] = m[key] || { enabled: false };
+    if (field === 'qty') { const v = Number(el.value); if (!isNaN(v)) m[key].qty = v; }
+    else if (field === 'desc') { m[key].desc = el.value; }
+    else if (field === 'label') { m[key].label = el.value; }
+    else if (extra) { const v = Number(el.value); if (!isNaN(v)) m[key][extra] = v; }
+  });
+}
+
+window.inqAddCustomMueble = function () {
+  const m = INQ_STATE.formData.Muebles || (INQ_STATE.formData.Muebles = {});
+  // Snapshot lo actual del DOM antes de re-render
+  inqCollectMueblesFromDom_();
+  // Genera key único
+  let n = 1;
+  while (m['otro_' + n]) n++;
+  m['otro_' + n] = { enabled: true, qty: 1, label: '', desc: '' };
+  // Re-render bloque
+  const block = document.getElementById('inq-muebles-block');
+  if (block) {
+    const html = inqBuildMueblesHtml_(INQ_STATE.formData);
+    block.innerHTML = `<div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">🛋️ Lista de muebles (edítalos según el alojamiento)</div>${html}`;
+  }
+};
+
+window.inqDeleteCustomMueble = function (key) {
+  const m = INQ_STATE.formData.Muebles || {};
+  inqCollectMueblesFromDom_();
+  delete m[key];
+  const block = document.getElementById('inq-muebles-block');
+  if (block) {
+    const html = inqBuildMueblesHtml_(INQ_STATE.formData);
+    block.innerHTML = `<div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">🛋️ Lista de muebles (edítalos según el alojamiento)</div>${html}`;
   }
 };
 
@@ -33872,16 +33948,18 @@ window.inqSaveCurrentForm = async function () {
     // Espejo string legible en Servicios_incluidos (para lectores/tabla)
     const summary = (s.items || []).map(x => x === 'Otro' && s.otro ? `Otro: ${s.otro}` : x).join(', ');
     data.Servicios_incluidos = summary;
-    // Muebles: recoge cantidades/extras/desc del DOM
+    // Muebles: recoge cantidades/extras/desc/label del DOM (respetando enabled del state)
     const mueb = JSON.parse(JSON.stringify(INQ_STATE.formData.Muebles || {}));
     document.querySelectorAll('[data-inq-mueble]').forEach(el => {
+      if (el.disabled) return; // ignora inputs deshabilitados (enabled=false)
       const key = el.getAttribute('data-inq-mueble');
       const field = el.getAttribute('data-inq-field');
       const extra = el.getAttribute('data-inq-extra');
       mueb[key] = mueb[key] || { enabled: false };
-      if (field === 'qty') { mueb[key].qty = Number(el.value) || 0; if (mueb[key].qty > 0) mueb[key].enabled = true; }
+      if (field === 'qty') { const v = Number(el.value); if (!isNaN(v)) mueb[key].qty = v; }
       else if (field === 'desc') { mueb[key].desc = el.value; }
-      else if (extra) { mueb[key][extra] = Number(el.value) || 0; }
+      else if (field === 'label') { mueb[key].label = el.value; }
+      else if (extra) { const v = Number(el.value); if (!isNaN(v)) mueb[key][extra] = v; }
     });
     data.Muebles = mueb;
   } else if (kind === 'pago') {
