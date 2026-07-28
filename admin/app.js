@@ -33312,6 +33312,7 @@ window.inqOpenPerfilForm = function (id) {
   // Asegura arrays de archivos
   INQ_STATE.formData.Contrato_files = Array.isArray(data.Contrato_files) ? data.Contrato_files.slice() : [];
   INQ_STATE.formData.Identificacion_files = Array.isArray(data.Identificacion_files) ? data.Identificacion_files.slice() : [];
+  INQ_STATE.formData.Aval_identificacion_files = Array.isArray(data.Aval_identificacion_files) ? data.Aval_identificacion_files.slice() : [];
   // Servicios y Muebles: objetos (no arrays). Migra legacy Servicios_incluidos string a items.
   INQ_STATE.formData.Servicios = (data.Servicios && typeof data.Servicios === 'object' && !Array.isArray(data.Servicios))
     ? { items: Array.isArray(data.Servicios.items)?data.Servicios.items.slice():[], otro: String(data.Servicios.otro||'') }
@@ -33330,7 +33331,9 @@ window.inqOpenPerfilForm = function (id) {
   ov.style.display = 'block';
   inqRenderContratoFiles();
   inqRenderIdentFiles();
+  inqRenderAvalIdentFiles();
   inqToggleOtroDescInput();
+  inqToggleAvalOtroDescInput();
 };
 
 window.inqOpenPagoForm = function (id) {
@@ -33541,7 +33544,14 @@ function inqBuildPerfilFormHtml(d) {
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         ${inqField('¿Requiere factura?', 'Requiere_factura', 'select', d.Requiere_factura || 'No', '', { options: [['','—'], ['Sí','Sí'], ['No','No']] })}
-        ${inqField('Renta mensual (MXN)', 'Renta_mensual', 'number', d.Renta_mensual, '0.00')}
+        ${inqField('Renta mensual (MXN)', 'Renta_mensual', 'number', d.Renta_mensual, '0.00', { extra: 'oninput="inqSyncDepositoIfLinked()"' })}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:10px">
+        ${inqField('Depósito (MXN)', 'Deposito', 'number', d.Deposito, '0.00')}
+        <label onclick="inqToggleDepositoIgualRenta()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:12px;color:#475569">
+          <span id="inq-dep-cb" data-on="${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '1' : '0'}" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:1.5px solid ${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '#334155' : '#cbd5e1'};background:${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '#334155' : '#fff'};color:${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '#fff' : 'transparent'};border-radius:4px;font-size:11px;font-weight:900;line-height:1">${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '✓' : ''}</span>
+          Mismo monto que Renta mensual
+        </label>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         ${inqField('Método de pago', 'Metodo_pago', 'select', d.Metodo_pago || '', '', { options: [['','—'], ['Efectivo','Efectivo'], ['Transferencia','Transferencia'], ['Depósito','Depósito'], ['Tarjeta','Tarjeta'], ['Cheque','Cheque'], ['Otro','Otro']] })}
@@ -33576,6 +33586,22 @@ function inqBuildPerfilFormHtml(d) {
           </div>
         </div>
         <div id="inq-ident-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
+      </div>
+
+      <div style="margin:14px 0 10px;padding:12px;background:#f0f9ff;border:1px dashed #7dd3fc;border-radius:10px">
+        <div style="font-size:13px;font-weight:800;color:#075985;margin-bottom:8px">🧑‍💼 Aval</div>
+        ${inqField('Nombre del Aval', 'Aval_nombre', 'text', d.Aval_nombre)}
+        ${inqField('WhatsApp / Celular del Aval', 'Aval_whatsapp', 'tel', d.Aval_whatsapp, '+52 844 000 0000')}
+        <div style="margin-top:6px">
+          <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:6px">🪪 Identificación personal del Aval</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px">
+            ${inqField('Tipo', 'Aval_identificacion_tipo', 'select', d.Aval_identificacion_tipo || '', '', { options: [['','—'], ['INE','INE'], ['Pasaporte','Pasaporte'], ['Otro','Otro']], extra: 'onchange="inqToggleAvalOtroDescInput()"' })}
+            <div id="inq-aval-otro-desc-wrap" style="${(d.Aval_identificacion_tipo||'')==='Otro'?'':'display:none'}">
+              ${inqField('Describe el documento', 'Aval_identificacion_otro_desc', 'text', d.Aval_identificacion_otro_desc, 'Ej. Cédula profesional')}
+            </div>
+          </div>
+          <div id="inq-aval-ident-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
+        </div>
       </div>
 
       ${d.ID ? `<div style="margin-top:18px;text-align:right">
@@ -33613,6 +33639,41 @@ window.inqToggleOtroDescInput = function () {
   const wrap = document.getElementById('inq-otro-desc-wrap');
   if (!sel || !wrap) return;
   wrap.style.display = (sel.value === 'Otro') ? 'block' : 'none';
+};
+
+window.inqToggleAvalOtroDescInput = function () {
+  const sel = document.querySelector('#inq-perfil-form select[name="Aval_identificacion_tipo"]');
+  const wrap = document.getElementById('inq-aval-otro-desc-wrap');
+  if (!sel || !wrap) return;
+  wrap.style.display = (sel.value === 'Otro') ? 'block' : 'none';
+};
+
+/** Toggle del check "Mismo monto que Renta mensual". Al marcar copia el valor,
+ *  al desmarcar deja el valor actual del Depósito intacto. */
+window.inqToggleDepositoIgualRenta = function () {
+  const cb = document.getElementById('inq-dep-cb');
+  if (!cb) return;
+  const on = cb.getAttribute('data-on') !== '1';
+  cb.setAttribute('data-on', on ? '1' : '0');
+  cb.textContent = on ? '✓' : '';
+  cb.style.background = on ? '#334155' : '#fff';
+  cb.style.borderColor = on ? '#334155' : '#cbd5e1';
+  cb.style.color = on ? '#fff' : 'transparent';
+  if (on) {
+    const renta = document.querySelector('#inq-perfil-form input[name="Renta_mensual"]');
+    const dep   = document.querySelector('#inq-perfil-form input[name="Deposito"]');
+    if (renta && dep) dep.value = renta.value;
+  }
+};
+
+/** Si el check "Mismo monto que Renta mensual" está activo, mantén el Depósito
+ *  sincronizado con la Renta mientras el usuario edita esta última. */
+window.inqSyncDepositoIfLinked = function () {
+  const cb = document.getElementById('inq-dep-cb');
+  if (!cb || cb.getAttribute('data-on') !== '1') return;
+  const renta = document.querySelector('#inq-perfil-form input[name="Renta_mensual"]');
+  const dep   = document.querySelector('#inq-perfil-form input[name="Deposito"]');
+  if (renta && dep) dep.value = renta.value;
 };
 
 // ── UPLOADS + PREVIEW STRIP (patrón del check-in) ─────────────────────
@@ -33678,6 +33739,9 @@ function inqRenderIdentFiles() {
 }
 function inqRenderComprobanteFiles() {
   inqRenderFileStrip('inq-comprobante-strip', INQ_STATE.formData.Comprobante_files || [], 'inqDeleteComprobanteFile', 'inqAddComprobanteFiles');
+}
+function inqRenderAvalIdentFiles() {
+  inqRenderFileStrip('inq-aval-ident-strip', INQ_STATE.formData.Aval_identificacion_files || [], 'inqDeleteAvalIdentFile', 'inqAddAvalIdentFiles');
 }
 
 async function inqUploadFile_(kind, file) {
@@ -33753,6 +33817,13 @@ window.inqDeleteComprobanteFile = function (idx) {
   INQ_STATE.formData.Comprobante_files.splice(idx, 1);
   inqRenderComprobanteFiles();
 };
+window.inqAddAvalIdentFiles = function (fileList) {
+  return inqAddFilesWithFeedback_('aval_identificacion', fileList, 'Aval_identificacion_files', inqRenderAvalIdentFiles);
+};
+window.inqDeleteAvalIdentFile = function (idx) {
+  INQ_STATE.formData.Aval_identificacion_files.splice(idx, 1);
+  inqRenderAvalIdentFiles();
+};
 window.inqDeleteContratoFile = function (idx) {
   INQ_STATE.formData.Contrato_files.splice(idx, 1);
   inqRenderContratoFiles();
@@ -33791,6 +33862,7 @@ window.inqSaveCurrentForm = async function () {
   if (kind === 'perfil') {
     data.Contrato_files = INQ_STATE.formData.Contrato_files || [];
     data.Identificacion_files = INQ_STATE.formData.Identificacion_files || [];
+    data.Aval_identificacion_files = INQ_STATE.formData.Aval_identificacion_files || [];
     // Servicios: recoge del state (toggleado por checkbox) + input "Otro"
     const s = INQ_STATE.formData.Servicios || { items: [], otro: '' };
     const otroEl = document.getElementById('inq-servicios-otro');
