@@ -33476,12 +33476,19 @@ async function inqUploadFile_(kind, file) {
     r.onerror = reject;
     r.readAsDataURL(file);
   });
-  const b64 = String(dataUrl).replace(/^data:[^;]+;base64,/, '');
+  // Normaliza el prefix "data:XXX;base64," — la mime puede estar vacía
+  // (algunos archivos sin extensión) → regex tolerante con [^;]* en lugar
+  // de [^;]+ que requería 1+ chars.
+  const b64 = String(dataUrl || '').replace(/^data:[^;]*;base64,/, '');
+  if (!b64) throw new Error('archivo vacío o ilegible');
   const iid = INQ_STATE.formData.ID || 'nuevo_' + Date.now();
+  // application/json + express.json() en Cloud Run parsea correctamente.
+  // Antes se usaba text/plain y req.body llegaba {} → Apps Script veía
+  // data:'' → "data vacío". CORS con preflight funciona (cors({origin:true})).
   const resp = await fetch(`${BACKEND}/inquilinos/upload`, {
     method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ inquilino_id: iid, filename: file.name, mime: file.type, data: b64, kind }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inquilino_id: iid, filename: file.name || 'archivo', mime: file.type || 'application/octet-stream', data: b64, kind }),
   });
   const j = await resp.json();
   if (!j.ok) throw new Error(j.error || 'upload failed');

@@ -2231,13 +2231,16 @@
       </div>
       <!-- Panel lateral derecho (form Perfil / Pago) -->
       <div id="inq-form-overlay" class="hidden" onclick="if(event.target===this)inqCloseForm()" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9998;display:none">
-        <aside id="inq-form-panel" style="position:absolute;top:0;right:0;bottom:0;width:min(560px,100%);background:#fff;box-shadow:-8px 0 24px rgba(15,23,42,.2);overflow-y:auto;padding:22px 22px 90px">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;position:sticky;top:0;background:#fff;padding-top:2px;z-index:5;border-bottom:1px solid #e2e8f0;padding-bottom:12px">
+        <aside id="inq-form-panel" style="position:absolute;top:0;right:0;bottom:0;width:min(560px,100%);background:#fff;box-shadow:-8px 0 24px rgba(15,23,42,.2);display:flex;flex-direction:column">
+          <!-- Header: FULL WIDTH, sin padding lateral que revele fondo -->
+          <div style="flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 22px;background:#fff;border-bottom:1px solid #e2e8f0">
             <h3 id="inq-form-title" style="margin:0;font-size:18px;color:#0f172a;font-weight:800">Inquilino</h3>
             <button type="button" onclick="inqCloseForm()" style="all:unset;cursor:pointer;background:#f1f5f9;color:#475569;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:700">✕ Cerrar</button>
           </div>
-          <div id="inq-form-body"></div>
-          <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 22px;background:#fff;border-top:1px solid #e2e8f0;display:flex;gap:10px">
+          <!-- Body scrollable en medio -->
+          <div id="inq-form-body" style="flex:1;overflow-y:auto;padding:20px 22px"></div>
+          <!-- Footer: FULL WIDTH, no flotante, en flujo normal al final del flex -->
+          <div style="flex:none;padding:12px 22px;background:#fff;border-top:1px solid #e2e8f0;display:flex;gap:10px">
             <button type="button" onclick="inqSaveCurrentForm()" class="inc-btn-pri" style="flex:1">💾 Guardar</button>
             <button type="button" onclick="inqCloseForm()" class="inc-btn-sec">Cancelar</button>
           </div>
@@ -2402,6 +2405,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=668"></script>
+  <script src="app.js?v=669"></script>
 </body>
 </html>
