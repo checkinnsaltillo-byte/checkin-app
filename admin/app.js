@@ -33444,10 +33444,27 @@ window.inqToggleOtroDescInput = function () {
 };
 
 // ── UPLOADS + PREVIEW STRIP (patrón del check-in) ─────────────────────
+// Inserta una sola vez las keyframes del spinner de subida.
+(function inqEnsureSpinnerCss_(){
+  if (document.getElementById('inq-spin-css')) return;
+  const s = document.createElement('style');
+  s.id = 'inq-spin-css';
+  s.textContent = '@keyframes inqSpin{to{transform:rotate(360deg)}}';
+  document.head.appendChild(s);
+})();
+
 function inqRenderFileStrip(containerId, files, onDelete, onAdd) {
   const cont = document.getElementById(containerId);
   if (!cont) return;
   const items = files.map((f, idx) => {
+    // Tile "subiendo…" mientras el upload está en curso
+    if (f._uploading) {
+      const shortName = String(f.name || 'archivo').slice(0, 12);
+      return `<div style="position:relative;width:80px;height:80px;border:1.5px dashed #f59e0b;border-radius:8px;background:#fffbeb;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;padding:6px;text-align:center">
+        <div style="width:24px;height:24px;border:3px solid #fed7aa;border-top-color:#ea580c;border-radius:50%;animation:inqSpin .8s linear infinite"></div>
+        <div style="font-size:9px;font-weight:800;color:#9a3412;margin-top:4px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%">${esc(shortName)}</div>
+      </div>`;
+    }
     const isImg = /image|jpg|jpeg|png|gif|webp/i.test(f.mime || f.name || '') || /\.(jpe?g|png|gif|webp)$/i.test(f.name || f.url || '');
     const bg = isImg ? `background:url('${esc(f.thumbnail || f.url)}') center/cover, #f1f5f9` : 'background:#f1f5f9';
     const badge = isImg ? '' : `<div style="position:absolute;bottom:2px;left:2px;right:2px;font-size:9px;font-weight:800;color:#fff;background:#0f172a;padding:2px 4px;border-radius:4px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📄 ${esc((f.name||'archivo').split('.').pop().toUpperCase())}</div>`;
@@ -33459,6 +33476,26 @@ function inqRenderFileStrip(containerId, files, onDelete, onAdd) {
   const addBtn = `<label style="width:80px;height:80px;border:2px dashed #94a3b8;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:#64748b;font-size:32px;font-weight:900;background:#fff" title="Agregar archivo">
     <input type="file" multiple accept="image/*,application/pdf" style="display:none" onchange="${onAdd}(this.files)">＋</label>`;
   cont.innerHTML = items + addBtn;
+}
+
+// Toast global de "Subiendo N archivo(s)…". Se muestra en la esquina inferior
+// derecha mientras hay uploads en curso. Se auto-oculta cuando el contador vuelve a 0.
+window.__inqUploadCount = 0;
+function inqShowUploadToast_() {
+  let el = document.getElementById('inq-upload-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'inq-upload-toast';
+    el.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:10000;background:#0f172a;color:#fff;padding:12px 16px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 12px 28px rgba(15,23,42,.35);display:flex;align-items:center;gap:10px;font-family:inherit';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `<div style="width:18px;height:18px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:inqSpin .8s linear infinite"></div>Subiendo ${window.__inqUploadCount} archivo${window.__inqUploadCount===1?'':'s'}…`;
+  el.style.display = 'flex';
+}
+function inqHideUploadToastIfDone_() {
+  if (window.__inqUploadCount > 0) return;
+  const el = document.getElementById('inq-upload-toast');
+  if (el) el.style.display = 'none';
 }
 
 function inqRenderContratoFiles() {
@@ -33495,23 +33532,44 @@ async function inqUploadFile_(kind, file) {
   return j.file;
 }
 
-window.inqAddContratoFiles = async function (fileList) {
-  for (const f of Array.from(fileList || [])) {
+// Sube archivos con feedback visual: agrega un tile placeholder con spinner
+// mientras el POST está en curso, y muestra un toast global "Subiendo N…".
+// Al terminar reemplaza el placeholder con el archivo real (o lo elimina si falla).
+async function inqAddFilesWithFeedback_(kind, fileList, targetArrayName, renderFn) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  // Push placeholders y captura sus refs para poder localizarlos después
+  const placeholders = files.map(f => ({ _uploading: true, name: f.name || 'archivo', mime: f.type || '' }));
+  placeholders.forEach(p => INQ_STATE.formData[targetArrayName].push(p));
+  window.__inqUploadCount += files.length;
+  inqShowUploadToast_();
+  renderFn();
+  // Subida secuencial (una a la vez para no saturar el Apps Script)
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    const ph = placeholders[i];
     try {
-      const uploaded = await inqUploadFile_('contrato', f);
-      INQ_STATE.formData.Contrato_files.push(uploaded);
-      inqRenderContratoFiles();
-    } catch (e) { alert('Error subiendo ' + f.name + ': ' + e.message); }
+      const uploaded = await inqUploadFile_(kind, f);
+      const idx = INQ_STATE.formData[targetArrayName].indexOf(ph);
+      if (idx >= 0) INQ_STATE.formData[targetArrayName][idx] = uploaded;
+    } catch (e) {
+      const idx = INQ_STATE.formData[targetArrayName].indexOf(ph);
+      if (idx >= 0) INQ_STATE.formData[targetArrayName].splice(idx, 1);
+      alert('Error subiendo ' + (f.name || 'archivo') + ': ' + e.message);
+    } finally {
+      window.__inqUploadCount = Math.max(0, window.__inqUploadCount - 1);
+      inqShowUploadToast_();
+      renderFn();
+    }
   }
+  inqHideUploadToastIfDone_();
+}
+
+window.inqAddContratoFiles = function (fileList) {
+  return inqAddFilesWithFeedback_('contrato', fileList, 'Contrato_files', inqRenderContratoFiles);
 };
-window.inqAddIdentFiles = async function (fileList) {
-  for (const f of Array.from(fileList || [])) {
-    try {
-      const uploaded = await inqUploadFile_('identificacion', f);
-      INQ_STATE.formData.Identificacion_files.push(uploaded);
-      inqRenderIdentFiles();
-    } catch (e) { alert('Error subiendo ' + f.name + ': ' + e.message); }
-  }
+window.inqAddIdentFiles = function (fileList) {
+  return inqAddFilesWithFeedback_('identificacion', fileList, 'Identificacion_files', inqRenderIdentFiles);
 };
 window.inqDeleteContratoFile = function (idx) {
   INQ_STATE.formData.Contrato_files.splice(idx, 1);
