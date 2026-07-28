@@ -8641,7 +8641,7 @@ function switchModule(mod) {
   if (mod === 'ocupacion') mod = 'dashboard';
   // Aliases: 'dashboard' y 'calendario' comparten el contenedor module-ocupacion
   const containerMod = (mod === 'dashboard' || mod === 'calendario') ? 'ocupacion' : mod;
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "tuya", "guias"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "inquilinos", "tuya", "guias"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -8743,6 +8743,9 @@ function switchModule(mod) {
   }
   if (mod === "rh") {
     if (typeof rhInit === 'function') rhInit();
+  }
+  if (mod === "inquilinos") {
+    if (typeof inqInit === 'function') inqInit();
   }
 }
 
@@ -33122,4 +33125,468 @@ window.asistGuardarRegistro = async function () {
     asistReloadList();
   }, 1400);
   btn.disabled = false;
+};
+
+// ═════════════════════════════════════════════════════════════════════════
+// ═══ MÓDULO INQUILINOS ═══════════════════════════════════════════════════
+// Gestión de rentas a largo plazo. 2 tabs:
+//  · Perfiles — tabla de inquilinos + form lateral (contrato + ID + fotos)
+//  · Rentas   — pagos mensuales por inquilino
+// ═════════════════════════════════════════════════════════════════════════
+
+const INQ_STATE = {
+  initialized: false,
+  tab: 'perfiles',
+  perfiles: [],
+  pagos: [],
+  currentInquilinoId: '',   // para tab Rentas: filtro por inquilino
+  formKind: '',             // 'perfil' | 'pago'
+  formData: null,
+};
+
+async function inqInit() {
+  if (!INQ_STATE.initialized) {
+    INQ_STATE.initialized = true;
+  }
+  await inqLoadPerfiles();
+  inqSetTab(INQ_STATE.tab || 'perfiles');
+}
+
+window.inqSetTab = function (tab) {
+  INQ_STATE.tab = tab;
+  document.querySelectorAll('[data-inq-tab]').forEach(b => b.classList.toggle('active', b.getAttribute('data-inq-tab') === tab));
+  const view = document.getElementById('inq-view');
+  if (!view) return;
+  view.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`;
+  if (tab === 'perfiles') inqRenderPerfiles();
+  else if (tab === 'rentas') inqLoadPagos().then(inqRenderRentas);
+};
+
+async function inqLoadPerfiles() {
+  try {
+    const r = await fetch(`${BACKEND}/inquilinos?_cb=${Date.now()}`, { cache: 'no-store' });
+    const j = await r.json();
+    if (j.ok) INQ_STATE.perfiles = j.rows || [];
+  } catch (e) { console.warn('[INQ] perfiles:', e.message); }
+}
+async function inqLoadPagos(inquilinoId) {
+  try {
+    const qs = inquilinoId ? `?inquilino_id=${encodeURIComponent(inquilinoId)}&` : '?';
+    const r = await fetch(`${BACKEND}/inquilinos-pagos${qs}_cb=${Date.now()}`, { cache: 'no-store' });
+    const j = await r.json();
+    if (j.ok) INQ_STATE.pagos = j.rows || [];
+  } catch (e) { console.warn('[INQ] pagos:', e.message); }
+}
+
+function inqFmtMoney(v) {
+  const n = Number(v || 0);
+  if (!isFinite(n)) return '—';
+  return '$ ' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function inqEstadoChip(estado) {
+  const est = String(estado || '').toLowerCase();
+  if (est === 'vigente') return `<span class="rh-chip rh-chip-activo">✓ Vigente</span>`;
+  if (est === 'vencido') return `<span class="rh-chip rh-chip-inactivo">✕ Vencido</span>`;
+  return `<span class="rh-chip">—</span>`;
+}
+function inqSiNoChip(v) {
+  const s = String(v || '').toLowerCase();
+  const yes = /^(sí|si|s[ií]|yes|true|1)$/.test(s);
+  if (yes) return `<span class="rh-chip rh-chip-activo">✓ Sí</span>`;
+  if (s) return `<span class="rh-chip rh-chip-inactivo">✕ No</span>`;
+  return '—';
+}
+
+function inqRenderPerfiles() {
+  const view = document.getElementById('inq-view');
+  const rows = INQ_STATE.perfiles || [];
+  view.innerHTML = `
+    <div class="rh-toolbar">
+      <div>
+        <div class="rh-toolbar-title">👥 Perfiles de inquilinos</div>
+        <div class="rh-toolbar-count">${rows.length} inquilino(s)</div>
+      </div>
+      <button type="button" class="rh-btn-add" onclick="inqOpenPerfilForm(null)">＋ Agregar inquilino</button>
+    </div>
+    ${rows.length === 0
+      ? `<div class="rh-empty">Sin inquilinos. Pulsa <strong>＋ Agregar inquilino</strong> para crear el primero.</div>`
+      : `<div style="overflow-x:auto"><table class="rh-table">
+          <thead><tr>
+            <th>Nombre</th>
+            <th>Contrato</th>
+            <th>Inicio</th>
+            <th>Fin</th>
+            <th>Estado</th>
+            <th>Factura</th>
+            <th style="text-align:right">Renta</th>
+            <th>Método pago</th>
+            <th>Día pago</th>
+            <th>WhatsApp</th>
+            <th>Contacto emerg.</th>
+            <th>Servicios incluidos</th>
+            <th>Notas</th>
+          </tr></thead>
+          <tbody>${rows.map(r => `
+            <tr onclick="inqOpenPerfilForm('${esc(r.ID)}')" style="cursor:pointer">
+              <td><strong>${esc(r.Nombre || '—')}</strong></td>
+              <td>${inqSiNoChip(r.Contrato_existe)}</td>
+              <td>${esc(r.Fecha_inicio || '—')}</td>
+              <td>${esc(r.Fecha_fin || '—')}</td>
+              <td>${inqEstadoChip(r.Estado_contrato)}</td>
+              <td>${inqSiNoChip(r.Requiere_factura)}</td>
+              <td style="text-align:right;font-weight:700">${r.Renta_mensual ? inqFmtMoney(r.Renta_mensual) : '—'}</td>
+              <td>${esc(r.Metodo_pago || '—')}</td>
+              <td>${esc(r.Dia_pago || '—')}</td>
+              <td>${esc(r.Whatsapp || '—')}</td>
+              <td style="font-size:12px">${esc(r.Contacto_emerg_nombre || '')}${r.Contacto_emerg_cel ? '<br><span style=\"color:#64748b;font-size:11px\">'+esc(r.Contacto_emerg_cel)+'</span>' : ''}</td>
+              <td style="font-size:12px;max-width:180px;white-space:normal">${esc(r.Servicios_incluidos || '—')}</td>
+              <td style="font-size:11px;max-width:200px;white-space:normal;color:#475569">${esc(r.Notas || '—')}</td>
+            </tr>`).join('')}</tbody>
+        </table></div>`}`;
+}
+
+function inqRenderRentas() {
+  const view = document.getElementById('inq-view');
+  const perfiles = INQ_STATE.perfiles || [];
+  const currentId = INQ_STATE.currentInquilinoId || '';
+  const currentP  = perfiles.find(p => String(p.ID) === currentId);
+  const pagos = (INQ_STATE.pagos || []).filter(p => !currentId || String(p.Inquilino_ID) === currentId);
+  const totalPagado = pagos.reduce((a, p) => a + (Number(p.Monto_pagado) || 0), 0);
+  view.innerHTML = `
+    <div class="rh-toolbar">
+      <div>
+        <div class="rh-toolbar-title">💵 Pagos de renta</div>
+        <div class="rh-toolbar-count">${pagos.length} pago(s) · Total: <strong>${inqFmtMoney(totalPagado)}</strong></div>
+      </div>
+      <button type="button" class="rh-btn-add" ${perfiles.length ? '' : 'disabled style="opacity:.5;cursor:not-allowed"'} onclick="inqOpenPagoForm(null)">＋ Registrar pago</button>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;margin:0 0 12px">
+      <label style="font-size:12px;color:#475569;font-weight:700">Inquilino:</label>
+      <select onchange="INQ_STATE.currentInquilinoId=this.value;inqLoadPagos(this.value).then(inqRenderRentas)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;flex:1;max-width:400px">
+        <option value="">Todos</option>
+        ${perfiles.map(p => `<option value="${esc(p.ID)}" ${p.ID===currentId?'selected':''}>${esc(p.Nombre || p.ID)}</option>`).join('')}
+      </select>
+    </div>
+    ${pagos.length === 0
+      ? `<div class="rh-empty">Sin pagos registrados. Pulsa <strong>＋ Registrar pago</strong>.</div>`
+      : `<div style="overflow-x:auto"><table class="rh-table">
+          <thead><tr>
+            <th>Mes</th>
+            <th>Inquilino</th>
+            <th style="text-align:right">Monto</th>
+            <th>Método</th>
+            <th>Fecha pago</th>
+            <th>Comprobante</th>
+            <th>Notas</th>
+            <th></th>
+          </tr></thead>
+          <tbody>${pagos.map(p => {
+            const inq = perfiles.find(x => String(x.ID) === String(p.Inquilino_ID));
+            return `
+            <tr onclick="inqOpenPagoForm('${esc(p.ID)}')" style="cursor:pointer">
+              <td><strong>${esc(p.Mes || '—')}</strong></td>
+              <td>${esc(inq ? inq.Nombre : (p.Inquilino_ID || '—'))}</td>
+              <td style="text-align:right;font-weight:700;color:#0f766e">${inqFmtMoney(p.Monto_pagado)}</td>
+              <td>${esc(p.Metodo_pago || '—')}</td>
+              <td>${esc(p.Fecha_pago || '—')}</td>
+              <td>${p.Comprobante_url ? `<a href="${esc(p.Comprobante_url)}" target="_blank" onclick="event.stopPropagation()" style="color:#0d9488;font-weight:700">Ver</a>` : '—'}</td>
+              <td style="font-size:12px;max-width:180px;white-space:normal;color:#475569">${esc(p.Notas || '—')}</td>
+              <td style="text-align:right">
+                <button type="button" onclick="event.stopPropagation();inqDeletePago('${esc(p.ID)}')" style="all:unset;cursor:pointer;color:#dc2626;font-weight:700;padding:4px 8px" title="Eliminar">✕</button>
+              </td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>`}`;
+}
+
+// ── FORM PERFIL ────────────────────────────────────────────────────────
+window.inqOpenPerfilForm = function (id) {
+  const data = id ? (INQ_STATE.perfiles.find(x => String(x.ID) === String(id)) || {}) : {};
+  INQ_STATE.formKind = 'perfil';
+  INQ_STATE.formData = JSON.parse(JSON.stringify(data));
+  // Asegura arrays de archivos
+  INQ_STATE.formData.Contrato_files = Array.isArray(data.Contrato_files) ? data.Contrato_files.slice() : [];
+  INQ_STATE.formData.Identificacion_files = Array.isArray(data.Identificacion_files) ? data.Identificacion_files.slice() : [];
+  document.getElementById('inq-form-title').textContent = id ? 'Editar inquilino' : 'Agregar inquilino';
+  document.getElementById('inq-form-body').innerHTML = inqBuildPerfilFormHtml(INQ_STATE.formData);
+  const ov = document.getElementById('inq-form-overlay');
+  ov.classList.remove('hidden');
+  ov.style.display = 'block';
+  inqRenderContratoFiles();
+  inqRenderIdentFiles();
+  inqToggleOtroDescInput();
+};
+
+window.inqOpenPagoForm = function (id) {
+  const data = id ? ((INQ_STATE.pagos || []).find(x => String(x.ID) === String(id)) || {}) : {};
+  INQ_STATE.formKind = 'pago';
+  INQ_STATE.formData = JSON.parse(JSON.stringify(data));
+  document.getElementById('inq-form-title').textContent = id ? 'Editar pago' : 'Registrar pago';
+  document.getElementById('inq-form-body').innerHTML = inqBuildPagoFormHtml(INQ_STATE.formData);
+  const ov = document.getElementById('inq-form-overlay');
+  ov.classList.remove('hidden');
+  ov.style.display = 'block';
+};
+
+window.inqCloseForm = function () {
+  const ov = document.getElementById('inq-form-overlay');
+  ov.classList.add('hidden');
+  ov.style.display = 'none';
+  INQ_STATE.formKind = '';
+  INQ_STATE.formData = null;
+};
+
+function inqField(label, name, type, value, placeholder, opts) {
+  const t = type || 'text';
+  const v = value == null ? '' : String(value);
+  const p = placeholder ? ` placeholder="${esc(placeholder)}"` : '';
+  const extra = (opts && opts.extra) || '';
+  if (t === 'textarea') {
+    return `<div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px">${esc(label)}</label>
+      <textarea name="${name}" rows="${opts?.rows||3}"${p} style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-family:inherit;resize:vertical">${esc(v)}</textarea></div>`;
+  }
+  if (t === 'select') {
+    return `<div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px">${esc(label)}</label>
+      <select name="${name}" ${extra} style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px;background:#fff">
+        ${(opts?.options || []).map(o => {
+          const [val, txt] = Array.isArray(o) ? o : [o, o];
+          return `<option value="${esc(val)}"${String(val)===v?' selected':''}>${esc(txt)}</option>`;
+        }).join('')}
+      </select></div>`;
+  }
+  return `<div style="margin-bottom:10px"><label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px">${esc(label)}</label>
+    <input type="${t}" name="${name}" value="${esc(v)}"${p} ${extra} style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px"></div>`;
+}
+
+function inqBuildPerfilFormHtml(d) {
+  d = d || {};
+  return `
+    <form id="inq-perfil-form" onsubmit="event.preventDefault();inqSaveCurrentForm()">
+      <input type="hidden" name="ID" value="${esc(d.ID || '')}">
+      <input type="hidden" name="created_at" value="${esc(d.created_at || '')}">
+      ${inqField('Nombre del inquilino', 'Nombre', 'text', d.Nombre, 'Ej. Juan Pérez López')}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${inqField('Contrato firmado', 'Contrato_existe', 'select', d.Contrato_existe || 'No', '', { options: [['','—'], ['Sí','Sí'], ['No','No']] })}
+        ${inqField('Estado contrato', 'Estado_contrato', 'select', d.Estado_contrato || '', '', { options: [['','Auto'], ['Vigente','Vigente'], ['Vencido','Vencido']] })}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${inqField('Fecha inicio contrato', 'Fecha_inicio', 'date', d.Fecha_inicio)}
+        ${inqField('Fecha fin contrato', 'Fecha_fin', 'date', d.Fecha_fin)}
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${inqField('¿Requiere factura?', 'Requiere_factura', 'select', d.Requiere_factura || 'No', '', { options: [['','—'], ['Sí','Sí'], ['No','No']] })}
+        ${inqField('Renta mensual (MXN)', 'Renta_mensual', 'number', d.Renta_mensual, '0.00')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${inqField('Método de pago', 'Metodo_pago', 'select', d.Metodo_pago || '', '', { options: [['','—'], ['Efectivo','Efectivo'], ['Transferencia','Transferencia'], ['Depósito','Depósito'], ['Tarjeta','Tarjeta'], ['Cheque','Cheque'], ['Otro','Otro']] })}
+        ${inqField('Día de pago (del mes)', 'Dia_pago', 'number', d.Dia_pago, '1-31')}
+      </div>
+
+      ${inqField('WhatsApp / Celular', 'Whatsapp', 'tel', d.Whatsapp, '+52 844 000 0000')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${inqField('Contacto de emergencia — Nombre', 'Contacto_emerg_nombre', 'text', d.Contacto_emerg_nombre)}
+        ${inqField('Contacto de emergencia — Celular', 'Contacto_emerg_cel', 'tel', d.Contacto_emerg_cel)}
+      </div>
+
+      ${inqField('Servicios incluidos', 'Servicios_incluidos', 'textarea', d.Servicios_incluidos, 'Ej. Agua, luz, gas, internet, mantenimiento', { rows: 2 })}
+      ${inqField('Notas', 'Notas', 'textarea', d.Notas, 'Notas internas', { rows: 3 })}
+
+      <div style="margin:16px 0 10px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
+        <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px">📄 Contrato (PDF/JPG)</div>
+        <div id="inq-contrato-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
+      </div>
+
+      <div style="margin:0 0 10px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
+        <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px">🪪 Identificación personal</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px">
+          ${inqField('Tipo', 'Identificacion_tipo', 'select', d.Identificacion_tipo || '', '', { options: [['','—'], ['INE','INE'], ['Pasaporte','Pasaporte'], ['Otro','Otro']], extra: 'onchange="inqToggleOtroDescInput()"' })}
+          <div id="inq-otro-desc-wrap" style="${(d.Identificacion_tipo||'')==='Otro'?'':'display:none'}">
+            ${inqField('Describe el documento', 'Identificacion_otro_desc', 'text', d.Identificacion_otro_desc, 'Ej. Cédula profesional')}
+          </div>
+        </div>
+        <div id="inq-ident-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
+      </div>
+
+      ${d.ID ? `<div style="margin-top:18px;text-align:right">
+        <button type="button" onclick="inqDeletePerfil('${esc(d.ID)}')" style="all:unset;cursor:pointer;color:#dc2626;font-size:12px;font-weight:700;padding:6px 12px;border:1px solid #fecaca;border-radius:8px">🗑 Eliminar inquilino</button>
+      </div>` : ''}
+    </form>`;
+}
+
+function inqBuildPagoFormHtml(d) {
+  d = d || {};
+  const perfiles = INQ_STATE.perfiles || [];
+  const defaultInq = d.Inquilino_ID || INQ_STATE.currentInquilinoId || '';
+  const today = new Date();
+  const isoDate = today.toISOString().slice(0,10);
+  const isoMonth = isoDate.slice(0,7);
+  return `
+    <form id="inq-pago-form" onsubmit="event.preventDefault();inqSaveCurrentForm()">
+      <input type="hidden" name="ID" value="${esc(d.ID || '')}">
+      <input type="hidden" name="created_at" value="${esc(d.created_at || '')}">
+      ${inqField('Inquilino', 'Inquilino_ID', 'select', defaultInq, '', { options: [['','—Selecciona—']].concat(perfiles.map(p => [p.ID, p.Nombre || p.ID])) })}
+      ${inqField('Mes (YYYY-MM)', 'Mes', 'month', d.Mes || isoMonth)}
+      ${inqField('Monto pagado', 'Monto_pagado', 'number', d.Monto_pagado, '0.00')}
+      ${inqField('Método de pago', 'Metodo_pago', 'select', d.Metodo_pago || '', '', { options: [['','—'], ['Efectivo','Efectivo'], ['Transferencia','Transferencia'], ['Depósito','Depósito'], ['Tarjeta','Tarjeta'], ['Cheque','Cheque'], ['Otro','Otro']] })}
+      ${inqField('Fecha de pago', 'Fecha_pago', 'date', d.Fecha_pago || isoDate)}
+      ${inqField('URL comprobante (opcional)', 'Comprobante_url', 'url', d.Comprobante_url, 'https://...')}
+      ${inqField('Notas', 'Notas', 'textarea', d.Notas, '', { rows: 2 })}
+    </form>`;
+}
+
+window.inqToggleOtroDescInput = function () {
+  const sel = document.querySelector('#inq-perfil-form select[name="Identificacion_tipo"]');
+  const wrap = document.getElementById('inq-otro-desc-wrap');
+  if (!sel || !wrap) return;
+  wrap.style.display = (sel.value === 'Otro') ? 'block' : 'none';
+};
+
+// ── UPLOADS + PREVIEW STRIP (patrón del check-in) ─────────────────────
+function inqRenderFileStrip(containerId, files, onDelete, onAdd) {
+  const cont = document.getElementById(containerId);
+  if (!cont) return;
+  const items = files.map((f, idx) => {
+    const isImg = /image|jpg|jpeg|png|gif|webp/i.test(f.mime || f.name || '') || /\.(jpe?g|png|gif|webp)$/i.test(f.name || f.url || '');
+    const bg = isImg ? `background:url('${esc(f.thumbnail || f.url)}') center/cover, #f1f5f9` : 'background:#f1f5f9';
+    const badge = isImg ? '' : `<div style="position:absolute;bottom:2px;left:2px;right:2px;font-size:9px;font-weight:800;color:#fff;background:#0f172a;padding:2px 4px;border-radius:4px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📄 ${esc((f.name||'archivo').split('.').pop().toUpperCase())}</div>`;
+    return `<div style="position:relative;width:80px;height:80px;border:1px solid #cbd5e1;border-radius:8px;${bg};cursor:pointer;overflow:hidden;flex-shrink:0" onclick="${isImg ? `inqOpenZoom('${esc(f.url)}')` : `window.open('${esc(f.url)}','_blank')`}">
+      <button type="button" onclick="event.stopPropagation();${onDelete}(${idx})" title="Eliminar" style="position:absolute;top:2px;right:2px;background:#dc2626;color:#fff;border:0;width:20px;height:20px;border-radius:50%;font-size:12px;font-weight:900;cursor:pointer;line-height:1">×</button>
+      ${badge}
+    </div>`;
+  }).join('');
+  const addBtn = `<label style="width:80px;height:80px;border:2px dashed #94a3b8;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:#64748b;font-size:32px;font-weight:900;background:#fff" title="Agregar archivo">
+    <input type="file" multiple accept="image/*,application/pdf" style="display:none" onchange="${onAdd}(this.files)">＋</label>`;
+  cont.innerHTML = items + addBtn;
+}
+
+function inqRenderContratoFiles() {
+  inqRenderFileStrip('inq-contrato-strip', INQ_STATE.formData.Contrato_files || [], 'inqDeleteContratoFile', 'inqAddContratoFiles');
+}
+function inqRenderIdentFiles() {
+  inqRenderFileStrip('inq-ident-strip', INQ_STATE.formData.Identificacion_files || [], 'inqDeleteIdentFile', 'inqAddIdentFiles');
+}
+
+async function inqUploadFile_(kind, file) {
+  // Base64 → POST /inquilinos/upload
+  const dataUrl = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+  const b64 = String(dataUrl).replace(/^data:[^;]+;base64,/, '');
+  const iid = INQ_STATE.formData.ID || 'nuevo_' + Date.now();
+  const resp = await fetch(`${BACKEND}/inquilinos/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ inquilino_id: iid, filename: file.name, mime: file.type, data: b64, kind }),
+  });
+  const j = await resp.json();
+  if (!j.ok) throw new Error(j.error || 'upload failed');
+  return j.file;
+}
+
+window.inqAddContratoFiles = async function (fileList) {
+  for (const f of Array.from(fileList || [])) {
+    try {
+      const uploaded = await inqUploadFile_('contrato', f);
+      INQ_STATE.formData.Contrato_files.push(uploaded);
+      inqRenderContratoFiles();
+    } catch (e) { alert('Error subiendo ' + f.name + ': ' + e.message); }
+  }
+};
+window.inqAddIdentFiles = async function (fileList) {
+  for (const f of Array.from(fileList || [])) {
+    try {
+      const uploaded = await inqUploadFile_('identificacion', f);
+      INQ_STATE.formData.Identificacion_files.push(uploaded);
+      inqRenderIdentFiles();
+    } catch (e) { alert('Error subiendo ' + f.name + ': ' + e.message); }
+  }
+};
+window.inqDeleteContratoFile = function (idx) {
+  INQ_STATE.formData.Contrato_files.splice(idx, 1);
+  inqRenderContratoFiles();
+};
+window.inqDeleteIdentFile = function (idx) {
+  INQ_STATE.formData.Identificacion_files.splice(idx, 1);
+  inqRenderIdentFiles();
+};
+
+// ── ZOOM modal ─────────────────────────────────────────────────────────
+window.inqOpenZoom = function (url) {
+  const el = document.getElementById('inq-zoom');
+  const img = document.getElementById('inq-zoom-img');
+  if (img) img.src = url;
+  if (el) { el.classList.remove('hidden'); el.style.display = 'flex'; }
+};
+window.inqCloseZoom = function () {
+  const el = document.getElementById('inq-zoom');
+  const img = document.getElementById('inq-zoom-img');
+  if (el) { el.classList.add('hidden'); el.style.display = 'none'; }
+  if (img) img.src = '';
+};
+
+// ── SAVE / DELETE ──────────────────────────────────────────────────────
+window.inqSaveCurrentForm = async function () {
+  const kind = INQ_STATE.formKind;
+  if (!kind) return;
+  const formSel = kind === 'perfil' ? '#inq-perfil-form' : '#inq-pago-form';
+  const form = document.querySelector(formSel);
+  if (!form) return;
+  const data = {};
+  Array.from(form.elements).forEach(el => {
+    if (!el.name) return;
+    data[el.name] = el.value;
+  });
+  if (kind === 'perfil') {
+    data.Contrato_files = INQ_STATE.formData.Contrato_files || [];
+    data.Identificacion_files = INQ_STATE.formData.Identificacion_files || [];
+  }
+  const endpoint = kind === 'perfil' ? '/inquilinos' : '/inquilinos-pagos';
+  try {
+    const r = await fetch(`${BACKEND}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'save failed');
+    inqCloseForm();
+    if (kind === 'perfil') { await inqLoadPerfiles(); inqRenderPerfiles(); }
+    else { await inqLoadPagos(INQ_STATE.currentInquilinoId); inqRenderRentas(); }
+  } catch (e) { alert('Error al guardar: ' + e.message); }
+};
+
+window.inqDeletePerfil = async function (id) {
+  if (!confirm('¿Eliminar este inquilino permanentemente? Los pagos históricos NO se borran.')) return;
+  try {
+    const r = await fetch(`${BACKEND}/inquilinos/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ID: id }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'delete failed');
+    inqCloseForm();
+    await inqLoadPerfiles();
+    inqRenderPerfiles();
+  } catch (e) { alert('Error al eliminar: ' + e.message); }
+};
+
+window.inqDeletePago = async function (id) {
+  if (!confirm('¿Eliminar este pago?')) return;
+  try {
+    const r = await fetch(`${BACKEND}/inquilinos-pagos/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ID: id }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'delete failed');
+    await inqLoadPagos(INQ_STATE.currentInquilinoId);
+    inqRenderRentas();
+  } catch (e) { alert('Error al eliminar: ' + e.message); }
 };

@@ -202,6 +202,10 @@
             onclick="switchModule('rh');closeNavMenu()">
           👥 Recursos Humanos
         </li>
+        <li class="nav-item" id="nav-item-inquilinos"
+            onclick="switchModule('inquilinos');closeNavMenu()">
+          🏠 Inquilinos
+        </li>
         <li class="nav-item" id="nav-item-tuya"
             onclick="switchModule('tuya');closeNavMenu()">
           🛰️ Dispositivos
@@ -2199,6 +2203,45 @@
       </div>
     </div><!-- /module-rh -->
 
+    <!-- ═══════════════ MÓDULO INQUILINOS ═══════════════ -->
+    <div id="module-inquilinos" class="hidden" style="padding:20px 24px 60px">
+      <div style="max-width:1440px;margin:0 auto">
+        <div class="rh-hero">
+          <div>
+            <div class="rh-hero-kicker">Gestión de rentas</div>
+            <h1 class="rh-hero-title">🏠 Inquilinos</h1>
+            <p class="rh-hero-sub">Perfiles, contratos y pagos mensuales de inquilinos.</p>
+          </div>
+        </div>
+        <div class="rh-tabs" style="margin-bottom:14px">
+          <button type="button" class="rh-tab active" data-inq-tab="perfiles" onclick="inqSetTab('perfiles')">👥 Perfiles</button>
+          <button type="button" class="rh-tab" data-inq-tab="rentas" onclick="inqSetTab('rentas')">💵 Rentas</button>
+        </div>
+        <div id="inq-view" class="rh-view">
+          <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
+        </div>
+      </div>
+      <!-- Panel lateral derecho (form Perfil / Pago) -->
+      <div id="inq-form-overlay" class="hidden" onclick="if(event.target===this)inqCloseForm()" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9998;display:none">
+        <aside id="inq-form-panel" style="position:absolute;top:0;right:0;bottom:0;width:min(560px,100%);background:#fff;box-shadow:-8px 0 24px rgba(15,23,42,.2);overflow-y:auto;padding:22px 22px 90px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;position:sticky;top:0;background:#fff;padding-top:2px;z-index:5;border-bottom:1px solid #e2e8f0;padding-bottom:12px">
+            <h3 id="inq-form-title" style="margin:0;font-size:18px;color:#0f172a;font-weight:800">Inquilino</h3>
+            <button type="button" onclick="inqCloseForm()" style="all:unset;cursor:pointer;background:#f1f5f9;color:#475569;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:700">✕ Cerrar</button>
+          </div>
+          <div id="inq-form-body"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 22px;background:#fff;border-top:1px solid #e2e8f0;display:flex;gap:10px">
+            <button type="button" onclick="inqSaveCurrentForm()" class="inc-btn-pri" style="flex:1">💾 Guardar</button>
+            <button type="button" onclick="inqCloseForm()" class="inc-btn-sec">Cancelar</button>
+          </div>
+        </aside>
+      </div>
+      <!-- Modal zoom de imagen -->
+      <div id="inq-zoom" class="hidden" onclick="inqCloseZoom()" style="position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;cursor:zoom-out">
+        <button type="button" onclick="event.stopPropagation();inqCloseZoom()" style="position:fixed;top:16px;right:16px;background:rgba(255,255,255,.15);color:#fff;border:0;width:44px;height:44px;border-radius:50%;font-size:22px;font-weight:900;cursor:pointer;z-index:1">✕</button>
+        <img id="inq-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px"/>
+      </div>
+    </div><!-- /module-inquilinos -->
+
     <!-- Detail modal for Bancos drilldown -->
     <div id="bn-modal-overlay" class="bn-modal-overlay hidden" onclick="bn_closeDetail()">
       <div class="bn-modal" onclick="event.stopPropagation()">
@@ -2351,6 +2394,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=664"></script>
+  <script src="app.js?v=665"></script>
 </body>
 </html>
