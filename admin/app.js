@@ -33312,6 +33312,17 @@ window.inqOpenPerfilForm = function (id) {
   // Asegura arrays de archivos
   INQ_STATE.formData.Contrato_files = Array.isArray(data.Contrato_files) ? data.Contrato_files.slice() : [];
   INQ_STATE.formData.Identificacion_files = Array.isArray(data.Identificacion_files) ? data.Identificacion_files.slice() : [];
+  // Servicios y Muebles: objetos (no arrays). Migra legacy Servicios_incluidos string a items.
+  INQ_STATE.formData.Servicios = (data.Servicios && typeof data.Servicios === 'object' && !Array.isArray(data.Servicios))
+    ? { items: Array.isArray(data.Servicios.items)?data.Servicios.items.slice():[], otro: String(data.Servicios.otro||'') }
+    : { items: [], otro: '' };
+  if (!INQ_STATE.formData.Servicios.items.length && data.Servicios_incluidos) {
+    // Migra string legacy — extrae keywords conocidos
+    const s = String(data.Servicios_incluidos).toLowerCase();
+    ['Agua','Luz','Gas','Internet','Mantenimiento'].forEach(k => { if (s.includes(k.toLowerCase())) INQ_STATE.formData.Servicios.items.push(k); });
+  }
+  INQ_STATE.formData.Muebles = (data.Muebles && typeof data.Muebles === 'object' && !Array.isArray(data.Muebles)) ? JSON.parse(JSON.stringify(data.Muebles)) : {};
+  INQ_STATE.formData.Amueblado = data.Amueblado || '';
   document.getElementById('inq-form-title').textContent = id ? 'Editar inquilino' : 'Agregar inquilino';
   document.getElementById('inq-form-body').innerHTML = inqBuildPerfilFormHtml(INQ_STATE.formData);
   const ov = document.getElementById('inq-form-overlay');
@@ -33369,6 +33380,146 @@ function inqField(label, name, type, value, placeholder, opts) {
     <input type="${t}" name="${name}" value="${esc(v)}"${p} ${extra} style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px"></div>`;
 }
 
+// Catálogo de servicios. "ninguno" bloquea a los demás; "otro" abre input libre.
+const INQ_SERVICIOS_CATALOG = ['Ninguno', 'Agua', 'Luz', 'Gas', 'Internet', 'Mantenimiento', 'Otro'];
+
+// Catálogo de muebles. type='num' = número editable (0 = no incluido).
+// type='check' = solo marcado/no. extras = campos numéricos adicionales.
+const INQ_MUEBLES_CATALOG = [
+  { key:'cocina_integral', label:'Cocina integral',            type:'num',   def:1 },
+  { key:'estufa',          label:'Estufa con quemadores',      type:'check', extras:[{key:'quemadores', label:'# quemadores', def:6}] },
+  { key:'refrigerador',    label:'Refrigerador',               type:'check' },
+  { key:'microondas',      label:'Horno de microondas',        type:'check' },
+  { key:'camas_matri',     label:'Camas matrimoniales',        type:'num',   def:2 },
+  { key:'closets',         label:'Closets',                    type:'num',   def:2 },
+  { key:'banos',           label:'Baños',                      type:'num',   def:1.5, step:0.5 },
+  { key:'comedor',         label:'Comedor con sillas',         type:'check', extras:[{key:'sillas',     label:'# sillas',    def:4}] },
+  { key:'abanicos',        label:'Abanicos de techo',          type:'num',   def:2 },
+  { key:'espejos',         label:'Espejos',                    type:'num',   def:2 },
+  { key:'minisplits',      label:'Minisplits',                 type:'num',   def:2, extras:[{key:'toneladas', label:'toneladas c/u', def:1, step:0.5}] },
+  { key:'juego_sala',      label:'Juego de sala',              type:'check' },
+  { key:'mesa_centro',     label:'Mesa de centro',             type:'check' },
+  { key:'tv',              label:"TV 32'",                     type:'num',   def:1 },
+];
+
+function inqBuildServiciosHtml_(d) {
+  const s = d.Servicios || {};
+  const items = Array.isArray(s.items) ? s.items : [];
+  const otro = String(s.otro || '');
+  const isChecked = (name) => items.includes(name);
+  const otroChecked = isChecked('Otro');
+  return `
+    <div style="margin:6px 0 10px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
+      <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">Servicios incluidos</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 14px">
+        ${INQ_SERVICIOS_CATALOG.map(name => {
+          const on = isChecked(name);
+          return `<label onclick="inqToggleServicio('${esc(name)}')" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:13px;color:#0f172a">
+            <span data-inq-serv="${esc(name)}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid ${on?'#334155':'#cbd5e1'};background:${on?'#334155':'#fff'};color:${on?'#fff':'transparent'};border-radius:4px;font-size:12px;font-weight:900;line-height:1">${on?'✓':''}</span>
+            ${esc(name)}
+          </label>`;
+        }).join('')}
+      </div>
+      <input type="text" id="inq-servicios-otro" placeholder="Describe el otro servicio…" value="${esc(otro)}" style="width:100%;margin-top:8px;padding:8px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;${otroChecked?'':'display:none'}">
+    </div>`;
+}
+
+function inqBuildAmuebladoHtml_(d) {
+  return `<div style="margin-bottom:10px">
+    <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px">Amueblado</label>
+    <select name="Amueblado" onchange="inqToggleAmueblado()" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px;background:#fff">
+      <option value=""${!d.Amueblado?' selected':''}>—</option>
+      <option value="Sí"${d.Amueblado==='Sí'?' selected':''}>Sí</option>
+      <option value="No"${d.Amueblado==='No'?' selected':''}>No</option>
+    </select>
+  </div>`;
+}
+
+function inqBuildMueblesHtml_(d) {
+  const m = d.Muebles || {};
+  // Evita duplicados accidentales del catálogo (mesa_centro aparecía 2x)
+  const seen = new Set();
+  const catalog = INQ_MUEBLES_CATALOG.filter(item => item.type !== 'centered' && !seen.has(item.key) && seen.add(item.key));
+  return catalog.map(item => {
+    const state = m[item.key] || {};
+    const enabled = !!state.enabled;
+    const qty = state.qty != null ? state.qty : item.def;
+    const desc = state.desc || '';
+    const extrasHtml = (item.extras || []).map(ex => {
+      const val = state[ex.key] != null ? state[ex.key] : ex.def;
+      return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;margin-left:6px">${esc(ex.label)}: <input type="number" data-inq-mueble="${esc(item.key)}" data-inq-extra="${esc(ex.key)}" value="${esc(val)}" step="${ex.step||1}" min="0" style="width:60px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px"></span>`;
+    }).join('');
+    return `<div style="display:grid;grid-template-columns:24px 1fr;gap:6px 10px;align-items:center;padding:8px 0;border-top:1px solid #e2e8f0">
+      <span onclick="inqToggleMueble('${esc(item.key)}')" data-inq-mueble-cb="${esc(item.key)}" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid ${enabled?'#334155':'#cbd5e1'};background:${enabled?'#334155':'#fff'};color:${enabled?'#fff':'transparent'};border-radius:4px;font-size:12px;font-weight:900;line-height:1">${enabled?'✓':''}</span>
+      <div style="min-width:0">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:#0f172a;font-weight:600">
+          ${item.type === 'num' ? `<input type="number" data-inq-mueble="${esc(item.key)}" data-inq-field="qty" value="${esc(qty)}" step="${item.step||1}" min="0" style="width:70px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">` : ''}
+          <span>${esc(item.label)}</span>
+          ${extrasHtml}
+        </div>
+        <input type="text" data-inq-mueble="${esc(item.key)}" data-inq-field="desc" placeholder="Descripción (opcional)" value="${esc(desc)}" style="width:100%;margin-top:5px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#475569">
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.inqToggleServicio = function (name) {
+  const s = INQ_STATE.formData.Servicios || (INQ_STATE.formData.Servicios = { items: [], otro: '' });
+  if (!Array.isArray(s.items)) s.items = [];
+  const isOn = s.items.includes(name);
+  const ninguno = s.items.includes('Ninguno');
+  // Si "Ninguno" está activo, ignorar clicks en los demás (bloqueados)
+  if (ninguno && name !== 'Ninguno') return;
+  if (name === 'Ninguno') {
+    s.items = isOn ? [] : ['Ninguno'];
+  } else {
+    if (isOn) s.items = s.items.filter(x => x !== name);
+    else s.items.push(name);
+  }
+  // Actualiza sólo las span-cb (sin re-render del form)
+  document.querySelectorAll('[data-inq-serv]').forEach(el => {
+    const n = el.getAttribute('data-inq-serv');
+    const on = s.items.includes(n);
+    const blocked = s.items.includes('Ninguno') && n !== 'Ninguno';
+    el.textContent = on ? '✓' : '';
+    el.style.background = on ? '#334155' : '#fff';
+    el.style.borderColor = on ? '#334155' : '#cbd5e1';
+    el.style.color = on ? '#fff' : 'transparent';
+    el.parentElement.style.opacity = blocked ? '.35' : '1';
+    el.parentElement.style.pointerEvents = blocked ? 'none' : '';
+  });
+  // Toggle input "otro"
+  const otroInp = document.getElementById('inq-servicios-otro');
+  if (otroInp) otroInp.style.display = s.items.includes('Otro') ? 'block' : 'none';
+};
+
+window.inqToggleAmueblado = function () {
+  const sel = document.querySelector('#inq-perfil-form select[name="Amueblado"]');
+  if (!sel) return;
+  INQ_STATE.formData.Amueblado = sel.value;
+  const block = document.getElementById('inq-muebles-block');
+  if (block) block.style.display = (sel.value === 'Sí') ? 'block' : 'none';
+};
+
+window.inqToggleMueble = function (key) {
+  const m = INQ_STATE.formData.Muebles || (INQ_STATE.formData.Muebles = {});
+  m[key] = m[key] || {};
+  m[key].enabled = !m[key].enabled;
+  // Aplicar defaults si acaba de habilitarse
+  if (m[key].enabled) {
+    const cat = INQ_MUEBLES_CATALOG.find(x => x.key === key);
+    if (cat && cat.type === 'num' && m[key].qty == null) m[key].qty = cat.def;
+    if (cat && cat.extras) cat.extras.forEach(ex => { if (m[key][ex.key] == null) m[key][ex.key] = ex.def; });
+  }
+  const cb = document.querySelector(`[data-inq-mueble-cb="${key}"]`);
+  if (cb) {
+    cb.textContent = m[key].enabled ? '✓' : '';
+    cb.style.background = m[key].enabled ? '#334155' : '#fff';
+    cb.style.borderColor = m[key].enabled ? '#334155' : '#cbd5e1';
+    cb.style.color = m[key].enabled ? '#fff' : 'transparent';
+  }
+};
+
 function inqBuildPerfilFormHtml(d) {
   d = d || {};
   return `
@@ -33401,7 +33552,12 @@ function inqBuildPerfilFormHtml(d) {
         ${inqField('Contacto de emergencia — Celular', 'Contacto_emerg_cel', 'tel', d.Contacto_emerg_cel)}
       </div>
 
-      ${inqField('Servicios incluidos', 'Servicios_incluidos', 'textarea', d.Servicios_incluidos, 'Ej. Agua, luz, gas, internet, mantenimiento', { rows: 2 })}
+      ${inqBuildServiciosHtml_(d)}
+      ${inqBuildAmuebladoHtml_(d)}
+      <div id="inq-muebles-block" style="${(d.Amueblado||'')==='Sí'?'':'display:none'};margin:6px 0 12px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
+        <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">🛋️ Lista de muebles (edítalos según el alojamiento)</div>
+        ${inqBuildMueblesHtml_(d)}
+      </div>
       ${inqField('Notas', 'Notas', 'textarea', d.Notas, 'Notas internas', { rows: 3 })}
 
       <div style="margin:16px 0 10px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
@@ -33633,6 +33789,27 @@ window.inqSaveCurrentForm = async function () {
   if (kind === 'perfil') {
     data.Contrato_files = INQ_STATE.formData.Contrato_files || [];
     data.Identificacion_files = INQ_STATE.formData.Identificacion_files || [];
+    // Servicios: recoge del state (toggleado por checkbox) + input "Otro"
+    const s = INQ_STATE.formData.Servicios || { items: [], otro: '' };
+    const otroEl = document.getElementById('inq-servicios-otro');
+    if (otroEl) s.otro = otroEl.value.trim();
+    if (!s.items.includes('Otro')) s.otro = '';
+    data.Servicios = { items: s.items || [], otro: s.otro || '' };
+    // Espejo string legible en Servicios_incluidos (para lectores/tabla)
+    const summary = (s.items || []).map(x => x === 'Otro' && s.otro ? `Otro: ${s.otro}` : x).join(', ');
+    data.Servicios_incluidos = summary;
+    // Muebles: recoge cantidades/extras/desc del DOM
+    const mueb = JSON.parse(JSON.stringify(INQ_STATE.formData.Muebles || {}));
+    document.querySelectorAll('[data-inq-mueble]').forEach(el => {
+      const key = el.getAttribute('data-inq-mueble');
+      const field = el.getAttribute('data-inq-field');
+      const extra = el.getAttribute('data-inq-extra');
+      mueb[key] = mueb[key] || { enabled: false };
+      if (field === 'qty') { mueb[key].qty = Number(el.value) || 0; if (mueb[key].qty > 0) mueb[key].enabled = true; }
+      else if (field === 'desc') { mueb[key].desc = el.value; }
+      else if (extra) { mueb[key][extra] = Number(el.value) || 0; }
+    });
+    data.Muebles = mueb;
   } else if (kind === 'pago') {
     data.Comprobante_files = INQ_STATE.formData.Comprobante_files || [];
     // Guarda el primer URL en Comprobante_url para compat con lectores viejos
