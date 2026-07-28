@@ -338,7 +338,7 @@ const SYS_MODULE_PERMS = {
   V:    ['incidencias'],
   VI:   ['objetos'],
   VII:  ['ocupacion'],
-  VIII: ['rh'],
+  VIII: ['rh','inquilinos'],
 };
 function sysGetStoredUser() {
   try { return JSON.parse(localStorage.getItem('sys_user') || 'null'); } catch (_) { return null; }
