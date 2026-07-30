@@ -33706,9 +33706,19 @@ function inqBuildPerfilFormHtml(d) {
         ${inqField('Contrato firmado', 'Contrato_existe', 'select', d.Contrato_existe || 'No', '', { options: [['','—'], ['Sí','Sí'], ['No','No']] })}
         ${inqField('Estado contrato', 'Estado_contrato', 'select', d.Estado_contrato || '', '', { options: [['','Auto'], ['Vigente','Vigente'], ['Vencido','Vencido']] })}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        ${inqField('Fecha inicio contrato', 'Fecha_inicio', 'date', d.Fecha_inicio)}
-        ${inqField('Fecha fin contrato', 'Fecha_fin', 'date', d.Fecha_fin)}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div>
+          <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Fecha inicio contrato</label>
+          <input type="date" name="Fecha_inicio" value="${esc(d.Fecha_inicio || '')}" oninput="inqRecalcFechaFin()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Duración (meses)</label>
+          <input type="number" name="Duracion_meses" min="1" max="120" step="1" value="${esc(d.Duracion_meses || '')}" placeholder="Ej. 12" oninput="inqRecalcFechaFin()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Fecha fin contrato</label>
+          <input type="date" name="Fecha_fin" value="${esc(d.Fecha_fin || '')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#f8fafc" title="Se calcula automáticamente a partir de la fecha de inicio y la duración">
+        </div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -33841,6 +33851,32 @@ window.inqSyncDepositoIfLinked = function () {
   const depRaw       = document.querySelector('#inq-perfil-form input[type="hidden"][name="Deposito"]');
   if (rentaVisible && depVisible) depVisible.value = rentaVisible.value;
   if (rentaRaw && depRaw) depRaw.value = rentaRaw.value;
+};
+
+// Recalcula Fecha_fin sumando N meses a Fecha_inicio (preserva día del mes;
+// si el mes destino es más corto, cae al último día del mes).
+window.inqRecalcFechaFin = function () {
+  const form = document.getElementById('inq-perfil-form');
+  if (!form) return;
+  const ini  = form.querySelector('input[name="Fecha_inicio"]');
+  const dur  = form.querySelector('input[name="Duracion_meses"]');
+  const fin  = form.querySelector('input[name="Fecha_fin"]');
+  if (!ini || !dur || !fin) return;
+  const s = String(ini.value || '');
+  const n = parseInt(dur.value, 10);
+  if (!s || !n || n < 1) return;
+  const parts = s.split('-'); // YYYY-MM-DD
+  if (parts.length !== 3) return;
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const d = parseInt(parts[2], 10);
+  const totalM = (m - 1) + n;
+  const ny = y + Math.floor(totalM / 12);
+  const nm = (totalM % 12) + 1;
+  const lastDay = new Date(ny, nm, 0).getDate();
+  const nd = Math.min(d, lastDay);
+  const pad = v => String(v).padStart(2, '0');
+  fin.value = `${ny}-${pad(nm)}-${pad(nd)}`;
 };
 
 // ── UPLOADS + PREVIEW STRIP (patrón del check-in) ─────────────────────
