@@ -33320,6 +33320,7 @@ function inqRenderRentas() {
   const view = document.getElementById('inq-view');
   const perfiles = INQ_STATE.perfiles || [];
   const currentId = INQ_STATE.currentInquilinoId || '';
+  const currentP  = perfiles.find(p => String(p.ID) === currentId);
   const currentProp  = INQ_STATE.currentPropiedad || '';
   const currentDepto = INQ_STATE.currentDepartamento || '';
   // Filtra perfiles por Propiedad/Departamento activos, y de esos deriva la lista de inquilinos disponibles.
