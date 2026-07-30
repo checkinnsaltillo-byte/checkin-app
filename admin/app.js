@@ -33464,9 +33464,13 @@ window.inqOpenPerfilForm = function (id) {
   INQ_STATE.formKind = 'perfil';
   INQ_STATE.formData = JSON.parse(JSON.stringify(data));
   // Asegura arrays de archivos
-  INQ_STATE.formData.Contrato_files = Array.isArray(data.Contrato_files) ? data.Contrato_files.slice() : [];
-  INQ_STATE.formData.Identificacion_files = Array.isArray(data.Identificacion_files) ? data.Identificacion_files.slice() : [];
-  INQ_STATE.formData.Aval_identificacion_files = Array.isArray(data.Aval_identificacion_files) ? data.Aval_identificacion_files.slice() : [];
+  // Defensivo: descarta placeholders _uploading que hayan quedado guardados
+  // en el sheet (perfiles guardados antes de que terminara el upload). No se
+  // pueden mostrar (no existen en Drive) y sólo pintan spinners eternos.
+  const _clean = (a) => (Array.isArray(a) ? a.filter(f => f && !f._uploading && (f.id || f.url)) : []);
+  INQ_STATE.formData.Contrato_files             = _clean(data.Contrato_files);
+  INQ_STATE.formData.Identificacion_files       = _clean(data.Identificacion_files);
+  INQ_STATE.formData.Aval_identificacion_files  = _clean(data.Aval_identificacion_files);
   // Servicios y Muebles: objetos (no arrays). Migra legacy Servicios_incluidos string a items.
   INQ_STATE.formData.Servicios = (data.Servicios && typeof data.Servicios === 'object' && !Array.isArray(data.Servicios))
     ? { items: Array.isArray(data.Servicios.items)?data.Servicios.items.slice():[], otro: String(data.Servicios.otro||''), caps: (data.Servicios.caps && typeof data.Servicios.caps === 'object') ? Object.assign({}, data.Servicios.caps) : {}, estado: String(data.Servicios.estado||'') }
@@ -34491,9 +34495,22 @@ window.inqSaveCurrentForm = async function () {
     data[n] = num ? (lada + num) : '';
   });
   if (kind === 'perfil') {
-    data.Contrato_files = INQ_STATE.formData.Contrato_files || [];
-    data.Identificacion_files = INQ_STATE.formData.Identificacion_files || [];
-    data.Aval_identificacion_files = INQ_STATE.formData.Aval_identificacion_files || [];
+    // NUNCA guardar placeholders con _uploading:true. Si el usuario da Guardar
+    // antes de que termine el upload, esos objetos entrarían al sheet como
+    // "cargando" permanente. Filtramos aquí y avisamos si había alguno.
+    const _stripUp = (arr) => (Array.isArray(arr) ? arr.filter(f => !f._uploading && f && (f.id || f.url)) : []);
+    const _rawContrato = INQ_STATE.formData.Contrato_files || [];
+    const _rawIdent    = INQ_STATE.formData.Identificacion_files || [];
+    const _rawAvalId   = INQ_STATE.formData.Aval_identificacion_files || [];
+    data.Contrato_files             = _stripUp(_rawContrato);
+    data.Identificacion_files       = _stripUp(_rawIdent);
+    data.Aval_identificacion_files  = _stripUp(_rawAvalId);
+    const _pendingCount = (_rawContrato.length - data.Contrato_files.length)
+                        + (_rawIdent.length    - data.Identificacion_files.length)
+                        + (_rawAvalId.length   - data.Aval_identificacion_files.length);
+    if (_pendingCount > 0) {
+      if (!confirm(`Hay ${_pendingCount} archivo(s) aún subiéndose. Se descartarán del guardado (no llegaron a Drive). ¿Continuar?`)) return;
+    }
     // Servicios: recoge del state (toggleado por checkbox) + input "Otro"
     const s = INQ_STATE.formData.Servicios || { items: [], otro: '' };
     const otroEl = document.getElementById('inq-servicios-otro');
@@ -34539,7 +34556,7 @@ window.inqSaveCurrentForm = async function () {
     });
     data.Muebles = mueb;
   } else if (kind === 'pago') {
-    data.Comprobante_files = INQ_STATE.formData.Comprobante_files || [];
+    data.Comprobante_files = (INQ_STATE.formData.Comprobante_files || []).filter(f => f && !f._uploading && (f.id || f.url));
     // Guarda el primer URL en Comprobante_url para compat con lectores viejos
     data.Comprobante_url = (data.Comprobante_files[0] || {}).url || '';
   }
