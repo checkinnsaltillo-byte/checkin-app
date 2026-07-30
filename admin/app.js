@@ -33315,8 +33315,8 @@ window.inqOpenPerfilForm = function (id) {
   INQ_STATE.formData.Aval_identificacion_files = Array.isArray(data.Aval_identificacion_files) ? data.Aval_identificacion_files.slice() : [];
   // Servicios y Muebles: objetos (no arrays). Migra legacy Servicios_incluidos string a items.
   INQ_STATE.formData.Servicios = (data.Servicios && typeof data.Servicios === 'object' && !Array.isArray(data.Servicios))
-    ? { items: Array.isArray(data.Servicios.items)?data.Servicios.items.slice():[], otro: String(data.Servicios.otro||'') }
-    : { items: [], otro: '' };
+    ? { items: Array.isArray(data.Servicios.items)?data.Servicios.items.slice():[], otro: String(data.Servicios.otro||''), caps: (data.Servicios.caps && typeof data.Servicios.caps === 'object') ? Object.assign({}, data.Servicios.caps) : {} }
+    : { items: [], otro: '', caps: {} };
   if (!INQ_STATE.formData.Servicios.items.length && data.Servicios_incluidos) {
     // Migra string legacy — extrae keywords conocidos
     const s = String(data.Servicios_incluidos).toLowerCase();
@@ -33500,24 +33500,67 @@ const INQ_MUEBLES_CATALOG = [
 function inqBuildServiciosHtml_(d) {
   const s = d.Servicios || {};
   const items = Array.isArray(s.items) ? s.items : [];
+  const caps = (s.caps && typeof s.caps === 'object') ? s.caps : {};
   const otro = String(s.otro || '');
   const isChecked = (name) => items.includes(name);
+  const ninguno = isChecked('Ninguno');
   const otroChecked = isChecked('Otro');
+  const rowHtml = (name) => {
+    const on = isChecked(name);
+    const blocked = ninguno && name !== 'Ninguno';
+    const canCap = name !== 'Ninguno';
+    const rawCap = caps[name] != null ? String(caps[name]) : '';
+    const fmtCap = rawCap && !isNaN(parseFloat(rawCap)) ? inqFmtMoneyRaw_(rawCap) : '';
+    const capEnabled = on && canCap;
+    const capBg = capEnabled ? '#fff' : '#f1f5f9';
+    const capColor = capEnabled ? '#0f172a' : '#94a3b8';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;opacity:${blocked?'.35':'1'};pointer-events:${blocked?'none':'auto'}">
+      <label onclick="inqToggleServicio('${esc(name)}')" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font-size:13px;color:#0f172a;min-width:160px;flex:0 0 auto">
+        <span data-inq-serv="${esc(name)}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid ${on?'#334155':'#cbd5e1'};background:${on?'#334155':'#fff'};color:${on?'#fff':'transparent'};border-radius:4px;font-size:12px;font-weight:900;line-height:1">${on?'✓':''}</span>
+        ${esc(name)}
+      </label>
+      ${canCap ? `
+      <span data-inq-cap-lbl="${esc(name)}" style="font-size:12px;color:${capEnabled?'#475569':'#94a3b8'};flex:0 0 auto">Topado a:</span>
+      <div style="position:relative;flex:1;max-width:200px">
+        <span data-inq-cap-sign="${esc(name)}" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:${capEnabled?'#0f172a':'#94a3b8'};font-weight:700;pointer-events:none">$</span>
+        <input type="text" inputmode="decimal" data-inq-cap="${esc(name)}" value="${esc(fmtCap)}" placeholder="0.00" oninput="inqCapOnInput(this)" onblur="inqCapOnBlur(this)" ${capEnabled?'':'disabled'} style="width:100%;padding:7px 10px 7px 22px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:${capBg};color:${capColor}">
+        <input type="hidden" data-inq-cap-raw="${esc(name)}" value="${esc(rawCap)}">
+      </div>` : ''}
+    </div>`;
+  };
   return `
     <div style="margin:6px 0 10px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
       <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">Servicios incluidos</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px 14px">
-        ${INQ_SERVICIOS_CATALOG.map(name => {
-          const on = isChecked(name);
-          return `<label onclick="inqToggleServicio('${esc(name)}')" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:13px;color:#0f172a">
-            <span data-inq-serv="${esc(name)}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid ${on?'#334155':'#cbd5e1'};background:${on?'#334155':'#fff'};color:${on?'#fff':'transparent'};border-radius:4px;font-size:12px;font-weight:900;line-height:1">${on?'✓':''}</span>
-            ${esc(name)}
-          </label>`;
-        }).join('')}
+      <div style="display:flex;flex-direction:column;gap:2px">
+        ${INQ_SERVICIOS_CATALOG.map(rowHtml).join('')}
       </div>
       <input type="text" id="inq-servicios-otro" placeholder="Describe el otro servicio…" value="${esc(otro)}" style="width:100%;margin-top:8px;padding:8px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;${otroChecked?'':'display:none'}">
     </div>`;
 }
+
+// Live-format del cap: sólo dígitos y un punto; muestra con comas.
+window.inqCapOnInput = function (el) {
+  const name = el.getAttribute('data-inq-cap');
+  let v = String(el.value || '').replace(/[^\d.]/g, '');
+  const parts = v.split('.');
+  if (parts.length > 2) v = parts[0] + '.' + parts.slice(1).join('');
+  const [intPart, decPart] = v.split('.');
+  const intFmt = intPart ? Number(intPart).toLocaleString('en-US') : '';
+  el.value = decPart != null ? (intFmt + '.' + decPart.slice(0,2)) : intFmt;
+  const raw = document.querySelector(`input[type="hidden"][data-inq-cap-raw="${CSS.escape(name)}"]`);
+  const rawVal = v === '' ? '' : String(parseFloat(v || '0'));
+  if (raw) raw.value = rawVal;
+  const s = INQ_STATE.formData.Servicios || (INQ_STATE.formData.Servicios = { items:[], otro:'', caps:{} });
+  if (!s.caps) s.caps = {};
+  if (rawVal === '') delete s.caps[name]; else s.caps[name] = rawVal;
+};
+
+window.inqCapOnBlur = function (el) {
+  const v = String(el.value || '').replace(/,/g, '');
+  const n = parseFloat(v);
+  if (isNaN(n)) { el.value = ''; return; }
+  el.value = inqFmtMoneyRaw_(n);
+};
 
 function inqBuildAmuebladoHtml_(d) {
   return `<div style="margin-bottom:10px">
@@ -33599,8 +33642,24 @@ window.inqToggleServicio = function (name) {
     el.style.background = on ? '#334155' : '#fff';
     el.style.borderColor = on ? '#334155' : '#cbd5e1';
     el.style.color = on ? '#fff' : 'transparent';
-    el.parentElement.style.opacity = blocked ? '.35' : '1';
-    el.parentElement.style.pointerEvents = blocked ? 'none' : '';
+    // El row real es el ancestro con opacity/pointer-events (parent del <label>)
+    const row = el.parentElement && el.parentElement.parentElement;
+    if (row) {
+      row.style.opacity = blocked ? '.35' : '1';
+      row.style.pointerEvents = blocked ? 'none' : 'auto';
+    }
+    // Habilita/deshabilita el input de cap para este servicio
+    const capInp = document.querySelector(`input[data-inq-cap="${CSS.escape(n)}"]`);
+    const capLbl = document.querySelector(`[data-inq-cap-lbl="${CSS.escape(n)}"]`);
+    const capSign = document.querySelector(`[data-inq-cap-sign="${CSS.escape(n)}"]`);
+    if (capInp) {
+      const enabled = on && n !== 'Ninguno';
+      capInp.disabled = !enabled;
+      capInp.style.background = enabled ? '#fff' : '#f1f5f9';
+      capInp.style.color = enabled ? '#0f172a' : '#94a3b8';
+      if (capLbl)  capLbl.style.color  = enabled ? '#475569' : '#94a3b8';
+      if (capSign) capSign.style.color = enabled ? '#0f172a' : '#94a3b8';
+    }
   });
   // Toggle input "otro"
   const otroInp = document.getElementById('inq-servicios-otro');
@@ -34100,9 +34159,21 @@ window.inqSaveCurrentForm = async function () {
     const otroEl = document.getElementById('inq-servicios-otro');
     if (otroEl) s.otro = otroEl.value.trim();
     if (!s.items.includes('Otro')) s.otro = '';
-    data.Servicios = { items: s.items || [], otro: s.otro || '' };
+    // Caps por servicio: sólo conserva los que están marcados y con valor numérico
+    const caps = {};
+    (s.items || []).forEach(name => {
+      if (name === 'Ninguno') return;
+      const rawEl = document.querySelector(`input[type="hidden"][data-inq-cap-raw="${CSS.escape(name)}"]`);
+      const rawVal = rawEl ? String(rawEl.value || '').trim() : '';
+      if (rawVal !== '' && !isNaN(parseFloat(rawVal))) caps[name] = parseFloat(rawVal);
+    });
+    data.Servicios = { items: s.items || [], otro: s.otro || '', caps };
     // Espejo string legible en Servicios_incluidos (para lectores/tabla)
-    const summary = (s.items || []).map(x => x === 'Otro' && s.otro ? `Otro: ${s.otro}` : x).join(', ');
+    const fmtCap = (v) => '$' + Number(v).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const summary = (s.items || []).map(x => {
+      const label = (x === 'Otro' && s.otro) ? `Otro: ${s.otro}` : x;
+      return caps[x] != null ? `${label} (topado a ${fmtCap(caps[x])})` : label;
+    }).join(', ');
     data.Servicios_incluidos = summary;
     // Muebles: recoge cantidades/extras/desc/label del DOM (respetando enabled del state)
     const mueb = JSON.parse(JSON.stringify(INQ_STATE.formData.Muebles || {}));
