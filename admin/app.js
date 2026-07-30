@@ -33160,13 +33160,15 @@ window.inqSetTab = function (tab) {
   view.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`;
   if (tab === 'perfiles') inqRenderPerfiles();
   else if (tab === 'rentas') {
-    // Carga en paralelo perfiles + pagos (los perfiles alimentan los 3 filtros:
-    // Inquilino/Propiedad/# Depto). Sin ambos, sólo se muestra "Todas/Todos".
-    const jobs = [];
-    if (!INQ_STATE.perfiles || !INQ_STATE.perfiles.length) jobs.push(inqLoadPerfiles());
-    if (!INQ_STATE.pagos    || !INQ_STATE.pagos.length)    jobs.push(inqLoadPagos());
-    if (jobs.length) Promise.all(jobs).then(inqRenderRentas);
-    else inqRenderRentas();
+    // Render inmediato con lo que haya en memoria (filtros visibles al instante).
+    // Cada fetch dispara re-render por su cuenta al llegar — nada bloquea la UI.
+    inqRenderRentas();
+    if (!INQ_STATE.perfiles || !INQ_STATE.perfiles.length) {
+      inqLoadPerfiles().then(() => { if (INQ_STATE.tab === 'rentas') inqRenderRentas(); });
+    }
+    if (!INQ_STATE.pagos || !INQ_STATE.pagos.length) {
+      inqLoadPagos().then(() => { if (INQ_STATE.tab === 'rentas') inqRenderRentas(); });
+    }
   }
 };
 
