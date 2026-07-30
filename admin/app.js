@@ -33245,17 +33245,65 @@ function inqRenderPerfiles() {
         </table></div>`}`;
 }
 
+// Autoselección: si (prop, depto) coincide con exactamente 1 perfil, lo elige.
+function inqAutoPickInquilino_() {
+  const perfiles = INQ_STATE.perfiles || [];
+  const p = INQ_STATE.currentPropiedad || '';
+  const d = INQ_STATE.currentDepartamento || '';
+  if (!p && !d) return;
+  const matches = perfiles.filter(x =>
+    (!p || String(x.Propiedad || '').trim() === p) &&
+    (!d || String(x.Departamento || '').trim() === d)
+  );
+  if (matches.length === 1) {
+    INQ_STATE.currentInquilinoId = String(matches[0].ID);
+    INQ_STATE.currentInquilinoText = String(matches[0].Nombre || matches[0].ID);
+  }
+}
+
 window.inqOnRentasPropChange = function (val) {
   INQ_STATE.currentPropiedad = val || '';
-  INQ_STATE.currentDepartamento = '';
+  // Si el depto actual ya no cae dentro de la propiedad nueva, se limpia.
+  const perfiles = INQ_STATE.perfiles || [];
+  const dptosValidos = new Set(perfiles
+    .filter(p => !INQ_STATE.currentPropiedad || String(p.Propiedad || '').trim() === INQ_STATE.currentPropiedad)
+    .map(p => String(p.Departamento || '').trim())
+  );
+  if (INQ_STATE.currentDepartamento && !dptosValidos.has(INQ_STATE.currentDepartamento)) {
+    INQ_STATE.currentDepartamento = '';
+  }
   INQ_STATE.currentInquilinoId = '';
-  inqLoadPagos('').then(inqRenderRentas);
+  INQ_STATE.currentInquilinoText = '';
+  inqAutoPickInquilino_();
+  inqLoadPagos(INQ_STATE.currentInquilinoId || '').then(inqRenderRentas);
 };
 
 window.inqOnRentasDeptoChange = function (val) {
   INQ_STATE.currentDepartamento = val || '';
   INQ_STATE.currentInquilinoId = '';
-  inqLoadPagos('').then(inqRenderRentas);
+  INQ_STATE.currentInquilinoText = '';
+  inqAutoPickInquilino_();
+  inqLoadPagos(INQ_STATE.currentInquilinoId || '').then(inqRenderRentas);
+};
+
+// Input de Inquilino con búsqueda: si el texto coincide exactamente con el
+// nombre de un perfil (case-insensitive), lo selecciona y autocompleta Prop/Depto.
+// Si no, guarda el texto como filtro por substring.
+window.inqOnRentasInqInput = function (val) {
+  const perfiles = INQ_STATE.perfiles || [];
+  const v = String(val || '').trim();
+  INQ_STATE.currentInquilinoText = v;
+  const exact = perfiles.find(p => String(p.Nombre || '').trim().toLowerCase() === v.toLowerCase());
+  if (v && exact) {
+    INQ_STATE.currentInquilinoId   = String(exact.ID);
+    INQ_STATE.currentPropiedad     = String(exact.Propiedad || '').trim();
+    INQ_STATE.currentDepartamento  = String(exact.Departamento || '').trim();
+  } else {
+    INQ_STATE.currentInquilinoId = '';
+  }
+  // Preserva foco/caret del input al re-renderizar.
+  INQ_STATE._focusInq = true;
+  inqLoadPagos(INQ_STATE.currentInquilinoId || '').then(inqRenderRentas);
 };
 
 function inqRenderRentas() {
@@ -33265,12 +33313,15 @@ function inqRenderRentas() {
   const currentProp  = INQ_STATE.currentPropiedad || '';
   const currentDepto = INQ_STATE.currentDepartamento || '';
   // Filtra perfiles por Propiedad/Departamento activos, y de esos deriva la lista de inquilinos disponibles.
-  const perfilesFiltrados = perfiles.filter(p =>
-    (!currentProp  || String(p.Propiedad || '').trim()    === currentProp) &&
-    (!currentDepto || String(p.Departamento || '').trim() === currentDepto)
-  );
+  const inqText = String(INQ_STATE.currentInquilinoText || '').trim().toLowerCase();
+  const perfilesFiltrados = perfiles.filter(p => {
+    if (currentProp  && String(p.Propiedad || '').trim()    !== currentProp)  return false;
+    if (currentDepto && String(p.Departamento || '').trim() !== currentDepto) return false;
+    // Si hay texto y NO hay id seleccionado, filtra por substring del nombre
+    if (inqText && !currentId && !String(p.Nombre || '').toLowerCase().includes(inqText)) return false;
+    return true;
+  });
   const idsPermitidos = new Set(perfilesFiltrados.map(p => String(p.ID)));
-  // Si el inquilino actualmente seleccionado ya no cae en el filtro, lo limpia.
   const effInqId = (currentId && idsPermitidos.has(currentId)) ? currentId : '';
   const pagos = (INQ_STATE.pagos || []).filter(p => {
     if (effInqId) return String(p.Inquilino_ID) === effInqId;
@@ -33294,6 +33345,13 @@ function inqRenderRentas() {
       <button type="button" class="rh-btn-add" ${perfiles.length ? '' : 'disabled style="opacity:.5;cursor:not-allowed"'} onclick="inqOpenPagoForm(null)">＋ Registrar pago</button>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px">
+      <div style="display:flex;gap:6px;align-items:center;min-width:260px;flex:2">
+        <label style="font-size:12px;color:#475569;font-weight:700;white-space:nowrap">Inquilino:</label>
+        <input type="search" list="inq-rentas-inqlist" value="${esc(INQ_STATE.currentInquilinoText || (currentP ? (currentP.Nombre || currentP.ID) : ''))}" oninput="inqOnRentasInqInput(this.value)" onchange="inqOnRentasInqInput(this.value)" placeholder="Escribe o elige…" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;flex:1;min-width:0">
+        <datalist id="inq-rentas-inqlist">
+          ${perfiles.map(p => `<option value="${esc(p.Nombre || p.ID)}"></option>`).join('')}
+        </datalist>
+      </div>
       <div style="display:flex;gap:6px;align-items:center;min-width:220px;flex:1">
         <label style="font-size:12px;color:#475569;font-weight:700;white-space:nowrap">Propiedad:</label>
         <select onchange="inqOnRentasPropChange(this.value)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;flex:1">
@@ -33306,13 +33364,6 @@ function inqRenderRentas() {
         <select onchange="inqOnRentasDeptoChange(this.value)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;min-width:100px">
           <option value="">Todos</option>
           ${deptosUnicos.map(d => `<option value="${esc(d)}" ${d===currentDepto?'selected':''}>${esc(d)}</option>`).join('')}
-        </select>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center;min-width:260px;flex:1">
-        <label style="font-size:12px;color:#475569;font-weight:700;white-space:nowrap">Inquilino:</label>
-        <select onchange="INQ_STATE.currentInquilinoId=this.value;inqLoadPagos(this.value).then(inqRenderRentas)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;flex:1">
-          <option value="">Todos</option>
-          ${perfilesFiltrados.map(p => `<option value="${esc(p.ID)}" ${p.ID===effInqId?'selected':''}>${esc(p.Nombre || p.ID)}</option>`).join('')}
         </select>
       </div>
     </div>
@@ -33351,6 +33402,12 @@ function inqRenderRentas() {
             </tr>`;
           }).join('')}</tbody>
         </table></div>`}`;
+  // Restaura foco en el input de Inquilino si el usuario estaba escribiendo.
+  if (INQ_STATE._focusInq) {
+    INQ_STATE._focusInq = false;
+    const inp = view.querySelector('input[list="inq-rentas-inqlist"]');
+    if (inp) { inp.focus(); const v = inp.value; try { inp.setSelectionRange(v.length, v.length); } catch(e){} }
+  }
 }
 
 // ── FORM PERFIL ────────────────────────────────────────────────────────
