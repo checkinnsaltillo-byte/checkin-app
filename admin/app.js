@@ -33308,6 +33308,7 @@ window.inqOnRentasInqInput = function (val) {
     INQ_STATE.currentInquilinoId   = String(exact.ID);
     INQ_STATE.currentPropiedad     = String(exact.Propiedad || '').trim();
     INQ_STATE.currentDepartamento  = String(exact.Departamento || '').trim();
+    console.info('[INQ Rentas] pick →', exact.Nombre, '· Propiedad=', INQ_STATE.currentPropiedad, '· Depto=', INQ_STATE.currentDepartamento, '· keys perfil=', Object.keys(exact).join(','));
   } else {
     INQ_STATE.currentInquilinoId = '';
   }
