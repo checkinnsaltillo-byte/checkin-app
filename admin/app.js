@@ -34274,10 +34274,16 @@ function inqRenderFileStrip(containerId, files, onDelete, onAdd) {
       </div>`;
     }
     const url = f.url || '';
-    const thumb = f.thumbnail || url;
+    // Extrae el fileId de Drive (soporta ?id=X y /file/d/X/). Con id podemos
+    // construir el thumbnail canónico aunque el objeto viejo no lo traiga.
+    const fidMatch = url.match(/[?&]id=([^&]+)/) || url.match(/\/file\/d\/([^\/?]+)/);
+    const driveId = f.id || (fidMatch ? fidMatch[1] : '');
+    const driveThumb = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w400` : '';
+    // Preferimos thumbnail explícito → thumbnail derivado del id → url final.
+    // NUNCA usar uc?export=view en <img>: es una página HTML, no una imagen.
+    const thumb = f.thumbnail || driveThumb || url;
     const isImg = /image|jpg|jpeg|png|gif|webp/i.test(f.mime || f.name || '') || /\.(jpe?g|png|gif|webp)$/i.test(f.name || url || '');
     // Fallback si thumbnail falla: intenta uc?export=view; si también falla, muestra ícono.
-    // Drive a veces bloquea thumbnail?id= por auth/rate-limit → onerror escala al URL principal.
     const imgFallback = url && thumb !== url ? esc(url) : '';
     const preview = isImg
       ? `<img src="${esc(thumb)}" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null;${imgFallback ? `this.src='${imgFallback}'` : `this.style.display='none';this.parentElement.setAttribute('data-broken','1')`}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none">`
@@ -34435,7 +34441,14 @@ window.inqOpenZoom = function (url, isPdf) {
     if (pdf) { pdf.src = src; pdf.style.display = 'block'; }
     if (img) { img.style.display = 'none'; img.src = ''; }
   } else {
-    if (img) { img.src = url; img.style.display = 'block'; }
+    // Imagen: uc?export=view devuelve HTML, no imagen. Convertimos a thumbnail?id=X&sz=w1600
+    // que sí renderiza como imagen directa en un <img>.
+    let src = String(url || '');
+    const m = src.match(/[?&]id=([^&]+)/) || src.match(/\/file\/d\/([^\/?]+)/);
+    if (m && /drive\.google\.com/.test(src)) {
+      src = 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1600';
+    }
+    if (img) { img.src = src; img.style.display = 'block'; }
     if (pdf) { pdf.style.display = 'none'; pdf.src = ''; }
   }
   el.classList.remove('hidden');
