@@ -33159,7 +33159,15 @@ window.inqSetTab = function (tab) {
   if (!view) return;
   view.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`;
   if (tab === 'perfiles') inqRenderPerfiles();
-  else if (tab === 'rentas') inqLoadPagos().then(inqRenderRentas);
+  else if (tab === 'rentas') {
+    // Carga en paralelo perfiles + pagos (los perfiles alimentan los 3 filtros:
+    // Inquilino/Propiedad/# Depto). Sin ambos, sólo se muestra "Todas/Todos".
+    const jobs = [];
+    if (!INQ_STATE.perfiles || !INQ_STATE.perfiles.length) jobs.push(inqLoadPerfiles());
+    if (!INQ_STATE.pagos    || !INQ_STATE.pagos.length)    jobs.push(inqLoadPagos());
+    if (jobs.length) Promise.all(jobs).then(inqRenderRentas);
+    else inqRenderRentas();
+  }
 };
 
 async function inqLoadPerfiles() {
@@ -33275,7 +33283,7 @@ window.inqOnRentasPropChange = function (val) {
   INQ_STATE.currentInquilinoId = '';
   INQ_STATE.currentInquilinoText = '';
   inqAutoPickInquilino_();
-  inqLoadPagos(INQ_STATE.currentInquilinoId || '').then(inqRenderRentas);
+  inqRenderRentas();
 };
 
 window.inqOnRentasDeptoChange = function (val) {
@@ -33283,7 +33291,7 @@ window.inqOnRentasDeptoChange = function (val) {
   INQ_STATE.currentInquilinoId = '';
   INQ_STATE.currentInquilinoText = '';
   inqAutoPickInquilino_();
-  inqLoadPagos(INQ_STATE.currentInquilinoId || '').then(inqRenderRentas);
+  inqRenderRentas();
 };
 
 // Input de Inquilino con búsqueda: si el texto coincide exactamente con el
@@ -33303,7 +33311,7 @@ window.inqOnRentasInqInput = function (val) {
   }
   // Preserva foco/caret del input al re-renderizar.
   INQ_STATE._focusInq = true;
-  inqLoadPagos(INQ_STATE.currentInquilinoId || '').then(inqRenderRentas);
+  inqRenderRentas();
 };
 
 function inqRenderRentas() {
@@ -33323,8 +33331,10 @@ function inqRenderRentas() {
   });
   const idsPermitidos = new Set(perfilesFiltrados.map(p => String(p.ID)));
   const effInqId = (currentId && idsPermitidos.has(currentId)) ? currentId : '';
+  const anyFilter = !!(currentId || currentProp || currentDepto || inqText);
   const pagos = (INQ_STATE.pagos || []).filter(p => {
     if (effInqId) return String(p.Inquilino_ID) === effInqId;
+    if (!anyFilter) return true; // sin filtros → todos los pagos
     return idsPermitidos.has(String(p.Inquilino_ID));
   });
   // Opciones únicas para los selects.
