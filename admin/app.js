@@ -33245,12 +33245,45 @@ function inqRenderPerfiles() {
         </table></div>`}`;
 }
 
+window.inqOnRentasPropChange = function (val) {
+  INQ_STATE.currentPropiedad = val || '';
+  INQ_STATE.currentDepartamento = '';
+  INQ_STATE.currentInquilinoId = '';
+  inqLoadPagos('').then(inqRenderRentas);
+};
+
+window.inqOnRentasDeptoChange = function (val) {
+  INQ_STATE.currentDepartamento = val || '';
+  INQ_STATE.currentInquilinoId = '';
+  inqLoadPagos('').then(inqRenderRentas);
+};
+
 function inqRenderRentas() {
   const view = document.getElementById('inq-view');
   const perfiles = INQ_STATE.perfiles || [];
   const currentId = INQ_STATE.currentInquilinoId || '';
-  const currentP  = perfiles.find(p => String(p.ID) === currentId);
-  const pagos = (INQ_STATE.pagos || []).filter(p => !currentId || String(p.Inquilino_ID) === currentId);
+  const currentProp  = INQ_STATE.currentPropiedad || '';
+  const currentDepto = INQ_STATE.currentDepartamento || '';
+  // Filtra perfiles por Propiedad/Departamento activos, y de esos deriva la lista de inquilinos disponibles.
+  const perfilesFiltrados = perfiles.filter(p =>
+    (!currentProp  || String(p.Propiedad || '').trim()    === currentProp) &&
+    (!currentDepto || String(p.Departamento || '').trim() === currentDepto)
+  );
+  const idsPermitidos = new Set(perfilesFiltrados.map(p => String(p.ID)));
+  // Si el inquilino actualmente seleccionado ya no cae en el filtro, lo limpia.
+  const effInqId = (currentId && idsPermitidos.has(currentId)) ? currentId : '';
+  const pagos = (INQ_STATE.pagos || []).filter(p => {
+    if (effInqId) return String(p.Inquilino_ID) === effInqId;
+    return idsPermitidos.has(String(p.Inquilino_ID));
+  });
+  // Opciones únicas para los selects.
+  const propsUnicas = Array.from(new Set(perfiles.map(p => String(p.Propiedad || '').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
+  const deptosUnicos = Array.from(new Set(
+    perfiles
+      .filter(p => !currentProp || String(p.Propiedad || '').trim() === currentProp)
+      .map(p => String(p.Departamento || '').trim())
+      .filter(Boolean)
+  )).sort((a,b) => { const na=parseFloat(a), nb=parseFloat(b); return (!isNaN(na)&&!isNaN(nb)) ? na-nb : a.localeCompare(b,'es'); });
   const totalPagado = pagos.reduce((a, p) => a + (Number(p.Monto_pagado) || 0), 0);
   view.innerHTML = `
     <div class="rh-toolbar">
@@ -33260,12 +33293,28 @@ function inqRenderRentas() {
       </div>
       <button type="button" class="rh-btn-add" ${perfiles.length ? '' : 'disabled style="opacity:.5;cursor:not-allowed"'} onclick="inqOpenPagoForm(null)">＋ Registrar pago</button>
     </div>
-    <div style="display:flex;gap:10px;align-items:center;margin:0 0 12px">
-      <label style="font-size:12px;color:#475569;font-weight:700">Inquilino:</label>
-      <select onchange="INQ_STATE.currentInquilinoId=this.value;inqLoadPagos(this.value).then(inqRenderRentas)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;flex:1;max-width:400px">
-        <option value="">Todos</option>
-        ${perfiles.map(p => `<option value="${esc(p.ID)}" ${p.ID===currentId?'selected':''}>${esc(p.Nombre || p.ID)}</option>`).join('')}
-      </select>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px">
+      <div style="display:flex;gap:6px;align-items:center;min-width:220px;flex:1">
+        <label style="font-size:12px;color:#475569;font-weight:700;white-space:nowrap">Propiedad:</label>
+        <select onchange="inqOnRentasPropChange(this.value)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;flex:1">
+          <option value="">Todas</option>
+          ${propsUnicas.map(p => `<option value="${esc(p)}" ${p===currentProp?'selected':''}>${esc(p)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;min-width:180px;flex:0 0 auto">
+        <label style="font-size:12px;color:#475569;font-weight:700;white-space:nowrap"># Depto:</label>
+        <select onchange="inqOnRentasDeptoChange(this.value)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;min-width:100px">
+          <option value="">Todos</option>
+          ${deptosUnicos.map(d => `<option value="${esc(d)}" ${d===currentDepto?'selected':''}>${esc(d)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;min-width:260px;flex:1">
+        <label style="font-size:12px;color:#475569;font-weight:700;white-space:nowrap">Inquilino:</label>
+        <select onchange="INQ_STATE.currentInquilinoId=this.value;inqLoadPagos(this.value).then(inqRenderRentas)" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;flex:1">
+          <option value="">Todos</option>
+          ${perfilesFiltrados.map(p => `<option value="${esc(p.ID)}" ${p.ID===effInqId?'selected':''}>${esc(p.Nombre || p.ID)}</option>`).join('')}
+        </select>
+      </div>
     </div>
     ${pagos.length === 0
       ? `<div class="rh-empty">Sin pagos registrados. Pulsa <strong>＋ Registrar pago</strong>.</div>`
