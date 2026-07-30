@@ -33386,6 +33386,98 @@ function inqField(label, name, type, value, placeholder, opts) {
 // Catálogo de servicios. "ninguno" bloquea a los demás; "otro" abre input libre.
 const INQ_SERVICIOS_CATALOG = ['Ninguno', 'Agua', 'Luz', 'Gas', 'Internet', 'Mantenimiento', 'Otro'];
 
+// Ladas telefónicas para el dropdown. México +52 por defecto.
+const INQ_LADAS = [
+  { code:'+52',  label:'🇲🇽 +52 México' },
+  { code:'+1',   label:'🇺🇸 +1 EEUU/Canadá' },
+  { code:'+34',  label:'🇪🇸 +34 España' },
+  { code:'+54',  label:'🇦🇷 +54 Argentina' },
+  { code:'+55',  label:'🇧🇷 +55 Brasil' },
+  { code:'+56',  label:'🇨🇱 +56 Chile' },
+  { code:'+57',  label:'🇨🇴 +57 Colombia' },
+  { code:'+58',  label:'🇻🇪 +58 Venezuela' },
+  { code:'+51',  label:'🇵🇪 +51 Perú' },
+  { code:'+502', label:'🇬🇹 +502 Guatemala' },
+  { code:'+503', label:'🇸🇻 +503 El Salvador' },
+  { code:'+504', label:'🇭🇳 +504 Honduras' },
+  { code:'+506', label:'🇨🇷 +506 Costa Rica' },
+  { code:'+507', label:'🇵🇦 +507 Panamá' },
+  { code:'+593', label:'🇪🇨 +593 Ecuador' },
+  { code:'+44',  label:'🇬🇧 +44 Reino Unido' },
+];
+
+/** Parte un teléfono en {lada, num} — busca la lada más larga que matche.
+ *  Si no matchea ninguna, devuelve default +52. */
+function inqSplitPhone(v) {
+  const s = String(v || '').trim().replace(/\s+/g,'');
+  if (!s) return { lada: '+52', num: '' };
+  const codes = INQ_LADAS.map(l => l.code).sort((a,b) => b.length - a.length);
+  for (const c of codes) {
+    if (s.startsWith(c)) return { lada: c, num: s.slice(c.length) };
+  }
+  return { lada: '+52', num: s.replace(/^\+/, '') };
+}
+
+/** Campo de teléfono con dropdown de lada + input numérico. */
+function inqPhoneField_(label, name, value) {
+  const { lada, num } = inqSplitPhone(value);
+  return `<div style="margin-bottom:10px">
+    <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px">${esc(label)}</label>
+    <div style="display:flex;gap:6px">
+      <select data-inq-lada="${esc(name)}" style="width:140px;padding:9px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+        ${INQ_LADAS.map(l => `<option value="${esc(l.code)}"${l.code===lada?' selected':''}>${esc(l.label)}</option>`).join('')}
+      </select>
+      <input type="tel" data-inq-phone="${esc(name)}" value="${esc(num)}" placeholder="10 dígitos" style="flex:1;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px">
+      <input type="hidden" name="${esc(name)}" value="${esc(value||'')}">
+    </div>
+  </div>`;
+}
+
+/** Campo monetario con prefijo "$" y formato con comas + 2 decimales al blur. */
+function inqMoneyField_(label, name, value, placeholder) {
+  const raw = (value == null || value === '') ? '' : String(value);
+  const shown = raw ? inqFmtMoneyRaw_(raw) : '';
+  return `<div style="margin-bottom:10px">
+    <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px">${esc(label)}</label>
+    <div style="display:flex;align-items:stretch">
+      <span style="display:inline-flex;align-items:center;padding:0 12px;background:#f1f5f9;border:1px solid #cbd5e1;border-right:0;border-radius:8px 0 0 8px;font-size:14px;font-weight:800;color:#475569">$</span>
+      <input type="text" data-inq-money="${esc(name)}" value="${esc(shown)}" placeholder="${esc(placeholder||'0.00')}" inputmode="decimal"
+             oninput="inqMoneyOnInput(this)" onblur="inqMoneyOnBlur(this)"
+             style="flex:1;padding:9px 11px;border:1px solid #cbd5e1;border-radius:0 8px 8px 0;font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums">
+      <input type="hidden" name="${esc(name)}" value="${esc(raw)}">
+    </div>
+  </div>`;
+}
+
+function inqFmtMoneyRaw_(v) {
+  const n = Number(String(v).replace(/,/g,''));
+  if (!isFinite(n)) return '';
+  return n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Mientras escribe: permite dígitos + un punto decimal; actualiza el hidden raw. */
+window.inqMoneyOnInput = function (el) {
+  const raw = el.value.replace(/[^0-9.]/g,'');
+  const parts = raw.split('.');
+  const clean = parts.length > 1 ? parts[0] + '.' + parts.slice(1).join('') : raw;
+  const hidden = el.parentElement.querySelector('input[type="hidden"]');
+  if (hidden) hidden.value = clean;
+  // Live comma-format en la parte entera si el usuario NO está escribiendo decimales aún
+  if (!raw.endsWith('.') && !raw.includes('.')) {
+    const n = Number(clean);
+    if (isFinite(n)) el.value = n.toLocaleString('es-MX');
+  }
+  // Si Renta_mensual y el check de Depósito=Renta está activo, sincroniza
+  if (el.getAttribute('data-inq-money') === 'Renta_mensual') inqSyncDepositoIfLinked();
+};
+
+/** Al perder foco: formato final con 2 decimales fijos. */
+window.inqMoneyOnBlur = function (el) {
+  const hidden = el.parentElement.querySelector('input[type="hidden"]');
+  const raw = hidden ? hidden.value : el.value.replace(/[^0-9.]/g,'');
+  el.value = raw ? inqFmtMoneyRaw_(raw) : '';
+};
+
 // Catálogo de muebles. type='num' = número editable (0 = no incluido).
 // type='check' = solo marcado/no. extras = campos numéricos adicionales.
 const INQ_MUEBLES_CATALOG = [
@@ -33609,6 +33701,7 @@ function inqBuildPerfilFormHtml(d) {
       <input type="hidden" name="created_at" value="${esc(d.created_at || '')}">
       ${inqField('Nombre del inquilino', 'Nombre', 'text', d.Nombre, 'Ej. Juan Pérez López')}
 
+      ${inqField('Tipo de propiedad', 'Tipo_propiedad', 'select', d.Tipo_propiedad || '', '', { options: [['','—'], ['Local comercial','Local comercial'], ['Casa','Casa'], ['Departamento','Departamento']] })}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         ${inqField('Contrato firmado', 'Contrato_existe', 'select', d.Contrato_existe || 'No', '', { options: [['','—'], ['Sí','Sí'], ['No','No']] })}
         ${inqField('Estado contrato', 'Estado_contrato', 'select', d.Estado_contrato || '', '', { options: [['','Auto'], ['Vigente','Vigente'], ['Vencido','Vencido']] })}
@@ -33620,10 +33713,10 @@ function inqBuildPerfilFormHtml(d) {
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         ${inqField('¿Requiere factura?', 'Requiere_factura', 'select', d.Requiere_factura || 'No', '', { options: [['','—'], ['Sí','Sí'], ['No','No']] })}
-        ${inqField('Renta mensual (MXN)', 'Renta_mensual', 'number', d.Renta_mensual, '0.00', { extra: 'oninput="inqSyncDepositoIfLinked()"' })}
+        ${inqMoneyField_('Renta mensual (MXN)', 'Renta_mensual', d.Renta_mensual, '0.00')}
       </div>
       <div style="display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:10px">
-        ${inqField('Depósito (MXN)', 'Deposito', 'number', d.Deposito, '0.00')}
+        ${inqMoneyField_('Depósito (MXN)', 'Deposito', d.Deposito, '0.00')}
         <label onclick="inqToggleDepositoIgualRenta()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:12px;color:#475569">
           <span id="inq-dep-cb" data-on="${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '1' : '0'}" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:1.5px solid ${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '#334155' : '#cbd5e1'};background:${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '#334155' : '#fff'};color:${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '#fff' : 'transparent'};border-radius:4px;font-size:11px;font-weight:900;line-height:1">${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '✓' : ''}</span>
           Mismo monto que Renta mensual
@@ -33634,11 +33727,9 @@ function inqBuildPerfilFormHtml(d) {
         ${inqField('Día de pago (del mes)', 'Dia_pago', 'number', d.Dia_pago, '1-31')}
       </div>
 
-      ${inqField('WhatsApp / Celular', 'Whatsapp', 'tel', d.Whatsapp, '+52 844 000 0000')}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        ${inqField('Contacto de emergencia — Nombre', 'Contacto_emerg_nombre', 'text', d.Contacto_emerg_nombre)}
-        ${inqField('Contacto de emergencia — Celular', 'Contacto_emerg_cel', 'tel', d.Contacto_emerg_cel)}
-      </div>
+      ${inqPhoneField_('WhatsApp / Celular', 'Whatsapp', d.Whatsapp)}
+      ${inqField('Contacto de emergencia — Nombre', 'Contacto_emerg_nombre', 'text', d.Contacto_emerg_nombre)}
+      ${inqPhoneField_('Contacto de emergencia — Celular', 'Contacto_emerg_cel', d.Contacto_emerg_cel)}
 
       ${inqBuildServiciosHtml_(d)}
       ${inqBuildAmuebladoHtml_(d)}
@@ -33667,7 +33758,7 @@ function inqBuildPerfilFormHtml(d) {
       <div style="margin:14px 0 10px;padding:12px;background:#f0f9ff;border:1px dashed #7dd3fc;border-radius:10px">
         <div style="font-size:13px;font-weight:800;color:#075985;margin-bottom:8px">🧑‍💼 Aval</div>
         ${inqField('Nombre del Aval', 'Aval_nombre', 'text', d.Aval_nombre)}
-        ${inqField('WhatsApp / Celular del Aval', 'Aval_whatsapp', 'tel', d.Aval_whatsapp, '+52 844 000 0000')}
+        ${inqPhoneField_('WhatsApp / Celular del Aval', 'Aval_whatsapp', d.Aval_whatsapp)}
         <div style="margin-top:6px">
           <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:6px">🪪 Identificación personal del Aval</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px">
@@ -33735,11 +33826,7 @@ window.inqToggleDepositoIgualRenta = function () {
   cb.style.background = on ? '#334155' : '#fff';
   cb.style.borderColor = on ? '#334155' : '#cbd5e1';
   cb.style.color = on ? '#fff' : 'transparent';
-  if (on) {
-    const renta = document.querySelector('#inq-perfil-form input[name="Renta_mensual"]');
-    const dep   = document.querySelector('#inq-perfil-form input[name="Deposito"]');
-    if (renta && dep) dep.value = renta.value;
-  }
+  if (on) inqSyncDepositoIfLinked();
 };
 
 /** Si el check "Mismo monto que Renta mensual" está activo, mantén el Depósito
@@ -33747,9 +33834,13 @@ window.inqToggleDepositoIgualRenta = function () {
 window.inqSyncDepositoIfLinked = function () {
   const cb = document.getElementById('inq-dep-cb');
   if (!cb || cb.getAttribute('data-on') !== '1') return;
-  const renta = document.querySelector('#inq-perfil-form input[name="Renta_mensual"]');
-  const dep   = document.querySelector('#inq-perfil-form input[name="Deposito"]');
-  if (renta && dep) dep.value = renta.value;
+  // Campos de moneda: visible = [data-inq-money], raw = hidden hermano.
+  const rentaVisible = document.querySelector('#inq-perfil-form [data-inq-money="Renta_mensual"]');
+  const rentaRaw     = document.querySelector('#inq-perfil-form input[type="hidden"][name="Renta_mensual"]');
+  const depVisible   = document.querySelector('#inq-perfil-form [data-inq-money="Deposito"]');
+  const depRaw       = document.querySelector('#inq-perfil-form input[type="hidden"][name="Deposito"]');
+  if (rentaVisible && depVisible) depVisible.value = rentaVisible.value;
+  if (rentaRaw && depRaw) depRaw.value = rentaRaw.value;
 };
 
 // ── UPLOADS + PREVIEW STRIP (patrón del check-in) ─────────────────────
@@ -33777,7 +33868,7 @@ function inqRenderFileStrip(containerId, files, onDelete, onAdd) {
     const isImg = /image|jpg|jpeg|png|gif|webp/i.test(f.mime || f.name || '') || /\.(jpe?g|png|gif|webp)$/i.test(f.name || f.url || '');
     const bg = isImg ? `background:url('${esc(f.thumbnail || f.url)}') center/cover, #f1f5f9` : 'background:#f1f5f9';
     const badge = isImg ? '' : `<div style="position:absolute;bottom:2px;left:2px;right:2px;font-size:9px;font-weight:800;color:#fff;background:#0f172a;padding:2px 4px;border-radius:4px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📄 ${esc((f.name||'archivo').split('.').pop().toUpperCase())}</div>`;
-    return `<div style="position:relative;width:80px;height:80px;border:1px solid #cbd5e1;border-radius:8px;${bg};cursor:pointer;overflow:hidden;flex-shrink:0" onclick="${isImg ? `inqOpenZoom('${esc(f.url)}')` : `window.open('${esc(f.url)}','_blank')`}">
+    return `<div style="position:relative;width:80px;height:80px;border:1px solid #cbd5e1;border-radius:8px;${bg};cursor:pointer;overflow:hidden;flex-shrink:0" onclick="${isImg ? `inqOpenZoom('${esc(f.url)}',false)` : `inqOpenZoom('${esc(f.url)}',true)`}">
       <button type="button" onclick="event.stopPropagation();${onDelete}(${idx})" title="Eliminar" style="position:absolute;top:2px;right:2px;background:#dc2626;color:#fff;border:0;width:20px;height:20px;border-radius:50%;font-size:12px;font-weight:900;cursor:pointer;line-height:1">×</button>
       ${badge}
     </div>`;
@@ -33910,17 +34001,38 @@ window.inqDeleteIdentFile = function (idx) {
 };
 
 // ── ZOOM modal ─────────────────────────────────────────────────────────
-window.inqOpenZoom = function (url) {
-  const el = document.getElementById('inq-zoom');
+/** Abre el modal de zoom. isPdf=true muestra iframe con vista previa del PDF;
+ *  false muestra <img>. Para archivos Drive, transforma /uc?export=view a
+ *  /preview para render inline (que /uc a veces fuerza descarga). */
+window.inqOpenZoom = function (url, isPdf) {
+  const el  = document.getElementById('inq-zoom');
   const img = document.getElementById('inq-zoom-img');
-  if (img) img.src = url;
-  if (el) { el.classList.remove('hidden'); el.style.display = 'flex'; }
+  const pdf = document.getElementById('inq-zoom-pdf');
+  if (!el) return;
+  if (isPdf) {
+    // Drive: reemplaza /uc?export=view&id=X por /file/d/X/preview (embed inline)
+    let src = String(url || '');
+    const m = src.match(/[?&]id=([^&]+)/);
+    if (m && /drive\.google\.com/.test(src)) {
+      src = 'https://drive.google.com/file/d/' + m[1] + '/preview';
+    }
+    if (pdf) { pdf.src = src; pdf.style.display = 'block'; }
+    if (img) { img.style.display = 'none'; img.src = ''; }
+  } else {
+    if (img) { img.src = url; img.style.display = 'block'; }
+    if (pdf) { pdf.style.display = 'none'; pdf.src = ''; }
+  }
+  el.classList.remove('hidden');
+  el.style.display = 'flex';
 };
+
 window.inqCloseZoom = function () {
-  const el = document.getElementById('inq-zoom');
+  const el  = document.getElementById('inq-zoom');
   const img = document.getElementById('inq-zoom-img');
+  const pdf = document.getElementById('inq-zoom-pdf');
   if (el) { el.classList.add('hidden'); el.style.display = 'none'; }
-  if (img) img.src = '';
+  if (img) { img.src = ''; img.style.display = 'none'; }
+  if (pdf) { pdf.src = ''; pdf.style.display = 'none'; }
 };
 
 // ── SAVE / DELETE ──────────────────────────────────────────────────────
@@ -33934,6 +34046,14 @@ window.inqSaveCurrentForm = async function () {
   Array.from(form.elements).forEach(el => {
     if (!el.name) return;
     data[el.name] = el.value;
+  });
+  // Combina lada + número para los campos de teléfono
+  form.querySelectorAll('[data-inq-phone]').forEach(el => {
+    const n = el.getAttribute('data-inq-phone');
+    const ladaEl = form.querySelector(`[data-inq-lada="${n}"]`);
+    const lada = ladaEl ? ladaEl.value : '+52';
+    const num = String(el.value || '').replace(/\D/g,'');
+    data[n] = num ? (lada + num) : '';
   });
   if (kind === 'perfil') {
     data.Contrato_files = INQ_STATE.formData.Contrato_files || [];

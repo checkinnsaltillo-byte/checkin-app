@@ -2246,10 +2246,11 @@
           </div>
         </aside>
       </div>
-      <!-- Modal zoom de imagen -->
-      <div id="inq-zoom" class="hidden" onclick="inqCloseZoom()" style="position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;cursor:zoom-out">
-        <button type="button" onclick="event.stopPropagation();inqCloseZoom()" style="position:fixed;top:16px;right:16px;background:rgba(255,255,255,.15);color:#fff;border:0;width:44px;height:44px;border-radius:50%;font-size:22px;font-weight:900;cursor:pointer;z-index:1">✕</button>
-        <img id="inq-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px"/>
+      <!-- Modal zoom de imagen / preview PDF -->
+      <div id="inq-zoom" class="hidden" onclick="if(event.target===this)inqCloseZoom()" style="position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px">
+        <button type="button" onclick="event.stopPropagation();inqCloseZoom()" style="position:fixed;top:16px;right:16px;background:#dc2626;color:#fff;border:0;padding:10px 18px;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;z-index:2;box-shadow:0 6px 18px rgba(0,0,0,.4)">✕ Cerrar</button>
+        <img id="inq-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;display:none;cursor:zoom-out" onclick="inqCloseZoom()"/>
+        <iframe id="inq-zoom-pdf" style="display:none;width:min(1200px,95vw);height:90vh;border:0;border-radius:8px;background:#fff" title="Vista previa PDF"></iframe>
       </div>
     </div><!-- /module-inquilinos -->
 
@@ -2405,6 +2406,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=675"></script>
+  <script src="app.js?v=676"></script>
 </body>
 </html>
