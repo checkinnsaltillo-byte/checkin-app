@@ -33810,12 +33810,40 @@ function inqBuildDepartamentoOptions_(propiedad, current) {
   return html;
 }
 
+// Busca la fila del catálogo alojamientos por (Propiedad, # Departamento) y
+// devuelve el valor de la columna "tipo" (tolerante a case/espacios).
+function inqLookupTipo_(propiedad, departamento) {
+  if (typeof ALOJ_STATE === 'undefined' || !ALOJ_STATE.rows) return '';
+  const p = String(propiedad || '').trim();
+  const d = String(departamento || '').trim();
+  if (!p) return '';
+  const row = ALOJ_STATE.rows.find(r =>
+    String(r['Propiedad'] || '').trim() === p &&
+    String(r['# Departamento'] || '').trim() === d
+  );
+  if (!row) return '';
+  for (const k of Object.keys(row)) {
+    if (String(k).trim().toLowerCase() === 'tipo') return String(row[k] || '').trim();
+  }
+  return '';
+}
+
+function inqRefreshTipoPropiedad_() {
+  const form = document.getElementById('inq-perfil-form');
+  if (!form) return;
+  const prop  = form.querySelector('select[name="Propiedad"]');
+  const depto = form.querySelector('select[name="Departamento"]');
+  const tipo  = form.querySelector('input[name="Tipo_propiedad"]');
+  if (!tipo) return;
+  tipo.value = inqLookupTipo_(prop && prop.value, depto && depto.value);
+}
+
 window.inqOnPropiedadChange = function (val) {
   const form = document.getElementById('inq-perfil-form');
   if (!form) return;
   const deptoSel = form.querySelector('select[name="Departamento"]');
-  if (!deptoSel) return;
-  deptoSel.innerHTML = inqBuildDepartamentoOptions_(val, '');
+  if (deptoSel) deptoSel.innerHTML = inqBuildDepartamentoOptions_(val, '');
+  inqRefreshTipoPropiedad_();
 };
 
 // Re-popula ambos selects cuando el catálogo alojamientos termina de cargar.
@@ -33829,6 +33857,7 @@ function inqRepopulateAlojSelects_() {
   const curDepto = deptoSel.value || '';
   propSel.innerHTML  = inqBuildPropiedadOptions_(curProp);
   deptoSel.innerHTML = inqBuildDepartamentoOptions_(curProp, curDepto);
+  inqRefreshTipoPropiedad_();
 }
 
 function inqBuildPerfilFormHtml(d) {
@@ -33848,13 +33877,16 @@ function inqBuildPerfilFormHtml(d) {
         </div>
         <div>
           <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px"># Departamento</label>
-          <select name="Departamento" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
+          <select name="Departamento" onchange="inqRefreshTipoPropiedad_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
             ${inqBuildDepartamentoOptions_(d.Propiedad || '', d.Departamento || '')}
           </select>
         </div>
       </div>
 
-      ${inqField('Tipo de propiedad', 'Tipo_propiedad', 'select', d.Tipo_propiedad || '', '', { options: [['','—'], ['Local comercial','Local comercial'], ['Casa','Casa'], ['Departamento','Departamento']] })}
+      <div style="margin-bottom:10px">
+        <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Tipo de propiedad</label>
+        <input type="text" name="Tipo_propiedad" value="${esc(inqLookupTipo_(d.Propiedad, d.Departamento) || d.Tipo_propiedad || '')}" readonly style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#f1f5f9;color:#475569;cursor:not-allowed" title="Se obtiene automáticamente del catálogo alojamientos según Propiedad y # Departamento">
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         ${inqField('Contrato firmado', 'Contrato_existe', 'select', d.Contrato_existe || 'No', '', { options: [['','—'], ['Sí','Sí'], ['No','No']] })}
         ${inqField('Estado contrato', 'Estado_contrato', 'select', d.Estado_contrato || '', '', { options: [['','Auto'], ['Vigente','Vigente'], ['Vencido','Vencido']] })}
