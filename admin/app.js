@@ -33188,6 +33188,31 @@ async function inqLoadPagos(inquilinoId) {
   } catch (e) { console.warn('[INQ] pagos:', e.message); }
 }
 
+// Normaliza a "YYYY-MM-DD" para <input type="date">.
+// Acepta Date, ISO string ("2026-07-30T00:00:00.000Z"), "YYYY-MM-DD" o vacío.
+function inqFmtDateISO_(v) {
+  if (v == null || v === '') return '';
+  if (v instanceof Date) {
+    if (isNaN(v.getTime())) return '';
+    const y = v.getFullYear();
+    const m = String(v.getMonth() + 1).padStart(2, '0');
+    const d = String(v.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const iso = s.match(/^(\d{4}-\d{2}-\d{2})T/);
+  if (iso) return iso[1];
+  const dt = new Date(s);
+  if (!isNaN(dt.getTime())) {
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  }
+  return '';
+}
+
 function inqFmtMoney(v) {
   const n = Number(v || 0);
   if (!isFinite(n)) return '—';
@@ -34050,7 +34075,7 @@ function inqBuildPerfilFormHtml(d) {
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
       <div>
         <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Fecha inicio contrato</label>
-        <input type="date" name="Fecha_inicio" value="${esc(d.Fecha_inicio || '')}" oninput="inqRecalcFechaFin()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
+        <input type="date" name="Fecha_inicio" value="${esc(inqFmtDateISO_(d.Fecha_inicio))}" oninput="inqRecalcFechaFin()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
       </div>
       <div>
         <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Duración (meses)</label>
@@ -34058,7 +34083,7 @@ function inqBuildPerfilFormHtml(d) {
       </div>
       <div>
         <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Fecha fin contrato</label>
-        <input type="date" name="Fecha_fin" value="${esc(d.Fecha_fin || '')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#f8fafc" title="Se calcula a partir de la fecha de inicio y la duración">
+        <input type="date" name="Fecha_fin" value="${esc(inqFmtDateISO_(d.Fecha_fin))}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#f8fafc" title="Se calcula a partir de la fecha de inicio y la duración">
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
