@@ -33306,6 +33306,15 @@ function inqRenderRentas() {
 
 // ── FORM PERFIL ────────────────────────────────────────────────────────
 window.inqOpenPerfilForm = function (id) {
+  // Dispara carga del catálogo alojamientos si aún no está listo (background).
+  // Al terminar, si el form sigue abierto, re-poblamos los dos selects.
+  if (typeof lgLoadAlojamientos === 'function' && typeof ALOJ_STATE !== 'undefined') {
+    if (!ALOJ_STATE.loaded && !ALOJ_STATE.loading) {
+      lgLoadAlojamientos().then(() => {
+        if (document.getElementById('inq-perfil-form')) inqRepopulateAlojSelects_();
+      });
+    }
+  }
   const data = id ? (INQ_STATE.perfiles.find(x => String(x.ID) === String(id)) || {}) : {};
   INQ_STATE.formKind = 'perfil';
   INQ_STATE.formData = JSON.parse(JSON.stringify(data));
@@ -33758,6 +33767,70 @@ window.inqDeleteCustomMueble = function (key) {
   }
 };
 
+// Devuelve lista única de valores para una columna del catálogo alojamientos.
+function inqAlojUniqueVals_(colName) {
+  if (typeof ALOJ_STATE === 'undefined' || !ALOJ_STATE.rows) return [];
+  const set = new Set();
+  ALOJ_STATE.rows.forEach(r => {
+    const v = String(r[colName] || '').trim();
+    if (v) set.add(v);
+  });
+  return Array.from(set).sort((a,b) => a.localeCompare(b, 'es'));
+}
+
+function inqBuildPropiedadOptions_(current) {
+  const opts = inqAlojUniqueVals_('Propiedad');
+  const inList = current && opts.includes(current);
+  const first = ALOJ_STATE && ALOJ_STATE.loaded ? '— Selecciona —' : '⏳ Cargando…';
+  let html = `<option value=""${!current?' selected':''}>${esc(first)}</option>`;
+  html += opts.map(p => `<option value="${esc(p)}"${p===current?' selected':''}>${esc(p)}</option>`).join('');
+  if (current && !inList) html += `<option value="${esc(current)}" selected>${esc(current)}</option>`;
+  return html;
+}
+
+function inqBuildDepartamentoOptions_(propiedad, current) {
+  const set = new Set();
+  if (typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.rows) {
+    ALOJ_STATE.rows.forEach(r => {
+      const p = String(r['Propiedad'] || '').trim();
+      if (propiedad && p !== propiedad) return;
+      const d = String(r['# Departamento'] || '').trim();
+      if (d) set.add(d);
+    });
+  }
+  const opts = Array.from(set).sort((a,b) => {
+    const na = parseFloat(a), nb = parseFloat(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return a.localeCompare(b, 'es');
+  });
+  const inList = current && opts.includes(current);
+  let html = `<option value=""${!current?' selected':''}>— Selecciona —</option>`;
+  html += opts.map(d => `<option value="${esc(d)}"${d===current?' selected':''}>${esc(d)}</option>`).join('');
+  if (current && !inList) html += `<option value="${esc(current)}" selected>${esc(current)}</option>`;
+  return html;
+}
+
+window.inqOnPropiedadChange = function (val) {
+  const form = document.getElementById('inq-perfil-form');
+  if (!form) return;
+  const deptoSel = form.querySelector('select[name="Departamento"]');
+  if (!deptoSel) return;
+  deptoSel.innerHTML = inqBuildDepartamentoOptions_(val, '');
+};
+
+// Re-popula ambos selects cuando el catálogo alojamientos termina de cargar.
+function inqRepopulateAlojSelects_() {
+  const form = document.getElementById('inq-perfil-form');
+  if (!form) return;
+  const propSel  = form.querySelector('select[name="Propiedad"]');
+  const deptoSel = form.querySelector('select[name="Departamento"]');
+  if (!propSel || !deptoSel) return;
+  const curProp  = propSel.value || '';
+  const curDepto = deptoSel.value || '';
+  propSel.innerHTML  = inqBuildPropiedadOptions_(curProp);
+  deptoSel.innerHTML = inqBuildDepartamentoOptions_(curProp, curDepto);
+}
+
 function inqBuildPerfilFormHtml(d) {
   d = d || {};
   return `
@@ -33765,6 +33838,21 @@ function inqBuildPerfilFormHtml(d) {
       <input type="hidden" name="ID" value="${esc(d.ID || '')}">
       <input type="hidden" name="created_at" value="${esc(d.created_at || '')}">
       ${inqField('Nombre del inquilino', 'Nombre', 'text', d.Nombre, 'Ej. Juan Pérez López')}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Propiedad</label>
+          <select name="Propiedad" onchange="inqOnPropiedadChange(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
+            ${inqBuildPropiedadOptions_(d.Propiedad || '')}
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px"># Departamento</label>
+          <select name="Departamento" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
+            ${inqBuildDepartamentoOptions_(d.Propiedad || '', d.Departamento || '')}
+          </select>
+        </div>
+      </div>
 
       ${inqField('Tipo de propiedad', 'Tipo_propiedad', 'select', d.Tipo_propiedad || '', '', { options: [['','—'], ['Local comercial','Local comercial'], ['Casa','Casa'], ['Departamento','Departamento']] })}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
