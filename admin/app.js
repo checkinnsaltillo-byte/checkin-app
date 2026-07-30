@@ -34341,23 +34341,28 @@ async function inqUploadFile_(kind, file) {
     r.onerror = reject;
     r.readAsDataURL(file);
   });
-  // Normaliza el prefix "data:XXX;base64," — la mime puede estar vacía
-  // (algunos archivos sin extensión) → regex tolerante con [^;]* en lugar
-  // de [^;]+ que requería 1+ chars.
   const b64 = String(dataUrl || '').replace(/^data:[^;]*;base64,/, '');
   if (!b64) throw new Error('archivo vacío o ilegible');
   const iid = INQ_STATE.formData.ID || 'nuevo_' + Date.now();
-  // application/json + express.json() en Cloud Run parsea correctamente.
-  // Antes se usaba text/plain y req.body llegaba {} → Apps Script veía
-  // data:'' → "data vacío". CORS con preflight funciona (cors({origin:true})).
-  const resp = await fetch(`${BACKEND}/inquilinos/upload`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ inquilino_id: iid, filename: file.name || 'archivo', mime: file.type || 'application/octet-stream', data: b64, kind }),
-  });
-  const j = await resp.json();
-  if (!j.ok) throw new Error(j.error || 'upload failed');
-  return j.file;
+  // Timeout cliente de 90s (Apps Script + Drive puede tardar). Si expira,
+  // el placeholder se elimina y el usuario recibe un error visible en vez
+  // de un spinner eterno.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90000);
+  try {
+    const resp = await fetch(`${BACKEND}/inquilinos/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inquilino_id: iid, filename: file.name || 'archivo', mime: file.type || 'application/octet-stream', data: b64, kind }),
+      signal: controller.signal,
+    });
+    const j = await resp.json();
+    if (!j.ok) throw new Error(j.error || 'upload failed');
+    return j.file;
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('timeout (>90s)');
+    throw err;
+  } finally { clearTimeout(timer); }
 }
 
 // Sube archivos con feedback visual: agrega un tile placeholder con spinner
@@ -34372,9 +34377,10 @@ async function inqAddFilesWithFeedback_(kind, fileList, targetArrayName, renderF
   window.__inqUploadCount += files.length;
   inqShowUploadToast_();
   renderFn();
-  // Subida secuencial (una a la vez para no saturar el Apps Script)
-  for (let i = 0; i < files.length; i++) {
-    const f = files[i];
+  // Subida en PARALELO (antes: secuencial ⇒ 2 archivos ≈ 40s de spinner en Aval).
+  // Cloud Run + Apps Script + Drive tarda ~20s por archivo por cold-start; en
+  // paralelo N archivos se completan en el tiempo del más lento, no la suma.
+  await Promise.all(files.map(async (f, i) => {
     const ph = placeholders[i];
     try {
       const uploaded = await inqUploadFile_(kind, f);
@@ -34389,7 +34395,7 @@ async function inqAddFilesWithFeedback_(kind, fileList, targetArrayName, renderF
       inqShowUploadToast_();
       renderFn();
     }
-  }
+  }));
   inqHideUploadToastIfDone_();
 }
 
