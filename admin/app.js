@@ -34273,11 +34273,19 @@ function inqRenderFileStrip(containerId, files, onDelete, onAdd) {
         <div style="font-size:9px;font-weight:800;color:#9a3412;margin-top:4px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%">${esc(shortName)}</div>
       </div>`;
     }
-    const isImg = /image|jpg|jpeg|png|gif|webp/i.test(f.mime || f.name || '') || /\.(jpe?g|png|gif|webp)$/i.test(f.name || f.url || '');
-    const bg = isImg ? `background:url('${esc(f.thumbnail || f.url)}') center/cover, #f1f5f9` : 'background:#f1f5f9';
+    const url = f.url || '';
+    const thumb = f.thumbnail || url;
+    const isImg = /image|jpg|jpeg|png|gif|webp/i.test(f.mime || f.name || '') || /\.(jpe?g|png|gif|webp)$/i.test(f.name || url || '');
+    // Fallback si thumbnail falla: intenta uc?export=view; si también falla, muestra ícono.
+    // Drive a veces bloquea thumbnail?id= por auth/rate-limit → onerror escala al URL principal.
+    const imgFallback = url && thumb !== url ? esc(url) : '';
+    const preview = isImg
+      ? `<img src="${esc(thumb)}" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null;${imgFallback ? `this.src='${imgFallback}'` : `this.style.display='none';this.parentElement.setAttribute('data-broken','1')`}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none">`
+      : '';
     const badge = isImg ? '' : `<div style="position:absolute;bottom:2px;left:2px;right:2px;font-size:9px;font-weight:800;color:#fff;background:#0f172a;padding:2px 4px;border-radius:4px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📄 ${esc((f.name||'archivo').split('.').pop().toUpperCase())}</div>`;
-    return `<div style="position:relative;width:80px;height:80px;border:1px solid #cbd5e1;border-radius:8px;${bg};cursor:pointer;overflow:hidden;flex-shrink:0" onclick="${isImg ? `inqOpenZoom('${esc(f.url)}',false)` : `inqOpenZoom('${esc(f.url)}',true)`}">
-      <button type="button" onclick="event.stopPropagation();${onDelete}(${idx})" title="Eliminar" style="position:absolute;top:2px;right:2px;background:#dc2626;color:#fff;border:0;width:20px;height:20px;border-radius:50%;font-size:12px;font-weight:900;cursor:pointer;line-height:1">×</button>
+    return `<div style="position:relative;width:80px;height:80px;border:1px solid #cbd5e1;border-radius:8px;background:#f1f5f9;cursor:pointer;overflow:hidden;flex-shrink:0" onclick="inqOpenZoom('${esc(url)}',${isImg?'false':'true'})">
+      ${preview}
+      <button type="button" onclick="event.stopPropagation();${onDelete}(${idx})" title="Eliminar" style="position:absolute;top:2px;right:2px;background:#dc2626;color:#fff;border:0;width:20px;height:20px;border-radius:50%;font-size:12px;font-weight:900;cursor:pointer;line-height:1;z-index:2">×</button>
       ${badge}
     </div>`;
   }).join('');
