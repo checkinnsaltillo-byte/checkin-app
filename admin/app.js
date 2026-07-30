@@ -33868,123 +33868,151 @@ function inqRepopulateAlojSelects_() {
 
 function inqBuildPerfilFormHtml(d) {
   d = d || {};
+  // Sección colapsable: header con chevron + body. Todas empiezan abiertas.
+  const sec = (id, title, body, opts) => {
+    opts = opts || {};
+    const bg = opts.bg || '#ffffff';
+    const border = opts.border || '#e2e8f0';
+    const titleColor = opts.titleColor || '#0f172a';
+    return `<section style="margin:0 0 12px;background:${bg};border:1px solid ${border};border-radius:12px;overflow:hidden">
+      <button type="button" onclick="inqToggleSection('${id}')" style="all:unset;cursor:pointer;display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 14px;box-sizing:border-box;font-size:14px;font-weight:800;color:${titleColor};background:transparent">
+        <span>${title}</span>
+        <span id="inq-sec-chev-${id}" style="font-size:14px;color:#64748b;transition:transform .15s">▾</span>
+      </button>
+      <div id="inq-sec-body-${id}" style="padding:0 14px 14px">${body}</div>
+    </section>`;
+  };
+
+  const secInquilino = `
+    ${inqField('Nombre del inquilino', 'Nombre', 'text', d.Nombre, 'Ej. Juan Pérez López')}
+    ${inqPhoneField_('WhatsApp / Celular', 'Whatsapp', d.Whatsapp)}
+    ${inqField('Contacto de emergencia — Nombre', 'Contacto_emerg_nombre', 'text', d.Contacto_emerg_nombre)}
+    ${inqPhoneField_('Contacto de emergencia — Celular', 'Contacto_emerg_cel', d.Contacto_emerg_cel)}
+    <div style="margin:8px 0 10px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
+      <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px">🪪 Identificación personal</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px">
+        ${inqField('Tipo', 'Identificacion_tipo', 'select', d.Identificacion_tipo || '', '', { options: [['','—'], ['INE','INE'], ['Pasaporte','Pasaporte'], ['Otro','Otro']], extra: 'onchange="inqToggleOtroDescInput()"' })}
+        <div id="inq-otro-desc-wrap" style="${(d.Identificacion_tipo||'')==='Otro'?'':'display:none'}">
+          ${inqField('Describe el documento', 'Identificacion_otro_desc', 'text', d.Identificacion_otro_desc, 'Ej. Cédula profesional')}
+        </div>
+      </div>
+      <div id="inq-ident-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
+    </div>
+    ${inqField('Notas', 'Notas', 'textarea', d.Notas, 'Notas internas', { rows: 3 })}`;
+
+  const secPropiedad = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Propiedad</label>
+        <select name="Propiedad" onchange="inqOnPropiedadChange(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
+          ${inqBuildPropiedadOptions_(d.Propiedad || '')}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px"># Departamento</label>
+        <select name="Departamento" onchange="inqRefreshTipoPropiedad_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
+          ${inqBuildDepartamentoOptions_(d.Propiedad || '', d.Departamento || '')}
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div>
+        <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Clasificación</label>
+        <input type="text" name="Clasificacion" value="${esc(inqLookupAlojCol_(d.Propiedad, d.Departamento, 'clasificacion') || d.Clasificacion || '')}" readonly style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#f1f5f9;color:#475569;cursor:not-allowed" title="Se obtiene automáticamente del catálogo alojamientos">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Tipo de propiedad</label>
+        <input type="text" name="Tipo_propiedad" value="${esc(inqLookupAlojCol_(d.Propiedad, d.Departamento, 'tipo') || d.Tipo_propiedad || '')}" readonly style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#f1f5f9;color:#475569;cursor:not-allowed" title="Se obtiene automáticamente del catálogo alojamientos">
+      </div>
+    </div>`;
+
+  const secContrato = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div>
+        <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Fecha inicio contrato</label>
+        <input type="date" name="Fecha_inicio" value="${esc(d.Fecha_inicio || '')}" oninput="inqRecalcFechaFin()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Duración (meses)</label>
+        <input type="number" name="Duracion_meses" min="1" max="120" step="1" value="${esc(d.Duracion_meses || '')}" placeholder="Ej. 12" oninput="inqRecalcFechaFin()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Fecha fin contrato</label>
+        <input type="date" name="Fecha_fin" value="${esc(d.Fecha_fin || '')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#f8fafc" title="Se calcula a partir de la fecha de inicio y la duración">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${inqField('Contrato firmado', 'Contrato_existe', 'select', d.Contrato_existe || 'No', '', { options: [['','—'], ['Sí','Sí'], ['No','No']] })}
+      ${inqField('Estado contrato', 'Estado_contrato', 'select', d.Estado_contrato || '', '', { options: [['','Auto'], ['Vigente','Vigente'], ['Vencido','Vencido']] })}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${inqMoneyField_('Renta mensual (MXN)', 'Renta_mensual', d.Renta_mensual, '0.00')}
+      ${inqField('¿Requiere factura?', 'Requiere_factura', 'select', d.Requiere_factura || 'No', '', { options: [['','—'], ['Sí','Sí'], ['No','No']] })}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:10px">
+      ${inqMoneyField_('Depósito (MXN)', 'Deposito', d.Deposito, '0.00')}
+      <label onclick="inqToggleDepositoIgualRenta()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:12px;color:#475569">
+        <span id="inq-dep-cb" data-on="${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '1' : '0'}" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:1.5px solid ${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '#334155' : '#cbd5e1'};background:${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '#334155' : '#fff'};color:${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '#fff' : 'transparent'};border-radius:4px;font-size:11px;font-weight:900;line-height:1">${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '✓' : ''}</span>
+        Mismo monto que Renta mensual
+      </label>
+    </div>
+    ${inqBuildServiciosHtml_(d)}
+    ${inqBuildAmuebladoHtml_(d)}
+    <div id="inq-muebles-block" style="${(d.Amueblado||'')==='Sí'?'':'display:none'};margin:6px 0 12px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
+      <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">🛋️ Lista de muebles (edítalos según el alojamiento)</div>
+      ${inqBuildMueblesHtml_(d)}
+    </div>
+    <div style="margin:8px 0 4px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
+      <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px">📄 Contrato (PDF/JPG)</div>
+      <div id="inq-contrato-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
+    </div>`;
+
+  const secPago = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${inqField('Día de pago (del mes)', 'Dia_pago', 'number', d.Dia_pago, '1-31')}
+      ${inqField('Método de pago', 'Metodo_pago', 'select', d.Metodo_pago || '', '', { options: [['','—'], ['Efectivo','Efectivo'], ['Transferencia','Transferencia'], ['Depósito','Depósito'], ['Tarjeta','Tarjeta'], ['Cheque','Cheque'], ['Otro','Otro']] })}
+    </div>`;
+
+  const secAval = `
+    ${inqField('Nombre del Aval', 'Aval_nombre', 'text', d.Aval_nombre)}
+    ${inqPhoneField_('WhatsApp / Celular del Aval', 'Aval_whatsapp', d.Aval_whatsapp)}
+    <div style="margin-top:6px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
+      <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px">🪪 Identificación personal del Aval</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px">
+        ${inqField('Tipo', 'Aval_identificacion_tipo', 'select', d.Aval_identificacion_tipo || '', '', { options: [['','—'], ['INE','INE'], ['Pasaporte','Pasaporte'], ['Otro','Otro']], extra: 'onchange="inqToggleAvalOtroDescInput()"' })}
+        <div id="inq-aval-otro-desc-wrap" style="${(d.Aval_identificacion_tipo||'')==='Otro'?'':'display:none'}">
+          ${inqField('Describe el documento', 'Aval_identificacion_otro_desc', 'text', d.Aval_identificacion_otro_desc, 'Ej. Cédula profesional')}
+        </div>
+      </div>
+      <div id="inq-aval-ident-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
+    </div>`;
+
+  const secComentarios = `${inqField('Comentarios', 'Comentarios', 'textarea', d.Comentarios, 'Comentarios adicionales sobre el inquilino, el contrato, etc.', { rows: 4 })}`;
+
   return `
     <form id="inq-perfil-form" onsubmit="event.preventDefault();inqSaveCurrentForm()">
       <input type="hidden" name="ID" value="${esc(d.ID || '')}">
       <input type="hidden" name="created_at" value="${esc(d.created_at || '')}">
-      ${inqField('Nombre del inquilino', 'Nombre', 'text', d.Nombre, 'Ej. Juan Pérez López')}
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div>
-          <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Propiedad</label>
-          <select name="Propiedad" onchange="inqOnPropiedadChange(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
-            ${inqBuildPropiedadOptions_(d.Propiedad || '')}
-          </select>
-        </div>
-        <div>
-          <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px"># Departamento</label>
-          <select name="Departamento" onchange="inqRefreshTipoPropiedad_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
-            ${inqBuildDepartamentoOptions_(d.Propiedad || '', d.Departamento || '')}
-          </select>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div>
-          <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Clasificación</label>
-          <input type="text" name="Clasificacion" value="${esc(inqLookupAlojCol_(d.Propiedad, d.Departamento, 'clasificacion') || d.Clasificacion || '')}" readonly style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#f1f5f9;color:#475569;cursor:not-allowed" title="Se obtiene automáticamente del catálogo alojamientos según Propiedad y # Departamento">
-        </div>
-        <div>
-          <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Tipo de propiedad</label>
-          <input type="text" name="Tipo_propiedad" value="${esc(inqLookupAlojCol_(d.Propiedad, d.Departamento, 'tipo') || d.Tipo_propiedad || '')}" readonly style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#f1f5f9;color:#475569;cursor:not-allowed" title="Se obtiene automáticamente del catálogo alojamientos según Propiedad y # Departamento">
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        ${inqField('Contrato firmado', 'Contrato_existe', 'select', d.Contrato_existe || 'No', '', { options: [['','—'], ['Sí','Sí'], ['No','No']] })}
-        ${inqField('Estado contrato', 'Estado_contrato', 'select', d.Estado_contrato || '', '', { options: [['','Auto'], ['Vigente','Vigente'], ['Vencido','Vencido']] })}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-        <div>
-          <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Fecha inicio contrato</label>
-          <input type="date" name="Fecha_inicio" value="${esc(d.Fecha_inicio || '')}" oninput="inqRecalcFechaFin()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
-        </div>
-        <div>
-          <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Duración (meses)</label>
-          <input type="number" name="Duracion_meses" min="1" max="120" step="1" value="${esc(d.Duracion_meses || '')}" placeholder="Ej. 12" oninput="inqRecalcFechaFin()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
-        </div>
-        <div>
-          <label style="display:block;font-size:12px;color:#475569;margin-bottom:4px">Fecha fin contrato</label>
-          <input type="date" name="Fecha_fin" value="${esc(d.Fecha_fin || '')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#f8fafc" title="Se calcula automáticamente a partir de la fecha de inicio y la duración">
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        ${inqField('¿Requiere factura?', 'Requiere_factura', 'select', d.Requiere_factura || 'No', '', { options: [['','—'], ['Sí','Sí'], ['No','No']] })}
-        ${inqMoneyField_('Renta mensual (MXN)', 'Renta_mensual', d.Renta_mensual, '0.00')}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:10px">
-        ${inqMoneyField_('Depósito (MXN)', 'Deposito', d.Deposito, '0.00')}
-        <label onclick="inqToggleDepositoIgualRenta()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:12px;color:#475569">
-          <span id="inq-dep-cb" data-on="${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '1' : '0'}" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:1.5px solid ${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '#334155' : '#cbd5e1'};background:${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '#334155' : '#fff'};color:${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '#fff' : 'transparent'};border-radius:4px;font-size:11px;font-weight:900;line-height:1">${d.Deposito && String(d.Deposito) === String(d.Renta_mensual) ? '✓' : ''}</span>
-          Mismo monto que Renta mensual
-        </label>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        ${inqField('Método de pago', 'Metodo_pago', 'select', d.Metodo_pago || '', '', { options: [['','—'], ['Efectivo','Efectivo'], ['Transferencia','Transferencia'], ['Depósito','Depósito'], ['Tarjeta','Tarjeta'], ['Cheque','Cheque'], ['Otro','Otro']] })}
-        ${inqField('Día de pago (del mes)', 'Dia_pago', 'number', d.Dia_pago, '1-31')}
-      </div>
-
-      ${inqPhoneField_('WhatsApp / Celular', 'Whatsapp', d.Whatsapp)}
-      ${inqField('Contacto de emergencia — Nombre', 'Contacto_emerg_nombre', 'text', d.Contacto_emerg_nombre)}
-      ${inqPhoneField_('Contacto de emergencia — Celular', 'Contacto_emerg_cel', d.Contacto_emerg_cel)}
-
-      ${inqBuildServiciosHtml_(d)}
-      ${inqBuildAmuebladoHtml_(d)}
-      <div id="inq-muebles-block" style="${(d.Amueblado||'')==='Sí'?'':'display:none'};margin:6px 0 12px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
-        <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">🛋️ Lista de muebles (edítalos según el alojamiento)</div>
-        ${inqBuildMueblesHtml_(d)}
-      </div>
-      ${inqField('Notas', 'Notas', 'textarea', d.Notas, 'Notas internas', { rows: 3 })}
-
-      <div style="margin:16px 0 10px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
-        <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px">📄 Contrato (PDF/JPG)</div>
-        <div id="inq-contrato-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
-      </div>
-
-      <div style="margin:0 0 10px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
-        <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px">🪪 Identificación personal</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px">
-          ${inqField('Tipo', 'Identificacion_tipo', 'select', d.Identificacion_tipo || '', '', { options: [['','—'], ['INE','INE'], ['Pasaporte','Pasaporte'], ['Otro','Otro']], extra: 'onchange="inqToggleOtroDescInput()"' })}
-          <div id="inq-otro-desc-wrap" style="${(d.Identificacion_tipo||'')==='Otro'?'':'display:none'}">
-            ${inqField('Describe el documento', 'Identificacion_otro_desc', 'text', d.Identificacion_otro_desc, 'Ej. Cédula profesional')}
-          </div>
-        </div>
-        <div id="inq-ident-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
-      </div>
-
-      <div style="margin:14px 0 10px;padding:12px;background:#f0f9ff;border:1px dashed #7dd3fc;border-radius:10px">
-        <div style="font-size:13px;font-weight:800;color:#075985;margin-bottom:8px">🧑‍💼 Aval</div>
-        ${inqField('Nombre del Aval', 'Aval_nombre', 'text', d.Aval_nombre)}
-        ${inqPhoneField_('WhatsApp / Celular del Aval', 'Aval_whatsapp', d.Aval_whatsapp)}
-        <div style="margin-top:6px">
-          <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:6px">🪪 Identificación personal del Aval</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px">
-            ${inqField('Tipo', 'Aval_identificacion_tipo', 'select', d.Aval_identificacion_tipo || '', '', { options: [['','—'], ['INE','INE'], ['Pasaporte','Pasaporte'], ['Otro','Otro']], extra: 'onchange="inqToggleAvalOtroDescInput()"' })}
-            <div id="inq-aval-otro-desc-wrap" style="${(d.Aval_identificacion_tipo||'')==='Otro'?'':'display:none'}">
-              ${inqField('Describe el documento', 'Aval_identificacion_otro_desc', 'text', d.Aval_identificacion_otro_desc, 'Ej. Cédula profesional')}
-            </div>
-          </div>
-          <div id="inq-aval-ident-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
-        </div>
-      </div>
-
-      ${inqField('Comentarios', 'Comentarios', 'textarea', d.Comentarios, 'Comentarios adicionales sobre el inquilino, el contrato, etc.', { rows: 3 })}
-
+      ${sec('inquilino',   '👤 A) Inquilino',    secInquilino)}
+      ${sec('propiedad',   '🏠 B) Propiedad',    secPropiedad)}
+      ${sec('contrato',    '📄 C) Contrato',     secContrato)}
+      ${sec('pago',        '💵 D) Pago',         secPago)}
+      ${sec('aval',        '🧑‍💼 E) Aval',       secAval, { bg:'#f0f9ff', border:'#7dd3fc', titleColor:'#075985' })}
+      ${sec('comentarios', '💬 F) Comentarios',  secComentarios)}
       ${d.ID ? `<div style="margin-top:18px;text-align:right">
         <button type="button" onclick="inqDeletePerfil('${esc(d.ID)}')" style="all:unset;cursor:pointer;color:#dc2626;font-size:12px;font-weight:700;padding:6px 12px;border:1px solid #fecaca;border-radius:8px">🗑 Eliminar inquilino</button>
       </div>` : ''}
     </form>`;
 }
+
+window.inqToggleSection = function (id) {
+  const body = document.getElementById('inq-sec-body-' + id);
+  const chev = document.getElementById('inq-sec-chev-' + id);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (chev) chev.style.transform = open ? 'rotate(-90deg)' : '';
+};
 
 function inqBuildPagoFormHtml(d) {
   d = d || {};
