@@ -33315,8 +33315,13 @@ window.inqOpenPerfilForm = function (id) {
   INQ_STATE.formData.Aval_identificacion_files = Array.isArray(data.Aval_identificacion_files) ? data.Aval_identificacion_files.slice() : [];
   // Servicios y Muebles: objetos (no arrays). Migra legacy Servicios_incluidos string a items.
   INQ_STATE.formData.Servicios = (data.Servicios && typeof data.Servicios === 'object' && !Array.isArray(data.Servicios))
-    ? { items: Array.isArray(data.Servicios.items)?data.Servicios.items.slice():[], otro: String(data.Servicios.otro||''), caps: (data.Servicios.caps && typeof data.Servicios.caps === 'object') ? Object.assign({}, data.Servicios.caps) : {} }
-    : { items: [], otro: '', caps: {} };
+    ? { items: Array.isArray(data.Servicios.items)?data.Servicios.items.slice():[], otro: String(data.Servicios.otro||''), caps: (data.Servicios.caps && typeof data.Servicios.caps === 'object') ? Object.assign({}, data.Servicios.caps) : {}, estado: String(data.Servicios.estado||'') }
+    : { items: [], otro: '', caps: {}, estado: '' };
+  // Migra legacy 'Ninguno' → estado "No incluye"
+  if (INQ_STATE.formData.Servicios.items.includes('Ninguno')) {
+    INQ_STATE.formData.Servicios.items = INQ_STATE.formData.Servicios.items.filter(x => x !== 'Ninguno');
+    if (!INQ_STATE.formData.Servicios.estado) INQ_STATE.formData.Servicios.estado = 'No incluye';
+  }
   if (!INQ_STATE.formData.Servicios.items.length && data.Servicios_incluidos) {
     // Migra string legacy — extrae keywords conocidos
     const s = String(data.Servicios_incluidos).toLowerCase();
@@ -33384,7 +33389,9 @@ function inqField(label, name, type, value, placeholder, opts) {
 }
 
 // Catálogo de servicios. "ninguno" bloquea a los demás; "otro" abre input libre.
-const INQ_SERVICIOS_CATALOG = ['Ninguno', 'Agua', 'Luz', 'Gas', 'Internet', 'Mantenimiento', 'Otro'];
+const INQ_SERVICIOS_CATALOG = ['Agua', 'Luz', 'Gas', 'Internet', 'Mantenimiento', 'Limpieza', 'Otro'];
+// Servicios que muestran "Topado a:" (agua/luz/gas). El resto muestra "Costo:".
+const INQ_SERVICIOS_TOPADOS = new Set(['Agua', 'Luz', 'Gas']);
 
 // Ladas telefónicas para el dropdown. México +52 por defecto.
 const INQ_LADAS = [
@@ -33502,41 +33509,58 @@ function inqBuildServiciosHtml_(d) {
   const items = Array.isArray(s.items) ? s.items : [];
   const caps = (s.caps && typeof s.caps === 'object') ? s.caps : {};
   const otro = String(s.otro || '');
+  // Estado: "No incluye" | "Incluye". Migra legacy: si tenía items o el legacy 'Ninguno' quedó,
+  // asumimos "Incluye" cuando hay items != Ninguno, "No incluye" cuando solo Ninguno o vacío + flag previo.
+  const legacyNinguno = items.includes('Ninguno');
+  let estado = s.estado || '';
+  if (!estado) estado = legacyNinguno ? 'No incluye' : (items.length ? 'Incluye' : '');
+  const showList = estado === 'Incluye';
   const isChecked = (name) => items.includes(name);
-  const ninguno = isChecked('Ninguno');
   const otroChecked = isChecked('Otro');
   const rowHtml = (name) => {
     const on = isChecked(name);
-    const blocked = ninguno && name !== 'Ninguno';
-    const canCap = name !== 'Ninguno';
+    const isTopado = INQ_SERVICIOS_TOPADOS.has(name);
+    const lblText = isTopado ? 'Topado a:' : 'Costo:';
     const rawCap = caps[name] != null ? String(caps[name]) : '';
     const fmtCap = rawCap && !isNaN(parseFloat(rawCap)) ? inqFmtMoneyRaw_(rawCap) : '';
-    const capEnabled = on && canCap;
+    const capEnabled = on;
     const capBg = capEnabled ? '#fff' : '#f1f5f9';
     const capColor = capEnabled ? '#0f172a' : '#94a3b8';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;opacity:${blocked?'.35':'1'};pointer-events:${blocked?'none':'auto'}">
+    return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
       <label onclick="inqToggleServicio('${esc(name)}')" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font-size:13px;color:#0f172a;min-width:160px;flex:0 0 auto">
         <span data-inq-serv="${esc(name)}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid ${on?'#334155':'#cbd5e1'};background:${on?'#334155':'#fff'};color:${on?'#fff':'transparent'};border-radius:4px;font-size:12px;font-weight:900;line-height:1">${on?'✓':''}</span>
         ${esc(name)}
       </label>
-      ${canCap ? `
-      <span data-inq-cap-lbl="${esc(name)}" style="font-size:12px;color:${capEnabled?'#475569':'#94a3b8'};flex:0 0 auto">Topado a:</span>
+      <span data-inq-cap-lbl="${esc(name)}" style="font-size:12px;color:${capEnabled?'#475569':'#94a3b8'};flex:0 0 auto">${lblText}</span>
       <div style="position:relative;flex:1;max-width:200px">
         <span data-inq-cap-sign="${esc(name)}" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:${capEnabled?'#0f172a':'#94a3b8'};font-weight:700;pointer-events:none">$</span>
         <input type="text" inputmode="decimal" data-inq-cap="${esc(name)}" value="${esc(fmtCap)}" placeholder="0.00" oninput="inqCapOnInput(this)" onblur="inqCapOnBlur(this)" ${capEnabled?'':'disabled'} style="width:100%;padding:7px 10px 7px 22px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:${capBg};color:${capColor}">
         <input type="hidden" data-inq-cap-raw="${esc(name)}" value="${esc(rawCap)}">
-      </div>` : ''}
+      </div>
     </div>`;
   };
   return `
     <div style="margin:6px 0 10px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
-      <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">Servicios incluidos</div>
-      <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">Servicios</div>
+      <select name="Servicios_estado" onchange="inqOnServiciosEstadoChange(this.value)" style="width:100%;padding:8px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff;margin-bottom:${showList?'10px':'0'}">
+        <option value=""${!estado?' selected':''}>—</option>
+        <option value="No incluye"${estado==='No incluye'?' selected':''}>No incluye</option>
+        <option value="Incluye"${estado==='Incluye'?' selected':''}>Incluye servicios</option>
+      </select>
+      <div id="inq-servicios-list" style="${showList?'':'display:none'};display:${showList?'flex':'none'};flex-direction:column;gap:2px">
         ${INQ_SERVICIOS_CATALOG.map(rowHtml).join('')}
+        <input type="text" id="inq-servicios-otro" placeholder="Describe el otro servicio…" value="${esc(otro)}" style="width:100%;margin-top:8px;padding:8px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;${otroChecked?'':'display:none'}">
       </div>
-      <input type="text" id="inq-servicios-otro" placeholder="Describe el otro servicio…" value="${esc(otro)}" style="width:100%;margin-top:8px;padding:8px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;${otroChecked?'':'display:none'}">
     </div>`;
 }
+
+window.inqOnServiciosEstadoChange = function (v) {
+  const s = INQ_STATE.formData.Servicios || (INQ_STATE.formData.Servicios = { items:[], otro:'', caps:{} });
+  s.estado = v || '';
+  if (v !== 'Incluye') { s.items = []; s.otro = ''; s.caps = {}; }
+  const list = document.getElementById('inq-servicios-list');
+  if (list) list.style.display = (v === 'Incluye') ? 'flex' : 'none';
+};
 
 // Live-format del cap: sólo dígitos y un punto; muestra con comas.
 window.inqCapOnInput = function (el) {
@@ -33621,47 +33645,29 @@ function inqBuildMueblesHtml_(d) {
 }
 
 window.inqToggleServicio = function (name) {
-  const s = INQ_STATE.formData.Servicios || (INQ_STATE.formData.Servicios = { items: [], otro: '' });
+  const s = INQ_STATE.formData.Servicios || (INQ_STATE.formData.Servicios = { items: [], otro: '', caps: {}, estado: 'Incluye' });
   if (!Array.isArray(s.items)) s.items = [];
   const isOn = s.items.includes(name);
-  const ninguno = s.items.includes('Ninguno');
-  // Si "Ninguno" está activo, ignorar clicks en los demás (bloqueados)
-  if (ninguno && name !== 'Ninguno') return;
-  if (name === 'Ninguno') {
-    s.items = isOn ? [] : ['Ninguno'];
-  } else {
-    if (isOn) s.items = s.items.filter(x => x !== name);
-    else s.items.push(name);
-  }
-  // Actualiza sólo las span-cb (sin re-render del form)
+  if (isOn) s.items = s.items.filter(x => x !== name);
+  else s.items.push(name);
   document.querySelectorAll('[data-inq-serv]').forEach(el => {
     const n = el.getAttribute('data-inq-serv');
     const on = s.items.includes(n);
-    const blocked = s.items.includes('Ninguno') && n !== 'Ninguno';
     el.textContent = on ? '✓' : '';
     el.style.background = on ? '#334155' : '#fff';
     el.style.borderColor = on ? '#334155' : '#cbd5e1';
     el.style.color = on ? '#fff' : 'transparent';
-    // El row real es el ancestro con opacity/pointer-events (parent del <label>)
-    const row = el.parentElement && el.parentElement.parentElement;
-    if (row) {
-      row.style.opacity = blocked ? '.35' : '1';
-      row.style.pointerEvents = blocked ? 'none' : 'auto';
-    }
-    // Habilita/deshabilita el input de cap para este servicio
     const capInp = document.querySelector(`input[data-inq-cap="${CSS.escape(n)}"]`);
     const capLbl = document.querySelector(`[data-inq-cap-lbl="${CSS.escape(n)}"]`);
     const capSign = document.querySelector(`[data-inq-cap-sign="${CSS.escape(n)}"]`);
     if (capInp) {
-      const enabled = on && n !== 'Ninguno';
-      capInp.disabled = !enabled;
-      capInp.style.background = enabled ? '#fff' : '#f1f5f9';
-      capInp.style.color = enabled ? '#0f172a' : '#94a3b8';
-      if (capLbl)  capLbl.style.color  = enabled ? '#475569' : '#94a3b8';
-      if (capSign) capSign.style.color = enabled ? '#0f172a' : '#94a3b8';
+      capInp.disabled = !on;
+      capInp.style.background = on ? '#fff' : '#f1f5f9';
+      capInp.style.color = on ? '#0f172a' : '#94a3b8';
+      if (capLbl)  capLbl.style.color  = on ? '#475569' : '#94a3b8';
+      if (capSign) capSign.style.color = on ? '#0f172a' : '#94a3b8';
     }
   });
-  // Toggle input "otro"
   const otroInp = document.getElementById('inq-servicios-otro');
   if (otroInp) otroInp.style.display = s.items.includes('Otro') ? 'block' : 'none';
 };
@@ -33839,6 +33845,8 @@ function inqBuildPerfilFormHtml(d) {
           <div id="inq-aval-ident-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
         </div>
       </div>
+
+      ${inqField('Comentarios', 'Comentarios', 'textarea', d.Comentarios, 'Comentarios adicionales sobre el inquilino, el contrato, etc.', { rows: 3 })}
 
       ${d.ID ? `<div style="margin-top:18px;text-align:right">
         <button type="button" onclick="inqDeletePerfil('${esc(d.ID)}')" style="all:unset;cursor:pointer;color:#dc2626;font-size:12px;font-weight:700;padding:6px 12px;border:1px solid #fecaca;border-radius:8px">🗑 Eliminar inquilino</button>
@@ -34167,12 +34175,21 @@ window.inqSaveCurrentForm = async function () {
       const rawVal = rawEl ? String(rawEl.value || '').trim() : '';
       if (rawVal !== '' && !isNaN(parseFloat(rawVal))) caps[name] = parseFloat(rawVal);
     });
-    data.Servicios = { items: s.items || [], otro: s.otro || '', caps };
+    const estadoSel = form.querySelector('select[name="Servicios_estado"]');
+    const estado = estadoSel ? estadoSel.value : (s.estado || '');
+    if (estado !== 'Incluye') { s.items = []; s.otro = ''; }
+    data.Servicios = { items: s.items || [], otro: s.otro || '', caps, estado };
+    data.Servicios_estado = estado;
     // Espejo string legible en Servicios_incluidos (para lectores/tabla)
     const fmtCap = (v) => '$' + Number(v).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const summary = (s.items || []).map(x => {
+    let summary;
+    if (estado === 'No incluye') summary = 'No incluye';
+    else if (estado !== 'Incluye') summary = '';
+    else summary = (s.items || []).map(x => {
       const label = (x === 'Otro' && s.otro) ? `Otro: ${s.otro}` : x;
-      return caps[x] != null ? `${label} (topado a ${fmtCap(caps[x])})` : label;
+      if (caps[x] == null) return label;
+      const tag = INQ_SERVICIOS_TOPADOS.has(x) ? 'topado a' : 'costo';
+      return `${label} (${tag} ${fmtCap(caps[x])})`;
     }).join(', ');
     data.Servicios_incluidos = summary;
     // Muebles: recoge cantidades/extras/desc/label del DOM (respetando enabled del state)
