@@ -33170,15 +33170,6 @@ window.inqSetTab = function (tab) {
       inqLoadPagos().then(() => { if (INQ_STATE.tab === 'rentas') inqRenderRentas(); });
     }
   }
-  else if (tab === 'heatmap') {
-    inqRenderHeatmap();
-    if (!INQ_STATE.perfiles || !INQ_STATE.perfiles.length) {
-      inqLoadPerfiles().then(() => { if (INQ_STATE.tab === 'heatmap') inqRenderHeatmap(); });
-    }
-    if (!INQ_STATE.pagos || !INQ_STATE.pagos.length) {
-      inqLoadPagos().then(() => { if (INQ_STATE.tab === 'heatmap') inqRenderHeatmap(); });
-    }
-  }
 };
 
 async function inqLoadPerfiles() {
@@ -33351,7 +33342,22 @@ window.inqOnRentasInqInput = function (val) {
   inqRenderRentas();
 };
 
+window.inqSetRentasView = function (v) {
+  INQ_STATE.rentasView = v;
+  inqRenderRentas();
+};
+
+function inqRentasViewToggle_() {
+  const v = INQ_STATE.rentasView || 'tabla';
+  const btn = (id, label, icon) => {
+    const active = v === id;
+    return `<button type="button" onclick="inqSetRentasView('${id}')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:700;background:${active?'#0f172a':'#f1f5f9'};color:${active?'#fff':'#475569'};transition:.12s">${icon} ${label}</button>`;
+  };
+  return `<div style="display:inline-flex;gap:4px;padding:3px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px">${btn('tabla','Tabla','📋')}${btn('heatmap','Heat map','🗓️')}</div>`;
+}
+
 function inqRenderRentas() {
+  if ((INQ_STATE.rentasView || 'tabla') === 'heatmap') { inqRenderHeatmap(); return; }
   const view = document.getElementById('inq-view');
   const perfiles = INQ_STATE.perfiles || [];
   const currentId = INQ_STATE.currentInquilinoId || '';
@@ -33390,7 +33396,10 @@ function inqRenderRentas() {
         <div class="rh-toolbar-title">💵 Pagos de renta</div>
         <div class="rh-toolbar-count">${pagos.length} pago(s) · Total: <strong>${inqFmtMoney(totalPagado)}</strong></div>
       </div>
-      <button type="button" class="rh-btn-add" ${perfiles.length ? '' : 'disabled style="opacity:.5;cursor:not-allowed"'} onclick="inqOpenPagoForm(null)">＋ Registrar pago</button>
+      <div style="display:flex;gap:10px;align-items:center">
+        ${inqRentasViewToggle_()}
+        <button type="button" class="rh-btn-add" ${perfiles.length ? '' : 'disabled style="opacity:.5;cursor:not-allowed"'} onclick="inqOpenPagoForm(null)">＋ Registrar pago</button>
+      </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px">
       <div style="display:flex;gap:6px;align-items:center;min-width:260px;flex:2">
@@ -33609,7 +33618,10 @@ function inqRenderHeatmap() {
         <div class="rh-toolbar-title">🗓️ Vista mensual de pagos</div>
         <div class="rh-toolbar-count">${rows.length} inquilino(s) · Año ${year}</div>
       </div>
-      ${yearSel}
+      <div style="display:flex;gap:10px;align-items:center">
+        ${inqRentasViewToggle_()}
+        ${yearSel}
+      </div>
     </div>
     <div style="margin-bottom:12px">${legend}</div>
     ${emptyState}
@@ -33700,6 +33712,7 @@ window.inqOpenPerfilForm = function (id) {
   INQ_STATE.formData.Contrato_files             = _clean(data.Contrato_files);
   INQ_STATE.formData.Identificacion_files       = _clean(data.Identificacion_files);
   INQ_STATE.formData.Aval_identificacion_files  = _clean(data.Aval_identificacion_files);
+  INQ_STATE.formData.CIF_files                  = _clean(data.CIF_files);
   // Servicios y Muebles: objetos (no arrays). Migra legacy Servicios_incluidos string a items.
   INQ_STATE.formData.Servicios = (data.Servicios && typeof data.Servicios === 'object' && !Array.isArray(data.Servicios))
     ? { items: Array.isArray(data.Servicios.items)?data.Servicios.items.slice():[], otro: String(data.Servicios.otro||''), caps: (data.Servicios.caps && typeof data.Servicios.caps === 'object') ? Object.assign({}, data.Servicios.caps) : {}, estado: String(data.Servicios.estado||'') }
@@ -33724,6 +33737,7 @@ window.inqOpenPerfilForm = function (id) {
   inqRenderContratoFiles();
   inqRenderIdentFiles();
   inqRenderAvalIdentFiles();
+  inqRenderCifFiles();
   inqToggleOtroDescInput();
   inqToggleAvalOtroDescInput();
 };
@@ -34326,7 +34340,42 @@ function inqBuildPerfilFormHtml(d) {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       ${inqMoneyField_('Renta mensual (MXN)', 'Renta_mensual', d.Renta_mensual, '0.00')}
-      ${inqField('¿Requiere factura?', 'Requiere_factura', 'select', d.Requiere_factura || 'No', '', { options: [['','—'], ['Sí','Sí'], ['No','No']] })}
+      ${inqField('¿Requiere factura?', 'Requiere_factura', 'select', d.Requiere_factura || 'No', '', { options: [['','—'], ['Sí','Sí'], ['No','No']], extra: 'onchange="inqToggleDatosFiscales(this.value)"' })}
+    </div>
+    <div id="inq-datos-fiscales-block" style="${(d.Requiere_factura||'')==='Sí'?'':'display:none'};margin:6px 0 12px;padding:14px;background:#fefce8;border:1px dashed #eab308;border-radius:10px">
+      <div style="font-size:13px;font-weight:800;color:#854d0e;margin-bottom:10px">🧾 Datos fiscales</div>
+      ${inqField('Razón Social', 'Razon_social', 'text', d.Razon_social, 'Ej. Juan Pérez López / EMPRESA SA DE CV')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${inqField('RFC', 'RFC', 'text', d.RFC, 'Ej. XAXX010101000')}
+        ${inqField('C.P.', 'CP', 'text', d.CP, 'Ej. 25000')}
+      </div>
+      ${inqField('Régimen fiscal', 'Regimen_fiscal', 'select', d.Regimen_fiscal || '', '', { options: [
+        ['','— Selecciona —'],
+        ['601','601 · General de Ley Personas Morales'],
+        ['603','603 · Personas Morales con Fines no Lucrativos'],
+        ['605','605 · Sueldos y Salarios e Ingresos Asimilados'],
+        ['606','606 · Arrendamiento'],
+        ['607','607 · Régimen de Enajenación o Adquisición de Bienes'],
+        ['608','608 · Demás ingresos'],
+        ['610','610 · Residentes en el Extranjero'],
+        ['611','611 · Ingresos por Dividendos'],
+        ['612','612 · Personas Físicas con Actividades Empresariales y Profesionales'],
+        ['614','614 · Ingresos por intereses'],
+        ['615','615 · Ingresos por obtención de premios'],
+        ['616','616 · Sin obligaciones fiscales'],
+        ['620','620 · Sociedades Cooperativas de Producción'],
+        ['621','621 · Incorporación Fiscal'],
+        ['622','622 · Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras'],
+        ['623','623 · Opcional para Grupos de Sociedades'],
+        ['624','624 · Coordinados'],
+        ['625','625 · Régimen de Actividades Empresariales con Ingresos a través de Plataformas Tecnológicas'],
+        ['626','626 · Régimen Simplificado de Confianza (RESICO)'],
+      ]})}
+      ${inqField('Enviar copia al correo:', 'Correo_factura', 'email', d.Correo_factura, 'ejemplo@correo.com')}
+      <div style="margin:10px 0 0;padding:12px;background:#fffbeb;border:1px dashed #f59e0b;border-radius:10px">
+        <div style="font-size:12px;font-weight:800;color:#78350f;margin-bottom:8px">📎 Certificado de Identificación Fiscal (CIF) — PDF/JPG</div>
+        <div id="inq-cif-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:10px">
       ${inqMoneyField_('Depósito (MXN)', 'Deposito', d.Deposito, '0.00')}
@@ -34454,6 +34503,12 @@ window.inqUpdateSaveBtnState = function () {
   btn.style.cursor = uploading ? 'not-allowed' : '';
   btn.title = uploading ? 'Espera a que terminen los uploads…' : '';
   btn.textContent = uploading ? `⏳ Subiendo ${window.__inqUploadCount}…` : '💾 Guardar';
+};
+
+// Muestra/oculta la sub-sección "Datos fiscales" según Requiere_factura.
+window.inqToggleDatosFiscales = function (val) {
+  const b = document.getElementById('inq-datos-fiscales-block');
+  if (b) b.style.display = (val === 'Sí') ? 'block' : 'none';
 };
 
 window.inqToggleOtroDescInput = function () {
@@ -34607,6 +34662,9 @@ function inqRenderComprobanteFiles() {
 function inqRenderAvalIdentFiles() {
   inqRenderFileStrip('inq-aval-ident-strip', INQ_STATE.formData.Aval_identificacion_files || [], 'inqDeleteAvalIdentFile', 'inqAddAvalIdentFiles');
 }
+function inqRenderCifFiles() {
+  inqRenderFileStrip('inq-cif-strip', INQ_STATE.formData.CIF_files || [], 'inqDeleteCifFile', 'inqAddCifFiles');
+}
 
 async function inqUploadFile_(kind, file) {
   // Base64 → POST /inquilinos/upload
@@ -34694,6 +34752,13 @@ window.inqDeleteAvalIdentFile = function (idx) {
   INQ_STATE.formData.Aval_identificacion_files.splice(idx, 1);
   inqRenderAvalIdentFiles();
 };
+window.inqAddCifFiles = function (fileList) {
+  return inqAddFilesWithFeedback_('cif', fileList, 'CIF_files', inqRenderCifFiles);
+};
+window.inqDeleteCifFile = function (idx) {
+  INQ_STATE.formData.CIF_files.splice(idx, 1);
+  inqRenderCifFiles();
+};
 window.inqDeleteContratoFile = function (idx) {
   INQ_STATE.formData.Contrato_files.splice(idx, 1);
   inqRenderContratoFiles();
@@ -34773,12 +34838,15 @@ window.inqSaveCurrentForm = async function () {
     const _rawContrato = INQ_STATE.formData.Contrato_files || [];
     const _rawIdent    = INQ_STATE.formData.Identificacion_files || [];
     const _rawAvalId   = INQ_STATE.formData.Aval_identificacion_files || [];
+    const _rawCif      = INQ_STATE.formData.CIF_files || [];
     data.Contrato_files             = _stripUp(_rawContrato);
     data.Identificacion_files       = _stripUp(_rawIdent);
     data.Aval_identificacion_files  = _stripUp(_rawAvalId);
+    data.CIF_files                  = _stripUp(_rawCif);
     const _pendingCount = (_rawContrato.length - data.Contrato_files.length)
                         + (_rawIdent.length    - data.Identificacion_files.length)
-                        + (_rawAvalId.length   - data.Aval_identificacion_files.length);
+                        + (_rawAvalId.length   - data.Aval_identificacion_files.length)
+                        + (_rawCif.length      - data.CIF_files.length);
     if (_pendingCount > 0) {
       if (!confirm(`Hay ${_pendingCount} archivo(s) aún subiéndose. Se descartarán del guardado (no llegaron a Drive). ¿Continuar?`)) return;
     }
