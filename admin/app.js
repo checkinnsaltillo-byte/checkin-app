@@ -33170,6 +33170,15 @@ window.inqSetTab = function (tab) {
       inqLoadPagos().then(() => { if (INQ_STATE.tab === 'rentas') inqRenderRentas(); });
     }
   }
+  else if (tab === 'heatmap') {
+    inqRenderHeatmap();
+    if (!INQ_STATE.perfiles || !INQ_STATE.perfiles.length) {
+      inqLoadPerfiles().then(() => { if (INQ_STATE.tab === 'heatmap') inqRenderHeatmap(); });
+    }
+    if (!INQ_STATE.pagos || !INQ_STATE.pagos.length) {
+      inqLoadPagos().then(() => { if (INQ_STATE.tab === 'heatmap') inqRenderHeatmap(); });
+    }
+  }
 };
 
 async function inqLoadPerfiles() {
@@ -33448,6 +33457,226 @@ function inqRenderRentas() {
     if (inp) { inp.focus(); const v = inp.value; try { inp.setSelectionRange(v.length, v.length); } catch(e){} }
   }
 }
+
+// ── HEAT MAP DE PAGOS ─────────────────────────────────────────────────
+// Vista mensual semaforizada: filas = inquilinos (Nombre · Propiedad · #Depto),
+// columnas = meses del año seleccionado, celdas coloreadas según estado.
+INQ_STATE.hmYear = null; // año seleccionado; null = actual
+
+function inqHmMonthKey_(y, m) {
+  return `${y}-${String(m + 1).padStart(2, '0')}`;
+}
+
+// Estado de una celda (mes/inquilino):
+//   'paid'    → pago existe → verde
+//   'pending' → mes actual, sin pago, contrato activo → amarillo
+//   'overdue' → mes pasado, sin pago, contrato activo → rojo
+//   'future'  → mes futuro → gris claro
+//   'noctr'   → mes fuera del contrato (antes o después) → gris muy claro
+function inqHmCellState_(perfil, y, m, pagoIndex, todayY, todayM) {
+  const key = inqHmMonthKey_(y, m);
+  const pago = pagoIndex[perfil.ID + '|' + key];
+  if (pago) return { state: 'paid', pago };
+  // Fecha del primer día del mes evaluado
+  const monthStart = new Date(y, m, 1);
+  const monthEnd = new Date(y, m + 1, 0); // último día del mes
+  // Contrato activo si monthEnd >= Fecha_inicio y monthStart <= Fecha_fin
+  const fIni = perfil.Fecha_inicio ? new Date(inqFmtDateISO_(perfil.Fecha_inicio)) : null;
+  const fFin = perfil.Fecha_fin    ? new Date(inqFmtDateISO_(perfil.Fecha_fin))    : null;
+  if (fIni && monthEnd < fIni) return { state: 'noctr' };
+  if (fFin && monthStart > fFin) return { state: 'noctr' };
+  const isFuture = (y > todayY) || (y === todayY && m > todayM);
+  const isCurrent = (y === todayY && m === todayM);
+  if (isFuture) return { state: 'future' };
+  if (isCurrent) return { state: 'pending' };
+  return { state: 'overdue' };
+}
+
+window.inqOnHmYearChange = function (v) {
+  INQ_STATE.hmYear = parseInt(v, 10);
+  inqRenderHeatmap();
+};
+
+function inqRenderHeatmap() {
+  const view = document.getElementById('inq-view');
+  if (!view) return;
+  const perfiles = INQ_STATE.perfiles || [];
+  const pagos = INQ_STATE.pagos || [];
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth(); // 0-11
+  const year = INQ_STATE.hmYear || currentYear;
+  // Índice de pagos por inquilino+mes
+  const pagoIndex = {};
+  pagos.forEach(p => {
+    const mes = String(p.Mes || '').slice(0, 7); // "YYYY-MM"
+    if (p.Inquilino_ID && mes) pagoIndex[p.Inquilino_ID + '|' + mes] = p;
+  });
+  // Años seleccionables: current-2 hasta current+1
+  const years = [];
+  for (let y = currentYear - 2; y <= currentYear + 1; y++) years.push(y);
+  const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  // Ordena inquilinos por Propiedad, Depto, Nombre
+  const rows = perfiles.slice().sort((a, b) => {
+    const pa = String(a.Propiedad || '');
+    const pb = String(b.Propiedad || '');
+    if (pa !== pb) return pa.localeCompare(pb, 'es');
+    const da = String(a.Departamento || '');
+    const db = String(b.Departamento || '');
+    if (da !== db) {
+      const na = parseFloat(da), nb = parseFloat(db);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      return da.localeCompare(db, 'es');
+    }
+    return String(a.Nombre || '').localeCompare(String(b.Nombre || ''), 'es');
+  });
+  const cellStyles = {
+    paid:    'background:#16a34a;color:#fff',
+    pending: 'background:#facc15;color:#78350f',
+    overdue: 'background:#dc2626;color:#fff',
+    future:  'background:#f1f5f9;color:#cbd5e1',
+    noctr:   'background:#fafafa;color:#e2e8f0',
+  };
+  const cellIcons = { paid:'✓', pending:'⏳', overdue:'✕', future:'', noctr:'—' };
+  const legend = `
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px;color:#475569">
+      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#16a34a;border-radius:3px"></span>Pagado</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#facc15;border-radius:3px"></span>Pendiente (mes actual)</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#dc2626;border-radius:3px"></span>No pagado (vencido)</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:3px"></span>Futuro</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#fafafa;border:1px solid #e2e8f0;border-radius:3px"></span>Fuera de contrato</span>
+      <span style="display:inline-flex;align-items:center;gap:5px">📎 = con comprobante</span>
+    </div>`;
+  const yearSel = `
+    <div style="display:flex;gap:8px;align-items:center">
+      <label style="font-size:12px;color:#475569;font-weight:700">Año:</label>
+      <select onchange="inqOnHmYearChange(this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+        ${years.map(y => `<option value="${y}"${y===year?' selected':''}>${y}</option>`).join('')}
+      </select>
+    </div>`;
+  const emptyState = !rows.length
+    ? `<div class="rh-empty" style="padding:40px;text-align:center;color:#94a3b8">Sin inquilinos. Ve a la tab <strong>Perfiles</strong> para agregar.</div>`
+    : '';
+  const table = rows.length ? `
+    <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;background:#fff">
+      <table style="border-collapse:separate;border-spacing:0;width:100%;min-width:900px;font-size:12px">
+        <thead>
+          <tr>
+            <th style="position:sticky;left:0;top:0;z-index:3;background:#f8fafc;padding:10px 12px;text-align:left;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;font-weight:800;color:#0f172a;min-width:220px">Inquilino</th>
+            ${monthNames.map((mn, i) => {
+              const isCur = (year === currentYear && i === currentMonth);
+              return `<th style="position:sticky;top:0;z-index:2;background:${isCur?'#e0f2fe':'#f8fafc'};padding:10px 6px;text-align:center;border-bottom:1px solid #e2e8f0;font-weight:800;color:${isCur?'#075985':'#0f172a'};min-width:60px">${mn}${isCur?' •':''}</th>`;
+            }).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(p => {
+            const propDepto = [p.Propiedad, p.Departamento ? '#' + p.Departamento : ''].filter(Boolean).join(' · ');
+            return `<tr>
+              <td style="position:sticky;left:0;z-index:1;background:#fff;padding:8px 12px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;font-weight:700;color:#0f172a">
+                <div>${esc(p.Nombre || p.ID)}</div>
+                ${propDepto ? `<div style="font-size:11px;font-weight:500;color:#64748b;margin-top:2px">${esc(propDepto)}</div>` : ''}
+              </td>
+              ${monthNames.map((_, m) => {
+                const info = inqHmCellState_(p, year, m, pagoIndex, currentYear, currentMonth);
+                const style = cellStyles[info.state];
+                const icon = cellIcons[info.state];
+                const pago = info.pago;
+                const hasFile = pago && (
+                  (Array.isArray(pago.Comprobante_files) && pago.Comprobante_files.length) ||
+                  !!pago.Comprobante_url
+                );
+                const paperclip = hasFile ? '📎' : '';
+                const clickable = info.state !== 'future' && info.state !== 'noctr';
+                const cursor = clickable ? 'cursor:pointer' : 'cursor:default';
+                const onclick = clickable ? `onclick="inqHmOpenCell('${esc(p.ID)}','${inqHmMonthKey_(year, m)}')"` : '';
+                const title = pago
+                  ? `${p.Nombre} · ${inqHmMonthKey_(year, m)} · ${inqFmtMoney(pago.Monto_pagado)}`
+                  : `${p.Nombre} · ${inqHmMonthKey_(year, m)} · ${info.state === 'overdue' ? 'No pagado' : info.state === 'pending' ? 'Pendiente' : ''}`;
+                return `<td title="${esc(title)}" ${onclick} style="${style};${cursor};padding:10px 4px;text-align:center;border-bottom:1px solid #e2e8f0;font-weight:700;font-size:13px;line-height:1.2">
+                  <div>${icon}</div>
+                  ${paperclip ? `<div style="font-size:10px;margin-top:2px">${paperclip}</div>` : ''}
+                </td>`;
+              }).join('')}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>` : '';
+  view.innerHTML = `
+    <div class="rh-toolbar">
+      <div>
+        <div class="rh-toolbar-title">🗓️ Vista mensual de pagos</div>
+        <div class="rh-toolbar-count">${rows.length} inquilino(s) · Año ${year}</div>
+      </div>
+      ${yearSel}
+    </div>
+    <div style="margin-bottom:12px">${legend}</div>
+    ${emptyState}
+    ${table}
+    <div id="inq-hm-popup" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9997;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)inqHmClosePopup()"></div>
+  `;
+}
+
+// Popup de detalle del pago (o de mes sin pago con botón para registrar).
+window.inqHmOpenCell = function (inquilinoId, mesKey) {
+  const perfiles = INQ_STATE.perfiles || [];
+  const pagos = INQ_STATE.pagos || [];
+  const perfil = perfiles.find(x => String(x.ID) === String(inquilinoId));
+  if (!perfil) return;
+  const pago = pagos.find(p => String(p.Inquilino_ID) === String(inquilinoId) && String(p.Mes || '').slice(0,7) === mesKey);
+  const popup = document.getElementById('inq-hm-popup');
+  if (!popup) return;
+  const propDepto = [perfil.Propiedad, perfil.Departamento ? '#' + perfil.Departamento : ''].filter(Boolean).join(' · ');
+  const fileLinks = (() => {
+    if (!pago) return '';
+    const files = Array.isArray(pago.Comprobante_files) ? pago.Comprobante_files : [];
+    if (files.length) {
+      return files.map(f => {
+        const url = f.url || '';
+        const m = url.match(/[?&]id=([^&]+)/) || url.match(/\/file\/d\/([^\/?]+)/);
+        const thumb = f.thumbnail || (m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w400` : url);
+        return `<a href="${esc(url)}" target="_blank" style="display:inline-block;margin:4px;text-decoration:none">
+          <img src="${esc(thumb)}" referrerpolicy="no-referrer" style="width:80px;height:80px;object-fit:cover;border:1px solid #cbd5e1;border-radius:8px" onerror="this.replaceWith(document.createTextNode('📄 ${esc(f.name||'archivo')}'))">
+        </a>`;
+      }).join('');
+    }
+    if (pago.Comprobante_url) {
+      return `<a href="${esc(pago.Comprobante_url)}" target="_blank" style="color:#0d9488;font-weight:700">🧾 Ver comprobante</a>`;
+    }
+    return '<span style="color:#94a3b8;font-size:12px">Sin comprobante adjunto</span>';
+  })();
+  const body = pago
+    ? `<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13px;color:#0f172a">
+        <div style="color:#64748b">Mes:</div><div><strong>${esc(mesKey)}</strong></div>
+        <div style="color:#64748b">Monto:</div><div style="color:#0f766e;font-weight:800">${inqFmtMoney(pago.Monto_pagado)}</div>
+        <div style="color:#64748b">Método:</div><div>${esc(pago.Metodo_pago || '—')}</div>
+        <div style="color:#64748b">Fecha pago:</div><div>${esc(pago.Fecha_pago || '—')}</div>
+        <div style="color:#64748b">Notas:</div><div>${esc(pago.Notas || '—')}</div>
+        <div style="color:#64748b;align-self:start;padding-top:6px">Comprobante:</div><div>${fileLinks}</div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" onclick="inqHmClosePopup();inqOpenPagoForm('${esc(pago.ID)}')" style="all:unset;cursor:pointer;padding:8px 14px;background:#0f766e;color:#fff;border-radius:8px;font-weight:700;font-size:13px">✏️ Editar pago</button>
+      </div>`
+    : `<div style="text-align:center;padding:16px">
+        <div style="font-size:15px;color:#0f172a;font-weight:700;margin-bottom:6px">Sin pago registrado</div>
+        <div style="font-size:13px;color:#64748b;margin-bottom:16px">Mes ${esc(mesKey)}</div>
+        <button type="button" onclick="inqHmClosePopup();INQ_STATE.currentInquilinoId='${esc(perfil.ID)}';inqOpenPagoForm(null);setTimeout(()=>{const m=document.querySelector('#inq-pago-form input[name=Mes]');if(m)m.value='${esc(mesKey)}';},250)" style="all:unset;cursor:pointer;padding:10px 18px;background:#0f766e;color:#fff;border-radius:8px;font-weight:800;font-size:14px">＋ Registrar pago para ${esc(mesKey)}</button>
+      </div>`;
+  popup.innerHTML = `
+    <div onclick="event.stopPropagation()" style="background:#fff;border-radius:14px;padding:20px 24px;max-width:520px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.35);position:relative">
+      <button type="button" onclick="inqHmClosePopup()" style="position:absolute;top:10px;right:10px;background:#f1f5f9;border:0;width:32px;height:32px;border-radius:50%;font-size:16px;font-weight:900;cursor:pointer;color:#64748b">✕</button>
+      <div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:2px">${esc(perfil.Nombre || perfil.ID)}</div>
+      ${propDepto ? `<div style="font-size:12px;color:#64748b;margin-bottom:14px">${esc(propDepto)}</div>` : '<div style="margin-bottom:14px"></div>'}
+      ${body}
+    </div>`;
+  popup.style.display = 'flex';
+};
+
+window.inqHmClosePopup = function () {
+  const p = document.getElementById('inq-hm-popup');
+  if (p) { p.style.display = 'none'; p.innerHTML = ''; }
+};
 
 // ── FORM PERFIL ────────────────────────────────────────────────────────
 window.inqOpenPerfilForm = function (id) {
