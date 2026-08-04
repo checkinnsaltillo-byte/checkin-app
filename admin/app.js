@@ -33593,7 +33593,8 @@ function inqRenderHeatmap() {
                   (Array.isArray(pago.Comprobante_files) && pago.Comprobante_files.length) ||
                   !!pago.Comprobante_url
                 );
-                const paperclip = hasFile ? '📎' : '';
+                // Badge blanco con clip para contrastar en cualquier fondo (verde, rojo, etc.)
+                const paperclip = hasFile ? '<span style="display:inline-block;background:#fff;color:#0f172a;padding:1px 5px;border-radius:8px;font-size:9px;font-weight:800;box-shadow:0 1px 2px rgba(0,0,0,.15)">📎</span>' : '';
                 const clickable = info.state !== 'future' && info.state !== 'noctr';
                 const cursor = clickable ? 'cursor:pointer' : 'cursor:default';
                 const onclick = clickable ? `onclick="inqHmOpenCell('${esc(p.ID)}','${inqHmMonthKey_(year, m)}')"` : '';
@@ -33619,6 +33620,7 @@ function inqRenderHeatmap() {
       <div style="display:flex;gap:10px;align-items:center">
         ${inqRentasViewToggle_()}
         ${yearSel}
+        <button type="button" class="rh-btn-add" ${perfiles.length ? '' : 'disabled style="opacity:.5;cursor:not-allowed"'} onclick="inqOpenPagoForm(null)">＋ Registrar pago</button>
       </div>
     </div>
     <div style="margin-bottom:12px">${legend}</div>
