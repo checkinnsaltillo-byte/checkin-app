@@ -33607,9 +33607,12 @@ function inqRenderHeatmap() {
                   (Array.isArray(pago.Comprobante_files) && pago.Comprobante_files.length) ||
                   !!pago.Comprobante_url
                 );
-                // Marca simple sin fondo: subrayado tipo link, hereda contraste por color según el estado.
+                // Marcas simples sin fondo. "Comprobante" abre el popup (parent onclick); "Ver ticket"
+                // abre el URL directo del PDF en pestaña aparte (event.stopPropagation).
                 const linkColor = (info.state === 'paid' || info.state === 'overdue') ? '#fff' : '#0f172a';
                 const paperclip = hasFile ? `<span style="font-size:10px;font-weight:800;color:${linkColor};text-decoration:underline;text-underline-offset:2px">Comprobante</span>` : '';
+                const ticketUrl = pago && String(pago.Ticket_facturapi_url || '').trim();
+                const verTicket = ticketUrl ? `<a href="${esc(ticketUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:10px;font-weight:800;color:${linkColor};text-decoration:underline;text-underline-offset:2px">Ver ticket</a>` : '';
                 const clickable = info.state !== 'future' && info.state !== 'noctr';
                 const cursor = clickable ? 'cursor:pointer' : 'cursor:default';
                 const onclick = clickable ? `onclick="inqHmOpenCell('${esc(p.ID)}','${inqHmMonthKey_(year, m)}')"` : '';
@@ -33619,6 +33622,7 @@ function inqRenderHeatmap() {
                 return `<td title="${esc(title)}" ${onclick} style="${style};${cursor};padding:10px 4px;text-align:center;border-bottom:1px solid #e2e8f0;font-weight:700;font-size:13px;line-height:1.2">
                   <div>${icon}</div>
                   ${paperclip ? `<div style="font-size:10px;margin-top:2px">${paperclip}</div>` : ''}
+                  ${verTicket ? `<div style="font-size:10px;margin-top:2px">${verTicket}</div>` : ''}
                 </td>`;
               }).join('')}
             </tr>`;
@@ -33682,6 +33686,7 @@ window.inqHmOpenCell = function (inquilinoId, mesKey) {
         <div style="color:#64748b">Notas:</div><div>${esc(pago.Notas || '—')}</div>
         <div style="color:#64748b;align-self:start;padding-top:6px">Comprobante:</div><div>${fileLinks}</div>
       </div>
+      ${inqBuildTicketButtonsBox_(pago)}
       <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
         <button type="button" onclick="inqHmClosePopup();inqOpenPagoForm('${esc(pago.ID)}')" style="all:unset;cursor:pointer;padding:8px 14px;background:#0f766e;color:#fff;border-radius:8px;font-weight:700;font-size:13px">✏️ Editar pago</button>
       </div>`
@@ -34484,9 +34489,166 @@ function inqBuildPagoFormHtml(d) {
         <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px">🧾 Comprobante de pago (PDF/JPG)</div>
         <div id="inq-comprobante-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
       </div>
+      ${inqBuildTicketButtonsBox_(d)}
       ${inqField('Notas', 'Notas', 'textarea', d.Notas, '', { rows: 2 })}
     </form>`;
 }
+
+// Devuelve el HTML del bloque de botones de Facturapi para un pago.
+// Reusa el modal de Facturapi de Huéspedes (huespedesOpenFacturapi) y las
+// funciones window.inqGenerarTicket / inqReemitirTicket / inqEnviarTicketCorreo.
+function inqBuildTicketButtonsBox_(pago) {
+  pago = pago || {};
+  const id = String(pago.ID || '').trim();
+  const folio = String(pago.Folio_facturapi || '').trim();
+  const ticketUrl = String(pago.Ticket_facturapi_url || '').trim();
+  const has = !!(folio || ticketUrl);
+  const btn = (bg, on, label) => `<button type="button" onclick="event.stopPropagation();${on}" style="padding:7px 14px;border:none;background:${bg};color:#fff;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.15)">${label}</button>`;
+  const link = (href, label) => `<a href="${esc(href)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:inline-block;padding:7px 14px;background:#16a34a;color:#fff;border-radius:8px;font-weight:700;font-size:12px;text-decoration:none;box-shadow:0 2px 4px rgba(22,163,74,.3)">${label}</a>`;
+  let buttonsHtml;
+  if (has) {
+    const parts = [];
+    if (ticketUrl) parts.push(link(ticketUrl, `🧾 Ver ticket${folio?' - Folio #'+esc(folio):''}`));
+    if (ticketUrl) parts.push(btn('#475569', `inqCopiarMsgConsulta(this,'${esc(ticketUrl)}')`, '📋 Copiar mensaje para consultar ticket emitido'));
+    parts.push(btn('linear-gradient(180deg,#f97316 0%,#c2410c 100%)', `inqReemitirTicket('${esc(id)}')`, '🔄 Re-emitir ticket'));
+    parts.push(btn('linear-gradient(180deg,#0ea5e9 0%,#0369a1 100%)', `inqEnviarTicketCorreo('${esc(id)}')`, '📧 Enviar ticket por correo'));
+    buttonsHtml = parts.join('');
+  } else {
+    buttonsHtml = btn('linear-gradient(180deg,#ef4444 0%,#b91c1c 100%)', `inqGenerarTicket('${esc(id)}')`, 'Generar Ticket');
+  }
+  return `
+    <div style="border:1.5px solid #c4b5fd;border-radius:12px;padding:12px;background:linear-gradient(180deg,#faf5ff,#fff);margin:12px 0">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#7c3aed;font-weight:800;margin-bottom:10px">🧾 Ticket para auto-facturación</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${buttonsHtml}</div>
+    </div>`;
+}
+
+// ─── Facturapi para pagos de inquilinos ──────────────────────────────────
+// Reusa el modal Facturapi (huespedesOpenFacturapi) y las utilidades
+// (huGetFacturapiUrl, huGetFacturapiOrg, huResolveConceptoPorRegimen,
+// HU_CHECKIN_WEBAPP_URL, huNormalizePhoneWA). externalId = INQPAGO-{id}.
+
+// Mapa código SAT → nombre canónico (el resto usa 'RESICO' que caerá en producto 2).
+const INQ_REGIMEN_NAMES = {
+  '601':'General de Ley Personas Morales','603':'Personas Morales con Fines no Lucrativos',
+  '605':'Sueldos y Salarios e Ingresos Asimilados a Salarios','606':'Arrendamiento',
+  '607':'Régimen de Enajenación o Adquisición de Bienes','608':'Demás ingresos',
+  '610':'Residentes en el Extranjero sin Establecimiento Permanente en México',
+  '611':'Ingresos por Dividendos','612':'Personas Físicas con Actividades Empresariales y Profesionales',
+  '614':'Ingresos por intereses','615':'Régimen de los ingresos por obtención de premios',
+  '616':'Sin obligaciones fiscales','620':'Sociedades Cooperativas de Producción',
+  '621':'Incorporación Fiscal','622':'Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras',
+  '623':'Opcional para Grupos de Sociedades','624':'Coordinados',
+  '625':'Régimen de las Actividades Empresariales con ingresos a través de Plataformas Tecnológicas',
+  '626':'Régimen Simplificado de Confianza',
+};
+function inqRegimenName_(code) {
+  const s = String(code || '').trim();
+  return INQ_REGIMEN_NAMES[s] || s;
+}
+
+// Construye la URL del popup Facturapi para un pago inquilino.
+function inqBuildFacturapiUrl_(pago, perfil) {
+  const p = new URLSearchParams();
+  p.set('source', 'inquilinos_pagos');
+  const cantidad = (pago.Monto_pagado != null && String(pago.Monto_pagado).trim() !== '')
+    ? String(pago.Monto_pagado).replace(/[^0-9.-]/g,'')
+    : (perfil && perfil.Renta_mensual != null ? String(perfil.Renta_mensual).replace(/[^0-9.-]/g,'') : '');
+  p.set('quantity', cantidad || '1');
+  p.set('currency', 'MXN');
+  const email = String((perfil && (perfil.Correo_factura || perfil.Correo)) || '').trim();
+  const whatsapp = (typeof huNormalizePhoneWA === 'function') ? huNormalizePhoneWA(perfil && perfil.Whatsapp) : '';
+  const regName = inqRegimenName_(perfil && perfil.Regimen_fiscal);
+  const concepto = (typeof huResolveConceptoPorRegimen === 'function') ? huResolveConceptoPorRegimen(regName)
+    : (regName.toLowerCase() === 'general de ley personas morales' ? '1. Arrendamiento en Saltillo, Coah.' : '2. Arrendamiento en Saltillo, Coah.');
+  if (email) p.set('email', email);
+  if (concepto) { p.set('concepto', concepto); p.set('descripcion', concepto); }
+  if (whatsapp) p.set('whatsapp', whatsapp);
+  if (regName) p.set('taxRegime', regName);
+  const id = String(pago.ID || '').trim();
+  if (id) {
+    p.set('externalId', 'INQPAGO-' + id);
+    p.set('recordId', 'INQPAGO-' + id);
+  }
+  if (typeof HU_CHECKIN_WEBAPP_URL === 'string') p.set('checkinWebAppUrl', HU_CHECKIN_WEBAPP_URL);
+  if (typeof huGetFacturapiOrg === 'function') p.set('org', huGetFacturapiOrg());
+  const base = (typeof huGetFacturapiUrl === 'function') ? huGetFacturapiUrl() : 'https://checkin-app-957627511957.us-central1.run.app/facturapi';
+  return `${base}?${p.toString()}`;
+}
+
+window.inqGenerarTicket = async function (pagoId) {
+  if (!pagoId) { alert('Guarda el pago antes de generar ticket.'); return; }
+  const pago = (INQ_STATE.pagos || []).find(x => String(x.ID) === String(pagoId));
+  if (!pago) { alert('No se encontró el pago.'); return; }
+  const perfil = (INQ_STATE.perfiles || []).find(x => String(x.ID) === String(pago.Inquilino_ID));
+  const url = inqBuildFacturapiUrl_(pago, perfil || {});
+  if (typeof huespedesOpenFacturapi === 'function') huespedesOpenFacturapi(url);
+  else window.open(url, '_blank', 'noopener');
+};
+
+window.inqReemitirTicket = async function (pagoId) {
+  if (!pagoId) return;
+  const pago = (INQ_STATE.pagos || []).find(x => String(x.ID) === String(pagoId));
+  if (!pago) return;
+  const folioActual = String(pago.Folio_facturapi || '').trim();
+  const ok = confirm(`¿Re-emitir ticket? El folio actual ${folioActual?'#'+folioActual+' ':''}se archivará y se generará uno nuevo. No se puede deshacer.`);
+  if (!ok) return;
+  try {
+    const res = await fetch(HU_CHECKIN_WEBAPP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'inquilinos_pagos_archive_folio', record_id: pagoId }),
+      redirect: 'follow',
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!j.ok) throw new Error(j.error || 'archive falló');
+    pago.Folio_facturapi = '';
+    pago.Ticket_facturapi_url = '';
+    pago.Estatus_facturapi = '';
+    if (j.previous_folio) {
+      const prev = String(pago.Folio_facturapi_antiguo || '').trim();
+      pago.Folio_facturapi_antiguo = prev ? `${prev}, ${j.previous_folio}` : j.previous_folio;
+    }
+  } catch (e) {
+    alert('No se pudo archivar el folio: ' + e.message); return;
+  }
+  await window.inqGenerarTicket(pagoId);
+};
+
+window.inqEnviarTicketCorreo = async function (pagoId) {
+  if (!pagoId) return;
+  const pago = (INQ_STATE.pagos || []).find(x => String(x.ID) === String(pagoId));
+  if (!pago) return;
+  const folio = String(pago.Folio_facturapi || '').trim();
+  if (!folio) { alert('Este pago no tiene folio emitido.'); return; }
+  const perfil = (INQ_STATE.perfiles || []).find(x => String(x.ID) === String(pago.Inquilino_ID));
+  const correo = String((perfil && (perfil.Correo_factura || perfil.Correo)) || '').trim();
+  if (!correo) { alert('El inquilino no tiene correo electrónico capturado.'); return; }
+  const orgRaw = String(pago.Organizacion_facturapi || '').trim();
+  const org = orgRaw.includes('1') || /ACR/i.test(orgRaw) ? '1' : '2';
+  const ok = confirm(`¿Enviar ticket #${folio} a ${correo}?`);
+  if (!ok) return;
+  try {
+    const res = await fetch(`${BACKEND}/facturapi/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folio, email: correo, org }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'Error');
+    alert(`✓ Ticket enviado a ${j.sent_to || correo}`);
+  } catch (e) { alert('No se pudo enviar: ' + e.message); }
+};
+
+window.inqCopiarMsgConsulta = async function (btn, ticketUrl) {
+  const msg = (typeof huBuildTicketConsultaMsg === 'function') ? huBuildTicketConsultaMsg(ticketUrl) : `Consulta tu factura: ${ticketUrl}`;
+  try {
+    await navigator.clipboard.writeText(msg);
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copiado';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  } catch (e) { alert('No se pudo copiar: ' + e.message); }
+};
 
 // Al cambiar Inquilino en el form de pago, autocompletar Monto_pagado con su
 // Renta_mensual del perfil. Sólo sobrescribe si el monto está vacío o coincide
