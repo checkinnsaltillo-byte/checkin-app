@@ -34391,7 +34391,14 @@ function inqBuildPerfilFormHtml(d) {
         ['625','625 · Régimen de Actividades Empresariales con Ingresos a través de Plataformas Tecnológicas'],
         ['626','626 · Régimen Simplificado de Confianza (RESICO)'],
       ]})}
-      ${inqField('Enviar copia al correo:', 'Correo_factura', 'email', d.Correo_factura, 'ejemplo@correo.com')}
+      <div style="margin-bottom:10px">
+        <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px">Correo electrónico fiscal</label>
+        <input type="email" name="Correo_factura" value="${esc(d.Correo_factura || '')}" placeholder="ejemplo@correo.com" oninput="inqOnCorreoFactInput()" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px">
+        <label onclick="inqToggleCorreoFactIgual()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;font-size:12px;color:#475569;margin-top:6px">
+          <span id="inq-corfact-cb" data-on="${d.Correo_factura && d.Correo && String(d.Correo_factura).trim().toLowerCase() === String(d.Correo).trim().toLowerCase() ? '1' : '0'}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid ${d.Correo_factura && d.Correo && String(d.Correo_factura).trim().toLowerCase() === String(d.Correo).trim().toLowerCase() ? '#334155' : '#cbd5e1'};background:${d.Correo_factura && d.Correo && String(d.Correo_factura).trim().toLowerCase() === String(d.Correo).trim().toLowerCase() ? '#334155' : '#fff'};color:${d.Correo_factura && d.Correo && String(d.Correo_factura).trim().toLowerCase() === String(d.Correo).trim().toLowerCase() ? '#fff' : 'transparent'};border-radius:4px;font-size:12px;font-weight:900;line-height:1">${d.Correo_factura && d.Correo && String(d.Correo_factura).trim().toLowerCase() === String(d.Correo).trim().toLowerCase() ? '✓' : ''}</span>
+          Mismo correo electrónico del inquilino
+        </label>
+      </div>
       <div style="margin:10px 0 0;padding:12px;background:#fffbeb;border:1px dashed #f59e0b;border-radius:10px">
         <div style="font-size:12px;font-weight:800;color:#78350f;margin-bottom:8px">📎 Certificado de Identificación Fiscal (CIF) — PDF/JPG</div>
         <div id="inq-cif-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
@@ -34680,6 +34687,48 @@ window.inqUpdateSaveBtnState = function () {
   btn.style.cursor = uploading ? 'not-allowed' : '';
   btn.title = uploading ? 'Espera a que terminen los uploads…' : '';
   btn.textContent = uploading ? `⏳ Subiendo ${window.__inqUploadCount}…` : '💾 Guardar';
+};
+
+// Toggle "Mismo correo electrónico del inquilino": al marcar, copia el valor
+// del campo "Correo" (sección A) al campo "Correo_factura" (Datos fiscales).
+// Al desmarcar, deja el valor actual en Correo_factura sin borrarlo.
+window.inqToggleCorreoFactIgual = function () {
+  const cb = document.getElementById('inq-corfact-cb');
+  if (!cb) return;
+  const on = cb.getAttribute('data-on') !== '1';
+  cb.setAttribute('data-on', on ? '1' : '0');
+  cb.textContent = on ? '✓' : '';
+  cb.style.background = on ? '#334155' : '#fff';
+  cb.style.borderColor = on ? '#334155' : '#cbd5e1';
+  cb.style.color = on ? '#fff' : 'transparent';
+  if (on) {
+    const form = document.getElementById('inq-perfil-form');
+    if (!form) return;
+    const src = form.querySelector('input[name="Correo"]');
+    const dst = form.querySelector('input[name="Correo_factura"]');
+    if (src && dst) dst.value = src.value;
+  }
+};
+
+// Si el usuario edita manualmente Correo_factura y ya no coincide con Correo,
+// destilda el checkbox.
+window.inqOnCorreoFactInput = function () {
+  const form = document.getElementById('inq-perfil-form');
+  if (!form) return;
+  const src = form.querySelector('input[name="Correo"]');
+  const dst = form.querySelector('input[name="Correo_factura"]');
+  const cb  = document.getElementById('inq-corfact-cb');
+  if (!src || !dst || !cb) return;
+  const eq = String(src.value || '').trim().toLowerCase() === String(dst.value || '').trim().toLowerCase();
+  const should = eq && dst.value.trim() !== '';
+  const isOn = cb.getAttribute('data-on') === '1';
+  if (should !== isOn) {
+    cb.setAttribute('data-on', should ? '1' : '0');
+    cb.textContent = should ? '✓' : '';
+    cb.style.background = should ? '#334155' : '#fff';
+    cb.style.borderColor = should ? '#334155' : '#cbd5e1';
+    cb.style.color = should ? '#fff' : 'transparent';
+  }
 };
 
 // Muestra/oculta la sub-sección "Datos fiscales" según Requiere_factura.
