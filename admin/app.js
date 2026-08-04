@@ -33566,7 +33566,7 @@ function inqRenderHeatmap() {
       <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#dc2626;border-radius:3px"></span>No pagado</span>
       <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:3px"></span>Futuro</span>
       <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#fafafa;border:1px solid #e2e8f0;border-radius:3px"></span>Fuera de contrato</span>
-      <span style="display:inline-flex;align-items:center;gap:5px"><span style="font-size:11px;font-weight:800;color:#0f172a;text-decoration:underline;text-underline-offset:2px">link</span> = con comprobante</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span style="font-size:11px;font-weight:800;color:#0f172a;text-decoration:underline;text-underline-offset:2px">Comprobante</span> = ver adjunto</span>
     </div>`;
   const yearSel = `
     <div style="display:flex;gap:8px;align-items:center">
@@ -33609,7 +33609,7 @@ function inqRenderHeatmap() {
                 );
                 // Marca simple sin fondo: subrayado tipo link, hereda contraste por color según el estado.
                 const linkColor = (info.state === 'paid' || info.state === 'overdue') ? '#fff' : '#0f172a';
-                const paperclip = hasFile ? `<span style="font-size:11px;font-weight:800;color:${linkColor};text-decoration:underline;text-underline-offset:2px">link</span>` : '';
+                const paperclip = hasFile ? `<span style="font-size:10px;font-weight:800;color:${linkColor};text-decoration:underline;text-underline-offset:2px">Comprobante</span>` : '';
                 const clickable = info.state !== 'future' && info.state !== 'noctr';
                 const cursor = clickable ? 'cursor:pointer' : 'cursor:default';
                 const onclick = clickable ? `onclick="inqHmOpenCell('${esc(p.ID)}','${inqHmMonthKey_(year, m)}')"` : '';
