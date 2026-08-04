@@ -34034,6 +34034,7 @@ function inqBuildPerfilFormHtml(d) {
 
   const secInquilino = `
     ${inqField('Nombre del inquilino', 'Nombre', 'text', d.Nombre, 'Ej. Juan Pérez López')}
+    ${inqField('Correo electrónico', 'Correo', 'email', d.Correo, 'ejemplo@correo.com')}
     ${inqPhoneField_('WhatsApp / Celular', 'Whatsapp', d.Whatsapp)}
     ${inqField('Contacto de emergencia — Nombre', 'Contacto_emerg_nombre', 'text', d.Contacto_emerg_nombre)}
     ${inqPhoneField_('Contacto de emergencia — Celular', 'Contacto_emerg_cel', d.Contacto_emerg_cel)}
