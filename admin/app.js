@@ -33495,9 +33495,8 @@ function inqHmCellState_(perfil, y, m, pagoIndex, todayY, todayM) {
   if (fIni && monthEnd < fIni) return { state: 'noctr' };
   if (fFin && monthStart > fFin) return { state: 'noctr' };
   const isFuture = (y > todayY) || (y === todayY && m > todayM);
-  const isCurrent = (y === todayY && m === todayM);
   if (isFuture) return { state: 'future' };
-  if (isCurrent) return { state: 'pending' };
+  // Todos los meses hasta el actual (incluido) sin pago → No pagado (rojo).
   return { state: 'overdue' };
 }
 
@@ -33550,8 +33549,7 @@ function inqRenderHeatmap() {
   const legend = `
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px;color:#475569">
       <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#16a34a;border-radius:3px"></span>Pagado</span>
-      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#facc15;border-radius:3px"></span>Pendiente (mes actual)</span>
-      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#dc2626;border-radius:3px"></span>No pagado (vencido)</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#dc2626;border-radius:3px"></span>No pagado</span>
       <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:3px"></span>Futuro</span>
       <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#fafafa;border:1px solid #e2e8f0;border-radius:3px"></span>Fuera de contrato</span>
       <span style="display:inline-flex;align-items:center;gap:5px">📎 = con comprobante</span>
