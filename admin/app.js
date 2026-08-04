@@ -33482,21 +33482,35 @@ function inqHmMonthKey_(y, m) {
 //   'overdue' → mes pasado, sin pago, contrato activo → rojo
 //   'future'  → mes futuro → gris claro
 //   'noctr'   → mes fuera del contrato (antes o después) → gris muy claro
+// Parsea "YYYY-MM-DD" (o ISO con hora) como {y,m} en tiempo LOCAL, sin TZ.
+// Evita el shift UTC→local que provocaba comparaciones equivocadas de meses.
+function inqHmParseYm_(v) {
+  const s = inqFmtDateISO_(v);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, m] = s.split('-').map(n => parseInt(n, 10));
+  return { y, m: m - 1 }; // month 0-indexed
+}
+
+// Compara dos {y,m} → -1 / 0 / +1
+function inqHmCmpYm_(a, b) {
+  if (a.y !== b.y) return a.y < b.y ? -1 : 1;
+  if (a.m !== b.m) return a.m < b.m ? -1 : 1;
+  return 0;
+}
+
 function inqHmCellState_(perfil, y, m, pagoIndex, todayY, todayM) {
   const key = inqHmMonthKey_(y, m);
   const pago = pagoIndex[perfil.ID + '|' + key];
   if (pago) return { state: 'paid', pago };
-  // Fecha del primer día del mes evaluado
-  const monthStart = new Date(y, m, 1);
-  const monthEnd = new Date(y, m + 1, 0); // último día del mes
-  // Contrato activo si monthEnd >= Fecha_inicio y monthStart <= Fecha_fin
-  const fIni = perfil.Fecha_inicio ? new Date(inqFmtDateISO_(perfil.Fecha_inicio)) : null;
-  const fFin = perfil.Fecha_fin    ? new Date(inqFmtDateISO_(perfil.Fecha_fin))    : null;
-  if (fIni && monthEnd < fIni) return { state: 'noctr' };
-  if (fFin && monthStart > fFin) return { state: 'noctr' };
-  const isFuture = (y > todayY) || (y === todayY && m > todayM);
+  // Comparaciones a nivel MES (no día) para no depender de TZ ni del día del inicio/fin.
+  const cell = { y, m };
+  const fIni = inqHmParseYm_(perfil.Fecha_inicio);
+  const fFin = inqHmParseYm_(perfil.Fecha_fin);
+  if (fIni && inqHmCmpYm_(cell, fIni) < 0) return { state: 'noctr' };
+  if (fFin && inqHmCmpYm_(cell, fFin) > 0) return { state: 'noctr' };
+  const isFuture = inqHmCmpYm_(cell, { y: todayY, m: todayM }) > 0;
   if (isFuture) return { state: 'future' };
-  // Todos los meses hasta el actual (incluido) sin pago → No pagado (rojo).
+  // Meses <= mes actual dentro del contrato, sin pago → No pagado (rojo).
   return { state: 'overdue' };
 }
 
@@ -33552,7 +33566,7 @@ function inqRenderHeatmap() {
       <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#dc2626;border-radius:3px"></span>No pagado</span>
       <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:3px"></span>Futuro</span>
       <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:14px;height:14px;background:#fafafa;border:1px solid #e2e8f0;border-radius:3px"></span>Fuera de contrato</span>
-      <span style="display:inline-flex;align-items:center;gap:5px">📎 = con comprobante</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span style="font-size:11px;font-weight:800;color:#0f172a;text-decoration:underline;text-underline-offset:2px">link</span> = con comprobante</span>
     </div>`;
   const yearSel = `
     <div style="display:flex;gap:8px;align-items:center">
@@ -33593,8 +33607,9 @@ function inqRenderHeatmap() {
                   (Array.isArray(pago.Comprobante_files) && pago.Comprobante_files.length) ||
                   !!pago.Comprobante_url
                 );
-                // Badge blanco con clip para contrastar en cualquier fondo (verde, rojo, etc.)
-                const paperclip = hasFile ? '<span style="display:inline-block;background:#fff;color:#0f172a;padding:1px 5px;border-radius:8px;font-size:9px;font-weight:800;box-shadow:0 1px 2px rgba(0,0,0,.15)">📎</span>' : '';
+                // Marca simple sin fondo: subrayado tipo link, hereda contraste por color según el estado.
+                const linkColor = (info.state === 'paid' || info.state === 'overdue') ? '#fff' : '#0f172a';
+                const paperclip = hasFile ? `<span style="font-size:11px;font-weight:800;color:${linkColor};text-decoration:underline;text-underline-offset:2px">link</span>` : '';
                 const clickable = info.state !== 'future' && info.state !== 'noctr';
                 const cursor = clickable ? 'cursor:pointer' : 'cursor:default';
                 const onclick = clickable ? `onclick="inqHmOpenCell('${esc(p.ID)}','${inqHmMonthKey_(year, m)}')"` : '';
