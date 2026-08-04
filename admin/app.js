@@ -34170,13 +34170,20 @@ function inqBuildPagoFormHtml(d) {
   const today = new Date();
   const isoDate = today.toISOString().slice(0,10);
   const isoMonth = isoDate.slice(0,7);
+  // Precarga Monto_pagado con la Renta del inquilino seleccionado (nuevo pago).
+  // Al editar (d.Monto_pagado ya viene) se respeta el valor guardado.
+  let defaultMonto = d.Monto_pagado;
+  if ((defaultMonto == null || defaultMonto === '') && defaultInq) {
+    const p = perfiles.find(x => String(x.ID) === String(defaultInq));
+    if (p && p.Renta_mensual != null && p.Renta_mensual !== '') defaultMonto = p.Renta_mensual;
+  }
   return `
     <form id="inq-pago-form" onsubmit="event.preventDefault();inqSaveCurrentForm()">
       <input type="hidden" name="ID" value="${esc(d.ID || '')}">
       <input type="hidden" name="created_at" value="${esc(d.created_at || '')}">
-      ${inqField('Inquilino', 'Inquilino_ID', 'select', defaultInq, '', { options: [['','—Selecciona—']].concat(perfiles.map(p => [p.ID, p.Nombre || p.ID])) })}
+      ${inqField('Inquilino', 'Inquilino_ID', 'select', defaultInq, '', { options: [['','—Selecciona—']].concat(perfiles.map(p => [p.ID, p.Nombre || p.ID])), extra: 'onchange="inqOnPagoInquilinoChange(this.value)"' })}
       ${inqField('Mes (YYYY-MM)', 'Mes', 'month', d.Mes || isoMonth)}
-      ${inqField('Monto pagado', 'Monto_pagado', 'number', d.Monto_pagado, '0.00')}
+      ${inqField('Monto pagado', 'Monto_pagado', 'number', defaultMonto, '0.00')}
       ${inqField('Método de pago', 'Metodo_pago', 'select', d.Metodo_pago || '', '', { options: [['','—'], ['Efectivo','Efectivo'], ['Transferencia','Transferencia'], ['Depósito','Depósito'], ['Tarjeta','Tarjeta'], ['Cheque','Cheque'], ['Otro','Otro']] })}
       ${inqField('Fecha de pago', 'Fecha_pago', 'date', d.Fecha_pago || isoDate)}
       <div style="margin:6px 0 12px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
@@ -34186,6 +34193,38 @@ function inqBuildPagoFormHtml(d) {
       ${inqField('Notas', 'Notas', 'textarea', d.Notas, '', { rows: 2 })}
     </form>`;
 }
+
+// Al cambiar Inquilino en el form de pago, autocompletar Monto_pagado con su
+// Renta_mensual del perfil. Sólo sobrescribe si el monto está vacío o coincide
+// con la Renta del inquilino anterior (para no pisar un valor manual del usuario).
+window.inqOnPagoInquilinoChange = function (newId) {
+  const form = document.getElementById('inq-pago-form');
+  if (!form) return;
+  const monto = form.querySelector('input[name="Monto_pagado"]');
+  if (!monto) return;
+  const perfiles = INQ_STATE.perfiles || [];
+  const p = perfiles.find(x => String(x.ID) === String(newId));
+  const renta = p && p.Renta_mensual != null && p.Renta_mensual !== '' ? String(p.Renta_mensual) : '';
+  const cur = String(monto.value || '').trim();
+  // Detecta si el valor actual proviene de otra Renta (auto-fill previo) para
+  // permitir sobrescribir. Si el user tecleó algo distinto a cualquier Renta,
+  // preservamos su input.
+  const isAutoValue = !cur || perfiles.some(x => String(x.Renta_mensual || '') === cur);
+  if (isAutoValue) monto.value = renta;
+};
+
+// Habilita/deshabilita el botón Guardar según haya uploads en curso.
+// Actualizado desde inqShowUploadToast_ / inqHideUploadToastIfDone_.
+window.inqUpdateSaveBtnState = function () {
+  const btn = document.getElementById('inq-form-save-btn');
+  if (!btn) return;
+  const uploading = (window.__inqUploadCount || 0) > 0;
+  btn.disabled = uploading;
+  btn.style.opacity = uploading ? '.55' : '';
+  btn.style.cursor = uploading ? 'not-allowed' : '';
+  btn.title = uploading ? 'Espera a que terminen los uploads…' : '';
+  btn.textContent = uploading ? `⏳ Subiendo ${window.__inqUploadCount}…` : '💾 Guardar';
+};
 
 window.inqToggleOtroDescInput = function () {
   const sel = document.querySelector('#inq-perfil-form select[name="Identificacion_tipo"]');
@@ -34317,11 +34356,13 @@ function inqShowUploadToast_() {
   }
   el.innerHTML = `<div style="width:18px;height:18px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:inqSpin .8s linear infinite"></div>Subiendo ${window.__inqUploadCount} archivo${window.__inqUploadCount===1?'':'s'}…`;
   el.style.display = 'flex';
+  if (typeof window.inqUpdateSaveBtnState === 'function') window.inqUpdateSaveBtnState();
 }
 function inqHideUploadToastIfDone_() {
   if (window.__inqUploadCount > 0) return;
   const el = document.getElementById('inq-upload-toast');
   if (el) el.style.display = 'none';
+  if (typeof window.inqUpdateSaveBtnState === 'function') window.inqUpdateSaveBtnState();
 }
 
 function inqRenderContratoFiles() {
