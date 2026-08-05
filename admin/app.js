@@ -31156,7 +31156,7 @@ window.guiasToggleSidebar = function () {
 // Mensaje contextual que se copia al portapapeles cuando el usuario oprime
 // "Copiar link" de una guía. Incluye el HouseName + URL.
 function guiasBuildShareMessage_(nombre, url) {
-  return `Te comparto la "Guía de Bienvenida" del alojamiento ${nombre}, donde podrás consultar las instrucciones de acceso, la ubicación, el reglamento, realizar el check-in y el check-out, etc. ${url}`;
+  return `Te comparto la 'Guía de Bienvenida' del alojamiento '${nombre}', donde podrás consultar las instrucciones de acceso, la ubicación, el reglamento, realizar el check-in y el check-out, etc. ${url}`;
 }
 
 // Handler global usado por el botón "Copiar link" — evita problemas de
