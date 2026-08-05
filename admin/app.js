@@ -33601,28 +33601,44 @@ function inqRenderHeatmap() {
               ${monthNames.map((_, m) => {
                 const info = inqHmCellState_(p, year, m, pagoIndex, currentYear, currentMonth);
                 const style = cellStyles[info.state];
-                const icon = cellIcons[info.state];
                 const pago = info.pago;
+                const hasPago = !!pago;
                 const hasFile = pago && (
                   (Array.isArray(pago.Comprobante_files) && pago.Comprobante_files.length) ||
                   !!pago.Comprobante_url
                 );
-                // Marcas simples sin fondo. "Comprobante" abre el popup (parent onclick); "Ver ticket"
-                // abre el URL directo del PDF en pestaña aparte (event.stopPropagation).
-                const linkColor = (info.state === 'paid' || info.state === 'overdue') ? '#fff' : '#0f172a';
-                const paperclip = hasFile ? `<span style="font-size:10px;font-weight:800;color:${linkColor};text-decoration:underline;text-underline-offset:2px">Comprobante</span>` : '';
                 const ticketUrl = pago && String(pago.Ticket_facturapi_url || '').trim();
-                const verTicket = ticketUrl ? `<a href="${esc(ticketUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:10px;font-weight:800;color:${linkColor};text-decoration:underline;text-underline-offset:2px">Ver ticket</a>` : '';
                 const clickable = info.state !== 'future' && info.state !== 'noctr';
                 const cursor = clickable ? 'cursor:pointer' : 'cursor:default';
                 const onclick = clickable ? `onclick="inqHmOpenCell('${esc(p.ID)}','${inqHmMonthKey_(year, m)}')"` : '';
                 const title = pago
                   ? `${p.Nombre} · ${inqHmMonthKey_(year, m)} · ${inqFmtMoney(pago.Monto_pagado)}`
-                  : `${p.Nombre} · ${inqHmMonthKey_(year, m)} · ${info.state === 'overdue' ? 'No pagado' : info.state === 'pending' ? 'Pendiente' : ''}`;
-                return `<td title="${esc(title)}" ${onclick} style="${style};${cursor};padding:10px 4px;text-align:center;border-bottom:1px solid #e2e8f0;font-weight:700;font-size:13px;line-height:1.2">
-                  <div>${icon}</div>
-                  ${paperclip ? `<div style="font-size:10px;margin-top:2px">${paperclip}</div>` : ''}
-                  ${verTicket ? `<div style="font-size:10px;margin-top:2px">${verTicket}</div>` : ''}
+                  : `${p.Nombre} · ${inqHmMonthKey_(year, m)} · ${info.state === 'overdue' ? 'No pagado' : ''}`;
+                // Checklist de 3 elementos: ✓ Pagado, ✓ Comprobante, ✓ Ticket.
+                // Sólo se muestra en celdas dentro del contrato y no futuras.
+                // Comprobante y Ticket son links cuando existen.
+                let body = '';
+                if (clickable) {
+                  const rowColor = (info.state === 'paid' || info.state === 'overdue') ? '#fff' : '#0f172a';
+                  const dim = 'opacity:.45';
+                  const mark = (on) => on ? '✓' : '○';
+                  const rowStyle = (on) => `display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:${rowColor};${on?'':dim};line-height:1.15`;
+                  const compRow = hasFile
+                    ? `<a href="#" onclick="event.stopPropagation();event.preventDefault();inqHmOpenCell('${esc(p.ID)}','${inqHmMonthKey_(year, m)}')" style="${rowStyle(true)};text-decoration:underline;text-underline-offset:2px;color:${rowColor}"><span>${mark(true)}</span>Comprobante</a>`
+                    : `<div style="${rowStyle(false)}"><span>${mark(false)}</span>Comprobante</div>`;
+                  const tkRow = ticketUrl
+                    ? `<a href="${esc(ticketUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="${rowStyle(true)};text-decoration:underline;text-underline-offset:2px;color:${rowColor}"><span>${mark(true)}</span>Ticket</a>`
+                    : `<div style="${rowStyle(false)}"><span>${mark(false)}</span>Ticket</div>`;
+                  body = `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:1px 4px">
+                    <div style="${rowStyle(hasPago)}"><span>${mark(hasPago)}</span>Pagado</div>
+                    ${compRow}
+                    ${tkRow}
+                  </div>`;
+                } else {
+                  body = `<div style="text-align:center;color:#cbd5e1">${info.state === 'noctr' ? '—' : ''}</div>`;
+                }
+                return `<td title="${esc(title)}" ${onclick} style="${style};${cursor};padding:6px 4px;border-bottom:1px solid #e2e8f0;vertical-align:top">
+                  ${body}
                 </td>`;
               }).join('')}
             </tr>`;
