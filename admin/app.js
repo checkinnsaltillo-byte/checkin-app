@@ -31153,10 +31153,30 @@ window.guiasToggleSidebar = function () {
 
 /** Copia al portapapeles la URL pública del alojamiento y muestra un modal
  *  con el link + QR code para compartir. */
+// Mensaje contextual que se copia al portapapeles cuando el usuario oprime
+// "Copiar link" de una guía. Incluye el HouseName + URL.
+function guiasBuildShareMessage_(nombre, url) {
+  return `Te comparto la "Guía de Bienvenida" del alojamiento ${nombre}, donde podrás consultar las instrucciones de acceso, la ubicación, el reglamento, realizar el check-in y el check-out, etc. ${url}`;
+}
+
+// Handler global usado por el botón "Copiar link" — evita problemas de
+// escapado en inline onclick (el mensaje contiene comillas y espacios).
+window.guiasCopyShareMsg_ = function (btn, houseId, nombre) {
+  const url = `https://www.check-inn.mx/public/guia/?id=${encodeURIComponent(houseId)}`;
+  const msg = guiasBuildShareMessage_(nombre, url);
+  try { navigator.clipboard?.writeText(msg); } catch (_) {}
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copiado';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  }
+};
+
 window.guiasShareLink_ = function (houseId, nombre) {
   const url = `https://www.check-inn.mx/public/guia/?id=${encodeURIComponent(houseId)}`;
-  // Intenta copiar al portapapeles.
-  try { navigator.clipboard?.writeText(url); } catch {}
+  const shareMsg = guiasBuildShareMessage_(nombre, url);
+  // Intenta copiar el mensaje contextual al portapapeles.
+  try { navigator.clipboard?.writeText(shareMsg); } catch {}
   document.getElementById('guias-share-modal')?.remove();
   const el = document.createElement('div');
   el.id = 'guias-share-modal';
@@ -31168,9 +31188,10 @@ window.guiasShareLink_ = function (houseId, nombre) {
               style="position:absolute;top:12px;right:12px;background:#f1f5f9;border:0;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;color:#475569">✕</button>
       <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:4px">🔗 Link de guía</div>
       <div style="font-size:12px;color:#64748b;margin-bottom:16px">${esc(nombre)}</div>
-      <div style="background:#f1f5f9;padding:12px;border-radius:10px;font-family:'SF Mono',Menlo,monospace;font-size:11px;color:#334155;word-break:break-all;margin-bottom:12px">${esc(url)}</div>
+      <div style="background:#f1f5f9;padding:12px;border-radius:10px;font-family:'SF Mono',Menlo,monospace;font-size:11px;color:#334155;word-break:break-all;margin-bottom:8px">${esc(url)}</div>
+      <div style="background:#fef3c7;padding:10px 12px;border-radius:10px;font-size:11.5px;color:#78350f;margin-bottom:12px;line-height:1.4"><strong>Mensaje que se copia:</strong><br>${esc(shareMsg)}</div>
       <div style="display:flex;gap:8px;margin-bottom:16px">
-        <button type="button" onclick="navigator.clipboard?.writeText('${url}');this.textContent='✓ Copiado';setTimeout(()=>this.textContent='📋 Copiar link',1500)"
+        <button type="button" data-house-id="${esc(houseId)}" data-nombre="${esc(nombre)}" onclick="guiasCopyShareMsg_(this, this.dataset.houseId, this.dataset.nombre)"
                 style="flex:1;padding:10px 12px;background:#0d9488;color:#fff;border:0;border-radius:8px;font-weight:700;font-size:12.5px;cursor:pointer">📋 Copiar link</button>
         <a href="${esc(url)}" target="_blank" rel="noopener"
            style="flex:1;padding:10px 12px;background:#f1f5f9;color:#0f172a;border-radius:8px;font-weight:700;font-size:12.5px;text-decoration:none;text-align:center;display:inline-block">↗ Abrir</a>
