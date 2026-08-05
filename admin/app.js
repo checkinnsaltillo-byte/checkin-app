@@ -34788,6 +34788,15 @@ function inqFormSnapshot_() {
     if (el.type === 'file') return;
     parts.push(el.name + '=' + String(el.value ?? ''));
   });
+  // Inputs sin `name` que sí forman parte del payload: teléfonos (lada+num
+  // se combinan en save) y campos de moneda visible (el raw hidden ya está
+  // arriba, pero incluímos data-inq-* para robustez).
+  form.querySelectorAll('[data-inq-phone]').forEach(el => {
+    parts.push('phone_num:' + el.getAttribute('data-inq-phone') + '=' + String(el.value ?? ''));
+  });
+  form.querySelectorAll('[data-inq-lada]').forEach(el => {
+    parts.push('phone_lada:' + el.getAttribute('data-inq-lada') + '=' + String(el.value ?? ''));
+  });
   const fd = INQ_STATE.formData || {};
   ['Contrato_files','Identificacion_files','Aval_identificacion_files','CIF_files','Comprobante_files'].forEach(k => {
     if (Array.isArray(fd[k])) {
