@@ -33636,12 +33636,8 @@ function inqRenderHeatmap() {
                   const dim = 'opacity:.45';
                   const mark = (on) => on ? '✓' : '○';
                   const rowStyle = (on) => `display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:${rowColor};${on?'':dim};line-height:1.15`;
-                  const compRow = hasFile
-                    ? `<a href="#" onclick="event.stopPropagation();event.preventDefault();inqHmOpenCell('${esc(p.ID)}','${inqHmMonthKey_(year, m)}')" style="${rowStyle(true)};text-decoration:underline;text-underline-offset:2px;color:${rowColor}"><span>${mark(true)}</span>Comprobante</a>`
-                    : `<div style="${rowStyle(false)}"><span>${mark(false)}</span>Comprobante</div>`;
-                  const tkRow = ticketUrl
-                    ? `<a href="${esc(ticketUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="${rowStyle(true)};text-decoration:underline;text-underline-offset:2px;color:${rowColor}"><span>${mark(true)}</span>Ticket</a>`
-                    : `<div style="${rowStyle(false)}"><span>${mark(false)}</span>Ticket</div>`;
+                  const compRow = `<div style="${rowStyle(hasFile)}"><span>${mark(hasFile)}</span>Comprobante</div>`;
+                  const tkRow   = `<div style="${rowStyle(!!ticketUrl)}"><span>${mark(!!ticketUrl)}</span>Ticket</div>`;
                   body = `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:1px 4px">
                     <div style="${rowStyle(hasPago)}"><span>${mark(hasPago)}</span>Pagado</div>
                     ${compRow}
