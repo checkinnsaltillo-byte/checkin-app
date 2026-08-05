@@ -33636,8 +33636,11 @@ function inqRenderHeatmap() {
                   const dim = 'opacity:.45';
                   const mark = (on) => on ? '✓' : '○';
                   const rowStyle = (on) => `display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:${rowColor};${on?'':dim};line-height:1.15`;
-                  const compRow = `<div style="${rowStyle(hasFile)}"><span>${mark(hasFile)}</span>Comprobante</div>`;
-                  const tkRow   = `<div style="${rowStyle(!!ticketUrl)}"><span>${mark(!!ticketUrl)}</span>Ticket</div>`;
+                  // Comprobante y Ticket sólo aparecen si existen — sin fila
+                  // atenuada cuando faltan. Pagado sí queda siempre visible
+                  // porque es el indicador principal del estado de la celda.
+                  const compRow = hasFile   ? `<div style="${rowStyle(true)}"><span>${mark(true)}</span>Comprobante</div>` : '';
+                  const tkRow   = ticketUrl ? `<div style="${rowStyle(true)}"><span>${mark(true)}</span>Ticket</div>`      : '';
                   body = `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:1px 4px">
                     <div style="${rowStyle(hasPago)}"><span>${mark(hasPago)}</span>Pagado</div>
                     ${compRow}
