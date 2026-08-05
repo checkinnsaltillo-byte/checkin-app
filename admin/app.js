@@ -33347,6 +33347,9 @@ window.inqSetRentasView = function (v) {
   inqRenderRentas();
 };
 
+// Al abrir Rentas la primera vez del session, arranca en Heat map.
+if (INQ_STATE.rentasView == null) INQ_STATE.rentasView = 'heatmap';
+
 function inqRentasViewToggle_() {
   const v = INQ_STATE.rentasView || 'tabla';
   const btn = (id, label, icon) => {
@@ -33357,7 +33360,7 @@ function inqRentasViewToggle_() {
 }
 
 function inqRenderRentas() {
-  if ((INQ_STATE.rentasView || 'tabla') === 'heatmap') { inqRenderHeatmap(); return; }
+  if ((INQ_STATE.rentasView || 'heatmap') === 'heatmap') { inqRenderHeatmap(); return; }
   const view = document.getElementById('inq-view');
   const perfiles = INQ_STATE.perfiles || [];
   const currentId = INQ_STATE.currentInquilinoId || '';
@@ -33667,6 +33670,7 @@ function inqRenderHeatmap() {
 
 // Popup de detalle del pago (o de mes sin pago con botón para registrar).
 window.inqHmOpenCell = function (inquilinoId, mesKey) {
+  INQ_STATE._openedHmCell = { inqId: String(inquilinoId), mesKey: String(mesKey) };
   const perfiles = INQ_STATE.perfiles || [];
   const pagos = INQ_STATE.pagos || [];
   const perfil = perfiles.find(x => String(x.ID) === String(inquilinoId));
@@ -33724,6 +33728,7 @@ window.inqHmOpenCell = function (inquilinoId, mesKey) {
 window.inqHmClosePopup = function () {
   const p = document.getElementById('inq-hm-popup');
   if (p) { p.style.display = 'none'; p.innerHTML = ''; }
+  INQ_STATE._openedHmCell = null;
 };
 
 // ── FORM PERFIL ────────────────────────────────────────────────────────
@@ -34605,9 +34610,46 @@ window.inqGenerarTicket = async function (pagoId) {
   if (!pago) { alert('No se encontró el pago.'); return; }
   const perfil = (INQ_STATE.perfiles || []).find(x => String(x.ID) === String(pago.Inquilino_ID));
   const url = inqBuildFacturapiUrl_(pago, perfil || {});
+  // Marca el pago para que al cerrar el modal Facturapi se refresque la UI.
+  INQ_STATE._pendingTicketRefresh = String(pagoId);
   if (typeof huespedesOpenFacturapi === 'function') huespedesOpenFacturapi(url);
   else window.open(url, '_blank', 'noopener');
 };
+
+// Hook al cierre del modal Facturapi: si venía de un pago inquilino, refresca
+// pagos y re-renderiza el form lateral o el popup del heatmap con los nuevos datos.
+(function inqHookFacturapiClose_(){
+  const orig = window.huespedesCloseFacturapi;
+  window.huespedesCloseFacturapi = function () {
+    const pendingId = INQ_STATE._pendingTicketRefresh;
+    if (orig) try { orig.apply(this, arguments); } catch (_) {}
+    if (!pendingId) return;
+    INQ_STATE._pendingTicketRefresh = null;
+    // Delay para que Apps Script termine de escribir folio/PDF antes de leer.
+    setTimeout(async () => {
+      try { await inqLoadPagos(); } catch (_) {}
+      // Snapshot del popup ANTES de re-render (que destruiría el elemento).
+      const popupWasOpen = (() => {
+        const p = document.getElementById('inq-hm-popup');
+        return !!(p && p.style.display === 'flex' && INQ_STATE._openedHmCell);
+      })();
+      const savedCell = popupWasOpen ? Object.assign({}, INQ_STATE._openedHmCell) : null;
+      // 1) Heatmap visible → repintar celdas primero (destruye popup).
+      if (INQ_STATE.tab === 'rentas') { try { inqRenderRentas(); } catch (_) {} }
+      // 2) Re-abrir popup si estaba abierto (usa el nuevo popup del re-render).
+      if (savedCell) {
+        const pago = (INQ_STATE.pagos || []).find(p => String(p.ID) === pendingId);
+        const inqId = pago ? pago.Inquilino_ID : savedCell.inqId;
+        try { window.inqHmOpenCell(inqId, savedCell.mesKey); } catch (_) {}
+      }
+      // 3) Form lateral abierto de pago → re-renderizar con los nuevos datos.
+      const formInpId = document.querySelector('#inq-pago-form input[name="ID"]');
+      if (INQ_STATE.formKind === 'pago' && formInpId && formInpId.value === pendingId) {
+        try { window.inqOpenPagoForm(pendingId); } catch (_) {}
+      }
+    }, 900);
+  };
+})();
 
 window.inqReemitirTicket = async function (pagoId) {
   if (!pagoId) return;
