@@ -34605,7 +34605,18 @@ function inqBuildFacturapiUrl_(pago, perfil) {
 }
 
 window.inqGenerarTicket = async function (pagoId) {
-  if (!pagoId) { alert('Guarda el pago antes de generar ticket.'); return; }
+  // Pago nuevo aún sin guardar → ofrecer guardar automáticamente y continuar.
+  if (!pagoId) {
+    const form = document.getElementById('inq-pago-form');
+    if (!form || INQ_STATE.formKind !== 'pago') { alert('No hay un pago abierto para generar ticket.'); return; }
+    const ok = confirm('El pago aún no está guardado. ¿Deseas guardarlo ahora para generar el ticket?');
+    if (!ok) return;
+    const j = await window.inqSaveCurrentForm();
+    if (!j || !j.ok || !j.ID) return; // el propio save ya mostró alert si falló
+    pagoId = String(j.ID);
+    // Asegura pagos frescos y que el nuevo esté en INQ_STATE.pagos
+    try { await inqLoadPagos(); } catch (_) {}
+  }
   const pago = (INQ_STATE.pagos || []).find(x => String(x.ID) === String(pagoId));
   if (!pago) { alert('No se encontró el pago.'); return; }
   const perfil = (INQ_STATE.perfiles || []).find(x => String(x.ID) === String(pago.Inquilino_ID));
@@ -35195,7 +35206,8 @@ window.inqSaveCurrentForm = async function () {
     inqCloseForm();
     if (kind === 'perfil') { await inqLoadPerfiles(); inqRenderPerfiles(); }
     else { await inqLoadPagos(INQ_STATE.currentInquilinoId); inqRenderRentas(); }
-  } catch (e) { alert('Error al guardar: ' + e.message); }
+    return j;
+  } catch (e) { alert('Error al guardar: ' + e.message); return { ok:false, error:e.message }; }
 };
 
 window.inqDeletePerfil = async function (id) {
