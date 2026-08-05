@@ -34718,7 +34718,9 @@ window.inqEnviarTicketCorreo = async function (pagoId) {
     const res = await fetch(`${BACKEND}/facturapi/send-email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ folio, email: correo, org }),
+      // kind:'receipt' → los pagos de inquilino generan RECIBOS (no facturas
+      // timbradas). El backend enruta a /v2/receipts/{id}/email.
+      body: JSON.stringify({ folio, email: correo, org, kind: 'receipt' }),
     });
     const j = await res.json();
     if (!j.ok) throw new Error(j.error || 'Error');
