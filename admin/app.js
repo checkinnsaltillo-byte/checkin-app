@@ -33213,6 +33213,12 @@ function inqFmtDateISO_(v) {
   return '';
 }
 
+// Normaliza a "YYYY-MM" para <input type="month">. Acepta Date, ISO, YYYY-MM(-DD).
+function inqFmtMonthISO_(v) {
+  const s = inqFmtDateISO_(v);
+  return s ? s.slice(0, 7) : '';
+}
+
 function inqFmtMoney(v) {
   const n = Number(v || 0);
   if (!isFinite(n)) return '—';
@@ -34509,10 +34515,10 @@ function inqBuildPagoFormHtml(d) {
       <input type="hidden" name="ID" value="${esc(d.ID || '')}">
       <input type="hidden" name="created_at" value="${esc(d.created_at || '')}">
       ${inqField('Inquilino', 'Inquilino_ID', 'select', defaultInq, '', { options: [['','—Selecciona—']].concat(perfiles.map(p => [p.ID, p.Nombre || p.ID])), extra: 'onchange="inqOnPagoInquilinoChange(this.value)"' })}
-      ${inqField('Mes (YYYY-MM)', 'Mes', 'month', d.Mes || isoMonth)}
+      ${inqField('Mes (YYYY-MM)', 'Mes', 'month', inqFmtMonthISO_(d.Mes) || isoMonth)}
       ${inqField('Monto pagado', 'Monto_pagado', 'number', defaultMonto, '0.00')}
       ${inqField('Método de pago', 'Metodo_pago', 'select', d.Metodo_pago || '', '', { options: [['','—'], ['Efectivo','Efectivo'], ['Transferencia','Transferencia'], ['Depósito','Depósito'], ['Tarjeta','Tarjeta'], ['Cheque','Cheque'], ['Otro','Otro']] })}
-      ${inqField('Fecha de pago', 'Fecha_pago', 'date', d.Fecha_pago || isoDate)}
+      ${inqField('Fecha de pago', 'Fecha_pago', 'date', inqFmtDateISO_(d.Fecha_pago) || isoDate)}
       <div style="margin:6px 0 12px;padding:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">
         <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px">🧾 Comprobante de pago (PDF/JPG)</div>
         <div id="inq-comprobante-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
@@ -35193,6 +35199,15 @@ window.inqSaveCurrentForm = async function () {
     data.Comprobante_files = (INQ_STATE.formData.Comprobante_files || []).filter(f => f && !f._uploading && (f.id || f.url));
     // Guarda el primer URL en Comprobante_url para compat con lectores viejos
     data.Comprobante_url = (data.Comprobante_files[0] || {}).url || '';
+    // Candado defensivo: si un input crítico llega vacío al re-editar (típico
+    // cuando <input type=month|date> rechaza un valor ISO que devolvió Apps
+    // Script), NO lo enviamos → el save PARCIAL en el .gs preserva lo que
+    // ya estaba. Evita que el pago "desaparezca" por Mes o Inquilino_ID vacíos.
+    if (data.ID) {
+      ['Mes', 'Inquilino_ID', 'Fecha_pago'].forEach(k => {
+        if (data[k] === '' || data[k] == null) delete data[k];
+      });
+    }
   }
   const endpoint = kind === 'perfil' ? '/inquilinos' : '/inquilinos-pagos';
   try {
