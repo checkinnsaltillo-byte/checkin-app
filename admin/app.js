@@ -33578,9 +33578,9 @@ function inqRenderHeatmap() {
       <span style="display:inline-flex;align-items:center;gap:5px"><span style="font-size:11px;font-weight:800;color:#0f172a;text-decoration:underline;text-underline-offset:2px">Comprobante</span> = ver adjunto</span>
     </div>`;
   const yearSel = `
-    <div style="display:flex;gap:8px;align-items:center">
+    <div style="display:inline-flex;gap:8px;align-items:center;position:relative">
       <label style="font-size:12px;color:#475569;font-weight:700">Año:</label>
-      <select onchange="inqOnHmYearChange(this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+      <select onchange="inqOnHmYearChange(this.value)" style="height:32px;padding:0 30px 0 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;line-height:32px;box-sizing:border-box;vertical-align:middle;min-width:88px">
         ${years.map(y => `<option value="${y}"${y===year?' selected':''}>${y}</option>`).join('')}
       </select>
     </div>`;
