@@ -33136,7 +33136,7 @@ window.asistGuardarRegistro = async function () {
 
 const INQ_STATE = {
   initialized: false,
-  tab: 'perfiles',
+  tab: 'rentas',
   perfiles: [],
   pagos: [],
   currentInquilinoId: '',   // para tab Rentas: filtro por inquilino
@@ -33149,7 +33149,7 @@ async function inqInit() {
     INQ_STATE.initialized = true;
   }
   await inqLoadPerfiles();
-  inqSetTab(INQ_STATE.tab || 'perfiles');
+  inqSetTab(INQ_STATE.tab || 'rentas');
 }
 
 window.inqSetTab = function (tab) {
