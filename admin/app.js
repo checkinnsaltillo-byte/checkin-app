@@ -33791,6 +33791,7 @@ window.inqOpenPerfilForm = function (id) {
   inqRenderCifFiles();
   inqToggleOtroDescInput();
   inqToggleAvalOtroDescInput();
+  if (typeof window.inqBeginTrackChanges === 'function') { window.inqBeginTrackChanges(); window.inqUpdateSaveBtnState(); }
 };
 
 window.inqOpenPagoForm = function (id) {
@@ -33808,6 +33809,7 @@ window.inqOpenPagoForm = function (id) {
   ov.classList.remove('hidden');
   ov.style.display = 'block';
   inqRenderComprobanteFiles();
+  if (typeof window.inqBeginTrackChanges === 'function') { window.inqBeginTrackChanges(); window.inqUpdateSaveBtnState(); }
 };
 
 window.inqCloseForm = function () {
@@ -34775,15 +34777,67 @@ window.inqOnPagoInquilinoChange = function (newId) {
 
 // Habilita/deshabilita el botón Guardar según haya uploads en curso.
 // Actualizado desde inqShowUploadToast_ / inqHideUploadToastIfDone_.
+// Snapshot serializado del estado del form al abrir (para detectar cambios).
+// Combina inputs con name + files subidos (por ID) + arrays JSON de servicios/muebles.
+function inqFormSnapshot_() {
+  const form = document.getElementById('inq-perfil-form') || document.getElementById('inq-pago-form');
+  if (!form) return '';
+  const parts = [];
+  Array.from(form.elements).forEach(el => {
+    if (!el.name) return;
+    if (el.type === 'file') return;
+    parts.push(el.name + '=' + String(el.value ?? ''));
+  });
+  const fd = INQ_STATE.formData || {};
+  ['Contrato_files','Identificacion_files','Aval_identificacion_files','CIF_files','Comprobante_files'].forEach(k => {
+    if (Array.isArray(fd[k])) {
+      parts.push(k + ':' + fd[k].map(f => f && (f.id || f.url || '')).join(','));
+    }
+  });
+  if (fd.Servicios) parts.push('Servicios=' + JSON.stringify({items: fd.Servicios.items||[], caps: fd.Servicios.caps||{}, otro: fd.Servicios.otro||'', estado: fd.Servicios.estado||''}));
+  if (fd.Muebles)   parts.push('Muebles=' + JSON.stringify(fd.Muebles));
+  return parts.join('|');
+}
+
+// Marca el snapshot inicial + registra listener global de cambios en el form.
+window.inqBeginTrackChanges = function () {
+  INQ_STATE._formSnapshot = inqFormSnapshot_();
+  const body = document.getElementById('inq-form-body');
+  if (!body) return;
+  if (!body.__inqChangeHooked) {
+    body.__inqChangeHooked = true;
+    const rerun = () => { if (typeof window.inqUpdateSaveBtnState === 'function') window.inqUpdateSaveBtnState(); };
+    body.addEventListener('input', rerun);
+    body.addEventListener('change', rerun);
+    body.addEventListener('click', rerun); // spans-checkbox (toggle callbacks)
+  }
+};
+
 window.inqUpdateSaveBtnState = function () {
   const btn = document.getElementById('inq-form-save-btn');
   if (!btn) return;
   const uploading = (window.__inqUploadCount || 0) > 0;
-  btn.disabled = uploading;
-  btn.style.opacity = uploading ? '.55' : '';
-  btn.style.cursor = uploading ? 'not-allowed' : '';
-  btn.title = uploading ? 'Espera a que terminen los uploads…' : '';
-  btn.textContent = uploading ? `⏳ Subiendo ${window.__inqUploadCount}…` : '💾 Guardar';
+  // Detecta si estamos editando un registro existente (tiene ID en el form).
+  const idInp = document.querySelector('#inq-perfil-form input[name="ID"], #inq-pago-form input[name="ID"]');
+  const isExisting = !!(idInp && String(idInp.value || '').trim());
+  const dirty = isExisting ? (inqFormSnapshot_() !== (INQ_STATE._formSnapshot || '')) : true;
+  let disabled = false, label = '💾 Guardar', title = '';
+  if (uploading) {
+    disabled = true;
+    label = `⏳ Subiendo ${window.__inqUploadCount}…`;
+    title = 'Espera a que terminen los uploads…';
+  } else if (isExisting && !dirty) {
+    disabled = true;
+    label = '💾 Guardar';
+    title = 'Sin cambios por guardar';
+  } else if (isExisting && dirty) {
+    label = '💾 Guardar cambios';
+  }
+  btn.disabled = disabled;
+  btn.style.opacity = disabled ? '.55' : '';
+  btn.style.cursor = disabled ? 'not-allowed' : '';
+  btn.title = title;
+  btn.textContent = label;
 };
 
 // Toggle "Mismo correo electrónico del inquilino": al marcar, copia el valor
