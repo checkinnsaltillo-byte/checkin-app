@@ -34395,6 +34395,13 @@ function inqBuildPerfilFormHtml(d) {
     </div>
     <div id="inq-datos-fiscales-block" style="${(d.Requiere_factura||'')==='Sí'?'':'display:none'};margin:6px 0 12px;padding:14px;background:#fefce8;border:1px dashed #eab308;border-radius:10px">
       <div style="font-size:13px;font-weight:800;color:#854d0e;margin-bottom:10px">🧾 Datos fiscales</div>
+      <div style="margin-bottom:10px">
+        <input type="hidden" name="Renta_incluye_impuestos" value="${(d.Renta_incluye_impuestos===true||String(d.Renta_incluye_impuestos)==='true'||String(d.Renta_incluye_impuestos)==='1')?'true':'false'}">
+        <label onclick="inqToggleRentaImpuestos()" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font-size:13px;color:#854d0e;font-weight:700">
+          <span id="inq-rentaimp-cb" data-on="${(d.Renta_incluye_impuestos===true||String(d.Renta_incluye_impuestos)==='true'||String(d.Renta_incluye_impuestos)==='1')?'1':'0'}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid ${(d.Renta_incluye_impuestos===true||String(d.Renta_incluye_impuestos)==='true'||String(d.Renta_incluye_impuestos)==='1')?'#854d0e':'#cbd5e1'};background:${(d.Renta_incluye_impuestos===true||String(d.Renta_incluye_impuestos)==='true'||String(d.Renta_incluye_impuestos)==='1')?'#854d0e':'#fff'};color:${(d.Renta_incluye_impuestos===true||String(d.Renta_incluye_impuestos)==='true'||String(d.Renta_incluye_impuestos)==='1')?'#fff':'transparent'};border-radius:4px;font-size:12px;font-weight:900;line-height:1">${(d.Renta_incluye_impuestos===true||String(d.Renta_incluye_impuestos)==='true'||String(d.Renta_incluye_impuestos)==='1')?'✓':''}</span>
+          La Renta incluye impuestos
+        </label>
+      </div>
       ${inqField('Razón Social', 'Razon_social', 'text', d.Razon_social, 'Ej. Juan Pérez López / EMPRESA SA DE CV')}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         ${inqField('RFC', 'RFC', 'text', d.RFC, 'Ej. XAXX010101000')}
@@ -34603,6 +34610,15 @@ function inqBuildFacturapiUrl_(pago, perfil) {
   if (concepto) { p.set('concepto', concepto); p.set('descripcion', concepto); }
   if (whatsapp) p.set('whatsapp', whatsapp);
   if (regName) p.set('taxRegime', regName);
+  // Flag "La Renta incluye impuestos" del perfil → pre-marca la casilla
+  // "Incluye impuestos" en el popup Facturapi. Aliases múltiples para máxima
+  // compatibilidad con el check-in Cloud Run (que puede leer cualquiera).
+  const incTax = perfil && (perfil.Renta_incluye_impuestos === true
+    || String(perfil.Renta_incluye_impuestos) === 'true'
+    || String(perfil.Renta_incluye_impuestos) === '1');
+  p.set('taxIncluded', incTax ? 'true' : 'false');
+  p.set('tax_included', incTax ? 'true' : 'false');
+  p.set('pricesIncludeTax', incTax ? 'true' : 'false');
   const id = String(pago.ID || '').trim();
   if (id) {
     p.set('externalId', 'INQPAGO-' + id);
@@ -34810,6 +34826,22 @@ window.inqOnCorreoFactInput = function () {
     cb.style.borderColor = should ? '#334155' : '#cbd5e1';
     cb.style.color = should ? '#fff' : 'transparent';
   }
+};
+
+// Toggle "La Renta incluye impuestos" (dentro de Datos fiscales).
+// Actualiza el hidden Renta_incluye_impuestos que viaja al save y a Facturapi.
+window.inqToggleRentaImpuestos = function () {
+  const cb = document.getElementById('inq-rentaimp-cb');
+  if (!cb) return;
+  const on = cb.getAttribute('data-on') !== '1';
+  cb.setAttribute('data-on', on ? '1' : '0');
+  cb.textContent = on ? '✓' : '';
+  cb.style.background = on ? '#854d0e' : '#fff';
+  cb.style.borderColor = on ? '#854d0e' : '#cbd5e1';
+  cb.style.color = on ? '#fff' : 'transparent';
+  const form = document.getElementById('inq-perfil-form');
+  const h = form && form.querySelector('input[name="Renta_incluye_impuestos"]');
+  if (h) h.value = on ? 'true' : 'false';
 };
 
 // Muestra/oculta la sub-sección "Datos fiscales" según Requiere_factura.
