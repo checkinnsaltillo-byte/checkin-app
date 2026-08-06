@@ -33712,18 +33712,23 @@ window.inqHmOpenCell = function (inquilinoId, mesKey) {
   const fileLinks = (() => {
     if (!pago) return '';
     const files = Array.isArray(pago.Comprobante_files) ? pago.Comprobante_files : [];
+    const tileHtml = (url, name, mime) => {
+      const m = String(url).match(/[?&]id=([^&]+)/) || String(url).match(/\/file\/d\/([^\/?]+)/);
+      const thumb = m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w400` : url;
+      const isImg = /image|jpg|jpeg|png|gif|webp/i.test(mime || name || '') || /\.(jpe?g|png|gif|webp)$/i.test(name || url || '');
+      const badge = isImg ? '' : `<div style="position:absolute;bottom:2px;left:2px;right:2px;font-size:9px;font-weight:800;color:#fff;background:#0f172a;padding:2px 4px;border-radius:4px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📄 ${esc((name||'archivo').split('.').pop().toUpperCase())}</div>`;
+      // Click abre el modal de zoom (#inq-zoom) — mismo comportamiento que
+      // los tiles del form: cursor zoom-in, botón ✕, click fuera cierra.
+      return `<div title="Ver comprobante" onclick="inqOpenZoom('${esc(url)}',${isImg?'false':'true'})" style="position:relative;display:inline-block;width:80px;height:80px;margin:4px;border:1px solid #cbd5e1;border-radius:8px;background:#f1f5f9;overflow:hidden;cursor:zoom-in;flex-shrink:0">
+        ${isImg ? `<img src="${esc(thumb)}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none" onerror="this.style.display='none'">` : ''}
+        ${badge}
+      </div>`;
+    };
     if (files.length) {
-      return files.map(f => {
-        const url = f.url || '';
-        const m = url.match(/[?&]id=([^&]+)/) || url.match(/\/file\/d\/([^\/?]+)/);
-        const thumb = f.thumbnail || (m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w400` : url);
-        return `<a href="${esc(url)}" target="_blank" style="display:inline-block;margin:4px;text-decoration:none">
-          <img src="${esc(thumb)}" referrerpolicy="no-referrer" style="width:80px;height:80px;object-fit:cover;border:1px solid #cbd5e1;border-radius:8px" onerror="this.replaceWith(document.createTextNode('📄 ${esc(f.name||'archivo')}'))">
-        </a>`;
-      }).join('');
+      return files.map(f => tileHtml(f.url || '', f.name || '', f.mime || '')).join('');
     }
     if (pago.Comprobante_url) {
-      return `<a href="${esc(pago.Comprobante_url)}" target="_blank" style="color:#0d9488;font-weight:700">🧾 Ver comprobante</a>`;
+      return tileHtml(pago.Comprobante_url, 'comprobante', '');
     }
     return '<span style="color:#94a3b8;font-size:12px">Sin comprobante adjunto</span>';
   })();
