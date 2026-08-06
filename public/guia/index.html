@@ -658,7 +658,11 @@ function showOfflineBanner_(stale){
 // ── Tour de bienvenida (callout apuntando a los botones fab) ────────────
 // Sólo se muestra la primera vez por navegador (localStorage flag).
 window.showWelcomeTour_ = function (force) {
-  try { if (!force && localStorage.getItem('CI_TOUR_SEEN') === '1') return; } catch(_){}
+  // Se muestra en cada carga de la página — es un recordatorio crítico
+  // (check-in/check-out). El huésped puede cerrarlo al instante. Antes usaba
+  // localStorage y sólo aparecía una vez por navegador, pero el usuario
+  // perdía visibilidad tras el primer descarte.
+  void force;
   const tour    = document.getElementById('welcome-tour');
   const spot    = document.getElementById('wt-spot');
   const callout = document.getElementById('wt-callout');
@@ -697,7 +701,6 @@ window.showWelcomeTour_ = function (force) {
 window.closeWelcomeTour_ = function () {
   const tour = document.getElementById('welcome-tour');
   if (tour) tour.style.display = 'none';
-  try { localStorage.setItem('CI_TOUR_SEEN', '1'); } catch(_){}
 };
 </script>
 </body>
