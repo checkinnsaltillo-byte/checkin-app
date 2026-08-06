@@ -139,6 +139,25 @@ details.section>summary::-webkit-details-marker{display:none}
     </div>
   </div>
 </div>
+<!-- Tour de bienvenida — overlay con callout apuntando a los botones fab -->
+<div id="welcome-tour" style="display:none;position:fixed;inset:0;z-index:10500;pointer-events:none">
+  <!-- Backdrop clickeable -->
+  <div id="wt-backdrop" style="position:absolute;inset:0;background:rgba(15,23,42,.55);pointer-events:auto;cursor:pointer;animation:wtFade .25s ease-out"></div>
+  <!-- Recuadro spotlight sobre los botones -->
+  <div id="wt-spot" style="position:absolute;border:3px solid #14b8a6;border-radius:18px;box-shadow:0 0 0 9999px rgba(15,23,42,.55),0 10px 30px rgba(20,184,166,.55);pointer-events:none;transition:top .2s,left .2s,width .2s,height .2s"></div>
+  <!-- Callout arriba de los botones -->
+  <div id="wt-callout" style="position:absolute;pointer-events:auto;background:#fff;color:#0f172a;padding:16px 18px;border-radius:16px;box-shadow:0 22px 48px rgba(0,0,0,.35);max-width:340px;text-align:center;animation:wtPop .3s cubic-bezier(.34,1.56,.64,1)">
+    <div style="font-size:28px;line-height:1;margin-bottom:8px">👇</div>
+    <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:6px;line-height:1.35">No olvides realizar tu registro de entrada y salida</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:12px;line-height:1.4">Usa los botones <strong style="color:#0f766e">Check-in</strong> a tu llegada y <strong style="color:#dc2626">Check-out</strong> al finalizar tu estancia.</div>
+    <button type="button" onclick="closeWelcomeTour_()" style="padding:9px 18px;background:#0f172a;color:#fff;border:0;border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer">Entendido</button>
+  </div>
+</div>
+<style>
+@keyframes wtFade { from {opacity:0} to {opacity:1} }
+@keyframes wtPop  { from {opacity:0;transform:translate(-50%,10px) scale(.94)} to {opacity:1;transform:translate(-50%,0) scale(1)} }
+</style>
+
 <div id="notfound" class="state" style="display:none">
   <div style="font-size:44px;margin-bottom:12px">🔍</div>
   <div style="font-size:16px;color:#0f172a;font-weight:700;margin-bottom:8px">Guía no encontrada</div>
@@ -606,6 +625,10 @@ function showOfflineBanner_(stale){
     $('loader').style.display = 'none';
     $('root').style.display = 'block';
     $('checkin-fab').style.display = 'block';
+    // Tour de bienvenida: apunta a los botones Check-in / Check-out con un
+    // callout arriba. Sólo la primera vez por navegador (localStorage flag).
+    // Delay para que los botones ya estén posicionados al calcular el spot.
+    setTimeout(() => { try { window.showWelcomeTour_(); } catch(_){} }, 700);
     if (fromCache) showOfflineBanner_(stale);
   } catch (err) {
     stopTimer();
@@ -618,6 +641,51 @@ function showOfflineBanner_(stale){
     console.error(err);
   }
 })();
+
+// ── Tour de bienvenida (callout apuntando a los botones fab) ────────────
+// Sólo se muestra la primera vez por navegador (localStorage flag).
+window.showWelcomeTour_ = function (force) {
+  try { if (!force && localStorage.getItem('CI_TOUR_SEEN') === '1') return; } catch(_){}
+  const tour    = document.getElementById('welcome-tour');
+  const spot    = document.getElementById('wt-spot');
+  const callout = document.getElementById('wt-callout');
+  const inBtn   = document.getElementById('checkin-btn');
+  const outBtn  = document.getElementById('checkout-btn');
+  if (!tour || !spot || !callout || !inBtn || !outBtn) return;
+  // Bounding rect que envuelve ambos botones.
+  const r1 = inBtn.getBoundingClientRect();
+  const r2 = outBtn.getBoundingClientRect();
+  const top    = Math.min(r1.top, r2.top);
+  const left   = Math.min(r1.left, r2.left);
+  const right  = Math.max(r1.right, r2.right);
+  const bottom = Math.max(r1.bottom, r2.bottom);
+  const pad = 8;
+  spot.style.top    = (top - pad) + 'px';
+  spot.style.left   = (left - pad) + 'px';
+  spot.style.width  = (right - left + pad*2) + 'px';
+  spot.style.height = (bottom - top + pad*2) + 'px';
+  // Callout centrado sobre el spot; posición vertical calculada tras mostrar.
+  callout.style.left = ((left + right) / 2) + 'px';
+  callout.style.transform = 'translate(-50%, 0)';
+  tour.style.display = 'block';
+  requestAnimationFrame(() => {
+    const ch = callout.getBoundingClientRect().height;
+    const gap = 14;
+    if (top - gap >= ch + 20) callout.style.top = (top - ch - gap) + 'px';
+    else callout.style.top = (bottom + gap) + 'px';
+  });
+  const bd = document.getElementById('wt-backdrop');
+  if (bd && !bd.__hooked) { bd.__hooked = true; bd.addEventListener('click', window.closeWelcomeTour_); }
+  if (!document.__wtEscHooked) {
+    document.__wtEscHooked = true;
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') window.closeWelcomeTour_(); });
+  }
+};
+window.closeWelcomeTour_ = function () {
+  const tour = document.getElementById('welcome-tour');
+  if (tour) tour.style.display = 'none';
+  try { localStorage.setItem('CI_TOUR_SEEN', '1'); } catch(_){}
+};
 </script>
 </body>
 </html>
