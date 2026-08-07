@@ -29,7 +29,8 @@ a{color:inherit}
 .hero-bg{position:absolute;inset:0;background:#1e293b}
 .hero-card{position:relative;z-index:2;max-width:360px;background:rgba(15,23,42,.35);border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(6px);border-radius:16px;padding:14px 18px}
 .hero-badge{display:inline-block;font-size:10px;letter-spacing:1.3px;text-transform:uppercase;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:4px 10px;border-radius:999px;backdrop-filter:blur(4px);white-space:nowrap;margin-bottom:10px}
-.hero h1{font-size:22px;font-weight:800;letter-spacing:-.4px;line-height:1.2;margin:0 0 6px;text-shadow:0 2px 8px rgba(0,0,0,.35)}
+.hero h1{font-size:22px;font-weight:800;letter-spacing:-.4px;line-height:1.2;margin:0 0 4px;text-shadow:0 2px 8px rgba(0,0,0,.35)}
+.hero .hero-subtitle{font-size:12px;font-weight:500;opacity:.88;line-height:1.35;margin:0 auto 10px;max-width:320px;text-shadow:0 1px 3px rgba(0,0,0,.3)}
 .hero p{font-size:13px;opacity:.92;max-width:300px;margin:0 auto 12px;text-shadow:0 1px 4px rgba(0,0,0,.3)}
 .hero .btn-photos{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;backdrop-filter:blur(6px);text-decoration:none}
 .quicknav{position:sticky;top:0;z-index:20;background:rgba(241,245,249,.95);backdrop-filter:blur(10px);border-bottom:1px solid #e2e8f0;padding:10px 0;overflow-x:auto;white-space:nowrap;margin:0 0 14px}
@@ -121,6 +122,7 @@ details.section>summary::-webkit-details-marker{display:none}
     <div class="hero-card">
       <span class="hero-badge">Guía de Bienvenida</span>
       <h1 id="hero-title">—</h1>
+      <div id="hero-subtitle" class="hero-subtitle" style="display:none"></div>
       <p id="hero-desc" style="display:none"></p>
       <a id="hero-photos" href="#" target="_blank" rel="noopener" class="btn-photos" style="display:none">📷 Ver fotos del alojamiento</a>
     </div>
@@ -396,7 +398,21 @@ function buildGuide(a) {
   // Pre-llenado del formulario de registro exprés (Propiedad + # Departamento)
   window.__prefill = { prop: prop || '', depto: dpt || '' };
   const nombre = tituloTxt || (prop && dpt ? `${prop} · #${dpt}` : (prop || g('HouseName') || 'Alojamiento'));
-  $('hero-title').textContent = nombre;
+  // Divide título por el PRIMER " - " (guión medio). Ejemplo:
+  //   "Calle Cumbres #3 - Doble - 2 pisos (recámaras: 2 …)"
+  //   → título: "Calle Cumbres #3"
+  //   → subtítulo: "Doble - 2 pisos (recámaras: 2 …)"
+  {
+    const m = String(nombre).split(/\s+-\s+/);
+    const mainTitle = m[0];
+    const subTitle  = m.slice(1).join(' - ');
+    $('hero-title').textContent = mainTitle;
+    const sub = $('hero-subtitle');
+    if (sub) {
+      if (subTitle) { sub.textContent = subTitle; sub.style.display = 'block'; }
+      else { sub.style.display = 'none'; sub.textContent = ''; }
+    }
+  }
   const photoUrl = g('url_lodgify');
   if (photoUrl) { $('hero-photos').href = photoUrl; $('hero-photos').style.display = 'inline-flex'; }
   // WhatsApp — SIEMPRE al número del negocio (+52 844 444 3922), no al
