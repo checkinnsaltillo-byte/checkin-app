@@ -49,6 +49,8 @@ details.section>summary::-webkit-details-marker{display:none}
 .kv .v{flex:1;font-size:13.5px;color:#334155}
 .callout{display:flex;gap:12px;background:#fffbeb;border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:12px;padding:13px;margin-top:12px;font-size:13px;color:#334155}
 .callout .ci{font-size:18px}
+.callout.danger{background:#fef2f2;border-color:#fecaca;border-left-color:#dc2626;color:#7f1d1d;font-weight:600}
+.callout.danger .ci{color:#dc2626}
 .btn-map{display:block;text-align:center;text-decoration:none;margin-bottom:12px;background:linear-gradient(135deg,#f97316,#f59e0b);color:#fff;font-weight:700;font-size:14px;padding:13px;border-radius:12px;box-shadow:0 4px 12px -4px rgba(249,115,22,.5)}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;padding:7px 12px;border-radius:10px;background:#f0fdfa;color:#0f766e;border:1px solid #99f6e4}
@@ -236,9 +238,10 @@ function kv(k, v) {
   if (!v) return '';
   return `<div class="kv"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`;
 }
-function callout(text, icon) {
+function callout(text, icon, variant) {
   if (!text) return '';
-  return `<div class="callout"><span class="ci">${icon||'💡'}</span><div>${esc(text)}</div></div>`;
+  const cls = 'callout' + (variant ? ' ' + variant : '');
+  return `<div class="${cls}"><span class="ci">${icon||'💡'}</span><div>${esc(text)}</div></div>`;
 }
 function chips(list) {
   if (!list.length) return '';
@@ -464,7 +467,20 @@ function buildGuide(a) {
   const sec1Inner = `${g('url_google_maps')?`<a class="btn-map" href="${esc(g('url_google_maps'))}" target="_blank" rel="noopener">🧭 Abrir en Google Maps</a>`:''}${kv('Dirección', g('direccion'))}${kv('Referencia', g('referencia'))}${callout(g('referencia_googlemaps'),'💡')}`;
   const sec2Inner = `${kv('Tipo', g('tipo'))}${kv('Capacidad', capacidad)}${kv('Recámaras', g('recamaras'))}${kv('Baños', g('banos','Banos'))}${kv('Planta', String(g('planta','Planta')||'').replace(/\s*planta\s*$/i, '').trim())}`;
   const sec3Inner = chips(listOf(g('amenidades'), {comma:true})) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin amenidades listadas.</div>';
-  const sec4Inner = rules(listOf(g('reglamento'))) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin reglamento listado.</div>';
+  // Reglamento: separa la última regla si menciona "cancelación" / "sin
+  // reembolso" para pintarla como aviso rojo destacado al final.
+  const _regAll = listOf(g('reglamento'));
+  const _cancelRe = /cancelaci[oó]n\s+inmediata|sin\s+reembolso/i;
+  let _regList = _regAll, _regAviso = '';
+  for (let i = _regAll.length - 1; i >= 0; i--) {
+    if (_cancelRe.test(_regAll[i])) {
+      _regAviso = _regAll[i];
+      _regList = _regAll.slice(0, i).concat(_regAll.slice(i + 1));
+      break;
+    }
+  }
+  const sec4Inner = (rules(_regList) || '<div style="font-size:12px;color:#94a3b8;font-style:italic">Sin reglamento listado.</div>')
+                  + callout(_regAviso, '⚠️', 'danger');
   const entrada = g('hora_llegada','hr_llegada'), salida = g('hora_salida','hr_salida');
   const sec5Inner = `<div style="display:flex;gap:12px;margin-top:6px"><div style="flex:1;text-align:center;padding:16px 8px;border-radius:14px;border:1px solid #a5f3fc;background:linear-gradient(135deg,#ecfeff,#f0fdfa)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:4px">Entrada</div><div style="font-size:24px;font-weight:800;color:#0f172a">${esc(entrada||'—')}</div></div><div style="flex:1;text-align:center;padding:16px 8px;border-radius:14px;border:1px solid #fde68a;background:linear-gradient(135deg,#fff7ed,#fef9c3)"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:4px">Salida</div><div style="font-size:24px;font-weight:800;color:#0f172a">${esc(salida||'—')}</div></div></div>`;
   const deptoNote = dpt ? `<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:14px;color:#0f172a;text-align:center">Tu departamento es el <b style="font-weight:800;font-size:16px;color:#1d4ed8">#${esc(dpt)}</b></div>` : '';
