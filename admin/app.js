@@ -338,7 +338,7 @@ const SYS_MODULE_PERMS = {
   V:    ['incidencias'],
   VI:   ['objetos'],
   VII:  ['ocupacion'],
-  VIII: ['rh','inquilinos'],
+  VIII: ['rh','inquilinos','inventarios'],
 };
 function sysGetStoredUser() {
   try { return JSON.parse(localStorage.getItem('sys_user') || 'null'); } catch (_) { return null; }
@@ -8641,7 +8641,7 @@ function switchModule(mod) {
   if (mod === 'ocupacion') mod = 'dashboard';
   // Aliases: 'dashboard' y 'calendario' comparten el contenedor module-ocupacion
   const containerMod = (mod === 'dashboard' || mod === 'calendario') ? 'ocupacion' : mod;
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "inquilinos", "tuya", "guias"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -8746,6 +8746,9 @@ function switchModule(mod) {
   }
   if (mod === "inquilinos") {
     if (typeof inqInit === 'function') inqInit();
+  }
+  if (mod === "inventarios") {
+    if (typeof invInit === 'function') invInit();
   }
 }
 
@@ -35380,4 +35383,652 @@ window.inqDeletePago = async function (id) {
     await inqLoadPagos(INQ_STATE.currentInquilinoId);
     inqRenderRentas();
   } catch (e) { alert('Error al eliminar: ' + e.message); }
+};
+
+// ═════════════════════════════════════════════════════════════════════════
+// ═══ MÓDULO INVENTARIOS ═════════════════════════════════════════════════
+// Sheets: Inventarios_Productos, Inventarios_Stock, Inventarios_Movimientos,
+// Inventarios_Ordenes. Tres tabs: Stock (default), Productos, Órdenes.
+// KPIs, alertas de bajo stock, imágenes por producto, links marketplace.
+// ═════════════════════════════════════════════════════════════════════════
+
+const INV_STATE = {
+  initialized: false, tab: 'stock', productos: [], stock: [], movimientos: [], ordenes: [],
+  filterProdCat: '', filterProdSearch: '',
+  filterStockProp: '', filterStockDepto: '', filterStockEstado: '',
+  formKind: '', formData: null,
+};
+
+// Catálogos basados en la tabla A del prompt.
+const INV_CLASES = [
+  { key: 'consumibles_huesped',   label: 'Consumibles de huésped',      driver: 'por check-out y por huésped', control: 'par level por unidad' },
+  { key: 'consumibles_limpieza',  label: 'Consumibles de limpieza',     driver: 'por check-out', control: 'min-max en bodega' },
+  { key: 'textiles_rotativos',    label: 'Textiles rotativos',          driver: 'ciclos de lavado, no consumo', control: 'pool por cama/baño' },
+  { key: 'menaje_dotacion',       label: 'Menaje y dotación',           driver: 'merma y rotura', control: 'conteo por unidad' },
+  { key: 'refacciones_mant',      label: 'Refacciones y mantenimiento', driver: 'falla', control: 'stock de seguridad central' },
+  { key: 'suministros_operativos',label: 'Suministros operativos',      driver: 'proyectos y reposición', control: 'lote' },
+  { key: 'inventario_venta',      label: 'Inventario de venta',         driver: 'venta al huésped', control: 'costo + valuación' },
+  { key: 'activos_fijos',         label: 'Activos fijos móviles',       driver: 'no se consume: se transfiere o se da de baja', control: 'ficha con QR' },
+];
+const INV_NATURALEZAS = ['Consumible','Semi-durable','Activo fijo'];
+const INV_UNIDADES    = ['pieza','juego','par','litros','ml','kg','g','metros','botella','bolsa','caja','rollo','paquete'];
+const INV_MEDIOS      = ['En línea','En tienda','Pedido directo al proveedor'];
+const INV_LUGARES_LINEA  = ['Amazon','Mercado Libre','Otro (en línea)'];
+const INV_LUGARES_TIENDA = ['Sam\'s Club','Costco','Home Depot','Sodimac','Walmart','Otro (en tienda)'];
+const INV_ESTADOS = [
+  'En bodega central',
+  'En tránsito (compra/traslado)',
+  'En unidad, en stock (par stock)',
+  'En uso / instalado',
+  'Sucio, pendiente de proceso',
+  'En lavandería o reparación',
+  'Baja por desgaste/daño/pérdida',
+  'En custodia (lost & found)',
+];
+const INV_TIPOS_REP = ['Planeado','Reemplazo','Alta'];
+const INV_SUBTIPOS = {
+  'Planeado':  ['Consumo','Preventivo','Estacional'],
+  'Reemplazo': ['Desgaste / fin de vida útil','Daño','Pérdida / robo','Falla técnica (garantía)','Obsolescencia','Normatividad o caducidad'],
+  'Alta':      ['Dotación inicial','Compra de oportunidad'],
+};
+
+async function invInit() {
+  if (!INV_STATE.initialized) {
+    INV_STATE.initialized = true;
+    // Dispara carga del catálogo alojamientos (para selects de propiedad/depto)
+    if (typeof lgLoadAlojamientos === 'function' && typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded && !ALOJ_STATE.loading) {
+      lgLoadAlojamientos().then(() => { if (INV_STATE.tab === 'stock') invRenderStock(); });
+    }
+  }
+  invSetTab(INV_STATE.tab || 'stock');
+  // Carga inicial en paralelo — no bloquea render
+  Promise.all([invLoadProductos(), invLoadStock(), invLoadOrdenes()]).then(() => {
+    invRenderKpis();
+    // Re-render de la tab activa con datos frescos
+    if (INV_STATE.tab === 'stock')     invRenderStock();
+    else if (INV_STATE.tab === 'productos') invRenderProductos();
+    else if (INV_STATE.tab === 'ordenes')   invRenderOrdenes();
+  });
+}
+
+window.invSetTab = function (tab) {
+  INV_STATE.tab = tab;
+  document.querySelectorAll('[data-inv-tab]').forEach(b => b.classList.toggle('active', b.getAttribute('data-inv-tab') === tab));
+  invRenderKpis();
+  if (tab === 'stock')     invRenderStock();
+  else if (tab === 'productos') invRenderProductos();
+  else if (tab === 'ordenes')   invRenderOrdenes();
+};
+
+async function invLoadProductos() {
+  try {
+    const r = await fetch(`${BACKEND}/inventarios/productos?_cb=${Date.now()}`, { cache:'no-store' });
+    const j = await r.json();
+    if (j.ok) INV_STATE.productos = j.rows || [];
+  } catch (e) { console.warn('[INV] productos:', e.message); }
+}
+async function invLoadStock() {
+  try {
+    const r = await fetch(`${BACKEND}/inventarios/stock?_cb=${Date.now()}`, { cache:'no-store' });
+    const j = await r.json();
+    if (j.ok) INV_STATE.stock = j.rows || [];
+  } catch (e) { console.warn('[INV] stock:', e.message); }
+}
+async function invLoadOrdenes() {
+  try {
+    const r = await fetch(`${BACKEND}/inventarios/ordenes?_cb=${Date.now()}`, { cache:'no-store' });
+    const j = await r.json();
+    if (j.ok) INV_STATE.ordenes = j.rows || [];
+  } catch (e) { console.warn('[INV] ordenes:', e.message); }
+}
+async function invLoadMovimientos(stockId) {
+  try {
+    const qs = stockId ? `?stock_id=${encodeURIComponent(stockId)}&` : '?';
+    const r = await fetch(`${BACKEND}/inventarios/movimientos${qs}_cb=${Date.now()}`, { cache:'no-store' });
+    const j = await r.json();
+    return j.ok ? (j.rows || []) : [];
+  } catch (_) { return []; }
+}
+
+// ── Helpers ──
+function invFmtMoney(v) {
+  const n = Number(v || 0);
+  if (!isFinite(n)) return '$ 0.00';
+  return '$ ' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function invProductoById(id) { return (INV_STATE.productos || []).find(p => String(p.ID) === String(id)); }
+function invClaseInfo(key) { return INV_CLASES.find(c => c.key === key || c.label === key) || { label: key || '—', driver:'', control:'' }; }
+function invStockStatus_(s) {
+  // Devuelve 'low' | 'warn' | 'ok' según cantidad vs min
+  const min = parseFloat(s.Stock_minimo_local) || 0;
+  const qty = parseFloat(s.Cantidad) || 0;
+  if (min <= 0) return 'ok';
+  if (qty <= min) return 'low';
+  if (qty <= min * 1.5) return 'warn';
+  return 'ok';
+}
+
+// ── KPIs ──
+function invRenderKpis() {
+  const el = document.getElementById('inv-kpis');
+  if (!el) return;
+  const prodCount = (INV_STATE.productos || []).length;
+  const stockRows = INV_STATE.stock || [];
+  const lowStock = stockRows.filter(s => invStockStatus_(s) === 'low').length;
+  const valorTotal = stockRows.reduce((sum, s) => {
+    const p = invProductoById(s.Producto_ID);
+    const pu = parseFloat(p && p.Precio_unitario) || 0;
+    const qty = parseFloat(s.Cantidad) || 0;
+    return sum + pu * qty;
+  }, 0);
+  const ordenesAbiertas = (INV_STATE.ordenes || []).filter(o => !['recibida','cancelada'].includes(String(o.Estado || '').toLowerCase())).length;
+  const kpi = (label, value, color, icon) => `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(15,23,42,.05)">
+      <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${icon} ${label}</div>
+      <div style="font-size:22px;font-weight:800;color:${color};margin-top:4px;line-height:1.1">${value}</div>
+    </div>`;
+  el.innerHTML =
+    kpi('Productos', prodCount, '#0f172a', '📋') +
+    kpi('Ubicaciones con stock', stockRows.length, '#0f766e', '📍') +
+    kpi('Stock bajo mínimo', lowStock, lowStock > 0 ? '#dc2626' : '#16a34a', '⚠️') +
+    kpi('Valor total inventario', invFmtMoney(valorTotal), '#0f172a', '💰') +
+    kpi('Órdenes abiertas', ordenesAbiertas, ordenesAbiertas > 0 ? '#ea580c' : '#0f766e', '🛒');
+}
+
+// ── VIEW: PRODUCTOS ──
+function invRenderProductos() {
+  const view = document.getElementById('inv-view');
+  if (!view) return;
+  const q = String(INV_STATE.filterProdSearch || '').toLowerCase().trim();
+  const cat = INV_STATE.filterProdCat || '';
+  const rows = (INV_STATE.productos || []).filter(p => {
+    if (cat && String(p.Clase || '') !== cat) return false;
+    if (q) {
+      const hay = (p.Codigo + ' ' + p.Producto + ' ' + p.Clase + ' ' + p.Naturaleza).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  const filtroClases = INV_CLASES.map(c => `<option value="${esc(c.label)}"${cat===c.label?' selected':''}>${esc(c.label)}</option>`).join('');
+  view.innerHTML = `
+    <div class="rh-toolbar">
+      <div>
+        <div class="rh-toolbar-title">📋 Catálogo de productos</div>
+        <div class="rh-toolbar-count">${rows.length} producto(s)</div>
+      </div>
+      <button type="button" class="rh-btn-add" onclick="invOpenProductoForm(null)">＋ Agregar producto</button>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px">
+      <input type="search" placeholder="Buscar código, nombre, clase…" value="${esc(q)}" oninput="INV_STATE.filterProdSearch=this.value;invRenderProductos()" style="flex:1;min-width:220px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">
+      <select onchange="INV_STATE.filterProdCat=this.value;invRenderProductos()" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+        <option value="">Todas las clases</option>${filtroClases}
+      </select>
+    </div>
+    ${rows.length === 0
+      ? `<div class="rh-empty" style="padding:40px;text-align:center;color:#94a3b8">Sin productos. Pulsa <strong>＋ Agregar producto</strong>.</div>`
+      : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+        ${rows.map(p => {
+          const img = p.Imagen_url ? (String(p.Imagen_url).match(/id=([^&]+)/) ? 'https://drive.google.com/thumbnail?id=' + p.Imagen_url.match(/id=([^&]+)/)[1] + '&sz=w400' : p.Imagen_url) : '';
+          return `<div onclick="invOpenProductoForm('${esc(p.ID)}')" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;cursor:pointer;box-shadow:0 1px 3px rgba(15,23,42,.04);transition:transform .12s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
+            <div style="display:flex;gap:12px">
+              ${img ? `<img src="${esc(img)}" referrerpolicy="no-referrer" style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex:none;background:#f1f5f9" onerror="this.style.display='none'">` : `<div style="width:64px;height:64px;background:#f1f5f9;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;font-size:24px">📦</div>`}
+              <div style="flex:1;min-width:0">
+                <div style="font-size:10px;color:#94a3b8;font-weight:700">${esc(p.Codigo || '—')}</div>
+                <div style="font-size:14px;font-weight:800;color:#0f172a;line-height:1.25;margin:2px 0 4px">${esc(p.Producto || '—')}</div>
+                <div style="font-size:11px;color:#475569">${esc(p.Clase || '—')}</div>
+                <div style="font-size:11.5px;color:#0f766e;font-weight:700;margin-top:4px">${invFmtMoney(p.Precio_unitario)} / ${esc(p.Unidad || 'pieza')}</div>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`}`;
+}
+
+// ── VIEW: STOCK POR UBICACIÓN ──
+function invRenderStock() {
+  const view = document.getElementById('inv-view');
+  if (!view) return;
+  const rows = (INV_STATE.stock || []).filter(s => {
+    if (INV_STATE.filterStockProp  && String(s.Propiedad    || '') !== INV_STATE.filterStockProp) return false;
+    if (INV_STATE.filterStockDepto && String(s.Departamento || '') !== INV_STATE.filterStockDepto) return false;
+    if (INV_STATE.filterStockEstado && String(s.Estado || '') !== INV_STATE.filterStockEstado) return false;
+    return true;
+  });
+  const propsUnicas = Array.from(new Set((INV_STATE.stock || []).map(s => String(s.Propiedad || '').trim()).filter(Boolean))).sort();
+  const deptosUnicos = Array.from(new Set(
+    (INV_STATE.stock || [])
+      .filter(s => !INV_STATE.filterStockProp || String(s.Propiedad || '') === INV_STATE.filterStockProp)
+      .map(s => String(s.Departamento || '').trim())
+      .filter(Boolean)
+  )).sort();
+  view.innerHTML = `
+    <div class="rh-toolbar">
+      <div>
+        <div class="rh-toolbar-title">📍 Stock por ubicación</div>
+        <div class="rh-toolbar-count">${rows.length} registro(s)</div>
+      </div>
+      <button type="button" class="rh-btn-add" onclick="invOpenStockForm(null)">＋ Agregar stock</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px">
+      <select onchange="INV_STATE.filterStockProp=this.value;INV_STATE.filterStockDepto='';invRenderStock()" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+        <option value="">Todas las propiedades</option>${propsUnicas.map(p=>`<option value="${esc(p)}"${p===INV_STATE.filterStockProp?' selected':''}>${esc(p)}</option>`).join('')}
+      </select>
+      <select onchange="INV_STATE.filterStockDepto=this.value;invRenderStock()" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+        <option value="">Todos los depto</option>${deptosUnicos.map(d=>`<option value="${esc(d)}"${d===INV_STATE.filterStockDepto?' selected':''}>#${esc(d)}</option>`).join('')}
+      </select>
+      <select onchange="INV_STATE.filterStockEstado=this.value;invRenderStock()" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+        <option value="">Todos los estados</option>${INV_ESTADOS.map(e=>`<option value="${esc(e)}"${e===INV_STATE.filterStockEstado?' selected':''}>${esc(e)}</option>`).join('')}
+      </select>
+    </div>
+    ${rows.length === 0
+      ? `<div class="rh-empty" style="padding:40px;text-align:center;color:#94a3b8">Sin stock registrado.</div>`
+      : `<div style="overflow-x:auto;background:#fff;border:1px solid #e2e8f0;border-radius:10px">
+        <table style="border-collapse:collapse;width:100%;min-width:900px;font-size:12.5px">
+          <thead><tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0">
+            <th style="padding:10px;text-align:left">Producto</th>
+            <th style="padding:10px;text-align:left">Ubicación</th>
+            <th style="padding:10px;text-align:left">Estado</th>
+            <th style="padding:10px;text-align:right">Cantidad</th>
+            <th style="padding:10px;text-align:right">Mín</th>
+            <th style="padding:10px;text-align:center">Alerta</th>
+            <th style="padding:10px;text-align:center">Acciones</th>
+          </tr></thead>
+          <tbody>${rows.map(s => {
+            const p = invProductoById(s.Producto_ID) || {};
+            const st = invStockStatus_(s);
+            const stColor = st==='low'?'#dc2626':(st==='warn'?'#f59e0b':'#16a34a');
+            const stIcon  = st==='low'?'🔴 Bajo':(st==='warn'?'🟡 Cerca':'🟢 OK');
+            const ubi = [s.Propiedad, s.Departamento?'#'+s.Departamento:'', s.Ubicacion_extra].filter(Boolean).join(' · ');
+            return `<tr style="border-top:1px solid #f1f5f9">
+              <td style="padding:10px"><div style="font-weight:700;color:#0f172a">${esc(p.Producto || s.Producto_ID)}</div><div style="font-size:11px;color:#64748b">${esc(p.Codigo || '')}</div></td>
+              <td style="padding:10px;color:#334155">${esc(ubi || '—')}</td>
+              <td style="padding:10px;font-size:11.5px;color:#475569">${esc(s.Estado || '—')}</td>
+              <td style="padding:10px;text-align:right;font-weight:800;color:${stColor}">${esc(s.Cantidad || 0)} ${esc(s.Unidad || p.Unidad || '')}</td>
+              <td style="padding:10px;text-align:right;color:#64748b">${esc(s.Stock_minimo_local || p.Stock_minimo || 0)}</td>
+              <td style="padding:10px;text-align:center;color:${stColor};font-weight:700;font-size:11px">${stIcon}</td>
+              <td style="padding:10px;text-align:center;white-space:nowrap">
+                <button type="button" onclick="invOpenMovimientoForm('${esc(s.ID)}')" title="Reposición" style="all:unset;cursor:pointer;padding:5px 10px;background:#0f766e;color:#fff;border-radius:6px;font-size:11px;font-weight:700;margin-right:4px">🔁 Reposición</button>
+                <button type="button" onclick="invOpenStockForm('${esc(s.ID)}')" title="Editar" style="all:unset;cursor:pointer;padding:5px 10px;background:#f1f5f9;color:#334155;border-radius:6px;font-size:11px;font-weight:700">✏️</button>
+              </td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>`}`;
+}
+
+// ── VIEW: ÓRDENES DE COMPRA ──
+function invRenderOrdenes() {
+  const view = document.getElementById('inv-view');
+  if (!view) return;
+  const rows = (INV_STATE.ordenes || []).slice().sort((a,b) => String(b.Fecha||'').localeCompare(String(a.Fecha||'')));
+  view.innerHTML = `
+    <div class="rh-toolbar">
+      <div>
+        <div class="rh-toolbar-title">🛒 Órdenes de compra</div>
+        <div class="rh-toolbar-count">${rows.length} orden(es)</div>
+      </div>
+      <button type="button" class="rh-btn-add" onclick="invOpenOrdenForm(null)">＋ Nueva orden</button>
+    </div>
+    ${rows.length === 0
+      ? `<div class="rh-empty" style="padding:40px;text-align:center;color:#94a3b8">Sin órdenes registradas.</div>`
+      : `<div style="display:grid;gap:10px">${rows.map(o => {
+          const items = Array.isArray(o.Items) ? o.Items : (() => { try { return JSON.parse(o.Items_json||'[]'); } catch(_){return [];} })();
+          const estado = String(o.Estado || 'borrador').toLowerCase();
+          const estColor = { borrador:'#94a3b8', enviada:'#f59e0b', recibida:'#16a34a', cancelada:'#dc2626' }[estado] || '#94a3b8';
+          return `<div onclick="invOpenOrdenForm('${esc(o.ID)}')" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;cursor:pointer;box-shadow:0 1px 3px rgba(15,23,42,.05)">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px">
+              <div>
+                <div style="font-size:14px;font-weight:800;color:#0f172a">${esc(String(o.Fecha||'').slice(0,10))} · ${esc(o.Tipo_reposicion || '—')}</div>
+                <div style="font-size:11.5px;color:#64748b;margin-top:2px">${esc(o.Subtipo || '')} ${o.Proveedor ? '· '+esc(o.Proveedor) : ''}</div>
+              </div>
+              <div style="text-align:right">
+                <span style="display:inline-block;padding:3px 9px;background:${estColor};color:#fff;border-radius:999px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em">${esc(estado)}</span>
+                <div style="font-size:16px;font-weight:800;color:#0f766e;margin-top:4px">${invFmtMoney(o.Total)}</div>
+              </div>
+            </div>
+            <div style="font-size:11.5px;color:#475569">${items.length} item(s) · ${esc(o.Usuario || 'sin usuario')}</div>
+          </div>`;
+        }).join('')}</div>`}`;
+}
+
+// ── FORMS ──
+window.invCloseForm = function () {
+  const ov = document.getElementById('inv-form-overlay');
+  ov.classList.add('hidden'); ov.style.display = 'none';
+  INV_STATE.formKind = ''; INV_STATE.formData = null;
+};
+
+// Producto
+window.invOpenProductoForm = function (id) {
+  const d = id ? (INV_STATE.productos.find(p => String(p.ID) === String(id)) || {}) : {};
+  INV_STATE.formKind = 'producto';
+  INV_STATE.formData = JSON.parse(JSON.stringify(d));
+  document.getElementById('inv-form-title').textContent = id ? 'Editar producto' : 'Nuevo producto';
+  const opt = (arr, cur) => arr.map(x => `<option value="${esc(x)}"${String(x)===String(cur||'')?' selected':''}>${esc(x)}</option>`).join('');
+  const optCla = INV_CLASES.map(c => `<option value="${esc(c.label)}" data-key="${c.key}"${String(c.label)===String(d.Clase||'')?' selected':''}>${esc(c.label)}</option>`).join('');
+  const _imgTile = (u) => u ? (() => {
+    const m = String(u).match(/[?&]id=([^&]+)/) || String(u).match(/\/file\/d\/([^\/?]+)/);
+    const t = m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w400` : u;
+    return `<div style="position:relative;display:inline-block"><img src="${esc(t)}" referrerpolicy="no-referrer" onclick="invZoom('${esc(u)}')" style="width:100px;height:100px;object-fit:cover;border-radius:10px;border:1px solid #cbd5e1;cursor:zoom-in;background:#f1f5f9"><button type="button" onclick="invClearProdImg()" style="position:absolute;top:2px;right:2px;background:#dc2626;color:#fff;border:0;width:22px;height:22px;border-radius:50%;font-size:12px;font-weight:900;cursor:pointer">×</button></div>`;
+  })() : '';
+  const html = `<form id="inv-prod-form" onsubmit="event.preventDefault();invSaveCurrentForm()">
+    <input type="hidden" name="ID" value="${esc(d.ID || '')}">
+    <input type="hidden" name="Imagen_url" value="${esc(d.Imagen_url || '')}">
+    <input type="hidden" name="Imagen_id"  value="${esc(d.Imagen_id  || '')}">
+    <div style="margin-bottom:12px">
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Imagen del producto</label>
+      <div id="inv-prod-img-slot" style="margin-bottom:6px">${_imgTile(d.Imagen_url)}</div>
+      <label style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:#f1f5f9;color:#475569;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">
+        <input type="file" accept="image/*" style="display:none" onchange="invUploadProdImg(this.files)"> 📷 Subir imagen
+      </label>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-bottom:10px">
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Código</label><input type="text" name="Codigo" value="${esc(d.Codigo||'')}" placeholder="SKU-001" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Producto *</label><input type="text" name="Producto" required value="${esc(d.Producto||'')}" placeholder="Ej. Toalla de baño" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Naturaleza</label>
+        <select name="Naturaleza" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff"><option value="">—</option>${opt(INV_NATURALEZAS, d.Naturaleza)}</select></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Clase</label>
+        <select name="Clase" onchange="invOnClaseChange_(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff"><option value="">—</option>${optCla}</select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Driver de consumo</label>
+        <input type="text" name="Driver_consumo" id="inv-driver" value="${esc(d.Driver_consumo||'')}" placeholder="Auto según clase" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Control</label>
+        <input type="text" name="Control" id="inv-control" value="${esc(d.Control||'')}" placeholder="Auto según clase" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Cantidad (por default)</label>
+        <input type="number" step="0.01" name="Cantidad_default" value="${esc(d.Cantidad_default||'')}" oninput="invRecalcTotal_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Unidad</label>
+        <select name="Unidad" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${opt(INV_UNIDADES, d.Unidad||'pieza')}</select></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Stock mínimo</label>
+        <input type="number" step="0.01" name="Stock_minimo" value="${esc(d.Stock_minimo||'')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Precio unitario (MXN)</label>
+        <input type="number" step="0.01" name="Precio_unitario" value="${esc(d.Precio_unitario||'')}" oninput="invRecalcTotal_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Precio total (auto)</label>
+        <input type="number" step="0.01" name="Precio_total" id="inv-precio-total" value="${esc(d.Precio_total||'')}" readonly style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc;color:#475569"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Tiempo de entrega (días)</label>
+        <input type="number" step="1" name="Tiempo_entrega_dias" value="${esc(d.Tiempo_entrega_dias||'')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Medio de compra</label>
+        <select name="Medio_compra" onchange="invOnMedioChange_(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff"><option value="">—</option>${opt(INV_MEDIOS, d.Medio_compra)}</select></div>
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Lugar de compra</label>
+      <input type="text" name="Lugar_compra" id="inv-lugar-compra" value="${esc(d.Lugar_compra||'')}" list="inv-lugares-dl" placeholder="Amazon, Home Depot, proveedor específico…" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">
+      <datalist id="inv-lugares-dl">${INV_LUGARES_LINEA.concat(INV_LUGARES_TIENDA).map(x => `<option value="${esc(x)}">`).join('')}</datalist>
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">🔗 URL en marketplace (opcional)</label>
+      <input type="url" name="Marketplace_url" value="${esc(d.Marketplace_url||'')}" placeholder="https://amazon.com/…" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">
+    </div>
+    <div style="margin-bottom:10px"><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Notas</label>
+      <textarea name="Notas" rows="2" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical">${esc(d.Notas||'')}</textarea></div>
+    ${d.ID ? `<div style="text-align:right;margin-top:14px"><button type="button" onclick="invDeleteProducto('${esc(d.ID)}')" style="all:unset;cursor:pointer;color:#dc2626;font-size:12px;font-weight:700;padding:6px 12px;border:1px solid #fecaca;border-radius:8px">🗑 Eliminar producto</button></div>` : ''}
+  </form>`;
+  document.getElementById('inv-form-body').innerHTML = html;
+  const ov = document.getElementById('inv-form-overlay'); ov.classList.remove('hidden'); ov.style.display = 'block';
+  invRecalcTotal_();
+};
+window.invOnClaseChange_ = function (label) {
+  const info = invClaseInfo(label);
+  const dr = document.getElementById('inv-driver'); if (dr && !dr.value) dr.value = info.driver || '';
+  const co = document.getElementById('inv-control'); if (co && !co.value) co.value = info.control || '';
+};
+window.invOnMedioChange_ = function (medio) {
+  const dl = document.getElementById('inv-lugares-dl');
+  if (!dl) return;
+  const list = medio === 'En línea' ? INV_LUGARES_LINEA : medio === 'En tienda' ? INV_LUGARES_TIENDA : INV_LUGARES_LINEA.concat(INV_LUGARES_TIENDA);
+  dl.innerHTML = list.map(x => `<option value="${esc(x)}">`).join('');
+};
+window.invRecalcTotal_ = function () {
+  const form = document.getElementById('inv-prod-form'); if (!form) return;
+  const pu = parseFloat(form.querySelector('[name=Precio_unitario]').value) || 0;
+  const qt = parseFloat(form.querySelector('[name=Cantidad_default]').value) || 0;
+  form.querySelector('[name=Precio_total]').value = (pu * qt).toFixed(2);
+};
+window.invClearProdImg = function () {
+  const form = document.getElementById('inv-prod-form'); if (!form) return;
+  form.querySelector('[name=Imagen_url]').value = '';
+  form.querySelector('[name=Imagen_id]').value = '';
+  document.getElementById('inv-prod-img-slot').innerHTML = '';
+};
+window.invUploadProdImg = async function (fileList) {
+  const files = Array.from(fileList || []); if (!files.length) return;
+  const f = files[0];
+  const form = document.getElementById('inv-prod-form'); if (!form) return;
+  const btn = document.getElementById('inv-form-save-btn'); if (btn) { btn.disabled = true; btn.textContent = '⏳ Subiendo…'; }
+  try {
+    const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+    const b64 = String(dataUrl || '').replace(/^data:[^;]*;base64,/, '');
+    const pid = form.querySelector('[name=ID]').value || 'nuevo_' + Date.now();
+    const resp = await fetch(`${BACKEND}/inventarios/productos/upload`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ producto_id: pid, filename: f.name || 'imagen.jpg', mime: f.type || 'image/jpeg', data: b64 }),
+    });
+    const j = await resp.json();
+    if (!j.ok) throw new Error(j.error || 'upload failed');
+    form.querySelector('[name=Imagen_url]').value = j.file.url;
+    form.querySelector('[name=Imagen_id]').value  = j.file.id;
+    document.getElementById('inv-prod-img-slot').innerHTML =
+      `<div style="position:relative;display:inline-block"><img src="${esc(j.file.thumbnail || j.file.url)}" referrerpolicy="no-referrer" onclick="invZoom('${esc(j.file.url)}')" style="width:100px;height:100px;object-fit:cover;border-radius:10px;border:1px solid #cbd5e1;cursor:zoom-in;background:#f1f5f9"><button type="button" onclick="invClearProdImg()" style="position:absolute;top:2px;right:2px;background:#dc2626;color:#fff;border:0;width:22px;height:22px;border-radius:50%;font-size:12px;font-weight:900;cursor:pointer">×</button></div>`;
+  } catch (e) { alert('Error subiendo imagen: ' + e.message); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar'; } }
+};
+window.invZoom = function (url) {
+  const el = document.getElementById('inv-zoom'); const img = document.getElementById('inv-zoom-img');
+  if (!el || !img) return;
+  const m = String(url).match(/[?&]id=([^&]+)/); const src = m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600` : url;
+  img.src = src; img.style.display = 'block';
+  el.classList.remove('hidden'); el.style.display = 'flex';
+};
+window.invCloseZoom = function () {
+  const el = document.getElementById('inv-zoom'); const img = document.getElementById('inv-zoom-img');
+  if (el) { el.classList.add('hidden'); el.style.display = 'none'; }
+  if (img) { img.src = ''; img.style.display = 'none'; }
+};
+
+// Stock
+window.invOpenStockForm = function (id) {
+  const d = id ? (INV_STATE.stock.find(s => String(s.ID) === String(id)) || {}) : {};
+  INV_STATE.formKind = 'stock'; INV_STATE.formData = JSON.parse(JSON.stringify(d));
+  document.getElementById('inv-form-title').textContent = id ? 'Editar stock' : 'Nuevo stock en ubicación';
+  const optProd = (INV_STATE.productos || []).map(p => `<option value="${esc(p.ID)}"${String(p.ID)===String(d.Producto_ID||'')?' selected':''}>${esc(p.Codigo||'')} ${esc(p.Producto||'')}</option>`).join('');
+  const alojRows = (typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.rows) || [];
+  const props = Array.from(new Set(alojRows.map(r => String(r.Propiedad || '').trim()).filter(Boolean))).sort();
+  const optProp = props.map(p => `<option value="${esc(p)}"${p===String(d.Propiedad||'')?' selected':''}>${esc(p)}</option>`).join('');
+  const deptos = Array.from(new Set(alojRows.filter(r => !d.Propiedad || String(r.Propiedad || '') === String(d.Propiedad || '')).map(r => String(r['# Departamento'] || '').trim()).filter(Boolean))).sort();
+  const optDep = deptos.map(x => `<option value="${esc(x)}"${x===String(d.Departamento||'')?' selected':''}>${esc(x)}</option>`).join('');
+  const optEst = INV_ESTADOS.map(e => `<option value="${esc(e)}"${e===String(d.Estado||'')?' selected':''}>${esc(e)}</option>`).join('');
+  document.getElementById('inv-form-body').innerHTML = `<form id="inv-stock-form" onsubmit="event.preventDefault();invSaveCurrentForm()">
+    <input type="hidden" name="ID" value="${esc(d.ID || '')}">
+    <div style="margin-bottom:10px"><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Producto *</label>
+      <select name="Producto_ID" required style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff"><option value="">— Selecciona —</option>${optProd}</select></div>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px">
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Propiedad</label>
+        <select name="Propiedad" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff"><option value="">— Bodega central —</option>${optProp}</select></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px"># Depto</label>
+        <select name="Departamento" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff"><option value="">—</option>${optDep}</select></div>
+    </div>
+    <div style="margin-bottom:10px"><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Ubicación extra (opcional)</label>
+      <input type="text" name="Ubicacion_extra" value="${esc(d.Ubicacion_extra||'')}" placeholder="Bodega, closet, cajón…" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+    <div style="margin-bottom:10px"><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Estado</label>
+      <select name="Estado" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${optEst}</select></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Cantidad *</label>
+        <input type="number" step="0.01" required name="Cantidad" value="${esc(d.Cantidad||'0')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Unidad</label>
+        <input type="text" name="Unidad" value="${esc(d.Unidad||'')}" placeholder="pieza" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Stock mín local</label>
+        <input type="number" step="0.01" name="Stock_minimo_local" value="${esc(d.Stock_minimo_local||'')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+    </div>
+    <div style="margin-bottom:10px"><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Notas</label>
+      <textarea name="Notas" rows="2" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical">${esc(d.Notas||'')}</textarea></div>
+    ${d.ID ? `<div id="inv-mov-history" style="margin-top:14px"></div><div style="text-align:right;margin-top:14px"><button type="button" onclick="invDeleteStock('${esc(d.ID)}')" style="all:unset;cursor:pointer;color:#dc2626;font-size:12px;font-weight:700;padding:6px 12px;border:1px solid #fecaca;border-radius:8px">🗑 Eliminar stock</button></div>` : ''}
+  </form>`;
+  const ov = document.getElementById('inv-form-overlay'); ov.classList.remove('hidden'); ov.style.display = 'block';
+  if (d.ID) invLoadMovimientos(d.ID).then(rows => {
+    const box = document.getElementById('inv-mov-history'); if (!box) return;
+    if (!rows.length) { box.innerHTML = '<div style="font-size:11.5px;color:#94a3b8;text-align:center;padding:12px">Sin movimientos registrados.</div>'; return; }
+    box.innerHTML = `<div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:6px">📜 Historial de movimientos</div>` +
+      rows.map(m => `<div style="display:flex;justify-content:space-between;padding:6px 10px;font-size:11.5px;border-top:1px solid #f1f5f9"><span style="color:#334155">${esc(String(m.Fecha||m.created_at||'').slice(0,16).replace('T',' '))} · ${esc(m.Tipo||'')}</span><span style="font-weight:700;color:${(parseFloat(m.Cantidad_delta)||0)>=0?'#0f766e':'#dc2626'}">${(parseFloat(m.Cantidad_delta)||0)>=0?'+':''}${esc(m.Cantidad_delta)} → ${esc(m.Cantidad_despues)}</span></div>`).join('');
+  });
+};
+window.invDeleteStock = async function (id) {
+  if (!confirm('¿Eliminar este registro de stock?')) return;
+  const r = await fetch(`${BACKEND}/inventarios/stock/delete`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ID:id}) });
+  const j = await r.json(); if (!j.ok) return alert('Error: ' + j.error);
+  invCloseForm(); await invLoadStock(); invRenderStock(); invRenderKpis();
+};
+window.invDeleteProducto = async function (id) {
+  if (!confirm('¿Eliminar producto? Los registros de stock relacionados NO se borran.')) return;
+  const r = await fetch(`${BACKEND}/inventarios/productos/delete`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ID:id}) });
+  const j = await r.json(); if (!j.ok) return alert('Error: ' + j.error);
+  invCloseForm(); await invLoadProductos(); invRenderProductos(); invRenderKpis();
+};
+
+// Movimiento de reposición
+window.invOpenMovimientoForm = function (stockId) {
+  const s = INV_STATE.stock.find(x => String(x.ID) === String(stockId)); if (!s) return;
+  const p = invProductoById(s.Producto_ID) || {};
+  INV_STATE.formKind = 'movimiento'; INV_STATE.formData = { Stock_ID: stockId };
+  document.getElementById('inv-form-title').textContent = '🔁 Reposición';
+  document.getElementById('inv-form-body').innerHTML = `<form id="inv-mov-form" onsubmit="event.preventDefault();invSaveCurrentForm()">
+    <div style="background:#f8fafc;padding:12px;border-radius:10px;margin-bottom:14px">
+      <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase">Producto</div>
+      <div style="font-size:14px;font-weight:800;color:#0f172a">${esc(p.Producto||s.Producto_ID)}</div>
+      <div style="font-size:12px;color:#475569;margin-top:4px">Ubicación: ${esc(s.Propiedad||'—')} ${s.Departamento?'· #'+esc(s.Departamento):''}</div>
+      <div style="font-size:12px;color:#475569">Saldo actual: <strong>${esc(s.Cantidad||0)} ${esc(s.Unidad||p.Unidad||'')}</strong></div>
+    </div>
+    <input type="hidden" name="Stock_ID" value="${esc(stockId)}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Tipo</label>
+        <select name="Tipo" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+          <option value="reposicion">Reposición (+)</option><option value="salida">Salida (−)</option><option value="ajuste">Ajuste (±)</option>
+        </select></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Cantidad (usa − para restar)</label>
+        <input type="number" step="0.01" required name="Cantidad_delta" value="1" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+    </div>
+    <div style="margin-bottom:10px"><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Usuario / Responsable</label>
+      <input type="text" name="Usuario" value="${esc(SYS_STATE?.username || '')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+    <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Notas</label>
+      <textarea name="Notas" rows="2" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical"></textarea></div>
+  </form>`;
+  const ov = document.getElementById('inv-form-overlay'); ov.classList.remove('hidden'); ov.style.display = 'block';
+};
+
+// Orden de compra
+window.invOpenOrdenForm = function (id) {
+  const d = id ? (INV_STATE.ordenes.find(o => String(o.ID) === String(id)) || {}) : {};
+  const items = Array.isArray(d.Items) ? d.Items : (() => { try { return JSON.parse(d.Items_json||'[]'); } catch(_){return [];} })();
+  INV_STATE.formKind = 'orden'; INV_STATE.formData = { ...d, Items: items };
+  document.getElementById('inv-form-title').textContent = id ? 'Editar orden' : 'Nueva orden de compra';
+  const today = new Date().toISOString().slice(0,10);
+  const optTipo = INV_TIPOS_REP.map(t => `<option value="${esc(t)}"${t===String(d.Tipo_reposicion||'Planeado')?' selected':''}>${esc(t)}</option>`).join('');
+  const optSub = (INV_SUBTIPOS[d.Tipo_reposicion||'Planeado']||[]).map(s => `<option value="${esc(s)}"${s===String(d.Subtipo||'')?' selected':''}>${esc(s)}</option>`).join('');
+  const optEst = ['borrador','enviada','recibida','cancelada'].map(e => `<option value="${e}"${e===String(d.Estado||'borrador')?' selected':''}>${e}</option>`).join('');
+  document.getElementById('inv-form-body').innerHTML = `<form id="inv-orden-form" onsubmit="event.preventDefault();invSaveCurrentForm()">
+    <input type="hidden" name="ID" value="${esc(d.ID || '')}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Fecha</label>
+        <input type="date" name="Fecha" value="${esc(String(d.Fecha||today).slice(0,10))}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Estado</label>
+        <select name="Estado" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${optEst}</select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Tipo</label>
+        <select name="Tipo_reposicion" onchange="invOnTipoOrdenChange_(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${optTipo}</select></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Subtipo</label>
+        <select name="Subtipo" id="inv-orden-subtipo" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${optSub}</select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Usuario / Comprador</label>
+        <input type="text" name="Usuario" value="${esc(d.Usuario||SYS_STATE?.username||'')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Proveedor</label>
+        <input type="text" name="Proveedor" value="${esc(d.Proveedor||'')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+    </div>
+    <div style="background:#f8fafc;padding:12px;border-radius:10px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:8px">📦 Items</div>
+      <div id="inv-orden-items"></div>
+      <button type="button" onclick="invAddOrdenItem_()" style="all:unset;cursor:pointer;padding:6px 12px;background:#0f766e;color:#fff;border-radius:8px;font-size:11.5px;font-weight:700;margin-top:8px">＋ Agregar item</button>
+      <div id="inv-orden-total" style="text-align:right;font-size:14px;font-weight:800;color:#0f172a;margin-top:10px">Total: $ 0.00</div>
+    </div>
+    <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Notas</label>
+      <textarea name="Notas" rows="2" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical">${esc(d.Notas||'')}</textarea></div>
+    ${d.ID ? `<div style="text-align:right;margin-top:14px"><button type="button" onclick="invDeleteOrden('${esc(d.ID)}')" style="all:unset;cursor:pointer;color:#dc2626;font-size:12px;font-weight:700;padding:6px 12px;border:1px solid #fecaca;border-radius:8px">🗑 Eliminar orden</button></div>` : ''}
+  </form>`;
+  const ov = document.getElementById('inv-form-overlay'); ov.classList.remove('hidden'); ov.style.display = 'block';
+  invRenderOrdenItems_();
+};
+window.invOnTipoOrdenChange_ = function (t) {
+  const sel = document.getElementById('inv-orden-subtipo'); if (!sel) return;
+  sel.innerHTML = (INV_SUBTIPOS[t]||[]).map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+};
+window.invAddOrdenItem_ = function () {
+  INV_STATE.formData.Items = INV_STATE.formData.Items || [];
+  INV_STATE.formData.Items.push({ producto_id:'', cantidad:1, precio_unit:0, precio_total:0 });
+  invRenderOrdenItems_();
+};
+window.invRemoveOrdenItem_ = function (idx) {
+  INV_STATE.formData.Items.splice(idx, 1); invRenderOrdenItems_();
+};
+window.invUpdateOrdenItem_ = function (idx, field, val) {
+  const it = INV_STATE.formData.Items[idx]; if (!it) return;
+  it[field] = val;
+  if (field === 'producto_id') {
+    const p = invProductoById(val); if (p && p.Precio_unitario) it.precio_unit = parseFloat(p.Precio_unitario) || 0;
+  }
+  it.precio_total = (parseFloat(it.cantidad) || 0) * (parseFloat(it.precio_unit) || 0);
+  invRenderOrdenItems_();
+};
+function invRenderOrdenItems_() {
+  const box = document.getElementById('inv-orden-items'); if (!box) return;
+  const items = INV_STATE.formData.Items || [];
+  const optProd = (INV_STATE.productos || []).map(p => `<option value="${esc(p.ID)}">${esc(p.Codigo||'')} ${esc(p.Producto||'')}</option>`).join('');
+  box.innerHTML = items.map((it, i) => `<div style="display:grid;grid-template-columns:2.5fr 0.7fr 1fr 1fr 24px;gap:6px;margin-bottom:6px;align-items:center">
+    <select onchange="invUpdateOrdenItem_(${i},'producto_id',this.value)" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff">
+      <option value="">— Producto —</option>${optProd.replace(new RegExp('value="'+String(it.producto_id||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'"','g'), match => match + ' selected')}
+    </select>
+    <input type="number" step="0.01" value="${esc(it.cantidad||1)}" oninput="invUpdateOrdenItem_(${i},'cantidad',this.value)" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;text-align:right">
+    <input type="number" step="0.01" value="${esc(it.precio_unit||0)}" oninput="invUpdateOrdenItem_(${i},'precio_unit',this.value)" placeholder="P.Unit" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;text-align:right">
+    <input type="text" value="${invFmtMoney(it.precio_total)}" readonly style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:right;background:#f8fafc;color:#475569">
+    <button type="button" onclick="invRemoveOrdenItem_(${i})" style="all:unset;cursor:pointer;color:#dc2626;font-weight:900;padding:0 6px;font-size:16px">×</button>
+  </div>`).join('') || '<div style="font-size:11px;color:#94a3b8;text-align:center;padding:10px">Sin items. Agrega uno con el botón ＋.</div>';
+  const total = items.reduce((s, it) => s + (parseFloat(it.precio_total) || 0), 0);
+  const tEl = document.getElementById('inv-orden-total'); if (tEl) tEl.textContent = 'Total: ' + invFmtMoney(total);
+}
+window.invDeleteOrden = async function (id) {
+  if (!confirm('¿Eliminar esta orden de compra?')) return;
+  const r = await fetch(`${BACKEND}/inventarios/ordenes/delete`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ID:id}) });
+  const j = await r.json(); if (!j.ok) return alert('Error: ' + j.error);
+  invCloseForm(); await invLoadOrdenes(); invRenderOrdenes(); invRenderKpis();
+};
+
+// Save unificado
+window.invSaveCurrentForm = async function () {
+  const kind = INV_STATE.formKind; if (!kind) return;
+  const formSel = kind === 'producto' ? '#inv-prod-form' : kind === 'stock' ? '#inv-stock-form' : kind === 'movimiento' ? '#inv-mov-form' : '#inv-orden-form';
+  const form = document.querySelector(formSel); if (!form) return;
+  const data = {}; Array.from(form.elements).forEach(el => { if (el.name) data[el.name] = el.value; });
+  let endpoint;
+  if (kind === 'producto') endpoint = '/inventarios/productos';
+  else if (kind === 'stock') endpoint = '/inventarios/stock';
+  else if (kind === 'movimiento') endpoint = '/inventarios/movimiento';
+  else { endpoint = '/inventarios/ordenes'; data.Items = INV_STATE.formData.Items || []; }
+  try {
+    const r = await fetch(`${BACKEND}${endpoint}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'save failed');
+    invCloseForm();
+    if (kind === 'producto') { await invLoadProductos(); invRenderProductos(); }
+    else if (kind === 'stock') { await invLoadStock(); invRenderStock(); }
+    else if (kind === 'movimiento') { await invLoadStock(); invRenderStock(); }
+    else { await invLoadOrdenes(); invRenderOrdenes(); }
+    invRenderKpis();
+  } catch (e) { alert('Error al guardar: ' + e.message); }
 };
