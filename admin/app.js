@@ -35740,17 +35740,11 @@ window.invOpenProductoForm = function (id) {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Cantidad (por default)</label>
-        <input type="number" step="0.01" name="Cantidad_default" value="${esc(d.Cantidad_default||'')}" oninput="invRecalcTotal_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+        <input type="number" step="0.01" name="Cantidad_default" value="${esc(d.Cantidad_default||'')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
       <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Unidad</label>
         <select name="Unidad" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${opt(INV_UNIDADES, d.Unidad||'pieza')}</select></div>
-      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Stock mínimo</label>
-        <input type="number" step="0.01" name="Stock_minimo" value="${esc(d.Stock_minimo||'')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Precio unitario (MXN)</label>
-        <input type="number" step="0.01" name="Precio_unitario" value="${esc(d.Precio_unitario||'')}" oninput="invRecalcTotal_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
-      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Precio total (auto)</label>
-        <input type="number" step="0.01" name="Precio_total" id="inv-precio-total" value="${esc(d.Precio_total||'')}" readonly style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc;color:#475569"></div>
+        <input type="number" step="0.01" name="Precio_unitario" value="${esc(d.Precio_unitario||'')}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Tiempo de entrega (días)</label>
@@ -35760,8 +35754,16 @@ window.invOpenProductoForm = function (id) {
     </div>
     <div style="margin-bottom:10px">
       <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Lugar de compra</label>
-      <input type="text" name="Lugar_compra" id="inv-lugar-compra" value="${esc(d.Lugar_compra||'')}" list="inv-lugares-dl" placeholder="Amazon, Home Depot, proveedor específico…" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">
-      <datalist id="inv-lugares-dl">${INV_LUGARES_LINEA.concat(INV_LUGARES_TIENDA).map(x => `<option value="${esc(x)}">`).join('')}</datalist>
+      <select name="Lugar_compra_sel" id="inv-lugar-sel" onchange="invOnLugarSelChange_(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+        ${invBuildLugarOptions_(d.Lugar_compra)}
+      </select>
+      <input type="text" name="Lugar_compra" id="inv-lugar-otro" value="${esc(d.Lugar_compra||'')}" placeholder="Escribe el nombre del lugar (se agregará al catálogo)" style="width:100%;margin-top:6px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;${invIsLugarOtro_(d.Lugar_compra)?'':'display:none'}">
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Relacionado con</label>
+      <div id="inv-relacionados-slot" style="border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;background:#fff;max-height:180px;overflow-y:auto">${invBuildRelacionadosCheckboxes_(d)}</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:4px">Selecciona otros productos relacionados (ej. accesorios, refacciones).</div>
+      <input type="hidden" name="Relacionados_json" id="inv-relacionados-json" value="${esc(d.Relacionados_json || JSON.stringify(Array.isArray(d.Relacionados)?d.Relacionados:[]))}">
     </div>
     <div style="margin-bottom:10px">
       <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">🔗 URL en marketplace (opcional)</label>
@@ -35773,24 +35775,91 @@ window.invOpenProductoForm = function (id) {
   </form>`;
   document.getElementById('inv-form-body').innerHTML = html;
   const ov = document.getElementById('inv-form-overlay'); ov.classList.remove('hidden'); ov.style.display = 'block';
-  invRecalcTotal_();
 };
+
+// Catálogo de "Lugar de compra": union de hardcoded + valores previamente
+// guardados en cualquier producto + custom del localStorage. Se auto-expande
+// cuando el usuario captura uno nuevo con "Otro".
+function invGetLugaresCatalog_() {
+  const base = INV_LUGARES_LINEA.concat(INV_LUGARES_TIENDA);
+  const fromProducts = (INV_STATE.productos || []).map(p => String(p.Lugar_compra || '').trim()).filter(Boolean);
+  let custom = [];
+  try { custom = JSON.parse(localStorage.getItem('INV_LUGARES_CUSTOM') || '[]'); } catch (_){}
+  return Array.from(new Set(base.concat(fromProducts).concat(custom))).sort((a, b) => a.localeCompare(b, 'es'));
+}
+function invIsLugarOtro_(cur) {
+  if (!cur) return false;
+  const cat = invGetLugaresCatalog_();
+  return !cat.includes(cur);
+}
+function invBuildLugarOptions_(cur) {
+  const cat = invGetLugaresCatalog_();
+  const parts = ['<option value="">— Selecciona —</option>'];
+  cat.forEach(x => { parts.push(`<option value="${esc(x)}"${x===String(cur||'')?' selected':''}>${esc(x)}</option>`); });
+  const isOtro = invIsLugarOtro_(cur);
+  parts.push(`<option value="__OTRO__"${isOtro?' selected':''}>Otro (escribir)…</option>`);
+  return parts.join('');
+}
+window.invOnLugarSelChange_ = function (val) {
+  const inp = document.getElementById('inv-lugar-otro');
+  if (!inp) return;
+  if (val === '__OTRO__') {
+    inp.style.display = 'block';
+    inp.value = '';
+    inp.focus();
+  } else {
+    inp.style.display = 'none';
+    inp.value = val || '';
+  }
+};
+
+// Multi-select de productos relacionados con checkboxes span custom (regla
+// del proyecto: nunca <input type=checkbox> nativo).
+function invBuildRelacionadosCheckboxes_(d) {
+  const currentId = String(d.ID || '');
+  let selected = [];
+  try {
+    if (Array.isArray(d.Relacionados)) selected = d.Relacionados.map(String);
+    else if (d.Relacionados_json) selected = (JSON.parse(d.Relacionados_json) || []).map(String);
+  } catch (_) {}
+  const opts = (INV_STATE.productos || []).filter(p => String(p.ID) !== currentId);
+  if (!opts.length) return '<div style="font-size:11.5px;color:#94a3b8;padding:6px">No hay otros productos aún.</div>';
+  return opts.map(p => {
+    const on = selected.includes(String(p.ID));
+    const label = `${p.Codigo ? '['+p.Codigo+'] ' : ''}${p.Producto || p.ID}`;
+    return `<label onclick="invToggleRelacionado_('${esc(p.ID)}')" style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;user-select:none;font-size:12.5px;color:#0f172a">
+      <span data-inv-rel="${esc(p.ID)}" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:1.5px solid ${on?'#0891b2':'#cbd5e1'};background:${on?'#0891b2':'#fff'};color:${on?'#fff':'transparent'};border-radius:4px;font-size:11px;font-weight:900;line-height:1;flex-shrink:0">${on?'✓':''}</span>
+      ${esc(label)}
+    </label>`;
+  }).join('');
+}
+window.invToggleRelacionado_ = function (id) {
+  const inp = document.getElementById('inv-relacionados-json');
+  if (!inp) return;
+  let arr = [];
+  try { arr = JSON.parse(inp.value || '[]'); } catch (_) {}
+  const sid = String(id);
+  const ix = arr.map(String).indexOf(sid);
+  if (ix >= 0) arr.splice(ix, 1); else arr.push(sid);
+  inp.value = JSON.stringify(arr);
+  const span = document.querySelector(`[data-inv-rel="${sid.replace(/"/g,'\\"')}"]`);
+  if (span) {
+    const on = arr.map(String).includes(sid);
+    span.textContent = on ? '✓' : '';
+    span.style.background = on ? '#0891b2' : '#fff';
+    span.style.borderColor = on ? '#0891b2' : '#cbd5e1';
+    span.style.color = on ? '#fff' : 'transparent';
+  }
+};
+
 window.invOnClaseChange_ = function (label) {
   const info = invClaseInfo(label);
   const dr = document.getElementById('inv-driver'); if (dr && !dr.value) dr.value = info.driver || '';
   const co = document.getElementById('inv-control'); if (co && !co.value) co.value = info.control || '';
 };
 window.invOnMedioChange_ = function (medio) {
-  const dl = document.getElementById('inv-lugares-dl');
-  if (!dl) return;
-  const list = medio === 'En línea' ? INV_LUGARES_LINEA : medio === 'En tienda' ? INV_LUGARES_TIENDA : INV_LUGARES_LINEA.concat(INV_LUGARES_TIENDA);
-  dl.innerHTML = list.map(x => `<option value="${esc(x)}">`).join('');
-};
-window.invRecalcTotal_ = function () {
-  const form = document.getElementById('inv-prod-form'); if (!form) return;
-  const pu = parseFloat(form.querySelector('[name=Precio_unitario]').value) || 0;
-  const qt = parseFloat(form.querySelector('[name=Cantidad_default]').value) || 0;
-  form.querySelector('[name=Precio_total]').value = (pu * qt).toFixed(2);
+  // Ya no hay datalist; la lista se recompone al abrir el form. No-op por ahora.
+  void medio;
 };
 window.invClearProdImg = function () {
   const form = document.getElementById('inv-prod-form'); if (!form) return;
@@ -36016,19 +36085,37 @@ window.invSaveCurrentForm = async function () {
   const form = document.querySelector(formSel); if (!form) return;
   const data = {}; Array.from(form.elements).forEach(el => { if (el.name) data[el.name] = el.value; });
   let endpoint;
-  if (kind === 'producto') endpoint = '/inventarios/productos';
+  if (kind === 'producto') {
+    endpoint = '/inventarios/productos';
+    // Descarta el helper Lugar_compra_sel (no es columna); persiste custom lugares al catálogo local.
+    delete data.Lugar_compra_sel;
+    const lugarNuevo = String(data.Lugar_compra || '').trim();
+    if (lugarNuevo) {
+      const base = INV_LUGARES_LINEA.concat(INV_LUGARES_TIENDA);
+      const yaEnBase = base.map(String).includes(lugarNuevo);
+      let custom = [];
+      try { custom = JSON.parse(localStorage.getItem('INV_LUGARES_CUSTOM') || '[]'); } catch (_){}
+      if (!yaEnBase && !custom.includes(lugarNuevo)) {
+        custom.push(lugarNuevo);
+        try { localStorage.setItem('INV_LUGARES_CUSTOM', JSON.stringify(custom)); } catch (_){}
+      }
+    }
+    // Relacionados_json ya viene del hidden — validamos que sea JSON válido.
+    try { JSON.parse(data.Relacionados_json || '[]'); } catch (_) { data.Relacionados_json = '[]'; }
+  }
   else if (kind === 'stock') endpoint = '/inventarios/stock';
   else if (kind === 'movimiento') endpoint = '/inventarios/movimiento';
   else { endpoint = '/inventarios/ordenes'; data.Items = INV_STATE.formData.Items || []; }
   try {
     const r = await fetch(`${BACKEND}${endpoint}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
-    const j = await r.json();
-    if (!j.ok) throw new Error(j.error || 'save failed');
+    const rawText = await r.text();
+    let j; try { j = JSON.parse(rawText); } catch (_) { throw new Error('Respuesta no-JSON del backend: ' + rawText.slice(0, 200)); }
+    if (!j.ok) throw new Error(j.error || 'save failed (' + JSON.stringify(j).slice(0,150) + ')');
     invCloseForm();
     if (kind === 'producto') { await invLoadProductos(); invRenderProductos(); }
     else if (kind === 'stock') { await invLoadStock(); invRenderStock(); }
     else if (kind === 'movimiento') { await invLoadStock(); invRenderStock(); }
     else { await invLoadOrdenes(); invRenderOrdenes(); }
     invRenderKpis();
-  } catch (e) { alert('Error al guardar: ' + e.message); }
+  } catch (e) { alert('Error al guardar: ' + e.message); console.error('[INV save]', e); }
 };
