@@ -5816,6 +5816,13 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   padding: 10px 12px;
 }
 
+/* ═════ Módulo Inventarios ═════ */
+.home-card-inventarios {
+  --card-accent: #0891b2;
+  --card-icon-bg: #cffafe;
+  --card-grad: linear-gradient(135deg, rgba(8,145,178,.06), rgba(34,211,238,.07));
+}
+
 /* ═════ Módulo Recursos Humanos ═════ */
 .home-card-rh {
   --card-accent: #ea580c;
