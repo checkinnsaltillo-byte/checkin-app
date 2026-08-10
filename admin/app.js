@@ -35807,7 +35807,8 @@ window.invOpenProductoForm = function (id) {
     </div>
     <div style="margin-bottom:10px">
       <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Relacionado con</label>
-      <div id="inv-relacionados-slot" style="border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;background:#fff;max-height:180px;overflow-y:auto">${invBuildRelacionadosCheckboxes_(d)}</div>
+      <input type="search" id="inv-relacionados-search" oninput="invFilterRelacionados_(this.value)" placeholder="🔎 Buscar por nombre o código…" style="width:100%;padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:12.5px;margin-bottom:6px">
+      <div id="inv-relacionados-slot" style="border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;background:#fff;max-height:180px;overflow-y:auto">${invBuildRelacionadosCheckboxes_(d, '')}</div>
       <div style="font-size:11px;color:#94a3b8;margin-top:4px">Selecciona otros productos relacionados (ej. accesorios, refacciones).</div>
       <input type="hidden" name="Relacionados_json" id="inv-relacionados-json" value="${esc(d.Relacionados_json || JSON.stringify(Array.isArray(d.Relacionados)?d.Relacionados:[]))}">
     </div>
@@ -35867,15 +35868,25 @@ window.invOnLugarSelChange_ = function (val) {
 
 // Multi-select de productos relacionados con checkboxes span custom (regla
 // del proyecto: nunca <input type=checkbox> nativo).
-function invBuildRelacionadosCheckboxes_(d) {
+function invBuildRelacionadosCheckboxes_(d, filterText) {
   const currentId = String(d.ID || '');
   let selected = [];
   try {
     if (Array.isArray(d.Relacionados)) selected = d.Relacionados.map(String);
     else if (d.Relacionados_json) selected = (JSON.parse(d.Relacionados_json) || []).map(String);
   } catch (_) {}
-  const opts = (INV_STATE.productos || []).filter(p => String(p.ID) !== currentId);
-  if (!opts.length) return '<div style="font-size:11.5px;color:#94a3b8;padding:6px">No hay otros productos aún.</div>';
+  // Estrategia de orden: seleccionados PRIMERO (para no perderlos al filtrar),
+  // luego el resto filtrado por texto.
+  const q = String(filterText || '').toLowerCase().trim();
+  const all = (INV_STATE.productos || []).filter(p => String(p.ID) !== currentId);
+  const matches = (p) => {
+    if (!q) return true;
+    const hay = ((p.Codigo||'') + ' ' + (p.Producto||'') + ' ' + (p.Clase||'') + ' ' + (p.Naturaleza||'')).toLowerCase();
+    return hay.includes(q);
+  };
+  const opts = all.filter(p => selected.includes(String(p.ID)) || matches(p));
+  if (!all.length) return '<div style="font-size:11.5px;color:#94a3b8;padding:6px">No hay otros productos aún.</div>';
+  if (!opts.length) return '<div style="font-size:11.5px;color:#94a3b8;padding:6px">Sin coincidencias.</div>';
   return opts.map(p => {
     const on = selected.includes(String(p.ID));
     const label = `${p.Codigo ? '['+p.Codigo+'] ' : ''}${p.Producto || p.ID}`;
@@ -35885,6 +35896,14 @@ function invBuildRelacionadosCheckboxes_(d) {
     </label>`;
   }).join('');
 }
+window.invFilterRelacionados_ = function (text) {
+  const slot = document.getElementById('inv-relacionados-slot');
+  const hidden = document.getElementById('inv-relacionados-json');
+  if (!slot) return;
+  // Reconstruye la lista usando el estado actual de seleccionados (hidden).
+  const d = { ID: (document.querySelector('#inv-prod-form input[name="ID"]')||{}).value || '', Relacionados_json: hidden ? hidden.value : '[]' };
+  slot.innerHTML = invBuildRelacionadosCheckboxes_(d, text);
+};
 window.invToggleRelacionado_ = function (id) {
   const inp = document.getElementById('inv-relacionados-json');
   if (!inp) return;
