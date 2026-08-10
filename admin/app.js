@@ -35733,7 +35733,7 @@ window.invOpenProductoForm = function (id) {
     const m = String(u).match(/[?&]id=([^&]+)/) || String(u).match(/\/file\/d\/([^\/?]+)/);
     const t = m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w400` : u;
     return `<div style="position:relative;display:inline-block"><img src="${esc(t)}" referrerpolicy="no-referrer" onclick="invZoom('${esc(u)}')" style="width:100px;height:100px;object-fit:cover;border-radius:10px;border:1px solid #cbd5e1;cursor:zoom-in;background:#f1f5f9"><button type="button" onclick="invClearProdImg()" style="position:absolute;top:2px;right:2px;background:#dc2626;color:#fff;border:0;width:22px;height:22px;border-radius:50%;font-size:12px;font-weight:900;cursor:pointer">×</button></div>`;
-  })() : '';
+  })() : `<label style="display:inline-flex;align-items:center;justify-content:center;width:100px;height:100px;border:2px dashed #94a3b8;border-radius:10px;background:#f8fafc;color:#64748b;font-size:36px;font-weight:900;cursor:pointer;line-height:1" title="Click para agregar imagen"><input type="file" accept="image/*" style="display:none" onchange="invUploadProdImg(this.files)">+</label>`;
   const html = `<form id="inv-prod-form" onsubmit="event.preventDefault();invSaveCurrentForm()">
     <input type="hidden" name="ID" value="${esc(d.ID || '')}">
     <input type="hidden" name="Imagen_url" value="${esc(d.Imagen_url || '')}">
@@ -35913,8 +35913,19 @@ window.invOnMedioChange_ = function (medio) {
   const inp = document.getElementById('inv-lugar-otro');
   if (!sel || !inp) return;
   sel.innerHTML = invBuildLugarOptions_('', medio);
+  sel.disabled = !medio;
+  sel.style.background = medio ? '#fff' : '#f8fafc';
   inp.value = '';
   inp.style.display = 'none';
+  // "Pedido directo al proveedor": auto-selecciona "Otro" y muestra input libre
+  // (siempre es un sitio específico ingresado a mano).
+  if (medio === 'Pedido directo al proveedor') {
+    sel.value = '__OTRO__';
+    inp.style.display = 'block';
+    inp.placeholder = 'URL del proveedor o nombre específico';
+  } else {
+    inp.placeholder = 'Escribe el nombre del lugar (se agregará al catálogo)';
+  }
 };
 window.invClearProdImg = function () {
   const form = document.getElementById('inv-prod-form'); if (!form) return;
@@ -36185,7 +36196,14 @@ window.invSaveCurrentForm = async function () {
     let j; try { j = JSON.parse(rawText); } catch (_) { throw new Error('Respuesta no-JSON del backend: ' + rawText.slice(0, 200)); }
     if (!j.ok) throw new Error(j.error || 'save failed (' + JSON.stringify(j).slice(0,150) + ')');
     invCloseForm();
-    if (kind === 'producto') { await invLoadProductos(); invRenderProductos(); }
+    if (kind === 'producto') {
+      // Salta explícitamente a la tab Productos y recarga desde el sheet.
+      INV_STATE.tab = 'productos';
+      await invLoadProductos();
+      // Marca botones activos y renderiza
+      document.querySelectorAll('[data-inv-tab]').forEach(b => b.classList.toggle('active', b.getAttribute('data-inv-tab') === 'productos'));
+      invRenderProductos();
+    }
     else if (kind === 'stock') { await invLoadStock(); invRenderStock(); }
     else if (kind === 'movimiento') { await invLoadStock(); invRenderStock(); }
     else { await invLoadOrdenes(); invRenderOrdenes(); }
