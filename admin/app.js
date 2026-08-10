@@ -35478,10 +35478,24 @@ window.invSetTab = function (tab) {
   else if (tab === 'ordenes')   invRenderOrdenes();
 };
 
+// Detecta el default "Web app activo" que Apps Script devuelve cuando la
+// acción NO está registrada — señal de que el módulo Inventarios necesita
+// redeploy del Apps Script.
+function _invIsAppsScriptStale_(j) {
+  return j && j.ok === true && !Array.isArray(j.rows) && /web app activo/i.test(String(j.message || ''));
+}
+let _invStaleWarned = false;
+function _invWarnStale_() {
+  if (_invStaleWarned) return;
+  _invStaleWarned = true;
+  console.warn('[INV] Apps Script no redeployado — handlers de inventarios no responden');
+  alert('⚠️ El módulo Inventarios no puede leer/escribir en el sheet porque el Apps Script no ha sido redeployado.\n\nAbre el editor de Apps Script y haz:\n  Deploy → Manage deployments → Edit → New version → Deploy\n\nSin ese paso, los productos, stock y órdenes no se persisten.');
+}
 async function invLoadProductos() {
   try {
     const r = await fetch(`${BACKEND}/inventarios/productos?_cb=${Date.now()}`, { cache:'no-store' });
     const j = await r.json();
+    if (_invIsAppsScriptStale_(j)) { _invWarnStale_(); INV_STATE.productos = []; return; }
     if (j.ok) INV_STATE.productos = j.rows || [];
   } catch (e) { console.warn('[INV] productos:', e.message); }
 }
@@ -35489,6 +35503,7 @@ async function invLoadStock() {
   try {
     const r = await fetch(`${BACKEND}/inventarios/stock?_cb=${Date.now()}`, { cache:'no-store' });
     const j = await r.json();
+    if (_invIsAppsScriptStale_(j)) { _invWarnStale_(); INV_STATE.stock = []; return; }
     if (j.ok) INV_STATE.stock = j.rows || [];
   } catch (e) { console.warn('[INV] stock:', e.message); }
 }
@@ -35496,6 +35511,7 @@ async function invLoadOrdenes() {
   try {
     const r = await fetch(`${BACKEND}/inventarios/ordenes?_cb=${Date.now()}`, { cache:'no-store' });
     const j = await r.json();
+    if (_invIsAppsScriptStale_(j)) { _invWarnStale_(); INV_STATE.ordenes = []; return; }
     if (j.ok) INV_STATE.ordenes = j.rows || [];
   } catch (e) { console.warn('[INV] ordenes:', e.message); }
 }
@@ -36194,6 +36210,9 @@ window.invSaveCurrentForm = async function () {
     const r = await fetch(`${BACKEND}${endpoint}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
     const rawText = await r.text();
     let j; try { j = JSON.parse(rawText); } catch (_) { throw new Error('Respuesta no-JSON del backend: ' + rawText.slice(0, 200)); }
+    // Apps Script devuelve default "Web app activo" cuando la acción NO
+    // existe (falta redeploy) — detectamos y forzamos el aviso.
+    if (_invIsAppsScriptStale_(j)) { _invWarnStale_(); throw new Error('Apps Script no redeployado'); }
     if (!j.ok) throw new Error(j.error || 'save failed (' + JSON.stringify(j).slice(0,150) + ')');
     invCloseForm();
     if (kind === 'producto') {
