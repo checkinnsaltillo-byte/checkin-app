@@ -35782,7 +35782,7 @@ window.invOpenProductoForm = function (id) {
       <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Driver de consumo</label>
         <input type="text" name="Driver_consumo" id="inv-driver" value="${esc(d.Driver_consumo||'')}" placeholder="Auto según clase" readonly style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc;color:#475569"></div>
       <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Control</label>
-        <input type="text" name="Control" id="inv-control" value="${esc(d.Control||'')}" placeholder="Auto según clase" readonly style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc;color:#475569"></div>
+        <input type="text" name="Control" id="inv-control" value="${esc(d.Control||'')}" placeholder="Ej. par level por unidad, min-max, etc." style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Cantidad (por default)</label>
@@ -35917,11 +35917,11 @@ window.invOnNaturalezaChange_ = function (nat) {
   const co = document.getElementById('inv-control'); if (co) co.value = '';
 };
 window.invOnClaseChange_ = function (label) {
-  // Driver + Control son deterministas por clase → siempre se sobrescriben
-  // (son readonly, el usuario no los edita).
+  // Driver es determinista y se auto-fill (readonly). Control queda LIBRE:
+  // sólo se propone el valor sugerido si el usuario aún no lo escribió.
   const info = invClaseInfo(label);
   const dr = document.getElementById('inv-driver'); if (dr) dr.value = info.driver || '';
-  const co = document.getElementById('inv-control'); if (co) co.value = info.control || '';
+  const co = document.getElementById('inv-control'); if (co && !co.value.trim()) co.value = info.control || '';
 };
 window.invOnMedioChange_ = function (medio) {
   // Reconstruye el select de Lugar de compra filtrado por medio.
@@ -35984,9 +35984,10 @@ window.invCloseZoom = function () {
   if (img) { img.src = ''; img.style.display = 'none'; }
 };
 
-// Stock
+// Stock — modo nuevo (wizard multi-producto por espacio) o editar (form simple)
 window.invOpenStockForm = function (id) {
-  const d = id ? (INV_STATE.stock.find(s => String(s.ID) === String(id)) || {}) : {};
+  if (!id) return invOpenStockWizard_();
+  const d = INV_STATE.stock.find(s => String(s.ID) === String(id)) || {};
   INV_STATE.formKind = 'stock'; INV_STATE.formData = JSON.parse(JSON.stringify(d));
   document.getElementById('inv-form-title').textContent = id ? 'Editar stock' : 'Nuevo stock en ubicación';
   const optProd = (INV_STATE.productos || []).map(p => `<option value="${esc(p.ID)}"${String(p.ID)===String(d.Producto_ID||'')?' selected':''}>${esc(p.Codigo||'')} ${esc(p.Producto||'')}</option>`).join('');
@@ -36228,4 +36229,231 @@ window.invSaveCurrentForm = async function () {
     else { await invLoadOrdenes(); invRenderOrdenes(); }
     invRenderKpis();
   } catch (e) { alert('Error al guardar: ' + e.message); console.error('[INV save]', e); }
+};
+
+// ═════════════════════════════════════════════════════════════════════════
+// WIZARD: Nuevo Stock por Ubicación (multi-espacio, multi-producto)
+// ═════════════════════════════════════════════════════════════════════════
+// Detecta espacios del alojamiento (recámaras/baños/otros_espacios de la
+// hoja alojamientos) y permite dar de alta múltiples productos por espacio
+// en un solo submit. Incluye shortcut a "Nuevo producto" que reemplaza el
+// form temporalmente, y al guardar restaura el wizard con el producto ya
+// disponible en el catálogo.
+
+function invOpenStockWizard_(preservedState) {
+  // Asegura alojamientos cargados; si no, dispara y re-abre al llegar.
+  if (typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded && !ALOJ_STATE.loading && typeof lgLoadAlojamientos === 'function') {
+    lgLoadAlojamientos().then(() => { if (INV_STATE.formKind === 'stock-wizard') invRenderStockWizardBody_(); });
+  }
+  INV_STATE.formKind = 'stock-wizard';
+  INV_STATE.wizardStock = preservedState || {
+    propiedad: '',
+    departamento: '',
+    espacios: [],   // ['Recámara 1','Baño 1','Cocina',...]
+    items: [],      // {espacio, producto_id, cantidad, estado, unidad}
+  };
+  document.getElementById('inv-form-title').textContent = 'Nuevo stock en ubicación';
+  invRenderStockWizardBody_();
+  const ov = document.getElementById('inv-form-overlay');
+  ov.classList.remove('hidden'); ov.style.display = 'block';
+}
+
+function _invAlojEspacios_(alojRow) {
+  if (!alojRow) return [];
+  const espacios = [];
+  const rec = parseInt(String(alojRow['Recamaras'] || alojRow['recamaras'] || '0').replace(/[^0-9]/g,''), 10) || 0;
+  for (let i = 1; i <= rec; i++) espacios.push('Recámara ' + i);
+  const banRaw = String(alojRow['Banos'] || alojRow['banos'] || '0').trim();
+  const banN = Math.ceil(parseFloat(banRaw) || 0);
+  for (let i = 1; i <= banN; i++) espacios.push('Baño ' + i);
+  const otros = String(alojRow['Otros_espacios'] || alojRow['otros_espacios'] || alojRow['Otros espacios'] || '').trim();
+  if (otros) {
+    otros.split(/[,;\n]/).map(s => s.trim()).filter(Boolean).forEach(s => espacios.push(s));
+  }
+  // Fallback siempre disponible: "General / sin espacio específico"
+  espacios.push('General (sin espacio específico)');
+  return espacios;
+}
+
+function _invAlojLookup_(propiedad, departamento) {
+  if (typeof ALOJ_STATE === 'undefined' || !ALOJ_STATE.rows) return null;
+  const p = String(propiedad || '').trim();
+  const d = String(departamento || '').trim();
+  return ALOJ_STATE.rows.find(r =>
+    String(r['Propiedad'] || '').trim() === p &&
+    String(r['# Departamento'] || '').trim() === d
+  ) || null;
+}
+
+function invRenderStockWizardBody_() {
+  const ws = INV_STATE.wizardStock;
+  const alojRows = (typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.rows) || [];
+  const props = Array.from(new Set(alojRows.map(r => String(r.Propiedad || '').trim()).filter(Boolean))).sort();
+  const deptos = Array.from(new Set(
+    alojRows.filter(r => !ws.propiedad || String(r.Propiedad || '').trim() === ws.propiedad)
+            .map(r => String(r['# Departamento'] || '').trim()).filter(Boolean)
+  )).sort();
+  const alojRow = _invAlojLookup_(ws.propiedad, ws.departamento);
+  if (alojRow) ws.espacios = _invAlojEspacios_(alojRow);
+  const espaciosHtml = alojRow ? ws.espacios.map(sp => invRenderEspacioCard_(sp)).join('') :
+    '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12.5px">Selecciona Propiedad y # Depto para ver los espacios.</div>';
+  const totalItems = (ws.items || []).length;
+  const body = `
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:14px">
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Propiedad *</label>
+        <select onchange="invWzSetProp_(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+          <option value="">— Selecciona —</option>${props.map(p => `<option value="${esc(p)}"${p===ws.propiedad?' selected':''}>${esc(p)}</option>`).join('')}
+        </select></div>
+      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px"># Depto *</label>
+        <select onchange="invWzSetDepto_(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+          <option value="">${ws.propiedad ? '— Selecciona —' : '— Elige propiedad —'}</option>${deptos.map(d => `<option value="${esc(d)}"${d===ws.departamento?' selected':''}>${esc(d)}</option>`).join('')}
+        </select></div>
+    </div>
+    ${alojRow ? `<div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#0f766e">
+      <strong>${esc(alojRow.Propiedad || '')} #${esc(alojRow['# Departamento'] || '')}</strong> · ${ws.espacios.length} espacio(s) detectado(s) · ${totalItems} producto(s) en lista
+    </div>` : ''}
+    ${espaciosHtml}
+  `;
+  document.getElementById('inv-form-body').innerHTML = body;
+}
+
+function invRenderEspacioCard_(espacio) {
+  const ws = INV_STATE.wizardStock;
+  const items = (ws.items || []).filter(it => it.espacio === espacio);
+  const optProd = (INV_STATE.productos || []).map(p =>
+    `<option value="${esc(p.ID)}">${esc(p.Codigo||'')} ${esc(p.Producto||'')}</option>`
+  ).join('');
+  const espKey = espacio.replace(/[^A-Za-z0-9]/g, '_');
+  return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:10px">
+    <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px">📍 ${esc(espacio)}</div>
+    ${items.length ? items.map((it, i) => {
+      const p = invProductoById(it.producto_id) || {};
+      const globalIdx = ws.items.indexOf(it);
+      return `<div style="display:grid;grid-template-columns:2fr 0.7fr 1fr 24px;gap:6px;margin-bottom:6px;align-items:center">
+        <div style="font-size:12.5px;color:#0f172a"><strong>${esc(p.Producto || it.producto_id)}</strong> <span style="color:#94a3b8;font-size:11px">${esc(p.Codigo||'')}</span></div>
+        <input type="number" step="0.01" value="${esc(it.cantidad||1)}" oninput="invWzUpdateItem_(${globalIdx},'cantidad',this.value)" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;text-align:right">
+        <select onchange="invWzUpdateItem_(${globalIdx},'estado',this.value)" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:11.5px;background:#fff">
+          ${INV_ESTADOS.map(e => `<option value="${esc(e)}"${e===it.estado?' selected':''}>${esc(e)}</option>`).join('')}
+        </select>
+        <button type="button" onclick="invWzRemoveItem_(${globalIdx})" style="all:unset;cursor:pointer;color:#dc2626;font-weight:900;padding:0 6px;font-size:16px" title="Quitar">×</button>
+      </div>`;
+    }).join('') : '<div style="font-size:11.5px;color:#94a3b8;padding:6px">Sin productos aún.</div>'}
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <select id="inv-wz-sel-${espKey}" style="flex:1;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff">
+        <option value="">＋ Elige producto del catálogo…</option>${optProd}
+      </select>
+      <button type="button" onclick="invWzAddFromCat_('${esc(espacio)}','inv-wz-sel-${espKey}')" style="all:unset;cursor:pointer;padding:6px 12px;background:#0f766e;color:#fff;border-radius:6px;font-size:11.5px;font-weight:700">Agregar</button>
+      <button type="button" onclick="invWzOpenNuevoProducto_('${esc(espacio)}')" title="Crear un producto nuevo y regresar" style="all:unset;cursor:pointer;padding:6px 12px;background:#0891b2;color:#fff;border-radius:6px;font-size:11.5px;font-weight:700">＋ Nuevo</button>
+    </div>
+  </div>`;
+}
+
+window.invWzSetProp_ = function (v) {
+  INV_STATE.wizardStock.propiedad = v || '';
+  INV_STATE.wizardStock.departamento = '';
+  INV_STATE.wizardStock.espacios = [];
+  INV_STATE.wizardStock.items = [];
+  invRenderStockWizardBody_();
+};
+window.invWzSetDepto_ = function (v) {
+  INV_STATE.wizardStock.departamento = v || '';
+  INV_STATE.wizardStock.items = [];
+  invRenderStockWizardBody_();
+};
+window.invWzAddFromCat_ = function (espacio, selId) {
+  const sel = document.getElementById(selId);
+  const pid = sel && sel.value; if (!pid) return;
+  const p = invProductoById(pid) || {};
+  INV_STATE.wizardStock.items.push({
+    espacio, producto_id: pid, cantidad: 1,
+    estado: 'En unidad, en stock (par stock)',
+    unidad: p.Unidad || 'pieza',
+  });
+  invRenderStockWizardBody_();
+};
+window.invWzUpdateItem_ = function (idx, field, val) {
+  const it = INV_STATE.wizardStock.items[idx]; if (!it) return;
+  it[field] = val;
+};
+window.invWzRemoveItem_ = function (idx) {
+  INV_STATE.wizardStock.items.splice(idx, 1);
+  invRenderStockWizardBody_();
+};
+
+// Shortcut: abre "Nuevo producto" encima; al guardar restaura el wizard.
+window.invWzOpenNuevoProducto_ = function (espacio) {
+  // Guarda snapshot del wizard antes de reemplazar el form.
+  INV_STATE._wizardBackup = {
+    state: JSON.parse(JSON.stringify(INV_STATE.wizardStock)),
+    pendingEspacio: espacio,
+  };
+  window.invOpenProductoForm(null);
+  // Sobreescribe el título para indicar el flujo temporal.
+  const t = document.getElementById('inv-form-title'); if (t) t.textContent = 'Nuevo producto (regresa al stock al guardar)';
+};
+
+// Save del wizard: crea múltiples registros de stock, uno por item.
+async function invSaveStockWizard_() {
+  const ws = INV_STATE.wizardStock;
+  if (!ws.propiedad || !ws.departamento) { alert('Selecciona Propiedad y # Depto.'); return; }
+  if (!ws.items.length) { alert('Agrega al menos un producto.'); return; }
+  const btn = document.getElementById('inv-form-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
+  let ok = 0, fail = 0;
+  for (const it of ws.items) {
+    try {
+      const p = invProductoById(it.producto_id) || {};
+      const payload = {
+        Producto_ID: it.producto_id,
+        Propiedad: ws.propiedad,
+        Departamento: ws.departamento,
+        Ubicacion_extra: it.espacio,
+        Estado: it.estado || '',
+        Cantidad: it.cantidad || 0,
+        Unidad: it.unidad || p.Unidad || '',
+        Stock_minimo_local: p.Stock_minimo || '',
+        Notas: '',
+      };
+      const r = await fetch(`${BACKEND}/inventarios/stock`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload),
+      });
+      const j = await r.json();
+      if (j.ok) ok++; else fail++;
+    } catch (_) { fail++; }
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar'; }
+  invCloseForm();
+  await invLoadStock();
+  INV_STATE.tab = 'stock';
+  document.querySelectorAll('[data-inv-tab]').forEach(b => b.classList.toggle('active', b.getAttribute('data-inv-tab') === 'stock'));
+  invRenderStock(); invRenderKpis();
+  if (fail) alert(`Se guardaron ${ok} de ${ws.items.length}. ${fail} fallaron.`);
+}
+
+// Hook al save global: cuando kind='stock-wizard' → save múltiple; cuando
+// kind='producto' Y hay _wizardBackup → restaurar wizard tras guardar.
+const _origInvSaveCurrent = window.invSaveCurrentForm;
+window.invSaveCurrentForm = async function () {
+  if (INV_STATE.formKind === 'stock-wizard') return invSaveStockWizard_();
+  // Detecta el caso "vengo del wizard": guarda producto, cuando termine
+  // restauro el wizard con el producto nuevo pre-seleccionado en su espacio.
+  const wasFromWizard = INV_STATE.formKind === 'producto' && INV_STATE._wizardBackup;
+  const backup = wasFromWizard ? INV_STATE._wizardBackup : null;
+  // Salva el nombre del producto ANTES de que el save borre el form.
+  const newProdName = wasFromWizard ? String((document.querySelector('#inv-prod-form input[name="Producto"]')||{}).value || '') : '';
+  await _origInvSaveCurrent.apply(this, arguments);
+  if (backup) {
+    INV_STATE._wizardBackup = null;
+    // Localiza el producto recién guardado por nombre para pre-agregarlo.
+    const nuevoProd = (INV_STATE.productos || []).find(p => String(p.Producto || '').trim() === newProdName.trim());
+    invOpenStockWizard_(backup.state);
+    if (nuevoProd) {
+      INV_STATE.wizardStock.items.push({
+        espacio: backup.pendingEspacio, producto_id: nuevoProd.ID, cantidad: 1,
+        estado: 'En unidad, en stock (par stock)', unidad: nuevoProd.Unidad || 'pieza',
+      });
+      invRenderStockWizardBody_();
+    }
+  }
 };
