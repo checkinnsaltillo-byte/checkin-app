@@ -35413,8 +35413,26 @@ const INV_CLASES = [
 const INV_NATURALEZAS = ['Consumible','Semi-durable','Activo fijo'];
 const INV_UNIDADES    = ['pieza','juego','par','litros','ml','kg','g','metros','botella','bolsa','caja','rollo','paquete'];
 const INV_MEDIOS      = ['En línea','En tienda','Pedido directo al proveedor'];
-const INV_LUGARES_LINEA  = ['Amazon','Mercado Libre','Otro (en línea)'];
-const INV_LUGARES_TIENDA = ['Sam\'s Club','Costco','Home Depot','Sodimac','Walmart','Otro (en tienda)'];
+const INV_LUGARES_LINEA  = ['Amazon','Mercado Libre'];
+const INV_LUGARES_TIENDA = ['Sam\'s Club','Costco','Home Depot','Sodimac','Walmart'];
+// Mapeo Naturaleza → Clases aplicables (anidamiento).
+const INV_NATURALEZA_CLASES = {
+  'Consumible':   ['consumibles_huesped','consumibles_limpieza','suministros_operativos','inventario_venta','refacciones_mant'],
+  'Semi-durable': ['textiles_rotativos','menaje_dotacion','refacciones_mant','suministros_operativos'],
+  'Activo fijo':  ['activos_fijos'],
+};
+// Prefijo de código por clase (para auto-generación).
+const INV_CLASE_PREFIX = {
+  'consumibles_huesped':'CH', 'consumibles_limpieza':'CL', 'textiles_rotativos':'TR',
+  'menaje_dotacion':'MD', 'refacciones_mant':'RM', 'suministros_operativos':'SO',
+  'inventario_venta':'IV', 'activos_fijos':'AF',
+};
+// Mapeo Medio de compra → Lugares aplicables.
+const INV_MEDIO_LUGARES = {
+  'En línea': INV_LUGARES_LINEA,
+  'En tienda': INV_LUGARES_TIENDA,
+  'Pedido directo al proveedor': [], // sólo texto libre "Otro"
+};
 const INV_ESTADOS = [
   'En bodega central',
   'En tránsito (compra/traslado)',
@@ -35705,7 +35723,12 @@ window.invOpenProductoForm = function (id) {
   INV_STATE.formData = JSON.parse(JSON.stringify(d));
   document.getElementById('inv-form-title').textContent = id ? 'Editar producto' : 'Nuevo producto';
   const opt = (arr, cur) => arr.map(x => `<option value="${esc(x)}"${String(x)===String(cur||'')?' selected':''}>${esc(x)}</option>`).join('');
-  const optCla = INV_CLASES.map(c => `<option value="${esc(c.label)}" data-key="${c.key}"${String(c.label)===String(d.Clase||'')?' selected':''}>${esc(c.label)}</option>`).join('');
+  // Clases se filtran por Naturaleza; si no hay naturaleza aún, muestra todas.
+  const _clasesFiltradas = (nat) => {
+    const keys = INV_NATURALEZA_CLASES[nat];
+    return keys ? INV_CLASES.filter(c => keys.includes(c.key)) : INV_CLASES;
+  };
+  const optCla = _clasesFiltradas(d.Naturaleza).map(c => `<option value="${esc(c.label)}"${String(c.label)===String(d.Clase||'')?' selected':''}>${esc(c.label)}</option>`).join('');
   const _imgTile = (u) => u ? (() => {
     const m = String(u).match(/[?&]id=([^&]+)/) || String(u).match(/\/file\/d\/([^\/?]+)/);
     const t = m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w400` : u;
@@ -35722,21 +35745,28 @@ window.invOpenProductoForm = function (id) {
         <input type="file" accept="image/*" style="display:none" onchange="invUploadProdImg(this.files)"> 📷 Subir imagen
       </label>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-bottom:10px">
-      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Código</label><input type="text" name="Codigo" value="${esc(d.Codigo||'')}" placeholder="SKU-001" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
-      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Producto *</label><input type="text" name="Producto" required value="${esc(d.Producto||'')}" placeholder="Ej. Toalla de baño" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+    ${d.Codigo ? `<div style="margin-bottom:10px;padding:8px 12px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;font-size:12px;color:#0f766e"><strong>Código:</strong> ${esc(d.Codigo)} <span style="color:#64748b">(asignado automáticamente)</span></div>` : `<div style="margin-bottom:10px;padding:8px 12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;color:#64748b"><strong>Código:</strong> se asignará automáticamente al guardar según la clase.</div>`}
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Producto *</label>
+      <input type="text" name="Producto" required value="${esc(d.Producto||'')}" placeholder="Ej. Toalla de baño" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Naturaleza</label>
-        <select name="Naturaleza" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff"><option value="">—</option>${opt(INV_NATURALEZAS, d.Naturaleza)}</select></div>
-      <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Clase</label>
-        <select name="Clase" onchange="invOnClaseChange_(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff"><option value="">—</option>${optCla}</select></div>
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Naturaleza *</label>
+      <select name="Naturaleza" id="inv-nat" required onchange="invOnNaturalezaChange_(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+        <option value="">— Selecciona —</option>${opt(INV_NATURALEZAS, d.Naturaleza)}
+      </select>
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Clase *</label>
+      <select name="Clase" id="inv-cla" required onchange="invOnClaseChange_(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+        <option value="">${d.Naturaleza ? '— Selecciona clase —' : '— Elige primero Naturaleza —'}</option>${optCla}
+      </select>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Driver de consumo</label>
-        <input type="text" name="Driver_consumo" id="inv-driver" value="${esc(d.Driver_consumo||'')}" placeholder="Auto según clase" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+        <input type="text" name="Driver_consumo" id="inv-driver" value="${esc(d.Driver_consumo||'')}" placeholder="Auto según clase" readonly style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc;color:#475569"></div>
       <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Control</label>
-        <input type="text" name="Control" id="inv-control" value="${esc(d.Control||'')}" placeholder="Auto según clase" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"></div>
+        <input type="text" name="Control" id="inv-control" value="${esc(d.Control||'')}" placeholder="Auto según clase" readonly style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#f8fafc;color:#475569"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div><label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Cantidad (por default)</label>
@@ -35754,10 +35784,10 @@ window.invOpenProductoForm = function (id) {
     </div>
     <div style="margin-bottom:10px">
       <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Lugar de compra</label>
-      <select name="Lugar_compra_sel" id="inv-lugar-sel" onchange="invOnLugarSelChange_(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
-        ${invBuildLugarOptions_(d.Lugar_compra)}
+      <select name="Lugar_compra_sel" id="inv-lugar-sel" onchange="invOnLugarSelChange_(this.value)" ${d.Medio_compra?'':'disabled'} style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:${d.Medio_compra?'#fff':'#f8fafc'}">
+        ${invBuildLugarOptions_(d.Lugar_compra, d.Medio_compra)}
       </select>
-      <input type="text" name="Lugar_compra" id="inv-lugar-otro" value="${esc(d.Lugar_compra||'')}" placeholder="Escribe el nombre del lugar (se agregará al catálogo)" style="width:100%;margin-top:6px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;${invIsLugarOtro_(d.Lugar_compra)?'':'display:none'}">
+      <input type="text" name="Lugar_compra" id="inv-lugar-otro" value="${esc(d.Lugar_compra||'')}" placeholder="Escribe el nombre del lugar (se agregará al catálogo)" style="width:100%;margin-top:6px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;${invIsLugarOtro_(d.Lugar_compra, d.Medio_compra)?'':'display:none'}">
     </div>
     <div style="margin-bottom:10px">
       <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Relacionado con</label>
@@ -35777,26 +35807,32 @@ window.invOpenProductoForm = function (id) {
   const ov = document.getElementById('inv-form-overlay'); ov.classList.remove('hidden'); ov.style.display = 'block';
 };
 
-// Catálogo de "Lugar de compra": union de hardcoded + valores previamente
-// guardados en cualquier producto + custom del localStorage. Se auto-expande
-// cuando el usuario captura uno nuevo con "Otro".
-function invGetLugaresCatalog_() {
-  const base = INV_LUGARES_LINEA.concat(INV_LUGARES_TIENDA);
-  const fromProducts = (INV_STATE.productos || []).map(p => String(p.Lugar_compra || '').trim()).filter(Boolean);
-  let custom = [];
-  try { custom = JSON.parse(localStorage.getItem('INV_LUGARES_CUSTOM') || '[]'); } catch (_){}
+// Catálogo de "Lugar de compra" filtrado por Medio de compra + custom
+// persistente en localStorage por medio. Se auto-expande cuando el usuario
+// captura uno nuevo con "Otro".
+function invGetLugaresCatalog_(medio) {
+  const base = INV_MEDIO_LUGARES[medio] || [];
+  // Valores previamente usados en productos con el MISMO medio.
+  const fromProducts = (INV_STATE.productos || [])
+    .filter(p => !medio || String(p.Medio_compra || '') === medio)
+    .map(p => String(p.Lugar_compra || '').trim())
+    .filter(Boolean);
+  let allCustom = {};
+  try { allCustom = JSON.parse(localStorage.getItem('INV_LUGARES_CUSTOM_MAP') || '{}'); } catch (_){}
+  const custom = medio ? (allCustom[medio] || []) : [];
   return Array.from(new Set(base.concat(fromProducts).concat(custom))).sort((a, b) => a.localeCompare(b, 'es'));
 }
-function invIsLugarOtro_(cur) {
+function invIsLugarOtro_(cur, medio) {
   if (!cur) return false;
-  const cat = invGetLugaresCatalog_();
-  return !cat.includes(cur);
+  return !invGetLugaresCatalog_(medio).includes(cur);
 }
-function invBuildLugarOptions_(cur) {
-  const cat = invGetLugaresCatalog_();
+function invBuildLugarOptions_(cur, medio) {
+  const cat = invGetLugaresCatalog_(medio);
+  const disabled = !medio;
+  if (disabled) return `<option value="">— Elige primero Medio de compra —</option>`;
   const parts = ['<option value="">— Selecciona —</option>'];
   cat.forEach(x => { parts.push(`<option value="${esc(x)}"${x===String(cur||'')?' selected':''}>${esc(x)}</option>`); });
-  const isOtro = invIsLugarOtro_(cur);
+  const isOtro = invIsLugarOtro_(cur, medio);
   parts.push(`<option value="__OTRO__"${isOtro?' selected':''}>Otro (escribir)…</option>`);
   return parts.join('');
 }
@@ -35852,14 +35888,33 @@ window.invToggleRelacionado_ = function (id) {
   }
 };
 
+window.invOnNaturalezaChange_ = function (nat) {
+  const sel = document.getElementById('inv-cla'); if (!sel) return;
+  // Reconstruye la lista de clases según la naturaleza.
+  const keys = INV_NATURALEZA_CLASES[nat] || null;
+  const clases = keys ? INV_CLASES.filter(c => keys.includes(c.key)) : INV_CLASES;
+  const parts = [`<option value="">${nat ? '— Selecciona clase —' : '— Elige primero Naturaleza —'}</option>`];
+  clases.forEach(c => { parts.push(`<option value="${esc(c.label)}">${esc(c.label)}</option>`); });
+  sel.innerHTML = parts.join('');
+  // Al cambiar naturaleza, la clase queda vacía → driver/control también.
+  const dr = document.getElementById('inv-driver'); if (dr) dr.value = '';
+  const co = document.getElementById('inv-control'); if (co) co.value = '';
+};
 window.invOnClaseChange_ = function (label) {
+  // Driver + Control son deterministas por clase → siempre se sobrescriben
+  // (son readonly, el usuario no los edita).
   const info = invClaseInfo(label);
-  const dr = document.getElementById('inv-driver'); if (dr && !dr.value) dr.value = info.driver || '';
-  const co = document.getElementById('inv-control'); if (co && !co.value) co.value = info.control || '';
+  const dr = document.getElementById('inv-driver'); if (dr) dr.value = info.driver || '';
+  const co = document.getElementById('inv-control'); if (co) co.value = info.control || '';
 };
 window.invOnMedioChange_ = function (medio) {
-  // Ya no hay datalist; la lista se recompone al abrir el form. No-op por ahora.
-  void medio;
+  // Reconstruye el select de Lugar de compra filtrado por medio.
+  const sel = document.getElementById('inv-lugar-sel');
+  const inp = document.getElementById('inv-lugar-otro');
+  if (!sel || !inp) return;
+  sel.innerHTML = invBuildLugarOptions_('', medio);
+  inp.value = '';
+  inp.style.display = 'none';
 };
 window.invClearProdImg = function () {
   const form = document.getElementById('inv-prod-form'); if (!form) return;
@@ -36087,18 +36142,36 @@ window.invSaveCurrentForm = async function () {
   let endpoint;
   if (kind === 'producto') {
     endpoint = '/inventarios/productos';
-    // Descarta el helper Lugar_compra_sel (no es columna); persiste custom lugares al catálogo local.
+    // Descarta el helper Lugar_compra_sel (no es columna).
     delete data.Lugar_compra_sel;
+    // Persiste el lugar nuevo en el catálogo local, agrupado por medio.
+    const medio = String(data.Medio_compra || '').trim();
     const lugarNuevo = String(data.Lugar_compra || '').trim();
-    if (lugarNuevo) {
-      const base = INV_LUGARES_LINEA.concat(INV_LUGARES_TIENDA);
-      const yaEnBase = base.map(String).includes(lugarNuevo);
-      let custom = [];
-      try { custom = JSON.parse(localStorage.getItem('INV_LUGARES_CUSTOM') || '[]'); } catch (_){}
-      if (!yaEnBase && !custom.includes(lugarNuevo)) {
-        custom.push(lugarNuevo);
-        try { localStorage.setItem('INV_LUGARES_CUSTOM', JSON.stringify(custom)); } catch (_){}
+    if (medio && lugarNuevo) {
+      const base = INV_MEDIO_LUGARES[medio] || [];
+      if (!base.includes(lugarNuevo)) {
+        let map = {};
+        try { map = JSON.parse(localStorage.getItem('INV_LUGARES_CUSTOM_MAP') || '{}'); } catch (_){}
+        map[medio] = map[medio] || [];
+        if (!map[medio].includes(lugarNuevo)) {
+          map[medio].push(lugarNuevo);
+          try { localStorage.setItem('INV_LUGARES_CUSTOM_MAP', JSON.stringify(map)); } catch (_){}
+        }
       }
+    }
+    // Auto-generar código si NO viene (registro nuevo): prefijo por clase +
+    // siguiente número secuencial dentro de esa clase.
+    if (!data.ID && !String(data.Codigo || '').trim()) {
+      const claseKey = (INV_CLASES.find(c => c.label === data.Clase) || {}).key;
+      const prefix = INV_CLASE_PREFIX[claseKey] || 'PROD';
+      const existentes = (INV_STATE.productos || [])
+        .map(p => String(p.Codigo || ''))
+        .filter(c => c.indexOf(prefix + '-') === 0);
+      const nextN = existentes.reduce((max, c) => {
+        const n = parseInt(c.slice(prefix.length + 1), 10);
+        return isNaN(n) ? max : Math.max(max, n);
+      }, 0) + 1;
+      data.Codigo = `${prefix}-${String(nextN).padStart(3, '0')}`;
     }
     // Relacionados_json ya viene del hidden — validamos que sea JSON válido.
     try { JSON.parse(data.Relacionados_json || '[]'); } catch (_) { data.Relacionados_json = '[]'; }
