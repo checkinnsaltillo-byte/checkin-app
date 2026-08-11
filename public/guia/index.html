@@ -168,12 +168,35 @@ details.section>summary::-webkit-details-marker{display:none}
   <div id="notfound-msg">El identificador no corresponde a ningún alojamiento.</div>
 </div>
 
+<!-- Error handler global: si algún JS falla, muestra el error en pantalla
+     en vez de dejar al huésped con página en blanco. Crítico para móviles
+     viejos o conexiones raras del ISP. -->
+<script>
+window.addEventListener('error', function(ev){
+  try {
+    var box = document.getElementById('js-fatal');
+    if (box) return;
+    box = document.createElement('div');
+    box.id = 'js-fatal';
+    box.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#fef2f2;color:#7f1d1d;padding:14px 18px;font:13px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial;border-bottom:2px solid #dc2626;box-shadow:0 4px 12px rgba(0,0,0,.15)';
+    var msg = (ev && ev.message) ? ev.message : 'Error desconocido';
+    var src = (ev && ev.filename) ? (' · ' + ev.filename.split('/').pop() + ':' + ev.lineno) : '';
+    box.innerHTML = '<div style="font-weight:800;margin-bottom:4px">⚠️ La guía no pudo cargarse en este navegador</div>'
+      + '<div style="font-size:12px;margin-bottom:8px">' + String(msg).replace(/[<>]/g,'') + src + '</div>'
+      + '<div style="font-size:12px">Intenta:</div>'
+      + '<ol style="font-size:12px;margin:4px 0 8px 18px;padding:0"><li>Actualizar Chrome/Safari a la última versión</li><li>Abrir en modo incógnito</li><li>Usar WiFi en lugar de datos celulares</li></ol>'
+      + '<button onclick="location.reload()" style="background:#dc2626;color:#fff;border:0;padding:7px 14px;border-radius:8px;font-weight:700;cursor:pointer">🔄 Reintentar</button>';
+    (document.body || document.documentElement).appendChild(box);
+    var l = document.getElementById('loader'); if (l) l.style.display = 'none';
+  } catch (_) {}
+});
+</script>
 <script>
 const BACKEND = 'https://ticket-vision-957627511957.northamerica-south1.run.app';
 
 // ────────────────────────── helpers ──────────────────────────
 const $ = id => document.getElementById(id);
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function V(a, ...keys) {
   for (const k of keys) { const v = a && a[k]; if (v != null && String(v).trim() !== '') return String(v).trim(); }
   return '';
@@ -281,7 +304,7 @@ function wifi(red, pass, aviso) {
   </div>${callout(aviso,'📡')}`;
 }
 function copyWifi(txt, btn) {
-  navigator.clipboard?.writeText(txt).then(() => {
+  (navigator.clipboard&&navigator.clipboard.writeText||function(){return Promise.reject()})(txt).then(() => {
     const o = btn.textContent; btn.textContent = '¡Copiado!';
     setTimeout(()=>btn.textContent=o, 1800);
   });
@@ -303,7 +326,7 @@ function section(id, ico, icoBg, title, inner, open) {
 }
 window.addEventListener('message', ev => {
   const data = ev.data || {};
-  if (data.type === 'checkin-close') { document.getElementById('cin-modal')?.remove(); }
+  if (data.type === 'checkin-close') { (function(){var _m=document.getElementById('cin-modal');if(_m)_m.remove();})(); }
   else if (data.type === 'checkin-wa-request') {
     // Número FIJO del negocio (no el contacto del alojamiento).
     const msg = window.__waMsg || '';
@@ -312,14 +335,14 @@ window.addEventListener('message', ev => {
 });
 
 window.openCheckin = function () {
-  document.getElementById('cin-modal')?.remove();
+  (function(){var _m=document.getElementById('cin-modal');if(_m)_m.remove();})();
   const el = document.createElement('div');
   el.id = 'cin-modal';
   el.className = 'cin-modal';
   el.innerHTML = `
     <div class="cin-modal-head">
       <div class="t">✅ Check-in</div>
-      <button type="button" onclick="document.getElementById('cin-modal')?.remove()" title="Regresar a Guía de Bienvenida">← Regresar a Guía de Bienvenida</button>
+      <button type="button" onclick="(function(){var _m=document.getElementById('cin-modal');if(_m)_m.remove();})()" title="Regresar a Guía de Bienvenida">← Regresar a Guía de Bienvenida</button>
     </div>
     <iframe src="${(() => { const p = window.__prefill || {}; const qs = []; if (p.prop) qs.push('prop=' + encodeURIComponent(p.prop)); if (p.depto) qs.push('depto=' + encodeURIComponent(p.depto)); return 'https://www.check-inn.mx/public/registro/?embed=1&_=' + Date.now() + (qs.length ? '&' + qs.join('&') : '') + '#express'; })()}" title="Registro exprés" allow="camera; geolocation"></iframe>`;
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
@@ -330,14 +353,14 @@ window.openCheckin = function () {
     _ifr.addEventListener('load', () => {
       try {
         const items = window.__reglamento || [];
-        _ifr.contentWindow?.postMessage({ type: 'guias-reglamento', items }, '*');
+        _ifr.contentWindow&&_ifr.contentWindow.postMessage({ type: 'guias-reglamento', items }, '*');
       } catch(_){}
     });
   }
 };
 
 window.openCheckout = function () {
-  document.getElementById('cin-modal')?.remove();
+  (function(){var _m=document.getElementById('cin-modal');if(_m)_m.remove();})();
   const p = window.__prefill || {};
   const qs = [];
   if (p.prop)  qs.push('prop='  + encodeURIComponent(p.prop));
@@ -349,7 +372,7 @@ window.openCheckout = function () {
   el.innerHTML = `
     <div class="cin-modal-head">
       <div class="t">🚪 Check-out</div>
-      <button type="button" onclick="document.getElementById('cin-modal')?.remove()" title="Regresar a Guía de Bienvenida">← Regresar a Guía de Bienvenida</button>
+      <button type="button" onclick="(function(){var _m=document.getElementById('cin-modal');if(_m)_m.remove();})()" title="Regresar a Guía de Bienvenida">← Regresar a Guía de Bienvenida</button>
     </div>
     <iframe src="${src}" title="Registrar salida" allow="camera; geolocation"></iframe>`;
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
@@ -360,21 +383,21 @@ window.openCheckout = function () {
     _ifr.addEventListener('load', () => {
       try {
         const items = window.__salidaInstrucciones || [];
-        _ifr.contentWindow?.postMessage({ type: 'guias-instrucciones-salida', items }, '*');
+        _ifr.contentWindow&&_ifr.contentWindow.postMessage({ type: 'guias-instrucciones-salida', items }, '*');
       } catch(_){}
     });
   }
 };
 
 window.openVehiculos = function () {
-  document.getElementById('cin-modal')?.remove();
+  (function(){var _m=document.getElementById('cin-modal');if(_m)_m.remove();})();
   const el = document.createElement('div');
   el.id = 'cin-modal';
   el.className = 'cin-modal';
   el.innerHTML = `
     <div class="cin-modal-head">
       <div class="t">🚗 Información de vehículos</div>
-      <button type="button" onclick="document.getElementById('cin-modal')?.remove()" title="Regresar a Guía de Bienvenida">← Regresar a Guía de Bienvenida</button>
+      <button type="button" onclick="(function(){var _m=document.getElementById('cin-modal');if(_m)_m.remove();})()" title="Regresar a Guía de Bienvenida">← Regresar a Guía de Bienvenida</button>
     </div>
     <iframe src="https://www.check-inn.mx/public/registro/?embed=1&_=${Date.now()}#vehiculos" title="Información de vehículos" allow="camera; geolocation"></iframe>`;
   const onKey = ev => { if (ev.key === 'Escape') { el.remove(); document.removeEventListener('keydown', onKey); } };
@@ -542,7 +565,7 @@ function buildGuide(a) {
         const cleanTitle = String(d.title || '').replace(/\s*-\s*Google Maps.*$/i, '').replace(/^Google Maps\s*[-·]\s*/i, '').trim();
         if (title) title.textContent = cleanTitle || 'Lugar recomendado';
         if (desc)  desc.textContent  = String(d.description || '').trim();
-        const imgUrl = d.image?.url || d.logo?.url || '';
+        const imgUrl = (d.image && d.image.url) || (d.logo && d.logo.url) || '';
         if (imgEl && imgUrl) {
           imgEl.style.background = `url("${imgUrl}") center/cover, linear-gradient(135deg,#f1f5f9,#e2e8f0)`;
           const ph = imgEl.querySelector('div'); if (ph) ph.remove();
@@ -555,7 +578,7 @@ function buildGuide(a) {
     fetch(`https://api.microlink.io/?url=${encodeURIComponent(photoUrl)}&screenshot=false`, {cache:'no-store'})
       .then(r => r.json())
       .then(j => {
-        const u = j?.data?.image?.url;
+        const u = j && j.data && j.data.image && j.data.image.url;
         if (u) {
           $('hero-bg').style.background = `url("${u}") center/cover`;
           $('og-image').setAttribute('content', u);
