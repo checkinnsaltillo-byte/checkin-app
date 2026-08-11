@@ -595,14 +595,39 @@ async function fetchWithTimeout_(url, ms){
   } finally { clearTimeout(t); }
 }
 
-/** Trae la lista de alojamientos con reintento: 15s → 20s. En cellular con
- *  cold start de Cloud Run, la 2ª llamada suele ir rápida (contenedor ya
- *  arrancado). Devuelve { rows, fromCache } — fromCache=true si sirvió el
- *  fallback de localStorage. */
+/** Trae los datos del alojamiento con estrategia stale-while-revalidate:
+ *  - Si HAY cache local para este id → devuelve cache INSTANTÁNEAMENTE y
+ *    dispara refresh en background (guía se ve en <100ms).
+ *  - Si NO hay cache → fetch con reintentos rápidos (8s, 12s, 20s).
+ *  Con min-instances=1 en Cloud Run, el fetch suele resolver en <1s. */
 async function loadAlojamientos_(id){
-  // Server-side filter por id: payload baja de ~320 KB a ~5 KB en cellular.
   const url = `${BACKEND}/alojamientos-list${id ? '?id=' + encodeURIComponent(id) : ''}`;
-  const attempts = [{ timeout:15000 }, { timeout:20000 }];
+  // Estrategia cache-first: si tenemos algo cacheado, devolver YA.
+  const cache = readCache_();
+  const cachedRow = cache && Array.isArray(cache.rows)
+    ? cache.rows.find(r => String(r.HouseId || r.HouseID || r.ID || '').trim().toLowerCase() === String(id||'').toLowerCase())
+    : null;
+  if (cachedRow) {
+    // Refresh en background — actualiza cache para próxima visita.
+    (async () => {
+      try {
+        const r = await fetchWithTimeout_(url, 20000);
+        const j = await r.json();
+        if (j.rows && j.rows.length) {
+          // Merge: mantener cache global, actualizar sólo el row del id.
+          const prev = readCache_() || { rows: [] };
+          const otras = (prev.rows || []).filter(x =>
+            String(x.HouseId || x.HouseID || x.ID || '').trim().toLowerCase() !== String(id).toLowerCase()
+          );
+          writeCache_(otras.concat(j.rows));
+        }
+      } catch (_) { /* silencioso: la cache ya se sirvió */ }
+    })();
+    const ageMs = Date.now() - Number(cache.ts || 0);
+    return { rows: [cachedRow], fromCache: true, stale: ageMs > CACHE_TTL_MS };
+  }
+  // Sin cache: fetch con reintentos escalonados (rápido → paciente).
+  const attempts = [{ timeout: 8000 }, { timeout: 12000 }, { timeout: 20000 }];
   let lastErr = null;
   for (const a of attempts) {
     try {
@@ -613,11 +638,12 @@ async function loadAlojamientos_(id){
       return { rows, fromCache: false };
     } catch(e) { lastErr = e; }
   }
-  const cache = readCache_();
+  // Último recurso: cache stale de otro id (por si el usuario ya visitó
+  // antes en el mismo navegador aunque sea de otra guía — al menos
+  // demuestra que la app funciona).
   if (cache) {
     const ageMs = Date.now() - Number(cache.ts || 0);
-    const stale = ageMs > CACHE_TTL_MS;
-    return { rows: cache.rows, fromCache: true, stale };
+    return { rows: cache.rows, fromCache: true, stale: ageMs > CACHE_TTL_MS };
   }
   throw lastErr || new Error('sin datos y sin cache');
 }
