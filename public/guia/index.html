@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1e293b">
 <meta name="robots" content="noindex,nofollow">
-<!-- preconnect al backend Cloud Run: acelera el primer fetch ~150-400ms -->
-<link rel="preconnect" href="https://ticket-vision-957627511957.northamerica-south1.run.app" crossorigin>
-<link rel="dns-prefetch" href="https://ticket-vision-957627511957.northamerica-south1.run.app">
+<!-- preconnect al backend via dominio propio (evita bloqueos ISP a *.run.app) -->
+<link rel="preconnect" href="https://api.check-inn.mx" crossorigin>
+<link rel="dns-prefetch" href="https://api.check-inn.mx">
 <title>Guía de Bienvenida · Check-inn Saltillo</title>
 <!-- OpenGraph preview (se completa dinámicamente cuando cargan los datos) -->
 <meta property="og:title" id="og-title" content="Guía de Bienvenida · Check-inn Saltillo">
@@ -192,7 +192,10 @@ window.addEventListener('error', function(ev){
 });
 </script>
 <script>
-const BACKEND = 'https://ticket-vision-957627511957.northamerica-south1.run.app';
+// Dominio propio evita bloqueos ISP a *.run.app (Telcel/AT&T México)
+// Fallback al subdominio directo por si el DNS de api.check-inn.mx no ha propagado
+const BACKEND = 'https://api.check-inn.mx';
+const BACKEND_FALLBACK = 'https://ticket-vision-957627511957.us-central1.run.app';
 
 // ────────────────────────── helpers ──────────────────────────
 const $ = id => document.getElementById(id);
@@ -624,7 +627,9 @@ async function fetchWithTimeout_(url, ms){
  *  - Si NO hay cache → fetch con reintentos rápidos (8s, 12s, 20s).
  *  Con min-instances=1 en Cloud Run, el fetch suele resolver en <1s. */
 async function loadAlojamientos_(id){
-  const url = `${BACKEND}/alojamientos-list${id ? '?id=' + encodeURIComponent(id) : ''}`;
+  const qs = `/alojamientos-list${id ? '?id=' + encodeURIComponent(id) : ''}`;
+  const url = `${BACKEND}${qs}`;
+  const urlFB = `${BACKEND_FALLBACK}${qs}`;
   // Estrategia cache-first: si tenemos algo cacheado, devolver YA.
   const cache = readCache_();
   const cachedRow = cache && Array.isArray(cache.rows)
@@ -649,12 +654,19 @@ async function loadAlojamientos_(id){
     const ageMs = Date.now() - Number(cache.ts || 0);
     return { rows: [cachedRow], fromCache: true, stale: ageMs > CACHE_TTL_MS };
   }
-  // Sin cache: fetch con reintentos escalonados (rápido → paciente).
-  const attempts = [{ timeout: 8000 }, { timeout: 12000 }, { timeout: 20000 }];
+  // Sin cache: alternar entre dominio propio y fallback directo.
+  // 1er intento: api.check-inn.mx (rápido, resistente a ISP).
+  // 2do intento: subdominio *.run.app (por si DNS/SSL aún no propaga).
+  // 3er intento: api.check-inn.mx con timeout más largo.
+  const attempts = [
+    { u: url,   timeout: 8000  },
+    { u: urlFB, timeout: 10000 },
+    { u: url,   timeout: 20000 },
+  ];
   let lastErr = null;
   for (const a of attempts) {
     try {
-      const r = await fetchWithTimeout_(url, a.timeout);
+      const r = await fetchWithTimeout_(a.u, a.timeout);
       const j = await r.json();
       const rows = j.rows || [];
       if (rows.length) writeCache_(rows);
