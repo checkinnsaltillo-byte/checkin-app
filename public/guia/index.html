@@ -12,7 +12,7 @@
 <!-- OpenGraph preview (se completa dinámicamente cuando cargan los datos) -->
 <meta property="og:title" id="og-title" content="Guía de Bienvenida · Check-inn Saltillo">
 <meta property="og:description" id="og-desc" content="Todo lo que necesitas para una estancia perfecta.">
-<meta property="og:image" id="og-image" content="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png">
+<meta property="og:image" id="og-image" content="https://www.check-inn.mx/public/registro/loader_text.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/public/registro/icon-192.png">
 <link rel="apple-touch-icon" href="/public/registro/apple-touch-icon.png">
 <style>
@@ -115,8 +115,8 @@ details.section>summary::-webkit-details-marker{display:none}
 <div id="root" style="display:none">
   <div class="logo-bar">
     <div class="logo-bar-inner">
-      <img class="tx" src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png" alt="Check-inn">
-      <img class="pn" src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt="">
+      <img class="tx" src="/public/registro/loader_text.png" alt="Check-inn">
+      <img class="pn" src="/public/registro/loader_pin.png" alt="">
     </div>
   </div>
   <header class="hero">
@@ -658,10 +658,12 @@ async function loadAlojamientos_(id){
   // 1er intento: api.check-inn.mx (rápido, resistente a ISP).
   // 2do intento: subdominio *.run.app (por si DNS/SSL aún no propaga).
   // 3er intento: api.check-inn.mx con timeout más largo.
+  // 5s → 8s → 15s. Falla rápido para poder mostrar mensaje/reintentar
+  // en vez de dejar al huésped con barra de carga interminable.
   const attempts = [
-    { u: url,   timeout: 8000  },
-    { u: urlFB, timeout: 10000 },
-    { u: url,   timeout: 20000 },
+    { u: url,   timeout: 5000  },
+    { u: urlFB, timeout: 8000  },
+    { u: url,   timeout: 15000 },
   ];
   let lastErr = null;
   for (const a of attempts) {

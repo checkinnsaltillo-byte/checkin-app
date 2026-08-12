@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diagnóstico · Check-inn</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,system-ui,sans-serif}
+body{background:#0f172a;color:#e2e8f0;padding:16px;line-height:1.5;font-size:14px}
+h1{font-size:18px;margin-bottom:16px;color:#38bdf8}
+.item{background:#1e293b;border-radius:8px;padding:10px 12px;margin-bottom:8px;border-left:4px solid #64748b}
+.item.ok{border-color:#10b981}
+.item.fail{border-color:#ef4444}
+.item.pending{border-color:#f59e0b}
+.item .lbl{font-weight:700;font-size:13px}
+.item .val{font-size:12px;color:#94a3b8;margin-top:4px;word-break:break-all}
+.item .val.ok{color:#34d399}
+.item .val.fail{color:#f87171}
+.actions{margin-top:16px;text-align:center}
+button{background:#3b82f6;color:#fff;border:0;padding:12px 20px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer}
+.copy{background:#475569;margin-top:8px}
+.share{background:#25d366;margin-top:8px}
+.info{background:#1e293b;padding:10px;border-radius:6px;font-size:11px;color:#94a3b8;margin-top:14px;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow:auto}
+</style>
+</head>
+<body>
+<h1>🔧 Diagnóstico de conectividad</h1>
+<div id="tests"></div>
+<div class="actions">
+  <button onclick="runAll()">🔁 Reintentar</button>
+  <button class="copy" onclick="copyLog()">📋 Copiar resultado</button>
+  <button class="share" onclick="shareWA()">📤 Enviar por WhatsApp</button>
+</div>
+<div class="info" id="info"></div>
+
+<script>
+var TESTS = [
+  { key:'html-check-inn', label:'HTML www.check-inn.mx', url:'https://www.check-inn.mx/public/guia/diag.html?_=' },
+  { key:'api-check-inn',  label:'API api.check-inn.mx',  url:'https://api.check-inn.mx/alojamientos-list?id=605555&_=' },
+  { key:'api-runapp',     label:'API *.run.app (us-central1)', url:'https://ticket-vision-957627511957.us-central1.run.app/alojamientos-list?id=605555&_=' },
+  { key:'api-runapp-old', label:'API *.run.app (northamerica-south1)', url:'https://ticket-vision-957627511957.northamerica-south1.run.app/alojamientos-list?id=605555&_=' },
+  { key:'microlink',      label:'api.microlink.io',      url:'https://api.microlink.io/?url=https://check-inn.mx&_=' },
+  { key:'github-io',      label:'checkinnsaltillo-byte.github.io', url:'https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png?_=' },
+];
+
+var results = {};
+
+function el(id){return document.getElementById(id);}
+function render(){
+  var html = '';
+  for (var i=0;i<TESTS.length;i++){
+    var t = TESTS[i], r = results[t.key] || {status:'pending'};
+    var cls = r.status;
+    var val = r.status === 'ok' ? ('✓ ' + r.ms + 'ms · HTTP ' + r.code) :
+              r.status === 'fail' ? ('✗ ' + (r.error || 'sin respuesta') + ' · ' + r.ms + 'ms') :
+              '⏳ probando…';
+    html += '<div class="item '+cls+'"><div class="lbl">'+t.label+'</div><div class="val '+cls+'">'+val+'</div></div>';
+  }
+  el('tests').innerHTML = html;
+}
+
+function timeoutFetch(url, ms){
+  return new Promise(function(resolve){
+    var t0 = Date.now();
+    var done = false;
+    var timer = setTimeout(function(){
+      if (done) return; done = true;
+      resolve({ ok:false, ms: Date.now()-t0, error:'TIMEOUT ('+ms+'ms)' });
+    }, ms);
+    try {
+      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var opts = { cache:'no-store', method:'GET' };
+      if (ctrl) opts.signal = ctrl.signal;
+      fetch(url, opts).then(function(r){
+        if (done) return; done = true; clearTimeout(timer);
+        resolve({ ok:true, ms: Date.now()-t0, code:r.status });
+      }).catch(function(e){
+        if (done) return; done = true; clearTimeout(timer);
+        resolve({ ok:false, ms: Date.now()-t0, error: String(e && e.message || e).slice(0,80) });
+      });
+    } catch(e){
+      if (done) return; done = true; clearTimeout(timer);
+      resolve({ ok:false, ms: Date.now()-t0, error: String(e && e.message || e).slice(0,80) });
+    }
+  });
+}
+
+async function runOne(t){
+  results[t.key] = { status:'pending' };
+  render();
+  var r = await timeoutFetch(t.url + Date.now(), 10000);
+  results[t.key] = {
+    status: r.ok ? 'ok' : 'fail',
+    ms: r.ms,
+    code: r.code,
+    error: r.error
+  };
+  render();
+}
+
+async function runAll(){
+  results = {};
+  for (var i=0;i<TESTS.length;i++){ results[TESTS[i].key] = { status:'pending' }; }
+  render();
+  // Correr en paralelo
+  await Promise.all(TESTS.map(runOne));
+  updateInfo();
+}
+
+function updateInfo(){
+  var lines = [];
+  lines.push('Fecha: ' + new Date().toISOString());
+  lines.push('UA: ' + navigator.userAgent);
+  lines.push('Online: ' + navigator.onLine);
+  if (navigator.connection) {
+    lines.push('Tipo: ' + navigator.connection.effectiveType + ' · dl: ' + navigator.connection.downlink + 'Mbps · RTT: ' + navigator.connection.rtt + 'ms');
+  }
+  lines.push('');
+  lines.push('=== Resultados ===');
+  for (var i=0;i<TESTS.length;i++){
+    var t = TESTS[i], r = results[t.key] || {};
+    lines.push(t.label + ': ' + (r.status || 'n/a') + (r.code ? ' HTTP '+r.code : '') + ' ' + (r.ms||0) + 'ms' + (r.error ? ' ERR: '+r.error : ''));
+  }
+  el('info').textContent = lines.join('\n');
+}
+
+function copyLog(){
+  var txt = el('info').textContent;
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){ alert('Copiado'); }, function(){ prompt('Copiar:', txt); });
+  } else { prompt('Copiar:', txt); }
+}
+
+function shareWA(){
+  var txt = 'Diagnóstico Check-inn:\n\n' + el('info').textContent;
+  var url = 'https://wa.me/528444443922?text=' + encodeURIComponent(txt);
+  location.href = url;
+}
+
+runAll();
+</script>
+</body>
+</html>
