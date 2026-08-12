@@ -37,14 +37,34 @@ function fetchJson(url, timeoutMs) {
   });
 }
 
+async function fetchWithRetry(url, timeout, attempts) {
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const data = await fetchJson(url, timeout);
+      const rows = Array.isArray(data.rows) ? data.rows : [];
+      if (data.ok === false || !rows.length) {
+        throw new Error('backend respondió ok=false o rows=0 (intento ' + (i+1) + '/' + attempts + ')');
+      }
+      return data;
+    } catch (e) {
+      lastErr = e;
+      console.warn('[sync-guias] intento', i+1, 'falló:', e.message);
+      if (i < attempts - 1) await new Promise(r => setTimeout(r, 5000 * (i+1)));
+    }
+  }
+  throw lastErr;
+}
+
 async function main() {
   console.log('[sync-guias] backend:', BACKEND);
   console.log('[sync-guias] out dir:', OUT_DIR);
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
-  const data = await fetchJson(BACKEND + '/alojamientos-list', 60000);
-  const rows = Array.isArray(data.rows) ? data.rows : [];
-  if (!rows.length) throw new Error('backend devolvió 0 rows — abortando para no borrar JSONs previos');
+  // Reintentos con backoff: el backend a veces devuelve página HTML de
+  // bloqueo de Google Sheets en cold starts. Reintentar suele resolver.
+  const data = await fetchWithRetry(BACKEND + '/alojamientos-list', 90000, 4);
+  const rows = data.rows;
   console.log('[sync-guias] rows recibidos:', rows.length);
 
   const generatedAt = new Date().toISOString();
