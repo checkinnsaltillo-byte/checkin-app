@@ -630,6 +630,10 @@ async function loadAlojamientos_(id){
   const qs = `/alojamientos-list${id ? '?id=' + encodeURIComponent(id) : ''}`;
   const url = `${BACKEND}${qs}`;
   const urlFB = `${BACKEND_FALLBACK}${qs}`;
+  // JSON estático regenerado cada hora por GitHub Action, servido desde
+  // el mismo dominio (Fastly). Es el ÚNICO fetch garantizado en móviles
+  // mexicanos porque no depende de IPs Google Cloud (que Telcel filtra).
+  const urlStatic = id ? `/public/guia/data/${encodeURIComponent(id)}.json` : null;
   // Estrategia cache-first: si tenemos algo cacheado, devolver YA.
   const cache = readCache_();
   const cachedRow = cache && Array.isArray(cache.rows)
@@ -637,9 +641,11 @@ async function loadAlojamientos_(id){
     : null;
   if (cachedRow) {
     // Refresh en background — actualiza cache para próxima visita.
+    // Preferimos JSON estático (mismo dominio, rápido y siempre accesible).
     (async () => {
       try {
-        const r = await fetchWithTimeout_(url, 20000);
+        const refreshUrl = urlStatic || url;
+        const r = await fetchWithTimeout_(refreshUrl, 15000);
         const j = await r.json();
         if (j.rows && j.rows.length) {
           // Merge: mantener cache global, actualizar sólo el row del id.
@@ -654,17 +660,13 @@ async function loadAlojamientos_(id){
     const ageMs = Date.now() - Number(cache.ts || 0);
     return { rows: [cachedRow], fromCache: true, stale: ageMs > CACHE_TTL_MS };
   }
-  // Sin cache: alternar entre dominio propio y fallback directo.
-  // 1er intento: api.check-inn.mx (rápido, resistente a ISP).
-  // 2do intento: subdominio *.run.app (por si DNS/SSL aún no propaga).
-  // 3er intento: api.check-inn.mx con timeout más largo.
-  // 5s → 8s → 15s. Falla rápido para poder mostrar mensaje/reintentar
-  // en vez de dejar al huésped con barra de carga interminable.
-  const attempts = [
-    { u: url,   timeout: 5000  },
-    { u: urlFB, timeout: 8000  },
-    { u: url,   timeout: 15000 },
-  ];
+  // 1er intento: JSON estático mismo dominio (Fastly, siempre funciona
+  // en móviles MX). 2do/3er: backend en vivo (por si el snapshot
+  // horario aún no incluye este id, o hay cambios muy recientes).
+  const attempts = [];
+  if (urlStatic) attempts.push({ u: urlStatic, timeout: 5000 });
+  attempts.push({ u: url,   timeout: 5000 });
+  attempts.push({ u: urlFB, timeout: 8000 });
   let lastErr = null;
   for (const a of attempts) {
     try {
