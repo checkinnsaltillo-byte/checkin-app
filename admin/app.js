@@ -20312,7 +20312,11 @@ async function bnUploadInit() {
       }));
     } catch (e) {
       console.warn('[BN] historial de clasificaciones falló:', e?.message || e);
-      BN_UPLOAD_STATE.classifiedHistory = []; // continúa sin auto-clasificación
+      // Deja null (no []) para que la próxima llamada a bnUploadInit reintente.
+      // Antes ponía [] y luego bnUploadClassifyRows abortaba silencioso ("history.length===0")
+      // dejando todas las filas sin Prob./Match aunque hubiera historial disponible.
+      BN_UPLOAD_STATE.classifiedHistory = null;
+      if (status) status.textContent = `⚠ Historial de clasificaciones no cargó: ${e?.message || e}. Se reintentará.`;
     }
   }
   if (status) status.textContent = '';
@@ -20334,7 +20338,7 @@ async function bnUploadHandleFiles(files) {
   // 5-15 segundos, no queremos hacerlo en cada upload. Si necesitas
   // forzar refresh tras un redeploy del Apps Script, usa el botón
   // "Refrescar índice" o ejecuta bnUploadRefreshDedupe() en consola.
-  if (!BN_UPLOAD_STATE.cuentasMap || !BN_UPLOAD_STATE.dedupeKeys) {
+  if (!BN_UPLOAD_STATE.cuentasMap || !BN_UPLOAD_STATE.dedupeKeys || !BN_UPLOAD_STATE.classifiedHistory) {
     await bnUploadInit();
   }
   if (typeof XLSX === 'undefined') {
@@ -21057,7 +21061,7 @@ window.bnDriveProcessSelected = async function() {
   const checks = [...document.querySelectorAll('input[name="bn-drive-file"]:checked')];
   if (!checks.length) { alert('Selecciona al menos un archivo.'); return; }
   const status = document.getElementById('bn-upload-status');
-  if (!BN_UPLOAD_STATE.cuentasMap || !BN_UPLOAD_STATE.dedupeKeys) {
+  if (!BN_UPLOAD_STATE.cuentasMap || !BN_UPLOAD_STATE.dedupeKeys || !BN_UPLOAD_STATE.classifiedHistory) {
     await bnUploadInit();
   }
   if (typeof XLSX === 'undefined') {
