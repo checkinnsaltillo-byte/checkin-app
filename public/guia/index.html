@@ -126,7 +126,18 @@ details.section>summary::-webkit-details-marker{display:none}
       <h1 id="hero-title">—</h1>
       <div id="hero-subtitle" class="hero-subtitle" style="display:none"></div>
       <p id="hero-desc" style="display:none"></p>
-      <a id="hero-photos" href="#" target="_blank" rel="noopener" class="btn-photos" style="display:none">📷 Ver fotos del alojamiento</a>
+      <a id="hero-photos" href="#" target="_blank" rel="noopener" class="btn-photos" style="display:none;cursor:pointer">📷 Ver fotos del alojamiento</a>
+      <!-- Lightbox de fotos -->
+      <div id="lb" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;touch-action:pan-y">
+        <div style="position:absolute;top:14px;left:14px;color:#fff;font-size:14px;font-weight:700;background:rgba(0,0,0,.4);padding:4px 10px;border-radius:999px" id="lb-count">1 / 1</div>
+        <button id="lb-close" aria-label="Cerrar" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.5);color:#fff;border:0;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;line-height:1">✕</button>
+        <button id="lb-prev" aria-label="Anterior" style="position:absolute;top:50%;left:8px;transform:translateY(-50%);background:rgba(0,0,0,.5);color:#fff;border:0;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;line-height:1">‹</button>
+        <button id="lb-next" aria-label="Siguiente" style="position:absolute;top:50%;right:8px;transform:translateY(-50%);background:rgba(0,0,0,.5);color:#fff;border:0;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;line-height:1">›</button>
+        <div id="lb-stage" style="position:absolute;inset:60px 8px 60px 8px;display:flex;align-items:center;justify-content:center">
+          <img id="lb-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;display:block;user-select:none;-webkit-user-drag:none">
+        </div>
+        <div id="lb-caption" style="position:absolute;bottom:14px;left:14px;right:14px;text-align:center;color:#e2e8f0;font-size:12px;opacity:.9"></div>
+      </div>
     </div>
   </header>
   <main class="wrap">
@@ -443,7 +454,20 @@ function buildGuide(a) {
     }
   }
   const photoUrl = g('url_lodgify');
-  if (photoUrl) { $('hero-photos').href = photoUrl; $('hero-photos').style.display = 'inline-flex'; }
+  const photos = Array.isArray(d.photos) ? d.photos.filter(p => p && p.url) : [];
+  const btnPhotos = $('hero-photos');
+  if (photos.length) {
+    // Lightbox interno: no navega fuera de la guía.
+    btnPhotos.style.display = 'inline-flex';
+    btnPhotos.removeAttribute('target');
+    btnPhotos.setAttribute('href', 'javascript:void(0)');
+    btnPhotos.onclick = function(ev){ ev.preventDefault(); openLightbox_(photos, 0); return false; };
+  } else if (photoUrl) {
+    // Fallback: link externo a Lodgify si no hay fotos precargadas.
+    btnPhotos.href = photoUrl;
+    btnPhotos.setAttribute('target', '_blank');
+    btnPhotos.style.display = 'inline-flex';
+  }
   // WhatsApp — SIEMPRE al número del negocio (+52 844 444 3922), no al
   // contacto_whatsapp del alojamiento.
   {
@@ -685,6 +709,72 @@ async function loadAlojamientos_(id){
     return { rows: cache.rows, fromCache: true, stale: ageMs > CACHE_TTL_MS };
   }
   throw lastErr || new Error('sin datos y sin cache');
+}
+
+// Lightbox de fotos — swipe móvil, flechas desktop, teclado Esc/←/→.
+let _lbPhotos = [], _lbIdx = 0, _lbTouch = null, _lbKeyHandler = null;
+function openLightbox_(photos, startIdx){
+  _lbPhotos = photos || [];
+  _lbIdx = Math.max(0, Math.min(startIdx || 0, _lbPhotos.length - 1));
+  if (!_lbPhotos.length) return;
+  const lb = $('lb');
+  lb.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  _lbRender_();
+  // Handlers una sola vez
+  if (!lb.dataset.wired) {
+    $('lb-close').onclick = closeLightbox_;
+    $('lb-prev').onclick  = () => _lbGo_(-1);
+    $('lb-next').onclick  = () => _lbGo_(+1);
+    lb.onclick = (e) => { if (e.target === lb || e.target.id === 'lb-stage') closeLightbox_(); };
+    // Swipe en móvil
+    lb.addEventListener('touchstart', (e) => {
+      const t = e.changedTouches[0]; _lbTouch = { x: t.clientX, y: t.clientY, t: Date.now() };
+    }, { passive: true });
+    lb.addEventListener('touchend', (e) => {
+      if (!_lbTouch) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - _lbTouch.x, dy = t.clientY - _lbTouch.y;
+      const dt = Date.now() - _lbTouch.t;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) && dt < 500) {
+        _lbGo_(dx < 0 ? +1 : -1);
+      }
+      _lbTouch = null;
+    }, { passive: true });
+    lb.dataset.wired = '1';
+  }
+  _lbKeyHandler = (e) => {
+    if (e.key === 'Escape') closeLightbox_();
+    else if (e.key === 'ArrowLeft') _lbGo_(-1);
+    else if (e.key === 'ArrowRight') _lbGo_(+1);
+  };
+  document.addEventListener('keydown', _lbKeyHandler);
+}
+function closeLightbox_(){
+  $('lb').style.display = 'none';
+  document.body.style.overflow = '';
+  if (_lbKeyHandler) document.removeEventListener('keydown', _lbKeyHandler);
+  _lbKeyHandler = null;
+}
+function _lbGo_(delta){
+  const n = _lbPhotos.length;
+  _lbIdx = (_lbIdx + delta + n) % n;
+  _lbRender_();
+}
+function _lbRender_(){
+  const p = _lbPhotos[_lbIdx] || {};
+  const img = $('lb-img');
+  img.src = p.url || '';
+  img.alt = p.alt || '';
+  $('lb-count').textContent = (_lbIdx + 1) + ' / ' + _lbPhotos.length;
+  $('lb-caption').textContent = ''; // ocultar text técnico de Lodgify
+  // Preload siguiente para transición fluida
+  const next = _lbPhotos[(_lbIdx + 1) % _lbPhotos.length];
+  if (next && next.url) { const pre = new Image(); pre.src = next.url; }
+  // Ocultar flechas si solo hay 1 foto
+  const single = _lbPhotos.length <= 1;
+  $('lb-prev').style.display = single ? 'none' : 'block';
+  $('lb-next').style.display = single ? 'none' : 'block';
 }
 
 function showOfflineBanner_(stale){
