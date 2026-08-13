@@ -20634,7 +20634,9 @@ function bnUploadClassifyRows(rows) {
   if (!history || !history.length) return;
   const THRESHOLD = 0.5; // mínimo 50% para APLICAR (debajo solo se muestra)
   for (const r of rows) {
-    if (r._error || r._status === 'duplicate') continue;
+    if (r._error) continue;
+    // Nota: SÍ clasificamos duplicadas — es informativo, no afecta inserción.
+    // Antes se saltaban y el usuario veía Prob./Match vacíos aunque hubiera match claro.
     const tokens = bnUploadTokenize(r['DESCRIPCION']);
     if (!tokens.size) {
       r['Probabilidad_clasif'] = 0;
