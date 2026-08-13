@@ -127,17 +127,6 @@ details.section>summary::-webkit-details-marker{display:none}
       <div id="hero-subtitle" class="hero-subtitle" style="display:none"></div>
       <p id="hero-desc" style="display:none"></p>
       <a id="hero-photos" href="#" target="_blank" rel="noopener" class="btn-photos" style="display:none;cursor:pointer">📷 Ver fotos del alojamiento</a>
-      <!-- Lightbox de fotos -->
-      <div id="lb" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;touch-action:pan-y">
-        <div style="position:absolute;top:14px;left:14px;color:#fff;font-size:14px;font-weight:700;background:rgba(0,0,0,.4);padding:4px 10px;border-radius:999px" id="lb-count">1 / 1</div>
-        <button id="lb-close" aria-label="Cerrar" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.5);color:#fff;border:0;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;line-height:1">✕</button>
-        <button id="lb-prev" aria-label="Anterior" style="position:absolute;top:50%;left:8px;transform:translateY(-50%);background:rgba(0,0,0,.5);color:#fff;border:0;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;line-height:1">‹</button>
-        <button id="lb-next" aria-label="Siguiente" style="position:absolute;top:50%;right:8px;transform:translateY(-50%);background:rgba(0,0,0,.5);color:#fff;border:0;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;line-height:1">›</button>
-        <div id="lb-stage" style="position:absolute;inset:60px 8px 60px 8px;display:flex;align-items:center;justify-content:center">
-          <img id="lb-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;display:block;user-select:none;-webkit-user-drag:none">
-        </div>
-        <div id="lb-caption" style="position:absolute;bottom:14px;left:14px;right:14px;text-align:center;color:#e2e8f0;font-size:12px;opacity:.9"></div>
-      </div>
     </div>
   </header>
   <main class="wrap">
@@ -767,7 +756,6 @@ function _lbRender_(){
   img.src = p.url || '';
   img.alt = p.alt || '';
   $('lb-count').textContent = (_lbIdx + 1) + ' / ' + _lbPhotos.length;
-  $('lb-caption').textContent = ''; // ocultar text técnico de Lodgify
   // Preload siguiente para transición fluida
   const next = _lbPhotos[(_lbIdx + 1) % _lbPhotos.length];
   if (next && next.url) { const pre = new Image(); pre.src = next.url; }
@@ -890,6 +878,16 @@ window.closeWelcomeTour_ = function () {
   if (tour) tour.style.display = 'none';
 };
 </script>
+<!-- Lightbox de fotos (fuera del hero para evitar containing block por backdrop-filter) -->
+<div id="lb" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:99999;touch-action:pan-y">
+  <div id="lb-count" style="position:absolute;top:14px;left:14px;color:#fff;font-size:14px;font-weight:700;background:rgba(0,0,0,.5);padding:6px 12px;border-radius:999px;z-index:2">1 / 1</div>
+  <button id="lb-close" aria-label="Cerrar" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.55);color:#fff;border:0;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;line-height:1;z-index:2">✕</button>
+  <button id="lb-prev" aria-label="Anterior" style="position:absolute;top:50%;left:10px;transform:translateY(-50%);background:rgba(0,0,0,.55);color:#fff;border:0;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;line-height:1;z-index:2">‹</button>
+  <button id="lb-next" aria-label="Siguiente" style="position:absolute;top:50%;right:10px;transform:translateY(-50%);background:rgba(0,0,0,.55);color:#fff;border:0;width:44px;height:44px;border-radius:50%;font-size:24px;cursor:pointer;line-height:1;z-index:2">›</button>
+  <div id="lb-stage" style="position:absolute;inset:60px 10px 40px 10px;display:flex;align-items:center;justify-content:center">
+    <img id="lb-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;display:block;user-select:none;-webkit-user-drag:none">
+  </div>
+</div>
 </body>
 </html>
 
