@@ -21064,6 +21064,16 @@ window.bnDriveProcessSelected = async function() {
   if (!BN_UPLOAD_STATE.cuentasMap || !BN_UPLOAD_STATE.dedupeKeys || !BN_UPLOAD_STATE.classifiedHistory) {
     await bnUploadInit();
   }
+  // Guard defensivo: si init falló, abortamos con mensaje claro EN VEZ de
+  // continuar y tirar TypeError en bnUploadAssignCountersAndDedupe.
+  if (!BN_UPLOAD_STATE.cuentasMap || !BN_UPLOAD_STATE.dedupeKeys) {
+    const falta = [
+      !BN_UPLOAD_STATE.cuentasMap ? 'cuentas_bancarias' : null,
+      !BN_UPLOAD_STATE.dedupeKeys ? 'BANCOS-dedupe' : null,
+    ].filter(Boolean).join(', ');
+    if (status) status.textContent = `⚠ No se pudo cargar ${falta} desde Apps Script. Reintenta o recarga la página.`;
+    return;
+  }
   if (typeof XLSX === 'undefined') {
     if (status) status.textContent = '⚠ SheetJS no se cargó. Recarga la página.';
     return;
