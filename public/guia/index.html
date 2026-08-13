@@ -454,7 +454,7 @@ function buildGuide(a) {
     }
   }
   const photoUrl = g('url_lodgify');
-  const photos = Array.isArray(d.photos) ? d.photos.filter(p => p && p.url) : [];
+  const photos = Array.isArray(a.photos) ? a.photos.filter(p => p && p.url) : [];
   const btnPhotos = $('hero-photos');
   if (photos.length) {
     // Lightbox interno: no navega fuera de la guía.
