@@ -914,9 +914,8 @@ window.closeWelcomeTour_ = function () {
 </script>
 <!-- Modal fullscreen: Verificar disponibilidad (iframe a url_lodgify) -->
 <div id="book-modal" style="display:none;position:fixed;inset:0;background:#fff;z-index:2147483646">
-  <div style="position:absolute;top:0;left:0;right:0;height:52px;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 12px 0 16px;z-index:2">
-    <div style="font-size:14px;font-weight:700;letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📅 Verificar disponibilidad</div>
-    <button type="button" id="book-close" aria-label="Cerrar" style="background:transparent;color:#fff;border:0;width:40px;height:40px;font-size:22px;cursor:pointer;line-height:1">✕</button>
+  <div style="position:absolute;top:0;left:0;right:0;height:52px;background:#0f172a;color:#fff;display:flex;align-items:stretch;z-index:2">
+    <button type="button" id="book-close" aria-label="Regresar a la Guía de Bienvenida" style="width:100%;background:transparent;color:#fff;border:0;padding:0 16px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:.02em;line-height:1"><span style="font-size:20px;line-height:1">←</span><span>Regresar a la Guía de Bienvenida</span></button>
   </div>
   <iframe id="book-iframe" title="Verificar disponibilidad" style="position:absolute;top:52px;left:0;right:0;bottom:0;width:100%;height:calc(100% - 52px);border:0;background:#f1f5f9" allow="fullscreen"></iframe>
 </div>
