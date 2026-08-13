@@ -85,9 +85,10 @@ details.section>summary::-webkit-details-marker{display:none}
 .emerg .em-call{font-size:12px;font-weight:700;color:#dc2626}
 .checkin-fab{position:fixed;left:0;right:0;bottom:0;z-index:9400;padding:14px 16px 18px;background:linear-gradient(180deg,rgba(15,23,42,0),rgba(15,23,42,.55));pointer-events:none}
 .checkin-fab .cin-row{display:flex;align-items:stretch;gap:8px;max-width:520px;margin:0 auto;pointer-events:none}
-.checkin-fab #checkin-btn,.checkin-fab #checkout-btn{pointer-events:auto;flex:1 1 0;min-width:0;padding:14px 16px;color:#fff;border:0;border-radius:14px;font-size:14px;font-weight:800;letter-spacing:.02em;cursor:pointer;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+.checkin-fab #checkin-btn,.checkin-fab #checkout-btn,.checkin-fab #book-btn-inline{pointer-events:auto;flex:1 1 0;min-width:0;padding:14px 8px;color:#fff;border:0;border-radius:14px;font-size:13px;font-weight:800;letter-spacing:.02em;cursor:pointer;text-shadow:0 1px 2px rgba(0,0,0,.2);text-align:center;line-height:1.15}
 .checkin-fab #checkin-btn{background:linear-gradient(135deg,#0f766e,#14b8a6);box-shadow:0 12px 28px -6px rgba(15,118,110,.55);animation:cinPulse 2.2s ease-in-out infinite}
 .checkin-fab #checkout-btn{background:linear-gradient(135deg,#dc2626,#ef4444);box-shadow:0 12px 28px -6px rgba(220,38,38,.6)}
+.checkin-fab #book-btn-inline{background:linear-gradient(135deg,#2563eb,#3b82f6);box-shadow:0 12px 28px -6px rgba(37,99,235,.55)}
 .checkin-fab #checkin-btn span,.checkin-fab #checkout-btn span{display:inline-flex;align-items:center;gap:6px;justify-content:center;line-height:1}
 .wa-fab{pointer-events:auto;display:flex;flex:none;flex-direction:column;align-items:center;justify-content:center;gap:4px}
 .wa-fab a{width:56px;height:56px;border-radius:16px;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 10px 24px -4px rgba(37,211,102,.55),inset 0 -3px 6px rgba(0,0,0,.12);border:1px solid rgba(255,255,255,.15)}
@@ -139,13 +140,11 @@ details.section>summary::-webkit-details-marker{display:none}
 </div>
 <div class="checkin-fab" id="checkin-fab" style="display:none">
   <div class="cin-row">
-    <button type="button" id="checkin-btn" onclick="openCheckin()"><span><span style="font-size:17px;line-height:1">✅</span><span>Check-in</span></span></button>
-    <button type="button" id="checkout-btn" onclick="openCheckout()"><span><span style="font-size:17px;line-height:1">🚪</span><span>Check-out</span></span></button>
+    <button type="button" id="checkin-btn" onclick="openCheckin()">Check-in</button>
+    <button type="button" id="checkout-btn" onclick="openCheckout()">Check-out</button>
+    <button type="button" id="book-btn-inline" onclick="openBooking_()" style="display:none">Reserva directa</button>
     <div id="wa-fab" class="wa-fab" style="display:none">
       <a id="wa-link" href="#" target="_blank" rel="noopener" title="Contactar por WhatsApp"><svg viewBox="0 0 32 32"><path d="M16 3.2c-7.06 0-12.8 5.74-12.8 12.8 0 2.243.585 4.428 1.697 6.348L3.2 28.8l6.6-1.73A12.75 12.75 0 0 0 16 28.8c7.06 0 12.8-5.74 12.8-12.8S23.06 3.2 16 3.2zm7.32 18.24c-.31.87-1.53 1.66-2.48 1.76-.66.07-1.5.128-2.31-.148-.53-.181-1.212-.406-2.086-.784-3.674-1.592-6.075-5.297-6.259-5.54-.184-.243-1.503-2.004-1.503-3.822s.94-2.716 1.272-3.083c.33-.367.72-.458.964-.458.243 0 .486.002.7.013.226.011.526-.085.822.626.31.732 1.036 2.545 1.126 2.73.09.184.152.4.03.643-.122.244-.184.397-.366.61-.184.214-.386.478-.55.643-.184.183-.377.383-.163.75.214.366.955 1.573 2.05 2.548 1.408 1.253 2.596 1.64 2.965 1.823.366.184.579.153.793-.091.213-.244.915-1.07 1.16-1.436.244-.366.487-.305.822-.183.335.122 2.12.999 2.48 1.183.367.184.611.275.7.428.09.153.09.882-.213 1.734z"/></svg></a>
-    </div>
-    <div id="book-fab" class="book-fab" style="display:none">
-      <button type="button" id="book-btn" title="Verificar disponibilidad" aria-label="Verificar disponibilidad" onclick="openBooking_()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><line x1="8" y1="2.5" x2="8" y2="6.5"/><line x1="16" y1="2.5" x2="16" y2="6.5"/><path d="M9.2 14.8l1.7 1.7 3.9-3.9"/></svg></button>
     </div>
   </div>
 </div>
@@ -481,7 +480,7 @@ function buildGuide(a) {
     const bookUrl = String(g('url_lodgify') || '').trim();
     if (bookUrl) {
       window.__bookUrl = bookUrl;
-      $('book-fab').style.display = 'flex';
+      $('book-btn-inline').style.display = 'block';
     }
   }
   // Reglamento para inyectar en el popup de éxito del check-in.
