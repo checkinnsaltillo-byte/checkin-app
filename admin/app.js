@@ -20568,6 +20568,7 @@ function bnUploadNormStr(s) {
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // quita acentos
     .replace(/[\u00a0]/g, " ")                           // NBSP → space
     .replace(/[–—]/g, '-')                   // en-dash/em-dash → -
+    .replace(/_+/g, ' ')                                // underscore → space (DLOCAL_MEX ≡ DLOCAL MEX)
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ');                             // colapsa whitespace
