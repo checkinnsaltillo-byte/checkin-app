@@ -4221,7 +4221,15 @@ function bn_filteredRecs(tipo) {
   const q=(s.q || (document.getElementById('bn-f-text')?.value||'').toLowerCase().trim());
   // Helper: array vacío = sin filtro
   const inArr = (arr, v) => !arr || arr.length === 0 || arr.includes(v);
+  // Excluir filas "En tránsito" en SALDO — solo aplica a "Por clasificar" y
+  // "Cuentas" (no a Planeación/Indicadores donde puede importar el total).
+  const parent = BN_TIPO_PARENT[tipo] || '';
+  const hideEnTransito = (parent === 'pc' || parent === 'reg');
   return BN_RAW.filter(r=>{
+    if (hideEnTransito) {
+      const saldoStr = String(r.SALDO == null ? '' : r.SALDO);
+      if (/tr[aá]nsito/i.test(saldoStr)) return false;
+    }
     const t = bn_canon(r._tipo || '');
 
     const isPCTab = bn_isPC(tipo);
