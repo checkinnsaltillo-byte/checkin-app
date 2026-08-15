@@ -15614,11 +15614,12 @@ function lgBuildCardSummary(b) {
   const waPhone = b.GuestPhone ? String(b.GuestPhone).replace(/\D/g, '') : '';
   const waBookingJson = b.GuestPhone ? esc(JSON.stringify(b).replace(/'/g,'&#39;')) : '';
   const phoneHtml = b.GuestPhone
-    ? `<span style="display:inline-flex;align-items:center;gap:6px">
+    ? `<span style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap">
         <a href="https://wa.me/${waPhone}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#0d9488;font-weight:700;text-decoration:none">📱 ${esc(b.GuestPhone)}</a>
         <button type="button" title="Enviar plantilla o mensaje libre desde el sistema"
           onclick='event.stopPropagation(); waOpenModal(${JSON.stringify(b).replace(/</g,"\\u003c")})'
           style="padding:2px 8px;background:#25d366;color:#fff;border:0;border-radius:999px;font-size:10px;font-weight:800;cursor:pointer;letter-spacing:.02em">💬 Enviar</button>
+        ${b.Id ? waAutoToggleHtml(b.Id) : ''}
       </span>`
     : '';
 
@@ -36596,9 +36597,44 @@ function waRenderPreview_(bodyTemplate, vals) {
   return String(bodyTemplate).replace(/\{\{(\d+)\}\}/g, (_, n) => vals[n] || `{{${n}}}`);
 }
 
+function _waFmtDateEs(iso) {
+  try {
+    const d = iso ? new Date(iso + 'T00:00:00') : null;
+    if (!d) return '';
+    const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    return `${d.getDate()} ${meses[d.getMonth()]}`;
+  } catch(_){ return ''; }
+}
+function _waTodayIso() {
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+/** Calcula los próximos envíos automáticos previstos según fechas del booking. */
+function _waNextAutoSends(b) {
+  const arrival   = String(b.DateArrival || b.arrival || '').slice(0,10);
+  const departure = String(b.DateDeparture || b.departure || '').slice(0,10);
+  const hoy = _waTodayIso();
+  const items = [];
+  if (arrival && arrival > hoy) {
+    // Recordatorio check-in se dispara el día ANTES a las 6pm.
+    const d = new Date(arrival + 'T00:00:00'); d.setDate(d.getDate()-1);
+    const isoDay = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    items.push({ tipo: 'checkin', when: `${_waFmtDateEs(isoDay)} 6:00 pm`, isoDay });
+  }
+  if (departure && departure >= hoy) {
+    // Recordatorio check-out se dispara el día de salida a las 8am.
+    items.push({ tipo: 'checkout', when: `${_waFmtDateEs(departure)} 8:00 am`, isoDay: departure });
+  }
+  return items;
+}
+
 /** Abre modal WhatsApp para una reservación (booking Lodgify o similar). */
 window.waOpenModal = function(booking) {
   const b = booking || {};
+  window.__waCurBookingId = String(b.Id || b.id || b.bookingId || '');
+  // Pre-cargar config si aún no la tengo
+  if (window.__waCurBookingId) waFetchConfigForIds([window.__waCurBookingId]);
   const to = waNormalizePhoneE164_(b.GuestPhone || b['Cel/Whatsapp (principal)'] || b.celular_principal || '');
   let selectedTplId = WA_TEMPLATES[0].id;
   let mode = 'template'; // 'template' | 'freeform'
@@ -36653,7 +36689,7 @@ window.waOpenModal = function(booking) {
     btn.disabled = true;
     btn.textContent = '⏳ Enviando…';
     statusEl.textContent = '';
-    const payload = { to };
+    const payload = { to, bookingId: window.__waCurBookingId || '' };
     if (mode === 'template') {
       const tpl = WA_TEMPLATES.find(t => t.id === selectedTplId);
       payload.contentSid = tpl.contentSid;
@@ -36701,6 +36737,14 @@ window.waOpenModal = function(booking) {
             placeholder="+5218115569120">
           ${b.GuestName ? `<div style="font-size:11px;color:#64748b;margin-top:3px">Huésped: <b>${esc(b.GuestName)}</b> · ${esc(waAlojamientoLabel_(b))}</div>` : ''}
         </div>
+        <!-- Sección: Programación automática -->
+        <div id="wa-auto-section" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <div style="font-size:11px;font-weight:800;color:#0f172a;letter-spacing:.02em">📅 PROGRAMACIÓN AUTOMÁTICA</div>
+            ${window.__waCurBookingId ? waAutoToggleHtml(window.__waCurBookingId) : '<span style="font-size:10px;color:#94a3b8">Sin booking ID — no disponible</span>'}
+          </div>
+          <div id="wa-auto-info" style="font-size:11px;color:#475569;margin-top:6px;line-height:1.5">Cargando…</div>
+        </div>
         <div style="display:flex;gap:6px;margin-bottom:10px;background:#f1f5f9;padding:4px;border-radius:8px">
           <button onclick="waSetMode_('template')" id="wa-tab-tpl" style="flex:1;padding:6px 10px;border:0;background:transparent;font-size:12px;font-weight:700;cursor:pointer;border-radius:6px">📋 Plantilla</button>
           <button onclick="waSetMode_('freeform')" id="wa-tab-free" style="flex:1;padding:6px 10px;border:0;background:transparent;font-size:12px;font-weight:700;cursor:pointer;border-radius:6px">✏️ Mensaje libre</button>
@@ -36738,6 +36782,159 @@ window.waOpenModal = function(booking) {
     document.getElementById('wa-tab-tpl').style.background = '#fff';
     document.getElementById('wa-tab-tpl').style.boxShadow = '0 1px 3px rgba(0,0,0,.1)';
   }, 0);
+  // Popular la sección "Programación automática" cuando se cargue la config.
+  const paintAutoInfo = () => {
+    const el = document.getElementById('wa-auto-info');
+    if (!el) return;
+    const id = window.__waCurBookingId;
+    const cfg = id && WA_ADMIN.config[id];
+    const logs = (id && WA_ADMIN.logs[id]) || [];
+    const auto = !!(cfg && cfg.auto_enabled);
+    const nexts = _waNextAutoSends(b);
+    const parts = [];
+    if (auto) {
+      if (nexts.length) {
+        parts.push('<div style="color:#166534;font-weight:700;margin-bottom:2px">✓ Auto ON — próximos envíos:</div>');
+        for (const n of nexts) {
+          const label = n.tipo === 'checkin' ? '🛬 Recordatorio check-in' : '🕛 Recordatorio check-out';
+          parts.push(`<div style="padding-left:8px">• ${label}: <b>${esc(n.when)}</b></div>`);
+        }
+      } else {
+        parts.push('<div style="color:#166534;font-weight:700">✓ Auto ON — sin envíos programados (fechas ya pasaron)</div>');
+      }
+    } else {
+      parts.push('<div style="color:#92400e">○ Auto OFF — no recibirá recordatorios automáticos. Activa el toggle arriba para habilitar.</div>');
+    }
+    if (logs.length) {
+      parts.push('<div style="margin-top:8px;font-weight:700;color:#334155">Historial reciente:</div>');
+      for (const l of logs.slice(0, 5)) {
+        const icon = l.status === 'delivered' || l.status === 'read' || l.status === 'sent' ? '✅'
+                    : l.status === 'failed' ? '❌' : '📤';
+        const t = l.timestamp ? new Date(l.timestamp).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
+        parts.push(`<div style="padding-left:8px;font-size:10px;color:#64748b">${icon} <b>${esc(l.tipo)}</b> · ${esc(l.origin)} · ${esc(t)}</div>`);
+      }
+    }
+    el.innerHTML = parts.join('');
+  };
+  // Intento inmediato + reintento cuando cargue la config (async)
+  paintAutoInfo();
+  setTimeout(paintAutoInfo, 800);
+  setTimeout(paintAutoInfo, 1800);
   render();
 };
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ WhatsApp — Cache global de config (auto_enabled) + logs por reserva     ║
+// ═══════════════════════════════════════════════════════════════════════════
+
+window.WA_ADMIN = window.WA_ADMIN || { config: {}, logs: {}, loading: new Set() };
+
+/** Carga config + logs para una lista de bookingIds. Cachea en memoria.
+ *  Repinta cualquier UI que dependa de estos datos (toggle + modal abierto). */
+async function waFetchConfigForIds(ids) {
+  const need = ids.map(String).filter(id => id && !WA_ADMIN.config.hasOwnProperty(id) && !WA_ADMIN.loading.has(id));
+  if (!need.length) return;
+  need.forEach(id => WA_ADMIN.loading.add(id));
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/config-get', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingIds: need }),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      // Marca como cargados TODOS los ids solicitados (los que no tengan
+      // fila en Sheets → default auto:false).
+      need.forEach(id => {
+        WA_ADMIN.config[id] = (j.config && j.config[id]) || { auto_enabled: false };
+        WA_ADMIN.logs[id]   = (j.logs && j.logs[id]) || [];
+      });
+      // Repinta todos los toggles visibles ahora
+      document.querySelectorAll(`[data-wa-auto-toggle]`).forEach(el => waPaintToggle_(el));
+    }
+  } catch (e) {
+    console.warn('[WA] config-get falló:', e.message);
+  } finally {
+    need.forEach(id => WA_ADMIN.loading.delete(id));
+  }
+}
+
+function waPaintToggle_(el) {
+  const id = el.getAttribute('data-wa-auto-toggle');
+  const cfg = WA_ADMIN.config[id];
+  const on = !!(cfg && cfg.auto_enabled);
+  el.title = on ? 'Auto ON — el cron le enviará recordatorios' : 'Auto OFF — no recibirá recordatorios automáticos';
+  el.style.background = on ? '#16a34a' : '#cbd5e1';
+  const knob = el.querySelector('.wa-knob');
+  if (knob) knob.style.transform = on ? 'translateX(14px)' : 'translateX(0)';
+  const label = el.parentElement && el.parentElement.querySelector('.wa-auto-label');
+  if (label) { label.textContent = on ? 'Auto ON' : 'Auto'; label.style.color = on ? '#166534' : '#64748b'; }
+}
+
+window.waToggleAuto = async function(bookingId, evt) {
+  if (evt) { evt.preventDefault(); evt.stopPropagation(); }
+  const id = String(bookingId);
+  const cur = !!(WA_ADMIN.config[id] && WA_ADMIN.config[id].auto_enabled);
+  const nueva = !cur;
+  // Optimistic update
+  WA_ADMIN.config[id] = { ...(WA_ADMIN.config[id]||{}), auto_enabled: nueva };
+  document.querySelectorAll(`[data-wa-auto-toggle="${id}"]`).forEach(el => waPaintToggle_(el));
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/config-set', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId: id, autoEnabled: nueva, updatedBy: (typeof currentUser !== 'undefined' ? currentUser : 'admin') }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'server error');
+  } catch (e) {
+    // Revierte optimistic si falla
+    WA_ADMIN.config[id] = { ...(WA_ADMIN.config[id]||{}), auto_enabled: cur };
+    document.querySelectorAll(`[data-wa-auto-toggle="${id}"]`).forEach(el => waPaintToggle_(el));
+    alert('No se pudo guardar el toggle: ' + e.message);
+  }
+};
+
+/** HTML del pill toggle + label. Úsalo junto al botón "💬 Enviar" en cards. */
+window.waAutoToggleHtml = function(bookingId) {
+  const id = String(bookingId);
+  return `<span style="display:inline-flex;align-items:center;gap:5px;margin-left:6px">
+    <button type="button" data-wa-auto-toggle="${id}"
+      onclick="event.stopPropagation(); waToggleAuto('${id}', event)"
+      style="position:relative;width:28px;height:14px;border-radius:999px;background:#cbd5e1;border:0;cursor:pointer;padding:0;transition:background .15s">
+      <span class="wa-knob" style="position:absolute;top:1px;left:1px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s"></span>
+    </button>
+    <span class="wa-auto-label" style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.02em">Auto</span>
+  </span>`;
+};
+
+/** Hook: llamar al final del render de cards para pre-cargar config. */
+window.waPreloadConfigForVisibleCards = function() {
+  const ids = [...document.querySelectorAll('[data-wa-auto-toggle]')]
+    .map(el => el.getAttribute('data-wa-auto-toggle'))
+    .filter(Boolean);
+  if (ids.length) waFetchConfigForIds(ids);
+};
+
+// Observer global: cuando aparecen toggles nuevos en el DOM (al renderizar
+// cards de Lodgify), pre-cargar su config del backend. Debounceado.
+(function _waSetupObserver(){
+  let pending = null;
+  const trigger = () => {
+    clearTimeout(pending);
+    pending = setTimeout(() => window.waPreloadConfigForVisibleCards(), 250);
+  };
+  try {
+    const obs = new MutationObserver(muts => {
+      for (const m of muts) {
+        for (const n of m.addedNodes || []) {
+          if (n.nodeType !== 1) continue;
+          if (n.matches && (n.matches('[data-wa-auto-toggle]') || n.querySelector('[data-wa-auto-toggle]'))) {
+            trigger(); return;
+          }
+        }
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+  } catch(_){ /* ignore */ }
+})();
 
