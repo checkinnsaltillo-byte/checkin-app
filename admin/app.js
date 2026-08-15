@@ -38493,7 +38493,15 @@ function cfgRenderEditor() {
       ${grupos[g].map(p => `<option value="${_cfgEsc(p.key)}">${_cfgEsc(p.label)} · {{${_cfgEsc(p.key)}}}</option>`).join('')}
     </optgroup>
   `).join('');
+  const onEnabled = !!d.enabled;
+  const statusChip = `
+    <div style="flex:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;gap:10px">
+      <span onclick="${d._id ? `cfgToggleEnabledFromList('${_cfgEsc(d._id)}')` : `cfgUpdateDraft('enabled', !${onEnabled ? 'true' : 'false'})`}" title="${onEnabled ? 'Deshabilitar template' : 'Habilitar template'}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${onEnabled ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${onEnabled ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${onEnabled ? '✓' : ''}</span>
+      <span style="font-size:12px;font-weight:700;color:${onEnabled ? '#166534' : '#64748b'}">${onEnabled ? 'Template habilitado' : 'Template deshabilitado'}</span>
+    </div>
+  `;
   col.innerHTML = `
+    ${statusChip}
     <div style="flex:1;overflow-y:auto;padding:18px 20px">
       <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Nombre</label>
       <input type="text" id="cfg-in-nombre" value="${_cfgEscAttr(d.nombre)}" placeholder="Ej: Bienvenida al llegar"
@@ -38667,8 +38675,10 @@ async function cfgToggleEnabledFromList(id) {
   const nueva = !t.enabled;
   // Optimistic
   t.enabled = nueva;
-  if (CFG_ADMIN.draft && CFG_ADMIN.draft._id === id) CFG_ADMIN.draft.enabled = nueva;
+  const isOpenDraft = CFG_ADMIN.draft && CFG_ADMIN.draft._id === id;
+  if (isOpenDraft) CFG_ADMIN.draft.enabled = nueva;
   cfgRenderList();
+  if (isOpenDraft) cfgRenderEditor();
   try {
     const res = await fetch('https://api.check-inn.mx/wa/templates-upsert', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -38691,8 +38701,10 @@ async function cfgToggleEnabledFromList(id) {
   } catch (e) {
     // Revierte
     t.enabled = !nueva;
-    if (CFG_ADMIN.draft && CFG_ADMIN.draft._id === id) CFG_ADMIN.draft.enabled = !nueva;
+    const isOpenDraft2 = CFG_ADMIN.draft && CFG_ADMIN.draft._id === id;
+    if (isOpenDraft2) CFG_ADMIN.draft.enabled = !nueva;
     cfgRenderList();
+    if (isOpenDraft2) cfgRenderEditor();
     alert('No se pudo actualizar: ' + e.message);
   }
 }
