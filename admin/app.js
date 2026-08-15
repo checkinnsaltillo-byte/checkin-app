@@ -37292,10 +37292,12 @@ function _waRenderUnifiedList_(logs) {
   // aunque el admin haya deseleccionado el alojamiento después. Solo se
   // filtra la PROGRAMACIÓN FUTURA de templates no aplicables.
   const items = [];
+  const seenTplIds = new Set();
   for (const tpl of WA_TEMPLATES) {
+    seenTplIds.add(tpl.id);
     const sent = sentByTipo[tpl.id] || sentByTipo[legacyMap[tpl.id]] || null;
     const applies = _waTemplateAppliesToBooking(tpl.id, b);
-    if (!applies && !sent) continue; // no aplica y nunca se envió → ocultar
+    if (!applies && !sent) continue;
     const schDate = _waTemplateScheduledDate(tpl.id, b);
     items.push({
       kind: 'template',
@@ -37304,11 +37306,38 @@ function _waRenderUnifiedList_(logs) {
       sortKey: sent ? new Date(sent.timestamp).getTime() : (schDate ? schDate.getTime() : 0),
       sent,
       schDate,
-      // Si el template no aplica al alojamiento (y solo se muestra por
-      // histórico), forzamos disabled=true para que no aparezca como
-      // "próximo envío" ni se pueda reactivar desde la card.
       disabled: !applies || (disabled.indexOf(tpl.id) >= 0),
       historyOnly: !applies && !!sent,
+    });
+  }
+  // Templates admin (WA_Templates) que NO están en el hardcoded WA_TEMPLATES.
+  const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+  for (const id in adminMap) {
+    if (seenTplIds.has(id)) continue;
+    const admin = adminMap[id];
+    if (!admin.enabled) continue;
+    const applies = _waTemplateAppliesToBooking(id, b);
+    if (!applies) continue;
+    // Construir tpl sintético compatible con _waRenderTemplateItem_.
+    const synthTpl = {
+      id: id,
+      label: admin.nombre || 'Template',
+      contentSid: null,
+      body: admin.body || '',
+      vars: [],
+      autofill: () => ({}),
+    };
+    const schDate = _waAdminScheduledDate(admin, b);
+    const sent = sentByTipo[id] || null;
+    items.push({
+      kind: 'template',
+      id: id,
+      tpl: synthTpl,
+      sortKey: sent ? new Date(sent.timestamp).getTime() : (schDate ? schDate.getTime() : 0),
+      sent,
+      schDate,
+      disabled: disabled.indexOf(id) >= 0,
+      admin: true,
     });
   }
   for (const cs of (st.scheduledItems || [])) {
@@ -38090,7 +38119,18 @@ async function waEnsureAdminTemplates_() {
         const j = await r.json();
         const map = {};
         for (const t of (j.items || [])) {
-          map[String(t.id)] = { alojamientos: String(t.alojamientos || ''), enabled: !!t.enabled };
+          map[String(t.id)] = {
+            id: String(t.id),
+            nombre: String(t.nombre || ''),
+            body: String(t.body || ''),
+            asunto: String(t.asunto || ''),
+            schedule_type: String(t.schedule_type || ''),
+            schedule_event: String(t.schedule_event || ''),
+            schedule_offset: (t.schedule_offset === '' || t.schedule_offset == null) ? '' : String(t.schedule_offset),
+            schedule_time: String(t.schedule_time || ''),
+            alojamientos: String(t.alojamientos || ''),
+            enabled: !!t.enabled,
+          };
         }
         WA_ADMIN.adminTemplates = map;
         return map;
@@ -38101,6 +38141,40 @@ async function waEnsureAdminTemplates_() {
     })();
   }
   return WA_ADMIN.adminTemplatesLoading;
+}
+
+/** Calcula la fecha/hora programada para un template admin dado el booking.
+ *  Retorna Date o null si no aplica (schedule_type='never' o falta fecha). */
+function _waAdminScheduledDate(admin, b) {
+  if (!admin || !b) return null;
+  const type = admin.schedule_type;
+  if (!type || type === 'never') return null;
+  const arrival   = String(b.DateArrival || b.arrival || '').slice(0,10);
+  const departure = String(b.DateDeparture || b.departure || '').slice(0,10);
+  if (type === 'on_booking_5min') {
+    // Sin BookedAt confiable → devolvemos ahora+5min como aproximación visual.
+    const d = new Date(); d.setMinutes(d.getMinutes()+5); return d;
+  }
+  if (type === 'before_arrival') {
+    if (!arrival) return null;
+    const d = new Date(arrival + 'T00:00:00'); d.setDate(d.getDate()-1); d.setHours(10,0,0,0); return d;
+  }
+  if (type === 'before_checkout') {
+    if (!departure) return null;
+    const d = new Date(departure + 'T00:00:00'); d.setDate(d.getDate()-1); d.setHours(18,0,0,0); return d;
+  }
+  if (type === 'custom') {
+    const ev = admin.schedule_event || 'arrival';
+    const base = ev === 'checkout' ? departure : arrival; // booking sin base concreta, usamos arrival
+    if (!base) return null;
+    const off = parseInt(admin.schedule_offset === '' || admin.schedule_offset == null ? '0' : admin.schedule_offset, 10) || 0;
+    const [hh, mm] = String(admin.schedule_time || '09:00').split(':').map(x => parseInt(x||'0',10));
+    const d = new Date(base + 'T00:00:00');
+    d.setDate(d.getDate() + off);
+    d.setHours(isFinite(hh)?hh:9, isFinite(mm)?mm:0, 0, 0);
+    return d;
+  }
+  return null;
 }
 
 /** ¿Aplica este template a esta reserva? Reglas:
