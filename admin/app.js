@@ -36724,6 +36724,21 @@ function waPhonesEqual_(a, b) {
   return waNormalizePhoneE164_(String(a||'').replace(/^whatsapp:/,'')) ===
          waNormalizePhoneE164_(String(b||'').replace(/^whatsapp:/,''));
 }
+/** Normaliza toda la lista a `whatsapp:+521...` y elimina duplicados
+ *  ("+52X" y "+521X" son el mismo número). Preserva orden de aparición. */
+function waDedupeRecipients_(list) {
+  const out = [];
+  const seenCanonical = new Set();
+  for (const raw of (list || [])) {
+    const s = String(raw || '').replace(/^whatsapp:/,'');
+    const norm = waNormalizePhoneE164_(s);
+    if (!norm) continue;
+    if (seenCanonical.has(norm)) continue;
+    seenCanonical.add(norm);
+    out.push('whatsapp:' + norm);
+  }
+  return out;
+}
 
 function waRenderPreview_(bodyTemplate, vals) {
   return String(bodyTemplate).replace(/\{\{(\d+)\}\}/g, (_, n) => vals[n] || `{{${n}}}`);
@@ -36846,14 +36861,15 @@ window.waOpenModal = async function(booking) {
   );
   // Buscar todas las reservas del mismo huésped (mismo tel 10 dígitos)
   const bookings = _waFindRelatedBookings(b);
+  const primaryCanon = primaryPhone ? ('whatsapp:' + primaryPhone) : '';
   const st = window.__waModalState = {
     b,
     bookingId,
     bookings,
     focusedBookingId: bookingId,
     to: primaryPhone,
-    primaryPhone,
-    recipients: primaryPhone ? [primaryPhone] : [],
+    primaryPhone: primaryCanon,
+    recipients: primaryCanon ? [primaryCanon] : [],
     newRecipient: '',
     urlGuiaOverride: '',
     templateVals: {},
@@ -36909,6 +36925,8 @@ window.waOpenModal = async function(booking) {
 /** Render del input de destinatarios como chips + input para agregar. */
 function _waRenderRecipientsInput_() {
   const st = window.__waModalState; if (!st) return '';
+  // Dedup al render (protección extra por si venían duplicados de una carga)
+  st.recipients = waDedupeRecipients_(st.recipients || []);
   const chips = (st.recipients || []).map((n, i) => {
     const nice = waDisplayPhone_(n);
     return `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:#ecfdf5;color:#065f46;border:1px solid #86efac;border-radius:999px;font-size:12px;font-weight:700">${esc(nice)}
@@ -36960,8 +36978,10 @@ function _waHydrateRecipientsFromScheduled() {
  *  del booking — solo los adicionales). Al recargar, se re-fusionan. */
 function _waPersistRecipients() {
   const st = window.__waModalState; if (!st || !st.bookingId) return;
+  // Dedup en memoria antes de persistir (fuente de verdad)
+  st.recipients = waDedupeRecipients_(st.recipients || []);
   const primary = st.primaryPhone || '';
-  const additional = (st.recipients || []).filter(x => x && x !== primary);
+  const additional = st.recipients.filter(x => !waPhonesEqual_(x, primary));
   fetch('https://api.check-inn.mx/wa/config-set', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ bookingId: st.bookingId, recipients: additional }),
@@ -37197,11 +37217,12 @@ window.waSwitchBooking_ = async function(bookingId) {
   const phone = waNormalizePhoneE164_(
     bk.GuestPhone || bk['Cel/Whatsapp (principal)'] || ''
   );
-  st.primaryPhone = phone;
-  // Fusionar con recipients persistidos (si ya está en cache)
+  st.primaryPhone = phone ? ('whatsapp:' + phone) : '';
   const cfg = WA_ADMIN.config[String(bookingId)] || {};
   const extras = Array.isArray(cfg.recipients) ? cfg.recipients : [];
-  st.recipients = phone ? [phone, ...extras.filter(x => x !== phone)] : extras;
+  st.recipients = waDedupeRecipients_(
+    st.primaryPhone ? [st.primaryPhone, ...extras] : extras
+  );
   st.templateVals = {};
   st.expanded = null;
   st.editingBody = {};
@@ -38035,8 +38056,7 @@ async function waFetchConfigForIds(ids) {
         const cfg = WA_ADMIN.config[st.bookingId] || {};
         const extras = Array.isArray(cfg.recipients) ? cfg.recipients : [];
         const primary = st.primaryPhone || '';
-        const merged = primary ? [primary, ...extras.filter(x => x !== primary)] : extras;
-        // Solo actualizar si difiere para no borrar cambios en curso
+        const merged = waDedupeRecipients_(primary ? [primary, ...extras] : extras);
         const cur = (st.recipients || []).join('|');
         const nxt = merged.join('|');
         if (cur !== nxt) { st.recipients = merged; _waRepaint(); }
