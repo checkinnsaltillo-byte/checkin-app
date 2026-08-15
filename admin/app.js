@@ -36922,25 +36922,44 @@ window.waOpenModal = async function(booking) {
   setTimeout(_waRepaint, 1800);
 };
 
-/** Render del input de destinatarios como chips + input para agregar. */
+/** Render de destinatarios en 2 secciones: primario (fijo) y adicionales (agregables). */
 function _waRenderRecipientsInput_() {
   const st = window.__waModalState; if (!st) return '';
-  // Dedup al render (protección extra por si venían duplicados de una carga)
   st.recipients = waDedupeRecipients_(st.recipients || []);
-  const chips = (st.recipients || []).map((n, i) => {
+  const primary = st.primaryPhone || '';
+  const additional = (st.recipients || []).filter(x => !waPhonesEqual_(x, primary));
+
+  const primaryChip = primary
+    ? `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:999px;font-size:12px;font-weight:700">
+        <span style="font-size:10px;opacity:.75">🔒</span> ${esc(waDisplayPhone_(primary))}
+      </span>`
+    : `<span style="font-size:11px;color:#94a3b8;font-style:italic">Sin teléfono en la reserva</span>`;
+
+  const addChips = additional.map((n) => {
     const nice = waDisplayPhone_(n);
+    const originalIdx = (st.recipients || []).findIndex(x => waPhonesEqual_(x, n));
     return `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:#ecfdf5;color:#065f46;border:1px solid #86efac;border-radius:999px;font-size:12px;font-weight:700">${esc(nice)}
-      <button onclick="waRemoveRecipient_(${i})" title="Quitar" style="background:transparent;border:0;color:#065f46;font-size:14px;line-height:1;cursor:pointer;padding:0;font-weight:900">×</button>
+      <button onclick="waRemoveRecipient_(${originalIdx})" title="Quitar" style="background:transparent;border:0;color:#065f46;font-size:14px;line-height:1;cursor:pointer;padding:0;font-weight:900">×</button>
     </span>`;
   }).join('');
+
   return `
-    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;min-height:38px">
-      ${chips}
-      <input type="tel" placeholder="+52 811 234 5678" value="${esc(st.newRecipient || '')}"
-        oninput="__waModalState.newRecipient=this.value"
-        onkeydown="if(event.key==='Enter'){event.preventDefault();waAddRecipient_();}"
-        style="flex:1;min-width:140px;border:0;outline:none;font-size:12px;padding:4px 6px;background:transparent">
-      <button onclick="waAddRecipient_()" title="Agregar número" style="padding:4px 10px;background:#25d366;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">+ Agregar</button>
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.02em">Número del sistema</label>
+      <div style="padding:6px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;min-height:38px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        ${primaryChip}
+      </div>
+    </div>
+    <div>
+      <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.02em">Números adicionales</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;min-height:38px">
+        ${addChips}
+        <input type="tel" placeholder="+52 811 234 5678" value="${esc(st.newRecipient || '')}"
+          oninput="__waModalState.newRecipient=this.value"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();waAddRecipient_();}"
+          style="flex:1;min-width:140px;border:0;outline:none;font-size:12px;padding:4px 6px;background:transparent">
+        <button onclick="waAddRecipient_()" title="Agregar número" style="padding:4px 10px;background:#25d366;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">+ Agregar</button>
+      </div>
     </div>
   `;
 }
@@ -37301,8 +37320,9 @@ function _waRenderUnifiedList_(logs) {
 /** Toggle x/palomita:
  *  - Auto OFF               → gris, no clickeable
  *  - Auto ON + fecha pasada → gris ensombrecido (no elegible retroactivo)
- *  - Auto ON + eligible + activo  → verde ✓ (click omite)
- *  - Auto ON + eligible + omitido → rojo ✕ (click reactiva) */
+ *  - Auto ON + eligible + activo  → negro ✓ (click omite) — mensaje programado
+ *  - Auto ON + eligible + omitido → rojo ✕ (click reactiva)
+ *  - Ya enviado (indicador, no toggle) → verde ✓ — se maneja fuera de esta función */
 function _waMsgToggleHtml(kind, id, active, autoGlobal, eligible) {
   const clickable = autoGlobal && eligible;
   let bg, label, title, cursor = 'not-allowed', opacity = 0.45;
@@ -37313,7 +37333,8 @@ function _waMsgToggleHtml(kind, id, active, autoGlobal, eligible) {
     bg = '#e5e7eb'; label = '⏱';
     title = 'La fecha programada ya pasó — no puede enviarse';
   } else {
-    bg = active ? '#16a34a' : '#dc2626';
+    // Programado activo = NEGRO; omitido = ROJO
+    bg = active ? '#0f172a' : '#dc2626';
     label = active ? '✓' : '✕';
     title = active ? 'Programado — click para omitir' : 'Omitido — click para reactivar';
     cursor = 'pointer';
@@ -37384,7 +37405,7 @@ function _waRenderTemplateItem_(it, auto) {
       <div style="font-size:10px;font-weight:700;color:#64748b;padding:0 2px 4px 34px">${timeLine}</div>
       <div style="display:flex;gap:10px;align-items:stretch">
         <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;width:24px">
-          ${canToggle ? _waMsgToggleHtml('template', tpl.id, isActive, auto, eligible) : (isSent ? `<div title="Enviado" style="width:22px;height:22px;border-radius:50%;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✓</div>` : `<div style="width:22px;height:22px"></div>`)}
+          ${canToggle ? _waMsgToggleHtml('template', tpl.id, isActive, auto, eligible) : (isSent ? `<div title="Enviado" style="width:22px;height:22px;border-radius:50%;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✓</div>` : `<div style="width:22px;height:22px"></div>`)}
           <div style="flex:1;width:2px;background:#e5e7eb;min-height:14px"></div>
         </div>
         <div style="flex:1;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;overflow:hidden">
@@ -37454,7 +37475,7 @@ function _waRenderCustomItem_(it, auto) {
       <div style="font-size:10px;font-weight:700;color:#64748b;padding:0 2px 4px 34px">${timeLine}</div>
       <div style="display:flex;gap:10px;align-items:stretch">
         <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;width:24px">
-          ${canToggle ? _waMsgToggleHtml('custom', cs.id, isActive, auto, eligible) : (isSent ? `<div title="Enviado" style="width:22px;height:22px;border-radius:50%;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✓</div>` : (isFailed ? `<div title="Falló" style="width:22px;height:22px;border-radius:50%;background:#dc2626;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✗</div>` : `<div style="width:22px;height:22px"></div>`))}
+          ${canToggle ? _waMsgToggleHtml('custom', cs.id, isActive, auto, eligible) : (isSent ? `<div title="Enviado" style="width:22px;height:22px;border-radius:50%;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✓</div>` : (isFailed ? `<div title="Falló" style="width:22px;height:22px;border-radius:50%;background:#dc2626;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✗</div>` : `<div style="width:22px;height:22px"></div>`))}
           <div style="flex:1;width:2px;background:#e5e7eb;min-height:14px"></div>
         </div>
         <div style="flex:1;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;overflow:hidden">
