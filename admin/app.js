@@ -38829,14 +38829,13 @@ function cfgCreateTemplate() {
 
 function cfgUpdateDraft(field, value) {
   if (!CFG_ADMIN.draft) return;
-  const wasDirty = CFG_ADMIN.dirty;
   CFG_ADMIN.draft[field] = value;
   CFG_ADMIN.dirty = true;
   if (field === 'schedule_type' || field === 'schedule_time' || field === 'schedule_event' || field === 'schedule_offset') cfgRenderRight();
   if (field === 'enabled') cfgRenderEditor();
   if (field === 'nombre' || field === 'enabled' || field === 'schedule_type' || field === 'schedule_event' || field === 'schedule_offset' || field === 'schedule_time') cfgRenderList();
-  // Al primer cambio (dirty transition), actualizar botón + chip.
-  if (!wasDirty) _cfgUpdateSaveButton();
+  // Actualizar botón Guardar cambios en cada edición (idempotente).
+  _cfgUpdateSaveButton();
 }
 
 // Actualiza en sitio el botón Guardar del footer sin re-renderizar el editor
@@ -38863,6 +38862,7 @@ function cfgToggleAloj(id) {
   CFG_ADMIN.dirty = true;
   cfgRenderRight();
   cfgRenderList();
+  _cfgUpdateSaveButton();
 }
 
 function cfgToggleAllAloj(selectAll) {
@@ -38876,6 +38876,7 @@ function cfgToggleAllAloj(selectAll) {
   CFG_ADMIN.dirty = true;
   cfgRenderRight();
   cfgRenderList();
+  _cfgUpdateSaveButton();
 }
 
 async function cfgSaveDraft() {
