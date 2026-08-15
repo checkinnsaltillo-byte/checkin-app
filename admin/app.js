@@ -36989,17 +36989,28 @@ function _waRenderUnifiedList_(logs) {
   return html + createBtn;
 }
 
-/** Toggle x/palomita: click cambia estado. Ensombrecido si Auto OFF. */
-function _waMsgToggleHtml(kind, id, active, autoGlobal) {
-  const enabled = autoGlobal;
-  const bg = !enabled ? '#e5e7eb' : (active ? '#16a34a' : '#dc2626');
-  const label = active ? '✓' : '✕';
-  const title = !enabled
-    ? 'Activa "Auto" arriba para poder controlar este envío'
-    : (active ? 'Programado — click para omitir' : 'Omitido — click para reactivar');
-  const cursor = enabled ? 'pointer' : 'not-allowed';
-  const opacity = enabled ? 1 : 0.5;
-  const onclick = enabled ? `waMsgToggle_('${kind}','${id}', ${!active})` : '';
+/** Toggle x/palomita:
+ *  - Auto OFF               → gris, no clickeable
+ *  - Auto ON + fecha pasada → gris ensombrecido (no elegible retroactivo)
+ *  - Auto ON + eligible + activo  → verde ✓ (click omite)
+ *  - Auto ON + eligible + omitido → rojo ✕ (click reactiva) */
+function _waMsgToggleHtml(kind, id, active, autoGlobal, eligible) {
+  const clickable = autoGlobal && eligible;
+  let bg, label, title, cursor = 'not-allowed', opacity = 0.45;
+  if (!autoGlobal) {
+    bg = '#e5e7eb'; label = active ? '✓' : '✕';
+    title = 'Activa "Auto" arriba para controlar este envío';
+  } else if (!eligible) {
+    bg = '#e5e7eb'; label = '⏱';
+    title = 'La fecha programada ya pasó — no puede enviarse';
+  } else {
+    bg = active ? '#16a34a' : '#dc2626';
+    label = active ? '✓' : '✕';
+    title = active ? 'Programado — click para omitir' : 'Omitido — click para reactivar';
+    cursor = 'pointer';
+    opacity = 1;
+  }
+  const onclick = clickable ? `waMsgToggle_('${kind}','${id}', ${!active})` : '';
   return `<button type="button" title="${esc(title)}" ${onclick ? `onclick="${onclick}"` : 'disabled'}
     style="width:22px;height:22px;border-radius:50%;background:${bg};color:#fff;border:0;font-size:11px;font-weight:900;cursor:${cursor};opacity:${opacity};display:flex;align-items:center;justify-content:center;padding:0;margin-top:6px">${label}</button>`;
 }
@@ -37009,13 +37020,17 @@ function _waRenderTemplateItem_(it, auto) {
   const tpl = it.tpl;
   const isSent = !!it.sent;
   const isActive = !it.disabled;
-  const icon = isSent ? '✓' : '🕐';
+  const now = Date.now();
+  const eligible = !!(it.schDate && it.schDate.getTime() > now);
+  const icon = isSent ? '✓' : (eligible ? '🕐' : '⏱');
   const iconBg = isSent ? '#0f172a' : '#e5e7eb';
   const iconColor = isSent ? '#fff' : '#6b7280';
   const timeLine = isSent
     ? `<span style="color:#64748b">Enviado el ${esc(_waFmtDateTimeEs(it.sent.timestamp))}</span>`
     : (it.schDate
-      ? `<span style="color:${isActive?'#16a34a':'#94a3b8'};font-weight:700">Se envía el ${esc(_waFmtWhen(it.schDate))}${!isActive?' (omitido)':''}</span>`
+      ? (!eligible
+          ? `<span style="color:#94a3b8;font-style:italic">Fecha pasada (${esc(_waFmtWhen(it.schDate))})</span>`
+          : `<span style="color:${(auto && isActive)?'#16a34a':'#94a3b8'};font-weight:700">Se envía el ${esc(_waFmtWhen(it.schDate))}${(auto && !isActive)?' (omitido)':(!auto?' (Auto OFF)':'')}</span>`)
       : `<span style="color:#94a3b8;font-style:italic">Envío al confirmar reserva</span>`);
   const expanded = st.expanded === tpl.id;
   const vals = st.templateVals[tpl.id] || {};
@@ -37059,7 +37074,7 @@ function _waRenderTemplateItem_(it, auto) {
     <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:2px">
       <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:12px;gap:2px">
         <div style="width:26px;height:26px;border-radius:50%;background:${iconBg};color:${iconColor};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">${icon}</div>
-        ${canToggle ? _waMsgToggleHtml('template', tpl.id, isActive, auto) : ''}
+        ${canToggle ? _waMsgToggleHtml('template', tpl.id, isActive, auto, eligible) : ''}
         <div style="flex:1;width:2px;background:#e5e7eb;margin-top:4px;min-height:14px"></div>
       </div>
       <div style="flex:1;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;overflow:hidden">
@@ -37084,21 +37099,25 @@ function _waRenderCustomItem_(it, auto) {
   const isFailed = cs.status === 'failed';
   const isOmitted = cs.status === 'omitted';
   const isActive = !isOmitted && !isSent && !isFailed;
-  const icon = isSent ? '✓' : (isFailed ? '✗' : (isOmitted ? '⊘' : '🕐'));
+  const now = Date.now();
+  const schMs = cs.scheduled_at ? new Date(cs.scheduled_at).getTime() : 0;
+  const eligible = !!(schMs && schMs > now);
+  const icon = isSent ? '✓' : (isFailed ? '✗' : (isOmitted ? '⊘' : (eligible ? '🕐' : '⏱')));
   const iconBg = isSent ? '#0f172a' : (isFailed ? '#dc2626' : (isOmitted ? '#94a3b8' : '#e5e7eb'));
   const iconColor = (isSent || isFailed || isOmitted) ? '#fff' : '#6b7280';
   const timeLine = isSent
     ? `<span style="color:#64748b">Enviado el ${esc(_waFmtDateTimeEs(cs.sent_at))}</span>`
     : (isOmitted ? `<span style="color:#94a3b8">Omitido (programado para ${esc(_waFmtDateTimeEs(cs.scheduled_at))})</span>`
     : (isFailed ? `<span style="color:#dc2626">Falló · programado ${esc(_waFmtDateTimeEs(cs.scheduled_at))}</span>`
-    : `<span style="color:#16a34a;font-weight:700">Se envía el ${esc(_waFmtDateTimeEs(cs.scheduled_at))}</span>`));
-  const canToggle = !isSent && !isFailed;
+    : (!eligible ? `<span style="color:#94a3b8;font-style:italic">Fecha pasada (${esc(_waFmtDateTimeEs(cs.scheduled_at))})</span>`
+    : `<span style="color:${auto?'#16a34a':'#94a3b8'};font-weight:700">Se envía el ${esc(_waFmtDateTimeEs(cs.scheduled_at))}${!auto?' (Auto OFF)':''}</span>`)));
+  const canToggle = !isSent && !isFailed && !isOmitted;
 
   return `
     <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:2px">
       <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:12px;gap:2px">
         <div style="width:26px;height:26px;border-radius:50%;background:${iconBg};color:${iconColor};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">${icon}</div>
-        ${canToggle ? _waMsgToggleHtml('custom', cs.id, isActive, auto) : ''}
+        ${canToggle ? _waMsgToggleHtml('custom', cs.id, isActive, auto, eligible) : ''}
         <div style="flex:1;width:2px;background:#e5e7eb;margin-top:4px;min-height:14px"></div>
       </div>
       <div style="flex:1;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;overflow:hidden">
@@ -37564,6 +37583,11 @@ window.waToggleAuto = async function(bookingId, evt) {
   // Optimistic update
   WA_ADMIN.config[id] = { ...(WA_ADMIN.config[id]||{}), auto_enabled: nueva };
   document.querySelectorAll(`[data-wa-auto-toggle="${id}"]`).forEach(el => waPaintToggle_(el));
+  // Si el modal está abierto para esta reserva, repintarlo (los toggles
+  // individuales dependen del estado Auto).
+  if (window.__waModalState && String(window.__waModalState.bookingId) === id && typeof _waRepaint === 'function') {
+    _waRepaint();
+  }
   try {
     const r = await fetch('https://api.check-inn.mx/wa/config-set', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -37575,6 +37599,9 @@ window.waToggleAuto = async function(bookingId, evt) {
     // Revierte optimistic si falla
     WA_ADMIN.config[id] = { ...(WA_ADMIN.config[id]||{}), auto_enabled: cur };
     document.querySelectorAll(`[data-wa-auto-toggle="${id}"]`).forEach(el => waPaintToggle_(el));
+    if (window.__waModalState && String(window.__waModalState.bookingId) === id && typeof _waRepaint === 'function') {
+      _waRepaint();
+    }
     alert('No se pudo guardar el toggle: ' + e.message);
   }
 };
