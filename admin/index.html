@@ -217,6 +217,10 @@
             onclick="switchModule('guias');closeNavMenu()">
           📖 Guías de Bienvenida
         </li>
+        <li class="nav-item" id="nav-item-config-admin"
+            onclick="switchModule('config-admin');closeNavMenu()">
+          ⚙️ Configuración Admin
+        </li>
       </ul>
       <div style="margin-top:auto;padding:16px;border-top:1px solid var(--border,#e5e7eb);display:flex;flex-direction:column;gap:10px;align-items:stretch">
         <button id="btn-dark-mode" onclick="toggleDarkMode()" title="Alternar tema claro/oscuro"
@@ -2306,6 +2310,25 @@
       </div>
     </div><!-- /module-inventarios -->
 
+    <!-- ═══════════════ MÓDULO CONFIGURACIÓN ADMIN ═══════════════ -->
+    <div id="module-config-admin" class="hidden" style="padding:20px 24px 60px">
+      <div style="max-width:1600px;margin:0 auto">
+        <div class="rh-hero">
+          <div>
+            <div class="rh-hero-kicker">Configuración</div>
+            <h1 class="rh-hero-title">⚙️ Configuración Admin</h1>
+            <p class="rh-hero-sub">Ajustes globales del sistema: plantillas, automatizaciones y más.</p>
+          </div>
+        </div>
+        <div class="rh-tabs" style="margin-bottom:14px">
+          <button type="button" class="rh-tab active" data-cfg-tab="templates" onclick="cfgSetTab('templates')">💬 Templates de mensajes programados</button>
+        </div>
+        <div id="cfg-view" class="rh-view">
+          <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
+        </div>
+      </div>
+    </div><!-- /module-config-admin -->
+
     <!-- Detail modal for Bancos drilldown -->
     <div id="bn-modal-overlay" class="bn-modal-overlay hidden" onclick="bn_closeDetail()">
       <div class="bn-modal" onclick="event.stopPropagation()">
@@ -2458,6 +2481,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=761"></script>
+  <script src="app.js?v=762"></script>
 </body>
 </html>

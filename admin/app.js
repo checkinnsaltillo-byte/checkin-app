@@ -8649,7 +8649,7 @@ function switchModule(mod) {
   if (mod === 'ocupacion') mod = 'dashboard';
   // Aliases: 'dashboard' y 'calendario' comparten el contenedor module-ocupacion
   const containerMod = (mod === 'dashboard' || mod === 'calendario') ? 'ocupacion' : mod;
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -8757,6 +8757,9 @@ function switchModule(mod) {
   }
   if (mod === "inventarios") {
     if (typeof invInit === 'function') invInit();
+  }
+  if (mod === "config-admin") {
+    if (typeof cfgAdminInit === 'function') cfgAdminInit();
   }
 }
 
@@ -38183,4 +38186,370 @@ window.waPreloadConfigForVisibleCards = function() {
     obs.observe(document.body, { childList: true, subtree: true });
   } catch(_){ /* ignore */ }
 })();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ MÓDULO Configuración Admin — Templates de mensajes programados         ║
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CFG_ADMIN = {
+  tab: 'templates',
+  loaded: false,
+  loading: false,
+  templates: [],
+  alojamientos: [],
+  selectedId: null,
+  dirty: false,
+  draft: null,
+};
+
+const CFG_SCHEDULE_OPTS = [
+  { key: 'never', label: 'No programar', hint: 'No se enviará automáticamente' },
+  { key: 'on_booking_5min', label: '5 minutos después de que un viajero reserve', hint: 'Se dispara al recibir la reservación' },
+  { key: 'before_arrival', label: '1 día antes de la llegada, a las 10:00 a.m.', hint: 'Recordatorio previo al check-in' },
+  { key: 'before_checkout', label: '1 día antes de la salida, a las 6:00 p.m.', hint: 'Recordatorio previo al check-out' },
+  { key: 'custom_arrival', label: 'Hora personalizada · Día de la llegada', hint: 'Elige la hora exacta' },
+  { key: 'custom_checkout', label: 'Hora personalizada · Día de la salida', hint: 'Elige la hora exacta' },
+];
+
+function cfgSetTab(tab) {
+  CFG_ADMIN.tab = tab;
+  document.querySelectorAll('[data-cfg-tab]').forEach(el => {
+    el.classList.toggle('active', el.getAttribute('data-cfg-tab') === tab);
+  });
+  cfgAdminRender();
+}
+
+async function cfgAdminInit() {
+  if (CFG_ADMIN.loaded || CFG_ADMIN.loading) { cfgAdminRender(); return; }
+  CFG_ADMIN.loading = true;
+  cfgAdminRender();
+  try {
+    const [tplRes, alojRes] = await Promise.all([
+      fetch(`${BACKEND}/wa/templates-list`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json()),
+      fetch('https://api.check-inn.mx/alojamientos-list').then(r => r.json()).catch(() => ({ rows: [] })),
+    ]);
+    CFG_ADMIN.templates = (tplRes && tplRes.items) || [];
+    CFG_ADMIN.alojamientos = (alojRes && alojRes.rows) || [];
+    CFG_ADMIN.loaded = true;
+  } catch (e) {
+    console.warn('[cfg] init falló:', e.message);
+  } finally {
+    CFG_ADMIN.loading = false;
+    if (!CFG_ADMIN.selectedId && CFG_ADMIN.templates.length) {
+      cfgSelectTemplate(CFG_ADMIN.templates[0].id);
+    } else {
+      cfgAdminRender();
+    }
+  }
+}
+
+function cfgAdminRender() {
+  const host = document.getElementById('cfg-view');
+  if (!host) return;
+  if (CFG_ADMIN.loading && !CFG_ADMIN.loaded) {
+    host.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando templates y alojamientos…</div>`;
+    return;
+  }
+  host.innerHTML = `
+    <div style="display:grid;grid-template-columns:280px 1fr 340px;gap:14px;min-height:calc(100vh - 260px)">
+      <div id="cfg-col-list" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;overflow:hidden"></div>
+      <div id="cfg-col-editor" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;overflow:hidden"></div>
+      <div id="cfg-col-right" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;overflow:hidden"></div>
+    </div>
+  `;
+  cfgRenderList();
+  cfgRenderEditor();
+  cfgRenderRight();
+}
+
+function cfgRenderList() {
+  const col = document.getElementById('cfg-col-list');
+  if (!col) return;
+  const items = CFG_ADMIN.templates.slice().sort((a,b) => (a.nombre||'').localeCompare(b.nombre||''));
+  const rows = items.map(t => {
+    const active = t.id === CFG_ADMIN.selectedId;
+    const bg = active ? '#eff6ff' : '#fff';
+    const bd = active ? '3px solid #3b82f6' : '3px solid transparent';
+    const enabledDot = t.enabled
+      ? `<span style="width:8px;height:8px;background:#16a34a;border-radius:999px;display:inline-block" title="Habilitado"></span>`
+      : `<span style="width:8px;height:8px;background:#cbd5e1;border-radius:999px;display:inline-block" title="Deshabilitado"></span>`;
+    const schLabel = _cfgScheduleShortLabel(t.schedule_type, t.schedule_time);
+    const alojCount = _cfgAlojCsvCount(t.alojamientos);
+    return `
+      <div onclick="cfgSelectTemplate('${_cfgEsc(t.id)}')" style="padding:12px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;background:${bg};border-left:${bd}">
+        <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:#0f172a;font-size:14px">
+          ${enabledDot}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_cfgEsc(t.nombre) || '<em style="color:#94a3b8">Sin nombre</em>'}</span>
+        </div>
+        <div style="margin-top:4px;font-size:11px;color:#64748b">
+          ${_cfgEsc(schLabel)} · ${alojCount === 0 ? 'todos' : alojCount + ' alojamiento(s)'}
+        </div>
+      </div>
+    `;
+  }).join('');
+  col.innerHTML = `
+    <div style="flex:none;padding:12px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:800;color:#0f172a;font-size:14px">Templates (${items.length})</div>
+      <button type="button" onclick="cfgCreateTemplate()" style="all:unset;cursor:pointer;background:#0f172a;color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">+ Nuevo</button>
+    </div>
+    <div style="flex:1;overflow-y:auto">
+      ${rows || `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Aún no hay templates. Click "+ Nuevo" para crear el primero.</div>`}
+    </div>
+  `;
+}
+
+function cfgRenderEditor() {
+  const col = document.getElementById('cfg-col-editor');
+  if (!col) return;
+  const d = CFG_ADMIN.draft;
+  if (!d) {
+    col.innerHTML = `<div style="padding:60px 24px;text-align:center;color:#94a3b8;font-size:13px">Selecciona un template de la izquierda, o click "+ Nuevo" para crear uno.</div>`;
+    return;
+  }
+  col.innerHTML = `
+    <div style="flex:none;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="font-weight:800;color:#0f172a;font-size:14px">Edita la plantilla</div>
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="cfgSaveDraft()" style="all:unset;cursor:pointer;background:#16a34a;color:#fff;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:700">💾 Guardar</button>
+        ${d._id ? `<button type="button" onclick="cfgDeleteDraft()" style="all:unset;cursor:pointer;background:#fff;color:#b91c1c;border:1px solid #fecaca;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">🗑 Eliminar</button>` : ''}
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:18px 20px">
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Nombre</label>
+      <input type="text" id="cfg-in-nombre" value="${_cfgEscAttr(d.nombre)}" placeholder="Ej: Bienvenida al llegar"
+        oninput="cfgUpdateDraft('nombre', this.value)"
+        style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:14px">
+
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Asunto (opcional)</label>
+      <input type="text" id="cfg-in-asunto" value="${_cfgEscAttr(d.asunto)}" placeholder="Ej: Bienvenida"
+        oninput="cfgUpdateDraft('asunto', this.value)"
+        style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:14px">
+
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Mensaje</label>
+      <textarea id="cfg-in-body" placeholder="Hola {{1}}, te esperamos hoy en {{2}}..."
+        oninput="cfgUpdateDraft('body', this.value)"
+        style="width:100%;min-height:280px;padding:11px 13px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box;font-family:inherit;resize:vertical;line-height:1.5">${_cfgEsc(d.body)}</textarea>
+
+      <div style="margin-top:8px;font-size:11px;color:#64748b;line-height:1.5">
+        Placeholders disponibles: <code>{{nombre}}</code>, <code>{{alojamiento}}</code>, <code>{{fecha_llegada}}</code>, <code>{{fecha_salida}}</code>, <code>{{url_guia}}</code>
+      </div>
+
+      <div style="margin-top:16px;display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+        <span onclick="cfgUpdateDraft('enabled', !${d.enabled ? 'true' : 'false'})" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${d.enabled ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${d.enabled ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px">${d.enabled ? '✓' : ''}</span>
+        <span style="font-size:13px;color:#0f172a;font-weight:600;cursor:pointer" onclick="cfgUpdateDraft('enabled', !${d.enabled ? 'true' : 'false'})">Template habilitado</span>
+      </div>
+    </div>
+  `;
+}
+
+function cfgRenderRight() {
+  const col = document.getElementById('cfg-col-right');
+  if (!col) return;
+  const d = CFG_ADMIN.draft;
+  if (!d) {
+    col.innerHTML = '';
+    return;
+  }
+  const selectedAloj = new Set(_cfgSplitCsv(d.alojamientos));
+  const alojList = (CFG_ADMIN.alojamientos || []).slice().sort((a,b) => {
+    const na = `${a.Propiedad||''} ${a['# Departamento']||''}`.toLowerCase();
+    const nb = `${b.Propiedad||''} ${b['# Departamento']||''}`.toLowerCase();
+    return na.localeCompare(nb);
+  });
+  const allSelected = alojList.length && alojList.every(a => selectedAloj.has(String(a.HouseId||'').trim()));
+  const noneSelected = selectedAloj.size === 0;
+  const alojRows = alojList.map(a => {
+    const id = String(a.HouseId||'').trim();
+    const label = `${a.Propiedad||''} ${a['# Departamento'] ? '#' + a['# Departamento'] : ''}`.trim() || `Alojamiento ${id}`;
+    const on = selectedAloj.has(id);
+    return `
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12px;cursor:pointer;border-radius:6px" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+        <span onclick="event.stopPropagation();cfgToggleAloj('${_cfgEsc(id)}')" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:2px solid ${on ? '#3b82f6' : '#94a3b8'};border-radius:4px;background:${on ? '#3b82f6' : '#fff'};color:#fff;font-weight:900;font-size:10px;flex:none">${on ? '✓' : ''}</span>
+        <span onclick="cfgToggleAloj('${_cfgEsc(id)}')" style="color:#0f172a;flex:1">${_cfgEsc(label)}</span>
+      </label>
+    `;
+  }).join('');
+
+  const schRows = CFG_SCHEDULE_OPTS.map(opt => {
+    const on = d.schedule_type === opt.key;
+    const showTime = on && (opt.key === 'custom_arrival' || opt.key === 'custom_checkout');
+    return `
+      <div onclick="cfgUpdateDraft('schedule_type', '${opt.key}')" style="padding:10px 12px;border:1px solid ${on ? '#0f172a' : '#e2e8f0'};border-radius:8px;margin-bottom:8px;cursor:pointer;background:${on ? '#f8fafc' : '#fff'}">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:2px solid ${on ? '#0f172a' : '#94a3b8'};border-radius:999px;background:${on ? '#0f172a' : '#fff'};flex:none">${on ? '<span style="width:6px;height:6px;background:#fff;border-radius:999px"></span>' : ''}</span>
+          <span style="font-size:13px;font-weight:600;color:#0f172a">${_cfgEsc(opt.label)}</span>
+        </div>
+        ${showTime ? `
+          <div style="margin-top:10px;padding-left:26px;display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
+            <label style="font-size:11px;color:#64748b">Hora:</label>
+            <input type="time" value="${_cfgEscAttr(d.schedule_time || '09:00')}" oninput="cfgUpdateDraft('schedule_time', this.value)"
+              style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+
+  col.innerHTML = `
+    <div style="flex:none;padding:12px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc">
+      <div style="font-weight:800;color:#0f172a;font-size:14px">Selecciona los alojamientos</div>
+      <div style="font-size:11px;color:#64748b;margin-top:2px">${noneSelected ? 'Sin selección → aplica a todos' : (allSelected ? 'Todos seleccionados' : `${selectedAloj.size} seleccionado(s)`)}</div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button type="button" onclick="cfgToggleAllAloj(true)" style="all:unset;cursor:pointer;background:#e2e8f0;color:#0f172a;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">Todos</button>
+        <button type="button" onclick="cfgToggleAllAloj(false)" style="all:unset;cursor:pointer;background:#fff;color:#0f172a;border:1px solid #cbd5e1;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700">Ninguno</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:8px 6px;max-height:340px">
+      ${alojRows || `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin alojamientos en el catálogo</div>`}
+    </div>
+    <div style="flex:none;padding:12px 14px;border-top:1px solid #e2e8f0;background:#f8fafc">
+      <div style="font-weight:800;color:#0f172a;font-size:14px;margin-bottom:8px">Programa un mensaje</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:10px">Se enviará en la zona horaria del alojamiento.</div>
+      ${schRows}
+    </div>
+  `;
+}
+
+function cfgSelectTemplate(id) {
+  const t = CFG_ADMIN.templates.find(x => x.id === id);
+  if (!t) return;
+  CFG_ADMIN.selectedId = id;
+  CFG_ADMIN.draft = {
+    _id: t.id,
+    nombre: t.nombre || '',
+    asunto: t.asunto || '',
+    body: t.body || '',
+    schedule_type: t.schedule_type || 'never',
+    schedule_time: t.schedule_time || '',
+    alojamientos: t.alojamientos || '',
+    enabled: !!t.enabled,
+  };
+  CFG_ADMIN.dirty = false;
+  cfgAdminRender();
+}
+
+function cfgCreateTemplate() {
+  CFG_ADMIN.selectedId = null;
+  CFG_ADMIN.draft = {
+    _id: '',
+    nombre: '',
+    asunto: '',
+    body: '',
+    schedule_type: 'never',
+    schedule_time: '',
+    alojamientos: '',
+    enabled: true,
+  };
+  CFG_ADMIN.dirty = true;
+  cfgAdminRender();
+  setTimeout(() => { try { document.getElementById('cfg-in-nombre')?.focus(); } catch(_) {} }, 50);
+}
+
+function cfgUpdateDraft(field, value) {
+  if (!CFG_ADMIN.draft) return;
+  const prev = CFG_ADMIN.draft[field];
+  CFG_ADMIN.draft[field] = value;
+  CFG_ADMIN.dirty = true;
+  // Solo re-renderizamos las columnas que dependen del valor cambiado;
+  // los inputs de texto (nombre/asunto/body) no deben re-renderizar el editor
+  // porque perderían foco/cursor.
+  if (field === 'schedule_type' || field === 'schedule_time') cfgRenderRight();
+  if (field === 'enabled') cfgRenderEditor();
+  // Actualizar la card en la lista si aplica
+  if (field === 'nombre' || field === 'enabled') cfgRenderList();
+}
+
+function cfgToggleAloj(id) {
+  if (!CFG_ADMIN.draft) return;
+  const set = new Set(_cfgSplitCsv(CFG_ADMIN.draft.alojamientos));
+  if (set.has(id)) set.delete(id); else set.add(id);
+  CFG_ADMIN.draft.alojamientos = Array.from(set).join(',');
+  CFG_ADMIN.dirty = true;
+  cfgRenderRight();
+  cfgRenderList();
+}
+
+function cfgToggleAllAloj(selectAll) {
+  if (!CFG_ADMIN.draft) return;
+  if (!selectAll) {
+    CFG_ADMIN.draft.alojamientos = '';
+  } else {
+    const ids = (CFG_ADMIN.alojamientos || []).map(a => String(a.HouseId||'').trim()).filter(Boolean);
+    CFG_ADMIN.draft.alojamientos = ids.join(',');
+  }
+  CFG_ADMIN.dirty = true;
+  cfgRenderRight();
+  cfgRenderList();
+}
+
+async function cfgSaveDraft() {
+  const d = CFG_ADMIN.draft;
+  if (!d) return;
+  if (!String(d.nombre || '').trim()) {
+    alert('El nombre es requerido');
+    return;
+  }
+  try {
+    const res = await fetch(`${BACKEND}/wa/templates-upsert`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        id: d._id || '',
+        nombre: d.nombre,
+        asunto: d.asunto,
+        body: d.body,
+        schedule_type: d.schedule_type,
+        schedule_time: d.schedule_time,
+        alojamientos: d.alojamientos,
+        enabled: !!d.enabled,
+      }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    // Refresh lista
+    const listRes = await fetch(`${BACKEND}/wa/templates-list`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json());
+    CFG_ADMIN.templates = (listRes && listRes.items) || [];
+    CFG_ADMIN.selectedId = j.id;
+    const t = CFG_ADMIN.templates.find(x => x.id === j.id);
+    if (t) cfgSelectTemplate(t.id); else cfgAdminRender();
+  } catch (e) {
+    alert('Error al guardar: ' + e.message);
+  }
+}
+
+async function cfgDeleteDraft() {
+  const d = CFG_ADMIN.draft;
+  if (!d || !d._id) return;
+  if (!confirm(`¿Eliminar template "${d.nombre}"?`)) return;
+  try {
+    const res = await fetch(`${BACKEND}/wa/templates-delete`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ id: d._id }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    CFG_ADMIN.templates = CFG_ADMIN.templates.filter(t => t.id !== d._id);
+    CFG_ADMIN.selectedId = null;
+    CFG_ADMIN.draft = null;
+    cfgAdminRender();
+  } catch (e) {
+    alert('Error al eliminar: ' + e.message);
+  }
+}
+
+function _cfgEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c]));
+}
+function _cfgEscAttr(s) { return _cfgEsc(s); }
+function _cfgSplitCsv(s) {
+  return String(s || '').split(',').map(x => x.trim()).filter(Boolean);
+}
+function _cfgAlojCsvCount(s) { return _cfgSplitCsv(s).length; }
+function _cfgScheduleShortLabel(type, time) {
+  const opt = CFG_SCHEDULE_OPTS.find(o => o.key === type);
+  if (!opt) return 'Sin programar';
+  if (type === 'custom_arrival') return `Llegada · ${time || '--:--'}`;
+  if (type === 'custom_checkout') return `Salida · ${time || '--:--'}`;
+  return opt.label;
+}
 
