@@ -36905,6 +36905,7 @@ function _waRenderModal(replace) {
   if (existing) {
     existing.innerHTML = `<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px" onclick="waCloseModal_()">${html}</div>`;
     existing.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999';
+    _waPaintAllToggles();
     return;
   }
   const wrap = document.createElement('div');
@@ -36912,6 +36913,17 @@ function _waRenderModal(replace) {
   wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999';
   wrap.innerHTML = `<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px" onclick="waCloseModal_()">${html}</div>`;
   document.body.appendChild(wrap);
+  _waPaintAllToggles();
+}
+
+/** Pinta todos los toggles Auto del modal según el estado en cache.
+ *  Necesario porque el HTML del toggle nace en gris por default y luego
+ *  waPaintToggle_ lo colorea según auto_enabled. Sin esto, tras repintar
+ *  el modal el toggle luce OFF aunque el estado real sea ON. */
+function _waPaintAllToggles() {
+  try {
+    document.querySelectorAll('#wa-modal [data-wa-auto-toggle]').forEach(el => waPaintToggle_(el));
+  } catch(_) {}
 }
 
 /** Devuelve la fecha programada de un template para esta reserva (Date o null). */
