@@ -38189,10 +38189,27 @@ function _waTemplateAppliesToBooking(tplId, booking) {
   if (!admin.enabled) return false;
   const csv = String(admin.alojamientos || '').trim();
   if (!csv) return true;
-  const houseId = String((booking && (booking.HouseId || booking.house_id || booking.PropertyId || booking.property_id)) || '').trim();
-  if (!houseId) return true;
   const list = csv.split(',').map(s => s.trim()).filter(Boolean);
-  return list.indexOf(houseId) >= 0;
+  // Recolectamos todos los candidatos posibles para el HouseId de la reserva:
+  // (a) campos directos del booking, (b) el HouseId resuelto vía catálogo
+  // alojamientos por Propiedad+Departamento (waFindAlojRow_). Cubrimos payloads
+  // provenientes tanto de la vista Lodgify (b.HouseId) como de Huéspedes
+  // (HouseId puede venir del "ID Lodgify" de la hoja huespedes, que a veces es
+  // el booking-id y no el house-id).
+  const candidatos = new Set();
+  if (booking) {
+    ['HouseId','house_id','PropertyId','property_id','_houseId'].forEach(k => {
+      const v = String(booking[k] || '').trim();
+      if (v) candidatos.add(v);
+    });
+  }
+  try {
+    const row = (typeof waFindAlojRow_ === 'function') ? waFindAlojRow_(booking) : null;
+    if (row && row.HouseId) candidatos.add(String(row.HouseId).trim());
+  } catch(_){}
+  if (!candidatos.size) return true; // sin HouseId resoluble → conservador
+  for (const cand of candidatos) if (list.indexOf(cand) >= 0) return true;
+  return false;
 }
 
 /** Carga config + logs para una lista de bookingIds. Cachea en memoria.
