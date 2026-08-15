@@ -36797,6 +36797,8 @@ window.waOpenModal = async function(booking) {
       date: _waDateLocalIso(new Date()),
       time: '10:00',
       body: '',
+      subject: 'Estacionamiento',
+      subjectCustom: '',
       open: false,
     },
   };
@@ -37158,11 +37160,12 @@ function _waRenderCustomItem_(it, auto) {
       </div>
       <div style="flex:1;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;overflow:hidden">
         <div style="padding:12px 14px">
-          <div style="font-size:13px;font-weight:800;color:#0f172a">MENSAJE PERSONALIZADO <span style="font-size:9px;color:#991b1b;background:#fee2e2;padding:1px 6px;border-radius:999px;margin-left:4px">LIBRE</span></div>
+          <div style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.02em">${esc(cs.asunto || 'Sin asunto')} <span style="font-size:9px;color:#991b1b;background:#fee2e2;padding:1px 6px;border-radius:999px;margin-left:4px;text-transform:none;letter-spacing:0">PERSONALIZADO</span></div>
           <div style="font-size:11px;margin-top:2px">${timeLine}</div>
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
             <button onclick="waToggleExpand_('${expKey}')" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">${expanded?'▲ Ocultar':'▼ Ver detalles'}</button>
             ${!isSent && !isFailed ? `<button onclick="waSchedSendNow_('${cs.id}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">📤 Enviar ahora</button>` : ''}
+            <button onclick="waSchedDelete_('${cs.id}')" style="padding:5px 10px;font-size:11px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">🗑 Eliminar</button>
           </div>
         </div>
         ${details}
@@ -37205,11 +37208,30 @@ window.waSaveCustom_ = async function(id) {
   } catch (e) { alert('❌ ' + e.message); }
 };
 
+const WA_ASUNTOS = [
+  'Estacionamiento','Insumos','Pago','Ticket de auto-facturación',
+  'Reporte técnico','Extensión','Reembolso','Limpieza',
+  'Objetos olvidados','Incidencia','Otro'
+];
+
 function _waRenderNewSchForm_() {
   const st = window.__waModalState;
+  const isOtro = st.newSch.subject === 'Otro';
   return `
     <div style="border:1.5px dashed #fca5a5;border-radius:10px;padding:12px;margin-top:12px;background:#fff5f5">
-      <div style="font-size:11px;font-weight:800;color:#991b1b;margin-bottom:8px">➕ NUEVO MENSAJE PROGRAMADO (LIBRE)</div>
+      <div style="font-size:11px;font-weight:800;color:#991b1b;margin-bottom:8px">➕ NUEVO MENSAJE PROGRAMADO (PERSONALIZADO)</div>
+      <div style="margin-bottom:8px">
+        <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Asunto</label>
+        <select onchange="__waModalState.newSch.subject=this.value; _waRepaint()"
+          style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;background:#fff">
+          ${WA_ASUNTOS.map(a => `<option value="${esc(a)}"${a===st.newSch.subject?' selected':''}>${esc(a)}</option>`).join('')}
+        </select>
+        ${isOtro ? `
+          <input type="text" value="${esc(st.newSch.subjectCustom)}" oninput="__waModalState.newSch.subjectCustom=this.value"
+            placeholder="Escribe el asunto…"
+            style="width:100%;margin-top:6px;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">
+        ` : ''}
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div>
           <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Fecha</label>
@@ -37536,9 +37558,13 @@ window.waSchedOpen_ = function() {
   st.newSch.open = true;
   _waRepaint();
 };
+const _WA_NEW_SCH_DEFAULT = () => ({
+  date: _waDateLocalIso(new Date()), time: '10:00', body: '',
+  subject: 'Estacionamiento', subjectCustom: '', open: false,
+});
 window.waSchedCancel_ = function() {
   const st = window.__waModalState; if (!st) return;
-  st.newSch = { date: _waDateLocalIso(new Date()), time: '10:00', body: '', open: false };
+  st.newSch = _WA_NEW_SCH_DEFAULT();
   _waRepaint();
 };
 window.waSchedCreate_ = async function() {
@@ -37547,21 +37573,40 @@ window.waSchedCreate_ = async function() {
   if (!to) { alert('Teléfono inválido'); return; }
   if (!st.newSch.body.trim()) { alert('Mensaje vacío'); return; }
   if (!st.newSch.date || !st.newSch.time) { alert('Fecha/hora requerida'); return; }
+  const asuntoFinal = st.newSch.subject === 'Otro'
+    ? (st.newSch.subjectCustom || '').trim() || 'Otro'
+    : st.newSch.subject;
   const scheduledAt = new Date(`${st.newSch.date}T${st.newSch.time}:00`).toISOString();
   try {
     const r = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingId: st.bookingId, to, scheduledAt, body: st.newSch.body }),
+      body: JSON.stringify({ bookingId: st.bookingId, to, scheduledAt, body: st.newSch.body, asunto: asuntoFinal }),
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
-    // Añadir a la lista local optimistamente
     st.scheduledItems.push({
       id: j.id, booking_id: st.bookingId, tipo: 'custom', to,
-      scheduled_at: scheduledAt, body: st.newSch.body, status: 'pending',
+      scheduled_at: scheduledAt, body: st.newSch.body, asunto: asuntoFinal, status: 'pending',
     });
-    st.newSch = { date: _waDateLocalIso(new Date()), time: '10:00', body: '', open: false };
+    st.newSch = _WA_NEW_SCH_DEFAULT();
     _waRepaint();
+  } catch (e) { alert('❌ ' + e.message); }
+};
+
+/** Elimina un mensaje personalizado (borra fila del Sheet). */
+window.waSchedDelete_ = async function(id) {
+  if (!confirm('¿Eliminar este mensaje personalizado? Esta acción no se puede deshacer.')) return;
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/scheduled-delete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    const st = window.__waModalState;
+    if (st) {
+      st.scheduledItems = (st.scheduledItems || []).filter(x => x.id !== id);
+      _waRepaint();
+    }
   } catch (e) { alert('❌ ' + e.message); }
 };
 window.waSchedOmit_ = async function(id) {
