@@ -38437,15 +38437,17 @@ function cfgRenderList() {
     const active = t.id === CFG_ADMIN.selectedId;
     const bg = active ? '#eff6ff' : '#fff';
     const bd = active ? '3px solid #3b82f6' : '3px solid transparent';
-    const enabledDot = t.enabled
-      ? `<span style="width:8px;height:8px;background:#16a34a;border-radius:999px;display:inline-block" title="Habilitado"></span>`
-      : `<span style="width:8px;height:8px;background:#cbd5e1;border-radius:999px;display:inline-block" title="Deshabilitado"></span>`;
+    // Checkbox reemplaza al punto: click aquí toggle enabled sin abrir el
+    // template. Cuando disabled, el card entero se ensombrece (opacity + gris).
+    const on = !!t.enabled;
+    const checkboxHtml = `<span onclick="event.stopPropagation();cfgToggleEnabledFromList('${_cfgEsc(t.id)}')" title="${on ? 'Deshabilitar template' : 'Habilitar template'}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${on ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${on ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${on ? '✓' : ''}</span>`;
     const schLabel = _cfgScheduleShortLabel(t.schedule_type, t.schedule_time, t.schedule_event, t.schedule_offset);
     const alojCount = _cfgAlojCsvCount(t.alojamientos);
+    const dimStyle = on ? '' : 'opacity:.55;background:#f1f5f9;filter:grayscale(.35)';
     return `
-      <div onclick="cfgSelectTemplate('${_cfgEsc(t.id)}')" style="padding:12px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;background:${bg};border-left:${bd}">
+      <div onclick="cfgSelectTemplate('${_cfgEsc(t.id)}')" style="padding:12px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;background:${bg};border-left:${bd};${dimStyle}">
         <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:#0f172a;font-size:14px">
-          ${enabledDot}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_cfgEsc(t.nombre) || '<em style="color:#94a3b8">Sin nombre</em>'}</span>
+          ${checkboxHtml}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_cfgEsc(t.nombre) || '<em style="color:#94a3b8">Sin nombre</em>'}</span>
         </div>
         <div style="margin-top:4px;font-size:11px;color:#64748b">
           ${_cfgEsc(schLabel)} · ${alojCount === 0 ? 'todos' : alojCount + ' alojamiento(s)'}
@@ -38492,12 +38494,6 @@ function cfgRenderEditor() {
     </optgroup>
   `).join('');
   col.innerHTML = `
-    <div style="flex:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <label style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer" onclick="cfgUpdateDraft('enabled', !${d.enabled ? 'true' : 'false'})">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${d.enabled ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${d.enabled ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px">${d.enabled ? '✓' : ''}</span>
-          <span style="font-size:12px;color:#0f172a;font-weight:600">Template habilitado</span>
-      </label>
-    </div>
     <div style="flex:1;overflow-y:auto;padding:18px 20px">
       <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Nombre</label>
       <input type="text" id="cfg-in-nombre" value="${_cfgEscAttr(d.nombre)}" placeholder="Ej: Bienvenida al llegar"
@@ -38661,6 +38657,44 @@ function cfgSelectTemplate(id) {
   };
   CFG_ADMIN.dirty = false;
   cfgAdminRender();
+}
+
+// Toggle enabled desde la lista sin abrir el template. Persiste al backend
+// inmediatamente e invalida el cache del modal WA.
+async function cfgToggleEnabledFromList(id) {
+  const t = CFG_ADMIN.templates.find(x => x.id === id);
+  if (!t) return;
+  const nueva = !t.enabled;
+  // Optimistic
+  t.enabled = nueva;
+  if (CFG_ADMIN.draft && CFG_ADMIN.draft._id === id) CFG_ADMIN.draft.enabled = nueva;
+  cfgRenderList();
+  try {
+    const res = await fetch('https://api.check-inn.mx/wa/templates-upsert', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        id: t.id,
+        nombre: t.nombre,
+        asunto: t.asunto,
+        body: t.body,
+        schedule_type: t.schedule_type,
+        schedule_event: t.schedule_event || '',
+        schedule_offset: t.schedule_offset === '' ? '' : t.schedule_offset,
+        schedule_time: t.schedule_time,
+        alojamientos: t.alojamientos,
+        enabled: nueva,
+      }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    if (window.WA_ADMIN) { WA_ADMIN.adminTemplates = null; WA_ADMIN.adminTemplatesLoading = null; }
+  } catch (e) {
+    // Revierte
+    t.enabled = !nueva;
+    if (CFG_ADMIN.draft && CFG_ADMIN.draft._id === id) CFG_ADMIN.draft.enabled = !nueva;
+    cfgRenderList();
+    alert('No se pudo actualizar: ' + e.message);
+  }
 }
 
 function cfgCreateTemplate() {
