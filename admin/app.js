@@ -36803,11 +36803,16 @@ function _waBookingStatus(b) {
   const arr = String((b && (b.DateArrival || b.arrival)) || '').slice(0,10);
   const dep = String((b && (b.DateDeparture || b.departure)) || '').slice(0,10);
   const st = String((b && b.Status) || '').toLowerCase();
-  if (st === 'declined' || st === 'cancelled' || st === 'canceled') return { label: 'CANCELADA', color: '#94a3b8', bg: '#f1f5f9', order: 4 };
-  if (arr && dep && arr <= today && today < dep) return { label: 'ACTIVA', color: '#166534', bg: '#dcfce7', order: 0 };
-  if (arr && arr > today) return { label: 'PRÓXIMA', color: '#1e40af', bg: '#dbeafe', order: 1 };
-  if (dep && dep <= today) return { label: 'CONCLUIDA', color: '#475569', bg: '#f1f5f9', order: 3 };
-  return { label: 'PENDIENTE', color: '#92400e', bg: '#fef3c7', order: 2 };
+  const noAnim = '';
+  const pulseSoft   = 'animation:hu-dot-pulse 1.4s ease-in-out infinite;';
+  const pulseStrong = 'animation:hu-dot-pulse-strong 1s ease-in-out infinite;';
+  if (st === 'declined' || st === 'cancelled' || st === 'canceled') return { label: 'CANCELADA', color: '#94a3b8', bg: '#f1f5f9', order: 4, anim: noAnim };
+  if (arr === today) return { label: 'ENTRADA HOY', color: '#166534', bg: '#dcfce7', order: 0, anim: pulseStrong };
+  if (dep === today) return { label: 'SALIDA HOY', color: '#991b1b', bg: '#fee2e2', order: 0, anim: pulseStrong };
+  if (arr && dep && arr <= today && today < dep) return { label: 'ACTIVA', color: '#166534', bg: '#dcfce7', order: 0, anim: pulseSoft };
+  if (arr && arr > today) return { label: 'PRÓXIMA', color: '#1e40af', bg: '#dbeafe', order: 1, anim: pulseSoft };
+  if (dep && dep <= today) return { label: 'CONCLUIDA', color: '#475569', bg: '#f1f5f9', order: 3, anim: noAnim };
+  return { label: 'PENDIENTE', color: '#92400e', bg: '#fef3c7', order: 2, anim: noAnim };
 }
 
 /** Abre modal WhatsApp para una reservación. */
@@ -36862,15 +36867,16 @@ window.waOpenModal = async function(booking) {
       _waRepaint();
     }
   });
-  // Cargar mensajes programados custom de esta reserva
+  // Cargar mensajes programados custom de esta reserva + hidratar recipients
+  // extraídos de los `to` de mensajes históricos (por si el usuario mandó a
+  // varios números antes y solo persistió el CSV en el mensaje, no en config).
   if (bookingId) {
     fetch('https://api.check-inn.mx/wa/scheduled-list', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookingId }),
     }).then(r => r.json()).then(j => {
-      st.scheduledItems = (j.items || []).filter(x => x.status !== 'omitted' || false);
-      // Mostrar todos (pending, sent, failed) — el usuario decide
       st.scheduledItems = (j.items || []);
+      _waHydrateRecipientsFromScheduled();
       _waRepaint();
     }).catch(()=>{});
   }
@@ -36910,6 +36916,25 @@ function _waRecipientsSummary_(toRaw) {
     ? `📤 A: <b>${esc(list[0])}</b>`
     : `📤 A ${list.length} destinatarios: ${list.map(n => `<b>${esc(n)}</b>`).join(', ')}`;
   return `<div style="font-size:10px;color:#475569;margin-top:2px;line-height:1.4">${label}</div>`;
+}
+
+/** Extrae destinatarios únicos de los mensajes históricos (WA_Scheduled.To)
+ *  y los agrega a st.recipients si no estaban. Los adicionales se persisten. */
+function _waHydrateRecipientsFromScheduled() {
+  const st = window.__waModalState; if (!st) return;
+  const seen = new Set(st.recipients || []);
+  const nuevos = [];
+  for (const cs of (st.scheduledItems || [])) {
+    const list = String(cs.to || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+    for (const r of list) {
+      const canon = r.startsWith('whatsapp:') ? r : ('whatsapp:' + r);
+      if (!seen.has(canon)) { seen.add(canon); nuevos.push(canon); }
+    }
+  }
+  if (nuevos.length) {
+    st.recipients = [...(st.recipients || []), ...nuevos];
+    _waPersistRecipients();
+  }
 }
 
 /** Persiste la lista actual de recipients en WA_Config (sin el teléfono primario
@@ -37085,7 +37110,7 @@ function _waRenderBookingsAccordion_(logs) {
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:10px;color:#94a3b8;font-weight:700">${isOpen?'▼':'▶'}</span>
             <span style="font-size:13px;font-weight:800;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(propLabel)}</span>
-            <span style="font-size:9px;color:${status.color};background:${status.bg};padding:2px 8px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">${status.label}</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;color:${status.color};background:${status.bg};padding:2px 8px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">${status.anim ? `<span style="width:6px;height:6px;border-radius:50%;background:${status.color};${status.anim}"></span>` : ''}${status.label}</span>
           </div>
           ${fechas ? `<div style="font-size:11px;color:#64748b;margin-top:2px;padding-left:16px">${esc(fechas)}</div>` : ''}
         </div>
@@ -37116,14 +37141,24 @@ window.waSwitchBooking_ = async function(bookingId) {
   const st = window.__waModalState; if (!st) return;
   const bk = (st.bookings || []).find(b => String(waBookingId_(b)) === String(bookingId));
   if (!bk) return;
-  // Si ya estaba abierto, colapsar (poner focusedBookingId a nulo hace que ninguno esté abierto)
-  const wasFocused = String(st.focusedBookingId) === String(bookingId);
-  st.focusedBookingId = wasFocused ? '' : String(bookingId);
-  if (wasFocused) { _waRepaint(); return; }
-  // Reset context para la nueva reserva focused
+  const idStr = String(bookingId);
+  const wasFocused = String(st.focusedBookingId) === idStr;
+  if (wasFocused) {
+    // Estaba expandido → colapsar sin recargar nada
+    st.focusedBookingId = '';
+    _waRepaint();
+    return;
+  }
+  // Expandir esta reserva
+  st.focusedBookingId = idStr;
+  // Si es la misma reserva que ya teníamos cargada (b.Id === bookingId),
+  // no recargamos datos — solo repaint. Esto evita el bug donde re-abrir la
+  // misma reserva perdía scheduled/recipients por reset del state.
+  if (String(st.bookingId) === idStr) { _waRepaint(); return; }
+  // Reserva distinta → reset context y recargar
   st.b = bk;
-  st.bookingId = String(bookingId);
-  window.__waCurBookingId = String(bookingId);
+  st.bookingId = idStr;
+  window.__waCurBookingId = idStr;
   const phone = waNormalizePhoneE164_(
     bk.GuestPhone || bk['Cel/Whatsapp (principal)'] || ''
   );
@@ -37146,6 +37181,7 @@ window.waSwitchBooking_ = async function(bookingId) {
     });
     const j = await r.json();
     st.scheduledItems = (j.items || []);
+    _waHydrateRecipientsFromScheduled();
   } catch(_){}
   waEnsureAlojIndex_().then(() => { _waFillTemplateDefaults(); _waRepaint(); });
   _waFillTemplateDefaults();
