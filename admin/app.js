@@ -37356,11 +37356,15 @@ function _waRenderTemplateItem_(it, auto) {
   const iconBg = isSent ? '#0f172a' : '#e5e7eb';
   const iconColor = isSent ? '#fff' : '#6b7280';
   const timeLine = isSent
-    ? `<span style="color:#64748b">Enviado el ${esc(_waFmtDateTimeEs(it.sent.timestamp))}</span>`
+    ? `<span style="color:#16a34a;font-weight:700">Enviado el ${esc(_waFmtDateTimeEs(it.sent.timestamp))}</span>`
     : (it.schDate
       ? (!eligible
           ? `<span style="color:#94a3b8;font-style:italic">Fecha pasada (${esc(_waFmtWhen(it.schDate))})</span>`
-          : `<span style="color:${(auto && isActive)?'#16a34a':'#94a3b8'};font-weight:700">Se envía el ${esc(_waFmtWhen(it.schDate))}${(auto && !isActive)?' (omitido)':(!auto?' (Auto OFF)':'')}</span>`)
+          : (auto && isActive
+              ? `<span style="color:#0f172a;font-weight:700">Se envía el ${esc(_waFmtWhen(it.schDate))}</span>`
+              : (auto && !isActive
+                  ? `<span style="color:#dc2626;font-weight:700">Omitido (${esc(_waFmtWhen(it.schDate))})</span>`
+                  : `<span style="color:#94a3b8;font-weight:700">Se envía el ${esc(_waFmtWhen(it.schDate))} (Auto OFF)</span>`)))
       : `<span style="color:#94a3b8;font-style:italic">Envío al confirmar reserva</span>`);
   const expanded = st.expanded === tpl.id;
   const vals = st.templateVals[tpl.id] || {};
@@ -37438,10 +37442,13 @@ function _waRenderCustomItem_(it, auto) {
   const iconBg = isSent ? '#0f172a' : (isFailed ? '#dc2626' : '#e5e7eb');
   const iconColor = (isSent || isFailed) ? '#fff' : '#6b7280';
   const timeLine = isSent
-    ? `<span style="color:#64748b">Enviado el ${esc(_waFmtDateTimeEs(cs.sent_at))}</span>`
-    : (isFailed ? `<span style="color:#dc2626">Falló · programado ${esc(_waFmtDateTimeEs(cs.scheduled_at))}</span>`
+    ? `<span style="color:#16a34a;font-weight:700">Enviado el ${esc(_waFmtDateTimeEs(cs.sent_at))}</span>`
+    : (isFailed ? `<span style="color:#dc2626;font-weight:700">Falló · programado ${esc(_waFmtDateTimeEs(cs.scheduled_at))}</span>`
+    : (isOmitted ? `<span style="color:#dc2626;font-weight:700">Omitido (${esc(_waFmtDateTimeEs(cs.scheduled_at))})</span>`
     : (!eligible ? `<span style="color:#94a3b8;font-style:italic">Fecha pasada (${esc(_waFmtDateTimeEs(cs.scheduled_at))})</span>`
-    : `<span style="color:${(auto && isActive)?'#16a34a':'#94a3b8'};font-weight:700">Se envía el ${esc(_waFmtDateTimeEs(cs.scheduled_at))}${(auto && !isActive)?' (omitido)':(!auto?' (Auto OFF)':'')}</span>`));
+    : (auto && isActive
+        ? `<span style="color:#0f172a;font-weight:700">Se envía el ${esc(_waFmtDateTimeEs(cs.scheduled_at))}</span>`
+        : `<span style="color:#94a3b8;font-weight:700">Se envía el ${esc(_waFmtDateTimeEs(cs.scheduled_at))} (Auto OFF)</span>`))));
   // Custom items siempre son toggle-able (pending↔omitted) mientras no estén sent/failed
   const canToggle = !isSent && !isFailed;
   const expKey = 'custom:' + cs.id;
