@@ -37080,7 +37080,7 @@ function _waRenderTemplateItem_(it, auto) {
           : `<textarea oninput="waEditBody_('${tpl.id}', this.value)" rows="6" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:8px;box-sizing:border-box;resize:vertical;font-family:inherit;background:#fffbeb">${esc(editedBody)}</textarea>`}
       </div>
       <div style="margin-top:10px;text-align:right">
-        <button onclick="waSendTplNow_('${tpl.id}')" style="padding:8px 14px;background:#25d366;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">📤 Enviar ahora</button>
+        <button onclick="waSendTplNow_('${tpl.id}')" style="padding:8px 14px;background:#25d366;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">${isSent ? '🔄 Re-enviar ahora' : '📤 Enviar ahora'}</button>
       </div>
     </div>
   ` : '';
@@ -37098,7 +37098,7 @@ function _waRenderTemplateItem_(it, auto) {
           <div style="font-size:11px;margin-top:2px">${timeLine}</div>
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
             <button onclick="waToggleTplExpand_('${tpl.id}')" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">${expanded?'▲ Ocultar':'▼ Ver detalles'}</button>
-            ${!isSent ? `<button onclick="waSendTplNow_('${tpl.id}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">📤 Enviar ahora</button>` : ''}
+            <button onclick="waSendTplNow_('${tpl.id}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">${isSent ? '🔄 Re-enviar ahora' : '📤 Enviar ahora'}</button>
           </div>
         </div>
         ${details}
@@ -37110,9 +37110,10 @@ function _waRenderTemplateItem_(it, auto) {
 function _waRenderCustomItem_(it, auto) {
   const st = window.__waModalState;
   const cs = it.cs;
-  const isSent = cs.status === 'sent' || cs.status === 'delivered' || cs.status === 'read';
   const isFailed = cs.status === 'failed';
   const isOmitted = cs.status === 'omitted';
+  // "Sent" cubre queued/sending/sent/delivered/read (todo lo que ya salió a Twilio).
+  const isSent = !!cs.status && ['queued','sending','sent','delivered','read','accepted'].indexOf(String(cs.status).toLowerCase()) >= 0;
   const isActive = !isOmitted && !isSent && !isFailed;
   const now = Date.now();
   const schMs = cs.scheduled_at ? new Date(cs.scheduled_at).getTime() : 0;
@@ -37146,12 +37147,13 @@ function _waRenderCustomItem_(it, auto) {
       ${editedBody == null
         ? `<div style="padding:8px 10px;background:#fff;border-radius:8px;font-size:12px;white-space:pre-wrap;line-height:1.4;color:#334155">${esc(bodyShown)}</div>`
         : `<textarea oninput="waEditCustomBody_('${cs.id}', this.value)" rows="5" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:8px;box-sizing:border-box;resize:vertical;font-family:inherit;background:#fffbeb">${esc(editedBody)}</textarea>`}
-      ${!isSent && !isFailed ? `<div style="margin-top:10px;text-align:right">
-        <button onclick="waSchedSendNow_('${cs.id}')" style="padding:8px 14px;background:#25d366;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">📤 Enviar ahora</button>
+      ${!isOmitted ? `<div style="margin-top:10px;text-align:right">
+        <button onclick="waSchedSendNow_('${cs.id}')" style="padding:8px 14px;background:#25d366;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">${isSent ? '🔄 Re-enviar ahora' : '📤 Enviar ahora'}</button>
       </div>` : ''}
     </div>
   ` : '';
 
+  const sendBtnLabel = isSent ? '🔄 Re-enviar ahora' : (isFailed ? '🔄 Reintentar' : '📤 Enviar ahora');
   return `
     <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:2px">
       <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:12px;gap:2px">
@@ -37165,7 +37167,7 @@ function _waRenderCustomItem_(it, auto) {
           <div style="font-size:11px;margin-top:2px">${timeLine}</div>
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
             <button onclick="waToggleExpand_('${expKey}')" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">${expanded?'▲ Ocultar':'▼ Ver detalles'}</button>
-            ${!isSent && !isFailed ? `<button onclick="waSchedSendNow_('${cs.id}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">📤 Enviar ahora</button>` : ''}
+            ${!isOmitted ? `<button onclick="waSchedSendNow_('${cs.id}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">${sendBtnLabel}</button>` : ''}
             <button onclick="waSchedDelete_('${cs.id}')" style="padding:5px 10px;font-size:11px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">🗑 Eliminar</button>
           </div>
         </div>
