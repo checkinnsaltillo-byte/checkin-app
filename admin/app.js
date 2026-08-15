@@ -15488,7 +15488,7 @@ function lgBuildProfileHeaderHtml(r, palette) {
         const bookingId = String(r['ID'] || r['row_number'] || r['ID Lodgify'] || '').trim();
         const waPayload = {
           Id: bookingId,
-          GuestName: huValueFlexible(r,["Nombre reservación","Nombre"])||"",
+          GuestName: huValueFlexible(r,["Nombre del huésped","Nombre de la persona que hizo la reservación","Nombre completo","Nombre reservación","Nombre"])||"",
           GuestPhone: cel,
           HouseId: huValueFlexible(r,["ID Lodgify","HouseId","Id Lodgify"])||"",
           PropertyName: huValueFlexible(r,["Propiedad"])||"",
