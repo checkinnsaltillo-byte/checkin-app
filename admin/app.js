@@ -15488,7 +15488,11 @@ function lgBuildProfileHeaderHtml(r, palette) {
     <div style="background:rgba(255,255,255,.85);border:1px solid ${palette.border};border-radius:10px;padding:8px 10px;min-width:0">
       <div style="font-size:8px;letter-spacing:.12em;color:#0f766e;font-weight:800;margin-bottom:6px;text-transform:uppercase">📞 Contacto</div>
       ${cel ? (function(){
-        const bookingId = String(r['ID'] || r['row_number'] || r['ID Lodgify'] || '').trim();
+        // Priorizar ID Lodgify — asegura misma llave que la card Lodgify (b.Id)
+        // y que el modal (st.bookingId = waBookingId_(b) === b.Id). Sin esto,
+        // el toggle Auto de la vista Huéspedes y el de la vista Lodgify se
+        // referencian a IDs distintos y quedan desincronizados.
+        const bookingId = String(r['ID Lodgify'] || r['ID'] || r['row_number'] || '').trim();
         const waPayload = {
           Id: bookingId,
           GuestName: huValueFlexible(r,["Nombre del huésped","Nombre de la persona que hizo la reservación","Nombre completo","Nombre reservación","Nombre"])||"",
@@ -38066,7 +38070,13 @@ window.WA_ADMIN = window.WA_ADMIN || { config: {}, logs: {}, loading: new Set() 
  *  Repinta cualquier UI que dependa de estos datos (toggle + modal abierto). */
 async function waFetchConfigForIds(ids) {
   const need = ids.map(String).filter(id => id && !WA_ADMIN.config.hasOwnProperty(id) && !WA_ADMIN.loading.has(id));
-  if (!need.length) return;
+  if (!need.length) {
+    // Todos ya cacheados: repintar toggles que hayan aparecido nuevos en el DOM
+    // (por ej. tras un re-render de cards) — sin esto los toggles quedan grises
+    // aunque el estado real esté ON en cache.
+    document.querySelectorAll('[data-wa-auto-toggle]').forEach(el => waPaintToggle_(el));
+    return;
+  }
   need.forEach(id => WA_ADMIN.loading.add(id));
   try {
     const r = await fetch('https://api.check-inn.mx/wa/config-get', {
