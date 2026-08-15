@@ -15484,7 +15484,28 @@ function lgBuildProfileHeaderHtml(r, palette) {
   const contactoBlock = tieneContacto ? `
     <div style="background:rgba(255,255,255,.85);border:1px solid ${palette.border};border-radius:10px;padding:8px 10px;min-width:0">
       <div style="font-size:8px;letter-spacing:.12em;color:#0f766e;font-weight:800;margin-bottom:6px;text-transform:uppercase">📞 Contacto</div>
-      ${cel ? `<div style="font-size:11px;color:#1f2937;margin-bottom:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:10px">📱</span> <a href="${esc(wa)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#0d9488;font-weight:800;text-decoration:none">${esc(cel)}</a> <button type="button" title="Enviar plantilla/mensaje desde el sistema" onclick='event.stopPropagation(); waOpenModal(${JSON.stringify({GuestName:huValueFlexible(r,["Nombre reservación","Nombre"])||"",GuestPhone:cel,HouseId:huValueFlexible(r,["ID Lodgify","HouseId","Id Lodgify"])||"",PropertyName:huValueFlexible(r,["Propiedad"])||"",RoomTypeName:huValueFlexible(r,["# Departamento","Departamento"])||"",DateArrival:String(huValueFlexible(r,["Fecha de ingreso"])||"").slice(0,10),hu_HoraLlegada:huValueFlexible(r,["Hora estimada de llegada","Hora de llegada"])||"",hu_HoraSalida:huValueFlexible(r,["Hora estimada de salida","Hora de salida"])||""}).replace(/</g,"\\u003c").replace(/'/g,"&#39;")})' style="padding:2px 8px;background:#25d366;color:#fff;border:0;border-radius:999px;font-size:10px;font-weight:800;cursor:pointer;letter-spacing:.02em">💬 Enviar</button></div>` : ''}
+      ${cel ? (function(){
+        const bookingId = String(r['ID'] || r['row_number'] || r['ID Lodgify'] || '').trim();
+        const waPayload = {
+          Id: bookingId,
+          GuestName: huValueFlexible(r,["Nombre reservación","Nombre"])||"",
+          GuestPhone: cel,
+          HouseId: huValueFlexible(r,["ID Lodgify","HouseId","Id Lodgify"])||"",
+          PropertyName: huValueFlexible(r,["Propiedad"])||"",
+          RoomTypeName: huValueFlexible(r,["# Departamento","Departamento"])||"",
+          DateArrival: String(huValueFlexible(r,["Fecha de ingreso"])||"").slice(0,10),
+          DateDeparture: String(huValueFlexible(r,["Fecha de salida"])||"").slice(0,10),
+          hu_HoraLlegada: huValueFlexible(r,["Hora estimada de llegada","Hora de llegada"])||"",
+          hu_HoraSalida: huValueFlexible(r,["Hora estimada de salida","Hora de salida"])||"",
+        };
+        const jsonSafe = JSON.stringify(waPayload).replace(/</g,"\\u003c").replace(/'/g,"&#39;");
+        return `<div style="font-size:11px;color:#1f2937;margin-bottom:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:10px">📱</span>
+          <a href="${esc(wa)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#0d9488;font-weight:800;text-decoration:none">${esc(cel)}</a>
+          <button type="button" title="Enviar plantilla/mensaje desde el sistema" onclick='event.stopPropagation(); waOpenModal(${jsonSafe})' style="padding:2px 8px;background:#25d366;color:#fff;border:0;border-radius:999px;font-size:10px;font-weight:800;cursor:pointer;letter-spacing:.02em">💬 Enviar</button>
+          ${bookingId ? waAutoToggleHtml(bookingId) : ''}
+        </div>`;
+      })() : ''}
       ${correoP ? `<div style="font-size:10px;word-break:break-all;margin-bottom:3px"><a href="mailto:${esc(correoP)}" onclick="event.stopPropagation()" style="color:#0d9488;font-weight:700;text-decoration:none">📧 ${esc(correoP)}</a></div>` : ''}
       ${celEmer ? `<div style="font-size:10px;color:#7f1d1d;margin-top:4px;padding-top:4px;border-top:1px dashed #fecaca">🚨 <a href="${esc(waEm)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#b91c1c;font-weight:700;text-decoration:none">${esc(celEmer)}</a></div>` : ''}
     </div>` : '';
@@ -36556,19 +36577,56 @@ const WA_TEMPLATES = [
 ];
 
 function waFirstName_(b) {
-  const full = String((b && (b.GuestName || b.Nombre || b.nombre_reservacion)) || '').trim();
+  const cand = b && (
+    b.GuestName || b.guest_name || b.Nombre || b.nombre ||
+    b.nombre_reservacion || b['Nombre reservación'] || b['Nombre completo'] ||
+    b['Nombre reservacion'] || b['Nombre'] || b['Name']
+  );
+  const full = String(cand || '').trim();
   return full.split(/\s+/)[0] || 'Huésped';
 }
 function waAlojamientoLabel_(b) {
   if (!b) return 'tu alojamiento';
-  const p = String(b.PropertyName || b._propiedad || b.Propiedad || '').trim();
-  const d = String(b.RoomTypeName || b._departamento || b['# Departamento'] || '').trim();
+  const p = String(
+    b.PropertyName || b.property_name || b._propiedad || b.Propiedad || b['Propiedad'] || ''
+  ).trim();
+  const d = String(
+    b.RoomTypeName || b._departamento || b['# Departamento'] || b['Departamento'] ||
+    b['# depto'] || b['depto'] || ''
+  ).trim();
   if (p && d) return `${p} #${d}`;
   return p || d || 'tu alojamiento';
 }
 function waGuiaUrl_(b) {
-  const id = String((b && (b.HouseId || b.PropertyId || b._houseId)) || '').trim();
+  // HouseId puede venir de varios lugares. También intentamos deducirlo desde
+  // Propiedad + # Departamento consultando el cache global de alojamientos
+  // (si está cargado en window.LG_STATE o similar).
+  let id = String(
+    (b && (b.HouseId || b.house_id || b.PropertyId || b.property_id ||
+           b._houseId || b['HouseId'] || b['ID_alojamiento'])) || ''
+  ).trim();
+  if (!id && b) {
+    try {
+      const p = (b.PropertyName || b._propiedad || b.Propiedad || b['Propiedad'] || '').toString().trim().toLowerCase();
+      const d = String(b.RoomTypeName || b._departamento || b['# Departamento'] || '').trim();
+      // Busca en cache global de alojamientos (typical en window.__alojamientos o LG_STATE.aloj)
+      const cache = window.__alojamientos || (window.LG_STATE && window.LG_STATE.aloj) || [];
+      const hit = cache.find(a => {
+        const ap = String(a.Propiedad || '').trim().toLowerCase();
+        const ad = String(a['# Departamento'] || '').trim();
+        return ap === p && ad === d;
+      });
+      if (hit && hit.HouseId) id = String(hit.HouseId).trim();
+    } catch(_){}
+  }
   return id ? `https://www.check-inn.mx/public/guia/?id=${encodeURIComponent(id)}` : 'https://www.check-inn.mx';
+}
+function waBookingId_(b) {
+  // ID único de la reserva. Diferentes contextos usan claves distintas.
+  return String((b && (
+    b.Id || b.id || b.ID || b.bookingId || b.booking_id ||
+    b['ID'] || b['Booking ID'] || b['row_number'] || b['RowNumber']
+  )) || '').trim();
 }
 function waFechaHora_(iso, hora) {
   try {
@@ -36632,10 +36690,13 @@ function _waNextAutoSends(b) {
 /** Abre modal WhatsApp para una reservación (booking Lodgify o similar). */
 window.waOpenModal = function(booking) {
   const b = booking || {};
-  window.__waCurBookingId = String(b.Id || b.id || b.bookingId || '');
+  window.__waCurBookingId = waBookingId_(b);
   // Pre-cargar config si aún no la tengo
   if (window.__waCurBookingId) waFetchConfigForIds([window.__waCurBookingId]);
-  const to = waNormalizePhoneE164_(b.GuestPhone || b['Cel/Whatsapp (principal)'] || b.celular_principal || '');
+  const to = waNormalizePhoneE164_(
+    b.GuestPhone || b['Cel/Whatsapp (principal)'] || b.celular_principal ||
+    b['Celular principal'] || b.phone || b.Phone || ''
+  );
   let selectedTplId = WA_TEMPLATES[0].id;
   let mode = 'template'; // 'template' | 'freeform'
   let vals = { ...(WA_TEMPLATES[0].autofill ? WA_TEMPLATES[0].autofill(b) : {}) };
