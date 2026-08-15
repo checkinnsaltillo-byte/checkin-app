@@ -36774,6 +36774,42 @@ function _waRenderTpl(tplBody, vals) {
 // State por modal (recreado en cada apertura)
 window.__waModalState = null;
 
+/** Busca todas las bookings del mismo huésped (mismo tel 10 dígitos). */
+function _waFindRelatedBookings(currentB) {
+  const bookings = (window.LG_STATE && Array.isArray(window.LG_STATE.bookings)) ? window.LG_STATE.bookings : [];
+  const currentPhone = String(currentB && (currentB.GuestPhone || currentB['Cel/Whatsapp (principal)'] || currentB['Celular principal'] || '')).replace(/\D/g,'').slice(-10);
+  const currentId = waBookingId_(currentB);
+  const related = [];
+  if (currentPhone && bookings.length) {
+    for (const b of bookings) {
+      const tel = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
+      if (tel === currentPhone) related.push(b);
+    }
+  }
+  // Asegurar que la primaria esté incluida
+  if (!related.find(b => String(b.Id) === String(currentId))) related.unshift(currentB);
+  // Sort: activa/próxima primero por fecha ascendente, concluidas al final descendente
+  related.sort((a, b) => {
+    const sa = _waBookingStatus(a).order, sb = _waBookingStatus(b).order;
+    if (sa !== sb) return sa - sb;
+    const ad = String(a.DateArrival||''), bd = String(b.DateArrival||'');
+    return ad.localeCompare(bd);
+  });
+  return related;
+}
+
+function _waBookingStatus(b) {
+  const today = _waTodayIso();
+  const arr = String((b && (b.DateArrival || b.arrival)) || '').slice(0,10);
+  const dep = String((b && (b.DateDeparture || b.departure)) || '').slice(0,10);
+  const st = String((b && b.Status) || '').toLowerCase();
+  if (st === 'declined' || st === 'cancelled' || st === 'canceled') return { label: 'CANCELADA', color: '#94a3b8', bg: '#f1f5f9', order: 4 };
+  if (arr && dep && arr <= today && today < dep) return { label: 'ACTIVA', color: '#166534', bg: '#dcfce7', order: 0 };
+  if (arr && arr > today) return { label: 'PRÓXIMA', color: '#1e40af', bg: '#dbeafe', order: 1 };
+  if (dep && dep <= today) return { label: 'CONCLUIDA', color: '#475569', bg: '#f1f5f9', order: 3 };
+  return { label: 'PENDIENTE', color: '#92400e', bg: '#fef3c7', order: 2 };
+}
+
 /** Abre modal WhatsApp para una reservación. */
 window.waOpenModal = async function(booking) {
   const b = booking || {};
@@ -36785,17 +36821,21 @@ window.waOpenModal = async function(booking) {
     b.GuestPhone || b['Cel/Whatsapp (principal)'] || b.celular_principal ||
     b['Celular principal'] || b.phone || b.Phone || ''
   );
+  // Buscar todas las reservas del mismo huésped (mismo tel 10 dígitos)
+  const bookings = _waFindRelatedBookings(b);
   const st = window.__waModalState = {
     b,
     bookingId,
-    to: primaryPhone,                  // legacy, se conserva por compat
-    recipients: primaryPhone ? [primaryPhone] : [],  // lista canónica de destinatarios
-    newRecipient: '',                  // input para agregar uno nuevo
+    bookings,                      // array de todas las bookings del huésped
+    focusedBookingId: bookingId,   // acordeón actualmente expandido (una a la vez)
+    to: primaryPhone,
+    recipients: primaryPhone ? [primaryPhone] : [],
+    newRecipient: '',
     urlGuiaOverride: '',
     templateVals: {},
-    expanded: null,                // id (template) o "custom:<id>" expandido
-    editingBody: {},               // { tplId|customId: string } editado libremente
-    scheduledItems: [],            // mensajes custom programados (WA_Scheduled)
+    expanded: null,
+    editingBody: {},
+    scheduledItems: [],
     newSch: {
       mode: 'scheduled',
       date: _waDateLocalIso(new Date()),
@@ -36806,6 +36846,10 @@ window.waOpenModal = async function(booking) {
       open: false,
     },
   };
+  // Pre-cargar config para todas las bookings del huésped (para pintar los headers)
+  if (bookings.length > 1) {
+    waFetchConfigForIds(bookings.map(x => waBookingId_(x)).filter(Boolean));
+  }
 
   // Precargar catálogo alojamientos (index por HouseId + por Propiedad+Dept)
   // para resolver url_guia real. Al terminar, re-rellena defaults y repinta.
@@ -36950,7 +36994,7 @@ function _waRenderModal(replace) {
 
         <div style="font-size:11px;font-weight:800;color:#0f172a;margin-bottom:10px">📋 MENSAJES PROGRAMADOS</div>
         <div id="wa-tab-content">
-          ${_waRenderUnifiedList_(logs)}
+          ${_waRenderBookingsAccordion_(logs)}
         </div>
 
       </div>
@@ -37000,6 +37044,90 @@ function _waFmtWhen(d) {
   const ampm = h >= 12 ? 'p.m.' : 'a.m.'; h = h % 12; if (h===0) h = 12;
   return `${d.getDate()} ${meses[d.getMonth()]}, ${h}:${String(m).padStart(2,'0')} ${ampm}`;
 }
+
+/** Renderiza acordeón por reserva (headers colapsables). Al expandir uno,
+ *  muestra dentro la lista unificada de mensajes de esa reserva. Solo 1
+ *  acordeón expandido a la vez (el focused). */
+function _waRenderBookingsAccordion_(logs) {
+  const st = window.__waModalState;
+  const bookings = st.bookings || [st.b];
+  const items = [];
+  for (const bk of bookings) {
+    const id = waBookingId_(bk);
+    const status = _waBookingStatus(bk);
+    const isOpen = String(st.focusedBookingId) === String(id);
+    const propLabel = waAlojamientoLabel_(bk);
+    const arr = String(bk.DateArrival || bk.arrival || '').slice(0,10);
+    const dep = String(bk.DateDeparture || bk.departure || '').slice(0,10);
+    const fechas = arr && dep ? `${_waFmtShortDate(arr)} → ${_waFmtShortDate(dep)}` : (arr || dep || '');
+    const header = `
+      <button onclick="waSwitchBooking_('${esc(String(id))}')" style="width:100%;padding:10px 14px;background:${isOpen?'#f8fafc':'#fff'};border:1px solid #e2e8f0;border-radius:${isOpen?'10px 10px 0 0':'10px'};cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:inherit">
+        <div style="min-width:0;flex:1">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:10px;color:#94a3b8;font-weight:700">${isOpen?'▼':'▶'}</span>
+            <span style="font-size:13px;font-weight:800;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(propLabel)}</span>
+            <span style="font-size:9px;color:${status.color};background:${status.bg};padding:2px 8px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">${status.label}</span>
+          </div>
+          ${fechas ? `<div style="font-size:11px;color:#64748b;margin-top:2px;padding-left:16px">${esc(fechas)}</div>` : ''}
+        </div>
+      </button>
+    `;
+    let content = '';
+    if (isOpen) {
+      // Solo cargamos las funciones existentes para la reserva focused (usan st.b)
+      content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
+        ${_waRenderUnifiedList_(logs)}
+      </div>`;
+    }
+    items.push(header + content);
+  }
+  return items.join('');
+}
+
+function _waFmtShortDate(iso) {
+  try {
+    const d = new Date(iso + 'T00:00:00'); if (isNaN(d.getTime())) return iso;
+    const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    return `${d.getDate()} ${meses[d.getMonth()]}`;
+  } catch(_){ return iso; }
+}
+
+/** Cambia el acordeón activo — recarga scheduled + config de esa reserva. */
+window.waSwitchBooking_ = async function(bookingId) {
+  const st = window.__waModalState; if (!st) return;
+  const bk = (st.bookings || []).find(b => String(waBookingId_(b)) === String(bookingId));
+  if (!bk) return;
+  // Si ya estaba abierto, colapsar (poner focusedBookingId a nulo hace que ninguno esté abierto)
+  const wasFocused = String(st.focusedBookingId) === String(bookingId);
+  st.focusedBookingId = wasFocused ? '' : String(bookingId);
+  if (wasFocused) { _waRepaint(); return; }
+  // Reset context para la nueva reserva focused
+  st.b = bk;
+  st.bookingId = String(bookingId);
+  window.__waCurBookingId = String(bookingId);
+  const phone = waNormalizePhoneE164_(
+    bk.GuestPhone || bk['Cel/Whatsapp (principal)'] || ''
+  );
+  st.recipients = phone ? [phone] : [];
+  st.templateVals = {};
+  st.expanded = null;
+  st.editingBody = {};
+  st.scheduledItems = [];
+  st.newSch = { mode:'scheduled', date:_waDateLocalIso(new Date()), time:'10:00', body:'', subject:'Estacionamiento', subjectCustom:'', open:false };
+  waFetchConfigForIds([String(bookingId)]);
+  // Cargar scheduled + refill templates + repaint
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/scheduled-list', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId: String(bookingId) }),
+    });
+    const j = await r.json();
+    st.scheduledItems = (j.items || []);
+  } catch(_){}
+  waEnsureAlojIndex_().then(() => { _waFillTemplateDefaults(); _waRepaint(); });
+  _waFillTemplateDefaults();
+  _waRepaint();
+};
 
 /** Renderiza lista unificada (templates + custom) ordenada cronológicamente. */
 function _waRenderUnifiedList_(logs) {
@@ -37218,7 +37346,7 @@ function _waRenderCustomItem_(it, auto) {
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
             <button onclick="waToggleExpand_('${expKey}')" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">${expanded?'▲ Ocultar':'▼ Ver detalles'}</button>
             ${!isOmitted ? `<button onclick="waSchedSendNow_('${cs.id}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">${sendBtnLabel}</button>` : ''}
-            <button onclick="waSchedDelete_('${cs.id}')" style="padding:5px 10px;font-size:11px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">🗑 Eliminar</button>
+            ${!isSent ? `<button onclick="waSchedDelete_('${cs.id}')" style="padding:5px 10px;font-size:11px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">🗑 Eliminar</button>` : ''}
           </div>
         </div>
         ${details}
