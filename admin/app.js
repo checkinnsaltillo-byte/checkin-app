@@ -36697,14 +36697,32 @@ function waHoraSalida_(b) {
   return h || '12:00 pm';
 }
 
+/** Normaliza a formato E.164 canónico para Twilio (MX: siempre +521XXXXXXXXXX). */
 function waNormalizePhoneE164_(raw) {
   let s = String(raw || '').replace(/[^\d+]/g, '');
   if (!s) return '';
-  if (s.startsWith('+')) return s;
-  if (s.length === 10) return '+52' + s;
-  if (s.length === 12 && s.startsWith('52')) return '+' + s;
-  if (s.length === 13 && s.startsWith('521')) return '+' + s;
-  return '+' + s;
+  // Sin +: 10 dígitos → celular MX; 12 con 52 → agrega 1; 13 con 521 → OK
+  if (!s.startsWith('+')) {
+    if (s.length === 10) return '+521' + s;
+    if (s.length === 12 && s.startsWith('52')) return '+521' + s.slice(2);
+    if (s.length === 13 && s.startsWith('521')) return '+' + s;
+    return '+' + s;
+  }
+  // Con +: si es +52XXXXXXXXXX (12 dígitos), agregar el 1 (móvil MX)
+  if (/^\+52\d{10}$/.test(s)) return '+521' + s.slice(3);
+  return s;
+}
+/** Devuelve la forma "amigable" para mostrar (sin el "1" técnico de MX). */
+function waDisplayPhone_(raw) {
+  const s = String(raw || '').replace(/^whatsapp:/, '');
+  const m = s.match(/^\+521(\d{10})$/);
+  if (m) return '+52 ' + m[1];
+  return s;
+}
+/** True si dos números representan el mismo destino (ignora +52 vs +521). */
+function waPhonesEqual_(a, b) {
+  return waNormalizePhoneE164_(String(a||'').replace(/^whatsapp:/,'')) ===
+         waNormalizePhoneE164_(String(b||'').replace(/^whatsapp:/,''));
 }
 
 function waRenderPreview_(bodyTemplate, vals) {
@@ -36892,7 +36910,7 @@ window.waOpenModal = async function(booking) {
 function _waRenderRecipientsInput_() {
   const st = window.__waModalState; if (!st) return '';
   const chips = (st.recipients || []).map((n, i) => {
-    const nice = String(n).replace(/^whatsapp:/, '');
+    const nice = waDisplayPhone_(n);
     return `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:#ecfdf5;color:#065f46;border:1px solid #86efac;border-radius:999px;font-size:12px;font-weight:700">${esc(nice)}
       <button onclick="waRemoveRecipient_(${i})" title="Quitar" style="background:transparent;border:0;color:#065f46;font-size:14px;line-height:1;cursor:pointer;padding:0;font-weight:900">×</button>
     </span>`;
@@ -36910,7 +36928,7 @@ function _waRenderRecipientsInput_() {
 }
 /** Renderiza línea con el(los) destinatario(s) de un mensaje ya guardado. */
 function _waRecipientsSummary_(toRaw) {
-  const list = String(toRaw || '').split(',').map(s => s.trim().replace(/^whatsapp:/,'')).filter(Boolean);
+  const list = String(toRaw || '').split(',').map(s => s.trim()).filter(Boolean).map(waDisplayPhone_);
   if (!list.length) return '';
   const label = list.length === 1
     ? `📤 A: <b>${esc(list[0])}</b>`
@@ -36922,17 +36940,18 @@ function _waRecipientsSummary_(toRaw) {
  *  y los agrega a st.recipients si no estaban. Los adicionales se persisten. */
 function _waHydrateRecipientsFromScheduled() {
   const st = window.__waModalState; if (!st) return;
-  const seen = new Set(st.recipients || []);
+  const existing = st.recipients || [];
   const nuevos = [];
   for (const cs of (st.scheduledItems || [])) {
     const list = String(cs.to || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean);
     for (const r of list) {
-      const canon = r.startsWith('whatsapp:') ? r : ('whatsapp:' + r);
-      if (!seen.has(canon)) { seen.add(canon); nuevos.push(canon); }
+      const norm = 'whatsapp:' + waNormalizePhoneE164_(r.replace(/^whatsapp:/,''));
+      const already = existing.some(x => waPhonesEqual_(x, norm)) || nuevos.some(x => waPhonesEqual_(x, norm));
+      if (!already) nuevos.push(norm);
     }
   }
   if (nuevos.length) {
-    st.recipients = [...(st.recipients || []), ...nuevos];
+    st.recipients = [...existing, ...nuevos];
     _waPersistRecipients();
   }
 }
@@ -36959,9 +36978,15 @@ window.waAddRecipient_ = function() {
   if (!raw) return;
   const norm = waNormalizePhoneE164_(raw);
   if (!norm) { alert('Teléfono inválido: ' + raw); return; }
-  const withPrefix = norm.startsWith('whatsapp:') ? norm : ('whatsapp:' + norm.replace(/^whatsapp:/,''));
+  const withPrefix = 'whatsapp:' + norm;
   st.recipients = st.recipients || [];
-  if (st.recipients.includes(withPrefix)) { alert('Ese número ya está en la lista'); st.newRecipient = ''; _waRepaint(); return; }
+  // Deduplicar tolerando +52 vs +521 (misma persona)
+  if (st.recipients.some(r => waPhonesEqual_(r, withPrefix))) {
+    alert('Ese número ya está en la lista');
+    st.newRecipient = '';
+    _waRepaint();
+    return;
+  }
   st.recipients.push(withPrefix);
   st.newRecipient = '';
   _waPersistRecipients();
@@ -37013,7 +37038,7 @@ function _waRenderModal(replace) {
   const b = st.b;
 
   const html = `
-    <div style="background:#fff;box-shadow:-24px 0 48px -8px rgba(0,0,0,.28);width:100%;max-width:560px;height:100vh;overflow:auto;padding:0;display:flex;flex-direction:column" onclick="event.stopPropagation()">
+    <div data-wa-panel style="background:#fff;box-shadow:-24px 0 48px -8px rgba(0,0,0,.28);width:100%;max-width:560px;height:100vh;overflow:auto;padding:0;display:flex;flex-direction:column;position:relative;z-index:2" onclick="event.stopPropagation()">
       <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#25d366;color:#fff;position:sticky;top:0;z-index:2;flex:none">
         <div style="font-size:15px;font-weight:800">💬 WhatsApp · ${esc(b.GuestName || b['Nombre reservación'] || 'Huésped')}</div>
         <button onclick="waCloseModal_()" style="background:transparent;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1;padding:0 6px">✕</button>
@@ -37044,17 +37069,27 @@ function _waRenderModal(replace) {
       </div>
     </div>
   `;
+  // Estilo lateral (idéntico en primer render y repaints) para evitar "brinco".
+  const outerStyle = 'position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:99999;display:flex;align-items:stretch;justify-content:flex-end';
+  const inner = `<div onclick="waCloseModal_()" style="position:absolute;inset:0"></div>${html}`;
   if (existing) {
-    existing.innerHTML = `<div style="position:fixed;inset:0;display:flex;align-items:stretch;justify-content:flex-end" onclick="waCloseModal_()">${html}</div>`;
-    existing.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:99999';
+    existing.style.cssText = outerStyle;
+    existing.innerHTML = inner;
     _waPaintAllToggles();
     return;
   }
   const wrap = document.createElement('div');
   wrap.id = 'wa-modal';
-  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999';
-  wrap.innerHTML = `<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px" onclick="waCloseModal_()">${html}</div>`;
+  wrap.style.cssText = outerStyle;
+  wrap.innerHTML = inner;
   document.body.appendChild(wrap);
+  // Animación slide-in desde la derecha (solo primera apertura)
+  const panel = wrap.querySelector('[data-wa-panel]');
+  if (panel) {
+    panel.style.transform = 'translateX(100%)';
+    panel.style.transition = 'transform .22s cubic-bezier(.2,.9,.3,1)';
+    requestAnimationFrame(() => { requestAnimationFrame(() => { panel.style.transform = 'translateX(0)'; }); });
+  }
   _waPaintAllToggles();
 }
 
