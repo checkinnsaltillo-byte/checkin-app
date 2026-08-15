@@ -38541,7 +38541,7 @@ function cfgRenderEditor() {
     </div>
     <div style="flex:none;padding:12px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:flex-end;gap:10px">
       ${d._id ? `<button type="button" onclick="cfgDeleteDraft()" style="all:unset;cursor:pointer;background:#fff;color:#b91c1c;border:1px solid #fecaca;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700">🗑 Eliminar</button>` : ''}
-      <button type="button" ${saveEnabled ? `onclick="cfgSaveDraft()"` : 'disabled'} style="all:unset;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:800;${saveStyle}">${saveLabel}</button>
+      <button type="button" id="cfg-save-btn" ${saveEnabled ? `onclick="cfgSaveDraft()"` : 'disabled'} style="all:unset;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:800;${saveEnabled ? 'background:#16a34a;color:#fff;cursor:pointer;box-shadow:0 2px 6px rgba(22,163,74,.35)' : 'background:#e2e8f0;color:#94a3b8;cursor:not-allowed'}">${saveLabel}</button>
     </div>
   `;
   cfgRenderRight(); // rellena las dos secciones inline (aloj + programación)
@@ -38736,30 +38736,24 @@ function cfgUpdateDraft(field, value) {
   if (field === 'schedule_type' || field === 'schedule_time' || field === 'schedule_event' || field === 'schedule_offset') cfgRenderRight();
   if (field === 'enabled') cfgRenderEditor();
   if (field === 'nombre' || field === 'enabled' || field === 'schedule_type' || field === 'schedule_event' || field === 'schedule_offset' || field === 'schedule_time') cfgRenderList();
-  // Actualizar botón Guardar sin re-renderizar (para no perder foco al tipear).
+  // Al primer cambio (dirty transition), actualizar botón + chip.
   if (!wasDirty) _cfgUpdateSaveButton();
 }
 
+// Actualiza en sitio el botón Guardar del footer sin re-renderizar el editor
+// completo (para no perder foco en el textarea al tipear).
 function _cfgUpdateSaveButton() {
-  const btns = document.querySelectorAll('#cfg-col-editor button[onclick*="cfgSaveDraft"], #cfg-col-editor button[disabled]');
-  const editorCol = document.getElementById('cfg-col-editor');
-  if (!editorCol) return;
-  // Buscamos el botón Guardar de forma robusta por su texto/estado actual.
-  const allBtns = editorCol.querySelectorAll('button');
-  allBtns.forEach(b => {
-    const t = (b.textContent || '').trim();
-    if (t.includes('Guardar') || t.includes('Sin cambios')) {
-      const d = CFG_ADMIN.draft; if (!d) return;
-      const isNew = !d._id;
-      const dirty = !!CFG_ADMIN.dirty;
-      const saveEnabled = isNew || dirty;
-      b.textContent = isNew ? '💾 Guardar' : (dirty ? '💾 Guardar cambios' : '✓ Sin cambios');
-      b.disabled = !saveEnabled;
-      b.style.cssText = `all:unset;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:700;${saveEnabled ? 'background:#16a34a;color:#fff;cursor:pointer' : 'background:#e2e8f0;color:#94a3b8;cursor:not-allowed'}`;
-      if (saveEnabled) b.setAttribute('onclick', 'cfgSaveDraft()');
-      else b.removeAttribute('onclick');
-    }
-  });
+  const btn = document.getElementById('cfg-save-btn');
+  if (!btn) return;
+  const d = CFG_ADMIN.draft; if (!d) return;
+  const isNew = !d._id;
+  const dirty = !!CFG_ADMIN.dirty;
+  const saveEnabled = isNew || dirty;
+  btn.textContent = isNew ? '💾 Guardar' : (dirty ? '💾 Guardar cambios' : '✓ Sin cambios');
+  btn.disabled = !saveEnabled;
+  btn.style.cssText = `all:unset;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:800;${saveEnabled ? 'background:#16a34a;color:#fff;cursor:pointer;box-shadow:0 2px 6px rgba(22,163,74,.35)' : 'background:#e2e8f0;color:#94a3b8;cursor:not-allowed'}`;
+  if (saveEnabled) btn.onclick = cfgSaveDraft;
+  else btn.onclick = null;
 }
 
 function cfgToggleAloj(id) {
