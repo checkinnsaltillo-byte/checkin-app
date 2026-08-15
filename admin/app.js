@@ -37595,36 +37595,47 @@ window.waResetPreview_ = function(id) {
   delete st.editingBody[id];
   _waRepaint();
 };
+/** Envía / Re-envía un template. Cada envío genera una NUEVA card en la
+ *  lista (row nuevo en WA_Scheduled con la fecha actual) — el original
+ *  queda intacto para preservar el historial. */
 window.waSendTplNow_ = async function(id) {
   const st = window.__waModalState; if (!st) return;
   const tpl = WA_TEMPLATES.find(t => t.id === id); if (!tpl) return;
   const rcps = (st.recipients || []).filter(Boolean);
   if (!rcps.length) { alert('Agrega al menos un destinatario'); return; }
   const editedBody = st.editingBody[id];
-  const basePayload = { bookingId: st.bookingId, tipo: id };
-  if (editedBody != null) basePayload.body = editedBody;
-  else { basePayload.contentSid = tpl.contentSid; basePayload.contentVars = st.templateVals[id] || {}; }
-  let ok = 0, fail = 0, lastSid = '';
-  for (const to of rcps) {
-    try {
-      const r = await fetch('https://api.check-inn.mx/wa/send', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...basePayload, to }),
-      });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.error || 'error');
-      ok++; lastSid = j.sid;
-      if (st.bookingId) {
-        WA_ADMIN.logs[st.bookingId] = WA_ADMIN.logs[st.bookingId] || [];
-        WA_ADMIN.logs[st.bookingId].unshift({
-          timestamp: new Date().toISOString(), tipo: id, origin: 'manual-admin',
-          to, sid: j.sid, status: j.status || 'sent',
-        });
-      }
-    } catch (e) { fail++; console.warn('[wa send tpl]', to, e); }
-  }
-  alert(`${ok} enviados${fail ? ` · ${fail} fallaron`:''}`);
-  _waRepaint();
+  const bodyToSend = editedBody != null ? editedBody : _waRenderTpl(tpl.body, st.templateVals[id] || {});
+  const nowIso = new Date().toISOString();
+  const toCsv = rcps.join(',');
+  // 1. Guardar el envío como nuevo scheduled (para que aparezca como card)
+  try {
+    const addR = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bookingId: st.bookingId, to: toCsv, scheduledAt: nowIso,
+        body: bodyToSend, asunto: tpl.label.replace(/^[^a-zA-Z0-9]+\s*/, ''),
+        tipo: 'manual-' + id,
+      }),
+    });
+    const addJ = await addR.json();
+    if (!addJ.ok) throw new Error(addJ.error || 'error al guardar');
+    // 2. Enviar inmediatamente
+    const sendR = await fetch('https://api.check-inn.mx/wa/scheduled-send-now', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: addJ.id }),
+    });
+    const sendJ = await sendR.json();
+    // Añadir a la lista local
+    st.scheduledItems.push({
+      id: addJ.id, booking_id: st.bookingId, tipo: 'manual-' + id, to: toCsv,
+      scheduled_at: nowIso, body: bodyToSend, asunto: tpl.label.replace(/^[^a-zA-Z0-9]+\s*/, ''),
+      status: sendJ.ok ? (sendJ.status || 'sent') : 'failed',
+      sent_at: sendJ.ok ? nowIso : '',
+      sid: sendJ.sid || '',
+    });
+    _waRepaint();
+    alert(sendJ.ok ? `✅ ${sendJ.sent||1} enviado(s)${sendJ.failed?` · ${sendJ.failed} fallaron`:''}` : '❌ Falló el envío');
+  } catch (e) { alert('❌ ' + e.message); }
 };
 window.waSchedOpen_ = function() {
   const st = window.__waModalState; if (!st) return;
@@ -37716,20 +37727,56 @@ window.waSchedOmit_ = async function(id) {
     }
   } catch (e) { alert('❌ ' + e.message); }
 };
+/** Enviar/Re-enviar un scheduled custom.
+ *  - Si status = pending (nunca enviado): envía sobre el mismo registro.
+ *  - Si status = sent/failed (ya enviado): crea NUEVO registro con timestamp
+ *    de ahora, preservando el histórico original. */
 window.waSchedSendNow_ = async function(id) {
+  const st = window.__waModalState; if (!st) return;
+  const orig = (st.scheduledItems || []).find(x => x.id === id);
+  if (!orig) return;
+  const isReenvio = orig.status && orig.status !== 'pending';
   try {
-    const r = await fetch('https://api.check-inn.mx/wa/scheduled-send-now', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
-    });
-    const j = await r.json();
-    if (!j.ok) throw new Error(j.error || 'error');
-    const st = window.__waModalState;
-    if (st) {
-      const it = (st.scheduledItems || []).find(x => x.id === id);
-      if (it) { it.status = 'sent'; it.sent_at = new Date().toISOString(); it.sid = j.sid; }
+    if (isReenvio) {
+      // Duplicar: crear nuevo scheduled con misma data + timestamp de ahora
+      const nowIso = new Date().toISOString();
+      // Usar la lista actual del state (el usuario pudo agregar/quitar recipients)
+      const rcps = (st.recipients || []).filter(Boolean);
+      const toCsv = rcps.length ? rcps.join(',') : orig.to;
+      const addR = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: st.bookingId, to: toCsv, scheduledAt: nowIso,
+          body: orig.body, asunto: orig.asunto || '', tipo: 'custom',
+        }),
+      });
+      const addJ = await addR.json();
+      if (!addJ.ok) throw new Error(addJ.error || 'error al duplicar');
+      const sendR = await fetch('https://api.check-inn.mx/wa/scheduled-send-now', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: addJ.id }),
+      });
+      const sendJ = await sendR.json();
+      st.scheduledItems.push({
+        id: addJ.id, booking_id: st.bookingId, tipo: 'custom', to: toCsv,
+        scheduled_at: nowIso, body: orig.body, asunto: orig.asunto || '',
+        status: sendJ.ok ? (sendJ.status || 'sent') : 'failed',
+        sent_at: sendJ.ok ? nowIso : '', sid: sendJ.sid || '',
+      });
       _waRepaint();
+      alert(sendJ.ok ? `✅ Re-enviado (${sendJ.sent||1})` : '❌ Falló el re-envío');
+    } else {
+      const r = await fetch('https://api.check-inn.mx/wa/scheduled-send-now', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'error');
+      orig.status = j.status || 'sent';
+      orig.sent_at = new Date().toISOString();
+      orig.sid = j.sid;
+      _waRepaint();
+      alert(`✅ ${j.sent||1} enviado(s)`);
     }
-    alert('✅ Enviado');
   } catch (e) { alert('❌ ' + e.message); }
 }
 
