@@ -38386,26 +38386,18 @@ function cfgAdminRender() {
   const listVisible = CFG_ADMIN.listVisible == null ? !isMobile : CFG_ADMIN.listVisible;
   host.innerHTML = `
     <style>
-      #cfg-grid { display:grid; grid-template-columns:${listVisible ? '280px' : '0'} 1fr 340px; gap:14px; min-height:calc(100vh - 260px); transition:grid-template-columns .2s ease; }
+      #cfg-grid { display:grid; grid-template-columns:${listVisible ? '280px' : '0'} 1fr; gap:14px; min-height:calc(100vh - 260px); transition:grid-template-columns .2s ease; }
       @media (max-width: 900px){
-        #cfg-grid { grid-template-columns:${listVisible ? '260px' : '0'} 1fr 0; }
-        #cfg-col-right { display:none; }
+        #cfg-grid { grid-template-columns:${listVisible ? '260px' : '0'} 1fr; }
       }
-      #cfg-col-list { overflow:${listVisible ? 'hidden' : 'hidden'}; border-width:${listVisible ? '1px' : '0'}; }
-      #cfg-toggle-list { display:none; }
-      @media (max-width: 900px){ #cfg-toggle-list { display:inline-flex; } }
-      #cfg-mobile-right-btn { display:none; }
-      @media (max-width: 900px){ #cfg-mobile-right-btn { display:inline-flex; } }
     </style>
     <div id="cfg-grid">
       <div id="cfg-col-list" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:${listVisible ? 'flex' : 'none'};flex-direction:column;overflow:hidden"></div>
       <div id="cfg-col-editor" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;overflow:hidden"></div>
-      <div id="cfg-col-right" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;overflow:hidden"></div>
     </div>
   `;
   cfgRenderList();
   cfgRenderEditor();
-  cfgRenderRight();
 }
 
 function cfgToggleListSidebar() {
@@ -38474,18 +38466,21 @@ function cfgRenderEditor() {
     ? 'background:#16a34a;color:#fff;cursor:pointer'
     : 'background:#e2e8f0;color:#94a3b8;cursor:not-allowed';
   col.innerHTML = `
-    <div style="flex:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <button type="button" id="cfg-toggle-list" onclick="cfgToggleListSidebar()" title="Mostrar/ocultar lista de templates"
-        style="all:unset;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#e2e8f0;color:#0f172a;font-size:14px;font-weight:800">☰</button>
-      <label style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer" onclick="cfgUpdateDraft('enabled', !${d.enabled ? 'true' : 'false'})">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${d.enabled ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${d.enabled ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px">${d.enabled ? '✓' : ''}</span>
-        <span style="font-size:12px;color:#0f172a;font-weight:600">Template habilitado</span>
-      </label>
-      <button type="button" ${saveEnabled ? `onclick="cfgSaveDraft()"` : 'disabled'} style="all:unset;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:700;${saveStyle}">${saveLabel}</button>
-      <button type="button" id="cfg-mobile-right-btn" onclick="cfgOpenRightSheet()" title="Alojamientos y programación"
-        style="all:unset;cursor:pointer;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;background:#0f172a;color:#fff">⚙️ Alojamientos + Programación</button>
-      <div style="flex:1"></div>
-      ${d._id ? `<button type="button" onclick="cfgDeleteDraft()" style="all:unset;cursor:pointer;background:#fff;color:#b91c1c;border:1px solid #fecaca;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">🗑 Eliminar</button>` : ''}
+    <div style="flex:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <label style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer" onclick="cfgUpdateDraft('enabled', !${d.enabled ? 'true' : 'false'})">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${d.enabled ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${d.enabled ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px">${d.enabled ? '✓' : ''}</span>
+          <span style="font-size:12px;color:#0f172a;font-weight:600">Template habilitado</span>
+        </label>
+        <button type="button" ${saveEnabled ? `onclick="cfgSaveDraft()"` : 'disabled'} style="all:unset;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:700;${saveStyle}">${saveLabel}</button>
+        ${d._id ? `<button type="button" onclick="cfgDeleteDraft()" style="all:unset;cursor:pointer;background:#fff;color:#b91c1c;border:1px solid #fecaca;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">🗑 Eliminar</button>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button type="button" onclick="cfgToggleListSidebar()" title="Mostrar/ocultar lista de templates"
+          style="all:unset;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#e2e8f0;color:#0f172a;font-size:14px;font-weight:800">☰</button>
+        <button type="button" onclick="cfgOpenRightSheet()" title="Alojamientos y programación"
+          style="all:unset;cursor:pointer;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;background:#0f172a;color:#fff">⚙️ Alojamientos + Programación</button>
+      </div>
     </div>
     <div style="flex:1;overflow-y:auto;padding:18px 20px">
       <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Nombre</label>
@@ -38549,32 +38544,31 @@ function cfgInsertPlaceholder(key) {
   cfgUpdateDraft('body', next);
 }
 
-// Abre columna derecha como bottom-sheet en móvil.
+// Abre la sección "Alojamientos + Programación" como panel lateral derecho.
+// El contenido reusa cfgRenderRight() apuntando al panel; sus updates
+// (toggleAloj, updateDraft) también repintan el panel si sigue abierto.
 function cfgOpenRightSheet() {
   let overlay = document.getElementById('cfg-right-overlay');
   if (overlay) { overlay.remove(); return; }
   overlay = document.createElement('div');
   overlay.id = 'cfg-right-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99998;display:flex;align-items:flex-end;justify-content:center';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:99998;display:flex;align-items:stretch;justify-content:flex-end';
   overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
   overlay.innerHTML = `
-    <div style="background:#fff;border-radius:14px 14px 0 0;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <div id="cfg-right-panel" data-cfg-panel style="background:#fff;box-shadow:-24px 0 48px -8px rgba(0,0,0,.28);width:100%;max-width:420px;height:100vh;display:flex;flex-direction:column;overflow:hidden;position:relative;transform:translateX(100%);transition:transform .22s cubic-bezier(.2,.9,.3,1)" onclick="event.stopPropagation()">
       <div style="flex:none;padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
-        <div style="font-weight:800;color:#0f172a;font-size:14px">Alojamientos + Programación</div>
-        <button type="button" onclick="document.getElementById('cfg-right-overlay').remove()" style="all:unset;cursor:pointer;font-size:22px;color:#64748b">✕</button>
+        <div style="font-weight:800;color:#0f172a;font-size:14px">⚙️ Alojamientos + Programación</div>
+        <button type="button" onclick="document.getElementById('cfg-right-overlay').remove()" style="all:unset;cursor:pointer;font-size:22px;color:#64748b;line-height:1">✕</button>
       </div>
-      <div id="cfg-right-sheet-body" style="flex:1;overflow-y:auto"></div>
+      <div id="cfg-col-right" style="flex:1;overflow-y:auto;display:flex;flex-direction:column"></div>
     </div>
   `;
   document.body.appendChild(overlay);
-  // Reusar el mismo render pero apuntando al bottom-sheet
-  const body = document.getElementById('cfg-right-sheet-body');
-  const backup = document.getElementById('cfg-col-right');
-  // Renderizamos en col-right y clonamos su contenido al bottom-sheet
-  if (backup) {
-    cfgRenderRight();
-    body.innerHTML = backup.innerHTML;
-  }
+  cfgRenderRight();
+  requestAnimationFrame(() => { requestAnimationFrame(() => {
+    const panel = document.getElementById('cfg-right-panel');
+    if (panel) panel.style.transform = 'translateX(0)';
+  }); });
 }
 
 function cfgRenderRight() {
