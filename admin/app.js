@@ -36908,6 +36908,8 @@ window.waOpenModal = async function(booking) {
       _waRepaint();
     }
   });
+  // Cargar templates admin (WA_Templates) para filtrar por alojamiento.
+  waEnsureAdminTemplates_().then(() => { _waRepaint(); });
   // Cargar mensajes programados custom de esta reserva + hidratar recipients
   // extraídos de los `to` de mensajes históricos (por si el usuario mandó a
   // varios números antes y solo persistió el CSV en el mensaje, no en config).
@@ -37285,9 +37287,10 @@ function _waRenderUnifiedList_(logs) {
   }
   const legacyMap = { 'bienvenida_reserva': 'bienvenida', 'recordatorio_checkin_24h': 'checkin', 'recordatorio_checkout': 'checkout' };
 
-  // Construir lista unificada
+  // Construir lista unificada — filtrando templates por alojamiento admin.
   const items = [];
   for (const tpl of WA_TEMPLATES) {
+    if (!_waTemplateAppliesToBooking(tpl.id, b)) continue;
     const sent = sentByTipo[tpl.id] || sentByTipo[legacyMap[tpl.id]] || null;
     const schDate = _waTemplateScheduledDate(tpl.id, b);
     items.push({
@@ -38064,7 +38067,51 @@ window.waSchedSendNow_ = async function(id) {
 // ║ WhatsApp — Cache global de config (auto_enabled) + logs por reserva     ║
 // ═══════════════════════════════════════════════════════════════════════════
 
-window.WA_ADMIN = window.WA_ADMIN || { config: {}, logs: {}, loading: new Set() };
+window.WA_ADMIN = window.WA_ADMIN || { config: {}, logs: {}, loading: new Set(), adminTemplates: null, adminTemplatesLoading: null };
+
+/** Carga (una vez) los templates admin desde WA_Templates para filtrar por
+ *  alojamiento en el modal por-reserva. Cacheado en memoria. */
+async function waEnsureAdminTemplates_() {
+  if (WA_ADMIN.adminTemplates) return WA_ADMIN.adminTemplates;
+  if (!WA_ADMIN.adminTemplatesLoading) {
+    WA_ADMIN.adminTemplatesLoading = (async () => {
+      try {
+        const r = await fetch('https://api.check-inn.mx/wa/templates-list', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+        });
+        const j = await r.json();
+        const map = {};
+        for (const t of (j.items || [])) {
+          map[String(t.id)] = { alojamientos: String(t.alojamientos || ''), enabled: !!t.enabled };
+        }
+        WA_ADMIN.adminTemplates = map;
+        return map;
+      } catch (e) {
+        console.warn('[WA] admin templates list falló:', e.message);
+        return {};
+      }
+    })();
+  }
+  return WA_ADMIN.adminTemplatesLoading;
+}
+
+/** ¿Aplica este template a esta reserva? Reglas:
+ *  - Sin config admin → aplica (backwards compat).
+ *  - Config con enabled=false → NO aplica.
+ *  - alojamientos="" → aplica a todos.
+ *  - alojamientos CSV → aplica solo si HouseId de la reserva está en el CSV.
+ */
+function _waTemplateAppliesToBooking(tplId, booking) {
+  const admin = WA_ADMIN.adminTemplates && WA_ADMIN.adminTemplates[String(tplId)];
+  if (!admin) return true;
+  if (!admin.enabled) return false;
+  const csv = String(admin.alojamientos || '').trim();
+  if (!csv) return true;
+  const houseId = String((booking && (booking.HouseId || booking.house_id || booking.PropertyId || booking.property_id)) || '').trim();
+  if (!houseId) return true;
+  const list = csv.split(',').map(s => s.trim()).filter(Boolean);
+  return list.indexOf(houseId) >= 0;
+}
 
 /** Carga config + logs para una lista de bookingIds. Cachea en memoria.
  *  Repinta cualquier UI que dependa de estos datos (toggle + modal abierto). */
@@ -38210,7 +38257,25 @@ const CFG_ADMIN = {
   selectedId: null,
   dirty: false,
   draft: null,
+  listVisible: null, // null = auto (visible en desktop, oculto en móvil); true/false = manual
+  placeholdersOpen: false,
 };
+
+// Placeholders disponibles — se reemplazan al enviar el mensaje.
+// Fuente indica de qué hoja/campo se toma el dato.
+const CFG_PLACEHOLDERS = [
+  { key: 'nombre',         label: 'Nombre del huésped',    fuente: 'Sheet "huespedes" (Nombre) o "Reservas Lodgify" (GuestName) — se usa el primer nombre.' },
+  { key: 'nombre_completo',label: 'Nombre completo',       fuente: 'Sheet "huespedes" (Nombre) o "Reservas Lodgify" (GuestName).' },
+  { key: 'alojamiento',    label: 'Alojamiento',           fuente: 'Sheet "alojamientos" — "Propiedad #Departamento".' },
+  { key: 'propiedad',      label: 'Propiedad',             fuente: 'Sheet "alojamientos" (Propiedad).' },
+  { key: 'departamento',   label: '# Departamento',        fuente: 'Sheet "alojamientos" (# Departamento).' },
+  { key: 'fecha_llegada',  label: 'Fecha de llegada',      fuente: 'Sheet "Reservas Lodgify" (DateArrival) o "huespedes" (Fecha de ingreso).' },
+  { key: 'fecha_salida',   label: 'Fecha de salida',       fuente: 'Sheet "Reservas Lodgify" (DateDeparture) o "huespedes" (Fecha de salida).' },
+  { key: 'hora_llegada',   label: 'Hora estimada llegada', fuente: 'Sheet "huespedes" (Hora estimada de llegada).' },
+  { key: 'hora_salida',    label: 'Hora estimada salida',  fuente: 'Sheet "huespedes" (Hora estimada de salida).' },
+  { key: 'url_guia',       label: 'URL de la guía',        fuente: 'Sheet "alojamientos" (url_guia).' },
+  { key: 'telefono',       label: 'Teléfono del huésped',  fuente: 'Sheet "huespedes" (Cel/Whatsapp) o "Reservas Lodgify" (GuestPhone).' },
+];
 
 const CFG_SCHEDULE_OPTS = [
   { key: 'never', label: 'No programar' },
@@ -38317,9 +38382,23 @@ function cfgAdminRender() {
     host.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando templates y alojamientos…</div>`;
     return;
   }
+  const isMobile = window.innerWidth < 900;
+  const listVisible = CFG_ADMIN.listVisible == null ? !isMobile : CFG_ADMIN.listVisible;
   host.innerHTML = `
-    <div style="display:grid;grid-template-columns:280px 1fr 340px;gap:14px;min-height:calc(100vh - 260px)">
-      <div id="cfg-col-list" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;overflow:hidden"></div>
+    <style>
+      #cfg-grid { display:grid; grid-template-columns:${listVisible ? '280px' : '0'} 1fr 340px; gap:14px; min-height:calc(100vh - 260px); transition:grid-template-columns .2s ease; }
+      @media (max-width: 900px){
+        #cfg-grid { grid-template-columns:${listVisible ? '260px' : '0'} 1fr 0; }
+        #cfg-col-right { display:none; }
+      }
+      #cfg-col-list { overflow:${listVisible ? 'hidden' : 'hidden'}; border-width:${listVisible ? '1px' : '0'}; }
+      #cfg-toggle-list { display:none; }
+      @media (max-width: 900px){ #cfg-toggle-list { display:inline-flex; } }
+      #cfg-mobile-right-btn { display:none; }
+      @media (max-width: 900px){ #cfg-mobile-right-btn { display:inline-flex; } }
+    </style>
+    <div id="cfg-grid">
+      <div id="cfg-col-list" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:${listVisible ? 'flex' : 'none'};flex-direction:column;overflow:hidden"></div>
       <div id="cfg-col-editor" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;overflow:hidden"></div>
       <div id="cfg-col-right" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;overflow:hidden"></div>
     </div>
@@ -38327,6 +38406,13 @@ function cfgAdminRender() {
   cfgRenderList();
   cfgRenderEditor();
   cfgRenderRight();
+}
+
+function cfgToggleListSidebar() {
+  const isMobile = window.innerWidth < 900;
+  const cur = CFG_ADMIN.listVisible == null ? !isMobile : CFG_ADMIN.listVisible;
+  CFG_ADMIN.listVisible = !cur;
+  cfgAdminRender();
 }
 
 function cfgRenderList() {
@@ -38369,16 +38455,37 @@ function cfgRenderEditor() {
   if (!col) return;
   const d = CFG_ADMIN.draft;
   if (!d) {
-    col.innerHTML = `<div style="padding:60px 24px;text-align:center;color:#94a3b8;font-size:13px">Selecciona un template de la izquierda, o click "+ Nuevo" para crear uno.</div>`;
+    col.innerHTML = `
+      <div style="flex:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;gap:10px">
+        <button type="button" id="cfg-toggle-list" onclick="cfgToggleListSidebar()" title="Mostrar/ocultar lista de templates"
+          style="all:unset;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#e2e8f0;color:#0f172a;font-size:14px;font-weight:800">☰</button>
+        <div style="font-weight:800;color:#0f172a;font-size:14px">Templates</div>
+      </div>
+      <div style="padding:60px 24px;text-align:center;color:#94a3b8;font-size:13px">Selecciona un template de la izquierda, o click "+ Nuevo" para crear uno.</div>
+    `;
     return;
   }
+  const isNew = !d._id;
+  const dirty = !!CFG_ADMIN.dirty;
+  // Guardar: se activa solo si es nuevo o hay cambios en template existente
+  const saveEnabled = isNew || dirty;
+  const saveLabel = isNew ? '💾 Guardar' : (dirty ? '💾 Guardar cambios' : '✓ Sin cambios');
+  const saveStyle = saveEnabled
+    ? 'background:#16a34a;color:#fff;cursor:pointer'
+    : 'background:#e2e8f0;color:#94a3b8;cursor:not-allowed';
   col.innerHTML = `
-    <div style="flex:none;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:space-between;gap:10px">
-      <div style="font-weight:800;color:#0f172a;font-size:14px">Edita la plantilla</div>
-      <div style="display:flex;gap:8px">
-        <button type="button" onclick="cfgSaveDraft()" style="all:unset;cursor:pointer;background:#16a34a;color:#fff;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:700">💾 Guardar</button>
-        ${d._id ? `<button type="button" onclick="cfgDeleteDraft()" style="all:unset;cursor:pointer;background:#fff;color:#b91c1c;border:1px solid #fecaca;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">🗑 Eliminar</button>` : ''}
-      </div>
+    <div style="flex:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button type="button" id="cfg-toggle-list" onclick="cfgToggleListSidebar()" title="Mostrar/ocultar lista de templates"
+        style="all:unset;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#e2e8f0;color:#0f172a;font-size:14px;font-weight:800">☰</button>
+      <label style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer" onclick="cfgUpdateDraft('enabled', !${d.enabled ? 'true' : 'false'})">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${d.enabled ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${d.enabled ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px">${d.enabled ? '✓' : ''}</span>
+        <span style="font-size:12px;color:#0f172a;font-weight:600">Template habilitado</span>
+      </label>
+      <button type="button" ${saveEnabled ? `onclick="cfgSaveDraft()"` : 'disabled'} style="all:unset;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:700;${saveStyle}">${saveLabel}</button>
+      <button type="button" id="cfg-mobile-right-btn" onclick="cfgOpenRightSheet()" title="Alojamientos y programación"
+        style="all:unset;cursor:pointer;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;background:#0f172a;color:#fff">⚙️ Alojamientos + Programación</button>
+      <div style="flex:1"></div>
+      ${d._id ? `<button type="button" onclick="cfgDeleteDraft()" style="all:unset;cursor:pointer;background:#fff;color:#b91c1c;border:1px solid #fecaca;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">🗑 Eliminar</button>` : ''}
     </div>
     <div style="flex:1;overflow-y:auto;padding:18px 20px">
       <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Nombre</label>
@@ -38391,21 +38498,83 @@ function cfgRenderEditor() {
         oninput="cfgUpdateDraft('asunto', this.value)"
         style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:14px">
 
-      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Mensaje</label>
-      <textarea id="cfg-in-body" placeholder="Hola {{1}}, te esperamos hoy en {{2}}..."
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <label style="font-size:12px;color:#475569;font-weight:700">Mensaje</label>
+        <button type="button" onclick="cfgTogglePlaceholders()" style="all:unset;cursor:pointer;padding:5px 10px;background:${CFG_ADMIN.placeholdersOpen ? '#0f172a' : '#e2e8f0'};color:${CFG_ADMIN.placeholdersOpen ? '#fff' : '#0f172a'};border-radius:6px;font-size:11px;font-weight:700">${CFG_ADMIN.placeholdersOpen ? '▲ Ocultar placeholders' : '▼ Insertar placeholder'}</button>
+      </div>
+      ${CFG_ADMIN.placeholdersOpen ? _cfgPlaceholdersPanelHtml() : ''}
+      <textarea id="cfg-in-body" placeholder="Hola {{nombre}}, te esperamos hoy en {{alojamiento}}..."
         oninput="cfgUpdateDraft('body', this.value)"
         style="width:100%;min-height:280px;padding:11px 13px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box;font-family:inherit;resize:vertical;line-height:1.5">${_cfgEsc(d.body)}</textarea>
-
-      <div style="margin-top:8px;font-size:11px;color:#64748b;line-height:1.5">
-        Placeholders disponibles: <code>{{nombre}}</code>, <code>{{alojamiento}}</code>, <code>{{fecha_llegada}}</code>, <code>{{fecha_salida}}</code>, <code>{{url_guia}}</code>
-      </div>
-
-      <div style="margin-top:16px;display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
-        <span onclick="cfgUpdateDraft('enabled', !${d.enabled ? 'true' : 'false'})" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${d.enabled ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${d.enabled ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px">${d.enabled ? '✓' : ''}</span>
-        <span style="font-size:13px;color:#0f172a;font-weight:600;cursor:pointer" onclick="cfgUpdateDraft('enabled', !${d.enabled ? 'true' : 'false'})">Template habilitado</span>
-      </div>
     </div>
   `;
+}
+
+function _cfgPlaceholdersPanelHtml() {
+  const items = CFG_PLACEHOLDERS.map(p => `
+    <button type="button" onclick="cfgInsertPlaceholder('${p.key}')" title="${_cfgEscAttr(p.fuente)}"
+      style="all:unset;cursor:pointer;display:flex;align-items:baseline;gap:8px;padding:7px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;font-family:'SFMono-Regular',Consolas,monospace">
+      <span style="color:#0d9488;font-size:12px;font-weight:700">{{${p.key}}}</span>
+      <span style="color:#475569;font-size:11px;font-family:-apple-system,sans-serif">${_cfgEsc(p.label)}</span>
+    </button>
+  `).join('');
+  return `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;color:#475569;margin-bottom:8px;line-height:1.5">
+        Click para insertar en el cursor. Los datos vienen de las hojas <b>huespedes</b>, <b>Reservas Lodgify</b> y <b>alojamientos</b>. Hover sobre cada uno para ver la fuente exacta.
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px">${items}</div>
+    </div>
+  `;
+}
+
+function cfgTogglePlaceholders() {
+  CFG_ADMIN.placeholdersOpen = !CFG_ADMIN.placeholdersOpen;
+  cfgRenderEditor();
+}
+
+function cfgInsertPlaceholder(key) {
+  const ta = document.getElementById('cfg-in-body');
+  if (!ta) return;
+  const token = '{{' + key + '}}';
+  const start = ta.selectionStart || 0;
+  const end = ta.selectionEnd || 0;
+  const before = ta.value.slice(0, start);
+  const after = ta.value.slice(end);
+  const next = before + token + after;
+  ta.value = next;
+  const pos = start + token.length;
+  ta.setSelectionRange(pos, pos);
+  ta.focus();
+  cfgUpdateDraft('body', next);
+}
+
+// Abre columna derecha como bottom-sheet en móvil.
+function cfgOpenRightSheet() {
+  let overlay = document.getElementById('cfg-right-overlay');
+  if (overlay) { overlay.remove(); return; }
+  overlay = document.createElement('div');
+  overlay.id = 'cfg-right-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99998;display:flex;align-items:flex-end;justify-content:center';
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:14px 14px 0 0;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="flex:none;padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-weight:800;color:#0f172a;font-size:14px">Alojamientos + Programación</div>
+        <button type="button" onclick="document.getElementById('cfg-right-overlay').remove()" style="all:unset;cursor:pointer;font-size:22px;color:#64748b">✕</button>
+      </div>
+      <div id="cfg-right-sheet-body" style="flex:1;overflow-y:auto"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  // Reusar el mismo render pero apuntando al bottom-sheet
+  const body = document.getElementById('cfg-right-sheet-body');
+  const backup = document.getElementById('cfg-col-right');
+  // Renderizamos en col-right y clonamos su contenido al bottom-sheet
+  if (backup) {
+    cfgRenderRight();
+    body.innerHTML = backup.innerHTML;
+  }
 }
 
 function cfgRenderRight() {
@@ -38533,15 +38702,36 @@ function cfgCreateTemplate() {
 
 function cfgUpdateDraft(field, value) {
   if (!CFG_ADMIN.draft) return;
-  const prev = CFG_ADMIN.draft[field];
+  const wasDirty = CFG_ADMIN.dirty;
   CFG_ADMIN.draft[field] = value;
   CFG_ADMIN.dirty = true;
-  // Solo re-renderizamos las columnas que dependen del valor cambiado;
-  // los inputs de texto (nombre/asunto/body) no deben re-renderizar el editor
-  // porque perderían foco/cursor.
   if (field === 'schedule_type' || field === 'schedule_time' || field === 'schedule_event' || field === 'schedule_offset') cfgRenderRight();
   if (field === 'enabled') cfgRenderEditor();
   if (field === 'nombre' || field === 'enabled' || field === 'schedule_type' || field === 'schedule_event' || field === 'schedule_offset' || field === 'schedule_time') cfgRenderList();
+  // Actualizar botón Guardar sin re-renderizar (para no perder foco al tipear).
+  if (!wasDirty) _cfgUpdateSaveButton();
+}
+
+function _cfgUpdateSaveButton() {
+  const btns = document.querySelectorAll('#cfg-col-editor button[onclick*="cfgSaveDraft"], #cfg-col-editor button[disabled]');
+  const editorCol = document.getElementById('cfg-col-editor');
+  if (!editorCol) return;
+  // Buscamos el botón Guardar de forma robusta por su texto/estado actual.
+  const allBtns = editorCol.querySelectorAll('button');
+  allBtns.forEach(b => {
+    const t = (b.textContent || '').trim();
+    if (t.includes('Guardar') || t.includes('Sin cambios')) {
+      const d = CFG_ADMIN.draft; if (!d) return;
+      const isNew = !d._id;
+      const dirty = !!CFG_ADMIN.dirty;
+      const saveEnabled = isNew || dirty;
+      b.textContent = isNew ? '💾 Guardar' : (dirty ? '💾 Guardar cambios' : '✓ Sin cambios');
+      b.disabled = !saveEnabled;
+      b.style.cssText = `all:unset;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:700;${saveEnabled ? 'background:#16a34a;color:#fff;cursor:pointer' : 'background:#e2e8f0;color:#94a3b8;cursor:not-allowed'}`;
+      if (saveEnabled) b.setAttribute('onclick', 'cfgSaveDraft()');
+      else b.removeAttribute('onclick');
+    }
+  });
 }
 
 function cfgToggleAloj(id) {
@@ -38593,6 +38783,8 @@ async function cfgSaveDraft() {
     });
     const j = await res.json();
     if (!j.ok) throw new Error(j.error || 'error');
+    // Invalidar cache de templates admin que usa el modal WhatsApp para filtrar.
+    if (window.WA_ADMIN) { WA_ADMIN.adminTemplates = null; WA_ADMIN.adminTemplatesLoading = null; }
     // Refresh lista
     const listRes = await fetch(`https://api.check-inn.mx/wa/templates-list`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json());
     CFG_ADMIN.templates = (listRes && listRes.items) || [];
@@ -38616,6 +38808,7 @@ async function cfgDeleteDraft() {
     });
     const j = await res.json();
     if (!j.ok) throw new Error(j.error || 'error');
+    if (window.WA_ADMIN) { WA_ADMIN.adminTemplates = null; WA_ADMIN.adminTemplatesLoading = null; }
     CFG_ADMIN.templates = CFG_ADMIN.templates.filter(t => t.id !== d._id);
     CFG_ADMIN.selectedId = null;
     CFG_ADMIN.draft = null;
