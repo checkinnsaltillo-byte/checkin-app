@@ -38203,12 +38203,58 @@ const CFG_ADMIN = {
 };
 
 const CFG_SCHEDULE_OPTS = [
-  { key: 'never', label: 'No programar', hint: 'No se enviará automáticamente' },
-  { key: 'on_booking_5min', label: '5 minutos después de que un viajero reserve', hint: 'Se dispara al recibir la reservación' },
-  { key: 'before_arrival', label: '1 día antes de la llegada, a las 10:00 a.m.', hint: 'Recordatorio previo al check-in' },
-  { key: 'before_checkout', label: '1 día antes de la salida, a las 6:00 p.m.', hint: 'Recordatorio previo al check-out' },
-  { key: 'custom_arrival', label: 'Hora personalizada · Día de la llegada', hint: 'Elige la hora exacta' },
-  { key: 'custom_checkout', label: 'Hora personalizada · Día de la salida', hint: 'Elige la hora exacta' },
+  { key: 'never', label: 'No programar' },
+  { key: 'on_booking_5min', label: '5 minutos después de que un viajero reserve' },
+  { key: 'before_arrival', label: '1 día antes de la llegada, a las 10:00 a.m.' },
+  { key: 'before_checkout', label: '1 día antes de la salida, a las 6:00 p.m.' },
+  { key: 'custom', label: 'Hora personalizada' },
+];
+
+const CFG_EVENTS = [
+  { key: 'booking',  label: 'Reservación confirmada' },
+  { key: 'arrival',  label: 'Llegada' },
+  { key: 'checkout', label: 'Salida' },
+];
+
+// Offsets de días: -7 (7 días antes) hasta +7 (7 días después)
+function _cfgOffsetOptions() {
+  const opts = [];
+  for (let n = 7; n >= 1; n--) opts.push({ v: -n, label: n + (n === 1 ? ' día antes' : ' días antes') });
+  opts.push({ v: 0, label: 'Día de' });
+  for (let n = 1; n <= 7; n++) opts.push({ v: n, label: n + (n === 1 ? ' día después' : ' días después') });
+  return opts;
+}
+
+// Los 3 templates hardcoded originales — se siembran en la hoja WA_Templates
+// si no existen todavía (por ID). Editables desde el UI después.
+const CFG_DEFAULT_TEMPLATES = [
+  {
+    id: 'bienvenida_reserva',
+    nombre: '🏠 Bienvenida (con guía)',
+    asunto: 'Bienvenida',
+    body: 'Hola {{nombre}}, ¡bienvenido a Check-inn Saltillo! 🏠\n\nTu guía de bienvenida para {{alojamiento}} está lista:\n{{url_guia}}\n\nAhí encontrarás WiFi, instrucciones de acceso, recomendaciones y contacto de emergencia.\n\nCualquier duda, responde este mensaje.',
+    schedule_type: 'on_booking_5min',
+    schedule_event: '', schedule_offset: '', schedule_time: '',
+    alojamientos: '', enabled: true,
+  },
+  {
+    id: 'recordatorio_checkin_24h',
+    nombre: '⏰ Recordatorio de check-in (24h antes)',
+    asunto: 'Recordatorio de llegada',
+    body: 'Hola {{nombre}}, tu llegada a {{alojamiento}} está programada mañana ({{fecha_llegada}}). 🗓\n\nAntes de tu llegada, revisa tu guía:\n{{url_guia}}\n\nAhí verás:\n📍 Cómo llegar\n🔑 Método de acceso\n✅ Realiza tu Check-in cuando llegues\n\n¡Te esperamos!',
+    schedule_type: 'before_arrival',
+    schedule_event: '', schedule_offset: '', schedule_time: '',
+    alojamientos: '', enabled: true,
+  },
+  {
+    id: 'recordatorio_checkout',
+    nombre: '🚪 Recordatorio de check-out',
+    asunto: 'Recordatorio de salida',
+    body: 'Hola {{nombre}}, tu salida de {{alojamiento}} es hoy antes de las {{hora_salida}}. 🕛\n\nAntes de irte, por favor:\n✅ Realiza tu Check-out desde la guía: {{url_guia}}\n🚪 Sigue las instrucciones de salida (llaves, basura, ventanas, etc.)\n\n¡Gracias por elegirnos! Nos encantaría verte de nuevo.',
+    schedule_type: 'custom',
+    schedule_event: 'checkout', schedule_offset: '0', schedule_time: '10:00',
+    alojamientos: '', enabled: true,
+  },
 ];
 
 function cfgSetTab(tab) {
@@ -38230,6 +38276,17 @@ async function cfgAdminInit() {
     ]);
     CFG_ADMIN.templates = (tplRes && tplRes.items) || [];
     CFG_ADMIN.alojamientos = (alojRes && alojRes.rows) || [];
+    // Sembrar los 3 defaults si no existen todavía por ID
+    const existingIds = new Set(CFG_ADMIN.templates.map(t => t.id));
+    const missing = CFG_DEFAULT_TEMPLATES.filter(d => !existingIds.has(d.id));
+    if (missing.length) {
+      await Promise.all(missing.map(d => fetch(`${BACKEND}/wa/templates-upsert`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(d),
+      })));
+      const refresh = await fetch(`${BACKEND}/wa/templates-list`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json());
+      CFG_ADMIN.templates = (refresh && refresh.items) || CFG_ADMIN.templates;
+    }
     CFG_ADMIN.loaded = true;
   } catch (e) {
     console.warn('[cfg] init falló:', e.message);
@@ -38273,7 +38330,7 @@ function cfgRenderList() {
     const enabledDot = t.enabled
       ? `<span style="width:8px;height:8px;background:#16a34a;border-radius:999px;display:inline-block" title="Habilitado"></span>`
       : `<span style="width:8px;height:8px;background:#cbd5e1;border-radius:999px;display:inline-block" title="Deshabilitado"></span>`;
-    const schLabel = _cfgScheduleShortLabel(t.schedule_type, t.schedule_time);
+    const schLabel = _cfgScheduleShortLabel(t.schedule_type, t.schedule_time, t.schedule_event, t.schedule_offset);
     const alojCount = _cfgAlojCsvCount(t.alojamientos);
     return `
       <div onclick="cfgSelectTemplate('${_cfgEsc(t.id)}')" style="padding:12px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;background:${bg};border-left:${bd}">
@@ -38371,20 +38428,13 @@ function cfgRenderRight() {
 
   const schRows = CFG_SCHEDULE_OPTS.map(opt => {
     const on = d.schedule_type === opt.key;
-    const showTime = on && (opt.key === 'custom_arrival' || opt.key === 'custom_checkout');
     return `
       <div onclick="cfgUpdateDraft('schedule_type', '${opt.key}')" style="padding:10px 12px;border:1px solid ${on ? '#0f172a' : '#e2e8f0'};border-radius:8px;margin-bottom:8px;cursor:pointer;background:${on ? '#f8fafc' : '#fff'}">
         <div style="display:flex;align-items:center;gap:10px">
           <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:2px solid ${on ? '#0f172a' : '#94a3b8'};border-radius:999px;background:${on ? '#0f172a' : '#fff'};flex:none">${on ? '<span style="width:6px;height:6px;background:#fff;border-radius:999px"></span>' : ''}</span>
           <span style="font-size:13px;font-weight:600;color:#0f172a">${_cfgEsc(opt.label)}</span>
         </div>
-        ${showTime ? `
-          <div style="margin-top:10px;padding-left:26px;display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
-            <label style="font-size:11px;color:#64748b">Hora:</label>
-            <input type="time" value="${_cfgEscAttr(d.schedule_time || '09:00')}" oninput="cfgUpdateDraft('schedule_time', this.value)"
-              style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
-          </div>
-        ` : ''}
+        ${(on && opt.key === 'custom') ? _cfgCustomScheduleBlockHtml(d) : ''}
       </div>
     `;
   }).join('');
@@ -38394,8 +38444,8 @@ function cfgRenderRight() {
       <div style="font-weight:800;color:#0f172a;font-size:14px">Selecciona los alojamientos</div>
       <div style="font-size:11px;color:#64748b;margin-top:2px">${noneSelected ? 'Sin selección → aplica a todos' : (allSelected ? 'Todos seleccionados' : `${selectedAloj.size} seleccionado(s)`)}</div>
       <div style="margin-top:8px;display:flex;gap:6px">
-        <button type="button" onclick="cfgToggleAllAloj(true)" style="all:unset;cursor:pointer;background:#e2e8f0;color:#0f172a;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">Todos</button>
-        <button type="button" onclick="cfgToggleAllAloj(false)" style="all:unset;cursor:pointer;background:#fff;color:#0f172a;border:1px solid #cbd5e1;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700">Ninguno</button>
+        <button type="button" onclick="cfgToggleAllAloj(true)" style="all:unset;cursor:pointer;background:#0f172a;color:#fff;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">Seleccionar todos</button>
+        <button type="button" onclick="cfgToggleAllAloj(false)" style="all:unset;cursor:pointer;background:#fff;color:#0f172a;border:1px solid #cbd5e1;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700">Desmarcar todos</button>
       </div>
     </div>
     <div style="flex:1;overflow-y:auto;padding:8px 6px;max-height:340px">
@@ -38405,6 +38455,29 @@ function cfgRenderRight() {
       <div style="font-weight:800;color:#0f172a;font-size:14px;margin-bottom:8px">Programa un mensaje</div>
       <div style="font-size:11px;color:#64748b;margin-bottom:10px">Se enviará en la zona horaria del alojamiento.</div>
       ${schRows}
+    </div>
+  `;
+}
+
+function _cfgCustomScheduleBlockHtml(d) {
+  const ev = d.schedule_event || 'arrival';
+  const off = d.schedule_offset === '' ? '0' : String(d.schedule_offset);
+  const time = d.schedule_time || '09:00';
+  const evOpts = CFG_EVENTS.map(e => `<option value="${e.key}" ${e.key === ev ? 'selected' : ''}>${_cfgEsc(e.label)}</option>`).join('');
+  const offOpts = _cfgOffsetOptions().map(o => `<option value="${o.v}" ${String(o.v) === off ? 'selected' : ''}>${_cfgEsc(o.label)}</option>`).join('');
+  return `
+    <div style="margin-top:12px;padding:12px;background:#fff;border:1px solid #e2e8f0;border-radius:8px" onclick="event.stopPropagation()">
+      <label style="display:block;font-size:11px;color:#64748b;margin-bottom:4px;font-weight:700">Evento</label>
+      <select onchange="cfgUpdateDraft('schedule_event', this.value)"
+        style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-bottom:10px;background:#fff">${evOpts}</select>
+
+      <label style="display:block;font-size:11px;color:#64748b;margin-bottom:4px;font-weight:700">¿Cuándo quieres enviarlo?</label>
+      <select onchange="cfgUpdateDraft('schedule_offset', this.value)"
+        style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-bottom:10px;background:#fff">${offOpts}</select>
+
+      <label style="display:block;font-size:11px;color:#64748b;margin-bottom:4px;font-weight:700">Hora</label>
+      <input type="time" value="${_cfgEscAttr(time)}" oninput="cfgUpdateDraft('schedule_time', this.value)"
+        style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
     </div>
   `;
 }
@@ -38419,6 +38492,8 @@ function cfgSelectTemplate(id) {
     asunto: t.asunto || '',
     body: t.body || '',
     schedule_type: t.schedule_type || 'never',
+    schedule_event: t.schedule_event || '',
+    schedule_offset: (t.schedule_offset === '' || t.schedule_offset == null) ? '' : String(t.schedule_offset),
     schedule_time: t.schedule_time || '',
     alojamientos: t.alojamientos || '',
     enabled: !!t.enabled,
@@ -38435,6 +38510,8 @@ function cfgCreateTemplate() {
     asunto: '',
     body: '',
     schedule_type: 'never',
+    schedule_event: '',
+    schedule_offset: '',
     schedule_time: '',
     alojamientos: '',
     enabled: true,
@@ -38452,10 +38529,9 @@ function cfgUpdateDraft(field, value) {
   // Solo re-renderizamos las columnas que dependen del valor cambiado;
   // los inputs de texto (nombre/asunto/body) no deben re-renderizar el editor
   // porque perderían foco/cursor.
-  if (field === 'schedule_type' || field === 'schedule_time') cfgRenderRight();
+  if (field === 'schedule_type' || field === 'schedule_time' || field === 'schedule_event' || field === 'schedule_offset') cfgRenderRight();
   if (field === 'enabled') cfgRenderEditor();
-  // Actualizar la card en la lista si aplica
-  if (field === 'nombre' || field === 'enabled') cfgRenderList();
+  if (field === 'nombre' || field === 'enabled' || field === 'schedule_type' || field === 'schedule_event' || field === 'schedule_offset' || field === 'schedule_time') cfgRenderList();
 }
 
 function cfgToggleAloj(id) {
@@ -38498,6 +38574,8 @@ async function cfgSaveDraft() {
         asunto: d.asunto,
         body: d.body,
         schedule_type: d.schedule_type,
+        schedule_event: d.schedule_event || '',
+        schedule_offset: d.schedule_offset === '' ? '' : d.schedule_offset,
         schedule_time: d.schedule_time,
         alojamientos: d.alojamientos,
         enabled: !!d.enabled,
@@ -38545,11 +38623,18 @@ function _cfgSplitCsv(s) {
   return String(s || '').split(',').map(x => x.trim()).filter(Boolean);
 }
 function _cfgAlojCsvCount(s) { return _cfgSplitCsv(s).length; }
-function _cfgScheduleShortLabel(type, time) {
+function _cfgScheduleShortLabel(type, time, event, offset) {
   const opt = CFG_SCHEDULE_OPTS.find(o => o.key === type);
   if (!opt) return 'Sin programar';
-  if (type === 'custom_arrival') return `Llegada · ${time || '--:--'}`;
-  if (type === 'custom_checkout') return `Salida · ${time || '--:--'}`;
+  if (type === 'custom') {
+    const ev = CFG_EVENTS.find(e => e.key === (event || 'arrival'));
+    const evLabel = ev ? ev.label : 'Llegada';
+    const offN = parseInt(offset === '' || offset == null ? '0' : offset, 10) || 0;
+    let offLabel = 'Día de';
+    if (offN < 0) offLabel = `${-offN} día${-offN === 1 ? '' : 's'} antes`;
+    else if (offN > 0) offLabel = `${offN} día${offN === 1 ? '' : 's'} después`;
+    return `${evLabel} · ${offLabel} · ${time || '--:--'}`;
+  }
   return opt.label;
 }
 
