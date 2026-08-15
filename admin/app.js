@@ -36585,41 +36585,69 @@ function waFirstName_(b) {
   const full = String(cand || '').trim();
   return full.split(/\s+/)[0] || 'Huésped';
 }
-function waAlojamientoLabel_(b) {
-  if (!b) return 'tu alojamiento';
-  const p = String(
-    b.PropertyName || b.property_name || b._propiedad || b.Propiedad || b['Propiedad'] || ''
+/** Extrae Propiedad + # Departamento del booking desde muchas rutas posibles. */
+function waPropDept_(b) {
+  if (!b) return { prop: '', dept: '' };
+  const prop = String(
+    b.PropertyName || b.property_name || b._propiedad || b.Propiedad ||
+    b['Propiedad'] || b.propiedad || ''
   ).trim();
-  const d = String(
+  const dept = String(
     b.RoomTypeName || b._departamento || b['# Departamento'] || b['Departamento'] ||
-    b['# depto'] || b['depto'] || ''
+    b['# depto'] || b['depto'] || b.departamento || ''
   ).trim();
-  if (p && d) return `${p} #${d}`;
-  return p || d || 'tu alojamiento';
+  return { prop, dept };
+}
+function waAlojamientoLabel_(b) {
+  const { prop, dept } = waPropDept_(b);
+  if (prop && dept) return `${prop} #${dept}`;
+  return prop || dept || 'tu alojamiento';
+}
+/** Busca en el catálogo de alojamientos (WA_ADMIN.alojIdx) por Propiedad+Dept
+ *  o por HouseId. Devuelve el row completo o null. */
+function waFindAlojRow_(b) {
+  const idx = (window.WA_ADMIN && WA_ADMIN.alojIdx) || null;
+  if (!idx) return null;
+  const houseId = String(
+    (b && (b.HouseId || b.house_id || b.PropertyId || b.property_id ||
+           b._houseId || b['HouseId'])) || ''
+  ).trim();
+  if (houseId && idx.byId[houseId]) return idx.byId[houseId];
+  const { prop, dept } = waPropDept_(b);
+  const key = (prop + '||' + dept).toLowerCase();
+  return idx.byPropDept[key] || null;
 }
 function waGuiaUrl_(b) {
-  // HouseId puede venir de varios lugares. También intentamos deducirlo desde
-  // Propiedad + # Departamento consultando el cache global de alojamientos
-  // (si está cargado en window.LG_STATE o similar).
-  let id = String(
-    (b && (b.HouseId || b.house_id || b.PropertyId || b.property_id ||
-           b._houseId || b['HouseId'] || b['ID_alojamiento'])) || ''
-  ).trim();
-  if (!id && b) {
-    try {
-      const p = (b.PropertyName || b._propiedad || b.Propiedad || b['Propiedad'] || '').toString().trim().toLowerCase();
-      const d = String(b.RoomTypeName || b._departamento || b['# Departamento'] || '').trim();
-      // Busca en cache global de alojamientos (typical en window.__alojamientos o LG_STATE.aloj)
-      const cache = window.__alojamientos || (window.LG_STATE && window.LG_STATE.aloj) || [];
-      const hit = cache.find(a => {
-        const ap = String(a.Propiedad || '').trim().toLowerCase();
-        const ad = String(a['# Departamento'] || '').trim();
-        return ap === p && ad === d;
-      });
-      if (hit && hit.HouseId) id = String(hit.HouseId).trim();
-    } catch(_){}
-  }
+  const row = waFindAlojRow_(b);
+  // Preferir url_guia real de la hoja alojamientos
+  if (row && row.url_guia) return String(row.url_guia).trim();
+  // Fallback: construir con HouseId si existe
+  const id = row && row.HouseId ? String(row.HouseId).trim()
+    : String((b && (b.HouseId || b.house_id || b.PropertyId || b.property_id)) || '').trim();
   return id ? `https://www.check-inn.mx/public/guia/?id=${encodeURIComponent(id)}` : 'https://www.check-inn.mx';
+}
+/** Precarga catálogo de alojamientos al primer uso. Se cachea en memoria. */
+async function waEnsureAlojIndex_() {
+  if (window.WA_ADMIN && WA_ADMIN.alojIdx) return WA_ADMIN.alojIdx;
+  window.WA_ADMIN = window.WA_ADMIN || { config: {}, logs: {}, loading: new Set() };
+  try {
+    const r = await fetch('https://api.check-inn.mx/alojamientos-list');
+    const j = await r.json();
+    const rows = (j && j.rows) || [];
+    const byId = {}, byPropDept = {};
+    for (const a of rows) {
+      const id = String(a.HouseId || '').trim();
+      if (id) byId[id] = a;
+      const p = String(a.Propiedad || '').trim().toLowerCase();
+      const d = String(a['# Departamento'] || '').trim();
+      if (p) byPropDept[p + '||' + d] = a;
+    }
+    WA_ADMIN.alojIdx = { byId, byPropDept, count: rows.length };
+    return WA_ADMIN.alojIdx;
+  } catch (e) {
+    console.warn('[wa] alojamientos-list falló:', e.message);
+    return null;
+  }
 }
 function waBookingId_(b) {
   // ID único de la reserva. Diferentes contextos usan claves distintas.
@@ -36746,21 +36774,16 @@ window.waOpenModal = async function(booking) {
     },
   };
 
-  // Cargar URL guía real desde alojamientos (columna url_guia)
-  const houseId = String((b && (b.HouseId || b.house_id || b.PropertyId || b.property_id)) || '').trim();
-  if (houseId) {
-    fetch('https://api.check-inn.mx/wa/url-guia', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ houseId }),
-    }).then(r => r.json()).then(j => {
-      if (j.ok && j.url_guia) {
-        st.urlGuiaOverride = j.url_guia;
-        // Re-fill defaults en templates cargados
-        _waFillTemplateDefaults();
-        _waRepaint();
-      }
-    }).catch(()=>{});
-  }
+  // Precargar catálogo alojamientos (index por HouseId + por Propiedad+Dept)
+  // para resolver url_guia real. Al terminar, re-rellena defaults y repinta.
+  waEnsureAlojIndex_().then(idx => {
+    if (idx) {
+      // Forzar re-fill (invalidando el previo) para que use la URL correcta
+      st.templateVals = {};
+      _waFillTemplateDefaults();
+      _waRepaint();
+    }
+  });
   // Cargar mensajes programados custom de esta reserva
   if (bookingId) {
     fetch('https://api.check-inn.mx/wa/scheduled-list', {
@@ -36785,11 +36808,15 @@ window.waOpenModal = async function(booking) {
 function _waFillTemplateDefaults() {
   const st = window.__waModalState; if (!st) return;
   const b = st.b;
-  const url = st.urlGuiaOverride || waGuiaUrl_(b);
+  const url = waGuiaUrl_(b);                 // usa cache alojIdx si está
+  const nombre = waFirstName_(b);
+  const alojamiento = waAlojamientoLabel_(b);
   for (const tpl of WA_TEMPLATES) {
-    if (st.templateVals[tpl.id]) continue; // ya editado, no sobreescribir
+    if (st.templateVals[tpl.id]) continue;
     const auto = tpl.autofill ? tpl.autofill(b) : {};
-    // Sobreescribir última var (URL) con la real de alojamientos
+    // Sobreescribir con datos resueltos (los del template puedan traer basura)
+    if (tpl.vars[0] && /nombre/i.test(tpl.vars[0])) auto[1] = nombre;
+    if (tpl.vars[1] && /aloj/i.test(tpl.vars[1]))   auto[2] = alojamiento;
     const urlIdx = tpl.vars.findIndex(v => /url|guía|guia/i.test(v));
     if (urlIdx >= 0) auto[urlIdx + 1] = url;
     st.templateVals[tpl.id] = auto;
