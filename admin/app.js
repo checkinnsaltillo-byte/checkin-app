@@ -36794,6 +36794,7 @@ window.waOpenModal = async function(booking) {
     editingBody: {},               // { tplId|customId: string } editado libremente
     scheduledItems: [],            // mensajes custom programados (WA_Scheduled)
     newSch: {
+      mode: 'scheduled',
       date: _waDateLocalIso(new Date()),
       time: '10:00',
       body: '',
@@ -36997,7 +36998,7 @@ function _waRenderUnifiedList_(logs) {
   const createBtn = st.newSch.open
     ? _waRenderNewSchForm_()
     : `<div style="text-align:center;margin-top:12px">
-        <button onclick="waSchedOpen_()" style="padding:8px 16px;font-size:12px;background:#fff;color:#0f172a;border:1.5px dashed #cbd5e1;border-radius:8px;cursor:pointer;font-weight:800">➕ Crear nuevo mensaje programado</button>
+        <button onclick="waSchedOpen_()" style="padding:8px 16px;font-size:12px;background:#fff;color:#0f172a;border:1.5px dashed #cbd5e1;border-radius:8px;cursor:pointer;font-weight:800">➕ Nuevo mensaje</button>
       </div>`;
 
   return html + createBtn;
@@ -37217,9 +37218,22 @@ const WA_ASUNTOS = [
 function _waRenderNewSchForm_() {
   const st = window.__waModalState;
   const isOtro = st.newSch.subject === 'Otro';
+  const isScheduled = st.newSch.mode === 'scheduled';
+  const modeChip = (val, label) => {
+    const active = st.newSch.mode === val;
+    return `<button type="button" onclick="__waModalState.newSch.mode='${val}'; _waRepaint()"
+      style="flex:1;padding:8px 12px;border:1.5px solid ${active?'#dc2626':'#cbd5e1'};background:${active?'#fee2e2':'#fff'};color:${active?'#991b1b':'#64748b'};border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">${label}</button>`;
+  };
+  const submitLabel = isScheduled ? '💾 Guardar programación' : '📤 Enviar mensaje';
   return `
     <div style="border:1.5px dashed #fca5a5;border-radius:10px;padding:12px;margin-top:12px;background:#fff5f5">
-      <div style="font-size:11px;font-weight:800;color:#991b1b;margin-bottom:8px">➕ NUEVO MENSAJE PROGRAMADO (PERSONALIZADO)</div>
+      <div style="font-size:11px;font-weight:800;color:#991b1b;margin-bottom:8px">➕ NUEVO MENSAJE</div>
+
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        ${modeChip('scheduled', '🗓 Programado')}
+        ${modeChip('instant', '⚡ Instantáneo')}
+      </div>
+
       <div style="margin-bottom:8px">
         <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Asunto</label>
         <select onchange="__waModalState.newSch.subject=this.value; _waRepaint()"
@@ -37232,24 +37246,29 @@ function _waRenderNewSchForm_() {
             style="width:100%;margin-top:6px;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">
         ` : ''}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <div>
-          <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Fecha</label>
-          <input type="date" value="${st.newSch.date}" oninput="__waModalState.newSch.date=this.value"
-            style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">
+
+      ${isScheduled ? `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div>
+            <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Fecha</label>
+            <input type="date" value="${st.newSch.date}" oninput="__waModalState.newSch.date=this.value"
+              style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Hora</label>
+            <input type="time" value="${st.newSch.time}" oninput="__waModalState.newSch.time=this.value"
+              style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">
+          </div>
         </div>
-        <div>
-          <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Hora</label>
-          <input type="time" value="${st.newSch.time}" oninput="__waModalState.newSch.time=this.value"
-            style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">
-        </div>
-      </div>
+      ` : ''}
+
       <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Mensaje</label>
       <textarea oninput="__waModalState.newSch.body=this.value" rows="4" placeholder="Escribe tu mensaje…"
         style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;resize:vertical;font-family:inherit">${esc(st.newSch.body)}</textarea>
+
       <div style="margin-top:10px;text-align:right;display:flex;gap:8px;justify-content:flex-end">
         <button onclick="waSchedCancel_()" style="padding:6px 12px;font-size:12px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">Cancelar</button>
-        <button onclick="waSchedCreate_()" style="padding:6px 14px;font-size:12px;background:#25d366;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">Guardar programación</button>
+        <button onclick="waSchedCreate_()" style="padding:6px 14px;font-size:12px;background:#25d366;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">${submitLabel}</button>
       </div>
     </div>
   `;
@@ -37559,6 +37578,7 @@ window.waSchedOpen_ = function() {
   _waRepaint();
 };
 const _WA_NEW_SCH_DEFAULT = () => ({
+  mode: 'scheduled',              // 'scheduled' | 'instant'
   date: _waDateLocalIso(new Date()), time: '10:00', body: '',
   subject: 'Estacionamiento', subjectCustom: '', open: false,
 });
@@ -37572,24 +37592,48 @@ window.waSchedCreate_ = async function() {
   const to = waNormalizePhoneE164_(st.to);
   if (!to) { alert('Teléfono inválido'); return; }
   if (!st.newSch.body.trim()) { alert('Mensaje vacío'); return; }
-  if (!st.newSch.date || !st.newSch.time) { alert('Fecha/hora requerida'); return; }
+  const isInstant = st.newSch.mode === 'instant';
+  if (!isInstant && (!st.newSch.date || !st.newSch.time)) { alert('Fecha/hora requerida'); return; }
   const asuntoFinal = st.newSch.subject === 'Otro'
     ? (st.newSch.subjectCustom || '').trim() || 'Otro'
     : st.newSch.subject;
-  const scheduledAt = new Date(`${st.newSch.date}T${st.newSch.time}:00`).toISOString();
+  const scheduledAt = isInstant
+    ? new Date().toISOString()
+    : new Date(`${st.newSch.date}T${st.newSch.time}:00`).toISOString();
   try {
-    const r = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
+    // 1. Crear el registro en WA_Scheduled (guarda asunto/body/fecha)
+    const addR = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bookingId: st.bookingId, to, scheduledAt, body: st.newSch.body, asunto: asuntoFinal }),
     });
-    const j = await r.json();
-    if (!j.ok) throw new Error(j.error || 'error');
+    const addJ = await addR.json();
+    if (!addJ.ok) throw new Error(addJ.error || 'error al guardar');
+
+    let statusFinal = 'pending', sentAt = '', sid = '';
+    if (isInstant) {
+      // 2. Enviar inmediatamente
+      const sendR = await fetch('https://api.check-inn.mx/wa/scheduled-send-now', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: addJ.id }),
+      });
+      const sendJ = await sendR.json();
+      if (sendJ.ok) {
+        statusFinal = sendJ.status || 'sent';
+        sentAt = new Date().toISOString();
+        sid = sendJ.sid || '';
+      } else {
+        statusFinal = 'failed';
+      }
+    }
+
     st.scheduledItems.push({
-      id: j.id, booking_id: st.bookingId, tipo: 'custom', to,
-      scheduled_at: scheduledAt, body: st.newSch.body, asunto: asuntoFinal, status: 'pending',
+      id: addJ.id, booking_id: st.bookingId, tipo: 'custom', to,
+      scheduled_at: scheduledAt, body: st.newSch.body, asunto: asuntoFinal,
+      status: statusFinal, sent_at: sentAt, sid,
     });
     st.newSch = _WA_NEW_SCH_DEFAULT();
     _waRepaint();
+    if (isInstant && statusFinal === 'failed') alert('El mensaje se guardó pero falló al enviarse. Intenta con "Enviar ahora" desde su card.');
   } catch (e) { alert('❌ ' + e.message); }
 };
 
