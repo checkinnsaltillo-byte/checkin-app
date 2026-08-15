@@ -38271,7 +38271,7 @@ async function cfgAdminInit() {
   cfgAdminRender();
   try {
     const [tplRes, alojRes] = await Promise.all([
-      fetch(`${BACKEND}/wa/templates-list`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json()),
+      fetch(`https://api.check-inn.mx/wa/templates-list`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json()),
       fetch('https://api.check-inn.mx/alojamientos-list').then(r => r.json()).catch(() => ({ rows: [] })),
     ]);
     CFG_ADMIN.templates = (tplRes && tplRes.items) || [];
@@ -38280,11 +38280,11 @@ async function cfgAdminInit() {
     const existingIds = new Set(CFG_ADMIN.templates.map(t => t.id));
     const missing = CFG_DEFAULT_TEMPLATES.filter(d => !existingIds.has(d.id));
     if (missing.length) {
-      await Promise.all(missing.map(d => fetch(`${BACKEND}/wa/templates-upsert`, {
+      await Promise.all(missing.map(d => fetch(`https://api.check-inn.mx/wa/templates-upsert`, {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify(d),
       })));
-      const refresh = await fetch(`${BACKEND}/wa/templates-list`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json());
+      const refresh = await fetch(`https://api.check-inn.mx/wa/templates-list`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json());
       CFG_ADMIN.templates = (refresh && refresh.items) || CFG_ADMIN.templates;
     }
     CFG_ADMIN.loaded = true;
@@ -38565,7 +38565,7 @@ async function cfgSaveDraft() {
     return;
   }
   try {
-    const res = await fetch(`${BACKEND}/wa/templates-upsert`, {
+    const res = await fetch(`https://api.check-inn.mx/wa/templates-upsert`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
@@ -38584,7 +38584,7 @@ async function cfgSaveDraft() {
     const j = await res.json();
     if (!j.ok) throw new Error(j.error || 'error');
     // Refresh lista
-    const listRes = await fetch(`${BACKEND}/wa/templates-list`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json());
+    const listRes = await fetch(`https://api.check-inn.mx/wa/templates-list`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).then(r => r.json());
     CFG_ADMIN.templates = (listRes && listRes.items) || [];
     CFG_ADMIN.selectedId = j.id;
     const t = CFG_ADMIN.templates.find(x => x.id === j.id);
@@ -38599,7 +38599,7 @@ async function cfgDeleteDraft() {
   if (!d || !d._id) return;
   if (!confirm(`¿Eliminar template "${d.nombre}"?`)) return;
   try {
-    const res = await fetch(`${BACKEND}/wa/templates-delete`, {
+    const res = await fetch(`https://api.check-inn.mx/wa/templates-delete`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ id: d._id }),
