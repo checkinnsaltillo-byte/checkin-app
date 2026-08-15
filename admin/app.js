@@ -36687,203 +36687,473 @@ function _waNextAutoSends(b) {
   return items;
 }
 
-/** Abre modal WhatsApp para una reservación (booking Lodgify o similar). */
-window.waOpenModal = function(booking) {
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ waOpenModal — modal WhatsApp rediseñado: lista visual de mensajes        ║
+// ║ (bienvenida, check-in, check-out) con estado + botones + editor libre.  ║
+// ║ Tab "Mensaje libre" permite programar mensajes custom con fecha/hora.   ║
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Fecha ISO local YYYY-MM-DD para <input type=date>. */
+function _waDateLocalIso(d) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+/** Formatea Date como "13 ago, 3:04 p.m." (estilo screenshot). */
+function _waFmtDateTimeEs(iso) {
+  try {
+    const d = iso ? new Date(iso) : null;
+    if (!d || isNaN(d.getTime())) return '';
+    const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    let h = d.getHours(), m = d.getMinutes();
+    const ampm = h >= 12 ? 'p.m.' : 'a.m.';
+    h = h % 12; if (h === 0) h = 12;
+    return `${d.getDate()} ${meses[d.getMonth()]}, ${h}:${String(m).padStart(2,'0')} ${ampm}`;
+  } catch(_) { return iso || ''; }
+}
+/** Renderiza texto de template con variables aplicadas. */
+function _waRenderTpl(tplBody, vals) {
+  return String(tplBody).replace(/\{\{(\d+)\}\}/g, (_, n) => vals[n] || `{{${n}}}`);
+}
+
+// State por modal (recreado en cada apertura)
+window.__waModalState = null;
+
+/** Abre modal WhatsApp para una reservación. */
+window.waOpenModal = async function(booking) {
   const b = booking || {};
-  window.__waCurBookingId = waBookingId_(b);
-  // Pre-cargar config si aún no la tengo
-  if (window.__waCurBookingId) waFetchConfigForIds([window.__waCurBookingId]);
-  const to = waNormalizePhoneE164_(
-    b.GuestPhone || b['Cel/Whatsapp (principal)'] || b.celular_principal ||
-    b['Celular principal'] || b.phone || b.Phone || ''
-  );
-  let selectedTplId = WA_TEMPLATES[0].id;
-  let mode = 'template'; // 'template' | 'freeform'
-  let vals = { ...(WA_TEMPLATES[0].autofill ? WA_TEMPLATES[0].autofill(b) : {}) };
-  let freeformText = '';
+  const bookingId = waBookingId_(b);
+  window.__waCurBookingId = bookingId;
+  if (bookingId) waFetchConfigForIds([bookingId]);
 
-  const _mkVarInputs = () => {
-    const tpl = WA_TEMPLATES.find(t => t.id === selectedTplId);
-    if (!tpl) return '';
-    return tpl.vars.map((label, i) => {
-      const n = i + 1;
-      return `<div style="margin-bottom:8px">
-        <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:3px">{{${n}}} · ${label}</label>
-        <input type="text" data-wa-var="${n}" value="${(vals[n]||'').replace(/"/g,'&quot;')}"
-          style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"
-          oninput="waUpdateVar_(${n}, this.value)">
-      </div>`;
-    }).join('');
-  };
-
-  const render = () => {
-    const modal = document.getElementById('wa-modal');
-    if (!modal) return;
-    const tpl = WA_TEMPLATES.find(t => t.id === selectedTplId);
-    const previewText = (mode === 'freeform')
-      ? (freeformText || '(escribe tu mensaje…)')
-      : waRenderPreview_(tpl ? tpl.body : '', vals);
-    modal.querySelector('#wa-preview').textContent = previewText;
-    modal.querySelector('#wa-vars-wrap').innerHTML = (mode === 'template') ? _mkVarInputs() : '';
-    modal.querySelector('#wa-freeform-wrap').style.display = (mode === 'freeform') ? 'block' : 'none';
+  const st = window.__waModalState = {
+    b,
+    bookingId,
+    to: waNormalizePhoneE164_(
+      b.GuestPhone || b['Cel/Whatsapp (principal)'] || b.celular_principal ||
+      b['Celular principal'] || b.phone || b.Phone || ''
+    ),
+    urlGuiaOverride: '',           // se llena desde alojamientos.url_guia
+    activeTab: 'templates',        // 'templates' | 'freeform'
+    templateVals: {},              // { tplId: {1: '', 2: '', ...} }
+    expandedTpl: null,             // id del template expandido
+    editingBody: {},               // { tplId: string } — cuando el user editó libre
+    scheduledItems: [],            // mensajes custom programados de esta reserva
+    newSch: {                       // form para nuevo mensaje custom
+      date: _waDateLocalIso(new Date()),
+      time: '10:00',
+      body: '',
+      open: false,
+    },
   };
 
-  window.waUpdateVar_ = (n, v) => { vals[n] = v; render(); };
-  window.waSelectTpl_ = (id) => {
-    selectedTplId = id;
-    const tpl = WA_TEMPLATES.find(t => t.id === id);
-    vals = { ...(tpl && tpl.autofill ? tpl.autofill(b) : {}) };
-    render();
-  };
-  window.waSetMode_ = (m) => { mode = m; render(); };
-  window.waFreeformInput_ = (v) => { freeformText = v; render(); };
-  window.waCloseModal_ = () => {
-    const m = document.getElementById('wa-modal');
-    if (m) m.remove();
-  };
-  window.waSubmit_ = async () => {
-    const btn = document.getElementById('wa-submit-btn');
-    const statusEl = document.getElementById('wa-status');
-    const toInput = document.getElementById('wa-to');
-    const to = waNormalizePhoneE164_(toInput.value);
-    if (!to) { statusEl.textContent = '⚠ Teléfono inválido'; statusEl.style.color = '#dc2626'; return; }
-    btn.disabled = true;
-    btn.textContent = '⏳ Enviando…';
-    statusEl.textContent = '';
-    const payload = { to, bookingId: window.__waCurBookingId || '' };
-    if (mode === 'template') {
-      const tpl = WA_TEMPLATES.find(t => t.id === selectedTplId);
-      payload.contentSid = tpl.contentSid;
-      payload.contentVars = vals;
-    } else {
-      if (!freeformText.trim()) { statusEl.textContent = '⚠ Mensaje vacío'; statusEl.style.color = '#dc2626'; btn.disabled=false; btn.textContent='📤 Enviar'; return; }
-      payload.body = freeformText;
-    }
-    try {
-      const r = await fetch('https://api.check-inn.mx/wa/send', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const j = await r.json();
-      if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
-      statusEl.innerHTML = `✅ Enviado · <span style="color:#64748b">${j.sid}</span>`;
-      statusEl.style.color = '#16a34a';
-      btn.textContent = '✓ Enviado';
-      setTimeout(() => window.waCloseModal_(), 2200);
-    } catch (e) {
-      statusEl.textContent = '❌ ' + e.message;
-      statusEl.style.color = '#dc2626';
-      btn.disabled = false;
-      btn.textContent = '📤 Reintentar';
-    }
-  };
+  // Cargar URL guía real desde alojamientos (columna url_guia)
+  const houseId = String((b && (b.HouseId || b.house_id || b.PropertyId || b.property_id)) || '').trim();
+  if (houseId) {
+    fetch('https://api.check-inn.mx/wa/url-guia', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ houseId }),
+    }).then(r => r.json()).then(j => {
+      if (j.ok && j.url_guia) {
+        st.urlGuiaOverride = j.url_guia;
+        // Re-fill defaults en templates cargados
+        _waFillTemplateDefaults();
+        _waRepaint();
+      }
+    }).catch(()=>{});
+  }
+  // Cargar mensajes programados custom de esta reserva
+  if (bookingId) {
+    fetch('https://api.check-inn.mx/wa/scheduled-list', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId }),
+    }).then(r => r.json()).then(j => {
+      st.scheduledItems = (j.items || []).filter(x => x.status !== 'omitted' || false);
+      // Mostrar todos (pending, sent, failed) — el usuario decide
+      st.scheduledItems = (j.items || []);
+      _waRepaint();
+    }).catch(()=>{});
+  }
 
+  _waFillTemplateDefaults();
+  _waRenderModal();
+  // Cargar logs para historial (aparecen bajo cada template)
+  setTimeout(_waRepaint, 900);
+  setTimeout(_waRepaint, 1800);
+};
+
+/** Rellena los valores default de cada template desde el booking. */
+function _waFillTemplateDefaults() {
+  const st = window.__waModalState; if (!st) return;
+  const b = st.b;
+  const url = st.urlGuiaOverride || waGuiaUrl_(b);
+  for (const tpl of WA_TEMPLATES) {
+    if (st.templateVals[tpl.id]) continue; // ya editado, no sobreescribir
+    const auto = tpl.autofill ? tpl.autofill(b) : {};
+    // Sobreescribir última var (URL) con la real de alojamientos
+    const urlIdx = tpl.vars.findIndex(v => /url|guía|guia/i.test(v));
+    if (urlIdx >= 0) auto[urlIdx + 1] = url;
+    st.templateVals[tpl.id] = auto;
+  }
+}
+
+/** Cierra modal. */
+window.waCloseModal_ = function() {
+  const m = document.getElementById('wa-modal');
+  if (m) m.remove();
+  window.__waModalState = null;
+};
+
+/** Repinta el modal completo (idempotente). */
+function _waRepaint() { _waRenderModal(true); }
+
+function _waRenderModal(replace) {
+  const st = window.__waModalState; if (!st) return;
   const existing = document.getElementById('wa-modal');
-  if (existing) existing.remove();
-  const wrap = document.createElement('div');
-  wrap.id = 'wa-modal';
-  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
-  wrap.onclick = (e) => { if (e.target === wrap) waCloseModal_(); };
-  wrap.innerHTML = `
-    <div style="background:#fff;border-radius:16px;box-shadow:0 24px 48px rgba(0,0,0,.28);width:100%;max-width:640px;max-height:90vh;overflow:auto;padding:0" onclick="event.stopPropagation()">
-      <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#25d366;color:#fff;border-radius:16px 16px 0 0">
-        <div style="font-size:15px;font-weight:800;letter-spacing:.01em">💬 Enviar WhatsApp</div>
+  if (existing && !replace) return;
+  const auto = !!(WA_ADMIN.config[st.bookingId] && WA_ADMIN.config[st.bookingId].auto_enabled);
+  const logs = (WA_ADMIN.logs[st.bookingId] || []);
+  const b = st.b;
+
+  const html = `
+    <div style="background:#fff;border-radius:16px;box-shadow:0 24px 48px rgba(0,0,0,.28);width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:0" onclick="event.stopPropagation()">
+      <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#25d366;color:#fff;border-radius:16px 16px 0 0;position:sticky;top:0;z-index:2">
+        <div style="font-size:15px;font-weight:800">💬 WhatsApp · ${esc(b.GuestName || b['Nombre reservación'] || 'Huésped')}</div>
         <button onclick="waCloseModal_()" style="background:transparent;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1;padding:0 6px">✕</button>
       </div>
       <div style="padding:14px 18px">
+
         <div style="margin-bottom:10px">
-          <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">Para (teléfono en formato E.164)</label>
-          <input id="wa-to" type="text" value="${(to||'').replace(/"/g,'&quot;')}"
-            style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box"
-            placeholder="+5218115569120">
-          ${b.GuestName ? `<div style="font-size:11px;color:#64748b;margin-top:3px">Huésped: <b>${esc(b.GuestName)}</b> · ${esc(waAlojamientoLabel_(b))}</div>` : ''}
+          <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">Para</label>
+          <input id="wa-to" type="text" value="${(st.to||'').replace(/"/g,'&quot;')}"
+            oninput="__waModalState.to=this.value"
+            style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box">
+          <div style="font-size:11px;color:#64748b;margin-top:3px">${esc(waAlojamientoLabel_(b))}</div>
         </div>
-        <!-- Sección: Programación automática -->
-        <div id="wa-auto-section" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:12px">
+
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:12px">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-            <div style="font-size:11px;font-weight:800;color:#0f172a;letter-spacing:.02em">📅 PROGRAMACIÓN AUTOMÁTICA</div>
-            ${window.__waCurBookingId ? waAutoToggleHtml(window.__waCurBookingId) : '<span style="font-size:10px;color:#94a3b8">Sin booking ID — no disponible</span>'}
+            <div style="font-size:11px;font-weight:800;color:#0f172a">📅 Programación automática</div>
+            ${st.bookingId ? waAutoToggleHtml(st.bookingId) : '<span style="font-size:10px;color:#94a3b8">Sin ID</span>'}
           </div>
-          <div id="wa-auto-info" style="font-size:11px;color:#475569;margin-top:6px;line-height:1.5">Cargando…</div>
-        </div>
-        <div style="display:flex;gap:6px;margin-bottom:10px;background:#f1f5f9;padding:4px;border-radius:8px">
-          <button onclick="waSetMode_('template')" id="wa-tab-tpl" style="flex:1;padding:6px 10px;border:0;background:transparent;font-size:12px;font-weight:700;cursor:pointer;border-radius:6px">📋 Plantilla</button>
-          <button onclick="waSetMode_('freeform')" id="wa-tab-free" style="flex:1;padding:6px 10px;border:0;background:transparent;font-size:12px;font-weight:700;cursor:pointer;border-radius:6px">✏️ Mensaje libre</button>
-        </div>
-        <div id="wa-template-wrap">
-          <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">Plantilla</label>
-          <select onchange="waSelectTpl_(this.value)" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:10px">
-            ${WA_TEMPLATES.map(t => `<option value="${t.id}">${t.label}</option>`).join('')}
-          </select>
-          <div id="wa-vars-wrap"></div>
-        </div>
-        <div id="wa-freeform-wrap" style="display:none">
-          <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">Mensaje (solo funciona dentro de ventana 24h del huésped)</label>
-          <textarea oninput="waFreeformInput_(this.value)" rows="4"
-            style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;resize:vertical;font-family:inherit"
-            placeholder="Escribe el mensaje…"></textarea>
-        </div>
-        <div style="margin-top:14px">
-          <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">Previa</label>
-          <div id="wa-preview" style="padding:10px 12px;background:#dcf7c5;border:1px solid #bbf7d0;border-radius:12px 12px 12px 4px;font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4;min-height:60px"></div>
-        </div>
-        <div style="margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-          <div id="wa-status" style="font-size:12px;flex:1"></div>
-          <div style="display:flex;gap:8px">
-            <button onclick="waCloseModal_()" style="padding:8px 14px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
-            <button id="wa-submit-btn" onclick="waSubmit_()" style="padding:8px 16px;background:#25d366;border:0;color:#fff;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">📤 Enviar</button>
+          <div style="font-size:11px;color:${auto?'#166534':'#92400e'};margin-top:6px">
+            ${auto ? '✓ ON — recibirá recordatorios automáticos.' : '○ OFF — no recibirá recordatorios. Activa el toggle para habilitar.'}
           </div>
         </div>
+
+        <div style="display:flex;gap:6px;margin-bottom:12px;background:#f1f5f9;padding:4px;border-radius:8px">
+          <button onclick="waSetTab_('templates')" style="flex:1;padding:8px;border:0;background:${st.activeTab==='templates'?'#fff':'transparent'};box-shadow:${st.activeTab==='templates'?'0 1px 3px rgba(0,0,0,.1)':'none'};font-size:12px;font-weight:800;cursor:pointer;border-radius:6px;color:${st.activeTab==='templates'?'#0f172a':'#64748b'}">📋 Mensajes programados</button>
+          <button onclick="waSetTab_('freeform')" style="flex:1;padding:8px;border:0;background:${st.activeTab==='freeform'?'#fff':'transparent'};box-shadow:${st.activeTab==='freeform'?'0 1px 3px rgba(0,0,0,.1)':'none'};font-size:12px;font-weight:800;cursor:pointer;border-radius:6px;color:${st.activeTab==='freeform'?'#0f172a':'#64748b'}">✏️ Mensaje libre</button>
+        </div>
+
+        <div id="wa-tab-content">
+          ${st.activeTab === 'templates' ? _waRenderTemplatesTab_(logs) : _waRenderFreeformTab_()}
+        </div>
+
       </div>
     </div>
   `;
+  if (existing) {
+    existing.innerHTML = `<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px" onclick="waCloseModal_()">${html}</div>`;
+    existing.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999';
+    return;
+  }
+  const wrap = document.createElement('div');
+  wrap.id = 'wa-modal';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999';
+  wrap.innerHTML = `<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px" onclick="waCloseModal_()">${html}</div>`;
   document.body.appendChild(wrap);
-  // Estilo activo del tab
-  setTimeout(() => {
-    document.getElementById('wa-tab-tpl').style.background = '#fff';
-    document.getElementById('wa-tab-tpl').style.boxShadow = '0 1px 3px rgba(0,0,0,.1)';
-  }, 0);
-  // Popular la sección "Programación automática" cuando se cargue la config.
-  const paintAutoInfo = () => {
-    const el = document.getElementById('wa-auto-info');
-    if (!el) return;
-    const id = window.__waCurBookingId;
-    const cfg = id && WA_ADMIN.config[id];
-    const logs = (id && WA_ADMIN.logs[id]) || [];
-    const auto = !!(cfg && cfg.auto_enabled);
-    const nexts = _waNextAutoSends(b);
-    const parts = [];
-    if (auto) {
-      if (nexts.length) {
-        parts.push('<div style="color:#166534;font-weight:700;margin-bottom:2px">✓ Auto ON — próximos envíos:</div>');
-        for (const n of nexts) {
-          const label = n.tipo === 'checkin' ? '🛬 Recordatorio check-in' : '🕛 Recordatorio check-out';
-          parts.push(`<div style="padding-left:8px">• ${label}: <b>${esc(n.when)}</b></div>`);
-        }
-      } else {
-        parts.push('<div style="color:#166534;font-weight:700">✓ Auto ON — sin envíos programados (fechas ya pasaron)</div>');
-      }
-    } else {
-      parts.push('<div style="color:#92400e">○ Auto OFF — no recibirá recordatorios automáticos. Activa el toggle arriba para habilitar.</div>');
-    }
-    if (logs.length) {
-      parts.push('<div style="margin-top:8px;font-weight:700;color:#334155">Historial reciente:</div>');
-      for (const l of logs.slice(0, 5)) {
-        const icon = l.status === 'delivered' || l.status === 'read' || l.status === 'sent' ? '✅'
-                    : l.status === 'failed' ? '❌' : '📤';
-        const t = l.timestamp ? new Date(l.timestamp).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
-        parts.push(`<div style="padding-left:8px;font-size:10px;color:#64748b">${icon} <b>${esc(l.tipo)}</b> · ${esc(l.origin)} · ${esc(t)}</div>`);
-      }
-    }
-    el.innerHTML = parts.join('');
-  };
-  // Intento inmediato + reintento cuando cargue la config (async)
-  paintAutoInfo();
-  setTimeout(paintAutoInfo, 800);
-  setTimeout(paintAutoInfo, 1800);
-  render();
+}
+
+window.waSetTab_ = function(tab) {
+  if (!window.__waModalState) return;
+  window.__waModalState.activeTab = tab;
+  _waRepaint();
 };
 
+/** Cada template como card visual (estilo screenshot). */
+function _waRenderTemplatesTab_(logs) {
+  const st = window.__waModalState;
+  const b = st.b;
+  const items = [];
+
+  // Estimar próximos envíos automáticos
+  const nexts = _waNextAutoSends(b);
+  const nextByTipo = {}; for (const n of nexts) nextByTipo[n.tipo] = n;
+  // Ver logs por tipo (para "enviado")
+  const sentByTipo = {};
+  for (const l of logs) {
+    if (!sentByTipo[l.tipo] || l.timestamp > sentByTipo[l.tipo].timestamp) sentByTipo[l.tipo] = l;
+  }
+
+  for (const tpl of WA_TEMPLATES) {
+    const sent = sentByTipo[tpl.id] || sentByTipo[tpl.id.split('_')[0]] ||
+                 (tpl.id === 'bienvenida_reserva' ? sentByTipo['bienvenida'] : null) ||
+                 (tpl.id === 'recordatorio_checkin_24h' ? sentByTipo['checkin'] : null) ||
+                 (tpl.id === 'recordatorio_checkout' ? sentByTipo['checkout'] : null);
+    const nextKey = tpl.id === 'recordatorio_checkin_24h' ? 'checkin'
+                   : tpl.id === 'recordatorio_checkout' ? 'checkout' : null;
+    const next = nextKey ? nextByTipo[nextKey] : null;
+
+    const isSent = !!sent;
+    const status = isSent ? 'sent' : (next ? 'pending' : 'no-schedule');
+    const icon = isSent ? '✓' : '🕐';
+    const iconBg = isSent ? '#0f172a' : '#e5e7eb';
+    const iconColor = isSent ? '#fff' : '#6b7280';
+    const timeLine = isSent
+      ? `<span style="color:#64748b">Enviado el ${esc(_waFmtDateTimeEs(sent.timestamp))}</span>`
+      : (next
+        ? `<span style="color:#16a34a;font-weight:700">Se envía el ${esc(next.when)}</span>`
+        : `<span style="color:#94a3b8;font-style:italic">Fuera de rango de fechas</span>`);
+
+    const expanded = st.expandedTpl === tpl.id;
+    const vals = st.templateVals[tpl.id] || {};
+    const editedBody = st.editingBody[tpl.id];
+    const preview = editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals);
+
+    const details = expanded ? `
+      <div style="padding:12px 14px;background:#f8fafc;border-top:1px solid #e2e8f0">
+        ${editedBody == null ? tpl.vars.map((label, i) => {
+          const n = i + 1;
+          const v = String(vals[n] || '').replace(/"/g,'&quot;');
+          return `<div style="margin-bottom:8px">
+            <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">{{${n}}} · ${esc(label)}</label>
+            <input type="text" value="${v}" oninput="waUpdateTplVar_('${tpl.id}', ${n}, this.value)"
+              style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">
+          </div>`;
+        }).join('') : ''}
+        <div style="margin-top:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <label style="font-size:10px;font-weight:700;color:#475569">Previa</label>
+            ${editedBody == null
+              ? `<button onclick="waEditPreview_('${tpl.id}')" style="padding:2px 8px;font-size:10px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">✏️ Editar libre</button>`
+              : `<button onclick="waResetPreview_('${tpl.id}')" style="padding:2px 8px;font-size:10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;cursor:pointer;font-weight:700">↩ Restaurar plantilla</button>`}
+          </div>
+          ${editedBody == null
+            ? `<div style="padding:8px 10px;background:#dcf7c5;border-radius:10px 10px 10px 4px;font-size:12px;white-space:pre-wrap;line-height:1.4">${esc(preview)}</div>`
+            : `<textarea oninput="waEditBody_('${tpl.id}', this.value)" rows="6" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:8px;box-sizing:border-box;resize:vertical;font-family:inherit;background:#fffbeb">${esc(editedBody)}</textarea>`}
+        </div>
+        <div style="margin-top:10px;text-align:right">
+          <button onclick="waSendTplNow_('${tpl.id}')" style="padding:8px 14px;background:#25d366;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">📤 Enviar ahora</button>
+        </div>
+      </div>
+    ` : '';
+
+    const label = tpl.label.toUpperCase().replace(/[🏠⏰🚪📩]\s*/g,'').trim();
+    items.push(`
+      <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:${expanded?4:2}px">
+        <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:12px">
+          <div style="width:26px;height:26px;border-radius:50%;background:${iconBg};color:${iconColor};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">${icon}</div>
+          <div style="flex:1;width:2px;background:#e5e7eb;margin-top:4px;min-height:14px"></div>
+        </div>
+        <div style="flex:1;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
+          <div style="padding:12px 14px">
+            <div style="font-size:13px;font-weight:800;color:#0f172a;letter-spacing:.02em">${esc(label)}</div>
+            <div style="font-size:11px;margin-top:2px">${timeLine}</div>
+            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+              <button onclick="waToggleTplExpand_('${tpl.id}')" style="padding:5px 10px;font-size:11px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">${expanded?'▲ Ocultar':'▼ Ver detalles'}</button>
+              ${!isSent && next ? `<button onclick="waSendTplNow_('${tpl.id}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">📤 Enviar ahora</button>` : ''}
+            </div>
+          </div>
+          ${details}
+        </div>
+      </div>
+    `);
+  }
+  return items.join('');
+}
+
+function _waRenderFreeformTab_() {
+  const st = window.__waModalState;
+  const items = (st.scheduledItems || []).slice().sort((a,b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
+  const listHtml = items.length ? items.map(it => {
+    const isSent = it.status === 'sent' || it.status === 'delivered' || it.status === 'read';
+    const isFailed = it.status === 'failed';
+    const isOmitted = it.status === 'omitted';
+    const icon = isSent ? '✓' : (isFailed ? '✗' : (isOmitted ? '⊘' : '🕐'));
+    const iconBg = isSent ? '#0f172a' : (isFailed ? '#dc2626' : (isOmitted ? '#94a3b8' : '#e5e7eb'));
+    const iconColor = (isSent || isFailed || isOmitted) ? '#fff' : '#6b7280';
+    const timeLine = isSent
+      ? `<span style="color:#64748b">Enviado el ${esc(_waFmtDateTimeEs(it.sent_at))}</span>`
+      : isOmitted
+        ? `<span style="color:#94a3b8">Omitido (programado para ${esc(_waFmtDateTimeEs(it.scheduled_at))})</span>`
+        : isFailed
+          ? `<span style="color:#dc2626">Falló · programado ${esc(_waFmtDateTimeEs(it.scheduled_at))}</span>`
+          : `<span style="color:#16a34a;font-weight:700">Se envía el ${esc(_waFmtDateTimeEs(it.scheduled_at))}</span>`;
+    const actions = !isSent && !isFailed && !isOmitted ? `
+      <button onclick="waSchedOmit_('${it.id}')" style="padding:5px 10px;font-size:11px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">Omitir</button>
+      <button onclick="waSchedSendNow_('${it.id}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">Enviar ahora</button>
+    ` : '';
+    return `
+      <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:2px">
+        <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:12px">
+          <div style="width:26px;height:26px;border-radius:50%;background:${iconBg};color:${iconColor};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">${icon}</div>
+          <div style="flex:1;width:2px;background:#e5e7eb;margin-top:4px;min-height:14px"></div>
+        </div>
+        <div style="flex:1;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px">
+          <div style="font-size:13px;font-weight:800;color:#0f172a">MENSAJE PERSONALIZADO</div>
+          <div style="font-size:11px;margin-top:2px">${timeLine}</div>
+          <div style="margin-top:6px;padding:8px 10px;background:#f8fafc;border-radius:8px;font-size:12px;color:#334155;white-space:pre-wrap;line-height:1.4">${esc(it.body || '')}</div>
+          ${actions ? `<div style="margin-top:8px;display:flex;gap:6px">${actions}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('') : '<div style="text-align:center;color:#94a3b8;font-size:12px;padding:20px 0">Sin mensajes programados aún.</div>';
+
+  const formHtml = st.newSch.open ? `
+    <div style="border:1px dashed #cbd5e1;border-radius:10px;padding:12px;margin-top:10px;background:#fafbfc">
+      <div style="font-size:11px;font-weight:800;color:#0f172a;margin-bottom:8px">➕ NUEVO MENSAJE PROGRAMADO</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Fecha</label>
+          <input type="date" value="${st.newSch.date}" oninput="__waModalState.newSch.date=this.value"
+            style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Hora</label>
+          <input type="time" value="${st.newSch.time}" oninput="__waModalState.newSch.time=this.value"
+            style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">
+        </div>
+      </div>
+      <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Mensaje</label>
+      <textarea oninput="__waModalState.newSch.body=this.value" rows="4" placeholder="Escribe tu mensaje…"
+        style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;resize:vertical;font-family:inherit">${esc(st.newSch.body)}</textarea>
+      <div style="margin-top:10px;text-align:right;display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="waSchedCancel_()" style="padding:6px 12px;font-size:12px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">Cancelar</button>
+        <button onclick="waSchedCreate_()" style="padding:6px 14px;font-size:12px;background:#25d366;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">Guardar programación</button>
+      </div>
+    </div>
+  ` : `
+    <div style="text-align:center;margin-top:10px">
+      <button onclick="waSchedOpen_()" style="padding:8px 16px;font-size:12px;background:#fff;color:#0f172a;border:1.5px dashed #cbd5e1;border-radius:8px;cursor:pointer;font-weight:800">➕ Crear nuevo mensaje programado</button>
+    </div>
+  `;
+  return listHtml + formHtml;
+}
+
+// ─── Handlers ─────────────────────────────────────────────────────────────
+
+window.waToggleTplExpand_ = function(id) {
+  const st = window.__waModalState; if (!st) return;
+  st.expandedTpl = st.expandedTpl === id ? null : id;
+  _waRepaint();
+};
+window.waUpdateTplVar_ = function(id, n, val) {
+  const st = window.__waModalState; if (!st) return;
+  st.templateVals[id] = st.templateVals[id] || {};
+  st.templateVals[id][n] = val;
+  _waRepaint();
+};
+window.waEditPreview_ = function(id) {
+  const st = window.__waModalState; if (!st) return;
+  const tpl = WA_TEMPLATES.find(t => t.id === id); if (!tpl) return;
+  st.editingBody[id] = _waRenderTpl(tpl.body, st.templateVals[id] || {});
+  _waRepaint();
+};
+window.waEditBody_ = function(id, val) {
+  const st = window.__waModalState; if (!st) return;
+  st.editingBody[id] = val;
+};
+window.waResetPreview_ = function(id) {
+  const st = window.__waModalState; if (!st) return;
+  delete st.editingBody[id];
+  _waRepaint();
+};
+window.waSendTplNow_ = async function(id) {
+  const st = window.__waModalState; if (!st) return;
+  const tpl = WA_TEMPLATES.find(t => t.id === id); if (!tpl) return;
+  const to = waNormalizePhoneE164_(st.to);
+  if (!to) { alert('Teléfono inválido'); return; }
+  const editedBody = st.editingBody[id];
+  const payload = { to, bookingId: st.bookingId, tipo: id };
+  if (editedBody != null) {
+    payload.body = editedBody;
+  } else {
+    payload.contentSid = tpl.contentSid;
+    payload.contentVars = st.templateVals[id] || {};
+  }
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/send', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    alert('✅ Enviado (' + j.sid + ')');
+    // Actualizar logs cacheados
+    if (st.bookingId) {
+      WA_ADMIN.logs[st.bookingId] = WA_ADMIN.logs[st.bookingId] || [];
+      WA_ADMIN.logs[st.bookingId].unshift({
+        timestamp: new Date().toISOString(), tipo: id, origin: 'manual-admin',
+        sid: j.sid, status: j.status || 'sent',
+      });
+    }
+    _waRepaint();
+  } catch (e) { alert('❌ ' + e.message); }
+};
+window.waSchedOpen_ = function() {
+  const st = window.__waModalState; if (!st) return;
+  st.newSch.open = true;
+  _waRepaint();
+};
+window.waSchedCancel_ = function() {
+  const st = window.__waModalState; if (!st) return;
+  st.newSch = { date: _waDateLocalIso(new Date()), time: '10:00', body: '', open: false };
+  _waRepaint();
+};
+window.waSchedCreate_ = async function() {
+  const st = window.__waModalState; if (!st) return;
+  const to = waNormalizePhoneE164_(st.to);
+  if (!to) { alert('Teléfono inválido'); return; }
+  if (!st.newSch.body.trim()) { alert('Mensaje vacío'); return; }
+  if (!st.newSch.date || !st.newSch.time) { alert('Fecha/hora requerida'); return; }
+  const scheduledAt = new Date(`${st.newSch.date}T${st.newSch.time}:00`).toISOString();
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId: st.bookingId, to, scheduledAt, body: st.newSch.body }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    // Añadir a la lista local optimistamente
+    st.scheduledItems.push({
+      id: j.id, booking_id: st.bookingId, tipo: 'custom', to,
+      scheduled_at: scheduledAt, body: st.newSch.body, status: 'pending',
+    });
+    st.newSch = { date: _waDateLocalIso(new Date()), time: '10:00', body: '', open: false };
+    _waRepaint();
+  } catch (e) { alert('❌ ' + e.message); }
+};
+window.waSchedOmit_ = async function(id) {
+  if (!confirm('¿Omitir este mensaje programado?')) return;
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/scheduled-omit', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    const st = window.__waModalState;
+    if (st) {
+      const it = (st.scheduledItems || []).find(x => x.id === id);
+      if (it) it.status = 'omitted';
+      _waRepaint();
+    }
+  } catch (e) { alert('❌ ' + e.message); }
+};
+window.waSchedSendNow_ = async function(id) {
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/scheduled-send-now', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    const st = window.__waModalState;
+    if (st) {
+      const it = (st.scheduledItems || []).find(x => x.id === id);
+      if (it) { it.status = 'sent'; it.sent_at = new Date().toISOString(); it.sid = j.sid; }
+      _waRepaint();
+    }
+    alert('✅ Enviado');
+  } catch (e) { alert('❌ ' + e.message); }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ║ WhatsApp — Cache global de config (auto_enabled) + logs por reserva     ║
