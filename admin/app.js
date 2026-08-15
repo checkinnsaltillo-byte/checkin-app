@@ -15612,8 +15612,14 @@ function lgBuildCardSummary(b) {
 
   // Helper para construir el link a WhatsApp con el número del huésped.
   const waPhone = b.GuestPhone ? String(b.GuestPhone).replace(/\D/g, '') : '';
+  const waBookingJson = b.GuestPhone ? esc(JSON.stringify(b).replace(/'/g,'&#39;')) : '';
   const phoneHtml = b.GuestPhone
-    ? `<a href="https://wa.me/${waPhone}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#0d9488;font-weight:700;text-decoration:none">📱 ${esc(b.GuestPhone)}</a>`
+    ? `<span style="display:inline-flex;align-items:center;gap:6px">
+        <a href="https://wa.me/${waPhone}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#0d9488;font-weight:700;text-decoration:none">📱 ${esc(b.GuestPhone)}</a>
+        <button type="button" title="Enviar plantilla o mensaje libre desde el sistema"
+          onclick='event.stopPropagation(); waOpenModal(${JSON.stringify(b).replace(/</g,"\\u003c")})'
+          style="padding:2px 8px;background:#25d366;color:#fff;border:0;border-radius:999px;font-size:10px;font-weight:800;cursor:pointer;letter-spacing:.02em">💬 Enviar</button>
+      </span>`
     : '';
 
   // Header — bg + border-left HOMOLOGADOS con la card seleccionada del
@@ -36501,3 +36507,237 @@ window.invSaveCurrentForm = async function () {
     }
   }
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ MÓDULO WhatsApp Admin — enviar templates o mensajes ad-hoc a huéspedes  ║
+// ║ desde el admin, vía backend Cloud Run /wa/send.                          ║
+// ═══════════════════════════════════════════════════════════════════════════
+
+const WA_TEMPLATES = [
+  {
+    id: 'bienvenida_reserva',
+    label: '🏠 Bienvenida (con guía)',
+    contentSid: 'HXce36199ae8ba2e71c4f983469b1b82b8',
+    body: 'Hola {{1}}, ¡bienvenido a Check-inn Saltillo! 🏠\n\nTu guía de bienvenida para {{2}} está lista:\n{{3}}\n\nAhí encontrarás WiFi, instrucciones de acceso, recomendaciones y contacto de emergencia.\n\nCualquier duda, responde este mensaje.',
+    vars: ['Nombre huésped', 'Alojamiento', 'URL guía'],
+    autofill: (b) => ({
+      1: waFirstName_(b),
+      2: waAlojamientoLabel_(b),
+      3: waGuiaUrl_(b),
+    }),
+  },
+  {
+    id: 'recordatorio_checkin_24h',
+    label: '⏰ Recordatorio de check-in (24h antes)',
+    contentSid: 'HX71192c768d8240f08daf76f94c501f2c',
+    body: 'Hola {{1}}, tu llegada a {{2}} está programada mañana ({{3}}). 🗓\n\nAntes de tu llegada, revisa tu guía:\n{{4}}\n\nAhí verás:\n📍 Cómo llegar\n🔑 Método de acceso\n✅ Realiza tu Check-in cuando llegues\n\n¡Te esperamos!',
+    vars: ['Nombre', 'Alojamiento', 'Fecha/hora llegada', 'URL guía'],
+    autofill: (b) => ({
+      1: waFirstName_(b),
+      2: waAlojamientoLabel_(b),
+      3: waFechaHora_(b.DateArrival, b.hu_HoraLlegada),
+      4: waGuiaUrl_(b),
+    }),
+  },
+  {
+    id: 'recordatorio_checkout',
+    label: '🚪 Recordatorio de check-out',
+    contentSid: 'HXcd62e32ae21e80655192928e522d01b8',
+    body: 'Hola {{1}}, tu salida de {{2}} es hoy antes de las {{3}}. 🕛\n\nAntes de irte, por favor:\n✅ Realiza tu Check-out desde la guía: {{4}}\n🚪 Sigue las instrucciones de salida (llaves, basura, ventanas, etc.)\n\n¡Gracias por elegirnos! Nos encantaría verte de nuevo.',
+    vars: ['Nombre', 'Alojamiento', 'Hora salida', 'URL guía'],
+    autofill: (b) => ({
+      1: waFirstName_(b),
+      2: waAlojamientoLabel_(b),
+      3: waHoraSalida_(b),
+      4: waGuiaUrl_(b),
+    }),
+  },
+];
+
+function waFirstName_(b) {
+  const full = String((b && (b.GuestName || b.Nombre || b.nombre_reservacion)) || '').trim();
+  return full.split(/\s+/)[0] || 'Huésped';
+}
+function waAlojamientoLabel_(b) {
+  if (!b) return 'tu alojamiento';
+  const p = String(b.PropertyName || b._propiedad || b.Propiedad || '').trim();
+  const d = String(b.RoomTypeName || b._departamento || b['# Departamento'] || '').trim();
+  if (p && d) return `${p} #${d}`;
+  return p || d || 'tu alojamiento';
+}
+function waGuiaUrl_(b) {
+  const id = String((b && (b.HouseId || b.PropertyId || b._houseId)) || '').trim();
+  return id ? `https://www.check-inn.mx/public/guia/?id=${encodeURIComponent(id)}` : 'https://www.check-inn.mx';
+}
+function waFechaHora_(iso, hora) {
+  try {
+    const d = iso ? new Date(iso + 'T00:00:00') : null;
+    const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const fecha = d ? `${d.getDate()} de ${meses[d.getMonth()]}` : '';
+    const h = String(hora || '').trim();
+    return h ? `${fecha}, ${h}` : (fecha || 'próximo');
+  } catch(_) { return 'próximo'; }
+}
+function waHoraSalida_(b) {
+  return String((b && (b.hu_HoraSalida || b.HoraSalida)) || '12:00 pm').trim();
+}
+
+function waNormalizePhoneE164_(raw) {
+  let s = String(raw || '').replace(/[^\d+]/g, '');
+  if (!s) return '';
+  if (s.startsWith('+')) return s;
+  if (s.length === 10) return '+52' + s;
+  if (s.length === 12 && s.startsWith('52')) return '+' + s;
+  if (s.length === 13 && s.startsWith('521')) return '+' + s;
+  return '+' + s;
+}
+
+function waRenderPreview_(bodyTemplate, vals) {
+  return String(bodyTemplate).replace(/\{\{(\d+)\}\}/g, (_, n) => vals[n] || `{{${n}}}`);
+}
+
+/** Abre modal WhatsApp para una reservación (booking Lodgify o similar). */
+window.waOpenModal = function(booking) {
+  const b = booking || {};
+  const to = waNormalizePhoneE164_(b.GuestPhone || b['Cel/Whatsapp (principal)'] || b.celular_principal || '');
+  let selectedTplId = WA_TEMPLATES[0].id;
+  let mode = 'template'; // 'template' | 'freeform'
+  let vals = { ...(WA_TEMPLATES[0].autofill ? WA_TEMPLATES[0].autofill(b) : {}) };
+  let freeformText = '';
+
+  const _mkVarInputs = () => {
+    const tpl = WA_TEMPLATES.find(t => t.id === selectedTplId);
+    if (!tpl) return '';
+    return tpl.vars.map((label, i) => {
+      const n = i + 1;
+      return `<div style="margin-bottom:8px">
+        <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:3px">{{${n}}} · ${label}</label>
+        <input type="text" data-wa-var="${n}" value="${(vals[n]||'').replace(/"/g,'&quot;')}"
+          style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box"
+          oninput="waUpdateVar_(${n}, this.value)">
+      </div>`;
+    }).join('');
+  };
+
+  const render = () => {
+    const modal = document.getElementById('wa-modal');
+    if (!modal) return;
+    const tpl = WA_TEMPLATES.find(t => t.id === selectedTplId);
+    const previewText = (mode === 'freeform')
+      ? (freeformText || '(escribe tu mensaje…)')
+      : waRenderPreview_(tpl ? tpl.body : '', vals);
+    modal.querySelector('#wa-preview').textContent = previewText;
+    modal.querySelector('#wa-vars-wrap').innerHTML = (mode === 'template') ? _mkVarInputs() : '';
+    modal.querySelector('#wa-freeform-wrap').style.display = (mode === 'freeform') ? 'block' : 'none';
+  };
+
+  window.waUpdateVar_ = (n, v) => { vals[n] = v; render(); };
+  window.waSelectTpl_ = (id) => {
+    selectedTplId = id;
+    const tpl = WA_TEMPLATES.find(t => t.id === id);
+    vals = { ...(tpl && tpl.autofill ? tpl.autofill(b) : {}) };
+    render();
+  };
+  window.waSetMode_ = (m) => { mode = m; render(); };
+  window.waFreeformInput_ = (v) => { freeformText = v; render(); };
+  window.waCloseModal_ = () => {
+    const m = document.getElementById('wa-modal');
+    if (m) m.remove();
+  };
+  window.waSubmit_ = async () => {
+    const btn = document.getElementById('wa-submit-btn');
+    const statusEl = document.getElementById('wa-status');
+    const toInput = document.getElementById('wa-to');
+    const to = waNormalizePhoneE164_(toInput.value);
+    if (!to) { statusEl.textContent = '⚠ Teléfono inválido'; statusEl.style.color = '#dc2626'; return; }
+    btn.disabled = true;
+    btn.textContent = '⏳ Enviando…';
+    statusEl.textContent = '';
+    const payload = { to };
+    if (mode === 'template') {
+      const tpl = WA_TEMPLATES.find(t => t.id === selectedTplId);
+      payload.contentSid = tpl.contentSid;
+      payload.contentVars = vals;
+    } else {
+      if (!freeformText.trim()) { statusEl.textContent = '⚠ Mensaje vacío'; statusEl.style.color = '#dc2626'; btn.disabled=false; btn.textContent='📤 Enviar'; return; }
+      payload.body = freeformText;
+    }
+    try {
+      const r = await fetch('https://api.check-inn.mx/wa/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      statusEl.innerHTML = `✅ Enviado · <span style="color:#64748b">${j.sid}</span>`;
+      statusEl.style.color = '#16a34a';
+      btn.textContent = '✓ Enviado';
+      setTimeout(() => window.waCloseModal_(), 2200);
+    } catch (e) {
+      statusEl.textContent = '❌ ' + e.message;
+      statusEl.style.color = '#dc2626';
+      btn.disabled = false;
+      btn.textContent = '📤 Reintentar';
+    }
+  };
+
+  const existing = document.getElementById('wa-modal');
+  if (existing) existing.remove();
+  const wrap = document.createElement('div');
+  wrap.id = 'wa-modal';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+  wrap.onclick = (e) => { if (e.target === wrap) waCloseModal_(); };
+  wrap.innerHTML = `
+    <div style="background:#fff;border-radius:16px;box-shadow:0 24px 48px rgba(0,0,0,.28);width:100%;max-width:640px;max-height:90vh;overflow:auto;padding:0" onclick="event.stopPropagation()">
+      <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#25d366;color:#fff;border-radius:16px 16px 0 0">
+        <div style="font-size:15px;font-weight:800;letter-spacing:.01em">💬 Enviar WhatsApp</div>
+        <button onclick="waCloseModal_()" style="background:transparent;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1;padding:0 6px">✕</button>
+      </div>
+      <div style="padding:14px 18px">
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">Para (teléfono en formato E.164)</label>
+          <input id="wa-to" type="text" value="${(to||'').replace(/"/g,'&quot;')}"
+            style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box"
+            placeholder="+5218115569120">
+          ${b.GuestName ? `<div style="font-size:11px;color:#64748b;margin-top:3px">Huésped: <b>${esc(b.GuestName)}</b> · ${esc(waAlojamientoLabel_(b))}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;background:#f1f5f9;padding:4px;border-radius:8px">
+          <button onclick="waSetMode_('template')" id="wa-tab-tpl" style="flex:1;padding:6px 10px;border:0;background:transparent;font-size:12px;font-weight:700;cursor:pointer;border-radius:6px">📋 Plantilla</button>
+          <button onclick="waSetMode_('freeform')" id="wa-tab-free" style="flex:1;padding:6px 10px;border:0;background:transparent;font-size:12px;font-weight:700;cursor:pointer;border-radius:6px">✏️ Mensaje libre</button>
+        </div>
+        <div id="wa-template-wrap">
+          <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">Plantilla</label>
+          <select onchange="waSelectTpl_(this.value)" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:10px">
+            ${WA_TEMPLATES.map(t => `<option value="${t.id}">${t.label}</option>`).join('')}
+          </select>
+          <div id="wa-vars-wrap"></div>
+        </div>
+        <div id="wa-freeform-wrap" style="display:none">
+          <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">Mensaje (solo funciona dentro de ventana 24h del huésped)</label>
+          <textarea oninput="waFreeformInput_(this.value)" rows="4"
+            style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;resize:vertical;font-family:inherit"
+            placeholder="Escribe el mensaje…"></textarea>
+        </div>
+        <div style="margin-top:14px">
+          <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">Previa</label>
+          <div id="wa-preview" style="padding:10px 12px;background:#dcf7c5;border:1px solid #bbf7d0;border-radius:12px 12px 12px 4px;font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4;min-height:60px"></div>
+        </div>
+        <div style="margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div id="wa-status" style="font-size:12px;flex:1"></div>
+          <div style="display:flex;gap:8px">
+            <button onclick="waCloseModal_()" style="padding:8px 14px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
+            <button id="wa-submit-btn" onclick="waSubmit_()" style="padding:8px 16px;background:#25d366;border:0;color:#fff;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">📤 Enviar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(wrap);
+  // Estilo activo del tab
+  setTimeout(() => {
+    document.getElementById('wa-tab-tpl').style.background = '#fff';
+    document.getElementById('wa-tab-tpl').style.boxShadow = '0 1px 3px rgba(0,0,0,.1)';
+  }, 0);
+  render();
+};
+
