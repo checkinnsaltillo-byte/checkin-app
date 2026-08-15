@@ -36826,9 +36826,10 @@ window.waOpenModal = async function(booking) {
   const st = window.__waModalState = {
     b,
     bookingId,
-    bookings,                      // array de todas las bookings del huésped
-    focusedBookingId: bookingId,   // acordeón actualmente expandido (una a la vez)
+    bookings,
+    focusedBookingId: bookingId,
     to: primaryPhone,
+    primaryPhone,
     recipients: primaryPhone ? [primaryPhone] : [],
     newRecipient: '',
     urlGuiaOverride: '',
@@ -36911,6 +36912,22 @@ function _waRecipientsSummary_(toRaw) {
   return `<div style="font-size:10px;color:#475569;margin-top:2px;line-height:1.4">${label}</div>`;
 }
 
+/** Persiste la lista actual de recipients en WA_Config (sin el teléfono primario
+ *  del booking — solo los adicionales). Al recargar, se re-fusionan. */
+function _waPersistRecipients() {
+  const st = window.__waModalState; if (!st || !st.bookingId) return;
+  const primary = st.primaryPhone || '';
+  const additional = (st.recipients || []).filter(x => x && x !== primary);
+  fetch('https://api.check-inn.mx/wa/config-set', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bookingId: st.bookingId, recipients: additional }),
+  }).then(r => r.json()).then(j => {
+    if (j.ok) {
+      WA_ADMIN.config[st.bookingId] = WA_ADMIN.config[st.bookingId] || {};
+      WA_ADMIN.config[st.bookingId].recipients = additional;
+    }
+  }).catch(e => console.warn('[wa recipients persist]', e));
+}
 window.waAddRecipient_ = function() {
   const st = window.__waModalState; if (!st) return;
   const raw = String(st.newRecipient || '').trim();
@@ -36922,12 +36939,14 @@ window.waAddRecipient_ = function() {
   if (st.recipients.includes(withPrefix)) { alert('Ese número ya está en la lista'); st.newRecipient = ''; _waRepaint(); return; }
   st.recipients.push(withPrefix);
   st.newRecipient = '';
+  _waPersistRecipients();
   _waRepaint();
 };
 window.waRemoveRecipient_ = function(idx) {
   const st = window.__waModalState; if (!st) return;
   st.recipients = st.recipients || [];
   st.recipients.splice(idx, 1);
+  _waPersistRecipients();
   _waRepaint();
 };
 
@@ -37108,7 +37127,11 @@ window.waSwitchBooking_ = async function(bookingId) {
   const phone = waNormalizePhoneE164_(
     bk.GuestPhone || bk['Cel/Whatsapp (principal)'] || ''
   );
-  st.recipients = phone ? [phone] : [];
+  st.primaryPhone = phone;
+  // Fusionar con recipients persistidos (si ya está en cache)
+  const cfg = WA_ADMIN.config[String(bookingId)] || {};
+  const extras = Array.isArray(cfg.recipients) ? cfg.recipients : [];
+  st.recipients = phone ? [phone, ...extras.filter(x => x !== phone)] : extras;
   st.templateVals = {};
   st.expanded = null;
   st.editingBody = {};
@@ -37269,7 +37292,7 @@ function _waRenderTemplateItem_(it, auto) {
       <div style="font-size:10px;font-weight:700;color:#64748b;padding:0 2px 4px 34px">${timeLine}</div>
       <div style="display:flex;gap:10px;align-items:stretch">
         <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;width:24px">
-          ${canToggle ? _waMsgToggleHtml('template', tpl.id, isActive, auto, eligible) : `<div style="width:22px;height:22px"></div>`}
+          ${canToggle ? _waMsgToggleHtml('template', tpl.id, isActive, auto, eligible) : (isSent ? `<div title="Enviado" style="width:22px;height:22px;border-radius:50%;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✓</div>` : `<div style="width:22px;height:22px"></div>`)}
           <div style="flex:1;width:2px;background:#e5e7eb;min-height:14px"></div>
         </div>
         <div style="flex:1;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;overflow:hidden">
@@ -37339,7 +37362,7 @@ function _waRenderCustomItem_(it, auto) {
       <div style="font-size:10px;font-weight:700;color:#64748b;padding:0 2px 4px 34px">${timeLine}</div>
       <div style="display:flex;gap:10px;align-items:stretch">
         <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;width:24px">
-          ${canToggle ? _waMsgToggleHtml('custom', cs.id, isActive, auto, eligible) : `<div style="width:22px;height:22px"></div>`}
+          ${canToggle ? _waMsgToggleHtml('custom', cs.id, isActive, auto, eligible) : (isSent ? `<div title="Enviado" style="width:22px;height:22px;border-radius:50%;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✓</div>` : (isFailed ? `<div title="Falló" style="width:22px;height:22px;border-radius:50%;background:#dc2626;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✗</div>` : `<div style="width:22px;height:22px"></div>`))}
           <div style="flex:1;width:2px;background:#e5e7eb;min-height:14px"></div>
         </div>
         <div style="flex:1;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;overflow:hidden">
@@ -37929,14 +37952,24 @@ async function waFetchConfigForIds(ids) {
     });
     const j = await r.json();
     if (j.ok) {
-      // Marca como cargados TODOS los ids solicitados (los que no tengan
-      // fila en Sheets → default auto:false).
       need.forEach(id => {
         WA_ADMIN.config[id] = (j.config && j.config[id]) || { auto_enabled: false };
         WA_ADMIN.logs[id]   = (j.logs && j.logs[id]) || [];
       });
-      // Repinta todos los toggles visibles ahora
       document.querySelectorAll(`[data-wa-auto-toggle]`).forEach(el => waPaintToggle_(el));
+      // Si el modal está abierto y aplican a la reserva focused, fusiona los
+      // recipients persistidos con el teléfono primario.
+      const st = window.__waModalState;
+      if (st && need.indexOf(String(st.bookingId)) >= 0) {
+        const cfg = WA_ADMIN.config[st.bookingId] || {};
+        const extras = Array.isArray(cfg.recipients) ? cfg.recipients : [];
+        const primary = st.primaryPhone || '';
+        const merged = primary ? [primary, ...extras.filter(x => x !== primary)] : extras;
+        // Solo actualizar si difiere para no borrar cambios en curso
+        const cur = (st.recipients || []).join('|');
+        const nxt = merged.join('|');
+        if (cur !== nxt) { st.recipients = merged; _waRepaint(); }
+      }
     }
   } catch (e) {
     console.warn('[WA] config-get falló:', e.message);
