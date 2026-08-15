@@ -37102,16 +37102,40 @@ function _waRenderCustomItem_(it, auto) {
   const now = Date.now();
   const schMs = cs.scheduled_at ? new Date(cs.scheduled_at).getTime() : 0;
   const eligible = !!(schMs && schMs > now);
-  const icon = isSent ? '✓' : (isFailed ? '✗' : (isOmitted ? '⊘' : (eligible ? '🕐' : '⏱')));
-  const iconBg = isSent ? '#0f172a' : (isFailed ? '#dc2626' : (isOmitted ? '#94a3b8' : '#e5e7eb'));
-  const iconColor = (isSent || isFailed || isOmitted) ? '#fff' : '#6b7280';
+  const icon = isSent ? '✓' : (isFailed ? '✗' : (eligible ? '🕐' : '⏱'));
+  const iconBg = isSent ? '#0f172a' : (isFailed ? '#dc2626' : '#e5e7eb');
+  const iconColor = (isSent || isFailed) ? '#fff' : '#6b7280';
   const timeLine = isSent
     ? `<span style="color:#64748b">Enviado el ${esc(_waFmtDateTimeEs(cs.sent_at))}</span>`
-    : (isOmitted ? `<span style="color:#94a3b8">Omitido (programado para ${esc(_waFmtDateTimeEs(cs.scheduled_at))})</span>`
     : (isFailed ? `<span style="color:#dc2626">Falló · programado ${esc(_waFmtDateTimeEs(cs.scheduled_at))}</span>`
     : (!eligible ? `<span style="color:#94a3b8;font-style:italic">Fecha pasada (${esc(_waFmtDateTimeEs(cs.scheduled_at))})</span>`
-    : `<span style="color:${auto?'#16a34a':'#94a3b8'};font-weight:700">Se envía el ${esc(_waFmtDateTimeEs(cs.scheduled_at))}${!auto?' (Auto OFF)':''}</span>`)));
-  const canToggle = !isSent && !isFailed && !isOmitted;
+    : `<span style="color:${(auto && isActive)?'#16a34a':'#94a3b8'};font-weight:700">Se envía el ${esc(_waFmtDateTimeEs(cs.scheduled_at))}${(auto && !isActive)?' (omitido)':(!auto?' (Auto OFF)':'')}</span>`));
+  // Custom items siempre son toggle-able (pending↔omitted) mientras no estén sent/failed
+  const canToggle = !isSent && !isFailed;
+  const expKey = 'custom:' + cs.id;
+  const expanded = st.expanded === expKey;
+  const editedBody = st.editingBody[expKey];
+  const bodyShown = editedBody != null ? editedBody : (cs.body || '');
+
+  const details = expanded ? `
+    <div style="padding:12px 14px;background:#fff5f5;border-top:1px solid #fca5a5">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <label style="font-size:10px;font-weight:700;color:#475569">Mensaje</label>
+        ${editedBody == null
+          ? `<button onclick="waEditCustom_('${cs.id}')" style="padding:2px 8px;font-size:10px;background:#fff;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">✏️ Editar</button>`
+          : `<div style="display:flex;gap:6px">
+              <button onclick="waResetCustom_('${cs.id}')" style="padding:2px 8px;font-size:10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;cursor:pointer;font-weight:700">↩ Cancelar</button>
+              <button onclick="waSaveCustom_('${cs.id}')" style="padding:2px 8px;font-size:10px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">💾 Guardar</button>
+            </div>`}
+      </div>
+      ${editedBody == null
+        ? `<div style="padding:8px 10px;background:#fff;border-radius:8px;font-size:12px;white-space:pre-wrap;line-height:1.4;color:#334155">${esc(bodyShown)}</div>`
+        : `<textarea oninput="waEditCustomBody_('${cs.id}', this.value)" rows="5" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:8px;box-sizing:border-box;resize:vertical;font-family:inherit;background:#fffbeb">${esc(editedBody)}</textarea>`}
+      ${!isSent && !isFailed ? `<div style="margin-top:10px;text-align:right">
+        <button onclick="waSchedSendNow_('${cs.id}')" style="padding:8px 14px;background:#25d366;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">📤 Enviar ahora</button>
+      </div>` : ''}
+    </div>
+  ` : '';
 
   return `
     <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:2px">
@@ -37124,15 +37148,50 @@ function _waRenderCustomItem_(it, auto) {
         <div style="padding:12px 14px">
           <div style="font-size:13px;font-weight:800;color:#0f172a">MENSAJE PERSONALIZADO <span style="font-size:9px;color:#991b1b;background:#fee2e2;padding:1px 6px;border-radius:999px;margin-left:4px">LIBRE</span></div>
           <div style="font-size:11px;margin-top:2px">${timeLine}</div>
-          <div style="margin-top:6px;padding:8px 10px;background:#fff;border-radius:8px;font-size:12px;color:#334155;white-space:pre-wrap;line-height:1.4">${esc(cs.body || '')}</div>
-          ${!isSent && !isFailed ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-            <button onclick="waSchedSendNow_('${cs.id}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">📤 Enviar ahora</button>
-          </div>` : ''}
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+            <button onclick="waToggleExpand_('${expKey}')" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">${expanded?'▲ Ocultar':'▼ Ver detalles'}</button>
+            ${!isSent && !isFailed ? `<button onclick="waSchedSendNow_('${cs.id}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">📤 Enviar ahora</button>` : ''}
+          </div>
         </div>
+        ${details}
       </div>
     </div>
   `;
 }
+
+// ─── Handlers custom expand + edit + toggle omitir/reactivar ─────────────
+window.waEditCustom_ = function(id) {
+  const st = window.__waModalState; if (!st) return;
+  const cs = (st.scheduledItems || []).find(x => x.id === id); if (!cs) return;
+  st.editingBody['custom:' + id] = cs.body || '';
+  _waRepaint();
+};
+window.waEditCustomBody_ = function(id, val) {
+  const st = window.__waModalState; if (!st) return;
+  st.editingBody['custom:' + id] = val;
+};
+window.waResetCustom_ = function(id) {
+  const st = window.__waModalState; if (!st) return;
+  delete st.editingBody['custom:' + id];
+  _waRepaint();
+};
+window.waSaveCustom_ = async function(id) {
+  const st = window.__waModalState; if (!st) return;
+  const body = st.editingBody['custom:' + id];
+  if (body == null || !body.trim()) { alert('Mensaje vacío'); return; }
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/scheduled-update', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, body }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    const cs = (st.scheduledItems || []).find(x => x.id === id);
+    if (cs) cs.body = body;
+    delete st.editingBody['custom:' + id];
+    _waRepaint();
+  } catch (e) { alert('❌ ' + e.message); }
+};
 
 function _waRenderNewSchForm_() {
   const st = window.__waModalState;
@@ -37180,23 +37239,18 @@ window.waMsgToggle_ = async function(kind, id, activate) {
       _waRepaint();
     } catch (e) { alert('❌ ' + e.message); }
   } else if (kind === 'custom') {
-    // Alterna status pending↔omitted
+    // Alterna status pending↔omitted (reactivable). Usa /wa/scheduled-update
+    // que si status='pending' limpia sent_at/sid — permite reactivar limpio.
     try {
-      const url = activate ? 'https://api.check-inn.mx/wa/scheduled-add' : 'https://api.check-inn.mx/wa/scheduled-omit';
-      if (activate) {
-        // reactivar es más complejo: buscar el item omitido y "des-omitir"
-        // Por simplicidad: no permitimos reactivar por ahora (una vez omitido, se pierde)
-        alert('No se puede reactivar un mensaje personalizado ya omitido. Crea uno nuevo.');
-        return;
-      }
-      const r = await fetch(url, {
+      const newStatus = activate ? 'pending' : 'omitted';
+      const r = await fetch('https://api.check-inn.mx/wa/scheduled-update', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, status: newStatus }),
       });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'error');
       const it = (st.scheduledItems || []).find(x => x.id === id);
-      if (it) it.status = 'omitted';
+      if (it) it.status = newStatus;
       _waRepaint();
     } catch (e) { alert('❌ ' + e.message); }
   }
@@ -37405,11 +37459,14 @@ function _waRenderFreeformTab_() {
 
 // ─── Handlers ─────────────────────────────────────────────────────────────
 
-window.waToggleTplExpand_ = function(id) {
+/** Toggle expandir/colapsar una card (id = tplId o "custom:<schedId>"). */
+window.waToggleExpand_ = function(id) {
   const st = window.__waModalState; if (!st) return;
-  st.expandedTpl = st.expandedTpl === id ? null : id;
+  st.expanded = st.expanded === id ? null : id;
   _waRepaint();
 };
+// Alias compatible con nombre anterior
+window.waToggleTplExpand_ = window.waToggleExpand_;
 window.waUpdateTplVar_ = function(id, n, val) {
   const st = window.__waModalState; if (!st) return;
   st.templateVals[id] = st.templateVals[id] || {};
