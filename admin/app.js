@@ -36781,13 +36781,16 @@ window.waOpenModal = async function(booking) {
   window.__waCurBookingId = bookingId;
   if (bookingId) waFetchConfigForIds([bookingId]);
 
+  const primaryPhone = waNormalizePhoneE164_(
+    b.GuestPhone || b['Cel/Whatsapp (principal)'] || b.celular_principal ||
+    b['Celular principal'] || b.phone || b.Phone || ''
+  );
   const st = window.__waModalState = {
     b,
     bookingId,
-    to: waNormalizePhoneE164_(
-      b.GuestPhone || b['Cel/Whatsapp (principal)'] || b.celular_principal ||
-      b['Celular principal'] || b.phone || b.Phone || ''
-    ),
+    to: primaryPhone,                  // legacy, se conserva por compat
+    recipients: primaryPhone ? [primaryPhone] : [],  // lista canónica de destinatarios
+    newRecipient: '',                  // input para agregar uno nuevo
     urlGuiaOverride: '',
     templateVals: {},
     expanded: null,                // id (template) o "custom:<id>" expandido
@@ -36834,6 +36837,56 @@ window.waOpenModal = async function(booking) {
   setTimeout(_waRepaint, 1800);
 };
 
+/** Render del input de destinatarios como chips + input para agregar. */
+function _waRenderRecipientsInput_() {
+  const st = window.__waModalState; if (!st) return '';
+  const chips = (st.recipients || []).map((n, i) => {
+    const nice = String(n).replace(/^whatsapp:/, '');
+    return `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:#ecfdf5;color:#065f46;border:1px solid #86efac;border-radius:999px;font-size:12px;font-weight:700">${esc(nice)}
+      <button onclick="waRemoveRecipient_(${i})" title="Quitar" style="background:transparent;border:0;color:#065f46;font-size:14px;line-height:1;cursor:pointer;padding:0;font-weight:900">×</button>
+    </span>`;
+  }).join('');
+  return `
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;min-height:38px">
+      ${chips}
+      <input type="tel" placeholder="+52 811 234 5678" value="${esc(st.newRecipient || '')}"
+        oninput="__waModalState.newRecipient=this.value"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();waAddRecipient_();}"
+        style="flex:1;min-width:140px;border:0;outline:none;font-size:12px;padding:4px 6px;background:transparent">
+      <button onclick="waAddRecipient_()" title="Agregar número" style="padding:4px 10px;background:#25d366;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">+ Agregar</button>
+    </div>
+  `;
+}
+/** Renderiza línea con el(los) destinatario(s) de un mensaje ya guardado. */
+function _waRecipientsSummary_(toRaw) {
+  const list = String(toRaw || '').split(',').map(s => s.trim().replace(/^whatsapp:/,'')).filter(Boolean);
+  if (!list.length) return '';
+  const label = list.length === 1
+    ? `📤 A: <b>${esc(list[0])}</b>`
+    : `📤 A ${list.length} destinatarios: ${list.map(n => `<b>${esc(n)}</b>`).join(', ')}`;
+  return `<div style="font-size:10px;color:#475569;margin-top:2px;line-height:1.4">${label}</div>`;
+}
+
+window.waAddRecipient_ = function() {
+  const st = window.__waModalState; if (!st) return;
+  const raw = String(st.newRecipient || '').trim();
+  if (!raw) return;
+  const norm = waNormalizePhoneE164_(raw);
+  if (!norm) { alert('Teléfono inválido: ' + raw); return; }
+  const withPrefix = norm.startsWith('whatsapp:') ? norm : ('whatsapp:' + norm.replace(/^whatsapp:/,''));
+  st.recipients = st.recipients || [];
+  if (st.recipients.includes(withPrefix)) { alert('Ese número ya está en la lista'); st.newRecipient = ''; _waRepaint(); return; }
+  st.recipients.push(withPrefix);
+  st.newRecipient = '';
+  _waRepaint();
+};
+window.waRemoveRecipient_ = function(idx) {
+  const st = window.__waModalState; if (!st) return;
+  st.recipients = st.recipients || [];
+  st.recipients.splice(idx, 1);
+  _waRepaint();
+};
+
 /** Rellena los valores default de cada template desde el booking. */
 function _waFillTemplateDefaults() {
   const st = window.__waModalState; if (!st) return;
@@ -36872,19 +36925,17 @@ function _waRenderModal(replace) {
   const b = st.b;
 
   const html = `
-    <div style="background:#fff;border-radius:16px;box-shadow:0 24px 48px rgba(0,0,0,.28);width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:0" onclick="event.stopPropagation()">
-      <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#25d366;color:#fff;border-radius:16px 16px 0 0;position:sticky;top:0;z-index:2">
+    <div style="background:#fff;box-shadow:-24px 0 48px -8px rgba(0,0,0,.28);width:100%;max-width:560px;height:100vh;overflow:auto;padding:0;display:flex;flex-direction:column" onclick="event.stopPropagation()">
+      <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#25d366;color:#fff;position:sticky;top:0;z-index:2;flex:none">
         <div style="font-size:15px;font-weight:800">💬 WhatsApp · ${esc(b.GuestName || b['Nombre reservación'] || 'Huésped')}</div>
         <button onclick="waCloseModal_()" style="background:transparent;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1;padding:0 6px">✕</button>
       </div>
-      <div style="padding:14px 18px">
+      <div style="padding:14px 18px;overflow-y:auto;flex:1">
 
         <div style="margin-bottom:10px">
           <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">Para</label>
-          <input id="wa-to" type="text" value="${(st.to||'').replace(/"/g,'&quot;')}"
-            oninput="__waModalState.to=this.value"
-            style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box">
-          <div style="font-size:11px;color:#64748b;margin-top:3px">${esc(waAlojamientoLabel_(b))}</div>
+          ${_waRenderRecipientsInput_()}
+          <div style="font-size:11px;color:#64748b;margin-top:6px">${esc(waAlojamientoLabel_(b))}</div>
         </div>
 
         <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:12px">
@@ -36906,8 +36957,8 @@ function _waRenderModal(replace) {
     </div>
   `;
   if (existing) {
-    existing.innerHTML = `<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px" onclick="waCloseModal_()">${html}</div>`;
-    existing.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999';
+    existing.innerHTML = `<div style="position:fixed;inset:0;display:flex;align-items:stretch;justify-content:flex-end" onclick="waCloseModal_()">${html}</div>`;
+    existing.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:99999';
     _waPaintAllToggles();
     return;
   }
@@ -37164,6 +37215,7 @@ function _waRenderCustomItem_(it, auto) {
       <div style="flex:1;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;overflow:hidden">
         <div style="padding:12px 14px">
           <div style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.02em">${esc(cs.asunto || 'Sin asunto')} <span style="font-size:9px;color:#991b1b;background:#fee2e2;padding:1px 6px;border-radius:999px;margin-left:4px;text-transform:none;letter-spacing:0">PERSONALIZADO</span></div>
+          ${_waRecipientsSummary_(cs.to)}
           <div style="font-size:11px;margin-top:2px">${timeLine}</div>
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
             <button onclick="waToggleExpand_('${expKey}')" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">${expanded?'▲ Ocultar':'▼ Ver detalles'}</button>
@@ -37546,33 +37598,33 @@ window.waResetPreview_ = function(id) {
 window.waSendTplNow_ = async function(id) {
   const st = window.__waModalState; if (!st) return;
   const tpl = WA_TEMPLATES.find(t => t.id === id); if (!tpl) return;
-  const to = waNormalizePhoneE164_(st.to);
-  if (!to) { alert('Teléfono inválido'); return; }
+  const rcps = (st.recipients || []).filter(Boolean);
+  if (!rcps.length) { alert('Agrega al menos un destinatario'); return; }
   const editedBody = st.editingBody[id];
-  const payload = { to, bookingId: st.bookingId, tipo: id };
-  if (editedBody != null) {
-    payload.body = editedBody;
-  } else {
-    payload.contentSid = tpl.contentSid;
-    payload.contentVars = st.templateVals[id] || {};
-  }
-  try {
-    const r = await fetch('https://api.check-inn.mx/wa/send', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-    });
-    const j = await r.json();
-    if (!j.ok) throw new Error(j.error || 'error');
-    alert('✅ Enviado (' + j.sid + ')');
-    // Actualizar logs cacheados
-    if (st.bookingId) {
-      WA_ADMIN.logs[st.bookingId] = WA_ADMIN.logs[st.bookingId] || [];
-      WA_ADMIN.logs[st.bookingId].unshift({
-        timestamp: new Date().toISOString(), tipo: id, origin: 'manual-admin',
-        sid: j.sid, status: j.status || 'sent',
+  const basePayload = { bookingId: st.bookingId, tipo: id };
+  if (editedBody != null) basePayload.body = editedBody;
+  else { basePayload.contentSid = tpl.contentSid; basePayload.contentVars = st.templateVals[id] || {}; }
+  let ok = 0, fail = 0, lastSid = '';
+  for (const to of rcps) {
+    try {
+      const r = await fetch('https://api.check-inn.mx/wa/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...basePayload, to }),
       });
-    }
-    _waRepaint();
-  } catch (e) { alert('❌ ' + e.message); }
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'error');
+      ok++; lastSid = j.sid;
+      if (st.bookingId) {
+        WA_ADMIN.logs[st.bookingId] = WA_ADMIN.logs[st.bookingId] || [];
+        WA_ADMIN.logs[st.bookingId].unshift({
+          timestamp: new Date().toISOString(), tipo: id, origin: 'manual-admin',
+          to, sid: j.sid, status: j.status || 'sent',
+        });
+      }
+    } catch (e) { fail++; console.warn('[wa send tpl]', to, e); }
+  }
+  alert(`${ok} enviados${fail ? ` · ${fail} fallaron`:''}`);
+  _waRepaint();
 };
 window.waSchedOpen_ = function() {
   const st = window.__waModalState; if (!st) return;
@@ -37591,8 +37643,8 @@ window.waSchedCancel_ = function() {
 };
 window.waSchedCreate_ = async function() {
   const st = window.__waModalState; if (!st) return;
-  const to = waNormalizePhoneE164_(st.to);
-  if (!to) { alert('Teléfono inválido'); return; }
+  const rcps = (st.recipients || []).filter(Boolean);
+  if (!rcps.length) { alert('Agrega al menos un destinatario'); return; }
   if (!st.newSch.body.trim()) { alert('Mensaje vacío'); return; }
   const isInstant = st.newSch.mode === 'instant';
   if (!isInstant && (!st.newSch.date || !st.newSch.time)) { alert('Fecha/hora requerida'); return; }
@@ -37602,34 +37654,27 @@ window.waSchedCreate_ = async function() {
   const scheduledAt = isInstant
     ? new Date().toISOString()
     : new Date(`${st.newSch.date}T${st.newSch.time}:00`).toISOString();
+  // Guardar los destinatarios como CSV en el campo `to` (backend itera).
+  const toCsv = rcps.join(',');
   try {
-    // 1. Crear el registro en WA_Scheduled (guarda asunto/body/fecha)
     const addR = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingId: st.bookingId, to, scheduledAt, body: st.newSch.body, asunto: asuntoFinal }),
+      body: JSON.stringify({ bookingId: st.bookingId, to: toCsv, scheduledAt, body: st.newSch.body, asunto: asuntoFinal }),
     });
     const addJ = await addR.json();
     if (!addJ.ok) throw new Error(addJ.error || 'error al guardar');
-
     let statusFinal = 'pending', sentAt = '', sid = '';
     if (isInstant) {
-      // 2. Enviar inmediatamente
       const sendR = await fetch('https://api.check-inn.mx/wa/scheduled-send-now', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: addJ.id }),
       });
       const sendJ = await sendR.json();
-      if (sendJ.ok) {
-        statusFinal = sendJ.status || 'sent';
-        sentAt = new Date().toISOString();
-        sid = sendJ.sid || '';
-      } else {
-        statusFinal = 'failed';
-      }
+      if (sendJ.ok) { statusFinal = sendJ.status || 'sent'; sentAt = new Date().toISOString(); sid = sendJ.sid || ''; }
+      else statusFinal = 'failed';
     }
-
     st.scheduledItems.push({
-      id: addJ.id, booking_id: st.bookingId, tipo: 'custom', to,
+      id: addJ.id, booking_id: st.bookingId, tipo: 'custom', to: toCsv,
       scheduled_at: scheduledAt, body: st.newSch.body, asunto: asuntoFinal,
       status: statusFinal, sent_at: sentAt, sid,
     });
