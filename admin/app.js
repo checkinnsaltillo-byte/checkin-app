@@ -37287,11 +37287,15 @@ function _waRenderUnifiedList_(logs) {
   }
   const legacyMap = { 'bienvenida_reserva': 'bienvenida', 'recordatorio_checkin_24h': 'checkin', 'recordatorio_checkout': 'checkout' };
 
-  // Construir lista unificada — filtrando templates por alojamiento admin.
+  // Construir lista unificada.
+  // Regla: si el template ya se envió (histórico), SIEMPRE se muestra —
+  // aunque el admin haya deseleccionado el alojamiento después. Solo se
+  // filtra la PROGRAMACIÓN FUTURA de templates no aplicables.
   const items = [];
   for (const tpl of WA_TEMPLATES) {
-    if (!_waTemplateAppliesToBooking(tpl.id, b)) continue;
     const sent = sentByTipo[tpl.id] || sentByTipo[legacyMap[tpl.id]] || null;
+    const applies = _waTemplateAppliesToBooking(tpl.id, b);
+    if (!applies && !sent) continue; // no aplica y nunca se envió → ocultar
     const schDate = _waTemplateScheduledDate(tpl.id, b);
     items.push({
       kind: 'template',
@@ -37300,7 +37304,11 @@ function _waRenderUnifiedList_(logs) {
       sortKey: sent ? new Date(sent.timestamp).getTime() : (schDate ? schDate.getTime() : 0),
       sent,
       schDate,
-      disabled: disabled.indexOf(tpl.id) >= 0,
+      // Si el template no aplica al alojamiento (y solo se muestra por
+      // histórico), forzamos disabled=true para que no aparezca como
+      // "próximo envío" ni se pueda reactivar desde la card.
+      disabled: !applies || (disabled.indexOf(tpl.id) >= 0),
+      historyOnly: !applies && !!sent,
     });
   }
   for (const cs of (st.scheduledItems || [])) {
