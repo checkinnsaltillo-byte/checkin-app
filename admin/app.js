@@ -37137,16 +37137,15 @@ function _waRenderTemplateItem_(it, auto) {
   ` : '';
 
   return `
-    <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:2px">
-      <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:12px;gap:2px">
-        <div style="width:26px;height:26px;border-radius:50%;background:${iconBg};color:${iconColor};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">${icon}</div>
-        ${canToggle ? _waMsgToggleHtml('template', tpl.id, isActive, auto, eligible) : ''}
-        <div style="flex:1;width:2px;background:#e5e7eb;margin-top:4px;min-height:14px"></div>
+    <div style="display:flex;gap:10px;align-items:stretch;margin-bottom:2px">
+      <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:12px;gap:6px;min-width:70px">
+        ${canToggle ? _waMsgToggleHtml('template', tpl.id, isActive, auto, eligible) : `<div style="width:22px;height:22px"></div>`}
+        <div style="font-size:9px;line-height:1.3;text-align:center;font-weight:700;color:#64748b;padding:0 2px">${timeLine}</div>
+        <div style="flex:1;width:2px;background:#e5e7eb;min-height:14px"></div>
       </div>
       <div style="flex:1;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;overflow:hidden">
         <div style="padding:12px 14px">
           <div style="font-size:13px;font-weight:800;color:#0f172a;letter-spacing:.02em">${esc(label)} <span style="font-size:9px;color:#166534;background:#dcfce7;padding:1px 6px;border-radius:999px;margin-left:4px">PREDETERMINADO</span></div>
-          <div style="font-size:11px;margin-top:2px">${timeLine}</div>
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
             <button onclick="waToggleTplExpand_('${tpl.id}')" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">${expanded?'▲ Ocultar':'▼ Ver detalles'}</button>
             <button onclick="waSendTplNow_('${tpl.id}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">${isSent ? '🔄 Re-enviar ahora' : '📤 Enviar ahora'}</button>
@@ -37206,17 +37205,16 @@ function _waRenderCustomItem_(it, auto) {
 
   const sendBtnLabel = isSent ? '🔄 Re-enviar ahora' : (isFailed ? '🔄 Reintentar' : '📤 Enviar ahora');
   return `
-    <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:2px">
-      <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:12px;gap:2px">
-        <div style="width:26px;height:26px;border-radius:50%;background:${iconBg};color:${iconColor};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">${icon}</div>
-        ${canToggle ? _waMsgToggleHtml('custom', cs.id, isActive, auto, eligible) : ''}
-        <div style="flex:1;width:2px;background:#e5e7eb;margin-top:4px;min-height:14px"></div>
+    <div style="display:flex;gap:10px;align-items:stretch;margin-bottom:2px">
+      <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:12px;gap:6px;min-width:70px">
+        ${canToggle ? _waMsgToggleHtml('custom', cs.id, isActive, auto, eligible) : `<div style="width:22px;height:22px"></div>`}
+        <div style="font-size:9px;line-height:1.3;text-align:center;font-weight:700;color:#64748b;padding:0 2px">${timeLine}</div>
+        <div style="flex:1;width:2px;background:#e5e7eb;min-height:14px"></div>
       </div>
       <div style="flex:1;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;overflow:hidden">
         <div style="padding:12px 14px">
           <div style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.02em">${esc(cs.asunto || 'Sin asunto')} <span style="font-size:9px;color:#991b1b;background:#fee2e2;padding:1px 6px;border-radius:999px;margin-left:4px;text-transform:none;letter-spacing:0">PERSONALIZADO</span></div>
           ${_waRecipientsSummary_(cs.to)}
-          <div style="font-size:11px;margin-top:2px">${timeLine}</div>
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
             <button onclick="waToggleExpand_('${expKey}')" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">${expanded?'▲ Ocultar':'▼ Ver detalles'}</button>
             ${!isOmitted ? `<button onclick="waSchedSendNow_('${cs.id}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">${sendBtnLabel}</button>` : ''}
