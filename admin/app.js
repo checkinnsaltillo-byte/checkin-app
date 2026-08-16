@@ -37476,12 +37476,34 @@ function _waRenderUnifiedList_(logs) {
       admin: true,
     });
   }
+  // Índice para detectar reenvíos: por (tipo → array de sent_at ordenados).
+  const _sentAtsByTipo = {};
+  for (const cs of (st.scheduledItems || [])) {
+    if (!cs.sent_at) continue;
+    const t = String(cs.tipo || '');
+    (_sentAtsByTipo[t] = _sentAtsByTipo[t] || []).push(new Date(cs.sent_at).getTime());
+  }
+  Object.values(_sentAtsByTipo).forEach(arr => arr.sort((a,b) => a - b));
   for (const cs of (st.scheduledItems || [])) {
     const sch = cs.scheduled_at ? new Date(cs.scheduled_at) : null;
+    // Detectar reenvío:
+    //  (a) tipo 'manual-XXX' donde el template XXX también se envió por cron
+    //      (aparece en sentByTipo del bloque anterior de templates).
+    //  (b) otro item del MISMO tipo tiene sent_at anterior al de este.
+    let isReenvio = false;
+    const t = String(cs.tipo || '');
+    const mTpl = t.match(/^manual-(.+)$/);
+    if (mTpl && sentByTipo[mTpl[1]]) isReenvio = true;
+    if (!isReenvio && cs.sent_at) {
+      const arr = _sentAtsByTipo[t] || [];
+      const thisMs = new Date(cs.sent_at).getTime();
+      if (arr.some(ms => ms < thisMs)) isReenvio = true;
+    }
     items.push({
       kind: 'custom',
       id: cs.id,
       cs,
+      isReenvio,
       sortKey: cs.sent_at ? new Date(cs.sent_at).getTime() : (sch ? sch.getTime() : 0),
     });
   }
@@ -37670,7 +37692,7 @@ function _waRenderCustomItem_(it, auto) {
         </div>
         <div style="flex:1;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;overflow:hidden">
         <div style="padding:12px 14px">
-          <div style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.02em">${esc(cs.asunto || 'Sin asunto')} <span style="font-size:9px;color:#991b1b;background:#fee2e2;padding:1px 6px;border-radius:999px;margin-left:4px;text-transform:none;letter-spacing:0">PERSONALIZADO</span></div>
+          <div style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.02em">${esc(cs.asunto || 'Sin asunto')} <span style="font-size:9px;color:#991b1b;background:#fee2e2;padding:1px 6px;border-radius:999px;margin-left:4px;text-transform:none;letter-spacing:0">PERSONALIZADO</span>${it && it.isReenvio ? ' <span title="Reenvío del mismo template" style="font-size:9px;color:#7c2d12;background:#ffedd5;padding:1px 6px;border-radius:999px;margin-left:4px;text-transform:none;letter-spacing:0;font-weight:800">🔄 REENVÍO</span>' : ''}</div>
           ${_waRecipientsSummary_(cs.to)}
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
             <button onclick="waToggleExpand_('${expKey}')" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">${expanded?'▲ Ocultar':'▼ Ver detalles'}</button>
