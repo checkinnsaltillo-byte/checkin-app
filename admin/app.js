@@ -36816,15 +36816,10 @@ window.__waModalState = null;
 
 /** Busca todas las bookings del mismo huésped (mismo tel 10 dígitos). */
 function _waFindRelatedBookings(currentB) {
-  const lgBookings = (window.LG_STATE && Array.isArray(window.LG_STATE.bookings)) ? window.LG_STATE.bookings : [];
-  const huRows = (window.HU_STATE && Array.isArray(window.HU_STATE.rows)) ? window.HU_STATE.rows : [];
-  // DEBUG temporal — remover cuando verificado
-  console.info('[WA-DBG] _waFindRelatedBookings input:', {
-    lgLen: lgBookings.length, huLen: huRows.length,
-    currentPhone_raw: currentB && (currentB.GuestPhone || currentB['Cel/Whatsapp (principal)']),
-    huLoaded: window.HU_STATE && window.HU_STATE.loaded,
-    huLoading: window.HU_STATE && window.HU_STATE.loading,
-  });
+  // NOTA: LG_STATE y HU_STATE están declarados con `const` — NO son
+  // propiedades de window. Referenciar directo, no `window.LG_STATE`.
+  const lgBookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+  const huRows     = (typeof HU_STATE !== 'undefined' && Array.isArray(HU_STATE.rows))     ? HU_STATE.rows     : [];
   const currentPhone = String(currentB && (currentB.GuestPhone || currentB['Cel/Whatsapp (principal)'] || currentB['Celular principal'] || '')).replace(/\D/g,'').slice(-10);
   const currentId = waBookingId_(currentB);
   const related = [];
@@ -36843,6 +36838,7 @@ function _waFindRelatedBookings(currentB) {
   //    tengan Lodgify Id ya presente en el set anterior (evita duplicar la
   //    misma reserva). Requiere huRowToSyntheticBooking global.
   if (currentPhone && huRows.length && typeof huRowToSyntheticBooking === 'function') {
+    // Loop debajo
     for (const r of huRows) {
       const tel = String(r['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
       if (tel !== currentPhone) continue;
@@ -36869,12 +36865,8 @@ function _waFindRelatedBookings(currentB) {
     if (id) seen.add(id);
     deduped.push(b);
   }
-  console.info('[WA-DBG] related result:', deduped.map(b => ({
-    id: waBookingId_(b),
-    house: waAlojamientoLabel_(b),
-    arr: b.DateArrival, dep: b.DateDeparture,
-    source: b.__reservacion ? 'HU-synth' : 'LG',
-  })));
+  console.info('[WA-DBG]', deduped.length, 'related bookings:',
+    deduped.map(b => `${b.__reservacion?'HU':'LG'} ${waAlojamientoLabel_(b)} ${b.DateArrival}→${b.DateDeparture}`).join(' | '));
   // Sort: activa/próxima primero por fecha ascendente, concluidas al final descendente
   deduped.sort((a, b) => {
     const sa = _waBookingStatus(a).order, sb = _waBookingStatus(b).order;
@@ -36960,7 +36952,7 @@ window.waOpenModal = async function(booking) {
   // Si HU_STATE aún no está cargado (usuario abrió modal muy rápido), lo
   // cargamos ahora y repintamos — así las reservas manuales del mismo tel
   // aparecen como accordions adicionales.
-  if (typeof window.HU_STATE !== 'undefined' && !window.HU_STATE.loaded && !window.HU_STATE.loading) {
+  if (typeof HU_STATE !== 'undefined' && !HU_STATE.loaded && !HU_STATE.loading) {
     if (typeof huespedesLoad === 'function') {
       huespedesLoad(true).then(() => { _waRepaint(); }).catch(() => {});
     }
