@@ -36816,26 +36816,60 @@ window.__waModalState = null;
 
 /** Busca todas las bookings del mismo huésped (mismo tel 10 dígitos). */
 function _waFindRelatedBookings(currentB) {
-  const bookings = (window.LG_STATE && Array.isArray(window.LG_STATE.bookings)) ? window.LG_STATE.bookings : [];
+  const lgBookings = (window.LG_STATE && Array.isArray(window.LG_STATE.bookings)) ? window.LG_STATE.bookings : [];
+  const huRows = (window.HU_STATE && Array.isArray(window.HU_STATE.rows)) ? window.HU_STATE.rows : [];
   const currentPhone = String(currentB && (currentB.GuestPhone || currentB['Cel/Whatsapp (principal)'] || currentB['Celular principal'] || '')).replace(/\D/g,'').slice(-10);
   const currentId = waBookingId_(currentB);
   const related = [];
-  if (currentPhone && bookings.length) {
-    for (const b of bookings) {
+  const lgIdsSeen = new Set();
+  // 1) Bookings Lodgify que matcheen el teléfono.
+  if (currentPhone && lgBookings.length) {
+    for (const b of lgBookings) {
       const tel = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
-      if (tel === currentPhone) related.push(b);
+      if (tel !== currentPhone) continue;
+      related.push(b);
+      const lgId = String(b.Id || '').trim();
+      if (lgId) lgIdsSeen.add(lgId);
+    }
+  }
+  // 2) Reservaciones MANUALES (hoja huespedes) del mismo teléfono — que NO
+  //    tengan Lodgify Id ya presente en el set anterior (evita duplicar la
+  //    misma reserva). Requiere huRowToSyntheticBooking global.
+  if (currentPhone && huRows.length && typeof huRowToSyntheticBooking === 'function') {
+    for (const r of huRows) {
+      const tel = String(r['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
+      if (tel !== currentPhone) continue;
+      const lgId = String(r['Lodgify Id'] || '').trim();
+      if (lgId && lgIdsSeen.has(lgId)) continue; // ya cubierta por LG
+      // Fechas requeridas para poder mostrar estado; si faltan, skip.
+      const arr = String(r['Fecha de ingreso'] || '').slice(0,10);
+      const dep = String(r['Fecha de salida'] || '').slice(0,10);
+      if (!arr && !dep) continue;
+      try {
+        const synth = huRowToSyntheticBooking(r);
+        if (synth) related.push(synth);
+      } catch(_) {}
     }
   }
   // Asegurar que la primaria esté incluida
-  if (!related.find(b => String(b.Id) === String(currentId))) related.unshift(currentB);
+  if (!related.find(b => String(waBookingId_(b)) === String(currentId))) related.unshift(currentB);
+  // Dedupe por bookingId (por si la primaria coincide con alguna de arriba)
+  const seen = new Set();
+  const deduped = [];
+  for (const b of related) {
+    const id = String(waBookingId_(b) || '');
+    if (id && seen.has(id)) continue;
+    if (id) seen.add(id);
+    deduped.push(b);
+  }
   // Sort: activa/próxima primero por fecha ascendente, concluidas al final descendente
-  related.sort((a, b) => {
+  deduped.sort((a, b) => {
     const sa = _waBookingStatus(a).order, sb = _waBookingStatus(b).order;
     if (sa !== sb) return sa - sb;
     const ad = String(a.DateArrival||''), bd = String(b.DateArrival||'');
     return ad.localeCompare(bd);
   });
-  return related;
+  return deduped;
 }
 
 function _waBookingStatus(b) {
