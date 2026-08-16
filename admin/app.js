@@ -36818,6 +36818,13 @@ window.__waModalState = null;
 function _waFindRelatedBookings(currentB) {
   const lgBookings = (window.LG_STATE && Array.isArray(window.LG_STATE.bookings)) ? window.LG_STATE.bookings : [];
   const huRows = (window.HU_STATE && Array.isArray(window.HU_STATE.rows)) ? window.HU_STATE.rows : [];
+  // DEBUG temporal — remover cuando verificado
+  console.info('[WA-DBG] _waFindRelatedBookings input:', {
+    lgLen: lgBookings.length, huLen: huRows.length,
+    currentPhone_raw: currentB && (currentB.GuestPhone || currentB['Cel/Whatsapp (principal)']),
+    huLoaded: window.HU_STATE && window.HU_STATE.loaded,
+    huLoading: window.HU_STATE && window.HU_STATE.loading,
+  });
   const currentPhone = String(currentB && (currentB.GuestPhone || currentB['Cel/Whatsapp (principal)'] || currentB['Celular principal'] || '')).replace(/\D/g,'').slice(-10);
   const currentId = waBookingId_(currentB);
   const related = [];
@@ -36862,6 +36869,12 @@ function _waFindRelatedBookings(currentB) {
     if (id) seen.add(id);
     deduped.push(b);
   }
+  console.info('[WA-DBG] related result:', deduped.map(b => ({
+    id: waBookingId_(b),
+    house: waAlojamientoLabel_(b),
+    arr: b.DateArrival, dep: b.DateDeparture,
+    source: b.__reservacion ? 'HU-synth' : 'LG',
+  })));
   // Sort: activa/próxima primero por fecha ascendente, concluidas al final descendente
   deduped.sort((a, b) => {
     const sa = _waBookingStatus(a).order, sb = _waBookingStatus(b).order;
