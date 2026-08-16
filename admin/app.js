@@ -36815,6 +36815,40 @@ function _waRenderTpl(tplBody, vals) {
 window.__waModalState = null;
 
 /** Busca todas las bookings del mismo huésped (mismo tel 10 dígitos). */
+/** Normaliza un booking (LG o HU synth) al shape que el modal WA espera:
+ *  - DateArrival/DateDeparture en ISO YYYY-MM-DD (comparable con _waTodayIso).
+ *  - Propiedad + # Departamento resueltos via HouseId + catálogo alojamientos
+ *    cuando los campos crudos vienen vacíos (LG a veces trae HouseName="").
+ *  Mutates in place para no crear una copia por cada iteración.
+ */
+function _waNormalizeBookingForModal_(b) {
+  if (!b) return b;
+  // Fechas → ISO
+  const toIso = (s) => {
+    const mm = String(s || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (mm) return mm[3] + '-' + String(mm[1]).padStart(2,'0') + '-' + String(mm[2]).padStart(2,'0');
+    const already = String(s || '').match(/^\d{4}-\d{2}-\d{2}/);
+    return already ? String(s).slice(0,10) : String(s || '');
+  };
+  b.DateArrival   = toIso(b.DateArrival);
+  b.DateDeparture = toIso(b.DateDeparture);
+  // Propiedad + Departamento: resolver vía HouseId si vienen vacíos.
+  let prop = String(b.Propiedad || b.PropertyName || b.HouseName || b.PropiedadRaw || '').trim();
+  let dept = String(b['# Departamento'] || b.RoomTypeName || b.DepartamentoRaw || '').trim();
+  if ((!prop || !dept) && typeof waFindAlojRow_ === 'function') {
+    try {
+      const row = waFindAlojRow_(b);
+      if (row) {
+        if (!prop) prop = String(row.Propiedad || '').trim();
+        if (!dept) dept = String(row['# Departamento'] || '').trim();
+      }
+    } catch(_) {}
+  }
+  if (prop) b.Propiedad = prop;
+  if (dept) b['# Departamento'] = dept;
+  return b;
+}
+
 function _waFindRelatedBookings(currentB) {
   // NOTA: LG_STATE y HU_STATE están declarados con `const` — NO son
   // propiedades de window. Referenciar directo, no `window.LG_STATE`.
@@ -36851,22 +36885,12 @@ function _waFindRelatedBookings(currentB) {
       try {
         const synth = huRowToSyntheticBooking(r);
         if (synth) {
-          // Normalizar el synth al shape que espera el modal WhatsApp:
-          //  - Fechas ISO YYYY-MM-DD (huRowToSyntheticBooking las devuelve
-          //    en MM/DD/YYYY porque su consumer principal es el sidebar
-          //    Lodgify).
-          //  - Propiedad + # Departamento como propiedades planas para
-          //    waPropDept_ / waAlojamientoLabel_.
-          const _toIso = (s) => {
-            const mm = String(s || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-            if (mm) return mm[3] + '-' + String(mm[1]).padStart(2,'0') + '-' + String(mm[2]).padStart(2,'0');
-            const already = String(s || '').match(/^\d{4}-\d{2}-\d{2}/);
-            return already ? String(s).slice(0,10) : String(s || '');
-          };
-          synth.DateArrival   = _toIso(synth.DateArrival)   || String(r['Fecha de ingreso'] || '').slice(0,10);
-          synth.DateDeparture = _toIso(synth.DateDeparture) || String(r['Fecha de salida']  || '').slice(0,10);
-          synth.Propiedad          = synth.Propiedad          || r['Propiedad']       || '';
-          synth['# Departamento']  = synth['# Departamento']  || r['# Departamento']  || '';
+          // Prefill campos crudos de la row huespedes (por si el synth los
+          // dejó vacíos). _waNormalizeBookingForModal_ los usa como fallback.
+          if (!synth.Propiedad)         synth.Propiedad         = r['Propiedad']       || '';
+          if (!synth['# Departamento']) synth['# Departamento'] = r['# Departamento'] || '';
+          if (!synth.DateArrival)       synth.DateArrival       = r['Fecha de ingreso'] || '';
+          if (!synth.DateDeparture)     synth.DateDeparture     = r['Fecha de salida']  || '';
           related.push(synth);
         }
       } catch(_) {}
@@ -36874,6 +36898,9 @@ function _waFindRelatedBookings(currentB) {
   }
   // Asegurar que la primaria esté incluida
   if (!related.find(b => String(waBookingId_(b)) === String(currentId))) related.unshift(currentB);
+  // Normalizar TODOS los bookings (LG + HU) a un shape consistente antes de
+  // dedupe/sort/render: fechas ISO + Propiedad/# Departamento resueltos.
+  related.forEach(_waNormalizeBookingForModal_);
   // Dedupe por bookingId (por si la primaria coincide con alguna de arriba)
   const seen = new Set();
   const deduped = [];
