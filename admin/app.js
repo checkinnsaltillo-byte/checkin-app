@@ -36944,6 +36944,14 @@ window.waOpenModal = async function(booking) {
   });
   // Cargar templates admin (WA_Templates) para filtrar por alojamiento.
   waEnsureAdminTemplates_().then(() => { _waRepaint(); });
+  // Si HU_STATE aún no está cargado (usuario abrió modal muy rápido), lo
+  // cargamos ahora y repintamos — así las reservas manuales del mismo tel
+  // aparecen como accordions adicionales.
+  if (typeof window.HU_STATE !== 'undefined' && !window.HU_STATE.loaded && !window.HU_STATE.loading) {
+    if (typeof huespedesLoad === 'function') {
+      huespedesLoad(true).then(() => { _waRepaint(); }).catch(() => {});
+    }
+  }
   // Cargar mensajes programados custom de esta reserva + hidratar recipients
   // extraídos de los `to` de mensajes históricos (por si el usuario mandó a
   // varios números antes y solo persistió el CSV en el mensaje, no en config).
@@ -37211,7 +37219,22 @@ function _waFmtWhen(d) {
  *  acordeón expandido a la vez (el focused). */
 function _waRenderBookingsAccordion_(logs) {
   const st = window.__waModalState;
-  const bookings = st.bookings || [st.b];
+  // Recomputar related en cada render. HU_STATE.rows / LG_STATE.bookings
+  // pueden llegar TARDE al modal (carga async). Si nos quedamos con
+  // st.bookings del momento del open, pierdes reservas que aparecieron
+  // después. Idempotente y rápido.
+  let bookings;
+  try {
+    const fresh = _waFindRelatedBookings(st.b);
+    if (fresh && fresh.length) {
+      bookings = fresh;
+      st.bookings = fresh; // refresca cache para lookups posteriores
+    } else {
+      bookings = st.bookings || [st.b];
+    }
+  } catch(_) {
+    bookings = st.bookings || [st.b];
+  }
   const items = [];
   for (const bk of bookings) {
     const id = waBookingId_(bk);
