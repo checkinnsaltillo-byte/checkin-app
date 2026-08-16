@@ -36919,17 +36919,28 @@ function _waFindRelatedBookings(currentB) {
     return nested || '';
   };
   const deduped = [];
+  const seenTriple = new Set(); // dedupe defensivo por (Propiedad|Depto|Arrival|Departure)
+  const tripleOf = (b) => {
+    const p = String(b.Propiedad || b.PropertyName || b.HouseName || '').trim().toLowerCase();
+    const d = String(b['# Departamento'] || b.RoomTypeName || '').trim();
+    const arr = String(b.DateArrival || '').slice(0,10);
+    const dep = String(b.DateDeparture || '').slice(0,10);
+    return (p && arr) ? `${p}||${d}||${arr}||${dep}` : '';
+  };
   for (const b of related) {
     const lgId = lgIdOf(b);
-    if (lgId && seenLgIds.has(lgId)) continue; // ya vista por su Lodgify Id
+    if (lgId && seenLgIds.has(lgId)) continue;
     const id = String(waBookingId_(b) || '');
     if (id && seenIds.has(id)) continue;
+    const triple = tripleOf(b);
+    if (triple && seenTriple.has(triple)) continue; // mismo alojamiento + mismas fechas ⇒ misma reserva
     if (id) seenIds.add(id);
     if (lgId) seenLgIds.add(lgId);
+    if (triple) seenTriple.add(triple);
     deduped.push(b);
   }
   console.info('[WA-DBG]', deduped.length, 'related bookings:',
-    deduped.map(b => `${b.__reservacion?'HU':'LG'} ${waAlojamientoLabel_(b)} ${b.DateArrival}→${b.DateDeparture}`).join(' | '));
+    deduped.map(b => `${b.__reservacion?'HU':'LG'} ${waAlojamientoLabel_(b)} ${b.DateArrival}→${b.DateDeparture} lgId=${lgIdOf(b)||'-'} triple=${tripleOf(b)||'-'}`).join(' | '));
   // Sort: activa/próxima primero por fecha ascendente, concluidas al final descendente
   deduped.sort((a, b) => {
     const sa = _waBookingStatus(a).order, sb = _waBookingStatus(b).order;
