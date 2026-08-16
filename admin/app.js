@@ -36901,13 +36901,31 @@ function _waFindRelatedBookings(currentB) {
   // Normalizar TODOS los bookings (LG + HU) a un shape consistente antes de
   // dedupe/sort/render: fechas ISO + Propiedad/# Departamento resueltos.
   related.forEach(_waNormalizeBookingForModal_);
-  // Dedupe por bookingId (por si la primaria coincide con alguna de arriba)
-  const seen = new Set();
+  // Dedupe por ID Y por Lodgify Id (una misma reserva puede aparecer 2 veces:
+  //  - Como raw LG booking → Id numérico = Lodgify Id (ej 21812616)
+  //  - Como HU synth → Id = Reservación ID (ej f7721783-...) + LodgifyId=21812616
+  //  Si prevalece la raw LG (más data). El synth se salta.
+  const seenIds = new Set();
+  const seenLgIds = new Set();
+  const isNumericId = (s) => /^\d+$/.test(String(s || '').trim());
+  const lgIdOf = (b) => {
+    // Si b es raw Lodgify, Id ES el Lodgify Id (numérico)
+    if (isNumericId(b && b.Id)) return String(b.Id).trim();
+    // Si b es HU synth, huRowToSyntheticBooking lo puso en LodgifyId
+    const fromSynth = String((b && b.LodgifyId) || '').trim();
+    if (fromSynth) return fromSynth;
+    // Fallback: revisar reservación anidada
+    const nested = b && b.__reservacion && String(b.__reservacion['Lodgify Id'] || '').trim();
+    return nested || '';
+  };
   const deduped = [];
   for (const b of related) {
+    const lgId = lgIdOf(b);
+    if (lgId && seenLgIds.has(lgId)) continue; // ya vista por su Lodgify Id
     const id = String(waBookingId_(b) || '');
-    if (id && seen.has(id)) continue;
-    if (id) seen.add(id);
+    if (id && seenIds.has(id)) continue;
+    if (id) seenIds.add(id);
+    if (lgId) seenLgIds.add(lgId);
     deduped.push(b);
   }
   console.info('[WA-DBG]', deduped.length, 'related bookings:',
