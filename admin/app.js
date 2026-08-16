@@ -37476,28 +37476,40 @@ function _waRenderUnifiedList_(logs) {
       admin: true,
     });
   }
-  // Índice para detectar reenvíos: por (tipo → array de sent_at ordenados).
-  const _sentAtsByTipo = {};
+  // Índices para detectar reenvíos por 3 claves: tipo exacto, body, y asunto.
+  // (Datos históricos usaban tipo='custom' en reenvíos aunque el original
+  // fuera 'manual-XXX' — por eso también matcheamos por body/asunto.)
+  const _sentAtsByKey = { tipo: {}, body: {}, asunto: {} };
+  const _normBody = (s) => String(s || '').replace(/\s+/g, ' ').trim();
   for (const cs of (st.scheduledItems || [])) {
     if (!cs.sent_at) continue;
-    const t = String(cs.tipo || '');
-    (_sentAtsByTipo[t] = _sentAtsByTipo[t] || []).push(new Date(cs.sent_at).getTime());
+    const t = new Date(cs.sent_at).getTime();
+    const tipo = String(cs.tipo || '');
+    const body = _normBody(cs.body);
+    const asunto = String(cs.asunto || '').trim().toLowerCase();
+    if (tipo)   (_sentAtsByKey.tipo[tipo]     = _sentAtsByKey.tipo[tipo]     || []).push(t);
+    if (body)   (_sentAtsByKey.body[body]     = _sentAtsByKey.body[body]     || []).push(t);
+    if (asunto) (_sentAtsByKey.asunto[asunto] = _sentAtsByKey.asunto[asunto] || []).push(t);
   }
-  Object.values(_sentAtsByTipo).forEach(arr => arr.sort((a,b) => a - b));
   for (const cs of (st.scheduledItems || [])) {
     const sch = cs.scheduled_at ? new Date(cs.scheduled_at) : null;
-    // Detectar reenvío:
-    //  (a) tipo 'manual-XXX' donde el template XXX también se envió por cron
-    //      (aparece en sentByTipo del bloque anterior de templates).
-    //  (b) otro item del MISMO tipo tiene sent_at anterior al de este.
+    // Detectar reenvío si CUALQUIERA de estas condiciones se cumple:
+    //  (a) tipo 'manual-XXX' cuyo template XXX ya se envió por cron (sentByTipo)
+    //  (b) hay otro item con mismo tipo Y sent_at anterior
+    //  (c) hay otro item con mismo body Y sent_at anterior
+    //  (d) hay otro item con mismo asunto Y sent_at anterior
     let isReenvio = false;
     const t = String(cs.tipo || '');
     const mTpl = t.match(/^manual-(.+)$/);
     if (mTpl && sentByTipo[mTpl[1]]) isReenvio = true;
     if (!isReenvio && cs.sent_at) {
-      const arr = _sentAtsByTipo[t] || [];
       const thisMs = new Date(cs.sent_at).getTime();
-      if (arr.some(ms => ms < thisMs)) isReenvio = true;
+      const anyEarlier = (arr) => Array.isArray(arr) && arr.some(ms => ms < thisMs);
+      const body = _normBody(cs.body);
+      const asunto = String(cs.asunto || '').trim().toLowerCase();
+      if (anyEarlier(_sentAtsByKey.tipo[t])) isReenvio = true;
+      else if (body && anyEarlier(_sentAtsByKey.body[body])) isReenvio = true;
+      else if (asunto && anyEarlier(_sentAtsByKey.asunto[asunto])) isReenvio = true;
     }
     items.push({
       kind: 'custom',
@@ -38225,7 +38237,8 @@ window.waSchedSendNow_ = async function(id) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bookingId: st.bookingId, to: toCsv, scheduledAt: nowIso,
-          body: orig.body, asunto: orig.asunto || '', tipo: 'custom',
+          body: orig.body, asunto: orig.asunto || '',
+          tipo: orig.tipo || 'custom', // preservar tipo para detectar reenvíos
         }),
       });
       const addJ = await addR.json();
@@ -38236,7 +38249,7 @@ window.waSchedSendNow_ = async function(id) {
       });
       const sendJ = await sendR.json();
       st.scheduledItems.push({
-        id: addJ.id, booking_id: st.bookingId, tipo: 'custom', to: toCsv,
+        id: addJ.id, booking_id: st.bookingId, tipo: orig.tipo || 'custom', to: toCsv,
         scheduled_at: nowIso, body: orig.body, asunto: orig.asunto || '',
         status: sendJ.ok ? (sendJ.status || 'sent') : 'failed',
         sent_at: sendJ.ok ? nowIso : '', sid: sendJ.sid || '',
