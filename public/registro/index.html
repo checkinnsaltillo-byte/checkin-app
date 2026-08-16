@@ -6363,7 +6363,11 @@ body.has-session input[name="nombre"] {
 <div class="huesped-row" style="position:relative;">
 <div style="flex:1; padding-right:34px;">
 <input name="huesped[]" placeholder="Huésped 1" type="text" oninput="waOptInMaybeShow(this)"/>
-<label class="wa-optin-check-wrap" onclick="waOptInToggleCheck(this)" style="display:none; margin-top:8px; padding:8px 10px; background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; cursor:pointer; user-select:none; align-items:center; gap:10px;">
+<!-- Aviso "Recibir notificaciones WhatsApp": OCULTO temporalmente por
+     petición del usuario. Para volver a activar: quitar 'display:none
+     !important' de style, y remover el `return` temprano en
+     waOptInMaybeShow(). -->
+<label class="wa-optin-check-wrap" onclick="waOptInToggleCheck(this)" style="display:none !important; margin-top:8px; padding:8px 10px; background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; cursor:pointer; user-select:none; align-items:center; gap:10px;">
 <span class="wa-optin-cb" data-on="0" style="display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border:2px solid #94a3b8; background:#fff; color:transparent; border-radius:4px; font-size:12px; font-weight:900; line-height:1; flex-shrink:0;"></span>
 <span style="font-size:13px; font-weight:700; color:#166534;">📱 Recibir notificaciones por WhatsApp</span>
 </label>
@@ -6589,7 +6593,11 @@ body.has-session input[name="nombre"] {
 <div class="huesped-row" style="position:relative;">
 <div style="flex:1; padding-right:34px;">
 <input name="huesped[]" placeholder="Huésped 1" type="text" oninput="waOptInMaybeShow(this)"/>
-<label class="wa-optin-check-wrap" onclick="waOptInToggleCheck(this)" style="display:none; margin-top:8px; padding:8px 10px; background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; cursor:pointer; user-select:none; align-items:center; gap:10px;">
+<!-- Aviso "Recibir notificaciones WhatsApp": OCULTO temporalmente por
+     petición del usuario. Para volver a activar: quitar 'display:none
+     !important' de style, y remover el `return` temprano en
+     waOptInMaybeShow(). -->
+<label class="wa-optin-check-wrap" onclick="waOptInToggleCheck(this)" style="display:none !important; margin-top:8px; padding:8px 10px; background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; cursor:pointer; user-select:none; align-items:center; gap:10px;">
 <span class="wa-optin-cb" data-on="0" style="display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border:2px solid #94a3b8; background:#fff; color:transparent; border-radius:4px; font-size:12px; font-weight:900; line-height:1; flex-shrink:0;"></span>
 <span style="font-size:13px; font-weight:700; color:#166534;">📱 Recibir notificaciones por WhatsApp</span>
 </label>
@@ -7335,6 +7343,9 @@ function toggleCopiarReservante(checkbox){
 // Muestra u oculta el aviso "Recibir notificaciones por WhatsApp" según si
 // hay texto en el nombre del huésped y no está marcada "Es el mismo admin".
 window.waOptInMaybeShow = function(input){
+  // TEMPORALMENTE deshabilitado — el aviso "Recibir notificaciones WhatsApp"
+  // está oculto por petición del usuario. Al reactivar quitar este return.
+  return;
   const row = input && input.closest('.huesped-row');
   if (!row) return;
   const allRows = Array.from(document.querySelectorAll('#huespedes-container .huesped-row'));
@@ -7371,12 +7382,15 @@ window.waOptInToggleCheck = function(labelEl){
   _waOptInPaintCheck(cb, next);
   adWrap.style.display = next ? 'block' : 'none';
   if (next) {
-    // Popular ladas al abrir (mirroring lada1).
+    // Popular ladas al abrir (mirroring lada1). Default = México (+52).
     const src = document.getElementById('lada1');
     const tgt = row.querySelector('.lada-adicional');
     if (src && tgt && tgt.options.length === 0) {
       tgt.innerHTML = src.innerHTML;
-      try { tgt.value = src.value || ''; } catch(_){}
+      // Preseleccionar +52 (México). Busca por texto/valor entre opciones.
+      let mxOpt = Array.from(tgt.options).find(o => /\+?\s*52\b|m[eé]xico/i.test(o.text + ' ' + o.value));
+      if (mxOpt) tgt.value = mxOpt.value;
+      else { try { tgt.value = src.value || ''; } catch(_){} }
     }
   } else {
     const lada = row.querySelector('.lada-adicional');
