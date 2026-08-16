@@ -39184,18 +39184,28 @@ function _cfgScheduleShortLabel(type, time, event, offset) {
       if (!cel) return;
       const bookingId = String(row['Lodgify Id'] || row['ID'] || row['row_number'] || '').trim();
       if (!bookingId) return;
-      // Idempotencia: si ya existe scheduled tipo=ticket_autofact para este
-      // booking, no crear otro (típico en re-emisión).
+      // Al re-emitir, la URL vieja queda inválida (folio archivado). Borramos
+      // los pending ticket_autofact previos del mismo booking y creamos uno
+      // nuevo con la URL actual. Los mensajes ya ENVIADOS (histórico) NO se
+      // tocan — quedan como registro de tickets anteriores.
       try {
         const listRes = await fetch('https://api.check-inn.mx/wa/scheduled-list', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ bookingId }),
         });
         const listJ = await listRes.json();
-        const exists = ((listJ && listJ.items) || []).some(it => String(it.tipo || '') === 'ticket_autofact' && String(it.status || '') === 'pending');
-        if (exists) {
-          console.info('[HU] WA ticket_autofact ya existía pending para', bookingId, '— skip');
-          return;
+        const pendings = ((listJ && listJ.items) || []).filter(it =>
+          String(it.tipo || '') === 'ticket_autofact' &&
+          String(it.status || '') === 'pending'
+        );
+        for (const p of pendings) {
+          try {
+            await fetch('https://api.check-inn.mx/wa/scheduled-delete', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: p.id }),
+            });
+            console.info('[HU] borrado pending ticket_autofact viejo:', p.id);
+          } catch(_) {}
         }
       } catch(_) {}
       const msg = (typeof huBuildTicketConsultaMsg === 'function')
