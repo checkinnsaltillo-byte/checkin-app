@@ -36850,7 +36850,25 @@ function _waFindRelatedBookings(currentB) {
       if (!arr && !dep) continue;
       try {
         const synth = huRowToSyntheticBooking(r);
-        if (synth) related.push(synth);
+        if (synth) {
+          // Normalizar el synth al shape que espera el modal WhatsApp:
+          //  - Fechas ISO YYYY-MM-DD (huRowToSyntheticBooking las devuelve
+          //    en MM/DD/YYYY porque su consumer principal es el sidebar
+          //    Lodgify).
+          //  - Propiedad + # Departamento como propiedades planas para
+          //    waPropDept_ / waAlojamientoLabel_.
+          const _toIso = (s) => {
+            const mm = String(s || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (mm) return mm[3] + '-' + String(mm[1]).padStart(2,'0') + '-' + String(mm[2]).padStart(2,'0');
+            const already = String(s || '').match(/^\d{4}-\d{2}-\d{2}/);
+            return already ? String(s).slice(0,10) : String(s || '');
+          };
+          synth.DateArrival   = _toIso(synth.DateArrival)   || String(r['Fecha de ingreso'] || '').slice(0,10);
+          synth.DateDeparture = _toIso(synth.DateDeparture) || String(r['Fecha de salida']  || '').slice(0,10);
+          synth.Propiedad          = synth.Propiedad          || r['Propiedad']       || '';
+          synth['# Departamento']  = synth['# Departamento']  || r['# Departamento']  || '';
+          related.push(synth);
+        }
       } catch(_) {}
     }
   }
