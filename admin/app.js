@@ -12570,10 +12570,29 @@ function lgNormalizePhone(phone) {
 
 /** Convierte MM/DD/YYYY → YYYY-MM-DD para comparar contra fechas de
  *  Información de huéspedes (que vienen del Sheets ISO). */
-function lgMMDDtoIsoDate(mmdd) {
-  const m = String(mmdd || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (!m) return '';
-  return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+/** Normaliza cualquier formato de fecha a ISO YYYY-MM-DD. Tolerante a:
+ *   - MM/DD/YYYY (Lodgify nativo)
+ *   - YYYY-MM-DD (huespedes / manual)
+ *   - "YYYY-MM-DDT..." (ISO con tiempo)
+ *   - Date object
+ *  Devuelve '' si el input no matchea ningún patrón conocido.
+ *  Antes solo aceptaba MM/DD/YYYY, lo que rompía filtros (mes, estado) para
+ *  bookings sintéticos de reservas manuales que traen fecha ISO. Ahora el
+ *  filtro es formato-agnóstico. */
+function lgMMDDtoIsoDate(v) {
+  if (v == null) return '';
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
+  }
+  const s = String(v).trim();
+  if (!s) return '';
+  // ISO YYYY-MM-DD (con o sin tiempo)
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  // MM/DD/YYYY (Lodgify nativo)
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+  return '';
 }
 
 /** Normaliza CUALQUIER formato de fecha a "YYYY-MM-DD".
@@ -13884,14 +13903,10 @@ function lgGetFiltered(sourceList) {
   // DateArrival <= rangeEnd  AND  DateDeparture >= rangeStart
   // Filtro de meses: set de "YYYY-MM" seleccionados.
   const mesSet = lgMultiGetSet('meses', LG_FILTER_OPTIONS.meses || []);
-  // Convierte MM/DD/YYYY (formato Lodgify) a YYYY-MM-DD para comparación
-  // por string (independiente de la zona horaria). Esto evita el bug donde
-  // "Fecha de salida" no matcheaba por desfase TZ.
-  const mmddToIso = (s) => {
-    const m = String(s||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (!m) return '';
-    return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
-  };
+  // Normalización de fechas format-agnóstica (soporta MM/DD/YYYY, YYYY-MM-DD
+  // y Date). Antes solo aceptaba MM/DD/YYYY, lo que rompía el filtro de mes
+  // para reservas manuales (formato ISO). Ahora usa el helper canónico.
+  const mmddToIso = lgMMDDtoIsoDate;
   // NOTA: antes había una "ventana visible default" silenciosa que escondía
   // toda reserva con salida < hoy-7d. Eso ocultaba reservas históricas que
   // sí tenían registros en Reservaciones, sin que el usuario lo supiera y
@@ -20003,11 +20018,7 @@ function bzwBuildReservasAsociadasSection(t) {
   let sameProp = [];
   if (taskHomeId && idx.byHouse.has(taskHomeId)) sameProp = idx.byHouse.get(taskHomeId);
   else if (idx.byPropKey.has(taskPropKey)) sameProp = idx.byPropKey.get(taskPropKey);
-  const mmddToIso = (s) => {
-    const mm = String(s||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (!mm) return '';
-    return `${mm[3]}-${String(mm[1]).padStart(2,'0')}-${String(mm[2]).padStart(2,'0')}`;
-  };
+  const mmddToIso = lgMMDDtoIsoDate; // helper canónico (soporta ISO + MM/DD/YYYY)
   if (!sameProp.length) {
     return `<section class="bzw-detail-section">
       <div class="bzw-detail-section-title">🏨 Reservas asociadas</div>
