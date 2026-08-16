@@ -6362,11 +6362,12 @@ body.has-session input[name="nombre"] {
 <div id="huespedes-container">
 <div class="huesped-row" style="position:relative;">
 <div style="flex:1; padding-right:34px;">
-<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-<input name="huesped[]" placeholder="Huésped 1" type="text" style="flex:1; min-width:180px;"/>
-<button type="button" class="btn-wa-optin" onclick="toggleWaOptInGuest(this)" style="flex-shrink:0; padding:6px 10px; background:#25D366; color:#fff; border:0; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; line-height:1.2;">📱 Recibir notificaciones por WhatsApp</button>
-</div>
-<div class="wa-optin-adicional-wrap" style="display:none; margin-top:8px; padding:8px 10px; background:#f0fdf4; border:1px solid #86efac; border-radius:10px;">
+<input name="huesped[]" placeholder="Huésped 1" type="text" oninput="waOptInMaybeShow(this)"/>
+<label class="wa-optin-check-wrap" onclick="waOptInToggleCheck(this)" style="display:none; margin-top:8px; padding:8px 10px; background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; cursor:pointer; user-select:none; align-items:center; gap:10px;">
+<span class="wa-optin-cb" data-on="0" style="display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border:2px solid #94a3b8; background:#fff; color:transparent; border-radius:4px; font-size:12px; font-weight:900; line-height:1; flex-shrink:0;"></span>
+<span style="font-size:13px; font-weight:700; color:#166534;">📱 Recibir notificaciones por WhatsApp</span>
+</label>
+<div class="wa-optin-adicional-wrap" style="display:none; margin-top:6px; padding:8px 10px; background:#f0fdf4; border:1px solid #86efac; border-radius:10px;">
 <label style="font-size:11px; font-weight:700; color:#166534; margin-bottom:4px; display:block;">Número adicional para notificaciones WhatsApp</label>
 <div class="phone-group" style="display:flex; gap:6px;">
 <select class="lada-adicional" name="lada_adicional" style="max-width:110px;"></select>
@@ -6587,11 +6588,12 @@ body.has-session input[name="nombre"] {
 <div id="huespedes-container">
 <div class="huesped-row" style="position:relative;">
 <div style="flex:1; padding-right:34px;">
-<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-<input name="huesped[]" placeholder="Huésped 1" type="text" style="flex:1; min-width:180px;"/>
-<button type="button" class="btn-wa-optin" onclick="toggleWaOptInGuest(this)" style="flex-shrink:0; padding:6px 10px; background:#25D366; color:#fff; border:0; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; line-height:1.2;">📱 Recibir notificaciones por WhatsApp</button>
-</div>
-<div class="wa-optin-adicional-wrap" style="display:none; margin-top:8px; padding:8px 10px; background:#f0fdf4; border:1px solid #86efac; border-radius:10px;">
+<input name="huesped[]" placeholder="Huésped 1" type="text" oninput="waOptInMaybeShow(this)"/>
+<label class="wa-optin-check-wrap" onclick="waOptInToggleCheck(this)" style="display:none; margin-top:8px; padding:8px 10px; background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; cursor:pointer; user-select:none; align-items:center; gap:10px;">
+<span class="wa-optin-cb" data-on="0" style="display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border:2px solid #94a3b8; background:#fff; color:transparent; border-radius:4px; font-size:12px; font-weight:900; line-height:1; flex-shrink:0;"></span>
+<span style="font-size:13px; font-weight:700; color:#166534;">📱 Recibir notificaciones por WhatsApp</span>
+</label>
+<div class="wa-optin-adicional-wrap" style="display:none; margin-top:6px; padding:8px 10px; background:#f0fdf4; border:1px solid #86efac; border-radius:10px;">
 <label style="font-size:11px; font-weight:700; color:#166534; margin-bottom:4px; display:block;">Número adicional para notificaciones WhatsApp</label>
 <div class="phone-group" style="display:flex; gap:6px;">
 <select class="lada-adicional" name="lada_adicional" style="max-width:110px;"></select>
@@ -7310,50 +7312,87 @@ function toggleCopiarReservante(checkbox){
   } else {
     input.readOnly = false;
   }
-  // El botón "Recibir notificaciones WhatsApp" y su input se ocultan cuando
+  // El check "Recibir notificaciones WhatsApp" y su input se ocultan cuando
   // el huésped 1 == administrador (se usa el celular principal del admin).
-  const waBtn = row?.querySelector('.btn-wa-optin');
+  const waCheckWrap = row?.querySelector('.wa-optin-check-wrap');
   const waWrap = row?.querySelector('.wa-optin-adicional-wrap');
+  const waCb   = row?.querySelector('.wa-optin-cb');
   const waLada = row?.querySelector('.lada-adicional');
   const waCel  = row?.querySelector('.celular-adicional');
   if (checkbox.checked) {
-    if (waBtn)  waBtn.style.display  = 'none';
-    if (waWrap) waWrap.style.display = 'none';
+    if (waCheckWrap) waCheckWrap.style.display = 'none';
+    if (waWrap)      waWrap.style.display      = 'none';
+    if (waCb)        _waOptInPaintCheck(waCb, false);
     if (waLada) waLada.value = '';
     if (waCel)  waCel.value  = '';
   } else {
-    if (waBtn)  waBtn.style.display  = 'inline-flex';
+    // Al desmarcar admin: mostrar el check SI el input de nombre tiene texto.
+    const input = row?.querySelector('input[name="huesped[]"]');
+    if (input) waOptInMaybeShow(input);
   }
 }
 
-// Botón "Recibir notificaciones por WhatsApp" — solo aparece en el huésped 1
-// cuando NO está marcada "Es el mismo administrador". Al hacer click, revela
-// el input de Número adicional. Segundo click lo oculta y limpia.
-window.toggleWaOptInGuest = function(btn){
-  const row = btn.closest('.huesped-row');
+// Muestra u oculta el aviso "Recibir notificaciones por WhatsApp" según si
+// hay texto en el nombre del huésped y no está marcada "Es el mismo admin".
+window.waOptInMaybeShow = function(input){
+  const row = input && input.closest('.huesped-row');
   if (!row) return;
-  const wrap = row.querySelector('.wa-optin-adicional-wrap');
-  if (!wrap) return;
-  const showing = wrap.style.display !== 'none';
-  wrap.style.display = showing ? 'none' : 'block';
-  btn.style.background = showing ? '#25D366' : '#0f172a';
-  btn.textContent = showing ? '📱 Recibir notificaciones por WhatsApp' : '✕ Cancelar notificaciones';
-  if (showing) {
+  const allRows = Array.from(document.querySelectorAll('#huespedes-container .huesped-row'));
+  const idx = allRows.indexOf(row);
+  if (idx !== 0) return; // solo huésped 1
+  const wrap = row.querySelector('.wa-optin-check-wrap');
+  const adminCb = row.querySelector('.copiar-reservante');
+  const hasText = String(input.value || '').trim().length > 0;
+  const isAdmin = !!(adminCb && adminCb.checked);
+  const should = hasText && !isAdmin;
+  if (wrap) wrap.style.display = should ? 'flex' : 'none';
+  if (!should) {
+    // Al ocultar: colapsar y limpiar el número adicional.
+    const adWrap = row.querySelector('.wa-optin-adicional-wrap');
+    const cb = row.querySelector('.wa-optin-cb');
+    if (adWrap) adWrap.style.display = 'none';
+    if (cb) _waOptInPaintCheck(cb, false);
     const lada = row.querySelector('.lada-adicional');
     const cel  = row.querySelector('.celular-adicional');
     if (lada) lada.value = '';
     if (cel)  cel.value  = '';
-  } else {
-    // Popular ladas al abrir (mirroring lada1)
+  }
+};
+
+// Click en el aviso → toggle check + mostrar/ocultar Número adicional.
+window.waOptInToggleCheck = function(labelEl){
+  const row = labelEl && labelEl.closest('.huesped-row');
+  if (!row) return;
+  const cb = row.querySelector('.wa-optin-cb');
+  const adWrap = row.querySelector('.wa-optin-adicional-wrap');
+  if (!cb || !adWrap) return;
+  const on = cb.getAttribute('data-on') === '1';
+  const next = !on;
+  _waOptInPaintCheck(cb, next);
+  adWrap.style.display = next ? 'block' : 'none';
+  if (next) {
+    // Popular ladas al abrir (mirroring lada1).
     const src = document.getElementById('lada1');
     const tgt = row.querySelector('.lada-adicional');
     if (src && tgt && tgt.options.length === 0) {
       tgt.innerHTML = src.innerHTML;
-      // Seleccionar la misma default (+52 MX)
       try { tgt.value = src.value || ''; } catch(_){}
     }
+  } else {
+    const lada = row.querySelector('.lada-adicional');
+    const cel  = row.querySelector('.celular-adicional');
+    if (lada) lada.value = '';
+    if (cel)  cel.value  = '';
   }
 };
+
+function _waOptInPaintCheck(cb, on){
+  cb.setAttribute('data-on', on ? '1' : '0');
+  cb.textContent = on ? '✓' : '';
+  cb.style.background  = on ? '#16a34a' : '#fff';
+  cb.style.borderColor = on ? '#16a34a' : '#94a3b8';
+  cb.style.color       = on ? '#fff'    : 'transparent';
+}
 
 function addGuest(){
   const d = document.createElement("div");
