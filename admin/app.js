@@ -39141,3 +39141,83 @@ function _cfgScheduleShortLabel(type, time, event, offset) {
   return opt.label;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ Hook: al generar ticket de auto-facturación, programa auto un mensaje  ║
+// ║ WhatsApp para la fecha de salida con el texto de "consultar ticket".   ║
+// ║ Idempotente: si ya existe un mensaje ticket_autofact para el mismo     ║
+// ║ booking, lo omite (evita duplicados en re-emisiones).                   ║
+// ═══════════════════════════════════════════════════════════════════════════
+
+(function huAutoScheduleTicketWa_() {
+  let pendingContext = null; // { recordId, oldUrl }
+
+  // Hook al generar/re-emitir ticket: capturar recordId + URL previa.
+  const origGen = window.huespedesGenerarTicket;
+  if (origGen) {
+    window.huespedesGenerarTicket = async function(recordId) {
+      try {
+        const row = (HU_STATE.rows || []).find(r => String(r['ID']||r['row_number']||'') === String(recordId));
+        pendingContext = {
+          recordId: String(recordId || ''),
+          oldUrl: String((row && row['Ticket facturapi url']) || '').trim(),
+        };
+      } catch(_) { pendingContext = null; }
+      return origGen.apply(this, arguments);
+    };
+  }
+
+  const origClose = window.huespedesCloseFacturapi;
+  window.huespedesCloseFacturapi = function() {
+    const ctx = pendingContext;
+    pendingContext = null;
+    if (origClose) try { origClose.apply(this, arguments); } catch(_) {}
+    if (!ctx || !ctx.recordId) return;
+    // Espera al refresh (~600ms + Apps Script write) y checa si hay URL nueva.
+    setTimeout(async () => {
+      const row = (HU_STATE.rows || []).find(r => String(r['ID']||r['row_number']||'') === ctx.recordId);
+      if (!row) return;
+      const newUrl = String(row['Ticket facturapi url'] || '').trim();
+      if (!newUrl || newUrl === ctx.oldUrl) return; // no cambió → no fue emisión
+      const dep = String(row['Fecha de salida'] || '').slice(0,10);
+      if (!dep) return;
+      const cel = String(row['Cel/Whatsapp (principal)'] || '').trim();
+      if (!cel) return;
+      const bookingId = String(row['Lodgify Id'] || row['ID'] || row['row_number'] || '').trim();
+      if (!bookingId) return;
+      // Idempotencia: si ya existe scheduled tipo=ticket_autofact para este
+      // booking, no crear otro (típico en re-emisión).
+      try {
+        const listRes = await fetch('https://api.check-inn.mx/wa/scheduled-list', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId }),
+        });
+        const listJ = await listRes.json();
+        const exists = ((listJ && listJ.items) || []).some(it => String(it.tipo || '') === 'ticket_autofact' && String(it.status || '') === 'pending');
+        if (exists) {
+          console.info('[HU] WA ticket_autofact ya existía pending para', bookingId, '— skip');
+          return;
+        }
+      } catch(_) {}
+      const msg = (typeof huBuildTicketConsultaMsg === 'function')
+        ? huBuildTicketConsultaMsg(newUrl)
+        : `Hemos enviado el TICKET para AUTO-FACTURACIÓN al correo proporcionado.\n\nURL de la factura:\n${newUrl}\n\nRecuerda que sólo estará vigente dentro del mes fiscal en curso.`;
+      // Programar a las 10am local del día de salida.
+      const [y,mo,d] = dep.split('-').map(x => parseInt(x,10));
+      const dt = new Date(y, (mo||1)-1, (d||1), 10, 0, 0);
+      const isoLocal = dt.toISOString();
+      try {
+        const res = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingId, to: cel, scheduledAt: isoLocal,
+            body: msg, asunto: 'Ticket auto-facturación',
+            tipo: 'ticket_autofact', createdBy: 'auto:ticket',
+          }),
+        });
+        const j = await res.json();
+        if (j.ok) console.info('[HU] WA programado para consultar ticket:', j.id, 'a', isoLocal);
+      } catch(e) { console.warn('[HU] falla al programar WA de ticket:', e); }
+    }, 1800);
+  };
+})();
+
