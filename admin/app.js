@@ -39160,85 +39160,114 @@ function _cfgScheduleShortLabel(type, time, event, offset) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 (function huAutoScheduleTicketWa_() {
-  let pendingContext = null; // { recordId, oldUrl }
+  // SNAPSHOT de URLs de todas las reservas al momento de abrir Facturapi.
+  // Al cerrar, comparamos y si alguna cambió → esa fue la reserva del ticket
+  // recién emitido. Más robusto que capturar recordId al llamar
+  // huespedesGenerarTicket (que se puede perder si el flujo va por
+  // huespedesReemitirTicket u otro path).
+  let urlSnapshot = null; // Map<recordId, url>
 
-  // Hook al generar/re-emitir ticket: capturar recordId + URL previa.
-  const origGen = window.huespedesGenerarTicket;
-  if (origGen) {
-    window.huespedesGenerarTicket = async function(recordId) {
-      try {
-        const row = (HU_STATE.rows || []).find(r => String(r['ID']||r['row_number']||'') === String(recordId));
-        pendingContext = {
-          recordId: String(recordId || ''),
-          oldUrl: String((row && row['Ticket facturapi url']) || '').trim(),
-        };
-      } catch(_) { pendingContext = null; }
-      return origGen.apply(this, arguments);
+  const takeSnapshot = () => {
+    const m = new Map();
+    for (const r of (HU_STATE.rows || [])) {
+      const id = String(r['ID'] || r['row_number'] || '');
+      if (id) m.set(id, String(r['Ticket facturapi url'] || '').trim());
+    }
+    return m;
+  };
+
+  // Hook al abrir Facturapi (huespedesOpenFacturapi es sincronía → snapshot).
+  const origOpen = window.huespedesOpenFacturapi;
+  if (origOpen) {
+    window.huespedesOpenFacturapi = function() {
+      try { urlSnapshot = takeSnapshot(); } catch(_) { urlSnapshot = null; }
+      console.info('[HU-ticket-hook] snapshot capturado con', urlSnapshot ? urlSnapshot.size : 0, 'rows');
+      return origOpen.apply(this, arguments);
     };
   }
 
   const origClose = window.huespedesCloseFacturapi;
   window.huespedesCloseFacturapi = function() {
-    const ctx = pendingContext;
-    pendingContext = null;
+    const snap = urlSnapshot;
+    urlSnapshot = null;
     if (origClose) try { origClose.apply(this, arguments); } catch(_) {}
-    if (!ctx || !ctx.recordId) return;
-    // Espera al refresh (~600ms + Apps Script write) y checa si hay URL nueva.
+    if (!snap) { console.info('[HU-ticket-hook] no snapshot → skip'); return; }
+    // Espera al refresh (~1800ms — huespedesCloseFacturapi ya dispara load a 600ms,
+    // Apps Script termina de escribir, y el load hace fetch de todas las pages).
     setTimeout(async () => {
-      const row = (HU_STATE.rows || []).find(r => String(r['ID']||r['row_number']||'') === ctx.recordId);
-      if (!row) return;
-      const newUrl = String(row['Ticket facturapi url'] || '').trim();
-      if (!newUrl || newUrl === ctx.oldUrl) return; // no cambió → no fue emisión
-      const dep = String(row['Fecha de salida'] || '').slice(0,10);
-      if (!dep) return;
-      const cel = String(row['Cel/Whatsapp (principal)'] || '').trim();
-      if (!cel) return;
-      const bookingId = String(row['Lodgify Id'] || row['ID'] || row['row_number'] || '').trim();
-      if (!bookingId) return;
-      // Al re-emitir, la URL vieja queda inválida (folio archivado). Borramos
-      // los pending ticket_autofact previos del mismo booking y creamos uno
-      // nuevo con la URL actual. Los mensajes ya ENVIADOS (histórico) NO se
-      // tocan — quedan como registro de tickets anteriores.
-      try {
-        const listRes = await fetch('https://api.check-inn.mx/wa/scheduled-list', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId }),
-        });
-        const listJ = await listRes.json();
-        const pendings = ((listJ && listJ.items) || []).filter(it =>
-          String(it.tipo || '') === 'ticket_autofact' &&
-          String(it.status || '') === 'pending'
-        );
-        for (const p of pendings) {
-          try {
-            await fetch('https://api.check-inn.mx/wa/scheduled-delete', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: p.id }),
-            });
-            console.info('[HU] borrado pending ticket_autofact viejo:', p.id);
-          } catch(_) {}
-        }
-      } catch(_) {}
-      const msg = (typeof huBuildTicketConsultaMsg === 'function')
-        ? huBuildTicketConsultaMsg(newUrl)
-        : `Hemos enviado el TICKET para AUTO-FACTURACIÓN al correo proporcionado.\n\nURL de la factura:\n${newUrl}\n\nRecuerda que sólo estará vigente dentro del mes fiscal en curso.`;
-      // Programar a las 10am local del día de salida.
-      const [y,mo,d] = dep.split('-').map(x => parseInt(x,10));
-      const dt = new Date(y, (mo||1)-1, (d||1), 10, 0, 0);
-      const isoLocal = dt.toISOString();
-      try {
-        const res = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bookingId, to: cel, scheduledAt: isoLocal,
-            body: msg, asunto: 'Ticket auto-facturación',
-            tipo: 'ticket_autofact', createdBy: 'auto:ticket',
-          }),
-        });
-        const j = await res.json();
-        if (j.ok) console.info('[HU] WA programado para consultar ticket:', j.id, 'a', isoLocal);
-      } catch(e) { console.warn('[HU] falla al programar WA de ticket:', e); }
-    }, 1800);
+      const changed = [];
+      for (const r of (HU_STATE.rows || [])) {
+        const id = String(r['ID'] || r['row_number'] || '');
+        if (!id) continue;
+        const newUrl = String(r['Ticket facturapi url'] || '').trim();
+        const oldUrl = snap.get(id) || '';
+        if (newUrl && newUrl !== oldUrl) changed.push({ row: r, id, newUrl, oldUrl });
+      }
+      console.info('[HU-ticket-hook] tras refresh:', changed.length, 'reservas con URL nueva');
+      if (!changed.length) return;
+      for (const c of changed) await _huAutoScheduleTicketWa(c.row, c.newUrl);
+    }, 2200);
   };
+
+  // Función expuesta para forzar el programado manualmente (útil para tickets
+  // que se emitieron antes de que existiera este hook).
+  window.huScheduleTicketWaNow = async function(recordId) {
+    const row = (HU_STATE.rows || []).find(r => String(r['ID']||r['row_number']||'') === String(recordId));
+    if (!row) { console.warn('[HU-ticket-hook] no row para', recordId); return; }
+    const newUrl = String(row['Ticket facturapi url'] || '').trim();
+    if (!newUrl) { console.warn('[HU-ticket-hook] row no tiene ticket URL'); return; }
+    return _huAutoScheduleTicketWa(row, newUrl);
+  };
+
+  async function _huAutoScheduleTicketWa(row, newUrl) {
+    const dep = String(row['Fecha de salida'] || '').slice(0,10);
+    if (!dep) { console.warn('[HU-ticket-hook] sin fecha salida'); return; }
+    const cel = String(row['Cel/Whatsapp (principal)'] || '').trim();
+    if (!cel) { console.warn('[HU-ticket-hook] sin celular'); return; }
+    const bookingId = String(row['Lodgify Id'] || row['ID'] || row['row_number'] || '').trim();
+    if (!bookingId) { console.warn('[HU-ticket-hook] sin bookingId'); return; }
+    // Al re-emitir, borramos pending ticket_autofact viejos (URL vieja
+    // inválida). Los YA ENVIADOS se preservan como histórico.
+    try {
+      const listRes = await fetch('https://api.check-inn.mx/wa/scheduled-list', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId }),
+      });
+      const listJ = await listRes.json();
+      const pendings = ((listJ && listJ.items) || []).filter(it =>
+        String(it.tipo || '') === 'ticket_autofact' &&
+        String(it.status || '') === 'pending'
+      );
+      for (const p of pendings) {
+        try {
+          await fetch('https://api.check-inn.mx/wa/scheduled-delete', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: p.id }),
+          });
+          console.info('[HU-ticket-hook] borrado pending viejo:', p.id);
+        } catch(_) {}
+      }
+    } catch(_) {}
+    const msg = (typeof huBuildTicketConsultaMsg === 'function')
+      ? huBuildTicketConsultaMsg(newUrl)
+      : `Hemos enviado el TICKET para AUTO-FACTURACIÓN al correo proporcionado.\n\nURL de la factura:\n${newUrl}\n\nRecuerda que sólo estará vigente dentro del mes fiscal en curso.`;
+    // Programar a las 10am local del día de salida.
+    const [y,mo,d] = dep.split('-').map(x => parseInt(x,10));
+    const dt = new Date(y, (mo||1)-1, (d||1), 10, 0, 0);
+    const isoLocal = dt.toISOString();
+    try {
+      const res = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId, to: cel, scheduledAt: isoLocal,
+          body: msg, asunto: 'Ticket auto-facturación',
+          tipo: 'ticket_autofact', createdBy: 'auto:ticket',
+        }),
+      });
+      const j = await res.json();
+      if (j.ok) console.info('[HU-ticket-hook] ✅ WA programado:', j.id, 'a', isoLocal, 'booking', bookingId);
+      else console.warn('[HU-ticket-hook] scheduled-add falló:', j.error);
+    } catch(e) { console.warn('[HU-ticket-hook] scheduled-add error:', e.message); }
+  }
 })();
 
