@@ -6362,7 +6362,17 @@ body.has-session input[name="nombre"] {
 <div id="huespedes-container">
 <div class="huesped-row" style="position:relative;">
 <div style="flex:1; padding-right:34px;">
-<input name="huesped[]" placeholder="Huésped 1" type="text"/>
+<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+<input name="huesped[]" placeholder="Huésped 1" type="text" style="flex:1; min-width:180px;"/>
+<button type="button" class="btn-wa-optin" onclick="toggleWaOptInGuest(this)" style="flex-shrink:0; padding:6px 10px; background:#25D366; color:#fff; border:0; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; line-height:1.2;">📱 Recibir notificaciones por WhatsApp</button>
+</div>
+<div class="wa-optin-adicional-wrap" style="display:none; margin-top:8px; padding:8px 10px; background:#f0fdf4; border:1px solid #86efac; border-radius:10px;">
+<label style="font-size:11px; font-weight:700; color:#166534; margin-bottom:4px; display:block;">Número adicional para notificaciones WhatsApp</label>
+<div class="phone-group" style="display:flex; gap:6px;">
+<select class="lada-adicional" name="lada_adicional" style="max-width:110px;"></select>
+<input autocomplete="tel-national" inputmode="numeric" class="celular-adicional" name="celular_adicional" placeholder="Ej. 8112345678" type="tel" style="flex:1;"/>
+</div>
+</div>
 <label class="copiar-reservante-wrap" style="font-weight:normal; margin-top:8px; display:flex; align-items:center; gap:8px;">
 <input class="copiar-reservante" onchange="toggleCopiarReservante(this)" style="width:auto;" type="checkbox"/>
         Es el mismo administrador
@@ -6577,7 +6587,17 @@ body.has-session input[name="nombre"] {
 <div id="huespedes-container">
 <div class="huesped-row" style="position:relative;">
 <div style="flex:1; padding-right:34px;">
-<input name="huesped[]" placeholder="Huésped 1" type="text"/>
+<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+<input name="huesped[]" placeholder="Huésped 1" type="text" style="flex:1; min-width:180px;"/>
+<button type="button" class="btn-wa-optin" onclick="toggleWaOptInGuest(this)" style="flex-shrink:0; padding:6px 10px; background:#25D366; color:#fff; border:0; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; line-height:1.2;">📱 Recibir notificaciones por WhatsApp</button>
+</div>
+<div class="wa-optin-adicional-wrap" style="display:none; margin-top:8px; padding:8px 10px; background:#f0fdf4; border:1px solid #86efac; border-radius:10px;">
+<label style="font-size:11px; font-weight:700; color:#166534; margin-bottom:4px; display:block;">Número adicional para notificaciones WhatsApp</label>
+<div class="phone-group" style="display:flex; gap:6px;">
+<select class="lada-adicional" name="lada_adicional" style="max-width:110px;"></select>
+<input autocomplete="tel-national" inputmode="numeric" class="celular-adicional" name="celular_adicional" placeholder="Ej. 8112345678" type="tel" style="flex:1;"/>
+</div>
+</div>
 <label class="copiar-reservante-wrap" style="font-weight:normal; margin-top:8px; display:flex; align-items:center; gap:8px;">
 <input class="copiar-reservante" onchange="toggleCopiarReservante(this)" style="width:auto;" type="checkbox"/>
         Es el mismo administrador
@@ -6745,9 +6765,13 @@ body.has-session input[name="nombre"] {
         El formulario se envió correctamente.
       </div>
 <div id="popupReglamentoContainer" style="display:none; text-align:left; margin:12px 0 12px; max-height:45vh; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; background:#f8fafc;"></div>
-<label id="popupAcceptWrap" onclick="popupToggleAccept()" style="display:flex;align-items:center;gap:10px;margin:6px 0 12px;padding:10px 12px;background:#fef3c7;border:1.5px solid #fde68a;border-radius:12px;cursor:pointer;user-select:none">
+<label id="popupAcceptWrap" onclick="popupToggleAccept()" style="display:flex;align-items:center;gap:10px;margin:6px 0 8px;padding:10px 12px;background:#fef3c7;border:1.5px solid #fde68a;border-radius:12px;cursor:pointer;user-select:none">
   <span id="popupAcceptCb" data-on="0" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:1.5px solid #94a3b8;background:#fff;color:transparent;border-radius:6px;font-size:14px;font-weight:900;line-height:1;flex-shrink:0"></span>
   <span style="font-size:14px;font-weight:700;color:#0f172a">Acepto las condiciones anteriores</span>
+</label>
+<label id="popupWaOptInWrap" onclick="popupToggleWaOptIn()" style="display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:10px 12px;background:#dcfce7;border:1.5px solid #86efac;border-radius:12px;cursor:pointer;user-select:none">
+  <span id="popupWaOptInCb" data-on="1" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:1.5px solid #16a34a;background:#16a34a;color:#fff;border-radius:6px;font-size:14px;font-weight:900;line-height:1;flex-shrink:0">✓</span>
+  <span style="font-size:14px;font-weight:700;color:#0f172a">Deseo recibir recordatorios y notificaciones por WhatsApp</span>
 </label>
 <button id="popupEnvioCloseBtn" onclick="cerrarVentanaEnvio()" type="button" style="display:block;width:100%;padding:14px 16px;background:#dc2626;color:#fff;border:0;border-radius:16px;font-size:15px;font-weight:700;cursor:not-allowed;opacity:.45;-webkit-appearance:none;appearance:none;pointer-events:none">Cerrar ventana</button><div id="whatsappHelpLabel" style="display:block;width:100%;margin-top:12px;text-align:center;font-size:14px;font-weight:700;color:#374151;">¿Dudas o comentarios?:</div><button id="whatsappHelpButton" onclick="abrirWhatsappDudas()" style="display:block !important;width:100%;margin-top:8px;padding:14px 16px;background:#25D366;color:#ffffff;border:none;border-radius:16px;font-size:15px;font-weight:700;cursor:not-allowed;opacity:.45;pointer-events:none;-webkit-appearance:none;appearance:none;" type="button">Envíanos un Whatsapp</button>
 <script>
@@ -6782,8 +6806,33 @@ window.popupToggleAccept = function(){
     try { if (orig) orig.apply(this, arguments); } catch(_){}
     var cb = document.getElementById('popupAcceptCb');
     if (cb && cb.getAttribute('data-on') === '1') window.popupToggleAccept();
+    // Reset WhatsApp opt-in a ON (default).
+    var wa = document.getElementById('popupWaOptInCb');
+    if (wa && wa.getAttribute('data-on') !== '1') window.popupToggleWaOptIn();
+    window.__waPopupOptIn = true;
   };
 })();
+
+// Toggle "Deseo recibir recordatorios y notificaciones por WhatsApp".
+// Default = ON (verde con ✓). Al desactivar → gris.
+window.popupToggleWaOptIn = function(){
+  var cb = document.getElementById('popupWaOptInCb');
+  if (!cb) return;
+  var on = cb.getAttribute('data-on') === '1';
+  var next = !on;
+  cb.setAttribute('data-on', next ? '1' : '0');
+  cb.textContent = next ? '✓' : '';
+  cb.style.background   = next ? '#16a34a' : '#fff';
+  cb.style.borderColor  = next ? '#16a34a' : '#94a3b8';
+  cb.style.color        = next ? '#fff'    : 'transparent';
+  var wrap = document.getElementById('popupWaOptInWrap');
+  if (wrap) {
+    wrap.style.background  = next ? '#dcfce7' : '#f1f5f9';
+    wrap.style.borderColor = next ? '#86efac' : '#cbd5e1';
+  }
+  window.__waPopupOptIn = next;
+};
+window.__waPopupOptIn = true; // default ON al cargar
 </script>
 </div>
 </div>
@@ -7261,7 +7310,50 @@ function toggleCopiarReservante(checkbox){
   } else {
     input.readOnly = false;
   }
+  // El botón "Recibir notificaciones WhatsApp" y su input se ocultan cuando
+  // el huésped 1 == administrador (se usa el celular principal del admin).
+  const waBtn = row?.querySelector('.btn-wa-optin');
+  const waWrap = row?.querySelector('.wa-optin-adicional-wrap');
+  const waLada = row?.querySelector('.lada-adicional');
+  const waCel  = row?.querySelector('.celular-adicional');
+  if (checkbox.checked) {
+    if (waBtn)  waBtn.style.display  = 'none';
+    if (waWrap) waWrap.style.display = 'none';
+    if (waLada) waLada.value = '';
+    if (waCel)  waCel.value  = '';
+  } else {
+    if (waBtn)  waBtn.style.display  = 'inline-flex';
+  }
 }
+
+// Botón "Recibir notificaciones por WhatsApp" — solo aparece en el huésped 1
+// cuando NO está marcada "Es el mismo administrador". Al hacer click, revela
+// el input de Número adicional. Segundo click lo oculta y limpia.
+window.toggleWaOptInGuest = function(btn){
+  const row = btn.closest('.huesped-row');
+  if (!row) return;
+  const wrap = row.querySelector('.wa-optin-adicional-wrap');
+  if (!wrap) return;
+  const showing = wrap.style.display !== 'none';
+  wrap.style.display = showing ? 'none' : 'block';
+  btn.style.background = showing ? '#25D366' : '#0f172a';
+  btn.textContent = showing ? '📱 Recibir notificaciones por WhatsApp' : '✕ Cancelar notificaciones';
+  if (showing) {
+    const lada = row.querySelector('.lada-adicional');
+    const cel  = row.querySelector('.celular-adicional');
+    if (lada) lada.value = '';
+    if (cel)  cel.value  = '';
+  } else {
+    // Popular ladas al abrir (mirroring lada1)
+    const src = document.getElementById('lada1');
+    const tgt = row.querySelector('.lada-adicional');
+    if (src && tgt && tgt.options.length === 0) {
+      tgt.innerHTML = src.innerHTML;
+      // Seleccionar la misma default (+52 MX)
+      try { tgt.value = src.value || ''; } catch(_){}
+    }
+  }
+};
 
 function addGuest(){
   const d = document.createElement("div");
@@ -8030,7 +8122,23 @@ document.getElementById("form").addEventListener("submit", async function(e){
     vehiculo_foto: "",
     vehiculo_hora_salida: f.get("vehiculo_hora_salida"),
     vehiculo_placas: vehiculoPlacasFinal,
-    comentarios: f.get("comentarios")
+    comentarios: f.get("comentarios"),
+    // WhatsApp — opt-in default asumido true; se puede cambiar en popup post-submit.
+    wa_notify_optin: (window.__waPopupOptIn !== false),
+    // Número adicional para notificaciones WhatsApp del huésped 1
+    // (si "Es el mismo administrador" está activo, queda vacío).
+    numero_adicional_wa: (function(){
+      const row = document.querySelector('#huespedes-container .huesped-row');
+      if (!row) return '';
+      const copiaAdmin = row.querySelector('.copiar-reservante');
+      if (copiaAdmin && copiaAdmin.checked) return '';
+      const lada = row.querySelector('.lada-adicional');
+      const cel  = row.querySelector('.celular-adicional');
+      const ladaV = lada ? String(lada.value || '').trim() : '';
+      const celV  = cel  ? String(cel.value  || '').trim() : '';
+      if (!celV) return '';
+      return `'${ladaV} ${celV}`.trim();
+    })()
   };
 
   try {
