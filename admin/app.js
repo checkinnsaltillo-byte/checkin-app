@@ -38136,6 +38136,9 @@ async function waEnsureAdminTemplates_() {
         return map;
       } catch (e) {
         console.warn('[WA] admin templates list falló:', e.message);
+        // En caso de error, marcamos como cargado con {} para NO caer al
+        // fallback "permisivo" (que mostraría templates que no aplican).
+        WA_ADMIN.adminTemplates = {};
         return {};
       }
     })();
@@ -38184,8 +38187,12 @@ function _waAdminScheduledDate(admin, b) {
  *  - alojamientos CSV → aplica solo si HouseId de la reserva está en el CSV.
  */
 function _waTemplateAppliesToBooking(tplId, booking) {
-  const admin = WA_ADMIN.adminTemplates && WA_ADMIN.adminTemplates[String(tplId)];
-  if (!admin) return true;
+  // Si adminTemplates aún no está cargado, no mostramos — evita el flash de
+  // templates que en realidad no aplican al alojamiento. Cuando cargue,
+  // _waRepaint() vuelve a evaluar y las cards correctas aparecen.
+  if (!WA_ADMIN.adminTemplates) return false;
+  const admin = WA_ADMIN.adminTemplates[String(tplId)];
+  if (!admin) return true; // template sin config admin en la hoja = aplica siempre (backcompat)
   if (!admin.enabled) return false;
   const csv = String(admin.alojamientos || '').trim();
   if (!csv) return true;
