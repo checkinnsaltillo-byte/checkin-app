@@ -39224,7 +39224,11 @@ function _cfgScheduleShortLabel(type, time, event, offset) {
     if (!dep) { console.warn('[HU-ticket-hook] sin fecha salida'); return; }
     const cel = String(row['Cel/Whatsapp (principal)'] || '').trim();
     if (!cel) { console.warn('[HU-ticket-hook] sin celular'); return; }
-    const bookingId = String(row['Lodgify Id'] || row['ID'] || row['row_number'] || '').trim();
+    // IMPORTANTE: usar row.ID (huespedes row ID) — es la clave que el modal
+    // WhatsApp usa al abrir accordions desde el sidebar Lodgify (waBookingId_
+    // del synth devuelve row.ID). Si usáramos Lodgify Id, el scheduled queda
+    // huérfano porque wa_scheduled_list filtra por booking_id exacto.
+    const bookingId = String(row['ID'] || row['row_number'] || row['Lodgify Id'] || '').trim();
     if (!bookingId) { console.warn('[HU-ticket-hook] sin bookingId'); return; }
     // Al re-emitir, borramos pending ticket_autofact viejos (URL vieja
     // inválida). Los YA ENVIADOS se preservan como histórico.
