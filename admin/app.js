@@ -12372,6 +12372,16 @@ window.huespedesReemitirTicket = async function(recordId) {
 
 /** Abre el modal de Facturapi con el iframe apuntando a la URL dada. */
 function huespedesOpenFacturapi(url) {
+  // Snapshot de URLs de tickets ANTES de abrir Facturapi. Al cerrarse, el
+  // hook comparará y disparará auto-schedule del WA para cada URL nueva.
+  try {
+    window.__huTicketUrlSnapshot = new Map();
+    for (const r of (HU_STATE.rows || [])) {
+      const id = String(r['ID'] || r['row_number'] || '');
+      if (id) window.__huTicketUrlSnapshot.set(id, String(r['Ticket facturapi url'] || '').trim());
+    }
+    console.info('[HU-ticket] snapshot capturado con', window.__huTicketUrlSnapshot.size, 'rows');
+  } catch(e) { console.warn('[HU-ticket] snapshot falló:', e.message); }
   const ov   = document.getElementById('hu-facturapi-overlay');
   const ifr  = document.getElementById('hu-facturapi-frame');
   const ext  = document.getElementById('hu-facturapi-external');
@@ -12398,6 +12408,49 @@ function huespedesCloseFacturapi() {
     if (lbl) lbl.textContent = 'Actualizando…';
     setTimeout(async () => {
       try { await huespedesLoad(true); } catch(_) {}
+      // AUTO-SCHEDULE WA para tickets emitidos: comparar snapshot pre-abertura
+      // vs URLs actuales. Corre DESPUÉS del await de huespedesLoad → garantía
+      // de que HU_STATE.rows tiene la URL nueva escrita por Facturapi.
+      try {
+        const snap = window.__huTicketUrlSnapshot;
+        if (snap && snap.size) {
+          console.info('[HU-ticket] post-refresh: comparando snapshot vs rows nuevas');
+          const changed = [];
+          for (const r of (HU_STATE.rows || [])) {
+            const id = String(r['ID'] || r['row_number'] || '');
+            if (!id) continue;
+            const newUrl = String(r['Ticket facturapi url'] || '').trim();
+            const oldUrl = snap.get(id) || '';
+            if (newUrl && newUrl !== oldUrl) changed.push({ row: r, id, newUrl, oldUrl });
+          }
+          console.info('[HU-ticket] cambios:', changed.length);
+          window.__huTicketUrlSnapshot = null; // consumido
+          for (const c of changed) {
+            if (typeof window._huAutoScheduleTicketWa === 'function') {
+              await window._huAutoScheduleTicketWa(c.row, c.newUrl);
+            } else if (typeof window.huScheduleTicketWaNow === 'function') {
+              await window.huScheduleTicketWaNow(c.id);
+            }
+          }
+          // Refrescar el modal WhatsApp abierto (si aplica) para que las
+          // cards nuevas aparezcan sin cerrar+reabrir.
+          if (changed.length) {
+            const st = window.__waModalState;
+            if (st && st.bookingId) {
+              try {
+                const r2 = await fetch('https://api.check-inn.mx/wa/scheduled-list', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ bookingId: st.bookingId }),
+                });
+                const j2 = await r2.json();
+                st.scheduledItems = (j2 && j2.items) || [];
+                if (typeof _waRepaint === 'function') _waRepaint();
+                console.info('[HU-ticket] modal WA refrescado');
+              } catch(_) {}
+            }
+          }
+        }
+      } catch (e) { console.warn('[HU-ticket] auto-schedule falló:', e); }
       // También re-renderizar Gestión de reservas: las cards toman el color
       // de huGetFacturaStatus(huesped), que cambió de 'pendiente' a
       // 'emitida'. Sin esto, la card permanece roja hasta navegar.
@@ -39176,69 +39229,11 @@ function _cfgScheduleShortLabel(type, time, event, offset) {
     return m;
   };
 
-  // Hook al abrir Facturapi (huespedesOpenFacturapi es sincronía → snapshot).
-  const origOpen = window.huespedesOpenFacturapi;
-  if (origOpen) {
-    window.huespedesOpenFacturapi = function() {
-      try { urlSnapshot = takeSnapshot(); } catch(_) { urlSnapshot = null; }
-      console.info('[HU-ticket-hook] snapshot capturado con', urlSnapshot ? urlSnapshot.size : 0, 'rows');
-      return origOpen.apply(this, arguments);
-    };
-  }
-
-  const origClose = window.huespedesCloseFacturapi;
-  window.huespedesCloseFacturapi = function() {
-    const snap = urlSnapshot;
-    urlSnapshot = null;
-    if (origClose) try { origClose.apply(this, arguments); } catch(_) {}
-    if (!snap) { console.info('[HU-ticket-hook] no snapshot → skip'); return; }
-    // Poll: cada 800ms hasta 20s espera a que HU_STATE.rows tenga URL nueva
-    // (huespedesLoad puede tardar por 5K rows + pagination). Antes usábamos
-    // setTimeout ciego a 2200ms que a veces disparaba antes del refresh.
-    const startedAt = Date.now();
-    const MAX_MS = 20000;
-    const INTERVAL = 800;
-    let firedIds = new Set(); // evita disparar 2 veces por misma reserva
-    const tick = async () => {
-      const changed = [];
-      for (const r of (HU_STATE.rows || [])) {
-        const id = String(r['ID'] || r['row_number'] || '');
-        if (!id || firedIds.has(id)) continue;
-        const newUrl = String(r['Ticket facturapi url'] || '').trim();
-        const oldUrl = snap.get(id) || '';
-        if (newUrl && newUrl !== oldUrl) changed.push({ row: r, id, newUrl, oldUrl });
-      }
-      if (changed.length) {
-        console.info('[HU-ticket-hook] cambios detectados:', changed.length,
-          '(t=', Date.now() - startedAt, 'ms)');
-        for (const c of changed) {
-          firedIds.add(c.id);
-          await _huAutoScheduleTicketWa(c.row, c.newUrl);
-        }
-        // Después de disparar, refrescar el modal si está abierto para que se
-        // vean las nuevas cards sin cerrar+reabrir.
-        try {
-          const st = window.__waModalState;
-          if (st && st.bookingId) {
-            const listR = await fetch('https://api.check-inn.mx/wa/scheduled-list', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ bookingId: st.bookingId }),
-            });
-            const listJ = await listR.json();
-            st.scheduledItems = (listJ && listJ.items) || [];
-            if (typeof _waRepaint === 'function') _waRepaint();
-            console.info('[HU-ticket-hook] modal WhatsApp refrescado');
-          }
-        } catch(_) {}
-      }
-      if (Date.now() - startedAt < MAX_MS) {
-        setTimeout(tick, INTERVAL);
-      } else if (!firedIds.size) {
-        console.warn('[HU-ticket-hook] timeout 20s sin detectar URL nueva');
-      }
-    };
-    setTimeout(tick, 800); // primera check a 800ms
-  };
+  // NOTA: el wrap de huespedesOpenFacturapi / huespedesCloseFacturapi se
+  // reemplazó por edición DIRECTA en el source (líneas ~12374 y ~12387).
+  // Snapshot se captura en window.__huTicketUrlSnapshot y el schedule ocurre
+  // DENTRO del setTimeout->await huespedesLoad del cierre — garantiza que
+  // HU_STATE.rows ya tenga las URLs nuevas cuando comparamos.
 
   // Función expuesta para forzar el programado manualmente (útil para tickets
   // que se emitieron antes de que existiera este hook).
@@ -39250,6 +39245,7 @@ function _cfgScheduleShortLabel(type, time, event, offset) {
     return _huAutoScheduleTicketWa(row, newUrl);
   };
 
+  window._huAutoScheduleTicketWa = _huAutoScheduleTicketWa;
   async function _huAutoScheduleTicketWa(row, newUrl) {
     const dep = String(row['Fecha de salida'] || '').slice(0,10);
     if (!dep) { console.warn('[HU-ticket-hook] sin fecha salida'); return; }
