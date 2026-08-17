@@ -39352,11 +39352,21 @@ function _cfgScheduleShortLabel(type, time, event, offset) {
 // ║ MÓDULO LLAVES — tabla editable de llaves/códigos por alojamiento       ║
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Cada item: {houseId, alojamiento, cells: {puerta:{state,date}, caja_seguridad:{...}, ...}}
+// state: '' (default gris), 'V' (verificado verde), 'F' (falta rojo)
+const LLAVES_CELLS = [
+  { key: 'puerta',         label: 'Puerta' },
+  { key: 'caja_seguridad', label: 'Caja de seguridad' },
+  { key: 'claudia',        label: 'Claudia' },
+  { key: 'damariz',        label: 'Damariz' },
+  { key: 'mantenimiento',  label: 'Mantenimiento' },
+  { key: 'oficina',        label: 'Oficina' },
+];
 const LLAVES_STATE = {
   loaded: false,
   loading: false,
-  items: [], // [{houseId, alojamiento, puerta, caja_seguridad, claudia, damariz, acr, oficina, ultima_actualizacion, verificado, updated_by}]
-  dirty: new Set(), // houseIds con cambios pendientes de guardar
+  items: [],
+  dirty: new Set(), // "houseId|cellKey" pending
 };
 
 async function llavesInit() {
@@ -39385,29 +39395,19 @@ function llavesRender() {
     host.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando alojamientos…</div>`;
     return;
   }
+  const headers = ['Alojamiento'].concat(LLAVES_CELLS.map(c => c.label))
+    .map(h => `<th style="padding:10px 10px;text-align:${h==='Alojamiento'?'left':'center'};border-bottom:1px solid #e2e8f0;white-space:nowrap">${_llavesEsc(h)}</th>`).join('');
   const rowsHtml = (LLAVES_STATE.items || []).map((it, idx) => _llavesRowHtml(it, idx)).join('');
   host.innerHTML = `
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
       <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px">
         <div style="font-weight:800;color:#0f172a;font-size:14px">${LLAVES_STATE.items.length} alojamientos</div>
-        <div id="llaves-dirty-badge" style="font-size:11px;color:#92400e;font-weight:700"></div>
+        <div style="font-size:11px;color:#64748b">Click en la cajita para alternar: <span style="color:#94a3b8">default</span> → <span style="color:#166534;font-weight:700">Verificado ✓</span> → <span style="color:#991b1b;font-weight:700">Falta ✕</span> → default</div>
+        <div id="llaves-dirty-badge" style="margin-left:auto;font-size:11px;color:#92400e;font-weight:700"></div>
       </div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <thead>
-            <tr style="background:#f1f5f9;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.04em">
-              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0;white-space:nowrap">Alojamiento</th>
-              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0">Puerta</th>
-              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0">Caja de seguridad</th>
-              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0">Claudia</th>
-              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0">Damariz</th>
-              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0">ACR</th>
-              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0">Oficina</th>
-              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0;white-space:nowrap">Última actualización</th>
-              <th style="padding:10px 10px;text-align:center;border-bottom:1px solid #e2e8f0"></th>
-              <th style="padding:10px 10px;text-align:center;border-bottom:1px solid #e2e8f0">Estado</th>
-            </tr>
-          </thead>
+          <thead><tr style="background:#f1f5f9;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.04em">${headers}</tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
       </div>
@@ -39419,41 +39419,46 @@ function llavesRender() {
 function _llavesRowHtml(it, idx) {
   const bg = idx % 2 ? '#fff' : '#fafbfc';
   const hid = _llavesEscAttr(it.houseId);
-  const cell = (field, val, width) => `
-    <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;background:${bg}">
-      <input type="text" value="${_llavesEscAttr(val)}"
-        onchange="llavesCellEdit('${hid}','${field}',this.value)"
-        style="width:${width || '100%'};min-width:80px;padding:5px 7px;border:1px solid transparent;border-radius:6px;font-size:12px;background:transparent;box-sizing:border-box"
-        onfocus="this.style.background='#fff';this.style.borderColor='#cbd5e1'"
-        onblur="this.style.background='transparent';this.style.borderColor='transparent'">
-    </td>`;
-  const verif = !!it.verificado;
-  const verifChip = verif
-    ? `<span style="display:inline-flex;align-items:center;gap:6px;color:#166534;font-weight:700;font-size:11px"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#16a34a;color:#fff;border-radius:6px;font-size:13px;font-weight:900">✓</span> Verificado</span>`
-    : `<span style="display:inline-flex;align-items:center;gap:6px;color:#991b1b;font-weight:700;font-size:11px"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#dc2626;color:#fff;border-radius:6px;font-size:13px;font-weight:900">✕</span> Falta</span>`;
+  const cellsHtml = LLAVES_CELLS.map(c => {
+    const cellData = (it.cells && it.cells[c.key]) || { state: '', date: '' };
+    return `<td style="padding:8px 6px;border-bottom:1px solid #f1f5f9;background:${bg};text-align:center;vertical-align:top">${_llavesCheckboxHtml(hid, c.key, cellData)}</td>`;
+  }).join('');
   return `
     <tr data-hid="${hid}">
-      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;background:${bg};font-weight:700;color:#0f172a;white-space:nowrap">${_llavesEsc(it.alojamiento)}</td>
-      ${cell('puerta', it.puerta)}
-      ${cell('caja_seguridad', it.caja_seguridad)}
-      ${cell('claudia', it.claudia)}
-      ${cell('damariz', it.damariz)}
-      ${cell('acr', it.acr)}
-      ${cell('oficina', it.oficina)}
-      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;background:${bg}">
-        <input type="date" value="${_llavesEscAttr(it.ultima_actualizacion)}"
-          onchange="llavesCellEdit('${hid}','ultima_actualizacion',this.value)"
-          style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;font-family:inherit">
-      </td>
-      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;background:${bg};text-align:center">
-        <button type="button" onclick="llavesTouchUltima('${hid}')" title="Actualizar a hoy"
-          style="all:unset;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;background:#e2e8f0;color:#0f172a;border-radius:6px;font-size:14px">🔄</button>
-      </td>
-      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;background:${bg};text-align:center;cursor:pointer" onclick="llavesToggleVerificado('${hid}')">
-        ${verifChip}
-      </td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;background:${bg};font-weight:700;color:#0f172a;white-space:nowrap;vertical-align:top">${_llavesEsc(it.alojamiento)}</td>
+      ${cellsHtml}
     </tr>
   `;
+}
+
+/** Renderiza el "botón check" 3-estado para UNA celda.
+ *  Estados: '' (default gris con guion), 'V' (verde con ✓), 'F' (rojo con ✕).
+ *  Debajo del ícono muestra "Verificado"/"Falta" y la fecha en gris pequeño. */
+function _llavesCheckboxHtml(hid, cellKey, cellData) {
+  const state = cellData.state || '';
+  const date  = cellData.date  || '';
+  let bg, color, symbol, label, labelColor;
+  if (state === 'V') { bg = '#16a34a'; color = '#fff'; symbol = '✓'; label = 'Verificado'; labelColor = '#166534'; }
+  else if (state === 'F') { bg = '#dc2626'; color = '#fff'; symbol = '✕'; label = 'Falta'; labelColor = '#991b1b'; }
+  else { bg = '#e2e8f0'; color = '#94a3b8'; symbol = ''; label = ''; labelColor = ''; }
+  const dateHtml = date ? `<div style="font-size:10px;color:#94a3b8;margin-top:2px;font-weight:500">${_llavesEsc(_llavesFmtDate(date))}</div>` : '';
+  const labelHtml = label ? `<div style="font-size:10px;color:${labelColor};margin-top:3px;font-weight:700">${label}</div>` : '';
+  return `
+    <div style="display:inline-flex;flex-direction:column;align-items:center;gap:0;cursor:pointer;user-select:none" onclick="llavesToggleCell('${hid}','${cellKey}')">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:${bg};color:${color};border-radius:6px;font-size:15px;font-weight:900;line-height:1;box-shadow:${state ? '0 1px 2px rgba(0,0,0,.1)' : 'inset 0 0 0 1px #cbd5e1'}">${symbol || '–'}</span>
+      ${labelHtml}
+      ${dateHtml}
+    </div>
+  `;
+}
+
+function _llavesFmtDate(iso) {
+  // "2026-08-17" → "17/ago/26"
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return String(iso);
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const mm = parseInt(m[2], 10);
+  return `${parseInt(m[3], 10)}/${meses[mm-1] || m[2]}/${m[1].slice(2)}`;
 }
 
 function _llavesEsc(s) {
@@ -39461,78 +39466,58 @@ function _llavesEsc(s) {
 }
 function _llavesEscAttr(s) { return _llavesEsc(s); }
 
-window.llavesCellEdit = function(hid, field, value) {
+/** Toggle 3-estado para una celda:  '' → V → F → '' */
+window.llavesToggleCell = function(hid, cellKey) {
   const it = LLAVES_STATE.items.find(x => x.houseId === hid);
   if (!it) return;
-  it[field] = value;
-  LLAVES_STATE.dirty.add(hid);
-  _llavesUpdateDirtyBadge();
-  _llavesDebouncedSave(hid);
-};
-
-window.llavesTouchUltima = function(hid) {
-  const it = LLAVES_STATE.items.find(x => x.houseId === hid);
-  if (!it) return;
+  if (!it.cells) it.cells = {};
+  const cur = (it.cells[cellKey] && it.cells[cellKey].state) || '';
+  const next = cur === '' ? 'V' : cur === 'V' ? 'F' : '';
   const today = new Date();
   const iso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  it.ultima_actualizacion = iso;
-  LLAVES_STATE.dirty.add(hid);
+  it.cells[cellKey] = { state: next, date: next ? iso : '' };
+  const key = hid + '|' + cellKey;
+  LLAVES_STATE.dirty.add(key);
   _llavesUpdateDirtyBadge();
-  // Re-render solo esa fila para que se refleje el date input
+  // Re-render solo esa fila
   const row = document.querySelector(`tr[data-hid="${_llavesEscAttr(hid)}"]`);
   if (row) {
     const idx = LLAVES_STATE.items.indexOf(it);
     row.outerHTML = _llavesRowHtml(it, idx);
   }
-  _llavesDebouncedSave(hid);
-};
-
-window.llavesToggleVerificado = function(hid) {
-  const it = LLAVES_STATE.items.find(x => x.houseId === hid);
-  if (!it) return;
-  it.verificado = !it.verificado;
-  LLAVES_STATE.dirty.add(hid);
-  _llavesUpdateDirtyBadge();
-  const row = document.querySelector(`tr[data-hid="${_llavesEscAttr(hid)}"]`);
-  if (row) {
-    const idx = LLAVES_STATE.items.indexOf(it);
-    row.outerHTML = _llavesRowHtml(it, idx);
-  }
-  _llavesDebouncedSave(hid);
+  _llavesDebouncedSave(hid, cellKey);
 };
 
 const _llavesSaveTimers = new Map();
-function _llavesDebouncedSave(hid) {
-  if (_llavesSaveTimers.has(hid)) clearTimeout(_llavesSaveTimers.get(hid));
-  _llavesSaveTimers.set(hid, setTimeout(() => _llavesSaveNow(hid), 800));
+function _llavesDebouncedSave(hid, cellKey) {
+  const key = hid + '|' + cellKey;
+  if (_llavesSaveTimers.has(key)) clearTimeout(_llavesSaveTimers.get(key));
+  _llavesSaveTimers.set(key, setTimeout(() => _llavesSaveCell(hid, cellKey), 400));
 }
 
-async function _llavesSaveNow(hid) {
+async function _llavesSaveCell(hid, cellKey) {
   const it = LLAVES_STATE.items.find(x => x.houseId === hid);
   if (!it) return;
+  const cell = (it.cells && it.cells[cellKey]) || { state: '', date: '' };
+  const dirtyKey = hid + '|' + cellKey;
   try {
     const res = await fetch('https://api.check-inn.mx/llaves-upsert', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         houseId: it.houseId,
         alojamiento: it.alojamiento,
-        puerta: it.puerta || '',
-        caja_seguridad: it.caja_seguridad || '',
-        claudia: it.claudia || '',
-        damariz: it.damariz || '',
-        acr: it.acr || '',
-        oficina: it.oficina || '',
-        ultima_actualizacion: it.ultima_actualizacion || '',
-        verificado: !!it.verificado,
+        cell: cellKey,
+        state: cell.state || '',
+        date: cell.date || '',
       }),
     });
     const j = await res.json();
     if (j.ok) {
-      LLAVES_STATE.dirty.delete(hid);
+      LLAVES_STATE.dirty.delete(dirtyKey);
       _llavesUpdateDirtyBadge();
     }
   } catch(e) {
-    console.warn('[llaves] save falló para', hid, e.message);
+    console.warn('[llaves] save falló para', dirtyKey, e.message);
   }
 }
 
@@ -39540,6 +39525,6 @@ function _llavesUpdateDirtyBadge() {
   const b = document.getElementById('llaves-dirty-badge');
   if (!b) return;
   const n = LLAVES_STATE.dirty.size;
-  b.textContent = n ? `⏳ ${n} cambio(s) sin guardar…` : '';
+  b.textContent = n ? `⏳ ${n} cambio(s) guardándose…` : '';
 }
 
