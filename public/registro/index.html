@@ -6770,10 +6770,7 @@ body.has-session input[name="nombre"] {
       </div>
 </div>
 <div id="popupSuccessState" style="display:none;">
-<h3 id="popupTituloExito">Registro exitoso</h3>
-<div class="hint" id="popupTextoExito" style="font-size:14px; margin:8px 0 12px 0; color:#374151;">
-        El formulario se envió correctamente.
-      </div>
+<h3 id="popupTituloExito">Registro</h3>
 <div id="popupReglamentoContainer" style="display:none; text-align:left; margin:12px 0 12px; max-height:45vh; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; background:#f8fafc;"></div>
 <label id="popupAcceptWrap" onclick="popupToggleAccept()" style="display:flex;align-items:center;gap:10px;margin:6px 0 8px;padding:10px 12px;background:#fef3c7;border:1.5px solid #fde68a;border-radius:12px;cursor:pointer;user-select:none">
   <span id="popupAcceptCb" data-on="0" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:1.5px solid #94a3b8;background:#fff;color:transparent;border-radius:6px;font-size:14px;font-weight:900;line-height:1;flex-shrink:0"></span>
@@ -6783,7 +6780,7 @@ body.has-session input[name="nombre"] {
   <span id="popupWaOptInCb" data-on="1" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:1.5px solid #16a34a;background:#16a34a;color:#fff;border-radius:6px;font-size:14px;font-weight:900;line-height:1;flex-shrink:0">✓</span>
   <span style="font-size:14px;font-weight:700;color:#0f172a">Deseo recibir recordatorios y notificaciones por WhatsApp</span>
 </label>
-<button id="popupEnvioCloseBtn" onclick="cerrarVentanaEnvio()" type="button" style="display:block;width:100%;padding:14px 16px;background:#16a34a;color:#fff;border:0;border-radius:16px;font-size:15px;font-weight:700;cursor:not-allowed;opacity:.45;-webkit-appearance:none;appearance:none;pointer-events:none">Enviar y salir</button><div id="whatsappHelpLabel" style="display:block;width:100%;margin-top:12px;text-align:center;font-size:14px;font-weight:700;color:#374151;">¿Dudas o comentarios?:</div><button id="whatsappHelpButton" onclick="abrirWhatsappDudas()" style="display:block !important;width:100%;margin-top:8px;padding:14px 16px;background:#075e54;color:#ffffff;border:none;border-radius:16px;font-size:15px;font-weight:700;cursor:not-allowed;opacity:.45;pointer-events:none;-webkit-appearance:none;appearance:none;" type="button">Envíanos un Whatsapp</button>
+<button id="popupEnvioCloseBtn" onclick="popupAceptarYEnviar()" type="button" style="display:block;width:100%;padding:14px 16px;background:#16a34a;color:#fff;border:0;border-radius:16px;font-size:15px;font-weight:700;cursor:not-allowed;opacity:.45;-webkit-appearance:none;appearance:none;pointer-events:none">Aceptar y salir</button><div id="whatsappHelpLabel" style="display:block;width:100%;margin-top:12px;text-align:center;font-size:14px;font-weight:700;color:#374151;">¿Dudas o comentarios?:</div><button id="whatsappHelpButton" onclick="abrirWhatsappDudas()" style="display:block !important;width:100%;margin-top:8px;padding:14px 16px;background:#075e54;color:#ffffff;border:none;border-radius:16px;font-size:15px;font-weight:700;cursor:not-allowed;opacity:.45;pointer-events:none;-webkit-appearance:none;appearance:none;" type="button">Envíanos un Whatsapp</button>
 <script>
 window.popupToggleAccept = function(){
   var cb = document.getElementById('popupAcceptCb');
@@ -6821,7 +6818,46 @@ window.popupToggleAccept = function(){
     if (wa && wa.getAttribute('data-on') !== '1') window.popupToggleWaOptIn();
     window.__waPopupOptIn = true;
   };
+  // Idem al mostrar ventana de éxito (que ahora arranca con reglamento visible
+  // ANTES del fetch — reseteamos el check por si el usuario abre otro flujo).
+  var origSuc = window.mostrarVentanaExito;
+  window.mostrarVentanaExito = function(){
+    try { if (origSuc) origSuc.apply(this, arguments); } catch(_){}
+    var cb = document.getElementById('popupAcceptCb');
+    if (cb && cb.getAttribute('data-on') === '1') window.popupToggleAccept();
+  };
 })();
+
+// Click "Aceptar y salir": resuelve el gate promise que dispara el submit
+// diferido en el handler onsubmit del formulario.
+window.popupAceptarYEnviar = function(){
+  var cb = document.getElementById('popupAcceptCb');
+  if (!cb || cb.getAttribute('data-on') !== '1') return; // debe estar aceptado
+  if (typeof window.__popupAcceptResolve === 'function') {
+    var fn = window.__popupAcceptResolve;
+    window.__popupAcceptResolve = null;
+    window.__popupAcceptReject  = null;
+    fn(true);
+  }
+};
+
+// Mini popup de confirmación mostrado tras el envío exitoso.
+window.mostrarMiniPopupEnviado = function(){
+  var existing = document.getElementById('miniPopupEnviado');
+  if (existing) existing.remove();
+  var el = document.createElement('div');
+  el.id = 'miniPopupEnviado';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  el.innerHTML = '<div style="background:#fff;border-radius:16px;padding:22px 24px;max-width:340px;width:100%;box-shadow:0 12px 32px rgba(0,0,0,.25);text-align:center">' +
+    '<div style="font-size:36px;color:#16a34a;margin-bottom:8px">✓</div>' +
+    '<div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:6px">¡Listo!</div>' +
+    '<div style="font-size:13px;color:#475569;margin-bottom:16px">El formulario se envió correctamente.</div>' +
+    '<button type="button" onclick="document.getElementById(&quot;miniPopupEnviado&quot;)?.remove()" style="padding:10px 22px;background:#16a34a;color:#fff;border:0;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">OK</button>' +
+    '</div>';
+  document.body.appendChild(el);
+  // Cerrar al click fuera
+  el.addEventListener('click', function(ev){ if (ev.target === el) el.remove(); });
+};
 
 // Toggle "Deseo recibir recordatorios y notificaciones por WhatsApp".
 // Default = ON (verde con ✓). Al desactivar → gris.
@@ -7961,7 +7997,9 @@ function getSelectedFilesForUpload(){
 async function uploadImagesInBackground(recordId){
   const files = getSelectedFilesForUpload();
   if (!files.length) {
-    mostrarVentanaExito();
+    // Flujo diferido: cerrar popup + mostrar mini "Enviado".
+    if (typeof cerrarVentanaEnvio === 'function') cerrarVentanaEnvio();
+    if (typeof window.mostrarMiniPopupEnviado === 'function') window.mostrarMiniPopupEnviado();
     return;
   }
 
@@ -7996,7 +8034,9 @@ async function uploadImagesInBackground(recordId){
     }
   }
 
-  mostrarVentanaExito();
+  // Flujo diferido: cerrar popup + mostrar mini "Enviado".
+  if (typeof cerrarVentanaEnvio === 'function') cerrarVentanaEnvio();
+  if (typeof window.mostrarMiniPopupEnviado === 'function') window.mostrarMiniPopupEnviado();
 }
 
 
@@ -8197,9 +8237,20 @@ document.getElementById("form").addEventListener("submit", async function(e){
   try {
     submitBtn.disabled = true;
     submitBtn.textContent = "Enviando...";
-    status.textContent = "Enviando registro...";
+    status.textContent = "Preparando registro…";
     status.classList.add("success");
+    // Muestra popup DIRECTAMENTE en success state (con reglamento + Aceptar).
+    // El formulario NO se guarda todavía — espera a que el usuario acepte.
+    mostrarVentanaExito();
+    await esperarRepintadoUI();
+    // Gate: pausa hasta que el usuario click "Aceptar y salir" (popupAceptarYEnviar).
+    await new Promise((resolve, reject) => {
+      window.__popupAcceptResolve = resolve;
+      window.__popupAcceptReject  = reject;
+    });
+    // El usuario ya aceptó → transición a loading + fetch real
     mostrarVentanaEnvio();
+    status.textContent = "Enviando registro...";
     await esperarRepintadoUI();
 
     const res = await fetch(WEB_APP_URL, {
