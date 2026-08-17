@@ -345,7 +345,7 @@ function sysGetStoredUser() {
 }
 function sysStoreUser(u) { try { localStorage.setItem('sys_user', JSON.stringify(u)); } catch(_) {} }
 function sysApplyPermissions(user) {
-  const allowed = new Set(['home', 'tuya', 'guias', 'config-admin']);
+  const allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves']);
   if (user && user.modulos) {
     for (const k in SYS_MODULE_PERMS) {
       if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
@@ -8649,7 +8649,7 @@ function switchModule(mod) {
   if (mod === 'ocupacion') mod = 'dashboard';
   // Aliases: 'dashboard' y 'calendario' comparten el contenedor module-ocupacion
   const containerMod = (mod === 'dashboard' || mod === 'calendario') ? 'ocupacion' : mod;
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -8760,6 +8760,9 @@ function switchModule(mod) {
   }
   if (mod === "config-admin") {
     if (typeof cfgAdminInit === 'function') cfgAdminInit();
+  }
+  if (mod === "llaves") {
+    if (typeof llavesInit === 'function') llavesInit();
   }
 }
 
@@ -39344,4 +39347,199 @@ function _cfgScheduleShortLabel(type, time, event, offset) {
     } catch(e) { console.warn('[HU-ticket-hook] scheduled-add error:', e.message); }
   }
 })();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ MÓDULO LLAVES — tabla editable de llaves/códigos por alojamiento       ║
+// ═══════════════════════════════════════════════════════════════════════════
+
+const LLAVES_STATE = {
+  loaded: false,
+  loading: false,
+  items: [], // [{houseId, alojamiento, puerta, caja_seguridad, claudia, damariz, acr, oficina, ultima_actualizacion, verificado, updated_by}]
+  dirty: new Set(), // houseIds con cambios pendientes de guardar
+};
+
+async function llavesInit() {
+  if (LLAVES_STATE.loaded || LLAVES_STATE.loading) { llavesRender(); return; }
+  LLAVES_STATE.loading = true;
+  llavesRender();
+  try {
+    const r = await fetch('https://api.check-inn.mx/llaves-list', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}'
+    });
+    const j = await r.json();
+    LLAVES_STATE.items = (j && j.items) || [];
+    LLAVES_STATE.loaded = true;
+  } catch (e) {
+    console.warn('[llaves] init falló:', e.message);
+  } finally {
+    LLAVES_STATE.loading = false;
+    llavesRender();
+  }
+}
+
+function llavesRender() {
+  const host = document.getElementById('llaves-view');
+  if (!host) return;
+  if (LLAVES_STATE.loading && !LLAVES_STATE.loaded) {
+    host.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando alojamientos…</div>`;
+    return;
+  }
+  const rowsHtml = (LLAVES_STATE.items || []).map((it, idx) => _llavesRowHtml(it, idx)).join('');
+  host.innerHTML = `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
+      <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px">
+        <div style="font-weight:800;color:#0f172a;font-size:14px">${LLAVES_STATE.items.length} alojamientos</div>
+        <div id="llaves-dirty-badge" style="font-size:11px;color:#92400e;font-weight:700"></div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#f1f5f9;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.04em">
+              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0;white-space:nowrap">Alojamiento</th>
+              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0">Puerta</th>
+              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0">Caja de seguridad</th>
+              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0">Claudia</th>
+              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0">Damariz</th>
+              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0">ACR</th>
+              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0">Oficina</th>
+              <th style="padding:10px 10px;text-align:left;border-bottom:1px solid #e2e8f0;white-space:nowrap">Última actualización</th>
+              <th style="padding:10px 10px;text-align:center;border-bottom:1px solid #e2e8f0"></th>
+              <th style="padding:10px 10px;text-align:center;border-bottom:1px solid #e2e8f0">Estado</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  _llavesUpdateDirtyBadge();
+}
+
+function _llavesRowHtml(it, idx) {
+  const bg = idx % 2 ? '#fff' : '#fafbfc';
+  const hid = _llavesEscAttr(it.houseId);
+  const cell = (field, val, width) => `
+    <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;background:${bg}">
+      <input type="text" value="${_llavesEscAttr(val)}"
+        onchange="llavesCellEdit('${hid}','${field}',this.value)"
+        style="width:${width || '100%'};min-width:80px;padding:5px 7px;border:1px solid transparent;border-radius:6px;font-size:12px;background:transparent;box-sizing:border-box"
+        onfocus="this.style.background='#fff';this.style.borderColor='#cbd5e1'"
+        onblur="this.style.background='transparent';this.style.borderColor='transparent'">
+    </td>`;
+  const verif = !!it.verificado;
+  const verifChip = verif
+    ? `<span style="display:inline-flex;align-items:center;gap:6px;color:#166534;font-weight:700;font-size:11px"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#16a34a;color:#fff;border-radius:6px;font-size:13px;font-weight:900">✓</span> Verificado</span>`
+    : `<span style="display:inline-flex;align-items:center;gap:6px;color:#991b1b;font-weight:700;font-size:11px"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#dc2626;color:#fff;border-radius:6px;font-size:13px;font-weight:900">✕</span> Falta</span>`;
+  return `
+    <tr data-hid="${hid}">
+      <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;background:${bg};font-weight:700;color:#0f172a;white-space:nowrap">${_llavesEsc(it.alojamiento)}</td>
+      ${cell('puerta', it.puerta)}
+      ${cell('caja_seguridad', it.caja_seguridad)}
+      ${cell('claudia', it.claudia)}
+      ${cell('damariz', it.damariz)}
+      ${cell('acr', it.acr)}
+      ${cell('oficina', it.oficina)}
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;background:${bg}">
+        <input type="date" value="${_llavesEscAttr(it.ultima_actualizacion)}"
+          onchange="llavesCellEdit('${hid}','ultima_actualizacion',this.value)"
+          style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;font-family:inherit">
+      </td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;background:${bg};text-align:center">
+        <button type="button" onclick="llavesTouchUltima('${hid}')" title="Actualizar a hoy"
+          style="all:unset;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;background:#e2e8f0;color:#0f172a;border-radius:6px;font-size:14px">🔄</button>
+      </td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;background:${bg};text-align:center;cursor:pointer" onclick="llavesToggleVerificado('${hid}')">
+        ${verifChip}
+      </td>
+    </tr>
+  `;
+}
+
+function _llavesEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c]));
+}
+function _llavesEscAttr(s) { return _llavesEsc(s); }
+
+window.llavesCellEdit = function(hid, field, value) {
+  const it = LLAVES_STATE.items.find(x => x.houseId === hid);
+  if (!it) return;
+  it[field] = value;
+  LLAVES_STATE.dirty.add(hid);
+  _llavesUpdateDirtyBadge();
+  _llavesDebouncedSave(hid);
+};
+
+window.llavesTouchUltima = function(hid) {
+  const it = LLAVES_STATE.items.find(x => x.houseId === hid);
+  if (!it) return;
+  const today = new Date();
+  const iso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  it.ultima_actualizacion = iso;
+  LLAVES_STATE.dirty.add(hid);
+  _llavesUpdateDirtyBadge();
+  // Re-render solo esa fila para que se refleje el date input
+  const row = document.querySelector(`tr[data-hid="${_llavesEscAttr(hid)}"]`);
+  if (row) {
+    const idx = LLAVES_STATE.items.indexOf(it);
+    row.outerHTML = _llavesRowHtml(it, idx);
+  }
+  _llavesDebouncedSave(hid);
+};
+
+window.llavesToggleVerificado = function(hid) {
+  const it = LLAVES_STATE.items.find(x => x.houseId === hid);
+  if (!it) return;
+  it.verificado = !it.verificado;
+  LLAVES_STATE.dirty.add(hid);
+  _llavesUpdateDirtyBadge();
+  const row = document.querySelector(`tr[data-hid="${_llavesEscAttr(hid)}"]`);
+  if (row) {
+    const idx = LLAVES_STATE.items.indexOf(it);
+    row.outerHTML = _llavesRowHtml(it, idx);
+  }
+  _llavesDebouncedSave(hid);
+};
+
+const _llavesSaveTimers = new Map();
+function _llavesDebouncedSave(hid) {
+  if (_llavesSaveTimers.has(hid)) clearTimeout(_llavesSaveTimers.get(hid));
+  _llavesSaveTimers.set(hid, setTimeout(() => _llavesSaveNow(hid), 800));
+}
+
+async function _llavesSaveNow(hid) {
+  const it = LLAVES_STATE.items.find(x => x.houseId === hid);
+  if (!it) return;
+  try {
+    const res = await fetch('https://api.check-inn.mx/llaves-upsert', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        houseId: it.houseId,
+        alojamiento: it.alojamiento,
+        puerta: it.puerta || '',
+        caja_seguridad: it.caja_seguridad || '',
+        claudia: it.claudia || '',
+        damariz: it.damariz || '',
+        acr: it.acr || '',
+        oficina: it.oficina || '',
+        ultima_actualizacion: it.ultima_actualizacion || '',
+        verificado: !!it.verificado,
+      }),
+    });
+    const j = await res.json();
+    if (j.ok) {
+      LLAVES_STATE.dirty.delete(hid);
+      _llavesUpdateDirtyBadge();
+    }
+  } catch(e) {
+    console.warn('[llaves] save falló para', hid, e.message);
+  }
+}
+
+function _llavesUpdateDirtyBadge() {
+  const b = document.getElementById('llaves-dirty-badge');
+  if (!b) return;
+  const n = LLAVES_STATE.dirty.size;
+  b.textContent = n ? `⏳ ${n} cambio(s) sin guardar…` : '';
+}
 

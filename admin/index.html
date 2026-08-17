@@ -217,6 +217,10 @@
             onclick="switchModule('guias');closeNavMenu()">
           📖 Guías de Bienvenida
         </li>
+        <li class="nav-item" id="nav-item-llaves"
+            onclick="switchModule('llaves');closeNavMenu()">
+          🔑 Llaves
+        </li>
         <li class="nav-item" id="nav-item-config-admin"
             onclick="switchModule('config-admin');closeNavMenu()">
           ⚙️ Configuración Admin
@@ -382,6 +386,14 @@
             <div class="home-card-body">
               <h3 class="home-card-title">Guías de Bienvenida</h3>
               <p class="home-card-desc">Información, reglas, servicios y guía local por alojamiento — la guía digital que ve el huésped.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-llaves" onclick="switchModule('llaves')">
+            <div class="home-card-icon">🔑</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Llaves</h3>
+              <p class="home-card-desc">Control de llaves y códigos por alojamiento — puerta, caja de seguridad y responsables.</p>
             </div>
             <div class="home-card-arrow">→</div>
           </button>
@@ -2337,6 +2349,22 @@
       </div>
     </div><!-- /module-config-admin -->
 
+    <!-- ═══════════════ MÓDULO LLAVES ═══════════════ -->
+    <div id="module-llaves" class="hidden" style="padding:20px 24px 60px">
+      <div style="max-width:1600px;margin:0 auto">
+        <div class="rh-hero">
+          <div>
+            <div class="rh-hero-kicker">Control de accesos</div>
+            <h1 class="rh-hero-title">🔑 Llaves</h1>
+            <p class="rh-hero-sub">Registro de llaves, códigos y responsables por alojamiento.</p>
+          </div>
+        </div>
+        <div id="llaves-view" class="rh-view">
+          <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
+        </div>
+      </div>
+    </div><!-- /module-llaves -->
+
     <!-- Detail modal for Bancos drilldown -->
     <div id="bn-modal-overlay" class="bn-modal-overlay hidden" onclick="bn_closeDetail()">
       <div class="bn-modal" onclick="event.stopPropagation()">
@@ -2489,6 +2517,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=798"></script>
+  <script src="app.js?v=799"></script>
 </body>
 </html>
