@@ -39230,26 +39230,25 @@ function _cfgScheduleShortLabel(type, time, event, offset) {
     // huérfano porque wa_scheduled_list filtra por booking_id exacto.
     const bookingId = String(row['ID'] || row['row_number'] || row['Lodgify Id'] || '').trim();
     if (!bookingId) { console.warn('[HU-ticket-hook] sin bookingId'); return; }
-    // Al re-emitir, borramos pending ticket_autofact viejos (URL vieja
-    // inválida). Los YA ENVIADOS se preservan como histórico.
+    // Cada emisión/re-emisión de ticket = 1 mensaje programado NUEVO.
+    // No se borra ni sobrescribe el previo: el usuario quiere ver histórico
+    // de cada intento (por si hubo folio con error, el nuevo folio genera
+    // otra card con nueva URL). Solo evitamos duplicar EL MISMO URL exacto
+    // (caso trivial: hook fire dos veces por race).
     try {
       const listRes = await fetch('https://api.check-inn.mx/wa/scheduled-list', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookingId }),
       });
       const listJ = await listRes.json();
-      const pendings = ((listJ && listJ.items) || []).filter(it =>
+      const sameUrl = ((listJ && listJ.items) || []).some(it =>
         String(it.tipo || '') === 'ticket_autofact' &&
-        String(it.status || '') === 'pending'
+        String(it.status || '') === 'pending' &&
+        String(it.body || '').includes(newUrl)
       );
-      for (const p of pendings) {
-        try {
-          await fetch('https://api.check-inn.mx/wa/scheduled-delete', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: p.id }),
-          });
-          console.info('[HU-ticket-hook] borrado pending viejo:', p.id);
-        } catch(_) {}
+      if (sameUrl) {
+        console.info('[HU-ticket-hook] pending con misma URL ya existe → skip');
+        return;
       }
     } catch(_) {}
     const msg = (typeof huBuildTicketConsultaMsg === 'function')
