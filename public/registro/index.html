@@ -6770,7 +6770,7 @@ body.has-session input[name="nombre"] {
       </div>
 </div>
 <div id="popupSuccessState" style="display:none;">
-<h3 id="popupTituloExito">Registro</h3>
+<h3 id="popupTituloExito">Condiciones</h3>
 <div id="popupReglamentoContainer" style="display:none; text-align:left; margin:12px 0 12px; max-height:45vh; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; background:#f8fafc;"></div>
 <label id="popupAcceptWrap" onclick="popupToggleAccept()" style="display:flex;align-items:center;gap:10px;margin:6px 0 8px;padding:10px 12px;background:#fef3c7;border:1.5px solid #fde68a;border-radius:12px;cursor:pointer;user-select:none">
   <span id="popupAcceptCb" data-on="0" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:1.5px solid #94a3b8;background:#fff;color:transparent;border-radius:6px;font-size:14px;font-weight:900;line-height:1;flex-shrink:0"></span>
@@ -6848,17 +6848,33 @@ window.mostrarMiniPopupEnviado = function(){
   var el = document.createElement('div');
   el.id = 'miniPopupEnviado';
   el.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
-  el.innerHTML = '<div style="background:#fff;border-radius:16px;padding:22px 24px;max-width:360px;width:100%;box-shadow:0 12px 32px rgba(0,0,0,.25);text-align:center">' +
+  el.innerHTML = '<div style="background:#fff;border-radius:16px;padding:22px 24px;max-width:380px;width:100%;box-shadow:0 12px 32px rgba(0,0,0,.25);text-align:center">' +
     '<div style="font-size:36px;color:#16a34a;margin-bottom:8px">✓</div>' +
-    '<div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:6px">¡Listo!</div>' +
+    '<div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:6px">Registro exitoso</div>' +
     '<div style="font-size:13px;color:#475569;margin-bottom:16px">El formulario se envió correctamente.</div>' +
-    '<button type="button" onclick="document.getElementById(&quot;miniPopupEnviado&quot;)?.remove()" style="display:block;width:100%;padding:12px 22px;background:#16a34a;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer">Salir</button>' +
-    '<div style="margin-top:16px;text-align:center;font-size:13px;font-weight:700;color:#374151">¿Dudas o comentarios?</div>' +
-    '<button type="button" onclick="if(typeof abrirWhatsappDudas===&quot;function&quot;)abrirWhatsappDudas()" style="display:block;width:100%;margin-top:8px;padding:12px 22px;background:#075e54;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer">Envíanos un WhatsApp</button>' +
+    '<button type="button" onclick="window._miniPopupWaYCerrar()" style="display:block;width:100%;padding:12px 22px;background:#075e54;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">📱 Envíanos un WhatsApp y Cerrar</button>' +
+    '<button type="button" onclick="window._miniPopupCerrarYRedirect()" style="display:block;width:100%;padding:12px 22px;background:#16a34a;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer">Cerrar</button>' +
     '</div>';
   document.body.appendChild(el);
-  // Cerrar al click fuera
-  el.addEventListener('click', function(ev){ if (ev.target === el) el.remove(); });
+};
+
+// Cerrar mini + redirect a home (equivalente al cerrarVentanaEnvio original).
+window._miniPopupCerrarYRedirect = function(){
+  var m = document.getElementById('miniPopupEnviado');
+  if (m) m.remove();
+  try { if (typeof guestLookupCatalog !== 'undefined') guestLookupCatalog = null; } catch(_){}
+  if (window.checkinnAuth) {
+    try { window.checkinnAuth._cachedStays = null; } catch(_){}
+    setTimeout(function(){
+      if (typeof window.checkinnAuth.gotoHome === 'function') window.checkinnAuth.gotoHome();
+    }, 100);
+  }
+};
+
+// Abre WhatsApp Y luego cierra + redirect.
+window._miniPopupWaYCerrar = function(){
+  try { if (typeof abrirWhatsappDudas === 'function') abrirWhatsappDudas(); } catch(_){}
+  setTimeout(function(){ window._miniPopupCerrarYRedirect(); }, 300);
 };
 
 // Toggle "Deseo recibir recordatorios y notificaciones por WhatsApp".
@@ -7999,8 +8015,9 @@ function getSelectedFilesForUpload(){
 async function uploadImagesInBackground(recordId){
   const files = getSelectedFilesForUpload();
   if (!files.length) {
-    // Flujo diferido: cerrar popup + mostrar mini "Enviado".
-    if (typeof cerrarVentanaEnvio === 'function') cerrarVentanaEnvio();
+    // Flujo diferido: ocultar popup principal (sin auto-redirect) + mini.
+    var _pop = document.getElementById("popupEnvio");
+    if (_pop) _pop.style.display = "none";
     if (typeof window.mostrarMiniPopupEnviado === 'function') window.mostrarMiniPopupEnviado();
     return;
   }
@@ -8036,8 +8053,9 @@ async function uploadImagesInBackground(recordId){
     }
   }
 
-  // Flujo diferido: cerrar popup + mostrar mini "Enviado".
-  if (typeof cerrarVentanaEnvio === 'function') cerrarVentanaEnvio();
+  // Flujo diferido: ocultar popup principal (sin auto-redirect) + mini.
+  var _pop2 = document.getElementById("popupEnvio");
+  if (_pop2) _pop2.style.display = "none";
   if (typeof window.mostrarMiniPopupEnviado === 'function') window.mostrarMiniPopupEnviado();
 }
 
