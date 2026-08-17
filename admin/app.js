@@ -39624,3 +39624,44 @@ function _llavesUpdateDirtyBadge() {
   b.textContent = n ? `⏳ ${n} cambio(s) guardándose…` : '';
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ Botón "Actualizar guías" — regenera los JSON públicos de las guías     ║
+// ║ tras editar la hoja alojamientos (reglamento, wifi, direcciones, etc.) ║
+// ═══════════════════════════════════════════════════════════════════════════
+window.guiasSyncNow = async function() {
+  const btn = document.getElementById('guias-sync-btn');
+  if (!btn || btn.disabled) return;
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Actualizando (puede tardar 30-60s)…';
+  btn.style.opacity = '.7';
+  try {
+    const r = await fetch('https://api.check-inn.mx/guias/sync-now', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'sync falló');
+    btn.textContent = j.changed
+      ? `✅ ${j.files || ''} guía(s) regeneradas · commit ${(j.commit||'').slice(0,7)}`
+      : '✅ Sin cambios (todas las guías ya estaban al día)';
+    btn.style.background = 'linear-gradient(180deg,#22c55e 0%,#15803d 100%)';
+    setTimeout(() => {
+      btn.textContent = origText;
+      btn.style.background = 'linear-gradient(180deg,#0ea5e9 0%,#0369a1 100%)';
+      btn.disabled = false;
+      btn.style.opacity = '';
+    }, 6000);
+  } catch (e) {
+    btn.textContent = `⚠ Error: ${e.message}`;
+    btn.style.background = '#dc2626';
+    setTimeout(() => {
+      btn.textContent = origText;
+      btn.style.background = 'linear-gradient(180deg,#0ea5e9 0%,#0369a1 100%)';
+      btn.disabled = false;
+      btn.style.opacity = '';
+    }, 6000);
+  }
+};
+
