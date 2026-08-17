@@ -8294,7 +8294,21 @@ document.getElementById("form").addEventListener("submit", async function(e){
       status.classList.add("success");
 
       const recordId = json.record_id || json.row_number || "";
-      await uploadImagesInBackground(recordId);
+      try {
+        await uploadImagesInBackground(recordId);
+      } catch (upErr) {
+        console.warn("[upload] falló pero registro ya guardado:", upErr);
+        // Asegura mini popup aún si upload falló
+        var _popU = document.getElementById("popupEnvio");
+        if (_popU) _popU.style.display = "none";
+        if (typeof window.mostrarMiniPopupEnviado === 'function') window.mostrarMiniPopupEnviado();
+      }
+      // Fallback defensivo: si por alguna razón el mini no apareció, forzarlo
+      if (!document.getElementById('miniPopupEnviado') && typeof window.mostrarMiniPopupEnviado === 'function') {
+        var _popF = document.getElementById("popupEnvio");
+        if (_popF) _popF.style.display = "none";
+        window.mostrarMiniPopupEnviado();
+      }
 
       status.textContent = "Envío exitoso. Registro guardado correctamente.";
 
