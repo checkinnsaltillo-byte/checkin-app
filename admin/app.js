@@ -20954,8 +20954,38 @@ function bnUploadClearPreview() {
   if (inp) inp.value = '';
 }
 
-/** Confirma la inserción. Solo manda al backend las filas con _status='new'. */
+/** Confirma la inserción. Solo manda al backend las filas con _status='new'.
+ *  GUARD: bloquea re-ejecuciones concurrentes (double-click, touch bounce) que
+ *  causaban duplicados en Efectivo (SALDO vacío rompe el dedup local, y la
+ *  refresh del dedup index corre AL FINAL, después del segundo insert). */
 async function bnUploadConfirmInsert() {
+  if (window.__bnUploadInserting) {
+    console.warn('[BN] insert ya en curso — ignorando doble-click');
+    return;
+  }
+  window.__bnUploadInserting = true;
+  const btnConfirm = document.getElementById('bn-upload-confirm');
+  const _origBtnText = btnConfirm ? btnConfirm.textContent : '';
+  const _origBtnDisabled = btnConfirm ? btnConfirm.disabled : false;
+  if (btnConfirm) {
+    btnConfirm.disabled = true;
+    btnConfirm.style.opacity = '.55';
+    btnConfirm.style.cursor = 'not-allowed';
+    btnConfirm.textContent = '⏳ Insertando…';
+  }
+  try {
+    return await _bnUploadConfirmInsertInner();
+  } finally {
+    window.__bnUploadInserting = false;
+    if (btnConfirm) {
+      btnConfirm.disabled = _origBtnDisabled;
+      btnConfirm.style.opacity = '';
+      btnConfirm.style.cursor = '';
+      btnConfirm.textContent = _origBtnText || '✓ Insertar en Bancos';
+    }
+  }
+}
+async function _bnUploadConfirmInsertInner() {
   const rows = (BN_UPLOAD_STATE.parsedRows || []).filter((r, i) => {
     if (r._error || r._status !== 'new') return false;
     if (!_bnUploadMesPasses(r)) return false;
