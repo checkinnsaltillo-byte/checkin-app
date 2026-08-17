@@ -39367,6 +39367,7 @@ const LLAVES_STATE = {
   loading: false,
   items: [],
   dirty: new Set(), // "houseId|cellKey" pending
+  view: null, // 'table' | 'cards' | null (auto = cards en móvil, table en desktop)
 };
 
 async function llavesInit() {
@@ -39388,6 +39389,16 @@ async function llavesInit() {
   }
 }
 
+function _llavesEffectiveView() {
+  if (LLAVES_STATE.view === 'table' || LLAVES_STATE.view === 'cards') return LLAVES_STATE.view;
+  return window.innerWidth < 800 ? 'cards' : 'table';
+}
+
+window.llavesSetView = function(v) {
+  LLAVES_STATE.view = v;
+  llavesRender();
+};
+
 function llavesRender() {
   const host = document.getElementById('llaves-view');
   if (!host) return;
@@ -39395,25 +39406,65 @@ function llavesRender() {
     host.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando alojamientos…</div>`;
     return;
   }
-  const headers = ['Alojamiento'].concat(LLAVES_CELLS.map(c => c.label))
-    .map(h => `<th style="padding:10px 10px;text-align:${h==='Alojamiento'?'left':'center'};border-bottom:1px solid #e2e8f0;white-space:nowrap">${_llavesEsc(h)}</th>`).join('');
-  const rowsHtml = (LLAVES_STATE.items || []).map((it, idx) => _llavesRowHtml(it, idx)).join('');
-  host.innerHTML = `
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
-      <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px">
-        <div style="font-weight:800;color:#0f172a;font-size:14px">${LLAVES_STATE.items.length} alojamientos</div>
-        <div style="font-size:11px;color:#64748b">Click en la cajita para alternar: <span style="color:#94a3b8">default</span> → <span style="color:#166534;font-weight:700">Verificado ✓</span> → <span style="color:#991b1b;font-weight:700">Falta ✕</span> → default</div>
-        <div id="llaves-dirty-badge" style="margin-left:auto;font-size:11px;color:#92400e;font-weight:700"></div>
+  const view = _llavesEffectiveView();
+  const toggleBtn = (v, label, icon) => {
+    const active = view === v;
+    return `<button type="button" onclick="llavesSetView('${v}')" style="all:unset;cursor:pointer;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;background:${active?'#0f172a':'transparent'};color:${active?'#fff':'#475569'}">${icon} ${label}</button>`;
+  };
+  const header = `
+    <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font-weight:800;color:#0f172a;font-size:14px">${LLAVES_STATE.items.length} alojamientos</div>
+      <div style="font-size:11px;color:#64748b;flex:1;min-width:200px">Click cajita: <span style="color:#94a3b8">default</span> → <span style="color:#166534;font-weight:700">Verificado ✓</span> → <span style="color:#991b1b;font-weight:700">Falta ✕</span> → default</div>
+      <div style="display:inline-flex;background:#e2e8f0;border-radius:8px;padding:2px;gap:2px">
+        ${toggleBtn('table', 'Tabla', '☰')}
+        ${toggleBtn('cards', 'Cards', '▦')}
       </div>
+      <div id="llaves-dirty-badge" style="font-size:11px;color:#92400e;font-weight:700"></div>
+    </div>
+  `;
+  let body;
+  if (view === 'cards') {
+    const cardsHtml = (LLAVES_STATE.items || []).map(it => _llavesCardHtml(it)).join('');
+    body = `<div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cardsHtml}</div>`;
+  } else {
+    const headers = ['Alojamiento'].concat(LLAVES_CELLS.map(c => c.label))
+      .map(h => `<th style="padding:10px 10px;text-align:${h==='Alojamiento'?'left':'center'};border-bottom:1px solid #e2e8f0;white-space:nowrap">${_llavesEsc(h)}</th>`).join('');
+    const rowsHtml = (LLAVES_STATE.items || []).map((it, idx) => _llavesRowHtml(it, idx)).join('');
+    body = `
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead><tr style="background:#f1f5f9;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.04em">${headers}</tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
-      </div>
+      </div>`;
+  }
+  host.innerHTML = `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
+      ${header}
+      ${body}
     </div>
   `;
   _llavesUpdateDirtyBadge();
+}
+
+/** Card por alojamiento — grid 3×2 con las 6 celdas dentro. */
+function _llavesCardHtml(it) {
+  const hid = _llavesEscAttr(it.houseId);
+  const cellsHtml = LLAVES_CELLS.map(c => {
+    const cellData = (it.cells && it.cells[c.key]) || { state: '', date: '' };
+    return `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border:1px solid #f1f5f9;border-radius:8px;background:#fafbfc">
+        <div style="font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;text-align:center;line-height:1.1;min-height:22px;display:flex;align-items:center">${_llavesEsc(c.label)}</div>
+        ${_llavesCheckboxHtml(hid, c.key, cellData)}
+      </div>
+    `;
+  }).join('');
+  return `
+    <div data-hid="${hid}" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03)">
+      <div style="padding:10px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-weight:800;color:#0f172a;font-size:13px">${_llavesEsc(it.alojamiento)}</div>
+      <div style="padding:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px">${cellsHtml}</div>
+    </div>
+  `;
 }
 
 function _llavesRowHtml(it, idx) {
@@ -39479,11 +39530,15 @@ window.llavesToggleCell = function(hid, cellKey) {
   const key = hid + '|' + cellKey;
   LLAVES_STATE.dirty.add(key);
   _llavesUpdateDirtyBadge();
-  // Re-render solo esa fila
-  const row = document.querySelector(`tr[data-hid="${_llavesEscAttr(hid)}"]`);
-  if (row) {
-    const idx = LLAVES_STATE.items.indexOf(it);
-    row.outerHTML = _llavesRowHtml(it, idx);
+  // Re-render solo ese item (row en tabla, div en cards)
+  const idx = LLAVES_STATE.items.indexOf(it);
+  const view = _llavesEffectiveView();
+  if (view === 'cards') {
+    const card = document.querySelector(`div[data-hid="${_llavesEscAttr(hid)}"]`);
+    if (card) card.outerHTML = _llavesCardHtml(it);
+  } else {
+    const row = document.querySelector(`tr[data-hid="${_llavesEscAttr(hid)}"]`);
+    if (row) row.outerHTML = _llavesRowHtml(it, idx);
   }
   _llavesDebouncedSave(hid, cellKey);
 };
