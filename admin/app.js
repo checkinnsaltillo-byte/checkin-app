@@ -39192,21 +39192,52 @@ function _cfgScheduleShortLabel(type, time, event, offset) {
     urlSnapshot = null;
     if (origClose) try { origClose.apply(this, arguments); } catch(_) {}
     if (!snap) { console.info('[HU-ticket-hook] no snapshot → skip'); return; }
-    // Espera al refresh (~1800ms — huespedesCloseFacturapi ya dispara load a 600ms,
-    // Apps Script termina de escribir, y el load hace fetch de todas las pages).
-    setTimeout(async () => {
+    // Poll: cada 800ms hasta 20s espera a que HU_STATE.rows tenga URL nueva
+    // (huespedesLoad puede tardar por 5K rows + pagination). Antes usábamos
+    // setTimeout ciego a 2200ms que a veces disparaba antes del refresh.
+    const startedAt = Date.now();
+    const MAX_MS = 20000;
+    const INTERVAL = 800;
+    let firedIds = new Set(); // evita disparar 2 veces por misma reserva
+    const tick = async () => {
       const changed = [];
       for (const r of (HU_STATE.rows || [])) {
         const id = String(r['ID'] || r['row_number'] || '');
-        if (!id) continue;
+        if (!id || firedIds.has(id)) continue;
         const newUrl = String(r['Ticket facturapi url'] || '').trim();
         const oldUrl = snap.get(id) || '';
         if (newUrl && newUrl !== oldUrl) changed.push({ row: r, id, newUrl, oldUrl });
       }
-      console.info('[HU-ticket-hook] tras refresh:', changed.length, 'reservas con URL nueva');
-      if (!changed.length) return;
-      for (const c of changed) await _huAutoScheduleTicketWa(c.row, c.newUrl);
-    }, 2200);
+      if (changed.length) {
+        console.info('[HU-ticket-hook] cambios detectados:', changed.length,
+          '(t=', Date.now() - startedAt, 'ms)');
+        for (const c of changed) {
+          firedIds.add(c.id);
+          await _huAutoScheduleTicketWa(c.row, c.newUrl);
+        }
+        // Después de disparar, refrescar el modal si está abierto para que se
+        // vean las nuevas cards sin cerrar+reabrir.
+        try {
+          const st = window.__waModalState;
+          if (st && st.bookingId) {
+            const listR = await fetch('https://api.check-inn.mx/wa/scheduled-list', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ bookingId: st.bookingId }),
+            });
+            const listJ = await listR.json();
+            st.scheduledItems = (listJ && listJ.items) || [];
+            if (typeof _waRepaint === 'function') _waRepaint();
+            console.info('[HU-ticket-hook] modal WhatsApp refrescado');
+          }
+        } catch(_) {}
+      }
+      if (Date.now() - startedAt < MAX_MS) {
+        setTimeout(tick, INTERVAL);
+      } else if (!firedIds.size) {
+        console.warn('[HU-ticket-hook] timeout 20s sin detectar URL nueva');
+      }
+    };
+    setTimeout(tick, 800); // primera check a 800ms
   };
 
   // Función expuesta para forzar el programado manualmente (útil para tickets
