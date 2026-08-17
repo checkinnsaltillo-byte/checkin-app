@@ -39391,7 +39391,7 @@ async function llavesInit() {
 
 function _llavesEffectiveView() {
   if (LLAVES_STATE.view === 'table' || LLAVES_STATE.view === 'cards') return LLAVES_STATE.view;
-  return window.innerWidth < 800 ? 'cards' : 'table';
+  return 'cards'; // default siempre Cards
 }
 
 window.llavesSetView = function(v) {
@@ -39416,8 +39416,8 @@ function llavesRender() {
       <div style="font-weight:800;color:#0f172a;font-size:14px">${LLAVES_STATE.items.length} alojamientos</div>
       <div style="font-size:11px;color:#64748b;flex:1;min-width:200px">Click cajita: <span style="color:#94a3b8">default</span> → <span style="color:#166534;font-weight:700">Verificado ✓</span> → <span style="color:#991b1b;font-weight:700">Falta ✕</span> → default</div>
       <div style="display:inline-flex;background:#e2e8f0;border-radius:8px;padding:2px;gap:2px">
-        ${toggleBtn('table', 'Tabla', '☰')}
         ${toggleBtn('cards', 'Cards', '▦')}
+        ${toggleBtn('table', 'Tabla', '☰')}
       </div>
       <div id="llaves-dirty-badge" style="font-size:11px;color:#92400e;font-weight:700"></div>
     </div>
