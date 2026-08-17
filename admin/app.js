@@ -39258,24 +39258,38 @@ function _cfgScheduleShortLabel(type, time, event, offset) {
     const bookingId = String(row['ID'] || row['row_number'] || row['Lodgify Id'] || '').trim();
     if (!bookingId) { console.warn('[HU-ticket-hook] sin bookingId'); return; }
     // Cada emisión/re-emisión de ticket = 1 mensaje programado NUEVO.
-    // No se borra ni sobrescribe el previo: el usuario quiere ver histórico
-    // de cada intento (por si hubo folio con error, el nuevo folio genera
-    // otra card con nueva URL). Solo evitamos duplicar EL MISMO URL exacto
-    // (caso trivial: hook fire dos veces por race).
+    // Los pending previos con URL vieja se marcan OMITIDOS (siguen visibles
+    // como histórico pero no se enviarán). Los ya ENVIADOS no se tocan.
+    // Skip si ya existe pending EXACTO con esta URL (dup event por race).
     try {
       const listRes = await fetch('https://api.check-inn.mx/wa/scheduled-list', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookingId }),
       });
       const listJ = await listRes.json();
-      const sameUrl = ((listJ && listJ.items) || []).some(it =>
-        String(it.tipo || '') === 'ticket_autofact' &&
+      const allTicketAutofact = ((listJ && listJ.items) || []).filter(it =>
+        String(it.tipo || '') === 'ticket_autofact'
+      );
+      const sameUrlPending = allTicketAutofact.some(it =>
         String(it.status || '') === 'pending' &&
         String(it.body || '').includes(newUrl)
       );
-      if (sameUrl) {
+      if (sameUrlPending) {
         console.info('[HU-ticket-hook] pending con misma URL ya existe → skip');
         return;
+      }
+      // Marcar OMITIDOS todos los pending anteriores (URL vieja inválida).
+      const oldPendings = allTicketAutofact.filter(it =>
+        String(it.status || '') === 'pending'
+      );
+      for (const p of oldPendings) {
+        try {
+          await fetch('https://api.check-inn.mx/wa/scheduled-omit', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: p.id }),
+          });
+          console.info('[HU-ticket-hook] pending viejo → omitido:', p.id);
+        } catch(_) {}
       }
     } catch(_) {}
     const msg = (typeof huBuildTicketConsultaMsg === 'function')
