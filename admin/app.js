@@ -39422,19 +39422,34 @@ function llavesRender() {
       <div id="llaves-dirty-badge" style="font-size:11px;color:#92400e;font-weight:700"></div>
     </div>
   `;
+  // Agrupar items por Propiedad (todo lo antes del " #" del label)
+  const groups = _llavesGroupByPropiedad(LLAVES_STATE.items || []);
   let body;
   if (view === 'cards') {
-    const cardsHtml = (LLAVES_STATE.items || []).map(it => _llavesCardHtml(it)).join('');
-    body = `<div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cardsHtml}</div>`;
+    body = groups.map(g => {
+      const cardsHtml = g.items.map(it => _llavesCardHtml(it)).join('');
+      return `
+        <div style="margin-bottom:18px">
+          <div style="padding:8px 12px;background:#eff6ff;border-left:4px solid #3b82f6;font-weight:800;color:#1e3a8a;font-size:13px;display:flex;align-items:center;gap:8px">
+            <span>${_llavesEsc(g.propiedad)}</span>
+            <span style="font-size:11px;color:#3b82f6;font-weight:600">${g.items.length} unidad(es)</span>
+          </div>
+          <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cardsHtml}</div>
+        </div>`;
+    }).join('');
   } else {
     const headers = ['Alojamiento'].concat(LLAVES_CELLS.map(c => c.label))
       .map(h => `<th style="padding:10px 10px;text-align:${h==='Alojamiento'?'left':'center'};border-bottom:1px solid #e2e8f0;white-space:nowrap">${_llavesEsc(h)}</th>`).join('');
-    const rowsHtml = (LLAVES_STATE.items || []).map((it, idx) => _llavesRowHtml(it, idx)).join('');
+    const sectionRows = groups.map(g => {
+      const sep = `<tr><td colspan="${1 + LLAVES_CELLS.length}" style="padding:8px 12px;background:#eff6ff;border-left:4px solid #3b82f6;font-weight:800;color:#1e3a8a;font-size:12px">${_llavesEsc(g.propiedad)} <span style="color:#3b82f6;font-weight:600;font-size:11px;margin-left:6px">${g.items.length}</span></td></tr>`;
+      const rows = g.items.map((it, idx) => _llavesRowHtml(it, idx)).join('');
+      return sep + rows;
+    }).join('');
     body = `
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead><tr style="background:#f1f5f9;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.04em">${headers}</tr></thead>
-          <tbody>${rowsHtml}</tbody>
+          <tbody>${sectionRows}</tbody>
         </table>
       </div>`;
   }
@@ -39501,6 +39516,32 @@ function _llavesCheckboxHtml(hid, cellKey, cellData) {
       ${dateHtml}
     </div>
   `;
+}
+
+/** Agrupa items por Propiedad (extraída del label "Prop #Num"). Sort:
+ *  Propiedades alfabéticas, unidades por número natural (#1, #2, #10). */
+function _llavesGroupByPropiedad(items) {
+  const map = new Map();
+  for (const it of items) {
+    const label = String(it.alojamiento || '').trim();
+    const m = label.match(/^(.*?)\s*#\s*(.+)$/);
+    const prop = m ? m[1].trim() : label;
+    const num  = m ? m[2].trim() : '';
+    if (!map.has(prop)) map.set(prop, []);
+    map.get(prop).push({ it, num });
+  }
+  const groups = [];
+  const propKeys = Array.from(map.keys()).sort((a,b) => a.localeCompare(b));
+  for (const p of propKeys) {
+    const arr = map.get(p);
+    arr.sort((a,b) => {
+      const na = parseInt(a.num, 10), nb = parseInt(b.num, 10);
+      if (isFinite(na) && isFinite(nb)) return na - nb;
+      return String(a.num).localeCompare(String(b.num));
+    });
+    groups.push({ propiedad: p, items: arr.map(x => x.it) });
+  }
+  return groups;
 }
 
 function _llavesFmtDate(iso) {
