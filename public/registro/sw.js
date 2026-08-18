@@ -10,7 +10,7 @@
 //    clientes para que recarguen.
 //  · push / notificationclick: notificaciones + badge.
 
-const SW_VERSION = "2026-08-17-6";
+const SW_VERSION = "2026-08-17-7";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();

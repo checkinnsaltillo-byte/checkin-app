@@ -6885,6 +6885,15 @@ window._miniPopupCerrarYRedirect = function(){
   var m = document.getElementById('miniPopupEnviado');
   if (m) { try { m.close(); } catch(_){} m.remove(); }
   try { if (typeof guestLookupCatalog !== 'undefined') guestLookupCatalog = null; } catch(_){}
+  // Si estamos embebidos (iframe abierto desde guía o portal admin), avisar al
+  // parent para que cierre el modal del iframe y regrese a la ventana principal.
+  var isEmbed = false;
+  try { isEmbed = new URLSearchParams(location.search||'').get('embed') === '1'; } catch(_){}
+  if (isEmbed) {
+    try { window.parent.postMessage({type:'checkin-close'}, '*'); } catch(_){}
+    return; // no seguir con gotoHome dentro del iframe — el parent nos cerrará
+  }
+  // Standalone (no embed): navegar al home dentro de la misma pestaña.
   if (window.checkinnAuth) {
     try { window.checkinnAuth._cachedStays = null; } catch(_){}
     setTimeout(function(){
