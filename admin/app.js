@@ -38191,34 +38191,38 @@ window.waSendTplNow_ = async function(id) {
     // pending — cambia el estado a sent sin crear duplicado.
     return window.waSchedSendNow_(existingPending.id);
   }
-  // No hay card pending — crear nueva (comportamiento original).
+  // No hay card pending — enviar directo por /wa/send (freeform) e inyectar
+  // un log sintético con tipo=id. Así la MISMA card del template pasa a
+  // "Enviado" (via sentByTipo) sin crear una card 'custom' duplicada.
   try {
-    const addR = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        bookingId: st.bookingId, to: toCsv, scheduledAt: nowIso,
-        body: bodyToSend, asunto: tpl.label.replace(/^[^a-zA-Z0-9]+\s*/, ''),
-        tipo: 'manual-' + id,
-      }),
-    });
-    const addJ = await addR.json();
-    if (!addJ.ok) throw new Error(addJ.error || 'error al guardar');
-    // 2. Enviar inmediatamente
-    const sendR = await fetch('https://api.check-inn.mx/wa/scheduled-send-now', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: addJ.id }),
-    });
-    const sendJ = await sendR.json();
-    // Añadir a la lista local
-    st.scheduledItems.push({
-      id: addJ.id, booking_id: st.bookingId, tipo: 'manual-' + id, to: toCsv,
-      scheduled_at: nowIso, body: bodyToSend, asunto: tpl.label.replace(/^[^a-zA-Z0-9]+\s*/, ''),
-      status: sendJ.ok ? (sendJ.status || 'sent') : 'failed',
-      sent_at: sendJ.ok ? nowIso : '',
-      sid: sendJ.sid || '',
-    });
-    _waRepaint();
-    alert(sendJ.ok ? `✅ ${sendJ.sent||1} enviado(s)${sendJ.failed?` · ${sendJ.failed} fallaron`:''}` : '❌ Falló el envío');
+    const results = [];
+    for (const to of rcps) {
+      const sendR = await fetch('https://api.check-inn.mx/wa/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to, body: bodyToSend, bookingId: st.bookingId, tipo: id,
+        }),
+      });
+      const sendJ = await sendR.json();
+      results.push({ ok: !!sendJ.ok, sid: sendJ.sid || '', error: sendJ.error || '' });
+    }
+    const okCount = results.filter(r => r.ok).length;
+    const failCount = results.length - okCount;
+    if (okCount > 0) {
+      // Inyectar log sintético para que la card del template se pinte como Sent
+      // hasta que llegue la próxima recarga real desde WA_Logs.
+      if (window.WA_ADMIN && WA_ADMIN.logs) {
+        WA_ADMIN.logs[st.bookingId] = WA_ADMIN.logs[st.bookingId] || [];
+        WA_ADMIN.logs[st.bookingId].push({
+          tipo: id, timestamp: nowIso, to: toCsv, sid: results.find(r=>r.ok)?.sid || '',
+          status: 'sent', body_preview: bodyToSend.substring(0, 200),
+        });
+      }
+      _waRepaint();
+    }
+    alert(okCount > 0
+      ? `✅ ${okCount} enviado(s)${failCount?` · ${failCount} fallaron`:''}`
+      : `❌ Falló el envío: ${results[0]?.error || 'desconocido'}`);
   } catch (e) { alert('❌ ' + e.message); }
 };
 window.waSchedOpen_ = function() {
