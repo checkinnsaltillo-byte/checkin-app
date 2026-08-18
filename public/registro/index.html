@@ -8380,12 +8380,20 @@ document.getElementById("form").addEventListener("submit", async function(e){
       if (formularioPrincipal) formularioPrincipal.classList.add("visible");
 
     } else {
-      cerrarVentanaEnvio();
+      // Error del Apps Script: mostrar mini popup con aviso, NO auto-redirect
+      var _popE = document.getElementById("popupEnvio");
+      if (_popE) _popE.style.display = "none";
+      alert("Error al guardar: " + (json.message || json.error || "desconocido"));
+      if (typeof window.mostrarMiniPopupEnviado === 'function') window.mostrarMiniPopupEnviado();
       status.textContent = "Error al guardar: " + (json.message || json.error || "desconocido");
       status.classList.add("error");
     }
   } catch (err) {
-    cerrarVentanaEnvio();
+    // Error de red / conexión: mostrar mini popup, NO auto-redirect
+    var _popC = document.getElementById("popupEnvio");
+    if (_popC) _popC.style.display = "none";
+    alert("Error al conectar: " + err.message);
+    if (typeof window.mostrarMiniPopupEnviado === 'function') window.mostrarMiniPopupEnviado();
     status.textContent = "Error al conectar con Apps Script: " + err.message;
     status.classList.add("error");
   } finally {
