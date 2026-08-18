@@ -36872,6 +36872,82 @@ function _waRenderTpl(tplBody, vals) {
   return String(tplBody).replace(/\{\{(\d+)\}\}/g, (_, n) => vals[n] || `{{${n}}}`);
 }
 
+/** Resuelve placeholders NOMBRADOS ({{nombre}}, {{propiedad}}, {{metodo_llegada}},
+ *  {{ubicacion_txt}}, etc.) contra los datos reales del booking + alojamiento.
+ *  Se usa para templates admin (WA_Templates sheet) que usan claves nombradas
+ *  en lugar de {{1}}, {{2}} numéricos. */
+function _waResolveNamedPlaceholders_(tplBody, b) {
+  if (!tplBody || !b) return String(tplBody || '');
+  const s = String(tplBody);
+  if (!/\{\{[a-z_][a-z0-9_]*\}\}/i.test(s)) return s; // no named placeholders → return as-is
+  const alojRow = waFindAlojRow_(b) || {};
+  const { prop, dept } = waPropDept_(b);
+  const nombreFull = String(
+    b.GuestName || b.guest_name || b.Nombre || b.nombre ||
+    b.nombre_reservacion || b['Nombre reservación'] || b['Nombre completo'] || ''
+  ).trim();
+  const partes = nombreFull.split(/\s+/).filter(Boolean);
+  const primero = partes[0] || '';
+  const apellido = partes.slice(1).join(' ') || '';
+  const telPrincipal = String(
+    b.hu_TelefonoAdicional || b.Phone || b.phone || b.Telefono || b.telefono ||
+    b.CelularPrincipal || b.celular_principal || ''
+  ).replace(/^'/, '').trim();
+  const telEmergencia = String(
+    b.hu_TelefonoEmergencia || b.CelularEmergencia || b.celular_emergencia || ''
+  ).replace(/^'/, '').trim();
+  const correo = String(b.hu_Correo || b.Email || b.email || b.correo || '').trim();
+  const map = {
+    // Huésped
+    nombre: primero || 'Huésped',
+    nombre_completo: nombreFull || 'Huésped',
+    apellido,
+    telefono: telPrincipal,
+    telefono_emergencia: telEmergencia,
+    correo,
+    personas: String(b.People || b.people || b.hu_NumHuespedes || b.Personas || b.personas || ''),
+    // Reservación
+    booking_id: waBookingId_(b) || '',
+    fecha_llegada: waFechaHora_(b.DateArrival, b.hu_HoraLlegada || ''),
+    fecha_salida: waFechaHora_(b.DateDeparture, b.hu_HoraSalida || ''),
+    hora_llegada: _waExtractHora(b.hu_HoraLlegada || b.HoraLlegada || ''),
+    hora_salida: _waExtractHora(b.hu_HoraSalida || b.HoraSalida || ''),
+    noches: String(b.Nights || b.nights || ''),
+    total: String(b.Total || b.total || ''),
+    moneda: String(b.Currency || b.currency || 'MXN'),
+    canal: String(b.Source || b.source || b.Canal || b.canal || ''),
+    estatus: String(b.Status || b.status || b.Estatus || b.estatus || ''),
+    // Alojamiento
+    alojamiento: waAlojamientoLabel_(b),
+    propiedad: prop || String(alojRow.Propiedad || ''),
+    departamento: dept || String(alojRow['# Departamento'] || ''),
+    house_id: String(b.HouseId || b.house_id || alojRow.HouseId || ''),
+    direccion: String(alojRow.direccion || alojRow.Direccion || alojRow.address || ''),
+    ciudad: String(alojRow.ciudad || alojRow.Ciudad || 'Saltillo'),
+    wifi_nombre: String(alojRow.wifi_name_1 || alojRow.wifi_ssid || alojRow.wifi_nombre || ''),
+    wifi_password: String(alojRow.wifi_contrasena || alojRow.wifi_password || ''),
+    metodo_llegada: String(alojRow.metodo_llegada || alojRow.metodo_acceso || ''),
+    ubicacion_txt: String(alojRow.ubicacion_txt || alojRow.ubicacion || ''),
+    clave_puerta: String(alojRow.clave_acceso || alojRow.clave_puerta || ''),
+    url_guia: waGuiaUrl_(b),
+    device_name: String(alojRow.device_name || ''),
+    // Facturación
+    razon_social: String(b.hu_RazonSocial || b.razon_social || ''),
+    rfc: String(b.hu_RFC || b.rfc || ''),
+    regimen_fiscal: String(b.hu_RegimenFiscal || b.regimen_fiscal || ''),
+    cp_fiscal: String(b.hu_CPFiscal || b.cp_fiscal || ''),
+    // Vehículo
+    vehiculo_marca: String(b.hu_VehiculoMarca || b.vehiculo_marca || ''),
+    vehiculo_modelo: String(b.hu_VehiculoModelo || b.vehiculo_modelo || ''),
+    vehiculo_color: String(b.hu_VehiculoColor || b.vehiculo_color || ''),
+    vehiculo_placas: String(b.hu_VehiculoPlacas || b.vehiculo_placas || ''),
+  };
+  return s.replace(/\{\{([a-z_][a-z0-9_]*)\}\}/gi, (m, k) => {
+    const v = map[String(k).toLowerCase()];
+    return (v == null || v === '') ? m : String(v);
+  });
+}
+
 // State por modal (recreado en cada apertura)
 window.__waModalState = null;
 
@@ -37647,7 +37723,7 @@ function _waRenderTemplateItem_(it, auto) {
   const expanded = st.expanded === tpl.id;
   const vals = st.templateVals[tpl.id] || {};
   const editedBody = st.editingBody[tpl.id];
-  const previewText = editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals);
+  const previewText = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.booking) || {});
   const label = tpl.label.toUpperCase().replace(/[🏠⏰🚪📩]\s*/g,'').trim();
   const canToggle = !isSent; // no tiene sentido omitir algo ya enviado
 
@@ -37993,7 +38069,7 @@ function _waRenderTemplatesTab_(logs) {
     const expanded = st.expandedTpl === tpl.id;
     const vals = st.templateVals[tpl.id] || {};
     const editedBody = st.editingBody[tpl.id];
-    const preview = editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals);
+    const preview = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.booking) || {});
 
     const details = expanded ? `
       <div style="padding:12px 14px;background:#f8fafc;border-top:1px solid #e2e8f0">
@@ -38171,7 +38247,11 @@ window.waSendTplNow_ = async function(id) {
   const rcps = (st.recipients || []).filter(Boolean);
   if (!rcps.length) { alert('Agrega al menos un destinatario'); return; }
   const editedBody = st.editingBody[id];
-  const bodyToSend = editedBody != null ? editedBody : _waRenderTpl(tpl.body, st.templateVals[id] || {});
+  // 1) Renderizar placeholders numéricos {{1}},{{2}} (templates hardcoded)
+  // 2) Resolver placeholders NOMBRADOS {{nombre}},{{propiedad}},... contra
+  //    los datos reales del booking + alojamiento (templates admin del sheet).
+  const raw = editedBody != null ? editedBody : _waRenderTpl(tpl.body, st.templateVals[id] || {});
+  const bodyToSend = _waResolveNamedPlaceholders_(raw, st.booking || {});
   const nowIso = new Date().toISOString();
   const toCsv = rcps.join(',');
   // Si YA existe una card pending para este template (auto-scheduled con
