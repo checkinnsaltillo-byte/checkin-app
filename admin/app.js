@@ -38174,7 +38174,24 @@ window.waSendTplNow_ = async function(id) {
   const bodyToSend = editedBody != null ? editedBody : _waRenderTpl(tpl.body, st.templateVals[id] || {});
   const nowIso = new Date().toISOString();
   const toCsv = rcps.join(',');
-  // 1. Guardar el envío como nuevo scheduled (para que aparezca como card)
+  // Si YA existe una card pending para este template (auto-scheduled con
+  // tipo=id o previamente manual-id), enviarla EN SU LUGAR — evita
+  // duplicar la card. Excepción: ticket_autofact (cada URL debe mantener
+  // trazabilidad propia; esas cards se rendean por _waRenderCustomItem_
+  // que usa waSchedSendNow_ directamente, así que no llegan por aquí).
+  const isPending = (s) => !s || String(s).toLowerCase() === 'pending';
+  const existingPending = (st.scheduledItems || []).find(it => {
+    if (!isPending(it.status)) return false;
+    const t = String(it.tipo || '');
+    if (t === 'ticket_autofact') return false;
+    return t === id || t === 'manual-' + id;
+  });
+  if (existingPending) {
+    // Delegar a waSchedSendNow_ que envía en el mismo registro cuando está
+    // pending — cambia el estado a sent sin crear duplicado.
+    return window.waSchedSendNow_(existingPending.id);
+  }
+  // No hay card pending — crear nueva (comportamiento original).
   try {
     const addR = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
