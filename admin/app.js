@@ -38186,8 +38186,24 @@ window.waResetPreview_ = function(id) {
  *  lista (row nuevo en WA_Scheduled con la fecha actual) — el original
  *  queda intacto para preservar el historial. */
 window.waSendTplNow_ = async function(id) {
-  const st = window.__waModalState; if (!st) return;
-  const tpl = WA_TEMPLATES.find(t => t.id === id); if (!tpl) return;
+  const st = window.__waModalState; if (!st) { alert('Modal WhatsApp sin estado.'); return; }
+  // Buscar en hardcoded WA_TEMPLATES y también en admin templates (WA_Templates sheet).
+  let tpl = WA_TEMPLATES.find(t => t.id === id);
+  if (!tpl) {
+    const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+    const admin = adminMap[String(id)];
+    if (admin) {
+      tpl = {
+        id: id,
+        label: admin.nombre || 'Template',
+        contentSid: null,
+        body: admin.body || '',
+        vars: [],
+        autofill: () => ({}),
+      };
+    }
+  }
+  if (!tpl) { alert('Template no encontrado: ' + id); return; }
   const rcps = (st.recipients || []).filter(Boolean);
   if (!rcps.length) { alert('Agrega al menos un destinatario'); return; }
   const editedBody = st.editingBody[id];
