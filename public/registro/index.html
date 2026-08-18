@@ -6842,26 +6842,48 @@ window.popupAceptarYEnviar = function(){
 };
 
 // Mini popup de confirmación mostrado tras el envío exitoso.
+// FIX: usa <dialog> con showModal() — es el único mecanismo nativo de HTML
+// que garantiza estar en el TOP LAYER del compositor, por encima de <select>
+// nativos, iframes con overlays, y cualquier stacking context.
+// Un <div> con z-index:100000 no basta: Chrome renderiza los <select> en un
+// top layer del OS que ignora z-index CSS.
 window.mostrarMiniPopupEnviado = function(){
   var existing = document.getElementById('miniPopupEnviado');
-  if (existing) existing.remove();
-  var el = document.createElement('div');
+  if (existing) { try { existing.close(); } catch(_){} existing.remove(); }
+  var el = document.createElement('dialog');
   el.id = 'miniPopupEnviado';
-  el.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
-  el.innerHTML = '<div style="background:#fff;border-radius:16px;padding:22px 24px;max-width:380px;width:100%;box-shadow:0 12px 32px rgba(0,0,0,.25);text-align:center">' +
-    '<div style="font-size:36px;color:#16a34a;margin-bottom:8px">✓</div>' +
-    '<div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:6px">Registro exitoso</div>' +
-    '<div style="font-size:13px;color:#475569;margin-bottom:16px">El formulario se envió correctamente.</div>' +
-    '<button type="button" onclick="window._miniPopupWaYCerrar()" style="display:block;width:100%;padding:12px 22px;background:#075e54;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">📱 Envíanos un WhatsApp y Cerrar</button>' +
-    '<button type="button" onclick="window._miniPopupCerrarYRedirect()" style="display:block;width:100%;padding:12px 22px;background:#16a34a;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer">Cerrar</button>' +
+  el.style.cssText = 'padding:0;border:0;background:transparent;max-width:none;max-height:none;width:100vw;height:100vh;overflow:hidden;position:fixed;inset:0;margin:0;';
+  el.innerHTML =
+    '<div style="width:100%;height:100%;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">' +
+      '<div style="background:#fff;border-radius:16px;padding:22px 24px;max-width:380px;width:100%;box-shadow:0 12px 32px rgba(0,0,0,.25);text-align:center">' +
+        '<div style="font-size:36px;color:#16a34a;margin-bottom:8px">✓</div>' +
+        '<div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:6px">Registro exitoso</div>' +
+        '<div style="font-size:13px;color:#475569;margin-bottom:16px">El formulario se envió correctamente.</div>' +
+        '<button type="button" onclick="window._miniPopupWaYCerrar()" style="display:block;width:100%;padding:12px 22px;background:#075e54;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">📱 Envíanos un WhatsApp y Cerrar</button>' +
+        '<button type="button" onclick="window._miniPopupCerrarYRedirect()" style="display:block;width:100%;padding:12px 22px;background:#16a34a;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer">Cerrar</button>' +
+      '</div>' +
     '</div>';
+  // Backdrop transparente (el fondo oscuro lo dibujamos nosotros arriba)
+  var style = document.createElement('style');
+  style.textContent = '#miniPopupEnviado::backdrop{background:transparent}';
+  el.appendChild(style);
   document.body.appendChild(el);
+  // showModal() promueve al TOP LAYER — por encima de todo, incluso selects nativos.
+  try {
+    if (typeof el.showModal === 'function') el.showModal();
+    else { el.setAttribute('open', ''); el.style.display = 'block'; }
+  } catch(e) {
+    // Fallback: al menos mostrar como div normal si showModal falla
+    el.setAttribute('open', ''); el.style.display = 'block';
+  }
+  // Bloquear el ESC que cierra <dialog> por default (para forzar click en botón)
+  el.addEventListener('cancel', function(ev){ ev.preventDefault(); });
 };
 
 // Cerrar mini + redirect a home (equivalente al cerrarVentanaEnvio original).
 window._miniPopupCerrarYRedirect = function(){
   var m = document.getElementById('miniPopupEnviado');
-  if (m) m.remove();
+  if (m) { try { m.close(); } catch(_){} m.remove(); }
   try { if (typeof guestLookupCatalog !== 'undefined') guestLookupCatalog = null; } catch(_){}
   if (window.checkinnAuth) {
     try { window.checkinnAuth._cachedStays = null; } catch(_){}
