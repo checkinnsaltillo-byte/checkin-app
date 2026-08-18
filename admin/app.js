@@ -36931,6 +36931,11 @@ function _waResolveNamedPlaceholders_(tplBody, b) {
     clave_puerta: String(alojRow.clave_acceso || alojRow.clave_puerta || ''),
     url_guia: waGuiaUrl_(b),
     device_name: String(alojRow.device_name || ''),
+    // Horarios default DEL ALOJAMIENTO (no confundir con hora_llegada/hora_salida
+    // que son de la reserva). Estos vienen de las columnas hora_llegada /
+    // hora_salida de la hoja alojamientos.
+    hora_llegada_alojamiento: _waExtractHora(alojRow.hora_llegada || ''),
+    hora_salida_alojamiento:  _waExtractHora(alojRow.hora_salida  || ''),
     // Facturación
     razon_social: String(b.hu_RazonSocial || b.razon_social || ''),
     rfc: String(b.hu_RFC || b.rfc || ''),
@@ -38731,8 +38736,8 @@ const CFG_PLACEHOLDERS = [
   { key: 'booking_id',          label: 'ID de la reservación',               grupo: 'Reservación' },
   { key: 'fecha_llegada',       label: 'Fecha de llegada',                   grupo: 'Reservación' },
   { key: 'fecha_salida',        label: 'Fecha de salida',                    grupo: 'Reservación' },
-  { key: 'hora_llegada',        label: 'Hora estimada de llegada',           grupo: 'Reservación' },
-  { key: 'hora_salida',         label: 'Hora estimada de salida',            grupo: 'Reservación' },
+  { key: 'hora_llegada',        label: 'Hora estimada de llegada (reserva)', grupo: 'Reservación' },
+  { key: 'hora_salida',         label: 'Hora estimada de salida (reserva)',  grupo: 'Reservación' },
   { key: 'noches',              label: 'Número de noches',                   grupo: 'Reservación' },
   { key: 'total',               label: 'Importe total',                      grupo: 'Reservación' },
   { key: 'moneda',              label: 'Moneda',                             grupo: 'Reservación' },
@@ -38752,6 +38757,8 @@ const CFG_PLACEHOLDERS = [
   { key: 'clave_puerta',        label: 'Clave / código de puerta',           grupo: 'Alojamiento' },
   { key: 'url_guia',            label: 'URL de la guía de bienvenida',       grupo: 'Alojamiento' },
   { key: 'device_name',         label: 'Nombre del dispositivo (Smart Life)', grupo: 'Alojamiento' },
+  { key: 'hora_llegada_alojamiento', label: 'Hora de llegada (default alojamiento)', grupo: 'Alojamiento' },
+  { key: 'hora_salida_alojamiento',  label: 'Hora de salida (default alojamiento)',  grupo: 'Alojamiento' },
   // ─── Facturación (huespedes) ───
   { key: 'razon_social',        label: 'Razón social',                       grupo: 'Facturación' },
   { key: 'rfc',                 label: 'RFC',                                grupo: 'Facturación' },
