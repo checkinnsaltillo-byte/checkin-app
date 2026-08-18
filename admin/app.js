@@ -36943,6 +36943,13 @@ function _waResolveNamedPlaceholders_(tplBody, b) {
     rfc: String(b.hu_RFC || b.rfc || ''),
     regimen_fiscal: String(b.hu_RegimenFiscal || b.regimen_fiscal || ''),
     cp_fiscal: String(b.hu_CPFiscal || b.cp_fiscal || ''),
+    // URL del ticket auto-facturación — proviene de la col "Ticket facturapi url"
+    // en la hoja Reservaciones. Se propaga al booking sintético con varias claves
+    // posibles según el path (Cards Lodgify / huesped row directo).
+    ticket_facturapi_url: String(
+      b['Ticket facturapi url'] || b['ticket facturapi url'] || b['Ticket Facturapi Url'] ||
+      b.hu_TicketFacturapiUrl || b.ticket_facturapi_url || b.ticket_url || ''
+    ),
     // Vehículo
     vehiculo_marca: String(b.hu_VehiculoMarca || b.vehiculo_marca || ''),
     vehiculo_modelo: String(b.hu_VehiculoModelo || b.vehiculo_modelo || ''),
@@ -38766,6 +38773,7 @@ const CFG_PLACEHOLDERS = [
   { key: 'rfc',                 label: 'RFC',                                grupo: 'Facturación' },
   { key: 'regimen_fiscal',      label: 'Régimen fiscal',                     grupo: 'Facturación' },
   { key: 'cp_fiscal',           label: 'Código postal fiscal',               grupo: 'Facturación' },
+  { key: 'ticket_facturapi_url', label: 'URL del ticket de auto-facturación', grupo: 'Facturación' },
   // ─── Vehículo (huespedes) ───
   { key: 'vehiculo_marca',      label: 'Marca del vehículo',                 grupo: 'Vehículo' },
   { key: 'vehiculo_modelo',     label: 'Modelo del vehículo',                grupo: 'Vehículo' },
