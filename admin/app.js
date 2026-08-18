@@ -36933,9 +36933,11 @@ function _waResolveNamedPlaceholders_(tplBody, b) {
     device_name: String(alojRow.device_name || ''),
     // Horarios default DEL ALOJAMIENTO (no confundir con hora_llegada/hora_salida
     // que son de la reserva). Estos vienen de las columnas hora_llegada /
-    // hora_salida de la hoja alojamientos.
-    hora_llegada_alojamiento: _waExtractHora(alojRow.hora_llegada || ''),
-    hora_salida_alojamiento:  _waExtractHora(alojRow.hora_salida  || ''),
+    // hora_salida de la hoja alojamientos. Se pasa el valor TAL CUAL viene
+    // del sheet (ej. "02:00 P.M.") sin convertir — _waExtractHora reinterpreta
+    // mal formatos con puntos ("P.M.") y podria cambiar am/pm.
+    hora_llegada_alojamiento: String(alojRow.hora_llegada || '').trim(),
+    hora_salida_alojamiento:  String(alojRow.hora_salida  || '').trim(),
     // Facturación
     razon_social: String(b.hu_RazonSocial || b.razon_social || ''),
     rfc: String(b.hu_RFC || b.rfc || ''),
