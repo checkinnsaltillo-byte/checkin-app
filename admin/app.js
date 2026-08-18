@@ -36639,46 +36639,10 @@ window.invSaveCurrentForm = async function () {
 // ║ desde el admin, vía backend Cloud Run /wa/send.                          ║
 // ═══════════════════════════════════════════════════════════════════════════
 
-const WA_TEMPLATES = [
-  {
-    id: 'bienvenida_reserva',
-    label: '🏠 Bienvenida (con guía)',
-    contentSid: 'HXce36199ae8ba2e71c4f983469b1b82b8',
-    body: 'Hola {{1}}, ¡bienvenido a Check-inn Saltillo! 🏠\n\nTu guía de bienvenida para {{2}} está lista:\n{{3}}\n\nAhí encontrarás WiFi, instrucciones de acceso, recomendaciones y contacto de emergencia.\n\nCualquier duda, responde este mensaje.',
-    vars: ['Nombre huésped', 'Alojamiento', 'URL guía'],
-    autofill: (b) => ({
-      1: waFirstName_(b),
-      2: waAlojamientoLabel_(b),
-      3: waGuiaUrl_(b),
-    }),
-  },
-  {
-    id: 'recordatorio_checkin_24h',
-    label: '⏰ Recordatorio de check-in (24h antes)',
-    contentSid: 'HX71192c768d8240f08daf76f94c501f2c',
-    body: 'Hola {{1}}, tu llegada a {{2}} está programada mañana ({{3}}). 🗓\n\nAntes de tu llegada, revisa tu guía:\n{{4}}\n\nAhí verás:\n📍 Cómo llegar\n🔑 Método de acceso\n✅ Realiza tu Check-in cuando llegues\n\n¡Te esperamos!',
-    vars: ['Nombre', 'Alojamiento', 'Fecha/hora llegada', 'URL guía'],
-    autofill: (b) => ({
-      1: waFirstName_(b),
-      2: waAlojamientoLabel_(b),
-      3: waFechaHora_(b.DateArrival, b.hu_HoraLlegada),
-      4: waGuiaUrl_(b),
-    }),
-  },
-  {
-    id: 'recordatorio_checkout',
-    label: '🚪 Recordatorio de check-out',
-    contentSid: 'HXcd62e32ae21e80655192928e522d01b8',
-    body: 'Hola {{1}}, tu salida de {{2}} es hoy antes de las {{3}}. 🕛\n\nAntes de irte, por favor:\n✅ Realiza tu Check-out desde la guía: {{4}}\n🚪 Sigue las instrucciones de salida (llaves, basura, ventanas, etc.)\n\n¡Gracias por elegirnos! Nos encantaría verte de nuevo.',
-    vars: ['Nombre', 'Alojamiento', 'Hora salida', 'URL guía'],
-    autofill: (b) => ({
-      1: waFirstName_(b),
-      2: waAlojamientoLabel_(b),
-      3: waHoraSalida_(b),
-      4: waGuiaUrl_(b),
-    }),
-  },
-];
+// Los 3 templates hardcoded (bienvenida/checkin/checkout) fueron removidos.
+// Ahora la ÚNICA fuente de templates es la sección "Templates de mensajes
+// programados" (hoja WA_Templates) cargada en WA_ADMIN.adminTemplates.
+const WA_TEMPLATES = [];
 
 function waFirstName_(b) {
   const cand = b && (
