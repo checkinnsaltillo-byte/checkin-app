@@ -511,6 +511,49 @@
     </div>
   </div>
 
+  <!-- Modal popup para "Enviar correo y WhatsApp" — replica el UI de "+ Nuevo mensaje" -->
+  <div id="sendBothOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeSendBothPopup()">
+    <div style="background:#fff;border-radius:16px;padding:20px 22px;max-width:520px;width:100%;box-shadow:0 12px 32px rgba(0,0,0,.25);max-height:90vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:15px;font-weight:800;color:#0f172a">📤 Enviar correo y WhatsApp</div>
+        <button type="button" onclick="closeSendBothPopup()" style="background:none;border:0;font-size:22px;color:#64748b;cursor:pointer;line-height:1">×</button>
+      </div>
+      <div style="border:1px dashed #cbd5e1;border-radius:10px;padding:12px;background:#fafbfc">
+        <!-- Modo Programado / Instantáneo -->
+        <div style="display:flex;gap:10px;margin-bottom:10px">
+          <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700" id="sb_mode_inst_wrap">
+            <span id="sb_mode_inst_dot" style="display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid #16a34a;background:#16a34a;flex-shrink:0"></span>
+            Instantáneo
+          </label>
+          <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700" id="sb_mode_sched_wrap">
+            <span id="sb_mode_sched_dot" style="display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid #cbd5e1;flex-shrink:0"></span>
+            Programado
+          </label>
+        </div>
+        <!-- Fecha/hora (solo Programado) -->
+        <div id="sb_sched_fields" style="display:none;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <div>
+            <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Fecha</label>
+            <input type="date" id="sb_date" style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Hora</label>
+            <input type="time" id="sb_time" value="10:00" style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">
+          </div>
+        </div>
+        <!-- Mensaje -->
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Mensaje</label>
+          <textarea id="sb_body" rows="8" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;resize:vertical;font-family:inherit"></textarea>
+          <div id="sb_tpl_hint" style="font-size:10px;color:#64748b;margin-top:4px">Cargando template…</div>
+        </div>
+        <!-- Botón enviar -->
+        <button type="button" id="sb_submit" style="margin-top:10px;width:100%;padding:10px 14px;background:#25d366;color:#fff;border:0;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">Enviar correo y Whatsapp</button>
+        <div id="sb_status" style="margin-top:8px;font-size:11px;text-align:center;color:#64748b"></div>
+      </div>
+    </div>
+  </div>
+
 <script>
     // Lee ?org=1|2 de la URL. Default = "2" (la organización más reciente).
     // El padre (Ticket Vision) lo manda en el href del iframe.
@@ -654,6 +697,21 @@
       const recordId = queryParams.get('recordId');
       const rowNumber = queryParams.get('rowNumber');
       const checkinWebAppUrl = queryParams.get('checkinWebAppUrl');
+      // Flag "Incluye impuestos" — acepta 3 alias para robustez:
+      // taxIncluded (default de ticket-vision), tax_included (snake_case
+      // matcheando el payload Facturapi), pricesIncludeTax (variante).
+      // Sólo se aplica si viene explícito; si no, respeta el default HTML.
+      const taxIncludedParam = queryParams.get('taxIncluded')
+        || queryParams.get('tax_included')
+        || queryParams.get('pricesIncludeTax');
+      if (taxIncludedParam != null) {
+        const v = String(taxIncludedParam).toLowerCase();
+        const wantsIncluded = (v === 'true' || v === '1' || v === 'yes' || v === 'si' || v === 'sí');
+        if (els.includeTaxes) {
+          els.includeTaxes.checked = wantsIncluded;
+          els.includeTaxes.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
 
       if (quantity && !Number.isNaN(Number(quantity))) {
         els.quantity.value = String(quantity);
@@ -1000,10 +1058,151 @@ URL de la factura: ${invoiceUrl}`;
     els.currency.dispatchEvent(new Event("change"));
     els.reloadProductsBtn.addEventListener("click", loadProducts);
     els.sendEmailBtn.addEventListener("click", sendReceiptEmail);
-    els.sendBothBtn.addEventListener("click", async () => {
-      const emailOk = await sendReceiptEmail();
-      if (emailOk) await notifyWhatsappMessage();
+    // Nuevo flujo: click abre popup con textarea (template pre-lleno) + modo Prog/Inst.
+    els.sendBothBtn.addEventListener("click", () => openSendBothPopup());
+
+    // ═══ Popup "Enviar correo y WhatsApp" ═══
+    let __sb_mode = 'instant'; // 'instant' | 'scheduled'
+    let __sb_template = null;  // { nombre, body } cargado de WA_Templates
+    function __sb_setMode(m) {
+      __sb_mode = m;
+      const instDot = document.getElementById('sb_mode_inst_dot');
+      const schedDot = document.getElementById('sb_mode_sched_dot');
+      const schedFields = document.getElementById('sb_sched_fields');
+      if (m === 'instant') {
+        instDot.style.background = '#16a34a'; instDot.style.borderColor = '#16a34a';
+        schedDot.style.background = 'transparent'; schedDot.style.borderColor = '#cbd5e1';
+        schedFields.style.display = 'none';
+      } else {
+        instDot.style.background = 'transparent'; instDot.style.borderColor = '#cbd5e1';
+        schedDot.style.background = '#16a34a'; schedDot.style.borderColor = '#16a34a';
+        schedFields.style.display = 'grid';
+      }
+    }
+    function __sb_setStatus(msg, kind) {
+      const el = document.getElementById('sb_status');
+      if (!el) return;
+      el.textContent = msg || '';
+      el.style.color = kind === 'err' ? '#dc2626' : (kind === 'ok' ? '#16a34a' : '#64748b');
+    }
+    function __sb_resolvePlaceholders(body) {
+      // Renderiza {{key}} con datos del contexto actual del ticket
+      const invoiceUrl = getPublicPdfUrl();
+      const nombre = (queryParams.get('nombre') || queryParams.get('name') || '').split(/\s+/)[0] || '';
+      const propiedad = queryParams.get('propiedad') || '';
+      const depto = queryParams.get('depto') || queryParams.get('departamento') || '';
+      const alojamiento = (propiedad && depto) ? `${propiedad} #${depto}` : (propiedad || '');
+      const map = {
+        nombre: nombre,
+        nombre_completo: queryParams.get('nombre') || queryParams.get('name') || '',
+        propiedad, departamento: depto, alojamiento,
+        ticket_facturapi_url: invoiceUrl,
+        correo: (els.email && els.email.value) || '',
+        telefono: (els.whatsapp && els.whatsapp.value) || '',
+      };
+      return String(body || '').replace(/\{\{([a-z_][a-z0-9_]*)\}\}/gi, (m, k) => {
+        const v = map[String(k).toLowerCase()];
+        return (v == null || v === '') ? m : String(v);
+      });
+    }
+    async function __sb_loadTemplate() {
+      const hint = document.getElementById('sb_tpl_hint');
+      const ta = document.getElementById('sb_body');
+      try {
+        const r = await fetch('https://api.check-inn.mx/wa/templates-list', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+        });
+        const j = await r.json();
+        const items = (j && j.items) || [];
+        // Match por nombre "Ticket de AUTO-FACTURACIÓN" (case-insensitive, tolerant)
+        const target = items.find(t => /ticket.*auto.?facturac/i.test(String(t.nombre || '')));
+        if (target) {
+          __sb_template = target;
+          ta.value = __sb_resolvePlaceholders(target.body || '');
+          hint.textContent = `Template: ${target.nombre}`;
+          hint.style.color = '#16a34a';
+        } else {
+          ta.value = buildWhatsappMessage(); // fallback al default
+          hint.textContent = "Template 'Ticket de AUTO-FACTURACIÓN' no encontrado en WA_Templates — usando texto default.";
+          hint.style.color = '#f59e0b';
+        }
+      } catch (e) {
+        ta.value = buildWhatsappMessage();
+        hint.textContent = 'Error cargando template: ' + e.message + ' — usando texto default.';
+        hint.style.color = '#dc2626';
+      }
+    }
+    function openSendBothPopup() {
+      if (!appState.receiptId) { alert('Primero debes generar el ticket.'); return; }
+      const email = (els.email && els.email.value || '').trim();
+      const phone = normalizePhone(els.whatsapp && els.whatsapp.value || '');
+      if (!email) { alert('Captura el correo electrónico.'); return; }
+      if (!phone) { alert('Captura el WhatsApp del cliente.'); return; }
+      // Reset UI
+      __sb_setMode('instant');
+      __sb_setStatus('', 'info');
+      // Default date/time = hoy + 1h
+      const now = new Date();
+      const pad = n => String(n).padStart(2,'0');
+      document.getElementById('sb_date').value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+      // Cargar template
+      document.getElementById('sb_body').value = 'Cargando…';
+      document.getElementById('sb_tpl_hint').textContent = 'Cargando template…';
+      document.getElementById('sb_tpl_hint').style.color = '#64748b';
+      __sb_loadTemplate();
+      // Mostrar
+      document.getElementById('sendBothOverlay').style.display = 'flex';
+    }
+    function closeSendBothPopup() {
+      document.getElementById('sendBothOverlay').style.display = 'none';
+    }
+    document.getElementById('sb_mode_inst_wrap').addEventListener('click', () => __sb_setMode('instant'));
+    document.getElementById('sb_mode_sched_wrap').addEventListener('click', () => __sb_setMode('scheduled'));
+    document.getElementById('sb_submit').addEventListener('click', async () => {
+      const btn = document.getElementById('sb_submit');
+      btn.disabled = true; btn.textContent = 'Enviando…';
+      __sb_setStatus('Enviando correo…', 'info');
+      const body = document.getElementById('sb_body').value.trim();
+      const phone = normalizePhone(els.whatsapp.value);
+      const waTo = phone.startsWith('52') ? ('whatsapp:+' + phone) : ('whatsapp:+52' + phone);
+      if (!body) { __sb_setStatus('Mensaje vacío.', 'err'); btn.disabled = false; btn.textContent = 'Enviar correo y Whatsapp'; return; }
+      try {
+        // 1. Enviar correo (Facturapi)
+        const emailOk = await sendReceiptEmail();
+        if (!emailOk) throw new Error('Falló envío por correo');
+        __sb_setStatus('Correo enviado. Programando WhatsApp…', 'info');
+        // 2. WhatsApp
+        if (__sb_mode === 'instant') {
+          const r = await fetch('https://api.check-inn.mx/wa/send', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: waTo, body, tipo: 'ticket_autofact' })
+          });
+          const j = await r.json();
+          if (!j.ok) throw new Error(j.error || 'Fallo WA');
+          __sb_setStatus('✓ Correo enviado y WhatsApp enviado.', 'ok');
+        } else {
+          const d = document.getElementById('sb_date').value;
+          const t = document.getElementById('sb_time').value;
+          if (!d || !t) throw new Error('Fecha/hora requeridas');
+          const scheduledAt = new Date(`${d}T${t}:00`).toISOString();
+          const r = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookingId: '', to: waTo, scheduledAt, body, asunto: 'Ticket auto-facturación', tipo: 'ticket_autofact' })
+          });
+          const j = await r.json();
+          if (!j.ok) throw new Error(j.error || 'Fallo al programar');
+          __sb_setStatus('✓ Correo enviado y WhatsApp programado.', 'ok');
+        }
+        setTimeout(closeSendBothPopup, 1500);
+      } catch (e) {
+        __sb_setStatus('❌ ' + e.message, 'err');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Enviar correo y Whatsapp';
+      }
     });
+    window.openSendBothPopup = openSendBothPopup;
+    window.closeSendBothPopup = closeSendBothPopup;
 
     els.form.addEventListener("submit", async (e) => {
       e.preventDefault();
