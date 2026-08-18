@@ -37723,7 +37723,7 @@ function _waRenderTemplateItem_(it, auto) {
   const expanded = st.expanded === tpl.id;
   const vals = st.templateVals[tpl.id] || {};
   const editedBody = st.editingBody[tpl.id];
-  const previewText = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.booking) || {});
+  const previewText = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.b) || {});
   const label = tpl.label.toUpperCase().replace(/[🏠⏰🚪📩]\s*/g,'').trim();
   const canToggle = !isSent; // no tiene sentido omitir algo ya enviado
 
@@ -38069,7 +38069,7 @@ function _waRenderTemplatesTab_(logs) {
     const expanded = st.expandedTpl === tpl.id;
     const vals = st.templateVals[tpl.id] || {};
     const editedBody = st.editingBody[tpl.id];
-    const preview = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.booking) || {});
+    const preview = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.b) || {});
 
     const details = expanded ? `
       <div style="padding:12px 14px;background:#f8fafc;border-top:1px solid #e2e8f0">
@@ -38251,7 +38251,7 @@ window.waSendTplNow_ = async function(id) {
   // 2) Resolver placeholders NOMBRADOS {{nombre}},{{propiedad}},... contra
   //    los datos reales del booking + alojamiento (templates admin del sheet).
   const raw = editedBody != null ? editedBody : _waRenderTpl(tpl.body, st.templateVals[id] || {});
-  const bodyToSend = _waResolveNamedPlaceholders_(raw, st.booking || {});
+  const bodyToSend = _waResolveNamedPlaceholders_(raw, st.b || {});
   const nowIso = new Date().toISOString();
   const toCsv = rcps.join(',');
   // Si YA existe una card pending para este template (auto-scheduled con
