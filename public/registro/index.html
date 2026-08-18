@@ -8097,11 +8097,11 @@ function cerrarVentanaEnvio(){
 }
 
 function esperarRepintadoUI(ms = 80){
-  return new Promise(resolve => {
-    requestAnimationFrame(() => {
-      setTimeout(resolve, ms);
-    });
-  });
+  // FIX: NO usar requestAnimationFrame — no se dispara en iframes ocultos,
+  // tabs inactivas o iOS PWA en background, dejando el submit handler colgado
+  // en el await, con lo que el gate promise nunca se setea y el mini popup
+  // nunca aparece. setTimeout es confiable en todos los contextos.
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 
