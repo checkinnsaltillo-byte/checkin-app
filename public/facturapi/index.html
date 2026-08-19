@@ -1093,8 +1093,12 @@ URL de la factura: ${invoiceUrl}`;
       let computed = null;
       let time = '11:00';
       if (__sb_template && String(__sb_template.schedule_type || '') === 'custom') {
-        const ev = String(__sb_template.schedule_event || 'departure');
-        const base = ev === 'departure' ? salida : ingreso;
+        // Valores reales que guarda la UI en WA_Templates: 'arrival', 'checkout', 'booking'
+        // (ver CFG_EVENTS en app.js). El default 'checkout' matchea "Salida"
+        // que es lo esperado para el template de auto-facturación.
+        const ev = String(__sb_template.schedule_event || 'checkout');
+        const isCheckout = (ev === 'checkout' || ev === 'departure');
+        const base = isCheckout ? salida : ingreso;
         const off = parseInt(__sb_template.schedule_offset || 0, 10) || 0;
         const t = String(__sb_template.schedule_time || '11:00').trim();
         if (base) {
