@@ -1250,6 +1250,14 @@ URL de la factura: ${invoiceUrl}`;
           const j = await r.json();
           if (!j.ok) throw new Error(j.error || 'Fallo WA');
           __sb_setStatus('✓ Correo enviado y WhatsApp enviado.', 'ok');
+          // Avisar al parent que este ticket URL ya se envió manualmente para
+          // que el auto-schedule (huespedesCloseFacturapi) NO cree duplicado.
+          try {
+            const ticketUrl = getPublicPdfUrl();
+            if (ticketUrl && window.parent) {
+              window.parent.postMessage({ type: 'wa-manual-sent', ticketUrl }, '*');
+            }
+          } catch(_) {}
         } else {
           const d = document.getElementById('sb_date').value;
           const t = document.getElementById('sb_time').value;
@@ -1262,6 +1270,13 @@ URL de la factura: ${invoiceUrl}`;
           const j = await r.json();
           if (!j.ok) throw new Error(j.error || 'Fallo al programar');
           __sb_setStatus('✓ Correo enviado y WhatsApp programado.', 'ok');
+          // Idem para programado: avisar al parent para skip auto-schedule.
+          try {
+            const ticketUrl = getPublicPdfUrl();
+            if (ticketUrl && window.parent) {
+              window.parent.postMessage({ type: 'wa-manual-sent', ticketUrl }, '*');
+            }
+          } catch(_) {}
         }
         setTimeout(closeSendBothPopup, 1500);
       } catch (e) {
