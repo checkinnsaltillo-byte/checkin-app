@@ -10617,6 +10617,48 @@ function huGetGuestRowsByTail_(allRows, tail) {
   return window.__huGuestIndex.get(tail) || [];
 }
 
+// Fase 3: cache de bookings COMPLETAS por teléfono (fetch on-demand al expandir card).
+// Evita cargar todo el histórico al inicio. Cache in-memory por sesión.
+window.__bookingsByGuestCache = window.__bookingsByGuestCache || new Map();
+async function huFetchBookingsByGuest_(phoneOrTail) {
+  const raw = String(phoneOrTail || '').replace(/\D/g, '');
+  if (raw.length < 10) return [];
+  const key = raw.slice(-10);
+  if (window.__bookingsByGuestCache.has(key)) return window.__bookingsByGuestCache.get(key);
+  try {
+    const r = await fetch(`${BACKEND}/bookings-by-guest?phone=${encodeURIComponent(key)}`, { cache: 'no-store' });
+    const j = await r.json();
+    const list = (j && j.ok && Array.isArray(j.bookings)) ? j.bookings : [];
+    window.__bookingsByGuestCache.set(key, list);
+    return list;
+  } catch (e) {
+    console.warn('[bookings-by-guest]', e.message);
+    return [];
+  }
+}
+window.huFetchBookingsByGuest_ = huFetchBookingsByGuest_;
+
+// Fase 2c: precarga KPIs pre-computados de Perfiles (job diario) — 1 fetch al abrir el módulo.
+window.__perfilKpisByPhone = window.__perfilKpisByPhone || null;
+async function huEnsurePerfilKpis_() {
+  if (window.__perfilKpisByPhone) return window.__perfilKpisByPhone;
+  if (window.__perfilKpisFetching) return window.__perfilKpisFetching;
+  window.__perfilKpisFetching = (async () => {
+    try {
+      const r = await fetch(`${BACKEND}/perfiles-kpis-list`, { cache: 'no-store' });
+      const j = await r.json();
+      if (j && j.ok && j.by_phone) {
+        window.__perfilKpisByPhone = j.by_phone;
+        return j.by_phone;
+      }
+    } catch (e) { console.warn('[perfil-kpis]', e.message); }
+    window.__perfilKpisByPhone = {};
+    return {};
+  })();
+  const res = await window.__perfilKpisFetching;
+  window.__perfilKpisFetching = null;
+  return res;
+}
 function huComputeGuestStats(currentRow, allRows) {
   // Comparación por LAST-10-DIGITS, no por igualdad exacta de string.
   const phoneTail = (v) => {
@@ -10625,6 +10667,21 @@ function huComputeGuestStats(currentRow, allRows) {
   };
   const tail = phoneTail(huValueFlexible(currentRow, ['Cel/Whatsapp (principal)']));
   if (!tail) return { totalNoches: 0, visitas: 0, reservaciones: 0, montoGlobal: 0, montoTotal: 0 };
+  // Fase 2c: PREFERIR KPIs pre-computados por el job diario si están disponibles.
+  // Solo caemos al cálculo local si no hay dato pre-computado (perfil nuevo sin
+  // job ejecutado, o job del día aún no corrió).
+  const pre = (window.__perfilKpisByPhone || {})[tail];
+  if (pre && (pre.noches || pre.visitas || pre.monto)) {
+    return {
+      totalNoches: pre.noches,
+      visitas: pre.visitas,
+      reservaciones: pre.visitas,   // aproximación — el job cuenta visitas
+      montoGlobal: pre.monto,
+      montoTotal: pre.monto,
+      __source: 'perfiles-cache',
+      __updated_at: pre.updated_at || ''
+    };
+  }
   // Cache memoizado: stats por tail no dependen de currentRow.
   const rows = allRows || HU_STATE.rows || [];
   const sig = `${rows.length}`;
@@ -13382,9 +13439,32 @@ async function __lodgifyLoadInner(force, opts) {
     if (cont) cont.innerHTML = lgLoaderHtml('Cargando reservaciones…');
   }
   try {
-    const res = await fetch(`${BACKEND}/lodgify-list`, { cache:'no-store' });
+    // FASE 1: filtro mes-en-curso. Solo se cargan reservas cuya estancia
+    // TOCA el mes actual (arrival<=fin_mes && departure>=inicio_mes) y Status
+    // Booked o Tentative. El historial completo por huésped se carga on-demand
+    // al expandir cada card (Fase 3).
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const lastDay = new Date(yyyy, now.getMonth() + 1, 0).getDate();
+    const fromIso = `${yyyy}-${mm}-01`;
+    const toIso   = `${yyyy}-${mm}-${String(lastDay).padStart(2,'0')}`;
+    // status filter lo hacemos client-side (soporta Booked+Tentative)
+    const url = `${BACKEND}/lodgify-list?from=${fromIso}&to=${toIso}`;
+    LG_STATE.__monthRange = { from: fromIso, to: toIso };
+    // Fase 2c: precarga KPIs pre-computados en paralelo con lodgify-list.
+    // No bloqueamos si falla (el render tiene fallback).
+    if (typeof huEnsurePerfilKpis_ === 'function') huEnsurePerfilKpis_().catch(()=>{});
+    const res = await fetch(url, { cache:'no-store' });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    // Filtro adicional: solo Booked / Tentative
+    if (Array.isArray(data.bookings)) {
+      data.bookings = data.bookings.filter(b => {
+        const st = String((b && b.Status) || '').toLowerCase();
+        return st === 'booked' || st === 'tentative';
+      });
+    }
     // Normaliza nombres de campos del sheet (GrossTotal → Gross, etc.)
     // y normaliza fechas al formato MM/DD/YYYY (algunas celdas del sheet
     // están formateadas como fecha y Apps Script las devuelve como ISO
