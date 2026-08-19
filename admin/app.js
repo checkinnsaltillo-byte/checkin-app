@@ -39287,6 +39287,7 @@ function cfgSelectTemplate(id) {
     schedule_time: t.schedule_time || '',
     alojamientos: t.alojamientos || '',
     enabled: !!t.enabled,
+    responsivo: !!t.responsivo,
   };
   CFG_ADMIN.dirty = false;
   cfgAdminRender();
