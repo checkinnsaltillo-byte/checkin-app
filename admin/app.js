@@ -12275,6 +12275,9 @@ function huBuildFacturapiUrlFromRow(row, baseUrl, cantidadOverride) {
   if (propiedad) p.set('propiedad', propiedad);
   if (depto) p.set('depto', depto);
   if (nombre) p.set('nombre', nombre);
+  // Cache-buster: fuerza recarga del iframe HTML aunque Fastly tenga versión
+  // vieja cacheada. Cada apertura genera un nonce único.
+  p.set('_ts', String(Date.now()));
   return `${baseUrl}?${p.toString()}`;
 }
 
