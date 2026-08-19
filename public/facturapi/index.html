@@ -1064,6 +1064,33 @@ URL de la factura: ${invoiceUrl}`;
     // ═══ Popup "Enviar correo y WhatsApp" ═══
     let __sb_mode = 'instant'; // 'instant' | 'scheduled'
     let __sb_template = null;  // { nombre, body } cargado de WA_Templates
+    /** Calcula la fecha auto-programada según reglas:
+     *  1) Si fechaSalida está en el MISMO mes en curso → usar fechaSalida
+     *  2) Si fechaSalida cae en un mes posterior → usar el ÚLTIMO día del mes en curso
+     *  Hora siempre 11:00. Fallback si no hay fechaSalida: mañana 11am. */
+    function __sb_autoScheduleDate() {
+      const now = new Date();
+      const curYear = now.getFullYear();
+      const curMonth = now.getMonth(); // 0-based
+      const salidaStr = String(queryParams.get('fechaSalida') || '').trim();
+      const pad = n => String(n).padStart(2, '0');
+      const _lastDayOfCurMonth = () => {
+        const d = new Date(curYear, curMonth + 1, 0); // día 0 del mes siguiente = último del actual
+        return { date: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`, time: '11:00' };
+      };
+      if (!salidaStr || !/^\d{4}-\d{2}-\d{2}/.test(salidaStr)) {
+        // Fallback: último día del mes en curso
+        return _lastDayOfCurMonth();
+      }
+      const [y, m, d] = salidaStr.slice(0,10).split('-').map(n => parseInt(n, 10));
+      const salida = new Date(y, m - 1, d);
+      // Regla 1: mismo año Y mismo mes → usar fechaSalida
+      if (salida.getFullYear() === curYear && salida.getMonth() === curMonth) {
+        return { date: `${y}-${pad(m)}-${pad(d)}`, time: '11:00' };
+      }
+      // Regla 2: mes posterior (o cualquier otro caso) → último día del mes en curso
+      return _lastDayOfCurMonth();
+    }
     function __sb_setMode(m) {
       __sb_mode = m;
       const instDot = document.getElementById('sb_mode_inst_dot');
@@ -1077,6 +1104,10 @@ URL de la factura: ${invoiceUrl}`;
         instDot.style.background = 'transparent'; instDot.style.borderColor = '#cbd5e1';
         schedDot.style.background = '#16a34a'; schedDot.style.borderColor = '#16a34a';
         schedFields.style.display = 'grid';
+        // Auto-poblar fecha y hora según reglas de negocio
+        const auto = __sb_autoScheduleDate();
+        document.getElementById('sb_date').value = auto.date;
+        document.getElementById('sb_time').value = auto.time;
       }
     }
     function __sb_setStatus(msg, kind) {
