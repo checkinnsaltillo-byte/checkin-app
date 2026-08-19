@@ -37009,7 +37009,13 @@ function _waFindRelatedBookings(currentB) {
   const currentId = waBookingId_(currentB);
   const related = [];
   const lgIdsSeen = new Set();
-  const lgPhonesSeen = new Set(); // teléfonos ya cubiertos por bookings LG
+  // Rangos de fechas de LG bookings del mismo teléfono (para detectar overlap).
+  const lgDateRanges = []; // [{arrMs, depMs}]
+  const _dateMs = (s) => {
+    const t = String(s || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return 0;
+    return new Date(t + 'T00:00:00').getTime();
+  };
   // 1) Bookings Lodgify que matcheen el teléfono.
   if (currentPhone && lgBookings.length) {
     for (const b of lgBookings) {
@@ -37018,24 +37024,33 @@ function _waFindRelatedBookings(currentB) {
       related.push(b);
       const lgId = String(b.Id || '').trim();
       if (lgId) lgIdsSeen.add(lgId);
-      if (tel) lgPhonesSeen.add(tel);
+      const a = _dateMs(b.DateArrival);
+      const d = _dateMs(b.DateDeparture);
+      if (a && d) lgDateRanges.push({ arrMs: a, depMs: d });
     }
   }
-  // 2) Reservaciones MANUALES (hoja huespedes) del mismo teléfono. Reglas:
-  //    - Skip si Lodgify Id ya está cubierto por paso 1 (misma reserva).
-  //    - Skip si el teléfono ya está cubierto por LG (la HU row es la misma
-  //      reserva pero con datos posiblemente desincronizados — Lodgify es
-  //      fuente de verdad). Evita el bug de "2 reservas fantasma" cuando
-  //      la row de Reservaciones tiene fechas distintas a Lodgify.
-  //    - Solo incluir HU rows realmente MANUALES (sin representación en LG).
+  // 2) Reservaciones (hoja huespedes) del mismo teléfono. Reglas:
+  //    - Skip si Lodgify Id ya está cubierto por paso 1 (mismo booking).
+  //    - Skip si las fechas de la HU row OVERLAPEAN con alguna LG booking del
+  //      mismo teléfono — probablemente es la MISMA reserva con datos stale
+  //      (Lodgify es fuente de verdad). Bug fix: antes se skipeaba por teléfono
+  //      lo que ocultaba reservas manuales legítimas del mismo huésped.
+  //    - Si HU row tiene fechas que NO overlapean con ninguna LG → es una
+  //      reserva manual distinta → SÍ incluir.
   if (currentPhone && huRows.length && typeof huRowToSyntheticBooking === 'function') {
     // Loop debajo
     for (const r of huRows) {
       const tel = String(r['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
       if (tel !== currentPhone) continue;
-      if (tel && lgPhonesSeen.has(tel)) continue; // ya cubierto por LG (fuente de verdad)
       const lgId = String(r['Lodgify Id'] || '').trim();
       if (lgId && lgIdsSeen.has(lgId)) continue; // ya cubierta por LG
+      // Check overlap con LG ranges del mismo teléfono
+      const arrMs = _dateMs(r['Fecha de ingreso']);
+      const depMs = _dateMs(r['Fecha de salida']);
+      if (arrMs && depMs && lgDateRanges.length) {
+        const overlaps = lgDateRanges.some(rng => arrMs <= rng.depMs && depMs >= rng.arrMs);
+        if (overlaps) continue; // misma reserva, LG ya la tiene
+      }
       // Fechas requeridas para poder mostrar estado; si faltan, skip.
       const arr = String(r['Fecha de ingreso'] || '').slice(0,10);
       const dep = String(r['Fecha de salida'] || '').slice(0,10);
