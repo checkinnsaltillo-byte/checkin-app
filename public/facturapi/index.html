@@ -1064,32 +1064,56 @@ URL de la factura: ${invoiceUrl}`;
     // ═══ Popup "Enviar correo y WhatsApp" ═══
     let __sb_mode = 'instant'; // 'instant' | 'scheduled'
     let __sb_template = null;  // { nombre, body } cargado de WA_Templates
-    /** Calcula la fecha auto-programada según reglas:
-     *  1) Si fechaSalida está en el MISMO mes en curso → usar fechaSalida
-     *  2) Si fechaSalida cae en un mes posterior → usar el ÚLTIMO día del mes en curso
-     *  Hora siempre 11:00. Fallback si no hay fechaSalida: mañana 11am. */
+    /** Calcula la fecha auto-programada según:
+     *  A) Config del template (schedule_type/event/offset/time) — es la
+     *     regla PRIMARIA. Se computa una fecha base a partir del evento
+     *     (arrival/departure) + offset días, y se aplica schedule_time.
+     *  B) OVERRIDE: si la fecha computada cae en un mes POSTERIOR al mes
+     *     en curso, se reemplaza por el ÚLTIMO día del mes en curso
+     *     (conservando la hora).
+     *  Sin template cargado o schedule_type != 'custom' → fallback simple:
+     *  fechaSalida si mismo mes; sino último día del mes en curso; hora 11:00. */
     function __sb_autoScheduleDate() {
       const now = new Date();
       const curYear = now.getFullYear();
       const curMonth = now.getMonth(); // 0-based
-      const salidaStr = String(queryParams.get('fechaSalida') || '').trim();
       const pad = n => String(n).padStart(2, '0');
-      const _lastDayOfCurMonth = () => {
-        const d = new Date(curYear, curMonth + 1, 0); // día 0 del mes siguiente = último del actual
-        return { date: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`, time: '11:00' };
+      const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+      const _lastDayOfCurMonth = () => new Date(curYear, curMonth + 1, 0);
+      const salidaStr = String(queryParams.get('fechaSalida') || '').trim();
+      const ingresoStr = String(queryParams.get('fechaIngreso') || '').trim();
+      const _parseYmd = (s) => {
+        if (!/^\d{4}-\d{2}-\d{2}/.test(s || '')) return null;
+        const [y, m, d] = s.slice(0,10).split('-').map(n => parseInt(n, 10));
+        return new Date(y, m - 1, d);
       };
-      if (!salidaStr || !/^\d{4}-\d{2}-\d{2}/.test(salidaStr)) {
-        // Fallback: último día del mes en curso
-        return _lastDayOfCurMonth();
+      const salida = _parseYmd(salidaStr);
+      const ingreso = _parseYmd(ingresoStr);
+      // ─── PRIMARIO: config del template (si cargado y es 'custom') ───
+      let computed = null;
+      let time = '11:00';
+      if (__sb_template && String(__sb_template.schedule_type || '') === 'custom') {
+        const ev = String(__sb_template.schedule_event || 'departure');
+        const base = ev === 'departure' ? salida : ingreso;
+        const off = parseInt(__sb_template.schedule_offset || 0, 10) || 0;
+        const t = String(__sb_template.schedule_time || '11:00').trim();
+        if (base) {
+          const d = new Date(base.getTime());
+          d.setDate(d.getDate() + off);
+          computed = d;
+        }
+        if (/^\d{1,2}:\d{2}$/.test(t)) time = t;
       }
-      const [y, m, d] = salidaStr.slice(0,10).split('-').map(n => parseInt(n, 10));
-      const salida = new Date(y, m - 1, d);
-      // Regla 1: mismo año Y mismo mes → usar fechaSalida
-      if (salida.getFullYear() === curYear && salida.getMonth() === curMonth) {
-        return { date: `${y}-${pad(m)}-${pad(d)}`, time: '11:00' };
+      // ─── FALLBACK si no hay template o no es custom: usar fechaSalida ───
+      if (!computed) {
+        computed = salida || _lastDayOfCurMonth();
       }
-      // Regla 2: mes posterior (o cualquier otro caso) → último día del mes en curso
-      return _lastDayOfCurMonth();
+      // ─── OVERRIDE: si computed cae en mes POSTERIOR al actual, usar último día del mes en curso ───
+      if (computed.getFullYear() > curYear ||
+          (computed.getFullYear() === curYear && computed.getMonth() > curMonth)) {
+        computed = _lastDayOfCurMonth();
+      }
+      return { date: iso(computed), time };
     }
     function __sb_setMode(m) {
       __sb_mode = m;
@@ -1152,6 +1176,15 @@ URL de la factura: ${invoiceUrl}`;
           ta.value = __sb_resolvePlaceholders(target.body || '');
           hint.textContent = `Template: ${target.nombre}`;
           hint.style.color = '#16a34a';
+          // Recalcular fecha con la config real del template (schedule_type,
+          // event, offset, time) — el cálculo inicial no la tenía cargada aún.
+          try {
+            const auto = __sb_autoScheduleDate();
+            const dEl = document.getElementById('sb_date');
+            const tEl = document.getElementById('sb_time');
+            if (dEl) dEl.value = auto.date;
+            if (tEl) tEl.value = auto.time;
+          } catch(_) {}
         } else {
           ta.value = buildWhatsappMessage(); // fallback al default
           hint.textContent = "Template 'Ticket de AUTO-FACTURACIÓN' no encontrado en WA_Templates — usando texto default.";
