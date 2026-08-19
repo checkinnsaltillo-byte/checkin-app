@@ -13579,16 +13579,24 @@ async function lodgifySync(full) {
  *  está viendo las cards. Si la hoja no cambió (insertadas==0 + updated==0),
  *  ni siquiera se recarga. */
 async function lodgifyMaybeAutoSync() {
-  // Sin throttle: cada entrada al módulo de Gestión de reservas dispara
-  // un auto-sync con Lodgify API → sheet. El usuario explícitamente pidió
-  // ver siempre la data más actualizada al entrar. Si necesitas evitar
-  // spam por brincar entre tabs, hay un mínimo de 30s de cortesía.
-  const lastMs = Number(LG_STATE.lastAutoSyncMs || 0);
-  if (lastMs && (Date.now() - lastMs) < 30 * 1000) {
-    console.info('[LG] auto-sync skipped: <30s ago (cortesía anti-spam)');
+  // Throttle 2 horas via localStorage: el auto-sync tarda ~60-90s (jala
+  // desde Lodgify API todo el rango 60/60 días) y bloquea el re-render de
+  // cards. Al usar throttle largo, la mayoría de entradas al módulo son
+  // instant. Si necesita frescura absoluta, hay botón manual "Sincronizar"
+  // en el header del módulo.
+  const THROTTLE_MS = 2 * 60 * 60 * 1000; // 2 horas
+  const KEY = 'lg-last-auto-sync-ms';
+  let lastMs = Number(LG_STATE.lastAutoSyncMs || 0);
+  if (!lastMs) {
+    try { lastMs = Number(localStorage.getItem(KEY) || 0); } catch(_) {}
+  }
+  if (lastMs && (Date.now() - lastMs) < THROTTLE_MS) {
+    const minsAgo = Math.round((Date.now() - lastMs) / 60000);
+    console.info(`[LG] auto-sync skipped: ${minsAgo} min ago (throttle 2h)`);
     return;
   }
   LG_STATE.lastAutoSyncMs = Date.now();
+  try { localStorage.setItem(KEY, String(Date.now())); } catch(_) {}
   const lbl = document.getElementById('lg-status-label');
   const prev = lbl ? lbl.textContent : '';
   try {
