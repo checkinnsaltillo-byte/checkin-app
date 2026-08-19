@@ -37078,14 +37078,29 @@ function _waFindRelatedBookings(currentB) {
     const dep = String(b.DateDeparture || '').slice(0,10);
     return (p && arr) ? `${p}||${d}||${arr}||${dep}` : '';
   };
+  const currentIdStr = String(currentId || '');
   for (const b of related) {
+    const bId = String(waBookingId_(b) || '');
+    const isCurrent = bId === currentIdStr;
     const lgId = lgIdOf(b);
     if (lgId && seenLgIds.has(lgId)) continue;
-    const id = String(waBookingId_(b) || '');
-    if (id && seenIds.has(id)) continue;
+    if (bId && seenIds.has(bId)) continue;
     const triple = tripleOf(b);
     if (triple && seenTriple.has(triple)) continue; // mismo alojamiento + mismas fechas ⇒ misma reserva
-    if (id) seenIds.add(id);
+    // FILTRO ANTI-HUÉRFANO: si la reserva NO es la primaria y no tiene una
+    // propiedad resoluble (label sería "tu alojamiento"), es casi siempre una
+    // fila corrupta/incompleta o un booking deletado en Lodgify pero que
+    // sobrevive en el sheet. La ocultamos para no confundir al operador.
+    if (!isCurrent) {
+      const p = String(b.Propiedad || b.PropertyName || b.HouseName || '').trim();
+      const d = String(b['# Departamento'] || b.RoomTypeName || '').trim();
+      if (!p && !d) continue;
+      // También ocultamos si el status es Deleted/Cancelled (el sync destructivo
+      // marca así los huérfanos de Lodgify).
+      const st = String(b.Status || '').toLowerCase();
+      if (st === 'deleted' || st.includes('cancel')) continue;
+    }
+    if (bId) seenIds.add(bId);
     if (lgId) seenLgIds.add(lgId);
     if (triple) seenTriple.add(triple);
     deduped.push(b);
@@ -37733,7 +37748,16 @@ function _waRenderTemplateItem_(it, auto) {
               : (auto && !isActive
                   ? `<span style="color:#dc2626;font-weight:700">Omitido (${esc(_waFmtWhen(it.schDate))})</span>`
                   : `<span style="color:#94a3b8;font-weight:700">Se envía el ${esc(_waFmtWhen(it.schDate))} (Auto OFF)</span>`)))
-      : `<span style="color:#94a3b8;font-style:italic">Envío al confirmar reserva</span>`);
+      : (() => {
+          // Sin schDate → no hay auto-schedule. Distinguir "No programar" (envío
+          // manual explícito) vs "sin config" (envío al confirmar reserva).
+          const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+          const adminCfg = adminMap[String(tpl.id)];
+          const isNever = adminCfg && String(adminCfg.schedule_type || '') === 'never';
+          return isNever
+            ? `<span style="color:#94a3b8;font-style:italic">Envío manual (No programar)</span>`
+            : `<span style="color:#94a3b8;font-style:italic">Envío al confirmar reserva</span>`;
+        })());
   const expanded = st.expanded === tpl.id;
   const vals = st.templateVals[tpl.id] || {};
   const editedBody = st.editingBody[tpl.id];
@@ -38546,7 +38570,8 @@ function _waAdminScheduledDate(admin, b) {
 /** ¿Aplica este template a esta reserva? Reglas ESTRICTAS:
  *  - Sin config admin → NO aplica (ya no hay hardcoded, si no está en la hoja no existe).
  *  - Config con enabled=false → NO aplica.
- *  - schedule_type='never' → NO aplica (usuario eligió "No programar").
+ *  - schedule_type='never' → SÍ aplica (template disponible para envío MANUAL,
+ *    solo que sin card de auto-schedule — se renderea con "Envío manual").
  *  - alojamientos="" → NO aplica (no asignado a ningún alojamiento).
  *  - alojamientos CSV → aplica SOLO si HouseId de la reserva está en el CSV.
  *  - Sin HouseId resoluble → NO aplica (no sabemos si le corresponde, mejor ocultar).
@@ -38556,7 +38581,6 @@ function _waTemplateAppliesToBooking(tplId, booking) {
   const admin = WA_ADMIN.adminTemplates[String(tplId)];
   if (!admin) return false; // ya no hay hardcoded — si no está en WA_Templates, no existe
   if (!admin.enabled) return false;
-  if (String(admin.schedule_type || '') === 'never') return false; // usuario eligió "No programar"
   const csv = String(admin.alojamientos || '').trim();
   if (!csv) return false; // NO asignado a ningún alojamiento → NO aparece en ninguna reserva
   const list = csv.split(',').map(s => s.trim()).filter(Boolean);
