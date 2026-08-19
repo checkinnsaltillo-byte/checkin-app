@@ -38639,6 +38639,7 @@ async function waEnsureAdminTemplates_() {
             schedule_time: String(t.schedule_time || ''),
             alojamientos: String(t.alojamientos || ''),
             enabled: !!t.enabled,
+            responsivo: !!t.responsivo,
           };
         }
         WA_ADMIN.adminTemplates = map;
@@ -38703,6 +38704,10 @@ function _waTemplateAppliesToBooking(tplId, booking) {
   const admin = WA_ADMIN.adminTemplates[String(tplId)];
   if (!admin) return false; // ya no hay hardcoded — si no está en WA_Templates, no existe
   if (!admin.enabled) return false;
+  // Templates RESPONSIVOS no aparecen automáticamente en la sidebar. Solo se
+  // activan cuando una acción externa (ej. generar ticket) crea la scheduled
+  // entry — ésta aparece luego como card 'custom' vía _waRenderCustomItem_.
+  if (admin.responsivo === true) return false;
   const csv = String(admin.alojamientos || '').trim();
   if (!csv) return false; // NO asignado a ningún alojamiento → NO aparece en ninguna reserva
   const list = csv.split(',').map(s => s.trim()).filter(Boolean);
@@ -39107,10 +39112,17 @@ function cfgRenderEditor() {
     </optgroup>
   `).join('');
   const onEnabled = !!d.enabled;
+  const onResp = !!d.responsivo;
   const statusChip = `
-    <div style="flex:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;gap:10px">
-      <span onclick="${d._id ? `cfgToggleEnabledFromList('${_cfgEsc(d._id)}')` : `cfgUpdateDraft('enabled', !${onEnabled ? 'true' : 'false'})`}" title="${onEnabled ? 'Deshabilitar template' : 'Habilitar template'}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${onEnabled ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${onEnabled ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${onEnabled ? '✓' : ''}</span>
-      <span style="font-size:12px;font-weight:700;color:${onEnabled ? '#166534' : '#64748b'}">${onEnabled ? 'Template habilitado' : 'Template deshabilitado'}</span>
+    <div style="flex:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span onclick="${d._id ? `cfgToggleEnabledFromList('${_cfgEsc(d._id)}')` : `cfgUpdateDraft('enabled', !${onEnabled ? 'true' : 'false'})`}" title="${onEnabled ? 'Deshabilitar template' : 'Habilitar template'}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${onEnabled ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${onEnabled ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${onEnabled ? '✓' : ''}</span>
+        <span style="font-size:12px;font-weight:700;color:${onEnabled ? '#166534' : '#64748b'}">${onEnabled ? 'Template habilitado' : 'Template deshabilitado'}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px" title="Los templates responsivos NO aparecen automáticamente en la sidebar de reservas — solo cuando una acción externa (ej. generar ticket) los activa">
+        <span onclick="cfgUpdateDraft('responsivo', !${onResp ? 'true' : 'false'})" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${onResp ? '#7c3aed' : '#94a3b8'};border-radius:4px;background:${onResp ? '#7c3aed' : '#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${onResp ? '✓' : ''}</span>
+        <span style="font-size:12px;font-weight:700;color:${onResp ? '#5b21b6' : '#64748b'}">⚡ Responsivo (solo por eventos)</span>
+      </div>
     </div>
   `;
   col.innerHTML = `
@@ -39306,6 +39318,7 @@ async function cfgToggleEnabledFromList(id) {
         schedule_time: t.schedule_time,
         alojamientos: t.alojamientos,
         enabled: nueva,
+        responsivo: !!t.responsivo,
       }),
     });
     const j = await res.json();
@@ -39415,6 +39428,7 @@ async function cfgSaveDraft() {
         schedule_time: d.schedule_time,
         alojamientos: d.alojamientos,
         enabled: !!d.enabled,
+        responsivo: !!d.responsivo,
       }),
     });
     const j = await res.json();
