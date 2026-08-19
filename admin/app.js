@@ -37502,6 +37502,16 @@ function _waRenderBookingsAccordion_(logs) {
   } catch(_) {
     bookings = st.bookings || [st.b];
   }
+  // Auto-reparación: si focusedBookingId no matchea ninguna booking visible,
+  // resetearlo a la primaria (st.bookingId). Sin esto el estado queda "stale"
+  // y el primer click de un header lo interpreta mal como toggle-collapse.
+  const focusMatchesVisible = st.focusedBookingId &&
+    bookings.some(b => String(waBookingId_(b)) === String(st.focusedBookingId));
+  if (!focusMatchesVisible) {
+    const primaryMatches = st.bookingId &&
+      bookings.some(b => String(waBookingId_(b)) === String(st.bookingId));
+    st.focusedBookingId = primaryMatches ? st.bookingId : waBookingId_(bookings[0] || {});
+  }
   const items = [];
   for (const bk of bookings) {
     const id = waBookingId_(bk);
@@ -37549,7 +37559,13 @@ window.waSwitchBooking_ = async function(bookingId) {
   const bk = (st.bookings || []).find(b => String(waBookingId_(b)) === String(bookingId));
   if (!bk) return;
   const idStr = String(bookingId);
-  const wasFocused = String(st.focusedBookingId) === idStr;
+  // Si focusedBookingId apunta a una card que YA NO existe (filtrada por dedupe
+  // o cambio de bookings), lo tratamos como "nada abierto" — así el primer
+  // click siempre expande la card clickeada, no la considera un toggle desde
+  // un estado stale invisible.
+  const currentlyFocusedIsValid = st.focusedBookingId &&
+    (st.bookings || []).some(b => String(waBookingId_(b)) === String(st.focusedBookingId));
+  const wasFocused = currentlyFocusedIsValid && String(st.focusedBookingId) === idStr;
   if (wasFocused) {
     // Estaba expandido → colapsar sin recargar nada
     st.focusedBookingId = '';
