@@ -37782,7 +37782,7 @@ function _waRenderTemplateItem_(it, auto) {
         </div>
         <div style="flex:1;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;overflow:hidden">
         <div style="padding:12px 14px">
-          <div style="font-size:13px;font-weight:800;color:#0f172a;letter-spacing:.02em">${esc(label)} <span style="font-size:9px;color:#166534;background:#dcfce7;padding:1px 6px;border-radius:999px;margin-left:4px">PREDETERMINADO</span></div>
+          <div style="font-size:13px;font-weight:800;color:#0f172a;letter-spacing:.02em">${esc(label)}</div>
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
             <button onclick="waToggleTplExpand_('${tpl.id}')" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">${expanded?'▲ Ocultar':'▼ Ver detalles'}</button>
             <button onclick="waSendTplNow_('${tpl.id}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">${isSent ? '🔄 Re-enviar ahora' : '📤 Enviar ahora'}</button>
@@ -38543,29 +38543,23 @@ function _waAdminScheduledDate(admin, b) {
   return null;
 }
 
-/** ¿Aplica este template a esta reserva? Reglas:
- *  - Sin config admin → aplica (backwards compat).
+/** ¿Aplica este template a esta reserva? Reglas ESTRICTAS:
+ *  - Sin config admin → NO aplica (ya no hay hardcoded, si no está en la hoja no existe).
  *  - Config con enabled=false → NO aplica.
- *  - alojamientos="" → aplica a todos.
- *  - alojamientos CSV → aplica solo si HouseId de la reserva está en el CSV.
+ *  - schedule_type='never' → NO aplica (usuario eligió "No programar").
+ *  - alojamientos="" → NO aplica (no asignado a ningún alojamiento).
+ *  - alojamientos CSV → aplica SOLO si HouseId de la reserva está en el CSV.
+ *  - Sin HouseId resoluble → NO aplica (no sabemos si le corresponde, mejor ocultar).
  */
 function _waTemplateAppliesToBooking(tplId, booking) {
-  // Si adminTemplates aún no está cargado, no mostramos — evita el flash de
-  // templates que en realidad no aplican al alojamiento. Cuando cargue,
-  // _waRepaint() vuelve a evaluar y las cards correctas aparecen.
   if (!WA_ADMIN.adminTemplates) return false;
   const admin = WA_ADMIN.adminTemplates[String(tplId)];
-  if (!admin) return true; // template sin config admin en la hoja = aplica siempre (backcompat)
+  if (!admin) return false; // ya no hay hardcoded — si no está en WA_Templates, no existe
   if (!admin.enabled) return false;
+  if (String(admin.schedule_type || '') === 'never') return false; // usuario eligió "No programar"
   const csv = String(admin.alojamientos || '').trim();
-  if (!csv) return true;
+  if (!csv) return false; // NO asignado a ningún alojamiento → NO aparece en ninguna reserva
   const list = csv.split(',').map(s => s.trim()).filter(Boolean);
-  // Recolectamos todos los candidatos posibles para el HouseId de la reserva:
-  // (a) campos directos del booking, (b) el HouseId resuelto vía catálogo
-  // alojamientos por Propiedad+Departamento (waFindAlojRow_). Cubrimos payloads
-  // provenientes tanto de la vista Lodgify (b.HouseId) como de Huéspedes
-  // (HouseId puede venir del "ID Lodgify" de la hoja huespedes, que a veces es
-  // el booking-id y no el house-id).
   const candidatos = new Set();
   if (booking) {
     ['HouseId','house_id','PropertyId','property_id','_houseId'].forEach(k => {
@@ -38577,7 +38571,7 @@ function _waTemplateAppliesToBooking(tplId, booking) {
     const row = (typeof waFindAlojRow_ === 'function') ? waFindAlojRow_(booking) : null;
     if (row && row.HouseId) candidatos.add(String(row.HouseId).trim());
   } catch(_){}
-  if (!candidatos.size) return true; // sin HouseId resoluble → conservador
+  if (!candidatos.size) return false; // no sabemos HouseId → mejor ocultar
   for (const cand of candidatos) if (list.indexOf(cand) >= 0) return true;
   return false;
 }
