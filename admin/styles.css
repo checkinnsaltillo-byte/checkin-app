@@ -6485,3 +6485,5 @@ input.bn-efe-chk[type="checkbox"], input.bn-up-chk[type="checkbox"]:checked::aft
 /* Asistencias reutiliza .ocup-cal pero muestra la columna "Personal" al 100% */
 [data-asist-cal="continuous"] .ocup-aloj-cell,
 [data-asist-cal="continuous"] .ocup-head-aloj { opacity: 1; }
+
+@keyframes waSpin { to { transform: rotate(360deg); } }

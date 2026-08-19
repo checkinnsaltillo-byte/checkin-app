@@ -37545,13 +37545,16 @@ function _waRenderBookingsAccordion_(logs) {
     const arr = String(bk.DateArrival || bk.arrival || '').slice(0,10);
     const dep = String(bk.DateDeparture || bk.departure || '').slice(0,10);
     const fechas = arr && dep ? `${_waFmtShortDate(arr)} → ${_waFmtShortDate(dep)}` : (arr || dep || '');
+    const isLoading = String(st.loadingBookingId || '') === String(id);
+    const anyLoading = !!st.loadingBookingId;
     const header = `
-      <button onclick="waSwitchBooking_('${esc(String(id))}')" style="width:100%;padding:10px 14px;background:${isOpen?'#f8fafc':'#fff'};border:1px solid #e2e8f0;border-radius:${isOpen?'10px 10px 0 0':'10px'};cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:inherit">
+      <button ${anyLoading ? 'disabled' : ''} onclick="waSwitchBooking_('${esc(String(id))}')" style="width:100%;padding:10px 14px;background:${isOpen?'#f8fafc':'#fff'};border:1px solid #e2e8f0;border-radius:${isOpen?'10px 10px 0 0':'10px'};cursor:${anyLoading?'wait':'pointer'};opacity:${anyLoading && !isLoading ? '.55' : '1'};text-align:left;display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:inherit">
         <div style="min-width:0;flex:1">
           <div style="display:flex;align-items:center;gap:6px">
-            <span style="font-size:10px;color:#94a3b8;font-weight:700">${isOpen?'▼':'▶'}</span>
+            <span style="font-size:10px;color:#94a3b8;font-weight:700">${isLoading ? '⏳' : (isOpen?'▼':'▶')}</span>
             <span style="font-size:13px;font-weight:800;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(propLabel)}</span>
             <span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;color:${status.color};background:${status.bg};padding:2px 8px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">${status.anim ? `<span style="width:6px;height:6px;border-radius:50%;background:${status.color};${status.anim}"></span>` : ''}${status.label}</span>
+            ${isLoading ? '<span style="font-size:10px;font-weight:700;color:#2563eb;font-style:italic">cargando…</span>' : ''}
           </div>
           ${fechas ? `<div style="font-size:11px;color:#64748b;margin-top:2px;padding-left:16px">${esc(fechas)}</div>` : ''}
         </div>
@@ -37559,10 +37562,16 @@ function _waRenderBookingsAccordion_(logs) {
     `;
     let content = '';
     if (isOpen) {
-      // Solo cargamos las funciones existentes para la reserva focused (usan st.b)
-      content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
-        ${_waRenderUnifiedList_(logs)}
-      </div>`;
+      if (isLoading) {
+        content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:24px 8px;margin-bottom:10px;background:#fff;text-align:center;color:#64748b;font-size:12px;font-style:italic">
+          <span style="display:inline-block;width:14px;height:14px;border:2px solid #cbd5e1;border-top-color:#2563eb;border-radius:50%;animation:waSpin 0.8s linear infinite;vertical-align:middle;margin-right:8px"></span>
+          Cargando mensajes de esta reserva…
+        </div>`;
+      } else {
+        content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
+          ${_waRenderUnifiedList_(logs)}
+        </div>`;
+      }
     }
     items.push(header + content);
   }
@@ -37580,13 +37589,11 @@ function _waFmtShortDate(iso) {
 /** Cambia el acordeón activo — recarga scheduled + config de esa reserva. */
 window.waSwitchBooking_ = async function(bookingId) {
   const st = window.__waModalState; if (!st) return;
+  // Si ya hay una carga en curso, ignorar el click (evita solapes / doble fetch).
+  if (st.loadingBookingId) return;
   const bk = (st.bookings || []).find(b => String(waBookingId_(b)) === String(bookingId));
   if (!bk) return;
   const idStr = String(bookingId);
-  // Si focusedBookingId apunta a una card que YA NO existe (filtrada por dedupe
-  // o cambio de bookings), lo tratamos como "nada abierto" — así el primer
-  // click siempre expande la card clickeada, no la considera un toggle desde
-  // un estado stale invisible.
   const currentlyFocusedIsValid = st.focusedBookingId &&
     (st.bookings || []).some(b => String(waBookingId_(b)) === String(st.focusedBookingId));
   const wasFocused = currentlyFocusedIsValid && String(st.focusedBookingId) === idStr;
@@ -37598,9 +37605,7 @@ window.waSwitchBooking_ = async function(bookingId) {
   }
   // Expandir esta reserva
   st.focusedBookingId = idStr;
-  // Si es la misma reserva que ya teníamos cargada (b.Id === bookingId),
-  // no recargamos datos — solo repaint. Esto evita el bug donde re-abrir la
-  // misma reserva perdía scheduled/recipients por reset del state.
+  // Si es la misma reserva que ya teníamos cargada — no hay fetch, solo repaint.
   if (String(st.bookingId) === idStr) { _waRepaint(); return; }
   // Reserva distinta → reset context y recargar
   st.b = bk;
@@ -37620,8 +37625,10 @@ window.waSwitchBooking_ = async function(bookingId) {
   st.editingBody = {};
   st.scheduledItems = [];
   st.newSch = { mode:'scheduled', date:_waDateLocalIso(new Date()), time:'10:00', body:'', subject:'Estacionamiento', subjectCustom:'', open:false };
+  // Marcar loading y repintar YA para mostrar "⏳ cargando…" en el header
+  st.loadingBookingId = idStr;
+  _waRepaint();
   waFetchConfigForIds([String(bookingId)]);
-  // Cargar scheduled + refill templates + repaint
   try {
     const r = await fetch('https://api.check-inn.mx/wa/scheduled-list', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -37633,6 +37640,8 @@ window.waSwitchBooking_ = async function(bookingId) {
   } catch(_){}
   waEnsureAlojIndex_().then(() => { _waFillTemplateDefaults(); _waRepaint(); });
   _waFillTemplateDefaults();
+  // Terminar loading y repintar con datos reales
+  st.loadingBookingId = '';
   _waRepaint();
 };
 
