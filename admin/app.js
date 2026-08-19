@@ -37165,16 +37165,14 @@ function _waFindRelatedBookings(currentB) {
     if (triple && seenTriple.has(triple)) continue; // mismo alojamiento + mismas fechas ⇒ misma reserva
     // FILTRO ANTI-HUÉRFANO: si la reserva NO es la primaria y no tiene una
     // propiedad resoluble (label sería "tu alojamiento"), es casi siempre una
-    // fila corrupta/incompleta o un booking deletado en Lodgify pero que
-    // sobrevive en el sheet. La ocultamos para no confundir al operador.
+    // fila corrupta/incompleta. La ocultamos para no confundir al operador.
+    // NO filtramos por Status=Deleted/Cancelled — reservas eliminadas o
+    // canceladas con tickets emitidos siguen siendo legítimas y el usuario
+    // las quiere ver en el sidebar para consultar mensajes históricos.
     if (!isCurrent) {
       const p = String(b.Propiedad || b.PropertyName || b.HouseName || '').trim();
       const d = String(b['# Departamento'] || b.RoomTypeName || '').trim();
       if (!p && !d) continue;
-      // También ocultamos si el status es Deleted/Cancelled (el sync destructivo
-      // marca así los huérfanos de Lodgify).
-      const st = String(b.Status || '').toLowerCase();
-      if (st === 'deleted' || st.includes('cancel')) continue;
     }
     if (bId) seenIds.add(bId);
     if (lgId) seenLgIds.add(lgId);
