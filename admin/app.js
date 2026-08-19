@@ -39359,7 +39359,7 @@ function cfgUpdateDraft(field, value) {
   CFG_ADMIN.draft[field] = value;
   CFG_ADMIN.dirty = true;
   if (field === 'schedule_type' || field === 'schedule_time' || field === 'schedule_event' || field === 'schedule_offset') cfgRenderRight();
-  if (field === 'enabled') cfgRenderEditor();
+  if (field === 'enabled' || field === 'responsivo') cfgRenderEditor();
   if (field === 'nombre' || field === 'enabled' || field === 'schedule_type' || field === 'schedule_event' || field === 'schedule_offset' || field === 'schedule_time') cfgRenderList();
   // Actualizar botón Guardar cambios en cada edición (idempotente).
   _cfgUpdateSaveButton();
@@ -39413,6 +39413,7 @@ async function cfgSaveDraft() {
     alert('El nombre es requerido');
     return;
   }
+  if (typeof showLoading === 'function') showLoading('Guardando template…', 'Sincronizando con Google Sheets');
   try {
     const res = await fetch(`https://api.check-inn.mx/wa/templates-upsert`, {
       method: 'POST',
@@ -39443,6 +39444,8 @@ async function cfgSaveDraft() {
     if (t) cfgSelectTemplate(t.id); else cfgAdminRender();
   } catch (e) {
     alert('Error al guardar: ' + e.message);
+  } finally {
+    if (typeof hideLoading === 'function') hideLoading();
   }
 }
 
