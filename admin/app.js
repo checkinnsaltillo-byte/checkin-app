@@ -12398,6 +12398,21 @@ window.huespedesReemitirTicket = async function(recordId) {
 };
 
 /** Abre el modal de Facturapi con el iframe apuntando a la URL dada. */
+// Listener global para postMessage del iframe Facturapi. Cuando el popup
+// "Enviar correo y WhatsApp" envía el WA, avisa aquí para que el auto-schedule
+// (que corre al cerrar el iframe) NO cree un segundo envío duplicado.
+if (!window.__waManualSentListenerInstalled) {
+  window.__waManualSentListenerInstalled = true;
+  window.__waManualSentUrls = window.__waManualSentUrls || new Set();
+  window.addEventListener('message', function(ev) {
+    const d = ev && ev.data;
+    if (d && d.type === 'wa-manual-sent' && d.ticketUrl) {
+      window.__waManualSentUrls.add(String(d.ticketUrl));
+      console.info('[HU-ticket] marcada como enviada manual:', d.ticketUrl);
+    }
+  });
+}
+
 function huespedesOpenFacturapi(url) {
   // Snapshot de URLs de tickets ANTES de abrir Facturapi. Al cerrarse, el
   // hook comparará y disparará auto-schedule del WA para cada URL nueva.
@@ -12452,7 +12467,15 @@ function huespedesCloseFacturapi() {
           }
           console.info('[HU-ticket] cambios:', changed.length);
           window.__huTicketUrlSnapshot = null; // consumido
+          // Skip URLs que ya fueron enviadas manualmente vía el popup del
+          // iframe Facturapi (postMessage 'wa-manual-sent'). Evita el doble
+          // envío: uno del popup + otro del auto-schedule.
+          window.__waManualSentUrls = window.__waManualSentUrls || new Set();
           for (const c of changed) {
+            if (window.__waManualSentUrls.has(c.newUrl)) {
+              console.info('[HU-ticket] skip auto-schedule para URL ya enviada manual:', c.newUrl);
+              continue;
+            }
             if (typeof window._huAutoScheduleTicketWa === 'function') {
               await window._huAutoScheduleTicketWa(c.row, c.newUrl);
             } else if (typeof window.huScheduleTicketWaNow === 'function') {
