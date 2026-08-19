@@ -1172,10 +1172,12 @@ URL de la factura: ${invoiceUrl}`;
       // Reset UI
       __sb_setMode('instant');
       __sb_setStatus('', 'info');
-      // Default date/time = hoy + 1h
-      const now = new Date();
-      const pad = n => String(n).padStart(2,'0');
-      document.getElementById('sb_date').value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+      // Fecha/hora default = calculadas según reglas (fechaSalida si mismo mes,
+      // último día del mes en curso si mes posterior o sin fechaSalida). Así
+      // aunque el user cambie a Programado más tarde, ya está poblado correcto.
+      const auto = __sb_autoScheduleDate();
+      document.getElementById('sb_date').value = auto.date;
+      document.getElementById('sb_time').value = auto.time;
       // Cargar template
       document.getElementById('sb_body').value = 'Cargando…';
       document.getElementById('sb_tpl_hint').textContent = 'Cargando template…';
