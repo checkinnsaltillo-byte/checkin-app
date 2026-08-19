@@ -37009,6 +37009,7 @@ function _waFindRelatedBookings(currentB) {
   const currentId = waBookingId_(currentB);
   const related = [];
   const lgIdsSeen = new Set();
+  const lgPhonesSeen = new Set(); // teléfonos ya cubiertos por bookings LG
   // 1) Bookings Lodgify que matcheen el teléfono.
   if (currentPhone && lgBookings.length) {
     for (const b of lgBookings) {
@@ -37017,16 +37018,22 @@ function _waFindRelatedBookings(currentB) {
       related.push(b);
       const lgId = String(b.Id || '').trim();
       if (lgId) lgIdsSeen.add(lgId);
+      if (tel) lgPhonesSeen.add(tel);
     }
   }
-  // 2) Reservaciones MANUALES (hoja huespedes) del mismo teléfono — que NO
-  //    tengan Lodgify Id ya presente en el set anterior (evita duplicar la
-  //    misma reserva). Requiere huRowToSyntheticBooking global.
+  // 2) Reservaciones MANUALES (hoja huespedes) del mismo teléfono. Reglas:
+  //    - Skip si Lodgify Id ya está cubierto por paso 1 (misma reserva).
+  //    - Skip si el teléfono ya está cubierto por LG (la HU row es la misma
+  //      reserva pero con datos posiblemente desincronizados — Lodgify es
+  //      fuente de verdad). Evita el bug de "2 reservas fantasma" cuando
+  //      la row de Reservaciones tiene fechas distintas a Lodgify.
+  //    - Solo incluir HU rows realmente MANUALES (sin representación en LG).
   if (currentPhone && huRows.length && typeof huRowToSyntheticBooking === 'function') {
     // Loop debajo
     for (const r of huRows) {
       const tel = String(r['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
       if (tel !== currentPhone) continue;
+      if (tel && lgPhonesSeen.has(tel)) continue; // ya cubierto por LG (fuente de verdad)
       const lgId = String(r['Lodgify Id'] || '').trim();
       if (lgId && lgIdsSeen.has(lgId)) continue; // ya cubierta por LG
       // Fechas requeridas para poder mostrar estado; si faltan, skip.
