@@ -36968,12 +36968,42 @@ function _waResolveNamedPlaceholders_(tplBody, b) {
     regimen_fiscal: String(b.hu_RegimenFiscal || b.regimen_fiscal || ''),
     cp_fiscal: String(b.hu_CPFiscal || b.cp_fiscal || ''),
     // URL del ticket auto-facturación — proviene de la col "Ticket facturapi url"
-    // en la hoja Reservaciones. Se propaga al booking sintético con varias claves
-    // posibles según el path (Cards Lodgify / huesped row directo).
-    ticket_facturapi_url: String(
-      b['Ticket facturapi url'] || b['ticket facturapi url'] || b['Ticket Facturapi Url'] ||
-      b.hu_TicketFacturapiUrl || b.ticket_facturapi_url || b.ticket_url || ''
-    ),
+    // en la hoja Reservaciones. Cuando b viene de Lodgify (LG_STATE.bookings)
+    // NO trae este campo — lo buscamos en HU_STATE.rows por Lodgify Id, ID
+    // directo o teléfono+fechas overlap.
+    ticket_facturapi_url: (() => {
+      // 1) Del booking directamente (HU synth o rows huespedes ya inflados)
+      const direct = b['Ticket facturapi url'] || b['ticket facturapi url'] || b['Ticket Facturapi Url']
+                  || b.hu_TicketFacturapiUrl || b.ticket_facturapi_url || b.ticket_url;
+      if (direct) return String(direct);
+      // 2) Buscar la row de HU_STATE.rows correspondiente a este booking
+      try {
+        const huRows = (typeof HU_STATE !== 'undefined' && Array.isArray(HU_STATE.rows)) ? HU_STATE.rows : [];
+        if (!huRows.length) return '';
+        const bLgId = String(b.Id || b.LodgifyId || '').trim();
+        const bId = String(b.ID || b.__reservacion?.ID || '').trim();
+        const bPhone = String(b.GuestPhone || b['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
+        const bArr = String(b.DateArrival || b.arrival || '').slice(0,10);
+        const bDep = String(b.DateDeparture || b.departure || '').slice(0,10);
+        // Match preferente: Lodgify Id → ID → teléfono+fechas
+        let match = huRows.find(r => {
+          const rLgId = String(r['Lodgify Id'] || '').trim();
+          return rLgId && bLgId && rLgId === bLgId;
+        });
+        if (!match) match = huRows.find(r => {
+          const rId = String(r['ID'] || r['row_number'] || '').trim();
+          return rId && bId && rId === bId;
+        });
+        if (!match && bPhone && bArr) match = huRows.find(r => {
+          const rPh = String(r['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
+          const rArr = String(r['Fecha de ingreso'] || '').slice(0,10);
+          const rDep = String(r['Fecha de salida'] || '').slice(0,10);
+          return rPh === bPhone && rArr === bArr && (!bDep || rDep === bDep);
+        });
+        if (match) return String(match['Ticket facturapi url'] || match['ticket facturapi url'] || '');
+      } catch(_) {}
+      return '';
+    })(),
     // Vehículo
     vehiculo_marca: String(b.hu_VehiculoMarca || b.vehiculo_marca || ''),
     vehiculo_modelo: String(b.hu_VehiculoModelo || b.vehiculo_modelo || ''),
