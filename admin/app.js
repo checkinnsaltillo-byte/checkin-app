@@ -12254,6 +12254,27 @@ function huBuildFacturapiUrlFromRow(row, baseUrl, cantidadOverride) {
   }
   p.set('checkinWebAppUrl', HU_CHECKIN_WEBAPP_URL);
   p.set('org', huGetFacturapiOrg());
+  // Fechas + propiedad de la reserva (para el popup "Enviar correo y WA" que
+  // programa el envío basándose en la salida). Normalizamos a YYYY-MM-DD.
+  const _dateIso = (v) => {
+    const s = String(v || '').trim();
+    if (!s) return '';
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+    // Fallback: intentar parsear (MM/DD/YYYY o similar)
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+    return '';
+  };
+  const fechaSalida = _dateIso(huValueFlexible(row, ['Fecha de salida','fecha_salida','DateDeparture']));
+  const fechaIngreso = _dateIso(huValueFlexible(row, ['Fecha de ingreso','fecha_ingreso','DateArrival']));
+  const propiedad = String(huValueFlexible(row, ['Propiedad','propiedad']) || '').trim();
+  const depto = String(huValueFlexible(row, ['# Departamento','depto','departamento']) || '').trim();
+  const nombre = String(huValueFlexible(row, ['Nombre','nombre','GuestName']) || '').trim();
+  if (fechaSalida) p.set('fechaSalida', fechaSalida);
+  if (fechaIngreso) p.set('fechaIngreso', fechaIngreso);
+  if (propiedad) p.set('propiedad', propiedad);
+  if (depto) p.set('depto', depto);
+  if (nombre) p.set('nombre', nombre);
   return `${baseUrl}?${p.toString()}`;
 }
 
