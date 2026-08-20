@@ -14494,12 +14494,15 @@ function lgSourceChipMini(src) {
  *  - Centro: thumb, nombre, fechas, status badge, monto
  *  - Bottom: cajas Noches globales y Tier del huésped (si hay match)
  *  - Fondo: color del estado de programación (tenue). */
-function lgBuildDetailSidebarItem(b, selectedId) {
+function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
   const isSel = String(b.Id) === String(selectedId);
   const statusUi = rdMapStatus(b);
   const ing = rdFmtFechaCortaNoYear(b.DateArrival);
   const sal = rdFmtFechaCortaNoYear(b.DateDeparture);
-  const huesped = lgGetHuespedForBooking(b);
+  // huespedOverride permite inyectar un huésped sintético (ej. bot-chats
+  // arma uno mínimo con solo el phone para resolver KPIs desde el cache
+  // pre-computado cuando la persona no está en Reservaciones).
+  const huesped = huespedOverride || lgGetHuespedForBooking(b);
   // hasMatch = registro manual REAL (huésped llenó formulario), no sólo una
   // fila básica importada de Lodgify.
   const hasMatch = huHasManualRegistration(huesped);
@@ -40222,8 +40225,13 @@ function _botcRenderSidebar() {
     let rich = '';
     if (bk && typeof lgBuildDetailSidebarItem === 'function') {
       try {
-        rich = lgBuildDetailSidebarItem(bk, null);
-        // Wrap rich con click a botcOpenChat en vez de lgDetailSelect
+        // Buscar huésped real en HU_STATE por phone; si no existe, armar
+        // sintético mínimo con solo el phone (para que huComputeGuestStats
+        // resuelva KPIs pre-computados desde __perfilKpisByPhone).
+        let huesped = null;
+        try { if (typeof lgGetHuespedForBooking === 'function') huesped = lgGetHuespedForBooking(bk); } catch(_){}
+        if (!huesped) huesped = { 'Cel/Whatsapp (principal)': c.phone, 'Nombre': c.name || bk.GuestName || '' };
+        rich = lgBuildDetailSidebarItem(bk, null, huesped);
         rich = `<div onclick="event.stopPropagation();botcOpenChat('${_botcEsc(c.phone)}')" style="cursor:pointer">${rich}</div>`;
       } catch(e) { rich = ''; }
     }
