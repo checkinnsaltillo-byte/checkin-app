@@ -40155,6 +40155,54 @@ window.botcRefresh = async function(opts) {
   }
 };
 
+// Cache de bookings por phone10 (enrichment del sidebar bot-chats).
+window.__botcBookingByPhone = window.__botcBookingByPhone || {};
+
+/** Encuentra el booking más relevante para un phone: prioridad
+ *  activa > próxima > última histórica. Usa LG_STATE.bookings si tiene,
+ *  sino fetchea por phone (huFetchBookingsByGuest_) y cachea. */
+async function _botcGetBookingForPhone(phone10) {
+  if (window.__botcBookingByPhone[phone10] !== undefined) {
+    return window.__botcBookingByPhone[phone10];
+  }
+  // 1) Intentar desde LG_STATE.bookings (rápido, ya cargado)
+  const lgBookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+  const matches = lgBookings.filter(b => {
+    const tel = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
+    return tel === phone10;
+  });
+  if (matches.length) {
+    const picked = _botcPickBestBooking(matches);
+    window.__botcBookingByPhone[phone10] = picked;
+    return picked;
+  }
+  // 2) Fetch on-demand por phone
+  try {
+    const list = await huFetchBookingsByGuest_(phone10);
+    if (list && list.length) {
+      const picked = _botcPickBestBooking(list);
+      window.__botcBookingByPhone[phone10] = picked;
+      return picked;
+    }
+  } catch(_) {}
+  window.__botcBookingByPhone[phone10] = null;
+  return null;
+}
+function _botcPickBestBooking(list) {
+  const today = new Date().toISOString().slice(0,10);
+  const active = list.find(b => {
+    const a = String(b.DateArrival||'').slice(0,10), d = String(b.DateDeparture||'').slice(0,10);
+    return a && d && a <= today && today <= d;
+  });
+  if (active) return active;
+  const futura = list.filter(b => String(b.DateArrival||'').slice(0,10) >= today)
+    .sort((a,b) => String(a.DateArrival).localeCompare(String(b.DateArrival)))[0];
+  if (futura) return futura;
+  // Más reciente pasada
+  const past = list.slice().sort((a,b) => String(b.DateDeparture).localeCompare(String(a.DateDeparture)))[0];
+  return past || list[0];
+}
+
 function _botcRenderSidebar() {
   const sidebar = document.getElementById('botc-sidebar');
   if (!sidebar) return;
@@ -40165,28 +40213,66 @@ function _botcRenderSidebar() {
   const items = BOTC_STATE.conversations.map(c => {
     const selected = String(c.phone) === String(BOTC_STATE.selectedPhone);
     const isHuman = String(c.control) === 'human';
-    const bg = selected ? '#eff6ff' : '#fff';
-    const border = selected ? '#3b82f6' : 'transparent';
-    const chip = isHuman
-      ? '<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em">👤 HUMANO</span>'
-      : '<span style="font-size:9px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em">🤖 BOT</span>';
-    // Nombre del perfil (bold) arriba del teléfono. Si no hay, solo phone.
-    const name = String(c.name || '').trim();
-    const nameLine = name
-      ? `<div style="font-size:13px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(c.phone)}</div>`
-      : `<div style="font-size:13px;font-weight:800;color:#0f172a">+${_botcEsc(c.phone)}</div>`;
-    return `
-      <div onclick="botcOpenChat('${_botcEsc(c.phone)}')" style="padding:12px 14px;border-bottom:1px solid #e2e8f0;cursor:pointer;background:${bg};border-left:3px solid ${border}">
+    const controlChip = isHuman
+      ? '<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">👤 HUMANO</span>'
+      : '<span style="font-size:9px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">🤖 BOT</span>';
+    // Si tenemos booking cacheado, renderizar la card enriquecida con
+    // lgBuildDetailSidebarItem (mismo look que Gestión de reservas).
+    const bk = window.__botcBookingByPhone[c.phone];
+    let rich = '';
+    if (bk && typeof lgBuildDetailSidebarItem === 'function') {
+      try {
+        rich = lgBuildDetailSidebarItem(bk, null);
+        // Wrap rich con click a botcOpenChat en vez de lgDetailSelect
+        rich = `<div onclick="event.stopPropagation();botcOpenChat('${_botcEsc(c.phone)}')" style="cursor:pointer">${rich}</div>`;
+      } catch(e) { rich = ''; }
+    }
+    // Header ligero: preview msg + control chip + nombre/tel (si no hay rich)
+    const name = String(c.name || (bk && bk.GuestName) || '').trim();
+    const lite = rich ? '' : `
+      <div style="padding:12px 14px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
-          <div style="min-width:0;flex:1">${nameLine}</div>
-          ${chip}
+          <div style="min-width:0;flex:1">
+            ${name ? `<div style="font-size:13px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(c.phone)}</div>` : `<div style="font-size:13px;font-weight:800;color:#0f172a">+${_botcEsc(c.phone)}</div>`}
+          </div>
+          ${controlChip}
         </div>
-        <div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px">${_botcEsc(c.last_msg_preview)}</div>
-        <div style="font-size:10px;color:#94a3b8;margin-top:3px">${_botcFmtTime(c.last_msg_at)}</div>
-      </div>
-    `;
+      </div>`;
+    // Ribbon inferior fijo con preview msg + chip control + timestamp
+    const chatMeta = `
+      <div style="padding:6px 14px 10px;background:${selected?'#eff6ff':'transparent'};border-top:1px dashed #e2e8f0">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+          ${controlChip}
+          <span style="font-size:10px;color:#94a3b8">💬 ${_botcFmtTime(c.last_msg_at)}</span>
+        </div>
+        <div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px">${_botcEsc(c.last_msg_preview)}</div>
+      </div>`;
+    const wrap = `<div style="border-bottom:1px solid #e2e8f0;background:${selected?'#eff6ff':'#fff'};border-left:3px solid ${selected?'#3b82f6':'transparent'}" data-botc-phone="${_botcEsc(c.phone)}">${rich || lite}${chatMeta}</div>`;
+    return wrap;
   }).join('');
   sidebar.innerHTML = items;
+  // Enrichment async: para conversations sin booking cacheado, buscar
+  // y luego re-render solo la sidebar (no todo el módulo).
+  _botcEnrichPendingBookings();
+}
+
+async function _botcEnrichPendingBookings() {
+  const pending = (BOTC_STATE.conversations || []).filter(c =>
+    window.__botcBookingByPhone[c.phone] === undefined
+  );
+  if (!pending.length) return;
+  // Throttle a 3 concurrentes para no saturar backend
+  const CONC = 3;
+  let idx = 0;
+  const workers = Array.from({ length: CONC }, async () => {
+    while (idx < pending.length) {
+      const c = pending[idx++];
+      try { await _botcGetBookingForPhone(c.phone); } catch(_){}
+    }
+  });
+  await Promise.all(workers);
+  // Re-render final con los bookings cacheados
+  _botcRenderSidebar();
 }
 
 window.botcOpenChat = async function(phone, opts) {
