@@ -40277,7 +40277,8 @@ window.botcSendManual = async function() {
   }
 };
 
-/** Modal simple para gestionar alojamientos habilitados en piloto. */
+/** Modal multi-select para habilitar/deshabilitar alojamientos del bot.
+ *  Escribe en la columna bot_enabled de la hoja alojamientos al guardar. */
 window.botcOpenAlojConfig = async function() {
   const existing = document.getElementById('botc-aloj-modal');
   if (existing) existing.remove();
@@ -40285,24 +40286,113 @@ window.botcOpenAlojConfig = async function() {
   modal.id = 'botc-aloj-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
   modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
-  modal.innerHTML = '<div style="background:#fff;border-radius:14px;padding:20px 22px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:16px;font-weight:800;color:#0f172a">⚡ Alojamientos en piloto del bot</div><button onclick="document.getElementById(\'botc-aloj-modal\').remove()" style="background:none;border:0;font-size:22px;cursor:pointer;color:#64748b">×</button></div><div id="botc-aloj-list" style="font-size:12px;color:#64748b">⏳ Cargando…</div><div style="margin-top:14px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;line-height:1.5">Para cambiar qué alojamientos están habilitados, edita la columna <b>bot_enabled</b> en la hoja <b>alojamientos</b> de Google Sheets (TRUE = activo, vacío = desactivado). Los cambios se reflejan aquí tras ~5 min (por cache).</div></div>';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:14px;padding:20px 22px;max-width:640px;width:100%;max-height:88vh;display:flex;flex-direction:column">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-shrink:0">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#0f172a">⚡ Alojamientos habilitados</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">Marca los alojamientos donde el bot responde automáticamente</div>
+        </div>
+        <button onclick="document.getElementById('botc-aloj-modal').remove()" style="background:none;border:0;font-size:22px;cursor:pointer;color:#64748b">×</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-shrink:0">
+        <input type="search" id="botc-aloj-search" placeholder="🔍 Buscar propiedad o depto…" oninput="_botcAlojFilter(this.value)" style="flex:1;padding:7px 11px;font-size:13px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box">
+        <button type="button" onclick="_botcAlojToggleAll(true)" style="padding:6px 12px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">Todos</button>
+        <button type="button" onclick="_botcAlojToggleAll(false)" style="padding:6px 12px;font-size:11px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">Ninguno</button>
+      </div>
+      <div id="botc-aloj-list" style="flex:1;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;padding:6px">
+        <div style="text-align:center;color:#94a3b8;font-size:12px;padding:20px">⏳ Cargando…</div>
+      </div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-shrink:0">
+        <div id="botc-aloj-count" style="font-size:11px;color:#64748b">—</div>
+        <div style="display:flex;gap:8px">
+          <button type="button" onclick="document.getElementById('botc-aloj-modal').remove()" style="padding:8px 14px;font-size:12px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:700">Cancelar</button>
+          <button type="button" id="botc-aloj-save-btn" onclick="_botcAlojSave()" style="padding:8px 18px;font-size:12px;background:#16a34a;color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:800">💾 Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  `;
   document.body.appendChild(modal);
+  await _botcAlojLoad();
+};
+
+window.BOTC_ALOJ_STATE = { rows: [], selected: new Set() };
+
+async function _botcAlojLoad() {
   try {
     const r = await fetch(`https://api.check-inn.mx/wa/bot/alojamientos`);
     const j = await r.json();
     const rows = (j && j.alojamientos) || [];
-    const enabled = rows.filter(a => a.bot_enabled);
-    const disabled = rows.filter(a => !a.bot_enabled);
-    const list = document.getElementById('botc-aloj-list');
-    if (list) {
-      list.innerHTML = `
-        <div style="margin-bottom:12px"><b style="color:#16a34a">✅ Activos (${enabled.length}):</b><br>${enabled.length ? enabled.map(a => `${_botcEsc(a.Propiedad)} #${_botcEsc(a.Departamento)}`).join(' · ') : '<i>ninguno</i>'}</div>
-        <div><b style="color:#94a3b8">⚪ Inactivos (${disabled.length}):</b> <span style="color:#94a3b8">${disabled.slice(0,8).map(a => `${_botcEsc(a.Propiedad)} #${_botcEsc(a.Departamento)}`).join(', ')}${disabled.length > 8 ? ` y ${disabled.length-8} más…` : ''}</span></div>
-      `;
-    }
+    // Ordenar: activos primero, luego alfabético
+    rows.sort((a, b) => {
+      if (a.bot_enabled !== b.bot_enabled) return a.bot_enabled ? -1 : 1;
+      return String(a.Propiedad + a.Departamento).localeCompare(String(b.Propiedad + b.Departamento));
+    });
+    BOTC_ALOJ_STATE.rows = rows;
+    BOTC_ALOJ_STATE.selected = new Set(rows.filter(a => a.bot_enabled).map(a => String(a.HouseId)));
+    _botcAlojRender();
   } catch (e) {
     const list = document.getElementById('botc-aloj-list');
-    if (list) list.innerHTML = `<span style="color:#dc2626">Error: ${_botcEsc(e.message)}</span>`;
+    if (list) list.innerHTML = `<div style="color:#dc2626;padding:20px;text-align:center;font-size:12px">Error: ${_botcEsc(e.message)}</div>`;
+  }
+}
+
+function _botcAlojRender(searchQ) {
+  const list = document.getElementById('botc-aloj-list');
+  const count = document.getElementById('botc-aloj-count');
+  if (!list) return;
+  const q = String(searchQ || '').trim().toLowerCase();
+  const rows = BOTC_ALOJ_STATE.rows.filter(a => {
+    if (!q) return true;
+    const label = `${a.Propiedad} #${a.Departamento}`.toLowerCase();
+    return label.includes(q);
+  });
+  list.innerHTML = rows.map(a => {
+    const hid = String(a.HouseId);
+    const on = BOTC_ALOJ_STATE.selected.has(hid);
+    const label = `${_botcEsc(a.Propiedad)} #${_botcEsc(a.Departamento)}`;
+    return `
+      <div onclick="_botcAlojToggle('${_botcEsc(hid)}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;background:${on?'#f0fdf4':'transparent'}" onmouseover="this.style.background='${on?'#dcfce7':'#f8fafc'}'" onmouseout="this.style.background='${on?'#f0fdf4':'transparent'}'">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${on?'#16a34a':'#94a3b8'};border-radius:4px;background:${on?'#16a34a':'#fff'};color:#fff;font-weight:900;font-size:11px;flex-shrink:0">${on?'✓':''}</span>
+        <span style="font-size:13px;color:#0f172a;font-weight:${on?'700':'500'}">${label}</span>
+        <span style="margin-left:auto;font-size:10px;color:#94a3b8">${_botcEsc(hid)}</span>
+      </div>
+    `;
+  }).join('') || '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px">Sin resultados</div>';
+  if (count) count.textContent = `${BOTC_ALOJ_STATE.selected.size} de ${BOTC_ALOJ_STATE.rows.length} habilitados`;
+}
+
+window._botcAlojFilter = function(q) { _botcAlojRender(q); };
+window._botcAlojToggle = function(hid) {
+  if (BOTC_ALOJ_STATE.selected.has(hid)) BOTC_ALOJ_STATE.selected.delete(hid);
+  else BOTC_ALOJ_STATE.selected.add(hid);
+  const q = document.getElementById('botc-aloj-search')?.value || '';
+  _botcAlojRender(q);
+};
+window._botcAlojToggleAll = function(on) {
+  if (on) BOTC_ALOJ_STATE.rows.forEach(a => BOTC_ALOJ_STATE.selected.add(String(a.HouseId)));
+  else BOTC_ALOJ_STATE.selected.clear();
+  const q = document.getElementById('botc-aloj-search')?.value || '';
+  _botcAlojRender(q);
+};
+window._botcAlojSave = async function() {
+  const btn = document.getElementById('botc-aloj-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; btn.style.opacity = '.6'; }
+  try {
+    const houseIds = Array.from(BOTC_ALOJ_STATE.selected);
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/alojamientos-set`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ houseIds }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    if (btn) { btn.textContent = `✅ Guardado (${j.updated || 0} cambios)`; btn.style.background='#16a34a'; }
+    setTimeout(() => {
+      document.getElementById('botc-aloj-modal')?.remove();
+    }, 1000);
+  } catch (e) {
+    alert('Error al guardar: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar cambios'; btn.style.opacity = ''; }
   }
 };
 
