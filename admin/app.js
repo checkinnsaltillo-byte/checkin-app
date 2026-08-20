@@ -40186,105 +40186,37 @@ async function _botcGetBookingForPhone(phone10) {
   if (window.__botcBookingByPhone[phone10] !== undefined) {
     return window.__botcBookingByPhone[phone10];
   }
-  const candidates = [];
-  const seen = new Set(); // dedup por LodgifyId o (fechas+propiedad)
-  const keyOf = (b) => {
-    const lid = String(b.LodgifyId || '').trim();
-    if (lid) return 'L:' + lid;
-    const a = String(b.DateArrival||'').slice(0,10);
-    const d = String(b.DateDeparture||'').slice(0,10);
-    const p = String(b.PropertyName||b.RoomTypeName||'').toLowerCase().trim();
-    return `F:${a}|${d}|${p}`;
-  };
-  const push = (b) => { const k = keyOf(b); if (!seen.has(k)) { seen.add(k); candidates.push(b); } };
-
-  // 1) Bookings Lodgify ya cargados
-  const lgBookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
-  lgBookings.forEach(b => {
-    const tel = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
-    if (tel === phone10) push(b);
-  });
-
-  // 2) Registros manuales en Reservaciones (HU_STATE) — convertir a shape booking.
-  //    Cubre el caso de reservas creadas manualmente que NO existen en Lodgify
-  //    (ej. "pruebaaa" en Baja California #8), y que además suelen ser las
-  //    más próximas/relevantes.
+  // Idéntica lógica que Gestión de reservas: por phone, tomar todas las
+  // rows de Reservaciones y convertirlas con huRowToSyntheticBooking (misma
+  // función que usa lgDetailSelect). Elegir por prioridad Activa > Próxima
+  // más cercana > más reciente.
+  let bookings = [];
   try {
-    if (typeof huGetGuestRowsByTail_ === 'function') {
+    if (typeof huGetGuestRowsByTail_ === 'function' && typeof huRowToSyntheticBooking === 'function') {
       const rows = huGetGuestRowsByTail_(null, phone10) || [];
-      rows.forEach(r => {
-        const val = (keys) => (typeof huValueFlexible === 'function') ? huValueFlexible(r, keys) : (r[keys[0]]||'');
-        // Header REAL en Reservaciones es 'Fecha de ingreso'/'Fecha de salida'
-        // (los alias 'Ingreso'/'Salida' NO existen — antes devolvían '').
-        const ingRaw = val(['Fecha de ingreso','Ingreso']);
-        const salRaw = val(['Fecha de salida','Salida']);
-        // Usar huParseDate que ya sabe manejar dd/mm/yyyy, ISO con TZ, y
-        // objetos Date serializados. Devolver YYYY-MM-DD en zona local
-        // (no UTC) para que las comparaciones con `today` no se corran.
-        const norm = (s) => {
-          const d = huParseDate(s);
-          if (!d || isNaN(d)) return '';
-          const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
-          return `${y}-${m}-${day}`;
-        };
-        const prop = String(val(['Propiedad'])||'').trim();
-        const dep  = String(val(['# Departamento','Departamento','#Departamento'])||'').trim();
-        const propFull = dep ? `${prop} - #${dep}` : prop;
-        const b = {
-          Id: String(val(['ID','Id','id','row_number'])||`hu-${phone10}-${ingRaw}`),
-          LodgifyId: String(val(['Lodgify Id','LodgifyId'])||''),
-          DateArrival: norm(ingRaw),
-          DateDeparture: norm(salRaw),
-          GuestName: String(val(['Nombre'])||''),
-          GuestPhone: phone10,
-          PropertyName: prop,
-          RoomTypeName: propFull,
-          NumberOfGuests: Number(val(['# Huéspedes','# Huespedes','Huéspedes'])||0),
-          Gross: Number(String(val(['Monto','Total','Precio'])||'').replace(/[^\d.]/g,''))||0,
-          Currency: String(val(['Moneda'])||'MXN'),
-          Source: String(val(['Medio','Source'])||'Manual'),
-          Status: String(val(['Estado','Status'])||'Booked'),
-          __reservacion: r,
-          __reservacionMatchKind: 'exact',
-        };
-        push(b);
-      });
+      bookings = rows.map(huRowToSyntheticBooking).filter(Boolean);
     }
   } catch(_){}
 
-  if (candidates.length) {
-    const picked = _botcPickBestBooking(candidates);
-    window.__botcBookingByPhone[phone10] = picked;
-    return picked;
-  }
-
-  // 3) Fallback: fetch histórico completo por phone (para huéspedes sin match local)
-  try {
-    const list = await huFetchBookingsByGuest_(phone10);
-    if (list && list.length) {
-      const picked = _botcPickBestBooking(list);
-      window.__botcBookingByPhone[phone10] = picked;
-      return picked;
-    }
-  } catch(_) {}
-  window.__botcBookingByPhone[phone10] = null;
-  return null;
+  const picked = bookings.length ? _botcPickBestBooking(bookings) : null;
+  window.__botcBookingByPhone[phone10] = picked;
+  return picked;
 }
 function _botcPickBestBooking(list) {
-  // Fecha local (no UTC): a las 6pm-11:59pm México toISOString() cae al día
-  // siguiente y una reserva que HOY está activa parece futura.
+  // huRowToSyntheticBooking devuelve fechas en MM/DD/YYYY (mismo formato que
+  // Lodgify) — parsear con huParseDate para comparar con today local.
   const _now = new Date();
-  const today = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
+  const today = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate()).getTime();
+  const asMs = (s) => { const d = huParseDate(s); return (d && !isNaN(d)) ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : null; };
   const active = list.find(b => {
-    const a = String(b.DateArrival||'').slice(0,10), d = String(b.DateDeparture||'').slice(0,10);
-    return a && d && a <= today && today <= d;
+    const a = asMs(b.DateArrival), d = asMs(b.DateDeparture);
+    return a != null && d != null && a <= today && today <= d;
   });
   if (active) return active;
-  const futura = list.filter(b => String(b.DateArrival||'').slice(0,10) >= today)
-    .sort((a,b) => String(a.DateArrival).localeCompare(String(b.DateArrival)))[0];
+  const futura = list.filter(b => { const a = asMs(b.DateArrival); return a != null && a >= today; })
+    .sort((a,b) => (asMs(a.DateArrival)||0) - (asMs(b.DateArrival)||0))[0];
   if (futura) return futura;
-  // Más reciente pasada
-  const past = list.slice().sort((a,b) => String(b.DateDeparture).localeCompare(String(a.DateDeparture)))[0];
+  const past = list.slice().sort((a,b) => (asMs(b.DateDeparture)||0) - (asMs(a.DateDeparture)||0))[0];
   return past || list[0];
 }
 
@@ -40307,22 +40239,10 @@ function _botcRenderSidebar() {
     let rich = '';
     if (bk && typeof lgBuildDetailSidebarItem === 'function') {
       try {
-        // LG_STATE.matches se popula solo dentro de Gestión de reservas.
-        // En bot-chats hay que resolver huésped directamente contra HU_STATE
-        // por tail del teléfono. Si de plano no hay row en Reservaciones
-        // (caso raro), armamos sintético con phone para que KPIs del cache
-        // de Perfiles igual resuelvan.
-        let huesped = null;
-        try {
-          const tail = String(c.phone || '').replace(/\D/g,'').slice(-10);
-          if (tail && typeof huGetGuestRowsByTail_ === 'function') {
-            const rows = huGetGuestRowsByTail_(null, tail) || [];
-            // Preferir el row con más campos manuales llenos (registro real)
-            huesped = rows.find(r => typeof huHasManualRegistration === 'function' && huHasManualRegistration(r)) || rows[0] || null;
-          }
-        } catch(_){}
-        if (!huesped) huesped = { 'Cel/Whatsapp (principal)': c.phone, 'Nombre': c.name || bk.GuestName || '' };
-        rich = lgBuildDetailSidebarItem(bk, null, huesped);
+        // bk viene de huRowToSyntheticBooking → __reservacion prefilled →
+        // lgBuildDetailSidebarItem resuelve huesped, chips, KPIs, tier y
+        // rating exactamente igual que Gestión de reservas.
+        rich = lgBuildDetailSidebarItem(bk, null);
         rich = `<div onclick="event.stopPropagation();botcOpenChat('${_botcEsc(c.phone)}')" style="cursor:pointer">${rich}</div>`;
       } catch(e) { rich = ''; }
     }
