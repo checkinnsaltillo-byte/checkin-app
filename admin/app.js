@@ -40176,18 +40176,74 @@ async function _botcGetBookingForPhone(phone10) {
   if (window.__botcBookingByPhone[phone10] !== undefined) {
     return window.__botcBookingByPhone[phone10];
   }
-  // 1) Intentar desde LG_STATE.bookings (rápido, ya cargado)
+  const candidates = [];
+  const seen = new Set(); // dedup por LodgifyId o (fechas+propiedad)
+  const keyOf = (b) => {
+    const lid = String(b.LodgifyId || '').trim();
+    if (lid) return 'L:' + lid;
+    const a = String(b.DateArrival||'').slice(0,10);
+    const d = String(b.DateDeparture||'').slice(0,10);
+    const p = String(b.PropertyName||b.RoomTypeName||'').toLowerCase().trim();
+    return `F:${a}|${d}|${p}`;
+  };
+  const push = (b) => { const k = keyOf(b); if (!seen.has(k)) { seen.add(k); candidates.push(b); } };
+
+  // 1) Bookings Lodgify ya cargados
   const lgBookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
-  const matches = lgBookings.filter(b => {
+  lgBookings.forEach(b => {
     const tel = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
-    return tel === phone10;
+    if (tel === phone10) push(b);
   });
-  if (matches.length) {
-    const picked = _botcPickBestBooking(matches);
+
+  // 2) Registros manuales en Reservaciones (HU_STATE) — convertir a shape booking.
+  //    Cubre el caso de reservas creadas manualmente que NO existen en Lodgify
+  //    (ej. "pruebaaa" en Baja California #8), y que además suelen ser las
+  //    más próximas/relevantes.
+  try {
+    if (typeof huGetGuestRowsByTail_ === 'function') {
+      const rows = huGetGuestRowsByTail_(null, phone10) || [];
+      rows.forEach(r => {
+        const val = (keys) => (typeof huValueFlexible === 'function') ? huValueFlexible(r, keys) : (r[keys[0]]||'');
+        const ingRaw = val(['Ingreso','Fecha de ingreso']);
+        const salRaw = val(['Salida','Fecha de salida']);
+        const norm = (s) => {
+          const m = String(s||'').match(/(\d{4})-(\d{2})-(\d{2})/);
+          if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+          const d = new Date(s);
+          return isNaN(d) ? '' : d.toISOString().slice(0,10);
+        };
+        const prop = String(val(['Propiedad'])||'').trim();
+        const dep  = String(val(['# Departamento','Departamento','#Departamento'])||'').trim();
+        const propFull = dep ? `${prop} - #${dep}` : prop;
+        const b = {
+          Id: String(val(['ID','Id','id','row_number'])||`hu-${phone10}-${ingRaw}`),
+          LodgifyId: String(val(['Lodgify Id','LodgifyId'])||''),
+          DateArrival: norm(ingRaw),
+          DateDeparture: norm(salRaw),
+          GuestName: String(val(['Nombre'])||''),
+          GuestPhone: phone10,
+          PropertyName: prop,
+          RoomTypeName: propFull,
+          NumberOfGuests: Number(val(['# Huéspedes','# Huespedes','Huéspedes'])||0),
+          Gross: Number(String(val(['Monto','Total','Precio'])||'').replace(/[^\d.]/g,''))||0,
+          Currency: String(val(['Moneda'])||'MXN'),
+          Source: String(val(['Medio','Source'])||'Manual'),
+          Status: String(val(['Estado','Status'])||'Booked'),
+          __reservacion: r,
+          __reservacionMatchKind: 'exact',
+        };
+        push(b);
+      });
+    }
+  } catch(_){}
+
+  if (candidates.length) {
+    const picked = _botcPickBestBooking(candidates);
     window.__botcBookingByPhone[phone10] = picked;
     return picked;
   }
-  // 2) Fetch on-demand por phone
+
+  // 3) Fallback: fetch histórico completo por phone (para huéspedes sin match local)
   try {
     const list = await huFetchBookingsByGuest_(phone10);
     if (list && list.length) {
