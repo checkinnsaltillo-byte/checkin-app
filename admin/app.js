@@ -40122,7 +40122,7 @@ window.botcRefresh = async function(opts) {
     if (sidebar) sidebar.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">⏳ Cargando…</div>';
   }
   try {
-    const r = await fetch(`${BACKEND}/wa/bot/conversations?filter=${encodeURIComponent(BOTC_STATE.filter)}&limit=200`, { cache: 'no-store' });
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/conversations?filter=${encodeURIComponent(BOTC_STATE.filter)}&limit=200`, { cache: 'no-store' });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
     BOTC_STATE.conversations = j.conversations || [];
@@ -40172,7 +40172,7 @@ window.botcOpenChat = async function(phone, opts) {
     main.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px">⏳ Cargando conversación…</div>';
   }
   try {
-    const r = await fetch(`${BACKEND}/wa/bot/context?phone=${encodeURIComponent(phone)}&limit=100`, { cache: 'no-store' });
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/context?phone=${encodeURIComponent(phone)}&limit=100`, { cache: 'no-store' });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
     BOTC_STATE.messages = j.messages || [];
@@ -40241,7 +40241,7 @@ function _botcRenderMain(phone) {
 window.botcSetControl = async function(phone, control) {
   const reason = control === 'human' ? (prompt('Motivo de toma de control (opcional):') || 'Toma manual del admin') : '';
   try {
-    const r = await fetch(`${BACKEND}/wa/bot/set-control`, {
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/set-control`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ phone, control, reason }),
     });
@@ -40261,7 +40261,7 @@ window.botcSendManual = async function() {
   if (!body) return;
   if (inp) { inp.disabled = true; inp.value = ''; }
   try {
-    const r = await fetch(`${BACKEND}/wa/bot/send-as-admin`, {
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/send-as-admin`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ phone, body }),
     });
@@ -40288,7 +40288,7 @@ window.botcOpenAlojConfig = async function() {
   modal.innerHTML = '<div style="background:#fff;border-radius:14px;padding:20px 22px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:16px;font-weight:800;color:#0f172a">⚡ Alojamientos en piloto del bot</div><button onclick="document.getElementById(\'botc-aloj-modal\').remove()" style="background:none;border:0;font-size:22px;cursor:pointer;color:#64748b">×</button></div><div id="botc-aloj-list" style="font-size:12px;color:#64748b">⏳ Cargando…</div><div style="margin-top:14px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;line-height:1.5">Para cambiar qué alojamientos están habilitados, edita la columna <b>bot_enabled</b> en la hoja <b>alojamientos</b> de Google Sheets (TRUE = activo, vacío = desactivado). Los cambios se reflejan aquí tras ~5 min (por cache).</div></div>';
   document.body.appendChild(modal);
   try {
-    const r = await fetch(`${BACKEND}/wa/bot/alojamientos`);
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/alojamientos`);
     const j = await r.json();
     const rows = (j && j.alojamientos) || [];
     const enabled = rows.filter(a => a.bot_enabled);
