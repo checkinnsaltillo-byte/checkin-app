@@ -40148,13 +40148,18 @@ function _botcRenderSidebar() {
     const chip = isHuman
       ? '<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em">👤 HUMANO</span>'
       : '<span style="font-size:9px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em">🤖 BOT</span>';
+    // Nombre del perfil (bold) arriba del teléfono. Si no hay, solo phone.
+    const name = String(c.name || '').trim();
+    const nameLine = name
+      ? `<div style="font-size:13px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(c.phone)}</div>`
+      : `<div style="font-size:13px;font-weight:800;color:#0f172a">+${_botcEsc(c.phone)}</div>`;
     return `
       <div onclick="botcOpenChat('${_botcEsc(c.phone)}')" style="padding:12px 14px;border-bottom:1px solid #e2e8f0;cursor:pointer;background:${bg};border-left:3px solid ${border}">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
-          <div style="font-size:13px;font-weight:800;color:#0f172a">+${_botcEsc(c.phone)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
+          <div style="min-width:0;flex:1">${nameLine}</div>
           ${chip}
         </div>
-        <div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_botcEsc(c.last_msg_preview)}</div>
+        <div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px">${_botcEsc(c.last_msg_preview)}</div>
         <div style="font-size:10px;color:#94a3b8;margin-top:3px">${_botcFmtTime(c.last_msg_at)}</div>
       </div>
     `;
@@ -40213,22 +40218,47 @@ function _botcRenderMain(phone) {
     ? `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:6px 14px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🤖 Devolver al bot</button>`
     : `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:6px 14px;font-size:12px;background:#f59e0b;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👤 Tomar control</button>`;
 
+  // Nombre del perfil desde conversations (si existe)
+  const conv = (BOTC_STATE.conversations || []).find(c => String(c.phone) === String(phone));
+  const name = conv && conv.name ? conv.name : '';
+  const nameHeader = name
+    ? `<div style="font-size:14px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(phone)}</div>`
+    : `<div style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>`;
+  const rightOpen = !!BOTC_STATE.rightPanelOpen;
   main.innerHTML = `
-    <div style="padding:12px 20px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0">
-      <div>
-        <div style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>
-        <div style="margin-top:3px">${ctrlChip}</div>
+    <div style="flex:1;display:flex;min-width:0">
+      <!-- CENTRO: chat bot -->
+      <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+        <div style="padding:12px 20px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0">
+          <div>${nameHeader}<div style="margin-top:5px">${ctrlChip}</div></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            ${ctrlBtn}
+            <button type="button" onclick="botcToggleRightPanel()" title="Ver todos los WhatsApp de este número" style="padding:7px 12px;font-size:12px;background:${rightOpen?'#0f172a':'#fff'};color:${rightOpen?'#fff':'#475569'};border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">📱 ${rightOpen?'Ocultar':'Ver'} WA</button>
+          </div>
+        </div>
+        <div id="botc-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafc">${msgsHtml}</div>
+        <div style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#fff;display:flex;gap:8px">
+          <input type="text" id="botc-input" placeholder="${isHuman ? 'Escribe un mensaje al huésped…' : 'Toma control primero para enviar manualmente'}"
+            ${isHuman ? '' : 'disabled'}
+            onkeydown="if(event.key==='Enter'){event.preventDefault();botcSendManual()}"
+            style="flex:1;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:${isHuman?'#fff':'#f1f5f9'};color:#0f172a">
+          <button type="button" onclick="botcSendManual()" ${isHuman ? '' : 'disabled'}
+            style="padding:9px 18px;background:${isHuman?'#25d366':'#cbd5e1'};color:#fff;border:0;border-radius:8px;cursor:${isHuman?'pointer':'not-allowed'};font-weight:800;font-size:13px">Enviar</button>
+        </div>
       </div>
-      <div style="display:flex;gap:8px">${ctrlBtn}</div>
-    </div>
-    <div id="botc-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafc">${msgsHtml}</div>
-    <div style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#fff;display:flex;gap:8px">
-      <input type="text" id="botc-input" placeholder="${isHuman ? 'Escribe un mensaje al huésped…' : 'Toma control primero para enviar manualmente'}"
-        ${isHuman ? '' : 'disabled'}
-        onkeydown="if(event.key==='Enter'){event.preventDefault();botcSendManual()}"
-        style="flex:1;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:${isHuman?'#fff':'#f1f5f9'};color:#0f172a">
-      <button type="button" onclick="botcSendManual()" ${isHuman ? '' : 'disabled'}
-        style="padding:9px 18px;background:${isHuman?'#25d366':'#cbd5e1'};color:#fff;border:0;border-radius:8px;cursor:${isHuman?'pointer':'not-allowed'};font-weight:800;font-size:13px">Enviar</button>
+      <!-- DERECHA: historial WhatsApp completo, deslizable -->
+      <div id="botc-right-panel" style="width:${rightOpen?'380px':'0'};flex-shrink:0;border-left:${rightOpen?'1px':'0'} solid #e2e8f0;background:#fff;overflow:hidden;transition:width .25s ease;display:flex;flex-direction:column">
+        <div style="padding:12px 16px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+          <div>
+            <div style="font-size:12px;font-weight:800;color:#0f172a">📱 Historial WhatsApp</div>
+            <div style="font-size:10px;color:#64748b;margin-top:1px">Bot + templates + logs</div>
+          </div>
+          <button type="button" onclick="botcToggleRightPanel()" style="background:none;border:0;font-size:18px;cursor:pointer;color:#64748b;padding:0 4px">×</button>
+        </div>
+        <div id="botc-right-list" style="flex:1;overflow-y:auto;padding:10px 12px">
+          ${rightOpen ? '<div style="text-align:center;color:#94a3b8;font-size:11px;padding:20px">⏳ Cargando historial…</div>' : ''}
+        </div>
+      </div>
     </div>
   `;
   // Scroll al final
@@ -40276,6 +40306,55 @@ window.botcSendManual = async function() {
     if (inp) inp.disabled = false;
   }
 };
+
+/** Toggle del panel derecho (historial WhatsApp completo). */
+window.botcToggleRightPanel = function() {
+  BOTC_STATE.rightPanelOpen = !BOTC_STATE.rightPanelOpen;
+  const phone = BOTC_STATE.selectedPhone;
+  if (!phone) return;
+  _botcRenderMain(phone);
+  if (BOTC_STATE.rightPanelOpen) _botcLoadWhatsAppHistory(phone);
+};
+
+async function _botcLoadWhatsAppHistory(phone) {
+  const list = document.getElementById('botc-right-list');
+  if (!list) return;
+  try {
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/all-messages?phone=${encodeURIComponent(phone)}`, { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    const msgs = j.messages || [];
+    if (!msgs.length) {
+      list.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:11px;padding:20px">Sin mensajes históricos</div>';
+      return;
+    }
+    list.innerHTML = msgs.map(m => {
+      const isInbound = m.role === 'user';
+      const isBot = m.role === 'assistant';
+      const isAdmin = m.role === 'admin';
+      const isTemplate = m.source === 'wa-log';
+      let label, bg, border;
+      if (isInbound) { label = '👤 Huésped'; bg = '#fff'; border = '#e2e8f0'; }
+      else if (isBot) { label = '🤖 Bot'; bg = '#dcf7c5'; border = '#86efac'; }
+      else if (isAdmin) { label = '👨‍💼 Admin'; bg = '#fef3c7'; border = '#fcd34d'; }
+      else if (isTemplate) { label = `📩 Template${m.tipo ? ' · '+m.tipo : ''}`; bg = '#e0f2fe'; border = '#7dd3fc'; }
+      else { label = m.role || 'mensaje'; bg = '#f8fafc'; border = '#cbd5e1'; }
+      const align = isInbound ? 'flex-start' : 'flex-end';
+      return `
+        <div style="display:flex;justify-content:${align};margin-bottom:6px">
+          <div style="max-width:88%;padding:6px 9px;background:${bg};border:1px solid ${border};border-radius:8px">
+            <div style="font-size:9px;color:#64748b;font-weight:700;margin-bottom:2px">${label} · ${_botcFmtDateTime(m.timestamp)}</div>
+            <div style="font-size:11px;color:#0f172a;white-space:pre-wrap;line-height:1.3">${_botcEsc(m.body)}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    // Scroll al final
+    list.scrollTop = list.scrollHeight;
+  } catch (e) {
+    list.innerHTML = `<div style="color:#dc2626;padding:20px;text-align:center;font-size:11px">Error: ${_botcEsc(e.message)}</div>`;
+  }
+}
 
 /** Modal multi-select para habilitar/deshabilitar alojamientos del bot.
  *  Escribe en la columna bot_enabled de la hoja alojamientos al guardar. */
