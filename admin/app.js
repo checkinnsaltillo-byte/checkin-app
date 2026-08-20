@@ -10654,7 +10654,7 @@ async function huEnsurePerfilKpis_() {
   if (window.__perfilKpisFetching) return window.__perfilKpisFetching;
   window.__perfilKpisFetching = (async () => {
     try {
-      const r = await fetch(`${BACKEND}/perfiles-kpis-list`, { cache: 'no-store' });
+      const r = await fetch(`https://api.check-inn.mx/perfiles-kpis-list`, { cache: 'no-store' });
       const j = await r.json();
       if (j && j.ok && j.by_phone) {
         window.__perfilKpisByPhone = j.by_phone;
@@ -40091,11 +40091,21 @@ function _botcFmtDateTime(iso) {
 }
 
 window.botcInit = function() {
-  // Precargar Reservaciones (HU_STATE) y KPIs Perfiles en paralelo para que
-  // las cards del sidebar resuelvan huesped + chips + KPIs desde el primer render.
+  // Invalidar cache de bookings-por-teléfono: si HU_STATE aún no estaba
+  // cargado en un render previo, la cache se llenó SOLO con candidatos
+  // Lodgify y perdió las reservas manuales. Al re-entrar al módulo forzamos
+  // recomputar sobre HU_STATE ya presente.
+  window.__botcBookingByPhone = {};
+
+  // Precargar Reservaciones (HU_STATE) y KPIs Perfiles en paralelo. Cuando
+  // HU_STATE termine de cargar, invalidar cache y refrescar sidebar para
+  // que las reservas manuales entren al pick.
   try {
     if (typeof huespedesLoad === 'function' && !HU_STATE?.loaded && !HU_STATE?.loading) {
-      huespedesLoad(false).catch(()=>{});
+      huespedesLoad(false).then(() => {
+        window.__botcBookingByPhone = {};
+        try { botcRefresh(); } catch(_){}
+      }).catch(()=>{});
     }
   } catch(_){}
   try { if (typeof huEnsurePerfilKpis_ === 'function') huEnsurePerfilKpis_(); } catch(_){}
