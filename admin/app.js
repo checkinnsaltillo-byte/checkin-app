@@ -40089,18 +40089,40 @@ function _botcFmtDateTime(iso) {
 
 window.botcInit = function() {
   botcRefresh();
-  // Poll cada 10s si la vista está visible
+  // 2 polls con frecuencias distintas para dar sensación near-real-time sin
+  // saturar Apps Script (cada request tarda 2-5s en cold).
+  // - Chat abierto: cada 3s (guard anti-solape).
+  // - Lista completa: cada 15s (más pesada, cambia menos).
   if (BOTC_STATE.pollTimer) clearInterval(BOTC_STATE.pollTimer);
+  if (BOTC_STATE.pollTimerList) clearInterval(BOTC_STATE.pollTimerList);
+  BOTC_STATE.__pollingChat = false;
+  BOTC_STATE.__pollingList = false;
   BOTC_STATE.pollTimer = setInterval(() => {
     const mod = document.getElementById('module-bot-chats');
     if (!mod || mod.classList.contains('hidden')) {
       clearInterval(BOTC_STATE.pollTimer);
+      clearInterval(BOTC_STATE.pollTimerList);
       BOTC_STATE.pollTimer = null;
+      BOTC_STATE.pollTimerList = null;
       return;
     }
-    botcRefresh({ silent: true });
-    if (BOTC_STATE.selectedPhone) botcOpenChat(BOTC_STATE.selectedPhone, { silent: true });
-  }, 10_000);
+    // Chat abierto — 3s, con guard anti-solape
+    if (BOTC_STATE.selectedPhone && !BOTC_STATE.__pollingChat) {
+      BOTC_STATE.__pollingChat = true;
+      botcOpenChat(BOTC_STATE.selectedPhone, { silent: true }).finally(() => {
+        BOTC_STATE.__pollingChat = false;
+      });
+    }
+  }, 3_000);
+  BOTC_STATE.pollTimerList = setInterval(() => {
+    const mod = document.getElementById('module-bot-chats');
+    if (!mod || mod.classList.contains('hidden')) return;
+    if (BOTC_STATE.__pollingList) return;
+    BOTC_STATE.__pollingList = true;
+    botcRefresh({ silent: true }).finally(() => {
+      BOTC_STATE.__pollingList = false;
+    });
+  }, 15_000);
 };
 
 window.botcSetFilter = function(f) {
