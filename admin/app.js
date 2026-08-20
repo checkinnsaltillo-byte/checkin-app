@@ -9654,7 +9654,13 @@ async function __huespedesLoadInner(forceRefetch) {
   // El populate del select y la auto-selección del mes actual ocurren después
   // de cargar las filas (ver más abajo, justo antes de huespedesRender).
 
-  if (!HU_STATE.filterOptions) await huespedesLoadFilterOptions();
+  // PERF: NO awaitar filter-options aquí — dispararlo en paralelo con page1.
+  // Antes se hacían secuenciales (6.7s + 18s = 25s). El fetch se completa antes
+  // del render (page1 es el bottleneck) y los populate finales del select
+  // esperan HU_STATE.filterOptions ya listo.
+  const _filterOptionsPromise = HU_STATE.filterOptions
+    ? Promise.resolve()
+    : huespedesLoadFilterOptions().catch(e => console.warn('[HU] filter-options en paralelo falló:', e.message));
 
   HU_STATE.loading = true;
   if (empty) { empty.classList.remove('hidden'); empty.textContent = 'Cargando reservaciones…'; }
@@ -13040,11 +13046,10 @@ function lgComputeMatches() {
 async function lgEnsureHuespedesAndMatch() {
   try {
     if (!HU_STATE.loaded && !HU_STATE.loading) {
-      // huespedesLoad escribe en HU_STATE.rows pero llama a huespedesRender
-      // (que es del módulo de huéspedes). Eso es OK aunque estemos en
-      // Lodgify: huéspedesRender se ejecuta sobre su propio contenedor
-      // y no afecta visualmente al módulo activo (Lodgify).
-      await huespedesLoad(true);
+      // PERF: usar cache 5min de huespedesLoad (false = no force). Antes
+      // se pasaba true en cada entrada al módulo → re-fetch de 25s cada vez.
+      // Ahora respeta el cache localStorage; solo hace fetch si está expirado.
+      await huespedesLoad(false);
     }
     // Si las dos colecciones ya están listas, cruzar.
     if (LG_STATE.loaded && HU_STATE.loaded) {
@@ -18414,10 +18419,34 @@ window.bzwTestToken = async function(opts) {
   }
 };
 
-window.bzwRefreshAlerts = async function() {
+window.bzwRefreshAlerts = async function(opts) {
+  opts = opts || {};
+  const forceFresh = !!opts.force;
   const list = document.getElementById('bzw-alerts-list');
   const cnt  = document.getElementById('bzw-stat-count');
   const lastEl = document.getElementById('bzw-stat-last');
+  // CACHE sessionStorage 5 min de las tasks POST-dedupe.
+  // Evita 60s de descarga (~11 MB) + parse en main thread cada entrada a
+  // Gestión de reservas. En cache HIT restauramos BZW_ALL_TASKS y llamamos
+  // helpers de post-processing sin re-fetch.
+  const CACHE_KEY = 'bzw-tasks-cache-v1';
+  const CACHE_TTL_MS = 5 * 60 * 1000;
+  if (!forceFresh) {
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached && cached.ts && (Date.now() - cached.ts) < CACHE_TTL_MS && Array.isArray(cached.tasks)) {
+          console.info('[BZW] cache hit — skip fetch (' + Math.round((Date.now()-cached.ts)/1000) + 's ago, ' + cached.tasks.length + ' tasks)');
+          BZW_ALL_TASKS = cached.tasks;
+          try { bzwRebuildHomolMap(); } catch(_){}
+          try { bzwBuildTaskIndexes_(); } catch(_){}
+          try { if (typeof bzwInjectSidebarChips === 'function') bzwInjectSidebarChips(); } catch(_){}
+          return; // no bloquear ni hacer el fetch
+        }
+      }
+    } catch(_){}
+  }
   if (list) list.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:30px 0;font-style:italic">Cargando bitácora…</div>';
   try {
     const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts?limit=15000`, { cache: 'no-store' });
@@ -18478,6 +18507,11 @@ window.bzwRefreshAlerts = async function() {
     }
     const alerts = Array.from(dedupe.values());
     BZW_ALL_TASKS = alerts;
+    // Guardar en cache sessionStorage — la próxima entrada al módulo reutiliza
+    // este resultado durante 5 min (evita 60s de descarga + parse).
+    try {
+      sessionStorage.setItem('bzw-tasks-cache-v1', JSON.stringify({ ts: Date.now(), tasks: alerts }));
+    } catch (e) { console.warn('[BZW] cache set falló:', e.message); }
     // Reconstruye el map de homologación de propiedades PRIMERO (usado por
     // bzwBuildTaskIndexes_ para normalizar nombres tipo "MT10 Matamoros #10
     // - Amplio..." → "Calle Matamoros - #10" antes de derivar la propKey).
