@@ -40091,6 +40091,14 @@ function _botcFmtDateTime(iso) {
 }
 
 window.botcInit = function() {
+  // Precargar Reservaciones (HU_STATE) y KPIs Perfiles en paralelo para que
+  // las cards del sidebar resuelvan huesped + chips + KPIs desde el primer render.
+  try {
+    if (typeof huespedesLoad === 'function' && !HU_STATE?.loaded && !HU_STATE?.loading) {
+      huespedesLoad(false).catch(()=>{});
+    }
+  } catch(_){}
+  try { if (typeof huEnsurePerfilKpis_ === 'function') huEnsurePerfilKpis_(); } catch(_){}
   botcRefresh();
   // 2 polls con frecuencias distintas para dar sensación near-real-time sin
   // saturar Apps Script (cada request tarda 2-5s en cold).
@@ -40225,11 +40233,20 @@ function _botcRenderSidebar() {
     let rich = '';
     if (bk && typeof lgBuildDetailSidebarItem === 'function') {
       try {
-        // Buscar huésped real en HU_STATE por phone; si no existe, armar
-        // sintético mínimo con solo el phone (para que huComputeGuestStats
-        // resuelva KPIs pre-computados desde __perfilKpisByPhone).
+        // LG_STATE.matches se popula solo dentro de Gestión de reservas.
+        // En bot-chats hay que resolver huésped directamente contra HU_STATE
+        // por tail del teléfono. Si de plano no hay row en Reservaciones
+        // (caso raro), armamos sintético con phone para que KPIs del cache
+        // de Perfiles igual resuelvan.
         let huesped = null;
-        try { if (typeof lgGetHuespedForBooking === 'function') huesped = lgGetHuespedForBooking(bk); } catch(_){}
+        try {
+          const tail = String(c.phone || '').replace(/\D/g,'').slice(-10);
+          if (tail && typeof huGetGuestRowsByTail_ === 'function') {
+            const rows = huGetGuestRowsByTail_(null, tail) || [];
+            // Preferir el row con más campos manuales llenos (registro real)
+            huesped = rows.find(r => typeof huHasManualRegistration === 'function' && huHasManualRegistration(r)) || rows[0] || null;
+          }
+        } catch(_){}
         if (!huesped) huesped = { 'Cel/Whatsapp (principal)': c.phone, 'Nombre': c.name || bk.GuestName || '' };
         rich = lgBuildDetailSidebarItem(bk, null, huesped);
         rich = `<div onclick="event.stopPropagation();botcOpenChat('${_botcEsc(c.phone)}')" style="cursor:pointer">${rich}</div>`;
