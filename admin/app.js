@@ -40214,13 +40214,18 @@ async function _botcGetBookingForPhone(phone10) {
       const rows = huGetGuestRowsByTail_(null, phone10) || [];
       rows.forEach(r => {
         const val = (keys) => (typeof huValueFlexible === 'function') ? huValueFlexible(r, keys) : (r[keys[0]]||'');
-        const ingRaw = val(['Ingreso','Fecha de ingreso']);
-        const salRaw = val(['Salida','Fecha de salida']);
+        // Header REAL en Reservaciones es 'Fecha de ingreso'/'Fecha de salida'
+        // (los alias 'Ingreso'/'Salida' NO existen — antes devolvían '').
+        const ingRaw = val(['Fecha de ingreso','Ingreso']);
+        const salRaw = val(['Fecha de salida','Salida']);
+        // Usar huParseDate que ya sabe manejar dd/mm/yyyy, ISO con TZ, y
+        // objetos Date serializados. Devolver YYYY-MM-DD en zona local
+        // (no UTC) para que las comparaciones con `today` no se corran.
         const norm = (s) => {
-          const m = String(s||'').match(/(\d{4})-(\d{2})-(\d{2})/);
-          if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-          const d = new Date(s);
-          return isNaN(d) ? '' : d.toISOString().slice(0,10);
+          const d = huParseDate(s);
+          if (!d || isNaN(d)) return '';
+          const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+          return `${y}-${m}-${day}`;
         };
         const prop = String(val(['Propiedad'])||'').trim();
         const dep  = String(val(['# Departamento','Departamento','#Departamento'])||'').trim();
@@ -40266,7 +40271,10 @@ async function _botcGetBookingForPhone(phone10) {
   return null;
 }
 function _botcPickBestBooking(list) {
-  const today = new Date().toISOString().slice(0,10);
+  // Fecha local (no UTC): a las 6pm-11:59pm México toISOString() cae al día
+  // siguiente y una reserva que HOY está activa parece futura.
+  const _now = new Date();
+  const today = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
   const active = list.find(b => {
     const a = String(b.DateArrival||'').slice(0,10), d = String(b.DateDeparture||'').slice(0,10);
     return a && d && a <= today && today <= d;
