@@ -10635,7 +10635,7 @@ async function huFetchBookingsByGuest_(phoneOrTail) {
   const key = raw.slice(-10);
   if (window.__bookingsByGuestCache.has(key)) return window.__bookingsByGuestCache.get(key);
   try {
-    const r = await fetch(`${BACKEND}/bookings-by-guest?phone=${encodeURIComponent(key)}`, { cache: 'no-store' });
+    const r = await fetch(`https://api.check-inn.mx/bookings-by-guest?phone=${encodeURIComponent(key)}`, { cache: 'no-store' });
     const j = await r.json();
     const list = (j && j.ok && Array.isArray(j.bookings)) ? j.bookings : [];
     window.__bookingsByGuestCache.set(key, list);
