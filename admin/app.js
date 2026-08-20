@@ -345,7 +345,7 @@ function sysGetStoredUser() {
 }
 function sysStoreUser(u) { try { localStorage.setItem('sys_user', JSON.stringify(u)); } catch(_) {} }
 function sysApplyPermissions(user) {
-  const allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves']);
+  const allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats']);
   if (user && user.modulos) {
     for (const k in SYS_MODULE_PERMS) {
       if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
@@ -8763,6 +8763,9 @@ function switchModule(mod) {
   }
   if (mod === "llaves") {
     if (typeof llavesInit === 'function') llavesInit();
+  }
+  if (mod === "bot-chats") {
+    if (typeof botcInit === 'function') botcInit();
   }
 }
 
@@ -40041,6 +40044,265 @@ window.guiasSyncNow = async function() {
       btn.disabled = false;
       btn.style.opacity = '';
     }, 6000);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ MÓDULO Bot Chats — panel admin del bot WhatsApp                         ║
+// ║                                                                          ║
+// ║ Vista tipo WhatsApp Web: sidebar con lista de conversaciones + chat     ║
+// ║ central + botones para tomar control / devolver al bot / responder.     ║
+// ║ Refresh automático cada 10s cuando la vista está activa.                ║
+// ═══════════════════════════════════════════════════════════════════════════
+window.BOTC_STATE = {
+  filter: 'all',            // all | bot | human
+  conversations: [],
+  selectedPhone: null,
+  messages: [],
+  state: null,
+  pollTimer: null,
+};
+
+function _botcEsc(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+function _botcFmtTime(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const now = new Date();
+    const diffMin = Math.round((now - d) / 60000);
+    if (diffMin < 1) return 'ahora';
+    if (diffMin < 60) return `hace ${diffMin} min`;
+    if (diffMin < 24*60) return `hace ${Math.round(diffMin/60)} h`;
+    return d.toLocaleDateString('es-MX', { day:'2-digit', month:'short' });
+  } catch (_) { return ''; }
+}
+function _botcFmtDateTime(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+  } catch (_) { return iso; }
+}
+
+window.botcInit = function() {
+  botcRefresh();
+  // Poll cada 10s si la vista está visible
+  if (BOTC_STATE.pollTimer) clearInterval(BOTC_STATE.pollTimer);
+  BOTC_STATE.pollTimer = setInterval(() => {
+    const mod = document.getElementById('module-bot-chats');
+    if (!mod || mod.classList.contains('hidden')) {
+      clearInterval(BOTC_STATE.pollTimer);
+      BOTC_STATE.pollTimer = null;
+      return;
+    }
+    botcRefresh({ silent: true });
+    if (BOTC_STATE.selectedPhone) botcOpenChat(BOTC_STATE.selectedPhone, { silent: true });
+  }, 10_000);
+};
+
+window.botcSetFilter = function(f) {
+  BOTC_STATE.filter = f;
+  document.querySelectorAll('#botc-filter-tabs button').forEach(b => {
+    const active = b.getAttribute('data-filter') === f;
+    b.style.background = active ? '#0f172a' : 'transparent';
+    b.style.color = active ? '#fff' : '#475569';
+  });
+  botcRefresh();
+};
+
+window.botcRefresh = async function(opts) {
+  opts = opts || {};
+  const sub = document.getElementById('botc-subtitle');
+  const sidebar = document.getElementById('botc-sidebar');
+  if (!opts.silent) {
+    if (sub) sub.textContent = 'Cargando…';
+    if (sidebar) sidebar.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">⏳ Cargando…</div>';
+  }
+  try {
+    const r = await fetch(`${BACKEND}/wa/bot/conversations?filter=${encodeURIComponent(BOTC_STATE.filter)}&limit=200`, { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    BOTC_STATE.conversations = j.conversations || [];
+    if (sub) sub.textContent = `${j.conversations.length} conversaciones · piloto`;
+    _botcRenderSidebar();
+  } catch (e) {
+    if (sidebar) sidebar.innerHTML = `<div style="padding:24px;color:#dc2626;font-size:12px">Error: ${_botcEsc(e.message)}</div>`;
+  }
+};
+
+function _botcRenderSidebar() {
+  const sidebar = document.getElementById('botc-sidebar');
+  if (!sidebar) return;
+  if (!BOTC_STATE.conversations.length) {
+    sidebar.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Sin conversaciones con este filtro.</div>';
+    return;
+  }
+  const items = BOTC_STATE.conversations.map(c => {
+    const selected = String(c.phone) === String(BOTC_STATE.selectedPhone);
+    const isHuman = String(c.control) === 'human';
+    const bg = selected ? '#eff6ff' : '#fff';
+    const border = selected ? '#3b82f6' : 'transparent';
+    const chip = isHuman
+      ? '<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em">👤 HUMANO</span>'
+      : '<span style="font-size:9px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em">🤖 BOT</span>';
+    return `
+      <div onclick="botcOpenChat('${_botcEsc(c.phone)}')" style="padding:12px 14px;border-bottom:1px solid #e2e8f0;cursor:pointer;background:${bg};border-left:3px solid ${border}">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
+          <div style="font-size:13px;font-weight:800;color:#0f172a">+${_botcEsc(c.phone)}</div>
+          ${chip}
+        </div>
+        <div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_botcEsc(c.last_msg_preview)}</div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:3px">${_botcFmtTime(c.last_msg_at)}</div>
+      </div>
+    `;
+  }).join('');
+  sidebar.innerHTML = items;
+}
+
+window.botcOpenChat = async function(phone, opts) {
+  opts = opts || {};
+  BOTC_STATE.selectedPhone = phone;
+  if (!opts.silent) _botcRenderSidebar();
+  const main = document.getElementById('botc-main');
+  if (!main) return;
+  if (!opts.silent) {
+    main.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px">⏳ Cargando conversación…</div>';
+  }
+  try {
+    const r = await fetch(`${BACKEND}/wa/bot/context?phone=${encodeURIComponent(phone)}&limit=100`, { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    BOTC_STATE.messages = j.messages || [];
+    BOTC_STATE.state = j.state || { control: 'bot' };
+    _botcRenderMain(phone);
+  } catch (e) {
+    main.innerHTML = `<div style="padding:24px;color:#dc2626;font-size:12px">Error: ${_botcEsc(e.message)}</div>`;
+  }
+};
+
+function _botcRenderMain(phone) {
+  const main = document.getElementById('botc-main');
+  if (!main) return;
+  const state = BOTC_STATE.state || { control: 'bot' };
+  const isHuman = String(state.control) === 'human';
+  const msgs = BOTC_STATE.messages || [];
+  const msgsHtml = msgs.length ? msgs.map(m => {
+    const isUser = m.role === 'user';
+    const isAdmin = m.role === 'admin';
+    const align = isUser ? 'flex-start' : 'flex-end';
+    const bg = isUser ? '#fff' : (isAdmin ? '#fef3c7' : '#dcf7c5');
+    const border = isUser ? '#e2e8f0' : (isAdmin ? '#fcd34d' : '#86efac');
+    const label = isUser ? '👤 Huésped' : (isAdmin ? '👨‍💼 Admin (tú)' : '🤖 Bot');
+    return `
+      <div style="display:flex;justify-content:${align};margin-bottom:8px">
+        <div style="max-width:70%;padding:8px 12px;background:${bg};border:1px solid ${border};border-radius:10px">
+          <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:3px">${label} · ${_botcFmtDateTime(m.timestamp)}</div>
+          <div style="font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4">${_botcEsc(m.body)}</div>
+        </div>
+      </div>
+    `;
+  }).join('') : '<div style="text-align:center;color:#94a3b8;font-size:12px;padding:40px">Sin mensajes previos.</div>';
+
+  const ctrlChip = isHuman
+    ? '<span style="font-size:11px;background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:999px;font-weight:800">👤 Bajo control humano</span>'
+    : '<span style="font-size:11px;background:#dbeafe;color:#1e40af;padding:4px 10px;border-radius:999px;font-weight:800">🤖 Bot respondiendo</span>';
+  const ctrlBtn = isHuman
+    ? `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:6px 14px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🤖 Devolver al bot</button>`
+    : `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:6px 14px;font-size:12px;background:#f59e0b;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👤 Tomar control</button>`;
+
+  main.innerHTML = `
+    <div style="padding:12px 20px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0">
+      <div>
+        <div style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>
+        <div style="margin-top:3px">${ctrlChip}</div>
+      </div>
+      <div style="display:flex;gap:8px">${ctrlBtn}</div>
+    </div>
+    <div id="botc-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafc">${msgsHtml}</div>
+    <div style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#fff;display:flex;gap:8px">
+      <input type="text" id="botc-input" placeholder="${isHuman ? 'Escribe un mensaje al huésped…' : 'Toma control primero para enviar manualmente'}"
+        ${isHuman ? '' : 'disabled'}
+        onkeydown="if(event.key==='Enter'){event.preventDefault();botcSendManual()}"
+        style="flex:1;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:${isHuman?'#fff':'#f1f5f9'};color:#0f172a">
+      <button type="button" onclick="botcSendManual()" ${isHuman ? '' : 'disabled'}
+        style="padding:9px 18px;background:${isHuman?'#25d366':'#cbd5e1'};color:#fff;border:0;border-radius:8px;cursor:${isHuman?'pointer':'not-allowed'};font-weight:800;font-size:13px">Enviar</button>
+    </div>
+  `;
+  // Scroll al final
+  setTimeout(() => {
+    const box = document.getElementById('botc-msgs');
+    if (box) box.scrollTop = box.scrollHeight;
+  }, 0);
+}
+
+window.botcSetControl = async function(phone, control) {
+  const reason = control === 'human' ? (prompt('Motivo de toma de control (opcional):') || 'Toma manual del admin') : '';
+  try {
+    const r = await fetch(`${BACKEND}/wa/bot/set-control`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, control, reason }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    // Refrescar chat abierto
+    botcOpenChat(phone);
+    botcRefresh({ silent: true });
+  } catch (e) { alert('Error: ' + e.message); }
+};
+
+window.botcSendManual = async function() {
+  const phone = BOTC_STATE.selectedPhone;
+  if (!phone) return;
+  const inp = document.getElementById('botc-input');
+  const body = String((inp && inp.value) || '').trim();
+  if (!body) return;
+  if (inp) { inp.disabled = true; inp.value = ''; }
+  try {
+    const r = await fetch(`${BACKEND}/wa/bot/send-as-admin`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, body }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    // Refrescar chat para ver el msg enviado
+    botcOpenChat(phone);
+  } catch (e) {
+    alert('Error al enviar: ' + e.message);
+    if (inp) { inp.value = body; }
+  } finally {
+    if (inp) inp.disabled = false;
+  }
+};
+
+/** Modal simple para gestionar alojamientos habilitados en piloto. */
+window.botcOpenAlojConfig = async function() {
+  const existing = document.getElementById('botc-aloj-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'botc-aloj-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = '<div style="background:#fff;border-radius:14px;padding:20px 22px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:16px;font-weight:800;color:#0f172a">⚡ Alojamientos en piloto del bot</div><button onclick="document.getElementById(\'botc-aloj-modal\').remove()" style="background:none;border:0;font-size:22px;cursor:pointer;color:#64748b">×</button></div><div id="botc-aloj-list" style="font-size:12px;color:#64748b">⏳ Cargando…</div><div style="margin-top:14px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;line-height:1.5">Para cambiar qué alojamientos están habilitados, edita la columna <b>bot_enabled</b> en la hoja <b>alojamientos</b> de Google Sheets (TRUE = activo, vacío = desactivado). Los cambios se reflejan aquí tras ~5 min (por cache).</div></div>';
+  document.body.appendChild(modal);
+  try {
+    const r = await fetch(`${BACKEND}/wa/bot/alojamientos`);
+    const j = await r.json();
+    const rows = (j && j.alojamientos) || [];
+    const enabled = rows.filter(a => a.bot_enabled);
+    const disabled = rows.filter(a => !a.bot_enabled);
+    const list = document.getElementById('botc-aloj-list');
+    if (list) {
+      list.innerHTML = `
+        <div style="margin-bottom:12px"><b style="color:#16a34a">✅ Activos (${enabled.length}):</b><br>${enabled.length ? enabled.map(a => `${_botcEsc(a.Propiedad)} #${_botcEsc(a.Departamento)}`).join(' · ') : '<i>ninguno</i>'}</div>
+        <div><b style="color:#94a3b8">⚪ Inactivos (${disabled.length}):</b> <span style="color:#94a3b8">${disabled.slice(0,8).map(a => `${_botcEsc(a.Propiedad)} #${_botcEsc(a.Departamento)}`).join(', ')}${disabled.length > 8 ? ` y ${disabled.length-8} más…` : ''}</span></div>
+      `;
+    }
+  } catch (e) {
+    const list = document.getElementById('botc-aloj-list');
+    if (list) list.innerHTML = `<span style="color:#dc2626">Error: ${_botcEsc(e.message)}</span>`;
   }
 };
 

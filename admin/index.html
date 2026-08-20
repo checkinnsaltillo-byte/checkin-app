@@ -225,6 +225,10 @@
             onclick="switchModule('config-admin');closeNavMenu()">
           ⚙️ Configuración Admin
         </li>
+        <li class="nav-item" id="nav-item-bot-chats"
+            onclick="switchModule('bot-chats');closeNavMenu()">
+          🤖 Chats bot
+        </li>
       </ul>
       <div style="margin-top:auto;padding:16px;border-top:1px solid var(--border,#e5e7eb);display:flex;flex-direction:column;gap:10px;align-items:stretch">
         <button id="btn-dark-mode" onclick="toggleDarkMode()" title="Alternar tema claro/oscuro"
@@ -2351,6 +2355,40 @@
       </div>
     </div><!-- /module-config-admin -->
 
+    <!-- ═══════════════ MÓDULO BOT CHATS (WhatsApp IA) ═══════════════ -->
+    <div id="module-bot-chats" class="hidden" style="padding:0;height:100vh;display:flex;flex-direction:column;font-family:inherit">
+      <div style="padding:14px 20px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:20px">🤖</div>
+          <div>
+            <div style="font-size:16px;font-weight:800;color:#0f172a">Chats bot</div>
+            <div style="font-size:11px;color:#64748b" id="botc-subtitle">Cargando conversaciones…</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div id="botc-filter-tabs" style="display:flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:8px">
+            <button type="button" data-filter="all"     onclick="botcSetFilter('all')"     style="padding:5px 12px;font-size:11px;font-weight:700;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer">Todos</button>
+            <button type="button" data-filter="bot"     onclick="botcSetFilter('bot')"     style="padding:5px 12px;font-size:11px;font-weight:700;background:transparent;color:#475569;border:0;border-radius:6px;cursor:pointer">🤖 Bot</button>
+            <button type="button" data-filter="human"   onclick="botcSetFilter('human')"   style="padding:5px 12px;font-size:11px;font-weight:700;background:transparent;color:#475569;border:0;border-radius:6px;cursor:pointer">👤 Humano</button>
+          </div>
+          <button type="button" onclick="botcRefresh()" title="Refrescar" style="padding:6px 10px;font-size:12px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-weight:700">🔄</button>
+          <button type="button" onclick="botcOpenAlojConfig()" title="Alojamientos habilitados" style="padding:6px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">⚡ Piloto</button>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;min-height:0;background:#f8fafc">
+        <!-- Sidebar: lista conversaciones -->
+        <div id="botc-sidebar" style="width:340px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;overflow-y:auto">
+          <div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">⏳ Cargando…</div>
+        </div>
+        <!-- Centro: chat abierto -->
+        <div id="botc-main" style="flex:1;display:flex;flex-direction:column;min-width:0">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;text-align:center;padding:40px">
+            Selecciona una conversación<br>de la lista de la izquierda
+          </div>
+        </div>
+      </div>
+    </div><!-- /module-bot-chats -->
+
     <!-- ═══════════════ MÓDULO LLAVES ═══════════════ -->
     <div id="module-llaves" class="hidden" style="padding:20px 24px 60px">
       <div style="max-width:1600px;margin:0 auto">
@@ -2519,6 +2557,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=833"></script>
+  <script src="app.js?v=834"></script>
 </body>
 </html>
