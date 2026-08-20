@@ -40219,10 +40219,13 @@ function _botcRenderMain(phone) {
   const msgsHtml = msgs.length ? msgs.map(m => {
     const isUser = m.role === 'user';
     const isAdmin = m.role === 'admin';
+    const isTemplate = m.role === 'template';
     const align = isUser ? 'flex-start' : 'flex-end';
-    const bg = isUser ? '#fff' : (isAdmin ? '#fef3c7' : '#dcf7c5');
-    const border = isUser ? '#e2e8f0' : (isAdmin ? '#fcd34d' : '#86efac');
-    const label = isUser ? '👤 Huésped' : (isAdmin ? '👨‍💼 Admin (tú)' : '🤖 Bot');
+    let bg, border, label;
+    if (isUser) { bg = '#fff'; border = '#e2e8f0'; label = '👤 Huésped'; }
+    else if (isAdmin) { bg = '#fef3c7'; border = '#fcd34d'; label = '👨‍💼 Admin (tú)'; }
+    else if (isTemplate) { bg = '#e0f2fe'; border = '#7dd3fc'; label = `📩 Template${m.meta && m.meta.tipo ? ' · '+m.meta.tipo : ''}`; }
+    else { bg = '#dcf7c5'; border = '#86efac'; label = '🤖 Bot'; }
     return `
       <div style="display:flex;justify-content:${align};margin-bottom:8px">
         <div style="max-width:70%;padding:8px 12px;background:${bg};border:1px solid ${border};border-radius:10px">
