@@ -40224,41 +40224,22 @@ function _botcRenderMain(phone) {
   const nameHeader = name
     ? `<div style="font-size:14px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(phone)}</div>`
     : `<div style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>`;
-  const rightOpen = !!BOTC_STATE.rightPanelOpen;
   main.innerHTML = `
-    <div style="flex:1;display:flex;min-width:0">
-      <!-- CENTRO: chat bot -->
-      <div style="flex:1;display:flex;flex-direction:column;min-width:0">
-        <div style="padding:12px 20px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0">
-          <div>${nameHeader}<div style="margin-top:5px">${ctrlChip}</div></div>
-          <div style="display:flex;gap:8px;align-items:center">
-            ${ctrlBtn}
-            <button type="button" onclick="botcToggleRightPanel()" title="Ver todos los WhatsApp de este número" style="padding:7px 12px;font-size:12px;background:${rightOpen?'#0f172a':'#fff'};color:${rightOpen?'#fff':'#475569'};border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">📱 ${rightOpen?'Ocultar':'Ver'} WA</button>
-          </div>
-        </div>
-        <div id="botc-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafc">${msgsHtml}</div>
-        <div style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#fff;display:flex;gap:8px">
-          <input type="text" id="botc-input" placeholder="${isHuman ? 'Escribe un mensaje al huésped…' : 'Toma control primero para enviar manualmente'}"
-            ${isHuman ? '' : 'disabled'}
-            onkeydown="if(event.key==='Enter'){event.preventDefault();botcSendManual()}"
-            style="flex:1;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:${isHuman?'#fff':'#f1f5f9'};color:#0f172a">
-          <button type="button" onclick="botcSendManual()" ${isHuman ? '' : 'disabled'}
-            style="padding:9px 18px;background:${isHuman?'#25d366':'#cbd5e1'};color:#fff;border:0;border-radius:8px;cursor:${isHuman?'pointer':'not-allowed'};font-weight:800;font-size:13px">Enviar</button>
-        </div>
+    <div style="padding:12px 20px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0">
+      <div>${nameHeader}<div style="margin-top:5px">${ctrlChip}</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${ctrlBtn}
+        <button type="button" onclick="botcToggleRightPanel()" title="Abrir ventana WhatsApp completa (templates, mensajes programados, envío manual) para este huésped" style="padding:7px 12px;font-size:12px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">📱 Ver WA</button>
       </div>
-      <!-- DERECHA: historial WhatsApp completo, deslizable -->
-      <div id="botc-right-panel" style="width:${rightOpen?'380px':'0'};flex-shrink:0;border-left:${rightOpen?'1px':'0'} solid #e2e8f0;background:#fff;overflow:hidden;transition:width .25s ease;display:flex;flex-direction:column">
-        <div style="padding:12px 16px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
-          <div>
-            <div style="font-size:12px;font-weight:800;color:#0f172a">📱 Historial WhatsApp</div>
-            <div style="font-size:10px;color:#64748b;margin-top:1px">Bot + templates + logs</div>
-          </div>
-          <button type="button" onclick="botcToggleRightPanel()" style="background:none;border:0;font-size:18px;cursor:pointer;color:#64748b;padding:0 4px">×</button>
-        </div>
-        <div id="botc-right-list" style="flex:1;overflow-y:auto;padding:10px 12px">
-          ${rightOpen ? '<div style="text-align:center;color:#94a3b8;font-size:11px;padding:20px">⏳ Cargando historial…</div>' : ''}
-        </div>
-      </div>
+    </div>
+    <div id="botc-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafc">${msgsHtml}</div>
+    <div style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#fff;display:flex;gap:8px">
+      <input type="text" id="botc-input" placeholder="${isHuman ? 'Escribe un mensaje al huésped…' : 'Toma control primero para enviar manualmente'}"
+        ${isHuman ? '' : 'disabled'}
+        onkeydown="if(event.key==='Enter'){event.preventDefault();botcSendManual()}"
+        style="flex:1;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:${isHuman?'#fff':'#f1f5f9'};color:#0f172a">
+      <button type="button" onclick="botcSendManual()" ${isHuman ? '' : 'disabled'}
+        style="padding:9px 18px;background:${isHuman?'#25d366':'#cbd5e1'};color:#fff;border:0;border-radius:8px;cursor:${isHuman?'pointer':'not-allowed'};font-weight:800;font-size:13px">Enviar</button>
     </div>
   `;
   // Scroll al final
@@ -40307,54 +40288,43 @@ window.botcSendManual = async function() {
   }
 };
 
-/** Toggle del panel derecho (historial WhatsApp completo). */
-window.botcToggleRightPanel = function() {
-  BOTC_STATE.rightPanelOpen = !BOTC_STATE.rightPanelOpen;
+/** Abre el modal completo de WhatsApp (Gestión de reservas) para el huésped
+ *  seleccionado. Busca el booking activo/próximo por phone y llama a
+ *  waOpenModal(booking) — la MISMA función que usa Gestión de reservas, así
+ *  el user ve la ventana idéntica con templates, custom, +Nuevo mensaje, etc. */
+window.botcToggleRightPanel = async function() {
   const phone = BOTC_STATE.selectedPhone;
   if (!phone) return;
-  _botcRenderMain(phone);
-  if (BOTC_STATE.rightPanelOpen) _botcLoadWhatsAppHistory(phone);
-};
-
-async function _botcLoadWhatsAppHistory(phone) {
-  const list = document.getElementById('botc-right-list');
-  if (!list) return;
+  const btn = document.querySelector('[onclick="botcToggleRightPanel()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Cargando…'; }
   try {
-    const r = await fetch(`https://api.check-inn.mx/wa/bot/all-messages?phone=${encodeURIComponent(phone)}`, { cache: 'no-store' });
+    // Buscar booking por phone: endpoint /bookings-by-guest
+    const r = await fetch(`https://api.check-inn.mx/bookings-by-guest?phone=${encodeURIComponent(phone)}`, { cache: 'no-store' });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
-    const msgs = j.messages || [];
-    if (!msgs.length) {
-      list.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:11px;padding:20px">Sin mensajes históricos</div>';
+    const bookings = j.bookings || [];
+    if (!bookings.length) {
+      alert('Este número no tiene reservaciones en el sistema — el modal WA no puede abrirse sin un booking asociado.');
       return;
     }
-    list.innerHTML = msgs.map(m => {
-      const isInbound = m.role === 'user';
-      const isBot = m.role === 'assistant';
-      const isAdmin = m.role === 'admin';
-      const isTemplate = m.source === 'wa-log';
-      let label, bg, border;
-      if (isInbound) { label = '👤 Huésped'; bg = '#fff'; border = '#e2e8f0'; }
-      else if (isBot) { label = '🤖 Bot'; bg = '#dcf7c5'; border = '#86efac'; }
-      else if (isAdmin) { label = '👨‍💼 Admin'; bg = '#fef3c7'; border = '#fcd34d'; }
-      else if (isTemplate) { label = `📩 Template${m.tipo ? ' · '+m.tipo : ''}`; bg = '#e0f2fe'; border = '#7dd3fc'; }
-      else { label = m.role || 'mensaje'; bg = '#f8fafc'; border = '#cbd5e1'; }
-      const align = isInbound ? 'flex-start' : 'flex-end';
-      return `
-        <div style="display:flex;justify-content:${align};margin-bottom:6px">
-          <div style="max-width:88%;padding:6px 9px;background:${bg};border:1px solid ${border};border-radius:8px">
-            <div style="font-size:9px;color:#64748b;font-weight:700;margin-bottom:2px">${label} · ${_botcFmtDateTime(m.timestamp)}</div>
-            <div style="font-size:11px;color:#0f172a;white-space:pre-wrap;line-height:1.3">${_botcEsc(m.body)}</div>
-          </div>
-        </div>
-      `;
-    }).join('');
-    // Scroll al final
-    list.scrollTop = list.scrollHeight;
+    // Prioridad: activa (arrival<=hoy<=dep) > próxima > última
+    const today = new Date().toISOString().slice(0,10);
+    const active = bookings.find(b => {
+      const a = String(b.DateArrival||'').slice(0,10), d = String(b.DateDeparture||'').slice(0,10);
+      return a && d && a <= today && today <= d;
+    });
+    const proxima = bookings
+      .filter(b => String(b.DateArrival||'').slice(0,10) >= today)
+      .sort((a,b) => String(a.DateArrival).localeCompare(String(b.DateArrival)))[0];
+    const booking = active || proxima || bookings[bookings.length - 1];
+    if (typeof waOpenModal === 'function') waOpenModal(booking);
+    else alert('Función waOpenModal no disponible.');
   } catch (e) {
-    list.innerHTML = `<div style="color:#dc2626;padding:20px;text-align:center;font-size:11px">Error: ${_botcEsc(e.message)}</div>`;
+    alert('Error al abrir historial WA: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📱 Ver WA'; }
   }
-}
+};
 
 /** Modal multi-select para habilitar/deshabilitar alojamientos del bot.
  *  Escribe en la columna bot_enabled de la hoja alojamientos al guardar. */
