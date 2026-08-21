@@ -22021,10 +22021,22 @@ window.incGenerar = function() {
   if (!preview) return;
   preview.innerHTML = incBuildReporteHtml(d);
   if (modal) {
-    // Sacar de #module-incidencias (display:none oculta a descendientes
-    // aunque el modal sea position:fixed). Igual truco que capture-panel.
     if (modal.parentElement !== document.body) document.body.appendChild(modal);
     modal.style.display = '';
+    // Convertir a slide-in lateral derecho (para poder abrirlo encima del
+    // wa-modal y del capture-panel). z-index más alto que wa-modal (99999).
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100003;display:flex;align-items:stretch;justify-content:flex-end;padding:0';
+    const content = modal.querySelector('.inc-modal-content');
+    if (content) {
+      content.style.cssText = 'position:relative;background:#fff;width:100%;max-width:720px;height:100vh;overflow-y:auto;border-radius:0;margin:0;box-shadow:-24px 0 48px -8px rgba(0,0,0,.28);animation:incSlideIn .28s cubic-bezier(.2,.7,.3,1)';
+    }
+    // Keyframes inline por si no están en el CSS.
+    if (!document.getElementById('inc-slide-kf')) {
+      const kf = document.createElement('style');
+      kf.id = 'inc-slide-kf';
+      kf.textContent = '@keyframes incSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }';
+      document.head.appendChild(kf);
+    }
     modal.classList.remove('hidden');
   }
 };
@@ -23337,6 +23349,18 @@ window.objGenerar = function () {
   if (modal) {
     if (modal.parentElement !== document.body) document.body.appendChild(modal);
     modal.style.display = '';
+    // Slide-in lateral derecho, encima de todo (wa-modal + capture-panel).
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100003;display:flex;align-items:stretch;justify-content:flex-end;padding:0';
+    const content = modal.querySelector('.inc-modal-content');
+    if (content) {
+      content.style.cssText = 'position:relative;background:#fff;width:100%;max-width:720px;height:100vh;overflow-y:auto;border-radius:0;margin:0;box-shadow:-24px 0 48px -8px rgba(0,0,0,.28);animation:incSlideIn .28s cubic-bezier(.2,.7,.3,1)';
+    }
+    if (!document.getElementById('inc-slide-kf')) {
+      const kf = document.createElement('style');
+      kf.id = 'inc-slide-kf';
+      kf.textContent = '@keyframes incSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }';
+      document.head.appendChild(kf);
+    }
     modal.classList.remove('hidden');
   }
 };
