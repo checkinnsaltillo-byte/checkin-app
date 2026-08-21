@@ -40503,6 +40503,9 @@ function _botcRenderMain(phone) {
   if (!main) return;
   const state = BOTC_STATE.state || { control: 'bot' };
   const isHuman = String(state.control) === 'human';
+  const isSupervised = String(state.control) === 'supervised';
+  const draftBody = String(state.pending_draft_body || '');
+  const canType = isHuman || isSupervised;
   const msgs = BOTC_STATE.messages || [];
   const msgsHtml = msgs.length ? msgs.map(m => {
     const isUser = m.role === 'user';
@@ -40526,10 +40529,17 @@ function _botcRenderMain(phone) {
 
   const ctrlChip = isHuman
     ? '<span style="font-size:11px;background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:999px;font-weight:800">👤 Bajo control humano</span>'
-    : '<span style="font-size:11px;background:#dbeafe;color:#1e40af;padding:4px 10px;border-radius:999px;font-weight:800">🤖 Bot respondiendo</span>';
-  const ctrlBtn = isHuman
+    : isSupervised
+      ? '<span style="font-size:11px;background:#ede9fe;color:#5b21b6;padding:4px 10px;border-radius:999px;font-weight:800">👁 Supervisado (bot sugiere, tú envías)</span>'
+      : '<span style="font-size:11px;background:#dbeafe;color:#1e40af;padding:4px 10px;border-radius:999px;font-weight:800">🤖 Bot respondiendo</span>';
+  // Ciclo de 3 modos: bot → supervised → human → bot (dos botones para claridad)
+  const supBtn = isSupervised
     ? `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:6px 14px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🤖 Devolver al bot</button>`
-    : `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:6px 14px;font-size:12px;background:#f59e0b;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👤 Tomar control</button>`;
+    : `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','supervised')" style="padding:6px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👁 Supervisar</button>`;
+  const humBtn = isHuman
+    ? `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:6px 14px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🤖 Devolver al bot</button>`
+    : `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:6px 12px;font-size:12px;background:#f59e0b;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👤 Tomar control</button>`;
+  const ctrlBtn = (isHuman ? humBtn : (isSupervised ? supBtn : `${supBtn} ${humBtn}`));
 
   // Nombre del perfil desde conversations (si existe)
   const conv = (BOTC_STATE.conversations || []).find(c => String(c.phone) === String(phone));
@@ -40546,13 +40556,26 @@ function _botcRenderMain(phone) {
       </div>
     </div>
     <div id="botc-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafc">${msgsHtml}</div>
+    ${isSupervised && draftBody ? `
+      <div id="botc-draft-box" style="border-top:1px solid #e2e8f0;background:#faf5ff;padding:12px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:11px;font-weight:800;color:#5b21b6;letter-spacing:.04em">🤖 SUGERENCIA DEL BOT</span>
+          ${state.pending_draft_at ? `<span style="font-size:10px;color:#94a3b8">${_botcFmtDateTime(state.pending_draft_at)}</span>` : ''}
+        </div>
+        <textarea id="botc-draft-text" style="width:100%;min-height:80px;padding:8px 10px;border:1px solid #c4b5fd;border-radius:8px;font-size:13px;font-family:inherit;line-height:1.4;box-sizing:border-box;background:#fff;color:#0f172a">${_botcEsc(draftBody)}</textarea>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button type="button" onclick="botcDraftAccept('${_botcEsc(phone)}')" style="padding:7px 14px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">✓ Aceptar y enviar</button>
+          <button type="button" onclick="botcDraftEdit('${_botcEsc(phone)}')" style="padding:7px 14px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">✎ Enviar edición</button>
+          <button type="button" onclick="botcDraftSkip('${_botcEsc(phone)}')" style="padding:7px 14px;background:#e2e8f0;color:#475569;border:0;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">✕ Omitir</button>
+        </div>
+      </div>` : ''}
     <div style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#fff;display:flex;gap:8px">
-      <input type="text" id="botc-input" placeholder="${isHuman ? 'Escribe un mensaje al huésped…' : 'Toma control primero para enviar manualmente'}"
-        ${isHuman ? '' : 'disabled'}
+      <input type="text" id="botc-input" placeholder="${canType ? 'Escribe un mensaje al huésped…' : 'Toma control primero para enviar manualmente'}"
+        ${canType ? '' : 'disabled'}
         onkeydown="if(event.key==='Enter'){event.preventDefault();botcSendManual()}"
-        style="flex:1;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:${isHuman?'#fff':'#f1f5f9'};color:#0f172a">
-      <button type="button" onclick="botcSendManual()" ${isHuman ? '' : 'disabled'}
-        style="padding:9px 18px;background:${isHuman?'#25d366':'#cbd5e1'};color:#fff;border:0;border-radius:8px;cursor:${isHuman?'pointer':'not-allowed'};font-weight:800;font-size:13px">Enviar</button>
+        style="flex:1;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:${canType?'#fff':'#f1f5f9'};color:#0f172a">
+      <button type="button" onclick="botcSendManual()" ${canType ? '' : 'disabled'}
+        style="padding:9px 18px;background:${canType?'#25d366':'#cbd5e1'};color:#fff;border:0;border-radius:8px;cursor:${canType?'pointer':'not-allowed'};font-weight:800;font-size:13px">Enviar</button>
     </div>
   `;
   // Scroll al final
@@ -40599,6 +40622,39 @@ window.botcSendManual = async function() {
   } finally {
     if (inp) inp.disabled = false;
   }
+};
+
+/** Modo supervised: acciones sobre el pending draft del bot.
+ *  - Accept: envía tal cual el body del textarea.
+ *  - Edit: idéntico (el textarea permite editar antes de enviar).
+ *  - Skip: descarta sin enviar. */
+async function _botcDraftAction(phone, action, body) {
+  try {
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/draft-action`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, action, body: body || '' }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    // Refrescar chat: quita la caja del draft y muestra el msg enviado (si aplica)
+    botcOpenChat(phone);
+  } catch (e) { alert('Error: ' + e.message); }
+}
+window.botcDraftAccept = function(phone) {
+  const ta = document.getElementById('botc-draft-text');
+  const body = String((ta && ta.value) || '').trim();
+  if (!body) { alert('Draft vacío.'); return; }
+  _botcDraftAction(phone, 'send', body);
+};
+window.botcDraftEdit = function(phone) {
+  const ta = document.getElementById('botc-draft-text');
+  const body = String((ta && ta.value) || '').trim();
+  if (!body) { alert('Escribe un mensaje.'); return; }
+  _botcDraftAction(phone, 'send', body);
+};
+window.botcDraftSkip = function(phone) {
+  if (!confirm('¿Omitir esta sugerencia? No se enviará al huésped.')) return;
+  _botcDraftAction(phone, 'skip');
 };
 
 /** Abre el modal completo de WhatsApp (Gestión de reservas) para el huésped
