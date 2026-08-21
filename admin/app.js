@@ -22067,15 +22067,18 @@ INC_STATE.expanded = new Set(); // IDs de cards expandidas
 // Abre el form de Incidencias y pre-llena Propiedad + # Departamento.
 // Llamado desde el panel de detalle de reserva (Ocupación / Gestión).
 window.lgOpenIncCaptureFor = function (propRaw, deptRaw, fechaIso) {
-  if (typeof incAbrirCaptura !== 'function') return;
-  // Mueve panel+backdrop a <body> si están dentro de #incidencias (display:none oculta position:fixed hijos)
+  if (typeof incAbrirCaptura !== 'function') { console.warn('[lg→inc] incAbrirCaptura no cargada'); return; }
+  // Mueve panel+backdrop a <body> SIEMPRE que no estén ya como hijos directos.
+  // Si están dentro de #module-incidencias (display:none), position:fixed no
+  // rescata a los descendientes — Chrome los oculta también.
   ['inc-capture-backdrop','inc-capture-panel'].forEach(id => {
     const el = document.getElementById(id);
-    if (el && el.parentElement !== document.body) document.body.appendChild(el);
+    if (!el) { console.warn(`[lg→inc] Elemento #${id} no existe en DOM`); return; }
+    if (el.parentElement !== document.body) document.body.appendChild(el);
   });
-  // Asegura que los selects de propiedad/depto estén poblados
-  if (typeof incInit === 'function') incInit();
-  if (typeof incRenderPropDeptoSelects === 'function') incRenderPropDeptoSelects();
+  // incInit puede fallar si algún elemento asume estar visible — envolver.
+  try { if (typeof incInit === 'function') incInit(); } catch(e){ console.warn('[lg→inc] incInit error:', e.message); }
+  try { if (typeof incRenderPropDeptoSelects === 'function') incRenderPropDeptoSelects(); } catch(e){ console.warn('[lg→inc] renderPropDepto error:', e.message); }
   incAbrirCaptura();
   setTimeout(() => {
     if (fechaIso) { const f = document.getElementById('inc-fecha'); if (f) f.value = fechaIso; }
@@ -22097,13 +22100,14 @@ window.lgOpenIncCaptureFor = function (propRaw, deptRaw, fechaIso) {
   }, 80);
 };
 window.lgOpenObjCaptureFor = function (propRaw, deptRaw, fechaIso) {
-  if (typeof objAbrirCaptura !== 'function') return;
+  if (typeof objAbrirCaptura !== 'function') { console.warn('[lg→obj] objAbrirCaptura no cargada'); return; }
   ['obj-capture-backdrop','obj-capture-panel'].forEach(id => {
     const el = document.getElementById(id);
-    if (el && el.parentElement !== document.body) document.body.appendChild(el);
+    if (!el) { console.warn(`[lg→obj] Elemento #${id} no existe en DOM`); return; }
+    if (el.parentElement !== document.body) document.body.appendChild(el);
   });
-  if (typeof objInit === 'function') objInit();
-  if (typeof objRenderPropDeptoSelects === 'function') objRenderPropDeptoSelects();
+  try { if (typeof objInit === 'function') objInit(); } catch(e){ console.warn('[lg→obj] objInit error:', e.message); }
+  try { if (typeof objRenderPropDeptoSelects === 'function') objRenderPropDeptoSelects(); } catch(e){ console.warn('[lg→obj] renderPropDepto error:', e.message); }
   objAbrirCaptura();
   setTimeout(() => {
     if (fechaIso) { const f = document.getElementById('obj-fecha-enc'); if (f) f.value = fechaIso; }
@@ -22127,7 +22131,15 @@ window.lgOpenObjCaptureFor = function (propRaw, deptRaw, fechaIso) {
 window.incAbrirCaptura = function () {
   const panel = document.getElementById('inc-capture-panel');
   const back  = document.getElementById('inc-capture-backdrop');
-  if (!panel || !back) return;
+  if (!panel || !back) { console.warn('[inc] abrirCaptura: panel/backdrop no en DOM'); return; }
+  // Garantizar que estén como hijos directos de <body>. Si un ancestor
+  // tiene display:none (ej. #module-incidencias.hidden), position:fixed
+  // no rescata a los descendientes y quedarían invisibles.
+  if (panel.parentElement !== document.body) document.body.appendChild(panel);
+  if (back.parentElement  !== document.body) document.body.appendChild(back);
+  // Reset explícito de display por si algún CSS heredado dejó :none.
+  back.style.display = '';
+  panel.style.display = '';
   back.classList.remove('hidden');
   // Forzar reflow para que la transición de opacidad corra
   // eslint-disable-next-line no-unused-expressions
@@ -23324,7 +23336,11 @@ window.objGuardarSalir = async function () {
 window.objAbrirCaptura = function () {
   const panel = document.getElementById('obj-capture-panel');
   const back = document.getElementById('obj-capture-backdrop');
-  if (!panel || !back) return;
+  if (!panel || !back) { console.warn('[obj] abrirCaptura: panel/backdrop no en DOM'); return; }
+  if (panel.parentElement !== document.body) document.body.appendChild(panel);
+  if (back.parentElement  !== document.body) document.body.appendChild(back);
+  back.style.display = '';
+  panel.style.display = '';
   back.classList.remove('hidden');
   back.offsetHeight;
   back.classList.add('visible');
