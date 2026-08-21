@@ -40224,20 +40224,36 @@ async function _botcGetBookingForPhone(phoneRaw) {
   return picked;
 }
 function _botcPickBestBooking(list) {
-  // huRowToSyntheticBooking devuelve fechas en MM/DD/YYYY (mismo formato que
-  // Lodgify) — parsear con huParseDate para comparar con today local.
+  // OJO: huRowToSyntheticBooking devuelve fechas en MM/DD/YYYY (formato
+  // Lodgify), pero huParseDate interpreta "M/D/YYYY" como DD/MM/YYYY —
+  // "08/16/2026" se lee día=8 mes=16 → mes inválido → JS rueda al año
+  // siguiente. Usamos un parser local que sabe que aquí es MM/DD/YYYY.
+  const parseMMDD = (s) => {
+    const t = String(s || '').trim();
+    if (!t) return null;
+    // ISO YYYY-MM-DD (por si algún booking Lodgify vino ya normalizado)
+    let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return new Date(+m[1], +m[2]-1, +m[3]).getTime();
+    // MM/DD/YYYY (formato canónico Lodgify + huRowToSyntheticBooking)
+    m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) {
+      const mo = +m[1], da = +m[2], yr = +m[3];
+      if (mo < 1 || mo > 12 || da < 1 || da > 31) return null;
+      return new Date(yr, mo-1, da).getTime();
+    }
+    return null;
+  };
   const _now = new Date();
   const today = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate()).getTime();
-  const asMs = (s) => { const d = huParseDate(s); return (d && !isNaN(d)) ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : null; };
   const active = list.find(b => {
-    const a = asMs(b.DateArrival), d = asMs(b.DateDeparture);
+    const a = parseMMDD(b.DateArrival), d = parseMMDD(b.DateDeparture);
     return a != null && d != null && a <= today && today <= d;
   });
   if (active) return active;
-  const futura = list.filter(b => { const a = asMs(b.DateArrival); return a != null && a >= today; })
-    .sort((a,b) => (asMs(a.DateArrival)||0) - (asMs(b.DateArrival)||0))[0];
+  const futura = list.filter(b => { const a = parseMMDD(b.DateArrival); return a != null && a >= today; })
+    .sort((a,b) => parseMMDD(a.DateArrival) - parseMMDD(b.DateArrival))[0];
   if (futura) return futura;
-  const past = list.slice().sort((a,b) => (asMs(b.DateDeparture)||0) - (asMs(a.DateDeparture)||0))[0];
+  const past = list.slice().sort((a,b) => (parseMMDD(b.DateDeparture)||0) - (parseMMDD(a.DateDeparture)||0))[0];
   return past || list[0];
 }
 
