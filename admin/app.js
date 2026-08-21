@@ -16618,8 +16618,9 @@ function lgBuildIncSectionForBooking(arg) {
     }
     if (reason.length) console.warn('[LG-INC] sin match para reserva', { propRaw, deptRaw, arrIso, depIso }, 'descartados:', reason);
   }
-  const newBtn = `<button type="button" onclick="lgOpenIncCaptureFor('${esc(propRaw)}','${esc(deptRaw)}','${esc(arrIso)}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1.5px solid #dc2626;background:#fff;color:#dc2626;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;margin-top:8px">＋ Generar nuevo reporte</button>`;
-  if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin incidencias en este rango.</div>${newBtn}`);
+  // Nota: el botón "+ Generar nuevo reporte" se movió al selector unificado
+  // (lgBuildReportsSectionForBooking). Aquí solo mostramos incidencias.
+  if (!matches.length) return ''; // sección se omite si no hay data para mostrar
   // Cards minimalistas desde cero (no reuso incRenderCardOne para evitar
   // que onclicks/elementos internos roben el evento). Click abre slide-in.
   const cards = matches.map(row => {
@@ -16713,8 +16714,8 @@ function lgBuildObjSectionForBooking(arg) {
     }
     if (reason.length) console.warn('[LG-OBJ] sin match para reserva', { propRaw, deptRaw, arrIso, depIso }, 'descartados:', reason);
   }
-  const newBtn = `<button type="button" onclick="lgOpenObjCaptureFor('${esc(propRaw)}','${esc(deptRaw)}','${esc(depIso)}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1.5px solid #059669;background:#fff;color:#059669;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;margin-top:8px">＋ Registrar nuevo objeto</button>`;
-  if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin objetos olvidados en este rango.</div>${newBtn}`);
+  // Nota: el botón "+ Registrar nuevo objeto" se movió al selector unificado.
+  if (!matches.length) return ''; // sección se omite si no hay data para mostrar
   // Cards minimalistas desde cero. Click abre slide-in.
   const cards = matches.map(row => {
     const id = String(row['ID']||'');
@@ -16748,6 +16749,94 @@ function lgBuildObjSectionForBooking(arg) {
   }).join('');
   return wrap(header + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`);
 }
+
+/** Card unificada "+ Generar nuevo reporte" que abre selector de tipo:
+ *  1) Incidencia · 2) Objeto perdido · 3) Reporte técnico (próximamente).
+ *  Reemplaza los 2 botones sueltos que había en Inc/Obj sections. */
+function lgBuildReportsSectionForBooking(arg) {
+  if (typeof arg === 'string') {
+    if (!/^\d{6,12}$/.test(arg.trim())) return '';
+    const b = (LG_STATE?.bookings || []).find(x => String(x.Id) === arg.trim());
+    if (!b) return '';
+    arg = b;
+  }
+  if (!arg || typeof arg !== 'object') return '';
+  const arrIso = lgFmtDateUI(arg.DateArrival)   || String((arg.__reservacion && arg.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = lgFmtDateUI(arg.DateDeparture) || String((arg.__reservacion && arg.__reservacion['Fecha de salida']) || '').slice(0,10);
+  const propRaw = arg.PropiedadRaw || (arg.__reservacion && arg.__reservacion['Propiedad']) || '';
+  const deptRaw = arg.DepartamentoRaw || (arg.__reservacion && arg.__reservacion['# Departamento']) || '';
+  return `
+    <div class="hu-col-card lg-reports-card" style="margin-top:14px;background:#fff;border-radius:16px;padding:14px 16px;box-shadow:0 4px 16px rgba(15,23,42,.08);border:1.5px solid #e2e8f0;box-sizing:border-box;width:100%">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">📋 REPORTES</div>
+        <button type="button"
+                onclick="lgOpenReportPicker('${esc(propRaw)}','${esc(deptRaw)}','${esc(arrIso)}','${esc(depIso)}')"
+                style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid #0f172a;background:#0f172a;color:#fff;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">
+          ＋ Generar nuevo reporte
+        </button>
+      </div>
+    </div>`;
+}
+
+/** Panel lateral picker: elige tipo de reporte a generar.
+ *  Al seleccionar, cierra el picker y abre la ventana correspondiente. */
+window.lgOpenReportPicker = function(propRaw, deptRaw, arrIso, depIso) {
+  const existing = document.getElementById('lg-report-picker');
+  if (existing) existing.remove();
+  const wrap = document.createElement('div');
+  wrap.id = 'lg-report-picker';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:8800;display:flex;justify-content:flex-end';
+  wrap.onclick = (e) => { if (e.target === wrap) wrap.remove(); };
+  wrap.innerHTML = `
+    <div style="width:100%;max-width:420px;height:100vh;background:#fff;box-shadow:-16px 0 40px rgba(15,23,42,.18);display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:11px;color:#64748b;font-weight:800;letter-spacing:.16em">TIPO DE REPORTE</div>
+          <div style="font-size:16px;font-weight:800;color:#0f172a;margin-top:2px">＋ Generar nuevo reporte</div>
+        </div>
+        <button type="button" onclick="document.getElementById('lg-report-picker')?.remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1;padding:0 6px">✕</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+        <button type="button" onclick="lgPickReport('inc','${esc(propRaw)}','${esc(deptRaw)}','${esc(arrIso)}','${esc(depIso)}')"
+                style="text-align:left;padding:16px 18px;border:1.5px solid #fecaca;background:#fff;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:transform .1s,box-shadow .1s">
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#fee2e2,#fecaca);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🚨</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:800;color:#0f172a">Incidencia</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">Reportar limpieza, mantenimiento, insumos, ruido, etc.</div>
+          </div>
+          <div style="color:#dc2626;font-weight:800">▸</div>
+        </button>
+        <button type="button" onclick="lgPickReport('obj','${esc(propRaw)}','${esc(deptRaw)}','${esc(arrIso)}','${esc(depIso)}')"
+                style="text-align:left;padding:16px 18px;border:1.5px solid #a7f3d0;background:#fff;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:transform .1s,box-shadow .1s">
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#d1fae5,#a7f3d0);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🎒</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:800;color:#0f172a">Objeto perdido</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">Registrar un objeto encontrado / olvidado por el huésped.</div>
+          </div>
+          <div style="color:#059669;font-weight:800">▸</div>
+        </button>
+        <button type="button" disabled title="Próximamente"
+                style="text-align:left;padding:16px 18px;border:1.5px dashed #cbd5e1;background:#f8fafc;border-radius:12px;cursor:not-allowed;display:flex;align-items:center;gap:14px;opacity:.65">
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#e0e7ff,#c7d2fe);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🛠</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:800;color:#0f172a">Reporte técnico <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px;margin-left:6px;letter-spacing:.05em">PRÓXIMAMENTE</span></div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">Bitácora de trabajo técnico realizado en el alojamiento.</div>
+          </div>
+          <div style="color:#94a3b8;font-weight:800">▸</div>
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+};
+
+window.lgPickReport = function(kind, propRaw, deptRaw, arrIso, depIso) {
+  document.getElementById('lg-report-picker')?.remove();
+  if (kind === 'inc' && typeof lgOpenIncCaptureFor === 'function') {
+    lgOpenIncCaptureFor(propRaw, deptRaw, arrIso);
+  } else if (kind === 'obj' && typeof lgOpenObjCaptureFor === 'function') {
+    lgOpenObjCaptureFor(propRaw, deptRaw, depIso);
+  }
+};
 
 // "Dispositivos relacionados" — debajo de Tareas relacionadas.
 // Cruza propiedad + # departamento + rango de fechas (entrada/salida) con
@@ -19940,6 +20029,17 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
         if (objHtml) {
           const w = document.createElement('div');
           w.innerHTML = key ? objHtml.replace('class="hu-col-card lg-obj-card"', `class="hu-col-card lg-obj-card" data-bzw-key="${esc(key)}"`) : objHtml;
+          el.appendChild(w);
+        }
+      }
+      // Card unificada "+ Generar nuevo reporte" con selector de tipo.
+      // Siempre visible (a diferencia de las secciones inc/obj que solo
+      // aparecen si hay reportes para mostrar).
+      if (typeof lgBuildReportsSectionForBooking === 'function') {
+        const repHtml = lgBuildReportsSectionForBooking(arg);
+        if (repHtml) {
+          const w = document.createElement('div');
+          w.innerHTML = key ? repHtml.replace('class="hu-col-card lg-reports-card"', `class="hu-col-card lg-reports-card" data-bzw-key="${esc(key)}"`) : repHtml;
           el.appendChild(w);
         }
       }
@@ -24531,6 +24631,7 @@ function ocupBuildRelatedSections(b) {
   try { if (typeof lgBuildTuyaSectionForBooking === 'function') html += lgBuildTuyaSectionForBooking(b); } catch (e) { console.warn('[OCUP detail] tuya:', e.message); }
   try { if (typeof lgBuildIncSectionForBooking  === 'function') html += lgBuildIncSectionForBooking(b);  } catch (e) { console.warn('[OCUP detail] inc:', e.message); }
   try { if (typeof lgBuildObjSectionForBooking  === 'function') html += lgBuildObjSectionForBooking(b);  } catch (e) { console.warn('[OCUP detail] obj:', e.message); }
+  try { if (typeof lgBuildReportsSectionForBooking === 'function') html += lgBuildReportsSectionForBooking(b); } catch (e) { console.warn('[OCUP detail] reports:', e.message); }
   return html;
 }
 
