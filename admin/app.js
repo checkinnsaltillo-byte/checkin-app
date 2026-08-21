@@ -40574,13 +40574,22 @@ window.botcToggleRightPanel = async function() {
       .sort((a,b) => String(a.DateArrival).localeCompare(String(b.DateArrival)))[0];
     const booking = active || proxima || bookings[bookings.length - 1];
     if (typeof waOpenModal === 'function') {
+      // Cerrar CUALQUIER modal WA residual antes de abrir. _waRenderModal
+      // hace early-return si ya existe #wa-modal (con contenido stale del
+      // huésped previo) → primera apertura mostraba modal viejo o vacío;
+      // 2do click ya funcionaba.
+      if (typeof waCloseModal_ === 'function') { try { waCloseModal_(); } catch(_){} }
       await waOpenModal(booking);
-      // waOpenModal puede resolver antes de que el DOM del modal esté
-      // pintado (renders internos con requestAnimationFrame/setTimeout).
-      // Esperamos hasta que #wa-modal exista o hasta 8s de timeout.
+      // Esperar a que el panel esté realmente visible (no en translateX(100%)
+      // de la animación slide-in). Máximo 8s.
       const t0 = Date.now();
-      while (!document.getElementById('wa-modal') && Date.now() - t0 < 8000) {
-        await new Promise(r => setTimeout(r, 50));
+      while (Date.now() - t0 < 8000) {
+        const panel = document.querySelector('#wa-modal [data-wa-panel]');
+        if (panel) {
+          const tf = String(panel.style.transform || '');
+          if (!tf || tf.indexOf('translateX(100%)') === -1) break;
+        }
+        await new Promise(r => setTimeout(r, 40));
       }
     } else {
       alert('Función waOpenModal no disponible.');
