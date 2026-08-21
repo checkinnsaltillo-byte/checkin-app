@@ -37558,6 +37558,7 @@ window.waOpenModal = async function(booking) {
       subjectCustom: '',
       open: false,
     },
+    currentTab: 'todos', // 'todos' | 'programados' | 'reportes'
   };
   // Pre-cargar config para todas las bookings del huésped (para pintar los headers)
   if (bookings.length > 1) {
@@ -37676,6 +37677,147 @@ function _waRenderRecipientsInput_() {
       </div>
     </div>
   `;
+}
+
+/** Header de tabs (Todos / Programados / Reportes). */
+function _waRenderTabsHeader_(currentTab) {
+  const tab = (name, label, icon) => {
+    const active = currentTab === name;
+    return `<button type="button" onclick="waSetTab_('${name}')" style="flex:1;padding:8px 10px;border:0;background:${active?'#0f172a':'transparent'};color:${active?'#fff':'#475569'};font-size:12px;font-weight:800;cursor:pointer;border-radius:6px">${icon} ${label}</button>`;
+  };
+  return `
+    <div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:8px;margin-bottom:12px">
+      ${tab('todos','Todos','📋')}
+      ${tab('programados','Programados','📅')}
+      ${tab('reportes','Reportes','🚨')}
+    </div>`;
+}
+
+/** Contenido del tab seleccionado. */
+function _waRenderTabContent_(st, logs) {
+  const tab = st.currentTab || 'todos';
+  const progHtml = _waRenderBookingsAccordion_(logs);
+  const reportsHtml = _waRenderReportsList_(st);
+  if (tab === 'programados') return progHtml;
+  if (tab === 'reportes')    return reportsHtml || _waEmptyState_('Sin reportes asociados a esta reserva.');
+  // 'todos' — programados + reportes en el mismo scroll.
+  return `${progHtml}${reportsHtml ? '<div style="margin-top:14px">' + reportsHtml + '</div>' : ''}`;
+}
+
+/** Cambia tab activo sin re-fetch (solo repinta). */
+window.waSetTab_ = function(name) {
+  const st = window.__waModalState; if (!st) return;
+  st.currentTab = name;
+  _waRepaint();
+};
+
+function _waEmptyState_(msg) {
+  return `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px">${esc(msg)}</div>`;
+}
+
+/** Lista de cards de REPORTES (incidencias + objetos) asociados a las reservas
+ *  del huésped, con look homologado a mensajes programados y fondo por tipo. */
+function _waRenderReportsList_(st) {
+  const bookings = Array.isArray(st.bookings) && st.bookings.length ? st.bookings : (st.b ? [st.b] : []);
+  const alojNormFn = (typeof alojNorm === 'function') ? alojNorm : (s => String(s||'').toLowerCase().trim());
+  const cards = [];
+  const incList = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list)) ? INC_STATE.list : [];
+  const objList = (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list)) ? OBJ_STATE.list : [];
+  for (const b of bookings) {
+    const arrIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(b.DateArrival) : '') || String((b.__reservacion && b.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+    const depIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(b.DateDeparture) : '') || String((b.__reservacion && b.__reservacion['Fecha de salida']) || '').slice(0,10);
+    const propRaw = b.PropiedadRaw || (b.__reservacion && b.__reservacion['Propiedad']) || b.PropertyName || '';
+    const deptRaw = b.DepartamentoRaw || (b.__reservacion && b.__reservacion['# Departamento']) || '';
+    if (!arrIso || !depIso || !propRaw || !deptRaw) continue;
+    const propN = alojNormFn(propRaw), deptN = alojNormFn(deptRaw);
+    // Incidencias
+    incList.forEach(r => {
+      if (alojNormFn(r['Propiedad']) !== propN) return;
+      if (alojNormFn(r['# Departamento']) !== deptN) return;
+      const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+      if (!f || f < arrIso || f > depIso) return;
+      cards.push({ kind:'inc', row:r, sortKey:f });
+    });
+    // Objetos
+    objList.forEach(r => {
+      if (alojNormFn(r['Propiedad']) !== propN) return;
+      if (alojNormFn(r['# Departamento']) !== deptN) return;
+      const f = String(r['Fecha_encontrado'] || '').slice(0,10);
+      if (!f || f < arrIso || f > depIso) return;
+      cards.push({ kind:'obj', row:r, sortKey:f });
+    });
+  }
+  if (!cards.length) return '';
+  // Más recientes primero.
+  cards.sort((a,b) => b.sortKey.localeCompare(a.sortKey));
+  const html = cards.map(c => c.kind === 'inc' ? _waRenderIncCard_(c.row) : _waRenderObjCard_(c.row)).join('');
+  return `<div style="display:flex;flex-direction:column;gap:10px">${html}</div>`;
+}
+
+function _waRenderIncCard_(row) {
+  const id = String(row['ID']||'');
+  const titulo = [String(row['Motivos']||''), String(row['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Reporte';
+  const propiedad = String(row['Propiedad']||'').trim();
+  const depto = String(row['# Departamento']||'').trim();
+  const aloj = String(row['Alojamiento']||'').trim() || (propiedad && depto ? `${propiedad} - #${depto}` : propiedad);
+  const fecha = String(row['Fecha']||row['Timestamp']||'').slice(0,10);
+  const nivel = String(row['Nivel']||'Baja');
+  const estatus = String(row['Estatus']||'Pendiente');
+  const motivoCls = (typeof incMotivoColorClass === 'function') ? incMotivoColorClass(row['Motivos']||'') : 'default';
+  const BG = { Limpieza:'#06b6d4', Mantenimiento:'#f59e0b', Insumos:'#8b5cf6', default:'#64748b' };
+  const headerBg = BG[motivoCls] || BG.default;
+  const estBg = estatus === 'Resuelto' ? '#dcfce7' : estatus === 'Pendiente' ? '#fee2e2' : '#fef3c7';
+  const estCl = estatus === 'Resuelto' ? '#166534' : estatus === 'Pendiente' ? '#991b1b' : '#92400e';
+  const nivelDot = nivel === 'Alta' ? '#dc2626' : nivel === 'Media' ? '#f59e0b' : '#16a34a';
+  // Look homologado al de mensajes programados: card con border-radius, sombra, header colorido.
+  return `<div data-lg-inc-id="${esc(id)}" role="button" tabindex="0"
+    style="cursor:pointer;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.06);transition:transform .1s,box-shadow .1s">
+    <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.9;font-weight:800">🚨 INCIDENCIA</div>
+        <div style="font-size:13px;font-weight:800;margin-top:2px;display:flex;align-items:center;gap:8px">
+          <span>${esc(titulo)}</span>
+          <span title="Nivel ${esc(nivel)}" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${nivelDot};flex-shrink:0"></span>
+        </div>
+      </div>
+      <span style="padding:3px 10px;background:${estBg};color:${estCl};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap">${esc(estatus)}</span>
+    </div>
+    <div style="padding:10px 14px;background:#fff;font-size:12px;color:#475569;display:flex;flex-direction:column;gap:3px">
+      ${aloj ? `<div>📍 ${esc(aloj)}</div>` : ''}
+      ${fecha ? `<div>📅 ${esc(fecha)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function _waRenderObjCard_(row) {
+  const id = String(row['ID']||'');
+  const cat = String(row['Categoria']||'').trim();
+  const catOtro = String(row['Categoria_otro']||'').trim();
+  const catLabel = cat === 'Otro' ? `Otro: ${catOtro || '—'}` : (cat || 'Sin categoría');
+  const propiedad = String(row['Propiedad']||'').trim();
+  const depto = String(row['# Departamento']||'').trim();
+  const aloj = String(row['Alojamiento']||'').trim() || (propiedad && depto ? `${propiedad} - #${depto}` : propiedad);
+  const fechaEnc = String(row['Fecha_encontrado']||'').slice(0,10);
+  const fechaEnt = String(row['Fecha_entregado']||'').slice(0,10);
+  const entregado = !!fechaEnt;
+  const headerBg = '#059669';
+  const estBg = entregado ? '#dcfce7' : '#fef3c7';
+  const estCl = entregado ? '#166534' : '#92400e';
+  const estLbl = entregado ? '✓ Entregado' : '⏳ Pendiente';
+  return `<div data-lg-obj-id="${esc(id)}" role="button" tabindex="0"
+    style="cursor:pointer;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.06);transition:transform .1s,box-shadow .1s">
+    <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.9;font-weight:800">🎒 OBJETO PERDIDO</div>
+        <div style="font-size:13px;font-weight:800;margin-top:2px">${esc(catLabel)}</div>
+      </div>
+      <span style="padding:3px 10px;background:${estBg};color:${estCl};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap">${esc(estLbl)}</span>
+    </div>
+    <div style="padding:10px 14px;background:#fff;font-size:12px;color:#475569;display:flex;flex-direction:column;gap:3px">
+      ${aloj ? `<div>📍 ${esc(aloj)}</div>` : ''}
+      ${fechaEnc ? `<div>📅 Encontrado: ${esc(fechaEnc)}</div>` : ''}
+    </div>
+  </div>`;
 }
 /** Renderiza línea con el(los) destinatario(s) de un mensaje ya guardado. */
 function _waRecipientsSummary_(toRaw) {
@@ -37814,9 +37956,9 @@ function _waRenderModal(replace) {
           </div>
         </div>
 
-        <div style="font-size:11px;font-weight:800;color:#0f172a;margin-bottom:10px">📋 MENSAJES PROGRAMADOS</div>
+        ${_waRenderTabsHeader_(st.currentTab)}
         <div id="wa-tab-content">
-          ${_waRenderBookingsAccordion_(logs)}
+          ${_waRenderTabContent_(st, logs)}
         </div>
 
       </div>
