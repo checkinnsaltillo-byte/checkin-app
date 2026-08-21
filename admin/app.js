@@ -40380,9 +40380,12 @@ function _botcRenderSidebar() {
   const items = BOTC_STATE.conversations.map(c => {
     const selected = String(c.phone) === String(BOTC_STATE.selectedPhone);
     const isHuman = String(c.control) === 'human';
+    const isSupervised = String(c.control) === 'supervised';
     const controlChip = isHuman
       ? '<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">👤 HUMANO</span>'
-      : '<span style="font-size:9px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">🤖 BOT</span>';
+      : isSupervised
+        ? '<span style="font-size:9px;background:#ede9fe;color:#5b21b6;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">👁 SUPERVISADO</span>'
+        : '<span style="font-size:9px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">⚙️ AUTOMÁTICO</span>';
     // Look-up SYNC: si HU_STATE ya está cargado y el booking está cacheado,
     // pintamos rica de una vez. Si no, mostramos lite y _botcEnrichPendingBookings
     // lo reemplaza in-place cuando termine el load, SIN bloquear el render.
@@ -40637,14 +40640,19 @@ function _botcRenderMain(phone) {
     : isSupervised
       ? '<span style="font-size:11px;background:#ede9fe;color:#5b21b6;padding:4px 10px;border-radius:999px;font-weight:800">👁 Supervisado (bot sugiere, tú envías)</span>'
       : '<span style="font-size:11px;background:#dbeafe;color:#1e40af;padding:4px 10px;border-radius:999px;font-weight:800">🤖 Bot respondiendo</span>';
-  // Ciclo de 3 modos: bot → supervised → human → bot (dos botones para claridad)
-  const supBtn = isSupervised
-    ? `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:6px 14px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🤖 Devolver al bot</button>`
-    : `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','supervised')" style="padding:6px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👁 Supervisar</button>`;
-  const humBtn = isHuman
-    ? `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:6px 14px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🤖 Devolver al bot</button>`
-    : `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:6px 12px;font-size:12px;background:#f59e0b;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👤 Tomar control</button>`;
-  const ctrlBtn = (isHuman ? humBtn : (isSupervised ? supBtn : `${supBtn} ${humBtn}`));
+  // Ciclo de 3 modos: bot (Automático) / supervised / human. Labels precisos
+  // por estado — nunca decir "Devolver al bot" cuando ya estás en supervised
+  // (el modo supervised ES un modo bot).
+  const autoBtn = `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:6px 12px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">⚙️ Cambiar a Automático</button>`;
+  const supBtn  = `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','supervised')" style="padding:6px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👁 Cambiar a Supervisado</button>`;
+  const humBtn  = `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:6px 12px;font-size:12px;background:#f59e0b;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👤 Tomar control</button>`;
+  // Mostrar los 2 modos que NO son el actual, así el user siempre puede saltar
+  // directamente al que quiere.
+  const ctrlBtn = isHuman
+    ? `${autoBtn} ${supBtn}`
+    : isSupervised
+      ? `${autoBtn} ${humBtn}`
+      : `${supBtn} ${humBtn}`;
 
   // Nombre del perfil desde conversations (si existe)
   const conv = (BOTC_STATE.conversations || []).find(c => String(c.phone) === String(phone));
