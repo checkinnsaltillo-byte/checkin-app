@@ -16785,7 +16785,7 @@ window.lgOpenReportPicker = function(propRaw, deptRaw, arrIso, depIso) {
   if (existing) existing.remove();
   const wrap = document.createElement('div');
   wrap.id = 'lg-report-picker';
-  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:8800;display:flex;justify-content:flex-end';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100000;display:flex;justify-content:flex-end';
   wrap.onclick = (e) => { if (e.target === wrap) wrap.remove(); };
   wrap.innerHTML = `
     <div style="width:100%;max-width:420px;height:100vh;background:#fff;box-shadow:-16px 0 40px rgba(15,23,42,.18);display:flex;flex-direction:column;overflow:hidden">
@@ -22254,6 +22254,10 @@ window.incAbrirCaptura = function () {
   // Reset explícito de display por si algún CSS heredado dejó :none.
   back.style.display = '';
   panel.style.display = '';
+  // Elevar z-index por encima del wa-modal (99999) y del report-picker
+  // (100000) para casos donde se abre desde el WA modal.
+  back.style.zIndex  = '100001';
+  panel.style.zIndex = '100002';
   back.classList.remove('hidden');
   // Forzar reflow para que la transición de opacidad corra
   // eslint-disable-next-line no-unused-expressions
@@ -23466,6 +23470,8 @@ window.objAbrirCaptura = function () {
   if (back.parentElement  !== document.body) document.body.appendChild(back);
   back.style.display = '';
   panel.style.display = '';
+  back.style.zIndex  = '100001';
+  panel.style.zIndex = '100002';
   back.classList.remove('hidden');
   back.offsetHeight;
   back.classList.add('visible');
