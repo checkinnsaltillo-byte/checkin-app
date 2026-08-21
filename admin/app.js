@@ -40182,9 +40182,16 @@ window.__botcBookingByPhone = window.__botcBookingByPhone || {};
 /** Encuentra el booking más relevante para un phone: prioridad
  *  activa > próxima > última histórica. Usa LG_STATE.bookings si tiene,
  *  sino fetchea por phone (huFetchBookingsByGuest_) y cachea. */
-async function _botcGetBookingForPhone(phone10) {
-  if (window.__botcBookingByPhone[phone10] !== undefined) {
-    return window.__botcBookingByPhone[phone10];
+async function _botcGetBookingForPhone(phoneRaw) {
+  // c.phone puede venir como '+528115569120', '528115569120', '8115569120',
+  // o incluso con espacios/guiones. huGetGuestRowsByTail_ requiere tail de
+  // exactamente 10 dígitos.
+  const digits = String(phoneRaw || '').replace(/\D/g,'');
+  const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
+  // La cache usa el phone crudo (mismo que _botcRenderSidebar lee).
+  const cacheKey = phoneRaw;
+  if (window.__botcBookingByPhone[cacheKey] !== undefined) {
+    return window.__botcBookingByPhone[cacheKey];
   }
   // Si HU_STATE aún no cargó, no cachees null — quedaría vacío para siempre.
   // Espera al load y reintenta.
@@ -40213,7 +40220,7 @@ async function _botcGetBookingForPhone(phone10) {
 
   const picked = bookings.length ? _botcPickBestBooking(bookings) : null;
   // Solo cachear si HU_STATE está cargado; si no, evita atascar la cache.
-  if (HU_STATE?.loaded) window.__botcBookingByPhone[phone10] = picked;
+  if (HU_STATE?.loaded) window.__botcBookingByPhone[cacheKey] = picked;
   return picked;
 }
 function _botcPickBestBooking(list) {
