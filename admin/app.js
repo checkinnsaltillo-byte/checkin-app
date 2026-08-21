@@ -40186,6 +40186,19 @@ async function _botcGetBookingForPhone(phone10) {
   if (window.__botcBookingByPhone[phone10] !== undefined) {
     return window.__botcBookingByPhone[phone10];
   }
+  // Si HU_STATE aún no cargó, no cachees null — quedaría vacío para siempre.
+  // Espera al load y reintenta.
+  if (!HU_STATE?.loaded) {
+    if (typeof huespedesLoad === 'function' && !HU_STATE?.loading) {
+      try { await huespedesLoad(false); } catch(_){}
+    } else if (HU_STATE?.loading) {
+      // esperar hasta 5s a que otro caller termine el load
+      const t0 = Date.now();
+      while (HU_STATE.loading && Date.now() - t0 < 5000) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+    }
+  }
   // Idéntica lógica que Gestión de reservas: por phone, tomar todas las
   // rows de Reservaciones y convertirlas con huRowToSyntheticBooking (misma
   // función que usa lgDetailSelect). Elegir por prioridad Activa > Próxima
@@ -40199,7 +40212,8 @@ async function _botcGetBookingForPhone(phone10) {
   } catch(_){}
 
   const picked = bookings.length ? _botcPickBestBooking(bookings) : null;
-  window.__botcBookingByPhone[phone10] = picked;
+  // Solo cachear si HU_STATE está cargado; si no, evita atascar la cache.
+  if (HU_STATE?.loaded) window.__botcBookingByPhone[phone10] = picked;
   return picked;
 }
 function _botcPickBestBooking(list) {
