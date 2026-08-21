@@ -37723,6 +37723,20 @@ function _waRenderReportsList_(st) {
   const cards = [];
   const incList = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list)) ? INC_STATE.list : [];
   const objList = (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list)) ? OBJ_STATE.list : [];
+  // Si aún no están cargadas las listas (usuario nunca abrió Incidencias
+  // / Objetos), disparar carga en background y luego repaint. Sin esto,
+  // desde Chats bot los reportes nunca aparecerían aunque existan.
+  let triggeredLoad = false;
+  if (!incList.length && typeof incLoadIncidencias === 'function' && typeof INC_STATE !== 'undefined' && !INC_STATE.__waLoadTriggered) {
+    INC_STATE.__waLoadTriggered = true;
+    triggeredLoad = true;
+    incLoadIncidencias().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+  }
+  if (!objList.length && typeof objLoadObjetos === 'function' && typeof OBJ_STATE !== 'undefined' && !OBJ_STATE.__waLoadTriggered) {
+    OBJ_STATE.__waLoadTriggered = true;
+    triggeredLoad = true;
+    objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+  }
   for (const b of bookings) {
     const arrIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(b.DateArrival) : '') || String((b.__reservacion && b.__reservacion['Fecha de ingreso']) || '').slice(0,10);
     const depIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(b.DateDeparture) : '') || String((b.__reservacion && b.__reservacion['Fecha de salida']) || '').slice(0,10);
@@ -37747,7 +37761,14 @@ function _waRenderReportsList_(st) {
       cards.push({ kind:'obj', row:r, sortKey:f });
     });
   }
-  if (!cards.length) return '';
+  if (!cards.length) {
+    // Si estamos cargando listas por primera vez, mostrar spinner en lugar
+    // de "sin reportes" — evita falso negativo mientras llegan datos.
+    if (triggeredLoad || (typeof INC_STATE !== 'undefined' && INC_STATE.loading) || (typeof OBJ_STATE !== 'undefined' && OBJ_STATE.loading)) {
+      return `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px">⏳ Cargando reportes…</div>`;
+    }
+    return '';
+  }
   // Más recientes primero.
   cards.sort((a,b) => b.sortKey.localeCompare(a.sortKey));
   const html = cards.map(c => c.kind === 'inc' ? _waRenderIncCard_(c.row) : _waRenderObjCard_(c.row)).join('');
