@@ -21920,7 +21920,13 @@ window.incGenerar = function() {
   const modal   = document.getElementById('inc-report-modal');
   if (!preview) return;
   preview.innerHTML = incBuildReporteHtml(d);
-  if (modal) modal.classList.remove('hidden');
+  if (modal) {
+    // Sacar de #module-incidencias (display:none oculta a descendientes
+    // aunque el modal sea position:fixed). Igual truco que capture-panel.
+    if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    modal.style.display = '';
+    modal.classList.remove('hidden');
+  }
 };
 
 window.incSalir = function() {
@@ -23216,7 +23222,11 @@ window.objGenerar = function () {
   const modal = document.getElementById('obj-report-modal');
   if (!preview) return;
   preview.innerHTML = objBuildReporteHtml(d);
-  if (modal) modal.classList.remove('hidden');
+  if (modal) {
+    if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    modal.style.display = '';
+    modal.classList.remove('hidden');
+  }
 };
 
 window.objSalir = function () {
