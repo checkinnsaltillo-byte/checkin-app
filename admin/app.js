@@ -40678,7 +40678,6 @@ function _botcRenderMain(phone) {
         <textarea id="botc-draft-text" style="width:100%;min-height:80px;padding:8px 10px;border:1px solid #c4b5fd;border-radius:8px;font-size:13px;font-family:inherit;line-height:1.4;box-sizing:border-box;background:#fff;color:#0f172a">${_botcEsc(draftBody)}</textarea>
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
           <button type="button" onclick="botcDraftAccept('${_botcEsc(phone)}')" style="padding:7px 14px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">✓ Aceptar y enviar</button>
-          <button type="button" onclick="botcDraftEdit('${_botcEsc(phone)}')" style="padding:7px 14px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">✎ Enviar edición</button>
           <button type="button" onclick="botcDraftSkip('${_botcEsc(phone)}')" style="padding:7px 14px;background:#e2e8f0;color:#475569;border:0;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">✕ Omitir</button>
         </div>
       </div>` : ''}
@@ -40769,17 +40768,11 @@ async function _botcDraftAction(phone, action, body) {
 window.botcDraftAccept = function(phone) {
   const ta = document.getElementById('botc-draft-text');
   const body = String((ta && ta.value) || '').trim();
-  if (!body) { alert('Draft vacío.'); return; }
-  _botcDraftAction(phone, 'send', body);
-};
-window.botcDraftEdit = function(phone) {
-  const ta = document.getElementById('botc-draft-text');
-  const body = String((ta && ta.value) || '').trim();
-  if (!body) { alert('Escribe un mensaje.'); return; }
+  if (!body) return; // textarea vacío, no hay nada que enviar
   _botcDraftAction(phone, 'send', body);
 };
 window.botcDraftSkip = function(phone) {
-  if (!confirm('¿Omitir esta sugerencia? No se enviará al huésped.')) return;
+  // Acción directa, sin confirm.
   _botcDraftAction(phone, 'skip');
 };
 
