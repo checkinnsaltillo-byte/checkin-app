@@ -37441,6 +37441,16 @@ window.waOpenModal = async function(booking) {
               // Recomputar bookings relacionados con las rows nuevas y repaint.
               st.bookings = _waFindRelatedBookings(st.b);
               _waRepaint();
+              // Invalidar cache bot-chats de este phone y re-pick con las
+              // rows recién cargadas — para que la card del sidebar aplique
+              // Activa > Próxima > más reciente con el dataset completo.
+              try {
+                if (window.__botcBookingByPhone) {
+                  delete window.__botcBookingByPhone[ph10];
+                  if (window.__botcBookingSig) delete window.__botcBookingSig[ph10];
+                }
+                if (typeof _botcEnrichPendingBookings === 'function') _botcEnrichPendingBookings();
+              } catch(_){}
               return;
             }
           }
@@ -40201,10 +40211,20 @@ window.__botcBookingByPhone = window.__botcBookingByPhone || {};
  *  sino fetchea por phone (huFetchBookingsByGuest_) y cachea. */
 // Firma actual de los datasets — si crece desde la última vez que
 // cacheamos el pick, la cache queda estale y hay que re-computar.
-function _botcDataSig() {
+// Incluye __waExtraHuRowsByPhone porque waOpenModal precarga huRows
+// on-demand que también son fuente válida para el pick.
+function _botcDataSig(phoneRaw) {
   const hu = (HU_STATE?.rows || []).length;
   const lg = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings.length : 0;
-  return `${hu}|${lg}`;
+  let extra = 0;
+  try {
+    const digits = String(phoneRaw || '').replace(/\D/g,'');
+    const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
+    if (phone10 && window.__waExtraHuRowsByPhone && window.__waExtraHuRowsByPhone[phone10]) {
+      extra = window.__waExtraHuRowsByPhone[phone10].length;
+    }
+  } catch(_){}
+  return `${hu}|${lg}|${extra}`;
 }
 window.__botcBookingSig = window.__botcBookingSig || {};
 
@@ -40215,7 +40235,7 @@ function _botcGetBookingForPhoneSync(phoneRaw) {
   const digits = String(phoneRaw || '').replace(/\D/g,'');
   const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
   const cacheKey = phoneRaw;
-  const sig = _botcDataSig();
+  const sig = _botcDataSig(phoneRaw);
   // Cache hit válido: existe entrada Y firma no cambió (no llegaron más
   // reservas que ameriten re-evaluar). Si la firma creció, ignoramos la
   // cache y re-computamos con el dataset completo actual.
@@ -40224,7 +40244,8 @@ function _botcGetBookingForPhoneSync(phoneRaw) {
   }
   const huLoaded = !!HU_STATE?.loaded;
   const lgLoaded = !!(typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings) && LG_STATE.bookings.length);
-  if (!huLoaded && !lgLoaded) return undefined;
+  const extraRows = (window.__waExtraHuRowsByPhone && window.__waExtraHuRowsByPhone[phone10]) || [];
+  if (!huLoaded && !lgLoaded && !extraRows.length) return undefined;
   // Unir fuentes con dedup por LodgifyId | (fechas+propiedad). Cubre el
   // caso donde una reserva ACTIVA existe en Lodgify pero aún no se propagó
   // a Reservaciones (ej. Cumbres #1 16-23 ago del pilot).
@@ -40243,6 +40264,12 @@ function _botcGetBookingForPhoneSync(phoneRaw) {
     if (huLoaded && typeof huGetGuestRowsByTail_ === 'function' && typeof huRowToSyntheticBooking === 'function') {
       const rows = huGetGuestRowsByTail_(null, phone10) || [];
       rows.map(huRowToSyntheticBooking).filter(Boolean).forEach(push);
+    }
+  } catch(_){}
+  // Rows pre-cargados on-demand por waOpenModal (fetch /bookings-by-guest).
+  try {
+    if (extraRows.length && typeof huRowToSyntheticBooking === 'function') {
+      extraRows.map(huRowToSyntheticBooking).filter(Boolean).forEach(push);
     }
   } catch(_){}
   try {
