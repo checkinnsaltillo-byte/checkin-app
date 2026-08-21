@@ -40573,8 +40573,18 @@ window.botcToggleRightPanel = async function() {
       .filter(b => String(b.DateArrival||'').slice(0,10) >= today)
       .sort((a,b) => String(a.DateArrival).localeCompare(String(b.DateArrival)))[0];
     const booking = active || proxima || bookings[bookings.length - 1];
-    if (typeof waOpenModal === 'function') waOpenModal(booking);
-    else alert('Función waOpenModal no disponible.');
+    if (typeof waOpenModal === 'function') {
+      await waOpenModal(booking);
+      // waOpenModal puede resolver antes de que el DOM del modal esté
+      // pintado (renders internos con requestAnimationFrame/setTimeout).
+      // Esperamos hasta que #wa-modal exista o hasta 8s de timeout.
+      const t0 = Date.now();
+      while (!document.getElementById('wa-modal') && Date.now() - t0 < 8000) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+    } else {
+      alert('Función waOpenModal no disponible.');
+    }
   } catch (e) {
     alert('Error al abrir historial WA: ' + e.message);
   } finally {
