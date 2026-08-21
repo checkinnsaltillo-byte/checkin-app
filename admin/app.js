@@ -40451,29 +40451,14 @@ async function _botcEnrichPendingBookings() {
   // En su lugar, fetch per-phone individual (<500ms cada uno) con
   // concurrency=1, abortable por token.
   const useLocal = !!HU_STATE?.loaded;
-  for (const c of pending) {
-    if (BOTC_STATE.__enrichGen !== myGen) return; // abortado (click abre chat)
-    await _botcYield();
-    if (BOTC_STATE.__enrichGen !== myGen) return;
-    let bk = null;
-    if (useLocal) {
-      try { bk = _botcGetBookingForPhoneSync(c.phone); } catch(_){}
-    } else {
-      // Fetch remoto per-phone. Cachea el resultado en __botcBookingByPhone.
-      try {
-        const digits = String(c.phone||'').replace(/\D/g,'');
-        const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
-        if (phone10 && typeof huFetchBookingsByGuest_ === 'function') {
-          const list = await huFetchBookingsByGuest_(phone10);
-          if (BOTC_STATE.__enrichGen !== myGen) return;
-          bk = (list && list.length) ? _botcPickBestBooking(list) : null;
-          window.__botcBookingByPhone[c.phone] = bk;
-        }
-      } catch(_){}
-    }
-    if (!bk || typeof lgBuildDetailSidebarItem !== 'function') continue;
+  // Camino A (local, HU_STATE cargado): rápido, ceder al hilo entre cards.
+  // Camino B (fetch per-phone): PARALELO (throttle 5) para que TODAS las
+  //   reservas del huésped estén cacheadas rápido y el pick de "Activa" sea
+  //   correcto antes de que el bot procese cualquier mensaje entrante.
+  const applyToDom = (c, bk) => {
+    if (!bk || typeof lgBuildDetailSidebarItem !== 'function') return;
     const wrap = document.querySelector(`[data-botc-phone="${CSS.escape(String(c.phone))}"]`);
-    if (!wrap) continue;
+    if (!wrap) return;
     try {
       const bkNamed = c.name ? Object.assign({}, bk, { GuestName: c.name }) : bk;
       const rich = lgBuildDetailSidebarItem(bkNamed, null);
@@ -40481,7 +40466,42 @@ async function _botcEnrichPendingBookings() {
       const lite = wrap.querySelector('[data-botc-lite]');
       if (lite) lite.outerHTML = richWrapped;
     } catch(_){}
+  };
+
+  if (useLocal) {
+    // Local — rápido, ceder entre cada uno para no bloquear.
+    for (const c of pending) {
+      if (BOTC_STATE.__enrichGen !== myGen) return;
+      await _botcYield();
+      if (BOTC_STATE.__enrichGen !== myGen) return;
+      let bk = null;
+      try { bk = _botcGetBookingForPhoneSync(c.phone); } catch(_){}
+      applyToDom(c, bk);
+    }
+    return;
   }
+
+  // Fetch paralelo con throttle. Cada worker toma el siguiente pending.
+  let idx = 0;
+  const CONC = 5;
+  const worker = async () => {
+    while (idx < pending.length) {
+      if (BOTC_STATE.__enrichGen !== myGen) return;
+      const c = pending[idx++];
+      try {
+        const digits = String(c.phone||'').replace(/\D/g,'');
+        const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
+        if (phone10 && typeof huFetchBookingsByGuest_ === 'function') {
+          const list = await huFetchBookingsByGuest_(phone10);
+          if (BOTC_STATE.__enrichGen !== myGen) return;
+          const bk = (list && list.length) ? _botcPickBestBooking(list) : null;
+          window.__botcBookingByPhone[c.phone] = bk;
+          applyToDom(c, bk);
+        }
+      } catch(_){}
+    }
+  };
+  await Promise.all(Array.from({length: Math.min(CONC, pending.length)}, () => worker()));
 }
 
 // Botón Sync: invalida caches de bookings y re-fetchea SOLO las
