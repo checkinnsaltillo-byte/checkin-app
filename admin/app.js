@@ -40741,17 +40741,33 @@ window.botcSendManual = async function() {
  *  - Edit: idéntico (el textarea permite editar antes de enviar).
  *  - Skip: descarta sin enviar. */
 async function _botcDraftAction(phone, action, body) {
-  // Feedback inmediato: deshabilitar botones + poner overlay en la caja.
+  // OPTIMISTIC UI: quitar la caja del draft AL INSTANTE. El fetch corre en
+  // background. Si falla, restauramos y avisamos.
   const box = document.getElementById('botc-draft-box');
-  if (box) {
-    box.style.opacity = '0.6';
-    box.style.pointerEvents = 'none';
-    const badge = document.createElement('div');
-    badge.id = 'botc-draft-loader';
-    badge.style.cssText = 'position:absolute;top:8px;right:12px;font-size:11px;color:#5b21b6;font-weight:800';
-    badge.textContent = action === 'skip' ? '⏳ Omitiendo…' : '⏳ Enviando…';
-    box.style.position = 'relative';
-    box.appendChild(badge);
+  const boxParent = box ? box.parentNode : null;
+  const boxNext   = box ? box.nextSibling : null;
+  if (box) box.remove();
+  // También limpiar el pending_draft del state local — así el próximo poll
+  // no re-inyecta la caja aunque el backend aún no haya limpiado el sheet.
+  if (BOTC_STATE.state) BOTC_STATE.state.pending_draft_body = '';
+  // Si es "send", pintar de una vez el globo verde del mensaje que se
+  // enviará — para el user parece instantáneo.
+  if (action === 'send' && body) {
+    try {
+      const msgs = document.getElementById('botc-msgs');
+      if (msgs) {
+        const nowStr = new Date().toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+        const globo = document.createElement('div');
+        globo.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:8px;opacity:.7';
+        globo.innerHTML = `
+          <div style="max-width:70%;padding:8px 12px;background:#dcf7c5;border:1px solid #86efac;border-radius:10px">
+            <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:3px">🤖 Bot · ${_botcEsc(nowStr)} · ⏳ enviando…</div>
+            <div style="font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4">${_botcEsc(body)}</div>
+          </div>`;
+        msgs.appendChild(globo);
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+    } catch(_){}
   }
   try {
     const r = await fetch(`https://api.check-inn.mx/wa/bot/draft-action`, {
@@ -40760,10 +40776,16 @@ async function _botcDraftAction(phone, action, body) {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
-    // Refrescar chat SILENT — no reemplaza el main con "⏳ Cargando…"
-    // (evita el parpadeo cuando el user acaba de tocar Aceptar/Editar/Omitir).
+    // Refrescar en silencio para consolidar con el estado del servidor.
     botcOpenChat(phone, { silent: true });
-  } catch (e) { alert('Error: ' + e.message); }
+  } catch (e) {
+    // Restaurar la caja del draft si el envío falló.
+    if (box && boxParent) {
+      try { boxParent.insertBefore(box, boxNext); } catch(_){}
+    }
+    if (BOTC_STATE.state && body) BOTC_STATE.state.pending_draft_body = body;
+    alert('Error: ' + e.message);
+  }
 }
 window.botcDraftAccept = function(phone) {
   const ta = document.getElementById('botc-draft-text');
