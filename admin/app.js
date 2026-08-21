@@ -40170,20 +40170,44 @@ window.__botcBookingByPhone = window.__botcBookingByPhone || {};
  *  activa > próxima > última histórica. Usa LG_STATE.bookings si tiene,
  *  sino fetchea por phone (huFetchBookingsByGuest_) y cachea. */
 function _botcGetBookingForPhoneSync(phoneRaw) {
-  // Sync — solo funciona si HU_STATE ya está cargado. Si no, retorna undefined
-  // (distinto de null) para que el render sepa "aún no sabemos".
+  // Sync — solo funciona si HU_STATE o LG_STATE ya están cargados. Si no,
+  // retorna undefined (distinto de null) para que el render sepa "aún no
+  // sabemos".
   const digits = String(phoneRaw || '').replace(/\D/g,'');
   const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
   const cacheKey = phoneRaw;
   if (window.__botcBookingByPhone[cacheKey] !== undefined) {
     return window.__botcBookingByPhone[cacheKey];
   }
-  if (!HU_STATE?.loaded) return undefined;
-  let bookings = [];
+  const huLoaded = !!HU_STATE?.loaded;
+  const lgLoaded = !!(typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings) && LG_STATE.bookings.length);
+  if (!huLoaded && !lgLoaded) return undefined;
+  // Unir fuentes con dedup por LodgifyId | (fechas+propiedad). Cubre el
+  // caso donde una reserva ACTIVA existe en Lodgify pero aún no se propagó
+  // a Reservaciones (ej. Cumbres #1 16-23 ago del pilot).
+  const bookings = [];
+  const seen = new Set();
+  const keyOf = (b) => {
+    const lid = String(b.LodgifyId || b.Id || '').trim();
+    if (lid) return 'L:' + lid;
+    const a = String(b.DateArrival||'').slice(0,10);
+    const d = String(b.DateDeparture||'').slice(0,10);
+    const p = String(b.PropertyName||b.RoomTypeName||'').toLowerCase().trim();
+    return `F:${a}|${d}|${p}`;
+  };
+  const push = (b) => { const k = keyOf(b); if (!seen.has(k)) { seen.add(k); bookings.push(b); } };
   try {
-    if (typeof huGetGuestRowsByTail_ === 'function' && typeof huRowToSyntheticBooking === 'function') {
+    if (huLoaded && typeof huGetGuestRowsByTail_ === 'function' && typeof huRowToSyntheticBooking === 'function') {
       const rows = huGetGuestRowsByTail_(null, phone10) || [];
-      bookings = rows.map(huRowToSyntheticBooking).filter(Boolean);
+      rows.map(huRowToSyntheticBooking).filter(Boolean).forEach(push);
+    }
+  } catch(_){}
+  try {
+    if (lgLoaded) {
+      LG_STATE.bookings.forEach(b => {
+        const tel = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
+        if (tel === phone10) push(b);
+      });
     }
   } catch(_){}
   const picked = bookings.length ? _botcPickBestBooking(bookings) : null;
