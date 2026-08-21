@@ -40188,7 +40188,9 @@ window.botcSetFilter = function(f) {
       b.textContent = (f === 'supervised' ? '👁 Supervisado ▾' : '⚙️ Automático ▾');
     }
   });
-  botcRefresh();
+  // Refresh silent: no borra el sidebar, sólo actualiza el subtítulo con
+  // indicador discreto y reemplaza cards cuando llega la nueva data.
+  botcRefresh({ silent: true });
 };
 window.botcToggleBotDropdown = function(e) {
   if (e) e.stopPropagation();
@@ -40209,19 +40211,35 @@ window.botcRefresh = async function(opts) {
   opts = opts || {};
   const sub = document.getElementById('botc-subtitle');
   const sidebar = document.getElementById('botc-sidebar');
-  if (!opts.silent) {
+  // Solo mostrar loader pleno si NO hay data previa (primera carga).
+  // Si ya hay conversaciones renderizadas, mostrar solo un indicador
+  // discreto en el subtítulo — no borrar el sidebar.
+  const hadData = !!(BOTC_STATE.conversations && BOTC_STATE.conversations.length);
+  if (!opts.silent && !hadData) {
     if (sub) sub.textContent = 'Cargando…';
     if (sidebar) sidebar.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">⏳ Cargando…</div>';
+  } else if (!opts.silent && sub) {
+    sub.textContent = `${BOTC_STATE.conversations.length} conversaciones · actualizando…`;
   }
   try {
     const r = await fetch(`https://api.check-inn.mx/wa/bot/conversations?filter=${encodeURIComponent(BOTC_STATE.filter)}&limit=200`, { cache: 'no-store' });
+    // Detectar respuestas HTML (Apps Script saturado devuelve HTML de error)
+    // ANTES de intentar parse — evita el "Unexpected token '<'" en pantalla.
+    const ct = String(r.headers.get('content-type')||'');
+    if (!r.ok || !/json/i.test(ct)) throw new Error(`HTTP ${r.status}`);
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
     BOTC_STATE.conversations = j.conversations || [];
     if (sub) sub.textContent = `${j.conversations.length} conversaciones · piloto`;
     _botcRenderSidebar();
   } catch (e) {
-    if (sidebar) sidebar.innerHTML = `<div style="padding:24px;color:#dc2626;font-size:12px">Error: ${_botcEsc(e.message)}</div>`;
+    // Si ya había data, mantenerla y avisar discretamente en el subtítulo.
+    // Solo mostrar error inline si es la primera carga que falló.
+    if (hadData) {
+      if (sub) sub.textContent = `${BOTC_STATE.conversations.length} conversaciones · sin conexión (reintentando)`;
+    } else if (sidebar) {
+      sidebar.innerHTML = `<div style="padding:24px;color:#94a3b8;font-size:12px;text-align:center">⏳ Reintentando conexión…</div>`;
+    }
   }
 };
 
@@ -40503,20 +40521,31 @@ window.botcOpenChat = async function(phone, opts) {
   }
   const main = document.getElementById('botc-main');
   if (!main) return;
-  if (!opts.silent) {
+  // Solo mostrar loader pleno si el chat cambió de huésped (main vacío o
+  // era otro phone). Si es el mismo phone, no borrar — solo actualizar
+  // data en fondo.
+  const mainWasEmpty = !main.hasChildNodes() || !main.querySelector('#botc-msgs');
+  const sameChatOpen = BOTC_STATE.__renderedPhone === String(phone);
+  if (!opts.silent && (mainWasEmpty || !sameChatOpen)) {
     main.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px">⏳ Cargando conversación…</div>';
   }
   try {
     const r = await fetch(`https://api.check-inn.mx/wa/bot/context?phone=${encodeURIComponent(phone)}&limit=100`, { cache: 'no-store' });
+    const ct = String(r.headers.get('content-type')||'');
+    if (!r.ok || !/json/i.test(ct)) throw new Error(`HTTP ${r.status}`);
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
     BOTC_STATE.messages = j.messages || [];
     BOTC_STATE.state = j.state || { control: 'bot' };
+    BOTC_STATE.__renderedPhone = String(phone);
     _botcRenderMain(phone);
     // Reanudar enrichment de cards pendientes (fue abortado al abrir chat).
     if (!opts.silent) setTimeout(() => _botcEnrichPendingBookings(), 300);
   } catch (e) {
-    main.innerHTML = `<div style="padding:24px;color:#dc2626;font-size:12px">Error: ${_botcEsc(e.message)}</div>`;
+    // Si ya había un chat renderizado, no borrar — el próximo poll reintentará.
+    if (mainWasEmpty || !sameChatOpen) {
+      main.innerHTML = `<div style="padding:24px;color:#94a3b8;font-size:12px;text-align:center">⏳ Reintentando conexión…</div>`;
+    }
   }
 };
 
@@ -40651,6 +40680,18 @@ window.botcSendManual = async function() {
  *  - Edit: idéntico (el textarea permite editar antes de enviar).
  *  - Skip: descarta sin enviar. */
 async function _botcDraftAction(phone, action, body) {
+  // Feedback inmediato: deshabilitar botones + poner overlay en la caja.
+  const box = document.getElementById('botc-draft-box');
+  if (box) {
+    box.style.opacity = '0.6';
+    box.style.pointerEvents = 'none';
+    const badge = document.createElement('div');
+    badge.id = 'botc-draft-loader';
+    badge.style.cssText = 'position:absolute;top:8px;right:12px;font-size:11px;color:#5b21b6;font-weight:800';
+    badge.textContent = action === 'skip' ? '⏳ Omitiendo…' : '⏳ Enviando…';
+    box.style.position = 'relative';
+    box.appendChild(badge);
+  }
   try {
     const r = await fetch(`https://api.check-inn.mx/wa/bot/draft-action`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -40658,8 +40699,9 @@ async function _botcDraftAction(phone, action, body) {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
-    // Refrescar chat: quita la caja del draft y muestra el msg enviado (si aplica)
-    botcOpenChat(phone);
+    // Refrescar chat SILENT — no reemplaza el main con "⏳ Cargando…"
+    // (evita el parpadeo cuando el user acaba de tocar Aceptar/Editar/Omitir).
+    botcOpenChat(phone, { silent: true });
   } catch (e) { alert('Error: ' + e.message); }
 }
 window.botcDraftAccept = function(phone) {
