@@ -21983,6 +21983,14 @@ window.incGuardarSalir = async function() {
     // Cierra el slide-in panel y refresca la lista de cards
     if (typeof incCerrarCaptura === 'function') incCerrarCaptura();
     if (typeof incLoadIncidencias === 'function') incLoadIncidencias();
+    // Si estamos en Gestión de reservas, re-render el módulo para que las
+    // cards muestren la incidencia recién creada.
+    try {
+      const lgMod = document.getElementById('module-lodgify');
+      if (lgMod && !lgMod.classList.contains('hidden') && typeof lodgifyRenderForce === 'function') {
+        lodgifyRenderForce();
+      }
+    } catch(_){}
   } catch (e) {
     console.error('[INC] save error:', e);
     alert('No se pudo guardar el reporte:\n\n' + (e.message || e));
@@ -23335,6 +23343,13 @@ window.objGuardarSalir = async function () {
     objLimpiar();
     objCerrarCaptura();
     objLoadObjetos();
+    // Si estamos en Gestión de reservas, re-render para reflejar el objeto nuevo.
+    try {
+      const lgMod = document.getElementById('module-lodgify');
+      if (lgMod && !lgMod.classList.contains('hidden') && typeof lodgifyRenderForce === 'function') {
+        lodgifyRenderForce();
+      }
+    } catch(_){}
   } catch (e) {
     alert('No se pudo guardar:\n\n' + (e.message || e));
   } finally {
