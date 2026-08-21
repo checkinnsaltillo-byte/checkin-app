@@ -10638,6 +10638,17 @@ async function huFetchBookingsByGuest_(phoneOrTail) {
     const r = await fetch(`https://api.check-inn.mx/bookings-by-guest?phone=${encodeURIComponent(key)}`, { cache: 'no-store' });
     const j = await r.json();
     const list = (j && j.ok && Array.isArray(j.bookings)) ? j.bookings : [];
+    // El endpoint también devuelve huRows (rows crudas de Reservaciones para
+    // ese phone). Cachear aparte en __waExtraHuRowsByPhone así:
+    //   - _waFindRelatedBookings (modal WA) los ve sin re-fetch.
+    //   - _botcGetBookingForPhoneSync los suma como candidatos del pick.
+    // Esto asegura que el pick "Activa" sea correcto DESDE la primera carga
+    // del sidebar bot-chats (antes solo llegaba tras abrir modal WA).
+    try {
+      const huRows = (j && j.ok && Array.isArray(j.huRows)) ? j.huRows : [];
+      window.__waExtraHuRowsByPhone = window.__waExtraHuRowsByPhone || {};
+      window.__waExtraHuRowsByPhone[key] = huRows;
+    } catch(_){}
     window.__bookingsByGuestCache.set(key, list);
     return list;
   } catch (e) {
@@ -40494,8 +40505,31 @@ async function _botcEnrichPendingBookings() {
         if (phone10 && typeof huFetchBookingsByGuest_ === 'function') {
           const list = await huFetchBookingsByGuest_(phone10);
           if (BOTC_STATE.__enrichGen !== myGen) return;
-          const bk = (list && list.length) ? _botcPickBestBooking(list) : null;
+          // Combinar bookings Lodgify + huRows convertidas (huRows viven en
+          // __waExtraHuRowsByPhone tras huFetchBookingsByGuest_). Dedup por
+          // LodgifyId | (fechas+propiedad). Sin esto, reservas manuales no
+          // entraban al pool y el pick elegía una Próxima cuando la Activa
+          // era manual.
+          const pool = Array.isArray(list) ? list.slice() : [];
+          try {
+            const extra = (window.__waExtraHuRowsByPhone && window.__waExtraHuRowsByPhone[phone10]) || [];
+            if (extra.length && typeof huRowToSyntheticBooking === 'function') {
+              const seen = new Set(pool.map(b => String(b.LodgifyId||b.Id||'') || `F:${String(b.DateArrival||'').slice(0,10)}|${String(b.DateDeparture||'').slice(0,10)}|${String(b.PropertyName||'').toLowerCase()}`));
+              for (const r of extra) {
+                const syn = huRowToSyntheticBooking(r);
+                if (!syn) continue;
+                const k = String(syn.LodgifyId||syn.Id||'') || `F:${String(syn.DateArrival||'').slice(0,10)}|${String(syn.DateDeparture||'').slice(0,10)}|${String(syn.PropertyName||'').toLowerCase()}`;
+                if (seen.has(k)) continue;
+                seen.add(k);
+                pool.push(syn);
+              }
+            }
+          } catch(_){}
+          const bk = pool.length ? _botcPickBestBooking(pool) : null;
           window.__botcBookingByPhone[c.phone] = bk;
+          // Guardar firma para que _botcGetBookingForPhoneSync no invalide
+          // en el próximo re-render (evita ping-pong con la card).
+          try { window.__botcBookingSig[c.phone] = _botcDataSig(c.phone); } catch(_){}
           applyToDom(c, bk);
         }
       } catch(_){}
