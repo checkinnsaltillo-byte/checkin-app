@@ -40170,7 +40170,7 @@ window.botcInit = function() {
     botcRefresh({ silent: true }).finally(() => {
       BOTC_STATE.__pollingList = false;
     });
-  }, 30_000);
+  }, 60_000);
 };
 
 window.botcSetFilter = function(f) {
