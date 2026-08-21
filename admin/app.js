@@ -37209,7 +37209,16 @@ function _waFindRelatedBookings(currentB) {
   // NOTA: LG_STATE y HU_STATE están declarados con `const` — NO son
   // propiedades de window. Referenciar directo, no `window.LG_STATE`.
   const lgBookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
-  const huRows     = (typeof HU_STATE !== 'undefined' && Array.isArray(HU_STATE.rows))     ? HU_STATE.rows     : [];
+  let huRows       = (typeof HU_STATE !== 'undefined' && Array.isArray(HU_STATE.rows))     ? HU_STATE.rows     : [];
+  // Si HU_STATE no está cargado pero hay huRows precargados on-demand para
+  // este phone (via /bookings-by-guest → __waExtraHuRowsByPhone), usarlos.
+  try {
+    const currPh = String((currentB && (currentB.GuestPhone || currentB['Cel/Whatsapp (principal)'] || '')) || '').replace(/\D/g,'').slice(-10);
+    if (currPh && window.__waExtraHuRowsByPhone && window.__waExtraHuRowsByPhone[currPh]) {
+      if (!huRows.length) huRows = window.__waExtraHuRowsByPhone[currPh];
+      else huRows = huRows.concat(window.__waExtraHuRowsByPhone[currPh]);
+    }
+  } catch(_){}
   const currentPhone = String(currentB && (currentB.GuestPhone || currentB['Cel/Whatsapp (principal)'] || currentB['Celular principal'] || '')).replace(/\D/g,'').slice(-10);
   const currentId = waBookingId_(currentB);
   const related = [];
@@ -37414,13 +37423,34 @@ window.waOpenModal = async function(booking) {
   });
   // Cargar templates admin (WA_Templates) para filtrar por alojamiento.
   waEnsureAdminTemplates_().then(() => { _waRepaint(); });
-  // Si HU_STATE aún no está cargado (usuario abrió modal muy rápido), lo
-  // cargamos ahora y repintamos — así las reservas manuales del mismo tel
-  // aparecen como accordions adicionales.
+  // Si HU_STATE aún no está cargado, en vez de bajar TODA la tabla
+  // Reservaciones (huespedesLoad(true) = 7k+ filas), pre-cargar SOLO las
+  // rows de este phone via /bookings-by-guest (endpoint devuelve huRows
+  // ahora). Fallback a huespedesLoad si no hay phone o falla el fetch.
   if (typeof HU_STATE !== 'undefined' && !HU_STATE.loaded && !HU_STATE.loading) {
-    if (typeof huespedesLoad === 'function') {
-      huespedesLoad(true).then(() => { _waRepaint(); }).catch(() => {});
-    }
+    (async () => {
+      try {
+        if (primaryPhone) {
+          const ph10 = String(primaryPhone).replace(/\D/g,'').slice(-10);
+          if (ph10) {
+            const r = await fetch(`https://api.check-inn.mx/bookings-by-guest?phone=${encodeURIComponent(ph10)}`, { cache: 'no-store' });
+            const j = await r.json();
+            if (j && j.ok) {
+              window.__waExtraHuRowsByPhone = window.__waExtraHuRowsByPhone || {};
+              window.__waExtraHuRowsByPhone[ph10] = j.huRows || [];
+              // Recomputar bookings relacionados con las rows nuevas y repaint.
+              st.bookings = _waFindRelatedBookings(st.b);
+              _waRepaint();
+              return;
+            }
+          }
+        }
+      } catch(_){}
+      // Fallback: cargar tabla completa (comportamiento anterior)
+      if (typeof huespedesLoad === 'function') {
+        huespedesLoad(true).then(() => { _waRepaint(); }).catch(() => {});
+      }
+    })();
   }
   // Cargar mensajes programados custom de esta reserva + hidratar recipients
   // extraídos de los `to` de mensajes históricos (por si el usuario mandó a
