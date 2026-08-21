@@ -40091,23 +40091,9 @@ function _botcFmtDateTime(iso) {
 }
 
 window.botcInit = function() {
-  // Invalidar cache de bookings-por-teléfono: si HU_STATE aún no estaba
-  // cargado en un render previo, la cache se llenó SOLO con candidatos
-  // Lodgify y perdió las reservas manuales. Al re-entrar al módulo forzamos
-  // recomputar sobre HU_STATE ya presente.
-  window.__botcBookingByPhone = {};
-
-  // Precargar Reservaciones (HU_STATE) y KPIs Perfiles en paralelo. Cuando
-  // HU_STATE termine de cargar, invalidar cache y refrescar sidebar para
-  // que las reservas manuales entren al pick.
-  try {
-    if (typeof huespedesLoad === 'function' && !HU_STATE?.loaded && !HU_STATE?.loading) {
-      huespedesLoad(false).then(() => {
-        window.__botcBookingByPhone = {};
-        try { botcRefresh(); } catch(_){}
-      }).catch(()=>{});
-    }
-  } catch(_){}
+  // botcRefresh (fetch conversaciones) es lo ÚNICO que bloquea el primer
+  // render. HU_STATE y KPIs se piden en background — enrichment de cards
+  // ocurre después vía _botcEnrichPendingBookings sin re-renderizar todo.
   try { if (typeof huEnsurePerfilKpis_ === 'function') huEnsurePerfilKpis_(); } catch(_){}
   botcRefresh();
   // 2 polls con frecuencias distintas para dar sensación near-real-time sin
@@ -40182,34 +40168,16 @@ window.__botcBookingByPhone = window.__botcBookingByPhone || {};
 /** Encuentra el booking más relevante para un phone: prioridad
  *  activa > próxima > última histórica. Usa LG_STATE.bookings si tiene,
  *  sino fetchea por phone (huFetchBookingsByGuest_) y cachea. */
-async function _botcGetBookingForPhone(phoneRaw) {
-  // c.phone puede venir como '+528115569120', '528115569120', '8115569120',
-  // o incluso con espacios/guiones. huGetGuestRowsByTail_ requiere tail de
-  // exactamente 10 dígitos.
+function _botcGetBookingForPhoneSync(phoneRaw) {
+  // Sync — solo funciona si HU_STATE ya está cargado. Si no, retorna undefined
+  // (distinto de null) para que el render sepa "aún no sabemos".
   const digits = String(phoneRaw || '').replace(/\D/g,'');
   const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
-  // La cache usa el phone crudo (mismo que _botcRenderSidebar lee).
   const cacheKey = phoneRaw;
   if (window.__botcBookingByPhone[cacheKey] !== undefined) {
     return window.__botcBookingByPhone[cacheKey];
   }
-  // Si HU_STATE aún no cargó, no cachees null — quedaría vacío para siempre.
-  // Espera al load y reintenta.
-  if (!HU_STATE?.loaded) {
-    if (typeof huespedesLoad === 'function' && !HU_STATE?.loading) {
-      try { await huespedesLoad(false); } catch(_){}
-    } else if (HU_STATE?.loading) {
-      // esperar hasta 5s a que otro caller termine el load
-      const t0 = Date.now();
-      while (HU_STATE.loading && Date.now() - t0 < 5000) {
-        await new Promise(r => setTimeout(r, 100));
-      }
-    }
-  }
-  // Idéntica lógica que Gestión de reservas: por phone, tomar todas las
-  // rows de Reservaciones y convertirlas con huRowToSyntheticBooking (misma
-  // función que usa lgDetailSelect). Elegir por prioridad Activa > Próxima
-  // más cercana > más reciente.
+  if (!HU_STATE?.loaded) return undefined;
   let bookings = [];
   try {
     if (typeof huGetGuestRowsByTail_ === 'function' && typeof huRowToSyntheticBooking === 'function') {
@@ -40217,10 +40185,8 @@ async function _botcGetBookingForPhone(phoneRaw) {
       bookings = rows.map(huRowToSyntheticBooking).filter(Boolean);
     }
   } catch(_){}
-
   const picked = bookings.length ? _botcPickBestBooking(bookings) : null;
-  // Solo cachear si HU_STATE está cargado; si no, evita atascar la cache.
-  if (HU_STATE?.loaded) window.__botcBookingByPhone[cacheKey] = picked;
+  window.__botcBookingByPhone[cacheKey] = picked;
   return picked;
 }
 function _botcPickBestBooking(list) {
@@ -40270,15 +40236,13 @@ function _botcRenderSidebar() {
     const controlChip = isHuman
       ? '<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">👤 HUMANO</span>'
       : '<span style="font-size:9px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">🤖 BOT</span>';
-    // Si tenemos booking cacheado, renderizar la card enriquecida con
-    // lgBuildDetailSidebarItem (mismo look que Gestión de reservas).
-    const bk = window.__botcBookingByPhone[c.phone];
+    // Look-up SYNC: si HU_STATE ya está cargado y el booking está cacheado,
+    // pintamos rica de una vez. Si no, mostramos lite y _botcEnrichPendingBookings
+    // lo reemplaza in-place cuando termine el load, SIN bloquear el render.
+    const bk = _botcGetBookingForPhoneSync(c.phone);
     let rich = '';
     if (bk && typeof lgBuildDetailSidebarItem === 'function') {
       try {
-        // bk viene de huRowToSyntheticBooking → __reservacion prefilled →
-        // lgBuildDetailSidebarItem resuelve huesped, chips, KPIs, tier y
-        // rating exactamente igual que Gestión de reservas.
         rich = lgBuildDetailSidebarItem(bk, null);
         rich = `<div onclick="event.stopPropagation();botcOpenChat('${_botcEsc(c.phone)}')" style="cursor:pointer">${rich}</div>`;
       } catch(e) { rich = ''; }
@@ -40286,7 +40250,7 @@ function _botcRenderSidebar() {
     // Header ligero: preview msg + control chip + nombre/tel (si no hay rich)
     const name = String(c.name || (bk && bk.GuestName) || '').trim();
     const lite = rich ? '' : `
-      <div style="padding:12px 14px">
+      <div data-botc-lite style="padding:12px 14px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
           <div style="min-width:0;flex:1">
             ${name ? `<div style="font-size:13px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(c.phone)}</div>` : `<div style="font-size:13px;font-weight:800;color:#0f172a">+${_botcEsc(c.phone)}</div>`}
@@ -40317,18 +40281,39 @@ async function _botcEnrichPendingBookings() {
     window.__botcBookingByPhone[c.phone] === undefined
   );
   if (!pending.length) return;
-  // Throttle a 3 concurrentes para no saturar backend
-  const CONC = 3;
-  let idx = 0;
-  const workers = Array.from({ length: CONC }, async () => {
-    while (idx < pending.length) {
-      const c = pending[idx++];
-      try { await _botcGetBookingForPhone(c.phone); } catch(_){}
+  // No bloquear el hilo principal: esperamos HU_STATE UNA sola vez,
+  // sin bloquear el render inicial. Las cards lite ya se pintaron.
+  if (!HU_STATE?.loaded) {
+    if (typeof huespedesLoad === 'function' && !HU_STATE?.loading) {
+      try { await huespedesLoad(false); } catch(_){}
+    } else if (HU_STATE?.loading) {
+      const t0 = Date.now();
+      while (HU_STATE?.loading && Date.now() - t0 < 30000) {
+        await new Promise(r => setTimeout(r, 200));
+      }
     }
-  });
-  await Promise.all(workers);
-  // Re-render final con los bookings cacheados
-  _botcRenderSidebar();
+  }
+  if (!HU_STATE?.loaded) return; // aún no listo, próximo poll (15s) reintenta
+  // Enriquecer cada card individualmente sin repintar toda la sidebar,
+  // para que el usuario vea las cards aparecer progresivamente en vez de
+  // esperar a que TODAS estén listas.
+  for (const c of pending) {
+    let bk;
+    try { bk = _botcGetBookingForPhoneSync(c.phone); } catch(_){}
+    if (!bk || typeof lgBuildDetailSidebarItem !== 'function') continue;
+    const wrap = document.querySelector(`[data-botc-phone="${CSS.escape(String(c.phone))}"]`);
+    if (!wrap) continue;
+    try {
+      const rich = lgBuildDetailSidebarItem(bk, null);
+      const richWrapped = `<div onclick="event.stopPropagation();botcOpenChat('${_botcEsc(c.phone)}')" style="cursor:pointer">${rich}</div>`;
+      const lite = wrap.querySelector('[data-botc-lite]');
+      if (lite) lite.outerHTML = richWrapped;
+    } catch(_){}
+    // Yield al event loop cada 5 cards para no congelar el UI.
+    if ((pending.indexOf(c) + 1) % 5 === 0) {
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
 }
 
 window.botcOpenChat = async function(phone, opts) {
