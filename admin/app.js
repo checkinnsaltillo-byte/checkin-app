@@ -40319,7 +40319,17 @@ async function _botcEnrichPendingBookings() {
 window.botcOpenChat = async function(phone, opts) {
   opts = opts || {};
   BOTC_STATE.selectedPhone = phone;
-  if (!opts.silent) _botcRenderSidebar();
+  // NO repintar toda la sidebar (dispararía enrichment masivo otra vez).
+  // Solo actualizar el highlight visual del wrap seleccionado.
+  if (!opts.silent) {
+    try {
+      document.querySelectorAll('#botc-sidebar [data-botc-phone]').forEach(el => {
+        const isSel = el.getAttribute('data-botc-phone') === String(phone);
+        el.style.background = isSel ? '#eff6ff' : '#fff';
+        el.style.borderLeft = `3px solid ${isSel ? '#3b82f6' : 'transparent'}`;
+      });
+    } catch(_){}
+  }
   const main = document.getElementById('botc-main');
   if (!main) return;
   if (!opts.silent) {
