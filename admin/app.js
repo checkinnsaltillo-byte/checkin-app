@@ -40563,6 +40563,10 @@ window.botcSyncVisible = async function() {
 
 window.botcOpenChat = async function(phone, opts) {
   opts = opts || {};
+  // Si estamos en medio de una acción del draft, ignorar polls silent —
+  // evita que el próximo poll re-inyecte el textarea del draft encima del
+  // stub "⏳ Enviando…" mientras el fetch aún está en vuelo.
+  if (opts.silent && BOTC_STATE.__draftBusy) return;
   BOTC_STATE.selectedPhone = phone;
   // Abortar enrichment en progreso: incrementar el gen invalida el loop
   // actual y libera el hilo principal para que el fetch se procese ya.
@@ -40741,17 +40745,26 @@ window.botcSendManual = async function() {
  *  - Edit: idéntico (el textarea permite editar antes de enviar).
  *  - Skip: descarta sin enviar. */
 async function _botcDraftAction(phone, action, body) {
-  // OPTIMISTIC UI: quitar la caja del draft AL INSTANTE. El fetch corre en
-  // background. Si falla, restauramos y avisamos.
+  // OPTIMISTIC UI: reemplazar la caja del draft con un stub "⏳ Enviando…"
+  // AL INSTANTE. Bloquea re-inyección desde polls con __draftBusy hasta
+  // que el fetch termine.
+  BOTC_STATE.__draftBusy = true;
   const box = document.getElementById('botc-draft-box');
   const boxParent = box ? box.parentNode : null;
   const boxNext   = box ? box.nextSibling : null;
-  if (box) box.remove();
-  // También limpiar el pending_draft del state local — así el próximo poll
-  // no re-inyecta la caja aunque el backend aún no haya limpiado el sheet.
+  if (box) {
+    const stub = document.createElement('div');
+    stub.id = 'botc-draft-box';
+    stub.style.cssText = 'border-top:1px solid #e2e8f0;background:#faf5ff;padding:14px 16px;display:flex;align-items:center;gap:10px;color:#5b21b6;font-weight:800;font-size:12px';
+    stub.innerHTML = action === 'skip'
+      ? '<span style="font-size:14px">⏳</span> Omitiendo sugerencia…'
+      : '<span style="font-size:14px">⏳</span> Enviando respuesta al huésped…';
+    box.replaceWith(stub);
+  }
+  // Limpiar el pending_draft del state local — evita que el próximo poll
+  // re-inyecte la caja aunque el sheet aún no esté limpio.
   if (BOTC_STATE.state) BOTC_STATE.state.pending_draft_body = '';
-  // Si es "send", pintar de una vez el globo verde del mensaje que se
-  // enviará — para el user parece instantáneo.
+  // Para "send", pintar el globo verde con el mensaje al final del chat.
   if (action === 'send' && body) {
     try {
       const msgs = document.getElementById('botc-msgs');
@@ -40777,9 +40790,13 @@ async function _botcDraftAction(phone, action, body) {
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
     // Refrescar en silencio para consolidar con el estado del servidor.
+    BOTC_STATE.__draftBusy = false;
     botcOpenChat(phone, { silent: true });
   } catch (e) {
     // Restaurar la caja del draft si el envío falló.
+    BOTC_STATE.__draftBusy = false;
+    const stub = document.getElementById('botc-draft-box');
+    if (stub) stub.remove();
     if (box && boxParent) {
       try { boxParent.insertBefore(box, boxNext); } catch(_){}
     }
