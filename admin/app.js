@@ -40064,6 +40064,7 @@ window.BOTC_STATE = {
   messages: [],
   state: null,
   pollTimer: null,
+  __enrichGen: 0,           // token para abortar enrichment cuando el user hace algo prioritario
 };
 
 function _botcEsc(s) {
@@ -40276,13 +40277,20 @@ function _botcRenderSidebar() {
   _botcEnrichPendingBookings();
 }
 
+// Idle scheduler: usa requestIdleCallback si está disponible, sino setTimeout.
+// Permite que el navegador priorice input/fetch sobre el enrichment.
+const _botcYield = () => new Promise(r => {
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(() => r(), { timeout: 500 });
+  else setTimeout(r, 16);
+});
+
 async function _botcEnrichPendingBookings() {
+  // Token que permite abortar cuando el user hace algo prioritario (abrir chat).
+  const myGen = ++BOTC_STATE.__enrichGen;
   const pending = (BOTC_STATE.conversations || []).filter(c =>
     window.__botcBookingByPhone[c.phone] === undefined
   );
   if (!pending.length) return;
-  // No bloquear el hilo principal: esperamos HU_STATE UNA sola vez,
-  // sin bloquear el render inicial. Las cards lite ya se pintaron.
   if (!HU_STATE?.loaded) {
     if (typeof huespedesLoad === 'function' && !HU_STATE?.loading) {
       try { await huespedesLoad(false); } catch(_){}
@@ -40293,11 +40301,14 @@ async function _botcEnrichPendingBookings() {
       }
     }
   }
-  if (!HU_STATE?.loaded) return; // aún no listo, próximo poll (15s) reintenta
-  // Enriquecer cada card individualmente sin repintar toda la sidebar,
-  // para que el usuario vea las cards aparecer progresivamente en vez de
-  // esperar a que TODAS estén listas.
+  if (BOTC_STATE.__enrichGen !== myGen) return; // abortado
+  if (!HU_STATE?.loaded) return;
+  // Enriquecer una card por tick, cediendo al event loop entre cada una.
+  // El browser puede procesar clicks, fetches y polls entre yields.
   for (const c of pending) {
+    if (BOTC_STATE.__enrichGen !== myGen) return; // abortado por click, etc.
+    await _botcYield();
+    if (BOTC_STATE.__enrichGen !== myGen) return;
     let bk;
     try { bk = _botcGetBookingForPhoneSync(c.phone); } catch(_){}
     if (!bk || typeof lgBuildDetailSidebarItem !== 'function') continue;
@@ -40309,19 +40320,16 @@ async function _botcEnrichPendingBookings() {
       const lite = wrap.querySelector('[data-botc-lite]');
       if (lite) lite.outerHTML = richWrapped;
     } catch(_){}
-    // Yield al event loop cada 5 cards para no congelar el UI.
-    if ((pending.indexOf(c) + 1) % 5 === 0) {
-      await new Promise(r => setTimeout(r, 0));
-    }
   }
 }
 
 window.botcOpenChat = async function(phone, opts) {
   opts = opts || {};
   BOTC_STATE.selectedPhone = phone;
-  // NO repintar toda la sidebar (dispararía enrichment masivo otra vez).
-  // Solo actualizar el highlight visual del wrap seleccionado.
+  // Abortar enrichment en progreso: incrementar el gen invalida el loop
+  // actual y libera el hilo principal para que el fetch se procese ya.
   if (!opts.silent) {
+    BOTC_STATE.__enrichGen = (BOTC_STATE.__enrichGen || 0) + 1;
     try {
       document.querySelectorAll('#botc-sidebar [data-botc-phone]').forEach(el => {
         const isSel = el.getAttribute('data-botc-phone') === String(phone);
@@ -40342,6 +40350,8 @@ window.botcOpenChat = async function(phone, opts) {
     BOTC_STATE.messages = j.messages || [];
     BOTC_STATE.state = j.state || { control: 'bot' };
     _botcRenderMain(phone);
+    // Reanudar enrichment de cards pendientes (fue abortado al abrir chat).
+    if (!opts.silent) setTimeout(() => _botcEnrichPendingBookings(), 300);
   } catch (e) {
     main.innerHTML = `<div style="padding:24px;color:#dc2626;font-size:12px">Error: ${_botcEsc(e.message)}</div>`;
   }
