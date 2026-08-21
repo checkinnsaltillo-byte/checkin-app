@@ -40291,26 +40291,34 @@ async function _botcEnrichPendingBookings() {
     window.__botcBookingByPhone[c.phone] === undefined
   );
   if (!pending.length) return;
-  if (!HU_STATE?.loaded) {
-    if (typeof huespedesLoad === 'function' && !HU_STATE?.loading) {
-      try { await huespedesLoad(false); } catch(_){}
-    } else if (HU_STATE?.loading) {
-      const t0 = Date.now();
-      while (HU_STATE?.loading && Date.now() - t0 < 30000) {
-        await new Promise(r => setTimeout(r, 200));
-      }
-    }
-  }
-  if (BOTC_STATE.__enrichGen !== myGen) return; // abortado
-  if (!HU_STATE?.loaded) return;
-  // Enriquecer una card por tick, cediendo al event loop entre cada una.
-  // El browser puede procesar clicks, fetches y polls entre yields.
+  // Camino A: HU_STATE ya está cargado (user visitó Gestión de reservas).
+  // Enriquecemos localmente sin fetch — cediendo al hilo entre cards.
+  // Camino B: HU_STATE NO cargado. NUNCA disparamos huespedesLoad desde
+  // bot-chats porque descarga 7k filas y bloquea el hilo por decenas de
+  // segundos (impide procesar el fetch del chat cuando el user hace click).
+  // En su lugar, fetch per-phone individual (<500ms cada uno) con
+  // concurrency=1, abortable por token.
+  const useLocal = !!HU_STATE?.loaded;
   for (const c of pending) {
-    if (BOTC_STATE.__enrichGen !== myGen) return; // abortado por click, etc.
+    if (BOTC_STATE.__enrichGen !== myGen) return; // abortado (click abre chat)
     await _botcYield();
     if (BOTC_STATE.__enrichGen !== myGen) return;
-    let bk;
-    try { bk = _botcGetBookingForPhoneSync(c.phone); } catch(_){}
+    let bk = null;
+    if (useLocal) {
+      try { bk = _botcGetBookingForPhoneSync(c.phone); } catch(_){}
+    } else {
+      // Fetch remoto per-phone. Cachea el resultado en __botcBookingByPhone.
+      try {
+        const digits = String(c.phone||'').replace(/\D/g,'');
+        const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
+        if (phone10 && typeof huFetchBookingsByGuest_ === 'function') {
+          const list = await huFetchBookingsByGuest_(phone10);
+          if (BOTC_STATE.__enrichGen !== myGen) return;
+          bk = (list && list.length) ? _botcPickBestBooking(list) : null;
+          window.__botcBookingByPhone[c.phone] = bk;
+        }
+      } catch(_){}
+    }
     if (!bk || typeof lgBuildDetailSidebarItem !== 'function') continue;
     const wrap = document.querySelector(`[data-botc-phone="${CSS.escape(String(c.phone))}"]`);
     if (!wrap) continue;
