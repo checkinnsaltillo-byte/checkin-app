@@ -40811,6 +40811,7 @@ function _botcRenderMain(phone) {
       <div>${nameHeader}<div style="margin-top:5px">${ctrlChip}</div></div>
       <div style="display:flex;gap:8px;align-items:center">
         ${ctrlBtn}
+        <button type="button" onclick="botcOpenReportPickerForCurrent()" title="Generar nuevo reporte (Incidencia / Objeto perdido / Reporte técnico) para este huésped" style="padding:7px 12px;font-size:12px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">＋ Generar reporte</button>
         <button type="button" onclick="botcToggleRightPanel()" title="Abrir ventana WhatsApp completa (templates, mensajes programados, envío manual) para este huésped" style="padding:7px 12px;font-size:12px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">📱 Ver WA</button>
       </div>
     </div>
@@ -40955,6 +40956,37 @@ window.botcDraftAccept = function(phone) {
 window.botcDraftSkip = function(phone) {
   // Acción directa, sin confirm.
   _botcDraftAction(phone, 'skip');
+};
+
+/** Abre el mismo picker "+ Generar nuevo reporte" que Gestión de reservas,
+ *  pre-llenando propiedad/depto/fechas desde el booking activo del huésped. */
+window.botcOpenReportPickerForCurrent = function() {
+  const phone = BOTC_STATE.selectedPhone;
+  if (!phone) return;
+  // Reutilizar el pick que ya usa la card del sidebar (Activa > Próxima > Reciente)
+  const bk = (typeof _botcGetBookingForPhoneSync === 'function') ? _botcGetBookingForPhoneSync(phone) : null;
+  if (!bk) {
+    alert('No hay reserva asociada a este número aún.\nEspera a que el sidebar cargue la info y vuelve a intentar.');
+    return;
+  }
+  const propRaw = String(bk.PropertyName || (bk.__reservacion && bk.__reservacion['Propiedad']) || '').trim();
+  const depRaw  = String((bk.__reservacion && bk.__reservacion['# Departamento']) ||
+                          (bk.RoomTypeName && bk.PropertyName ? String(bk.RoomTypeName).replace(bk.PropertyName,'').replace(/[-#\s]+/g,'').trim() : '') || '').trim();
+  const toIso = (v) => {
+    const s = String(v || '');
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+    return '';
+  };
+  const arrIso = toIso(bk.DateArrival);
+  const depIso = toIso(bk.DateDeparture);
+  if (typeof lgOpenReportPicker === 'function') {
+    lgOpenReportPicker(propRaw, depRaw, arrIso, depIso);
+  } else {
+    alert('Función lgOpenReportPicker no disponible.');
+  }
 };
 
 /** Abre el modal completo de WhatsApp (Gestión de reservas) para el huésped
