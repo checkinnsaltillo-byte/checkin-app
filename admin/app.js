@@ -40169,6 +40169,15 @@ window.__botcBookingByPhone = window.__botcBookingByPhone || {};
 /** Encuentra el booking más relevante para un phone: prioridad
  *  activa > próxima > última histórica. Usa LG_STATE.bookings si tiene,
  *  sino fetchea por phone (huFetchBookingsByGuest_) y cachea. */
+// Firma actual de los datasets — si crece desde la última vez que
+// cacheamos el pick, la cache queda estale y hay que re-computar.
+function _botcDataSig() {
+  const hu = (HU_STATE?.rows || []).length;
+  const lg = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings.length : 0;
+  return `${hu}|${lg}`;
+}
+window.__botcBookingSig = window.__botcBookingSig || {};
+
 function _botcGetBookingForPhoneSync(phoneRaw) {
   // Sync — solo funciona si HU_STATE o LG_STATE ya están cargados. Si no,
   // retorna undefined (distinto de null) para que el render sepa "aún no
@@ -40176,7 +40185,11 @@ function _botcGetBookingForPhoneSync(phoneRaw) {
   const digits = String(phoneRaw || '').replace(/\D/g,'');
   const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
   const cacheKey = phoneRaw;
-  if (window.__botcBookingByPhone[cacheKey] !== undefined) {
+  const sig = _botcDataSig();
+  // Cache hit válido: existe entrada Y firma no cambió (no llegaron más
+  // reservas que ameriten re-evaluar). Si la firma creció, ignoramos la
+  // cache y re-computamos con el dataset completo actual.
+  if (window.__botcBookingByPhone[cacheKey] !== undefined && window.__botcBookingSig[cacheKey] === sig) {
     return window.__botcBookingByPhone[cacheKey];
   }
   const huLoaded = !!HU_STATE?.loaded;
@@ -40212,6 +40225,7 @@ function _botcGetBookingForPhoneSync(phoneRaw) {
   } catch(_){}
   const picked = bookings.length ? _botcPickBestBooking(bookings) : null;
   window.__botcBookingByPhone[cacheKey] = picked;
+  window.__botcBookingSig[cacheKey] = sig;
   return picked;
 }
 function _botcPickBestBooking(list) {
@@ -40316,10 +40330,22 @@ const _botcYield = () => new Promise(r => {
 async function _botcEnrichPendingBookings() {
   // Token que permite abortar cuando el user hace algo prioritario (abrir chat).
   const myGen = ++BOTC_STATE.__enrichGen;
-  const pending = (BOTC_STATE.conversations || []).filter(c =>
-    window.__botcBookingByPhone[c.phone] === undefined
-  );
+  const currentSig = _botcDataSig();
+  // Pending = cards sin pick + cards con pick pero firma stale (llegaron
+  // más reservas → hay que re-evaluar según los criterios).
+  const pending = (BOTC_STATE.conversations || []).filter(c => {
+    const cached = window.__botcBookingByPhone[c.phone];
+    if (cached === undefined) return true;
+    const sig = window.__botcBookingSig[c.phone];
+    return sig !== currentSig; // stale
+  });
   if (!pending.length) return;
+  // Invalidar la cache de pending stale para forzar re-pick en el loop.
+  for (const c of pending) {
+    if (window.__botcBookingByPhone[c.phone] !== undefined && window.__botcBookingSig[c.phone] !== currentSig) {
+      delete window.__botcBookingByPhone[c.phone];
+    }
+  }
   // Camino A: HU_STATE ya está cargado (user visitó Gestión de reservas).
   // Enriquecemos localmente sin fetch — cediendo al hilo entre cards.
   // Camino B: HU_STATE NO cargado. NUNCA disparamos huespedesLoad desde
