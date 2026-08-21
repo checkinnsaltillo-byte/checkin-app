@@ -40175,12 +40175,34 @@ window.botcInit = function() {
 
 window.botcSetFilter = function(f) {
   BOTC_STATE.filter = f;
-  document.querySelectorAll('#botc-filter-tabs button').forEach(b => {
-    const active = b.getAttribute('data-filter') === f;
+  document.querySelectorAll('#botc-filter-tabs button[data-filter]').forEach(b => {
+    // El botón "Bot ▾" queda activo si el filtro es 'bot' o 'supervised'
+    // (ambos son sub-opciones del contenedor Bot).
+    const primary = b.getAttribute('data-filter');
+    const alt = b.getAttribute('data-filter-alt') || '';
+    const active = primary === f || alt === f;
     b.style.background = active ? '#0f172a' : 'transparent';
     b.style.color = active ? '#fff' : '#475569';
+    // Actualizar label del dropdown según sub-selección
+    if (b.id === 'botc-bot-dropdown-btn') {
+      b.textContent = (f === 'supervised' ? '👁 Supervisado ▾' : '⚙️ Automático ▾');
+    }
   });
   botcRefresh();
+};
+window.botcToggleBotDropdown = function(e) {
+  if (e) e.stopPropagation();
+  const dd = document.getElementById('botc-bot-dropdown');
+  if (!dd) return;
+  const open = dd.style.display !== 'none';
+  dd.style.display = open ? 'none' : 'block';
+  if (!open) {
+    setTimeout(() => document.addEventListener('click', botcCloseBotDropdown, { once: true }), 0);
+  }
+};
+window.botcCloseBotDropdown = function() {
+  const dd = document.getElementById('botc-bot-dropdown');
+  if (dd) dd.style.display = 'none';
 };
 
 window.botcRefresh = async function(opts) {
