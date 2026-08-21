@@ -40244,7 +40244,12 @@ function _botcRenderSidebar() {
     let rich = '';
     if (bk && typeof lgBuildDetailSidebarItem === 'function') {
       try {
-        rich = lgBuildDetailSidebarItem(bk, null);
+        // El nombre canónico viene de Perfiles ("Nombre del huésped"), que
+        // Apps Script ya resuelve en /wa/bot/conversations como c.name.
+        // Sobreescribimos GuestName del booking sintético para asegurar que
+        // la card y el header del chat muestren el MISMO nombre.
+        const bkNamed = c.name ? Object.assign({}, bk, { GuestName: c.name }) : bk;
+        rich = lgBuildDetailSidebarItem(bkNamed, null);
         rich = `<div onclick="event.stopPropagation();botcOpenChat('${_botcEsc(c.phone)}')" style="cursor:pointer">${rich}</div>`;
       } catch(e) { rich = ''; }
     }
@@ -40323,13 +40328,34 @@ async function _botcEnrichPendingBookings() {
     const wrap = document.querySelector(`[data-botc-phone="${CSS.escape(String(c.phone))}"]`);
     if (!wrap) continue;
     try {
-      const rich = lgBuildDetailSidebarItem(bk, null);
+      const bkNamed = c.name ? Object.assign({}, bk, { GuestName: c.name }) : bk;
+      const rich = lgBuildDetailSidebarItem(bkNamed, null);
       const richWrapped = `<div onclick="event.stopPropagation();botcOpenChat('${_botcEsc(c.phone)}')" style="cursor:pointer">${rich}</div>`;
       const lite = wrap.querySelector('[data-botc-lite]');
       if (lite) lite.outerHTML = richWrapped;
     } catch(_){}
   }
 }
+
+// Botón Sync: invalida caches de bookings y re-fetchea SOLO las
+// conversaciones actualmente en pantalla. También limpia el cache remoto
+// (__bookingsByGuestCache) para forzar datos frescos del backend.
+window.botcSyncVisible = async function() {
+  const btn = document.getElementById('botc-sync-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Sincronizando…'; }
+  const visible = (BOTC_STATE.conversations || []).slice();
+  for (const c of visible) {
+    delete window.__botcBookingByPhone[c.phone];
+    try {
+      const digits = String(c.phone||'').replace(/\D/g,'');
+      const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
+      if (phone10 && window.__bookingsByGuestCache) window.__bookingsByGuestCache.delete(phone10);
+    } catch(_){}
+  }
+  BOTC_STATE.__enrichGen++; // cancelar enrichment previo
+  try { await _botcEnrichPendingBookings(); } catch(_){}
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 Sync'; }
+};
 
 window.botcOpenChat = async function(phone, opts) {
   opts = opts || {};

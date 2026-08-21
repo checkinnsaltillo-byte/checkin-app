@@ -2379,7 +2379,8 @@
             <button type="button" data-filter="bot"     onclick="botcSetFilter('bot')"     style="padding:5px 12px;font-size:11px;font-weight:700;background:transparent;color:#475569;border:0;border-radius:6px;cursor:pointer">🤖 Bot</button>
             <button type="button" data-filter="human"   onclick="botcSetFilter('human')"   style="padding:5px 12px;font-size:11px;font-weight:700;background:transparent;color:#475569;border:0;border-radius:6px;cursor:pointer">👤 Humano</button>
           </div>
-          <button type="button" onclick="botcRefresh()" title="Refrescar" style="padding:6px 10px;font-size:12px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-weight:700">🔄</button>
+          <button type="button" onclick="botcRefresh()" title="Refrescar lista de conversaciones" style="padding:6px 10px;font-size:12px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-weight:700">🔄</button>
+          <button type="button" id="botc-sync-btn" onclick="botcSyncVisible()" title="Refrescar datos adicionales (reserva, KPIs, chips) de las conversaciones visibles" style="padding:6px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🔄 Sync</button>
           <button type="button" onclick="botcOpenAlojConfig()" title="Habilitar/deshabilitar alojamientos donde el bot responde" style="padding:6px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">⚡ Habilitados</button>
         </div>
       </div>
@@ -2565,6 +2566,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=856"></script>
+  <script src="app.js?v=857"></script>
 </body>
 </html>
