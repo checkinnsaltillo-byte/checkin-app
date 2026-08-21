@@ -37761,19 +37761,48 @@ function _waRenderReportsList_(st) {
       cards.push({ kind:'obj', row:r, sortKey:f });
     });
   }
+  // Botón "+ Generar reporte" con mismo diseño que "+ Nuevo mensaje" del
+  // accordion de Programados: centrado, dashed, blanco.
+  const newBtn = `<div style="text-align:center;margin-top:12px">
+    <button type="button" onclick="waOpenReportPickerForModal_()" style="padding:8px 16px;font-size:12px;background:#fff;color:#0f172a;border:1.5px dashed #cbd5e1;border-radius:8px;cursor:pointer;font-weight:800">➕ Generar reporte</button>
+  </div>`;
   if (!cards.length) {
     // Si estamos cargando listas por primera vez, mostrar spinner en lugar
     // de "sin reportes" — evita falso negativo mientras llegan datos.
     if (triggeredLoad || (typeof INC_STATE !== 'undefined' && INC_STATE.loading) || (typeof OBJ_STATE !== 'undefined' && OBJ_STATE.loading)) {
-      return `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px">⏳ Cargando reportes…</div>`;
+      return `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px">⏳ Cargando reportes…</div>${newBtn}`;
     }
-    return '';
+    return `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px">Sin reportes asociados a esta reserva.</div>${newBtn}`;
   }
   // Más recientes primero.
   cards.sort((a,b) => b.sortKey.localeCompare(a.sortKey));
   const html = cards.map(c => c.kind === 'inc' ? _waRenderIncCard_(c.row) : _waRenderObjCard_(c.row)).join('');
-  return `<div style="display:flex;flex-direction:column;gap:10px">${html}</div>`;
+  return `<div style="display:flex;flex-direction:column;gap:10px">${html}</div>${newBtn}`;
 }
+
+/** Abre el picker de tipo de reporte pre-llenando propiedad/depto/fechas
+ *  desde el booking focalizado del modal WA. */
+window.waOpenReportPickerForModal_ = function() {
+  const st = window.__waModalState; if (!st) return;
+  const b = st.b || {};
+  const propRaw = b.PropiedadRaw || (b.__reservacion && b.__reservacion['Propiedad']) || b.PropertyName || '';
+  const deptRaw = b.DepartamentoRaw || (b.__reservacion && b.__reservacion['# Departamento']) || '';
+  const toIso = (v) => {
+    const s = String(v || '');
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+    return '';
+  };
+  const arrIso = toIso(b.DateArrival) || String((b.__reservacion && b.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = toIso(b.DateDeparture) || String((b.__reservacion && b.__reservacion['Fecha de salida']) || '').slice(0,10);
+  if (typeof lgOpenReportPicker === 'function') {
+    lgOpenReportPicker(propRaw, deptRaw, arrIso, depIso);
+  } else {
+    alert('Función lgOpenReportPicker no disponible.');
+  }
+};
 
 function _waRenderIncCard_(row) {
   const id = String(row['ID']||'');
