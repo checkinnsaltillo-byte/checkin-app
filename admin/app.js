@@ -42038,6 +42038,22 @@ function _rsvFmtDateShort(iso) {
   return `${parseInt(d,10)}-${meses[parseInt(m,10)-1]}`;
 }
 
+/** Estado de la reserva calculado desde arr/dep ISO. Local (no UTC). */
+function _rsvEstado(arrIso, depIso) {
+  if (!arrIso && !depIso) return { key: '', label: '' };
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const a = String(arrIso || '').slice(0,10);
+  const d = String(depIso || '').slice(0,10);
+  const start = a || d;
+  const end   = d || a;
+  if (end && end < today)  return { key: 'concluida',    label: 'Concluida' };
+  if (end === today)       return { key: 'salida_hoy',   label: 'Salida hoy' };
+  if (start === today)     return { key: 'entrada_hoy',  label: 'Entrada hoy' };
+  if (start && start > today) return { key: 'proxima',   label: 'Próxima' };
+  return { key: 'activa', label: 'Activa' };
+}
+
 /** Rellena el <select> #{prefix}-reserva con las opciones. Si hay una
  *  reserva actualmente seleccionada (por propiedad+depto en los otros
  *  selects), la marca como selected. */
@@ -42052,7 +42068,9 @@ window.rsvPopulate = function(prefix) {
   let firstOpt = '<option value="">— Ninguna / manual —</option>';
   let matched = '';
   const rows = options.map(o => {
-    const label = `${o.propiedad}${o.depto?` · #${o.depto}`:''}${o.arr?` · ${_rsvFmtDateShort(o.arr)}${o.dep?'→'+_rsvFmtDateShort(o.dep):''}`:''}${o.name?` · ${o.name}`:''}`;
+    const est = _rsvEstado(o.arr, o.dep);
+    const estTxt = est.label ? ` [${est.label}]` : '';
+    const label = `${o.propiedad}${o.depto?` · #${o.depto}`:''}${o.arr?` · ${_rsvFmtDateShort(o.arr)}${o.dep?'→'+_rsvFmtDateShort(o.dep):''}`:''}${estTxt}${o.name?` · ${o.name}`:''}`;
     if (curProp === o.propiedad && curDep === o.depto) matched = o.key;
     return `<option value="${_botcEsc(o.key)}" ${matched === o.key?'selected':''}>${_botcEsc(label)}</option>`;
   }).join('');
@@ -42100,7 +42118,9 @@ function _rtRenderReservaSelect() {
   const curDep  = String((RT_STATE.draft && RT_STATE.draft['# Departamento']) || '').trim();
   const opts = ['<option value="">— Ninguna / manual —</option>']
     .concat(options.map(o => {
-      const label = `${o.propiedad}${o.depto?` · #${o.depto}`:''}${o.arr?` · ${_rsvFmtDateShort(o.arr)}${o.dep?'→'+_rsvFmtDateShort(o.dep):''}`:''}${o.name?` · ${o.name}`:''}`;
+      const est = _rsvEstado(o.arr, o.dep);
+      const estTxt = est.label ? ` [${est.label}]` : '';
+      const label = `${o.propiedad}${o.depto?` · #${o.depto}`:''}${o.arr?` · ${_rsvFmtDateShort(o.arr)}${o.dep?'→'+_rsvFmtDateShort(o.dep):''}`:''}${estTxt}${o.name?` · ${o.name}`:''}`;
       const sel = (curProp === o.propiedad && curDep === o.depto) ? 'selected' : '';
       return `<option value="${_rtEscA(o.key)}" ${sel}>${_rtEsc(label)}</option>`;
     })).join('');
