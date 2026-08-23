@@ -41630,6 +41630,17 @@ function _rtEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
 function _rtEscA(s){ return String(s == null ? '' : s).replace(/"/g,'&quot;'); }
 
 window.rtInit = async function() {
+  // Precargar catálogos que usa el formulario de captura (fire-and-forget).
+  try {
+    if (typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded && !ALOJ_STATE.loading && typeof lgLoadAlojamientos === 'function') {
+      lgLoadAlojamientos().catch(()=>{});
+    }
+  } catch(_){}
+  try {
+    if (typeof INC_STATE !== 'undefined' && !INC_STATE.personalRows && typeof incLoadPersonal === 'function') {
+      incLoadPersonal().catch(()=>{});
+    }
+  } catch(_){}
   await rtRefresh();
 };
 window.rtRefresh = async function(force) {
@@ -41807,6 +41818,66 @@ window._rtToggle = function(field) {
   _rtRenderForm();
 };
 
+function _rtGetAlojRows_() {
+  return (typeof ALOJ_STATE !== 'undefined' && Array.isArray(ALOJ_STATE.rows)) ? ALOJ_STATE.rows : [];
+}
+function _rtRenderPropSelect() {
+  const val = String((RT_STATE.draft && RT_STATE.draft.Propiedad) || '');
+  const rows = _rtGetAlojRows_();
+  if (!rows.length) {
+    // Catálogo no cargado — fallback input libre + trigger de carga.
+    if (typeof lgLoadAlojamientos === 'function' && typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded && !ALOJ_STATE.loading) {
+      lgLoadAlojamientos().then(() => _rtRenderForm()).catch(()=>{});
+    }
+    return `<input type="text" value="${_rtEscA(val)}" placeholder="⏳ Cargando catálogo…"
+      oninput="_rtUpdate('Propiedad', this.value)"
+      style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`;
+  }
+  const propsUniq = Array.from(new Set(rows.map(r => String(r.Propiedad||'').trim()).filter(Boolean))).sort();
+  const opts = ['<option value="">— Selecciona —</option>']
+    .concat(propsUniq.map(p => `<option value="${_rtEscA(p)}" ${p===val?'selected':''}>${_rtEsc(p)}</option>`))
+    .join('');
+  return `<select onchange="_rtUpdate('Propiedad', this.value); _rtUpdate('# Departamento', ''); _rtRenderForm()"
+    style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${opts}</select>`;
+}
+function _rtRenderDeptoSelect() {
+  const val = String((RT_STATE.draft && RT_STATE.draft['# Departamento']) || '');
+  const prop = String((RT_STATE.draft && RT_STATE.draft.Propiedad) || '').trim();
+  const rows = _rtGetAlojRows_();
+  if (!prop || !rows.length) {
+    return `<select disabled style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;background:#f1f5f9;color:#94a3b8">
+      <option>— Selecciona propiedad primero —</option>
+    </select>`;
+  }
+  const deptosUniq = Array.from(new Set(
+    rows.filter(r => String(r.Propiedad||'').trim() === prop)
+        .map(r => String(r['# Departamento']||'').trim())
+        .filter(Boolean)
+  )).sort();
+  const opts = ['<option value="">— Selecciona —</option>']
+    .concat(deptosUniq.map(d => `<option value="${_rtEscA(d)}" ${d===val?'selected':''}>${_rtEsc(d)}</option>`))
+    .join('');
+  return `<select onchange="_rtUpdate('# Departamento', this.value)"
+    style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${opts}</select>`;
+}
+function _rtRenderPersonalInput(field, placeholder) {
+  const val = String((RT_STATE.draft && RT_STATE.draft[field]) || '');
+  // Trigger de carga si aún no está.
+  if (typeof INC_STATE !== 'undefined' && !INC_STATE.personalRows && typeof incLoadPersonal === 'function') {
+    incLoadPersonal().then(() => _rtRenderForm()).catch(()=>{});
+  }
+  return `<input type="text" list="rt-personal-datalist" value="${_rtEscA(val)}" placeholder="${_rtEscA(placeholder||'')}"
+    oninput="_rtUpdate('${_rtEscA(field)}', this.value)"
+    style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`;
+}
+function _rtRenderPersonalDatalist() {
+  const rows = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.personalRows)) ? INC_STATE.personalRows : [];
+  if (!rows.length) return '<datalist id="rt-personal-datalist"></datalist>';
+  const nombres = Array.from(new Set(rows.map(r => String(r['Nombre']||'').trim()).filter(Boolean))).sort();
+  const opts = nombres.map(n => `<option value="${_rtEscA(n)}"></option>`).join('');
+  return `<datalist id="rt-personal-datalist">${opts}</datalist>`;
+}
+
 function _rtRenderForm() {
   const form = document.getElementById('rt-form');
   if (!form || !RT_STATE.draft) return;
@@ -41834,8 +41905,8 @@ function _rtRenderForm() {
     </div>
 
     <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
-      ${_rtField('Propiedad', _rtInput('Propiedad','text','Ej: Calle Cumbres'))}
-      ${_rtField('# Departamento', _rtInput('# Departamento','text','Ej: 8'))}
+      ${_rtField('Propiedad', _rtRenderPropSelect())}
+      ${_rtField('# Departamento', _rtRenderDeptoSelect())}
     </div>
     ${_rtField('Activo (opcional)', _rtInput('Activo','text','Ej: Minisplit sala, boiler'))}
 
@@ -41843,9 +41914,10 @@ function _rtRenderForm() {
     ${_rtField('Descripción de la solución', _rtTextarea('Descripcion_solucion','Qué se hizo para resolver. Incluye materiales y refacciones.'))}
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      ${_rtField('Reportado por', _rtInput('Reportado_por','text','Ej: Andrés, Claudia, huésped'))}
-      ${_rtField('Asignado a', _rtInput('Asignado_a','text','Ej: Técnico Juan, Proveedor Plomería MX'))}
+      ${_rtField('Reportado por', _rtRenderPersonalInput('Reportado_por','Ej: Andrés, Claudia, huésped'))}
+      ${_rtField('Asignado a', _rtRenderPersonalInput('Asignado_a','Ej: Técnico Juan, Proveedor Plomería MX'))}
     </div>
+    ${_rtRenderPersonalDatalist()}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       ${_rtField('Proveedor', _rtInput('Proveedor','text','Nombre del proveedor externo'))}
       ${_rtField('Fecha compromiso', _rtInput('Fecha_compromiso','date',''))}
