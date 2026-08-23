@@ -16786,6 +16786,11 @@ function lgBuildReportsSectionForBooking(arg) {
 window.lgOpenReportPicker = function(propRaw, deptRaw, arrIso, depIso) {
   const existing = document.getElementById('lg-report-picker');
   if (existing) existing.remove();
+  // Si el picker se abre desde Gestión de reservas (no de Chats bot),
+  // limpiar contexto phone para que el combobox Reserva no filtre.
+  // Chats bot lo setea explícitamente en botcOpenReportPickerForCurrent.
+  if (!window.__rsvContextPhoneKeep) window.__rsvContextPhone = null;
+  window.__rsvContextPhoneKeep = false;
   const wrap = document.createElement('div');
   wrap.id = 'lg-report-picker';
   wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100000;display:flex;justify-content:flex-end';
@@ -22282,6 +22287,8 @@ window.incAbrirCaptura = function () {
   back.classList.add('visible');
   panel.classList.remove('hidden');
   panel.classList.add('open');
+  // Poblar combobox de Reservas
+  try { if (typeof rsvPopulate === 'function') rsvPopulate('inc'); } catch(_){}
 };
 
 window.incCerrarCaptura = function () {
@@ -23506,6 +23513,7 @@ window.objAbrirCaptura = function () {
   back.classList.add('visible');
   panel.classList.remove('hidden');
   panel.classList.add('open');
+  try { if (typeof rsvPopulate === 'function') rsvPopulate('obj'); } catch(_){}
 };
 window.objCerrarCaptura = function () {
   const panel = document.getElementById('obj-capture-panel');
@@ -41475,6 +41483,9 @@ function _botcMdToHtml(md) {
 window.botcOpenReportPickerForCurrent = function() {
   const phone = BOTC_STATE.selectedPhone;
   if (!phone) return;
+  // Contexto phone para que el combobox 'Reserva' filtre a este huésped.
+  window.__rsvContextPhone = phone;
+  window.__rsvContextPhoneKeep = true; // sobrevive al reset dentro de lgOpenReportPicker
   // Reutilizar el pick que ya usa la card del sidebar (Activa > Próxima > Reciente)
   const bk = (typeof _botcGetBookingForPhoneSync === 'function') ? _botcGetBookingForPhoneSync(phone) : null;
   if (!bk) {
@@ -41926,9 +41937,148 @@ window._rtToggle = function(field) {
   _rtRenderForm();
 };
 
+// ─── Combobox de RESERVAS (compartido Inc/Obj/RT) ──────────────────────
+// Guardamos el phone del contexto actual (si viene de Chats bot o de una
+// card de Gestión de reservas) para filtrar la lista de reservas.
+window.__rsvContextPhone = null;
+window.__rsvOptions = []; // [{key, label, propiedad, depto, arr, dep, name, source}]
+
+/** Genera opciones del combobox de Reservas. Si hay contextPhone, filtra
+ *  por tail(10); si no, muestra TODAS las reservas visibles (HU_STATE +
+ *  LG_STATE) ordenadas por fecha desc. */
+function _rsvBuildOptions(contextPhone) {
+  const tail10 = String(contextPhone || '').replace(/\D/g,'').slice(-10);
+  const out = [];
+  const seen = new Set();
+  const push = (o) => {
+    const key = `${o.propiedad}|${o.depto}|${o.arr}`;
+    if (seen.has(key)) return; seen.add(key);
+    out.push(Object.assign({ key }, o));
+  };
+  // 1) HU_STATE.rows (Reservaciones — fuente de manual)
+  try {
+    const rows = (typeof HU_STATE !== 'undefined' && Array.isArray(HU_STATE.rows)) ? HU_STATE.rows : [];
+    for (const r of rows) {
+      const rphone = String(r['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
+      if (tail10 && rphone !== tail10) continue;
+      const prop = String(r['Propiedad'] || '').trim();
+      const depto = String(r['# Departamento'] || '').trim();
+      if (!prop || !depto) continue;
+      const arr = String(r['Fecha de ingreso'] || '').slice(0,10);
+      const dep = String(r['Fecha de salida'] || '').slice(0,10);
+      const name = String(r['Nombre'] || '').trim();
+      push({ propiedad: prop, depto, arr, dep, name, source: 'HU' });
+    }
+  } catch(_){}
+  // 2) LG_STATE.bookings (Lodgify)
+  try {
+    const lg = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+    for (const b of lg) {
+      const rphone = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
+      if (tail10 && rphone !== tail10) continue;
+      const prop = String(b.PropertyName || (b.RoomTypeName || '').split(' - ')[0] || '').trim();
+      // Departamento: intentar sacar de RoomTypeName "Prop - #N"
+      let depto = '';
+      const m = String(b.RoomTypeName || '').match(/#\s*([\w\-]+)$/);
+      if (m) depto = m[1];
+      if (!prop) continue;
+      const arr = String(b.DateArrival || '').slice(0,10);
+      const dep = String(b.DateDeparture || '').slice(0,10);
+      const name = String(b.GuestName || '').trim();
+      push({ propiedad: prop, depto, arr, dep, name, source: 'LG' });
+    }
+  } catch(_){}
+  // Ordenar por arr desc.
+  out.sort((a,b) => String(b.arr).localeCompare(String(a.arr)));
+  return out;
+}
+
+function _rsvFmtDateShort(iso) {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return '';
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const [y,m,d] = iso.slice(0,10).split('-');
+  return `${parseInt(d,10)}-${meses[parseInt(m,10)-1]}`;
+}
+
+/** Rellena el <select> #{prefix}-reserva con las opciones. Si hay una
+ *  reserva actualmente seleccionada (por propiedad+depto en los otros
+ *  selects), la marca como selected. */
+window.rsvPopulate = function(prefix) {
+  const sel = document.getElementById(`${prefix}-reserva`);
+  if (!sel) return;
+  const options = _rsvBuildOptions(window.__rsvContextPhone);
+  window.__rsvOptions = options;
+  // Detectar selección actual desde los otros selects.
+  const curProp = String(document.getElementById(`${prefix}-propiedad`)?.value || '').trim();
+  const curDep  = String(document.getElementById(`${prefix}-depto`)?.value || '').trim();
+  let firstOpt = '<option value="">— Ninguna / manual —</option>';
+  let matched = '';
+  const rows = options.map(o => {
+    const label = `${o.propiedad}${o.depto?` · #${o.depto}`:''}${o.arr?` · ${_rsvFmtDateShort(o.arr)}${o.dep?'→'+_rsvFmtDateShort(o.dep):''}`:''}${o.name?` · ${o.name}`:''}`;
+    if (curProp === o.propiedad && curDep === o.depto) matched = o.key;
+    return `<option value="${_botcEsc(o.key)}" ${matched === o.key?'selected':''}>${_botcEsc(label)}</option>`;
+  }).join('');
+  sel.innerHTML = firstOpt + rows;
+  if (matched) sel.value = matched;
+};
+
+/** Handler del onchange del <select>: rellena los otros dos selects y
+ *  dispara sus change events para que sus listeners internos corran. */
+window.rsvOnSelect = function(prefix, value) {
+  if (!value) return;
+  const opt = (window.__rsvOptions || []).find(o => o.key === value);
+  if (!opt) return;
+  const propSel = document.getElementById(`${prefix}-propiedad`);
+  const deptoSel = document.getElementById(`${prefix}-depto`);
+  if (propSel) {
+    // Buscar la option por value (case sensitive strip)
+    const target = Array.from(propSel.options).find(o => String(o.value).trim() === opt.propiedad);
+    if (target) {
+      propSel.value = target.value;
+      propSel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+  // Dar chance al cascada de correr, luego setear depto.
+  setTimeout(() => {
+    if (!deptoSel) return;
+    const target = Array.from(deptoSel.options).find(o => String(o.value).trim() === opt.depto);
+    if (target) { deptoSel.value = target.value; deptoSel.dispatchEvent(new Event('change', { bubbles: true })); }
+  }, 30);
+  // Setear fecha si aplica (inc-fecha / obj-fecha-enc)
+  try {
+    const fechaEl = document.getElementById(`${prefix}-fecha`) || document.getElementById(`${prefix}-fecha-enc`);
+    if (fechaEl && opt.arr) fechaEl.value = opt.arr;
+  } catch(_){}
+};
+
 function _rtGetAlojRows_() {
   return (typeof ALOJ_STATE !== 'undefined' && Array.isArray(ALOJ_STATE.rows)) ? ALOJ_STATE.rows : [];
 }
+/** Select de Reservas para el form RT (interfaz distinta a inc/obj:
+ *  aquí manejamos draft en memoria, no selects DOM cascada). */
+function _rtRenderReservaSelect() {
+  const options = _rsvBuildOptions(window.__rsvContextPhone);
+  const curProp = String((RT_STATE.draft && RT_STATE.draft.Propiedad) || '').trim();
+  const curDep  = String((RT_STATE.draft && RT_STATE.draft['# Departamento']) || '').trim();
+  const opts = ['<option value="">— Ninguna / manual —</option>']
+    .concat(options.map(o => {
+      const label = `${o.propiedad}${o.depto?` · #${o.depto}`:''}${o.arr?` · ${_rsvFmtDateShort(o.arr)}${o.dep?'→'+_rsvFmtDateShort(o.dep):''}`:''}${o.name?` · ${o.name}`:''}`;
+      const sel = (curProp === o.propiedad && curDep === o.depto) ? 'selected' : '';
+      return `<option value="${_rtEscA(o.key)}" ${sel}>${_rtEsc(label)}</option>`;
+    })).join('');
+  return `<select onchange="_rtOnReservaSelect(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${opts}</select>`;
+}
+window._rtOnReservaSelect = function(value) {
+  if (!value || !RT_STATE.draft) return;
+  const opt = (window.__rsvOptions || _rsvBuildOptions(window.__rsvContextPhone)).find(o => o.key === value);
+  if (!opt) return;
+  RT_STATE.draft.Propiedad = opt.propiedad;
+  RT_STATE.draft['# Departamento'] = opt.depto;
+  RT_STATE.draft.Alojamiento = opt.depto ? `${opt.propiedad} - #${opt.depto}` : opt.propiedad;
+  if (opt.arr) RT_STATE.draft.Fecha = opt.arr;
+  _rtRenderForm();
+};
+
 function _rtRenderPropSelect() {
   const val = String((RT_STATE.draft && RT_STATE.draft.Propiedad) || '');
   const rows = _rtGetAlojRows_();
@@ -42036,6 +42186,7 @@ function _rtRenderForm() {
       ${_rtField('Categoría', _rtSelect('Categoria', RT_CATEGORIAS))}
     </div>
 
+    ${_rtField('Reserva', _rtRenderReservaSelect())}
     <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
       ${_rtField('Propiedad', _rtRenderPropSelect())}
       ${_rtField('# Departamento', _rtRenderDeptoSelect())}

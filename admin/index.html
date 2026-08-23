@@ -1743,6 +1743,10 @@
                   <label class="inc-label">Fecha</label>
                   <input type="date" id="inc-fecha" class="inc-input">
                 </div>
+                <div style="grid-column:1/-1">
+                  <label class="inc-label">Reserva</label>
+                  <select id="inc-reserva" class="inc-input" onchange="rsvOnSelect('inc', this.value)"></select>
+                </div>
                 <div>
                   <label class="inc-label">Propiedad</label>
                   <select id="inc-propiedad" class="inc-input"></select>
@@ -1975,6 +1979,10 @@
               <div style="margin-bottom:10px">
                 <label class="inc-label">Nombre de persona a quien se entregó</label>
                 <input type="text" id="obj-entregado-a" class="inc-input" placeholder="Nombre (vacío si aún no se ha entregado)">
+              </div>
+              <div style="margin-bottom:10px">
+                <label class="inc-label">Reserva</label>
+                <select id="obj-reserva" class="inc-input" onchange="rsvOnSelect('obj', this.value)"></select>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                 <div>
@@ -2641,6 +2649,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=894"></script>
+  <script src="app.js?v=895"></script>
 </body>
 </html>
