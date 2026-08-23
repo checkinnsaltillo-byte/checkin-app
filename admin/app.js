@@ -37234,9 +37234,34 @@ function _waRenderTpl(tplBody, vals) {
  *  {{ubicacion_txt}}, etc.) contra los datos reales del booking + alojamiento.
  *  Se usa para templates admin (WA_Templates sheet) que usan claves nombradas
  *  en lugar de {{1}}, {{2}} numéricos. */
-function _waResolveNamedPlaceholders_(tplBody, b) {
+/** Parse tolerante del campo placeholders_custom de un template.
+ *  Puede llegar como array (si Apps Script lo parseó) o como JSON string. */
+function _waParseTplCustomPh_(tpl) {
+  if (!tpl) return [];
+  const raw = tpl.placeholders_custom;
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  try {
+    const p = JSON.parse(String(raw));
+    return Array.isArray(p) ? p : [];
+  } catch(_) { return []; }
+}
+
+function _waResolveNamedPlaceholders_(tplBody, b, customPlaceholders) {
   if (!tplBody || !b) return String(tplBody || '');
-  const s = String(tplBody);
+  let s = String(tplBody);
+  // Aplicar PRIMERO los placeholders personalizados del template (si vienen).
+  // Sustitución literal {{name}} → value. Ganan sobre el map global.
+  try {
+    const list = Array.isArray(customPlaceholders) ? customPlaceholders : [];
+    for (const p of list) {
+      const name = String((p && p.name) || '').trim();
+      if (!name) continue;
+      const value = String((p && p.value) || '');
+      const re = new RegExp('\\{\\{\\s*' + name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\s*\\}\\}', 'gi');
+      s = s.replace(re, value);
+    }
+  } catch(_){}
   if (!/\{\{[a-z_][a-z0-9_]*\}\}/i.test(s)) return s; // no named placeholders → return as-is
   const alojRow = waFindAlojRow_(b) || {};
   const { prop, dept } = waPropDept_(b);
@@ -38426,7 +38451,7 @@ function _waRenderTemplateItem_(it, auto) {
   const expanded = st.expanded === tpl.id;
   const vals = st.templateVals[tpl.id] || {};
   const editedBody = st.editingBody[tpl.id];
-  const previewText = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.b) || {});
+  const previewText = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.b) || {}, _waParseTplCustomPh_(tpl));
   const label = tpl.label.toUpperCase().replace(/[🏠⏰🚪📩]\s*/g,'').trim();
   const canToggle = !isSent; // no tiene sentido omitir algo ya enviado
 
@@ -38772,7 +38797,7 @@ function _waRenderTemplatesTab_(logs) {
     const expanded = st.expandedTpl === tpl.id;
     const vals = st.templateVals[tpl.id] || {};
     const editedBody = st.editingBody[tpl.id];
-    const preview = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.b) || {});
+    const preview = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.b) || {}, _waParseTplCustomPh_(tpl));
 
     const details = expanded ? `
       <div style="padding:12px 14px;background:#f8fafc;border-top:1px solid #e2e8f0">
@@ -38954,7 +38979,7 @@ window.waSendTplNow_ = async function(id) {
   // 2) Resolver placeholders NOMBRADOS {{nombre}},{{propiedad}},... contra
   //    los datos reales del booking + alojamiento (templates admin del sheet).
   const raw = editedBody != null ? editedBody : _waRenderTpl(tpl.body, st.templateVals[id] || {});
-  const bodyToSend = _waResolveNamedPlaceholders_(raw, st.b || {});
+  const bodyToSend = _waResolveNamedPlaceholders_(raw, st.b || {}, _waParseTplCustomPh_(tpl));
   const nowIso = new Date().toISOString();
   const toCsv = rcps.join(',');
   // Si YA existe una card pending para este template (auto-scheduled con
@@ -39681,6 +39706,8 @@ function cfgRenderEditor() {
         oninput="cfgUpdateDraft('asunto', this.value)"
         style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:14px">
 
+      ${_cfgRenderCustomPhBox(d.placeholders_custom || [])}
+
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap">
         <label style="font-size:12px;color:#475569;font-weight:700">Mensaje</label>
         <div style="display:flex;align-items:center;gap:6px">
@@ -39729,6 +39756,70 @@ function cfgInsertPlaceholder(key) {
   ta.setSelectionRange(pos, pos);
   ta.focus();
   cfgUpdateDraft('body', next);
+}
+
+// ─── Placeholders personalizados (por template) ───────────────────────────
+/** UI de la caja "Placeholders personalizados" arriba del textarea. */
+function _cfgRenderCustomPhBox(list) {
+  list = Array.isArray(list) ? list : [];
+  const rows = list.map((it, i) => {
+    const name = String(it.name || '').trim();
+    const value = String(it.value || '');
+    const canInsert = !!name;
+    return `
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <input type="text" value="${_cfgEscAttr(name)}" placeholder="nombre (ej. día_envio)"
+          oninput="cfgUpdateCustomPh(${i},'name',this.value)"
+          style="flex:0 0 180px;padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:ui-monospace,monospace">
+        <span style="color:#94a3b8;font-size:11px;font-weight:800">=</span>
+        <input type="text" value="${_cfgEscAttr(value)}" placeholder="valor (ej. 10 de agosto)"
+          oninput="cfgUpdateCustomPh(${i},'value',this.value)"
+          style="flex:1;padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
+        <button type="button" onclick="cfgInsertCustomPh(${i})" ${canInsert ? '' : 'disabled'}
+          title="${canInsert ? 'Insertar en el mensaje' : 'Escribe primero un nombre'}"
+          style="padding:6px 9px;border:1px solid ${canInsert?'#0f172a':'#e2e8f0'};background:${canInsert?'#0f172a':'#f1f5f9'};color:${canInsert?'#fff':'#94a3b8'};border-radius:6px;font-size:11px;font-weight:800;cursor:${canInsert?'pointer':'not-allowed'}">↵ Insertar</button>
+        <button type="button" onclick="cfgRemoveCustomPh(${i})" title="Eliminar"
+          style="padding:6px 8px;border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;line-height:1">×</button>
+      </div>`;
+  }).join('');
+  return `
+    <div style="background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:10px 12px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <label style="font-size:12px;color:#475569;font-weight:700">🏷 Placeholders personalizados</label>
+        <button type="button" onclick="cfgAddCustomPh()"
+          style="padding:5px 10px;border:1px solid #0f172a;background:#fff;color:#0f172a;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">＋ Agregar</button>
+      </div>
+      ${rows || '<div style="color:#94a3b8;font-size:11px;font-style:italic;padding:6px 0">Sin placeholders personalizados. Los que agregues aquí podrán insertarse en el mensaje y se sustituirán al enviar.</div>'}
+    </div>`;
+}
+function cfgAddCustomPh() {
+  const d = CFG_ADMIN.draft; if (!d) return;
+  if (!Array.isArray(d.placeholders_custom)) d.placeholders_custom = [];
+  d.placeholders_custom.push({ name: '', value: '' });
+  CFG_ADMIN.dirty = true;
+  cfgAdminRender();
+}
+function cfgRemoveCustomPh(idx) {
+  const d = CFG_ADMIN.draft; if (!d || !Array.isArray(d.placeholders_custom)) return;
+  d.placeholders_custom.splice(idx, 1);
+  CFG_ADMIN.dirty = true;
+  cfgAdminRender();
+}
+function cfgUpdateCustomPh(idx, key, val) {
+  const d = CFG_ADMIN.draft; if (!d || !Array.isArray(d.placeholders_custom)) return;
+  const it = d.placeholders_custom[idx]; if (!it) return;
+  it[key] = val;
+  CFG_ADMIN.dirty = true;
+  // Solo re-render el header dirty; no repintar todo para no perder focus.
+  const btn = document.getElementById('cfg-save-btn');
+  if (btn && btn.disabled) cfgAdminRender();
+}
+function cfgInsertCustomPh(idx) {
+  const d = CFG_ADMIN.draft; if (!d) return;
+  const it = (d.placeholders_custom || [])[idx]; if (!it) return;
+  const name = String(it.name || '').trim();
+  if (!name) return;
+  cfgInsertPlaceholder(name);
 }
 
 
@@ -39819,6 +39910,15 @@ function cfgSelectTemplate(id) {
   const t = CFG_ADMIN.templates.find(x => x.id === id);
   if (!t) return;
   CFG_ADMIN.selectedId = id;
+  // placeholders_custom: array de {name, value}. La hoja lo guarda como JSON
+  // string; toleramos también array directo si Apps Script lo parseara.
+  let phCustom = [];
+  try {
+    const raw = t.placeholders_custom;
+    if (Array.isArray(raw)) phCustom = raw;
+    else if (typeof raw === 'string' && raw.trim()) phCustom = JSON.parse(raw);
+    if (!Array.isArray(phCustom)) phCustom = [];
+  } catch(_) { phCustom = []; }
   CFG_ADMIN.draft = {
     _id: t.id,
     nombre: t.nombre || '',
@@ -39831,6 +39931,7 @@ function cfgSelectTemplate(id) {
     alojamientos: t.alojamientos || '',
     enabled: !!t.enabled,
     responsivo: !!t.responsivo,
+    placeholders_custom: phCustom,
   };
   CFG_ADMIN.dirty = false;
   cfgAdminRender();
@@ -39863,6 +39964,9 @@ async function cfgToggleEnabledFromList(id) {
         alojamientos: t.alojamientos,
         enabled: nueva,
         responsivo: !!t.responsivo,
+        placeholders_custom: (typeof t.placeholders_custom === 'string')
+          ? t.placeholders_custom
+          : JSON.stringify(t.placeholders_custom || []),
       }),
     });
     const j = await res.json();
@@ -39974,6 +40078,11 @@ async function cfgSaveDraft() {
         alojamientos: d.alojamientos,
         enabled: !!d.enabled,
         responsivo: !!d.responsivo,
+        placeholders_custom: JSON.stringify(
+          (Array.isArray(d.placeholders_custom) ? d.placeholders_custom : [])
+            .filter(p => String(p.name||'').trim())
+            .map(p => ({ name: String(p.name).trim(), value: String(p.value||'') }))
+        ),
       }),
     });
     const j = await res.json();
