@@ -41636,11 +41636,11 @@ window.rtInit = async function() {
       lgLoadAlojamientos().catch(()=>{});
     }
   } catch(_){}
-  try {
-    if (typeof INC_STATE !== 'undefined' && !INC_STATE.personalRows && typeof incLoadPersonal === 'function') {
-      incLoadPersonal().catch(()=>{});
-    }
-  } catch(_){}
+  // Personal: cargar directo desde api.check-inn.mx (más confiable que
+  // depender de incLoadPersonal que usa BACKEND legacy).
+  if (!Array.isArray(RT_STATE.personalRows) || !RT_STATE.personalRows.length) {
+    _rtLoadPersonalDirect_().catch(()=>{});
+  }
   await rtRefresh();
 };
 window.rtRefresh = async function(force) {
@@ -41860,19 +41860,43 @@ function _rtRenderDeptoSelect() {
   return `<select onchange="_rtUpdate('# Departamento', this.value)"
     style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${opts}</select>`;
 }
+async function _rtLoadPersonalDirect_() {
+  // Cargar personal directo desde api.check-inn.mx (BACKEND puede apuntar a
+  // northamerica-south1 sin este endpoint). Devuelve array de {Nombre, Puesto}.
+  try {
+    const r = await fetch('https://api.check-inn.mx/personal-list', { cache: 'no-store' });
+    const j = await r.json();
+    if (j && j.ok && Array.isArray(j.rows)) {
+      RT_STATE.personalRows = j.rows;
+      // También llenar INC_STATE si está disponible (para reuse).
+      try { if (typeof INC_STATE !== 'undefined') INC_STATE.personalRows = j.rows; } catch(_){}
+      return j.rows;
+    }
+  } catch(e) { console.warn('[rt] personal-list error:', e.message); }
+  RT_STATE.personalRows = [];
+  return [];
+}
+function _rtGetPersonalRows() {
+  if (Array.isArray(RT_STATE.personalRows)) return RT_STATE.personalRows;
+  if (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.personalRows)) return INC_STATE.personalRows;
+  return [];
+}
 function _rtRenderPersonalInput(field, placeholder) {
   const val = String((RT_STATE.draft && RT_STATE.draft[field]) || '');
-  // Trigger de carga si aún no está.
-  if (typeof INC_STATE !== 'undefined' && !INC_STATE.personalRows && typeof incLoadPersonal === 'function') {
-    incLoadPersonal().then(() => _rtRenderForm()).catch(()=>{});
-  }
-  return `<input type="text" list="rt-personal-datalist" value="${_rtEscA(val)}" placeholder="${_rtEscA(placeholder||'')}"
+  // Los 2 inputs (Reportado_por y Asignado_a) usan MISMO datalist. Usar id
+  // único por campo para debug.
+  return `<input type="text" list="rt-personal-datalist" id="rt-in-${_rtEscA(field)}" value="${_rtEscA(val)}" placeholder="${_rtEscA(placeholder||'')}"
     oninput="_rtUpdate('${_rtEscA(field)}', this.value)"
+    autocomplete="off"
     style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`;
 }
 function _rtRenderPersonalDatalist() {
-  const rows = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.personalRows)) ? INC_STATE.personalRows : [];
-  if (!rows.length) return '<datalist id="rt-personal-datalist"></datalist>';
+  const rows = _rtGetPersonalRows();
+  if (!rows.length) {
+    // Trigger carga y re-render cuando llegue.
+    _rtLoadPersonalDirect_().then(list => { if (list.length) _rtRenderForm(); });
+    return '<datalist id="rt-personal-datalist"><option value="⏳ Cargando personal…"></option></datalist>';
+  }
   const nombres = Array.from(new Set(rows.map(r => String(r['Nombre']||'').trim()).filter(Boolean))).sort();
   const opts = nombres.map(n => `<option value="${_rtEscA(n)}"></option>`).join('');
   return `<datalist id="rt-personal-datalist">${opts}</datalist>`;
