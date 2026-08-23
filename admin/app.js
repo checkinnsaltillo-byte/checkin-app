@@ -41375,11 +41375,12 @@ window.botcOpenSummary = async function() {
   document.getElementById('botc-summary-modal')?.remove();
   const wrap = document.createElement('div');
   wrap.id = 'botc-summary-modal';
-  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100010;display:flex;align-items:center;justify-content:center;padding:20px';
+  // Slide-in lateral derecho (mismo patrón que 'Ver WA' modal).
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100010;display:flex;align-items:stretch;justify-content:flex-end';
   wrap.onclick = (e) => { if (e.target === wrap) wrap.remove(); };
   wrap.innerHTML = `
-    <div style="width:100%;max-width:640px;max-height:90vh;background:#fff;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden;display:flex;flex-direction:column">
-      <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff">
+    <div onclick="event.stopPropagation()" style="width:100%;max-width:560px;height:100vh;background:#fff;box-shadow:-24px 0 48px -8px rgba(0,0,0,.28);overflow:hidden;display:flex;flex-direction:column;animation:botcSummarySlideIn .28s cubic-bezier(.2,.7,.3,1)">
+      <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;flex:none">
         <div>
           <div style="font-size:10px;letter-spacing:.14em;opacity:.85;font-weight:800">RESUMEN DEL HISTORIAL</div>
           <div style="font-size:16px;font-weight:800;margin-top:2px">🧠 ${_botcEsc(nameHeader)}</div>
@@ -41394,6 +41395,13 @@ window.botcOpenSummary = async function() {
         </div>
       </div>
     </div>`;
+  // Keyframes inline si no existen (mismo patrón que wa-modal).
+  if (!document.getElementById('botc-summary-kf')) {
+    const kf = document.createElement('style');
+    kf.id = 'botc-summary-kf';
+    kf.textContent = '@keyframes botcSummarySlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }';
+    document.head.appendChild(kf);
+  }
   document.body.appendChild(wrap);
   try {
     const r = await fetch('https://api.check-inn.mx/wa/bot/summarize', {
