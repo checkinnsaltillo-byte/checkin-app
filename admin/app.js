@@ -41216,6 +41216,7 @@ function _botcRenderMain(phone) {
       <div style="display:flex;gap:8px;align-items:center">
         ${ctrlBtn}
         <button type="button" onclick="botcOpenReportPickerForCurrent()" title="Generar nuevo reporte (Incidencia / Objeto perdido / Reporte técnico) para este huésped" style="padding:7px 12px;font-size:12px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">＋ Generar reporte</button>
+        <button type="button" onclick="botcOpenSummary()" title="Resumen sintético del historial de conversación con énfasis en el último tema o asunto pendiente" style="padding:7px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🧠 Resumen</button>
         <button type="button" onclick="botcToggleRightPanel()" title="Abrir ventana WhatsApp completa (templates, mensajes programados, envío manual) para este huésped" style="padding:7px 12px;font-size:12px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">📱 Ver WA</button>
       </div>
     </div>
@@ -41361,6 +41362,83 @@ window.botcDraftSkip = function(phone) {
   // Acción directa, sin confirm.
   _botcDraftAction(phone, 'skip');
 };
+
+/** Muestra un modal con el resumen sintético del historial completo de la
+ *  conversación (bot + admin + huésped) generado por Claude. */
+window.botcOpenSummary = async function() {
+  const phone = BOTC_STATE.selectedPhone;
+  if (!phone) return;
+  // Nombre del huésped para el header del modal.
+  const conv = (BOTC_STATE.conversations || []).find(c => String(c.phone) === String(phone));
+  const nameHeader = conv && conv.name ? conv.name : `+${phone}`;
+  // Modal centrado con backdrop.
+  document.getElementById('botc-summary-modal')?.remove();
+  const wrap = document.createElement('div');
+  wrap.id = 'botc-summary-modal';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100010;display:flex;align-items:center;justify-content:center;padding:20px';
+  wrap.onclick = (e) => { if (e.target === wrap) wrap.remove(); };
+  wrap.innerHTML = `
+    <div style="width:100%;max-width:640px;max-height:90vh;background:#fff;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden;display:flex;flex-direction:column">
+      <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff">
+        <div>
+          <div style="font-size:10px;letter-spacing:.14em;opacity:.85;font-weight:800">RESUMEN DEL HISTORIAL</div>
+          <div style="font-size:16px;font-weight:800;margin-top:2px">🧠 ${_botcEsc(nameHeader)}</div>
+        </div>
+        <button type="button" onclick="document.getElementById('botc-summary-modal')?.remove()" style="background:transparent;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1;padding:0 6px">✕</button>
+      </div>
+      <div id="botc-summary-body" style="flex:1;overflow-y:auto;padding:20px 22px;font-size:14px;color:#0f172a;line-height:1.6">
+        <div style="text-align:center;padding:40px;color:#94a3b8">
+          <div style="font-size:32px;margin-bottom:10px">🧠</div>
+          <div>⏳ Analizando conversación con Claude…</div>
+          <div style="font-size:11px;margin-top:8px">(puede tardar 5–15s si hay muchos mensajes)</div>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/bot/summarize', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone }),
+    });
+    const j = await r.json();
+    const body = document.getElementById('botc-summary-body');
+    if (!body) return;
+    if (!j.ok) {
+      body.innerHTML = `<div style="color:#dc2626">⚠ ${_botcEsc(j.error || 'error')}</div>`;
+      return;
+    }
+    body.innerHTML = `
+      ${_botcMdToHtml(j.summary || '')}
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:right">
+        Analizados ${j.msgs_analizados || 0} de ${j.msgs_total || 0} mensajes · Claude
+      </div>`;
+  } catch (e) {
+    const body = document.getElementById('botc-summary-body');
+    if (body) body.innerHTML = `<div style="color:#dc2626">⚠ Error: ${_botcEsc(e.message)}</div>`;
+  }
+};
+/** Markdown mínimo → HTML: headings ##, **bold**, - bullets, saltos.
+ *  Solo lo justo para renderizar el output típico del summarizer. */
+function _botcMdToHtml(md) {
+  let s = String(md || '');
+  s = _botcEsc(s);
+  // Headings ## y ###
+  s = s.replace(/^###\s+(.+)$/gm, '<h4 style="margin:16px 0 6px;font-size:13px;color:#5b21b6;font-weight:800">$1</h4>');
+  s = s.replace(/^##\s+(.+)$/gm, '<h3 style="margin:18px 0 8px;font-size:15px;color:#5b21b6;font-weight:800;border-bottom:1px solid #ede9fe;padding-bottom:4px">$1</h3>');
+  // Bold **texto**
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Bullets (- item o * item al inicio de línea)
+  s = s.replace(/(?:^|\n)([-*]\s+.+(?:\n[-*]\s+.+)*)/g, (_, block) => {
+    const items = block.split('\n').map(l => l.replace(/^[-*]\s+/, '').trim()).filter(Boolean);
+    return '\n<ul style="margin:6px 0 10px 20px;padding:0">' + items.map(it => `<li style="margin-bottom:4px">${it}</li>`).join('') + '</ul>';
+  });
+  // Párrafos: saltos dobles → nuevo párrafo
+  s = s.split(/\n\n+/).map(p => {
+    if (/^<(h\d|ul|ol|div)/i.test(p.trim())) return p;
+    return `<p style="margin:8px 0">${p.trim().replace(/\n/g, '<br>')}</p>`;
+  }).join('\n');
+  return s;
+}
 
 /** Abre el mismo picker "+ Generar nuevo reporte" que Gestión de reservas,
  *  pre-llenando propiedad/depto/fechas desde el booking activo del huésped. */
