@@ -41638,7 +41638,7 @@ window.rtRefresh = async function(force) {
     if (cont) cont.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;font-size:13px">⏳ Cargando reportes técnicos…</div>';
     try {
       RT_STATE.loading = true;
-      const r = await fetch(`${BACKEND}/reportes-tecnicos-list`, { cache: 'no-store' });
+      const r = await fetch(`https://api.check-inn.mx/reportes-tecnicos-list`, { cache: 'no-store' });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'error');
       RT_STATE.list = j.rows || [];
@@ -41930,7 +41930,7 @@ window.rtSave = async function() {
     })));
     const fotos_antes   = await convert(RT_STATE.fotosAntesPending);
     const fotos_despues = await convert(RT_STATE.fotosDespuesPending);
-    const r = await fetch(`${BACKEND}/reportes-tecnicos-upsert`, {
+    const r = await fetch(`https://api.check-inn.mx/reportes-tecnicos-upsert`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ payload: d, fotos_antes, fotos_despues }),
@@ -41953,7 +41953,7 @@ window.rtSave = async function() {
 window.rtDelete = async function(id) {
   if (!confirm('¿Eliminar este reporte técnico? Esta acción no se puede deshacer.')) return;
   try {
-    const r = await fetch(`${BACKEND}/reportes-tecnicos-delete`, {
+    const r = await fetch(`https://api.check-inn.mx/reportes-tecnicos-delete`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     });
