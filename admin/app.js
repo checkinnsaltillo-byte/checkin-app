@@ -39759,25 +39759,47 @@ function cfgInsertPlaceholder(key) {
 }
 
 // ─── Placeholders personalizados (por template) ───────────────────────────
-/** UI de la caja "Placeholders personalizados" arriba del textarea. */
+/** UI de la caja "Placeholders personalizados" arriba del textarea.
+ *  Cada fila tiene 2 modos:
+ *    - EDITING: inputs editables + "Guardar cambios" (habilitado si hay texto) + "X".
+ *    - SAVED:   lectura + 3 botones "Insertar" / "Editar" / "X".
+ *  El flag __editing controla el modo. Nuevos items entran directo en EDITING. */
 function _cfgRenderCustomPhBox(list) {
   list = Array.isArray(list) ? list : [];
   const rows = list.map((it, i) => {
     const name = String(it.name || '').trim();
     const value = String(it.value || '');
-    const canInsert = !!name;
+    const editing = !!it.__editing;
+    const hasText = !!(name || value.trim());
+    if (editing) {
+      return `
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+          <input type="text" id="cfg-ph-name-${i}" value="${_cfgEscAttr(name)}" placeholder="nombre (ej. día_envio)"
+            oninput="cfgUpdateCustomPh(${i},'name',this.value)"
+            style="flex:0 0 180px;padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:ui-monospace,monospace">
+          <span style="color:#94a3b8;font-size:11px;font-weight:800">=</span>
+          <input type="text" id="cfg-ph-val-${i}" value="${_cfgEscAttr(value)}" placeholder="valor (ej. 10 de agosto)"
+            oninput="cfgUpdateCustomPh(${i},'value',this.value)"
+            style="flex:1;padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
+          <button type="button" onclick="cfgSaveCustomPh(${i})" ${hasText ? '' : 'disabled'}
+            title="${hasText ? 'Guardar cambios' : 'Escribe algún texto primero'}"
+            style="padding:6px 10px;border:0;background:${hasText?'#16a34a':'#e2e8f0'};color:${hasText?'#fff':'#94a3b8'};border-radius:6px;font-size:11px;font-weight:800;cursor:${hasText?'pointer':'not-allowed'}">💾 Guardar cambios</button>
+          <button type="button" onclick="cfgRemoveCustomPh(${i})" title="Eliminar"
+            style="padding:6px 8px;border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;line-height:1">×</button>
+        </div>`;
+    }
+    // SAVED mode
     return `
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-        <input type="text" value="${_cfgEscAttr(name)}" placeholder="nombre (ej. día_envio)"
-          oninput="cfgUpdateCustomPh(${i},'name',this.value)"
-          style="flex:0 0 180px;padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:ui-monospace,monospace">
+        <div style="flex:0 0 180px;padding:6px 9px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:ui-monospace,monospace;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_cfgEsc(name)}</div>
         <span style="color:#94a3b8;font-size:11px;font-weight:800">=</span>
-        <input type="text" value="${_cfgEscAttr(value)}" placeholder="valor (ej. 10 de agosto)"
-          oninput="cfgUpdateCustomPh(${i},'value',this.value)"
-          style="flex:1;padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
-        <button type="button" onclick="cfgInsertCustomPh(${i})" ${canInsert ? '' : 'disabled'}
-          title="${canInsert ? 'Insertar en el mensaje' : 'Escribe primero un nombre'}"
-          style="padding:6px 9px;border:1px solid ${canInsert?'#0f172a':'#e2e8f0'};background:${canInsert?'#0f172a':'#f1f5f9'};color:${canInsert?'#fff':'#94a3b8'};border-radius:6px;font-size:11px;font-weight:800;cursor:${canInsert?'pointer':'not-allowed'}">↵ Insertar</button>
+        <div style="flex:1;padding:6px 9px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_cfgEsc(value) || '<span style="color:#94a3b8;font-style:italic">(vacío)</span>'}</div>
+        <button type="button" onclick="cfgInsertCustomPh(${i})"
+          title="Insertar {{${_cfgEscAttr(name)}}} en el mensaje"
+          style="padding:6px 9px;border:1px solid #0f172a;background:#0f172a;color:#fff;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">↵ Insertar</button>
+        <button type="button" onclick="cfgEditCustomPh(${i})"
+          title="Editar"
+          style="padding:6px 9px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✎ Editar</button>
         <button type="button" onclick="cfgRemoveCustomPh(${i})" title="Eliminar"
           style="padding:6px 8px;border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;line-height:1">×</button>
       </div>`;
@@ -39795,9 +39817,14 @@ function _cfgRenderCustomPhBox(list) {
 function cfgAddCustomPh() {
   const d = CFG_ADMIN.draft; if (!d) return;
   if (!Array.isArray(d.placeholders_custom)) d.placeholders_custom = [];
-  d.placeholders_custom.push({ name: '', value: '' });
+  d.placeholders_custom.push({ name: '', value: '', __editing: true });
   CFG_ADMIN.dirty = true;
   cfgAdminRender();
+  // Focus al input del nombre recién agregado.
+  setTimeout(() => {
+    const el = document.getElementById(`cfg-ph-name-${d.placeholders_custom.length - 1}`);
+    if (el) el.focus();
+  }, 0);
 }
 function cfgRemoveCustomPh(idx) {
   const d = CFG_ADMIN.draft; if (!d || !Array.isArray(d.placeholders_custom)) return;
@@ -39810,9 +39837,46 @@ function cfgUpdateCustomPh(idx, key, val) {
   const it = d.placeholders_custom[idx]; if (!it) return;
   it[key] = val;
   CFG_ADMIN.dirty = true;
-  // Solo re-render el header dirty; no repintar todo para no perder focus.
-  const btn = document.getElementById('cfg-save-btn');
-  if (btn && btn.disabled) cfgAdminRender();
+  // Actualizar visualmente el estado del botón "Guardar cambios" SIN
+  // re-render (para no perder focus). Encuentra el botón hermano y ajusta
+  // disabled / colores según si hay texto en al menos uno.
+  try {
+    const nameEl = document.getElementById(`cfg-ph-name-${idx}`);
+    const valEl  = document.getElementById(`cfg-ph-val-${idx}`);
+    const hasText = !!((nameEl && nameEl.value.trim()) || (valEl && valEl.value.trim()));
+    const row = nameEl ? nameEl.parentElement : null;
+    const btn = row ? row.querySelector('button[onclick^="cfgSaveCustomPh"]') : null;
+    if (btn) {
+      btn.disabled = !hasText;
+      btn.style.background = hasText ? '#16a34a' : '#e2e8f0';
+      btn.style.color = hasText ? '#fff' : '#94a3b8';
+      btn.style.cursor = hasText ? 'pointer' : 'not-allowed';
+      btn.title = hasText ? 'Guardar cambios' : 'Escribe algún texto primero';
+    }
+  } catch(_){}
+  // También actualizar chip "sin guardar" del botón principal, si aplica.
+  const mainBtn = document.getElementById('cfg-save-btn');
+  if (mainBtn && mainBtn.disabled) cfgAdminRender();
+}
+function cfgSaveCustomPh(idx) {
+  const d = CFG_ADMIN.draft; if (!d || !Array.isArray(d.placeholders_custom)) return;
+  const it = d.placeholders_custom[idx]; if (!it) return;
+  const name = String(it.name || '').trim();
+  const value = String(it.value || '');
+  if (!name && !value.trim()) return; // sin texto — no guardar
+  it.__editing = false;
+  CFG_ADMIN.dirty = true;
+  cfgAdminRender();
+}
+function cfgEditCustomPh(idx) {
+  const d = CFG_ADMIN.draft; if (!d || !Array.isArray(d.placeholders_custom)) return;
+  const it = d.placeholders_custom[idx]; if (!it) return;
+  it.__editing = true;
+  cfgAdminRender();
+  setTimeout(() => {
+    const el = document.getElementById(`cfg-ph-name-${idx}`);
+    if (el) el.focus();
+  }, 0);
 }
 function cfgInsertCustomPh(idx) {
   const d = CFG_ADMIN.draft; if (!d) return;
