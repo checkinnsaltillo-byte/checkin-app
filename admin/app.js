@@ -41486,6 +41486,23 @@ window.botcOpenReportPickerForCurrent = function() {
   // Contexto phone para que el combobox 'Reserva' filtre a este huésped.
   window.__rsvContextPhone = phone;
   window.__rsvContextPhoneKeep = true; // sobrevive al reset dentro de lgOpenReportPicker
+  // Precargar reservas del phone via /bookings-by-guest si aún no están.
+  // El endpoint devuelve bookings Lodgify + huRows — llena __waExtraHuRowsByPhone.
+  try {
+    const digits = String(phone||'').replace(/\D/g,'');
+    const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
+    if (phone10 && typeof huFetchBookingsByGuest_ === 'function' &&
+        !(window.__waExtraHuRowsByPhone && window.__waExtraHuRowsByPhone[phone10])) {
+      huFetchBookingsByGuest_(phone10).then(() => {
+        // Si el picker sigue abierto, no repintamos aquí — el user verá las
+        // reservas al abrir la ventana de captura. Si ya está abierta, re-populate.
+        ['inc','obj'].forEach(prefix => {
+          if (document.getElementById(`${prefix}-reserva`) && typeof rsvPopulate === 'function') rsvPopulate(prefix);
+        });
+        if (RT_STATE && RT_STATE.draft && typeof _rtRenderForm === 'function') _rtRenderForm();
+      }).catch(()=>{});
+    }
+  } catch(_){}
   // Reutilizar el pick que ya usa la card del sidebar (Activa > Próxima > Reciente)
   const bk = (typeof _botcGetBookingForPhoneSync === 'function') ? _botcGetBookingForPhoneSync(phone) : null;
   if (!bk) {
@@ -41968,6 +41985,27 @@ function _rsvBuildOptions(contextPhone) {
       const dep = String(r['Fecha de salida'] || '').slice(0,10);
       const name = String(r['Nombre'] || '').trim();
       push({ propiedad: prop, depto, arr, dep, name, source: 'HU' });
+    }
+  } catch(_){}
+  // 1b) __waExtraHuRowsByPhone — rows pre-cargados on-demand por Ver WA /
+  //     bot-chats via /bookings-by-guest?phone=X. Suelen ser MÁS completas
+  //     que HU_STATE.rows (que puede estar filtrado al mes actual).
+  try {
+    if (window.__waExtraHuRowsByPhone) {
+      const bucket = tail10
+        ? (window.__waExtraHuRowsByPhone[tail10] || [])
+        : Object.values(window.__waExtraHuRowsByPhone).flat();
+      for (const r of bucket) {
+        const rphone = String(r['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
+        if (tail10 && rphone !== tail10) continue;
+        const prop = String(r['Propiedad'] || '').trim();
+        const depto = String(r['# Departamento'] || '').trim();
+        if (!prop || !depto) continue;
+        const arr = String(r['Fecha de ingreso'] || '').slice(0,10);
+        const dep = String(r['Fecha de salida'] || '').slice(0,10);
+        const name = String(r['Nombre'] || '').trim();
+        push({ propiedad: prop, depto, arr, dep, name, source: 'WA_EXTRA' });
+      }
     }
   } catch(_){}
   // 2) LG_STATE.bookings (Lodgify)
