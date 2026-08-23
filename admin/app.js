@@ -39982,7 +39982,11 @@ function cfgSelectTemplate(id) {
     if (Array.isArray(raw)) phCustom = raw;
     else if (typeof raw === 'string' && raw.trim()) phCustom = JSON.parse(raw);
     if (!Array.isArray(phCustom)) phCustom = [];
-  } catch(_) { phCustom = []; }
+  } catch(e) {
+    console.warn('[cfg] placeholders_custom parse error:', e.message, 'raw:', t.placeholders_custom);
+    phCustom = [];
+  }
+  console.info('[cfg] select', t.id, 'placeholders_custom:', phCustom.length, 'raw:', t.placeholders_custom);
   CFG_ADMIN.draft = {
     _id: t.id,
     nombre: t.nombre || '',
