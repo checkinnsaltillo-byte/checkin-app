@@ -345,7 +345,7 @@ function sysGetStoredUser() {
 }
 function sysStoreUser(u) { try { localStorage.setItem('sys_user', JSON.stringify(u)); } catch(_) {} }
 function sysApplyPermissions(user) {
-  const allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats']);
+  const allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos']);
   if (user && user.modulos) {
     for (const k in SYS_MODULE_PERMS) {
       if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
@@ -8649,7 +8649,7 @@ function switchModule(mod) {
   if (mod === 'ocupacion') mod = 'dashboard';
   // Aliases: 'dashboard' y 'calendario' comparten el contenedor module-ocupacion
   const containerMod = (mod === 'dashboard' || mod === 'calendario') ? 'ocupacion' : mod;
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -8766,6 +8766,9 @@ function switchModule(mod) {
   }
   if (mod === "bot-chats") {
     if (typeof botcInit === 'function') botcInit();
+  }
+  if (mod === "reportes-tecnicos") {
+    if (typeof rtInit === 'function') rtInit();
   }
 }
 
@@ -16806,6 +16809,15 @@ window.lgOpenReportPicker = function(propRaw, deptRaw, arrIso, depIso) {
           </div>
           <div style="color:#dc2626;font-weight:800">▸</div>
         </button>
+        <button type="button" onclick="lgPickReport('rt','${esc(propRaw)}','${esc(deptRaw)}','${esc(arrIso)}','${esc(depIso)}')"
+                style="text-align:left;padding:16px 18px;border:1.5px solid #c7d2fe;background:#fff;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:transform .1s,box-shadow .1s;margin-bottom:12px">
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#e0e7ff,#c7d2fe);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🛠</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:800;color:#0f172a">Reporte técnico</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">Bitácora de trabajo técnico realizado en el alojamiento.</div>
+          </div>
+          <div style="color:#4f46e5;font-weight:800">▸</div>
+        </button>
         <button type="button" onclick="lgPickReport('obj','${esc(propRaw)}','${esc(deptRaw)}','${esc(arrIso)}','${esc(depIso)}')"
                 style="text-align:left;padding:16px 18px;border:1.5px solid #a7f3d0;background:#fff;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:transform .1s,box-shadow .1s">
           <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#d1fae5,#a7f3d0);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🎒</div>
@@ -16814,15 +16826,6 @@ window.lgOpenReportPicker = function(propRaw, deptRaw, arrIso, depIso) {
             <div style="font-size:12px;color:#64748b;margin-top:2px">Registrar un objeto encontrado / olvidado por el huésped.</div>
           </div>
           <div style="color:#059669;font-weight:800">▸</div>
-        </button>
-        <button type="button" disabled title="Próximamente"
-                style="text-align:left;padding:16px 18px;border:1.5px dashed #cbd5e1;background:#f8fafc;border-radius:12px;cursor:not-allowed;display:flex;align-items:center;gap:14px;opacity:.65">
-          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#e0e7ff,#c7d2fe);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🛠</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:800;color:#0f172a">Reporte técnico <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px;margin-left:6px;letter-spacing:.05em">PRÓXIMAMENTE</span></div>
-            <div style="font-size:12px;color:#64748b;margin-top:2px">Bitácora de trabajo técnico realizado en el alojamiento.</div>
-          </div>
-          <div style="color:#94a3b8;font-weight:800">▸</div>
         </button>
       </div>
     </div>`;
@@ -16835,6 +16838,8 @@ window.lgPickReport = function(kind, propRaw, deptRaw, arrIso, depIso) {
     lgOpenIncCaptureFor(propRaw, deptRaw, arrIso);
   } else if (kind === 'obj' && typeof lgOpenObjCaptureFor === 'function') {
     lgOpenObjCaptureFor(propRaw, deptRaw, depIso);
+  } else if (kind === 'rt' && typeof rtOpenCaptureFor === 'function') {
+    rtOpenCaptureFor(propRaw, deptRaw, arrIso, depIso);
   }
 };
 
@@ -41562,5 +41567,400 @@ window._botcAlojSave = async function() {
     alert('Error al guardar: ' + e.message);
     if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar cambios'; btn.style.opacity = ''; }
   }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ MÓDULO REPORTES TÉCNICOS (MVP F1)                                       ║
+// ║ Lista + captura + edición con evidencia fotográfica.                    ║
+// ║ Backend: hoja Reportes_Tecnicos vía Cloud Run /reportes-tecnicos-*.     ║
+// ═══════════════════════════════════════════════════════════════════════════
+const RT_STATE = {
+  list: [],
+  loaded: false,
+  loading: false,
+  draft: null,          // objeto de edición (null = cerrado)
+  fotosAntesPending: [],   // File[] para upload
+  fotosDespuesPending: [],
+};
+const RT_ESTADOS = [
+  { key: 'nuevo',       label: 'Nuevo',       bg:'#f1f5f9', fg:'#334155' },
+  { key: 'clasificado', label: 'Clasificado', bg:'#e0e7ff', fg:'#3730a3' },
+  { key: 'asignado',    label: 'Asignado',    bg:'#dbeafe', fg:'#1e40af' },
+  { key: 'en_proceso',  label: 'En proceso',  bg:'#fef3c7', fg:'#92400e' },
+  { key: 'en_espera',   label: 'En espera',   bg:'#fee2e2', fg:'#991b1b' },
+  { key: 'resuelto',    label: 'Resuelto',    bg:'#dcfce7', fg:'#166534' },
+  { key: 'cerrado',     label: 'Cerrado',     bg:'#e2e8f0', fg:'#475569' },
+  { key: 'cancelado',   label: 'Cancelado',   bg:'#fecaca', fg:'#7f1d1d' },
+];
+const RT_PRIORIDADES = [
+  { key:'P1', label:'P1 · Crítica', color:'#dc2626' },
+  { key:'P2', label:'P2 · Alta',    color:'#f59e0b' },
+  { key:'P3', label:'P3 · Media',   color:'#3b82f6' },
+  { key:'P4', label:'P4 · Baja',    color:'#64748b' },
+];
+const RT_CATEGORIAS = [
+  { key:'plomeria',       label:'Plomería',            icon:'🚿' },
+  { key:'electrico',      label:'Eléctrico',           icon:'⚡' },
+  { key:'gas',            label:'Gas',                 icon:'🔥' },
+  { key:'clima',          label:'Clima',               icon:'❄️' },
+  { key:'accesos',        label:'Accesos / Cerraduras',icon:'🔑' },
+  { key:'conectividad',   label:'Conectividad / WiFi', icon:'📡' },
+  { key:'electrodomesticos', label:'Electrodomésticos',icon:'🔌' },
+  { key:'mobiliario',     label:'Mobiliario / Acabados',icon:'🛋' },
+  { key:'limpieza',       label:'Limpieza / Blancos',  icon:'🧹' },
+  { key:'ruido',          label:'Ruido / Convivencia', icon:'🔊' },
+  { key:'estructural',    label:'Estructural / Obra',  icon:'🏗' },
+  { key:'otros',          label:'Otros',               icon:'📋' },
+];
+const RT_TIPOS = [
+  { key:'correctivo', label:'Correctivo' },
+  { key:'preventivo', label:'Preventivo' },
+  { key:'mejora',     label:'Mejora' },
+  { key:'garantia',   label:'Garantía' },
+];
+const RT_RESPONSABILIDADES = [
+  { key:'negocio',            label:'Negocio' },
+  { key:'huesped',            label:'Huésped' },
+  { key:'garantia_proveedor', label:'Garantía / proveedor' },
+  { key:'tercero',            label:'Tercero' },
+  { key:'desgaste_normal',    label:'Desgaste normal' },
+  { key:'indeterminada',      label:'Indeterminada' },
+];
+function _rtEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _rtEscA(s){ return String(s == null ? '' : s).replace(/"/g,'&quot;'); }
+
+window.rtInit = async function() {
+  await rtRefresh();
+};
+window.rtRefresh = async function(force) {
+  const cont = document.getElementById('rt-cards-list');
+  if (force || !RT_STATE.loaded) {
+    if (cont) cont.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;font-size:13px">⏳ Cargando reportes técnicos…</div>';
+    try {
+      RT_STATE.loading = true;
+      const r = await fetch(`${BACKEND}/reportes-tecnicos-list`, { cache: 'no-store' });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'error');
+      RT_STATE.list = j.rows || [];
+      RT_STATE.loaded = true;
+    } catch(e) {
+      if (cont) cont.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#dc2626;font-size:13px">⚠ ${_rtEsc(e.message)}</div>`;
+      return;
+    } finally { RT_STATE.loading = false; }
+  }
+  rtRenderList();
+};
+
+function rtRenderList() {
+  const cont = document.getElementById('rt-cards-list');
+  if (!cont) return;
+  const fEstado = String(document.getElementById('rt-filter-estado')?.value || '');
+  const fPrio   = String(document.getElementById('rt-filter-prioridad')?.value || '');
+  let rows = RT_STATE.list.slice();
+  if (fEstado) rows = rows.filter(r => String(r.Estado) === fEstado);
+  if (fPrio)   rows = rows.filter(r => String(r.Prioridad) === fPrio);
+  // Más recientes primero
+  rows.sort((a,b) => String(b.Timestamp || '').localeCompare(String(a.Timestamp || '')));
+  if (!rows.length) {
+    cont.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:#94a3b8;font-size:13px;font-style:italic">Sin reportes técnicos con estos filtros.</div>';
+    return;
+  }
+  cont.innerHTML = rows.map(r => _rtRenderCard(r)).join('');
+}
+
+function _rtRenderCard(row) {
+  const est = RT_ESTADOS.find(e => e.key === String(row.Estado)) || RT_ESTADOS[0];
+  const prio = RT_PRIORIDADES.find(p => p.key === String(row.Prioridad)) || RT_PRIORIDADES[2];
+  const cat = RT_CATEGORIAS.find(c => c.key === String(row.Categoria)) || RT_CATEGORIAS[RT_CATEGORIAS.length-1];
+  const folio = String(row.Folio || row.ID || '').slice(0, 20);
+  const titulo = String(row.Titulo || '(sin título)');
+  const aloj = String(row.Alojamiento || (row.Propiedad ? `${row.Propiedad}${row['# Departamento'] ? ' - #' + row['# Departamento'] : ''}` : '—'));
+  const fecha = String(row.Fecha || '').slice(0,10);
+  const bloq = row.Bloquea_habitabilidad === true || String(row.Bloquea_habitabilidad).toUpperCase() === 'TRUE';
+  const fotosAntes = String(row.Fotos_antes_urls || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const fotosDespues = String(row.Fotos_despues_urls || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const nFotos = fotosAntes.length + fotosDespues.length;
+  return `
+    <div onclick="rtOpenCapture('${_rtEscA(row.ID)}')" role="button" tabindex="0"
+      style="cursor:pointer;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;transition:transform .12s,box-shadow .12s;box-shadow:0 2px 6px rgba(15,23,42,.06)"
+      onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(15,23,42,.12)'"
+      onmouseout="this.style.transform='';this.style.boxShadow='0 2px 6px rgba(15,23,42,.06)'">
+      <div style="background:linear-gradient(90deg,${prio.color},${prio.color}cc);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.04em">${_rtEsc(folio)}</div>
+        <div style="display:flex;gap:6px">
+          <span style="font-size:10px;background:rgba(255,255,255,.25);padding:2px 8px;border-radius:999px;font-weight:800">${_rtEsc(prio.key)}</span>
+          ${bloq ? '<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px;font-weight:800">🚫 INHABITABLE</span>' : ''}
+        </div>
+      </div>
+      <div style="padding:12px 14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:18px">${cat.icon}</span>
+          <span style="font-size:10px;color:#64748b;font-weight:800;letter-spacing:.08em;text-transform:uppercase">${_rtEsc(cat.label)}</span>
+        </div>
+        <div style="font-size:14px;font-weight:800;color:#0f172a;line-height:1.3;margin-bottom:4px">${_rtEsc(titulo)}</div>
+        <div style="font-size:11px;color:#475569">📍 ${_rtEsc(aloj)}</div>
+        ${fecha ? `<div style="font-size:11px;color:#475569;margin-top:2px">📅 ${_rtEsc(fecha)}</div>` : ''}
+        ${row.Asignado_a ? `<div style="font-size:11px;color:#475569;margin-top:2px">👤 ${_rtEsc(row.Asignado_a)}</div>` : ''}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:6px">
+          <span style="padding:4px 10px;background:${est.bg};color:${est.fg};border-radius:999px;font-size:10px;font-weight:800">${_rtEsc(est.label)}</span>
+          <div style="display:flex;gap:8px;align-items:center;font-size:11px;color:#94a3b8">
+            ${nFotos ? `<span title="${nFotos} fotos">📷 ${nFotos}</span>` : ''}
+            ${row.Costo_total > 0 ? `<span title="Costo total">💰 $${Number(row.Costo_total).toFixed(0)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ─── Captura / Edición ────────────────────────────────────────────────
+window.rtOpenCapture = function(id) {
+  const isEdit = !!id;
+  const existing = isEdit ? RT_STATE.list.find(r => String(r.ID) === String(id)) : null;
+  RT_STATE.draft = isEdit && existing ? Object.assign({}, existing) : {
+    Estado: 'nuevo', Prioridad: 'P3', Tipo: 'correctivo',
+    Categoria: 'otros', Responsabilidad: 'indeterminada',
+    Fecha: new Date().toISOString().slice(0,10),
+  };
+  RT_STATE.fotosAntesPending = [];
+  RT_STATE.fotosDespuesPending = [];
+  const panel = document.getElementById('rt-capture-panel');
+  const back  = document.getElementById('rt-capture-backdrop');
+  if (!panel || !back) return;
+  // Mover a body por si el módulo está oculto (mismo patrón que Incidencias)
+  if (panel.parentElement !== document.body) document.body.appendChild(panel);
+  if (back.parentElement  !== document.body) document.body.appendChild(back);
+  back.style.zIndex  = '100001';
+  panel.style.zIndex = '100002';
+  back.style.display = ''; panel.style.display = '';
+  back.classList.remove('hidden'); back.offsetHeight; back.classList.add('visible');
+  panel.classList.remove('hidden'); panel.classList.add('open');
+  document.getElementById('rt-capture-title').textContent = isEdit ? `Editar ${existing?.Folio || ''}` : 'Nuevo reporte técnico';
+  _rtRenderForm();
+};
+window.rtOpenCaptureFor = function(propRaw, deptRaw, arrIso, depIso) {
+  rtOpenCapture();
+  // Pre-llenar propiedad/depto tras render
+  setTimeout(() => {
+    if (!RT_STATE.draft) return;
+    RT_STATE.draft.Propiedad = String(propRaw||'').trim();
+    RT_STATE.draft['# Departamento'] = String(deptRaw||'').trim();
+    RT_STATE.draft.Alojamiento = RT_STATE.draft['# Departamento']
+      ? `${RT_STATE.draft.Propiedad} - #${RT_STATE.draft['# Departamento']}`
+      : RT_STATE.draft.Propiedad;
+    _rtRenderForm();
+  }, 50);
+};
+window.rtCloseCapture = function() {
+  const panel = document.getElementById('rt-capture-panel');
+  const back  = document.getElementById('rt-capture-backdrop');
+  if (!panel || !back) return;
+  panel.classList.remove('open'); back.classList.remove('visible');
+  setTimeout(() => { panel.classList.add('hidden'); back.classList.add('hidden'); }, 280);
+  RT_STATE.draft = null;
+};
+
+function _rtField(label, html, hint) {
+  return `<div style="margin-bottom:12px">
+    <label style="display:block;font-size:11px;color:#475569;font-weight:800;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">${label}</label>
+    ${html}
+    ${hint ? `<div style="font-size:10px;color:#94a3b8;margin-top:3px">${hint}</div>` : ''}
+  </div>`;
+}
+function _rtSelect(field, options, extra) {
+  const val = String((RT_STATE.draft && RT_STATE.draft[field]) || '');
+  const opts = options.map(o => `<option value="${_rtEscA(o.key)}" ${val===o.key?'selected':''}>${_rtEsc(o.label)}</option>`).join('');
+  return `<select onchange="_rtUpdate('${_rtEscA(field)}', this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${opts}</select>` + (extra||'');
+}
+function _rtInput(field, type, placeholder) {
+  const val = String((RT_STATE.draft && RT_STATE.draft[field]) || '');
+  return `<input type="${type||'text'}" value="${_rtEscA(val)}" placeholder="${_rtEscA(placeholder||'')}"
+    oninput="_rtUpdate('${_rtEscA(field)}', this.value)"
+    style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`;
+}
+function _rtTextarea(field, placeholder, rows) {
+  const val = String((RT_STATE.draft && RT_STATE.draft[field]) || '');
+  return `<textarea placeholder="${_rtEscA(placeholder||'')}" rows="${rows||3}"
+    oninput="_rtUpdate('${_rtEscA(field)}', this.value)"
+    style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:vertical">${_rtEsc(val)}</textarea>`;
+}
+function _rtCheckbox(field, label) {
+  const val = !!(RT_STATE.draft && (RT_STATE.draft[field] === true || String(RT_STATE.draft[field]).toUpperCase() === 'TRUE'));
+  return `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:#0f172a">
+    <span onclick="_rtToggle('${_rtEscA(field)}')" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${val?'#16a34a':'#94a3b8'};border-radius:4px;background:${val?'#16a34a':'#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${val?'✓':''}</span>
+    <span>${label}</span>
+  </label>`;
+}
+window._rtUpdate = function(field, value) {
+  if (!RT_STATE.draft) return;
+  RT_STATE.draft[field] = value;
+  // Actualizar Alojamiento cuando cambien Propiedad o Departamento
+  if (field === 'Propiedad' || field === '# Departamento') {
+    const p = String(RT_STATE.draft.Propiedad || '').trim();
+    const d = String(RT_STATE.draft['# Departamento'] || '').trim();
+    RT_STATE.draft.Alojamiento = d ? `${p} - #${d}` : p;
+  }
+};
+window._rtToggle = function(field) {
+  if (!RT_STATE.draft) return;
+  const cur = !!(RT_STATE.draft[field] === true || String(RT_STATE.draft[field]).toUpperCase() === 'TRUE');
+  RT_STATE.draft[field] = !cur;
+  _rtRenderForm();
+};
+
+function _rtRenderForm() {
+  const form = document.getElementById('rt-form');
+  if (!form || !RT_STATE.draft) return;
+  const d = RT_STATE.draft;
+  const isEdit = !!d.ID;
+  const fotosAntesUrls = String(d.Fotos_antes_urls || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const fotosDespuesUrls = String(d.Fotos_despues_urls || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const previewFotos = (urls, pending, tipo) => {
+    const existing = urls.map(u => `<div style="position:relative"><img src="${_rtEscA(u)}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1"><button type="button" onclick="_rtRemovePhotoUrl('${_rtEsc(tipo)}','${_rtEscA(u)}')" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:50%;cursor:pointer;font-weight:900;font-size:11px;line-height:1;padding:0">×</button></div>`).join('');
+    const pend = (pending||[]).map((f,i) => `<div style="position:relative"><div style="width:60px;height:60px;background:#fef3c7;border:1px dashed #f59e0b;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#92400e;text-align:center;padding:4px">${_rtEsc(f.name.slice(0,10))}<br>⏳</div><button type="button" onclick="_rtRemovePendingPhoto('${_rtEsc(tipo)}',${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:50%;cursor:pointer;font-weight:900;font-size:11px;line-height:1;padding:0">×</button></div>`).join('');
+    return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${existing}${pend}</div>`;
+  };
+  form.innerHTML = `
+    ${isEdit ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#1e40af"><b>${_rtEsc(d.Folio||'')}</b> · creado ${_rtEsc(String(d.Timestamp||'').slice(0,10))}</div>` : ''}
+
+    ${_rtField('Título del reporte *', _rtInput('Titulo','text','Ej: Minisplit no enfría, fuga de agua en regadera'))}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${_rtField('Prioridad', _rtSelect('Prioridad', RT_PRIORIDADES))}
+      ${_rtField('Estado', _rtSelect('Estado', RT_ESTADOS))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${_rtField('Tipo', _rtSelect('Tipo', RT_TIPOS))}
+      ${_rtField('Categoría', _rtSelect('Categoria', RT_CATEGORIAS))}
+    </div>
+
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
+      ${_rtField('Propiedad', _rtInput('Propiedad','text','Ej: Calle Cumbres'))}
+      ${_rtField('# Departamento', _rtInput('# Departamento','text','Ej: 8'))}
+    </div>
+    ${_rtField('Activo (opcional)', _rtInput('Activo','text','Ej: Minisplit sala, boiler'))}
+
+    ${_rtField('Descripción de la falla *', _rtTextarea('Descripcion','Detalla qué está fallando y en qué condiciones.'))}
+    ${_rtField('Descripción de la solución', _rtTextarea('Descripcion_solucion','Qué se hizo para resolver. Incluye materiales y refacciones.'))}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${_rtField('Reportado por', _rtInput('Reportado_por','text','Ej: Andrés, Claudia, huésped'))}
+      ${_rtField('Asignado a', _rtInput('Asignado_a','text','Ej: Técnico Juan, Proveedor Plomería MX'))}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${_rtField('Proveedor', _rtInput('Proveedor','text','Nombre del proveedor externo'))}
+      ${_rtField('Fecha compromiso', _rtInput('Fecha_compromiso','date',''))}
+    </div>
+
+    ${_rtField('Fecha del reporte', _rtInput('Fecha','date',''))}
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">🚨 Impacto</div>
+      ${_rtCheckbox('Bloquea_habitabilidad','Bloquea habitabilidad (unidad inhabitable)')}
+      <div style="margin-top:8px">${_rtCheckbox('Reincidente','Reincidente (falla repetida del mismo activo)')}</div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">💰 Costos y responsabilidad</div>
+      ${_rtField('Responsabilidad', _rtSelect('Responsabilidad', RT_RESPONSABILIDADES))}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${_rtField('Costo total (MXN)', _rtInput('Costo_total','number','0.00'))}
+        ${_rtField(' ', _rtCheckbox('Cargar_a_huesped','Cargar al huésped'))}
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">📷 Fotos ANTES</div>
+      <input type="file" accept="image/*" multiple onchange="_rtAddPhotos('antes', this.files)" style="font-size:11px">
+      ${previewFotos(fotosAntesUrls, RT_STATE.fotosAntesPending, 'antes')}
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">📷 Fotos DESPUÉS</div>
+      <input type="file" accept="image/*" multiple onchange="_rtAddPhotos('despues', this.files)" style="font-size:11px">
+      ${previewFotos(fotosDespuesUrls, RT_STATE.fotosDespuesPending, 'despues')}
+    </div>
+
+    ${_rtField('Notas / bitácora libre', _rtTextarea('Notas','Comentarios adicionales'))}
+
+    ${isEdit ? `<div style="margin-top:16px;padding-top:16px;border-top:1px solid #e2e8f0"><button type="button" onclick="rtDelete('${_rtEscA(d.ID)}')" style="padding:8px 14px;background:#fff;color:#dc2626;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🗑 Eliminar reporte</button></div>` : ''}
+  `;
+}
+
+window._rtAddPhotos = async function(tipo, files) {
+  if (!RT_STATE.draft) return;
+  const list = Array.from(files || []);
+  const target = tipo === 'antes' ? RT_STATE.fotosAntesPending : RT_STATE.fotosDespuesPending;
+  for (const f of list) target.push(f);
+  _rtRenderForm();
+};
+window._rtRemovePendingPhoto = function(tipo, idx) {
+  const target = tipo === 'antes' ? RT_STATE.fotosAntesPending : RT_STATE.fotosDespuesPending;
+  target.splice(idx, 1);
+  _rtRenderForm();
+};
+window._rtRemovePhotoUrl = function(tipo, url) {
+  if (!RT_STATE.draft) return;
+  const field = tipo === 'antes' ? 'Fotos_antes_urls' : 'Fotos_despues_urls';
+  const urls = String(RT_STATE.draft[field] || '').split(',').map(s=>s.trim()).filter(Boolean).filter(u => u !== url);
+  RT_STATE.draft[field] = urls.join(',');
+  _rtRenderForm();
+};
+
+async function _rtFileToBase64(file) {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+window.rtSave = async function() {
+  if (!RT_STATE.draft) return;
+  const d = RT_STATE.draft;
+  if (!String(d.Titulo || '').trim()) { alert('El título es requerido.'); return; }
+  if (!String(d.Descripcion || '').trim()) { alert('La descripción es requerida.'); return; }
+  const btn = document.getElementById('rt-save-btn');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
+  try {
+    // Convertir fotos pending a base64
+    const convert = async (list) => Promise.all(list.map(async f => ({
+      name: f.name || `rt_${Date.now()}.jpg`,
+      mimeType: f.type || 'image/jpeg',
+      base64: await _rtFileToBase64(f),
+    })));
+    const fotos_antes   = await convert(RT_STATE.fotosAntesPending);
+    const fotos_despues = await convert(RT_STATE.fotosDespuesPending);
+    const r = await fetch(`${BACKEND}/reportes-tecnicos-upsert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload: d, fotos_antes, fotos_despues }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    rtCloseCapture();
+    await rtRefresh(true);
+    // Si estamos en Gestión de reservas, refrescar cards también
+    try {
+      const lgMod = document.getElementById('module-lodgify');
+      if (lgMod && !lgMod.classList.contains('hidden') && typeof lodgifyRenderForce === 'function') lodgifyRenderForce();
+    } catch(_){}
+  } catch (e) {
+    alert('Error al guardar: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+};
+
+window.rtDelete = async function(id) {
+  if (!confirm('¿Eliminar este reporte técnico? Esta acción no se puede deshacer.')) return;
+  try {
+    const r = await fetch(`${BACKEND}/reportes-tecnicos-delete`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    rtCloseCapture();
+    await rtRefresh(true);
+  } catch (e) { alert('Error al eliminar: ' + e.message); }
 };
 
