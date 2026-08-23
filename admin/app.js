@@ -41375,34 +41375,50 @@ window.botcOpenSummary = async function() {
   document.getElementById('botc-summary-modal')?.remove();
   const wrap = document.createElement('div');
   wrap.id = 'botc-summary-modal';
-  // Slide-in lateral derecho (mismo patrón que 'Ver WA' modal).
-  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100010;display:flex;align-items:stretch;justify-content:flex-end';
-  wrap.onclick = (e) => { if (e.target === wrap) wrap.remove(); };
-  wrap.innerHTML = `
-    <div onclick="event.stopPropagation()" style="width:100%;max-width:560px;height:100vh;background:#fff;box-shadow:-24px 0 48px -8px rgba(0,0,0,.28);overflow:hidden;display:flex;flex-direction:column;animation:botcSummarySlideIn .28s cubic-bezier(.2,.7,.3,1)">
-      <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;flex:none">
-        <div>
-          <div style="font-size:10px;letter-spacing:.14em;opacity:.85;font-weight:800">RESUMEN DEL HISTORIAL</div>
-          <div style="font-size:16px;font-weight:800;margin-top:2px">🧠 ${_botcEsc(nameHeader)}</div>
-        </div>
-        <button type="button" onclick="document.getElementById('botc-summary-modal')?.remove()" style="background:transparent;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1;padding:0 6px">✕</button>
+  const isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+  const panelHtml = `
+    <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;flex:none">
+      <div>
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.85;font-weight:800">RESUMEN DEL HISTORIAL</div>
+        <div style="font-size:16px;font-weight:800;margin-top:2px">🧠 ${_botcEsc(nameHeader)}</div>
       </div>
-      <div id="botc-summary-body" style="flex:1;overflow-y:auto;padding:20px 22px;font-size:14px;color:#0f172a;line-height:1.6">
-        <div style="text-align:center;padding:40px;color:#94a3b8">
-          <div style="font-size:32px;margin-bottom:10px">🧠</div>
-          <div>⏳ Analizando conversación con Claude…</div>
-          <div style="font-size:11px;margin-top:8px">(puede tardar 5–15s si hay muchos mensajes)</div>
-        </div>
+      <button type="button" onclick="botcCloseSummary()" style="background:transparent;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1;padding:0 6px">✕</button>
+    </div>
+    <div id="botc-summary-body" style="flex:1;overflow-y:auto;padding:20px 22px;font-size:14px;color:#0f172a;line-height:1.6">
+      <div style="text-align:center;padding:40px;color:#94a3b8">
+        <div style="font-size:32px;margin-bottom:10px">🧠</div>
+        <div>⏳ Analizando conversación con Claude…</div>
+        <div style="font-size:11px;margin-top:8px">(puede tardar 5–15s si hay muchos mensajes)</div>
       </div>
     </div>`;
-  // Keyframes inline si no existen (mismo patrón que wa-modal).
-  if (!document.getElementById('botc-summary-kf')) {
-    const kf = document.createElement('style');
-    kf.id = 'botc-summary-kf';
-    kf.textContent = '@keyframes botcSummarySlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }';
-    document.head.appendChild(kf);
+  if (isMobile) {
+    // Overlay fullscreen (comportamiento anterior).
+    wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100010;display:flex;align-items:stretch;justify-content:flex-end';
+    wrap.onclick = (e) => { if (e.target === wrap) botcCloseSummary(); };
+    wrap.innerHTML = `<div onclick="event.stopPropagation()" style="width:100%;max-width:560px;height:100vh;background:#fff;box-shadow:-24px 0 48px -8px rgba(0,0,0,.28);overflow:hidden;display:flex;flex-direction:column;animation:botcSummarySlideIn .28s cubic-bezier(.2,.7,.3,1)">${panelHtml}</div>`;
+    if (!document.getElementById('botc-summary-kf')) {
+      const kf = document.createElement('style');
+      kf.id = 'botc-summary-kf';
+      kf.textContent = '@keyframes botcSummarySlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }';
+      document.head.appendChild(kf);
+    }
+    document.body.appendChild(wrap);
+  } else {
+    // Desktop: renderizar en la 3ra columna del módulo — empuja la col 2 (chat).
+    const col3 = document.getElementById('botc-third-col');
+    if (!col3) return;
+    col3.style.display = 'flex';
+    col3.style.animation = 'botcSummarySlideIn .28s cubic-bezier(.2,.7,.3,1)';
+    col3.innerHTML = panelHtml;
+    if (!document.getElementById('botc-summary-kf')) {
+      const kf = document.createElement('style');
+      kf.id = 'botc-summary-kf';
+      kf.textContent = '@keyframes botcSummarySlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }';
+      document.head.appendChild(kf);
+    }
+    // No añadimos wrap al body en desktop; guardamos referencia para no romper el flujo.
+    wrap.dataset.embedded = '1';
   }
-  document.body.appendChild(wrap);
   try {
     const r = await fetch('https://api.check-inn.mx/wa/bot/summarize', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -41425,6 +41441,12 @@ window.botcOpenSummary = async function() {
     if (body) body.innerHTML = `<div style="color:#dc2626">⚠ Error: ${_botcEsc(e.message)}</div>`;
   }
 };
+window.botcCloseSummary = function() {
+  document.getElementById('botc-summary-modal')?.remove();
+  const col3 = document.getElementById('botc-third-col');
+  if (col3) { col3.style.display = 'none'; col3.innerHTML = ''; }
+};
+
 /** Markdown mínimo → HTML: headings ##, **bold**, - bullets, saltos.
  *  Solo lo justo para renderizar el output típico del summarizer. */
 function _botcMdToHtml(md) {
