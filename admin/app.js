@@ -37707,15 +37707,17 @@ window.waOpenModal = async function(booking) {
   // Cargar reportes (Incidencias + Objetos) en background si aún no
   // están — así aparecen mezclados en el timeline desde el primer
   // repaint sin que el user tenga que ir manualmente al tab 'Reportes'.
+  // Sin flag __waLoadTriggered: si la carga previa falló o quedó a medias,
+  // reintentamos. incLoadIncidencias/objLoadObjetos son idempotentes.
   try {
-    if (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list) && !INC_STATE.list.length && typeof incLoadIncidencias === 'function' && !INC_STATE.__waLoadTriggered) {
-      INC_STATE.__waLoadTriggered = true;
+    const incEmpty = (typeof INC_STATE === 'undefined') || !INC_STATE.list || !INC_STATE.list.length;
+    if (incEmpty && typeof incLoadIncidencias === 'function') {
       incLoadIncidencias().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
     }
   } catch(_){}
   try {
-    if (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list) && !OBJ_STATE.list.length && typeof objLoadObjetos === 'function' && !OBJ_STATE.__waLoadTriggered) {
-      OBJ_STATE.__waLoadTriggered = true;
+    const objEmpty = (typeof OBJ_STATE === 'undefined') || !OBJ_STATE.list || !OBJ_STATE.list.length;
+    if (objEmpty && typeof objLoadObjetos === 'function') {
       objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
     }
   } catch(_){}
@@ -37906,6 +37908,16 @@ function _waGetReportsForBooking_(bk) {
   const propN = alojNormFn(propRaw), deptN = alojNormFn(deptRaw);
   const incList = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list)) ? INC_STATE.list : [];
   const objList = (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list)) ? OBJ_STATE.list : [];
+  // Trigger de carga si están vacíos — asegura que aparezcan tras primer
+  // render aunque waOpenModal no las haya disparado a tiempo.
+  if (!incList.length && typeof incLoadIncidencias === 'function' && !window.__waIncLoadPending) {
+    window.__waIncLoadPending = true;
+    incLoadIncidencias().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waIncLoadPending = false; });
+  }
+  if (!objList.length && typeof objLoadObjetos === 'function' && !window.__waObjLoadPending) {
+    window.__waObjLoadPending = true;
+    objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waObjLoadPending = false; });
+  }
   const parseTs = (s) => {
     const t = String(s || '').trim();
     if (!t) return 0;
