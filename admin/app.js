@@ -38379,6 +38379,76 @@ window.waReportSendNow_ = async function(kind, id) {
   } catch (e) { alert('❌ ' + (e.message || e)); }
 };
 
+// Menús desplegables (estatus + prioridad) para una card RT del timeline WA.
+function _waRtMenusHtml_(id, estActualKey, prioActualKey) {
+  const estOpts = RT_ESTADOS.map(s => {
+    const act = s.key === estActualKey;
+    return `<button type="button" onclick="event.stopPropagation();waRtPickEst_('${_botcEsc(id)}','${_botcEsc(s.key)}')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1.5px solid ${act ? s.fg : '#e2e8f0'};background:${act ? s.bg : '#fff'};color:${act ? s.fg : '#334155'};border-radius:999px;font-size:10px;font-weight:${act?'800':'600'};cursor:pointer">${_botcEsc(s.label)}</button>`;
+  }).join('');
+  const prioOpts = RT_PRIORIDADES.map(p => {
+    const act = p.key === prioActualKey;
+    return `<button type="button" onclick="event.stopPropagation();waRtPickPrio_('${_botcEsc(id)}','${_botcEsc(p.key)}')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1.5px solid ${act ? p.color : '#e2e8f0'};background:${act ? '#f8fafc' : '#fff'};border-radius:999px;font-size:10px;font-weight:${act?'800':'600'};color:#334155;cursor:pointer">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${p.color}"></span>${_botcEsc(p.label)}</button>`;
+  }).join('');
+  return `
+    <div class="wa-rt-menu" data-wa-rt-menu-id="${_botcEsc(id)}" data-wa-rt-menu-kind="est"
+         style="display:none;margin-top:6px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap">${estOpts}</div>
+    <div class="wa-rt-menu" data-wa-rt-menu-id="${_botcEsc(id)}" data-wa-rt-menu-kind="prio"
+         style="display:none;margin-top:6px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap">${prioOpts}</div>`;
+}
+window.waRtToggleMenu_ = function(id, kind) {
+  document.querySelectorAll('.wa-rt-menu').forEach(m => {
+    const mid = m.getAttribute('data-wa-rt-menu-id');
+    const mk  = m.getAttribute('data-wa-rt-menu-kind');
+    if (mid === id && mk === kind) {
+      m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+    } else {
+      m.style.display = 'none';
+    }
+  });
+};
+function _waCloseRtMenus_(id) {
+  document.querySelectorAll(`.wa-rt-menu[data-wa-rt-menu-id="${CSS.escape(id)}"]`)
+    .forEach(m => { m.style.display = 'none'; });
+}
+async function _rtQuickPatch(id, patch) {
+  const row = (RT_STATE.list||[]).find(r => String(r['ID']||'') === String(id));
+  if (!row) { alert('No se encontró el reporte técnico.'); return; }
+  const key = Object.keys(patch)[0];
+  const val = patch[key];
+  const pretty = key === 'Estado' ? 'Estado' : 'Prioridad';
+  const labelMap = key === 'Estado'
+    ? Object.fromEntries(RT_ESTADOS.map(e => [e.key, e.label]))
+    : Object.fromEntries(RT_PRIORIDADES.map(p => [p.key, p.label]));
+  const humanVal = labelMap[val] || val;
+  if (!confirm(`¿Actualizar ${pretty} a "${humanVal}"?`)) return;
+  try {
+    const payload = Object.assign({}, row, patch);
+    const r = await fetch('https://api.check-inn.mx/reportes-tecnicos-upsert', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Error al actualizar');
+    row[key] = val;
+    // Refresh timeline WA + lista principal RT si visible
+    try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
+    try { if (typeof rtRenderList === 'function' && document.getElementById('rt-cards-list')) rtRenderList(); } catch(_){}
+  } catch (e) {
+    alert('Error al guardar: ' + (e.message || e));
+  }
+}
+window.waRtPickEst_ = function(id, estKey) {
+  _waCloseRtMenus_(id);
+  _rtQuickPatch(id, { Estado: estKey });
+};
+window.waRtPickPrio_ = function(id, prioKey) {
+  _waCloseRtMenus_(id);
+  _rtQuickPatch(id, { Prioridad: prioKey });
+};
+
 function _waRenderReportTimelineItem_(it) {
   const r = it.row || {};
   const kind = it.kindReport; // 'inc' | 'obj'
@@ -38453,18 +38523,30 @@ function _waRenderReportTimelineItem_(it) {
     const est = RT_ESTADOS.find(e => e.key === _rtNormalizeEstado(r.Estado)) || RT_ESTADOS[0];
     const prio = RT_PRIORIDADES.find(p => p.key === _rtNormalizePrio(r.Prioridad)) || RT_PRIORIDADES[3];
     const titulo = String(r.Titulo || r.Folio || 'Reporte técnico');
+    const rtId = String(r['ID']||'');
     cfg = {
       checkBg:'#2563eb', checkFg:'#fff', checkIcon:'🔧',
       cardBg:'#eff6ff', cardBorder:'#93c5fd',
       chipLabel:'REPORTE TÉCNICO', chipBg:'#dbeafe', chipFg:'#1e40af',
       titulo,
-      titleAccent: `<span title="Prioridad ${_botcEsc(prio.label)}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px 2px 6px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;margin-left:6px;vertical-align:middle">
-        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${prio.color}"></span>
-        <span style="font-size:10px;font-weight:800;color:#334155;text-transform:none;letter-spacing:.02em">${_botcEsc(prio.label)}</span>
-      </span>`,
+      titleAccent: `<span data-wa-rt-id="${_botcEsc(rtId)}" data-wa-rt-prio-chip="1"
+          onclick="event.stopPropagation();waRtToggleMenu_('${_botcEsc(rtId)}','prio')"
+          style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 6px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;margin-left:6px;cursor:pointer;vertical-align:middle"
+          title="Cambiar prioridad">
+          <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${prio.color}"></span>
+          <span style="font-size:10px;font-weight:800;color:#334155;text-transform:none;letter-spacing:.02em">${_botcEsc(prio.label)}</span>
+          <span style="font-size:8px;color:#94a3b8">▾</span>
+        </span>`,
       estadoBg: est.bg, estadoFg: est.fg, estadoLabel: est.label,
+      estadoInteractive: `<span data-wa-rt-id="${_botcEsc(rtId)}" data-wa-rt-est-chip="1"
+          onclick="event.stopPropagation();waRtToggleMenu_('${_botcEsc(rtId)}','est')"
+          style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:${est.bg};color:${est.fg};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap;cursor:pointer;border:1.5px solid ${est.fg}22"
+          title="Cambiar estatus">
+          ${_botcEsc(est.label)} <span style="font-size:8px;opacity:.75">▾</span>
+        </span>`,
       headerBg: '#2563eb',
-      dataAttr: `data-lg-rt-id="${_botcEsc(String(r['ID']||''))}"`,
+      dataAttr: `data-lg-rt-id="${_botcEsc(rtId)}"`,
+      rtId, rtEstKey: est.key, rtPrioKey: prio.key,
     };
   }
   const desc = String(r['Descripcion'] || '').trim();
@@ -38488,6 +38570,7 @@ function _waRenderReportTimelineItem_(it) {
               ${cfg.estadoInteractive || `<span style="padding:3px 10px;background:${cfg.estadoBg};color:${cfg.estadoFg};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap">${_botcEsc(cfg.estadoLabel)}</span>`}
             </div>
             ${cfg.incId ? _waIncMenusHtml_(cfg.incId, cfg.estadoLabel, incNormalizeNivel(r['Nivel'])) : ''}
+            ${cfg.rtId ? _waRtMenusHtml_(cfg.rtId, cfg.rtEstKey, cfg.rtPrioKey) : ''}
             ${desc ? `<div style="font-size:11px;color:#475569;margin-top:4px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${_botcEsc(desc)}</div>` : ''}
             <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
               <button data-wa-report-msg-btn="1"
@@ -38673,6 +38756,20 @@ function _waRenderRtCard_(row) {
   const fecha = String(row['Fecha']||row['Timestamp']||'').slice(0,10);
   const est = RT_ESTADOS.find(e => e.key === _rtNormalizeEstado(row.Estado)) || RT_ESTADOS[0];
   const prio = RT_PRIORIDADES.find(p => p.key === _rtNormalizePrio(row.Prioridad)) || RT_PRIORIDADES[3];
+  const prioChip = `<span data-wa-rt-id="${esc(id)}" data-wa-rt-prio-chip="1"
+      onclick="event.stopPropagation();waRtToggleMenu_('${esc(id)}','prio')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 6px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;cursor:pointer"
+      title="Cambiar prioridad">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${prio.color}"></span>
+      <span style="font-size:10px;font-weight:800;color:#334155;text-transform:none;letter-spacing:.02em">${esc(prio.label)}</span>
+      <span style="font-size:8px;color:#94a3b8">▾</span>
+    </span>`;
+  const estChip = `<span data-wa-rt-id="${esc(id)}" data-wa-rt-est-chip="1"
+      onclick="event.stopPropagation();waRtToggleMenu_('${esc(id)}','est')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:${est.bg};color:${est.fg};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap;cursor:pointer;border:1.5px solid ${est.fg}22"
+      title="Cambiar estatus">
+      ${esc(est.label)} <span style="font-size:8px;opacity:.75">▾</span>
+    </span>`;
   return `<div data-lg-rt-id="${esc(id)}" role="button" tabindex="0"
     style="cursor:pointer;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.06);transition:transform .1s,box-shadow .1s">
     <div style="background:#2563eb;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
@@ -38680,17 +38777,15 @@ function _waRenderRtCard_(row) {
         <div style="font-size:10px;letter-spacing:.14em;opacity:.9;font-weight:800">🔧 REPORTE TÉCNICO</div>
         <div style="font-size:13px;font-weight:800;margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span>${esc(titulo)}</span>
-          <span title="Prioridad ${esc(prio.label)}" style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 6px;background:#fff;border-radius:999px">
-            <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${prio.color}"></span>
-            <span style="font-size:10px;font-weight:800;color:#334155;text-transform:none;letter-spacing:.02em">${esc(prio.label)}</span>
-          </span>
+          ${prioChip}
         </div>
       </div>
-      <span style="padding:3px 10px;background:${est.bg};color:${est.fg};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap">${esc(est.label)}</span>
+      ${estChip}
     </div>
     <div style="padding:10px 14px;background:#fff;font-size:12px;color:#475569;display:flex;flex-direction:column;gap:3px">
       ${aloj ? `<div>📍 ${esc(aloj)}</div>` : ''}
       ${fecha ? `<div>📅 ${esc(fecha)}</div>` : ''}
+      ${_waRtMenusHtml_(id, est.key, prio.key)}
       <div style="margin-top:6px">
         <button data-wa-report-msg-btn="1"
           onclick="event.stopPropagation();waReportToggleMsg_('rt','${esc(id)}')"
