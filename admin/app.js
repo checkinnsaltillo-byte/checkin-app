@@ -38214,15 +38214,16 @@ function _waBuildReportMsgPanel_(kind, id, row) {
   const panel = store[cardKey] || {};
   if (!panel.open) return '';
   const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
-  const alojNow = String(row['Alojamiento'] || '').trim()
-    || (row['Propiedad'] && row['# Departamento'] ? `${row['Propiedad']} - #${row['# Departamento']}` : '');
-  const alojNormFn = (typeof alojNorm === 'function') ? alojNorm : (s => String(s||'').toLowerCase().trim());
-  const aN = alojNormFn(alojNow);
+  // Filtrar plantillas admin que aplican al booking activo del modal WA
+  // (mismo criterio que la sidebar de "Nuevo mensaje": por HouseId).
+  const bkForFilter = st.b || null;
   const tpls = Object.values(adminMap).filter(t => {
     if (!t.enabled) return false;
-    const raw = String(t.alojamientos || '').trim();
-    if (!raw || raw === '*' || raw.toLowerCase() === 'todos') return true;
-    return raw.split(',').map(s => alojNormFn(s)).includes(aN);
+    if (t.responsivo === true) return false;
+    if (typeof _waTemplateAppliesToBooking === 'function' && bkForFilter) {
+      try { return _waTemplateAppliesToBooking(t.id, bkForFilter); } catch(_){}
+    }
+    return true;
   }).sort((a,b) => String(a.nombre||'').localeCompare(String(b.nombre||''),'es'));
   const options = ['<option value="">— Elegir plantilla —</option>']
     .concat(tpls.map(t => `<option value="${_botcEsc(t.id)}" ${panel.tplId===t.id?'selected':''}>${_botcEsc(t.nombre || t.id)}</option>`))
