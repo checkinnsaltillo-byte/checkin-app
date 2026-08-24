@@ -38228,12 +38228,11 @@ function _waBuildReportMsgPanel_(kind, id, row) {
   const panel = store[cardKey] || {};
   if (!panel.open) return '';
   const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
-  // Mostrar TODAS las plantillas habilitadas y no-responsivas, sin filtrar
-  // por HouseId. Este panel es para respuesta rápida a un reporte — el
-  // usuario admin elige la plantilla que quiere reutilizar, no depende de
-  // que esté asignada al alojamiento del reporte.
+  // Mostrar TODAS las plantillas del sheet WA_Templates, incluidas las
+  // deshabilitadas (marcadas con · deshabilitada en el label). Solo omito
+  // las responsivas — esas se dispararán por eventos, no las eliges a mano.
   const tpls = Object.values(adminMap)
-    .filter(t => t.enabled && t.responsivo !== true)
+    .filter(t => t.responsivo !== true)
     .sort((a,b) => String(a.nombre||'').localeCompare(String(b.nombre||''),'es'));
   const emptyHint = !tpls.length
     ? (Object.keys(adminMap).length === 0
@@ -38241,7 +38240,7 @@ function _waBuildReportMsgPanel_(kind, id, row) {
         : 'Sin plantillas aplicables — usa el botón 🔄')
     : '— Elegir plantilla —';
   const options = [`<option value="">${_botcEsc(emptyHint)}</option>`]
-    .concat(tpls.map(t => `<option value="${_botcEsc(t.id)}" ${panel.tplId===t.id?'selected':''}>${_botcEsc(t.nombre || t.id)}</option>`))
+    .concat(tpls.map(t => `<option value="${_botcEsc(t.id)}" ${panel.tplId===t.id?'selected':''}>${_botcEsc(t.nombre || t.id)}${t.enabled === false ? ' · deshabilitada' : ''}</option>`))
     .join('');
   const tpl = panel.tplId ? adminMap[panel.tplId] : null;
   let phInputs = '', preview = '';
