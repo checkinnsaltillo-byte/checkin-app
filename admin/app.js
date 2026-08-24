@@ -43085,12 +43085,15 @@ window.rtRefresh = async function(force) {
 function rtRenderList() {
   const cont = document.getElementById('rt-cards-list');
   if (!cont) return;
+  _rtEnsureViewTabs_(cont);
   const fEstado = String(document.getElementById('rt-filter-estado')?.value || '');
   const fPrio   = String(document.getElementById('rt-filter-prioridad')?.value || '');
   let rows = RT_STATE.list.slice();
   if (fEstado) rows = rows.filter(r => _rtNormalizeEstado(r.Estado) === fEstado);
   if (fPrio)   rows = rows.filter(r => _rtNormalizePrio(r.Prioridad) === fPrio);
   rows.sort((a,b) => String(b.Timestamp || '').localeCompare(String(a.Timestamp || '')));
+  RT_STATE.viewMode = RT_STATE.viewMode || 'estado';
+  if (RT_STATE.viewMode === 'dia') return _rtRenderByDay_(cont, rows);
   // Bucket por columna: Nuevos · En proceso · Concluidos · Programados
   // Programados = Fecha > hoy y no está resuelto/cancelado.
   const today = new Date().toISOString().slice(0,10);
@@ -43202,6 +43205,91 @@ window.rtToggleColumn_ = function(key) {
   else RT_STATE.collapsed.add(key);
   rtRenderList();
 };
+// Inserta la barra de tabs (Estado / Día) justo antes de #rt-cards-list.
+function _rtEnsureViewTabs_(cont) {
+  let tabs = document.getElementById('rt-view-tabs');
+  if (!tabs) {
+    tabs = document.createElement('div');
+    tabs.id = 'rt-view-tabs';
+    tabs.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:12px;padding:0';
+    cont.parentElement && cont.parentElement.insertBefore(tabs, cont);
+  }
+  RT_STATE.viewMode = RT_STATE.viewMode || 'estado';
+  const btn = (key, label, icon) => {
+    const active = RT_STATE.viewMode === key;
+    return `<button type="button" onclick="rtSetView_('${key}')" style="padding:7px 14px;font-size:12px;font-weight:800;background:${active?'#0f172a':'#fff'};color:${active?'#fff':'#475569'};border:1.5px solid ${active?'#0f172a':'#cbd5e1'};border-radius:8px;cursor:pointer">${icon} ${label}</button>`;
+  };
+  tabs.innerHTML = `
+    <span style="font-size:11px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-right:4px">Visualización:</span>
+    ${btn('estado','Estado','🗂️')}${btn('dia','Día','📅')}`;
+}
+window.rtSetView_ = function(mode) {
+  RT_STATE.viewMode = mode;
+  rtRenderList();
+};
+function _rtRenderByDay_(cont, rows) {
+  // Grupo por fecha (YYYY-MM-DD). "Sin fecha" al final.
+  RT_STATE.collapsed = RT_STATE.collapsed || new Set();
+  const PRIO_RANK = { critica:0, alta:1, media:2, baja:3 };
+  const groups = new Map();
+  const SIN_FECHA = '__sin_fecha__';
+  for (const r of rows) {
+    const f = String(r.Fecha || '').slice(0,10);
+    const key = /^\d{4}-\d{2}-\d{2}$/.test(f) ? f : SIN_FECHA;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  // Orden interno: prioridad ASC (crítica primero), luego más reciente.
+  for (const arr of groups.values()) {
+    arr.sort((a,b) => {
+      const pa = PRIO_RANK[_rtNormalizePrio(a.Prioridad)] ?? 9;
+      const pb = PRIO_RANK[_rtNormalizePrio(b.Prioridad)] ?? 9;
+      if (pa !== pb) return pa - pb;
+      return String(b.Timestamp||'').localeCompare(String(a.Timestamp||''));
+    });
+  }
+  // Días ordenados desc; SIN_FECHA al final.
+  const keys = Array.from(groups.keys()).filter(k => k !== SIN_FECHA).sort((a,b) => b.localeCompare(a));
+  if (groups.has(SIN_FECHA)) keys.push(SIN_FECHA);
+  cont.style.cssText = 'display:flex;flex-direction:column;gap:14px';
+  cont.innerHTML = keys.map(key => {
+    const items = groups.get(key);
+    const collapsedKey = 'day:' + key;
+    const isCollapsed = RT_STATE.collapsed.has(collapsedKey);
+    const label = key === SIN_FECHA ? 'Sin fecha asignada' : _rtFmtFechaLarga_(key);
+    const accent = key === SIN_FECHA ? '#94a3b8' : (key === new Date().toISOString().slice(0,10) ? '#dc2626' : '#4338ca');
+    const color = key === SIN_FECHA ? '#475569' : (accent === '#dc2626' ? '#7f1d1d' : '#3730a3');
+    const cardsHtml = items.map(r => _rtRenderCard(r)).join('');
+    return `
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button type="button" onclick="rtToggleColumn_('${_rtEscA(collapsedKey)}')"
+          style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:transparent;border:0;border-bottom:3px solid ${accent};cursor:pointer;text-align:left;font-family:inherit;transition:background .15s"
+          onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+            <span style="font-size:11px;color:${color};font-weight:900;letter-spacing:.06em;text-transform:uppercase">${_rtEsc(label)}</span>
+            <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:${accent};color:#fff;border-radius:999px;font-size:11px;font-weight:800">${items.length}</span>
+          </div>
+          <span style="font-size:14px;color:${color};transition:transform .2s;transform:rotate(${isCollapsed?'-90':'0'}deg);line-height:1">▾</span>
+        </button>
+        <div style="display:${isCollapsed?'none':'grid'};grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">${cardsHtml}</div>
+      </div>`;
+  }).join('');
+}
+function _rtFmtFechaLarga_(iso) {
+  const m = String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return iso;
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const d = new Date(`${iso}T12:00:00`);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tgt = new Date(iso + 'T12:00:00'); tgt.setHours(0,0,0,0);
+  const diff = Math.round((tgt - today) / 86400000);
+  let rel = '';
+  if (diff === 0) rel = ' · Hoy';
+  else if (diff === -1) rel = ' · Ayer';
+  else if (diff === 1) rel = ' · Mañana';
+  return `${dias[d.getDay()]} ${parseInt(m[3],10)} de ${meses[parseInt(m[2],10)-1]} de ${m[1]}${rel}`;
+}
 
 function _rtRenderCard(row) {
   const est = RT_ESTADOS.find(e => e.key === _rtNormalizeEstado(row.Estado)) || RT_ESTADOS[0];
