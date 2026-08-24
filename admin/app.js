@@ -42252,22 +42252,25 @@ function _botcRenderSidebar() {
           ${controlChip}
         </div>
       </div>`;
-    // Ribbon inferior fijo con preview msg + chip control + timestamp
+    // Botón discreto de riesgo: bandera 🚩 al lado del timestamp del ribbon.
+    // Roja si ya hay notas de riesgo; gris si no. Click abre prompt para
+    // agregar nota rápida. No se sobrepone al contenido de la card.
+    const riskCount = _hgNotesRiskCount_(c.phone);
+    const riskBtn = `<button type="button" onclick="event.stopPropagation();hgNoteQuickRisk_('${_botcEsc(c.phone)}')"
+        title="${riskCount ? `${riskCount} nota(s) de riesgo — click para agregar` : 'Marcar riesgo del huésped (nota rápida)'}"
+        style="background:none;border:0;padding:0 2px;cursor:pointer;font-size:12px;line-height:1;color:${riskCount?'#dc2626':'#cbd5e1'};filter:${riskCount?'none':'grayscale(1)'};opacity:${riskCount?1:0.6}">🚩</button>`;
     const chatMeta = `
       <div style="padding:6px 14px 10px;background:${selected?'#eff6ff':'transparent'};border-top:1px dashed #e2e8f0">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
           ${controlChip}
-          <span style="font-size:10px;color:#94a3b8">💬 ${_botcFmtTime(c.last_msg_at)}</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            ${riskBtn}
+            <span style="font-size:10px;color:#94a3b8">💬 ${_botcFmtTime(c.last_msg_at)}</span>
+          </div>
         </div>
         <div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px">${_botcEsc(c.last_msg_preview)}</div>
       </div>`;
-    // Botón de riesgo/aviso: cuenta cuántas notas tipo risk existen para
-    // colorear/badge; click abre prompt rápido y guarda como nota risk.
-    const riskCount = _hgNotesRiskCount_(c.phone);
-    const riskBtn = `<button type="button" onclick="event.stopPropagation();hgNoteQuickRisk_('${_botcEsc(c.phone)}')"
-        title="${riskCount ? `${riskCount} nota(s) de riesgo — click para agregar` : 'Marcar riesgo del huésped (nota rápida)'}"
-        style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:${riskCount?'#dc2626':'#fff'};color:${riskCount?'#fff':'#dc2626'};border:1.5px solid #dc2626;cursor:pointer;font-weight:900;font-size:14px;display:flex;align-items:center;justify-content:center;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.08);z-index:2">!</button>`;
-    const wrap = `<div style="position:relative;border-bottom:1px solid #e2e8f0;background:${selected?'#eff6ff':'#fff'};border-left:3px solid ${selected?'#3b82f6':'transparent'}" data-botc-phone="${_botcEsc(c.phone)}">${riskBtn}${rich || lite}${chatMeta}</div>`;
+    const wrap = `<div style="position:relative;border-bottom:1px solid #e2e8f0;background:${selected?'#eff6ff':'#fff'};border-left:3px solid ${selected?'#3b82f6':'transparent'}" data-botc-phone="${_botcEsc(c.phone)}">${rich || lite}${chatMeta}</div>`;
     return wrap;
   }).join('');
   sidebar.innerHTML = items;
@@ -42406,6 +42409,34 @@ window.botcSyncVisible = async function() {
   if (btn) { btn.disabled = false; btn.textContent = '🔄 Sync'; }
 };
 
+// Inyecta la media query mobile solo una vez.
+function _botcEnsureMobileCss_() {
+  if (document.getElementById('botc-mobile-mq')) return;
+  const s = document.createElement('style');
+  s.id = 'botc-mobile-mq';
+  s.textContent = `
+    @media (max-width: 900px) {
+      #module-bot-chats #botc-sidebar { width: 100% !important; }
+      #module-bot-chats #botc-main    { display: none !important; }
+      #module-bot-chats.botc-has-chat #botc-sidebar { display: none !important; }
+      #module-bot-chats.botc-has-chat #botc-main    { display: flex !important; width: 100% !important; }
+      #botc-back-to-list { display: inline-flex !important; }
+    }
+    #botc-back-to-list { display: none; }
+  `;
+  document.head.appendChild(s);
+}
+window.botcBackToList_ = function() {
+  BOTC_STATE.selectedPhone = null;
+  try {
+    const mod = document.getElementById('module-bot-chats');
+    if (mod) mod.classList.remove('botc-has-chat');
+    const main = document.getElementById('botc-main');
+    if (main) main.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;text-align:center;padding:40px">Selecciona una conversación<br>de la lista</div>`;
+  } catch(_){}
+  try { if (typeof botcRenderConversations === 'function') botcRenderConversations(); } catch(_){}
+};
+
 window.botcOpenChat = async function(phone, opts) {
   opts = opts || {};
   // Si estamos en medio de una acción del draft, ignorar polls silent —
@@ -42413,6 +42444,12 @@ window.botcOpenChat = async function(phone, opts) {
   // stub "⏳ Enviando…" mientras el fetch aún está en vuelo.
   if (opts.silent && BOTC_STATE.__draftBusy) return;
   BOTC_STATE.selectedPhone = phone;
+  // Mobile: al elegir conversación, mostrar la vista chat a pantalla completa.
+  _botcEnsureMobileCss_();
+  try {
+    const mod = document.getElementById('module-bot-chats');
+    if (mod) mod.classList.add('botc-has-chat');
+  } catch(_){}
   // Abortar enrichment en progreso: incrementar el gen invalida el loop
   // actual y libera el hilo principal para que el fetch se procese ya.
   if (!opts.silent) {
@@ -42510,8 +42547,12 @@ function _botcRenderMain(phone) {
     ? `<div style="font-size:14px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(phone)}</div>`
     : `<div style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>`;
   main.innerHTML = `
-    <div style="padding:12px 20px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0">
-      <div>${nameHeader}<div style="margin-top:5px">${ctrlChip}</div></div>
+    <div style="padding:12px 20px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+        <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
+          style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">← Mensajes</button>
+        <div style="min-width:0">${nameHeader}<div style="margin-top:5px">${ctrlChip}</div></div>
+      </div>
       <div style="display:flex;gap:8px;align-items:center">
         ${ctrlBtn}
         <button type="button" onclick="botcOpenReportPickerForCurrent()" title="Nuevo reporte (Incidencia / Objeto perdido / Reporte técnico) para este huésped" style="padding:7px 12px;font-size:12px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">＋ Nuevo reporte</button>
