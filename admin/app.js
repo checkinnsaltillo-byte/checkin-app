@@ -43359,7 +43359,9 @@ window.rtOpenCapture = function(id) {
   RT_STATE.draft = isEdit && existing ? Object.assign({}, existing) : {
     Estado: 'nuevo', Prioridad: 'media', Tipo: 'correctivo',
     Categoria: 'otros', Responsabilidad: 'indeterminada',
-    Fecha: new Date().toISOString().slice(0,10),
+    // Sin fecha por default: un reporte Nuevo aún no está programado.
+    // Se autollena a hoy si el user elige prioridad Crítica.
+    Fecha: '',
   };
   // Normaliza valores legacy para que el <select> muestre el label correcto.
   if (RT_STATE.draft) {
