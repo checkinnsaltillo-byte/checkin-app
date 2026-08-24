@@ -12272,6 +12272,16 @@ function huFacturapiPaintOrgToggle() {
   });
 }
 document.addEventListener('DOMContentLoaded', huFacturapiPaintOrgToggle);
+// Cache warming: los reportes (Incidencias + Objetos) son consultados por
+// el modal WhatsApp desde Chats bot. Precargarlos al arrancar la app
+// evita que el user vea delay de ~2-5s al primer 'Ver WA' esperando el
+// fetch a Apps Script. Fire-and-forget, no bloquea nada.
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    try { if (typeof incLoadIncidencias === 'function') incLoadIncidencias().catch(()=>{}); } catch(_){}
+    try { if (typeof objLoadObjetos === 'function') objLoadObjetos().catch(()=>{}); } catch(_){}
+  }, 1500); // pequeño delay para no competir con el fetch inicial de conversations/tickets
+});
 
 const HU_CHECKIN_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwqMfC6tITLXlhEwYzQ5mKzw-KD6-nV7XVKIuekj6pK4Po50oRfVKClZeHcr-si3ppB/exec';
 
