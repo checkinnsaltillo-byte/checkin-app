@@ -37912,17 +37912,17 @@ function _waGetReportsForBooking_(bk) {
   const alojNormFn = (typeof alojNorm === 'function') ? alojNorm : (s => String(s||'').toLowerCase().trim());
   const arrIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(bk.DateArrival) : '') || String((bk.__reservacion && bk.__reservacion['Fecha de ingreso']) || '').slice(0,10);
   const depIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(bk.DateDeparture) : '') || String((bk.__reservacion && bk.__reservacion['Fecha de salida']) || '').slice(0,10);
-  const propRaw = bk.PropiedadRaw || (bk.__reservacion && bk.__reservacion['Propiedad']) || bk.PropertyName || '';
-  // Depto: extraer también del RoomTypeName ("Calle Baja California - #8") o
-  // parsear del propio bk.RoomTypeName si Lodgify no llena PropiedadRaw/Depto.
-  let deptRaw = bk.DepartamentoRaw || (bk.__reservacion && bk.__reservacion['# Departamento']) || '';
+  // Propiedad: incluir bk['Propiedad'] (booking sincronizado desde Reservaciones
+  // trae este campo directo, no como PropertyName / PropiedadRaw).
+  const propRaw = bk.PropiedadRaw || bk['Propiedad'] || (bk.__reservacion && bk.__reservacion['Propiedad']) || bk.PropertyName || '';
+  // Depto: incluir bk['# Departamento'] directo (mismo caso).
+  let deptRaw = bk.DepartamentoRaw || bk['# Departamento'] || (bk.__reservacion && bk.__reservacion['# Departamento']) || '';
   if (!deptRaw) {
     const rn = String(bk.RoomTypeName || bk.roomTypeName || '');
     const m = rn.match(/#\s*([\w\-]+)\s*$/);
     if (m) deptRaw = m[1];
   }
-  console.info('[WA-RPT]', 'prop=', propRaw, 'depto=', deptRaw, 'arr=', arrIso, 'dep=', depIso, 'incList=', (INC_STATE && INC_STATE.list||[]).length, 'objList=', (OBJ_STATE && OBJ_STATE.list||[]).length);
-  if (!arrIso || !depIso || !propRaw || !deptRaw) { console.warn('[WA-RPT] datos insuficientes', {propRaw, deptRaw, arrIso, depIso}); return []; }
+  if (!arrIso || !depIso || !propRaw || !deptRaw) return [];
   const propN = alojNormFn(propRaw), deptN = alojNormFn(deptRaw);
   const incList = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list)) ? INC_STATE.list : [];
   const objList = (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list)) ? OBJ_STATE.list : [];
@@ -38064,8 +38064,13 @@ function _waRenderReportsForBooking_(bk) {
   const alojNormFn = (typeof alojNorm === 'function') ? alojNorm : (s => String(s||'').toLowerCase().trim());
   const arrIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(bk.DateArrival) : '') || String((bk.__reservacion && bk.__reservacion['Fecha de ingreso']) || '').slice(0,10);
   const depIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(bk.DateDeparture) : '') || String((bk.__reservacion && bk.__reservacion['Fecha de salida']) || '').slice(0,10);
-  const propRaw = bk.PropiedadRaw || (bk.__reservacion && bk.__reservacion['Propiedad']) || bk.PropertyName || '';
-  const deptRaw = bk.DepartamentoRaw || (bk.__reservacion && bk.__reservacion['# Departamento']) || '';
+  const propRaw = bk.PropiedadRaw || bk['Propiedad'] || (bk.__reservacion && bk.__reservacion['Propiedad']) || bk.PropertyName || '';
+  let deptRaw = bk.DepartamentoRaw || bk['# Departamento'] || (bk.__reservacion && bk.__reservacion['# Departamento']) || '';
+  if (!deptRaw) {
+    const rn = String(bk.RoomTypeName || '');
+    const m = rn.match(/#\s*([\w\-]+)\s*$/);
+    if (m) deptRaw = m[1];
+  }
   if (!arrIso || !depIso || !propRaw || !deptRaw) return '';
   const propN = alojNormFn(propRaw), deptN = alojNormFn(deptRaw);
   const cards = [];
