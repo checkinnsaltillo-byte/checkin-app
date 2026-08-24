@@ -43203,10 +43203,16 @@ function _rtRenderCard(row) {
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:6px;flex-wrap:wrap">
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
             ${prioChip}${estChip}
-            <button type="button" data-rt-chip="1"
-              onclick="event.stopPropagation();rtCardSchedule_('${_rtEscA(id)}')"
-              title="Programar fecha (actual: ${_rtEsc(fecha || '—')})"
-              style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;cursor:pointer;font-size:11px;font-weight:800;color:#334155">📅</button>
+            <span data-rt-chip="1" style="position:relative;display:inline-flex">
+              <button type="button"
+                onclick="event.stopPropagation();rtCardOpenDate_(this,'${_rtEscA(id)}')"
+                title="Programar fecha"
+                style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px 3px 8px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;cursor:pointer;font-size:11px;font-weight:800;color:#334155">📅 <span>${_rtEsc(_rtFmtFechaCorta(fecha))}</span></button>
+              <input type="date" value="${_rtEscA(fecha || '')}"
+                onclick="event.stopPropagation()"
+                onchange="event.stopPropagation();rtCardSetDate_('${_rtEscA(id)}', this.value)"
+                style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;margin:0">
+            </span>
           </div>
           <div style="display:flex;gap:8px;align-items:center;font-size:11px;color:#94a3b8">
             ${nFotos ? `<span title="${nFotos} fotos">📷 ${nFotos}</span>` : ''}
@@ -43248,14 +43254,32 @@ window.rtCardPickPrio_ = function(id, prioKey) {
   if (prioKey === 'critica') patch.Fecha = new Date().toISOString().slice(0,10);
   _rtQuickPatch(id, patch);
 };
-window.rtCardSchedule_ = function(id) {
+function _rtFmtFechaCorta(iso) {
+  const s = String(iso || '').slice(0,10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return 'Programar';
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const [y,m,d] = s.split('-');
+  return `${parseInt(d,10)} ${meses[parseInt(m,10)-1]}`;
+}
+// Abre el date picker nativo del <input type=date> hermano del botón.
+window.rtCardOpenDate_ = function(btn, id) {
+  const input = btn.parentElement && btn.parentElement.querySelector('input[type=date]');
+  if (!input) return;
+  // Hacer focusable temporalmente para que showPicker funcione en algunos
+  // navegadores estrictos que exigen que el input sea "visible".
+  input.style.pointerEvents = 'auto';
+  input.style.opacity = '0.01';
+  input.focus({ preventScroll: true });
+  try {
+    if (typeof input.showPicker === 'function') input.showPicker();
+    else input.click();
+  } catch(_) { input.click(); }
+};
+window.rtCardSetDate_ = function(id, val) {
+  const clean = String(val || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) return;
   const row = (RT_STATE.list||[]).find(r => String(r['ID']||'') === String(id));
-  if (!row) { alert('No se encontró el reporte.'); return; }
-  const cur = String(row['Fecha']||'').slice(0,10) || new Date().toISOString().slice(0,10);
-  const val = prompt('Programar fecha (YYYY-MM-DD):', cur);
-  if (val == null) return;
-  const clean = String(val).trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) { alert('Formato inválido. Usa YYYY-MM-DD.'); return; }
+  if (!row) return;
   const prio = _rtNormalizePrio(row.Prioridad);
   const today = new Date().toISOString().slice(0,10);
   if (prio === 'critica' && clean !== today) {
