@@ -38499,7 +38499,26 @@ window.waReportSendNow_ = async function(kind, id) {
     // Incluye reportId en el tipo para poder resolver el reporte al pintar
     // la card en el timeline. Formato: report-{kind}-{reportId}
     const tipo = `report-${kind}-${id}`;
-    const asunto = String(tpl.nombre || tpl.id || 'Reporte');
+    // asunto = título del reporte (mismo que se muestra en la card).
+    // Fallback: nombre del template si no encontramos el reporte.
+    let asunto = '';
+    try {
+      if (kind === 'inc') {
+        const r = (INC_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+        if (r) asunto = [String(r['Motivos']||''), String(r['Clasificacion']||'')].filter(Boolean).join(' — ');
+      } else if (kind === 'obj') {
+        const r = (OBJ_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+        if (r) {
+          const cat = String(r['Categoria']||'').trim();
+          const catOtro = String(r['Categoria_otro']||'').trim();
+          asunto = cat === 'Otro' ? `Otro: ${catOtro || '—'}` : cat;
+        }
+      } else if (kind === 'rt') {
+        const r = (RT_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+        if (r) asunto = String(r.Titulo || r.Folio || '');
+      }
+    } catch(_){}
+    if (!asunto) asunto = String(tpl.nombre || tpl.id || 'Reporte');
     const nowIso = new Date().toISOString();
     const toCsv = rcps.join(',');
     const addR = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
@@ -39610,20 +39629,40 @@ function _waRenderReportSentCard_(it) {
   const m = tipo.match(/^report-(inc|obj|rt)-(.+)$/i);
   const kind = m ? m[1].toLowerCase() : 'inc';
   const reportId = m ? m[2] : '';
+  // Ignora "REPORTE: alta/resuelto..." heredado como asunto — no es un
+  // título válido del reporte. Solo usar cs.asunto como fallback si NO
+  // parece un nombre de template de reporte.
+  const asuntoIsTplName = /^\s*reporte\s*[:\-]/i.test(String(cs.asunto || ''));
+  const asuntoFallback = asuntoIsTplName ? '' : String(cs.asunto || '');
   let titulo = '', chipLabel = '', headerBg = '', cardBg = '', cardBorder = '', chipBg = '', chipFg = '', icon = '';
   if (kind === 'inc') {
-    const r = (INC_STATE.list || []).find(x => String(x['ID']||'') === reportId);
-    titulo = r ? ([String(r['Motivos']||''), String(r['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Incidencia') : (cs.asunto || 'Incidencia');
+    const list = (INC_STATE && INC_STATE.list) || [];
+    if (!list.length && typeof incLoadIncidencias === 'function' && !window.__waIncLoadPending) {
+      window.__waIncLoadPending = true;
+      incLoadIncidencias().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waIncLoadPending = false; });
+    }
+    const r = list.find(x => String(x['ID']||'') === reportId);
+    titulo = r ? ([String(r['Motivos']||''), String(r['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Incidencia') : (asuntoFallback || 'Incidencia');
     chipLabel = 'INCIDENCIA'; headerBg = '#dc2626'; cardBg = '#fee2e2'; cardBorder = '#dc2626'; chipBg = '#ffffff'; chipFg = '#7f1d1d'; icon = '🚨';
   } else if (kind === 'obj') {
-    const r = (OBJ_STATE.list || []).find(x => String(x['ID']||'') === reportId);
+    const list = (OBJ_STATE && OBJ_STATE.list) || [];
+    if (!list.length && typeof objLoadObjetos === 'function' && !window.__waObjLoadPending) {
+      window.__waObjLoadPending = true;
+      objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waObjLoadPending = false; });
+    }
+    const r = list.find(x => String(x['ID']||'') === reportId);
     const cat = r ? String(r['Categoria']||'').trim() : '';
     const catOtro = r ? String(r['Categoria_otro']||'').trim() : '';
-    titulo = r ? (cat === 'Otro' ? `Otro: ${catOtro || '—'}` : (cat || 'Objeto olvidado')) : (cs.asunto || 'Objeto olvidado');
+    titulo = r ? (cat === 'Otro' ? `Otro: ${catOtro || '—'}` : (cat || 'Objeto olvidado')) : (asuntoFallback || 'Objeto olvidado');
     chipLabel = 'OBJETO PERDIDO'; headerBg = '#059669'; cardBg = '#d1fae5'; cardBorder = '#059669'; chipBg = '#ffffff'; chipFg = '#064e3b'; icon = '🎒';
   } else {
-    const r = (RT_STATE.list || []).find(x => String(x['ID']||'') === reportId);
-    titulo = r ? String(r.Titulo || r.Folio || 'Reporte técnico') : (cs.asunto || 'Reporte técnico');
+    const list = (RT_STATE && RT_STATE.list) || [];
+    if (!list.length && typeof rtRefresh === 'function' && !window.__waRtLoadPending) {
+      window.__waRtLoadPending = true;
+      rtRefresh().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waRtLoadPending = false; });
+    }
+    const r = list.find(x => String(x['ID']||'') === reportId);
+    titulo = r ? String(r.Titulo || r.Folio || 'Reporte técnico') : (asuntoFallback || 'Reporte técnico');
     chipLabel = 'REPORTE TÉCNICO'; headerBg = '#2563eb'; cardBg = '#dbeafe'; cardBorder = '#2563eb'; chipBg = '#ffffff'; chipFg = '#1e3a8a'; icon = '🔧';
   }
   const isFailed = cs.status === 'failed';
