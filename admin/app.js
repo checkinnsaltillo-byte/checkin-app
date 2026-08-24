@@ -42209,6 +42209,16 @@ function _botcPickBestBooking(list) {
   return past || list[0];
 }
 
+// "Sin responder": el bot no cerró la conversación. Aplica cuando el chat
+// quedó en control humano (esperando respuesta) o supervisado con draft
+// pendiente de aprobación.
+function _botcIsPending_(c) {
+  const ctrl = String(c.control || 'bot');
+  if (ctrl === 'human') return true;
+  if (ctrl === 'supervised' && String(c.pending_draft_body||'').trim()) return true;
+  return false;
+}
+
 // Clasifica una conversación en 4 buckets según el booking asociado.
 // - concluida: la reserva ya terminó (departure < hoy).
 // - reservas:  hay reserva activa o próxima.
@@ -42230,6 +42240,12 @@ function _botcClassifyConv_(c, bk) {
 }
 window.botcSetSidebarView_ = function(mode) {
   BOTC_STATE.viewMode = mode;
+  _botcRenderSidebar();
+};
+window.botcToggleCat_ = function(key) {
+  BOTC_STATE.collapsedCats = BOTC_STATE.collapsedCats || new Set();
+  if (BOTC_STATE.collapsedCats.has(key)) BOTC_STATE.collapsedCats.delete(key);
+  else BOTC_STATE.collapsedCats.add(key);
   _botcRenderSidebar();
 };
 
@@ -42304,10 +42320,13 @@ function _botcRenderSidebar() {
     // del wrapper aplicamos CSS que la aplana para que meta y rich lean como
     // UNA sola card.
     _botcEnsureCardFlattenCss_();
-    const wrap = `<div class="botc-conv-item" data-botc-phone="${_botcEsc(c.phone)}"
+    const pending = _botcIsPending_(c);
+    const bgSel = selected ? '#eff6ff' : (pending ? '#fee2e2' : '#fff');
+    const bordCol = selected ? '#3b82f6' : (pending ? '#fca5a5' : '#e2e8f0');
+    const wrap = `<div class="botc-conv-item ${pending?'botc-pending':''}" data-botc-phone="${_botcEsc(c.phone)}"
         onclick="botcOpenChat('${_botcEsc(c.phone)}')"
-        style="position:relative;background:${selected?'#eff6ff':'#fff'};border:1px solid #e2e8f0;border-left:3px solid ${selected?'#3b82f6':'transparent'};border-radius:12px;margin:8px 10px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06);cursor:pointer">${rich || lite}${chatMeta}</div>`;
-    return { html: wrap, cat: _botcClassifyConv_(c, bk) };
+        style="position:relative;background:${bgSel};border:1px solid ${bordCol};border-left:3px solid ${selected?'#3b82f6':(pending?'#dc2626':'transparent')};border-radius:12px;margin:8px 10px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06);cursor:pointer">${rich || lite}${chatMeta}</div>`;
+    return { html: wrap, cat: _botcClassifyConv_(c, bk), pending };
   });
   let listHtml = '';
   if (BOTC_STATE.viewMode === 'clasificado') {
@@ -42318,19 +42337,33 @@ function _botcRenderSidebar() {
       { key:'concluida',  label:'Concluidas', color:'#475569', accent:'#94a3b8' },
     ];
     const buckets = { entrantes:[], cotizacion:[], reservas:[], concluida:[] };
-    items.forEach(it => { (buckets[it.cat] || buckets.entrantes).push(it.html); });
+    const pendingByCat = { entrantes:0, cotizacion:0, reservas:0, concluida:0 };
+    items.forEach(it => {
+      (buckets[it.cat] || buckets.entrantes).push(it.html);
+      if (it.pending) pendingByCat[it.cat] = (pendingByCat[it.cat]||0)+1;
+    });
+    BOTC_STATE.collapsedCats = BOTC_STATE.collapsedCats || new Set();
     listHtml = CATS.map(cat => {
       const arr = buckets[cat.key] || [];
       if (!arr.length) return '';
+      const isCol = BOTC_STATE.collapsedCats.has(cat.key);
+      const pend = pendingByCat[cat.key] || 0;
+      const pendBadge = pend > 0
+        ? `<span title="${pend} sin responder" style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:#dc2626;color:#fff;border-radius:999px;font-size:11px;font-weight:800">${pend}</span>`
+        : '';
       return `
         <div style="display:flex;flex-direction:column;gap:0;margin-top:8px">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:transparent;border-bottom:3px solid ${cat.accent};margin:0 10px">
+          <button type="button" onclick="botcToggleCat_('${cat.key}')"
+            style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:transparent;border:0;border-bottom:3px solid ${cat.accent};margin:0 10px;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s"
+            onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
             <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
               <span style="font-size:11px;color:${cat.color};font-weight:900;letter-spacing:.06em;text-transform:uppercase">${cat.label}</span>
-              <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:${cat.accent};color:#fff;border-radius:999px;font-size:11px;font-weight:800">${arr.length}</span>
+              ${pendBadge}
+              <span style="font-size:10px;color:#94a3b8;font-weight:700">de ${arr.length}</span>
             </div>
-          </div>
-          ${arr.join('')}
+            <span style="font-size:14px;color:${cat.color};transition:transform .2s;transform:rotate(${isCol?'-90':'0'}deg);line-height:1">▾</span>
+          </button>
+          <div style="display:${isCol?'none':'block'}">${arr.join('')}</div>
         </div>`;
     }).join('');
   } else {
