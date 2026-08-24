@@ -43101,16 +43101,28 @@ function rtRenderList() {
   const cont = document.getElementById('rt-cards-list');
   if (!cont) return;
   _rtEnsureViewTabs_(cont);
+  _rtEnsureProjFocusHeader_(cont);
   const fEstado = String(document.getElementById('rt-filter-estado')?.value || '');
   const fPrio   = String(document.getElementById('rt-filter-prioridad')?.value || '');
   let rows = RT_STATE.list.slice();
+  // Filtrar por proyecto si estamos en modo focus.
+  if (RT_STATE.projFocus) {
+    const proj = _rtLoadProjects_().find(p => p.id === RT_STATE.projFocus);
+    if (proj) {
+      const ids = new Set((proj.rtIds || []).map(String));
+      rows = rows.filter(r => ids.has(String(r.ID)));
+    } else {
+      RT_STATE.projFocus = null;
+    }
+  }
   if (fEstado) rows = rows.filter(r => _rtNormalizeEstado(r.Estado) === fEstado);
   if (fPrio)   rows = rows.filter(r => _rtNormalizePrio(r.Prioridad) === fPrio);
   rows.sort((a,b) => String(b.Timestamp || '').localeCompare(String(a.Timestamp || '')));
   RT_STATE.viewMode = RT_STATE.viewMode || 'estado';
   if (RT_STATE.viewMode === 'dia') return _rtRenderByDay_(cont, rows);
   if (RT_STATE.viewMode === 'calendario') return _rtRenderCalendar_(cont, rows);
-  if (RT_STATE.viewMode === 'proyectos') return _rtRenderProjects_(cont, rows);
+  // En modo Proyectos SOLO cuando no hay focus: si hay focus caemos al kanban.
+  if (RT_STATE.viewMode === 'proyectos' && !RT_STATE.projFocus) return _rtRenderProjects_(cont, rows);
   // Bucket por columna: Nuevos · En proceso · Concluidos · Programados
   // Programados = Fecha > hoy y no está resuelto/cancelado.
   const today = new Date().toISOString().slice(0,10);
@@ -43564,7 +43576,7 @@ function _rtRenderProjects_(cont, rows) {
             <div style="height:100%;width:${pr.pct}%;background:${barColor};border-radius:99px;transition:width .3s"></div>
           </div>
           <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
-            <button onclick="rtProjOpen_('${_rtEscA(p.id)}')" style="padding:6px 12px;font-size:11px;background:#0f172a;color:#fff;border:0;border-radius:6px;font-weight:800;cursor:pointer">📂 Ver tareas</button>
+            <button onclick="rtProjViewTasks_('${_rtEscA(p.id)}')" style="padding:6px 12px;font-size:11px;background:#0f172a;color:#fff;border:0;border-radius:6px;font-weight:800;cursor:pointer">📂 Ver tareas</button>
             <button onclick="rtProjRename_('${_rtEscA(p.id)}')" style="padding:6px 10px;font-size:11px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:6px;font-weight:700;cursor:pointer">✏️ Renombrar</button>
             <button onclick="rtProjDelete_('${_rtEscA(p.id)}')" style="padding:6px 10px;font-size:11px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-weight:700;cursor:pointer">🗑</button>
           </div>
@@ -43615,6 +43627,58 @@ window.rtProjOpen_ = function(projId) {
 };
 window.rtSetView_ = function(mode) {
   RT_STATE.viewMode = mode;
+  // Al elegir la pestaña Proyectos, salir del focus si estaba activo.
+  if (mode === 'proyectos') RT_STATE.projFocus = null;
+  rtRenderList();
+};
+// Header con título del proyecto + botón Regresar cuando hay focus.
+function _rtEnsureProjFocusHeader_(cont) {
+  let bar = document.getElementById('rt-proj-focus-bar');
+  if (!RT_STATE.projFocus) {
+    if (bar) bar.remove();
+    return;
+  }
+  const proj = _rtLoadProjects_().find(p => p.id === RT_STATE.projFocus);
+  if (!proj) { if (bar) bar.remove(); return; }
+  const pr = _rtProjProgress_(proj);
+  const barColor = pr.pct === 100 ? '#16a34a' : (pr.pct >= 50 ? '#3b82f6' : (pr.pct > 0 ? '#f59e0b' : '#cbd5e1'));
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'rt-proj-focus-bar';
+    bar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin-bottom:10px;background:linear-gradient(90deg,#4338ca,#6366f1);color:#fff;border-radius:10px;flex-wrap:wrap';
+    const tabs = document.getElementById('rt-view-tabs');
+    if (tabs && tabs.parentElement) tabs.parentElement.insertBefore(bar, tabs.nextSibling);
+    else cont.parentElement && cont.parentElement.insertBefore(bar, cont);
+  }
+  bar.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+      <button type="button" onclick="rtProjExitFocus_()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,.22);color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">← Regresar</button>
+      <span style="font-size:18px">📁</span>
+      <div style="min-width:0;flex:1">
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.9;font-weight:800;text-transform:uppercase">Proyecto</div>
+        <div style="font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${_rtEsc(proj.nombre)}">${_rtEsc(proj.nombre)}</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="width:140px">
+        <div style="height:8px;background:rgba(255,255,255,.25);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${pr.pct}%;background:${barColor};border-radius:99px"></div>
+        </div>
+      </div>
+      <span style="font-size:12px;font-weight:800;white-space:nowrap">${pr.done}/${pr.total} · ${pr.pct}%</span>
+      <button type="button" onclick="rtProjAddTask_('${_rtEscA(proj.id)}')" style="padding:6px 12px;font-size:11px;background:#fff;color:#4338ca;border:0;border-radius:6px;cursor:pointer;font-weight:800">＋ Agregar tarea</button>
+    </div>`;
+}
+window.rtProjExitFocus_ = function() {
+  RT_STATE.projFocus = null;
+  RT_STATE.viewMode = 'proyectos';
+  rtRenderList();
+};
+window.rtProjViewTasks_ = function(projId) {
+  RT_STATE.projFocus = projId;
+  // Si el usuario venía de la pestaña Proyectos, cambiar a Estado por default.
+  if (RT_STATE.viewMode === 'proyectos') RT_STATE.viewMode = 'estado';
+  rtCalCloseDay_();
   rtRenderList();
 };
 function _rtRenderByDay_(cont, rows) {
