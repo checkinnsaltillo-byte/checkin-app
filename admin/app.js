@@ -38617,8 +38617,20 @@ async function _rtQuickPatch(id, patch, opts) {
   // Optimista: aplicar cambios y repintar YA. Si el server falla, revertir.
   const prev = {};
   Object.keys(patch).forEach(k => { prev[k] = row[k]; row[k] = patch[k]; });
-  try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
-  try { if (typeof rtRenderList === 'function' && document.getElementById('rt-cards-list')) rtRenderList(); } catch(_){}
+  const repaintAll = () => {
+    try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
+    try { if (typeof rtRenderList === 'function' && document.getElementById('rt-cards-list')) rtRenderList(); } catch(_){}
+    // Si el panel lateral (proyecto / calendario) muestra esta tarea, repintarlo.
+    try {
+      const side = document.getElementById('rt-cal-side-panel');
+      if (side && side.style.display !== 'none' && side.querySelector(`[data-rt-card-id="${CSS.escape(String(id))}"]`)) {
+        const projs = _rtLoadProjects_();
+        const proj = projs.find(p => (p.rtIds||[]).indexOf(String(id)) >= 0);
+        if (proj) rtProjOpen_(proj.id);
+      }
+    } catch(_){}
+  };
+  repaintAll();
   try {
     const payload = Object.assign({ ID: String(id) }, patch);
     const r = await fetch('https://api.check-inn.mx/reportes-tecnicos-upsert', {
@@ -38644,8 +38656,7 @@ async function _rtQuickPatch(id, patch, opts) {
   } catch (e) {
     // Revertir cambios optimistas si el server rechaza.
     Object.keys(prev).forEach(k => { row[k] = prev[k]; });
-    try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
-    try { if (typeof rtRenderList === 'function' && document.getElementById('rt-cards-list')) rtRenderList(); } catch(_){}
+    repaintAll();
     alert('Error al guardar: ' + (e.message || e));
   }
 }
