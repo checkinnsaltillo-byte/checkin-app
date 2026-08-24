@@ -42261,7 +42261,13 @@ function _botcRenderSidebar() {
         </div>
         <div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px">${_botcEsc(c.last_msg_preview)}</div>
       </div>`;
-    const wrap = `<div style="border-bottom:1px solid #e2e8f0;background:${selected?'#eff6ff':'#fff'};border-left:3px solid ${selected?'#3b82f6':'transparent'}" data-botc-phone="${_botcEsc(c.phone)}">${rich || lite}${chatMeta}</div>`;
+    // Botón de riesgo/aviso: cuenta cuántas notas tipo risk existen para
+    // colorear/badge; click abre prompt rápido y guarda como nota risk.
+    const riskCount = _hgNotesRiskCount_(c.phone);
+    const riskBtn = `<button type="button" onclick="event.stopPropagation();hgNoteQuickRisk_('${_botcEsc(c.phone)}')"
+        title="${riskCount ? `${riskCount} nota(s) de riesgo — click para agregar` : 'Marcar riesgo del huésped (nota rápida)'}"
+        style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:${riskCount?'#dc2626':'#fff'};color:${riskCount?'#fff':'#dc2626'};border:1.5px solid #dc2626;cursor:pointer;font-weight:900;font-size:14px;display:flex;align-items:center;justify-content:center;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.08);z-index:2">!</button>`;
+    const wrap = `<div style="position:relative;border-bottom:1px solid #e2e8f0;background:${selected?'#eff6ff':'#fff'};border-left:3px solid ${selected?'#3b82f6':'transparent'}" data-botc-phone="${_botcEsc(c.phone)}">${riskBtn}${rich || lite}${chatMeta}</div>`;
     return wrap;
   }).join('');
   sidebar.innerHTML = items;
@@ -42510,6 +42516,7 @@ function _botcRenderMain(phone) {
         ${ctrlBtn}
         <button type="button" onclick="botcOpenReportPickerForCurrent()" title="Nuevo reporte (Incidencia / Objeto perdido / Reporte técnico) para este huésped" style="padding:7px 12px;font-size:12px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">＋ Nuevo reporte</button>
         <button type="button" onclick="botcOpenSummary()" title="Resumen sintético del historial de conversación con énfasis en el último tema o asunto pendiente" style="padding:7px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🧠 Resumen</button>
+        <button type="button" onclick="hgNotesOpen_()" title="Notas del huésped (texto libre con autor y fecha)" style="padding:7px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">📝 Notas${_hgNotesCountLabel_()}</button>
         <button type="button" onclick="botcToggleRightPanel()" title="Abrir ventana WhatsApp completa (templates, mensajes programados, envío manual) para este huésped" style="padding:7px 12px;font-size:12px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">📱 Ver WA</button>
       </div>
     </div>
@@ -42658,6 +42665,202 @@ window.botcDraftSkip = function(phone) {
 
 /** Muestra un modal con el resumen sintético del historial completo de la
  *  conversación (bot + admin + huésped) generado por Claude. */
+// ─── Notas por huésped (localStorage, por teléfono) ────────────────────
+const HG_NOTES_KEY = 'HG_NOTES_V1';
+function _hgNotesLoad_() {
+  try { return JSON.parse(localStorage.getItem(HG_NOTES_KEY) || '{}'); } catch(_) { return {}; }
+}
+function _hgNotesSave_(all) {
+  try { localStorage.setItem(HG_NOTES_KEY, JSON.stringify(all || {})); } catch(_){}
+}
+function _hgNotesGet_(phone) {
+  const all = _hgNotesLoad_();
+  return Array.isArray(all[String(phone)]) ? all[String(phone)] : [];
+}
+function _hgNotesSetPhone_(phone, list) {
+  const all = _hgNotesLoad_();
+  all[String(phone)] = list;
+  _hgNotesSave_(all);
+}
+function _hgCurrentUser_() {
+  try {
+    return String(
+      (window.SYS_STATE && SYS_STATE.currentUser && (SYS_STATE.currentUser.nombre || SYS_STATE.currentUser.email)) ||
+      window.__currentUserName || window.__currentUserEmail ||
+      localStorage.getItem('__currentUserName') || 'admin'
+    );
+  } catch(_) { return 'admin'; }
+}
+function _hgFmtDT_(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2,'0');
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function _hgNotesCountLabel_() {
+  try {
+    const phone = BOTC_STATE.selectedPhone;
+    if (!phone) return '';
+    const n = _hgNotesGet_(phone).length;
+    return n ? ` (${n})` : '';
+  } catch(_) { return ''; }
+}
+function _hgNotesRiskCount_(phone) {
+  return _hgNotesGet_(phone).filter(n => n.risk).length;
+}
+function _hgEnsureNotesPanel_() {
+  if (document.getElementById('hg-notes-panel')) return;
+  const back = document.createElement('div');
+  back.id = 'hg-notes-back';
+  back.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:100015;display:none';
+  back.onclick = () => hgNotesClose_();
+  const panel = document.createElement('div');
+  panel.id = 'hg-notes-panel';
+  panel.style.cssText = 'position:fixed;top:0;right:0;height:100vh;width:min(520px,94vw);background:#f8fafc;box-shadow:-24px 0 48px -12px rgba(0,0,0,.25);z-index:100016;display:none;flex-direction:column;overflow:hidden';
+  panel.innerHTML = `
+    <div style="padding:14px 18px;background:#0ea5e9;color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div>
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.85;font-weight:800">HUÉSPED</div>
+        <div id="hg-notes-title" style="font-size:16px;font-weight:800">📝 Notas</div>
+      </div>
+      <button onclick="hgNotesClose_()" style="background:none;border:0;font-size:22px;cursor:pointer;color:#fff">×</button>
+    </div>
+    <div id="hg-notes-body" style="flex:1;overflow-y:auto;padding:14px 16px"></div>
+    <div style="padding:12px 16px;background:#fff;border-top:1px solid #e2e8f0">
+      <div style="display:flex;gap:6px">
+        <textarea id="hg-notes-new" rows="2" placeholder="Escribe una nota…" style="flex:1;padding:8px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font-family:inherit;resize:vertical"></textarea>
+        <button type="button" onclick="hgNotesAddFromInput_()" style="padding:8px 14px;background:#0ea5e9;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">＋ Nota</button>
+      </div>
+    </div>`;
+  document.body.appendChild(back);
+  document.body.appendChild(panel);
+}
+window.hgNotesOpen_ = function() {
+  const phone = BOTC_STATE && BOTC_STATE.selectedPhone;
+  if (!phone) return;
+  _hgEnsureNotesPanel_();
+  _hgNotesRender_();
+  document.getElementById('hg-notes-back').style.display = 'block';
+  document.getElementById('hg-notes-panel').style.display = 'flex';
+};
+window.hgNotesClose_ = function() {
+  const p = document.getElementById('hg-notes-panel');
+  const b = document.getElementById('hg-notes-back');
+  if (p) p.style.display = 'none';
+  if (b) b.style.display = 'none';
+};
+function _hgNotesRender_() {
+  const phone = BOTC_STATE && BOTC_STATE.selectedPhone;
+  if (!phone) return;
+  const title = document.getElementById('hg-notes-title');
+  if (title) title.textContent = `📝 Notas · +${phone}`;
+  const body = document.getElementById('hg-notes-body'); if (!body) return;
+  const notes = _hgNotesGet_(phone).slice().sort((a,b) => String(b.updated||b.created||'').localeCompare(String(a.updated||a.created||'')));
+  if (!notes.length) {
+    body.innerHTML = '<div style="text-align:center;padding:30px 12px;color:#94a3b8;font-style:italic;font-size:12px">Sin notas todavía. Agrega la primera abajo.</div>';
+    return;
+  }
+  body.innerHTML = notes.map(n => {
+    const bg = n.risk ? '#fee2e2' : '#fff';
+    const border = n.risk ? '#fca5a5' : '#e2e8f0';
+    const chip = n.risk ? '<span style="font-size:9px;font-weight:800;background:#dc2626;color:#fff;padding:2px 8px;border-radius:99px;margin-right:6px">⚠ RIESGO</span>' : '';
+    const editing = n._editing === true;
+    const bodyHtml = editing
+      ? `<textarea id="hg-note-edit-${_botcEsc(n.id)}" rows="3" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:6px;box-sizing:border-box;background:#fffbeb;font-family:inherit">${_botcEsc(n.text)}</textarea>
+         <div style="display:flex;gap:6px;margin-top:6px">
+           <button onclick="hgNoteSaveEdit_('${_botcEsc(n.id)}')" style="padding:5px 10px;font-size:11px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">💾 Guardar</button>
+           <button onclick="hgNoteCancelEdit_('${_botcEsc(n.id)}')" style="padding:5px 10px;font-size:11px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">↩ Cancelar</button>
+         </div>`
+      : `<div style="font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4">${_botcEsc(n.text)}</div>
+         <div style="display:flex;gap:6px;margin-top:8px">
+           <button onclick="hgNoteEdit_('${_botcEsc(n.id)}')" style="padding:4px 8px;font-size:10px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">✏️ Editar</button>
+           <button onclick="hgNoteDelete_('${_botcEsc(n.id)}')" style="padding:4px 8px;font-size:10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">🗑 Eliminar</button>
+         </div>`;
+    const ts = n.updated && n.updated !== n.created
+      ? `Editada ${_hgFmtDT_(n.updated)}`
+      : `Creada ${_hgFmtDT_(n.created)}`;
+    return `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:10px;color:#64748b;font-weight:700">${chip}${_botcEsc(n.author||'admin')} · ${ts}</div>
+      </div>
+      ${bodyHtml}
+    </div>`;
+  }).join('');
+}
+window.hgNotesAddFromInput_ = function() {
+  const inp = document.getElementById('hg-notes-new'); if (!inp) return;
+  const text = String(inp.value || '').trim();
+  if (!text) return;
+  hgNotesAdd_(BOTC_STATE.selectedPhone, text, false);
+  inp.value = '';
+};
+function hgNotesAdd_(phone, text, risk) {
+  if (!phone || !String(text||'').trim()) return;
+  const list = _hgNotesGet_(phone);
+  const now = new Date().toISOString();
+  list.push({ id: 'N-'+Date.now()+'-'+Math.floor(Math.random()*9999), text: String(text).trim(), author: _hgCurrentUser_(), created: now, updated: now, risk: !!risk });
+  _hgNotesSetPhone_(phone, list);
+  _hgNotesRender_();
+  // Repintar sidebar para actualizar el conteo del "!"
+  try { if (typeof botcRenderConversations === 'function') botcRenderConversations(); } catch(_){}
+  // Actualizar el botón "Notas" del header (recount)
+  try { botcRefreshCurrentChatHeader_(); } catch(_){}
+}
+window.hgNoteEdit_ = function(id) {
+  const phone = BOTC_STATE.selectedPhone; if (!phone) return;
+  const list = _hgNotesGet_(phone);
+  const n = list.find(x => x.id === id); if (!n) return;
+  n._editing = true;
+  _hgNotesSetPhone_(phone, list.map(x => ({...x, _editing: x === n ? true : false})));
+  _hgNotesRender_();
+};
+window.hgNoteCancelEdit_ = function(id) {
+  const phone = BOTC_STATE.selectedPhone; if (!phone) return;
+  const list = _hgNotesGet_(phone);
+  const n = list.find(x => x.id === id); if (n) delete n._editing;
+  _hgNotesSetPhone_(phone, list);
+  _hgNotesRender_();
+};
+window.hgNoteSaveEdit_ = function(id) {
+  const phone = BOTC_STATE.selectedPhone; if (!phone) return;
+  const ta = document.getElementById(`hg-note-edit-${id}`);
+  if (!ta) return;
+  const txt = String(ta.value || '').trim();
+  if (!txt) { alert('La nota no puede estar vacía'); return; }
+  const list = _hgNotesGet_(phone);
+  const n = list.find(x => x.id === id); if (!n) return;
+  n.text = txt;
+  n.updated = new Date().toISOString();
+  delete n._editing;
+  _hgNotesSetPhone_(phone, list);
+  _hgNotesRender_();
+};
+window.hgNoteDelete_ = function(id) {
+  const phone = BOTC_STATE.selectedPhone; if (!phone) return;
+  if (!confirm('¿Eliminar esta nota?')) return;
+  const list = _hgNotesGet_(phone).filter(x => x.id !== id);
+  _hgNotesSetPhone_(phone, list);
+  _hgNotesRender_();
+  try { if (typeof botcRenderConversations === 'function') botcRenderConversations(); } catch(_){}
+  try { botcRefreshCurrentChatHeader_(); } catch(_){}
+};
+// Botón "!" desde la card izquierda: pide una nota y la agrega como risk.
+window.hgNoteQuickRisk_ = function(phone) {
+  const text = prompt('Nota de riesgo (aparecerá marcada en el panel de Notas):');
+  if (!text || !String(text).trim()) return;
+  hgNotesAdd_(phone, text, true);
+  // Si el chat activo es este teléfono y el panel de notas está abierto, refresca.
+  if (String(BOTC_STATE.selectedPhone) === String(phone)) _hgNotesRender_();
+};
+function botcRefreshCurrentChatHeader_() {
+  // Re-render del área principal del chat abierto para actualizar el counter.
+  try {
+    if (BOTC_STATE.selectedPhone && typeof botcOpenChat === 'function') {
+      botcOpenChat(BOTC_STATE.selectedPhone, { silent: true, keepMsgs: true });
+    }
+  } catch(_){}
+}
+
 window.botcOpenSummary = async function() {
   const phone = BOTC_STATE.selectedPhone;
   if (!phone) return;
