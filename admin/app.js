@@ -43201,7 +43201,13 @@ function _rtRenderCard(row) {
         ${fecha ? `<div style="font-size:11px;color:#475569;margin-top:2px">📅 ${_rtEsc(fecha)}</div>` : ''}
         ${row.Asignado_a ? `<div style="font-size:11px;color:#475569;margin-top:2px">👤 ${_rtEsc(row.Asignado_a)}</div>` : ''}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:6px;flex-wrap:wrap">
-          <div style="display:flex;gap:6px;flex-wrap:wrap">${prioChip}${estChip}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            ${prioChip}${estChip}
+            <button type="button" data-rt-chip="1"
+              onclick="event.stopPropagation();rtCardSchedule_('${_rtEscA(id)}')"
+              title="Programar fecha (actual: ${_rtEsc(fecha || '—')})"
+              style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;cursor:pointer;font-size:11px;font-weight:800;color:#334155">📅</button>
+          </div>
           <div style="display:flex;gap:8px;align-items:center;font-size:11px;color:#94a3b8">
             ${nFotos ? `<span title="${nFotos} fotos">📷 ${nFotos}</span>` : ''}
             ${row.Costo_total > 0 ? `<span title="Costo total">💰 $${Number(row.Costo_total).toFixed(0)}</span>` : ''}
@@ -43237,7 +43243,25 @@ window.rtCardPickEst_ = function(id, estKey) {
 };
 window.rtCardPickPrio_ = function(id, prioKey) {
   _rtCloseCardMenus_(id);
-  _rtQuickPatch(id, { Prioridad: prioKey });
+  // Regla: reportes CRÍTICOS siempre tienen fecha del día en curso.
+  const patch = { Prioridad: prioKey };
+  if (prioKey === 'critica') patch.Fecha = new Date().toISOString().slice(0,10);
+  _rtQuickPatch(id, patch);
+};
+window.rtCardSchedule_ = function(id) {
+  const row = (RT_STATE.list||[]).find(r => String(r['ID']||'') === String(id));
+  if (!row) { alert('No se encontró el reporte.'); return; }
+  const cur = String(row['Fecha']||'').slice(0,10) || new Date().toISOString().slice(0,10);
+  const val = prompt('Programar fecha (YYYY-MM-DD):', cur);
+  if (val == null) return;
+  const clean = String(val).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) { alert('Formato inválido. Usa YYYY-MM-DD.'); return; }
+  const prio = _rtNormalizePrio(row.Prioridad);
+  const today = new Date().toISOString().slice(0,10);
+  if (prio === 'critica' && clean !== today) {
+    if (!confirm(`Este reporte es CRÍTICO — normalmente lleva fecha de hoy (${today}). ¿Programar de todos modos a ${clean}?`)) return;
+  }
+  _rtQuickPatch(id, { Fecha: clean });
 };
 
 // ─── Captura / Edición ────────────────────────────────────────────────
@@ -43326,11 +43350,15 @@ function _rtCheckbox(field, label) {
 window._rtUpdate = function(field, value) {
   if (!RT_STATE.draft) return;
   RT_STATE.draft[field] = value;
-  // Actualizar Alojamiento cuando cambien Propiedad o Departamento
   if (field === 'Propiedad' || field === '# Departamento') {
     const p = String(RT_STATE.draft.Propiedad || '').trim();
     const d = String(RT_STATE.draft['# Departamento'] || '').trim();
     RT_STATE.draft.Alojamiento = d ? `${p} - #${d}` : p;
+  }
+  // Regla: reportes CRÍTICOS siempre llevan fecha del día en curso.
+  if (field === 'Prioridad' && value === 'critica') {
+    RT_STATE.draft.Fecha = new Date().toISOString().slice(0,10);
+    try { if (typeof _rtRenderForm === 'function') _rtRenderForm(); } catch(_){}
   }
 };
 window._rtToggle = function(field) {
