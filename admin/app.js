@@ -37916,27 +37916,92 @@ function _waGetReportsForBooking_(bk) {
   return out;
 }
 
-/** Card compacta para el timeline unificado — reutiliza _waRenderIncCard_
- *  / _waRenderObjCard_ pero con banner de fecha/hora relevante. */
+/** Card en el timeline unificado con MISMA estructura que las cards de
+ *  mensajes programados: timeline label arriba + checkmark circular a la
+ *  izquierda + card con header/chip de tipo + estado + botón Ver detalles.
+ *  Sin alojamiento (ya lo dice la reserva contenedora). */
 function _waRenderReportTimelineItem_(it) {
   const r = it.row || {};
+  const kind = it.kindReport; // 'inc' | 'obj'
+  const tsCreadoRaw = String(r['Timestamp'] || r['timestamp'] || '').trim();
+  const tsEditRaw   = String(r['Updated_at'] || r['updated_at'] || '').trim();
+  const isEdited = !!tsEditRaw && tsEditRaw !== tsCreadoRaw;
   const ts = it.sortKey;
-  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   let tsLabel = '';
   if (ts) {
     const d = new Date(ts);
-    if (!isNaN(d.getTime())) {
-      const hh = String(d.getHours()).padStart(2,'0');
-      const mm = String(d.getMinutes()).padStart(2,'0');
-      tsLabel = `${d.getDate()} ${meses[d.getMonth()]} · ${hh}:${mm}`;
-    }
+    if (!isNaN(d.getTime())) tsLabel = _waFmtDateTimeEs(d.toISOString());
   }
-  const isEdited = !!(r['Updated_at'] || r['updated_at']);
-  const inner = it.kindReport === 'inc' ? _waRenderIncCard_(r) : _waRenderObjCard_(r);
+  const timelineText = isEdited
+    ? `<span style="color:#7c3aed;font-weight:700">✎ Editado el ${_botcEsc(tsLabel)}</span>`
+    : `<span style="color:#0f172a;font-weight:700">📋 Creado el ${_botcEsc(tsLabel)}</span>`;
+  // Config visual por tipo.
+  let cfg;
+  if (kind === 'inc') {
+    const nivel = String(r['Nivel']||'Baja');
+    const estatus = String(r['Estatus']||'Pendiente');
+    const motivoCls = (typeof incMotivoColorClass === 'function') ? incMotivoColorClass(r['Motivos']||'') : 'default';
+    const BG = { Limpieza:'#06b6d4', Mantenimiento:'#f59e0b', Insumos:'#8b5cf6', default:'#dc2626' };
+    const headerBg = BG[motivoCls] || BG.default;
+    const estBg = estatus === 'Resuelto' ? '#dcfce7' : estatus === 'Pendiente' ? '#fee2e2' : '#fef3c7';
+    const estCl = estatus === 'Resuelto' ? '#166534' : estatus === 'Pendiente' ? '#991b1b' : '#92400e';
+    const nivelDot = nivel === 'Alta' ? '#dc2626' : nivel === 'Media' ? '#f59e0b' : '#16a34a';
+    const titulo = [String(r['Motivos']||''), String(r['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Reporte';
+    cfg = {
+      checkBg:'#dc2626', checkFg:'#fff', checkIcon:'🚨',
+      cardBg:'#fff', cardBorder:'#fecaca',
+      chipLabel:'INCIDENCIA', chipBg:'#fee2e2', chipFg:'#991b1b',
+      titulo,
+      titleAccent: `<span title="Nivel ${_botcEsc(nivel)}" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${nivelDot};margin-left:6px;vertical-align:middle"></span>`,
+      estadoBg: estBg, estadoFg: estCl, estadoLabel: estatus,
+      headerBg,
+      dataAttr: `data-lg-inc-id="${_botcEsc(String(r['ID']||''))}"`,
+    };
+  } else {
+    const cat = String(r['Categoria']||'').trim();
+    const catOtro = String(r['Categoria_otro']||'').trim();
+    const catLabel = cat === 'Otro' ? `Otro: ${catOtro || '—'}` : (cat || 'Sin categoría');
+    const entregado = !!String(r['Fecha_entregado']||'').slice(0,10);
+    cfg = {
+      checkBg:'#059669', checkFg:'#fff', checkIcon:'🎒',
+      cardBg:'#fff', cardBorder:'#a7f3d0',
+      chipLabel:'OBJETO PERDIDO', chipBg:'#d1fae5', chipFg:'#065f46',
+      titulo: catLabel,
+      titleAccent: '',
+      estadoBg: entregado ? '#dcfce7' : '#fef3c7',
+      estadoFg: entregado ? '#166534' : '#92400e',
+      estadoLabel: entregado ? '✓ Entregado' : '⏳ Pendiente',
+      headerBg: '#059669',
+      dataAttr: `data-lg-obj-id="${_botcEsc(String(r['ID']||''))}"`,
+    };
+  }
+  const desc = String(r['Descripcion'] || '').trim();
   return `
-    <div style="margin-bottom:10px">
-      ${tsLabel ? `<div style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:4px;padding:0 4px">${isEdited?'✎ ':'📋 '}${_botcEsc(tsLabel)}${isEdited?' (editado)':''}</div>` : ''}
-      ${inner}
+    <div style="margin-bottom:6px">
+      <div style="font-size:10px;font-weight:700;color:#64748b;padding:0 2px 4px 34px">${timelineText}${isEdited && tsCreadoRaw ? ` <span style="color:#94a3b8;font-weight:600">· creado ${_botcEsc(_waFmtDateTimeEs(tsCreadoRaw.replace(' ','T')))}</span>` : ''}</div>
+      <div style="display:flex;gap:10px;align-items:stretch" ${cfg.dataAttr} role="button" tabindex="0" style="cursor:pointer">
+        <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;width:24px">
+          <div title="${cfg.chipLabel}" style="width:22px;height:22px;border-radius:50%;background:${cfg.checkBg};color:${cfg.checkFg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900">${cfg.checkIcon}</div>
+          <div style="flex:1;width:2px;background:#e5e7eb;min-height:14px"></div>
+        </div>
+        <div style="flex:1;background:${cfg.cardBg};border:1px solid ${cfg.cardBorder};border-radius:12px;overflow:hidden;cursor:pointer" ${cfg.dataAttr}>
+          <div style="background:${cfg.headerBg};height:4px"></div>
+          <div style="padding:12px 14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+              <div style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.02em;flex:1;min-width:0">
+                ${_botcEsc(cfg.titulo)}
+                ${cfg.titleAccent}
+                <span style="font-size:9px;color:${cfg.chipFg};background:${cfg.chipBg};padding:1px 6px;border-radius:999px;margin-left:4px;text-transform:none;letter-spacing:0;font-weight:800">${cfg.chipLabel}</span>
+              </div>
+              <span style="padding:3px 10px;background:${cfg.estadoBg};color:${cfg.estadoFg};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap">${_botcEsc(cfg.estadoLabel)}</span>
+            </div>
+            ${desc ? `<div style="font-size:11px;color:#475569;margin-top:4px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${_botcEsc(desc)}</div>` : ''}
+            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+              <span style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid ${cfg.cardBorder};border-radius:6px;font-weight:700;color:#0f172a">▶ Ver detalles</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>`;
 }
 
