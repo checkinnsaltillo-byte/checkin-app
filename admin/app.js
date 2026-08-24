@@ -16515,9 +16515,8 @@ window.lgScopedSaveEdit = async function(kind, id) {
   if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '⏳ Guardando…'; }
   if (cancelBtn) cancelBtn.disabled = true;
   try {
-    const action = kind === 'inc' ? 'update_incidencia' : 'update_objeto';
-    const payload = { action, id, fields, keep_urls: keepUrls, new_fotos: newFotos };
-    const res = await fetch(`${BACKEND}/${kind === 'inc' ? 'incidencias-update' : 'objetos-update'}`, {
+    const payload = { id, fields, keepUrls, fotos: newFotos };
+    const res = await fetch(`https://api.check-inn.mx/${kind === 'inc' ? 'update-incidencia' : 'update-objeto'}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     });
     const data = await res.json();
