@@ -42209,11 +42209,42 @@ function _botcPickBestBooking(list) {
   return past || list[0];
 }
 
+// Clasifica una conversación en 4 buckets según el booking asociado.
+// - concluida: la reserva ya terminó (departure < hoy).
+// - reservas:  hay reserva activa o próxima.
+// - cotizacion: hay contacto pero sin reserva. Heurística: número existe
+//   en el sheet Cotizaciones o el nombre coincide (por ahora: sin bk
+//   pero con nombre → cotización).
+// - entrantes: número desconocido (sin bk ni nombre).
+function _botcClassifyConv_(c, bk) {
+  try {
+    if (bk) {
+      const dep = String(bk.DateDeparture || '').slice(0,10);
+      const today = new Date().toISOString().slice(0,10);
+      if (dep && dep < today) return 'concluida';
+      return 'reservas';
+    }
+  } catch(_){}
+  const name = String(c.name || '').trim();
+  return name ? 'cotizacion' : 'entrantes';
+}
+window.botcSetSidebarView_ = function(mode) {
+  BOTC_STATE.viewMode = mode;
+  _botcRenderSidebar();
+};
+
 function _botcRenderSidebar() {
   const sidebar = document.getElementById('botc-sidebar');
   if (!sidebar) return;
+  // Barra superior de visualización.
+  BOTC_STATE.viewMode = BOTC_STATE.viewMode || 'cronologico';
+  const tabsHtml = `
+    <div id="botc-view-tabs" style="display:flex;gap:6px;padding:10px 10px 6px;background:#f8fafc;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:5">
+      <button type="button" onclick="botcSetSidebarView_('cronologico')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:800;background:${BOTC_STATE.viewMode==='cronologico'?'#0f172a':'#fff'};color:${BOTC_STATE.viewMode==='cronologico'?'#fff':'#475569'};border:1.5px solid ${BOTC_STATE.viewMode==='cronologico'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer">🕐 Cronológico</button>
+      <button type="button" onclick="botcSetSidebarView_('clasificado')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:800;background:${BOTC_STATE.viewMode==='clasificado'?'#0f172a':'#fff'};color:${BOTC_STATE.viewMode==='clasificado'?'#fff':'#475569'};border:1.5px solid ${BOTC_STATE.viewMode==='clasificado'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer">📂 Clasificado</button>
+    </div>`;
   if (!BOTC_STATE.conversations.length) {
-    sidebar.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Sin conversaciones con este filtro.</div>';
+    sidebar.innerHTML = tabsHtml + '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Sin conversaciones con este filtro.</div>';
     return;
   }
   const items = BOTC_STATE.conversations.map(c => {
@@ -42276,9 +42307,36 @@ function _botcRenderSidebar() {
     const wrap = `<div class="botc-conv-item" data-botc-phone="${_botcEsc(c.phone)}"
         onclick="botcOpenChat('${_botcEsc(c.phone)}')"
         style="position:relative;background:${selected?'#eff6ff':'#fff'};border:1px solid #e2e8f0;border-left:3px solid ${selected?'#3b82f6':'transparent'};border-radius:12px;margin:8px 10px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06);cursor:pointer">${rich || lite}${chatMeta}</div>`;
-    return wrap;
-  }).join('');
-  sidebar.innerHTML = items;
+    return { html: wrap, cat: _botcClassifyConv_(c, bk) };
+  });
+  let listHtml = '';
+  if (BOTC_STATE.viewMode === 'clasificado') {
+    const CATS = [
+      { key:'entrantes',  label:'Entrantes',  color:'#0f172a', accent:'#334155' },
+      { key:'cotizacion', label:'Cotización', color:'#b45309', accent:'#f59e0b' },
+      { key:'reservas',   label:'Reservas',   color:'#15803d', accent:'#22c55e' },
+      { key:'concluida',  label:'Concluidas', color:'#475569', accent:'#94a3b8' },
+    ];
+    const buckets = { entrantes:[], cotizacion:[], reservas:[], concluida:[] };
+    items.forEach(it => { (buckets[it.cat] || buckets.entrantes).push(it.html); });
+    listHtml = CATS.map(cat => {
+      const arr = buckets[cat.key] || [];
+      if (!arr.length) return '';
+      return `
+        <div style="display:flex;flex-direction:column;gap:0;margin-top:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:transparent;border-bottom:3px solid ${cat.accent};margin:0 10px">
+            <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+              <span style="font-size:11px;color:${cat.color};font-weight:900;letter-spacing:.06em;text-transform:uppercase">${cat.label}</span>
+              <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:${cat.accent};color:#fff;border-radius:999px;font-size:11px;font-weight:800">${arr.length}</span>
+            </div>
+          </div>
+          ${arr.join('')}
+        </div>`;
+    }).join('');
+  } else {
+    listHtml = items.map(it => it.html).join('');
+  }
+  sidebar.innerHTML = tabsHtml + listHtml;
   // Enrichment async: para conversations sin booking cacheado, buscar
   // y luego re-render solo la sidebar (no todo el módulo).
   _botcEnrichPendingBookings();
