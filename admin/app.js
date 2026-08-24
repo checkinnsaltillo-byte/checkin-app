@@ -16544,6 +16544,19 @@ window.lgScopedSaveEdit = async function(kind, id) {
       body.innerHTML = lgRewriteEditOnclicks(roFn(row, id), kind, id);
       body.classList.remove('editing');
     }
+    // Refresh de vistas relacionadas sin cambiar de tab:
+    // - Timeline de la ventana lateral WA (todas las pestañas)
+    // - Lista principal de Incidencias / Objetos (si está visible)
+    try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
+    try {
+      if (kind === 'inc' && typeof incRenderCards === 'function') {
+        const cont = document.getElementById('inc-cards');
+        if (cont) incRenderCards();
+      } else if (kind === 'obj' && typeof objRenderCards === 'function') {
+        const cont = document.getElementById('obj-cards');
+        if (cont) objRenderCards();
+      }
+    } catch(_){}
   } catch (e) {
     alert('Error al guardar: ' + (e.message || e));
     if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '💾 Guardar cambios y Salir'; }
