@@ -38600,17 +38600,20 @@ function _waCloseRtMenus_(id) {
   document.querySelectorAll(`.wa-rt-menu[data-wa-rt-menu-id="${CSS.escape(id)}"]`)
     .forEach(m => { m.style.display = 'none'; });
 }
-async function _rtQuickPatch(id, patch) {
+async function _rtQuickPatch(id, patch, opts) {
+  opts = opts || {};
   const row = (RT_STATE.list||[]).find(r => String(r['ID']||'') === String(id));
   if (!row) { alert('No se encontró el reporte técnico.'); return; }
-  const key = Object.keys(patch)[0];
-  const val = patch[key];
-  const pretty = key === 'Estado' ? 'Estado' : 'Prioridad';
-  const labelMap = key === 'Estado'
-    ? Object.fromEntries(RT_ESTADOS.map(e => [e.key, e.label]))
-    : Object.fromEntries(RT_PRIORIDADES.map(p => [p.key, p.label]));
-  const humanVal = labelMap[val] || val;
-  if (!confirm(`¿Actualizar ${pretty} a "${humanVal}"?`)) return;
+  if (!opts.skipConfirm) {
+    const estMap = Object.fromEntries(RT_ESTADOS.map(e => [e.key, e.label]));
+    const prioMap = Object.fromEntries(RT_PRIORIDADES.map(p => [p.key, p.label]));
+    const parts = Object.keys(patch).map(k => {
+      const v = patch[k];
+      const h = k === 'Estado' ? (estMap[v] || v) : k === 'Prioridad' ? (prioMap[v] || v) : v;
+      return `${k}="${h}"`;
+    });
+    if (!confirm(`¿Actualizar ${parts.join(', ')}?`)) return;
+  }
   try {
     const payload = Object.assign({}, row, patch);
     const r = await fetch('https://api.check-inn.mx/reportes-tecnicos-upsert', {
@@ -38619,7 +38622,10 @@ async function _rtQuickPatch(id, patch) {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'Error al actualizar');
-    row[key] = val;
+    // Aplicar TODOS los keys del patch al row en memoria.
+    Object.keys(patch).forEach(k => { row[k] = patch[k]; });
+    const key = Object.keys(patch)[0];
+    const val = patch[key];
     // Si el panel "Ver mensaje" de esta RT está abierto y cambió el Estado,
     // re-auto-seleccionar la plantilla adecuada.
     if (key === 'Estado') {
@@ -43132,10 +43138,64 @@ function rtRenderList() {
           </div>
           <span style="font-size:14px;color:${col.color};transition:transform .2s;transform:rotate(${isCollapsed?'-90':'0'}deg);line-height:1">▾</span>
         </button>
-        <div style="display:${isCollapsed?'none':'flex'};flex-direction:column;gap:10px">${cardsHtml}</div>
+        <div class="rt-col-drop" data-rt-col="${col.key}"
+          ondragover="rtDragOver_(event,this)"
+          ondragleave="rtDragLeave_(event,this)"
+          ondrop="rtDrop_(event,'${col.key}',this)"
+          style="display:${isCollapsed?'none':'flex'};flex-direction:column;gap:10px;min-height:60px;padding:4px;border-radius:10px;border:2px dashed transparent;transition:background .15s,border-color .15s">${cardsHtml}</div>
       </div>`;
   }).join('');
 }
+window.rtDragStart_ = function(e, id) {
+  try { e.dataTransfer.setData('text/rt-id', id); e.dataTransfer.effectAllowed = 'move'; } catch(_){}
+  window.__rtDragId = id;
+  const el = e.currentTarget;
+  if (el && el.style) { el.style.opacity = '0.5'; el.style.cursor = 'grabbing'; }
+};
+window.rtDragEnd_ = function(e) {
+  const el = e.currentTarget;
+  if (el && el.style) { el.style.opacity = ''; el.style.cursor = 'grab'; }
+  window.__rtDragId = null;
+  document.querySelectorAll('.rt-col-drop').forEach(d => {
+    d.style.background = ''; d.style.borderColor = 'transparent';
+  });
+};
+window.rtDragOver_ = function(e, drop) {
+  e.preventDefault();
+  try { e.dataTransfer.dropEffect = 'move'; } catch(_){}
+  drop.style.background = '#f1f5f9';
+  drop.style.borderColor = '#94a3b8';
+};
+window.rtDragLeave_ = function(e, drop) {
+  if (drop.contains(e.relatedTarget)) return;
+  drop.style.background = '';
+  drop.style.borderColor = 'transparent';
+};
+window.rtDrop_ = function(e, colKey, drop) {
+  e.preventDefault();
+  drop.style.background = ''; drop.style.borderColor = 'transparent';
+  const id = (e.dataTransfer && e.dataTransfer.getData('text/rt-id')) || window.__rtDragId;
+  if (!id) return;
+  const row = (RT_STATE.list||[]).find(r => String(r['ID']||'') === String(id));
+  if (!row) return;
+  const today = new Date().toISOString().slice(0,10);
+  const curEst = _rtNormalizeEstado(row.Estado);
+  const patch = {};
+  if (colKey === 'nuevos')          patch.Estado = 'nuevo';
+  else if (colKey === 'en_proceso') patch.Estado = 'en_proceso';
+  else if (colKey === 'concluidos') patch.Estado = 'resuelto';
+  else if (colKey === 'programados') {
+    // Programados = Fecha futura + estado activo. Si viene de resuelto/cancelado,
+    // reactivar como en_proceso. Fecha por default = mañana.
+    if (curEst === 'resuelto' || curEst === 'cancelado') patch.Estado = 'en_proceso';
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    patch.Fecha = tomorrow.toISOString().slice(0,10);
+  }
+  // Si ya está en la columna destino (según reglas actuales), no hacer nada.
+  const wouldChange = Object.keys(patch).some(k => String(row[k]||'') !== String(patch[k]));
+  if (!wouldChange) return;
+  _rtQuickPatch(id, patch, { skipConfirm: true });
+};
 window.rtToggleColumn_ = function(key) {
   if (!RT_STATE.collapsed) RT_STATE.collapsed = new Set();
   if (RT_STATE.collapsed.has(key)) RT_STATE.collapsed.delete(key);
@@ -43184,7 +43244,11 @@ function _rtRenderCard(row) {
   }).join('');
   return `
     <div onclick="rtOpenCapture('${_rtEscA(id)}')" role="button" tabindex="0"
-      style="cursor:pointer;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;transition:transform .12s,box-shadow .12s;box-shadow:0 2px 6px rgba(15,23,42,.06)"
+      draggable="true"
+      ondragstart="rtDragStart_(event,'${_rtEscA(id)}')"
+      ondragend="rtDragEnd_(event)"
+      data-rt-card-id="${_rtEscA(id)}"
+      style="cursor:grab;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;transition:transform .12s,box-shadow .12s;box-shadow:0 2px 6px rgba(15,23,42,.06)"
       onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(15,23,42,.12)'"
       onmouseout="this.style.transform='';this.style.boxShadow='0 2px 6px rgba(15,23,42,.06)'">
       <div style="background:linear-gradient(90deg,${prio.color},${prio.color}cc);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
