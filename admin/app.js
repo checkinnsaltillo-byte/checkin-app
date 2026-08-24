@@ -43280,33 +43280,41 @@ function _rtRenderByDay_(cont, rows) {
 // Cada celda muestra cantidad de reportes en ese día × categoría.
 // Click en celda con >=1 → abre panel lateral derecho con vista Día filtrada.
 function _rtRenderCalendar_(cont, rows) {
-  // Rango: primer día del mes actual → +60 días (2 meses aprox).
   const today = new Date(); today.setHours(0,0,0,0);
   const start = new Date(today.getFullYear(), today.getMonth(), 1);
   const totalDays = 62;
   const end = new Date(start); end.setDate(start.getDate() + totalDays - 1);
   const DOW = ['D','L','M','M','J','V','S'];
   const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  // Bucket: byCatByDay[catKey][iso] = count / rows
-  const byCatByDay = {};
-  const rowsByCatByDay = {};
+  // Bucket: por Propiedad → por Depto ('' = total) → por ISO → rows[]
+  // La clave '' agrega TODOS los rows de la propiedad (con o sin depto).
+  const byPropDeptDay = {};
+  const propOrder = [];
+  const deptSetByProp = {};
   for (const r of rows) {
     const iso = String(r.Fecha || '').slice(0,10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) continue;
     const d = new Date(iso + 'T12:00:00'); d.setHours(0,0,0,0);
     if (d < start || d > end) continue;
-    const cat = String(r.Categoria || 'otros');
-    if (!byCatByDay[cat]) { byCatByDay[cat] = {}; rowsByCatByDay[cat] = {}; }
-    byCatByDay[cat][iso] = (byCatByDay[cat][iso] || 0) + 1;
-    if (!rowsByCatByDay[cat][iso]) rowsByCatByDay[cat][iso] = [];
-    rowsByCatByDay[cat][iso].push(r);
+    const prop = String(r.Propiedad || '(Sin propiedad)').trim();
+    const dept = String(r['# Departamento'] || '').trim();
+    if (!byPropDeptDay[prop]) {
+      byPropDeptDay[prop] = { '': {} };
+      propOrder.push(prop);
+      deptSetByProp[prop] = new Set();
+    }
+    if (dept) deptSetByProp[prop].add(dept);
+    (byPropDeptDay[prop][''][iso] = byPropDeptDay[prop][''][iso] || []).push(r);
+    const dk = dept || '(sin depto)';
+    if (!byPropDeptDay[prop][dk]) byPropDeptDay[prop][dk] = {};
+    (byPropDeptDay[prop][dk][iso] = byPropDeptDay[prop][dk][iso] || []).push(r);
   }
-  window.__rtCalRows = rowsByCatByDay; // para el panel lateral
-  // Filas: TODAS las categorías canónicas (RT_CATEGORIAS) para verlas
-  // aunque no tengan actividad — permite programar futuros.
-  const CATS = RT_CATEGORIAS.slice();
+  propOrder.sort((a,b) => a.localeCompare(b,'es'));
+  window.__rtCalRows = byPropDeptDay;
+  RT_STATE.calExpProps = RT_STATE.calExpProps || new Set();
+
   cont.style.cssText = 'display:block;overflow-x:auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px';
-  const CELL_W = 40, LABEL_W = 200, ROW_H = 44;
+  const CELL_W = 44, LABEL_W = 220, ROW_H = 46;
   // Header
   let headCells = '';
   for (let i = 0; i < totalDays; i++) {
@@ -43324,45 +43332,78 @@ function _rtRenderCalendar_(cont, rows) {
       <div style="font-size:13px;font-weight:800;color:${isToday?'#92400e':'#0f172a'}">${d.getDate()}</div>
     </div>`;
   }
-  let html = `<div style="min-width:${LABEL_W + CELL_W*totalDays}px">
-    <div style="display:flex;position:sticky;top:0;z-index:3;background:#fff;padding-top:10px">
-      <div style="width:${LABEL_W}px;flex-shrink:0;padding:22px 12px 6px;font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;border-bottom:2px solid #e2e8f0;background:#fff;position:sticky;left:0;z-index:4">📂 Categoría</div>
-      ${headCells}
-    </div>`;
-  // Filas por categoría
-  for (const cat of CATS) {
-    const map = byCatByDay[cat.key] || {};
+  const renderCells = (dayMap) => {
     let cells = '';
     for (let i = 0; i < totalDays; i++) {
       const d = new Date(start); d.setDate(start.getDate() + i);
       const iso = d.toISOString().slice(0,10);
-      const cnt = map[iso] || 0;
+      const items = dayMap[iso] || [];
+      const cnt = items.length;
       const dow = d.getDay();
       const isWknd = dow === 0 || dow === 6;
       const isToday = d.getTime() === today.getTime();
-      const bg = cnt > 0
-        ? (isToday ? '#fde68a' : '#dbeafe')
-        : (isToday ? '#fef9c3' : (isWknd ? '#f8fafc' : '#fff'));
-      const color = cnt > 0 ? '#1e3a8a' : '#cbd5e1';
-      const clickable = cnt > 0
-        ? `onclick="rtCalOpenDay_('${_rtEscA(cat.key)}','${iso}')" style="cursor:pointer"`
-        : '';
-      cells += `<div ${clickable} title="${cat.label} · ${iso} · ${cnt} reporte(s)"
-        style="width:${CELL_W}px;height:${ROW_H}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${bg};color:${color};border-left:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9;font-size:13px;font-weight:800;transition:background .1s">${cnt || ''}</div>`;
+      // Intensidad progresiva por cantidad (oscuro cuando hay actividad)
+      let bg, fg;
+      if (cnt === 0) {
+        bg = isToday ? '#fef9c3' : (isWknd ? '#f8fafc' : '#fff');
+        fg = '#cbd5e1';
+      } else if (cnt === 1) { bg = '#3b82f6'; fg = '#fff'; }
+      else if (cnt === 2)  { bg = '#2563eb'; fg = '#fff'; }
+      else if (cnt <= 4)   { bg = '#1d4ed8'; fg = '#fff'; }
+      else                 { bg = '#1e3a8a'; fg = '#fff'; }
+      cells += `<div ${cnt>0?`onclick="rtCalOpenDay_(this.dataset.prop,this.dataset.dept,'${iso}')" style="cursor:pointer"`:''}
+        data-prop="${dayMap.__prop || ''}" data-dept="${dayMap.__dept || ''}"
+        title="${_rtEsc((dayMap.__label||''))} · ${iso} · ${cnt} reporte(s)"
+        style="width:${CELL_W}px;height:${ROW_H}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${bg};color:${fg};border-left:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9;font-size:14px;font-weight:800;transition:filter .1s"
+        onmouseover="${cnt>0?"this.style.filter='brightness(1.1)'":''}"
+        onmouseout="${cnt>0?"this.style.filter=''":''}">${cnt || ''}</div>`;
     }
-    html += `<div style="display:flex">
-      <div style="width:${LABEL_W}px;flex-shrink:0;padding:8px 12px;display:flex;align-items:center;gap:8px;background:#fff;border-bottom:1px solid #f1f5f9;border-right:1px solid #e2e8f0;position:sticky;left:0;z-index:2">
-        <span style="font-size:16px">${cat.icon}</span>
-        <span style="font-size:12px;font-weight:700;color:#334155">${cat.label}</span>
-      </div>
-      ${cells}
+    return cells;
+  };
+
+  let html = `<div style="min-width:${LABEL_W + CELL_W*totalDays}px">
+    <div style="display:flex;position:sticky;top:0;z-index:3;background:#fff;padding-top:10px">
+      <div style="width:${LABEL_W}px;flex-shrink:0;padding:22px 12px 6px;font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;border-bottom:2px solid #e2e8f0;background:#fff;position:sticky;left:0;z-index:4">🏢 Propiedad</div>
+      ${headCells}
     </div>`;
+
+  for (const prop of propOrder) {
+    const dpts = Array.from(deptSetByProp[prop]).sort((a,b) => a.localeCompare(b,'es',{numeric:true}));
+    const isExp = RT_STATE.calExpProps.has(prop);
+    const dayMap = Object.assign({}, byPropDeptDay[prop][''], { __prop: prop, __dept: '', __label: prop });
+    const chevron = dpts.length ? `<span style="font-size:12px;color:#94a3b8;transition:transform .2s;display:inline-block;transform:rotate(${isExp?'0':'-90'}deg)">▾</span>` : '<span style="width:12px;display:inline-block"></span>';
+    html += `<div style="display:flex">
+      <div ${dpts.length?`onclick="rtCalTogglePropExp_('${_rtEscA(prop)}')" style="cursor:pointer"`:''}
+        style="width:${LABEL_W}px;flex-shrink:0;padding:10px 12px;display:flex;align-items:center;gap:8px;background:#f8fafc;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;position:sticky;left:0;z-index:2">
+        ${chevron}
+        <span style="font-size:13px;font-weight:800;color:#0f172a;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${_rtEsc(prop)}">${_rtEsc(prop)}</span>
+        ${dpts.length ? `<span style="font-size:10px;color:#64748b;background:#e2e8f0;padding:1px 6px;border-radius:99px;font-weight:800">${dpts.length}</span>` : ''}
+      </div>
+      ${renderCells(dayMap)}
+    </div>`;
+    if (isExp) {
+      for (const dept of dpts) {
+        const dm = Object.assign({}, byPropDeptDay[prop][dept] || {}, { __prop: prop, __dept: dept, __label: `${prop} · #${dept}` });
+        html += `<div style="display:flex">
+          <div style="width:${LABEL_W}px;flex-shrink:0;padding:8px 12px 8px 34px;display:flex;align-items:center;gap:6px;background:#fff;border-bottom:1px solid #f1f5f9;border-right:1px solid #e2e8f0;position:sticky;left:0;z-index:2">
+            <span style="font-size:12px;color:#64748b">└</span>
+            <span style="font-size:12px;font-weight:700;color:#475569">#${_rtEsc(dept)}</span>
+          </div>
+          ${renderCells(dm)}
+        </div>`;
+      }
+    }
   }
   html += `</div>`;
   cont.innerHTML = html;
-  // Asegurar panel lateral en el DOM
   _rtEnsureCalSidePanel_();
 }
+window.rtCalTogglePropExp_ = function(prop) {
+  RT_STATE.calExpProps = RT_STATE.calExpProps || new Set();
+  if (RT_STATE.calExpProps.has(prop)) RT_STATE.calExpProps.delete(prop);
+  else RT_STATE.calExpProps.add(prop);
+  rtRenderList();
+};
 function _rtEnsureCalSidePanel_() {
   if (document.getElementById('rt-cal-side-panel')) return;
   const back = document.createElement('div');
@@ -43381,10 +43422,11 @@ function _rtEnsureCalSidePanel_() {
   document.body.appendChild(back);
   document.body.appendChild(panel);
 }
-window.rtCalOpenDay_ = function(catKey, iso) {
+window.rtCalOpenDay_ = function(prop, dept, iso) {
   _rtEnsureCalSidePanel_();
-  const rowsMap = (window.__rtCalRows || {})[catKey] || {};
-  const items = (rowsMap[iso] || []).slice();
+  const store = (window.__rtCalRows || {})[prop] || {};
+  const bucket = dept ? (store[dept] || {}) : (store[''] || {});
+  const items = (bucket[iso] || []).slice();
   const PRIO_RANK = { critica:0, alta:1, media:2, baja:3 };
   items.sort((a,b) => {
     const pa = PRIO_RANK[_rtNormalizePrio(a.Prioridad)] ?? 9;
@@ -43392,9 +43434,9 @@ window.rtCalOpenDay_ = function(catKey, iso) {
     if (pa !== pb) return pa - pb;
     return String(b.Timestamp||'').localeCompare(String(a.Timestamp||''));
   });
-  const cat = RT_CATEGORIAS.find(c => c.key === catKey) || { icon:'📂', label:catKey };
+  const label = dept ? `${prop} · #${dept}` : prop;
   document.getElementById('rt-cal-side-title').innerHTML =
-    `<span style="font-size:18px;margin-right:6px">${cat.icon}</span>${_rtEsc(cat.label)} · ${_rtEsc(_rtFmtFechaLarga_(iso))} · <span style="color:#64748b">${items.length}</span>`;
+    `<span style="font-size:18px;margin-right:6px">🏢</span>${_rtEsc(label)} · ${_rtEsc(_rtFmtFechaLarga_(iso))} · <span style="color:#64748b">${items.length}</span>`;
   const body = document.getElementById('rt-cal-side-body');
   body.innerHTML = items.length
     ? items.map(r => _rtRenderCard(r)).join('')
