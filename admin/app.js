@@ -38498,7 +38498,22 @@ window.waReportSendNow_ = async function(kind, id) {
     // por acción → NO aparece en Programados (filtrado por _waIsReportTriggeredCustom_).
     // Incluye reportId en el tipo para poder resolver el reporte al pintar
     // la card en el timeline. Formato: report-{kind}-{reportId}
-    const tipo = `report-${kind}-${id}`;
+    // Estado del reporte al momento del envío (para pintar chip en la card
+    // del timeline). Formato: report-{kind}-{reportId}-{estadoSlug}
+    let estadoSlug = '';
+    try {
+      if (kind === 'inc') {
+        const r = (INC_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+        if (r) estadoSlug = incNormalizeEstatus(r['Estatus']).toLowerCase().replace(/\s+/g,'_');
+      } else if (kind === 'rt') {
+        const r = (RT_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+        if (r) estadoSlug = _rtNormalizeEstado(r['Estado']);
+      } else if (kind === 'obj') {
+        const r = (OBJ_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+        if (r) estadoSlug = String(r['Fecha_entregado']||'').slice(0,10) ? 'entregado' : 'pendiente';
+      }
+    } catch(_){}
+    const tipo = estadoSlug ? `report-${kind}-${id}-${estadoSlug}` : `report-${kind}-${id}`;
     // asunto = título del reporte (mismo que se muestra en la card).
     // Fallback: nombre del template si no encontramos el reporte.
     let asunto = '';
@@ -39625,10 +39640,16 @@ function _waRenderReportSentCard_(it) {
   const st = window.__waModalState;
   const cs = it.cs;
   const tipo = String(cs.tipo || '');
-  // Formato: report-{kind}-{reportId}. reportId puede contener guiones.
-  const m = tipo.match(/^report-(inc|obj|rt)-(.+)$/i);
-  const kind = m ? m[1].toLowerCase() : 'inc';
-  const reportId = m ? m[2] : '';
+  // Formato: report-{kind}-{reportId} o report-{kind}-{reportId}-{estadoSlug}
+  const KNOWN_ESTADOS = ['nuevo','en_proceso','resuelto','cancelado','entregado','pendiente'];
+  let kind = 'inc', reportId = '', estadoSlug = '';
+  const mFull = tipo.match(/^report-(inc|obj|rt)-(.+)-(nuevo|en_proceso|resuelto|cancelado|entregado|pendiente)$/i);
+  if (mFull) {
+    kind = mFull[1].toLowerCase(); reportId = mFull[2]; estadoSlug = mFull[3].toLowerCase();
+  } else {
+    const mBase = tipo.match(/^report-(inc|obj|rt)-(.+)$/i);
+    if (mBase) { kind = mBase[1].toLowerCase(); reportId = mBase[2]; }
+  }
   // Ignora "REPORTE: alta/resuelto..." heredado como asunto — no es un
   // título válido del reporte. Solo usar cs.asunto como fallback si NO
   // parece un nombre de template de reporte.
@@ -39693,7 +39714,25 @@ function _waRenderReportSentCard_(it) {
               <span style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:.02em">${esc(titulo)}</span>
               <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:999px;background:${chipBg};color:${chipFg};letter-spacing:.04em">${chipLabel}</span>
             </div>
-            <span style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:999px;background:${chipBg};color:${chipFg}">📤 Mensaje enviado</span>
+            ${(() => {
+              // Chip del estado del reporte al momento del envío. Usa
+              // colores canónicos INC/RT; fallback si no se guardó el slug.
+              const label = (() => {
+                if (!estadoSlug) return '📤 Mensaje enviado';
+                const m = { nuevo:'Nuevo', en_proceso:'En proceso', resuelto:'Resuelto', cancelado:'Cancelado', entregado:'Entregado', pendiente:'Pendiente' };
+                return m[estadoSlug] || estadoSlug;
+              })();
+              let estBg = chipBg, estFg = chipFg;
+              if (estadoSlug && kind !== 'obj') {
+                const c = incEstatusColors(label);
+                estBg = c.bg; estFg = c.fg;
+              } else if (estadoSlug === 'entregado') {
+                estBg = '#dcfce7'; estFg = '#166534';
+              } else if (estadoSlug === 'pendiente') {
+                estBg = '#fef3c7'; estFg = '#92400e';
+              }
+              return `<span style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:999px;background:${estBg};color:${estFg}">${esc(label)}</span>`;
+            })()}
           </div>
           <div style="padding:10px 14px;background:${cardBg}">
             ${_waRecipientsSummary_(cs.to)}
