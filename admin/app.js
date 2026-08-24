@@ -38306,14 +38306,7 @@ function _waBuildReportMsgPanel_(kind, id, row) {
   return `
     <div class="wa-report-msg-panel" style="margin-top:10px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px" onclick="event.stopPropagation()">
       <div style="font-size:10px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">📩 Mensaje</div>
-      <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Plantilla</label>
-      <div style="display:flex;gap:6px;align-items:center">
-        <select onchange="waReportPickTpl_('${_botcEsc(kind)}','${_botcEsc(id)}',this.value)"
-          style="flex:1;padding:7px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;background:#fff">${options}</select>
-        <button type="button" onclick="event.stopPropagation();waReportReloadTpls_()" title="Recargar plantillas"
-          style="padding:6px 10px;font-size:12px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">🔄</button>
-      </div>
-      ${tpl ? `<div style="margin-top:10px">${phInputs}</div>
+      ${tpl ? `<div>${phInputs}</div>
         <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center">
           <label style="font-size:10px;font-weight:700;color:#475569">Previa</label>
           ${panel.editedBody == null
@@ -38323,7 +38316,7 @@ function _waBuildReportMsgPanel_(kind, id, row) {
         <div style="margin-top:4px">${preview}</div>
         <div style="margin-top:10px;text-align:right">
           <button onclick="waReportSendNow_('${_botcEsc(kind)}','${_botcEsc(id)}')" style="padding:7px 14px;background:#25d366;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">📤 Enviar ahora</button>
-        </div>` : `<div style="margin-top:8px;font-size:11px;color:#94a3b8;font-style:italic">Elige una plantilla para ver el mensaje.</div>`}
+        </div>` : `<div style="font-size:11px;color:#94a3b8;font-style:italic">Sin plantilla configurada para este estado. Crea "REPORTE: alta" o "REPORTE: resuelto" en Templates.</div>`}
     </div>`;
 }
 
