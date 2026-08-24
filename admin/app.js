@@ -37764,12 +37764,14 @@ function _waRenderTabsHeader_(currentTab) {
 /** Contenido del tab seleccionado. */
 function _waRenderTabContent_(st, logs) {
   const tab = st.currentTab || 'todos';
-  const progHtml = _waRenderBookingsAccordion_(logs);
+  if (tab === 'programados' || tab === 'todos') {
+    // En 'todos' las cards de reportes se inyectan DENTRO de cada acordeón
+    // de reserva vía _waRenderReportsForBooking_ — no las duplicamos abajo.
+    return _waRenderBookingsAccordion_(logs);
+  }
+  // 'reportes' — listado plano (todas las reservas del huésped).
   const reportsHtml = _waRenderReportsList_(st);
-  if (tab === 'programados') return progHtml;
-  if (tab === 'reportes')    return reportsHtml || _waEmptyState_('Sin reportes asociados a esta reserva.');
-  // 'todos' — programados + reportes en el mismo scroll.
-  return `${progHtml}${reportsHtml ? '<div style="margin-top:14px">' + reportsHtml + '</div>' : ''}`;
+  return reportsHtml || _waEmptyState_('Sin reportes asociados a esta reserva.');
 }
 
 /** Cambia tab activo sin re-fetch (solo repinta). */
@@ -37871,6 +37873,54 @@ window.waOpenReportPickerForModal_ = function() {
     alert('Función lgOpenReportPicker no disponible.');
   }
 };
+
+/** Devuelve HTML de cards de reportes (inc + obj) que matchean UN booking
+ *  específico por propiedad + depto + rango de fechas. Se inyecta dentro
+ *  del acordeón abierto de la reserva. */
+function _waRenderReportsForBooking_(bk) {
+  if (!bk) return '';
+  const alojNormFn = (typeof alojNorm === 'function') ? alojNorm : (s => String(s||'').toLowerCase().trim());
+  const arrIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(bk.DateArrival) : '') || String((bk.__reservacion && bk.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(bk.DateDeparture) : '') || String((bk.__reservacion && bk.__reservacion['Fecha de salida']) || '').slice(0,10);
+  const propRaw = bk.PropiedadRaw || (bk.__reservacion && bk.__reservacion['Propiedad']) || bk.PropertyName || '';
+  const deptRaw = bk.DepartamentoRaw || (bk.__reservacion && bk.__reservacion['# Departamento']) || '';
+  if (!arrIso || !depIso || !propRaw || !deptRaw) return '';
+  const propN = alojNormFn(propRaw), deptN = alojNormFn(deptRaw);
+  const cards = [];
+  const incList = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list)) ? INC_STATE.list : [];
+  const objList = (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list)) ? OBJ_STATE.list : [];
+  // Trigger de carga si están vacías (una sola vez por sesión).
+  if (!incList.length && typeof incLoadIncidencias === 'function' && typeof INC_STATE !== 'undefined' && !INC_STATE.__waLoadTriggered) {
+    INC_STATE.__waLoadTriggered = true;
+    incLoadIncidencias().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+  }
+  if (!objList.length && typeof objLoadObjetos === 'function' && typeof OBJ_STATE !== 'undefined' && !OBJ_STATE.__waLoadTriggered) {
+    OBJ_STATE.__waLoadTriggered = true;
+    objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+  }
+  incList.forEach(r => {
+    if (alojNormFn(r['Propiedad']) !== propN) return;
+    if (alojNormFn(r['# Departamento']) !== deptN) return;
+    const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+    if (!f || f < arrIso || f > depIso) return;
+    cards.push({ kind:'inc', row:r, sortKey:f });
+  });
+  objList.forEach(r => {
+    if (alojNormFn(r['Propiedad']) !== propN) return;
+    if (alojNormFn(r['# Departamento']) !== deptN) return;
+    const f = String(r['Fecha_encontrado'] || '').slice(0,10);
+    if (!f || f < arrIso || f > depIso) return;
+    cards.push({ kind:'obj', row:r, sortKey:f });
+  });
+  if (!cards.length) return '';
+  cards.sort((a,b) => b.sortKey.localeCompare(a.sortKey));
+  const html = cards.map(c => c.kind === 'inc' ? _waRenderIncCard_(c.row) : _waRenderObjCard_(c.row)).join('');
+  return `
+    <div style="background:#fef3c7;border:1px dashed #fcd34d;border-radius:8px;padding:8px 10px;margin-bottom:10px">
+      <div style="font-size:10px;font-weight:800;color:#92400e;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">🚨 Reportes de esta reserva</div>
+      <div style="display:flex;flex-direction:column;gap:8px">${html}</div>
+    </div>`;
+}
 
 function _waRenderIncCard_(row) {
   const id = String(row['ID']||'');
@@ -38200,7 +38250,12 @@ function _waRenderBookingsAccordion_(logs) {
           Cargando mensajes de esta reserva…
         </div>`;
       } else {
+        // Reportes específicos de ESTA reserva (inc + obj cruzados por
+        // propiedad + depto + rango de fechas) — arriba del historial.
+        let reportsInside = '';
+        try { reportsInside = _waRenderReportsForBooking_(bk); } catch(_){}
         content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
+          ${reportsInside}
           ${_waRenderUnifiedList_(logs)}
         </div>`;
       }
