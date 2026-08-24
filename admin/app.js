@@ -38362,30 +38362,43 @@ function _waRenderIncCard_(row) {
   const depto = String(row['# Departamento']||'').trim();
   const aloj = String(row['Alojamiento']||'').trim() || (propiedad && depto ? `${propiedad} - #${depto}` : propiedad);
   const fecha = String(row['Fecha']||row['Timestamp']||'').slice(0,10);
-  const nivel = String(row['Nivel']||'Baja');
-  const estatus = String(row['Estatus']||'Pendiente');
+  const nivel = incNormalizeNivel(row['Nivel']);
+  const estatus = incNormalizeEstatus(row['Estatus']);
   const motivoCls = (typeof incMotivoColorClass === 'function') ? incMotivoColorClass(row['Motivos']||'') : 'default';
   const BG = { Limpieza:'#06b6d4', Mantenimiento:'#f59e0b', Insumos:'#8b5cf6', default:'#64748b' };
   const headerBg = BG[motivoCls] || BG.default;
-  const estBg = estatus === 'Resuelto' ? '#dcfce7' : estatus === 'Pendiente' ? '#fee2e2' : '#fef3c7';
-  const estCl = estatus === 'Resuelto' ? '#166534' : estatus === 'Pendiente' ? '#991b1b' : '#92400e';
-  const nivelDot = nivel === 'Alta' ? '#dc2626' : nivel === 'Media' ? '#f59e0b' : '#16a34a';
-  // Look homologado al de mensajes programados: card con border-radius, sombra, header colorido.
+  const estC = incEstatusColors(estatus);
+  const nivelDot = incNivelDot(nivel);
+  const nivelChip = `<span data-wa-inc-id="${esc(id)}" data-wa-inc-nivel-chip="1"
+      onclick="event.stopPropagation();waIncToggleMenu_('${esc(id)}','nivel')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 6px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;cursor:pointer"
+      title="Cambiar prioridad">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${nivelDot}"></span>
+      <span style="font-size:10px;font-weight:800;color:#334155;text-transform:none;letter-spacing:.02em">${esc(nivel)}</span>
+      <span style="font-size:8px;color:#94a3b8">▾</span>
+    </span>`;
+  const estChip = `<span data-wa-inc-id="${esc(id)}" data-wa-inc-est-chip="1"
+      onclick="event.stopPropagation();waIncToggleMenu_('${esc(id)}','est')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:${estC.bg};color:${estC.fg};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap;cursor:pointer;border:1.5px solid ${estC.fg}22"
+      title="Cambiar estatus">
+      ${esc(estatus)} <span style="font-size:8px;opacity:.75">▾</span>
+    </span>`;
   return `<div data-lg-inc-id="${esc(id)}" role="button" tabindex="0"
     style="cursor:pointer;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.06);transition:transform .1s,box-shadow .1s">
     <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
       <div style="flex:1;min-width:0">
         <div style="font-size:10px;letter-spacing:.14em;opacity:.9;font-weight:800">🚨 INCIDENCIA</div>
-        <div style="font-size:13px;font-weight:800;margin-top:2px;display:flex;align-items:center;gap:8px">
+        <div style="font-size:13px;font-weight:800;margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span>${esc(titulo)}</span>
-          <span title="Nivel ${esc(nivel)}" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${nivelDot};flex-shrink:0"></span>
+          ${nivelChip}
         </div>
       </div>
-      <span style="padding:3px 10px;background:${estBg};color:${estCl};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap">${esc(estatus)}</span>
+      ${estChip}
     </div>
     <div style="padding:10px 14px;background:#fff;font-size:12px;color:#475569;display:flex;flex-direction:column;gap:3px">
       ${aloj ? `<div>📍 ${esc(aloj)}</div>` : ''}
       ${fecha ? `<div>📅 ${esc(fecha)}</div>` : ''}
+      ${_waIncMenusHtml_(id, estatus, nivel)}
     </div>
   </div>`;
 }
