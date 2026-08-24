@@ -43123,8 +43123,17 @@ function rtRenderList() {
   if (RT_STATE.viewMode === 'calendario') return _rtRenderCalendar_(cont, rows);
   // En modo Proyectos SOLO cuando no hay focus: si hay focus caemos al kanban.
   if (RT_STATE.viewMode === 'proyectos' && !RT_STATE.projFocus) return _rtRenderProjects_(cont, rows);
-  // Bucket por columna: Nuevos · En proceso · Concluidos · Programados
-  // Programados = Fecha > hoy y no está resuelto/cancelado.
+  cont.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start';
+  if (!document.getElementById('rt-kanban-mq')) {
+    const s = document.createElement('style');
+    s.id = 'rt-kanban-mq';
+    s.textContent = '@media (max-width: 900px){ #rt-cards-list, .rt-kanban-grid{ grid-template-columns:1fr !important; } }';
+    document.head.appendChild(s);
+  }
+  cont.innerHTML = _rtBuildKanbanHtml_(rows);
+}
+// Devuelve HTML del kanban de 4 columnas para un array de rows.
+function _rtBuildKanbanHtml_(rows) {
   const today = new Date().toISOString().slice(0,10);
   const buckets = { nuevos:[], en_proceso:[], concluidos:[], programados:[] };
   for (const r of rows) {
@@ -43144,16 +43153,7 @@ function rtRenderList() {
     { key:'programados', label:'Programados', color:'#4338ca', accent:'#6366f1' },
   ];
   RT_STATE.collapsed = RT_STATE.collapsed || new Set();
-  cont.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start';
-  // Responsive mobile: en <900px apila columnas verticalmente. Se aplica
-  // via media query inyectada una sola vez.
-  if (!document.getElementById('rt-kanban-mq')) {
-    const s = document.createElement('style');
-    s.id = 'rt-kanban-mq';
-    s.textContent = '@media (max-width: 900px){ #rt-cards-list{ grid-template-columns:1fr !important; } }';
-    document.head.appendChild(s);
-  }
-  cont.innerHTML = COLS.map(col => {
+  return COLS.map(col => {
     const items = buckets[col.key] || [];
     const isCollapsed = RT_STATE.collapsed.has(col.key);
     const cardsHtml = items.length
@@ -43544,9 +43544,9 @@ function _rtProjProgress_(project) {
 }
 function _rtRenderProjects_(cont, rows) {
   const projects = _rtLoadProjects_();
-  cont.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px';
+  cont.style.cssText = 'display:flex;flex-direction:column;gap:10px';
   if (!projects.length) {
-    cont.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;background:#fff;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b">
+    cont.innerHTML = `<div style="text-align:center;padding:60px 20px;background:#fff;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b">
       <div style="font-size:32px;margin-bottom:6px">📁</div>
       <div style="font-size:14px;font-weight:800;color:#334155;margin-bottom:4px">No hay proyectos aún</div>
       <div style="font-size:12px;margin-bottom:14px">Un proyecto agrupa varias tareas con fechas y avance.</div>
@@ -43554,37 +43554,47 @@ function _rtRenderProjects_(cont, rows) {
     </div>`;
     return;
   }
+  RT_STATE.projExpanded = RT_STATE.projExpanded || new Set();
   cont.innerHTML = projects.map(p => {
     const pr = _rtProjProgress_(p);
     const barColor = pr.pct === 100 ? '#16a34a' : (pr.pct >= 50 ? '#3b82f6' : (pr.pct > 0 ? '#f59e0b' : '#cbd5e1'));
+    const isExp = RT_STATE.projExpanded.has(p.id);
+    const projRows = (RT_STATE.list||[]).filter(r => (p.rtIds||[]).map(String).includes(String(r.ID)));
     return `
-      <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.06);display:flex;flex-direction:column">
-        <div style="background:linear-gradient(90deg,#4338ca,#6366f1);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer" onclick="rtProjOpen_('${_rtEscA(p.id)}')">
-          <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
-            <span style="font-size:16px">📁</span>
-            <span style="font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${_rtEsc(p.nombre)}">${_rtEsc(p.nombre)}</span>
+      <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.06)">
+        <button type="button" onclick="rtProjToggleExpand_('${_rtEscA(p.id)}')"
+          style="width:100%;background:linear-gradient(90deg,#4338ca,#6366f1);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;border:0;cursor:pointer;text-align:left;font-family:inherit;flex-wrap:wrap">
+          <span style="font-size:14px;color:#fff;transition:transform .2s;transform:rotate(${isExp?'0':'-90'}deg);line-height:1;flex:none">▾</span>
+          <span style="font-size:16px;flex:none">📁</span>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${_rtEsc(p.nombre)}">${_rtEsc(p.nombre)}</div>
+            ${p.descripcion ? `<div style="font-size:11px;opacity:.85;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_rtEsc(p.descripcion)}</div>` : ''}
           </div>
-          <span style="font-size:10px;background:rgba(255,255,255,.22);padding:2px 8px;border-radius:99px;font-weight:800">${pr.done}/${pr.total}</span>
-        </div>
-        <div style="padding:12px 16px;flex:1">
-          ${p.descripcion ? `<div style="font-size:12px;color:#475569;margin-bottom:10px">${_rtEsc(p.descripcion)}</div>` : ''}
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span style="font-size:10px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase">Avance</span>
-            <span style="font-size:13px;font-weight:900;color:${barColor}">${pr.pct}%</span>
+          <div style="display:flex;align-items:center;gap:10px;flex:none">
+            <div style="width:140px">
+              <div style="height:8px;background:rgba(255,255,255,.25);border-radius:99px;overflow:hidden">
+                <div style="height:100%;width:${pr.pct}%;background:${barColor};border-radius:99px"></div>
+              </div>
+            </div>
+            <span style="font-size:12px;font-weight:800;white-space:nowrap">${pr.done}/${pr.total} · ${pr.pct}%</span>
+            <span onclick="event.stopPropagation();rtProjAddTask_('${_rtEscA(p.id)}')" title="Agregar tarea" style="padding:5px 10px;font-size:11px;background:#fff;color:#4338ca;border-radius:6px;cursor:pointer;font-weight:800">＋ Tarea</span>
+            <span onclick="event.stopPropagation();rtProjRename_('${_rtEscA(p.id)}')" title="Renombrar" style="padding:5px 8px;font-size:11px;background:rgba(255,255,255,.22);color:#fff;border-radius:6px;cursor:pointer;font-weight:800">✏️</span>
+            <span onclick="event.stopPropagation();rtProjDelete_('${_rtEscA(p.id)}')" title="Eliminar" style="padding:5px 8px;font-size:11px;background:rgba(255,255,255,.22);color:#fff;border-radius:6px;cursor:pointer;font-weight:800">🗑</span>
           </div>
-          <div style="height:8px;background:#f1f5f9;border-radius:99px;overflow:hidden">
-            <div style="height:100%;width:${pr.pct}%;background:${barColor};border-radius:99px;transition:width .3s"></div>
-          </div>
-          <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
-            <button onclick="rtProjViewTasks_('${_rtEscA(p.id)}')" style="padding:6px 12px;font-size:11px;background:#0f172a;color:#fff;border:0;border-radius:6px;font-weight:800;cursor:pointer">📂 Ver tareas</button>
-            <button onclick="rtProjRename_('${_rtEscA(p.id)}')" style="padding:6px 10px;font-size:11px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:6px;font-weight:700;cursor:pointer">✏️ Renombrar</button>
-            <button onclick="rtProjDelete_('${_rtEscA(p.id)}')" style="padding:6px 10px;font-size:11px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-weight:700;cursor:pointer">🗑</button>
-          </div>
+        </button>
+        <div class="rt-kanban-grid" style="display:${isExp?'grid':'none'};grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start;padding:14px 16px;background:#f8fafc">
+          ${_rtBuildKanbanHtml_(projRows)}
         </div>
       </div>`;
   }).join('');
-  _rtEnsureCalSidePanel_(); // reutilizamos el panel lateral
+  _rtEnsureCalSidePanel_();
 }
+window.rtProjToggleExpand_ = function(id) {
+  RT_STATE.projExpanded = RT_STATE.projExpanded || new Set();
+  if (RT_STATE.projExpanded.has(id)) RT_STATE.projExpanded.delete(id);
+  else RT_STATE.projExpanded.add(id);
+  rtRenderList();
+};
 window.rtProjOpen_ = function(projId) {
   const list = _rtLoadProjects_();
   const p = list.find(x => x.id === projId); if (!p) return;
