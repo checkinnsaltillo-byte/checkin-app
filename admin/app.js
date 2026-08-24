@@ -37707,20 +37707,30 @@ window.waOpenModal = async function(booking) {
   // Cargar reportes (Incidencias + Objetos) en background si aún no
   // están — así aparecen mezclados en el timeline desde el primer
   // repaint sin que el user tenga que ir manualmente al tab 'Reportes'.
-  // Sin flag __waLoadTriggered: si la carga previa falló o quedó a medias,
-  // reintentamos. incLoadIncidencias/objLoadObjetos son idempotentes.
+  // Fuerza repaint TRAS Promise.all para garantizar que ambas listas
+  // ya estén cacheadas al repintar. Además polling defensivo cada 400ms
+  // por 3s para casos donde el network va lento y aún no llegó la data.
+  const _waPromises = [];
   try {
     const incEmpty = (typeof INC_STATE === 'undefined') || !INC_STATE.list || !INC_STATE.list.length;
     if (incEmpty && typeof incLoadIncidencias === 'function') {
-      incLoadIncidencias().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+      _waPromises.push(incLoadIncidencias().catch(()=>{}));
     }
   } catch(_){}
   try {
     const objEmpty = (typeof OBJ_STATE === 'undefined') || !OBJ_STATE.list || !OBJ_STATE.list.length;
     if (objEmpty && typeof objLoadObjetos === 'function') {
-      objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+      _waPromises.push(objLoadObjetos().catch(()=>{}));
     }
   } catch(_){}
+  if (_waPromises.length) {
+    Promise.all(_waPromises).then(() => { try { _waRepaint(); } catch(_){} });
+  }
+  // Red de seguridad: repaints escalonados por si el .then anterior tarda
+  // más de lo esperado o si la data llegó pero _waRepaint corrió cuando
+  // otra booking estaba enfocada.
+  setTimeout(() => { try { _waRepaint(); } catch(_){} }, 1500);
+  setTimeout(() => { try { _waRepaint(); } catch(_){} }, 3000);
   // Cargar logs para historial (aparecen bajo cada template)
   setTimeout(_waRepaint, 900);
   setTimeout(_waRepaint, 1800);
