@@ -23035,6 +23035,18 @@ async function _incQuickPatch(id, patch) {
     if (!data.ok) throw new Error(data.error || 'Error al actualizar');
     if (changedKey === 'estatus') row['Estatus'] = changedVal;
     if (changedKey === 'nivel')   row['Nivel']   = changedVal;
+    // Si hay panel "Ver mensaje" abierto para este INC y el cambio fue de
+    // estatus, re-auto-seleccionar la plantilla (Nuevo→alta, Resuelto→resuelto).
+    if (changedKey === 'estatus') {
+      try {
+        const s = (window.__waModalState && window.__waModalState.reportMsg) || null;
+        const key = `inc:${id}`;
+        if (s && s[key] && s[key].open) {
+          const auto = _waAutoPickReportTplId_('inc', id);
+          if (auto) s[key] = Object.assign({}, s[key], { tplId: auto, customVals: {}, editedBody: null });
+        }
+      } catch(_){}
+    }
     // Repinta TODAS las card-body con este id (lista principal + panel WA).
     // La lista principal muestra el detalle sin botón Editar; el panel lateral
     // WA lo muestra con toolbar. Distinguimos por ancestro.
@@ -38295,13 +38307,76 @@ function _waBuildReportMsgPanel_(kind, id, row) {
     </div>`;
 }
 
+// Devuelve el id del template admin que aplica según el estado del reporte.
+// Nuevo → "REPORTE: alta"; Resuelto → "REPORTE: resuelto".
+function _waAutoPickReportTplId_(kind, id) {
+  const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+  if (!Object.keys(adminMap).length) return null;
+  let estado = '';
+  if (kind === 'inc') {
+    const r = (INC_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+    if (r) estado = incNormalizeEstatus(r['Estatus']);
+  } else if (kind === 'rt') {
+    const r = (RT_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+    if (r) {
+      const key = _rtNormalizeEstado(r['Estado']);
+      const meta = RT_ESTADOS.find(e => e.key === key);
+      estado = meta ? meta.label : key;
+    }
+  }
+  const wantSuffix = estado === 'Nuevo' ? 'alta'
+                   : estado === 'Resuelto' ? 'resuelto'
+                   : '';
+  if (!wantSuffix) return null;
+  const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g,' ').trim();
+  const wantName = `reporte: ${wantSuffix}`;
+  const found = Object.values(adminMap).find(t => {
+    const n = norm(t.nombre);
+    // Acepta "REPORTE: alta", "REPORTE alta", "Reporte - alta", etc.
+    return n === wantName || n === `reporte ${wantSuffix}` || (n.startsWith('reporte') && n.endsWith(wantSuffix));
+  });
+  return found ? found.id : null;
+}
 window.waReportToggleMsg_ = function(kind, id) {
   _waEnsureReportMsgState_();
   const st = window.__waModalState;
   const key = _waReportCardKey_(kind, id);
   const cur = st.reportMsg[key] || {};
-  st.reportMsg[key] = Object.assign({}, cur, { open: !cur.open });
+  const opening = !cur.open;
+  const next = Object.assign({}, cur, { open: opening });
+  // Al abrir por primera vez y sin plantilla elegida, auto-seleccionar
+  // según el estado del reporte.
+  if (opening && !next.tplId) {
+    const autoId = _waAutoPickReportTplId_(kind, id);
+    if (autoId) {
+      next.tplId = autoId;
+      next.customVals = {};
+      next.editedBody = null;
+    }
+  }
+  st.reportMsg[key] = next;
   _waRepaint();
+  // Si los templates aún no cargaron, reintentar la auto-selección tras carga.
+  if (opening && !next.tplId) {
+    const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+    if (!Object.keys(adminMap).length) {
+      const tick = () => {
+        const now = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+        if (!Object.keys(now).length) return; // aún nada
+        const auto = _waAutoPickReportTplId_(kind, id);
+        if (auto) {
+          const s = (window.__waModalState && window.__waModalState.reportMsg) || {};
+          const c = s[key] || {};
+          if (!c.tplId) {
+            s[key] = Object.assign({}, c, { tplId: auto, customVals: {}, editedBody: null });
+            try { _waRepaint(); } catch(_){}
+          }
+        }
+      };
+      setTimeout(tick, 400);
+      setTimeout(tick, 1200);
+    }
+  }
 };
 window.waReportPickTpl_ = function(kind, id, tplId) {
   const st = window.__waModalState; if (!st) return;
@@ -38444,6 +38519,18 @@ async function _rtQuickPatch(id, patch) {
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'Error al actualizar');
     row[key] = val;
+    // Si el panel "Ver mensaje" de esta RT está abierto y cambió el Estado,
+    // re-auto-seleccionar la plantilla adecuada.
+    if (key === 'Estado') {
+      try {
+        const s = (window.__waModalState && window.__waModalState.reportMsg) || null;
+        const mkey = `rt:${id}`;
+        if (s && s[mkey] && s[mkey].open) {
+          const auto = _waAutoPickReportTplId_('rt', id);
+          if (auto) s[mkey] = Object.assign({}, s[mkey], { tplId: auto, customVals: {}, editedBody: null });
+        }
+      } catch(_){}
+    }
     // Refresh timeline WA + lista principal RT si visible
     try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
     try { if (typeof rtRenderList === 'function' && document.getElementById('rt-cards-list')) rtRenderList(); } catch(_){}
