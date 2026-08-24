@@ -43542,6 +43542,30 @@ function _rtProjProgress_(project) {
   }).length;
   return { total: ids.size, done, pct: Math.round((done / ids.size) * 100) };
 }
+// Paleta de gradientes para diferenciar visualmente los proyectos.
+// Estable por id (hash) — mismo proyecto siempre tendrá el mismo color.
+const RT_PROJ_GRADIENTS = [
+  'linear-gradient(90deg,#4338ca,#6366f1)', // índigo
+  'linear-gradient(90deg,#0e7490,#06b6d4)', // cian
+  'linear-gradient(90deg,#15803d,#22c55e)', // verde
+  'linear-gradient(90deg,#b45309,#f59e0b)', // ámbar
+  'linear-gradient(90deg,#be185d,#ec4899)', // rosa
+  'linear-gradient(90deg,#7c2d12,#ea580c)', // naranja
+  'linear-gradient(90deg,#1e40af,#3b82f6)', // azul
+  'linear-gradient(90deg,#6b21a8,#a855f7)', // púrpura
+  'linear-gradient(90deg,#0f766e,#14b8a6)', // teal
+  'linear-gradient(90deg,#a16207,#eab308)', // amarillo oscuro
+  'linear-gradient(90deg,#9f1239,#e11d48)', // rojo
+  'linear-gradient(90deg,#3f6212,#84cc16)', // lima
+];
+function _rtProjColor_(id, fallbackIdx) {
+  // Hash simple del id → índice estable.
+  let h = 0;
+  const s = String(id || '');
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  const idx = Math.abs(h) % RT_PROJ_GRADIENTS.length;
+  return RT_PROJ_GRADIENTS[idx] || RT_PROJ_GRADIENTS[fallbackIdx % RT_PROJ_GRADIENTS.length];
+}
 function _rtRenderProjects_(cont, rows) {
   const projects = _rtLoadProjects_();
   cont.style.cssText = 'display:flex;flex-direction:column;gap:10px';
@@ -43555,15 +43579,16 @@ function _rtRenderProjects_(cont, rows) {
     return;
   }
   RT_STATE.projExpanded = RT_STATE.projExpanded || new Set();
-  cont.innerHTML = projects.map(p => {
+  cont.innerHTML = projects.map((p, i) => {
     const pr = _rtProjProgress_(p);
     const barColor = pr.pct === 100 ? '#16a34a' : (pr.pct >= 50 ? '#3b82f6' : (pr.pct > 0 ? '#f59e0b' : '#cbd5e1'));
     const isExp = RT_STATE.projExpanded.has(p.id);
     const projRows = (RT_STATE.list||[]).filter(r => (p.rtIds||[]).map(String).includes(String(r.ID)));
+    const grad = _rtProjColor_(p.id, i);
     return `
       <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.06)">
         <button type="button" onclick="rtProjToggleExpand_('${_rtEscA(p.id)}')"
-          style="width:100%;background:linear-gradient(90deg,#4338ca,#6366f1);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;border:0;cursor:pointer;text-align:left;font-family:inherit;flex-wrap:wrap">
+          style="width:100%;background:${grad};color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;border:0;cursor:pointer;text-align:left;font-family:inherit;flex-wrap:wrap">
           <span style="font-size:14px;color:#fff;transition:transform .2s;transform:rotate(${isExp?'0':'-90'}deg);line-height:1;flex:none">▾</span>
           <span style="font-size:16px;flex:none">📁</span>
           <div style="min-width:0;flex:1">
