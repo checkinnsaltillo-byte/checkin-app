@@ -38202,16 +38202,23 @@ window.waIncPickNivel_ = function(id, nivel) {
 // ─── Panel "Ver mensaje" en cada card de reporte (INC + OBJ) ────────────
 // Muestra un select con los templates admin del alojamiento; al elegir,
 // pinta preview + inputs de placeholders_custom + botón Enviar ahora.
-function _waEnsureReportMsgState_() {
+function _waEnsureReportMsgState_(forceReload) {
   const st = window.__waModalState || (window.__waModalState = {});
   if (!st.reportMsg) st.reportMsg = {}; // { [cardKey]: { open, tplId, customVals, editedBody } }
-  // Precarga admin templates si aún no.
-  if (typeof waEnsureAdminTemplates_ === 'function' && !window.WA_ADMIN?.adminTemplates && !window.__waReportTplsLoading) {
+  const cur = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || null;
+  const isEmpty = !cur || Object.keys(cur).length === 0;
+  if (forceReload && window.WA_ADMIN) {
+    WA_ADMIN.adminTemplates = null;
+    WA_ADMIN.adminTemplatesLoading = null;
+    window.__waReportTplsLoading = false;
+  }
+  if (typeof waEnsureAdminTemplates_ === 'function' && (isEmpty || forceReload) && !window.__waReportTplsLoading) {
     window.__waReportTplsLoading = true;
-    waEnsureAdminTemplates_().then(() => { window.__waReportTplsLoading = false; try { _waRepaint(); } catch(_){} });
+    waEnsureAdminTemplates_().then(() => { window.__waReportTplsLoading = false; try { _waRepaint(); } catch(_){} }).catch(() => { window.__waReportTplsLoading = false; });
   }
   return st.reportMsg;
 }
+window.waReportReloadTpls_ = function() { _waEnsureReportMsgState_(true); };
 function _waReportCardKey_(kind, id) { return `${kind}:${id}`; }
 
 function _waBuildReportMsgPanel_(kind, id, row) {
@@ -38221,18 +38228,31 @@ function _waBuildReportMsgPanel_(kind, id, row) {
   const panel = store[cardKey] || {};
   if (!panel.open) return '';
   const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
-  // Filtrar plantillas admin que aplican al booking activo del modal WA
-  // (mismo criterio que la sidebar de "Nuevo mensaje": por HouseId).
+  // Filtrar plantillas admin habilitadas. Intento filtrar por HouseId del
+  // booking activo (misma lógica que sidebar Nuevo mensaje), pero si el
+  // filtro no reconoce HouseId (booking sintético, sin datos), incluyo la
+  // plantilla igual para no dejar el select vacío.
   const bkForFilter = st.b || null;
   const tpls = Object.values(adminMap).filter(t => {
     if (!t.enabled) return false;
     if (t.responsivo === true) return false;
-    if (typeof _waTemplateAppliesToBooking === 'function' && bkForFilter) {
-      try { return _waTemplateAppliesToBooking(t.id, bkForFilter); } catch(_){}
-    }
-    return true;
+    if (!bkForFilter || typeof _waTemplateAppliesToBooking !== 'function') return true;
+    try {
+      // Permisivo: incluir si aplica por HouseId; si el CSV está vacío o no
+      // hay HouseId candidato, también incluir para no ocultar todo.
+      const applies = _waTemplateAppliesToBooking(t.id, bkForFilter);
+      if (applies) return true;
+      const csv = String(t.alojamientos || '').trim();
+      if (!csv || csv === '*' || csv.toLowerCase() === 'todos') return true;
+      return false;
+    } catch(_) { return true; }
   }).sort((a,b) => String(a.nombre||'').localeCompare(String(b.nombre||''),'es'));
-  const options = ['<option value="">— Elegir plantilla —</option>']
+  const emptyHint = !tpls.length
+    ? (Object.keys(adminMap).length === 0
+        ? '⏳ Cargando plantillas…'
+        : 'Sin plantillas aplicables — usa el botón 🔄')
+    : '— Elegir plantilla —';
+  const options = [`<option value="">${_botcEsc(emptyHint)}</option>`]
     .concat(tpls.map(t => `<option value="${_botcEsc(t.id)}" ${panel.tplId===t.id?'selected':''}>${_botcEsc(t.nombre || t.id)}</option>`))
     .join('');
   const tpl = panel.tplId ? adminMap[panel.tplId] : null;
@@ -38268,8 +38288,12 @@ function _waBuildReportMsgPanel_(kind, id, row) {
     <div class="wa-report-msg-panel" style="margin-top:10px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px" onclick="event.stopPropagation()">
       <div style="font-size:10px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">📩 Mensaje</div>
       <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Plantilla</label>
-      <select onchange="waReportPickTpl_('${_botcEsc(kind)}','${_botcEsc(id)}',this.value)"
-        style="width:100%;padding:7px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;background:#fff">${options}</select>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select onchange="waReportPickTpl_('${_botcEsc(kind)}','${_botcEsc(id)}',this.value)"
+          style="flex:1;padding:7px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;background:#fff">${options}</select>
+        <button type="button" onclick="event.stopPropagation();waReportReloadTpls_()" title="Recargar plantillas"
+          style="padding:6px 10px;font-size:12px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">🔄</button>
+      </div>
       ${tpl ? `<div style="margin-top:10px">${phInputs}</div>
         <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center">
           <label style="font-size:10px;font-weight:700;color:#475569">Previa</label>
