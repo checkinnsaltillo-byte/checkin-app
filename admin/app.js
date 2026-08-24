@@ -38228,25 +38228,13 @@ function _waBuildReportMsgPanel_(kind, id, row) {
   const panel = store[cardKey] || {};
   if (!panel.open) return '';
   const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
-  // Filtrar plantillas admin habilitadas. Intento filtrar por HouseId del
-  // booking activo (misma lógica que sidebar Nuevo mensaje), pero si el
-  // filtro no reconoce HouseId (booking sintético, sin datos), incluyo la
-  // plantilla igual para no dejar el select vacío.
-  const bkForFilter = st.b || null;
-  const tpls = Object.values(adminMap).filter(t => {
-    if (!t.enabled) return false;
-    if (t.responsivo === true) return false;
-    if (!bkForFilter || typeof _waTemplateAppliesToBooking !== 'function') return true;
-    try {
-      // Permisivo: incluir si aplica por HouseId; si el CSV está vacío o no
-      // hay HouseId candidato, también incluir para no ocultar todo.
-      const applies = _waTemplateAppliesToBooking(t.id, bkForFilter);
-      if (applies) return true;
-      const csv = String(t.alojamientos || '').trim();
-      if (!csv || csv === '*' || csv.toLowerCase() === 'todos') return true;
-      return false;
-    } catch(_) { return true; }
-  }).sort((a,b) => String(a.nombre||'').localeCompare(String(b.nombre||''),'es'));
+  // Mostrar TODAS las plantillas habilitadas y no-responsivas, sin filtrar
+  // por HouseId. Este panel es para respuesta rápida a un reporte — el
+  // usuario admin elige la plantilla que quiere reutilizar, no depende de
+  // que esté asignada al alojamiento del reporte.
+  const tpls = Object.values(adminMap)
+    .filter(t => t.enabled && t.responsivo !== true)
+    .sort((a,b) => String(a.nombre||'').localeCompare(String(b.nombre||''),'es'));
   const emptyHint = !tpls.length
     ? (Object.keys(adminMap).length === 0
         ? '⏳ Cargando plantillas…'
