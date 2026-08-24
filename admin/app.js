@@ -43094,6 +43094,7 @@ function rtRenderList() {
   rows.sort((a,b) => String(b.Timestamp || '').localeCompare(String(a.Timestamp || '')));
   RT_STATE.viewMode = RT_STATE.viewMode || 'estado';
   if (RT_STATE.viewMode === 'dia') return _rtRenderByDay_(cont, rows);
+  if (RT_STATE.viewMode === 'calendario') return _rtRenderCalendar_(cont, rows);
   // Bucket por columna: Nuevos · En proceso · Concluidos · Programados
   // Programados = Fecha > hoy y no está resuelto/cancelado.
   const today = new Date().toISOString().slice(0,10);
@@ -43221,7 +43222,7 @@ function _rtEnsureViewTabs_(cont) {
   };
   tabs.innerHTML = `
     <span style="font-size:11px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-right:4px">Visualización:</span>
-    ${btn('estado','Estado','🗂️')}${btn('dia','Día','📅')}`;
+    ${btn('estado','Estado','🗂️')}${btn('dia','Día','📅')}${btn('calendario','Calendario','🗓️')}`;
 }
 window.rtSetView_ = function(mode) {
   RT_STATE.viewMode = mode;
@@ -43275,6 +43276,139 @@ function _rtRenderByDay_(cont, rows) {
       </div>`;
   }).join('');
 }
+// Vista Calendario: filas = categorías RT, columnas = días.
+// Cada celda muestra cantidad de reportes en ese día × categoría.
+// Click en celda con >=1 → abre panel lateral derecho con vista Día filtrada.
+function _rtRenderCalendar_(cont, rows) {
+  // Rango: primer día del mes actual → +60 días (2 meses aprox).
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(today.getFullYear(), today.getMonth(), 1);
+  const totalDays = 62;
+  const end = new Date(start); end.setDate(start.getDate() + totalDays - 1);
+  const DOW = ['D','L','M','M','J','V','S'];
+  const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  // Bucket: byCatByDay[catKey][iso] = count / rows
+  const byCatByDay = {};
+  const rowsByCatByDay = {};
+  for (const r of rows) {
+    const iso = String(r.Fecha || '').slice(0,10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) continue;
+    const d = new Date(iso + 'T12:00:00'); d.setHours(0,0,0,0);
+    if (d < start || d > end) continue;
+    const cat = String(r.Categoria || 'otros');
+    if (!byCatByDay[cat]) { byCatByDay[cat] = {}; rowsByCatByDay[cat] = {}; }
+    byCatByDay[cat][iso] = (byCatByDay[cat][iso] || 0) + 1;
+    if (!rowsByCatByDay[cat][iso]) rowsByCatByDay[cat][iso] = [];
+    rowsByCatByDay[cat][iso].push(r);
+  }
+  window.__rtCalRows = rowsByCatByDay; // para el panel lateral
+  // Filas: TODAS las categorías canónicas (RT_CATEGORIAS) para verlas
+  // aunque no tengan actividad — permite programar futuros.
+  const CATS = RT_CATEGORIAS.slice();
+  cont.style.cssText = 'display:block;overflow-x:auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px';
+  const CELL_W = 40, LABEL_W = 200, ROW_H = 44;
+  // Header
+  let headCells = '';
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const isToday = d.getTime() === today.getTime();
+    const dow = d.getDay();
+    const isWknd = dow === 0 || dow === 6;
+    const isFirst = d.getDate() === 1;
+    const monthBadge = isFirst
+      ? `<div style="position:absolute;top:-4px;left:0;font-size:9px;font-weight:900;color:#3730a3;background:#e0e7ff;border:1px solid #a5b4fc;padding:1px 6px;border-radius:99px;white-space:nowrap;z-index:2">${MESES[d.getMonth()]} ${d.getFullYear()}</div>`
+      : '';
+    headCells += `<div style="position:relative;width:${CELL_W}px;flex-shrink:0;text-align:center;padding:22px 0 6px;background:${isToday?'#fef3c7':(isWknd?'#f8fafc':'#fff')};border-left:1px solid ${isToday?'#f59e0b':'#f1f5f9'};border-bottom:2px solid ${isToday?'#f59e0b':'#e2e8f0'}">
+      ${monthBadge}
+      <div style="font-size:9px;color:${isToday?'#92400e':'#94a3b8'};font-weight:700;letter-spacing:.04em">${DOW[dow]}</div>
+      <div style="font-size:13px;font-weight:800;color:${isToday?'#92400e':'#0f172a'}">${d.getDate()}</div>
+    </div>`;
+  }
+  let html = `<div style="min-width:${LABEL_W + CELL_W*totalDays}px">
+    <div style="display:flex;position:sticky;top:0;z-index:3;background:#fff;padding-top:10px">
+      <div style="width:${LABEL_W}px;flex-shrink:0;padding:22px 12px 6px;font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;border-bottom:2px solid #e2e8f0;background:#fff;position:sticky;left:0;z-index:4">📂 Categoría</div>
+      ${headCells}
+    </div>`;
+  // Filas por categoría
+  for (const cat of CATS) {
+    const map = byCatByDay[cat.key] || {};
+    let cells = '';
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      const iso = d.toISOString().slice(0,10);
+      const cnt = map[iso] || 0;
+      const dow = d.getDay();
+      const isWknd = dow === 0 || dow === 6;
+      const isToday = d.getTime() === today.getTime();
+      const bg = cnt > 0
+        ? (isToday ? '#fde68a' : '#dbeafe')
+        : (isToday ? '#fef9c3' : (isWknd ? '#f8fafc' : '#fff'));
+      const color = cnt > 0 ? '#1e3a8a' : '#cbd5e1';
+      const clickable = cnt > 0
+        ? `onclick="rtCalOpenDay_('${_rtEscA(cat.key)}','${iso}')" style="cursor:pointer"`
+        : '';
+      cells += `<div ${clickable} title="${cat.label} · ${iso} · ${cnt} reporte(s)"
+        style="width:${CELL_W}px;height:${ROW_H}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${bg};color:${color};border-left:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9;font-size:13px;font-weight:800;transition:background .1s">${cnt || ''}</div>`;
+    }
+    html += `<div style="display:flex">
+      <div style="width:${LABEL_W}px;flex-shrink:0;padding:8px 12px;display:flex;align-items:center;gap:8px;background:#fff;border-bottom:1px solid #f1f5f9;border-right:1px solid #e2e8f0;position:sticky;left:0;z-index:2">
+        <span style="font-size:16px">${cat.icon}</span>
+        <span style="font-size:12px;font-weight:700;color:#334155">${cat.label}</span>
+      </div>
+      ${cells}
+    </div>`;
+  }
+  html += `</div>`;
+  cont.innerHTML = html;
+  // Asegurar panel lateral en el DOM
+  _rtEnsureCalSidePanel_();
+}
+function _rtEnsureCalSidePanel_() {
+  if (document.getElementById('rt-cal-side-panel')) return;
+  const back = document.createElement('div');
+  back.id = 'rt-cal-side-back';
+  back.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:100010;display:none';
+  back.onclick = () => rtCalCloseDay_();
+  const panel = document.createElement('div');
+  panel.id = 'rt-cal-side-panel';
+  panel.style.cssText = 'position:fixed;top:0;right:0;height:100vh;width:min(520px,92vw);background:#f8fafc;box-shadow:-24px 0 48px -12px rgba(0,0,0,.25);z-index:100011;display:none;flex-direction:column;overflow:hidden';
+  panel.innerHTML = `
+    <div id="rt-cal-side-header" style="padding:14px 18px;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div id="rt-cal-side-title" style="font-size:14px;font-weight:800;color:#0f172a">—</div>
+      <button onclick="rtCalCloseDay_()" style="background:none;border:0;font-size:20px;cursor:pointer;color:#64748b">×</button>
+    </div>
+    <div id="rt-cal-side-body" style="flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px"></div>`;
+  document.body.appendChild(back);
+  document.body.appendChild(panel);
+}
+window.rtCalOpenDay_ = function(catKey, iso) {
+  _rtEnsureCalSidePanel_();
+  const rowsMap = (window.__rtCalRows || {})[catKey] || {};
+  const items = (rowsMap[iso] || []).slice();
+  const PRIO_RANK = { critica:0, alta:1, media:2, baja:3 };
+  items.sort((a,b) => {
+    const pa = PRIO_RANK[_rtNormalizePrio(a.Prioridad)] ?? 9;
+    const pb = PRIO_RANK[_rtNormalizePrio(b.Prioridad)] ?? 9;
+    if (pa !== pb) return pa - pb;
+    return String(b.Timestamp||'').localeCompare(String(a.Timestamp||''));
+  });
+  const cat = RT_CATEGORIAS.find(c => c.key === catKey) || { icon:'📂', label:catKey };
+  document.getElementById('rt-cal-side-title').innerHTML =
+    `<span style="font-size:18px;margin-right:6px">${cat.icon}</span>${_rtEsc(cat.label)} · ${_rtEsc(_rtFmtFechaLarga_(iso))} · <span style="color:#64748b">${items.length}</span>`;
+  const body = document.getElementById('rt-cal-side-body');
+  body.innerHTML = items.length
+    ? items.map(r => _rtRenderCard(r)).join('')
+    : '<div style="text-align:center;padding:40px 12px;color:#94a3b8;font-style:italic;font-size:12px">Sin reportes en este día</div>';
+  document.getElementById('rt-cal-side-back').style.display = 'block';
+  document.getElementById('rt-cal-side-panel').style.display = 'flex';
+};
+window.rtCalCloseDay_ = function() {
+  const p = document.getElementById('rt-cal-side-panel');
+  const b = document.getElementById('rt-cal-side-back');
+  if (p) p.style.display = 'none';
+  if (b) b.style.display = 'none';
+};
+
 function _rtFmtFechaLarga_(iso) {
   const m = String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return iso;
