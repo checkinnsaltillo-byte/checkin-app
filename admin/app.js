@@ -38648,6 +38648,21 @@ window.waRtPickPrio_ = function(id, prioKey) {
   _rtQuickPatch(id, { Prioridad: prioKey });
 };
 
+// Devuelve true si el reporte {kind,id} ya generó al menos un mensaje enviado
+// (existe scheduledItem con tipo=report-{kind}-{id}[-estado] y status sent/*).
+function _waReportHasSentMsg_(kind, id) {
+  const st = window.__waModalState; if (!st) return false;
+  const items = st.scheduledItems || [];
+  const sentSet = ['queued','sending','sent','delivered','read','accepted'];
+  const prefix = `report-${kind}-${id}`;
+  for (const cs of items) {
+    const t = String(cs.tipo || '');
+    if (t !== prefix && !t.startsWith(prefix + '-')) continue;
+    if (sentSet.indexOf(String(cs.status||'').toLowerCase()) >= 0) return true;
+  }
+  return false;
+}
+
 function _waRenderReportTimelineItem_(it) {
   const r = it.row || {};
   const kind = it.kindReport; // 'inc' | 'obj'
@@ -38754,7 +38769,15 @@ function _waRenderReportTimelineItem_(it) {
       <div style="font-size:10px;font-weight:700;color:#64748b;padding:0 2px 4px 34px">${timelineText}${isEdited && tsCreadoRaw ? ` <span style="color:#94a3b8;font-weight:600">· creado ${_botcEsc(_waFmtDateTimeEs(tsCreadoRaw.replace(' ','T')))}</span>` : ''}</div>
       <div style="display:flex;gap:10px;align-items:stretch" ${cfg.dataAttr} role="button" tabindex="0" style="cursor:pointer">
         <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;width:24px">
-          <div title="${cfg.chipLabel}" style="width:22px;height:22px;border-radius:50%;background:${cfg.checkBg};color:${cfg.checkFg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900">${cfg.checkIcon}</div>
+          ${(() => {
+            const rid = String(r['ID']||'');
+            const sent = _waReportHasSentMsg_(kind, rid);
+            const bg = sent ? '#16a34a' : cfg.checkBg;
+            const fg = sent ? '#ffffff' : cfg.checkFg;
+            const ic = sent ? '✓' : cfg.checkIcon;
+            const ti = sent ? 'Mensaje ya enviado para este reporte' : cfg.chipLabel;
+            return `<div title="${_botcEsc(ti)}" style="width:22px;height:22px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">${ic}</div>`;
+          })()}
           <div style="flex:1;width:2px;background:#e5e7eb;min-height:14px"></div>
         </div>
         <div style="flex:1;background:${cfg.cardBg};border:1px solid ${cfg.cardBorder};border-radius:12px;overflow:hidden;cursor:pointer" ${cfg.dataAttr}>
