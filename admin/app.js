@@ -39728,7 +39728,7 @@ function _waRenderReportSentCard_(it) {
       <div style="font-size:10px;font-weight:700;color:#64748b;padding:0 2px 4px 34px">${timeLine}</div>
       <div style="display:flex;gap:10px;align-items:stretch">
         <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;width:24px">
-          <div title="${chipLabel}" style="width:22px;height:22px;border-radius:50%;background:${headerBg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900">${icon}</div>
+          <div title="Mensaje enviado" style="width:22px;height:22px;border-radius:50%;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✓</div>
           <div style="flex:1;width:2px;background:#e5e7eb;min-height:14px"></div>
         </div>
         <div style="flex:1;background:${cardBg};border:2px solid ${cardBorder};border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.10)">
