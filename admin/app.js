@@ -43351,26 +43351,23 @@ function _rtProjWizardRender_() {
   const field = (label, html) => `<div style="margin-bottom:12px">
     <label style="display:block;font-size:11px;font-weight:800;color:#475569;letter-spacing:.02em;margin-bottom:4px">${label}</label>${html}
   </div>`;
-  const chipList = (opts, cur, cb) => opts.map(o => {
-    const act = cur === o;
-    return `<button type="button" onclick="rtProjWizSet_('${cb}','${o.replace(/'/g,"\\'")}');_rtProjWizardRender_()"
-      style="padding:6px 12px;font-size:12px;font-weight:${act?'800':'600'};background:${act?'#0f172a':'#fff'};color:${act?'#fff':'#334155'};border:1.5px solid ${act?'#0f172a':'#cbd5e1'};border-radius:99px;cursor:pointer;margin:0 6px 6px 0">${o}</button>`;
-  }).join('');
+  const PRIO_EMOJI = { critica:'🔴', alta:'🟠', media:'🟡', baja:'🔵' };
+  const selectHtml = (field, options, cur, placeholder) => {
+    const opts = [`<option value="">${_rtEsc(placeholder||'— Elegir —')}</option>`]
+      .concat(options.map(o => {
+        const val = typeof o === 'string' ? o : o.value;
+        const label = typeof o === 'string' ? o : o.label;
+        return `<option value="${_rtEscA(val)}" ${cur===val?'selected':''}>${_rtEsc(label)}</option>`;
+      })).join('');
+    return `<select onchange="rtProjWizSet_('${field}',this.value);_rtProjWizardRender_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;background:#fff">${opts}</select>`;
+  };
   let html = stepHdr;
   if (d.step === 1) {
-    html += field('Clasificación', `<div>${chipList(RT_PROJ_CLASIF, d.clasificacion, 'clasificacion')}</div>`);
+    html += field('Clasificación', selectHtml('clasificacion', RT_PROJ_CLASIF, d.clasificacion, '— Elegir clasificación —'));
     html += field('Nombre del proyecto', `<input type="text" value="${_rtEscA(d.nombre)}" oninput="rtProjWizSet_('nombre',this.value)" placeholder="Ej: Remodelación baños Cumbres" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`);
     html += field('Descripción', `<textarea rows="3" oninput="rtProjWizSet_('descripcion',this.value)" placeholder="Objetivo y alcance…" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;font-family:inherit">${_rtEsc(d.descripcion)}</textarea>`);
-    html += field('Prioridad', `<div>${chipList(['critica','alta','media','baja'].map(k => (RT_PRIORIDADES.find(p=>p.key===k)||{}).label || k), (RT_PRIORIDADES.find(p=>p.key===d.prioridad)||{}).label || 'Media', '__prioLbl')}</div>` );
-    // Fix: chipList escribe __prioLbl string; queremos guardar la key. Hago custom:
-    html = html.replace('__prioLbl','__PLACEHOLDER__');
-    const prioChips = RT_PRIORIDADES.map(p => {
-      const act = d.prioridad === p.key;
-      return `<button type="button" onclick="rtProjWizSet_('prioridad','${p.key}');_rtProjWizardRender_()"
-        style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;font-size:12px;font-weight:${act?'800':'600'};background:${act?'#f8fafc':'#fff'};color:#334155;border:1.5px solid ${act?p.color:'#cbd5e1'};border-radius:99px;cursor:pointer;margin:0 6px 6px 0">
-        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>${p.label}</button>`;
-    }).join('');
-    html = html.replace(/<div>[^<]*__PLACEHOLDER__[^<]*<\/div>/, `<div>${prioChips}</div>`);
+    const prioOpts = RT_PRIORIDADES.map(p => ({ value: p.key, label: `${PRIO_EMOJI[p.key]||''} ${p.label}` }));
+    html += field('Prioridad', selectHtml('prioridad', prioOpts, d.prioridad, '— Elegir prioridad —'));
     // Lugar
     const props = (typeof ALOJ_STATE !== 'undefined' && Array.isArray(ALOJ_STATE.rows))
       ? Array.from(new Set(ALOJ_STATE.rows.map(r => String(r.Propiedad||'').trim()).filter(Boolean))).sort() : [];
@@ -43401,21 +43398,25 @@ function _rtProjWizardRender_() {
     const rows = _rtGetPersonalRows();
     if (!rows.length) _rtLoadPersonalDirect_().then(() => _rtProjWizardRender_());
     const nombres = Array.from(new Set(rows.map(r => String(r['Nombre']||'').trim()).filter(Boolean))).sort();
-    const multi = (field, arr) => `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
-      ${nombres.map(n => {
-        const act = (arr||[]).indexOf(n) >= 0;
-        return `<button type="button" onclick="rtProjWizToggleList_('${field}','${n.replace(/'/g,"\\'")}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:11px;font-weight:${act?'800':'600'};background:${act?'#0f172a':'#fff'};color:${act?'#fff':'#334155'};border:1.5px solid ${act?'#0f172a':'#cbd5e1'};border-radius:99px;cursor:pointer">${act?'✓':'＋'} ${n}</button>`;
-      }).join('') || '<span style="font-size:11px;color:#94a3b8;font-style:italic">⏳ Cargando personal…</span>'}
-    </div>`;
-    html += field('Reportado por', multi('reportadoPor', d.reportadoPor) +
-      `<input type="text" value="${_rtEscA(d.reportadoOtro)}" oninput="rtProjWizSet_('reportadoOtro',this.value)" placeholder='Otro (texto libre)' style="width:100%;padding:7px 10px;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;box-sizing:border-box">`);
-    html += field('Ejecutor', multi('ejecutor', d.ejecutor) +
-      `<input type="text" value="${_rtEscA(d.ejecutorOtro)}" oninput="rtProjWizSet_('ejecutorOtro',this.value)" placeholder='Otro (texto libre)' style="width:100%;padding:7px 10px;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;box-sizing:border-box">`);
+    const multiBlock = (fname, arr) => {
+      const disponibles = nombres.filter(n => (arr||[]).indexOf(n) < 0);
+      const chips = (arr||[]).map(n => `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#e0e7ff;color:#3730a3;border-radius:99px;font-size:12px;font-weight:700;margin:0 6px 6px 0">${_rtEsc(n)}<button type="button" onclick="rtProjWizToggleList_('${fname}','${n.replace(/'/g,"\\'")}')" title="Quitar" style="background:none;border:0;color:#4338ca;cursor:pointer;font-size:14px;line-height:1;padding:0">×</button></span>`).join('');
+      const options = ['<option value="">＋ Agregar del personal…</option>']
+        .concat(disponibles.map(n => `<option value="${_rtEscA(n)}">${_rtEsc(n)}</option>`)).join('');
+      const disabledAttr = rows.length ? '' : 'disabled';
+      return `
+        <div style="margin-bottom:6px">${chips || '<span style="font-size:11px;color:#94a3b8;font-style:italic">Sin selección aún</span>'}</div>
+        <select ${disabledAttr} onchange="if(this.value){rtProjWizToggleList_('${fname}',this.value);this.value=''}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;background:#fff">${options}</select>`;
+    };
+    html += field('Reportado por', multiBlock('reportadoPor', d.reportadoPor) +
+      `<input type="text" value="${_rtEscA(d.reportadoOtro)}" oninput="rtProjWizSet_('reportadoOtro',this.value)" placeholder='Otro (texto libre)' style="width:100%;margin-top:6px;padding:7px 10px;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;box-sizing:border-box">`);
+    html += field('Ejecutor', multiBlock('ejecutor', d.ejecutor) +
+      `<input type="text" value="${_rtEscA(d.ejecutorOtro)}" oninput="rtProjWizSet_('ejecutorOtro',this.value)" placeholder='Otro (texto libre)' style="width:100%;margin-top:6px;padding:7px 10px;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;box-sizing:border-box">`);
   } else {
     html += field('Fecha de inicio', `<input type="date" value="${_rtEscA(d.fechaInicio)}" oninput="rtProjWizSet_('fechaInicio',this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`);
-    html += field('Duración estimada', `<div style="display:flex;gap:8px">
-      <input type="number" min="1" value="${_rtEscA(d.duracionValor)}" oninput="rtProjWizSet_('duracionValor',this.value)" style="flex:1;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">
-      <select onchange="rtProjWizSet_('duracionUnidad',this.value);_rtProjRepaintFooterHint_()" style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+    html += field('Duración estimada', `<div style="display:flex;gap:10px">
+      <input type="number" min="1" value="${_rtEscA(d.duracionValor)}" oninput="rtProjWizSet_('duracionValor',this.value)" style="flex:2;min-width:0;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:16px;font-weight:700;box-sizing:border-box;text-align:center">
+      <select onchange="rtProjWizSet_('duracionUnidad',this.value);_rtProjRepaintFooterHint_()" style="flex:1;min-width:110px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
         <option value="dias" ${d.duracionUnidad==='dias'?'selected':''}>días</option>
         <option value="meses" ${d.duracionUnidad==='meses'?'selected':''}>meses</option>
       </select>
@@ -44506,22 +44507,26 @@ window.rtSave = async function() {
   const orig = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
   try {
-    // Convertir fotos pending a base64
-    const convert = async (list) => Promise.all(list.map(async f => ({
+    // Fotos: convertir en paralelo y omitir arrays vacíos para acelerar.
+    const conv = f => _rtFileToBase64(f).then(base64 => ({
       name: f.name || `rt_${Date.now()}.jpg`,
       mimeType: f.type || 'image/jpeg',
-      base64: await _rtFileToBase64(f),
-    })));
-    const fotos_antes   = await convert(RT_STATE.fotosAntesPending);
-    const fotos_despues = await convert(RT_STATE.fotosDespuesPending);
+      base64,
+    }));
+    const [fotos_antes, fotos_despues] = await Promise.all([
+      RT_STATE.fotosAntesPending.length ? Promise.all(RT_STATE.fotosAntesPending.map(conv)) : Promise.resolve([]),
+      RT_STATE.fotosDespuesPending.length ? Promise.all(RT_STATE.fotosDespuesPending.map(conv)) : Promise.resolve([]),
+    ]);
+    const body = { payload: d };
+    if (fotos_antes.length) body.fotos_antes = fotos_antes;
+    if (fotos_despues.length) body.fotos_despues = fotos_despues;
     const r = await fetch(`https://api.check-inn.mx/reportes-tecnicos-upsert`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payload: d, fotos_antes, fotos_despues }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
-    // Si veníamos de un proyecto, ligar el nuevo RT al proyecto.
+    // Ligar al proyecto si aplica.
     const ctx = RT_STATE.projContext;
     if (ctx && ctx.projId && j.id) {
       try {
@@ -44533,11 +44538,25 @@ window.rtSave = async function() {
         }
       } catch(_){}
     }
+    // Actualización optimista: injectar row nuevo en RT_STATE.list para
+    // repintar de inmediato sin esperar rtRefresh(true) (que es lento).
+    if (j.id && !j.updated) {
+      try {
+        const nuevo = Object.assign({}, d, { ID: j.id, Folio: j.folio || d.Folio || j.id, Timestamp: new Date().toISOString() });
+        RT_STATE.list = [nuevo].concat(RT_STATE.list || []);
+      } catch(_){}
+    } else if (j.updated && j.id) {
+      try {
+        const idx = (RT_STATE.list || []).findIndex(x => String(x.ID) === String(j.id));
+        if (idx >= 0) RT_STATE.list[idx] = Object.assign({}, RT_STATE.list[idx], d);
+      } catch(_){}
+    }
     const projIdToReopen = ctx && ctx.projId;
     rtCloseCapture();
-    await rtRefresh(true);
+    rtRenderList(); // repaint inmediato con estado optimista
     if (projIdToReopen) { try { rtProjOpen_(projIdToReopen); } catch(_){} }
-    // Si estamos en Gestión de reservas, refrescar cards también
+    // Refresh real en background para sincronizar Folio/Timestamp/columnas server.
+    setTimeout(() => { try { rtRefresh(true); } catch(_){} }, 100);
     try {
       const lgMod = document.getElementById('module-lodgify');
       if (lgMod && !lgMod.classList.contains('hidden') && typeof lodgifyRenderForce === 'function') lodgifyRenderForce();
