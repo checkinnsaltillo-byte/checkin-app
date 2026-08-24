@@ -16659,14 +16659,14 @@ function lgBuildIncSectionForBooking(arg) {
     const depto = String(row['# Departamento']||'').trim();
     const aloj = String(row['Alojamiento']||'').trim() || (propiedad && depto ? `${propiedad} - #${depto}` : propiedad);
     const fecha = String(row['Fecha']||row['Timestamp']||'').slice(0,10);
-    const nivel = String(row['Nivel']||'Baja');
-    const estatus = String(row['Estatus']||'Pendiente');
+    const nivel = incNormalizeNivel(row['Nivel']);
+    const estatus = incNormalizeEstatus(row['Estatus']);
     const motivoCls = (typeof incMotivoColorClass === 'function') ? incMotivoColorClass(row['Motivos']||'') : 'default';
     const BG = { Limpieza:'#06b6d4', Mantenimiento:'#f59e0b', Insumos:'#8b5cf6', default:'#64748b' };
     const headerBg = BG[motivoCls] || BG.default;
-    const estBg = estatus === 'Resuelto' ? '#dcfce7' : estatus === 'Pendiente' ? '#fee2e2' : '#fef3c7';
-    const estCl = estatus === 'Resuelto' ? '#166534' : estatus === 'Pendiente' ? '#991b1b' : '#92400e';
-    const nivelDot = nivel === 'Alta' ? '#dc2626' : nivel === 'Media' ? '#f59e0b' : '#16a34a';
+    const _estC = incEstatusColors(estatus);
+    const estBg = _estC.bg, estCl = _estC.fg;
+    const nivelDot = incNivelDot(nivel);
     return `<div data-lg-inc-id="${esc(id)}" role="button" tabindex="0"
               style="display:block;cursor:pointer;width:100%;box-sizing:border-box;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;transition:transform .12s,box-shadow .12s">
         <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;pointer-events:none">
@@ -21710,9 +21710,58 @@ function incFmtFechaLarga(iso) {
 
 function incNivelClass(nivel) {
   const n = String(nivel || '').toLowerCase();
+  if (n === 'crítica' || n === 'critica') return 'critical';
   if (n === 'alta')  return 'high';
   if (n === 'media') return 'medium';
   return 'low';
+}
+// Estados canónicos homologados con Reportes Técnicos:
+// Nuevo · En proceso · En espera · Resuelto · Cerrado · Cancelado
+function incNormalizeEstatus(v) {
+  const s = String(v||'').trim();
+  const low = s.toLowerCase();
+  if (!low) return 'Nuevo';
+  if (low === 'pendiente') return 'Nuevo';
+  if (low === 'parcialmente resuelto') return 'En proceso';
+  if (low === 'nuevo') return 'Nuevo';
+  if (low === 'en proceso') return 'En proceso';
+  if (low === 'en espera') return 'En espera';
+  if (low === 'resuelto') return 'Resuelto';
+  if (low === 'cerrado') return 'Cerrado';
+  if (low === 'cancelado') return 'Cancelado';
+  return s;
+}
+// Nivel canónico: Crítica · Alta · Media · Baja.
+function incNormalizeNivel(v) {
+  const s = String(v||'').trim();
+  const low = s.toLowerCase();
+  if (!low) return 'Baja';
+  if (low === 'crítica' || low === 'critica') return 'Crítica';
+  if (low === 'alta') return 'Alta';
+  if (low === 'media') return 'Media';
+  if (low === 'baja') return 'Baja';
+  return s;
+}
+// Colores del chip de estatus (INC + WA modal).
+function incEstatusColors(estatus) {
+  const s = incNormalizeEstatus(estatus);
+  switch (s) {
+    case 'Nuevo':      return { bg:'#f1f5f9', fg:'#334155' };
+    case 'En proceso': return { bg:'#fef3c7', fg:'#92400e' };
+    case 'En espera':  return { bg:'#fee2e2', fg:'#991b1b' };
+    case 'Resuelto':   return { bg:'#dcfce7', fg:'#166534' };
+    case 'Cerrado':    return { bg:'#e2e8f0', fg:'#475569' };
+    case 'Cancelado':  return { bg:'#fecaca', fg:'#7f1d1d' };
+    default:           return { bg:'#f1f5f9', fg:'#334155' };
+  }
+}
+// Color del semáforo/nivel.
+function incNivelDot(nivel) {
+  const s = incNormalizeNivel(nivel);
+  if (s === 'Crítica') return '#7c3aed';
+  if (s === 'Alta')    return '#dc2626';
+  if (s === 'Media')   return '#f59e0b';
+  return '#16a34a';
 }
 
 function incRenderCheckList(containerId, items, name, includePuesto = false) {
@@ -21953,7 +22002,7 @@ function incGetFormData() {
     motivos:         incGetCheckedByName('inc-motivos'),
     clasificaciones: incGetCheckedByName('inc-clasificaciones'),
     nivel:           document.getElementById('inc-nivel')?.value || 'Baja',
-    estatus:         document.getElementById('inc-estatus')?.value || 'Pendiente',
+    estatus:         document.getElementById('inc-estatus')?.value || 'Nuevo',
     reportante:      document.getElementById('inc-reportante')?.value || '',
     descripcion:     (document.getElementById('inc-descripcion')?.value || '').trim(),
     acciones:        (document.getElementById('inc-acciones')?.value || '').trim(),
@@ -22152,7 +22201,7 @@ window.incLimpiar = function() {
   document.querySelectorAll('#module-incidencias textarea').forEach(el => el.value = '');
   const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
   setVal('inc-nivel', 'Baja');
-  setVal('inc-estatus', 'Pendiente');
+  setVal('inc-estatus', 'Nuevo');
   setVal('inc-fecha', incTodayIso());
   setVal('inc-reportante', '');
   setVal('inc-fotos', '');
@@ -22402,28 +22451,22 @@ function incRenderCardOne(row) {
   const fecha = String(row['Fecha'] || row['Timestamp'] || '').slice(0, 10);
   const personas = String(row['Personas'] || '').split(',').map(s => s.trim()).filter(Boolean);
   const personasTxt = personas.length ? personas.join(', ') : 'Sin personas';
-  const nivel = String(row['Nivel'] || 'Baja');
-  const estatus = String(row['Estatus'] || 'Pendiente');
+  const nivel = incNormalizeNivel(row['Nivel']);
+  const estatus = incNormalizeEstatus(row['Estatus']);
   const expanded = INC_STATE.expanded.has(id);
   const motivoCls = incMotivoColorClass(motivos);
-  // Iconos por estatus
   const estIcon = estatus === 'Resuelto' ? '✓'
-                : estatus === 'Pendiente' ? '✗'
-                : estatus.indexOf('Parcial') !== -1 ? '◐' : '•';
-  const estClass = estatus === 'Resuelto' ? 'est-Resuelto'
-                 : estatus === 'Pendiente' ? 'est-Pendiente'
-                 : estatus.indexOf('Parcial') !== -1 ? 'est-Parcial' : '';
-  // Semáforo de Nivel: 3 puntos (Alto/Medio/Bajo, top→bottom), solo el
-  // correspondiente al nivel actual queda iluminado.
-  const nivelLabel = nivel === 'Alta' ? 'Alto' : nivel === 'Media' ? 'Medio' : 'Bajo';
+                : estatus === 'Nuevo' ? '🆕'
+                : estatus === 'En proceso' ? '🛠️'
+                : estatus === 'En espera' ? '⏳'
+                : estatus === 'Cerrado' ? '🔒'
+                : estatus === 'Cancelado' ? '🚫' : '•';
+  const estCol = incEstatusColors(estatus);
+  const dotCol = incNivelDot(nivel);
   const semaforoHtml = `
-    <span class="inc-semaforo" data-nivel="${esc(nivel)}" title="Nivel ${esc(nivelLabel)}">
-      <span class="inc-semaforo-dots">
-        <span class="inc-semaforo-dot dot-Alto"></span>
-        <span class="inc-semaforo-dot dot-Medio"></span>
-        <span class="inc-semaforo-dot dot-Bajo"></span>
-      </span>
-      <span class="inc-semaforo-label">${esc(nivelLabel)}</span>
+    <span class="inc-semaforo" data-nivel="${esc(nivel)}" title="Nivel ${esc(nivel)}" style="display:inline-flex;align-items:center;gap:6px">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${dotCol}"></span>
+      <span class="inc-semaforo-label" style="font-size:11px;font-weight:700;color:#475569">${esc(nivel)}</span>
     </span>`;
   return `
     <div class="inc-card motivo-border-${esc(motivoCls)} ${expanded ? 'expanded' : ''}" data-inc-id="${esc(id)}">
@@ -22442,7 +22485,7 @@ function incRenderCardOne(row) {
           </div>
         </div>
         <div class="inc-card-chips">
-          <span class="inc-card-chip ${estClass}">${estIcon} ${esc(estatus)}</span>
+          <span class="inc-card-chip" style="background:${estCol.bg};color:${estCol.fg}">${estIcon} ${esc(estatus)}</span>
           <span class="inc-card-chevron">▾</span>
         </div>
       </div>
@@ -22604,17 +22647,21 @@ function incCardBodyHtmlEditable(row, id) {
         <div>
           <label class="inc-label">Nivel de prioridad</label>
           <select class="inc-input" data-edit-field="nivel" oninput="incEditOnChange('${esc(id)}')">
-            <option value="Baja" ${d.nivel==='Baja'?'selected':''}>🟢 Baja</option>
-            <option value="Media" ${d.nivel==='Media'?'selected':''}>🟡 Media</option>
-            <option value="Alta" ${d.nivel==='Alta'?'selected':''}>🔴 Alta</option>
+            <option value="Crítica" ${incNormalizeNivel(d.nivel)==='Crítica'?'selected':''}>🟣 Crítica</option>
+            <option value="Alta" ${incNormalizeNivel(d.nivel)==='Alta'?'selected':''}>🔴 Alta</option>
+            <option value="Media" ${incNormalizeNivel(d.nivel)==='Media'?'selected':''}>🟡 Media</option>
+            <option value="Baja" ${incNormalizeNivel(d.nivel)==='Baja'?'selected':''}>🟢 Baja</option>
           </select>
         </div>
         <div>
           <label class="inc-label">Estatus</label>
           <select class="inc-input" data-edit-field="estatus" oninput="incEditOnChange('${esc(id)}')">
-            <option value="Pendiente" ${d.estatus==='Pendiente'?'selected':''}>✗ Pendiente</option>
-            <option value="Parcialmente resuelto" ${d.estatus==='Parcialmente resuelto'?'selected':''}>◐ Parcialmente resuelto</option>
-            <option value="Resuelto" ${d.estatus==='Resuelto'?'selected':''}>✓ Resuelto</option>
+            <option value="Nuevo" ${incNormalizeEstatus(d.estatus)==='Nuevo'?'selected':''}>🆕 Nuevo</option>
+            <option value="En proceso" ${incNormalizeEstatus(d.estatus)==='En proceso'?'selected':''}>🛠️ En proceso</option>
+            <option value="En espera" ${incNormalizeEstatus(d.estatus)==='En espera'?'selected':''}>⏳ En espera</option>
+            <option value="Resuelto" ${incNormalizeEstatus(d.estatus)==='Resuelto'?'selected':''}>✓ Resuelto</option>
+            <option value="Cerrado" ${incNormalizeEstatus(d.estatus)==='Cerrado'?'selected':''}>🔒 Cerrado</option>
+            <option value="Cancelado" ${incNormalizeEstatus(d.estatus)==='Cancelado'?'selected':''}>🚫 Cancelado</option>
           </select>
         </div>
       </div>
@@ -22909,8 +22956,8 @@ function incCardBodyHtml(row) {
 INC_STATE.filters = {
   motivo: new Set(),         // controlado solo por chips
   clasificaciones: new Set(),
-  nivel: new Set(['Baja', 'Media', 'Alta']),
-  estatus: new Set(['Pendiente', 'Parcialmente resuelto', 'Resuelto']),
+  nivel: new Set(['Crítica', 'Alta', 'Media', 'Baja']),
+  estatus: new Set(['Nuevo', 'En proceso', 'En espera', 'Resuelto', 'Cerrado', 'Cancelado']),
   month: '', // formato 'YYYY-MM' o '' = todos los meses
 };
 INC_STATE.filtersInitialized = false;
@@ -22964,8 +23011,8 @@ function incInitFilters() {
   }
   incRenderMotivoChips();
   incRenderFilterDropdown('inc-f-clasif', 'clasificaciones', allClasif);
-  incRenderFilterDropdown('inc-f-nivel', 'nivel', ['Baja', 'Media', 'Alta']);
-  incRenderFilterDropdown('inc-f-estatus', 'estatus', ['Pendiente', 'Parcialmente resuelto', 'Resuelto']);
+  incRenderFilterDropdown('inc-f-nivel', 'nivel', ['Crítica', 'Alta', 'Media', 'Baja']);
+  incRenderFilterDropdown('inc-f-estatus', 'estatus', ['Nuevo', 'En proceso', 'En espera', 'Resuelto', 'Cerrado', 'Cancelado']);
 }
 
 function incCollectUnique(filterKey) {
@@ -23006,8 +23053,8 @@ function incLabelFor(filterKey) {
   const sel = INC_STATE.filters[filterKey];
   const all = filterKey === 'motivo' ? incCollectUnique('motivo')
             : filterKey === 'clasificaciones' ? incCollectUnique('clasificaciones')
-            : filterKey === 'nivel' ? ['Baja', 'Media', 'Alta']
-            : filterKey === 'estatus' ? ['Pendiente', 'Parcialmente resuelto', 'Resuelto']
+            : filterKey === 'nivel' ? ['Crítica', 'Alta', 'Media', 'Baja']
+            : filterKey === 'estatus' ? ['Nuevo', 'En proceso', 'En espera', 'Resuelto', 'Cerrado', 'Cancelado']
             : [];
   if (!all.length) return 'Sin opciones';
   if (sel.size === 0) return 'Ninguno';
@@ -23075,8 +23122,8 @@ window.incToggleFilterOption = function (filterKey, value, checked) {
 window.incFilterSetAll = function (filterKey) {
   const all = filterKey === 'motivo' ? incCollectUnique('motivo')
             : filterKey === 'clasificaciones' ? incCollectUnique('clasificaciones')
-            : filterKey === 'nivel' ? ['Baja', 'Media', 'Alta']
-            : ['Pendiente', 'Parcialmente resuelto', 'Resuelto'];
+            : filterKey === 'nivel' ? ['Crítica', 'Alta', 'Media', 'Baja']
+            : ['Nuevo', 'En proceso', 'En espera', 'Resuelto', 'Cerrado', 'Cancelado'];
   INC_STATE.filters[filterKey] = new Set(all);
   // Re-pinta los checkboxes
   document.querySelectorAll(`.inc-mselect[data-filter="${filterKey}"] input[type="checkbox"]`)
@@ -23125,8 +23172,8 @@ function incFilteredRows() {
     if (!inRange(r['Fecha'] || r['Timestamp'])) return false;
     if (!anyMatch(r['Motivos'], f.motivo)) return false;
     if (!anyMatch(r['Clasificacion'], f.clasificaciones)) return false;
-    if (!singleMatch(r['Nivel'], f.nivel)) return false;
-    if (!singleMatch(r['Estatus'], f.estatus)) return false;
+    if (!singleMatch(incNormalizeNivel(r['Nivel']), f.nivel)) return false;
+    if (!singleMatch(incNormalizeEstatus(r['Estatus']), f.estatus)) return false;
     return true;
   });
 }
@@ -38009,14 +38056,14 @@ function _waRenderReportTimelineItem_(it) {
   // Config visual por tipo.
   let cfg;
   if (kind === 'inc') {
-    const nivel = String(r['Nivel']||'Baja');
-    const estatus = String(r['Estatus']||'Pendiente');
+    const nivel = incNormalizeNivel(r['Nivel']);
+    const estatus = incNormalizeEstatus(r['Estatus']);
     const motivoCls = (typeof incMotivoColorClass === 'function') ? incMotivoColorClass(r['Motivos']||'') : 'default';
     const BG = { Limpieza:'#06b6d4', Mantenimiento:'#f59e0b', Insumos:'#8b5cf6', default:'#dc2626' };
     const headerBg = BG[motivoCls] || BG.default;
-    const estBg = estatus === 'Resuelto' ? '#dcfce7' : estatus === 'Pendiente' ? '#fee2e2' : '#fef3c7';
-    const estCl = estatus === 'Resuelto' ? '#166534' : estatus === 'Pendiente' ? '#991b1b' : '#92400e';
-    const nivelDot = nivel === 'Alta' ? '#dc2626' : nivel === 'Media' ? '#f59e0b' : '#16a34a';
+    const _estC = incEstatusColors(estatus);
+    const estBg = _estC.bg, estCl = _estC.fg;
+    const nivelDot = incNivelDot(nivel);
     const titulo = [String(r['Motivos']||''), String(r['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Reporte';
     cfg = {
       checkBg:'#dc2626', checkFg:'#fff', checkIcon:'🚨',
@@ -42043,10 +42090,9 @@ const RT_STATE = {
   fotosAntesPending: [],   // File[] para upload
   fotosDespuesPending: [],
 };
+// Catálogos homologados INC + RT.
 const RT_ESTADOS = [
   { key: 'nuevo',       label: 'Nuevo',       bg:'#f1f5f9', fg:'#334155' },
-  { key: 'clasificado', label: 'Clasificado', bg:'#e0e7ff', fg:'#3730a3' },
-  { key: 'asignado',    label: 'Asignado',    bg:'#dbeafe', fg:'#1e40af' },
   { key: 'en_proceso',  label: 'En proceso',  bg:'#fef3c7', fg:'#92400e' },
   { key: 'en_espera',   label: 'En espera',   bg:'#fee2e2', fg:'#991b1b' },
   { key: 'resuelto',    label: 'Resuelto',    bg:'#dcfce7', fg:'#166534' },
@@ -42054,11 +42100,27 @@ const RT_ESTADOS = [
   { key: 'cancelado',   label: 'Cancelado',   bg:'#fecaca', fg:'#7f1d1d' },
 ];
 const RT_PRIORIDADES = [
-  { key:'P1', label:'P1 · Crítica', color:'#dc2626' },
-  { key:'P2', label:'P2 · Alta',    color:'#f59e0b' },
-  { key:'P3', label:'P3 · Media',   color:'#3b82f6' },
-  { key:'P4', label:'P4 · Baja',    color:'#64748b' },
+  { key:'critica', label:'Crítica', color:'#dc2626' },
+  { key:'alta',    label:'Alta',    color:'#f59e0b' },
+  { key:'media',   label:'Media',   color:'#3b82f6' },
+  { key:'baja',    label:'Baja',    color:'#64748b' },
 ];
+// Retro-map: valores viejos (keys anteriores + INC legacy) → keys nuevos.
+function _rtNormalizeEstado(v) {
+  const s = String(v||'').trim().toLowerCase();
+  if (!s) return 'nuevo';
+  if (s === 'clasificado' || s === 'asignado' || s === 'pendiente') return 'nuevo';
+  if (s === 'parcialmente resuelto') return 'en_proceso';
+  return s.replace(/\s+/g,'_');
+}
+function _rtNormalizePrio(v) {
+  const s = String(v||'').trim().toLowerCase();
+  if (s === 'p1' || s === 'crítica' || s === 'critica') return 'critica';
+  if (s === 'p2' || s === 'alta') return 'alta';
+  if (s === 'p3' || s === 'media') return 'media';
+  if (s === 'p4' || s === 'baja' || !s) return 'baja';
+  return s;
+}
 const RT_CATEGORIAS = [
   { key:'plomeria',       label:'Plomería',            icon:'🚿' },
   { key:'electrico',      label:'Eléctrico',           icon:'⚡' },
@@ -42129,8 +42191,8 @@ function rtRenderList() {
   const fEstado = String(document.getElementById('rt-filter-estado')?.value || '');
   const fPrio   = String(document.getElementById('rt-filter-prioridad')?.value || '');
   let rows = RT_STATE.list.slice();
-  if (fEstado) rows = rows.filter(r => String(r.Estado) === fEstado);
-  if (fPrio)   rows = rows.filter(r => String(r.Prioridad) === fPrio);
+  if (fEstado) rows = rows.filter(r => _rtNormalizeEstado(r.Estado) === fEstado);
+  if (fPrio)   rows = rows.filter(r => _rtNormalizePrio(r.Prioridad) === fPrio);
   // Más recientes primero
   rows.sort((a,b) => String(b.Timestamp || '').localeCompare(String(a.Timestamp || '')));
   if (!rows.length) {
@@ -42141,8 +42203,8 @@ function rtRenderList() {
 }
 
 function _rtRenderCard(row) {
-  const est = RT_ESTADOS.find(e => e.key === String(row.Estado)) || RT_ESTADOS[0];
-  const prio = RT_PRIORIDADES.find(p => p.key === String(row.Prioridad)) || RT_PRIORIDADES[2];
+  const est = RT_ESTADOS.find(e => e.key === _rtNormalizeEstado(row.Estado)) || RT_ESTADOS[0];
+  const prio = RT_PRIORIDADES.find(p => p.key === _rtNormalizePrio(row.Prioridad)) || RT_PRIORIDADES[3];
   const cat = RT_CATEGORIAS.find(c => c.key === String(row.Categoria)) || RT_CATEGORIAS[RT_CATEGORIAS.length-1];
   const folio = String(row.Folio || row.ID || '').slice(0, 20);
   const titulo = String(row.Titulo || '(sin título)');
@@ -42189,10 +42251,15 @@ window.rtOpenCapture = function(id) {
   const isEdit = !!id;
   const existing = isEdit ? RT_STATE.list.find(r => String(r.ID) === String(id)) : null;
   RT_STATE.draft = isEdit && existing ? Object.assign({}, existing) : {
-    Estado: 'nuevo', Prioridad: 'P3', Tipo: 'correctivo',
+    Estado: 'nuevo', Prioridad: 'media', Tipo: 'correctivo',
     Categoria: 'otros', Responsabilidad: 'indeterminada',
     Fecha: new Date().toISOString().slice(0,10),
   };
+  // Normaliza valores legacy para que el <select> muestre el label correcto.
+  if (RT_STATE.draft) {
+    RT_STATE.draft.Estado = _rtNormalizeEstado(RT_STATE.draft.Estado);
+    RT_STATE.draft.Prioridad = _rtNormalizePrio(RT_STATE.draft.Prioridad);
+  }
   RT_STATE.fotosAntesPending = [];
   RT_STATE.fotosDespuesPending = [];
   const panel = document.getElementById('rt-capture-panel');

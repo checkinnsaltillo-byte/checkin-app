@@ -1791,17 +1791,21 @@
                 <div>
                   <label class="inc-label">Nivel de prioridad</label>
                   <select id="inc-nivel" class="inc-input">
-                    <option value="Baja">🟢 Baja</option>
-                    <option value="Media">🟡 Media</option>
+                    <option value="Crítica">🟣 Crítica</option>
                     <option value="Alta">🔴 Alta</option>
+                    <option value="Media">🟡 Media</option>
+                    <option value="Baja" selected>🟢 Baja</option>
                   </select>
                 </div>
                 <div>
                   <label class="inc-label">Estatus</label>
                   <select id="inc-estatus" class="inc-input">
-                    <option value="Pendiente">✗ Pendiente</option>
-                    <option value="Parcialmente resuelto">◐ Parcialmente resuelto</option>
+                    <option value="Nuevo" selected>🆕 Nuevo</option>
+                    <option value="En proceso">🛠️ En proceso</option>
+                    <option value="En espera">⏳ En espera</option>
                     <option value="Resuelto">✓ Resuelto</option>
+                    <option value="Cerrado">🔒 Cerrado</option>
+                    <option value="Cancelado">🚫 Cancelado</option>
                   </select>
                 </div>
               </div>
@@ -1871,8 +1875,6 @@
             <select id="rt-filter-estado" onchange="rtRefresh()" style="padding:7px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff">
               <option value="">Todos los estados</option>
               <option value="nuevo">Nuevo</option>
-              <option value="clasificado">Clasificado</option>
-              <option value="asignado">Asignado</option>
               <option value="en_proceso">En proceso</option>
               <option value="en_espera">En espera</option>
               <option value="resuelto">Resuelto</option>
@@ -1881,10 +1883,10 @@
             </select>
             <select id="rt-filter-prioridad" onchange="rtRefresh()" style="padding:7px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff">
               <option value="">Todas las prioridades</option>
-              <option value="P1">P1 · Crítica</option>
-              <option value="P2">P2 · Alta</option>
-              <option value="P3">P3 · Media</option>
-              <option value="P4">P4 · Baja</option>
+              <option value="critica">Crítica</option>
+              <option value="alta">Alta</option>
+              <option value="media">Media</option>
+              <option value="baja">Baja</option>
             </select>
             <button type="button" onclick="rtRefresh(true)" title="Recargar" style="padding:7px 10px;font-size:12px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-weight:700">🔄</button>
             <button type="button" onclick="rtOpenCapture()" style="padding:7px 14px;font-size:12px;background:#0f172a;color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:800">＋ Nuevo reporte técnico</button>
@@ -2649,6 +2651,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=909"></script>
+  <script src="app.js?v=910"></script>
 </body>
 </html>
