@@ -42252,15 +42252,14 @@ function _botcRenderSidebar() {
           ${controlChip}
         </div>
       </div>`;
-    // Botón discreto de riesgo: bandera 🚩 al lado del timestamp del ribbon.
-    // Roja si ya hay notas de riesgo; gris si no. Click abre prompt para
-    // agregar nota rápida. No se sobrepone al contenido de la card.
     const riskCount = _hgNotesRiskCount_(c.phone);
     const riskBtn = `<button type="button" onclick="event.stopPropagation();hgNoteQuickRisk_('${_botcEsc(c.phone)}')"
         title="${riskCount ? `${riskCount} nota(s) de riesgo — click para agregar` : 'Marcar riesgo del huésped (nota rápida)'}"
         style="background:none;border:0;padding:0 2px;cursor:pointer;font-size:12px;line-height:1;color:${riskCount?'#dc2626':'#cbd5e1'};filter:${riskCount?'none':'grayscale(1)'};opacity:${riskCount?1:0.6}">🚩</button>`;
+    // chatMeta integrado como footer de la card (no como bloque separado).
+    // Fondo blanco continuo con la card, sin border-top disruptivo.
     const chatMeta = `
-      <div style="padding:6px 14px 10px;background:${selected?'#eff6ff':'transparent'};border-top:1px dashed #e2e8f0">
+      <div class="botc-card-footer" style="padding:8px 14px 10px;background:transparent;border-top:1px solid #f1f5f9">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
           ${controlChip}
           <div style="display:flex;align-items:center;gap:6px">
@@ -42270,7 +42269,12 @@ function _botcRenderSidebar() {
         </div>
         <div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px">${_botcEsc(c.last_msg_preview)}</div>
       </div>`;
-    const wrap = `<div style="position:relative;border-bottom:1px solid #e2e8f0;background:${selected?'#eff6ff':'#fff'};border-left:3px solid ${selected?'#3b82f6':'transparent'}" data-botc-phone="${_botcEsc(c.phone)}">${rich || lite}${chatMeta}</div>`;
+    // La card rich viene con su propio borde/sombra/radius. Al meterla dentro
+    // del wrapper aplicamos CSS que la aplana para que meta y rich lean como
+    // UNA sola card.
+    _botcEnsureCardFlattenCss_();
+    const wrap = `<div class="botc-conv-item" data-botc-phone="${_botcEsc(c.phone)}"
+        style="position:relative;background:${selected?'#eff6ff':'#fff'};border:1px solid #e2e8f0;border-left:3px solid ${selected?'#3b82f6':'transparent'};border-radius:12px;margin:8px 10px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06)">${rich || lite}${chatMeta}</div>`;
     return wrap;
   }).join('');
   sidebar.innerHTML = items;
@@ -42410,6 +42414,26 @@ window.botcSyncVisible = async function() {
 };
 
 // Inyecta la media query mobile solo una vez.
+// Aplasta la card interna (rich) para que se lea como una sola pieza con el
+// footer chatMeta: sin sombra ni borde propio y sin radius inferior.
+function _botcEnsureCardFlattenCss_() {
+  if (document.getElementById('botc-card-flat')) return;
+  const s = document.createElement('style');
+  s.id = 'botc-card-flat';
+  s.textContent = `
+    .botc-conv-item > *:not(.botc-card-footer) {
+      box-shadow: none !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      margin: 0 !important;
+      background: transparent !important;
+    }
+    .botc-conv-item > *:not(.botc-card-footer) * {
+      box-shadow: none !important;
+    }
+  `;
+  document.head.appendChild(s);
+}
 function _botcEnsureMobileCss_() {
   if (document.getElementById('botc-mobile-mq')) return;
   const s = document.createElement('style');
