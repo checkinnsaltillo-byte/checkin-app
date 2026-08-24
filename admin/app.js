@@ -21759,10 +21759,10 @@ function incEstatusColors(estatus) {
 // Color del semáforo/nivel.
 function incNivelDot(nivel) {
   const s = incNormalizeNivel(nivel);
-  if (s === 'Crítica') return '#7c3aed';
-  if (s === 'Alta')    return '#dc2626';
-  if (s === 'Media')   return '#f59e0b';
-  return '#16a34a';
+  if (s === 'Crítica') return '#dc2626'; // rojo
+  if (s === 'Alta')    return '#f97316'; // naranja
+  if (s === 'Media')   return '#eab308'; // amarillo
+  return '#3b82f6';                      // azul (Baja)
 }
 
 function incRenderCheckList(containerId, items, name, includePuesto = false) {
@@ -22660,10 +22660,10 @@ function incCardBodyHtmlEditable(row, id) {
         <div>
           <label class="inc-label">Nivel de prioridad</label>
           <select class="inc-input" data-edit-field="nivel" oninput="incEditOnChange('${esc(id)}')">
-            <option value="Crítica" ${incNormalizeNivel(d.nivel)==='Crítica'?'selected':''}>🟣 Crítica</option>
-            <option value="Alta" ${incNormalizeNivel(d.nivel)==='Alta'?'selected':''}>🔴 Alta</option>
+            <option value="Crítica" ${incNormalizeNivel(d.nivel)==='Crítica'?'selected':''}>🔴 Crítica</option>
+            <option value="Alta" ${incNormalizeNivel(d.nivel)==='Alta'?'selected':''}>🟠 Alta</option>
             <option value="Media" ${incNormalizeNivel(d.nivel)==='Media'?'selected':''}>🟡 Media</option>
-            <option value="Baja" ${incNormalizeNivel(d.nivel)==='Baja'?'selected':''}>🟢 Baja</option>
+            <option value="Baja" ${incNormalizeNivel(d.nivel)==='Baja'?'selected':''}>🔵 Baja</option>
           </select>
         </div>
         <div>
@@ -42643,10 +42643,10 @@ const RT_ESTADOS = [
   { key: 'cancelado',   label: 'Cancelado',   bg:'#fecaca', fg:'#7f1d1d' },
 ];
 const RT_PRIORIDADES = [
-  { key:'critica', label:'Crítica', color:'#dc2626' },
-  { key:'alta',    label:'Alta',    color:'#f59e0b' },
-  { key:'media',   label:'Media',   color:'#3b82f6' },
-  { key:'baja',    label:'Baja',    color:'#64748b' },
+  { key:'critica', label:'Crítica', color:'#dc2626' }, // rojo
+  { key:'alta',    label:'Alta',    color:'#f97316' }, // naranja
+  { key:'media',   label:'Media',   color:'#eab308' }, // amarillo
+  { key:'baja',    label:'Baja',    color:'#3b82f6' }, // azul
 ];
 // Retro-map: valores viejos (keys anteriores + INC legacy) → keys nuevos.
 function _rtNormalizeEstado(v) {
