@@ -22011,7 +22011,7 @@ function incGetFormData() {
   };
 }
 
-function incBuildReporteHtml(d) {
+function incBuildReporteHtml(d, id) {
   const personas        = d.personas.length        ? d.personas        : ['Sin especificar'];
   const motivos         = d.motivos.length         ? d.motivos         : ['Sin especificar'];
   const clasificaciones = d.clasificaciones.length ? d.clasificaciones : ['Sin especificar'];
@@ -22042,12 +22042,20 @@ function incBuildReporteHtml(d) {
           </div>`).join('')}
       </div>
     </div>` : '';
+  const nivelPillHtml = id
+    ? _incBuildNivelPill(id, d.nivel)
+    : `<span class="inc-chip" style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${incNivelDot(d.nivel)}"></span>${esc(incNormalizeNivel(d.nivel))}</span>`;
+  const progressHtml = id
+    ? _incBuildProgressBar(id, d.estatus)
+    : `<span class="inc-chip" style="background:${incEstatusColors(d.estatus).bg};color:${incEstatusColors(d.estatus).fg}">${esc(incNormalizeEstatus(d.estatus))}</span>`;
   return `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:2px solid #dc2626;padding-bottom:8px;margin-bottom:12px">
-      <div>
+      <div style="flex:1;min-width:0">
         <div style="font-size:9px;letter-spacing:.14em;color:#dc2626;font-weight:800;text-transform:uppercase">Formato operativo</div>
-        <h2 style="margin:2px 0 4px;font-size:18px;color:#0f172a;font-weight:800">Reporte de incidencia</h2>
-        <span class="inc-chip" style="background:#fef2f2;border-color:#fecaca;color:#991b1b">${esc(d.estatus)}</span>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 6px">
+          <h2 style="margin:0;font-size:18px;color:#0f172a;font-weight:800">Reporte de incidencia</h2>
+          <div style="display:flex;flex-direction:column;align-items:flex-start">${nivelPillHtml}</div>
+        </div>
       </div>
       <div style="text-align:right;font-size:11px;color:#475569">
         <div><strong>Fecha:</strong> ${esc(incFmtFecha(d.fecha))}</div>
@@ -22055,11 +22063,15 @@ function incBuildReporteHtml(d) {
       </div>
     </div>
 
-    <!-- Datos clave en 3 columnas — todo cabe en un renglón -->
-    <div class="inc-report-grid-3" style="margin-bottom:8px">
-      ${field('Nivel', chip(d.nivel, nivelCls))}
-      ${field('Estatus', esc(d.estatus))}
+    <!-- Progress bar de estado (clickeable) -->
+    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px 6px;margin-bottom:10px;background:#fff">
+      <div style="font-size:10px;letter-spacing:.10em;color:#dc2626;font-weight:800;text-transform:uppercase;margin-bottom:2px">Estado del reporte</div>
+      ${progressHtml}
+    </div>
+
+    <div class="inc-report-grid-2" style="margin-bottom:8px">
       ${field('Reportó', esc(reportante))}
+      ${field('Alojamiento', esc(d.alojamiento || '—'))}
     </div>
 
     <!-- Personas + Motivos + Clasificación: 2 columnas, mismo alto -->
@@ -22943,12 +22955,97 @@ function incRowToReportData(row) {
 function incCardBodyHtml(row) {
   try {
     const d = incRowToReportData(row);
-    // El mismo HTML del popup, pero envuelto en un contenedor sin botones
-    return incBuildReporteHtml(d);
+    const id = String(row && row['ID'] || '');
+    return incBuildReporteHtml(d, id);
   } catch (e) {
     return `<div style="color:#dc2626;font-size:12px">Error al renderizar reporte: ${esc(e.message || e)}</div>`;
   }
 }
+
+// ─── Controles rápidos en el detalle (formato operativo) ────────────────
+// Cambian Estatus/Nivel sin entrar a Editar. Reutilizan /update-incidencia.
+const INC_ESTATUS_ORDER = ['Nuevo','En proceso','En espera','Resuelto','Cerrado','Cancelado'];
+const INC_NIVEL_ORDER = ['Crítica','Alta','Media','Baja'];
+
+function _incBuildProgressBar(id, estatusActual) {
+  const cur = incNormalizeEstatus(estatusActual);
+  const idx = INC_ESTATUS_ORDER.indexOf(cur);
+  const items = INC_ESTATUS_ORDER.map((s, i) => {
+    const col = incEstatusColors(s);
+    const isCur = i === idx;
+    const isDone = idx > -1 && i < idx && cur !== 'Cancelado';
+    const bg = isCur ? col.bg : (isDone ? '#dcfce7' : '#f1f5f9');
+    const fg = isCur ? col.fg : (isDone ? '#166534' : '#94a3b8');
+    const border = isCur ? col.fg : (isDone ? '#22c55e' : '#cbd5e1');
+    const dot = `<button type="button" class="inc-prog-dot"
+        onclick="event.stopPropagation();incQuickSetEstatus('${esc(id)}','${esc(s)}')"
+        title="Cambiar a ${esc(s)}"
+        style="width:28px;height:28px;border-radius:50%;border:2px solid ${border};background:${bg};color:${fg};font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;transition:transform .12s">${i+1}</button>`;
+    const line = i < INC_ESTATUS_ORDER.length - 1
+      ? `<span style="flex:1;height:3px;background:${isDone ? '#22c55e' : '#e2e8f0'};min-width:8px;border-radius:2px"></span>`
+      : '';
+    const label = `<div style="font-size:10px;color:${isCur?col.fg:'#64748b'};font-weight:${isCur?'800':'600'};text-align:center;margin-top:4px;min-width:56px">${esc(s)}</div>`;
+    return `<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">${dot}${label}</div>${line}`;
+  }).join('');
+  return `<div style="display:flex;align-items:flex-start;gap:2px;padding:8px 4px 4px;overflow-x:auto">${items}</div>`;
+}
+
+function _incBuildNivelPill(id, nivelActual) {
+  const cur = incNormalizeNivel(nivelActual);
+  const dot = incNivelDot(cur);
+  return `<div class="inc-nivel-pill" data-inc-nivel-id="${esc(id)}" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;cursor:pointer;user-select:none"
+      onclick="event.stopPropagation();incToggleNivelMenu('${esc(id)}')" title="Cambiar prioridad">
+      <span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${dot}"></span>
+      <span style="font-size:11px;font-weight:800;color:#334155;letter-spacing:.02em">${esc(cur)}</span>
+      <span style="font-size:9px;color:#94a3b8">▾</span>
+    </div>
+    <div class="inc-nivel-menu" data-inc-nivel-menu-id="${esc(id)}"
+         style="display:none;margin-top:6px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap">
+      ${INC_NIVEL_ORDER.map(n => {
+        const d = incNivelDot(n);
+        const act = n === cur;
+        return `<button type="button" onclick="event.stopPropagation();incQuickSetNivel('${esc(id)}','${esc(n)}')"
+          style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1.5px solid ${act ? d : '#e2e8f0'};background:${act ? '#f8fafc' : '#fff'};border-radius:999px;font-size:11px;font-weight:${act?'800':'600'};color:#334155;cursor:pointer">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${d}"></span>${esc(n)}</button>`;
+      }).join('')}
+    </div>`;
+}
+
+window.incToggleNivelMenu = function(id) {
+  const menu = document.querySelector(`.inc-nivel-menu[data-inc-nivel-menu-id="${CSS.escape(id)}"]`);
+  if (!menu) return;
+  menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+};
+
+async function _incQuickPatch(id, patch, labelSet) {
+  const row = (INC_STATE.list||[]).find(r => String(r['ID']||'') === String(id));
+  if (!row) { alert('No se encontró el reporte.'); return; }
+  const changedKey = Object.keys(patch)[0];
+  const changedVal = patch[changedKey];
+  const prettyKey = changedKey === 'estatus' ? 'Estatus' : 'Nivel';
+  if (!confirm(`¿Actualizar ${prettyKey} a "${changedVal}"?`)) return;
+  try {
+    const res = await fetch('https://api.check-inn.mx/update-incidencia', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, fields: patch })
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error al actualizar');
+    if (changedKey === 'estatus') row['Estatus'] = changedVal;
+    if (changedKey === 'nivel')   row['Nivel']   = changedVal;
+    // Repintar la card en la lista (si visible) + timeline WA
+    try {
+      const cardBody = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(id)}"] .inc-card-body`);
+      if (cardBody) cardBody.innerHTML = incCardBodyHtmlReadonly(row, id);
+    } catch(_){}
+    try { if (typeof incRenderCards === 'function' && document.getElementById('inc-cards-list')) incRenderCards(); } catch(_){}
+    try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
+  } catch (e) {
+    alert('Error al guardar: ' + (e.message || e));
+  }
+}
+window.incQuickSetEstatus = function(id, estatus) { return _incQuickPatch(id, { estatus }); };
+window.incQuickSetNivel   = function(id, nivel)   { return _incQuickPatch(id, { nivel }); };
 
 // ═══════════════════════════════════════════════════════════════════════
 // ║  INCIDENCIAS — Filtros (chips Motivo + dropdowns multi-select)        ║
