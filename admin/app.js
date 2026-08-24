@@ -43084,13 +43084,50 @@ function rtRenderList() {
   let rows = RT_STATE.list.slice();
   if (fEstado) rows = rows.filter(r => _rtNormalizeEstado(r.Estado) === fEstado);
   if (fPrio)   rows = rows.filter(r => _rtNormalizePrio(r.Prioridad) === fPrio);
-  // Más recientes primero
   rows.sort((a,b) => String(b.Timestamp || '').localeCompare(String(a.Timestamp || '')));
-  if (!rows.length) {
-    cont.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:#94a3b8;font-size:13px;font-style:italic">Sin reportes técnicos con estos filtros.</div>';
-    return;
+  // Bucket por columna: Nuevos · En proceso · Concluidos · Programados
+  // Programados = Fecha > hoy y no está resuelto/cancelado.
+  const today = new Date().toISOString().slice(0,10);
+  const buckets = { nuevos:[], en_proceso:[], concluidos:[], programados:[] };
+  for (const r of rows) {
+    const est = _rtNormalizeEstado(r.Estado);
+    const fecha = String(r.Fecha || '').slice(0,10);
+    const isFuture = fecha && fecha > today;
+    if (isFuture && (est === 'nuevo' || est === 'en_proceso')) buckets.programados.push(r);
+    else if (est === 'nuevo') buckets.nuevos.push(r);
+    else if (est === 'en_proceso') buckets.en_proceso.push(r);
+    else if (est === 'resuelto' || est === 'cancelado') buckets.concluidos.push(r);
+    else buckets.nuevos.push(r);
   }
-  cont.innerHTML = rows.map(r => _rtRenderCard(r)).join('');
+  const COLS = [
+    { key:'nuevos',      label:'Nuevos',      color:'#334155', bg:'#f1f5f9' },
+    { key:'en_proceso',  label:'En proceso',  color:'#92400e', bg:'#fef3c7' },
+    { key:'concluidos',  label:'Concluidos',  color:'#166534', bg:'#dcfce7' },
+    { key:'programados', label:'Programados', color:'#3730a3', bg:'#e0e7ff' },
+  ];
+  cont.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start';
+  // Responsive mobile: en <900px apila columnas verticalmente. Se aplica
+  // via media query inyectada una sola vez.
+  if (!document.getElementById('rt-kanban-mq')) {
+    const s = document.createElement('style');
+    s.id = 'rt-kanban-mq';
+    s.textContent = '@media (max-width: 900px){ #rt-cards-list{ grid-template-columns:1fr !important; } }';
+    document.head.appendChild(s);
+  }
+  cont.innerHTML = COLS.map(col => {
+    const items = buckets[col.key] || [];
+    const cards = items.length
+      ? items.map(r => _rtRenderCard(r)).join('')
+      : `<div style="text-align:center;padding:20px 8px;color:#94a3b8;font-size:11px;font-style:italic;background:#fff;border:1px dashed #e2e8f0;border-radius:8px">Sin reportes</div>`;
+    return `
+      <div style="min-width:0;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${col.bg};color:${col.color};border-radius:8px;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase">
+          <span>${col.label}</span>
+          <span style="background:#fff;color:${col.color};padding:2px 8px;border-radius:999px;font-size:11px">${items.length}</span>
+        </div>
+        ${cards}
+      </div>`;
+  }).join('');
 }
 
 function _rtRenderCard(row) {
@@ -43105,17 +43142,41 @@ function _rtRenderCard(row) {
   const fotosAntes = String(row.Fotos_antes_urls || '').split(',').map(s=>s.trim()).filter(Boolean);
   const fotosDespues = String(row.Fotos_despues_urls || '').split(',').map(s=>s.trim()).filter(Boolean);
   const nFotos = fotosAntes.length + fotosDespues.length;
+  const id = String(row.ID || '');
+  const prioChip = `<span data-rt-chip="1"
+      onclick="event.stopPropagation();rtCardToggleMenu_('${_rtEscA(id)}','prio')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px 3px 6px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;cursor:pointer"
+      title="Cambiar prioridad">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${prio.color}"></span>
+      <span style="font-size:10px;font-weight:800;color:#334155;letter-spacing:.02em">${_rtEsc(prio.label)}</span>
+      <span style="font-size:8px;color:#94a3b8">▾</span>
+    </span>`;
+  const estChip = `<span data-rt-chip="1"
+      onclick="event.stopPropagation();rtCardToggleMenu_('${_rtEscA(id)}','est')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:${est.bg};color:${est.fg};border-radius:999px;font-size:10px;font-weight:800;cursor:pointer;border:1.5px solid ${est.fg}22"
+      title="Cambiar estado">
+      ${_rtEsc(est.label)} <span style="font-size:8px;opacity:.75">▾</span>
+    </span>`;
+  // Menús desplegables (usan mismos handlers que la card WA).
+  const estMenu = RT_ESTADOS.map(s => {
+    const act = s.key === est.key;
+    return `<button type="button" onclick="event.stopPropagation();rtCardPickEst_('${_rtEscA(id)}','${_rtEscA(s.key)}')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1.5px solid ${act?s.fg:'#e2e8f0'};background:${act?s.bg:'#fff'};color:${act?s.fg:'#334155'};border-radius:999px;font-size:10px;font-weight:${act?'800':'600'};cursor:pointer">${_rtEsc(s.label)}</button>`;
+  }).join('');
+  const prioMenu = RT_PRIORIDADES.map(p => {
+    const act = p.key === prio.key;
+    return `<button type="button" onclick="event.stopPropagation();rtCardPickPrio_('${_rtEscA(id)}','${_rtEscA(p.key)}')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1.5px solid ${act?p.color:'#e2e8f0'};background:${act?'#f8fafc':'#fff'};border-radius:999px;font-size:10px;font-weight:${act?'800':'600'};color:#334155;cursor:pointer">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${p.color}"></span>${_rtEsc(p.label)}</button>`;
+  }).join('');
   return `
-    <div onclick="rtOpenCapture('${_rtEscA(row.ID)}')" role="button" tabindex="0"
+    <div onclick="rtOpenCapture('${_rtEscA(id)}')" role="button" tabindex="0"
       style="cursor:pointer;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;transition:transform .12s,box-shadow .12s;box-shadow:0 2px 6px rgba(15,23,42,.06)"
       onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(15,23,42,.12)'"
       onmouseout="this.style.transform='';this.style.boxShadow='0 2px 6px rgba(15,23,42,.06)'">
       <div style="background:linear-gradient(90deg,${prio.color},${prio.color}cc);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
         <div style="font-size:11px;font-weight:800;letter-spacing:.04em">${_rtEsc(folio)}</div>
-        <div style="display:flex;gap:6px">
-          <span style="font-size:10px;background:rgba(255,255,255,.25);padding:2px 8px;border-radius:999px;font-weight:800">${_rtEsc(prio.key)}</span>
-          ${bloq ? '<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px;font-weight:800">🚫 INHABITABLE</span>' : ''}
-        </div>
+        ${bloq ? '<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px;font-weight:800">🚫 INHABITABLE</span>' : ''}
       </div>
       <div style="padding:12px 14px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -43126,16 +43187,45 @@ function _rtRenderCard(row) {
         <div style="font-size:11px;color:#475569">📍 ${_rtEsc(aloj)}</div>
         ${fecha ? `<div style="font-size:11px;color:#475569;margin-top:2px">📅 ${_rtEsc(fecha)}</div>` : ''}
         ${row.Asignado_a ? `<div style="font-size:11px;color:#475569;margin-top:2px">👤 ${_rtEsc(row.Asignado_a)}</div>` : ''}
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:6px">
-          <span style="padding:4px 10px;background:${est.bg};color:${est.fg};border-radius:999px;font-size:10px;font-weight:800">${_rtEsc(est.label)}</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:6px;flex-wrap:wrap">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">${prioChip}${estChip}</div>
           <div style="display:flex;gap:8px;align-items:center;font-size:11px;color:#94a3b8">
             ${nFotos ? `<span title="${nFotos} fotos">📷 ${nFotos}</span>` : ''}
             ${row.Costo_total > 0 ? `<span title="Costo total">💰 $${Number(row.Costo_total).toFixed(0)}</span>` : ''}
           </div>
         </div>
+        <div class="rt-card-menu" data-rt-menu-id="${_rtEscA(id)}" data-rt-menu-kind="est"
+          style="display:none;margin-top:8px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap"
+          onclick="event.stopPropagation()">${estMenu}</div>
+        <div class="rt-card-menu" data-rt-menu-id="${_rtEscA(id)}" data-rt-menu-kind="prio"
+          style="display:none;margin-top:8px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap"
+          onclick="event.stopPropagation()">${prioMenu}</div>
       </div>
     </div>`;
 }
+window.rtCardToggleMenu_ = function(id, kind) {
+  document.querySelectorAll('.rt-card-menu').forEach(m => {
+    const mid = m.getAttribute('data-rt-menu-id');
+    const mk  = m.getAttribute('data-rt-menu-kind');
+    if (mid === id && mk === kind) {
+      m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+    } else {
+      m.style.display = 'none';
+    }
+  });
+};
+function _rtCloseCardMenus_(id) {
+  document.querySelectorAll(`.rt-card-menu[data-rt-menu-id="${CSS.escape(id)}"]`)
+    .forEach(m => { m.style.display = 'none'; });
+}
+window.rtCardPickEst_ = function(id, estKey) {
+  _rtCloseCardMenus_(id);
+  _rtQuickPatch(id, { Estado: estKey });
+};
+window.rtCardPickPrio_ = function(id, prioKey) {
+  _rtCloseCardMenus_(id);
+  _rtQuickPatch(id, { Prioridad: prioKey });
+};
 
 // ─── Captura / Edición ────────────────────────────────────────────────
 window.rtOpenCapture = function(id) {
