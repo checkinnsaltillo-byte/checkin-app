@@ -37765,13 +37765,12 @@ function _waRenderTabsHeader_(currentTab) {
 function _waRenderTabContent_(st, logs) {
   const tab = st.currentTab || 'todos';
   if (tab === 'programados' || tab === 'todos') {
-    // En 'todos' las cards de reportes se inyectan DENTRO de cada acordeón
-    // de reserva vía _waRenderReportsForBooking_ — no las duplicamos abajo.
-    return _waRenderBookingsAccordion_(logs);
+    // Programados: acordeón completo (mensajes + reportes dentro de cada reserva).
+    return _waRenderBookingsAccordion_(logs, 'full');
   }
-  // 'reportes' — listado plano (todas las reservas del huésped).
-  const reportsHtml = _waRenderReportsList_(st);
-  return reportsHtml || _waEmptyState_('Sin reportes asociados a esta reserva.');
+  // 'reportes' — mismo acordeón por reserva pero solo con las cards de
+  // reportes (sin historial de mensajes).
+  return _waRenderBookingsAccordion_(logs, 'reports-only');
 }
 
 /** Cambia tab activo sin re-fetch (solo repinta). */
@@ -37874,6 +37873,73 @@ window.waOpenReportPickerForModal_ = function() {
   }
 };
 
+/** Devuelve array de items {kind:'report', id, row, kindReport, sortKey}
+ *  para mezclar en el timeline unificado. sortKey = ms epoch de la última
+ *  actividad (Updated_at o Timestamp o Fecha). */
+function _waGetReportsForBooking_(bk) {
+  if (!bk) return [];
+  const alojNormFn = (typeof alojNorm === 'function') ? alojNorm : (s => String(s||'').toLowerCase().trim());
+  const arrIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(bk.DateArrival) : '') || String((bk.__reservacion && bk.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(bk.DateDeparture) : '') || String((bk.__reservacion && bk.__reservacion['Fecha de salida']) || '').slice(0,10);
+  const propRaw = bk.PropiedadRaw || (bk.__reservacion && bk.__reservacion['Propiedad']) || bk.PropertyName || '';
+  const deptRaw = bk.DepartamentoRaw || (bk.__reservacion && bk.__reservacion['# Departamento']) || '';
+  if (!arrIso || !depIso || !propRaw || !deptRaw) return [];
+  const propN = alojNormFn(propRaw), deptN = alojNormFn(deptRaw);
+  const incList = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list)) ? INC_STATE.list : [];
+  const objList = (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list)) ? OBJ_STATE.list : [];
+  const parseTs = (s) => {
+    const t = String(s || '').trim();
+    if (!t) return 0;
+    // Formatos aceptados: ISO YYYY-MM-DD HH:mm:ss | ISO con T | YYYY-MM-DD
+    const d = new Date(t.replace(' ', 'T'));
+    if (!isNaN(d.getTime())) return d.getTime();
+    return 0;
+  };
+  const activityMs = (r) => {
+    return parseTs(r['Updated_at']) || parseTs(r['updated_at']) || parseTs(r['Timestamp']) || parseTs(r['timestamp']) || parseTs(r['Fecha']) || parseTs(r['Fecha_encontrado']) || 0;
+  };
+  const out = [];
+  incList.forEach(r => {
+    if (alojNormFn(r['Propiedad']) !== propN) return;
+    if (alojNormFn(r['# Departamento']) !== deptN) return;
+    const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+    if (!f || f < arrIso || f > depIso) return;
+    out.push({ kind:'report', id: r['ID']||'', row: r, kindReport: 'inc', sortKey: activityMs(r) });
+  });
+  objList.forEach(r => {
+    if (alojNormFn(r['Propiedad']) !== propN) return;
+    if (alojNormFn(r['# Departamento']) !== deptN) return;
+    const f = String(r['Fecha_encontrado'] || '').slice(0,10);
+    if (!f || f < arrIso || f > depIso) return;
+    out.push({ kind:'report', id: r['ID']||'', row: r, kindReport: 'obj', sortKey: activityMs(r) });
+  });
+  return out;
+}
+
+/** Card compacta para el timeline unificado — reutiliza _waRenderIncCard_
+ *  / _waRenderObjCard_ pero con banner de fecha/hora relevante. */
+function _waRenderReportTimelineItem_(it) {
+  const r = it.row || {};
+  const ts = it.sortKey;
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  let tsLabel = '';
+  if (ts) {
+    const d = new Date(ts);
+    if (!isNaN(d.getTime())) {
+      const hh = String(d.getHours()).padStart(2,'0');
+      const mm = String(d.getMinutes()).padStart(2,'0');
+      tsLabel = `${d.getDate()} ${meses[d.getMonth()]} · ${hh}:${mm}`;
+    }
+  }
+  const isEdited = !!(r['Updated_at'] || r['updated_at']);
+  const inner = it.kindReport === 'inc' ? _waRenderIncCard_(r) : _waRenderObjCard_(r);
+  return `
+    <div style="margin-bottom:10px">
+      ${tsLabel ? `<div style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:4px;padding:0 4px">${isEdited?'✎ ':'📋 '}${_botcEsc(tsLabel)}${isEdited?' (editado)':''}</div>` : ''}
+      ${inner}
+    </div>`;
+}
+
 /** Devuelve HTML de cards de reportes (inc + obj) que matchean UN booking
  *  específico por propiedad + depto + rango de fechas. Se inyecta dentro
  *  del acordeón abierto de la reserva. */
@@ -37898,22 +37964,30 @@ function _waRenderReportsForBooking_(bk) {
     OBJ_STATE.__waLoadTriggered = true;
     objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
   }
+  // sortKey = fecha/hora de última actividad (Updated_at > Timestamp > Fecha).
+  // Formato ISO para que localeCompare ordene cronológicamente.
+  const activityKey = (r) => {
+    const cand = [r['Updated_at'], r['updated_at'], r['Timestamp'], r['timestamp'], r['Fecha'], r['Fecha_encontrado']]
+      .map(v => String(v || '').trim()).filter(Boolean);
+    return cand[0] || '';
+  };
   incList.forEach(r => {
     if (alojNormFn(r['Propiedad']) !== propN) return;
     if (alojNormFn(r['# Departamento']) !== deptN) return;
     const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
     if (!f || f < arrIso || f > depIso) return;
-    cards.push({ kind:'inc', row:r, sortKey:f });
+    cards.push({ kind:'inc', row:r, sortKey: activityKey(r) });
   });
   objList.forEach(r => {
     if (alojNormFn(r['Propiedad']) !== propN) return;
     if (alojNormFn(r['# Departamento']) !== deptN) return;
     const f = String(r['Fecha_encontrado'] || '').slice(0,10);
     if (!f || f < arrIso || f > depIso) return;
-    cards.push({ kind:'obj', row:r, sortKey:f });
+    cards.push({ kind:'obj', row:r, sortKey: activityKey(r) });
   });
   if (!cards.length) return '';
-  cards.sort((a,b) => b.sortKey.localeCompare(a.sortKey));
+  // Más reciente primero.
+  cards.sort((a,b) => String(b.sortKey || '').localeCompare(String(a.sortKey || '')));
   const html = cards.map(c => c.kind === 'inc' ? _waRenderIncCard_(c.row) : _waRenderObjCard_(c.row)).join('');
   return `
     <div style="background:#fef3c7;border:1px dashed #fcd34d;border-radius:8px;padding:8px 10px;margin-bottom:10px">
@@ -38190,7 +38264,10 @@ function _waFmtWhen(d) {
 /** Renderiza acordeón por reserva (headers colapsables). Al expandir uno,
  *  muestra dentro la lista unificada de mensajes de esa reserva. Solo 1
  *  acordeón expandido a la vez (el focused). */
-function _waRenderBookingsAccordion_(logs) {
+/** mode: 'full' (default) | 'reports-only' */
+function _waRenderBookingsAccordion_(logs, mode) {
+  mode = mode || 'full';
+  const reportsOnly = mode === 'reports-only';
   const st = window.__waModalState;
   // Recomputar related en cada render. HU_STATE.rows / LG_STATE.bookings
   // pueden llegar TARDE al modal (carga async). Si nos quedamos con
@@ -38250,14 +38327,21 @@ function _waRenderBookingsAccordion_(logs) {
           Cargando mensajes de esta reserva…
         </div>`;
       } else {
-        // Reportes específicos de ESTA reserva (inc + obj cruzados por
-        // propiedad + depto + rango de fechas) — arriba del historial.
-        let reportsInside = '';
-        try { reportsInside = _waRenderReportsForBooking_(bk); } catch(_){}
-        content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
-          ${reportsInside}
-          ${_waRenderUnifiedList_(logs)}
-        </div>`;
+        if (reportsOnly) {
+          // Tab 'Reportes': solo cards de reportes agrupadas.
+          let reportsInside = '';
+          try { reportsInside = _waRenderReportsForBooking_(bk); } catch(_){}
+          content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
+            ${reportsInside || _waEmptyState_('Sin reportes en esta reserva.')}
+          </div>`;
+        } else {
+          // Modo 'full': reportes van MEZCLADOS en el timeline via
+          // _waRenderUnifiedList_ → _waGetReportsForBooking_. No repetimos
+          // el bloque aparte arriba.
+          content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
+            ${_waRenderUnifiedList_(logs)}
+          </div>`;
+        }
       }
     }
     items.push(header + content);
@@ -38443,11 +38527,20 @@ function _waRenderUnifiedList_(logs) {
       sortKey: cs.sent_at ? new Date(cs.sent_at).getTime() : (sch ? sch.getTime() : 0),
     });
   }
+  // Reportes (Incidencias + Objetos) del booking actual — mezclados en el
+  // timeline por su timestamp (Updated_at si existe, sino Timestamp/Fecha).
+  try {
+    const reportItems = _waGetReportsForBooking_(b);
+    for (const r of reportItems) items.push(r);
+  } catch(_){}
   items.sort((a,b) => a.sortKey - b.sortKey);
 
-  const html = items.map(it => it.kind === 'template'
-    ? _waRenderTemplateItem_(it, auto)
-    : _waRenderCustomItem_(it, auto)).join('');
+  const html = items.map(it => {
+    if (it.kind === 'template') return _waRenderTemplateItem_(it, auto);
+    if (it.kind === 'custom')   return _waRenderCustomItem_(it, auto);
+    if (it.kind === 'report')   return _waRenderReportTimelineItem_(it);
+    return '';
+  }).join('');
 
   const createBtn = st.newSch.open
     ? _waRenderNewSchForm_()
