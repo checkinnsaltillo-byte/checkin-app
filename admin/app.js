@@ -38614,10 +38614,12 @@ async function _rtQuickPatch(id, patch, opts) {
     });
     if (!confirm(`¿Actualizar ${parts.join(', ')}?`)) return;
   }
+  // Optimista: aplicar cambios y repintar YA. Si el server falla, revertir.
+  const prev = {};
+  Object.keys(patch).forEach(k => { prev[k] = row[k]; row[k] = patch[k]; });
+  try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
+  try { if (typeof rtRenderList === 'function' && document.getElementById('rt-cards-list')) rtRenderList(); } catch(_){}
   try {
-    // Solo mando ID + campos a cambiar. Apps Script en modo UPDATE mezcla
-    // sobre la fila existente, así evitamos re-mandar campos stale que
-    // podrían causar "upsert failed" (fotos_urls truncadas, timestamps, etc).
     const payload = Object.assign({ ID: String(id) }, patch);
     const r = await fetch('https://api.check-inn.mx/reportes-tecnicos-upsert', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -38625,8 +38627,6 @@ async function _rtQuickPatch(id, patch, opts) {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || j.raw || 'Error al actualizar');
-    // Aplicar TODOS los keys del patch al row en memoria.
-    Object.keys(patch).forEach(k => { row[k] = patch[k]; });
     const key = Object.keys(patch)[0];
     const val = patch[key];
     // Si el panel "Ver mensaje" de esta RT está abierto y cambió el Estado,
@@ -38641,10 +38641,11 @@ async function _rtQuickPatch(id, patch, opts) {
         }
       } catch(_){}
     }
-    // Refresh timeline WA + lista principal RT si visible
+  } catch (e) {
+    // Revertir cambios optimistas si el server rechaza.
+    Object.keys(prev).forEach(k => { row[k] = prev[k]; });
     try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
     try { if (typeof rtRenderList === 'function' && document.getElementById('rt-cards-list')) rtRenderList(); } catch(_){}
-  } catch (e) {
     alert('Error al guardar: ' + (e.message || e));
   }
 }
