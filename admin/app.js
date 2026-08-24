@@ -21728,9 +21728,9 @@ function incNormalizeEstatus(v) {
   if (low === 'parcialmente resuelto') return 'En proceso';
   if (low === 'nuevo') return 'Nuevo';
   if (low === 'en proceso') return 'En proceso';
-  if (low === 'en espera') return 'En espera';
+  if (low === 'en espera') return 'En proceso';
   if (low === 'resuelto') return 'Resuelto';
-  if (low === 'cerrado') return 'Cerrado';
+  if (low === 'cerrado') return 'Resuelto';
   if (low === 'cancelado') return 'Cancelado';
   return s;
 }
@@ -21751,9 +21751,7 @@ function incEstatusColors(estatus) {
   switch (s) {
     case 'Nuevo':      return { bg:'#f1f5f9', fg:'#334155' };
     case 'En proceso': return { bg:'#fef3c7', fg:'#92400e' };
-    case 'En espera':  return { bg:'#fee2e2', fg:'#991b1b' };
     case 'Resuelto':   return { bg:'#dcfce7', fg:'#166534' };
-    case 'Cerrado':    return { bg:'#e2e8f0', fg:'#475569' };
     case 'Cancelado':  return { bg:'#fecaca', fg:'#7f1d1d' };
     default:           return { bg:'#f1f5f9', fg:'#334155' };
   }
@@ -22673,9 +22671,7 @@ function incCardBodyHtmlEditable(row, id) {
           <select class="inc-input" data-edit-field="estatus" oninput="incEditOnChange('${esc(id)}')">
             <option value="Nuevo" ${incNormalizeEstatus(d.estatus)==='Nuevo'?'selected':''}>🆕 Nuevo</option>
             <option value="En proceso" ${incNormalizeEstatus(d.estatus)==='En proceso'?'selected':''}>🛠️ En proceso</option>
-            <option value="En espera" ${incNormalizeEstatus(d.estatus)==='En espera'?'selected':''}>⏳ En espera</option>
             <option value="Resuelto" ${incNormalizeEstatus(d.estatus)==='Resuelto'?'selected':''}>✓ Resuelto</option>
-            <option value="Cerrado" ${incNormalizeEstatus(d.estatus)==='Cerrado'?'selected':''}>🔒 Cerrado</option>
             <option value="Cancelado" ${incNormalizeEstatus(d.estatus)==='Cancelado'?'selected':''}>🚫 Cancelado</option>
           </select>
         </div>
@@ -22967,7 +22963,7 @@ function incCardBodyHtml(row) {
 
 // ─── Controles rápidos en el detalle (formato operativo) ────────────────
 // Cambian Estatus/Nivel sin entrar a Editar. Reutilizan /update-incidencia.
-const INC_ESTATUS_ORDER = ['Nuevo','En proceso','En espera','Resuelto','Cerrado','Cancelado'];
+const INC_ESTATUS_ORDER = ['Nuevo','En proceso','Resuelto','Cancelado'];
 const INC_NIVEL_ORDER = ['Crítica','Alta','Media','Baja'];
 
 function _incBuildProgressBar(id, estatusActual) {
@@ -23065,7 +23061,7 @@ INC_STATE.filters = {
   motivo: new Set(),         // controlado solo por chips
   clasificaciones: new Set(),
   nivel: new Set(['Crítica', 'Alta', 'Media', 'Baja']),
-  estatus: new Set(['Nuevo', 'En proceso', 'En espera', 'Resuelto', 'Cerrado', 'Cancelado']),
+  estatus: new Set(['Nuevo', 'En proceso', 'Resuelto', 'Cancelado']),
   month: '', // formato 'YYYY-MM' o '' = todos los meses
 };
 INC_STATE.filtersInitialized = false;
@@ -23120,7 +23116,7 @@ function incInitFilters() {
   incRenderMotivoChips();
   incRenderFilterDropdown('inc-f-clasif', 'clasificaciones', allClasif);
   incRenderFilterDropdown('inc-f-nivel', 'nivel', ['Crítica', 'Alta', 'Media', 'Baja']);
-  incRenderFilterDropdown('inc-f-estatus', 'estatus', ['Nuevo', 'En proceso', 'En espera', 'Resuelto', 'Cerrado', 'Cancelado']);
+  incRenderFilterDropdown('inc-f-estatus', 'estatus', ['Nuevo', 'En proceso', 'Resuelto', 'Cancelado']);
 }
 
 function incCollectUnique(filterKey) {
@@ -23162,7 +23158,7 @@ function incLabelFor(filterKey) {
   const all = filterKey === 'motivo' ? incCollectUnique('motivo')
             : filterKey === 'clasificaciones' ? incCollectUnique('clasificaciones')
             : filterKey === 'nivel' ? ['Crítica', 'Alta', 'Media', 'Baja']
-            : filterKey === 'estatus' ? ['Nuevo', 'En proceso', 'En espera', 'Resuelto', 'Cerrado', 'Cancelado']
+            : filterKey === 'estatus' ? ['Nuevo', 'En proceso', 'Resuelto', 'Cancelado']
             : [];
   if (!all.length) return 'Sin opciones';
   if (sel.size === 0) return 'Ninguno';
@@ -23231,7 +23227,7 @@ window.incFilterSetAll = function (filterKey) {
   const all = filterKey === 'motivo' ? incCollectUnique('motivo')
             : filterKey === 'clasificaciones' ? incCollectUnique('clasificaciones')
             : filterKey === 'nivel' ? ['Crítica', 'Alta', 'Media', 'Baja']
-            : ['Nuevo', 'En proceso', 'En espera', 'Resuelto', 'Cerrado', 'Cancelado'];
+            : ['Nuevo', 'En proceso', 'Resuelto', 'Cancelado'];
   INC_STATE.filters[filterKey] = new Set(all);
   // Re-pinta los checkboxes
   document.querySelectorAll(`.inc-mselect[data-filter="${filterKey}"] input[type="checkbox"]`)
@@ -38103,8 +38099,8 @@ function _waGetReportsForBooking_(bk) {
   const propN = alojNormFn(propRaw), deptN = alojNormFn(deptRaw);
   const incList = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list)) ? INC_STATE.list : [];
   const objList = (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list)) ? OBJ_STATE.list : [];
-  // Trigger de carga si están vacíos — asegura que aparezcan tras primer
-  // render aunque waOpenModal no las haya disparado a tiempo.
+  const rtList  = (typeof RT_STATE  !== 'undefined' && Array.isArray(RT_STATE.list))  ? RT_STATE.list  : [];
+  // Trigger de carga si están vacíos.
   if (!incList.length && typeof incLoadIncidencias === 'function' && !window.__waIncLoadPending) {
     window.__waIncLoadPending = true;
     incLoadIncidencias().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waIncLoadPending = false; });
@@ -38112,6 +38108,10 @@ function _waGetReportsForBooking_(bk) {
   if (!objList.length && typeof objLoadObjetos === 'function' && !window.__waObjLoadPending) {
     window.__waObjLoadPending = true;
     objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waObjLoadPending = false; });
+  }
+  if (typeof RT_STATE !== 'undefined' && !RT_STATE.loaded && typeof rtRefresh === 'function' && !window.__waRtLoadPending) {
+    window.__waRtLoadPending = true;
+    rtRefresh().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waRtLoadPending = false; });
   }
   const parseTs = (s) => {
     const t = String(s || '').trim();
@@ -38138,6 +38138,13 @@ function _waGetReportsForBooking_(bk) {
     const f = String(r['Fecha_encontrado'] || '').slice(0,10);
     if (!f || f < arrIso || f > depIso) return;
     out.push({ kind:'report', id: r['ID']||'', row: r, kindReport: 'obj', sortKey: activityMs(r) });
+  });
+  rtList.forEach(r => {
+    if (alojNormFn(r['Propiedad']) !== propN) return;
+    if (alojNormFn(r['# Departamento']) !== deptN) return;
+    const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+    if (!f || f < arrIso || f > depIso) return;
+    out.push({ kind:'report', id: r['ID']||'', row: r, kindReport: 'rt', sortKey: activityMs(r) });
   });
   return out;
 }
@@ -38424,14 +38431,13 @@ function _waRenderReportTimelineItem_(it) {
       dataAttr: `data-lg-inc-id="${_botcEsc(incId)}"`,
       incId,
     };
-  } else {
+  } else if (kind === 'obj') {
     const cat = String(r['Categoria']||'').trim();
     const catOtro = String(r['Categoria_otro']||'').trim();
     const catLabel = cat === 'Otro' ? `Otro: ${catOtro || '—'}` : (cat || 'Sin categoría');
     const entregado = !!String(r['Fecha_entregado']||'').slice(0,10);
     cfg = {
       checkBg:'#059669', checkFg:'#fff', checkIcon:'🎒',
-      // Fondo verde pastel para objetos perdidos (regresa comportamiento anterior).
       cardBg:'#ecfdf5', cardBorder:'#86efac',
       chipLabel:'OBJETO PERDIDO', chipBg:'#d1fae5', chipFg:'#065f46',
       titulo: catLabel,
@@ -38441,6 +38447,24 @@ function _waRenderReportTimelineItem_(it) {
       estadoLabel: entregado ? '✓ Entregado' : '⏳ Pendiente',
       headerBg: '#059669',
       dataAttr: `data-lg-obj-id="${_botcEsc(String(r['ID']||''))}"`,
+    };
+  } else {
+    // kind === 'rt' — Reporte Técnico
+    const est = RT_ESTADOS.find(e => e.key === _rtNormalizeEstado(r.Estado)) || RT_ESTADOS[0];
+    const prio = RT_PRIORIDADES.find(p => p.key === _rtNormalizePrio(r.Prioridad)) || RT_PRIORIDADES[3];
+    const titulo = String(r.Titulo || r.Folio || 'Reporte técnico');
+    cfg = {
+      checkBg:'#2563eb', checkFg:'#fff', checkIcon:'🔧',
+      cardBg:'#eff6ff', cardBorder:'#93c5fd',
+      chipLabel:'REPORTE TÉCNICO', chipBg:'#dbeafe', chipFg:'#1e40af',
+      titulo,
+      titleAccent: `<span title="Prioridad ${_botcEsc(prio.label)}" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px 2px 6px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;margin-left:6px;vertical-align:middle">
+        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${prio.color}"></span>
+        <span style="font-size:10px;font-weight:800;color:#334155;text-transform:none;letter-spacing:.02em">${_botcEsc(prio.label)}</span>
+      </span>`,
+      estadoBg: est.bg, estadoFg: est.fg, estadoLabel: est.label,
+      headerBg: '#2563eb',
+      dataAttr: `data-lg-rt-id="${_botcEsc(String(r['ID']||''))}"`,
     };
   }
   const desc = String(r['Descripcion'] || '').trim();
@@ -38497,6 +38521,7 @@ function _waRenderReportsForBooking_(bk) {
   const cards = [];
   const incList = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list)) ? INC_STATE.list : [];
   const objList = (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list)) ? OBJ_STATE.list : [];
+  const rtList  = (typeof RT_STATE  !== 'undefined' && Array.isArray(RT_STATE.list))  ? RT_STATE.list  : [];
   // Trigger de carga si están vacías (una sola vez por sesión).
   if (!incList.length && typeof incLoadIncidencias === 'function' && typeof INC_STATE !== 'undefined' && !INC_STATE.__waLoadTriggered) {
     INC_STATE.__waLoadTriggered = true;
@@ -38505,6 +38530,10 @@ function _waRenderReportsForBooking_(bk) {
   if (!objList.length && typeof objLoadObjetos === 'function' && typeof OBJ_STATE !== 'undefined' && !OBJ_STATE.__waLoadTriggered) {
     OBJ_STATE.__waLoadTriggered = true;
     objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+  }
+  if (typeof RT_STATE !== 'undefined' && !RT_STATE.loaded && typeof rtRefresh === 'function' && !RT_STATE.__waLoadTriggered) {
+    RT_STATE.__waLoadTriggered = true;
+    rtRefresh().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
   }
   // sortKey = fecha/hora de última actividad (Updated_at > Timestamp > Fecha).
   // Formato ISO para que localeCompare ordene cronológicamente.
@@ -38527,10 +38556,17 @@ function _waRenderReportsForBooking_(bk) {
     if (!f || f < arrIso || f > depIso) return;
     cards.push({ kind:'obj', row:r, sortKey: activityKey(r) });
   });
+  rtList.forEach(r => {
+    if (alojNormFn(r['Propiedad']) !== propN) return;
+    if (alojNormFn(r['# Departamento']) !== deptN) return;
+    const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+    if (!f || f < arrIso || f > depIso) return;
+    cards.push({ kind:'rt', row:r, sortKey: activityKey(r) });
+  });
   if (!cards.length) return '';
   // Más reciente primero.
   cards.sort((a,b) => String(b.sortKey || '').localeCompare(String(a.sortKey || '')));
-  const html = cards.map(c => c.kind === 'inc' ? _waRenderIncCard_(c.row) : _waRenderObjCard_(c.row)).join('');
+  const html = cards.map(c => c.kind === 'inc' ? _waRenderIncCard_(c.row) : (c.kind === 'obj' ? _waRenderObjCard_(c.row) : _waRenderRtCard_(c.row))).join('');
   return `
     <div style="background:#fef3c7;border:1px dashed #fcd34d;border-radius:8px;padding:8px 10px;margin-bottom:10px">
       <div style="font-size:10px;font-weight:800;color:#92400e;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">🚨 Reportes de esta reserva</div>
@@ -38625,6 +38661,42 @@ function _waRenderObjCard_(row) {
           style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #86efac;border-radius:6px;font-weight:700;color:#0f172a;cursor:pointer">▼ Ver mensaje</button>
       </div>
       ${_waBuildReportMsgPanel_('obj', id, row)}
+    </div>
+  </div>`;
+}
+function _waRenderRtCard_(row) {
+  const id = String(row['ID']||'');
+  const titulo = String(row.Titulo || row.Folio || 'Reporte técnico');
+  const propiedad = String(row['Propiedad']||'').trim();
+  const depto = String(row['# Departamento']||'').trim();
+  const aloj = String(row['Alojamiento']||'').trim() || (propiedad && depto ? `${propiedad} - #${depto}` : propiedad);
+  const fecha = String(row['Fecha']||row['Timestamp']||'').slice(0,10);
+  const est = RT_ESTADOS.find(e => e.key === _rtNormalizeEstado(row.Estado)) || RT_ESTADOS[0];
+  const prio = RT_PRIORIDADES.find(p => p.key === _rtNormalizePrio(row.Prioridad)) || RT_PRIORIDADES[3];
+  return `<div data-lg-rt-id="${esc(id)}" role="button" tabindex="0"
+    style="cursor:pointer;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.06);transition:transform .1s,box-shadow .1s">
+    <div style="background:#2563eb;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.9;font-weight:800">🔧 REPORTE TÉCNICO</div>
+        <div style="font-size:13px;font-weight:800;margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span>${esc(titulo)}</span>
+          <span title="Prioridad ${esc(prio.label)}" style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 6px;background:#fff;border-radius:999px">
+            <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${prio.color}"></span>
+            <span style="font-size:10px;font-weight:800;color:#334155;text-transform:none;letter-spacing:.02em">${esc(prio.label)}</span>
+          </span>
+        </div>
+      </div>
+      <span style="padding:3px 10px;background:${est.bg};color:${est.fg};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap">${esc(est.label)}</span>
+    </div>
+    <div style="padding:10px 14px;background:#fff;font-size:12px;color:#475569;display:flex;flex-direction:column;gap:3px">
+      ${aloj ? `<div>📍 ${esc(aloj)}</div>` : ''}
+      ${fecha ? `<div>📅 ${esc(fecha)}</div>` : ''}
+      <div style="margin-top:6px">
+        <button data-wa-report-msg-btn="1"
+          onclick="event.stopPropagation();waReportToggleMsg_('rt','${esc(id)}')"
+          style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #93c5fd;border-radius:6px;font-weight:700;color:#0f172a;cursor:pointer">▼ Ver mensaje</button>
+      </div>
+      ${_waBuildReportMsgPanel_('rt', id, row)}
     </div>
   </div>`;
 }
@@ -42472,9 +42544,7 @@ const RT_STATE = {
 const RT_ESTADOS = [
   { key: 'nuevo',       label: 'Nuevo',       bg:'#f1f5f9', fg:'#334155' },
   { key: 'en_proceso',  label: 'En proceso',  bg:'#fef3c7', fg:'#92400e' },
-  { key: 'en_espera',   label: 'En espera',   bg:'#fee2e2', fg:'#991b1b' },
   { key: 'resuelto',    label: 'Resuelto',    bg:'#dcfce7', fg:'#166534' },
-  { key: 'cerrado',     label: 'Cerrado',     bg:'#e2e8f0', fg:'#475569' },
   { key: 'cancelado',   label: 'Cancelado',   bg:'#fecaca', fg:'#7f1d1d' },
 ];
 const RT_PRIORIDADES = [
@@ -42488,7 +42558,8 @@ function _rtNormalizeEstado(v) {
   const s = String(v||'').trim().toLowerCase();
   if (!s) return 'nuevo';
   if (s === 'clasificado' || s === 'asignado' || s === 'pendiente') return 'nuevo';
-  if (s === 'parcialmente resuelto') return 'en_proceso';
+  if (s === 'parcialmente resuelto' || s === 'en_espera' || s === 'en espera') return 'en_proceso';
+  if (s === 'cerrado') return 'resuelto';
   return s.replace(/\s+/g,'_');
 }
 function _rtNormalizePrio(v) {
