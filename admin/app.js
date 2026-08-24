@@ -38143,6 +38143,52 @@ function _waGetReportsForBooking_(bk) {
  *  mensajes programados: timeline label arriba + checkmark circular a la
  *  izquierda + card con header/chip de tipo + estado + botón Ver detalles.
  *  Sin alojamiento (ya lo dice la reserva contenedora). */
+// Menús desplegables (estatus + nivel) para una card INC del timeline WA.
+function _waIncMenusHtml_(id, estActual, nivelActual) {
+  const estOpts = INC_ESTATUS_ORDER.map(s => {
+    const c = incEstatusColors(s);
+    const act = s === estActual;
+    return `<button type="button" onclick="event.stopPropagation();waIncPickEst_('${_botcEsc(id)}','${_botcEsc(s)}')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1.5px solid ${act ? c.fg : '#e2e8f0'};background:${act ? c.bg : '#fff'};color:${act ? c.fg : '#334155'};border-radius:999px;font-size:10px;font-weight:${act?'800':'600'};cursor:pointer">${_botcEsc(s)}</button>`;
+  }).join('');
+  const nivelOpts = INC_NIVEL_ORDER.map(n => {
+    const d = incNivelDot(n);
+    const act = n === nivelActual;
+    return `<button type="button" onclick="event.stopPropagation();waIncPickNivel_('${_botcEsc(id)}','${_botcEsc(n)}')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1.5px solid ${act ? d : '#e2e8f0'};background:${act ? '#f8fafc' : '#fff'};border-radius:999px;font-size:10px;font-weight:${act?'800':'600'};color:#334155;cursor:pointer">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${d}"></span>${_botcEsc(n)}</button>`;
+  }).join('');
+  return `
+    <div class="wa-inc-menu" data-wa-inc-menu-id="${_botcEsc(id)}" data-wa-inc-menu-kind="est"
+         style="display:none;margin-top:6px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap">${estOpts}</div>
+    <div class="wa-inc-menu" data-wa-inc-menu-id="${_botcEsc(id)}" data-wa-inc-menu-kind="nivel"
+         style="display:none;margin-top:6px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap">${nivelOpts}</div>`;
+}
+window.waIncToggleMenu_ = function(id, kind) {
+  // Cierra todos los menús WA-inc que no sean el target.
+  document.querySelectorAll('.wa-inc-menu').forEach(m => {
+    const mid = m.getAttribute('data-wa-inc-menu-id');
+    const mk  = m.getAttribute('data-wa-inc-menu-kind');
+    if (mid === id && mk === kind) {
+      m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+    } else {
+      m.style.display = 'none';
+    }
+  });
+};
+function _waCloseIncMenus_(id) {
+  document.querySelectorAll(`.wa-inc-menu[data-wa-inc-menu-id="${CSS.escape(id)}"]`)
+    .forEach(m => { m.style.display = 'none'; });
+}
+window.waIncPickEst_ = function(id, estatus) {
+  _waCloseIncMenus_(id);
+  incQuickSetEstatus(id, estatus);
+};
+window.waIncPickNivel_ = function(id, nivel) {
+  _waCloseIncMenus_(id);
+  incQuickSetNivel(id, nivel);
+};
+
 function _waRenderReportTimelineItem_(it) {
   const r = it.row || {};
   const kind = it.kindReport; // 'inc' | 'obj'
@@ -38170,16 +38216,30 @@ function _waRenderReportTimelineItem_(it) {
     const estBg = _estC.bg, estCl = _estC.fg;
     const nivelDot = incNivelDot(nivel);
     const titulo = [String(r['Motivos']||''), String(r['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Reporte';
+    const incId = String(r['ID']||'');
     cfg = {
       checkBg:'#dc2626', checkFg:'#fff', checkIcon:'🚨',
-      // Fondo pastel sólido según tipo (regresa comportamiento anterior).
       cardBg:'#fef2f2', cardBorder:'#fca5a5',
       chipLabel:'INCIDENCIA', chipBg:'#fee2e2', chipFg:'#991b1b',
       titulo,
-      titleAccent: `<span title="Nivel ${_botcEsc(nivel)}" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${nivelDot};margin-left:6px;vertical-align:middle"></span>`,
+      // Chip botón de PRIORIDAD junto al título (con dot semaforizado).
+      titleAccent: `<span data-wa-inc-id="${_botcEsc(incId)}" data-wa-inc-nivel-chip="1" onclick="event.stopPropagation();waIncToggleMenu_('${_botcEsc(incId)}','nivel')"
+          style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 6px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;margin-left:6px;cursor:pointer;vertical-align:middle"
+          title="Cambiar prioridad">
+          <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${nivelDot}"></span>
+          <span style="font-size:10px;font-weight:800;color:#334155;letter-spacing:.02em;text-transform:none">${_botcEsc(nivel)}</span>
+          <span style="font-size:8px;color:#94a3b8">▾</span>
+        </span>`,
       estadoBg: estBg, estadoFg: estCl, estadoLabel: estatus,
+      // Chip botón de ESTATUS interactivo (reemplaza el chip readonly).
+      estadoInteractive: `<span data-wa-inc-id="${_botcEsc(incId)}" data-wa-inc-est-chip="1" onclick="event.stopPropagation();waIncToggleMenu_('${_botcEsc(incId)}','est')"
+          style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:${estBg};color:${estCl};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap;cursor:pointer;border:1.5px solid ${estCl}22"
+          title="Cambiar estatus">
+          ${_botcEsc(estatus)} <span style="font-size:8px;opacity:.75">▾</span>
+        </span>`,
       headerBg,
-      dataAttr: `data-lg-inc-id="${_botcEsc(String(r['ID']||''))}"`,
+      dataAttr: `data-lg-inc-id="${_botcEsc(incId)}"`,
+      incId,
     };
   } else {
     const cat = String(r['Categoria']||'').trim();
@@ -38218,8 +38278,9 @@ function _waRenderReportTimelineItem_(it) {
                 ${cfg.titleAccent}
                 <span style="font-size:9px;color:${cfg.chipFg};background:${cfg.chipBg};padding:1px 6px;border-radius:999px;margin-left:4px;text-transform:none;letter-spacing:0;font-weight:800">${cfg.chipLabel}</span>
               </div>
-              <span style="padding:3px 10px;background:${cfg.estadoBg};color:${cfg.estadoFg};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap">${_botcEsc(cfg.estadoLabel)}</span>
+              ${cfg.estadoInteractive || `<span style="padding:3px 10px;background:${cfg.estadoBg};color:${cfg.estadoFg};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap">${_botcEsc(cfg.estadoLabel)}</span>`}
             </div>
+            ${cfg.incId ? _waIncMenusHtml_(cfg.incId, cfg.estadoLabel, incNormalizeNivel(r['Nivel'])) : ''}
             ${desc ? `<div style="font-size:11px;color:#475569;margin-top:4px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${_botcEsc(desc)}</div>` : ''}
             <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
               <span style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid ${cfg.cardBorder};border-radius:6px;font-weight:700;color:#0f172a">▶ Ver detalles</span>
