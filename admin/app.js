@@ -38259,14 +38259,34 @@ function _waBuildReportMsgPanel_(kind, id, row) {
   if (tpl) {
     const customPh = (typeof _waParseTplCustomPh_ === 'function') ? (_waParseTplCustomPh_(tpl) || []) : [];
     const vals = panel.customVals || {};
+    const editing = panel.phEditing || {};
     phInputs = customPh.map(ph => {
       const nm = String(ph.name || ph.key || '');
-      const cur = vals[nm] != null ? vals[nm] : String(ph.value || '');
-      return `<div style="margin-bottom:6px">
-        <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">{{${_botcEsc(nm)}}}</label>
-        <input type="text" value="${_botcEsc(cur)}"
-          oninput="waReportSetCustomPh_('${_botcEsc(kind)}','${_botcEsc(id)}','${_botcEsc(nm)}',this.value)"
-          style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">
+      const saved = vals[nm] != null ? vals[nm] : String(ph.value || '');
+      const inEdit = !!editing[nm];
+      // Referencias id-safe para leer el input en Guardar.
+      const inputId = `wa-ph-in-${_botcEsc(kind)}-${_botcEsc(id)}-${_botcEsc(nm)}`.replace(/[^a-zA-Z0-9_-]/g,'_');
+      const label = `<label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">{{${_botcEsc(nm)}}}</label>`;
+      if (inEdit) {
+        return `<div style="margin-bottom:8px">
+          ${label}
+          <div style="display:flex;gap:6px;align-items:stretch">
+            <input id="${inputId}" type="text" value="${_botcEsc(saved)}" autofocus
+              style="flex:1;padding:6px 8px;font-size:12px;border:1px solid #f59e0b;border-radius:6px;box-sizing:border-box;background:#fffbeb">
+            <button type="button" onclick="event.stopPropagation();waReportSavePh_('${_botcEsc(kind)}','${_botcEsc(id)}','${_botcEsc(nm)}','${inputId}')"
+              style="padding:5px 10px;font-size:11px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">💾 Guardar</button>
+            <button type="button" onclick="event.stopPropagation();waReportCancelPh_('${_botcEsc(kind)}','${_botcEsc(id)}','${_botcEsc(nm)}')"
+              style="padding:5px 10px;font-size:11px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;cursor:pointer;font-weight:700">↩ Cancelar</button>
+          </div>
+        </div>`;
+      }
+      return `<div style="margin-bottom:8px">
+        ${label}
+        <div style="display:flex;gap:6px;align-items:stretch">
+          <div style="flex:1;padding:6px 8px;font-size:12px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;min-height:26px;color:${saved ? '#0f172a' : '#94a3b8'};font-style:${saved ? 'normal' : 'italic'}">${saved ? _botcEsc(saved) : '(vacío)'}</div>
+          <button type="button" onclick="event.stopPropagation();waReportEditPh_('${_botcEsc(kind)}','${_botcEsc(id)}','${_botcEsc(nm)}')"
+            style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">✏️ Editar</button>
+        </div>
       </div>`;
     }).join('');
     // Resolver named placeholders + custom values sobre el body.
@@ -38386,10 +38406,42 @@ window.waReportPickTpl_ = function(kind, id, tplId) {
   _waRepaint();
 };
 window.waReportSetCustomPh_ = function(kind, id, name, val) {
+  // Compat: setter directo sin repaint (para casos no-UI).
   const st = window.__waModalState; if (!st) return;
   const key = _waReportCardKey_(kind, id);
   const cur = st.reportMsg[key] || {};
   cur.customVals = Object.assign({}, cur.customVals || {}, { [name]: val });
+  st.reportMsg[key] = cur;
+};
+window.waReportEditPh_ = function(kind, id, name) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  cur.phEditing = Object.assign({}, cur.phEditing || {}, { [name]: true });
+  st.reportMsg[key] = cur;
+  _waRepaint();
+};
+window.waReportCancelPh_ = function(kind, id, name) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  const nx = Object.assign({}, cur.phEditing || {}); delete nx[name];
+  cur.phEditing = nx;
+  st.reportMsg[key] = cur;
+  _waRepaint();
+};
+window.waReportSavePh_ = function(kind, id, name, inputId) {
+  const st = window.__waModalState; if (!st) return;
+  const inp = document.getElementById(inputId);
+  const val = inp ? String(inp.value || '') : '';
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  cur.customVals = Object.assign({}, cur.customVals || {}, { [name]: val });
+  const nx = Object.assign({}, cur.phEditing || {}); delete nx[name];
+  cur.phEditing = nx;
+  // Si estaba en modo "editar libre" del textarea, resetear para que refleje
+  // el nuevo valor sustituido en el preview.
+  cur.editedBody = null;
   st.reportMsg[key] = cur;
   _waRepaint();
 };
