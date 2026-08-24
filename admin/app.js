@@ -43100,11 +43100,12 @@ function rtRenderList() {
     else buckets.nuevos.push(r);
   }
   const COLS = [
-    { key:'nuevos',      label:'Nuevos',      color:'#334155', bg:'#f1f5f9' },
-    { key:'en_proceso',  label:'En proceso',  color:'#92400e', bg:'#fef3c7' },
-    { key:'concluidos',  label:'Concluidos',  color:'#166534', bg:'#dcfce7' },
-    { key:'programados', label:'Programados', color:'#3730a3', bg:'#e0e7ff' },
+    { key:'nuevos',      label:'Nuevos',      color:'#475569', accent:'#94a3b8' },
+    { key:'en_proceso',  label:'En proceso',  color:'#b45309', accent:'#f59e0b' },
+    { key:'concluidos',  label:'Concluidos',  color:'#15803d', accent:'#22c55e' },
+    { key:'programados', label:'Programados', color:'#4338ca', accent:'#6366f1' },
   ];
+  RT_STATE.collapsed = RT_STATE.collapsed || new Set();
   cont.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start';
   // Responsive mobile: en <900px apila columnas verticalmente. Se aplica
   // via media query inyectada una sola vez.
@@ -43116,19 +43117,31 @@ function rtRenderList() {
   }
   cont.innerHTML = COLS.map(col => {
     const items = buckets[col.key] || [];
-    const cards = items.length
+    const isCollapsed = RT_STATE.collapsed.has(col.key);
+    const cardsHtml = items.length
       ? items.map(r => _rtRenderCard(r)).join('')
-      : `<div style="text-align:center;padding:20px 8px;color:#94a3b8;font-size:11px;font-style:italic;background:#fff;border:1px dashed #e2e8f0;border-radius:8px">Sin reportes</div>`;
+      : `<div style="text-align:center;padding:18px 8px;color:#94a3b8;font-size:11px;font-style:italic;background:transparent;border:1px dashed #e2e8f0;border-radius:8px">Sin reportes</div>`;
     return `
       <div style="min-width:0;display:flex;flex-direction:column;gap:10px">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${col.bg};color:${col.color};border-radius:8px;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase">
-          <span>${col.label}</span>
-          <span style="background:#fff;color:${col.color};padding:2px 8px;border-radius:999px;font-size:11px">${items.length}</span>
-        </div>
-        ${cards}
+        <button type="button" onclick="rtToggleColumn_('${col.key}')"
+          style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:transparent;border:0;border-bottom:3px solid ${col.accent};border-radius:0;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s"
+          onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+            <span style="font-size:11px;color:${col.color};font-weight:900;letter-spacing:.06em;text-transform:uppercase">${col.label}</span>
+            <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:${col.accent};color:#fff;border-radius:999px;font-size:11px;font-weight:800">${items.length}</span>
+          </div>
+          <span style="font-size:14px;color:${col.color};transition:transform .2s;transform:rotate(${isCollapsed?'-90':'0'}deg);line-height:1">▾</span>
+        </button>
+        <div style="display:${isCollapsed?'none':'flex'};flex-direction:column;gap:10px">${cardsHtml}</div>
       </div>`;
   }).join('');
 }
+window.rtToggleColumn_ = function(key) {
+  if (!RT_STATE.collapsed) RT_STATE.collapsed = new Set();
+  if (RT_STATE.collapsed.has(key)) RT_STATE.collapsed.delete(key);
+  else RT_STATE.collapsed.add(key);
+  rtRenderList();
+};
 
 function _rtRenderCard(row) {
   const est = RT_ESTADOS.find(e => e.key === _rtNormalizeEstado(row.Estado)) || RT_ESTADOS[0];
