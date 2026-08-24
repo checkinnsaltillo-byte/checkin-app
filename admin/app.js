@@ -16373,6 +16373,9 @@ function lgReinjectRelatedSections(kind) {
 if (!window.__lgRelatedClickInstalled) {
   window.__lgRelatedClickInstalled = true;
   document.addEventListener('click', function(e) {
+    // Los chips de estatus / prioridad y su menú viven dentro de la card
+    // (data-lg-inc-id) pero NO deben abrir el detalle.
+    if (e.target.closest('[data-wa-inc-est-chip], [data-wa-inc-nivel-chip], .wa-inc-menu')) return;
     const incEl = e.target.closest('[data-lg-inc-id]');
     if (incEl) {
       e.preventDefault();
