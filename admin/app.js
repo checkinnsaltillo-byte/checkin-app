@@ -37980,13 +37980,15 @@ function _waRenderTabsHeader_(currentTab) {
 /** Contenido del tab seleccionado. */
 function _waRenderTabContent_(st, logs) {
   const tab = st.currentTab || 'todos';
-  if (tab === 'programados' || tab === 'todos') {
-    // Programados: acordeón completo (mensajes + reportes dentro de cada reserva).
-    return _waRenderBookingsAccordion_(logs, 'full');
-  }
-  // 'reportes' — mismo acordeón por reserva pero solo con las cards de
-  // reportes (sin historial de mensajes).
+  if (tab === 'todos') return _waRenderBookingsAccordion_(logs, 'full');
+  if (tab === 'programados') return _waRenderBookingsAccordion_(logs, 'schedule-only');
   return _waRenderBookingsAccordion_(logs, 'reports-only');
+}
+// Detecta un mensaje "custom" que en realidad fue detonado por acción de un
+// reporte (INC / RT). Estos mensajes NO deben aparecer en pestaña Programados.
+function _waIsReportTriggeredCustom_(cs) {
+  const t = String(cs && cs.tipo || '').toLowerCase();
+  return t.startsWith('report-');
 }
 
 /** Cambia tab activo sin re-fetch (solo repinta). */
@@ -38491,22 +38493,40 @@ window.waReportSendNow_ = async function(kind, id) {
   if (!rcps.length) { alert('Sin destinatario para enviar.'); return; }
   if (!confirm(`¿Enviar mensaje a ${rcps.join(', ')}?`)) return;
   try {
-    let ok = 0, fail = 0, lastErr = '';
-    for (const to of rcps) {
-      const r = await fetch('https://api.check-inn.mx/wa/send', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, body, bookingId: st.bookingId, tipo: `report-${kind}-${cur.tplId}` }),
-      });
-      const j = await r.json();
-      if (j.ok) ok++; else { fail++; lastErr = j.error || ''; }
-    }
-    alert(ok > 0 ? `✅ Enviado a ${ok}${fail?` · ${fail} fallaron`:''}` : `❌ Falló: ${lastErr}`);
-    if (ok > 0) {
-      // Cerrar panel y repaint
+    // Persistir como WA_Scheduled con tipo='report-{kind}-{tplId}' para que
+    // aparezca luego en pestaña Todos como card de mensaje enviado. Detonado
+    // por acción → NO aparece en Programados (filtrado por _waIsReportTriggeredCustom_).
+    const tipo = `report-${kind}-${cur.tplId}`;
+    const asunto = String(tpl.nombre || tpl.id || 'Reporte');
+    const nowIso = new Date().toISOString();
+    const toCsv = rcps.join(',');
+    const addR = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId: st.bookingId, to: toCsv, scheduledAt: nowIso, body, asunto, tipo }),
+    });
+    const addJ = await addR.json();
+    if (!addJ.ok) throw new Error(addJ.error || 'no se pudo guardar el mensaje');
+    let statusFinal = 'pending', sentAt = '', sid = '';
+    const sendR = await fetch('https://api.check-inn.mx/wa/scheduled-send-now', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: addJ.id }),
+    });
+    const sendJ = await sendR.json();
+    if (sendJ.ok) { statusFinal = sendJ.status || 'sent'; sentAt = new Date().toISOString(); sid = sendJ.sid || ''; }
+    else statusFinal = 'failed';
+    st.scheduledItems = st.scheduledItems || [];
+    st.scheduledItems.push({
+      id: addJ.id, booking_id: st.bookingId, tipo, to: toCsv,
+      scheduled_at: nowIso, body, asunto, status: statusFinal, sent_at: sentAt, sid,
+    });
+    if (statusFinal === 'failed') {
+      alert('El mensaje se guardó pero falló al enviarse.');
+    } else {
+      alert('✅ Mensaje enviado.');
       cur.open = false;
       st.reportMsg[key] = cur;
-      _waRepaint();
     }
+    _waRepaint();
   } catch (e) { alert('❌ ' + (e.message || e)); }
 };
 
@@ -39145,6 +39165,7 @@ function _waFmtWhen(d) {
 function _waRenderBookingsAccordion_(logs, mode) {
   mode = mode || 'full';
   const reportsOnly = mode === 'reports-only';
+  const scheduleOnly = mode === 'schedule-only';
   const st = window.__waModalState;
   // Recomputar related en cada render. HU_STATE.rows / LG_STATE.bookings
   // pueden llegar TARDE al modal (carga async). Si nos quedamos con
@@ -39216,7 +39237,7 @@ function _waRenderBookingsAccordion_(logs, mode) {
           // _waRenderUnifiedList_ → _waGetReportsForBooking_. No repetimos
           // el bloque aparte arriba.
           content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
-            ${_waRenderUnifiedList_(logs)}
+            ${_waRenderUnifiedList_(logs, { scheduleOnly })}
           </div>`;
         }
       }
@@ -39294,7 +39315,9 @@ window.waSwitchBooking_ = async function(bookingId) {
 };
 
 /** Renderiza lista unificada (templates + custom) ordenada cronológicamente. */
-function _waRenderUnifiedList_(logs) {
+function _waRenderUnifiedList_(logs, opts) {
+  opts = opts || {};
+  const scheduleOnly = !!opts.scheduleOnly;
   const st = window.__waModalState;
   const b = st.b;
   const cfg = WA_ADMIN.config[st.bookingId] || {};
@@ -39377,6 +39400,9 @@ function _waRenderUnifiedList_(logs) {
     if (asunto) (_sentAtsByKey.asunto[asunto] = _sentAtsByKey.asunto[asunto] || []).push(t);
   }
   for (const cs of (st.scheduledItems || [])) {
+    // En pestaña Programados, ocultar los custom detonados por reporte
+    // (tipo='report-...'). Sí aparecen en Todos.
+    if (scheduleOnly && _waIsReportTriggeredCustom_(cs)) continue;
     const sch = cs.scheduled_at ? new Date(cs.scheduled_at) : null;
     // Detectar reenvío si CUALQUIERA de estas condiciones se cumple:
     //  (a) tipo 'manual-XXX' cuyo template XXX ya se envió por cron (sentByTipo)
@@ -39406,10 +39432,14 @@ function _waRenderUnifiedList_(logs) {
   }
   // Reportes (Incidencias + Objetos) del booking actual — mezclados en el
   // timeline por su timestamp (Updated_at si existe, sino Timestamp/Fecha).
-  try {
-    const reportItems = _waGetReportsForBooking_(b);
-    for (const r of reportItems) items.push(r);
-  } catch(_){}
+  // En pestaña Programados NO se muestran las cards de reporte, solo los
+  // mensajes que se enviaron (ya excluidos arriba si son 'report-...').
+  if (!scheduleOnly) {
+    try {
+      const reportItems = _waGetReportsForBooking_(b);
+      for (const r of reportItems) items.push(r);
+    } catch(_){}
+  }
   items.sort((a,b) => a.sortKey - b.sortKey);
 
   const html = items.map(it => {
