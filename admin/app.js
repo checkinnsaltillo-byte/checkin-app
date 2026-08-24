@@ -38544,12 +38544,33 @@ function _waRenderUnifiedList_(logs) {
 
   const createBtn = st.newSch.open
     ? _waRenderNewSchForm_()
-    : `<div style="text-align:center;margin-top:12px">
+    : `<div style="text-align:center;margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button onclick="waSchedOpen_()" style="padding:8px 16px;font-size:12px;background:#fff;color:#0f172a;border:1.5px dashed #cbd5e1;border-radius:8px;cursor:pointer;font-weight:800">➕ Nuevo mensaje</button>
+        <button onclick="_waOpenReportPickerForCurrentBooking_()" style="padding:8px 16px;font-size:12px;background:#fff;color:#0f172a;border:1.5px dashed #cbd5e1;border-radius:8px;cursor:pointer;font-weight:800">➕ Nuevo reporte</button>
       </div>`;
 
   return html + createBtn;
 }
+window._waOpenReportPickerForCurrentBooking_ = function() {
+  const st = window.__waModalState; if (!st) return;
+  const b = st.b || {};
+  const propRaw = b.PropiedadRaw || (b.__reservacion && b.__reservacion['Propiedad']) || b.PropertyName || '';
+  const deptRaw = b.DepartamentoRaw || (b.__reservacion && b.__reservacion['# Departamento']) || '';
+  const toIso = (v) => {
+    const s = String(v || '');
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+    return '';
+  };
+  const arrIso = toIso(b.DateArrival) || String((b.__reservacion && b.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = toIso(b.DateDeparture) || String((b.__reservacion && b.__reservacion['Fecha de salida']) || '').slice(0,10);
+  // Contexto phone para filtrar el combobox 'Reserva' del formulario.
+  const ph = b.GuestPhone || (b.__reservacion && b.__reservacion['Cel/Whatsapp (principal)']) || '';
+  if (ph) { window.__rsvContextPhone = ph; window.__rsvContextPhoneKeep = true; }
+  if (typeof lgOpenReportPicker === 'function') lgOpenReportPicker(propRaw, deptRaw, arrIso, depIso);
+};
 
 /** Toggle x/palomita:
  *  - Auto OFF               → gris, no clickeable
@@ -41371,7 +41392,7 @@ function _botcRenderMain(phone) {
       <div>${nameHeader}<div style="margin-top:5px">${ctrlChip}</div></div>
       <div style="display:flex;gap:8px;align-items:center">
         ${ctrlBtn}
-        <button type="button" onclick="botcOpenReportPickerForCurrent()" title="Generar nuevo reporte (Incidencia / Objeto perdido / Reporte técnico) para este huésped" style="padding:7px 12px;font-size:12px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">＋ Generar reporte</button>
+        <button type="button" onclick="botcOpenReportPickerForCurrent()" title="Nuevo reporte (Incidencia / Objeto perdido / Reporte técnico) para este huésped" style="padding:7px 12px;font-size:12px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">＋ Nuevo reporte</button>
         <button type="button" onclick="botcOpenSummary()" title="Resumen sintético del historial de conversación con énfasis en el último tema o asunto pendiente" style="padding:7px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🧠 Resumen</button>
         <button type="button" onclick="botcToggleRightPanel()" title="Abrir ventana WhatsApp completa (templates, mensajes programados, envío manual) para este huésped" style="padding:7px 12px;font-size:12px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">📱 Ver WA</button>
       </div>
