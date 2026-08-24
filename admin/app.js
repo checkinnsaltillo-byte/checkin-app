@@ -42420,17 +42420,23 @@ function _botcEnsureCardFlattenCss_() {
   if (document.getElementById('botc-card-flat')) return;
   const s = document.createElement('style');
   s.id = 'botc-card-flat';
+  // Aplasta todos los descendientes del wrapper EXCEPTO el footer (chatMeta).
+  // Elimina bordes/sombras/radius/márgenes propios del rich para que se lea
+  // como una única card con el footer.
   s.textContent = `
-    .botc-conv-item > *:not(.botc-card-footer) {
+    .botc-conv-item > *:not(.botc-card-footer),
+    .botc-conv-item > *:not(.botc-card-footer) > *,
+    .botc-conv-item > *:not(.botc-card-footer) > * > *,
+    .botc-conv-item > *:not(.botc-card-footer) > * > * > * {
       box-shadow: none !important;
-      border: 0 !important;
+      border-width: 0 !important;
       border-radius: 0 !important;
-      margin: 0 !important;
-      background: transparent !important;
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+      background-color: transparent !important;
     }
-    .botc-conv-item > *:not(.botc-card-footer) * {
-      box-shadow: none !important;
-    }
+    /* Restaurar background del wrapper (para el hover/selección) */
+    .botc-conv-item { background-clip: border-box; }
   `;
   document.head.appendChild(s);
 }
