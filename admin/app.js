@@ -16375,7 +16375,7 @@ if (!window.__lgRelatedClickInstalled) {
   document.addEventListener('click', function(e) {
     // Los chips de estatus / prioridad y su menú viven dentro de la card
     // (data-lg-inc-id) pero NO deben abrir el detalle.
-    if (e.target.closest('[data-wa-inc-est-chip], [data-wa-inc-nivel-chip], .wa-inc-menu')) return;
+    if (e.target.closest('[data-wa-inc-est-chip], [data-wa-inc-nivel-chip], .wa-inc-menu, [data-wa-report-msg-btn], .wa-report-msg-panel')) return;
     const incEl = e.target.closest('[data-lg-inc-id]');
     if (incEl) {
       e.preventDefault();
@@ -38192,6 +38192,185 @@ window.waIncPickNivel_ = function(id, nivel) {
   incQuickSetNivel(id, nivel);
 };
 
+// ─── Panel "Ver mensaje" en cada card de reporte (INC + OBJ) ────────────
+// Muestra un select con los templates admin del alojamiento; al elegir,
+// pinta preview + inputs de placeholders_custom + botón Enviar ahora.
+function _waEnsureReportMsgState_() {
+  const st = window.__waModalState || (window.__waModalState = {});
+  if (!st.reportMsg) st.reportMsg = {}; // { [cardKey]: { open, tplId, customVals, editedBody } }
+  // Precarga admin templates si aún no.
+  if (typeof waEnsureAdminTemplates_ === 'function' && !window.WA_ADMIN?.adminTemplates && !window.__waReportTplsLoading) {
+    window.__waReportTplsLoading = true;
+    waEnsureAdminTemplates_().then(() => { window.__waReportTplsLoading = false; try { _waRepaint(); } catch(_){} });
+  }
+  return st.reportMsg;
+}
+function _waReportCardKey_(kind, id) { return `${kind}:${id}`; }
+
+function _waBuildReportMsgPanel_(kind, id, row) {
+  const st = window.__waModalState || {};
+  const cardKey = _waReportCardKey_(kind, id);
+  const store = (st.reportMsg || (st.reportMsg = {}));
+  const panel = store[cardKey] || {};
+  if (!panel.open) return '';
+  const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+  const alojNow = String(row['Alojamiento'] || '').trim()
+    || (row['Propiedad'] && row['# Departamento'] ? `${row['Propiedad']} - #${row['# Departamento']}` : '');
+  const alojNormFn = (typeof alojNorm === 'function') ? alojNorm : (s => String(s||'').toLowerCase().trim());
+  const aN = alojNormFn(alojNow);
+  const tpls = Object.values(adminMap).filter(t => {
+    if (!t.enabled) return false;
+    const raw = String(t.alojamientos || '').trim();
+    if (!raw || raw === '*' || raw.toLowerCase() === 'todos') return true;
+    return raw.split(',').map(s => alojNormFn(s)).includes(aN);
+  }).sort((a,b) => String(a.nombre||'').localeCompare(String(b.nombre||''),'es'));
+  const options = ['<option value="">— Elegir plantilla —</option>']
+    .concat(tpls.map(t => `<option value="${_botcEsc(t.id)}" ${panel.tplId===t.id?'selected':''}>${_botcEsc(t.nombre || t.id)}</option>`))
+    .join('');
+  const tpl = panel.tplId ? adminMap[panel.tplId] : null;
+  let phInputs = '', preview = '';
+  if (tpl) {
+    const customPh = (typeof _waParseTplCustomPh_ === 'function') ? (_waParseTplCustomPh_(tpl) || []) : [];
+    const vals = panel.customVals || {};
+    phInputs = customPh.map(ph => {
+      const nm = String(ph.name || ph.key || '');
+      const cur = vals[nm] != null ? vals[nm] : String(ph.value || '');
+      return `<div style="margin-bottom:6px">
+        <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">{{${_botcEsc(nm)}}}</label>
+        <input type="text" value="${_botcEsc(cur)}"
+          oninput="waReportSetCustomPh_('${_botcEsc(kind)}','${_botcEsc(id)}','${_botcEsc(nm)}',this.value)"
+          style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box">
+      </div>`;
+    }).join('');
+    // Resolver named placeholders + custom values sobre el body.
+    let body = String(tpl.body || '');
+    // Aplica custom vals primero.
+    Object.keys(vals).forEach(k => { body = body.split(`{{${k}}}`).join(String(vals[k] || '')); });
+    const bk = st.b || {};
+    if (typeof _waResolveNamedPlaceholders_ === 'function') {
+      try { body = _waResolveNamedPlaceholders_(body, bk, []); } catch(_){}
+    }
+    if (panel.editedBody != null) body = panel.editedBody;
+    preview = panel.editedBody != null
+      ? `<textarea oninput="waReportEditBody_('${_botcEsc(kind)}','${_botcEsc(id)}',this.value)" rows="6"
+          style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:8px;box-sizing:border-box;resize:vertical;font-family:inherit;background:#fffbeb">${_botcEsc(body)}</textarea>`
+      : `<div style="padding:8px 10px;background:#dcf7c5;border-radius:10px 10px 10px 4px;font-size:12px;white-space:pre-wrap;line-height:1.4;color:#0f172a">${_botcEsc(body)}</div>`;
+  }
+  return `
+    <div class="wa-report-msg-panel" style="margin-top:10px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px" onclick="event.stopPropagation()">
+      <div style="font-size:10px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">📩 Mensaje</div>
+      <label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">Plantilla</label>
+      <select onchange="waReportPickTpl_('${_botcEsc(kind)}','${_botcEsc(id)}',this.value)"
+        style="width:100%;padding:7px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;background:#fff">${options}</select>
+      ${tpl ? `<div style="margin-top:10px">${phInputs}</div>
+        <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center">
+          <label style="font-size:10px;font-weight:700;color:#475569">Previa</label>
+          ${panel.editedBody == null
+            ? `<button onclick="waReportEnterEdit_('${_botcEsc(kind)}','${_botcEsc(id)}')" style="padding:2px 8px;font-size:10px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">✏️ Editar libre</button>`
+            : `<button onclick="waReportResetEdit_('${_botcEsc(kind)}','${_botcEsc(id)}')" style="padding:2px 8px;font-size:10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;cursor:pointer;font-weight:700">↩ Restaurar</button>`}
+        </div>
+        <div style="margin-top:4px">${preview}</div>
+        <div style="margin-top:10px;text-align:right">
+          <button onclick="waReportSendNow_('${_botcEsc(kind)}','${_botcEsc(id)}')" style="padding:7px 14px;background:#25d366;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">📤 Enviar ahora</button>
+        </div>` : `<div style="margin-top:8px;font-size:11px;color:#94a3b8;font-style:italic">Elige una plantilla para ver el mensaje.</div>`}
+    </div>`;
+}
+
+window.waReportToggleMsg_ = function(kind, id) {
+  _waEnsureReportMsgState_();
+  const st = window.__waModalState;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  st.reportMsg[key] = Object.assign({}, cur, { open: !cur.open });
+  _waRepaint();
+};
+window.waReportPickTpl_ = function(kind, id, tplId) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  st.reportMsg[key] = Object.assign({}, cur, { tplId, customVals: {}, editedBody: null });
+  _waRepaint();
+};
+window.waReportSetCustomPh_ = function(kind, id, name, val) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  cur.customVals = Object.assign({}, cur.customVals || {}, { [name]: val });
+  st.reportMsg[key] = cur;
+  _waRepaint();
+};
+window.waReportEnterEdit_ = function(kind, id) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+  const tpl = cur.tplId ? adminMap[cur.tplId] : null;
+  if (!tpl) return;
+  let body = String(tpl.body || '');
+  const vals = cur.customVals || {};
+  Object.keys(vals).forEach(k => { body = body.split(`{{${k}}}`).join(String(vals[k] || '')); });
+  if (typeof _waResolveNamedPlaceholders_ === 'function') {
+    try { body = _waResolveNamedPlaceholders_(body, st.b || {}, []); } catch(_){}
+  }
+  cur.editedBody = body;
+  st.reportMsg[key] = cur;
+  _waRepaint();
+};
+window.waReportEditBody_ = function(kind, id, val) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  cur.editedBody = val;
+  st.reportMsg[key] = cur;
+};
+window.waReportResetEdit_ = function(kind, id) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  cur.editedBody = null;
+  st.reportMsg[key] = cur;
+  _waRepaint();
+};
+window.waReportSendNow_ = async function(kind, id) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = (st.reportMsg && st.reportMsg[key]) || {};
+  const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+  const tpl = cur.tplId ? adminMap[cur.tplId] : null;
+  if (!tpl) { alert('Elige una plantilla primero.'); return; }
+  let body = cur.editedBody;
+  if (body == null) {
+    body = String(tpl.body || '');
+    const vals = cur.customVals || {};
+    Object.keys(vals).forEach(k => { body = body.split(`{{${k}}}`).join(String(vals[k] || '')); });
+    if (typeof _waResolveNamedPlaceholders_ === 'function') {
+      try { body = _waResolveNamedPlaceholders_(body, st.b || {}, []); } catch(_){}
+    }
+  }
+  if (!body || !body.trim()) { alert('Mensaje vacío.'); return; }
+  const rcps = (st.recipients || []).filter(Boolean);
+  if (!rcps.length) { alert('Sin destinatario para enviar.'); return; }
+  if (!confirm(`¿Enviar mensaje a ${rcps.join(', ')}?`)) return;
+  try {
+    let ok = 0, fail = 0, lastErr = '';
+    for (const to of rcps) {
+      const r = await fetch('https://api.check-inn.mx/wa/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, body, bookingId: st.bookingId, tipo: `report-${kind}-${cur.tplId}` }),
+      });
+      const j = await r.json();
+      if (j.ok) ok++; else { fail++; lastErr = j.error || ''; }
+    }
+    alert(ok > 0 ? `✅ Enviado a ${ok}${fail?` · ${fail} fallaron`:''}` : `❌ Falló: ${lastErr}`);
+    if (ok > 0) {
+      // Cerrar panel y repaint
+      cur.open = false;
+      st.reportMsg[key] = cur;
+      _waRepaint();
+    }
+  } catch (e) { alert('❌ ' + (e.message || e)); }
+};
+
 function _waRenderReportTimelineItem_(it) {
   const r = it.row || {};
   const kind = it.kindReport; // 'inc' | 'obj'
@@ -38286,8 +38465,11 @@ function _waRenderReportTimelineItem_(it) {
             ${cfg.incId ? _waIncMenusHtml_(cfg.incId, cfg.estadoLabel, incNormalizeNivel(r['Nivel'])) : ''}
             ${desc ? `<div style="font-size:11px;color:#475569;margin-top:4px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${_botcEsc(desc)}</div>` : ''}
             <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-              <span style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid ${cfg.cardBorder};border-radius:6px;font-weight:700;color:#0f172a">▶ Ver detalles</span>
+              <button data-wa-report-msg-btn="1"
+                onclick="event.stopPropagation();waReportToggleMsg_('${_botcEsc(kind)}','${_botcEsc(String(r['ID']||''))}')"
+                style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid ${cfg.cardBorder};border-radius:6px;font-weight:700;color:#0f172a;cursor:pointer">▼ Ver mensaje</button>
             </div>
+            ${_waBuildReportMsgPanel_(kind, String(r['ID']||''), r)}
           </div>
         </div>
       </div>
@@ -38399,6 +38581,12 @@ function _waRenderIncCard_(row) {
       ${aloj ? `<div>📍 ${esc(aloj)}</div>` : ''}
       ${fecha ? `<div>📅 ${esc(fecha)}</div>` : ''}
       ${_waIncMenusHtml_(id, estatus, nivel)}
+      <div style="margin-top:6px">
+        <button data-wa-report-msg-btn="1"
+          onclick="event.stopPropagation();waReportToggleMsg_('inc','${esc(id)}')"
+          style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #fca5a5;border-radius:6px;font-weight:700;color:#0f172a;cursor:pointer">▼ Ver mensaje</button>
+      </div>
+      ${_waBuildReportMsgPanel_('inc', id, row)}
     </div>
   </div>`;
 }
@@ -38430,6 +38618,12 @@ function _waRenderObjCard_(row) {
     <div style="padding:10px 14px;background:#fff;font-size:12px;color:#475569;display:flex;flex-direction:column;gap:3px">
       ${aloj ? `<div>📍 ${esc(aloj)}</div>` : ''}
       ${fechaEnc ? `<div>📅 Encontrado: ${esc(fechaEnc)}</div>` : ''}
+      <div style="margin-top:6px">
+        <button data-wa-report-msg-btn="1"
+          onclick="event.stopPropagation();waReportToggleMsg_('obj','${esc(id)}')"
+          style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #86efac;border-radius:6px;font-weight:700;color:#0f172a;cursor:pointer">▼ Ver mensaje</button>
+      </div>
+      ${_waBuildReportMsgPanel_('obj', id, row)}
     </div>
   </div>`;
 }
@@ -39762,6 +39956,7 @@ async function waEnsureAdminTemplates_() {
             alojamientos: String(t.alojamientos || ''),
             enabled: !!t.enabled,
             responsivo: !!t.responsivo,
+            placeholders_custom: t.placeholders_custom || t.placeholdersCustom || '',
           };
         }
         WA_ADMIN.adminTemplates = map;
