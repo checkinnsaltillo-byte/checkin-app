@@ -38496,7 +38496,9 @@ window.waReportSendNow_ = async function(kind, id) {
     // Persistir como WA_Scheduled con tipo='report-{kind}-{tplId}' para que
     // aparezca luego en pestaña Todos como card de mensaje enviado. Detonado
     // por acción → NO aparece en Programados (filtrado por _waIsReportTriggeredCustom_).
-    const tipo = `report-${kind}-${cur.tplId}`;
+    // Incluye reportId en el tipo para poder resolver el reporte al pintar
+    // la card en el timeline. Formato: report-{kind}-{reportId}
+    const tipo = `report-${kind}-${id}`;
     const asunto = String(tpl.nombre || tpl.id || 'Reporte');
     const nowIso = new Date().toISOString();
     const toCsv = rcps.join(',');
@@ -39598,9 +39600,80 @@ function _waRenderTemplateItem_(it, auto) {
   `;
 }
 
+// Card intensa para mensajes enviados como respuesta a un reporte.
+// Título = mismo que la card de la pestaña Reportes; chip por tipo.
+function _waRenderReportSentCard_(it) {
+  const st = window.__waModalState;
+  const cs = it.cs;
+  const tipo = String(cs.tipo || '');
+  // Formato: report-{kind}-{reportId}. reportId puede contener guiones.
+  const m = tipo.match(/^report-(inc|obj|rt)-(.+)$/i);
+  const kind = m ? m[1].toLowerCase() : 'inc';
+  const reportId = m ? m[2] : '';
+  let titulo = '', chipLabel = '', headerBg = '', cardBg = '', cardBorder = '', chipBg = '', chipFg = '', icon = '';
+  if (kind === 'inc') {
+    const r = (INC_STATE.list || []).find(x => String(x['ID']||'') === reportId);
+    titulo = r ? ([String(r['Motivos']||''), String(r['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Incidencia') : (cs.asunto || 'Incidencia');
+    chipLabel = 'INCIDENCIA'; headerBg = '#dc2626'; cardBg = '#fee2e2'; cardBorder = '#dc2626'; chipBg = '#ffffff'; chipFg = '#7f1d1d'; icon = '🚨';
+  } else if (kind === 'obj') {
+    const r = (OBJ_STATE.list || []).find(x => String(x['ID']||'') === reportId);
+    const cat = r ? String(r['Categoria']||'').trim() : '';
+    const catOtro = r ? String(r['Categoria_otro']||'').trim() : '';
+    titulo = r ? (cat === 'Otro' ? `Otro: ${catOtro || '—'}` : (cat || 'Objeto olvidado')) : (cs.asunto || 'Objeto olvidado');
+    chipLabel = 'OBJETO PERDIDO'; headerBg = '#059669'; cardBg = '#d1fae5'; cardBorder = '#059669'; chipBg = '#ffffff'; chipFg = '#064e3b'; icon = '🎒';
+  } else {
+    const r = (RT_STATE.list || []).find(x => String(x['ID']||'') === reportId);
+    titulo = r ? String(r.Titulo || r.Folio || 'Reporte técnico') : (cs.asunto || 'Reporte técnico');
+    chipLabel = 'REPORTE TÉCNICO'; headerBg = '#2563eb'; cardBg = '#dbeafe'; cardBorder = '#2563eb'; chipBg = '#ffffff'; chipFg = '#1e3a8a'; icon = '🔧';
+  }
+  const isFailed = cs.status === 'failed';
+  const isSent = !!cs.status && ['queued','sending','sent','delivered','read','accepted'].indexOf(String(cs.status).toLowerCase()) >= 0;
+  const timeLine = isSent
+    ? `<span style="color:#16a34a;font-weight:700">✓ Enviado el ${esc(_waFmtDateTimeEs(cs.sent_at))}</span>`
+    : (isFailed ? `<span style="color:#dc2626;font-weight:700">✗ Falló</span>`
+    : `<span style="color:#64748b;font-weight:700">${esc(_waFmtDateTimeEs(cs.scheduled_at))}</span>`);
+  const expKey = 'custom:' + cs.id;
+  const expanded = st.expanded === expKey;
+  const body = cs.body || '';
+  const details = expanded ? `
+    <div style="padding:12px 14px;background:#ffffff;border-top:1px solid ${cardBorder}">
+      <div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:4px">MENSAJE</div>
+      <div style="padding:8px 10px;background:#f8fafc;border-radius:8px;font-size:12px;white-space:pre-wrap;line-height:1.4;color:#0f172a">${esc(body)}</div>
+    </div>` : '';
+  return `
+    <div style="margin-bottom:6px">
+      <div style="font-size:10px;font-weight:700;color:#64748b;padding:0 2px 4px 34px">${timeLine}</div>
+      <div style="display:flex;gap:10px;align-items:stretch">
+        <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;width:24px">
+          <div title="${chipLabel}" style="width:22px;height:22px;border-radius:50%;background:${headerBg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900">${icon}</div>
+          <div style="flex:1;width:2px;background:#e5e7eb;min-height:14px"></div>
+        </div>
+        <div style="flex:1;background:${cardBg};border:2px solid ${cardBorder};border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.10)">
+          <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:.02em">${esc(titulo)}</span>
+              <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:999px;background:${chipBg};color:${chipFg};letter-spacing:.04em">${chipLabel}</span>
+            </div>
+            <span style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:999px;background:${chipBg};color:${chipFg}">📤 Mensaje enviado</span>
+          </div>
+          <div style="padding:10px 14px;background:${cardBg}">
+            ${_waRecipientsSummary_(cs.to)}
+            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+              <button onclick="waToggleExpand_('${expKey}')" style="padding:5px 10px;font-size:11px;background:#ffffff;border:1.5px solid ${cardBorder};color:${cardBorder};border-radius:6px;cursor:pointer;font-weight:800">${expanded?'▲ Ocultar':'▼ Ver mensaje'}</button>
+            </div>
+          </div>
+          ${details}
+        </div>
+      </div>
+    </div>`;
+}
+
 function _waRenderCustomItem_(it, auto) {
   const st = window.__waModalState;
   const cs = it.cs;
+  // Los mensajes detonados por reporte usan un renderer con estilo intenso
+  // + título del reporte + chip de tipo. Diferencia visual clara.
+  if (_waIsReportTriggeredCustom_(cs)) return _waRenderReportSentCard_(it);
   const isFailed = cs.status === 'failed';
   const isOmitted = cs.status === 'omitted';
   // "Sent" cubre queued/sending/sent/delivered/read (todo lo que ya salió a Twilio).
