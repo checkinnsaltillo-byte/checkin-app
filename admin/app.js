@@ -16403,6 +16403,10 @@ function lgOpenRelatedPanel(title, html, headerColor) {
   panel.classList.remove('hidden');
   back.style.opacity = '1';
   panel.style.transform = 'translateX(0)';
+  // z-index encima del wa-modal (99999) y del capture-panel (100002) para
+  // que sea visible cuando se abre desde el modal Whatsapp.
+  back.style.zIndex  = '100010';
+  panel.style.zIndex = '100011';
   document.body.style.overflow = 'hidden';
   console.info('[LG-PANEL] abierto:', title);
 }
@@ -37700,6 +37704,21 @@ window.waOpenModal = async function(booking) {
 
   _waFillTemplateDefaults();
   _waRenderModal();
+  // Cargar reportes (Incidencias + Objetos) en background si aún no
+  // están — así aparecen mezclados en el timeline desde el primer
+  // repaint sin que el user tenga que ir manualmente al tab 'Reportes'.
+  try {
+    if (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list) && !INC_STATE.list.length && typeof incLoadIncidencias === 'function' && !INC_STATE.__waLoadTriggered) {
+      INC_STATE.__waLoadTriggered = true;
+      incLoadIncidencias().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+    }
+  } catch(_){}
+  try {
+    if (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list) && !OBJ_STATE.list.length && typeof objLoadObjetos === 'function' && !OBJ_STATE.__waLoadTriggered) {
+      OBJ_STATE.__waLoadTriggered = true;
+      objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+    }
+  } catch(_){}
   // Cargar logs para historial (aparecen bajo cada template)
   setTimeout(_waRepaint, 900);
   setTimeout(_waRepaint, 1800);
@@ -37949,7 +37968,8 @@ function _waRenderReportTimelineItem_(it) {
     const titulo = [String(r['Motivos']||''), String(r['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Reporte';
     cfg = {
       checkBg:'#dc2626', checkFg:'#fff', checkIcon:'🚨',
-      cardBg:'#fff', cardBorder:'#fecaca',
+      // Fondo pastel sólido según tipo (regresa comportamiento anterior).
+      cardBg:'#fef2f2', cardBorder:'#fca5a5',
       chipLabel:'INCIDENCIA', chipBg:'#fee2e2', chipFg:'#991b1b',
       titulo,
       titleAccent: `<span title="Nivel ${_botcEsc(nivel)}" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${nivelDot};margin-left:6px;vertical-align:middle"></span>`,
@@ -37964,7 +37984,8 @@ function _waRenderReportTimelineItem_(it) {
     const entregado = !!String(r['Fecha_entregado']||'').slice(0,10);
     cfg = {
       checkBg:'#059669', checkFg:'#fff', checkIcon:'🎒',
-      cardBg:'#fff', cardBorder:'#a7f3d0',
+      // Fondo verde pastel para objetos perdidos (regresa comportamiento anterior).
+      cardBg:'#ecfdf5', cardBorder:'#86efac',
       chipLabel:'OBJETO PERDIDO', chipBg:'#d1fae5', chipFg:'#065f46',
       titulo: catLabel,
       titleAccent: '',
