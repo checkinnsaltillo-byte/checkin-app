@@ -43095,6 +43095,7 @@ function rtRenderList() {
   RT_STATE.viewMode = RT_STATE.viewMode || 'estado';
   if (RT_STATE.viewMode === 'dia') return _rtRenderByDay_(cont, rows);
   if (RT_STATE.viewMode === 'calendario') return _rtRenderCalendar_(cont, rows);
+  if (RT_STATE.viewMode === 'proyectos') return _rtRenderProjects_(cont, rows);
   // Bucket por columna: Nuevos · En proceso · Concluidos · Programados
   // Programados = Fecha > hoy y no está resuelto/cancelado.
   const today = new Date().toISOString().slice(0,10);
@@ -43220,10 +43221,171 @@ function _rtEnsureViewTabs_(cont) {
     const active = RT_STATE.viewMode === key;
     return `<button type="button" onclick="rtSetView_('${key}')" style="padding:7px 14px;font-size:12px;font-weight:800;background:${active?'#0f172a':'#fff'};color:${active?'#fff':'#475569'};border:1.5px solid ${active?'#0f172a':'#cbd5e1'};border-radius:8px;cursor:pointer">${icon} ${label}</button>`;
   };
+  const projCount = _rtLoadProjects_().length;
+  const projLabel = projCount > 0 ? `Proyectos (${projCount})` : 'Proyectos';
   tabs.innerHTML = `
     <span style="font-size:11px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-right:4px">Visualización:</span>
-    ${btn('estado','Estado','🗂️')}${btn('dia','Día','📅')}${btn('calendario','Calendario','🗓️')}`;
+    ${btn('estado','Estado','🗂️')}${btn('dia','Día','📅')}${btn('calendario','Calendario','🗓️')}${btn('proyectos',projLabel,'📁')}`;
 }
+// ─── Proyectos: agrupan varios RT como tareas. Persistidos en localStorage.
+const RT_PROJECTS_KEY = 'RT_PROJECTS_V1';
+function _rtLoadProjects_() {
+  try { return JSON.parse(localStorage.getItem(RT_PROJECTS_KEY) || '[]'); }
+  catch(_) { return []; }
+}
+function _rtSaveProjects_(list) {
+  try { localStorage.setItem(RT_PROJECTS_KEY, JSON.stringify(list || [])); } catch(_){}
+}
+window.rtProjNew_ = function() {
+  const nombre = prompt('Nombre del proyecto:');
+  if (!nombre || !nombre.trim()) return;
+  const descripcion = prompt('Descripción (opcional):') || '';
+  const list = _rtLoadProjects_();
+  list.push({
+    id: 'PRJ-' + Date.now() + '-' + Math.floor(Math.random()*9999),
+    nombre: nombre.trim(),
+    descripcion: descripcion.trim(),
+    creado: new Date().toISOString(),
+    rtIds: []
+  });
+  _rtSaveProjects_(list);
+  RT_STATE.viewMode = 'proyectos';
+  rtRenderList();
+};
+window.rtProjDelete_ = function(id) {
+  if (!confirm('¿Eliminar este proyecto? (los reportes técnicos NO se borran)')) return;
+  const list = _rtLoadProjects_().filter(p => p.id !== id);
+  _rtSaveProjects_(list);
+  rtRenderList();
+};
+window.rtProjRename_ = function(id) {
+  const list = _rtLoadProjects_();
+  const p = list.find(x => x.id === id); if (!p) return;
+  const n = prompt('Nuevo nombre:', p.nombre);
+  if (n == null || !n.trim()) return;
+  p.nombre = n.trim();
+  _rtSaveProjects_(list);
+  rtRenderList();
+};
+window.rtProjRemoveRt_ = function(projId, rtId) {
+  const list = _rtLoadProjects_();
+  const p = list.find(x => x.id === projId); if (!p) return;
+  p.rtIds = (p.rtIds || []).filter(id => id !== rtId);
+  _rtSaveProjects_(list);
+  rtProjOpen_(projId); // repinta panel
+  rtRenderList();
+};
+window.rtProjAddRt_ = function(projId) {
+  const list = _rtLoadProjects_();
+  const p = list.find(x => x.id === projId); if (!p) return;
+  const asignados = new Set(p.rtIds || []);
+  const candidatos = (RT_STATE.list || []).filter(r => !asignados.has(String(r.ID)));
+  if (!candidatos.length) { alert('No hay reportes técnicos disponibles para agregar.'); return; }
+  // Modal simple: elegir uno por prompt con lista
+  const opciones = candidatos.slice(0, 30).map((r, i) => `${i+1}) ${r.Folio || r.ID} — ${r.Titulo || '(sin título)'}`).join('\n');
+  const pick = prompt(`Elige el número del reporte a agregar:\n\n${opciones}`);
+  if (!pick) return;
+  const idx = parseInt(pick, 10) - 1;
+  const chosen = candidatos[idx];
+  if (!chosen) { alert('Selección inválida.'); return; }
+  p.rtIds = (p.rtIds || []).concat([String(chosen.ID)]);
+  _rtSaveProjects_(list);
+  rtProjOpen_(projId);
+  rtRenderList();
+};
+function _rtProjProgress_(project) {
+  const ids = new Set(project.rtIds || []);
+  if (!ids.size) return { total:0, done:0, pct:0 };
+  const rows = (RT_STATE.list || []).filter(r => ids.has(String(r.ID)));
+  const done = rows.filter(r => {
+    const e = _rtNormalizeEstado(r.Estado);
+    return e === 'resuelto' || e === 'cancelado';
+  }).length;
+  return { total: ids.size, done, pct: Math.round((done / ids.size) * 100) };
+}
+function _rtRenderProjects_(cont, rows) {
+  const projects = _rtLoadProjects_();
+  cont.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px';
+  if (!projects.length) {
+    cont.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;background:#fff;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b">
+      <div style="font-size:32px;margin-bottom:6px">📁</div>
+      <div style="font-size:14px;font-weight:800;color:#334155;margin-bottom:4px">No hay proyectos aún</div>
+      <div style="font-size:12px;margin-bottom:14px">Un proyecto agrupa varios reportes técnicos como tareas.</div>
+      <button onclick="rtProjNew_()" style="padding:8px 16px;background:#4338ca;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">＋ Crear primer proyecto</button>
+    </div>`;
+    return;
+  }
+  cont.innerHTML = projects.map(p => {
+    const pr = _rtProjProgress_(p);
+    const barColor = pr.pct === 100 ? '#16a34a' : (pr.pct >= 50 ? '#3b82f6' : (pr.pct > 0 ? '#f59e0b' : '#cbd5e1'));
+    return `
+      <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.06);display:flex;flex-direction:column">
+        <div style="background:linear-gradient(90deg,#4338ca,#6366f1);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer" onclick="rtProjOpen_('${_rtEscA(p.id)}')">
+          <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+            <span style="font-size:16px">📁</span>
+            <span style="font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${_rtEsc(p.nombre)}">${_rtEsc(p.nombre)}</span>
+          </div>
+          <span style="font-size:10px;background:rgba(255,255,255,.22);padding:2px 8px;border-radius:99px;font-weight:800">${pr.done}/${pr.total}</span>
+        </div>
+        <div style="padding:12px 16px;flex:1">
+          ${p.descripcion ? `<div style="font-size:12px;color:#475569;margin-bottom:10px">${_rtEsc(p.descripcion)}</div>` : ''}
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:10px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase">Avance</span>
+            <span style="font-size:13px;font-weight:900;color:${barColor}">${pr.pct}%</span>
+          </div>
+          <div style="height:8px;background:#f1f5f9;border-radius:99px;overflow:hidden">
+            <div style="height:100%;width:${pr.pct}%;background:${barColor};border-radius:99px;transition:width .3s"></div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+            <button onclick="rtProjOpen_('${_rtEscA(p.id)}')" style="padding:6px 12px;font-size:11px;background:#0f172a;color:#fff;border:0;border-radius:6px;font-weight:800;cursor:pointer">📂 Ver tareas</button>
+            <button onclick="rtProjRename_('${_rtEscA(p.id)}')" style="padding:6px 10px;font-size:11px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:6px;font-weight:700;cursor:pointer">✏️ Renombrar</button>
+            <button onclick="rtProjDelete_('${_rtEscA(p.id)}')" style="padding:6px 10px;font-size:11px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-weight:700;cursor:pointer">🗑</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+  _rtEnsureCalSidePanel_(); // reutilizamos el panel lateral
+}
+window.rtProjOpen_ = function(projId) {
+  const list = _rtLoadProjects_();
+  const p = list.find(x => x.id === projId); if (!p) return;
+  _rtEnsureCalSidePanel_();
+  const ids = new Set(p.rtIds || []);
+  const items = (RT_STATE.list || []).filter(r => ids.has(String(r.ID)));
+  const PRIO_RANK = { critica:0, alta:1, media:2, baja:3 };
+  items.sort((a,b) => {
+    const pa = PRIO_RANK[_rtNormalizePrio(a.Prioridad)] ?? 9;
+    const pb = PRIO_RANK[_rtNormalizePrio(b.Prioridad)] ?? 9;
+    if (pa !== pb) return pa - pb;
+    return String(a.Fecha||'').localeCompare(String(b.Fecha||''));
+  });
+  const pr = _rtProjProgress_(p);
+  const barColor = pr.pct === 100 ? '#16a34a' : (pr.pct >= 50 ? '#3b82f6' : (pr.pct > 0 ? '#f59e0b' : '#cbd5e1'));
+  document.getElementById('rt-cal-side-title').innerHTML =
+    `<span style="font-size:18px;margin-right:6px">📁</span>${_rtEsc(p.nombre)} · <span style="color:#64748b">${pr.done}/${pr.total} (${pr.pct}%)</span>`;
+  const body = document.getElementById('rt-cal-side-body');
+  const progressBar = `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      ${p.descripcion ? `<div style="font-size:12px;color:#475569;margin-bottom:8px">${_rtEsc(p.descripcion)}</div>` : ''}
+      <div style="height:8px;background:#f1f5f9;border-radius:99px;overflow:hidden">
+        <div style="height:100%;width:${pr.pct}%;background:${barColor};border-radius:99px"></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+        <button onclick="rtProjAddRt_('${_rtEscA(projId)}')" style="padding:6px 12px;font-size:11px;background:#4338ca;color:#fff;border:0;border-radius:6px;font-weight:800;cursor:pointer">＋ Agregar reporte</button>
+      </div>
+    </div>`;
+  const cards = items.length
+    ? items.map(r => `<div style="position:relative">
+        ${_rtRenderCard(r)}
+        <button onclick="event.stopPropagation();rtProjRemoveRt_('${_rtEscA(projId)}','${_rtEscA(r.ID)}')"
+          title="Quitar del proyecto"
+          style="position:absolute;top:6px;right:6px;z-index:2;padding:2px 8px;font-size:10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:800">✕</button>
+      </div>`).join('')
+    : '<div style="text-align:center;padding:20px 12px;color:#94a3b8;font-style:italic;font-size:12px">Sin reportes en este proyecto. Usa "＋ Agregar reporte" arriba.</div>';
+  body.innerHTML = progressBar + cards;
+  document.getElementById('rt-cal-side-back').style.display = 'block';
+  document.getElementById('rt-cal-side-panel').style.display = 'flex';
+};
 window.rtSetView_ = function(mode) {
   RT_STATE.viewMode = mode;
   rtRenderList();
