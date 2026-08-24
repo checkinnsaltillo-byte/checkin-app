@@ -42274,7 +42274,8 @@ function _botcRenderSidebar() {
     // UNA sola card.
     _botcEnsureCardFlattenCss_();
     const wrap = `<div class="botc-conv-item" data-botc-phone="${_botcEsc(c.phone)}"
-        style="position:relative;background:${selected?'#eff6ff':'#fff'};border:1px solid #e2e8f0;border-left:3px solid ${selected?'#3b82f6':'transparent'};border-radius:12px;margin:8px 10px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06)">${rich || lite}${chatMeta}</div>`;
+        onclick="botcOpenChat('${_botcEsc(c.phone)}')"
+        style="position:relative;background:${selected?'#eff6ff':'#fff'};border:1px solid #e2e8f0;border-left:3px solid ${selected?'#3b82f6':'transparent'};border-radius:12px;margin:8px 10px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06);cursor:pointer">${rich || lite}${chatMeta}</div>`;
     return wrap;
   }).join('');
   sidebar.innerHTML = items;
