@@ -43236,19 +43236,233 @@ function _rtLoadProjects_() {
 function _rtSaveProjects_(list) {
   try { localStorage.setItem(RT_PROJECTS_KEY, JSON.stringify(list || [])); } catch(_){}
 }
+// ─── Wizard "Nuevo proyecto" — 3 pasos en panel lateral (no popup) ──────
+const RT_PROJ_CLASIF = ['Remodelación','Limpieza profunda','Inspección','Reparación','Mejora'];
 window.rtProjNew_ = function() {
-  const nombre = prompt('Nombre del proyecto:');
-  if (!nombre || !nombre.trim()) return;
-  const descripcion = prompt('Descripción (opcional):') || '';
+  RT_STATE.projDraft = {
+    step: 1, clasificacion: '', nombre: '', descripcion: '',
+    prioridad: 'media',
+    lugarModo: 'propiedad', // 'propiedad' | 'otro'
+    lugarPropiedad: '', lugarDepto: '', lugarOtro: '',
+    reportadoPor: [], reportadoOtro: '',
+    ejecutor: [], ejecutorOtro: '',
+    fechaInicio: new Date().toISOString().slice(0,10),
+    duracionValor: 7, duracionUnidad: 'dias',
+  };
+  _rtEnsureProjWizardPanel_();
+  _rtProjWizardRender_();
+};
+function _rtEnsureProjWizardPanel_() {
+  if (document.getElementById('rt-proj-wiz-panel')) return;
+  const back = document.createElement('div');
+  back.id = 'rt-proj-wiz-back';
+  back.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:100020;display:none';
+  back.onclick = () => rtProjWizClose_();
+  const panel = document.createElement('div');
+  panel.id = 'rt-proj-wiz-panel';
+  panel.style.cssText = 'position:fixed;top:0;right:0;height:100vh;width:min(560px,94vw);background:#f8fafc;box-shadow:-24px 0 48px -12px rgba(0,0,0,.28);z-index:100021;display:none;flex-direction:column;overflow:hidden';
+  panel.innerHTML = `
+    <div style="padding:14px 18px;background:linear-gradient(90deg,#4338ca,#6366f1);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div>
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.85;font-weight:800">NUEVO</div>
+        <div style="font-size:16px;font-weight:800">📁 Crear proyecto</div>
+      </div>
+      <button onclick="rtProjWizClose_()" style="background:none;border:0;font-size:22px;cursor:pointer;color:#fff">×</button>
+    </div>
+    <div id="rt-proj-wiz-body" style="flex:1;overflow-y:auto;padding:16px 18px"></div>
+    <div id="rt-proj-wiz-footer" style="padding:12px 18px;background:#fff;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;gap:8px"></div>`;
+  document.body.appendChild(back);
+  document.body.appendChild(panel);
+}
+window.rtProjWizClose_ = function() {
+  const p = document.getElementById('rt-proj-wiz-panel');
+  const b = document.getElementById('rt-proj-wiz-back');
+  if (p) p.style.display = 'none';
+  if (b) b.style.display = 'none';
+  RT_STATE.projDraft = null;
+};
+window.rtProjWizSet_ = function(field, value) {
+  if (!RT_STATE.projDraft) return;
+  RT_STATE.projDraft[field] = value;
+  // Recalcula fecha estimada al cambiar duración o fecha inicio
+  if (field === 'fechaInicio' || field === 'duracionValor' || field === 'duracionUnidad') {
+    _rtProjRepaintFooterHint_();
+  }
+};
+window.rtProjWizToggleList_ = function(field, val) {
+  if (!RT_STATE.projDraft) return;
+  const arr = RT_STATE.projDraft[field] || [];
+  const idx = arr.indexOf(val);
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
+  RT_STATE.projDraft[field] = arr;
+  _rtProjWizardRender_();
+};
+window.rtProjWizStep_ = function(dir) {
+  if (!RT_STATE.projDraft) return;
+  const d = RT_STATE.projDraft;
+  if (dir > 0) {
+    // Validaciones por paso.
+    if (d.step === 1) {
+      if (!d.clasificacion) { alert('Elige una clasificación'); return; }
+      if (!String(d.nombre||'').trim()) { alert('El nombre es requerido'); return; }
+      if (d.lugarModo === 'propiedad' && !d.lugarPropiedad) { alert('Elige propiedad o cambia a "Otro"'); return; }
+      if (d.lugarModo === 'otro' && !String(d.lugarOtro||'').trim()) { alert('Escribe el lugar "Otro"'); return; }
+    }
+    if (d.step === 2) {
+      const totRep = (d.reportadoPor||[]).length + (String(d.reportadoOtro||'').trim() ? 1 : 0);
+      if (totRep === 0) { alert('Agrega al menos un "Reportado por"'); return; }
+      const totEj = (d.ejecutor||[]).length + (String(d.ejecutorOtro||'').trim() ? 1 : 0);
+      if (totEj === 0) { alert('Agrega al menos un "Ejecutor"'); return; }
+    }
+  }
+  d.step = Math.max(1, Math.min(3, d.step + dir));
+  _rtProjWizardRender_();
+};
+function _rtProjCalcFechaFin_(d) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d.fechaInicio||'')) return '';
+  const dt = new Date(d.fechaInicio + 'T12:00:00');
+  const n = Math.max(1, parseInt(d.duracionValor,10) || 0);
+  if (d.duracionUnidad === 'meses') dt.setMonth(dt.getMonth() + n);
+  else dt.setDate(dt.getDate() + n);
+  return dt.toISOString().slice(0,10);
+}
+function _rtProjRepaintFooterHint_() {
+  const hint = document.getElementById('rt-proj-wiz-hint');
+  if (!hint || !RT_STATE.projDraft) return;
+  hint.textContent = 'Estimada fin: ' + (_rtProjCalcFechaFin_(RT_STATE.projDraft) || '—');
+}
+function _rtProjWizardRender_() {
+  const d = RT_STATE.projDraft; if (!d) return;
+  document.getElementById('rt-proj-wiz-back').style.display = 'block';
+  const panel = document.getElementById('rt-proj-wiz-panel'); panel.style.display = 'flex';
+  const body = document.getElementById('rt-proj-wiz-body');
+  const footer = document.getElementById('rt-proj-wiz-footer');
+  const steps = ['General','Asignaciones','Plazo'];
+  const stepHdr = `<div style="display:flex;gap:6px;margin-bottom:14px">
+    ${steps.map((s,i) => {
+      const n = i+1, act = n === d.step, done = n < d.step;
+      const bg = act ? '#4338ca' : (done ? '#c7d2fe' : '#e2e8f0');
+      const fg = act ? '#fff' : (done ? '#3730a3' : '#94a3b8');
+      return `<div style="flex:1;display:flex;align-items:center;gap:6px;padding:6px 8px;background:${bg};color:${fg};border-radius:6px;font-size:11px;font-weight:800">
+        <span style="width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.35);display:inline-flex;align-items:center;justify-content:center">${done?'✓':n}</span>${s}
+      </div>`;
+    }).join('')}
+  </div>`;
+  const field = (label, html) => `<div style="margin-bottom:12px">
+    <label style="display:block;font-size:11px;font-weight:800;color:#475569;letter-spacing:.02em;margin-bottom:4px">${label}</label>${html}
+  </div>`;
+  const chipList = (opts, cur, cb) => opts.map(o => {
+    const act = cur === o;
+    return `<button type="button" onclick="rtProjWizSet_('${cb}','${o.replace(/'/g,"\\'")}');_rtProjWizardRender_()"
+      style="padding:6px 12px;font-size:12px;font-weight:${act?'800':'600'};background:${act?'#0f172a':'#fff'};color:${act?'#fff':'#334155'};border:1.5px solid ${act?'#0f172a':'#cbd5e1'};border-radius:99px;cursor:pointer;margin:0 6px 6px 0">${o}</button>`;
+  }).join('');
+  let html = stepHdr;
+  if (d.step === 1) {
+    html += field('Clasificación', `<div>${chipList(RT_PROJ_CLASIF, d.clasificacion, 'clasificacion')}</div>`);
+    html += field('Nombre del proyecto', `<input type="text" value="${_rtEscA(d.nombre)}" oninput="rtProjWizSet_('nombre',this.value)" placeholder="Ej: Remodelación baños Cumbres" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`);
+    html += field('Descripción', `<textarea rows="3" oninput="rtProjWizSet_('descripcion',this.value)" placeholder="Objetivo y alcance…" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;font-family:inherit">${_rtEsc(d.descripcion)}</textarea>`);
+    html += field('Prioridad', `<div>${chipList(['critica','alta','media','baja'].map(k => (RT_PRIORIDADES.find(p=>p.key===k)||{}).label || k), (RT_PRIORIDADES.find(p=>p.key===d.prioridad)||{}).label || 'Media', '__prioLbl')}</div>` );
+    // Fix: chipList escribe __prioLbl string; queremos guardar la key. Hago custom:
+    html = html.replace('__prioLbl','__PLACEHOLDER__');
+    const prioChips = RT_PRIORIDADES.map(p => {
+      const act = d.prioridad === p.key;
+      return `<button type="button" onclick="rtProjWizSet_('prioridad','${p.key}');_rtProjWizardRender_()"
+        style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;font-size:12px;font-weight:${act?'800':'600'};background:${act?'#f8fafc':'#fff'};color:#334155;border:1.5px solid ${act?p.color:'#cbd5e1'};border-radius:99px;cursor:pointer;margin:0 6px 6px 0">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color}"></span>${p.label}</button>`;
+    }).join('');
+    html = html.replace(/<div>[^<]*__PLACEHOLDER__[^<]*<\/div>/, `<div>${prioChips}</div>`);
+    // Lugar
+    const props = (typeof ALOJ_STATE !== 'undefined' && Array.isArray(ALOJ_STATE.rows))
+      ? Array.from(new Set(ALOJ_STATE.rows.map(r => String(r.Propiedad||'').trim()).filter(Boolean))).sort() : [];
+    const deptos = d.lugarPropiedad
+      ? Array.from(new Set(ALOJ_STATE.rows.filter(r => String(r.Propiedad||'') === d.lugarPropiedad).map(r => String(r['# Departamento']||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es',{numeric:true}))
+      : [];
+    const modoTabs = `<div style="display:flex;gap:6px;margin-bottom:8px">
+      <button type="button" onclick="rtProjWizSet_('lugarModo','propiedad');_rtProjWizardRender_()" style="padding:5px 12px;font-size:11px;background:${d.lugarModo==='propiedad'?'#0f172a':'#fff'};color:${d.lugarModo==='propiedad'?'#fff':'#475569'};border:1.5px solid ${d.lugarModo==='propiedad'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer;font-weight:800">🏠 Propiedad</button>
+      <button type="button" onclick="rtProjWizSet_('lugarModo','otro');_rtProjWizardRender_()" style="padding:5px 12px;font-size:11px;background:${d.lugarModo==='otro'?'#0f172a':'#fff'};color:${d.lugarModo==='otro'?'#fff':'#475569'};border:1.5px solid ${d.lugarModo==='otro'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer;font-weight:800">📍 Otro</button>
+    </div>`;
+    let lugarBody;
+    if (d.lugarModo === 'propiedad') {
+      lugarBody = `${modoTabs}
+        <select onchange="rtProjWizSet_('lugarPropiedad',this.value);rtProjWizSet_('lugarDepto','');_rtProjWizardRender_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;background:#fff;margin-bottom:6px">
+          <option value="">— Elegir propiedad —</option>
+          ${props.map(p => `<option value="${_rtEscA(p)}" ${d.lugarPropiedad===p?'selected':''}>${_rtEsc(p)}</option>`).join('')}
+        </select>
+        ${deptos.length ? `<select onchange="rtProjWizSet_('lugarDepto',this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;background:#fff">
+          <option value="">(Solo propiedad, sin depto)</option>
+          ${deptos.map(dp => `<option value="${_rtEscA(dp)}" ${d.lugarDepto===dp?'selected':''}>#${_rtEsc(dp)}</option>`).join('')}
+        </select>` : ''}`;
+    } else {
+      lugarBody = `${modoTabs}
+        <input type="text" value="${_rtEscA(d.lugarOtro)}" oninput="rtProjWizSet_('lugarOtro',this.value)" placeholder="Lugar libre…" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`;
+    }
+    html += field('Lugar', lugarBody);
+  } else if (d.step === 2) {
+    const rows = _rtGetPersonalRows();
+    if (!rows.length) _rtLoadPersonalDirect_().then(() => _rtProjWizardRender_());
+    const nombres = Array.from(new Set(rows.map(r => String(r['Nombre']||'').trim()).filter(Boolean))).sort();
+    const multi = (field, arr) => `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+      ${nombres.map(n => {
+        const act = (arr||[]).indexOf(n) >= 0;
+        return `<button type="button" onclick="rtProjWizToggleList_('${field}','${n.replace(/'/g,"\\'")}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:11px;font-weight:${act?'800':'600'};background:${act?'#0f172a':'#fff'};color:${act?'#fff':'#334155'};border:1.5px solid ${act?'#0f172a':'#cbd5e1'};border-radius:99px;cursor:pointer">${act?'✓':'＋'} ${n}</button>`;
+      }).join('') || '<span style="font-size:11px;color:#94a3b8;font-style:italic">⏳ Cargando personal…</span>'}
+    </div>`;
+    html += field('Reportado por', multi('reportadoPor', d.reportadoPor) +
+      `<input type="text" value="${_rtEscA(d.reportadoOtro)}" oninput="rtProjWizSet_('reportadoOtro',this.value)" placeholder='Otro (texto libre)' style="width:100%;padding:7px 10px;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;box-sizing:border-box">`);
+    html += field('Ejecutor', multi('ejecutor', d.ejecutor) +
+      `<input type="text" value="${_rtEscA(d.ejecutorOtro)}" oninput="rtProjWizSet_('ejecutorOtro',this.value)" placeholder='Otro (texto libre)' style="width:100%;padding:7px 10px;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;box-sizing:border-box">`);
+  } else {
+    html += field('Fecha de inicio', `<input type="date" value="${_rtEscA(d.fechaInicio)}" oninput="rtProjWizSet_('fechaInicio',this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`);
+    html += field('Duración estimada', `<div style="display:flex;gap:8px">
+      <input type="number" min="1" value="${_rtEscA(d.duracionValor)}" oninput="rtProjWizSet_('duracionValor',this.value)" style="flex:1;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">
+      <select onchange="rtProjWizSet_('duracionUnidad',this.value);_rtProjRepaintFooterHint_()" style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">
+        <option value="dias" ${d.duracionUnidad==='dias'?'selected':''}>días</option>
+        <option value="meses" ${d.duracionUnidad==='meses'?'selected':''}>meses</option>
+      </select>
+    </div>`);
+    html += `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;font-size:12px;color:#1e3a8a">📅 Fecha estimada de término: <strong>${_rtProjCalcFechaFin_(d) || '—'}</strong></div>`;
+  }
+  body.innerHTML = html;
+  // Footer
+  const isFirst = d.step === 1, isLast = d.step === 3;
+  footer.innerHTML = `
+    <button type="button" onclick="rtProjWizStep_(-1)" ${isFirst?'disabled':''} style="padding:8px 14px;background:${isFirst?'#e2e8f0':'#fff'};color:${isFirst?'#94a3b8':'#334155'};border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:800;cursor:${isFirst?'not-allowed':'pointer'}">← Anterior</button>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center"><span id="rt-proj-wiz-hint" style="font-size:11px;color:#64748b"></span></div>
+    ${isLast
+      ? `<button type="button" onclick="rtProjWizSave_()" style="padding:8px 16px;background:#16a34a;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">💾 Guardar</button>`
+      : `<button type="button" onclick="rtProjWizStep_(1)" style="padding:8px 16px;background:#4338ca;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">Siguiente →</button>`}`;
+  if (isLast) _rtProjRepaintFooterHint_();
+}
+window.rtProjWizSave_ = function() {
+  const d = RT_STATE.projDraft; if (!d) return;
   const list = _rtLoadProjects_();
+  const lugarLabel = d.lugarModo === 'otro'
+    ? String(d.lugarOtro||'').trim()
+    : (d.lugarDepto ? `${d.lugarPropiedad} · #${d.lugarDepto}` : d.lugarPropiedad);
   list.push({
     id: 'PRJ-' + Date.now() + '-' + Math.floor(Math.random()*9999),
-    nombre: nombre.trim(),
-    descripcion: descripcion.trim(),
+    clasificacion: d.clasificacion,
+    nombre: String(d.nombre||'').trim(),
+    descripcion: String(d.descripcion||'').trim(),
+    prioridad: d.prioridad,
+    lugar: {
+      modo: d.lugarModo,
+      propiedad: d.lugarPropiedad,
+      depto: d.lugarDepto,
+      otro: String(d.lugarOtro||'').trim(),
+      label: lugarLabel,
+    },
+    reportadoPor: (d.reportadoPor||[]).concat(String(d.reportadoOtro||'').trim() ? [String(d.reportadoOtro).trim()] : []),
+    ejecutor: (d.ejecutor||[]).concat(String(d.ejecutorOtro||'').trim() ? [String(d.ejecutorOtro).trim()] : []),
+    fechaInicio: d.fechaInicio,
+    duracionValor: Number(d.duracionValor)||0,
+    duracionUnidad: d.duracionUnidad,
+    fechaFin: _rtProjCalcFechaFin_(d),
     creado: new Date().toISOString(),
-    rtIds: []
+    rtIds: [],
   });
   _rtSaveProjects_(list);
+  rtProjWizClose_();
   RT_STATE.viewMode = 'proyectos';
   rtRenderList();
 };
@@ -43275,23 +43489,20 @@ window.rtProjRemoveRt_ = function(projId, rtId) {
   rtProjOpen_(projId); // repinta panel
   rtRenderList();
 };
-window.rtProjAddRt_ = function(projId) {
+// Crear NUEVA tarea desde el proyecto. Abre el form RT con contexto proyecto
+// para heredar Reportado_por + Fecha y renombrar título/botón a "tarea".
+window.rtProjAddTask_ = function(projId) {
   const list = _rtLoadProjects_();
   const p = list.find(x => x.id === projId); if (!p) return;
-  const asignados = new Set(p.rtIds || []);
-  const candidatos = (RT_STATE.list || []).filter(r => !asignados.has(String(r.ID)));
-  if (!candidatos.length) { alert('No hay reportes técnicos disponibles para agregar.'); return; }
-  // Modal simple: elegir uno por prompt con lista
-  const opciones = candidatos.slice(0, 30).map((r, i) => `${i+1}) ${r.Folio || r.ID} — ${r.Titulo || '(sin título)'}`).join('\n');
-  const pick = prompt(`Elige el número del reporte a agregar:\n\n${opciones}`);
-  if (!pick) return;
-  const idx = parseInt(pick, 10) - 1;
-  const chosen = candidatos[idx];
-  if (!chosen) { alert('Selección inválida.'); return; }
-  p.rtIds = (p.rtIds || []).concat([String(chosen.ID)]);
-  _rtSaveProjects_(list);
-  rtProjOpen_(projId);
-  rtRenderList();
+  RT_STATE.projContext = {
+    projId,
+    reportadoPor: (p.reportadoPor||[]).join(', '),
+    fechaInicio: p.fechaInicio || '',
+    lugar: p.lugar || {},
+  };
+  // Cerrar el panel lateral del proyecto para no obstruir el form.
+  rtCalCloseDay_();
+  rtOpenCapture();
 };
 function _rtProjProgress_(project) {
   const ids = new Set(project.rtIds || []);
@@ -43310,7 +43521,7 @@ function _rtRenderProjects_(cont, rows) {
     cont.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;background:#fff;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b">
       <div style="font-size:32px;margin-bottom:6px">📁</div>
       <div style="font-size:14px;font-weight:800;color:#334155;margin-bottom:4px">No hay proyectos aún</div>
-      <div style="font-size:12px;margin-bottom:14px">Un proyecto agrupa varios reportes técnicos como tareas.</div>
+      <div style="font-size:12px;margin-bottom:14px">Un proyecto agrupa varias tareas con fechas y avance.</div>
       <button onclick="rtProjNew_()" style="padding:8px 16px;background:#4338ca;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">＋ Crear primer proyecto</button>
     </div>`;
     return;
@@ -43371,17 +43582,17 @@ window.rtProjOpen_ = function(projId) {
         <div style="height:100%;width:${pr.pct}%;background:${barColor};border-radius:99px"></div>
       </div>
       <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
-        <button onclick="rtProjAddRt_('${_rtEscA(projId)}')" style="padding:6px 12px;font-size:11px;background:#4338ca;color:#fff;border:0;border-radius:6px;font-weight:800;cursor:pointer">＋ Agregar reporte</button>
+        <button onclick="rtProjAddTask_('${_rtEscA(projId)}')" style="padding:6px 12px;font-size:11px;background:#4338ca;color:#fff;border:0;border-radius:6px;font-weight:800;cursor:pointer">＋ Agregar tarea</button>
       </div>
     </div>`;
   const cards = items.length
     ? items.map(r => `<div style="position:relative">
         ${_rtRenderCard(r)}
         <button onclick="event.stopPropagation();rtProjRemoveRt_('${_rtEscA(projId)}','${_rtEscA(r.ID)}')"
-          title="Quitar del proyecto"
+          title="Quitar tarea del proyecto"
           style="position:absolute;top:6px;right:6px;z-index:2;padding:2px 8px;font-size:10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:800">✕</button>
       </div>`).join('')
-    : '<div style="text-align:center;padding:20px 12px;color:#94a3b8;font-style:italic;font-size:12px">Sin reportes en este proyecto. Usa "＋ Agregar reporte" arriba.</div>';
+    : '<div style="text-align:center;padding:20px 12px;color:#94a3b8;font-style:italic;font-size:12px">Sin tareas en este proyecto. Usa "＋ Agregar tarea" arriba.</div>';
   body.innerHTML = progressBar + cards;
   document.getElementById('rt-cal-side-back').style.display = 'block';
   document.getElementById('rt-cal-side-panel').style.display = 'flex';
@@ -43796,6 +44007,19 @@ window.rtOpenCapture = function(id) {
   }
   RT_STATE.fotosAntesPending = [];
   RT_STATE.fotosDespuesPending = [];
+  // Contexto proyecto: hereda Reportado_por + Fecha; oculta Reserva; cambia
+  // título y label del botón guardar (aplicado abajo tras el render).
+  if (RT_STATE.projContext && RT_STATE.draft) {
+    if (RT_STATE.projContext.reportadoPor) RT_STATE.draft.Reportado_por = RT_STATE.projContext.reportadoPor;
+    if (RT_STATE.projContext.fechaInicio) RT_STATE.draft.Fecha = RT_STATE.projContext.fechaInicio;
+    // Pre-llenar propiedad/depto si el proyecto tiene lugar tipo propiedad
+    const lu = RT_STATE.projContext.lugar || {};
+    if (lu.modo === 'propiedad' && lu.propiedad) {
+      RT_STATE.draft.Propiedad = lu.propiedad;
+      if (lu.depto) RT_STATE.draft['# Departamento'] = lu.depto;
+      RT_STATE.draft.Alojamiento = lu.depto ? `${lu.propiedad} - #${lu.depto}` : lu.propiedad;
+    }
+  }
   const panel = document.getElementById('rt-capture-panel');
   const back  = document.getElementById('rt-capture-backdrop');
   if (!panel || !back) return;
@@ -43807,8 +44031,24 @@ window.rtOpenCapture = function(id) {
   back.style.display = ''; panel.style.display = '';
   back.classList.remove('hidden'); back.offsetHeight; back.classList.add('visible');
   panel.classList.remove('hidden'); panel.classList.add('open');
-  document.getElementById('rt-capture-title').textContent = isEdit ? `Editar ${existing?.Folio || ''}` : 'Nuevo reporte técnico';
+  const inProj = !!(RT_STATE.projContext && RT_STATE.projContext.projId);
+  document.getElementById('rt-capture-title').textContent = isEdit
+    ? `Editar ${existing?.Folio || ''}`
+    : (inProj ? 'Título de la tarea' : 'Nuevo reporte técnico');
   _rtRenderForm();
+  // Ajustes post-render para modo "tarea de proyecto":
+  //  - oculta la sección "Reserva" (si existe)
+  //  - cambia el label del botón guardar a "Guardar tarea"
+  if (inProj) {
+    try {
+      const form = document.getElementById('rt-form');
+      if (form) {
+        form.querySelectorAll('[data-rt-field="Reserva"]').forEach(el => { el.style.display = 'none'; });
+      }
+      const saveBtn = document.getElementById('rt-save-btn');
+      if (saveBtn) saveBtn.textContent = '💾 Guardar tarea';
+    } catch(_){}
+  }
 };
 window.rtOpenCaptureFor = function(propRaw, deptRaw, arrIso, depIso) {
   rtOpenCapture();
@@ -43830,10 +44070,11 @@ window.rtCloseCapture = function() {
   panel.classList.remove('open'); back.classList.remove('visible');
   setTimeout(() => { panel.classList.add('hidden'); back.classList.add('hidden'); }, 280);
   RT_STATE.draft = null;
+  RT_STATE.projContext = null;
 };
 
 function _rtField(label, html, hint) {
-  return `<div style="margin-bottom:12px">
+  return `<div data-rt-field="${_rtEscA(label)}" style="margin-bottom:12px">
     <label style="display:block;font-size:11px;color:#475569;font-weight:800;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">${label}</label>
     ${html}
     ${hint ? `<div style="font-size:10px;color:#94a3b8;margin-top:3px">${hint}</div>` : ''}
@@ -44280,8 +44521,22 @@ window.rtSave = async function() {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
+    // Si veníamos de un proyecto, ligar el nuevo RT al proyecto.
+    const ctx = RT_STATE.projContext;
+    if (ctx && ctx.projId && j.id) {
+      try {
+        const list = _rtLoadProjects_();
+        const p = list.find(x => x.id === ctx.projId);
+        if (p) {
+          p.rtIds = (p.rtIds || []).concat([String(j.id)]);
+          _rtSaveProjects_(list);
+        }
+      } catch(_){}
+    }
+    const projIdToReopen = ctx && ctx.projId;
     rtCloseCapture();
     await rtRefresh(true);
+    if (projIdToReopen) { try { rtProjOpen_(projIdToReopen); } catch(_){} }
     // Si estamos en Gestión de reservas, refrescar cards también
     try {
       const lgMod = document.getElementById('module-lodgify');
