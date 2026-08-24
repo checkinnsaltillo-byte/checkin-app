@@ -43307,15 +43307,35 @@ window.rtProjWizClose_ = function() {
   if (p) p.style.display = 'none';
   if (b) b.style.display = 'none';
   RT_STATE.projDraft = null;
+  RT_STATE.projDraftOriginal = null;
 };
 window.rtProjWizSet_ = function(field, value) {
   if (!RT_STATE.projDraft) return;
   RT_STATE.projDraft[field] = value;
-  // Recalcula fecha estimada al cambiar duración o fecha inicio
   if (field === 'fechaInicio' || field === 'duracionValor' || field === 'duracionUnidad') {
     _rtProjRepaintFooterHint_();
   }
+  // En modo edición, refresca solo el footer para mostrar/ocultar "Guardar
+  // cambios" sin re-renderizar el body (no perder foco del input).
+  if (RT_STATE.projDraft.editingId) _rtProjWizardRefreshFooter_();
 };
+function _rtProjWizardRefreshFooter_() {
+  const d = RT_STATE.projDraft; if (!d) return;
+  const footer = document.getElementById('rt-proj-wiz-footer'); if (!footer) return;
+  const isFirst = d.step === 1, isLast = d.step === 3;
+  const isEdit = !!d.editingId;
+  const dirty = isEdit && _rtProjDraftDirty_();
+  const saveChangesBtn = dirty
+    ? `<button type="button" onclick="rtProjWizSave_()" style="padding:8px 16px;background:#16a34a;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">💾 Guardar cambios</button>`
+    : '';
+  footer.innerHTML = `
+    <button type="button" onclick="rtProjWizStep_(-1)" ${isFirst?'disabled':''} style="padding:8px 14px;background:${isFirst?'#e2e8f0':'#fff'};color:${isFirst?'#94a3b8':'#334155'};border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:800;cursor:${isFirst?'not-allowed':'pointer'}">← Anterior</button>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px"><span id="rt-proj-wiz-hint" style="font-size:11px;color:#64748b"></span>${saveChangesBtn}</div>
+    ${isLast
+      ? `<button type="button" onclick="rtProjWizSave_()" style="padding:8px 16px;background:#16a34a;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">💾 Guardar</button>`
+      : `<button type="button" onclick="rtProjWizStep_(1)" style="padding:8px 16px;background:#4338ca;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">Siguiente →</button>`}`;
+  if (isLast) _rtProjRepaintFooterHint_();
+}
 window.rtProjWizToggleList_ = function(field, val) {
   if (!RT_STATE.projDraft) return;
   const arr = RT_STATE.projDraft[field] || [];
@@ -43453,22 +43473,38 @@ function _rtProjWizardRender_() {
   body.innerHTML = html;
   // Footer
   const isFirst = d.step === 1, isLast = d.step === 3;
+  const isEdit = !!d.editingId;
+  const dirty = isEdit && _rtProjDraftDirty_();
+  // Título dinámico según modo (edición vs alta) — actualizar header del panel.
+  try {
+    const hdrTitle = document.querySelector('#rt-proj-wiz-panel > div:first-child > div > div:last-child');
+    if (hdrTitle) hdrTitle.textContent = isEdit ? '📁 Editar proyecto' : '📁 Crear proyecto';
+    const hdrKicker = document.querySelector('#rt-proj-wiz-panel > div:first-child > div > div:first-child');
+    if (hdrKicker) hdrKicker.textContent = isEdit ? 'EDITAR' : 'NUEVO';
+  } catch(_){}
+  const saveChangesBtn = dirty
+    ? `<button type="button" onclick="rtProjWizSave_()" style="padding:8px 16px;background:#16a34a;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">💾 Guardar cambios</button>`
+    : '';
   footer.innerHTML = `
     <button type="button" onclick="rtProjWizStep_(-1)" ${isFirst?'disabled':''} style="padding:8px 14px;background:${isFirst?'#e2e8f0':'#fff'};color:${isFirst?'#94a3b8':'#334155'};border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:800;cursor:${isFirst?'not-allowed':'pointer'}">← Anterior</button>
-    <div style="flex:1;display:flex;align-items:center;justify-content:center"><span id="rt-proj-wiz-hint" style="font-size:11px;color:#64748b"></span></div>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px"><span id="rt-proj-wiz-hint" style="font-size:11px;color:#64748b"></span>${saveChangesBtn}</div>
     ${isLast
-      ? `<button type="button" onclick="rtProjWizSave_()" style="padding:8px 16px;background:#16a34a;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">💾 Guardar</button>`
+      ? `<button type="button" onclick="rtProjWizSave_()" style="padding:8px 16px;background:#16a34a;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">💾 ${isEdit?'Guardar':'Guardar'}</button>`
       : `<button type="button" onclick="rtProjWizStep_(1)" style="padding:8px 16px;background:#4338ca;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">Siguiente →</button>`}`;
   if (isLast) _rtProjRepaintFooterHint_();
 }
 window.rtProjWizSave_ = function() {
   const d = RT_STATE.projDraft; if (!d) return;
+  // Validaciones básicas (mismas que al avanzar del paso 1).
+  if (!d.clasificacion) { alert('Elige una clasificación (Paso 1)'); return; }
+  if (!String(d.nombre||'').trim()) { alert('El nombre es requerido (Paso 1)'); return; }
+  if (d.lugarModo === 'propiedad' && !d.lugarPropiedad) { alert('Elige propiedad (Paso 1)'); return; }
+  if (d.lugarModo === 'otro' && !String(d.lugarOtro||'').trim()) { alert('Escribe el lugar "Otro" (Paso 1)'); return; }
   const list = _rtLoadProjects_();
   const lugarLabel = d.lugarModo === 'otro'
     ? String(d.lugarOtro||'').trim()
     : (d.lugarDepto ? `${d.lugarPropiedad} · #${d.lugarDepto}` : d.lugarPropiedad);
-  list.push({
-    id: 'PRJ-' + Date.now() + '-' + Math.floor(Math.random()*9999),
+  const buildPayload = (base) => Object.assign({}, base, {
     clasificacion: d.clasificacion,
     nombre: String(d.nombre||'').trim(),
     descripcion: String(d.descripcion||'').trim(),
@@ -43486,9 +43522,18 @@ window.rtProjWizSave_ = function() {
     duracionValor: Number(d.duracionValor)||0,
     duracionUnidad: d.duracionUnidad,
     fechaFin: _rtProjCalcFechaFin_(d),
-    creado: new Date().toISOString(),
-    rtIds: [],
   });
+  if (d.editingId) {
+    const idx = list.findIndex(x => x.id === d.editingId);
+    if (idx < 0) { alert('Proyecto no encontrado'); return; }
+    list[idx] = buildPayload(list[idx]);
+  } else {
+    list.push(buildPayload({
+      id: 'PRJ-' + Date.now() + '-' + Math.floor(Math.random()*9999),
+      creado: new Date().toISOString(),
+      rtIds: [],
+    }));
+  }
   _rtSaveProjects_(list);
   rtProjWizClose_();
   RT_STATE.viewMode = 'proyectos';
@@ -43501,14 +43546,45 @@ window.rtProjDelete_ = function(id) {
   rtRenderList();
 };
 window.rtProjRename_ = function(id) {
-  const list = _rtLoadProjects_();
-  const p = list.find(x => x.id === id); if (!p) return;
-  const n = prompt('Nuevo nombre:', p.nombre);
-  if (n == null || !n.trim()) return;
-  p.nombre = n.trim();
-  _rtSaveProjects_(list);
-  rtRenderList();
+  // Editar proyecto = abrir el wizard con datos precargados.
+  rtProjEdit_(id);
 };
+window.rtProjEdit_ = function(id) {
+  const p = _rtLoadProjects_().find(x => x.id === id);
+  if (!p) return;
+  // Reconstruir draft con los mismos campos que usa el wizard.
+  const lu = p.lugar || {};
+  RT_STATE.projDraft = {
+    step: 1,
+    editingId: id,
+    clasificacion: p.clasificacion || '',
+    nombre: p.nombre || '',
+    descripcion: p.descripcion || '',
+    prioridad: p.prioridad || 'media',
+    lugarModo: lu.modo || 'propiedad',
+    lugarPropiedad: lu.propiedad || '',
+    lugarDepto: lu.depto || '',
+    lugarOtro: lu.otro || '',
+    reportadoPor: (p.reportadoPor || []).slice(),
+    reportadoOtro: '',
+    ejecutor: (p.ejecutor || []).slice(),
+    ejecutorOtro: '',
+    fechaInicio: p.fechaInicio || new Date().toISOString().slice(0,10),
+    duracionValor: p.duracionValor || 7,
+    duracionUnidad: p.duracionUnidad || 'dias',
+  };
+  RT_STATE.projDraftOriginal = JSON.parse(JSON.stringify(RT_STATE.projDraft));
+  _rtEnsureProjWizardPanel_();
+  _rtProjWizardRender_();
+};
+function _rtProjDraftDirty_() {
+  const d = RT_STATE.projDraft, o = RT_STATE.projDraftOriginal;
+  if (!d || !o) return false;
+  const norm = (x) => {
+    const c = Object.assign({}, x); delete c.step; return JSON.stringify(c);
+  };
+  return norm(d) !== norm(o);
+}
 window.rtProjRemoveRt_ = function(projId, rtId) {
   const list = _rtLoadProjects_();
   const p = list.find(x => x.id === projId); if (!p) return;
