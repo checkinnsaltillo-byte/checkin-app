@@ -23017,12 +23017,15 @@ window.incToggleNivelMenu = function(id) {
   menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
 };
 
-async function _incQuickPatch(id, patch, labelSet) {
+async function _incQuickPatch(id, patch) {
   const row = (INC_STATE.list||[]).find(r => String(r['ID']||'') === String(id));
   if (!row) { alert('No se encontró el reporte.'); return; }
   const changedKey = Object.keys(patch)[0];
   const changedVal = patch[changedKey];
   const prettyKey = changedKey === 'estatus' ? 'Estatus' : 'Nivel';
+  // Cierra menú de nivel antes de mostrar confirm (evita que quede abierto).
+  document.querySelectorAll(`.inc-nivel-menu[data-inc-nivel-menu-id="${CSS.escape(id)}"]`)
+    .forEach(m => { m.style.display = 'none'; });
   if (!confirm(`¿Actualizar ${prettyKey} a "${changedVal}"?`)) return;
   try {
     const res = await fetch('https://api.check-inn.mx/update-incidencia', {
@@ -23033,11 +23036,16 @@ async function _incQuickPatch(id, patch, labelSet) {
     if (!data.ok) throw new Error(data.error || 'Error al actualizar');
     if (changedKey === 'estatus') row['Estatus'] = changedVal;
     if (changedKey === 'nivel')   row['Nivel']   = changedVal;
-    // Repintar la card en la lista (si visible) + timeline WA
-    try {
-      const cardBody = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(id)}"] .inc-card-body`);
-      if (cardBody) cardBody.innerHTML = incCardBodyHtmlReadonly(row, id);
-    } catch(_){}
+    // Repinta TODAS las card-body con este id (lista principal + panel WA).
+    // La lista principal muestra el detalle sin botón Editar; el panel lateral
+    // WA lo muestra con toolbar. Distinguimos por ancestro.
+    document.querySelectorAll(`.inc-card[data-inc-id="${CSS.escape(id)}"]`).forEach(cardEl => {
+      const body = cardEl.querySelector('.inc-card-body');
+      if (!body) return;
+      const inMainList = !!cardEl.closest('#inc-cards-list');
+      body.innerHTML = inMainList ? incCardBodyHtml(row) : incCardBodyHtmlReadonly(row, id);
+    });
+    // Chip del header de la card en la lista (fondo/color/emoji).
     try { if (typeof incRenderCards === 'function' && document.getElementById('inc-cards-list')) incRenderCards(); } catch(_){}
     try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
   } catch (e) {
