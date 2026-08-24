@@ -44592,73 +44592,98 @@ function _rtRenderForm() {
     const pend = (pending||[]).map((f,i) => `<div style="position:relative"><div style="width:60px;height:60px;background:#fef3c7;border:1px dashed #f59e0b;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#92400e;text-align:center;padding:4px">${_rtEsc(f.name.slice(0,10))}<br>⏳</div><button type="button" onclick="_rtRemovePendingPhoto('${_rtEsc(tipo)}',${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:50%;cursor:pointer;font-weight:900;font-size:11px;line-height:1;padding:0">×</button></div>`).join('');
     return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${existing}${pend}</div>`;
   };
-  form.innerHTML = `
-    ${isEdit ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#1e40af"><b>${_rtEsc(d.Folio||'')}</b> · creado ${_rtEsc(String(d.Timestamp||'').slice(0,10))}</div>` : ''}
-
+  const inProj = !!(RT_STATE.projContext && RT_STATE.projContext.projId);
+  // Estado de secciones colapsadas por sección key.
+  RT_STATE.formCollapsed = RT_STATE.formCollapsed || new Set(['asignaciones','evidencia','cumplimiento','otros']);
+  const section = (key, icon, title, bodyHtml) => {
+    const isCol = RT_STATE.formCollapsed.has(key);
+    return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;overflow:hidden">
+      <button type="button" onclick="_rtToggleSection_('${key}')"
+        style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;background:transparent;border:0;border-bottom:${isCol?'0':'1px solid #e2e8f0'};cursor:pointer;text-align:left;font-family:inherit">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:14px">${icon}</span>
+          <span style="font-size:12px;font-weight:900;color:#0f172a;letter-spacing:.06em;text-transform:uppercase">${title}</span>
+        </div>
+        <span style="font-size:14px;color:#64748b;transition:transform .2s;transform:rotate(${isCol?'-90':'0'}deg);line-height:1">▾</span>
+      </button>
+      <div style="display:${isCol?'none':'block'};padding:12px 14px 4px">${bodyHtml}</div>
+    </div>`;
+  };
+  const reservaBlock = inProj ? '' : _rtField('Reserva', _rtRenderReservaSelect());
+  const generalBody = `
     ${_rtField('Título del reporte *', _rtInput('Titulo','text','Ej: Minisplit no enfría, fuga de agua en regadera'))}
-
+    ${_rtField('Categoría', _rtSelect('Categoria', RT_CATEGORIAS))}
+    ${_rtField('Descripción de la falla *', _rtTextarea('Descripcion','Detalla qué está fallando y en qué condiciones.'))}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       ${_rtField('Prioridad', _rtSelect('Prioridad', RT_PRIORIDADES))}
       ${_rtField('Estado', _rtSelect('Estado', RT_ESTADOS))}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      ${_rtField('Tipo', _rtSelect('Tipo', RT_TIPOS))}
-      ${_rtField('Categoría', _rtSelect('Categoria', RT_CATEGORIAS))}
-    </div>
-
-    ${_rtField('Reserva', _rtRenderReservaSelect())}
+    ${reservaBlock}
     <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
       ${_rtField('Propiedad', _rtRenderPropSelect())}
       ${_rtField('# Departamento', _rtRenderDeptoSelect())}
     </div>
-    ${_rtField('Activo (opcional)', _rtInput('Activo','text','Ej: Minisplit sala, boiler'))}
-
-    ${_rtField('Descripción de la falla *', _rtTextarea('Descripcion','Detalla qué está fallando y en qué condiciones.'))}
-    ${_rtField('Descripción de la solución', _rtTextarea('Descripcion_solucion','Qué se hizo para resolver. Incluye materiales y refacciones.'))}
-
+    ${_rtField('Notas / bitácora libre', _rtTextarea('Notas','Comentarios adicionales'))}
+  `;
+  const asignacionesBody = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       ${_rtField('Reportado por', _rtRenderPersonalInput('Reportado_por','Ej: Andrés, Claudia, huésped'))}
       ${_rtField('Asignado a', _rtRenderPersonalInput('Asignado_a','Ej: Técnico Juan, Proveedor Plomería MX'))}
     </div>
     ${_rtRenderPersonalDatalist()}
+  `;
+  const evidenciaBody = `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">📷 Fotos ANTES</div>
+      <input type="file" accept="image/*" multiple onchange="_rtAddPhotos('antes', this.files)" style="font-size:11px">
+      ${previewFotos(fotosAntesUrls, RT_STATE.fotosAntesPending, 'antes')}
+    </div>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">📷 Fotos DESPUÉS</div>
+      <input type="file" accept="image/*" multiple onchange="_rtAddPhotos('despues', this.files)" style="font-size:11px">
+      ${previewFotos(fotosDespuesUrls, RT_STATE.fotosDespuesPending, 'despues')}
+    </div>
+    ${_rtField('Descripción de la solución', _rtTextarea('Descripcion_solucion','Qué se hizo para resolver. Incluye materiales y refacciones.'))}
+  `;
+  const cumplimientoBody = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      ${_rtField('Proveedor', _rtInput('Proveedor','text','Nombre del proveedor externo'))}
+      ${_rtField('Fecha del reporte', _rtInput('Fecha','date',''))}
       ${_rtField('Fecha compromiso', _rtInput('Fecha_compromiso','date',''))}
     </div>
-
-    ${_rtField('Fecha del reporte', _rtInput('Fecha','date',''))}
-
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">🚨 Impacto</div>
+  `;
+  const otrosBody = `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">🚨 Impacto</div>
       ${_rtCheckbox('Bloquea_habitabilidad','Bloquea habitabilidad (unidad inhabitable)')}
       <div style="margin-top:8px">${_rtCheckbox('Reincidente','Reincidente (falla repetida del mismo activo)')}</div>
     </div>
-
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">💰 Costos y responsabilidad</div>
+    ${_rtField('Proveedor', _rtInput('Proveedor','text','Nombre del proveedor externo'))}
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">💰 Costos y responsabilidad</div>
       ${_rtField('Responsabilidad', _rtSelect('Responsabilidad', RT_RESPONSABILIDADES))}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         ${_rtField('Costo total (MXN)', _rtInput('Costo_total','number','0.00'))}
         ${_rtField(' ', _rtCheckbox('Cargar_a_huesped','Cargar al huésped'))}
       </div>
     </div>
-
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">📷 Fotos ANTES</div>
-      <input type="file" accept="image/*" multiple onchange="_rtAddPhotos('antes', this.files)" style="font-size:11px">
-      ${previewFotos(fotosAntesUrls, RT_STATE.fotosAntesPending, 'antes')}
-    </div>
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">📷 Fotos DESPUÉS</div>
-      <input type="file" accept="image/*" multiple onchange="_rtAddPhotos('despues', this.files)" style="font-size:11px">
-      ${previewFotos(fotosDespuesUrls, RT_STATE.fotosDespuesPending, 'despues')}
-    </div>
-
-    ${_rtField('Notas / bitácora libre', _rtTextarea('Notas','Comentarios adicionales'))}
-
+    ${_rtField('Activo (opcional)', _rtInput('Activo','text','Ej: Minisplit sala, boiler'))}
+  `;
+  form.innerHTML = `
+    ${isEdit ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#1e40af"><b>${_rtEsc(d.Folio||'')}</b> · creado ${_rtEsc(String(d.Timestamp||'').slice(0,10))}</div>` : ''}
+    ${section('general', '📌', 'A) General', generalBody)}
+    ${section('asignaciones', '👥', 'B) Asignaciones', asignacionesBody)}
+    ${section('evidencia', '📷', 'C) Evidencia', evidenciaBody)}
+    ${section('cumplimiento', '📅', 'D) Cumplimiento', cumplimientoBody)}
+    ${section('otros', '⚙️', 'F) Otros', otrosBody)}
     ${isEdit ? `<div style="margin-top:16px;padding-top:16px;border-top:1px solid #e2e8f0"><button type="button" onclick="rtDelete('${_rtEscA(d.ID)}')" style="padding:8px 14px;background:#fff;color:#dc2626;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🗑 Eliminar reporte</button></div>` : ''}
   `;
 }
+window._rtToggleSection_ = function(key) {
+  RT_STATE.formCollapsed = RT_STATE.formCollapsed || new Set();
+  if (RT_STATE.formCollapsed.has(key)) RT_STATE.formCollapsed.delete(key);
+  else RT_STATE.formCollapsed.add(key);
+  _rtRenderForm();
+};
 
 window._rtAddPhotos = async function(tipo, files) {
   if (!RT_STATE.draft) return;
