@@ -40952,18 +40952,23 @@ function _spRenderEditor_() {
     col.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:13px">Selecciona un prompt de la izquierda o crea uno nuevo.</div>';
     return;
   }
-  const alojs = (window.__spState.alojamientos || []);
-  const selectedHouses = new Set(String(p.alojamientos||'').split(',').map(s=>s.trim()).filter(Boolean));
-  const alojOpts = alojs.map(a => {
-    const hid = String(a.HouseId||''); if (!hid) return '';
-    const label = `${a.Propiedad || ''}${a['# Departamento']?' - #'+a['# Departamento']:''}`;
-    const isSel = selectedHouses.has(hid);
-    return `<label style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:${isSel?'#dbeafe':'#f8fafc'};border:1px solid ${isSel?'#3b82f6':'#e2e8f0'};border-radius:6px;font-size:11px;cursor:pointer;margin:0 6px 6px 0">
-      <input type="checkbox" ${isSel?'checked':''} onchange="spToggleAloj_('${hid}',this.checked)" style="margin:0">${_botcEsc(label)}</label>`;
-  }).join('');
+  const onEnabled = p.enabled !== false;
+  const onResp = !!p.responsivo;
+  // Barra superior con toggles idénticos a Templates (span con ✓, mismos colores).
+  const statusChip = `
+    <div style="flex:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span onclick="spToggleEnabled_('${_botcEsc(p.id)}')" title="${onEnabled ? 'Deshabilitar prompt' : 'Habilitar prompt'}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${onEnabled ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${onEnabled ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${onEnabled ? '✓' : ''}</span>
+        <span style="font-size:12px;font-weight:700;color:${onEnabled ? '#166534' : '#64748b'}">${onEnabled ? 'Prompt habilitado' : 'Prompt deshabilitado'}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px" title="Los prompts responsivos NO se aplican automáticamente — solo cuando una acción externa los activa">
+        <span onclick="spDraftSetAndRefresh_('responsivo', ${onResp ? 'false' : 'true'})" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${onResp ? '#7c3aed' : '#94a3b8'};border-radius:4px;background:${onResp ? '#7c3aed' : '#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${onResp ? '✓' : ''}</span>
+        <span style="font-size:12px;font-weight:700;color:${onResp ? '#5b21b6' : '#64748b'}">⚡ Responsivo (solo por eventos)</span>
+      </div>
+    </div>`;
   const casos = Array.isArray(p.casos) ? p.casos : [];
   const casosHtml = casos.map((c,i) => `
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:8px">
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <div style="font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.04em">Caso ${i+1}</div>
         <button onclick="spRemoveCaso_(${i})" style="background:none;border:0;color:#dc2626;cursor:pointer;font-size:14px">×</button>
@@ -40974,43 +40979,100 @@ function _spRenderEditor_() {
       <textarea rows="2" oninput="spSetCaso_(${i},'respuesta',this.value)" style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;resize:vertical;font-family:inherit">${_botcEsc(c.respuesta||'')}</textarea>
     </div>`).join('');
   col.innerHTML = `
-    <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <div style="font-size:13px;font-weight:800;color:#0f172a">🧠 Editar prompt</div>
-      <div style="display:flex;gap:8px">
-        <button onclick="spSave_()" style="padding:7px 14px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800">💾 Guardar</button>
-        <button onclick="spDelete_()" style="padding:7px 12px;background:#fff;color:#dc2626;border:1px solid #fecaca;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700">🗑 Eliminar</button>
-      </div>
-    </div>
-    <div style="flex:1;overflow-y:auto;padding:14px 18px">
-      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px">
-        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#334155;cursor:pointer">
-          <input type="checkbox" ${p.enabled!==false?'checked':''} onchange="spDraftSet_('enabled',this.checked);_spRenderList_()">Prompt habilitado</label>
-        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#334155;cursor:pointer">
-          <input type="checkbox" ${p.responsivo?'checked':''} onchange="spDraftSet_('responsivo',this.checked);_spRenderList_()">Responsivo</label>
-      </div>
-      <label style="display:block;font-size:11px;font-weight:800;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Nombre</label>
-      <input type="text" value="${_botcEsc(p.nombre||'')}" oninput="spDraftSet_('nombre',this.value)" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;margin-bottom:10px">
-      <label style="display:block;font-size:11px;font-weight:800;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Objetivo</label>
-      <textarea rows="2" oninput="spDraftSet_('objetivo',this.value)" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;font-family:inherit;resize:vertical;margin-bottom:10px">${_botcEsc(p.objetivo||'')}</textarea>
-      <label style="display:block;font-size:11px;font-weight:800;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Prompt</label>
-      <textarea rows="6" oninput="spDraftSet_('prompt',this.value)" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;font-family:inherit;resize:vertical;margin-bottom:10px">${_botcEsc(p.prompt||'')}</textarea>
-      <label style="display:block;font-size:11px;font-weight:800;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Riesgos</label>
-      <textarea rows="3" oninput="spDraftSet_('riesgos',this.value)" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;font-family:inherit;resize:vertical;margin-bottom:14px">${_botcEsc(p.riesgos||'')}</textarea>
+    ${statusChip}
+    <div style="flex:1;overflow-y:auto;padding:18px 20px">
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Nombre</label>
+      <input type="text" value="${_botcEsc(p.nombre||'')}" oninput="spDraftSet_('nombre',this.value)" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:14px">
 
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:14px">
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Objetivo</label>
+      <textarea rows="2" oninput="spDraftSet_('objetivo',this.value)" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:vertical;margin-bottom:14px">${_botcEsc(p.objetivo||'')}</textarea>
+
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Prompt</label>
+      <textarea rows="6" oninput="spDraftSet_('prompt',this.value)" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:vertical;margin-bottom:14px">${_botcEsc(p.prompt||'')}</textarea>
+
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Riesgos</label>
+      <textarea rows="3" oninput="spDraftSet_('riesgos',this.value)" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:vertical;margin-bottom:20px">${_botcEsc(p.riesgos||'')}</textarea>
+
+      <div style="margin-bottom:22px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <div style="font-size:12px;font-weight:800;color:#0f172a">📋 Casos de uso</div>
+          <div style="font-weight:800;color:#0f172a;font-size:13px">📋 Casos de uso</div>
           <button onclick="spAddCaso_()" style="padding:5px 10px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:11px;font-weight:800">＋ Caso</button>
         </div>
-        ${casosHtml || '<div style="text-align:center;color:#94a3b8;font-size:11px;font-style:italic;padding:12px">Sin casos. Agrega ejemplos "Texto recibido → Respuesta sugerida".</div>'}
+        ${casosHtml || '<div style="text-align:center;color:#94a3b8;font-size:11px;font-style:italic;padding:12px;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:8px">Sin casos. Agrega ejemplos "Texto recibido → Respuesta sugerida".</div>'}
       </div>
 
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px">
-        <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:10px">🏠 Selecciona los alojamientos</div>
-        <div style="display:flex;flex-wrap:wrap">${alojOpts || '<span style="color:#94a3b8;font-size:11px;font-style:italic">Sin alojamientos cargados</span>'}</div>
+      <div>
+        <div style="font-weight:800;color:#0f172a;font-size:13px;margin-bottom:8px">Selecciona los alojamientos</div>
+        <div id="sp-inline-aloj"></div>
+      </div>
+    </div>
+    <div style="flex:none;padding:12px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:flex-end;gap:10px">
+      <button type="button" onclick="spDelete_()" style="all:unset;cursor:pointer;background:#fff;color:#b91c1c;border:1px solid #fecaca;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700">🗑 Eliminar</button>
+      <button type="button" onclick="spSave_()" style="all:unset;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:800;background:#16a34a;color:#fff;cursor:pointer;box-shadow:0 2px 6px rgba(22,163,74,.35)">💾 Guardar</button>
+    </div>`;
+  _spRenderAlojBox_();
+}
+window.spDraftSetAndRefresh_ = function(field, value) {
+  spDraftSet_(field, value);
+  _spRenderList_();
+  _spRenderEditor_();
+};
+// Selector de alojamientos con el MISMO estilo que Templates (statusbar +
+// botones Seleccionar/Desmarcar todos + lista scrollable con checkbox).
+function _spRenderAlojBox_() {
+  const alojBox = document.getElementById('sp-inline-aloj'); if (!alojBox) return;
+  const p = _spLoad_().find(x => x.id === window.__spState.selectedId); if (!p) return;
+  const selectedAloj = new Set(String(p.alojamientos||'').split(',').map(s=>s.trim()).filter(Boolean));
+  const alojList = (window.__spState.alojamientos || []).slice().sort((a,b) => {
+    const na = `${a.Propiedad||''} ${a['# Departamento']||''}`.toLowerCase();
+    const nb = `${b.Propiedad||''} ${b['# Departamento']||''}`.toLowerCase();
+    return na.localeCompare(nb);
+  });
+  const allSelected = alojList.length && alojList.every(a => selectedAloj.has(String(a.HouseId||'').trim()));
+  const noneSelected = selectedAloj.size === 0;
+  const rows = alojList.map(a => {
+    const id = String(a.HouseId||'').trim();
+    const label = `${a.Propiedad||''} ${a['# Departamento'] ? '#'+a['# Departamento'] : ''}`.trim() || `Alojamiento ${id}`;
+    const on = selectedAloj.has(id);
+    return `
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12px;cursor:pointer;border-radius:6px" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+        <span onclick="event.stopPropagation();spToggleAloj2_('${_botcEsc(id)}')" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:2px solid ${on?'#3b82f6':'#94a3b8'};border-radius:4px;background:${on?'#3b82f6':'#fff'};color:#fff;font-weight:900;font-size:10px;flex:none">${on?'✓':''}</span>
+        <span onclick="spToggleAloj2_('${_botcEsc(id)}')" style="color:#0f172a;flex:1">${_botcEsc(label)}</span>
+      </label>`;
+  }).join('');
+  alojBox.innerHTML = `
+    <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+      <div style="padding:10px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
+        <div style="font-size:11px;color:#64748b">${noneSelected ? 'Sin selección → aplica a todos' : (allSelected ? 'Todos seleccionados' : `${selectedAloj.size} seleccionado(s)`)}</div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" onclick="spToggleAllAloj_(true)" style="all:unset;cursor:pointer;background:#0f172a;color:#fff;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">Seleccionar todos</button>
+          <button type="button" onclick="spToggleAllAloj_(false)" style="all:unset;cursor:pointer;background:#fff;color:#0f172a;border:1px solid #cbd5e1;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700">Desmarcar todos</button>
+        </div>
+      </div>
+      <div style="max-height:280px;overflow-y:auto;padding:6px 6px">
+        ${rows || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin alojamientos en el catálogo</div>'}
       </div>
     </div>`;
 }
+window.spToggleAloj2_ = function(houseId) {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  const set = new Set(String(p.alojamientos||'').split(',').map(s=>s.trim()).filter(Boolean));
+  if (set.has(houseId)) set.delete(houseId); else set.add(houseId);
+  p.alojamientos = Array.from(set).join(',');
+  _spSave_(list);
+  _spRenderAlojBox_();
+};
+window.spToggleAllAloj_ = function(sel) {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  if (sel) {
+    const ids = (window.__spState.alojamientos || []).map(a => String(a.HouseId||'').trim()).filter(Boolean);
+    p.alojamientos = ids.join(',');
+  } else {
+    p.alojamientos = '';
+  }
+  _spSave_(list);
+  _spRenderAlojBox_();
+};
 window.spSelect_ = function(id) { window.__spState.selectedId = id; _spRenderList_(); _spRenderEditor_(); };
 window.spNew_ = function() {
   const list = _spLoad_();
