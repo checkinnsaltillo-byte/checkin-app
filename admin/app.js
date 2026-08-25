@@ -42752,22 +42752,24 @@ function _botcEnsureCardFlattenCss_() {
   if (document.getElementById('botc-card-flat')) return;
   const s = document.createElement('style');
   s.id = 'botc-card-flat';
-  // Aplasta todos los descendientes del wrapper EXCEPTO el footer (chatMeta).
-  // Elimina bordes/sombras/radius/márgenes propios del rich para que se lea
-  // como una única card con el footer.
+  // Solo aplasta los 2 primeros niveles: el wrapper onclick y la card rich
+  // superior — para que su borde/sombra/radius no compitan con el wrapper
+  // exterior. NO tocar descendientes profundos (chips de KPI, tags,
+  // pill de monto, clasificación de perfil, etc. viven ahí adentro).
   s.textContent = `
-    .botc-conv-item > *:not(.botc-card-footer),
-    .botc-conv-item > *:not(.botc-card-footer) > *,
-    .botc-conv-item > *:not(.botc-card-footer) > * > *,
-    .botc-conv-item > *:not(.botc-card-footer) > * > * > * {
+    .botc-conv-item > *:not(.botc-card-footer) {
       box-shadow: none !important;
       border-width: 0 !important;
       border-radius: 0 !important;
-      margin-top: 0 !important;
-      margin-bottom: 0 !important;
+      margin: 0 !important;
       background-color: transparent !important;
     }
-    /* Restaurar background del wrapper (para el hover/selección) */
+    .botc-conv-item > *:not(.botc-card-footer) > div:first-child {
+      box-shadow: none !important;
+      border-width: 0 !important;
+      border-radius: 0 !important;
+      margin: 0 !important;
+    }
     .botc-conv-item { background-clip: border-box; }
   `;
   document.head.appendChild(s);
