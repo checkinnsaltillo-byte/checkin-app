@@ -345,7 +345,7 @@ function sysGetStoredUser() {
 }
 function sysStoreUser(u) { try { localStorage.setItem('sys_user', JSON.stringify(u)); } catch(_) {} }
 function sysApplyPermissions(user) {
-  const allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos']);
+  const allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos', 'reservas-nueva']);
   if (user && user.modulos) {
     for (const k in SYS_MODULE_PERMS) {
       if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
@@ -8649,7 +8649,7 @@ function switchModule(mod) {
   if (mod === 'ocupacion') mod = 'dashboard';
   // Aliases: 'dashboard' y 'calendario' comparten el contenedor module-ocupacion
   const containerMod = (mod === 'dashboard' || mod === 'calendario') ? 'ocupacion' : mod;
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -45748,3 +45748,176 @@ window.rtDelete = async function(id) {
   } catch (e) { alert('Error al eliminar: ' + e.message); }
 };
 
+
+// ═══════════════════════════════════════════════════════════════════════
+// MÓDULO RESERVAS (búsqueda Lodgify)
+// ═══════════════════════════════════════════════════════════════════════
+window.RSV_STATE = { results: [], map: null, mapMarkers: [] };
+function _rsvFmt$(n, cur) {
+  try {
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: cur || 'MXN', maximumFractionDigits: 0 }).format(Number(n) || 0);
+  } catch { return `$ ${Math.round(Number(n)||0).toLocaleString('es-MX')}`; }
+}
+function _rsvEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _rsvHostedUrl(r, arrival, departure, adults) {
+  // Formato canónico Lodgify: YYYYMMDD sin guiones.
+  const a = String(arrival).replace(/-/g, '');
+  const d = String(departure).replace(/-/g, '');
+  const slug = r.hostedUrl || 'https://check-inn-saltillo.com';
+  const sep = slug.indexOf('?') >= 0 ? '&' : '?';
+  return `${slug}${sep}arrival=${a}&departure=${d}&adults=${adults}&children=0&pets=0&infants=0`;
+}
+window.rsvSearch_ = async function() {
+  const loc = document.getElementById('rsv-in-location').value.trim();
+  const arrival = document.getElementById('rsv-in-arrival').value;
+  const departure = document.getElementById('rsv-in-departure').value;
+  const adults = Math.max(1, parseInt(document.getElementById('rsv-in-adults').value, 10) || 2);
+  if (!arrival || !departure) { alert('Elige fechas de llegada y salida'); return; }
+  if (arrival >= departure) { alert('La fecha de salida debe ser posterior a la de llegada'); return; }
+  const cont = document.getElementById('rsv-results');
+  const toolbar = document.getElementById('rsv-toolbar');
+  toolbar.style.display = 'none';
+  cont.innerHTML = `<div class="rsv-loading"><div class="rsv-spinner"></div>Consultando disponibilidad…</div>`;
+  try {
+    const url = new URL('https://api.check-inn.mx/reservas/search');
+    url.searchParams.set('arrival', arrival);
+    url.searchParams.set('departure', departure);
+    url.searchParams.set('adults', String(adults));
+    if (loc) url.searchParams.set('location', loc);
+    const r = await fetch(url.toString(), { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Error del servidor');
+    RSV_STATE.results = j.results || [];
+    RSV_STATE.query = { arrival, departure, adults };
+    _rsvRenderResults_();
+  } catch (e) {
+    cont.innerHTML = `<div class="rsv-empty"><div class="icon">⚠️</div><h3>No pudimos consultar</h3><div>${_rsvEsc(e.message||e)}</div></div>`;
+  }
+};
+function _rsvRenderResults_() {
+  const cont = document.getElementById('rsv-results');
+  const toolbar = document.getElementById('rsv-toolbar');
+  const results = RSV_STATE.results || [];
+  if (!results.length) {
+    toolbar.style.display = 'none';
+    cont.innerHTML = `<div class="rsv-empty"><div class="icon">😕</div><h3>Sin disponibilidad</h3><div>No encontramos alojamientos para esas fechas. Prueba otras.</div></div>`;
+    return;
+  }
+  toolbar.style.display = 'flex';
+  const q = RSV_STATE.query || {};
+  document.getElementById('rsv-count').innerHTML = `${results.length} alojamiento${results.length===1?'':'s'} disponibles <small>· ${q.arrival} → ${q.departure} · ${q.adults} huésped(es)</small>`;
+  cont.innerHTML = `<div class="rsv-grid">${results.map((r,i) => _rsvCardHtml_(r,i)).join('')}</div>`;
+}
+function _rsvCardHtml_(r, idx) {
+  const q = RSV_STATE.query || {};
+  const link = _rsvHostedUrl(r, q.arrival, q.departure, q.adults);
+  const amen = (r.amenities||[]).slice(0,4).map(a=>`<span>${_rsvEsc(a)}</span>`).join('');
+  const cap = [];
+  if (r.max_people) cap.push(`<span>👥 ${r.max_people}</span>`);
+  if (r.bedrooms) cap.push(`<span>🛏 ${r.bedrooms}</span>`);
+  if (r.bathrooms) cap.push(`<span>🚿 ${r.bathrooms}</span>`);
+  return `<div class="rsv-card" data-rsv-idx="${idx}" onclick="rsvOpenBooking_(${idx})">
+    <div class="rsv-card-img">
+      ${r.type ? `<div class="rsv-card-type">${_rsvEsc(r.type)}</div>` : ''}
+      ${r.image ? `<img src="${_rsvEsc(r.image)}" alt="${_rsvEsc(r.name)}" loading="lazy">` : ''}
+    </div>
+    <div class="rsv-card-body">
+      <h3 class="rsv-card-title">${_rsvEsc(r.name)}</h3>
+      <p class="rsv-card-loc">📍 ${_rsvEsc(r.city || r.address || 'Saltillo')}</p>
+      ${cap.length ? `<div class="rsv-card-cap">${cap.join('')}</div>` : ''}
+      ${amen ? `<div class="rsv-card-amen">${amen}</div>` : ''}
+      <div class="rsv-card-foot">
+        <div class="rsv-card-price">${_rsvFmt$(r.total, r.currency)}<small>${r.nights} noche${r.nights===1?'':'s'} · total</small></div>
+        <span class="rsv-card-cta">Reservar →</span>
+      </div>
+    </div>
+  </div>`;
+}
+window.rsvOpenBooking_ = function(idx) {
+  const r = (RSV_STATE.results || [])[idx];
+  if (!r) return;
+  const q = RSV_STATE.query || {};
+  const url = _rsvHostedUrl(r, q.arrival, q.departure, q.adults);
+  window.open(url, '_blank', 'noopener');
+};
+window.rsvOpenMap_ = function() {
+  _rsvEnsureLeaflet_(() => {
+    document.getElementById('rsv-map-overlay').style.display = 'block';
+    setTimeout(_rsvRenderMap_, 60);
+  });
+};
+window.rsvCloseMap_ = function() {
+  const el = document.querySelector('.rsv-map-card'); if (el) el.remove();
+  document.getElementById('rsv-map-overlay').style.display = 'none';
+};
+function _rsvEnsureLeaflet_(cb) {
+  if (window.L) return cb();
+  const css = document.createElement('link');
+  css.rel = 'stylesheet';
+  css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+  document.head.appendChild(css);
+  const js = document.createElement('script');
+  js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+  js.onload = cb;
+  document.head.appendChild(js);
+}
+function _rsvRenderMap_() {
+  const results = (RSV_STATE.results || []).filter(r => r.latitude && r.longitude);
+  if (RSV_STATE.map) { RSV_STATE.map.remove(); RSV_STATE.map = null; }
+  const first = results[0] || { latitude: 25.4232, longitude: -100.9906 }; // Saltillo default
+  const map = L.map('rsv-map').setView([first.latitude, first.longitude], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap',
+  }).addTo(map);
+  RSV_STATE.mapMarkers = [];
+  const bounds = [];
+  results.forEach((r, i) => {
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="rsv-map-pin">${_rsvFmt$(r.total, r.currency)}</div>`,
+      iconSize: [80, 30], iconAnchor: [40, 30],
+    });
+    const m = L.marker([r.latitude, r.longitude], { icon }).addTo(map);
+    m.on('click', () => _rsvShowMapCard_(i));
+    RSV_STATE.mapMarkers.push(m);
+    bounds.push([r.latitude, r.longitude]);
+  });
+  if (bounds.length > 1) map.fitBounds(bounds, { padding: [60, 60] });
+  RSV_STATE.map = map;
+}
+function _rsvShowMapCard_(idx) {
+  const r = (RSV_STATE.results || [])[idx]; if (!r) return;
+  const existing = document.querySelector('.rsv-map-card');
+  if (existing) existing.remove();
+  const q = RSV_STATE.query || {};
+  const el = document.createElement('div');
+  el.className = 'rsv-map-card';
+  el.innerHTML = `
+    <button class="rsv-map-card-close" onclick="this.parentElement.remove()">×</button>
+    ${r.image ? `<img src="${_rsvEsc(r.image)}" style="width:100%;aspect-ratio:16/9;object-fit:cover;display:block">` : ''}
+    <div style="padding:12px 14px 14px">
+      <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:2px">${_rsvEsc(r.name)}</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:10px">${_rsvEsc(r.type || 'Alojamiento')} · 📍 ${_rsvEsc(r.city || 'Saltillo')}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:18px;font-weight:900;color:#0f766e;letter-spacing:-.02em">${_rsvFmt$(r.total, r.currency)}</div>
+          <div style="font-size:10px;color:#64748b">${r.nights} noche${r.nights===1?'':'s'} · total</div>
+        </div>
+        <button onclick="rsvOpenBooking_(${idx})" style="background:#0f766e;color:#fff;border:0;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">Reservar →</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+}
+// Init: prellenar fechas default (hoy + 2 días).
+(function _rsvInit_(){
+  document.addEventListener('DOMContentLoaded', () => {
+    const a = document.getElementById('rsv-in-arrival');
+    const d = document.getElementById('rsv-in-departure');
+    if (a && !a.value) {
+      const t = new Date();
+      a.value = t.toISOString().slice(0,10);
+      const t2 = new Date(t); t2.setDate(t2.getDate()+2);
+      if (d) d.value = t2.toISOString().slice(0,10);
+    }
+  });
+})();
