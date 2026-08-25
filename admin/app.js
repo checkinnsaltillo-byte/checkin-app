@@ -42886,13 +42886,21 @@ function _botcRenderMain(phone) {
   const autoBtn = `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:6px 12px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">⚙️ Cambiar a Automático</button>`;
   const supBtn  = `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','supervised')" style="padding:6px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👁 Cambiar a Supervisado</button>`;
   const humBtn  = `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:6px 12px;font-size:12px;background:#f59e0b;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👤 Tomar control</button>`;
-  // Mostrar los 2 modos que NO son el actual, así el user siempre puede saltar
-  // directamente al que quiere.
-  const ctrlBtn = isHuman
-    ? `${autoBtn} ${supBtn}`
-    : isSupervised
-      ? `${autoBtn} ${humBtn}`
-      : `${supBtn} ${humBtn}`;
+  // Toggle primario: Tomar control / Automático. Un toggle secundario aparece
+  // solo si el modo actual es humano o supervisado (para elegir cuál de los
+  // dos). "Automático" desactiva ambos.
+  const modeTakenPrimary = isHuman || isSupervised;
+  const primaryToggle = `
+    <div style="display:inline-flex;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:2px">
+      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:5px 10px;font-size:11px;font-weight:800;background:${modeTakenPrimary?'#f59e0b':'transparent'};color:${modeTakenPrimary?'#fff':'#475569'};border:0;border-radius:4px;cursor:pointer">👤 Tomar control</button>
+      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:5px 10px;font-size:11px;font-weight:800;background:${modeTakenPrimary?'transparent':'#3b82f6'};color:${modeTakenPrimary?'#475569':'#fff'};border:0;border-radius:4px;cursor:pointer">⚙️ Automático</button>
+    </div>`;
+  const secondaryToggle = modeTakenPrimary ? `
+    <div style="display:inline-flex;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px;margin-top:6px">
+      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:4px 10px;font-size:10px;font-weight:800;background:${isHuman?'#dc2626':'transparent'};color:${isHuman?'#fff':'#92400e'};border:0;border-radius:4px;cursor:pointer">📝 Manual</button>
+      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','supervised')" style="padding:4px 10px;font-size:10px;font-weight:800;background:${isSupervised?'#7c3aed':'transparent'};color:${isSupervised?'#fff':'#92400e'};border:0;border-radius:4px;cursor:pointer">👁 Supervisado</button>
+    </div>` : '';
+  const ctrlBtn = `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:0">${primaryToggle}${secondaryToggle}</div>`;
 
   // Nombre del perfil desde conversations (si existe)
   const conv = (BOTC_STATE.conversations || []).find(c => String(c.phone) === String(phone));
@@ -42907,12 +42915,19 @@ function _botcRenderMain(phone) {
           style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">← Mensajes</button>
         <div style="min-width:0">${nameHeader}<div style="margin-top:5px">${ctrlChip}</div></div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         ${ctrlBtn}
-        <button type="button" onclick="botcOpenReportPickerForCurrent()" title="Nuevo reporte (Incidencia / Objeto perdido / Reporte técnico) para este huésped" style="padding:7px 12px;font-size:12px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">＋ Nuevo reporte</button>
+        <div style="position:relative;display:inline-block">
+          <button type="button" onclick="botcToggleNewMenu_(event)" title="Crear nuevo elemento" style="padding:7px 12px;font-size:12px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">＋ Nuevo ▾</button>
+          <div id="botc-new-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.18);z-index:100;min-width:180px;overflow:hidden">
+            <button type="button" onclick="_botcNewMenuPick_('reporte')" style="display:block;width:100%;text-align:left;padding:9px 14px;background:#fff;border:0;cursor:pointer;font-size:12px;color:#334155;font-weight:700" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">🚨 Reporte</button>
+            <button type="button" onclick="_botcNewMenuPick_('mensaje')" style="display:block;width:100%;text-align:left;padding:9px 14px;background:#fff;border:0;cursor:pointer;font-size:12px;color:#334155;font-weight:700;border-top:1px solid #f1f5f9" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">💬 Mensaje</button>
+            <button type="button" onclick="_botcNewMenuPick_('nota')" style="display:block;width:100%;text-align:left;padding:9px 14px;background:#fff;border:0;cursor:pointer;font-size:12px;color:#334155;font-weight:700;border-top:1px solid #f1f5f9" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">📝 Nota</button>
+          </div>
+        </div>
         <button type="button" onclick="botcOpenSummary()" title="Resumen sintético del historial de conversación con énfasis en el último tema o asunto pendiente" style="padding:7px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🧠 Resumen</button>
         <button type="button" onclick="hgNotesOpen_()" title="Notas del huésped (texto libre con autor y fecha)" style="padding:7px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">📝 Notas${_hgNotesCountLabel_()}</button>
-        <button type="button" onclick="botcToggleRightPanel()" title="Abrir ventana WhatsApp completa (templates, mensajes programados, envío manual) para este huésped" style="padding:7px 12px;font-size:12px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">📱 Ver WA</button>
+        <button type="button" onclick="botcToggleRightPanel()" title="Bitácora completa (templates, mensajes programados, envío manual, historial)" style="padding:7px 12px;font-size:12px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">📖 Bitácora</button>
       </div>
     </div>
     <div id="botc-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafc">${msgsHtml}</div>
@@ -42969,6 +42984,26 @@ window.botcSetControl = async function(phone, control) {
     botcOpenChat(phone);
     botcRefresh({ silent: true });
   } catch (e) { alert('Error: ' + e.message); }
+};
+
+window.botcToggleNewMenu_ = function(ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  const m = document.getElementById('botc-new-menu'); if (!m) return;
+  const open = m.style.display !== 'none';
+  m.style.display = open ? 'none' : 'block';
+  if (!open) {
+    setTimeout(() => document.addEventListener('click', _botcNewMenuOutside_, { once:true }), 20);
+  }
+};
+function _botcNewMenuOutside_(e) {
+  const m = document.getElementById('botc-new-menu'); if (!m) return;
+  if (!m.contains(e.target)) m.style.display = 'none';
+}
+window._botcNewMenuPick_ = function(kind) {
+  const m = document.getElementById('botc-new-menu'); if (m) m.style.display = 'none';
+  if (kind === 'reporte') return botcOpenReportPickerForCurrent();
+  if (kind === 'mensaje') return botcToggleRightPanel();
+  if (kind === 'nota')    return hgNotesOpen_();
 };
 
 window.botcSysIaToggle_ = function() {
