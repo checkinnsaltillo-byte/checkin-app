@@ -465,6 +465,10 @@
         .rsv-toolbar{max-width:1080px;margin:24px auto 0;padding:0 24px;display:flex;justify-content:flex-start;align-items:center;gap:12px;flex-wrap:wrap}
         .rsv-count{font-size:14px;font-weight:800;color:var(--rsv-ink)}
         .rsv-count small{color:var(--rsv-muted);font-weight:600;margin-left:6px}
+        .rsv-toolbar{justify-content:space-between}
+        .rsv-share-btn{border:1px solid #e5e7eb;background:#fff;color:var(--rsv-ink);font-weight:700;font-size:13px;padding:8px 14px;border-radius:999px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+        .rsv-share-btn:hover{border-color:var(--rsv-accent);color:var(--rsv-accent);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.06)}
+        .rsv-share-btn.copied{background:#10b981;border-color:#10b981;color:#fff}
         .rsv-map-btn-float{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:8500;display:none;align-items:center;gap:8px;padding:12px 22px;background:var(--rsv-ink);color:#fff;border:0;border-radius:99px;font-size:14px;font-weight:800;cursor:pointer;transition:all .18s;box-shadow:0 10px 30px -4px rgba(15,23,42,.4),0 4px 10px rgba(15,23,42,.15);letter-spacing:.01em}
         .rsv-map-btn-float:hover{background:var(--rsv-primary);transform:translateX(-50%) translateY(-2px);box-shadow:0 16px 40px -6px rgba(15,118,110,.45),0 6px 14px rgba(15,23,42,.2)}
         .rsv-map-btn-float.visible{display:inline-flex}
@@ -524,6 +528,7 @@
         </div>
         <div class="rsv-toolbar" id="rsv-toolbar" style="display:none">
           <div class="rsv-count" id="rsv-count"></div>
+          <button type="button" id="rsv-share-btn" class="rsv-share-btn" onclick="rsvShare_(this)" title="Copiar liga con estos resultados">🔗 Compartir</button>
         </div>
         <button type="button" id="rsv-map-btn-float" class="rsv-map-btn-float" onclick="rsvOpenMap_()">🗺️ Ver mapa</button>
         <div id="rsv-results">
@@ -2766,6 +2771,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=981"></script>
+  <script src="app.js?v=982"></script>
 </body>
 </html>

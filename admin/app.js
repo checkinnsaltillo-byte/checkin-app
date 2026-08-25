@@ -45930,16 +45930,69 @@ function _rsvShowMapCard_(idx) {
     </div>`;
   document.body.appendChild(el);
 }
-// Init: prellenar fechas default (hoy + 2 días).
+// Init: prellenar fechas default (hoy + 2 días) o desde query params.
+// Deep-link soportado: ?rsv_arrival=YYYY-MM-DD&rsv_departure=YYYY-MM-DD&rsv_adults=N[&rsv_go=1]
+// Si rsv_go=1 salta al módulo Reservas y ejecuta la búsqueda automáticamente.
 (function _rsvInit_(){
   document.addEventListener('DOMContentLoaded', () => {
     const a = document.getElementById('rsv-in-arrival');
     const d = document.getElementById('rsv-in-departure');
-    if (a && !a.value) {
+    const ad = document.getElementById('rsv-in-adults');
+    const qs = new URLSearchParams(location.search);
+    const qA = qs.get('rsv_arrival'), qD = qs.get('rsv_departure'), qAd = qs.get('rsv_adults');
+    const isValidDate = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s||''));
+    if (a && isValidDate(qA) && isValidDate(qD)) {
+      a.value = qA;
+      if (d) d.value = qD;
+      if (ad && qAd) ad.value = String(Math.max(1, parseInt(qAd, 10) || 2));
+    } else if (a && !a.value) {
       const t = new Date();
       a.value = t.toISOString().slice(0,10);
       const t2 = new Date(t); t2.setDate(t2.getDate()+2);
       if (d) d.value = t2.toISOString().slice(0,10);
     }
+    if (qs.get('rsv_go') === '1' && isValidDate(qA) && isValidDate(qD)) {
+      // Cambiar al módulo y disparar búsqueda tras un tick.
+      setTimeout(() => {
+        try { if (typeof switchModule === 'function') switchModule('reservas-nueva'); } catch(_) {}
+        setTimeout(() => { try { window.rsvSearch_(); } catch(_) {} }, 250);
+      }, 400);
+    }
   });
 })();
+
+// Copia al portapapeles un texto humano + link con los mismos filtros.
+window.rsvShare_ = async function(btn) {
+  const q = RSV_STATE.query || {};
+  if (!q.arrival || !q.departure) { alert('Primero haz una búsqueda para poder compartir sus resultados.'); return; }
+  const url = new URL(location.href);
+  // Limpiar params previos y setear los nuestros.
+  ['rsv_arrival','rsv_departure','rsv_adults','rsv_go'].forEach(k => url.searchParams.delete(k));
+  url.searchParams.set('rsv_arrival', q.arrival);
+  url.searchParams.set('rsv_departure', q.departure);
+  url.searchParams.set('rsv_adults', String(q.adults || 2));
+  url.searchParams.set('rsv_go', '1');
+  const fmt = s => {
+    try {
+      const [y,m,d] = s.split('-').map(Number);
+      return new Date(y, m-1, d).toLocaleDateString('es-MX', { day:'numeric', month:'long', year:'numeric' });
+    } catch(_) { return s; }
+  };
+  const n = q.adults || 2;
+  const texto = `Resultados de búsqueda del ${fmt(q.arrival)} al ${fmt(q.departure)} para ${n} ${n===1?'persona':'personas'}:\n${url.toString()}`;
+  try {
+    await navigator.clipboard.writeText(texto);
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '✓ Copiado';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('copied'); }, 1800);
+    }
+  } catch(e) {
+    // Fallback textarea si clipboard API no disponible.
+    const ta = document.createElement('textarea');
+    ta.value = texto; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); alert('Copiado al portapapeles'); } catch(_) { prompt('Copia manualmente:', texto); }
+    ta.remove();
+  }
+};
