@@ -42482,6 +42482,20 @@ window.botcSetSidebarView_ = function(mode) {
   BOTC_STATE.viewMode = mode;
   _botcRenderSidebar();
 };
+window.botcSetSearchQuery_ = function(q) {
+  BOTC_STATE.searchQuery = String(q||'');
+  // Debounce ligero para no repintar en cada tecla.
+  clearTimeout(window.__botcSearchDebounce);
+  window.__botcSearchDebounce = setTimeout(() => {
+    _botcRenderSidebar();
+    // Restaurar foco + posición del cursor al input.
+    const el = document.getElementById('botc-search-input');
+    if (el) {
+      el.focus();
+      try { el.setSelectionRange(el.value.length, el.value.length); } catch(_){}
+    }
+  }, 120);
+};
 window.botcToggleCat_ = function(key) {
   BOTC_STATE.collapsedCats = BOTC_STATE.collapsedCats || new Set();
   if (BOTC_STATE.collapsedCats.has(key)) BOTC_STATE.collapsedCats.delete(key);
@@ -42492,18 +42506,38 @@ window.botcToggleCat_ = function(key) {
 function _botcRenderSidebar() {
   const sidebar = document.getElementById('botc-sidebar');
   if (!sidebar) return;
-  // Barra superior de visualización.
+  // Barra superior: buscador + visualización.
   BOTC_STATE.viewMode = BOTC_STATE.viewMode || 'cronologico';
+  BOTC_STATE.searchQuery = BOTC_STATE.searchQuery || '';
+  const q = String(BOTC_STATE.searchQuery || '').trim();
   const tabsHtml = `
-    <div id="botc-view-tabs" style="display:flex;gap:6px;padding:10px 10px 6px;background:#f8fafc;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:5">
-      <button type="button" onclick="botcSetSidebarView_('cronologico')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:800;background:${BOTC_STATE.viewMode==='cronologico'?'#0f172a':'#fff'};color:${BOTC_STATE.viewMode==='cronologico'?'#fff':'#475569'};border:1.5px solid ${BOTC_STATE.viewMode==='cronologico'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer">🕐 Cronológico</button>
-      <button type="button" onclick="botcSetSidebarView_('clasificado')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:800;background:${BOTC_STATE.viewMode==='clasificado'?'#0f172a':'#fff'};color:${BOTC_STATE.viewMode==='clasificado'?'#fff':'#475569'};border:1.5px solid ${BOTC_STATE.viewMode==='clasificado'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer">📂 Clasificado</button>
+    <div style="padding:10px 10px 4px;background:#f8fafc;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:5">
+      <div style="position:relative;margin-bottom:6px">
+        <input id="botc-search-input" type="search" value="${_botcEsc(q)}"
+          placeholder="🔍 Buscar por nombre o mensaje…"
+          oninput="botcSetSearchQuery_(this.value)"
+          style="width:100%;padding:7px 30px 7px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;background:#fff">
+        ${q ? `<button type="button" onclick="botcSetSearchQuery_('')" title="Limpiar" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;font-size:14px;color:#94a3b8;cursor:pointer;padding:2px 6px;line-height:1">×</button>` : ''}
+      </div>
+      <div id="botc-view-tabs" style="display:flex;gap:6px">
+        <button type="button" onclick="botcSetSidebarView_('cronologico')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:800;background:${BOTC_STATE.viewMode==='cronologico'?'#0f172a':'#fff'};color:${BOTC_STATE.viewMode==='cronologico'?'#fff':'#475569'};border:1.5px solid ${BOTC_STATE.viewMode==='cronologico'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer">🕐 Cronológico</button>
+        <button type="button" onclick="botcSetSidebarView_('clasificado')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:800;background:${BOTC_STATE.viewMode==='clasificado'?'#0f172a':'#fff'};color:${BOTC_STATE.viewMode==='clasificado'?'#fff':'#475569'};border:1.5px solid ${BOTC_STATE.viewMode==='clasificado'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer">📂 Clasificado</button>
+      </div>
     </div>`;
-  if (!BOTC_STATE.conversations.length) {
-    sidebar.innerHTML = tabsHtml + '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">Sin conversaciones con este filtro.</div>';
+  // Aplica el filtro de búsqueda (case-insensitive) sobre nombre, phone y
+  // preview del último mensaje.
+  const qLower = q.toLowerCase();
+  const filtered = q
+    ? BOTC_STATE.conversations.filter(c => {
+        const parts = [c.name, c.phone, c.last_msg_preview, c.notes].map(x => String(x||'').toLowerCase());
+        return parts.some(p => p.indexOf(qLower) >= 0);
+      })
+    : BOTC_STATE.conversations;
+  if (!filtered.length) {
+    sidebar.innerHTML = tabsHtml + `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">${q ? 'Sin resultados para «' + _botcEsc(q) + '».' : 'Sin conversaciones con este filtro.'}</div>`;
     return;
   }
-  const items = BOTC_STATE.conversations.map(c => {
+  const items = filtered.map(c => {
     const selected = String(c.phone) === String(BOTC_STATE.selectedPhone);
     const isHuman = String(c.control) === 'human';
     const isSupervised = String(c.control) === 'supervised';
@@ -42752,25 +42786,16 @@ function _botcEnsureCardFlattenCss_() {
   if (document.getElementById('botc-card-flat')) return;
   const s = document.createElement('style');
   s.id = 'botc-card-flat';
-  // Solo aplasta los 2 primeros niveles: el wrapper onclick y la card rich
-  // superior — para que su borde/sombra/radius no compitan con el wrapper
-  // exterior. NO tocar descendientes profundos (chips de KPI, tags,
-  // pill de monto, clasificación de perfil, etc. viven ahí adentro).
+  // Solo neutraliza sombra + margin externo del wrapper interno para que la
+  // card rich (que TRAE sus propios KPIs, chips de tier, monto, etc. con
+  // bg/borde) se pegue al footer chatMeta sin salto visual.
+  // NO tocamos border-width, border-radius ni background del rich — chips
+  // internos dependen de esos estilos para verse (RECURRENTE, VIP, monto).
   s.textContent = `
     .botc-conv-item > *:not(.botc-card-footer) {
       box-shadow: none !important;
-      border-width: 0 !important;
-      border-radius: 0 !important;
-      margin: 0 !important;
-      background-color: transparent !important;
-    }
-    .botc-conv-item > *:not(.botc-card-footer) > div:first-child {
-      box-shadow: none !important;
-      border-width: 0 !important;
-      border-radius: 0 !important;
       margin: 0 !important;
     }
-    .botc-conv-item { background-clip: border-box; }
   `;
   document.head.appendChild(s);
 }
