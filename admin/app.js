@@ -38889,16 +38889,33 @@ function _waRenderReportsForBooking_(bk) {
     if (!f || f < arrIso || f > depIso) return;
     cards.push({ kind:'rt', row:r, sortKey: activityKey(r) });
   });
-  if (!cards.length) return '';
-  // Más reciente primero.
+  // Botón "+ Nuevo reporte" al final (misma UX que la pestaña Todos).
+  const newBtn = `<div style="text-align:center;margin-top:10px">
+    <button type="button" onclick="_waOpenReportPickerForBooking_('${_botcEsc(propRaw)}','${_botcEsc(deptRaw)}','${arrIso}','${depIso}')" style="padding:8px 16px;font-size:12px;background:#fff;color:#0f172a;border:1.5px dashed #cbd5e1;border-radius:8px;cursor:pointer;font-weight:800">➕ Nuevo reporte</button>
+  </div>`;
+  if (!cards.length) {
+    return `<div style="background:#fef3c7;border:1px dashed #fcd34d;border-radius:8px;padding:8px 10px;margin-bottom:10px">
+      <div style="font-size:10px;font-weight:800;color:#92400e;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">🚨 Reportes de esta reserva</div>
+      <div style="text-align:center;color:#94a3b8;font-size:11px;font-style:italic;padding:8px">Sin reportes</div>
+      ${newBtn}
+    </div>`;
+  }
   cards.sort((a,b) => String(b.sortKey || '').localeCompare(String(a.sortKey || '')));
   const html = cards.map(c => c.kind === 'inc' ? _waRenderIncCard_(c.row) : (c.kind === 'obj' ? _waRenderObjCard_(c.row) : _waRenderRtCard_(c.row))).join('');
   return `
     <div style="background:#fef3c7;border:1px dashed #fcd34d;border-radius:8px;padding:8px 10px;margin-bottom:10px">
       <div style="font-size:10px;font-weight:800;color:#92400e;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">🚨 Reportes de esta reserva</div>
       <div style="display:flex;flex-direction:column;gap:8px">${html}</div>
+      ${newBtn}
     </div>`;
 }
+window._waOpenReportPickerForBooking_ = function(propRaw, deptRaw, arrIso, depIso) {
+  if (typeof lgOpenReportPicker === 'function') {
+    lgOpenReportPicker(propRaw, deptRaw, arrIso, depIso);
+  } else if (typeof _waOpenReportPickerForCurrentBooking_ === 'function') {
+    _waOpenReportPickerForCurrentBooking_();
+  }
+};
 
 function _waRenderIncCard_(row) {
   const id = String(row['ID']||'');
