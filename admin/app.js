@@ -42789,6 +42789,14 @@ window.botcOpenChat = async function(phone, opts) {
   // evita que el próximo poll re-inyecte el textarea del draft encima del
   // stub "⏳ Enviando…" mientras el fetch aún está en vuelo.
   if (opts.silent && BOTC_STATE.__draftBusy) return;
+  // Sys-IA: si el panel está abierto y el usuario está escribiendo/tiene
+  // sugerencias, saltarse el poll silent para no borrar su trabajo.
+  if (opts.silent) {
+    try {
+      const sp = document.getElementById('botc-sysia-panel');
+      if (sp && sp.style.display !== 'none') return;
+    } catch(_){}
+  }
   BOTC_STATE.selectedPhone = phone;
   // Mobile: al elegir conversación, mostrar la vista chat a pantalla completa.
   _botcEnsureMobileCss_();
