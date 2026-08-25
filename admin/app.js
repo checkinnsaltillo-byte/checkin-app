@@ -14023,8 +14023,12 @@ function huRowToSyntheticBooking(r) {
     // Campos crudos para el resolver de propiedad:
     PropiedadRaw: r['Propiedad'] || '',
     DepartamentoRaw: r['# Departamento'] || '',
-    Gross: realLg ? (Number(realLg.Gross) || 0) :
-           (Number(r['$ Monto facturado Total']) || Number(r['($) Monto Total pagado']) || 0),
+    // Gross robusto: usa Gross de Lodgify si existe, sino delega a
+    // huComputeRowTotal que suma tarifas ($ Noches + $ Cuota limpieza) o
+    // usa múltiples fallbacks ($ MONTO TOTAL Airbnb, Monto facturado, etc).
+    Gross: realLg && Number(realLg.Gross) > 0
+      ? Number(realLg.Gross)
+      : (typeof huComputeRowTotal === 'function' ? huComputeRowTotal(r) : (Number(r['$ Monto facturado Total']) || Number(r['($) Monto Total pagado']) || 0)),
     Currency: realLg?.Currency || 'MXN',
     LineItems: realLg?.LineItems || [],
     ConfirmationCode: realLg?.ConfirmationCode || '',
