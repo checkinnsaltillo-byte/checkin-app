@@ -42896,9 +42896,9 @@ function _botcRenderMain(phone) {
       <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:5px 10px;font-size:11px;font-weight:800;background:${modeTakenPrimary?'transparent':'#3b82f6'};color:${modeTakenPrimary?'#475569':'#fff'};border:0;border-radius:4px;cursor:pointer">⚙️ Automático</button>
     </div>`;
   const secondaryToggle = modeTakenPrimary ? `
-    <div style="display:inline-flex;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:2px;margin-top:6px">
-      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:4px 10px;font-size:10px;font-weight:800;background:${isHuman?'#dc2626':'transparent'};color:${isHuman?'#fff':'#92400e'};border:0;border-radius:4px;cursor:pointer">📝 Manual</button>
-      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','supervised')" style="padding:4px 10px;font-size:10px;font-weight:800;background:${isSupervised?'#7c3aed':'transparent'};color:${isSupervised?'#fff':'#92400e'};border:0;border-radius:4px;cursor:pointer">👁 Supervisado</button>
+    <div style="display:inline-flex;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:2px;margin-top:6px">
+      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:4px 10px;font-size:10px;font-weight:800;background:${isHuman?'#f59e0b':'transparent'};color:${isHuman?'#fff':'#475569'};border:0;border-radius:4px;cursor:pointer">📝 Manual</button>
+      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','supervised')" style="padding:4px 10px;font-size:10px;font-weight:800;background:${isSupervised?'#f59e0b':'transparent'};color:${isSupervised?'#fff':'#475569'};border:0;border-radius:4px;cursor:pointer">👁 Supervisado</button>
     </div>` : '';
   const ctrlBtn = `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:0">${primaryToggle}${secondaryToggle}</div>`;
 
@@ -42921,7 +42921,6 @@ function _botcRenderMain(phone) {
           <button type="button" onclick="botcToggleNewMenu_(event)" title="Crear nuevo elemento" style="padding:7px 12px;font-size:12px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">＋ Nuevo ▾</button>
           <div id="botc-new-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.18);z-index:100;min-width:180px;overflow:hidden">
             <button type="button" onclick="_botcNewMenuPick_('reporte')" style="display:block;width:100%;text-align:left;padding:9px 14px;background:#fff;border:0;cursor:pointer;font-size:12px;color:#334155;font-weight:700" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">🚨 Reporte</button>
-            <button type="button" onclick="_botcNewMenuPick_('mensaje')" style="display:block;width:100%;text-align:left;padding:9px 14px;background:#fff;border:0;cursor:pointer;font-size:12px;color:#334155;font-weight:700;border-top:1px solid #f1f5f9" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">💬 Mensaje</button>
             <button type="button" onclick="_botcNewMenuPick_('nota')" style="display:block;width:100%;text-align:left;padding:9px 14px;background:#fff;border:0;cursor:pointer;font-size:12px;color:#334155;font-weight:700;border-top:1px solid #f1f5f9" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">📝 Nota</button>
           </div>
         </div>
@@ -42972,7 +42971,7 @@ function _botcRenderMain(phone) {
 }
 
 window.botcSetControl = async function(phone, control) {
-  const reason = control === 'human' ? (prompt('Motivo de toma de control (opcional):') || 'Toma manual del admin') : '';
+  const reason = control === 'human' ? 'Toma manual del admin' : '';
   try {
     const r = await fetch(`https://api.check-inn.mx/wa/bot/set-control`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
