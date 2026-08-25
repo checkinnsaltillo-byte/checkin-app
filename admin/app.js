@@ -45759,13 +45759,32 @@ function _rsvFmt$(n, cur) {
   } catch { return `$ ${Math.round(Number(n)||0).toLocaleString('es-MX')}`; }
 }
 function _rsvEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Convierte el nombre de la propiedad al slug URL de Lodgify (Airbnb-style).
+// Ej: "Baja California #1 (1 recámara, 1 baño, en 1a planta)" →
+//     "baja-california-1-1-recamara-1-bano-en-1a-planta"
+function _rsvSlugify(name) {
+  return String(name || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // quita acentos
+    .toLowerCase()
+    .replace(/[()]/g, ' ')                            // paréntesis → espacio
+    .replace(/[#º°ª]/g, '')                           // símbolos raros
+    .replace(/[,.;:!?"']/g, ' ')                      // puntuación → espacio
+    .replace(/[^a-z0-9]+/g, '-')                      // no-alfanumérico → guión
+    .replace(/^-+|-+$/g, '')                          // trim guiones
+    .replace(/-{2,}/g, '-');                          // colapsa dobles
+}
 function _rsvHostedUrl(r, arrival, departure, adults) {
   // Formato canónico Lodgify: YYYYMMDD sin guiones.
   const a = String(arrival).replace(/-/g, '');
   const d = String(departure).replace(/-/g, '');
-  const slug = r.hostedUrl || 'https://check-inn-saltillo.com';
-  const sep = slug.indexOf('?') >= 0 ? '&' : '?';
-  return `${slug}${sep}arrival=${a}&departure=${d}&adults=${adults}&children=0&pets=0&infants=0`;
+  // Prioridad: hostedUrl explícito del backend → construir con slug del nombre.
+  let base = r.hostedUrl;
+  if (!base) {
+    const slug = _rsvSlugify(r.name);
+    base = slug ? `https://check-inn-saltillo.com/es/${slug}` : 'https://check-inn-saltillo.com';
+  }
+  const sep = base.indexOf('?') >= 0 ? '&' : '?';
+  return `${base}${sep}arrival=${a}&departure=${d}&adults=${adults}&children=0&pets=0&infants=0`;
 }
 window.rsvSearch_ = async function() {
   const loc = document.getElementById('rsv-in-location').value.trim();
