@@ -40884,6 +40884,7 @@ function cfgAdminRender() {
     host.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando templates y alojamientos…</div>`;
     return;
   }
+  if ((CFG_ADMIN.tab||'templates') === 'sysprompts') return sysPromptsRender_(host);
   host.innerHTML = `
     <style>
       #cfg-grid { display:grid; grid-template-columns:280px 1fr; gap:14px; min-height:calc(100vh - 260px); }
@@ -40899,6 +40900,167 @@ function cfgAdminRender() {
   cfgRenderList();
   cfgRenderEditor();
 }
+
+// ═══════════════ Sección Sys Prompts (localStorage) ═══════════════
+const SYS_PROMPTS_KEY = 'SYS_PROMPTS_V1';
+function _spLoad_() { try { return JSON.parse(localStorage.getItem(SYS_PROMPTS_KEY) || '[]'); } catch(_) { return []; } }
+function _spSave_(list) { try { localStorage.setItem(SYS_PROMPTS_KEY, JSON.stringify(list||[])); } catch(_){} }
+window.__spState = window.__spState || { selectedId: null, alojamientos: [] };
+function sysPromptsRender_(host) {
+  host.innerHTML = `
+    <style>
+      #cfg-grid { display:grid; grid-template-columns:280px 1fr; gap:14px; min-height:calc(100vh - 260px); }
+      @media (max-width: 900px){ #cfg-grid { grid-template-columns:260px 1fr; } }
+    </style>
+    <div id="cfg-grid">
+      <div id="sp-col-list" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;overflow:hidden"></div>
+      <div id="sp-col-editor" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;overflow:hidden"></div>
+    </div>`;
+  // Reusa la lista de alojamientos cargada por cfgAdminInit.
+  window.__spState.alojamientos = CFG_ADMIN.alojamientos || [];
+  _spRenderList_();
+  _spRenderEditor_();
+}
+function _spRenderList_() {
+  const col = document.getElementById('sp-col-list'); if (!col) return;
+  const items = _spLoad_().slice().sort((a,b) => (a.nombre||'').localeCompare(b.nombre||''));
+  const rows = items.map(p => {
+    const active = p.id === window.__spState.selectedId;
+    const bg = active ? '#eff6ff' : '#fff';
+    const chk = p.enabled === false ? '<span style="display:inline-block;width:18px;height:18px;border:1.5px solid #cbd5e1;border-radius:4px;background:#fff"></span>'
+      : '<span style="display:inline-block;width:18px;height:18px;border:1.5px solid #16a34a;border-radius:4px;background:#16a34a;color:#fff;text-align:center;font-weight:900;line-height:15px">✓</span>';
+    return `<div style="padding:10px 12px;background:${bg};border-bottom:1px solid #e2e8f0;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="spSelect_('${_botcEsc(p.id)}')">
+      <span onclick="event.stopPropagation();spToggleEnabled_('${_botcEsc(p.id)}')" title="Habilitar/deshabilitar" style="flex:none">${chk}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_botcEsc(p.nombre || '(sin nombre)')}</div>
+        <div style="font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_botcEsc(p.objetivo || '')}</div>
+      </div>
+      ${p.responsivo ? '<span title="Responsivo" style="font-size:10px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:99px;font-weight:800">RESP</span>' : ''}
+    </div>`;
+  }).join('') || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic">Sin prompts. Crea uno con "+ Nuevo".</div>';
+  col.innerHTML = `
+    <div style="padding:12px;border-bottom:1px solid #e2e8f0;background:#f8fafc">
+      <button onclick="spNew_()" style="width:100%;padding:8px 12px;background:#0f172a;color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:12px;font-weight:800">＋ Nuevo prompt</button>
+    </div>
+    <div style="flex:1;overflow-y:auto">${rows}</div>`;
+}
+function _spRenderEditor_() {
+  const col = document.getElementById('sp-col-editor'); if (!col) return;
+  const list = _spLoad_();
+  const p = list.find(x => x.id === window.__spState.selectedId);
+  if (!p) {
+    col.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:13px">Selecciona un prompt de la izquierda o crea uno nuevo.</div>';
+    return;
+  }
+  const alojs = (window.__spState.alojamientos || []);
+  const selectedHouses = new Set(String(p.alojamientos||'').split(',').map(s=>s.trim()).filter(Boolean));
+  const alojOpts = alojs.map(a => {
+    const hid = String(a.HouseId||''); if (!hid) return '';
+    const label = `${a.Propiedad || ''}${a['# Departamento']?' - #'+a['# Departamento']:''}`;
+    const isSel = selectedHouses.has(hid);
+    return `<label style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:${isSel?'#dbeafe':'#f8fafc'};border:1px solid ${isSel?'#3b82f6':'#e2e8f0'};border-radius:6px;font-size:11px;cursor:pointer;margin:0 6px 6px 0">
+      <input type="checkbox" ${isSel?'checked':''} onchange="spToggleAloj_('${hid}',this.checked)" style="margin:0">${_botcEsc(label)}</label>`;
+  }).join('');
+  const casos = Array.isArray(p.casos) ? p.casos : [];
+  const casosHtml = casos.map((c,i) => `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.04em">Caso ${i+1}</div>
+        <button onclick="spRemoveCaso_(${i})" style="background:none;border:0;color:#dc2626;cursor:pointer;font-size:14px">×</button>
+      </div>
+      <label style="font-size:10px;color:#475569;font-weight:700">Texto recibido</label>
+      <textarea rows="2" oninput="spSetCaso_(${i},'recibido',this.value)" style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;resize:vertical;font-family:inherit;margin-bottom:6px">${_botcEsc(c.recibido||'')}</textarea>
+      <label style="font-size:10px;color:#475569;font-weight:700">Respuesta sugerida</label>
+      <textarea rows="2" oninput="spSetCaso_(${i},'respuesta',this.value)" style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;resize:vertical;font-family:inherit">${_botcEsc(c.respuesta||'')}</textarea>
+    </div>`).join('');
+  col.innerHTML = `
+    <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div style="font-size:13px;font-weight:800;color:#0f172a">🧠 Editar prompt</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="spSave_()" style="padding:7px 14px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800">💾 Guardar</button>
+        <button onclick="spDelete_()" style="padding:7px 12px;background:#fff;color:#dc2626;border:1px solid #fecaca;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700">🗑 Eliminar</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:14px 18px">
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px">
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#334155;cursor:pointer">
+          <input type="checkbox" ${p.enabled!==false?'checked':''} onchange="spDraftSet_('enabled',this.checked);_spRenderList_()">Prompt habilitado</label>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#334155;cursor:pointer">
+          <input type="checkbox" ${p.responsivo?'checked':''} onchange="spDraftSet_('responsivo',this.checked);_spRenderList_()">Responsivo</label>
+      </div>
+      <label style="display:block;font-size:11px;font-weight:800;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Nombre</label>
+      <input type="text" value="${_botcEsc(p.nombre||'')}" oninput="spDraftSet_('nombre',this.value)" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;margin-bottom:10px">
+      <label style="display:block;font-size:11px;font-weight:800;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Objetivo</label>
+      <textarea rows="2" oninput="spDraftSet_('objetivo',this.value)" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;font-family:inherit;resize:vertical;margin-bottom:10px">${_botcEsc(p.objetivo||'')}</textarea>
+      <label style="display:block;font-size:11px;font-weight:800;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Prompt</label>
+      <textarea rows="6" oninput="spDraftSet_('prompt',this.value)" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;font-family:inherit;resize:vertical;margin-bottom:10px">${_botcEsc(p.prompt||'')}</textarea>
+      <label style="display:block;font-size:11px;font-weight:800;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Riesgos</label>
+      <textarea rows="3" oninput="spDraftSet_('riesgos',this.value)" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;font-family:inherit;resize:vertical;margin-bottom:14px">${_botcEsc(p.riesgos||'')}</textarea>
+
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:800;color:#0f172a">📋 Casos de uso</div>
+          <button onclick="spAddCaso_()" style="padding:5px 10px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:11px;font-weight:800">＋ Caso</button>
+        </div>
+        ${casosHtml || '<div style="text-align:center;color:#94a3b8;font-size:11px;font-style:italic;padding:12px">Sin casos. Agrega ejemplos "Texto recibido → Respuesta sugerida".</div>'}
+      </div>
+
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px">
+        <div style="font-size:12px;font-weight:800;color:#0f172a;margin-bottom:10px">🏠 Selecciona los alojamientos</div>
+        <div style="display:flex;flex-wrap:wrap">${alojOpts || '<span style="color:#94a3b8;font-size:11px;font-style:italic">Sin alojamientos cargados</span>'}</div>
+      </div>
+    </div>`;
+}
+window.spSelect_ = function(id) { window.__spState.selectedId = id; _spRenderList_(); _spRenderEditor_(); };
+window.spNew_ = function() {
+  const list = _spLoad_();
+  const p = { id: 'SP-'+Date.now()+'-'+Math.floor(Math.random()*9999), nombre:'Nuevo prompt', objetivo:'', prompt:'', riesgos:'', casos:[], alojamientos:'', enabled:true, responsivo:false, creado: new Date().toISOString() };
+  list.push(p); _spSave_(list);
+  window.__spState.selectedId = p.id;
+  _spRenderList_(); _spRenderEditor_();
+};
+window.spDelete_ = function() {
+  if (!confirm('¿Eliminar este prompt?')) return;
+  const list = _spLoad_().filter(x => x.id !== window.__spState.selectedId);
+  _spSave_(list); window.__spState.selectedId = null;
+  _spRenderList_(); _spRenderEditor_();
+};
+window.spDraftSet_ = function(field, value) {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  p[field] = value; _spSave_(list);
+};
+window.spToggleEnabled_ = function(id) {
+  const list = _spLoad_(); const p = list.find(x => x.id === id); if (!p) return;
+  p.enabled = !(p.enabled !== false); _spSave_(list); _spRenderList_();
+  if (window.__spState.selectedId === id) _spRenderEditor_();
+};
+window.spToggleAloj_ = function(houseId, checked) {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  const set = new Set(String(p.alojamientos||'').split(',').map(s=>s.trim()).filter(Boolean));
+  if (checked) set.add(houseId); else set.delete(houseId);
+  p.alojamientos = Array.from(set).join(',');
+  _spSave_(list);
+};
+window.spAddCaso_ = function() {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  p.casos = Array.isArray(p.casos) ? p.casos : [];
+  p.casos.push({ recibido:'', respuesta:'' });
+  _spSave_(list); _spRenderEditor_();
+};
+window.spSetCaso_ = function(idx, field, value) {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  if (!Array.isArray(p.casos) || !p.casos[idx]) return;
+  p.casos[idx][field] = value; _spSave_(list);
+};
+window.spRemoveCaso_ = function(idx) {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  p.casos.splice(idx, 1); _spSave_(list); _spRenderEditor_();
+};
+window.spSave_ = function() {
+  // Los cambios ya se autoguardan por spDraftSet_. Este botón confirma visualmente.
+  alert('Prompt guardado ✓');
+  _spRenderList_();
+};
 
 function cfgRenderList() {
   const col = document.getElementById('cfg-col-list');
