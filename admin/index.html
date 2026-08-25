@@ -463,11 +463,12 @@
         .rsv-field input,.rsv-field select{border:0;outline:0;background:transparent;font-size:14px;font-weight:700;color:var(--rsv-ink);padding:2px 0;font-family:inherit;width:100%}
         .rsv-search-btn{background:linear-gradient(135deg,var(--rsv-accent),#ea580c);color:#fff;border:0;border-radius:10px;padding:0 22px;font-size:14px;font-weight:800;cursor:pointer;transition:transform .12s,box-shadow .12s;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;gap:6px;min-height:56px}
         .rsv-search-btn:hover{transform:translateY(-1px);box-shadow:0 10px 20px -4px rgba(245,158,11,.5)}
-        .rsv-toolbar{max-width:1080px;margin:24px auto 0;padding:0 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+        .rsv-toolbar{max-width:1080px;margin:24px auto 0;padding:0 24px;display:flex;justify-content:flex-start;align-items:center;gap:12px;flex-wrap:wrap}
         .rsv-count{font-size:14px;font-weight:800;color:var(--rsv-ink)}
         .rsv-count small{color:var(--rsv-muted);font-weight:600;margin-left:6px}
-        .rsv-map-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;background:#fff;color:var(--rsv-ink);border:1px solid var(--rsv-line);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;box-shadow:0 1px 2px rgba(15,23,42,.04)}
-        .rsv-map-btn:hover{background:var(--rsv-primary);color:#fff;border-color:var(--rsv-primary);transform:translateY(-1px);box-shadow:0 6px 12px -2px rgba(15,118,110,.35)}
+        .rsv-map-btn-float{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:8500;display:none;align-items:center;gap:8px;padding:12px 22px;background:var(--rsv-ink);color:#fff;border:0;border-radius:99px;font-size:14px;font-weight:800;cursor:pointer;transition:all .18s;box-shadow:0 10px 30px -4px rgba(15,23,42,.4),0 4px 10px rgba(15,23,42,.15);letter-spacing:.01em}
+        .rsv-map-btn-float:hover{background:var(--rsv-primary);transform:translateX(-50%) translateY(-2px);box-shadow:0 16px 40px -6px rgba(15,118,110,.45),0 6px 14px rgba(15,23,42,.2)}
+        .rsv-map-btn-float.visible{display:inline-flex}
         .rsv-grid{max-width:1080px;margin:20px auto 0;padding:0 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
         .rsv-card{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.06);border:1px solid var(--rsv-line);cursor:pointer;transition:transform .22s cubic-bezier(.2,.7,.3,1),box-shadow .22s;display:flex;flex-direction:column}
         .rsv-card:hover{transform:translateY(-4px);box-shadow:0 20px 40px -10px rgba(15,23,42,.15),0 4px 8px rgba(15,23,42,.05)}
@@ -496,8 +497,8 @@
         #rsv-map-overlay{position:fixed;inset:0;background:#000;z-index:9900;display:none}
         #rsv-map{width:100%;height:100%}
         .rsv-map-close{position:absolute;top:16px;right:16px;z-index:9910;background:#fff;color:var(--rsv-ink);border:0;width:44px;height:44px;border-radius:50%;font-size:22px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);font-weight:900}
-        .rsv-map-pin{background:var(--rsv-primary);color:#fff;padding:5px 10px;border-radius:99px;font-size:12px;font-weight:800;box-shadow:0 4px 10px rgba(15,118,110,.4);cursor:pointer;white-space:nowrap;border:2px solid #fff}
-        .rsv-map-pin:hover{background:var(--rsv-accent);transform:scale(1.05)}
+        .rsv-map-pin{background:rgba(255,255,255,.92);color:#0f172a;padding:5px 11px;border-radius:99px;font-size:12px;font-weight:800;box-shadow:0 4px 12px rgba(15,23,42,.25),0 1px 3px rgba(15,23,42,.15);cursor:pointer;white-space:nowrap;border:0;backdrop-filter:blur(4px);transition:all .15s;letter-spacing:-.01em}
+        .rsv-map-pin:hover{background:#0f766e;color:#fff;transform:scale(1.08);box-shadow:0 6px 18px rgba(15,118,110,.4)}
         .rsv-map-card{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:min(360px,92vw);background:#fff;border-radius:14px;box-shadow:0 20px 60px -8px rgba(0,0,0,.4);overflow:hidden;z-index:9920}
         .rsv-map-card-close{position:absolute;top:10px;right:10px;z-index:2;background:rgba(255,255,255,.9);border:0;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;font-weight:900;color:var(--rsv-ink);box-shadow:0 2px 6px rgba(0,0,0,.15)}
       </style>
@@ -527,8 +528,8 @@
         </div>
         <div class="rsv-toolbar" id="rsv-toolbar" style="display:none">
           <div class="rsv-count" id="rsv-count"></div>
-          <button type="button" class="rsv-map-btn" onclick="rsvOpenMap_()">🗺️ Ver mapa</button>
         </div>
+        <button type="button" id="rsv-map-btn-float" class="rsv-map-btn-float" onclick="rsvOpenMap_()">🗺️ Ver mapa</button>
         <div id="rsv-results">
           <div class="rsv-empty">
             <div class="icon">🔎</div>
@@ -2769,6 +2770,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=976"></script>
+  <script src="app.js?v=977"></script>
 </body>
 </html>

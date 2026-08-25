@@ -45797,13 +45797,16 @@ window.rsvSearch_ = async function() {
 function _rsvRenderResults_() {
   const cont = document.getElementById('rsv-results');
   const toolbar = document.getElementById('rsv-toolbar');
+  const floatBtn = document.getElementById('rsv-map-btn-float');
   const results = RSV_STATE.results || [];
   if (!results.length) {
     toolbar.style.display = 'none';
+    if (floatBtn) floatBtn.classList.remove('visible');
     cont.innerHTML = `<div class="rsv-empty"><div class="icon">😕</div><h3>Sin disponibilidad</h3><div>No encontramos alojamientos para esas fechas. Prueba otras.</div></div>`;
     return;
   }
   toolbar.style.display = 'flex';
+  if (floatBtn) floatBtn.classList.add('visible');
   const q = RSV_STATE.query || {};
   document.getElementById('rsv-count').innerHTML = `${results.length} alojamiento${results.length===1?'':'s'} disponibles <small>· ${q.arrival} → ${q.departure} · ${q.adults} huésped(es)</small>`;
   cont.innerHTML = `<div class="rsv-grid">${results.map((r,i) => _rsvCardHtml_(r,i)).join('')}</div>`;
