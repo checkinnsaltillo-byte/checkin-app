@@ -399,7 +399,7 @@ async function tryLogin() {
     document.getElementById("app-root")?.classList.remove("hidden");
     const _ub = document.getElementById("current-user-badge");
     if (_ub) _ub.textContent = String(currentUser || '').toUpperCase();
-    setTimeout(() => { try { switchModule("home"); } catch(_) {} }, 0);
+    setTimeout(() => { try { _bootModuleFromHash_(); } catch(_) {} }, 0);
   } catch (e) {
     if (err) { err.textContent = e.message || String(e); err.classList.remove("hidden"); }
   } finally {
@@ -459,7 +459,7 @@ window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("app-root")?.classList.remove("hidden");
     const ub = document.getElementById("current-user-badge"); if (ub) ub.textContent = "ADMIN (dev)";
     // Pantalla de bienvenida (home) — el usuario elige el módulo.
-    setTimeout(() => { try { switchModule("home"); } catch(_) {} }, 0);
+    setTimeout(() => { try { _bootModuleFromHash_(); } catch(_) {} }, 0);
   } else {
     // Auto-login si hay usuario válido en localStorage
     const stored = sysGetStoredUser();
@@ -470,7 +470,7 @@ window.addEventListener("DOMContentLoaded", () => {
       document.getElementById("app-root")?.classList.remove("hidden");
       const _ub = document.getElementById("current-user-badge");
       if (_ub) _ub.textContent = String(currentUser || '').toUpperCase();
-      setTimeout(() => { try { switchModule("home"); } catch(_) {} }, 0);
+      setTimeout(() => { try { _bootModuleFromHash_(); } catch(_) {} }, 0);
     } else {
       document.getElementById("loginOverlay")?.classList.remove("hidden");
       document.getElementById("app-root")?.classList.add("hidden");
@@ -8644,11 +8644,43 @@ function esc(v) {
 // ─── Sección switcher ──────────────────────────────────────────────────────
 
 /** Cambia entre módulos de nivel superior */
+// Módulos válidos para hash-routing (incluye aliases del dashboard).
+const _VALID_MODULES = new Set([
+  'home','tickets','registros','huespedes','lodgify','reservas-detalles',
+  'breezeway','incidencias','objetos','reportes-tecnicos','ocupacion',
+  'dashboard','calendario','rh','inquilinos','inventarios','tuya','guias',
+  'config-admin','llaves','bot-chats','reservas-nueva',
+]);
+function _bootModuleFromHash_() {
+  const h = (location.hash || '').replace(/^#/, '').trim();
+  const target = _VALID_MODULES.has(h) ? h : 'home';
+  switchModule(target);
+}
+// Sincroniza cambios de hash → módulo (back/forward del navegador, link
+// externo con #foo). Se registra una sola vez.
+if (!window._rtHashListener) {
+  window._rtHashListener = true;
+  window.addEventListener('hashchange', () => {
+    const app = document.getElementById('app-root');
+    if (!app || app.classList.contains('hidden')) return; // aún en login
+    window._rtSyncingHash = true;
+    try { _bootModuleFromHash_(); } finally { window._rtSyncingHash = false; }
+  });
+}
 function switchModule(mod) {
   // Legacy: 'ocupacion' como módulo top-level se trata como Dashboard
   if (mod === 'ocupacion') mod = 'dashboard';
   // Aliases: 'dashboard' y 'calendario' comparten el contenedor module-ocupacion
   const containerMod = (mod === 'dashboard' || mod === 'calendario') ? 'ocupacion' : mod;
+  // Sincroniza URL: la ruta actual queda como #module-key, así el usuario
+  // puede compartir/recargar/volver-atrás y aterrizar en el mismo módulo.
+  // Guardia _rtSyncingHash evita loop con el listener 'hashchange'.
+  try {
+    if (!window._rtSyncingHash) {
+      const target = '#' + mod;
+      if (location.hash !== target) history.replaceState(null, '', target);
+    }
+  } catch(_) {}
   ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
