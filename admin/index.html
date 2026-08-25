@@ -2467,9 +2467,10 @@
       </div>
       <div id="botc-test-bar" style="display:none;padding:8px 20px;background:#fef9c3;border-bottom:1px solid #fde68a;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap">
         <span style="font-weight:800;color:#92400e">🧪 MODO PRUEBA ACTIVO —</span>
-        <span style="color:#92400e">solo este número recibe respuesta automática:</span>
-        <input id="botc-test-phone" type="text" value="+528444443922" readonly oninput="botcTestPhoneInput_(this.value)" style="padding:5px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:6px;background:#f8fafc;min-width:180px;font-family:monospace;color:#334155">
-        <button type="button" id="botc-test-edit-btn" onclick="botcTestEditToggle_()" style="padding:5px 12px;font-size:11px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:800">✏️ Editar</button>
+        <span style="color:#92400e">solo estos números reciben respuesta automática:</span>
+        <div id="botc-test-phones" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
+        <input id="botc-test-newphone" type="text" placeholder="+52..." onkeydown="if(event.key==='Enter'){event.preventDefault();botcTestAddPhone_()}" style="padding:5px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:6px;background:#fff;min-width:160px;font-family:monospace;color:#334155">
+        <button type="button" onclick="botcTestAddPhone_()" style="padding:5px 12px;font-size:11px;background:#f59e0b;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">＋ Agregar</button>
         <span id="botc-test-save" style="font-size:11px;color:#94a3b8"></span>
       </div>
       <div style="flex:1;display:flex;min-height:0;background:#f8fafc">
@@ -2657,6 +2658,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=969"></script>
+  <script src="app.js?v=970"></script>
 </body>
 </html>

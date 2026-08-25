@@ -43631,7 +43631,8 @@ window.botcToggleRightPanel = async function() {
 // ─── Modo Prueba: bot solo responde a un número específico ────────────
 window.botcTestToggle_ = async function() {
   const cur = await _botcTestFetch_();
-  const next = { enabled: !cur.enabled, phone: cur.phone || '+528444443922' };
+  const phones = cur.phones.length ? cur.phones : (window.__botcTestPhones || ['+528444443922']);
+  const next = { enabled: !cur.enabled, phones };
   await _botcTestSave_(next);
   _botcTestApplyUi_(next);
 };
@@ -43714,8 +43715,9 @@ async function _botcTestFetch_() {
   try {
     const r = await fetch('https://api.check-inn.mx/wa/bot/test-mode', { cache:'no-store' });
     const j = await r.json();
-    return { enabled: !!j.enabled, phone: String(j.phone || '') };
-  } catch(_) { return { enabled: false, phone: '' }; }
+    const phones = Array.isArray(j.phones) ? j.phones : (j.phone ? [j.phone] : []);
+    return { enabled: !!j.enabled, phones };
+  } catch(_) { return { enabled: false, phones: [] }; }
 }
 async function _botcTestSave_(cfg) {
   try {
@@ -43725,10 +43727,10 @@ async function _botcTestSave_(cfg) {
     });
   } catch(_){}
 }
+window.__botcTestPhones = ['+528444443922'];
 function _botcTestApplyUi_(cfg) {
   const btn = document.getElementById('botc-test-toggle');
   const bar = document.getElementById('botc-test-bar');
-  const inp = document.getElementById('botc-test-phone');
   if (btn) {
     btn.textContent = cfg.enabled ? '🧪 Prueba: ON' : '🧪 Prueba: OFF';
     btn.style.background = cfg.enabled ? '#f59e0b' : '#fff';
@@ -43736,13 +43738,41 @@ function _botcTestApplyUi_(cfg) {
     btn.style.borderColor = cfg.enabled ? '#f59e0b' : '#cbd5e1';
   }
   if (bar) bar.style.display = cfg.enabled ? 'flex' : 'none';
-  if (inp && cfg.phone) inp.value = cfg.phone;
+  window.__botcTestPhones = Array.isArray(cfg.phones) && cfg.phones.length ? cfg.phones.slice() : (window.__botcTestPhones || ['+528444443922']);
+  _botcTestRenderPhones_();
 }
+function _botcTestRenderPhones_() {
+  const cont = document.getElementById('botc-test-phones'); if (!cont) return;
+  const phones = window.__botcTestPhones || [];
+  cont.innerHTML = phones.map(p => `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 8px 4px 10px;background:#fff;border:1px solid #f59e0b;border-radius:99px;font-size:12px;font-family:monospace;color:#334155">${_botcEsc(p)}<button type="button" onclick="botcTestRemovePhone_('${_botcEsc(p).replace(/'/g,"\\'")}')" title="Quitar" style="background:none;border:0;color:#dc2626;cursor:pointer;font-size:14px;line-height:1;padding:0 2px;font-weight:900">×</button></span>`).join('') || '<span style="font-size:11px;color:#94a3b8;font-style:italic">Sin números — el bot no responderá a nadie</span>';
+}
+window.botcTestAddPhone_ = async function() {
+  const inp = document.getElementById('botc-test-newphone'); if (!inp) return;
+  const val = String(inp.value || '').trim();
+  if (!val) return;
+  const phones = (window.__botcTestPhones || []).slice();
+  if (phones.includes(val)) { alert('Ese número ya está en la lista'); return; }
+  phones.push(val);
+  window.__botcTestPhones = phones;
+  _botcTestRenderPhones_();
+  inp.value = '';
+  const hint = document.getElementById('botc-test-save');
+  if (hint) hint.textContent = '…guardando';
+  await _botcTestSave_({ enabled: true, phones });
+  if (hint) { hint.textContent = '✓ guardado'; setTimeout(() => hint.textContent = '', 1200); }
+};
+window.botcTestRemovePhone_ = async function(phone) {
+  const phones = (window.__botcTestPhones || []).filter(p => p !== phone);
+  window.__botcTestPhones = phones;
+  _botcTestRenderPhones_();
+  const cur = await _botcTestFetch_();
+  await _botcTestSave_({ enabled: cur.enabled !== false, phones });
+};
 // Init al abrir el módulo — leer estado actual.
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(async () => {
     const cur = await _botcTestFetch_();
-    _botcTestApplyUi_(cur.phone ? cur : { enabled: false, phone: '+528444443922' });
+    _botcTestApplyUi_(cur.phones.length ? cur : { enabled: cur.enabled !== false, phones: ['+528444443922'] });
   }, 400);
 });
 
