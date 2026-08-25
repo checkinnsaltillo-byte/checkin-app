@@ -45886,26 +45886,112 @@ function _rsvEnsureLeaflet_(cb) {
 function _rsvRenderMap_() {
   const results = (RSV_STATE.results || []).filter(r => r.latitude && r.longitude);
   if (RSV_STATE.map) { RSV_STATE.map.remove(); RSV_STATE.map = null; }
-  const first = results[0] || { latitude: 25.4232, longitude: -100.9906 }; // Saltillo default
+  const first = results[0] || { latitude: 25.4232, longitude: -100.9906 };
   const map = L.map('rsv-map').setView([first.latitude, first.longitude], 13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19, attribution: '© OpenStreetMap',
   }).addTo(map);
+  RSV_STATE.mapResults = results;
   RSV_STATE.mapMarkers = [];
-  const bounds = [];
-  results.forEach((r, i) => {
-    const icon = L.divIcon({
-      className: '',
-      html: `<div class="rsv-map-pin">${_rsvFmt$(r.total, r.currency)}</div>`,
-      iconSize: [80, 30], iconAnchor: [40, 30],
-    });
-    const m = L.marker([r.latitude, r.longitude], { icon }).addTo(map);
-    m.on('click', () => _rsvShowMapCard_(i));
-    RSV_STATE.mapMarkers.push(m);
-    bounds.push([r.latitude, r.longitude]);
-  });
+  const bounds = results.map(r => [r.latitude, r.longitude]);
   if (bounds.length > 1) map.fitBounds(bounds, { padding: [60, 60] });
   RSV_STATE.map = map;
+  map.on('zoomend', _rsvRebuildMapMarkers_);
+  map.on('movestart zoomstart', _rsvSpiderCollapse_);
+  setTimeout(_rsvRebuildMapMarkers_, 60);
+}
+function _rsvRebuildMapMarkers_() {
+  const map = RSV_STATE.map; if (!map) return;
+  const results = RSV_STATE.mapResults || [];
+  (RSV_STATE.mapMarkers || []).forEach(m => { try { map.removeLayer(m); } catch(_) {} });
+  RSV_STATE.mapMarkers = [];
+  _rsvSpiderCollapse_();
+  // Agrupar por proximidad en pixels al zoom actual.
+  const THRESH = 52;
+  const pts = results.map((r, i) => ({ i, r, px: map.latLngToLayerPoint([r.latitude, r.longitude]) }));
+  const seen = new Set(); const groups = [];
+  for (const p of pts) {
+    if (seen.has(p.i)) continue;
+    const g = [p.i]; seen.add(p.i);
+    for (const q of pts) {
+      if (seen.has(q.i)) continue;
+      const dx = p.px.x - q.px.x, dy = p.px.y - q.px.y;
+      if (dx*dx + dy*dy < THRESH*THRESH) { g.push(q.i); seen.add(q.i); }
+    }
+    groups.push(g);
+  }
+  groups.forEach(g => {
+    if (g.length === 1) {
+      const idx = g[0]; const r = results[idx];
+      const icon = L.divIcon({ className:'', html:`<div class="rsv-map-pin">${_rsvFmt$(r.total, r.currency)}</div>`, iconSize:[80,30], iconAnchor:[40,30] });
+      const m = L.marker([r.latitude, r.longitude], { icon }).addTo(map);
+      m.on('click', () => _rsvShowMapCard_(idx));
+      RSV_STATE.mapMarkers.push(m);
+    } else {
+      const cLat = g.reduce((s,i) => s + results[i].latitude, 0) / g.length;
+      const cLng = g.reduce((s,i) => s + results[i].longitude, 0) / g.length;
+      const minT = Math.min(...g.map(i => Number(results[i].total) || Infinity));
+      const cur = results[g[0]].currency || 'MXN';
+      const html = `<div class="rsv-map-cluster"><span class="rsv-map-cluster-count">${g.length}</span><span class="rsv-map-cluster-price">desde ${_rsvFmt$(minT, cur)}</span></div>`;
+      const icon = L.divIcon({ className:'', html, iconSize:[120,36], iconAnchor:[60,18] });
+      const m = L.marker([cLat, cLng], { icon }).addTo(map);
+      const hook = () => {
+        const el = m.getElement() && m.getElement().querySelector('.rsv-map-cluster');
+        if (!el) return;
+        el.addEventListener('mouseenter', () => _rsvSpiderExpand_(g, [cLat, cLng]));
+      };
+      m.on('add', hook); if (m.getElement()) hook();
+      RSV_STATE.mapMarkers.push(m);
+    }
+  });
+}
+function _rsvSpiderCollapse_() {
+  const ov = document.getElementById('rsv-spider-overlay');
+  if (ov) ov.remove();
+  if (RSV_STATE._spiderCleanup) { try { RSV_STATE._spiderCleanup(); } catch(_) {} RSV_STATE._spiderCleanup = null; }
+}
+function _rsvSpiderExpand_(indices, centerLatLng) {
+  _rsvSpiderCollapse_();
+  const map = RSV_STATE.map; if (!map) return;
+  const results = RSV_STATE.mapResults || [];
+  const mapEl = document.getElementById('rsv-map');
+  const centerPx = map.latLngToContainerPoint(centerLatLng);
+  const N = indices.length;
+  const R = 70 + N * 8;
+  const ov = document.createElement('div');
+  ov.id = 'rsv-spider-overlay';
+  ov.innerHTML = `<svg><g id="rsv-spider-lines"></g></svg>`;
+  mapEl.appendChild(ov);
+  const svg = ov.querySelector('#rsv-spider-lines');
+  indices.forEach((idx, k) => {
+    const angle = -Math.PI/2 + (2*Math.PI/N)*k;
+    const x = centerPx.x + Math.cos(angle) * R;
+    const y = centerPx.y + Math.sin(angle) * R;
+    const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    ln.setAttribute('x1', centerPx.x); ln.setAttribute('y1', centerPx.y);
+    ln.setAttribute('x2', x); ln.setAttribute('y2', y);
+    ln.setAttribute('stroke', 'rgba(15,23,42,.55)');
+    ln.setAttribute('stroke-width', '1.5');
+    ln.setAttribute('stroke-dasharray', '3 4');
+    ln.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(ln);
+    const r = results[idx];
+    const chip = document.createElement('div');
+    chip.className = 'rsv-spider-chip';
+    chip.style.left = x + 'px'; chip.style.top = y + 'px';
+    chip.innerHTML = `<div class="rsv-map-pin">${_rsvFmt$(r.total, r.currency)}</div>`;
+    chip.onclick = () => _rsvShowMapCard_(idx);
+    ov.appendChild(chip);
+    requestAnimationFrame(() => chip.classList.add('rsv-in'));
+  });
+  const onMove = (ev) => {
+    const rect = mapEl.getBoundingClientRect();
+    const lx = ev.clientX - rect.left, ly = ev.clientY - rect.top;
+    const dx = lx - centerPx.x, dy = ly - centerPx.y;
+    if (Math.sqrt(dx*dx + dy*dy) > R + 55) _rsvSpiderCollapse_();
+  };
+  mapEl.addEventListener('mousemove', onMove);
+  RSV_STATE._spiderCleanup = () => mapEl.removeEventListener('mousemove', onMove);
 }
 function _rsvShowMapCard_(idx) {
   const r = (RSV_STATE.results || [])[idx]; if (!r) return;
