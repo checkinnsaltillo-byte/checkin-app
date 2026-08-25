@@ -42450,14 +42450,13 @@ function _botcPickBestBooking(list) {
   return past || list[0];
 }
 
-// "Sin responder": el bot no cerró la conversación. Aplica cuando el chat
-// quedó en control humano (esperando respuesta) o supervisado con draft
-// pendiente de aprobación.
+// "Sin responder": el ÚLTIMO mensaje del hilo viene del huésped (role='user')
+// y aún no hubo respuesta posterior de bot/admin/template. Aplica sin
+// importar el control — una conv puede estar en HUMANO y ya haber sido
+// atendida (último msg es 'admin'), o en BOT y estar esperando respuesta.
 function _botcIsPending_(c) {
-  const ctrl = String(c.control || 'bot');
-  if (ctrl === 'human') return true;
-  if (ctrl === 'supervised' && String(c.pending_draft_body||'').trim()) return true;
-  return false;
+  const lastRole = String(c.last_msg_role || '').toLowerCase();
+  return lastRole === 'user';
 }
 
 // Clasifica una conversación en 4 buckets según el booking asociado.
