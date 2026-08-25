@@ -2461,7 +2461,14 @@
           <button type="button" onclick="botcRefresh()" title="Refrescar lista de conversaciones" style="padding:6px 10px;font-size:12px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-weight:700">🔄</button>
           <button type="button" id="botc-sync-btn" onclick="botcSyncVisible()" title="Refrescar datos adicionales (reserva, KPIs, chips) de las conversaciones visibles" style="padding:6px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🔄 Sync</button>
           <button type="button" onclick="botcOpenAlojConfig()" title="Habilitar/deshabilitar alojamientos donde el bot responde" style="padding:6px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">⚡ Habilitados</button>
+          <button type="button" id="botc-test-toggle" onclick="botcTestToggle_()" title="Modo Prueba: el bot solo responde al número indicado" style="padding:6px 12px;font-size:12px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">🧪 Prueba: OFF</button>
         </div>
+      </div>
+      <div id="botc-test-bar" style="display:none;padding:8px 20px;background:#fef9c3;border-bottom:1px solid #fde68a;align-items:center;gap:10px;font-size:12px">
+        <span style="font-weight:800;color:#92400e">🧪 MODO PRUEBA ACTIVO —</span>
+        <span style="color:#92400e">solo este número recibe respuesta automática:</span>
+        <input id="botc-test-phone" type="text" value="+528444443922" oninput="botcTestPhoneChange_(this.value)" style="padding:5px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:6px;background:#fff;min-width:180px;font-family:monospace">
+        <span id="botc-test-save" style="font-size:11px;color:#94a3b8"></span>
       </div>
       <div style="flex:1;display:flex;min-height:0;background:#f8fafc">
         <!-- Sidebar: lista conversaciones -->
@@ -2648,6 +2655,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=960"></script>
+  <script src="app.js?v=961"></script>
 </body>
 </html>

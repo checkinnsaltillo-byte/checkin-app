@@ -43239,6 +43239,59 @@ window.botcToggleRightPanel = async function() {
 
 /** Modal multi-select para habilitar/deshabilitar alojamientos del bot.
  *  Escribe en la columna bot_enabled de la hoja alojamientos al guardar. */
+// ─── Modo Prueba: bot solo responde a un número específico ────────────
+window.botcTestToggle_ = async function() {
+  const cur = await _botcTestFetch_();
+  const next = { enabled: !cur.enabled, phone: cur.phone || '+528444443922' };
+  await _botcTestSave_(next);
+  _botcTestApplyUi_(next);
+};
+window.botcTestPhoneChange_ = function(val) {
+  clearTimeout(window.__botcTestDebounce);
+  const hint = document.getElementById('botc-test-save');
+  if (hint) hint.textContent = '…guardando';
+  window.__botcTestDebounce = setTimeout(async () => {
+    const cur = await _botcTestFetch_();
+    await _botcTestSave_({ enabled: cur.enabled !== false, phone: String(val||'').trim() });
+    if (hint) { hint.textContent = '✓ guardado'; setTimeout(() => hint.textContent = '', 1200); }
+  }, 400);
+};
+async function _botcTestFetch_() {
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/bot/test-mode', { cache:'no-store' });
+    const j = await r.json();
+    return { enabled: !!j.enabled, phone: String(j.phone || '') };
+  } catch(_) { return { enabled: false, phone: '' }; }
+}
+async function _botcTestSave_(cfg) {
+  try {
+    await fetch('https://api.check-inn.mx/wa/bot/test-mode', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(cfg)
+    });
+  } catch(_){}
+}
+function _botcTestApplyUi_(cfg) {
+  const btn = document.getElementById('botc-test-toggle');
+  const bar = document.getElementById('botc-test-bar');
+  const inp = document.getElementById('botc-test-phone');
+  if (btn) {
+    btn.textContent = cfg.enabled ? '🧪 Prueba: ON' : '🧪 Prueba: OFF';
+    btn.style.background = cfg.enabled ? '#f59e0b' : '#fff';
+    btn.style.color = cfg.enabled ? '#fff' : '#475569';
+    btn.style.borderColor = cfg.enabled ? '#f59e0b' : '#cbd5e1';
+  }
+  if (bar) bar.style.display = cfg.enabled ? 'flex' : 'none';
+  if (inp && cfg.phone) inp.value = cfg.phone;
+}
+// Init al abrir el módulo — leer estado actual.
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(async () => {
+    const cur = await _botcTestFetch_();
+    _botcTestApplyUi_(cur.phone ? cur : { enabled: false, phone: '+528444443922' });
+  }, 400);
+});
+
 window.botcOpenAlojConfig = async function() {
   const existing = document.getElementById('botc-aloj-modal');
   if (existing) existing.remove();
