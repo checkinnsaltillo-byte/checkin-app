@@ -45816,7 +45816,7 @@ window.rsvSearch_ = async function() {
 function _rsvRenderResults_() {
   const cont = document.getElementById('rsv-results');
   const toolbar = document.getElementById('rsv-toolbar');
-  const floatBtn = document.getElementById('rsv-map-btn-float');
+  const floatBtn = document.getElementById('rsv-float-bar');
   const results = RSV_STATE.results || [];
   if (!results.length) {
     toolbar.style.display = 'none';
