@@ -42920,11 +42920,23 @@ function _botcRenderMain(phone) {
           <button type="button" onclick="botcDraftSkip('${_botcEsc(phone)}')" style="padding:7px 14px;background:#e2e8f0;color:#475569;border:0;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">✕ Omitir</button>
         </div>
       </div>` : ''}
+    <div id="botc-sysia-panel" style="display:none;padding:10px 16px;border-top:1px solid #e2e8f0;background:#faf5ff;max-height:340px;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:12px;font-weight:800;color:#5b21b6">🤖 Asistente Sys-IA · sugerencias para el admin</div>
+        <button type="button" onclick="botcSysIaClose_()" style="background:none;border:0;font-size:18px;cursor:pointer;color:#7c3aed;line-height:1;padding:0">×</button>
+      </div>
+      <div id="botc-sysia-msgs" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px">
+        <textarea id="botc-sysia-input" rows="2" placeholder="Ej: 'Redacta una respuesta cordial explicándole el horario de check-in' o 'Sugiere cómo pedir su INE'" style="flex:1;padding:8px 10px;font-size:12px;border:1px solid #c4b5fd;border-radius:6px;box-sizing:border-box;background:#fff;font-family:inherit;resize:vertical"></textarea>
+        <button type="button" onclick="botcSysIaAsk_()" style="padding:8px 14px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;align-self:stretch">Preguntar</button>
+      </div>
+    </div>
     <div style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#fff;display:flex;gap:8px">
       <input type="text" id="botc-input" placeholder="${canType ? 'Escribe un mensaje al huésped…' : 'Toma control primero para enviar manualmente'}"
         ${canType ? '' : 'disabled'}
         onkeydown="if(event.key==='Enter'){event.preventDefault();botcSendManual()}"
         style="flex:1;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:${canType?'#fff':'#f1f5f9'};color:#0f172a">
+      ${canType ? `<button type="button" onclick="botcSysIaToggle_()" title="Pedir sugerencia al asistente IA del sistema" style="padding:9px 14px;background:#7c3aed;color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:800;font-size:13px">🤖 Sys-IA</button>` : ''}
       <button type="button" onclick="botcSendManual()" ${canType ? '' : 'disabled'}
         style="padding:9px 18px;background:${canType?'#25d366':'#cbd5e1'};color:#fff;border:0;border-radius:8px;cursor:${canType?'pointer':'not-allowed'};font-weight:800;font-size:13px">Enviar</button>
     </div>
@@ -42950,6 +42962,100 @@ window.botcSetControl = async function(phone, control) {
     botcRefresh({ silent: true });
   } catch (e) { alert('Error: ' + e.message); }
 };
+
+window.botcSysIaToggle_ = function() {
+  const p = document.getElementById('botc-sysia-panel'); if (!p) return;
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  if (p.style.display === 'block') {
+    setTimeout(() => { const i = document.getElementById('botc-sysia-input'); if (i) i.focus(); }, 50);
+  }
+};
+window.botcSysIaClose_ = function() {
+  const p = document.getElementById('botc-sysia-panel'); if (p) p.style.display = 'none';
+};
+window.botcSysIaAsk_ = async function() {
+  const phone = BOTC_STATE.selectedPhone;
+  const inp = document.getElementById('botc-sysia-input');
+  const msgs = document.getElementById('botc-sysia-msgs');
+  if (!phone || !inp || !msgs) return;
+  const promptTxt = String(inp.value || '').trim();
+  if (!promptTxt) return;
+  const askHtml = `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;color:#334155"><b style="color:#5b21b6">Tú:</b> ${_botcEsc(promptTxt)}</div>`;
+  const loadingId = 'sysia-load-' + Date.now();
+  msgs.insertAdjacentHTML('beforeend', askHtml);
+  msgs.insertAdjacentHTML('beforeend', `<div id="${loadingId}" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:8px;padding:8px 10px;font-size:12px;color:#5b21b6;font-style:italic">⏳ Consultando IA…</div>`);
+  msgs.scrollTop = msgs.scrollHeight;
+  inp.value = '';
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/bot/sys-ia', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ phone, prompt: promptTxt })
+    });
+    const j = await r.json();
+    const loader = document.getElementById(loadingId); if (loader) loader.remove();
+    if (!j.ok) throw new Error(j.error || 'error');
+    const replyText = String(j.reply || '').trim() || '(respuesta vacía)';
+    const rid = 'sysia-r-' + Date.now();
+    const html = `<div id="${rid}" style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px 12px">
+      <div style="font-size:10px;color:#166534;font-weight:800;margin-bottom:6px">🤖 SUGERENCIA IA</div>
+      <div id="${rid}-text" style="font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4">${_botcEsc(replyText)}</div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button onclick="botcSysIaSend_('${rid}')" style="padding:6px 12px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:11px;font-weight:800">📤 Enviar</button>
+        <button onclick="botcSysIaEdit_('${rid}')" style="padding:6px 12px;background:#fff;color:#5b21b6;border:1px solid #c4b5fd;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">✏️ Editar</button>
+      </div>
+    </div>`;
+    msgs.insertAdjacentHTML('beforeend', html);
+    msgs.scrollTop = msgs.scrollHeight;
+  } catch (e) {
+    const loader = document.getElementById(loadingId); if (loader) loader.remove();
+    msgs.insertAdjacentHTML('beforeend', `<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:8px 10px;font-size:12px;color:#991b1b">❌ ${_botcEsc(e.message||e)}</div>`);
+  }
+};
+window.botcSysIaEdit_ = function(rid) {
+  const wrap = document.getElementById(rid); if (!wrap) return;
+  const txtEl = document.getElementById(rid + '-text');
+  const current = txtEl ? txtEl.textContent : '';
+  wrap.innerHTML = `<div style="font-size:10px;color:#5b21b6;font-weight:800;margin-bottom:6px">✏️ EDITANDO SUGERENCIA</div>
+    <textarea id="${rid}-ta" rows="4" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:6px;box-sizing:border-box;font-family:inherit;resize:vertical;background:#fffbeb">${_botcEsc(current)}</textarea>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button onclick="botcSysIaSendEdited_('${rid}')" style="padding:6px 12px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:11px;font-weight:800">📤 Enviar editado</button>
+      <button onclick="botcSysIaCancelEdit_('${rid}','${_botcEsc(current).replace(/'/g,"\\'")}')" style="padding:6px 12px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">↩ Cancelar</button>
+    </div>`;
+};
+window.botcSysIaCancelEdit_ = function(rid, original) {
+  const wrap = document.getElementById(rid); if (!wrap) return;
+  wrap.innerHTML = `<div style="font-size:10px;color:#166534;font-weight:800;margin-bottom:6px">🤖 SUGERENCIA IA</div>
+    <div id="${rid}-text" style="font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4">${_botcEsc(original)}</div>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+      <button onclick="botcSysIaSend_('${rid}')" style="padding:6px 12px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:11px;font-weight:800">📤 Enviar</button>
+      <button onclick="botcSysIaEdit_('${rid}')" style="padding:6px 12px;background:#fff;color:#5b21b6;border:1px solid #c4b5fd;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">✏️ Editar</button>
+    </div>`;
+};
+window.botcSysIaSend_ = async function(rid) {
+  const el = document.getElementById(rid + '-text');
+  const text = el ? el.textContent : '';
+  return _botcSysIaDoSend_(text);
+};
+window.botcSysIaSendEdited_ = async function(rid) {
+  const ta = document.getElementById(rid + '-ta');
+  const text = ta ? String(ta.value||'').trim() : '';
+  if (!text) { alert('El texto está vacío'); return; }
+  return _botcSysIaDoSend_(text);
+};
+async function _botcSysIaDoSend_(text) {
+  const phone = BOTC_STATE.selectedPhone;
+  if (!phone || !String(text||'').trim()) return;
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/bot/send-as-admin', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ phone, body: String(text).trim() })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    botcSysIaClose_();
+    botcOpenChat(phone, { silent: true });
+  } catch (e) { alert('Error al enviar: ' + (e.message || e)); }
+}
 
 window.botcSendManual = async function() {
   const phone = BOTC_STATE.selectedPhone;
