@@ -345,7 +345,7 @@ function sysGetStoredUser() {
 }
 function sysStoreUser(u) { try { localStorage.setItem('sys_user', JSON.stringify(u)); } catch(_) {} }
 function sysApplyPermissions(user) {
-  const allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves']);
+  const allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos', 'reservas-nueva']);
   if (user && user.modulos) {
     for (const k in SYS_MODULE_PERMS) {
       if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
@@ -399,7 +399,7 @@ async function tryLogin() {
     document.getElementById("app-root")?.classList.remove("hidden");
     const _ub = document.getElementById("current-user-badge");
     if (_ub) _ub.textContent = String(currentUser || '').toUpperCase();
-    setTimeout(() => { try { switchModule("home"); } catch(_) {} }, 0);
+    setTimeout(() => { try { _bootModuleFromHash_(); } catch(_) {} }, 0);
   } catch (e) {
     if (err) { err.textContent = e.message || String(e); err.classList.remove("hidden"); }
   } finally {
@@ -459,7 +459,7 @@ window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("app-root")?.classList.remove("hidden");
     const ub = document.getElementById("current-user-badge"); if (ub) ub.textContent = "ADMIN (dev)";
     // Pantalla de bienvenida (home) — el usuario elige el módulo.
-    setTimeout(() => { try { switchModule("home"); } catch(_) {} }, 0);
+    setTimeout(() => { try { _bootModuleFromHash_(); } catch(_) {} }, 0);
   } else {
     // Auto-login si hay usuario válido en localStorage
     const stored = sysGetStoredUser();
@@ -470,7 +470,7 @@ window.addEventListener("DOMContentLoaded", () => {
       document.getElementById("app-root")?.classList.remove("hidden");
       const _ub = document.getElementById("current-user-badge");
       if (_ub) _ub.textContent = String(currentUser || '').toUpperCase();
-      setTimeout(() => { try { switchModule("home"); } catch(_) {} }, 0);
+      setTimeout(() => { try { _bootModuleFromHash_(); } catch(_) {} }, 0);
     } else {
       document.getElementById("loginOverlay")?.classList.remove("hidden");
       document.getElementById("app-root")?.classList.add("hidden");
@@ -8644,12 +8644,44 @@ function esc(v) {
 // ─── Sección switcher ──────────────────────────────────────────────────────
 
 /** Cambia entre módulos de nivel superior */
+// Módulos válidos para hash-routing (incluye aliases del dashboard).
+const _VALID_MODULES = new Set([
+  'home','tickets','registros','huespedes','lodgify','reservas-detalles',
+  'breezeway','incidencias','objetos','reportes-tecnicos','ocupacion',
+  'dashboard','calendario','rh','inquilinos','inventarios','tuya','guias',
+  'config-admin','llaves','bot-chats','reservas-nueva',
+]);
+function _bootModuleFromHash_() {
+  const h = (location.hash || '').replace(/^#/, '').trim();
+  const target = _VALID_MODULES.has(h) ? h : 'home';
+  switchModule(target);
+}
+// Sincroniza cambios de hash → módulo (back/forward del navegador, link
+// externo con #foo). Se registra una sola vez.
+if (!window._rtHashListener) {
+  window._rtHashListener = true;
+  window.addEventListener('hashchange', () => {
+    const app = document.getElementById('app-root');
+    if (!app || app.classList.contains('hidden')) return; // aún en login
+    window._rtSyncingHash = true;
+    try { _bootModuleFromHash_(); } finally { window._rtSyncingHash = false; }
+  });
+}
 function switchModule(mod) {
   // Legacy: 'ocupacion' como módulo top-level se trata como Dashboard
   if (mod === 'ocupacion') mod = 'dashboard';
   // Aliases: 'dashboard' y 'calendario' comparten el contenedor module-ocupacion
   const containerMod = (mod === 'dashboard' || mod === 'calendario') ? 'ocupacion' : mod;
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves"].forEach(m => {
+  // Sincroniza URL: la ruta actual queda como #module-key, así el usuario
+  // puede compartir/recargar/volver-atrás y aterrizar en el mismo módulo.
+  // Guardia _rtSyncingHash evita loop con el listener 'hashchange'.
+  try {
+    if (!window._rtSyncingHash) {
+      const target = '#' + mod;
+      if (location.hash !== target) history.replaceState(null, '', target);
+    }
+  } catch(_) {}
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -8763,6 +8795,12 @@ function switchModule(mod) {
   }
   if (mod === "llaves") {
     if (typeof llavesInit === 'function') llavesInit();
+  }
+  if (mod === "bot-chats") {
+    if (typeof botcInit === 'function') botcInit();
+  }
+  if (mod === "reportes-tecnicos") {
+    if (typeof rtInit === 'function') rtInit();
   }
 }
 
@@ -9654,7 +9692,13 @@ async function __huespedesLoadInner(forceRefetch) {
   // El populate del select y la auto-selección del mes actual ocurren después
   // de cargar las filas (ver más abajo, justo antes de huespedesRender).
 
-  if (!HU_STATE.filterOptions) await huespedesLoadFilterOptions();
+  // PERF: NO awaitar filter-options aquí — dispararlo en paralelo con page1.
+  // Antes se hacían secuenciales (6.7s + 18s = 25s). El fetch se completa antes
+  // del render (page1 es el bottleneck) y los populate finales del select
+  // esperan HU_STATE.filterOptions ya listo.
+  const _filterOptionsPromise = HU_STATE.filterOptions
+    ? Promise.resolve()
+    : huespedesLoadFilterOptions().catch(e => console.warn('[HU] filter-options en paralelo falló:', e.message));
 
   HU_STATE.loading = true;
   if (empty) { empty.classList.remove('hidden'); empty.textContent = 'Cargando reservaciones…'; }
@@ -10617,6 +10661,59 @@ function huGetGuestRowsByTail_(allRows, tail) {
   return window.__huGuestIndex.get(tail) || [];
 }
 
+// Fase 3: cache de bookings COMPLETAS por teléfono (fetch on-demand al expandir card).
+// Evita cargar todo el histórico al inicio. Cache in-memory por sesión.
+window.__bookingsByGuestCache = window.__bookingsByGuestCache || new Map();
+async function huFetchBookingsByGuest_(phoneOrTail) {
+  const raw = String(phoneOrTail || '').replace(/\D/g, '');
+  if (raw.length < 10) return [];
+  const key = raw.slice(-10);
+  if (window.__bookingsByGuestCache.has(key)) return window.__bookingsByGuestCache.get(key);
+  try {
+    const r = await fetch(`https://api.check-inn.mx/bookings-by-guest?phone=${encodeURIComponent(key)}`, { cache: 'no-store' });
+    const j = await r.json();
+    const list = (j && j.ok && Array.isArray(j.bookings)) ? j.bookings : [];
+    // El endpoint también devuelve huRows (rows crudas de Reservaciones para
+    // ese phone). Cachear aparte en __waExtraHuRowsByPhone así:
+    //   - _waFindRelatedBookings (modal WA) los ve sin re-fetch.
+    //   - _botcGetBookingForPhoneSync los suma como candidatos del pick.
+    // Esto asegura que el pick "Activa" sea correcto DESDE la primera carga
+    // del sidebar bot-chats (antes solo llegaba tras abrir modal WA).
+    try {
+      const huRows = (j && j.ok && Array.isArray(j.huRows)) ? j.huRows : [];
+      window.__waExtraHuRowsByPhone = window.__waExtraHuRowsByPhone || {};
+      window.__waExtraHuRowsByPhone[key] = huRows;
+    } catch(_){}
+    window.__bookingsByGuestCache.set(key, list);
+    return list;
+  } catch (e) {
+    console.warn('[bookings-by-guest]', e.message);
+    return [];
+  }
+}
+window.huFetchBookingsByGuest_ = huFetchBookingsByGuest_;
+
+// Fase 2c: precarga KPIs pre-computados de Perfiles (job diario) — 1 fetch al abrir el módulo.
+window.__perfilKpisByPhone = window.__perfilKpisByPhone || null;
+async function huEnsurePerfilKpis_() {
+  if (window.__perfilKpisByPhone) return window.__perfilKpisByPhone;
+  if (window.__perfilKpisFetching) return window.__perfilKpisFetching;
+  window.__perfilKpisFetching = (async () => {
+    try {
+      const r = await fetch(`https://api.check-inn.mx/perfiles-kpis-list`, { cache: 'no-store' });
+      const j = await r.json();
+      if (j && j.ok && j.by_phone) {
+        window.__perfilKpisByPhone = j.by_phone;
+        return j.by_phone;
+      }
+    } catch (e) { console.warn('[perfil-kpis]', e.message); }
+    window.__perfilKpisByPhone = {};
+    return {};
+  })();
+  const res = await window.__perfilKpisFetching;
+  window.__perfilKpisFetching = null;
+  return res;
+}
 function huComputeGuestStats(currentRow, allRows) {
   // Comparación por LAST-10-DIGITS, no por igualdad exacta de string.
   const phoneTail = (v) => {
@@ -10625,6 +10722,21 @@ function huComputeGuestStats(currentRow, allRows) {
   };
   const tail = phoneTail(huValueFlexible(currentRow, ['Cel/Whatsapp (principal)']));
   if (!tail) return { totalNoches: 0, visitas: 0, reservaciones: 0, montoGlobal: 0, montoTotal: 0 };
+  // Fase 2c: PREFERIR KPIs pre-computados por el job diario si están disponibles.
+  // Solo caemos al cálculo local si no hay dato pre-computado (perfil nuevo sin
+  // job ejecutado, o job del día aún no corrió).
+  const pre = (window.__perfilKpisByPhone || {})[tail];
+  if (pre && (pre.noches || pre.visitas || pre.monto)) {
+    return {
+      totalNoches: pre.noches,
+      visitas: pre.visitas,
+      reservaciones: pre.visitas,   // aproximación — el job cuenta visitas
+      montoGlobal: pre.monto,
+      montoTotal: pre.monto,
+      __source: 'perfiles-cache',
+      __updated_at: pre.updated_at || ''
+    };
+  }
   // Cache memoizado: stats por tail no dependen de currentRow.
   const rows = allRows || HU_STATE.rows || [];
   const sig = `${rows.length}`;
@@ -12192,6 +12304,16 @@ function huFacturapiPaintOrgToggle() {
   });
 }
 document.addEventListener('DOMContentLoaded', huFacturapiPaintOrgToggle);
+// Cache warming: los reportes (Incidencias + Objetos) son consultados por
+// el modal WhatsApp desde Chats bot. Precargarlos al arrancar la app
+// evita que el user vea delay de ~2-5s al primer 'Ver WA' esperando el
+// fetch a Apps Script. Fire-and-forget, no bloquea nada.
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    try { if (typeof incLoadIncidencias === 'function') incLoadIncidencias().catch(()=>{}); } catch(_){}
+    try { if (typeof objLoadObjetos === 'function') objLoadObjetos().catch(()=>{}); } catch(_){}
+  }, 1500); // pequeño delay para no competir con el fetch inicial de conversations/tickets
+});
 
 const HU_CHECKIN_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwqMfC6tITLXlhEwYzQ5mKzw-KD6-nV7XVKIuekj6pK4Po50oRfVKClZeHcr-si3ppB/exec';
 
@@ -12398,6 +12520,21 @@ window.huespedesReemitirTicket = async function(recordId) {
 };
 
 /** Abre el modal de Facturapi con el iframe apuntando a la URL dada. */
+// Listener global para postMessage del iframe Facturapi. Cuando el popup
+// "Enviar correo y WhatsApp" envía el WA, avisa aquí para que el auto-schedule
+// (que corre al cerrar el iframe) NO cree un segundo envío duplicado.
+if (!window.__waManualSentListenerInstalled) {
+  window.__waManualSentListenerInstalled = true;
+  window.__waManualSentUrls = window.__waManualSentUrls || new Set();
+  window.addEventListener('message', function(ev) {
+    const d = ev && ev.data;
+    if (d && d.type === 'wa-manual-sent' && d.ticketUrl) {
+      window.__waManualSentUrls.add(String(d.ticketUrl));
+      console.info('[HU-ticket] marcada como enviada manual:', d.ticketUrl);
+    }
+  });
+}
+
 function huespedesOpenFacturapi(url) {
   // Snapshot de URLs de tickets ANTES de abrir Facturapi. Al cerrarse, el
   // hook comparará y disparará auto-schedule del WA para cada URL nueva.
@@ -12452,7 +12589,15 @@ function huespedesCloseFacturapi() {
           }
           console.info('[HU-ticket] cambios:', changed.length);
           window.__huTicketUrlSnapshot = null; // consumido
+          // Skip URLs que ya fueron enviadas manualmente vía el popup del
+          // iframe Facturapi (postMessage 'wa-manual-sent'). Evita el doble
+          // envío: uno del popup + otro del auto-schedule.
+          window.__waManualSentUrls = window.__waManualSentUrls || new Set();
           for (const c of changed) {
+            if (window.__waManualSentUrls.has(c.newUrl)) {
+              console.info('[HU-ticket] skip auto-schedule para URL ya enviada manual:', c.newUrl);
+              continue;
+            }
             if (typeof window._huAutoScheduleTicketWa === 'function') {
               await window._huAutoScheduleTicketWa(c.row, c.newUrl);
             } else if (typeof window.huScheduleTicketWaNow === 'function') {
@@ -12960,11 +13105,10 @@ function lgComputeMatches() {
 async function lgEnsureHuespedesAndMatch() {
   try {
     if (!HU_STATE.loaded && !HU_STATE.loading) {
-      // huespedesLoad escribe en HU_STATE.rows pero llama a huespedesRender
-      // (que es del módulo de huéspedes). Eso es OK aunque estemos en
-      // Lodgify: huéspedesRender se ejecuta sobre su propio contenedor
-      // y no afecta visualmente al módulo activo (Lodgify).
-      await huespedesLoad(true);
+      // PERF: usar cache 5min de huespedesLoad (false = no force). Antes
+      // se pasaba true en cada entrada al módulo → re-fetch de 25s cada vez.
+      // Ahora respeta el cache localStorage; solo hace fetch si está expirado.
+      await huespedesLoad(false);
     }
     // Si las dos colecciones ya están listas, cruzar.
     if (LG_STATE.loaded && HU_STATE.loaded) {
@@ -13359,9 +13503,32 @@ async function __lodgifyLoadInner(force, opts) {
     if (cont) cont.innerHTML = lgLoaderHtml('Cargando reservaciones…');
   }
   try {
-    const res = await fetch(`${BACKEND}/lodgify-list`, { cache:'no-store' });
+    // FASE 1: filtro mes-en-curso. Solo se cargan reservas cuya estancia
+    // TOCA el mes actual (arrival<=fin_mes && departure>=inicio_mes) y Status
+    // Booked o Tentative. El historial completo por huésped se carga on-demand
+    // al expandir cada card (Fase 3).
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const lastDay = new Date(yyyy, now.getMonth() + 1, 0).getDate();
+    const fromIso = `${yyyy}-${mm}-01`;
+    const toIso   = `${yyyy}-${mm}-${String(lastDay).padStart(2,'0')}`;
+    // status filter lo hacemos client-side (soporta Booked+Tentative)
+    const url = `${BACKEND}/lodgify-list?from=${fromIso}&to=${toIso}`;
+    LG_STATE.__monthRange = { from: fromIso, to: toIso };
+    // Fase 2c: precarga KPIs pre-computados en paralelo con lodgify-list.
+    // No bloqueamos si falla (el render tiene fallback).
+    if (typeof huEnsurePerfilKpis_ === 'function') huEnsurePerfilKpis_().catch(()=>{});
+    const res = await fetch(url, { cache:'no-store' });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    // Filtro adicional: solo Booked / Tentative
+    if (Array.isArray(data.bookings)) {
+      data.bookings = data.bookings.filter(b => {
+        const st = String((b && b.Status) || '').toLowerCase();
+        return st === 'booked' || st === 'tentative';
+      });
+    }
     // Normaliza nombres de campos del sheet (GrossTotal → Gross, etc.)
     // y normaliza fechas al formato MM/DD/YYYY (algunas celdas del sheet
     // están formateadas como fecha y Apps Script las devuelve como ISO
@@ -13476,16 +13643,24 @@ async function lodgifySync(full) {
  *  está viendo las cards. Si la hoja no cambió (insertadas==0 + updated==0),
  *  ni siquiera se recarga. */
 async function lodgifyMaybeAutoSync() {
-  // Sin throttle: cada entrada al módulo de Gestión de reservas dispara
-  // un auto-sync con Lodgify API → sheet. El usuario explícitamente pidió
-  // ver siempre la data más actualizada al entrar. Si necesitas evitar
-  // spam por brincar entre tabs, hay un mínimo de 30s de cortesía.
-  const lastMs = Number(LG_STATE.lastAutoSyncMs || 0);
-  if (lastMs && (Date.now() - lastMs) < 30 * 1000) {
-    console.info('[LG] auto-sync skipped: <30s ago (cortesía anti-spam)');
+  // Throttle 2 horas via localStorage: el auto-sync tarda ~60-90s (jala
+  // desde Lodgify API todo el rango 60/60 días) y bloquea el re-render de
+  // cards. Al usar throttle largo, la mayoría de entradas al módulo son
+  // instant. Si necesita frescura absoluta, hay botón manual "Sincronizar"
+  // en el header del módulo.
+  const THROTTLE_MS = 2 * 60 * 60 * 1000; // 2 horas
+  const KEY = 'lg-last-auto-sync-ms';
+  let lastMs = Number(LG_STATE.lastAutoSyncMs || 0);
+  if (!lastMs) {
+    try { lastMs = Number(localStorage.getItem(KEY) || 0); } catch(_) {}
+  }
+  if (lastMs && (Date.now() - lastMs) < THROTTLE_MS) {
+    const minsAgo = Math.round((Date.now() - lastMs) / 60000);
+    console.info(`[LG] auto-sync skipped: ${minsAgo} min ago (throttle 2h)`);
     return;
   }
   LG_STATE.lastAutoSyncMs = Date.now();
+  try { localStorage.setItem(KEY, String(Date.now())); } catch(_) {}
   const lbl = document.getElementById('lg-status-label');
   const prev = lbl ? lbl.textContent : '';
   try {
@@ -13880,8 +14055,12 @@ function huRowToSyntheticBooking(r) {
     // Campos crudos para el resolver de propiedad:
     PropiedadRaw: r['Propiedad'] || '',
     DepartamentoRaw: r['# Departamento'] || '',
-    Gross: realLg ? (Number(realLg.Gross) || 0) :
-           (Number(r['$ Monto facturado Total']) || Number(r['($) Monto Total pagado']) || 0),
+    // Gross robusto: usa Gross de Lodgify si existe, sino delega a
+    // huComputeRowTotal que suma tarifas ($ Noches + $ Cuota limpieza) o
+    // usa múltiples fallbacks ($ MONTO TOTAL Airbnb, Monto facturado, etc).
+    Gross: realLg && Number(realLg.Gross) > 0
+      ? Number(realLg.Gross)
+      : (typeof huComputeRowTotal === 'function' ? huComputeRowTotal(r) : (Number(r['$ Monto facturado Total']) || Number(r['($) Monto Total pagado']) || 0)),
     Currency: realLg?.Currency || 'MXN',
     LineItems: realLg?.LineItems || [],
     ConfirmationCode: realLg?.ConfirmationCode || '',
@@ -14375,12 +14554,15 @@ function lgSourceChipMini(src) {
  *  - Centro: thumb, nombre, fechas, status badge, monto
  *  - Bottom: cajas Noches globales y Tier del huésped (si hay match)
  *  - Fondo: color del estado de programación (tenue). */
-function lgBuildDetailSidebarItem(b, selectedId) {
+function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
   const isSel = String(b.Id) === String(selectedId);
   const statusUi = rdMapStatus(b);
   const ing = rdFmtFechaCortaNoYear(b.DateArrival);
   const sal = rdFmtFechaCortaNoYear(b.DateDeparture);
-  const huesped = lgGetHuespedForBooking(b);
+  // huespedOverride permite inyectar un huésped sintético (ej. bot-chats
+  // arma uno mínimo con solo el phone para resolver KPIs desde el cache
+  // pre-computado cuando la persona no está en Reservaciones).
+  const huesped = huespedOverride || lgGetHuespedForBooking(b);
   // hasMatch = registro manual REAL (huésped llenó formulario), no sólo una
   // fila básica importada de Lodgify.
   const hasMatch = huHasManualRegistration(huesped);
@@ -16227,6 +16409,9 @@ function lgReinjectRelatedSections(kind) {
 if (!window.__lgRelatedClickInstalled) {
   window.__lgRelatedClickInstalled = true;
   document.addEventListener('click', function(e) {
+    // Los chips de estatus / prioridad y su menú viven dentro de la card
+    // (data-lg-inc-id) pero NO deben abrir el detalle.
+    if (e.target.closest('[data-wa-inc-est-chip], [data-wa-inc-nivel-chip], .wa-inc-menu, [data-wa-report-msg-btn], .wa-report-msg-panel')) return;
     const incEl = e.target.closest('[data-lg-inc-id]');
     if (incEl) {
       e.preventDefault();
@@ -16267,6 +16452,10 @@ function lgOpenRelatedPanel(title, html, headerColor) {
   panel.classList.remove('hidden');
   back.style.opacity = '1';
   panel.style.transform = 'translateX(0)';
+  // z-index encima del wa-modal (99999) y del capture-panel (100002) para
+  // que sea visible cuando se abre desde el modal Whatsapp.
+  back.style.zIndex  = '100010';
+  panel.style.zIndex = '100011';
   document.body.style.overflow = 'hidden';
   console.info('[LG-PANEL] abierto:', title);
 }
@@ -16365,9 +16554,8 @@ window.lgScopedSaveEdit = async function(kind, id) {
   if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '⏳ Guardando…'; }
   if (cancelBtn) cancelBtn.disabled = true;
   try {
-    const action = kind === 'inc' ? 'update_incidencia' : 'update_objeto';
-    const payload = { action, id, fields, keep_urls: keepUrls, new_fotos: newFotos };
-    const res = await fetch(`${BACKEND}/${kind === 'inc' ? 'incidencias-update' : 'objetos-update'}`, {
+    const payload = { id, fields, keepUrls, fotos: newFotos };
+    const res = await fetch(`https://api.check-inn.mx/${kind === 'inc' ? 'update-incidencia' : 'update-objeto'}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     });
     const data = await res.json();
@@ -16395,6 +16583,19 @@ window.lgScopedSaveEdit = async function(kind, id) {
       body.innerHTML = lgRewriteEditOnclicks(roFn(row, id), kind, id);
       body.classList.remove('editing');
     }
+    // Refresh de vistas relacionadas sin cambiar de tab:
+    // - Timeline de la ventana lateral WA (todas las pestañas)
+    // - Lista principal de Incidencias / Objetos (si está visible)
+    try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
+    try {
+      if (kind === 'inc' && typeof incRenderCards === 'function') {
+        const cont = document.getElementById('inc-cards');
+        if (cont) incRenderCards();
+      } else if (kind === 'obj' && typeof objRenderCards === 'function') {
+        const cont = document.getElementById('obj-cards');
+        if (cont) objRenderCards();
+      }
+    } catch(_){}
   } catch (e) {
     alert('Error al guardar: ' + (e.message || e));
     if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '💾 Guardar cambios y Salir'; }
@@ -16485,8 +16686,9 @@ function lgBuildIncSectionForBooking(arg) {
     }
     if (reason.length) console.warn('[LG-INC] sin match para reserva', { propRaw, deptRaw, arrIso, depIso }, 'descartados:', reason);
   }
-  const newBtn = `<button type="button" onclick="lgOpenIncCaptureFor('${esc(propRaw)}','${esc(deptRaw)}','${esc(arrIso)}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1.5px solid #dc2626;background:#fff;color:#dc2626;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;margin-top:8px">＋ Generar nuevo reporte</button>`;
-  if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin incidencias en este rango.</div>${newBtn}`);
+  // Nota: el botón "+ Generar nuevo reporte" se movió al selector unificado
+  // (lgBuildReportsSectionForBooking). Aquí solo mostramos incidencias.
+  if (!matches.length) return ''; // sección se omite si no hay data para mostrar
   // Cards minimalistas desde cero (no reuso incRenderCardOne para evitar
   // que onclicks/elementos internos roben el evento). Click abre slide-in.
   const cards = matches.map(row => {
@@ -16496,14 +16698,14 @@ function lgBuildIncSectionForBooking(arg) {
     const depto = String(row['# Departamento']||'').trim();
     const aloj = String(row['Alojamiento']||'').trim() || (propiedad && depto ? `${propiedad} - #${depto}` : propiedad);
     const fecha = String(row['Fecha']||row['Timestamp']||'').slice(0,10);
-    const nivel = String(row['Nivel']||'Baja');
-    const estatus = String(row['Estatus']||'Pendiente');
+    const nivel = incNormalizeNivel(row['Nivel']);
+    const estatus = incNormalizeEstatus(row['Estatus']);
     const motivoCls = (typeof incMotivoColorClass === 'function') ? incMotivoColorClass(row['Motivos']||'') : 'default';
     const BG = { Limpieza:'#06b6d4', Mantenimiento:'#f59e0b', Insumos:'#8b5cf6', default:'#64748b' };
     const headerBg = BG[motivoCls] || BG.default;
-    const estBg = estatus === 'Resuelto' ? '#dcfce7' : estatus === 'Pendiente' ? '#fee2e2' : '#fef3c7';
-    const estCl = estatus === 'Resuelto' ? '#166534' : estatus === 'Pendiente' ? '#991b1b' : '#92400e';
-    const nivelDot = nivel === 'Alta' ? '#dc2626' : nivel === 'Media' ? '#f59e0b' : '#16a34a';
+    const _estC = incEstatusColors(estatus);
+    const estBg = _estC.bg, estCl = _estC.fg;
+    const nivelDot = incNivelDot(nivel);
     return `<div data-lg-inc-id="${esc(id)}" role="button" tabindex="0"
               style="display:block;cursor:pointer;width:100%;box-sizing:border-box;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;transition:transform .12s,box-shadow .12s">
         <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;pointer-events:none">
@@ -16580,8 +16782,8 @@ function lgBuildObjSectionForBooking(arg) {
     }
     if (reason.length) console.warn('[LG-OBJ] sin match para reserva', { propRaw, deptRaw, arrIso, depIso }, 'descartados:', reason);
   }
-  const newBtn = `<button type="button" onclick="lgOpenObjCaptureFor('${esc(propRaw)}','${esc(deptRaw)}','${esc(depIso)}')" style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1.5px solid #059669;background:#fff;color:#059669;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;margin-top:8px">＋ Registrar nuevo objeto</button>`;
-  if (!matches.length) return wrap(header + `<div style="padding:10px;color:#94a3b8;font-size:12px;font-style:italic">Sin objetos olvidados en este rango.</div>${newBtn}`);
+  // Nota: el botón "+ Registrar nuevo objeto" se movió al selector unificado.
+  if (!matches.length) return ''; // sección se omite si no hay data para mostrar
   // Cards minimalistas desde cero. Click abre slide-in.
   const cards = matches.map(row => {
     const id = String(row['ID']||'');
@@ -16615,6 +16817,101 @@ function lgBuildObjSectionForBooking(arg) {
   }).join('');
   return wrap(header + `<div style="display:flex;flex-direction:column;gap:8px">${cards}</div>`);
 }
+
+/** Card unificada "+ Generar nuevo reporte" que abre selector de tipo:
+ *  1) Incidencia · 2) Objeto perdido · 3) Reporte técnico (próximamente).
+ *  Reemplaza los 2 botones sueltos que había en Inc/Obj sections. */
+function lgBuildReportsSectionForBooking(arg) {
+  if (typeof arg === 'string') {
+    if (!/^\d{6,12}$/.test(arg.trim())) return '';
+    const b = (LG_STATE?.bookings || []).find(x => String(x.Id) === arg.trim());
+    if (!b) return '';
+    arg = b;
+  }
+  if (!arg || typeof arg !== 'object') return '';
+  const arrIso = lgFmtDateUI(arg.DateArrival)   || String((arg.__reservacion && arg.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = lgFmtDateUI(arg.DateDeparture) || String((arg.__reservacion && arg.__reservacion['Fecha de salida']) || '').slice(0,10);
+  const propRaw = arg.PropiedadRaw || (arg.__reservacion && arg.__reservacion['Propiedad']) || '';
+  const deptRaw = arg.DepartamentoRaw || (arg.__reservacion && arg.__reservacion['# Departamento']) || '';
+  return `
+    <div class="hu-col-card lg-reports-card" style="margin-top:14px;background:#fff;border-radius:16px;padding:14px 16px;box-shadow:0 4px 16px rgba(15,23,42,.08);border:1.5px solid #e2e8f0;box-sizing:border-box;width:100%">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800">📋 REPORTES</div>
+        <button type="button"
+                onclick="lgOpenReportPicker('${esc(propRaw)}','${esc(deptRaw)}','${esc(arrIso)}','${esc(depIso)}')"
+                style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid #0f172a;background:#0f172a;color:#fff;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">
+          ＋ Generar nuevo reporte
+        </button>
+      </div>
+    </div>`;
+}
+
+/** Panel lateral picker: elige tipo de reporte a generar.
+ *  Al seleccionar, cierra el picker y abre la ventana correspondiente. */
+window.lgOpenReportPicker = function(propRaw, deptRaw, arrIso, depIso) {
+  const existing = document.getElementById('lg-report-picker');
+  if (existing) existing.remove();
+  // Si el picker se abre desde Gestión de reservas (no de Chats bot),
+  // limpiar contexto phone para que el combobox Reserva no filtre.
+  // Chats bot lo setea explícitamente en botcOpenReportPickerForCurrent.
+  if (!window.__rsvContextPhoneKeep) window.__rsvContextPhone = null;
+  window.__rsvContextPhoneKeep = false;
+  const wrap = document.createElement('div');
+  wrap.id = 'lg-report-picker';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100000;display:flex;justify-content:flex-end';
+  wrap.onclick = (e) => { if (e.target === wrap) wrap.remove(); };
+  wrap.innerHTML = `
+    <div style="width:100%;max-width:420px;height:100vh;background:#fff;box-shadow:-16px 0 40px rgba(15,23,42,.18);display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:11px;color:#64748b;font-weight:800;letter-spacing:.16em">TIPO DE REPORTE</div>
+          <div style="font-size:16px;font-weight:800;color:#0f172a;margin-top:2px">＋ Generar nuevo reporte</div>
+        </div>
+        <button type="button" onclick="document.getElementById('lg-report-picker')?.remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1;padding:0 6px">✕</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+        <button type="button" onclick="lgPickReport('inc','${esc(propRaw)}','${esc(deptRaw)}','${esc(arrIso)}','${esc(depIso)}')"
+                style="text-align:left;padding:16px 18px;border:1.5px solid #fecaca;background:#fff;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:transform .1s,box-shadow .1s">
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#fee2e2,#fecaca);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🚨</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:800;color:#0f172a">Incidencia</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">Reportar limpieza, mantenimiento, insumos, ruido, etc.</div>
+          </div>
+          <div style="color:#dc2626;font-weight:800">▸</div>
+        </button>
+        <button type="button" onclick="lgPickReport('rt','${esc(propRaw)}','${esc(deptRaw)}','${esc(arrIso)}','${esc(depIso)}')"
+                style="text-align:left;padding:16px 18px;border:1.5px solid #c7d2fe;background:#fff;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:transform .1s,box-shadow .1s;margin-bottom:12px">
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#e0e7ff,#c7d2fe);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🛠</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:800;color:#0f172a">Reporte técnico</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">Bitácora de trabajo técnico realizado en el alojamiento.</div>
+          </div>
+          <div style="color:#4f46e5;font-weight:800">▸</div>
+        </button>
+        <button type="button" onclick="lgPickReport('obj','${esc(propRaw)}','${esc(deptRaw)}','${esc(arrIso)}','${esc(depIso)}')"
+                style="text-align:left;padding:16px 18px;border:1.5px solid #a7f3d0;background:#fff;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:14px;transition:transform .1s,box-shadow .1s">
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#d1fae5,#a7f3d0);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🎒</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:800;color:#0f172a">Objeto perdido</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">Registrar un objeto encontrado / olvidado por el huésped.</div>
+          </div>
+          <div style="color:#059669;font-weight:800">▸</div>
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+};
+
+window.lgPickReport = function(kind, propRaw, deptRaw, arrIso, depIso) {
+  document.getElementById('lg-report-picker')?.remove();
+  if (kind === 'inc' && typeof lgOpenIncCaptureFor === 'function') {
+    lgOpenIncCaptureFor(propRaw, deptRaw, arrIso);
+  } else if (kind === 'obj' && typeof lgOpenObjCaptureFor === 'function') {
+    lgOpenObjCaptureFor(propRaw, deptRaw, depIso);
+  } else if (kind === 'rt' && typeof rtOpenCaptureFor === 'function') {
+    rtOpenCaptureFor(propRaw, deptRaw, arrIso, depIso);
+  }
+};
 
 // "Dispositivos relacionados" — debajo de Tareas relacionadas.
 // Cruza propiedad + # departamento + rango de fechas (entrada/salida) con
@@ -18303,10 +18600,34 @@ window.bzwTestToken = async function(opts) {
   }
 };
 
-window.bzwRefreshAlerts = async function() {
+window.bzwRefreshAlerts = async function(opts) {
+  opts = opts || {};
+  const forceFresh = !!opts.force;
   const list = document.getElementById('bzw-alerts-list');
   const cnt  = document.getElementById('bzw-stat-count');
   const lastEl = document.getElementById('bzw-stat-last');
+  // CACHE sessionStorage 5 min de las tasks POST-dedupe.
+  // Evita 60s de descarga (~11 MB) + parse en main thread cada entrada a
+  // Gestión de reservas. En cache HIT restauramos BZW_ALL_TASKS y llamamos
+  // helpers de post-processing sin re-fetch.
+  const CACHE_KEY = 'bzw-tasks-cache-v1';
+  const CACHE_TTL_MS = 5 * 60 * 1000;
+  if (!forceFresh) {
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached && cached.ts && (Date.now() - cached.ts) < CACHE_TTL_MS && Array.isArray(cached.tasks)) {
+          console.info('[BZW] cache hit — skip fetch (' + Math.round((Date.now()-cached.ts)/1000) + 's ago, ' + cached.tasks.length + ' tasks)');
+          BZW_ALL_TASKS = cached.tasks;
+          try { bzwRebuildHomolMap(); } catch(_){}
+          try { bzwBuildTaskIndexes_(); } catch(_){}
+          try { if (typeof bzwInjectSidebarChips === 'function') bzwInjectSidebarChips(); } catch(_){}
+          return; // no bloquear ni hacer el fetch
+        }
+      }
+    } catch(_){}
+  }
   if (list) list.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:30px 0;font-style:italic">Cargando bitácora…</div>';
   try {
     const res = await fetch(`${bzwApiBase()}/api/breezeway/alerts?limit=15000`, { cache: 'no-store' });
@@ -18367,6 +18688,11 @@ window.bzwRefreshAlerts = async function() {
     }
     const alerts = Array.from(dedupe.values());
     BZW_ALL_TASKS = alerts;
+    // Guardar en cache sessionStorage — la próxima entrada al módulo reutiliza
+    // este resultado durante 5 min (evita 60s de descarga + parse).
+    try {
+      sessionStorage.setItem('bzw-tasks-cache-v1', JSON.stringify({ ts: Date.now(), tasks: alerts }));
+    } catch (e) { console.warn('[BZW] cache set falló:', e.message); }
     // Reconstruye el map de homologación de propiedades PRIMERO (usado por
     // bzwBuildTaskIndexes_ para normalizar nombres tipo "MT10 Matamoros #10
     // - Amplio..." → "Calle Matamoros - #10" antes de derivar la propKey).
@@ -19778,6 +20104,17 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
         if (objHtml) {
           const w = document.createElement('div');
           w.innerHTML = key ? objHtml.replace('class="hu-col-card lg-obj-card"', `class="hu-col-card lg-obj-card" data-bzw-key="${esc(key)}"`) : objHtml;
+          el.appendChild(w);
+        }
+      }
+      // Card unificada "+ Generar nuevo reporte" con selector de tipo.
+      // Siempre visible (a diferencia de las secciones inc/obj que solo
+      // aparecen si hay reportes para mostrar).
+      if (typeof lgBuildReportsSectionForBooking === 'function') {
+        const repHtml = lgBuildReportsSectionForBooking(arg);
+        if (repHtml) {
+          const w = document.createElement('div');
+          w.innerHTML = key ? repHtml.replace('class="hu-col-card lg-reports-card"', `class="hu-col-card lg-reports-card" data-bzw-key="${esc(key)}"`) : repHtml;
           el.appendChild(w);
         }
       }
@@ -21412,9 +21749,56 @@ function incFmtFechaLarga(iso) {
 
 function incNivelClass(nivel) {
   const n = String(nivel || '').toLowerCase();
+  if (n === 'crítica' || n === 'critica') return 'critical';
   if (n === 'alta')  return 'high';
   if (n === 'media') return 'medium';
   return 'low';
+}
+// Estados canónicos homologados con Reportes Técnicos:
+// Nuevo · En proceso · En espera · Resuelto · Cerrado · Cancelado
+function incNormalizeEstatus(v) {
+  const s = String(v||'').trim();
+  const low = s.toLowerCase();
+  if (!low) return 'Nuevo';
+  if (low === 'pendiente') return 'Nuevo';
+  if (low === 'parcialmente resuelto') return 'En proceso';
+  if (low === 'nuevo') return 'Nuevo';
+  if (low === 'en proceso') return 'En proceso';
+  if (low === 'en espera') return 'En proceso';
+  if (low === 'resuelto') return 'Resuelto';
+  if (low === 'cerrado') return 'Resuelto';
+  if (low === 'cancelado') return 'Cancelado';
+  return s;
+}
+// Nivel canónico: Crítica · Alta · Media · Baja.
+function incNormalizeNivel(v) {
+  const s = String(v||'').trim();
+  const low = s.toLowerCase();
+  if (!low) return 'Baja';
+  if (low === 'crítica' || low === 'critica') return 'Crítica';
+  if (low === 'alta') return 'Alta';
+  if (low === 'media') return 'Media';
+  if (low === 'baja') return 'Baja';
+  return s;
+}
+// Colores del chip de estatus (INC + WA modal).
+function incEstatusColors(estatus) {
+  const s = incNormalizeEstatus(estatus);
+  switch (s) {
+    case 'Nuevo':      return { bg:'#f1f5f9', fg:'#334155' };
+    case 'En proceso': return { bg:'#fef3c7', fg:'#92400e' };
+    case 'Resuelto':   return { bg:'#dcfce7', fg:'#166534' };
+    case 'Cancelado':  return { bg:'#fecaca', fg:'#7f1d1d' };
+    default:           return { bg:'#f1f5f9', fg:'#334155' };
+  }
+}
+// Color del semáforo/nivel.
+function incNivelDot(nivel) {
+  const s = incNormalizeNivel(nivel);
+  if (s === 'Crítica') return '#dc2626'; // rojo
+  if (s === 'Alta')    return '#f97316'; // naranja
+  if (s === 'Media')   return '#eab308'; // amarillo
+  return '#3b82f6';                      // azul (Baja)
 }
 
 function incRenderCheckList(containerId, items, name, includePuesto = false) {
@@ -21655,7 +22039,7 @@ function incGetFormData() {
     motivos:         incGetCheckedByName('inc-motivos'),
     clasificaciones: incGetCheckedByName('inc-clasificaciones'),
     nivel:           document.getElementById('inc-nivel')?.value || 'Baja',
-    estatus:         document.getElementById('inc-estatus')?.value || 'Pendiente',
+    estatus:         document.getElementById('inc-estatus')?.value || 'Nuevo',
     reportante:      document.getElementById('inc-reportante')?.value || '',
     descripcion:     (document.getElementById('inc-descripcion')?.value || '').trim(),
     acciones:        (document.getElementById('inc-acciones')?.value || '').trim(),
@@ -21664,7 +22048,7 @@ function incGetFormData() {
   };
 }
 
-function incBuildReporteHtml(d) {
+function incBuildReporteHtml(d, id) {
   const personas        = d.personas.length        ? d.personas        : ['Sin especificar'];
   const motivos         = d.motivos.length         ? d.motivos         : ['Sin especificar'];
   const clasificaciones = d.clasificaciones.length ? d.clasificaciones : ['Sin especificar'];
@@ -21695,12 +22079,20 @@ function incBuildReporteHtml(d) {
           </div>`).join('')}
       </div>
     </div>` : '';
+  const nivelPillHtml = id
+    ? _incBuildNivelPill(id, d.nivel)
+    : `<span class="inc-chip" style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${incNivelDot(d.nivel)}"></span>${esc(incNormalizeNivel(d.nivel))}</span>`;
+  const progressHtml = id
+    ? _incBuildProgressBar(id, d.estatus)
+    : `<span class="inc-chip" style="background:${incEstatusColors(d.estatus).bg};color:${incEstatusColors(d.estatus).fg}">${esc(incNormalizeEstatus(d.estatus))}</span>`;
   return `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:2px solid #dc2626;padding-bottom:8px;margin-bottom:12px">
-      <div>
+      <div style="flex:1;min-width:0">
         <div style="font-size:9px;letter-spacing:.14em;color:#dc2626;font-weight:800;text-transform:uppercase">Formato operativo</div>
-        <h2 style="margin:2px 0 4px;font-size:18px;color:#0f172a;font-weight:800">Reporte de incidencia</h2>
-        <span class="inc-chip" style="background:#fef2f2;border-color:#fecaca;color:#991b1b">${esc(d.estatus)}</span>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 6px">
+          <h2 style="margin:0;font-size:18px;color:#0f172a;font-weight:800">Reporte de incidencia</h2>
+          <div style="display:flex;flex-direction:column;align-items:flex-start">${nivelPillHtml}</div>
+        </div>
       </div>
       <div style="text-align:right;font-size:11px;color:#475569">
         <div><strong>Fecha:</strong> ${esc(incFmtFecha(d.fecha))}</div>
@@ -21708,11 +22100,15 @@ function incBuildReporteHtml(d) {
       </div>
     </div>
 
-    <!-- Datos clave en 3 columnas — todo cabe en un renglón -->
-    <div class="inc-report-grid-3" style="margin-bottom:8px">
-      ${field('Nivel', chip(d.nivel, nivelCls))}
-      ${field('Estatus', esc(d.estatus))}
+    <!-- Progress bar de estado (clickeable) -->
+    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px 6px;margin-bottom:10px;background:#fff">
+      <div style="font-size:10px;letter-spacing:.10em;color:#dc2626;font-weight:800;text-transform:uppercase;margin-bottom:2px">Estado del reporte</div>
+      ${progressHtml}
+    </div>
+
+    <div class="inc-report-grid-2" style="margin-bottom:8px">
       ${field('Reportó', esc(reportante))}
+      ${field('Alojamiento', esc(d.alojamiento || '—'))}
     </div>
 
     <!-- Personas + Motivos + Clasificación: 2 columnas, mismo alto -->
@@ -21758,7 +22154,25 @@ window.incGenerar = function() {
   const modal   = document.getElementById('inc-report-modal');
   if (!preview) return;
   preview.innerHTML = incBuildReporteHtml(d);
-  if (modal) modal.classList.remove('hidden');
+  if (modal) {
+    if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    modal.style.display = '';
+    // Convertir a slide-in lateral derecho (para poder abrirlo encima del
+    // wa-modal y del capture-panel). z-index más alto que wa-modal (99999).
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100003;display:flex;align-items:stretch;justify-content:flex-end;padding:0';
+    const content = modal.querySelector('.inc-modal-content');
+    if (content) {
+      content.style.cssText = 'position:relative;background:#fff;width:100%;max-width:720px;height:100vh;overflow-y:auto;border-radius:0;margin:0;box-shadow:-24px 0 48px -8px rgba(0,0,0,.28);animation:incSlideIn .28s cubic-bezier(.2,.7,.3,1)';
+    }
+    // Keyframes inline por si no están en el CSS.
+    if (!document.getElementById('inc-slide-kf')) {
+      const kf = document.createElement('style');
+      kf.id = 'inc-slide-kf';
+      kf.textContent = '@keyframes incSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }';
+      document.head.appendChild(kf);
+    }
+    modal.classList.remove('hidden');
+  }
 };
 
 window.incSalir = function() {
@@ -21815,6 +22229,14 @@ window.incGuardarSalir = async function() {
     // Cierra el slide-in panel y refresca la lista de cards
     if (typeof incCerrarCaptura === 'function') incCerrarCaptura();
     if (typeof incLoadIncidencias === 'function') incLoadIncidencias();
+    // Si estamos en Gestión de reservas, re-render el módulo para que las
+    // cards muestren la incidencia recién creada.
+    try {
+      const lgMod = document.getElementById('module-lodgify');
+      if (lgMod && !lgMod.classList.contains('hidden') && typeof lodgifyRenderForce === 'function') {
+        lodgifyRenderForce();
+      }
+    } catch(_){}
   } catch (e) {
     console.error('[INC] save error:', e);
     alert('No se pudo guardar el reporte:\n\n' + (e.message || e));
@@ -21828,7 +22250,7 @@ window.incLimpiar = function() {
   document.querySelectorAll('#module-incidencias textarea').forEach(el => el.value = '');
   const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
   setVal('inc-nivel', 'Baja');
-  setVal('inc-estatus', 'Pendiente');
+  setVal('inc-estatus', 'Nuevo');
   setVal('inc-fecha', incTodayIso());
   setVal('inc-reportante', '');
   setVal('inc-fotos', '');
@@ -21905,15 +22327,18 @@ INC_STATE.expanded = new Set(); // IDs de cards expandidas
 // Abre el form de Incidencias y pre-llena Propiedad + # Departamento.
 // Llamado desde el panel de detalle de reserva (Ocupación / Gestión).
 window.lgOpenIncCaptureFor = function (propRaw, deptRaw, fechaIso) {
-  if (typeof incAbrirCaptura !== 'function') return;
-  // Mueve panel+backdrop a <body> si están dentro de #incidencias (display:none oculta position:fixed hijos)
+  if (typeof incAbrirCaptura !== 'function') { console.warn('[lg→inc] incAbrirCaptura no cargada'); return; }
+  // Mueve panel+backdrop a <body> SIEMPRE que no estén ya como hijos directos.
+  // Si están dentro de #module-incidencias (display:none), position:fixed no
+  // rescata a los descendientes — Chrome los oculta también.
   ['inc-capture-backdrop','inc-capture-panel'].forEach(id => {
     const el = document.getElementById(id);
-    if (el && el.parentElement !== document.body) document.body.appendChild(el);
+    if (!el) { console.warn(`[lg→inc] Elemento #${id} no existe en DOM`); return; }
+    if (el.parentElement !== document.body) document.body.appendChild(el);
   });
-  // Asegura que los selects de propiedad/depto estén poblados
-  if (typeof incInit === 'function') incInit();
-  if (typeof incRenderPropDeptoSelects === 'function') incRenderPropDeptoSelects();
+  // incInit puede fallar si algún elemento asume estar visible — envolver.
+  try { if (typeof incInit === 'function') incInit(); } catch(e){ console.warn('[lg→inc] incInit error:', e.message); }
+  try { if (typeof incRenderPropDeptoSelects === 'function') incRenderPropDeptoSelects(); } catch(e){ console.warn('[lg→inc] renderPropDepto error:', e.message); }
   incAbrirCaptura();
   setTimeout(() => {
     if (fechaIso) { const f = document.getElementById('inc-fecha'); if (f) f.value = fechaIso; }
@@ -21935,13 +22360,14 @@ window.lgOpenIncCaptureFor = function (propRaw, deptRaw, fechaIso) {
   }, 80);
 };
 window.lgOpenObjCaptureFor = function (propRaw, deptRaw, fechaIso) {
-  if (typeof objAbrirCaptura !== 'function') return;
+  if (typeof objAbrirCaptura !== 'function') { console.warn('[lg→obj] objAbrirCaptura no cargada'); return; }
   ['obj-capture-backdrop','obj-capture-panel'].forEach(id => {
     const el = document.getElementById(id);
-    if (el && el.parentElement !== document.body) document.body.appendChild(el);
+    if (!el) { console.warn(`[lg→obj] Elemento #${id} no existe en DOM`); return; }
+    if (el.parentElement !== document.body) document.body.appendChild(el);
   });
-  if (typeof objInit === 'function') objInit();
-  if (typeof objRenderPropDeptoSelects === 'function') objRenderPropDeptoSelects();
+  try { if (typeof objInit === 'function') objInit(); } catch(e){ console.warn('[lg→obj] objInit error:', e.message); }
+  try { if (typeof objRenderPropDeptoSelects === 'function') objRenderPropDeptoSelects(); } catch(e){ console.warn('[lg→obj] renderPropDepto error:', e.message); }
   objAbrirCaptura();
   setTimeout(() => {
     if (fechaIso) { const f = document.getElementById('obj-fecha-enc'); if (f) f.value = fechaIso; }
@@ -21965,7 +22391,19 @@ window.lgOpenObjCaptureFor = function (propRaw, deptRaw, fechaIso) {
 window.incAbrirCaptura = function () {
   const panel = document.getElementById('inc-capture-panel');
   const back  = document.getElementById('inc-capture-backdrop');
-  if (!panel || !back) return;
+  if (!panel || !back) { console.warn('[inc] abrirCaptura: panel/backdrop no en DOM'); return; }
+  // Garantizar que estén como hijos directos de <body>. Si un ancestor
+  // tiene display:none (ej. #module-incidencias.hidden), position:fixed
+  // no rescata a los descendientes y quedarían invisibles.
+  if (panel.parentElement !== document.body) document.body.appendChild(panel);
+  if (back.parentElement  !== document.body) document.body.appendChild(back);
+  // Reset explícito de display por si algún CSS heredado dejó :none.
+  back.style.display = '';
+  panel.style.display = '';
+  // Elevar z-index por encima del wa-modal (99999) y del report-picker
+  // (100000) para casos donde se abre desde el WA modal.
+  back.style.zIndex  = '100001';
+  panel.style.zIndex = '100002';
   back.classList.remove('hidden');
   // Forzar reflow para que la transición de opacidad corra
   // eslint-disable-next-line no-unused-expressions
@@ -21973,6 +22411,8 @@ window.incAbrirCaptura = function () {
   back.classList.add('visible');
   panel.classList.remove('hidden');
   panel.classList.add('open');
+  // Poblar combobox de Reservas
+  try { if (typeof rsvPopulate === 'function') rsvPopulate('inc'); } catch(_){}
 };
 
 window.incCerrarCaptura = function () {
@@ -22060,28 +22500,22 @@ function incRenderCardOne(row) {
   const fecha = String(row['Fecha'] || row['Timestamp'] || '').slice(0, 10);
   const personas = String(row['Personas'] || '').split(',').map(s => s.trim()).filter(Boolean);
   const personasTxt = personas.length ? personas.join(', ') : 'Sin personas';
-  const nivel = String(row['Nivel'] || 'Baja');
-  const estatus = String(row['Estatus'] || 'Pendiente');
+  const nivel = incNormalizeNivel(row['Nivel']);
+  const estatus = incNormalizeEstatus(row['Estatus']);
   const expanded = INC_STATE.expanded.has(id);
   const motivoCls = incMotivoColorClass(motivos);
-  // Iconos por estatus
   const estIcon = estatus === 'Resuelto' ? '✓'
-                : estatus === 'Pendiente' ? '✗'
-                : estatus.indexOf('Parcial') !== -1 ? '◐' : '•';
-  const estClass = estatus === 'Resuelto' ? 'est-Resuelto'
-                 : estatus === 'Pendiente' ? 'est-Pendiente'
-                 : estatus.indexOf('Parcial') !== -1 ? 'est-Parcial' : '';
-  // Semáforo de Nivel: 3 puntos (Alto/Medio/Bajo, top→bottom), solo el
-  // correspondiente al nivel actual queda iluminado.
-  const nivelLabel = nivel === 'Alta' ? 'Alto' : nivel === 'Media' ? 'Medio' : 'Bajo';
+                : estatus === 'Nuevo' ? '🆕'
+                : estatus === 'En proceso' ? '🛠️'
+                : estatus === 'En espera' ? '⏳'
+                : estatus === 'Cerrado' ? '🔒'
+                : estatus === 'Cancelado' ? '🚫' : '•';
+  const estCol = incEstatusColors(estatus);
+  const dotCol = incNivelDot(nivel);
   const semaforoHtml = `
-    <span class="inc-semaforo" data-nivel="${esc(nivel)}" title="Nivel ${esc(nivelLabel)}">
-      <span class="inc-semaforo-dots">
-        <span class="inc-semaforo-dot dot-Alto"></span>
-        <span class="inc-semaforo-dot dot-Medio"></span>
-        <span class="inc-semaforo-dot dot-Bajo"></span>
-      </span>
-      <span class="inc-semaforo-label">${esc(nivelLabel)}</span>
+    <span class="inc-semaforo" data-nivel="${esc(nivel)}" title="Nivel ${esc(nivel)}" style="display:inline-flex;align-items:center;gap:6px">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${dotCol}"></span>
+      <span class="inc-semaforo-label" style="font-size:11px;font-weight:700;color:#475569">${esc(nivel)}</span>
     </span>`;
   return `
     <div class="inc-card motivo-border-${esc(motivoCls)} ${expanded ? 'expanded' : ''}" data-inc-id="${esc(id)}">
@@ -22100,7 +22534,7 @@ function incRenderCardOne(row) {
           </div>
         </div>
         <div class="inc-card-chips">
-          <span class="inc-card-chip ${estClass}">${estIcon} ${esc(estatus)}</span>
+          <span class="inc-card-chip" style="background:${estCol.bg};color:${estCol.fg}">${estIcon} ${esc(estatus)}</span>
           <span class="inc-card-chevron">▾</span>
         </div>
       </div>
@@ -22262,17 +22696,19 @@ function incCardBodyHtmlEditable(row, id) {
         <div>
           <label class="inc-label">Nivel de prioridad</label>
           <select class="inc-input" data-edit-field="nivel" oninput="incEditOnChange('${esc(id)}')">
-            <option value="Baja" ${d.nivel==='Baja'?'selected':''}>🟢 Baja</option>
-            <option value="Media" ${d.nivel==='Media'?'selected':''}>🟡 Media</option>
-            <option value="Alta" ${d.nivel==='Alta'?'selected':''}>🔴 Alta</option>
+            <option value="Crítica" ${incNormalizeNivel(d.nivel)==='Crítica'?'selected':''}>🔴 Crítica</option>
+            <option value="Alta" ${incNormalizeNivel(d.nivel)==='Alta'?'selected':''}>🟠 Alta</option>
+            <option value="Media" ${incNormalizeNivel(d.nivel)==='Media'?'selected':''}>🟡 Media</option>
+            <option value="Baja" ${incNormalizeNivel(d.nivel)==='Baja'?'selected':''}>🔵 Baja</option>
           </select>
         </div>
         <div>
           <label class="inc-label">Estatus</label>
           <select class="inc-input" data-edit-field="estatus" oninput="incEditOnChange('${esc(id)}')">
-            <option value="Pendiente" ${d.estatus==='Pendiente'?'selected':''}>✗ Pendiente</option>
-            <option value="Parcialmente resuelto" ${d.estatus==='Parcialmente resuelto'?'selected':''}>◐ Parcialmente resuelto</option>
-            <option value="Resuelto" ${d.estatus==='Resuelto'?'selected':''}>✓ Resuelto</option>
+            <option value="Nuevo" ${incNormalizeEstatus(d.estatus)==='Nuevo'?'selected':''}>🆕 Nuevo</option>
+            <option value="En proceso" ${incNormalizeEstatus(d.estatus)==='En proceso'?'selected':''}>🛠️ En proceso</option>
+            <option value="Resuelto" ${incNormalizeEstatus(d.estatus)==='Resuelto'?'selected':''}>✓ Resuelto</option>
+            <option value="Cancelado" ${incNormalizeEstatus(d.estatus)==='Cancelado'?'selected':''}>🚫 Cancelado</option>
           </select>
         </div>
       </div>
@@ -22554,12 +22990,117 @@ function incRowToReportData(row) {
 function incCardBodyHtml(row) {
   try {
     const d = incRowToReportData(row);
-    // El mismo HTML del popup, pero envuelto en un contenedor sin botones
-    return incBuildReporteHtml(d);
+    const id = String(row && row['ID'] || '');
+    return incBuildReporteHtml(d, id);
   } catch (e) {
     return `<div style="color:#dc2626;font-size:12px">Error al renderizar reporte: ${esc(e.message || e)}</div>`;
   }
 }
+
+// ─── Controles rápidos en el detalle (formato operativo) ────────────────
+// Cambian Estatus/Nivel sin entrar a Editar. Reutilizan /update-incidencia.
+const INC_ESTATUS_ORDER = ['Nuevo','En proceso','Resuelto','Cancelado'];
+const INC_NIVEL_ORDER = ['Crítica','Alta','Media','Baja'];
+
+function _incBuildProgressBar(id, estatusActual) {
+  const cur = incNormalizeEstatus(estatusActual);
+  const idx = INC_ESTATUS_ORDER.indexOf(cur);
+  const items = INC_ESTATUS_ORDER.map((s, i) => {
+    const col = incEstatusColors(s);
+    const isCur = i === idx;
+    const isDone = idx > -1 && i < idx && cur !== 'Cancelado';
+    const bg = isCur ? col.bg : (isDone ? '#dcfce7' : '#f1f5f9');
+    const fg = isCur ? col.fg : (isDone ? '#166534' : '#94a3b8');
+    const border = isCur ? col.fg : (isDone ? '#22c55e' : '#cbd5e1');
+    const dot = `<button type="button" class="inc-prog-dot"
+        onclick="event.stopPropagation();incQuickSetEstatus('${esc(id)}','${esc(s)}')"
+        title="Cambiar a ${esc(s)}"
+        style="width:28px;height:28px;border-radius:50%;border:2px solid ${border};background:${bg};color:${fg};font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;transition:transform .12s">${i+1}</button>`;
+    const line = i < INC_ESTATUS_ORDER.length - 1
+      ? `<span style="flex:1;height:3px;background:${isDone ? '#22c55e' : '#e2e8f0'};min-width:8px;border-radius:2px"></span>`
+      : '';
+    const label = `<div style="font-size:10px;color:${isCur?col.fg:'#64748b'};font-weight:${isCur?'800':'600'};text-align:center;margin-top:4px;min-width:56px">${esc(s)}</div>`;
+    return `<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">${dot}${label}</div>${line}`;
+  }).join('');
+  return `<div style="display:flex;align-items:flex-start;gap:2px;padding:8px 4px 4px;overflow-x:auto">${items}</div>`;
+}
+
+function _incBuildNivelPill(id, nivelActual) {
+  const cur = incNormalizeNivel(nivelActual);
+  const dot = incNivelDot(cur);
+  return `<div class="inc-nivel-pill" data-inc-nivel-id="${esc(id)}" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;cursor:pointer;user-select:none"
+      onclick="event.stopPropagation();incToggleNivelMenu('${esc(id)}')" title="Cambiar prioridad">
+      <span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${dot}"></span>
+      <span style="font-size:11px;font-weight:800;color:#334155;letter-spacing:.02em">${esc(cur)}</span>
+      <span style="font-size:9px;color:#94a3b8">▾</span>
+    </div>
+    <div class="inc-nivel-menu" data-inc-nivel-menu-id="${esc(id)}"
+         style="display:none;margin-top:6px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap">
+      ${INC_NIVEL_ORDER.map(n => {
+        const d = incNivelDot(n);
+        const act = n === cur;
+        return `<button type="button" onclick="event.stopPropagation();incQuickSetNivel('${esc(id)}','${esc(n)}')"
+          style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1.5px solid ${act ? d : '#e2e8f0'};background:${act ? '#f8fafc' : '#fff'};border-radius:999px;font-size:11px;font-weight:${act?'800':'600'};color:#334155;cursor:pointer">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${d}"></span>${esc(n)}</button>`;
+      }).join('')}
+    </div>`;
+}
+
+window.incToggleNivelMenu = function(id) {
+  const menu = document.querySelector(`.inc-nivel-menu[data-inc-nivel-menu-id="${CSS.escape(id)}"]`);
+  if (!menu) return;
+  menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+};
+
+async function _incQuickPatch(id, patch) {
+  const row = (INC_STATE.list||[]).find(r => String(r['ID']||'') === String(id));
+  if (!row) { alert('No se encontró el reporte.'); return; }
+  const changedKey = Object.keys(patch)[0];
+  const changedVal = patch[changedKey];
+  const prettyKey = changedKey === 'estatus' ? 'Estatus' : 'Nivel';
+  // Cierra menú de nivel antes de mostrar confirm (evita que quede abierto).
+  document.querySelectorAll(`.inc-nivel-menu[data-inc-nivel-menu-id="${CSS.escape(id)}"]`)
+    .forEach(m => { m.style.display = 'none'; });
+  if (!confirm(`¿Actualizar ${prettyKey} a "${changedVal}"?`)) return;
+  try {
+    const res = await fetch('https://api.check-inn.mx/update-incidencia', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, fields: patch })
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error al actualizar');
+    if (changedKey === 'estatus') row['Estatus'] = changedVal;
+    if (changedKey === 'nivel')   row['Nivel']   = changedVal;
+    // Si hay panel "Ver mensaje" abierto para este INC y el cambio fue de
+    // estatus, re-auto-seleccionar la plantilla (Nuevo→alta, Resuelto→resuelto).
+    if (changedKey === 'estatus') {
+      try {
+        const s = (window.__waModalState && window.__waModalState.reportMsg) || null;
+        const key = `inc:${id}`;
+        if (s && s[key] && s[key].open) {
+          const auto = _waAutoPickReportTplId_('inc', id);
+          if (auto) s[key] = Object.assign({}, s[key], { tplId: auto, customVals: {}, editedBody: null });
+        }
+      } catch(_){}
+    }
+    // Repinta TODAS las card-body con este id (lista principal + panel WA).
+    // La lista principal muestra el detalle sin botón Editar; el panel lateral
+    // WA lo muestra con toolbar. Distinguimos por ancestro.
+    document.querySelectorAll(`.inc-card[data-inc-id="${CSS.escape(id)}"]`).forEach(cardEl => {
+      const body = cardEl.querySelector('.inc-card-body');
+      if (!body) return;
+      const inMainList = !!cardEl.closest('#inc-cards-list');
+      body.innerHTML = inMainList ? incCardBodyHtml(row) : incCardBodyHtmlReadonly(row, id);
+    });
+    // Chip del header de la card en la lista (fondo/color/emoji).
+    try { if (typeof incRenderCards === 'function' && document.getElementById('inc-cards-list')) incRenderCards(); } catch(_){}
+    try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
+  } catch (e) {
+    alert('Error al guardar: ' + (e.message || e));
+  }
+}
+window.incQuickSetEstatus = function(id, estatus) { return _incQuickPatch(id, { estatus }); };
+window.incQuickSetNivel   = function(id, nivel)   { return _incQuickPatch(id, { nivel }); };
 
 // ═══════════════════════════════════════════════════════════════════════
 // ║  INCIDENCIAS — Filtros (chips Motivo + dropdowns multi-select)        ║
@@ -22567,8 +23108,8 @@ function incCardBodyHtml(row) {
 INC_STATE.filters = {
   motivo: new Set(),         // controlado solo por chips
   clasificaciones: new Set(),
-  nivel: new Set(['Baja', 'Media', 'Alta']),
-  estatus: new Set(['Pendiente', 'Parcialmente resuelto', 'Resuelto']),
+  nivel: new Set(['Crítica', 'Alta', 'Media', 'Baja']),
+  estatus: new Set(['Nuevo', 'En proceso', 'Resuelto', 'Cancelado']),
   month: '', // formato 'YYYY-MM' o '' = todos los meses
 };
 INC_STATE.filtersInitialized = false;
@@ -22622,8 +23163,8 @@ function incInitFilters() {
   }
   incRenderMotivoChips();
   incRenderFilterDropdown('inc-f-clasif', 'clasificaciones', allClasif);
-  incRenderFilterDropdown('inc-f-nivel', 'nivel', ['Baja', 'Media', 'Alta']);
-  incRenderFilterDropdown('inc-f-estatus', 'estatus', ['Pendiente', 'Parcialmente resuelto', 'Resuelto']);
+  incRenderFilterDropdown('inc-f-nivel', 'nivel', ['Crítica', 'Alta', 'Media', 'Baja']);
+  incRenderFilterDropdown('inc-f-estatus', 'estatus', ['Nuevo', 'En proceso', 'Resuelto', 'Cancelado']);
 }
 
 function incCollectUnique(filterKey) {
@@ -22664,8 +23205,8 @@ function incLabelFor(filterKey) {
   const sel = INC_STATE.filters[filterKey];
   const all = filterKey === 'motivo' ? incCollectUnique('motivo')
             : filterKey === 'clasificaciones' ? incCollectUnique('clasificaciones')
-            : filterKey === 'nivel' ? ['Baja', 'Media', 'Alta']
-            : filterKey === 'estatus' ? ['Pendiente', 'Parcialmente resuelto', 'Resuelto']
+            : filterKey === 'nivel' ? ['Crítica', 'Alta', 'Media', 'Baja']
+            : filterKey === 'estatus' ? ['Nuevo', 'En proceso', 'Resuelto', 'Cancelado']
             : [];
   if (!all.length) return 'Sin opciones';
   if (sel.size === 0) return 'Ninguno';
@@ -22733,8 +23274,8 @@ window.incToggleFilterOption = function (filterKey, value, checked) {
 window.incFilterSetAll = function (filterKey) {
   const all = filterKey === 'motivo' ? incCollectUnique('motivo')
             : filterKey === 'clasificaciones' ? incCollectUnique('clasificaciones')
-            : filterKey === 'nivel' ? ['Baja', 'Media', 'Alta']
-            : ['Pendiente', 'Parcialmente resuelto', 'Resuelto'];
+            : filterKey === 'nivel' ? ['Crítica', 'Alta', 'Media', 'Baja']
+            : ['Nuevo', 'En proceso', 'Resuelto', 'Cancelado'];
   INC_STATE.filters[filterKey] = new Set(all);
   // Re-pinta los checkboxes
   document.querySelectorAll(`.inc-mselect[data-filter="${filterKey}"] input[type="checkbox"]`)
@@ -22783,8 +23324,8 @@ function incFilteredRows() {
     if (!inRange(r['Fecha'] || r['Timestamp'])) return false;
     if (!anyMatch(r['Motivos'], f.motivo)) return false;
     if (!anyMatch(r['Clasificacion'], f.clasificaciones)) return false;
-    if (!singleMatch(r['Nivel'], f.nivel)) return false;
-    if (!singleMatch(r['Estatus'], f.estatus)) return false;
+    if (!singleMatch(incNormalizeNivel(r['Nivel']), f.nivel)) return false;
+    if (!singleMatch(incNormalizeEstatus(r['Estatus']), f.estatus)) return false;
     return true;
   });
 }
@@ -23042,7 +23583,23 @@ window.objGenerar = function () {
   const modal = document.getElementById('obj-report-modal');
   if (!preview) return;
   preview.innerHTML = objBuildReporteHtml(d);
-  if (modal) modal.classList.remove('hidden');
+  if (modal) {
+    if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    modal.style.display = '';
+    // Slide-in lateral derecho, encima de todo (wa-modal + capture-panel).
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100003;display:flex;align-items:stretch;justify-content:flex-end;padding:0';
+    const content = modal.querySelector('.inc-modal-content');
+    if (content) {
+      content.style.cssText = 'position:relative;background:#fff;width:100%;max-width:720px;height:100vh;overflow-y:auto;border-radius:0;margin:0;box-shadow:-24px 0 48px -8px rgba(0,0,0,.28);animation:incSlideIn .28s cubic-bezier(.2,.7,.3,1)';
+    }
+    if (!document.getElementById('inc-slide-kf')) {
+      const kf = document.createElement('style');
+      kf.id = 'inc-slide-kf';
+      kf.textContent = '@keyframes incSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }';
+      document.head.appendChild(kf);
+    }
+    modal.classList.remove('hidden');
+  }
 };
 
 window.objSalir = function () {
@@ -23151,6 +23708,13 @@ window.objGuardarSalir = async function () {
     objLimpiar();
     objCerrarCaptura();
     objLoadObjetos();
+    // Si estamos en Gestión de reservas, re-render para reflejar el objeto nuevo.
+    try {
+      const lgMod = document.getElementById('module-lodgify');
+      if (lgMod && !lgMod.classList.contains('hidden') && typeof lodgifyRenderForce === 'function') {
+        lodgifyRenderForce();
+      }
+    } catch(_){}
   } catch (e) {
     alert('No se pudo guardar:\n\n' + (e.message || e));
   } finally {
@@ -23162,12 +23726,19 @@ window.objGuardarSalir = async function () {
 window.objAbrirCaptura = function () {
   const panel = document.getElementById('obj-capture-panel');
   const back = document.getElementById('obj-capture-backdrop');
-  if (!panel || !back) return;
+  if (!panel || !back) { console.warn('[obj] abrirCaptura: panel/backdrop no en DOM'); return; }
+  if (panel.parentElement !== document.body) document.body.appendChild(panel);
+  if (back.parentElement  !== document.body) document.body.appendChild(back);
+  back.style.display = '';
+  panel.style.display = '';
+  back.style.zIndex  = '100001';
+  panel.style.zIndex = '100002';
   back.classList.remove('hidden');
   back.offsetHeight;
   back.classList.add('visible');
   panel.classList.remove('hidden');
   panel.classList.add('open');
+  try { if (typeof rsvPopulate === 'function') rsvPopulate('obj'); } catch(_){}
 };
 window.objCerrarCaptura = function () {
   const panel = document.getElementById('obj-capture-panel');
@@ -24328,6 +24899,7 @@ function ocupBuildRelatedSections(b) {
   try { if (typeof lgBuildTuyaSectionForBooking === 'function') html += lgBuildTuyaSectionForBooking(b); } catch (e) { console.warn('[OCUP detail] tuya:', e.message); }
   try { if (typeof lgBuildIncSectionForBooking  === 'function') html += lgBuildIncSectionForBooking(b);  } catch (e) { console.warn('[OCUP detail] inc:', e.message); }
   try { if (typeof lgBuildObjSectionForBooking  === 'function') html += lgBuildObjSectionForBooking(b);  } catch (e) { console.warn('[OCUP detail] obj:', e.message); }
+  try { if (typeof lgBuildReportsSectionForBooking === 'function') html += lgBuildReportsSectionForBooking(b); } catch (e) { console.warn('[OCUP detail] reports:', e.message); }
   return html;
 }
 
@@ -36900,9 +37472,34 @@ function _waRenderTpl(tplBody, vals) {
  *  {{ubicacion_txt}}, etc.) contra los datos reales del booking + alojamiento.
  *  Se usa para templates admin (WA_Templates sheet) que usan claves nombradas
  *  en lugar de {{1}}, {{2}} numéricos. */
-function _waResolveNamedPlaceholders_(tplBody, b) {
+/** Parse tolerante del campo placeholders_custom de un template.
+ *  Puede llegar como array (si Apps Script lo parseó) o como JSON string. */
+function _waParseTplCustomPh_(tpl) {
+  if (!tpl) return [];
+  const raw = tpl.placeholders_custom;
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  try {
+    const p = JSON.parse(String(raw));
+    return Array.isArray(p) ? p : [];
+  } catch(_) { return []; }
+}
+
+function _waResolveNamedPlaceholders_(tplBody, b, customPlaceholders) {
   if (!tplBody || !b) return String(tplBody || '');
-  const s = String(tplBody);
+  let s = String(tplBody);
+  // Aplicar PRIMERO los placeholders personalizados del template (si vienen).
+  // Sustitución literal {{name}} → value. Ganan sobre el map global.
+  try {
+    const list = Array.isArray(customPlaceholders) ? customPlaceholders : [];
+    for (const p of list) {
+      const name = String((p && p.name) || '').trim();
+      if (!name) continue;
+      const value = String((p && p.value) || '');
+      const re = new RegExp('\\{\\{\\s*' + name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\s*\\}\\}', 'gi');
+      s = s.replace(re, value);
+    }
+  } catch(_){}
   if (!/\{\{[a-z_][a-z0-9_]*\}\}/i.test(s)) return s; // no named placeholders → return as-is
   const alojRow = waFindAlojRow_(b) || {};
   const { prop, dept } = waPropDept_(b);
@@ -37058,7 +37655,16 @@ function _waFindRelatedBookings(currentB) {
   // NOTA: LG_STATE y HU_STATE están declarados con `const` — NO son
   // propiedades de window. Referenciar directo, no `window.LG_STATE`.
   const lgBookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
-  const huRows     = (typeof HU_STATE !== 'undefined' && Array.isArray(HU_STATE.rows))     ? HU_STATE.rows     : [];
+  let huRows       = (typeof HU_STATE !== 'undefined' && Array.isArray(HU_STATE.rows))     ? HU_STATE.rows     : [];
+  // Si HU_STATE no está cargado pero hay huRows precargados on-demand para
+  // este phone (via /bookings-by-guest → __waExtraHuRowsByPhone), usarlos.
+  try {
+    const currPh = String((currentB && (currentB.GuestPhone || currentB['Cel/Whatsapp (principal)'] || '')) || '').replace(/\D/g,'').slice(-10);
+    if (currPh && window.__waExtraHuRowsByPhone && window.__waExtraHuRowsByPhone[currPh]) {
+      if (!huRows.length) huRows = window.__waExtraHuRowsByPhone[currPh];
+      else huRows = huRows.concat(window.__waExtraHuRowsByPhone[currPh]);
+    }
+  } catch(_){}
   const currentPhone = String(currentB && (currentB.GuestPhone || currentB['Cel/Whatsapp (principal)'] || currentB['Celular principal'] || '')).replace(/\D/g,'').slice(-10);
   const currentId = waBookingId_(currentB);
   const related = [];
@@ -37245,6 +37851,7 @@ window.waOpenModal = async function(booking) {
       subjectCustom: '',
       open: false,
     },
+    currentTab: 'todos', // 'todos' | 'programados' | 'reportes'
   };
   // Pre-cargar config para todas las bookings del huésped (para pintar los headers)
   if (bookings.length > 1) {
@@ -37263,13 +37870,44 @@ window.waOpenModal = async function(booking) {
   });
   // Cargar templates admin (WA_Templates) para filtrar por alojamiento.
   waEnsureAdminTemplates_().then(() => { _waRepaint(); });
-  // Si HU_STATE aún no está cargado (usuario abrió modal muy rápido), lo
-  // cargamos ahora y repintamos — así las reservas manuales del mismo tel
-  // aparecen como accordions adicionales.
+  // Si HU_STATE aún no está cargado, en vez de bajar TODA la tabla
+  // Reservaciones (huespedesLoad(true) = 7k+ filas), pre-cargar SOLO las
+  // rows de este phone via /bookings-by-guest (endpoint devuelve huRows
+  // ahora). Fallback a huespedesLoad si no hay phone o falla el fetch.
   if (typeof HU_STATE !== 'undefined' && !HU_STATE.loaded && !HU_STATE.loading) {
-    if (typeof huespedesLoad === 'function') {
-      huespedesLoad(true).then(() => { _waRepaint(); }).catch(() => {});
-    }
+    (async () => {
+      try {
+        if (primaryPhone) {
+          const ph10 = String(primaryPhone).replace(/\D/g,'').slice(-10);
+          if (ph10) {
+            const r = await fetch(`https://api.check-inn.mx/bookings-by-guest?phone=${encodeURIComponent(ph10)}`, { cache: 'no-store' });
+            const j = await r.json();
+            if (j && j.ok) {
+              window.__waExtraHuRowsByPhone = window.__waExtraHuRowsByPhone || {};
+              window.__waExtraHuRowsByPhone[ph10] = j.huRows || [];
+              // Recomputar bookings relacionados con las rows nuevas y repaint.
+              st.bookings = _waFindRelatedBookings(st.b);
+              _waRepaint();
+              // Invalidar cache bot-chats de este phone y re-pick con las
+              // rows recién cargadas — para que la card del sidebar aplique
+              // Activa > Próxima > más reciente con el dataset completo.
+              try {
+                if (window.__botcBookingByPhone) {
+                  delete window.__botcBookingByPhone[ph10];
+                  if (window.__botcBookingSig) delete window.__botcBookingSig[ph10];
+                }
+                if (typeof _botcEnrichPendingBookings === 'function') _botcEnrichPendingBookings();
+              } catch(_){}
+              return;
+            }
+          }
+        }
+      } catch(_){}
+      // Fallback: cargar tabla completa (comportamiento anterior)
+      if (typeof huespedesLoad === 'function') {
+        huespedesLoad(true).then(() => { _waRepaint(); }).catch(() => {});
+      }
+    })();
   }
   // Cargar mensajes programados custom de esta reserva + hidratar recipients
   // extraídos de los `to` de mensajes históricos (por si el usuario mandó a
@@ -37287,6 +37925,33 @@ window.waOpenModal = async function(booking) {
 
   _waFillTemplateDefaults();
   _waRenderModal();
+  // Cargar reportes (Incidencias + Objetos) en background si aún no
+  // están — así aparecen mezclados en el timeline desde el primer
+  // repaint sin que el user tenga que ir manualmente al tab 'Reportes'.
+  // Fuerza repaint TRAS Promise.all para garantizar que ambas listas
+  // ya estén cacheadas al repintar. Además polling defensivo cada 400ms
+  // por 3s para casos donde el network va lento y aún no llegó la data.
+  const _waPromises = [];
+  try {
+    const incEmpty = (typeof INC_STATE === 'undefined') || !INC_STATE.list || !INC_STATE.list.length;
+    if (incEmpty && typeof incLoadIncidencias === 'function') {
+      _waPromises.push(incLoadIncidencias().catch(()=>{}));
+    }
+  } catch(_){}
+  try {
+    const objEmpty = (typeof OBJ_STATE === 'undefined') || !OBJ_STATE.list || !OBJ_STATE.list.length;
+    if (objEmpty && typeof objLoadObjetos === 'function') {
+      _waPromises.push(objLoadObjetos().catch(()=>{}));
+    }
+  } catch(_){}
+  if (_waPromises.length) {
+    Promise.all(_waPromises).then(() => { try { _waRepaint(); } catch(_){} });
+  }
+  // Red de seguridad: repaints escalonados por si el .then anterior tarda
+  // más de lo esperado o si la data llegó pero _waRepaint corrió cuando
+  // otra booking estaba enfocada.
+  setTimeout(() => { try { _waRepaint(); } catch(_){} }, 1500);
+  setTimeout(() => { try { _waRepaint(); } catch(_){} }, 3000);
   // Cargar logs para historial (aparecen bajo cada template)
   setTimeout(_waRepaint, 900);
   setTimeout(_waRepaint, 1800);
@@ -37332,6 +37997,1099 @@ function _waRenderRecipientsInput_() {
       </div>
     </div>
   `;
+}
+
+/** Header de tabs (Todos / Programados / Reportes). */
+function _waRenderTabsHeader_(currentTab) {
+  const tab = (name, label, icon) => {
+    const active = currentTab === name;
+    return `<button type="button" onclick="waSetTab_('${name}')" style="flex:1;padding:8px 10px;border:0;background:${active?'#0f172a':'transparent'};color:${active?'#fff':'#475569'};font-size:12px;font-weight:800;cursor:pointer;border-radius:6px">${icon} ${label}</button>`;
+  };
+  return `
+    <div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:8px;margin-bottom:12px">
+      ${tab('todos','Todos','📋')}
+      ${tab('programados','Programados','📅')}
+      ${tab('reportes','Reportes','🚨')}
+    </div>`;
+}
+
+/** Contenido del tab seleccionado. */
+function _waRenderTabContent_(st, logs) {
+  const tab = st.currentTab || 'todos';
+  if (tab === 'todos') return _waRenderBookingsAccordion_(logs, 'full');
+  if (tab === 'programados') return _waRenderBookingsAccordion_(logs, 'schedule-only');
+  return _waRenderBookingsAccordion_(logs, 'reports-only');
+}
+// Detecta un mensaje "custom" que en realidad fue detonado por acción de un
+// reporte (INC / RT). Estos mensajes NO deben aparecer en pestaña Programados.
+function _waIsReportTriggeredCustom_(cs) {
+  const t = String(cs && cs.tipo || '').toLowerCase();
+  return t.startsWith('report-');
+}
+
+/** Cambia tab activo sin re-fetch (solo repinta). */
+window.waSetTab_ = function(name) {
+  const st = window.__waModalState; if (!st) return;
+  st.currentTab = name;
+  _waRepaint();
+};
+
+function _waEmptyState_(msg) {
+  return `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px">${esc(msg)}</div>`;
+}
+
+/** Lista de cards de REPORTES (incidencias + objetos) asociados a las reservas
+ *  del huésped, con look homologado a mensajes programados y fondo por tipo. */
+function _waRenderReportsList_(st) {
+  const bookings = Array.isArray(st.bookings) && st.bookings.length ? st.bookings : (st.b ? [st.b] : []);
+  const alojNormFn = (typeof alojNorm === 'function') ? alojNorm : (s => String(s||'').toLowerCase().trim());
+  const cards = [];
+  const incList = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list)) ? INC_STATE.list : [];
+  const objList = (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list)) ? OBJ_STATE.list : [];
+  // Si aún no están cargadas las listas (usuario nunca abrió Incidencias
+  // / Objetos), disparar carga en background y luego repaint. Sin esto,
+  // desde Chats bot los reportes nunca aparecerían aunque existan.
+  let triggeredLoad = false;
+  if (!incList.length && typeof incLoadIncidencias === 'function' && typeof INC_STATE !== 'undefined' && !INC_STATE.__waLoadTriggered) {
+    INC_STATE.__waLoadTriggered = true;
+    triggeredLoad = true;
+    incLoadIncidencias().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+  }
+  if (!objList.length && typeof objLoadObjetos === 'function' && typeof OBJ_STATE !== 'undefined' && !OBJ_STATE.__waLoadTriggered) {
+    OBJ_STATE.__waLoadTriggered = true;
+    triggeredLoad = true;
+    objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+  }
+  for (const b of bookings) {
+    const arrIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(b.DateArrival) : '') || String((b.__reservacion && b.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+    const depIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(b.DateDeparture) : '') || String((b.__reservacion && b.__reservacion['Fecha de salida']) || '').slice(0,10);
+    const propRaw = b.PropiedadRaw || (b.__reservacion && b.__reservacion['Propiedad']) || b.PropertyName || '';
+    const deptRaw = b.DepartamentoRaw || (b.__reservacion && b.__reservacion['# Departamento']) || '';
+    if (!arrIso || !depIso || !propRaw || !deptRaw) continue;
+    const propN = alojNormFn(propRaw), deptN = alojNormFn(deptRaw);
+    // Incidencias
+    incList.forEach(r => {
+      if (alojNormFn(r['Propiedad']) !== propN) return;
+      if (alojNormFn(r['# Departamento']) !== deptN) return;
+      const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+      if (!f || f < arrIso || f > depIso) return;
+      cards.push({ kind:'inc', row:r, sortKey:f });
+    });
+    // Objetos
+    objList.forEach(r => {
+      if (alojNormFn(r['Propiedad']) !== propN) return;
+      if (alojNormFn(r['# Departamento']) !== deptN) return;
+      const f = String(r['Fecha_encontrado'] || '').slice(0,10);
+      if (!f || f < arrIso || f > depIso) return;
+      cards.push({ kind:'obj', row:r, sortKey:f });
+    });
+  }
+  // Botón "+ Generar reporte" con mismo diseño que "+ Nuevo mensaje" del
+  // accordion de Programados: centrado, dashed, blanco.
+  const newBtn = `<div style="text-align:center;margin-top:12px">
+    <button type="button" onclick="waOpenReportPickerForModal_()" style="padding:8px 16px;font-size:12px;background:#fff;color:#0f172a;border:1.5px dashed #cbd5e1;border-radius:8px;cursor:pointer;font-weight:800">➕ Generar reporte</button>
+  </div>`;
+  if (!cards.length) {
+    // Si estamos cargando listas por primera vez, mostrar spinner en lugar
+    // de "sin reportes" — evita falso negativo mientras llegan datos.
+    if (triggeredLoad || (typeof INC_STATE !== 'undefined' && INC_STATE.loading) || (typeof OBJ_STATE !== 'undefined' && OBJ_STATE.loading)) {
+      return `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px">⏳ Cargando reportes…</div>${newBtn}`;
+    }
+    return `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px">Sin reportes asociados a esta reserva.</div>${newBtn}`;
+  }
+  // Más recientes primero.
+  cards.sort((a,b) => b.sortKey.localeCompare(a.sortKey));
+  const html = cards.map(c => c.kind === 'inc' ? _waRenderIncCard_(c.row) : _waRenderObjCard_(c.row)).join('');
+  return `<div style="display:flex;flex-direction:column;gap:10px">${html}</div>${newBtn}`;
+}
+
+/** Abre el picker de tipo de reporte pre-llenando propiedad/depto/fechas
+ *  desde el booking focalizado del modal WA. */
+window.waOpenReportPickerForModal_ = function() {
+  const st = window.__waModalState; if (!st) return;
+  const b = st.b || {};
+  const propRaw = b.PropiedadRaw || (b.__reservacion && b.__reservacion['Propiedad']) || b.PropertyName || '';
+  const deptRaw = b.DepartamentoRaw || (b.__reservacion && b.__reservacion['# Departamento']) || '';
+  const toIso = (v) => {
+    const s = String(v || '');
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+    return '';
+  };
+  const arrIso = toIso(b.DateArrival) || String((b.__reservacion && b.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = toIso(b.DateDeparture) || String((b.__reservacion && b.__reservacion['Fecha de salida']) || '').slice(0,10);
+  if (typeof lgOpenReportPicker === 'function') {
+    lgOpenReportPicker(propRaw, deptRaw, arrIso, depIso);
+  } else {
+    alert('Función lgOpenReportPicker no disponible.');
+  }
+};
+
+/** Devuelve array de items {kind:'report', id, row, kindReport, sortKey}
+ *  para mezclar en el timeline unificado. sortKey = ms epoch de la última
+ *  actividad (Updated_at o Timestamp o Fecha). */
+function _waGetReportsForBooking_(bk) {
+  if (!bk) return [];
+  const alojNormFn = (typeof alojNorm === 'function') ? alojNorm : (s => String(s||'').toLowerCase().trim());
+  const arrIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(bk.DateArrival) : '') || String((bk.__reservacion && bk.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(bk.DateDeparture) : '') || String((bk.__reservacion && bk.__reservacion['Fecha de salida']) || '').slice(0,10);
+  // Propiedad: incluir bk['Propiedad'] (booking sincronizado desde Reservaciones
+  // trae este campo directo, no como PropertyName / PropiedadRaw).
+  const propRaw = bk.PropiedadRaw || bk['Propiedad'] || (bk.__reservacion && bk.__reservacion['Propiedad']) || bk.PropertyName || '';
+  // Depto: incluir bk['# Departamento'] directo (mismo caso).
+  let deptRaw = bk.DepartamentoRaw || bk['# Departamento'] || (bk.__reservacion && bk.__reservacion['# Departamento']) || '';
+  if (!deptRaw) {
+    const rn = String(bk.RoomTypeName || bk.roomTypeName || '');
+    const m = rn.match(/#\s*([\w\-]+)\s*$/);
+    if (m) deptRaw = m[1];
+  }
+  if (!arrIso || !depIso || !propRaw || !deptRaw) return [];
+  const propN = alojNormFn(propRaw), deptN = alojNormFn(deptRaw);
+  const incList = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list)) ? INC_STATE.list : [];
+  const objList = (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list)) ? OBJ_STATE.list : [];
+  const rtList  = (typeof RT_STATE  !== 'undefined' && Array.isArray(RT_STATE.list))  ? RT_STATE.list  : [];
+  // Trigger de carga si están vacíos.
+  if (!incList.length && typeof incLoadIncidencias === 'function' && !window.__waIncLoadPending) {
+    window.__waIncLoadPending = true;
+    incLoadIncidencias().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waIncLoadPending = false; });
+  }
+  if (!objList.length && typeof objLoadObjetos === 'function' && !window.__waObjLoadPending) {
+    window.__waObjLoadPending = true;
+    objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waObjLoadPending = false; });
+  }
+  if (typeof RT_STATE !== 'undefined' && !RT_STATE.loaded && typeof rtRefresh === 'function' && !window.__waRtLoadPending) {
+    window.__waRtLoadPending = true;
+    rtRefresh().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waRtLoadPending = false; });
+  }
+  const parseTs = (s) => {
+    const t = String(s || '').trim();
+    if (!t) return 0;
+    // Formatos aceptados: ISO YYYY-MM-DD HH:mm:ss | ISO con T | YYYY-MM-DD
+    const d = new Date(t.replace(' ', 'T'));
+    if (!isNaN(d.getTime())) return d.getTime();
+    return 0;
+  };
+  const activityMs = (r) => {
+    return parseTs(r['Updated_at']) || parseTs(r['updated_at']) || parseTs(r['Timestamp']) || parseTs(r['timestamp']) || parseTs(r['Fecha']) || parseTs(r['Fecha_encontrado']) || 0;
+  };
+  const out = [];
+  incList.forEach(r => {
+    if (alojNormFn(r['Propiedad']) !== propN) return;
+    if (alojNormFn(r['# Departamento']) !== deptN) return;
+    const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+    if (!f || f < arrIso || f > depIso) return;
+    out.push({ kind:'report', id: r['ID']||'', row: r, kindReport: 'inc', sortKey: activityMs(r) });
+  });
+  objList.forEach(r => {
+    if (alojNormFn(r['Propiedad']) !== propN) return;
+    if (alojNormFn(r['# Departamento']) !== deptN) return;
+    const f = String(r['Fecha_encontrado'] || '').slice(0,10);
+    if (!f || f < arrIso || f > depIso) return;
+    out.push({ kind:'report', id: r['ID']||'', row: r, kindReport: 'obj', sortKey: activityMs(r) });
+  });
+  rtList.forEach(r => {
+    if (alojNormFn(r['Propiedad']) !== propN) return;
+    if (alojNormFn(r['# Departamento']) !== deptN) return;
+    const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+    if (!f || f < arrIso || f > depIso) return;
+    out.push({ kind:'report', id: r['ID']||'', row: r, kindReport: 'rt', sortKey: activityMs(r) });
+  });
+  return out;
+}
+
+/** Card en el timeline unificado con MISMA estructura que las cards de
+ *  mensajes programados: timeline label arriba + checkmark circular a la
+ *  izquierda + card con header/chip de tipo + estado + botón Ver detalles.
+ *  Sin alojamiento (ya lo dice la reserva contenedora). */
+// Menús desplegables (estatus + nivel) para una card INC del timeline WA.
+function _waIncMenusHtml_(id, estActual, nivelActual) {
+  const estOpts = INC_ESTATUS_ORDER.map(s => {
+    const c = incEstatusColors(s);
+    const act = s === estActual;
+    return `<button type="button" onclick="event.stopPropagation();waIncPickEst_('${_botcEsc(id)}','${_botcEsc(s)}')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1.5px solid ${act ? c.fg : '#e2e8f0'};background:${act ? c.bg : '#fff'};color:${act ? c.fg : '#334155'};border-radius:999px;font-size:10px;font-weight:${act?'800':'600'};cursor:pointer">${_botcEsc(s)}</button>`;
+  }).join('');
+  const nivelOpts = INC_NIVEL_ORDER.map(n => {
+    const d = incNivelDot(n);
+    const act = n === nivelActual;
+    return `<button type="button" onclick="event.stopPropagation();waIncPickNivel_('${_botcEsc(id)}','${_botcEsc(n)}')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1.5px solid ${act ? d : '#e2e8f0'};background:${act ? '#f8fafc' : '#fff'};border-radius:999px;font-size:10px;font-weight:${act?'800':'600'};color:#334155;cursor:pointer">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${d}"></span>${_botcEsc(n)}</button>`;
+  }).join('');
+  return `
+    <div class="wa-inc-menu" data-wa-inc-menu-id="${_botcEsc(id)}" data-wa-inc-menu-kind="est"
+         style="display:none;margin-top:6px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap">${estOpts}</div>
+    <div class="wa-inc-menu" data-wa-inc-menu-id="${_botcEsc(id)}" data-wa-inc-menu-kind="nivel"
+         style="display:none;margin-top:6px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap">${nivelOpts}</div>`;
+}
+window.waIncToggleMenu_ = function(id, kind) {
+  // Cierra todos los menús WA-inc que no sean el target.
+  document.querySelectorAll('.wa-inc-menu').forEach(m => {
+    const mid = m.getAttribute('data-wa-inc-menu-id');
+    const mk  = m.getAttribute('data-wa-inc-menu-kind');
+    if (mid === id && mk === kind) {
+      m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+    } else {
+      m.style.display = 'none';
+    }
+  });
+};
+function _waCloseIncMenus_(id) {
+  document.querySelectorAll(`.wa-inc-menu[data-wa-inc-menu-id="${CSS.escape(id)}"]`)
+    .forEach(m => { m.style.display = 'none'; });
+}
+window.waIncPickEst_ = function(id, estatus) {
+  _waCloseIncMenus_(id);
+  incQuickSetEstatus(id, estatus);
+};
+window.waIncPickNivel_ = function(id, nivel) {
+  _waCloseIncMenus_(id);
+  incQuickSetNivel(id, nivel);
+};
+
+// ─── Panel "Ver mensaje" en cada card de reporte (INC + OBJ) ────────────
+// Muestra un select con los templates admin del alojamiento; al elegir,
+// pinta preview + inputs de placeholders_custom + botón Enviar ahora.
+function _waEnsureReportMsgState_(forceReload) {
+  const st = window.__waModalState || (window.__waModalState = {});
+  if (!st.reportMsg) st.reportMsg = {}; // { [cardKey]: { open, tplId, customVals, editedBody } }
+  const cur = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || null;
+  const isEmpty = !cur || Object.keys(cur).length === 0;
+  if (forceReload && window.WA_ADMIN) {
+    WA_ADMIN.adminTemplates = null;
+    WA_ADMIN.adminTemplatesLoading = null;
+    window.__waReportTplsLoading = false;
+  }
+  if (typeof waEnsureAdminTemplates_ === 'function' && (isEmpty || forceReload) && !window.__waReportTplsLoading) {
+    window.__waReportTplsLoading = true;
+    waEnsureAdminTemplates_().then(() => { window.__waReportTplsLoading = false; try { _waRepaint(); } catch(_){} }).catch(() => { window.__waReportTplsLoading = false; });
+  }
+  return st.reportMsg;
+}
+window.waReportReloadTpls_ = function() { _waEnsureReportMsgState_(true); };
+function _waReportCardKey_(kind, id) { return `${kind}:${id}`; }
+
+function _waBuildReportMsgPanel_(kind, id, row) {
+  const st = window.__waModalState || {};
+  const cardKey = _waReportCardKey_(kind, id);
+  const store = (st.reportMsg || (st.reportMsg = {}));
+  const panel = store[cardKey] || {};
+  if (!panel.open) return '';
+  const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+  // Mostrar TODAS las plantillas del sheet WA_Templates, incluidas las
+  // deshabilitadas (marcadas con · deshabilitada en el label). Solo omito
+  // las responsivas — esas se dispararán por eventos, no las eliges a mano.
+  const tpls = Object.values(adminMap)
+    .filter(t => t.responsivo !== true)
+    .sort((a,b) => String(a.nombre||'').localeCompare(String(b.nombre||''),'es'));
+  const emptyHint = !tpls.length
+    ? (Object.keys(adminMap).length === 0
+        ? '⏳ Cargando plantillas…'
+        : 'Sin plantillas aplicables — usa el botón 🔄')
+    : '— Elegir plantilla —';
+  const options = [`<option value="">${_botcEsc(emptyHint)}</option>`]
+    .concat(tpls.map(t => `<option value="${_botcEsc(t.id)}" ${panel.tplId===t.id?'selected':''}>${_botcEsc(t.nombre || t.id)}${t.enabled === false ? ' · deshabilitada' : ''}</option>`))
+    .join('');
+  const tpl = panel.tplId ? adminMap[panel.tplId] : null;
+  let phInputs = '', preview = '';
+  if (tpl) {
+    const customPh = (typeof _waParseTplCustomPh_ === 'function') ? (_waParseTplCustomPh_(tpl) || []) : [];
+    const vals = panel.customVals || {};
+    const editing = panel.phEditing || {};
+    phInputs = customPh.map(ph => {
+      const nm = String(ph.name || ph.key || '');
+      const saved = vals[nm] != null ? vals[nm] : String(ph.value || '');
+      const inEdit = !!editing[nm];
+      // Referencias id-safe para leer el input en Guardar.
+      const inputId = `wa-ph-in-${_botcEsc(kind)}-${_botcEsc(id)}-${_botcEsc(nm)}`.replace(/[^a-zA-Z0-9_-]/g,'_');
+      const label = `<label style="display:block;font-size:10px;font-weight:700;color:#475569;margin-bottom:2px">{{${_botcEsc(nm)}}}</label>`;
+      if (inEdit) {
+        return `<div style="margin-bottom:8px">
+          ${label}
+          <div style="display:flex;gap:6px;align-items:stretch">
+            <input id="${inputId}" type="text" value="${_botcEsc(saved)}" autofocus
+              style="flex:1;padding:6px 8px;font-size:12px;border:1px solid #f59e0b;border-radius:6px;box-sizing:border-box;background:#fffbeb">
+            <button type="button" onclick="event.stopPropagation();waReportSavePh_('${_botcEsc(kind)}','${_botcEsc(id)}','${_botcEsc(nm)}','${inputId}')"
+              style="padding:5px 10px;font-size:11px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">💾 Guardar</button>
+            <button type="button" onclick="event.stopPropagation();waReportCancelPh_('${_botcEsc(kind)}','${_botcEsc(id)}','${_botcEsc(nm)}')"
+              style="padding:5px 10px;font-size:11px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;cursor:pointer;font-weight:700">↩ Cancelar</button>
+          </div>
+        </div>`;
+      }
+      return `<div style="margin-bottom:8px">
+        ${label}
+        <div style="display:flex;gap:6px;align-items:stretch">
+          <div style="flex:1;padding:6px 8px;font-size:12px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;min-height:26px;color:${saved ? '#0f172a' : '#94a3b8'};font-style:${saved ? 'normal' : 'italic'}">${saved ? _botcEsc(saved) : '(vacío)'}</div>
+          <button type="button" onclick="event.stopPropagation();waReportEditPh_('${_botcEsc(kind)}','${_botcEsc(id)}','${_botcEsc(nm)}')"
+            style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">✏️ Editar</button>
+        </div>
+      </div>`;
+    }).join('');
+    // Resolver named placeholders + custom values sobre el body.
+    let body = String(tpl.body || '');
+    // Aplica custom vals primero.
+    Object.keys(vals).forEach(k => { body = body.split(`{{${k}}}`).join(String(vals[k] || '')); });
+    const bk = st.b || {};
+    if (typeof _waResolveNamedPlaceholders_ === 'function') {
+      try { body = _waResolveNamedPlaceholders_(body, bk, []); } catch(_){}
+    }
+    if (panel.editedBody != null) body = panel.editedBody;
+    preview = panel.editedBody != null
+      ? `<textarea oninput="waReportEditBody_('${_botcEsc(kind)}','${_botcEsc(id)}',this.value)" rows="6"
+          style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:8px;box-sizing:border-box;resize:vertical;font-family:inherit;background:#fffbeb">${_botcEsc(body)}</textarea>`
+      : `<div style="padding:8px 10px;background:#dcf7c5;border-radius:10px 10px 10px 4px;font-size:12px;white-space:pre-wrap;line-height:1.4;color:#0f172a">${_botcEsc(body)}</div>`;
+  }
+  return `
+    <div class="wa-report-msg-panel" style="margin-top:10px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px" onclick="event.stopPropagation()">
+      <div style="font-size:10px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">📩 Mensaje</div>
+      ${tpl ? `<div>${phInputs}</div>
+        <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center">
+          <label style="font-size:10px;font-weight:700;color:#475569">Previa</label>
+          ${panel.editedBody == null
+            ? `<button onclick="waReportEnterEdit_('${_botcEsc(kind)}','${_botcEsc(id)}')" style="padding:2px 8px;font-size:10px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">✏️ Editar libre</button>`
+            : `<button onclick="waReportResetEdit_('${_botcEsc(kind)}','${_botcEsc(id)}')" style="padding:2px 8px;font-size:10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;cursor:pointer;font-weight:700">↩ Restaurar</button>`}
+        </div>
+        <div style="margin-top:4px">${preview}</div>
+        <div style="margin-top:10px;text-align:right">
+          <button onclick="waReportSendNow_('${_botcEsc(kind)}','${_botcEsc(id)}')" style="padding:7px 14px;background:#25d366;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">📤 Enviar ahora</button>
+        </div>` : `<div style="font-size:11px;color:#94a3b8;font-style:italic">Sin plantilla configurada para este estado. Crea "REPORTE: alta" o "REPORTE: resuelto" en Templates.</div>`}
+    </div>`;
+}
+
+// Devuelve el id del template admin que aplica según el estado del reporte.
+// Nuevo → "REPORTE: alta"; Resuelto → "REPORTE: resuelto".
+function _waAutoPickReportTplId_(kind, id) {
+  const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+  if (!Object.keys(adminMap).length) return null;
+  let estado = '';
+  if (kind === 'inc') {
+    const r = (INC_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+    if (r) estado = incNormalizeEstatus(r['Estatus']);
+  } else if (kind === 'rt') {
+    const r = (RT_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+    if (r) {
+      const key = _rtNormalizeEstado(r['Estado']);
+      const meta = RT_ESTADOS.find(e => e.key === key);
+      estado = meta ? meta.label : key;
+    }
+  }
+  const wantSuffix = estado === 'Nuevo' ? 'alta'
+                   : estado === 'Resuelto' ? 'resuelto'
+                   : '';
+  if (!wantSuffix) return null;
+  const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g,' ').trim();
+  const wantName = `reporte: ${wantSuffix}`;
+  const found = Object.values(adminMap).find(t => {
+    const n = norm(t.nombre);
+    // Acepta "REPORTE: alta", "REPORTE alta", "Reporte - alta", etc.
+    return n === wantName || n === `reporte ${wantSuffix}` || (n.startsWith('reporte') && n.endsWith(wantSuffix));
+  });
+  return found ? found.id : null;
+}
+window.waReportToggleMsg_ = function(kind, id) {
+  _waEnsureReportMsgState_();
+  const st = window.__waModalState;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  const opening = !cur.open;
+  const next = Object.assign({}, cur, { open: opening });
+  // Al abrir por primera vez y sin plantilla elegida, auto-seleccionar
+  // según el estado del reporte.
+  if (opening && !next.tplId) {
+    const autoId = _waAutoPickReportTplId_(kind, id);
+    if (autoId) {
+      next.tplId = autoId;
+      next.customVals = {};
+      next.editedBody = null;
+    }
+  }
+  st.reportMsg[key] = next;
+  _waRepaint();
+  // Si los templates aún no cargaron, reintentar la auto-selección tras carga.
+  if (opening && !next.tplId) {
+    const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+    if (!Object.keys(adminMap).length) {
+      const tick = () => {
+        const now = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+        if (!Object.keys(now).length) return; // aún nada
+        const auto = _waAutoPickReportTplId_(kind, id);
+        if (auto) {
+          const s = (window.__waModalState && window.__waModalState.reportMsg) || {};
+          const c = s[key] || {};
+          if (!c.tplId) {
+            s[key] = Object.assign({}, c, { tplId: auto, customVals: {}, editedBody: null });
+            try { _waRepaint(); } catch(_){}
+          }
+        }
+      };
+      setTimeout(tick, 400);
+      setTimeout(tick, 1200);
+    }
+  }
+};
+window.waReportPickTpl_ = function(kind, id, tplId) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  st.reportMsg[key] = Object.assign({}, cur, { tplId, customVals: {}, editedBody: null });
+  _waRepaint();
+};
+window.waReportSetCustomPh_ = function(kind, id, name, val) {
+  // Compat: setter directo sin repaint (para casos no-UI).
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  cur.customVals = Object.assign({}, cur.customVals || {}, { [name]: val });
+  st.reportMsg[key] = cur;
+};
+window.waReportEditPh_ = function(kind, id, name) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  cur.phEditing = Object.assign({}, cur.phEditing || {}, { [name]: true });
+  st.reportMsg[key] = cur;
+  _waRepaint();
+};
+window.waReportCancelPh_ = function(kind, id, name) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  const nx = Object.assign({}, cur.phEditing || {}); delete nx[name];
+  cur.phEditing = nx;
+  st.reportMsg[key] = cur;
+  _waRepaint();
+};
+window.waReportSavePh_ = function(kind, id, name, inputId) {
+  const st = window.__waModalState; if (!st) return;
+  const inp = document.getElementById(inputId);
+  const val = inp ? String(inp.value || '') : '';
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  cur.customVals = Object.assign({}, cur.customVals || {}, { [name]: val });
+  const nx = Object.assign({}, cur.phEditing || {}); delete nx[name];
+  cur.phEditing = nx;
+  // Si estaba en modo "editar libre" del textarea, resetear para que refleje
+  // el nuevo valor sustituido en el preview.
+  cur.editedBody = null;
+  st.reportMsg[key] = cur;
+  _waRepaint();
+};
+window.waReportEnterEdit_ = function(kind, id) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+  const tpl = cur.tplId ? adminMap[cur.tplId] : null;
+  if (!tpl) return;
+  let body = String(tpl.body || '');
+  const vals = cur.customVals || {};
+  Object.keys(vals).forEach(k => { body = body.split(`{{${k}}}`).join(String(vals[k] || '')); });
+  if (typeof _waResolveNamedPlaceholders_ === 'function') {
+    try { body = _waResolveNamedPlaceholders_(body, st.b || {}, []); } catch(_){}
+  }
+  cur.editedBody = body;
+  st.reportMsg[key] = cur;
+  _waRepaint();
+};
+window.waReportEditBody_ = function(kind, id, val) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  cur.editedBody = val;
+  st.reportMsg[key] = cur;
+};
+window.waReportResetEdit_ = function(kind, id) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = st.reportMsg[key] || {};
+  cur.editedBody = null;
+  st.reportMsg[key] = cur;
+  _waRepaint();
+};
+window.waReportSendNow_ = async function(kind, id) {
+  const st = window.__waModalState; if (!st) return;
+  const key = _waReportCardKey_(kind, id);
+  const cur = (st.reportMsg && st.reportMsg[key]) || {};
+  const adminMap = (window.WA_ADMIN && WA_ADMIN.adminTemplates) || {};
+  const tpl = cur.tplId ? adminMap[cur.tplId] : null;
+  if (!tpl) { alert('Elige una plantilla primero.'); return; }
+  let body = cur.editedBody;
+  if (body == null) {
+    body = String(tpl.body || '');
+    const vals = cur.customVals || {};
+    Object.keys(vals).forEach(k => { body = body.split(`{{${k}}}`).join(String(vals[k] || '')); });
+    if (typeof _waResolveNamedPlaceholders_ === 'function') {
+      try { body = _waResolveNamedPlaceholders_(body, st.b || {}, []); } catch(_){}
+    }
+  }
+  if (!body || !body.trim()) { alert('Mensaje vacío.'); return; }
+  const rcps = (st.recipients || []).filter(Boolean);
+  if (!rcps.length) { alert('Sin destinatario para enviar.'); return; }
+  if (!confirm(`¿Enviar mensaje a ${rcps.join(', ')}?`)) return;
+  try {
+    // Persistir como WA_Scheduled con tipo='report-{kind}-{tplId}' para que
+    // aparezca luego en pestaña Todos como card de mensaje enviado. Detonado
+    // por acción → NO aparece en Programados (filtrado por _waIsReportTriggeredCustom_).
+    // Incluye reportId en el tipo para poder resolver el reporte al pintar
+    // la card en el timeline. Formato: report-{kind}-{reportId}
+    // Estado del reporte al momento del envío (para pintar chip en la card
+    // del timeline). Formato: report-{kind}-{reportId}-{estadoSlug}
+    let estadoSlug = '';
+    try {
+      if (kind === 'inc') {
+        const r = (INC_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+        if (r) estadoSlug = incNormalizeEstatus(r['Estatus']).toLowerCase().replace(/\s+/g,'_');
+      } else if (kind === 'rt') {
+        const r = (RT_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+        if (r) estadoSlug = _rtNormalizeEstado(r['Estado']);
+      } else if (kind === 'obj') {
+        const r = (OBJ_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+        if (r) estadoSlug = String(r['Fecha_entregado']||'').slice(0,10) ? 'entregado' : 'pendiente';
+      }
+    } catch(_){}
+    const tipo = estadoSlug ? `report-${kind}-${id}-${estadoSlug}` : `report-${kind}-${id}`;
+    // asunto = título del reporte (mismo que se muestra en la card).
+    // Fallback: nombre del template si no encontramos el reporte.
+    let asunto = '';
+    try {
+      if (kind === 'inc') {
+        const r = (INC_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+        if (r) asunto = [String(r['Motivos']||''), String(r['Clasificacion']||'')].filter(Boolean).join(' — ');
+      } else if (kind === 'obj') {
+        const r = (OBJ_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+        if (r) {
+          const cat = String(r['Categoria']||'').trim();
+          const catOtro = String(r['Categoria_otro']||'').trim();
+          asunto = cat === 'Otro' ? `Otro: ${catOtro || '—'}` : cat;
+        }
+      } else if (kind === 'rt') {
+        const r = (RT_STATE.list || []).find(x => String(x['ID']||'') === String(id));
+        if (r) asunto = String(r.Titulo || r.Folio || '');
+      }
+    } catch(_){}
+    if (!asunto) asunto = String(tpl.nombre || tpl.id || 'Reporte');
+    const nowIso = new Date().toISOString();
+    const toCsv = rcps.join(',');
+    const addR = await fetch('https://api.check-inn.mx/wa/scheduled-add', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId: st.bookingId, to: toCsv, scheduledAt: nowIso, body, asunto, tipo }),
+    });
+    const addJ = await addR.json();
+    if (!addJ.ok) throw new Error(addJ.error || 'no se pudo guardar el mensaje');
+    let statusFinal = 'pending', sentAt = '', sid = '';
+    const sendR = await fetch('https://api.check-inn.mx/wa/scheduled-send-now', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: addJ.id }),
+    });
+    const sendJ = await sendR.json();
+    if (sendJ.ok) { statusFinal = sendJ.status || 'sent'; sentAt = new Date().toISOString(); sid = sendJ.sid || ''; }
+    else statusFinal = 'failed';
+    st.scheduledItems = st.scheduledItems || [];
+    st.scheduledItems.push({
+      id: addJ.id, booking_id: st.bookingId, tipo, to: toCsv,
+      scheduled_at: nowIso, body, asunto, status: statusFinal, sent_at: sentAt, sid,
+    });
+    if (statusFinal === 'failed') {
+      alert('El mensaje se guardó pero falló al enviarse.');
+    } else {
+      alert('✅ Mensaje enviado.');
+      cur.open = false;
+      st.reportMsg[key] = cur;
+    }
+    _waRepaint();
+  } catch (e) { alert('❌ ' + (e.message || e)); }
+};
+
+// Menús desplegables (estatus + prioridad) para una card RT del timeline WA.
+function _waRtMenusHtml_(id, estActualKey, prioActualKey) {
+  const estOpts = RT_ESTADOS.map(s => {
+    const act = s.key === estActualKey;
+    return `<button type="button" onclick="event.stopPropagation();waRtPickEst_('${_botcEsc(id)}','${_botcEsc(s.key)}')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1.5px solid ${act ? s.fg : '#e2e8f0'};background:${act ? s.bg : '#fff'};color:${act ? s.fg : '#334155'};border-radius:999px;font-size:10px;font-weight:${act?'800':'600'};cursor:pointer">${_botcEsc(s.label)}</button>`;
+  }).join('');
+  const prioOpts = RT_PRIORIDADES.map(p => {
+    const act = p.key === prioActualKey;
+    return `<button type="button" onclick="event.stopPropagation();waRtPickPrio_('${_botcEsc(id)}','${_botcEsc(p.key)}')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1.5px solid ${act ? p.color : '#e2e8f0'};background:${act ? '#f8fafc' : '#fff'};border-radius:999px;font-size:10px;font-weight:${act?'800':'600'};color:#334155;cursor:pointer">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${p.color}"></span>${_botcEsc(p.label)}</button>`;
+  }).join('');
+  return `
+    <div class="wa-rt-menu" data-wa-rt-menu-id="${_botcEsc(id)}" data-wa-rt-menu-kind="est"
+         style="display:none;margin-top:6px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap">${estOpts}</div>
+    <div class="wa-rt-menu" data-wa-rt-menu-id="${_botcEsc(id)}" data-wa-rt-menu-kind="prio"
+         style="display:none;margin-top:6px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap">${prioOpts}</div>`;
+}
+window.waRtToggleMenu_ = function(id, kind) {
+  document.querySelectorAll('.wa-rt-menu').forEach(m => {
+    const mid = m.getAttribute('data-wa-rt-menu-id');
+    const mk  = m.getAttribute('data-wa-rt-menu-kind');
+    if (mid === id && mk === kind) {
+      m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+    } else {
+      m.style.display = 'none';
+    }
+  });
+};
+function _waCloseRtMenus_(id) {
+  document.querySelectorAll(`.wa-rt-menu[data-wa-rt-menu-id="${CSS.escape(id)}"]`)
+    .forEach(m => { m.style.display = 'none'; });
+}
+async function _rtQuickPatch(id, patch, opts) {
+  opts = opts || {};
+  const row = (RT_STATE.list||[]).find(r => String(r['ID']||'') === String(id));
+  if (!row) { alert('No se encontró el reporte técnico.'); return; }
+  if (!opts.skipConfirm) {
+    const estMap = Object.fromEntries(RT_ESTADOS.map(e => [e.key, e.label]));
+    const prioMap = Object.fromEntries(RT_PRIORIDADES.map(p => [p.key, p.label]));
+    const parts = Object.keys(patch).map(k => {
+      const v = patch[k];
+      const h = k === 'Estado' ? (estMap[v] || v) : k === 'Prioridad' ? (prioMap[v] || v) : v;
+      return `${k}="${h}"`;
+    });
+    if (!confirm(`¿Actualizar ${parts.join(', ')}?`)) return;
+  }
+  // Optimista: aplicar cambios y repintar YA. Si el server falla, revertir.
+  const prev = {};
+  Object.keys(patch).forEach(k => { prev[k] = row[k]; row[k] = patch[k]; });
+  const repaintAll = () => {
+    try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
+    try { if (typeof rtRenderList === 'function' && document.getElementById('rt-cards-list')) rtRenderList(); } catch(_){}
+    // Si el panel lateral (proyecto / calendario) muestra esta tarea, repintarlo.
+    try {
+      const side = document.getElementById('rt-cal-side-panel');
+      if (side && side.style.display !== 'none' && side.querySelector(`[data-rt-card-id="${CSS.escape(String(id))}"]`)) {
+        const projs = _rtLoadProjects_();
+        const proj = projs.find(p => (p.rtIds||[]).indexOf(String(id)) >= 0);
+        if (proj) rtProjOpen_(proj.id);
+      }
+    } catch(_){}
+  };
+  repaintAll();
+  try {
+    const payload = Object.assign({ ID: String(id) }, patch);
+    const r = await fetch('https://api.check-inn.mx/reportes-tecnicos-upsert', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || j.raw || 'Error al actualizar');
+    const key = Object.keys(patch)[0];
+    const val = patch[key];
+    // Si el panel "Ver mensaje" de esta RT está abierto y cambió el Estado,
+    // re-auto-seleccionar la plantilla adecuada.
+    if (key === 'Estado') {
+      try {
+        const s = (window.__waModalState && window.__waModalState.reportMsg) || null;
+        const mkey = `rt:${id}`;
+        if (s && s[mkey] && s[mkey].open) {
+          const auto = _waAutoPickReportTplId_('rt', id);
+          if (auto) s[mkey] = Object.assign({}, s[mkey], { tplId: auto, customVals: {}, editedBody: null });
+        }
+      } catch(_){}
+    }
+  } catch (e) {
+    // Revertir cambios optimistas si el server rechaza.
+    Object.keys(prev).forEach(k => { row[k] = prev[k]; });
+    repaintAll();
+    alert('Error al guardar: ' + (e.message || e));
+  }
+}
+window.waRtPickEst_ = function(id, estKey) {
+  _waCloseRtMenus_(id);
+  _rtQuickPatch(id, { Estado: estKey });
+};
+window.waRtPickPrio_ = function(id, prioKey) {
+  _waCloseRtMenus_(id);
+  _rtQuickPatch(id, { Prioridad: prioKey });
+};
+
+// Devuelve true si el reporte {kind,id} ya generó al menos un mensaje enviado
+// (existe scheduledItem con tipo=report-{kind}-{id}[-estado] y status sent/*).
+function _waReportHasSentMsg_(kind, id) {
+  const st = window.__waModalState; if (!st) return false;
+  const items = st.scheduledItems || [];
+  const sentSet = ['queued','sending','sent','delivered','read','accepted'];
+  const prefix = `report-${kind}-${id}`;
+  for (const cs of items) {
+    const t = String(cs.tipo || '');
+    if (t !== prefix && !t.startsWith(prefix + '-')) continue;
+    if (sentSet.indexOf(String(cs.status||'').toLowerCase()) >= 0) return true;
+  }
+  return false;
+}
+
+function _waRenderReportTimelineItem_(it) {
+  const r = it.row || {};
+  const kind = it.kindReport; // 'inc' | 'obj'
+  const tsCreadoRaw = String(r['Timestamp'] || r['timestamp'] || '').trim();
+  const tsEditRaw   = String(r['Updated_at'] || r['updated_at'] || '').trim();
+  const isEdited = !!tsEditRaw && tsEditRaw !== tsCreadoRaw;
+  const ts = it.sortKey;
+  let tsLabel = '';
+  if (ts) {
+    const d = new Date(ts);
+    if (!isNaN(d.getTime())) tsLabel = _waFmtDateTimeEs(d.toISOString());
+  }
+  const timelineText = isEdited
+    ? `<span style="color:#7c3aed;font-weight:700">✎ Editado el ${_botcEsc(tsLabel)}</span>`
+    : `<span style="color:#0f172a;font-weight:700">📋 Creado el ${_botcEsc(tsLabel)}</span>`;
+  // Config visual por tipo.
+  let cfg;
+  if (kind === 'inc') {
+    const nivel = incNormalizeNivel(r['Nivel']);
+    const estatus = incNormalizeEstatus(r['Estatus']);
+    const motivoCls = (typeof incMotivoColorClass === 'function') ? incMotivoColorClass(r['Motivos']||'') : 'default';
+    const BG = { Limpieza:'#06b6d4', Mantenimiento:'#f59e0b', Insumos:'#8b5cf6', default:'#dc2626' };
+    const headerBg = BG[motivoCls] || BG.default;
+    const _estC = incEstatusColors(estatus);
+    const estBg = _estC.bg, estCl = _estC.fg;
+    const nivelDot = incNivelDot(nivel);
+    const titulo = [String(r['Motivos']||''), String(r['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Reporte';
+    const incId = String(r['ID']||'');
+    cfg = {
+      checkBg:'#dc2626', checkFg:'#fff', checkIcon:'🚨',
+      cardBg:'#fef2f2', cardBorder:'#fca5a5',
+      chipLabel:'INCIDENCIA', chipBg:'#fee2e2', chipFg:'#991b1b',
+      titulo,
+      // Chip botón de PRIORIDAD junto al título (con dot semaforizado).
+      titleAccent: `<span data-wa-inc-id="${_botcEsc(incId)}" data-wa-inc-nivel-chip="1" onclick="event.stopPropagation();waIncToggleMenu_('${_botcEsc(incId)}','nivel')"
+          style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 6px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;margin-left:6px;cursor:pointer;vertical-align:middle"
+          title="Cambiar prioridad">
+          <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${nivelDot}"></span>
+          <span style="font-size:10px;font-weight:800;color:#334155;letter-spacing:.02em;text-transform:none">${_botcEsc(nivel)}</span>
+          <span style="font-size:8px;color:#94a3b8">▾</span>
+        </span>`,
+      estadoBg: estBg, estadoFg: estCl, estadoLabel: estatus,
+      // Chip botón de ESTATUS interactivo (reemplaza el chip readonly).
+      estadoInteractive: `<span data-wa-inc-id="${_botcEsc(incId)}" data-wa-inc-est-chip="1" onclick="event.stopPropagation();waIncToggleMenu_('${_botcEsc(incId)}','est')"
+          style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:${estBg};color:${estCl};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap;cursor:pointer;border:1.5px solid ${estCl}22"
+          title="Cambiar estatus">
+          ${_botcEsc(estatus)} <span style="font-size:8px;opacity:.75">▾</span>
+        </span>`,
+      headerBg,
+      dataAttr: `data-lg-inc-id="${_botcEsc(incId)}"`,
+      incId,
+    };
+  } else if (kind === 'obj') {
+    const cat = String(r['Categoria']||'').trim();
+    const catOtro = String(r['Categoria_otro']||'').trim();
+    const catLabel = cat === 'Otro' ? `Otro: ${catOtro || '—'}` : (cat || 'Sin categoría');
+    const entregado = !!String(r['Fecha_entregado']||'').slice(0,10);
+    cfg = {
+      checkBg:'#059669', checkFg:'#fff', checkIcon:'🎒',
+      cardBg:'#ecfdf5', cardBorder:'#86efac',
+      chipLabel:'OBJETO PERDIDO', chipBg:'#d1fae5', chipFg:'#065f46',
+      titulo: catLabel,
+      titleAccent: '',
+      estadoBg: entregado ? '#dcfce7' : '#fef3c7',
+      estadoFg: entregado ? '#166534' : '#92400e',
+      estadoLabel: entregado ? '✓ Entregado' : '⏳ Pendiente',
+      headerBg: '#059669',
+      dataAttr: `data-lg-obj-id="${_botcEsc(String(r['ID']||''))}"`,
+    };
+  } else {
+    // kind === 'rt' — Reporte Técnico
+    const est = RT_ESTADOS.find(e => e.key === _rtNormalizeEstado(r.Estado)) || RT_ESTADOS[0];
+    const prio = RT_PRIORIDADES.find(p => p.key === _rtNormalizePrio(r.Prioridad)) || RT_PRIORIDADES[3];
+    const titulo = String(r.Titulo || r.Folio || 'Reporte técnico');
+    const rtId = String(r['ID']||'');
+    cfg = {
+      checkBg:'#2563eb', checkFg:'#fff', checkIcon:'🔧',
+      cardBg:'#eff6ff', cardBorder:'#93c5fd',
+      chipLabel:'REPORTE TÉCNICO', chipBg:'#dbeafe', chipFg:'#1e40af',
+      titulo,
+      titleAccent: `<span data-wa-rt-id="${_botcEsc(rtId)}" data-wa-rt-prio-chip="1"
+          onclick="event.stopPropagation();waRtToggleMenu_('${_botcEsc(rtId)}','prio')"
+          style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 6px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;margin-left:6px;cursor:pointer;vertical-align:middle"
+          title="Cambiar prioridad">
+          <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${prio.color}"></span>
+          <span style="font-size:10px;font-weight:800;color:#334155;text-transform:none;letter-spacing:.02em">${_botcEsc(prio.label)}</span>
+          <span style="font-size:8px;color:#94a3b8">▾</span>
+        </span>`,
+      estadoBg: est.bg, estadoFg: est.fg, estadoLabel: est.label,
+      estadoInteractive: `<span data-wa-rt-id="${_botcEsc(rtId)}" data-wa-rt-est-chip="1"
+          onclick="event.stopPropagation();waRtToggleMenu_('${_botcEsc(rtId)}','est')"
+          style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:${est.bg};color:${est.fg};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap;cursor:pointer;border:1.5px solid ${est.fg}22"
+          title="Cambiar estatus">
+          ${_botcEsc(est.label)} <span style="font-size:8px;opacity:.75">▾</span>
+        </span>`,
+      headerBg: '#2563eb',
+      dataAttr: `data-lg-rt-id="${_botcEsc(rtId)}"`,
+      rtId, rtEstKey: est.key, rtPrioKey: prio.key,
+    };
+  }
+  const desc = String(r['Descripcion'] || '').trim();
+  return `
+    <div style="margin-bottom:6px">
+      <div style="font-size:10px;font-weight:700;color:#64748b;padding:0 2px 4px 34px">${timelineText}${isEdited && tsCreadoRaw ? ` <span style="color:#94a3b8;font-weight:600">· creado ${_botcEsc(_waFmtDateTimeEs(tsCreadoRaw.replace(' ','T')))}</span>` : ''}</div>
+      <div style="display:flex;gap:10px;align-items:stretch" ${cfg.dataAttr} role="button" tabindex="0" style="cursor:pointer">
+        <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;width:24px">
+          ${(() => {
+            const rid = String(r['ID']||'');
+            const sent = _waReportHasSentMsg_(kind, rid);
+            const bg = sent ? '#16a34a' : cfg.checkBg;
+            const fg = sent ? '#ffffff' : cfg.checkFg;
+            const ic = sent ? '✓' : cfg.checkIcon;
+            const ti = sent ? 'Mensaje ya enviado para este reporte' : cfg.chipLabel;
+            return `<div title="${_botcEsc(ti)}" style="width:22px;height:22px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">${ic}</div>`;
+          })()}
+          <div style="flex:1;width:2px;background:#e5e7eb;min-height:14px"></div>
+        </div>
+        <div style="flex:1;background:${cfg.cardBg};border:1px solid ${cfg.cardBorder};border-radius:12px;overflow:hidden;cursor:pointer" ${cfg.dataAttr}>
+          <div style="background:${cfg.headerBg};height:4px"></div>
+          <div style="padding:12px 14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+              <div style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.02em;flex:1;min-width:0">
+                ${_botcEsc(cfg.titulo)}
+                ${cfg.titleAccent}
+                <span style="font-size:9px;color:${cfg.chipFg};background:${cfg.chipBg};padding:1px 6px;border-radius:999px;margin-left:4px;text-transform:none;letter-spacing:0;font-weight:800">${cfg.chipLabel}</span>
+              </div>
+              ${cfg.estadoInteractive || `<span style="padding:3px 10px;background:${cfg.estadoBg};color:${cfg.estadoFg};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap">${_botcEsc(cfg.estadoLabel)}</span>`}
+            </div>
+            ${cfg.incId ? _waIncMenusHtml_(cfg.incId, cfg.estadoLabel, incNormalizeNivel(r['Nivel'])) : ''}
+            ${cfg.rtId ? _waRtMenusHtml_(cfg.rtId, cfg.rtEstKey, cfg.rtPrioKey) : ''}
+            ${desc ? `<div style="font-size:11px;color:#475569;margin-top:4px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${_botcEsc(desc)}</div>` : ''}
+            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+              <button data-wa-report-msg-btn="1"
+                onclick="event.stopPropagation();waReportToggleMsg_('${_botcEsc(kind)}','${_botcEsc(String(r['ID']||''))}')"
+                style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid ${cfg.cardBorder};border-radius:6px;font-weight:700;color:#0f172a;cursor:pointer">▼ Ver mensaje</button>
+            </div>
+            ${_waBuildReportMsgPanel_(kind, String(r['ID']||''), r)}
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+/** Devuelve HTML de cards de reportes (inc + obj) que matchean UN booking
+ *  específico por propiedad + depto + rango de fechas. Se inyecta dentro
+ *  del acordeón abierto de la reserva. */
+function _waRenderReportsForBooking_(bk) {
+  if (!bk) return '';
+  const alojNormFn = (typeof alojNorm === 'function') ? alojNorm : (s => String(s||'').toLowerCase().trim());
+  const arrIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(bk.DateArrival) : '') || String((bk.__reservacion && bk.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = (typeof lgFmtDateUI === 'function' ? lgFmtDateUI(bk.DateDeparture) : '') || String((bk.__reservacion && bk.__reservacion['Fecha de salida']) || '').slice(0,10);
+  const propRaw = bk.PropiedadRaw || bk['Propiedad'] || (bk.__reservacion && bk.__reservacion['Propiedad']) || bk.PropertyName || '';
+  let deptRaw = bk.DepartamentoRaw || bk['# Departamento'] || (bk.__reservacion && bk.__reservacion['# Departamento']) || '';
+  if (!deptRaw) {
+    const rn = String(bk.RoomTypeName || '');
+    const m = rn.match(/#\s*([\w\-]+)\s*$/);
+    if (m) deptRaw = m[1];
+  }
+  if (!arrIso || !depIso || !propRaw || !deptRaw) return '';
+  const propN = alojNormFn(propRaw), deptN = alojNormFn(deptRaw);
+  const cards = [];
+  const incList = (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.list)) ? INC_STATE.list : [];
+  const objList = (typeof OBJ_STATE !== 'undefined' && Array.isArray(OBJ_STATE.list)) ? OBJ_STATE.list : [];
+  const rtList  = (typeof RT_STATE  !== 'undefined' && Array.isArray(RT_STATE.list))  ? RT_STATE.list  : [];
+  // Trigger de carga si están vacías (una sola vez por sesión).
+  if (!incList.length && typeof incLoadIncidencias === 'function' && typeof INC_STATE !== 'undefined' && !INC_STATE.__waLoadTriggered) {
+    INC_STATE.__waLoadTriggered = true;
+    incLoadIncidencias().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+  }
+  if (!objList.length && typeof objLoadObjetos === 'function' && typeof OBJ_STATE !== 'undefined' && !OBJ_STATE.__waLoadTriggered) {
+    OBJ_STATE.__waLoadTriggered = true;
+    objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+  }
+  if (typeof RT_STATE !== 'undefined' && !RT_STATE.loaded && typeof rtRefresh === 'function' && !RT_STATE.__waLoadTriggered) {
+    RT_STATE.__waLoadTriggered = true;
+    rtRefresh().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{});
+  }
+  // sortKey = fecha/hora de última actividad (Updated_at > Timestamp > Fecha).
+  // Formato ISO para que localeCompare ordene cronológicamente.
+  const activityKey = (r) => {
+    const cand = [r['Updated_at'], r['updated_at'], r['Timestamp'], r['timestamp'], r['Fecha'], r['Fecha_encontrado']]
+      .map(v => String(v || '').trim()).filter(Boolean);
+    return cand[0] || '';
+  };
+  incList.forEach(r => {
+    if (alojNormFn(r['Propiedad']) !== propN) return;
+    if (alojNormFn(r['# Departamento']) !== deptN) return;
+    const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+    if (!f || f < arrIso || f > depIso) return;
+    cards.push({ kind:'inc', row:r, sortKey: activityKey(r) });
+  });
+  objList.forEach(r => {
+    if (alojNormFn(r['Propiedad']) !== propN) return;
+    if (alojNormFn(r['# Departamento']) !== deptN) return;
+    const f = String(r['Fecha_encontrado'] || '').slice(0,10);
+    if (!f || f < arrIso || f > depIso) return;
+    cards.push({ kind:'obj', row:r, sortKey: activityKey(r) });
+  });
+  rtList.forEach(r => {
+    if (alojNormFn(r['Propiedad']) !== propN) return;
+    if (alojNormFn(r['# Departamento']) !== deptN) return;
+    const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
+    if (!f || f < arrIso || f > depIso) return;
+    cards.push({ kind:'rt', row:r, sortKey: activityKey(r) });
+  });
+  // Botón "+ Nuevo reporte" al final (misma UX que la pestaña Todos).
+  const newBtn = `<div style="text-align:center;margin-top:10px">
+    <button type="button" onclick="_waOpenReportPickerForBooking_('${_botcEsc(propRaw)}','${_botcEsc(deptRaw)}','${arrIso}','${depIso}')" style="padding:8px 16px;font-size:12px;background:#fff;color:#0f172a;border:1.5px dashed #cbd5e1;border-radius:8px;cursor:pointer;font-weight:800">➕ Nuevo reporte</button>
+  </div>`;
+  if (!cards.length) {
+    return `<div style="background:#fef3c7;border:1px dashed #fcd34d;border-radius:8px;padding:8px 10px;margin-bottom:10px">
+      <div style="font-size:10px;font-weight:800;color:#92400e;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">🚨 Reportes de esta reserva</div>
+      <div style="text-align:center;color:#94a3b8;font-size:11px;font-style:italic;padding:8px">Sin reportes</div>
+      ${newBtn}
+    </div>`;
+  }
+  cards.sort((a,b) => String(b.sortKey || '').localeCompare(String(a.sortKey || '')));
+  const html = cards.map(c => c.kind === 'inc' ? _waRenderIncCard_(c.row) : (c.kind === 'obj' ? _waRenderObjCard_(c.row) : _waRenderRtCard_(c.row))).join('');
+  return `
+    <div style="background:#fef3c7;border:1px dashed #fcd34d;border-radius:8px;padding:8px 10px;margin-bottom:10px">
+      <div style="font-size:10px;font-weight:800;color:#92400e;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">🚨 Reportes de esta reserva</div>
+      <div style="display:flex;flex-direction:column;gap:8px">${html}</div>
+      ${newBtn}
+    </div>`;
+}
+window._waOpenReportPickerForBooking_ = function(propRaw, deptRaw, arrIso, depIso) {
+  if (typeof lgOpenReportPicker === 'function') {
+    lgOpenReportPicker(propRaw, deptRaw, arrIso, depIso);
+  } else if (typeof _waOpenReportPickerForCurrentBooking_ === 'function') {
+    _waOpenReportPickerForCurrentBooking_();
+  }
+};
+
+function _waRenderIncCard_(row) {
+  const id = String(row['ID']||'');
+  const titulo = [String(row['Motivos']||''), String(row['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Reporte';
+  const propiedad = String(row['Propiedad']||'').trim();
+  const depto = String(row['# Departamento']||'').trim();
+  const aloj = String(row['Alojamiento']||'').trim() || (propiedad && depto ? `${propiedad} - #${depto}` : propiedad);
+  const fecha = String(row['Fecha']||row['Timestamp']||'').slice(0,10);
+  const nivel = incNormalizeNivel(row['Nivel']);
+  const estatus = incNormalizeEstatus(row['Estatus']);
+  const motivoCls = (typeof incMotivoColorClass === 'function') ? incMotivoColorClass(row['Motivos']||'') : 'default';
+  const BG = { Limpieza:'#06b6d4', Mantenimiento:'#f59e0b', Insumos:'#8b5cf6', default:'#64748b' };
+  const headerBg = BG[motivoCls] || BG.default;
+  const estC = incEstatusColors(estatus);
+  const nivelDot = incNivelDot(nivel);
+  const nivelChip = `<span data-wa-inc-id="${esc(id)}" data-wa-inc-nivel-chip="1"
+      onclick="event.stopPropagation();waIncToggleMenu_('${esc(id)}','nivel')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 6px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;cursor:pointer"
+      title="Cambiar prioridad">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${nivelDot}"></span>
+      <span style="font-size:10px;font-weight:800;color:#334155;text-transform:none;letter-spacing:.02em">${esc(nivel)}</span>
+      <span style="font-size:8px;color:#94a3b8">▾</span>
+    </span>`;
+  const estChip = `<span data-wa-inc-id="${esc(id)}" data-wa-inc-est-chip="1"
+      onclick="event.stopPropagation();waIncToggleMenu_('${esc(id)}','est')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:${estC.bg};color:${estC.fg};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap;cursor:pointer;border:1.5px solid ${estC.fg}22"
+      title="Cambiar estatus">
+      ${esc(estatus)} <span style="font-size:8px;opacity:.75">▾</span>
+    </span>`;
+  return `<div data-lg-inc-id="${esc(id)}" role="button" tabindex="0"
+    style="cursor:pointer;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.06);transition:transform .1s,box-shadow .1s">
+    <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.9;font-weight:800">🚨 INCIDENCIA</div>
+        <div style="font-size:13px;font-weight:800;margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span>${esc(titulo)}</span>
+          ${nivelChip}
+        </div>
+      </div>
+      ${estChip}
+    </div>
+    <div style="padding:10px 14px;background:#fff;font-size:12px;color:#475569;display:flex;flex-direction:column;gap:3px">
+      ${aloj ? `<div>📍 ${esc(aloj)}</div>` : ''}
+      ${fecha ? `<div>📅 ${esc(fecha)}</div>` : ''}
+      ${_waIncMenusHtml_(id, estatus, nivel)}
+      <div style="margin-top:6px">
+        <button data-wa-report-msg-btn="1"
+          onclick="event.stopPropagation();waReportToggleMsg_('inc','${esc(id)}')"
+          style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #fca5a5;border-radius:6px;font-weight:700;color:#0f172a;cursor:pointer">▼ Ver mensaje</button>
+      </div>
+      ${_waBuildReportMsgPanel_('inc', id, row)}
+    </div>
+  </div>`;
+}
+
+function _waRenderObjCard_(row) {
+  const id = String(row['ID']||'');
+  const cat = String(row['Categoria']||'').trim();
+  const catOtro = String(row['Categoria_otro']||'').trim();
+  const catLabel = cat === 'Otro' ? `Otro: ${catOtro || '—'}` : (cat || 'Sin categoría');
+  const propiedad = String(row['Propiedad']||'').trim();
+  const depto = String(row['# Departamento']||'').trim();
+  const aloj = String(row['Alojamiento']||'').trim() || (propiedad && depto ? `${propiedad} - #${depto}` : propiedad);
+  const fechaEnc = String(row['Fecha_encontrado']||'').slice(0,10);
+  const fechaEnt = String(row['Fecha_entregado']||'').slice(0,10);
+  const entregado = !!fechaEnt;
+  const headerBg = '#059669';
+  const estBg = entregado ? '#dcfce7' : '#fef3c7';
+  const estCl = entregado ? '#166534' : '#92400e';
+  const estLbl = entregado ? '✓ Entregado' : '⏳ Pendiente';
+  return `<div data-lg-obj-id="${esc(id)}" role="button" tabindex="0"
+    style="cursor:pointer;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.06);transition:transform .1s,box-shadow .1s">
+    <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.9;font-weight:800">🎒 OBJETO PERDIDO</div>
+        <div style="font-size:13px;font-weight:800;margin-top:2px">${esc(catLabel)}</div>
+      </div>
+      <span style="padding:3px 10px;background:${estBg};color:${estCl};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap">${esc(estLbl)}</span>
+    </div>
+    <div style="padding:10px 14px;background:#fff;font-size:12px;color:#475569;display:flex;flex-direction:column;gap:3px">
+      ${aloj ? `<div>📍 ${esc(aloj)}</div>` : ''}
+      ${fechaEnc ? `<div>📅 Encontrado: ${esc(fechaEnc)}</div>` : ''}
+      <div style="margin-top:6px">
+        <button data-wa-report-msg-btn="1"
+          onclick="event.stopPropagation();waReportToggleMsg_('obj','${esc(id)}')"
+          style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #86efac;border-radius:6px;font-weight:700;color:#0f172a;cursor:pointer">▼ Ver mensaje</button>
+      </div>
+      ${_waBuildReportMsgPanel_('obj', id, row)}
+    </div>
+  </div>`;
+}
+function _waRenderRtCard_(row) {
+  const id = String(row['ID']||'');
+  const titulo = String(row.Titulo || row.Folio || 'Reporte técnico');
+  const propiedad = String(row['Propiedad']||'').trim();
+  const depto = String(row['# Departamento']||'').trim();
+  const aloj = String(row['Alojamiento']||'').trim() || (propiedad && depto ? `${propiedad} - #${depto}` : propiedad);
+  const fecha = String(row['Fecha']||row['Timestamp']||'').slice(0,10);
+  const est = RT_ESTADOS.find(e => e.key === _rtNormalizeEstado(row.Estado)) || RT_ESTADOS[0];
+  const prio = RT_PRIORIDADES.find(p => p.key === _rtNormalizePrio(row.Prioridad)) || RT_PRIORIDADES[3];
+  const prioChip = `<span data-wa-rt-id="${esc(id)}" data-wa-rt-prio-chip="1"
+      onclick="event.stopPropagation();waRtToggleMenu_('${esc(id)}','prio')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 6px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;cursor:pointer"
+      title="Cambiar prioridad">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${prio.color}"></span>
+      <span style="font-size:10px;font-weight:800;color:#334155;text-transform:none;letter-spacing:.02em">${esc(prio.label)}</span>
+      <span style="font-size:8px;color:#94a3b8">▾</span>
+    </span>`;
+  const estChip = `<span data-wa-rt-id="${esc(id)}" data-wa-rt-est-chip="1"
+      onclick="event.stopPropagation();waRtToggleMenu_('${esc(id)}','est')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:${est.bg};color:${est.fg};border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap;cursor:pointer;border:1.5px solid ${est.fg}22"
+      title="Cambiar estatus">
+      ${esc(est.label)} <span style="font-size:8px;opacity:.75">▾</span>
+    </span>`;
+  return `<div data-lg-rt-id="${esc(id)}" role="button" tabindex="0"
+    style="cursor:pointer;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.06);transition:transform .1s,box-shadow .1s">
+    <div style="background:#2563eb;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.9;font-weight:800">🔧 REPORTE TÉCNICO</div>
+        <div style="font-size:13px;font-weight:800;margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span>${esc(titulo)}</span>
+          ${prioChip}
+        </div>
+      </div>
+      ${estChip}
+    </div>
+    <div style="padding:10px 14px;background:#fff;font-size:12px;color:#475569;display:flex;flex-direction:column;gap:3px">
+      ${aloj ? `<div>📍 ${esc(aloj)}</div>` : ''}
+      ${fecha ? `<div>📅 ${esc(fecha)}</div>` : ''}
+      ${_waRtMenusHtml_(id, est.key, prio.key)}
+      <div style="margin-top:6px">
+        <button data-wa-report-msg-btn="1"
+          onclick="event.stopPropagation();waReportToggleMsg_('rt','${esc(id)}')"
+          style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #93c5fd;border-radius:6px;font-weight:700;color:#0f172a;cursor:pointer">▼ Ver mensaje</button>
+      </div>
+      ${_waBuildReportMsgPanel_('rt', id, row)}
+    </div>
+  </div>`;
 }
 /** Renderiza línea con el(los) destinatario(s) de un mensaje ya guardado. */
 function _waRecipientsSummary_(toRaw) {
@@ -37470,9 +39228,9 @@ function _waRenderModal(replace) {
           </div>
         </div>
 
-        <div style="font-size:11px;font-weight:800;color:#0f172a;margin-bottom:10px">📋 MENSAJES PROGRAMADOS</div>
+        ${_waRenderTabsHeader_(st.currentTab)}
         <div id="wa-tab-content">
-          ${_waRenderBookingsAccordion_(logs)}
+          ${_waRenderTabContent_(st, logs)}
         </div>
 
       </div>
@@ -37536,7 +39294,11 @@ function _waFmtWhen(d) {
 /** Renderiza acordeón por reserva (headers colapsables). Al expandir uno,
  *  muestra dentro la lista unificada de mensajes de esa reserva. Solo 1
  *  acordeón expandido a la vez (el focused). */
-function _waRenderBookingsAccordion_(logs) {
+/** mode: 'full' (default) | 'reports-only' */
+function _waRenderBookingsAccordion_(logs, mode) {
+  mode = mode || 'full';
+  const reportsOnly = mode === 'reports-only';
+  const scheduleOnly = mode === 'schedule-only';
   const st = window.__waModalState;
   // Recomputar related en cada render. HU_STATE.rows / LG_STATE.bookings
   // pueden llegar TARDE al modal (carga async). Si nos quedamos con
@@ -37596,9 +39358,21 @@ function _waRenderBookingsAccordion_(logs) {
           Cargando mensajes de esta reserva…
         </div>`;
       } else {
-        content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
-          ${_waRenderUnifiedList_(logs)}
-        </div>`;
+        if (reportsOnly) {
+          // Tab 'Reportes': solo cards de reportes agrupadas.
+          let reportsInside = '';
+          try { reportsInside = _waRenderReportsForBooking_(bk); } catch(_){}
+          content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
+            ${reportsInside || _waEmptyState_('Sin reportes en esta reserva.')}
+          </div>`;
+        } else {
+          // Modo 'full': reportes van MEZCLADOS en el timeline via
+          // _waRenderUnifiedList_ → _waGetReportsForBooking_. No repetimos
+          // el bloque aparte arriba.
+          content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
+            ${_waRenderUnifiedList_(logs, { scheduleOnly })}
+          </div>`;
+        }
       }
     }
     items.push(header + content);
@@ -37674,7 +39448,9 @@ window.waSwitchBooking_ = async function(bookingId) {
 };
 
 /** Renderiza lista unificada (templates + custom) ordenada cronológicamente. */
-function _waRenderUnifiedList_(logs) {
+function _waRenderUnifiedList_(logs, opts) {
+  opts = opts || {};
+  const scheduleOnly = !!opts.scheduleOnly;
   const st = window.__waModalState;
   const b = st.b;
   const cfg = WA_ADMIN.config[st.bookingId] || {};
@@ -37757,6 +39533,9 @@ function _waRenderUnifiedList_(logs) {
     if (asunto) (_sentAtsByKey.asunto[asunto] = _sentAtsByKey.asunto[asunto] || []).push(t);
   }
   for (const cs of (st.scheduledItems || [])) {
+    // En pestaña Programados, ocultar los custom detonados por reporte
+    // (tipo='report-...'). Sí aparecen en Todos.
+    if (scheduleOnly && _waIsReportTriggeredCustom_(cs)) continue;
     const sch = cs.scheduled_at ? new Date(cs.scheduled_at) : null;
     // Detectar reenvío si CUALQUIERA de estas condiciones se cumple:
     //  (a) tipo 'manual-XXX' cuyo template XXX ya se envió por cron (sentByTipo)
@@ -37784,20 +39563,54 @@ function _waRenderUnifiedList_(logs) {
       sortKey: cs.sent_at ? new Date(cs.sent_at).getTime() : (sch ? sch.getTime() : 0),
     });
   }
+  // Reportes (Incidencias + Objetos) del booking actual — mezclados en el
+  // timeline por su timestamp (Updated_at si existe, sino Timestamp/Fecha).
+  // En pestaña Programados NO se muestran las cards de reporte, solo los
+  // mensajes que se enviaron (ya excluidos arriba si son 'report-...').
+  if (!scheduleOnly) {
+    try {
+      const reportItems = _waGetReportsForBooking_(b);
+      for (const r of reportItems) items.push(r);
+    } catch(_){}
+  }
   items.sort((a,b) => a.sortKey - b.sortKey);
 
-  const html = items.map(it => it.kind === 'template'
-    ? _waRenderTemplateItem_(it, auto)
-    : _waRenderCustomItem_(it, auto)).join('');
+  const html = items.map(it => {
+    if (it.kind === 'template') return _waRenderTemplateItem_(it, auto);
+    if (it.kind === 'custom')   return _waRenderCustomItem_(it, auto);
+    if (it.kind === 'report')   return _waRenderReportTimelineItem_(it);
+    return '';
+  }).join('');
 
   const createBtn = st.newSch.open
     ? _waRenderNewSchForm_()
-    : `<div style="text-align:center;margin-top:12px">
+    : `<div style="text-align:center;margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button onclick="waSchedOpen_()" style="padding:8px 16px;font-size:12px;background:#fff;color:#0f172a;border:1.5px dashed #cbd5e1;border-radius:8px;cursor:pointer;font-weight:800">➕ Nuevo mensaje</button>
+        <button onclick="_waOpenReportPickerForCurrentBooking_()" style="padding:8px 16px;font-size:12px;background:#fff;color:#0f172a;border:1.5px dashed #cbd5e1;border-radius:8px;cursor:pointer;font-weight:800">➕ Nuevo reporte</button>
       </div>`;
 
   return html + createBtn;
 }
+window._waOpenReportPickerForCurrentBooking_ = function() {
+  const st = window.__waModalState; if (!st) return;
+  const b = st.b || {};
+  const propRaw = b.PropiedadRaw || (b.__reservacion && b.__reservacion['Propiedad']) || b.PropertyName || '';
+  const deptRaw = b.DepartamentoRaw || (b.__reservacion && b.__reservacion['# Departamento']) || '';
+  const toIso = (v) => {
+    const s = String(v || '');
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+    return '';
+  };
+  const arrIso = toIso(b.DateArrival) || String((b.__reservacion && b.__reservacion['Fecha de ingreso']) || '').slice(0,10);
+  const depIso = toIso(b.DateDeparture) || String((b.__reservacion && b.__reservacion['Fecha de salida']) || '').slice(0,10);
+  // Contexto phone para filtrar el combobox 'Reserva' del formulario.
+  const ph = b.GuestPhone || (b.__reservacion && b.__reservacion['Cel/Whatsapp (principal)']) || '';
+  if (ph) { window.__rsvContextPhone = ph; window.__rsvContextPhoneKeep = true; }
+  if (typeof lgOpenReportPicker === 'function') lgOpenReportPicker(propRaw, deptRaw, arrIso, depIso);
+};
 
 /** Toggle x/palomita:
  *  - Auto OFF               → gris, no clickeable
@@ -37860,7 +39673,7 @@ function _waRenderTemplateItem_(it, auto) {
   const expanded = st.expanded === tpl.id;
   const vals = st.templateVals[tpl.id] || {};
   const editedBody = st.editingBody[tpl.id];
-  const previewText = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.b) || {});
+  const previewText = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.b) || {}, _waParseTplCustomPh_(tpl));
   const label = tpl.label.toUpperCase().replace(/[🏠⏰🚪📩]\s*/g,'').trim();
   const canToggle = !isSent; // no tiene sentido omitir algo ya enviado
 
@@ -37918,9 +39731,124 @@ function _waRenderTemplateItem_(it, auto) {
   `;
 }
 
+// Card intensa para mensajes enviados como respuesta a un reporte.
+// Título = mismo que la card de la pestaña Reportes; chip por tipo.
+function _waRenderReportSentCard_(it) {
+  const st = window.__waModalState;
+  const cs = it.cs;
+  const tipo = String(cs.tipo || '');
+  // Formato: report-{kind}-{reportId} o report-{kind}-{reportId}-{estadoSlug}
+  const KNOWN_ESTADOS = ['nuevo','en_proceso','resuelto','cancelado','entregado','pendiente'];
+  let kind = 'inc', reportId = '', estadoSlug = '';
+  const mFull = tipo.match(/^report-(inc|obj|rt)-(.+)-(nuevo|en_proceso|resuelto|cancelado|entregado|pendiente)$/i);
+  if (mFull) {
+    kind = mFull[1].toLowerCase(); reportId = mFull[2]; estadoSlug = mFull[3].toLowerCase();
+  } else {
+    const mBase = tipo.match(/^report-(inc|obj|rt)-(.+)$/i);
+    if (mBase) { kind = mBase[1].toLowerCase(); reportId = mBase[2]; }
+  }
+  // Ignora "REPORTE: alta/resuelto..." heredado como asunto — no es un
+  // título válido del reporte. Solo usar cs.asunto como fallback si NO
+  // parece un nombre de template de reporte.
+  const asuntoIsTplName = /^\s*reporte\s*[:\-]/i.test(String(cs.asunto || ''));
+  const asuntoFallback = asuntoIsTplName ? '' : String(cs.asunto || '');
+  let titulo = '', chipLabel = '', headerBg = '', cardBg = '', cardBorder = '', chipBg = '', chipFg = '', icon = '';
+  if (kind === 'inc') {
+    const list = (INC_STATE && INC_STATE.list) || [];
+    if (!list.length && typeof incLoadIncidencias === 'function' && !window.__waIncLoadPending) {
+      window.__waIncLoadPending = true;
+      incLoadIncidencias().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waIncLoadPending = false; });
+    }
+    const r = list.find(x => String(x['ID']||'') === reportId);
+    titulo = r ? ([String(r['Motivos']||''), String(r['Clasificacion']||'')].filter(Boolean).join(' — ') || 'Incidencia') : (asuntoFallback || 'Incidencia');
+    chipLabel = 'INCIDENCIA'; headerBg = '#dc2626'; cardBg = '#fee2e2'; cardBorder = '#dc2626'; chipBg = '#ffffff'; chipFg = '#7f1d1d'; icon = '🚨';
+  } else if (kind === 'obj') {
+    const list = (OBJ_STATE && OBJ_STATE.list) || [];
+    if (!list.length && typeof objLoadObjetos === 'function' && !window.__waObjLoadPending) {
+      window.__waObjLoadPending = true;
+      objLoadObjetos().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waObjLoadPending = false; });
+    }
+    const r = list.find(x => String(x['ID']||'') === reportId);
+    const cat = r ? String(r['Categoria']||'').trim() : '';
+    const catOtro = r ? String(r['Categoria_otro']||'').trim() : '';
+    titulo = r ? (cat === 'Otro' ? `Otro: ${catOtro || '—'}` : (cat || 'Objeto olvidado')) : (asuntoFallback || 'Objeto olvidado');
+    chipLabel = 'OBJETO PERDIDO'; headerBg = '#059669'; cardBg = '#d1fae5'; cardBorder = '#059669'; chipBg = '#ffffff'; chipFg = '#064e3b'; icon = '🎒';
+  } else {
+    const list = (RT_STATE && RT_STATE.list) || [];
+    if (!list.length && typeof rtRefresh === 'function' && !window.__waRtLoadPending) {
+      window.__waRtLoadPending = true;
+      rtRefresh().then(() => { try { _waRepaint(); } catch(_){} }).catch(()=>{}).finally(() => { window.__waRtLoadPending = false; });
+    }
+    const r = list.find(x => String(x['ID']||'') === reportId);
+    titulo = r ? String(r.Titulo || r.Folio || 'Reporte técnico') : (asuntoFallback || 'Reporte técnico');
+    chipLabel = 'REPORTE TÉCNICO'; headerBg = '#2563eb'; cardBg = '#dbeafe'; cardBorder = '#2563eb'; chipBg = '#ffffff'; chipFg = '#1e3a8a'; icon = '🔧';
+  }
+  const isFailed = cs.status === 'failed';
+  const isSent = !!cs.status && ['queued','sending','sent','delivered','read','accepted'].indexOf(String(cs.status).toLowerCase()) >= 0;
+  const timeLine = isSent
+    ? `<span style="color:#16a34a;font-weight:700">✓ Enviado el ${esc(_waFmtDateTimeEs(cs.sent_at))}</span>`
+    : (isFailed ? `<span style="color:#dc2626;font-weight:700">✗ Falló</span>`
+    : `<span style="color:#64748b;font-weight:700">${esc(_waFmtDateTimeEs(cs.scheduled_at))}</span>`);
+  const expKey = 'custom:' + cs.id;
+  const expanded = st.expanded === expKey;
+  const body = cs.body || '';
+  const details = expanded ? `
+    <div style="padding:12px 14px;background:#ffffff;border-top:1px solid ${cardBorder}">
+      <div style="font-size:10px;font-weight:700;color:#475569;margin-bottom:4px">MENSAJE</div>
+      <div style="padding:8px 10px;background:#f8fafc;border-radius:8px;font-size:12px;white-space:pre-wrap;line-height:1.4;color:#0f172a">${esc(body)}</div>
+    </div>` : '';
+  return `
+    <div style="margin-bottom:6px">
+      <div style="font-size:10px;font-weight:700;color:#64748b;padding:0 2px 4px 34px">${timeLine}</div>
+      <div style="display:flex;gap:10px;align-items:stretch">
+        <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;width:24px">
+          <div title="Mensaje enviado" style="width:22px;height:22px;border-radius:50%;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✓</div>
+          <div style="flex:1;width:2px;background:#e5e7eb;min-height:14px"></div>
+        </div>
+        <div style="flex:1;background:${cardBg};border:2px solid ${cardBorder};border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.10)">
+          <div style="background:${headerBg};color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-size:13px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:.02em">${esc(titulo)}</span>
+              <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:999px;background:${chipBg};color:${chipFg};letter-spacing:.04em">${chipLabel}</span>
+            </div>
+            ${(() => {
+              // Chip del estado del reporte al momento del envío. Usa
+              // colores canónicos INC/RT; fallback si no se guardó el slug.
+              const label = (() => {
+                if (!estadoSlug) return '📤 Mensaje enviado';
+                const m = { nuevo:'Nuevo', en_proceso:'En proceso', resuelto:'Resuelto', cancelado:'Cancelado', entregado:'Entregado', pendiente:'Pendiente' };
+                return m[estadoSlug] || estadoSlug;
+              })();
+              let estBg = chipBg, estFg = chipFg;
+              if (estadoSlug && kind !== 'obj') {
+                const c = incEstatusColors(label);
+                estBg = c.bg; estFg = c.fg;
+              } else if (estadoSlug === 'entregado') {
+                estBg = '#dcfce7'; estFg = '#166534';
+              } else if (estadoSlug === 'pendiente') {
+                estBg = '#fef3c7'; estFg = '#92400e';
+              }
+              return `<span style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:999px;background:${estBg};color:${estFg}">${esc(label)}</span>`;
+            })()}
+          </div>
+          <div style="padding:10px 14px;background:${cardBg}">
+            ${_waRecipientsSummary_(cs.to)}
+            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+              <button onclick="waToggleExpand_('${expKey}')" style="padding:5px 10px;font-size:11px;background:#ffffff;border:1.5px solid ${cardBorder};color:${cardBorder};border-radius:6px;cursor:pointer;font-weight:800">${expanded?'▲ Ocultar':'▼ Ver mensaje'}</button>
+            </div>
+          </div>
+          ${details}
+        </div>
+      </div>
+    </div>`;
+}
+
 function _waRenderCustomItem_(it, auto) {
   const st = window.__waModalState;
   const cs = it.cs;
+  // Los mensajes detonados por reporte usan un renderer con estilo intenso
+  // + título del reporte + chip de tipo. Diferencia visual clara.
+  if (_waIsReportTriggeredCustom_(cs)) return _waRenderReportSentCard_(it);
   const isFailed = cs.status === 'failed';
   const isOmitted = cs.status === 'omitted';
   // "Sent" cubre queued/sending/sent/delivered/read (todo lo que ya salió a Twilio).
@@ -38206,7 +40134,7 @@ function _waRenderTemplatesTab_(logs) {
     const expanded = st.expandedTpl === tpl.id;
     const vals = st.templateVals[tpl.id] || {};
     const editedBody = st.editingBody[tpl.id];
-    const preview = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.b) || {});
+    const preview = _waResolveNamedPlaceholders_(editedBody != null ? editedBody : _waRenderTpl(tpl.body, vals), (window.__waModalState && window.__waModalState.b) || {}, _waParseTplCustomPh_(tpl));
 
     const details = expanded ? `
       <div style="padding:12px 14px;background:#f8fafc;border-top:1px solid #e2e8f0">
@@ -38388,7 +40316,7 @@ window.waSendTplNow_ = async function(id) {
   // 2) Resolver placeholders NOMBRADOS {{nombre}},{{propiedad}},... contra
   //    los datos reales del booking + alojamiento (templates admin del sheet).
   const raw = editedBody != null ? editedBody : _waRenderTpl(tpl.body, st.templateVals[id] || {});
-  const bodyToSend = _waResolveNamedPlaceholders_(raw, st.b || {});
+  const bodyToSend = _waResolveNamedPlaceholders_(raw, st.b || {}, _waParseTplCustomPh_(tpl));
   const nowIso = new Date().toISOString();
   const toCsv = rcps.join(',');
   // Si YA existe una card pending para este template (auto-scheduled con
@@ -38616,6 +40544,8 @@ async function waEnsureAdminTemplates_() {
             schedule_time: String(t.schedule_time || ''),
             alojamientos: String(t.alojamientos || ''),
             enabled: !!t.enabled,
+            responsivo: !!t.responsivo,
+            placeholders_custom: t.placeholders_custom || t.placeholdersCustom || '',
           };
         }
         WA_ADMIN.adminTemplates = map;
@@ -38680,6 +40610,10 @@ function _waTemplateAppliesToBooking(tplId, booking) {
   const admin = WA_ADMIN.adminTemplates[String(tplId)];
   if (!admin) return false; // ya no hay hardcoded — si no está en WA_Templates, no existe
   if (!admin.enabled) return false;
+  // Templates RESPONSIVOS no aparecen automáticamente en la sidebar. Solo se
+  // activan cuando una acción externa (ej. generar ticket) crea la scheduled
+  // entry — ésta aparece luego como card 'custom' vía _waRenderCustomItem_.
+  if (admin.responsivo === true) return false;
   const csv = String(admin.alojamientos || '').trim();
   if (!csv) return false; // NO asignado a ningún alojamiento → NO aparece en ninguna reserva
   const list = csv.split(',').map(s => s.trim()).filter(Boolean);
@@ -39003,6 +40937,7 @@ function cfgAdminRender() {
     host.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando templates y alojamientos…</div>`;
     return;
   }
+  if ((CFG_ADMIN.tab||'templates') === 'sysprompts') return sysPromptsRender_(host);
   host.innerHTML = `
     <style>
       #cfg-grid { display:grid; grid-template-columns:280px 1fr; gap:14px; min-height:calc(100vh - 260px); }
@@ -39018,6 +40953,229 @@ function cfgAdminRender() {
   cfgRenderList();
   cfgRenderEditor();
 }
+
+// ═══════════════ Sección Sys Prompts (localStorage) ═══════════════
+const SYS_PROMPTS_KEY = 'SYS_PROMPTS_V1';
+function _spLoad_() { try { return JSON.parse(localStorage.getItem(SYS_PROMPTS_KEY) || '[]'); } catch(_) { return []; } }
+function _spSave_(list) { try { localStorage.setItem(SYS_PROMPTS_KEY, JSON.stringify(list||[])); } catch(_){} }
+window.__spState = window.__spState || { selectedId: null, alojamientos: [] };
+function sysPromptsRender_(host) {
+  host.innerHTML = `
+    <style>
+      #cfg-grid { display:grid; grid-template-columns:280px 1fr; gap:14px; min-height:calc(100vh - 260px); }
+      @media (max-width: 900px){ #cfg-grid { grid-template-columns:260px 1fr; } }
+    </style>
+    <div id="cfg-grid">
+      <div id="sp-col-list" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;overflow:hidden"></div>
+      <div id="sp-col-editor" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;overflow:hidden"></div>
+    </div>`;
+  // Reusa la lista de alojamientos cargada por cfgAdminInit.
+  window.__spState.alojamientos = CFG_ADMIN.alojamientos || [];
+  _spRenderList_();
+  _spRenderEditor_();
+}
+function _spRenderList_() {
+  const col = document.getElementById('sp-col-list'); if (!col) return;
+  const items = _spLoad_().slice().sort((a,b) => (a.nombre||'').localeCompare(b.nombre||''));
+  const rows = items.map(p => {
+    const active = p.id === window.__spState.selectedId;
+    const bg = active ? '#eff6ff' : '#fff';
+    const chk = p.enabled === false ? '<span style="display:inline-block;width:18px;height:18px;border:1.5px solid #cbd5e1;border-radius:4px;background:#fff"></span>'
+      : '<span style="display:inline-block;width:18px;height:18px;border:1.5px solid #16a34a;border-radius:4px;background:#16a34a;color:#fff;text-align:center;font-weight:900;line-height:15px">✓</span>';
+    return `<div style="padding:10px 12px;background:${bg};border-bottom:1px solid #e2e8f0;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="spSelect_('${_botcEsc(p.id)}')">
+      <span onclick="event.stopPropagation();spToggleEnabled_('${_botcEsc(p.id)}')" title="Habilitar/deshabilitar" style="flex:none">${chk}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_botcEsc(p.nombre || '(sin nombre)')}</div>
+        <div style="font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_botcEsc(p.objetivo || '')}</div>
+      </div>
+      ${p.responsivo ? '<span title="Responsivo" style="font-size:10px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:99px;font-weight:800">RESP</span>' : ''}
+    </div>`;
+  }).join('') || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;font-style:italic">Sin prompts. Crea uno con "+ Nuevo".</div>';
+  col.innerHTML = `
+    <div style="padding:12px;border-bottom:1px solid #e2e8f0;background:#f8fafc">
+      <button onclick="spNew_()" style="width:100%;padding:8px 12px;background:#0f172a;color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:12px;font-weight:800">＋ Nuevo prompt</button>
+    </div>
+    <div style="flex:1;overflow-y:auto">${rows}</div>`;
+}
+function _spRenderEditor_() {
+  const col = document.getElementById('sp-col-editor'); if (!col) return;
+  const list = _spLoad_();
+  const p = list.find(x => x.id === window.__spState.selectedId);
+  if (!p) {
+    col.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:13px">Selecciona un prompt de la izquierda o crea uno nuevo.</div>';
+    return;
+  }
+  const onEnabled = p.enabled !== false;
+  const onResp = !!p.responsivo;
+  // Barra superior con toggles idénticos a Templates (span con ✓, mismos colores).
+  const statusChip = `
+    <div style="flex:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span onclick="spToggleEnabled_('${_botcEsc(p.id)}')" title="${onEnabled ? 'Deshabilitar prompt' : 'Habilitar prompt'}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${onEnabled ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${onEnabled ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${onEnabled ? '✓' : ''}</span>
+        <span style="font-size:12px;font-weight:700;color:${onEnabled ? '#166534' : '#64748b'}">${onEnabled ? 'Prompt habilitado' : 'Prompt deshabilitado'}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px" title="Los prompts responsivos NO se aplican automáticamente — solo cuando una acción externa los activa">
+        <span onclick="spDraftSetAndRefresh_('responsivo', ${onResp ? 'false' : 'true'})" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${onResp ? '#7c3aed' : '#94a3b8'};border-radius:4px;background:${onResp ? '#7c3aed' : '#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${onResp ? '✓' : ''}</span>
+        <span style="font-size:12px;font-weight:700;color:${onResp ? '#5b21b6' : '#64748b'}">⚡ Responsivo (solo por eventos)</span>
+      </div>
+    </div>`;
+  const casos = Array.isArray(p.casos) ? p.casos : [];
+  const casosHtml = casos.map((c,i) => `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:10px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.04em">Caso ${i+1}</div>
+        <button onclick="spRemoveCaso_(${i})" style="background:none;border:0;color:#dc2626;cursor:pointer;font-size:14px">×</button>
+      </div>
+      <label style="font-size:10px;color:#475569;font-weight:700">Texto recibido</label>
+      <textarea rows="2" oninput="spSetCaso_(${i},'recibido',this.value)" style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;resize:vertical;font-family:inherit;margin-bottom:6px">${_botcEsc(c.recibido||'')}</textarea>
+      <label style="font-size:10px;color:#475569;font-weight:700">Respuesta sugerida</label>
+      <textarea rows="2" oninput="spSetCaso_(${i},'respuesta',this.value)" style="width:100%;padding:6px 8px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;resize:vertical;font-family:inherit">${_botcEsc(c.respuesta||'')}</textarea>
+    </div>`).join('');
+  col.innerHTML = `
+    ${statusChip}
+    <div style="flex:1;overflow-y:auto;padding:18px 20px">
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Nombre</label>
+      <input type="text" value="${_botcEsc(p.nombre||'')}" oninput="spDraftSet_('nombre',this.value)" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:14px">
+
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Objetivo</label>
+      <textarea rows="2" oninput="spDraftSet_('objetivo',this.value)" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:vertical;margin-bottom:14px">${_botcEsc(p.objetivo||'')}</textarea>
+
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Prompt</label>
+      <textarea rows="6" oninput="spDraftSet_('prompt',this.value)" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:vertical;margin-bottom:14px">${_botcEsc(p.prompt||'')}</textarea>
+
+      <label style="display:block;font-size:12px;color:#475569;font-weight:700;margin-bottom:4px">Riesgos</label>
+      <textarea rows="3" oninput="spDraftSet_('riesgos',this.value)" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:vertical;margin-bottom:20px">${_botcEsc(p.riesgos||'')}</textarea>
+
+      <div style="margin-bottom:22px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-weight:800;color:#0f172a;font-size:13px">📋 Casos de uso</div>
+          <button onclick="spAddCaso_()" style="padding:5px 10px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:11px;font-weight:800">＋ Caso</button>
+        </div>
+        ${casosHtml || '<div style="text-align:center;color:#94a3b8;font-size:11px;font-style:italic;padding:12px;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:8px">Sin casos. Agrega ejemplos "Texto recibido → Respuesta sugerida".</div>'}
+      </div>
+
+      <div>
+        <div style="font-weight:800;color:#0f172a;font-size:13px;margin-bottom:8px">Selecciona los alojamientos</div>
+        <div id="sp-inline-aloj"></div>
+      </div>
+    </div>
+    <div style="flex:none;padding:12px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:flex-end;gap:10px">
+      <button type="button" onclick="spDelete_()" style="all:unset;cursor:pointer;background:#fff;color:#b91c1c;border:1px solid #fecaca;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700">🗑 Eliminar</button>
+      <button type="button" onclick="spSave_()" style="all:unset;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:800;background:#16a34a;color:#fff;cursor:pointer;box-shadow:0 2px 6px rgba(22,163,74,.35)">💾 Guardar</button>
+    </div>`;
+  _spRenderAlojBox_();
+}
+window.spDraftSetAndRefresh_ = function(field, value) {
+  spDraftSet_(field, value);
+  _spRenderList_();
+  _spRenderEditor_();
+};
+// Selector de alojamientos con el MISMO estilo que Templates (statusbar +
+// botones Seleccionar/Desmarcar todos + lista scrollable con checkbox).
+function _spRenderAlojBox_() {
+  const alojBox = document.getElementById('sp-inline-aloj'); if (!alojBox) return;
+  const p = _spLoad_().find(x => x.id === window.__spState.selectedId); if (!p) return;
+  const selectedAloj = new Set(String(p.alojamientos||'').split(',').map(s=>s.trim()).filter(Boolean));
+  const alojList = (window.__spState.alojamientos || []).slice().sort((a,b) => {
+    const na = `${a.Propiedad||''} ${a['# Departamento']||''}`.toLowerCase();
+    const nb = `${b.Propiedad||''} ${b['# Departamento']||''}`.toLowerCase();
+    return na.localeCompare(nb);
+  });
+  const allSelected = alojList.length && alojList.every(a => selectedAloj.has(String(a.HouseId||'').trim()));
+  const noneSelected = selectedAloj.size === 0;
+  const rows = alojList.map(a => {
+    const id = String(a.HouseId||'').trim();
+    const label = `${a.Propiedad||''} ${a['# Departamento'] ? '#'+a['# Departamento'] : ''}`.trim() || `Alojamiento ${id}`;
+    const on = selectedAloj.has(id);
+    return `
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12px;cursor:pointer;border-radius:6px" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+        <span onclick="event.stopPropagation();spToggleAloj2_('${_botcEsc(id)}')" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:2px solid ${on?'#3b82f6':'#94a3b8'};border-radius:4px;background:${on?'#3b82f6':'#fff'};color:#fff;font-weight:900;font-size:10px;flex:none">${on?'✓':''}</span>
+        <span onclick="spToggleAloj2_('${_botcEsc(id)}')" style="color:#0f172a;flex:1">${_botcEsc(label)}</span>
+      </label>`;
+  }).join('');
+  alojBox.innerHTML = `
+    <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+      <div style="padding:10px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
+        <div style="font-size:11px;color:#64748b">${noneSelected ? 'Sin selección → aplica a todos' : (allSelected ? 'Todos seleccionados' : `${selectedAloj.size} seleccionado(s)`)}</div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" onclick="spToggleAllAloj_(true)" style="all:unset;cursor:pointer;background:#0f172a;color:#fff;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">Seleccionar todos</button>
+          <button type="button" onclick="spToggleAllAloj_(false)" style="all:unset;cursor:pointer;background:#fff;color:#0f172a;border:1px solid #cbd5e1;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700">Desmarcar todos</button>
+        </div>
+      </div>
+      <div style="max-height:280px;overflow-y:auto;padding:6px 6px">
+        ${rows || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin alojamientos en el catálogo</div>'}
+      </div>
+    </div>`;
+}
+window.spToggleAloj2_ = function(houseId) {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  const set = new Set(String(p.alojamientos||'').split(',').map(s=>s.trim()).filter(Boolean));
+  if (set.has(houseId)) set.delete(houseId); else set.add(houseId);
+  p.alojamientos = Array.from(set).join(',');
+  _spSave_(list);
+  _spRenderAlojBox_();
+};
+window.spToggleAllAloj_ = function(sel) {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  if (sel) {
+    const ids = (window.__spState.alojamientos || []).map(a => String(a.HouseId||'').trim()).filter(Boolean);
+    p.alojamientos = ids.join(',');
+  } else {
+    p.alojamientos = '';
+  }
+  _spSave_(list);
+  _spRenderAlojBox_();
+};
+window.spSelect_ = function(id) { window.__spState.selectedId = id; _spRenderList_(); _spRenderEditor_(); };
+window.spNew_ = function() {
+  const list = _spLoad_();
+  const p = { id: 'SP-'+Date.now()+'-'+Math.floor(Math.random()*9999), nombre:'Nuevo prompt', objetivo:'', prompt:'', riesgos:'', casos:[], alojamientos:'', enabled:true, responsivo:false, creado: new Date().toISOString() };
+  list.push(p); _spSave_(list);
+  window.__spState.selectedId = p.id;
+  _spRenderList_(); _spRenderEditor_();
+};
+window.spDelete_ = function() {
+  if (!confirm('¿Eliminar este prompt?')) return;
+  const list = _spLoad_().filter(x => x.id !== window.__spState.selectedId);
+  _spSave_(list); window.__spState.selectedId = null;
+  _spRenderList_(); _spRenderEditor_();
+};
+window.spDraftSet_ = function(field, value) {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  p[field] = value; _spSave_(list);
+};
+window.spToggleEnabled_ = function(id) {
+  const list = _spLoad_(); const p = list.find(x => x.id === id); if (!p) return;
+  p.enabled = !(p.enabled !== false); _spSave_(list); _spRenderList_();
+  if (window.__spState.selectedId === id) _spRenderEditor_();
+};
+window.spToggleAloj_ = function(houseId, checked) {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  const set = new Set(String(p.alojamientos||'').split(',').map(s=>s.trim()).filter(Boolean));
+  if (checked) set.add(houseId); else set.delete(houseId);
+  p.alojamientos = Array.from(set).join(',');
+  _spSave_(list);
+};
+window.spAddCaso_ = function() {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  p.casos = Array.isArray(p.casos) ? p.casos : [];
+  p.casos.push({ recibido:'', respuesta:'' });
+  _spSave_(list); _spRenderEditor_();
+};
+window.spSetCaso_ = function(idx, field, value) {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  if (!Array.isArray(p.casos) || !p.casos[idx]) return;
+  p.casos[idx][field] = value; _spSave_(list);
+};
+window.spRemoveCaso_ = function(idx) {
+  const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
+  p.casos.splice(idx, 1); _spSave_(list); _spRenderEditor_();
+};
+window.spSave_ = function() {
+  // Los cambios ya se autoguardan por spDraftSet_. Este botón confirma visualmente.
+  alert('Prompt guardado ✓');
+  _spRenderList_();
+};
 
 function cfgRenderList() {
   const col = document.getElementById('cfg-col-list');
@@ -39084,10 +41242,17 @@ function cfgRenderEditor() {
     </optgroup>
   `).join('');
   const onEnabled = !!d.enabled;
+  const onResp = !!d.responsivo;
   const statusChip = `
-    <div style="flex:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;gap:10px">
-      <span onclick="${d._id ? `cfgToggleEnabledFromList('${_cfgEsc(d._id)}')` : `cfgUpdateDraft('enabled', !${onEnabled ? 'true' : 'false'})`}" title="${onEnabled ? 'Deshabilitar template' : 'Habilitar template'}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${onEnabled ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${onEnabled ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${onEnabled ? '✓' : ''}</span>
-      <span style="font-size:12px;font-weight:700;color:${onEnabled ? '#166534' : '#64748b'}">${onEnabled ? 'Template habilitado' : 'Template deshabilitado'}</span>
+    <div style="flex:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span onclick="${d._id ? `cfgToggleEnabledFromList('${_cfgEsc(d._id)}')` : `cfgUpdateDraft('enabled', !${onEnabled ? 'true' : 'false'})`}" title="${onEnabled ? 'Deshabilitar template' : 'Habilitar template'}" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${onEnabled ? '#16a34a' : '#94a3b8'};border-radius:4px;background:${onEnabled ? '#16a34a' : '#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${onEnabled ? '✓' : ''}</span>
+        <span style="font-size:12px;font-weight:700;color:${onEnabled ? '#166534' : '#64748b'}">${onEnabled ? 'Template habilitado' : 'Template deshabilitado'}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px" title="Los templates responsivos NO aparecen automáticamente en la sidebar de reservas — solo cuando una acción externa (ej. generar ticket) los activa">
+        <span onclick="cfgUpdateDraft('responsivo', !${onResp ? 'true' : 'false'})" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${onResp ? '#7c3aed' : '#94a3b8'};border-radius:4px;background:${onResp ? '#7c3aed' : '#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${onResp ? '✓' : ''}</span>
+        <span style="font-size:12px;font-weight:700;color:${onResp ? '#5b21b6' : '#64748b'}">⚡ Responsivo (solo por eventos)</span>
+      </div>
     </div>
   `;
   col.innerHTML = `
@@ -39102,6 +41267,8 @@ function cfgRenderEditor() {
       <input type="text" id="cfg-in-asunto" value="${_cfgEscAttr(d.asunto)}" placeholder="Ej: Bienvenida"
         oninput="cfgUpdateDraft('asunto', this.value)"
         style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:14px">
+
+      ${_cfgRenderCustomPhBox(d.placeholders_custom || [])}
 
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap">
         <label style="font-size:12px;color:#475569;font-weight:700">Mensaje</label>
@@ -39151,6 +41318,134 @@ function cfgInsertPlaceholder(key) {
   ta.setSelectionRange(pos, pos);
   ta.focus();
   cfgUpdateDraft('body', next);
+}
+
+// ─── Placeholders personalizados (por template) ───────────────────────────
+/** UI de la caja "Placeholders personalizados" arriba del textarea.
+ *  Cada fila tiene 2 modos:
+ *    - EDITING: inputs editables + "Guardar cambios" (habilitado si hay texto) + "X".
+ *    - SAVED:   lectura + 3 botones "Insertar" / "Editar" / "X".
+ *  El flag __editing controla el modo. Nuevos items entran directo en EDITING. */
+function _cfgRenderCustomPhBox(list) {
+  list = Array.isArray(list) ? list : [];
+  const rows = list.map((it, i) => {
+    const name = String(it.name || '').trim();
+    const value = String(it.value || '');
+    const editing = !!it.__editing;
+    const hasText = !!(name || value.trim());
+    if (editing) {
+      return `
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+          <input type="text" id="cfg-ph-name-${i}" value="${_cfgEscAttr(name)}" placeholder="nombre (ej. día_envio)"
+            oninput="cfgUpdateCustomPh(${i},'name',this.value)"
+            style="flex:0 0 180px;padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:ui-monospace,monospace">
+          <span style="color:#94a3b8;font-size:11px;font-weight:800">=</span>
+          <input type="text" id="cfg-ph-val-${i}" value="${_cfgEscAttr(value)}" placeholder="valor (ej. 10 de agosto)"
+            oninput="cfgUpdateCustomPh(${i},'value',this.value)"
+            style="flex:1;padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
+          <button type="button" onclick="cfgSaveCustomPh(${i})" ${hasText ? '' : 'disabled'}
+            title="${hasText ? 'Guardar cambios' : 'Escribe algún texto primero'}"
+            style="padding:6px 10px;border:0;background:${hasText?'#16a34a':'#e2e8f0'};color:${hasText?'#fff':'#94a3b8'};border-radius:6px;font-size:11px;font-weight:800;cursor:${hasText?'pointer':'not-allowed'}">💾 Guardar cambios</button>
+          <button type="button" onclick="cfgRemoveCustomPh(${i})" title="Eliminar"
+            style="padding:6px 8px;border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;line-height:1">×</button>
+        </div>`;
+    }
+    // SAVED mode
+    return `
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <div style="flex:0 0 180px;padding:6px 9px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:ui-monospace,monospace;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_cfgEsc(name)}</div>
+        <span style="color:#94a3b8;font-size:11px;font-weight:800">=</span>
+        <div style="flex:1;padding:6px 9px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_cfgEsc(value) || '<span style="color:#94a3b8;font-style:italic">(vacío)</span>'}</div>
+        <button type="button" onclick="cfgInsertCustomPh(${i})"
+          title="Insertar {{${_cfgEscAttr(name)}}} en el mensaje"
+          style="padding:6px 9px;border:1px solid #0f172a;background:#0f172a;color:#fff;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">↵ Insertar</button>
+        <button type="button" onclick="cfgEditCustomPh(${i})"
+          title="Editar"
+          style="padding:6px 9px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✎ Editar</button>
+        <button type="button" onclick="cfgRemoveCustomPh(${i})" title="Eliminar"
+          style="padding:6px 8px;border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;line-height:1">×</button>
+      </div>`;
+  }).join('');
+  return `
+    <div style="background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:10px 12px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <label style="font-size:12px;color:#475569;font-weight:700">🏷 Placeholders personalizados</label>
+        <button type="button" onclick="cfgAddCustomPh()"
+          style="padding:5px 10px;border:1px solid #0f172a;background:#fff;color:#0f172a;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">＋ Agregar</button>
+      </div>
+      ${rows || '<div style="color:#94a3b8;font-size:11px;font-style:italic;padding:6px 0">Sin placeholders personalizados. Los que agregues aquí podrán insertarse en el mensaje y se sustituirán al enviar.</div>'}
+    </div>`;
+}
+function cfgAddCustomPh() {
+  const d = CFG_ADMIN.draft; if (!d) return;
+  if (!Array.isArray(d.placeholders_custom)) d.placeholders_custom = [];
+  d.placeholders_custom.push({ name: '', value: '', __editing: true });
+  CFG_ADMIN.dirty = true;
+  cfgAdminRender();
+  // Focus al input del nombre recién agregado.
+  setTimeout(() => {
+    const el = document.getElementById(`cfg-ph-name-${d.placeholders_custom.length - 1}`);
+    if (el) el.focus();
+  }, 0);
+}
+function cfgRemoveCustomPh(idx) {
+  const d = CFG_ADMIN.draft; if (!d || !Array.isArray(d.placeholders_custom)) return;
+  d.placeholders_custom.splice(idx, 1);
+  CFG_ADMIN.dirty = true;
+  cfgAdminRender();
+}
+function cfgUpdateCustomPh(idx, key, val) {
+  const d = CFG_ADMIN.draft; if (!d || !Array.isArray(d.placeholders_custom)) return;
+  const it = d.placeholders_custom[idx]; if (!it) return;
+  it[key] = val;
+  CFG_ADMIN.dirty = true;
+  // Actualizar visualmente el estado del botón "Guardar cambios" SIN
+  // re-render (para no perder focus). Encuentra el botón hermano y ajusta
+  // disabled / colores según si hay texto en al menos uno.
+  try {
+    const nameEl = document.getElementById(`cfg-ph-name-${idx}`);
+    const valEl  = document.getElementById(`cfg-ph-val-${idx}`);
+    const hasText = !!((nameEl && nameEl.value.trim()) || (valEl && valEl.value.trim()));
+    const row = nameEl ? nameEl.parentElement : null;
+    const btn = row ? row.querySelector('button[onclick^="cfgSaveCustomPh"]') : null;
+    if (btn) {
+      btn.disabled = !hasText;
+      btn.style.background = hasText ? '#16a34a' : '#e2e8f0';
+      btn.style.color = hasText ? '#fff' : '#94a3b8';
+      btn.style.cursor = hasText ? 'pointer' : 'not-allowed';
+      btn.title = hasText ? 'Guardar cambios' : 'Escribe algún texto primero';
+    }
+  } catch(_){}
+  // También actualizar chip "sin guardar" del botón principal, si aplica.
+  const mainBtn = document.getElementById('cfg-save-btn');
+  if (mainBtn && mainBtn.disabled) cfgAdminRender();
+}
+function cfgSaveCustomPh(idx) {
+  const d = CFG_ADMIN.draft; if (!d || !Array.isArray(d.placeholders_custom)) return;
+  const it = d.placeholders_custom[idx]; if (!it) return;
+  const name = String(it.name || '').trim();
+  const value = String(it.value || '');
+  if (!name && !value.trim()) return; // sin texto — no guardar
+  it.__editing = false;
+  CFG_ADMIN.dirty = true;
+  cfgAdminRender();
+}
+function cfgEditCustomPh(idx) {
+  const d = CFG_ADMIN.draft; if (!d || !Array.isArray(d.placeholders_custom)) return;
+  const it = d.placeholders_custom[idx]; if (!it) return;
+  it.__editing = true;
+  cfgAdminRender();
+  setTimeout(() => {
+    const el = document.getElementById(`cfg-ph-name-${idx}`);
+    if (el) el.focus();
+  }, 0);
+}
+function cfgInsertCustomPh(idx) {
+  const d = CFG_ADMIN.draft; if (!d) return;
+  const it = (d.placeholders_custom || [])[idx]; if (!it) return;
+  const name = String(it.name || '').trim();
+  if (!name) return;
+  cfgInsertPlaceholder(name);
 }
 
 
@@ -39241,6 +41536,19 @@ function cfgSelectTemplate(id) {
   const t = CFG_ADMIN.templates.find(x => x.id === id);
   if (!t) return;
   CFG_ADMIN.selectedId = id;
+  // placeholders_custom: array de {name, value}. La hoja lo guarda como JSON
+  // string; toleramos también array directo si Apps Script lo parseara.
+  let phCustom = [];
+  try {
+    const raw = t.placeholders_custom;
+    if (Array.isArray(raw)) phCustom = raw;
+    else if (typeof raw === 'string' && raw.trim()) phCustom = JSON.parse(raw);
+    if (!Array.isArray(phCustom)) phCustom = [];
+  } catch(e) {
+    console.warn('[cfg] placeholders_custom parse error:', e.message, 'raw:', t.placeholders_custom);
+    phCustom = [];
+  }
+  console.info('[cfg] select', t.id, 'placeholders_custom:', phCustom.length, 'raw:', t.placeholders_custom);
   CFG_ADMIN.draft = {
     _id: t.id,
     nombre: t.nombre || '',
@@ -39252,6 +41560,8 @@ function cfgSelectTemplate(id) {
     schedule_time: t.schedule_time || '',
     alojamientos: t.alojamientos || '',
     enabled: !!t.enabled,
+    responsivo: !!t.responsivo,
+    placeholders_custom: phCustom,
   };
   CFG_ADMIN.dirty = false;
   cfgAdminRender();
@@ -39283,6 +41593,10 @@ async function cfgToggleEnabledFromList(id) {
         schedule_time: t.schedule_time,
         alojamientos: t.alojamientos,
         enabled: nueva,
+        responsivo: !!t.responsivo,
+        placeholders_custom: (typeof t.placeholders_custom === 'string')
+          ? t.placeholders_custom
+          : JSON.stringify(t.placeholders_custom || []),
       }),
     });
     const j = await res.json();
@@ -39323,7 +41637,7 @@ function cfgUpdateDraft(field, value) {
   CFG_ADMIN.draft[field] = value;
   CFG_ADMIN.dirty = true;
   if (field === 'schedule_type' || field === 'schedule_time' || field === 'schedule_event' || field === 'schedule_offset') cfgRenderRight();
-  if (field === 'enabled') cfgRenderEditor();
+  if (field === 'enabled' || field === 'responsivo') cfgRenderEditor();
   if (field === 'nombre' || field === 'enabled' || field === 'schedule_type' || field === 'schedule_event' || field === 'schedule_offset' || field === 'schedule_time') cfgRenderList();
   // Actualizar botón Guardar cambios en cada edición (idempotente).
   _cfgUpdateSaveButton();
@@ -39377,6 +41691,7 @@ async function cfgSaveDraft() {
     alert('El nombre es requerido');
     return;
   }
+  if (typeof showLoading === 'function') showLoading('Guardando template…', 'Sincronizando con Google Sheets');
   try {
     const res = await fetch(`https://api.check-inn.mx/wa/templates-upsert`, {
       method: 'POST',
@@ -39392,6 +41707,12 @@ async function cfgSaveDraft() {
         schedule_time: d.schedule_time,
         alojamientos: d.alojamientos,
         enabled: !!d.enabled,
+        responsivo: !!d.responsivo,
+        placeholders_custom: JSON.stringify(
+          (Array.isArray(d.placeholders_custom) ? d.placeholders_custom : [])
+            .filter(p => String(p.name||'').trim())
+            .map(p => ({ name: String(p.name).trim(), value: String(p.value||'') }))
+        ),
       }),
     });
     const j = await res.json();
@@ -39406,6 +41727,8 @@ async function cfgSaveDraft() {
     if (t) cfgSelectTemplate(t.id); else cfgAdminRender();
   } catch (e) {
     alert('Error al guardar: ' + e.message);
+  } finally {
+    if (typeof hideLoading === 'function') hideLoading();
   }
 }
 
@@ -39881,3 +42204,3913 @@ window.guiasSyncNow = async function() {
   }
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ MÓDULO Bot Chats — panel admin del bot WhatsApp                         ║
+// ║                                                                          ║
+// ║ Vista tipo WhatsApp Web: sidebar con lista de conversaciones + chat     ║
+// ║ central + botones para tomar control / devolver al bot / responder.     ║
+// ║ Refresh automático cada 10s cuando la vista está activa.                ║
+// ═══════════════════════════════════════════════════════════════════════════
+window.BOTC_STATE = {
+  filter: 'all',            // all | bot | human
+  conversations: [],
+  selectedPhone: null,
+  messages: [],
+  state: null,
+  pollTimer: null,
+  __enrichGen: 0,           // token para abortar enrichment cuando el user hace algo prioritario
+};
+
+function _botcEsc(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+function _botcFmtTime(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const now = new Date();
+    const diffMin = Math.round((now - d) / 60000);
+    if (diffMin < 1) return 'ahora';
+    if (diffMin < 60) return `hace ${diffMin} min`;
+    if (diffMin < 24*60) return `hace ${Math.round(diffMin/60)} h`;
+    return d.toLocaleDateString('es-MX', { day:'2-digit', month:'short' });
+  } catch (_) { return ''; }
+}
+function _botcFmtDateTime(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+  } catch (_) { return iso; }
+}
+
+window.botcInit = function() {
+  // botcRefresh (fetch conversaciones) es lo ÚNICO que bloquea el primer
+  // render. HU_STATE y KPIs se piden en background — enrichment de cards
+  // ocurre después vía _botcEnrichPendingBookings sin re-renderizar todo.
+  try { if (typeof huEnsurePerfilKpis_ === 'function') huEnsurePerfilKpis_(); } catch(_){}
+  // Precargar Incidencias y Objetos en cuanto se abre Chats bot — así
+  // cuando el user oprima 'Ver WA' las cards ya están cacheadas y aparecen
+  // al primer render del modal.
+  try {
+    if (typeof incLoadIncidencias === 'function' && (typeof INC_STATE === 'undefined' || !INC_STATE.list || !INC_STATE.list.length)) {
+      incLoadIncidencias().catch(()=>{});
+    }
+  } catch(_){}
+  try {
+    if (typeof objLoadObjetos === 'function' && (typeof OBJ_STATE === 'undefined' || !OBJ_STATE.list || !OBJ_STATE.list.length)) {
+      objLoadObjetos().catch(()=>{});
+    }
+  } catch(_){}
+  botcRefresh();
+  // 2 polls con frecuencias distintas. Apps Script tarda 2-5s y es
+  // single-threaded — polls demasiado agresivos generan cola y 500s.
+  // - Chat abierto: cada 10s (guard anti-solape).
+  // - Lista completa: cada 30s (más pesada, cambia menos).
+  if (BOTC_STATE.pollTimer) clearInterval(BOTC_STATE.pollTimer);
+  if (BOTC_STATE.pollTimerList) clearInterval(BOTC_STATE.pollTimerList);
+  BOTC_STATE.__pollingChat = false;
+  BOTC_STATE.__pollingList = false;
+  BOTC_STATE.pollTimer = setInterval(() => {
+    const mod = document.getElementById('module-bot-chats');
+    if (!mod || mod.classList.contains('hidden')) {
+      clearInterval(BOTC_STATE.pollTimer);
+      clearInterval(BOTC_STATE.pollTimerList);
+      BOTC_STATE.pollTimer = null;
+      BOTC_STATE.pollTimerList = null;
+      return;
+    }
+    // Chat abierto — 10s, con guard anti-solape
+    if (BOTC_STATE.selectedPhone && !BOTC_STATE.__pollingChat) {
+      BOTC_STATE.__pollingChat = true;
+      botcOpenChat(BOTC_STATE.selectedPhone, { silent: true }).finally(() => {
+        BOTC_STATE.__pollingChat = false;
+      });
+    }
+  }, 10_000);
+  BOTC_STATE.pollTimerList = setInterval(() => {
+    const mod = document.getElementById('module-bot-chats');
+    if (!mod || mod.classList.contains('hidden')) return;
+    if (BOTC_STATE.__pollingList) return;
+    BOTC_STATE.__pollingList = true;
+    botcRefresh({ silent: true }).finally(() => {
+      BOTC_STATE.__pollingList = false;
+    });
+  }, 60_000);
+};
+
+window.botcSetFilter = function(f) {
+  BOTC_STATE.filter = f;
+  document.querySelectorAll('#botc-filter-tabs button[data-filter]').forEach(b => {
+    // El botón "Bot ▾" queda activo si el filtro es 'bot' o 'supervised'
+    // (ambos son sub-opciones del contenedor Bot).
+    const primary = b.getAttribute('data-filter');
+    const alt = b.getAttribute('data-filter-alt') || '';
+    const active = primary === f || alt === f;
+    b.style.background = active ? '#0f172a' : 'transparent';
+    b.style.color = active ? '#fff' : '#475569';
+    // Actualizar label del dropdown según sub-selección
+    if (b.id === 'botc-bot-dropdown-btn') {
+      b.textContent = (f === 'supervised' ? '👁 Supervisado ▾' : '⚙️ Automático ▾');
+    }
+  });
+  // Refresh silent: no borra el sidebar, sólo actualiza el subtítulo con
+  // indicador discreto y reemplaza cards cuando llega la nueva data.
+  botcRefresh({ silent: true });
+};
+window.botcToggleBotDropdown = function(e) {
+  if (e) e.stopPropagation();
+  const dd = document.getElementById('botc-bot-dropdown');
+  if (!dd) return;
+  const open = dd.style.display !== 'none';
+  dd.style.display = open ? 'none' : 'block';
+  if (!open) {
+    setTimeout(() => document.addEventListener('click', botcCloseBotDropdown, { once: true }), 0);
+  }
+};
+window.botcCloseBotDropdown = function() {
+  const dd = document.getElementById('botc-bot-dropdown');
+  if (dd) dd.style.display = 'none';
+};
+
+window.botcRefresh = async function(opts) {
+  opts = opts || {};
+  const sub = document.getElementById('botc-subtitle');
+  const sidebar = document.getElementById('botc-sidebar');
+  // Solo mostrar loader pleno si NO hay data previa (primera carga).
+  // Si ya hay conversaciones renderizadas, mostrar solo un indicador
+  // discreto en el subtítulo — no borrar el sidebar.
+  const hadData = !!(BOTC_STATE.conversations && BOTC_STATE.conversations.length);
+  if (!opts.silent && !hadData) {
+    if (sub) sub.textContent = 'Cargando…';
+    if (sidebar) sidebar.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">⏳ Cargando…</div>';
+  } else if (!opts.silent && sub) {
+    sub.textContent = `${BOTC_STATE.conversations.length} conversaciones · actualizando…`;
+  }
+  try {
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/conversations?filter=${encodeURIComponent(BOTC_STATE.filter)}&limit=200`, { cache: 'no-store' });
+    // Detectar respuestas HTML (Apps Script saturado devuelve HTML de error)
+    // ANTES de intentar parse — evita el "Unexpected token '<'" en pantalla.
+    const ct = String(r.headers.get('content-type')||'');
+    if (!r.ok || !/json/i.test(ct)) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    BOTC_STATE.conversations = j.conversations || [];
+    if (sub) sub.textContent = `${j.conversations.length} conversaciones · piloto`;
+    _botcRenderSidebar();
+  } catch (e) {
+    // Si ya había data, mantenerla y avisar discretamente en el subtítulo.
+    // Solo mostrar error inline si es la primera carga que falló.
+    if (hadData) {
+      if (sub) sub.textContent = `${BOTC_STATE.conversations.length} conversaciones · sin conexión (reintentando)`;
+    } else if (sidebar) {
+      sidebar.innerHTML = `<div style="padding:24px;color:#94a3b8;font-size:12px;text-align:center">⏳ Reintentando conexión…</div>`;
+    }
+  }
+};
+
+// Cache de bookings por phone10 (enrichment del sidebar bot-chats).
+window.__botcBookingByPhone = window.__botcBookingByPhone || {};
+
+/** Encuentra el booking más relevante para un phone: prioridad
+ *  activa > próxima > última histórica. Usa LG_STATE.bookings si tiene,
+ *  sino fetchea por phone (huFetchBookingsByGuest_) y cachea. */
+// Firma actual de los datasets — si crece desde la última vez que
+// cacheamos el pick, la cache queda estale y hay que re-computar.
+// Incluye __waExtraHuRowsByPhone porque waOpenModal precarga huRows
+// on-demand que también son fuente válida para el pick.
+function _botcDataSig(phoneRaw) {
+  const hu = (HU_STATE?.rows || []).length;
+  const lg = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings.length : 0;
+  let extra = 0;
+  try {
+    const digits = String(phoneRaw || '').replace(/\D/g,'');
+    const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
+    if (phone10 && window.__waExtraHuRowsByPhone && window.__waExtraHuRowsByPhone[phone10]) {
+      extra = window.__waExtraHuRowsByPhone[phone10].length;
+    }
+  } catch(_){}
+  return `${hu}|${lg}|${extra}`;
+}
+window.__botcBookingSig = window.__botcBookingSig || {};
+
+function _botcGetBookingForPhoneSync(phoneRaw) {
+  // Sync — solo funciona si HU_STATE o LG_STATE ya están cargados. Si no,
+  // retorna undefined (distinto de null) para que el render sepa "aún no
+  // sabemos".
+  const digits = String(phoneRaw || '').replace(/\D/g,'');
+  const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
+  const cacheKey = phoneRaw;
+  const sig = _botcDataSig(phoneRaw);
+  // Cache hit válido: existe entrada Y firma no cambió (no llegaron más
+  // reservas que ameriten re-evaluar). Si la firma creció, ignoramos la
+  // cache y re-computamos con el dataset completo actual.
+  if (window.__botcBookingByPhone[cacheKey] !== undefined && window.__botcBookingSig[cacheKey] === sig) {
+    return window.__botcBookingByPhone[cacheKey];
+  }
+  const huLoaded = !!HU_STATE?.loaded;
+  const lgLoaded = !!(typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings) && LG_STATE.bookings.length);
+  const extraRows = (window.__waExtraHuRowsByPhone && window.__waExtraHuRowsByPhone[phone10]) || [];
+  if (!huLoaded && !lgLoaded && !extraRows.length) return undefined;
+  // Unir fuentes con dedup por LodgifyId | (fechas+propiedad). Cubre el
+  // caso donde una reserva ACTIVA existe en Lodgify pero aún no se propagó
+  // a Reservaciones (ej. Cumbres #1 16-23 ago del pilot).
+  const bookings = [];
+  const seen = new Set();
+  const keyOf = (b) => {
+    const lid = String(b.LodgifyId || b.Id || '').trim();
+    if (lid) return 'L:' + lid;
+    const a = String(b.DateArrival||'').slice(0,10);
+    const d = String(b.DateDeparture||'').slice(0,10);
+    const p = String(b.PropertyName||b.RoomTypeName||'').toLowerCase().trim();
+    return `F:${a}|${d}|${p}`;
+  };
+  const push = (b) => { const k = keyOf(b); if (!seen.has(k)) { seen.add(k); bookings.push(b); } };
+  try {
+    if (huLoaded && typeof huGetGuestRowsByTail_ === 'function' && typeof huRowToSyntheticBooking === 'function') {
+      const rows = huGetGuestRowsByTail_(null, phone10) || [];
+      rows.map(huRowToSyntheticBooking).filter(Boolean).forEach(push);
+    }
+  } catch(_){}
+  // Rows pre-cargados on-demand por waOpenModal (fetch /bookings-by-guest).
+  try {
+    if (extraRows.length && typeof huRowToSyntheticBooking === 'function') {
+      extraRows.map(huRowToSyntheticBooking).filter(Boolean).forEach(push);
+    }
+  } catch(_){}
+  try {
+    if (lgLoaded) {
+      LG_STATE.bookings.forEach(b => {
+        const tel = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
+        if (tel === phone10) push(b);
+      });
+    }
+  } catch(_){}
+  const picked = bookings.length ? _botcPickBestBooking(bookings) : null;
+  window.__botcBookingByPhone[cacheKey] = picked;
+  window.__botcBookingSig[cacheKey] = sig;
+  return picked;
+}
+function _botcPickBestBooking(list) {
+  // OJO: huRowToSyntheticBooking devuelve fechas en MM/DD/YYYY (formato
+  // Lodgify), pero huParseDate interpreta "M/D/YYYY" como DD/MM/YYYY —
+  // "08/16/2026" se lee día=8 mes=16 → mes inválido → JS rueda al año
+  // siguiente. Usamos un parser local que sabe que aquí es MM/DD/YYYY.
+  const parseMMDD = (s) => {
+    const t = String(s || '').trim();
+    if (!t) return null;
+    // ISO YYYY-MM-DD (por si algún booking Lodgify vino ya normalizado)
+    let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return new Date(+m[1], +m[2]-1, +m[3]).getTime();
+    // MM/DD/YYYY (formato canónico Lodgify + huRowToSyntheticBooking)
+    m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) {
+      const mo = +m[1], da = +m[2], yr = +m[3];
+      if (mo < 1 || mo > 12 || da < 1 || da > 31) return null;
+      return new Date(yr, mo-1, da).getTime();
+    }
+    return null;
+  };
+  const _now = new Date();
+  const today = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate()).getTime();
+  const active = list.find(b => {
+    const a = parseMMDD(b.DateArrival), d = parseMMDD(b.DateDeparture);
+    return a != null && d != null && a <= today && today <= d;
+  });
+  if (active) return active;
+  const futura = list.filter(b => { const a = parseMMDD(b.DateArrival); return a != null && a >= today; })
+    .sort((a,b) => parseMMDD(a.DateArrival) - parseMMDD(b.DateArrival))[0];
+  if (futura) return futura;
+  const past = list.slice().sort((a,b) => (parseMMDD(b.DateDeparture)||0) - (parseMMDD(a.DateDeparture)||0))[0];
+  return past || list[0];
+}
+
+// "Sin responder": el ÚLTIMO mensaje del hilo viene del huésped (role='user')
+// y aún no hubo respuesta posterior de bot/admin/template. Aplica sin
+// importar el control — una conv puede estar en HUMANO y ya haber sido
+// atendida (último msg es 'admin'), o en BOT y estar esperando respuesta.
+function _botcIsPending_(c) {
+  const lastRole = String(c.last_msg_role || '').toLowerCase();
+  return lastRole === 'user';
+}
+
+// Clasifica una conversación en 4 buckets según el booking asociado.
+// - concluida: la reserva ya terminó (departure < hoy).
+// - reservas:  hay reserva activa o próxima.
+// - cotizacion: hay contacto pero sin reserva. Heurística: número existe
+//   en el sheet Cotizaciones o el nombre coincide (por ahora: sin bk
+//   pero con nombre → cotización).
+// - entrantes: número desconocido (sin bk ni nombre).
+function _botcClassifyConv_(c, bk) {
+  try {
+    if (bk) {
+      const dep = String(bk.DateDeparture || '').slice(0,10);
+      const today = new Date().toISOString().slice(0,10);
+      if (dep && dep < today) return 'concluida';
+      return 'reservas';
+    }
+  } catch(_){}
+  const name = String(c.name || '').trim();
+  return name ? 'cotizacion' : 'entrantes';
+}
+window.botcSetSidebarView_ = function(mode) {
+  BOTC_STATE.viewMode = mode;
+  _botcRenderSidebar();
+};
+window.botcSetSearchQuery_ = function(q) {
+  BOTC_STATE.searchQuery = String(q||'');
+  // Debounce ligero para no repintar en cada tecla.
+  clearTimeout(window.__botcSearchDebounce);
+  window.__botcSearchDebounce = setTimeout(() => {
+    _botcRenderSidebar();
+    // Restaurar foco + posición del cursor al input.
+    const el = document.getElementById('botc-search-input');
+    if (el) {
+      el.focus();
+      try { el.setSelectionRange(el.value.length, el.value.length); } catch(_){}
+    }
+  }, 120);
+};
+window.botcToggleCat_ = function(key) {
+  BOTC_STATE.collapsedCats = BOTC_STATE.collapsedCats || new Set();
+  if (BOTC_STATE.collapsedCats.has(key)) BOTC_STATE.collapsedCats.delete(key);
+  else BOTC_STATE.collapsedCats.add(key);
+  _botcRenderSidebar();
+};
+
+function _botcRenderSidebar() {
+  const sidebar = document.getElementById('botc-sidebar');
+  if (!sidebar) return;
+  // Barra superior: buscador + visualización.
+  BOTC_STATE.viewMode = BOTC_STATE.viewMode || 'cronologico';
+  BOTC_STATE.searchQuery = BOTC_STATE.searchQuery || '';
+  const q = String(BOTC_STATE.searchQuery || '').trim();
+  const tabsHtml = `
+    <div style="padding:10px 10px 4px;background:#f8fafc;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:5">
+      <div style="position:relative;margin-bottom:6px">
+        <input id="botc-search-input" type="search" value="${_botcEsc(q)}"
+          placeholder="🔍 Buscar por nombre o mensaje…"
+          oninput="botcSetSearchQuery_(this.value)"
+          style="width:100%;padding:7px 30px 7px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;background:#fff">
+        ${q ? `<button type="button" onclick="botcSetSearchQuery_('')" title="Limpiar" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;font-size:14px;color:#94a3b8;cursor:pointer;padding:2px 6px;line-height:1">×</button>` : ''}
+      </div>
+      <div id="botc-view-tabs" style="display:flex;gap:6px">
+        <button type="button" onclick="botcSetSidebarView_('cronologico')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:800;background:${BOTC_STATE.viewMode==='cronologico'?'#0f172a':'#fff'};color:${BOTC_STATE.viewMode==='cronologico'?'#fff':'#475569'};border:1.5px solid ${BOTC_STATE.viewMode==='cronologico'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer">🕐 Cronológico</button>
+        <button type="button" onclick="botcSetSidebarView_('clasificado')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:800;background:${BOTC_STATE.viewMode==='clasificado'?'#0f172a':'#fff'};color:${BOTC_STATE.viewMode==='clasificado'?'#fff':'#475569'};border:1.5px solid ${BOTC_STATE.viewMode==='clasificado'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer">📂 Clasificado</button>
+      </div>
+    </div>`;
+  // Aplica el filtro de búsqueda (case-insensitive) sobre nombre, phone y
+  // preview del último mensaje.
+  const qLower = q.toLowerCase();
+  const filtered = q
+    ? BOTC_STATE.conversations.filter(c => {
+        const parts = [c.name, c.phone, c.last_msg_preview, c.notes].map(x => String(x||'').toLowerCase());
+        return parts.some(p => p.indexOf(qLower) >= 0);
+      })
+    : BOTC_STATE.conversations;
+  if (!filtered.length) {
+    sidebar.innerHTML = tabsHtml + `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">${q ? 'Sin resultados para «' + _botcEsc(q) + '».' : 'Sin conversaciones con este filtro.'}</div>`;
+    return;
+  }
+  const items = filtered.map(c => {
+    const selected = String(c.phone) === String(BOTC_STATE.selectedPhone);
+    const isHuman = String(c.control) === 'human';
+    const isSupervised = String(c.control) === 'supervised';
+    const controlChip = isHuman
+      ? '<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">👤 HUMANO</span>'
+      : isSupervised
+        ? '<span style="font-size:9px;background:#ede9fe;color:#5b21b6;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">👁 SUPERVISADO</span>'
+        : '<span style="font-size:9px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">⚙️ AUTOMÁTICO</span>';
+    // Look-up SYNC: si HU_STATE ya está cargado y el booking está cacheado,
+    // pintamos rica de una vez. Si no, mostramos lite y _botcEnrichPendingBookings
+    // lo reemplaza in-place cuando termine el load, SIN bloquear el render.
+    const bk = _botcGetBookingForPhoneSync(c.phone);
+    let rich = '';
+    if (bk && typeof lgBuildDetailSidebarItem === 'function') {
+      try {
+        // El nombre canónico viene de Perfiles ("Nombre del huésped"), que
+        // Apps Script ya resuelve en /wa/bot/conversations como c.name.
+        // Sobreescribimos GuestName del booking sintético para asegurar que
+        // la card y el header del chat muestren el MISMO nombre.
+        const bkNamed = c.name ? Object.assign({}, bk, { GuestName: c.name }) : bk;
+        // Si el booking no trae __reservacion (viene de LG raw), inferir el
+        // huésped desde HU_STATE por phone tail para que los KPIs y el chip
+        // de tier (RECURRENTE, BRONCE, etc.) aparezcan en la card.
+        let huespedOverride = bkNamed.__reservacion || null;
+        if (!huespedOverride && typeof huGetGuestRowsByTail_ === 'function') {
+          try {
+            const tail = String(c.phone || '').replace(/\D/g,'').slice(-10);
+            const rows = tail ? (huGetGuestRowsByTail_(null, tail) || []) : [];
+            if (rows.length) huespedOverride = rows[0];
+          } catch(_){}
+        }
+        rich = lgBuildDetailSidebarItem(bkNamed, null, huespedOverride);
+        rich = `<div onclick="event.stopPropagation();botcOpenChat('${_botcEsc(c.phone)}')" style="cursor:pointer">${rich}</div>`;
+      } catch(e) { rich = ''; }
+    }
+    // Header ligero: preview msg + control chip + nombre/tel (si no hay rich)
+    const name = String(c.name || (bk && bk.GuestName) || '').trim();
+    const lite = rich ? '' : `
+      <div data-botc-lite style="padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
+          <div style="min-width:0;flex:1">
+            ${name ? `<div style="font-size:13px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(c.phone)}</div>` : `<div style="font-size:13px;font-weight:800;color:#0f172a">+${_botcEsc(c.phone)}</div>`}
+          </div>
+          ${controlChip}
+        </div>
+      </div>`;
+    const riskCount = _hgNotesRiskCount_(c.phone);
+    const riskBtn = `<button type="button" onclick="event.stopPropagation();hgNoteQuickRisk_('${_botcEsc(c.phone)}')"
+        title="${riskCount ? `${riskCount} nota(s) de riesgo — click para agregar` : 'Marcar riesgo del huésped (nota rápida)'}"
+        style="background:none;border:0;padding:0 2px;cursor:pointer;font-size:12px;line-height:1;color:${riskCount?'#dc2626':'#cbd5e1'};filter:${riskCount?'none':'grayscale(1)'};opacity:${riskCount?1:0.6}">🚩</button>`;
+    // chatMeta integrado como footer de la card (no como bloque separado).
+    // Fondo blanco continuo con la card, sin border-top disruptivo.
+    const chatMeta = `
+      <div class="botc-card-footer" style="padding:8px 14px 10px;background:transparent;border-top:1px solid #f1f5f9">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+          ${controlChip}
+          <div style="display:flex;align-items:center;gap:6px">
+            ${riskBtn}
+            <span style="font-size:10px;color:#94a3b8">💬 ${_botcFmtTime(c.last_msg_at)}</span>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px">${_botcEsc(c.last_msg_preview)}</div>
+      </div>`;
+    // La card rich viene con su propio borde/sombra/radius. Al meterla dentro
+    // del wrapper aplicamos CSS que la aplana para que meta y rich lean como
+    // UNA sola card.
+    _botcEnsureCardFlattenCss_();
+    const pending = _botcIsPending_(c);
+    const bgSel = selected ? '#eff6ff' : (pending ? '#fee2e2' : '#fff');
+    const bordCol = selected ? '#3b82f6' : (pending ? '#fca5a5' : '#e2e8f0');
+    const wrap = `<div class="botc-conv-item ${pending?'botc-pending':''}" data-botc-phone="${_botcEsc(c.phone)}"
+        onclick="botcOpenChat('${_botcEsc(c.phone)}')"
+        style="position:relative;background:${bgSel};border:1px solid ${bordCol};border-left:3px solid ${selected?'#3b82f6':(pending?'#dc2626':'transparent')};border-radius:12px;margin:8px 10px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06);cursor:pointer">${rich || lite}${chatMeta}</div>`;
+    return { html: wrap, cat: _botcClassifyConv_(c, bk), pending };
+  });
+  let listHtml = '';
+  if (BOTC_STATE.viewMode === 'clasificado') {
+    const CATS = [
+      { key:'entrantes',  label:'Entrantes',  color:'#0f172a', accent:'#334155' },
+      { key:'cotizacion', label:'Cotización', color:'#b45309', accent:'#f59e0b' },
+      { key:'reservas',   label:'Reservas',   color:'#15803d', accent:'#22c55e' },
+      { key:'concluida',  label:'Concluidas', color:'#475569', accent:'#94a3b8' },
+    ];
+    const buckets = { entrantes:[], cotizacion:[], reservas:[], concluida:[] };
+    const pendingByCat = { entrantes:0, cotizacion:0, reservas:0, concluida:0 };
+    items.forEach(it => {
+      (buckets[it.cat] || buckets.entrantes).push(it.html);
+      if (it.pending) pendingByCat[it.cat] = (pendingByCat[it.cat]||0)+1;
+    });
+    BOTC_STATE.collapsedCats = BOTC_STATE.collapsedCats || new Set();
+    listHtml = CATS.map(cat => {
+      const arr = buckets[cat.key] || [];
+      if (!arr.length) return '';
+      const isCol = BOTC_STATE.collapsedCats.has(cat.key);
+      const pend = pendingByCat[cat.key] || 0;
+      const pendBadge = pend > 0
+        ? `<span title="${pend} sin responder" style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:#dc2626;color:#fff;border-radius:999px;font-size:11px;font-weight:800">${pend}</span>`
+        : '';
+      return `
+        <div style="display:flex;flex-direction:column;gap:0;margin-top:8px">
+          <button type="button" onclick="botcToggleCat_('${cat.key}')"
+            style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:transparent;border:0;border-bottom:3px solid ${cat.accent};margin:0 10px;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s"
+            onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+            <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+              <span style="font-size:11px;color:${cat.color};font-weight:900;letter-spacing:.06em;text-transform:uppercase">${cat.label}</span>
+              ${pendBadge}
+              <span style="font-size:10px;color:#94a3b8;font-weight:700">de ${arr.length}</span>
+            </div>
+            <span style="font-size:14px;color:${cat.color};transition:transform .2s;transform:rotate(${isCol?'-90':'0'}deg);line-height:1">▾</span>
+          </button>
+          <div style="display:${isCol?'none':'block'}">${arr.join('')}</div>
+        </div>`;
+    }).join('');
+  } else {
+    listHtml = items.map(it => it.html).join('');
+  }
+  sidebar.innerHTML = tabsHtml + listHtml;
+  // Enrichment async: para conversations sin booking cacheado, buscar
+  // y luego re-render solo la sidebar (no todo el módulo).
+  _botcEnrichPendingBookings();
+}
+
+// Idle scheduler: usa requestIdleCallback si está disponible, sino setTimeout.
+// Permite que el navegador priorice input/fetch sobre el enrichment.
+const _botcYield = () => new Promise(r => {
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(() => r(), { timeout: 500 });
+  else setTimeout(r, 16);
+});
+
+async function _botcEnrichPendingBookings() {
+  // Token que permite abortar cuando el user hace algo prioritario (abrir chat).
+  const myGen = ++BOTC_STATE.__enrichGen;
+  const currentSig = _botcDataSig();
+  // Pending = cards sin pick + cards con pick pero firma stale (llegaron
+  // más reservas → hay que re-evaluar según los criterios).
+  const pending = (BOTC_STATE.conversations || []).filter(c => {
+    const cached = window.__botcBookingByPhone[c.phone];
+    if (cached === undefined) return true;
+    const sig = window.__botcBookingSig[c.phone];
+    return sig !== currentSig; // stale
+  });
+  if (!pending.length) return;
+  // Invalidar la cache de pending stale para forzar re-pick en el loop.
+  for (const c of pending) {
+    if (window.__botcBookingByPhone[c.phone] !== undefined && window.__botcBookingSig[c.phone] !== currentSig) {
+      delete window.__botcBookingByPhone[c.phone];
+    }
+  }
+  // Camino A: HU_STATE ya está cargado (user visitó Gestión de reservas).
+  // Enriquecemos localmente sin fetch — cediendo al hilo entre cards.
+  // Camino B: HU_STATE NO cargado. NUNCA disparamos huespedesLoad desde
+  // bot-chats porque descarga 7k filas y bloquea el hilo por decenas de
+  // segundos (impide procesar el fetch del chat cuando el user hace click).
+  // En su lugar, fetch per-phone individual (<500ms cada uno) con
+  // concurrency=1, abortable por token.
+  const useLocal = !!HU_STATE?.loaded;
+  // Camino A (local, HU_STATE cargado): rápido, ceder al hilo entre cards.
+  // Camino B (fetch per-phone): PARALELO (throttle 5) para que TODAS las
+  //   reservas del huésped estén cacheadas rápido y el pick de "Activa" sea
+  //   correcto antes de que el bot procese cualquier mensaje entrante.
+  const applyToDom = (c, bk) => {
+    if (!bk || typeof lgBuildDetailSidebarItem !== 'function') return;
+    const wrap = document.querySelector(`[data-botc-phone="${CSS.escape(String(c.phone))}"]`);
+    if (!wrap) return;
+    try {
+      const bkNamed = c.name ? Object.assign({}, bk, { GuestName: c.name }) : bk;
+      let huespedOverride = bkNamed.__reservacion || null;
+      if (!huespedOverride && typeof huGetGuestRowsByTail_ === 'function') {
+        try {
+          const tail = String(c.phone || '').replace(/\D/g,'').slice(-10);
+          const rows = tail ? (huGetGuestRowsByTail_(null, tail) || []) : [];
+          if (rows.length) huespedOverride = rows[0];
+        } catch(_){}
+      }
+      const rich = lgBuildDetailSidebarItem(bkNamed, null, huespedOverride);
+      const richWrapped = `<div onclick="event.stopPropagation();botcOpenChat('${_botcEsc(c.phone)}')" style="cursor:pointer">${rich}</div>`;
+      const lite = wrap.querySelector('[data-botc-lite]');
+      if (lite) lite.outerHTML = richWrapped;
+    } catch(_){}
+  };
+
+  if (useLocal) {
+    // Local — rápido, ceder entre cada uno para no bloquear.
+    for (const c of pending) {
+      if (BOTC_STATE.__enrichGen !== myGen) return;
+      await _botcYield();
+      if (BOTC_STATE.__enrichGen !== myGen) return;
+      let bk = null;
+      try { bk = _botcGetBookingForPhoneSync(c.phone); } catch(_){}
+      applyToDom(c, bk);
+    }
+    return;
+  }
+
+  // Fetch paralelo con throttle. Cada worker toma el siguiente pending.
+  let idx = 0;
+  const CONC = 5;
+  const worker = async () => {
+    while (idx < pending.length) {
+      if (BOTC_STATE.__enrichGen !== myGen) return;
+      const c = pending[idx++];
+      try {
+        const digits = String(c.phone||'').replace(/\D/g,'');
+        const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
+        if (phone10 && typeof huFetchBookingsByGuest_ === 'function') {
+          const list = await huFetchBookingsByGuest_(phone10);
+          if (BOTC_STATE.__enrichGen !== myGen) return;
+          // Combinar bookings Lodgify + huRows convertidas (huRows viven en
+          // __waExtraHuRowsByPhone tras huFetchBookingsByGuest_). Dedup por
+          // LodgifyId | (fechas+propiedad). Sin esto, reservas manuales no
+          // entraban al pool y el pick elegía una Próxima cuando la Activa
+          // era manual.
+          const pool = Array.isArray(list) ? list.slice() : [];
+          try {
+            const extra = (window.__waExtraHuRowsByPhone && window.__waExtraHuRowsByPhone[phone10]) || [];
+            if (extra.length && typeof huRowToSyntheticBooking === 'function') {
+              const seen = new Set(pool.map(b => String(b.LodgifyId||b.Id||'') || `F:${String(b.DateArrival||'').slice(0,10)}|${String(b.DateDeparture||'').slice(0,10)}|${String(b.PropertyName||'').toLowerCase()}`));
+              for (const r of extra) {
+                const syn = huRowToSyntheticBooking(r);
+                if (!syn) continue;
+                const k = String(syn.LodgifyId||syn.Id||'') || `F:${String(syn.DateArrival||'').slice(0,10)}|${String(syn.DateDeparture||'').slice(0,10)}|${String(syn.PropertyName||'').toLowerCase()}`;
+                if (seen.has(k)) continue;
+                seen.add(k);
+                pool.push(syn);
+              }
+            }
+          } catch(_){}
+          const bk = pool.length ? _botcPickBestBooking(pool) : null;
+          window.__botcBookingByPhone[c.phone] = bk;
+          // Guardar firma para que _botcGetBookingForPhoneSync no invalide
+          // en el próximo re-render (evita ping-pong con la card).
+          try { window.__botcBookingSig[c.phone] = _botcDataSig(c.phone); } catch(_){}
+          applyToDom(c, bk);
+        }
+      } catch(_){}
+    }
+  };
+  await Promise.all(Array.from({length: Math.min(CONC, pending.length)}, () => worker()));
+}
+
+// Botón Sync: invalida caches de bookings y re-fetchea SOLO las
+// conversaciones actualmente en pantalla. También limpia el cache remoto
+// (__bookingsByGuestCache) para forzar datos frescos del backend.
+window.botcSyncVisible = async function() {
+  const btn = document.getElementById('botc-sync-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Sincronizando…'; }
+  const visible = (BOTC_STATE.conversations || []).slice();
+  for (const c of visible) {
+    delete window.__botcBookingByPhone[c.phone];
+    try {
+      const digits = String(c.phone||'').replace(/\D/g,'');
+      const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
+      if (phone10 && window.__bookingsByGuestCache) window.__bookingsByGuestCache.delete(phone10);
+    } catch(_){}
+  }
+  BOTC_STATE.__enrichGen++; // cancelar enrichment previo
+  try { await _botcEnrichPendingBookings(); } catch(_){}
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 Sync'; }
+};
+
+// Inyecta la media query mobile solo una vez.
+// Aplasta la card interna (rich) para que se lea como una sola pieza con el
+// footer chatMeta: sin sombra ni borde propio y sin radius inferior.
+function _botcEnsureCardFlattenCss_() {
+  if (document.getElementById('botc-card-flat')) return;
+  const s = document.createElement('style');
+  s.id = 'botc-card-flat';
+  // Solo neutraliza sombra + margin externo del wrapper interno para que la
+  // card rich (que TRAE sus propios KPIs, chips de tier, monto, etc. con
+  // bg/borde) se pegue al footer chatMeta sin salto visual.
+  // NO tocamos border-width, border-radius ni background del rich — chips
+  // internos dependen de esos estilos para verse (RECURRENTE, VIP, monto).
+  s.textContent = `
+    .botc-conv-item > *:not(.botc-card-footer) {
+      box-shadow: none !important;
+      margin: 0 !important;
+    }
+  `;
+  document.head.appendChild(s);
+}
+function _botcEnsureMobileCss_() {
+  if (document.getElementById('botc-mobile-mq')) return;
+  const s = document.createElement('style');
+  s.id = 'botc-mobile-mq';
+  s.textContent = `
+    @media (max-width: 900px) {
+      #module-bot-chats #botc-sidebar { width: 100% !important; }
+      #module-bot-chats #botc-main    { display: none !important; }
+      #module-bot-chats.botc-has-chat #botc-sidebar { display: none !important; }
+      #module-bot-chats.botc-has-chat #botc-main    { display: flex !important; width: 100% !important; }
+      #botc-back-to-list { display: inline-flex !important; }
+    }
+    #botc-back-to-list { display: none; }
+  `;
+  document.head.appendChild(s);
+}
+window.botcBackToList_ = function() {
+  BOTC_STATE.selectedPhone = null;
+  try {
+    const mod = document.getElementById('module-bot-chats');
+    if (mod) mod.classList.remove('botc-has-chat');
+    const main = document.getElementById('botc-main');
+    if (main) main.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;text-align:center;padding:40px">Selecciona una conversación<br>de la lista</div>`;
+  } catch(_){}
+  try { if (typeof botcRenderConversations === 'function') botcRenderConversations(); } catch(_){}
+};
+
+window.botcOpenChat = async function(phone, opts) {
+  opts = opts || {};
+  // Si estamos en medio de una acción del draft, ignorar polls silent —
+  // evita que el próximo poll re-inyecte el textarea del draft encima del
+  // stub "⏳ Enviando…" mientras el fetch aún está en vuelo.
+  if (opts.silent && BOTC_STATE.__draftBusy) return;
+  // Sys-IA: si el panel está abierto y el usuario está escribiendo/tiene
+  // sugerencias, saltarse el poll silent para no borrar su trabajo.
+  if (opts.silent) {
+    try {
+      const sp = document.getElementById('botc-sysia-panel');
+      if (sp && sp.style.display !== 'none') return;
+    } catch(_){}
+  }
+  BOTC_STATE.selectedPhone = phone;
+  // Mobile: al elegir conversación, mostrar la vista chat a pantalla completa.
+  _botcEnsureMobileCss_();
+  try {
+    const mod = document.getElementById('module-bot-chats');
+    if (mod) mod.classList.add('botc-has-chat');
+  } catch(_){}
+  // Abortar enrichment en progreso: incrementar el gen invalida el loop
+  // actual y libera el hilo principal para que el fetch se procese ya.
+  if (!opts.silent) {
+    BOTC_STATE.__enrichGen = (BOTC_STATE.__enrichGen || 0) + 1;
+    try {
+      document.querySelectorAll('#botc-sidebar [data-botc-phone]').forEach(el => {
+        const isSel = el.getAttribute('data-botc-phone') === String(phone);
+        el.style.background = isSel ? '#eff6ff' : '#fff';
+        el.style.borderLeft = `3px solid ${isSel ? '#3b82f6' : 'transparent'}`;
+      });
+    } catch(_){}
+  }
+  const main = document.getElementById('botc-main');
+  if (!main) return;
+  // Solo mostrar loader pleno si el chat cambió de huésped (main vacío o
+  // era otro phone). Si es el mismo phone, no borrar — solo actualizar
+  // data en fondo.
+  const mainWasEmpty = !main.hasChildNodes() || !main.querySelector('#botc-msgs');
+  const sameChatOpen = BOTC_STATE.__renderedPhone === String(phone);
+  if (!opts.silent && (mainWasEmpty || !sameChatOpen)) {
+    main.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px">⏳ Cargando conversación…</div>';
+  }
+  try {
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/context?phone=${encodeURIComponent(phone)}&limit=100`, { cache: 'no-store' });
+    const ct = String(r.headers.get('content-type')||'');
+    if (!r.ok || !/json/i.test(ct)) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    BOTC_STATE.messages = j.messages || [];
+    BOTC_STATE.state = j.state || { control: 'bot' };
+    BOTC_STATE.__renderedPhone = String(phone);
+    _botcRenderMain(phone);
+    // Reanudar enrichment de cards pendientes (fue abortado al abrir chat).
+    if (!opts.silent) setTimeout(() => _botcEnrichPendingBookings(), 300);
+  } catch (e) {
+    // Si ya había un chat renderizado, no borrar — el próximo poll reintentará.
+    if (mainWasEmpty || !sameChatOpen) {
+      main.innerHTML = `<div style="padding:24px;color:#94a3b8;font-size:12px;text-align:center">⏳ Reintentando conexión…</div>`;
+    }
+  }
+};
+
+function _botcRenderMain(phone) {
+  const main = document.getElementById('botc-main');
+  if (!main) return;
+  const state = BOTC_STATE.state || { control: 'bot' };
+  const isHuman = String(state.control) === 'human';
+  const isSupervised = String(state.control) === 'supervised';
+  const draftBody = String(state.pending_draft_body || '');
+  const canType = isHuman || isSupervised;
+  const msgs = BOTC_STATE.messages || [];
+  const msgsHtml = msgs.length ? msgs.map(m => {
+    const isUser = m.role === 'user';
+    const isAdmin = m.role === 'admin';
+    const isTemplate = m.role === 'template';
+    const align = isUser ? 'flex-start' : 'flex-end';
+    let bg, border, label;
+    if (isUser) { bg = '#fff'; border = '#e2e8f0'; label = '👤 Huésped'; }
+    else if (isAdmin) { bg = '#fef3c7'; border = '#fcd34d'; label = '👨‍💼 Admin (tú)'; }
+    else if (isTemplate) { bg = '#e0f2fe'; border = '#7dd3fc'; label = `📩 Template${m.meta && m.meta.tipo ? ' · '+m.meta.tipo : ''}`; }
+    else { bg = '#dcf7c5'; border = '#86efac'; label = '🤖 Bot'; }
+    return `
+      <div style="display:flex;justify-content:${align};margin-bottom:8px">
+        <div style="max-width:70%;padding:8px 12px;background:${bg};border:1px solid ${border};border-radius:10px">
+          <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:3px">${label} · ${_botcFmtDateTime(m.timestamp)}</div>
+          <div style="font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4">${_botcEsc(m.body)}</div>
+        </div>
+      </div>
+    `;
+  }).join('') : '<div style="text-align:center;color:#94a3b8;font-size:12px;padding:40px">Sin mensajes previos.</div>';
+
+  const ctrlChip = isHuman
+    ? '<span style="font-size:11px;background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:999px;font-weight:800">👤 Bajo control humano</span>'
+    : isSupervised
+      ? '<span style="font-size:11px;background:#ede9fe;color:#5b21b6;padding:4px 10px;border-radius:999px;font-weight:800">👁 Supervisado (bot sugiere, tú envías)</span>'
+      : '<span style="font-size:11px;background:#dbeafe;color:#1e40af;padding:4px 10px;border-radius:999px;font-weight:800">🤖 Bot respondiendo</span>';
+  // Ciclo de 3 modos: bot (Automático) / supervised / human. Labels precisos
+  // por estado — nunca decir "Devolver al bot" cuando ya estás en supervised
+  // (el modo supervised ES un modo bot).
+  const autoBtn = `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:6px 12px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">⚙️ Cambiar a Automático</button>`;
+  const supBtn  = `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','supervised')" style="padding:6px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👁 Cambiar a Supervisado</button>`;
+  const humBtn  = `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:6px 12px;font-size:12px;background:#f59e0b;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👤 Tomar control</button>`;
+  // Toggle primario: Tomar control / Automático. Un toggle secundario aparece
+  // solo si el modo actual es humano o supervisado (para elegir cuál de los
+  // dos). "Automático" desactiva ambos.
+  const modeTakenPrimary = isHuman || isSupervised;
+  const primaryToggle = `
+    <div style="display:inline-flex;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:2px">
+      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:5px 10px;font-size:11px;font-weight:800;background:${modeTakenPrimary?'#f59e0b':'transparent'};color:${modeTakenPrimary?'#fff':'#475569'};border:0;border-radius:4px;cursor:pointer">👤 Tomar control</button>
+      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:5px 10px;font-size:11px;font-weight:800;background:${modeTakenPrimary?'transparent':'#3b82f6'};color:${modeTakenPrimary?'#475569':'#fff'};border:0;border-radius:4px;cursor:pointer">⚙️ Automático</button>
+    </div>`;
+  const secondaryToggle = modeTakenPrimary ? `
+    <div style="display:inline-flex;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:2px;margin-top:6px">
+      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:4px 10px;font-size:10px;font-weight:800;background:${isHuman?'#f59e0b':'transparent'};color:${isHuman?'#fff':'#475569'};border:0;border-radius:4px;cursor:pointer">📝 Manual</button>
+      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','supervised')" style="padding:4px 10px;font-size:10px;font-weight:800;background:${isSupervised?'#f59e0b':'transparent'};color:${isSupervised?'#fff':'#475569'};border:0;border-radius:4px;cursor:pointer">👁 Supervisado</button>
+    </div>` : '';
+  const ctrlBtn = `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:0">${primaryToggle}${secondaryToggle}</div>`;
+
+  // Nombre del perfil desde conversations (si existe)
+  const conv = (BOTC_STATE.conversations || []).find(c => String(c.phone) === String(phone));
+  const name = conv && conv.name ? conv.name : '';
+  const nameHeader = name
+    ? `<div style="font-size:14px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(phone)}</div>`
+    : `<div style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>`;
+  main.innerHTML = `
+    <div style="padding:12px 20px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+        <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
+          style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">← Mensajes</button>
+        <div style="min-width:0">${nameHeader}<div style="margin-top:5px">${ctrlChip}</div></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${ctrlBtn}
+        <div style="position:relative;display:inline-block">
+          <button type="button" onclick="botcToggleNewMenu_(event)" title="Crear nuevo elemento" style="padding:7px 12px;font-size:12px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">＋ Nuevo ▾</button>
+          <div id="botc-new-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.18);z-index:100;min-width:180px;overflow:hidden">
+            <button type="button" onclick="_botcNewMenuPick_('reporte')" style="display:block;width:100%;text-align:left;padding:9px 14px;background:#fff;border:0;cursor:pointer;font-size:12px;color:#334155;font-weight:700" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">🚨 Reporte</button>
+            <button type="button" onclick="_botcNewMenuPick_('nota')" style="display:block;width:100%;text-align:left;padding:9px 14px;background:#fff;border:0;cursor:pointer;font-size:12px;color:#334155;font-weight:700;border-top:1px solid #f1f5f9" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">📝 Nota</button>
+          </div>
+        </div>
+        <button type="button" onclick="botcOpenSummary()" title="Resumen sintético del historial de conversación con énfasis en el último tema o asunto pendiente" style="padding:7px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🧠 Resumen</button>
+        <button type="button" onclick="hgNotesOpen_()" title="Notas del huésped (texto libre con autor y fecha)" style="padding:7px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">📝 Notas${_hgNotesCountLabel_()}</button>
+        <button type="button" onclick="botcToggleRightPanel()" title="Bitácora completa (templates, mensajes programados, envío manual, historial)" style="padding:7px 12px;font-size:12px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">📖 Bitácora</button>
+      </div>
+    </div>
+    <div id="botc-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafc">${msgsHtml}</div>
+    ${isSupervised && draftBody ? `
+      <div id="botc-draft-box" style="border-top:1px solid #e2e8f0;background:#faf5ff;padding:12px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:11px;font-weight:800;color:#5b21b6;letter-spacing:.04em">🤖 SUGERENCIA DEL BOT</span>
+          ${state.pending_draft_at ? `<span style="font-size:10px;color:#94a3b8">${_botcFmtDateTime(state.pending_draft_at)}</span>` : ''}
+        </div>
+        <textarea id="botc-draft-text" style="width:100%;min-height:80px;padding:8px 10px;border:1px solid #c4b5fd;border-radius:8px;font-size:13px;font-family:inherit;line-height:1.4;box-sizing:border-box;background:#fff;color:#0f172a">${_botcEsc(draftBody)}</textarea>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button type="button" onclick="botcDraftAccept('${_botcEsc(phone)}')" style="padding:7px 14px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">✓ Aceptar y enviar</button>
+          <button type="button" onclick="botcDraftSkip('${_botcEsc(phone)}')" style="padding:7px 14px;background:#e2e8f0;color:#475569;border:0;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">✕ Omitir</button>
+        </div>
+      </div>` : ''}
+    <div id="botc-sysia-panel" style="display:none;padding:10px 16px;border-top:1px solid #e2e8f0;background:#faf5ff;max-height:340px;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:12px;font-weight:800;color:#5b21b6">🤖 Asistente Sys-IA · sugerencias para el admin</div>
+        <button type="button" onclick="botcSysIaClose_()" style="background:none;border:0;font-size:18px;cursor:pointer;color:#7c3aed;line-height:1;padding:0">×</button>
+      </div>
+      <div id="botc-sysia-msgs" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px">
+        <textarea id="botc-sysia-input" rows="2" placeholder="Ej: 'Redacta una respuesta cordial explicándole el horario de check-in' o 'Sugiere cómo pedir su INE'" style="flex:1;padding:8px 10px;font-size:12px;border:1px solid #c4b5fd;border-radius:6px;box-sizing:border-box;background:#fff;font-family:inherit;resize:vertical"></textarea>
+        <button type="button" onclick="botcSysIaAsk_()" style="padding:8px 14px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;align-self:stretch">Preguntar</button>
+      </div>
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#fff;display:flex;gap:8px">
+      <input type="text" id="botc-input" placeholder="${canType ? 'Escribe un mensaje al huésped…' : 'Toma control primero para enviar manualmente'}"
+        ${canType ? '' : 'disabled'}
+        onkeydown="if(event.key==='Enter'){event.preventDefault();botcSendManual()}"
+        style="flex:1;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:${canType?'#fff':'#f1f5f9'};color:#0f172a">
+      ${canType ? `<button type="button" onclick="botcSysIaToggle_()" title="Pedir sugerencia al asistente IA del sistema" style="padding:9px 14px;background:#7c3aed;color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:800;font-size:13px">🤖 Sys-IA</button>` : ''}
+      <button type="button" onclick="botcSendManual()" ${canType ? '' : 'disabled'}
+        style="padding:9px 18px;background:${canType?'#25d366':'#cbd5e1'};color:#fff;border:0;border-radius:8px;cursor:${canType?'pointer':'not-allowed'};font-weight:800;font-size:13px">Enviar</button>
+    </div>
+  `;
+  // Scroll al final
+  setTimeout(() => {
+    const box = document.getElementById('botc-msgs');
+    if (box) box.scrollTop = box.scrollHeight;
+  }, 0);
+}
+
+window.botcSetControl = async function(phone, control) {
+  const reason = control === 'human' ? 'Toma manual del admin' : '';
+  try {
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/set-control`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, control, reason }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    // Refrescar chat abierto
+    botcOpenChat(phone);
+    botcRefresh({ silent: true });
+  } catch (e) { alert('Error: ' + e.message); }
+};
+
+window.botcToggleNewMenu_ = function(ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  const m = document.getElementById('botc-new-menu'); if (!m) return;
+  const open = m.style.display !== 'none';
+  m.style.display = open ? 'none' : 'block';
+  if (!open) {
+    setTimeout(() => document.addEventListener('click', _botcNewMenuOutside_, { once:true }), 20);
+  }
+};
+function _botcNewMenuOutside_(e) {
+  const m = document.getElementById('botc-new-menu'); if (!m) return;
+  if (!m.contains(e.target)) m.style.display = 'none';
+}
+window._botcNewMenuPick_ = function(kind) {
+  const m = document.getElementById('botc-new-menu'); if (m) m.style.display = 'none';
+  if (kind === 'reporte') return botcOpenReportPickerForCurrent();
+  if (kind === 'mensaje') return botcToggleRightPanel();
+  if (kind === 'nota')    return hgNotesOpen_();
+};
+
+window.botcSysIaToggle_ = function() {
+  const p = document.getElementById('botc-sysia-panel'); if (!p) return;
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  if (p.style.display === 'block') {
+    setTimeout(() => { const i = document.getElementById('botc-sysia-input'); if (i) i.focus(); }, 50);
+  }
+};
+window.botcSysIaClose_ = function() {
+  const p = document.getElementById('botc-sysia-panel'); if (p) p.style.display = 'none';
+};
+window.botcSysIaAsk_ = async function() {
+  const phone = BOTC_STATE.selectedPhone;
+  const inp = document.getElementById('botc-sysia-input');
+  const msgs = document.getElementById('botc-sysia-msgs');
+  if (!phone || !inp || !msgs) return;
+  const promptTxt = String(inp.value || '').trim();
+  if (!promptTxt) return;
+  const askHtml = `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;color:#334155"><b style="color:#5b21b6">Tú:</b> ${_botcEsc(promptTxt)}</div>`;
+  const loadingId = 'sysia-load-' + Date.now();
+  msgs.insertAdjacentHTML('beforeend', askHtml);
+  msgs.insertAdjacentHTML('beforeend', `<div id="${loadingId}" style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:8px;padding:8px 10px;font-size:12px;color:#5b21b6;font-style:italic">⏳ Consultando IA…</div>`);
+  msgs.scrollTop = msgs.scrollHeight;
+  inp.value = '';
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/bot/sys-ia', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ phone, prompt: promptTxt })
+    });
+    const j = await r.json();
+    const loader = document.getElementById(loadingId); if (loader) loader.remove();
+    if (!j.ok) throw new Error(j.error || 'error');
+    const replyText = String(j.reply || '').trim() || '(respuesta vacía)';
+    const rid = 'sysia-r-' + Date.now();
+    const html = `<div id="${rid}" style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px 12px">
+      <div style="font-size:10px;color:#166534;font-weight:800;margin-bottom:6px">🤖 SUGERENCIA IA</div>
+      <div id="${rid}-text" style="font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4">${_botcEsc(replyText)}</div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button onclick="botcSysIaSend_('${rid}')" style="padding:6px 12px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:11px;font-weight:800">📤 Enviar</button>
+        <button onclick="botcSysIaEdit_('${rid}')" style="padding:6px 12px;background:#fff;color:#5b21b6;border:1px solid #c4b5fd;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">✏️ Editar</button>
+      </div>
+    </div>`;
+    msgs.insertAdjacentHTML('beforeend', html);
+    msgs.scrollTop = msgs.scrollHeight;
+  } catch (e) {
+    const loader = document.getElementById(loadingId); if (loader) loader.remove();
+    msgs.insertAdjacentHTML('beforeend', `<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:8px 10px;font-size:12px;color:#991b1b">❌ ${_botcEsc(e.message||e)}</div>`);
+  }
+};
+window.botcSysIaEdit_ = function(rid) {
+  const wrap = document.getElementById(rid); if (!wrap) return;
+  const txtEl = document.getElementById(rid + '-text');
+  const current = txtEl ? txtEl.textContent : '';
+  wrap.innerHTML = `<div style="font-size:10px;color:#5b21b6;font-weight:800;margin-bottom:6px">✏️ EDITANDO SUGERENCIA</div>
+    <textarea id="${rid}-ta" rows="4" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:6px;box-sizing:border-box;font-family:inherit;resize:vertical;background:#fffbeb">${_botcEsc(current)}</textarea>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button onclick="botcSysIaSendEdited_('${rid}')" style="padding:6px 12px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:11px;font-weight:800">📤 Enviar editado</button>
+      <button onclick="botcSysIaCancelEdit_('${rid}','${_botcEsc(current).replace(/'/g,"\\'")}')" style="padding:6px 12px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">↩ Cancelar</button>
+    </div>`;
+};
+window.botcSysIaCancelEdit_ = function(rid, original) {
+  const wrap = document.getElementById(rid); if (!wrap) return;
+  wrap.innerHTML = `<div style="font-size:10px;color:#166534;font-weight:800;margin-bottom:6px">🤖 SUGERENCIA IA</div>
+    <div id="${rid}-text" style="font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4">${_botcEsc(original)}</div>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+      <button onclick="botcSysIaSend_('${rid}')" style="padding:6px 12px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:11px;font-weight:800">📤 Enviar</button>
+      <button onclick="botcSysIaEdit_('${rid}')" style="padding:6px 12px;background:#fff;color:#5b21b6;border:1px solid #c4b5fd;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">✏️ Editar</button>
+    </div>`;
+};
+window.botcSysIaSend_ = async function(rid) {
+  const el = document.getElementById(rid + '-text');
+  const text = el ? el.textContent : '';
+  return _botcSysIaDoSend_(text);
+};
+window.botcSysIaSendEdited_ = async function(rid) {
+  const ta = document.getElementById(rid + '-ta');
+  const text = ta ? String(ta.value||'').trim() : '';
+  if (!text) { alert('El texto está vacío'); return; }
+  return _botcSysIaDoSend_(text);
+};
+async function _botcSysIaDoSend_(text) {
+  const phone = BOTC_STATE.selectedPhone;
+  if (!phone || !String(text||'').trim()) return;
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/bot/send-as-admin', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ phone, body: String(text).trim() })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    botcSysIaClose_();
+    botcOpenChat(phone, { silent: true });
+  } catch (e) { alert('Error al enviar: ' + (e.message || e)); }
+}
+
+window.botcSendManual = async function() {
+  const phone = BOTC_STATE.selectedPhone;
+  if (!phone) return;
+  const inp = document.getElementById('botc-input');
+  const body = String((inp && inp.value) || '').trim();
+  if (!body) return;
+  if (inp) { inp.disabled = true; inp.value = ''; }
+  try {
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/send-as-admin`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, body }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    // Refrescar chat para ver el msg enviado
+    botcOpenChat(phone);
+  } catch (e) {
+    alert('Error al enviar: ' + e.message);
+    if (inp) { inp.value = body; }
+  } finally {
+    if (inp) inp.disabled = false;
+  }
+};
+
+/** Modo supervised: acciones sobre el pending draft del bot.
+ *  - Accept: envía tal cual el body del textarea.
+ *  - Edit: idéntico (el textarea permite editar antes de enviar).
+ *  - Skip: descarta sin enviar. */
+async function _botcDraftAction(phone, action, body) {
+  // OPTIMISTIC UI: reemplazar la caja del draft con un stub "⏳ Enviando…"
+  // AL INSTANTE. Bloquea re-inyección desde polls con __draftBusy hasta
+  // que el fetch termine.
+  BOTC_STATE.__draftBusy = true;
+  const box = document.getElementById('botc-draft-box');
+  const boxParent = box ? box.parentNode : null;
+  const boxNext   = box ? box.nextSibling : null;
+  if (box) {
+    const stub = document.createElement('div');
+    stub.id = 'botc-draft-box';
+    stub.style.cssText = 'border-top:1px solid #e2e8f0;background:#faf5ff;padding:14px 16px;display:flex;align-items:center;gap:10px;color:#5b21b6;font-weight:800;font-size:12px';
+    stub.innerHTML = action === 'skip'
+      ? '<span style="font-size:14px">⏳</span> Omitiendo sugerencia…'
+      : '<span style="font-size:14px">⏳</span> Enviando respuesta al huésped…';
+    box.replaceWith(stub);
+  }
+  // Limpiar el pending_draft del state local — evita que el próximo poll
+  // re-inyecte la caja aunque el sheet aún no esté limpio.
+  if (BOTC_STATE.state) BOTC_STATE.state.pending_draft_body = '';
+  // Para "send", pintar el globo verde con el mensaje al final del chat.
+  if (action === 'send' && body) {
+    try {
+      const msgs = document.getElementById('botc-msgs');
+      if (msgs) {
+        const nowStr = new Date().toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+        const globo = document.createElement('div');
+        globo.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:8px;opacity:.7';
+        globo.innerHTML = `
+          <div style="max-width:70%;padding:8px 12px;background:#dcf7c5;border:1px solid #86efac;border-radius:10px">
+            <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:3px">🤖 Bot · ${_botcEsc(nowStr)} · ⏳ enviando…</div>
+            <div style="font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4">${_botcEsc(body)}</div>
+          </div>`;
+        msgs.appendChild(globo);
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+    } catch(_){}
+  }
+  try {
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/draft-action`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, action, body: body || '' }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    // Refrescar en silencio para consolidar con el estado del servidor.
+    BOTC_STATE.__draftBusy = false;
+    botcOpenChat(phone, { silent: true });
+  } catch (e) {
+    // Restaurar la caja del draft si el envío falló.
+    BOTC_STATE.__draftBusy = false;
+    const stub = document.getElementById('botc-draft-box');
+    if (stub) stub.remove();
+    if (box && boxParent) {
+      try { boxParent.insertBefore(box, boxNext); } catch(_){}
+    }
+    if (BOTC_STATE.state && body) BOTC_STATE.state.pending_draft_body = body;
+    alert('Error: ' + e.message);
+  }
+}
+window.botcDraftAccept = function(phone) {
+  const ta = document.getElementById('botc-draft-text');
+  const body = String((ta && ta.value) || '').trim();
+  if (!body) return; // textarea vacío, no hay nada que enviar
+  _botcDraftAction(phone, 'send', body);
+};
+window.botcDraftSkip = function(phone) {
+  // Acción directa, sin confirm.
+  _botcDraftAction(phone, 'skip');
+};
+
+/** Muestra un modal con el resumen sintético del historial completo de la
+ *  conversación (bot + admin + huésped) generado por Claude. */
+// ─── Notas por huésped (localStorage, por teléfono) ────────────────────
+const HG_NOTES_KEY = 'HG_NOTES_V1';
+function _hgNotesLoad_() {
+  try { return JSON.parse(localStorage.getItem(HG_NOTES_KEY) || '{}'); } catch(_) { return {}; }
+}
+function _hgNotesSave_(all) {
+  try { localStorage.setItem(HG_NOTES_KEY, JSON.stringify(all || {})); } catch(_){}
+}
+function _hgNotesGet_(phone) {
+  const all = _hgNotesLoad_();
+  return Array.isArray(all[String(phone)]) ? all[String(phone)] : [];
+}
+function _hgNotesSetPhone_(phone, list) {
+  const all = _hgNotesLoad_();
+  all[String(phone)] = list;
+  _hgNotesSave_(all);
+}
+function _hgCurrentUser_() {
+  try {
+    return String(
+      (window.SYS_STATE && SYS_STATE.currentUser && (SYS_STATE.currentUser.nombre || SYS_STATE.currentUser.email)) ||
+      window.__currentUserName || window.__currentUserEmail ||
+      localStorage.getItem('__currentUserName') || 'admin'
+    );
+  } catch(_) { return 'admin'; }
+}
+function _hgFmtDT_(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2,'0');
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function _hgNotesCountLabel_() {
+  try {
+    const phone = BOTC_STATE.selectedPhone;
+    if (!phone) return '';
+    const n = _hgNotesGet_(phone).length;
+    return n ? ` (${n})` : '';
+  } catch(_) { return ''; }
+}
+function _hgNotesRiskCount_(phone) {
+  return _hgNotesGet_(phone).filter(n => n.risk).length;
+}
+function _hgEnsureNotesPanel_() {
+  if (document.getElementById('hg-notes-panel')) return;
+  const back = document.createElement('div');
+  back.id = 'hg-notes-back';
+  back.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:100015;display:none';
+  back.onclick = () => hgNotesClose_();
+  const panel = document.createElement('div');
+  panel.id = 'hg-notes-panel';
+  panel.style.cssText = 'position:fixed;top:0;right:0;height:100vh;width:min(520px,94vw);background:#f8fafc;box-shadow:-24px 0 48px -12px rgba(0,0,0,.25);z-index:100016;display:none;flex-direction:column;overflow:hidden';
+  panel.innerHTML = `
+    <div style="padding:14px 18px;background:#0ea5e9;color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div>
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.85;font-weight:800">HUÉSPED</div>
+        <div id="hg-notes-title" style="font-size:16px;font-weight:800">📝 Notas</div>
+      </div>
+      <button onclick="hgNotesClose_()" style="background:none;border:0;font-size:22px;cursor:pointer;color:#fff">×</button>
+    </div>
+    <div id="hg-notes-body" style="flex:1;overflow-y:auto;padding:14px 16px"></div>
+    <div style="padding:12px 16px;background:#fff;border-top:1px solid #e2e8f0">
+      <div style="display:flex;gap:6px">
+        <textarea id="hg-notes-new" rows="2" placeholder="Escribe una nota…" style="flex:1;padding:8px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font-family:inherit;resize:vertical"></textarea>
+        <button type="button" onclick="hgNotesAddFromInput_()" style="padding:8px 14px;background:#0ea5e9;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">＋ Nota</button>
+      </div>
+    </div>`;
+  document.body.appendChild(back);
+  document.body.appendChild(panel);
+}
+window.hgNotesOpen_ = function() {
+  const phone = BOTC_STATE && BOTC_STATE.selectedPhone;
+  if (!phone) return;
+  _hgEnsureNotesPanel_();
+  _hgNotesRender_();
+  document.getElementById('hg-notes-back').style.display = 'block';
+  document.getElementById('hg-notes-panel').style.display = 'flex';
+};
+window.hgNotesClose_ = function() {
+  const p = document.getElementById('hg-notes-panel');
+  const b = document.getElementById('hg-notes-back');
+  if (p) p.style.display = 'none';
+  if (b) b.style.display = 'none';
+};
+function _hgNotesRender_() {
+  const phone = BOTC_STATE && BOTC_STATE.selectedPhone;
+  if (!phone) return;
+  const title = document.getElementById('hg-notes-title');
+  if (title) title.textContent = `📝 Notas · +${phone}`;
+  const body = document.getElementById('hg-notes-body'); if (!body) return;
+  const notes = _hgNotesGet_(phone).slice().sort((a,b) => String(b.updated||b.created||'').localeCompare(String(a.updated||a.created||'')));
+  if (!notes.length) {
+    body.innerHTML = '<div style="text-align:center;padding:30px 12px;color:#94a3b8;font-style:italic;font-size:12px">Sin notas todavía. Agrega la primera abajo.</div>';
+    return;
+  }
+  body.innerHTML = notes.map(n => {
+    const bg = n.risk ? '#fee2e2' : '#fff';
+    const border = n.risk ? '#fca5a5' : '#e2e8f0';
+    const chip = n.risk ? '<span style="font-size:9px;font-weight:800;background:#dc2626;color:#fff;padding:2px 8px;border-radius:99px;margin-right:6px">⚠ RIESGO</span>' : '';
+    const editing = n._editing === true;
+    const bodyHtml = editing
+      ? `<textarea id="hg-note-edit-${_botcEsc(n.id)}" rows="3" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:6px;box-sizing:border-box;background:#fffbeb;font-family:inherit">${_botcEsc(n.text)}</textarea>
+         <div style="display:flex;gap:6px;margin-top:6px">
+           <button onclick="hgNoteSaveEdit_('${_botcEsc(n.id)}')" style="padding:5px 10px;font-size:11px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">💾 Guardar</button>
+           <button onclick="hgNoteCancelEdit_('${_botcEsc(n.id)}')" style="padding:5px 10px;font-size:11px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">↩ Cancelar</button>
+         </div>`
+      : `<div style="font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4">${_botcEsc(n.text)}</div>
+         <div style="display:flex;gap:6px;margin-top:8px">
+           <button onclick="hgNoteEdit_('${_botcEsc(n.id)}')" style="padding:4px 8px;font-size:10px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">✏️ Editar</button>
+           <button onclick="hgNoteDelete_('${_botcEsc(n.id)}')" style="padding:4px 8px;font-size:10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">🗑 Eliminar</button>
+         </div>`;
+    const ts = n.updated && n.updated !== n.created
+      ? `Editada ${_hgFmtDT_(n.updated)}`
+      : `Creada ${_hgFmtDT_(n.created)}`;
+    return `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:10px;color:#64748b;font-weight:700">${chip}${_botcEsc(n.author||'admin')} · ${ts}</div>
+      </div>
+      ${bodyHtml}
+    </div>`;
+  }).join('');
+}
+window.hgNotesAddFromInput_ = function() {
+  const inp = document.getElementById('hg-notes-new'); if (!inp) return;
+  const text = String(inp.value || '').trim();
+  if (!text) return;
+  hgNotesAdd_(BOTC_STATE.selectedPhone, text, false);
+  inp.value = '';
+};
+function hgNotesAdd_(phone, text, risk) {
+  if (!phone || !String(text||'').trim()) return;
+  const list = _hgNotesGet_(phone);
+  const now = new Date().toISOString();
+  list.push({ id: 'N-'+Date.now()+'-'+Math.floor(Math.random()*9999), text: String(text).trim(), author: _hgCurrentUser_(), created: now, updated: now, risk: !!risk });
+  _hgNotesSetPhone_(phone, list);
+  _hgNotesRender_();
+  // Repintar sidebar para actualizar el conteo del "!"
+  try { if (typeof botcRenderConversations === 'function') botcRenderConversations(); } catch(_){}
+  // Actualizar el botón "Notas" del header (recount)
+  try { botcRefreshCurrentChatHeader_(); } catch(_){}
+}
+window.hgNoteEdit_ = function(id) {
+  const phone = BOTC_STATE.selectedPhone; if (!phone) return;
+  const list = _hgNotesGet_(phone);
+  const n = list.find(x => x.id === id); if (!n) return;
+  n._editing = true;
+  _hgNotesSetPhone_(phone, list.map(x => ({...x, _editing: x === n ? true : false})));
+  _hgNotesRender_();
+};
+window.hgNoteCancelEdit_ = function(id) {
+  const phone = BOTC_STATE.selectedPhone; if (!phone) return;
+  const list = _hgNotesGet_(phone);
+  const n = list.find(x => x.id === id); if (n) delete n._editing;
+  _hgNotesSetPhone_(phone, list);
+  _hgNotesRender_();
+};
+window.hgNoteSaveEdit_ = function(id) {
+  const phone = BOTC_STATE.selectedPhone; if (!phone) return;
+  const ta = document.getElementById(`hg-note-edit-${id}`);
+  if (!ta) return;
+  const txt = String(ta.value || '').trim();
+  if (!txt) { alert('La nota no puede estar vacía'); return; }
+  const list = _hgNotesGet_(phone);
+  const n = list.find(x => x.id === id); if (!n) return;
+  n.text = txt;
+  n.updated = new Date().toISOString();
+  delete n._editing;
+  _hgNotesSetPhone_(phone, list);
+  _hgNotesRender_();
+};
+window.hgNoteDelete_ = function(id) {
+  const phone = BOTC_STATE.selectedPhone; if (!phone) return;
+  if (!confirm('¿Eliminar esta nota?')) return;
+  const list = _hgNotesGet_(phone).filter(x => x.id !== id);
+  _hgNotesSetPhone_(phone, list);
+  _hgNotesRender_();
+  try { if (typeof botcRenderConversations === 'function') botcRenderConversations(); } catch(_){}
+  try { botcRefreshCurrentChatHeader_(); } catch(_){}
+};
+// Botón "!" desde la card izquierda: pide una nota y la agrega como risk.
+window.hgNoteQuickRisk_ = function(phone) {
+  const text = prompt('Nota de riesgo (aparecerá marcada en el panel de Notas):');
+  if (!text || !String(text).trim()) return;
+  hgNotesAdd_(phone, text, true);
+  // Si el chat activo es este teléfono y el panel de notas está abierto, refresca.
+  if (String(BOTC_STATE.selectedPhone) === String(phone)) _hgNotesRender_();
+};
+function botcRefreshCurrentChatHeader_() {
+  // Re-render del área principal del chat abierto para actualizar el counter.
+  try {
+    if (BOTC_STATE.selectedPhone && typeof botcOpenChat === 'function') {
+      botcOpenChat(BOTC_STATE.selectedPhone, { silent: true, keepMsgs: true });
+    }
+  } catch(_){}
+}
+
+window.botcOpenSummary = async function() {
+  const phone = BOTC_STATE.selectedPhone;
+  if (!phone) return;
+  // Nombre del huésped para el header del modal.
+  const conv = (BOTC_STATE.conversations || []).find(c => String(c.phone) === String(phone));
+  const nameHeader = conv && conv.name ? conv.name : `+${phone}`;
+  // Modal centrado con backdrop.
+  document.getElementById('botc-summary-modal')?.remove();
+  const wrap = document.createElement('div');
+  wrap.id = 'botc-summary-modal';
+  const isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+  const panelHtml = `
+    <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;flex:none">
+      <div>
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.85;font-weight:800">RESUMEN DEL HISTORIAL</div>
+        <div style="font-size:16px;font-weight:800;margin-top:2px">🧠 ${_botcEsc(nameHeader)}</div>
+      </div>
+      <button type="button" onclick="botcCloseSummary()" style="background:transparent;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1;padding:0 6px">✕</button>
+    </div>
+    <div id="botc-summary-body" style="flex:1;overflow-y:auto;padding:20px 22px;font-size:14px;color:#0f172a;line-height:1.6">
+      <div style="text-align:center;padding:40px;color:#94a3b8">
+        <div style="font-size:32px;margin-bottom:10px">🧠</div>
+        <div>⏳ Analizando conversación con Claude…</div>
+        <div style="font-size:11px;margin-top:8px">(puede tardar 5–15s si hay muchos mensajes)</div>
+      </div>
+    </div>`;
+  if (isMobile) {
+    // Overlay fullscreen (comportamiento anterior).
+    wrap.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100010;display:flex;align-items:stretch;justify-content:flex-end';
+    wrap.onclick = (e) => { if (e.target === wrap) botcCloseSummary(); };
+    wrap.innerHTML = `<div onclick="event.stopPropagation()" style="width:100%;max-width:560px;height:100vh;background:#fff;box-shadow:-24px 0 48px -8px rgba(0,0,0,.28);overflow:hidden;display:flex;flex-direction:column;animation:botcSummarySlideIn .28s cubic-bezier(.2,.7,.3,1)">${panelHtml}</div>`;
+    if (!document.getElementById('botc-summary-kf')) {
+      const kf = document.createElement('style');
+      kf.id = 'botc-summary-kf';
+      kf.textContent = '@keyframes botcSummarySlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }';
+      document.head.appendChild(kf);
+    }
+    document.body.appendChild(wrap);
+  } else {
+    // Desktop: renderizar en la 3ra columna del módulo — empuja la col 2 (chat).
+    const col3 = document.getElementById('botc-third-col');
+    if (!col3) return;
+    col3.style.display = 'flex';
+    col3.style.animation = 'botcSummarySlideIn .28s cubic-bezier(.2,.7,.3,1)';
+    col3.innerHTML = panelHtml;
+    if (!document.getElementById('botc-summary-kf')) {
+      const kf = document.createElement('style');
+      kf.id = 'botc-summary-kf';
+      kf.textContent = '@keyframes botcSummarySlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }';
+      document.head.appendChild(kf);
+    }
+    // No añadimos wrap al body en desktop; guardamos referencia para no romper el flujo.
+    wrap.dataset.embedded = '1';
+  }
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/bot/summarize', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone }),
+    });
+    const j = await r.json();
+    const body = document.getElementById('botc-summary-body');
+    if (!body) return;
+    if (!j.ok) {
+      body.innerHTML = `<div style="color:#dc2626">⚠ ${_botcEsc(j.error || 'error')}</div>`;
+      return;
+    }
+    body.innerHTML = `
+      ${_botcMdToHtml(j.summary || '')}
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:right">
+        Analizados ${j.msgs_analizados || 0} de ${j.msgs_total || 0} mensajes · Claude
+      </div>`;
+  } catch (e) {
+    const body = document.getElementById('botc-summary-body');
+    if (body) body.innerHTML = `<div style="color:#dc2626">⚠ Error: ${_botcEsc(e.message)}</div>`;
+  }
+};
+window.botcCloseSummary = function() {
+  document.getElementById('botc-summary-modal')?.remove();
+  const col3 = document.getElementById('botc-third-col');
+  if (col3) { col3.style.display = 'none'; col3.innerHTML = ''; }
+};
+
+/** Markdown mínimo → HTML: headings ##, **bold**, - bullets, saltos.
+ *  Solo lo justo para renderizar el output típico del summarizer. */
+function _botcMdToHtml(md) {
+  let s = String(md || '');
+  s = _botcEsc(s);
+  // Headings ## y ###
+  s = s.replace(/^###\s+(.+)$/gm, '<h4 style="margin:16px 0 6px;font-size:13px;color:#5b21b6;font-weight:800">$1</h4>');
+  s = s.replace(/^##\s+(.+)$/gm, '<h3 style="margin:18px 0 8px;font-size:15px;color:#5b21b6;font-weight:800;border-bottom:1px solid #ede9fe;padding-bottom:4px">$1</h3>');
+  // Bold **texto**
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Bullets (- item o * item al inicio de línea)
+  s = s.replace(/(?:^|\n)([-*]\s+.+(?:\n[-*]\s+.+)*)/g, (_, block) => {
+    const items = block.split('\n').map(l => l.replace(/^[-*]\s+/, '').trim()).filter(Boolean);
+    return '\n<ul style="margin:6px 0 10px 20px;padding:0">' + items.map(it => `<li style="margin-bottom:4px">${it}</li>`).join('') + '</ul>';
+  });
+  // Párrafos: saltos dobles → nuevo párrafo
+  s = s.split(/\n\n+/).map(p => {
+    if (/^<(h\d|ul|ol|div)/i.test(p.trim())) return p;
+    return `<p style="margin:8px 0">${p.trim().replace(/\n/g, '<br>')}</p>`;
+  }).join('\n');
+  return s;
+}
+
+/** Abre el mismo picker "+ Generar nuevo reporte" que Gestión de reservas,
+ *  pre-llenando propiedad/depto/fechas desde el booking activo del huésped. */
+window.botcOpenReportPickerForCurrent = function() {
+  const phone = BOTC_STATE.selectedPhone;
+  if (!phone) return;
+  // Contexto phone para que el combobox 'Reserva' filtre a este huésped.
+  window.__rsvContextPhone = phone;
+  window.__rsvContextPhoneKeep = true; // sobrevive al reset dentro de lgOpenReportPicker
+  // Precargar reservas del phone via /bookings-by-guest si aún no están.
+  // El endpoint devuelve bookings Lodgify + huRows — llena __waExtraHuRowsByPhone.
+  try {
+    const digits = String(phone||'').replace(/\D/g,'');
+    const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
+    if (phone10 && typeof huFetchBookingsByGuest_ === 'function' &&
+        !(window.__waExtraHuRowsByPhone && window.__waExtraHuRowsByPhone[phone10])) {
+      huFetchBookingsByGuest_(phone10).then(() => {
+        // Si el picker sigue abierto, no repintamos aquí — el user verá las
+        // reservas al abrir la ventana de captura. Si ya está abierta, re-populate.
+        ['inc','obj'].forEach(prefix => {
+          if (document.getElementById(`${prefix}-reserva`) && typeof rsvPopulate === 'function') rsvPopulate(prefix);
+        });
+        if (RT_STATE && RT_STATE.draft && typeof _rtRenderForm === 'function') _rtRenderForm();
+      }).catch(()=>{});
+    }
+  } catch(_){}
+  // Reutilizar el pick que ya usa la card del sidebar (Activa > Próxima > Reciente)
+  const bk = (typeof _botcGetBookingForPhoneSync === 'function') ? _botcGetBookingForPhoneSync(phone) : null;
+  if (!bk) {
+    alert('No hay reserva asociada a este número aún.\nEspera a que el sidebar cargue la info y vuelve a intentar.');
+    return;
+  }
+  const propRaw = String(bk.PropertyName || (bk.__reservacion && bk.__reservacion['Propiedad']) || '').trim();
+  const depRaw  = String((bk.__reservacion && bk.__reservacion['# Departamento']) ||
+                          (bk.RoomTypeName && bk.PropertyName ? String(bk.RoomTypeName).replace(bk.PropertyName,'').replace(/[-#\s]+/g,'').trim() : '') || '').trim();
+  const toIso = (v) => {
+    const s = String(v || '');
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+    return '';
+  };
+  const arrIso = toIso(bk.DateArrival);
+  const depIso = toIso(bk.DateDeparture);
+  if (typeof lgOpenReportPicker === 'function') {
+    lgOpenReportPicker(propRaw, depRaw, arrIso, depIso);
+  } else {
+    alert('Función lgOpenReportPicker no disponible.');
+  }
+};
+
+/** Abre el modal completo de WhatsApp (Gestión de reservas) para el huésped
+ *  seleccionado. Busca el booking activo/próximo por phone y llama a
+ *  waOpenModal(booking) — la MISMA función que usa Gestión de reservas, así
+ *  el user ve la ventana idéntica con templates, custom, +Nuevo mensaje, etc. */
+window.botcToggleRightPanel = async function() {
+  const phone = BOTC_STATE.selectedPhone;
+  if (!phone) return;
+  const btn = document.querySelector('[onclick="botcToggleRightPanel()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Cargando…'; }
+  try {
+    // Buscar booking por phone: endpoint /bookings-by-guest
+    const r = await fetch(`https://api.check-inn.mx/bookings-by-guest?phone=${encodeURIComponent(phone)}`, { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    const bookings = j.bookings || [];
+    if (!bookings.length) {
+      alert('Este número no tiene reservaciones en el sistema — el modal WA no puede abrirse sin un booking asociado.');
+      return;
+    }
+    // Prioridad: activa (arrival<=hoy<=dep) > próxima > última
+    const today = new Date().toISOString().slice(0,10);
+    const active = bookings.find(b => {
+      const a = String(b.DateArrival||'').slice(0,10), d = String(b.DateDeparture||'').slice(0,10);
+      return a && d && a <= today && today <= d;
+    });
+    const proxima = bookings
+      .filter(b => String(b.DateArrival||'').slice(0,10) >= today)
+      .sort((a,b) => String(a.DateArrival).localeCompare(String(b.DateArrival)))[0];
+    const booking = active || proxima || bookings[bookings.length - 1];
+    if (typeof waOpenModal === 'function') {
+      // Cerrar CUALQUIER modal WA residual antes de abrir. _waRenderModal
+      // hace early-return si ya existe #wa-modal (con contenido stale del
+      // huésped previo) → primera apertura mostraba modal viejo o vacío;
+      // 2do click ya funcionaba.
+      if (typeof waCloseModal_ === 'function') { try { waCloseModal_(); } catch(_){} }
+      await waOpenModal(booking);
+      // Esperar a que el panel esté realmente visible (no en translateX(100%)
+      // de la animación slide-in). Máximo 8s.
+      const t0 = Date.now();
+      while (Date.now() - t0 < 8000) {
+        const panel = document.querySelector('#wa-modal [data-wa-panel]');
+        if (panel) {
+          const tf = String(panel.style.transform || '');
+          if (!tf || tf.indexOf('translateX(100%)') === -1) break;
+        }
+        await new Promise(r => setTimeout(r, 40));
+      }
+    } else {
+      alert('Función waOpenModal no disponible.');
+    }
+  } catch (e) {
+    alert('Error al abrir historial WA: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📱 Ver WA'; }
+  }
+};
+
+/** Modal multi-select para habilitar/deshabilitar alojamientos del bot.
+ *  Escribe en la columna bot_enabled de la hoja alojamientos al guardar. */
+// ─── Modo Prueba: bot solo responde a un número específico ────────────
+window.botcTestToggle_ = async function() {
+  const cur = await _botcTestFetch_();
+  const phones = cur.phones.length ? cur.phones : (window.__botcTestPhones || ['+528444443922']);
+  const next = { enabled: !cur.enabled, phones };
+  await _botcTestSave_(next);
+  _botcTestApplyUi_(next);
+};
+// Estado local del input: readonly hasta que se pulsa Editar.
+window.__botcTestEditing = false;
+window.__botcTestOriginalPhone = '';
+window.botcTestEditToggle_ = async function() {
+  const inp = document.getElementById('botc-test-phone');
+  const btn = document.getElementById('botc-test-edit-btn');
+  if (!inp || !btn) return;
+  if (!window.__botcTestEditing) {
+    // Entrar en modo edición.
+    window.__botcTestEditing = true;
+    window.__botcTestOriginalPhone = inp.value;
+    inp.readOnly = false;
+    inp.style.background = '#fffbeb';
+    inp.style.color = '#0f172a';
+    inp.focus();
+    inp.select();
+    btn.textContent = '↩ Cancelar';
+    btn.style.background = '#fef3c7';
+    btn.style.color = '#92400e';
+    btn.style.borderColor = '#fcd34d';
+    btn.onclick = () => botcTestCancelEdit_();
+  }
+};
+window.botcTestPhoneInput_ = function(val) {
+  const btn = document.getElementById('botc-test-edit-btn');
+  if (!btn || !window.__botcTestEditing) return;
+  const dirty = String(val||'').trim() !== String(window.__botcTestOriginalPhone||'').trim();
+  if (dirty) {
+    btn.textContent = '💾 Guardar cambios';
+    btn.style.background = '#16a34a';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#16a34a';
+    btn.onclick = () => botcTestSaveEdit_();
+  } else {
+    btn.textContent = '↩ Cancelar';
+    btn.style.background = '#fef3c7';
+    btn.style.color = '#92400e';
+    btn.style.borderColor = '#fcd34d';
+    btn.onclick = () => botcTestCancelEdit_();
+  }
+};
+window.botcTestCancelEdit_ = function() {
+  const inp = document.getElementById('botc-test-phone');
+  if (inp) inp.value = window.__botcTestOriginalPhone;
+  _botcTestExitEdit_();
+};
+window.botcTestSaveEdit_ = async function() {
+  const inp = document.getElementById('botc-test-phone');
+  const hint = document.getElementById('botc-test-save');
+  const val = String(inp.value || '').trim();
+  if (!val) { alert('El número no puede estar vacío'); return; }
+  if (hint) hint.textContent = '…guardando';
+  const cur = await _botcTestFetch_();
+  await _botcTestSave_({ enabled: cur.enabled !== false, phone: val });
+  if (hint) { hint.textContent = '✓ guardado'; setTimeout(() => hint.textContent = '', 1500); }
+  window.__botcTestOriginalPhone = val;
+  _botcTestExitEdit_();
+};
+function _botcTestExitEdit_() {
+  const inp = document.getElementById('botc-test-phone');
+  const btn = document.getElementById('botc-test-edit-btn');
+  window.__botcTestEditing = false;
+  if (inp) {
+    inp.readOnly = true;
+    inp.style.background = '#f8fafc';
+    inp.style.color = '#334155';
+  }
+  if (btn) {
+    btn.textContent = '✏️ Editar';
+    btn.style.background = '#fff';
+    btn.style.color = '#334155';
+    btn.style.borderColor = '#cbd5e1';
+    btn.onclick = () => botcTestEditToggle_();
+  }
+}
+async function _botcTestFetch_() {
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/bot/test-mode', { cache:'no-store' });
+    const j = await r.json();
+    const phones = Array.isArray(j.phones) ? j.phones : (j.phone ? [j.phone] : []);
+    return { enabled: !!j.enabled, phones };
+  } catch(_) { return { enabled: false, phones: [] }; }
+}
+async function _botcTestSave_(cfg) {
+  try {
+    await fetch('https://api.check-inn.mx/wa/bot/test-mode', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(cfg)
+    });
+  } catch(_){}
+}
+window.__botcTestPhones = ['+528444443922'];
+function _botcTestApplyUi_(cfg) {
+  const btn = document.getElementById('botc-test-toggle');
+  const bar = document.getElementById('botc-test-bar');
+  if (btn) {
+    btn.textContent = cfg.enabled ? '🧪 Prueba: ON' : '🧪 Prueba: OFF';
+    btn.style.background = cfg.enabled ? '#f59e0b' : '#fff';
+    btn.style.color = cfg.enabled ? '#fff' : '#475569';
+    btn.style.borderColor = cfg.enabled ? '#f59e0b' : '#cbd5e1';
+  }
+  if (bar) bar.style.display = cfg.enabled ? 'flex' : 'none';
+  window.__botcTestPhones = Array.isArray(cfg.phones) && cfg.phones.length ? cfg.phones.slice() : (window.__botcTestPhones || ['+528444443922']);
+  _botcTestRenderPhones_();
+}
+function _botcTestRenderPhones_() {
+  const cont = document.getElementById('botc-test-phones'); if (!cont) return;
+  const phones = window.__botcTestPhones || [];
+  cont.innerHTML = phones.map(p => `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 8px 4px 10px;background:#fff;border:1px solid #f59e0b;border-radius:99px;font-size:12px;font-family:monospace;color:#334155">${_botcEsc(p)}<button type="button" onclick="botcTestRemovePhone_('${_botcEsc(p).replace(/'/g,"\\'")}')" title="Quitar" style="background:none;border:0;color:#dc2626;cursor:pointer;font-size:14px;line-height:1;padding:0 2px;font-weight:900">×</button></span>`).join('') || '<span style="font-size:11px;color:#94a3b8;font-style:italic">Sin números — el bot no responderá a nadie</span>';
+}
+window.botcTestAddPhone_ = async function() {
+  const inp = document.getElementById('botc-test-newphone'); if (!inp) return;
+  const val = String(inp.value || '').trim();
+  if (!val) return;
+  const phones = (window.__botcTestPhones || []).slice();
+  if (phones.includes(val)) { alert('Ese número ya está en la lista'); return; }
+  phones.push(val);
+  window.__botcTestPhones = phones;
+  _botcTestRenderPhones_();
+  inp.value = '';
+  const hint = document.getElementById('botc-test-save');
+  if (hint) hint.textContent = '…guardando';
+  await _botcTestSave_({ enabled: true, phones });
+  if (hint) { hint.textContent = '✓ guardado'; setTimeout(() => hint.textContent = '', 1200); }
+};
+window.botcTestRemovePhone_ = async function(phone) {
+  const phones = (window.__botcTestPhones || []).filter(p => p !== phone);
+  window.__botcTestPhones = phones;
+  _botcTestRenderPhones_();
+  const cur = await _botcTestFetch_();
+  await _botcTestSave_({ enabled: cur.enabled !== false, phones });
+};
+// Init al abrir el módulo — leer estado actual.
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(async () => {
+    const cur = await _botcTestFetch_();
+    _botcTestApplyUi_(cur.phones.length ? cur : { enabled: cur.enabled !== false, phones: ['+528444443922'] });
+  }, 400);
+});
+
+window.botcOpenAlojConfig = async function() {
+  const existing = document.getElementById('botc-aloj-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'botc-aloj-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:14px;padding:20px 22px;max-width:640px;width:100%;max-height:88vh;display:flex;flex-direction:column">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-shrink:0">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#0f172a">⚡ Alojamientos habilitados</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">Marca los alojamientos donde el bot responde automáticamente</div>
+        </div>
+        <button onclick="document.getElementById('botc-aloj-modal').remove()" style="background:none;border:0;font-size:22px;cursor:pointer;color:#64748b">×</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-shrink:0">
+        <input type="search" id="botc-aloj-search" placeholder="🔍 Buscar propiedad o depto…" oninput="_botcAlojFilter(this.value)" style="flex:1;padding:7px 11px;font-size:13px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box">
+        <button type="button" onclick="_botcAlojToggleAll(true)" style="padding:6px 12px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">Todos</button>
+        <button type="button" onclick="_botcAlojToggleAll(false)" style="padding:6px 12px;font-size:11px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:700">Ninguno</button>
+      </div>
+      <div id="botc-aloj-list" style="flex:1;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;padding:6px">
+        <div style="text-align:center;color:#94a3b8;font-size:12px;padding:20px">⏳ Cargando…</div>
+      </div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-shrink:0">
+        <div id="botc-aloj-count" style="font-size:11px;color:#64748b">—</div>
+        <div style="display:flex;gap:8px">
+          <button type="button" onclick="document.getElementById('botc-aloj-modal').remove()" style="padding:8px 14px;font-size:12px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:700">Cancelar</button>
+          <button type="button" id="botc-aloj-save-btn" onclick="_botcAlojSave()" style="padding:8px 18px;font-size:12px;background:#16a34a;color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:800">💾 Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  await _botcAlojLoad();
+};
+
+window.BOTC_ALOJ_STATE = { rows: [], selected: new Set() };
+
+async function _botcAlojLoad() {
+  try {
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/alojamientos`);
+    const j = await r.json();
+    const rows = (j && j.alojamientos) || [];
+    // Ordenar: activos primero, luego alfabético
+    rows.sort((a, b) => {
+      if (a.bot_enabled !== b.bot_enabled) return a.bot_enabled ? -1 : 1;
+      return String(a.Propiedad + a.Departamento).localeCompare(String(b.Propiedad + b.Departamento));
+    });
+    BOTC_ALOJ_STATE.rows = rows;
+    BOTC_ALOJ_STATE.selected = new Set(rows.filter(a => a.bot_enabled).map(a => String(a.HouseId)));
+    _botcAlojRender();
+  } catch (e) {
+    const list = document.getElementById('botc-aloj-list');
+    if (list) list.innerHTML = `<div style="color:#dc2626;padding:20px;text-align:center;font-size:12px">Error: ${_botcEsc(e.message)}</div>`;
+  }
+}
+
+function _botcAlojRender(searchQ) {
+  const list = document.getElementById('botc-aloj-list');
+  const count = document.getElementById('botc-aloj-count');
+  if (!list) return;
+  const q = String(searchQ || '').trim().toLowerCase();
+  const rows = BOTC_ALOJ_STATE.rows.filter(a => {
+    if (!q) return true;
+    const label = `${a.Propiedad} #${a.Departamento}`.toLowerCase();
+    return label.includes(q);
+  });
+  list.innerHTML = rows.map(a => {
+    const hid = String(a.HouseId);
+    const on = BOTC_ALOJ_STATE.selected.has(hid);
+    const label = `${_botcEsc(a.Propiedad)} #${_botcEsc(a.Departamento)}`;
+    return `
+      <div onclick="_botcAlojToggle('${_botcEsc(hid)}')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;background:${on?'#f0fdf4':'transparent'}" onmouseover="this.style.background='${on?'#dcfce7':'#f8fafc'}'" onmouseout="this.style.background='${on?'#f0fdf4':'transparent'}'">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${on?'#16a34a':'#94a3b8'};border-radius:4px;background:${on?'#16a34a':'#fff'};color:#fff;font-weight:900;font-size:11px;flex-shrink:0">${on?'✓':''}</span>
+        <span style="font-size:13px;color:#0f172a;font-weight:${on?'700':'500'}">${label}</span>
+        <span style="margin-left:auto;font-size:10px;color:#94a3b8">${_botcEsc(hid)}</span>
+      </div>
+    `;
+  }).join('') || '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px">Sin resultados</div>';
+  if (count) count.textContent = `${BOTC_ALOJ_STATE.selected.size} de ${BOTC_ALOJ_STATE.rows.length} habilitados`;
+}
+
+window._botcAlojFilter = function(q) { _botcAlojRender(q); };
+window._botcAlojToggle = function(hid) {
+  if (BOTC_ALOJ_STATE.selected.has(hid)) BOTC_ALOJ_STATE.selected.delete(hid);
+  else BOTC_ALOJ_STATE.selected.add(hid);
+  const q = document.getElementById('botc-aloj-search')?.value || '';
+  _botcAlojRender(q);
+};
+window._botcAlojToggleAll = function(on) {
+  if (on) BOTC_ALOJ_STATE.rows.forEach(a => BOTC_ALOJ_STATE.selected.add(String(a.HouseId)));
+  else BOTC_ALOJ_STATE.selected.clear();
+  const q = document.getElementById('botc-aloj-search')?.value || '';
+  _botcAlojRender(q);
+};
+window._botcAlojSave = async function() {
+  const btn = document.getElementById('botc-aloj-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; btn.style.opacity = '.6'; }
+  try {
+    const houseIds = Array.from(BOTC_ALOJ_STATE.selected);
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/alojamientos-set`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ houseIds }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    if (btn) { btn.textContent = `✅ Guardado (${j.updated || 0} cambios)`; btn.style.background='#16a34a'; }
+    setTimeout(() => {
+      document.getElementById('botc-aloj-modal')?.remove();
+    }, 1000);
+  } catch (e) {
+    alert('Error al guardar: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar cambios'; btn.style.opacity = ''; }
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ MÓDULO REPORTES TÉCNICOS (MVP F1)                                       ║
+// ║ Lista + captura + edición con evidencia fotográfica.                    ║
+// ║ Backend: hoja Reportes_Tecnicos vía Cloud Run /reportes-tecnicos-*.     ║
+// ═══════════════════════════════════════════════════════════════════════════
+const RT_STATE = {
+  list: [],
+  loaded: false,
+  loading: false,
+  draft: null,          // objeto de edición (null = cerrado)
+  fotosAntesPending: [],   // File[] para upload
+  fotosDespuesPending: [],
+};
+// Catálogos homologados INC + RT.
+const RT_ESTADOS = [
+  { key: 'nuevo',       label: 'Nuevo',       bg:'#f1f5f9', fg:'#334155' },
+  { key: 'en_proceso',  label: 'En proceso',  bg:'#fef3c7', fg:'#92400e' },
+  { key: 'resuelto',    label: 'Resuelto',    bg:'#dcfce7', fg:'#166534' },
+  { key: 'cancelado',   label: 'Cancelado',   bg:'#fecaca', fg:'#7f1d1d' },
+];
+const RT_PRIORIDADES = [
+  { key:'critica', label:'Crítica', color:'#dc2626' }, // rojo
+  { key:'alta',    label:'Alta',    color:'#f97316' }, // naranja
+  { key:'media',   label:'Media',   color:'#eab308' }, // amarillo
+  { key:'baja',    label:'Baja',    color:'#3b82f6' }, // azul
+];
+// Retro-map: valores viejos (keys anteriores + INC legacy) → keys nuevos.
+function _rtNormalizeEstado(v) {
+  const s = String(v||'').trim().toLowerCase();
+  if (!s) return 'nuevo';
+  if (s === 'clasificado' || s === 'asignado' || s === 'pendiente') return 'nuevo';
+  if (s === 'parcialmente resuelto' || s === 'en_espera' || s === 'en espera') return 'en_proceso';
+  if (s === 'cerrado') return 'resuelto';
+  return s.replace(/\s+/g,'_');
+}
+function _rtNormalizePrio(v) {
+  const s = String(v||'').trim().toLowerCase();
+  if (s === 'p1' || s === 'crítica' || s === 'critica') return 'critica';
+  if (s === 'p2' || s === 'alta') return 'alta';
+  if (s === 'p3' || s === 'media') return 'media';
+  if (s === 'p4' || s === 'baja' || !s) return 'baja';
+  return s;
+}
+const RT_CATEGORIAS = [
+  { key:'plomeria',       label:'Plomería',            icon:'🚿' },
+  { key:'electrico',      label:'Eléctrico',           icon:'⚡' },
+  { key:'gas',            label:'Gas',                 icon:'🔥' },
+  { key:'clima',          label:'Clima',               icon:'❄️' },
+  { key:'accesos',        label:'Accesos / Cerraduras',icon:'🔑' },
+  { key:'conectividad',   label:'Conectividad / WiFi', icon:'📡' },
+  { key:'electrodomesticos', label:'Electrodomésticos',icon:'🔌' },
+  { key:'mobiliario',     label:'Mobiliario / Acabados',icon:'🛋' },
+  { key:'limpieza',       label:'Limpieza / Blancos',  icon:'🧹' },
+  { key:'ruido',          label:'Ruido / Convivencia', icon:'🔊' },
+  { key:'estructural',    label:'Estructural / Obra',  icon:'🏗' },
+  { key:'otros',          label:'Otros',               icon:'📋' },
+];
+const RT_TIPOS = [
+  { key:'correctivo', label:'Correctivo' },
+  { key:'preventivo', label:'Preventivo' },
+  { key:'mejora',     label:'Mejora' },
+  { key:'garantia',   label:'Garantía' },
+];
+const RT_RESPONSABILIDADES = [
+  { key:'negocio',            label:'Negocio' },
+  { key:'huesped',            label:'Huésped' },
+  { key:'garantia_proveedor', label:'Garantía / proveedor' },
+  { key:'tercero',            label:'Tercero' },
+  { key:'desgaste_normal',    label:'Desgaste normal' },
+  { key:'indeterminada',      label:'Indeterminada' },
+];
+function _rtEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _rtEscA(s){ return String(s == null ? '' : s).replace(/"/g,'&quot;'); }
+
+window.rtInit = async function() {
+  // Precargar catálogos que usa el formulario de captura (fire-and-forget).
+  try {
+    if (typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded && !ALOJ_STATE.loading && typeof lgLoadAlojamientos === 'function') {
+      lgLoadAlojamientos().catch(()=>{});
+    }
+  } catch(_){}
+  // Personal: cargar directo desde api.check-inn.mx (más confiable que
+  // depender de incLoadPersonal que usa BACKEND legacy).
+  if (!Array.isArray(RT_STATE.personalRows) || !RT_STATE.personalRows.length) {
+    _rtLoadPersonalDirect_().catch(()=>{});
+  }
+  await rtRefresh();
+};
+window.rtRefresh = async function(force) {
+  const cont = document.getElementById('rt-cards-list');
+  if (force || !RT_STATE.loaded) {
+    if (cont) cont.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;font-size:13px">⏳ Cargando reportes técnicos…</div>';
+    try {
+      RT_STATE.loading = true;
+      const r = await fetch(`https://api.check-inn.mx/reportes-tecnicos-list`, { cache: 'no-store' });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'error');
+      RT_STATE.list = j.rows || [];
+      RT_STATE.loaded = true;
+    } catch(e) {
+      if (cont) cont.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#dc2626;font-size:13px">⚠ ${_rtEsc(e.message)}</div>`;
+      return;
+    } finally { RT_STATE.loading = false; }
+  }
+  rtRenderList();
+};
+
+function rtRenderList() {
+  const cont = document.getElementById('rt-cards-list');
+  if (!cont) return;
+  _rtEnsureViewTabs_(cont);
+  _rtEnsureProjFocusHeader_(cont);
+  const fEstado = String(document.getElementById('rt-filter-estado')?.value || '');
+  const fPrio   = String(document.getElementById('rt-filter-prioridad')?.value || '');
+  let rows = RT_STATE.list.slice();
+  // Filtrar por proyecto si estamos en modo focus.
+  if (RT_STATE.projFocus) {
+    const proj = _rtLoadProjects_().find(p => p.id === RT_STATE.projFocus);
+    if (proj) {
+      const ids = new Set((proj.rtIds || []).map(String));
+      rows = rows.filter(r => ids.has(String(r.ID)));
+    } else {
+      RT_STATE.projFocus = null;
+    }
+  }
+  if (fEstado) rows = rows.filter(r => _rtNormalizeEstado(r.Estado) === fEstado);
+  if (fPrio)   rows = rows.filter(r => _rtNormalizePrio(r.Prioridad) === fPrio);
+  rows.sort((a,b) => String(b.Timestamp || '').localeCompare(String(a.Timestamp || '')));
+  RT_STATE.viewMode = RT_STATE.viewMode || 'estado';
+  if (RT_STATE.viewMode === 'dia') return _rtRenderByDay_(cont, rows);
+  if (RT_STATE.viewMode === 'calendario') return _rtRenderCalendar_(cont, rows);
+  // En modo Proyectos SOLO cuando no hay focus: si hay focus caemos al kanban.
+  if (RT_STATE.viewMode === 'proyectos' && !RT_STATE.projFocus) return _rtRenderProjects_(cont, rows);
+  cont.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start';
+  if (!document.getElementById('rt-kanban-mq')) {
+    const s = document.createElement('style');
+    s.id = 'rt-kanban-mq';
+    s.textContent = '@media (max-width: 900px){ #rt-cards-list, .rt-kanban-grid{ grid-template-columns:1fr !important; } }';
+    document.head.appendChild(s);
+  }
+  cont.innerHTML = _rtBuildKanbanHtml_(rows);
+}
+// Devuelve HTML del kanban de 4 columnas para un array de rows.
+function _rtBuildKanbanHtml_(rows) {
+  const today = new Date().toISOString().slice(0,10);
+  const buckets = { nuevos:[], en_proceso:[], concluidos:[], programados:[] };
+  for (const r of rows) {
+    const est = _rtNormalizeEstado(r.Estado);
+    const fecha = String(r.Fecha || '').slice(0,10);
+    const isFuture = fecha && fecha > today;
+    if (isFuture && (est === 'nuevo' || est === 'en_proceso')) buckets.programados.push(r);
+    else if (est === 'nuevo') buckets.nuevos.push(r);
+    else if (est === 'en_proceso') buckets.en_proceso.push(r);
+    else if (est === 'resuelto' || est === 'cancelado') buckets.concluidos.push(r);
+    else buckets.nuevos.push(r);
+  }
+  const COLS = [
+    { key:'nuevos',      label:'Nuevos',      color:'#475569', accent:'#94a3b8' },
+    { key:'en_proceso',  label:'En proceso',  color:'#b45309', accent:'#f59e0b' },
+    { key:'concluidos',  label:'Concluidos',  color:'#15803d', accent:'#22c55e' },
+    { key:'programados', label:'Programados', color:'#4338ca', accent:'#6366f1' },
+  ];
+  RT_STATE.collapsed = RT_STATE.collapsed || new Set();
+  return COLS.map(col => {
+    const items = buckets[col.key] || [];
+    const isCollapsed = RT_STATE.collapsed.has(col.key);
+    const cardsHtml = items.length
+      ? items.map(r => _rtRenderCard(r)).join('')
+      : `<div style="text-align:center;padding:18px 8px;color:#94a3b8;font-size:11px;font-style:italic;background:transparent;border:1px dashed #e2e8f0;border-radius:8px">Sin reportes</div>`;
+    return `
+      <div style="min-width:0;display:flex;flex-direction:column;gap:10px">
+        <button type="button" onclick="rtToggleColumn_('${col.key}')"
+          style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:transparent;border:0;border-bottom:3px solid ${col.accent};border-radius:0;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s"
+          onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+            <span style="font-size:11px;color:${col.color};font-weight:900;letter-spacing:.06em;text-transform:uppercase">${col.label}</span>
+            <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:${col.accent};color:#fff;border-radius:999px;font-size:11px;font-weight:800">${items.length}</span>
+          </div>
+          <span style="font-size:14px;color:${col.color};transition:transform .2s;transform:rotate(${isCollapsed?'-90':'0'}deg);line-height:1">▾</span>
+        </button>
+        <div class="rt-col-drop" data-rt-col="${col.key}"
+          ondragover="rtDragOver_(event,this)"
+          ondragleave="rtDragLeave_(event,this)"
+          ondrop="rtDrop_(event,'${col.key}',this)"
+          style="display:${isCollapsed?'none':'flex'};flex-direction:column;gap:10px;min-height:60px;padding:4px;border-radius:10px;border:2px dashed transparent;transition:background .15s,border-color .15s">${cardsHtml}</div>
+      </div>`;
+  }).join('');
+}
+window.rtDragStart_ = function(e, id) {
+  try { e.dataTransfer.setData('text/rt-id', id); e.dataTransfer.effectAllowed = 'move'; } catch(_){}
+  window.__rtDragId = id;
+  const el = e.currentTarget;
+  if (el && el.style) { el.style.opacity = '0.5'; el.style.cursor = 'grabbing'; }
+};
+window.rtDragEnd_ = function(e) {
+  const el = e.currentTarget;
+  if (el && el.style) { el.style.opacity = ''; el.style.cursor = 'grab'; }
+  window.__rtDragId = null;
+  document.querySelectorAll('.rt-col-drop').forEach(d => {
+    d.style.background = ''; d.style.borderColor = 'transparent';
+  });
+};
+window.rtDragOver_ = function(e, drop) {
+  e.preventDefault();
+  try { e.dataTransfer.dropEffect = 'move'; } catch(_){}
+  drop.style.background = '#f1f5f9';
+  drop.style.borderColor = '#94a3b8';
+};
+window.rtDragLeave_ = function(e, drop) {
+  if (drop.contains(e.relatedTarget)) return;
+  drop.style.background = '';
+  drop.style.borderColor = 'transparent';
+};
+window.rtDrop_ = function(e, colKey, drop) {
+  e.preventDefault();
+  drop.style.background = ''; drop.style.borderColor = 'transparent';
+  const id = (e.dataTransfer && e.dataTransfer.getData('text/rt-id')) || window.__rtDragId;
+  if (!id) return;
+  const row = (RT_STATE.list||[]).find(r => String(r['ID']||'') === String(id));
+  if (!row) return;
+  const today = new Date().toISOString().slice(0,10);
+  const curEst = _rtNormalizeEstado(row.Estado);
+  const patch = {};
+  if (colKey === 'nuevos')          patch.Estado = 'nuevo';
+  else if (colKey === 'en_proceso') patch.Estado = 'en_proceso';
+  else if (colKey === 'concluidos') patch.Estado = 'resuelto';
+  else if (colKey === 'programados') {
+    // Programados = Fecha futura + estado activo. Si viene de resuelto/cancelado,
+    // reactivar como en_proceso. Fecha por default = mañana.
+    if (curEst === 'resuelto' || curEst === 'cancelado') patch.Estado = 'en_proceso';
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    patch.Fecha = tomorrow.toISOString().slice(0,10);
+  }
+  // Si ya está en la columna destino (según reglas actuales), no hacer nada.
+  const wouldChange = Object.keys(patch).some(k => String(row[k]||'') !== String(patch[k]));
+  if (!wouldChange) return;
+  _rtQuickPatch(id, patch, { skipConfirm: true });
+};
+window.rtToggleColumn_ = function(key) {
+  if (!RT_STATE.collapsed) RT_STATE.collapsed = new Set();
+  if (RT_STATE.collapsed.has(key)) RT_STATE.collapsed.delete(key);
+  else RT_STATE.collapsed.add(key);
+  rtRenderList();
+};
+// Inserta la barra de tabs (Estado / Día) justo antes de #rt-cards-list.
+function _rtEnsureViewTabs_(cont) {
+  let tabs = document.getElementById('rt-view-tabs');
+  if (!tabs) {
+    tabs = document.createElement('div');
+    tabs.id = 'rt-view-tabs';
+    tabs.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:12px;padding:0';
+    cont.parentElement && cont.parentElement.insertBefore(tabs, cont);
+  }
+  RT_STATE.viewMode = RT_STATE.viewMode || 'estado';
+  const btn = (key, label, icon) => {
+    const active = RT_STATE.viewMode === key;
+    return `<button type="button" onclick="rtSetView_('${key}')" style="padding:7px 14px;font-size:12px;font-weight:800;background:${active?'#0f172a':'#fff'};color:${active?'#fff':'#475569'};border:1.5px solid ${active?'#0f172a':'#cbd5e1'};border-radius:8px;cursor:pointer">${icon} ${label}</button>`;
+  };
+  const projCount = _rtLoadProjects_().length;
+  const projLabel = projCount > 0 ? `Proyectos (${projCount})` : 'Proyectos';
+  tabs.innerHTML = `
+    <span style="font-size:11px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-right:4px">Visualización:</span>
+    ${btn('estado','Estado','🗂️')}${btn('dia','Día','📅')}${btn('calendario','Calendario','🗓️')}${btn('proyectos',projLabel,'📁')}`;
+}
+// ─── Proyectos: agrupan varios RT como tareas. Persistidos en localStorage.
+const RT_PROJECTS_KEY = 'RT_PROJECTS_V1';
+function _rtLoadProjects_() {
+  try { return JSON.parse(localStorage.getItem(RT_PROJECTS_KEY) || '[]'); }
+  catch(_) { return []; }
+}
+function _rtSaveProjects_(list) {
+  try { localStorage.setItem(RT_PROJECTS_KEY, JSON.stringify(list || [])); } catch(_){}
+}
+// ─── Wizard "Nuevo proyecto" — 3 pasos en panel lateral (no popup) ──────
+const RT_PROJ_CLASIF = ['Remodelación','Limpieza profunda','Inspección','Reparación','Mejora'];
+window.rtProjNew_ = function() {
+  RT_STATE.projDraft = {
+    step: 1, clasificacion: '', nombre: '', descripcion: '',
+    prioridad: 'media',
+    lugarModo: 'propiedad', // 'propiedad' | 'otro'
+    lugarPropiedad: '', lugarDepto: '', lugarOtro: '',
+    reportadoPor: [], reportadoOtro: '',
+    ejecutor: [], ejecutorOtro: '',
+    fechaInicio: new Date().toISOString().slice(0,10),
+    duracionValor: 7, duracionUnidad: 'dias',
+  };
+  _rtEnsureProjWizardPanel_();
+  _rtProjWizardRender_();
+};
+function _rtEnsureProjWizardPanel_() {
+  if (document.getElementById('rt-proj-wiz-panel')) return;
+  const back = document.createElement('div');
+  back.id = 'rt-proj-wiz-back';
+  back.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:100020;display:none';
+  back.onclick = () => rtProjWizClose_();
+  const panel = document.createElement('div');
+  panel.id = 'rt-proj-wiz-panel';
+  panel.style.cssText = 'position:fixed;top:0;right:0;height:100vh;width:min(560px,94vw);background:#f8fafc;box-shadow:-24px 0 48px -12px rgba(0,0,0,.28);z-index:100021;display:none;flex-direction:column;overflow:hidden';
+  panel.innerHTML = `
+    <div style="padding:14px 18px;background:linear-gradient(90deg,#4338ca,#6366f1);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div>
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.85;font-weight:800">NUEVO</div>
+        <div style="font-size:16px;font-weight:800">📁 Crear proyecto</div>
+      </div>
+      <button onclick="rtProjWizClose_()" style="background:none;border:0;font-size:22px;cursor:pointer;color:#fff">×</button>
+    </div>
+    <div id="rt-proj-wiz-body" style="flex:1;overflow-y:auto;padding:16px 18px"></div>
+    <div id="rt-proj-wiz-footer" style="padding:12px 18px;background:#fff;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;gap:8px"></div>`;
+  document.body.appendChild(back);
+  document.body.appendChild(panel);
+}
+window.rtProjWizClose_ = function() {
+  const p = document.getElementById('rt-proj-wiz-panel');
+  const b = document.getElementById('rt-proj-wiz-back');
+  if (p) p.style.display = 'none';
+  if (b) b.style.display = 'none';
+  RT_STATE.projDraft = null;
+  RT_STATE.projDraftOriginal = null;
+};
+window.rtProjWizSet_ = function(field, value) {
+  if (!RT_STATE.projDraft) return;
+  RT_STATE.projDraft[field] = value;
+  if (field === 'fechaInicio' || field === 'duracionValor' || field === 'duracionUnidad') {
+    _rtProjRepaintFooterHint_();
+  }
+  // En modo edición, refresca solo el footer para mostrar/ocultar "Guardar
+  // cambios" sin re-renderizar el body (no perder foco del input).
+  if (RT_STATE.projDraft.editingId) _rtProjWizardRefreshFooter_();
+};
+function _rtProjWizardRefreshFooter_() {
+  const d = RT_STATE.projDraft; if (!d) return;
+  const footer = document.getElementById('rt-proj-wiz-footer'); if (!footer) return;
+  const isFirst = d.step === 1, isLast = d.step === 3;
+  const isEdit = !!d.editingId;
+  const dirty = isEdit && _rtProjDraftDirty_();
+  const saveChangesBtn = dirty
+    ? `<button type="button" onclick="rtProjWizSave_()" style="padding:8px 16px;background:#16a34a;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">💾 Guardar cambios</button>`
+    : '';
+  footer.innerHTML = `
+    <button type="button" onclick="rtProjWizStep_(-1)" ${isFirst?'disabled':''} style="padding:8px 14px;background:${isFirst?'#e2e8f0':'#fff'};color:${isFirst?'#94a3b8':'#334155'};border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:800;cursor:${isFirst?'not-allowed':'pointer'}">← Anterior</button>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px"><span id="rt-proj-wiz-hint" style="font-size:11px;color:#64748b"></span>${saveChangesBtn}</div>
+    ${isLast
+      ? `<button type="button" onclick="rtProjWizSave_()" style="padding:8px 16px;background:#16a34a;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">💾 Guardar</button>`
+      : `<button type="button" onclick="rtProjWizStep_(1)" style="padding:8px 16px;background:#4338ca;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">Siguiente →</button>`}`;
+  if (isLast) _rtProjRepaintFooterHint_();
+}
+window.rtProjWizToggleList_ = function(field, val) {
+  if (!RT_STATE.projDraft) return;
+  const arr = RT_STATE.projDraft[field] || [];
+  const idx = arr.indexOf(val);
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
+  RT_STATE.projDraft[field] = arr;
+  _rtProjWizardRender_();
+};
+window.rtProjWizStep_ = function(dir) {
+  if (!RT_STATE.projDraft) return;
+  const d = RT_STATE.projDraft;
+  if (dir > 0) {
+    // Validaciones por paso.
+    if (d.step === 1) {
+      if (!d.clasificacion) { alert('Elige una clasificación'); return; }
+      if (!String(d.nombre||'').trim()) { alert('El nombre es requerido'); return; }
+      if (d.lugarModo === 'propiedad' && !d.lugarPropiedad) { alert('Elige propiedad o cambia a "Otro"'); return; }
+      if (d.lugarModo === 'otro' && !String(d.lugarOtro||'').trim()) { alert('Escribe el lugar "Otro"'); return; }
+    }
+    if (d.step === 2) {
+      const totRep = (d.reportadoPor||[]).length + (String(d.reportadoOtro||'').trim() ? 1 : 0);
+      if (totRep === 0) { alert('Agrega al menos un "Reportado por"'); return; }
+      const totEj = (d.ejecutor||[]).length + (String(d.ejecutorOtro||'').trim() ? 1 : 0);
+      if (totEj === 0) { alert('Agrega al menos un "Ejecutor"'); return; }
+    }
+  }
+  d.step = Math.max(1, Math.min(3, d.step + dir));
+  _rtProjWizardRender_();
+};
+function _rtProjCalcFechaFin_(d) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d.fechaInicio||'')) return '';
+  const dt = new Date(d.fechaInicio + 'T12:00:00');
+  const n = Math.max(1, parseInt(d.duracionValor,10) || 0);
+  if (d.duracionUnidad === 'meses') dt.setMonth(dt.getMonth() + n);
+  else dt.setDate(dt.getDate() + n);
+  return dt.toISOString().slice(0,10);
+}
+function _rtProjRepaintFooterHint_() {
+  const hint = document.getElementById('rt-proj-wiz-hint');
+  if (!hint || !RT_STATE.projDraft) return;
+  hint.textContent = 'Estimada fin: ' + (_rtProjCalcFechaFin_(RT_STATE.projDraft) || '—');
+}
+function _rtProjWizardRender_() {
+  const d = RT_STATE.projDraft; if (!d) return;
+  document.getElementById('rt-proj-wiz-back').style.display = 'block';
+  const panel = document.getElementById('rt-proj-wiz-panel'); panel.style.display = 'flex';
+  const body = document.getElementById('rt-proj-wiz-body');
+  const footer = document.getElementById('rt-proj-wiz-footer');
+  const steps = ['General','Asignaciones','Plazo'];
+  const stepHdr = `<div style="display:flex;gap:6px;margin-bottom:14px">
+    ${steps.map((s,i) => {
+      const n = i+1, act = n === d.step, done = n < d.step;
+      const bg = act ? '#4338ca' : (done ? '#c7d2fe' : '#e2e8f0');
+      const fg = act ? '#fff' : (done ? '#3730a3' : '#94a3b8');
+      return `<div style="flex:1;display:flex;align-items:center;gap:6px;padding:6px 8px;background:${bg};color:${fg};border-radius:6px;font-size:11px;font-weight:800">
+        <span style="width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.35);display:inline-flex;align-items:center;justify-content:center">${done?'✓':n}</span>${s}
+      </div>`;
+    }).join('')}
+  </div>`;
+  const field = (label, html) => `<div style="margin-bottom:12px">
+    <label style="display:block;font-size:11px;font-weight:800;color:#475569;letter-spacing:.02em;margin-bottom:4px">${label}</label>${html}
+  </div>`;
+  const PRIO_EMOJI = { critica:'🔴', alta:'🟠', media:'🟡', baja:'🔵' };
+  const selectHtml = (field, options, cur, placeholder) => {
+    const opts = [`<option value="">${_rtEsc(placeholder||'— Elegir —')}</option>`]
+      .concat(options.map(o => {
+        const val = typeof o === 'string' ? o : o.value;
+        const label = typeof o === 'string' ? o : o.label;
+        return `<option value="${_rtEscA(val)}" ${cur===val?'selected':''}>${_rtEsc(label)}</option>`;
+      })).join('');
+    return `<select onchange="rtProjWizSet_('${field}',this.value);_rtProjWizardRender_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;background:#fff">${opts}</select>`;
+  };
+  let html = stepHdr;
+  if (d.step === 1) {
+    html += field('Clasificación', selectHtml('clasificacion', RT_PROJ_CLASIF, d.clasificacion, '— Elegir clasificación —'));
+    html += field('Nombre del proyecto', `<input type="text" value="${_rtEscA(d.nombre)}" oninput="rtProjWizSet_('nombre',this.value)" placeholder="Ej: Remodelación baños Cumbres" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`);
+    html += field('Descripción', `<textarea rows="3" oninput="rtProjWizSet_('descripcion',this.value)" placeholder="Objetivo y alcance…" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;resize:vertical;font-family:inherit">${_rtEsc(d.descripcion)}</textarea>`);
+    const prioOpts = RT_PRIORIDADES.map(p => ({ value: p.key, label: `${PRIO_EMOJI[p.key]||''} ${p.label}` }));
+    html += field('Prioridad', selectHtml('prioridad', prioOpts, d.prioridad, '— Elegir prioridad —'));
+    // Lugar
+    const props = (typeof ALOJ_STATE !== 'undefined' && Array.isArray(ALOJ_STATE.rows))
+      ? Array.from(new Set(ALOJ_STATE.rows.map(r => String(r.Propiedad||'').trim()).filter(Boolean))).sort() : [];
+    const deptos = d.lugarPropiedad
+      ? Array.from(new Set(ALOJ_STATE.rows.filter(r => String(r.Propiedad||'') === d.lugarPropiedad).map(r => String(r['# Departamento']||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es',{numeric:true}))
+      : [];
+    const modoTabs = `<div style="display:flex;gap:6px;margin-bottom:8px">
+      <button type="button" onclick="rtProjWizSet_('lugarModo','propiedad');_rtProjWizardRender_()" style="padding:5px 12px;font-size:11px;background:${d.lugarModo==='propiedad'?'#0f172a':'#fff'};color:${d.lugarModo==='propiedad'?'#fff':'#475569'};border:1.5px solid ${d.lugarModo==='propiedad'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer;font-weight:800">🏠 Propiedad</button>
+      <button type="button" onclick="rtProjWizSet_('lugarModo','otro');_rtProjWizardRender_()" style="padding:5px 12px;font-size:11px;background:${d.lugarModo==='otro'?'#0f172a':'#fff'};color:${d.lugarModo==='otro'?'#fff':'#475569'};border:1.5px solid ${d.lugarModo==='otro'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer;font-weight:800">📍 Otro</button>
+    </div>`;
+    let lugarBody;
+    if (d.lugarModo === 'propiedad') {
+      lugarBody = `${modoTabs}
+        <select onchange="rtProjWizSet_('lugarPropiedad',this.value);rtProjWizSet_('lugarDepto','');_rtProjWizardRender_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;background:#fff;margin-bottom:6px">
+          <option value="">— Elegir propiedad —</option>
+          ${props.map(p => `<option value="${_rtEscA(p)}" ${d.lugarPropiedad===p?'selected':''}>${_rtEsc(p)}</option>`).join('')}
+        </select>
+        ${deptos.length ? `<select onchange="rtProjWizSet_('lugarDepto',this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;background:#fff">
+          <option value="">(Solo propiedad, sin depto)</option>
+          ${deptos.map(dp => `<option value="${_rtEscA(dp)}" ${d.lugarDepto===dp?'selected':''}>#${_rtEsc(dp)}</option>`).join('')}
+        </select>` : ''}`;
+    } else {
+      lugarBody = `${modoTabs}
+        <input type="text" value="${_rtEscA(d.lugarOtro)}" oninput="rtProjWizSet_('lugarOtro',this.value)" placeholder="Lugar libre…" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`;
+    }
+    html += field('Lugar', lugarBody);
+  } else if (d.step === 2) {
+    const rows = _rtGetPersonalRows();
+    if (!rows.length) _rtLoadPersonalDirect_().then(() => _rtProjWizardRender_());
+    const nombres = Array.from(new Set(rows.map(r => String(r['Nombre']||'').trim()).filter(Boolean))).sort();
+    const multiBlock = (fname, arr) => {
+      const disponibles = nombres.filter(n => (arr||[]).indexOf(n) < 0);
+      const chips = (arr||[]).map(n => `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#e0e7ff;color:#3730a3;border-radius:99px;font-size:12px;font-weight:700;margin:0 6px 6px 0">${_rtEsc(n)}<button type="button" onclick="rtProjWizToggleList_('${fname}','${n.replace(/'/g,"\\'")}')" title="Quitar" style="background:none;border:0;color:#4338ca;cursor:pointer;font-size:14px;line-height:1;padding:0">×</button></span>`).join('');
+      const options = ['<option value="">＋ Agregar del personal…</option>']
+        .concat(disponibles.map(n => `<option value="${_rtEscA(n)}">${_rtEsc(n)}</option>`)).join('');
+      const disabledAttr = rows.length ? '' : 'disabled';
+      return `
+        <div style="margin-bottom:6px">${chips || '<span style="font-size:11px;color:#94a3b8;font-style:italic">Sin selección aún</span>'}</div>
+        <select ${disabledAttr} onchange="if(this.value){rtProjWizToggleList_('${fname}',this.value);this.value=''}" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;background:#fff">${options}</select>`;
+    };
+    html += field('Reportado por', multiBlock('reportadoPor', d.reportadoPor) +
+      `<input type="text" value="${_rtEscA(d.reportadoOtro)}" oninput="rtProjWizSet_('reportadoOtro',this.value)" placeholder='Otro (texto libre)' style="width:100%;margin-top:6px;padding:7px 10px;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;box-sizing:border-box">`);
+    html += field('Ejecutor', multiBlock('ejecutor', d.ejecutor) +
+      `<input type="text" value="${_rtEscA(d.ejecutorOtro)}" oninput="rtProjWizSet_('ejecutorOtro',this.value)" placeholder='Otro (texto libre)' style="width:100%;margin-top:6px;padding:7px 10px;border:1px dashed #cbd5e1;border-radius:8px;font-size:12px;box-sizing:border-box">`);
+  } else {
+    html += field('Fecha de inicio', `<input type="date" value="${_rtEscA(d.fechaInicio)}" oninput="rtProjWizSet_('fechaInicio',this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`);
+    html += field('Duración estimada', `<div style="display:flex;gap:10px">
+      <input type="number" min="1" value="${_rtEscA(d.duracionValor)}" oninput="rtProjWizSet_('duracionValor',this.value)" style="flex:2;min-width:0;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:16px;font-weight:700;box-sizing:border-box;text-align:center">
+      <select onchange="rtProjWizSet_('duracionUnidad',this.value);_rtProjRepaintFooterHint_()" style="flex:1;min-width:110px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:#fff">
+        <option value="dias" ${d.duracionUnidad==='dias'?'selected':''}>días</option>
+        <option value="meses" ${d.duracionUnidad==='meses'?'selected':''}>meses</option>
+      </select>
+    </div>`);
+    html += `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;font-size:12px;color:#1e3a8a">📅 Fecha estimada de término: <strong>${_rtProjCalcFechaFin_(d) || '—'}</strong></div>`;
+  }
+  body.innerHTML = html;
+  // Footer
+  const isFirst = d.step === 1, isLast = d.step === 3;
+  const isEdit = !!d.editingId;
+  const dirty = isEdit && _rtProjDraftDirty_();
+  // Título dinámico según modo (edición vs alta) — actualizar header del panel.
+  try {
+    const hdrTitle = document.querySelector('#rt-proj-wiz-panel > div:first-child > div > div:last-child');
+    if (hdrTitle) hdrTitle.textContent = isEdit ? '📁 Editar proyecto' : '📁 Crear proyecto';
+    const hdrKicker = document.querySelector('#rt-proj-wiz-panel > div:first-child > div > div:first-child');
+    if (hdrKicker) hdrKicker.textContent = isEdit ? 'EDITAR' : 'NUEVO';
+  } catch(_){}
+  const saveChangesBtn = dirty
+    ? `<button type="button" onclick="rtProjWizSave_()" style="padding:8px 16px;background:#16a34a;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">💾 Guardar cambios</button>`
+    : '';
+  footer.innerHTML = `
+    <button type="button" onclick="rtProjWizStep_(-1)" ${isFirst?'disabled':''} style="padding:8px 14px;background:${isFirst?'#e2e8f0':'#fff'};color:${isFirst?'#94a3b8':'#334155'};border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:800;cursor:${isFirst?'not-allowed':'pointer'}">← Anterior</button>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px"><span id="rt-proj-wiz-hint" style="font-size:11px;color:#64748b"></span>${saveChangesBtn}</div>
+    ${isLast
+      ? `<button type="button" onclick="rtProjWizSave_()" style="padding:8px 16px;background:#16a34a;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">💾 ${isEdit?'Guardar':'Guardar'}</button>`
+      : `<button type="button" onclick="rtProjWizStep_(1)" style="padding:8px 16px;background:#4338ca;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">Siguiente →</button>`}`;
+  if (isLast) _rtProjRepaintFooterHint_();
+}
+window.rtProjWizSave_ = function() {
+  const d = RT_STATE.projDraft; if (!d) return;
+  // Validaciones básicas (mismas que al avanzar del paso 1).
+  if (!d.clasificacion) { alert('Elige una clasificación (Paso 1)'); return; }
+  if (!String(d.nombre||'').trim()) { alert('El nombre es requerido (Paso 1)'); return; }
+  if (d.lugarModo === 'propiedad' && !d.lugarPropiedad) { alert('Elige propiedad (Paso 1)'); return; }
+  if (d.lugarModo === 'otro' && !String(d.lugarOtro||'').trim()) { alert('Escribe el lugar "Otro" (Paso 1)'); return; }
+  const list = _rtLoadProjects_();
+  const lugarLabel = d.lugarModo === 'otro'
+    ? String(d.lugarOtro||'').trim()
+    : (d.lugarDepto ? `${d.lugarPropiedad} · #${d.lugarDepto}` : d.lugarPropiedad);
+  const buildPayload = (base) => Object.assign({}, base, {
+    clasificacion: d.clasificacion,
+    nombre: String(d.nombre||'').trim(),
+    descripcion: String(d.descripcion||'').trim(),
+    prioridad: d.prioridad,
+    lugar: {
+      modo: d.lugarModo,
+      propiedad: d.lugarPropiedad,
+      depto: d.lugarDepto,
+      otro: String(d.lugarOtro||'').trim(),
+      label: lugarLabel,
+    },
+    reportadoPor: (d.reportadoPor||[]).concat(String(d.reportadoOtro||'').trim() ? [String(d.reportadoOtro).trim()] : []),
+    ejecutor: (d.ejecutor||[]).concat(String(d.ejecutorOtro||'').trim() ? [String(d.ejecutorOtro).trim()] : []),
+    fechaInicio: d.fechaInicio,
+    duracionValor: Number(d.duracionValor)||0,
+    duracionUnidad: d.duracionUnidad,
+    fechaFin: _rtProjCalcFechaFin_(d),
+  });
+  if (d.editingId) {
+    const idx = list.findIndex(x => x.id === d.editingId);
+    if (idx < 0) { alert('Proyecto no encontrado'); return; }
+    list[idx] = buildPayload(list[idx]);
+  } else {
+    list.push(buildPayload({
+      id: 'PRJ-' + Date.now() + '-' + Math.floor(Math.random()*9999),
+      creado: new Date().toISOString(),
+      rtIds: [],
+    }));
+  }
+  _rtSaveProjects_(list);
+  rtProjWizClose_();
+  RT_STATE.viewMode = 'proyectos';
+  rtRenderList();
+};
+window.rtProjDelete_ = function(id) {
+  if (!confirm('¿Eliminar este proyecto? (los reportes técnicos NO se borran)')) return;
+  const list = _rtLoadProjects_().filter(p => p.id !== id);
+  _rtSaveProjects_(list);
+  rtRenderList();
+};
+window.rtProjRename_ = function(id) {
+  // Editar proyecto = abrir el wizard con datos precargados.
+  rtProjEdit_(id);
+};
+window.rtProjEdit_ = function(id) {
+  const p = _rtLoadProjects_().find(x => x.id === id);
+  if (!p) return;
+  // Reconstruir draft con los mismos campos que usa el wizard.
+  const lu = p.lugar || {};
+  RT_STATE.projDraft = {
+    step: 1,
+    editingId: id,
+    clasificacion: p.clasificacion || '',
+    nombre: p.nombre || '',
+    descripcion: p.descripcion || '',
+    prioridad: p.prioridad || 'media',
+    lugarModo: lu.modo || 'propiedad',
+    lugarPropiedad: lu.propiedad || '',
+    lugarDepto: lu.depto || '',
+    lugarOtro: lu.otro || '',
+    reportadoPor: (p.reportadoPor || []).slice(),
+    reportadoOtro: '',
+    ejecutor: (p.ejecutor || []).slice(),
+    ejecutorOtro: '',
+    fechaInicio: p.fechaInicio || new Date().toISOString().slice(0,10),
+    duracionValor: p.duracionValor || 7,
+    duracionUnidad: p.duracionUnidad || 'dias',
+  };
+  RT_STATE.projDraftOriginal = JSON.parse(JSON.stringify(RT_STATE.projDraft));
+  _rtEnsureProjWizardPanel_();
+  _rtProjWizardRender_();
+};
+function _rtProjDraftDirty_() {
+  const d = RT_STATE.projDraft, o = RT_STATE.projDraftOriginal;
+  if (!d || !o) return false;
+  const norm = (x) => {
+    const c = Object.assign({}, x); delete c.step; return JSON.stringify(c);
+  };
+  return norm(d) !== norm(o);
+}
+window.rtProjRemoveRt_ = function(projId, rtId) {
+  const list = _rtLoadProjects_();
+  const p = list.find(x => x.id === projId); if (!p) return;
+  p.rtIds = (p.rtIds || []).filter(id => id !== rtId);
+  _rtSaveProjects_(list);
+  rtProjOpen_(projId); // repinta panel
+  rtRenderList();
+};
+// Crear NUEVA tarea desde el proyecto. Abre el form RT con contexto proyecto
+// para heredar Reportado_por + Fecha y renombrar título/botón a "tarea".
+window.rtProjAddTask_ = function(projId) {
+  const list = _rtLoadProjects_();
+  const p = list.find(x => x.id === projId); if (!p) return;
+  RT_STATE.projContext = {
+    projId,
+    reportadoPor: (p.reportadoPor||[]).join(', '),
+    fechaInicio: p.fechaInicio || '',
+    lugar: p.lugar || {},
+  };
+  // Cerrar el panel lateral del proyecto para no obstruir el form.
+  rtCalCloseDay_();
+  rtOpenCapture();
+};
+function _rtProjProgress_(project) {
+  const ids = new Set(project.rtIds || []);
+  if (!ids.size) return { total:0, done:0, pct:0 };
+  const rows = (RT_STATE.list || []).filter(r => ids.has(String(r.ID)));
+  const done = rows.filter(r => {
+    const e = _rtNormalizeEstado(r.Estado);
+    return e === 'resuelto' || e === 'cancelado';
+  }).length;
+  return { total: ids.size, done, pct: Math.round((done / ids.size) * 100) };
+}
+// Paleta de gradientes para diferenciar visualmente los proyectos.
+// Estable por id (hash) — mismo proyecto siempre tendrá el mismo color.
+const RT_PROJ_GRADIENTS = [
+  'linear-gradient(90deg,#4338ca,#6366f1)', // índigo
+  'linear-gradient(90deg,#0e7490,#06b6d4)', // cian
+  'linear-gradient(90deg,#15803d,#22c55e)', // verde
+  'linear-gradient(90deg,#b45309,#f59e0b)', // ámbar
+  'linear-gradient(90deg,#be185d,#ec4899)', // rosa
+  'linear-gradient(90deg,#7c2d12,#ea580c)', // naranja
+  'linear-gradient(90deg,#1e40af,#3b82f6)', // azul
+  'linear-gradient(90deg,#6b21a8,#a855f7)', // púrpura
+  'linear-gradient(90deg,#0f766e,#14b8a6)', // teal
+  'linear-gradient(90deg,#a16207,#eab308)', // amarillo oscuro
+  'linear-gradient(90deg,#9f1239,#e11d48)', // rojo
+  'linear-gradient(90deg,#3f6212,#84cc16)', // lima
+];
+function _rtProjColor_(id, fallbackIdx) {
+  // Hash simple del id → índice estable.
+  let h = 0;
+  const s = String(id || '');
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  const idx = Math.abs(h) % RT_PROJ_GRADIENTS.length;
+  return RT_PROJ_GRADIENTS[idx] || RT_PROJ_GRADIENTS[fallbackIdx % RT_PROJ_GRADIENTS.length];
+}
+function _rtRenderProjects_(cont, rows) {
+  const projects = _rtLoadProjects_();
+  cont.style.cssText = 'display:flex;flex-direction:column;gap:10px';
+  if (!projects.length) {
+    cont.innerHTML = `<div style="text-align:center;padding:60px 20px;background:#fff;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b">
+      <div style="font-size:32px;margin-bottom:6px">📁</div>
+      <div style="font-size:14px;font-weight:800;color:#334155;margin-bottom:4px">No hay proyectos aún</div>
+      <div style="font-size:12px;margin-bottom:14px">Un proyecto agrupa varias tareas con fechas y avance.</div>
+      <button onclick="rtProjNew_()" style="padding:8px 16px;background:#4338ca;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">＋ Crear primer proyecto</button>
+    </div>`;
+    return;
+  }
+  RT_STATE.projExpanded = RT_STATE.projExpanded || new Set();
+  cont.innerHTML = projects.map((p, i) => {
+    const pr = _rtProjProgress_(p);
+    const barColor = pr.pct === 100 ? '#16a34a' : (pr.pct >= 50 ? '#3b82f6' : (pr.pct > 0 ? '#f59e0b' : '#cbd5e1'));
+    const isExp = RT_STATE.projExpanded.has(p.id);
+    const projRows = (RT_STATE.list||[]).filter(r => (p.rtIds||[]).map(String).includes(String(r.ID)));
+    const grad = _rtProjColor_(p.id, i);
+    return `
+      <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.06)">
+        <button type="button" onclick="rtProjToggleExpand_('${_rtEscA(p.id)}')"
+          style="width:100%;background:${grad};color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;border:0;cursor:pointer;text-align:left;font-family:inherit;flex-wrap:wrap">
+          <span style="font-size:14px;color:#fff;transition:transform .2s;transform:rotate(${isExp?'0':'-90'}deg);line-height:1;flex:none">▾</span>
+          <span style="font-size:16px;flex:none">📁</span>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${_rtEsc(p.nombre)}">${_rtEsc(p.nombre)}</div>
+            ${p.descripcion ? `<div style="font-size:11px;opacity:.85;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_rtEsc(p.descripcion)}</div>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex:none">
+            <div style="width:140px">
+              <div style="height:8px;background:rgba(255,255,255,.25);border-radius:99px;overflow:hidden">
+                <div style="height:100%;width:${pr.pct}%;background:${barColor};border-radius:99px"></div>
+              </div>
+            </div>
+            <span style="font-size:12px;font-weight:800;white-space:nowrap">${pr.done}/${pr.total} · ${pr.pct}%</span>
+            <span onclick="event.stopPropagation();rtProjAddTask_('${_rtEscA(p.id)}')" title="Agregar tarea" style="padding:5px 10px;font-size:11px;background:#fff;color:#4338ca;border-radius:6px;cursor:pointer;font-weight:800">＋ Tarea</span>
+            <span onclick="event.stopPropagation();rtProjRename_('${_rtEscA(p.id)}')" title="Renombrar" style="padding:5px 8px;font-size:11px;background:rgba(255,255,255,.22);color:#fff;border-radius:6px;cursor:pointer;font-weight:800">✏️</span>
+            <span onclick="event.stopPropagation();rtProjDelete_('${_rtEscA(p.id)}')" title="Eliminar" style="padding:5px 8px;font-size:11px;background:rgba(255,255,255,.22);color:#fff;border-radius:6px;cursor:pointer;font-weight:800">🗑</span>
+          </div>
+        </button>
+        <div class="rt-kanban-grid" style="display:${isExp?'grid':'none'};grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start;padding:14px 16px;background:#f8fafc">
+          ${_rtBuildKanbanHtml_(projRows)}
+        </div>
+      </div>`;
+  }).join('');
+  _rtEnsureCalSidePanel_();
+}
+window.rtProjToggleExpand_ = function(id) {
+  RT_STATE.projExpanded = RT_STATE.projExpanded || new Set();
+  if (RT_STATE.projExpanded.has(id)) RT_STATE.projExpanded.delete(id);
+  else RT_STATE.projExpanded.add(id);
+  rtRenderList();
+};
+window.rtProjOpen_ = function(projId) {
+  const list = _rtLoadProjects_();
+  const p = list.find(x => x.id === projId); if (!p) return;
+  _rtEnsureCalSidePanel_();
+  const ids = new Set(p.rtIds || []);
+  const items = (RT_STATE.list || []).filter(r => ids.has(String(r.ID)));
+  const PRIO_RANK = { critica:0, alta:1, media:2, baja:3 };
+  items.sort((a,b) => {
+    const pa = PRIO_RANK[_rtNormalizePrio(a.Prioridad)] ?? 9;
+    const pb = PRIO_RANK[_rtNormalizePrio(b.Prioridad)] ?? 9;
+    if (pa !== pb) return pa - pb;
+    return String(a.Fecha||'').localeCompare(String(b.Fecha||''));
+  });
+  const pr = _rtProjProgress_(p);
+  const barColor = pr.pct === 100 ? '#16a34a' : (pr.pct >= 50 ? '#3b82f6' : (pr.pct > 0 ? '#f59e0b' : '#cbd5e1'));
+  document.getElementById('rt-cal-side-title').innerHTML =
+    `<span style="font-size:18px;margin-right:6px">📁</span>${_rtEsc(p.nombre)} · <span style="color:#64748b">${pr.done}/${pr.total} (${pr.pct}%)</span>`;
+  const body = document.getElementById('rt-cal-side-body');
+  const progressBar = `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      ${p.descripcion ? `<div style="font-size:12px;color:#475569;margin-bottom:8px">${_rtEsc(p.descripcion)}</div>` : ''}
+      <div style="height:8px;background:#f1f5f9;border-radius:99px;overflow:hidden">
+        <div style="height:100%;width:${pr.pct}%;background:${barColor};border-radius:99px"></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+        <button onclick="rtProjAddTask_('${_rtEscA(projId)}')" style="padding:6px 12px;font-size:11px;background:#4338ca;color:#fff;border:0;border-radius:6px;font-weight:800;cursor:pointer">＋ Agregar tarea</button>
+      </div>
+    </div>`;
+  const cards = items.length
+    ? items.map(r => `<div style="position:relative">
+        ${_rtRenderCard(r)}
+        <button onclick="event.stopPropagation();rtProjRemoveRt_('${_rtEscA(projId)}','${_rtEscA(r.ID)}')"
+          title="Quitar tarea del proyecto"
+          style="position:absolute;top:6px;right:6px;z-index:2;padding:2px 8px;font-size:10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-weight:800">✕</button>
+      </div>`).join('')
+    : '<div style="text-align:center;padding:20px 12px;color:#94a3b8;font-style:italic;font-size:12px">Sin tareas en este proyecto. Usa "＋ Agregar tarea" arriba.</div>';
+  body.innerHTML = progressBar + cards;
+  document.getElementById('rt-cal-side-back').style.display = 'block';
+  document.getElementById('rt-cal-side-panel').style.display = 'flex';
+};
+window.rtSetView_ = function(mode) {
+  RT_STATE.viewMode = mode;
+  // Al elegir la pestaña Proyectos, salir del focus si estaba activo.
+  if (mode === 'proyectos') RT_STATE.projFocus = null;
+  rtRenderList();
+};
+// Header con título del proyecto + botón Regresar cuando hay focus.
+function _rtEnsureProjFocusHeader_(cont) {
+  let bar = document.getElementById('rt-proj-focus-bar');
+  if (!RT_STATE.projFocus) {
+    if (bar) bar.remove();
+    return;
+  }
+  const proj = _rtLoadProjects_().find(p => p.id === RT_STATE.projFocus);
+  if (!proj) { if (bar) bar.remove(); return; }
+  const pr = _rtProjProgress_(proj);
+  const barColor = pr.pct === 100 ? '#16a34a' : (pr.pct >= 50 ? '#3b82f6' : (pr.pct > 0 ? '#f59e0b' : '#cbd5e1'));
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'rt-proj-focus-bar';
+    bar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin-bottom:10px;background:linear-gradient(90deg,#4338ca,#6366f1);color:#fff;border-radius:10px;flex-wrap:wrap';
+    const tabs = document.getElementById('rt-view-tabs');
+    if (tabs && tabs.parentElement) tabs.parentElement.insertBefore(bar, tabs.nextSibling);
+    else cont.parentElement && cont.parentElement.insertBefore(bar, cont);
+  }
+  bar.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+      <button type="button" onclick="rtProjExitFocus_()" style="padding:6px 12px;font-size:12px;background:rgba(255,255,255,.22);color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">← Regresar</button>
+      <span style="font-size:18px">📁</span>
+      <div style="min-width:0;flex:1">
+        <div style="font-size:10px;letter-spacing:.14em;opacity:.9;font-weight:800;text-transform:uppercase">Proyecto</div>
+        <div style="font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${_rtEsc(proj.nombre)}">${_rtEsc(proj.nombre)}</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="width:140px">
+        <div style="height:8px;background:rgba(255,255,255,.25);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${pr.pct}%;background:${barColor};border-radius:99px"></div>
+        </div>
+      </div>
+      <span style="font-size:12px;font-weight:800;white-space:nowrap">${pr.done}/${pr.total} · ${pr.pct}%</span>
+      <button type="button" onclick="rtProjAddTask_('${_rtEscA(proj.id)}')" style="padding:6px 12px;font-size:11px;background:#fff;color:#4338ca;border:0;border-radius:6px;cursor:pointer;font-weight:800">＋ Agregar tarea</button>
+    </div>`;
+}
+window.rtProjExitFocus_ = function() {
+  RT_STATE.projFocus = null;
+  RT_STATE.viewMode = 'proyectos';
+  rtRenderList();
+};
+window.rtProjViewTasks_ = function(projId) {
+  RT_STATE.projFocus = projId;
+  // Si el usuario venía de la pestaña Proyectos, cambiar a Estado por default.
+  if (RT_STATE.viewMode === 'proyectos') RT_STATE.viewMode = 'estado';
+  rtCalCloseDay_();
+  rtRenderList();
+};
+function _rtRenderByDay_(cont, rows) {
+  // Grupo por fecha (YYYY-MM-DD). "Sin fecha" al final.
+  RT_STATE.collapsed = RT_STATE.collapsed || new Set();
+  const PRIO_RANK = { critica:0, alta:1, media:2, baja:3 };
+  const groups = new Map();
+  const SIN_FECHA = '__sin_fecha__';
+  for (const r of rows) {
+    const f = String(r.Fecha || '').slice(0,10);
+    const key = /^\d{4}-\d{2}-\d{2}$/.test(f) ? f : SIN_FECHA;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  // Orden interno: prioridad ASC (crítica primero), luego más reciente.
+  for (const arr of groups.values()) {
+    arr.sort((a,b) => {
+      const pa = PRIO_RANK[_rtNormalizePrio(a.Prioridad)] ?? 9;
+      const pb = PRIO_RANK[_rtNormalizePrio(b.Prioridad)] ?? 9;
+      if (pa !== pb) return pa - pb;
+      return String(b.Timestamp||'').localeCompare(String(a.Timestamp||''));
+    });
+  }
+  // Días ordenados desc; SIN_FECHA al final.
+  const keys = Array.from(groups.keys()).filter(k => k !== SIN_FECHA).sort((a,b) => b.localeCompare(a));
+  if (groups.has(SIN_FECHA)) keys.push(SIN_FECHA);
+  cont.style.cssText = 'display:flex;flex-direction:column;gap:14px';
+  cont.innerHTML = keys.map(key => {
+    const items = groups.get(key);
+    const collapsedKey = 'day:' + key;
+    const isCollapsed = RT_STATE.collapsed.has(collapsedKey);
+    const label = key === SIN_FECHA ? 'Sin fecha asignada' : _rtFmtFechaLarga_(key);
+    const accent = key === SIN_FECHA ? '#94a3b8' : (key === new Date().toISOString().slice(0,10) ? '#dc2626' : '#4338ca');
+    const color = key === SIN_FECHA ? '#475569' : (accent === '#dc2626' ? '#7f1d1d' : '#3730a3');
+    const cardsHtml = items.map(r => _rtRenderCard(r)).join('');
+    return `
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button type="button" onclick="rtToggleColumn_('${_rtEscA(collapsedKey)}')"
+          style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:transparent;border:0;border-bottom:3px solid ${accent};cursor:pointer;text-align:left;font-family:inherit;transition:background .15s"
+          onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+            <span style="font-size:11px;color:${color};font-weight:900;letter-spacing:.06em;text-transform:uppercase">${_rtEsc(label)}</span>
+            <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:${accent};color:#fff;border-radius:999px;font-size:11px;font-weight:800">${items.length}</span>
+          </div>
+          <span style="font-size:14px;color:${color};transition:transform .2s;transform:rotate(${isCollapsed?'-90':'0'}deg);line-height:1">▾</span>
+        </button>
+        <div style="display:${isCollapsed?'none':'grid'};grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">${cardsHtml}</div>
+      </div>`;
+  }).join('');
+}
+// Vista Calendario: filas = categorías RT, columnas = días.
+// Cada celda muestra cantidad de reportes en ese día × categoría.
+// Click en celda con >=1 → abre panel lateral derecho con vista Día filtrada.
+function _rtRenderCalendar_(cont, rows) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(today.getFullYear(), today.getMonth(), 1);
+  const totalDays = 62;
+  const end = new Date(start); end.setDate(start.getDate() + totalDays - 1);
+  const DOW = ['D','L','M','M','J','V','S'];
+  const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  // Bucket: por Propiedad → por Depto ('' = total) → por ISO → rows[]
+  // La clave '' agrega TODOS los rows de la propiedad (con o sin depto).
+  const byPropDeptDay = {};
+  const propOrder = [];
+  const deptSetByProp = {};
+  for (const r of rows) {
+    const iso = String(r.Fecha || '').slice(0,10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) continue;
+    const d = new Date(iso + 'T12:00:00'); d.setHours(0,0,0,0);
+    if (d < start || d > end) continue;
+    const prop = String(r.Propiedad || '(Sin propiedad)').trim();
+    const dept = String(r['# Departamento'] || '').trim();
+    if (!byPropDeptDay[prop]) {
+      byPropDeptDay[prop] = { '': {} };
+      propOrder.push(prop);
+      deptSetByProp[prop] = new Set();
+    }
+    if (dept) deptSetByProp[prop].add(dept);
+    (byPropDeptDay[prop][''][iso] = byPropDeptDay[prop][''][iso] || []).push(r);
+    const dk = dept || '(sin depto)';
+    if (!byPropDeptDay[prop][dk]) byPropDeptDay[prop][dk] = {};
+    (byPropDeptDay[prop][dk][iso] = byPropDeptDay[prop][dk][iso] || []).push(r);
+  }
+  propOrder.sort((a,b) => a.localeCompare(b,'es'));
+  window.__rtCalRows = byPropDeptDay;
+  RT_STATE.calExpProps = RT_STATE.calExpProps || new Set();
+
+  cont.style.cssText = 'display:block;overflow-x:auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px';
+  const CELL_W = 44, LABEL_W = 220, ROW_H = 46;
+  // Header
+  let headCells = '';
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const isToday = d.getTime() === today.getTime();
+    const dow = d.getDay();
+    const isWknd = dow === 0 || dow === 6;
+    const isFirst = d.getDate() === 1;
+    const monthBadge = isFirst
+      ? `<div style="position:absolute;top:-4px;left:0;font-size:9px;font-weight:900;color:#3730a3;background:#e0e7ff;border:1px solid #a5b4fc;padding:1px 6px;border-radius:99px;white-space:nowrap;z-index:2">${MESES[d.getMonth()]} ${d.getFullYear()}</div>`
+      : '';
+    headCells += `<div style="position:relative;width:${CELL_W}px;flex-shrink:0;text-align:center;padding:22px 0 6px;background:${isToday?'#fef3c7':(isWknd?'#f8fafc':'#fff')};border-left:1px solid ${isToday?'#f59e0b':'#f1f5f9'};border-bottom:2px solid ${isToday?'#f59e0b':'#e2e8f0'}">
+      ${monthBadge}
+      <div style="font-size:9px;color:${isToday?'#92400e':'#94a3b8'};font-weight:700;letter-spacing:.04em">${DOW[dow]}</div>
+      <div style="font-size:13px;font-weight:800;color:${isToday?'#92400e':'#0f172a'}">${d.getDate()}</div>
+    </div>`;
+  }
+  const renderCells = (dayMap) => {
+    let cells = '';
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      const iso = d.toISOString().slice(0,10);
+      const items = dayMap[iso] || [];
+      const cnt = items.length;
+      const dow = d.getDay();
+      const isWknd = dow === 0 || dow === 6;
+      const isToday = d.getTime() === today.getTime();
+      // Intensidad progresiva por cantidad (oscuro cuando hay actividad)
+      let bg, fg;
+      if (cnt === 0) {
+        bg = isToday ? '#fef9c3' : (isWknd ? '#f8fafc' : '#fff');
+        fg = '#cbd5e1';
+      } else if (cnt === 1) { bg = '#3b82f6'; fg = '#fff'; }
+      else if (cnt === 2)  { bg = '#2563eb'; fg = '#fff'; }
+      else if (cnt <= 4)   { bg = '#1d4ed8'; fg = '#fff'; }
+      else                 { bg = '#1e3a8a'; fg = '#fff'; }
+      cells += `<div ${cnt>0?`onclick="rtCalOpenDay_(this.dataset.prop,this.dataset.dept,'${iso}')" style="cursor:pointer"`:''}
+        data-prop="${dayMap.__prop || ''}" data-dept="${dayMap.__dept || ''}"
+        title="${_rtEsc((dayMap.__label||''))} · ${iso} · ${cnt} reporte(s)"
+        style="width:${CELL_W}px;height:${ROW_H}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${bg};color:${fg};border-left:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9;font-size:14px;font-weight:800;transition:filter .1s"
+        onmouseover="${cnt>0?"this.style.filter='brightness(1.1)'":''}"
+        onmouseout="${cnt>0?"this.style.filter=''":''}">${cnt || ''}</div>`;
+    }
+    return cells;
+  };
+
+  let html = `<div style="min-width:${LABEL_W + CELL_W*totalDays}px">
+    <div style="display:flex;position:sticky;top:0;z-index:3;background:#fff;padding-top:10px">
+      <div style="width:${LABEL_W}px;flex-shrink:0;padding:22px 12px 6px;font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;border-bottom:2px solid #e2e8f0;background:#fff;position:sticky;left:0;z-index:4">🏢 Propiedad</div>
+      ${headCells}
+    </div>`;
+
+  for (const prop of propOrder) {
+    const dpts = Array.from(deptSetByProp[prop]).sort((a,b) => a.localeCompare(b,'es',{numeric:true}));
+    const isExp = RT_STATE.calExpProps.has(prop);
+    const dayMap = Object.assign({}, byPropDeptDay[prop][''], { __prop: prop, __dept: '', __label: prop });
+    const chevron = dpts.length ? `<span style="font-size:12px;color:#94a3b8;transition:transform .2s;display:inline-block;transform:rotate(${isExp?'0':'-90'}deg)">▾</span>` : '<span style="width:12px;display:inline-block"></span>';
+    html += `<div style="display:flex">
+      <div ${dpts.length?`onclick="rtCalTogglePropExp_('${_rtEscA(prop)}')" style="cursor:pointer"`:''}
+        style="width:${LABEL_W}px;flex-shrink:0;padding:10px 12px;display:flex;align-items:center;gap:8px;background:#f8fafc;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;position:sticky;left:0;z-index:2">
+        ${chevron}
+        <span style="font-size:13px;font-weight:800;color:#0f172a;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${_rtEsc(prop)}">${_rtEsc(prop)}</span>
+        ${dpts.length ? `<span style="font-size:10px;color:#64748b;background:#e2e8f0;padding:1px 6px;border-radius:99px;font-weight:800">${dpts.length}</span>` : ''}
+      </div>
+      ${renderCells(dayMap)}
+    </div>`;
+    if (isExp) {
+      for (const dept of dpts) {
+        const dm = Object.assign({}, byPropDeptDay[prop][dept] || {}, { __prop: prop, __dept: dept, __label: `${prop} · #${dept}` });
+        html += `<div style="display:flex">
+          <div style="width:${LABEL_W}px;flex-shrink:0;padding:8px 12px 8px 34px;display:flex;align-items:center;gap:6px;background:#fff;border-bottom:1px solid #f1f5f9;border-right:1px solid #e2e8f0;position:sticky;left:0;z-index:2">
+            <span style="font-size:12px;color:#64748b">└</span>
+            <span style="font-size:12px;font-weight:700;color:#475569">#${_rtEsc(dept)}</span>
+          </div>
+          ${renderCells(dm)}
+        </div>`;
+      }
+    }
+  }
+  html += `</div>`;
+  cont.innerHTML = html;
+  _rtEnsureCalSidePanel_();
+}
+window.rtCalTogglePropExp_ = function(prop) {
+  RT_STATE.calExpProps = RT_STATE.calExpProps || new Set();
+  if (RT_STATE.calExpProps.has(prop)) RT_STATE.calExpProps.delete(prop);
+  else RT_STATE.calExpProps.add(prop);
+  rtRenderList();
+};
+function _rtEnsureCalSidePanel_() {
+  if (document.getElementById('rt-cal-side-panel')) return;
+  const back = document.createElement('div');
+  back.id = 'rt-cal-side-back';
+  back.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:100010;display:none';
+  back.onclick = () => rtCalCloseDay_();
+  const panel = document.createElement('div');
+  panel.id = 'rt-cal-side-panel';
+  panel.style.cssText = 'position:fixed;top:0;right:0;height:100vh;width:min(520px,92vw);background:#f8fafc;box-shadow:-24px 0 48px -12px rgba(0,0,0,.25);z-index:100011;display:none;flex-direction:column;overflow:hidden';
+  panel.innerHTML = `
+    <div id="rt-cal-side-header" style="padding:14px 18px;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div id="rt-cal-side-title" style="font-size:14px;font-weight:800;color:#0f172a">—</div>
+      <button onclick="rtCalCloseDay_()" style="background:none;border:0;font-size:20px;cursor:pointer;color:#64748b">×</button>
+    </div>
+    <div id="rt-cal-side-body" style="flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px"></div>`;
+  document.body.appendChild(back);
+  document.body.appendChild(panel);
+}
+window.rtCalOpenDay_ = function(prop, dept, iso) {
+  _rtEnsureCalSidePanel_();
+  const store = (window.__rtCalRows || {})[prop] || {};
+  const bucket = dept ? (store[dept] || {}) : (store[''] || {});
+  const items = (bucket[iso] || []).slice();
+  const PRIO_RANK = { critica:0, alta:1, media:2, baja:3 };
+  items.sort((a,b) => {
+    const pa = PRIO_RANK[_rtNormalizePrio(a.Prioridad)] ?? 9;
+    const pb = PRIO_RANK[_rtNormalizePrio(b.Prioridad)] ?? 9;
+    if (pa !== pb) return pa - pb;
+    return String(b.Timestamp||'').localeCompare(String(a.Timestamp||''));
+  });
+  const label = dept ? `${prop} · #${dept}` : prop;
+  document.getElementById('rt-cal-side-title').innerHTML =
+    `<span style="font-size:18px;margin-right:6px">🏢</span>${_rtEsc(label)} · ${_rtEsc(_rtFmtFechaLarga_(iso))} · <span style="color:#64748b">${items.length}</span>`;
+  const body = document.getElementById('rt-cal-side-body');
+  body.innerHTML = items.length
+    ? items.map(r => _rtRenderCard(r)).join('')
+    : '<div style="text-align:center;padding:40px 12px;color:#94a3b8;font-style:italic;font-size:12px">Sin reportes en este día</div>';
+  document.getElementById('rt-cal-side-back').style.display = 'block';
+  document.getElementById('rt-cal-side-panel').style.display = 'flex';
+};
+window.rtCalCloseDay_ = function() {
+  const p = document.getElementById('rt-cal-side-panel');
+  const b = document.getElementById('rt-cal-side-back');
+  if (p) p.style.display = 'none';
+  if (b) b.style.display = 'none';
+};
+
+function _rtFmtFechaLarga_(iso) {
+  const m = String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return iso;
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const d = new Date(`${iso}T12:00:00`);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tgt = new Date(iso + 'T12:00:00'); tgt.setHours(0,0,0,0);
+  const diff = Math.round((tgt - today) / 86400000);
+  let rel = '';
+  if (diff === 0) rel = ' · Hoy';
+  else if (diff === -1) rel = ' · Ayer';
+  else if (diff === 1) rel = ' · Mañana';
+  return `${dias[d.getDay()]} ${parseInt(m[3],10)} de ${meses[parseInt(m[2],10)-1]} de ${m[1]}${rel}`;
+}
+
+function _rtRenderCard(row) {
+  const est = RT_ESTADOS.find(e => e.key === _rtNormalizeEstado(row.Estado)) || RT_ESTADOS[0];
+  const prio = RT_PRIORIDADES.find(p => p.key === _rtNormalizePrio(row.Prioridad)) || RT_PRIORIDADES[3];
+  const cat = RT_CATEGORIAS.find(c => c.key === String(row.Categoria)) || RT_CATEGORIAS[RT_CATEGORIAS.length-1];
+  const folio = String(row.Folio || row.ID || '').slice(0, 20);
+  const titulo = String(row.Titulo || '(sin título)');
+  const aloj = String(row.Alojamiento || (row.Propiedad ? `${row.Propiedad}${row['# Departamento'] ? ' - #' + row['# Departamento'] : ''}` : '—'));
+  const fecha = String(row.Fecha || '').slice(0,10);
+  const bloq = row.Bloquea_habitabilidad === true || String(row.Bloquea_habitabilidad).toUpperCase() === 'TRUE';
+  const fotosAntes = String(row.Fotos_antes_urls || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const fotosDespues = String(row.Fotos_despues_urls || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const nFotos = fotosAntes.length + fotosDespues.length;
+  const id = String(row.ID || '');
+  const prioChip = `<span data-rt-chip="1"
+      onclick="event.stopPropagation();rtCardToggleMenu_('${_rtEscA(id)}','prio')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px 3px 6px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;cursor:pointer"
+      title="Cambiar prioridad">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${prio.color}"></span>
+      <span style="font-size:10px;font-weight:800;color:#334155;letter-spacing:.02em">${_rtEsc(prio.label)}</span>
+      <span style="font-size:8px;color:#94a3b8">▾</span>
+    </span>`;
+  const estChip = `<span data-rt-chip="1"
+      onclick="event.stopPropagation();rtCardToggleMenu_('${_rtEscA(id)}','est')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:${est.bg};color:${est.fg};border-radius:999px;font-size:10px;font-weight:800;cursor:pointer;border:1.5px solid ${est.fg}22"
+      title="Cambiar estado">
+      ${_rtEsc(est.label)} <span style="font-size:8px;opacity:.75">▾</span>
+    </span>`;
+  // Menús desplegables (usan mismos handlers que la card WA).
+  const estMenu = RT_ESTADOS.map(s => {
+    const act = s.key === est.key;
+    return `<button type="button" onclick="event.stopPropagation();rtCardPickEst_('${_rtEscA(id)}','${_rtEscA(s.key)}')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1.5px solid ${act?s.fg:'#e2e8f0'};background:${act?s.bg:'#fff'};color:${act?s.fg:'#334155'};border-radius:999px;font-size:10px;font-weight:${act?'800':'600'};cursor:pointer">${_rtEsc(s.label)}</button>`;
+  }).join('');
+  const prioMenu = RT_PRIORIDADES.map(p => {
+    const act = p.key === prio.key;
+    return `<button type="button" onclick="event.stopPropagation();rtCardPickPrio_('${_rtEscA(id)}','${_rtEscA(p.key)}')"
+      style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1.5px solid ${act?p.color:'#e2e8f0'};background:${act?'#f8fafc':'#fff'};border-radius:999px;font-size:10px;font-weight:${act?'800':'600'};color:#334155;cursor:pointer">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${p.color}"></span>${_rtEsc(p.label)}</button>`;
+  }).join('');
+  return `
+    <div onclick="rtOpenCapture('${_rtEscA(id)}')" role="button" tabindex="0"
+      draggable="true"
+      ondragstart="rtDragStart_(event,'${_rtEscA(id)}')"
+      ondragend="rtDragEnd_(event)"
+      data-rt-card-id="${_rtEscA(id)}"
+      style="cursor:grab;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;transition:transform .12s,box-shadow .12s;box-shadow:0 2px 6px rgba(15,23,42,.06)"
+      onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(15,23,42,.12)'"
+      onmouseout="this.style.transform='';this.style.boxShadow='0 2px 6px rgba(15,23,42,.06)'">
+      <div style="background:linear-gradient(90deg,${prio.color},${prio.color}cc);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.04em">${_rtEsc(folio)}</div>
+        ${bloq ? '<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px;font-weight:800">🚫 INHABITABLE</span>' : ''}
+      </div>
+      <div style="padding:12px 14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:18px">${cat.icon}</span>
+          <span style="font-size:10px;color:#64748b;font-weight:800;letter-spacing:.08em;text-transform:uppercase">${_rtEsc(cat.label)}</span>
+        </div>
+        <div style="font-size:14px;font-weight:800;color:#0f172a;line-height:1.3;margin-bottom:4px">${_rtEsc(titulo)}</div>
+        <div style="font-size:11px;color:#475569">📍 ${_rtEsc(aloj)}</div>
+        ${fecha ? `<div style="font-size:11px;color:#475569;margin-top:2px">📅 ${_rtEsc(fecha)}</div>` : ''}
+        ${row.Asignado_a ? `<div style="font-size:11px;color:#475569;margin-top:2px">👤 ${_rtEsc(row.Asignado_a)}</div>` : ''}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:6px;flex-wrap:wrap">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            ${prioChip}${estChip}
+            <span data-rt-chip="1" style="position:relative;display:inline-flex">
+              <button type="button"
+                onclick="event.stopPropagation();rtCardOpenDate_(this,'${_rtEscA(id)}')"
+                title="Programar fecha"
+                style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px 3px 8px;background:#fff;border:1.5px solid #e2e8f0;border-radius:999px;cursor:pointer;font-size:11px;font-weight:800;color:#334155">📅 <span>${_rtEsc(_rtFmtFechaCorta(fecha))}</span></button>
+              <input type="date" value="${_rtEscA(fecha || '')}"
+                onclick="event.stopPropagation()"
+                onchange="event.stopPropagation();rtCardSetDate_('${_rtEscA(id)}', this.value)"
+                style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;margin:0">
+            </span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;font-size:11px;color:#94a3b8">
+            ${nFotos ? `<span title="${nFotos} fotos">📷 ${nFotos}</span>` : ''}
+            ${row.Costo_total > 0 ? `<span title="Costo total">💰 $${Number(row.Costo_total).toFixed(0)}</span>` : ''}
+          </div>
+        </div>
+        <div class="rt-card-menu" data-rt-menu-id="${_rtEscA(id)}" data-rt-menu-kind="est"
+          style="display:none;margin-top:8px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap"
+          onclick="event.stopPropagation()">${estMenu}</div>
+        <div class="rt-card-menu" data-rt-menu-id="${_rtEscA(id)}" data-rt-menu-kind="prio"
+          style="display:none;margin-top:8px;padding:6px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);gap:4px;flex-wrap:wrap"
+          onclick="event.stopPropagation()">${prioMenu}</div>
+      </div>
+    </div>`;
+}
+window.rtCardToggleMenu_ = function(id, kind) {
+  document.querySelectorAll('.rt-card-menu').forEach(m => {
+    const mid = m.getAttribute('data-rt-menu-id');
+    const mk  = m.getAttribute('data-rt-menu-kind');
+    if (mid === id && mk === kind) {
+      m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+    } else {
+      m.style.display = 'none';
+    }
+  });
+};
+function _rtCloseCardMenus_(id) {
+  document.querySelectorAll(`.rt-card-menu[data-rt-menu-id="${CSS.escape(id)}"]`)
+    .forEach(m => { m.style.display = 'none'; });
+}
+window.rtCardPickEst_ = function(id, estKey) {
+  _rtCloseCardMenus_(id);
+  _rtQuickPatch(id, { Estado: estKey });
+};
+window.rtCardPickPrio_ = function(id, prioKey) {
+  _rtCloseCardMenus_(id);
+  // Regla: reportes CRÍTICOS siempre tienen fecha del día en curso.
+  const patch = { Prioridad: prioKey };
+  if (prioKey === 'critica') patch.Fecha = new Date().toISOString().slice(0,10);
+  _rtQuickPatch(id, patch);
+};
+function _rtFmtFechaCorta(iso) {
+  const s = String(iso || '').slice(0,10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return 'Programar';
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const [y,m,d] = s.split('-');
+  return `${parseInt(d,10)} ${meses[parseInt(m,10)-1]}`;
+}
+// Abre el date picker nativo del <input type=date> hermano del botón.
+window.rtCardOpenDate_ = function(btn, id) {
+  const input = btn.parentElement && btn.parentElement.querySelector('input[type=date]');
+  if (!input) return;
+  // Hacer focusable temporalmente para que showPicker funcione en algunos
+  // navegadores estrictos que exigen que el input sea "visible".
+  input.style.pointerEvents = 'auto';
+  input.style.opacity = '0.01';
+  input.focus({ preventScroll: true });
+  try {
+    if (typeof input.showPicker === 'function') input.showPicker();
+    else input.click();
+  } catch(_) { input.click(); }
+};
+window.rtCardSetDate_ = function(id, val) {
+  const clean = String(val || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) return;
+  const row = (RT_STATE.list||[]).find(r => String(r['ID']||'') === String(id));
+  if (!row) return;
+  const prio = _rtNormalizePrio(row.Prioridad);
+  const today = new Date().toISOString().slice(0,10);
+  if (prio === 'critica' && clean !== today) {
+    if (!confirm(`Este reporte es CRÍTICO — normalmente lleva fecha de hoy (${today}). ¿Programar de todos modos a ${clean}?`)) return;
+  }
+  _rtQuickPatch(id, { Fecha: clean });
+};
+
+// ─── Captura / Edición ────────────────────────────────────────────────
+window.rtOpenCapture = function(id) {
+  const isEdit = !!id;
+  const existing = isEdit ? RT_STATE.list.find(r => String(r.ID) === String(id)) : null;
+  RT_STATE.draft = isEdit && existing ? Object.assign({}, existing) : {
+    Estado: 'nuevo', Prioridad: 'media', Tipo: 'correctivo',
+    Categoria: 'otros', Responsabilidad: 'indeterminada',
+    // Sin fecha por default: un reporte Nuevo aún no está programado.
+    // Se autollena a hoy si el user elige prioridad Crítica.
+    Fecha: '',
+  };
+  // Normaliza valores legacy para que el <select> muestre el label correcto.
+  if (RT_STATE.draft) {
+    RT_STATE.draft.Estado = _rtNormalizeEstado(RT_STATE.draft.Estado);
+    RT_STATE.draft.Prioridad = _rtNormalizePrio(RT_STATE.draft.Prioridad);
+  }
+  RT_STATE.fotosAntesPending = [];
+  RT_STATE.fotosDespuesPending = [];
+  // Contexto proyecto: hereda Reportado_por + Fecha; oculta Reserva; cambia
+  // título y label del botón guardar (aplicado abajo tras el render).
+  if (RT_STATE.projContext && RT_STATE.draft) {
+    if (RT_STATE.projContext.reportadoPor) RT_STATE.draft.Reportado_por = RT_STATE.projContext.reportadoPor;
+    if (RT_STATE.projContext.fechaInicio) RT_STATE.draft.Fecha = RT_STATE.projContext.fechaInicio;
+    // Pre-llenar propiedad/depto si el proyecto tiene lugar tipo propiedad
+    const lu = RT_STATE.projContext.lugar || {};
+    if (lu.modo === 'propiedad' && lu.propiedad) {
+      RT_STATE.draft.Propiedad = lu.propiedad;
+      if (lu.depto) RT_STATE.draft['# Departamento'] = lu.depto;
+      RT_STATE.draft.Alojamiento = lu.depto ? `${lu.propiedad} - #${lu.depto}` : lu.propiedad;
+    }
+  }
+  const panel = document.getElementById('rt-capture-panel');
+  const back  = document.getElementById('rt-capture-backdrop');
+  if (!panel || !back) return;
+  // Mover a body por si el módulo está oculto (mismo patrón que Incidencias)
+  if (panel.parentElement !== document.body) document.body.appendChild(panel);
+  if (back.parentElement  !== document.body) document.body.appendChild(back);
+  back.style.zIndex  = '100001';
+  panel.style.zIndex = '100002';
+  back.style.display = ''; panel.style.display = '';
+  back.classList.remove('hidden'); back.offsetHeight; back.classList.add('visible');
+  panel.classList.remove('hidden'); panel.classList.add('open');
+  const inProj = !!(RT_STATE.projContext && RT_STATE.projContext.projId);
+  document.getElementById('rt-capture-title').textContent = isEdit
+    ? `Editar ${existing?.Folio || ''}`
+    : (inProj ? 'Título de la tarea' : 'Nuevo reporte técnico');
+  _rtRenderForm();
+  // Ajustes post-render para modo "tarea de proyecto":
+  //  - oculta la sección "Reserva" (si existe)
+  //  - cambia el label del botón guardar a "Guardar tarea"
+  if (inProj) {
+    try {
+      const form = document.getElementById('rt-form');
+      if (form) {
+        form.querySelectorAll('[data-rt-field="Reserva"]').forEach(el => { el.style.display = 'none'; });
+      }
+      const saveBtn = document.getElementById('rt-save-btn');
+      if (saveBtn) saveBtn.textContent = '💾 Guardar tarea';
+    } catch(_){}
+  }
+};
+window.rtOpenCaptureFor = function(propRaw, deptRaw, arrIso, depIso) {
+  rtOpenCapture();
+  // Pre-llenar propiedad/depto tras render
+  setTimeout(() => {
+    if (!RT_STATE.draft) return;
+    RT_STATE.draft.Propiedad = String(propRaw||'').trim();
+    RT_STATE.draft['# Departamento'] = String(deptRaw||'').trim();
+    RT_STATE.draft.Alojamiento = RT_STATE.draft['# Departamento']
+      ? `${RT_STATE.draft.Propiedad} - #${RT_STATE.draft['# Departamento']}`
+      : RT_STATE.draft.Propiedad;
+    _rtRenderForm();
+  }, 50);
+};
+window.rtCloseCapture = function() {
+  const panel = document.getElementById('rt-capture-panel');
+  const back  = document.getElementById('rt-capture-backdrop');
+  if (!panel || !back) return;
+  panel.classList.remove('open'); back.classList.remove('visible');
+  setTimeout(() => { panel.classList.add('hidden'); back.classList.add('hidden'); }, 280);
+  RT_STATE.draft = null;
+  RT_STATE.projContext = null;
+};
+
+function _rtField(label, html, hint) {
+  return `<div data-rt-field="${_rtEscA(label)}" style="margin-bottom:12px">
+    <label style="display:block;font-size:11px;color:#475569;font-weight:800;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">${label}</label>
+    ${html}
+    ${hint ? `<div style="font-size:10px;color:#94a3b8;margin-top:3px">${hint}</div>` : ''}
+  </div>`;
+}
+function _rtSelect(field, options, extra) {
+  const val = String((RT_STATE.draft && RT_STATE.draft[field]) || '');
+  const opts = options.map(o => `<option value="${_rtEscA(o.key)}" ${val===o.key?'selected':''}>${_rtEsc(o.label)}</option>`).join('');
+  return `<select onchange="_rtUpdate('${_rtEscA(field)}', this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${opts}</select>` + (extra||'');
+}
+function _rtInput(field, type, placeholder) {
+  const val = String((RT_STATE.draft && RT_STATE.draft[field]) || '');
+  return `<input type="${type||'text'}" value="${_rtEscA(val)}" placeholder="${_rtEscA(placeholder||'')}"
+    oninput="_rtUpdate('${_rtEscA(field)}', this.value)"
+    style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`;
+}
+function _rtTextarea(field, placeholder, rows) {
+  const val = String((RT_STATE.draft && RT_STATE.draft[field]) || '');
+  return `<textarea placeholder="${_rtEscA(placeholder||'')}" rows="${rows||3}"
+    oninput="_rtUpdate('${_rtEscA(field)}', this.value)"
+    style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:vertical">${_rtEsc(val)}</textarea>`;
+}
+function _rtCheckbox(field, label) {
+  const val = !!(RT_STATE.draft && (RT_STATE.draft[field] === true || String(RT_STATE.draft[field]).toUpperCase() === 'TRUE'));
+  return `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:#0f172a">
+    <span onclick="_rtToggle('${_rtEscA(field)}')" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid ${val?'#16a34a':'#94a3b8'};border-radius:4px;background:${val?'#16a34a':'#fff'};color:#fff;font-weight:900;font-size:12px;cursor:pointer;flex:none">${val?'✓':''}</span>
+    <span>${label}</span>
+  </label>`;
+}
+window._rtUpdate = function(field, value) {
+  if (!RT_STATE.draft) return;
+  RT_STATE.draft[field] = value;
+  if (field === 'Propiedad' || field === '# Departamento') {
+    const p = String(RT_STATE.draft.Propiedad || '').trim();
+    const d = String(RT_STATE.draft['# Departamento'] || '').trim();
+    RT_STATE.draft.Alojamiento = d ? `${p} - #${d}` : p;
+  }
+  // Regla: reportes CRÍTICOS siempre llevan fecha del día en curso.
+  if (field === 'Prioridad' && value === 'critica') {
+    RT_STATE.draft.Fecha = new Date().toISOString().slice(0,10);
+    try { if (typeof _rtRenderForm === 'function') _rtRenderForm(); } catch(_){}
+  }
+};
+window._rtToggle = function(field) {
+  if (!RT_STATE.draft) return;
+  const cur = !!(RT_STATE.draft[field] === true || String(RT_STATE.draft[field]).toUpperCase() === 'TRUE');
+  RT_STATE.draft[field] = !cur;
+  _rtRenderForm();
+};
+
+// ─── Combobox de RESERVAS (compartido Inc/Obj/RT) ──────────────────────
+// Guardamos el phone del contexto actual (si viene de Chats bot o de una
+// card de Gestión de reservas) para filtrar la lista de reservas.
+window.__rsvContextPhone = null;
+window.__rsvOptions = []; // [{key, label, propiedad, depto, arr, dep, name, source}]
+
+/** Genera opciones del combobox de Reservas. Si hay contextPhone, filtra
+ *  por tail(10); si no, muestra TODAS las reservas visibles (HU_STATE +
+ *  LG_STATE) ordenadas por fecha desc. */
+function _rsvBuildOptions(contextPhone) {
+  const tail10 = String(contextPhone || '').replace(/\D/g,'').slice(-10);
+  const out = [];
+  const seen = new Set();
+  const push = (o) => {
+    const key = `${o.propiedad}|${o.depto}|${o.arr}`;
+    if (seen.has(key)) return; seen.add(key);
+    out.push(Object.assign({ key }, o));
+  };
+  // 1) HU_STATE.rows (Reservaciones — fuente de manual)
+  try {
+    const rows = (typeof HU_STATE !== 'undefined' && Array.isArray(HU_STATE.rows)) ? HU_STATE.rows : [];
+    for (const r of rows) {
+      const rphone = String(r['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
+      if (tail10 && rphone !== tail10) continue;
+      const prop = String(r['Propiedad'] || '').trim();
+      const depto = String(r['# Departamento'] || '').trim();
+      if (!prop || !depto) continue;
+      const arr = String(r['Fecha de ingreso'] || '').slice(0,10);
+      const dep = String(r['Fecha de salida'] || '').slice(0,10);
+      const name = String(r['Nombre'] || '').trim();
+      push({ propiedad: prop, depto, arr, dep, name, source: 'HU' });
+    }
+  } catch(_){}
+  // 1b) __waExtraHuRowsByPhone — rows pre-cargados on-demand por Ver WA /
+  //     bot-chats via /bookings-by-guest?phone=X. Suelen ser MÁS completas
+  //     que HU_STATE.rows (que puede estar filtrado al mes actual).
+  try {
+    if (window.__waExtraHuRowsByPhone) {
+      const bucket = tail10
+        ? (window.__waExtraHuRowsByPhone[tail10] || [])
+        : Object.values(window.__waExtraHuRowsByPhone).flat();
+      for (const r of bucket) {
+        const rphone = String(r['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
+        if (tail10 && rphone !== tail10) continue;
+        const prop = String(r['Propiedad'] || '').trim();
+        const depto = String(r['# Departamento'] || '').trim();
+        if (!prop || !depto) continue;
+        const arr = String(r['Fecha de ingreso'] || '').slice(0,10);
+        const dep = String(r['Fecha de salida'] || '').slice(0,10);
+        const name = String(r['Nombre'] || '').trim();
+        push({ propiedad: prop, depto, arr, dep, name, source: 'WA_EXTRA' });
+      }
+    }
+  } catch(_){}
+  // 2) LG_STATE.bookings (Lodgify)
+  try {
+    const lg = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+    for (const b of lg) {
+      const rphone = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
+      if (tail10 && rphone !== tail10) continue;
+      const prop = String(b.PropertyName || (b.RoomTypeName || '').split(' - ')[0] || '').trim();
+      // Departamento: intentar sacar de RoomTypeName "Prop - #N"
+      let depto = '';
+      const m = String(b.RoomTypeName || '').match(/#\s*([\w\-]+)$/);
+      if (m) depto = m[1];
+      if (!prop) continue;
+      const arr = String(b.DateArrival || '').slice(0,10);
+      const dep = String(b.DateDeparture || '').slice(0,10);
+      const name = String(b.GuestName || '').trim();
+      push({ propiedad: prop, depto, arr, dep, name, source: 'LG' });
+    }
+  } catch(_){}
+  // Ordenar por arr desc.
+  out.sort((a,b) => String(b.arr).localeCompare(String(a.arr)));
+  return out;
+}
+
+function _rsvFmtDateShort(iso) {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return '';
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const [y,m,d] = iso.slice(0,10).split('-');
+  return `${parseInt(d,10)}-${meses[parseInt(m,10)-1]}`;
+}
+
+/** Estado de la reserva calculado desde arr/dep ISO. Local (no UTC). */
+function _rsvEstado(arrIso, depIso) {
+  if (!arrIso && !depIso) return { key: '', label: '' };
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const a = String(arrIso || '').slice(0,10);
+  const d = String(depIso || '').slice(0,10);
+  const start = a || d;
+  const end   = d || a;
+  if (end && end < today)  return { key: 'concluida',    label: 'Concluida' };
+  if (end === today)       return { key: 'salida_hoy',   label: 'Salida hoy' };
+  if (start === today)     return { key: 'entrada_hoy',  label: 'Entrada hoy' };
+  if (start && start > today) return { key: 'proxima',   label: 'Próxima' };
+  return { key: 'activa', label: 'Activa' };
+}
+
+/** Rellena el <select> #{prefix}-reserva con las opciones. Si hay una
+ *  reserva actualmente seleccionada (por propiedad+depto en los otros
+ *  selects), la marca como selected. */
+window.rsvPopulate = function(prefix) {
+  const sel = document.getElementById(`${prefix}-reserva`);
+  if (!sel) return;
+  const options = _rsvBuildOptions(window.__rsvContextPhone);
+  window.__rsvOptions = options;
+  // Detectar selección actual desde los otros selects.
+  const curProp = String(document.getElementById(`${prefix}-propiedad`)?.value || '').trim();
+  const curDep  = String(document.getElementById(`${prefix}-depto`)?.value || '').trim();
+  let firstOpt = '<option value="">— Ninguna / manual —</option>';
+  let matched = '';
+  const rows = options.map(o => {
+    const est = _rsvEstado(o.arr, o.dep);
+    const estTxt = est.label ? ` [${est.label}]` : '';
+    const label = `${o.propiedad}${o.depto?` · #${o.depto}`:''}${o.arr?` · ${_rsvFmtDateShort(o.arr)}${o.dep?'→'+_rsvFmtDateShort(o.dep):''}`:''}${estTxt}${o.name?` · ${o.name}`:''}`;
+    if (curProp === o.propiedad && curDep === o.depto) matched = o.key;
+    return `<option value="${_botcEsc(o.key)}" ${matched === o.key?'selected':''}>${_botcEsc(label)}</option>`;
+  }).join('');
+  sel.innerHTML = firstOpt + rows;
+  if (matched) sel.value = matched;
+};
+
+/** Handler del onchange del <select>: rellena los otros dos selects y
+ *  dispara sus change events para que sus listeners internos corran. */
+window.rsvOnSelect = function(prefix, value) {
+  if (!value) return;
+  const opt = (window.__rsvOptions || []).find(o => o.key === value);
+  if (!opt) return;
+  const propSel = document.getElementById(`${prefix}-propiedad`);
+  const deptoSel = document.getElementById(`${prefix}-depto`);
+  if (propSel) {
+    // Buscar la option por value (case sensitive strip)
+    const target = Array.from(propSel.options).find(o => String(o.value).trim() === opt.propiedad);
+    if (target) {
+      propSel.value = target.value;
+      propSel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+  // Dar chance al cascada de correr, luego setear depto.
+  setTimeout(() => {
+    if (!deptoSel) return;
+    const target = Array.from(deptoSel.options).find(o => String(o.value).trim() === opt.depto);
+    if (target) { deptoSel.value = target.value; deptoSel.dispatchEvent(new Event('change', { bubbles: true })); }
+  }, 30);
+  // Setear fecha si aplica (inc-fecha / obj-fecha-enc)
+  try {
+    const fechaEl = document.getElementById(`${prefix}-fecha`) || document.getElementById(`${prefix}-fecha-enc`);
+    if (fechaEl && opt.arr) fechaEl.value = opt.arr;
+  } catch(_){}
+};
+
+function _rtGetAlojRows_() {
+  return (typeof ALOJ_STATE !== 'undefined' && Array.isArray(ALOJ_STATE.rows)) ? ALOJ_STATE.rows : [];
+}
+/** Select de Reservas para el form RT (interfaz distinta a inc/obj:
+ *  aquí manejamos draft en memoria, no selects DOM cascada). */
+function _rtRenderReservaSelect() {
+  const options = _rsvBuildOptions(window.__rsvContextPhone);
+  const curProp = String((RT_STATE.draft && RT_STATE.draft.Propiedad) || '').trim();
+  const curDep  = String((RT_STATE.draft && RT_STATE.draft['# Departamento']) || '').trim();
+  const opts = ['<option value="">— Ninguna / manual —</option>']
+    .concat(options.map(o => {
+      const est = _rsvEstado(o.arr, o.dep);
+      const estTxt = est.label ? ` [${est.label}]` : '';
+      const label = `${o.propiedad}${o.depto?` · #${o.depto}`:''}${o.arr?` · ${_rsvFmtDateShort(o.arr)}${o.dep?'→'+_rsvFmtDateShort(o.dep):''}`:''}${estTxt}${o.name?` · ${o.name}`:''}`;
+      const sel = (curProp === o.propiedad && curDep === o.depto) ? 'selected' : '';
+      return `<option value="${_rtEscA(o.key)}" ${sel}>${_rtEsc(label)}</option>`;
+    })).join('');
+  return `<select onchange="_rtOnReservaSelect(this.value)" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${opts}</select>`;
+}
+window._rtOnReservaSelect = function(value) {
+  if (!value || !RT_STATE.draft) return;
+  const opt = (window.__rsvOptions || _rsvBuildOptions(window.__rsvContextPhone)).find(o => o.key === value);
+  if (!opt) return;
+  RT_STATE.draft.Propiedad = opt.propiedad;
+  RT_STATE.draft['# Departamento'] = opt.depto;
+  RT_STATE.draft.Alojamiento = opt.depto ? `${opt.propiedad} - #${opt.depto}` : opt.propiedad;
+  if (opt.arr) RT_STATE.draft.Fecha = opt.arr;
+  _rtRenderForm();
+};
+
+function _rtRenderPropSelect() {
+  const val = String((RT_STATE.draft && RT_STATE.draft.Propiedad) || '');
+  const rows = _rtGetAlojRows_();
+  if (!rows.length) {
+    // Catálogo no cargado — fallback input libre + trigger de carga.
+    if (typeof lgLoadAlojamientos === 'function' && typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded && !ALOJ_STATE.loading) {
+      lgLoadAlojamientos().then(() => _rtRenderForm()).catch(()=>{});
+    }
+    return `<input type="text" value="${_rtEscA(val)}" placeholder="⏳ Cargando catálogo…"
+      oninput="_rtUpdate('Propiedad', this.value)"
+      style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`;
+  }
+  const propsUniq = Array.from(new Set(rows.map(r => String(r.Propiedad||'').trim()).filter(Boolean))).sort();
+  const opts = ['<option value="">— Selecciona —</option>']
+    .concat(propsUniq.map(p => `<option value="${_rtEscA(p)}" ${p===val?'selected':''}>${_rtEsc(p)}</option>`))
+    .join('');
+  return `<select onchange="_rtUpdate('Propiedad', this.value); _rtUpdate('# Departamento', ''); _rtRenderForm()"
+    style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${opts}</select>`;
+}
+function _rtRenderDeptoSelect() {
+  const val = String((RT_STATE.draft && RT_STATE.draft['# Departamento']) || '');
+  const prop = String((RT_STATE.draft && RT_STATE.draft.Propiedad) || '').trim();
+  const rows = _rtGetAlojRows_();
+  if (!prop || !rows.length) {
+    return `<select disabled style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;background:#f1f5f9;color:#94a3b8">
+      <option>— Selecciona propiedad primero —</option>
+    </select>`;
+  }
+  const deptosUniq = Array.from(new Set(
+    rows.filter(r => String(r.Propiedad||'').trim() === prop)
+        .map(r => String(r['# Departamento']||'').trim())
+        .filter(Boolean)
+  )).sort();
+  const opts = ['<option value="">— Selecciona —</option>']
+    .concat(deptosUniq.map(d => `<option value="${_rtEscA(d)}" ${d===val?'selected':''}>${_rtEsc(d)}</option>`))
+    .join('');
+  return `<select onchange="_rtUpdate('# Departamento', this.value)"
+    style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff">${opts}</select>`;
+}
+async function _rtLoadPersonalDirect_() {
+  // Cargar personal directo desde api.check-inn.mx (BACKEND puede apuntar a
+  // northamerica-south1 sin este endpoint). Devuelve array de {Nombre, Puesto}.
+  try {
+    const r = await fetch('https://api.check-inn.mx/personal-list', { cache: 'no-store' });
+    const j = await r.json();
+    if (j && j.ok && Array.isArray(j.rows)) {
+      RT_STATE.personalRows = j.rows;
+      // También llenar INC_STATE si está disponible (para reuse).
+      try { if (typeof INC_STATE !== 'undefined') INC_STATE.personalRows = j.rows; } catch(_){}
+      return j.rows;
+    }
+  } catch(e) { console.warn('[rt] personal-list error:', e.message); }
+  RT_STATE.personalRows = [];
+  return [];
+}
+function _rtGetPersonalRows() {
+  if (Array.isArray(RT_STATE.personalRows)) return RT_STATE.personalRows;
+  if (typeof INC_STATE !== 'undefined' && Array.isArray(INC_STATE.personalRows)) return INC_STATE.personalRows;
+  return [];
+}
+function _rtRenderPersonalInput(field, placeholder) {
+  const val = String((RT_STATE.draft && RT_STATE.draft[field]) || '');
+  // Los 2 inputs (Reportado_por y Asignado_a) usan MISMO datalist. Usar id
+  // único por campo para debug.
+  return `<input type="text" list="rt-personal-datalist" id="rt-in-${_rtEscA(field)}" value="${_rtEscA(val)}" placeholder="${_rtEscA(placeholder||'')}"
+    oninput="_rtUpdate('${_rtEscA(field)}', this.value)"
+    autocomplete="off"
+    style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;box-sizing:border-box">`;
+}
+function _rtRenderPersonalDatalist() {
+  const rows = _rtGetPersonalRows();
+  if (!rows.length) {
+    // Trigger carga y re-render cuando llegue.
+    _rtLoadPersonalDirect_().then(list => { if (list.length) _rtRenderForm(); });
+    return '<datalist id="rt-personal-datalist"><option value="⏳ Cargando personal…"></option></datalist>';
+  }
+  const nombres = Array.from(new Set(rows.map(r => String(r['Nombre']||'').trim()).filter(Boolean))).sort();
+  const opts = nombres.map(n => `<option value="${_rtEscA(n)}"></option>`).join('');
+  return `<datalist id="rt-personal-datalist">${opts}</datalist>`;
+}
+
+function _rtRenderForm() {
+  const form = document.getElementById('rt-form');
+  if (!form || !RT_STATE.draft) return;
+  const d = RT_STATE.draft;
+  const isEdit = !!d.ID;
+  const fotosAntesUrls = String(d.Fotos_antes_urls || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const fotosDespuesUrls = String(d.Fotos_despues_urls || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const previewFotos = (urls, pending, tipo) => {
+    const existing = urls.map(u => `<div style="position:relative"><img src="${_rtEscA(u)}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1"><button type="button" onclick="_rtRemovePhotoUrl('${_rtEsc(tipo)}','${_rtEscA(u)}')" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:50%;cursor:pointer;font-weight:900;font-size:11px;line-height:1;padding:0">×</button></div>`).join('');
+    const pend = (pending||[]).map((f,i) => `<div style="position:relative"><div style="width:60px;height:60px;background:#fef3c7;border:1px dashed #f59e0b;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#92400e;text-align:center;padding:4px">${_rtEsc(f.name.slice(0,10))}<br>⏳</div><button type="button" onclick="_rtRemovePendingPhoto('${_rtEsc(tipo)}',${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:50%;cursor:pointer;font-weight:900;font-size:11px;line-height:1;padding:0">×</button></div>`).join('');
+    return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${existing}${pend}</div>`;
+  };
+  const inProj = !!(RT_STATE.projContext && RT_STATE.projContext.projId);
+  // Estado de secciones colapsadas por sección key.
+  RT_STATE.formCollapsed = RT_STATE.formCollapsed || new Set(['asignaciones','evidencia','cumplimiento','otros']);
+  const section = (key, icon, title, bodyHtml) => {
+    const isCol = RT_STATE.formCollapsed.has(key);
+    return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;overflow:hidden">
+      <button type="button" onclick="_rtToggleSection_('${key}')"
+        style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;background:transparent;border:0;border-bottom:${isCol?'0':'1px solid #e2e8f0'};cursor:pointer;text-align:left;font-family:inherit">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:14px">${icon}</span>
+          <span style="font-size:12px;font-weight:900;color:#0f172a;letter-spacing:.06em;text-transform:uppercase">${title}</span>
+        </div>
+        <span style="font-size:14px;color:#64748b;transition:transform .2s;transform:rotate(${isCol?'-90':'0'}deg);line-height:1">▾</span>
+      </button>
+      <div style="display:${isCol?'none':'block'};padding:12px 14px 4px">${bodyHtml}</div>
+    </div>`;
+  };
+  const reservaBlock = inProj ? '' : _rtField('Reserva', _rtRenderReservaSelect());
+  const generalBody = `
+    ${_rtField('Título del reporte *', _rtInput('Titulo','text','Ej: Minisplit no enfría, fuga de agua en regadera'))}
+    ${_rtField('Categoría', _rtSelect('Categoria', RT_CATEGORIAS))}
+    ${_rtField('Descripción de la falla *', _rtTextarea('Descripcion','Detalla qué está fallando y en qué condiciones.'))}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${_rtField('Prioridad', _rtSelect('Prioridad', RT_PRIORIDADES))}
+      ${_rtField('Estado', _rtSelect('Estado', RT_ESTADOS))}
+    </div>
+    ${reservaBlock}
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
+      ${_rtField('Propiedad', _rtRenderPropSelect())}
+      ${_rtField('# Departamento', _rtRenderDeptoSelect())}
+    </div>
+    ${_rtField('Notas / bitácora libre', _rtTextarea('Notas','Comentarios adicionales'))}
+  `;
+  const asignacionesBody = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${_rtField('Reportado por', _rtRenderPersonalInput('Reportado_por','Ej: Andrés, Claudia, huésped'))}
+      ${_rtField('Asignado a', _rtRenderPersonalInput('Asignado_a','Ej: Técnico Juan, Proveedor Plomería MX'))}
+    </div>
+    ${_rtRenderPersonalDatalist()}
+  `;
+  const evidenciaBody = `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">📷 Fotos ANTES</div>
+      <input type="file" accept="image/*" multiple onchange="_rtAddPhotos('antes', this.files)" style="font-size:11px">
+      ${previewFotos(fotosAntesUrls, RT_STATE.fotosAntesPending, 'antes')}
+    </div>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">📷 Fotos DESPUÉS</div>
+      <input type="file" accept="image/*" multiple onchange="_rtAddPhotos('despues', this.files)" style="font-size:11px">
+      ${previewFotos(fotosDespuesUrls, RT_STATE.fotosDespuesPending, 'despues')}
+    </div>
+    ${_rtField('Descripción de la solución', _rtTextarea('Descripcion_solucion','Qué se hizo para resolver. Incluye materiales y refacciones.'))}
+  `;
+  const cumplimientoBody = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${_rtField('Fecha del reporte', _rtInput('Fecha','date',''))}
+      ${_rtField('Fecha compromiso', _rtInput('Fecha_compromiso','date',''))}
+    </div>
+  `;
+  const otrosBody = `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">🚨 Impacto</div>
+      ${_rtCheckbox('Bloquea_habitabilidad','Bloquea habitabilidad (unidad inhabitable)')}
+      <div style="margin-top:8px">${_rtCheckbox('Reincidente','Reincidente (falla repetida del mismo activo)')}</div>
+    </div>
+    ${_rtField('Proveedor', _rtInput('Proveedor','text','Nombre del proveedor externo'))}
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">💰 Costos y responsabilidad</div>
+      ${_rtField('Responsabilidad', _rtSelect('Responsabilidad', RT_RESPONSABILIDADES))}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${_rtField('Costo total (MXN)', _rtInput('Costo_total','number','0.00'))}
+        ${_rtField(' ', _rtCheckbox('Cargar_a_huesped','Cargar al huésped'))}
+      </div>
+    </div>
+    ${_rtField('Activo (opcional)', _rtInput('Activo','text','Ej: Minisplit sala, boiler'))}
+  `;
+  form.innerHTML = `
+    ${isEdit ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#1e40af"><b>${_rtEsc(d.Folio||'')}</b> · creado ${_rtEsc(String(d.Timestamp||'').slice(0,10))}</div>` : ''}
+    ${section('general', '📌', 'A) General', generalBody)}
+    ${section('asignaciones', '👥', 'B) Asignaciones', asignacionesBody)}
+    ${section('evidencia', '📷', 'C) Evidencia', evidenciaBody)}
+    ${section('cumplimiento', '📅', 'D) Cumplimiento', cumplimientoBody)}
+    ${section('otros', '⚙️', 'F) Otros', otrosBody)}
+    ${isEdit ? `<div style="margin-top:16px;padding-top:16px;border-top:1px solid #e2e8f0"><button type="button" onclick="rtDelete('${_rtEscA(d.ID)}')" style="padding:8px 14px;background:#fff;color:#dc2626;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🗑 Eliminar reporte</button></div>` : ''}
+  `;
+}
+window._rtToggleSection_ = function(key) {
+  RT_STATE.formCollapsed = RT_STATE.formCollapsed || new Set();
+  if (RT_STATE.formCollapsed.has(key)) RT_STATE.formCollapsed.delete(key);
+  else RT_STATE.formCollapsed.add(key);
+  _rtRenderForm();
+};
+
+window._rtAddPhotos = async function(tipo, files) {
+  if (!RT_STATE.draft) return;
+  const list = Array.from(files || []);
+  const target = tipo === 'antes' ? RT_STATE.fotosAntesPending : RT_STATE.fotosDespuesPending;
+  for (const f of list) target.push(f);
+  _rtRenderForm();
+};
+window._rtRemovePendingPhoto = function(tipo, idx) {
+  const target = tipo === 'antes' ? RT_STATE.fotosAntesPending : RT_STATE.fotosDespuesPending;
+  target.splice(idx, 1);
+  _rtRenderForm();
+};
+window._rtRemovePhotoUrl = function(tipo, url) {
+  if (!RT_STATE.draft) return;
+  const field = tipo === 'antes' ? 'Fotos_antes_urls' : 'Fotos_despues_urls';
+  const urls = String(RT_STATE.draft[field] || '').split(',').map(s=>s.trim()).filter(Boolean).filter(u => u !== url);
+  RT_STATE.draft[field] = urls.join(',');
+  _rtRenderForm();
+};
+
+async function _rtFileToBase64(file) {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+window.rtSave = async function() {
+  if (!RT_STATE.draft) return;
+  const d = RT_STATE.draft;
+  if (!String(d.Titulo || '').trim()) { alert('El título es requerido.'); return; }
+  if (!String(d.Descripcion || '').trim()) { alert('La descripción es requerida.'); return; }
+  const btn = document.getElementById('rt-save-btn');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
+  try {
+    // Fotos: convertir en paralelo y omitir arrays vacíos para acelerar.
+    const conv = f => _rtFileToBase64(f).then(base64 => ({
+      name: f.name || `rt_${Date.now()}.jpg`,
+      mimeType: f.type || 'image/jpeg',
+      base64,
+    }));
+    const [fotos_antes, fotos_despues] = await Promise.all([
+      RT_STATE.fotosAntesPending.length ? Promise.all(RT_STATE.fotosAntesPending.map(conv)) : Promise.resolve([]),
+      RT_STATE.fotosDespuesPending.length ? Promise.all(RT_STATE.fotosDespuesPending.map(conv)) : Promise.resolve([]),
+    ]);
+    const body = { payload: d };
+    if (fotos_antes.length) body.fotos_antes = fotos_antes;
+    if (fotos_despues.length) body.fotos_despues = fotos_despues;
+    const r = await fetch(`https://api.check-inn.mx/reportes-tecnicos-upsert`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    // Ligar al proyecto si aplica.
+    const ctx = RT_STATE.projContext;
+    if (ctx && ctx.projId && j.id) {
+      try {
+        const list = _rtLoadProjects_();
+        const p = list.find(x => x.id === ctx.projId);
+        if (p) {
+          p.rtIds = (p.rtIds || []).concat([String(j.id)]);
+          _rtSaveProjects_(list);
+        }
+      } catch(_){}
+    }
+    // Actualización optimista: injectar row nuevo en RT_STATE.list para
+    // repintar de inmediato sin esperar rtRefresh(true) (que es lento).
+    if (j.id && !j.updated) {
+      try {
+        const nuevo = Object.assign({}, d, { ID: j.id, Folio: j.folio || d.Folio || j.id, Timestamp: new Date().toISOString() });
+        RT_STATE.list = [nuevo].concat(RT_STATE.list || []);
+      } catch(_){}
+    } else if (j.updated && j.id) {
+      try {
+        const idx = (RT_STATE.list || []).findIndex(x => String(x.ID) === String(j.id));
+        if (idx >= 0) RT_STATE.list[idx] = Object.assign({}, RT_STATE.list[idx], d);
+      } catch(_){}
+    }
+    const projIdToReopen = ctx && ctx.projId;
+    rtCloseCapture();
+    rtRenderList(); // repaint inmediato con estado optimista
+    if (projIdToReopen) { try { rtProjOpen_(projIdToReopen); } catch(_){} }
+    // Refresh real en background para sincronizar Folio/Timestamp/columnas server.
+    setTimeout(() => { try { rtRefresh(true); } catch(_){} }, 100);
+    try {
+      const lgMod = document.getElementById('module-lodgify');
+      if (lgMod && !lgMod.classList.contains('hidden') && typeof lodgifyRenderForce === 'function') lodgifyRenderForce();
+    } catch(_){}
+  } catch (e) {
+    alert('Error al guardar: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+};
+
+window.rtDelete = async function(id) {
+  if (!confirm('¿Eliminar este reporte técnico? Esta acción no se puede deshacer.')) return;
+  try {
+    const r = await fetch(`https://api.check-inn.mx/reportes-tecnicos-delete`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    rtCloseCapture();
+    await rtRefresh(true);
+  } catch (e) { alert('Error al eliminar: ' + e.message); }
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// MÓDULO RESERVAS (búsqueda Lodgify)
+// ═══════════════════════════════════════════════════════════════════════
+window.RSV_STATE = { results: [], map: null, mapMarkers: [] };
+function _rsvFmt$(n, cur) {
+  try {
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: cur || 'MXN', maximumFractionDigits: 0 }).format(Number(n) || 0);
+  } catch { return `$ ${Math.round(Number(n)||0).toLocaleString('es-MX')}`; }
+}
+function _rsvEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Convierte el nombre de la propiedad al slug URL de Lodgify (Airbnb-style).
+// Ej: "Baja California #1 (1 recámara, 1 baño, en 1a planta)" →
+//     "baja-california-1-1-recamara-1-bano-en-1a-planta"
+function _rsvSlugify(name) {
+  return String(name || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // quita acentos
+    .toLowerCase()
+    .replace(/[()]/g, ' ')                            // paréntesis → espacio
+    .replace(/[#º°ª]/g, '')                           // símbolos raros
+    .replace(/[,.;:!?"']/g, ' ')                      // puntuación → espacio
+    .replace(/[^a-z0-9]+/g, '-')                      // no-alfanumérico → guión
+    .replace(/^-+|-+$/g, '')                          // trim guiones
+    .replace(/-{2,}/g, '-');                          // colapsa dobles
+}
+function _rsvHostedUrl(r, arrival, departure, adults) {
+  // Formato canónico Lodgify: YYYYMMDD sin guiones.
+  const a = String(arrival).replace(/-/g, '');
+  const d = String(departure).replace(/-/g, '');
+  // Prioridad: hostedUrl explícito del backend → construir con slug del nombre.
+  let base = r.hostedUrl;
+  if (!base) {
+    const slug = _rsvSlugify(r.name);
+    base = slug ? `https://check-inn-saltillo.com/es/${slug}` : 'https://check-inn-saltillo.com';
+  }
+  const sep = base.indexOf('?') >= 0 ? '&' : '?';
+  return `${base}${sep}arrival=${a}&departure=${d}&adults=${adults}&children=0&pets=0&infants=0`;
+}
+window.rsvSearch_ = async function() {
+  const loc = document.getElementById('rsv-in-location').value.trim();
+  const arrival = document.getElementById('rsv-in-arrival').value;
+  const departure = document.getElementById('rsv-in-departure').value;
+  const adults = Math.max(1, parseInt(document.getElementById('rsv-in-adults').value, 10) || 2);
+  if (!arrival || !departure) { alert('Elige fechas de llegada y salida'); return; }
+  if (arrival >= departure) { alert('La fecha de salida debe ser posterior a la de llegada'); return; }
+  const cont = document.getElementById('rsv-results');
+  const toolbar = document.getElementById('rsv-toolbar');
+  toolbar.style.display = 'none';
+  cont.innerHTML = `<div class="rsv-loading"><div class="rsv-spinner"></div>Consultando disponibilidad…</div>`;
+  try {
+    const url = new URL('https://api.check-inn.mx/reservas/search');
+    url.searchParams.set('arrival', arrival);
+    url.searchParams.set('departure', departure);
+    url.searchParams.set('adults', String(adults));
+    if (loc) url.searchParams.set('location', loc);
+    const r = await fetch(url.toString(), { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Error del servidor');
+    RSV_STATE.results = j.results || [];
+    RSV_STATE.query = { arrival, departure, adults };
+    _rsvRenderResults_();
+  } catch (e) {
+    cont.innerHTML = `<div class="rsv-empty"><div class="icon">⚠️</div><h3>No pudimos consultar</h3><div>${_rsvEsc(e.message||e)}</div></div>`;
+  }
+};
+function _rsvRenderResults_() {
+  const cont = document.getElementById('rsv-results');
+  const toolbar = document.getElementById('rsv-toolbar');
+  const floatBtn = document.getElementById('rsv-float-bar');
+  const results = RSV_STATE.results || [];
+  if (!results.length) {
+    toolbar.style.display = 'none';
+    if (floatBtn) floatBtn.classList.remove('visible');
+    cont.innerHTML = `<div class="rsv-empty"><div class="icon">😕</div><h3>Sin disponibilidad</h3><div>No encontramos alojamientos para esas fechas. Prueba otras.</div></div>`;
+    return;
+  }
+  toolbar.style.display = 'flex';
+  if (floatBtn) floatBtn.classList.add('visible');
+  const q = RSV_STATE.query || {};
+  document.getElementById('rsv-count').innerHTML = `${results.length} alojamiento${results.length===1?'':'s'} disponibles <small>· ${q.arrival} → ${q.departure} · ${q.adults} huésped(es)</small>`;
+  cont.innerHTML = `<div class="rsv-grid">${results.map((r,i) => _rsvCardHtml_(r,i)).join('')}</div>`;
+}
+function _rsvCardHtml_(r, idx) {
+  const q = RSV_STATE.query || {};
+  const link = _rsvHostedUrl(r, q.arrival, q.departure, q.adults);
+  const amen = (r.amenities||[]).slice(0,4).map(a=>`<span>${_rsvEsc(a)}</span>`).join('');
+  const cap = [];
+  if (r.max_people) cap.push(`<span>👥 ${r.max_people}</span>`);
+  if (r.bedrooms) cap.push(`<span>🛏 ${r.bedrooms}</span>`);
+  if (r.bathrooms) cap.push(`<span>🚿 ${r.bathrooms}</span>`);
+  return `<div class="rsv-card" data-rsv-idx="${idx}" onclick="rsvOpenBooking_(${idx})">
+    <div class="rsv-card-img">
+      ${r.type ? `<div class="rsv-card-type">${_rsvEsc(r.type)}</div>` : ''}
+      ${r.image ? `<img src="${_rsvEsc(r.image)}" alt="${_rsvEsc(r.name)}" loading="lazy">` : ''}
+    </div>
+    <div class="rsv-card-body">
+      <h3 class="rsv-card-title">${_rsvEsc(r.name)}</h3>
+      <p class="rsv-card-loc">📍 ${_rsvEsc(r.city || r.address || 'Saltillo')}</p>
+      ${cap.length ? `<div class="rsv-card-cap">${cap.join('')}</div>` : ''}
+      ${amen ? `<div class="rsv-card-amen">${amen}</div>` : ''}
+      <div class="rsv-card-foot">
+        <div class="rsv-card-price">${_rsvFmt$(r.total, r.currency)}<small>${r.nights} noche${r.nights===1?'':'s'} · total</small></div>
+        <span class="rsv-card-cta">Reservar →</span>
+      </div>
+    </div>
+  </div>`;
+}
+window.rsvOpenBooking_ = function(idx) {
+  const r = (RSV_STATE.results || [])[idx];
+  if (!r) return;
+  const q = RSV_STATE.query || {};
+  const url = _rsvHostedUrl(r, q.arrival, q.departure, q.adults);
+  window.open(url, '_blank', 'noopener');
+};
+window.rsvOpenMap_ = function() {
+  _rsvEnsureLeaflet_(() => {
+    document.getElementById('rsv-map-overlay').style.display = 'block';
+    setTimeout(_rsvRenderMap_, 60);
+  });
+};
+window.rsvCloseMap_ = function() {
+  const el = document.querySelector('.rsv-map-card'); if (el) el.remove();
+  document.getElementById('rsv-map-overlay').style.display = 'none';
+};
+function _rsvEnsureLeaflet_(cb) {
+  if (window.L) return cb();
+  const css = document.createElement('link');
+  css.rel = 'stylesheet';
+  css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+  document.head.appendChild(css);
+  const js = document.createElement('script');
+  js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+  js.onload = cb;
+  document.head.appendChild(js);
+}
+function _rsvRenderMap_() {
+  const results = (RSV_STATE.results || []).filter(r => r.latitude && r.longitude);
+  if (RSV_STATE.map) { RSV_STATE.map.remove(); RSV_STATE.map = null; }
+  const first = results[0] || { latitude: 25.4232, longitude: -100.9906 };
+  const map = L.map('rsv-map').setView([first.latitude, first.longitude], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap',
+  }).addTo(map);
+  RSV_STATE.mapResults = results;
+  RSV_STATE.mapMarkers = [];
+  const bounds = results.map(r => [r.latitude, r.longitude]);
+  if (bounds.length > 1) map.fitBounds(bounds, { padding: [60, 60] });
+  RSV_STATE.map = map;
+  map.on('zoomend', _rsvRebuildMapMarkers_);
+  map.on('movestart zoomstart', _rsvSpiderCollapse_);
+  setTimeout(_rsvRebuildMapMarkers_, 60);
+}
+function _rsvRebuildMapMarkers_() {
+  const map = RSV_STATE.map; if (!map) return;
+  const results = RSV_STATE.mapResults || [];
+  (RSV_STATE.mapMarkers || []).forEach(m => { try { map.removeLayer(m); } catch(_) {} });
+  RSV_STATE.mapMarkers = [];
+  _rsvSpiderCollapse_();
+  // Agrupar por proximidad en pixels al zoom actual.
+  const THRESH = 52;
+  const pts = results.map((r, i) => ({ i, r, px: map.latLngToLayerPoint([r.latitude, r.longitude]) }));
+  const seen = new Set(); const groups = [];
+  for (const p of pts) {
+    if (seen.has(p.i)) continue;
+    const g = [p.i]; seen.add(p.i);
+    for (const q of pts) {
+      if (seen.has(q.i)) continue;
+      const dx = p.px.x - q.px.x, dy = p.px.y - q.px.y;
+      if (dx*dx + dy*dy < THRESH*THRESH) { g.push(q.i); seen.add(q.i); }
+    }
+    groups.push(g);
+  }
+  groups.forEach(g => {
+    if (g.length === 1) {
+      const idx = g[0]; const r = results[idx];
+      const icon = L.divIcon({ className:'', html:`<div class="rsv-map-pin">${_rsvFmt$(r.total, r.currency)}</div>`, iconSize:[80,30], iconAnchor:[40,30] });
+      const m = L.marker([r.latitude, r.longitude], { icon }).addTo(map);
+      m.on('click', () => _rsvShowMapCard_(idx));
+      RSV_STATE.mapMarkers.push(m);
+    } else {
+      const cLat = g.reduce((s,i) => s + results[i].latitude, 0) / g.length;
+      const cLng = g.reduce((s,i) => s + results[i].longitude, 0) / g.length;
+      const minT = Math.min(...g.map(i => Number(results[i].total) || Infinity));
+      const cur = results[g[0]].currency || 'MXN';
+      const html = `<div class="rsv-map-cluster"><span class="rsv-map-cluster-count">${g.length}</span><span class="rsv-map-cluster-price">desde ${_rsvFmt$(minT, cur)}</span></div>`;
+      const icon = L.divIcon({ className:'', html, iconSize:[120,36], iconAnchor:[60,18] });
+      const m = L.marker([cLat, cLng], { icon }).addTo(map);
+      const hook = () => {
+        const el = m.getElement() && m.getElement().querySelector('.rsv-map-cluster');
+        if (!el) return;
+        el.addEventListener('mouseenter', () => _rsvSpiderExpand_(g, [cLat, cLng]));
+      };
+      m.on('add', hook); if (m.getElement()) hook();
+      RSV_STATE.mapMarkers.push(m);
+    }
+  });
+}
+function _rsvSpiderCollapse_() {
+  const ov = document.getElementById('rsv-spider-overlay');
+  if (ov) ov.remove();
+  if (RSV_STATE._spiderCleanup) { try { RSV_STATE._spiderCleanup(); } catch(_) {} RSV_STATE._spiderCleanup = null; }
+}
+function _rsvSpiderExpand_(indices, centerLatLng) {
+  _rsvSpiderCollapse_();
+  const map = RSV_STATE.map; if (!map) return;
+  const results = RSV_STATE.mapResults || [];
+  const mapEl = document.getElementById('rsv-map');
+  const centerPx = map.latLngToContainerPoint(centerLatLng);
+  const N = indices.length;
+  const R = 70 + N * 8;
+  const ov = document.createElement('div');
+  ov.id = 'rsv-spider-overlay';
+  ov.innerHTML = `<svg><g id="rsv-spider-lines"></g></svg>`;
+  mapEl.appendChild(ov);
+  const svg = ov.querySelector('#rsv-spider-lines');
+  indices.forEach((idx, k) => {
+    const angle = -Math.PI/2 + (2*Math.PI/N)*k;
+    const x = centerPx.x + Math.cos(angle) * R;
+    const y = centerPx.y + Math.sin(angle) * R;
+    const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    ln.setAttribute('x1', centerPx.x); ln.setAttribute('y1', centerPx.y);
+    ln.setAttribute('x2', x); ln.setAttribute('y2', y);
+    ln.setAttribute('stroke', 'rgba(15,23,42,.55)');
+    ln.setAttribute('stroke-width', '1.5');
+    ln.setAttribute('stroke-dasharray', '3 4');
+    ln.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(ln);
+    const r = results[idx];
+    const chip = document.createElement('div');
+    chip.className = 'rsv-spider-chip';
+    chip.style.left = x + 'px'; chip.style.top = y + 'px';
+    chip.innerHTML = `<div class="rsv-map-pin">${_rsvFmt$(r.total, r.currency)}</div>`;
+    chip.onclick = () => _rsvShowMapCard_(idx);
+    ov.appendChild(chip);
+    requestAnimationFrame(() => chip.classList.add('rsv-in'));
+  });
+  const onMove = (ev) => {
+    const rect = mapEl.getBoundingClientRect();
+    const lx = ev.clientX - rect.left, ly = ev.clientY - rect.top;
+    const dx = lx - centerPx.x, dy = ly - centerPx.y;
+    if (Math.sqrt(dx*dx + dy*dy) > R + 55) _rsvSpiderCollapse_();
+  };
+  mapEl.addEventListener('mousemove', onMove);
+  RSV_STATE._spiderCleanup = () => mapEl.removeEventListener('mousemove', onMove);
+}
+function _rsvShowMapCard_(idx) {
+  const r = (RSV_STATE.results || [])[idx]; if (!r) return;
+  const existing = document.querySelector('.rsv-map-card');
+  if (existing) existing.remove();
+  const q = RSV_STATE.query || {};
+  const el = document.createElement('div');
+  el.className = 'rsv-map-card';
+  el.innerHTML = `
+    <button class="rsv-map-card-close" onclick="this.parentElement.remove()">×</button>
+    ${r.image ? `<img src="${_rsvEsc(r.image)}" style="width:100%;aspect-ratio:16/9;object-fit:cover;display:block">` : ''}
+    <div style="padding:12px 14px 14px">
+      <div style="font-size:14px;font-weight:800;color:#0f172a;margin-bottom:2px">${_rsvEsc(r.name)}</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:10px">${_rsvEsc(r.type || 'Alojamiento')} · 📍 ${_rsvEsc(r.city || 'Saltillo')}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:18px;font-weight:900;color:#0f766e;letter-spacing:-.02em">${_rsvFmt$(r.total, r.currency)}</div>
+          <div style="font-size:10px;color:#64748b">${r.nights} noche${r.nights===1?'':'s'} · total</div>
+        </div>
+        <button onclick="rsvOpenBooking_(${idx})" style="background:#0f766e;color:#fff;border:0;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">Reservar →</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+}
+// Init: prellenar fechas default (hoy + 2 días) o desde query params.
+// Deep-link soportado: ?rsv_arrival=YYYY-MM-DD&rsv_departure=YYYY-MM-DD&rsv_adults=N[&rsv_go=1]
+// Si rsv_go=1 salta al módulo Reservas y ejecuta la búsqueda automáticamente.
+(function _rsvInit_(){
+  document.addEventListener('DOMContentLoaded', () => {
+    const a = document.getElementById('rsv-in-arrival');
+    const d = document.getElementById('rsv-in-departure');
+    const ad = document.getElementById('rsv-in-adults');
+    const qs = new URLSearchParams(location.search);
+    const qA = qs.get('rsv_arrival'), qD = qs.get('rsv_departure'), qAd = qs.get('rsv_adults');
+    const isValidDate = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s||''));
+    if (a && isValidDate(qA) && isValidDate(qD)) {
+      a.value = qA;
+      if (d) d.value = qD;
+      if (ad && qAd) ad.value = String(Math.max(1, parseInt(qAd, 10) || 2));
+    } else if (a && !a.value) {
+      const t = new Date();
+      a.value = t.toISOString().slice(0,10);
+      const t2 = new Date(t); t2.setDate(t2.getDate()+2);
+      if (d) d.value = t2.toISOString().slice(0,10);
+    }
+    if (qs.get('rsv_go') === '1' && isValidDate(qA) && isValidDate(qD)) {
+      // Cambiar al módulo y disparar búsqueda tras un tick.
+      setTimeout(() => {
+        try { if (typeof switchModule === 'function') switchModule('reservas-nueva'); } catch(_) {}
+        setTimeout(() => { try { window.rsvSearch_(); } catch(_) {} }, 250);
+      }, 400);
+    }
+  });
+})();
+
+// Copia al portapapeles un texto humano + link con los mismos filtros.
+window.rsvShare_ = async function(btn) {
+  const q = RSV_STATE.query || {};
+  if (!q.arrival || !q.departure) { alert('Primero haz una búsqueda para poder compartir sus resultados.'); return; }
+  const url = new URL(location.href);
+  // Limpiar params previos y setear los nuestros.
+  ['rsv_arrival','rsv_departure','rsv_adults','rsv_go'].forEach(k => url.searchParams.delete(k));
+  url.searchParams.set('rsv_arrival', q.arrival);
+  url.searchParams.set('rsv_departure', q.departure);
+  url.searchParams.set('rsv_adults', String(q.adults || 2));
+  url.searchParams.set('rsv_go', '1');
+  const fmt = s => {
+    try {
+      const [y,m,d] = s.split('-').map(Number);
+      return new Date(y, m-1, d).toLocaleDateString('es-MX', { day:'numeric', month:'long', year:'numeric' });
+    } catch(_) { return s; }
+  };
+  const n = q.adults || 2;
+  const texto = `Resultados de búsqueda del ${fmt(q.arrival)} al ${fmt(q.departure)} para ${n} ${n===1?'persona':'personas'}:\n${url.toString()}`;
+  try {
+    await navigator.clipboard.writeText(texto);
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '✓ Copiado';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('copied'); }, 1800);
+    }
+  } catch(e) {
+    // Fallback textarea si clipboard API no disponible.
+    const ta = document.createElement('textarea');
+    ta.value = texto; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); alert('Copiado al portapapeles'); } catch(_) { prompt('Copia manualmente:', texto); }
+    ta.remove();
+  }
+};
