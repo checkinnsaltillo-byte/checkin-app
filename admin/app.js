@@ -42562,7 +42562,18 @@ function _botcRenderSidebar() {
         // Sobreescribimos GuestName del booking sintético para asegurar que
         // la card y el header del chat muestren el MISMO nombre.
         const bkNamed = c.name ? Object.assign({}, bk, { GuestName: c.name }) : bk;
-        rich = lgBuildDetailSidebarItem(bkNamed, null);
+        // Si el booking no trae __reservacion (viene de LG raw), inferir el
+        // huésped desde HU_STATE por phone tail para que los KPIs y el chip
+        // de tier (RECURRENTE, BRONCE, etc.) aparezcan en la card.
+        let huespedOverride = bkNamed.__reservacion || null;
+        if (!huespedOverride && typeof huGetGuestRowsByTail_ === 'function') {
+          try {
+            const tail = String(c.phone || '').replace(/\D/g,'').slice(-10);
+            const rows = tail ? (huGetGuestRowsByTail_(null, tail) || []) : [];
+            if (rows.length) huespedOverride = rows[0];
+          } catch(_){}
+        }
+        rich = lgBuildDetailSidebarItem(bkNamed, null, huespedOverride);
         rich = `<div onclick="event.stopPropagation();botcOpenChat('${_botcEsc(c.phone)}')" style="cursor:pointer">${rich}</div>`;
       } catch(e) { rich = ''; }
     }
@@ -42697,7 +42708,15 @@ async function _botcEnrichPendingBookings() {
     if (!wrap) return;
     try {
       const bkNamed = c.name ? Object.assign({}, bk, { GuestName: c.name }) : bk;
-      const rich = lgBuildDetailSidebarItem(bkNamed, null);
+      let huespedOverride = bkNamed.__reservacion || null;
+      if (!huespedOverride && typeof huGetGuestRowsByTail_ === 'function') {
+        try {
+          const tail = String(c.phone || '').replace(/\D/g,'').slice(-10);
+          const rows = tail ? (huGetGuestRowsByTail_(null, tail) || []) : [];
+          if (rows.length) huespedOverride = rows[0];
+        } catch(_){}
+      }
+      const rich = lgBuildDetailSidebarItem(bkNamed, null, huespedOverride);
       const richWrapped = `<div onclick="event.stopPropagation();botcOpenChat('${_botcEsc(c.phone)}')" style="cursor:pointer">${rich}</div>`;
       const lite = wrap.querySelector('[data-botc-lite]');
       if (lite) lite.outerHTML = richWrapped;
