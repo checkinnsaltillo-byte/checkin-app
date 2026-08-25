@@ -1,70 +1,2524 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f172a">
-<title>Check-inn Saltillo</title>
-
-<!-- Resource hints: dispara DNS+TLS del backend en paralelo con la carga del
-     HTML principal (~200-400ms ahorrados en cellular). -->
-<link rel="preconnect" href="https://ticket-vision-957627511957.northamerica-south1.run.app" crossorigin>
-<link rel="dns-prefetch" href="https://ticket-vision-957627511957.northamerica-south1.run.app">
-<!-- Prefetch de la página destino: el navegador empieza a bajar el HTML
-     grande (~193 KB gzip) mientras se ve el loader. En muchos casos, cuando
-     el redirect finalmente ejecuta, el HTML ya está cacheado y aparece
-     al instante. -->
-<link rel="prefetch" href="public/registro/index.html" as="document">
-
-<style>
-  html,body{margin:0;padding:0;background:#f8fafc;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#0f172a}
-  .wrap{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;gap:14px}
-  .logo{font-size:34px;font-weight:900;letter-spacing:-.02em;color:#0f172a}
-  .logo .dot{color:#dc2626}
-  .sp{width:44px;height:44px;border:4px solid #e2e8f0;border-top-color:#dc2626;border-radius:50%;animation:sp 1s linear infinite}
-  @keyframes sp{to{transform:rotate(360deg)}}
-  .msg{font-size:14px;color:#475569;font-weight:600;max-width:280px;line-height:1.4}
-  .tip{font-size:12px;color:#94a3b8;margin-top:8px}
-  .retry{margin-top:20px;padding:12px 22px;background:#dc2626;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;display:none;text-decoration:none}
-  .retry.show{display:inline-block}
-</style>
-
-<script>
-  // Redirect inmediato con soporte offline: si el usuario está sin conexión,
-  // mostramos mensaje claro en lugar de dejar la pantalla en blanco.
-  (function(){
-    var target = "public/registro/";
-    function goNow(){ location.replace(target); }
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      // No hay red — el redirect fallaría igual, mejor esperar a que vuelva.
-      window.addEventListener('online', goNow, { once: true });
-    } else {
-      // Con red: dispara el redirect inmediatamente. El loader se ve mientras
-      // el navegador baja el HTML destino (833 KB / 193 KB gzip).
-      setTimeout(goNow, 30);
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+  <title>Sistema de gestión inmobiliaria | Check Inn Saltillo</title>
+  <link rel="icon" id="app-favicon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>🏨</text></svg>">
+  <link rel="stylesheet" href="styles.css?v=144">
+  <style>
+    /* ─── Modo nocturno ─────────────────────────────────────────────── */
+    body.dark {
+      background: #0f172a !important;
+      color: #e5e7eb !important;
+      --text: #e5e7eb;
+      --text-soft: #9ca3af;
+      --border: #334155;
+      --surface: #1e293b;
+      --primary-dark: #94a3b8;
     }
-    // Después de 12s sin que aparezca el destino, ofrece un botón para
-    // reintentar (por si el navegador quedó colgado en cellular lento).
-    setTimeout(function(){
-      var el = document.getElementById('retryBtn');
-      if (el) el.classList.add('show');
-      var msg = document.getElementById('loaderMsg');
-      if (msg) msg.textContent = 'Tardando más de lo normal. Puedes reintentar.';
-    }, 12000);
-  })();
-</script>
-
-<!-- Fallback para navegadores sin JS: <meta refresh> -->
-<meta http-equiv="refresh" content="1; url=public/registro/">
-<link rel="canonical" href="public/registro/">
+    body.dark .ticket-card,
+    body.dark .bn-msel-panel,
+    body.dark #bn-classify-modal,
+    body.dark #bn-indicadores-modal,
+    body.dark .confirm-modal,
+    body.dark .upload-sheet,
+    body.dark #bn-bulk-bar,
+    body.dark .db-filter-panel,
+    body.dark .bn-table-wrap,
+    body.dark .bn-modal {
+      background: #1e293b !important;
+      color: #e5e7eb !important;
+      border-color: #334155 !important;
+    }
+    body.dark .ticket-card-header {
+      background: #1e293b !important;
+      color: #e5e7eb !important;
+      border-color: #334155 !important;
+    }
+    body.dark .ticket-card-header.ci-egresos  { background: linear-gradient(180deg,#3f1d1d,#5b2222) !important; }
+    body.dark .ticket-card-header.ci-ingresos { background: linear-gradient(180deg,#14352a,#1a4a37) !important; }
+    body.dark .ticket-card-header.ci-activos  { background: linear-gradient(180deg,#1e293b,#1e3a8a) !important; }
+    body.dark .ticket-card-header.ci-pasivos  { background: linear-gradient(180deg,#2d1b4e,#4c1d95) !important; }
+    body.dark .ticket-card-header.ci-capital  { background: linear-gradient(180deg,#1f2937,#374151) !important; }
+    body.dark .ticket-store, body.dark .ticket-meta,
+    body.dark .info-chip, body.dark .product-summary,
+    body.dark .resumen-key, body.dark th, body.dark td,
+    body.dark .bn-kpi-label, body.dark .bn-kpi-value, body.dark .bn-kpi-sub,
+    body.dark .bn-section-title, body.dark .db-todas-label,
+    body.dark .db-count-inline, body.dark label, body.dark h1, body.dark h2, body.dark h3, body.dark p,
+    body.dark .field-select, body.dark input, body.dark select, body.dark textarea {
+      color: #e5e7eb !important;
+    }
+    body.dark .info-chip:not(.ci-egresos):not(.ci-ingresos):not(.ci-activos):not(.ci-pasivos):not(.ci-capital) {
+      background: #334155 !important;
+      color: #e5e7eb !important;
+    }
+    body.dark .field-select, body.dark input, body.dark select, body.dark textarea,
+    body.dark .db-search-input {
+      background: #0f172a !important;
+      border-color: #334155 !important;
+      color: #e5e7eb !important;
+    }
+    body.dark .bn-kpi-card { background: #1e293b !important; border-color: #334155 !important; }
+    body.dark .bn-menu-bar { border-color: #334155 !important; }
+    body.dark .bn-cat-btn, body.dark .bn-sub-chip {
+      background: #1e293b !important;
+      color: #e5e7eb !important;
+      border-color: #334155 !important;
+    }
+    body.dark .bn-cat-btn.active, body.dark .bn-sub-chip.active {
+      background: #334155 !important;
+      color: #fff !important;
+      border-color: #334155 !important;
+    }
+    body.dark .app-header { background: #1e293b !important; border-color: #334155 !important; }
+    body.dark #btn-dark-mode { color: #94a3b8; }
+    body.dark .bn-msel-trigger { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+    body.dark table th, body.dark table td { border-color: #334155 !important; }
+    body.dark .classify-tab { background: #1e293b !important; color: #e5e7eb !important; }
+  </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="logo">Check<span class="dot">·</span>inn Saltillo</div>
-  <div class="sp"></div>
-  <div id="loaderMsg" class="msg">Cargando…</div>
-  <div class="tip">Si estás en datos móviles, la primera carga puede tardar unos segundos.</div>
-  <a id="retryBtn" class="retry" href="public/registro/">Reintentar</a>
-</div>
+
+  <!-- Login Overlay -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-card">
+      <div class="login-logo" style="background:transparent;border:none;padding:0;box-shadow:none;display:flex;justify-content:center;margin-bottom:14px">
+        <div class="checkinn-loader size-lg" role="img" aria-label="Check-inn Saltillo">
+          <div class="ci-pin-scene">
+            <div class="ci-pin">
+              <div class="ci-face front"><img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt=""></div>
+              <div class="ci-face back"><img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt=""></div>
+              <img class="ci-spacer" src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt="">
+            </div>
+          </div>
+          <img class="ci-text" src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png" alt="Check-inn">
+        </div>
+      </div>
+      <h2 class="login-title">Sistema de gestión inmobiliaria</h2>
+      <div class="login-field">
+        <input type="password" id="loginPassword" class="login-input"
+               placeholder="Contraseña" onkeydown="handleLoginKey(event)" autocomplete="current-password" autofocus>
+      </div>
+      <p class="login-error hidden" id="loginError"></p>
+      <button class="btn-login" id="btnLogin" onclick="tryLogin()">Entrar</button>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay hidden">
+    <div class="loading-card">
+      <div class="thinking-dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <h3 id="loadingTitle">Claude está analizando...</h3>
+      <p id="loadingSubtitle">Extrayendo productos y datos del ticket</p>
+    </div>
+  </div>
+
+  <div id="app-root" class="page-shell hidden">
+
+    <!-- Sidebar nav overlay -->
+    <div id="nav-overlay" class="nav-overlay hidden" onclick="closeNavMenu()"></div>
+    <nav id="nav-sidebar" class="nav-sidebar">
+      <div class="nav-sidebar-header">
+        <span class="nav-sidebar-title">Menú</span>
+        <button class="nav-close-btn" onclick="closeNavMenu()">✕</button>
+      </div>
+      <ul class="nav-menu">
+        <li class="nav-item" id="nav-item-home"
+            onclick="switchModule('home');closeNavMenu()">
+          🏠 Inicio
+        </li>
+        <li class="nav-item active" id="nav-item-registros"
+            onclick="switchModule('registros');closeNavMenu()">
+          📚 Registros contables
+        </li>
+        <li class="nav-sub-item"
+            onclick="switchModule('registros');bn_setCat('pc');closeNavMenu()">
+          🏷️ &nbsp;Por clasificar
+        </li>
+        <li class="nav-sub-item"
+            onclick="switchModule('registros');bn_setCat('reg');closeNavMenu()">
+          📊 &nbsp;Cuentas
+        </li>
+        <li class="nav-sub-item"
+            onclick="switchModule('registros');bn_setCat('pres');closeNavMenu()">
+          📐 &nbsp;Planeación
+        </li>
+        <li class="nav-sub-item"
+            onclick="switchModule('registros');bn_setTipo('F');closeNavMenu()">
+          📊 &nbsp;Indicadores
+        </li>
+        <li class="nav-sub-item"
+            onclick="switchModule('registros');setTimeout(bnCargaDatosOpen,150);closeNavMenu()">
+          📥 &nbsp;Carga de datos
+        </li>
+        <li class="nav-item" id="nav-item-tickets"
+            onclick="switchModule('tickets');switchSection('capturados');closeNavMenu()">
+          🎫 Tickets
+        </li>
+        <li class="nav-sub-item"
+            onclick="switchModule('tickets');switchSection('capturados');closeNavMenu()">
+          📋 &nbsp;Tickets capturados
+        </li>
+        <li class="nav-sub-item"
+            onclick="switchModule('tickets');switchSection('captura');closeNavMenu()">
+          📸 &nbsp;Captura de tickets
+        </li>
+        <!-- "Información de huéspedes" oculto temporalmente -->
+        <li class="nav-item hidden" id="nav-item-huespedes"
+            onclick="switchModule('huespedes');closeNavMenu()">
+          🏨 Información de huéspedes
+        </li>
+        <li class="nav-item" id="nav-item-lodgify"
+            onclick="switchModule('lodgify');closeNavMenu()">
+          🌐 Gestión de reservas
+        </li>
+        <!-- "Reservas - detalles" oculto temporalmente -->
+        <li class="nav-item hidden" id="nav-item-reservas-detalles"
+            onclick="switchModule('reservas-detalles');closeNavMenu()">
+          📒 Reservas - detalles
+        </li>
+        <li class="nav-item" id="nav-item-breezeway"
+            onclick="switchModule('breezeway');closeNavMenu()">
+          🧹 Breezeway
+        </li>
+        <li class="nav-item" id="nav-item-incidencias"
+            onclick="switchModule('incidencias');closeNavMenu()">
+          🚨 Incidencias
+        </li>
+        <li class="nav-item" id="nav-item-objetos"
+            onclick="switchModule('objetos');closeNavMenu()">
+          🧳 Objetos olvidados
+        </li>
+        <li class="nav-item" id="nav-item-ocupacion"
+            onclick="switchModule('ocupacion');closeNavMenu()">
+          📅 Ocupación
+        </li>
+        <li class="nav-item" id="nav-item-rh"
+            onclick="switchModule('rh');closeNavMenu()">
+          👥 Recursos Humanos
+        </li>
+        <li class="nav-item" id="nav-item-inquilinos"
+            onclick="switchModule('inquilinos');closeNavMenu()">
+          🏠 Inquilinos
+        </li>
+        <li class="nav-item" id="nav-item-inventarios"
+            onclick="switchModule('inventarios');closeNavMenu()">
+          📦 Inventarios
+        </li>
+        <li class="nav-item" id="nav-item-tuya"
+            onclick="switchModule('tuya');closeNavMenu()">
+          🛰️ Dispositivos
+        </li>
+        <li class="nav-item" id="nav-item-guias"
+            onclick="switchModule('guias');closeNavMenu()">
+          📖 Guías de Bienvenida
+        </li>
+        <li class="nav-item" id="nav-item-llaves"
+            onclick="switchModule('llaves');closeNavMenu()">
+          🔑 Llaves
+        </li>
+        <li class="nav-item" id="nav-item-config-admin"
+            onclick="switchModule('config-admin');closeNavMenu()">
+          ⚙️ Configuración Admin
+        </li>
+      </ul>
+      <div style="margin-top:auto;padding:16px;border-top:1px solid var(--border,#e5e7eb);display:flex;flex-direction:column;gap:10px;align-items:stretch">
+        <button id="btn-dark-mode" onclick="toggleDarkMode()" title="Alternar tema claro/oscuro"
+                style="padding:8px 16px;border:1px solid var(--border,#d1d5db);background:var(--surface,#fff);color:var(--text,#374151);cursor:pointer;font-size:14px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600">
+          🌙 <span>Tema</span>
+        </button>
+        <button id="btn-logout" onclick="logoutToPortal()" title="Cerrar sesión y volver al Portal del huésped"
+                style="padding:8px 16px;border:1.5px solid #ef4444;background:#fff;color:#b91c1c;cursor:pointer;font-size:14px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:700">
+          🚪 <span>Cerrar sesión</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Header -->
+    <header class="app-header">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="hamburger-btn" onclick="toggleNavMenu()" title="Menú">
+          <span class="hb-line"></span><span class="hb-line"></span><span class="hb-line"></span>
+        </button>
+        <div class="header-logo" style="display:flex;align-items:center;gap:12px">
+          <!-- Logo animado (pin 3D + texto Check-inn) — mismo del Portal del huésped.
+               size-md ≈ 36px, aprox la mitad del logo estático anterior (90px). -->
+          <div class="checkinn-loader size-md header-logo-anim" role="img" aria-label="Check-inn Saltillo">
+            <div class="ci-pin-scene">
+              <div class="ci-pin">
+                <div class="ci-face front"><img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt=""></div>
+                <div class="ci-face back"><img src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt=""></div>
+                <img class="ci-spacer" src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_pin.png" alt="">
+              </div>
+            </div>
+            <img class="ci-text" src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png" alt="Check-inn">
+          </div>
+          <div class="logo-text">
+            <h1>Sistema de gestión inmobiliaria</h1>
+          </div>
+        </div>
+      </div>
+    </header>
+    <div id="user-greeting" class="user-greeting hidden">
+      <span class="ug-hello">👋 Hola, <strong id="ug-name"></strong></span>
+      <button type="button" class="ug-logout" onclick="sysLogout()">Cerrar sesión</button>
+    </div>
+
+    <!-- ══ MÓDULO: Home (pantalla de bienvenida con cards de módulos) ══ -->
+    <div id="module-home" class="hidden">
+      <div class="home-wrap">
+        <div class="home-hero">
+          <div class="home-hero-eyebrow">Bienvenido</div>
+          <h1 class="home-hero-title">Sistema de gestión inmobiliaria</h1>
+          <p class="home-hero-sub">Selecciona un módulo para comenzar</p>
+        </div>
+        <div class="home-grid">
+          <button type="button" class="home-card home-card-registros" onclick="switchModule('registros')">
+            <div class="home-card-icon">📚</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Registros contables</h3>
+              <p class="home-card-desc">Movimientos bancarios, clasificación, indicadores y planeación.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-efectivo" onclick="bnEfectivoOpenFromHome()">
+            <div class="home-card-icon">💵</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Efectivo</h3>
+              <p class="home-card-desc">Captura manual de movimientos en efectivo — clasificación automática e inserción a BANCOS.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-tickets" onclick="switchModule('tickets');switchSection('capturados')">
+            <div class="home-card-icon">🎫</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Tickets</h3>
+              <p class="home-card-desc">Captura, OCR y gestión de tickets y comprobantes de gasto.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-lodgify" onclick="switchModule('lodgify')">
+            <div class="home-card-icon">🌐</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Gestión de reservas</h3>
+              <p class="home-card-desc">Reservaciones Lodgify, huéspedes, facturación y cobros.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-breezeway" onclick="switchModule('breezeway')">
+            <div class="home-card-icon">🧹</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Breezeway</h3>
+              <p class="home-card-desc">Tareas operativas de limpieza, mantenimiento e inspecciones.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-incidencias" onclick="switchModule('incidencias')">
+            <div class="home-card-icon">🚨</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Incidencias</h3>
+              <p class="home-card-desc">Reportes de limpieza y mantenimiento con evidencia fotográfica.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-objetos" onclick="switchModule('objetos')">
+            <div class="home-card-icon">🧳</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Objetos olvidados</h3>
+              <p class="home-card-desc">Registro y devolución de objetos encontrados en los alojamientos.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-ocupacion" onclick="switchModule('dashboard')">
+            <div class="home-card-icon">📊</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Dashboard</h3>
+              <p class="home-card-desc">Indicadores y gráficas de ocupación por alojamiento.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-ocupacion" onclick="switchModule('calendario')">
+            <div class="home-card-icon">🗓️</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Calendario</h3>
+              <p class="home-card-desc">Calendario mensual de reservas Lodgify centrado en hoy.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-rh" onclick="switchModule('rh')">
+            <div class="home-card-icon">👥</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Recursos Humanos</h3>
+              <p class="home-card-desc">Expediente, asistencia, ausencias y compensaciones del personal.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-inquilinos" onclick="switchModule('inquilinos')">
+            <div class="home-card-icon">🏠</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Inquilinos</h3>
+              <p class="home-card-desc">Perfiles, contratos y pagos mensuales de inquilinos de renta a largo plazo.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-inventarios" onclick="switchModule('inventarios')">
+            <div class="home-card-icon">📦</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Inventarios</h3>
+              <p class="home-card-desc">Control de productos, stock por ubicación, órdenes de compra y alertas de reposición.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-tuya" onclick="switchModule('tuya')">
+            <div class="home-card-icon">🛰️</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Dispositivos</h3>
+              <p class="home-card-desc">Sensores de puerta, humo y otros dispositivos Smart Life en tiempo real con historial.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-guias" onclick="switchModule('guias')">
+            <div class="home-card-icon">📖</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Guías de Bienvenida</h3>
+              <p class="home-card-desc">Información, reglas, servicios y guía local por alojamiento — la guía digital que ve el huésped.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-llaves" onclick="switchModule('llaves')">
+            <div class="home-card-icon">🔑</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Llaves</h3>
+              <p class="home-card-desc">Control de llaves y códigos por alojamiento — puerta, caja de seguridad y responsables.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-config-admin" onclick="switchModule('config-admin')">
+            <div class="home-card-icon">⚙️</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Configuración Admin</h3>
+              <p class="home-card-desc">Templates de mensajes programados y otros ajustes globales del sistema.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+        </div>
+      </div>
+    </div><!-- /module-home -->
+
+    <!-- ══ MÓDULO: Guías de Bienvenida ════════════════════════════════════════ -->
+    <div id="module-guias" class="hidden" style="padding:0;display:flex;flex-direction:column;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-.005em">
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid #e2e8f0;background:#fff;flex-shrink:0">
+        <button id="guias-sidebar-toggle" type="button" onclick="guiasToggleSidebar()"
+                title="Mostrar/ocultar lista de alojamientos"
+                style="all:unset;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:#f1f5f9;color:#334155;font-size:16px">☰</button>
+        <h2 style="margin:0;font-size:18px;display:flex;align-items:center;gap:8px">📖 Guías de Bienvenida</h2>
+        <span id="guias-summary" style="font-size:12px;color:#64748b">—</span>
+        <button id="guias-sync-btn" type="button" onclick="guiasSyncNow()" title="Regenera los JSON públicos que ven los huéspedes (usar tras editar reglamento u otros datos en la hoja alojamientos)"
+                style="margin-left:auto;padding:8px 14px;background:linear-gradient(180deg,#0ea5e9 0%,#0369a1 100%);color:#fff;border:0;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 4px rgba(3,105,161,.3)">🔄 Actualizar guías</button>
+        <button class="btn-limpiar" onclick="guiasLoad(true)">↻ Recargar lista</button>
+      </div>
+      <div style="display:flex;align-items:flex-start">
+        <aside id="guias-sidebar" style="width:280px;flex-shrink:0;border-right:1px solid #e2e8f0;background:#f8fafc;padding:10px;position:sticky;top:0;align-self:flex-start;max-height:100vh;overflow-y:auto;transition:width .25s ease,padding .25s ease,opacity .2s ease"></aside>
+        <main id="guias-content" style="flex:1;background:#fff;padding:18px 12px;min-width:0">
+          <div style="text-align:center;padding:60px 20px;color:#94a3b8;font-size:13px">
+            Selecciona una propiedad a la izquierda para ver su guía.
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ══ MÓDULO: Tuya (Dispositivos Smart Life) ════════════════════════════ -->
+    <div id="module-tuya" class="hidden" style="padding:20px 24px 60px">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap">
+        <h2 style="margin:0;font-size:20px;display:flex;align-items:center;gap:8px">🛰️ Dispositivos</h2>
+        <span id="tuya-summary" style="font-size:12px;color:var(--text-soft,#64748b)">—</span>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button id="tuya-btn-refresh" onclick="tuyaLoad(true)" title="Actualizar desde Tuya Cloud (ignora caché)"
+                  style="margin:0;padding:9px 18px;border:none;background:#0d9488;color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">↻ Actualizar</button>
+        </div>
+      </div>
+      <div id="tuya-alerts"></div>
+      <div id="tuya-body" style="display:flex;flex-direction:column;gap:14px"></div>
+    </div>
+
+    <!-- Slide-in: detalle del dispositivo Tuya -->
+    <div id="tuya-detail-backdrop" class="hidden" onclick="tuyaCloseDetail()"
+         style="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9100;opacity:0;transition:opacity .25s"></div>
+    <div id="tuya-detail-panel" class="hidden"
+         style="position:fixed;top:0;right:0;height:100vh;width:100%;max-width:880px;background:#fff;z-index:9200;box-shadow:-16px 0 40px rgba(15,23,42,.18);transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:linear-gradient(180deg,#eff6ff,#fff)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:18px">📟</span>
+          <div id="tuya-detail-title" style="font-size:14px;font-weight:800;color:#0f172a">Dispositivo</div>
+        </div>
+        <button type="button" onclick="tuyaCloseDetail()" aria-label="Cerrar"
+                style="width:32px;height:32px;border:none;background:#f1f5f9;color:#475569;border-radius:8px;font-weight:900;font-size:16px;cursor:pointer">✕</button>
+      </div>
+      <div id="tuya-detail-host" style="flex:1;overflow:auto;padding:14px;background:#fff"></div>
+    </div>
+
+    <!-- ══ MÓDULO: Tickets ══════════════════════════════════════ -->
+    <div id="module-tickets" class="hidden">
+
+      <!-- Sub-tabs dentro del módulo Tickets -->
+      <div class="sub-tabs">
+        <button class="sub-tab active" id="subtab-capturados" onclick="switchSection('capturados')">📋 Tickets capturados</button>
+        <button class="sub-tab"        id="subtab-captura"    onclick="switchSection('captura')">📸 Captura de tickets</button>
+      </div>
+
+    <!-- ══ SECCIÓN: Tickets capturados ══════════════════════════ -->
+    <div id="section-capturados">
+
+      <!-- Top bar -->
+      <div class="db-top-bar">
+        <div class="db-top-left">
+          <button class="btn-filter-toggle" id="btn-filter-toggle"
+                  onclick="toggleDbFilters()" title="Mostrar filtros">
+            <span class="hb-line"></span><span class="hb-line"></span><span class="hb-line"></span>
+          </button>
+        </div>
+        <div class="db-top-right">
+          <span class="db-count-inline" id="db-filter-subtitle"></span>
+          <button class="btn-limpiar" style="margin:0" onclick="loadDashboard()">↻ Actualizar</button>
+          <button class="btn-limpiar" style="margin:0" onclick="clearDashboardFilters()">✕ Limpiar</button>
+        </div>
+      </div>
+
+      <!-- Panel de filtros (oculto por defecto) -->
+      <div class="db-filter-panel hidden" id="db-filter-body">
+        <div class="db-filter-grid">
+          <div class="db-filter-full">
+            <input type="text" id="db-f-text" placeholder="🔍  Buscar por tienda, concepto, encargado…" class="db-search-input" oninput="onFilterChange()">
+          </div>
+          <div class="db-filter-half">
+            <label>Fecha desde</label>
+            <input type="date" id="db-f-desde" class="field-select" onchange="onFilterChange()">
+          </div>
+          <div class="db-filter-half">
+            <label>Fecha hasta</label>
+            <input type="date" id="db-f-hasta" class="field-select" onchange="onFilterChange()">
+          </div>
+          <div class="db-filter-half">
+            <label>Cuenta</label>
+            <select id="db-f-cuenta" class="field-select" onchange="onFilterChange()">
+              <option value="">Todas</option>
+              <option>Egresos</option><option>Ingresos</option>
+              <option>Activos</option><option>Pasivos</option><option>Capital</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Método de pago</label>
+            <select id="db-f-metodo" class="field-select" onchange="onFilterChange()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Tienda</label>
+            <select id="db-f-tienda" class="field-select" onchange="onFilterChange()">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Clasificado por</label>
+            <select id="db-f-clasificado-por" class="field-select" onchange="onFilterChange()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Propiedad</label>
+            <select id="db-f-propiedad" class="field-select" onchange="onFilterChange()">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Departamento</label>
+            <select id="db-f-departamento" class="field-select" onchange="onFilterChange()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Encargado</label>
+            <select id="db-f-comprador" class="field-select" onchange="onFilterChange()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Deducible</label>
+            <select id="db-f-deducible" class="field-select" onchange="onFilterChange()">
+              <option value="">Todos</option>
+              <option value="si">Sí</option>
+              <option value="no">No</option>
+            </select>
+          </div>
+          <div class="db-filter-half">
+            <label>Reembolso</label>
+            <select id="db-f-reembolso" class="field-select" onchange="onFilterChange()">
+              <option value="">Todos</option>
+              <option value="si">Sí</option>
+              <option value="no">No</option>
+            </select>
+          </div>
+          <div class="db-filter-full">
+            <label>Descripción de producto</label>
+            <select id="db-f-descripcion" class="field-select" onchange="onFilterChange()">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="db-filter-full">
+            <label>Rango de total</label>
+            <div class="dual-range-wrap">
+              <div class="dual-range-labels">
+                <span id="range-total-min-lbl">$0</span>
+                <span id="range-total-max-lbl">Máx.</span>
+              </div>
+              <div class="dual-range-track">
+                <div class="dual-range-base"></div>
+                <div class="dual-range-fill" id="dual-range-fill"></div>
+                <input type="range" class="dual-range dual-range-lo" id="db-f-total-min"
+                       min="0" max="50000" step="100" value="0" style="z-index:4"
+                       oninput="onTotalRangeInput('lo')">
+                <input type="range" class="dual-range dual-range-hi" id="db-f-total-max"
+                       min="0" max="50000" step="100" value="50000" style="z-index:5"
+                       oninput="onTotalRangeInput('hi')">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Count bar y lista -->
+      <div class="db-count-bar" id="db-count-bar"></div>
+      <div class="tickets-container" id="dbContainer"></div>
+      <div class="db-pagination-bar" id="db-pagination"></div>
+
+    </div><!-- /section-capturados -->
+
+    <!-- ══ SECCIÓN: Captura de tickets ══════════════════════════ -->
+    <div id="section-captura" class="hidden">
+
+    <!-- ── PASO 1: Captura (accordion) ─────────────────────────── -->
+    <div class="accordion-panel" id="panel-1">
+      <div class="accordion-header" onclick="togglePanel(1)">
+        <div class="accordion-header-left">
+          <span class="accordion-arrow open" id="panel-arrow-1">›</span>
+          <div>
+            <div class="accordion-title">Captura de tickets</div>
+            <div class="accordion-subtitle">Cada imagen corresponde a un ticket independiente</div>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-body" id="panel-body-1">
+
+        <div class="upload-box-single">
+          <button class="btn-agregar-ticket" onclick="openUploadSheet()">
+            <span class="btn-agregar-icon">📎</span>
+            <span>Agregar tickets</span>
+          </button>
+          <p class="upload-hint" id="uploadHint">Seleccionar desde cámara, fotos o archivos</p>
+        </div>
+        <div id="limpiarWrap" class="hidden" style="text-align:center;margin-top:10px;">
+          <button class="btn-limpiar" onclick="limpiarTickets()">🗑 Limpiar todo</button>
+        </div>
+
+        <!-- Hidden file inputs (desktop directo) -->
+        <input type="file" id="files-camera"  accept="image/*" capture="environment" multiple style="display:none">
+        <input type="file" id="files-gallery" accept="image/*,video/*" multiple style="display:none">
+        <input type="file" id="files-files"   accept="image/*,application/pdf" multiple style="display:none">
+
+        <div id="imagePreview" class="image-strip hidden"></div>
+
+        <div id="analyzeWrap" class="hidden">
+          <button class="btn-analizar" onclick="analyzeTickets()">🔍 Analizar tickets</button>
+        </div>
+        <div id="analyzeStatus" class="status-inline"></div>
+
+      </div>
+    </div>
+
+    <!-- ── PASO 2: Resultados (accordion) ──────────────────────── -->
+    <div class="accordion-panel" id="panel-2">
+      <div class="accordion-header" onclick="togglePanel(2)">
+        <div class="accordion-header-left">
+          <span class="accordion-arrow" id="panel-arrow-2">›</span>
+          <div>
+            <div class="accordion-title">Resultados</div>
+            <div class="accordion-subtitle" id="panel-2-subtitle">Sin tickets analizados</div>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-body collapsed" id="panel-body-2">
+        <div id="ticketsContainer" class="tickets-container"></div>
+      </div>
+    </div>
+
+    <!-- ── PASO 3: Guardar resultados ──────────────────────────── -->
+    <div class="accordion-panel hidden" id="panel-3">
+      <div class="accordion-header save-action-header" id="btnGuardar" onclick="guardarResultados()">
+        <div class="accordion-header-left">
+          <span class="save-action-icon">💾</span>
+          <div>
+            <div class="accordion-title save-action-title">Guardar resultados</div>
+            <div class="accordion-subtitle save-action-sub" id="saveSubtitle">Enviar tickets clasificados a Google Sheets</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="save-status hidden" id="saveStatus"></p>
+
+    </div><!-- /section-captura -->
+
+    </div><!-- /module-tickets -->
+
+    <!-- ══ MÓDULO: Registros contables ══════════════════════════ -->
+    <div id="module-registros">
+
+      <!-- Top bar con Año / Mes siempre visibles (ARRIBA de los KPIs) -->
+      <div class="db-top-bar" style="flex-wrap:wrap;gap:8px">
+        <div class="db-top-left">
+          <span class="db-todas-label" id="bn-status-label">Registros contables</span>
+        </div>
+        <div class="db-top-right">
+          <span class="db-count-inline" id="bn-filter-subtitle"></span>
+          <button class="btn-limpiar" style="margin:0" onclick="bn_loadData()">↻ Actualizar</button>
+          <button class="btn-limpiar" style="margin:0" onclick="bn_clearFilters()">✕ Limpiar</button>
+          <button class="btn-limpiar" style="margin:0;background:#7c3aed;color:#fff;border-color:#7c3aed" onclick="bnCargaDatosOpen()">📥 Carga de datos</button>
+        </div>
+      </div>
+
+      <!-- Filtros Año y Mes (multi-select, siempre visibles, derivados del campo Día) -->
+      <div id="bn-mes-anio-row" style="display:grid;grid-template-columns:1fr 1fr;align-items:end;gap:10px;margin:10px 0 14px">
+        <div class="bn-msel" data-field="anio" style="position:relative;min-width:0">
+          <label style="display:block;font-weight:700;color:var(--text-soft);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Año</label>
+          <button class="bn-msel-trigger" onclick="bn_mselToggle('anio',event)" type="button"
+                  style="width:100%;padding:8px 12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;cursor:pointer;text-align:left;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+            <span class="bn-msel-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Todos</span>
+            <span style="font-size:10px;color:var(--text-soft);margin-left:6px">▼</span>
+          </button>
+          <div class="bn-msel-panel hidden" id="bn-msel-panel-anio"
+               style="position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.12);max-height:260px;overflow-y:auto;z-index:90;padding:6px;min-width:160px"></div>
+        </div>
+        <div class="bn-msel" data-field="mes" style="position:relative;min-width:0">
+          <label style="display:block;font-weight:700;color:var(--text-soft);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">🗓️ Mes</label>
+          <button class="bn-msel-trigger" onclick="bn_mselToggle('mes',event)" type="button"
+                  style="width:100%;padding:8px 12px;border:1px solid var(--border,#e5e7eb);border-radius:6px;background:#fff;cursor:pointer;text-align:left;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+            <span class="bn-msel-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Todos</span>
+            <span style="font-size:10px;color:var(--text-soft);margin-left:6px">▼</span>
+          </button>
+          <div class="bn-msel-panel hidden" id="bn-msel-panel-mes"
+               style="position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.12);max-height:260px;overflow-y:auto;z-index:90;padding:6px;min-width:200px"></div>
+        </div>
+      </div>
+
+      <!-- KPIs agrupados en 3 secciones -->
+      <div id="bn-kpi-wrap" style="margin-bottom:14px;border:1px solid var(--border,#e5e7eb);border-radius:12px;overflow:hidden;background:#fff">
+        <div onclick="bn_toggleKpiSection()" id="bn-kpi-header"
+             style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f1f5f9;cursor:pointer;user-select:none">
+          <span style="font-size:13px;font-weight:800;color:#334155">📊 Indicadores principales</span>
+          <span id="bn-kpi-period-summary" style="flex:1;font-size:11px;color:#475569;font-weight:600">—</span>
+          <span id="bn-kpi-toggle-chev" style="font-size:11px;color:#64748b">▼ Ocultar</span>
+        </div>
+        <div id="bn-kpi-row" style="display:flex;flex-direction:column;gap:10px;padding:10px">
+          <!-- Estado de Resultados (con Presupuesto Operativo) -->
+          <div>
+            <div style="font-size:10px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;padding-left:2px">📈 Estado de Resultados</div>
+            <div class="bn-kpi-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+              <div class="bn-kpi-card" style="cursor:pointer" onclick="bn_kpiOpenSubcuentasPopup('Egresos')">
+                <div class="bn-kpi-label">Egresos (período) <span style="font-size:9px;color:#94a3b8">▾ clic detalle</span></div>
+                <div class="bn-kpi-value" id="bn-k-egr-real">—</div>
+                <div class="bn-kpi-sub" id="bn-k-egr-sub">—</div>
+              </div>
+              <div class="bn-kpi-card" style="cursor:pointer" onclick="bn_kpiOpenSubcuentasPopup('Ingresos')">
+                <div class="bn-kpi-label">Ingresos (período) <span style="font-size:9px;color:#94a3b8">▾ clic detalle</span></div>
+                <div class="bn-kpi-value" id="bn-k-ing-real">—</div>
+                <div class="bn-kpi-sub" id="bn-k-ing-sub">—</div>
+              </div>
+              <div class="bn-kpi-card">
+                <div class="bn-kpi-label">Utilidad (período)</div>
+                <div class="bn-kpi-value" id="bn-k-utilidad">—</div>
+                <div class="bn-kpi-sub" id="bn-k-utilidad-sub">—</div>
+              </div>
+              <div class="bn-kpi-card">
+                <div class="bn-kpi-label">Presupuesto Operativo</div>
+                <div class="bn-kpi-value" id="bn-k-avance-egr">—</div>
+                <div id="bn-k-avance-bar" style="margin:4px 0 2px"></div>
+                <div class="bn-kpi-sub" id="bn-k-avance-egr-sub">—</div>
+              </div>
+            </div>
+          </div>
+          <!-- Balance General -->
+          <div>
+            <div style="font-size:10px;font-weight:700;color:var(--text-soft,#64748b);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;padding-left:2px">📊 Balance General</div>
+            <div class="bn-kpi-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="bn-kpi-card" style="cursor:pointer" onclick="bn_kpiOpenSubcuentasPopup('Capital')">
+                <div class="bn-kpi-label">Retiro de utilidades <span style="font-size:9px;color:#94a3b8">▾ clic detalle</span></div>
+                <div class="bn-kpi-value" id="bn-k-retiro">—</div>
+                <div id="bn-k-retiro-bar" style="margin:4px 0 2px"></div>
+                <div class="bn-kpi-sub" id="bn-k-retiro-sub">—</div>
+              </div>
+              <div class="bn-kpi-card" style="cursor:pointer" onclick="bn_kpiOpenSubcuentasPopup('Capital')">
+                <div class="bn-kpi-label">Reinversión <span style="font-size:9px;color:#94a3b8">▾ clic detalle</span></div>
+                <div class="bn-kpi-value" id="bn-k-reinv">—</div>
+                <div id="bn-k-reinv-bar" style="margin:4px 0 2px"></div>
+                <div class="bn-kpi-sub" id="bn-k-reinv-sub">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Menú principal — barras full-width con jerarquía padre→hijos -->
+      <div class="bn-menu-bar" style="margin-bottom:12px;border:1px solid var(--border,#e2e8f0);border-radius:10px;overflow:hidden">
+        <!-- Row 1: categorías padre, divididas en cuadros contiguos full-width -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0">
+          <button class="bn-cat-btn" id="bn-cat-pc" data-cat="pc" onclick="bn_setCat('pc')"
+                  style="padding:12px 10px;border:none;border-right:1px solid rgba(255,255,255,.25);background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">🏷️ Por clasificar</button>
+          <button class="bn-cat-btn" id="bn-cat-reg" data-cat="reg" onclick="bn_setCat('reg')"
+                  style="padding:12px 10px;border:none;border-right:1px solid rgba(255,255,255,.25);background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📊 Cuentas</button>
+          <button class="bn-cat-btn" id="bn-cat-pres" data-cat="pres" onclick="bn_setCat('pres')"
+                  style="padding:12px 10px;border:none;border-right:1px solid rgba(255,255,255,.25);background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📐 Planeación</button>
+          <button class="bn-cat-btn" id="bn-cat-ind" data-cat="ind" onclick="bn_setCat('ind')"
+                  style="padding:12px 10px;border:none;background:#f8fafc;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">📊 Indicadores</button>
+        </div>
+        <!-- Row 2: subcategorías del padre activo — cuadros contiguos full-width en tono más claro -->
+        <div id="bn-subcat-row" style="display:grid;gap:0"></div>
+      </div>
+
+      <!-- Vista cronológica siempre activa; toggle oculto -->
+      <div id="bn-timeline-toggle-row" class="hidden"></div>
+
+      <!-- Panel "Estado de validación" (sólo en tabs Por Clasificar) -->
+      <div id="bn-review-panel" class="hidden" style="margin:8px 0 12px"></div>
+
+      <!-- Toggle de selección múltiple + selector de tamaño de página -->
+      <div id="bn-actions-row" style="display:flex;align-items:center;gap:10px;margin:6px 0 12px;flex-wrap:wrap">
+        <button id="bn-btn-sel-mode" type="button" onclick="bn_toggleSelMode()"
+                style="padding:7px 14px;border:1.5px solid var(--border,#d1d5db);background:var(--surface,#fff);color:var(--text,#374151);border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0">
+          ☑️ Seleccionar
+        </button>
+        <button id="bn-btn-match-tickets" type="button" onclick="bn_relacionarConTickets()"
+                style="padding:7px 14px;border:none;background:linear-gradient(180deg,#ef4444 0%,#b91c1c 100%);color:#fff;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 6px rgba(185,28,28,.4)">
+          🔗 Relacionar con tickets
+        </button>
+        <div style="display:inline-flex;align-items:center;gap:6px;flex-shrink:0">
+          <label for="bn-page-size" style="font-size:11px;color:var(--text-soft,#6b7280);font-weight:600">Mostrar</label>
+          <select id="bn-page-size" onchange="bn_setPageSize(this.value)"
+                  style="padding:7px 10px;border:1.5px solid var(--border,#d1d5db);background:var(--surface,#fff);color:var(--text,#374151);border-radius:8px;font-weight:600;font-size:12px;cursor:pointer">
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+          <span style="font-size:11px;color:var(--text-soft,#6b7280)">por página</span>
+        </div>
+        <div style="display:inline-flex;align-items:center;gap:6px;flex-shrink:0">
+          <div style="display:inline-flex;border:1.5px solid var(--border,#d1d5db);border-radius:8px;overflow:hidden">
+            <button id="bn-view-cards" type="button" onclick="bn_setView('cards')"
+                    style="padding:7px 12px;border:none;background:#475569;color:#fff;font-weight:600;font-size:12px;cursor:pointer">📇 Cards</button>
+            <button id="bn-view-table" type="button" onclick="bn_setView('table')"
+                    style="padding:7px 12px;border:none;background:#fff;color:#374151;font-weight:600;font-size:12px;cursor:pointer;border-left:1.5px solid var(--border,#d1d5db)">📋 Tabla</button>
+          </div>
+        </div>
+        <button type="button" onclick="bn_showDownloadPopup()"
+                title="Descargar datos filtrados"
+                style="padding:7px 14px;border:1.5px solid #2563eb;background:#fff;color:#2563eb;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0">
+          ⬇️ Descargar datos
+        </button>
+        <button id="bn-btn-sel-all" type="button" onclick="bn_selAllVisible()" class="hidden"
+                style="padding:7px 12px;border:1.5px solid var(--border,#d1d5db);background:var(--surface,#fff);color:var(--text,#374151);border-radius:8px;font-weight:600;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0">
+          Todos visibles
+        </button>
+        <button id="bn-btn-sel-clear" type="button" onclick="bn_selClear()" class="hidden"
+                style="padding:7px 12px;border:1.5px solid var(--border,#d1d5db);background:var(--surface,#fff);color:var(--text,#374151);border-radius:8px;font-weight:600;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0">
+          Limpiar selección
+        </button>
+        <span id="bn-sel-count" class="hidden" style="font-size:12px;color:#334155;font-weight:700"></span>
+      </div>
+
+      <!-- Barra: hamburguesa + buscador (table-row guarantees same line) -->
+      <div style="display:table;width:100%;border-collapse:separate;border-spacing:8px 0;margin-bottom:8px">
+        <div style="display:table-row">
+          <div style="display:table-cell;width:1px;vertical-align:middle;white-space:nowrap">
+            <button class="btn-filter-toggle" id="bn-btn-filter-toggle"
+                    onclick="bn_toggleFilters()" title="Filtros" style="margin:0">
+              <span class="hb-line"></span><span class="hb-line"></span><span class="hb-line"></span>
+            </button>
+          </div>
+          <div style="display:table-cell;vertical-align:middle;width:auto">
+            <input type="text" id="bn-f-text" placeholder="🔍  Buscar por descripción, categoría, concepto…"
+                   class="db-search-input" oninput="bn_onFilterChange()"
+                   style="width:100%;display:block;box-sizing:border-box">
+          </div>
+        </div>
+      </div>
+
+      <!-- Tarea 13: Botones Guardar/Limpiar (réplica de los inferiores) -->
+      <div id="bn-card-actions-top" class="hidden" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap"></div>
+
+      <!-- Panel de filtros multi-selects -->
+      <div class="db-filter-panel hidden" id="bn-filter-body" style="margin:8px 0 14px;padding:12px;background:#f9fafb;border:1px solid var(--border,#e5e7eb);border-radius:10px;overflow:visible">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+          <button type="button" onclick="bn_clearFilters()"
+                  style="padding:6px 12px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-weight:600;font-size:12px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:5px">
+            ✕ Limpiar filtros
+          </button>
+        </div>
+        <div id="bn-msel-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px"></div>
+      </div>
+
+      <!-- Cards view (Egresos / Ingresos) -->
+      <div id="bn-cards-container" class="hidden"></div>
+      <div id="bn-card-pagination" class="hidden"></div>
+
+      <!-- Bulk-bar horizontal arriba (sticky bajo el header del navegador) -->
+      <div id="bn-bulk-bar" class="hidden"
+           style="position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#f1f5f9;border:1.5px solid #cbd5e1;color:#374151;border-radius:14px;box-shadow:0 8px 22px rgba(71,85,105,.15);padding:8px 10px;display:flex;flex-direction:row;flex-wrap:wrap;gap:6px;z-index:9000;max-width:96vw;align-items:center">
+        <div id="bn-bulk-count" style="font-weight:800;color:#334155;font-size:11px;padding:6px 10px;border-right:1.5px solid #cbd5e1;margin-right:4px;white-space:nowrap"></div>
+        <button onclick="bn_bulkClasificar()"      style="padding:7px 12px;border:none;background:#334155;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px">🏷️</span><span>Clasificar</span></button>
+        <button onclick="bn_bulkToggleDuda()"      style="padding:7px 12px;border:none;background:#f59e0b;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px;font-weight:800">?</span><span>Marcar duda</span></button>
+        <button onclick="bn_bulkToggleValidar()"   style="padding:7px 12px;border:none;background:#16a34a;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px">✓</span><span>Marcar validado</span></button>
+        <button onclick="bn_bulkToggleDeducible()" style="padding:7px 12px;border:none;background:#0e7490;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px">💰</span><span>Deducible</span></button>
+        <button onclick="bn_bulkPromptMetodo()"    style="padding:7px 12px;border:none;background:#7c3aed;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px">💳</span><span>Método de pago</span></button>
+        <button onclick="bn_bulkPromptEncargado()" style="padding:7px 12px;border:none;background:#475569;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px">👤</span><span>Encargado</span></button>
+        <button onclick="bn_bulkPromptFecha()"     style="padding:7px 12px;border:none;background:#374151;color:#fff;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:14px">📅</span><span>Fecha</span></button>
+        <button onclick="bn_toggleSelMode()"       style="padding:7px 12px;border:1.5px solid #d1d5db;background:#fff;color:#6b7280;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span style="font-size:13px">✕</span><span>Salir</span></button>
+      </div>
+
+      <!-- Alert table (Alertas tab only) -->
+      <div id="bn-table-wrap" class="bn-table-wrap hidden">
+        <div class="bn-table-header">
+          <span class="bn-table-title" id="bn-table-title">Alertas</span>
+          <span class="bn-table-sub" id="bn-table-sub">Partidas fuera de umbral</span>
+        </div>
+        <div class="bn-table-scroll">
+          <table class="bn-table" id="bn-table">
+            <thead><tr id="bn-thead-row"></tr></thead>
+            <tbody id="bn-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Presupuesto — editor de la hoja Presupuesto_sys -->
+      <div id="bn-presupuesto" class="hidden" style="padding:14px 4px"></div>
+
+      <!-- Carga de datos bancarios — sube xlsx/csv/txt/pdf, parsea, dedupe vs BANCOS, inserta -->
+      <div id="bn-upload-pane" class="hidden" style="padding:14px 4px">
+        <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(15,23,42,.04)">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+            <div style="flex:1;min-width:240px">
+              <div style="font-size:15px;font-weight:800;color:#0f172a">📥 Carga de datos bancarios</div>
+              <div style="font-size:12px;color:#64748b;margin-top:2px">Sube uno o varios estados de cuenta. El sistema deduplica vs BANCOS, calcula el Monto firmado según el tipo de cuenta y mapea Subcuenta/Cuenta bancaria desde <code>cuentas_bancarias</code>.</div>
+            </div>
+            <label for="bn-upload-input"
+                   style="padding:10px 16px;border:1.5px solid #7c3aed;background:linear-gradient(180deg,#ede9fe,#fff);color:#5b21b6;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 2px 6px rgba(124,58,237,.18)">
+              <span style="font-size:16px">📂</span> Seleccionar archivos
+            </label>
+            <input id="bn-upload-input" type="file" multiple accept=".xlsx,.xls,.csv,.txt,.pdf"
+                   onchange="bnUploadHandleFiles(this.files)" style="display:none">
+            <button type="button" onclick="bnDrivePickerOpen()" title="Lee todos los archivos xlsx/csv de la carpeta de Drive configurada"
+                    style="padding:10px 14px;border:1.5px solid #0d9488;background:linear-gradient(180deg,#ccfbf1,#fff);color:#0f766e;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(13,148,136,.18)">
+              <span style="font-size:15px">📁</span> Leer archivos de Drive
+            </button>
+          </div>
+          <div id="bn-upload-status" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
+          <!-- Panel de selección de archivos de Drive (oculto por default) -->
+          <div id="bn-drive-panel" style="display:none;background:#f0fdfa;border:1.5px solid #5eead4;border-radius:10px;padding:14px;margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+              <div style="font-weight:800;font-size:13px;color:#0f766e">📁 Archivos en Drive</div>
+              <span id="bn-drive-count" style="font-size:11px;color:#475569"></span>
+              <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+                <button type="button" onclick="bnDriveSelectAllNew()" style="padding:5px 9px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;cursor:pointer">✓ Solo nuevos</button>
+                <button type="button" onclick="bnDriveSelectAll()" style="padding:5px 9px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;cursor:pointer">✓ Todos</button>
+                <button type="button" onclick="bnDriveSelectNone()" style="padding:5px 9px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;cursor:pointer">✕ Ninguno</button>
+                <button type="button" onclick="bnDriveClosePanel()" style="padding:5px 9px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;cursor:pointer">⤬ Cerrar</button>
+              </div>
+            </div>
+            <div id="bn-drive-files-list" style="max-height:320px;overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:4px"></div>
+            <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span id="bn-drive-selected-info" style="font-size:11px;color:#475569"></span>
+              <button id="bn-drive-process-btn" onclick="bnDriveProcessSelected()" style="margin-left:auto;padding:8px 16px;border:1.5px solid #0d9488;background:linear-gradient(180deg,#ccfbf1,#fff);color:#0f766e;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer">📥 Procesar seleccionados</button>
+            </div>
+          </div>
+          <div id="bn-upload-preview-wrap" style="display:none">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+              <div style="font-size:13px;font-weight:800;color:#0f172a">Vista previa</div>
+              <span id="bn-upload-counts" style="font-size:11px;color:#475569"></span>
+              <div style="margin-left:auto;display:flex;gap:8px">
+                <button onclick="bnUploadClearPreview()"
+                        style="padding:6px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">✕ Cancelar</button>
+                <button id="bn-upload-confirm" onclick="bnUploadConfirmInsert()"
+                        style="padding:6px 14px;border:1.5px solid #16a34a;background:linear-gradient(180deg,#dcfce7,#fff);color:#15803d;border-radius:6px;font-weight:800;font-size:12px;cursor:pointer">✓ Insertar 0 seleccionados en Bancos</button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:end;gap:10px;margin-bottom:8px;flex-wrap:wrap;padding:8px 10px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px">
+              <div style="display:flex;flex-direction:column;gap:3px;position:relative" id="bn-upload-mes-wrap">
+                <label style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em">📅 Mes</label>
+                <button type="button" id="bn-upload-mes-trigger" onclick="event.stopPropagation();bnUploadMesToggle()"
+                        style="padding:5px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;min-width:160px;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:6px">
+                  <span id="bn-upload-mes-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Todos</span>
+                  <span style="font-size:9px;color:#64748b">▼</span>
+                </button>
+                <div id="bn-upload-mes-panel" class="hidden"
+                     style="position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.15);z-index:100;min-width:200px;max-height:300px;overflow:auto">
+                  <div style="display:flex;gap:4px;padding:6px;border-bottom:1px solid #f1f5f9">
+                    <button type="button" onclick="bnUploadMesSetAll('all')" style="flex:1;padding:4px 8px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">Todos</button>
+                    <button type="button" onclick="bnUploadMesSetAll('none')" style="flex:1;padding:4px 8px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">Ninguno</button>
+                  </div>
+                  <div id="bn-upload-mes-opts" style="padding:4px"></div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <label style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em">☑ Seleccionar</label>
+                <select id="bn-upload-sel-mode" onchange="bnUploadSetSelectAll(this.value);this.value=''" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;min-width:120px">
+                  <option value="">— Elegir —</option>
+                  <option value="all">Todos</option>
+                  <option value="none">Ninguno</option>
+                </select>
+              </div>
+              <span id="bn-upload-sel-info" style="font-size:11px;color:#475569;font-weight:600"></span>
+            </div>
+            <div style="max-height:520px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px">
+              <table id="bn-upload-preview" style="width:100%;border-collapse:collapse;font-size:11px">
+                <thead id="bn-upload-preview-head" style="position:sticky;top:0;background:#f8fafc;z-index:1"></thead>
+                <tbody id="bn-upload-preview-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ EFECTIVO — tabla editable que se inserta a BANCOS ═══ -->
+      <div id="bn-efectivo-pane" class="hidden" style="padding:14px 4px">
+        <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(15,23,42,.04)">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+            <div style="flex:1;min-width:240px">
+              <div style="font-size:15px;font-weight:800;color:#0f172a">💵 Carga de movimientos en efectivo</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <button type="button" onclick="bnEfectivoLoadLastFromBancos()" style="padding:8px 12px;border:1.5px solid #0d9488;background:linear-gradient(180deg,#ccfbf1,#fff);color:#0f766e;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">📥 Mostrar últimos</button>
+              <input id="bn-efectivo-load-n" type="number" min="1" max="500" value="10" style="width:64px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;text-align:center">
+              <span style="font-size:12px;color:#475569">registros</span>
+            </div>
+            <button type="button" onclick="bnEfectivoSave()" style="padding:8px 14px;border:1.5px solid #16a34a;background:linear-gradient(180deg,#dcfce7,#fff);color:#15803d;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">💾 Guardar registros</button>
+            <button type="button" onclick="bnEfectivoClear()" style="padding:8px 14px;border:1.5px solid #94a3b8;background:#f8fafc;color:#475569;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer">🧹 Limpiar</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+            <button type="button" onclick="bnEfectivoAddRows()" style="padding:7px 12px;border:1.5px solid #7c3aed;background:linear-gradient(180deg,#ede9fe,#fff);color:#5b21b6;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">＋ Añade</button>
+            <input id="bn-efectivo-add-n" type="number" min="1" max="200" value="5" style="width:64px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;text-align:center">
+            <span style="font-size:12px;color:#475569">filas más a la tabla</span>
+          </div>
+          <div id="bn-efectivo-status" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
+          <div style="overflow:auto;max-height:62vh;border:1px solid #e2e8f0;border-radius:8px">
+            <table id="bn-efectivo-tbl" style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead id="bn-efectivo-thead" style="background:#f1f5f9;position:sticky;top:0;z-index:2"></thead>
+              <tbody id="bn-efectivo-tbody"></tbody>
+            </table>
+          </div>
+          <div id="bn-efectivo-preview-host" style="margin-top:16px"></div>
+        </div>
+      </div>
+
+      <!-- Panel slide-in: Carga de datos (Subir archivos bancarios + Registros de Efectivo) -->
+      <div id="bn-cargadatos-backdrop" class="hidden" onclick="bnCargaDatosClose()"
+           style="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9100;opacity:0;transition:opacity .25s"></div>
+      <div id="bn-cargadatos-panel" class="hidden"
+           style="position:fixed;top:0;right:0;height:100vh;width:100%;max-width:1200px;background:#fff;z-index:9200;box-shadow:-16px 0 40px rgba(15,23,42,.18);transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:linear-gradient(180deg,#faf5ff,#fff)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">📥</span>
+            <div style="font-size:14px;font-weight:800;color:#0f172a">Carga de datos</div>
+          </div>
+          <button type="button" onclick="bnCargaDatosClose()" aria-label="Cerrar"
+                  style="width:32px;height:32px;border:none;background:#f1f5f9;color:#475569;border-radius:8px;font-weight:900;font-size:16px;cursor:pointer">✕</button>
+        </div>
+        <div style="display:flex;gap:0;padding:0 14px;border-bottom:1px solid #e2e8f0;background:#f8fafc">
+          <button type="button" id="bn-cargadatos-tab-efectivo" onclick="bnCargaDatosSetTab('efectivo')"
+                  style="padding:10px 16px;border:none;background:transparent;color:#0f172a;font-weight:800;font-size:13px;cursor:pointer;border-bottom:3px solid #7c3aed;margin-bottom:-1px">💵 Registros de Efectivo</button>
+          <button type="button" id="bn-cargadatos-tab-archivos" onclick="bnCargaDatosSetTab('archivos')"
+                  style="padding:10px 16px;border:none;background:transparent;color:#64748b;font-weight:600;font-size:13px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px">📂 Subir archivos bancarios</button>
+        </div>
+        <div id="bn-cargadatos-host" style="flex:1;overflow:auto;padding:14px;background:#fff"></div>
+      </div>
+
+      <!-- Slide-in genérico: detalle de Incidencia / Objeto olvidado relacionado a una reserva -->
+      <div id="lg-related-backdrop" class="hidden" onclick="lgCloseRelatedPanel()"
+           style="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:10050;opacity:0;transition:opacity .25s"></div>
+      <div id="lg-related-panel" class="hidden"
+           style="position:fixed;top:0;right:0;height:100vh;width:100%;max-width:1100px;background:#fff;z-index:10100;box-shadow:-16px 0 40px rgba(15,23,42,.18);transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:linear-gradient(180deg,#fef3c7,#fff)">
+          <div id="lg-related-title" style="font-size:14px;font-weight:800;color:#0f172a">Detalle</div>
+          <button type="button" onclick="lgCloseRelatedPanel()" aria-label="Cerrar"
+                  style="width:32px;height:32px;border:none;background:#f1f5f9;color:#475569;border-radius:8px;font-weight:900;font-size:16px;cursor:pointer">✕</button>
+        </div>
+        <div id="lg-related-host" style="flex:1;overflow:auto;padding:14px;background:#fff"></div>
+      </div>
+
+      <!-- Slide-in: detalle del ticket relacionado al chip de match -->
+      <div id="bn-match-detail-backdrop" class="hidden" onclick="bn_closeMatchDetailPanel()"
+           style="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:10050;opacity:0;transition:opacity .25s"></div>
+      <div id="bn-match-detail-panel" class="hidden"
+           style="position:fixed;top:0;right:0;height:100vh;width:100%;max-width:1100px;background:#fff;z-index:10100;box-shadow:-16px 0 40px rgba(15,23,42,.18);transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:linear-gradient(180deg,#ecfdf5,#fff)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">🧾</span>
+            <div style="font-size:14px;font-weight:800;color:#0f172a">Ticket relacionado</div>
+          </div>
+          <button type="button" onclick="bn_closeMatchDetailPanel()" aria-label="Cerrar"
+                  style="width:32px;height:32px;border:none;background:#f1f5f9;color:#475569;border-radius:8px;font-weight:900;font-size:16px;cursor:pointer">✕</button>
+        </div>
+        <div id="bn-match-detail-host" style="flex:1;overflow:auto;padding:14px;background:#fff"></div>
+      </div>
+
+      <!-- Análisis por partida — agregado jerárquico con semáforo de presupuesto -->
+      <div id="bn-analisis-partida" class="hidden" style="padding:14px 4px">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap">
+          <h3 style="margin:0;font-size:16px;display:flex;align-items:center;gap:6px">🧮 Análisis por partida</h3>
+          <span style="font-size:11px;color:var(--text-soft,#6b7280);font-style:italic">Elige los niveles a desglosar</span>
+        </div>
+        <!-- Selector de nivel de desglose (dropdown único) -->
+        <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;padding:10px 12px;background:var(--surface,#f9fafb);border:1px solid var(--border,#e5e7eb);border-radius:10px;align-items:flex-end">
+          <div style="min-width:200px">
+            <label style="display:block;font-weight:700;color:var(--text-soft,#6b7280);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Nivel de desglose</label>
+            <select id="bn-ap-level-select" onchange="bn_setApLevel(this.value)"
+                    style="width:100%;padding:8px 12px;border:1px solid var(--border,#d1d5db);border-radius:6px;background:var(--surface,#fff);color:var(--text,#374151);cursor:pointer;font-size:13px">
+              <option value="1">🏷️ Cuenta</option>
+              <option value="2">📂 Subcuenta</option>
+              <option value="3">📁 Categoría</option>
+              <option value="4" selected>🔹 Concepto</option>
+            </select>
+          </div>
+          <div style="min-width:200px">
+            <label style="display:block;font-weight:700;color:var(--text-soft,#6b7280);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Fuente de datos</label>
+            <button id="bn-ap-data-toggle" type="button" onclick="bn_apToggleDataMode()"
+                    style="padding:8px 14px;border:1px solid #475569;background:#475569;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700">
+              📋 Todos los registros
+            </button>
+          </div>
+        </div>
+        <!-- Tabla resultado -->
+        <div id="bn-ap-table" style="overflow-x:auto"></div>
+      </div>
+
+      <!-- Modal de registros bajo una partida (Análisis por partida) -->
+      <div id="bn-ap-records-overlay" class="hidden"
+           style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px"
+           onclick="bn_apRecordsOverlayClick(event)">
+        <div id="bn-ap-records-modal"
+             style="background:#fff;border-radius:14px;width:100%;max-width:1100px;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(15,23,42,.4);padding:20px"
+             onclick="event.stopPropagation()">
+          <button onclick="bn_closeApRecordsModal()"
+                  style="position:absolute;top:10px;right:10px;width:34px;height:34px;border:none;background:#f1f5f9;border-radius:50%;font-size:18px;cursor:pointer;color:#475569;z-index:2"
+                  aria-label="Cerrar">✕</button>
+          <h2 id="bn-ap-records-title" style="margin:0 0 6px;font-size:16px;display:flex;align-items:center;gap:6px;padding-right:40px">📋 Registros</h2>
+          <p id="bn-ap-records-sub" style="margin:0 0 14px;font-size:12px;color:#64748b"></p>
+          <div id="bn-ap-records-body" style="overflow-x:auto"></div>
+        </div>
+      </div>
+
+      <!-- Indicadores modal overlay -->
+      <div id="bn-indicadores-overlay" class="hidden"
+           style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px"
+           onclick="bn_indicadoresOverlayClick(event)">
+        <div id="bn-indicadores-modal"
+             style="background:#fff;border-radius:14px;width:100%;max-width:980px;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.4);padding:24px 18px 22px"
+             onclick="event.stopPropagation()">
+          <button onclick="bn_closeIndicadoresModal()"
+                  style="position:absolute;top:10px;right:10px;width:34px;height:34px;border:none;background:#f3f4f6;border-radius:50%;font-size:18px;cursor:pointer;color:#374151;z-index:2"
+                  aria-label="Cerrar">✕</button>
+          <h2 style="margin:0 0 14px;font-size:18px;display:flex;align-items:center;gap:8px">📊 Indicadores</h2>
+          <!-- Filtros Año/Mes INDEPENDIENTES (dropdown multi-select estilo ventana principal) -->
+          <div style="margin-bottom:18px;padding:12px 14px;background:#fffbeb;border:1px solid #cbd5e1;border-radius:10px">
+            <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px">
+              <div class="bn-msel" data-field="ind_anio" style="position:relative;min-width:160px;flex:1">
+                <label style="display:block;font-weight:700;color:#92400e;font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Año</label>
+                <button class="bn-msel-trigger" onclick="bn_mselToggle('ind_anio',event)" type="button"
+                        style="width:100%;padding:8px 12px;border:1px solid #94a3b8;border-radius:6px;background:#fff;cursor:pointer;text-align:left;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+                  <span class="bn-msel-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Todos</span>
+                  <span style="font-size:10px;color:#92400e;margin-left:6px">▼</span>
+                </button>
+                <div class="bn-msel-panel hidden" id="bn-msel-panel-ind_anio"
+                     style="position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid #94a3b8;border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.12);max-height:260px;overflow-y:auto;z-index:9999;padding:6px;min-width:160px"></div>
+              </div>
+              <div class="bn-msel" data-field="ind_mes" style="position:relative;min-width:200px;flex:1">
+                <label style="display:block;font-weight:700;color:#92400e;font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">🗓️ Mes</label>
+                <button class="bn-msel-trigger" onclick="bn_mselToggle('ind_mes',event)" type="button"
+                        style="width:100%;padding:8px 12px;border:1px solid #94a3b8;border-radius:6px;background:#fff;cursor:pointer;text-align:left;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+                  <span class="bn-msel-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Todos</span>
+                  <span style="font-size:10px;color:#92400e;margin-left:6px">▼</span>
+                </button>
+                <div class="bn-msel-panel hidden" id="bn-msel-panel-ind_mes"
+                     style="position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid #94a3b8;border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.12);max-height:260px;overflow-y:auto;z-index:9999;padding:6px;min-width:200px"></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <span style="font-size:11px;color:#92400e;font-style:italic">Filtros independientes — no afectan la vista principal</span>
+              <button onclick="bn_indToggleChartType()" id="bn-ind-chart-type-btn"
+                      style="margin-left:auto;padding:6px 12px;border:1.5px solid #94a3b8;background:#fff;color:#92400e;font-weight:600;font-size:11px;cursor:pointer;border-radius:6px">
+                📊 Cambiar a Barras
+              </button>
+            </div>
+          </div>
+
+      <!-- Indicadores content (hidden unless tab F) -->
+      <div id="bn-indicadores" class="hidden">
+        <!-- Leyenda HTML externa (fuera del canvas) -->
+        <div id="bn-chart-legend" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:6px;padding:0 4px">
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#374151;font-weight:600">
+            <span style="display:inline-block;width:14px;height:14px;background:#10b981;border-radius:3px"></span>
+            Ingresos
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#374151;font-weight:600">
+            <span style="display:inline-block;width:14px;height:14px;background:#f59e0b;border-radius:3px"></span>
+            Egresos
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#374151;font-weight:600">
+            <span style="display:inline-block;width:14px;height:14px;background:#6366f1;border-radius:3px"></span>
+            Utilidad
+          </span>
+        </div>
+        <div class="bn-section-title">Tendencia mensual (Ingresos / Egresos / Utilidad)</div>
+        <div class="bn-chart-wrap">
+          <div style="position:relative;width:100%">
+            <canvas id="bn-trend-canvas" style="width:100%;display:block"></canvas>
+            <div id="bn-trend-tip" class="bn-chart-tip" style="display:none"></div>
+          </div>
+        </div>
+        <div class="bn-section-title">Margen neto mensual</div>
+        <div class="bn-chart-wrap">
+          <div style="position:relative;width:100%">
+            <canvas id="bn-margin-canvas" style="width:100%;display:block"></canvas>
+            <div id="bn-margin-tip" class="bn-chart-tip" style="display:none"></div>
+          </div>
+        </div>
+        <div class="bn-section-title">Alertas financieras automáticas</div>
+        <div class="bn-alerts-list" id="bn-alerts-list"></div>
+      </div>
+        </div><!-- /bn-indicadores-modal -->
+      </div><!-- /bn-indicadores-overlay -->
+
+      <!-- Loading / empty state -->
+      <div id="bn-empty" class="empty-state" style="padding:50px 20px;display:none">
+        <div class="empty-icon">📚</div>
+        <p id="bn-empty-msg" style="color:var(--text-soft);margin:0">Sin datos</p>
+      </div>
+
+    </div><!-- /module-registros -->
+
+    <!-- ══ MÓDULO: Información de huéspedes ════════════════════════ -->
+    <div id="module-huespedes" class="hidden">
+      <div class="db-top-bar" style="flex-wrap:wrap;gap:8px">
+        <div class="db-top-left">
+          <span class="db-todas-label">Información de huéspedes</span>
+        </div>
+        <div class="db-top-right">
+          <span class="db-count-inline" id="hu-status-label">—</span>
+          <button class="btn-limpiar" style="margin:0" onclick="huespedesLoad(true)">↻ Actualizar</button>
+          <button class="btn-limpiar" style="margin:0" onclick="huespedesClearFilters()">✕ Limpiar filtros</button>
+        </div>
+      </div>
+
+      <!-- Filtro Mes (auto-selecciona mes actual) -->
+      <div style="display:flex;gap:12px;align-items:end;margin:10px 0 8px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;flex-wrap:wrap">
+        <div style="min-width:180px">
+          <label style="display:block;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">📅 Mes de estancia</label>
+          <select id="hu-filtro-mes" onchange="huespedesRender()"
+                  style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff">
+            <option value="">Todos los meses</option>
+          </select>
+          <div style="font-size:10px;color:#94a3b8;margin-top:3px">Muestra registros cuya estancia toca al menos un día del mes.</div>
+        </div>
+
+        <!-- Ponderaciones del Índice de Lealtad (afectan la insignia + score) -->
+        <div style="flex:1;min-width:300px;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <label style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em">🏅 Ponderaciones del Índice de Lealtad</label>
+            <button type="button" onclick="huResetLoyaltyWeights()" style="padding:3px 8px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer">↺ Default</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <label style="font-size:10px;color:#64748b;font-weight:600">
+              🌙 Noches
+              <input type="number" id="hu-w-noches" min="0" max="100" step="5" value="30"
+                     oninput="huOnLoyaltyWeightChange()"
+                     style="width:100%;padding:5px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:2px;font-weight:700;color:#0f172a">
+            </label>
+            <label style="font-size:10px;color:#64748b;font-weight:600">
+              🧳 Visitas
+              <input type="number" id="hu-w-visitas" min="0" max="100" step="5" value="20"
+                     oninput="huOnLoyaltyWeightChange()"
+                     style="width:100%;padding:5px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:2px;font-weight:700;color:#0f172a">
+            </label>
+            <label style="font-size:10px;color:#64748b;font-weight:600">
+              💰 Monto
+              <input type="number" id="hu-w-monto" min="0" max="100" step="5" value="50"
+                     oninput="huOnLoyaltyWeightChange()"
+                     style="width:100%;padding:5px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;margin-top:2px;font-weight:700;color:#0f172a">
+            </label>
+          </div>
+          <div id="hu-w-sum-note" style="font-size:10px;color:#94a3b8;margin-top:4px">Suma = 100. Score 0-100 → Oro ≥70 · Plata ≥45 · Bronce ≥25 · Recurrente ≥10.</div>
+        </div>
+      </div>
+
+      <!-- Filtros granulares (selects con valores únicos del backend) -->
+      <div id="hu-filters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:10px"></div>
+
+      <!-- Botones de acción del dashboard -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button onclick="huespedesLoad(true)"
+                style="padding:8px 16px;border:none;background:#334155;color:#fff;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">🔍 Buscar registros</button>
+        <button onclick="huespedesExportCsv()"
+                style="padding:8px 14px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer">⬇ Exportar CSV</button>
+      </div>
+
+      <!-- KPIs (los 3 conteos + tarjeta ancha de Estado de tickets) -->
+      <div class="hu-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px">
+        <div class="hu-kpi-card">
+          <div class="hu-kpi-label">Registros encontrados</div>
+          <div class="hu-kpi-value" id="hu-kpi-total">0</div>
+        </div>
+        <div class="hu-kpi-card">
+          <div class="hu-kpi-label">Con factura</div>
+          <div class="hu-kpi-value" id="hu-kpi-con-factura">0</div>
+        </div>
+        <div class="hu-kpi-card">
+          <div class="hu-kpi-label">Sin factura</div>
+          <div class="hu-kpi-value" id="hu-kpi-sin-factura">0</div>
+        </div>
+      </div>
+
+      <!-- Estado de tickets — tarjeta ancha con barra stacked + métricas -->
+      <div class="hu-ticket-status-card" id="hu-ticket-status-card" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(15,23,42,.05)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+          <div>
+            <div class="hu-kpi-label">Estado de tickets</div>
+            <div style="font-size:18px;font-weight:800;color:#111827;margin-top:2px">Emitidos vs pendientes</div>
+          </div>
+          <div id="hu-tickets-total-requieren" style="display:inline-flex;align-items:center;padding:6px 14px;border:1.5px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:999px;font-weight:700;font-size:12px">
+            0 tickets requieren factura
+          </div>
+        </div>
+        <div style="display:flex;height:14px;border-radius:999px;overflow:hidden;background:#e5e7eb;margin-bottom:12px">
+          <div id="hu-bar-emitido"   style="height:100%;width:0%;background:linear-gradient(90deg,#16a34a,#86efac);transition:width .3s"></div>
+          <div id="hu-bar-pendiente" style="height:100%;width:0%;background:linear-gradient(90deg,#fca5a5,#dc2626);transition:width .3s"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px">
+          <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px">
+            <span style="width:10px;height:10px;border-radius:50%;background:#16a34a;display:inline-block;flex-shrink:0"></span>
+            <div>
+              <div style="font-size:11px;color:#14532d;text-transform:uppercase;font-weight:700;letter-spacing:.04em">Emitidos</div>
+              <div style="font-size:16px;font-weight:800;color:#14532d"><span id="hu-emitidos-num">0</span> (<span id="hu-pct-emitidos">0%</span>)</div>
+            </div>
+          </div>
+          <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px">
+            <span style="width:10px;height:10px;border-radius:50%;background:#dc2626;display:inline-block;flex-shrink:0"></span>
+            <div>
+              <div style="font-size:11px;color:#7f1d1d;text-transform:uppercase;font-weight:700;letter-spacing:.04em">Pendientes</div>
+              <div style="font-size:16px;font-weight:800;color:#7f1d1d"><span id="hu-pendientes-num">0</span> (<span id="hu-pct-pendientes">0%</span>)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alertas dashboard (pendientes en rojo / emitidos en verde) -->
+      <div id="hu-alerts" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+
+      <!-- Meta de resultados (texto descriptivo) -->
+      <div id="hu-meta" style="font-size:12px;color:#475569;margin-bottom:10px;font-style:italic">Sin consulta todavía.</div>
+
+      <!-- Switch de visualización: Lista / Calendario -->
+      <div style="display:inline-flex;border:1.5px solid #cbd5e1;border-radius:10px;overflow:hidden;margin-bottom:12px">
+        <button id="hu-view-lista" onclick="huespedesSetView('lista')"
+                style="padding:8px 18px;border:none;background:#334155;color:#fff;font-weight:700;font-size:13px;cursor:pointer;border-right:1.5px solid #cbd5e1">Lista</button>
+        <button id="hu-view-calendario" onclick="huespedesSetView('calendario')"
+                style="padding:8px 18px;border:none;background:#fff;color:#475569;font-weight:700;font-size:13px;cursor:pointer">Calendario</button>
+      </div>
+
+      <!-- Empty / loading -->
+      <div id="hu-empty" class="empty-state" style="text-align:center;padding:30px;color:#94a3b8;font-size:13px">Cargando datos…</div>
+
+      <!-- Vista Lista — cards expandibles -->
+      <div id="hu-records-wrap" class="hidden" style="display:flex;flex-direction:column;gap:8px"></div>
+
+      <!-- Vista Calendario -->
+      <div id="hu-calendar-wrap" class="hidden" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px"></div>
+
+      <!-- Paginador -->
+      <div id="hu-pager" style="display:flex;justify-content:center;gap:6px;padding:12px;margin-top:8px"></div>
+
+      <!-- Modal detalle -->
+      <div id="hu-detail-overlay" class="hidden"
+           style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px"
+           onclick="if(event.target===this)this.classList.add('hidden')">
+        <div style="background:#fff;border-radius:14px;width:100%;max-width:760px;max-height:88vh;overflow:auto;padding:20px;box-shadow:0 20px 60px rgba(15,23,42,.4)" onclick="event.stopPropagation()">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <h3 style="margin:0;font-size:16px;color:#1f2937" id="hu-detail-title">Detalle</h3>
+            <button onclick="document.getElementById('hu-detail-overlay').classList.add('hidden')"
+                    style="width:32px;height:32px;border:none;background:#f1f5f9;border-radius:50%;font-size:16px;cursor:pointer">✕</button>
+          </div>
+          <div id="hu-detail-body"></div>
+        </div>
+      </div>
+    </div><!-- /module-huespedes -->
+
+    <!-- ───────── Módulo: Reservas Lodgify ───────── -->
+    <div id="module-lodgify" class="hidden">
+      <div class="db-top-bar" style="margin-bottom:14px">
+        <div class="db-top-left">
+          <span class="db-todas-label">Gestión de reservas</span>
+        </div>
+        <div class="db-top-right" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span class="db-count-inline" id="lg-status-label">—</span>
+          <span id="lg-last-sync" style="font-size:11px;color:#64748b;font-weight:600">—</span>
+          <button class="btn-limpiar" style="margin:0" onclick="lgRefreshAll()" title="Recarga Lodgify + Reservaciones desde Sheets (instantáneo, no consulta Lodgify API)">↻ Refrescar</button>
+          <button class="btn-limpiar" style="margin:0;background:#0d9488;color:#fff;border-color:#0d9488" onclick="lodgifySync(false)" title="Sincroniza últimos 60d + futuro 1 año desde Lodgify">🔄 Sincronizar</button>
+          <button class="btn-limpiar" style="margin:0" onclick="lodgifySync(true)" title="Sincronización completa: 2 años atrás/adelante (2-5 min)">⏳ Sync completa</button>
+          <button class="btn-limpiar" style="margin:0;background:#7c3aed;color:#fff;border-color:#7c3aed" onclick="lgOpenManualRegistro()" title="Abre el formulario express de registro manual">＋ Crear registro manual</button>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div style="display:flex;gap:12px;align-items:end;margin:10px 0 8px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;flex-wrap:wrap">
+        <div style="min-width:170px" id="lg-multi-programacion"></div>
+        <div style="min-width:170px" id="lg-multi-source"></div>
+        <div style="min-width:170px" id="lg-multi-status"></div>
+        <div style="min-width:170px" id="lg-multi-propiedad"></div>
+        <div style="min-width:170px" id="lg-multi-factura"></div>
+        <div style="min-width:170px" id="lg-multi-calificacion"></div>
+        <div style="min-width:170px" id="lg-multi-incidencias"></div>
+        <div style="min-width:170px" id="lg-multi-objetos"></div>
+        <!-- Multi-select de meses (reemplaza los rangos de fecha). El
+             contenido se rellena dinámicamente desde lgRebuildFilterOptions
+             en función de los meses presentes en LG_STATE.bookings +
+             HU_STATE.rows. Default = mes en curso. -->
+        <div style="min-width:200px" id="lg-multi-meses"></div>
+        <div style="min-width:200px;flex:1">
+          <label style="display:block;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">🔍 Buscar</label>
+          <input type="text" id="lg-filtro-nombre" placeholder="Nombre, correo, teléfono o Booking ID…" oninput="lodgifyRenderForce()"
+                 style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff">
+        </div>
+        <div>
+          <button type="button" onclick="lgClearFilters()"
+                  style="padding:8px 14px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">✕ Borrar filtros</button>
+        </div>
+      </div>
+
+      <!-- Toggle de vista (lista / kanban / tabla) -->
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 10px">
+        <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Vista:</div>
+        <div style="display:inline-flex;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:4px">
+          <!-- "Cards" es el botón default. "Detalles" y "Lista" ocultos
+               temporalmente — se mantienen en el DOM por si el JS los referencia. -->
+          <button id="lg-view-cards" onclick="lgSetViewMode('cards')"
+                  style="padding:6px 12px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">🧾 Cards</button>
+          <button id="lg-view-kanban" onclick="lgSetViewMode('kanban')"
+                  style="padding:6px 12px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">🗂️ 4 columnas</button>
+          <button id="lg-view-table" onclick="lgSetViewMode('table')"
+                  style="padding:6px 12px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">📊 Tabla</button>
+          <button id="lg-view-detail" onclick="lgSetViewMode('detail')"
+                  style="display:none">📂 Detalles</button>
+          <button id="lg-view-list" onclick="lgSetViewMode('list')"
+                  style="display:none">📋 Lista</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="hu-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px">
+        <div class="hu-kpi-card"><div class="hu-kpi-label">Reservaciones</div><div class="hu-kpi-value" id="lg-kpi-count">0</div></div>
+        <div class="hu-kpi-card"><div class="hu-kpi-label">Noches totales</div><div class="hu-kpi-value" id="lg-kpi-nights">0</div></div>
+        <div class="hu-kpi-card"><div class="hu-kpi-label">Ingreso bruto</div><div class="hu-kpi-value" id="lg-kpi-gross">—</div></div>
+        <div class="hu-kpi-card"><div class="hu-kpi-label">Tarifa promedio/noche</div><div class="hu-kpi-value" id="lg-kpi-avg">—</div></div>
+      </div>
+
+      <!-- Cards container -->
+      <div id="lg-cards" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div id="lg-empty" class="empty hidden">Sin reservaciones en el rango seleccionado.</div>
+
+      <!-- Modal de detalle de reservación Lodgify -->
+      <div id="lg-detail-overlay" class="hidden"
+           onclick="lgCloseDetailModal()"
+           style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)">
+        <div onclick="event.stopPropagation()"
+             style="background:#fff;border-radius:16px;width:100%;max-width:1100px;max-height:92vh;overflow:auto;padding:0;box-shadow:0 24px 60px rgba(15,23,42,.45);position:relative">
+          <button onclick="lgCloseDetailModal()" title="Cerrar (Esc)" aria-label="Cerrar"
+                  style="position:absolute;top:14px;right:14px;width:36px;height:36px;border:none;background:#fff;color:#1f2937;border-radius:50%;font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18);z-index:10">✕</button>
+          <div id="lg-detail-body" style="padding:22px"></div>
+        </div>
+      </div>
+      <!-- Panel slide-in: Crear registro manual (express) -->
+      <div id="lg-manual-backdrop" class="hidden" onclick="lgCloseManualRegistro()"
+           style="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9100;opacity:0;transition:opacity .25s"></div>
+      <div id="lg-manual-panel" class="hidden"
+           style="position:fixed;top:0;right:0;height:100vh;width:100%;max-width:980px;background:#fff;z-index:9200;box-shadow:-16px 0 40px rgba(15,23,42,.18);transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:linear-gradient(180deg,#faf5ff,#fff)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">⚡</span>
+            <div>
+              <div style="font-size:14px;font-weight:800;color:#0f172a">Crear registro manual</div>
+              <div style="font-size:11px;color:#64748b">Adentro: pulsa "Registro exprés de nueva reservación"</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <a id="lg-manual-open-new" href="https://www.check-inn.mx/public/registro/" target="_blank" rel="noopener"
+               style="padding:6px 10px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none">↗ Nueva pestaña</a>
+            <button type="button" onclick="lgCloseManualRegistro()" aria-label="Cerrar"
+                    style="width:32px;height:32px;border:none;background:#f1f5f9;color:#475569;border-radius:8px;font-weight:900;font-size:16px;cursor:pointer">✕</button>
+          </div>
+        </div>
+        <iframe id="lg-manual-iframe" src="about:blank"
+                style="flex:1;width:100%;border:0;background:#fff"></iframe>
+      </div>
+    </div><!-- /module-lodgify -->
+
+    <!-- ───────── Módulo: Reservas - detalles ───────── -->
+    <div id="module-reservas-detalles" class="hidden">
+      <div class="rd-shell">
+        <!-- Sidebar izquierdo: lista de reservas -->
+        <aside class="rd-sidebar">
+          <div class="rd-sidebar-header">
+            <div>
+              <div class="rd-sidebar-title">Reservas</div>
+              <div class="rd-sidebar-count" id="rd-count">— reservas</div>
+            </div>
+            <div class="rd-sidebar-icons">
+              <button class="rd-icon-btn" id="rd-btn-filter" title="Filtrar" onclick="rdToggleFilter()">⫥</button>
+              <button class="rd-icon-btn" id="rd-btn-search" title="Buscar" onclick="rdToggleSearch()">🔍</button>
+            </div>
+          </div>
+          <div id="rd-search-box" class="rd-search-box">
+            <input type="text" id="rd-search-input" placeholder="Buscar por nombre, ID, propiedad…" oninput="rdRender()">
+          </div>
+          <div id="rd-list" class="rd-list"></div>
+          <div class="rd-sidebar-footer">
+            <button class="rd-btn-create" onclick="alert('Crear reserva: por implementar')">＋ Crear reserva</button>
+          </div>
+        </aside>
+
+        <!-- Panel principal -->
+        <main id="rd-main" class="rd-main">
+          <div class="rd-empty-state">
+            <div style="font-size:38px;opacity:.3">📒</div>
+            <div>Selecciona una reservación de la lista</div>
+          </div>
+        </main>
+
+        <!-- Sidebar derecho: info huésped + notas -->
+        <aside id="rd-rightbar" class="rd-rightbar"></aside>
+      </div>
+    </div><!-- /module-reservas-detalles -->
+
+    <!-- ══ MÓDULO: Breezeway ═══════════════════════════════════════ -->
+    <div id="module-breezeway" class="hidden" style="padding:20px 24px 60px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+        <div>
+          <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em">🧹 Breezeway</div>
+          <div style="font-size:13px;color:#64748b;margin-top:2px">Alertas en tiempo real de alojamientos listos / tareas de limpieza completadas.</div>
+        </div>
+      </div>
+
+      <!-- View toggle: Lista de Tasks | Calendario -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <span style="font-size:11px;color:#94a3b8;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-right:4px">Vista:</span>
+        <button id="bzw-view-btn-list" onclick="bzwSetView('list')"
+                style="padding:8px 16px;border:1.5px solid #0d9488;background:#0d9488;color:#fff;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer">
+          📋 Lista de Tasks
+        </button>
+        <button id="bzw-view-btn-calendar" onclick="bzwSetView('calendar')"
+                style="padding:8px 16px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">
+          📅 Calendario
+        </button>
+      </div>
+
+      <!-- ═══════ Vista: Lista de Tasks ═══════ -->
+      <div id="bzw-view-list-pane">
+
+      <!-- Estado: conexión + último ping del webhook -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:22px">
+        <div id="bzw-status-token" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:14px 16px;box-shadow:0 2px 8px rgba(15,23,42,.05)">
+          <div style="font-size:10px;letter-spacing:.14em;color:#64748b;font-weight:800;text-transform:uppercase;margin-bottom:6px">🔑 Token JWT</div>
+          <div style="font-size:14px;font-weight:800;color:#94a3b8" id="bzw-status-token-val">No verificado</div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px" id="bzw-status-token-detail">Oprime "Probar token" para validar credenciales.</div>
+        </div>
+        <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:14px 16px;box-shadow:0 2px 8px rgba(15,23,42,.05)">
+          <div style="font-size:10px;letter-spacing:.14em;color:#64748b;font-weight:800;text-transform:uppercase;margin-bottom:6px">📨 Alertas en buffer</div>
+          <div style="font-size:24px;font-weight:900;color:#0f172a;line-height:1" id="bzw-stat-count">—</div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px" id="bzw-stat-detail">Últimos eventos recibidos del webhook.</div>
+        </div>
+        <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:14px 16px;box-shadow:0 2px 8px rgba(15,23,42,.05)">
+          <div style="font-size:10px;letter-spacing:.14em;color:#64748b;font-weight:800;text-transform:uppercase;margin-bottom:6px">🕐 Última actualización</div>
+          <div style="font-size:14px;font-weight:800;color:#0f172a" id="bzw-stat-last">—</div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px">Hora de la última consulta al backend.</div>
+        </div>
+      </div>
+
+      <!-- Sincronizar con Breezeway (re-fetch a la API + persiste al sheet) -->
+      <div style="background:#fff;border:1.5px solid #c4b5fd;border-radius:14px;padding:14px 18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(124,58,237,.08)">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+          <button id="bzw-filters-toggle" type="button" onclick="bzwToggleFilters()"
+                  title="Mostrar / ocultar filtros"
+                  style="padding:0;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:18px;line-height:1;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center">☰</button>
+          <div>
+            <label style="display:block;font-size:10px;color:#64748b;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Desde</label>
+            <input type="date" id="bzw-from" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;color:#0f172a;background:#fff">
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;color:#64748b;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Hasta</label>
+            <input type="date" id="bzw-to" style="padding:6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;color:#0f172a;background:#fff">
+          </div>
+          <div style="flex:1;min-width:220px;max-width:360px">
+            <label style="display:block;font-size:10px;color:#64748b;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">🔎 Buscar</label>
+            <div style="position:relative">
+              <input type="search" id="bzw-search" oninput="bzwApplyFiltersDebounced()" placeholder="Nombre, propiedad, asignado, lodgify id, descripción…"
+                     style="width:100%;padding:6px 28px 6px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;color:#0f172a;background:#fff;outline:none">
+              <button type="button" onclick="(()=>{const el=document.getElementById('bzw-search');if(el){el.value='';bzwApplyFiltersDebounced();el.focus();}})()" title="Limpiar"
+                      style="position:absolute;right:4px;top:50%;transform:translateY(-50%);border:none;background:transparent;color:#94a3b8;font-size:14px;cursor:pointer;padding:2px 6px;line-height:1">✕</button>
+            </div>
+          </div>
+          <button onclick="bzwSync()" title="Re-pula la API de Breezeway por el rango y agrega lo nuevo al sheet"
+                  style="padding:8px 16px;border:1.5px solid #7c3aed;background:linear-gradient(180deg,#ede9fe,#fff);color:#5b21b6;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer">
+            🔄 Sincronizar
+          </button>
+          <button onclick="bzwRefreshAlerts()" title="Solo recarga lo que ya está en el sheet (rápido)"
+                  style="padding:8px 12px;border:1px solid #cbd5e1;background:#fff;color:#64748b;border-radius:8px;font-weight:600;font-size:12px;cursor:pointer">
+            ↻ Recargar
+          </button>
+          <div style="margin-left:auto;font-size:11px;color:#64748b" id="bzw-sync-status"></div>
+        </div>
+      </div>
+
+      <!-- Filtros multi-select (siempre visibles, se pueblan dinámicamente) -->
+      <div id="bzw-filters" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:12px 18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(15,23,42,.04)">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+          <div>
+            <label style="display:block;font-size:10px;color:#64748b;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Status</label>
+            <div id="bzw-f-status" class="bzw-filt"></div>
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;color:#64748b;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Tipo de task</label>
+            <div id="bzw-f-dept" class="bzw-filt"></div>
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;color:#64748b;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Propiedad</label>
+            <div id="bzw-f-prop" class="bzw-filt"></div>
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;color:#64748b;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Asignaciones</label>
+            <div id="bzw-f-assign" class="bzw-filt"></div>
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;color:#64748b;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Realizada por</label>
+            <div id="bzw-f-realizada" class="bzw-filt"></div>
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;color:#64748b;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Prioridad</label>
+            <div id="bzw-f-priority" class="bzw-filt"></div>
+          </div>
+          <button onclick="bzwResetFilters()" style="padding:6px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#64748b;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">✕ Limpiar</button>
+          <div style="margin-left:auto;font-size:12px;color:#64748b" id="bzw-filter-count">—</div>
+        </div>
+      </div>
+
+      <!-- Lista de alertas -->
+      <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:0;box-shadow:0 4px 16px rgba(15,23,42,.06);overflow:hidden">
+        <div style="height:4px;background:linear-gradient(90deg,#7c3aed,#0d9488,#06b6d4)"></div>
+        <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:11px;letter-spacing:.18em;color:#64748b;font-weight:800;text-transform:uppercase" id="bzw-list-title">📋 Bitácora de tareas</div>
+          <div style="font-size:11px;color:#94a3b8;font-style:italic" id="bzw-list-sub">Hoy primero · luego más recientes arriba</div>
+        </div>
+        <div id="bzw-alerts-list" style="padding:14px 18px;min-height:120px;max-height:1200px;overflow-y:auto">
+          <div style="text-align:center;color:#94a3b8;font-size:13px;padding:30px 0;font-style:italic">
+            Cargando alertas…
+          </div>
+        </div>
+      </div>
+
+      </div><!-- /bzw-view-list-pane -->
+
+      <!-- ═══════ Vista: Calendario ═══════ -->
+      <div id="bzw-view-calendar-pane" class="hidden">
+        <!-- Toolbar del calendario -->
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 14px;box-shadow:0 2px 8px rgba(15,23,42,.04)">
+          <button onclick="bzwCalThisWeek()" style="padding:6px 12px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:7px;font-weight:700;font-size:12px;cursor:pointer">Esta semana</button>
+          <button onclick="bzwCalNav(-7)" title="Semana anterior" style="padding:6px 10px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:7px;font-weight:700;font-size:13px;cursor:pointer;line-height:1">‹</button>
+          <button onclick="bzwCalNav(7)" title="Semana siguiente" style="padding:6px 10px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:7px;font-weight:700;font-size:13px;cursor:pointer;line-height:1">›</button>
+          <span id="bzw-cal-range" style="font-size:13px;color:#475569;font-weight:700;margin-left:6px">—</span>
+          <span style="margin-left:auto;font-size:11px;color:#94a3b8;font-style:italic" id="bzw-cal-count">—</span>
+        </div>
+        <!-- Grid del calendario (se renderiza dinámicamente).
+             max-height + overflow se definen en CSS para que sticky funcione. -->
+        <div id="bzw-cal-grid" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,.04)"></div>
+      </div>
+
+      <!-- Panel lateral de detalle (slide-in desde la derecha) -->
+      <aside id="bzw-detail-panel" class="bzw-detail-panel hidden" aria-hidden="true"></aside>
+      <div id="bzw-detail-backdrop" class="bzw-detail-backdrop hidden" onclick="bzwCloseDetailPanel()"></div>
+    </div><!-- /module-breezeway -->
+
+    <!-- ═══════════════ MÓDULO INCIDENCIAS ═══════════════ -->
+    <div id="module-incidencias" class="hidden" style="padding:20px 24px 60px">
+      <div style="max-width:1440px;margin:0 auto">
+        <div class="inc-hero">
+          <div>
+            <div class="inc-hero-kicker">Control operativo · limpieza y mantenimiento</div>
+            <h1 class="inc-hero-title">🚨 Incidencias</h1>
+            <p class="inc-hero-sub">Historial de reportes. Pulsa una card para expandir el reporte completo.</p>
+          </div>
+          <button type="button" onclick="incAbrirCaptura()" class="inc-btn-nuevo" title="Generar nuevo reporte">
+            ＋ Generar nuevo reporte
+          </button>
+        </div>
+
+        <!-- Filtros -->
+        <div id="inc-filters" class="inc-filters">
+          <!-- Quick chips de Motivo (con label arriba) -->
+          <div class="inc-motivo-block">
+            <label class="inc-filter-label">Motivo</label>
+            <div id="inc-motivo-chips" class="inc-motivo-chips"></div>
+          </div>
+          <!-- Dropdowns + mes/año -->
+          <div class="inc-filter-row">
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Clasificación</label>
+              <div id="inc-f-clasif" class="inc-mselect" data-filter="clasificaciones"></div>
+            </div>
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Nivel</label>
+              <div id="inc-f-nivel" class="inc-mselect" data-filter="nivel"></div>
+            </div>
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Estatus</label>
+              <div id="inc-f-estatus" class="inc-mselect" data-filter="estatus"></div>
+            </div>
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Mes</label>
+              <select id="inc-f-month" class="inc-filter-date" onchange="incApplyFilters()"></select>
+            </div>
+          </div>
+          <div class="inc-filter-count" id="inc-filter-count"></div>
+        </div>
+
+        <!-- Lista de incidencias (cards desplegables) -->
+        <div id="inc-cards-list">
+          <div id="inc-cards-loading" style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando reportes…</div>
+        </div>
+
+        <!-- Slide-in panel: captura de nuevo reporte (oculto por defecto) -->
+        <div id="inc-capture-backdrop" class="inc-capture-backdrop hidden" onclick="incCerrarCaptura()"></div>
+        <div id="inc-capture-panel" class="inc-capture-panel hidden">
+          <div class="inc-capture-header">
+            <h2 style="margin:0;font-size:16px;color:#0f172a">📝 Captura de reporte</h2>
+            <button type="button" onclick="incCerrarCaptura()" class="inc-capture-close" title="Cerrar">✕</button>
+          </div>
+          <div id="inc-form" style="padding:16px">
+
+            <div class="inc-section inc-section-data">
+              <div class="inc-section-title">📅 Datos generales</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                <div>
+                  <label class="inc-label">Fecha</label>
+                  <input type="date" id="inc-fecha" class="inc-input">
+                </div>
+                <div>
+                  <label class="inc-label">Propiedad</label>
+                  <select id="inc-propiedad" class="inc-input"></select>
+                </div>
+                <div>
+                  <label class="inc-label"># Departamento</label>
+                  <select id="inc-depto" class="inc-input"></select>
+                </div>
+              </div>
+            </div>
+
+            <div class="inc-section inc-section-personas">
+              <div class="inc-section-title">👥 Personas involucradas</div>
+              <div id="inc-personas" class="inc-checklist"></div>
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <input type="text" id="inc-nueva-persona" placeholder="Agregar persona" class="inc-input" style="flex:1">
+                <button type="button" onclick="incAgregar('personas')" class="inc-btn-sec">Agregar</button>
+              </div>
+            </div>
+
+            <div class="inc-section inc-section-motivos">
+              <div class="inc-section-title">🎯 Motivos del reporte</div>
+              <div id="inc-motivos" class="inc-checklist"></div>
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <input type="text" id="inc-nuevo-motivo" placeholder="Agregar motivo" class="inc-input" style="flex:1">
+                <button type="button" onclick="incAgregar('motivos')" class="inc-btn-sec">Agregar</button>
+              </div>
+            </div>
+
+            <div class="inc-section inc-section-clasif">
+              <div class="inc-section-title">🏷️ Clasificación de la incidencia</div>
+              <div id="inc-clasificaciones" class="inc-checklist"></div>
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <input type="text" id="inc-nueva-clasif" placeholder="Agregar clasificación" class="inc-input" style="flex:1">
+                <button type="button" onclick="incAgregar('clasificaciones')" class="inc-btn-sec">Agregar</button>
+              </div>
+            </div>
+
+            <div class="inc-section inc-section-nivel">
+              <div class="inc-section-title">⚡ Nivel y seguimiento</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div>
+                  <label class="inc-label">Nivel de prioridad</label>
+                  <select id="inc-nivel" class="inc-input">
+                    <option value="Baja">🟢 Baja</option>
+                    <option value="Media">🟡 Media</option>
+                    <option value="Alta">🔴 Alta</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="inc-label">Estatus</label>
+                  <select id="inc-estatus" class="inc-input">
+                    <option value="Pendiente">✗ Pendiente</option>
+                    <option value="Parcialmente resuelto">◐ Parcialmente resuelto</option>
+                    <option value="Resuelto">✓ Resuelto</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="inc-section inc-section-reportante">
+              <div class="inc-section-title">✍️ Persona que realizó el reporte</div>
+              <select id="inc-reportante" class="inc-input"></select>
+            </div>
+
+            <div class="inc-section inc-section-fotos">
+              <div class="inc-section-title">📸 Fotos / evidencia</div>
+              <input type="file" id="inc-fotos" accept="image/*" multiple class="inc-input">
+              <div style="font-size:11px;color:#64748b;margin-top:4px">Una o varias imágenes. Se mostrarán en vista previa y al imprimir.</div>
+              <div id="inc-foto-preview" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:10px"></div>
+            </div>
+
+            <div class="inc-section inc-section-desc">
+              <div class="inc-section-title">📝 Descripción y observaciones</div>
+              <label class="inc-label">Descripción detallada</label>
+              <textarea id="inc-descripcion" class="inc-input" rows="3" placeholder="Describe qué ocurrió, dónde y el contexto."></textarea>
+              <label class="inc-label" style="margin-top:8px">Acciones realizadas</label>
+              <textarea id="inc-acciones" class="inc-input" rows="3" placeholder="Indica qué se hizo en sitio."></textarea>
+              <label class="inc-label" style="margin-top:8px">Seguimiento requerido</label>
+              <textarea id="inc-seguimiento" class="inc-input" rows="3" placeholder="Mantenimiento, compras, revisión administrativa, etc."></textarea>
+            </div>
+
+          </div>
+          <!-- Footer sticky: SIEMPRE visible al pie del panel, fuera del
+               scroll del form. Padding safe-area para iOS notch + home bar. -->
+          <div class="inc-capture-footer">
+            <button type="button" onclick="incGenerar()" class="inc-btn-pri" style="flex:1">Generar reporte</button>
+            <button type="button" onclick="incLimpiar()" class="inc-btn-sec">Limpiar</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Modal del reporte (popup) -->
+      <div id="inc-report-modal" class="inc-modal hidden" onclick="incSalir()">
+        <div class="inc-modal-content" onclick="event.stopPropagation()">
+          <div class="inc-modal-actions">
+            <button type="button" onclick="incImprimir()" class="inc-modal-btn inc-btn-imprimir" title="Imprimir reporte">🖨️ Imprimir</button>
+            <button type="button" onclick="incGuardarSalir()" class="inc-modal-btn inc-btn-guardar" title="Guardar y salir">💾 Guardar y Salir</button>
+            <button type="button" onclick="incSalir()" class="inc-modal-btn inc-btn-salir" title="Salir">✕ Salir</button>
+          </div>
+          <div id="inc-preview" class="inc-report-body"></div>
+        </div>
+      </div>
+
+      <!-- Modal de zoom de imagen -->
+      <div id="inc-zoom-modal" class="inc-zoom-modal hidden" onclick="incCloseZoom()">
+        <button type="button" onclick="incCloseZoom()" class="inc-zoom-close" title="Cerrar">✕</button>
+        <img id="inc-zoom-img" src="" alt="" onclick="event.stopPropagation()">
+      </div>
+    </div><!-- /module-incidencias -->
+
+    <!-- ═══════════════ MÓDULO OBJETOS OLVIDADOS ═══════════════ -->
+    <div id="module-objetos" class="hidden" style="padding:20px 24px 60px">
+      <div style="max-width:1440px;margin:0 auto">
+        <div class="obj-hero">
+          <div>
+            <div class="obj-hero-kicker">Control operativo · objetos encontrados</div>
+            <h1 class="obj-hero-title">🧳 Objetos olvidados</h1>
+            <p class="obj-hero-sub">Historial de objetos. Pulsa una card para ver el detalle.</p>
+          </div>
+          <button type="button" onclick="objAbrirCaptura()" class="obj-btn-nuevo" title="Registrar nuevo objeto">
+            ＋ Registrar nuevo objeto
+          </button>
+        </div>
+
+        <!-- Filtros -->
+        <div id="obj-filters" class="inc-filters">
+          <div class="inc-motivo-block">
+            <label class="inc-filter-label">Categoría</label>
+            <div id="obj-cat-chips" class="inc-motivo-chips"></div>
+          </div>
+          <div class="inc-filter-row">
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Lugar de resguardo</label>
+              <div id="obj-f-lugar" class="inc-mselect" data-filter="lugar"></div>
+            </div>
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Estado</label>
+              <div id="obj-f-estado" class="inc-mselect" data-filter="estado"></div>
+            </div>
+            <div class="inc-filter-cell">
+              <label class="inc-filter-label">Mes (encontrado)</label>
+              <select id="obj-f-month" class="inc-filter-date" onchange="objApplyFilters()"></select>
+            </div>
+          </div>
+          <div class="inc-filter-count" id="obj-filter-count"></div>
+        </div>
+
+        <!-- Lista de cards -->
+        <div id="obj-cards-list">
+          <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando objetos…</div>
+        </div>
+
+        <!-- Slide-in panel: captura -->
+        <div id="obj-capture-backdrop" class="inc-capture-backdrop hidden" onclick="objCerrarCaptura()"></div>
+        <div id="obj-capture-panel" class="inc-capture-panel hidden">
+          <div class="inc-capture-header">
+            <h2 style="margin:0;font-size:16px;color:#0f172a">🧳 Registro de objeto olvidado</h2>
+            <button type="button" onclick="objCerrarCaptura()" class="inc-capture-close" title="Cerrar">✕</button>
+          </div>
+          <div id="obj-form" style="padding:16px">
+
+            <div class="inc-section inc-section-data">
+              <div class="inc-section-title">📅 Datos generales</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <div>
+                  <label class="inc-label">Fecha de encontrado</label>
+                  <input type="date" id="obj-fecha-enc" class="inc-input">
+                </div>
+                <div>
+                  <label class="inc-label">Fecha de entregado</label>
+                  <input type="date" id="obj-fecha-ent" class="inc-input">
+                </div>
+              </div>
+              <div style="margin-bottom:10px">
+                <label class="inc-label">Nombre de persona a quien se entregó</label>
+                <input type="text" id="obj-entregado-a" class="inc-input" placeholder="Nombre (vacío si aún no se ha entregado)">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div>
+                  <label class="inc-label">Propiedad</label>
+                  <select id="obj-propiedad" class="inc-input"></select>
+                </div>
+                <div>
+                  <label class="inc-label"># Departamento</label>
+                  <select id="obj-depto" class="inc-input"></select>
+                </div>
+              </div>
+            </div>
+
+            <div class="inc-section inc-section-reportante">
+              <div class="inc-section-title">✍️ Persona que reporta</div>
+              <select id="obj-reportante" class="inc-input"></select>
+            </div>
+
+            <div class="inc-section inc-section-clasif">
+              <div class="inc-section-title">🏷️ Categoría</div>
+              <select id="obj-categoria" class="inc-input" onchange="objToggleCategoriaOtro()">
+                <option value="">— Seleccionar —</option>
+                <option value="Electrónico">📱 Electrónico</option>
+                <option value="Vestimenta">👕 Vestimenta</option>
+                <option value="Joyería/accesorios">💍 Joyería/accesorios</option>
+                <option value="Documentos">📄 Documentos</option>
+                <option value="Otro">❓ Otro</option>
+              </select>
+              <div id="obj-categoria-otro-wrap" style="margin-top:8px;display:none">
+                <label class="inc-label">Especificar categoría</label>
+                <input type="text" id="obj-categoria-otro" class="inc-input" placeholder="Describe la categoría">
+              </div>
+              <div style="margin-top:10px">
+                <label class="inc-label">Descripción</label>
+                <textarea id="obj-descripcion" class="inc-input" rows="2" placeholder="Describe el objeto (marca, color, tamaño, características distintivas)."></textarea>
+              </div>
+            </div>
+
+            <div class="inc-section inc-section-fotos">
+              <div class="inc-section-title">📸 Evidencia de devolución</div>
+              <input type="file" id="obj-fotos" accept="image/*" multiple class="inc-input">
+              <div style="font-size:11px;color:#64748b;margin-top:4px">Una o varias imágenes. Click en una para ampliar.</div>
+              <div id="obj-foto-preview" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:10px"></div>
+            </div>
+
+            <div class="inc-section inc-section-nivel">
+              <div class="inc-section-title">📦 Lugar donde se resguarda</div>
+              <select id="obj-lugar" class="inc-input" onchange="objToggleLugarOtro()">
+                <option value="">— Seleccionar —</option>
+                <option value="Gabinete">🗄️ Gabinete</option>
+                <option value="Oficina">🏢 Oficina</option>
+                <option value="Otro">❓ Otro</option>
+              </select>
+              <div id="obj-lugar-otro-wrap" style="margin-top:8px;display:none">
+                <label class="inc-label">Especificar lugar</label>
+                <input type="text" id="obj-lugar-otro" class="inc-input" placeholder="Describe el lugar de resguardo">
+              </div>
+            </div>
+
+            <div class="inc-section inc-section-desc">
+              <div class="inc-section-title">📝 Comentarios</div>
+              <textarea id="obj-comentarios" class="inc-input" rows="4" placeholder="Descripción del objeto, contexto, observaciones."></textarea>
+            </div>
+
+          </div>
+          <div class="inc-capture-footer">
+            <button type="button" onclick="objGenerar()" class="inc-btn-pri" style="flex:1">Generar reporte</button>
+            <button type="button" onclick="objLimpiar()" class="inc-btn-sec">Limpiar</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal del reporte (popup) -->
+      <div id="obj-report-modal" class="inc-modal hidden" onclick="objSalir()">
+        <div class="inc-modal-content" onclick="event.stopPropagation()">
+          <div class="inc-modal-actions">
+            <button type="button" onclick="objImprimir()" class="inc-modal-btn inc-btn-imprimir" title="Imprimir reporte">🖨️ Imprimir</button>
+            <button type="button" onclick="objGuardarSalir()" class="inc-modal-btn inc-btn-guardar" title="Guardar y salir">💾 Guardar y Salir</button>
+            <button type="button" onclick="objSalir()" class="inc-modal-btn inc-btn-salir" title="Salir">✕ Salir</button>
+          </div>
+          <div id="obj-preview" class="inc-report-body"></div>
+        </div>
+      </div>
+
+      <!-- Modal de zoom de imagen (compartido con Incidencias se reusa el de inc, pero abrimos uno propio para no chocar) -->
+      <div id="obj-zoom-modal" class="inc-zoom-modal hidden" onclick="objCloseZoom()">
+        <button type="button" onclick="objCloseZoom()" class="inc-zoom-close" title="Cerrar">✕</button>
+        <img id="obj-zoom-img" src="" alt="" onclick="event.stopPropagation()">
+      </div>
+    </div><!-- /module-objetos -->
+
+    <!-- ═══════════════ MÓDULO OCUPACIÓN — calendario de reservas ═══════════════ -->
+    <div id="module-ocupacion" class="hidden">
+      <div class="ocup-shell">
+        <!-- Título del módulo (dinámico: Dashboard / Calendario) -->
+        <h1 style="margin:0 0 14px;font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em;display:flex;align-items:center;gap:10px">
+          <span id="ocup-module-icon" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:18px;box-shadow:0 3px 8px rgba(99,102,241,.35)">📊</span>
+          <span id="ocup-module-title">Dashboard</span>
+        </h1>
+
+        <!-- Menú interno del Dashboard (estilo bn-menu-bar de Registros contables). Oculto cuando estamos en módulo Calendario. -->
+        <div id="dash-menu-bar" class="bn-menu-bar" style="margin-bottom:12px;border:1px solid var(--border,#e2e8f0);border-radius:10px;overflow:hidden">
+          <!-- Row 1: secciones (por ahora: Ocupación) -->
+          <div id="dash-sec-row" style="display:grid;grid-template-columns:repeat(1,1fr);gap:0">
+            <button class="dash-sec-btn" id="dash-sec-ocupacion" data-sec="ocupacion" onclick="dashSetSec('ocupacion')"
+                    style="padding:12px 10px;border:none;background:#6366f1;color:#fff;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)">📅 Ocupación</button>
+          </div>
+          <!-- Row 2: subsecciones dinámicas -->
+          <div id="dash-sub-row" style="display:grid;gap:0"></div>
+        </div>
+
+        <!-- Toolbar: filtro Mes + nav (siempre presente; las view-tabs antiguas se reemplazan por el dash-menu) -->
+        <div class="ocup-toolbar">
+          <div class="ocup-toolbar-left">
+            <label id="ocup-month-wrap" style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.04em">
+              Mes:
+              <select id="ocup-month-select" onchange="ocupJumpToMonth(this.value)"
+                      style="padding:7px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a;background:#fff;cursor:pointer"></select>
+            </label>
+          </div>
+          <div class="ocup-toolbar-right" id="ocup-toolbar-right-cal">
+            <button type="button" class="ocup-today-btn" onclick="ocupGoToday()" title="Ir a hoy">📅 Ir a hoy</button>
+            <button type="button" class="ocup-reload-btn" onclick="ocupReload(true)" title="Sincronizar con Lodgify">🔄</button>
+          </div>
+        </div>
+
+        <!-- Filtros (solo visibles en Indicadores y Gráficas) -->
+        <div id="ocup-filters" class="ocup-filters" style="display:none">
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Promedio (mes-año)</label>
+            <div id="ocup-f-meses" class="inc-mselect" data-filter="meses"></div>
+          </div>
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Propiedad</label>
+            <div id="ocup-f-prop" class="inc-mselect" data-filter="propiedades"></div>
+          </div>
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Alojamientos</label>
+            <div id="ocup-f-aloj" class="inc-mselect" data-filter="alojamientos"></div>
+          </div>
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Estado</label>
+            <div id="ocup-f-estados" class="inc-mselect" data-filter="estados"></div>
+          </div>
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Detalles</label>
+            <label class="ocup-toggle">
+              <input type="checkbox" id="ocup-toggle-details" onchange="ocupToggleDetails(this.checked)">
+              <span class="ocup-toggle-track"><span class="ocup-toggle-thumb"></span></span>
+              <span class="ocup-toggle-label">Mostrar detalles</span>
+            </label>
+          </div>
+          <div class="ocup-filter-tip">Tip: si no seleccionas nada en un filtro, se asume "todos". El toggle "Mostrar detalles" oculta $/noche, $/reserva, # reservas, duración y canales — dejando solo la barra de ocupación.</div>
+        </div>
+
+        <!-- Filtros para Gráficas (Interés + Referencia + Tipo) -->
+        <div id="ocup-chart-filters" class="ocup-filters" style="display:none">
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Alojamiento(s) de interés</label>
+            <div id="ocup-chart-interest" class="inc-mselect" data-filter="interests"></div>
+          </div>
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Referencia</label>
+            <div id="ocup-chart-refs" class="inc-mselect" data-filter="references"></div>
+          </div>
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Estado</label>
+            <div id="ocup-chart-estados" class="inc-mselect" data-filter="estados"></div>
+          </div>
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Variable</label>
+            <div class="ocup-gx-typeswitch">
+              <button type="button" class="ocup-gx-metric-btn active" data-metric="occupancy" onclick="ocupChartSetMetric('occupancy')">📊 % Ocupación</button>
+              <button type="button" class="ocup-gx-metric-btn" data-metric="ingresoNeto" onclick="ocupChartSetMetric('ingresoNeto')">💵 $ Ingreso neto</button>
+            </div>
+          </div>
+          <div class="ocup-filter-cell">
+            <label class="ocup-filter-label">Tipo de serie</label>
+            <div class="ocup-gx-typeswitch">
+              <button type="button" class="ocup-gx-type-btn active" data-type="original" onclick="ocupChartSetType('original')">📊 Original</button>
+              <button type="button" class="ocup-gx-type-btn" data-type="differences" onclick="ocupChartSetType('differences')">Δ Diferencias</button>
+            </div>
+          </div>
+          <div class="ocup-filter-tip">Los <strong>alojamientos de interés</strong> se grafican destacados. <strong>Referencias</strong>: Global = todos; por propiedad = promedio de sus depts. Las <em>velas de fondo</em> aparecen solo con 1 interés. <em>Diferencias</em> grafica el cambio mes a mes (Δ vs el mes anterior).</div>
+        </div>
+
+        <!-- Filtros para vista Calendario -->
+        <div id="ocup-cal-filters" class="ocup-cal-filters" style="display:flex;gap:10px;align-items:end;flex-wrap:nowrap;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:10px;overflow-x:auto">
+          <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px">
+            <label class="ocup-filter-label" style="font-size:11px;font-weight:700;color:#475569">Estado</label>
+            <select id="ocup-cal-f-estado" onchange="ocupCalSetFilter('estado', this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;width:100%"><option value="">Todos</option></select>
+          </div>
+          <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px">
+            <label class="ocup-filter-label" style="font-size:11px;font-weight:700;color:#475569">Propiedad</label>
+            <select id="ocup-cal-f-propiedad" onchange="ocupCalSetFilter('propiedad', this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;width:100%"><option value="">Todas</option></select>
+          </div>
+          <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px">
+            <label class="ocup-filter-label" style="font-size:11px;font-weight:700;color:#475569">Fuente</label>
+            <select id="ocup-cal-f-fuente" onchange="ocupCalSetFilter('fuente', this.value)" style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;background:#fff;width:100%"><option value="">Todas</option></select>
+          </div>
+          <button type="button" onclick="ocupCalClearFilters()" style="padding:7px 12px;border:1.5px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;height:32px;flex-shrink:0;white-space:nowrap">Limpiar filtros</button>
+          <div class="ocup-filter-cell" style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+            <label class="ocup-filter-label" style="font-size:11px;font-weight:700;color:#475569">Colores de barras</label>
+            <div style="display:flex;gap:12px;align-items:center;height:32px;padding:0 6px">
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#0f172a;cursor:pointer;user-select:none" onclick="ocupCalSetColorMode('source')">
+                <span id="ocup-cal-cmode-source" data-on="1" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid #334155;background:#334155;color:#fff;border-radius:50%;font-size:12px;font-weight:900;line-height:1">●</span>
+                Medio de reservación
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#0f172a;cursor:pointer;user-select:none" onclick="ocupCalSetColorMode('checkInOut')">
+                <span id="ocup-cal-cmode-checkinout" data-on="0" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid #cbd5e1;background:#fff;color:transparent;border-radius:50%;font-size:12px;font-weight:900;line-height:1"></span>
+                Check-in-out
+              </label>
+            </div>
+          </div>
+        </div>
+        <!-- Vista Calendario -->
+        <div id="ocup-cal-container" class="ocup-cal-container">
+          <div id="ocup-cal-loading" style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px">⏳ Cargando reservas…</div>
+        </div>
+        <!-- Vista Indicadores (tabla) -->
+        <div id="ocup-table-container" class="ocup-cal-container" style="display:none"></div>
+        <!-- Vista Gráficas -->
+        <div id="ocup-chart-container" class="ocup-chart-container" style="display:none"></div>
+      </div>
+
+      <!-- Panel lateral de detalle (slide-in desde derecha) -->
+      <div id="ocup-detail-backdrop" class="ocup-detail-backdrop hidden" onclick="ocupCloseDetail()"></div>
+      <aside id="ocup-detail-panel" class="ocup-detail-panel hidden">
+        <div class="ocup-detail-header">
+          <h3 style="margin:0;font-size:14px;color:#475569;letter-spacing:.04em;text-transform:uppercase;font-weight:800">Reserva</h3>
+          <button type="button" onclick="ocupCloseDetail()" class="ocup-detail-close" title="Cerrar">✕</button>
+        </div>
+        <div id="ocup-detail-body" class="ocup-detail-body"></div>
+      </aside>
+    </div><!-- /module-ocupacion -->
+
+    <!-- ═══════════════ MÓDULO RECURSOS HUMANOS ═══════════════ -->
+    <div id="module-rh" class="hidden" style="padding:20px 24px 60px">
+      <div style="max-width:1440px;margin:0 auto">
+        <div class="rh-hero">
+          <div>
+            <div class="rh-hero-kicker">Gestión del personal</div>
+            <h1 class="rh-hero-title">👥 Recursos Humanos</h1>
+            <p class="rh-hero-sub">Expediente, asistencia, ausencias y compensaciones de tu equipo.</p>
+          </div>
+        </div>
+        <div id="rh-section-menu" style="display:flex;gap:8px;margin:0 0 14px;background:#f1f5f9;padding:5px;border-radius:12px">
+          <button type="button" id="rh-sec-nomina" onclick="rhSetSection('nomina')" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-weight:900;font-size:13px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;box-shadow:0 3px 10px rgba(234,88,12,.35)">💵 Nómina</button>
+          <button type="button" id="rh-sec-obligaciones" onclick="rhSetSection('obligaciones')" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-weight:700;font-size:13px;background:transparent;color:#64748b">📋 Pago de obligaciones</button>
+          <button type="button" id="rh-sec-asistencias" onclick="rhSetSection('asistencias')" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-weight:700;font-size:13px;background:transparent;color:#64748b">🕐 Control de asistencias</button>
+        </div>
+        <div id="rh-section-nomina">
+          <div class="rh-tabs">
+            <button type="button" class="rh-tab active" data-tab="compensaciones" onclick="rhSetTab('compensaciones')">💵 Pagos</button>
+            <button type="button" class="rh-tab" data-tab="expediente" onclick="rhSetTab('expediente')">👥 Documentación del personal</button>
+            <button type="button" class="rh-tab" data-tab="asist_ause" onclick="rhSetTab('asist_ause')">🕐 Asistencias y ausencias</button>
+          </div>
+          <div id="rh-view" class="rh-view">
+            <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
+          </div>
+        </div>
+        <div id="rh-section-obligaciones" class="hidden">
+          <div style="text-align:center;padding:40px;color:#94a3b8;font-size:13px">⏳ Cargando obligaciones…</div>
+        </div>
+        <div id="rh-section-asistencias" class="hidden">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+            <div style="display:inline-flex;background:#f1f5f9;padding:3px;border-radius:9px;gap:2px">
+              <button type="button" id="asist-vis-tabla" onclick="asistSetVis('tabla')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;box-shadow:0 2px 6px rgba(79,70,229,.30)">📋 Tabla</button>
+              <button type="button" id="asist-vis-calendario" onclick="asistSetVis('calendario')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b">📅 Calendario</button>
+              <button type="button" id="asist-vis-resumen" onclick="asistSetVis('resumen')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b">📊 Resumen semanal</button>
+            </div>
+            <div id="asist-btn-seleccionar" onclick="asistToggleSeleccionar()"
+                 style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;padding:7px 12px;border-radius:8px;background:#f1f5f9;color:#475569;font-weight:700;font-size:12px;user-select:none">
+              <span class="asist-sel-check" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid #cbd5e1;background:#fff;color:#0d9488;font-size:12px;font-weight:900;flex-shrink:0;line-height:1"></span>
+              <span>Seleccionar</span>
+            </div>
+            <button type="button" onclick="asistReloadList()" style="all:unset;cursor:pointer;padding:7px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:9px;font-size:12px;font-weight:700;color:#475569">🔄 Refrescar</button>
+            <button type="button" id="asist-btn-eliminar" onclick="asistEliminarSeleccion()" class="hidden"
+                    style="all:unset;cursor:pointer;padding:7px 12px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:9px;font-size:12px;font-weight:800;color:#991b1b">🗑 Eliminar seleccionados</button>
+            <span id="asist-list-count" style="font-size:11px;color:#94a3b8;font-weight:600"></span>
+            <button type="button" id="asist-btn-nuevo" onclick="asistNuevoRegistro()"
+                    style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:9px 14px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:12.5px;font-weight:900;letter-spacing:.02em;border-radius:9px;box-shadow:0 3px 10px rgba(14,165,233,.35);white-space:nowrap;margin-left:auto">
+              <span style="font-size:14px">➕</span>
+              <span>Nuevo registro de asistencia</span>
+            </button>
+          </div>
+          <div id="asist-status-tabla" style="margin-bottom:10px;font-size:12px;font-weight:600"></div>
+          <div id="asist-tabla-wrap" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:auto;max-height:70vh">
+            <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando registros…</div>
+          </div>
+          <div id="asist-cal-toolbar" class="hidden" style="margin-bottom:10px"></div>
+          <div id="asist-cal-wrap" class="hidden ocup-cal-container" style="margin-top:0;padding:0"></div>
+          <div id="asist-resumen-wrap" class="hidden" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:auto;max-height:70vh"></div>
+        </div>
+
+        <!-- Slide-in panel: Nuevo registro de asistencia -->
+        <div id="asist-form-backdrop" class="inc-capture-backdrop hidden" onclick="asistCancelarRegistro()"></div>
+        <div id="asist-form-panel" class="inc-capture-panel hidden">
+          <div class="inc-capture-header">
+            <h2 style="margin:0;font-size:16px;color:#0f172a;display:flex;align-items:center;gap:8px">🕐 Registro de asistencia</h2>
+            <button type="button" onclick="asistCancelarRegistro()" class="inc-capture-close" title="Cerrar">✕</button>
+          </div>
+          <div id="asist-form" style="padding:16px;overflow-y:auto;flex:1">
+            <label style="display:block;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">📅 Semana</label>
+            <select id="asist-panel-semana" onchange="asistPanelSetSemana(this.value)"
+                    style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;color:#0f172a;font-weight:700;margin-bottom:12px"></select>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">$ Salario base</div>
+                <div style="font-size:13px;font-weight:800;color:#0f172a">$315.04</div>
+              </div>
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Prima vacacional</div>
+                <div style="font-size:13px;font-weight:800;color:#0f172a">25%</div>
+              </div>
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Prima dominical</div>
+                <div style="font-size:13px;font-weight:800;color:#0f172a">25%</div>
+              </div>
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Día feriado</div>
+                <div style="font-size:13px;font-weight:800;color:#0f172a">200%</div>
+              </div>
+            </div>
+            <div id="asist-panel-cal-wrap" class="ocup-cal-container" style="margin:0;padding:0;max-height:calc(100vh - 340px);overflow:auto;position:relative"></div>
+            <div id="asist-status" style="margin-top:10px;font-size:12px;color:#64748b;font-weight:600"></div>
+          </div>
+          <div class="inc-capture-footer">
+            <button type="button" onclick="asistGuardarRegistro()" id="asist-btn-guardar" class="inc-btn-pri" style="flex:1">💾 Guardar registro</button>
+            <button type="button" onclick="asistCancelarRegistro()" class="inc-btn-sec">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide-in panel: formulario de agregar/editar -->
+      <div id="rh-form-backdrop" class="inc-capture-backdrop hidden" onclick="rhCloseForm()"></div>
+      <div id="rh-form-panel" class="inc-capture-panel hidden">
+        <div class="inc-capture-header">
+          <h2 id="rh-form-title" style="margin:0;font-size:16px;color:#0f172a">Nuevo registro</h2>
+          <button type="button" onclick="rhCloseForm()" class="inc-capture-close" title="Cerrar">✕</button>
+        </div>
+        <div id="rh-form-body" style="padding:16px;overflow-y:auto;flex:1"></div>
+        <div class="inc-capture-footer">
+          <button type="button" onclick="rhSaveCurrentForm()" class="inc-btn-pri" style="flex:1">💾 Guardar</button>
+          <button type="button" onclick="rhCloseForm()" class="inc-btn-sec">Cancelar</button>
+        </div>
+      </div>
+    </div><!-- /module-rh -->
+
+    <!-- ═══════════════ MÓDULO INQUILINOS ═══════════════ -->
+    <div id="module-inquilinos" class="hidden" style="padding:20px 24px 60px">
+      <div style="max-width:1440px;margin:0 auto">
+        <div class="rh-hero">
+          <div>
+            <div class="rh-hero-kicker">Gestión de rentas</div>
+            <h1 class="rh-hero-title">🏠 Inquilinos</h1>
+            <p class="rh-hero-sub">Perfiles, contratos y pagos mensuales de inquilinos.</p>
+          </div>
+        </div>
+        <div class="rh-tabs" style="margin-bottom:14px">
+          <button type="button" class="rh-tab active" data-inq-tab="rentas" onclick="inqSetTab('rentas')">💵 Rentas</button>
+          <button type="button" class="rh-tab" data-inq-tab="perfiles" onclick="inqSetTab('perfiles')">👥 Perfiles</button>
+        </div>
+        <div id="inq-view" class="rh-view">
+          <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
+        </div>
+      </div>
+      <!-- Panel lateral derecho (form Perfil / Pago) -->
+      <div id="inq-form-overlay" class="hidden" onclick="if(event.target===this)inqCloseForm()" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9998;display:none">
+        <aside id="inq-form-panel" style="position:absolute;top:0;right:0;bottom:0;width:min(560px,100%);background:#fff;box-shadow:-8px 0 24px rgba(15,23,42,.2);display:flex;flex-direction:column">
+          <!-- Header: FULL WIDTH, sin padding lateral que revele fondo -->
+          <div style="flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 22px;background:#fff;border-bottom:1px solid #e2e8f0">
+            <h3 id="inq-form-title" style="margin:0;font-size:18px;color:#0f172a;font-weight:800">Inquilino</h3>
+            <button type="button" onclick="inqCloseForm()" style="all:unset;cursor:pointer;background:#f1f5f9;color:#475569;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:700">✕ Cerrar</button>
+          </div>
+          <!-- Body scrollable en medio -->
+          <div id="inq-form-body" style="flex:1;overflow-y:auto;padding:20px 22px"></div>
+          <!-- Footer: FULL WIDTH, no flotante, en flujo normal al final del flex -->
+          <div style="flex:none;padding:12px 22px;background:#fff;border-top:1px solid #e2e8f0;display:flex;gap:10px">
+            <button type="button" id="inq-form-save-btn" onclick="inqSaveCurrentForm()" class="inc-btn-pri" style="flex:1">💾 Guardar</button>
+            <button type="button" onclick="inqCloseForm()" class="inc-btn-sec">Cancelar</button>
+          </div>
+        </aside>
+      </div>
+      <!-- Modal zoom de imagen / preview PDF -->
+      <div id="inq-zoom" class="hidden" onclick="if(event.target===this)inqCloseZoom()" style="position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px">
+        <button type="button" onclick="event.stopPropagation();inqCloseZoom()" style="position:fixed;top:16px;right:16px;background:#dc2626;color:#fff;border:0;padding:10px 18px;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;z-index:2;box-shadow:0 6px 18px rgba(0,0,0,.4)">✕ Cerrar</button>
+        <img id="inq-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;display:none;cursor:zoom-out" onclick="inqCloseZoom()"/>
+        <iframe id="inq-zoom-pdf" style="display:none;width:min(1200px,95vw);height:90vh;border:0;border-radius:8px;background:#fff" title="Vista previa PDF"></iframe>
+      </div>
+    </div><!-- /module-inquilinos -->
+
+    <!-- ═══════════════ MÓDULO INVENTARIOS ═══════════════ -->
+    <div id="module-inventarios" class="hidden" style="padding:20px 24px 60px">
+      <div style="max-width:1440px;margin:0 auto">
+        <div class="rh-hero">
+          <div>
+            <div class="rh-hero-kicker">Control y gestión</div>
+            <h1 class="rh-hero-title">📦 Inventarios</h1>
+            <p class="rh-hero-sub">Productos, stock por ubicación y órdenes de compra.</p>
+          </div>
+        </div>
+        <!-- KPIs -->
+        <div id="inv-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px"></div>
+        <div class="rh-tabs" style="margin-bottom:14px">
+          <button type="button" class="rh-tab active" data-inv-tab="stock"    onclick="invSetTab('stock')">📍 Stock por ubicación</button>
+          <button type="button" class="rh-tab" data-inv-tab="productos" onclick="invSetTab('productos')">📋 Productos</button>
+          <button type="button" class="rh-tab" data-inv-tab="ordenes"   onclick="invSetTab('ordenes')">🛒 Órdenes de compra</button>
+        </div>
+        <div id="inv-view" class="rh-view">
+          <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
+        </div>
+      </div>
+      <!-- Panel lateral form (producto / stock / orden) -->
+      <div id="inv-form-overlay" class="hidden" onclick="if(event.target===this)invCloseForm()" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9998;display:none">
+        <aside id="inv-form-panel" style="position:absolute;top:0;right:0;bottom:0;width:min(560px,100%);background:#fff;box-shadow:-8px 0 24px rgba(15,23,42,.2);display:flex;flex-direction:column">
+          <div style="flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 22px;background:#fff;border-bottom:1px solid #e2e8f0">
+            <h3 id="inv-form-title" style="margin:0;font-size:18px;color:#0f172a;font-weight:800">Inventario</h3>
+            <button type="button" onclick="invCloseForm()" style="all:unset;cursor:pointer;background:#f1f5f9;color:#475569;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:700">✕ Cerrar</button>
+          </div>
+          <div id="inv-form-body" style="flex:1;overflow-y:auto;padding:20px 22px"></div>
+          <div style="flex:none;padding:12px 22px;background:#fff;border-top:1px solid #e2e8f0;display:flex;gap:10px">
+            <button type="button" id="inv-form-save-btn" onclick="invSaveCurrentForm()" class="inc-btn-pri" style="flex:1">💾 Guardar</button>
+            <button type="button" onclick="invCloseForm()" class="inc-btn-sec">Cancelar</button>
+          </div>
+        </aside>
+      </div>
+      <!-- Modal zoom imagen -->
+      <div id="inv-zoom" class="hidden" onclick="if(event.target===this)invCloseZoom()" style="position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px">
+        <button type="button" onclick="event.stopPropagation();invCloseZoom()" style="position:fixed;top:16px;right:16px;background:#dc2626;color:#fff;border:0;padding:10px 18px;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;z-index:2">✕ Cerrar</button>
+        <img id="inv-zoom-img" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;display:none;cursor:zoom-out" onclick="invCloseZoom()"/>
+      </div>
+    </div><!-- /module-inventarios -->
+
+    <!-- ═══════════════ MÓDULO CONFIGURACIÓN ADMIN ═══════════════ -->
+    <div id="module-config-admin" class="hidden" style="padding:20px 24px 60px">
+      <div style="max-width:1600px;margin:0 auto">
+        <div class="rh-hero">
+          <div>
+            <div class="rh-hero-kicker">Configuración</div>
+            <h1 class="rh-hero-title">⚙️ Configuración Admin</h1>
+            <p class="rh-hero-sub">Ajustes globales del sistema: plantillas, automatizaciones y más.</p>
+          </div>
+        </div>
+        <div class="rh-tabs" style="margin-bottom:14px">
+          <button type="button" class="rh-tab active" data-cfg-tab="templates" onclick="cfgSetTab('templates')">💬 Templates de mensajes programados</button>
+        </div>
+        <div id="cfg-view" class="rh-view">
+          <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
+        </div>
+      </div>
+    </div><!-- /module-config-admin -->
+
+    <!-- ═══════════════ MÓDULO LLAVES ═══════════════ -->
+    <div id="module-llaves" class="hidden" style="padding:20px 24px 60px">
+      <div style="max-width:1600px;margin:0 auto">
+        <div class="rh-hero">
+          <div>
+            <div class="rh-hero-kicker">Control de accesos</div>
+            <h1 class="rh-hero-title">🔑 Llaves</h1>
+            <p class="rh-hero-sub">Registro de llaves, códigos y responsables por alojamiento.</p>
+          </div>
+        </div>
+        <div id="llaves-view" class="rh-view">
+          <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
+        </div>
+      </div>
+    </div><!-- /module-llaves -->
+
+    <!-- Detail modal for Bancos drilldown -->
+    <div id="bn-modal-overlay" class="bn-modal-overlay hidden" onclick="bn_closeDetail()">
+      <div class="bn-modal" onclick="event.stopPropagation()">
+        <div class="bn-modal-header">
+          <div>
+            <div class="bn-modal-title" id="bn-modal-title">Detalle</div>
+            <div class="bn-modal-sub" id="bn-modal-sub"></div>
+          </div>
+          <button class="bn-modal-close" onclick="bn_closeDetail()">×</button>
+        </div>
+        <div class="bn-table-scroll" style="max-height:60vh">
+          <table class="bn-table">
+            <thead>
+              <tr>
+                <th>Mes</th><th>Cuenta bancaria</th><th>Tipo</th>
+                <th>Categoría</th><th>Concepto</th><th>Descripción</th>
+                <th>Factura</th><th class="num">Monto</th>
+              </tr>
+            </thead>
+            <tbody id="bn-modal-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /app-root -->
+
+  <!-- Bank Classify popup -->
+  <div id="bn-classify-overlay" class="hidden"
+       style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px"
+       onclick="bn_classifyOverlayClick(event)">
+    <div id="bn-classify-modal"
+         style="background:#fff;border-radius:14px;width:100%;max-width:780px;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.4);padding:18px 18px 22px"
+         onclick="event.stopPropagation()">
+      <button onclick="bn_closeClassifyModal()"
+              style="position:absolute;top:10px;right:10px;width:34px;height:34px;border:none;background:#f3f4f6;border-radius:50%;font-size:18px;cursor:pointer;color:#374151;z-index:2"
+              aria-label="Cerrar">✕</button>
+      <div id="bn-classify-actions-top" class="hidden" style="display:flex;justify-content:flex-end;gap:8px;margin:6px 0 10px"></div>
+      <div id="bn-classify-modal-resumen" style="margin-top:8px;margin-bottom:14px"></div>
+      <div id="bn-classify-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- 💬 Chatbot financiero (flotante, esquina inferior derecha) -->
+  <button id="bn-chat-fab" onclick="bn_chatToggle()"
+          title="Asistente financiero"
+          style="position:fixed;bottom:20px;right:20px;width:58px;height:58px;border-radius:50%;border:none;background:linear-gradient(135deg,#475569,#334155);color:#fff;font-size:24px;cursor:pointer;box-shadow:0 8px 22px rgba(15,23,42,.25);z-index:9500;display:flex;align-items:center;justify-content:center;transition:transform .15s"
+          onmouseover="this.style.transform='scale(1.08)'"
+          onmouseout="this.style.transform=''">💬</button>
+
+  <div id="bn-chat-panel" class="hidden"
+       style="position:fixed;bottom:90px;right:20px;width:380px;max-width:calc(100vw - 30px);height:540px;max-height:calc(100vh - 120px);background:#fff;border:1px solid #cbd5e1;border-radius:16px;box-shadow:0 20px 60px rgba(15,23,42,.25);z-index:9499;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:linear-gradient(135deg,#475569,#334155);color:#fff">
+      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:18px">💬</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px">Asistente financiero</div>
+        <div style="font-size:11px;opacity:.85">Pregúntame sobre tus datos</div>
+      </div>
+      <button onclick="bn_chatClear()" title="Limpiar conversación"
+              style="background:transparent;border:none;color:#fff;font-size:14px;cursor:pointer;opacity:.85">🗑</button>
+      <button onclick="bn_chatToggle()" title="Cerrar"
+              style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div id="bn-chat-messages" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f8fafc"></div>
+    <div style="padding:10px 12px;border-top:1px solid #e2e8f0;background:#fff">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px" id="bn-chat-suggestions"></div>
+      <form onsubmit="event.preventDefault();bn_chatSend()" style="display:flex;gap:6px">
+        <input type="text" id="bn-chat-input" placeholder="Ej. 'Dame la utilidad de febrero 2026'"
+               autocomplete="off"
+               style="flex:1;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:13px;outline:none">
+        <button type="submit" id="bn-chat-send"
+                style="padding:10px 16px;border:none;background:#475569;color:#fff;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer">↑</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Image lightbox -->
+  <div id="imageLightbox" class="lightbox hidden" onclick="closeLightbox()">
+    <div class="lightbox-inner" onclick="event.stopPropagation()">
+      <button class="lightbox-close" onclick="closeLightbox()">×</button>
+      <img id="lightboxImg" src="" alt="Ticket" onclick="toggleLightboxZoom(event)">
+    </div>
+  </div>
+
+  <!-- Upload action sheet (solo móvil) -->
+  <div id="uploadSheetOverlay" class="sheet-overlay hidden" onclick="closeUploadSheet()"></div>
+  <div id="uploadSheet" class="upload-sheet" aria-hidden="true">
+    <div class="sheet-handle"></div>
+    <p class="sheet-title">Agregar tickets</p>
+    <label class="sheet-option" onclick="closeUploadSheet()">
+      <input type="file" id="sheet-camera" accept="image/*" capture="environment" multiple style="display:none">
+      <span class="sheet-option-icon">📷</span>
+      <span class="sheet-option-label">Cámara</span>
+    </label>
+    <label class="sheet-option" onclick="closeUploadSheet()">
+      <input type="file" id="sheet-files" accept="image/*,application/pdf" multiple style="display:none">
+      <span class="sheet-option-icon">📁</span>
+      <span class="sheet-option-label">Archivos</span>
+    </label>
+    <label class="sheet-option" onclick="closeUploadSheet()">
+      <input type="file" id="sheet-gallery" accept="image/*,video/*" multiple style="display:none">
+      <span class="sheet-option-icon">🖼</span>
+      <span class="sheet-option-label">Fotos y videos</span>
+    </label>
+    <button class="sheet-cancel" onclick="closeUploadSheet()">Cancelar</button>
+  </div>
+
+  <!-- Custom confirm dialog -->
+  <div id="confirmModal" class="confirm-modal-overlay hidden" onclick="confirmModalOverlayClick(event)">
+    <div class="confirm-modal">
+      <div class="confirm-modal-icon" id="confirmModalIcon">🗑</div>
+      <h3 class="confirm-modal-title" id="confirmModalTitle"></h3>
+      <p class="confirm-modal-msg" id="confirmModalMsg"></p>
+      <div class="confirm-modal-actions">
+        <button class="btn-confirm-danger" id="confirmModalOk">Eliminar</button>
+        <button class="btn-limpiar-ticket" id="confirmModalCancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Facturapi (iframe embebido) — FUERA de todos los módulos para que
+       funcione desde cualquier vista (Huéspedes, Reservas Lodgify, etc.) -->
+  <div id="hu-facturapi-overlay" class="hidden"
+       style="position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px"
+       onclick="if(event.target===this)huespedesCloseFacturapi()">
+    <div style="background:#fff;border-radius:14px;width:100%;max-width:1100px;height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(15,23,42,.5);position:relative">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#334155;color:#fff;flex-shrink:0">
+        <div style="font-weight:800;font-size:14px">🧾 Generar ticket Facturapi</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div id="hu-facturapi-org-toggle" role="group" aria-label="Organización Facturapi"
+               style="display:inline-flex;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.25);border-radius:8px;overflow:hidden;font-size:11px;font-weight:700">
+            <button type="button" data-org="1" onclick="huFacturapiSetOrg('1')"
+                    style="padding:6px 10px;border:none;background:transparent;color:#fff;cursor:pointer">ACR</button>
+            <button type="button" data-org="2" onclick="huFacturapiSetOrg('2')"
+                    style="padding:6px 10px;border:none;background:transparent;color:#fff;cursor:pointer">ACL</button>
+          </div>
+          <a id="hu-facturapi-external" href="#" target="_blank" rel="noopener"
+             style="padding:6px 12px;border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">↗ Abrir aparte</a>
+          <button onclick="huespedesCloseFacturapi()"
+                  style="width:32px;height:32px;border:none;background:rgba(255,255,255,.15);color:#fff;border-radius:50%;font-size:18px;cursor:pointer">✕</button>
+        </div>
+      </div>
+      <iframe id="hu-facturapi-frame" src="about:blank"
+              style="flex:1;border:none;background:#fff;width:100%"
+              allow="clipboard-write *; clipboard-read *"></iframe>
+    </div>
+  </div>
+
+  <!-- PDF.js para previsualizar PDFs como imágenes -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="app.js?v=826"></script>
 </body>
 </html>
