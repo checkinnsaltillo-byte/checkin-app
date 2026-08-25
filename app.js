@@ -46080,12 +46080,12 @@ function _rsvShowMapCard_(idx) {
 })();
 
 // Copia al portapapeles un texto humano + link con los mismos filtros.
+// El link apunta SIEMPRE a la página pública /reservas/ (no al admin),
+// para que cualquier persona pueda abrirlo sin necesidad de login.
 window.rsvShare_ = async function(btn) {
   const q = RSV_STATE.query || {};
   if (!q.arrival || !q.departure) { alert('Primero haz una búsqueda para poder compartir sus resultados.'); return; }
-  const url = new URL(location.href);
-  // Limpiar params previos y setear los nuestros.
-  ['rsv_arrival','rsv_departure','rsv_adults','rsv_go'].forEach(k => url.searchParams.delete(k));
+  const url = new URL('https://www.check-inn.mx/reservas/');
   url.searchParams.set('rsv_arrival', q.arrival);
   url.searchParams.set('rsv_departure', q.departure);
   url.searchParams.set('rsv_adults', String(q.adults || 2));
