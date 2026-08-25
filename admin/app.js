@@ -43246,16 +43246,81 @@ window.botcTestToggle_ = async function() {
   await _botcTestSave_(next);
   _botcTestApplyUi_(next);
 };
-window.botcTestPhoneChange_ = function(val) {
-  clearTimeout(window.__botcTestDebounce);
-  const hint = document.getElementById('botc-test-save');
-  if (hint) hint.textContent = '…guardando';
-  window.__botcTestDebounce = setTimeout(async () => {
-    const cur = await _botcTestFetch_();
-    await _botcTestSave_({ enabled: cur.enabled !== false, phone: String(val||'').trim() });
-    if (hint) { hint.textContent = '✓ guardado'; setTimeout(() => hint.textContent = '', 1200); }
-  }, 400);
+// Estado local del input: readonly hasta que se pulsa Editar.
+window.__botcTestEditing = false;
+window.__botcTestOriginalPhone = '';
+window.botcTestEditToggle_ = async function() {
+  const inp = document.getElementById('botc-test-phone');
+  const btn = document.getElementById('botc-test-edit-btn');
+  if (!inp || !btn) return;
+  if (!window.__botcTestEditing) {
+    // Entrar en modo edición.
+    window.__botcTestEditing = true;
+    window.__botcTestOriginalPhone = inp.value;
+    inp.readOnly = false;
+    inp.style.background = '#fffbeb';
+    inp.style.color = '#0f172a';
+    inp.focus();
+    inp.select();
+    btn.textContent = '↩ Cancelar';
+    btn.style.background = '#fef3c7';
+    btn.style.color = '#92400e';
+    btn.style.borderColor = '#fcd34d';
+    btn.onclick = () => botcTestCancelEdit_();
+  }
 };
+window.botcTestPhoneInput_ = function(val) {
+  const btn = document.getElementById('botc-test-edit-btn');
+  if (!btn || !window.__botcTestEditing) return;
+  const dirty = String(val||'').trim() !== String(window.__botcTestOriginalPhone||'').trim();
+  if (dirty) {
+    btn.textContent = '💾 Guardar cambios';
+    btn.style.background = '#16a34a';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#16a34a';
+    btn.onclick = () => botcTestSaveEdit_();
+  } else {
+    btn.textContent = '↩ Cancelar';
+    btn.style.background = '#fef3c7';
+    btn.style.color = '#92400e';
+    btn.style.borderColor = '#fcd34d';
+    btn.onclick = () => botcTestCancelEdit_();
+  }
+};
+window.botcTestCancelEdit_ = function() {
+  const inp = document.getElementById('botc-test-phone');
+  if (inp) inp.value = window.__botcTestOriginalPhone;
+  _botcTestExitEdit_();
+};
+window.botcTestSaveEdit_ = async function() {
+  const inp = document.getElementById('botc-test-phone');
+  const hint = document.getElementById('botc-test-save');
+  const val = String(inp.value || '').trim();
+  if (!val) { alert('El número no puede estar vacío'); return; }
+  if (hint) hint.textContent = '…guardando';
+  const cur = await _botcTestFetch_();
+  await _botcTestSave_({ enabled: cur.enabled !== false, phone: val });
+  if (hint) { hint.textContent = '✓ guardado'; setTimeout(() => hint.textContent = '', 1500); }
+  window.__botcTestOriginalPhone = val;
+  _botcTestExitEdit_();
+};
+function _botcTestExitEdit_() {
+  const inp = document.getElementById('botc-test-phone');
+  const btn = document.getElementById('botc-test-edit-btn');
+  window.__botcTestEditing = false;
+  if (inp) {
+    inp.readOnly = true;
+    inp.style.background = '#f8fafc';
+    inp.style.color = '#334155';
+  }
+  if (btn) {
+    btn.textContent = '✏️ Editar';
+    btn.style.background = '#fff';
+    btn.style.color = '#334155';
+    btn.style.borderColor = '#cbd5e1';
+    btn.onclick = () => botcTestEditToggle_();
+  }
+}
 async function _botcTestFetch_() {
   try {
     const r = await fetch('https://api.check-inn.mx/wa/bot/test-mode', { cache:'no-store' });
