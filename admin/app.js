@@ -14605,6 +14605,19 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
       tktChip = `<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:700;font-size:9px;border:1px solid #fde68a">📄 Req. factura</span>`;
     }
   }
+  // Chip Late checkout — leído de la columna LateCheckout de Reservaciones
+  // (formato "HH:MM · pendiente|confirmado|rechazado · timestamp").
+  let lateChip = '';
+  const lateRaw = huesped ? String(huValueFlexible(huesped, ['LateCheckout']) || '').trim() : '';
+  if (lateRaw) {
+    const partes = lateRaw.split('·').map(s => s.trim());
+    const hora = partes[0] || '';
+    const est = (partes[1] || 'pendiente').toLowerCase();
+    let bg = '#fef3c7', fg = '#92400e', bd = '#fde68a';       // pendiente
+    if (est === 'confirmado') { bg = '#dcfce7'; fg = '#166534'; bd = '#86efac'; }
+    else if (est === 'rechazado') { bg = '#fee2e2'; fg = '#991b1b'; bd = '#fca5a5'; }
+    lateChip = `<span title="${esc('Late checkout · ' + est + (partes[2]?' · '+partes[2]:''))}" style="display:inline-block;padding:1px 7px;border-radius:999px;background:${bg};color:${fg};font-weight:800;font-size:9px;border:1px solid ${bd};letter-spacing:.04em">🕐 Late ${esc(hora)}</span>`;
+  }
 
   // ─── Bottom: 3 cajas Noches + Visitas + Monto + tier inline (sólo si hay match) ───
   let bottomBoxesHtml = '';
@@ -14692,6 +14705,7 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
           ${hasMatch?'<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:linear-gradient(135deg,#475569,#334155);color:#fff;font-weight:800;font-size:9px;border:1px solid #1e293b;letter-spacing:.04em">REGISTRADO</span>':''}
           ${lgGetMatchKind(b) === 'probable' ? lgProbableMatchChip() : ''}
           ${tktChip}
+          ${lateChip}
         </div>
         ${(() => {
           const coHead = (typeof lgFindCheckoutFor_ === 'function') ? lgFindCheckoutFor_(lgPropOf(b), '', b.DateDeparture) : null;
