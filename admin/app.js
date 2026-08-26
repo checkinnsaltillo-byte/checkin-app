@@ -43770,7 +43770,7 @@ window.botcToggleRightPanel = async function() {
 // ─── Modo Prueba: bot solo responde a un número específico ────────────
 window.botcTestToggle_ = async function() {
   const cur = await _botcTestFetch_();
-  const phones = cur.phones.length ? cur.phones : (window.__botcTestPhones || ['+528444443922']);
+  const phones = cur.phones.length ? cur.phones : (window.__botcTestPhones || ['+528444443922', '+528115569120', '+528110208743', '+528442798802']);
   const next = { enabled: !cur.enabled, phones };
   await _botcTestSave_(next);
   _botcTestApplyUi_(next);
@@ -43866,7 +43866,7 @@ async function _botcTestSave_(cfg) {
     });
   } catch(_){}
 }
-window.__botcTestPhones = ['+528444443922'];
+window.__botcTestPhones = ['+528444443922', '+528115569120', '+528110208743', '+528442798802'];
 function _botcTestApplyUi_(cfg) {
   const btn = document.getElementById('botc-test-toggle');
   const bar = document.getElementById('botc-test-bar');
@@ -43877,7 +43877,7 @@ function _botcTestApplyUi_(cfg) {
     btn.style.borderColor = cfg.enabled ? '#f59e0b' : '#cbd5e1';
   }
   if (bar) bar.style.display = cfg.enabled ? 'flex' : 'none';
-  window.__botcTestPhones = Array.isArray(cfg.phones) && cfg.phones.length ? cfg.phones.slice() : (window.__botcTestPhones || ['+528444443922']);
+  window.__botcTestPhones = Array.isArray(cfg.phones) && cfg.phones.length ? cfg.phones.slice() : (window.__botcTestPhones || ['+528444443922', '+528115569120', '+528110208743', '+528442798802']);
   _botcTestRenderPhones_();
 }
 function _botcTestRenderPhones_() {
@@ -43911,7 +43911,7 @@ window.botcTestRemovePhone_ = async function(phone) {
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(async () => {
     const cur = await _botcTestFetch_();
-    _botcTestApplyUi_(cur.phones.length ? cur : { enabled: cur.enabled !== false, phones: ['+528444443922'] });
+    _botcTestApplyUi_(cur.phones.length ? cur : { enabled: cur.enabled !== false, phones: ['+528444443922', '+528115569120', '+528110208743', '+528442798802'] });
     const em = await _botcEmergFetch_();
     _botcEmergRenderPhones_(em.phones || []);
   }, 400);
