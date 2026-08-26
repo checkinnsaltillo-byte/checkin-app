@@ -102,6 +102,10 @@
   .rsv-split-arrow{display:flex;align-items:center;justify-content:center;padding:0 4px;color:#0ea5e9;font-size:26px;font-weight:900;flex-shrink:0}
   @media (max-width:720px){.rsv-split-arrow{padding:8px 0;transform:rotate(90deg)}.rsv-split-leg{min-width:100%}}
   .rsv-map-split-badge{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;font-weight:900;font-size:14px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(14,165,233,.55),0 0 0 3px #fff;border:0;pointer-events:none}
+  .rsv-map-pin-split{padding-left:4px;background:#fff;border:2px solid #0ea5e9;box-shadow:0 4px 14px rgba(14,165,233,.45),0 1px 3px rgba(15,23,42,.2)}
+  .rsv-map-pin-split:hover{background:#0ea5e9;color:#fff;border-color:#0284c7}
+  .rsv-map-pin-step{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;font-weight:900;font-size:11px;margin-right:5px;flex-shrink:0;line-height:1}
+  .rsv-map-pin-split:hover .rsv-map-pin-step{background:#fff;color:#0ea5e9}
 </style>
 </head>
 <body>
@@ -370,8 +374,18 @@ function _rsvRebuildMapMarkers_() {
   (RSV_STATE.splitMapLayers || []).forEach(m => { try { map.removeLayer(m); } catch(_) {} });
   RSV_STATE.splitMapLayers = [];
   _rsvSpiderCollapse_();
+  const splitLegByIdx = new Map();
+  (RSV_STATE.splitStays || []).forEach((ss, ssi) => {
+    (ss.legs || []).forEach((lg, li) => {
+      const alojId = String(lg.alojamiento && lg.alojamiento.id || '');
+      const idxInRes = results.findIndex(x => String(x.id) === alojId);
+      if (idxInRes >= 0) splitLegByIdx.set(idxInRes, { ssi, step: lg.step || (li + 1) });
+    });
+  });
   const THRESH = 52;
-  const pts = results.map((r, i) => ({ i, r, px: map.latLngToLayerPoint([r.latitude, r.longitude]) }));
+  const pts = results
+    .map((r, i) => ({ i, r, px: map.latLngToLayerPoint([r.latitude, r.longitude]) }))
+    .filter(p => !splitLegByIdx.has(p.i));
   const seen = new Set(); const groups = [];
   for (const p of pts) {
     if (seen.has(p.i)) continue;
@@ -383,6 +397,18 @@ function _rsvRebuildMapMarkers_() {
     }
     groups.push(g);
   }
+  splitLegByIdx.forEach((meta, idx) => {
+    const r = results[idx];
+    if (!r || !r.latitude || !r.longitude) return;
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="rsv-map-pin rsv-map-pin-split"><span class="rsv-map-pin-step">${meta.step}</span>${_rsvFmt$(r.total, r.currency)}</div>`,
+      iconSize: [110, 30], iconAnchor: [55, 30],
+    });
+    const m = L.marker([r.latitude, r.longitude], { icon, zIndexOffset: 500 }).addTo(map);
+    m.on('click', () => _rsvShowMapCard_(idx));
+    RSV_STATE.mapMarkers.push(m);
+  });
   groups.forEach(g => {
     if (g.length === 1) {
       const idx = g[0]; const r = results[idx];
@@ -412,30 +438,18 @@ function _rsvRebuildMapMarkers_() {
 function _rsvDrawSplitStaysOnMap_(map) {
   const results = RSV_STATE.mapResults || [];
   const splits = RSV_STATE.splitStays || [];
-  splits.forEach((ss, ssi) => {
-    const points = [];
-    (ss.legs || []).forEach((lg, li) => {
-      const alojId = String(lg.alojamiento && lg.alojamiento.id || '');
-      const r = results.find(x => String(x.id) === alojId);
-      if (!r || !r.latitude || !r.longitude) return;
-      points.push([r.latitude, r.longitude]);
-      const step = lg.step || (li + 1);
-      const badge = L.divIcon({
-        className: '',
-        html: `<div class="rsv-map-split-badge" title="Split Stay · Paso ${step}: ${_rsvEsc(r.name || '')}">${step}</div>`,
-        iconSize: [28, 28], iconAnchor: [14, 56],
-      });
-      const bm = L.marker([r.latitude, r.longitude], { icon: badge, zIndexOffset: 1000, interactive: false }).addTo(map);
-      RSV_STATE.splitMapLayers.push(bm);
-    });
-    if (points.length >= 2) {
-      const poly = L.polyline(points, {
-        color: '#0ea5e9', weight: 3, opacity: 0.75,
-        dashArray: '8,6', lineCap: 'round', lineJoin: 'round',
-      }).addTo(map);
-      poly.bindTooltip(`🔀 Split Stay · ${ss.nights} noches · ${_rsvFmt$(ss.total, ss.currency)}`, { sticky: true });
-      RSV_STATE.splitMapLayers.push(poly);
-    }
+  splits.forEach(ss => {
+    const points = (ss.legs || [])
+      .map(lg => results.find(x => String(x.id) === String(lg.alojamiento && lg.alojamiento.id || '')))
+      .filter(r => r && r.latitude && r.longitude)
+      .map(r => [r.latitude, r.longitude]);
+    if (points.length < 2) return;
+    const poly = L.polyline(points, {
+      color: '#0ea5e9', weight: 3, opacity: 0.75,
+      dashArray: '8,6', lineCap: 'round', lineJoin: 'round',
+    }).addTo(map);
+    poly.bindTooltip(`🔀 Split Stay · ${ss.nights} noches · ${_rsvFmt$(ss.total, ss.currency)}`, { sticky: true });
+    RSV_STATE.splitMapLayers.push(poly);
   });
 }
 function _rsvSpiderCollapse_() {
