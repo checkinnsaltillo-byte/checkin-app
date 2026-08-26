@@ -465,17 +465,14 @@
         .rsv-toolbar{max-width:1080px;margin:24px auto 0;padding:0 24px;display:flex;justify-content:flex-start;align-items:center;gap:12px;flex-wrap:wrap}
         .rsv-count{font-size:14px;font-weight:800;color:var(--rsv-ink)}
         .rsv-count small{color:var(--rsv-muted);font-weight:600;margin-left:6px}
-        .rsv-float-bar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:8500;display:none;align-items:center;gap:10px}
+        .rsv-float-bar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:8500;display:none;align-items:center;gap:6px;flex-wrap:nowrap;white-space:nowrap}
         .rsv-float-bar.visible{display:inline-flex}
-        .rsv-float-bar .rsv-map-btn-float,
-        .rsv-float-bar .rsv-share-btn-float{position:static;left:auto;bottom:auto;transform:none;display:inline-flex}
-        .rsv-float-bar .rsv-map-btn-float:hover{transform:translateY(-2px)}
-        .rsv-share-btn-float{align-items:center;gap:8px;padding:12px 22px;background:#fff;color:var(--rsv-ink);border:1px solid #e5e7eb;border-radius:99px;font-size:14px;font-weight:800;cursor:pointer;transition:all .18s;box-shadow:0 10px 30px -4px rgba(15,23,42,.25),0 4px 10px rgba(15,23,42,.1);letter-spacing:.01em}
-        .rsv-share-btn-float:hover{border-color:var(--rsv-accent);color:var(--rsv-accent);transform:translateY(-2px);box-shadow:0 16px 40px -6px rgba(15,118,110,.35),0 6px 14px rgba(15,23,42,.15)}
+        .rsv-float-bar button{align-items:center;gap:5px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;transition:all .15s;letter-spacing:.01em;border-radius:99px;display:inline-flex;white-space:nowrap;line-height:1;flex-shrink:0}
+        .rsv-map-btn-float{background:var(--rsv-ink);color:#fff;border:0;box-shadow:0 6px 18px -4px rgba(15,23,42,.4)}
+        .rsv-map-btn-float:hover{background:var(--rsv-primary);transform:translateY(-1px)}
+        .rsv-share-btn-float{background:#fff;color:var(--rsv-ink);border:1px solid #e5e7eb;box-shadow:0 6px 18px -4px rgba(15,23,42,.2)}
+        .rsv-share-btn-float:hover{border-color:var(--rsv-accent);color:var(--rsv-accent);transform:translateY(-1px)}
         .rsv-share-btn-float.copied{background:#10b981;border-color:#10b981;color:#fff}
-        .rsv-map-btn-float{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:8500;display:none;align-items:center;gap:8px;padding:12px 22px;background:var(--rsv-ink);color:#fff;border:0;border-radius:99px;font-size:14px;font-weight:800;cursor:pointer;transition:all .18s;box-shadow:0 10px 30px -4px rgba(15,23,42,.4),0 4px 10px rgba(15,23,42,.15);letter-spacing:.01em}
-        .rsv-map-btn-float:hover{background:var(--rsv-primary);transform:translateX(-50%) translateY(-2px);box-shadow:0 16px 40px -6px rgba(15,118,110,.45),0 6px 14px rgba(15,23,42,.2)}
-        .rsv-map-btn-float.visible{display:inline-flex}
         .rsv-grid{max-width:1080px;margin:20px auto 0;padding:0 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
         .rsv-card{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.06);border:1px solid var(--rsv-line);cursor:pointer;transition:transform .22s cubic-bezier(.2,.7,.3,1),box-shadow .22s;display:flex;flex-direction:column}
         .rsv-card:hover{transform:translateY(-4px);box-shadow:0 20px 40px -10px rgba(15,23,42,.15),0 4px 8px rgba(15,23,42,.05)}
@@ -547,6 +544,14 @@
         .rsv-map-pin-split:hover{background:#0ea5e9;color:#fff;border-color:#0284c7}
         .rsv-map-pin-step{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;font-weight:900;font-size:11px;margin-right:5px;flex-shrink:0;line-height:1}
         .rsv-map-pin-split:hover .rsv-map-pin-step{background:#fff;color:#0ea5e9}
+        .rsv-map-splitcard{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:min(500px,94vw);background:#fff;border-radius:14px;box-shadow:0 20px 60px -8px rgba(0,0,0,.4);overflow:hidden;z-index:9920;border:1.5px dashed #7dd3fc}
+        .rsv-splitcard-head{padding:10px 40px 10px 14px;background:linear-gradient(135deg,#eff6ff,#f0fdfa);color:#0c4a6e;font-size:12px;font-weight:900;border-bottom:1px solid #e0f2fe;display:flex;align-items:center;gap:8px;letter-spacing:.02em}
+        .rsv-splitcard-legs{display:flex;padding:10px;gap:0;align-items:stretch}
+        .rsv-splitcard-leg{flex:1;min-width:0;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;position:relative}
+        .rsv-splitcard-step{position:absolute;top:6px;left:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;font-weight:900;font-size:11px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(14,165,233,.4);border:1.5px solid #fff}
+        .rsv-splitcard-arrow{display:flex;align-items:center;justify-content:center;padding:0 4px;color:#0ea5e9;font-size:22px;font-weight:900;flex-shrink:0}
+        .rsv-splitcard-book{width:calc(100% - 20px);margin:0 10px 10px;padding:9px 12px;background:#0f766e;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer}
+        .rsv-splitcard-book:hover{background:#0e7490}
       </style>
       <div id="rsv-shell">
         <div class="rsv-hero">
@@ -2824,6 +2829,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=998"></script>
+  <script src="app.js?v=999"></script>
 </body>
 </html>
