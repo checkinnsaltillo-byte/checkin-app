@@ -543,6 +543,10 @@
         .rsv-split-arrow{display:flex;align-items:center;justify-content:center;padding:0 4px;color:#0ea5e9;font-size:26px;font-weight:900;flex-shrink:0}
         @media (max-width:720px){.rsv-split-arrow{padding:8px 0;transform:rotate(90deg)}.rsv-split-leg{min-width:100%}}
         .rsv-map-split-badge{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;font-weight:900;font-size:14px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(14,165,233,.55),0 0 0 3px #fff;border:0;pointer-events:none}
+        .rsv-map-pin-split{padding-left:4px;background:#fff;border:2px solid #0ea5e9;box-shadow:0 4px 14px rgba(14,165,233,.45),0 1px 3px rgba(15,23,42,.2)}
+        .rsv-map-pin-split:hover{background:#0ea5e9;color:#fff;border-color:#0284c7}
+        .rsv-map-pin-step{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;font-weight:900;font-size:11px;margin-right:5px;flex-shrink:0;line-height:1}
+        .rsv-map-pin-split:hover .rsv-map-pin-step{background:#fff;color:#0ea5e9}
       </style>
       <div id="rsv-shell">
         <div class="rsv-hero">
@@ -2820,6 +2824,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=994"></script>
+  <script src="app.js?v=995"></script>
 </body>
 </html>

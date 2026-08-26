@@ -46118,9 +46118,22 @@ function _rsvRebuildMapMarkers_() {
   (RSV_STATE.splitMapLayers || []).forEach(m => { try { map.removeLayer(m); } catch(_) {} });
   RSV_STATE.splitMapLayers = [];
   _rsvSpiderCollapse_();
-  // Agrupar por proximidad en pixels al zoom actual.
+  // Mapa idx→(splitStayIdx, step) para los legs. Estos se EXCLUYEN del
+  // clustering y se pintan como pines solos distintivos (borde cyan + nº
+  // integrado), evitando que el badge choque con un cluster que los tapa.
+  const splitLegByIdx = new Map();
+  (RSV_STATE.splitStays || []).forEach((ss, ssi) => {
+    (ss.legs || []).forEach((lg, li) => {
+      const alojId = String(lg.alojamiento && lg.alojamiento.id || '');
+      const idxInRes = results.findIndex(x => String(x.id) === alojId);
+      if (idxInRes >= 0) splitLegByIdx.set(idxInRes, { ssi, step: lg.step || (li + 1) });
+    });
+  });
+  // Agrupar por proximidad en pixels al zoom actual — excluir legs.
   const THRESH = 52;
-  const pts = results.map((r, i) => ({ i, r, px: map.latLngToLayerPoint([r.latitude, r.longitude]) }));
+  const pts = results
+    .map((r, i) => ({ i, r, px: map.latLngToLayerPoint([r.latitude, r.longitude]) }))
+    .filter(p => !splitLegByIdx.has(p.i));
   const seen = new Set(); const groups = [];
   for (const p of pts) {
     if (seen.has(p.i)) continue;
@@ -46132,6 +46145,19 @@ function _rsvRebuildMapMarkers_() {
     }
     groups.push(g);
   }
+  // Pines solos para los legs del split-stay (siempre visibles, no agrupan).
+  splitLegByIdx.forEach((meta, idx) => {
+    const r = results[idx];
+    if (!r || !r.latitude || !r.longitude) return;
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="rsv-map-pin rsv-map-pin-split"><span class="rsv-map-pin-step">${meta.step}</span>${_rsvFmt$(r.total, r.currency)}</div>`,
+      iconSize: [110, 30], iconAnchor: [55, 30],
+    });
+    const m = L.marker([r.latitude, r.longitude], { icon, zIndexOffset: 500 }).addTo(map);
+    m.on('click', () => _rsvShowMapCard_(idx));
+    RSV_STATE.mapMarkers.push(m);
+  });
   groups.forEach(g => {
     if (g.length === 1) {
       const idx = g[0]; const r = results[idx];
@@ -46163,30 +46189,18 @@ function _rsvRebuildMapMarkers_() {
 function _rsvDrawSplitStaysOnMap_(map) {
   const results = RSV_STATE.mapResults || [];
   const splits = RSV_STATE.splitStays || [];
-  splits.forEach((ss, ssi) => {
-    const points = [];
-    (ss.legs || []).forEach((lg, li) => {
-      const alojId = String(lg.alojamiento && lg.alojamiento.id || '');
-      const r = results.find(x => String(x.id) === alojId);
-      if (!r || !r.latitude || !r.longitude) return;
-      points.push([r.latitude, r.longitude]);
-      const step = lg.step || (li + 1);
-      const badge = L.divIcon({
-        className: '',
-        html: `<div class="rsv-map-split-badge" title="Split Stay · Paso ${step}: ${_rsvEsc(r.name || '')}">${step}</div>`,
-        iconSize: [28, 28], iconAnchor: [14, 56],
-      });
-      const bm = L.marker([r.latitude, r.longitude], { icon: badge, zIndexOffset: 1000, interactive: false }).addTo(map);
-      RSV_STATE.splitMapLayers.push(bm);
-    });
-    if (points.length >= 2) {
-      const poly = L.polyline(points, {
-        color: '#0ea5e9', weight: 3, opacity: 0.75,
-        dashArray: '8,6', lineCap: 'round', lineJoin: 'round',
-      }).addTo(map);
-      poly.bindTooltip(`🔀 Split Stay · ${ss.nights} noches · ${_rsvFmt$(ss.total, ss.currency)}`, { sticky: true });
-      RSV_STATE.splitMapLayers.push(poly);
-    }
+  splits.forEach(ss => {
+    const points = (ss.legs || [])
+      .map(lg => results.find(x => String(x.id) === String(lg.alojamiento && lg.alojamiento.id || '')))
+      .filter(r => r && r.latitude && r.longitude)
+      .map(r => [r.latitude, r.longitude]);
+    if (points.length < 2) return;
+    const poly = L.polyline(points, {
+      color: '#0ea5e9', weight: 3, opacity: 0.75,
+      dashArray: '8,6', lineCap: 'round', lineJoin: 'round',
+    }).addTo(map);
+    poly.bindTooltip(`🔀 Split Stay · ${ss.nights} noches · ${_rsvFmt$(ss.total, ss.currency)}`, { sticky: true });
+    RSV_STATE.splitMapLayers.push(poly);
   });
 }
 function _rsvSpiderCollapse_() {
