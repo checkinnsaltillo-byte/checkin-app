@@ -46118,9 +46118,9 @@ function _rsvRebuildMapMarkers_() {
   (RSV_STATE.splitMapLayers || []).forEach(m => { try { map.removeLayer(m); } catch(_) {} });
   RSV_STATE.splitMapLayers = [];
   _rsvSpiderCollapse_();
-  // Mapa idx→(splitStayIdx, step) para los legs. Estos se EXCLUYEN del
-  // clustering y se pintan como pines solos distintivos (borde cyan + nº
-  // integrado), evitando que el badge choque con un cluster que los tapa.
+  // Mapa idx→(splitStayIdx, step) para los legs — se guarda en STATE para
+  // que la vista solo, la vista cluster y el spider-fan lo usen para
+  // dibujar el pin distintivo (borde cyan + nº integrado).
   const splitLegByIdx = new Map();
   (RSV_STATE.splitStays || []).forEach((ss, ssi) => {
     (ss.legs || []).forEach((lg, li) => {
@@ -46129,11 +46129,11 @@ function _rsvRebuildMapMarkers_() {
       if (idxInRes >= 0) splitLegByIdx.set(idxInRes, { ssi, step: lg.step || (li + 1) });
     });
   });
-  // Agrupar por proximidad en pixels al zoom actual — excluir legs.
+  RSV_STATE.splitLegByIdx = splitLegByIdx;
+  // Agrupar por proximidad en pixels al zoom actual — TODOS los pines
+  // (normal + split-stay legs) participan; overlapping se abre con spider.
   const THRESH = 52;
-  const pts = results
-    .map((r, i) => ({ i, r, px: map.latLngToLayerPoint([r.latitude, r.longitude]) }))
-    .filter(p => !splitLegByIdx.has(p.i));
+  const pts = results.map((r, i) => ({ i, r, px: map.latLngToLayerPoint([r.latitude, r.longitude]) }));
   const seen = new Set(); const groups = [];
   for (const p of pts) {
     if (seen.has(p.i)) continue;
@@ -46145,24 +46145,13 @@ function _rsvRebuildMapMarkers_() {
     }
     groups.push(g);
   }
-  // Pines solos para los legs del split-stay (siempre visibles, no agrupan).
-  splitLegByIdx.forEach((meta, idx) => {
-    const r = results[idx];
-    if (!r || !r.latitude || !r.longitude) return;
-    const icon = L.divIcon({
-      className: '',
-      html: `<div class="rsv-map-pin rsv-map-pin-split"><span class="rsv-map-pin-step">${meta.step}</span>${_rsvFmt$(r.total, r.currency)}</div>`,
-      iconSize: [110, 30], iconAnchor: [55, 30],
-    });
-    const m = L.marker([r.latitude, r.longitude], { icon, zIndexOffset: 500 }).addTo(map);
-    m.on('click', () => _rsvShowMapCard_(idx));
-    RSV_STATE.mapMarkers.push(m);
-  });
   groups.forEach(g => {
     if (g.length === 1) {
       const idx = g[0]; const r = results[idx];
-      const icon = L.divIcon({ className:'', html:`<div class="rsv-map-pin">${_rsvFmt$(r.total, r.currency)}</div>`, iconSize:[80,30], iconAnchor:[40,30] });
-      const m = L.marker([r.latitude, r.longitude], { icon }).addTo(map);
+      const html = _rsvPinHtmlForIdx_(idx, r);
+      const w = splitLegByIdx.has(idx) ? 110 : 80;
+      const icon = L.divIcon({ className:'', html, iconSize:[w,30], iconAnchor:[w/2,30] });
+      const m = L.marker([r.latitude, r.longitude], { icon, zIndexOffset: splitLegByIdx.has(idx) ? 500 : 0 }).addTo(map);
       m.on('click', () => _rsvShowMapCard_(idx));
       RSV_STATE.mapMarkers.push(m);
     } else {
@@ -46170,8 +46159,9 @@ function _rsvRebuildMapMarkers_() {
       const cLng = g.reduce((s,i) => s + results[i].longitude, 0) / g.length;
       const minT = Math.min(...g.map(i => Number(results[i].total) || Infinity));
       const cur = results[g[0]].currency || 'MXN';
-      const html = `<div class="rsv-map-cluster"><span class="rsv-map-cluster-count">${g.length}</span><span class="rsv-map-cluster-price">desde ${_rsvFmt$(minT, cur)}</span></div>`;
-      const icon = L.divIcon({ className:'', html, iconSize:[120,36], iconAnchor:[60,18] });
+      const hasSplit = g.some(i => splitLegByIdx.has(i));
+      const html = `<div class="rsv-map-cluster${hasSplit?' rsv-map-cluster-hasplit':''}"><span class="rsv-map-cluster-count">${g.length}</span><span class="rsv-map-cluster-price">${hasSplit?'🔀 ':''}desde ${_rsvFmt$(minT, cur)}</span></div>`;
+      const icon = L.divIcon({ className:'', html, iconSize:[130,36], iconAnchor:[65,18] });
       const m = L.marker([cLat, cLng], { icon }).addTo(map);
       const hook = () => {
         const el = m.getElement() && m.getElement().querySelector('.rsv-map-cluster');
@@ -46185,6 +46175,16 @@ function _rsvRebuildMapMarkers_() {
   // Overlay Split Stay: badge numérico (①, ②) sobre cada leg + polyline
   // punteada azul conectándolos en orden.
   _rsvDrawSplitStaysOnMap_(map);
+}
+// Devuelve HTML del pin — distintivo cyan+step si el idx es un leg del
+// split-stay; pin blanco simple con precio en caso contrario.
+function _rsvPinHtmlForIdx_(idx, r) {
+  const meta = (RSV_STATE.splitLegByIdx || new Map()).get(idx);
+  const price = _rsvFmt$(r.total, r.currency);
+  if (meta) {
+    return `<div class="rsv-map-pin rsv-map-pin-split"><span class="rsv-map-pin-step">${meta.step}</span>${price}</div>`;
+  }
+  return `<div class="rsv-map-pin">${price}</div>`;
 }
 function _rsvDrawSplitStaysOnMap_(map) {
   const results = RSV_STATE.mapResults || [];
@@ -46237,7 +46237,7 @@ function _rsvSpiderExpand_(indices, centerLatLng) {
     const chip = document.createElement('div');
     chip.className = 'rsv-spider-chip';
     chip.style.left = x + 'px'; chip.style.top = y + 'px';
-    chip.innerHTML = `<div class="rsv-map-pin">${_rsvFmt$(r.total, r.currency)}</div>`;
+    chip.innerHTML = _rsvPinHtmlForIdx_(idx, r);
     chip.onclick = () => _rsvShowMapCard_(idx);
     ov.appendChild(chip);
     requestAnimationFrame(() => chip.classList.add('rsv-in'));
