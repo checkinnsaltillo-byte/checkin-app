@@ -46115,6 +46115,8 @@ function _rsvRebuildMapMarkers_() {
   const results = RSV_STATE.mapResults || [];
   (RSV_STATE.mapMarkers || []).forEach(m => { try { map.removeLayer(m); } catch(_) {} });
   RSV_STATE.mapMarkers = [];
+  (RSV_STATE.splitMapLayers || []).forEach(m => { try { map.removeLayer(m); } catch(_) {} });
+  RSV_STATE.splitMapLayers = [];
   _rsvSpiderCollapse_();
   // Agrupar por proximidad en pixels al zoom actual.
   const THRESH = 52;
@@ -46152,6 +46154,38 @@ function _rsvRebuildMapMarkers_() {
       };
       m.on('add', hook); if (m.getElement()) hook();
       RSV_STATE.mapMarkers.push(m);
+    }
+  });
+  // Overlay Split Stay: badge numérico (①, ②) sobre cada leg + polyline
+  // punteada azul conectándolos en orden.
+  _rsvDrawSplitStaysOnMap_(map);
+}
+function _rsvDrawSplitStaysOnMap_(map) {
+  const results = RSV_STATE.mapResults || [];
+  const splits = RSV_STATE.splitStays || [];
+  splits.forEach((ss, ssi) => {
+    const points = [];
+    (ss.legs || []).forEach((lg, li) => {
+      const alojId = String(lg.alojamiento && lg.alojamiento.id || '');
+      const r = results.find(x => String(x.id) === alojId);
+      if (!r || !r.latitude || !r.longitude) return;
+      points.push([r.latitude, r.longitude]);
+      const step = lg.step || (li + 1);
+      const badge = L.divIcon({
+        className: '',
+        html: `<div class="rsv-map-split-badge" title="Split Stay · Paso ${step}: ${_rsvEsc(r.name || '')}">${step}</div>`,
+        iconSize: [28, 28], iconAnchor: [14, 56],
+      });
+      const bm = L.marker([r.latitude, r.longitude], { icon: badge, zIndexOffset: 1000, interactive: false }).addTo(map);
+      RSV_STATE.splitMapLayers.push(bm);
+    });
+    if (points.length >= 2) {
+      const poly = L.polyline(points, {
+        color: '#0ea5e9', weight: 3, opacity: 0.75,
+        dashArray: '8,6', lineCap: 'round', lineJoin: 'round',
+      }).addTo(map);
+      poly.bindTooltip(`🔀 Split Stay · ${ss.nights} noches · ${_rsvFmt$(ss.total, ss.currency)}`, { sticky: true });
+      RSV_STATE.splitMapLayers.push(poly);
     }
   });
 }
