@@ -43912,8 +43912,56 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(async () => {
     const cur = await _botcTestFetch_();
     _botcTestApplyUi_(cur.phones.length ? cur : { enabled: cur.enabled !== false, phones: ['+528444443922'] });
+    const em = await _botcEmergFetch_();
+    _botcEmergRenderPhones_(em.phones || []);
   }, 400);
 });
+
+// ─── Barra Emergencia (reporte P1 → notifica también a estos números) ──
+window.__botcEmergPhones = [];
+async function _botcEmergFetch_() {
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/bot/emergency-phones', { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) return { phones: [] };
+    window.__botcEmergPhones = j.phones || [];
+    return { phones: window.__botcEmergPhones };
+  } catch(_) { return { phones: [] }; }
+}
+async function _botcEmergSave_(phones) {
+  try {
+    await fetch('https://api.check-inn.mx/wa/bot/emergency-phones', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phones }),
+    });
+  } catch(_){}
+}
+function _botcEmergRenderPhones_(phones) {
+  window.__botcEmergPhones = phones || [];
+  const cont = document.getElementById('botc-emerg-phones'); if (!cont) return;
+  cont.innerHTML = (phones || []).map(p =>
+    `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 8px 4px 10px;background:#fff;border:1px solid #dc2626;border-radius:99px;font-size:12px;font-family:monospace;color:#334155">${_botcEsc(p)}<button type="button" onclick="botcEmergRemovePhone_('${_botcEsc(p).replace(/'/g,"\\'")}')" title="Quitar" style="background:none;border:0;color:#dc2626;cursor:pointer;font-size:14px;line-height:1;padding:0 2px;font-weight:900">×</button></span>`
+  ).join('') || '<span style="font-size:11px;color:#991b1b;font-style:italic">Sin números — nadie recibe alerta P1 extra</span>';
+}
+window.botcEmergAddPhone_ = async function() {
+  const inp = document.getElementById('botc-emerg-newphone'); if (!inp) return;
+  const val = String(inp.value || '').trim();
+  if (!val) return;
+  const phones = (window.__botcEmergPhones || []).slice();
+  if (phones.includes(val)) { alert('Ese número ya está en la lista'); return; }
+  phones.push(val);
+  _botcEmergRenderPhones_(phones);
+  inp.value = '';
+  const hint = document.getElementById('botc-emerg-save');
+  if (hint) hint.textContent = '…guardando';
+  await _botcEmergSave_(phones);
+  if (hint) { hint.textContent = '✓ guardado'; setTimeout(() => hint.textContent = '', 1200); }
+};
+window.botcEmergRemovePhone_ = async function(phone) {
+  const phones = (window.__botcEmergPhones || []).filter(p => p !== phone);
+  _botcEmergRenderPhones_(phones);
+  await _botcEmergSave_(phones);
+};
 
 window.botcOpenAlojConfig = async function() {
   const existing = document.getElementById('botc-aloj-modal');

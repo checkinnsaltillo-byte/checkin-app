@@ -2600,6 +2600,14 @@
         <button type="button" onclick="botcTestAddPhone_()" style="padding:5px 12px;font-size:11px;background:#f59e0b;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">＋ Agregar</button>
         <span id="botc-test-save" style="font-size:11px;color:#94a3b8"></span>
       </div>
+      <div id="botc-emerg-bar" style="padding:8px 20px;background:#fee2e2;border-bottom:1px solid #fca5a5;display:flex;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap">
+        <span style="font-weight:800;color:#991b1b">🚨 EMERGENCIA —</span>
+        <span style="color:#991b1b">reciben aviso extra cuando el bot crea un reporte crítico (P1):</span>
+        <div id="botc-emerg-phones" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
+        <input id="botc-emerg-newphone" type="text" placeholder="+52..." onkeydown="if(event.key==='Enter'){event.preventDefault();botcEmergAddPhone_()}" style="padding:5px 10px;font-size:12px;border:1px solid #dc2626;border-radius:6px;background:#fff;min-width:160px;font-family:monospace;color:#334155">
+        <button type="button" onclick="botcEmergAddPhone_()" style="padding:5px 12px;font-size:11px;background:#dc2626;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">＋ Agregar</button>
+        <span id="botc-emerg-save" style="font-size:11px;color:#94a3b8"></span>
+      </div>
       <div style="flex:1;display:flex;min-height:0;background:#f8fafc">
         <!-- Sidebar: lista conversaciones -->
         <div id="botc-sidebar" style="width:340px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;overflow-y:auto">
@@ -2785,6 +2793,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=991"></script>
+  <script src="app.js?v=992"></script>
 </body>
 </html>
