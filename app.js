@@ -45906,7 +45906,23 @@ window.rsvOpenBooking_ = function(idx) {
   if (!r) return;
   const q = RSV_STATE.query || {};
   const url = _rsvHostedUrl(r, q.arrival, q.departure, q.adults);
-  window.open(url, '_blank', 'noopener');
+  _rsvOpenBookingOverlay_(url);
+};
+function _rsvOpenBookingOverlay_(url) {
+  const prev = document.getElementById('rsv-booking-overlay'); if (prev) prev.remove();
+  const ov = document.createElement('div');
+  ov.id = 'rsv-booking-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.65);display:flex;flex-direction:column';
+  ov.innerHTML = `
+    <button onclick="_rsvCloseBookingOverlay_()" title="Cerrar" style="position:absolute;top:14px;right:14px;z-index:2;width:44px;height:44px;border-radius:50%;background:#fff;color:#0f172a;border:0;font-size:22px;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3)">×</button>
+    <iframe src="${url}" style="flex:1;border:0;background:#fff;width:100%;height:100%" allow="payment"></iframe>`;
+  document.body.appendChild(ov);
+  document.addEventListener('keydown', _rsvBookingKey_);
+}
+function _rsvBookingKey_(ev) { if (ev.key === 'Escape') _rsvCloseBookingOverlay_(); }
+window._rsvCloseBookingOverlay_ = function() {
+  const ov = document.getElementById('rsv-booking-overlay'); if (ov) ov.remove();
+  document.removeEventListener('keydown', _rsvBookingKey_);
 };
 window.rsvOpenMap_ = function() {
   _rsvEnsureLeaflet_(() => {
