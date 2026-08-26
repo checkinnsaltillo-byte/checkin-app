@@ -39216,6 +39216,25 @@ window.waCloseModal_ = function() {
   window.__waModalState = null;
 };
 
+/** Refresca los datos que consume el panel (reportes técnicos, incidencias,
+ *  objetos, historial del bot chat) y repinta. Se dispara con el botón 🔄
+ *  del header. */
+window.waRefreshPanel_ = async function(btn) {
+  const st = window.__waModalState; if (!st) return;
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.55'; btn.innerHTML = '⏳'; }
+  try {
+    await Promise.all([
+      (typeof rtRefresh === 'function')            ? rtRefresh(true).catch(()=>{})            : Promise.resolve(),
+      (typeof incLoadIncidencias === 'function')   ? incLoadIncidencias().catch(()=>{})       : Promise.resolve(),
+      (typeof objLoadObjetos === 'function')       ? objLoadObjetos().catch(()=>{})           : Promise.resolve(),
+      (typeof _botcRefreshCurrentChat_ === 'function') ? _botcRefreshCurrentChat_().catch(()=>{}) : Promise.resolve(),
+    ]);
+  } catch(e) { console.warn('[wa-refresh]', e.message || e); }
+  try { _waRepaint(); } catch(_) {}
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.innerHTML = originalHtml || '🔄'; }
+};
+
 /** Repinta el modal completo (idempotente). */
 function _waRepaint() { _waRenderModal(true); }
 
@@ -39231,7 +39250,10 @@ function _waRenderModal(replace) {
     <div data-wa-panel style="background:#fff;box-shadow:-24px 0 48px -8px rgba(0,0,0,.28);width:100%;max-width:560px;height:100vh;overflow:auto;padding:0;display:flex;flex-direction:column;position:relative;z-index:2" onclick="event.stopPropagation()">
       <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;background:#25d366;color:#fff;position:sticky;top:0;z-index:2;flex:none">
         <div style="font-size:15px;font-weight:800">💬 WhatsApp · ${esc(b.GuestName || b['Nombre reservación'] || 'Huésped')}</div>
-        <button onclick="waCloseModal_()" style="background:transparent;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1;padding:0 6px">✕</button>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button onclick="waRefreshPanel_(this)" title="Actualizar datos (reportes, incidencias, mensajes)" style="background:rgba(255,255,255,.15);border:0;color:#fff;font-size:16px;cursor:pointer;line-height:1;padding:6px 10px;border-radius:6px;font-weight:800">🔄</button>
+          <button onclick="waCloseModal_()" style="background:transparent;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1;padding:0 6px">✕</button>
+        </div>
       </div>
       <div style="padding:14px 18px;overflow-y:auto;flex:1">
 
