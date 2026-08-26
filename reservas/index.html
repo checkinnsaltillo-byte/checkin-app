@@ -101,6 +101,7 @@
   .rsv-split-leg-nights{font-size:10px;color:#64748b;font-weight:700}
   .rsv-split-arrow{display:flex;align-items:center;justify-content:center;padding:0 4px;color:#0ea5e9;font-size:26px;font-weight:900;flex-shrink:0}
   @media (max-width:720px){.rsv-split-arrow{padding:8px 0;transform:rotate(90deg)}.rsv-split-leg{min-width:100%}}
+  .rsv-map-split-badge{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;font-weight:900;font-size:14px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(14,165,233,.55),0 0 0 3px #fff;border:0;pointer-events:none}
 </style>
 </head>
 <body>
@@ -366,6 +367,8 @@ function _rsvRebuildMapMarkers_() {
   const results = RSV_STATE.mapResults || [];
   (RSV_STATE.mapMarkers || []).forEach(m => { try { map.removeLayer(m); } catch(_) {} });
   RSV_STATE.mapMarkers = [];
+  (RSV_STATE.splitMapLayers || []).forEach(m => { try { map.removeLayer(m); } catch(_) {} });
+  RSV_STATE.splitMapLayers = [];
   _rsvSpiderCollapse_();
   const THRESH = 52;
   const pts = results.map((r, i) => ({ i, r, px: map.latLngToLayerPoint([r.latitude, r.longitude]) }));
@@ -402,6 +405,36 @@ function _rsvRebuildMapMarkers_() {
       };
       m.on('add', hook); if (m.getElement()) hook();
       RSV_STATE.mapMarkers.push(m);
+    }
+  });
+  _rsvDrawSplitStaysOnMap_(map);
+}
+function _rsvDrawSplitStaysOnMap_(map) {
+  const results = RSV_STATE.mapResults || [];
+  const splits = RSV_STATE.splitStays || [];
+  splits.forEach((ss, ssi) => {
+    const points = [];
+    (ss.legs || []).forEach((lg, li) => {
+      const alojId = String(lg.alojamiento && lg.alojamiento.id || '');
+      const r = results.find(x => String(x.id) === alojId);
+      if (!r || !r.latitude || !r.longitude) return;
+      points.push([r.latitude, r.longitude]);
+      const step = lg.step || (li + 1);
+      const badge = L.divIcon({
+        className: '',
+        html: `<div class="rsv-map-split-badge" title="Split Stay · Paso ${step}: ${_rsvEsc(r.name || '')}">${step}</div>`,
+        iconSize: [28, 28], iconAnchor: [14, 56],
+      });
+      const bm = L.marker([r.latitude, r.longitude], { icon: badge, zIndexOffset: 1000, interactive: false }).addTo(map);
+      RSV_STATE.splitMapLayers.push(bm);
+    });
+    if (points.length >= 2) {
+      const poly = L.polyline(points, {
+        color: '#0ea5e9', weight: 3, opacity: 0.75,
+        dashArray: '8,6', lineCap: 'round', lineJoin: 'round',
+      }).addTo(map);
+      poly.bindTooltip(`🔀 Split Stay · ${ss.nights} noches · ${_rsvFmt$(ss.total, ss.currency)}`, { sticky: true });
+      RSV_STATE.splitMapLayers.push(poly);
     }
   });
 }
