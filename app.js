@@ -46109,6 +46109,7 @@ function _rsvRebuildMapMarkers_() {
   RSV_STATE.mapMarkers = [];
   (RSV_STATE.splitMapLayers || []).forEach(m => { try { map.removeLayer(m); } catch(_) {} });
   RSV_STATE.splitMapLayers = [];
+  _rsvClearSplitPromoted_();
   _rsvSpiderCollapse_();
   // Mapa idx→(splitStayIdx, step) para los legs — se guarda en STATE para
   // que la vista solo, la vista cluster y el spider-fan lo usen para
@@ -46267,25 +46268,27 @@ function _rsvShowCardsForIdx_(idx) {
 function _rsvShowSplitStayCards_(ssi) {
   const ss = (RSV_STATE.splitStays || [])[ssi]; if (!ss) return;
   const results = RSV_STATE.mapResults || RSV_STATE.results || [];
-  const q = RSV_STATE.query || {};
   document.querySelectorAll('.rsv-map-card, .rsv-map-splitcard').forEach(el => el.remove());
-  // Expandir cluster de cada leg (para que ambos chips queden visibles).
   _rsvSpiderCollapse_();
-  const clusters = new Map(); // dedupe por clave
-  (ss.legs || []).forEach(lg => {
+  _rsvClearSplitPromoted_();
+  // Promociona TODOS los legs a pines solo, encima del cluster/pin que
+  // los contenga — así ambos chips (① $X y ② $Y) siempre son visibles
+  // al mismo tiempo, sin importar el zoom o si están en cluster.
+  const map = RSV_STATE.map;
+  RSV_STATE.splitPromotedMarkers = [];
+  (ss.legs || []).forEach((lg, li) => {
     const alojId = String(lg.alojamiento && lg.alojamiento.id || '');
+    const r = results.find(x => String(x.id) === alojId);
+    if (!r || !r.latitude || !r.longitude || !map) return;
+    const step = lg.step || (li + 1);
+    const html = `<div class="rsv-map-pin rsv-map-pin-split rsv-map-pin-split-promoted"><span class="rsv-map-pin-step">${step}</span>${_rsvFmt$(r.total, r.currency)}</div>`;
+    const icon = L.divIcon({ className:'', html, iconSize:[110,30], iconAnchor:[55,30] });
+    const m = L.marker([r.latitude, r.longitude], { icon, zIndexOffset: 2000 }).addTo(map);
     const legIdx = results.findIndex(x => String(x.id) === alojId);
-    if (legIdx < 0) return;
-    const c = (RSV_STATE.clusterByIdx || new Map()).get(legIdx);
-    if (c) clusters.set(c.g.join(','), c);
+    m.on('click', () => { if (legIdx >= 0) _rsvShowSplitStayCards_(ssi); });
+    RSV_STATE.splitPromotedMarkers.push(m);
   });
-  // Si hay múltiples clusters con legs, sólo podemos spider-expandir uno
-  // a la vez (el spider overlay es único). Expandimos el primero que
-  // agrupe legs; los otros pines quedan visibles como solo (o el usuario
-  // hará hover al otro cluster).
-  const firstCluster = clusters.values().next().value;
-  if (firstCluster) setTimeout(() => _rsvSpiderExpand_(firstCluster.g, firstCluster.center), 40);
-  // Contenedor con ambas cards.
+  // Contenedor con ambas cards, cada una con su propio botón Reservar.
   const wrap = document.createElement('div');
   wrap.className = 'rsv-map-splitcard';
   const dateShort = s => { try { const [Y,M,D] = String(s||'').split('-'); return `${D}/${M}`; } catch(_){ return s; } };
@@ -46299,19 +46302,24 @@ function _rsvShowSplitStayCards_(ssi) {
         <div style="padding:8px 10px 10px">
           <div style="font-size:11px;font-weight:800;color:#0f172a;line-height:1.2;margin-bottom:3px">${_rsvEsc(r.name || 'Alojamiento')}</div>
           <div style="font-size:10px;color:#0369a1;font-weight:700;margin-bottom:6px">📅 ${dateShort(lg.arrival)} → ${dateShort(lg.departure)}</div>
-          <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px">
             <div style="font-size:14px;font-weight:900;color:#0e7490">${_rsvFmt$(lg.subtotal, ss.currency)}</div>
             <div style="font-size:9px;color:#64748b;font-weight:700">${lg.nights} noche${lg.nights===1?'':'s'}</div>
           </div>
+          <button class="rsv-splitcard-legbook" onclick="event.stopPropagation();_rsvOpenSplitLeg_(${ssi},${li})">Reservar →</button>
         </div>
       </div>${arrow}`;
   }).join('');
   wrap.innerHTML = `
-    <button class="rsv-map-card-close" onclick="this.parentElement.remove()">×</button>
+    <button class="rsv-map-card-close" onclick="this.parentElement.remove();_rsvClearSplitPromoted_()">×</button>
     <div class="rsv-splitcard-head">🔀 Split Stay <span style="font-weight:800;margin-left:auto;color:#0e7490;font-size:14px">${_rsvFmt$(ss.total, ss.currency)}</span></div>
-    <div class="rsv-splitcard-legs">${legsHtml}</div>
-    <button class="rsv-splitcard-book" onclick="_rsvOpenSplitLeg_(${ssi},0)">Reservar 1er alojamiento →</button>`;
+    <div class="rsv-splitcard-legs">${legsHtml}</div>`;
   document.body.appendChild(wrap);
+}
+function _rsvClearSplitPromoted_() {
+  const map = RSV_STATE.map;
+  (RSV_STATE.splitPromotedMarkers || []).forEach(m => { try { map && map.removeLayer(m); } catch(_){} });
+  RSV_STATE.splitPromotedMarkers = [];
 }
 function _rsvShowMapCard_(idx) {
   const r = (RSV_STATE.results || [])[idx]; if (!r) return;

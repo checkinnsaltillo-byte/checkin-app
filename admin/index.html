@@ -550,8 +550,10 @@
         .rsv-splitcard-leg{flex:1;min-width:0;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;position:relative}
         .rsv-splitcard-step{position:absolute;top:6px;left:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;font-weight:900;font-size:11px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(14,165,233,.4);border:1.5px solid #fff}
         .rsv-splitcard-arrow{display:flex;align-items:center;justify-content:center;padding:0 4px;color:#0ea5e9;font-size:22px;font-weight:900;flex-shrink:0}
-        .rsv-splitcard-book{width:calc(100% - 20px);margin:0 10px 10px;padding:9px 12px;background:#0f766e;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer}
-        .rsv-splitcard-book:hover{background:#0e7490}
+        .rsv-splitcard-legbook{width:100%;padding:7px 10px;background:#0f766e;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;transition:background .12s}
+        .rsv-splitcard-legbook:hover{background:#0e7490}
+        .rsv-map-pin-split-promoted{animation:rsv-split-pop .4s cubic-bezier(.34,1.56,.64,1) both}
+        @keyframes rsv-split-pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
       </style>
       <div id="rsv-shell">
         <div class="rsv-hero">
@@ -2829,6 +2831,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=999"></script>
+  <script src="app.js?v=1000"></script>
 </body>
 </html>
