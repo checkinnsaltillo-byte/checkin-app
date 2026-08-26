@@ -76,6 +76,31 @@
   .rsv-spider-chip.rsv-in{opacity:1;transform:translate(-50%,-50%) scale(1)}
   .rsv-map-card{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:min(360px,92vw);background:#fff;border-radius:14px;box-shadow:0 20px 60px -8px rgba(0,0,0,.4);overflow:hidden;z-index:9920}
   .rsv-map-card-close{position:absolute;top:10px;right:10px;z-index:2;background:rgba(255,255,255,.9);border:0;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;font-weight:900;color:var(--rsv-ink);box-shadow:0 2px 6px rgba(0,0,0,.15)}
+  .rsv-split-wrap{max-width:1080px;margin:24px auto 0;padding:0 24px}
+  .rsv-split-container{background:linear-gradient(135deg,#eff6ff 0%,#f0fdfa 100%);border:1.5px dashed #7dd3fc;border-radius:16px;padding:18px 18px 20px}
+  .rsv-split-head{display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+  .rsv-split-icon{font-size:26px;line-height:1;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;width:44px;height:44px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(14,165,233,.35);flex-shrink:0}
+  .rsv-split-head-txt{flex:1;min-width:200px}
+  .rsv-split-title{font-size:15px;font-weight:900;color:#0c4a6e;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .rsv-split-badge{font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:2px 7px;border-radius:99px;letter-spacing:.05em}
+  .rsv-split-sub{font-size:12px;color:#0369a1;margin-top:3px}
+  .rsv-split-price{margin-left:auto;text-align:right}
+  .rsv-split-price-big{font-size:22px;font-weight:900;color:#0e7490;letter-spacing:-.02em}
+  .rsv-split-price-small{font-size:10px;color:#64748b;font-weight:600}
+  .rsv-split-legs{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+  .rsv-split-leg{flex:1;min-width:220px;background:#fff;border-radius:12px;padding:12px 14px;border:1px solid #e2e8f0;cursor:pointer;position:relative;transition:transform .2s,box-shadow .2s,border-color .2s}
+  .rsv-split-leg:hover{transform:translateY(-2px);box-shadow:0 12px 26px -8px rgba(14,165,233,.35);border-color:#7dd3fc}
+  .rsv-split-step{position:absolute;top:-11px;left:14px;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;font-weight:900;font-size:13px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(14,165,233,.4);border:2px solid #fff}
+  .rsv-split-leg-img{width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#e2e8f0,#cbd5e1);border-radius:8px;overflow:hidden;margin-bottom:10px;margin-top:6px}
+  .rsv-split-leg-img img{width:100%;height:100%;object-fit:cover}
+  .rsv-split-leg-name{font-size:13px;font-weight:800;color:#0f172a;line-height:1.25;margin-bottom:4px}
+  .rsv-split-leg-dates{font-size:11px;color:#0369a1;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:4px}
+  .rsv-split-leg-cap{font-size:10px;color:#64748b;margin-bottom:8px}
+  .rsv-split-leg-foot{display:flex;justify-content:space-between;align-items:baseline;padding-top:8px;border-top:1px dashed #e2e8f0}
+  .rsv-split-leg-price{font-size:15px;font-weight:900;color:#0e7490;letter-spacing:-.02em}
+  .rsv-split-leg-nights{font-size:10px;color:#64748b;font-weight:700}
+  .rsv-split-arrow{display:flex;align-items:center;justify-content:center;padding:0 4px;color:#0ea5e9;font-size:26px;font-weight:900;flex-shrink:0}
+  @media (max-width:720px){.rsv-split-arrow{padding:8px 0;transform:rotate(90deg)}.rsv-split-leg{min-width:100%}}
 </style>
 </head>
 <body>
@@ -174,6 +199,7 @@ window.rsvSearch_ = async function() {
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'Error del servidor');
     RSV_STATE.results = j.results || [];
+    RSV_STATE.splitStays = j.splitStays || [];
     RSV_STATE.query = { arrival, departure, adults };
     _rsvRenderResults_();
   } catch (e) {
@@ -195,8 +221,60 @@ function _rsvRenderResults_() {
   if (floatBtn) floatBtn.classList.add('visible');
   const q = RSV_STATE.query || {};
   document.getElementById('rsv-count').innerHTML = `${results.length} alojamiento${results.length===1?'':'s'} disponibles <small>· ${q.arrival} → ${q.departure} · ${q.adults} huésped(es)</small>`;
-  cont.innerHTML = `<div class="rsv-grid">${results.map((r,i) => _rsvCardHtml_(r,i)).join('')}</div>`;
+  const gridHtml = `<div class="rsv-grid">${results.map((r,i) => _rsvCardHtml_(r,i)).join('')}</div>`;
+  cont.innerHTML = gridHtml + _rsvSplitStaysHtml_();
 }
+function _rsvSplitStaysHtml_() {
+  const list = RSV_STATE.splitStays || [];
+  if (!list.length) return '';
+  return list.map((ss, ssi) => {
+    const legs = ss.legs || [];
+    const dateShort = s => { try { const [Y,M,D] = String(s||'').split('-'); return `${D}/${M}`; } catch(_) { return s; } };
+    const legsHtml = legs.map((lg, li) => {
+      const r = lg.alojamiento || {};
+      const cap = [];
+      if (r.max_people) cap.push(`👥 ${r.max_people}`);
+      if (r.bedrooms) cap.push(`🛏 ${r.bedrooms}`);
+      const arrow = li < legs.length - 1 ? `<div class="rsv-split-arrow">→</div>` : '';
+      return `
+        <div class="rsv-split-leg" onclick="_rsvOpenSplitLeg_(${ssi},${li})">
+          <div class="rsv-split-step">${lg.step || (li+1)}</div>
+          <div class="rsv-split-leg-img">${r.image ? `<img src="${_rsvEsc(r.image)}" alt="${_rsvEsc(r.name)}">` : ''}</div>
+          <div class="rsv-split-leg-name">${_rsvEsc(r.name || 'Alojamiento')}</div>
+          <div class="rsv-split-leg-dates">📅 ${dateShort(lg.arrival)} → ${dateShort(lg.departure)}</div>
+          ${cap.length ? `<div class="rsv-split-leg-cap">${cap.join(' · ')}</div>` : ''}
+          <div class="rsv-split-leg-foot">
+            <div class="rsv-split-leg-price">${_rsvFmt$(lg.subtotal, ss.currency)}</div>
+            <div class="rsv-split-leg-nights">${lg.nights} noche${lg.nights===1?'':'s'}</div>
+          </div>
+        </div>${arrow}`;
+    }).join('');
+    return `
+      <div class="rsv-split-wrap">
+        <div class="rsv-split-container">
+          <div class="rsv-split-head">
+            <div class="rsv-split-icon">🔀</div>
+            <div class="rsv-split-head-txt">
+              <div class="rsv-split-title">Split Stay — combinación sugerida${ss.isDemo ? '<span class="rsv-split-badge">DEMO</span>' : ''}</div>
+              <div class="rsv-split-sub">Divide tu estancia entre ${legs.length} alojamientos · ${ss.nights} noche${ss.nights===1?'':'s'} en total</div>
+            </div>
+            <div class="rsv-split-price">
+              <div class="rsv-split-price-big">${_rsvFmt$(ss.total, ss.currency)}</div>
+              <div class="rsv-split-price-small">total combinado</div>
+            </div>
+          </div>
+          <div class="rsv-split-legs">${legsHtml}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+window._rsvOpenSplitLeg_ = function(ssi, li) {
+  const ss = (RSV_STATE.splitStays || [])[ssi]; if (!ss) return;
+  const lg = (ss.legs || [])[li]; if (!lg) return;
+  const q = RSV_STATE.query || {};
+  const url = _rsvHostedUrl(lg.alojamiento || {}, lg.arrival, lg.departure, q.adults || 1);
+  _rsvOpenBookingOverlay_(url);
+};
 function _rsvCardHtml_(r, idx) {
   const q = RSV_STATE.query || {};
   const link = _rsvHostedUrl(r, q.arrival, q.departure, q.adults);
