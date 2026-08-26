@@ -43094,7 +43094,7 @@ function _botcRenderMain(phone) {
         </div>
         <textarea id="botc-draft-text" style="width:100%;min-height:80px;padding:8px 10px;border:1px solid #c4b5fd;border-radius:8px;font-size:13px;font-family:inherit;line-height:1.4;box-sizing:border-box;background:#fff;color:#0f172a">${_botcEsc(draftBody)}</textarea>
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-          <button type="button" onclick="botcDraftAccept('${_botcEsc(phone)}')" style="padding:7px 14px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">✓ Aceptar y enviar</button>
+          <button type="button" onclick="botcDraftAccept('${_botcEsc(phone)}', this)" style="padding:7px 14px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">✓ Enviar</button>
           <button type="button" onclick="botcDraftSkip('${_botcEsc(phone)}')" style="padding:7px 14px;background:#e2e8f0;color:#475569;border:0;border-radius:6px;cursor:pointer;font-weight:700;font-size:12px">✕ Omitir</button>
         </div>
       </div>` : ''}
@@ -43284,22 +43284,14 @@ window.botcSendManual = async function() {
  *  - Edit: idéntico (el textarea permite editar antes de enviar).
  *  - Skip: descarta sin enviar. */
 async function _botcDraftAction(phone, action, body) {
-  // OPTIMISTIC UI: reemplazar la caja del draft con un stub "⏳ Enviando…"
-  // AL INSTANTE. Bloquea re-inyección desde polls con __draftBusy hasta
-  // que el fetch termine.
+  // OPTIMISTIC UI: elimina la caja del draft al instante. El feedback
+  // visual es el globo verde con "⏳ enviando..." al final del chat.
+  // __draftBusy evita que el próximo poll re-inyecte la caja aunque el
+  // sheet todavía no esté limpio.
+  if (BOTC_STATE.__draftBusy) return; // proteje contra doble click
   BOTC_STATE.__draftBusy = true;
   const box = document.getElementById('botc-draft-box');
-  const boxParent = box ? box.parentNode : null;
-  const boxNext   = box ? box.nextSibling : null;
-  if (box) {
-    const stub = document.createElement('div');
-    stub.id = 'botc-draft-box';
-    stub.style.cssText = 'border-top:1px solid #e2e8f0;background:#faf5ff;padding:14px 16px;display:flex;align-items:center;gap:10px;color:#5b21b6;font-weight:800;font-size:12px';
-    stub.innerHTML = action === 'skip'
-      ? '<span style="font-size:14px">⏳</span> Omitiendo sugerencia…'
-      : '<span style="font-size:14px">⏳</span> Enviando respuesta al huésped…';
-    box.replaceWith(stub);
-  }
+  if (box) box.remove();
   // Limpiar el pending_draft del state local — evita que el próximo poll
   // re-inyecte la caja aunque el sheet aún no esté limpio.
   if (BOTC_STATE.state) BOTC_STATE.state.pending_draft_body = '';
