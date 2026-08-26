@@ -56,6 +56,9 @@
   .rsv-card-price{font-size:20px;font-weight:900;color:var(--rsv-primary);letter-spacing:-.02em}
   .rsv-card-price small{font-size:11px;color:var(--rsv-muted);font-weight:600;display:block;letter-spacing:0}
   .rsv-card-cta{background:var(--rsv-primary);color:#fff;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:800;letter-spacing:.02em}
+  .rsv-card-btns{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  .rsv-card-mapbtn{background:#fff;color:var(--rsv-ink);border:1px solid #cbd5e1;padding:5px 10px;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer;letter-spacing:.02em;white-space:nowrap;line-height:1}
+  .rsv-card-mapbtn:hover{border-color:var(--rsv-primary);color:var(--rsv-primary)}
   .rsv-empty{max-width:520px;margin:60px auto;text-align:center;color:var(--rsv-muted);font-size:14px;padding:0 20px}
   .rsv-empty .icon{font-size:48px;margin-bottom:12px}
   .rsv-empty h3{color:var(--rsv-ink);font-size:18px;font-weight:800;margin:0 0 6px}
@@ -149,7 +152,7 @@
     <div class="rsv-count" id="rsv-count"></div>
   </div>
   <div id="rsv-float-bar" class="rsv-float-bar">
-    <button type="button" id="rsv-map-btn-float" class="rsv-map-btn-float" onclick="rsvOpenMap_()">🗺️ Ver mapa</button>
+    <button type="button" id="rsv-map-btn-float" class="rsv-map-btn-float" onclick="rsvOpenMap_()">🗺️ Ver resultados en mapa</button>
     <button type="button" id="rsv-share-btn" class="rsv-share-btn-float" onclick="rsvShare_(this)" title="Copiar liga con estos resultados">🔗 Compartir</button>
   </div>
   <div id="rsv-results">
@@ -294,7 +297,6 @@ window._rsvOpenSplitLeg_ = function(ssi, li) {
 function _rsvCardHtml_(r, idx) {
   const q = RSV_STATE.query || {};
   const link = _rsvHostedUrl(r, q.arrival, q.departure, q.adults);
-  const amen = (r.amenities||[]).slice(0,4).map(a=>`<span>${_rsvEsc(a)}</span>`).join('');
   const cap = [];
   if (r.max_people) cap.push(`<span>👥 ${r.max_people}</span>`);
   if (r.bedrooms) cap.push(`<span>🛏 ${r.bedrooms}</span>`);
@@ -308,10 +310,12 @@ function _rsvCardHtml_(r, idx) {
       <h3 class="rsv-card-title">${_rsvEsc(r.name)}</h3>
       <p class="rsv-card-loc">📍 ${_rsvEsc(r.city || r.address || 'Saltillo')}</p>
       ${cap.length ? `<div class="rsv-card-cap">${cap.join('')}</div>` : ''}
-      ${amen ? `<div class="rsv-card-amen">${amen}</div>` : ''}
       <div class="rsv-card-foot">
         <div class="rsv-card-price">${_rsvFmt$(r.total, r.currency)}<small>${r.nights} noche${r.nights===1?'':'s'} · total</small></div>
-        <span class="rsv-card-cta">Reservar →</span>
+        <div class="rsv-card-btns">
+          <button class="rsv-card-mapbtn" onclick="event.stopPropagation();rsvOpenMap_(${idx})" title="Ver en el mapa">🗺️ Ver en mapa</button>
+          <span class="rsv-card-cta">Reservar →</span>
+        </div>
       </div>
     </div>
   </div>`;
@@ -339,15 +343,17 @@ window._rsvCloseBookingOverlay_ = function() {
   const ov = document.getElementById('rsv-booking-overlay'); if (ov) ov.remove();
   document.removeEventListener('keydown', _rsvBookingKey_);
 };
-window.rsvOpenMap_ = function() {
+window.rsvOpenMap_ = function(focusIdx) {
+  RSV_STATE.mapFocusIdx = (typeof focusIdx === 'number' && focusIdx >= 0) ? focusIdx : null;
   _rsvEnsureLeaflet_(() => {
     document.getElementById('rsv-map-overlay').style.display = 'block';
     setTimeout(_rsvRenderMap_, 60);
   });
 };
 window.rsvCloseMap_ = function() {
-  const el = document.querySelector('.rsv-map-card'); if (el) el.remove();
+  const el = document.querySelector('.rsv-map-card, .rsv-map-splitcard'); if (el) el.remove();
   document.getElementById('rsv-map-overlay').style.display = 'none';
+  RSV_STATE.mapFocusIdx = null;
 };
 function _rsvEnsureLeaflet_(cb) {
   if (window.L) return cb();
@@ -361,7 +367,11 @@ function _rsvEnsureLeaflet_(cb) {
   document.head.appendChild(js);
 }
 function _rsvRenderMap_() {
-  const results = (RSV_STATE.results || []).filter(r => r.latitude && r.longitude);
+  const all = (RSV_STATE.results || []).filter(r => r.latitude && r.longitude);
+  const focus = RSV_STATE.mapFocusIdx;
+  const results = (typeof focus === 'number' && focus >= 0)
+    ? [ (RSV_STATE.results || [])[focus] ].filter(r => r && r.latitude && r.longitude)
+    : all;
   if (RSV_STATE.map) { RSV_STATE.map.remove(); RSV_STATE.map = null; }
   const first = results[0] || { latitude: 25.4232, longitude: -100.9906 };
   const map = L.map('rsv-map').setView([first.latitude, first.longitude], 13);
@@ -372,6 +382,7 @@ function _rsvRenderMap_() {
   RSV_STATE.mapMarkers = [];
   const bounds = results.map(r => [r.latitude, r.longitude]);
   if (bounds.length > 1) map.fitBounds(bounds, { padding: [60, 60] });
+  else if (bounds.length === 1) map.setView(bounds[0], 16);
   RSV_STATE.map = map;
   map.on('zoomend', _rsvRebuildMapMarkers_);
   map.on('movestart zoomstart', _rsvSpiderCollapse_);

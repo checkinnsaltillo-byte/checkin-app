@@ -40983,6 +40983,7 @@ function cfgAdminRender() {
     return;
   }
   if ((CFG_ADMIN.tab||'templates') === 'sysprompts') return sysPromptsRender_(host);
+  if ((CFG_ADMIN.tab||'templates') === 'prompts')    return bpRenderModule_(host);
   host.innerHTML = `
     <style>
       #cfg-grid { display:grid; grid-template-columns:280px 1fr; gap:14px; min-height:calc(100vh - 260px); }
@@ -46019,7 +46020,6 @@ window._rsvOpenSplitLeg_ = function(ssi, li) {
 function _rsvCardHtml_(r, idx) {
   const q = RSV_STATE.query || {};
   const link = _rsvHostedUrl(r, q.arrival, q.departure, q.adults);
-  const amen = (r.amenities||[]).slice(0,4).map(a=>`<span>${_rsvEsc(a)}</span>`).join('');
   const cap = [];
   if (r.max_people) cap.push(`<span>👥 ${r.max_people}</span>`);
   if (r.bedrooms) cap.push(`<span>🛏 ${r.bedrooms}</span>`);
@@ -46033,10 +46033,12 @@ function _rsvCardHtml_(r, idx) {
       <h3 class="rsv-card-title">${_rsvEsc(r.name)}</h3>
       <p class="rsv-card-loc">📍 ${_rsvEsc(r.city || r.address || 'Saltillo')}</p>
       ${cap.length ? `<div class="rsv-card-cap">${cap.join('')}</div>` : ''}
-      ${amen ? `<div class="rsv-card-amen">${amen}</div>` : ''}
       <div class="rsv-card-foot">
         <div class="rsv-card-price">${_rsvFmt$(r.total, r.currency)}<small>${r.nights} noche${r.nights===1?'':'s'} · total</small></div>
-        <span class="rsv-card-cta">Reservar →</span>
+        <div class="rsv-card-btns">
+          <button class="rsv-card-mapbtn" onclick="event.stopPropagation();rsvOpenMap_(${idx})" title="Ver en el mapa">🗺️ Ver en mapa</button>
+          <span class="rsv-card-cta">Reservar →</span>
+        </div>
       </div>
     </div>
   </div>`;
@@ -46064,15 +46066,17 @@ window._rsvCloseBookingOverlay_ = function() {
   const ov = document.getElementById('rsv-booking-overlay'); if (ov) ov.remove();
   document.removeEventListener('keydown', _rsvBookingKey_);
 };
-window.rsvOpenMap_ = function() {
+window.rsvOpenMap_ = function(focusIdx) {
+  RSV_STATE.mapFocusIdx = (typeof focusIdx === 'number' && focusIdx >= 0) ? focusIdx : null;
   _rsvEnsureLeaflet_(() => {
     document.getElementById('rsv-map-overlay').style.display = 'block';
     setTimeout(_rsvRenderMap_, 60);
   });
 };
 window.rsvCloseMap_ = function() {
-  const el = document.querySelector('.rsv-map-card'); if (el) el.remove();
+  const el = document.querySelector('.rsv-map-card, .rsv-map-splitcard'); if (el) el.remove();
   document.getElementById('rsv-map-overlay').style.display = 'none';
+  RSV_STATE.mapFocusIdx = null;
 };
 function _rsvEnsureLeaflet_(cb) {
   if (window.L) return cb();
@@ -46086,7 +46090,12 @@ function _rsvEnsureLeaflet_(cb) {
   document.head.appendChild(js);
 }
 function _rsvRenderMap_() {
-  const results = (RSV_STATE.results || []).filter(r => r.latitude && r.longitude);
+  const all = (RSV_STATE.results || []).filter(r => r.latitude && r.longitude);
+  // Modo foco: solo el alojamiento seleccionado (botón "Ver en mapa" de la card).
+  const focus = RSV_STATE.mapFocusIdx;
+  const results = (typeof focus === 'number' && focus >= 0)
+    ? [ (RSV_STATE.results || [])[focus] ].filter(r => r && r.latitude && r.longitude)
+    : all;
   if (RSV_STATE.map) { RSV_STATE.map.remove(); RSV_STATE.map = null; }
   const first = results[0] || { latitude: 25.4232, longitude: -100.9906 };
   const map = L.map('rsv-map').setView([first.latitude, first.longitude], 13);
@@ -46097,6 +46106,7 @@ function _rsvRenderMap_() {
   RSV_STATE.mapMarkers = [];
   const bounds = results.map(r => [r.latitude, r.longitude]);
   if (bounds.length > 1) map.fitBounds(bounds, { padding: [60, 60] });
+  else if (bounds.length === 1) map.setView(bounds[0], 16);
   RSV_STATE.map = map;
   map.on('zoomend', _rsvRebuildMapMarkers_);
   map.on('movestart zoomstart', _rsvSpiderCollapse_);
@@ -46409,4 +46419,202 @@ window.rsvShare_ = async function(btn) {
     try { document.execCommand('copy'); alert('Copiado al portapapeles'); } catch(_) { prompt('Copia manualmente:', texto); }
     ta.remove();
   }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ Config Admin → tab "Prompts" — CRUD de procesos del negocio             ║
+// ║ Un prompt = una guía por proceso (Cotización, Reporte, Late checkout).  ║
+// ║ Los campos multivaluados se editan como listas separadas por Enter o | ║
+// ═══════════════════════════════════════════════════════════════════════════
+window.BP_STATE = { list: [], loaded: false, loading: false, editingId: null };
+const BP_TOOL_OPTIONS = ['', 'cotizar_disponibilidad', 'crear_reporte_mantenimiento', 'agendar_late_checkout', 'consultar_reportes_reserva'];
+async function bpLoad_(force) {
+  if (BP_STATE.loading) return;
+  if (BP_STATE.loaded && !force) return;
+  BP_STATE.loading = true;
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/bot/prompts/all', { cache: 'no-store' });
+    const j = await r.json();
+    BP_STATE.list = (j && j.rows) || [];
+    BP_STATE.loaded = true;
+  } catch (e) { console.warn('[bp] load falló', e); BP_STATE.list = []; }
+  BP_STATE.loading = false;
+}
+async function bpRenderModule_(host) {
+  if (!BP_STATE.loaded && !BP_STATE.loading) {
+    host.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando prompts…</div>`;
+    await bpLoad_();
+  }
+  host.innerHTML = `
+    <style>
+      #bp-grid{display:grid;grid-template-columns:320px 1fr;gap:14px;min-height:calc(100vh - 260px)}
+      @media (max-width:900px){#bp-grid{grid-template-columns:1fr}}
+      .bp-list{background:#fff;border:1px solid #e2e8f0;border-radius:12px;display:flex;flex-direction:column;overflow:hidden}
+      .bp-list-head{padding:10px 12px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#f8fafc}
+      .bp-list-title{font-size:12px;font-weight:800;color:#0f172a}
+      .bp-new-btn{padding:5px 10px;font-size:11px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800}
+      .bp-list-body{flex:1;overflow-y:auto}
+      .bp-item{padding:10px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .1s}
+      .bp-item:hover{background:#f0fdfa}
+      .bp-item.active{background:#e0f2fe;border-left:3px solid #0ea5e9}
+      .bp-item-name{font-size:12px;font-weight:800;color:#0f172a;margin-bottom:2px;display:flex;align-items:center;gap:6px}
+      .bp-item-tool{font-size:10px;color:#64748b;font-family:monospace}
+      .bp-badge{font-size:9px;padding:1px 6px;border-radius:99px;font-weight:800}
+      .bp-badge-on{background:#dcfce7;color:#166534}
+      .bp-badge-off{background:#fee2e2;color:#991b1b}
+      .bp-editor{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;overflow-y:auto}
+      .bp-field{margin-bottom:14px}
+      .bp-field label{display:block;font-size:10px;font-weight:800;color:#475569;letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px}
+      .bp-field input, .bp-field select, .bp-field textarea{width:100%;padding:8px 11px;font-size:13px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font-family:inherit;color:#0f172a}
+      .bp-field textarea{min-height:70px;resize:vertical;line-height:1.4}
+      .bp-hint{font-size:10px;color:#94a3b8;margin-top:3px}
+      .bp-actions{position:sticky;bottom:0;background:#fff;padding:12px 0 0;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;gap:8px;margin-top:14px}
+      .bp-save{padding:9px 18px;background:#0f766e;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer}
+      .bp-delete{padding:9px 14px;background:#fff;color:#dc2626;border:1px solid #fca5a5;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer}
+    </style>
+    <div id="bp-grid">
+      <div class="bp-list" id="bp-list"></div>
+      <div class="bp-editor" id="bp-editor"></div>
+    </div>`;
+  bpRenderList_();
+  bpRenderEditor_();
+}
+function bpRenderList_() {
+  const el = document.getElementById('bp-list'); if (!el) return;
+  const items = (BP_STATE.list || []).map(p => `
+    <div class="bp-item${p.ID===BP_STATE.editingId?' active':''}" onclick="bpSelect_('${esc(p.ID)}')">
+      <div class="bp-item-name">
+        ${esc(p.Nombre || '(sin nombre)')}
+        <span class="bp-badge ${p.Activo?'bp-badge-on':'bp-badge-off'}">${p.Activo?'ON':'OFF'}</span>
+      </div>
+      <div class="bp-item-tool">${esc(p.Herramienta || '— sin tool —')}</div>
+    </div>`).join('');
+  el.innerHTML = `
+    <div class="bp-list-head">
+      <div class="bp-list-title">${(BP_STATE.list||[]).length} proceso${(BP_STATE.list||[]).length===1?'':'s'}</div>
+      <button class="bp-new-btn" onclick="bpNew_()">＋ Nuevo</button>
+    </div>
+    <div class="bp-list-body">${items || '<div style="padding:24px;color:#94a3b8;font-size:12px;text-align:center">Sin prompts todavía.<br>Oprime + Nuevo para crear el primero.</div>'}</div>`;
+}
+function bpRenderEditor_() {
+  const el = document.getElementById('bp-editor'); if (!el) return;
+  const p = (BP_STATE.list || []).find(x => x.ID === BP_STATE.editingId);
+  if (!p) {
+    el.innerHTML = `<div style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px">Selecciona un proceso a la izquierda o crea uno nuevo.</div>`;
+    return;
+  }
+  const toolOpts = BP_TOOL_OPTIONS.map(t => `<option value="${esc(t)}"${p.Herramienta===t?' selected':''}>${t||'(ninguna)'}</option>`).join('');
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <input id="bp-nombre" value="${esc(p.Nombre||'')}" placeholder="Nombre del proceso (ej. Cotización de disponibilidad)" style="flex:1;font-size:18px;font-weight:800;border:0;border-bottom:2px solid #e2e8f0;padding:6px 0;outline:none;color:#0f172a">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#475569;margin-left:14px;cursor:pointer">
+        <input type="checkbox" id="bp-activo" ${p.Activo?'checked':''} style="width:18px;height:18px;cursor:pointer">
+        Activo
+      </label>
+    </div>
+    <div class="bp-field">
+      <label>Objetivo</label>
+      <textarea id="bp-obj" placeholder="Qué queremos lograr con este proceso">${esc(p.Objetivo||'')}</textarea>
+    </div>
+    <div class="bp-field">
+      <label>Trigger — cuándo el bot detecta este proceso</label>
+      <textarea id="bp-trg" placeholder="Palabras / frases que activan (una por línea):&#10;&quot;cuánto cuesta&quot;&#10;&quot;tienen para tal fecha&quot;">${esc(p.Trigger||'')}</textarea>
+      <div class="bp-hint">Una por línea (o separadas por |).</div>
+    </div>
+    <div class="bp-field">
+      <label>Datos a obtener del huésped</label>
+      <textarea id="bp-do" placeholder="Ej:&#10;Fecha de entrada&#10;Fecha de salida&#10;Número de huéspedes">${esc(p.Datos_obtener||'')}</textarea>
+    </div>
+    <div class="bp-field">
+      <label>Datos que el bot PUEDE compartir</label>
+      <textarea id="bp-dc" placeholder="Ej:&#10;Precio total en el chat&#10;Link a página de reserva&#10;Folio del reporte">${esc(p.Datos_compartir||'')}</textarea>
+    </div>
+    <div class="bp-field">
+      <label>Reglas del negocio (LÍNEAS DURAS)</label>
+      <textarea id="bp-rg" placeholder="Ej:&#10;Nunca dar descuentos mayores al 10%&#10;Late checkout máximo 15:00&#10;No confirmar sin firma humana">${esc(p.Reglas||'')}</textarea>
+    </div>
+    <div class="bp-field">
+      <label>Flujo esperado (pasos)</label>
+      <textarea id="bp-fl" placeholder="Ej:&#10;1. Preguntar fecha entrada&#10;2. Preguntar fecha salida&#10;3. Preguntar huéspedes&#10;4. Resumir y confirmar&#10;5. Llamar tool cotizar_disponibilidad&#10;6. Enviar link al huésped">${esc(p.Flujo||'')}</textarea>
+    </div>
+    <div class="bp-field">
+      <label>Riesgos / prohibiciones</label>
+      <textarea id="bp-rs" placeholder="Ej:&#10;NO inventar amenidades&#10;NO prometer disponibilidad sin consultar tool&#10;NO confirmar sin OK humano">${esc(p.Riesgos||'')}</textarea>
+    </div>
+    <div class="bp-field">
+      <label>Herramienta vinculada</label>
+      <select id="bp-tool">${toolOpts}</select>
+    </div>
+    <div class="bp-field">
+      <label>Notificaciones extra (opcional)</label>
+      <input id="bp-nt" value="${esc(p.Notificaciones||'')}" placeholder="Ej: emergencia, admin secundario">
+    </div>
+    <div class="bp-field">
+      <label>Alojamientos excluidos (opcional)</label>
+      <input id="bp-ax" value="${esc(p.Alojamientos_excluidos||'')}" placeholder="HouseIds separados por coma (vacío = aplica a todos)">
+    </div>
+    <div class="bp-actions">
+      <button class="bp-delete" onclick="bpDelete_('${esc(p.ID)}')">🗑 Eliminar</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="bp-status" style="font-size:11px;color:#94a3b8"></span>
+        <button class="bp-save" onclick="bpSave_()">💾 Guardar</button>
+      </div>
+    </div>`;
+}
+window.bpNew_ = function() {
+  const draft = { ID: '', Nombre: '(nuevo proceso)', Activo: false, Trigger: '', Objetivo: '', Datos_obtener: '', Datos_compartir: '', Reglas: '', Flujo: '', Herramienta: '', Riesgos: '', Notificaciones: '', Alojamientos_excluidos: '' };
+  BP_STATE.list = [draft, ...(BP_STATE.list || [])];
+  BP_STATE.editingId = '';
+  bpRenderList_(); bpRenderEditor_();
+};
+window.bpSelect_ = function(id) { BP_STATE.editingId = id; bpRenderList_(); bpRenderEditor_(); };
+window.bpSave_ = async function() {
+  const p = (BP_STATE.list || []).find(x => x.ID === BP_STATE.editingId);
+  if (!p) return;
+  const payload = {
+    ID: p.ID || undefined,
+    Nombre: document.getElementById('bp-nombre').value.trim(),
+    Activo: document.getElementById('bp-activo').checked,
+    Trigger: document.getElementById('bp-trg').value,
+    Objetivo: document.getElementById('bp-obj').value,
+    Datos_obtener: document.getElementById('bp-do').value,
+    Datos_compartir: document.getElementById('bp-dc').value,
+    Reglas: document.getElementById('bp-rg').value,
+    Flujo: document.getElementById('bp-fl').value,
+    Herramienta: document.getElementById('bp-tool').value,
+    Riesgos: document.getElementById('bp-rs').value,
+    Notificaciones: document.getElementById('bp-nt').value,
+    Alojamientos_excluidos: document.getElementById('bp-ax').value,
+    Updated_by: (typeof currentUser === 'string' && currentUser) || 'admin',
+  };
+  const status = document.getElementById('bp-status'); if (status) status.textContent = '…guardando';
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/bot/prompts', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    // Reload lista + bust cache backend
+    await fetch('https://api.check-inn.mx/wa/bot/prompts/reload', { method: 'POST' }).catch(()=>{});
+    await bpLoad_(true);
+    BP_STATE.editingId = j.id || payload.ID;
+    bpRenderList_(); bpRenderEditor_();
+    const s = document.getElementById('bp-status'); if (s) { s.textContent = '✓ guardado'; setTimeout(()=>s.textContent='',1500); }
+  } catch (e) {
+    if (status) status.textContent = '⚠ ' + e.message;
+  }
+};
+window.bpDelete_ = async function(id) {
+  if (!id) { BP_STATE.list = BP_STATE.list.filter(x => x.ID !== ''); BP_STATE.editingId = null; bpRenderList_(); bpRenderEditor_(); return; }
+  if (!confirm('¿Eliminar este proceso? No se puede deshacer.')) return;
+  try {
+    await fetch('https://api.check-inn.mx/wa/bot/prompts/delete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ID: id }),
+    });
+    await fetch('https://api.check-inn.mx/wa/bot/prompts/reload', { method: 'POST' }).catch(()=>{});
+    await bpLoad_(true);
+    BP_STATE.editingId = null;
+    bpRenderList_(); bpRenderEditor_();
+  } catch (e) { alert('Error al eliminar: ' + e.message); }
 };

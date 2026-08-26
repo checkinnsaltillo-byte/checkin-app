@@ -491,6 +491,9 @@
         .rsv-card-price{font-size:20px;font-weight:900;color:var(--rsv-primary);letter-spacing:-.02em}
         .rsv-card-price small{font-size:11px;color:var(--rsv-muted);font-weight:600;display:block;letter-spacing:0}
         .rsv-card-cta{background:var(--rsv-primary);color:#fff;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:800;letter-spacing:.02em}
+        .rsv-card-btns{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+        .rsv-card-mapbtn{background:#fff;color:var(--rsv-ink);border:1px solid #cbd5e1;padding:5px 10px;border-radius:6px;font-size:10px;font-weight:800;cursor:pointer;letter-spacing:.02em;white-space:nowrap;line-height:1}
+        .rsv-card-mapbtn:hover{border-color:var(--rsv-primary);color:var(--rsv-primary)}
         .rsv-empty{max-width:520px;margin:60px auto;text-align:center;color:var(--rsv-muted);font-size:14px}
         .rsv-empty .icon{font-size:48px;margin-bottom:12px}
         .rsv-empty h3{color:var(--rsv-ink);font-size:18px;font-weight:800;margin:0 0 6px}
@@ -580,7 +583,7 @@
           <div class="rsv-count" id="rsv-count"></div>
         </div>
         <div id="rsv-float-bar" class="rsv-float-bar">
-          <button type="button" id="rsv-map-btn-float" class="rsv-map-btn-float visible" onclick="rsvOpenMap_()">🗺️ Ver mapa</button>
+          <button type="button" id="rsv-map-btn-float" class="rsv-map-btn-float visible" onclick="rsvOpenMap_()">🗺️ Ver resultados en mapa</button>
           <button type="button" id="rsv-share-btn" class="rsv-share-btn-float" onclick="rsvShare_(this)" title="Copiar liga con estos resultados">🔗 Compartir</button>
         </div>
         <div id="rsv-results">
@@ -2595,6 +2598,7 @@
         <div class="rh-tabs" style="margin-bottom:14px">
           <button type="button" class="rh-tab active" data-cfg-tab="templates" onclick="cfgSetTab('templates')">💬 Templates de mensajes programados</button>
           <button type="button" class="rh-tab" data-cfg-tab="sysprompts" onclick="cfgSetTab('sysprompts')">🧠 Sys Prompts</button>
+          <button type="button" class="rh-tab" data-cfg-tab="prompts" onclick="cfgSetTab('prompts')">📋 Prompts (procesos)</button>
         </div>
         <div id="cfg-view" class="rh-view">
           <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
@@ -2831,6 +2835,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1000"></script>
+  <script src="app.js?v=1001"></script>
 </body>
 </html>
