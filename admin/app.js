@@ -43075,15 +43075,32 @@ function _botcRenderMain(phone) {
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         ${ctrlBtn}
         <div style="position:relative;display:inline-block">
-          <button type="button" onclick="botcToggleNewMenu_(event)" title="Crear nuevo elemento" style="padding:7px 12px;font-size:12px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">＋ Nuevo ▾</button>
-          <div id="botc-new-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.18);z-index:100;min-width:180px;overflow:hidden">
-            <button type="button" onclick="_botcNewMenuPick_('reporte')" style="display:block;width:100%;text-align:left;padding:9px 14px;background:#fff;border:0;cursor:pointer;font-size:12px;color:#334155;font-weight:700" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">🚨 Reporte</button>
-            <button type="button" onclick="_botcNewMenuPick_('nota')" style="display:block;width:100%;text-align:left;padding:9px 14px;background:#fff;border:0;cursor:pointer;font-size:12px;color:#334155;font-weight:700;border-top:1px solid #f1f5f9" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">📝 Nota</button>
+          <button type="button" onclick="botcToggleHeaderMenu_(event)" title="Opciones" style="width:36px;height:36px;padding:0;font-size:20px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:900;line-height:1;letter-spacing:2px">⋮</button>
+          <div id="botc-header-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:6px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.22);z-index:1000;min-width:240px;overflow:hidden;font-size:12px">
+            <div class="botc-hmenu-group">
+              <div class="botc-hmenu-label">Crear</div>
+              <button type="button" class="botc-hmenu-item" onclick="_botcNewMenuPick_('reporte');botcCloseHeaderMenu_()">🚨 Reporte</button>
+              <button type="button" class="botc-hmenu-item" onclick="_botcNewMenuPick_('nota');botcCloseHeaderMenu_()">📝 Nota</button>
+            </div>
+            <div class="botc-hmenu-group">
+              <div class="botc-hmenu-label">Ver</div>
+              <button type="button" class="botc-hmenu-item" onclick="botcOpenSummary();botcCloseHeaderMenu_()">🧠 Resumen sintético</button>
+              <button type="button" class="botc-hmenu-item" onclick="hgNotesOpen_();botcCloseHeaderMenu_()">📝 Notas del huésped${_hgNotesCountLabel_()}</button>
+              <button type="button" class="botc-hmenu-item" onclick="botcToggleRightPanel();botcCloseHeaderMenu_()">📖 Bitácora completa</button>
+            </div>
+            <div class="botc-hmenu-group">
+              <div class="botc-hmenu-label">Barras superiores</div>
+              <button type="button" class="botc-hmenu-toggle" onclick="botcToggleBar_('test');botcCloseHeaderMenu_()">
+                <span>🧪 Modo prueba</span>
+                <span class="botc-hmenu-tstate" id="botc-hmenu-test-state">${_botcIsBarVisible_('test') ? '✓' : ''}</span>
+              </button>
+              <button type="button" class="botc-hmenu-toggle" onclick="botcToggleBar_('emerg');botcCloseHeaderMenu_()">
+                <span>🚨 Emergencia</span>
+                <span class="botc-hmenu-tstate" id="botc-hmenu-emerg-state">${_botcIsBarVisible_('emerg') ? '✓' : ''}</span>
+              </button>
+            </div>
           </div>
         </div>
-        <button type="button" onclick="botcOpenSummary()" title="Resumen sintético del historial de conversación con énfasis en el último tema o asunto pendiente" style="padding:7px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🧠 Resumen</button>
-        <button type="button" onclick="hgNotesOpen_()" title="Notas del huésped (texto libre con autor y fecha)" style="padding:7px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">📝 Notas${_hgNotesCountLabel_()}</button>
-        <button type="button" onclick="botcToggleRightPanel()" title="Bitácora completa (templates, mensajes programados, envío manual, historial)" style="padding:7px 12px;font-size:12px;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">📖 Bitácora</button>
       </div>
     </div>
     <div id="botc-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafc">${msgsHtml}</div>
@@ -43869,7 +43886,11 @@ function _botcTestApplyUi_(cfg) {
     btn.style.color = cfg.enabled ? '#fff' : '#475569';
     btn.style.borderColor = cfg.enabled ? '#f59e0b' : '#cbd5e1';
   }
-  if (bar) bar.style.display = cfg.enabled ? 'flex' : 'none';
+  if (bar) {
+    // Respeta la preferencia del menú ⋮ (Ocultar barra Modo prueba).
+    const wantVisible = cfg.enabled && (window.BOTC_BAR_VIS ? window.BOTC_BAR_VIS.test !== false : true);
+    bar.style.display = wantVisible ? 'flex' : 'none';
+  }
   window.__botcTestPhones = Array.isArray(cfg.phones) && cfg.phones.length ? cfg.phones.slice() : (window.__botcTestPhones || ['+528444443922', '+528115569120', '+528110208743', '+528442798802']);
   _botcTestRenderPhones_();
 }
@@ -46505,12 +46526,13 @@ function bpRenderEditor_() {
   }
   const toolOpts = BP_TOOL_OPTIONS.map(t => `<option value="${esc(t)}"${p.Herramienta===t?' selected':''}>${t||'(ninguna)'}</option>`).join('');
   el.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:14px">
       <input id="bp-nombre" value="${esc(p.Nombre||'')}" placeholder="Nombre del proceso (ej. Cotización de disponibilidad)" style="flex:1;font-size:18px;font-weight:800;border:0;border-bottom:2px solid #e2e8f0;padding:6px 0;outline:none;color:#0f172a">
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#475569;margin-left:14px;cursor:pointer">
-        <input type="checkbox" id="bp-activo" ${p.Activo?'checked':''} style="width:18px;height:18px;cursor:pointer">
-        Activo
-      </label>
+      <div id="bp-activo-toggle" class="bp-toggle ${p.Activo?'on':''}" onclick="bpToggleActivo_(this)" role="button" tabindex="0" title="Click para cambiar">
+        <span class="bp-toggle-track"><span class="bp-toggle-thumb"></span></span>
+        <span class="bp-toggle-label">${p.Activo ? 'Activo' : 'Inactivo'}</span>
+        <input type="hidden" id="bp-activo" value="${p.Activo ? '1' : '0'}">
+      </div>
     </div>
     <div class="bp-field">
       <label>Objetivo</label>
@@ -46574,7 +46596,7 @@ window.bpSave_ = async function() {
   const payload = {
     ID: p.ID || undefined,
     Nombre: document.getElementById('bp-nombre').value.trim(),
-    Activo: document.getElementById('bp-activo').checked,
+    Activo: document.getElementById('bp-activo').value === '1',
     Trigger: document.getElementById('bp-trg').value,
     Objetivo: document.getElementById('bp-obj').value,
     Datos_obtener: document.getElementById('bp-do').value,
@@ -46617,4 +46639,75 @@ window.bpDelete_ = async function(id) {
     BP_STATE.editingId = null;
     bpRenderList_(); bpRenderEditor_();
   } catch (e) { alert('Error al eliminar: ' + e.message); }
+};
+
+// ─── Header menu (⋮) del chat + toggles de barras superiores ─────────────
+(function(){
+  const style = document.createElement('style');
+  style.textContent = `
+    .botc-hmenu-group{padding:6px 0;border-bottom:1px solid #f1f5f9}
+    .botc-hmenu-group:last-child{border-bottom:0}
+    .botc-hmenu-label{padding:6px 14px 4px;font-size:9px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em}
+    .botc-hmenu-item, .botc-hmenu-toggle{display:flex;width:100%;text-align:left;padding:9px 14px;background:#fff;border:0;cursor:pointer;font-size:12px;color:#334155;font-weight:700;align-items:center;justify-content:space-between;gap:8px;font-family:inherit}
+    .botc-hmenu-item:hover, .botc-hmenu-toggle:hover{background:#f1f5f9}
+    .botc-hmenu-tstate{font-size:14px;color:#16a34a;font-weight:900;min-width:16px;text-align:right}
+  `;
+  document.head.appendChild(style);
+})();
+window.botcToggleHeaderMenu_ = function(ev) {
+  if (ev) ev.stopPropagation();
+  const m = document.getElementById('botc-header-menu'); if (!m) return;
+  const open = m.style.display === 'block';
+  m.style.display = open ? 'none' : 'block';
+  if (!open) {
+    setTimeout(() => document.addEventListener('click', botcCloseHeaderMenu_, { once: true }), 0);
+  }
+};
+window.botcCloseHeaderMenu_ = function() {
+  const m = document.getElementById('botc-header-menu'); if (m) m.style.display = 'none';
+};
+window.BOTC_BAR_VIS = { test: true, emerg: true };
+try {
+  const saved = JSON.parse(localStorage.getItem('botc_bar_vis') || 'null');
+  if (saved && typeof saved === 'object') Object.assign(window.BOTC_BAR_VIS, saved);
+} catch(_){}
+function _botcIsBarVisible_(which) { return !!window.BOTC_BAR_VIS[which]; }
+window.botcToggleBar_ = function(which) {
+  window.BOTC_BAR_VIS[which] = !window.BOTC_BAR_VIS[which];
+  try { localStorage.setItem('botc_bar_vis', JSON.stringify(window.BOTC_BAR_VIS)); } catch(_){}
+  _botcApplyBarVisibility_();
+};
+function _botcApplyBarVisibility_() {
+  const test = document.getElementById('botc-test-bar');
+  const emerg = document.getElementById('botc-emerg-bar');
+  if (test)  test.style.display  = window.BOTC_BAR_VIS.test  ? '' : 'none';
+  if (emerg) emerg.style.display = window.BOTC_BAR_VIS.emerg ? '' : 'none';
+}
+document.addEventListener('DOMContentLoaded', () => setTimeout(_botcApplyBarVisibility_, 500));
+
+// Toggle Activo/Inactivo estilizado para el editor de Prompts.
+(function(){
+  const s = document.createElement('style');
+  s.textContent = `
+    .bp-toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:6px 10px;border-radius:99px;border:1.5px solid #e2e8f0;background:#fff;transition:all .15s}
+    .bp-toggle:hover{border-color:#cbd5e1}
+    .bp-toggle-track{position:relative;width:38px;height:20px;background:#e2e8f0;border-radius:99px;transition:background .18s;flex-shrink:0}
+    .bp-toggle-thumb{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(15,23,42,.25);transition:left .18s}
+    .bp-toggle-label{font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:.02em;min-width:52px}
+    .bp-toggle.on{border-color:#16a34a;background:#f0fdf4}
+    .bp-toggle.on .bp-toggle-track{background:#16a34a}
+    .bp-toggle.on .bp-toggle-thumb{left:20px}
+    .bp-toggle.on .bp-toggle-label{color:#166534}
+  `;
+  document.head.appendChild(s);
+})();
+window.bpToggleActivo_ = function(el) {
+  const wrap = el.classList ? el : document.getElementById('bp-activo-toggle');
+  if (!wrap) return;
+  const on = !wrap.classList.contains('on');
+  wrap.classList.toggle('on', on);
+  const hidden = document.getElementById('bp-activo');
+  if (hidden) hidden.value = on ? '1' : '0';
+  const label = wrap.querySelector('.bp-toggle-label');
+  if (label) label.textContent = on ? 'Activo' : 'Inactivo';
 };
