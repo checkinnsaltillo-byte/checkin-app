@@ -45945,6 +45945,7 @@ window.rsvSearch_ = async function() {
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'Error del servidor');
     RSV_STATE.results = j.results || [];
+    RSV_STATE.splitStays = j.splitStays || [];
     RSV_STATE.query = { arrival, departure, adults };
     _rsvRenderResults_();
   } catch (e) {
@@ -45966,8 +45967,63 @@ function _rsvRenderResults_() {
   if (floatBtn) floatBtn.classList.add('visible');
   const q = RSV_STATE.query || {};
   document.getElementById('rsv-count').innerHTML = `${results.length} alojamiento${results.length===1?'':'s'} disponibles <small>· ${q.arrival} → ${q.departure} · ${q.adults} huésped(es)</small>`;
-  cont.innerHTML = `<div class="rsv-grid">${results.map((r,i) => _rsvCardHtml_(r,i)).join('')}</div>`;
+  const gridHtml = `<div class="rsv-grid">${results.map((r,i) => _rsvCardHtml_(r,i)).join('')}</div>`;
+  const splitHtml = _rsvSplitStaysHtml_();
+  cont.innerHTML = gridHtml + splitHtml;
 }
+function _rsvSplitStaysHtml_() {
+  const list = RSV_STATE.splitStays || [];
+  if (!list.length) return '';
+  return list.map((ss, ssi) => {
+    const legs = ss.legs || [];
+    const legsHtml = legs.map((lg, li) => {
+      const r = lg.alojamiento || {};
+      const dateShort = s => {
+        try { const [Y,M,D] = String(s||'').split('-'); return `${D}/${M}`; } catch(_) { return s; }
+      };
+      const cap = [];
+      if (r.max_people) cap.push(`👥 ${r.max_people}`);
+      if (r.bedrooms) cap.push(`🛏 ${r.bedrooms}`);
+      const arrow = li < legs.length - 1 ? `<div class="rsv-split-arrow">→</div>` : '';
+      return `
+        <div class="rsv-split-leg" onclick="_rsvOpenSplitLeg_(${ssi},${li})">
+          <div class="rsv-split-step">${lg.step || (li+1)}</div>
+          <div class="rsv-split-leg-img">${r.image ? `<img src="${_rsvEsc(r.image)}" alt="${_rsvEsc(r.name)}">` : ''}</div>
+          <div class="rsv-split-leg-name">${_rsvEsc(r.name || 'Alojamiento')}</div>
+          <div class="rsv-split-leg-dates">📅 ${dateShort(lg.arrival)} → ${dateShort(lg.departure)}</div>
+          ${cap.length ? `<div class="rsv-split-leg-cap">${cap.join(' · ')}</div>` : ''}
+          <div class="rsv-split-leg-foot">
+            <div class="rsv-split-leg-price">${_rsvFmt$(lg.subtotal, ss.currency)}</div>
+            <div class="rsv-split-leg-nights">${lg.nights} noche${lg.nights===1?'':'s'}</div>
+          </div>
+        </div>${arrow}`;
+    }).join('');
+    return `
+      <div class="rsv-split-wrap">
+        <div class="rsv-split-container">
+          <div class="rsv-split-head">
+            <div class="rsv-split-icon">🔀</div>
+            <div class="rsv-split-head-txt">
+              <div class="rsv-split-title">Split Stay — combinación sugerida${ss.isDemo ? '<span class="rsv-split-badge">DEMO</span>' : ''}</div>
+              <div class="rsv-split-sub">Divide tu estancia entre ${legs.length} alojamientos · ${ss.nights} noche${ss.nights===1?'':'s'} en total</div>
+            </div>
+            <div class="rsv-split-price">
+              <div class="rsv-split-price-big">${_rsvFmt$(ss.total, ss.currency)}</div>
+              <div class="rsv-split-price-small">total combinado</div>
+            </div>
+          </div>
+          <div class="rsv-split-legs">${legsHtml}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+window._rsvOpenSplitLeg_ = function(ssi, li) {
+  const ss = (RSV_STATE.splitStays || [])[ssi]; if (!ss) return;
+  const lg = (ss.legs || [])[li]; if (!lg) return;
+  const q = RSV_STATE.query || {};
+  const url = _rsvHostedUrl(lg.alojamiento || {}, lg.arrival, lg.departure, q.adults || 1);
+  _rsvOpenBookingOverlay_(url);
+};
 function _rsvCardHtml_(r, idx) {
   const q = RSV_STATE.query || {};
   const link = _rsvHostedUrl(r, q.arrival, q.departure, q.adults);

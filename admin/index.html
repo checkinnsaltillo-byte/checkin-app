@@ -516,6 +516,32 @@
         .rsv-spider-chip.rsv-in{opacity:1;transform:translate(-50%,-50%) scale(1)}
         .rsv-map-card{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:min(360px,92vw);background:#fff;border-radius:14px;box-shadow:0 20px 60px -8px rgba(0,0,0,.4);overflow:hidden;z-index:9920}
         .rsv-map-card-close{position:absolute;top:10px;right:10px;z-index:2;background:rgba(255,255,255,.9);border:0;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;font-weight:900;color:var(--rsv-ink);box-shadow:0 2px 6px rgba(0,0,0,.15)}
+        /* ── Split Stay ── */
+        .rsv-split-wrap{max-width:1080px;margin:24px auto 0;padding:0 24px}
+        .rsv-split-container{background:linear-gradient(135deg,#eff6ff 0%,#f0fdfa 100%);border:1.5px dashed #7dd3fc;border-radius:16px;padding:18px 18px 20px}
+        .rsv-split-head{display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+        .rsv-split-icon{font-size:26px;line-height:1;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;width:44px;height:44px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(14,165,233,.35);flex-shrink:0}
+        .rsv-split-head-txt{flex:1;min-width:200px}
+        .rsv-split-title{font-size:15px;font-weight:900;color:#0c4a6e;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .rsv-split-badge{font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:2px 7px;border-radius:99px;letter-spacing:.05em}
+        .rsv-split-sub{font-size:12px;color:#0369a1;margin-top:3px}
+        .rsv-split-price{margin-left:auto;text-align:right}
+        .rsv-split-price-big{font-size:22px;font-weight:900;color:#0e7490;letter-spacing:-.02em}
+        .rsv-split-price-small{font-size:10px;color:#64748b;font-weight:600}
+        .rsv-split-legs{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+        .rsv-split-leg{flex:1;min-width:220px;background:#fff;border-radius:12px;padding:12px 14px;border:1px solid #e2e8f0;cursor:pointer;position:relative;transition:transform .2s,box-shadow .2s,border-color .2s}
+        .rsv-split-leg:hover{transform:translateY(-2px);box-shadow:0 12px 26px -8px rgba(14,165,233,.35);border-color:#7dd3fc}
+        .rsv-split-step{position:absolute;top:-11px;left:14px;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#06b6d4);color:#fff;font-weight:900;font-size:13px;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(14,165,233,.4);border:2px solid #fff}
+        .rsv-split-leg-img{width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#e2e8f0,#cbd5e1);border-radius:8px;overflow:hidden;margin-bottom:10px;margin-top:6px}
+        .rsv-split-leg-img img{width:100%;height:100%;object-fit:cover}
+        .rsv-split-leg-name{font-size:13px;font-weight:800;color:#0f172a;line-height:1.25;margin-bottom:4px}
+        .rsv-split-leg-dates{font-size:11px;color:#0369a1;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:4px}
+        .rsv-split-leg-cap{font-size:10px;color:#64748b;margin-bottom:8px}
+        .rsv-split-leg-foot{display:flex;justify-content:space-between;align-items:baseline;padding-top:8px;border-top:1px dashed #e2e8f0}
+        .rsv-split-leg-price{font-size:15px;font-weight:900;color:#0e7490;letter-spacing:-.02em}
+        .rsv-split-leg-nights{font-size:10px;color:#64748b;font-weight:700}
+        .rsv-split-arrow{display:flex;align-items:center;justify-content:center;padding:0 4px;color:#0ea5e9;font-size:26px;font-weight:900;flex-shrink:0}
+        @media (max-width:720px){.rsv-split-arrow{padding:8px 0;transform:rotate(90deg)}.rsv-split-leg{min-width:100%}}
       </style>
       <div id="rsv-shell">
         <div class="rsv-hero">
@@ -2793,6 +2819,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=992"></script>
+  <script src="app.js?v=993"></script>
 </body>
 </html>
