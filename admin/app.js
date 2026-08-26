@@ -38933,6 +38933,15 @@ function _waRenderReportsForBooking_(bk) {
     cards.push({ kind:'obj', row:r, sortKey: activityKey(r) });
   });
   rtList.forEach(r => {
+    // Match directo por Reservacion_id (llenado por el bot al crear el
+    // reporte desde WhatsApp) — incluye sin importar la fecha.
+    const bId = String(bk && bk.Id || '').trim();
+    const rvId = String(r['Reservacion_id'] || '').trim();
+    if (bId && rvId && bId === rvId) {
+      cards.push({ kind:'rt', row:r, sortKey: activityKey(r) });
+      return;
+    }
+    // Fallback: filtro por Propiedad + Departamento + rango de fechas.
     if (alojNormFn(r['Propiedad']) !== propN) return;
     if (alojNormFn(r['# Departamento']) !== deptN) return;
     const f = String(r['Fecha'] || r['Timestamp'] || '').slice(0,10);
