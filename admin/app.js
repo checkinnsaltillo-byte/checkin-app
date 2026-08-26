@@ -42550,10 +42550,20 @@ function _botcIsPending_(c) {
 function _botcClassifyConv_(c, bk) {
   try {
     if (bk) {
+      // Usa el mismo estado visible en el chip de la card
+      // (salida_hoy | activa | entrada_hoy | proxima | concluida).
+      const st = (typeof lgGetStayState === 'function')
+        ? lgGetStayState(bk.DateArrival, bk.DateDeparture)
+        : '';
+      if (st === 'concluida')    return 'concluida';
+      if (st === 'salida_hoy')   return 'salida_hoy';
+      if (st === 'entrada_hoy')  return 'entrada_hoy';
+      if (st === 'activa')       return 'activa';
+      if (st === 'proxima')      return 'proxima';
+      // Fallback si no obtuvimos estado: fecha directa.
       const dep = String(bk.DateDeparture || '').slice(0,10);
       const today = new Date().toISOString().slice(0,10);
-      if (dep && dep < today) return 'concluida';
-      return 'reservas';
+      return (dep && dep < today) ? 'concluida' : 'proxima';
     }
   } catch(_){}
   const name = String(c.name || '').trim();
@@ -42697,13 +42707,16 @@ function _botcRenderSidebar() {
   let listHtml = '';
   if (BOTC_STATE.viewMode === 'clasificado') {
     const CATS = [
-      { key:'entrantes',  label:'Entrantes',  color:'#0f172a', accent:'#334155' },
-      { key:'cotizacion', label:'Cotización', color:'#b45309', accent:'#f59e0b' },
-      { key:'reservas',   label:'Reservas',   color:'#15803d', accent:'#22c55e' },
-      { key:'concluida',  label:'Concluidas', color:'#475569', accent:'#94a3b8' },
+      { key:'entrantes',    label:'Entrantes',    color:'#0f172a', accent:'#334155' },
+      { key:'cotizacion',   label:'Cotización',   color:'#b45309', accent:'#f59e0b' },
+      { key:'salida_hoy',   label:'Salida hoy',   color:'#7c2d12', accent:'#ea580c' },
+      { key:'entrada_hoy',  label:'Entrada hoy',  color:'#065f46', accent:'#10b981' },
+      { key:'activa',       label:'Activa',       color:'#15803d', accent:'#22c55e' },
+      { key:'proxima',      label:'Próxima',      color:'#1e40af', accent:'#3b82f6' },
+      { key:'concluida',    label:'Concluidas',   color:'#475569', accent:'#94a3b8' },
     ];
-    const buckets = { entrantes:[], cotizacion:[], reservas:[], concluida:[] };
-    const pendingByCat = { entrantes:0, cotizacion:0, reservas:0, concluida:0 };
+    const buckets       = { entrantes:[], cotizacion:[], salida_hoy:[], entrada_hoy:[], activa:[], proxima:[], concluida:[] };
+    const pendingByCat  = { entrantes:0,  cotizacion:0,  salida_hoy:0,  entrada_hoy:0,  activa:0,  proxima:0,  concluida:0 };
     items.forEach(it => {
       (buckets[it.cat] || buckets.entrantes).push(it.html);
       if (it.pending) pendingByCat[it.cat] = (pendingByCat[it.cat]||0)+1;
