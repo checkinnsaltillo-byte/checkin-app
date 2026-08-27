@@ -42668,10 +42668,6 @@ function _botcRenderSidebar() {
         </div>
       </div>
       ${BOTC_STATE.filtersOpen ? _botcRenderFiltersPanel_() : ''}
-      <div id="botc-view-tabs" style="display:flex;gap:6px">
-        <button type="button" onclick="botcSetSidebarView_('cronologico')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:800;background:${BOTC_STATE.viewMode==='cronologico'?'#0f172a':'#fff'};color:${BOTC_STATE.viewMode==='cronologico'?'#fff':'#475569'};border:1.5px solid ${BOTC_STATE.viewMode==='cronologico'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer">🕐 Cronológico</button>
-        <button type="button" onclick="botcSetSidebarView_('clasificado')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:800;background:${BOTC_STATE.viewMode==='clasificado'?'#0f172a':'#fff'};color:${BOTC_STATE.viewMode==='clasificado'?'#fff':'#475569'};border:1.5px solid ${BOTC_STATE.viewMode==='clasificado'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer">📂 Clasificado</button>
-      </div>
     </div>`;
   // Aplica el filtro de búsqueda (case-insensitive) + filtros del panel ☰.
   const qLower = q.toLowerCase();
@@ -46887,8 +46883,21 @@ function _botcRenderFiltersPanel_() {
       <div style="font-size:9px;font-weight:900;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">${title}</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px">${items.map(it => pill(cat, it.v, it.label || it.v)).join('')}</div>
     </div>`;
+  // Sección Visualización — pills cronologico/clasificado (fuera del sec()
+  // porque no es un filtro sino un modo de agrupación).
+  const viewLabel = { cronologico: '🕐 Cronológico', clasificado: '📂 Clasificado' };
+  const viewPills = ['cronologico','clasificado'].map(v => {
+    const on = BOTC_STATE.viewMode === v;
+    return `<button type="button" onclick="botcSetSidebarView_('${v}')" style="flex:1;padding:6px 10px;font-size:11px;font-weight:800;background:${on?'#0f172a':'#fff'};color:${on?'#fff':'#475569'};border:1.5px solid ${on?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer">${viewLabel[v]}</button>`;
+  }).join('');
+  const viewSec = `
+    <div style="margin-bottom:8px">
+      <div style="font-size:10px;font-weight:800;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">Visualización</div>
+      <div style="display:flex;gap:6px">${viewPills}</div>
+    </div>`;
   return `
     <div id="botc-filters-panel" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:6px">
+      ${viewSec}
       ${sec('Control', 'control', controlOpts)}
       ${uniq.estado.size ? sec('Estado', 'estado', Array.from(uniq.estado).map(v => ({ v, label: estadoLabels[v]||v }))) : ''}
       ${uniq.factura.size > 1 ? sec('Facturación', 'factura', Array.from(uniq.factura).sort().map(v => ({ v }))) : ''}
