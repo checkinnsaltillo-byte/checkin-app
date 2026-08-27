@@ -42596,6 +42596,19 @@ function _botcIsPending_(c) {
   const lastRole = String(c.last_msg_role || '').toLowerCase();
   return lastRole === 'user';
 }
+// True cuando el último mensaje del huésped queda sin respuesta Y NO es
+// una despedida corta / acuse de recibo. Se usa para el chip "⏳ Espera
+// respuesta" — le señala al admin que hay asunto pendiente.
+const _BOTC_FAREWELL_RE = /^(\s*(gracias|muchas gracias|ok|okay|okey|listo|va|vale|entendido|de acuerdo|perfecto|excelente|excelente\.?|super|súper|genial|👍|👌|✅|✔️|ok\.|ok!|graci[aá]s\.?|adi[oó]s|hasta luego|nos vemos|bye|saludos|buenas noches|buen d[ií]a|buena tarde|hasta pronto|si|sí|no|ya|clarooo|ah ok|ahh|👋|🙏|❤️|🙌)\.?\s*[!?.]*)+\s*$/i;
+function _botcNeedsReply_(c) {
+  if (!_botcIsPending_(c)) return false;
+  const preview = String(c.last_msg_preview || '').trim();
+  if (!preview) return false;
+  // Muy corto (<=3 chars) o solo emojis → probablemente despedida/reacción.
+  if (preview.length <= 3) return false;
+  if (_BOTC_FAREWELL_RE.test(preview)) return false;
+  return true;
+}
 
 // Clasifica una conversación en 4 buckets según el booking asociado.
 // - concluida: la reserva ya terminó (departure < hoy).
@@ -42745,8 +42758,15 @@ function _botcRenderSidebar() {
         style="background:none;border:0;padding:0 2px;cursor:pointer;font-size:12px;line-height:1;color:${riskCount?'#dc2626':'#cbd5e1'};filter:${riskCount?'none':'grayscale(1)'};opacity:${riskCount?1:0.6}">🚩</button>`;
     // chatMeta integrado como footer de la card (no como bloque separado).
     // Fondo blanco continuo con la card, sin border-top disruptivo.
+    // Chip "Espera respuesta": último mensaje del huésped Y no es una
+    // despedida corta (gracias/ok/listo/perfecto/etc.). Ayuda al admin a
+    // priorizar visualmente las que dejan asunto pendiente.
+    const isPendingReply = _botcNeedsReply_(c);
+    const waitChip = isPendingReply
+      ? '<span style="display:inline-block;font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:99px;border:1px solid #fde68a;margin-right:6px;vertical-align:middle;letter-spacing:.03em">⏳ ESPERA RESPUESTA</span>'
+      : '';
     const chatMeta = `
-      <div class="botc-card-footer" style="padding:6px 14px 10px;background:transparent">
+      <div class="botc-card-footer" style="padding:8px 14px 10px;background:#f1f5f9;border-top:1px solid #e2e8f0">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
           ${controlChip}
           <div style="display:flex;align-items:center;gap:6px">
@@ -42754,7 +42774,7 @@ function _botcRenderSidebar() {
             <span style="font-size:10px;color:#94a3b8">💬 ${_botcFmtTime(c.last_msg_at)}</span>
           </div>
         </div>
-        <div style="font-size:11px;color:#64748b;margin-top:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${_botcEsc(c.last_msg_preview)}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${waitChip}${_botcEsc(c.last_msg_preview)}</div>
       </div>`;
     // La card rich viene con su propio borde/sombra/radius. Al meterla dentro
     // del wrapper aplicamos CSS que la aplana para que meta y rich lean como
@@ -42970,12 +42990,13 @@ function _botcEnsureCardFlattenCss_() {
   // internos dependen de esos estilos para verse (RECURRENTE, VIP, monto).
   s.textContent = `
     /* Aplana la card rich para que se pegue al footer y todo se lea como
-       un solo bloque continuo (mismo bg, sin bordes/sombras internas). */
+       un solo bloque continuo. El WRAPPER externo (.botc-conv-item) tiene
+       el borde/border-radius que enmarca todo — la card interna sólo debe
+       neutralizar sus propios bordes para no romper la continuidad. */
     .botc-conv-item > *:not(.botc-card-footer) {
       box-shadow: none !important;
       margin: 0 !important;
       border-radius: 0 !important;
-      background: transparent !important;
     }
     .botc-conv-item > *:not(.botc-card-footer),
     .botc-conv-item > *:not(.botc-card-footer) > * {
