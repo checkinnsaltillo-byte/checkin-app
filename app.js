@@ -14634,9 +14634,9 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
         </div>`;
       const fmt$ = (n) => (typeof huFmtMonto === 'function') ? huFmtMonto(n) : ('$ '+Number(n||0).toFixed(0));
       // Fallback: si stats.montoTotal es 0 (huésped sin match/registro),
-      // usa el TotalAmount del booking Lodgify (la reserva actual siempre
-      // trae precio, con o sin match manual).
-      const bkTotal = Number(b.TotalAmount || b.Total || b['$ Monto Total'] || 0);
+      // usa Gross del booking Lodgify — el mismo campo que suma la card
+      // de "Gestión de reservas" (ver huComputeLodgifyGrossForStay).
+      const bkTotal = Number(b.Gross || b.Amount || b.Total || 0);
       const montoShow = stats.montoTotal > 0 ? stats.montoTotal : bkTotal;
       bottomBoxesHtml = `
         <div style="display:flex;gap:5px;margin-top:7px">
@@ -42915,10 +42915,23 @@ function _botcEnsureCardFlattenCss_() {
   // NO tocamos border-width, border-radius ni background del rich — chips
   // internos dependen de esos estilos para verse (RECURRENTE, VIP, monto).
   s.textContent = `
+    /* Aplana la card rich para que se pegue al footer y todo se lea como
+       un solo bloque continuo (mismo bg, sin bordes/sombras internas). */
     .botc-conv-item > *:not(.botc-card-footer) {
       box-shadow: none !important;
       margin: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
     }
+    .botc-conv-item > *:not(.botc-card-footer),
+    .botc-conv-item > *:not(.botc-card-footer) > * {
+      border-left: 0 !important;
+      border-right: 0 !important;
+    }
+    /* Wrapper interno (el onclick div que envuelve rich) NO debe tener
+       borde inferior — lo pega al footer. */
+    .botc-conv-item > div[onclick] { border-bottom: 0 !important; padding-bottom: 0 !important; }
+    .botc-card-footer { margin-top: 0 !important; }
   `;
   document.head.appendChild(s);
 }
@@ -42990,7 +43003,12 @@ window.botcOpenChat = async function(phone, opts) {
   const mainWasEmpty = !main.hasChildNodes() || !main.querySelector('#botc-msgs');
   const sameChatOpen = BOTC_STATE.__renderedPhone === String(phone);
   if (!opts.silent && (mainWasEmpty || !sameChatOpen)) {
-    main.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px">⏳ Cargando conversación…</div>';
+    main.innerHTML = `
+      <div style="padding:10px 20px;border-bottom:1px solid #e2e8f0;background:#fff;flex-shrink:0">
+        <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
+          style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;display:inline-flex">← Mensajes</button>
+      </div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px">⏳ Cargando conversación…</div>`;
   }
   try {
     const r = await fetch(`https://api.check-inn.mx/wa/bot/context?phone=${encodeURIComponent(phone)}&limit=100`, { cache: 'no-store' });
