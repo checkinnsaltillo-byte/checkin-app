@@ -42341,6 +42341,21 @@ window.botcInit = function() {
       objLoadObjetos().catch(()=>{});
     }
   } catch(_){}
+  // Precargar HU_STATE.rows + LG_STATE.bookings para que las cards de la
+  // sidebar tengan huesped completo (mismos KPIs/monto que Gestión de
+  // reservas). Cuando terminen, re-render de la sidebar.
+  try {
+    if (typeof HU_STATE !== 'undefined' && !HU_STATE.loaded && !HU_STATE.loading && typeof huespedesLoad === 'function') {
+      huespedesLoad(false).then(() => {
+        try { if (typeof _botcRenderSidebar === 'function') _botcRenderSidebar(); } catch(_){}
+      }).catch(()=>{});
+    }
+    if (typeof LG_STATE !== 'undefined' && (!LG_STATE.bookings || !LG_STATE.bookings.length) && typeof lodgifyLoad === 'function') {
+      lodgifyLoad(false).then(() => {
+        try { if (typeof _botcRenderSidebar === 'function') _botcRenderSidebar(); } catch(_){}
+      }).catch(()=>{});
+    }
+  } catch(_){}
   botcRefresh();
   // 2 polls con frecuencias distintas. Apps Script tarda 2-5s y es
   // single-threaded — polls demasiado agresivos generan cola y 500s.
@@ -42689,8 +42704,15 @@ function _botcRenderSidebar() {
         // Si el booking no trae __reservacion (viene de LG raw), inferir el
         // huésped desde HU_STATE por phone tail para que los KPIs y el chip
         // de tier (RECURRENTE, BRONCE, etc.) aparezcan en la card.
+        // Prioridad de fuentes para el huesped (mismo orden que Gestión
+        // de reservas): 1) __reservacion embebido en el booking sintético,
+        // 2) LG_STATE.matches (map bookingId→huesped construido cuando
+        // Gestión de reservas cargó), 3) HU_STATE.rows por phone tail.
         let huespedOverride = bkNamed.__reservacion || null;
-        if (!huespedOverride && typeof huGetGuestRowsByTail_ === 'function') {
+        if (!huespedOverride && typeof LG_STATE !== 'undefined' && LG_STATE?.matches) {
+          huespedOverride = LG_STATE.matches.get(String(bk.Id)) || null;
+        }
+        if (!huespedOverride && typeof huGetGuestRowsByTail_ === 'function' && HU_STATE?.rows?.length) {
           try {
             const tail = String(c.phone || '').replace(/\D/g,'').slice(-10);
             const rows = tail ? (huGetGuestRowsByTail_(null, tail) || []) : [];
