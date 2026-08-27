@@ -12334,10 +12334,21 @@ function huNormalizeCurrencyFromSheet(v) {
 }
 
 function huResolveConceptoPorRegimen(regimenFiscal) {
-  const norm = String(regimenFiscal || '').trim().toLowerCase();
-  return norm === 'general de ley personas morales'
-    ? '1. Arrendamiento en Saltillo, Coah.'
-    : '2. Arrendamiento en Saltillo, Coah.';
+  // Normaliza: quita acentos, código prefijo (601, 612…), separadores
+  // (· | - / :), espacios extra, y baja a minúsculas. Match por INCLUDES
+  // para tolerar variantes del sheet ("601 · General de Ley…", "General
+  // Ley Personas Morales", "Personas Morales – 601", etc.).
+  const norm = String(regimenFiscal || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/^\s*\d{2,4}\s*[·\-|\/:.\s]*/, '') // quita "601·", "612 -", etc.
+    .replace(/\s+/g, ' ')
+    .trim().toLowerCase();
+  // Concepto 1 = Persona Moral (General de Ley) — SIN "no lucrativos"
+  // (ese es el 603 y va con concepto 2 según reglas del negocio).
+  const esPMGeneral = /personas?\s+morales/.test(norm) && !/no\s+lucrativos/.test(norm) && !/simplificado/.test(norm);
+  if (esPMGeneral) return '1. Arrendamiento en Saltillo, Coah.';
+  // Concepto 2 = todo lo demás (persona física, RESICO, sindicatos, etc.)
+  return '2. Arrendamiento en Saltillo, Coah.';
 }
 
 function huNormalizePhoneWA(phone) {
