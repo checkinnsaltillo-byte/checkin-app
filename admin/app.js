@@ -42695,7 +42695,15 @@ function _botcRenderSidebar() {
     : BOTC_STATE.conversations;
   filtered = _botcApplyPanelFilters_(filtered);
   if (!filtered.length) {
-    sidebar.innerHTML = tabsHtml + `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">${q ? 'Sin resultados para «' + _botcEsc(q) + '».' : 'Sin conversaciones con este filtro.'}</div>`;
+    // Distinguir "aún cargando" de "cargó pero está vacío/filtrado".
+    const stillLoading = !Array.isArray(BOTC_STATE.conversations) || BOTC_STATE.conversations.length === 0;
+    const hasFilter = _botcHasAnyFilter_() || !!q;
+    const emptyMsg = stillLoading && !hasFilter
+      ? '⏳ Cargando conversaciones…'
+      : q ? 'Sin resultados para «' + _botcEsc(q) + '».'
+          : hasFilter ? 'Sin conversaciones con este filtro. <button type="button" onclick="botcClearPf_()" style="display:block;margin:12px auto 0;padding:6px 12px;font-size:11px;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">Limpiar filtros</button>'
+          : 'Sin conversaciones.';
+    sidebar.innerHTML = tabsHtml + `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">${emptyMsg}</div>`;
     return;
   }
   const items = filtered.map(c => {
@@ -42989,10 +42997,9 @@ function _botcEnsureCardFlattenCss_() {
   // NO tocamos border-width, border-radius ni background del rich — chips
   // internos dependen de esos estilos para verse (RECURRENTE, VIP, monto).
   s.textContent = `
-    /* Aplana la card rich para que se pegue al footer y todo se lea como
-       un solo bloque continuo. El WRAPPER externo (.botc-conv-item) tiene
-       el borde/border-radius que enmarca todo — la card interna sólo debe
-       neutralizar sus propios bordes para no romper la continuidad. */
+    /* Aplana la card rich (.rd-item) para que quede al MISMO ancho que
+       el footer y ambos se lean como un solo bloque continuo dentro del
+       wrapper .botc-conv-item. */
     .botc-conv-item > *:not(.botc-card-footer) {
       box-shadow: none !important;
       margin: 0 !important;
@@ -43000,15 +43007,28 @@ function _botcEnsureCardFlattenCss_() {
       width: 100% !important;
       box-sizing: border-box !important;
     }
-    .botc-conv-item > *:not(.botc-card-footer),
-    .botc-conv-item > *:not(.botc-card-footer) > * {
+    /* .rd-item lleva border-left:7px + padding-left:9px que le quita
+       ancho respecto al footer. Anular ambos aquí, y quitar padding
+       inferior para pegar al footer sin gap. */
+    .botc-conv-item .rd-item {
       border-left: 0 !important;
       border-right: 0 !important;
+      padding-left: 14px !important;
+      padding-right: 14px !important;
+      padding-bottom: 0 !important;
+      margin: 0 !important;
     }
-    /* Wrapper interno (el onclick div que envuelve rich) NO debe tener
-       borde inferior ni padding-bottom — lo pega al footer sin gap. */
-    .botc-conv-item > div[onclick] { border-bottom: 0 !important; padding-bottom: 0 !important; margin-bottom: 0 !important; }
-    .botc-card-footer { margin-top: 0 !important; width: 100% !important; box-sizing: border-box !important; }
+    /* Wrapper interno (div[onclick]) no debe agregar borde ni gap. */
+    .botc-conv-item > div[onclick] {
+      border: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    .botc-card-footer {
+      margin-top: 0 !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
   `;
   document.head.appendChild(s);
 }
