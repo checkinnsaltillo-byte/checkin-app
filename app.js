@@ -42330,6 +42330,9 @@ function _botcFmtDateTime(iso) {
 }
 
 window.botcInit = function() {
+  // Aplicar CSS mobile ANTES de renderizar — así en móvil aparece solo
+  // la lista de conversaciones (sin la columna derecha vacía).
+  try { _botcEnsureMobileCss_(); } catch(_){}
   // botcRefresh (fetch conversaciones) es lo ÚNICO que bloquea el primer
   // render. HU_STATE y KPIs se piden en background — enrichment de cards
   // ocurre después vía _botcEnrichPendingBookings sin re-renderizar todo.
