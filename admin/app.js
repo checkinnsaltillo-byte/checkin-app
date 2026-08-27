@@ -43058,9 +43058,9 @@ window.botcOpenChat = async function(phone, opts) {
   const sameChatOpen = BOTC_STATE.__renderedPhone === String(phone);
   if (!opts.silent && (mainWasEmpty || !sameChatOpen)) {
     main.innerHTML = `
-      <div style="padding:10px 20px;border-bottom:1px solid #e2e8f0;background:#fff;flex-shrink:0">
+      <div style="padding:10px 20px;border-bottom:1px solid #a7f3d0;background:linear-gradient(180deg,#ecfdf5 0%,#d1fae5 100%);flex-shrink:0">
         <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
-          style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;display:inline-flex">←</button>
+          style="align-items:center;gap:4px;padding:6px 10px;background:#fff;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;display:inline-flex">←</button>
       </div>
       <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px">⏳ Cargando conversación…</div>`;
   }
@@ -43142,7 +43142,7 @@ function _botcRenderMain(phone) {
     ? `<div style="font-size:14px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(phone)}</div>`
     : `<div style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>`;
   main.innerHTML = `
-    <div style="padding:10px 20px 12px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
+    <div style="padding:10px 20px 12px;border-bottom:1px solid #a7f3d0;background:linear-gradient(180deg,#ecfdf5 0%,#d1fae5 100%);display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
       <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
         style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">←</button>
       <div style="min-width:0;flex:1;overflow:hidden">${nameHeader}</div>
