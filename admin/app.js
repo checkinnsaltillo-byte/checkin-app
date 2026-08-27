@@ -43037,10 +43037,10 @@ function _botcRenderMain(phone) {
   }).join('') : '<div style="text-align:center;color:#94a3b8;font-size:12px;padding:40px">Sin mensajes previos.</div>';
 
   const ctrlChip = isHuman
-    ? '<span style="font-size:11px;background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:999px;font-weight:800">👤 Bajo control humano</span>'
+    ? '<span class="botc-ctrl-chip" style="font-size:11px;background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:999px;font-weight:800">👤 Bajo control humano</span>'
     : isSupervised
-      ? '<span style="font-size:11px;background:#ede9fe;color:#5b21b6;padding:4px 10px;border-radius:999px;font-weight:800">👁 Supervisado (bot sugiere, tú envías)</span>'
-      : '<span style="font-size:11px;background:#dbeafe;color:#1e40af;padding:4px 10px;border-radius:999px;font-weight:800">🤖 Bot respondiendo</span>';
+      ? '<span class="botc-ctrl-chip" style="font-size:11px;background:#ede9fe;color:#5b21b6;padding:4px 10px;border-radius:999px;font-weight:800">👁 Supervisado (bot sugiere, tú envías)</span>'
+      : '<span class="botc-ctrl-chip" style="font-size:11px;background:#dbeafe;color:#1e40af;padding:4px 10px;border-radius:999px;font-weight:800">🤖 Bot respondiendo</span>';
   // Ciclo de 3 modos: bot (Automático) / supervised / human. Labels precisos
   // por estado — nunca decir "Devolver al bot" cuando ya estás en supervised
   // (el modo supervised ES un modo bot).
@@ -46946,3 +46946,10 @@ window.botcOpenEmergModal_ = async function() {
   };
   _botcOpenPhoneModal_(_currentModalOpts);
 };
+
+// Ocultar chip de estado del control en móvil — los 3 botones ya lo indican.
+(function(){
+  const s = document.createElement('style');
+  s.textContent = `@media (max-width:720px){.botc-ctrl-chip{display:none !important}}`;
+  document.head.appendChild(s);
+})();
