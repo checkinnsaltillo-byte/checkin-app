@@ -8681,6 +8681,12 @@ function switchModule(mod) {
       if (location.hash !== target) history.replaceState(null, '', target);
     }
   } catch(_) {}
+  // Barra de saludo + botón "Cerrar sesión" SOLO en la pantalla home —
+  // en cualquier otro módulo desperdicia espacio vertical.
+  try {
+    const greet = document.getElementById('user-greeting');
+    if (greet) greet.style.display = (mod === 'home') ? '' : 'none';
+  } catch(_){}
   ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
@@ -43055,7 +43061,7 @@ window.botcOpenChat = async function(phone, opts) {
     main.innerHTML = `
       <div style="padding:10px 20px;border-bottom:1px solid #e2e8f0;background:#fff;flex-shrink:0">
         <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
-          style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;display:inline-flex">← Mensajes</button>
+          style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;display:inline-flex">←</button>
       </div>
       <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px">⏳ Cargando conversación…</div>`;
   }
@@ -43139,7 +43145,7 @@ function _botcRenderMain(phone) {
   main.innerHTML = `
     <div style="padding:10px 20px 12px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
       <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
-        style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">← Mensajes</button>
+        style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">←</button>
       <div style="min-width:0;flex:1;overflow:hidden">${nameHeader}</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
           ${ctrlBtn}
