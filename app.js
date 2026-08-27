@@ -42773,8 +42773,11 @@ function _botcRenderSidebar() {
     const waitChip = isPendingReply
       ? '<span style="display:inline-block;font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:99px;border:1px solid #fde68a;margin-right:6px;vertical-align:middle;letter-spacing:.03em">⏳ ESPERA RESPUESTA</span>'
       : '';
+    // Footer gris por default; rojo claro cuando hay "espera respuesta"
+    // para que la conversación pendiente sea imposible de perder de vista.
+    const footerBg = isPendingReply ? '#fee2e2' : '#f1f5f9';
     const chatMeta = `
-      <div class="botc-card-footer" style="padding:8px 14px 10px;background:#f1f5f9">
+      <div class="botc-card-footer" style="padding:8px 14px 10px;background:${footerBg}">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
           ${controlChip}
           <div style="display:flex;align-items:center;gap:6px">
@@ -43251,6 +43254,19 @@ function _botcRenderMain(phone) {
 
 window.botcSetControl = async function(phone, control) {
   const reason = control === 'human' ? 'Toma manual del admin' : '';
+  // Optimistic UI: cambia el estado local y repinta al instante — sin
+  // esperar al fetch. Guardamos el valor previo para revertir si falla.
+  const conv = (BOTC_STATE.conversations || []).find(c => String(c.phone) === String(phone));
+  const prevControl = conv ? conv.control : null;
+  if (conv) conv.control = control;
+  if (BOTC_STATE.state && String(BOTC_STATE.selectedPhone) === String(phone)) {
+    BOTC_STATE.state.control = control;
+  }
+  try { _botcRenderSidebar(); } catch(_){}
+  // Repaint del header del chat (si está abierto) sin re-fetch del backend.
+  if (String(BOTC_STATE.selectedPhone) === String(phone)) {
+    try { if (typeof _botcRepaintChatHeader_ === 'function') _botcRepaintChatHeader_(); else botcOpenChat(phone, { silent: true }); } catch(_){}
+  }
   try {
     const r = await fetch(`https://api.check-inn.mx/wa/bot/set-control`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -43258,10 +43274,15 @@ window.botcSetControl = async function(phone, control) {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
-    // Refrescar chat abierto
-    botcOpenChat(phone);
-    botcRefresh({ silent: true });
-  } catch (e) { alert('Error: ' + e.message); }
+  } catch (e) {
+    // Revertir en caso de fallo.
+    if (conv) conv.control = prevControl;
+    if (BOTC_STATE.state && String(BOTC_STATE.selectedPhone) === String(phone)) {
+      BOTC_STATE.state.control = prevControl;
+    }
+    try { _botcRenderSidebar(); } catch(_){}
+    alert('Error al cambiar modo: ' + e.message);
+  }
 };
 
 window.botcToggleNewMenu_ = function(ev) {
