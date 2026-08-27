@@ -42766,7 +42766,7 @@ function _botcRenderSidebar() {
       ? '<span style="display:inline-block;font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:99px;border:1px solid #fde68a;margin-right:6px;vertical-align:middle;letter-spacing:.03em">⏳ ESPERA RESPUESTA</span>'
       : '';
     const chatMeta = `
-      <div class="botc-card-footer" style="padding:8px 14px 10px;background:#f1f5f9;border-top:1px solid #e2e8f0">
+      <div class="botc-card-footer" style="padding:8px 14px 10px;background:#f1f5f9">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
           ${controlChip}
           <div style="display:flex;align-items:center;gap:6px">
@@ -42997,6 +42997,8 @@ function _botcEnsureCardFlattenCss_() {
       box-shadow: none !important;
       margin: 0 !important;
       border-radius: 0 !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
     }
     .botc-conv-item > *:not(.botc-card-footer),
     .botc-conv-item > *:not(.botc-card-footer) > * {
@@ -43004,9 +43006,9 @@ function _botcEnsureCardFlattenCss_() {
       border-right: 0 !important;
     }
     /* Wrapper interno (el onclick div que envuelve rich) NO debe tener
-       borde inferior — lo pega al footer. */
-    .botc-conv-item > div[onclick] { border-bottom: 0 !important; padding-bottom: 0 !important; }
-    .botc-card-footer { margin-top: 0 !important; }
+       borde inferior ni padding-bottom — lo pega al footer sin gap. */
+    .botc-conv-item > div[onclick] { border-bottom: 0 !important; padding-bottom: 0 !important; margin-bottom: 0 !important; }
+    .botc-card-footer { margin-top: 0 !important; width: 100% !important; box-sizing: border-box !important; }
   `;
   document.head.appendChild(s);
 }
