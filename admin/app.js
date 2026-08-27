@@ -43045,23 +43045,18 @@ function _botcRenderMain(phone) {
   // por estado — nunca decir "Devolver al bot" cuando ya estás en supervised
   // (el modo supervised ES un modo bot).
   const autoBtn = `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:6px 12px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">⚙️ Cambiar a Automático</button>`;
-  const supBtn  = `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','supervised')" style="padding:6px 12px;font-size:12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👁 Cambiar a Supervisado</button>`;
-  const humBtn  = `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:6px 12px;font-size:12px;background:#f59e0b;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">👤 Tomar control</button>`;
-  // Toggle primario: Tomar control / Automático. Un toggle secundario aparece
-  // solo si el modo actual es humano o supervisado (para elegir cuál de los
-  // dos). "Automático" desactiva ambos.
-  const modeTakenPrimary = isHuman || isSupervised;
-  const primaryToggle = `
-    <div style="display:inline-flex;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:2px">
-      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:5px 10px;font-size:11px;font-weight:800;background:${modeTakenPrimary?'#f59e0b':'transparent'};color:${modeTakenPrimary?'#fff':'#475569'};border:0;border-radius:4px;cursor:pointer">👤 Tomar control</button>
-      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:5px 10px;font-size:11px;font-weight:800;background:${modeTakenPrimary?'transparent':'#3b82f6'};color:${modeTakenPrimary?'#475569':'#fff'};border:0;border-radius:4px;cursor:pointer">⚙️ Automático</button>
+  // Toggle único de 3 estados: Manual / Supervisado / Automático.
+  // isHuman → Manual · isSupervised → Supervisado · resto → Automático (bot).
+  const opt = (val, label, activeColor) => {
+    const on = (val === 'human' && isHuman) || (val === 'supervised' && isSupervised) || (val === 'bot' && !isHuman && !isSupervised);
+    return `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','${val}')" style="padding:6px 12px;font-size:11px;font-weight:800;background:${on?activeColor:'transparent'};color:${on?'#fff':'#475569'};border:0;border-radius:5px;cursor:pointer;line-height:1;white-space:nowrap">${label}</button>`;
+  };
+  const ctrlBtn = `
+    <div style="display:inline-flex;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:7px;padding:2px;gap:2px">
+      ${opt('human',      '📝 Manual',      '#f59e0b')}
+      ${opt('supervised', '👁 Supervisado', '#7c3aed')}
+      ${opt('bot',        '⚙️ Automático',  '#3b82f6')}
     </div>`;
-  const secondaryToggle = modeTakenPrimary ? `
-    <div style="display:inline-flex;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:2px;margin-top:6px">
-      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','human')" style="padding:4px 10px;font-size:10px;font-weight:800;background:${isHuman?'#f59e0b':'transparent'};color:${isHuman?'#fff':'#475569'};border:0;border-radius:4px;cursor:pointer">📝 Manual</button>
-      <button type="button" onclick="botcSetControl('${_botcEsc(phone)}','supervised')" style="padding:4px 10px;font-size:10px;font-weight:800;background:${isSupervised?'#f59e0b':'transparent'};color:${isSupervised?'#fff':'#475569'};border:0;border-radius:4px;cursor:pointer">👁 Supervisado</button>
-    </div>` : '';
-  const ctrlBtn = `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:0">${primaryToggle}${secondaryToggle}</div>`;
 
   // Nombre del perfil desde conversations (si existe)
   const conv = (BOTC_STATE.conversations || []).find(c => String(c.phone) === String(phone));
