@@ -14651,6 +14651,33 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
           <span style="background:rgba(255,255,255,.7);color:${tier.fg};padding:0 4px;border-radius:6px;font-weight:800">${tier.score}</span>
         </span>` : '';
     } catch (e) { /* silent */ }
+  } else {
+    // Fallback: SIN match manual (huésped no registrado). Mostramos KPIs
+    // básicos derivados sólo del booking Lodgify — así todas las cards
+    // muestran monto/noches y no aparecen sin datos.
+    try {
+      const fmt$ = (n) => (typeof huFmtMonto === 'function') ? huFmtMonto(n) : ('$ '+Number(n||0).toFixed(0));
+      const boxHtml = (icon, label, value, flex) => `
+        <div style="flex:${flex};background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:3px 7px;text-align:center;min-width:0">
+          <div style="font-size:7px;color:#64748b;font-weight:800;letter-spacing:.04em;text-transform:uppercase">${icon} ${esc(label)}</div>
+          <div style="font-size:11px;font-weight:800;color:#0f172a;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${value}</div>
+        </div>`;
+      // Noches directo del rango del booking (MMDD → Date).
+      const parseD = (v) => {
+        const m = String(v || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/) || String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (!m) return null;
+        return m[3] && m[3].length === 4 ? new Date(+m[3], +m[1]-1, +m[2]) : new Date(+m[1], +m[2]-1, +m[3]);
+      };
+      const dA = parseD(b.DateArrival), dD = parseD(b.DateDeparture);
+      const nochesN = (dA && dD) ? Math.max(1, Math.round((dD - dA) / 86_400_000)) : 0;
+      const bkTotal = Number(b.Gross || b.Amount || b.Total || 0);
+      bottomBoxesHtml = `
+        <div style="display:flex;gap:5px;margin-top:7px">
+          ${boxHtml('🌙', 'Noches',  nochesN > 0 ? String(nochesN) : '—', '1')}
+          ${boxHtml('🧳', 'Visitas', '1', '1')}
+          ${boxHtml('💰', 'Monto',   bkTotal > 0 ? fmt$(bkTotal) : '—', '1.4')}
+        </div>`;
+    } catch(_) {}
   }
 
   // Programación: punto animado (mismo patrón que historial de Reservas
