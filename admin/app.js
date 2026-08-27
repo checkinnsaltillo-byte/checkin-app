@@ -46041,11 +46041,31 @@ function _rsvRenderResults_() {
   toolbar.style.display = 'flex';
   if (floatBtn) floatBtn.classList.add('visible');
   const q = RSV_STATE.query || {};
-  document.getElementById('rsv-count').innerHTML = `${results.length} alojamiento${results.length===1?'':'s'} disponibles <small>· ${q.arrival} → ${q.departure} · ${q.adults} huésped(es)</small>`;
-  const gridHtml = `<div class="rsv-grid">${results.map((r,i) => _rsvCardHtml_(r,i)).join('')}</div>`;
+  // Ordenar (respeta el orden original si sortMode === 'default').
+  const sortMode = RSV_STATE.sortMode || 'default';
+  const sorted = results.slice();
+  if (sortMode === 'price_asc')  sorted.sort((a,b) => (Number(a.total)||0) - (Number(b.total)||0));
+  if (sortMode === 'price_desc') sorted.sort((a,b) => (Number(b.total)||0) - (Number(a.total)||0));
+  document.getElementById('rsv-count').innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between;width:100%">
+      <div>${results.length} alojamiento${results.length===1?'':'s'} disponibles <small>· ${q.arrival} → ${q.departure} · ${q.adults} huésped(es)</small></div>
+      <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--rsv-muted);font-weight:700">
+        Ordenar:
+        <select onchange="rsvSetSort_(this.value)" style="padding:5px 10px;font-size:12px;font-weight:700;border:1px solid var(--rsv-line);border-radius:6px;background:#fff;color:var(--rsv-ink);cursor:pointer">
+          <option value="default"    ${sortMode==='default'?'selected':''}>Sugerido</option>
+          <option value="price_asc"  ${sortMode==='price_asc'?'selected':''}>💰 Precio: menor → mayor</option>
+          <option value="price_desc" ${sortMode==='price_desc'?'selected':''}>💰 Precio: mayor → menor</option>
+        </select>
+      </label>
+    </div>`;
+  const gridHtml = `<div class="rsv-grid">${sorted.map((r,i) => _rsvCardHtml_(r,i)).join('')}</div>`;
   const splitHtml = _rsvSplitStaysHtml_();
   cont.innerHTML = gridHtml + splitHtml;
 }
+window.rsvSetSort_ = function(mode) {
+  RSV_STATE.sortMode = mode;
+  _rsvRenderResults_();
+};
 function _rsvSplitStaysHtml_() {
   const list = RSV_STATE.splitStays || [];
   if (!list.length) return '';
