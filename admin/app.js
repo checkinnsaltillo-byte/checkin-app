@@ -43088,11 +43088,10 @@ function _botcRenderMain(phone) {
     ? `<div style="font-size:14px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(phone)}</div>`
     : `<div style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>`;
   main.innerHTML = `
-    <div style="padding:10px 20px 12px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;flex-direction:column;gap:8px;flex-shrink:0">
-      <!-- Renglón 1: sólo botones (← Mensajes, toggle modo, ⋮) -->
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-        <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
-          style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">← Mensajes</button>
+    <div style="padding:10px 20px 12px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
+      <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
+        style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">← Mensajes</button>
+      <div style="min-width:0;flex:1;overflow:hidden">${nameHeader}</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
           ${ctrlBtn}
           <div style="position:relative;display:inline-block">
@@ -43111,11 +43110,6 @@ function _botcRenderMain(phone) {
             </div>
           </div>
         </div>
-      </div>
-      <!-- Renglón 2: nombre + phone + chip de estado -->
-      <div style="display:flex;align-items:center;gap:10px;min-width:0">
-        <div style="min-width:0;flex:1">${nameHeader}</div>
-        ${ctrlChip}
       </div>
     </div>
     <div id="botc-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafc">${msgsHtml}</div>
