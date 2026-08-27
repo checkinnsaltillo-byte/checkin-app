@@ -42604,27 +42604,31 @@ function _botcRenderSidebar() {
   const q = String(BOTC_STATE.searchQuery || '').trim();
   const tabsHtml = `
     <div style="padding:10px 10px 4px;background:#f8fafc;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:5">
-      <div style="position:relative;margin-bottom:6px">
-        <input id="botc-search-input" type="search" value="${_botcEsc(q)}"
-          placeholder="🔍 Buscar por nombre o mensaje…"
-          oninput="botcSetSearchQuery_(this.value)"
-          style="width:100%;padding:7px 30px 7px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;background:#fff">
-        ${q ? `<button type="button" onclick="botcSetSearchQuery_('')" title="Limpiar" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;font-size:14px;color:#94a3b8;cursor:pointer;padding:2px 6px;line-height:1">×</button>` : ''}
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <button type="button" id="botc-filters-btn" onclick="botcToggleFilters_()" title="Filtros" style="width:32px;height:32px;padding:0;font-size:16px;background:${_botcHasAnyFilter_()?'#0f172a':'#fff'};color:${_botcHasAnyFilter_()?'#fff':'#334155'};border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:900;line-height:1;flex-shrink:0;position:relative">☰${_botcHasAnyFilter_()?`<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#f97316;border-radius:50%;border:1.5px solid #fff"></span>`:''}</button>
+        <div style="position:relative;flex:1">
+          <input id="botc-search-input" type="search" value="${_botcEsc(q)}"
+            placeholder="🔍 Buscar por nombre o mensaje…"
+            oninput="botcSetSearchQuery_(this.value)"
+            style="width:100%;padding:7px 30px 7px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;background:#fff">
+          ${q ? `<button type="button" onclick="botcSetSearchQuery_('')" title="Limpiar" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;font-size:14px;color:#94a3b8;cursor:pointer;padding:2px 6px;line-height:1">×</button>` : ''}
+        </div>
       </div>
+      ${BOTC_STATE.filtersOpen ? _botcRenderFiltersPanel_() : ''}
       <div id="botc-view-tabs" style="display:flex;gap:6px">
         <button type="button" onclick="botcSetSidebarView_('cronologico')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:800;background:${BOTC_STATE.viewMode==='cronologico'?'#0f172a':'#fff'};color:${BOTC_STATE.viewMode==='cronologico'?'#fff':'#475569'};border:1.5px solid ${BOTC_STATE.viewMode==='cronologico'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer">🕐 Cronológico</button>
         <button type="button" onclick="botcSetSidebarView_('clasificado')" style="flex:1;padding:6px 8px;font-size:11px;font-weight:800;background:${BOTC_STATE.viewMode==='clasificado'?'#0f172a':'#fff'};color:${BOTC_STATE.viewMode==='clasificado'?'#fff':'#475569'};border:1.5px solid ${BOTC_STATE.viewMode==='clasificado'?'#0f172a':'#cbd5e1'};border-radius:6px;cursor:pointer">📂 Clasificado</button>
       </div>
     </div>`;
-  // Aplica el filtro de búsqueda (case-insensitive) sobre nombre, phone y
-  // preview del último mensaje.
+  // Aplica el filtro de búsqueda (case-insensitive) + filtros del panel ☰.
   const qLower = q.toLowerCase();
-  const filtered = q
+  let filtered = q
     ? BOTC_STATE.conversations.filter(c => {
         const parts = [c.name, c.phone, c.last_msg_preview, c.notes].map(x => String(x||'').toLowerCase());
         return parts.some(p => p.indexOf(qLower) >= 0);
       })
     : BOTC_STATE.conversations;
+  filtered = _botcApplyPanelFilters_(filtered);
   if (!filtered.length) {
     sidebar.innerHTML = tabsHtml + `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">${q ? 'Sin resultados para «' + _botcEsc(q) + '».' : 'Sin conversaciones con este filtro.'}</div>`;
     return;
@@ -43087,17 +43091,6 @@ function _botcRenderMain(phone) {
               <button type="button" class="botc-hmenu-item" onclick="botcOpenSummary();botcCloseHeaderMenu_()">🧠 Resumen sintético</button>
               <button type="button" class="botc-hmenu-item" onclick="hgNotesOpen_();botcCloseHeaderMenu_()">📝 Notas del huésped${_hgNotesCountLabel_()}</button>
               <button type="button" class="botc-hmenu-item" onclick="botcToggleRightPanel();botcCloseHeaderMenu_()">📖 Bitácora completa</button>
-            </div>
-            <div class="botc-hmenu-group">
-              <div class="botc-hmenu-label">Barras superiores</div>
-              <button type="button" class="botc-hmenu-toggle" onclick="botcToggleBar_('test');botcCloseHeaderMenu_()">
-                <span>🧪 Modo prueba</span>
-                <span class="botc-hmenu-tstate" id="botc-hmenu-test-state">${_botcIsBarVisible_('test') ? '✓' : ''}</span>
-              </button>
-              <button type="button" class="botc-hmenu-toggle" onclick="botcToggleBar_('emerg');botcCloseHeaderMenu_()">
-                <span>🚨 Emergencia</span>
-                <span class="botc-hmenu-tstate" id="botc-hmenu-emerg-state">${_botcIsBarVisible_('emerg') ? '✓' : ''}</span>
-              </button>
             </div>
           </div>
         </div>
@@ -46711,3 +46704,129 @@ window.bpToggleActivo_ = function(el) {
   const label = wrap.querySelector('.bp-toggle-label');
   if (label) label.textContent = on ? 'Activo' : 'Inactivo';
 };
+
+// ─── Top menu ⋮ del módulo Chats bot (Prueba / Emergencia / Habilitados) ──
+window.botcToggleTopMenu_ = function(ev) {
+  if (ev) ev.stopPropagation();
+  const m = document.getElementById('botc-top-menu'); if (!m) return;
+  const open = m.style.display === 'block';
+  m.style.display = open ? 'none' : 'block';
+  if (!open) {
+    _botcRefreshTopMenuStates_();
+    setTimeout(() => document.addEventListener('click', botcCloseTopMenu_, { once: true }), 0);
+  }
+};
+window.botcCloseTopMenu_ = function() {
+  const m = document.getElementById('botc-top-menu'); if (m) m.style.display = 'none';
+};
+function _botcRefreshTopMenuStates_() {
+  // Prueba: consulta backend rápido; con fallback al estado local
+  const tState = document.getElementById('botc-topmenu-prueba-state');
+  const eState = document.getElementById('botc-topmenu-emerg-state');
+  if (tState) {
+    fetch('https://api.check-inn.mx/wa/bot/test-mode').then(r => r.json()).then(j => {
+      tState.textContent = (j && j.enabled) ? '✓ ON' : 'OFF';
+      tState.style.color = (j && j.enabled) ? '#16a34a' : '#94a3b8';
+    }).catch(()=>{});
+  }
+  if (eState) {
+    const hasEmerg = (window.__botcEmergPhones || []).length > 0;
+    eState.textContent = hasEmerg ? '✓ ON' : 'OFF';
+    eState.style.color = hasEmerg ? '#16a34a' : '#94a3b8';
+  }
+}
+// Toggle de la barra Emergencia (mostrar/ocultar la barra roja de config).
+window.botcEmergToggle_ = function() {
+  const bar = document.getElementById('botc-emerg-bar'); if (!bar) return;
+  const visible = bar.style.display !== 'none';
+  bar.style.display = visible ? 'none' : 'flex';
+};
+
+// ─── Panel de filtros ☰ del sidebar Chats bot ─────────────────────────────
+// Filtros multi-select: Control, Estado, Facturación, Medio, Alojamiento.
+// Se persisten en memoria del state (BOTC_STATE.pf) y en localStorage.
+BOTC_STATE.pf = BOTC_STATE.pf || { control:[], estado:[], factura:[], medio:[], aloj:[] };
+BOTC_STATE.filtersOpen = false;
+try {
+  const saved = JSON.parse(localStorage.getItem('botc_pf') || 'null');
+  if (saved) Object.assign(BOTC_STATE.pf, saved);
+} catch(_){}
+function _botcHasAnyFilter_() {
+  const p = BOTC_STATE.pf || {};
+  return (p.control||[]).length + (p.estado||[]).length + (p.factura||[]).length + (p.medio||[]).length + (p.aloj||[]).length > 0;
+}
+window.botcToggleFilters_ = function() { BOTC_STATE.filtersOpen = !BOTC_STATE.filtersOpen; _botcRenderSidebar(); };
+window.botcTogglePf_ = function(cat, val) {
+  const arr = BOTC_STATE.pf[cat] || (BOTC_STATE.pf[cat] = []);
+  const i = arr.indexOf(val);
+  if (i >= 0) arr.splice(i, 1); else arr.push(val);
+  try { localStorage.setItem('botc_pf', JSON.stringify(BOTC_STATE.pf)); } catch(_){}
+  _botcRenderSidebar();
+};
+window.botcClearPf_ = function() {
+  BOTC_STATE.pf = { control:[], estado:[], factura:[], medio:[], aloj:[] };
+  try { localStorage.setItem('botc_pf', JSON.stringify(BOTC_STATE.pf)); } catch(_){}
+  _botcRenderSidebar();
+};
+// Retorna un objeto con los meta de una conv para filtrado (booking / huesped).
+function _botcConvMeta_(c) {
+  const bk = _botcGetBookingForPhoneSync ? _botcGetBookingForPhoneSync(c.phone) : null;
+  const hu = (typeof huGetGuestRowsByTail_ === 'function') ? (huGetGuestRowsByTail_(c.phone)[0] || null) : null;
+  const estado = bk ? (typeof lgGetStayState === 'function' ? lgGetStayState(bk.DateArrival, bk.DateDeparture) : '') : '';
+  const factura = hu ? String((typeof huValueFlexible === 'function' ? huValueFlexible(hu, ['Tipo de factura']) : '') || '').trim() : '';
+  const medio = bk ? String(bk.Source || bk.SourceText || '').trim() : '';
+  const propN = bk ? String(bk.Propiedad || '').trim() : '';
+  const deptN = bk ? String(bk['# Departamento'] || bk.Departamento || '').trim() : '';
+  const aloj = propN && deptN ? `${propN} #${deptN}` : (propN || '');
+  return { control: String(c.control||'bot'), estado, factura, medio, aloj };
+}
+function _botcApplyPanelFilters_(list) {
+  const p = BOTC_STATE.pf || {};
+  if (!_botcHasAnyFilter_()) return list;
+  return list.filter(c => {
+    const m = _botcConvMeta_(c);
+    if (p.control.length && !p.control.includes(m.control)) return false;
+    if (p.estado.length  && !p.estado.includes(m.estado))   return false;
+    if (p.factura.length && !p.factura.includes(m.factura || '(sin dato)')) return false;
+    if (p.medio.length   && !p.medio.includes(m.medio   || '(sin dato)'))   return false;
+    if (p.aloj.length    && !p.aloj.includes(m.aloj     || '(sin dato)'))   return false;
+    return true;
+  });
+}
+function _botcRenderFiltersPanel_() {
+  // Calcula valores únicos a partir de las conversations actuales.
+  const convs = BOTC_STATE.conversations || [];
+  const uniq = { estado: new Set(), factura: new Set(), medio: new Set(), aloj: new Set() };
+  convs.forEach(c => {
+    const m = _botcConvMeta_(c);
+    if (m.estado)  uniq.estado.add(m.estado);
+    uniq.factura.add(m.factura || '(sin dato)');
+    uniq.medio.add(m.medio || '(sin dato)');
+    uniq.aloj.add(m.aloj || '(sin dato)');
+  });
+  const p = BOTC_STATE.pf;
+  const controlOpts = [
+    { v:'bot', label:'⚙️ Automático' },
+    { v:'supervised', label:'👁 Supervisado' },
+    { v:'human', label:'👤 Humano' },
+  ];
+  const estadoLabels = { salida_hoy:'🚪 Salida hoy', activa:'✅ Activa', entrada_hoy:'🏁 Entrada hoy', proxima:'🔵 Próxima', concluida:'✔ Concluida' };
+  const pill = (cat, val, label) => {
+    const on = (p[cat]||[]).includes(val);
+    return `<button type="button" onclick="botcTogglePf_('${cat}','${_botcEsc(val).replace(/'/g,"\\'")}')" style="padding:4px 9px;font-size:10px;font-weight:800;border:1px solid ${on?'#0f172a':'#cbd5e1'};background:${on?'#0f172a':'#fff'};color:${on?'#fff':'#334155'};border-radius:99px;cursor:pointer;white-space:nowrap">${_botcEsc(label)}</button>`;
+  };
+  const sec = (title, cat, items) => `
+    <div style="margin-bottom:8px">
+      <div style="font-size:9px;font-weight:900;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">${title}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">${items.map(it => pill(cat, it.v, it.label || it.v)).join('')}</div>
+    </div>`;
+  return `
+    <div id="botc-filters-panel" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:6px">
+      ${sec('Control', 'control', controlOpts)}
+      ${uniq.estado.size ? sec('Estado', 'estado', Array.from(uniq.estado).map(v => ({ v, label: estadoLabels[v]||v }))) : ''}
+      ${uniq.factura.size > 1 ? sec('Facturación', 'factura', Array.from(uniq.factura).sort().map(v => ({ v }))) : ''}
+      ${uniq.medio.size > 1 ? sec('Medio de reserva', 'medio', Array.from(uniq.medio).sort().map(v => ({ v }))) : ''}
+      ${uniq.aloj.size > 1 ? sec('Alojamiento', 'aloj', Array.from(uniq.aloj).sort().map(v => ({ v }))) : ''}
+      ${_botcHasAnyFilter_() ? `<button type="button" onclick="botcClearPf_()" style="margin-top:4px;padding:5px 10px;font-size:10px;font-weight:800;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;cursor:pointer">✕ Limpiar filtros</button>` : ''}
+    </div>`;
+}
