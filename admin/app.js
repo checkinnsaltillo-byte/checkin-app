@@ -1,4 +1,4 @@
-const BACKEND = "https://ticket-vision-957627511957.northamerica-south1.run.app";
+const BACKEND = "https://api.check-inn.mx";
 
 // ─── Indicador global de "ocupado" via favicon ──────────────────────────────
 // Alterna el favicon de 🏨 (idle) a ⏳ (ocupado). Usa ref counter para soportar
