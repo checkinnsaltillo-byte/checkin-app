@@ -43154,7 +43154,6 @@ function _botcRenderMain(phone) {
             <div class="botc-hmenu-group">
               <div class="botc-hmenu-label">Ver</div>
               <button type="button" class="botc-hmenu-item" onclick="botcOpenSummary();botcCloseHeaderMenu_()">🧠 Resumen sintético</button>
-              <button type="button" class="botc-hmenu-item" onclick="hgNotesOpen_();botcCloseHeaderMenu_()">📝 Notas del huésped${_hgNotesCountLabel_()}</button>
               <button type="button" class="botc-hmenu-item" onclick="botcToggleRightPanel();botcCloseHeaderMenu_()">📖 Bitácora completa</button>
             </div>
           </div>
