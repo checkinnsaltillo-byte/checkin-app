@@ -43874,11 +43874,10 @@ function _botcTestApplyUi_(cfg) {
     btn.style.color = cfg.enabled ? '#fff' : '#475569';
     btn.style.borderColor = cfg.enabled ? '#f59e0b' : '#cbd5e1';
   }
-  if (bar) {
-    // Respeta la preferencia del menú ⋮ (Ocultar barra Modo prueba).
-    const wantVisible = cfg.enabled && (window.BOTC_BAR_VIS ? window.BOTC_BAR_VIS.test !== false : true);
-    bar.style.display = wantVisible ? 'flex' : 'none';
-  }
+  // La barra ya no se muestra en pantalla — la config se edita desde el
+  // pop-up del menú ⋮. Forzamos display:none siempre para que ninguna
+  // rama vieja pueda reactivarla.
+  if (bar) bar.style.display = 'none';
   window.__botcTestPhones = Array.isArray(cfg.phones) && cfg.phones.length ? cfg.phones.slice() : (window.__botcTestPhones || ['+528444443922', '+528115569120', '+528110208743', '+528442798802']);
   _botcTestRenderPhones_();
 }
@@ -46666,10 +46665,11 @@ window.botcToggleBar_ = function(which) {
   _botcApplyBarVisibility_();
 };
 function _botcApplyBarVisibility_() {
+  // Ambas barras están deprecated — la config vive en pop-up. Forzar oculto.
   const test = document.getElementById('botc-test-bar');
   const emerg = document.getElementById('botc-emerg-bar');
-  if (test)  test.style.display  = window.BOTC_BAR_VIS.test  ? '' : 'none';
-  if (emerg) emerg.style.display = window.BOTC_BAR_VIS.emerg ? '' : 'none';
+  if (test)  test.style.display  = 'none';
+  if (emerg) emerg.style.display = 'none';
 }
 document.addEventListener('DOMContentLoaded', () => setTimeout(_botcApplyBarVisibility_, 500));
 
@@ -46730,12 +46730,9 @@ function _botcRefreshTopMenuStates_() {
     eState.style.color = hasEmerg ? '#16a34a' : '#94a3b8';
   }
 }
-// Toggle de la barra Emergencia (mostrar/ocultar la barra roja de config).
-window.botcEmergToggle_ = function() {
-  const bar = document.getElementById('botc-emerg-bar'); if (!bar) return;
-  const visible = bar.style.display !== 'none';
-  bar.style.display = visible ? 'none' : 'flex';
-};
+// Deprecated: la barra roja de Emergencia ya no se muestra; la config
+// vive en el pop-up del menú ⋮. Función queda como no-op por compat.
+window.botcEmergToggle_ = function() { /* pop-up ahora */ };
 
 // ─── Panel de filtros ☰ del sidebar Chats bot ─────────────────────────────
 // Filtros multi-select: Control, Estado, Facturación, Medio, Alojamiento.
