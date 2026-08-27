@@ -46825,3 +46825,127 @@ function _botcRenderFiltersPanel_() {
       ${_botcHasAnyFilter_() ? `<button type="button" onclick="botcClearPf_()" style="margin-top:4px;padding:5px 10px;font-size:10px;font-weight:800;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;cursor:pointer">✕ Limpiar filtros</button>` : ''}
     </div>`;
 }
+
+// ─── Modales Modo Prueba / Emergencia (abren desde ⋮) ─────────────────────
+function _botcOpenPhoneModal_(opts) {
+  document.getElementById('botc-phone-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'botc-phone-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:14px;padding:20px 22px;max-width:520px;width:100%;max-height:88vh;display:flex;flex-direction:column">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#0f172a">${opts.icon} ${opts.title}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">${opts.subtitle}</div>
+        </div>
+        <button onclick="document.getElementById('botc-phone-modal').remove()" style="background:none;border:0;font-size:22px;cursor:pointer;color:#64748b">×</button>
+      </div>
+      ${opts.enabledToggleHtml || ''}
+      <div style="margin-top:12px">
+        <div style="font-size:10px;font-weight:800;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Números autorizados</div>
+        <div id="botc-modal-phones" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:32px;padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc"></div>
+        <div style="display:flex;gap:6px">
+          <input id="botc-modal-newphone" type="text" placeholder="+52..." style="flex:1;padding:8px 11px;font-size:13px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;font-family:monospace;color:#334155">
+          <button type="button" id="botc-modal-addbtn" style="padding:8px 14px;font-size:12px;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:800">＋ Agregar</button>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;justify-content:flex-end;align-items:center;gap:8px">
+        <span id="botc-modal-status" style="font-size:11px;color:#94a3b8"></span>
+        <button onclick="document.getElementById('botc-phone-modal').remove()" style="padding:8px 16px;font-size:12px;background:#0f172a;color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:800">Cerrar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const btn = modal.querySelector('#botc-modal-addbtn');
+  btn.style.background = opts.color;
+  const inp = modal.querySelector('#botc-modal-newphone');
+  inp.style.borderColor = opts.color;
+  const addFn = () => opts.onAdd(inp.value.trim()).then(() => { inp.value = ''; _botcRenderModalPhones_(opts); });
+  btn.onclick = addFn;
+  inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); addFn(); } };
+  _botcRenderModalPhones_(opts);
+}
+function _botcRenderModalPhones_(opts) {
+  const cont = document.getElementById('botc-modal-phones'); if (!cont) return;
+  const phones = opts.getPhones() || [];
+  cont.innerHTML = phones.map(p => `
+    <span style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 12px;background:#fff;border:1px solid ${opts.color};border-radius:99px;font-size:12px;font-family:monospace;color:#334155">
+      ${_botcEsc(p)}
+      <button type="button" onclick="event.preventDefault();_botcModalRemovePhone_('${_botcEsc(p).replace(/'/g,"\\'")}','${opts.kind}')" title="Quitar" style="background:none;border:0;color:#dc2626;cursor:pointer;font-size:15px;line-height:1;padding:0 2px;font-weight:900">×</button>
+    </span>
+  `).join('') || `<span style="font-size:11px;color:#94a3b8;font-style:italic">Sin números.</span>`;
+}
+window._botcModalRemovePhone_ = async function(phone, kind) {
+  if (kind === 'test') {
+    const phones = (window.__botcTestPhones || []).filter(p => p !== phone);
+    window.__botcTestPhones = phones;
+    _botcTestRenderPhones_();
+    const cur = await _botcTestFetch_();
+    await _botcTestSave_({ enabled: cur.enabled !== false, phones });
+    _botcRenderModalPhones_(_currentModalOpts);
+  } else if (kind === 'emerg') {
+    const phones = (window.__botcEmergPhones || []).filter(p => p !== phone);
+    _botcEmergRenderPhones_(phones);
+    await _botcEmergSave_(phones);
+    _botcRenderModalPhones_(_currentModalOpts);
+  }
+};
+let _currentModalOpts = null;
+window.botcOpenTestModal_ = async function() {
+  const cur = await _botcTestFetch_();
+  const phones = (cur && cur.phones && cur.phones.length) ? cur.phones : (window.__botcTestPhones || []);
+  const enabled = cur && cur.enabled !== false;
+  const toggleHtml = `
+    <div style="margin-top:14px;padding:10px 12px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:12px;font-weight:800;color:#92400e">Modo prueba activo</div>
+        <div style="font-size:10px;color:#a16207;margin-top:2px">Cuando está activo, el bot SOLO responde a los números listados abajo.</div>
+      </div>
+      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="botc-modal-test-enabled" ${enabled?'checked':''} onchange="_botcModalToggleTestEnabled_(this.checked)" style="width:20px;height:20px;cursor:pointer">
+      </label>
+    </div>`;
+  _currentModalOpts = {
+    icon: '🧪', title: 'Modo Prueba', subtitle: 'Números en lista blanca para pruebas',
+    color: '#f59e0b', kind: 'test',
+    enabledToggleHtml: toggleHtml,
+    getPhones: () => window.__botcTestPhones || [],
+    onAdd: async (val) => {
+      if (!val) return;
+      const list = (window.__botcTestPhones || []).slice();
+      if (list.includes(val)) { alert('Ese número ya está'); return; }
+      list.push(val);
+      window.__botcTestPhones = list;
+      const c = await _botcTestFetch_();
+      await _botcTestSave_({ enabled: c.enabled !== false, phones: list });
+    },
+  };
+  window.__botcTestPhones = phones;
+  _botcOpenPhoneModal_(_currentModalOpts);
+};
+window._botcModalToggleTestEnabled_ = async function(on) {
+  const list = window.__botcTestPhones || [];
+  await _botcTestSave_({ enabled: on, phones: list });
+  _botcTestApplyUi_({ enabled: on, phones: list });
+};
+window.botcOpenEmergModal_ = async function() {
+  const cur = await _botcEmergFetch_();
+  const phones = (cur && cur.phones) || [];
+  window.__botcEmergPhones = phones;
+  _currentModalOpts = {
+    icon: '🚨', title: 'Emergencia', subtitle: 'Números que reciben aviso extra cuando el bot crea un reporte crítico (P1)',
+    color: '#dc2626', kind: 'emerg',
+    enabledToggleHtml: '',
+    getPhones: () => window.__botcEmergPhones || [],
+    onAdd: async (val) => {
+      if (!val) return;
+      const list = (window.__botcEmergPhones || []).slice();
+      if (list.includes(val)) { alert('Ese número ya está'); return; }
+      list.push(val);
+      _botcEmergRenderPhones_(list);
+      await _botcEmergSave_(list);
+    },
+  };
+  _botcOpenPhoneModal_(_currentModalOpts);
+};
