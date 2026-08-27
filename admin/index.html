@@ -2617,17 +2617,6 @@
           </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <div id="botc-filter-tabs" style="display:flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:8px">
-            <button type="button" data-filter="all"     onclick="botcSetFilter('all')"     style="padding:5px 12px;font-size:11px;font-weight:700;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer">Todos</button>
-            <div style="position:relative;display:inline-block">
-              <button type="button" id="botc-bot-dropdown-btn" data-filter="bot" data-filter-alt="supervised" onclick="botcToggleBotDropdown(event)" style="padding:5px 10px;font-size:11px;font-weight:700;background:transparent;color:#475569;border:0;border-radius:6px;cursor:pointer">🤖 Bot ▾</button>
-              <div id="botc-bot-dropdown" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(15,23,42,.15);z-index:10;min-width:160px;overflow:hidden">
-                <button type="button" onclick="botcSetFilter('bot');botcCloseBotDropdown()" style="display:block;width:100%;text-align:left;padding:8px 12px;font-size:11px;font-weight:700;background:transparent;color:#0f172a;border:0;cursor:pointer">⚙️ Automático</button>
-                <button type="button" onclick="botcSetFilter('supervised');botcCloseBotDropdown()" style="display:block;width:100%;text-align:left;padding:8px 12px;font-size:11px;font-weight:700;background:transparent;color:#0f172a;border:0;border-top:1px solid #f1f5f9;cursor:pointer">👁 Supervisado</button>
-              </div>
-            </div>
-            <button type="button" data-filter="human"   onclick="botcSetFilter('human')"   style="padding:5px 12px;font-size:11px;font-weight:700;background:transparent;color:#475569;border:0;border-radius:6px;cursor:pointer">👤 Humano</button>
-          </div>
           <button type="button" onclick="botcRefresh()" title="Refrescar lista de conversaciones" style="padding:6px 10px;font-size:12px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-weight:700">🔄</button>
           <button type="button" id="botc-sync-btn" onclick="botcSyncVisible()" title="Refrescar datos adicionales (reserva, KPIs, chips) de las conversaciones visibles" style="padding:6px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🔄 Sync</button>
           <div style="position:relative;display:inline-block">
@@ -2847,6 +2836,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1003"></script>
+  <script src="app.js?v=1004"></script>
 </body>
 </html>
