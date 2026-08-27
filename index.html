@@ -2617,8 +2617,7 @@
           </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <button type="button" onclick="botcRefresh()" title="Refrescar lista de conversaciones" style="padding:6px 10px;font-size:12px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-weight:700">🔄</button>
-          <button type="button" id="botc-sync-btn" onclick="botcSyncVisible()" title="Refrescar datos adicionales (reserva, KPIs, chips) de las conversaciones visibles" style="padding:6px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🔄 Sync</button>
+          <button type="button" id="botc-sync-btn" onclick="botcRefresh();setTimeout(botcSyncVisible,300)" title="Refrescar lista de conversaciones + datos (reserva, KPIs, chips)" style="padding:6px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🔄 Sync</button>
           <div style="position:relative;display:inline-block">
             <button type="button" onclick="botcToggleTopMenu_(event)" title="Opciones" style="width:36px;height:36px;padding:0;font-size:20px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:900;line-height:1;letter-spacing:2px">⋮</button>
             <div id="botc-top-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:6px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.22);z-index:1000;min-width:240px;overflow:hidden;font-size:12px">
@@ -2830,6 +2829,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1008"></script>
+  <script src="app.js?v=1009"></script>
 </body>
 </html>

@@ -14633,11 +14633,16 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
           <div style="font-size:11px;font-weight:800;color:#0f172a;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${value}</div>
         </div>`;
       const fmt$ = (n) => (typeof huFmtMonto === 'function') ? huFmtMonto(n) : ('$ '+Number(n||0).toFixed(0));
+      // Fallback: si stats.montoTotal es 0 (huésped sin match/registro),
+      // usa el TotalAmount del booking Lodgify (la reserva actual siempre
+      // trae precio, con o sin match manual).
+      const bkTotal = Number(b.TotalAmount || b.Total || b['$ Monto Total'] || 0);
+      const montoShow = stats.montoTotal > 0 ? stats.montoTotal : bkTotal;
       bottomBoxesHtml = `
         <div style="display:flex;gap:5px;margin-top:7px">
           ${boxHtml('🌙', 'Noches', String(stats.totalNoches), '1')}
           ${boxHtml('🧳', 'Visitas', String(stats.visitas), '1')}
-          ${boxHtml('💰', 'Monto', stats.montoTotal > 0 ? fmt$(stats.montoTotal) : '—', '1.4')}
+          ${boxHtml('💰', 'Monto', montoShow > 0 ? fmt$(montoShow) : '—', '1.4')}
         </div>`;
       // Tier+score inline para colocarlo junto al nombre
       tierInlineHtml = tier ? `
@@ -42599,7 +42604,7 @@ function _botcRenderSidebar() {
   const sidebar = document.getElementById('botc-sidebar');
   if (!sidebar) return;
   // Barra superior: buscador + visualización.
-  BOTC_STATE.viewMode = BOTC_STATE.viewMode || 'cronologico';
+  BOTC_STATE.viewMode = BOTC_STATE.viewMode || 'clasificado';
   BOTC_STATE.searchQuery = BOTC_STATE.searchQuery || '';
   const q = String(BOTC_STATE.searchQuery || '').trim();
   const tabsHtml = `
@@ -42637,11 +42642,11 @@ function _botcRenderSidebar() {
     const selected = String(c.phone) === String(BOTC_STATE.selectedPhone);
     const isHuman = String(c.control) === 'human';
     const isSupervised = String(c.control) === 'supervised';
-    const controlChip = isHuman
-      ? '<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">👤 HUMANO</span>'
-      : isSupervised
-        ? '<span style="font-size:9px;background:#ede9fe;color:#5b21b6;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">👁 SUPERVISADO</span>'
-        : '<span style="font-size:9px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none">⚙️ AUTOMÁTICO</span>';
+    // Chip = botón clickeable → dropdown para cambiar modo desde la lista.
+    const chipBg = isHuman ? '#fef3c7' : (isSupervised ? '#ede9fe' : '#dbeafe');
+    const chipFg = isHuman ? '#92400e' : (isSupervised ? '#5b21b6' : '#1e40af');
+    const chipTxt = isHuman ? '👤 HUMANO' : (isSupervised ? '👁 SUPERVISADO' : '⚙️ AUTOMÁTICO');
+    const controlChip = `<button type="button" onclick="event.stopPropagation();botcOpenModeDropdown_(event,'${_botcEsc(c.phone)}')" title="Cambiar modo" style="font-size:9px;background:${chipBg};color:${chipFg};padding:2px 8px 2px 6px;border-radius:999px;font-weight:800;letter-spacing:.02em;flex:none;border:0;cursor:pointer;line-height:1.4">${chipTxt} ▾</button>`;
     // Look-up SYNC: si HU_STATE ya está cargado y el booking está cacheado,
     // pintamos rica de una vez. Si no, mostramos lite y _botcEnrichPendingBookings
     // lo reemplaza in-place cuando termine el load, SIN bloquear el render.
@@ -42687,7 +42692,7 @@ function _botcRenderSidebar() {
     // chatMeta integrado como footer de la card (no como bloque separado).
     // Fondo blanco continuo con la card, sin border-top disruptivo.
     const chatMeta = `
-      <div class="botc-card-footer" style="padding:8px 14px 10px;background:transparent;border-top:1px solid #f1f5f9">
+      <div class="botc-card-footer" style="padding:6px 14px 10px;background:transparent">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
           ${controlChip}
           <div style="display:flex;align-items:center;gap:6px">
@@ -42695,7 +42700,7 @@ function _botcRenderSidebar() {
             <span style="font-size:10px;color:#94a3b8">💬 ${_botcFmtTime(c.last_msg_at)}</span>
           </div>
         </div>
-        <div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px">${_botcEsc(c.last_msg_preview)}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${_botcEsc(c.last_msg_preview)}</div>
       </div>`;
     // La card rich viene con su propio borde/sombra/radius. Al meterla dentro
     // del wrapper aplicamos CSS que la aplana para que meta y rich lean como
@@ -43065,15 +43070,14 @@ function _botcRenderMain(phone) {
     ? `<div style="font-size:14px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(phone)}</div>`
     : `<div style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>`;
   main.innerHTML = `
-    <div style="padding:12px 20px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+    <div style="padding:10px 20px 12px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;flex-direction:column;gap:8px;flex-shrink:0">
+      <!-- Renglón 1: sólo botones (← Mensajes, toggle modo, ⋮) -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
           style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">← Mensajes</button>
-        <div style="min-width:0">${nameHeader}<div style="margin-top:5px">${ctrlChip}</div></div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        ${ctrlBtn}
-        <div style="position:relative;display:inline-block">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
+          ${ctrlBtn}
+          <div style="position:relative;display:inline-block">
           <button type="button" onclick="botcToggleHeaderMenu_(event)" title="Opciones" style="width:36px;height:36px;padding:0;font-size:20px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:900;line-height:1;letter-spacing:2px">⋮</button>
           <div id="botc-header-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:6px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.22);z-index:1000;min-width:240px;overflow:hidden;font-size:12px">
             <div class="botc-hmenu-group">
@@ -43089,6 +43093,11 @@ function _botcRenderMain(phone) {
             </div>
           </div>
         </div>
+      </div>
+      <!-- Renglón 2: nombre + phone + chip de estado -->
+      <div style="display:flex;align-items:center;gap:10px;min-width:0">
+        <div style="min-width:0;flex:1">${nameHeader}</div>
+        ${ctrlChip}
       </div>
     </div>
     <div id="botc-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafc">${msgsHtml}</div>
@@ -46953,3 +46962,19 @@ window.botcOpenEmergModal_ = async function() {
   s.textContent = `@media (max-width:720px){.botc-ctrl-chip{display:none !important}}`;
   document.head.appendChild(s);
 })();
+
+// Dropdown para cambiar el modo de control desde el chip de la card en
+// la lista de conversaciones. Se ancla al chip clickeado.
+window.botcOpenModeDropdown_ = function(ev, phone) {
+  ev.stopPropagation();
+  document.getElementById('botc-mode-dd')?.remove();
+  const anchor = ev.currentTarget || ev.target;
+  const r = anchor.getBoundingClientRect();
+  const dd = document.createElement('div');
+  dd.id = 'botc-mode-dd';
+  dd.style.cssText = `position:fixed;top:${Math.round(r.bottom+4)}px;left:${Math.round(r.left)}px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 10px 30px rgba(15,23,42,.24);z-index:100000;min-width:170px;overflow:hidden;font-size:12px`;
+  const opt = (val, lbl) => `<button type="button" class="botc-hmenu-item" onclick="event.stopPropagation();botcSetControl('${_botcEsc(phone)}','${val}');document.getElementById('botc-mode-dd')?.remove()">${lbl}</button>`;
+  dd.innerHTML = opt('human','📝 Manual') + opt('supervised','👁 Supervisado') + opt('bot','⚙️ Automático');
+  document.body.appendChild(dd);
+  setTimeout(() => document.addEventListener('click', () => dd.remove(), { once: true }), 0);
+};
