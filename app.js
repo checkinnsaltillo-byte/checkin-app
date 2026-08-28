@@ -42558,24 +42558,26 @@ function _botcPaymentChip(bk) {
 window._botcOpenPaymentDrawer = async function(phone) {
   const bk = _botcGetBookingForPhoneSync(phone);
   if (!bk || !bk.Id) { alert('Sin reserva asociada a este número.'); return; }
-  // Selecciona la conversación (si no está ya seleccionada) para que el
-  // drawer aparezca junto a la ventana correcta.
   if (String(BOTC_STATE.selectedPhone) !== String(phone)) {
     try { botcOpenChat(phone); } catch(_){}
   }
-  // Panel dentro de #botc-third-col — vive junto al chat, NO como overlay.
-  const col3 = document.getElementById('botc-third-col');
-  if (!col3) return;
-  // Marca que este panel es del payment drawer (para poder limpiarlo al
-  // cambiar de card sin cerrar otros paneles como Bitácora).
-  col3.dataset.kind = 'payment-drawer';
-  col3.dataset.phone = String(phone);
-  col3.style.display = 'flex';
-  const closeBtn = `<button type="button" onclick="_botcClosePaymentDrawer()" style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:4px 10px;font-size:16px;line-height:1;cursor:pointer;color:#475569">×</button>`;
-  const loading = `<div style="padding:12px;flex:1;overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:13px;font-weight:800;color:#0f172a">💳 Estado de pago</div>${closeBtn}</div><div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Cargando…</div></div>`;
-  col3.innerHTML = loading;
-  // Asegura data completa: si LG_STATE aún no tiene la reserva, fetch a
-  // /lodgify-list para conseguir TotalAmount/AmountPaid/TransactionsJSON.
+  // Panel absoluto DENTRO de botc-main, cubriendo la mitad derecha desde
+  // arriba (encima del header del chat) hasta abajo (encima del input).
+  // Así oculta ←, Sys-IA y Enviar del chat de fondo. Único header: el
+  // negro que trae pagosPanelHtml.
+  const main = document.getElementById('botc-main');
+  if (!main) return;
+  main.style.position = main.style.position || 'relative';
+  let drawer = document.getElementById('botc-payment-inline');
+  if (!drawer) {
+    drawer = document.createElement('div');
+    drawer.id = 'botc-payment-inline';
+    drawer.style.cssText = 'position:absolute;top:0;right:0;bottom:0;width:min(420px,100%);background:#f8fafc;border-left:1px solid #e2e8f0;box-shadow:-8px 0 24px rgba(15,23,42,.12);z-index:20;overflow-y:auto;padding:12px';
+    main.appendChild(drawer);
+  }
+  drawer.dataset.phone = String(phone);
+  drawer.style.display = 'block';
+  drawer.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Cargando…</div>`;
   let full = null;
   try {
     const id = String(bk.LodgifyId || bk.Id);
@@ -42596,18 +42598,16 @@ window._botcOpenPaymentDrawer = async function(phone) {
     else PAGOS_STATE.bookings.push(merged);
   }
   const panelHtml = (typeof pagosPanelHtml === 'function') ? pagosPanelHtml(merged.Id) : '';
-  // Re-check: si el usuario cambió de card mientras cargábamos, no pintar
-  // sobre el panel de otra conversación.
-  if (String(col3.dataset.phone) !== String(phone)) return;
-  col3.innerHTML = `<div style="padding:12px;flex:1;overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:13px;font-weight:800;color:#0f172a">💳 Estado de pago</div>${closeBtn}</div>${panelHtml || '<div style="padding:20px;text-align:center;color:#94a3b8">Sin datos.</div>'}</div>`;
+  if (String(drawer.dataset.phone) !== String(phone)) return;
+  // El pagosPanelHtml usa onclick="pagosClosePanel()". En este contexto
+  // reemplazamos por _botcClosePaymentDrawer para que el × del header
+  // negro cierre este drawer.
+  const patched = String(panelHtml || '').replace(/pagosClosePanel\(\)/g, '_botcClosePaymentDrawer()');
+  drawer.innerHTML = patched || '<div style="padding:20px;text-align:center;color:#94a3b8">Sin datos.</div>';
 };
 window._botcClosePaymentDrawer = function() {
-  const col3 = document.getElementById('botc-third-col');
-  if (!col3) return;
-  col3.style.display = 'none';
-  col3.innerHTML = '';
-  delete col3.dataset.kind;
-  delete col3.dataset.phone;
+  const drawer = document.getElementById('botc-payment-inline');
+  if (drawer) drawer.remove();
 };
 
 function _botcGetBookingForPhoneSync(phoneRaw) {
@@ -43192,11 +43192,10 @@ window.botcOpenChat = async function(phone, opts) {
     } catch(_){}
   }
   // Si el usuario cambió de card y hay un panel Estado de pago abierto,
-  // cerrarlo (el user pidió que la ventana lateral desaparezca al saltar
-  // a otra conversación).
+  // cerrarlo (la ventana lateral desaparece al saltar a otra conversación).
   try {
-    const _col3 = document.getElementById('botc-third-col');
-    if (_col3 && _col3.dataset.kind === 'payment-drawer' && String(_col3.dataset.phone) !== String(phone)) {
+    const _pd = document.getElementById('botc-payment-inline');
+    if (_pd && String(_pd.dataset.phone) !== String(phone)) {
       if (typeof _botcClosePaymentDrawer === 'function') _botcClosePaymentDrawer();
     }
   } catch(_){}
