@@ -199,6 +199,10 @@ function doPost(e) {
     if (action === "wa_scheduled_list")         return jsonOutput_(waScheduledList_(data));
     if (action === "wa_scheduled_omit")         return jsonOutput_(waScheduledOmit_(data));
     if (action === "wa_scheduled_mark_sent")    return jsonOutput_(waScheduledMarkSent_(data));
+    // ─── Prompts del bot (procesos del negocio: reservas, reportes, etc.) ───
+    if (action === "bot_prompts_list")   return jsonOutput_(botPromptsList_());
+    if (action === "bot_prompts_upsert") return jsonOutput_(botPromptsUpsert_(data));
+    if (action === "bot_prompts_delete") return jsonOutput_(botPromptsDelete_(data));
     if (action === "wa_scheduled_pending")      return jsonOutput_(waScheduledPending_(data));
     if (action === "wa_scheduled_update")       return jsonOutput_(waScheduledUpdate_(data));
     if (action === "wa_scheduled_delete")       return jsonOutput_(waScheduledDelete_(data));
@@ -8334,4 +8338,112 @@ function waTemplatesDelete_(data) {
     }
   }
   return { ok: false, error: "no encontrado" };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ Bot_Prompts — reglas por PROCESO que se inyectan al system prompt      ║
+// ║ Un prompt = un proceso (Cotización, Reporte, Late checkout, etc.)      ║
+// ║ Los campos multivaluados (Trigger, Datos_obtener, Reglas, Flujo,       ║
+// ║ Riesgos) se guardan como texto separado por "|" — más ligero que JSON  ║
+// ║ y suficiente para lo que necesitamos aquí.                              ║
+// ═══════════════════════════════════════════════════════════════════════════
+var BOT_PROMPTS_SHEET = "Bot_Prompts";
+var BOT_PROMPTS_HEADERS = [
+  "ID","Nombre","Activo","Trigger","Objetivo","Datos_obtener","Datos_compartir",
+  "Reglas","Flujo","Herramienta","Riesgos","Notificaciones","Alojamientos_excluidos",
+  "Updated_at","Updated_by"
+];
+function _bpEnsureSheet_() {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(BOT_PROMPTS_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(BOT_PROMPTS_SHEET);
+    sh.getRange(1,1,1,BOT_PROMPTS_HEADERS.length).setValues([BOT_PROMPTS_HEADERS]).setFontWeight("bold").setBackground("#e0e7ff");
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function _bpRowToObj_(row) {
+  var o = {};
+  for (var i=0;i<BOT_PROMPTS_HEADERS.length;i++) {
+    var v = row[i];
+    if (v instanceof Date) v = v.toISOString();
+    o[BOT_PROMPTS_HEADERS[i]] = v == null ? "" : String(v);
+  }
+  o.Activo = String(row[2]).toUpperCase() === "TRUE" || String(row[2]) === "1";
+  return o;
+}
+function botPromptsList_() {
+  var sh = _bpEnsureSheet_();
+  var last = sh.getLastRow();
+  if (last < 2) return { ok:true, rows: [] };
+  var vals = sh.getRange(2,1,last-1,BOT_PROMPTS_HEADERS.length).getValues();
+  var rows = [];
+  for (var i=0;i<vals.length;i++) {
+    if (!vals[i][0]) continue;
+    var o = _bpRowToObj_(vals[i]);
+    o.row_number = i + 2;
+    rows.push(o);
+  }
+  return { ok:true, rows: rows };
+}
+function botPromptsUpsert_(data) {
+  var sh = _bpEnsureSheet_();
+  var p = data || {};
+  var id = String(p.ID || p.id || "").trim();
+  var now = new Date();
+  var updatedBy = String(p.Updated_by || "admin");
+  var payload = {
+    Nombre: String(p.Nombre || "").trim() || "(sin nombre)",
+    Activo: p.Activo === true || String(p.Activo).toLowerCase() === "true" || String(p.Activo) === "1",
+    Trigger: String(p.Trigger || ""),
+    Objetivo: String(p.Objetivo || ""),
+    Datos_obtener: String(p.Datos_obtener || ""),
+    Datos_compartir: String(p.Datos_compartir || ""),
+    Reglas: String(p.Reglas || ""),
+    Flujo: String(p.Flujo || ""),
+    Herramienta: String(p.Herramienta || ""),
+    Riesgos: String(p.Riesgos || ""),
+    Notificaciones: String(p.Notificaciones || ""),
+    Alojamientos_excluidos: String(p.Alojamientos_excluidos || ""),
+  };
+  if (id) {
+    var last = sh.getLastRow();
+    if (last < 2) return { ok:false, error: "no encontrado" };
+    var ids = sh.getRange(2,1,last-1,1).getValues();
+    for (var i=0;i<ids.length;i++) {
+      if (String(ids[i][0]||"").trim() === id) {
+        var row = i+2;
+        var newRow = [id, payload.Nombre, payload.Activo, payload.Trigger, payload.Objetivo,
+          payload.Datos_obtener, payload.Datos_compartir, payload.Reglas, payload.Flujo,
+          payload.Herramienta, payload.Riesgos, payload.Notificaciones,
+          payload.Alojamientos_excluidos, now, updatedBy];
+        sh.getRange(row,1,1,BOT_PROMPTS_HEADERS.length).setValues([newRow]);
+        return { ok:true, id: id, updated: true };
+      }
+    }
+    return { ok:false, error: "no encontrado" };
+  }
+  id = "BP" + now.getTime() + "_" + Math.floor(Math.random()*10000);
+  var newRow = [id, payload.Nombre, payload.Activo, payload.Trigger, payload.Objetivo,
+    payload.Datos_obtener, payload.Datos_compartir, payload.Reglas, payload.Flujo,
+    payload.Herramienta, payload.Riesgos, payload.Notificaciones,
+    payload.Alojamientos_excluidos, now, updatedBy];
+  sh.appendRow(newRow);
+  return { ok:true, id: id, created: true };
+}
+function botPromptsDelete_(data) {
+  var sh = _bpEnsureSheet_();
+  var id = String((data||{}).ID || (data||{}).id || "").trim();
+  if (!id) return { ok:false, error: "id requerido" };
+  var last = sh.getLastRow();
+  if (last < 2) return { ok:false, error: "vacío" };
+  var ids = sh.getRange(2,1,last-1,1).getValues();
+  for (var i=0;i<ids.length;i++) {
+    if (String(ids[i][0]||"").trim() === id) {
+      sh.deleteRow(i+2);
+      return { ok:true, id: id, deleted: true };
+    }
+  }
+  return { ok:false, error: "no encontrado" };
 }
