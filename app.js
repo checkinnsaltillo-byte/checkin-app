@@ -42597,6 +42597,8 @@ window._botcOpenPaymentDrawer = async function(phone) {
     if (i >= 0) PAGOS_STATE.bookings[i] = merged;
     else PAGOS_STATE.bookings.push(merged);
   }
+  // Fetch pagos manuales para esta reserva (además de lo de Lodgify).
+  try { await _pagosFetchManualByReserva(merged.Id); } catch(_){}
   const panelHtml = (typeof pagosPanelHtml === 'function') ? pagosPanelHtml(merged.Id) : '';
   if (String(drawer.dataset.phone) !== String(phone)) return;
   // El pagosPanelHtml usa onclick="pagosClosePanel()". En este contexto
@@ -47283,7 +47285,23 @@ const PAGOS_STATE = {
     q: '',                     // búsqueda global (aplica a TODAS las columnas visibles).
   },
   selectedId: null,
+  manualByReserva: {},         // { [reservaId]: [ {ID,ReservaId,Monto,Metodo,Fecha,Referencia,Notas,RegistradoPor,Timestamp} ] }
 };
+async function _pagosFetchManualByReserva(reservaId) {
+  const id = String(reservaId || '').trim();
+  if (!id) return [];
+  try {
+    const r = await fetch(`${BACKEND}/pagos-manuales?reservaId=${encodeURIComponent(id)}`, { cache: 'no-store' });
+    const j = await r.json();
+    const rows = (j && j.ok && Array.isArray(j.rows)) ? j.rows : [];
+    PAGOS_STATE.manualByReserva[id] = rows;
+    return rows;
+  } catch (_) { PAGOS_STATE.manualByReserva[id] = []; return []; }
+}
+function _pagosSumManual(reservaId) {
+  const rows = PAGOS_STATE.manualByReserva[String(reservaId || '')] || [];
+  return rows.reduce((s, r) => s + (Number(r.Monto) || 0), 0);
+}
 function _pagosEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 function _pagosFmt$(n, cur) {
   const v = Number(n) || 0;
@@ -47708,8 +47726,10 @@ function pagosRender() {
       ${PAGOS_STATE.selectedId ? pagosPanelHtml(PAGOS_STATE.selectedId) : ''}
     </div>`;
 }
-function pagosSelect(id) {
+async function pagosSelect(id) {
   PAGOS_STATE.selectedId = String(id);
+  pagosRender();
+  await _pagosFetchManualByReserva(id);
   pagosRender();
 }
 function pagosClosePanel() {
@@ -47721,10 +47741,48 @@ function pagosPanelHtml(id) {
   if (!b) return '';
   let tx = [];
   try { tx = JSON.parse(b.TransactionsJSON || '[]') || []; } catch(_) {}
-  // Timeline ordenada de más reciente a más vieja
-  tx.sort((a,b) => String(b.processed_at||'').localeCompare(String(a.processed_at||'')));
-  const txHtml = tx.length ? tx.map(t => {
-    const isRefund = t.type === 'Refund' || (Number(t.amount)||0) < 0;
+  // Pagos manuales — sumar al AmountPaid y recalcular status.
+  const manuales = PAGOS_STATE.manualByReserva[String(id)] || [];
+  const sumManual = manuales.reduce((s, r) => s + (Number(r.Monto) || 0), 0);
+  const totalNum = Number(b.TotalAmount) || 0;
+  const paidLodgify = Number(b.AmountPaid) || 0;
+  const paidTotal = paidLodgify + sumManual;
+  const dueNum = Math.max(0, totalNum - paidTotal);
+  let statusEff = b.PaymentStatus;
+  if (sumManual > 0) {
+    if (totalNum > 0 && paidTotal >= totalNum) statusEff = 'Pagada';
+    else if (paidTotal > 0 && paidTotal < totalNum) statusEff = 'Parcial';
+  }
+  // Timeline unificada: transactions Lodgify + pagos manuales, ordenados
+  // de más reciente a más viejo.
+  const timeline = [];
+  for (const t of tx) {
+    timeline.push({ kind: 'lodgify', at: String(t.processed_at || ''), t });
+  }
+  for (const m of manuales) {
+    timeline.push({ kind: 'manual', at: String(m.Fecha || m.Timestamp || ''), m });
+  }
+  timeline.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  const txHtml = timeline.length ? timeline.map(entry => {
+    if (entry.kind === 'manual') {
+      const m = entry.m;
+      const metodo = String(m.Metodo || '—').trim();
+      return `
+        <div style="display:flex;gap:10px;padding:10px 12px;border-bottom:1px solid #f1f5f9;background:#f5f3ff">
+          <div style="width:8px;height:8px;border-radius:50%;background:#7c3aed;margin-top:6px;flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+              <span style="font-size:12px;font-weight:700;color:#5b21b6">Pago manual <span style="background:#7c3aed;color:#fff;padding:1px 6px;border-radius:4px;font-size:9px;margin-left:4px">MANUAL</span></span>
+              <span style="font-size:12px;font-weight:800">${_pagosFmt$(m.Monto, b.Currency)}</span>
+            </div>
+            <div style="font-size:11px;color:#64748b;margin-top:2px">${_pagosEsc(metodo)} · ${_pagosEsc(String(m.Fecha || '').slice(0, 10))}${m.Referencia ? ' · Ref: ' + _pagosEsc(m.Referencia) : ''}</div>
+            ${m.Notas ? `<div style="font-size:11px;color:#475569;margin-top:3px">${_pagosEsc(m.Notas)}</div>` : ''}
+            <button type="button" onclick="pagosDeleteManual('${_pagosEsc(m.ID).replace(/'/g,'&#39;')}','${_pagosEsc(String(id)).replace(/'/g,'&#39;')}')" title="Eliminar" style="margin-top:4px;background:transparent;border:0;color:#dc2626;font-size:10px;font-weight:700;padding:0;cursor:pointer">🗑 Eliminar</button>
+          </div>
+        </div>`;
+    }
+    const t = entry.t;
+    const isRefund = t.type === 'Refund' || (Number(t.amount) || 0) < 0;
     const ok = t.status === 'Done';
     const failed = t.status === 'Failed';
     const dotColor = failed ? '#dc2626' : (isRefund ? '#6366f1' : (ok ? '#16a34a' : '#f59e0b'));
@@ -47753,18 +47811,111 @@ function pagosPanelHtml(id) {
       <div style="padding:14px;border-bottom:1px solid #e2e8f0">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px">
           <div><span style="color:#64748b">Total</span><div style="font-weight:800;font-size:14px">${_pagosFmt$(b.TotalAmount, b.Currency)}</div></div>
-          <div><span style="color:#64748b">Pagado</span><div style="font-weight:800;font-size:14px;color:#166534">${_pagosFmt$(b.AmountPaid, b.Currency)}</div></div>
-          <div><span style="color:#64748b">Saldo</span><div style="font-weight:800;font-size:14px;color:${(Number(b.AmountDue)||0)>0?'#991b1b':'#64748b'}">${_pagosFmt$(b.AmountDue, b.Currency)}</div></div>
-          <div><span style="color:#64748b">Status</span><div style="margin-top:2px">${_pagosStatusChip(b.PaymentStatus)}</div></div>
+          <div><span style="color:#64748b">Pagado</span><div style="font-weight:800;font-size:14px;color:#166534">${_pagosFmt$(paidTotal, b.Currency)}${sumManual>0?`<span style="font-size:10px;color:#7c3aed;margin-left:4px">+${_pagosFmt$(sumManual, b.Currency)} manual</span>`:''}</div></div>
+          <div><span style="color:#64748b">Saldo</span><div style="font-weight:800;font-size:14px;color:${dueNum>0?'#991b1b':'#64748b'}">${_pagosFmt$(dueNum, b.Currency)}</div></div>
+          <div><span style="color:#64748b">Status</span><div style="margin-top:2px">${_pagosStatusChip(statusEff)}</div></div>
         </div>
       </div>
       ${b.PaymentPolicy ? `<div style="padding:10px 14px;background:#fefce8;border-bottom:1px solid #e2e8f0;font-size:11px;color:#713f12;white-space:pre-wrap">📋 <b>Política:</b>\n${_pagosEsc(b.PaymentPolicy)}</div>` : ''}
+      <div style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
+        <button type="button" onclick="pagosOpenManualModal('${_pagosEsc(String(id)).replace(/'/g,'&#39;')}')" style="width:100%;padding:8px 12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;font-weight:800;font-size:12px;cursor:pointer">+ Registrar pago manual</button>
+      </div>
       <div style="padding:8px 0">
         <div style="font-size:11px;font-weight:700;color:#475569;padding:4px 14px;text-transform:uppercase;letter-spacing:.5px">Transacciones</div>
         ${txHtml}
       </div>
     </div>`;
 }
+window.pagosOpenManualModal = function(reservaId) {
+  const b = PAGOS_STATE.bookings.find(x => String(x.Id) === String(reservaId));
+  if (!b) { alert('Reserva no encontrada.'); return; }
+  const today = new Date().toISOString().slice(0, 10);
+  const user = (typeof sysGetStoredUser === 'function' ? (sysGetStoredUser() || {}).Nombre : '') || '';
+  const prev = document.getElementById('pagos-manual-modal'); if (prev) prev.remove();
+  const modal = document.createElement('div');
+  modal.id = 'pagos-manual-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:12px;max-width:440px;width:100%;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,.3)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#0f172a">💳 Registrar pago manual</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">Reserva ${_pagosEsc(reservaId)} · ${_pagosEsc(b.GuestName || '')}</div>
+        </div>
+        <button type="button" onclick="document.getElementById('pagos-manual-modal').remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#64748b;line-height:1">×</button>
+      </div>
+      <form onsubmit="event.preventDefault();pagosSaveManual('${_pagosEsc(reservaId).replace(/'/g,'&#39;')}')" style="display:flex;flex-direction:column;gap:10px">
+        <label style="font-size:11px;font-weight:700;color:#475569">Monto (MXN)
+          <input id="pm-monto" type="number" step="0.01" min="0.01" required autofocus style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
+        </label>
+        <label style="font-size:11px;font-weight:700;color:#475569">Método
+          <select id="pm-metodo" style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
+            <option>Efectivo</option>
+            <option>Transferencia SPEI</option>
+            <option>Depósito bancario</option>
+            <option>Terminal POS</option>
+            <option>Otro</option>
+          </select>
+        </label>
+        <label style="font-size:11px;font-weight:700;color:#475569">Fecha
+          <input id="pm-fecha" type="date" value="${today}" required style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
+        </label>
+        <label style="font-size:11px;font-weight:700;color:#475569">Referencia (opcional)
+          <input id="pm-ref" type="text" placeholder="Ej: SPEI-123456, comprobante #78" style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
+        </label>
+        <label style="font-size:11px;font-weight:700;color:#475569">Notas (opcional)
+          <textarea id="pm-notas" rows="2" style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:vertical"></textarea>
+        </label>
+        <input type="hidden" id="pm-user" value="${_pagosEsc(user)}">
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button type="button" onclick="document.getElementById('pagos-manual-modal').remove()" style="flex:1;padding:9px;background:#e2e8f0;border:0;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Cancelar</button>
+          <button type="submit" style="flex:1;padding:9px;background:#7c3aed;color:#fff;border:0;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer">Guardar</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(modal);
+};
+window.pagosSaveManual = async function(reservaId) {
+  const monto = parseFloat(document.getElementById('pm-monto').value);
+  const metodo = document.getElementById('pm-metodo').value;
+  const fecha = document.getElementById('pm-fecha').value;
+  const ref = document.getElementById('pm-ref').value;
+  const notas = document.getElementById('pm-notas').value;
+  const user = document.getElementById('pm-user').value;
+  if (!(monto > 0)) { alert('Monto debe ser mayor a 0'); return; }
+  try {
+    const r = await fetch(`${BACKEND}/pagos-manuales`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload: { ReservaId: reservaId, Monto: monto, Metodo: metodo, Fecha: fecha, Referencia: ref, Notas: notas, RegistradoPor: user } }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error backend');
+    document.getElementById('pagos-manual-modal').remove();
+    await _pagosFetchManualByReserva(reservaId);
+    // Re-render panel (Pagos + drawer botc si está abierto).
+    if (typeof pagosRender === 'function') pagosRender();
+    const drawer = document.getElementById('botc-payment-inline');
+    if (drawer && String(drawer.dataset.phone)) {
+      const bk = _botcGetBookingForPhoneSync(drawer.dataset.phone);
+      if (bk) { const html = pagosPanelHtml(bk.Id); if (html) drawer.innerHTML = String(html).replace(/pagosClosePanel\(\)/g, '_botcClosePaymentDrawer()'); }
+    }
+  } catch (e) { alert('Error al guardar: ' + e.message); }
+};
+window.pagosDeleteManual = async function(id, reservaId) {
+  if (!confirm('¿Eliminar este pago manual?')) return;
+  try {
+    const r = await fetch(`${BACKEND}/pagos-manuales/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    await _pagosFetchManualByReserva(reservaId);
+    if (typeof pagosRender === 'function') pagosRender();
+    const drawer = document.getElementById('botc-payment-inline');
+    if (drawer && String(drawer.dataset.phone)) {
+      const bk = _botcGetBookingForPhoneSync(drawer.dataset.phone);
+      if (bk) { const html = pagosPanelHtml(bk.Id); if (html) drawer.innerHTML = String(html).replace(/pagosClosePanel\(\)/g, '_botcClosePaymentDrawer()'); }
+    }
+  } catch (e) { alert('Error: ' + e.message); }
+};
 window.pagosInit = pagosInit;
 window.pagosLoad = pagosLoad;
 window.pagosSetFilter = pagosSetFilter;
