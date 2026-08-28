@@ -47166,9 +47166,11 @@ const PAGOS_STATE = {
   bookings: [], filtered: [],
   filters: {
     month: '',                 // YYYY-MM (default: mes en curso). Filtra por arrival.
-    status: 'todos',           // todos | Pagada | Parcial | Sin pago | Reembolsada | Sin cargo
-    house: '',                 // HouseId
-    q: '',                     // búsqueda huésped
+    status: [],                // multi-select: PaymentStatus. Vacío = todos.
+    programacion: [],          // multi-select: Activa/Próxima/Concluida/Cancelada.
+    house: [],                 // multi-select: HouseId.
+    source: [],                // multi-select: Source (medio de reserva).
+    q: '',                     // búsqueda global (aplica a TODAS las columnas visibles).
   },
   selectedId: null,
 };
@@ -47204,32 +47206,71 @@ function _pagosAlojName(b) {
   if (rt) return rt;
   return hid ? `HouseId ${hid}` : '—';
 }
-function _pagosHuRow(b) {
-  // Devuelve la fila de HU (Reservaciones/huéspedes) asociada al booking,
-  // usando LG_STATE.matches (phone+fechas o prop+fechas). Null si no matchea.
-  try {
-    const m = (typeof LG_STATE !== 'undefined' && LG_STATE.matches) ? LG_STATE.matches.get(String(b.Id)) : null;
-    return m && m.h ? m.h : null;
-  } catch(_) { return null; }
+function _pagosPhone10(s) { return String(s || '').replace(/\D/g, '').slice(-10); }
+// Índice memoizado: phone10 → { razon, factura, celFull } sacado de HU_STATE.rows.
+// HU_STATE.rows es el JOIN Perfiles+Reservaciones; cualquier row con ese
+// phone comparte la razón social del perfil.
+function _pagosPerfilByPhone(phone) {
+  const p10 = _pagosPhone10(phone);
+  if (!p10 || p10.length < 10) return null;
+  if (typeof HU_STATE === 'undefined' || !HU_STATE.rows || !HU_STATE.rows.length) return null;
+  // Cache lazy
+  if (!PAGOS_STATE._perfilCache || PAGOS_STATE._perfilCacheHuLen !== HU_STATE.rows.length) {
+    const map = new Map();
+    for (const h of HU_STATE.rows) {
+      const cel = String(h['Cel/Whatsapp (principal)'] || h.Celular || '');
+      const p = _pagosPhone10(cel);
+      if (!p || p.length < 10) continue;
+      const razon = String(h['Razón social'] || h.RazonSocial || '').trim();
+      const factura = String(h['¿Requiere factura?'] || h.RequiereFactura || '').trim();
+      // Solo sobrescribir si el existente está vacío (preferir el más completo).
+      const prev = map.get(p);
+      if (!prev) { map.set(p, { razon, factura, celFull: cel }); }
+      else {
+        if (!prev.razon && razon) prev.razon = razon;
+        if (!prev.factura && factura) prev.factura = factura;
+        if (!prev.celFull && cel) prev.celFull = cel;
+      }
+    }
+    PAGOS_STATE._perfilCache = map;
+    PAGOS_STATE._perfilCacheHuLen = HU_STATE.rows.length;
+  }
+  return PAGOS_STATE._perfilCache.get(p10) || null;
 }
 function _pagosCel(b) {
-  // Prioridad: celular manual del registro HU → GuestPhone de Lodgify.
-  const hu = _pagosHuRow(b);
-  if (hu) {
-    const c = String(hu['Cel/Whatsapp (principal)'] || hu.Celular || '').trim();
-    if (c) return c;
-  }
+  const perfil = _pagosPerfilByPhone(b.GuestPhone);
+  if (perfil && perfil.celFull) return perfil.celFull;
   return String(b.GuestPhone || '').trim();
 }
 function _pagosRazon(b) {
-  const hu = _pagosHuRow(b);
-  if (!hu) return '';
-  return String(hu['Razón social'] || hu.RazonSocial || '').trim();
+  const perfil = _pagosPerfilByPhone(b.GuestPhone);
+  return perfil ? perfil.razon : '';
 }
 function _pagosReqFactura(b) {
-  const hu = _pagosHuRow(b);
-  if (!hu) return '';
-  return String(hu['¿Requiere factura?'] || hu.RequiereFactura || '').trim();
+  const perfil = _pagosPerfilByPhone(b.GuestPhone);
+  return perfil ? perfil.factura : '';
+}
+// Estado calculado por fecha: Cancelada > Concluida / Activa / Próxima.
+function _pagosProgramacion(b) {
+  const st = String(b.Status || '').toLowerCase();
+  if (st === 'declined' || st === 'cancelled' || st === 'deleted') return 'Cancelada';
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
+  const arr = _pagosDateIso(b.DateArrival);
+  const dep = _pagosDateIso(b.DateDeparture);
+  if (!arr || !dep) return '—';
+  if (today < arr) return 'Próxima';
+  if (today > dep) return 'Concluida';
+  return 'Activa';
+}
+function _pagosProgChip(prog) {
+  const map = {
+    'Activa':    { bg:'#dcfce7', fg:'#166534' },
+    'Próxima':   { bg:'#dbeafe', fg:'#1e3a8a' },
+    'Concluida': { bg:'#f1f5f9', fg:'#475569' },
+    'Cancelada': { bg:'#fee2e2', fg:'#991b1b' },
+  };
+  const s = map[prog] || { bg:'#f1f5f9', fg:'#475569' };
+  return `<span style="display:inline-block;padding:3px 8px;border-radius:999px;background:${s.bg};color:${s.fg};font-size:11px;font-weight:700">${prog || '—'}</span>`;
 }
 function _pagosFacturaChip(v) {
   const s = String(v || '').trim().toLowerCase();
@@ -47332,27 +47373,76 @@ async function pagosLoad() {
 }
 function pagosApplyFilters() {
   const f = PAGOS_STATE.filters;
+  const q = String(f.q || '').trim().toLowerCase();
   PAGOS_STATE.filtered = PAGOS_STATE.bookings.filter(b => {
     // Filtro mes: arrival dentro del mes YYYY-MM.
     if (f.month) {
       const arr = _pagosDateIso(b.DateArrival);
       if (!arr.startsWith(f.month)) return false;
     }
-    if (f.status && f.status !== 'todos') {
-      if (String(b.PaymentStatus || '') !== f.status) return false;
+    // Multi-select: si el array está vacío, no filtra. Si tiene elementos,
+    // la row debe matchear al menos uno.
+    if (Array.isArray(f.status) && f.status.length) {
+      if (!f.status.includes(String(b.PaymentStatus || ''))) return false;
     }
-    if (f.house) {
-      if (String(b.HouseId || '') !== String(f.house)) return false;
+    if (Array.isArray(f.programacion) && f.programacion.length) {
+      if (!f.programacion.includes(_pagosProgramacion(b))) return false;
     }
-    if (f.q) {
-      const hay = (String(b.GuestName||'') + ' ' + String(b.HouseName||'') + ' ' + String(b.Id||'')).toLowerCase();
-      if (!hay.includes(f.q.toLowerCase())) return false;
+    if (Array.isArray(f.house) && f.house.length) {
+      if (!f.house.includes(String(b.HouseId || ''))) return false;
+    }
+    if (Array.isArray(f.source) && f.source.length) {
+      if (!f.source.includes(String(b.Source || ''))) return false;
+    }
+    // Buscador global: aplica a TODAS las columnas visibles.
+    if (q) {
+      const hay = [
+        b.Id, b.GuestName, _pagosAlojName(b), b.Source,
+        b.DateArrival, b.DateDeparture,
+        _pagosCel(b), _pagosRazon(b), _pagosReqFactura(b),
+        _pagosProgramacion(b), b.PaymentStatus,
+        b.PaymentPolicy,
+      ].map(v => String(v == null ? '' : v).toLowerCase()).join(' | ');
+      if (!hay.includes(q)) return false;
     }
     return true;
   });
 }
 function pagosSetFilter(key, val) {
   PAGOS_STATE.filters[key] = val;
+  pagosApplyFilters();
+  pagosRender();
+}
+function pagosToggleFilter(key, val) {
+  const arr = PAGOS_STATE.filters[key] = Array.isArray(PAGOS_STATE.filters[key]) ? PAGOS_STATE.filters[key] : [];
+  const i = arr.indexOf(val);
+  if (i >= 0) arr.splice(i, 1); else arr.push(val);
+  pagosApplyFilters();
+  // Re-render solo del área de resultados + label del dropdown, NO del
+  // dropdown completo (así no se cierra al marcar checkboxes).
+  pagosRender();
+  // Reabre el dropdown que estaba abierto (el user seguía en él).
+  const openKey = PAGOS_STATE._openDD;
+  if (openKey) setTimeout(() => _pagosOpenDD(openKey), 0);
+}
+function _pagosOpenDD(key) {
+  PAGOS_STATE._openDD = key;
+  const dd = document.getElementById(`pagos-dd-${key}`);
+  if (dd) dd.style.display = 'block';
+}
+function _pagosCloseDD() {
+  if (PAGOS_STATE._openDD) {
+    const dd = document.getElementById(`pagos-dd-${PAGOS_STATE._openDD}`);
+    if (dd) dd.style.display = 'none';
+  }
+  PAGOS_STATE._openDD = null;
+}
+function pagosToggleDD(key) {
+  if (PAGOS_STATE._openDD === key) _pagosCloseDD();
+  else { _pagosCloseDD(); _pagosOpenDD(key); }
+}
+function pagosClearFilter(key) {
+  PAGOS_STATE.filters[key] = [];
   pagosApplyFilters();
   pagosRender();
 }
@@ -47378,10 +47468,41 @@ function pagosRender() {
       <div style="font-size:11px;font-weight:700;color:${fg};text-transform:uppercase;letter-spacing:.5px;opacity:.75">${label}</div>
       <div style="font-size:22px;font-weight:800;color:${fg};margin-top:4px">${_pagosFmt$(val, kpi.cur)}</div>
     </div>`;
-  // Filtros
+  // Filtros multi-select
   const houses = Array.from(new Map(PAGOS_STATE.bookings.map(b => [String(b.HouseId||''), _pagosAlojName(b)])).entries())
     .filter(([id]) => id).sort((a,b) => String(a[1]).localeCompare(String(b[1])));
-  const statusOpts = ['todos','Pagada','Parcial','Sin pago','Reembolsada','Sin cargo'];
+  const statusOpts = ['Pagada','Parcial','Sin pago','Reembolsada','Sin cargo'];
+  const progOpts = ['Activa','Próxima','Concluida','Cancelada'];
+  const sourceOpts = Array.from(new Set(PAGOS_STATE.bookings.map(b => String(b.Source||'')).filter(Boolean))).sort();
+  function _multiDD(key, label, options, valueLabelFn) {
+    const sel = Array.isArray(f[key]) ? f[key] : [];
+    const summary = sel.length === 0 ? 'Todos' : (sel.length <= 2 ? sel.map(v => valueLabelFn ? valueLabelFn(v) : v).join(', ') : `${sel.length} seleccionados`);
+    const items = options.map(opt => {
+      const val = Array.isArray(opt) ? opt[0] : opt;
+      const lbl = Array.isArray(opt) ? opt[1] : opt;
+      const checked = sel.includes(String(val));
+      return `<label class="pagos-dd-opt" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:600;color:#334155" onclick="event.stopPropagation()">
+        <span style="width:16px;height:16px;border:1.5px solid #94a3b8;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;background:${checked?'#3b82f6':'#fff'};border-color:${checked?'#3b82f6':'#94a3b8'};flex-shrink:0" onclick="event.stopPropagation();pagosToggleFilter('${key}','${_pagosEsc(String(val)).replace(/'/g,'&#39;')}')">${checked?'<span style=\"color:#fff;font-size:12px;line-height:1\">✓</span>':''}</span>
+        <span style="flex:1" onclick="event.stopPropagation();pagosToggleFilter('${key}','${_pagosEsc(String(val)).replace(/'/g,'&#39;')}')">${_pagosEsc(lbl)}</span>
+      </label>`;
+    }).join('');
+    return `
+      <div style="position:relative;flex:1;min-width:180px">
+        <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">${label}</div>
+        <button type="button" onclick="event.stopPropagation();pagosToggleDD('${key}')" style="width:100%;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;font-size:12px;font-weight:600;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:${sel.length?'#0f172a':'#94a3b8'}">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_pagosEsc(summary)}</span>
+          <span style="color:#94a3b8">▾</span>
+        </button>
+        <div id="pagos-dd-${key}" style="display:${PAGOS_STATE._openDD===key?'block':'none'};position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #cbd5e1;border-radius:6px;box-shadow:0 8px 24px rgba(15,23,42,.15);z-index:100;margin-top:2px;max-height:280px;overflow-y:auto">
+          ${sel.length ? `<button type="button" onclick="event.stopPropagation();pagosClearFilter('${key}')" style="width:100%;padding:6px 12px;background:#f1f5f9;border:0;border-bottom:1px solid #e2e8f0;font-size:11px;font-weight:700;color:#3b82f6;cursor:pointer;text-align:left">✕ Limpiar</button>` : ''}
+          ${items}
+        </div>
+      </div>`;
+  }
+  const houseValueLabel = (id) => {
+    const found = houses.find(h => String(h[0]) === String(id));
+    return found ? found[1] : id;
+  };
   // Tabla
   const rowHtml = rows.map(b => {
     const arr = _pagosDateIso(b.DateArrival);
@@ -47398,7 +47519,7 @@ function pagosRender() {
         <td style="padding:10px 8px;font-size:11px;color:#475569;white-space:nowrap">${_pagosEsc(_pagosCel(b) || '—')}</td>
         <td style="padding:10px 8px;font-size:11px;color:#475569;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_pagosEsc(_pagosRazon(b))}">${_pagosEsc(_pagosRazon(b) || '—')}</td>
         <td style="padding:10px 8px;text-align:center">${_pagosFacturaChip(_pagosReqFactura(b))}</td>
-        <td style="padding:10px 8px;font-size:11px;color:#475569;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_pagosEsc(b.PaymentPolicy || '')}">${_pagosEsc((b.PaymentPolicy || '—').split('\n')[0].slice(0, 60))}</td>
+        <td style="padding:10px 8px;text-align:center">${_pagosProgChip(_pagosProgramacion(b))}</td>
         <td style="padding:10px 8px;font-size:12px;text-align:right;font-weight:700">${_pagosFmt$(b.TotalAmount, b.Currency)}</td>
         <td style="padding:10px 8px;font-size:12px;text-align:right;color:#166534;font-weight:700">${_pagosFmt$(b.AmountPaid, b.Currency)}</td>
         <td style="padding:10px 8px;font-size:12px;text-align:right;color:${(Number(b.AmountDue)||0)>0?'#991b1b':'#64748b'};font-weight:700">${_pagosFmt$(b.AmountDue, b.Currency)}</td>
@@ -47419,22 +47540,19 @@ function pagosRender() {
       ${kpiCard('Pendiente', kpi.pendiente, '#fee2e2', '#991b1b')}
       ${kpiCard('Reembolsos', kpi.reembolsos, '#e0e7ff', '#3730a3')}
     </div>
-    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center;background:#fff;padding:12px;border-radius:10px;border:1px solid #e2e8f0">
-      <label style="font-size:11px;font-weight:700;color:#475569">Mes
-        <input type="month" value="${f.month}" onchange="pagosSetFilter('month', this.value)" style="margin-left:6px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
-      </label>
-      <label style="font-size:11px;font-weight:700;color:#475569">Status
-        <select onchange="pagosSetFilter('status', this.value)" style="margin-left:6px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
-          ${statusOpts.map(s => `<option value="${s}" ${f.status===s?'selected':''}>${s}</option>`).join('')}
-        </select>
-      </label>
-      <label style="font-size:11px;font-weight:700;color:#475569">Alojamiento
-        <select onchange="pagosSetFilter('house', this.value)" style="margin-left:6px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;min-width:180px">
-          <option value="">Todos</option>
-          ${houses.map(([id,name]) => `<option value="${_pagosEsc(id)}" ${f.house===id?'selected':''}>${_pagosEsc(name)}</option>`).join('')}
-        </select>
-      </label>
-      <input placeholder="Buscar huésped o Id…" value="${_pagosEsc(f.q)}" oninput="pagosSetFilter('q', this.value)" style="flex:1;min-width:200px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end;background:#fff;padding:12px;border-radius:10px;border:1px solid #e2e8f0" onclick="_pagosCloseDD()">
+      <div style="min-width:150px">
+        <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Mes</div>
+        <input type="month" value="${f.month}" onchange="pagosSetFilter('month', this.value)" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;width:100%">
+      </div>
+      ${_multiDD('status',       'Status',        statusOpts)}
+      ${_multiDD('programacion', 'Programación',  progOpts)}
+      ${_multiDD('house',        'Alojamiento',   houses, houseValueLabel)}
+      ${_multiDD('source',       'Medio',         sourceOpts)}
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Buscar</div>
+        <input placeholder="Busca en cualquier columna…" value="${_pagosEsc(f.q)}" oninput="pagosSetFilter('q', this.value)" style="width:100%;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr ${PAGOS_STATE.selectedId?'380px':'0'};gap:14px">
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
@@ -47452,7 +47570,7 @@ function pagosRender() {
                 <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Celular</th>
                 <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Razón social</th>
                 <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Factura</th>
-                <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Programación</th>
+                <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Programación</th>
                 <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Total</th>
                 <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Pagado</th>
                 <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Saldo</th>
