@@ -43298,7 +43298,10 @@ function _botcRenderMain(phone) {
   const draftBody = String(state.pending_draft_body || '');
   const canType = isHuman || isSupervised;
   const msgs = BOTC_STATE.messages || [];
-  const msgsHtml = msgs.length ? msgs.map(m => {
+  BOTC_STATE.selectedMsgIdx = BOTC_STATE.selectedMsgIdx || new Set();
+  const selMode = !!BOTC_STATE.selectMode;
+  const selSet = BOTC_STATE.selectedMsgIdx;
+  const msgsHtml = msgs.length ? msgs.map((m, idx) => {
     const isUser = m.role === 'user';
     const isAdmin = m.role === 'admin';
     const isTemplate = m.role === 'template';
@@ -43308,15 +43311,28 @@ function _botcRenderMain(phone) {
     else if (isAdmin) { bg = '#fef3c7'; border = '#fcd34d'; label = '👨‍💼 Admin (tú)'; }
     else if (isTemplate) { bg = '#e0f2fe'; border = '#7dd3fc'; label = `📩 Template${m.meta && m.meta.tipo ? ' · '+m.meta.tipo : ''}`; }
     else { bg = '#dcf7c5'; border = '#86efac'; label = '🤖 Bot'; }
-    return `
-      <div style="display:flex;justify-content:${align};margin-bottom:8px">
-        <div style="max-width:70%;padding:8px 12px;background:${bg};border:1px solid ${border};border-radius:10px">
+    const checked = selSet.has(idx);
+    const cbHtml = selMode ? `<span onclick="event.stopPropagation();botcMsgToggle_(${idx})" style="cursor:pointer;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:2px solid ${checked?'#3b82f6':'#94a3b8'};border-radius:5px;background:${checked?'#3b82f6':'#fff'};margin-${isUser?'right':'left'}:8px;align-self:center">${checked?'<span style="color:#fff;font-size:14px;line-height:1;font-weight:900">✓</span>':''}</span>` : '';
+    const rowStyle = `display:flex;justify-content:${align};margin-bottom:8px;align-items:center;${selMode?'cursor:pointer':''}`;
+    const clickAttr = selMode ? `onclick="botcMsgToggle_(${idx})"` : '';
+    const highlight = selMode && checked ? 'box-shadow:0 0 0 2px #3b82f6;' : '';
+    const inner = `<div style="max-width:70%;padding:8px 12px;background:${bg};border:1px solid ${border};border-radius:10px;${highlight}">
           <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:3px">${label} · ${_botcFmtDateTime(m.timestamp)}</div>
           <div style="font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4">${_botcEsc(m.body)}</div>
-        </div>
-      </div>
-    `;
+        </div>`;
+    return `<div style="${rowStyle}" ${clickAttr}>${isUser ? cbHtml + inner : inner + cbHtml}</div>`;
   }).join('') : '<div style="text-align:center;color:#94a3b8;font-size:12px;padding:40px">Sin mensajes previos.</div>';
+  // Barra superior de selección múltiple (aparece solo con selectMode ON).
+  const selCount = selSet.size;
+  const selBarHtml = selMode ? `
+    <div id="botc-msel-bar" style="position:sticky;top:0;z-index:15;background:#0f172a;color:#fff;padding:8px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;box-shadow:0 2px 8px rgba(15,23,42,.2)">
+      <span style="font-weight:800;font-size:12px">${selCount} seleccionado${selCount===1?'':'s'}</span>
+      <span style="flex:1"></span>
+      <button type="button" onclick="botcMsgComprobante_()" ${selCount?'':'disabled'} style="padding:6px 10px;background:${selCount?'#7c3aed':'#334155'};color:#fff;border:0;border-radius:6px;cursor:${selCount?'pointer':'not-allowed'};font-weight:700;font-size:11px">💳 Comprobante</button>
+      <button type="button" onclick="botcMsgCopy_()" ${selCount?'':'disabled'} style="padding:6px 10px;background:${selCount?'#3b82f6':'#334155'};color:#fff;border:0;border-radius:6px;cursor:${selCount?'pointer':'not-allowed'};font-weight:700;font-size:11px">📋 Copiar</button>
+      <button type="button" onclick="botcMsgForward_()" ${selCount?'':'disabled'} style="padding:6px 10px;background:${selCount?'#25d366':'#334155'};color:#fff;border:0;border-radius:6px;cursor:${selCount?'pointer':'not-allowed'};font-weight:700;font-size:11px">📤 Reenviar</button>
+      <button type="button" onclick="botcMsgSelToggle_()" style="padding:6px 10px;background:transparent;color:#fff;border:1px solid #475569;border-radius:6px;cursor:pointer;font-weight:700;font-size:11px">✕ Cancelar</button>
+    </div>` : '';
 
   const ctrlChip = isHuman
     ? '<span class="botc-ctrl-chip" style="font-size:11px;background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:999px;font-weight:800">👤 Bajo control humano</span>'
@@ -43366,11 +43382,13 @@ function _botcRenderMain(phone) {
               <button type="button" class="botc-hmenu-item" onclick="botcOpenSummary();botcCloseHeaderMenu_()">🧠 Resumen sintético</button>
               <button type="button" class="botc-hmenu-item" onclick="botcToggleRightPanel();botcCloseHeaderMenu_()">📖 Bitácora completa</button>
               <button type="button" class="botc-hmenu-item" onclick="_botcOpenPaymentDrawer('${_botcEsc(phone)}');botcCloseHeaderMenu_()" style="display:flex;align-items:center;gap:8px">💳 Estado de pago ${_botcPaymentChip(_botcGetBookingForPhoneSync(phone)) || ''}</button>
+              <button type="button" class="botc-hmenu-item" onclick="botcMsgSelToggle_();botcCloseHeaderMenu_()">☑ Seleccionar mensajes</button>
             </div>
           </div>
         </div>
       </div>
     </div>
+    ${selBarHtml}
     <div id="botc-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafc">${msgsHtml}</div>
     ${isSupervised && draftBody ? `
       <div id="botc-draft-box" style="border-top:1px solid #e2e8f0;background:#faf5ff;padding:12px 16px">
@@ -43411,6 +43429,152 @@ function _botcRenderMain(phone) {
     if (box) box.scrollTop = box.scrollHeight;
   }, 0);
 }
+
+// ─── Multi-selección de mensajes ───────────────────────────────────────────
+window.botcMsgSelToggle_ = function() {
+  BOTC_STATE.selectMode = !BOTC_STATE.selectMode;
+  BOTC_STATE.selectedMsgIdx = new Set();
+  if (typeof _botcRenderMain === 'function' && BOTC_STATE.selectedPhone) _botcRenderMain(BOTC_STATE.selectedPhone);
+};
+window.botcMsgToggle_ = function(idx) {
+  if (!BOTC_STATE.selectMode) { BOTC_STATE.selectMode = true; }
+  BOTC_STATE.selectedMsgIdx = BOTC_STATE.selectedMsgIdx || new Set();
+  const s = BOTC_STATE.selectedMsgIdx;
+  if (s.has(idx)) s.delete(idx); else s.add(idx);
+  if (typeof _botcRenderMain === 'function' && BOTC_STATE.selectedPhone) _botcRenderMain(BOTC_STATE.selectedPhone);
+};
+function _botcGetSelectedMsgs_() {
+  const msgs = BOTC_STATE.messages || [];
+  const s = BOTC_STATE.selectedMsgIdx || new Set();
+  return Array.from(s).sort((a,b)=>a-b).map(i => msgs[i]).filter(Boolean);
+}
+window.botcMsgCopy_ = async function() {
+  const sel = _botcGetSelectedMsgs_();
+  if (!sel.length) return;
+  const text = sel.map(m => {
+    const who = m.role === 'user' ? 'Huésped' : (m.role === 'admin' ? 'Admin' : (m.role === 'template' ? 'Template' : 'Bot'));
+    const ts = (typeof _botcFmtDateTime === 'function') ? _botcFmtDateTime(m.timestamp) : String(m.timestamp || '');
+    return `[${ts}] ${who}: ${String(m.body || '')}`;
+  }).join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    alert(`${sel.length} mensaje${sel.length===1?'':'s'} copiado${sel.length===1?'':'s'} al portapapeles.`);
+  } catch (e) {
+    // Fallback: textarea + execCommand
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); alert('Copiado.'); } catch (_) { alert('No se pudo copiar: ' + e.message); }
+    ta.remove();
+  }
+};
+window.botcMsgForward_ = async function() {
+  const sel = _botcGetSelectedMsgs_();
+  if (!sel.length) return;
+  const phone = prompt('Reenviar a WhatsApp (ej. +5218441234567):');
+  if (!phone) return;
+  const clean = String(phone).replace(/[^\d+]/g, '');
+  if (clean.length < 10) { alert('Número inválido.'); return; }
+  const to = clean.startsWith('+') ? clean : ('+' + clean);
+  const body = sel.map(m => {
+    const who = m.role === 'user' ? '👤 Huésped' : (m.role === 'admin' ? '👨‍💼 Admin' : (m.role === 'template' ? '📩 Template' : '🤖 Bot'));
+    return `${who}: ${String(m.body || '')}`;
+  }).join('\n\n');
+  const wrap = `📤 *Mensajes reenviados* (${sel.length}):\n\n${body}`;
+  try {
+    const r = await fetch(`${BACKEND}/wa/send-forward`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: `whatsapp:${to}`, body: wrap }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error backend');
+    alert(`Reenviado a ${to}.`);
+    botcMsgSelToggle_();
+  } catch (e) { alert('Error al reenviar: ' + e.message); }
+};
+window.botcMsgComprobante_ = async function() {
+  const sel = _botcGetSelectedMsgs_();
+  if (!sel.length) return;
+  const phone = BOTC_STATE.selectedPhone;
+  // Recolecta media_urls y texto de los mensajes seleccionados.
+  const media = sel.map(m => m.meta && m.meta.media_url ? { url: m.meta.media_url, type: m.meta.media_type || '' } : null).filter(Boolean);
+  const texts = sel.map(m => String(m.body || '')).filter(Boolean);
+  if (!media.length && !texts.length) { alert('Sin contenido para analizar.'); return; }
+  // Muestra caja "Analizando..." arriba del input.
+  _botcShowComprobanteBox_({ loading: true });
+  try {
+    const r = await fetch(`${BACKEND}/wa/analizar-comprobante`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, media, texts }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error backend');
+    _botcShowComprobanteBox_({ data: j.data, phone, reservaId: j.reservaId, reservaLabel: j.reservaLabel });
+    botcMsgSelToggle_(); // sale del modo selección
+  } catch (e) {
+    _botcShowComprobanteBox_({ error: e.message });
+  }
+};
+window._botcShowComprobanteBox_ = function(opts) {
+  const container = document.getElementById('botc-msgs')?.parentElement;
+  if (!container) return;
+  const inputBar = container.querySelector('input#botc-input')?.parentElement;
+  if (!inputBar) return;
+  const old = document.getElementById('botc-comprobante-box'); if (old) old.remove();
+  const box = document.createElement('div');
+  box.id = 'botc-comprobante-box';
+  box.style.cssText = 'border-top:1px solid #e2e8f0;background:#fef3c7;padding:12px 16px;font-size:12px';
+  if (opts.loading) {
+    box.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span>💳 Analizando comprobante…</span></div>`;
+  } else if (opts.error) {
+    box.innerHTML = `<div style="color:#991b1b"><b>❌ Error:</b> ${_botcEsc(opts.error)}<button onclick="document.getElementById('botc-comprobante-box').remove()" style="margin-left:12px;background:#dc2626;color:#fff;border:0;padding:4px 8px;border-radius:4px;font-weight:800;cursor:pointer;font-size:11px">Cerrar</button></div>`;
+  } else if (opts.data) {
+    const d = opts.data || {};
+    const rid = String(opts.reservaId || '').trim();
+    const rlabel = String(opts.reservaLabel || (rid ? 'Reserva ' + rid : 'Sin reserva asociada'));
+    box.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+        <span style="font-weight:800;color:#78350f">💳 Comprobante detectado — revisa y valida</span>
+        <button onclick="document.getElementById('botc-comprobante-box').remove()" style="background:transparent;border:0;font-size:16px;cursor:pointer;color:#78350f;line-height:1">×</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0">
+        <label style="font-size:10px;font-weight:700;color:#78350f">Monto <input id="cmp-monto" type="number" step="0.01" value="${_botcEsc(d.monto || '')}" style="width:100%;padding:4px 6px;border:1px solid #fbbf24;border-radius:4px;font-size:12px;box-sizing:border-box"></label>
+        <label style="font-size:10px;font-weight:700;color:#78350f">Método <input id="cmp-metodo" type="text" value="${_botcEsc(d.metodo || d.banco || 'Transferencia')}" style="width:100%;padding:4px 6px;border:1px solid #fbbf24;border-radius:4px;font-size:12px;box-sizing:border-box"></label>
+        <label style="font-size:10px;font-weight:700;color:#78350f">Fecha <input id="cmp-fecha" type="date" value="${_botcEsc(d.fecha || new Date().toISOString().slice(0,10))}" style="width:100%;padding:4px 6px;border:1px solid #fbbf24;border-radius:4px;font-size:12px;box-sizing:border-box"></label>
+        <label style="font-size:10px;font-weight:700;color:#78350f">Referencia <input id="cmp-ref" type="text" value="${_botcEsc(d.referencia || d.asunto || '')}" style="width:100%;padding:4px 6px;border:1px solid #fbbf24;border-radius:4px;font-size:12px;box-sizing:border-box"></label>
+      </div>
+      <div style="font-size:11px;color:#78350f;margin:4px 0"><b>Reserva:</b> ${_botcEsc(rlabel)}</div>
+      <input type="hidden" id="cmp-reserva" value="${_botcEsc(rid)}">
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button onclick="_botcSaveComprobante_()" ${rid?'':'disabled'} style="padding:6px 12px;background:${rid?'#16a34a':'#94a3b8'};color:#fff;border:0;border-radius:6px;font-weight:800;font-size:11px;cursor:${rid?'pointer':'not-allowed'}">✓ Registrar pago manual</button>
+        <button onclick="document.getElementById('botc-comprobante-box').remove()" style="padding:6px 12px;background:#e2e8f0;color:#475569;border:0;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer">Rechazar</button>
+      </div>
+      ${!rid?'<div style="font-size:10px;color:#991b1b;margin-top:4px">⚠ No hay reserva activa asociada al número — no se puede registrar.</div>':''}
+    `;
+  }
+  inputBar.parentElement.insertBefore(box, inputBar);
+};
+window._botcSaveComprobante_ = async function() {
+  const reservaId = document.getElementById('cmp-reserva').value;
+  const monto = parseFloat(document.getElementById('cmp-monto').value);
+  const metodo = document.getElementById('cmp-metodo').value;
+  const fecha = document.getElementById('cmp-fecha').value;
+  const ref = document.getElementById('cmp-ref').value;
+  if (!(monto > 0)) { alert('Monto inválido.'); return; }
+  if (!reservaId) { alert('Sin reserva asociada.'); return; }
+  const user = (typeof sysGetStoredUser === 'function' ? (sysGetStoredUser() || {}).Nombre : '') || '';
+  try {
+    const r = await fetch(`${BACKEND}/pagos-manuales`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload: { ReservaId: reservaId, Monto: monto, Metodo: metodo, Fecha: fecha, Referencia: ref, Notas: 'Detectado de comprobante en chat', RegistradoPor: user } }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    document.getElementById('botc-comprobante-box').remove();
+    alert('✓ Pago manual registrado: ' + (j.id || ''));
+    // Invalida cache de pagos manuales para esa reserva
+    if (typeof PAGOS_STATE === 'object' && PAGOS_STATE.manualByReserva) delete PAGOS_STATE.manualByReserva[reservaId];
+  } catch (e) { alert('Error: ' + e.message); }
+};
 
 window.botcSetControl = async function(phone, control) {
   const reason = control === 'human' ? 'Toma manual del admin' : '';
