@@ -47204,6 +47204,39 @@ function _pagosAlojName(b) {
   if (rt) return rt;
   return hid ? `HouseId ${hid}` : '—';
 }
+function _pagosHuRow(b) {
+  // Devuelve la fila de HU (Reservaciones/huéspedes) asociada al booking,
+  // usando LG_STATE.matches (phone+fechas o prop+fechas). Null si no matchea.
+  try {
+    const m = (typeof LG_STATE !== 'undefined' && LG_STATE.matches) ? LG_STATE.matches.get(String(b.Id)) : null;
+    return m && m.h ? m.h : null;
+  } catch(_) { return null; }
+}
+function _pagosCel(b) {
+  // Prioridad: celular manual del registro HU → GuestPhone de Lodgify.
+  const hu = _pagosHuRow(b);
+  if (hu) {
+    const c = String(hu['Cel/Whatsapp (principal)'] || hu.Celular || '').trim();
+    if (c) return c;
+  }
+  return String(b.GuestPhone || '').trim();
+}
+function _pagosRazon(b) {
+  const hu = _pagosHuRow(b);
+  if (!hu) return '';
+  return String(hu['Razón social'] || hu.RazonSocial || '').trim();
+}
+function _pagosReqFactura(b) {
+  const hu = _pagosHuRow(b);
+  if (!hu) return '';
+  return String(hu['¿Requiere factura?'] || hu.RequiereFactura || '').trim();
+}
+function _pagosFacturaChip(v) {
+  const s = String(v || '').trim().toLowerCase();
+  if (s === 'sí' || s === 'si') return `<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:800">SÍ</span>`;
+  if (s === 'no')               return `<span style="display:inline-block;padding:2px 7px;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:10px;font-weight:800">NO</span>`;
+  return `<span style="color:#94a3b8">—</span>`;
+}
 function _pagosSourceChip(source) {
   const s = String(source || '').trim();
   const key = s.toLowerCase();
@@ -47248,6 +47281,11 @@ async function pagosLoad() {
     // HouseId → nombre — en Lodgify_bookings HouseName suele venir vacío).
     if (typeof lgLoadAlojamientos === 'function') {
       try { await lgLoadAlojamientos(); } catch(_) {}
+    }
+    // Asegura HU_STATE (huéspedes/reservaciones) + matches Lodgify↔HU —
+    // necesario para razón social, ¿requiere factura?, celular manual.
+    if (typeof lgEnsureHuespedesAndMatch === 'function') {
+      try { await lgEnsureHuespedesAndMatch(); } catch(_) {}
     }
     const r = await fetch(`${BACKEND}/lodgify-list`);
     const j = await r.json();
@@ -47353,6 +47391,10 @@ function pagosRender() {
         <td style="padding:10px 8px;font-size:12px;color:#475569">${_pagosEsc(_pagosAlojName(b))}</td>
         <td style="padding:10px 8px">${_pagosSourceChip(b.Source)}</td>
         <td style="padding:10px 8px;font-size:11px;color:#64748b;white-space:nowrap">${fechas}</td>
+        <td style="padding:10px 8px;font-size:11px;color:#475569;white-space:nowrap">${_pagosEsc(_pagosCel(b) || '—')}</td>
+        <td style="padding:10px 8px;font-size:11px;color:#475569;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_pagosEsc(_pagosRazon(b))}">${_pagosEsc(_pagosRazon(b) || '—')}</td>
+        <td style="padding:10px 8px;text-align:center">${_pagosFacturaChip(_pagosReqFactura(b))}</td>
+        <td style="padding:10px 8px;font-size:11px;color:#475569;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_pagosEsc(b.PaymentPolicy || '')}">${_pagosEsc((b.PaymentPolicy || '—').split('\n')[0].slice(0, 60))}</td>
         <td style="padding:10px 8px;font-size:12px;text-align:right;font-weight:700">${_pagosFmt$(b.TotalAmount, b.Currency)}</td>
         <td style="padding:10px 8px;font-size:12px;text-align:right;color:#166534;font-weight:700">${_pagosFmt$(b.AmountPaid, b.Currency)}</td>
         <td style="padding:10px 8px;font-size:12px;text-align:right;color:${(Number(b.AmountDue)||0)>0?'#991b1b':'#64748b'};font-weight:700">${_pagosFmt$(b.AmountDue, b.Currency)}</td>
@@ -47403,6 +47445,10 @@ function pagosRender() {
                 <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Alojamiento</th>
                 <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Medio</th>
                 <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Fechas</th>
+                <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Celular</th>
+                <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Razón social</th>
+                <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Factura</th>
+                <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Programación</th>
                 <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Total</th>
                 <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Pagado</th>
                 <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Saldo</th>
