@@ -47265,6 +47265,19 @@ async function pagosLoad() {
       }
       return true;
     });
+    // Override Airbnb: el pago lo procesa el OTA fuera de Lodgify. Asumimos
+    // pagada al 100% del GrossTotal (ya que TotalAmount viene 0). Usamos
+    // GrossTotal (suma de LineItems) porque total_amount de Lodgify es 0
+    // para reservas Airbnb.
+    PAGOS_STATE.bookings.forEach(b => {
+      if (String(b.Source || '').toLowerCase() === 'airbnb') {
+        const total = Number(b.TotalAmount) || Number(b.GrossTotal) || 0;
+        b.TotalAmount = total;
+        b.AmountPaid = total;
+        b.AmountDue = 0;
+        b.PaymentStatus = total > 0 ? 'Pagada' : 'Sin cargo';
+      }
+    });
     PAGOS_STATE.loaded = true;
   } catch (e) {
     console.warn('[pagos] load error:', e.message);
