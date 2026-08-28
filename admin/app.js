@@ -42575,31 +42575,42 @@ function _botcPaymentChip(bk) {
   return _pagosStatusChip(b.PaymentStatus);
 }
 window._botcOpenPaymentDrawer = async function(phone) {
+  // Evita re-entradas si el drawer ya está abierto para este phone.
+  const existing = document.getElementById('botc-payment-inline');
+  if (existing && String(existing.dataset.phone) === String(phone)) return;
   const bk = _botcGetBookingForPhoneSync(phone);
   if (!bk) { alert('Sin reserva asociada a este número.'); return; }
-  // Enriquece PRIMERO (resuelve Lodgify Id vía phone+fechas si el bk es sintético).
   const preMerged = _botcEnrichPaymentFields(bk);
   const lodId = String((preMerged && (preMerged.LodgifyId || preMerged.Id)) || '').trim();
   if (!lodId) { alert('Sin reserva Lodgify asociada.'); return; }
+  // Si el usuario abrió desde el chip de una card DISTINTA a la actual,
+  // conmutamos la conversación PRIMERO (botcOpenChat es async y
+  // re-inyecta botc-main — el drawer debe pintarse DESPUÉS).
   if (String(BOTC_STATE.selectedPhone) !== String(phone)) {
-    try { botcOpenChat(phone); } catch(_){}
+    try { await botcOpenChat(phone); } catch(_){}
   }
-  // Panel absoluto DENTRO de botc-main, cubriendo la mitad derecha desde
-  // arriba (encima del header del chat) hasta abajo (encima del input).
-  // Así oculta ←, Sys-IA y Enviar del chat de fondo. Único header: el
-  // negro que trae pagosPanelHtml.
+  // El drawer se monta en #module-bot-chats (padre de botc-main) para que
+  // NO se elimine cuando _botcRenderMain re-inyecta innerHTML del chat.
+  const mod = document.getElementById('module-bot-chats');
   const main = document.getElementById('botc-main');
-  if (!main) return;
-  main.style.position = main.style.position || 'relative';
-  let drawer = document.getElementById('botc-payment-inline');
-  if (!drawer) {
-    drawer = document.createElement('div');
-    drawer.id = 'botc-payment-inline';
-    drawer.style.cssText = 'position:absolute;top:0;right:0;bottom:0;width:min(420px,100%);background:#f8fafc;border-left:1px solid #e2e8f0;box-shadow:-8px 0 24px rgba(15,23,42,.12);z-index:20;overflow-y:auto;padding:12px';
-    main.appendChild(drawer);
-  }
+  const anchor = main || mod;
+  if (!anchor) return;
+  const container = mod || document.body;
+  container.style.position = container.style.position || 'relative';
+  // Remueve cualquier drawer anterior (evita duplicados si el usuario
+  // spam-clickea el chip mientras cargamos).
+  const old = document.getElementById('botc-payment-inline');
+  if (old) old.remove();
+  const drawer = document.createElement('div');
+  drawer.id = 'botc-payment-inline';
+  // Posicionamos absolute relativo al módulo — misma altura que botc-main,
+  // pegado a la derecha del chat.
+  drawer.style.cssText = 'position:absolute;top:0;right:0;bottom:0;width:min(420px,100%);background:#f8fafc;border-left:1px solid #e2e8f0;box-shadow:-8px 0 24px rgba(15,23,42,.12);z-index:20;overflow-y:auto;padding:12px';
+  // Adjunta al layout de columnas dentro de module-bot-chats — buscamos
+  // el flex-row que contiene sidebar+main. Fallback: al mismo botc-main.
+  const rowFlex = mod ? mod.querySelector('[style*="display:flex"], [style*="display: flex"]') : null;
+  (rowFlex || main).appendChild(drawer);
   drawer.dataset.phone = String(phone);
-  drawer.style.display = 'block';
   drawer.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Cargando…</div>`;
   let full = null;
   try {
