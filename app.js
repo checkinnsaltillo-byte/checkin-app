@@ -333,7 +333,7 @@ async function computeHashes(startIdx) {
 const SYS_MODULE_PERMS = {
   I:    ['registros','efectivo'],
   II:   ['tickets'],
-  III:  ['huespedes','lodgify','reservas-detalles'],
+  III:  ['huespedes','lodgify','reservas-detalles','pagos'],
   IV:   ['breezeway'],
   V:    ['incidencias'],
   VI:   ['objetos'],
@@ -8649,7 +8649,7 @@ const _VALID_MODULES = new Set([
   'home','tickets','registros','huespedes','lodgify','reservas-detalles',
   'breezeway','incidencias','objetos','reportes-tecnicos','ocupacion',
   'dashboard','calendario','rh','inquilinos','inventarios','tuya','guias',
-  'config-admin','llaves','bot-chats','reservas-nueva',
+  'config-admin','llaves','bot-chats','reservas-nueva','pagos',
 ]);
 function _bootModuleFromHash_() {
   const h = (location.hash || '').replace(/^#/, '').trim();
@@ -8687,7 +8687,7 @@ function switchModule(mod) {
     const greet = document.getElementById('user-greeting');
     if (greet) greet.style.display = (mod === 'home') ? '' : 'none';
   } catch(_){}
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -8807,6 +8807,9 @@ function switchModule(mod) {
   }
   if (mod === "reportes-tecnicos") {
     if (typeof rtInit === 'function') rtInit();
+  }
+  if (mod === "pagos") {
+    if (typeof pagosInit === 'function') pagosInit();
   }
 }
 
@@ -47151,3 +47154,265 @@ window.botcOpenModeDropdown_ = function(ev, phone) {
   document.body.appendChild(dd);
   setTimeout(() => document.addEventListener('click', () => dd.remove(), { once: true }), 0);
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ MÓDULO PAGOS — status de cobro por reserva (Lodgify + manual)            ║
+// ║ Fuente: /lodgify-list (hoja Lodgify_bookings via Apps Script).           ║
+// ║ Columnas usadas: TotalAmount, AmountPaid, AmountDue, PaymentStatus,      ║
+// ║ PaymentPolicy, TransactionsJSON.                                          ║
+// ═══════════════════════════════════════════════════════════════════════════
+const PAGOS_STATE = {
+  loaded: false, loading: false,
+  bookings: [], filtered: [],
+  filters: {
+    month: '',                 // YYYY-MM (default: mes en curso). Filtra por arrival.
+    status: 'todos',           // todos | Pagada | Parcial | Sin pago | Reembolsada | Sin cargo
+    house: '',                 // HouseId
+    q: '',                     // búsqueda huésped
+  },
+  selectedId: null,
+};
+function _pagosEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function _pagosFmt$(n, cur) {
+  const v = Number(n) || 0;
+  return `${v < 0 ? '-' : ''}$${Math.abs(v).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${cur && cur !== 'MXN' ? ' ' + cur : ''}`;
+}
+function _pagosDateIso(s) {
+  if (!s) return '';
+  const t = String(s);
+  let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+  return '';
+}
+function _pagosStatusChip(status) {
+  const map = {
+    'Pagada':      { bg:'#dcfce7', fg:'#166534', label:'Pagada' },
+    'Parcial':     { bg:'#fef3c7', fg:'#92400e', label:'Parcial' },
+    'Sin pago':    { bg:'#fee2e2', fg:'#991b1b', label:'Sin pago' },
+    'Reembolsada': { bg:'#e0e7ff', fg:'#3730a3', label:'Reembolsada' },
+    'Sin cargo':   { bg:'#f1f5f9', fg:'#475569', label:'Sin cargo' },
+  };
+  const s = map[status] || { bg:'#f1f5f9', fg:'#475569', label: status || '—' };
+  return `<span style="display:inline-block;padding:3px 8px;border-radius:999px;background:${s.bg};color:${s.fg};font-size:11px;font-weight:700">${s.label}</span>`;
+}
+async function pagosInit() {
+  const root = document.getElementById('pagos-root');
+  if (!root) return;
+  if (!PAGOS_STATE.filters.month) {
+    PAGOS_STATE.filters.month = new Date().toISOString().slice(0, 7);
+  }
+  pagosRender();
+  if (!PAGOS_STATE.loaded && !PAGOS_STATE.loading) await pagosLoad();
+}
+async function pagosLoad() {
+  PAGOS_STATE.loading = true; pagosRender();
+  try {
+    const r = await fetch(`${BACKEND}/lodgify-list`);
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error backend');
+    PAGOS_STATE.bookings = (j.bookings || []).filter(b => {
+      // Solo interesan reservas con algún movimiento monetario o total > 0.
+      const t = Number(b.TotalAmount) || 0;
+      const p = Number(b.AmountPaid) || 0;
+      return t > 0 || p !== 0;
+    });
+    PAGOS_STATE.loaded = true;
+  } catch (e) {
+    console.warn('[pagos] load error:', e.message);
+    PAGOS_STATE.bookings = [];
+  } finally {
+    PAGOS_STATE.loading = false;
+    pagosApplyFilters();
+    pagosRender();
+  }
+}
+function pagosApplyFilters() {
+  const f = PAGOS_STATE.filters;
+  PAGOS_STATE.filtered = PAGOS_STATE.bookings.filter(b => {
+    // Filtro mes: arrival dentro del mes YYYY-MM.
+    if (f.month) {
+      const arr = _pagosDateIso(b.DateArrival);
+      if (!arr.startsWith(f.month)) return false;
+    }
+    if (f.status && f.status !== 'todos') {
+      if (String(b.PaymentStatus || '') !== f.status) return false;
+    }
+    if (f.house) {
+      if (String(b.HouseId || '') !== String(f.house)) return false;
+    }
+    if (f.q) {
+      const hay = (String(b.GuestName||'') + ' ' + String(b.HouseName||'') + ' ' + String(b.Id||'')).toLowerCase();
+      if (!hay.includes(f.q.toLowerCase())) return false;
+    }
+    return true;
+  });
+}
+function pagosSetFilter(key, val) {
+  PAGOS_STATE.filters[key] = val;
+  pagosApplyFilters();
+  pagosRender();
+}
+function pagosRender() {
+  const root = document.getElementById('pagos-root');
+  if (!root) return;
+  const f = PAGOS_STATE.filters;
+  const rows = PAGOS_STATE.filtered;
+  // KPIs del subset filtrado
+  const kpi = { total: 0, cobrado: 0, pendiente: 0, reembolsos: 0, cur: 'MXN' };
+  rows.forEach(b => {
+    const t = Number(b.TotalAmount) || 0;
+    const p = Number(b.AmountPaid) || 0;
+    const d = Number(b.AmountDue) || 0;
+    kpi.total += t;
+    if (p > 0) kpi.cobrado += p;
+    if (p < 0) kpi.reembolsos += Math.abs(p);
+    if (d > 0) kpi.pendiente += d;
+    if (b.Currency) kpi.cur = b.Currency;
+  });
+  const kpiCard = (label, val, bg, fg) => `
+    <div style="flex:1;min-width:180px;background:${bg};border-radius:12px;padding:14px 16px">
+      <div style="font-size:11px;font-weight:700;color:${fg};text-transform:uppercase;letter-spacing:.5px;opacity:.75">${label}</div>
+      <div style="font-size:22px;font-weight:800;color:${fg};margin-top:4px">${_pagosFmt$(val, kpi.cur)}</div>
+    </div>`;
+  // Filtros
+  const houses = Array.from(new Map(PAGOS_STATE.bookings.map(b => [String(b.HouseId||''), b.HouseName || b.RoomTypeNames || `#${b.HouseId}`])).entries())
+    .filter(([id]) => id).sort((a,b) => String(a[1]).localeCompare(String(b[1])));
+  const statusOpts = ['todos','Pagada','Parcial','Sin pago','Reembolsada','Sin cargo'];
+  // Tabla
+  const rowHtml = rows.map(b => {
+    const arr = _pagosDateIso(b.DateArrival);
+    const dep = _pagosDateIso(b.DateDeparture);
+    const fechas = arr && dep ? `${arr.slice(5)} → ${dep.slice(5)}` : (arr || dep || '—');
+    const isSel = String(PAGOS_STATE.selectedId) === String(b.Id);
+    return `
+      <tr onclick="pagosSelect('${_pagosEsc(String(b.Id))}')" style="cursor:pointer;background:${isSel?'#eff6ff':'#fff'};border-bottom:1px solid #f1f5f9">
+        <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#1e40af">${_pagosEsc(b.Id)}</td>
+        <td style="padding:10px 8px;font-size:12px">${_pagosEsc(b.GuestName || '—')}</td>
+        <td style="padding:10px 8px;font-size:12px;color:#475569">${_pagosEsc(b.HouseName || b.RoomTypeNames || '—')}</td>
+        <td style="padding:10px 8px;font-size:11px;color:#64748b;white-space:nowrap">${fechas}</td>
+        <td style="padding:10px 8px;font-size:12px;text-align:right;font-weight:700">${_pagosFmt$(b.TotalAmount, b.Currency)}</td>
+        <td style="padding:10px 8px;font-size:12px;text-align:right;color:#166534;font-weight:700">${_pagosFmt$(b.AmountPaid, b.Currency)}</td>
+        <td style="padding:10px 8px;font-size:12px;text-align:right;color:${(Number(b.AmountDue)||0)>0?'#991b1b':'#64748b'};font-weight:700">${_pagosFmt$(b.AmountDue, b.Currency)}</td>
+        <td style="padding:10px 8px;text-align:center">${_pagosStatusChip(b.PaymentStatus)}</td>
+      </tr>`;
+  }).join('');
+  root.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="margin:0;font-size:20px;font-weight:800">💰 Pagos</h2>
+        <div style="font-size:12px;color:#64748b;margin-top:2px">Status de cobro por reserva — fuente: Lodgify (Stripe) sincronizado horariamente.</div>
+      </div>
+      <button onclick="pagosLoad()" style="padding:8px 14px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-size:12px;font-weight:700;cursor:pointer">🔄 Recargar</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      ${kpiCard('Facturado', kpi.total, '#f1f5f9', '#0f172a')}
+      ${kpiCard('Cobrado', kpi.cobrado, '#dcfce7', '#166534')}
+      ${kpiCard('Pendiente', kpi.pendiente, '#fee2e2', '#991b1b')}
+      ${kpiCard('Reembolsos', kpi.reembolsos, '#e0e7ff', '#3730a3')}
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center;background:#fff;padding:12px;border-radius:10px;border:1px solid #e2e8f0">
+      <label style="font-size:11px;font-weight:700;color:#475569">Mes
+        <input type="month" value="${f.month}" onchange="pagosSetFilter('month', this.value)" style="margin-left:6px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
+      </label>
+      <label style="font-size:11px;font-weight:700;color:#475569">Status
+        <select onchange="pagosSetFilter('status', this.value)" style="margin-left:6px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
+          ${statusOpts.map(s => `<option value="${s}" ${f.status===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </label>
+      <label style="font-size:11px;font-weight:700;color:#475569">Alojamiento
+        <select onchange="pagosSetFilter('house', this.value)" style="margin-left:6px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;min-width:180px">
+          <option value="">Todos</option>
+          ${houses.map(([id,name]) => `<option value="${_pagosEsc(id)}" ${f.house===id?'selected':''}>${_pagosEsc(name)}</option>`).join('')}
+        </select>
+      </label>
+      <input placeholder="Buscar huésped o Id…" value="${_pagosEsc(f.q)}" oninput="pagosSetFilter('q', this.value)" style="flex:1;min-width:200px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr ${PAGOS_STATE.selectedId?'380px':'0'};gap:14px">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+        ${PAGOS_STATE.loading ? `<div style="padding:40px;text-align:center;color:#64748b;font-size:13px">Cargando…</div>` : ''}
+        ${!PAGOS_STATE.loading && !rows.length ? `<div style="padding:40px;text-align:center;color:#64748b;font-size:13px">Sin reservas con actividad de pago en el filtro seleccionado.</div>` : ''}
+        ${rows.length ? `<div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-family:inherit">
+            <thead>
+              <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+                <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Reserva</th>
+                <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Huésped</th>
+                <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Alojamiento</th>
+                <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Fechas</th>
+                <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Total</th>
+                <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Pagado</th>
+                <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Saldo</th>
+                <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Status</th>
+              </tr>
+            </thead>
+            <tbody>${rowHtml}</tbody>
+          </table>
+        </div>` : ''}
+      </div>
+      ${PAGOS_STATE.selectedId ? pagosPanelHtml(PAGOS_STATE.selectedId) : ''}
+    </div>`;
+}
+function pagosSelect(id) {
+  PAGOS_STATE.selectedId = String(id);
+  pagosRender();
+}
+function pagosClosePanel() {
+  PAGOS_STATE.selectedId = null;
+  pagosRender();
+}
+function pagosPanelHtml(id) {
+  const b = PAGOS_STATE.bookings.find(x => String(x.Id) === String(id));
+  if (!b) return '';
+  let tx = [];
+  try { tx = JSON.parse(b.TransactionsJSON || '[]') || []; } catch(_) {}
+  // Timeline ordenada de más reciente a más vieja
+  tx.sort((a,b) => String(b.processed_at||'').localeCompare(String(a.processed_at||'')));
+  const txHtml = tx.length ? tx.map(t => {
+    const isRefund = t.type === 'Refund' || (Number(t.amount)||0) < 0;
+    const ok = t.status === 'Done';
+    const failed = t.status === 'Failed';
+    const dotColor = failed ? '#dc2626' : (isRefund ? '#6366f1' : (ok ? '#16a34a' : '#f59e0b'));
+    return `
+      <div style="display:flex;gap:10px;padding:10px 12px;border-bottom:1px solid #f1f5f9">
+        <div style="width:8px;height:8px;border-radius:50%;background:${dotColor};margin-top:6px;flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;gap:8px">
+            <span style="font-size:12px;font-weight:700;color:${isRefund?'#3730a3':'#166534'}">${isRefund?'Reembolso':'Pago'} ${failed?'· FALLIDO':(ok?'':`· ${_pagosEsc(t.status)}`)}</span>
+            <span style="font-size:12px;font-weight:800">${_pagosFmt$(t.amount, b.Currency)}</span>
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">${_pagosEsc(t.payment_type || '—')} · ${_pagosEsc(String(t.processed_at||'').slice(0,16).replace('T',' '))}</div>
+          ${t.description ? `<div style="font-size:11px;color:#475569;margin-top:3px">${_pagosEsc(t.description)}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('') : `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin transacciones registradas.</div>`;
+  return `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;height:fit-content;position:sticky;top:12px">
+      <div style="padding:12px 14px;background:#0f172a;color:#fff;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;opacity:.7;font-weight:600">Reserva ${_pagosEsc(b.Id)}</div>
+          <div style="font-size:14px;font-weight:700;margin-top:2px">${_pagosEsc(b.GuestName || '—')}</div>
+        </div>
+        <button onclick="pagosClosePanel()" style="background:transparent;border:0;color:#fff;font-size:20px;cursor:pointer;opacity:.7">×</button>
+      </div>
+      <div style="padding:14px;border-bottom:1px solid #e2e8f0">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px">
+          <div><span style="color:#64748b">Total</span><div style="font-weight:800;font-size:14px">${_pagosFmt$(b.TotalAmount, b.Currency)}</div></div>
+          <div><span style="color:#64748b">Pagado</span><div style="font-weight:800;font-size:14px;color:#166534">${_pagosFmt$(b.AmountPaid, b.Currency)}</div></div>
+          <div><span style="color:#64748b">Saldo</span><div style="font-weight:800;font-size:14px;color:${(Number(b.AmountDue)||0)>0?'#991b1b':'#64748b'}">${_pagosFmt$(b.AmountDue, b.Currency)}</div></div>
+          <div><span style="color:#64748b">Status</span><div style="margin-top:2px">${_pagosStatusChip(b.PaymentStatus)}</div></div>
+        </div>
+      </div>
+      ${b.PaymentPolicy ? `<div style="padding:10px 14px;background:#fefce8;border-bottom:1px solid #e2e8f0;font-size:11px;color:#713f12;white-space:pre-wrap">📋 <b>Política:</b>\n${_pagosEsc(b.PaymentPolicy)}</div>` : ''}
+      <div style="padding:8px 0">
+        <div style="font-size:11px;font-weight:700;color:#475569;padding:4px 14px;text-transform:uppercase;letter-spacing:.5px">Transacciones</div>
+        ${txHtml}
+      </div>
+    </div>`;
+}
+window.pagosInit = pagosInit;
+window.pagosLoad = pagosLoad;
+window.pagosSetFilter = pagosSetFilter;
+window.pagosSelect = pagosSelect;
+window.pagosClosePanel = pagosClosePanel;

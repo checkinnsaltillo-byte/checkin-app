@@ -176,6 +176,10 @@
             onclick="switchModule('lodgify');closeNavMenu()">
           🌐 Gestión de reservas
         </li>
+        <li class="nav-item" id="nav-item-pagos"
+            onclick="switchModule('pagos');closeNavMenu()">
+          💰 Pagos
+        </li>
         <!-- "Reservas - detalles" oculto temporalmente -->
         <li class="nav-item hidden" id="nav-item-reservas-detalles"
             onclick="switchModule('reservas-detalles');closeNavMenu()">
@@ -318,6 +322,14 @@
             <div class="home-card-body">
               <h3 class="home-card-title">Gestión de reservas</h3>
               <p class="home-card-desc">Reservaciones Lodgify, huéspedes, facturación y cobros.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-pagos" onclick="switchModule('pagos')">
+            <div class="home-card-icon">💰</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Pagos</h3>
+              <p class="home-card-desc">Status de cobros por reserva (Stripe/manual): pagado, pendiente, parcial, reembolsos.</p>
             </div>
             <div class="home-card-arrow">→</div>
           </button>
@@ -1555,6 +1567,10 @@
     </div><!-- /module-huespedes -->
 
     <!-- ───────── Módulo: Reservas Lodgify ───────── -->
+    <div id="module-pagos" class="hidden">
+      <div id="pagos-root" style="max-width:1400px;margin:0 auto"></div>
+    </div>
+
     <div id="module-lodgify" class="hidden">
       <div class="db-top-bar" style="margin-bottom:14px">
         <div class="db-top-left">
@@ -2829,6 +2845,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1026"></script>
+  <script src="app.js?v=1027"></script>
 </body>
 </html>
