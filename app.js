@@ -14764,8 +14764,19 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
           const coChip = coHead
             ? `<span title="${esc('Check-out registrado' + (coHead['Comentarios'] ? ' · ' + String(coHead['Comentarios']) : ''))}" style="display:inline-block;padding:1px 7px;border-radius:999px;background:#dc2626;color:#fff;font-weight:800;font-size:9px;letter-spacing:.04em">🚪 Check-out</span>`
             : '';
-          if (!progDot && !coChip) return '';
-          return `<span style="margin-left:auto;display:inline-flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:9px;letter-spacing:.04em;text-transform:uppercase">${progDot}${coChip}</span>`;
+          // Chip de status de pago (Pagada/Sin pago/Parcial/etc.) — se
+          // muestra debajo del chip de programación. Al click abre el
+          // drawer con desglose (mismo que módulo Pagos).
+          let payChip = '';
+          try {
+            if (typeof _botcPaymentChip === 'function') {
+              const ph = String(b.GuestPhone || '');
+              const chip = _botcPaymentChip(b);
+              if (chip) payChip = `<span onclick="event.stopPropagation();_botcOpenPaymentDrawer('${esc(ph)}')" title="Ver desglose de pago" style="cursor:pointer">${chip}</span>`;
+            }
+          } catch(_){}
+          if (!progDot && !coChip && !payChip) return '';
+          return `<span style="margin-left:auto;display:inline-flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:9px;letter-spacing:.04em;text-transform:uppercase">${progDot}${coChip}${payChip}</span>`;
         })()}
       </div>
       <!-- Chips Aseo + Asignaciones se inyectan por bzwInjectSidebarChips
@@ -42858,12 +42869,8 @@ function _botcRenderSidebar() {
     const waitChip = isPendingReply
       ? '<span style="display:inline-block;font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:99px;border:1px solid #fde68a;margin-right:6px;vertical-align:middle;letter-spacing:.03em">⏳ ESPERA RESPUESTA</span>'
       : '';
-    // Chip de status de pago (Pagada/Sin pago/etc.) para la card. Se
-    // muestra solo si hay reserva asociada y podemos derivar status.
-    const payChip = bk ? _botcPaymentChip(bk) : '';
-    const payChipWrap = payChip
-      ? `<span style="display:inline-block;margin-right:6px;vertical-align:middle" onclick="event.stopPropagation();_botcOpenPaymentDrawer('${_botcEsc(c.phone)}')" title="Ver desglose de pago">${payChip}</span>`
-      : '';
+    // Nota: el chip de status de pago vive dentro de lgBuildDetailSidebarItem
+    // (junto al chip de programación en la esquina superior derecha).
     // Footer gris por default; rojo claro cuando hay "espera respuesta"
     // para que la conversación pendiente sea imposible de perder de vista.
     const footerBg = isPendingReply ? '#fee2e2' : '#f1f5f9';
@@ -42876,7 +42883,7 @@ function _botcRenderSidebar() {
             <span style="font-size:10px;color:#94a3b8">💬 ${_botcFmtTime(c.last_msg_at)}</span>
           </div>
         </div>
-        <div style="font-size:11px;color:#64748b;margin-top:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${waitChip}${payChipWrap}${_botcEsc(c.last_msg_preview)}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${waitChip}${_botcEsc(c.last_msg_preview)}</div>
       </div>`;
     // La card rich viene con su propio borde/sombra/radius. Al meterla dentro
     // del wrapper aplicamos CSS que la aplana para que meta y rich lean como
