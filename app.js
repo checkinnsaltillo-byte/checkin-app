@@ -42943,8 +42943,8 @@ function _botcRenderSidebar() {
       return `
         <div style="display:flex;flex-direction:column;gap:0;margin-top:8px">
           <button type="button" onclick="botcToggleCat_('${cat.key}')"
-            style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:transparent;border:0;border-bottom:3px solid ${cat.accent};margin:0 10px;cursor:pointer;text-align:left;font-family:inherit;transition:background .15s"
-            onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+            style="position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#fff;border:0;border-bottom:3px solid ${cat.accent};margin:0;cursor:pointer;text-align:left;font-family:inherit;box-shadow:0 2px 4px -2px rgba(15,23,42,.08)"
+            onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#fff'">
             <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
               <span style="font-size:11px;color:${cat.color};font-weight:900;letter-spacing:.06em;text-transform:uppercase">${cat.label}</span>
               ${pendBadge}
