@@ -47212,11 +47212,18 @@ async function pagosLoad() {
     const r = await fetch(`${BACKEND}/lodgify-list`);
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error backend');
+    // Excluir solo canceladas/declined. Reservas OTA (Airbnb/Booking) suelen
+    // llegar con TotalAmount=0 porque el pago lo procesa el OTA, no Lodgify —
+    // aun así son válidas y se marcan como "Sin cargo" para transparencia.
     PAGOS_STATE.bookings = (j.bookings || []).filter(b => {
-      // Solo interesan reservas con algún movimiento monetario o total > 0.
-      const t = Number(b.TotalAmount) || 0;
-      const p = Number(b.AmountPaid) || 0;
-      return t > 0 || p !== 0;
+      const st = String(b.Status || '').toLowerCase();
+      if (st === 'declined' || st === 'cancelled' || st === 'deleted') {
+        // Solo excluir declined si además nunca hubo pago (para no perder
+        // rastro de reservas canceladas con reembolso).
+        const p = Number(b.AmountPaid) || 0;
+        if (p === 0) return false;
+      }
+      return true;
     });
     PAGOS_STATE.loaded = true;
   } catch (e) {
