@@ -47277,15 +47277,19 @@ async function pagosInit() {
 async function pagosLoad() {
   PAGOS_STATE.loading = true; pagosRender();
   try {
-    // Asegura el catálogo de alojamientos cargado (necesario para resolver
-    // HouseId → nombre — en Lodgify_bookings HouseName suele venir vacío).
+    // Alojamientos: rápido, sí esperar (necesario para columna Alojamiento).
     if (typeof lgLoadAlojamientos === 'function') {
       try { await lgLoadAlojamientos(); } catch(_) {}
     }
-    // Asegura HU_STATE (huéspedes/reservaciones) + matches Lodgify↔HU —
-    // necesario para razón social, ¿requiere factura?, celular manual.
-    if (typeof lgEnsureHuespedesAndMatch === 'function') {
-      try { await lgEnsureHuespedesAndMatch(); } catch(_) {}
+    // Huéspedes/matches: LENTO (10k+ filas). Dispara en background y
+    // re-renderiza cuando llegue — la tabla aparece de inmediato con
+    // Razón social/Factura vacíos y se llenan a los pocos segundos.
+    if (typeof lgEnsureHuespedesAndMatch === 'function' && !PAGOS_STATE._huScheduled) {
+      PAGOS_STATE._huScheduled = true;
+      lgEnsureHuespedesAndMatch().then(() => {
+        // Solo re-render si aún estamos en el módulo Pagos.
+        if (document.getElementById('pagos-root')) pagosRender();
+      }).catch(() => {});
     }
     const r = await fetch(`${BACKEND}/lodgify-list`);
     const j = await r.json();
