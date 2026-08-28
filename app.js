@@ -42528,18 +42528,37 @@ window.__botcBookingSig = window.__botcBookingSig || {};
 // deposita TotalAmount, AmountPaid, AmountDue, PaymentStatus, TransactionsJSON).
 function _botcEnrichPaymentFields(bk) {
   if (!bk) return null;
-  // Match por Id de Lodgify (LodgifyId en sintéticos, Id en bookings raw).
+  // Match múltiple contra LG_STATE.bookings:
+  //  1) Por LodgifyId/Id directo.
+  //  2) Fallback: phone10 + fechas (arrival+departure) — cubre bookings
+  //     sintéticos de HU_STATE cuyo Id local no matchea Lodgify.
   const id = String(bk.LodgifyId || bk.Id || '').trim();
   let src = null;
-  if (id && typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) {
-    src = LG_STATE.bookings.find(x => String(x.Id) === id || String(x.LodgifyId) === id) || null;
+  if (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) {
+    if (id) src = LG_STATE.bookings.find(x => String(x.Id) === id || String(x.LodgifyId) === id) || null;
+    if (!src) {
+      const p10 = String(bk.GuestPhone || '').replace(/\D/g, '').slice(-10);
+      const norm = v => { const s = String(v||''); const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`; const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m2 ? `${m2[3]}-${String(m2[1]).padStart(2,'0')}-${String(m2[2]).padStart(2,'0')}` : ''; };
+      const arr = norm(bk.DateArrival), dep = norm(bk.DateDeparture);
+      if (p10 && arr && dep) {
+        src = LG_STATE.bookings.find(x => {
+          const xp = String(x.GuestPhone||'').replace(/\D/g,'').slice(-10);
+          return xp === p10 && norm(x.DateArrival) === arr && norm(x.DateDeparture) === dep;
+        }) || null;
+      }
+    }
   }
   const merged = src ? Object.assign({}, bk, {
+    Id: bk.Id || src.Id,
+    LodgifyId: bk.LodgifyId || src.LodgifyId || src.Id,
     TotalAmount: src.TotalAmount, AmountPaid: src.AmountPaid, AmountDue: src.AmountDue,
     PaymentStatus: src.PaymentStatus, PaymentPolicy: src.PaymentPolicy,
     TransactionsJSON: src.TransactionsJSON, Currency: bk.Currency || src.Currency,
     GrossTotal: bk.GrossTotal || src.GrossTotal, Source: bk.Source || src.Source,
     GuestPhone: bk.GuestPhone || src.GuestPhone,
+    GuestName: bk.GuestName || src.GuestName,
+    DateArrival: bk.DateArrival || src.DateArrival,
+    DateDeparture: bk.DateDeparture || src.DateDeparture,
     HouseName: bk.HouseName || src.HouseName, HouseId: bk.HouseId || src.HouseId,
   }) : Object.assign({}, bk);
   // Airbnb: pago fuera de Lodgify → asumir Pagada al 100%.
@@ -42557,7 +42576,11 @@ function _botcPaymentChip(bk) {
 }
 window._botcOpenPaymentDrawer = async function(phone) {
   const bk = _botcGetBookingForPhoneSync(phone);
-  if (!bk || !bk.Id) { alert('Sin reserva asociada a este número.'); return; }
+  if (!bk) { alert('Sin reserva asociada a este número.'); return; }
+  // Enriquece PRIMERO (resuelve Lodgify Id vía phone+fechas si el bk es sintético).
+  const preMerged = _botcEnrichPaymentFields(bk);
+  const lodId = String((preMerged && (preMerged.LodgifyId || preMerged.Id)) || '').trim();
+  if (!lodId) { alert('Sin reserva Lodgify asociada.'); return; }
   if (String(BOTC_STATE.selectedPhone) !== String(phone)) {
     try { botcOpenChat(phone); } catch(_){}
   }
@@ -42580,17 +42603,17 @@ window._botcOpenPaymentDrawer = async function(phone) {
   drawer.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Cargando…</div>`;
   let full = null;
   try {
-    const id = String(bk.LodgifyId || bk.Id);
     if (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) {
-      full = LG_STATE.bookings.find(x => String(x.Id) === id || String(x.LodgifyId) === id) || null;
+      full = LG_STATE.bookings.find(x => String(x.Id) === lodId || String(x.LodgifyId) === lodId) || null;
     }
     if (!full) {
       const r = await fetch(`${BACKEND}/lodgify-list`);
       const j = await r.json();
-      full = (j.bookings || []).find(x => String(x.Id) === id || String(x.LodgifyId) === id) || null;
+      full = (j.bookings || []).find(x => String(x.Id) === lodId || String(x.LodgifyId) === lodId) || null;
     }
   } catch(_) {}
-  const merged = _botcEnrichPaymentFields(full || bk);
+  const merged = _botcEnrichPaymentFields(full || preMerged);
+  if (!merged.Id) merged.Id = lodId;
   if (typeof PAGOS_STATE === 'object') {
     PAGOS_STATE.bookings = PAGOS_STATE.bookings || [];
     const i = PAGOS_STATE.bookings.findIndex(x => String(x.Id) === String(merged.Id));
