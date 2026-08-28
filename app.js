@@ -43316,9 +43316,18 @@ function _botcRenderMain(phone) {
     const rowStyle = `display:flex;justify-content:${align};margin-bottom:8px;align-items:center;${selMode?'cursor:pointer':''}`;
     const clickAttr = selMode ? `onclick="botcMsgToggle_(${idx})"` : '';
     const highlight = selMode && checked ? 'box-shadow:0 0 0 2px #3b82f6;' : '';
+    // Media inline: si el mensaje trae imagen (meta.media_url + media_type
+    // image), pintamos <img> con proxy backend (Twilio requiere basic auth).
+    let mediaHtml = '';
+    const meta = m.meta || {};
+    if (meta.media_url && /image/.test(String(meta.media_type || ''))) {
+      const proxied = `${BACKEND}/wa/media?url=${encodeURIComponent(String(meta.media_url))}`;
+      mediaHtml = `<div style="margin-top:6px"><a href="${proxied}" target="_blank" rel="noopener"><img src="${proxied}" style="max-width:260px;max-height:260px;border-radius:8px;display:block;object-fit:contain;background:#f1f5f9" loading="lazy"></a></div>`;
+    }
     const inner = `<div style="max-width:70%;padding:8px 12px;background:${bg};border:1px solid ${border};border-radius:10px;${highlight}">
           <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:3px">${label} · ${_botcFmtDateTime(m.timestamp)}</div>
           <div style="font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4">${_botcEsc(m.body)}</div>
+          ${mediaHtml}
         </div>`;
     return `<div style="${rowStyle}" ${clickAttr}>${isUser ? cbHtml + inner : inner + cbHtml}</div>`;
   }).join('') : '<div style="text-align:center;color:#94a3b8;font-size:12px;padding:40px">Sin mensajes previos.</div>';
