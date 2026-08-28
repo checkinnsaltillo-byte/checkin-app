@@ -47186,6 +47186,41 @@ function _pagosDateIso(s) {
   if (m) return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
   return '';
 }
+function _pagosAlojName(b) {
+  // Prioridad: HouseName del booking → catálogo ALOJ_STATE por HouseId →
+  // RoomTypeNames → HouseId literal.
+  const direct = String(b.HouseName || '').trim();
+  if (direct) return direct;
+  const hid = String(b.HouseId || '').trim();
+  if (hid && typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.byHouseId) {
+    const row = ALOJ_STATE.byHouseId.get(hid);
+    if (row) {
+      const prop = String(row.Propiedad || row.HouseName || '').trim();
+      const dep  = String(row['# Departamento'] || row.Departamento || '').trim();
+      if (prop) return prop + (dep ? ` #${dep}` : '');
+    }
+  }
+  const rt = String(b.RoomTypeNames || '').trim();
+  if (rt) return rt;
+  return hid ? `HouseId ${hid}` : '—';
+}
+function _pagosSourceChip(source) {
+  const s = String(source || '').trim();
+  const key = s.toLowerCase();
+  const map = {
+    'airbnb':     { bg:'#fee2e2', fg:'#991b1b', icon:'🅰️' },
+    'booking':    { bg:'#dbeafe', fg:'#1e3a8a', icon:'🅱️' },
+    'booking.com':{ bg:'#dbeafe', fg:'#1e3a8a', icon:'🅱️' },
+    'vrbo':       { bg:'#fef3c7', fg:'#92400e', icon:'🏠' },
+    'expedia':    { bg:'#e0e7ff', fg:'#3730a3', icon:'✈️' },
+    'direct':     { bg:'#dcfce7', fg:'#166534', icon:'🌐' },
+    'manual':     { bg:'#f3e8ff', fg:'#6b21a8', icon:'✍️' },
+    'lodgify':    { bg:'#f1f5f9', fg:'#475569', icon:'📋' },
+  };
+  const spec = map[key] || { bg:'#f1f5f9', fg:'#475569', icon:'•' };
+  const label = s || '—';
+  return `<span style="display:inline-block;padding:3px 8px;border-radius:999px;background:${spec.bg};color:${spec.fg};font-size:11px;font-weight:700;white-space:nowrap">${spec.icon} ${label}</span>`;
+}
 function _pagosStatusChip(status) {
   const map = {
     'Pagada':      { bg:'#dcfce7', fg:'#166534', label:'Pagada' },
@@ -47209,6 +47244,11 @@ async function pagosInit() {
 async function pagosLoad() {
   PAGOS_STATE.loading = true; pagosRender();
   try {
+    // Asegura el catálogo de alojamientos cargado (necesario para resolver
+    // HouseId → nombre — en Lodgify_bookings HouseName suele venir vacío).
+    if (typeof lgLoadAlojamientos === 'function') {
+      try { await lgLoadAlojamientos(); } catch(_) {}
+    }
     const r = await fetch(`${BACKEND}/lodgify-list`);
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error backend');
@@ -47284,7 +47324,7 @@ function pagosRender() {
       <div style="font-size:22px;font-weight:800;color:${fg};margin-top:4px">${_pagosFmt$(val, kpi.cur)}</div>
     </div>`;
   // Filtros
-  const houses = Array.from(new Map(PAGOS_STATE.bookings.map(b => [String(b.HouseId||''), b.HouseName || b.RoomTypeNames || `#${b.HouseId}`])).entries())
+  const houses = Array.from(new Map(PAGOS_STATE.bookings.map(b => [String(b.HouseId||''), _pagosAlojName(b)])).entries())
     .filter(([id]) => id).sort((a,b) => String(a[1]).localeCompare(String(b[1])));
   const statusOpts = ['todos','Pagada','Parcial','Sin pago','Reembolsada','Sin cargo'];
   // Tabla
@@ -47297,7 +47337,8 @@ function pagosRender() {
       <tr onclick="pagosSelect('${_pagosEsc(String(b.Id))}')" style="cursor:pointer;background:${isSel?'#eff6ff':'#fff'};border-bottom:1px solid #f1f5f9">
         <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#1e40af">${_pagosEsc(b.Id)}</td>
         <td style="padding:10px 8px;font-size:12px">${_pagosEsc(b.GuestName || '—')}</td>
-        <td style="padding:10px 8px;font-size:12px;color:#475569">${_pagosEsc(b.HouseName || b.RoomTypeNames || '—')}</td>
+        <td style="padding:10px 8px;font-size:12px;color:#475569">${_pagosEsc(_pagosAlojName(b))}</td>
+        <td style="padding:10px 8px">${_pagosSourceChip(b.Source)}</td>
         <td style="padding:10px 8px;font-size:11px;color:#64748b;white-space:nowrap">${fechas}</td>
         <td style="padding:10px 8px;font-size:12px;text-align:right;font-weight:700">${_pagosFmt$(b.TotalAmount, b.Currency)}</td>
         <td style="padding:10px 8px;font-size:12px;text-align:right;color:#166534;font-weight:700">${_pagosFmt$(b.AmountPaid, b.Currency)}</td>
@@ -47347,6 +47388,7 @@ function pagosRender() {
                 <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Reserva</th>
                 <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Huésped</th>
                 <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Alojamiento</th>
+                <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Medio</th>
                 <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Fechas</th>
                 <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Total</th>
                 <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Pagado</th>
