@@ -42511,6 +42511,77 @@ function _botcDataSig(phoneRaw) {
 }
 window.__botcBookingSig = window.__botcBookingSig || {};
 
+// ─── Estado de pago para botc (chip + drawer) ─────────────────────────────
+// Reutiliza la lógica del módulo Pagos. Enriquece un booking sintético con
+// los campos de pago consultando LG_STATE.bookings por Id (donde /lodgify-list
+// deposita TotalAmount, AmountPaid, AmountDue, PaymentStatus, TransactionsJSON).
+function _botcEnrichPaymentFields(bk) {
+  if (!bk) return null;
+  // Match por Id de Lodgify (LodgifyId en sintéticos, Id en bookings raw).
+  const id = String(bk.LodgifyId || bk.Id || '').trim();
+  let src = null;
+  if (id && typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) {
+    src = LG_STATE.bookings.find(x => String(x.Id) === id || String(x.LodgifyId) === id) || null;
+  }
+  const merged = src ? Object.assign({}, bk, {
+    TotalAmount: src.TotalAmount, AmountPaid: src.AmountPaid, AmountDue: src.AmountDue,
+    PaymentStatus: src.PaymentStatus, PaymentPolicy: src.PaymentPolicy,
+    TransactionsJSON: src.TransactionsJSON, Currency: bk.Currency || src.Currency,
+    GrossTotal: bk.GrossTotal || src.GrossTotal, Source: bk.Source || src.Source,
+    GuestPhone: bk.GuestPhone || src.GuestPhone,
+    HouseName: bk.HouseName || src.HouseName, HouseId: bk.HouseId || src.HouseId,
+  }) : Object.assign({}, bk);
+  // Airbnb: pago fuera de Lodgify → asumir Pagada al 100%.
+  if (String(merged.Source || '').toLowerCase() === 'airbnb') {
+    const t = Number(merged.TotalAmount) || Number(merged.GrossTotal) || 0;
+    merged.TotalAmount = t; merged.AmountPaid = t; merged.AmountDue = 0;
+    merged.PaymentStatus = t > 0 ? 'Pagada' : 'Sin cargo';
+  }
+  return merged;
+}
+function _botcPaymentChip(bk) {
+  const b = _botcEnrichPaymentFields(bk);
+  if (!b || !b.PaymentStatus) return '';
+  return _pagosStatusChip(b.PaymentStatus);
+}
+window._botcOpenPaymentDrawer = async function(phone) {
+  const bk = _botcGetBookingForPhoneSync(phone);
+  if (!bk || !bk.Id) { alert('Sin reserva asociada a este número.'); return; }
+  // Crea/muestra drawer con loading
+  let drawer = document.getElementById('botc-payment-drawer');
+  if (!drawer) {
+    drawer = document.createElement('div');
+    drawer.id = 'botc-payment-drawer';
+    drawer.style.cssText = 'position:fixed;top:0;right:0;height:100vh;width:min(420px,92vw);background:#f8fafc;border-left:1px solid #e2e8f0;box-shadow:-8px 0 24px rgba(15,23,42,.16);z-index:99999;overflow-y:auto;padding:12px';
+    document.body.appendChild(drawer);
+  }
+  const closeBtn = `<button type="button" onclick="document.getElementById('botc-payment-drawer').remove()" style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:4px 10px;font-size:16px;line-height:1;cursor:pointer;color:#475569">×</button>`;
+  drawer.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:13px;font-weight:800;color:#0f172a">💳 Estado de pago</div>${closeBtn}</div><div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Cargando…</div>`;
+  // Asegura data completa: si LG_STATE aún no tiene la reserva, fetch a
+  // /lodgify-list para conseguir TotalAmount/AmountPaid/TransactionsJSON.
+  let full = null;
+  try {
+    const id = String(bk.LodgifyId || bk.Id);
+    if (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) {
+      full = LG_STATE.bookings.find(x => String(x.Id) === id || String(x.LodgifyId) === id) || null;
+    }
+    if (!full) {
+      const r = await fetch(`${BACKEND}/lodgify-list`);
+      const j = await r.json();
+      full = (j.bookings || []).find(x => String(x.Id) === id || String(x.LodgifyId) === id) || null;
+    }
+  } catch(_) {}
+  const merged = _botcEnrichPaymentFields(full || bk);
+  if (typeof PAGOS_STATE === 'object') {
+    PAGOS_STATE.bookings = PAGOS_STATE.bookings || [];
+    const i = PAGOS_STATE.bookings.findIndex(x => String(x.Id) === String(merged.Id));
+    if (i >= 0) PAGOS_STATE.bookings[i] = merged;
+    else PAGOS_STATE.bookings.push(merged);
+  }
+  const panelHtml = (typeof pagosPanelHtml === 'function') ? pagosPanelHtml(merged.Id) : '';
+  drawer.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:13px;font-weight:800;color:#0f172a">💳 Estado de pago</div>${closeBtn}</div>${panelHtml || '<div style="padding:20px;text-align:center;color:#94a3b8">Sin datos.</div>'}`;
+};
+
 function _botcGetBookingForPhoneSync(phoneRaw) {
   // Sync — solo funciona si HU_STATE o LG_STATE ya están cargados. Si no,
   // retorna undefined (distinto de null) para que el render sepa "aún no
@@ -42787,6 +42858,12 @@ function _botcRenderSidebar() {
     const waitChip = isPendingReply
       ? '<span style="display:inline-block;font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:99px;border:1px solid #fde68a;margin-right:6px;vertical-align:middle;letter-spacing:.03em">⏳ ESPERA RESPUESTA</span>'
       : '';
+    // Chip de status de pago (Pagada/Sin pago/etc.) para la card. Se
+    // muestra solo si hay reserva asociada y podemos derivar status.
+    const payChip = bk ? _botcPaymentChip(bk) : '';
+    const payChipWrap = payChip
+      ? `<span style="display:inline-block;margin-right:6px;vertical-align:middle" onclick="event.stopPropagation();_botcOpenPaymentDrawer('${_botcEsc(c.phone)}')" title="Ver desglose de pago">${payChip}</span>`
+      : '';
     // Footer gris por default; rojo claro cuando hay "espera respuesta"
     // para que la conversación pendiente sea imposible de perder de vista.
     const footerBg = isPendingReply ? '#fee2e2' : '#f1f5f9';
@@ -42799,7 +42876,7 @@ function _botcRenderSidebar() {
             <span style="font-size:10px;color:#94a3b8">💬 ${_botcFmtTime(c.last_msg_at)}</span>
           </div>
         </div>
-        <div style="font-size:11px;color:#64748b;margin-top:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${waitChip}${_botcEsc(c.last_msg_preview)}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${waitChip}${payChipWrap}${_botcEsc(c.last_msg_preview)}</div>
       </div>`;
     // La card rich viene con su propio borde/sombra/radius. Al meterla dentro
     // del wrapper aplicamos CSS que la aplana para que meta y rich lean como
@@ -43220,6 +43297,7 @@ function _botcRenderMain(phone) {
               <div class="botc-hmenu-label">Ver</div>
               <button type="button" class="botc-hmenu-item" onclick="botcOpenSummary();botcCloseHeaderMenu_()">🧠 Resumen sintético</button>
               <button type="button" class="botc-hmenu-item" onclick="botcToggleRightPanel();botcCloseHeaderMenu_()">📖 Bitácora completa</button>
+              <button type="button" class="botc-hmenu-item" onclick="_botcOpenPaymentDrawer('${_botcEsc(phone)}');botcCloseHeaderMenu_()" style="display:flex;align-items:center;gap:8px">💳 Estado de pago ${_botcPaymentChip(_botcGetBookingForPhoneSync(phone)) || ''}</button>
             </div>
           </div>
         </div>
