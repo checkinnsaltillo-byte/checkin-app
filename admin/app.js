@@ -47296,15 +47296,29 @@ function _pagosSourceChip(source) {
   return `<span style="display:inline-block;padding:3px 8px;border-radius:999px;background:${spec.bg};color:${spec.fg};font-size:11px;font-weight:700;white-space:nowrap">${spec.icon} ${label}</span>`;
 }
 function _pagosStatusChip(status) {
+  // Pagada y Sin pago son los estados MÁS accionables → estilo "sello"
+  // (borde grueso, ícono, tipografía en caps, sombra) para saltar a la
+  // vista. Los demás quedan como chip normal.
+  if (status === 'Pagada') {
+    return `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border:2px solid #16a34a;color:#166534;background:linear-gradient(180deg,#dcfce7 0%,#bbf7d0 100%);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;border-radius:6px;box-shadow:0 1px 2px rgba(22,101,52,.15)">✓ Pagada</span>`;
+  }
+  if (status === 'Sin pago') {
+    return `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border:2px solid #dc2626;color:#7f1d1d;background:linear-gradient(180deg,#fee2e2 0%,#fecaca 100%);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1px;border-radius:6px;box-shadow:0 1px 2px rgba(220,38,38,.2);animation:pagosPulse 2.2s ease-in-out infinite">⚠ Sin pago</span>`;
+  }
   const map = {
-    'Pagada':      { bg:'#dcfce7', fg:'#166534', label:'Pagada' },
     'Parcial':     { bg:'#fef3c7', fg:'#92400e', label:'Parcial' },
-    'Sin pago':    { bg:'#fee2e2', fg:'#991b1b', label:'Sin pago' },
     'Reembolsada': { bg:'#e0e7ff', fg:'#3730a3', label:'Reembolsada' },
     'Sin cargo':   { bg:'#f1f5f9', fg:'#475569', label:'Sin cargo' },
   };
   const s = map[status] || { bg:'#f1f5f9', fg:'#475569', label: status || '—' };
   return `<span style="display:inline-block;padding:3px 8px;border-radius:999px;background:${s.bg};color:${s.fg};font-size:11px;font-weight:700">${s.label}</span>`;
+}
+// Anima el badge "Sin pago" — 1 sola inyección.
+if (typeof window !== 'undefined' && !document.getElementById('pagos-pulse-style')) {
+  const st = document.createElement('style');
+  st.id = 'pagos-pulse-style';
+  st.textContent = `@keyframes pagosPulse{0%,100%{box-shadow:0 1px 2px rgba(220,38,38,.2)}50%{box-shadow:0 0 0 4px rgba(220,38,38,.15)}}`;
+  document.head.appendChild(st);
 }
 async function pagosInit() {
   const root = document.getElementById('pagos-root');
