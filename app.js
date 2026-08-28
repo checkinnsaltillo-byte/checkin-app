@@ -47300,10 +47300,10 @@ function _pagosStatusChip(status) {
   // (borde grueso, ícono, tipografía en caps, sombra) para saltar a la
   // vista. Los demás quedan como chip normal.
   if (status === 'Pagada') {
-    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:2px solid #16a34a;color:#166534;background:linear-gradient(180deg,#dcfce7 0%,#bbf7d0 100%);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;border-radius:5px;white-space:nowrap;box-shadow:0 1px 2px rgba(22,101,52,.15)">✓ Pagada</span>`;
+    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border:1px solid #14532d;color:#fff;background:linear-gradient(180deg,#16a34a 0%,#15803d 100%);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;border-radius:5px;white-space:nowrap;box-shadow:0 1px 2px rgba(20,83,45,.3)">✓ Pagada</span>`;
   }
   if (status === 'Sin pago') {
-    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:2px solid #dc2626;color:#7f1d1d;background:linear-gradient(180deg,#fee2e2 0%,#fecaca 100%);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;border-radius:5px;white-space:nowrap;box-shadow:0 1px 2px rgba(220,38,38,.2);animation:pagosPulse 2.2s ease-in-out infinite">⚠ Sin pago</span>`;
+    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border:1px solid #7f1d1d;color:#fff;background:linear-gradient(180deg,#dc2626 0%,#b91c1c 100%);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;border-radius:5px;white-space:nowrap;box-shadow:0 1px 2px rgba(127,29,29,.35);animation:pagosPulse 2.2s ease-in-out infinite">⚠ Sin pago</span>`;
   }
   const map = {
     'Parcial':     { bg:'#fef3c7', fg:'#92400e', label:'Parcial' },
