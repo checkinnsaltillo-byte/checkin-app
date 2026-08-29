@@ -37754,7 +37754,24 @@ function _waFindRelatedBookings(currentB) {
       else huRows = huRows.concat(window.__waExtraHuRowsByPhone[currPh]);
     }
   } catch(_){}
-  const currentPhone = String(currentB && (currentB.GuestPhone || currentB['Cel/Whatsapp (principal)'] || currentB['Celular principal'] || '')).replace(/\D/g,'').slice(-10);
+  const guestPhoneFromBk = String(currentB && (currentB.GuestPhone || currentB['Cel/Whatsapp (principal)'] || currentB['Celular principal'] || '')).replace(/\D/g,'').slice(-10);
+  // Cuando el modal se abre desde una conversación WA (Chats bot / Bitácora),
+  // la conversación puede pertenecer a un teléfono DISTINTO del GuestPhone
+  // de la reserva (asociación manual via Reservas_phones_extra). En ese
+  // caso `currentB.__chatPhone10` viene seteado y actúa como "scope" —
+  // solo se muestran reservas cuyo Id esté en phone-extras[chatPhone10] O
+  // cuyo GuestPhone == chatPhone10. Sin __chatPhone10 comportamiento
+  // clásico: usar GuestPhone del booking para agrupar hermanas.
+  const chatPhone10 = String(currentB && currentB.__chatPhone10 || '').replace(/\D/g,'').slice(-10);
+  const currentPhone = chatPhone10 || guestPhoneFromBk;
+  // Set de IDs permitidos cuando hay chatPhone10 (asociación manual).
+  const allowedExtraIds = new Set();
+  if (chatPhone10) {
+    try {
+      const rows = (typeof BOTC_STATE === 'object' && BOTC_STATE.phoneExtrasByPhone) ? (BOTC_STATE.phoneExtrasByPhone[chatPhone10] || []) : [];
+      rows.forEach(r => { const id = String(r.ReservaId || '').trim(); if (id) allowedExtraIds.add(id); });
+    } catch(_){}
+  }
   const currentId = waBookingId_(currentB);
   const related = [];
   const lgIdsSeen = new Set();
@@ -37765,18 +37782,45 @@ function _waFindRelatedBookings(currentB) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return 0;
     return new Date(t + 'T00:00:00').getTime();
   };
-  // 1) Bookings Lodgify que matcheen el teléfono.
+  // 1) Bookings Lodgify que matcheen el teléfono O que estén asociadas
+  //    manualmente al chatPhone10 via Reservas_phones_extra.
   if (currentPhone && lgBookings.length) {
     for (const b of lgBookings) {
       const tel = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
-      if (tel !== currentPhone) continue;
-      related.push(b);
       const lgId = String(b.Id || '').trim();
+      const isPhoneMatch = tel === currentPhone;
+      const isExtraMatch = lgId && allowedExtraIds.has(lgId);
+      if (chatPhone10) {
+        // Scope estricto: solo si el GuestPhone == chatPhone10 O está en extras[chatPhone10].
+        if (!isPhoneMatch && !isExtraMatch) continue;
+      } else {
+        if (!isPhoneMatch) continue;
+      }
+      related.push(b);
       if (lgId) lgIdsSeen.add(lgId);
       const a = _dateMs(b.DateArrival);
       const d = _dateMs(b.DateDeparture);
       if (a && d) lgDateRanges.push({ arrMs: a, depMs: d });
     }
+  }
+  // 1c) Además, cuando hay chatPhone10, incluir bookings de PAGOS_STATE
+  // (pool completo, no filtrado por mes) que estén en extras[chatPhone10]
+  // — cubre reservas fuera del rango de LG_STATE.
+  if (chatPhone10 && allowedExtraIds.size) {
+    try {
+      const pool = [];
+      if (typeof PAGOS_STATE === 'object' && Array.isArray(PAGOS_STATE.bookings)) pool.push(...PAGOS_STATE.bookings);
+      pool.forEach(b => {
+        const lgId = String(b.Id || '').trim();
+        if (!lgId || !allowedExtraIds.has(lgId)) return;
+        if (lgIdsSeen.has(lgId)) return;
+        related.push(b);
+        lgIdsSeen.add(lgId);
+        const a = _dateMs(b.DateArrival);
+        const d = _dateMs(b.DateDeparture);
+        if (a && d) lgDateRanges.push({ arrMs: a, depMs: d });
+      });
+    } catch(_){}
   }
   // 2) Reservaciones (hoja huespedes) del mismo teléfono. Reglas:
   //    - Skip si Lodgify Id ya está cubierto por paso 1 (mismo booking).
@@ -45000,6 +45044,10 @@ window.botcToggleRightPanel = async function() {
       .filter(b => String(b.DateArrival||'').slice(0,10) >= today)
       .sort((a,b) => String(a.DateArrival).localeCompare(String(b.DateArrival)))[0];
     const booking = active || proxima || bookings[bookings.length - 1];
+    // Marca la booking con el phone de la conversación WA para que
+    // _waFindRelatedBookings limite el scope a este chat (evita mostrar
+    // reservas hermanas del GuestPhone real cuando la asociación fue manual).
+    try { if (booking) booking.__chatPhone10 = String(phone).replace(/\D/g,'').slice(-10); } catch(_){}
     if (typeof waOpenModal === 'function') {
       // Cerrar CUALQUIER modal WA residual antes de abrir. _waRenderModal
       // hace early-return si ya existe #wa-modal (con contenido stale del
