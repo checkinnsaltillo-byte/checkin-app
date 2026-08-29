@@ -43322,7 +43322,7 @@ function _botcRenderMain(phone) {
     const meta = m.meta || {};
     if (meta.media_url && /image/.test(String(meta.media_type || ''))) {
       const proxied = `${BACKEND}/wa/media?url=${encodeURIComponent(String(meta.media_url))}`;
-      mediaHtml = `<div style="margin-top:6px"><a href="${proxied}" target="_blank" rel="noopener"><img src="${proxied}" style="max-width:260px;max-height:260px;border-radius:8px;display:block;object-fit:contain;background:#f1f5f9" loading="lazy"></a></div>`;
+      mediaHtml = `<div style="margin-top:6px"><img src="${proxied}" onclick="event.stopPropagation();_botcImgZoom_('${_botcEsc(proxied).replace(/'/g,'&#39;')}')" style="max-width:260px;max-height:260px;border-radius:8px;display:block;object-fit:contain;background:#f1f5f9;cursor:zoom-in" loading="lazy"></div>`;
     }
     const inner = `<div style="max-width:70%;padding:8px 12px;background:${bg};border:1px solid ${border};border-radius:10px;${highlight}">
           <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:3px">${label} · ${_botcFmtDateTime(m.timestamp)}</div>
@@ -43470,6 +43470,27 @@ function _botcRenderMain(phone) {
     if (box) box.scrollTop = box.scrollHeight;
   }, 0);
 }
+
+// ─── Lightbox universal para imágenes ─────────────────────────────────────
+window._botcImgZoom_ = function(url) {
+  const prev = document.getElementById('botc-img-lightbox'); if (prev) prev.remove();
+  const ov = document.createElement('div');
+  ov.id = 'botc-img-lightbox';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:100001;display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out';
+  ov.innerHTML = `
+    <button type="button" onclick="event.stopPropagation();_botcImgClose_()" title="Cerrar (Esc)" style="position:absolute;top:14px;right:14px;width:44px;height:44px;border-radius:50%;background:#fff;color:#0f172a;border:0;font-size:22px;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4)">×</button>
+    <a href="${url}" target="_blank" rel="noopener" title="Abrir en pestaña" style="position:absolute;top:14px;right:70px;background:#fff;color:#0f172a;border-radius:6px;padding:10px 12px;font-size:12px;font-weight:800;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.4)">↗ Abrir</a>
+    <img src="${url}" style="max-width:96vw;max-height:92vh;object-fit:contain;box-shadow:0 20px 60px rgba(0,0,0,.5)" onclick="event.stopPropagation()">
+  `;
+  ov.onclick = _botcImgClose_;
+  document.body.appendChild(ov);
+  document.addEventListener('keydown', _botcImgKey_);
+};
+window._botcImgKey_ = function(e) { if (e.key === 'Escape') _botcImgClose_(); };
+window._botcImgClose_ = function() {
+  const ov = document.getElementById('botc-img-lightbox'); if (ov) ov.remove();
+  document.removeEventListener('keydown', _botcImgKey_);
+};
 
 // ─── Multi-selección de mensajes ───────────────────────────────────────────
 window.botcMsgSelToggle_ = function() {
@@ -48033,7 +48054,7 @@ function pagosPanelHtml(id) {
             ${evid.map(e => {
               if (e.tipo === 'image' && e.media_url) {
                 const proxied = `${BACKEND}/wa/media?url=${encodeURIComponent(String(e.media_url))}`;
-                return `<a href="${proxied}" target="_blank" rel="noopener" title="Ver imagen"><img src="${proxied}" style="width:72px;height:72px;object-fit:cover;border-radius:4px;background:#fff" loading="lazy"></a>`;
+                return `<img src="${proxied}" onclick="event.stopPropagation();_botcImgZoom_('${_pagosEsc(proxied).replace(/'/g,'&#39;')}')" title="Ver imagen" style="width:72px;height:72px;object-fit:cover;border-radius:4px;background:#fff;cursor:zoom-in" loading="lazy">`;
               }
               const txt = String(e.body || '').slice(0, 240);
               const who = e.role === 'user' ? '👤' : (e.role === 'assistant' ? '🤖' : '👨‍💼');
