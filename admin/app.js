@@ -43544,7 +43544,7 @@ function _botcRenderMain(phone) {
           ${ctrlBtn}
           <div style="position:relative;display:inline-block">
           <button type="button" onclick="botcToggleHeaderMenu_(event)" title="Opciones" style="width:36px;height:36px;padding:0;font-size:20px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:900;line-height:1;letter-spacing:2px">⋮</button>
-          <div id="botc-header-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:6px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.22);z-index:1000;min-width:240px;overflow:hidden;font-size:12px">
+          <div id="botc-header-menu" style="display:${BOTC_STATE.headerMenuOpen?'block':'none'};position:absolute;top:100%;right:0;margin-top:6px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.22);z-index:1000;min-width:240px;overflow:hidden;font-size:12px">
             <div class="botc-hmenu-group">
               <div class="botc-hmenu-label">Crear</div>
               <button type="button" class="botc-hmenu-item" onclick="_botcNewMenuPick_('reporte');botcCloseHeaderMenu_()">🚨 Reporte</button>
@@ -47371,12 +47371,17 @@ window.botcToggleHeaderMenu_ = function(ev) {
   const m = document.getElementById('botc-header-menu'); if (!m) return;
   const open = m.style.display === 'block';
   m.style.display = open ? 'none' : 'block';
+  // Persistir en state — sin esto el poll periódico que re-renderiza
+  // _botcRenderMain crea un menú nuevo con display:none y "cierra" el que
+  // el usuario acaba de abrir.
+  BOTC_STATE.headerMenuOpen = !open;
   if (!open) {
     setTimeout(() => document.addEventListener('click', botcCloseHeaderMenu_, { once: true }), 0);
   }
 };
 window.botcCloseHeaderMenu_ = function() {
   const m = document.getElementById('botc-header-menu'); if (m) m.style.display = 'none';
+  BOTC_STATE.headerMenuOpen = false;
 };
 window.BOTC_BAR_VIS = { test: true, emerg: true };
 try {
