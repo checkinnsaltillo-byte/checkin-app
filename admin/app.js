@@ -44223,34 +44223,36 @@ function _botcRenderMain(phone) {
       }
     }
   } catch (_) {}
+  const menuItemsHtml = `
+    <div class="botc-hmenu-group">
+      <div class="botc-hmenu-label">Crear</div>
+      <button type="button" class="botc-hmenu-item" onclick="_botcNewMenuPick_('reporte');botcCloseHeaderMenu_()">🚨 Reporte</button>
+      <button type="button" class="botc-hmenu-item" onclick="_botcNewMenuPick_('nota');botcCloseHeaderMenu_()">📝 Nota</button>
+    </div>
+    <div class="botc-hmenu-group">
+      <div class="botc-hmenu-label">Ver</div>
+      <button type="button" class="botc-hmenu-item" onclick="botcOpenSummary();botcCloseHeaderMenu_()">🧠 Resumen sintético</button>
+      <button type="button" class="botc-hmenu-item" onclick="botcToggleRightPanel();botcCloseHeaderMenu_()">📖 Bitácora completa</button>
+      <button type="button" class="botc-hmenu-item" onclick="_botcOpenPaymentDrawer('${_botcEsc(phone)}');botcCloseHeaderMenu_()" style="display:flex;align-items:center;gap:8px">💳 Estado de pago ${_botcPaymentChip(_botcGetBookingForPhoneSync(phone)) || ''}</button>
+      <button type="button" class="botc-hmenu-item" onclick="_botcOpenReservasDrawer('${_botcEsc(phone)}');botcCloseHeaderMenu_()">📋 Reservas asociadas</button>
+      <button type="button" class="botc-hmenu-item" onclick="botcMsgSelToggle_();botcCloseHeaderMenu_()">☑ Seleccionar mensajes</button>
+    </div>`;
+  const menuBtnHtml = `
+    <div class="botc-chat-header-menuwrap" style="position:relative;display:inline-block;margin-left:auto;flex:none">
+      <button type="button" onclick="botcToggleHeaderMenu_(event)" title="Opciones" style="width:36px;height:36px;padding:0;font-size:20px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:900;line-height:1;letter-spacing:2px">⋮</button>
+      <div id="botc-header-menu" style="display:${BOTC_STATE.headerMenuOpen?'block':'none'};position:absolute;top:100%;right:0;margin-top:6px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.22);z-index:1000;min-width:240px;overflow:hidden;font-size:12px">${menuItemsHtml}</div>
+    </div>`;
   main.innerHTML = `
     <div class="botc-chat-header" style="padding:10px 20px 12px;border-bottom:1px solid #a7f3d0;background:linear-gradient(180deg,#ecfdf5 0%,#d1fae5 100%);display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
       <div class="botc-chat-header-nameblock" style="display:flex;align-items:center;gap:12px;min-width:0;flex:1">
         <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
           style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">←</button>
         <div style="min-width:0;flex:1;overflow:hidden">${nameHeader}</div>
+        ${menuBtnHtml}
       </div>
-        <div class="botc-chat-header-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
-          ${payHeaderHtml}
-          ${ctrlBtn}
-          <div class="botc-chat-header-menuwrap" style="position:relative;display:inline-block;margin-left:auto">
-          <button type="button" onclick="botcToggleHeaderMenu_(event)" title="Opciones" style="width:36px;height:36px;padding:0;font-size:20px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:900;line-height:1;letter-spacing:2px">⋮</button>
-          <div id="botc-header-menu" style="display:${BOTC_STATE.headerMenuOpen?'block':'none'};position:absolute;top:100%;right:0;margin-top:6px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.22);z-index:1000;min-width:240px;overflow:hidden;font-size:12px">
-            <div class="botc-hmenu-group">
-              <div class="botc-hmenu-label">Crear</div>
-              <button type="button" class="botc-hmenu-item" onclick="_botcNewMenuPick_('reporte');botcCloseHeaderMenu_()">🚨 Reporte</button>
-              <button type="button" class="botc-hmenu-item" onclick="_botcNewMenuPick_('nota');botcCloseHeaderMenu_()">📝 Nota</button>
-            </div>
-            <div class="botc-hmenu-group">
-              <div class="botc-hmenu-label">Ver</div>
-              <button type="button" class="botc-hmenu-item" onclick="botcOpenSummary();botcCloseHeaderMenu_()">🧠 Resumen sintético</button>
-              <button type="button" class="botc-hmenu-item" onclick="botcToggleRightPanel();botcCloseHeaderMenu_()">📖 Bitácora completa</button>
-              <button type="button" class="botc-hmenu-item" onclick="_botcOpenPaymentDrawer('${_botcEsc(phone)}');botcCloseHeaderMenu_()" style="display:flex;align-items:center;gap:8px">💳 Estado de pago ${_botcPaymentChip(_botcGetBookingForPhoneSync(phone)) || ''}</button>
-              <button type="button" class="botc-hmenu-item" onclick="_botcOpenReservasDrawer('${_botcEsc(phone)}');botcCloseHeaderMenu_()">📋 Reservas asociadas</button>
-              <button type="button" class="botc-hmenu-item" onclick="botcMsgSelToggle_();botcCloseHeaderMenu_()">☑ Seleccionar mensajes</button>
-            </div>
-          </div>
-        </div>
+      <div class="botc-chat-header-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
+        ${payHeaderHtml}
+        ${ctrlBtn}
       </div>
     </div>
     ${selBarHtml}
