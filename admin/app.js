@@ -41194,10 +41194,14 @@ function _spRenderAlojBox_() {
     const nb = `${b.Propiedad||''} ${b['# Departamento']||''}`.toLowerCase();
     return na.localeCompare(nb);
   });
-  const allSelected = alojList.length && alojList.every(a => selectedAloj.has(String(a.HouseId||'').trim()));
+  // HouseId puede venir vacío en la hoja alojamientos; usar id_lodgify como
+  // fallback (que sí trae el número de Lodgify). Sin esto todas las rows
+  // tendrían id "" y el checkbox no funcionaría (todas comparten identidad).
+  const idOf = a => String(a.HouseId || a.id_lodgify || a.HouseName || '').replace(/[^\d]/g, '').trim();
+  const allSelected = alojList.length && alojList.every(a => selectedAloj.has(idOf(a)));
   const noneSelected = selectedAloj.size === 0;
   const rows = alojList.map(a => {
-    const id = String(a.HouseId||'').trim();
+    const id = idOf(a);
     const label = `${a.Propiedad||''} ${a['# Departamento'] ? '#'+a['# Departamento'] : ''}`.trim() || `Alojamiento ${id}`;
     const on = selectedAloj.has(id);
     return `
@@ -41231,7 +41235,7 @@ window.spToggleAloj2_ = function(houseId) {
 window.spToggleAllAloj_ = function(sel) {
   const list = _spLoad_(); const p = list.find(x => x.id === window.__spState.selectedId); if (!p) return;
   if (sel) {
-    const ids = (window.__spState.alojamientos || []).map(a => String(a.HouseId||'').trim()).filter(Boolean);
+    const ids = (window.__spState.alojamientos || []).map(a => String(a.HouseId || a.id_lodgify || a.HouseName || '').replace(/[^\d]/g,'').trim()).filter(Boolean);
     p.alojamientos = ids.join(',');
   } else {
     p.alojamientos = '';
@@ -41574,10 +41578,12 @@ function cfgRenderRight() {
     const nb = `${b.Propiedad||''} ${b['# Departamento']||''}`.toLowerCase();
     return na.localeCompare(nb);
   });
-  const allSelected = alojList.length && alojList.every(a => selectedAloj.has(String(a.HouseId||'').trim()));
+  // HouseId puede venir vacío en la hoja alojamientos; usar id_lodgify.
+  const cfgIdOf = a => String(a.HouseId || a.id_lodgify || a.HouseName || '').replace(/[^\d]/g, '').trim();
+  const allSelected = alojList.length && alojList.every(a => selectedAloj.has(cfgIdOf(a)));
   const noneSelected = selectedAloj.size === 0;
   const alojRows = alojList.map(a => {
-    const id = String(a.HouseId||'').trim();
+    const id = cfgIdOf(a);
     const label = `${a.Propiedad||''} ${a['# Departamento'] ? '#' + a['# Departamento'] : ''}`.trim() || `Alojamiento ${id}`;
     const on = selectedAloj.has(id);
     return `
@@ -41788,7 +41794,7 @@ function cfgToggleAllAloj(selectAll) {
   if (!selectAll) {
     CFG_ADMIN.draft.alojamientos = '';
   } else {
-    const ids = (CFG_ADMIN.alojamientos || []).map(a => String(a.HouseId||'').trim()).filter(Boolean);
+    const ids = (CFG_ADMIN.alojamientos || []).map(a => String(a.HouseId || a.id_lodgify || a.HouseName || '').replace(/[^\d]/g,'').trim()).filter(Boolean);
     CFG_ADMIN.draft.alojamientos = ids.join(',');
   }
   CFG_ADMIN.dirty = true;
