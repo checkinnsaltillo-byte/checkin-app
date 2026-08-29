@@ -38090,6 +38090,7 @@ function _waRenderTabsHeader_(currentTab) {
       ${tab('todos','Todos','📋')}
       ${tab('programados','Programados','📅')}
       ${tab('reportes','Reportes','🚨')}
+      ${tab('pagos','Pagos','💳')}
     </div>`;
 }
 
@@ -38098,6 +38099,7 @@ function _waRenderTabContent_(st, logs) {
   const tab = st.currentTab || 'todos';
   if (tab === 'todos') return _waRenderBookingsAccordion_(logs, 'full');
   if (tab === 'programados') return _waRenderBookingsAccordion_(logs, 'schedule-only');
+  if (tab === 'pagos') return _waRenderBookingsAccordion_(logs, 'pagos-only');
   return _waRenderBookingsAccordion_(logs, 'reports-only');
 }
 // Detecta un mensaje "custom" que en realidad fue detonado por acción de un
@@ -38946,6 +38948,119 @@ function _waRenderReportTimelineItem_(it) {
 /** Devuelve HTML de cards de reportes (inc + obj) que matchean UN booking
  *  específico por propiedad + depto + rango de fechas. Se inyecta dentro
  *  del acordeón abierto de la reserva. */
+// ─── Pagos manuales en el modal WA ───────────────────────────────────────
+// Cache lazy por reserva (Id). El fetch se dispara al abrir el modal y
+// al abrir la tab 'Pagos'. Usa el mismo store PAGOS_STATE.manualByReserva
+// que ya carga el drawer Estado de pago.
+function _waGetPagosForBooking_(bk) {
+  if (!bk) return [];
+  const id = String(bk.Id || bk.LodgifyId || '').trim();
+  if (!id) return [];
+  const rows = (typeof PAGOS_STATE === 'object' && PAGOS_STATE.manualByReserva)
+    ? (PAGOS_STATE.manualByReserva[id] || [])
+    : [];
+  // Dispara fetch en background si no está cacheado.
+  if (!rows.length && typeof _pagosFetchManualByReserva === 'function' && !window.__waPagosFetched?.[id]) {
+    window.__waPagosFetched = window.__waPagosFetched || {};
+    window.__waPagosFetched[id] = true;
+    _pagosFetchManualByReserva(id).then(rs => {
+      if ((rs || []).length && typeof _waRepaint === 'function') _waRepaint();
+    }).catch(()=>{});
+  }
+  return rows.map(m => {
+    const ts = String(m.Fecha || m.Timestamp || '').slice(0, 19);
+    return { kind: 'pago', sortKey: new Date(ts || 0).getTime() || 0, pago: m, booking: bk };
+  });
+}
+function _waRenderPagoTimelineItem_(it) {
+  const m = it.pago || {};
+  const b = it.booking || {};
+  const cur = b.Currency || 'MXN';
+  const fmt$ = n => `$${(Number(n)||0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${cur !== 'MXN' ? ' ' + cur : ''}`;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const fecha = String(m.Fecha || '').slice(0, 10);
+  const metodo = String(m.Metodo || '—').trim();
+  const nEvid = (() => { try { return (JSON.parse(m.EvidenciasJSON || '[]') || []).length; } catch(_) { return 0; } })();
+  return `
+    <div style="border:1px solid #ddd6fe;background:#f5f3ff;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="min-width:0;flex:1">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="font-size:12px;font-weight:800;color:#5b21b6">💳 Pago registrado</span>
+            <span style="background:#7c3aed;color:#fff;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800">MANUAL</span>
+            ${nEvid ? `<span style="background:#fff;color:#5b21b6;border:1px solid #ddd6fe;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700">📎 ${nEvid}</span>` : ''}
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-top:3px">${esc(metodo)} · ${esc(fecha)}${m.Referencia ? ' · Ref: ' + esc(m.Referencia) : ''}</div>
+          ${m.Notas ? `<div style="font-size:11px;color:#475569;margin-top:3px">${esc(m.Notas)}</div>` : ''}
+        </div>
+        <div style="font-size:14px;font-weight:800;color:#0f172a;flex:none">${fmt$(m.Monto)}</div>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        <button type="button" onclick="_waPagoVerDetalles_('${esc(String(m.ID)).replace(/'/g,'&#39;')}','${esc(String(b.Id || '')).replace(/'/g,'&#39;')}')" style="padding:5px 10px;background:#7c3aed;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">Ver detalles</button>
+      </div>
+    </div>`;
+}
+function _waRenderPagosForBooking_(bk) {
+  const items = _waGetPagosForBooking_(bk);
+  if (!items.length) return '';
+  items.sort((a,b) => b.sortKey - a.sortKey);
+  return items.map(_waRenderPagoTimelineItem_).join('');
+}
+window._waPagoVerDetalles_ = async function(pagoId, reservaId) {
+  // Busca el pago en el cache; construye el mensaje con el template
+  // "PAGO: registro" y lo muestra en un modal simple.
+  const rows = (PAGOS_STATE.manualByReserva && PAGOS_STATE.manualByReserva[reservaId]) || [];
+  const m = rows.find(x => String(x.ID) === String(pagoId));
+  if (!m) { alert('Pago no encontrado.'); return; }
+  const b = (PAGOS_STATE.bookings || []).find(x => String(x.Id) === String(reservaId));
+  // Asegura templates cargados.
+  if (!Array.isArray(CFG_ADMIN.templates) || !CFG_ADMIN.templates.length) {
+    try {
+      const r = await fetch(`${BACKEND}/wa/templates-list`, { cache: 'no-store' });
+      const j = await r.json();
+      CFG_ADMIN.templates = (j && j.items) || [];
+    } catch(_){}
+  }
+  const tpl = (CFG_ADMIN.templates || []).find(t =>
+    String(t.nombre || t.name || '').trim().toLowerCase() === 'pago: registro'
+  );
+  let msg = '';
+  if (tpl && b) {
+    const cur = b.Currency || 'MXN';
+    const fmt$ = n => `$${(Number(n)||0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${cur !== 'MXN' ? ' ' + cur : ''}`;
+    const totalNum = Number(b.TotalAmount) || 0;
+    const paidAcc = (Number(b.AmountPaid) || 0) + (typeof _pagosSumManual === 'function' ? _pagosSumManual(reservaId) : 0);
+    const map = {
+      nombre: b.GuestName || '', alojamiento: (typeof _pagosAlojName === 'function' ? _pagosAlojName(b) : b.HouseName || ''),
+      reserva: b.Id, monto: fmt$(m.Monto), metodo: m.Metodo || '', fecha: String(m.Fecha || '').slice(0, 10),
+      referencia: m.Referencia || '', saldo: fmt$(Math.max(0, totalNum - paidAcc)), total: fmt$(totalNum), pagado: fmt$(paidAcc),
+    };
+    msg = String(tpl.body || tpl.mensaje || '').replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_x, k) => {
+      const key = String(k).trim().toLowerCase();
+      return map[key] != null ? String(map[key]) : `{{${k}}}`;
+    });
+  } else {
+    msg = `Pago registrado ${m.Monto ? '$' + m.Monto : ''}${m.Metodo ? ' · ' + m.Metodo : ''}${m.Fecha ? ' · ' + String(m.Fecha).slice(0,10) : ''}${m.Referencia ? ' · Ref: ' + m.Referencia : ''}`;
+  }
+  const prev = document.getElementById('wa-pago-detalles-modal'); if (prev) prev.remove();
+  const ov = document.createElement('div');
+  ov.id = 'wa-pago-detalles-modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  const eSc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  ov.innerHTML = `
+    <div style="background:#fff;border-radius:12px;max-width:520px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+      <div style="padding:12px 16px;background:#7c3aed;color:#fff;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:14px;font-weight:800">💳 Detalle de pago</div>
+        <button type="button" onclick="document.getElementById('wa-pago-detalles-modal').remove()" style="background:transparent;border:0;font-size:20px;color:#fff;cursor:pointer;line-height:1">×</button>
+      </div>
+      <div style="padding:16px">
+        <div style="background:#dcf7c5;border:1px solid #86efac;border-radius:10px;padding:12px 14px;font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.5">${eSc(msg)}</div>
+      </div>
+    </div>`;
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  document.body.appendChild(ov);
+};
+
 function _waRenderReportsForBooking_(bk) {
   if (!bk) return '';
   const alojNormFn = (typeof alojNorm === 'function') ? alojNorm : (s => String(s||'').toLowerCase().trim());
@@ -39410,6 +39525,7 @@ function _waRenderBookingsAccordion_(logs, mode) {
   mode = mode || 'full';
   const reportsOnly = mode === 'reports-only';
   const scheduleOnly = mode === 'schedule-only';
+  const pagosOnly = mode === 'pagos-only';
   const st = window.__waModalState;
   // Recomputar related en cada render. HU_STATE.rows / LG_STATE.bookings
   // pueden llegar TARDE al modal (carga async). Si nos quedamos con
@@ -39477,12 +39593,18 @@ function _waRenderBookingsAccordion_(logs, mode) {
           content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
             ${reportsInside || _waEmptyState_('Sin reportes en esta reserva.')}
           </div>`;
-        } else {
-          // Modo 'full': reportes van MEZCLADOS en el timeline via
-          // _waRenderUnifiedList_ → _waGetReportsForBooking_. No repetimos
-          // el bloque aparte arriba.
+        } else if (pagosOnly) {
+          // Tab 'Pagos': cards de pagos manuales (registrados) de esta reserva.
+          let pagosInside = '';
+          try { pagosInside = _waRenderPagosForBooking_(bk); } catch(_){}
           content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
-            ${_waRenderUnifiedList_(logs, { scheduleOnly })}
+            ${pagosInside || _waEmptyState_('Sin pagos manuales en esta reserva.')}
+          </div>`;
+        } else {
+          // Modo 'full': reportes + pagos van MEZCLADOS en el timeline via
+          // _waRenderUnifiedList_ (ordenados por fecha/hora).
+          content = `<div style="border:1px solid #e2e8f0;border-top:0;border-radius:0 0 10px 10px;padding:10px 8px;margin-bottom:10px;background:#fff">
+            ${_waRenderUnifiedList_(logs, { scheduleOnly, includePagos: !scheduleOnly, bookingForPagos: bk })}
           </div>`;
         }
       }
@@ -39685,12 +39807,20 @@ function _waRenderUnifiedList_(logs, opts) {
       for (const r of reportItems) items.push(r);
     } catch(_){}
   }
+  // Pagos manuales (mezclados en cronología del tab Todos).
+  if (opts.includePagos !== false && !scheduleOnly) {
+    try {
+      const pagosItems = _waGetPagosForBooking_(opts.bookingForPagos || b);
+      for (const p of pagosItems) items.push(p);
+    } catch(_){}
+  }
   items.sort((a,b) => a.sortKey - b.sortKey);
 
   const html = items.map(it => {
     if (it.kind === 'template') return _waRenderTemplateItem_(it, auto);
     if (it.kind === 'custom')   return _waRenderCustomItem_(it, auto);
     if (it.kind === 'report')   return _waRenderReportTimelineItem_(it);
+    if (it.kind === 'pago')     return _waRenderPagoTimelineItem_(it);
     return '';
   }).join('');
 
@@ -43819,6 +43949,10 @@ window._botcSaveComprobante_ = async function() {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
+    // Draft supervised (fire-and-forget).
+    if (typeof _pagosDispatchAutoDraft_ === 'function') {
+      _pagosDispatchAutoDraft_(reservaId, { Monto: monto, Metodo: metodo, Fecha: fecha, Referencia: ref });
+    }
     _botcCloseComprobante_();
     alert('✓ Pago manual registrado: ' + (j.id || ''));
     if (typeof PAGOS_STATE === 'object' && PAGOS_STATE.manualByReserva) delete PAGOS_STATE.manualByReserva[reservaId];
@@ -48363,6 +48497,57 @@ window.pagosOpenManualModal = function(reservaId) {
     </div>`;
   document.body.appendChild(modal);
 };
+// Genera el mensaje del template "PAGO: registro" y lo pone como draft
+// supervised en el chat del huésped. Fire-and-forget — no rompe el guardado
+// si el template no existe o el fetch falla.
+async function _pagosDispatchAutoDraft_(reservaId, paymentData) {
+  try {
+    const b = (PAGOS_STATE.bookings || []).find(x => String(x.Id) === String(reservaId));
+    if (!b) return;
+    const phone = String(b.GuestPhone || '').replace(/\D/g, '').slice(-10);
+    if (!phone) return;
+    // Templates puede no estar cargado — cargar si falta.
+    if (!Array.isArray(CFG_ADMIN.templates) || !CFG_ADMIN.templates.length) {
+      try {
+        const r = await fetch(`${BACKEND}/wa/templates-list`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store' });
+        const j = await r.json();
+        CFG_ADMIN.templates = (j && j.items) || [];
+      } catch (_) {}
+    }
+    const tpl = (CFG_ADMIN.templates || []).find(t =>
+      String(t.nombre || t.name || '').trim().toLowerCase() === 'pago: registro'
+    );
+    if (!tpl) return; // sin template: silent skip
+    const bodyRaw = String(tpl.body || tpl.mensaje || '');
+    // Resolver placeholders básicos
+    const cur = b.Currency || 'MXN';
+    const totalNum = Number(b.TotalAmount) || 0;
+    const paidAcc  = (Number(b.AmountPaid) || 0) + (typeof _pagosSumManual === 'function' ? _pagosSumManual(reservaId) : 0);
+    const saldo = Math.max(0, totalNum - paidAcc);
+    const fmt$ = n => `$${(Number(n)||0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${cur !== 'MXN' ? ' ' + cur : ''}`;
+    const map = {
+      nombre: b.GuestName || '',
+      alojamiento: (typeof _pagosAlojName === 'function') ? _pagosAlojName(b) : (b.HouseName || ''),
+      reserva: b.Id,
+      monto: fmt$(paymentData.Monto),
+      metodo: paymentData.Metodo || '',
+      fecha: paymentData.Fecha || '',
+      referencia: paymentData.Referencia || '',
+      saldo: fmt$(saldo),
+      total: fmt$(totalNum),
+      pagado: fmt$(paidAcc),
+    };
+    const resolved = bodyRaw.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_m, k) => {
+      const key = String(k).trim().toLowerCase();
+      return map[key] != null ? String(map[key]) : `{{${k}}}`;
+    });
+    // Post al backend → set draft en WA_ChatContext + auto-supervised.
+    await fetch(`${BACKEND}/wa/chat-set-draft`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, body: resolved }),
+    });
+  } catch (e) { console.warn('[pagos] auto-draft PAGO fallo:', e.message); }
+}
 window.pagosSaveManual = async function(reservaId) {
   const monto = parseFloat(document.getElementById('pm-monto').value);
   const metodo = document.getElementById('pm-metodo').value;
@@ -48378,6 +48563,8 @@ window.pagosSaveManual = async function(reservaId) {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error backend');
+    // Dispara draft "PAGO: registro" en el chat supervised (fire-and-forget).
+    _pagosDispatchAutoDraft_(reservaId, { Monto: monto, Metodo: metodo, Fecha: fecha, Referencia: ref });
     document.getElementById('pagos-manual-modal').remove();
     await _pagosFetchManualByReserva(reservaId);
     // Re-render panel (Pagos + drawer botc si está abierto).
