@@ -13264,7 +13264,10 @@ async function lgLoadAlojamientos() {
       if (nk === 'devicename' || nk === 'device' || nk === 'tuyaname' || nk === 'tuya') { devColKey = k; break; }
     }
     for (const r of ALOJ_STATE.rows) {
-      const hid = String(r['HouseId'] || '').trim();
+      // El id de Lodgify puede venir en varias columnas (por historia):
+      //   'HouseId' (nueva), 'id_lodgify' (canónico en la hoja alojamientos),
+      //   o 'HouseName' cuando la fila legacy lo guardaba ahí.
+      const hid = String(r['HouseId'] || r['id_lodgify'] || r['HouseName'] || '').replace(/[^\d]/g, '').trim();
       if (hid) ALOJ_STATE.byHouseId.set(hid, r);
       const hname = alojNorm(r['HouseName']);
       if (hname) ALOJ_STATE.byHouseName.set(hname, r);
@@ -42534,20 +42537,25 @@ function _botcEnrichPaymentFields(bk) {
   //     sintéticos de HU_STATE cuyo Id local no matchea Lodgify.
   const id = String(bk.LodgifyId || bk.Id || '').trim();
   let src = null;
-  if (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) {
-    if (id) src = LG_STATE.bookings.find(x => String(x.Id) === id || String(x.LodgifyId) === id) || null;
-    if (!src) {
-      const p10 = String(bk.GuestPhone || '').replace(/\D/g, '').slice(-10);
-      const norm = v => { const s = String(v||''); const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`; const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m2 ? `${m2[3]}-${String(m2[1]).padStart(2,'0')}-${String(m2[2]).padStart(2,'0')}` : ''; };
-      const arr = norm(bk.DateArrival), dep = norm(bk.DateDeparture);
-      if (p10 && arr && dep) {
-        src = LG_STATE.bookings.find(x => {
-          const xp = String(x.GuestPhone||'').replace(/\D/g,'').slice(-10);
-          return xp === p10 && norm(x.DateArrival) === arr && norm(x.DateDeparture) === dep;
-        }) || null;
-      }
+  const norm = v => { const s = String(v||''); const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`; const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m2 ? `${m2[3]}-${String(m2[1]).padStart(2,'0')}-${String(m2[2]).padStart(2,'0')}` : ''; };
+  const p10 = String(bk.GuestPhone || '').replace(/\D/g, '').slice(-10);
+  const arr = norm(bk.DateArrival), dep = norm(bk.DateDeparture);
+  const findIn = (arr2) => {
+    if (!Array.isArray(arr2)) return null;
+    if (id) {
+      const x = arr2.find(y => String(y.Id) === id || String(y.LodgifyId) === id);
+      if (x) return x;
     }
-  }
+    if (p10 && arr && dep) {
+      return arr2.find(y => {
+        const yp = String(y.GuestPhone||'').replace(/\D/g,'').slice(-10);
+        return yp === p10 && norm(y.DateArrival) === arr && norm(y.DateDeparture) === dep;
+      }) || null;
+    }
+    return null;
+  };
+  try { if (typeof PAGOS_STATE === 'object') src = findIn(PAGOS_STATE.bookings); } catch(_){}
+  if (!src) { try { if (typeof LG_STATE !== 'undefined') src = findIn(LG_STATE.bookings); } catch(_){} }
   const merged = src ? Object.assign({}, bk, {
     Id: bk.Id || src.Id,
     LodgifyId: bk.LodgifyId || src.LodgifyId || src.Id,
@@ -42583,18 +42591,25 @@ function _botcGetAllBookingsForPhone(phone) {
   const norm = v => { const s = String(v||''); const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`; const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m2 ? `${m2[3]}-${String(m2[1]).padStart(2,'0')}-${String(m2[2]).padStart(2,'0')}` : ''; };
   const propOf = b => String(b.HouseId || b.PropertyId || b.PropertyName || b.RoomTypeName || '').toLowerCase().trim();
   const fkey = b => `${norm(b.DateArrival)}|${norm(b.DateDeparture)}|${propOf(b)}`;
-  // Fuente 1 (autoritativa): LG_STATE.bookings por GuestPhone.
+  // Fuente 1 (autoritativa): PAGOS_STATE.bookings (fetch completo sin
+  // filtros de mes) + LG_STATE.bookings (mes en curso). PAGOS_STATE gana
+  // por Id — dedup por Id evita duplicados.
   const lgKeys = new Set();
-  try {
-    if (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) {
-      for (const x of LG_STATE.bookings) {
-        const xp = String(x.GuestPhone||'').replace(/\D/g,'').slice(-10);
-        if (xp !== p10) continue;
-        out.push(x);
-        lgKeys.add(fkey(x));
-      }
+  const seenIds = new Set();
+  const addRaw = (arr) => {
+    if (!Array.isArray(arr)) return;
+    for (const x of arr) {
+      const xp = String(x.GuestPhone||'').replace(/\D/g,'').slice(-10);
+      if (xp !== p10) continue;
+      const id = String(x.Id || x.LodgifyId || '');
+      if (id && seenIds.has(id)) continue;
+      if (id) seenIds.add(id);
+      out.push(x);
+      lgKeys.add(fkey(x));
     }
-  } catch(_){}
+  };
+  try { if (typeof PAGOS_STATE === 'object') addRaw(PAGOS_STATE.bookings); } catch(_){}
+  try { if (typeof LG_STATE !== 'undefined') addRaw(LG_STATE.bookings); } catch(_){}
   // Fuente 2: HU sintéticos SOLO si no colisiona con una reserva Lodgify
   // (misma fecha + prop). Sin este check, la misma reserva sale dos veces
   // (una desde Lodgify con datos de pago, otra sintética con $0).
@@ -42614,11 +42629,14 @@ function _botcGetAllBookingsForPhone(phone) {
 window._botcOpenPaymentDrawer = async function(phone) {
   const existing = document.getElementById('botc-payment-inline');
   if (existing && String(existing.dataset.phone) === String(phone)) return;
-  // Asegura LG_STATE.bookings cargado — sin esto solo tendríamos HU
-  // sintéticos SIN precios (TotalAmount/AmountPaid viven en Lodgify).
+  // Carga TODAS las bookings en PAGOS_STATE (sin filtros de mes) — la
+  // reserva del huésped puede ser de cualquier fecha (LG_STATE filtra por
+  // mes en curso y no traería las de meses futuros/pasados).
   try {
-    if (typeof LG_STATE !== 'undefined' && (!LG_STATE.bookings || !LG_STATE.bookings.length) && typeof lodgifyLoad === 'function') {
-      await lodgifyLoad(false);
+    if (typeof PAGOS_STATE === 'object' && (!PAGOS_STATE.bookings || !PAGOS_STATE.bookings.length)) {
+      const r = await fetch(`${BACKEND}/lodgify-list`, { cache: 'no-store' });
+      const j = await r.json();
+      if (j && j.ok && Array.isArray(j.bookings)) PAGOS_STATE.bookings = j.bookings;
     }
   } catch (_) {}
   const list = _botcGetAllBookingsForPhone(phone);
