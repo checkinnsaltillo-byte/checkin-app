@@ -39099,7 +39099,7 @@ function _waRenderPagoTimelineItem_(it) {
     : `<span style="color:#5b21b6;font-weight:700">Pago registrado ${esc(fecha)} · sin mensaje enviado</span>`;
   const iconCircle = isSent
     ? `<div title="Mensaje enviado" style="width:22px;height:22px;border-radius:50%;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✓</div>`
-    : `<div title="Sin enviar" style="width:22px;height:22px;border-radius:50%;background:#e5e7eb;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">💳</div>`;
+    : `<div title="Sin enviar" style="width:22px;height:22px;border-radius:50%;background:#e5e7eb;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✓</div>`;
   const details = expanded ? `
     <div style="padding:12px 14px;background:#faf5ff;border-top:1px solid #ddd6fe">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
