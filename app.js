@@ -38972,34 +38972,150 @@ function _waGetPagosForBooking_(bk) {
     return { kind: 'pago', sortKey: new Date(ts || 0).getTime() || 0, pago: m, booking: bk };
   });
 }
+function _waPagoIsSent_(pagoId) {
+  try { return !!JSON.parse(localStorage.getItem('_wa_pago_sent') || '{}')[pagoId]; } catch(_) { return false; }
+}
+function _waPagoMarkSent_(pagoId, val) {
+  try {
+    const m = JSON.parse(localStorage.getItem('_wa_pago_sent') || '{}');
+    if (val) m[pagoId] = Date.now(); else delete m[pagoId];
+    localStorage.setItem('_wa_pago_sent', JSON.stringify(m));
+  } catch(_){}
+}
+function _waPagoResolveBody_(m, b) {
+  try {
+    const tpl = (CFG_ADMIN && Array.isArray(CFG_ADMIN.templates) ? CFG_ADMIN.templates : []).find(t =>
+      String(t.nombre || t.name || '').trim().toLowerCase() === 'pago: registro'
+    );
+    if (!tpl || !b) return `Pago registrado ${m.Monto ? '$' + m.Monto : ''}${m.Metodo ? ' · ' + m.Metodo : ''}${m.Fecha ? ' · ' + String(m.Fecha).slice(0,10) : ''}${m.Referencia ? ' · Ref: ' + m.Referencia : ''}`;
+    const cur = b.Currency || 'MXN';
+    const fmt$ = n => `$${(Number(n)||0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${cur !== 'MXN' ? ' ' + cur : ''}`;
+    const totalNum = Number(b.TotalAmount) || 0;
+    const paidAcc = (Number(b.AmountPaid) || 0) + (typeof _pagosSumManual === 'function' ? _pagosSumManual(b.Id) : 0);
+    const map = {
+      nombre: b.GuestName || '', alojamiento: (typeof _pagosAlojName === 'function' ? _pagosAlojName(b) : b.HouseName || ''),
+      reserva: b.Id, monto: fmt$(m.Monto), metodo: m.Metodo || '', fecha: String(m.Fecha || '').slice(0, 10),
+      referencia: m.Referencia || '', saldo: fmt$(Math.max(0, totalNum - paidAcc)), total: fmt$(totalNum), pagado: fmt$(paidAcc),
+    };
+    return String(tpl.body || tpl.mensaje || '').replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_x, k) => {
+      const key = String(k).trim().toLowerCase();
+      return map[key] != null ? String(map[key]) : `{{${k}}}`;
+    });
+  } catch(_) { return ''; }
+}
 function _waRenderPagoTimelineItem_(it) {
   const m = it.pago || {};
   const b = it.booking || {};
+  const st = window.__waModalState;
   const cur = b.Currency || 'MXN';
   const fmt$ = n => `$${(Number(n)||0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${cur !== 'MXN' ? ' ' + cur : ''}`;
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   const fecha = String(m.Fecha || '').slice(0, 10);
   const metodo = String(m.Metodo || '—').trim();
   const nEvid = (() => { try { return (JSON.parse(m.EvidenciasJSON || '[]') || []).length; } catch(_) { return 0; } })();
+  const isSent = _waPagoIsSent_(m.ID);
+  const expKey = 'pago:' + m.ID;
+  const expanded = st && st.expanded === expKey;
+  const editKey = expKey;
+  const editedBody = st && st.editingBody ? st.editingBody[editKey] : null;
+  const bodyResolved = _waPagoResolveBody_(m, b);
+  const bodyShown = editedBody != null ? editedBody : bodyResolved;
+  const timeLine = isSent
+    ? `<span style="color:#16a34a;font-weight:700">Enviado ${esc(String(m.Fecha || '').slice(0,10))}</span>`
+    : `<span style="color:#5b21b6;font-weight:700">Pago registrado ${esc(fecha)} · sin mensaje enviado</span>`;
+  const iconCircle = isSent
+    ? `<div title="Mensaje enviado" style="width:22px;height:22px;border-radius:50%;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">✓</div>`
+    : `<div title="Sin enviar" style="width:22px;height:22px;border-radius:50%;background:#e5e7eb;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">💳</div>`;
+  const details = expanded ? `
+    <div style="padding:12px 14px;background:#faf5ff;border-top:1px solid #ddd6fe">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <label style="font-size:10px;font-weight:700;color:#475569">Mensaje</label>
+        ${editedBody == null
+          ? `<button onclick="waPagoEdit_('${esc(m.ID).replace(/'/g,'&#39;')}')" style="padding:2px 8px;font-size:10px;background:#fff;border:1px solid #ddd6fe;border-radius:6px;cursor:pointer;font-weight:700">✏️ Editar</button>`
+          : `<div style="display:flex;gap:6px">
+              <button onclick="waPagoResetEdit_('${esc(m.ID).replace(/'/g,'&#39;')}')" style="padding:2px 8px;font-size:10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;cursor:pointer;font-weight:700">↩ Cancelar</button>
+            </div>`}
+      </div>
+      ${editedBody == null
+        ? `<div style="padding:8px 10px;background:#fff;border-radius:8px;font-size:12px;white-space:pre-wrap;line-height:1.4;color:#334155">${esc(bodyShown)}</div>`
+        : `<textarea oninput="waPagoEditBody_('${esc(m.ID).replace(/'/g,'&#39;')}', this.value)" rows="5" style="width:100%;padding:8px 10px;font-size:12px;border:1px solid #f59e0b;border-radius:8px;box-sizing:border-box;resize:vertical;font-family:inherit;background:#fffbeb">${esc(editedBody)}</textarea>`}
+      <div style="margin-top:10px;text-align:right">
+        <button onclick="waPagoSendNow_('${esc(m.ID).replace(/'/g,'&#39;')}','${esc(String(b.Id||'')).replace(/'/g,'&#39;')}')" style="padding:8px 14px;background:#25d366;color:#fff;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer">${isSent ? '🔄 Re-enviar ahora' : '📤 Enviar ahora'}</button>
+      </div>
+    </div>
+  ` : '';
   return `
-    <div style="border:1px solid #ddd6fe;background:#f5f3ff;border-radius:10px;padding:10px 12px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <div style="min-width:0;flex:1">
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <span style="font-size:12px;font-weight:800;color:#5b21b6">💳 Pago registrado</span>
-            <span style="background:#7c3aed;color:#fff;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800">MANUAL</span>
-            ${nEvid ? `<span style="background:#fff;color:#5b21b6;border:1px solid #ddd6fe;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700">📎 ${nEvid}</span>` : ''}
-          </div>
-          <div style="font-size:11px;color:#64748b;margin-top:3px">${esc(metodo)} · ${esc(fecha)}${m.Referencia ? ' · Ref: ' + esc(m.Referencia) : ''}</div>
-          ${m.Notas ? `<div style="font-size:11px;color:#475569;margin-top:3px">${esc(m.Notas)}</div>` : ''}
+    <div style="margin-bottom:6px">
+      <div style="font-size:10px;font-weight:700;color:#64748b;padding:0 2px 4px 34px">${timeLine}</div>
+      <div style="display:flex;gap:10px;align-items:stretch">
+        <div style="flex:none;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;width:24px">
+          ${iconCircle}
+          <div style="flex:1;width:2px;background:#e5e7eb;min-height:14px"></div>
         </div>
-        <div style="font-size:14px;font-weight:800;color:#0f172a;flex:none">${fmt$(m.Monto)}</div>
+        <div style="flex:1;background:${isSent?'#f5f3ff':'#faf5ff'};border:1px solid #ddd6fe;border-radius:12px;overflow:hidden">
+          <div style="padding:12px 14px">
+            <div style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.02em">
+              💳 Pago registrado
+              <span style="font-size:9px;color:#5b21b6;background:#ede9fe;padding:1px 6px;border-radius:999px;margin-left:4px;text-transform:none;letter-spacing:0">MANUAL</span>
+              ${nEvid ? `<span style="font-size:9px;color:#5b21b6;background:#fff;border:1px solid #ddd6fe;padding:1px 6px;border-radius:999px;margin-left:4px;text-transform:none;letter-spacing:0">📎 ${nEvid}</span>` : ''}
+              <span style="float:right;font-size:13px;color:#0f172a">${fmt$(m.Monto)}</span>
+            </div>
+            <div style="font-size:11px;color:#64748b;margin-top:4px">${esc(metodo)} · ${esc(fecha)}${m.Referencia ? ' · Ref: ' + esc(m.Referencia) : ''}</div>
+            ${m.Notas ? `<div style="font-size:11px;color:#475569;margin-top:3px">${esc(m.Notas)}</div>` : ''}
+            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+              <button onclick="waToggleExpand_('${expKey}')" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #ddd6fe;border-radius:6px;cursor:pointer;font-weight:700">${expanded?'▲ Ocultar':'▼ Ver detalles'}</button>
+              <button onclick="waPagoSendNow_('${esc(m.ID).replace(/'/g,'&#39;')}','${esc(String(b.Id||'')).replace(/'/g,'&#39;')}')" style="padding:5px 10px;font-size:11px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:6px;cursor:pointer;font-weight:700">${isSent ? '🔄 Re-enviar' : '📤 Enviar ahora'}</button>
+            </div>
+          </div>
+          ${details}
+        </div>
       </div>
-      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-        <button type="button" onclick="_waPagoVerDetalles_('${esc(String(m.ID)).replace(/'/g,'&#39;')}','${esc(String(b.Id || '')).replace(/'/g,'&#39;')}')" style="padding:5px 10px;background:#7c3aed;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">Ver detalles</button>
-      </div>
-    </div>`;
+    </div>
+  `;
 }
+// Handlers pago (mismos que waEditCustom_ pero para clave pago:).
+window.waPagoEdit_ = function(id) {
+  const st = window.__waModalState; if (!st) return;
+  const rows = (PAGOS_STATE.manualByReserva && st.bookingId && PAGOS_STATE.manualByReserva[st.bookingId]) || [];
+  const m = rows.find(x => String(x.ID) === String(id));
+  const b = (PAGOS_STATE.bookings || []).find(x => String(x.Id) === String(st.bookingId));
+  st.editingBody['pago:' + id] = _waPagoResolveBody_(m || {}, b || {});
+  _waRepaint();
+};
+window.waPagoEditBody_ = function(id, val) {
+  const st = window.__waModalState; if (!st) return;
+  st.editingBody['pago:' + id] = val;
+};
+window.waPagoResetEdit_ = function(id) {
+  const st = window.__waModalState; if (!st) return;
+  delete st.editingBody['pago:' + id];
+  _waRepaint();
+};
+window.waPagoSendNow_ = async function(pagoId, reservaId) {
+  const st = window.__waModalState; if (!st) return;
+  const rows = (PAGOS_STATE.manualByReserva && PAGOS_STATE.manualByReserva[reservaId]) || [];
+  const m = rows.find(x => String(x.ID) === String(pagoId));
+  const b = (PAGOS_STATE.bookings || []).find(x => String(x.Id) === String(reservaId));
+  if (!m || !b) { alert('Pago o reserva no encontrada.'); return; }
+  const edited = st.editingBody && st.editingBody['pago:' + pagoId];
+  const body = edited != null ? edited : _waPagoResolveBody_(m, b);
+  if (!body || !body.trim()) { alert('Mensaje vacío.'); return; }
+  const phoneE164 = String(b.GuestPhone || '').replace(/[^\d+]/g, '');
+  if (!phoneE164) { alert('Sin teléfono del huésped.'); return; }
+  const to = phoneE164.startsWith('+') ? phoneE164 : '+' + phoneE164;
+  if (!confirm(`Enviar mensaje a ${to} por WhatsApp?`)) return;
+  try {
+    const r = await fetch(`${BACKEND}/wa/send-forward`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: `whatsapp:${to}`, body }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    _waPagoMarkSent_(pagoId, true);
+    delete st.editingBody['pago:' + pagoId];
+    _waRepaint();
+    alert('✓ Mensaje enviado.');
+  } catch (e) { alert('Error: ' + e.message); }
+};
 function _waRenderPagosForBooking_(bk) {
   const items = _waGetPagosForBooking_(bk);
   if (!items.length) return '';
