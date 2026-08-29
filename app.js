@@ -42590,7 +42590,17 @@ function _botcGetAllBookingsForPhone(phone) {
   if (!p10) return [];
   const out = [];
   const norm = v => { const s = String(v||''); const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`; const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m2 ? `${m2[3]}-${String(m2[1]).padStart(2,'0')}-${String(m2[2]).padStart(2,'0')}` : ''; };
-  const propOf = b => String(b.HouseId || b.PropertyId || b.PropertyName || b.RoomTypeName || '').toLowerCase().trim();
+  // Normaliza propiedad a "Propiedad #Depto" via _pagosAlojName (que
+  // resuelve HouseId contra el catálogo). Así LG (HouseId=724299) y HU
+  // sintético (PropertyName="Calle Baja California") caen en la misma
+  // clave y el dedup funciona.
+  const propOf = b => {
+    try {
+      const n = (typeof _pagosAlojName === 'function') ? _pagosAlojName(b) : '';
+      if (n && !n.startsWith('HouseId ')) return n.toLowerCase().trim();
+    } catch(_){}
+    return String(b.HouseId || b.PropertyName || b.RoomTypeName || '').toLowerCase().trim();
+  };
   const fkey = b => `${norm(b.DateArrival)}|${norm(b.DateDeparture)}|${propOf(b)}`;
   // Fuente 1 (autoritativa): PAGOS_STATE.bookings (fetch completo sin
   // filtros de mes) + LG_STATE.bookings (mes en curso). PAGOS_STATE gana
@@ -42612,14 +42622,18 @@ function _botcGetAllBookingsForPhone(phone) {
   try { if (typeof PAGOS_STATE === 'object') addRaw(PAGOS_STATE.bookings); } catch(_){}
   try { if (typeof LG_STATE !== 'undefined') addRaw(LG_STATE.bookings); } catch(_){}
   // Fuente 2: HU sintéticos SOLO si no colisiona con una reserva Lodgify
-  // (misma fecha + prop). Sin este check, la misma reserva sale dos veces
-  // (una desde Lodgify con datos de pago, otra sintética con $0).
+  // (misma fecha + prop). Además evita duplicados intra-HU por Id y por
+  // fkey (varios rows del sheet con misma reserva).
   try {
     if (typeof huGetGuestRowsByTail_ === 'function' && typeof huRowToSyntheticBooking === 'function') {
       const rows = huGetGuestRowsByTail_(null, p10) || [];
       for (const r of rows) {
         const syn = huRowToSyntheticBooking(r); if (!syn) continue;
-        if (lgKeys.has(fkey(syn))) continue; // dedup por fechas+prop
+        if (lgKeys.has(fkey(syn))) continue;
+        const synId = String(syn.Id || syn.LodgifyId || '');
+        if (synId && seenIds.has(synId)) continue;
+        if (synId) seenIds.add(synId);
+        lgKeys.add(fkey(syn));
         out.push(syn);
       }
     }
