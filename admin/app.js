@@ -42614,6 +42614,13 @@ function _botcGetAllBookingsForPhone(phone) {
 window._botcOpenPaymentDrawer = async function(phone) {
   const existing = document.getElementById('botc-payment-inline');
   if (existing && String(existing.dataset.phone) === String(phone)) return;
+  // Asegura LG_STATE.bookings cargado — sin esto solo tendríamos HU
+  // sintéticos SIN precios (TotalAmount/AmountPaid viven en Lodgify).
+  try {
+    if (typeof LG_STATE !== 'undefined' && (!LG_STATE.bookings || !LG_STATE.bookings.length) && typeof lodgifyLoad === 'function') {
+      await lodgifyLoad(false);
+    }
+  } catch (_) {}
   const list = _botcGetAllBookingsForPhone(phone);
   if (!list.length) { alert('Sin reservas asociadas a este número.'); return; }
   if (String(BOTC_STATE.selectedPhone) !== String(phone)) {
