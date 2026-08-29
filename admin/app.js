@@ -43296,7 +43296,35 @@ window._botcAttachReservaGo_ = async function(phone, reservaId, guestName, exist
     if (!j.ok) throw new Error(j.error || 'error');
     document.getElementById('botc-add-reserva-modal').remove();
     await _botcFetchPhoneExtras_(phone);
+    // Popular bucket LG extras para que _botcGetBookingForPhoneSync ya
+    // encuentre la reserva sin esperar al próximo /bookings-by-guest.
+    try {
+      const src = (typeof PAGOS_STATE === 'object' && Array.isArray(PAGOS_STATE.bookings) ? PAGOS_STATE.bookings : [])
+        .concat(typeof LG_STATE === 'object' && Array.isArray(LG_STATE.bookings) ? LG_STATE.bookings : []);
+      const bk = src.find(b => String(b && b.Id || '') === String(reservaId));
+      if (bk) {
+        window.__waExtraLgBookingsByPhone = window.__waExtraLgBookingsByPhone || {};
+        const bucket = window.__waExtraLgBookingsByPhone[p10] = window.__waExtraLgBookingsByPhone[p10] || [];
+        if (!bucket.some(x => String(x && x.Id || '') === String(reservaId))) bucket.push(bk);
+      }
+    } catch(_){}
+    // Invalidar caches indexados por el phoneRaw usado en render.
+    try {
+      window.__botcBookingByPhone = window.__botcBookingByPhone || {};
+      window.__botcBookingSig     = window.__botcBookingSig || {};
+      Object.keys(window.__botcBookingByPhone).forEach(k => {
+        if (String(k).replace(/\D/g,'').slice(-10) === p10) {
+          delete window.__botcBookingByPhone[k];
+          delete window.__botcBookingSig[k];
+        }
+      });
+    } catch(_){}
     _botcRepaintReservasDrawer_(phone);
+    // Re-render del main del chat para que el sidebar/cards del phone se
+    // actualicen con la reserva recién asociada.
+    try { if (typeof _botcRenderMain === 'function' && BOTC_STATE.selectedPhone) _botcRenderMain(BOTC_STATE.selectedPhone); } catch(_){}
+    // Refrescar lista de conversaciones (chip de reserva/estado).
+    try { if (typeof botcRefreshList_ === 'function') botcRefreshList_(); } catch(_){}
   } catch (e) { alert('Error: ' + e.message); }
 };
 
@@ -43317,7 +43345,8 @@ function _botcGetBookingForPhoneSync(phoneRaw) {
   const huLoaded = !!HU_STATE?.loaded;
   const lgLoaded = !!(typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings) && LG_STATE.bookings.length);
   const extraRows = (window.__waExtraHuRowsByPhone && window.__waExtraHuRowsByPhone[phone10]) || [];
-  if (!huLoaded && !lgLoaded && !extraRows.length) return undefined;
+  const extraLg = (window.__waExtraLgBookingsByPhone && window.__waExtraLgBookingsByPhone[phone10]) || [];
+  if (!huLoaded && !lgLoaded && !extraRows.length && !extraLg.length) return undefined;
   // Unir fuentes con dedup por LodgifyId | (fechas+propiedad). Cubre el
   // caso donde una reserva ACTIVA existe en Lodgify pero aún no se propagó
   // a Reservaciones (ej. Cumbres #1 16-23 ago del pilot).
@@ -43352,6 +43381,8 @@ function _botcGetBookingForPhoneSync(phoneRaw) {
       });
     }
   } catch(_){}
+  // Bookings Lodgify asociadas manualmente via Reservas_phones_extra
+  try { extraLg.forEach(b => { if (b) push(b); }); } catch(_){}
   const picked = bookings.length ? _botcPickBestBooking(bookings) : null;
   window.__botcBookingByPhone[cacheKey] = picked;
   window.__botcBookingSig[cacheKey] = sig;
