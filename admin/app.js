@@ -44233,7 +44233,7 @@ function _botcRenderMain(phone) {
         <div class="botc-chat-header-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
           ${payHeaderHtml}
           ${ctrlBtn}
-          <div style="position:relative;display:inline-block">
+          <div class="botc-chat-header-menuwrap" style="position:relative;display:inline-block;margin-left:auto">
           <button type="button" onclick="botcToggleHeaderMenu_(event)" title="Opciones" style="width:36px;height:36px;padding:0;font-size:20px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:900;line-height:1;letter-spacing:2px">⋮</button>
           <div id="botc-header-menu" style="display:${BOTC_STATE.headerMenuOpen?'block':'none'};position:absolute;top:100%;right:0;margin-top:6px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.22);z-index:1000;min-width:240px;overflow:hidden;font-size:12px">
             <div class="botc-hmenu-group">
