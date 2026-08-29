@@ -42886,15 +42886,22 @@ window.__botcBookingByPhone = window.__botcBookingByPhone || {};
 function _botcDataSig(phoneRaw) {
   const hu = (HU_STATE?.rows || []).length;
   const lg = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings.length : 0;
-  let extra = 0;
+  const pg = (typeof PAGOS_STATE === 'object' && Array.isArray(PAGOS_STATE.bookings)) ? PAGOS_STATE.bookings.length : 0;
+  let extra = 0, extraLg = 0, extraPE = 0;
   try {
     const digits = String(phoneRaw || '').replace(/\D/g,'');
     const phone10 = digits.length >= 10 ? digits.slice(-10) : digits;
     if (phone10 && window.__waExtraHuRowsByPhone && window.__waExtraHuRowsByPhone[phone10]) {
       extra = window.__waExtraHuRowsByPhone[phone10].length;
     }
+    if (phone10 && window.__waExtraLgBookingsByPhone && window.__waExtraLgBookingsByPhone[phone10]) {
+      extraLg = window.__waExtraLgBookingsByPhone[phone10].length;
+    }
+    if (phone10 && typeof BOTC_STATE === 'object' && BOTC_STATE.phoneExtrasByPhone && BOTC_STATE.phoneExtrasByPhone[phone10]) {
+      extraPE = BOTC_STATE.phoneExtrasByPhone[phone10].length;
+    }
   } catch(_){}
-  return `${hu}|${lg}|${extra}`;
+  return `${hu}|${lg}|${pg}|${extra}|${extraLg}|${extraPE}`;
 }
 window.__botcBookingSig = window.__botcBookingSig || {};
 
@@ -43453,6 +43460,23 @@ function _botcGetBookingForPhoneSync(phoneRaw) {
   } catch(_){}
   // Bookings Lodgify asociadas manualmente via Reservas_phones_extra
   try { extraLg.forEach(b => { if (b) push(b); }); } catch(_){}
+  // Fuente adicional: filas de Reservas_phones_extra (BOTC_STATE.phoneExtrasByPhone)
+  // — resuelve reservas asociadas manualmente aunque no estén en __waExtraLgBookingsByPhone
+  // (esto último solo se llena en la sesión donde se hizo el attach).
+  try {
+    const extras = (typeof BOTC_STATE === 'object' && BOTC_STATE.phoneExtrasByPhone) ? (BOTC_STATE.phoneExtrasByPhone[phone10] || []) : [];
+    if (extras.length) {
+      const pool = [];
+      try { if (typeof PAGOS_STATE === 'object' && Array.isArray(PAGOS_STATE.bookings)) pool.push(...PAGOS_STATE.bookings); } catch(_){}
+      try { if (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) pool.push(...LG_STATE.bookings); } catch(_){}
+      extras.forEach(x => {
+        const id = String(x.ReservaId || '').trim();
+        if (!id) return;
+        const bk = pool.find(b => String(b.Id) === id || String(b.LodgifyId) === id);
+        if (bk) push(bk);
+      });
+    }
+  } catch(_){}
   const picked = bookings.length ? _botcPickBestBooking(bookings) : null;
   window.__botcBookingByPhone[cacheKey] = picked;
   window.__botcBookingSig[cacheKey] = sig;
@@ -44041,6 +44065,22 @@ window.botcOpenChat = async function(phone, opts) {
     _botcRenderMain(phone);
     // Reanudar enrichment de cards pendientes (fue abortado al abrir chat).
     if (!opts.silent) setTimeout(() => _botcEnrichPendingBookings(), 300);
+    // Cargar phone-extras + PAGOS_STATE.bookings en background para que el
+    // chip Saldo/Pagada del header pueda resolverse cuando la reserva viene
+    // de asociación manual (Reservas_phones_extra). Al llegar cada uno, si
+    // cambia la firma se re-pinta el header.
+    (async () => {
+      try { if (typeof _botcFetchPhoneExtras_ === 'function') await _botcFetchPhoneExtras_(phone); } catch(_){}
+      try {
+        if (typeof PAGOS_STATE === 'object' && (!PAGOS_STATE.bookings || !PAGOS_STATE.bookings.length)) {
+          const rr = await fetch(`${BACKEND}/lodgify-list`, { cache: 'no-store' });
+          const jj = await rr.json();
+          if (jj && jj.ok && Array.isArray(jj.bookings)) PAGOS_STATE.bookings = jj.bookings;
+        }
+      } catch(_){}
+      if (String(BOTC_STATE.selectedPhone) !== String(phone)) return;
+      try { if (typeof _botcRepaintChatHeader_ === 'function') _botcRepaintChatHeader_(); } catch(_){}
+    })();
   } catch (e) {
     // Si ya había un chat renderizado, no borrar — el próximo poll reintentará.
     if (mainWasEmpty || !sameChatOpen) {
