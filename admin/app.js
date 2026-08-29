@@ -37345,7 +37345,16 @@ function waPropDept_(b) {
 function waAlojamientoLabel_(b) {
   const { prop, dept } = waPropDept_(b);
   if (prop && dept) return `${prop} #${dept}`;
-  return prop || dept || 'tu alojamiento';
+  if (prop || dept) return prop || dept;
+  // Fallback: resolver por HouseId contra catálogo (Lodgify HouseName suele
+  // venir vacío en el sync — el nombre real vive en la hoja alojamientos).
+  try {
+    if (typeof _pagosAlojName === 'function') {
+      const n = _pagosAlojName(b);
+      if (n && !/^HouseId /.test(n) && n !== '—') return n;
+    }
+  } catch(_){}
+  return 'tu alojamiento';
 }
 /** Busca en el catálogo de alojamientos (WA_ADMIN.alojIdx) por Propiedad+Dept
  *  o por HouseId. Devuelve el row completo o null. */
