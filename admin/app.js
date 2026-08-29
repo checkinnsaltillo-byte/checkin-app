@@ -47758,9 +47758,11 @@ function _pagosDateIso(s) {
   return '';
 }
 function _pagosAlojName(b) {
-  // Prioridad: catálogo ALOJ_STATE (arma "Propiedad #Departamento" completo)
-  // → HouseName (Lodgify) → RoomTypeNames → HouseId literal. El catálogo
-  // gana porque HouseName de Lodgify a veces trae solo "Calle X" sin depto.
+  // Prioridad de resolución:
+  //  1) Catálogo ALOJ_STATE por HouseId → "Propiedad #Depto" completo.
+  //  2) PropiedadRaw + DepartamentoRaw (bookings sintéticos HU_STATE).
+  //  3) Catálogo por Propiedad+#Depto (fallback si HouseId no cruza).
+  //  4) HouseName (Lodgify raw) → RoomTypeNames → HouseId literal.
   const hid = String(b.HouseId || '').trim();
   if (hid && typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.byHouseId) {
     const row = ALOJ_STATE.byHouseId.get(hid);
@@ -47770,6 +47772,9 @@ function _pagosAlojName(b) {
       if (prop) return prop + (dep ? ` #${dep}` : '');
     }
   }
+  const propRaw = String(b.PropiedadRaw || b.Propiedad || '').trim();
+  const depRaw  = String(b.DepartamentoRaw || b['# Departamento'] || '').trim();
+  if (propRaw) return propRaw + (depRaw ? ` #${depRaw}` : '');
   const direct = String(b.HouseName || '').trim();
   if (direct) return direct;
   const rt = String(b.RoomTypeNames || '').trim();
