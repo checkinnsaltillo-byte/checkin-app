@@ -38989,6 +38989,55 @@ function _waPagoMarkSent_(pagoId, val) {
     localStorage.setItem('_wa_pago_sent', JSON.stringify(m));
   } catch(_){}
 }
+// Construye el mapa de placeholders del template "PAGO: registro" con
+// múltiples aliases (monto, pago_monto, importe, cantidad; metodo, pago_metodo;
+// fecha, pago_fecha; etc.) para tolerar diferentes nomenclaturas en el
+// template que el admin editó a mano.
+function _pagosBuildPlaceholders_(m, b) {
+  const cur = (b && b.Currency) || 'MXN';
+  const fmt$ = n => `$${(Number(n)||0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${cur !== 'MXN' ? ' ' + cur : ''}`;
+  const totalNum = Number(b && b.TotalAmount) || 0;
+  const paidLg = Number(b && b.AmountPaid) || 0;
+  const manualSum = (typeof _pagosSumManual === 'function' && b) ? _pagosSumManual(b.Id) : 0;
+  const paidAcc = paidLg + manualSum;
+  const saldo = Math.max(0, totalNum - paidAcc);
+  const monto = fmt$(m && m.Monto);
+  const metodo = String((m && m.Metodo) || '').trim();
+  const fecha = String((m && m.Fecha) || '').slice(0, 10);
+  const referencia = String((m && m.Referencia) || '').trim();
+  const nombre = String((b && b.GuestName) || '').trim();
+  const aloj = (typeof _pagosAlojName === 'function' && b) ? _pagosAlojName(b) : String((b && b.HouseName) || '').trim();
+  const reservaId = String((b && b.Id) || '');
+  return {
+    // Datos del pago
+    monto, pago_monto: monto, importe: monto, cantidad: monto,
+    metodo, pago_metodo: metodo, forma_pago: metodo, forma_de_pago: metodo,
+    fecha, pago_fecha: fecha, fecha_pago: fecha,
+    referencia, pago_referencia: referencia, ref: referencia, folio: referencia,
+    // Datos del huésped/reserva
+    nombre, huesped: nombre, guest: nombre,
+    alojamiento: aloj, propiedad: aloj, aloj: aloj,
+    reserva: reservaId, reserva_id: reservaId, booking_id: reservaId,
+    // Totales
+    saldo, saldo_pendiente: saldo, pendiente: saldo,
+    total: fmt$(totalNum), total_reserva: fmt$(totalNum), importe_total: fmt$(totalNum),
+    pagado: fmt$(paidAcc), total_pagado: fmt$(paidAcc), acumulado_pagado: fmt$(paidAcc),
+  };
+}
+function _pagosResolveTemplateBody_(rawBody, m, b) {
+  const map = _pagosBuildPlaceholders_(m, b);
+  return String(rawBody || '').replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_x, k) => {
+    // Normaliza: minúsculas, quita acentos, separadores → underscore.
+    const key = String(k).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+    if (map[key] != null) return String(map[key]);
+    // Alias fallback: si tiene prefijo "pago_" y no hay match, intentar sin
+    // el prefijo (ej. pago_monto → monto).
+    const stripped = key.replace(/^pago_/, '');
+    if (stripped !== key && map[stripped] != null) return String(map[stripped]);
+    return `{{${k}}}`;
+  });
+}
+
 // Match laxo del template (case + accent insensitive, tolera separadores).
 function _pagosFindTemplate_(name) {
   const arr = (typeof CFG_ADMIN === 'object' && Array.isArray(CFG_ADMIN.templates)) ? CFG_ADMIN.templates : [];
@@ -39017,19 +39066,7 @@ function _waPagoResolveBody_(m, b) {
   try {
     const tpl = _pagosFindTemplate_('pago registro');
     if (!tpl || !b) return `Pago registrado ${m.Monto ? '$' + m.Monto : ''}${m.Metodo ? ' · ' + m.Metodo : ''}${m.Fecha ? ' · ' + String(m.Fecha).slice(0,10) : ''}${m.Referencia ? ' · Ref: ' + m.Referencia : ''}`;
-    const cur = b.Currency || 'MXN';
-    const fmt$ = n => `$${(Number(n)||0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${cur !== 'MXN' ? ' ' + cur : ''}`;
-    const totalNum = Number(b.TotalAmount) || 0;
-    const paidAcc = (Number(b.AmountPaid) || 0) + (typeof _pagosSumManual === 'function' ? _pagosSumManual(b.Id) : 0);
-    const map = {
-      nombre: b.GuestName || '', alojamiento: (typeof _pagosAlojName === 'function' ? _pagosAlojName(b) : b.HouseName || ''),
-      reserva: b.Id, monto: fmt$(m.Monto), metodo: m.Metodo || '', fecha: String(m.Fecha || '').slice(0, 10),
-      referencia: m.Referencia || '', saldo: fmt$(Math.max(0, totalNum - paidAcc)), total: fmt$(totalNum), pagado: fmt$(paidAcc),
-    };
-    return String(tpl.body || tpl.mensaje || '').replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_x, k) => {
-      const key = String(k).trim().toLowerCase();
-      return map[key] != null ? String(map[key]) : `{{${k}}}`;
-    });
+    return _pagosResolveTemplateBody_(tpl.body || tpl.mensaje || '', m, b);
   } catch(_) { return ''; }
 }
 function _waRenderPagoTimelineItem_(it) {
@@ -39162,19 +39199,7 @@ window._waPagoVerDetalles_ = async function(pagoId, reservaId) {
   const tpl = (typeof _pagosFindTemplate_ === 'function') ? _pagosFindTemplate_('pago registro') : null;
   let msg = '';
   if (tpl && b) {
-    const cur = b.Currency || 'MXN';
-    const fmt$ = n => `$${(Number(n)||0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${cur !== 'MXN' ? ' ' + cur : ''}`;
-    const totalNum = Number(b.TotalAmount) || 0;
-    const paidAcc = (Number(b.AmountPaid) || 0) + (typeof _pagosSumManual === 'function' ? _pagosSumManual(reservaId) : 0);
-    const map = {
-      nombre: b.GuestName || '', alojamiento: (typeof _pagosAlojName === 'function' ? _pagosAlojName(b) : b.HouseName || ''),
-      reserva: b.Id, monto: fmt$(m.Monto), metodo: m.Metodo || '', fecha: String(m.Fecha || '').slice(0, 10),
-      referencia: m.Referencia || '', saldo: fmt$(Math.max(0, totalNum - paidAcc)), total: fmt$(totalNum), pagado: fmt$(paidAcc),
-    };
-    msg = String(tpl.body || tpl.mensaje || '').replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_x, k) => {
-      const key = String(k).trim().toLowerCase();
-      return map[key] != null ? String(map[key]) : `{{${k}}}`;
-    });
+    msg = _pagosResolveTemplateBody_(tpl.body || tpl.mensaje || '', m, b);
   } else {
     msg = `Pago registrado ${m.Monto ? '$' + m.Monto : ''}${m.Metodo ? ' · ' + m.Metodo : ''}${m.Fecha ? ' · ' + String(m.Fecha).slice(0,10) : ''}${m.Referencia ? ' · Ref: ' + m.Referencia : ''}`;
   }
@@ -48645,29 +48670,8 @@ async function _pagosDispatchAutoDraft_(reservaId, paymentData) {
     if (typeof _pagosEnsureTemplates_ === 'function') await _pagosEnsureTemplates_();
     const tpl = (typeof _pagosFindTemplate_ === 'function') ? _pagosFindTemplate_('pago registro') : null;
     if (!tpl) return; // sin template: silent skip
-    const bodyRaw = String(tpl.body || tpl.mensaje || '');
-    // Resolver placeholders básicos
-    const cur = b.Currency || 'MXN';
-    const totalNum = Number(b.TotalAmount) || 0;
-    const paidAcc  = (Number(b.AmountPaid) || 0) + (typeof _pagosSumManual === 'function' ? _pagosSumManual(reservaId) : 0);
-    const saldo = Math.max(0, totalNum - paidAcc);
-    const fmt$ = n => `$${(Number(n)||0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${cur !== 'MXN' ? ' ' + cur : ''}`;
-    const map = {
-      nombre: b.GuestName || '',
-      alojamiento: (typeof _pagosAlojName === 'function') ? _pagosAlojName(b) : (b.HouseName || ''),
-      reserva: b.Id,
-      monto: fmt$(paymentData.Monto),
-      metodo: paymentData.Metodo || '',
-      fecha: paymentData.Fecha || '',
-      referencia: paymentData.Referencia || '',
-      saldo: fmt$(saldo),
-      total: fmt$(totalNum),
-      pagado: fmt$(paidAcc),
-    };
-    const resolved = bodyRaw.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_m, k) => {
-      const key = String(k).trim().toLowerCase();
-      return map[key] != null ? String(map[key]) : `{{${k}}}`;
-    });
+    const mForRes = { Monto: paymentData.Monto, Metodo: paymentData.Metodo, Fecha: paymentData.Fecha, Referencia: paymentData.Referencia };
+    const resolved = _pagosResolveTemplateBody_(tpl.body || tpl.mensaje || '', mForRes, b);
     // Post al backend → set draft en WA_ChatContext + auto-supervised.
     await fetch(`${BACKEND}/wa/chat-set-draft`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
