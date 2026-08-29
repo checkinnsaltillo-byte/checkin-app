@@ -44181,9 +44181,17 @@ function _botcRenderMain(phone) {
   const m = meta[cur] || meta.bot;
   const ctrlBtn = `<button type="button" id="botc-ctrl-cycle-btn" onclick="botcCycleControl_('${_botcEsc(phone)}')" title="Click para ciclar: Automático → Supervisado → Manual" style="padding:6px 12px;font-size:12px;font-weight:800;background:${m.bg};color:${m.fg};border:0;border-radius:7px;cursor:pointer;line-height:1;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.08);min-width:140px;text-align:center">${m.label}</button>`;
 
-  // Nombre del perfil desde conversations (si existe)
+  // Nombre del perfil desde conversations (si existe); si no, GuestName de
+  // la reserva asociada (útil para números asociados manualmente que aún no
+  // tienen "conv.name" propio).
   const conv = (BOTC_STATE.conversations || []).find(c => String(c.phone) === String(phone));
-  const name = conv && conv.name ? conv.name : '';
+  let name = (conv && conv.name) ? String(conv.name).trim() : '';
+  if (!name) {
+    try {
+      const bkForName = _botcGetBookingForPhoneSync(phone);
+      if (bkForName && bkForName.GuestName) name = String(bkForName.GuestName).trim();
+    } catch(_){}
+  }
   const nameHeader = name
     ? `<div class="botc-chat-name" style="font-size:14px;font-weight:800;color:#0f172a;line-height:1.25;word-break:break-word"><span>${_botcEsc(name)}</span> <span style="font-size:12px;color:#64748b;font-weight:600;white-space:nowrap">(+${_botcEsc(phone)})</span></div>`
     : `<div class="botc-chat-name" style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>`;
