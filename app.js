@@ -43371,12 +43371,41 @@ function _botcRenderMain(phone) {
   const nameHeader = name
     ? `<div style="font-size:14px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(phone)}</div>`
     : `<div style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>`;
+  // Saldo + chip status — solo si hay reserva CONFIRMADA (status Booked/OK).
+  let payHeaderHtml = '';
+  try {
+    const bkH = _botcGetBookingForPhoneSync(phone);
+    if (bkH) {
+      const mergedH = _botcEnrichPaymentFields(bkH);
+      const stH = String((mergedH && mergedH.Status) || '').toLowerCase();
+      const badStatus = ['declined','cancelled','canceled','deleted','tentative'].includes(stH);
+      const psH = String(mergedH && mergedH.PaymentStatus || '');
+      // Consideramos "confirmada" cuando NO está en un status malo. Puede
+      // ser Booked, o vacío pero con datos de pago (Airbnb inyecta pagada).
+      if (!badStatus && psH && psH !== 'Sin cargo') {
+        // Saldo: sumar pagos manuales si están en cache (evita mostrar
+        // saldo incorrecto cuando ya se registró efectivo).
+        const manualSum = _pagosSumManual ? _pagosSumManual(mergedH.Id) : 0;
+        const totalNum = Number(mergedH.TotalAmount) || 0;
+        const paidTotal = (Number(mergedH.AmountPaid) || 0) + manualSum;
+        const dueNum = Math.max(0, totalNum - paidTotal);
+        const cur = mergedH.Currency || 'MXN';
+        const chip = (typeof _pagosStatusChip === 'function') ? _pagosStatusChip(psH) : '';
+        payHeaderHtml = `<div onclick="event.stopPropagation();_botcOpenPaymentDrawer('${_botcEsc(phone)}')" title="Ver desglose de pago" style="display:flex;align-items:center;gap:8px;padding:4px 10px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer">
+          <span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Saldo</span>
+          <span style="font-size:13px;font-weight:800;color:${dueNum>0?'#991b1b':'#166534'}">${_pagosFmt$(dueNum, cur)}</span>
+          ${chip}
+        </div>`;
+      }
+    }
+  } catch (_) {}
   main.innerHTML = `
     <div style="padding:10px 20px 12px;border-bottom:1px solid #a7f3d0;background:linear-gradient(180deg,#ecfdf5 0%,#d1fae5 100%);display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
       <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
         style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">←</button>
       <div style="min-width:0;flex:1;overflow:hidden">${nameHeader}</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
+          ${payHeaderHtml}
           ${ctrlBtn}
           <div style="position:relative;display:inline-block">
           <button type="button" onclick="botcToggleHeaderMenu_(event)" title="Opciones" style="width:36px;height:36px;padding:0;font-size:20px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:900;line-height:1;letter-spacing:2px">⋮</button>
