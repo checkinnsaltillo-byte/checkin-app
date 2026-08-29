@@ -44086,18 +44086,17 @@ function _botcRenderMain(phone) {
   // por estado — nunca decir "Devolver al bot" cuando ya estás en supervised
   // (el modo supervised ES un modo bot).
   const autoBtn = `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','bot')" style="padding:6px 12px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">⚙️ Cambiar a Automático</button>`;
-  // Toggle único de 3 estados: Manual / Supervisado / Automático.
-  // isHuman → Manual · isSupervised → Supervisado · resto → Automático (bot).
-  const opt = (val, label, activeColor) => {
-    const on = (val === 'human' && isHuman) || (val === 'supervised' && isSupervised) || (val === 'bot' && !isHuman && !isSupervised);
-    return `<button type="button" onclick="botcSetControl('${_botcEsc(phone)}','${val}')" style="padding:6px 12px;font-size:11px;font-weight:800;background:${on?activeColor:'transparent'};color:${on?'#fff':'#475569'};border:0;border-radius:5px;cursor:pointer;line-height:1;white-space:nowrap">${label}</button>`;
+  // Botón único cíclico: bot → supervised → human → bot. Debounce ~1.6s
+  // antes de enviar al backend para permitir varios clicks fluidos sin
+  // spinner intermedio.
+  const cur = isHuman ? 'human' : (isSupervised ? 'supervised' : 'bot');
+  const meta = {
+    bot:        { label: '⚙️ Automático',  bg: '#3b82f6', fg: '#fff' },
+    supervised: { label: '👁 Supervisado', bg: '#7c3aed', fg: '#fff' },
+    human:      { label: '📝 Manual',      bg: '#f59e0b', fg: '#fff' },
   };
-  const ctrlBtn = `
-    <div style="display:inline-flex;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:7px;padding:2px;gap:2px">
-      ${opt('human',      '📝 Manual',      '#f59e0b')}
-      ${opt('supervised', '👁 Supervisado', '#7c3aed')}
-      ${opt('bot',        '⚙️ Automático',  '#3b82f6')}
-    </div>`;
+  const m = meta[cur] || meta.bot;
+  const ctrlBtn = `<button type="button" id="botc-ctrl-cycle-btn" onclick="botcCycleControl_('${_botcEsc(phone)}')" title="Click para ciclar: Automático → Supervisado → Manual" style="padding:6px 12px;font-size:12px;font-weight:800;background:${m.bg};color:${m.fg};border:0;border-radius:7px;cursor:pointer;line-height:1;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.08);min-width:140px;text-align:center">${m.label}</button>`;
 
   // Nombre del perfil desde conversations (si existe)
   const conv = (BOTC_STATE.conversations || []).find(c => String(c.phone) === String(phone));
@@ -44421,6 +44420,69 @@ window._botcSaveComprobante_ = async function() {
     alert('✓ Pago manual registrado: ' + (j.id || ''));
     if (typeof PAGOS_STATE === 'object' && PAGOS_STATE.manualByReserva) delete PAGOS_STATE.manualByReserva[reservaId];
   } catch (e) { alert('Error: ' + e.message); }
+};
+
+// Cicla el modo de control en el mismo botón: bot → supervised → human → bot.
+// UI se actualiza inline (no re-render) y el fetch al backend se dispara con
+// debounce de ~1.6s desde el último click, permitiendo click-clicks fluidos.
+window.__botcCtrlPending_ = window.__botcCtrlPending_ || {};   // phone → {timer, target, prev}
+window.botcCycleControl_ = function(phone) {
+  const conv = (BOTC_STATE.conversations || []).find(c => String(c.phone) === String(phone));
+  const cur = (BOTC_STATE.state && String(BOTC_STATE.selectedPhone) === String(phone))
+    ? String(BOTC_STATE.state.control || 'bot')
+    : String((conv && conv.control) || 'bot');
+  const order = ['bot','supervised','human'];
+  const next = order[(order.indexOf(cur) + 1 + order.length) % order.length] || 'bot';
+  // Guardamos prev SOLO la primera vez (para revertir en caso de fallo).
+  const p = window.__botcCtrlPending_[phone] || { prev: cur, timer: null };
+  p.target = next;
+  // Optimistic local — no re-render pesado, solo el botón inline y state.
+  if (conv) conv.control = next;
+  if (BOTC_STATE.state && String(BOTC_STATE.selectedPhone) === String(phone)) {
+    BOTC_STATE.state.control = next;
+  }
+  const btn = document.getElementById('botc-ctrl-cycle-btn');
+  if (btn) {
+    const meta = {
+      bot:        { label: '⚙️ Automático',  bg: '#3b82f6' },
+      supervised: { label: '👁 Supervisado', bg: '#7c3aed' },
+      human:      { label: '📝 Manual',      bg: '#f59e0b' },
+    }[next];
+    if (meta) {
+      btn.textContent = meta.label;
+      btn.style.background = meta.bg;
+    }
+  }
+  // Debounce: cancelar timer previo y programar nuevo.
+  if (p.timer) clearTimeout(p.timer);
+  p.timer = setTimeout(async () => {
+    const finalTarget = p.target;
+    const prev = p.prev;
+    delete window.__botcCtrlPending_[phone];
+    if (finalTarget === prev) return; // sin cambio neto
+    // Fetch directo (skip optimistic — ya está aplicado).
+    const reason = finalTarget === 'human' ? 'Toma manual del admin' : '';
+    try {
+      const r = await fetch(`https://api.check-inn.mx/wa/bot/set-control`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ phone, control: finalTarget, reason }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'error');
+      // Repintar sidebar (chip de la conversación) solo al final.
+      try { _botcRenderSidebar(); } catch(_){}
+    } catch (e) {
+      // Revertir.
+      if (conv) conv.control = prev;
+      if (BOTC_STATE.state && String(BOTC_STATE.selectedPhone) === String(phone)) {
+        BOTC_STATE.state.control = prev;
+      }
+      try { _botcRenderSidebar(); } catch(_){}
+      if (typeof _botcRepaintChatHeader_ === 'function') _botcRepaintChatHeader_();
+      alert('Error al cambiar modo: ' + e.message);
+    }
+  }, 1600);
+  window.__botcCtrlPending_[phone] = p;
 };
 
 window.botcSetControl = async function(phone, control) {
