@@ -255,14 +255,9 @@
     </nav>
 
     <!-- Header -->
-    <header class="app-header">
+    <header class="app-header" style="padding:4px 12px;margin-bottom:6px">
       <div style="display:flex;align-items:center;gap:10px">
-        <button class="hamburger-btn" onclick="toggleNavMenu()" title="Menú">
-          <span class="hb-line"></span><span class="hb-line"></span><span class="hb-line"></span>
-        </button>
         <div class="header-logo" style="display:flex;align-items:center;gap:12px">
-          <!-- Logo animado (pin 3D + texto Check-inn) — mismo del Portal del huésped.
-               size-md ≈ 36px, aprox la mitad del logo estático anterior (90px). -->
           <div class="checkinn-loader size-md header-logo-anim" role="img" aria-label="Check-inn Saltillo">
             <div class="ci-pin-scene">
               <div class="ci-pin">
@@ -272,9 +267,6 @@
               </div>
             </div>
             <img class="ci-text" src="https://checkinnsaltillo-byte.github.io/checkin-app/public/registro/loader_text.png" alt="Check-inn">
-          </div>
-          <div class="logo-text">
-            <h1>Sistema de gestión inmobiliaria</h1>
           </div>
         </div>
       </div>
@@ -2845,7 +2837,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1073"></script>
+  <script src="app.js?v=1074"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     #sys-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:900;height:44px;background:rgba(255,255,255,.94);backdrop-filter:saturate(160%) blur(10px);-webkit-backdrop-filter:saturate(160%) blur(10px);border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-around;padding:4px 6px;gap:6px;box-shadow:0 -1px 4px rgba(0,0,0,.04)}
@@ -2863,6 +2855,9 @@
     @media (max-width:767px){body{padding-bottom:40px !important}}
   </style>
   <nav id="sys-bottom-nav" aria-label="Accesos rápidos">
+    <button type="button" class="sys-bnav-btn sys-bnav-menu" title="Menú" style="--bg:#0f172a;flex:0 0 42px;min-width:0" onclick="toggleNavMenu()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
     <button type="button" class="sys-bnav-btn" title="Gestión de reservas" style="--bg:#4f46e5" onclick="switchModule('lodgify')">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
       <span class="sys-bnav-label">Reservas</span>
