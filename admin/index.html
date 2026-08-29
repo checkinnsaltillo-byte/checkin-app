@@ -2742,12 +2742,10 @@
     </div>
   </div>
 
-  <!-- 💬 Chatbot financiero (flotante, esquina inferior derecha) -->
+  <!-- 💬 Chatbot financiero (flotante) — oculto temporalmente por pedido del usuario -->
   <button id="bn-chat-fab" onclick="bn_chatToggle()"
           title="Asistente financiero"
-          style="position:fixed;bottom:20px;right:20px;width:58px;height:58px;border-radius:50%;border:none;background:linear-gradient(135deg,#475569,#334155);color:#fff;font-size:24px;cursor:pointer;box-shadow:0 8px 22px rgba(15,23,42,.25);z-index:9500;display:flex;align-items:center;justify-content:center;transition:transform .15s"
-          onmouseover="this.style.transform='scale(1.08)'"
-          onmouseout="this.style.transform=''">💬</button>
+          style="display:none">💬</button>
 
   <div id="bn-chat-panel" class="hidden"
        style="position:fixed;bottom:90px;right:20px;width:380px;max-width:calc(100vw - 30px);height:540px;max-height:calc(100vh - 120px);background:#fff;border:1px solid #cbd5e1;border-radius:16px;box-shadow:0 20px 60px rgba(15,23,42,.25);z-index:9499;display:flex;flex-direction:column;overflow:hidden">
@@ -2851,7 +2849,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1076"></script>
+  <script src="app.js?v=1077"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     #sys-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:900;height:44px;background:rgba(255,255,255,.94);backdrop-filter:saturate(160%) blur(10px);-webkit-backdrop-filter:saturate(160%) blur(10px);border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-around;padding:4px 6px;gap:6px;box-shadow:0 -1px 4px rgba(0,0,0,.04)}
