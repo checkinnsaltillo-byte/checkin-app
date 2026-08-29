@@ -48267,12 +48267,9 @@ function pagosPanelHtml(id) {
   }).join('') : `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin transacciones registradas.</div>`;
   return `
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;height:fit-content;position:sticky;top:12px">
-      <div style="padding:12px 14px;background:#0f172a;color:#fff;display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-size:11px;opacity:.7;font-weight:600">Reserva ${_pagosEsc(b.Id)}</div>
-          <div style="font-size:14px;font-weight:700;margin-top:2px">${_pagosEsc(b.GuestName || '—')}</div>
-        </div>
-        <button onclick="pagosClosePanel()" style="background:transparent;border:0;color:#fff;font-size:20px;cursor:pointer;opacity:.7">×</button>
+      <div style="padding:8px 14px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:11px;color:#64748b;font-weight:700">Reserva <span style="font-family:ui-monospace,monospace;color:#0f172a;font-weight:800">${_pagosEsc(b.Id)}</span></div>
+        <button onclick="pagosClosePanel()" style="background:transparent;border:0;color:#94a3b8;font-size:18px;cursor:pointer;line-height:1">×</button>
       </div>
       <div style="padding:14px;border-bottom:1px solid #e2e8f0">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px">
