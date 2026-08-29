@@ -43549,11 +43549,19 @@ window.botcMsgComprobante_ = async function() {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error backend');
+    // Evidencias: capturamos los mensajes seleccionados como snapshot para
+    // guardarlos junto al pago al confirmar (persisten como adjuntos).
+    const evid = sel.map(m => ({
+      tipo: (m.meta && /image/.test(String(m.meta.media_type || ''))) ? 'image' : 'text',
+      body: String(m.body || ''),
+      media_url: (m.meta && m.meta.media_url) || '',
+      media_type: (m.meta && m.meta.media_type) || '',
+      role: m.role || '',
+      timestamp: m.timestamp || '',
+    }));
     BOTC_STATE.selectMode = false;
     BOTC_STATE.selectedMsgIdx = new Set();
-    // Guardar estado del comprobante en BOTC_STATE — así el re-render
-    // periódico lo conserva (idéntico al pattern del draft supervised).
-    BOTC_STATE.comprobanteDraft = { phone, data: j.data, reservaId: j.reservaId, reservaLabel: j.reservaLabel };
+    BOTC_STATE.comprobanteDraft = { phone, data: j.data, reservaId: j.reservaId, reservaLabel: j.reservaLabel, evidencias: evid };
     if (typeof _botcRenderMain === 'function') _botcRenderMain(phone);
   } catch (e) {
     BOTC_STATE.comprobanteDraft = { phone: BOTC_STATE.selectedPhone, error: e.message };
@@ -43612,10 +43620,11 @@ window._botcSaveComprobante_ = async function() {
   if (!(monto > 0)) { alert('Monto inválido.'); return; }
   if (!reservaId) { alert('Sin reserva asociada.'); return; }
   const user = (typeof sysGetStoredUser === 'function' ? (sysGetStoredUser() || {}).Nombre : '') || '';
+  const evidencias = (BOTC_STATE.comprobanteDraft && BOTC_STATE.comprobanteDraft.evidencias) || [];
   try {
     const r = await fetch(`${BACKEND}/pagos-manuales`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payload: { ReservaId: reservaId, Monto: monto, Metodo: metodo, Fecha: fecha, Referencia: ref, Notas: 'Detectado de comprobante en chat', RegistradoPor: user } }),
+      body: JSON.stringify({ payload: { ReservaId: reservaId, Monto: monto, Metodo: metodo, Fecha: fecha, Referencia: ref, Notas: 'Detectado de comprobante en chat', RegistradoPor: user, Evidencias: evidencias } }),
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
@@ -48014,6 +48023,24 @@ function pagosPanelHtml(id) {
     if (entry.kind === 'manual') {
       const m = entry.m;
       const metodo = String(m.Metodo || '—').trim();
+      // Evidencias adjuntas al pago (texto o imagen).
+      let evid = [];
+      try { evid = JSON.parse(m.EvidenciasJSON || '[]') || []; } catch(_) {}
+      const evidHtml = evid.length ? `
+        <div style="margin-top:6px;padding:6px;background:#ede9fe;border-radius:6px">
+          <div style="font-size:9px;font-weight:800;color:#5b21b6;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">📎 Evidencias (${evid.length})</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${evid.map(e => {
+              if (e.tipo === 'image' && e.media_url) {
+                const proxied = `${BACKEND}/wa/media?url=${encodeURIComponent(String(e.media_url))}`;
+                return `<a href="${proxied}" target="_blank" rel="noopener" title="Ver imagen"><img src="${proxied}" style="width:72px;height:72px;object-fit:cover;border-radius:4px;background:#fff" loading="lazy"></a>`;
+              }
+              const txt = String(e.body || '').slice(0, 240);
+              const who = e.role === 'user' ? '👤' : (e.role === 'assistant' ? '🤖' : '👨‍💼');
+              return `<div style="flex:1 1 100%;background:#fff;border:1px solid #ddd6fe;border-radius:4px;padding:4px 6px;font-size:11px;color:#374151;white-space:pre-wrap">${who} ${_pagosEsc(txt)}</div>`;
+            }).join('')}
+          </div>
+        </div>` : '';
       return `
         <div style="display:flex;gap:10px;padding:10px 12px;border-bottom:1px solid #f1f5f9;background:#f5f3ff">
           <div style="width:8px;height:8px;border-radius:50%;background:#7c3aed;margin-top:6px;flex-shrink:0"></div>
@@ -48024,6 +48051,7 @@ function pagosPanelHtml(id) {
             </div>
             <div style="font-size:11px;color:#64748b;margin-top:2px">${_pagosEsc(metodo)} · ${_pagosEsc(String(m.Fecha || '').slice(0, 10))}${m.Referencia ? ' · Ref: ' + _pagosEsc(m.Referencia) : ''}</div>
             ${m.Notas ? `<div style="font-size:11px;color:#475569;margin-top:3px">${_pagosEsc(m.Notas)}</div>` : ''}
+            ${evidHtml}
             <button type="button" onclick="pagosDeleteManual('${_pagosEsc(m.ID).replace(/'/g,'&#39;')}','${_pagosEsc(String(id)).replace(/'/g,'&#39;')}')" title="Eliminar" style="margin-top:4px;background:transparent;border:0;color:#dc2626;font-size:10px;font-weight:700;padding:0;cursor:pointer">🗑 Eliminar</button>
           </div>
         </div>`;
