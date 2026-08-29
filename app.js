@@ -37986,6 +37986,28 @@ window.waOpenModal = async function(booking) {
     },
     currentTab: 'todos', // 'todos' | 'programados' | 'reportes'
   };
+  // Fetch phone-extras asociados manualmente a ESTA reserva y agregarlos
+  // como "Números adicionales" (para no perder de vista los WA vinculados
+  // desde Chats bot). Fire-and-forget — no bloquea el render inicial.
+  (async () => {
+    try {
+      if (!bookingId) return;
+      const r = await fetch(`${BACKEND}/reservas/phone-extras?reservaId=${encodeURIComponent(bookingId)}`);
+      const j = await r.json();
+      if (!j || !j.ok || !Array.isArray(j.rows) || !j.rows.length) return;
+      const extras = j.rows
+        .map(x => waNormalizePhoneE164_(String(x.Phone || '')))
+        .filter(Boolean)
+        .map(p => 'whatsapp:' + p);
+      if (!extras.length) return;
+      const merged = waDedupeRecipients_([...(st.recipients || []), ...extras]);
+      // Solo repintar si algo cambió (evita flash).
+      if (merged.length !== (st.recipients || []).length) {
+        st.recipients = merged;
+        if (typeof _waRepaint === 'function') _waRepaint();
+      }
+    } catch(_){}
+  })();
   // Pre-cargar config para todas las bookings del huésped (para pintar los headers)
   if (bookings.length > 1) {
     waFetchConfigForIds(bookings.map(x => waBookingId_(x)).filter(Boolean));
