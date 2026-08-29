@@ -39427,15 +39427,16 @@ function _waRenderBookingsAccordion_(logs, mode) {
   } catch(_) {
     bookings = st.bookings || [st.b];
   }
-  // Auto-reparación: si focusedBookingId no matchea ninguna booking visible,
-  // resetearlo a la primaria (st.bookingId). Sin esto el estado queda "stale"
-  // y el primer click de un header lo interpreta mal como toggle-collapse.
-  const focusMatchesVisible = st.focusedBookingId &&
-    bookings.some(b => String(waBookingId_(b)) === String(st.focusedBookingId));
-  if (!focusMatchesVisible) {
-    const primaryMatches = st.bookingId &&
-      bookings.some(b => String(waBookingId_(b)) === String(st.bookingId));
-    st.focusedBookingId = primaryMatches ? st.bookingId : waBookingId_(bookings[0] || {});
+  // Auto-reparación: si focusedBookingId es un id STALE (no vacío pero ya
+  // no matchea ninguna booking visible), resetearlo a la primaria. Si es
+  // cadena vacía significa "colapsado por el usuario" — respétalo.
+  if (st.focusedBookingId !== '' && st.focusedBookingId != null) {
+    const focusMatchesVisible = bookings.some(b => String(waBookingId_(b)) === String(st.focusedBookingId));
+    if (!focusMatchesVisible) {
+      const primaryMatches = st.bookingId &&
+        bookings.some(b => String(waBookingId_(b)) === String(st.bookingId));
+      st.focusedBookingId = primaryMatches ? st.bookingId : waBookingId_(bookings[0] || {});
+    }
   }
   const items = [];
   for (const bk of bookings) {
@@ -42717,6 +42718,7 @@ function _botcPagoCardHtml_(phone, b) {
     else if (paidTotal > 0 && paidTotal < totalNum) statusEff = 'Parcial';
   }
   const chip = (typeof _pagosStatusChip === 'function') ? _pagosStatusChip(statusEff) : '';
+  const srcChip = (typeof _pagosSourceChip === 'function') ? _pagosSourceChip(b.Source) : '';
   const aloj = (typeof _pagosAlojName === 'function') ? _pagosAlojName(b) : (b.HouseName || b.RoomTypeNames || '');
   const detail = isOpen ? (() => {
     const html = (typeof pagosPanelHtml === 'function') ? pagosPanelHtml(b.Id) : '';
@@ -42731,6 +42733,7 @@ function _botcPagoCardHtml_(phone, b) {
           <div style="font-size:12px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <span>${_pagosEsc(aloj || 'Reserva ' + b.Id)}</span>
             ${chip}
+            ${srcChip}
           </div>
           <div style="font-size:11px;color:#64748b;margin-top:2px">${_pagosEsc(arr)} → ${_pagosEsc(dep)} · Total ${_pagosFmt$(totalNum, cur)} · Saldo <b style="color:${dueNum>0?'#991b1b':'#166534'}">${_pagosFmt$(dueNum, cur)}</b></div>
         </div>
