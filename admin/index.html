@@ -255,9 +255,18 @@
     </nav>
 
     <!-- Header -->
-    <header class="app-header" style="padding:4px 12px;margin-bottom:6px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="header-logo" style="display:flex;align-items:center;gap:12px">
+    <header class="app-header" style="padding:4px 12px;margin-bottom:6px;justify-content:flex-start">
+      <style>
+        .app-header .header-logo{align-items:center}
+        .app-header .checkinn-loader{--ci-pin-h:28px !important}
+        .app-header .ci-pin-scene{align-items:center !important;justify-content:center}
+        @media (max-width:767px){
+          .app-header{padding:2px 8px !important;margin-bottom:4px !important}
+          .app-header .checkinn-loader{--ci-pin-h:22px !important}
+        }
+      </style>
+      <div style="display:flex;align-items:center;gap:8px;justify-content:flex-start">
+        <div class="header-logo" style="display:flex;align-items:center;gap:8px">
           <div class="checkinn-loader size-md header-logo-anim" role="img" aria-label="Check-inn Saltillo">
             <div class="ci-pin-scene">
               <div class="ci-pin">
@@ -2837,7 +2846,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1074"></script>
+  <script src="app.js?v=1075"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     #sys-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:900;height:44px;background:rgba(255,255,255,.94);backdrop-filter:saturate(160%) blur(10px);-webkit-backdrop-filter:saturate(160%) blur(10px);border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-around;padding:4px 6px;gap:6px;box-shadow:0 -1px 4px rgba(0,0,0,.04)}
