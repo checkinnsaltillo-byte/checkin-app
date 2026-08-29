@@ -42782,6 +42782,41 @@ window.botcInit = function() {
         try { if (typeof _botcRenderSidebar === 'function') _botcRenderSidebar(); } catch(_){}
       }).catch(()=>{});
     }
+    // Precargar PAGOS_STATE.bookings (bookings SIN filtro de fecha — LG_STATE
+    // solo trae el mes en curso). Necesario para que _botcGetBookingForPhoneSync
+    // resuelva reservas asociadas manualmente cuya fecha esté fuera del mes.
+    if (typeof PAGOS_STATE === 'object' && (!PAGOS_STATE.bookings || !PAGOS_STATE.bookings.length)) {
+      fetch(`${BACKEND}/lodgify-list`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(j => {
+          if (j && j.ok && Array.isArray(j.bookings)) {
+            PAGOS_STATE.bookings = j.bookings;
+            try { if (typeof _botcRenderSidebar === 'function') _botcRenderSidebar(); } catch(_){}
+          }
+        }).catch(()=>{});
+    }
+    // Precargar TODOS los phone-extras (Reservas_phones_extra) en un solo
+    // fetch. Agrupados por phone10 en BOTC_STATE.phoneExtrasByPhone para
+    // que la sidebar/header resuelvan reservas asociadas sin depender de
+    // abrir cada chat individual.
+    (async () => {
+      try {
+        const r = await fetch(`${BACKEND}/reservas/phone-extras`);
+        const j = await r.json();
+        if (!j || !j.ok || !Array.isArray(j.rows)) return;
+        BOTC_STATE.phoneExtrasByPhone = BOTC_STATE.phoneExtrasByPhone || {};
+        for (const row of j.rows) {
+          const p10 = String(row.Phone || '').replace(/\D/g,'').slice(-10);
+          if (!p10) continue;
+          BOTC_STATE.phoneExtrasByPhone[p10] = BOTC_STATE.phoneExtrasByPhone[p10] || [];
+          if (!BOTC_STATE.phoneExtrasByPhone[p10].some(x => String(x.ID) === String(row.ID))) {
+            BOTC_STATE.phoneExtrasByPhone[p10].push(row);
+          }
+        }
+        try { if (typeof _botcRenderSidebar === 'function') _botcRenderSidebar(); } catch(_){}
+        try { if (typeof _botcRepaintChatHeader_ === 'function') _botcRepaintChatHeader_(); } catch(_){}
+      } catch(_){}
+    })();
   } catch(_){}
   botcRefresh();
   // 2 polls con frecuencias distintas. Apps Script tarda 2-5s y es
