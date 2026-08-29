@@ -44128,8 +44128,8 @@ function _botcRenderMain(phone) {
   const conv = (BOTC_STATE.conversations || []).find(c => String(c.phone) === String(phone));
   const name = conv && conv.name ? conv.name : '';
   const nameHeader = name
-    ? `<div style="font-size:14px;font-weight:800;color:#0f172a">${_botcEsc(name)}</div><div style="font-size:11px;color:#64748b">+${_botcEsc(phone)}</div>`
-    : `<div style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>`;
+    ? `<div class="botc-chat-name" style="font-size:14px;font-weight:800;color:#0f172a;line-height:1.25;word-break:break-word"><span>${_botcEsc(name)}</span> <span style="font-size:12px;color:#64748b;font-weight:600;white-space:nowrap">(+${_botcEsc(phone)})</span></div>`
+    : `<div class="botc-chat-name" style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>`;
   // Saldo + chip status — solo si hay reserva CONFIRMADA (status Booked/OK).
   let payHeaderHtml = '';
   try {
@@ -44159,11 +44159,13 @@ function _botcRenderMain(phone) {
     }
   } catch (_) {}
   main.innerHTML = `
-    <div style="padding:10px 20px 12px;border-bottom:1px solid #a7f3d0;background:linear-gradient(180deg,#ecfdf5 0%,#d1fae5 100%);display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
-      <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
-        style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">←</button>
-      <div style="min-width:0;flex:1;overflow:hidden">${nameHeader}</div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
+    <div class="botc-chat-header" style="padding:10px 20px 12px;border-bottom:1px solid #a7f3d0;background:linear-gradient(180deg,#ecfdf5 0%,#d1fae5 100%);display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
+      <div class="botc-chat-header-nameblock" style="display:flex;align-items:center;gap:12px;min-width:0;flex:1">
+        <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
+          style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">←</button>
+        <div style="min-width:0;flex:1;overflow:hidden">${nameHeader}</div>
+      </div>
+        <div class="botc-chat-header-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
           ${payHeaderHtml}
           ${ctrlBtn}
           <div style="position:relative;display:inline-block">
