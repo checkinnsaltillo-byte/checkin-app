@@ -42580,28 +42580,30 @@ function _botcGetAllBookingsForPhone(phone) {
   const p10 = String(phone || '').replace(/\D/g, '').slice(-10);
   if (!p10) return [];
   const out = [];
-  const seen = new Set();
   const norm = v => { const s = String(v||''); const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`; const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m2 ? `${m2[3]}-${String(m2[1]).padStart(2,'0')}-${String(m2[2]).padStart(2,'0')}` : ''; };
-  // Fuente 1: LG_STATE.bookings por GuestPhone.
+  const propOf = b => String(b.HouseId || b.PropertyId || b.PropertyName || b.RoomTypeName || '').toLowerCase().trim();
+  const fkey = b => `${norm(b.DateArrival)}|${norm(b.DateDeparture)}|${propOf(b)}`;
+  // Fuente 1 (autoritativa): LG_STATE.bookings por GuestPhone.
+  const lgKeys = new Set();
   try {
     if (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) {
       for (const x of LG_STATE.bookings) {
         const xp = String(x.GuestPhone||'').replace(/\D/g,'').slice(-10);
         if (xp !== p10) continue;
-        const k = 'L:' + String(x.Id || x.LodgifyId || '');
-        if (seen.has(k)) continue; seen.add(k);
         out.push(x);
+        lgKeys.add(fkey(x));
       }
     }
   } catch(_){}
-  // Fuente 2: HU sintéticos (por si alguna reserva manual no está en Lodgify aún).
+  // Fuente 2: HU sintéticos SOLO si no colisiona con una reserva Lodgify
+  // (misma fecha + prop). Sin este check, la misma reserva sale dos veces
+  // (una desde Lodgify con datos de pago, otra sintética con $0).
   try {
     if (typeof huGetGuestRowsByTail_ === 'function' && typeof huRowToSyntheticBooking === 'function') {
       const rows = huGetGuestRowsByTail_(null, p10) || [];
       for (const r of rows) {
         const syn = huRowToSyntheticBooking(r); if (!syn) continue;
-        const k = 'L:' + String(syn.LodgifyId || syn.Id || `${norm(syn.DateArrival)}|${norm(syn.DateDeparture)}`);
-        if (seen.has(k)) continue; seen.add(k);
+        if (lgKeys.has(fkey(syn))) continue; // dedup por fechas+prop
         out.push(syn);
       }
     }
@@ -47714,10 +47716,9 @@ function _pagosDateIso(s) {
   return '';
 }
 function _pagosAlojName(b) {
-  // Prioridad: HouseName del booking → catálogo ALOJ_STATE por HouseId →
-  // RoomTypeNames → HouseId literal.
-  const direct = String(b.HouseName || '').trim();
-  if (direct) return direct;
+  // Prioridad: catálogo ALOJ_STATE (arma "Propiedad #Departamento" completo)
+  // → HouseName (Lodgify) → RoomTypeNames → HouseId literal. El catálogo
+  // gana porque HouseName de Lodgify a veces trae solo "Calle X" sin depto.
   const hid = String(b.HouseId || '').trim();
   if (hid && typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.byHouseId) {
     const row = ALOJ_STATE.byHouseId.get(hid);
@@ -47727,6 +47728,8 @@ function _pagosAlojName(b) {
       if (prop) return prop + (dep ? ` #${dep}` : '');
     }
   }
+  const direct = String(b.HouseName || '').trim();
+  if (direct) return direct;
   const rt = String(b.RoomTypeNames || '').trim();
   if (rt) return rt;
   return hid ? `HouseId ${hid}` : '—';
