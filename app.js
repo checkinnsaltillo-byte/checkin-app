@@ -48936,7 +48936,10 @@ function pagosPanelHtml(id) {
             <div style="font-size:11px;color:#64748b;margin-top:2px">${_pagosEsc(metodo)} · ${_pagosEsc(String(m.Fecha || '').slice(0, 10))}${m.Referencia ? ' · Ref: ' + _pagosEsc(m.Referencia) : ''}</div>
             ${m.Notas ? `<div style="font-size:11px;color:#475569;margin-top:3px">${_pagosEsc(m.Notas)}</div>` : ''}
             ${evidHtml}
-            <button type="button" onclick="pagosDeleteManual('${_pagosEsc(m.ID).replace(/'/g,'&#39;')}','${_pagosEsc(String(id)).replace(/'/g,'&#39;')}')" title="Eliminar" style="margin-top:4px;background:transparent;border:0;color:#dc2626;font-size:10px;font-weight:700;padding:0;cursor:pointer">🗑 Eliminar</button>
+            <div style="display:flex;gap:10px;margin-top:4px">
+              <button type="button" onclick="pagosOpenManualModal('${_pagosEsc(String(id)).replace(/'/g,'&#39;')}','${_pagosEsc(m.ID).replace(/'/g,'&#39;')}')" title="Editar" style="background:transparent;border:0;color:#0369a1;font-size:10px;font-weight:700;padding:0;cursor:pointer">✏️ Editar</button>
+              <button type="button" onclick="pagosDeleteManual('${_pagosEsc(m.ID).replace(/'/g,'&#39;')}','${_pagosEsc(String(id)).replace(/'/g,'&#39;')}')" title="Eliminar" style="background:transparent;border:0;color:#dc2626;font-size:10px;font-weight:700;padding:0;cursor:pointer">🗑 Eliminar</button>
+            </div>
           </div>
         </div>`;
     }
@@ -48982,54 +48985,101 @@ function pagosPanelHtml(id) {
       </div>
     </div>`;
 }
-window.pagosOpenManualModal = function(reservaId) {
+window.pagosOpenManualModal = function(reservaId, editId) {
   const b = PAGOS_STATE.bookings.find(x => String(x.Id) === String(reservaId));
   if (!b) { alert('Reserva no encontrada.'); return; }
   const today = new Date().toISOString().slice(0, 10);
   const user = (typeof sysGetStoredUser === 'function' ? (sysGetStoredUser() || {}).Nombre : '') || '';
+  // Modo edición: precargar valores del pago existente.
+  const editing = editId ? ((PAGOS_STATE.manualByReserva && PAGOS_STATE.manualByReserva[String(reservaId)]) || []).find(x => String(x.ID) === String(editId)) : null;
+  const isEdit = !!editing;
+  const vMonto  = editing ? String(editing.Monto || '') : '';
+  const vMetodo = editing ? String(editing.Metodo || '') : '';
+  const vFecha  = editing ? String(editing.Fecha || '').slice(0,10) : today;
+  const vRef    = editing ? String(editing.Referencia || '') : '';
+  const vNotas  = editing ? String(editing.Notas || '') : '';
+  const metodos = ['Efectivo','Transferencia SPEI','Depósito bancario','Terminal POS','Otro'];
+  // Si el método guardado no está en la lista, lo agregamos para no perderlo.
+  if (vMetodo && !metodos.includes(vMetodo)) metodos.unshift(vMetodo);
+  const metodosHtml = metodos.map(m => `<option${m===vMetodo?' selected':''}>${_pagosEsc(m)}</option>`).join('');
   const prev = document.getElementById('pagos-manual-modal'); if (prev) prev.remove();
   const modal = document.createElement('div');
   modal.id = 'pagos-manual-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  const submitHandler = isEdit
+    ? `pagosUpdateManual('${_pagosEsc(String(editId)).replace(/'/g,'&#39;')}','${_pagosEsc(reservaId).replace(/'/g,'&#39;')}')`
+    : `pagosSaveManual('${_pagosEsc(reservaId).replace(/'/g,'&#39;')}')`;
   modal.innerHTML = `
     <div style="background:#fff;border-radius:12px;max-width:440px;width:100%;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,.3)">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div>
-          <div style="font-size:16px;font-weight:800;color:#0f172a">💳 Registrar pago manual</div>
+          <div style="font-size:16px;font-weight:800;color:#0f172a">${isEdit ? '✏️ Editar pago manual' : '💳 Registrar pago manual'}</div>
           <div style="font-size:11px;color:#64748b;margin-top:2px">Reserva ${_pagosEsc(reservaId)} · ${_pagosEsc(b.GuestName || '')}</div>
         </div>
         <button type="button" onclick="document.getElementById('pagos-manual-modal').remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#64748b;line-height:1">×</button>
       </div>
-      <form onsubmit="event.preventDefault();pagosSaveManual('${_pagosEsc(reservaId).replace(/'/g,'&#39;')}')" style="display:flex;flex-direction:column;gap:10px">
+      <form onsubmit="event.preventDefault();${submitHandler}" style="display:flex;flex-direction:column;gap:10px">
         <label style="font-size:11px;font-weight:700;color:#475569">Monto (MXN)
-          <input id="pm-monto" type="number" step="0.01" min="0.01" required autofocus style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
+          <input id="pm-monto" type="number" step="0.01" min="0.01" required autofocus value="${_pagosEsc(vMonto)}" style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
         </label>
         <label style="font-size:11px;font-weight:700;color:#475569">Método
           <select id="pm-metodo" style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
-            <option>Efectivo</option>
-            <option>Transferencia SPEI</option>
-            <option>Depósito bancario</option>
-            <option>Terminal POS</option>
-            <option>Otro</option>
+            ${metodosHtml}
           </select>
         </label>
         <label style="font-size:11px;font-weight:700;color:#475569">Fecha
-          <input id="pm-fecha" type="date" value="${today}" required style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
+          <input id="pm-fecha" type="date" value="${_pagosEsc(vFecha)}" required style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
         </label>
         <label style="font-size:11px;font-weight:700;color:#475569">Referencia (opcional)
-          <input id="pm-ref" type="text" placeholder="Ej: SPEI-123456, comprobante #78" style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
+          <input id="pm-ref" type="text" value="${_pagosEsc(vRef)}" placeholder="Ej: SPEI-123456, comprobante #78" style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
         </label>
         <label style="font-size:11px;font-weight:700;color:#475569">Notas (opcional)
-          <textarea id="pm-notas" rows="2" style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:vertical"></textarea>
+          <textarea id="pm-notas" rows="2" style="width:100%;margin-top:3px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:vertical">${_pagosEsc(vNotas)}</textarea>
         </label>
         <input type="hidden" id="pm-user" value="${_pagosEsc(user)}">
         <div style="display:flex;gap:8px;margin-top:8px">
           <button type="button" onclick="document.getElementById('pagos-manual-modal').remove()" style="flex:1;padding:9px;background:#e2e8f0;border:0;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Cancelar</button>
-          <button type="submit" style="flex:1;padding:9px;background:#7c3aed;color:#fff;border:0;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer">Guardar</button>
+          <button type="submit" style="flex:1;padding:9px;background:#7c3aed;color:#fff;border:0;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer">${isEdit ? 'Guardar cambios' : 'Guardar'}</button>
         </div>
       </form>
     </div>`;
   document.body.appendChild(modal);
+};
+// Edición = DELETE + POST (mantiene atómico desde vista del usuario; si el
+// POST falla después del DELETE, el pago original queda perdido — riesgo
+// aceptable: el usuario aún tiene los datos en el modal para reintentar).
+// Preserva EvidenciasJSON del pago original (no se pide en el modal).
+window.pagosUpdateManual = async function(oldId, reservaId) {
+  const monto = parseFloat(document.getElementById('pm-monto').value);
+  const metodo = document.getElementById('pm-metodo').value;
+  const fecha = document.getElementById('pm-fecha').value;
+  const ref = document.getElementById('pm-ref').value;
+  const notas = document.getElementById('pm-notas').value;
+  const user = document.getElementById('pm-user').value;
+  if (!(monto > 0)) { alert('Monto debe ser mayor a 0'); return; }
+  const existing = ((PAGOS_STATE.manualByReserva && PAGOS_STATE.manualByReserva[String(reservaId)]) || []).find(x => String(x.ID) === String(oldId));
+  const evid = existing ? (existing.EvidenciasJSON || '') : '';
+  try {
+    // 1) Borrar el registro anterior
+    const rd = await fetch(`${BACKEND}/pagos-manuales/${encodeURIComponent(oldId)}`, { method: 'DELETE' });
+    const jd = await rd.json();
+    if (!jd.ok) throw new Error('DELETE: ' + (jd.error || 'error'));
+    // 2) Crear el nuevo con los datos editados (mantiene evidencias)
+    const rs = await fetch(`${BACKEND}/pagos-manuales`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload: { ReservaId: reservaId, Monto: monto, Metodo: metodo, Fecha: fecha, Referencia: ref, Notas: notas, RegistradoPor: user, EvidenciasJSON: evid } }),
+    });
+    const js = await rs.json();
+    if (!js.ok) throw new Error('POST: ' + (js.error || 'error'));
+    document.getElementById('pagos-manual-modal').remove();
+    await _pagosFetchManualByReserva(reservaId);
+    if (typeof pagosRender === 'function') pagosRender();
+    const drawer = document.getElementById('botc-payment-inline');
+    if (drawer && drawer.dataset.phone) {
+      const p = drawer.dataset.phone; drawer.remove();
+      if (typeof _botcOpenPaymentDrawer === 'function') _botcOpenPaymentDrawer(p);
+    }
+  } catch (e) { alert('Error al actualizar: ' + e.message); }
 };
 // Genera el mensaje del template "PAGO: registro" y lo pone como draft
 // supervised en el chat del huésped. Fire-and-forget — no rompe el guardado
