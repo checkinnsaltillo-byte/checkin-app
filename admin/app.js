@@ -42574,18 +42574,46 @@ function _botcPaymentChip(bk) {
   if (!b || !b.PaymentStatus) return '';
   return _pagosStatusChip(b.PaymentStatus);
 }
+// Trae TODAS las reservas asociadas a un phone10 (from LG_STATE + HU sintéticos),
+// deduped por Lodgify Id, ordenadas por fecha de llegada descendente.
+function _botcGetAllBookingsForPhone(phone) {
+  const p10 = String(phone || '').replace(/\D/g, '').slice(-10);
+  if (!p10) return [];
+  const out = [];
+  const seen = new Set();
+  const norm = v => { const s = String(v||''); const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`; const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m2 ? `${m2[3]}-${String(m2[1]).padStart(2,'0')}-${String(m2[2]).padStart(2,'0')}` : ''; };
+  // Fuente 1: LG_STATE.bookings por GuestPhone.
+  try {
+    if (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) {
+      for (const x of LG_STATE.bookings) {
+        const xp = String(x.GuestPhone||'').replace(/\D/g,'').slice(-10);
+        if (xp !== p10) continue;
+        const k = 'L:' + String(x.Id || x.LodgifyId || '');
+        if (seen.has(k)) continue; seen.add(k);
+        out.push(x);
+      }
+    }
+  } catch(_){}
+  // Fuente 2: HU sintéticos (por si alguna reserva manual no está en Lodgify aún).
+  try {
+    if (typeof huGetGuestRowsByTail_ === 'function' && typeof huRowToSyntheticBooking === 'function') {
+      const rows = huGetGuestRowsByTail_(null, p10) || [];
+      for (const r of rows) {
+        const syn = huRowToSyntheticBooking(r); if (!syn) continue;
+        const k = 'L:' + String(syn.LodgifyId || syn.Id || `${norm(syn.DateArrival)}|${norm(syn.DateDeparture)}`);
+        if (seen.has(k)) continue; seen.add(k);
+        out.push(syn);
+      }
+    }
+  } catch(_){}
+  out.sort((a,b) => String(norm(b.DateArrival)).localeCompare(String(norm(a.DateArrival))));
+  return out;
+}
 window._botcOpenPaymentDrawer = async function(phone) {
-  // Evita re-entradas si el drawer ya está abierto para este phone.
   const existing = document.getElementById('botc-payment-inline');
   if (existing && String(existing.dataset.phone) === String(phone)) return;
-  const bk = _botcGetBookingForPhoneSync(phone);
-  if (!bk) { alert('Sin reserva asociada a este número.'); return; }
-  const preMerged = _botcEnrichPaymentFields(bk);
-  const lodId = String((preMerged && (preMerged.LodgifyId || preMerged.Id)) || '').trim();
-  if (!lodId) { alert('Sin reserva Lodgify asociada.'); return; }
-  // Si el usuario abrió desde el chip de una card DISTINTA a la actual,
-  // conmutamos la conversación PRIMERO (botcOpenChat es async y
-  // re-inyecta botc-main — el drawer debe pintarse DESPUÉS).
+  const list = _botcGetAllBookingsForPhone(phone);
+  if (!list.length) { alert('Sin reservas asociadas a este número.'); return; }
   if (String(BOTC_STATE.selectedPhone) !== String(phone)) {
     try { await botcOpenChat(phone); } catch(_){}
   }
@@ -42612,34 +42640,97 @@ window._botcOpenPaymentDrawer = async function(phone) {
   (rowFlex || main).appendChild(drawer);
   drawer.dataset.phone = String(phone);
   drawer.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Cargando…</div>`;
-  let full = null;
-  try {
-    if (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) {
-      full = LG_STATE.bookings.find(x => String(x.Id) === lodId || String(x.LodgifyId) === lodId) || null;
+  // Enriquece TODAS las reservas + carga pagos manuales de cada una.
+  const enriched = [];
+  for (const bk of list) {
+    let full = null;
+    const lodId = String(bk.LodgifyId || bk.Id || '');
+    try {
+      if (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings) && lodId) {
+        full = LG_STATE.bookings.find(x => String(x.Id) === lodId || String(x.LodgifyId) === lodId) || null;
+      }
+    } catch(_){}
+    const merged = _botcEnrichPaymentFields(full || bk);
+    if (!merged.Id) merged.Id = lodId || String(bk.Id || '');
+    if (typeof PAGOS_STATE === 'object') {
+      PAGOS_STATE.bookings = PAGOS_STATE.bookings || [];
+      const i = PAGOS_STATE.bookings.findIndex(x => String(x.Id) === String(merged.Id));
+      if (i >= 0) PAGOS_STATE.bookings[i] = merged; else PAGOS_STATE.bookings.push(merged);
     }
-    if (!full) {
-      const r = await fetch(`${BACKEND}/lodgify-list`);
-      const j = await r.json();
-      full = (j.bookings || []).find(x => String(x.Id) === lodId || String(x.LodgifyId) === lodId) || null;
-    }
-  } catch(_) {}
-  const merged = _botcEnrichPaymentFields(full || preMerged);
-  if (!merged.Id) merged.Id = lodId;
-  if (typeof PAGOS_STATE === 'object') {
-    PAGOS_STATE.bookings = PAGOS_STATE.bookings || [];
-    const i = PAGOS_STATE.bookings.findIndex(x => String(x.Id) === String(merged.Id));
-    if (i >= 0) PAGOS_STATE.bookings[i] = merged;
-    else PAGOS_STATE.bookings.push(merged);
+    try { if (merged.Id) await _pagosFetchManualByReserva(merged.Id); } catch(_){}
+    enriched.push(merged);
   }
-  // Fetch pagos manuales para esta reserva (además de lo de Lodgify).
-  try { await _pagosFetchManualByReserva(merged.Id); } catch(_){}
-  const panelHtml = (typeof pagosPanelHtml === 'function') ? pagosPanelHtml(merged.Id) : '';
   if (String(drawer.dataset.phone) !== String(phone)) return;
-  // El pagosPanelHtml usa onclick="pagosClosePanel()". En este contexto
-  // reemplazamos por _botcClosePaymentDrawer para que el × del header
-  // negro cierre este drawer.
-  const patched = String(panelHtml || '').replace(/pagosClosePanel\(\)/g, '_botcClosePaymentDrawer()');
-  drawer.innerHTML = patched || '<div style="padding:20px;text-align:center;color:#94a3b8">Sin datos.</div>';
+  BOTC_STATE.__pagosExpanded = BOTC_STATE.__pagosExpanded || {};
+  // Por default expande la primera (más reciente) si no hay estado previo.
+  if (enriched.length && !Object.keys(BOTC_STATE.__pagosExpanded).some(k => k.startsWith(phone + '|'))) {
+    BOTC_STATE.__pagosExpanded[`${phone}|${enriched[0].Id}`] = true;
+  }
+  const cardsHtml = enriched.map(b => _botcPagoCardHtml_(phone, b)).join('');
+  drawer.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px 12px;position:sticky;top:0;background:#f8fafc;z-index:2">
+      <div style="font-size:13px;font-weight:800;color:#0f172a">💳 Estado de pago <span style="font-size:11px;color:#64748b;font-weight:600">· ${enriched.length} reserva${enriched.length===1?'':'s'}</span></div>
+      <button type="button" onclick="_botcClosePaymentDrawer()" style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:3px 9px;font-size:14px;line-height:1;cursor:pointer;color:#475569">×</button>
+    </div>
+    ${cardsHtml || '<div style="padding:20px;text-align:center;color:#94a3b8">Sin reservas.</div>'}`;
+};
+function _botcPagoCardHtml_(phone, b) {
+  const key = `${phone}|${b.Id}`;
+  const isOpen = !!(BOTC_STATE.__pagosExpanded || {})[key];
+  const arr = String(b.DateArrival || '').slice(0, 10);
+  const dep = String(b.DateDeparture || '').slice(0, 10);
+  const cur = b.Currency || 'MXN';
+  const totalNum = Number(b.TotalAmount) || 0;
+  const manualSum = _pagosSumManual ? _pagosSumManual(b.Id) : 0;
+  const paidTotal = (Number(b.AmountPaid) || 0) + manualSum;
+  const dueNum = Math.max(0, totalNum - paidTotal);
+  let statusEff = b.PaymentStatus;
+  if (manualSum > 0) {
+    if (totalNum > 0 && paidTotal >= totalNum) statusEff = 'Pagada';
+    else if (paidTotal > 0 && paidTotal < totalNum) statusEff = 'Parcial';
+  }
+  const chip = (typeof _pagosStatusChip === 'function') ? _pagosStatusChip(statusEff) : '';
+  const aloj = (typeof _pagosAlojName === 'function') ? _pagosAlojName(b) : (b.HouseName || b.RoomTypeNames || '');
+  const detail = isOpen ? (() => {
+    const html = (typeof pagosPanelHtml === 'function') ? pagosPanelHtml(b.Id) : '';
+    // Patch pagosClosePanel → colapsar esta card (no cerrar el drawer entero).
+    return String(html || '').replace(/pagosClosePanel\(\)/g, `_botcPagoToggleCard_('${_pagosEsc(String(phone)).replace(/'/g,'&#39;')}','${_pagosEsc(String(b.Id)).replace(/'/g,'&#39;')}')`);
+  })() : '';
+  return `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin:0 8px 8px;overflow:hidden">
+      <button type="button" onclick="_botcPagoToggleCard_('${_pagosEsc(String(phone)).replace(/'/g,'&#39;')}','${_pagosEsc(String(b.Id)).replace(/'/g,'&#39;')}')" style="width:100%;padding:10px 12px;background:transparent;border:0;border-bottom:${isOpen?'1px solid #e2e8f0':'0'};display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer;font-family:inherit">
+        <span style="font-size:12px;color:#475569;transition:transform .2s;transform:rotate(${isOpen?'90':'0'}deg);flex-shrink:0">▶</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span>${_pagosEsc(aloj || 'Reserva ' + b.Id)}</span>
+            ${chip}
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">${_pagosEsc(arr)} → ${_pagosEsc(dep)} · Total ${_pagosFmt$(totalNum, cur)} · Saldo <b style="color:${dueNum>0?'#991b1b':'#166534'}">${_pagosFmt$(dueNum, cur)}</b></div>
+        </div>
+      </button>
+      ${isOpen ? `<div>${detail}</div>` : ''}
+    </div>`;
+}
+window._botcPagoToggleCard_ = function(phone, id) {
+  BOTC_STATE.__pagosExpanded = BOTC_STATE.__pagosExpanded || {};
+  const k = `${phone}|${id}`;
+  BOTC_STATE.__pagosExpanded[k] = !BOTC_STATE.__pagosExpanded[k];
+  // Re-render solo el drawer (sin refetch).
+  const drawer = document.getElementById('botc-payment-inline');
+  if (!drawer) return;
+  const list = _botcGetAllBookingsForPhone(phone);
+  const enriched = list.map(bk => {
+    const merged = _botcEnrichPaymentFields(bk);
+    if (!merged.Id) merged.Id = String(bk.LodgifyId || bk.Id || '');
+    return merged;
+  });
+  const cardsHtml = enriched.map(b => _botcPagoCardHtml_(phone, b)).join('');
+  drawer.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px 12px;position:sticky;top:0;background:#f8fafc;z-index:2">
+      <div style="font-size:13px;font-weight:800;color:#0f172a">💳 Estado de pago <span style="font-size:11px;color:#64748b;font-weight:600">· ${enriched.length} reserva${enriched.length===1?'':'s'}</span></div>
+      <button type="button" onclick="_botcClosePaymentDrawer()" style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:3px 9px;font-size:14px;line-height:1;cursor:pointer;color:#475569">×</button>
+    </div>
+    ${cardsHtml}`;
 };
 window._botcClosePaymentDrawer = function() {
   const drawer = document.getElementById('botc-payment-inline');
@@ -48142,12 +48233,12 @@ function pagosPanelHtml(id) {
         </div>
       </div>
       ${b.PaymentPolicy ? `<div style="padding:10px 14px;background:#fefce8;border-bottom:1px solid #e2e8f0;font-size:11px;color:#713f12;white-space:pre-wrap">📋 <b>Política:</b>\n${_pagosEsc(b.PaymentPolicy)}</div>` : ''}
-      <div style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
-        <button type="button" onclick="pagosOpenManualModal('${_pagosEsc(String(id)).replace(/'/g,'&#39;')}')" style="width:100%;padding:8px 12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;font-weight:800;font-size:12px;cursor:pointer">+ Registrar pago manual</button>
-      </div>
       <div style="padding:8px 0">
         <div style="font-size:11px;font-weight:700;color:#475569;padding:4px 14px;text-transform:uppercase;letter-spacing:.5px">Transacciones</div>
         ${txHtml}
+      </div>
+      <div style="padding:10px 14px;background:#f8fafc;border-top:1px solid #e2e8f0">
+        <button type="button" onclick="pagosOpenManualModal('${_pagosEsc(String(id)).replace(/'/g,'&#39;')}')" style="width:100%;padding:8px 12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;font-weight:800;font-size:12px;cursor:pointer">+ Registrar pago manual</button>
       </div>
     </div>`;
 }
@@ -48220,9 +48311,10 @@ window.pagosSaveManual = async function(reservaId) {
     // Re-render panel (Pagos + drawer botc si está abierto).
     if (typeof pagosRender === 'function') pagosRender();
     const drawer = document.getElementById('botc-payment-inline');
-    if (drawer && String(drawer.dataset.phone)) {
-      const bk = _botcGetBookingForPhoneSync(drawer.dataset.phone);
-      if (bk) { const html = pagosPanelHtml(bk.Id); if (html) drawer.innerHTML = String(html).replace(/pagosClosePanel\(\)/g, '_botcClosePaymentDrawer()'); }
+    if (drawer && drawer.dataset.phone) {
+      // Re-abre en modo multi-cards (fuerza refetch de manuales para todas).
+      const p = drawer.dataset.phone; drawer.remove();
+      if (typeof _botcOpenPaymentDrawer === 'function') _botcOpenPaymentDrawer(p);
     }
   } catch (e) { alert('Error al guardar: ' + e.message); }
 };
@@ -48235,9 +48327,10 @@ window.pagosDeleteManual = async function(id, reservaId) {
     await _pagosFetchManualByReserva(reservaId);
     if (typeof pagosRender === 'function') pagosRender();
     const drawer = document.getElementById('botc-payment-inline');
-    if (drawer && String(drawer.dataset.phone)) {
-      const bk = _botcGetBookingForPhoneSync(drawer.dataset.phone);
-      if (bk) { const html = pagosPanelHtml(bk.Id); if (html) drawer.innerHTML = String(html).replace(/pagosClosePanel\(\)/g, '_botcClosePaymentDrawer()'); }
+    if (drawer && drawer.dataset.phone) {
+      // Re-abre en modo multi-cards (fuerza refetch de manuales para todas).
+      const p = drawer.dataset.phone; drawer.remove();
+      if (typeof _botcOpenPaymentDrawer === 'function') _botcOpenPaymentDrawer(p);
     }
   } catch (e) { alert('Error: ' + e.message); }
 };
