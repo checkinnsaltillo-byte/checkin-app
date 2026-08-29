@@ -43021,6 +43021,10 @@ window._botcOpenPaymentDrawer = async function(phone) {
       if (j && j.ok && Array.isArray(j.bookings)) PAGOS_STATE.bookings = j.bookings;
     }
   } catch (_) {}
+  // FIX: pull phone-extras (Reservas_phones_extra) antes de resolver la lista.
+  // Sin esto, abrir "Estado de pago" sin haber pasado antes por Bitácora
+  // no encuentra las reservas asociadas manualmente y muestra "Sin reservas".
+  try { await _botcFetchPhoneExtras_(phone); } catch(_){}
   const list = _botcGetAllBookingsForPhone(phone);
   if (!list.length) { alert('Sin reservas asociadas a este número.'); return; }
   if (String(BOTC_STATE.selectedPhone) !== String(phone)) {
