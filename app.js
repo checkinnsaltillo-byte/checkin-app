@@ -43399,6 +43399,38 @@ function _botcRenderMain(phone) {
     </div>
     ${selBarHtml}
     <div id="botc-msgs" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f8fafc">${msgsHtml}</div>
+    ${(() => {
+      // Caja de comprobante (loading/data/error) — solo si es de este phone.
+      const cd = BOTC_STATE.comprobanteDraft;
+      if (!cd || String(cd.phone) !== String(phone)) return '';
+      if (cd.error) {
+        return `<div style="border-top:1px solid #e2e8f0;background:#fee2e2;padding:10px 14px;font-size:12px;color:#991b1b"><b>❌ Comprobante — error:</b> ${_botcEsc(cd.error)}<button onclick="_botcCloseComprobante_()" style="margin-left:12px;background:#dc2626;color:#fff;border:0;padding:4px 8px;border-radius:4px;font-weight:800;cursor:pointer;font-size:11px">Cerrar</button></div>`;
+      }
+      if (!cd.data) return '';
+      const d = cd.data;
+      const rid = String(cd.reservaId || '').trim();
+      const rlabel = String(cd.reservaLabel || (rid ? 'Reserva '+rid : 'Sin reserva asociada'));
+      return `
+        <div id="botc-comprobante-box" style="border-top:1px solid #e2e8f0;background:#fef3c7;padding:12px 16px;font-size:12px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+            <span style="font-weight:800;color:#78350f">💳 Comprobante detectado — revisa y valida</span>
+            <button onclick="_botcCloseComprobante_()" style="background:transparent;border:0;font-size:16px;cursor:pointer;color:#78350f;line-height:1">×</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0">
+            <label style="font-size:10px;font-weight:700;color:#78350f">Monto <input id="cmp-monto" type="number" step="0.01" value="${_botcEsc(d.monto || '')}" style="width:100%;padding:4px 6px;border:1px solid #fbbf24;border-radius:4px;font-size:12px;box-sizing:border-box"></label>
+            <label style="font-size:10px;font-weight:700;color:#78350f">Método <input id="cmp-metodo" type="text" value="${_botcEsc(d.metodo || d.banco || 'Transferencia')}" style="width:100%;padding:4px 6px;border:1px solid #fbbf24;border-radius:4px;font-size:12px;box-sizing:border-box"></label>
+            <label style="font-size:10px;font-weight:700;color:#78350f">Fecha <input id="cmp-fecha" type="date" value="${_botcEsc(d.fecha || new Date().toISOString().slice(0,10))}" style="width:100%;padding:4px 6px;border:1px solid #fbbf24;border-radius:4px;font-size:12px;box-sizing:border-box"></label>
+            <label style="font-size:10px;font-weight:700;color:#78350f">Referencia <input id="cmp-ref" type="text" value="${_botcEsc(d.referencia || d.asunto || '')}" style="width:100%;padding:4px 6px;border:1px solid #fbbf24;border-radius:4px;font-size:12px;box-sizing:border-box"></label>
+          </div>
+          <div style="font-size:11px;color:#78350f;margin:4px 0"><b>Reserva:</b> ${_botcEsc(rlabel)}</div>
+          <input type="hidden" id="cmp-reserva" value="${_botcEsc(rid)}">
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button onclick="_botcSaveComprobante_()" ${rid?'':'disabled'} style="padding:6px 12px;background:${rid?'#16a34a':'#94a3b8'};color:#fff;border:0;border-radius:6px;font-weight:800;font-size:11px;cursor:${rid?'pointer':'not-allowed'}">✓ Registrar pago manual</button>
+            <button onclick="_botcCloseComprobante_()" style="padding:6px 12px;background:#e2e8f0;color:#475569;border:0;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer">Rechazar</button>
+          </div>
+          ${!rid?'<div style="font-size:10px;color:#991b1b;margin-top:4px">⚠ No hay reserva activa asociada al número — no se puede registrar.</div>':''}
+        </div>`;
+    })()}
     ${isSupervised && draftBody ? `
       <div id="botc-draft-box" style="border-top:1px solid #e2e8f0;background:#faf5ff;padding:12px 16px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -43517,11 +43549,20 @@ window.botcMsgComprobante_ = async function() {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error backend');
-    _botcShowComprobanteBox_({ data: j.data, phone, reservaId: j.reservaId, reservaLabel: j.reservaLabel });
-    botcMsgSelToggle_(); // sale del modo selección
+    BOTC_STATE.selectMode = false;
+    BOTC_STATE.selectedMsgIdx = new Set();
+    // Guardar estado del comprobante en BOTC_STATE — así el re-render
+    // periódico lo conserva (idéntico al pattern del draft supervised).
+    BOTC_STATE.comprobanteDraft = { phone, data: j.data, reservaId: j.reservaId, reservaLabel: j.reservaLabel };
+    if (typeof _botcRenderMain === 'function') _botcRenderMain(phone);
   } catch (e) {
-    _botcShowComprobanteBox_({ error: e.message });
+    BOTC_STATE.comprobanteDraft = { phone: BOTC_STATE.selectedPhone, error: e.message };
+    if (typeof _botcRenderMain === 'function') _botcRenderMain(BOTC_STATE.selectedPhone);
   }
+};
+window._botcCloseComprobante_ = function() {
+  BOTC_STATE.comprobanteDraft = null;
+  if (typeof _botcRenderMain === 'function' && BOTC_STATE.selectedPhone) _botcRenderMain(BOTC_STATE.selectedPhone);
 };
 window._botcShowComprobanteBox_ = function(opts) {
   const container = document.getElementById('botc-msgs')?.parentElement;
@@ -43578,9 +43619,8 @@ window._botcSaveComprobante_ = async function() {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
-    document.getElementById('botc-comprobante-box').remove();
+    _botcCloseComprobante_();
     alert('✓ Pago manual registrado: ' + (j.id || ''));
-    // Invalida cache de pagos manuales para esa reserva
     if (typeof PAGOS_STATE === 'object' && PAGOS_STATE.manualByReserva) delete PAGOS_STATE.manualByReserva[reservaId];
   } catch (e) { alert('Error: ' + e.message); }
 };
