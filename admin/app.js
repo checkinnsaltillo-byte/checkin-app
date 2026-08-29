@@ -37961,6 +37961,16 @@ window.waOpenModal = async function(booking) {
   // Buscar todas las reservas del mismo huésped (mismo tel 10 dígitos)
   const bookings = _waFindRelatedBookings(b);
   const primaryCanon = primaryPhone ? ('whatsapp:' + primaryPhone) : '';
+  // Si el modal se abrió desde una conversación bot con phone distinto del
+  // GuestPhone Lodgify (booking.__chatPhone10), inyectar ese phone como
+  // "adicional" desde el arranque para que aparezca en el chip pane sin
+  // depender del fetch async de phone-extras.
+  const chatPhone10 = String(b.__chatPhone10 || '').replace(/\D/g,'').slice(-10);
+  let initialRecipients = primaryCanon ? [primaryCanon] : [];
+  if (chatPhone10) {
+    const chatCanon = 'whatsapp:' + waNormalizePhoneE164_(chatPhone10);
+    if (!initialRecipients.some(x => waPhonesEqual_(x, chatCanon))) initialRecipients.push(chatCanon);
+  }
   const st = window.__waModalState = {
     b,
     bookingId,
@@ -37968,7 +37978,7 @@ window.waOpenModal = async function(booking) {
     focusedBookingId: bookingId,
     to: primaryPhone,
     primaryPhone: primaryCanon,
-    recipients: primaryCanon ? [primaryCanon] : [],
+    recipients: waDedupeRecipients_(initialRecipients),
     newRecipient: '',
     urlGuiaOverride: '',
     templateVals: {},
@@ -39747,6 +39757,13 @@ function _waTemplateScheduledDate(tplId, b) {
   return null; // bienvenida u otros → no scheduled
 }
 function _waFmtWhen(d) {
+  // Acepta Date, string, number. Devuelve '—' si es inválido para evitar
+  // "NaN undefined, NaN:NaN a.m." en la UI.
+  if (d == null || d === '') return '—';
+  if (!(d instanceof Date)) {
+    try { d = new Date(d); } catch(_) { return '—'; }
+  }
+  if (!(d instanceof Date) || isNaN(d.getTime())) return '—';
   const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   let h = d.getHours(), m = d.getMinutes();
   const ampm = h >= 12 ? 'p.m.' : 'a.m.'; h = h % 12; if (h===0) h = 12;
