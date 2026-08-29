@@ -48002,6 +48002,20 @@ function pagosSetFilter(key, val) {
   pagosApplyFilters();
   pagosRender();
 }
+// Búsqueda: re-render preserva foco + cursor del input (evita perder texto).
+window.pagosSetFilterQ_ = function(val) {
+  PAGOS_STATE.filters.q = val;
+  const inp = document.getElementById('pagos-search-input');
+  const start = inp ? inp.selectionStart : null;
+  const end   = inp ? inp.selectionEnd   : null;
+  pagosApplyFilters();
+  pagosRender();
+  const inp2 = document.getElementById('pagos-search-input');
+  if (inp2) {
+    inp2.focus();
+    try { if (start != null) inp2.setSelectionRange(start, end); } catch(_){}
+  }
+};
 function pagosToggleFilter(key, val) {
   const arr = PAGOS_STATE.filters[key] = Array.isArray(PAGOS_STATE.filters[key]) ? PAGOS_STATE.filters[key] : [];
   const i = arr.indexOf(val);
@@ -48140,7 +48154,7 @@ function pagosRender() {
       ${_multiDD('source',       'Medio',         sourceOpts)}
       <div style="flex:1;min-width:200px">
         <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Buscar</div>
-        <input placeholder="Busca en cualquier columna…" value="${_pagosEsc(f.q)}" oninput="pagosSetFilter('q', this.value)" style="width:100%;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
+        <input id="pagos-search-input" placeholder="Busca en cualquier columna…" value="${_pagosEsc(f.q)}" oninput="pagosSetFilterQ_(this.value)" style="width:100%;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr ${PAGOS_STATE.selectedId?'380px':'0'};gap:14px">
