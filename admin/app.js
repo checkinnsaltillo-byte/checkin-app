@@ -42927,6 +42927,23 @@ function _botcGetAllBookingsForPhone(phone) {
   };
   try { if (typeof PAGOS_STATE === 'object') addRaw(PAGOS_STATE.bookings); } catch(_){}
   try { if (typeof LG_STATE !== 'undefined') addRaw(LG_STATE.bookings); } catch(_){}
+  // Fuente 1b: reservas asociadas manualmente via Reservas_phones_extra.
+  // El backend/AppsScript devuelve rows {ReservaId, Phone,...}. Cargamos
+  // los Id y traemos las bookings correspondientes de PAGOS/LG.
+  try {
+    const extras = (typeof BOTC_STATE === 'object' && BOTC_STATE.phoneExtrasByPhone) ? (BOTC_STATE.phoneExtrasByPhone[p10] || []) : [];
+    const extraIds = extras.map(x => String(x.ReservaId || '').trim()).filter(Boolean);
+    if (extraIds.length) {
+      const pool = [];
+      try { if (typeof PAGOS_STATE === 'object' && Array.isArray(PAGOS_STATE.bookings)) pool.push(...PAGOS_STATE.bookings); } catch(_){}
+      try { if (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) pool.push(...LG_STATE.bookings); } catch(_){}
+      for (const id of extraIds) {
+        if (seenIds.has(id)) continue;
+        const bk = pool.find(x => String(x.Id) === id || String(x.LodgifyId) === id);
+        if (bk) { seenIds.add(id); out.push(bk); lgKeys.add(fkey(bk)); }
+      }
+    }
+  } catch(_){}
   // Fuente 2: HU sintéticos SOLO si no colisiona con una reserva Lodgify
   // (misma fecha + prop). Además evita duplicados intra-HU por Id y por
   // fkey (varios rows del sheet con misma reserva).
@@ -43085,6 +43102,202 @@ window._botcPagoToggleCard_ = function(phone, id) {
 window._botcClosePaymentDrawer = function() {
   const drawer = document.getElementById('botc-payment-inline');
   if (drawer) drawer.remove();
+};
+
+// ─── Drawer "Reservas asociadas" ──────────────────────────────────────────
+// Muestra las cards de reservas asociadas al phone (Lodgify + phone-extras)
+// con botón "+ Agregar reserva" abajo (busca por alojamiento y adjunta).
+async function _botcFetchPhoneExtras_(phone) {
+  const p10 = String(phone || '').replace(/\D/g,'').slice(-10);
+  if (!p10) return [];
+  try {
+    const r = await fetch(`${BACKEND}/reservas/phone-extras?phone=${encodeURIComponent(p10)}`, { cache: 'no-store' });
+    const j = await r.json();
+    const rows = (j && j.ok && Array.isArray(j.rows)) ? j.rows : [];
+    BOTC_STATE.phoneExtrasByPhone = BOTC_STATE.phoneExtrasByPhone || {};
+    BOTC_STATE.phoneExtrasByPhone[p10] = rows;
+    return rows;
+  } catch (_) { return []; }
+}
+window._botcOpenReservasDrawer = async function(phone) {
+  const existing = document.getElementById('botc-reservas-inline');
+  if (existing && String(existing.dataset.phone) === String(phone)) return;
+  // Asegura data: bookings + phone-extras.
+  try {
+    if (typeof PAGOS_STATE === 'object' && (!PAGOS_STATE.bookings || !PAGOS_STATE.bookings.length)) {
+      const r = await fetch(`${BACKEND}/lodgify-list`, { cache: 'no-store' });
+      const j = await r.json();
+      if (j && j.ok && Array.isArray(j.bookings)) PAGOS_STATE.bookings = j.bookings;
+    }
+  } catch (_) {}
+  await _botcFetchPhoneExtras_(phone);
+  if (String(BOTC_STATE.selectedPhone) !== String(phone)) {
+    try { await botcOpenChat(phone); } catch(_){}
+  }
+  const mod = document.getElementById('module-bot-chats');
+  const main = document.getElementById('botc-main');
+  if (!mod || !main) return;
+  mod.style.position = mod.style.position || 'relative';
+  const old = document.getElementById('botc-reservas-inline'); if (old) old.remove();
+  const drawer = document.createElement('div');
+  drawer.id = 'botc-reservas-inline';
+  drawer.dataset.phone = String(phone);
+  drawer.style.cssText = 'position:absolute;top:0;right:0;bottom:0;width:min(420px,100%);background:#f8fafc;border-left:1px solid #e2e8f0;box-shadow:-8px 0 24px rgba(15,23,42,.12);z-index:20;overflow-y:auto;padding:12px';
+  const rowFlex = mod.querySelector('[style*="display:flex"], [style*="display: flex"]');
+  (rowFlex || main).appendChild(drawer);
+  _botcRepaintReservasDrawer_(phone);
+};
+window._botcCloseReservasDrawer_ = function() {
+  const drawer = document.getElementById('botc-reservas-inline');
+  if (drawer) drawer.remove();
+};
+function _botcRepaintReservasDrawer_(phone) {
+  const drawer = document.getElementById('botc-reservas-inline');
+  if (!drawer) return;
+  const list = _botcGetAllBookingsForPhone(phone).map(bk => {
+    const merged = _botcEnrichPaymentFields(bk);
+    if (!merged.Id) merged.Id = String(bk.LodgifyId || bk.Id || '');
+    return merged;
+  });
+  const p10 = String(phone).replace(/\D/g,'').slice(-10);
+  const extras = (BOTC_STATE.phoneExtrasByPhone && BOTC_STATE.phoneExtrasByPhone[p10]) || [];
+  const isExtra = id => extras.some(e => String(e.ReservaId||'').trim() === String(id).trim());
+  const findExtraId = id => (extras.find(e => String(e.ReservaId||'').trim() === String(id).trim()) || {}).ID || '';
+  const _esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const norm = v => { const s = String(v||''); const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`; const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m2 ? `${m2[3]}-${String(m2[1]).padStart(2,'0')}-${String(m2[2]).padStart(2,'0')}` : ''; };
+  const cardsHtml = list.length ? list.map(b => {
+    const arr = norm(b.DateArrival), dep = norm(b.DateDeparture);
+    const aloj = _pagosAlojName ? _pagosAlojName(b) : (b.HouseName || b.RoomTypeNames || 'Reserva');
+    const cur = b.Currency || 'MXN';
+    const total = Number(b.TotalAmount) || Number(b.GrossTotal) || 0;
+    const chipSrc = _pagosSourceChip ? _pagosSourceChip(b.Source) : '';
+    const extraChip = isExtra(b.Id)
+      ? `<span style="background:#fef3c7;color:#78350f;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px">🔗 ASOCIADA</span>`
+      : '';
+    const detachBtn = isExtra(b.Id)
+      ? `<button type="button" onclick="_botcDetachReserva_('${_esc(findExtraId(b.Id)).replace(/'/g,'&#39;')}','${_esc(String(phone)).replace(/'/g,'&#39;')}')" style="margin-left:auto;background:transparent;border:0;color:#dc2626;font-size:11px;font-weight:700;cursor:pointer">🗑 Quitar</button>`
+      : '';
+    return `
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin:0 8px 8px;padding:10px 12px">
+        <div style="font-size:12px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <span>${_esc(aloj || 'Reserva ' + b.Id)}</span>
+          ${chipSrc}
+          ${extraChip}
+        </div>
+        <div style="font-size:11px;color:#64748b;margin-top:3px">Reserva <span style="font-family:ui-monospace,monospace">${_esc(b.Id)}</span> · ${_esc(arr)} → ${_esc(dep)} · Total $${(total).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}${cur!=='MXN'?' '+cur:''}</div>
+        ${detachBtn ? `<div style="margin-top:6px;display:flex">${detachBtn}</div>` : ''}
+      </div>`;
+  }).join('') : `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin reservas asociadas a este número.</div>`;
+  drawer.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px 12px;position:sticky;top:0;background:#f8fafc;z-index:2">
+      <div style="font-size:13px;font-weight:800;color:#0f172a">📋 Reservas asociadas <span style="font-size:11px;color:#64748b;font-weight:600">· ${list.length}</span></div>
+      <button type="button" onclick="_botcCloseReservasDrawer_()" style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:3px 9px;font-size:14px;line-height:1;cursor:pointer;color:#475569">×</button>
+    </div>
+    ${cardsHtml}
+    <div style="padding:10px 8px">
+      <button type="button" onclick="_botcOpenAddReservaModal_('${_esc(String(phone)).replace(/'/g,'&#39;')}')" style="width:100%;padding:10px 12px;background:#0f172a;color:#fff;border:0;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">+ Agregar reserva</button>
+    </div>`;
+}
+window._botcDetachReserva_ = async function(rpeId, phone) {
+  if (!rpeId) return;
+  if (!confirm('¿Quitar esta reserva del listado asociado al número?')) return;
+  try {
+    const r = await fetch(`${BACKEND}/reservas/phone-extras/${encodeURIComponent(rpeId)}`, { method: 'DELETE' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    await _botcFetchPhoneExtras_(phone);
+    _botcRepaintReservasDrawer_(phone);
+  } catch (e) { alert('Error: ' + e.message); }
+};
+// Modal "Agregar reserva": Paso 1 alojamiento + Paso 2 booking del aloj.
+window._botcOpenAddReservaModal_ = function(phone) {
+  const prev = document.getElementById('botc-add-reserva-modal'); if (prev) prev.remove();
+  // Reúne alojamientos únicos del catálogo (PAGOS_STATE.bookings tiene todas).
+  const alojMap = new Map();
+  const _esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  (PAGOS_STATE.bookings || []).forEach(b => {
+    const key = String(b.HouseId || '');
+    if (!key || alojMap.has(key)) return;
+    const name = _pagosAlojName ? _pagosAlojName(b) : (b.HouseName || 'HouseId ' + key);
+    if (name && name !== '—') alojMap.set(key, name);
+  });
+  const alojOpts = Array.from(alojMap.entries()).sort((a,b) => String(a[1]).localeCompare(String(b[1])));
+  const modal = document.createElement('div');
+  modal.id = 'botc-add-reserva-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:12px;max-width:520px;width:100%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.3)">
+      <div style="padding:14px 16px;background:#0f172a;color:#fff;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:15px;font-weight:800">+ Agregar reserva a +${_esc(phone)}</div>
+        <button type="button" onclick="document.getElementById('botc-add-reserva-modal').remove()" style="background:transparent;border:0;font-size:20px;color:#fff;cursor:pointer;line-height:1">×</button>
+      </div>
+      <div style="padding:16px;flex:1;overflow-y:auto">
+        <label style="font-size:11px;font-weight:700;color:#475569">Paso 1 — Elige alojamiento
+          <select id="botc-add-reserva-aloj" onchange="_botcAddReservaLoadBookings_('${_esc(String(phone)).replace(/'/g,'&#39;')}', this.value)" style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
+            <option value="">— Selecciona —</option>
+            ${alojOpts.map(([id,name]) => `<option value="${_esc(id)}">${_esc(name)}</option>`).join('')}
+          </select>
+        </label>
+        <div id="botc-add-reserva-list" style="margin-top:14px"></div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+};
+window._botcAddReservaLoadBookings_ = function(phone, houseId) {
+  const box = document.getElementById('botc-add-reserva-list');
+  if (!box) return;
+  if (!houseId) { box.innerHTML = ''; return; }
+  const _esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
+  const norm = v => { const s = String(v||''); const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`; const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m2 ? `${m2[3]}-${String(m2[1]).padStart(2,'0')}-${String(m2[2]).padStart(2,'0')}` : ''; };
+  // Bookings de ese HouseId, no canceladas, próximas o de últimos 90 días.
+  const cutoff = new Date(Date.now() - 90*86400000).toISOString().slice(0,10);
+  const items = (PAGOS_STATE.bookings || [])
+    .filter(b => String(b.HouseId||'') === String(houseId))
+    .filter(b => {
+      const st = String(b.Status||'').toLowerCase();
+      if (['declined','cancelled','canceled','deleted'].includes(st)) return false;
+      const arr = norm(b.DateArrival);
+      return arr >= cutoff;
+    })
+    .sort((a,b) => String(norm(b.DateArrival)).localeCompare(String(norm(a.DateArrival))))
+    .slice(0, 30);
+  if (!items.length) { box.innerHTML = `<div style="padding:16px;text-align:center;color:#94a3b8;font-size:12px">Sin reservas recientes/futuras para este alojamiento.</div>`; return; }
+  box.innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:6px">Paso 2 — Elige la reserva (${items.length})</div>
+    <div style="max-height:340px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px">
+      ${items.map(b => {
+        const arr = norm(b.DateArrival), dep = norm(b.DateDeparture);
+        const isFuture = arr >= today;
+        const isActive = arr <= today && today <= dep;
+        const badge = isActive ? '<span style="background:#dcfce7;color:#166534;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px">ACTIVA</span>'
+          : (isFuture ? '<span style="background:#dbeafe;color:#1e3a8a;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;margin-left:6px">PRÓXIMA</span>' : '');
+        return `
+          <div onclick="_botcAttachReservaGo_('${_esc(String(phone)).replace(/'/g,'&#39;')}','${_esc(String(b.Id)).replace(/'/g,'&#39;')}','${_esc(String(b.GuestName||'')).replace(/'/g,'&#39;')}','${_esc(String(b.GuestPhone||'')).replace(/'/g,'&#39;')}')" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:12px" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#fff'">
+            <div style="font-weight:800;color:#0f172a">${_esc(b.GuestName || '(sin nombre)')}${badge}</div>
+            <div style="font-size:11px;color:#64748b;margin-top:2px">Reserva <span style="font-family:ui-monospace,monospace">${_esc(b.Id)}</span> · ${_esc(arr)} → ${_esc(dep)}${b.GuestPhone ? ' · 📞 ' + _esc(b.GuestPhone) : ''}</div>
+          </div>`;
+      }).join('')}
+    </div>`;
+};
+window._botcAttachReservaGo_ = async function(phone, reservaId, guestName, existingPhone) {
+  const p10 = String(phone).replace(/\D/g,'').slice(-10);
+  const already = String(existingPhone||'').replace(/\D/g,'').slice(-10);
+  const isSame = already === p10;
+  const kind = isSame ? 'principal (ya coincide)' : (already ? 'adicional' : 'principal');
+  if (!confirm(`Vas a asociar el número +${phone} a la reserva ${reservaId} de ${guestName || 'huésped'} como número ${kind}. ¿Confirmar?`)) return;
+  try {
+    const user = (typeof sysGetStoredUser === 'function' ? (sysGetStoredUser() || {}).Nombre : '') || '';
+    const r = await fetch(`${BACKEND}/reservas/attach-phone`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload: { ReservaId: reservaId, Phone: p10, AddedBy: user } }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    document.getElementById('botc-add-reserva-modal').remove();
+    await _botcFetchPhoneExtras_(phone);
+    _botcRepaintReservasDrawer_(phone);
+  } catch (e) { alert('Error: ' + e.message); }
 };
 
 function _botcGetBookingForPhoneSync(phoneRaw) {
@@ -43668,12 +43881,17 @@ window.botcOpenChat = async function(phone, opts) {
       if (sp && sp.style.display !== 'none') return;
     } catch(_){}
   }
-  // Si el usuario cambió de card y hay un panel Estado de pago abierto,
-  // cerrarlo (la ventana lateral desaparece al saltar a otra conversación).
+  // Si el usuario cambió de card y hay un panel Estado de pago / Reservas
+  // abierto, cerrarlo (la ventana lateral desaparece al saltar a otra
+  // conversación).
   try {
     const _pd = document.getElementById('botc-payment-inline');
     if (_pd && String(_pd.dataset.phone) !== String(phone)) {
       if (typeof _botcClosePaymentDrawer === 'function') _botcClosePaymentDrawer();
+    }
+    const _rd = document.getElementById('botc-reservas-inline');
+    if (_rd && String(_rd.dataset.phone) !== String(phone)) {
+      if (typeof _botcCloseReservasDrawer_ === 'function') _botcCloseReservasDrawer_();
     }
   } catch(_){}
   BOTC_STATE.selectedPhone = phone;
@@ -43861,6 +44079,7 @@ function _botcRenderMain(phone) {
               <button type="button" class="botc-hmenu-item" onclick="botcOpenSummary();botcCloseHeaderMenu_()">🧠 Resumen sintético</button>
               <button type="button" class="botc-hmenu-item" onclick="botcToggleRightPanel();botcCloseHeaderMenu_()">📖 Bitácora completa</button>
               <button type="button" class="botc-hmenu-item" onclick="_botcOpenPaymentDrawer('${_botcEsc(phone)}');botcCloseHeaderMenu_()" style="display:flex;align-items:center;gap:8px">💳 Estado de pago ${_botcPaymentChip(_botcGetBookingForPhoneSync(phone)) || ''}</button>
+              <button type="button" class="botc-hmenu-item" onclick="_botcOpenReservasDrawer('${_botcEsc(phone)}');botcCloseHeaderMenu_()">📋 Reservas asociadas</button>
               <button type="button" class="botc-hmenu-item" onclick="botcMsgSelToggle_();botcCloseHeaderMenu_()">☑ Seleccionar mensajes</button>
             </div>
           </div>
