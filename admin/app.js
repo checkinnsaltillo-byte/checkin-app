@@ -38959,13 +38959,20 @@ function _waGetPagosForBooking_(bk) {
   const rows = (typeof PAGOS_STATE === 'object' && PAGOS_STATE.manualByReserva)
     ? (PAGOS_STATE.manualByReserva[id] || [])
     : [];
-  // Dispara fetch en background si no está cacheado.
+  // Dispara fetch en background si no está cacheado (pagos + templates).
   if (!rows.length && typeof _pagosFetchManualByReserva === 'function' && !window.__waPagosFetched?.[id]) {
     window.__waPagosFetched = window.__waPagosFetched || {};
     window.__waPagosFetched[id] = true;
-    _pagosFetchManualByReserva(id).then(rs => {
-      if ((rs || []).length && typeof _waRepaint === 'function') _waRepaint();
-    }).catch(()=>{});
+    Promise.all([
+      _pagosFetchManualByReserva(id).catch(()=>{}),
+      (typeof _pagosEnsureTemplates_ === 'function') ? _pagosEnsureTemplates_().catch(()=>{}) : Promise.resolve(),
+    ]).then(() => { if (typeof _waRepaint === 'function') _waRepaint(); });
+  } else {
+    // Aunque los pagos ya estén cacheados, aseguramos templates para que el
+    // body del "Ver detalles" salga con el template resuelto (no fallback).
+    if (typeof _pagosEnsureTemplates_ === 'function' && (!CFG_ADMIN?.templates || !CFG_ADMIN.templates.length)) {
+      _pagosEnsureTemplates_().then(() => { if (typeof _waRepaint === 'function') _waRepaint(); }).catch(()=>{});
+    }
   }
   return rows.map(m => {
     const ts = String(m.Fecha || m.Timestamp || '').slice(0, 19);
@@ -38982,11 +38989,33 @@ function _waPagoMarkSent_(pagoId, val) {
     localStorage.setItem('_wa_pago_sent', JSON.stringify(m));
   } catch(_){}
 }
+// Match laxo del template (case + accent insensitive, tolera separadores).
+function _pagosFindTemplate_(name) {
+  const arr = (typeof CFG_ADMIN === 'object' && Array.isArray(CFG_ADMIN.templates)) ? CFG_ADMIN.templates : [];
+  const target = String(name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  return arr.find(t => {
+    const n = String(t.nombre || t.name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+    return n === target || (n.includes('pago') && n.includes('registro'));
+  }) || null;
+}
+// Carga CFG_ADMIN.templates si está vacío. Idempotente.
+async function _pagosEnsureTemplates_() {
+  try {
+    if (typeof CFG_ADMIN !== 'object') window.CFG_ADMIN = { templates: [] };
+    if (Array.isArray(CFG_ADMIN.templates) && CFG_ADMIN.templates.length) return;
+    if (window.__pagosTemplatesInflight) return window.__pagosTemplatesInflight;
+    window.__pagosTemplatesInflight = (async () => {
+      const r = await fetch(`${BACKEND}/wa/templates-list`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store' });
+      const j = await r.json();
+      CFG_ADMIN.templates = (j && j.items) || [];
+    })();
+    await window.__pagosTemplatesInflight;
+    window.__pagosTemplatesInflight = null;
+  } catch (e) { window.__pagosTemplatesInflight = null; }
+}
 function _waPagoResolveBody_(m, b) {
   try {
-    const tpl = (CFG_ADMIN && Array.isArray(CFG_ADMIN.templates) ? CFG_ADMIN.templates : []).find(t =>
-      String(t.nombre || t.name || '').trim().toLowerCase() === 'pago: registro'
-    );
+    const tpl = _pagosFindTemplate_('pago registro');
     if (!tpl || !b) return `Pago registrado ${m.Monto ? '$' + m.Monto : ''}${m.Metodo ? ' · ' + m.Metodo : ''}${m.Fecha ? ' · ' + String(m.Fecha).slice(0,10) : ''}${m.Referencia ? ' · Ref: ' + m.Referencia : ''}`;
     const cur = b.Currency || 'MXN';
     const fmt$ = n => `$${(Number(n)||0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${cur !== 'MXN' ? ' ' + cur : ''}`;
@@ -39129,17 +39158,8 @@ window._waPagoVerDetalles_ = async function(pagoId, reservaId) {
   const m = rows.find(x => String(x.ID) === String(pagoId));
   if (!m) { alert('Pago no encontrado.'); return; }
   const b = (PAGOS_STATE.bookings || []).find(x => String(x.Id) === String(reservaId));
-  // Asegura templates cargados.
-  if (!Array.isArray(CFG_ADMIN.templates) || !CFG_ADMIN.templates.length) {
-    try {
-      const r = await fetch(`${BACKEND}/wa/templates-list`, { cache: 'no-store' });
-      const j = await r.json();
-      CFG_ADMIN.templates = (j && j.items) || [];
-    } catch(_){}
-  }
-  const tpl = (CFG_ADMIN.templates || []).find(t =>
-    String(t.nombre || t.name || '').trim().toLowerCase() === 'pago: registro'
-  );
+  if (typeof _pagosEnsureTemplates_ === 'function') await _pagosEnsureTemplates_();
+  const tpl = (typeof _pagosFindTemplate_ === 'function') ? _pagosFindTemplate_('pago registro') : null;
   let msg = '';
   if (tpl && b) {
     const cur = b.Currency || 'MXN';
@@ -48622,17 +48642,8 @@ async function _pagosDispatchAutoDraft_(reservaId, paymentData) {
     if (!b) return;
     const phone = String(b.GuestPhone || '').replace(/\D/g, '').slice(-10);
     if (!phone) return;
-    // Templates puede no estar cargado — cargar si falta.
-    if (!Array.isArray(CFG_ADMIN.templates) || !CFG_ADMIN.templates.length) {
-      try {
-        const r = await fetch(`${BACKEND}/wa/templates-list`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store' });
-        const j = await r.json();
-        CFG_ADMIN.templates = (j && j.items) || [];
-      } catch (_) {}
-    }
-    const tpl = (CFG_ADMIN.templates || []).find(t =>
-      String(t.nombre || t.name || '').trim().toLowerCase() === 'pago: registro'
-    );
+    if (typeof _pagosEnsureTemplates_ === 'function') await _pagosEnsureTemplates_();
+    const tpl = (typeof _pagosFindTemplate_ === 'function') ? _pagosFindTemplate_('pago registro') : null;
     if (!tpl) return; // sin template: silent skip
     const bodyRaw = String(tpl.body || tpl.mensaje || '');
     // Resolver placeholders básicos
