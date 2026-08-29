@@ -2845,25 +2845,44 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1071"></script>
+  <script src="app.js?v=1072"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
-  <nav id="sys-bottom-nav" style="position:fixed;left:0;right:0;bottom:0;z-index:900;height:38px;background:rgba(255,255,255,.94);backdrop-filter:saturate(160%) blur(10px);-webkit-backdrop-filter:saturate(160%) blur(10px);border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-around;padding:0 6px;box-shadow:0 -1px 4px rgba(0,0,0,.03)" aria-label="Accesos rápidos">
-    <button type="button" title="Gestión de reservas" onclick="switchModule('lodgify')" style="flex:1;height:100%;display:flex;align-items:center;justify-content:center;background:transparent;border:0;cursor:pointer;color:#475569;padding:0" onmouseover="this.style.color='#0f172a'" onmouseout="this.style.color='#475569'">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+  <style>
+    #sys-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:900;height:44px;background:rgba(255,255,255,.94);backdrop-filter:saturate(160%) blur(10px);-webkit-backdrop-filter:saturate(160%) blur(10px);border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-around;padding:4px 6px;gap:6px;box-shadow:0 -1px 4px rgba(0,0,0,.04)}
+    .sys-bnav-btn{flex:1;height:36px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--bg);color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;line-height:1;padding:0 8px;box-shadow:0 1px 2px rgba(0,0,0,.08);transition:transform .06s ease, filter .12s ease}
+    .sys-bnav-btn:hover{filter:brightness(1.08)}
+    .sys-bnav-btn:active{transform:translateY(1px)}
+    .sys-bnav-btn svg{flex:0 0 auto}
+    .sys-bnav-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    @media (max-width:767px){
+      .sys-bnav-label{display:none}
+      #sys-bottom-nav{height:40px;padding:4px}
+      .sys-bnav-btn{height:32px;padding:0}
+    }
+    body{padding-bottom:44px !important}
+    @media (max-width:767px){body{padding-bottom:40px !important}}
+  </style>
+  <nav id="sys-bottom-nav" aria-label="Accesos rápidos">
+    <button type="button" class="sys-bnav-btn" title="Gestión de reservas" style="--bg:#4f46e5" onclick="switchModule('lodgify')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+      <span class="sys-bnav-label">Reservas</span>
     </button>
-    <button type="button" title="Efectivo" onclick="switchModule('registros');setTimeout(function(){if(typeof bnEfectivoOpenFromHome==='function')bnEfectivoOpenFromHome();},120)" style="flex:1;height:100%;display:flex;align-items:center;justify-content:center;background:transparent;border:0;cursor:pointer;color:#475569;padding:0" onmouseover="this.style.color='#0f172a'" onmouseout="this.style.color='#475569'">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    <button type="button" class="sys-bnav-btn" title="Efectivo" style="--bg:#16a34a" onclick="switchModule('registros');setTimeout(function(){if(typeof bnEfectivoOpenFromHome==='function')bnEfectivoOpenFromHome();},120)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <span class="sys-bnav-label">Efectivo</span>
     </button>
-    <button type="button" title="Chats bot" onclick="switchModule('bot-chats')" style="flex:1;height:100%;display:flex;align-items:center;justify-content:center;background:transparent;border:0;cursor:pointer;color:#475569;padding:0" onmouseover="this.style.color='#0f172a'" onmouseout="this.style.color='#475569'">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <button type="button" class="sys-bnav-btn" title="Chats bot" style="--bg:#7c3aed" onclick="switchModule('bot-chats')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span class="sys-bnav-label">Chats bot</span>
     </button>
-    <button type="button" title="Calendario" onclick="switchModule('calendario')" style="flex:1;height:100%;display:flex;align-items:center;justify-content:center;background:transparent;border:0;cursor:pointer;color:#475569;padding:0" onmouseover="this.style.color='#0f172a'" onmouseout="this.style.color='#475569'">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    <button type="button" class="sys-bnav-btn" title="Calendario" style="--bg:#d97706" onclick="switchModule('calendario')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span class="sys-bnav-label">Calendario</span>
     </button>
-    <button type="button" title="Reportes técnicos" onclick="switchModule('reportes-tecnicos')" style="flex:1;height:100%;display:flex;align-items:center;justify-content:center;background:transparent;border:0;cursor:pointer;color:#475569;padding:0" onmouseover="this.style.color='#0f172a'" onmouseout="this.style.color='#475569'">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+    <button type="button" class="sys-bnav-btn" title="Reportes técnicos" style="--bg:#dc2626" onclick="switchModule('reportes-tecnicos')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      <span class="sys-bnav-label">Reportes</span>
     </button>
   </nav>
-  <style>body{padding-bottom:38px !important}</style>
 </body>
 </html>
