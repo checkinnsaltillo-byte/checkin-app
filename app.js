@@ -44283,11 +44283,11 @@ function _botcRenderMain(phone) {
         <button id="botc-back-to-list" type="button" onclick="botcBackToList_()" title="Regresar a la lista"
           style="align-items:center;gap:4px;padding:6px 10px;background:#f1f5f9;color:#334155;border:0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:800;flex:none">←</button>
         <div style="min-width:0;flex:1;overflow:hidden">${nameHeader}</div>
-        ${menuBtnHtml}
       </div>
       <div class="botc-chat-header-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
         ${payHeaderHtml}
         ${ctrlBtn}
+        ${menuBtnHtml}
       </div>
     </div>
     ${selBarHtml}
