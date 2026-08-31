@@ -49638,18 +49638,50 @@ function pagosRender() {
           </table>
         </div>` : ''}
       </div>
-      ${PAGOS_STATE.selectedId ? pagosPanelHtml(PAGOS_STATE.selectedId) : ''}
     </div>`;
+  // Sincroniza el modal lateral (fuera del contenedor) con selectedId.
+  _pagosSyncSlideOver_();
 }
 async function pagosSelect(id) {
   PAGOS_STATE.selectedId = String(id);
-  pagosRender();
+  _pagosSyncSlideOver_(); // muestra loader al instante
   await _pagosFetchManualByReserva(id);
-  pagosRender();
+  _pagosSyncSlideOver_(); // repinta con datos frescos
 }
 function pagosClosePanel() {
   PAGOS_STATE.selectedId = null;
-  pagosRender();
+  _pagosSyncSlideOver_();
+}
+// Slide-over lateral encima de la pantalla, backdrop oscuro. Sustituye la
+// columna inline que se abría dentro del layout del módulo.
+function _pagosSyncSlideOver_() {
+  const id = PAGOS_STATE.selectedId;
+  let ov = document.getElementById('pagos-slideover');
+  if (!id) { if (ov) ov.remove(); return; }
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'pagos-slideover';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex';
+    ov.innerHTML = `
+      <div id="pagos-slideover-backdrop" onclick="pagosClosePanel()" style="flex:1;background:rgba(15,23,42,.55);cursor:pointer"></div>
+      <div id="pagos-slideover-panel" style="width:min(460px,100%);max-width:100%;height:100%;background:#f8fafc;box-shadow:-12px 0 32px rgba(15,23,42,.25);overflow-y:auto;padding:14px;animation:pagosSlideIn .18s ease-out"></div>
+    `;
+    // Animación slide-in inyectada una sola vez.
+    if (!document.getElementById('pagos-slideover-style')) {
+      const st = document.createElement('style');
+      st.id = 'pagos-slideover-style';
+      st.textContent = '@keyframes pagosSlideIn { from { transform: translateX(100%) } to { transform: translateX(0) } }';
+      document.head.appendChild(st);
+    }
+    document.body.appendChild(ov);
+    // ESC cierra
+    if (!window.__pagosSlideEsc) {
+      window.__pagosSlideEsc = (e) => { if (e.key === 'Escape' && PAGOS_STATE.selectedId) pagosClosePanel(); };
+      document.addEventListener('keydown', window.__pagosSlideEsc);
+    }
+  }
+  const panel = document.getElementById('pagos-slideover-panel');
+  if (panel) panel.innerHTML = pagosPanelHtml(id);
 }
 function pagosPanelHtml(id) {
   const b = PAGOS_STATE.bookings.find(x => String(x.Id) === String(id));
