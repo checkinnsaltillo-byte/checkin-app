@@ -42819,6 +42819,15 @@ window.botcInit = function() {
     })();
   } catch(_){}
   botcRefresh();
+  // Badge de solicitudes pendientes — carga inicial + refresh cada 60s.
+  try { if (typeof _botcRefreshSolicitudesBadge_ === 'function') _botcRefreshSolicitudesBadge_(); } catch(_){}
+  try {
+    if (!window.__botcSolPoll) {
+      window.__botcSolPoll = setInterval(() => {
+        try { _botcRefreshSolicitudesBadge_(); } catch(_){}
+      }, 60_000);
+    }
+  } catch(_){}
   // 2 polls con frecuencias distintas. Apps Script tarda 2-5s y es
   // single-threaded — polls demasiado agresivos generan cola y 500s.
   // - Chat abierto: cada 10s (guard anti-solape).
@@ -43279,6 +43288,157 @@ window._botcOpenReservasDrawer = async function(phone) {
 window._botcCloseReservasDrawer_ = function() {
   const drawer = document.getElementById('botc-reservas-inline');
   if (drawer) drawer.remove();
+};
+
+// ─── Solicitudes pendientes (drawer por conversación + panel global) ──
+window._botcOpenSolicitudesDrawer_ = async function(phone) {
+  const existing = document.getElementById('botc-solicitudes-inline');
+  if (existing && String(existing.dataset.phone) === String(phone)) return;
+  if (String(BOTC_STATE.selectedPhone) !== String(phone)) {
+    try { await botcOpenChat(phone); } catch(_){}
+  }
+  const mod = document.getElementById('module-bot-chats');
+  const main = document.getElementById('botc-main');
+  if (!mod || !main) return;
+  mod.style.position = mod.style.position || 'relative';
+  const old = document.getElementById('botc-solicitudes-inline'); if (old) old.remove();
+  const drawer = document.createElement('div');
+  drawer.id = 'botc-solicitudes-inline';
+  drawer.dataset.phone = String(phone);
+  drawer.style.cssText = 'position:absolute;top:0;right:0;bottom:0;width:min(440px,100%);background:#f8fafc;border-left:1px solid #e2e8f0;box-shadow:-8px 0 24px rgba(15,23,42,.12);z-index:20;overflow-y:auto;padding:12px';
+  const rowFlex = mod.querySelector('[style*="display:flex"], [style*="display: flex"]');
+  (rowFlex || main).appendChild(drawer);
+  drawer.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Cargando…</div>`;
+  _botcRefreshSolicitudesDrawer_(phone);
+};
+window._botcCloseSolicitudesDrawer_ = function() {
+  const d = document.getElementById('botc-solicitudes-inline');
+  if (d) d.remove();
+};
+async function _botcRefreshSolicitudesDrawer_(phone) {
+  const drawer = document.getElementById('botc-solicitudes-inline');
+  if (!drawer) return;
+  const p10 = String(phone).replace(/\D/g,'').slice(-10);
+  try {
+    const r = await fetch(`${BACKEND}/solicitudes?phone=${encodeURIComponent(p10)}`);
+    const j = await r.json();
+    const rows = (j && j.ok && Array.isArray(j.rows)) ? j.rows : [];
+    _botcRenderSolicitudesDrawer_(drawer, phone, rows);
+  } catch (e) {
+    drawer.innerHTML = `<div style="padding:16px;color:#dc2626;font-size:12px">Error: ${_botcEsc(e.message)}</div>`;
+  }
+}
+function _botcRenderSolicitudesDrawer_(drawer, phone, rows) {
+  const tipoIcon = t => t === 'ticket_autofacturacion' ? '📄' : '📌';
+  const tipoLabel = t => t === 'ticket_autofacturacion' ? 'Ticket auto-facturación' : (t || 'Solicitud');
+  const chip = (est) => {
+    const c = est === 'atendido' ? { bg:'#dcfce7', fg:'#166534', tx:'ATENDIDO' }
+            : est === 'cancelado' ? { bg:'#fee2e2', fg:'#991b1b', tx:'CANCELADO' }
+            : { bg:'#fef3c7', fg:'#92400e', tx:'PENDIENTE' };
+    return `<span style="font-size:9px;font-weight:800;background:${c.bg};color:${c.fg};padding:2px 8px;border-radius:999px;letter-spacing:.02em">${c.tx}</span>`;
+  };
+  const cards = rows.map(s => {
+    const est = String(s.Estado || 'pendiente').toLowerCase();
+    const ts = String(s.Timestamp || '').slice(0, 19).replace('T', ' ');
+    const canAct = est === 'pendiente';
+    const btns = canAct ? `
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button type="button" onclick="_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}')" style="flex:1;padding:6px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✓ Atender</button>
+        <button type="button" onclick="_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','cancelado','${_botcEsc(phone)}')" style="flex:1;padding:6px 10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✕ Cancelar</button>
+      </div>` : (s.AtendidoPor ? `<div style="font-size:10px;color:#64748b;margin-top:6px">${est === 'atendido' ? '✓' : '✕'} ${_botcEsc(s.AtendidoPor)} · ${String(s.AtendidoAt||'').slice(0,16).replace('T',' ')}</div>` : '');
+    return `
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
+          <div style="font-size:12px;font-weight:800;color:#0f172a">${tipoIcon(s.Tipo)} ${_botcEsc(tipoLabel(s.Tipo))}</div>
+          ${chip(est)}
+        </div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:6px">${_botcEsc(ts)}${s.ReservaId?` · Reserva ${_botcEsc(s.ReservaId)}`:''}</div>
+        <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen || '(sin resumen)')}</div>
+        ${btns}
+      </div>`;
+  }).join('');
+  drawer.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 4px 10px;position:sticky;top:0;background:#f8fafc;z-index:2">
+      <div style="font-size:13px;font-weight:800;color:#0f172a">📄 Solicitudes de +${_botcEsc(phone)} <span style="font-size:11px;color:#64748b;font-weight:600">· ${rows.length}</span></div>
+      <button type="button" onclick="_botcCloseSolicitudesDrawer_()" style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:3px 9px;font-size:14px;line-height:1;cursor:pointer;color:#475569">×</button>
+    </div>
+    ${cards || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin solicitudes.</div>'}`;
+}
+window._botcSolicitudSetEstado_ = async function(id, estado, phone) {
+  if (estado === 'cancelado' && !confirm('¿Cancelar esta solicitud?')) return;
+  try {
+    const user = (typeof sysGetStoredUser === 'function' ? (sysGetStoredUser() || {}).Nombre : '') || 'admin';
+    const r = await fetch(`${BACKEND}/solicitudes/${encodeURIComponent(id)}/estado`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado, AtendidoPor: user }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    _botcRefreshSolicitudesDrawer_(phone);
+    if (typeof _botcRefreshSolicitudesBadge_ === 'function') _botcRefreshSolicitudesBadge_();
+  } catch (e) { alert('Error: ' + e.message); }
+};
+
+// Badge global de solicitudes pendientes (todos los phones)
+async function _botcRefreshSolicitudesBadge_() {
+  try {
+    const r = await fetch(`${BACKEND}/solicitudes?estado=pendiente`, { cache: 'no-store' });
+    const j = await r.json();
+    const n = (j && j.ok && Array.isArray(j.rows)) ? j.rows.length : 0;
+    const el = document.getElementById('botc-solicitudes-badge');
+    if (el) {
+      if (n > 0) { el.textContent = String(n); el.style.display = 'inline-flex'; }
+      else el.style.display = 'none';
+    }
+  } catch(_){}
+}
+window._botcOpenSolicitudesGlobal_ = async function() {
+  const prev = document.getElementById('botc-solicitudes-global'); if (prev) prev.remove();
+  const modal = document.createElement('div');
+  modal.id = 'botc-solicitudes-global';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.3)">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #e2e8f0">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#0f172a">📄 Solicitudes pendientes</div>
+          <div style="font-size:11px;color:#64748b" id="botc-sol-global-count">Cargando…</div>
+        </div>
+        <button type="button" onclick="document.getElementById('botc-solicitudes-global').remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#64748b;line-height:1">×</button>
+      </div>
+      <div id="botc-sol-global-list" style="flex:1;overflow-y:auto;padding:14px;background:#f8fafc">
+        <div style="padding:16px;text-align:center;color:#94a3b8;font-size:12px">Cargando…</div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  try {
+    const r = await fetch(`${BACKEND}/solicitudes?estado=pendiente`, { cache: 'no-store' });
+    const j = await r.json();
+    const rows = (j && j.ok && Array.isArray(j.rows)) ? j.rows : [];
+    document.getElementById('botc-sol-global-count').textContent = `${rows.length} pendiente${rows.length===1?'':'s'}`;
+    const cont = document.getElementById('botc-sol-global-list');
+    if (!rows.length) { cont.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin solicitudes pendientes.</div>'; return; }
+    cont.innerHTML = rows.map(s => {
+      const ts = String(s.Timestamp || '').slice(0, 16).replace('T', ' ');
+      return `
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px">
+            <div style="font-size:12px;font-weight:800;color:#0f172a">📄 ${_botcEsc(s.Tipo === 'ticket_autofacturacion' ? 'Ticket auto-facturación' : (s.Tipo||'Solicitud'))}</div>
+            <div style="font-size:10px;color:#64748b">${_botcEsc(ts)}</div>
+          </div>
+          <div style="font-size:11px;color:#475569;margin-bottom:4px">
+            <a href="#" onclick="event.preventDefault();document.getElementById('botc-solicitudes-global').remove();botcOpenChat('${_botcEsc(s.Phone)}');setTimeout(function(){_botcOpenSolicitudesDrawer_('${_botcEsc(s.Phone)}')},400);return false" style="color:#3b82f6;font-weight:700;text-decoration:none">+${_botcEsc(s.Phone)}</a>${s.ReservaId?` · Reserva ${_botcEsc(s.ReservaId)}`:''}
+          </div>
+          <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen || '')}</div>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button type="button" onclick="_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','atendido','${_botcEsc(s.Phone)}').then(()=>{document.getElementById('botc-solicitudes-global').remove();_botcOpenSolicitudesGlobal_()})" style="flex:1;padding:6px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✓ Atender</button>
+            <button type="button" onclick="_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','cancelado','${_botcEsc(s.Phone)}').then(()=>{document.getElementById('botc-solicitudes-global').remove();_botcOpenSolicitudesGlobal_()})" style="flex:1;padding:6px 10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✕ Cancelar</button>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('botc-sol-global-list').innerHTML = `<div style="padding:16px;color:#dc2626">Error: ${_botcEsc(e.message)}</div>`;
+  }
 };
 function _botcRepaintReservasDrawer_(phone) {
   const drawer = document.getElementById('botc-reservas-inline');
@@ -44270,6 +44430,7 @@ function _botcRenderMain(phone) {
       <button type="button" class="botc-hmenu-item" onclick="botcToggleRightPanel();botcCloseHeaderMenu_()">📖 Bitácora completa</button>
       <button type="button" class="botc-hmenu-item" onclick="_botcOpenPaymentDrawer('${_botcEsc(phone)}');botcCloseHeaderMenu_()" style="display:flex;align-items:center;gap:8px">💳 Estado de pago ${_botcPaymentChip(_botcGetBookingForPhoneSync(phone)) || ''}</button>
       <button type="button" class="botc-hmenu-item" onclick="_botcOpenReservasDrawer('${_botcEsc(phone)}');botcCloseHeaderMenu_()">📋 Reservas asociadas</button>
+      <button type="button" class="botc-hmenu-item" onclick="_botcOpenSolicitudesDrawer_('${_botcEsc(phone)}');botcCloseHeaderMenu_()">📄 Solicitudes de este número</button>
       <button type="button" class="botc-hmenu-item" onclick="botcMsgSelToggle_();botcCloseHeaderMenu_()">☑ Seleccionar mensajes</button>
     </div>`;
   const menuBtnHtml = `
