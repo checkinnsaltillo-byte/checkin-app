@@ -43375,6 +43375,17 @@ window._botcSolTemplateFor_ = function(tipo, estado, resumen) {
   return bucket[tipo] || bucket._default || '';
 };
 
+// Registro global de callbacks post-acción. Evita meter strings JS con
+// apóstrofes/comillas dentro del atributo onclick (que rompía el parse).
+window.__botcSolCallbacks = window.__botcSolCallbacks || {};
+window._botcSolRegisterCb_ = function(key, fn) { window.__botcSolCallbacks[key] = fn; return key; };
+window._botcSolRunCb_ = function(key) {
+  const fn = window.__botcSolCallbacks[key];
+  if (typeof fn === 'function') { try { fn(); } catch(_){} }
+};
+window.__botcSolCbSeq = 0;
+function _botcSolCbKey_(prefix) { window.__botcSolCbSeq++; return `${prefix}_${Date.now()}_${window.__botcSolCbSeq}`; }
+
 window._botcSolActionButtons_ = function(s, phone, opts) {
   opts = opts || {};
   const meta = window._botcSolTipoMeta_(s.Tipo);
@@ -43386,37 +43397,40 @@ window._botcSolActionButtons_ = function(s, phone, opts) {
     }
     return '';
   }
-  const afterCb = opts.afterCb || '';
   const isAprob = meta.modo === 'aprobacion';
-  // Botón "Cancelar" común a ambos modos — pide confirm(), NO manda mensaje al
-  // huésped (es solo un cierre interno de la solicitud sin acción).
-  const cancelBtn = `<button type="button" onclick="_botcSolCancel_('${_botcEsc(s.ID)}','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" title="Cancelar la solicitud (no envía mensaje al huésped)" style="flex:none;padding:8px 10px;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">Cancelar</button>`;
-  // MODO ATENDER: [⏳ Pendiente] + [Cancelar]
+  // Registrar callback (si vino) en el mapa global — pasar solo la KEY al onclick.
+  let cbKey = '';
+  if (typeof opts.afterFn === 'function') {
+    cbKey = _botcSolCbKey_('sol');
+    _botcSolRegisterCb_(cbKey, opts.afterFn);
+  }
+  const cbArg = cbKey ? `,'${cbKey}'` : '';
+  const cancelBtn = `<button type="button" onclick="_botcSolCancel_('${_botcEsc(s.ID)}','${_botcEsc(phone)}'${cbArg})" title="Cancelar la solicitud (no envía mensaje al huésped)" style="flex:none;padding:8px 10px;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">Cancelar</button>`;
   if (!isAprob) {
     return `
       <div style="display:flex;gap:6px;margin-top:8px">
-        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" style="flex:1;padding:8px 10px;background:#f59e0b;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">⏳ Pendiente <span style="font-size:9px;opacity:.85;font-weight:600">(click para atender)</span></button>
+        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}'${cbArg})" style="flex:1;padding:8px 10px;background:#f59e0b;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">⏳ Pendiente <span style="font-size:9px;opacity:.85;font-weight:600">(click para atender)</span></button>
         ${cancelBtn}
       </div>`;
   }
-  // MODO APROBACIÓN: [✓ Aceptar] [✕ Rechazar] [Cancelar]
   return `
     <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-      <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','aprobado','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" style="flex:1;padding:8px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">✓ Aceptar</button>
-      <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','rechazado','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" style="flex:1;padding:8px 10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">✕ Rechazar</button>
+      <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','aprobado','${_botcEsc(phone)}'${cbArg})" style="flex:1;padding:8px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">✓ Aceptar</button>
+      <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','rechazado','${_botcEsc(phone)}'${cbArg})" style="flex:1;padding:8px 10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">✕ Rechazar</button>
       ${cancelBtn}
     </div>`;
 };
 
-// Cancelar SIN enviar mensaje al huésped. Solo confirm() + set estado cancelado.
-window._botcSolCancel_ = async function(id, phone, afterCbStr) {
+window._botcSolCancel_ = async function(id, phone, cbKey) {
   if (!confirm('¿Cancelar esta solicitud? No se enviará ningún mensaje al huésped.')) return;
   await _botcSolicitudSetEstado_(id, 'cancelado', phone);
-  if (afterCbStr) { try { new Function(afterCbStr)(); } catch(_){} }
+  if (cbKey) window._botcSolRunCb_(cbKey);
 };
 
 // Modal de mensaje: template pre-cargado editable, botón Enviar / Omitir.
-window._botcSolOpenMsgModal_ = async function(id, nuevoEstado, phone, afterCbStr) {
+// cbKey (opcional): key registrada en window.__botcSolCallbacks para ejecutar
+// tras cerrar el modal.
+window._botcSolOpenMsgModal_ = async function(id, nuevoEstado, phone, cbKey) {
   // Buscar la solicitud actual para conocer tipo y resumen.
   let s = null;
   try {
@@ -43447,20 +43461,20 @@ window._botcSolOpenMsgModal_ = async function(id, nuevoEstado, phone, afterCbStr
         <textarea id="botc-sol-msg-body" rows="5" style="width:100%;margin-top:4px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;resize:vertical">${_botcEsc(tpl)}</textarea>
       </label>
       <div style="display:flex;gap:8px">
-        <button type="button" onclick="_botcSolMsgOmit_('${_botcEsc(id)}','${nuevoEstado}','${_botcEsc(phone)}'${afterCbStr?`,'${_botcEsc(afterCbStr)}'`:''})" style="flex:1;padding:10px;background:#e2e8f0;color:#334155;border:0;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">Omitir mensaje</button>
-        <button type="button" onclick="_botcSolMsgSend_('${_botcEsc(id)}','${nuevoEstado}','${_botcEsc(phone)}'${afterCbStr?`,'${_botcEsc(afterCbStr)}'`:''})" style="flex:1.4;padding:10px;background:${accentColor};color:#fff;border:0;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer">📤 ${accionLabel}</button>
+        <button type="button" onclick="_botcSolMsgOmit_('${_botcEsc(id)}','${nuevoEstado}','${_botcEsc(phone)}'${cbKey?`,'${cbKey}'`:''})" style="flex:1;padding:10px;background:#e2e8f0;color:#334155;border:0;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">Omitir mensaje</button>
+        <button type="button" onclick="_botcSolMsgSend_('${_botcEsc(id)}','${nuevoEstado}','${_botcEsc(phone)}'${cbKey?`,'${cbKey}'`:''})" style="flex:1.4;padding:10px;background:${accentColor};color:#fff;border:0;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer">📤 ${accionLabel}</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
   setTimeout(() => { const t = document.getElementById('botc-sol-msg-body'); if (t) t.focus(); }, 60);
 };
 
-window._botcSolMsgOmit_ = async function(id, estado, phone, afterCbStr) {
+window._botcSolMsgOmit_ = async function(id, estado, phone, cbKey) {
   const m = document.getElementById('botc-sol-msg-modal'); if (m) m.remove();
   await _botcSolicitudSetEstado_(id, estado, phone);
-  if (afterCbStr) { try { new Function(afterCbStr)(); } catch(_){} }
+  if (cbKey) window._botcSolRunCb_(cbKey);
 };
-window._botcSolMsgSend_ = async function(id, estado, phone, afterCbStr) {
+window._botcSolMsgSend_ = async function(id, estado, phone, cbKey) {
   const ta = document.getElementById('botc-sol-msg-body');
   const body = String(ta && ta.value || '').trim();
   if (!body) { alert('El mensaje está vacío. Edita o usa "Omitir mensaje".'); return; }
@@ -43475,7 +43489,7 @@ window._botcSolMsgSend_ = async function(id, estado, phone, afterCbStr) {
     if (!j.ok) throw new Error(j.error || 'error al enviar');
     const m = document.getElementById('botc-sol-msg-modal'); if (m) m.remove();
     await _botcSolicitudSetEstado_(id, estado, phone);
-    if (afterCbStr) { try { new Function(afterCbStr)(); } catch(_){} }
+    if (cbKey) window._botcSolRunCb_(cbKey);
   } catch (e) { alert('Error al enviar mensaje: ' + e.message); }
 };
 function _botcRenderSolicitudesDrawer_(drawer, phone, rows) {
@@ -43588,7 +43602,7 @@ window._botcOpenSolicitudesGlobal_ = async function(tab) {
                     : est === 'rechazado' ? '<span style="font-size:9px;font-weight:800;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:999px">RECHAZADO</span>'
                     : est === 'cancelado' ? '<span style="font-size:9px;font-weight:800;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:999px">CANCELADO</span>'
                     : '<span style="font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px">PENDIENTE</span>';
-      const footer = window._botcSolActionButtons_(s, s.Phone, { afterCb: "document.getElementById('botc-solicitudes-global').remove();_botcOpenSolicitudesGlobal_()" });
+      const footer = window._botcSolActionButtons_(s, s.Phone, { afterFn: function(){ const m = document.getElementById('botc-solicitudes-global'); if (m) m.remove(); window._botcOpenSolicitudesGlobal_(); } });
       const dim = (est === 'cancelado') ? 'opacity:.55;filter:grayscale(.35)' : '';
       return `
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;${dim}">
