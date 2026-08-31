@@ -43733,91 +43733,201 @@ async function _botcRefreshSolicitudesBadge_() {
     }
   } catch(_){}
 }
-window._botcOpenSolicitudesGlobal_ = async function(tab) {
-  const activeTab = tab || (window.__botcSolTab || 'pendiente');
-  window.__botcSolTab = activeTab;
-  const prev = document.getElementById('botc-solicitudes-global'); if (prev) prev.remove();
-  const modal = document.createElement('div');
-  modal.id = 'botc-solicitudes-global';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
-  const tabBtn = (val, label) => {
-    const active = activeTab === val;
-    return `<button type="button" onclick="_botcOpenSolicitudesGlobal_('${val}')" style="flex:1;padding:8px 6px;font-size:12px;font-weight:800;background:${active?'#0f172a':'transparent'};color:${active?'#fff':'#475569'};border:0;border-radius:6px;cursor:pointer;line-height:1">${label}</button>`;
+// ═══════ Modal global "🔔 Notificaciones" ═════════════════════════════
+// 4 secciones (Todos/Reportes/Solicitudes/Pagos) + subtabs por sección.
+// Cards enriquecidas con phone/reserva/medio/fechas por lookup a /lodgify-list.
+window.__botcNotif = window.__botcNotif || { section:'todos', subtab:{ solicitudes:'todos', reportes:'todos' } };
+window._botcOpenNotifsGlobal_ = async function(section, subtab) {
+  const st = window.__botcNotif;
+  if (section) st.section = section;
+  if (subtab != null) st.subtab[st.section] = subtab;
+  const active = st.section;
+  const activeSub = st.subtab[active] || 'todos';
+  const prev = document.getElementById('botc-notifs-modal'); if (prev) prev.remove();
+  const secBtn = (val, label) => {
+    const on = active === val;
+    return `<button type="button" onclick="_botcOpenNotifsGlobal_('${val}')" style="flex:1;padding:10px 6px;font-weight:800;background:${on?'#fff':'transparent'};color:${on?'#0f172a':'#cbd5e1'};border:0;border-radius:6px;cursor:pointer;font-size:12px">${label}</button>`;
   };
+  const subBtn = (val, label) => {
+    const on = activeSub === val;
+    return `<button type="button" onclick="_botcOpenNotifsGlobal_(null,'${val}')" style="flex:1;padding:6px 8px;font-weight:700;background:${on?'#3b82f6':'transparent'};color:${on?'#fff':'#475569'};border:0;border-radius:5px;cursor:pointer;font-size:11px;white-space:nowrap">${label}</button>`;
+  };
+  const subTabsHtml = {
+    solicitudes: `${subBtn('todos','Todas')}${subBtn('pendiente','Pendientes')}${subBtn('programado','Programadas')}${subBtn('aprobado_rechazado','Aprobación')}${subBtn('atendido','Atendidas')}${subBtn('cancelado','Canceladas')}`,
+    reportes:    `${subBtn('todos','Todos')}${subBtn('tecnicos','Técnicos')}${subBtn('incidencias','Incidencias')}${subBtn('objetos','Objetos olvidados')}`,
+    pagos:       '',
+    todos:       '',
+  };
+  const modal = document.createElement('div');
+  modal.id = 'botc-notifs-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
   modal.innerHTML = `
-    <div style="background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.3)">
+    <div style="background:#fff;border-radius:12px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.3)">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #e2e8f0">
         <div>
-          <div style="font-size:16px;font-weight:800;color:#0f172a">📄 Solicitudes</div>
-          <div style="font-size:11px;color:#64748b" id="botc-sol-global-count">Cargando…</div>
+          <div style="font-size:16px;font-weight:800;color:#0f172a">🔔 Notificaciones</div>
+          <div style="font-size:11px;color:#64748b" id="botc-notif-count">Cargando…</div>
         </div>
-        <button type="button" onclick="document.getElementById('botc-solicitudes-global').remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#64748b;line-height:1">×</button>
+        <button type="button" onclick="document.getElementById('botc-notifs-modal').remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#64748b;line-height:1">×</button>
       </div>
-      <div style="display:flex;gap:4px;padding:8px 14px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;flex-wrap:wrap">
-        ${tabBtn('todos', 'Todas')}
-        ${tabBtn('pendiente', 'Pendientes')}
-        ${tabBtn('programado', 'Programadas')}
-        ${tabBtn('aprobado_rechazado', 'Aprobación')}
-        ${tabBtn('atendido', 'Atendidas')}
-        ${tabBtn('cancelado', 'Canceladas')}
+      <div style="display:flex;gap:4px;padding:6px 12px;background:#0f172a">
+        ${secBtn('todos','Todos')}${secBtn('reportes','Reportes')}${secBtn('solicitudes','Solicitudes')}${secBtn('pagos','Pagos')}
       </div>
-      <div id="botc-sol-global-list" style="flex:1;overflow-y:auto;padding:14px;background:#f8fafc">
+      ${subTabsHtml[active] ? `<div style="display:flex;gap:4px;padding:6px 12px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;flex-wrap:wrap">${subTabsHtml[active]}</div>` : ''}
+      <div id="botc-notif-list" style="flex:1;overflow-y:auto;padding:14px;background:#f8fafc">
         <div style="padding:16px;text-align:center;color:#94a3b8;font-size:12px">Cargando…</div>
       </div>
     </div>`;
   document.body.appendChild(modal);
   try {
-    // 'aprobado_rechazado' es tab virtual: fetch 'todos' y filtra en cliente.
-    // Los demás mapean 1:1 al backend.
-    let rows = [];
-    if (activeTab === 'aprobado_rechazado') {
-      const r = await fetch(`${BACKEND}/solicitudes`, { cache: 'no-store' });
-      const j = await r.json();
-      const all = (j && j.ok && Array.isArray(j.rows)) ? j.rows : [];
-      rows = all.filter(x => { const e = String(x.Estado||'').toLowerCase(); return e === 'aprobado' || e === 'rechazado'; });
-    } else {
-      const qs = activeTab === 'todos' ? '' : `?estado=${encodeURIComponent(activeTab)}`;
-      const r = await fetch(`${BACKEND}/solicitudes${qs}`, { cache: 'no-store' });
-      const j = await r.json();
-      rows = (j && j.ok && Array.isArray(j.rows)) ? j.rows : [];
-    }
-    const label = ({
-      pendiente:'pendiente', programado:'programada', atendido:'atendida',
-      cancelado:'cancelada', aprobado_rechazado:'aprobada o rechazada',
-    })[activeTab] || '';
-    document.getElementById('botc-sol-global-count').textContent = `${rows.length}${label?` ${label}${rows.length===1?'':'s'}`:` en total`}`;
-    const cont = document.getElementById('botc-sol-global-list');
-    if (!rows.length) { cont.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin solicitudes ${label?label+'s':''}.</div>`; return; }
-    cont.innerHTML = rows.map(s => {
-      const ts = String(s.Timestamp || '').slice(0, 16).replace('T', ' ');
-      const est = String(s.Estado || 'pendiente').toLowerCase();
-      const meta = window._botcSolTipoMeta_(s.Tipo);
-      const estChip = est === 'atendido' ? '<span style="font-size:9px;font-weight:800;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:999px">ATENDIDO</span>'
-                    : est === 'aprobado' ? '<span style="font-size:9px;font-weight:800;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:999px">APROBADO</span>'
-                    : est === 'rechazado' ? '<span style="font-size:9px;font-weight:800;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:999px">RECHAZADO</span>'
-                    : est === 'cancelado' ? '<span style="font-size:9px;font-weight:800;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:999px">CANCELADO</span>'
-                    : est === 'programado' ? '<span style="font-size:9px;font-weight:800;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:999px">PROGRAMADO</span>'
-                    : '<span style="font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px">PENDIENTE</span>';
-      const footer = window._botcSolActionButtons_(s, s.Phone, { afterFn: function(){ const m = document.getElementById('botc-solicitudes-global'); if (m) m.remove(); window._botcOpenSolicitudesGlobal_(); } });
-      const dim = (est === 'cancelado') ? 'opacity:.55;filter:grayscale(.35)' : '';
-      return `
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;${dim}">
-          <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:center">
-            <div style="font-size:12px;font-weight:800;color:#0f172a">${meta.icon} ${_botcEsc(meta.label)}</div>
-            <div style="display:flex;gap:6px;align-items:center">${estChip}<div style="font-size:10px;color:#64748b">${_botcEsc(ts)}</div></div>
-          </div>
-          <div style="font-size:11px;color:#475569;margin-bottom:4px">
-            <a href="#" onclick="event.preventDefault();document.getElementById('botc-solicitudes-global').remove();botcOpenChat('${_botcEsc(s.Phone)}');setTimeout(function(){_botcOpenSolicitudesDrawer_('${_botcEsc(s.Phone)}')},400);return false" style="color:#3b82f6;font-weight:700;text-decoration:none">+${_botcEsc(s.Phone)}</a>${s.ReservaId?` · Reserva ${_botcEsc(s.ReservaId)}`:''}
-          </div>
-          ${s.ProgramadaAt?`<div style="font-size:11px;color:#1e40af;background:#dbeafe;padding:4px 8px;border-radius:6px;margin-bottom:6px;font-weight:700">📅 Programada para: ${_botcEsc(String(s.ProgramadaAt).replace('T',' ').slice(0,16))}</div>`:''}
-          <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen || '')}</div>
-          ${footer}
-        </div>`;
-    }).join('');
+    const rows = await _botcNotifFetchRows_(active, activeSub);
+    document.getElementById('botc-notif-count').textContent = `${rows.length} item${rows.length===1?'':'s'}`;
+    const cont = document.getElementById('botc-notif-list');
+    if (!rows.length) { cont.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin notificaciones.</div>'; return; }
+    await _botcNotifEnrichBookings_(rows);
+    cont.innerHTML = rows.map(_botcNotifCardHtml_).join('');
   } catch (e) {
-    document.getElementById('botc-sol-global-list').innerHTML = `<div style="padding:16px;color:#dc2626">Error: ${_botcEsc(e.message)}</div>`;
+    document.getElementById('botc-notif-list').innerHTML = `<div style="padding:16px;color:#dc2626">Error: ${_botcEsc(e.message)}</div>`;
   }
 };
+// Retro-compat: el nombre antiguo abre el modal en sección Solicitudes.
+window._botcOpenSolicitudesGlobal_ = function() { window._botcOpenNotifsGlobal_('solicitudes'); };
+
+async function _botcNotifFetchRows_(section, subtab) {
+  const fetchRows = async (url) => { try { const r = await fetch(url, {cache:'no-store'}); const j = await r.json(); return (j && j.ok && Array.isArray(j.rows)) ? j.rows : []; } catch(_) { return []; } };
+  const out = [];
+  // Solicitudes
+  if (section === 'solicitudes' || section === 'todos') {
+    let sols = [];
+    if (section === 'solicitudes' && subtab === 'aprobado_rechazado') {
+      const all = await fetchRows(`${BACKEND}/solicitudes`);
+      sols = all.filter(x => ['aprobado','rechazado'].includes(String(x.Estado||'').toLowerCase()));
+    } else if (section === 'solicitudes' && subtab && subtab !== 'todos') {
+      sols = await fetchRows(`${BACKEND}/solicitudes?estado=${encodeURIComponent(subtab)}`);
+    } else {
+      sols = await fetchRows(`${BACKEND}/solicitudes`);
+    }
+    out.push(...sols.map(s => ({ _kind:'solicitud', _ts:s.Timestamp||'', _phone:String(s.Phone||''), _reservaId:String(s.ReservaId||''), _raw:s })));
+  }
+  // Pagos manuales
+  if (section === 'pagos' || section === 'todos') {
+    const pagos = await fetchRows(`${BACKEND}/pagos-manuales`);
+    out.push(...pagos.map(p => ({ _kind:'pago', _ts:p.Timestamp||'', _phone:'', _reservaId:String(p.ReservaId||''), _raw:p })));
+  }
+  // Reportes: técnicos + incidencias + objetos (paralelo)
+  if (section === 'reportes' || section === 'todos') {
+    const wantTec = section === 'todos' || !subtab || subtab === 'todos' || subtab === 'tecnicos';
+    const wantInc = section === 'todos' || !subtab || subtab === 'todos' || subtab === 'incidencias';
+    const wantObj = section === 'todos' || !subtab || subtab === 'todos' || subtab === 'objetos';
+    const [tec, inc, obj] = await Promise.all([
+      wantTec ? fetchRows(`${BACKEND}/reportes-tecnicos-list`) : Promise.resolve([]),
+      wantInc ? fetchRows(`${BACKEND}/incidencias-list`)       : Promise.resolve([]),
+      wantObj ? fetchRows(`${BACKEND}/objetos-list`)           : Promise.resolve([]),
+    ]);
+    out.push(...tec.map(r => ({ _kind:'reporte_tecnico', _ts:r.Timestamp||r.Fecha||'', _phone:'', _reservaId:'', _raw:r })));
+    out.push(...inc.map(r => ({ _kind:'incidencia',      _ts:r.Timestamp||r.Fecha||'', _phone:'', _reservaId:'', _raw:r })));
+    out.push(...obj.map(r => ({ _kind:'objeto',          _ts:r.Timestamp||r.Fecha_encontrado||'', _phone:'', _reservaId:'', _raw:r })));
+  }
+  out.sort((a,b) => String(b._ts||'').localeCompare(String(a._ts||'')));
+  return out;
+}
+
+async function _botcNotifEnrichBookings_(rows) {
+  if (!window.__notifBookingsCache) {
+    try {
+      const r = await fetch(`${BACKEND}/lodgify-list`);
+      const j = await r.json();
+      window.__notifBookingsCache = {};
+      for (const b of (j.bookings||[])) window.__notifBookingsCache[String(b.Id)] = b;
+    } catch(_) { window.__notifBookingsCache = {}; }
+  }
+  const map = window.__notifBookingsCache;
+  for (const r of rows) {
+    if (!r._reservaId) continue;
+    const bk = map[String(r._reservaId)];
+    if (bk) {
+      r._booking = bk;
+      if (!r._phone) r._phone = String(bk.GuestPhone||'').replace(/\D/g,'').slice(-10);
+    }
+  }
+}
+
+function _botcNotifCardHtml_(r) {
+  const bk = r._booking;
+  const p10 = r._phone ? String(r._phone).replace(/\D/g,'').slice(-10) : '';
+  const phoneDisp = p10 ? `+${p10}` : '';
+  const nombre = bk ? String(bk.GuestName||'').trim() : '';
+  const alojLabel = bk ? (typeof _pagosAlojName === 'function' ? _pagosAlojName(bk) : (bk.HouseName||'')) : '';
+  const source = bk ? String(bk.Source||'') : '';
+  const arr = bk ? String(bk.DateArrival||'').slice(0,10) : '';
+  const dep = bk ? String(bk.DateDeparture||'').slice(0,10) : '';
+  const tot = bk ? Number(bk.TotalAmount||0) : 0;
+  const cur = bk ? String(bk.Currency||'MXN') : 'MXN';
+  const ts = String(r._ts||'').slice(0,16).replace('T',' ');
+  const phoneLink = phoneDisp
+    ? `<a href="#" onclick="event.preventDefault();document.getElementById('botc-notifs-modal').remove();botcOpenChat('${_botcEsc(p10)}');return false" style="color:#3b82f6;font-weight:700;text-decoration:none">${_botcEsc(phoneDisp)}</a>`
+    : '';
+  const ctxLine = (phoneLink || nombre) ? `<div style="font-size:11px;color:#475569;margin-bottom:4px">${phoneLink}${nombre?` · ${_botcEsc(nombre)}`:''}</div>` : '';
+  const bkLine = bk ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px">${_botcEsc(alojLabel||'')}${source?` · ${_botcEsc(source)}`:''}${arr&&dep?` · ${arr}→${dep}`:''}${tot?` · $${tot.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} ${cur}`:''}</div>` : (r._reservaId ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px">Reserva ${_botcEsc(r._reservaId)}</div>` : '');
+  if (r._kind === 'solicitud') {
+    const s = r._raw;
+    const meta = window._botcSolTipoMeta_(s.Tipo);
+    const est = String(s.Estado||'pendiente').toLowerCase();
+    const chip = _botcNotifEstChip_(est);
+    const footer = window._botcSolActionButtons_(s, p10 || s.Phone, { afterFn: function() { const m = document.getElementById('botc-notifs-modal'); if (m) m.remove(); window._botcOpenNotifsGlobal_(); } });
+    const dim = est === 'cancelado' ? 'opacity:.55;filter:grayscale(.35)' : '';
+    return `
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;${dim}">
+        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:center">
+          <div style="font-size:12px;font-weight:800;color:#0f172a">${meta.icon} ${_botcEsc(meta.label)}</div>
+          <div style="display:flex;gap:6px;align-items:center">${chip}<div style="font-size:10px;color:#64748b">${_botcEsc(ts)}</div></div>
+        </div>
+        ${ctxLine}${bkLine}
+        ${s.ProgramadaAt?`<div style="font-size:11px;color:#1e40af;background:#dbeafe;padding:4px 8px;border-radius:6px;margin-bottom:6px;font-weight:700">📅 Programada para: ${_botcEsc(String(s.ProgramadaAt).replace('T',' ').slice(0,16))}</div>`:''}
+        <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen||'')}</div>
+        ${footer}
+      </div>`;
+  }
+  if (r._kind === 'pago') {
+    const p = r._raw;
+    const totalCard = Number(p.Monto||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const fecha = String(p.Fecha||'').slice(0,10);
+    return `
+      <div style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #7c3aed;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:center">
+          <div style="font-size:12px;font-weight:800;color:#0f172a">💳 Pago manual</div>
+          <div style="display:flex;gap:6px;align-items:center"><span style="font-size:13px;font-weight:800;color:#166534">$${totalCard}</span><div style="font-size:10px;color:#64748b">${_botcEsc(ts)}</div></div>
+        </div>
+        ${ctxLine}${bkLine}
+        <div style="font-size:11px;color:#475569">${_botcEsc(p.Metodo||'—')}${p.Referencia?` · Ref ${_botcEsc(p.Referencia)}`:''}${fecha?` · ${fecha}`:''}${p.RegistradoPor?` · por ${_botcEsc(p.RegistradoPor)}`:''}</div>
+        ${p.Notas?`<div style="font-size:11px;color:#64748b;margin-top:4px">${_botcEsc(p.Notas)}</div>`:''}
+      </div>`;
+  }
+  // reportes
+  const raw = r._raw;
+  const iconKind = { reporte_tecnico:'🔧', incidencia:'⚠️', objeto:'🎒' }[r._kind] || '📌';
+  const labelKind = { reporte_tecnico:'Reporte técnico', incidencia:'Incidencia', objeto:'Objeto olvidado' }[r._kind] || 'Notificación';
+  const titulo = raw.Titulo || raw.Descripcion || raw.Categoria || raw.Motivos || labelKind;
+  const est = String(raw.Estado || raw.Estatus || (raw.Fecha_entregado ? 'ENTREGADO' : '')).toUpperCase();
+  const prop = raw.Alojamiento || raw.Propiedad || '';
+  const dept = raw['# Departamento'] || '';
+  const alojLine = prop ? `${prop}${dept?` #${dept}`:''}` : '';
+  return `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #ea580c;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:center">
+        <div style="font-size:12px;font-weight:800;color:#0f172a">${iconKind} ${labelKind}</div>
+        <div style="display:flex;gap:6px;align-items:center">${est?`<span style="font-size:9px;font-weight:800;background:#fed7aa;color:#9a3412;padding:2px 8px;border-radius:999px">${_botcEsc(est)}</span>`:''}<div style="font-size:10px;color:#64748b">${_botcEsc(ts)}</div></div>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:2px">${_botcEsc(String(titulo).slice(0,120))}</div>
+      ${alojLine?`<div style="font-size:11px;color:#475569">📍 ${_botcEsc(alojLine)}</div>`:''}
+      ${raw.Descripcion && raw.Descripcion !== titulo ? `<div style="font-size:11px;color:#64748b;margin-top:4px;white-space:pre-wrap">${_botcEsc(String(raw.Descripcion).slice(0,200))}</div>`:''}
+    </div>`;
+}
+
+function _botcNotifEstChip_(est) {
+  const c = ({ atendido:{bg:'#dcfce7',fg:'#166534',tx:'ATENDIDO'}, aprobado:{bg:'#dcfce7',fg:'#166534',tx:'APROBADO'}, rechazado:{bg:'#fee2e2',fg:'#991b1b',tx:'RECHAZADO'}, cancelado:{bg:'#fee2e2',fg:'#991b1b',tx:'CANCELADO'}, programado:{bg:'#dbeafe',fg:'#1e40af',tx:'PROGRAMADO'} })[est] || {bg:'#fef3c7',fg:'#92400e',tx:'PENDIENTE'};
+  return `<span style="font-size:9px;font-weight:800;background:${c.bg};color:${c.fg};padding:2px 8px;border-radius:999px">${c.tx}</span>`;
+}
 function _botcRepaintReservasDrawer_(phone) {
   const drawer = document.getElementById('botc-reservas-inline');
   if (!drawer) return;
