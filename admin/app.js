@@ -43860,29 +43860,64 @@ function _botcNotifOpenSideDetail_(kind, row) {
   _botcNotifCloseSide_();
   // Reportes técnicos: abrir directamente el panel de Editar del módulo,
   // sin cambiar de módulo. Se apoya en RT_STATE.list, así que precarga si hace falta.
-  // Incidencia: abrir el editor inline del módulo Incidencias (necesita cambiar
-  // de módulo porque el edit vive dentro del listado, no en un overlay body).
+  // Incidencia: montar el editor inline dentro de un side-over lateral flotante,
+  // SIN cambiar de módulo. Usamos un contenedor .inc-card body-prepended para
+  // que querySelector (que respeta document order) lo elija por encima de
+  // cualquier card existente en el módulo Incidencias.
   if (kind === 'incidencia') {
     const raw = row._raw || {};
     const incId = String(raw.ID || raw.Id || raw.id || '');
     if (!incId) return;
-    document.getElementById('botc-notifs-modal')?.remove();
-    try { if (typeof switchModule === 'function') switchModule('incidencias'); } catch(_){}
-    const openEdit = () => {
+    const mount = () => {
       if (typeof INC_STATE === 'undefined' || !Array.isArray(INC_STATE.list)) return false;
       const row2 = INC_STATE.list.find(r => String(r.ID) === incId);
       if (!row2) return false;
-      try { INC_STATE.expanded.add(incId); } catch(_){}
-      try { if (typeof incRenderCards === 'function') incRenderCards(); } catch(_){}
-      requestAnimationFrame(() => {
-        try { if (typeof window.incEnterEdit === 'function') window.incEnterEdit(incId); } catch(_){}
-        const el = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(incId)}"]`);
-        if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
-      });
+      // Si ya había uno abierto, cerrar antes.
+      document.getElementById('botc-notif-inc-side')?.remove();
+      const notifOpen = !!document.getElementById('botc-notifs-modal');
+      const overlay = document.createElement('div');
+      overlay.id = 'botc-notif-inc-side';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:100001;display:flex';
+      const backLabel = notifOpen ? '← Volver' : '✕ Cerrar';
+      overlay.innerHTML = `
+        <div data-close style="flex:1;background:rgba(15,23,42,.55);cursor:pointer"></div>
+        <div style="width:min(560px,100%);height:100%;background:#f8fafc;box-shadow:-12px 0 32px rgba(15,23,42,.25);display:flex;flex-direction:column;overflow:hidden;animation:pagosSlideIn .18s ease-out">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#fff;border-bottom:1px solid #e2e8f0">
+            <button type="button" data-close style="background:transparent;border:0;font-size:14px;font-weight:800;color:#0f172a;cursor:pointer;padding:4px 10px;border-radius:6px">${backLabel}</button>
+            <div style="font-size:14px;font-weight:800;color:#0f172a">⚠️ Editar incidencia</div>
+            <div style="width:60px"></div>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding:12px">
+            <div class="inc-card" data-inc-id="${_botcEsc(incId)}">
+              <div class="inc-card-body" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px"></div>
+            </div>
+          </div>
+        </div>`;
+      // Prepend para que este .inc-card sea el primero en document order —
+      // así incEnterEdit / incSaveEdit lo encuentran antes que el del módulo.
+      document.body.prepend(overlay);
+      if (!document.getElementById('pagos-slideover-style')) {
+        const st = document.createElement('style');
+        st.id = 'pagos-slideover-style';
+        st.textContent = '@keyframes pagosSlideIn { from { transform: translateX(100%) } to { transform: translateX(0) } }';
+        document.head.appendChild(st);
+      }
+      const closeOverlay = () => {
+        try { INC_STATE.editing.delete(incId); INC_STATE.editDirty.delete(incId); delete INC_STATE.editOriginal[incId]; if (INC_STATE.editPhotos) delete INC_STATE.editPhotos[incId]; } catch(_){}
+        overlay.remove();
+        clearInterval(watchId);
+      };
+      overlay.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', closeOverlay));
+      // Cierra el overlay cuando el usuario Guarda o Sale (INC_STATE.editing
+      // deja de contener el id).
+      const watchId = setInterval(() => {
+        try { if (INC_STATE && INC_STATE.editing && !INC_STATE.editing.has(incId)) { clearInterval(watchId); overlay.remove(); } } catch(_){}
+      }, 400);
+      try { if (typeof window.incEnterEdit === 'function') window.incEnterEdit(incId); } catch(e) { console.warn('[notif→inc]', e); }
       return true;
     };
-    if (!openEdit()) {
-      if (typeof incLoadIncidencias === 'function') incLoadIncidencias().then(openEdit).catch(()=>{});
+    if (!mount()) {
+      if (typeof incLoadIncidencias === 'function') incLoadIncidencias().then(mount).catch(()=>{});
     }
     return;
   }
