@@ -43805,13 +43805,42 @@ function _botcNotifMetodoChip_(metodo) {
   if (!metodo) return '';
   return `<span style="font-size:9px;font-weight:700;background:#ede9fe;color:#5b21b6;padding:2px 8px;border-radius:999px">${_botcEsc(String(metodo))}</span>`;
 }
-// Click en card: abre slide-over lateral SIN cambiar de módulo (queda en Chats bot).
+// Click en card: abre slide-over lateral SIN cerrar el modal Notificaciones ni
+// cambiar de módulo. Al cerrar el side-over el user regresa al modal en la
+// misma posición del scroll.
 window.__notifRowsIndex_ = window.__notifRowsIndex_ || {};
 window._botcNotifOpenTarget_ = function(kind, id) {
   const row = window.__notifRowsIndex_[id];
-  const modal = document.getElementById('botc-notifs-modal'); if (modal) modal.remove();
   if (!row) { console.warn('[notif] row no encontrado:', id); return; }
   _botcNotifOpenSideDetail_(kind, row);
+};
+
+// Append incremental de más días — no re-renderiza los ya mostrados ni resetea
+// scrollTop.
+window._botcNotifShowMore_ = function() {
+  const st = window.__botcNotif;
+  const cache = window.__botcNotifRender;
+  if (!cache) return;
+  const cont = document.getElementById('botc-notif-list');
+  if (!cont) return;
+  const prevShown = st.daysShown;
+  st.daysShown = prevShown + 3;
+  const newKeys = cache.dayKeys.slice(prevShown, st.daysShown);
+  if (!newKeys.length) return;
+  const html = newKeys.map(k => {
+    const items = cache.byDay.get(k) || [];
+    const label = k === 'sin-fecha' ? 'Sin fecha' : _botcNotifDayLabel_(k);
+    const sep = `<div style="background:#f8fafc;padding:8px 4px;margin:12px 0 6px;font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #e2e8f0">${_botcEsc(label)} <span style="opacity:.6;font-weight:600">· ${items.length}</span></div>`;
+    return sep + items.map(_botcNotifCardHtml_).join('');
+  }).join('');
+  const moreWrap = document.getElementById('botc-notif-more-wrap');
+  if (moreWrap) {
+    moreWrap.insertAdjacentHTML('beforebegin', html);
+    // ¿Aún queda más?
+    if (st.daysShown >= cache.dayKeys.length) moreWrap.remove();
+  } else {
+    cont.insertAdjacentHTML('beforeend', html);
+  }
 };
 
 function _botcNotifCloseSide_() {
@@ -44029,8 +44058,10 @@ window._botcOpenNotifsGlobal_ = async function(section, subtab, keepDays) {
       const cards = items.map(_botcNotifCardHtml_).join('');
       return sep + cards;
     }).join('');
-    const moreBtn = hasMore ? `<div style="text-align:center;padding:16px 0"><button type="button" onclick="window.__botcNotif.daysShown+=3;_botcOpenNotifsGlobal_(null,null,true)" style="background:transparent;border:0;color:#3b82f6;font-weight:800;font-size:13px;cursor:pointer;padding:8px 24px;border-radius:6px">Mostrar más ↓</button></div>` : '';
+    const moreBtn = hasMore ? `<div id="botc-notif-more-wrap" style="text-align:center;padding:16px 0"><button type="button" onclick="_botcNotifShowMore_()" style="background:transparent;border:0;color:#3b82f6;font-weight:800;font-size:13px;cursor:pointer;padding:8px 24px;border-radius:6px">Mostrar más ↓</button></div>` : '';
     cont.innerHTML = groupsHtml + moreBtn;
+    // Guardar estado del render para poder hacer append incremental sin borrar
+    window.__botcNotifRender = { byDay, dayKeys };
   } catch (e) {
     document.getElementById('botc-notif-list').innerHTML = `<div style="padding:16px;color:#dc2626">Error: ${_botcEsc(e.message)}</div>`;
   }
@@ -44123,8 +44154,11 @@ function _botcNotifCardHtml_(r) {
   const fechasCortas = (arr || dep) ? _botcNotifFechasCortas_(arr, dep) : '';
   const hh = String(r._ts||'').slice(11,16); // HH:MM
   // Cabecera de contexto: nombre (bold) + phone (link) en 2 líneas.
+  // Al click en el phone-link: cerrar side-over si abierto, cerrar modal Notificaciones
+  // y saltar al chat. (En este caso sí queremos salir del modal porque el user quiere
+  // ir a la conversación.)
   const phoneLink = phoneDisp
-    ? `<a href="#" onclick="event.stopPropagation();event.preventDefault();document.getElementById('botc-notifs-modal').remove();botcOpenChat('${_botcEsc(p10)}');return false" style="color:#3b82f6;font-weight:700;text-decoration:none;font-size:11px">${_botcEsc(phoneDisp)}</a>`
+    ? `<a href="#" onclick="event.stopPropagation();event.preventDefault();_botcNotifCloseSide_();var m=document.getElementById('botc-notifs-modal');if(m)m.remove();botcOpenChat('${_botcEsc(p10)}');return false" style="color:#3b82f6;font-weight:700;text-decoration:none;font-size:11px">${_botcEsc(phoneDisp)}</a>`
     : '';
   const nameBlock = (nombre || phoneLink) ? `
     <div style="margin-bottom:4px">
