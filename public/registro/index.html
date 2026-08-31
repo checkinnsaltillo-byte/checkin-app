@@ -6847,18 +6847,22 @@ window.popupAceptarYEnviar = function(){
 // nativos, iframes con overlays, y cualquier stacking context.
 // Un <div> con z-index:100000 no basta: Chrome renderiza los <select> en un
 // top layer del OS que ignora z-index CSS.
-window.mostrarMiniPopupEnviado = function(){
+window.mostrarMiniPopupEnviado = function(opts){
+  opts = opts || {};
+  var titulo    = String(opts.titulo || 'Registro exitoso');
+  var subtitulo = String(opts.subtitulo || 'El formulario se envió correctamente.');
   var existing = document.getElementById('miniPopupEnviado');
   if (existing) { try { existing.close(); } catch(_){} existing.remove(); }
   var el = document.createElement('dialog');
   el.id = 'miniPopupEnviado';
   el.style.cssText = 'padding:0;border:0;background:transparent;max-width:none;max-height:none;width:100vw;height:100vh;overflow:hidden;position:fixed;inset:0;margin:0;';
+  var esc = function(s){ return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); };
   el.innerHTML =
     '<div style="width:100%;height:100%;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">' +
       '<div style="background:#fff;border-radius:16px;padding:22px 24px;max-width:380px;width:100%;box-shadow:0 12px 32px rgba(0,0,0,.25);text-align:center">' +
         '<div style="font-size:36px;color:#16a34a;margin-bottom:8px">✓</div>' +
-        '<div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:6px">Registro exitoso</div>' +
-        '<div style="font-size:13px;color:#475569;margin-bottom:16px">El formulario se envió correctamente.</div>' +
+        '<div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:6px">' + esc(titulo) + '</div>' +
+        '<div style="font-size:13px;color:#475569;margin-bottom:16px">' + esc(subtitulo) + '</div>' +
         '<button type="button" onclick="window._miniPopupWaYCerrar()" style="display:block;width:100%;padding:12px 22px;background:#075e54;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">📱 Envíanos un WhatsApp y Cerrar</button>' +
         '<button type="button" onclick="window._miniPopupCerrarYRedirect()" style="display:block;width:100%;padding:12px 22px;background:#16a34a;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer">Cerrar</button>' +
       '</div>' +
@@ -19078,7 +19082,19 @@ document.addEventListener("DOMContentLoaded", function(){
           });
         }
       } catch(_e) { /* best-effort: aún así mostramos éxito */ }
-      if (typeof mostrarVentanaExito === 'function') mostrarVentanaExito();
+      // Cerrar el ventana loading (popupEnvio) antes de mostrar el mini popup.
+      try {
+        var popupL = document.getElementById('popupEnvio');
+        if (popupL) popupL.style.display = 'none';
+      } catch(_){}
+      // NO usar mostrarVentanaExito (esa incluye el reglamento del check-in).
+      // Mostrar mini-popup con texto propio de check-out.
+      if (typeof window.mostrarMiniPopupEnviado === 'function') {
+        window.mostrarMiniPopupEnviado({
+          titulo: 'Check-out registrado',
+          subtitulo: '¡Gracias por hospedarte con nosotros! Esperamos verte pronto.'
+        });
+      }
       // Reset form
       document.getElementById('checkout_propiedad').value = '';
       document.getElementById('checkout_depto').value = '';
