@@ -43858,6 +43858,32 @@ function _botcNotifOpenSideDetail_(kind, row) {
   _botcNotifCloseSide_();
   // Reportes técnicos: abrir directamente el panel de Editar del módulo,
   // sin cambiar de módulo. Se apoya en RT_STATE.list, así que precarga si hace falta.
+  // Incidencia: abrir el editor inline del módulo Incidencias (necesita cambiar
+  // de módulo porque el edit vive dentro del listado, no en un overlay body).
+  if (kind === 'incidencia') {
+    const raw = row._raw || {};
+    const incId = String(raw.ID || raw.Id || raw.id || '');
+    if (!incId) return;
+    document.getElementById('botc-notifs-modal')?.remove();
+    try { if (typeof switchModule === 'function') switchModule('incidencias'); } catch(_){}
+    const openEdit = () => {
+      if (typeof INC_STATE === 'undefined' || !Array.isArray(INC_STATE.list)) return false;
+      const row2 = INC_STATE.list.find(r => String(r.ID) === incId);
+      if (!row2) return false;
+      try { INC_STATE.expanded.add(incId); } catch(_){}
+      try { if (typeof incRenderCards === 'function') incRenderCards(); } catch(_){}
+      requestAnimationFrame(() => {
+        try { if (typeof window.incEnterEdit === 'function') window.incEnterEdit(incId); } catch(_){}
+        const el = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(incId)}"]`);
+        if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+      });
+      return true;
+    };
+    if (!openEdit()) {
+      if (typeof incLoadIncidencias === 'function') incLoadIncidencias().then(openEdit).catch(()=>{});
+    }
+    return;
+  }
   if (kind === 'reporte_tecnico' && typeof window.rtOpenCapture === 'function') {
     const raw = row._raw || {};
     const rtId = raw.ID || raw.Id || raw.id || '';
