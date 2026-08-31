@@ -44434,7 +44434,7 @@ function _botcEnsureCriticalDotCss_() {
   st.id = 'botc-critical-dot-style';
   st.textContent = `
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(220,38,38,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 10px rgba(220,38,38,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(220,38,38,0)} }
-    .botc-critical-dot { position:absolute; top:8px; left:-4px; width:12px; height:12px; border-radius:50%; background:#dc2626; box-shadow:0 0 0 0 rgba(220,38,38,.75); animation:botcCritPulse 1.2s ease-out infinite; z-index:2; }
+    .botc-critical-dot { position:absolute; top:30px; right:10px; width:12px; height:12px; border-radius:50%; background:#dc2626; box-shadow:0 0 0 0 rgba(220,38,38,.75); animation:botcCritPulse 1.2s ease-out infinite; z-index:2; }
     .botc-critical-ring { box-shadow:0 0 0 2px #dc2626 inset !important; }
   `;
   document.head.appendChild(st);
