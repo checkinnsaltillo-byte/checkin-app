@@ -43379,8 +43379,53 @@ window._SOL_MSG_TPL = {
     _default: '', // no se envía mensaje al cancelar
   },
 };
+// Cache 5 min de templates WA_Templates (para lookup por nombre).
+window.__waTplCache = window.__waTplCache || { ts: 0, byName: null };
+window._botcFetchWaTemplates_ = async function() {
+  const TTL = 5 * 60_000;
+  if (window.__waTplCache.byName && (Date.now() - window.__waTplCache.ts) < TTL) return window.__waTplCache.byName;
+  try {
+    const r = await fetch(`${BACKEND}/wa/templates-list`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    const j = await r.json();
+    const map = {};
+    const items = (j && Array.isArray(j.items)) ? j.items : (j.rows || []);
+    for (const t of items) {
+      const nom = String(t.nombre || t.Nombre || '').trim();
+      if (nom) map[nom.toLowerCase()] = String(t.body || t.Body || '');
+    }
+    window.__waTplCache = { ts: Date.now(), byName: map };
+    return map;
+  } catch(_) { return {}; }
+};
+// Sync — solo devuelve del cache. Si no hay, retorna null (el caller debe
+// haber llamado _botcFetchWaTemplates_ antes).
+window._botcWaTplGet_ = function(nombre) {
+  const map = (window.__waTplCache && window.__waTplCache.byName) || {};
+  return map[String(nombre || '').toLowerCase()] || null;
+};
+// Sustituye placeholders comunes en un template ({{fecha_hora}}, {{tipo}}).
+window._botcSolFillTpl_ = function(body, ctx) {
+  ctx = ctx || {};
+  let s = String(body || '');
+  s = s.replace(/\{\{?\s*fecha_hora\s*\}?\}/gi, ctx.fecha_hora || '');
+  s = s.replace(/\{\{?\s*tipo\s*\}?\}/gi, ctx.tipoLabel || ctx.tipo || '');
+  return s.trim();
+};
+// Resuelve el template a mostrar. Prioridad:
+//   1) WA_Templates dinámico (SOL: atendida / SOL: programada) — cuando aplica
+//   2) _SOL_MSG_TPL hardcoded — fallback
 window._botcSolTemplateFor_ = function(tipo, estado, ctx) {
   ctx = ctx || {};
+  const tipoLabel = (window._botcSolTipoMeta_(tipo).label || tipo).toLowerCase();
+  const dynMap = { atendido: 'SOL: atendida', programado: 'SOL: programada', pendiente: 'SOL: registro' };
+  const dynName = dynMap[estado];
+  if (dynName) {
+    const dyn = window._botcWaTplGet_(dynName);
+    if (dyn) return window._botcSolFillTpl_(dyn, { ...ctx, tipoLabel });
+  }
+  // Fallback hardcoded por tipo/estado.
   const bucket = window._SOL_MSG_TPL[estado] || {};
   let tpl = bucket[tipo] || bucket._default || '';
   if (ctx.fecha_hora) tpl = tpl.replace(/\{fecha_hora\}/g, ctx.fecha_hora);
@@ -43453,8 +43498,10 @@ window._botcSolOpenProgramarModal_ = async function(id, phone, cbKey) {
   let s = null;
   try {
     const p10 = String(phone).replace(/\D/g,'').slice(-10);
-    const r = await fetch(`${BACKEND}/solicitudes?phone=${encodeURIComponent(p10)}`);
-    const j = await r.json();
+    const [_, j] = await Promise.all([
+      window._botcFetchWaTemplates_(),
+      fetch(`${BACKEND}/solicitudes?phone=${encodeURIComponent(p10)}`).then(r => r.json()),
+    ]);
     s = (j && j.ok && Array.isArray(j.rows)) ? j.rows.find(x => String(x.ID) === String(id)) : null;
   } catch(_){}
   if (!s) { alert('Solicitud no encontrada'); return; }
@@ -43541,11 +43588,13 @@ window._botcSolCancel_ = async function(id, phone, cbKey) {
 // cbKey (opcional): key registrada en window.__botcSolCallbacks para ejecutar
 // tras cerrar el modal.
 window._botcSolOpenMsgModal_ = async function(id, nuevoEstado, phone, cbKey) {
-  // Buscar la solicitud actual para conocer tipo y resumen.
+  // Precarga templates de WA_Templates (cache 5 min) + fetch solicitud.
   let s = null;
   try {
-    const r = await fetch(`${BACKEND}/solicitudes?phone=${encodeURIComponent(String(phone).replace(/\D/g,'').slice(-10))}`);
-    const j = await r.json();
+    const [_, j] = await Promise.all([
+      window._botcFetchWaTemplates_(),
+      fetch(`${BACKEND}/solicitudes?phone=${encodeURIComponent(String(phone).replace(/\D/g,'').slice(-10))}`).then(r => r.json()),
+    ]);
     s = (j && j.ok && Array.isArray(j.rows)) ? j.rows.find(x => String(x.ID) === String(id)) : null;
   } catch(_){}
   const tipo = s ? String(s.Tipo || '').toLowerCase() : '';
