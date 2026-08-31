@@ -43388,21 +43388,31 @@ window._botcSolActionButtons_ = function(s, phone, opts) {
   }
   const afterCb = opts.afterCb || '';
   const isAprob = meta.modo === 'aprobacion';
-  // MODO ATENDER (no aprobación): 1 solo botón amarillo "⏳ Pendiente" — al click
-  // abre modal de mensaje → tras enviar/omitir marca ATENDIDO.
+  // Botón "Cancelar" común a ambos modos — pide confirm(), NO manda mensaje al
+  // huésped (es solo un cierre interno de la solicitud sin acción).
+  const cancelBtn = `<button type="button" onclick="_botcSolCancel_('${_botcEsc(s.ID)}','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" title="Cancelar la solicitud (no envía mensaje al huésped)" style="flex:none;padding:8px 10px;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">Cancelar</button>`;
+  // MODO ATENDER: [⏳ Pendiente] + [Cancelar]
   if (!isAprob) {
     return `
-      <div style="margin-top:8px">
-        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" style="width:100%;padding:8px 10px;background:#f59e0b;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">⏳ Pendiente <span style="font-size:9px;opacity:.85;font-weight:600">(click para atender)</span></button>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" style="flex:1;padding:8px 10px;background:#f59e0b;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">⏳ Pendiente <span style="font-size:9px;opacity:.85;font-weight:600">(click para atender)</span></button>
+        ${cancelBtn}
       </div>`;
   }
-  // MODO APROBACIÓN: 2 botones Aceptar/Rechazar — cada uno abre modal con
-  // template correspondiente.
+  // MODO APROBACIÓN: [✓ Aceptar] [✕ Rechazar] [Cancelar]
   return `
-    <div style="display:flex;gap:6px;margin-top:8px">
-      <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','aprobado','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" style="flex:1;padding:8px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✓ Aceptar</button>
-      <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','rechazado','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" style="flex:1;padding:8px 10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✕ Rechazar</button>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+      <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','aprobado','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" style="flex:1;padding:8px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">✓ Aceptar</button>
+      <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','rechazado','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" style="flex:1;padding:8px 10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">✕ Rechazar</button>
+      ${cancelBtn}
     </div>`;
+};
+
+// Cancelar SIN enviar mensaje al huésped. Solo confirm() + set estado cancelado.
+window._botcSolCancel_ = async function(id, phone, afterCbStr) {
+  if (!confirm('¿Cancelar esta solicitud? No se enviará ningún mensaje al huésped.')) return;
+  await _botcSolicitudSetEstado_(id, 'cancelado', phone);
+  if (afterCbStr) { try { new Function(afterCbStr)(); } catch(_){} }
 };
 
 // Modal de mensaje: template pre-cargado editable, botón Enviar / Omitir.
@@ -43482,8 +43492,9 @@ function _botcRenderSolicitudesDrawer_(drawer, phone, rows) {
     const est = String(s.Estado || 'pendiente').toLowerCase();
     const ts = String(s.Timestamp || '').slice(0, 19).replace('T', ' ');
     const btns = window._botcSolActionButtons_(s, phone);
+    const dim = (est === 'cancelado') ? 'opacity:.55;filter:grayscale(.35)' : '';
     return `
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;${dim}">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
           <div style="font-size:12px;font-weight:800;color:#0f172a">${meta.icon} ${_botcEsc(meta.label)}</div>
           ${chip(est)}
@@ -43578,8 +43589,9 @@ window._botcOpenSolicitudesGlobal_ = async function(tab) {
                     : est === 'cancelado' ? '<span style="font-size:9px;font-weight:800;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:999px">CANCELADO</span>'
                     : '<span style="font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px">PENDIENTE</span>';
       const footer = window._botcSolActionButtons_(s, s.Phone, { afterCb: "document.getElementById('botc-solicitudes-global').remove();_botcOpenSolicitudesGlobal_()" });
+      const dim = (est === 'cancelado') ? 'opacity:.55;filter:grayscale(.35)' : '';
       return `
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;${dim}">
           <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:center">
             <div style="font-size:12px;font-weight:800;color:#0f172a">${meta.icon} ${_botcEsc(meta.label)}</div>
             <div style="display:flex;gap:6px;align-items:center">${estChip}<div style="font-size:10px;color:#64748b">${_botcEsc(ts)}</div></div>
