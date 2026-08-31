@@ -43849,6 +43849,26 @@ function _botcNotifCloseSide_() {
 }
 function _botcNotifOpenSideDetail_(kind, row) {
   _botcNotifCloseSide_();
+  // Reportes técnicos: abrir directamente el panel de Editar del módulo,
+  // sin cambiar de módulo. Se apoya en RT_STATE.list, así que precarga si hace falta.
+  if (kind === 'reporte_tecnico' && typeof window.rtOpenCapture === 'function') {
+    const raw = row._raw || {};
+    const rtId = raw.ID || raw.Id || raw.id || '';
+    const openIt = () => {
+      try {
+        if (typeof RT_STATE === 'object' && Array.isArray(RT_STATE.list)) {
+          if (!RT_STATE.list.some(r => String(r.ID) === String(rtId))) RT_STATE.list.push(raw);
+        }
+        window.rtOpenCapture(rtId);
+      } catch(_){}
+    };
+    if (typeof RT_STATE === 'object' && !RT_STATE.loaded && typeof window.rtRefresh === 'function') {
+      window.rtRefresh().then(openIt).catch(openIt);
+    } else {
+      openIt();
+    }
+    return;
+  }
   const overlay = document.createElement('div');
   overlay.id = 'botc-notif-side';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:100001;display:flex';
