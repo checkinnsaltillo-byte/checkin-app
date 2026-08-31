@@ -12540,6 +12540,35 @@ window.huespedesReemitirTicket = async function(recordId) {
 };
 
 /** Abre el modal de Facturapi con el iframe apuntando a la URL dada. */
+// Marca como "atendido" cualquier solicitud pendiente de ticket_autofacturacion
+// que corresponda a la reserva emitida — cierra el bucle bot→admin.
+window._huCerrarSolicitudTicketAutofact_ = async function(row) {
+  try {
+    const reservaId = String(row['Lodgify Id'] || row['LodgifyId'] || row['ReservaId'] || '').trim();
+    if (!reservaId) return;
+    const r = await fetch('https://api.check-inn.mx/solicitudes?estado=pendiente', { cache:'no-store' });
+    const j = await r.json();
+    const rows = (j && j.ok && Array.isArray(j.rows)) ? j.rows : [];
+    const matches = rows.filter(s =>
+      String(s.Tipo||'').toLowerCase() === 'ticket_autofacturacion' &&
+      String(s.ReservaId||'') === reservaId
+    );
+    if (!matches.length) return;
+    const admin = (typeof getCurrentUserName === 'function' ? getCurrentUserName() : '') ||
+                  localStorage.getItem('user_nombre') || 'Admin';
+    for (const m of matches) {
+      try {
+        await fetch(`https://api.check-inn.mx/solicitudes/${encodeURIComponent(m.ID)}/estado`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ estado:'atendido', AtendidoPor: admin, Notas: 'Auto-cerrada al emitir ticket en FacturAPI' }),
+        });
+      } catch(_){}
+    }
+    console.info('[HU-ticket] solicitudes ticket_autofacturacion cerradas:', matches.length);
+    try { if (typeof window._botcNotifRefreshBadge_ === 'function') window._botcNotifRefreshBadge_(); } catch(_){}
+  } catch(e) { console.warn('[HU-ticket] cerrar solicitud fallo:', e.message); }
+};
+
 // Listener global para postMessage del iframe Facturapi. Cuando el popup
 // "Enviar correo y WhatsApp" envía el WA, avisa aquí para que el auto-schedule
 // (que corre al cerrar el iframe) NO cree un segundo envío duplicado.
@@ -12623,6 +12652,9 @@ function huespedesCloseFacturapi() {
             } else if (typeof window.huScheduleTicketWaNow === 'function') {
               await window.huScheduleTicketWaNow(c.id);
             }
+            // Cerrar solicitud pendiente de ticket_autofacturacion (si existe)
+            // matcheando por Lodgify Id de la reserva. Aparece atendida en Notif.
+            try { await window._huCerrarSolicitudTicketAutofact_(c.row); } catch(_){}
           }
           // Refrescar el modal WhatsApp abierto (si aplica) para que las
           // cards nuevas aparezcan sin cerrar+reabrir.
