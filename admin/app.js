@@ -43734,8 +43734,10 @@ window._botcOpenSolicitudesGlobal_ = async function(tab) {
         </div>
         <button type="button" onclick="document.getElementById('botc-solicitudes-global').remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#64748b;line-height:1">×</button>
       </div>
-      <div style="display:flex;gap:4px;padding:8px 14px;background:#f1f5f9;border-bottom:1px solid #e2e8f0">
+      <div style="display:flex;gap:4px;padding:8px 14px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;flex-wrap:wrap">
         ${tabBtn('pendiente', '⏳ Pendientes')}
+        ${tabBtn('programado', '📅 Programadas')}
+        ${tabBtn('aprobado_rechazado', '✅/❌ Aprob/Rech')}
         ${tabBtn('atendido', '✓ Atendidas')}
         ${tabBtn('cancelado', '✕ Canceladas')}
         ${tabBtn('todos', 'Todas')}
@@ -43746,11 +43748,24 @@ window._botcOpenSolicitudesGlobal_ = async function(tab) {
     </div>`;
   document.body.appendChild(modal);
   try {
-    const qs = activeTab === 'todos' ? '' : `?estado=${encodeURIComponent(activeTab)}`;
-    const r = await fetch(`${BACKEND}/solicitudes${qs}`, { cache: 'no-store' });
-    const j = await r.json();
-    const rows = (j && j.ok && Array.isArray(j.rows)) ? j.rows : [];
-    const label = activeTab === 'pendiente' ? 'pendiente' : (activeTab === 'atendido' ? 'atendida' : (activeTab === 'cancelado' ? 'cancelada' : ''));
+    // 'aprobado_rechazado' es tab virtual: fetch 'todos' y filtra en cliente.
+    // Los demás mapean 1:1 al backend.
+    let rows = [];
+    if (activeTab === 'aprobado_rechazado') {
+      const r = await fetch(`${BACKEND}/solicitudes`, { cache: 'no-store' });
+      const j = await r.json();
+      const all = (j && j.ok && Array.isArray(j.rows)) ? j.rows : [];
+      rows = all.filter(x => { const e = String(x.Estado||'').toLowerCase(); return e === 'aprobado' || e === 'rechazado'; });
+    } else {
+      const qs = activeTab === 'todos' ? '' : `?estado=${encodeURIComponent(activeTab)}`;
+      const r = await fetch(`${BACKEND}/solicitudes${qs}`, { cache: 'no-store' });
+      const j = await r.json();
+      rows = (j && j.ok && Array.isArray(j.rows)) ? j.rows : [];
+    }
+    const label = ({
+      pendiente:'pendiente', programado:'programada', atendido:'atendida',
+      cancelado:'cancelada', aprobado_rechazado:'aprobada o rechazada',
+    })[activeTab] || '';
     document.getElementById('botc-sol-global-count').textContent = `${rows.length}${label?` ${label}${rows.length===1?'':'s'}`:` en total`}`;
     const cont = document.getElementById('botc-sol-global-list');
     if (!rows.length) { cont.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin solicitudes ${label?label+'s':''}.</div>`; return; }
