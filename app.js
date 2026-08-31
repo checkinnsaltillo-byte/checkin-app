@@ -44298,18 +44298,44 @@ window._botcOpenNotifsGlobal_ = async function(section, subtab, keepDays) {
 // Retro-compat: el nombre antiguo abre el modal en sección Solicitudes.
 window._botcOpenSolicitudesGlobal_ = function() { window._botcOpenNotifsGlobal_('solicitudes'); };
 
+// Detección de temas críticos — usada tanto por el contador como por la
+// marca visual (punto rojo animado) en cada card.
+window._botcNotifIsCritical_ = function(r) {
+  if (!r) return false;
+  const raw = r._raw || {};
+  const est = String(raw.Estado || raw.Estatus || '').toLowerCase();
+  // Estados terminales nunca son críticos (ya se atendió/canceló).
+  if (['resuelto','cancelado','atendido','entregado','aprobado','rechazado','cerrado'].includes(est)) return false;
+  const prio = String(raw.Prioridad || '').toLowerCase();
+  const niv  = String(raw.Nivel || '').toLowerCase();
+  if (prio === 'critica' || prio === 'p1') return true;
+  if (niv === 'critico' || niv === 'crítico') return true;
+  const blob = [
+    raw.Titulo, raw.Descripcion, raw.Motivos, raw.Clasificacion,
+    raw.Categoria, raw.Resumen, raw.Comentarios, raw.Acciones,
+  ].filter(Boolean).join(' ').toLowerCase();
+  if (!blob) return false;
+  const rx = /\b(se fue la luz|se cort[oó] la luz|se fue la electricidad|no hay (electricidad|luz|corriente|agua|gas|agua caliente)|apag[oó]n|sin (luz|corriente|agua|gas)|hay fuga|fuga de agua|se est[aá] tirando el agua|no sale agua|revent[oó] tuber[ií]a|huele a gas|olor a gas|no prende la estufa|boiler no enciende|encontramos sucio|no se (realiz[oó]|hizo) la (limpieza|aseo)|est[aá] desordenado el (depa|departamento)|no se (cambiaron|hizo cambio de) (s[aá]banas|blancos)|mucha suciedad|ba[ñn]os sucios|est[aá] sucio el (depa|departamento|ba[ñn]o)|mucho ruido|ruido excesivo|m[uú]sica (muy )?(alta|fuerte)|hablando (demasiado )?fuerte|no dejan (dormir|descansar)|vecinos ruidosos|se escuchan gritos|gritos|violencia|se est[aá]n peleando|gente agresiva|gente problem[aá]tica|golpe[aá]ndose|hay una pelea|ri[ñn]a)\b/;
+  return rx.test(blob);
+};
 // Contador global de notificaciones nuevas — pinta el mismo número en cada
 // elemento con [data-notif-badge] (botón inferior + botón superior Chats bot).
+// Además pinta un contador guinda de situaciones críticas en [data-notif-critical-badge].
 window._botcNotifRefreshBadge_ = async function() {
   try {
     const lastSeen = localStorage.getItem('botcNotifLastSeen') || '1970-01-01';
     const rows = await _botcNotifFetchRows_('todos', 'todos');
     const nuevos = rows.filter(r => String(r._ts||'') > lastSeen).length;
-    const txt = nuevos > 99 ? '99+' : String(nuevos);
-    document.querySelectorAll('[data-notif-badge]').forEach(el => {
-      if (nuevos > 0) { el.textContent = txt; el.style.display = 'flex'; }
-      else { el.style.display = 'none'; }
-    });
+    const criticas = rows.filter(r => window._botcNotifIsCritical_(r)).length;
+    const paint = (sel, n) => {
+      const txt = n > 99 ? '99+' : String(n);
+      document.querySelectorAll(sel).forEach(el => {
+        if (n > 0) { el.textContent = txt; el.style.display = 'flex'; }
+        else { el.style.display = 'none'; }
+      });
+    };
+    paint('[data-notif-badge]', nuevos);
+    paint('[data-notif-critical-badge]', criticas);
   } catch(_) {}
 };
 if (!window.__botcNotifBadgeTimer) {
@@ -44401,7 +44427,23 @@ async function _botcNotifEnrichBookings_(rows) {
   }
 }
 
+// Inyecta una sola vez el keyframes de la animación del punto rojo crítico.
+function _botcEnsureCriticalDotCss_() {
+  if (document.getElementById('botc-critical-dot-style')) return;
+  const st = document.createElement('style');
+  st.id = 'botc-critical-dot-style';
+  st.textContent = `
+    @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(220,38,38,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 10px rgba(220,38,38,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(220,38,38,0)} }
+    .botc-critical-dot { position:absolute; top:8px; left:-4px; width:12px; height:12px; border-radius:50%; background:#dc2626; box-shadow:0 0 0 0 rgba(220,38,38,.75); animation:botcCritPulse 1.2s ease-out infinite; z-index:2; }
+    .botc-critical-ring { box-shadow:0 0 0 2px #dc2626 inset !important; }
+  `;
+  document.head.appendChild(st);
+}
 function _botcNotifCardHtml_(r) {
+  _botcEnsureCriticalDotCss_();
+  const critical = window._botcNotifIsCritical_(r);
+  const critDot = critical ? '<span class="botc-critical-dot" title="Situación crítica"></span>' : '';
+  const critRingCls = critical ? ' botc-critical-ring' : '';
   const bk = r._booking;
   const p10 = r._phone ? String(r._phone).replace(/\D/g,'').slice(-10) : '';
   const phoneDisp = p10 ? `+${p10}` : '';
@@ -44441,7 +44483,8 @@ function _botcNotifCardHtml_(r) {
     const footer = window._botcSolActionButtons_(s, p10 || s.Phone, { afterFn: function() { const m = document.getElementById('botc-notifs-modal'); if (m) m.remove(); window._botcOpenNotifsGlobal_(null, null, true); } });
     const dim = est === 'cancelado' ? 'opacity:.55;filter:grayscale(.35)' : '';
     return `
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;${dim}">
+      <div class="${critRingCls.trim()}" style="position:relative;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;${dim}">
+        ${critDot}
         <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:center">
           <div style="font-size:12px;font-weight:800;color:#0f172a">${meta.icon} ${_botcEsc(meta.label)}</div>
           <div style="display:flex;gap:6px;align-items:center">${chip}<div style="font-size:10px;color:#64748b">${_botcEsc(hh)}</div></div>
@@ -44479,7 +44522,8 @@ function _botcNotifCardHtml_(r) {
     const chipMetodo = _botcNotifMetodoChip_(p.Metodo);
     const fecha = String(p.Fecha||'').slice(0,10);
     return `
-      <div onclick="_botcNotifOpenTarget_('pago','${_botcEsc(rowKey)}')" style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #7c3aed;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:transform .06s" onmouseover="this.style.background='#faf5ff'" onmouseout="this.style.background='#fff'">
+      <div onclick="_botcNotifOpenTarget_('pago','${_botcEsc(rowKey)}')" class="${critRingCls.trim()}" style="position:relative;background:#fff;border:1px solid #e2e8f0;border-left:3px solid #7c3aed;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:transform .06s" onmouseover="this.style.background='#faf5ff'" onmouseout="this.style.background='#fff'">
+        ${critDot}
         <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;align-items:flex-start">
           <div style="display:flex;flex-direction:column;gap:4px">
             <div style="font-size:12px;font-weight:800;color:#0f172a">💳 Pago manual</div>
@@ -44507,7 +44551,8 @@ function _botcNotifCardHtml_(r) {
   const dept = raw['# Departamento'] || '';
   const alojLine = prop ? `${prop}${dept?` #${dept}`:''}` : '';
   return `
-    <div onclick="_botcNotifOpenTarget_('${r._kind}','${_botcEsc(rowKey)}')" style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #ea580c;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='#fff'">
+    <div onclick="_botcNotifOpenTarget_('${r._kind}','${_botcEsc(rowKey)}')" class="${critRingCls.trim()}" style="position:relative;background:#fff;border:1px solid #e2e8f0;border-left:3px solid #ea580c;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='#fff'">
+      ${critDot}
       <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:center">
         <div style="font-size:12px;font-weight:800;color:#0f172a">${iconKind} ${labelKind}</div>
         <div style="display:flex;gap:6px;align-items:center">${chip}<div style="font-size:10px;color:#64748b">${_botcEsc(hh)}</div></div>
