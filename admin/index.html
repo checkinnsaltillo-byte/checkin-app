@@ -2827,7 +2827,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1113"></script>
+  <script src="app.js?v=1114"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     #sys-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:900;height:44px;background:rgba(255,255,255,.94);backdrop-filter:saturate(160%) blur(10px);-webkit-backdrop-filter:saturate(160%) blur(10px);border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-around;padding:4px 6px;gap:6px;box-shadow:0 -1px 4px rgba(0,0,0,.04)}
@@ -2853,7 +2853,7 @@
     }
   </style>
   <nav id="sys-bottom-nav" aria-label="Accesos rápidos">
-    <button type="button" class="sys-bnav-btn sys-bnav-menu" title="Menú" style="--bg:#fff;flex:0 0 42px;min-width:0;border:1px solid #cbd5e1" onclick="toggleNavMenu()">
+    <button type="button" class="sys-bnav-btn sys-bnav-menu" title="Menú" style="--bg:#fff;color:#0f172a;border:1px solid #cbd5e1" onclick="toggleNavMenu()">
       <div class="checkinn-loader size-sm" role="img" aria-label="Menú">
         <div class="ci-pin-scene">
           <div class="ci-pin">
@@ -2863,6 +2863,7 @@
           </div>
         </div>
       </div>
+      <span class="sys-bnav-label">Menú</span>
     </button>
     <button type="button" class="sys-bnav-btn" title="Gestión de reservas" style="--bg:#4f46e5" onclick="switchModule('lodgify')">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
@@ -2886,7 +2887,7 @@
     </button>
     <button type="button" class="sys-bnav-btn" title="Notificaciones — reportes, solicitudes y pagos" style="--bg:#0f172a;position:relative" onclick="_botcOpenNotifsGlobal_()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-      <span class="sys-bnav-label">Notif</span>
+      <span class="sys-bnav-label">Notificaciones</span>
       <span data-notif-badge style="display:none;position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;border-radius:999px;font-size:10px;font-weight:800;padding:2px 6px;min-width:18px;text-align:center;line-height:1;align-items:center;justify-content:center;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.3)">0</span>
     </button>
   </nav>
