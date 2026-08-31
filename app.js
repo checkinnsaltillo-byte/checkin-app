@@ -12587,6 +12587,9 @@ if (!window.__waManualSentListenerInstalled) {
     if (d && d.type === 'wa-manual-sent' && d.ticketUrl) {
       window.__waManualSentUrls.add(String(d.ticketUrl));
       console.info('[HU-ticket] marcada como enviada manual:', d.ticketUrl);
+      // Al confirmar envío por correo/WhatsApp, cerrar TAMBIÉN el modal
+      // FacturAPI de fondo — no dejar dos overlays abiertos.
+      try { if (typeof huespedesCloseFacturapi === 'function') huespedesCloseFacturapi(); } catch(_){}
     }
   });
 }
@@ -12700,6 +12703,15 @@ function huespedesCloseFacturapi() {
           lodgifyRender({ force: true });
         }
       } catch (e) { console.warn('[HU] re-render lodgify tras facturapi:', e); }
+      // Refresh incondicional del panel Notificaciones si está abierto — así
+      // toda acción disparada desde ahí queda reflejada al cerrar FacturAPI
+      // (incluso si el usuario canceló sin emitir).
+      try {
+        if (document.getElementById('botc-notifs-modal') && typeof window._botcOpenNotifsGlobal_ === 'function') {
+          window._botcOpenNotifsGlobal_(null, null, true);
+        }
+        if (typeof window._botcNotifRefreshBadge_ === 'function') window._botcNotifRefreshBadge_();
+      } catch(_){}
     }, 600);
   }
 }
@@ -44007,16 +44019,25 @@ function _botcNotifOpenSideDetail_(kind, row) {
         st.textContent = '@keyframes pagosSlideIn { from { transform: translateX(100%) } to { transform: translateX(0) } }';
         document.head.appendChild(st);
       }
+      const notifRefresh = () => {
+        try {
+          if (document.getElementById('botc-notifs-modal') && typeof window._botcOpenNotifsGlobal_ === 'function') {
+            window._botcOpenNotifsGlobal_(null, null, true);
+          }
+          if (typeof window._botcNotifRefreshBadge_ === 'function') window._botcNotifRefreshBadge_();
+        } catch(_){}
+      };
       const closeOverlay = () => {
         try { INC_STATE.editing.delete(incId); INC_STATE.editDirty.delete(incId); delete INC_STATE.editOriginal[incId]; if (INC_STATE.editPhotos) delete INC_STATE.editPhotos[incId]; } catch(_){}
         overlay.remove();
         clearInterval(watchId);
+        notifRefresh();
       };
       overlay.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', closeOverlay));
       // Cierra el overlay cuando el usuario Guarda o Sale (INC_STATE.editing
       // deja de contener el id).
       const watchId = setInterval(() => {
-        try { if (INC_STATE && INC_STATE.editing && !INC_STATE.editing.has(incId)) { clearInterval(watchId); overlay.remove(); } } catch(_){}
+        try { if (INC_STATE && INC_STATE.editing && !INC_STATE.editing.has(incId)) { clearInterval(watchId); overlay.remove(); notifRefresh(); } } catch(_){}
       }, 400);
       try { if (typeof window.incEnterEdit === 'function') window.incEnterEdit(incId); } catch(e) { console.warn('[notif→inc]', e); }
       return true;
@@ -48073,6 +48094,14 @@ window.rtCloseCapture = function() {
   setTimeout(() => { panel.classList.add('hidden'); back.classList.add('hidden'); }, 280);
   RT_STATE.draft = null;
   RT_STATE.projContext = null;
+  // Si veníamos desde Notificaciones, refresca panel para reflejar cambios
+  // (estado, prioridad, título, etc.) en la card correspondiente.
+  try {
+    if (document.getElementById('botc-notifs-modal') && typeof window._botcOpenNotifsGlobal_ === 'function') {
+      window._botcOpenNotifsGlobal_(null, null, true);
+    }
+    if (typeof window._botcNotifRefreshBadge_ === 'function') window._botcNotifRefreshBadge_();
+  } catch(_){}
 };
 
 function _rtField(label, html, hint) {
