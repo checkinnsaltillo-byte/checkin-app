@@ -43328,28 +43328,66 @@ async function _botcRefreshSolicitudesDrawer_(phone) {
     drawer.innerHTML = `<div style="padding:16px;color:#dc2626;font-size:12px">Error: ${_botcEsc(e.message)}</div>`;
   }
 }
+// Metadatos por tipo de solicitud. Define comportamiento (aprobación vs atender)
+// + icon + label bonito. Fallback: comportamiento 'atender'.
+window._SOL_TIPO_META = {
+  early_checkin:         { icon:'⏰', label:'Early check-in',        modo:'aprobacion' },
+  late_checkout:         { icon:'🕒', label:'Late check-out',        modo:'aprobacion' },
+  insumos:               { icon:'🧻', label:'Insumos extra',         modo:'atender' },
+  metodo_pago:           { icon:'💳', label:'Método de pago',        modo:'atender' },
+  ticket_autofacturacion:{ icon:'📄', label:'Ticket auto-facturación', modo:'atender' },
+  limpieza:              { icon:'🧹', label:'Limpieza extra',        modo:'atender' },
+  limpieza_extra:        { icon:'🧹', label:'Limpieza extra',        modo:'atender' },
+  solicitud_generica:    { icon:'📌', label:'Solicitud genérica',    modo:'atender' },
+};
+window._botcSolTipoMeta_ = function(tipo) {
+  const t = String(tipo || '').toLowerCase();
+  return window._SOL_TIPO_META[t] || { icon:'📌', label:(t || 'Solicitud'), modo:'atender' };
+};
+window._botcSolActionButtons_ = function(s, phone, opts) {
+  opts = opts || {};
+  const meta = window._botcSolTipoMeta_(s.Tipo);
+  const est = String(s.Estado || 'pendiente').toLowerCase();
+  if (est !== 'pendiente') {
+    if (s.AtendidoPor) {
+      const icon = { atendido:'✓', aprobado:'✓', rechazado:'✕', cancelado:'✕' }[est] || '·';
+      return `<div style="font-size:10px;color:#64748b;margin-top:6px">${icon} ${_botcEsc(s.AtendidoPor)} · ${String(s.AtendidoAt||'').slice(0,16).replace('T',' ')}</div>`;
+    }
+    return '';
+  }
+  const afterCb = opts.afterCb || '';
+  const isAprob = meta.modo === 'aprobacion';
+  const btn1 = isAprob
+    ? { label:'✓ Aceptar',  color:'#16a34a', bg:'#16a34a', fg:'#fff', border:'0', estado:'aprobado' }
+    : { label:'✓ Atender',  color:'#16a34a', bg:'#16a34a', fg:'#fff', border:'0', estado:'atendido' };
+  const btn2 = isAprob
+    ? { label:'✕ Rechazar', bg:'#fff', fg:'#991b1b', border:'1px solid #fca5a5', estado:'rechazado' }
+    : { label:'✕ Cancelar', bg:'#fff', fg:'#991b1b', border:'1px solid #fca5a5', estado:'cancelado' };
+  const call = (est) => `_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','${est}','${_botcEsc(phone)}')${afterCb ? '.then(function(){' + afterCb + '})' : ''}`;
+  return `
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button type="button" onclick="${call(btn1.estado)}" style="flex:1;padding:6px 10px;background:${btn1.bg};color:${btn1.fg};border:${btn1.border};border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">${btn1.label}</button>
+      <button type="button" onclick="${call(btn2.estado)}" style="flex:1;padding:6px 10px;background:${btn2.bg};color:${btn2.fg};border:${btn2.border};border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">${btn2.label}</button>
+    </div>`;
+};
 function _botcRenderSolicitudesDrawer_(drawer, phone, rows) {
-  const tipoIcon = t => t === 'ticket_autofacturacion' ? '📄' : '📌';
-  const tipoLabel = t => t === 'ticket_autofacturacion' ? 'Ticket auto-facturación' : (t || 'Solicitud');
   const chip = (est) => {
     const c = est === 'atendido' ? { bg:'#dcfce7', fg:'#166534', tx:'ATENDIDO' }
+            : est === 'aprobado' ? { bg:'#dcfce7', fg:'#166534', tx:'APROBADO' }
+            : est === 'rechazado' ? { bg:'#fee2e2', fg:'#991b1b', tx:'RECHAZADO' }
             : est === 'cancelado' ? { bg:'#fee2e2', fg:'#991b1b', tx:'CANCELADO' }
             : { bg:'#fef3c7', fg:'#92400e', tx:'PENDIENTE' };
     return `<span style="font-size:9px;font-weight:800;background:${c.bg};color:${c.fg};padding:2px 8px;border-radius:999px;letter-spacing:.02em">${c.tx}</span>`;
   };
   const cards = rows.map(s => {
+    const meta = window._botcSolTipoMeta_(s.Tipo);
     const est = String(s.Estado || 'pendiente').toLowerCase();
     const ts = String(s.Timestamp || '').slice(0, 19).replace('T', ' ');
-    const canAct = est === 'pendiente';
-    const btns = canAct ? `
-      <div style="display:flex;gap:6px;margin-top:8px">
-        <button type="button" onclick="_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}')" style="flex:1;padding:6px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✓ Atender</button>
-        <button type="button" onclick="_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','cancelado','${_botcEsc(phone)}')" style="flex:1;padding:6px 10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✕ Cancelar</button>
-      </div>` : (s.AtendidoPor ? `<div style="font-size:10px;color:#64748b;margin-top:6px">${est === 'atendido' ? '✓' : '✕'} ${_botcEsc(s.AtendidoPor)} · ${String(s.AtendidoAt||'').slice(0,16).replace('T',' ')}</div>` : '');
+    const btns = window._botcSolActionButtons_(s, phone);
     return `
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
-          <div style="font-size:12px;font-weight:800;color:#0f172a">${tipoIcon(s.Tipo)} ${_botcEsc(tipoLabel(s.Tipo))}</div>
+          <div style="font-size:12px;font-weight:800;color:#0f172a">${meta.icon} ${_botcEsc(meta.label)}</div>
           ${chip(est)}
         </div>
         <div style="font-size:11px;color:#64748b;margin-bottom:6px">${_botcEsc(ts)}${s.ReservaId?` · Reserva ${_botcEsc(s.ReservaId)}`:''}</div>
@@ -43435,19 +43473,17 @@ window._botcOpenSolicitudesGlobal_ = async function(tab) {
     cont.innerHTML = rows.map(s => {
       const ts = String(s.Timestamp || '').slice(0, 16).replace('T', ' ');
       const est = String(s.Estado || 'pendiente').toLowerCase();
+      const meta = window._botcSolTipoMeta_(s.Tipo);
       const estChip = est === 'atendido' ? '<span style="font-size:9px;font-weight:800;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:999px">ATENDIDO</span>'
+                    : est === 'aprobado' ? '<span style="font-size:9px;font-weight:800;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:999px">APROBADO</span>'
+                    : est === 'rechazado' ? '<span style="font-size:9px;font-weight:800;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:999px">RECHAZADO</span>'
                     : est === 'cancelado' ? '<span style="font-size:9px;font-weight:800;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:999px">CANCELADO</span>'
                     : '<span style="font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px">PENDIENTE</span>';
-      const footer = est === 'pendiente'
-        ? `<div style="display:flex;gap:6px;margin-top:8px">
-            <button type="button" onclick="_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','atendido','${_botcEsc(s.Phone)}').then(()=>{document.getElementById('botc-solicitudes-global').remove();_botcOpenSolicitudesGlobal_()})" style="flex:1;padding:6px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✓ Atender</button>
-            <button type="button" onclick="_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','cancelado','${_botcEsc(s.Phone)}').then(()=>{document.getElementById('botc-solicitudes-global').remove();_botcOpenSolicitudesGlobal_()})" style="flex:1;padding:6px 10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✕ Cancelar</button>
-          </div>`
-        : (s.AtendidoPor ? `<div style="font-size:10px;color:#64748b;margin-top:6px">${est==='atendido'?'✓':'✕'} ${_botcEsc(s.AtendidoPor)} · ${String(s.AtendidoAt||'').slice(0,16).replace('T',' ')}</div>` : '');
+      const footer = window._botcSolActionButtons_(s, s.Phone, { afterCb: "document.getElementById('botc-solicitudes-global').remove();_botcOpenSolicitudesGlobal_()" });
       return `
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:center">
-            <div style="font-size:12px;font-weight:800;color:#0f172a">📄 ${_botcEsc(s.Tipo === 'ticket_autofacturacion' ? 'Ticket auto-facturación' : (s.Tipo||'Solicitud'))}</div>
+            <div style="font-size:12px;font-weight:800;color:#0f172a">${meta.icon} ${_botcEsc(meta.label)}</div>
             <div style="display:flex;gap:6px;align-items:center">${estChip}<div style="font-size:10px;color:#64748b">${_botcEsc(ts)}</div></div>
           </div>
           <div style="font-size:11px;color:#475569;margin-bottom:4px">
