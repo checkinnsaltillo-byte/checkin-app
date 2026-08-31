@@ -2798,7 +2798,7 @@
   <!-- Modal Facturapi (iframe embebido) — FUERA de todos los módulos para que
        funcione desde cualquier vista (Huéspedes, Reservas Lodgify, etc.) -->
   <div id="hu-facturapi-overlay" class="hidden"
-       style="position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px"
+       style="position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:100010;display:flex;align-items:center;justify-content:center;padding:18px"
        onclick="if(event.target===this)huespedesCloseFacturapi()">
     <div style="background:#fff;border-radius:14px;width:100%;max-width:1100px;height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(15,23,42,.5);position:relative">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#334155;color:#fff;flex-shrink:0">
@@ -2827,7 +2827,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1118"></script>
+  <script src="app.js?v=1119"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     #sys-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:900;height:44px;background:rgba(255,255,255,.94);backdrop-filter:saturate(160%) blur(10px);-webkit-backdrop-filter:saturate(160%) blur(10px);border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-around;padding:4px 6px;gap:6px;box-shadow:0 -1px 4px rgba(0,0,0,.04)}
