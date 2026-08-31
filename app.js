@@ -43333,6 +43333,7 @@ async function _botcRefreshSolicitudesDrawer_(phone) {
 window._SOL_TIPO_META = {
   early_checkin:         { icon:'⏰', label:'Early check-in',        modo:'aprobacion' },
   late_checkout:         { icon:'🕒', label:'Late check-out',        modo:'aprobacion' },
+  extension:             { icon:'🗓️', label:'Extensión de reserva',   modo:'aprobacion' },
   insumos:               { icon:'🧻', label:'Insumos extra',         modo:'atender' },
   metodo_pago:           { icon:'💳', label:'Método de pago',        modo:'atender' },
   ticket_autofacturacion:{ icon:'📄', label:'Ticket auto-facturación', modo:'atender' },
@@ -43369,11 +43370,13 @@ window._SOL_MSG_TPL = {
     _default:      '¡Buenas noticias! Se aprobó tu solicitud. Cualquier duda nos avisas. ✅',
     late_checkout: '¡Buenas noticias! Se aprobó tu solicitud de late check-out. Nos vemos ese día. 🕒',
     early_checkin: '¡Buenas noticias! Se aprobó tu solicitud de early check-in. Te esperamos. ⏰',
+    extension:     '¡Buenas noticias! Se aprobó tu extensión de reserva. Te enviaremos el enlace de pago para las noches adicionales. 🗓️',
   },
   rechazado: {
     _default:      'Lamentamos informarte que no fue posible aprobar tu solicitud por temas de operación. Gracias por tu comprensión. 🙏',
     late_checkout: 'Lamentamos informarte que no podemos otorgar el late check-out por operación de limpieza. Gracias por tu comprensión. 🙏',
     early_checkin: 'Lamentamos informarte que no podemos otorgar el early check-in solicitado por operación de limpieza. Gracias por tu comprensión. 🙏',
+    extension:     'Lamentamos informarte que no podemos extender tu reserva porque el alojamiento ya está reservado para las fechas siguientes. Con gusto te ayudamos a buscar otro alojamiento. 🙏',
   },
   cancelado: {
     _default: '', // no se envía mensaje al cancelar
