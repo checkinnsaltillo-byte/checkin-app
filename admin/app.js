@@ -43508,7 +43508,7 @@ window._botcSolActionButtons_ = function(s, phone, opts) {
   if (['atendido','cancelado','aprobado','rechazado'].includes(est)) {
     if (s.AtendidoPor) {
       const icon = { atendido:'✓', aprobado:'✓', rechazado:'✕', cancelado:'✕' }[est] || '·';
-      return `<div style="font-size:10px;color:#64748b;margin-top:6px">${icon} ${_botcEsc(s.AtendidoPor)} · ${String(s.AtendidoAt||'').slice(0,16).replace('T',' ')}</div>`;
+      return `<div style="font-size:10px;color:#64748b;margin-top:6px">${icon} ${_botcEsc(s.AtendidoPor)} · ${_botcEsc(_botcNotifTsFmt_(s.AtendidoAt||''))}</div>`;
     }
     return '';
   }
@@ -43776,7 +43776,7 @@ function _botcRenderSolicitudesDrawer_(drawer, phone, rows) {
           ${chip(est)}
         </div>
         <div style="font-size:11px;color:#64748b;margin-bottom:6px">${_botcEsc(ts)}${s.ReservaId?` · Reserva ${_botcEsc(s.ReservaId)}`:''}</div>
-        ${s.ProgramadaAt?`<div style="font-size:11px;color:#1e40af;background:#dbeafe;padding:4px 8px;border-radius:6px;margin-bottom:6px;font-weight:700">📅 Programada para: ${_botcEsc(String(s.ProgramadaAt).replace('T',' ').slice(0,16))}</div>`:''}
+        ${s.ProgramadaAt?`<div style="font-size:11px;color:#1e40af;background:#dbeafe;padding:4px 8px;border-radius:6px;margin-bottom:6px;font-weight:700">📅 Programada para: ${_botcEsc(_botcNotifTsFmt_(s.ProgramadaAt))}</div>`:''}
         <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen || '(sin resumen)')}</div>
         ${btns}
       </div>`;
@@ -43830,7 +43830,7 @@ function _botcNotifDayKey_(ts) {
 }
 function _botcNotifDayLabel_(key) {
   if (!key) return 'Sin fecha';
-  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
   const yest  = new Date(Date.now() - 86400000).toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
   if (key === today) return 'Hoy';
@@ -43839,13 +43839,42 @@ function _botcNotifDayLabel_(key) {
   const yr = new Date().getFullYear();
   return `${d} ${meses[mo - 1]}${yr !== y ? ' ' + y : ''}`;
 }
+// Formatea un timestamp ISO como "19 julio - 10:35" o "19 julio 2027 - 10:35"
+// (año solo si difiere del actual). Se usa para ProgramadaAt / AtendidoAt.
+function _botcNotifTsFmt_(ts) {
+  const t = String(ts || '').trim();
+  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+  if (!m) return t;
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const hh = m[4] || '', mi = m[5] || '';
+  const yr = new Date().getFullYear();
+  const dateStr = `${d} ${meses[mo-1]}${yr !== y ? ' ' + y : ''}`;
+  return hh ? `${dateStr} · ${hh}:${mi}` : dateStr;
+}
 function _botcNotifFechasCortas_(arr, dep) {
-  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  const p = s => { const m = String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? { y:+m[1], mo:+m[2], d:+m[3] } : null; };
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const p = s => {
+    const t = String(s||'').trim();
+    let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return { y:+m[1], mo:+m[2], d:+m[3] };
+    m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); // MM/DD/YYYY (Lodgify)
+    if (m) return { y:+m[3], mo:+m[1], d:+m[2] };
+    return null;
+  };
   const A = p(arr), B = p(dep);
   if (!A && !B) return '';
-  const fmt = x => x ? `${String(x.d).padStart(2,'0')} ${meses[x.mo-1]}` : '?';
-  return `${fmt(A)} → ${fmt(B)}`;
+  // Si ambos existen y comparten año → omitir año en ambos; si difieren → mostrar año en ambos.
+  const bothSameYear = A && B && A.y === B.y;
+  const withYear = A && B && A.y !== B.y;
+  const fmt = x => {
+    if (!x) return '?';
+    const base = `${x.d} ${meses[x.mo-1]}`;
+    return withYear ? `${base} ${x.y}` : base;
+  };
+  if (A && B) return `${fmt(A)} - ${fmt(B)}`;
+  const only = A || B;
+  return `${only.d} ${meses[only.mo-1]} ${only.y}`;
 }
 // Chips por dominio
 function _botcNotifSolChip_(estado) {
@@ -44111,9 +44140,10 @@ function _botcNotifSideHtml_(kind, row) {
   const labelKind = { reporte_tecnico:'Reporte técnico', incidencia:'Incidencia', objeto:'Objeto olvidado' }[kind] || 'Notificación';
   const fields = [];
   const push = (l, v) => { if (v && String(v).trim()) fields.push({ l, v: String(v) }); };
+  const pushDate = (l, v) => { if (v && String(v).trim()) fields.push({ l, v: _botcNotifTsFmt_(v) }); };
   if (kind === 'reporte_tecnico') {
     push('Folio', raw.Folio);
-    push('Fecha', raw.Fecha);
+    pushDate('Fecha', raw.Fecha);
     push('Estado', raw.Estado);
     push('Prioridad', raw.Prioridad);
     push('Tipo', raw.Tipo);
@@ -44123,7 +44153,7 @@ function _botcNotifSideHtml_(kind, row) {
     push('Descripción', raw.Descripcion);
     push('Descripción solución', raw.Descripcion_solucion);
   } else if (kind === 'incidencia') {
-    push('Fecha', raw.Fecha || raw.Timestamp);
+    pushDate('Fecha', raw.Fecha || raw.Timestamp);
     push('Estatus', raw.Estatus);
     push('Nivel', raw.Nivel);
     push('Motivos', raw.Motivos);
@@ -44135,8 +44165,8 @@ function _botcNotifSideHtml_(kind, row) {
     push('Acciones', raw.Acciones);
     push('Seguimiento', raw.Seguimiento);
   } else if (kind === 'objeto') {
-    push('Fecha encontrado', raw.Fecha_encontrado);
-    push('Fecha entregado', raw.Fecha_entregado);
+    pushDate('Fecha encontrado', raw.Fecha_encontrado);
+    pushDate('Fecha entregado', raw.Fecha_entregado);
     push('Entregado a', raw.Entregado_a);
     push('Categoría', raw.Categoria);
     push('Otro', raw.Categoria_otro);
@@ -44393,7 +44423,7 @@ function _botcNotifCardHtml_(r) {
           <div style="display:flex;gap:6px;align-items:center">${chip}<div style="font-size:10px;color:#64748b">${_botcEsc(hh)}</div></div>
         </div>
         ${nameBlock}${bkLine}
-        ${s.ProgramadaAt?`<div style="font-size:11px;color:#1e40af;background:#dbeafe;padding:4px 8px;border-radius:6px;margin-bottom:6px;font-weight:700">📅 Programada para: ${_botcEsc(String(s.ProgramadaAt).replace('T',' ').slice(0,16))}</div>`:''}
+        ${s.ProgramadaAt?`<div style="font-size:11px;color:#1e40af;background:#dbeafe;padding:4px 8px;border-radius:6px;margin-bottom:6px;font-weight:700">📅 Programada para: ${_botcEsc(_botcNotifTsFmt_(s.ProgramadaAt))}</div>`:''}
         <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen||'')}</div>
         ${footer}
       </div>`;
