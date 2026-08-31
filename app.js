@@ -43805,18 +43805,163 @@ function _botcNotifMetodoChip_(metodo) {
   if (!metodo) return '';
   return `<span style="font-size:9px;font-weight:700;background:#ede9fe;color:#5b21b6;padding:2px 8px;border-radius:999px">${_botcEsc(String(metodo))}</span>`;
 }
-// Click en card: abre panel/módulo correspondiente al kind.
-window._botcNotifOpenTarget_ = function(kind, id, reservaId) {
-  const m = document.getElementById('botc-notifs-modal'); if (m) m.remove();
-  if (kind === 'pago') {
-    if (typeof switchModule === 'function') switchModule('pagos');
-    setTimeout(() => { if (typeof pagosSelect === 'function' && reservaId) pagosSelect(reservaId); }, 200);
-    return;
-  }
-  const modMap = { reporte_tecnico:'reportes-tecnicos', incidencia:'incidencias', objeto:'objetos' };
-  const modId = modMap[kind];
-  if (modId && typeof switchModule === 'function') switchModule(modId);
+// Click en card: abre slide-over lateral SIN cambiar de módulo (queda en Chats bot).
+window.__notifRowsIndex_ = window.__notifRowsIndex_ || {};
+window._botcNotifOpenTarget_ = function(kind, id) {
+  const row = window.__notifRowsIndex_[id];
+  const modal = document.getElementById('botc-notifs-modal'); if (modal) modal.remove();
+  if (!row) { console.warn('[notif] row no encontrado:', id); return; }
+  _botcNotifOpenSideDetail_(kind, row);
 };
+
+function _botcNotifCloseSide_() {
+  const s = document.getElementById('botc-notif-side'); if (s) s.remove();
+  if (window.__botcNotifSideEsc) { document.removeEventListener('keydown', window.__botcNotifSideEsc); window.__botcNotifSideEsc = null; }
+}
+function _botcNotifOpenSideDetail_(kind, row) {
+  _botcNotifCloseSide_();
+  const overlay = document.createElement('div');
+  overlay.id = 'botc-notif-side';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:100001;display:flex';
+  overlay.innerHTML = `
+    <div onclick="_botcNotifCloseSide_()" style="flex:1;background:rgba(15,23,42,.55);cursor:pointer"></div>
+    <div id="botc-notif-side-panel" style="width:min(460px,100%);height:100%;background:#f8fafc;box-shadow:-12px 0 32px rgba(15,23,42,.25);overflow-y:auto;animation:pagosSlideIn .18s ease-out"></div>`;
+  if (!document.getElementById('pagos-slideover-style')) {
+    const st = document.createElement('style');
+    st.id = 'pagos-slideover-style';
+    st.textContent = '@keyframes pagosSlideIn { from { transform: translateX(100%) } to { transform: translateX(0) } }';
+    document.head.appendChild(st);
+  }
+  document.body.appendChild(overlay);
+  window.__botcNotifSideEsc = (e) => { if (e.key === 'Escape') _botcNotifCloseSide_(); };
+  document.addEventListener('keydown', window.__botcNotifSideEsc);
+  const panel = document.getElementById('botc-notif-side-panel');
+  panel.innerHTML = _botcNotifSideHtml_(kind, row);
+}
+function _botcNotifSideHtml_(kind, row) {
+  const raw = row._raw || {};
+  const bk = row._booking;
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const p10 = row._phone ? String(row._phone).replace(/\D/g,'').slice(-10) : '';
+  const phoneDisp = p10 ? `+${p10}` : '';
+  const nombre = bk ? String(bk.GuestName||'').trim() : '';
+  const alojLabel = bk ? (typeof _pagosAlojName === 'function' ? _pagosAlojName(bk) : (bk.HouseName||'')) : '';
+  const source = bk ? String(bk.Source||'') : '';
+  const arr = bk ? String(bk.DateArrival||'').slice(0,10) : '';
+  const dep = bk ? String(bk.DateDeparture||'').slice(0,10) : '';
+  const fechasCortas = (arr||dep) ? _botcNotifFechasCortas_(arr, dep) : '';
+  const tot = bk ? Number(bk.TotalAmount||0) : 0;
+  const cur = bk ? String(bk.Currency||'MXN') : 'MXN';
+
+  const closeBtn = `<button type="button" onclick="_botcNotifCloseSide_()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1">×</button>`;
+  const phoneLink = phoneDisp ? `<a href="#" onclick="event.preventDefault();_botcNotifCloseSide_();botcOpenChat('${_botcEsc(p10)}');return false" style="color:#3b82f6;font-weight:700;text-decoration:none">${_botcEsc(phoneDisp)}</a>` : '';
+  const guestBlock = (nombre||phoneLink) ? `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:10px">
+      ${nombre?`<div style="font-size:13px;font-weight:800;color:#0f172a">${_botcEsc(nombre)}</div>`:''}
+      ${phoneLink?`<div style="font-size:12px;margin-top:2px">${phoneLink}</div>`:''}
+    </div>` : '';
+  const bkBlock = bk ? `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:10px">
+      <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Reserva</div>
+      ${alojLabel?`<div style="font-size:13px;font-weight:800;color:#0f172a">📍 ${_botcEsc(alojLabel)}</div>`:''}
+      <div style="font-size:11px;color:#475569;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${fechasCortas?`<span>${_botcEsc(fechasCortas)}</span>`:''}
+        ${source?`<span style="font-size:9px;font-weight:700;background:#f1f5f9;color:#475569;padding:1px 6px;border-radius:4px">${_botcEsc(source)}</span>`:''}
+        ${tot?`<span style="font-weight:700">$${tot.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} ${cur}</span>`:''}
+      </div>
+    </div>` : '';
+
+  if (kind === 'pago') {
+    // Reusar el panel completo del módulo Pagos (bookings deben estar en PAGOS_STATE.bookings)
+    let panelHtml = '';
+    try {
+      if (row._reservaId && typeof pagosPanelHtml === 'function') {
+        // Asegurar que la reserva está en PAGOS_STATE.bookings antes de invocar
+        if (typeof PAGOS_STATE === 'object' && PAGOS_STATE.bookings && bk) {
+          if (!PAGOS_STATE.bookings.some(x => String(x.Id) === String(row._reservaId))) {
+            PAGOS_STATE.bookings.push(bk);
+          }
+        }
+        panelHtml = pagosPanelHtml(row._reservaId).replace(/pagosClosePanel\(\)/g, '_botcNotifCloseSide_()');
+      }
+    } catch(e) { panelHtml = ''; }
+    if (!panelHtml) {
+      const p = raw;
+      const montoTxt = Number(p.Monto||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+      panelHtml = `
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:6px">💳 Pago manual</div>
+          <div style="font-size:18px;font-weight:800;color:#166534">+$${montoTxt}</div>
+          <div style="font-size:11px;color:#475569;margin-top:6px">${_botcEsc(p.Metodo||'—')}${p.Referencia?` · Ref ${_botcEsc(p.Referencia)}`:''}${p.Fecha?` · ${String(p.Fecha).slice(0,10)}`:''}${p.RegistradoPor?` · por ${_botcEsc(p.RegistradoPor)}`:''}</div>
+          ${p.Notas?`<div style="font-size:11px;color:#64748b;margin-top:6px">${_botcEsc(p.Notas)}</div>`:''}
+        </div>`;
+    }
+    return `
+      <div style="padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:15px;font-weight:800;color:#0f172a">💳 Detalle de pago</div>
+          ${closeBtn}
+        </div>
+        ${guestBlock}${bkBlock}${panelHtml}
+      </div>`;
+  }
+
+  // Reportes técnicos / Incidencias / Objetos
+  const iconKind = { reporte_tecnico:'🔧', incidencia:'⚠️', objeto:'🎒' }[kind] || '📌';
+  const labelKind = { reporte_tecnico:'Reporte técnico', incidencia:'Incidencia', objeto:'Objeto olvidado' }[kind] || 'Notificación';
+  const fields = [];
+  const push = (l, v) => { if (v && String(v).trim()) fields.push({ l, v: String(v) }); };
+  if (kind === 'reporte_tecnico') {
+    push('Folio', raw.Folio);
+    push('Fecha', raw.Fecha);
+    push('Estado', raw.Estado);
+    push('Prioridad', raw.Prioridad);
+    push('Tipo', raw.Tipo);
+    push('Categoría', raw.Categoria);
+    push('Alojamiento', raw.Alojamiento || (raw.Propiedad ? `${raw.Propiedad}${raw['# Departamento']?` #${raw['# Departamento']}`:''}` : ''));
+    push('Título', raw.Titulo);
+    push('Descripción', raw.Descripcion);
+    push('Descripción solución', raw.Descripcion_solucion);
+  } else if (kind === 'incidencia') {
+    push('Fecha', raw.Fecha || raw.Timestamp);
+    push('Estatus', raw.Estatus);
+    push('Nivel', raw.Nivel);
+    push('Motivos', raw.Motivos);
+    push('Clasificación', raw.Clasificacion);
+    push('Alojamiento', raw.Alojamiento || (raw.Propiedad ? `${raw.Propiedad}${raw['# Departamento']?` #${raw['# Departamento']}`:''}` : ''));
+    push('Reportante', raw.Reportante);
+    push('Personas', raw.Personas);
+    push('Descripción', raw.Descripcion);
+    push('Acciones', raw.Acciones);
+    push('Seguimiento', raw.Seguimiento);
+  } else if (kind === 'objeto') {
+    push('Fecha encontrado', raw.Fecha_encontrado);
+    push('Fecha entregado', raw.Fecha_entregado);
+    push('Entregado a', raw.Entregado_a);
+    push('Categoría', raw.Categoria);
+    push('Otro', raw.Categoria_otro);
+    push('Alojamiento', raw.Alojamiento || (raw.Propiedad ? `${raw.Propiedad}${raw['# Departamento']?` #${raw['# Departamento']}`:''}` : ''));
+    push('Lugar resguardo', raw.Lugar_resguardo);
+    push('Reportante', raw.Reportante);
+    push('Comentarios', raw.Comentarios);
+  }
+  const rowsHtml = fields.map(f => `
+    <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+      <div style="min-width:110px;font-size:11px;font-weight:700;color:#64748b">${_botcEsc(f.l)}</div>
+      <div style="flex:1;font-size:12px;color:#0f172a;white-space:pre-wrap">${_botcEsc(f.v)}</div>
+    </div>`).join('');
+  return `
+    <div style="padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:15px;font-weight:800;color:#0f172a">${iconKind} ${labelKind}</div>
+        ${closeBtn}
+      </div>
+      ${guestBlock}${bkBlock}
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:6px 14px">
+        ${rowsHtml || '<div style="padding:12px;color:#94a3b8;font-size:12px">Sin datos.</div>'}
+      </div>
+    </div>`;
+}
 window._botcOpenNotifsGlobal_ = async function(section, subtab, keepDays) {
   const st = window.__botcNotif;
   if (section) st.section = section;
@@ -44015,6 +44160,10 @@ function _botcNotifCardHtml_(r) {
       </div>`;
   }
 
+  // Registrar la row en el índice global para lookup al abrir slide-over.
+  const rowKey = `${r._kind}:${(r._raw && r._raw.ID) || r._ts || Math.random()}`;
+  window.__notifRowsIndex_ = window.__notifRowsIndex_ || {};
+  window.__notifRowsIndex_[rowKey] = r;
   // ── Card PAGO (clickeable → módulo Pagos + slide-over)
   if (r._kind === 'pago') {
     const p = r._raw;
@@ -44037,7 +44186,7 @@ function _botcNotifCardHtml_(r) {
     const chipMetodo = _botcNotifMetodoChip_(p.Metodo);
     const fecha = String(p.Fecha||'').slice(0,10);
     return `
-      <div onclick="_botcNotifOpenTarget_('pago','${_botcEsc(p.ID)}','${_botcEsc(r._reservaId)}')" style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #7c3aed;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:transform .06s" onmouseover="this.style.background='#faf5ff'" onmouseout="this.style.background='#fff'">
+      <div onclick="_botcNotifOpenTarget_('pago','${_botcEsc(rowKey)}')" style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #7c3aed;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:transform .06s" onmouseover="this.style.background='#faf5ff'" onmouseout="this.style.background='#fff'">
         <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;align-items:flex-start">
           <div style="display:flex;flex-direction:column;gap:4px">
             <div style="font-size:12px;font-weight:800;color:#0f172a">💳 Pago manual</div>
@@ -44065,7 +44214,7 @@ function _botcNotifCardHtml_(r) {
   const dept = raw['# Departamento'] || '';
   const alojLine = prop ? `${prop}${dept?` #${dept}`:''}` : '';
   return `
-    <div onclick="_botcNotifOpenTarget_('${r._kind}','${_botcEsc(raw.ID||'')}','${_botcEsc(r._reservaId||'')}')" style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #ea580c;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='#fff'">
+    <div onclick="_botcNotifOpenTarget_('${r._kind}','${_botcEsc(rowKey)}')" style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #ea580c;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='#fff'">
       <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:center">
         <div style="font-size:12px;font-weight:800;color:#0f172a">${iconKind} ${labelKind}</div>
         <div style="display:flex;gap:6px;align-items:center">${chip}<div style="font-size:10px;color:#64748b">${_botcEsc(hh)}</div></div>
