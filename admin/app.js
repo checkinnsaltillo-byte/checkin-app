@@ -12566,6 +12566,13 @@ window._huCerrarSolicitudTicketAutofact_ = async function(row) {
     }
     console.info('[HU-ticket] solicitudes ticket_autofacturacion cerradas:', matches.length);
     try { if (typeof window._botcNotifRefreshBadge_ === 'function') window._botcNotifRefreshBadge_(); } catch(_){}
+    // Si el panel Notificaciones sigue abierto, re-renderiza para que las
+    // cards muestren estado actualizado (atendida + quién + timestamp).
+    try {
+      if (document.getElementById('botc-notifs-modal') && typeof window._botcOpenNotifsGlobal_ === 'function') {
+        window._botcOpenNotifsGlobal_(null, null, true);
+      }
+    } catch(_){}
   } catch(e) { console.warn('[HU-ticket] cerrar solicitud fallo:', e.message); }
 };
 
@@ -43513,6 +43520,18 @@ window._botcSolActionButtons_ = function(s, phone, opts) {
   }
   const cbArg = cbKey ? `,'${cbKey}'` : '';
   const cancelBtn = `<button type="button" onclick="_botcSolCancel_('${_botcEsc(s.ID)}','${_botcEsc(phone)}'${cbArg})" title="Cancelar la solicitud (no envía mensaje al huésped)" style="flex:none;padding:8px 10px;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">Cancelar</button>`;
+  // CASO ESPECIAL: Ticket auto-facturación pendiente → único botón "Emitir factura"
+  // que abre el popup FacturAPI para la reserva vinculada. Al cerrar el popup,
+  // huespedesCloseFacturapi detecta el ticket emitido y cierra esta solicitud
+  // como atendida (vía _huCerrarSolicitudTicketAutofact_).
+  const tipoLower = String(s.Tipo || '').toLowerCase();
+  if (tipoLower === 'ticket_autofacturacion' && est === 'pendiente') {
+    return `
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button type="button" onclick="_botcSolEmitirTicket_('${_botcEsc(s.ID)}','${_botcEsc(phone)}','${_botcEsc(s.ReservaId||'')}'${cbArg})" style="flex:1;padding:8px 10px;background:#dc2626;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">🧾 Emitir factura</button>
+        ${cancelBtn}
+      </div>`;
+  }
   // ESTADO APROBACIÓN: [✓ Aceptar] [✕ Rechazar] [Cancelar] — sin paso "programar"
   if (isAprob) {
     return `
@@ -43542,6 +43561,31 @@ window._botcSolActionButtons_ = function(s, phone, opts) {
       </div>`;
   }
   return '';
+};
+
+// Solicitud tipo ticket_autofacturacion → abre el popup FacturAPI para la
+// reserva vinculada. Al cerrar el popup, huespedesCloseFacturapi detecta el
+// ticket emitido, envía correo/WA (si el usuario lo hace desde el popup), y
+// _huCerrarSolicitudTicketAutofact_ cierra esta solicitud como atendida.
+window._botcSolEmitirTicket_ = async function(solId, phone, reservaId, cbKey) {
+  if (!reservaId) { alert('Esta solicitud no tiene ReservaId asociado — no se puede abrir FacturAPI.'); return; }
+  // Cargar Reservaciones si HU_STATE.rows está vacío.
+  if (typeof HU_STATE === 'undefined' || !Array.isArray(HU_STATE.rows) || !HU_STATE.rows.length) {
+    if (typeof huespedesLoad === 'function') { try { await huespedesLoad(); } catch(_){} }
+  }
+  const row = (HU_STATE.rows || []).find(r => String(r['Lodgify Id'] || '').trim() === String(reservaId).trim());
+  if (!row) {
+    alert('No se encontró el registro de huésped para la reserva ' + reservaId + ' en Reservaciones.\n\nEs posible que el huésped aún no haya completado el check-in.');
+    return;
+  }
+  const recordId = String(row['ID'] || row['row_number'] || '');
+  if (!recordId) { alert('No se pudo identificar el ID del registro.'); return; }
+  if (typeof huespedesGenerarTicket !== 'function') { alert('huespedesGenerarTicket no disponible.'); return; }
+  // Al cerrar el popup, el flujo actual de huespedesCloseFacturapi cierra la
+  // solicitud como atendida y refresca el badge. Además le pedimos re-render
+  // del panel Notificaciones si sigue abierto (marca la card como atendida).
+  huespedesGenerarTicket(recordId);
+  if (cbKey) window._botcSolRunCb_(cbKey);
 };
 
 // Marca atendida sin abrir modal ni enviar mensaje al huésped. Solo cambia
