@@ -43736,21 +43736,103 @@ async function _botcRefreshSolicitudesBadge_() {
 // ═══════ Modal global "🔔 Notificaciones" ═════════════════════════════
 // 4 secciones (Todos/Reportes/Solicitudes/Pagos) + subtabs por sección.
 // Cards enriquecidas con phone/reserva/medio/fechas por lookup a /lodgify-list.
-window.__botcNotif = window.__botcNotif || { section:'todos', subtab:{ solicitudes:'todos', reportes:'todos' } };
-window._botcOpenNotifsGlobal_ = async function(section, subtab) {
+// Agrupadas por día (separador Hoy/Ayer/DD mes) — 3 días por página, "Mostrar más".
+window.__botcNotif = window.__botcNotif || { section:'todos', subtab:{ solicitudes:'todos', reportes:'todos' }, daysShown:3 };
+// Helpers de fecha/formato
+function _botcNotifDayKey_(ts) {
+  const s = String(ts||''); const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+}
+function _botcNotifDayLabel_(key) {
+  if (!key) return 'Sin fecha';
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
+  const yest  = new Date(Date.now() - 86400000).toLocaleDateString('sv-SE', { timeZone: 'America/Mexico_City' });
+  if (key === today) return 'Hoy';
+  if (key === yest)  return 'Ayer';
+  const [y, mo, d] = key.split('-').map(x => parseInt(x, 10));
+  const yr = new Date().getFullYear();
+  return `${d} ${meses[mo - 1]}${yr !== y ? ' ' + y : ''}`;
+}
+function _botcNotifFechasCortas_(arr, dep) {
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const p = s => { const m = String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? { y:+m[1], mo:+m[2], d:+m[3] } : null; };
+  const A = p(arr), B = p(dep);
+  if (!A && !B) return '';
+  const fmt = x => x ? `${String(x.d).padStart(2,'0')} ${meses[x.mo-1]}` : '?';
+  return `${fmt(A)} → ${fmt(B)}`;
+}
+// Chips por dominio
+function _botcNotifSolChip_(estado) {
+  const c = ({
+    aprobado:  { bg:'#dcfce7', fg:'#166534', tx:'✓ APROBADO' },
+    atendido:  { bg:'#dcfce7', fg:'#166534', tx:'ATENDIDO' },
+    programado:{ bg:'#dbeafe', fg:'#1e40af', tx:'PROGRAMADO' },
+    cancelado: { bg:'#e2e8f0', fg:'#475569', tx:'CANCELADO' },
+    rechazado: { bg:'#e2e8f0', fg:'#475569', tx:'RECHAZADO' },
+  })[estado] || { bg:'#fee2e2', fg:'#991b1b', tx:'PENDIENTE' };
+  return `<span style="font-size:9px;font-weight:800;background:${c.bg};color:${c.fg};padding:2px 8px;border-radius:999px">${c.tx}</span>`;
+}
+function _botcNotifRepChip_(kind, raw) {
+  const est = String(raw.Estado || raw.Estatus || (raw.Fecha_entregado ? 'entregado' : (kind === 'objeto' ? 'pendiente' : 'nuevo'))).toLowerCase().trim();
+  const map = {
+    'resuelto':               { bg:'#dcfce7', fg:'#166534', tx:'RESUELTO' },
+    'resolved':               { bg:'#dcfce7', fg:'#166534', tx:'RESUELTO' },
+    'parcialmente resuelto':  { bg:'#ecfccb', fg:'#3f6212', tx:'PARCIAL' },
+    'parcial':                { bg:'#ecfccb', fg:'#3f6212', tx:'PARCIAL' },
+    'entregado':              { bg:'#dcfce7', fg:'#166534', tx:'✓ ENTREGADO' },
+    'nuevo':                  { bg:'#fee2e2', fg:'#991b1b', tx:'NUEVO' },
+    'new':                    { bg:'#fee2e2', fg:'#991b1b', tx:'NUEVO' },
+    'pendiente':              { bg:'#fee2e2', fg:'#991b1b', tx:'PENDIENTE' },
+    'programado':             { bg:'#dbeafe', fg:'#1e40af', tx:'PROGRAMADO' },
+    'en proceso':             { bg:'#fef3c7', fg:'#92400e', tx:'EN PROCESO' },
+    'en_proceso':             { bg:'#fef3c7', fg:'#92400e', tx:'EN PROCESO' },
+    'proceso':                { bg:'#fef3c7', fg:'#92400e', tx:'EN PROCESO' },
+    'abierta':                { bg:'#fef3c7', fg:'#92400e', tx:'ABIERTA' },
+    'cerrada':                { bg:'#dcfce7', fg:'#166534', tx:'CERRADA' },
+  };
+  const c = map[est] || { bg:'#f1f5f9', fg:'#475569', tx: est.toUpperCase() || '—' };
+  return `<span style="font-size:9px;font-weight:800;background:${c.bg};color:${c.fg};padding:2px 8px;border-radius:999px">${c.tx}</span>`;
+}
+function _botcNotifPagoChip_(saldo, total) {
+  const s = Number(saldo)||0, t = Number(total)||0;
+  const c = (s <= 0 && t > 0) ? { bg:'#dcfce7', fg:'#166534', tx:'✓ PAGADA' }
+         : (s > 0 && s < t)  ? { bg:'#fef3c7', fg:'#92400e', tx:'PARCIAL' }
+         :                     { bg:'#f1f5f9', fg:'#475569', tx:'—' };
+  return `<span style="font-size:9px;font-weight:800;background:${c.bg};color:${c.fg};padding:2px 8px;border-radius:999px">${c.tx}</span>`;
+}
+function _botcNotifMetodoChip_(metodo) {
+  if (!metodo) return '';
+  return `<span style="font-size:9px;font-weight:700;background:#ede9fe;color:#5b21b6;padding:2px 8px;border-radius:999px">${_botcEsc(String(metodo))}</span>`;
+}
+// Click en card: abre panel/módulo correspondiente al kind.
+window._botcNotifOpenTarget_ = function(kind, id, reservaId) {
+  const m = document.getElementById('botc-notifs-modal'); if (m) m.remove();
+  if (kind === 'pago') {
+    if (typeof switchModule === 'function') switchModule('pagos');
+    setTimeout(() => { if (typeof pagosSelect === 'function' && reservaId) pagosSelect(reservaId); }, 200);
+    return;
+  }
+  const modMap = { reporte_tecnico:'reportes-tecnicos', incidencia:'incidencias', objeto:'objetos' };
+  const modId = modMap[kind];
+  if (modId && typeof switchModule === 'function') switchModule(modId);
+};
+window._botcOpenNotifsGlobal_ = async function(section, subtab, keepDays) {
   const st = window.__botcNotif;
   if (section) st.section = section;
   if (subtab != null) st.subtab[st.section] = subtab;
+  if (!keepDays) st.daysShown = 3; // reset paginación al cambiar tab
   const active = st.section;
   const activeSub = st.subtab[active] || 'todos';
   const prev = document.getElementById('botc-notifs-modal'); if (prev) prev.remove();
+  // Tabs estilo bitácora WA: gris base, activa negra.
   const secBtn = (val, label) => {
     const on = active === val;
-    return `<button type="button" onclick="_botcOpenNotifsGlobal_('${val}')" style="flex:1;padding:10px 6px;font-weight:800;background:${on?'#fff':'transparent'};color:${on?'#0f172a':'#cbd5e1'};border:0;border-radius:6px;cursor:pointer;font-size:12px">${label}</button>`;
+    return `<button type="button" onclick="_botcOpenNotifsGlobal_('${val}')" style="flex:1;padding:8px 10px;font-weight:800;background:${on?'#0f172a':'transparent'};color:${on?'#fff':'#475569'};border:0;border-radius:6px;cursor:pointer;font-size:12px">${label}</button>`;
   };
   const subBtn = (val, label) => {
     const on = activeSub === val;
-    return `<button type="button" onclick="_botcOpenNotifsGlobal_(null,'${val}')" style="flex:1;padding:6px 8px;font-weight:700;background:${on?'#3b82f6':'transparent'};color:${on?'#fff':'#475569'};border:0;border-radius:5px;cursor:pointer;font-size:11px;white-space:nowrap">${label}</button>`;
+    return `<button type="button" onclick="_botcOpenNotifsGlobal_(null,'${val}')" style="flex:1;padding:6px 8px;font-weight:700;background:${on?'#0f172a':'transparent'};color:${on?'#fff':'#475569'};border:0;border-radius:5px;cursor:pointer;font-size:11px;white-space:nowrap">${label}</button>`;
   };
   const subTabsHtml = {
     solicitudes: `${subBtn('todos','Todas')}${subBtn('pendiente','Pendientes')}${subBtn('programado','Programadas')}${subBtn('aprobado_rechazado','Aprobación')}${subBtn('atendido','Atendidas')}${subBtn('cancelado','Canceladas')}`,
@@ -43770,10 +43852,10 @@ window._botcOpenNotifsGlobal_ = async function(section, subtab) {
         </div>
         <button type="button" onclick="document.getElementById('botc-notifs-modal').remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#64748b;line-height:1">×</button>
       </div>
-      <div style="display:flex;gap:4px;padding:6px 12px;background:#0f172a">
+      <div style="display:flex;gap:4px;padding:6px 12px;background:#f1f5f9;border-bottom:1px solid #e2e8f0">
         ${secBtn('todos','Todos')}${secBtn('reportes','Reportes')}${secBtn('solicitudes','Solicitudes')}${secBtn('pagos','Pagos')}
       </div>
-      ${subTabsHtml[active] ? `<div style="display:flex;gap:4px;padding:6px 12px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;flex-wrap:wrap">${subTabsHtml[active]}</div>` : ''}
+      ${subTabsHtml[active] ? `<div style="display:flex;gap:4px;padding:6px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;flex-wrap:wrap">${subTabsHtml[active]}</div>` : ''}
       <div id="botc-notif-list" style="flex:1;overflow-y:auto;padding:14px;background:#f8fafc">
         <div style="padding:16px;text-align:center;color:#94a3b8;font-size:12px">Cargando…</div>
       </div>
@@ -43785,7 +43867,25 @@ window._botcOpenNotifsGlobal_ = async function(section, subtab) {
     const cont = document.getElementById('botc-notif-list');
     if (!rows.length) { cont.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin notificaciones.</div>'; return; }
     await _botcNotifEnrichBookings_(rows);
-    cont.innerHTML = rows.map(_botcNotifCardHtml_).join('');
+    // Agrupar por día. Rows ya vienen ordenados por _ts desc.
+    const byDay = new Map();
+    for (const r of rows) {
+      const k = _botcNotifDayKey_(r._ts) || 'sin-fecha';
+      if (!byDay.has(k)) byDay.set(k, []);
+      byDay.get(k).push(r);
+    }
+    const dayKeys = [...byDay.keys()].sort((a,b) => String(b).localeCompare(String(a)));
+    const shownKeys = dayKeys.slice(0, st.daysShown);
+    const hasMore = dayKeys.length > shownKeys.length;
+    const groupsHtml = shownKeys.map(k => {
+      const items = byDay.get(k) || [];
+      const label = k === 'sin-fecha' ? 'Sin fecha' : _botcNotifDayLabel_(k);
+      const sep = `<div style="position:sticky;top:-14px;background:#f8fafc;padding:8px 4px;margin:${items===byDay.get(shownKeys[0])?'0':'12px'} 0 6px;font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #e2e8f0;z-index:1">${_botcEsc(label)} <span style="opacity:.6;font-weight:600">· ${items.length}</span></div>`;
+      const cards = items.map(_botcNotifCardHtml_).join('');
+      return sep + cards;
+    }).join('');
+    const moreBtn = hasMore ? `<div style="text-align:center;padding:16px 0"><button type="button" onclick="window.__botcNotif.daysShown+=3;_botcOpenNotifsGlobal_(null,null,true)" style="background:transparent;border:0;color:#3b82f6;font-weight:800;font-size:13px;cursor:pointer;padding:8px 24px;border-radius:6px">Mostrar más ↓</button></div>` : '';
+    cont.innerHTML = groupsHtml + moreBtn;
   } catch (e) {
     document.getElementById('botc-notif-list').innerHTML = `<div style="padding:16px;color:#dc2626">Error: ${_botcEsc(e.message)}</div>`;
   }
@@ -43842,13 +43942,27 @@ async function _botcNotifEnrichBookings_(rows) {
     } catch(_) { window.__notifBookingsCache = {}; }
   }
   const map = window.__notifBookingsCache;
+  // Agrupar pagos manuales por reserva (para cálculo de saldo acumulado por card).
+  window.__notifManualByReserva_ = window.__notifManualByReserva_ || {};
   for (const r of rows) {
+    if (r._kind === 'pago' && r._reservaId) {
+      const k = String(r._reservaId);
+      window.__notifManualByReserva_[k] = window.__notifManualByReserva_[k] || [];
+      // Dedup por ID
+      if (!window.__notifManualByReserva_[k].some(x => String(x.ID) === String(r._raw.ID))) {
+        window.__notifManualByReserva_[k].push(r._raw);
+      }
+    }
     if (!r._reservaId) continue;
     const bk = map[String(r._reservaId)];
     if (bk) {
       r._booking = bk;
       if (!r._phone) r._phone = String(bk.GuestPhone||'').replace(/\D/g,'').slice(-10);
     }
+  }
+  // Ordenar pagos por Timestamp asc dentro de cada reserva (para calcular saldo acumulado).
+  for (const k of Object.keys(window.__notifManualByReserva_)) {
+    window.__notifManualByReserva_[k].sort((a,b) => String(a.Timestamp||'').localeCompare(String(b.Timestamp||'')));
   }
 }
 
@@ -43861,72 +43975,106 @@ function _botcNotifCardHtml_(r) {
   const source = bk ? String(bk.Source||'') : '';
   const arr = bk ? String(bk.DateArrival||'').slice(0,10) : '';
   const dep = bk ? String(bk.DateDeparture||'').slice(0,10) : '';
-  const tot = bk ? Number(bk.TotalAmount||0) : 0;
-  const cur = bk ? String(bk.Currency||'MXN') : 'MXN';
-  const ts = String(r._ts||'').slice(0,16).replace('T',' ');
+  const fechasCortas = (arr || dep) ? _botcNotifFechasCortas_(arr, dep) : '';
+  const hh = String(r._ts||'').slice(11,16); // HH:MM
+  // Cabecera de contexto: nombre (bold) + phone (link) en 2 líneas.
   const phoneLink = phoneDisp
-    ? `<a href="#" onclick="event.preventDefault();document.getElementById('botc-notifs-modal').remove();botcOpenChat('${_botcEsc(p10)}');return false" style="color:#3b82f6;font-weight:700;text-decoration:none">${_botcEsc(phoneDisp)}</a>`
+    ? `<a href="#" onclick="event.stopPropagation();event.preventDefault();document.getElementById('botc-notifs-modal').remove();botcOpenChat('${_botcEsc(p10)}');return false" style="color:#3b82f6;font-weight:700;text-decoration:none;font-size:11px">${_botcEsc(phoneDisp)}</a>`
     : '';
-  const ctxLine = (phoneLink || nombre) ? `<div style="font-size:11px;color:#475569;margin-bottom:4px">${phoneLink}${nombre?` · ${_botcEsc(nombre)}`:''}</div>` : '';
-  const bkLine = bk ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px">${_botcEsc(alojLabel||'')}${source?` · ${_botcEsc(source)}`:''}${arr&&dep?` · ${arr}→${dep}`:''}${tot?` · $${tot.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} ${cur}`:''}</div>` : (r._reservaId ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px">Reserva ${_botcEsc(r._reservaId)}</div>` : '');
+  const nameBlock = (nombre || phoneLink) ? `
+    <div style="margin-bottom:4px">
+      ${nombre?`<div style="font-size:12px;font-weight:800;color:#0f172a">${_botcEsc(nombre)}</div>`:''}
+      ${phoneLink?`<div>${phoneLink}</div>`:''}
+    </div>` : '';
+  // Bloque de reserva: alojamiento + fechas cortas con flecha + medio
+  const bkLine = bk ? `
+    <div style="font-size:11px;color:#475569;margin-bottom:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      ${alojLabel?`<span style="font-weight:600">📍 ${_botcEsc(alojLabel)}</span>`:''}
+      ${fechasCortas?`<span style="color:#64748b">${_botcEsc(fechasCortas)}</span>`:''}
+      ${source?`<span style="font-size:9px;font-weight:700;background:#f1f5f9;color:#475569;padding:1px 6px;border-radius:4px">${_botcEsc(source)}</span>`:''}
+    </div>` : (r._reservaId ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px">Reserva ${_botcEsc(r._reservaId)}</div>` : '');
+
+  // ── Card SOLICITUD (informativa, no clickeable como bloque)
   if (r._kind === 'solicitud') {
     const s = r._raw;
     const meta = window._botcSolTipoMeta_(s.Tipo);
     const est = String(s.Estado||'pendiente').toLowerCase();
-    const chip = _botcNotifEstChip_(est);
-    const footer = window._botcSolActionButtons_(s, p10 || s.Phone, { afterFn: function() { const m = document.getElementById('botc-notifs-modal'); if (m) m.remove(); window._botcOpenNotifsGlobal_(); } });
+    const chip = _botcNotifSolChip_(est);
+    const footer = window._botcSolActionButtons_(s, p10 || s.Phone, { afterFn: function() { const m = document.getElementById('botc-notifs-modal'); if (m) m.remove(); window._botcOpenNotifsGlobal_(null, null, true); } });
     const dim = est === 'cancelado' ? 'opacity:.55;filter:grayscale(.35)' : '';
     return `
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;${dim}">
         <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:center">
           <div style="font-size:12px;font-weight:800;color:#0f172a">${meta.icon} ${_botcEsc(meta.label)}</div>
-          <div style="display:flex;gap:6px;align-items:center">${chip}<div style="font-size:10px;color:#64748b">${_botcEsc(ts)}</div></div>
+          <div style="display:flex;gap:6px;align-items:center">${chip}<div style="font-size:10px;color:#64748b">${_botcEsc(hh)}</div></div>
         </div>
-        ${ctxLine}${bkLine}
+        ${nameBlock}${bkLine}
         ${s.ProgramadaAt?`<div style="font-size:11px;color:#1e40af;background:#dbeafe;padding:4px 8px;border-radius:6px;margin-bottom:6px;font-weight:700">📅 Programada para: ${_botcEsc(String(s.ProgramadaAt).replace('T',' ').slice(0,16))}</div>`:''}
         <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen||'')}</div>
         ${footer}
       </div>`;
   }
+
+  // ── Card PAGO (clickeable → módulo Pagos + slide-over)
   if (r._kind === 'pago') {
     const p = r._raw;
-    const totalCard = Number(p.Monto||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const montoPago = Number(p.Monto||0);
+    const montoTxt = montoPago.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const cur = bk ? String(bk.Currency||'MXN') : 'MXN';
+    // Calcular saldo después del pago: sumar todos los pagos manuales de la reserva
+    // hasta este pago (por timestamp) + AmountPaid Lodgify. Saldo = TotalAmount - paidAcum.
+    let saldoDespues = 0, totalReserva = 0;
+    if (bk) {
+      totalReserva = Number(bk.TotalAmount)||0;
+      const lodPago = Number(bk.AmountPaid)||0;
+      const manualHastaAqui = (window.__notifManualByReserva_ && window.__notifManualByReserva_[String(r._reservaId)])
+        ? window.__notifManualByReserva_[String(r._reservaId)].filter(x => String(x.Timestamp||'') <= String(p.Timestamp||'')).reduce((s,x)=>s+(Number(x.Monto)||0),0)
+        : montoPago;
+      saldoDespues = Math.max(0, totalReserva - lodPago - manualHastaAqui);
+    }
+    const saldoTxt = saldoDespues.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const chipEstado = _botcNotifPagoChip_(saldoDespues, totalReserva);
+    const chipMetodo = _botcNotifMetodoChip_(p.Metodo);
     const fecha = String(p.Fecha||'').slice(0,10);
     return `
-      <div style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #7c3aed;border-radius:10px;padding:10px 12px;margin-bottom:8px">
-        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:center">
-          <div style="font-size:12px;font-weight:800;color:#0f172a">💳 Pago manual</div>
-          <div style="display:flex;gap:6px;align-items:center"><span style="font-size:13px;font-weight:800;color:#166534">$${totalCard}</span><div style="font-size:10px;color:#64748b">${_botcEsc(ts)}</div></div>
+      <div onclick="_botcNotifOpenTarget_('pago','${_botcEsc(p.ID)}','${_botcEsc(r._reservaId)}')" style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #7c3aed;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:transform .06s" onmouseover="this.style.background='#faf5ff'" onmouseout="this.style.background='#fff'">
+        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;align-items:flex-start">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="font-size:12px;font-weight:800;color:#0f172a">💳 Pago manual</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">${chipEstado}${chipMetodo}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:13px;font-weight:800;color:#166534">+$${montoTxt}</div>
+            ${totalReserva>0?`<div style="font-size:10px;color:${saldoDespues>0?'#991b1b':'#166534'};font-weight:700">Saldo: $${saldoTxt}</div>`:''}
+            <div style="font-size:10px;color:#64748b;margin-top:2px">${_botcEsc(hh)}</div>
+          </div>
         </div>
-        ${ctxLine}${bkLine}
-        <div style="font-size:11px;color:#475569">${_botcEsc(p.Metodo||'—')}${p.Referencia?` · Ref ${_botcEsc(p.Referencia)}`:''}${fecha?` · ${fecha}`:''}${p.RegistradoPor?` · por ${_botcEsc(p.RegistradoPor)}`:''}</div>
+        ${nameBlock}${bkLine}
+        <div style="font-size:11px;color:#475569">${p.Referencia?`Ref ${_botcEsc(p.Referencia)} · `:''}${fecha?`${fecha} · `:''}${p.RegistradoPor?`por ${_botcEsc(p.RegistradoPor)}`:''}</div>
         ${p.Notas?`<div style="font-size:11px;color:#64748b;margin-top:4px">${_botcEsc(p.Notas)}</div>`:''}
       </div>`;
   }
-  // reportes
+
+  // ── Card REPORTE / INCIDENCIA / OBJETO (clickeable → módulo)
   const raw = r._raw;
   const iconKind = { reporte_tecnico:'🔧', incidencia:'⚠️', objeto:'🎒' }[r._kind] || '📌';
   const labelKind = { reporte_tecnico:'Reporte técnico', incidencia:'Incidencia', objeto:'Objeto olvidado' }[r._kind] || 'Notificación';
   const titulo = raw.Titulo || raw.Descripcion || raw.Categoria || raw.Motivos || labelKind;
-  const est = String(raw.Estado || raw.Estatus || (raw.Fecha_entregado ? 'ENTREGADO' : '')).toUpperCase();
+  const chip = _botcNotifRepChip_(r._kind, raw);
   const prop = raw.Alojamiento || raw.Propiedad || '';
   const dept = raw['# Departamento'] || '';
   const alojLine = prop ? `${prop}${dept?` #${dept}`:''}` : '';
   return `
-    <div style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #ea580c;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+    <div onclick="_botcNotifOpenTarget_('${r._kind}','${_botcEsc(raw.ID||'')}','${_botcEsc(r._reservaId||'')}')" style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #ea580c;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='#fff'">
       <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:center">
         <div style="font-size:12px;font-weight:800;color:#0f172a">${iconKind} ${labelKind}</div>
-        <div style="display:flex;gap:6px;align-items:center">${est?`<span style="font-size:9px;font-weight:800;background:#fed7aa;color:#9a3412;padding:2px 8px;border-radius:999px">${_botcEsc(est)}</span>`:''}<div style="font-size:10px;color:#64748b">${_botcEsc(ts)}</div></div>
+        <div style="display:flex;gap:6px;align-items:center">${chip}<div style="font-size:10px;color:#64748b">${_botcEsc(hh)}</div></div>
       </div>
-      <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:2px">${_botcEsc(String(titulo).slice(0,120))}</div>
-      ${alojLine?`<div style="font-size:11px;color:#475569">📍 ${_botcEsc(alojLine)}</div>`:''}
-      ${raw.Descripcion && raw.Descripcion !== titulo ? `<div style="font-size:11px;color:#64748b;margin-top:4px;white-space:pre-wrap">${_botcEsc(String(raw.Descripcion).slice(0,200))}</div>`:''}
+      ${nameBlock}
+      <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">${_botcEsc(String(titulo).slice(0,120))}</div>
+      ${alojLine?`<div style="font-size:11px;color:#475569;margin-bottom:4px">📍 ${_botcEsc(alojLine)}</div>`:''}
+      ${raw.Descripcion && raw.Descripcion !== titulo ? `<div style="font-size:11px;color:#64748b;white-space:pre-wrap">${_botcEsc(String(raw.Descripcion).slice(0,200))}</div>`:''}
     </div>`;
-}
-
-function _botcNotifEstChip_(est) {
-  const c = ({ atendido:{bg:'#dcfce7',fg:'#166534',tx:'ATENDIDO'}, aprobado:{bg:'#dcfce7',fg:'#166534',tx:'APROBADO'}, rechazado:{bg:'#fee2e2',fg:'#991b1b',tx:'RECHAZADO'}, cancelado:{bg:'#fee2e2',fg:'#991b1b',tx:'CANCELADO'}, programado:{bg:'#dbeafe',fg:'#1e40af',tx:'PROGRAMADO'} })[est] || {bg:'#fef3c7',fg:'#92400e',tx:'PENDIENTE'};
-  return `<span style="font-size:9px;font-weight:800;background:${c.bg};color:${c.fg};padding:2px 8px;border-radius:999px">${c.tx}</span>`;
 }
 function _botcRepaintReservasDrawer_(phone) {
   const drawer = document.getElementById('botc-reservas-inline');
