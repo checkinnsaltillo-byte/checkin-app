@@ -2827,7 +2827,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1117"></script>
+  <script src="app.js?v=1118"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     #sys-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:900;height:44px;background:rgba(255,255,255,.94);backdrop-filter:saturate(160%) blur(10px);-webkit-backdrop-filter:saturate(160%) blur(10px);border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-around;padding:4px 6px;gap:6px;box-shadow:0 -1px 4px rgba(0,0,0,.04)}
@@ -2867,7 +2867,7 @@
     </button>
     <button type="button" class="sys-bnav-btn" title="Gestión de reservas" style="--bg:#4f46e5" onclick="switchModule('lodgify')">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
-      <span class="sys-bnav-label">Reservas</span>
+      <span class="sys-bnav-label">Gestión reservas</span>
     </button>
     <button type="button" class="sys-bnav-btn" title="Efectivo" style="--bg:#16a34a" onclick="switchModule('registros');setTimeout(function(){if(typeof bnEfectivoOpenFromHome==='function')bnEfectivoOpenFromHome();},120)">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
