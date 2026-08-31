@@ -22999,16 +22999,19 @@ window.incSaveEdit = async function (id) {
   if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '⏳ Guardando…'; }
   if (cancelBtn) cancelBtn.disabled = true;
   try {
+    const nowIso = new Date().toISOString();
+    const fieldsWithTs = Object.assign({}, fields, { UpdatedAt: nowIso });
     const res = await fetch(`${BACKEND}/update-incidencia`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, fields, fotos: newFotos, keepUrls }),
+      body: JSON.stringify({ id, fields: fieldsWithTs, fotos: newFotos, keepUrls }),
     });
     const out = await res.json();
     if (!out.ok) throw new Error(out.error || 'Error al actualizar');
     // Actualiza INC_STATE.list localmente
     const row = (INC_STATE.list || []).find(r => String(r['ID'] || '') === id);
     if (row) {
+      row['UpdatedAt'] = nowIso;
       const colMap = {
         fecha: 'Fecha', propiedad: 'Propiedad', depto: '# Departamento',
         alojamiento: 'Alojamiento', personas: 'Personas', motivos: 'Motivos',
@@ -23143,14 +23146,16 @@ async function _incQuickPatch(id, patch) {
     .forEach(m => { m.style.display = 'none'; });
   if (!confirm(`¿Actualizar ${prettyKey} a "${changedVal}"?`)) return;
   try {
+    const nowIso = new Date().toISOString();
     const res = await fetch('https://api.check-inn.mx/update-incidencia', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, fields: patch })
+      body: JSON.stringify({ id, fields: Object.assign({}, patch, { UpdatedAt: nowIso }) })
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Error al actualizar');
     if (changedKey === 'estatus') row['Estatus'] = changedVal;
     if (changedKey === 'nivel')   row['Nivel']   = changedVal;
+    row['UpdatedAt'] = nowIso;
     // Si hay panel "Ver mensaje" abierto para este INC y el cambio fue de
     // estatus, re-auto-seleccionar la plantilla (Nuevo→alta, Resuelto→resuelto).
     if (changedKey === 'estatus') {
@@ -38835,7 +38840,9 @@ async function _rtQuickPatch(id, patch, opts) {
   };
   repaintAll();
   try {
-    const payload = Object.assign({ ID: String(id) }, patch);
+    const nowIso = new Date().toISOString();
+    row.UpdatedAt = nowIso;
+    const payload = Object.assign({ ID: String(id), UpdatedAt: nowIso }, patch);
     const r = await fetch('https://api.check-inn.mx/reportes-tecnicos-upsert', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ payload })
@@ -44089,6 +44096,17 @@ window._botcOpenNotifsGlobal_ = async function(section, subtab, keepDays) {
 // Retro-compat: el nombre antiguo abre el modal en sección Solicitudes.
 window._botcOpenSolicitudesGlobal_ = function() { window._botcOpenNotifsGlobal_('solicitudes'); };
 
+// Devuelve el timestamp de última actividad de una fila, comparando varios
+// campos (transiciones + creación). Toma el más reciente (string ISO gana por
+// orden lexicográfico dado el formato uniforme).
+function _botcNotifLastActivity_(row, fields) {
+  let best = '';
+  for (const f of fields) {
+    const v = row && row[f] ? String(row[f]).trim() : '';
+    if (v && v > best) best = v;
+  }
+  return best;
+}
 async function _botcNotifFetchRows_(section, subtab) {
   const fetchRows = async (url) => { try { const r = await fetch(url, {cache:'no-store'}); const j = await r.json(); return (j && j.ok && Array.isArray(j.rows)) ? j.rows : []; } catch(_) { return []; } };
   const out = [];
@@ -44103,7 +44121,7 @@ async function _botcNotifFetchRows_(section, subtab) {
     } else {
       sols = await fetchRows(`${BACKEND}/solicitudes`);
     }
-    out.push(...sols.map(s => ({ _kind:'solicitud', _ts:s.Timestamp||'', _phone:String(s.Phone||''), _reservaId:String(s.ReservaId||''), _raw:s })));
+    out.push(...sols.map(s => ({ _kind:'solicitud', _ts:_botcNotifLastActivity_(s, ['AtendidoAt','CanceladoAt','ProgramadaAt','UpdatedAt','Timestamp']), _phone:String(s.Phone||''), _reservaId:String(s.ReservaId||''), _raw:s })));
   }
   // Pagos manuales
   if (section === 'pagos' || section === 'todos') {
@@ -44120,9 +44138,9 @@ async function _botcNotifFetchRows_(section, subtab) {
       wantInc ? fetchRows(`${BACKEND}/incidencias-list`)       : Promise.resolve([]),
       wantObj ? fetchRows(`${BACKEND}/objetos-list`)           : Promise.resolve([]),
     ]);
-    out.push(...tec.map(r => ({ _kind:'reporte_tecnico', _ts:r.Timestamp||r.Fecha||'', _phone:'', _reservaId:'', _raw:r })));
-    out.push(...inc.map(r => ({ _kind:'incidencia',      _ts:r.Timestamp||r.Fecha||'', _phone:'', _reservaId:'', _raw:r })));
-    out.push(...obj.map(r => ({ _kind:'objeto',          _ts:r.Timestamp||r.Fecha_encontrado||'', _phone:'', _reservaId:'', _raw:r })));
+    out.push(...tec.map(r => ({ _kind:'reporte_tecnico', _ts:_botcNotifLastActivity_(r, ['UpdatedAt','FechaCierre','FechaResolucion','ResueltoAt','Timestamp','Fecha']), _phone:'', _reservaId:'', _raw:r })));
+    out.push(...inc.map(r => ({ _kind:'incidencia',      _ts:_botcNotifLastActivity_(r, ['UpdatedAt','FechaCierre','ResueltoAt','Timestamp','Fecha']), _phone:'', _reservaId:'', _raw:r })));
+    out.push(...obj.map(r => ({ _kind:'objeto',          _ts:_botcNotifLastActivity_(r, ['UpdatedAt','Fecha_entregado','Timestamp','Fecha_encontrado']), _phone:'', _reservaId:'', _raw:r })));
   }
   out.sort((a,b) => String(b._ts||'').localeCompare(String(a._ts||'')));
   return out;
@@ -48328,6 +48346,8 @@ window.rtSave = async function() {
       RT_STATE.fotosAntesPending.length ? Promise.all(RT_STATE.fotosAntesPending.map(conv)) : Promise.resolve([]),
       RT_STATE.fotosDespuesPending.length ? Promise.all(RT_STATE.fotosDespuesPending.map(conv)) : Promise.resolve([]),
     ]);
+    // Marca de última actividad — mueve la card al top en Notificaciones.
+    d.UpdatedAt = new Date().toISOString();
     const body = { payload: d };
     if (fotos_antes.length) body.fotos_antes = fotos_antes;
     if (fotos_despues.length) body.fotos_despues = fotos_despues;
