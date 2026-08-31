@@ -43423,16 +43423,21 @@ window._botcSolFillTpl_ = function(body, ctx) {
 //   2) _SOL_MSG_TPL hardcoded — fallback
 window._botcSolTemplateFor_ = function(tipo, estado, ctx) {
   ctx = ctx || {};
+  const tipoKey = String(tipo || '').toLowerCase().trim();
   const tipoLabel = (window._botcSolTipoMeta_(tipo).label || tipo).toLowerCase();
-  const dynMap = { atendido: 'SOL: atendida', programado: 'SOL: programada', pendiente: 'SOL: registro' };
-  const dynName = dynMap[estado];
-  if (dynName) {
-    const dyn = window._botcWaTplGet_(dynName);
+  // Sufijos por estado — español para nombre humano en WA_Templates.
+  const suffix = { atendido:'atendida', programado:'programada', aprobado:'aprobado', rechazado:'rechazado', pendiente:'registro' }[estado] || estado;
+  // Buscar en WA_Templates por orden de especificidad:
+  //   1) SOL: {tipo} {suffix}   (ej. "SOL: late_checkout aprobado")
+  //   2) SOL: {suffix}          (genérico — ej. "SOL: aprobada")
+  const candidates = [ `SOL: ${tipoKey} ${suffix}`, `SOL: ${suffix}` ];
+  for (const name of candidates) {
+    const dyn = window._botcWaTplGet_(name);
     if (dyn) return window._botcSolFillTpl_(dyn, { ...ctx, tipoLabel });
   }
   // Fallback hardcoded por tipo/estado.
   const bucket = window._SOL_MSG_TPL[estado] || {};
-  let tpl = bucket[tipo] || bucket._default || '';
+  let tpl = bucket[tipoKey] || bucket._default || '';
   if (ctx.fecha_hora) tpl = tpl.replace(/\{fecha_hora\}/g, ctx.fecha_hora);
   return tpl;
 };
