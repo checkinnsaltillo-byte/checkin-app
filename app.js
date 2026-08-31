@@ -43727,9 +43727,11 @@ window._botcSolicitudSetEstado_ = async function(id, estado, phone) {
   } catch (e) { alert('Error: ' + e.message); }
 };
 
-// Badge global de solicitudes pendientes (todos los phones)
+// Badge global — delega al contador unificado de notificaciones nuevas.
 async function _botcRefreshSolicitudesBadge_() {
   try {
+    if (typeof window._botcNotifRefreshBadge_ === 'function') { await window._botcNotifRefreshBadge_(); return; }
+    // Fallback legacy (pendientes) por si el contador nuevo no cargó todavía.
     const r = await fetch(`${BACKEND}/solicitudes?estado=pendiente`, { cache: 'no-store' });
     const j = await r.json();
     const n = (j && j.ok && Array.isArray(j.rows)) ? j.rows.length : 0;
@@ -43935,7 +43937,12 @@ function _botcNotifSideHtml_(kind, row) {
   const tot = bk ? Number(bk.TotalAmount||0) : 0;
   const cur = bk ? String(bk.Currency||'MXN') : 'MXN';
 
-  const closeBtn = `<button type="button" onclick="_botcNotifCloseSide_()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1">×</button>`;
+  // Si el panel Notificaciones sigue abierto detrás, mostrar flecha ← para
+  // volver a la lista; si no, mostrar el × habitual.
+  const notifOpen = !!document.getElementById('botc-notifs-modal');
+  const closeBtn = notifOpen
+    ? `<button type="button" onclick="_botcNotifCloseSide_()" title="Volver a Notificaciones" style="background:transparent;border:0;font-size:20px;cursor:pointer;color:#0f172a;line-height:1;padding:2px 8px;border-radius:6px" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">← Volver</button>`
+    : `<button type="button" onclick="_botcNotifCloseSide_()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1">×</button>`;
   const phoneLink = phoneDisp ? `<a href="#" onclick="event.preventDefault();_botcNotifCloseSide_();botcOpenChat('${_botcEsc(p10)}');return false" style="color:#3b82f6;font-weight:700;text-decoration:none">${_botcEsc(phoneDisp)}</a>` : '';
   const guestBlock = (nombre||phoneLink) ? `
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:10px">
@@ -44069,9 +44076,10 @@ window._botcOpenNotifsGlobal_ = async function(section, subtab, keepDays) {
   };
   const modal = document.createElement('div');
   modal.id = 'botc-notifs-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex';
   modal.innerHTML = `
-    <div style="background:#fff;border-radius:12px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.3)">
+    <div onclick="document.getElementById('botc-notifs-modal').remove()" style="flex:1;background:rgba(15,23,42,.55);cursor:pointer"></div>
+    <div style="width:min(480px,100%);height:100%;background:#fff;box-shadow:-12px 0 32px rgba(15,23,42,.25);display:flex;flex-direction:column;overflow:hidden;animation:pagosSlideIn .18s ease-out">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #e2e8f0">
         <div>
           <div style="font-size:16px;font-weight:800;color:#0f172a">🔔 Notificaciones</div>
@@ -44088,6 +44096,9 @@ window._botcOpenNotifsGlobal_ = async function(section, subtab, keepDays) {
       </div>
     </div>`;
   document.body.appendChild(modal);
+  // Marcar todo como visto y limpiar badges.
+  try { localStorage.setItem('botcNotifLastSeen', new Date().toISOString()); } catch(_){}
+  try { if (typeof window._botcNotifRefreshBadge_ === 'function') window._botcNotifRefreshBadge_(); } catch(_){}
   try {
     const rows = await _botcNotifFetchRows_(active, activeSub);
     document.getElementById('botc-notif-count').textContent = `${rows.length} item${rows.length===1?'':'s'}`;
@@ -44121,6 +44132,25 @@ window._botcOpenNotifsGlobal_ = async function(section, subtab, keepDays) {
 };
 // Retro-compat: el nombre antiguo abre el modal en sección Solicitudes.
 window._botcOpenSolicitudesGlobal_ = function() { window._botcOpenNotifsGlobal_('solicitudes'); };
+
+// Contador global de notificaciones nuevas — pinta el mismo número en cada
+// elemento con [data-notif-badge] (botón inferior + botón superior Chats bot).
+window._botcNotifRefreshBadge_ = async function() {
+  try {
+    const lastSeen = localStorage.getItem('botcNotifLastSeen') || '1970-01-01';
+    const rows = await _botcNotifFetchRows_('todos', 'todos');
+    const nuevos = rows.filter(r => String(r._ts||'') > lastSeen).length;
+    const txt = nuevos > 99 ? '99+' : String(nuevos);
+    document.querySelectorAll('[data-notif-badge]').forEach(el => {
+      if (nuevos > 0) { el.textContent = txt; el.style.display = 'flex'; }
+      else { el.style.display = 'none'; }
+    });
+  } catch(_) {}
+};
+if (!window.__botcNotifBadgeTimer) {
+  window.__botcNotifBadgeTimer = setInterval(() => { try { window._botcNotifRefreshBadge_(); } catch(_){} }, 60000);
+  setTimeout(() => { try { window._botcNotifRefreshBadge_(); } catch(_){} }, 3500);
+}
 
 // Devuelve el timestamp de última actividad de una fila, comparando varios
 // campos (transiciones + creación). Toma el más reciente (string ISO gana por

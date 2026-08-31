@@ -2616,7 +2616,7 @@
           </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <button type="button" onclick="_botcOpenNotifsGlobal_()" title="Notificaciones — reportes, solicitudes y pagos de todos los números" style="position:relative;padding:6px 12px;font-size:12px;background:#fff;color:#0f172a;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">🔔 Notificaciones<span id="botc-solicitudes-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:999px;font-size:10px;font-weight:800;padding:2px 6px;min-width:18px;text-align:center;line-height:1">0</span></button>
+          <button type="button" onclick="_botcOpenNotifsGlobal_()" title="Notificaciones — reportes, solicitudes y pagos de todos los números" style="position:relative;padding:6px 12px;font-size:12px;background:#fff;color:#0f172a;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">🔔 Notificaciones<span id="botc-solicitudes-badge" data-notif-badge style="display:none;position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:999px;font-size:10px;font-weight:800;padding:2px 6px;min-width:18px;text-align:center;line-height:1;align-items:center;justify-content:center">0</span></button>
           <button type="button" id="botc-sync-btn" onclick="botcRefresh();setTimeout(botcSyncVisible,300)" title="Refrescar lista de conversaciones + datos (reserva, KPIs, chips)" style="padding:6px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">🔄 Sync</button>
           <div style="position:relative;display:inline-block">
             <button type="button" onclick="botcToggleTopMenu_(event)" title="Opciones" style="width:36px;height:36px;padding:0;font-size:20px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;font-weight:900;line-height:1;letter-spacing:2px">⋮</button>
@@ -2827,7 +2827,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1111"></script>
+  <script src="app.js?v=1112"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     #sys-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:900;height:44px;background:rgba(255,255,255,.94);backdrop-filter:saturate(160%) blur(10px);-webkit-backdrop-filter:saturate(160%) blur(10px);border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-around;padding:4px 6px;gap:6px;box-shadow:0 -1px 4px rgba(0,0,0,.04)}
@@ -2883,6 +2883,11 @@
     <button type="button" class="sys-bnav-btn" title="Reportes técnicos" style="--bg:#dc2626" onclick="switchModule('reportes-tecnicos')">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
       <span class="sys-bnav-label">Reportes</span>
+    </button>
+    <button type="button" class="sys-bnav-btn" title="Notificaciones — reportes, solicitudes y pagos" style="--bg:#0f172a;position:relative" onclick="_botcOpenNotifsGlobal_()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="sys-bnav-label">Notif</span>
+      <span data-notif-badge style="display:none;position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;border-radius:999px;font-size:10px;font-weight:800;padding:2px 6px;min-width:18px;text-align:center;line-height:1;align-items:center;justify-content:center;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.3)">0</span>
     </button>
   </nav>
 </body>
