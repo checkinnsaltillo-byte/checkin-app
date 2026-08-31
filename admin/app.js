@@ -43344,6 +43344,37 @@ window._botcSolTipoMeta_ = function(tipo) {
   const t = String(tipo || '').toLowerCase();
   return window._SOL_TIPO_META[t] || { icon:'📌', label:(t || 'Solicitud'), modo:'atender' };
 };
+// Templates de mensaje pre-poblado por tipo y acción. Se pueden editar en el
+// modal antes de enviar. Los placeholders {tipo}, etc. son sustituidos.
+window._SOL_MSG_TPL = {
+  atendido: {
+    _default:               '¡Listo! Ya atendimos tu solicitud. Cualquier duda seguimos a tus órdenes. 🙌',
+    insumos:                '¡Listo! Ya entregamos los insumos solicitados. Cualquier cosa que necesites nos avisas. 🙌',
+    metodo_pago:            'Recibimos tu solicitud de método de pago. Ya la registramos y en breve te contactamos para coordinar. 💳',
+    ticket_autofacturacion: 'Tu ticket de auto-facturación ya fue emitido. Revisa tu correo — te llegó el PDF y XML. 📄',
+    limpieza:               'Ya agendamos tu limpieza. El equipo pasará según disponibilidad. Gracias por tu paciencia. 🧹',
+    limpieza_extra:         'Ya agendamos tu limpieza. El equipo pasará según disponibilidad. Gracias por tu paciencia. 🧹',
+    solicitud_generica:     '¡Listo! Ya atendimos tu solicitud. Cualquier duda seguimos a tus órdenes. 🙌',
+  },
+  aprobado: {
+    _default:      '¡Buenas noticias! Se aprobó tu solicitud. Cualquier duda nos avisas. ✅',
+    late_checkout: '¡Buenas noticias! Se aprobó tu solicitud de late check-out. Nos vemos ese día. 🕒',
+    early_checkin: '¡Buenas noticias! Se aprobó tu solicitud de early check-in. Te esperamos. ⏰',
+  },
+  rechazado: {
+    _default:      'Lamentamos informarte que no fue posible aprobar tu solicitud por temas de operación. Gracias por tu comprensión. 🙏',
+    late_checkout: 'Lamentamos informarte que no podemos otorgar el late check-out por operación de limpieza. Gracias por tu comprensión. 🙏',
+    early_checkin: 'Lamentamos informarte que no podemos otorgar el early check-in solicitado por operación de limpieza. Gracias por tu comprensión. 🙏',
+  },
+  cancelado: {
+    _default: 'Tu solicitud fue cancelada. Si tienes dudas, avísanos.',
+  },
+};
+window._botcSolTemplateFor_ = function(tipo, estado, resumen) {
+  const bucket = window._SOL_MSG_TPL[estado] || {};
+  return bucket[tipo] || bucket._default || '';
+};
+
 window._botcSolActionButtons_ = function(s, phone, opts) {
   opts = opts || {};
   const meta = window._botcSolTipoMeta_(s.Tipo);
@@ -43357,18 +43388,85 @@ window._botcSolActionButtons_ = function(s, phone, opts) {
   }
   const afterCb = opts.afterCb || '';
   const isAprob = meta.modo === 'aprobacion';
-  const btn1 = isAprob
-    ? { label:'✓ Aceptar',  color:'#16a34a', bg:'#16a34a', fg:'#fff', border:'0', estado:'aprobado' }
-    : { label:'✓ Atender',  color:'#16a34a', bg:'#16a34a', fg:'#fff', border:'0', estado:'atendido' };
-  const btn2 = isAprob
-    ? { label:'✕ Rechazar', bg:'#fff', fg:'#991b1b', border:'1px solid #fca5a5', estado:'rechazado' }
-    : { label:'✕ Cancelar', bg:'#fff', fg:'#991b1b', border:'1px solid #fca5a5', estado:'cancelado' };
-  const call = (est) => `_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','${est}','${_botcEsc(phone)}')${afterCb ? '.then(function(){' + afterCb + '})' : ''}`;
+  // MODO ATENDER (no aprobación): 1 solo botón amarillo "⏳ Pendiente" — al click
+  // abre modal de mensaje → tras enviar/omitir marca ATENDIDO.
+  if (!isAprob) {
+    return `
+      <div style="margin-top:8px">
+        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" style="width:100%;padding:8px 10px;background:#f59e0b;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">⏳ Pendiente <span style="font-size:9px;opacity:.85;font-weight:600">(click para atender)</span></button>
+      </div>`;
+  }
+  // MODO APROBACIÓN: 2 botones Aceptar/Rechazar — cada uno abre modal con
+  // template correspondiente.
   return `
     <div style="display:flex;gap:6px;margin-top:8px">
-      <button type="button" onclick="${call(btn1.estado)}" style="flex:1;padding:6px 10px;background:${btn1.bg};color:${btn1.fg};border:${btn1.border};border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">${btn1.label}</button>
-      <button type="button" onclick="${call(btn2.estado)}" style="flex:1;padding:6px 10px;background:${btn2.bg};color:${btn2.fg};border:${btn2.border};border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">${btn2.label}</button>
+      <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','aprobado','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" style="flex:1;padding:8px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✓ Aceptar</button>
+      <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','rechazado','${_botcEsc(phone)}'${afterCb?`,'${_botcEsc(afterCb)}'`:''})" style="flex:1;padding:8px 10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✕ Rechazar</button>
     </div>`;
+};
+
+// Modal de mensaje: template pre-cargado editable, botón Enviar / Omitir.
+window._botcSolOpenMsgModal_ = async function(id, nuevoEstado, phone, afterCbStr) {
+  // Buscar la solicitud actual para conocer tipo y resumen.
+  let s = null;
+  try {
+    const r = await fetch(`${BACKEND}/solicitudes?phone=${encodeURIComponent(String(phone).replace(/\D/g,'').slice(-10))}`);
+    const j = await r.json();
+    s = (j && j.ok && Array.isArray(j.rows)) ? j.rows.find(x => String(x.ID) === String(id)) : null;
+  } catch(_){}
+  const tipo = s ? String(s.Tipo || '').toLowerCase() : '';
+  const tpl = window._botcSolTemplateFor_(tipo, nuevoEstado, s && s.Resumen || '');
+  const meta = window._botcSolTipoMeta_(tipo);
+  const accionLabel = nuevoEstado === 'aprobado' ? 'Aprobar y notificar' : nuevoEstado === 'rechazado' ? 'Rechazar y notificar' : 'Marcar atendida y notificar';
+  const titulo = nuevoEstado === 'aprobado' ? '✓ Aprobar solicitud' : nuevoEstado === 'rechazado' ? '✕ Rechazar solicitud' : '✓ Atender solicitud';
+  const accentColor = nuevoEstado === 'rechazado' ? '#dc2626' : '#16a34a';
+  const prev = document.getElementById('botc-sol-msg-modal'); if (prev) prev.remove();
+  const modal = document.createElement('div');
+  modal.id = 'botc-sol-msg-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100001;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:12px;max-width:480px;width:100%;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#0f172a">${titulo}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">${meta.icon} ${_botcEsc(meta.label)} · +${_botcEsc(phone)}</div>
+        </div>
+        <button type="button" onclick="document.getElementById('botc-sol-msg-modal').remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#64748b;line-height:1">×</button>
+      </div>
+      <label style="font-size:11px;font-weight:700;color:#475569">Mensaje al huésped (editable)
+        <textarea id="botc-sol-msg-body" rows="5" style="width:100%;margin-top:4px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;resize:vertical">${_botcEsc(tpl)}</textarea>
+      </label>
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="_botcSolMsgOmit_('${_botcEsc(id)}','${nuevoEstado}','${_botcEsc(phone)}'${afterCbStr?`,'${_botcEsc(afterCbStr)}'`:''})" style="flex:1;padding:10px;background:#e2e8f0;color:#334155;border:0;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">Omitir mensaje</button>
+        <button type="button" onclick="_botcSolMsgSend_('${_botcEsc(id)}','${nuevoEstado}','${_botcEsc(phone)}'${afterCbStr?`,'${_botcEsc(afterCbStr)}'`:''})" style="flex:1.4;padding:10px;background:${accentColor};color:#fff;border:0;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer">📤 ${accionLabel}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  setTimeout(() => { const t = document.getElementById('botc-sol-msg-body'); if (t) t.focus(); }, 60);
+};
+
+window._botcSolMsgOmit_ = async function(id, estado, phone, afterCbStr) {
+  const m = document.getElementById('botc-sol-msg-modal'); if (m) m.remove();
+  await _botcSolicitudSetEstado_(id, estado, phone);
+  if (afterCbStr) { try { new Function(afterCbStr)(); } catch(_){} }
+};
+window._botcSolMsgSend_ = async function(id, estado, phone, afterCbStr) {
+  const ta = document.getElementById('botc-sol-msg-body');
+  const body = String(ta && ta.value || '').trim();
+  if (!body) { alert('El mensaje está vacío. Edita o usa "Omitir mensaje".'); return; }
+  const p = String(phone).replace(/\D/g, '');
+  const to = p.startsWith('+') ? p : ('+' + (p.startsWith('52') ? p : ('52' + p)));
+  try {
+    const r = await fetch(`${BACKEND}/wa/send-forward`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: 'whatsapp:' + to, body }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error al enviar');
+    const m = document.getElementById('botc-sol-msg-modal'); if (m) m.remove();
+    await _botcSolicitudSetEstado_(id, estado, phone);
+    if (afterCbStr) { try { new Function(afterCbStr)(); } catch(_){} }
+  } catch (e) { alert('Error al enviar mensaje: ' + e.message); }
 };
 function _botcRenderSolicitudesDrawer_(drawer, phone, rows) {
   const chip = (est) => {
