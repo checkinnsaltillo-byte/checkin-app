@@ -43478,24 +43478,33 @@ window._botcSolActionButtons_ = function(s, phone, opts) {
         ${cancelBtn}
       </div>`;
   }
-  // ESTADO ATENDER + PENDIENTE: [📅 Programar] [✓ Atender directo] [Cancelar]
+  // ESTADO ATENDER + PENDIENTE: [📅 Programar] [✓ Marcar como atendido] [📤 Marcar y enviar WA] [Cancelar]
   if (est === 'pendiente') {
     return `
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-        <button type="button" onclick="_botcSolOpenProgramarModal_('${_botcEsc(s.ID)}','${_botcEsc(phone)}'${cbArg})" style="flex:1.2;padding:8px 10px;background:#3b82f6;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">📅 Programar</button>
-        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}'${cbArg})" style="flex:1;padding:8px 10px;background:#f59e0b;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0" title="Marcar atendida sin programar">⏳ Atender ya</button>
+        <button type="button" onclick="_botcSolOpenProgramarModal_('${_botcEsc(s.ID)}','${_botcEsc(phone)}'${cbArg})" style="flex:1 1 45%;padding:8px 10px;background:#3b82f6;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">📅 Programar</button>
+        <button type="button" onclick="_botcSolMarcarAtendidoDirecto_('${_botcEsc(s.ID)}','${_botcEsc(phone)}'${cbArg})" style="flex:1 1 45%;padding:8px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0" title="Solo cambia estado, no envía mensaje">✓ Marcar como atendido</button>
+        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}'${cbArg})" style="flex:1 1 100%;padding:8px 10px;background:#f59e0b;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0" title="Envía mensaje al huésped y marca atendida">📤 Marcar como atendido y enviar WhatsApp</button>
         ${cancelBtn}
       </div>`;
   }
-  // ESTADO ATENDER + PROGRAMADO: [✓ Atendido] [Cancelar]
+  // ESTADO ATENDER + PROGRAMADO: [✓ Marcar atendido] [📤 Atender + WA] [Cancelar]
   if (est === 'programado') {
     return `
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}'${cbArg})" style="flex:1;padding:8px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">✓ Atendido</button>
+        <button type="button" onclick="_botcSolMarcarAtendidoDirecto_('${_botcEsc(s.ID)}','${_botcEsc(phone)}'${cbArg})" style="flex:1 1 45%;padding:8px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0" title="Solo cambia estado, no envía mensaje">✓ Marcar como atendido</button>
+        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}'${cbArg})" style="flex:1 1 45%;padding:8px 10px;background:#f59e0b;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0" title="Envía mensaje al huésped y marca atendida">📤 Atendido + WA</button>
         ${cancelBtn}
       </div>`;
   }
   return '';
+};
+
+// Marca atendida sin abrir modal ni enviar mensaje al huésped. Solo cambia
+// estado en la hoja + refresca UI.
+window._botcSolMarcarAtendidoDirecto_ = async function(id, phone, cbKey) {
+  await _botcSolicitudSetEstado_(id, 'atendido', phone);
+  if (cbKey) window._botcSolRunCb_(cbKey);
 };
 
 // Modal para programar fecha/hora — solo tipos con modo 'atender'.
