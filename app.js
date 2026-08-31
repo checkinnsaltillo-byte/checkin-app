@@ -43333,7 +43333,7 @@ async function _botcRefreshSolicitudesDrawer_(phone) {
 window._SOL_TIPO_META = {
   early_checkin:         { icon:'⏰', label:'Early check-in',        modo:'aprobacion' },
   late_checkout:         { icon:'🕒', label:'Late check-out',        modo:'aprobacion' },
-  extension:             { icon:'🗓️', label:'Extensión de reserva',   modo:'aprobacion' },
+  extension:             { icon:'🗓️', label:'Extensión de reserva',   modo:'atender' },
   insumos:               { icon:'🧻', label:'Insumos extra',         modo:'atender' },
   metodo_pago:           { icon:'💳', label:'Método de pago',        modo:'atender' },
   ticket_autofacturacion:{ icon:'📄', label:'Ticket auto-facturación', modo:'atender' },
@@ -43355,6 +43355,7 @@ window._SOL_MSG_TPL = {
     ticket_autofacturacion: 'Tu ticket de auto-facturación ya fue emitido. Revisa tu correo — te llegó el PDF y XML. 📄',
     limpieza:               '¡Listo! Tu limpieza ya fue realizada. Gracias por tu paciencia. 🧹',
     limpieza_extra:         '¡Listo! Tu limpieza ya fue realizada. Gracias por tu paciencia. 🧹',
+    extension:              '¡Listo! Tu extensión de reserva quedó atendida. Te enviamos por separado el detalle de las noches adicionales. 🗓️',
     solicitud_generica:     '¡Listo! Ya atendimos tu solicitud. Cualquier duda seguimos a tus órdenes. 🙌',
   },
   programado: {
@@ -43364,6 +43365,7 @@ window._SOL_MSG_TPL = {
     ticket_autofacturacion: 'Tu ticket de auto-facturación se emitirá el {fecha_hora}. 📅',
     limpieza:               'Tu limpieza está programada para el {fecha_hora}. 🧹📅',
     limpieza_extra:         'Tu limpieza está programada para el {fecha_hora}. 🧹📅',
+    extension:              'Tu extensión de reserva quedó agendada para revisión el {fecha_hora}. Te confirmamos disponibilidad y costo entonces. 🗓️📅',
     solicitud_generica:     'Tu solicitud está programada para el {fecha_hora}. Te confirmaremos cuando esté completada. 📅',
   },
   aprobado: {
@@ -43738,12 +43740,12 @@ window._botcOpenSolicitudesGlobal_ = async function(tab) {
         <button type="button" onclick="document.getElementById('botc-solicitudes-global').remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#64748b;line-height:1">×</button>
       </div>
       <div style="display:flex;gap:4px;padding:8px 14px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;flex-wrap:wrap">
-        ${tabBtn('pendiente', '⏳ Pendientes')}
-        ${tabBtn('programado', '📅 Programadas')}
-        ${tabBtn('aprobado_rechazado', '✅/❌ Aprob/Rech')}
-        ${tabBtn('atendido', '✓ Atendidas')}
-        ${tabBtn('cancelado', '✕ Canceladas')}
         ${tabBtn('todos', 'Todas')}
+        ${tabBtn('pendiente', 'Pendientes')}
+        ${tabBtn('programado', 'Programadas')}
+        ${tabBtn('aprobado_rechazado', 'Aprobación')}
+        ${tabBtn('atendido', 'Atendidas')}
+        ${tabBtn('cancelado', 'Canceladas')}
       </div>
       <div id="botc-sol-global-list" style="flex:1;overflow-y:auto;padding:14px;background:#f8fafc">
         <div style="padding:16px;text-align:center;color:#94a3b8;font-size:12px">Cargando…</div>
