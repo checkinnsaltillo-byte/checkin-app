@@ -44247,7 +44247,10 @@ window._botcOpenNotifsGlobal_ = async function(section, subtab, keepDays) {
           <div style="font-size:16px;font-weight:800;color:#0f172a">🔔 Notificaciones</div>
           <div style="font-size:11px;color:#64748b" id="botc-notif-count">Cargando…</div>
         </div>
-        <button type="button" onclick="document.getElementById('botc-notifs-modal').remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#64748b;line-height:1">×</button>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button type="button" onclick="_botcOpenNotifsGlobal_(null,null,true)" title="Actualizar notificaciones" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:12px;font-weight:700;cursor:pointer;padding:5px 10px;border-radius:6px;line-height:1">🔄 Actualizar</button>
+          <button type="button" onclick="document.getElementById('botc-notifs-modal').remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#64748b;line-height:1">×</button>
+        </div>
       </div>
       <div style="display:flex;gap:4px;padding:6px 12px;background:#f1f5f9;border-bottom:1px solid #e2e8f0">
         ${secBtn('todos','Todos')}${secBtn('reportes','Reportes')}${secBtn('solicitudes','Solicitudes')}${secBtn('pagos','Pagos')}
