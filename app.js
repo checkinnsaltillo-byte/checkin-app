@@ -43345,16 +43345,25 @@ window._botcSolTipoMeta_ = function(tipo) {
   return window._SOL_TIPO_META[t] || { icon:'📌', label:(t || 'Solicitud'), modo:'atender' };
 };
 // Templates de mensaje pre-poblado por tipo y acción. Se pueden editar en el
-// modal antes de enviar. Los placeholders {tipo}, etc. son sustituidos.
+// modal antes de enviar. Placeholders soportados: {fecha_hora}.
 window._SOL_MSG_TPL = {
   atendido: {
     _default:               '¡Listo! Ya atendimos tu solicitud. Cualquier duda seguimos a tus órdenes. 🙌',
     insumos:                '¡Listo! Ya entregamos los insumos solicitados. Cualquier cosa que necesites nos avisas. 🙌',
-    metodo_pago:            'Recibimos tu solicitud de método de pago. Ya la registramos y en breve te contactamos para coordinar. 💳',
+    metodo_pago:            'Ya coordinamos tu método de pago. Gracias. 💳',
     ticket_autofacturacion: 'Tu ticket de auto-facturación ya fue emitido. Revisa tu correo — te llegó el PDF y XML. 📄',
-    limpieza:               'Ya agendamos tu limpieza. El equipo pasará según disponibilidad. Gracias por tu paciencia. 🧹',
-    limpieza_extra:         'Ya agendamos tu limpieza. El equipo pasará según disponibilidad. Gracias por tu paciencia. 🧹',
+    limpieza:               '¡Listo! Tu limpieza ya fue realizada. Gracias por tu paciencia. 🧹',
+    limpieza_extra:         '¡Listo! Tu limpieza ya fue realizada. Gracias por tu paciencia. 🧹',
     solicitud_generica:     '¡Listo! Ya atendimos tu solicitud. Cualquier duda seguimos a tus órdenes. 🙌',
+  },
+  programado: {
+    _default:               'Buenas noticias: tu solicitud quedó programada para {fecha_hora}. Te confirmaremos cuando esté completada. 📅',
+    insumos:                'Los insumos que solicitaste están programados para entrega el {fecha_hora}. 📅',
+    metodo_pago:            'Tu solicitud de método de pago se atenderá el {fecha_hora}. Te contactaremos. 📅',
+    ticket_autofacturacion: 'Tu ticket de auto-facturación se emitirá el {fecha_hora}. 📅',
+    limpieza:               'Tu limpieza está programada para el {fecha_hora}. 🧹📅',
+    limpieza_extra:         'Tu limpieza está programada para el {fecha_hora}. 🧹📅',
+    solicitud_generica:     'Tu solicitud está programada para el {fecha_hora}. Te confirmaremos cuando esté completada. 📅',
   },
   aprobado: {
     _default:      '¡Buenas noticias! Se aprobó tu solicitud. Cualquier duda nos avisas. ✅',
@@ -43367,12 +43376,15 @@ window._SOL_MSG_TPL = {
     early_checkin: 'Lamentamos informarte que no podemos otorgar el early check-in solicitado por operación de limpieza. Gracias por tu comprensión. 🙏',
   },
   cancelado: {
-    _default: 'Tu solicitud fue cancelada. Si tienes dudas, avísanos.',
+    _default: '', // no se envía mensaje al cancelar
   },
 };
-window._botcSolTemplateFor_ = function(tipo, estado, resumen) {
+window._botcSolTemplateFor_ = function(tipo, estado, ctx) {
+  ctx = ctx || {};
   const bucket = window._SOL_MSG_TPL[estado] || {};
-  return bucket[tipo] || bucket._default || '';
+  let tpl = bucket[tipo] || bucket._default || '';
+  if (ctx.fecha_hora) tpl = tpl.replace(/\{fecha_hora\}/g, ctx.fecha_hora);
+  return tpl;
 };
 
 // Registro global de callbacks post-acción. Evita meter strings JS con
@@ -43390,14 +43402,15 @@ window._botcSolActionButtons_ = function(s, phone, opts) {
   opts = opts || {};
   const meta = window._botcSolTipoMeta_(s.Tipo);
   const est = String(s.Estado || 'pendiente').toLowerCase();
-  if (est !== 'pendiente') {
+  const isAprob = meta.modo === 'aprobacion';
+  // Estados terminales: atendido / cancelado / aprobado / rechazado.
+  if (['atendido','cancelado','aprobado','rechazado'].includes(est)) {
     if (s.AtendidoPor) {
       const icon = { atendido:'✓', aprobado:'✓', rechazado:'✕', cancelado:'✕' }[est] || '·';
       return `<div style="font-size:10px;color:#64748b;margin-top:6px">${icon} ${_botcEsc(s.AtendidoPor)} · ${String(s.AtendidoAt||'').slice(0,16).replace('T',' ')}</div>`;
     }
     return '';
   }
-  const isAprob = meta.modo === 'aprobacion';
   // Registrar callback (si vino) en el mapa global — pasar solo la KEY al onclick.
   let cbKey = '';
   if (typeof opts.afterFn === 'function') {
@@ -43406,19 +43419,116 @@ window._botcSolActionButtons_ = function(s, phone, opts) {
   }
   const cbArg = cbKey ? `,'${cbKey}'` : '';
   const cancelBtn = `<button type="button" onclick="_botcSolCancel_('${_botcEsc(s.ID)}','${_botcEsc(phone)}'${cbArg})" title="Cancelar la solicitud (no envía mensaje al huésped)" style="flex:none;padding:8px 10px;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">Cancelar</button>`;
-  if (!isAprob) {
+  // ESTADO APROBACIÓN: [✓ Aceptar] [✕ Rechazar] [Cancelar] — sin paso "programar"
+  if (isAprob) {
     return `
-      <div style="display:flex;gap:6px;margin-top:8px">
-        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}'${cbArg})" style="flex:1;padding:8px 10px;background:#f59e0b;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px">⏳ Pendiente <span style="font-size:9px;opacity:.85;font-weight:600">(click para atender)</span></button>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','aprobado','${_botcEsc(phone)}'${cbArg})" style="flex:1;padding:8px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">✓ Aceptar</button>
+        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','rechazado','${_botcEsc(phone)}'${cbArg})" style="flex:1;padding:8px 10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">✕ Rechazar</button>
         ${cancelBtn}
       </div>`;
   }
-  return `
-    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-      <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','aprobado','${_botcEsc(phone)}'${cbArg})" style="flex:1;padding:8px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">✓ Aceptar</button>
-      <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','rechazado','${_botcEsc(phone)}'${cbArg})" style="flex:1;padding:8px 10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">✕ Rechazar</button>
-      ${cancelBtn}
+  // ESTADO ATENDER + PENDIENTE: [📅 Programar] [✓ Atender directo] [Cancelar]
+  if (est === 'pendiente') {
+    return `
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button type="button" onclick="_botcSolOpenProgramarModal_('${_botcEsc(s.ID)}','${_botcEsc(phone)}'${cbArg})" style="flex:1.2;padding:8px 10px;background:#3b82f6;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">📅 Programar</button>
+        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}'${cbArg})" style="flex:1;padding:8px 10px;background:#f59e0b;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0" title="Marcar atendida sin programar">⏳ Atender ya</button>
+        ${cancelBtn}
+      </div>`;
+  }
+  // ESTADO ATENDER + PROGRAMADO: [✓ Atendido] [Cancelar]
+  if (est === 'programado') {
+    return `
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button type="button" onclick="_botcSolOpenMsgModal_('${_botcEsc(s.ID)}','atendido','${_botcEsc(phone)}'${cbArg})" style="flex:1;padding:8px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;min-width:0">✓ Atendido</button>
+        ${cancelBtn}
+      </div>`;
+  }
+  return '';
+};
+
+// Modal para programar fecha/hora — solo tipos con modo 'atender'.
+window._botcSolOpenProgramarModal_ = async function(id, phone, cbKey) {
+  let s = null;
+  try {
+    const p10 = String(phone).replace(/\D/g,'').slice(-10);
+    const r = await fetch(`${BACKEND}/solicitudes?phone=${encodeURIComponent(p10)}`);
+    const j = await r.json();
+    s = (j && j.ok && Array.isArray(j.rows)) ? j.rows.find(x => String(x.ID) === String(id)) : null;
+  } catch(_){}
+  if (!s) { alert('Solicitud no encontrada'); return; }
+  const meta = window._botcSolTipoMeta_(s.Tipo);
+  const now = new Date();
+  const defaultFecha = new Date(now.getTime() + 24*3600*1000).toISOString().slice(0,10); // mañana
+  const prev = document.getElementById('botc-sol-prog-modal'); if (prev) prev.remove();
+  const modal = document.createElement('div');
+  modal.id = 'botc-sol-prog-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100001;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:12px;max-width:480px;width:100%;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#0f172a">📅 Programar solicitud</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">${meta.icon} ${_botcEsc(meta.label)} · +${_botcEsc(phone)}</div>
+        </div>
+        <button type="button" onclick="document.getElementById('botc-sol-prog-modal').remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#64748b;line-height:1">×</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <label style="flex:1;font-size:11px;font-weight:700;color:#475569">Fecha
+          <input id="sol-prog-fecha" type="date" value="${defaultFecha}" required style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
+        </label>
+        <label style="flex:1;font-size:11px;font-weight:700;color:#475569">Hora
+          <input id="sol-prog-hora" type="time" value="10:00" required style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box">
+        </label>
+      </div>
+      <label style="font-size:11px;font-weight:700;color:#475569">Mensaje al huésped (editable — {fecha_hora} se rellena al enviar)
+        <textarea id="sol-prog-body" rows="4" style="width:100%;margin-top:4px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;resize:vertical">${_botcEsc(window._botcSolTemplateFor_(String(s.Tipo||'').toLowerCase(), 'programado'))}</textarea>
+      </label>
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="document.getElementById('botc-sol-prog-modal').remove()" style="flex:1;padding:10px;background:#e2e8f0;color:#334155;border:0;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">Cancelar</button>
+        <button type="button" onclick="_botcSolProgramarGo_('${_botcEsc(id)}','${_botcEsc(phone)}'${cbKey?`,'${cbKey}'`:''})" style="flex:1.4;padding:10px;background:#3b82f6;color:#fff;border:0;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer">📤 Programar y notificar</button>
+      </div>
     </div>`;
+  document.body.appendChild(modal);
+};
+window._botcSolProgramarGo_ = async function(id, phone, cbKey) {
+  const fecha = String(document.getElementById('sol-prog-fecha').value || '').trim();
+  const hora  = String(document.getElementById('sol-prog-hora').value || '').trim();
+  const bodyRaw = String(document.getElementById('sol-prog-body').value || '').trim();
+  if (!fecha || !hora) { alert('Fecha y hora son requeridos'); return; }
+  // Formato humano "DD mmm YYYY, HH:MM"
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const m = fecha.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const fechaHoraHum = m ? `${parseInt(m[3],10)} ${meses[parseInt(m[2],10)-1]} ${m[1]}, ${hora}` : `${fecha} ${hora}`;
+  const body = bodyRaw.replace(/\{fecha_hora\}/g, fechaHoraHum);
+  const user = (typeof sysGetStoredUser === 'function' ? (sysGetStoredUser() || {}).Nombre : '') || 'admin';
+  const p = String(phone).replace(/\D/g, '');
+  const to = 'whatsapp:+' + (p.startsWith('52') ? p : ('52' + p));
+  try {
+    // 1) Enviar mensaje al huésped (si hay body)
+    if (body) {
+      const r1 = await fetch(`${BACKEND}/wa/send-forward`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, body }),
+      });
+      const j1 = await r1.json();
+      if (!j1.ok) throw new Error(j1.error || 'error al enviar');
+    }
+    // 2) Actualizar estado + ProgramadaAt
+    const r2 = await fetch(`${BACKEND}/solicitudes/${encodeURIComponent(id)}/estado`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado: 'programado', AtendidoPor: user, ProgramadaAt: `${fecha}T${hora}` }),
+    });
+    const j2 = await r2.json();
+    if (!j2.ok) throw new Error(j2.error || 'error al actualizar');
+    const m = document.getElementById('botc-sol-prog-modal'); if (m) m.remove();
+    if (typeof _botcRefreshSolicitudesBadge_ === 'function') _botcRefreshSolicitudesBadge_();
+    if (cbKey) window._botcSolRunCb_(cbKey);
+    // Repintar drawer si abierto
+    const dr = document.getElementById('botc-solicitudes-inline');
+    if (dr && dr.dataset.phone) _botcRefreshSolicitudesDrawer_(dr.dataset.phone);
+  } catch (e) { alert('Error: ' + e.message); }
 };
 
 window._botcSolCancel_ = async function(id, phone, cbKey) {
@@ -43498,6 +43608,7 @@ function _botcRenderSolicitudesDrawer_(drawer, phone, rows) {
             : est === 'aprobado' ? { bg:'#dcfce7', fg:'#166534', tx:'APROBADO' }
             : est === 'rechazado' ? { bg:'#fee2e2', fg:'#991b1b', tx:'RECHAZADO' }
             : est === 'cancelado' ? { bg:'#fee2e2', fg:'#991b1b', tx:'CANCELADO' }
+            : est === 'programado' ? { bg:'#dbeafe', fg:'#1e40af', tx:'PROGRAMADO' }
             : { bg:'#fef3c7', fg:'#92400e', tx:'PENDIENTE' };
     return `<span style="font-size:9px;font-weight:800;background:${c.bg};color:${c.fg};padding:2px 8px;border-radius:999px;letter-spacing:.02em">${c.tx}</span>`;
   };
@@ -43514,6 +43625,7 @@ function _botcRenderSolicitudesDrawer_(drawer, phone, rows) {
           ${chip(est)}
         </div>
         <div style="font-size:11px;color:#64748b;margin-bottom:6px">${_botcEsc(ts)}${s.ReservaId?` · Reserva ${_botcEsc(s.ReservaId)}`:''}</div>
+        ${s.ProgramadaAt?`<div style="font-size:11px;color:#1e40af;background:#dbeafe;padding:4px 8px;border-radius:6px;margin-bottom:6px;font-weight:700">📅 Programada para: ${_botcEsc(String(s.ProgramadaAt).replace('T',' ').slice(0,16))}</div>`:''}
         <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen || '(sin resumen)')}</div>
         ${btns}
       </div>`;
@@ -43601,6 +43713,7 @@ window._botcOpenSolicitudesGlobal_ = async function(tab) {
                     : est === 'aprobado' ? '<span style="font-size:9px;font-weight:800;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:999px">APROBADO</span>'
                     : est === 'rechazado' ? '<span style="font-size:9px;font-weight:800;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:999px">RECHAZADO</span>'
                     : est === 'cancelado' ? '<span style="font-size:9px;font-weight:800;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:999px">CANCELADO</span>'
+                    : est === 'programado' ? '<span style="font-size:9px;font-weight:800;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:999px">PROGRAMADO</span>'
                     : '<span style="font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px">PENDIENTE</span>';
       const footer = window._botcSolActionButtons_(s, s.Phone, { afterFn: function(){ const m = document.getElementById('botc-solicitudes-global'); if (m) m.remove(); window._botcOpenSolicitudesGlobal_(); } });
       const dim = (est === 'cancelado') ? 'opacity:.55;filter:grayscale(.35)' : '';
@@ -43613,6 +43726,7 @@ window._botcOpenSolicitudesGlobal_ = async function(tab) {
           <div style="font-size:11px;color:#475569;margin-bottom:4px">
             <a href="#" onclick="event.preventDefault();document.getElementById('botc-solicitudes-global').remove();botcOpenChat('${_botcEsc(s.Phone)}');setTimeout(function(){_botcOpenSolicitudesDrawer_('${_botcEsc(s.Phone)}')},400);return false" style="color:#3b82f6;font-weight:700;text-decoration:none">+${_botcEsc(s.Phone)}</a>${s.ReservaId?` · Reserva ${_botcEsc(s.ReservaId)}`:''}
           </div>
+          ${s.ProgramadaAt?`<div style="font-size:11px;color:#1e40af;background:#dbeafe;padding:4px 8px;border-radius:6px;margin-bottom:6px;font-weight:700">📅 Programada para: ${_botcEsc(String(s.ProgramadaAt).replace('T',' ').slice(0,16))}</div>`:''}
           <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen || '')}</div>
           ${footer}
         </div>`;
