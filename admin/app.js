@@ -43392,19 +43392,31 @@ async function _botcRefreshSolicitudesBadge_() {
     }
   } catch(_){}
 }
-window._botcOpenSolicitudesGlobal_ = async function() {
+window._botcOpenSolicitudesGlobal_ = async function(tab) {
+  const activeTab = tab || (window.__botcSolTab || 'pendiente');
+  window.__botcSolTab = activeTab;
   const prev = document.getElementById('botc-solicitudes-global'); if (prev) prev.remove();
   const modal = document.createElement('div');
   modal.id = 'botc-solicitudes-global';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+  const tabBtn = (val, label) => {
+    const active = activeTab === val;
+    return `<button type="button" onclick="_botcOpenSolicitudesGlobal_('${val}')" style="flex:1;padding:8px 6px;font-size:12px;font-weight:800;background:${active?'#0f172a':'transparent'};color:${active?'#fff':'#475569'};border:0;border-radius:6px;cursor:pointer;line-height:1">${label}</button>`;
+  };
   modal.innerHTML = `
     <div style="background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.3)">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #e2e8f0">
         <div>
-          <div style="font-size:16px;font-weight:800;color:#0f172a">📄 Solicitudes pendientes</div>
+          <div style="font-size:16px;font-weight:800;color:#0f172a">📄 Solicitudes</div>
           <div style="font-size:11px;color:#64748b" id="botc-sol-global-count">Cargando…</div>
         </div>
         <button type="button" onclick="document.getElementById('botc-solicitudes-global').remove()" style="background:transparent;border:0;font-size:22px;cursor:pointer;color:#64748b;line-height:1">×</button>
+      </div>
+      <div style="display:flex;gap:4px;padding:8px 14px;background:#f1f5f9;border-bottom:1px solid #e2e8f0">
+        ${tabBtn('pendiente', '⏳ Pendientes')}
+        ${tabBtn('atendido', '✓ Atendidas')}
+        ${tabBtn('cancelado', '✕ Canceladas')}
+        ${tabBtn('todos', 'Todas')}
       </div>
       <div id="botc-sol-global-list" style="flex:1;overflow-y:auto;padding:14px;background:#f8fafc">
         <div style="padding:16px;text-align:center;color:#94a3b8;font-size:12px">Cargando…</div>
@@ -43412,28 +43424,37 @@ window._botcOpenSolicitudesGlobal_ = async function() {
     </div>`;
   document.body.appendChild(modal);
   try {
-    const r = await fetch(`${BACKEND}/solicitudes?estado=pendiente`, { cache: 'no-store' });
+    const qs = activeTab === 'todos' ? '' : `?estado=${encodeURIComponent(activeTab)}`;
+    const r = await fetch(`${BACKEND}/solicitudes${qs}`, { cache: 'no-store' });
     const j = await r.json();
     const rows = (j && j.ok && Array.isArray(j.rows)) ? j.rows : [];
-    document.getElementById('botc-sol-global-count').textContent = `${rows.length} pendiente${rows.length===1?'':'s'}`;
+    const label = activeTab === 'pendiente' ? 'pendiente' : (activeTab === 'atendido' ? 'atendida' : (activeTab === 'cancelado' ? 'cancelada' : ''));
+    document.getElementById('botc-sol-global-count').textContent = `${rows.length}${label?` ${label}${rows.length===1?'':'s'}`:` en total`}`;
     const cont = document.getElementById('botc-sol-global-list');
-    if (!rows.length) { cont.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin solicitudes pendientes.</div>'; return; }
+    if (!rows.length) { cont.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px">Sin solicitudes ${label?label+'s':''}.</div>`; return; }
     cont.innerHTML = rows.map(s => {
       const ts = String(s.Timestamp || '').slice(0, 16).replace('T', ' ');
+      const est = String(s.Estado || 'pendiente').toLowerCase();
+      const estChip = est === 'atendido' ? '<span style="font-size:9px;font-weight:800;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:999px">ATENDIDO</span>'
+                    : est === 'cancelado' ? '<span style="font-size:9px;font-weight:800;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:999px">CANCELADO</span>'
+                    : '<span style="font-size:9px;font-weight:800;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:999px">PENDIENTE</span>';
+      const footer = est === 'pendiente'
+        ? `<div style="display:flex;gap:6px;margin-top:8px">
+            <button type="button" onclick="_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','atendido','${_botcEsc(s.Phone)}').then(()=>{document.getElementById('botc-solicitudes-global').remove();_botcOpenSolicitudesGlobal_()})" style="flex:1;padding:6px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✓ Atender</button>
+            <button type="button" onclick="_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','cancelado','${_botcEsc(s.Phone)}').then(()=>{document.getElementById('botc-solicitudes-global').remove();_botcOpenSolicitudesGlobal_()})" style="flex:1;padding:6px 10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✕ Cancelar</button>
+          </div>`
+        : (s.AtendidoPor ? `<div style="font-size:10px;color:#64748b;margin-top:6px">${est==='atendido'?'✓':'✕'} ${_botcEsc(s.AtendidoPor)} · ${String(s.AtendidoAt||'').slice(0,16).replace('T',' ')}</div>` : '');
       return `
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px">
+          <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:center">
             <div style="font-size:12px;font-weight:800;color:#0f172a">📄 ${_botcEsc(s.Tipo === 'ticket_autofacturacion' ? 'Ticket auto-facturación' : (s.Tipo||'Solicitud'))}</div>
-            <div style="font-size:10px;color:#64748b">${_botcEsc(ts)}</div>
+            <div style="display:flex;gap:6px;align-items:center">${estChip}<div style="font-size:10px;color:#64748b">${_botcEsc(ts)}</div></div>
           </div>
           <div style="font-size:11px;color:#475569;margin-bottom:4px">
             <a href="#" onclick="event.preventDefault();document.getElementById('botc-solicitudes-global').remove();botcOpenChat('${_botcEsc(s.Phone)}');setTimeout(function(){_botcOpenSolicitudesDrawer_('${_botcEsc(s.Phone)}')},400);return false" style="color:#3b82f6;font-weight:700;text-decoration:none">+${_botcEsc(s.Phone)}</a>${s.ReservaId?` · Reserva ${_botcEsc(s.ReservaId)}`:''}
           </div>
           <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen || '')}</div>
-          <div style="display:flex;gap:6px;margin-top:8px">
-            <button type="button" onclick="_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','atendido','${_botcEsc(s.Phone)}').then(()=>{document.getElementById('botc-solicitudes-global').remove();_botcOpenSolicitudesGlobal_()})" style="flex:1;padding:6px 10px;background:#16a34a;color:#fff;border:0;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✓ Atender</button>
-            <button type="button" onclick="_botcSolicitudSetEstado_('${_botcEsc(s.ID)}','cancelado','${_botcEsc(s.Phone)}').then(()=>{document.getElementById('botc-solicitudes-global').remove();_botcOpenSolicitudesGlobal_()})" style="flex:1;padding:6px 10px;background:#fff;color:#991b1b;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer">✕ Cancelar</button>
-          </div>
+          ${footer}
         </div>`;
     }).join('');
   } catch (e) {
