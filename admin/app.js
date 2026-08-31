@@ -31406,7 +31406,7 @@ function guiasRenderSidebar() {
       ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid ${isSel?'#0d9488':'#cbd5e1'};background:${isSel?'#0d9488':'#fff'};color:#fff;font-size:12px;font-weight:900;flex-shrink:0;line-height:1">${isSel?'✓':''}</span>`
       : '';
     const icon = multi ? '' : `<span style="font-size:14px;flex-shrink:0">📍</span>`;
-    const houseId = String(r.HouseId || r.HouseID || r.ID || '').trim();
+    const houseId = String(r.HouseId || r.HouseID || r.ID || r.id_lodgify || r.IdLodgify || '').trim();
     const shareBtn = houseId
       ? `<button type="button" onclick="event.stopPropagation();guiasShareLink_('${esc(houseId)}','${esc(label).replace(/'/g,"\\'")}')"
            title="Copiar link público de la guía"
