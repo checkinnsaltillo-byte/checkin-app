@@ -16696,7 +16696,7 @@ window.lgScopedSaveEdit = async function(kind, id) {
     if (row) {
       const fieldMap = kind === 'inc'
         ? { fecha:'Fecha', motivos:'Motivos', clasificaciones:'Clasificacion', propiedad:'Propiedad', depto:'# Departamento', alojamiento:'Alojamiento', reportante:'Reportante', personas:'Personas', nivel:'Nivel', estatus:'Estatus', descripcion:'Descripcion', acciones:'Acciones', seguimiento:'Seguimiento', comentarios:'Comentarios' }
-        : { fecha_encontrado:'Fecha_encontrado', fecha_entregado:'Fecha_entregado', entregado_a:'Entregado_a', propiedad:'Propiedad', depto:'# Departamento', alojamiento:'Alojamiento', reportante:'Reportante', categoria:'Categoria', categoria_otro:'Categoria_otro', descripcion:'Descripcion', lugar_resguardo:'Lugar_resguardo', lugar_otro:'Lugar_otro', comentarios:'Comentarios' };
+        : { estado:'Estado', fecha_encontrado:'Fecha_encontrado', fecha_entregado:'Fecha_entregado', entregado_a:'Entregado_a', propiedad:'Propiedad', depto:'# Departamento', alojamiento:'Alojamiento', reportante:'Reportante', categoria:'Categoria', categoria_otro:'Categoria_otro', descripcion:'Descripcion', lugar_resguardo:'Lugar_resguardo', lugar_otro:'Lugar_otro', comentarios:'Comentarios' };
       for (const k of Object.keys(fields)) {
         const colName = fieldMap[k];
         if (colName) row[colName] = Array.isArray(fields[k]) ? fields[k].join(', ') : (fields[k] != null ? String(fields[k]) : '');
@@ -23470,6 +23470,7 @@ function incFilteredRows() {
 // ║  MÓDULO OBJETOS OLVIDADOS — paralelo a Incidencias                   ║
 // ═══════════════════════════════════════════════════════════════════════
 const OBJ_CATEGORIAS = ['Electrónico', 'Vestimenta', 'Joyería/accesorios', 'Documentos', 'Otro'];
+const OBJ_ESTADOS = ['encontrado', 'entregado', 'no localizado'];
 const OBJ_LUGARES = ['Gabinete', 'Oficina', 'Otro'];
 
 const OBJ_STATE = {
@@ -24173,7 +24174,15 @@ window.objRemoveCard = function (id) {
 function objRowToReportData(row) {
   const split = s => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
   const fotosUrls = split(row['Fotos_URLs']);
+  // Estado: si viene explícito lo respeta; si no, lo infiere para retro-compat.
+  let estado = String(row['Estado'] || '').trim().toLowerCase();
+  if (!estado) {
+    if (String(row['Fecha_entregado'] || '').trim()) estado = 'entregado';
+    else if (String(row['Fecha_encontrado'] || '').trim() || fotosUrls.length) estado = 'encontrado';
+    else estado = 'no localizado';
+  }
   return {
+    estado,
     fecha_encontrado: String(row['Fecha_encontrado'] || ''),
     fecha_entregado:  String(row['Fecha_entregado'] || ''),
     entregado_a:      String(row['Entregado_a'] || ''),
@@ -24231,6 +24240,10 @@ function objCardBodyHtmlEditable(row, id) {
 
     <div class="inc-section inc-section-data">
       <div class="inc-section-title">📅 Datos generales</div>
+      <div style="margin-bottom:10px">
+        <label class="inc-label">Estado</label>
+        ${selectHtml('estado', OBJ_ESTADOS, d.estado, false)}
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <div><label class="inc-label">Fecha de encontrado</label>
           <input type="date" class="inc-input" data-edit-field="fecha_encontrado" value="${esc(d.fecha_encontrado)}" oninput="objEditOnChange('${esc(id)}')">
