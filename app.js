@@ -12631,22 +12631,34 @@ function huespedesCloseFacturapi() {
     const lbl = document.getElementById('hu-status-label');
     if (lbl) lbl.textContent = 'Actualizando…';
     setTimeout(async () => {
-      try { await huespedesLoad(true); } catch(_) {}
-      // AUTO-SCHEDULE WA para tickets emitidos: comparar snapshot pre-abertura
-      // vs URLs actuales. Corre DESPUÉS del await de huespedesLoad → garantía
-      // de que HU_STATE.rows tiene la URL nueva escrita por Facturapi.
+      // Detecta cambios de URL comparando snapshot pre vs HU_STATE.rows actual.
+      const _detectChanges = () => {
+        const snap = window.__huTicketUrlSnapshot;
+        if (!snap || !snap.size) return [];
+        const out = [];
+        for (const r of (HU_STATE.rows || [])) {
+          const id = String(r['ID'] || r['row_number'] || '');
+          if (!id) continue;
+          const newUrl = String(r['Ticket facturapi url'] || '').trim();
+          const oldUrl = snap.get(id) || '';
+          if (newUrl && newUrl !== oldUrl) out.push({ row: r, id, newUrl, oldUrl });
+        }
+        return out;
+      };
+      // Reload con polling: hasta 4 intentos, 2.5s de espera si sheet aún no
+      // reflejó la URL nueva (FacturAPI escribe async y a veces tarda unos s).
+      let changed = [];
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        try { await huespedesLoad(true); } catch(_) {}
+        changed = _detectChanges();
+        console.info(`[HU-ticket] intento ${attempt}: ${changed.length} cambios detectados`);
+        if (changed.length) break;
+        if (attempt < 4) await new Promise(rs => setTimeout(rs, 2500));
+      }
       try {
         const snap = window.__huTicketUrlSnapshot;
         if (snap && snap.size) {
           console.info('[HU-ticket] post-refresh: comparando snapshot vs rows nuevas');
-          const changed = [];
-          for (const r of (HU_STATE.rows || [])) {
-            const id = String(r['ID'] || r['row_number'] || '');
-            if (!id) continue;
-            const newUrl = String(r['Ticket facturapi url'] || '').trim();
-            const oldUrl = snap.get(id) || '';
-            if (newUrl && newUrl !== oldUrl) changed.push({ row: r, id, newUrl, oldUrl });
-          }
           console.info('[HU-ticket] cambios:', changed.length);
           window.__huTicketUrlSnapshot = null; // consumido
           // Skip URLs que ya fueron enviadas manualmente vía el popup del
@@ -12703,6 +12715,10 @@ function huespedesCloseFacturapi() {
         if (typeof lodgifyRender === 'function' && LG_STATE.loaded) {
           lodgifyRender({ force: true });
         }
+        // Re-render explícito de la lista Huéspedes (por si la vista está en
+        // Reservas manuales / Huéspedes) para que las cards muestren el nuevo
+        // estado "ticket emitido" sin esperar a otra navegación.
+        if (typeof huespedesRender === 'function') huespedesRender();
       } catch (e) { console.warn('[HU] re-render lodgify tras facturapi:', e); }
       // Refresh incondicional del panel Notificaciones si está abierto — así
       // toda acción disparada desde ahí queda reflejada al cerrar FacturAPI
