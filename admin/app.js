@@ -10346,7 +10346,33 @@ if (typeof window !== 'undefined' && !window.__HU_AUTOFILL_OBS) {
 function huBuildTicketConsultaMsg(url) {
   const clean = String(url||'').trim();
   if (!/^https?:\/\//i.test(clean)) return '';
+  // Fallback si no hay template en WA_Templates (o el fetch falla).
   return `Hemos enviado el TICKET para AUTO-FACTURACIÓN al correo proporcionado.\n\nURL de la factura:\n${clean}\n\nRecuerda que sólo estará vigente dentro del mes fiscal en curso.`;
+}
+// Trae el body del template "Ticket de AUTO-FACTURACIÓN" desde WA_Templates y
+// sustituye el placeholder {{ticket_facturapi_url}} con la URL real. Cache 5min.
+// Fallback al texto hardcodeado si el template no existe o el fetch falla.
+async function huBuildTicketConsultaMsgFromTemplate(url) {
+  const clean = String(url||'').trim();
+  if (!/^https?:\/\//i.test(clean)) return '';
+  try {
+    if (!window.__huTicketTplBody || !window.__huTicketTplBodyAt || (Date.now() - window.__huTicketTplBodyAt) > 5*60*1000) {
+      const r = await fetch('https://api.check-inn.mx/wa/templates-list', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'
+      });
+      const j = await r.json();
+      const items = (j && j.items) || [];
+      const t = items.find(x => /ticket.*auto.?facturac/i.test(String(x.nombre||'')));
+      if (t && t.body) { window.__huTicketTplBody = t.body; window.__huTicketTplBodyAt = Date.now(); }
+    }
+    const body = window.__huTicketTplBody;
+    if (body) {
+      return String(body).replace(/\{\{\s*ticket_facturapi_url\s*\}\}/gi, clean)
+                         .replace(/\{\{\s*url_factura\s*\}\}/gi, clean)
+                         .replace(/\{\{\s*link\s*\}\}/gi, clean);
+    }
+  } catch(_) {}
+  return huBuildTicketConsultaMsg(clean); // fallback
 }
 /** Copia texto al portapapeles (soporta navegadores sin clipboard API). */
 async function huCopyTextUniversal(text) {
@@ -12587,6 +12613,7 @@ if (!window.__waManualSentListenerInstalled) {
     const d = ev && ev.data;
     if (d && d.type === 'wa-manual-sent' && d.ticketUrl) {
       window.__waManualSentUrls.add(String(d.ticketUrl));
+      window.__waManualSentThisSession = true;
       console.info('[HU-ticket] marcada como enviada manual:', d.ticketUrl);
       // Al confirmar envío por correo/WhatsApp, cerrar TAMBIÉN el modal
       // FacturAPI de fondo — no dejar dos overlays abiertos.
@@ -12596,6 +12623,10 @@ if (!window.__waManualSentListenerInstalled) {
 }
 
 function huespedesOpenFacturapi(url) {
+  // Reset del flag "popup ya envió WA en esta sesión" — se prende cuando el
+  // iframe FacturAPI emite postMessage 'wa-manual-sent'. Si termina prendido
+  // al cerrar, saltamos el auto-schedule para evitar mensaje duplicado.
+  window.__waManualSentThisSession = false;
   // Snapshot de URLs de tickets ANTES de abrir Facturapi. Al cerrarse, el
   // hook comparará y disparará auto-schedule del WA para cada URL nueva.
   try {
@@ -12661,13 +12692,16 @@ function huespedesCloseFacturapi() {
           console.info('[HU-ticket] post-refresh: comparando snapshot vs rows nuevas');
           console.info('[HU-ticket] cambios:', changed.length);
           window.__huTicketUrlSnapshot = null; // consumido
-          // Skip URLs que ya fueron enviadas manualmente vía el popup del
-          // iframe Facturapi (postMessage 'wa-manual-sent'). Evita el doble
-          // envío: uno del popup + otro del auto-schedule.
+          // Skip TODO el auto-schedule si en esta sesión de FacturAPI el popup
+          // ya envió el mensaje manual — evita duplicados (popup y auto-schedule
+          // usan URLs distintas para el mismo PDF: dedup por URL fallaba).
+          const popupAlreadySent = !!window.__waManualSentThisSession;
           window.__waManualSentUrls = window.__waManualSentUrls || new Set();
           for (const c of changed) {
-            if (window.__waManualSentUrls.has(c.newUrl)) {
-              console.info('[HU-ticket] skip auto-schedule para URL ya enviada manual:', c.newUrl);
+            if (popupAlreadySent || window.__waManualSentUrls.has(c.newUrl)) {
+              console.info('[HU-ticket] skip auto-schedule (popup ya envió) para', c.newUrl);
+              // Aún cerrar la solicitud pendiente aunque saltemos el WA.
+              try { await window._huCerrarSolicitudTicketAutofact_(c.row); } catch(_){}
               continue;
             }
             if (typeof window._huAutoScheduleTicketWa === 'function') {
@@ -42454,9 +42488,11 @@ function _cfgScheduleShortLabel(type, time, event, offset) {
         } catch(_) {}
       }
     } catch(_) {}
-    const msg = (typeof huBuildTicketConsultaMsg === 'function')
-      ? huBuildTicketConsultaMsg(newUrl)
-      : `Hemos enviado el TICKET para AUTO-FACTURACIÓN al correo proporcionado.\n\nURL de la factura:\n${newUrl}\n\nRecuerda que sólo estará vigente dentro del mes fiscal en curso.`;
+    // Usa el body del template "Ticket de AUTO-FACTURACIÓN" (WA_Templates)
+    // — mismo texto que el popup del checkin-app. Fallback al hardcodeado.
+    const msg = (typeof huBuildTicketConsultaMsgFromTemplate === 'function')
+      ? await huBuildTicketConsultaMsgFromTemplate(newUrl)
+      : (typeof huBuildTicketConsultaMsg === 'function' ? huBuildTicketConsultaMsg(newUrl) : `Hemos enviado el TICKET para AUTO-FACTURACIÓN al correo proporcionado.\n\nURL de la factura:\n${newUrl}\n\nRecuerda que sólo estará vigente dentro del mes fiscal en curso.`);
     // Programar a las 10am local del día de salida.
     const [y,mo,d] = dep.split('-').map(x => parseInt(x,10));
     const dt = new Date(y, (mo||1)-1, (d||1), 10, 0, 0);
