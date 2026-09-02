@@ -9731,8 +9731,8 @@ async function __huespedesLoadInner(forceRefetch) {
           HU_STATE.loaded = true;
           HU_STATE.loading = false;
           if (lbl) lbl.textContent = `${c.rows.length} reservaciones (cache)`;
-          huPopulateMesOptions();
-          huespedesRender();
+          try { huPopulateMesOptions(); } catch (e) { console.warn('[HU cache] huPopulateMesOptions falló:', e && e.stack || e && e.message); }
+          try { huespedesRender(); } catch (e) { console.warn('[HU cache] huespedesRender falló:', e && e.stack || e && e.message); }
           return;
         }
       }
@@ -9792,8 +9792,8 @@ async function __huespedesLoadInner(forceRefetch) {
     HU_STATE.totalMediosUnicos = data.total_medios_unicos || 0;
     HU_STATE.loaded = true;
     if (lbl) lbl.textContent = `${data.total || 0} reservaciones`;
-    huPopulateMesOptions();
-    huespedesRender();
+    try { huPopulateMesOptions(); } catch (e) { console.warn('[HU] huPopulateMesOptions falló:', e && e.stack || e && e.message); }
+    try { huespedesRender(); } catch (e) { console.warn('[HU] huespedesRender falló:', e && e.stack || e && e.message); }
     // Si el usuario está viendo Lodgify Detalles, ahora HU_STATE está completo
     // → re-render para mostrar las cards sintéticas (antes mostraba "Cargando…").
     const moduleLodgifyVisible = document.getElementById('module-lodgify');
@@ -9801,12 +9801,13 @@ async function __huespedesLoadInner(forceRefetch) {
     const inLodgify = moduleLodgifyVisible && !moduleLodgifyVisible.classList.contains('hidden');
     const inRD      = moduleRDVisible      && !moduleRDVisible.classList.contains('hidden');
     if (inLodgify) {
-      if (LG_STATE.loaded) lgComputeMatches();
-      lgRebuildFilterOptions();
-      lodgifyRender();
+      try { if (LG_STATE.loaded) lgComputeMatches(); } catch (e) { console.warn('[HU→LG] lgComputeMatches falló:', e && e.stack || e && e.message); }
+      try { lgRebuildFilterOptions(); } catch (e) { console.warn('[HU→LG] lgRebuildFilterOptions falló:', e && e.stack || e && e.message); }
+      try { lodgifyRender(); } catch (e) { console.warn('[HU→LG] lodgifyRender falló:', e && e.stack || e && e.message); }
     }
-    if (inRD && typeof rdRender === 'function') rdRender();
+    if (inRD && typeof rdRender === 'function') { try { rdRender(); } catch (e) { console.warn('[HU→RD] rdRender falló:', e && e.stack || e && e.message); } }
   } catch (e) {
+    console.error('[HU] load error:', e && e.stack || e);
     if (lbl) lbl.textContent = 'Error: ' + e.message;
     if (empty) { empty.textContent = '⚠ ' + e.message; empty.classList.remove('hidden'); }
   } finally {
