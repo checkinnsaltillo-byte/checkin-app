@@ -44315,6 +44315,23 @@ window._botcOpenSolicitudesGlobal_ = function() { window._botcOpenNotifsGlobal_(
 window._botcOpenPerfilEditor_ = async function(phone) {
   const p10 = String(phone).replace(/\D/g,'').slice(-10);
   document.getElementById('botc-perfil-editor')?.remove();
+  // Seed inmediato desde BOTC_STATE.conversations (ya tenemos nombre/RS/régimen
+  // en memoria). Fallback al GuestName del booking si no hay conv.name.
+  let seed = {};
+  try {
+    const conv = (BOTC_STATE && Array.isArray(BOTC_STATE.conversations))
+      ? BOTC_STATE.conversations.find(c => String(c.phone) === String(p10)) : null;
+    if (conv) {
+      seed['Nombre del huésped']  = conv.name || '';
+      seed['Razón social']         = conv.razon_social || '';
+      seed['Régimen fiscal']       = conv.regimen_fiscal || '';
+    }
+    if (!seed['Nombre del huésped'] && typeof _botcGetBookingForPhoneSync === 'function') {
+      const bk = _botcGetBookingForPhoneSync(p10);
+      if (bk && bk.GuestName) seed['Nombre del huésped'] = String(bk.GuestName).trim();
+    }
+  } catch(_){}
+  seed['Cel/Whatsapp (principal)'] = '+' + p10;
   const overlay = document.createElement('div');
   overlay.id = 'botc-perfil-editor';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:100005;display:flex';
@@ -44325,10 +44342,9 @@ window._botcOpenPerfilEditor_ = async function(phone) {
         <div style="font-size:14px;font-weight:800;color:#0f172a">✏️ Editar perfil · +${_botcEsc(p10)}</div>
         <button type="button" onclick="document.getElementById('botc-perfil-editor').remove()" style="background:transparent;border:0;font-size:20px;cursor:pointer;color:#64748b;line-height:1">×</button>
       </div>
-      <div id="botc-perfil-editor-body" style="flex:1;overflow-y:auto;padding:16px;font-size:13px;color:#334155">
-        <div style="text-align:center;color:#94a3b8;padding:40px 0">⏳ Cargando perfil…</div>
-      </div>
-      <div style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:flex-end;gap:8px">
+      <div id="botc-perfil-editor-body" style="flex:1;overflow-y:auto;padding:16px;font-size:13px;color:#334155"></div>
+      <div style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div id="botc-perfil-status" style="font-size:11px;color:#94a3b8">⏳ Sincronizando datos del sheet…</div>
         <button type="button" id="botc-perfil-save-btn" disabled onclick="_botcSavePerfilEditor_('${_botcEsc(p10)}')" style="padding:8px 16px;background:#0f172a;color:#fff;border:0;border-radius:6px;font-size:13px;font-weight:800;cursor:pointer;opacity:.4">Guardar cambios</button>
       </div>
     </div>`;
@@ -44339,17 +44355,17 @@ window._botcOpenPerfilEditor_ = async function(phone) {
     st.textContent = '@keyframes pagosSlideIn { from { transform: translateX(100%) } to { transform: translateX(0) } }';
     document.head.appendChild(st);
   }
-  // Fetch perfil
-  try {
-    const r = await fetch(`https://api.check-inn.mx/perfil/by-phone?phone=${encodeURIComponent(p10)}`, { cache:'no-store' });
-    const j = await r.json();
-    const perfil = (j && j.ok && j.perfil) ? j.perfil : null;
-    window.__botcPerfilOriginal_ = perfil ? Object.assign({}, perfil) : null;
+  // Render inmediato con seed — NO esperamos al fetch.
+  const _renderForm = (perfil, statusText) => {
+    window.__botcPerfilOriginal_ = perfil ? Object.assign({}, perfil) : Object.assign({}, seed);
     window.__botcPerfilIsNew_ = !perfil;
-    const p = perfil || {};
+    const p = perfil || seed;
     const body = document.getElementById('botc-perfil-editor-body');
+    if (!body) return;
     const saveBtn = document.getElementById('botc-perfil-save-btn');
     if (saveBtn) saveBtn.textContent = perfil ? 'Guardar cambios' : 'Guardar';
+    const status = document.getElementById('botc-perfil-status');
+    if (status && statusText != null) status.textContent = statusText;
     const val = k => _botcEsc(p[k] != null ? String(p[k]) : '');
     const REG_OPTIONS = [
       '', '601 General de Ley Personas Morales', '603 Personas Morales con Fines no Lucrativos',
@@ -44390,9 +44406,23 @@ window._botcOpenPerfilEditor_ = async function(phone) {
     if (!perfil) { // perfil nuevo → habilitar botón desde el inicio
       if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
     }
-  } catch(e) {
-    document.getElementById('botc-perfil-editor-body').innerHTML = `<div style="color:#dc2626;text-align:center;padding:40px 0">⚠ Error: ${_botcEsc(e.message)}</div>`;
-  }
+  };
+  // Render inicial con seed (nombre + RS + régimen + phone) — botón "Guardar"
+  // habilitado como si fuera perfil nuevo hasta que llegue el fetch real.
+  _renderForm(null, '⏳ Sincronizando datos del sheet…');
+  // Fetch en background — cuando llegue, re-renderiza con datos completos.
+  (async () => {
+    try {
+      const r = await fetch(`https://api.check-inn.mx/perfil/by-phone?phone=${encodeURIComponent(p10)}`, { cache:'no-store' });
+      const j = await r.json();
+      const perfil = (j && j.ok && j.perfil) ? j.perfil : null;
+      if (!document.getElementById('botc-perfil-editor')) return; // usuario cerró
+      _renderForm(perfil, perfil ? '✓ Datos del sheet cargados' : 'Perfil no existe en el sheet — se creará nuevo al guardar');
+    } catch(e) {
+      const st = document.getElementById('botc-perfil-status');
+      if (st) { st.textContent = '⚠ No se pudo leer del sheet: ' + e.message; st.style.color = '#dc2626'; }
+    }
+  })();
 };
 window._botcPerfilDirty_ = function() {
   const btn = document.getElementById('botc-perfil-save-btn');
