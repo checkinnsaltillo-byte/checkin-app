@@ -44311,6 +44311,133 @@ window._botcOpenNotifsGlobal_ = async function(section, subtab, keepDays) {
 // Retro-compat: el nombre antiguo abre el modal en sección Solicitudes.
 window._botcOpenSolicitudesGlobal_ = function() { window._botcOpenNotifsGlobal_('solicitudes'); };
 
+// ─── Editor de Perfil (hoja Perfiles) desde Chats bot ────────────────────
+window._botcOpenPerfilEditor_ = async function(phone) {
+  const p10 = String(phone).replace(/\D/g,'').slice(-10);
+  document.getElementById('botc-perfil-editor')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'botc-perfil-editor';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:100005;display:flex';
+  overlay.innerHTML = `
+    <div onclick="document.getElementById('botc-perfil-editor').remove()" style="flex:1;background:rgba(15,23,42,.55);cursor:pointer"></div>
+    <div style="width:min(480px,100%);height:100%;background:#fff;box-shadow:-12px 0 32px rgba(15,23,42,.25);display:flex;flex-direction:column;overflow:hidden;animation:pagosSlideIn .18s ease-out">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:#f8fafc">
+        <div style="font-size:14px;font-weight:800;color:#0f172a">✏️ Editar perfil · +${_botcEsc(p10)}</div>
+        <button type="button" onclick="document.getElementById('botc-perfil-editor').remove()" style="background:transparent;border:0;font-size:20px;cursor:pointer;color:#64748b;line-height:1">×</button>
+      </div>
+      <div id="botc-perfil-editor-body" style="flex:1;overflow-y:auto;padding:16px;font-size:13px;color:#334155">
+        <div style="text-align:center;color:#94a3b8;padding:40px 0">⏳ Cargando perfil…</div>
+      </div>
+      <div style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#f8fafc;display:flex;justify-content:flex-end;gap:8px">
+        <button type="button" id="botc-perfil-save-btn" disabled onclick="_botcSavePerfilEditor_('${_botcEsc(p10)}')" style="padding:8px 16px;background:#0f172a;color:#fff;border:0;border-radius:6px;font-size:13px;font-weight:800;cursor:pointer;opacity:.4">Guardar cambios</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  if (!document.getElementById('pagos-slideover-style')) {
+    const st = document.createElement('style');
+    st.id = 'pagos-slideover-style';
+    st.textContent = '@keyframes pagosSlideIn { from { transform: translateX(100%) } to { transform: translateX(0) } }';
+    document.head.appendChild(st);
+  }
+  // Fetch perfil
+  try {
+    const r = await fetch(`https://api.check-inn.mx/perfil/by-phone?phone=${encodeURIComponent(p10)}`, { cache:'no-store' });
+    const j = await r.json();
+    const perfil = (j && j.ok && j.perfil) ? j.perfil : null;
+    window.__botcPerfilOriginal_ = perfil ? Object.assign({}, perfil) : null;
+    window.__botcPerfilIsNew_ = !perfil;
+    const p = perfil || {};
+    const body = document.getElementById('botc-perfil-editor-body');
+    const saveBtn = document.getElementById('botc-perfil-save-btn');
+    if (saveBtn) saveBtn.textContent = perfil ? 'Guardar cambios' : 'Guardar';
+    const val = k => _botcEsc(p[k] != null ? String(p[k]) : '');
+    const REG_OPTIONS = [
+      '', '601 General de Ley Personas Morales', '603 Personas Morales con Fines no Lucrativos',
+      '605 Sueldos y Salarios e Ingresos Asimilados a Salarios', '606 Arrendamiento',
+      '607 Régimen de Enajenación o Adquisición de Bienes', '608 Demás ingresos',
+      '610 Residentes en el Extranjero sin Establecimiento Permanente en México',
+      '611 Ingresos por Dividendos (socios y accionistas)',
+      '612 Personas Físicas con Actividades Empresariales y Profesionales',
+      '614 Ingresos por intereses', '615 Régimen de los ingresos por obtención de premios',
+      '616 Sin obligaciones fiscales', '620 Sociedades Cooperativas de Producción',
+      '621 Incorporación Fiscal', '622 Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras',
+      '623 Opcional para Grupos de Sociedades', '624 Coordinados',
+      '625 Régimen de las Actividades Empresariales con ingresos a través de Plataformas Tecnológicas',
+      '626 Régimen Simplificado de Confianza',
+    ];
+    const regSel = REG_OPTIONS.map(o => `<option value="${_botcEsc(o)}"${String(p['Régimen fiscal']||'')===o?' selected':''}>${_botcEsc(o||'— Seleccionar —')}</option>`).join('');
+    const reqFactVal = String(p['¿Requiere factura?']||'').toLowerCase();
+    body.innerHTML = `
+      <label style="display:block;margin-bottom:12px"><span style="font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em">Nombre del huésped</span>
+        <input type="text" data-pf="Nombre del huésped" value="${val('Nombre del huésped')}" oninput="_botcPerfilDirty_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px"></label>
+      <label style="display:block;margin-bottom:12px"><span style="font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em">Cel/Whatsapp (principal)</span>
+        <input type="text" data-pf="Cel/Whatsapp (principal)" value="${val('Cel/Whatsapp (principal)') || ('+'+p10)}" oninput="_botcPerfilDirty_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px"></label>
+      <label style="display:block;margin-bottom:12px"><span style="font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em">¿Requiere factura?</span>
+        <select data-pf="¿Requiere factura?" oninput="_botcPerfilDirty_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px">
+          <option value=""${!reqFactVal?' selected':''}>— Seleccionar —</option>
+          <option value="Sí"${reqFactVal==='sí'||reqFactVal==='si'?' selected':''}>Sí</option>
+          <option value="No"${reqFactVal==='no'?' selected':''}>No</option>
+        </select></label>
+      <label style="display:block;margin-bottom:12px"><span style="font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em">Razón social</span>
+        <input type="text" data-pf="Razón social" value="${val('Razón social')}" oninput="_botcPerfilDirty_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px"></label>
+      <label style="display:block;margin-bottom:12px"><span style="font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em">Régimen fiscal</span>
+        <select data-pf="Régimen fiscal" oninput="_botcPerfilDirty_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px">${regSel}</select></label>
+      <label style="display:block;margin-bottom:12px"><span style="font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em">Correo electrónico para el envío de la factura</span>
+        <input type="email" data-pf="Correo electrónico para el envío de la factura" value="${val('Correo electrónico para el envío de la factura')}" oninput="_botcPerfilDirty_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px"></label>
+      <label style="display:block;margin-bottom:12px"><span style="font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em">Notas</span>
+        <textarea data-pf="Notas" rows="3" oninput="_botcPerfilDirty_()" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-top:4px;resize:vertical">${val('Notas')}</textarea></label>
+    `;
+    if (!perfil) { // perfil nuevo → habilitar botón desde el inicio
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
+    }
+  } catch(e) {
+    document.getElementById('botc-perfil-editor-body').innerHTML = `<div style="color:#dc2626;text-align:center;padding:40px 0">⚠ Error: ${_botcEsc(e.message)}</div>`;
+  }
+};
+window._botcPerfilDirty_ = function() {
+  const btn = document.getElementById('botc-perfil-save-btn');
+  if (!btn) return;
+  // Si es perfil nuevo, siempre habilitado.
+  if (window.__botcPerfilIsNew_) { btn.disabled = false; btn.style.opacity = '1'; return; }
+  // Detectar si algún campo difiere del original.
+  const orig = window.__botcPerfilOriginal_ || {};
+  let dirty = false;
+  document.querySelectorAll('#botc-perfil-editor [data-pf]').forEach(el => {
+    const k = el.getAttribute('data-pf');
+    if (String(el.value||'').trim() !== String(orig[k]||'').trim()) dirty = true;
+  });
+  btn.disabled = !dirty;
+  btn.style.opacity = dirty ? '1' : '.4';
+};
+window._botcSavePerfilEditor_ = async function(phone) {
+  const btn = document.getElementById('botc-perfil-save-btn');
+  const origText = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Guardando…';
+  try {
+    const payload = { phone };
+    document.querySelectorAll('#botc-perfil-editor [data-pf]').forEach(el => {
+      payload[el.getAttribute('data-pf')] = el.value || '';
+    });
+    // Fuerza formato +52NNN si no viene con lada.
+    const rawPh = String(payload['Cel/Whatsapp (principal)']||'').replace(/\D/g,'');
+    payload['Cel/Whatsapp (principal)'] = rawPh.length >= 10 ? ('+' + rawPh.slice(-Math.min(rawPh.length,12))) : payload['Cel/Whatsapp (principal)'];
+    const r = await fetch('https://api.check-inn.mx/perfil/upsert', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ payload })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    document.getElementById('botc-perfil-editor')?.remove();
+    // Refresca conversations para reflejar RS/régimen actualizados.
+    try { if (typeof botcLoadConversations === 'function') botcLoadConversations({ silent:true }); } catch(_){}
+    // Repinta header actual si aplica.
+    try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
+  } catch(e) {
+    btn.disabled = false; btn.textContent = origText;
+    alert('Error al guardar: ' + e.message);
+  }
+};
+
 // Detección de temas críticos — usada tanto por el contador como por la
 // marca visual (punto rojo animado) en cada card.
 window._botcNotifIsCritical_ = function(r) {
@@ -45523,9 +45650,17 @@ function _botcRenderMain(phone) {
       if (bkForName && bkForName.GuestName) name = String(bkForName.GuestName).trim();
     } catch(_){}
   }
+  // Razón social + régimen fiscal (si existen en el perfil) — se muestran
+  // debajo del nombre. Vienen desde waChatConversationsList_ (hoja Perfiles).
+  const rs = (conv && conv.razon_social) ? String(conv.razon_social).trim() : '';
+  const reg = (conv && conv.regimen_fiscal) ? String(conv.regimen_fiscal).trim() : '';
+  const fiscalLine = (rs || reg)
+    ? `<div style="font-size:11px;color:#475569;font-weight:600;margin-top:2px">${rs?`<span>🧾 ${_botcEsc(rs)}</span>`:''}${(rs&&reg)?' · ':''}${reg?`<span style="color:#64748b">${_botcEsc(reg)}</span>`:''}</div>`
+    : '';
+  const editPerfilBtn = `<button type="button" onclick="_botcOpenPerfilEditor_('${_botcEsc(phone)}')" title="Editar perfil del huésped" style="background:transparent;border:0;cursor:pointer;padding:4px;border-radius:6px;color:#64748b;line-height:0" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>`;
   const nameHeader = name
-    ? `<div class="botc-chat-name" style="font-size:14px;font-weight:800;color:#0f172a;line-height:1.25;word-break:break-word"><span>${_botcEsc(name)}</span> <span style="font-size:12px;color:#64748b;font-weight:600;white-space:nowrap">(+${_botcEsc(phone)})</span></div>`
-    : `<div class="botc-chat-name" style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)}</div>`;
+    ? `<div class="botc-chat-name" style="font-size:14px;font-weight:800;color:#0f172a;line-height:1.25;word-break:break-word"><span>${_botcEsc(name)}</span> ${editPerfilBtn} <span style="font-size:12px;color:#64748b;font-weight:600;white-space:nowrap">(+${_botcEsc(phone)})</span>${fiscalLine}</div>`
+    : `<div class="botc-chat-name" style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)} ${editPerfilBtn}${fiscalLine}</div>`;
   // Saldo + chip status — solo si hay reserva CONFIRMADA (status Booked/OK).
   let payHeaderHtml = '';
   try {
