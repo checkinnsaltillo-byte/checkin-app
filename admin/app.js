@@ -44428,10 +44428,28 @@ window._botcSavePerfilEditor_ = async function(phone) {
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'error');
     document.getElementById('botc-perfil-editor')?.remove();
-    // Refresca conversations para reflejar RS/régimen actualizados.
+    // ─── Optimistic UI update ────────────────────────────────────────────
+    // Actualiza inmediatamente BOTC_STATE.conversations para el phone con los
+    // valores que acabamos de guardar — así el header y sidebar refrescan al
+    // instante, sin esperar el re-fetch de Apps Script (que tarda ~15-30s).
+    try {
+      if (typeof BOTC_STATE === 'object' && Array.isArray(BOTC_STATE.conversations)) {
+        let conv = BOTC_STATE.conversations.find(c => String(c.phone) === String(phone));
+        if (!conv) {
+          conv = { phone: String(phone), name: '', razon_social: '', regimen_fiscal: '', control: 'bot' };
+          BOTC_STATE.conversations.unshift(conv);
+        }
+        conv.name = String(payload['Nombre del huésped'] || conv.name || '').trim();
+        conv.razon_social = String(payload['Razón social'] || '').trim();
+        conv.regimen_fiscal = String(payload['Régimen fiscal'] || '').trim();
+      }
+    } catch(_){}
+    // Repinta header + sidebar YA.
+    try { if (typeof _botcRepaintChatHeader_ === 'function') _botcRepaintChatHeader_(); } catch(_){}
+    try { if (typeof _botcRenderSidebar === 'function') _botcRenderSidebar(); } catch(_){}
+    // Fire-and-forget: re-fetch en background para que la próxima carga tenga
+    // los datos frescos de Apps Script (por si otro campo cambió).
     try { if (typeof botcLoadConversations === 'function') botcLoadConversations({ silent:true }); } catch(_){}
-    // Repinta header actual si aplica.
-    try { if (typeof _waRepaint === 'function') _waRepaint(); } catch(_){}
   } catch(e) {
     btn.disabled = false; btn.textContent = origText;
     alert('Error al guardar: ' + e.message);
