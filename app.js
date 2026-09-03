@@ -14914,9 +14914,11 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
                 if (c && c.name) perfilName = String(c.name).trim();
               } catch(_){}
             }
+            // Regla: la card SIEMPRE muestra el nombre del Perfil (mismo que
+            // aparece en el editor). Nunca muestra el nombre con el que se
+            // registró la reserva en Lodgify (fallback solo si no hay perfil).
             const main = perfilName || bookingName || 'Sin nombre';
-            const showDiff = perfilName && bookingName && perfilName.toLowerCase() !== bookingName.toLowerCase();
-            return `<span>${esc(main)}</span>${showDiff?`<span style="font-size:10px;color:#64748b;font-weight:600" title="Nombre en la reserva de Lodgify">(reserva: ${esc(bookingName)})</span>`:''}`;
+            return `<span>${esc(main)}</span>`;
           })()}
           ${(() => {
             const ph = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
