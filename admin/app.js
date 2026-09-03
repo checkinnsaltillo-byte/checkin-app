@@ -14894,6 +14894,11 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
         </div>
         <div class="rd-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span>${esc(b.GuestName||'Sin nombre')}</span>
+          ${(() => {
+            const ph = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
+            if (!ph) return '';
+            return `<button type="button" onclick="event.stopPropagation();_botcOpenPerfilEditor_('${esc(ph)}')" title="Editar perfil del huésped" style="background:transparent;border:0;cursor:pointer;padding:2px;border-radius:4px;color:#64748b;line-height:0" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>`;
+          })()}
           ${guestAvgStarsInline}
           ${tierInlineHtml}
         </div>
