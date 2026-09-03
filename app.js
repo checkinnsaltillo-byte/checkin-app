@@ -14897,7 +14897,7 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
           ${(() => {
             const ph = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
             if (!ph) return '';
-            return `<button type="button" onclick="event.stopPropagation();_botcOpenPerfilEditor_('${esc(ph)}')" title="Editar perfil del huésped" style="background:transparent;border:0;cursor:pointer;padding:2px;border-radius:4px;color:#64748b;line-height:0" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>`;
+            return `<button type="button" onclick="event.stopPropagation();_botcOpenPerfilEditor_('${esc(ph)}')" title="Editar perfil del huésped" style="background:#dbeafe;border:1px solid #93c5fd;cursor:pointer;padding:2px 6px;border-radius:5px;color:#1e40af;font-size:10px;font-weight:800;line-height:1;display:inline-flex;align-items:center;gap:3px" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">✏️ Editar</button>`;
           })()}
           ${guestAvgStarsInline}
           ${tierInlineHtml}
@@ -45759,7 +45759,7 @@ function _botcRenderMain(phone) {
   const fiscalLine = (rs || reg)
     ? `<div style="font-size:11px;color:#475569;font-weight:600;margin-top:2px">${rs?`<span>🧾 ${_botcEsc(rs)}</span>`:''}${(rs&&reg)?' · ':''}${reg?`<span style="color:#64748b">${_botcEsc(reg)}</span>`:''}</div>`
     : '';
-  const editPerfilBtn = `<button type="button" onclick="_botcOpenPerfilEditor_('${_botcEsc(phone)}')" title="Editar perfil del huésped" style="background:transparent;border:0;cursor:pointer;padding:4px;border-radius:6px;color:#64748b;line-height:0" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>`;
+  const editPerfilBtn = `<button type="button" onclick="_botcOpenPerfilEditor_('${_botcEsc(phone)}')" title="Editar perfil del huésped" style="background:#dbeafe;border:1px solid #93c5fd;cursor:pointer;padding:3px 8px;border-radius:6px;color:#1e40af;font-size:12px;font-weight:800;line-height:1;display:inline-flex;align-items:center;gap:4px" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">✏️ Editar</button>`;
   const nameHeader = name
     ? `<div class="botc-chat-name" style="font-size:14px;font-weight:800;color:#0f172a;line-height:1.25;word-break:break-word"><span>${_botcEsc(name)}</span> ${editPerfilBtn} <span style="font-size:12px;color:#64748b;font-weight:600;white-space:nowrap">(+${_botcEsc(phone)})</span>${fiscalLine}</div>`
     : `<div class="botc-chat-name" style="font-size:14px;font-weight:800;color:#0f172a">+${_botcEsc(phone)} ${editPerfilBtn}${fiscalLine}</div>`;
