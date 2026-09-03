@@ -14893,7 +14893,16 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
           <span class="rd-status-badge rd-status-${statusUi}">${esc(statusUi)}</span>
         </div>
         <div class="rd-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span>${esc(b.GuestName||'Sin nombre')}</span>
+          ${(() => {
+            // Prioriza el nombre del Perfil (huesped["Nombre del huésped"]).
+            // Si difiere del GuestName del booking (Lodgify), muestra el de
+            // Lodgify también en gris como "(reserva: X)".
+            const bookingName = String(b.GuestName || '').trim();
+            const perfilName = huesped ? String(huesped['Nombre del huésped'] || '').trim() : '';
+            const main = perfilName || bookingName || 'Sin nombre';
+            const showDiff = perfilName && bookingName && perfilName.toLowerCase() !== bookingName.toLowerCase();
+            return `<span>${esc(main)}</span>${showDiff?`<span style="font-size:10px;color:#64748b;font-weight:600" title="Nombre en la reserva de Lodgify">(reserva: ${esc(bookingName)})</span>`:''}`;
+          })()}
           ${(() => {
             const ph = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
             if (!ph) return '';
