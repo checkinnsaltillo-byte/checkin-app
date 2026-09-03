@@ -14894,11 +14894,26 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
         </div>
         <div class="rd-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           ${(() => {
-            // Prioriza el nombre del Perfil (huesped["Nombre del huésped"]).
-            // Si difiere del GuestName del booking (Lodgify), muestra el de
-            // Lodgify también en gris como "(reserva: X)".
+            // Prioriza el nombre del Perfil. Busca en cascada:
+            //  1) huesped (match del booking en Reservaciones).
+            //  2) HU_STATE.rows por celular (si el match falló pero el huésped
+            //     tiene otro row en Reservaciones con ese phone).
+            //  3) BOTC_STATE.conversations por celular (Perfiles vía Chats bot).
             const bookingName = String(b.GuestName || '').trim();
-            const perfilName = huesped ? String(huesped['Nombre del huésped'] || '').trim() : '';
+            const p10 = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
+            let perfilName = huesped ? String(huesped['Nombre del huésped'] || '').trim() : '';
+            if (!perfilName && p10 && typeof HU_STATE !== 'undefined' && Array.isArray(HU_STATE.rows)) {
+              try {
+                const m = HU_STATE.rows.find(r => String(r['Cel/Whatsapp (principal)']||'').replace(/\D/g,'').slice(-10) === p10);
+                if (m) perfilName = String(m['Nombre del huésped'] || '').trim();
+              } catch(_){}
+            }
+            if (!perfilName && p10 && typeof BOTC_STATE === 'object' && Array.isArray(BOTC_STATE.conversations)) {
+              try {
+                const c = BOTC_STATE.conversations.find(x => String(x.phone) === p10);
+                if (c && c.name) perfilName = String(c.name).trim();
+              } catch(_){}
+            }
             const main = perfilName || bookingName || 'Sin nombre';
             const showDiff = perfilName && bookingName && perfilName.toLowerCase() !== bookingName.toLowerCase();
             return `<span>${esc(main)}</span>${showDiff?`<span style="font-size:10px;color:#64748b;font-weight:600" title="Nombre en la reserva de Lodgify">(reserva: ${esc(bookingName)})</span>`:''}`;
