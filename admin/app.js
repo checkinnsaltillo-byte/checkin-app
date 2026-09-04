@@ -44676,8 +44676,20 @@ window._botcNotifMsgsBtn_ = function(cardKey, phone, tipoHint, anchorTimestamps)
   const anchorCsv = Array.isArray(anchorTimestamps)
     ? anchorTimestamps.filter(Boolean).map(String).join(',')
     : String(anchorTimestamps||'');
-  return `<button type="button" onclick="event.stopPropagation();_botcNotifToggleMsgs_('${_botcEsc(cardKey)}','${_botcEsc(p10)}',${tipo},'${_botcEsc(anchorCsv)}')" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;margin-top:6px;display:inline-flex;align-items:center;gap:4px">💬 Ver mensajes</button>
+  return `<div style="display:inline-flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+      <button type="button" onclick="event.stopPropagation();_botcNotifToggleMsgs_('${_botcEsc(cardKey)}','${_botcEsc(p10)}',${tipo},'${_botcEsc(anchorCsv)}')" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;display:inline-flex;align-items:center;gap:4px">💬 Ver mensajes</button>
+      <button type="button" onclick="event.stopPropagation();_botcNotifGoToChat_('${_botcEsc(p10)}')" title="Abrir la conversación completa en Chats bot" style="background:#d1fae5;border:1px solid #86efac;color:#065f46;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;display:inline-flex;align-items:center;gap:4px">➡️ Ir a chat</button>
+    </div>
     <div id="notif-msgs-${_botcEsc(cardKey)}" data-open="0" onclick="event.stopPropagation()" style="display:none;margin-top:6px"></div>`;
+};
+// Cierra Notificaciones + side-over y salta al chat del número en Chats bot.
+window._botcNotifGoToChat_ = function(phone) {
+  const p10 = String(phone||'').replace(/\D/g,'').slice(-10);
+  if (!p10) return;
+  try { if (typeof _botcNotifCloseSide_ === 'function') _botcNotifCloseSide_(); } catch(_){}
+  document.getElementById('botc-notifs-modal')?.remove();
+  try { if (typeof switchModule === 'function') switchModule('bot-chats'); } catch(_){}
+  setTimeout(() => { try { if (typeof botcOpenChat === 'function') botcOpenChat(p10); } catch(_){} }, 200);
 };
 
 // Contador global de notificaciones nuevas — pinta el mismo número en cada
