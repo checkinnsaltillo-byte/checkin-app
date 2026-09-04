@@ -44758,17 +44758,22 @@ window._botcNotifAvisarEmergencia_ = async function(cardKey) {
 };
 // Botón "Avisar" reutilizable — dropdown de emergencia + trigger.
 window._botcNotifAvisarBtn_ = function(cardKey, cardData) {
-  const phones = window.__botcEmergencyPhones || [];
-  if (!phones.length) return ''; // sin números configurados
   // Guarda el resumen en un registry global; el handler lo lee al hacer clic.
   window.__botcNotifSummaries_ = window.__botcNotifSummaries_ || {};
   window.__botcNotifSummaries_[cardKey] = window._botcNotifSummary_(cardData);
+  const phones = window.__botcEmergencyPhones || [];
+  if (!phones.length) {
+    return `<div style="display:inline-flex;gap:4px;margin-top:6px;align-items:center">
+      <button type="button" onclick="event.stopPropagation();_botcNotifConfigEmergencia_()" title="Configurar números de emergencia" style="background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;display:inline-flex;align-items:center;gap:3px">🚨 Avisar (+ Configurar)</button>
+    </div>`;
+  }
   const opts = phones.map(p => `<option value="${_botcEsc(p)}">${_botcEsc(p)}</option>`).join('');
   return `<div style="display:inline-flex;gap:4px;margin-top:6px;align-items:center;flex-wrap:wrap">
     <select id="notif-emer-sel-${_botcEsc(cardKey)}" onclick="event.stopPropagation()" onchange="event.stopPropagation()" style="font-size:10px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;max-width:140px">
       <option value="">Emergencia…</option>${opts}
     </select>
     <button type="button" id="notif-emer-btn-${_botcEsc(cardKey)}" onclick="event.stopPropagation();_botcNotifAvisarEmergencia_('${_botcEsc(cardKey)}')" title="Enviar aviso al número de emergencia seleccionado" style="background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;display:inline-flex;align-items:center;gap:3px">🚨 Avisar</button>
+    <button type="button" onclick="event.stopPropagation();_botcNotifConfigEmergencia_()" title="Editar lista de emergencia" style="background:transparent;border:0;color:#64748b;font-size:12px;cursor:pointer;padding:2px 4px">⚙</button>
   </div>`;
 };
 
