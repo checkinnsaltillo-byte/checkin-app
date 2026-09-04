@@ -44604,19 +44604,30 @@ window._botcNotifIsCritical_ = function(r) {
 // dentro de una ventana temporal (±10 min) alrededor de los timestamps clave de
 // la card — evita mostrar toda la conversación histórica.
 window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint, anchorTsCsv) {
-  const wrap = document.getElementById('notif-msgs-' + cardKey);
-  if (!wrap) return;
-  if (wrap.dataset.open === '1') { wrap.dataset.open = '0'; wrap.style.display = 'none'; return; }
-  wrap.dataset.open = '1'; wrap.style.display = 'block';
-  wrap.innerHTML = '<div style="padding:8px;text-align:center;color:#94a3b8;font-size:11px">⏳ Cargando mensajes…</div>';
+  const wrapId = 'notif-msgs-' + cardKey;
+  const initialWrap = document.getElementById(wrapId);
+  if (!initialWrap) return;
+  if (initialWrap.dataset.open === '1') { initialWrap.dataset.open = '0'; initialWrap.style.display = 'none'; return; }
+  initialWrap.dataset.open = '1'; initialWrap.style.display = 'block';
+  initialWrap.innerHTML = '<div style="padding:8px;text-align:center;color:#94a3b8;font-size:11px">⏳ Cargando mensajes… (endpoint puede tardar 10-30s)</div>';
   const p10 = String(phone||'').replace(/\D/g,'').slice(-10);
-  if (!p10) { wrap.innerHTML = '<div style="padding:8px;color:#94a3b8;font-size:11px">Sin celular asociado.</div>'; return; }
-  // Anchor timestamps clave de la card (Timestamp, UpdatedAt, ProgramadaAt, etc.).
-  // Formato CSV. Cada uno abre una ventana ±10 min para incluir mensajes cercanos.
+  // Helper para escribir SIEMPRE en el wrap actual — si Notificaciones se
+  // re-renderizó entre click y respuesta, el original queda detached.
+  const writeToWrap = (html) => {
+    const w = document.getElementById(wrapId);
+    if (!w) return;
+    if (w.dataset.open !== '1') return; // usuario cerró — no sobrescribir
+    w.innerHTML = html;
+  };
+  if (!p10) { writeToWrap('<div style="padding:8px;color:#94a3b8;font-size:11px">Sin celular asociado.</div>'); return; }
   const anchors = String(anchorTsCsv||'').split(',').map(s => s.trim()).filter(Boolean).map(s => Date.parse(s)).filter(n => !isNaN(n));
   const WINDOW_MS = 10 * 60 * 1000;
   try {
-    const r = await fetch(`https://api.check-inn.mx/wa/bot/context?phone=${encodeURIComponent(p10)}&limit=200`, { cache:'no-store' });
+    // AbortController con 35s de timeout — evita el hang indefinido si
+    // Apps Script tarda demasiado.
+    const ctrl = new AbortController();
+    const tm = setTimeout(() => ctrl.abort(), 35000);
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/context?phone=${encodeURIComponent(p10)}&limit=100`, { cache:'no-store', signal: ctrl.signal }).finally(() => clearTimeout(tm));
     const j = await r.json();
     let msgs = Array.isArray(j.messages) ? j.messages : [];
     // Filtro estricto por tipo cuando venga hint — solo se aplica a outbound.
@@ -44643,7 +44654,7 @@ window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint, anchorTs
     }
     msgs.sort((a,b) => String(a.timestamp||'').localeCompare(String(b.timestamp||'')));
     if (!msgs.length) {
-      wrap.innerHTML = '<div style="padding:8px;color:#94a3b8;font-size:11px">Sin mensajes enviados a este número.</div>';
+      writeToWrap('<div style="padding:8px;color:#94a3b8;font-size:11px">Sin mensajes en la ventana de tiempo de esta acción.</div>');
       return;
     }
     const fmtTs = (iso) => {
@@ -44652,7 +44663,7 @@ window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint, anchorTs
         return `${String(d.getDate()).padStart(2,'0')} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][d.getMonth()]}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       } catch(_) { return String(iso||''); }
     };
-    wrap.innerHTML = msgs.map(m => {
+    writeToWrap(msgs.map(m => {
       const isInbound = String(m.role||'') === 'user';
       const admin = (m.meta && m.meta.admin);
       // Estilo distinto por origen: inbound (huésped) verde claro alineado
@@ -44671,9 +44682,10 @@ window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint, anchorTs
           <div style="font-size:12px;color:#0f172a;white-space:pre-wrap;word-break:break-word">${_botcEsc(body)}${body.length>=400?'…':''}</div>
         </div>
       </div>`;
-    }).join('');
+    }).join(''));
   } catch(e) {
-    wrap.innerHTML = `<div style="padding:8px;color:#dc2626;font-size:11px">⚠ ${_botcEsc(e.message)}</div>`;
+    const msg = (e && e.name === 'AbortError') ? 'Timeout tras 35s (Apps Script lento). Reintenta.' : (e && e.message) || String(e);
+    writeToWrap(`<div style="padding:8px;color:#dc2626;font-size:11px">⚠ ${_botcEsc(msg)}</div>`);
   }
 };
 // Botón "Ver mensajes" reutilizable para las cards de Notificaciones.
