@@ -44992,11 +44992,36 @@ function _botcNotifCardHtml_(r) {
       ${alojLine?`<div style="font-size:11px;color:#475569;margin-bottom:4px">📍 ${_botcEsc(alojLine)}</div>`:''}
       ${raw.Descripcion && raw.Descripcion !== titulo ? `<div style="font-size:11px;color:#64748b;white-space:pre-wrap">${_botcEsc(String(raw.Descripcion).slice(0,200))}</div>`:''}
       ${(() => {
-        // Determinar phone: booking (bk.GuestPhone) o campos crudos del reporte.
-        const ph = String((bk && bk.GuestPhone) || raw.Phone || raw.Celular || raw['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
+        // Determinar phone en cascada:
+        //  1) Booking (si el reporte está enlazado a una reserva).
+        //  2) Campos directos del reporte: Huesped_contacto, Phone, Celular, etc.
+        //  3) Fallback: buscar en HU_STATE.rows (Reservaciones) por Propiedad
+        //     + # Departamento + fecha del reporte — encuentra al huésped
+        //     que estaba hospedado en ese depa ese día.
+        let ph = String((bk && bk.GuestPhone) || raw.Huesped_contacto || raw.Phone || raw.Celular || raw['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
+        if (!ph && typeof HU_STATE !== 'undefined' && Array.isArray(HU_STATE.rows)) {
+          try {
+            const prop = String(raw.Propiedad || '').toLowerCase().trim();
+            const dept = String(raw['# Departamento'] || '').trim();
+            const fecha = String(raw.Fecha || raw.Timestamp || '').slice(0,10);
+            if (prop && fecha) {
+              const parseIso = s => { const m = String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[0] : (String(s||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/) ? `${RegExp.$3}-${String(RegExp.$1).padStart(2,'0')}-${String(RegExp.$2).padStart(2,'0')}` : ''); };
+              const match = HU_STATE.rows.find(h => {
+                const hp = String(h['Propiedad']||'').toLowerCase().trim();
+                const hd = String(h['# Departamento']||'').trim();
+                if (hp !== prop) return false;
+                if (dept && hd !== dept) return false;
+                const arr = parseIso(h['Fecha de ingreso']);
+                const dep = parseIso(h['Fecha de salida']);
+                return arr && dep && arr <= fecha && fecha <= dep;
+              });
+              if (match) ph = String(match['Cel/Whatsapp (principal)']||'').replace(/\D/g,'').slice(-10);
+            }
+          } catch(_){}
+        }
         if (!ph) return '';
         const hintByKind = { reporte_tecnico:'reporte', incidencia:'incidencia', objeto:'objeto' }[r._kind] || '';
-        const anchors = [raw.Timestamp, raw.UpdatedAt, raw.FechaCierre, raw.ResueltoAt, raw.Fecha, raw.Fecha_encontrado, raw.Fecha_entregado].filter(Boolean);
+        const anchors = [raw.Timestamp, raw.Updated_at, raw.UpdatedAt, raw.FechaCierre, raw.ResueltoAt, raw.Fecha, raw.Fecha_encontrado, raw.Fecha_entregado].filter(Boolean);
         return _botcNotifMsgsBtn_(r._kind + '_' + rowKey, ph, hintByKind, anchors);
       })()}
     </div>`;
