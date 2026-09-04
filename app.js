@@ -44589,8 +44589,10 @@ window._botcNotifIsCritical_ = function(r) {
 // Toggle del panel de mensajes WA enviados a un phone (relacionados con una card).
 // Trae de /wa/bot/context (histórico bitácora), filtra outbound (role ∈ 'assistant'|'admin'),
 // muestra solo entregados (todos los persistidos en WA_ChatContext están enviados;
-// los programados/omitidos/borrados NO llegan a esa hoja). Opcional filtro por tipo.
-window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint) {
+// los programados/omitidos/borrados NO llegan a esa hoja). Filtra a los mensajes
+// dentro de una ventana temporal (±10 min) alrededor de los timestamps clave de
+// la card — evita mostrar toda la conversación histórica.
+window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint, anchorTsCsv) {
   const wrap = document.getElementById('notif-msgs-' + cardKey);
   if (!wrap) return;
   if (wrap.dataset.open === '1') { wrap.dataset.open = '0'; wrap.style.display = 'none'; return; }
@@ -44598,22 +44600,36 @@ window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint) {
   wrap.innerHTML = '<div style="padding:8px;text-align:center;color:#94a3b8;font-size:11px">⏳ Cargando mensajes…</div>';
   const p10 = String(phone||'').replace(/\D/g,'').slice(-10);
   if (!p10) { wrap.innerHTML = '<div style="padding:8px;color:#94a3b8;font-size:11px">Sin celular asociado.</div>'; return; }
+  // Anchor timestamps clave de la card (Timestamp, UpdatedAt, ProgramadaAt, etc.).
+  // Formato CSV. Cada uno abre una ventana ±10 min para incluir mensajes cercanos.
+  const anchors = String(anchorTsCsv||'').split(',').map(s => s.trim()).filter(Boolean).map(s => Date.parse(s)).filter(n => !isNaN(n));
+  const WINDOW_MS = 10 * 60 * 1000;
   try {
-    const r = await fetch(`https://api.check-inn.mx/wa/bot/context?phone=${encodeURIComponent(p10)}&limit=100`, { cache:'no-store' });
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/context?phone=${encodeURIComponent(p10)}&limit=200`, { cache:'no-store' });
     const j = await r.json();
     let msgs = Array.isArray(j.messages) ? j.messages : [];
     // Solo outbound (mensajes enviados hacia el huésped/número).
     msgs = msgs.filter(m => String(m.role||'') !== 'user');
-    // Filtro por tipo si se pasó hint (ej. 'ticket_autofact' para tickets).
+    // Filtro estricto por tipo cuando venga hint — si no matchea, se elimina.
     if (tipoHint) {
       msgs = msgs.filter(m => {
         const t = (m.meta && m.meta.tipo) ? String(m.meta.tipo).toLowerCase() : '';
-        return !t || t.includes(tipoHint.toLowerCase());
+        if (!t) return true; // sin tipo → considerado, se filtrará por ventana temporal
+        return t.includes(tipoHint.toLowerCase());
       });
     }
-    // Orden asc (más viejo arriba). Últimos 20 para no saturar.
+    // Filtrar por ventana temporal alrededor de los anchors. Si no hay anchors,
+    // usa los 3 más recientes como fallback (mejor que mostrar todo).
+    if (anchors.length) {
+      msgs = msgs.filter(m => {
+        const ts = Date.parse(m.timestamp||'');
+        if (isNaN(ts)) return false;
+        return anchors.some(a => Math.abs(ts - a) <= WINDOW_MS);
+      });
+    } else {
+      msgs = msgs.slice(-3);
+    }
     msgs.sort((a,b) => String(a.timestamp||'').localeCompare(String(b.timestamp||'')));
-    msgs = msgs.slice(-20);
     if (!msgs.length) {
       wrap.innerHTML = '<div style="padding:8px;color:#94a3b8;font-size:11px">Sin mensajes enviados a este número.</div>';
       return;
@@ -44640,11 +44656,17 @@ window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint) {
   }
 };
 // Botón "Ver mensajes" reutilizable para las cards de Notificaciones.
-window._botcNotifMsgsBtn_ = function(cardKey, phone, tipoHint) {
+// anchorTimestamps: array de timestamps ISO relacionados con la card
+// (Timestamp, UpdatedAt, ProgramadaAt, AtendidoAt, etc.) — se usan como
+// centros de ventana temporal para filtrar los mensajes de esa acción específica.
+window._botcNotifMsgsBtn_ = function(cardKey, phone, tipoHint, anchorTimestamps) {
   const p10 = String(phone||'').replace(/\D/g,'').slice(-10);
   if (!p10) return '';
   const tipo = tipoHint ? `'${_botcEsc(tipoHint)}'` : 'null';
-  return `<button type="button" onclick="event.stopPropagation();_botcNotifToggleMsgs_('${_botcEsc(cardKey)}','${_botcEsc(p10)}',${tipo})" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;margin-top:6px;display:inline-flex;align-items:center;gap:4px">💬 Ver mensajes</button>
+  const anchorCsv = Array.isArray(anchorTimestamps)
+    ? anchorTimestamps.filter(Boolean).map(String).join(',')
+    : String(anchorTimestamps||'');
+  return `<button type="button" onclick="event.stopPropagation();_botcNotifToggleMsgs_('${_botcEsc(cardKey)}','${_botcEsc(p10)}',${tipo},'${_botcEsc(anchorCsv)}')" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;margin-top:6px;display:inline-flex;align-items:center;gap:4px">💬 Ver mensajes</button>
     <div id="notif-msgs-${_botcEsc(cardKey)}" data-open="0" onclick="event.stopPropagation()" style="display:none;margin-top:6px"></div>`;
 };
 
@@ -44825,7 +44847,7 @@ function _botcNotifCardHtml_(r) {
         ${s.ProgramadaAt?`<div style="font-size:11px;color:#1e40af;background:#dbeafe;padding:4px 8px;border-radius:6px;margin-bottom:6px;font-weight:700">📅 Programada para: ${_botcEsc(_botcNotifTsFmt_(s.ProgramadaAt))}</div>`:''}
         <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen||'')}</div>
         ${footer}
-        ${_botcNotifMsgsBtn_(solKey, p10 || s.Phone, tipoHint)}
+        ${_botcNotifMsgsBtn_(solKey, p10 || s.Phone, tipoHint, [s.Timestamp, s.UpdatedAt, s.ProgramadaAt, s.AtendidoAt, s.CanceladoAt].filter(Boolean))}
       </div>`;
   }
 
@@ -44871,7 +44893,7 @@ function _botcNotifCardHtml_(r) {
         ${nameBlock}${bkLine}
         <div style="font-size:11px;color:#475569">${p.Referencia?`Ref ${_botcEsc(p.Referencia)} · `:''}${fecha?`${fecha} · `:''}${p.RegistradoPor?`por ${_botcEsc(p.RegistradoPor)}`:''}</div>
         ${p.Notas?`<div style="font-size:11px;color:#64748b;margin-top:4px">${_botcEsc(p.Notas)}</div>`:''}
-        ${_botcNotifMsgsBtn_('pago_'+rowKey, p10 || (bk && bk.GuestPhone) || '', 'pago')}
+        ${_botcNotifMsgsBtn_('pago_'+rowKey, p10 || (bk && bk.GuestPhone) || '', 'pago', [p.Timestamp, p.Fecha].filter(Boolean))}
       </div>`;
   }
 
@@ -44900,7 +44922,8 @@ function _botcNotifCardHtml_(r) {
         const ph = String((bk && bk.GuestPhone) || raw.Phone || raw.Celular || raw['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
         if (!ph) return '';
         const hintByKind = { reporte_tecnico:'reporte', incidencia:'incidencia', objeto:'objeto' }[r._kind] || '';
-        return _botcNotifMsgsBtn_(r._kind + '_' + rowKey, ph, hintByKind);
+        const anchors = [raw.Timestamp, raw.UpdatedAt, raw.FechaCierre, raw.ResueltoAt, raw.Fecha, raw.Fecha_encontrado, raw.Fecha_entregado].filter(Boolean);
+        return _botcNotifMsgsBtn_(r._kind + '_' + rowKey, ph, hintByKind, anchors);
       })()}
     </div>`;
 }
