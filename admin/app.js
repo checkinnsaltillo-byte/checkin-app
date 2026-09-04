@@ -44620,8 +44620,17 @@ window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint, anchorTs
     w.innerHTML = html;
   };
   if (!p10) { writeToWrap('<div style="padding:8px;color:#94a3b8;font-size:11px">Sin celular asociado.</div>'); return; }
-  const anchors = String(anchorTsCsv||'').split(',').map(s => s.trim()).filter(Boolean).map(s => Date.parse(s)).filter(n => !isNaN(n));
-  const WINDOW_MS = 10 * 60 * 1000;
+  // Cada anchor genera una ventana temporal. Si es date-only (YYYY-MM-DD),
+  // la ventana cubre todo ese día (±12h desde mediodía local). Si trae hora,
+  // ±2h para tolerar delay entre creación de la task y el mensaje WA
+  // (auto-schedule del día de salida, programación, etc.).
+  const anchorItems = String(anchorTsCsv||'').split(',').map(s => s.trim()).filter(Boolean).map(s => {
+    const raw = s.slice(0, 10);
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s) || !/T\d/.test(s);
+    const ts = Date.parse(dateOnly ? (raw + 'T12:00:00') : s);
+    if (isNaN(ts)) return null;
+    return { center: ts, windowMs: dateOnly ? (12*60*60*1000) : (2*60*60*1000) };
+  }).filter(Boolean);
   try {
     // AbortController con 35s de timeout — evita el hang indefinido si
     // Apps Script tarda demasiado.
@@ -44641,13 +44650,13 @@ window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint, anchorTs
         return t.includes(tipoHint.toLowerCase());
       });
     }
-    // Filtrar por ventana temporal alrededor de los anchors. Si no hay anchors,
-    // usa los 3 más recientes como fallback (mejor que mostrar todo).
-    if (anchors.length) {
+    // Filtrar por ventanas temporales de los anchors. Cada anchor lleva su
+    // propio windowMs (12h si date-only, 2h si tiene hora).
+    if (anchorItems.length) {
       msgs = msgs.filter(m => {
         const ts = Date.parse(m.timestamp||'');
         if (isNaN(ts)) return false;
-        return anchors.some(a => Math.abs(ts - a) <= WINDOW_MS);
+        return anchorItems.some(a => Math.abs(ts - a.center) <= a.windowMs);
       });
     } else {
       msgs = msgs.slice(-3);
@@ -44713,19 +44722,24 @@ window._botcNotifGoToChat_ = function(phone, anchorTsCsv) {
   if (!p10) return;
   try { if (typeof _botcNotifCloseSide_ === 'function') _botcNotifCloseSide_(); } catch(_){}
   document.getElementById('botc-notifs-modal')?.remove();
-  // Guarda anchors para que botcOpenChat haga scroll tras renderizar.
-  const anchors = String(anchorTsCsv||'').split(',').map(s => s.trim()).filter(Boolean).map(s => Date.parse(s)).filter(n => !isNaN(n));
-  window.__botcScrollToAnchors = anchors.length ? anchors : null;
+  // Guarda anchor items (con ventana propia por si es date-only) para scroll.
+  const items = String(anchorTsCsv||'').split(',').map(s => s.trim()).filter(Boolean).map(s => {
+    const raw = s.slice(0, 10);
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s) || !/T\d/.test(s);
+    const ts = Date.parse(dateOnly ? (raw + 'T12:00:00') : s);
+    if (isNaN(ts)) return null;
+    return { center: ts, windowMs: dateOnly ? (12*60*60*1000) : (2*60*60*1000) };
+  }).filter(Boolean);
+  window.__botcScrollToAnchors = items.length ? items : null;
   try { if (typeof switchModule === 'function') switchModule('bot-chats'); } catch(_){}
   setTimeout(() => { try { if (typeof botcOpenChat === 'function') botcOpenChat(p10); } catch(_){} }, 200);
 };
 // Después de renderizar el chat, scroll al primer mensaje dentro de la
 // ventana temporal de los anchors + highlight temporal para orientar al admin.
 window._botcNotifScrollToAnchors_ = function() {
-  const anchors = window.__botcScrollToAnchors;
-  if (!Array.isArray(anchors) || !anchors.length) return;
+  const items = window.__botcScrollToAnchors;
+  if (!Array.isArray(items) || !items.length) return;
   window.__botcScrollToAnchors = null;
-  const WINDOW_MS = 10 * 60 * 1000;
   const box = document.getElementById('botc-msgs');
   if (!box) return;
   const rows = box.querySelectorAll('[data-ts]');
@@ -44733,7 +44747,7 @@ window._botcNotifScrollToAnchors_ = function() {
   for (const row of rows) {
     const ts = Date.parse(row.getAttribute('data-ts') || '');
     if (isNaN(ts)) continue;
-    if (anchors.some(a => Math.abs(ts - a) <= WINDOW_MS)) { target = row; break; }
+    if (items.some(a => Math.abs(ts - a.center) <= a.windowMs)) { target = row; break; }
   }
   if (!target) return;
   // Highlight temporal (~3s) para ayudar al ojo a ubicar el bloque.
