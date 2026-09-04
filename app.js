@@ -44608,11 +44608,12 @@ window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint, anchorTs
     const r = await fetch(`https://api.check-inn.mx/wa/bot/context?phone=${encodeURIComponent(p10)}&limit=200`, { cache:'no-store' });
     const j = await r.json();
     let msgs = Array.isArray(j.messages) ? j.messages : [];
-    // Solo outbound (mensajes enviados hacia el huésped/número).
-    msgs = msgs.filter(m => String(m.role||'') !== 'user');
-    // Filtro estricto por tipo cuando venga hint — si no matchea, se elimina.
+    // Filtro estricto por tipo cuando venga hint — solo se aplica a outbound.
+    // Los inbound (role='user') siempre se conservan porque son la respuesta
+    // del huésped a la acción y aportan contexto conversacional.
     if (tipoHint) {
       msgs = msgs.filter(m => {
+        if (String(m.role||'') === 'user') return true; // inbound: siempre
         const t = (m.meta && m.meta.tipo) ? String(m.meta.tipo).toLowerCase() : '';
         if (!t) return true; // sin tipo → considerado, se filtrará por ventana temporal
         return t.includes(tipoHint.toLowerCase());
@@ -44641,14 +44642,23 @@ window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint, anchorTs
       } catch(_) { return String(iso||''); }
     };
     wrap.innerHTML = msgs.map(m => {
+      const isInbound = String(m.role||'') === 'user';
       const admin = (m.meta && m.meta.admin);
-      const bg = admin ? '#f0fdfa' : '#eff6ff';
-      const author = admin ? '👤 Admin' : '🤖 Bot';
+      // Estilo distinto por origen: inbound (huésped) verde claro alineado
+      // izquierda; outbound (bot/admin) azul/teal alineado derecha.
+      const bg = isInbound ? '#f0fdf4' : (admin ? '#f0fdfa' : '#eff6ff');
+      const border = isInbound ? '#bbf7d0' : '#e2e8f0';
+      const align = isInbound ? 'flex-start' : 'flex-end';
+      const author = isInbound ? '👥 Huésped' : (admin ? '👤 Admin' : '🤖 Bot');
       const body = String(m.body||'').slice(0, 400);
-      const forwarded = (m.meta && (m.meta.forwarded || m.meta.resend || m.meta.reforward)) ? '🔁 REENVIADO · ' : '';
-      return `<div style="background:${bg};border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;margin-top:6px">
-        <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:3px">${author} · ${_botcEsc(fmtTs(m.timestamp))} <span style="color:#16a34a">· ${forwarded}ENTREGADO</span></div>
-        <div style="font-size:12px;color:#0f172a;white-space:pre-wrap;word-break:break-word">${_botcEsc(body)}${body.length>=400?'…':''}</div>
+      const status = isInbound ? '· RECIBIDO' :
+        `· ${(m.meta && (m.meta.forwarded || m.meta.resend || m.meta.reforward)) ? '🔁 REENVIADO · ' : ''}ENTREGADO`;
+      const statusColor = isInbound ? '#0369a1' : '#16a34a';
+      return `<div style="display:flex;justify-content:${align};margin-top:6px">
+        <div style="max-width:88%;background:${bg};border:1px solid ${border};border-radius:8px;padding:8px 10px">
+          <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:3px">${author} · ${_botcEsc(fmtTs(m.timestamp))} <span style="color:${statusColor}">${status}</span></div>
+          <div style="font-size:12px;color:#0f172a;white-space:pre-wrap;word-break:break-word">${_botcEsc(body)}${body.length>=400?'…':''}</div>
+        </div>
       </div>`;
     }).join('');
   } catch(e) {
