@@ -44326,6 +44326,10 @@ window._botcOpenNotifsGlobal_ = async function(section, subtab, keepDays) {
   if (section) st.section = section;
   if (subtab != null) st.subtab[st.section] = subtab;
   if (!keepDays) st.daysShown = 3; // reset paginación al cambiar tab
+  // Precarga números de emergencia si aún no están cacheados (fire-and-forget).
+  if (!(window.__botcEmergencyPhones && window.__botcEmergencyPhones.length)) {
+    try { if (typeof window._botcNotifLoadEmergencyPhones_ === 'function') await window._botcNotifLoadEmergencyPhones_(); } catch(_){}
+  }
   const active = st.section;
   const activeSub = st.subtab[active] || 'todos';
   const prev = document.getElementById('botc-notifs-modal'); if (prev) prev.remove();
@@ -44703,6 +44707,71 @@ window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint, anchorTs
     writeToWrap(`<div style="padding:8px;color:#dc2626;font-size:11px">⚠ ${_botcEsc(msg)}</div>`);
   }
 };
+// Cache de números de emergencia — lo popula _botcNotifLoadEmergencyPhones_
+// al abrir el panel Notificaciones. Se reutiliza para dropdown de "Avisar".
+window.__botcEmergencyPhones = window.__botcEmergencyPhones || [];
+window._botcNotifLoadEmergencyPhones_ = async function() {
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/bot/emergency-phones', { cache:'no-store' });
+    const j = await r.json();
+    window.__botcEmergencyPhones = (j && Array.isArray(j.phones)) ? j.phones : [];
+  } catch(_) { window.__botcEmergencyPhones = []; }
+};
+// Genera un resumen breve para enviar al número de emergencia.
+window._botcNotifSummary_ = function(cardData) {
+  const d = cardData || {};
+  const lines = [];
+  lines.push(`🚨 AVISO — ${d.tipo || 'Notificación'}`);
+  if (d.titulo) lines.push(`• ${d.titulo}`);
+  if (d.alojamiento) lines.push(`📍 ${d.alojamiento}`);
+  if (d.fechas) lines.push(`📅 ${d.fechas}`);
+  if (d.nombre) lines.push(`👤 ${d.nombre}${d.phone?` (+${d.phone})`:''}`);
+  else if (d.phone) lines.push(`📞 +${d.phone}`);
+  if (d.estado) lines.push(`Estado: ${d.estado}`);
+  if (d.descripcion) lines.push('\n' + String(d.descripcion).slice(0, 400));
+  return lines.join('\n');
+};
+window._botcNotifAvisarEmergencia_ = async function(cardKey) {
+  const sel = document.getElementById(`notif-emer-sel-${cardKey}`);
+  const btn = document.getElementById(`notif-emer-btn-${cardKey}`);
+  if (!sel || !btn) return;
+  const to = String(sel.value || '').trim();
+  if (!to) { alert('Selecciona un número de emergencia primero.'); return; }
+  const summary = window.__botcNotifSummaries_ && window.__botcNotifSummaries_[cardKey];
+  if (!summary) { alert('No hay resumen para esta card.'); return; }
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const waTo = to.startsWith('whatsapp:') ? to : ('whatsapp:' + (to.startsWith('+') ? to : ('+' + to.replace(/\D/g,''))));
+    const r = await fetch('https://api.check-inn.mx/wa/send', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ to: waTo, body: summary, tipo: 'aviso_emergencia' })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    btn.textContent = '✓ Enviado';
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+  } catch(e) {
+    btn.textContent = orig; btn.disabled = false;
+    alert('Error: ' + e.message);
+  }
+};
+// Botón "Avisar" reutilizable — dropdown de emergencia + trigger.
+window._botcNotifAvisarBtn_ = function(cardKey, cardData) {
+  const phones = window.__botcEmergencyPhones || [];
+  if (!phones.length) return ''; // sin números configurados
+  // Guarda el resumen en un registry global; el handler lo lee al hacer clic.
+  window.__botcNotifSummaries_ = window.__botcNotifSummaries_ || {};
+  window.__botcNotifSummaries_[cardKey] = window._botcNotifSummary_(cardData);
+  const opts = phones.map(p => `<option value="${_botcEsc(p)}">${_botcEsc(p)}</option>`).join('');
+  return `<div style="display:inline-flex;gap:4px;margin-top:6px;align-items:center;flex-wrap:wrap">
+    <select id="notif-emer-sel-${_botcEsc(cardKey)}" onclick="event.stopPropagation()" onchange="event.stopPropagation()" style="font-size:10px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;max-width:140px">
+      <option value="">Emergencia…</option>${opts}
+    </select>
+    <button type="button" id="notif-emer-btn-${_botcEsc(cardKey)}" onclick="event.stopPropagation();_botcNotifAvisarEmergencia_('${_botcEsc(cardKey)}')" title="Enviar aviso al número de emergencia seleccionado" style="background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;display:inline-flex;align-items:center;gap:3px">🚨 Avisar</button>
+  </div>`;
+};
+
 // Botón "Ver mensajes" reutilizable para las cards de Notificaciones.
 // anchorTimestamps: array de timestamps ISO relacionados con la card
 // (Timestamp, UpdatedAt, ProgramadaAt, AtendidoAt, etc.) — se usan como
@@ -44949,6 +45018,7 @@ function _botcNotifCardHtml_(r) {
         <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen||'')}</div>
         ${footer}
         ${_botcNotifMsgsBtn_(solKey, p10 || s.Phone, tipoHint, [s.Timestamp, s.UpdatedAt, s.ProgramadaAt, s.AtendidoAt, s.CanceladoAt].filter(Boolean))}
+        ${_botcNotifAvisarBtn_(solKey, { tipo: meta.label, titulo: s.Tipo, alojamiento: alojLabel, fechas: fechasCortas, nombre: nombre, phone: p10 || s.Phone, estado: s.Estado, descripcion: s.Resumen })}
       </div>`;
   }
 
@@ -44995,6 +45065,7 @@ function _botcNotifCardHtml_(r) {
         <div style="font-size:11px;color:#475569">${p.Referencia?`Ref ${_botcEsc(p.Referencia)} · `:''}${fecha?`${fecha} · `:''}${p.RegistradoPor?`por ${_botcEsc(p.RegistradoPor)}`:''}</div>
         ${p.Notas?`<div style="font-size:11px;color:#64748b;margin-top:4px">${_botcEsc(p.Notas)}</div>`:''}
         ${_botcNotifMsgsBtn_('pago_'+rowKey, p10 || (bk && bk.GuestPhone) || '', 'pago', [p.Timestamp, p.Fecha].filter(Boolean))}
+        ${_botcNotifAvisarBtn_('pago_'+rowKey, { tipo: 'Pago manual', titulo: `+$${montoTxt}`, alojamiento: alojLabel, fechas: fechasCortas, nombre: nombre, phone: p10 || (bk && bk.GuestPhone) || '', descripcion: `${p.Metodo||''}${p.Referencia?' · Ref '+p.Referencia:''}${p.Notas?' · '+p.Notas:''}` })}
       </div>`;
   }
 
@@ -45049,7 +45120,9 @@ function _botcNotifCardHtml_(r) {
         if (!ph) return '';
         const hintByKind = { reporte_tecnico:'reporte', incidencia:'incidencia', objeto:'objeto' }[r._kind] || '';
         const anchors = [raw.Timestamp, raw.Updated_at, raw.UpdatedAt, raw.FechaCierre, raw.ResueltoAt, raw.Fecha, raw.Fecha_encontrado, raw.Fecha_entregado].filter(Boolean);
-        return _botcNotifMsgsBtn_(r._kind + '_' + rowKey, ph, hintByKind, anchors);
+        const btnMsgs = _botcNotifMsgsBtn_(r._kind + '_' + rowKey, ph, hintByKind, anchors);
+        const btnAvisar = _botcNotifAvisarBtn_(r._kind + '_' + rowKey, { tipo: labelKind, titulo: titulo, alojamiento: alojLine, fechas: '', nombre: '', phone: ph, estado: raw.Estado || raw.Estatus, descripcion: raw.Descripcion });
+        return btnMsgs + btnAvisar;
       })()}
     </div>`;
 }
