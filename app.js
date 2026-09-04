@@ -42575,16 +42575,26 @@ const LLAVES_STATE = {
   items: [],
   dirty: new Set(), // "houseId|cellKey" pending
   view: null, // 'table' | 'cards' | null (auto = cards en móvil, table en desktop)
+  notas: {},  // { propiedadKeyLower: { propiedad, notas, updated_at, updated_by } }
 };
+function _llavesNotasKey_(s) { return String(s||'').trim().toLowerCase(); }
+async function _llavesLoadNotas_() {
+  try {
+    const r = await fetch('https://api.check-inn.mx/llaves/notas', { cache: 'no-store' });
+    const j = await r.json();
+    LLAVES_STATE.notas = (j && j.notas) || {};
+  } catch (e) { console.warn('[llaves-notas] load fallo:', e.message); }
+}
 
 async function llavesInit() {
   if (LLAVES_STATE.loaded || LLAVES_STATE.loading) { llavesRender(); return; }
   LLAVES_STATE.loading = true;
   llavesRender();
   try {
-    const r = await fetch('https://api.check-inn.mx/llaves-list', {
-      method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}'
-    });
+    const [r, _] = await Promise.all([
+      fetch('https://api.check-inn.mx/llaves-list', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }),
+      _llavesLoadNotas_(),
+    ]);
     const j = await r.json();
     LLAVES_STATE.items = (j && j.items) || [];
     LLAVES_STATE.loaded = true;
@@ -42642,6 +42652,7 @@ function llavesRender() {
             <span style="font-size:11px;color:#3b82f6;font-weight:600">${g.items.length} unidad(es)</span>
           </div>
           <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cardsHtml}</div>
+          ${_llavesNotasBlockHtml_(g.propiedad)}
         </div>`;
     }).join('');
   } else {
@@ -42650,7 +42661,8 @@ function llavesRender() {
     const sectionRows = groups.map(g => {
       const sep = `<tr><td colspan="${1 + LLAVES_CELLS.length}" style="padding:8px 12px;background:#eff6ff;border-left:4px solid #3b82f6;font-weight:800;color:#1e3a8a;font-size:12px">${_llavesEsc(g.propiedad)} <span style="color:#3b82f6;font-weight:600;font-size:11px;margin-left:6px">${g.items.length}</span></td></tr>`;
       const rows = g.items.map((it, idx) => _llavesRowHtml(it, idx)).join('');
-      return sep + rows;
+      const notasRow = `<tr><td colspan="${1 + LLAVES_CELLS.length}" style="padding:6px 12px;background:#fafbfc;border-bottom:1px solid #e2e8f0">${_llavesNotasBlockHtml_(g.propiedad)}</td></tr>`;
+      return sep + rows + notasRow;
     }).join('');
     body = `
       <div style="overflow-x:auto">
@@ -42764,6 +42776,100 @@ function _llavesEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c]));
 }
 function _llavesEscAttr(s) { return _llavesEsc(s); }
+
+// ─── Notas libres por propiedad — Agregar / Editar / Guardar ─────────────
+function _llavesNotasBlockHtml_(propiedad) {
+  const key = _llavesNotasKey_(propiedad);
+  const rec = (LLAVES_STATE.notas || {})[key] || null;
+  const noteText = rec ? String(rec.notas || '') : '';
+  const propId = 'llnotas-' + encodeURIComponent(propiedad).replace(/[^a-zA-Z0-9]/g, '');
+  const attr = _llavesEscAttr(propiedad).replace(/'/g,"&#39;");
+  // Vista colapsada: hay nota → muestra el texto + botón "Editar".
+  //                  no hay nota → muestra botón "Agregar nota".
+  const collapsed = noteText
+    ? `<div id="${propId}-view" style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em">📝 Notas</div>
+        <div id="${propId}-text" style="font-size:12px;color:#0f172a;white-space:pre-wrap;padding:8px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:6px">${_llavesEsc(noteText)}</div>
+        <button type="button" onclick="llavesNotasEdit_('${attr}')" style="align-self:flex-start;background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:11px;font-weight:800;cursor:pointer;padding:5px 12px;border-radius:6px">✏️ Editar</button>
+      </div>`
+    : `<button type="button" id="${propId}-add" onclick="llavesNotasEdit_('${attr}')" style="background:#eff6ff;border:1px dashed #93c5fd;color:#1e40af;font-size:11px;font-weight:800;cursor:pointer;padding:6px 12px;border-radius:6px">+ Agregar nota</button>`;
+  const editor = `
+    <div id="${propId}-editor" style="display:none;flex-direction:column;gap:6px;margin-top:6px">
+      <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em">📝 Notas</div>
+      <textarea id="${propId}-input" oninput="llavesNotasOnInput_('${attr}')" placeholder="Escribe tu nota…" style="width:100%;min-height:70px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:inherit;resize:vertical">${_llavesEsc(noteText)}</textarea>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button type="button" id="${propId}-save" onclick="llavesNotasSave_('${attr}')" disabled style="background:#0f172a;color:#fff;border:0;font-size:11px;font-weight:800;cursor:pointer;padding:6px 14px;border-radius:6px;opacity:.4">${noteText ? 'Guardar cambios' : 'Guardar'}</button>
+        <button type="button" onclick="llavesNotasCancel_('${attr}')" style="background:transparent;border:1px solid #cbd5e1;color:#64748b;font-size:11px;font-weight:700;cursor:pointer;padding:6px 12px;border-radius:6px">Cancelar</button>
+        <span id="${propId}-status" style="font-size:11px;color:#94a3b8"></span>
+      </div>
+    </div>`;
+  return `<div class="llaves-notas-block" data-notas-prop="${attr}" style="margin-top:10px;padding:10px 12px;background:#fafbfc;border:1px solid #e2e8f0;border-radius:8px">${collapsed}${editor}</div>`;
+}
+function _llavesNotasPropId_(propiedad) {
+  return 'llnotas-' + encodeURIComponent(propiedad).replace(/[^a-zA-Z0-9]/g, '');
+}
+window.llavesNotasEdit_ = function(propiedad) {
+  const id = _llavesNotasPropId_(propiedad);
+  const view = document.getElementById(id + '-view');
+  const add  = document.getElementById(id + '-add');
+  const ed   = document.getElementById(id + '-editor');
+  if (view) view.style.display = 'none';
+  if (add)  add.style.display  = 'none';
+  if (ed)   ed.style.display   = 'flex';
+  const inp = document.getElementById(id + '-input');
+  if (inp) { inp.focus(); }
+};
+window.llavesNotasCancel_ = function(propiedad) {
+  const id = _llavesNotasPropId_(propiedad);
+  const key = _llavesNotasKey_(propiedad);
+  const rec = (LLAVES_STATE.notas || {})[key] || null;
+  const orig = rec ? String(rec.notas || '') : '';
+  const inp = document.getElementById(id + '-input');
+  if (inp) inp.value = orig;
+  const view = document.getElementById(id + '-view');
+  const add  = document.getElementById(id + '-add');
+  const ed   = document.getElementById(id + '-editor');
+  if (ed) ed.style.display = 'none';
+  if (view) view.style.display = 'flex';
+  if (add)  add.style.display  = 'inline-block';
+};
+window.llavesNotasOnInput_ = function(propiedad) {
+  const id = _llavesNotasPropId_(propiedad);
+  const key = _llavesNotasKey_(propiedad);
+  const rec = (LLAVES_STATE.notas || {})[key] || null;
+  const orig = rec ? String(rec.notas || '') : '';
+  const inp = document.getElementById(id + '-input');
+  const btn = document.getElementById(id + '-save');
+  if (!inp || !btn) return;
+  const dirty = String(inp.value || '').trim() !== orig.trim();
+  btn.disabled = !dirty;
+  btn.style.opacity = dirty ? '1' : '.4';
+};
+window.llavesNotasSave_ = async function(propiedad) {
+  const id = _llavesNotasPropId_(propiedad);
+  const inp = document.getElementById(id + '-input');
+  const btn = document.getElementById(id + '-save');
+  const status = document.getElementById(id + '-status');
+  if (!inp || !btn) return;
+  const notas = String(inp.value || '');
+  btn.disabled = true; if (status) status.textContent = '…guardando';
+  try {
+    const r = await fetch('https://api.check-inn.mx/llaves/notas', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ payload: { propiedad, notas, updated_by: (localStorage.getItem('user_nombre') || 'Admin') } })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    // Actualiza cache local y re-renderiza.
+    LLAVES_STATE.notas = LLAVES_STATE.notas || {};
+    LLAVES_STATE.notas[_llavesNotasKey_(propiedad)] = { propiedad, notas, updated_at: new Date().toISOString() };
+    if (status) status.textContent = '✓';
+    setTimeout(() => llavesRender(), 300);
+  } catch(e) {
+    btn.disabled = false;
+    if (status) { status.textContent = '⚠ ' + e.message; status.style.color = '#dc2626'; }
+  }
+};
 
 /** Toggle 3-estado para una celda:  '' → V → F → '' */
 window.llavesToggleCell = function(hid, cellKey) {
