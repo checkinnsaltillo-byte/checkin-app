@@ -44586,6 +44586,68 @@ window._botcNotifIsCritical_ = function(r) {
   const rx = /\b(se fue la luz|se cort[oó] la luz|se fue la electricidad|no hay (electricidad|luz|corriente|agua|gas|agua caliente)|apag[oó]n|sin (luz|corriente|agua|gas)|hay fuga|fuga de agua|se est[aá] tirando el agua|no sale agua|revent[oó] tuber[ií]a|huele a gas|olor a gas|no prende la estufa|boiler no enciende|encontramos sucio|no se (realiz[oó]|hizo) la (limpieza|aseo)|est[aá] desordenado el (depa|departamento)|no se (cambiaron|hizo cambio de) (s[aá]banas|blancos)|mucha suciedad|ba[ñn]os sucios|est[aá] sucio el (depa|departamento|ba[ñn]o)|mucho ruido|ruido excesivo|m[uú]sica (muy )?(alta|fuerte)|hablando (demasiado )?fuerte|no dejan (dormir|descansar)|vecinos ruidosos|se escuchan gritos|gritos|violencia|se est[aá]n peleando|gente agresiva|gente problem[aá]tica|golpe[aá]ndose|hay una pelea|ri[ñn]a)\b/;
   return rx.test(blob);
 };
+// Toggle del panel de mensajes WA enviados a un phone (relacionados con una card).
+// Trae de /wa/bot/context (histórico bitácora), filtra outbound (role ∈ 'assistant'|'admin'),
+// muestra solo entregados (todos los persistidos en WA_ChatContext están enviados;
+// los programados/omitidos/borrados NO llegan a esa hoja). Opcional filtro por tipo.
+window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint) {
+  const wrap = document.getElementById('notif-msgs-' + cardKey);
+  if (!wrap) return;
+  if (wrap.dataset.open === '1') { wrap.dataset.open = '0'; wrap.style.display = 'none'; return; }
+  wrap.dataset.open = '1'; wrap.style.display = 'block';
+  wrap.innerHTML = '<div style="padding:8px;text-align:center;color:#94a3b8;font-size:11px">⏳ Cargando mensajes…</div>';
+  const p10 = String(phone||'').replace(/\D/g,'').slice(-10);
+  if (!p10) { wrap.innerHTML = '<div style="padding:8px;color:#94a3b8;font-size:11px">Sin celular asociado.</div>'; return; }
+  try {
+    const r = await fetch(`https://api.check-inn.mx/wa/bot/context?phone=${encodeURIComponent(p10)}&limit=100`, { cache:'no-store' });
+    const j = await r.json();
+    let msgs = Array.isArray(j.messages) ? j.messages : [];
+    // Solo outbound (mensajes enviados hacia el huésped/número).
+    msgs = msgs.filter(m => String(m.role||'') !== 'user');
+    // Filtro por tipo si se pasó hint (ej. 'ticket_autofact' para tickets).
+    if (tipoHint) {
+      msgs = msgs.filter(m => {
+        const t = (m.meta && m.meta.tipo) ? String(m.meta.tipo).toLowerCase() : '';
+        return !t || t.includes(tipoHint.toLowerCase());
+      });
+    }
+    // Orden asc (más viejo arriba). Últimos 20 para no saturar.
+    msgs.sort((a,b) => String(a.timestamp||'').localeCompare(String(b.timestamp||'')));
+    msgs = msgs.slice(-20);
+    if (!msgs.length) {
+      wrap.innerHTML = '<div style="padding:8px;color:#94a3b8;font-size:11px">Sin mensajes enviados a este número.</div>';
+      return;
+    }
+    const fmtTs = (iso) => {
+      try {
+        const d = new Date(iso);
+        return `${String(d.getDate()).padStart(2,'0')} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][d.getMonth()]}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      } catch(_) { return String(iso||''); }
+    };
+    wrap.innerHTML = msgs.map(m => {
+      const admin = (m.meta && m.meta.admin);
+      const bg = admin ? '#f0fdfa' : '#eff6ff';
+      const author = admin ? '👤 Admin' : '🤖 Bot';
+      const body = String(m.body||'').slice(0, 400);
+      const forwarded = (m.meta && (m.meta.forwarded || m.meta.resend || m.meta.reforward)) ? '🔁 REENVIADO · ' : '';
+      return `<div style="background:${bg};border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;margin-top:6px">
+        <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:3px">${author} · ${_botcEsc(fmtTs(m.timestamp))} <span style="color:#16a34a">· ${forwarded}ENTREGADO</span></div>
+        <div style="font-size:12px;color:#0f172a;white-space:pre-wrap;word-break:break-word">${_botcEsc(body)}${body.length>=400?'…':''}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    wrap.innerHTML = `<div style="padding:8px;color:#dc2626;font-size:11px">⚠ ${_botcEsc(e.message)}</div>`;
+  }
+};
+// Botón "Ver mensajes" reutilizable para las cards de Notificaciones.
+window._botcNotifMsgsBtn_ = function(cardKey, phone, tipoHint) {
+  const p10 = String(phone||'').replace(/\D/g,'').slice(-10);
+  if (!p10) return '';
+  const tipo = tipoHint ? `'${_botcEsc(tipoHint)}'` : 'null';
+  return `<button type="button" onclick="event.stopPropagation();_botcNotifToggleMsgs_('${_botcEsc(cardKey)}','${_botcEsc(p10)}',${tipo})" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;margin-top:6px;display:inline-flex;align-items:center;gap:4px">💬 Ver mensajes</button>
+    <div id="notif-msgs-${_botcEsc(cardKey)}" data-open="0" onclick="event.stopPropagation()" style="display:none;margin-top:6px"></div>`;
+};
+
 // Contador global de notificaciones nuevas — pinta el mismo número en cada
 // elemento con [data-notif-badge] (botón inferior + botón superior Chats bot).
 // Además pinta un contador guinda de situaciones críticas en [data-notif-critical-badge].
@@ -44750,6 +44812,8 @@ function _botcNotifCardHtml_(r) {
     const chip = _botcNotifSolChip_(est);
     const footer = window._botcSolActionButtons_(s, p10 || s.Phone, { afterFn: function() { const m = document.getElementById('botc-notifs-modal'); if (m) m.remove(); window._botcOpenNotifsGlobal_(null, null, true); } });
     const dim = est === 'cancelado' ? 'opacity:.55;filter:grayscale(.35)' : '';
+    const solKey = 'sol_' + String(s.ID || Math.random());
+    const tipoHint = String(s.Tipo||'').toLowerCase().includes('ticket') ? 'ticket_autofact' : '';
     return `
       <div class="${critRingCls.trim()}" style="position:relative;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;${dim}">
         ${critDot}
@@ -44761,6 +44825,7 @@ function _botcNotifCardHtml_(r) {
         ${s.ProgramadaAt?`<div style="font-size:11px;color:#1e40af;background:#dbeafe;padding:4px 8px;border-radius:6px;margin-bottom:6px;font-weight:700">📅 Programada para: ${_botcEsc(_botcNotifTsFmt_(s.ProgramadaAt))}</div>`:''}
         <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen||'')}</div>
         ${footer}
+        ${_botcNotifMsgsBtn_(solKey, p10 || s.Phone, tipoHint)}
       </div>`;
   }
 
@@ -44806,6 +44871,7 @@ function _botcNotifCardHtml_(r) {
         ${nameBlock}${bkLine}
         <div style="font-size:11px;color:#475569">${p.Referencia?`Ref ${_botcEsc(p.Referencia)} · `:''}${fecha?`${fecha} · `:''}${p.RegistradoPor?`por ${_botcEsc(p.RegistradoPor)}`:''}</div>
         ${p.Notas?`<div style="font-size:11px;color:#64748b;margin-top:4px">${_botcEsc(p.Notas)}</div>`:''}
+        ${_botcNotifMsgsBtn_('pago_'+rowKey, p10 || (bk && bk.GuestPhone) || '', 'pago')}
       </div>`;
   }
 
@@ -44829,6 +44895,13 @@ function _botcNotifCardHtml_(r) {
       <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">${_botcEsc(String(titulo).slice(0,120))}</div>
       ${alojLine?`<div style="font-size:11px;color:#475569;margin-bottom:4px">📍 ${_botcEsc(alojLine)}</div>`:''}
       ${raw.Descripcion && raw.Descripcion !== titulo ? `<div style="font-size:11px;color:#64748b;white-space:pre-wrap">${_botcEsc(String(raw.Descripcion).slice(0,200))}</div>`:''}
+      ${(() => {
+        // Determinar phone: booking (bk.GuestPhone) o campos crudos del reporte.
+        const ph = String((bk && bk.GuestPhone) || raw.Phone || raw.Celular || raw['Cel/Whatsapp (principal)'] || '').replace(/\D/g,'').slice(-10);
+        if (!ph) return '';
+        const hintByKind = { reporte_tecnico:'reporte', incidencia:'incidencia', objeto:'objeto' }[r._kind] || '';
+        return _botcNotifMsgsBtn_(r._kind + '_' + rowKey, ph, hintByKind);
+      })()}
     </div>`;
 }
 function _botcRepaintReservasDrawer_(phone) {
