@@ -44701,18 +44701,47 @@ window._botcNotifMsgsBtn_ = function(cardKey, phone, tipoHint, anchorTimestamps)
     : String(anchorTimestamps||'');
   return `<div style="display:inline-flex;gap:6px;margin-top:6px;flex-wrap:wrap">
       <button type="button" onclick="event.stopPropagation();_botcNotifToggleMsgs_('${_botcEsc(cardKey)}','${_botcEsc(p10)}',${tipo},'${_botcEsc(anchorCsv)}')" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;display:inline-flex;align-items:center;gap:4px">💬 Ver mensajes</button>
-      <button type="button" onclick="event.stopPropagation();_botcNotifGoToChat_('${_botcEsc(p10)}')" title="Abrir la conversación completa en Chats bot" style="background:#d1fae5;border:1px solid #86efac;color:#065f46;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;display:inline-flex;align-items:center;gap:4px">➡️ Ir a chat</button>
+      <button type="button" onclick="event.stopPropagation();_botcNotifGoToChat_('${_botcEsc(p10)}','${_botcEsc(anchorCsv)}')" title="Ir a los mensajes de esta acción en Chats bot" style="background:#d1fae5;border:1px solid #86efac;color:#065f46;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;display:inline-flex;align-items:center;gap:4px">➡️ Ir a chat</button>
     </div>
     <div id="notif-msgs-${_botcEsc(cardKey)}" data-open="0" onclick="event.stopPropagation()" style="display:none;margin-top:6px"></div>`;
 };
 // Cierra Notificaciones + side-over y salta al chat del número en Chats bot.
-window._botcNotifGoToChat_ = function(phone) {
+// anchorTsCsv: timestamps ISO clave de la card. Al renderizar el chat, se
+// hace scroll al primer mensaje dentro de ±10 min del anchor más viejo.
+window._botcNotifGoToChat_ = function(phone, anchorTsCsv) {
   const p10 = String(phone||'').replace(/\D/g,'').slice(-10);
   if (!p10) return;
   try { if (typeof _botcNotifCloseSide_ === 'function') _botcNotifCloseSide_(); } catch(_){}
   document.getElementById('botc-notifs-modal')?.remove();
+  // Guarda anchors para que botcOpenChat haga scroll tras renderizar.
+  const anchors = String(anchorTsCsv||'').split(',').map(s => s.trim()).filter(Boolean).map(s => Date.parse(s)).filter(n => !isNaN(n));
+  window.__botcScrollToAnchors = anchors.length ? anchors : null;
   try { if (typeof switchModule === 'function') switchModule('bot-chats'); } catch(_){}
   setTimeout(() => { try { if (typeof botcOpenChat === 'function') botcOpenChat(p10); } catch(_){} }, 200);
+};
+// Después de renderizar el chat, scroll al primer mensaje dentro de la
+// ventana temporal de los anchors + highlight temporal para orientar al admin.
+window._botcNotifScrollToAnchors_ = function() {
+  const anchors = window.__botcScrollToAnchors;
+  if (!Array.isArray(anchors) || !anchors.length) return;
+  window.__botcScrollToAnchors = null;
+  const WINDOW_MS = 10 * 60 * 1000;
+  const box = document.getElementById('botc-msgs');
+  if (!box) return;
+  const rows = box.querySelectorAll('[data-ts]');
+  let target = null;
+  for (const row of rows) {
+    const ts = Date.parse(row.getAttribute('data-ts') || '');
+    if (isNaN(ts)) continue;
+    if (anchors.some(a => Math.abs(ts - a) <= WINDOW_MS)) { target = row; break; }
+  }
+  if (!target) return;
+  // Highlight temporal (~3s) para ayudar al ojo a ubicar el bloque.
+  const originalOutline = target.style.boxShadow;
+  target.style.transition = 'box-shadow .3s ease';
+  target.style.boxShadow = '0 0 0 3px #f59e0b';
+  setTimeout(() => { target.style.boxShadow = originalOutline; }, 3000);
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
 // Contador global de notificaciones nuevas — pinta el mismo número en cada
@@ -45873,7 +45902,7 @@ function _botcRenderMain(phone) {
           <div style="font-size:13px;color:#0f172a;white-space:pre-wrap;line-height:1.4">${_botcEsc(m.body)}</div>
           ${mediaHtml}
         </div>`;
-    return `<div style="${rowStyle}" ${clickAttr}>${isUser ? cbHtml + inner : inner + cbHtml}</div>`;
+    return `<div style="${rowStyle}" data-ts="${_botcEsc(m.timestamp||'')}" ${clickAttr}>${isUser ? cbHtml + inner : inner + cbHtml}</div>`;
   }).join('') : '<div style="text-align:center;color:#94a3b8;font-size:12px;padding:40px">Sin mensajes previos.</div>';
   // Barra superior de selección múltiple (aparece solo con selectMode ON).
   const selCount = selSet.size;
@@ -46058,11 +46087,15 @@ function _botcRenderMain(phone) {
         style="padding:9px 18px;background:${canType?'#25d366':'#cbd5e1'};color:#fff;border:0;border-radius:8px;cursor:${canType?'pointer':'not-allowed'};font-weight:800;font-size:13px">Enviar</button>
     </div>
   `;
-  // Scroll al final
+  // Scroll: si hay anchors pendientes (desde Notificaciones → Ir a chat),
+  // ir al primer mensaje relevante en lugar de al final del chat.
   setTimeout(() => {
+    if (Array.isArray(window.__botcScrollToAnchors) && window.__botcScrollToAnchors.length) {
+      try { window._botcNotifScrollToAnchors_(); return; } catch(_) {}
+    }
     const box = document.getElementById('botc-msgs');
     if (box) box.scrollTop = box.scrollHeight;
-  }, 0);
+  }, 50);
 }
 
 // ─── Lightbox universal para imágenes ─────────────────────────────────────
