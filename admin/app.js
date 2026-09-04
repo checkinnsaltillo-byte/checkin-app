@@ -44620,17 +44620,21 @@ window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint, anchorTs
     w.innerHTML = html;
   };
   if (!p10) { writeToWrap('<div style="padding:8px;color:#94a3b8;font-size:11px">Sin celular asociado.</div>'); return; }
-  // Cada anchor genera una ventana temporal. Si es date-only (YYYY-MM-DD),
-  // la ventana cubre todo ese día (±12h desde mediodía local). Si trae hora,
-  // ±2h para tolerar delay entre creación de la task y el mensaje WA
-  // (auto-schedule del día de salida, programación, etc.).
-  const anchorItems = String(anchorTsCsv||'').split(',').map(s => s.trim()).filter(Boolean).map(s => {
+  // Cada anchor genera dos ventanas: (a) exacta ±2h alrededor del timestamp
+  // y (b) todo el día correspondiente (±12h desde mediodía local). Esto
+  // captura tanto mensajes cercanos al momento de la task como cualquiera
+  // del mismo día — necesario porque Timestamp puede reflejar la ÚLTIMA
+  // actualización (ej. cambio de estado) y no la creación original.
+  const anchorItems = [];
+  String(anchorTsCsv||'').split(',').map(s => s.trim()).filter(Boolean).forEach(s => {
     const raw = s.slice(0, 10);
-    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s) || !/T\d/.test(s);
-    const ts = Date.parse(dateOnly ? (raw + 'T12:00:00') : s);
-    if (isNaN(ts)) return null;
-    return { center: ts, windowMs: dateOnly ? (12*60*60*1000) : (2*60*60*1000) };
-  }).filter(Boolean);
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+      const dayTs = Date.parse(raw + 'T12:00:00');
+      if (!isNaN(dayTs)) anchorItems.push({ center: dayTs, windowMs: 12*60*60*1000 });
+    }
+    const ts = Date.parse(s);
+    if (!isNaN(ts) && /T\d/.test(s)) anchorItems.push({ center: ts, windowMs: 2*60*60*1000 });
+  });
   try {
     // AbortController con 35s de timeout — evita el hang indefinido si
     // Apps Script tarda demasiado.
@@ -44722,14 +44726,17 @@ window._botcNotifGoToChat_ = function(phone, anchorTsCsv) {
   if (!p10) return;
   try { if (typeof _botcNotifCloseSide_ === 'function') _botcNotifCloseSide_(); } catch(_){}
   document.getElementById('botc-notifs-modal')?.remove();
-  // Guarda anchor items (con ventana propia por si es date-only) para scroll.
-  const items = String(anchorTsCsv||'').split(',').map(s => s.trim()).filter(Boolean).map(s => {
+  // Anchor items para scroll: ventana exacta ±2h + ventana día completo.
+  const items = [];
+  String(anchorTsCsv||'').split(',').map(s => s.trim()).filter(Boolean).forEach(s => {
     const raw = s.slice(0, 10);
-    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s) || !/T\d/.test(s);
-    const ts = Date.parse(dateOnly ? (raw + 'T12:00:00') : s);
-    if (isNaN(ts)) return null;
-    return { center: ts, windowMs: dateOnly ? (12*60*60*1000) : (2*60*60*1000) };
-  }).filter(Boolean);
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+      const dayTs = Date.parse(raw + 'T12:00:00');
+      if (!isNaN(dayTs)) items.push({ center: dayTs, windowMs: 12*60*60*1000 });
+    }
+    const ts = Date.parse(s);
+    if (!isNaN(ts) && /T\d/.test(s)) items.push({ center: ts, windowMs: 2*60*60*1000 });
+  });
   window.__botcScrollToAnchors = items.length ? items : null;
   try { if (typeof switchModule === 'function') switchModule('bot-chats'); } catch(_){}
   setTimeout(() => { try { if (typeof botcOpenChat === 'function') botcOpenChat(p10); } catch(_){} }, 200);
