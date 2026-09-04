@@ -42652,7 +42652,6 @@ function llavesRender() {
             <span style="font-size:11px;color:#3b82f6;font-weight:600">${g.items.length} unidad(es)</span>
           </div>
           <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cardsHtml}</div>
-          ${_llavesNotasBlockHtml_(g.propiedad)}
         </div>`;
     }).join('');
   } else {
@@ -42660,9 +42659,13 @@ function llavesRender() {
       .map(h => `<th style="padding:10px 10px;text-align:${h==='Alojamiento'?'left':'center'};border-bottom:1px solid #e2e8f0;white-space:nowrap">${_llavesEsc(h)}</th>`).join('');
     const sectionRows = groups.map(g => {
       const sep = `<tr><td colspan="${1 + LLAVES_CELLS.length}" style="padding:8px 12px;background:#eff6ff;border-left:4px solid #3b82f6;font-weight:800;color:#1e3a8a;font-size:12px">${_llavesEsc(g.propiedad)} <span style="color:#3b82f6;font-weight:600;font-size:11px;margin-left:6px">${g.items.length}</span></td></tr>`;
-      const rows = g.items.map((it, idx) => _llavesRowHtml(it, idx)).join('');
-      const notasRow = `<tr><td colspan="${1 + LLAVES_CELLS.length}" style="padding:6px 12px;background:#fafbfc;border-bottom:1px solid #e2e8f0">${_llavesNotasBlockHtml_(g.propiedad)}</td></tr>`;
-      return sep + rows + notasRow;
+      // Cada unidad: fila con celdas + fila con notas (si aplica).
+      const rows = g.items.map((it, idx) => {
+        const main = _llavesRowHtml(it, idx);
+        const notasRow = `<tr><td colspan="${1 + LLAVES_CELLS.length}" style="padding:6px 12px;background:#fafbfc;border-bottom:1px solid #e2e8f0">${_llavesNotasBlockHtml_(it.alojamiento)}</td></tr>`;
+        return main + notasRow;
+      }).join('');
+      return sep + rows;
     }).join('');
     body = `
       <div style="overflow-x:auto">
@@ -42697,6 +42700,7 @@ function _llavesCardHtml(it) {
     <div data-hid="${hid}" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03)">
       <div style="padding:10px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-weight:800;color:#0f172a;font-size:13px">${_llavesEsc(it.alojamiento)}</div>
       <div style="padding:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px">${cellsHtml}</div>
+      <div style="padding:0 10px 10px">${_llavesNotasBlockHtml_(it.alojamiento)}</div>
     </div>
   `;
 }
