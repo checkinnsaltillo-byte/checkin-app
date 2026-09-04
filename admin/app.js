@@ -22643,21 +22643,32 @@ window.incCerrarCaptura = function () {
 async function incLoadIncidencias() {
   const cont = document.getElementById('inc-cards-list');
   if (cont) cont.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando reportes…</div>';
-  try {
-    const res = await fetch(`${BACKEND}/incidencias-list`, { cache: 'no-store' });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'fetch failed');
-    INC_STATE.list = data.rows || [];
-    if (cont) { incInitFilters(); incRenderCards(); }
-    // Re-render secciones "Incidencias relacionadas" en detalles de reserva visibles
-    if (typeof lgReinjectRelatedSections === 'function') lgReinjectRelatedSections('inc');
-  } catch (e) {
-    console.error('[INC] load error:', e);
-    if (cont) cont.innerHTML = `<div style="text-align:center;padding:60px;color:#dc2626;font-size:13px">
-      ⚠ No se pudieron cargar los reportes: ${esc(e.message || String(e))}
-      <div style="margin-top:10px"><button onclick="incLoadIncidencias()" class="inc-btn-sec">Reintentar</button></div>
-    </div>`;
+  // Retry con backoff: el endpoint tarda 6-14s y a veces falla por timeout
+  // intermedio de Cloud Run / red. 3 intentos: 0s, 2s, 5s.
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(`${BACKEND}/incidencias-list`, { cache: 'no-store' });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'backend error');
+      INC_STATE.list = data.rows || [];
+      if (cont) { incInitFilters(); incRenderCards(); }
+      if (typeof lgReinjectRelatedSections === 'function') lgReinjectRelatedSections('inc');
+      return; // éxito
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[INC] intento ${attempt}/3 falló:`, e && e.message || e);
+      if (attempt < 3) {
+        if (cont) cont.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Reintentando (${attempt+1}/3)…</div>`;
+        await new Promise(r => setTimeout(r, attempt * 2500));
+      }
+    }
   }
+  console.error('[INC] load error final:', lastErr);
+  if (cont) cont.innerHTML = `<div style="text-align:center;padding:60px;color:#dc2626;font-size:13px">
+    ⚠ No se pudieron cargar los reportes: ${esc((lastErr && lastErr.message) || String(lastErr))}
+    <div style="margin-top:10px"><button onclick="incLoadIncidencias()" class="inc-btn-sec">Reintentar</button></div>
+  </div>`;
 }
 
 function incRenderCards() {
