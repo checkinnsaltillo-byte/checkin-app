@@ -44841,6 +44841,24 @@ window._botcNotifSummary_ = function(cardData) {
   if (d.descripcion) lines.push('\n' + String(d.descripcion).slice(0, 400));
   return lines.join('\n');
 };
+// Configurar números de emergencia — prompt simple; persiste vía backend.
+window._botcNotifConfigEmergencia_ = async function() {
+  const current = (window.__botcEmergencyPhones || []).join(', ');
+  const input = prompt('Números de emergencia (separados por coma, formato +52NNNNNNNNNN):', current);
+  if (input === null) return;
+  const phones = String(input).split(',').map(s => s.trim()).filter(Boolean);
+  try {
+    const r = await fetch('https://api.check-inn.mx/wa/bot/emergency-phones', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ phones, updated_by: (localStorage.getItem('user_nombre') || 'Admin') })
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    window.__botcEmergencyPhones = j.phones || phones;
+    alert('✓ Guardado: ' + window.__botcEmergencyPhones.length + ' número(s).');
+    if (typeof window._botcOpenNotifsGlobal_ === 'function') window._botcOpenNotifsGlobal_(null, null, true);
+  } catch(e) { alert('Error: ' + e.message); }
+};
 window._botcNotifAvisarEmergencia_ = async function(cardKey) {
   const sel = document.getElementById(`notif-emer-sel-${cardKey}`);
   const btn = document.getElementById(`notif-emer-btn-${cardKey}`);
