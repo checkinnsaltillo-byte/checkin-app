@@ -44436,10 +44436,10 @@ window._botcOpenNotifsGlobal_ = async function(section, subtab, keepDays) {
   if (section) st.section = section;
   if (subtab != null) st.subtab[st.section] = subtab;
   if (!keepDays) st.daysShown = 3; // reset paginación al cambiar tab
-  // Precarga números de emergencia si aún no están cacheados (fire-and-forget).
-  if (!(window.__botcEmergencyPhones && window.__botcEmergencyPhones.length)) {
-    try { if (typeof window._botcNotifLoadEmergencyPhones_ === 'function') await window._botcNotifLoadEmergencyPhones_(); } catch(_){}
-  }
+  // Siempre refresca números de emergencia al abrir el panel — el usuario
+  // puede haberlos editado desde otra vista o tab. El endpoint tiene cache
+  // de 5min en Cloud Run así que el hit es barato.
+  try { if (typeof window._botcNotifLoadEmergencyPhones_ === 'function') await window._botcNotifLoadEmergencyPhones_(); } catch(_){}
   const active = st.section;
   const activeSub = st.subtab[active] || 'todos';
   const prev = document.getElementById('botc-notifs-modal'); if (prev) prev.remove();
