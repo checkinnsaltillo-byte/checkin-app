@@ -44899,19 +44899,24 @@ window._botcNotifAvisarBtn_ = function(cardKey, cardData) {
   // El botón "Avisar" va a la derecha del selector.
   const optsHtml = phones.map(p => `<div onclick="event.stopPropagation();_botcNotifEmerPick_('${_botcEsc(cardKey)}','${_botcEsc(p)}')" style="padding:8px 12px;font-size:12px;color:#0f172a;cursor:pointer;border-bottom:1px solid #f1f5f9;font-family:'SF Mono',Monaco,'Courier New',monospace;letter-spacing:.02em" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='#fff'">📞 ${_botcEsc(p)}</div>`).join('');
   _botcEnsureEmergComboCss_();
+  // Si solo hay 1 número, preseleccionamos → botón Avisar activo desde inicio.
+  const singlePhone = phones.length === 1 ? phones[0] : '';
+  const preselLabel = singlePhone ? `🚨 <span style="font-family:'SF Mono',Monaco,'Courier New',monospace;letter-spacing:.02em">${_botcEsc(singlePhone)}</span>` : `🚨 <span style="color:#94a3b8;font-weight:600">Seleccionar…</span>`;
+  const avisarDisabled = singlePhone ? '' : 'disabled';
+  const avisarOpacity  = singlePhone ? '1' : '.4';
   return `<div class="botc-emer-wrap" style="display:inline-flex;gap:6px;margin-top:6px;align-items:stretch;flex-wrap:nowrap">
     <div style="position:relative;display:inline-block">
       <button type="button" id="notif-emer-toggle-${_botcEsc(cardKey)}" onclick="event.stopPropagation();_botcNotifEmerToggle_('${_botcEsc(cardKey)}')" class="botc-emer-btn" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:#fff;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:#991b1b;min-width:150px;justify-content:space-between;box-shadow:0 1px 2px rgba(220,38,38,.08)">
-        <span id="notif-emer-label-${_botcEsc(cardKey)}" style="display:inline-flex;align-items:center;gap:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🚨 <span style="color:#94a3b8;font-weight:600">Seleccionar…</span></span>
+        <span id="notif-emer-label-${_botcEsc(cardKey)}" style="display:inline-flex;align-items:center;gap:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${preselLabel}</span>
         <span style="color:#dc2626;font-size:10px">▼</span>
       </button>
       <div id="notif-emer-list-${_botcEsc(cardKey)}" class="botc-emer-list" style="display:none;position:absolute;top:calc(100% + 3px);left:0;min-width:100%;max-width:260px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);z-index:5;max-height:220px;overflow-y:auto">
         ${optsHtml}
       </div>
-      <input type="hidden" id="notif-emer-sel-${_botcEsc(cardKey)}" value="">
+      <input type="hidden" id="notif-emer-sel-${_botcEsc(cardKey)}" value="${_botcEsc(singlePhone)}">
     </div>
-    <button type="button" id="notif-emer-btn-${_botcEsc(cardKey)}" disabled onclick="event.stopPropagation();_botcNotifAvisarEmergencia_('${_botcEsc(cardKey)}')" title="Enviar aviso al número de emergencia seleccionado" style="background:#dc2626;border:1px solid #b91c1c;color:#fff;font-size:11px;font-weight:800;cursor:pointer;padding:5px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;opacity:.4">🚨 Avisar</button>
-    <button type="button" onclick="event.stopPropagation();_botcNotifConfigEmergencia_()" title="Editar lista de emergencia" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#64748b;font-size:12px;cursor:pointer;padding:5px 8px;border-radius:6px">⚙</button>
+    <button type="button" id="notif-emer-btn-${_botcEsc(cardKey)}" ${avisarDisabled} onclick="event.stopPropagation();_botcNotifAvisarEmergencia_('${_botcEsc(cardKey)}')" title="Enviar aviso al número de emergencia seleccionado" style="background:#dc2626;border:1px solid #b91c1c;color:#fff;font-size:11px;font-weight:800;cursor:pointer;padding:5px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;opacity:${avisarOpacity}">🚨 Avisar</button>
+    <button type="button" onclick="event.stopPropagation();_botcNotifConfigEmergencia_()" title="Editar la lista de números de emergencia" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:11px;font-weight:700;cursor:pointer;padding:5px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:4px">✏️ Editar lista</button>
   </div>`;
 };
 function _botcEnsureEmergComboCss_() {
