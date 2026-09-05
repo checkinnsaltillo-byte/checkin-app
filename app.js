@@ -44895,15 +44895,60 @@ window._botcNotifAvisarBtn_ = function(cardKey, cardData) {
       <button type="button" onclick="event.stopPropagation();_botcNotifConfigEmergencia_()" title="Configurar números de emergencia" style="background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;display:inline-flex;align-items:center;gap:3px">🚨 Avisar (+ Configurar)</button>
     </div>`;
   }
-  const opts = phones.map(p => `<option value="${_botcEsc(p)}">${_botcEsc(p)}</option>`).join('');
-  return `<div style="display:inline-flex;gap:4px;margin-top:6px;align-items:center;flex-wrap:wrap">
-    <select id="notif-emer-sel-${_botcEsc(cardKey)}" onclick="event.stopPropagation()" onchange="event.stopPropagation()" style="font-size:10px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;max-width:140px">
-      <option value="">Emergencia…</option>${opts}
-    </select>
-    <button type="button" id="notif-emer-btn-${_botcEsc(cardKey)}" onclick="event.stopPropagation();_botcNotifAvisarEmergencia_('${_botcEsc(cardKey)}')" title="Enviar aviso al número de emergencia seleccionado" style="background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;display:inline-flex;align-items:center;gap:3px">🚨 Avisar</button>
-    <button type="button" onclick="event.stopPropagation();_botcNotifConfigEmergencia_()" title="Editar lista de emergencia" style="background:transparent;border:0;color:#64748b;font-size:12px;cursor:pointer;padding:2px 4px">⚙</button>
+  // Combobox custom (más limpio que <select>): botón que despliega lista.
+  // El botón "Avisar" va a la derecha del selector.
+  const optsHtml = phones.map(p => `<div onclick="event.stopPropagation();_botcNotifEmerPick_('${_botcEsc(cardKey)}','${_botcEsc(p)}')" style="padding:8px 12px;font-size:12px;color:#0f172a;cursor:pointer;border-bottom:1px solid #f1f5f9;font-family:'SF Mono',Monaco,'Courier New',monospace;letter-spacing:.02em" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='#fff'">📞 ${_botcEsc(p)}</div>`).join('');
+  _botcEnsureEmergComboCss_();
+  return `<div class="botc-emer-wrap" style="display:inline-flex;gap:6px;margin-top:6px;align-items:stretch;flex-wrap:nowrap">
+    <div style="position:relative;display:inline-block">
+      <button type="button" id="notif-emer-toggle-${_botcEsc(cardKey)}" onclick="event.stopPropagation();_botcNotifEmerToggle_('${_botcEsc(cardKey)}')" class="botc-emer-btn" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:#fff;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:#991b1b;min-width:150px;justify-content:space-between;box-shadow:0 1px 2px rgba(220,38,38,.08)">
+        <span id="notif-emer-label-${_botcEsc(cardKey)}" style="display:inline-flex;align-items:center;gap:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🚨 <span style="color:#94a3b8;font-weight:600">Seleccionar…</span></span>
+        <span style="color:#dc2626;font-size:10px">▼</span>
+      </button>
+      <div id="notif-emer-list-${_botcEsc(cardKey)}" class="botc-emer-list" style="display:none;position:absolute;top:calc(100% + 3px);left:0;min-width:100%;max-width:260px;background:#fff;border:1px solid #cbd5e1;border-radius:6px;box-shadow:0 6px 20px -4px rgba(15,23,42,.18);z-index:5;max-height:220px;overflow-y:auto">
+        ${optsHtml}
+      </div>
+      <input type="hidden" id="notif-emer-sel-${_botcEsc(cardKey)}" value="">
+    </div>
+    <button type="button" id="notif-emer-btn-${_botcEsc(cardKey)}" disabled onclick="event.stopPropagation();_botcNotifAvisarEmergencia_('${_botcEsc(cardKey)}')" title="Enviar aviso al número de emergencia seleccionado" style="background:#dc2626;border:1px solid #b91c1c;color:#fff;font-size:11px;font-weight:800;cursor:pointer;padding:5px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;opacity:.4">🚨 Avisar</button>
+    <button type="button" onclick="event.stopPropagation();_botcNotifConfigEmergencia_()" title="Editar lista de emergencia" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#64748b;font-size:12px;cursor:pointer;padding:5px 8px;border-radius:6px">⚙</button>
   </div>`;
 };
+function _botcEnsureEmergComboCss_() {
+  if (document.getElementById('botc-emer-combo-css')) return;
+  const st = document.createElement('style');
+  st.id = 'botc-emer-combo-css';
+  st.textContent = `
+    .botc-emer-btn:hover { background:#fef2f2; border-color:#f87171; }
+    .botc-emer-list { animation: botcEmerFade .12s ease-out; }
+    @keyframes botcEmerFade { from { opacity:0; transform:translateY(-4px) } to { opacity:1; transform:translateY(0) } }
+  `;
+  document.head.appendChild(st);
+}
+window._botcNotifEmerToggle_ = function(cardKey) {
+  // Cierra otros abiertos.
+  document.querySelectorAll('.botc-emer-list').forEach(el => { if (el.id !== 'notif-emer-list-' + cardKey) el.style.display = 'none'; });
+  const list = document.getElementById('notif-emer-list-' + cardKey);
+  if (list) list.style.display = list.style.display === 'block' ? 'none' : 'block';
+};
+window._botcNotifEmerPick_ = function(cardKey, phone) {
+  const hidden = document.getElementById('notif-emer-sel-' + cardKey);
+  const label = document.getElementById('notif-emer-label-' + cardKey);
+  const list  = document.getElementById('notif-emer-list-' + cardKey);
+  const btn   = document.getElementById('notif-emer-btn-' + cardKey);
+  if (hidden) hidden.value = phone;
+  if (label) label.innerHTML = `🚨 <span style="font-family:'SF Mono',Monaco,'Courier New',monospace;letter-spacing:.02em">${_botcEsc(phone)}</span>`;
+  if (list) list.style.display = 'none';
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+};
+// Cierra dropdowns abiertos al hacer clic afuera.
+if (!window.__botcEmerOutsideHook_) {
+  window.__botcEmerOutsideHook_ = true;
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.botc-emer-wrap')) return;
+    document.querySelectorAll('.botc-emer-list').forEach(el => { el.style.display = 'none'; });
+  });
+}
 
 // Botón "Ver mensajes" reutilizable para las cards de Notificaciones.
 // anchorTimestamps: array de timestamps ISO relacionados con la card
