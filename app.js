@@ -44893,7 +44893,18 @@ window._botcNotifAvisarEmergencia_ = async function(cardKey) {
   }
   btn.textContent = err ? `⚠ ${ok}/${targets.length} enviados` : `✓ ${ok} enviado${ok===1?'':'s'}`;
   if (err) alert(`Enviados: ${ok}. Fallidos: ${err}. Revisa consola para detalles.`);
-  setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 3000);
+  // Si al menos uno se envió con éxito, marca la card como "Avisada" y
+  // persiste en localStorage + registry en memoria; luego repinta el bloque
+  // → aparece el chip verde "Avisado" + botón "Re-enviar aviso".
+  if (ok > 0) {
+    const stamp = new Date().toISOString();
+    window.__botcAvisadoRegistry_ = window.__botcAvisadoRegistry_ || {};
+    window.__botcAvisadoRegistry_[cardKey] = stamp;
+    try { localStorage.setItem('botcAvisado:' + cardKey, stamp); } catch(_){}
+    setTimeout(() => { try { _botcNotifEmerRepaintOne_(cardKey); } catch(_){} }, 1200);
+  } else {
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 3000);
+  }
 };
 // Botón "Avisar" reutilizable — dropdown de emergencia + trigger.
 window._botcNotifAvisarBtn_ = function(cardKey, cardData) {
@@ -44964,7 +44975,19 @@ window._botcNotifAvisarBtn_ = function(cardKey, cardData) {
         ${optsHtml}
       </div>
     </div>
-    <button type="button" id="notif-emer-btn-${_botcEsc(cardKey)}" ${avisarDisabled} onclick="event.stopPropagation();_botcNotifAvisarEmergencia_('${_botcEsc(cardKey)}')" title="Enviar aviso a los números de emergencia seleccionados" style="background:#dc2626;border:1px solid #b91c1c;color:#fff;font-size:11px;font-weight:800;cursor:pointer;padding:5px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;opacity:${avisarOpacity}">🚨 Avisar${nSel>1?` (${nSel})`:''}</button>
+    ${(() => {
+      // Estado "ya avisado": persiste en localStorage por cardKey. Si existe,
+      // el botón principal aparece verde "✓ Avisado (HH:MM)" y a la derecha
+      // se muestra "🔁 Re-enviar aviso" para disparar de nuevo.
+      const sentAt = (window.__botcAvisadoRegistry_ && window.__botcAvisadoRegistry_[cardKey])
+        || (function(){ try { return localStorage.getItem('botcAvisado:' + cardKey) || ''; } catch(_) { return ''; } })();
+      if (sentAt) {
+        const t = (function(){ try { const d = new Date(sentAt); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; } catch(_){ return ''; }})();
+        return `<button type="button" disabled style="background:#16a34a;border:1px solid #15803d;color:#fff;font-size:11px;font-weight:800;padding:5px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;opacity:.95;cursor:default">✓ Avisado${t?' · '+t:''}</button>
+        <button type="button" id="notif-emer-btn-${_botcEsc(cardKey)}" ${avisarDisabled} onclick="event.stopPropagation();_botcNotifAvisarEmergencia_('${_botcEsc(cardKey)}')" title="Re-enviar aviso a los seleccionados" style="background:#fff;border:1px solid #f59e0b;color:#b45309;font-size:11px;font-weight:800;cursor:pointer;padding:5px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;opacity:${avisarOpacity}">🔁 Re-enviar aviso${nSel>1?` (${nSel})`:''}</button>`;
+      }
+      return `<button type="button" id="notif-emer-btn-${_botcEsc(cardKey)}" ${avisarDisabled} onclick="event.stopPropagation();_botcNotifAvisarEmergencia_('${_botcEsc(cardKey)}')" title="Enviar aviso a los números de emergencia seleccionados" style="background:#dc2626;border:1px solid #b91c1c;color:#fff;font-size:11px;font-weight:800;cursor:pointer;padding:5px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;opacity:${avisarOpacity}">🚨 Avisar${nSel>1?` (${nSel})`:''}</button>`;
+    })()}
     <button type="button" onclick="event.stopPropagation();alert('La lista se toma de la hoja sys_users (columnas Nombre + cel). Edítala directamente en Google Sheets.')" title="La lista se toma de sys_users" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:11px;font-weight:700;cursor:pointer;padding:5px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:4px">ℹ️ sys_users</button>
   </div>`;
 };
