@@ -44914,8 +44914,19 @@ window._botcNotifAvisarBtn_ = function(cardKey, cardData) {
   if (cardData && Object.keys(cardData).length) {
     window.__botcNotifSummaries_[cardKey] = window._botcNotifSummary_(cardData);
   }
+  // Estado "Avisado" tiene prioridad sobre todo — si ya se avisó esta card,
+  // mostrar chip verde SIEMPRE (aunque phones haya quedado vacío por cache stale).
+  const sentAtEarly = (window.__botcAvisadoRegistry_ && window.__botcAvisadoRegistry_[cardKey])
+    || (function(){ try { return localStorage.getItem('botcAvisado:' + cardKey) || ''; } catch(_) { return ''; } })();
   const phones = window.__botcEmergencyPhones || [];
   if (!phones.length) {
+    // Si ya avisado sin phones cargados (stale), muestra el chip verde + Configurar.
+    if (sentAtEarly) {
+      const t = (function(){ try { const d = new Date(sentAtEarly); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; } catch(_){ return ''; }})();
+      return `<div class="botc-emer-wrap" data-card-key="${_botcEsc(cardKey)}" style="display:inline-flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
+        <button type="button" disabled style="background:#16a34a;border:1px solid #15803d;color:#fff;font-size:11px;font-weight:800;padding:5px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;cursor:default">✓ Avisado${t?' · '+t:''}</button>
+      </div>`;
+    }
     return `<div style="display:inline-flex;gap:4px;margin-top:6px;align-items:center">
       <button type="button" onclick="event.stopPropagation();_botcNotifConfigEmergencia_()" title="Configurar números de emergencia" style="background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;font-size:10px;font-weight:800;cursor:pointer;padding:3px 8px;border-radius:5px;display:inline-flex;align-items:center;gap:3px">🚨 Avisar (+ Configurar)</button>
     </div>`;
