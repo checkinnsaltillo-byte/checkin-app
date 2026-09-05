@@ -44937,8 +44937,8 @@ window._botcNotifAvisarBtn_ = function(cardKey, cardData) {
   // Registry de selecciones por card (Set de phones).
   window.__botcEmerSel_ = window.__botcEmerSel_ || {};
   if (!window.__botcEmerSel_[cardKey]) {
-    // Preselecciona TODOS por default (mejor UX que forzar al usuario a elegir).
-    window.__botcEmerSel_[cardKey] = new Set(phones);
+    // Sin preselección por default — el usuario elige explícitamente.
+    window.__botcEmerSel_[cardKey] = new Set();
   }
   const sel = window.__botcEmerSel_[cardKey];
   // Header selecciona-todo.
