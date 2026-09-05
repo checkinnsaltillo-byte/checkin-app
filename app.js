@@ -44848,8 +44848,69 @@ window._botcNotifSummary_ = function(cardData) {
   else if (d.phone) lines.push(`📞 +${d.phone}`);
   if (d.estado) lines.push(`Estado: ${d.estado}`);
   if (d.descripcion) lines.push('\n' + String(d.descripcion).slice(0, 400));
+  // Deep-link al editor de la card en el sistema — el receptor abre directo.
+  if (d.link) lines.push(`\n🔗 Editar: ${d.link}`);
   return lines.join('\n');
 };
+// Construye el deep-link para una card: parseado al cargar la app.
+window._botcNotifBuildLink_ = function(kind, id, extra) {
+  try {
+    const params = new URLSearchParams();
+    params.set('notif', kind);
+    if (id) params.set('id', String(id));
+    if (extra) Object.keys(extra).forEach(k => { if (extra[k]) params.set(k, String(extra[k])); });
+    return `${location.origin}${location.pathname}?${params.toString()}`;
+  } catch(_) { return ''; }
+};
+// Deep-link handler — al cargar la app, revisa la URL y abre el editor.
+(function _botcInstallDeepLinkHandler_() {
+  const run = () => {
+    try {
+      const q = new URLSearchParams(location.search);
+      const kind = q.get('notif');
+      if (!kind) return;
+      const id = q.get('id') || '';
+      const phone = q.get('phone') || '';
+      const reservaId = q.get('reservaId') || '';
+      // Limpia la URL para no re-disparar en recargas.
+      try { history.replaceState(null, '', location.pathname); } catch(_){}
+      // Espera brevemente para que módulos hidraten.
+      setTimeout(() => {
+        try {
+          if (kind === 'rt' && id) {
+            if (typeof switchModule === 'function') switchModule('reportes-tecnicos');
+            setTimeout(() => { try { if (typeof rtOpenCapture === 'function') rtOpenCapture(id); } catch(_){} }, 600);
+          } else if (kind === 'inc' && id) {
+            if (typeof switchModule === 'function') switchModule('incidencias');
+            setTimeout(() => {
+              const open = () => {
+                if (typeof INC_STATE === 'undefined' || !Array.isArray(INC_STATE.list)) return false;
+                if (!INC_STATE.list.find(r => String(r.ID) === String(id))) return false;
+                try { INC_STATE.expanded.add(id); } catch(_){}
+                try { if (typeof incRenderCards === 'function') incRenderCards(); } catch(_){}
+                setTimeout(() => { try { if (typeof incEnterEdit === 'function') incEnterEdit(id); } catch(_){} }, 200);
+                return true;
+              };
+              if (!open() && typeof incLoadIncidencias === 'function') incLoadIncidencias().then(open).catch(()=>{});
+            }, 600);
+          } else if (kind === 'obj' && id) {
+            if (typeof switchModule === 'function') switchModule('objetos');
+            setTimeout(() => { try { if (typeof objEnterEdit === 'function') objEnterEdit(id); } catch(_){} }, 700);
+          } else if (kind === 'sol' && phone) {
+            if (typeof switchModule === 'function') switchModule('bot-chats');
+            setTimeout(() => { try { if (typeof botcOpenChat === 'function') botcOpenChat(phone); } catch(_){} }, 400);
+            setTimeout(() => { try { if (typeof window._botcOpenNotifsGlobal_ === 'function') window._botcOpenNotifsGlobal_('solicitudes'); } catch(_){} }, 800);
+          } else if (kind === 'pago' && reservaId) {
+            if (typeof switchModule === 'function') switchModule('pagos');
+            setTimeout(() => { try { if (typeof pagosSelect === 'function') pagosSelect(reservaId); } catch(_){} }, 700);
+          }
+        } catch(e) { console.warn('[deep-link] error:', e.message); }
+      }, 400);
+    } catch(_){}
+  };
+  if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(run, 100);
+  else document.addEventListener('DOMContentLoaded', run);
+})();
 // Configurar números de emergencia — prompt simple; persiste vía backend.
 window._botcNotifConfigEmergencia_ = async function() {
   const current = (window.__botcEmergencyPhones || []).join(', ');
@@ -45311,7 +45372,7 @@ function _botcNotifCardHtml_(r) {
         <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen||'')}</div>
         ${footer}
         ${_botcNotifMsgsBtn_(solKey, p10 || s.Phone, tipoHint, [s.Timestamp, s.UpdatedAt, s.ProgramadaAt, s.AtendidoAt, s.CanceladoAt].filter(Boolean))}
-        ${_botcNotifAvisarBtn_(solKey, { tipo: meta.label, titulo: s.Tipo, alojamiento: alojLabel, fechas: fechasCortas, nombre: nombre, phone: p10 || s.Phone, estado: s.Estado, descripcion: s.Resumen })}
+        ${_botcNotifAvisarBtn_(solKey, { tipo: meta.label, titulo: s.Tipo, alojamiento: alojLabel, fechas: fechasCortas, nombre: nombre, phone: p10 || s.Phone, estado: s.Estado, descripcion: s.Resumen, link: _botcNotifBuildLink_('sol', s.ID, { phone: p10 || s.Phone }) })}
       </div>`;
   }
 
@@ -45358,7 +45419,7 @@ function _botcNotifCardHtml_(r) {
         <div style="font-size:11px;color:#475569">${p.Referencia?`Ref ${_botcEsc(p.Referencia)} · `:''}${fecha?`${fecha} · `:''}${p.RegistradoPor?`por ${_botcEsc(p.RegistradoPor)}`:''}</div>
         ${p.Notas?`<div style="font-size:11px;color:#64748b;margin-top:4px">${_botcEsc(p.Notas)}</div>`:''}
         ${_botcNotifMsgsBtn_('pago_'+rowKey, p10 || (bk && bk.GuestPhone) || '', 'pago', [p.Timestamp, p.Fecha].filter(Boolean))}
-        ${_botcNotifAvisarBtn_('pago_'+rowKey, { tipo: 'Pago manual', titulo: `+$${montoTxt}`, alojamiento: alojLabel, fechas: fechasCortas, nombre: nombre, phone: p10 || (bk && bk.GuestPhone) || '', descripcion: `${p.Metodo||''}${p.Referencia?' · Ref '+p.Referencia:''}${p.Notas?' · '+p.Notas:''}` })}
+        ${_botcNotifAvisarBtn_('pago_'+rowKey, { tipo: 'Pago manual', titulo: `+$${montoTxt}`, alojamiento: alojLabel, fechas: fechasCortas, nombre: nombre, phone: p10 || (bk && bk.GuestPhone) || '', descripcion: `${p.Metodo||''}${p.Referencia?' · Ref '+p.Referencia:''}${p.Notas?' · '+p.Notas:''}`, link: _botcNotifBuildLink_('pago', '', { reservaId: r._reservaId }) })}
       </div>`;
   }
 
@@ -45414,7 +45475,8 @@ function _botcNotifCardHtml_(r) {
         const hintByKind = { reporte_tecnico:'reporte', incidencia:'incidencia', objeto:'objeto' }[r._kind] || '';
         const anchors = [raw.Timestamp, raw.Updated_at, raw.UpdatedAt, raw.FechaCierre, raw.ResueltoAt, raw.Fecha, raw.Fecha_encontrado, raw.Fecha_entregado].filter(Boolean);
         const btnMsgs = _botcNotifMsgsBtn_(r._kind + '_' + rowKey, ph, hintByKind, anchors);
-        const btnAvisar = _botcNotifAvisarBtn_(r._kind + '_' + rowKey, { tipo: labelKind, titulo: titulo, alojamiento: alojLine, fechas: '', nombre: '', phone: ph, estado: raw.Estado || raw.Estatus, descripcion: raw.Descripcion });
+        const linkKind = { reporte_tecnico:'rt', incidencia:'inc', objeto:'obj' }[r._kind] || 'rt';
+        const btnAvisar = _botcNotifAvisarBtn_(r._kind + '_' + rowKey, { tipo: labelKind, titulo: titulo, alojamiento: alojLine, fechas: '', nombre: '', phone: ph, estado: raw.Estado || raw.Estatus, descripcion: raw.Descripcion, link: _botcNotifBuildLink_(linkKind, raw.ID) });
         return btnMsgs + btnAvisar;
       })()}
     </div>`;
