@@ -44874,38 +44874,62 @@ window._botcNotifBuildLink_ = function(kind, id, extra) {
       const reservaId = q.get('reservaId') || '';
       // Limpia la URL para no re-disparar en recargas.
       try { history.replaceState(null, '', location.pathname); } catch(_){}
-      // Espera brevemente para que módulos hidraten.
+      // Polling helper — espera a que una condición se cumpla (ej. STATE.list
+      // se llene tras la carga async) antes de abrir el editor. Timeout 15s.
+      const waitFor = (fn, cb, remaining) => {
+        if (remaining == null) remaining = 30;
+        try { if (fn()) { cb(); return; } } catch(_){}
+        if (remaining <= 0) return;
+        setTimeout(() => waitFor(fn, cb, remaining - 1), 500);
+      };
       setTimeout(() => {
         try {
           if (kind === 'rt' && id) {
             if (typeof switchModule === 'function') switchModule('reportes-tecnicos');
-            setTimeout(() => { try { if (typeof rtOpenCapture === 'function') rtOpenCapture(id); } catch(_){} }, 600);
+            waitFor(
+              () => typeof RT_STATE === 'object' && Array.isArray(RT_STATE.list) && RT_STATE.list.some(r => String(r.ID) === String(id)),
+              () => { try { rtOpenCapture(id); } catch(e){ console.warn('[deep-link rt]', e); } }
+            );
           } else if (kind === 'inc' && id) {
             if (typeof switchModule === 'function') switchModule('incidencias');
-            setTimeout(() => {
-              const open = () => {
-                if (typeof INC_STATE === 'undefined' || !Array.isArray(INC_STATE.list)) return false;
-                if (!INC_STATE.list.find(r => String(r.ID) === String(id))) return false;
-                try { INC_STATE.expanded.add(id); } catch(_){}
-                try { if (typeof incRenderCards === 'function') incRenderCards(); } catch(_){}
-                setTimeout(() => { try { if (typeof incEnterEdit === 'function') incEnterEdit(id); } catch(_){} }, 200);
-                return true;
-              };
-              if (!open() && typeof incLoadIncidencias === 'function') incLoadIncidencias().then(open).catch(()=>{});
-            }, 600);
+            waitFor(
+              () => typeof INC_STATE === 'object' && Array.isArray(INC_STATE.list) && INC_STATE.list.some(r => String(r.ID) === String(id)),
+              () => {
+                try {
+                  INC_STATE.expanded.add(id);
+                  if (typeof incRenderCards === 'function') incRenderCards();
+                  requestAnimationFrame(() => {
+                    try { incEnterEdit(id); } catch(e){ console.warn('[deep-link inc]', e); }
+                    const el = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(String(id))}"]`);
+                    if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+                  });
+                } catch(e){ console.warn('[deep-link inc setup]', e); }
+              }
+            );
           } else if (kind === 'obj' && id) {
             if (typeof switchModule === 'function') switchModule('objetos');
-            setTimeout(() => { try { if (typeof objEnterEdit === 'function') objEnterEdit(id); } catch(_){} }, 700);
+            waitFor(
+              () => typeof OBJ_STATE === 'object' && Array.isArray(OBJ_STATE.list) && OBJ_STATE.list.some(r => String(r.ID) === String(id)),
+              () => { try { objEnterEdit(id); const el = document.querySelector(`.inc-card[data-inc-id="${CSS.escape(String(id))}"]`); if (el) el.scrollIntoView({behavior:'smooth',block:'start'}); } catch(e){ console.warn('[deep-link obj]', e); } }
+            );
           } else if (kind === 'sol' && phone) {
             if (typeof switchModule === 'function') switchModule('bot-chats');
-            setTimeout(() => { try { if (typeof botcOpenChat === 'function') botcOpenChat(phone); } catch(_){} }, 400);
-            setTimeout(() => { try { if (typeof window._botcOpenNotifsGlobal_ === 'function') window._botcOpenNotifsGlobal_('solicitudes'); } catch(_){} }, 800);
+            waitFor(
+              () => typeof botcOpenChat === 'function',
+              () => {
+                try { botcOpenChat(phone); } catch(_){}
+                setTimeout(() => { try { window._botcOpenNotifsGlobal_ && window._botcOpenNotifsGlobal_('solicitudes'); } catch(_){} }, 400);
+              }
+            );
           } else if (kind === 'pago' && reservaId) {
             if (typeof switchModule === 'function') switchModule('pagos');
-            setTimeout(() => { try { if (typeof pagosSelect === 'function') pagosSelect(reservaId); } catch(_){} }, 700);
+            waitFor(
+              () => typeof pagosSelect === 'function' && typeof PAGOS_STATE === 'object' && Array.isArray(PAGOS_STATE.bookings) && PAGOS_STATE.bookings.length,
+              () => { try { pagosSelect(reservaId); } catch(e){ console.warn('[deep-link pago]', e); } }
+            );
           }
         } catch(e) { console.warn('[deep-link] error:', e.message); }
-      }, 400);
+      }, 300);
     } catch(_){}
   };
   if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(run, 100);
