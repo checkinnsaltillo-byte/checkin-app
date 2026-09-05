@@ -44989,17 +44989,16 @@ window._botcNotifAvisarBtn_ = function(cardKey, cardData) {
     ${(() => {
       // Estado "ya avisado": persiste en localStorage por cardKey. Si existe,
       // el botón principal aparece verde "✓ Avisado (HH:MM)" y a la derecha
-      // se muestra "🔁 Re-enviar aviso" para disparar de nuevo.
+      // se muestra "🔁 Reenviar" para disparar de nuevo.
       const sentAt = (window.__botcAvisadoRegistry_ && window.__botcAvisadoRegistry_[cardKey])
         || (function(){ try { return localStorage.getItem('botcAvisado:' + cardKey) || ''; } catch(_) { return ''; } })();
       if (sentAt) {
         const t = (function(){ try { const d = new Date(sentAt); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; } catch(_){ return ''; }})();
         return `<button type="button" disabled style="background:#16a34a;border:1px solid #15803d;color:#fff;font-size:11px;font-weight:800;padding:5px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;opacity:.95;cursor:default">✓ Avisado${t?' · '+t:''}</button>
-        <button type="button" id="notif-emer-btn-${_botcEsc(cardKey)}" ${avisarDisabled} onclick="event.stopPropagation();_botcNotifAvisarEmergencia_('${_botcEsc(cardKey)}')" title="Re-enviar aviso a los seleccionados" style="background:#fff;border:1px solid #f59e0b;color:#b45309;font-size:11px;font-weight:800;cursor:pointer;padding:5px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;opacity:${avisarOpacity}">🔁 Re-enviar aviso${nSel>1?` (${nSel})`:''}</button>`;
+        <button type="button" id="notif-emer-btn-${_botcEsc(cardKey)}" ${avisarDisabled} onclick="event.stopPropagation();_botcNotifAvisarEmergencia_('${_botcEsc(cardKey)}')" title="Re-enviar aviso a los seleccionados" style="background:#fff;border:1px solid #f59e0b;color:#b45309;font-size:11px;font-weight:800;cursor:pointer;padding:5px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;opacity:${avisarOpacity}">🔁 Reenviar${nSel>1?` (${nSel})`:''}</button>`;
       }
       return `<button type="button" id="notif-emer-btn-${_botcEsc(cardKey)}" ${avisarDisabled} onclick="event.stopPropagation();_botcNotifAvisarEmergencia_('${_botcEsc(cardKey)}')" title="Enviar aviso a los números de emergencia seleccionados" style="background:#dc2626;border:1px solid #b91c1c;color:#fff;font-size:11px;font-weight:800;cursor:pointer;padding:5px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;opacity:${avisarOpacity}">🚨 Avisar${nSel>1?` (${nSel})`:''}</button>`;
     })()}
-    <button type="button" onclick="event.stopPropagation();alert('La lista se toma de la hoja sys_users (columnas Nombre + cel). Edítala directamente en Google Sheets.')" title="La lista se toma de sys_users" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:11px;font-weight:700;cursor:pointer;padding:5px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:4px">ℹ️ sys_users</button>
   </div>`;
 };
 // Toggle una fila de la lista — actualiza selección y re-render inline (solo el bloque)
