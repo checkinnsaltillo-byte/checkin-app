@@ -44820,12 +44820,21 @@ window._botcNotifToggleMsgs_ = async function(cardKey, phone, tipoHint, anchorTs
 // Cache de números de emergencia — lo popula _botcNotifLoadEmergencyPhones_
 // al abrir el panel Notificaciones. Se reutiliza para dropdown de "Avisar".
 window.__botcEmergencyPhones = window.__botcEmergencyPhones || [];
+window._botcEmergencyContacts = window.__botcEmergencyContacts || [];
 window._botcNotifLoadEmergencyPhones_ = async function() {
   try {
     const r = await fetch('https://api.check-inn.mx/wa/bot/emergency-phones', { cache:'no-store' });
     const j = await r.json();
-    window.__botcEmergencyPhones = (j && Array.isArray(j.phones)) ? j.phones : [];
-  } catch(_) { window.__botcEmergencyPhones = []; }
+    window.__botcEmergencyPhones   = (j && Array.isArray(j.phones))   ? j.phones   : [];
+    window.__botcEmergencyContacts = (j && Array.isArray(j.contacts)) ? j.contacts : [];
+  } catch(_) { window.__botcEmergencyPhones = []; window.__botcEmergencyContacts = []; }
+};
+// Devuelve el nombre asociado a un teléfono (o el propio teléfono si no hay match).
+window._botcEmerNameForPhone_ = function(phone) {
+  const contacts = window.__botcEmergencyContacts || [];
+  const p = String(phone||'').replace(/\D/g,'').slice(-10);
+  const c = contacts.find(x => String(x.telefono||'').replace(/\D/g,'').slice(-10) === p);
+  return (c && c.nombre) ? String(c.nombre).trim() : phone;
 };
 // Genera un resumen breve para enviar al número de emergencia.
 window._botcNotifSummary_ = function(cardData) {
@@ -44912,6 +44921,12 @@ window._botcNotifAvisarBtn_ = function(cardKey, cardData) {
   const sel = window.__botcEmerSel_[cardKey];
   // Header selecciona-todo.
   const allChecked = sel.size === phones.length && phones.length > 0;
+  const contacts = window.__botcEmergencyContacts || [];
+  const nameFor = p => {
+    const p10 = String(p||'').replace(/\D/g,'').slice(-10);
+    const c = contacts.find(x => String(x.telefono||'').replace(/\D/g,'').slice(-10) === p10);
+    return (c && c.nombre) ? String(c.nombre).trim() : p;
+  };
   const optsHtml = `
     <div onclick="event.stopPropagation();_botcNotifEmerToggleAll_('${_botcEsc(cardKey)}')" style="padding:8px 12px;font-size:11px;font-weight:800;color:#334155;cursor:pointer;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px">
       <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:1.5px solid ${allChecked?'#dc2626':'#94a3b8'};border-radius:4px;background:${allChecked?'#dc2626':'#fff'}">${allChecked?'<span style="color:#fff;font-size:11px;line-height:1;font-weight:900">✓</span>':''}</span>
@@ -44919,18 +44934,24 @@ window._botcNotifAvisarBtn_ = function(cardKey, cardData) {
     </div>
     ${phones.map(p => {
       const checked = sel.has(p);
+      const nm = nameFor(p);
+      const showPhone = nm !== p;
       return `<div onclick="event.stopPropagation();_botcNotifEmerTogglePhone_('${_botcEsc(cardKey)}','${_botcEsc(p)}')" style="padding:8px 12px;font-size:12px;color:#0f172a;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='#fff'">
         <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:1.5px solid ${checked?'#dc2626':'#94a3b8'};border-radius:4px;background:${checked?'#dc2626':'#fff'};flex:none">${checked?'<span style="color:#fff;font-size:11px;line-height:1;font-weight:900">✓</span>':''}</span>
-        <span style="font-family:'SF Mono',Monaco,'Courier New',monospace;letter-spacing:.02em">📞 ${_botcEsc(p)}</span>
+        <span style="display:flex;flex-direction:column;line-height:1.3;overflow:hidden">
+          <span style="font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_botcEsc(nm)}</span>
+          ${showPhone?`<span style="font-family:'SF Mono',Monaco,'Courier New',monospace;letter-spacing:.02em;color:#64748b;font-size:10px">${_botcEsc(p)}</span>`:''}
+        </span>
       </div>`;
     }).join('')}
   `;
   const nSel = sel.size;
+  const firstSelName = nSel === 1 ? nameFor([...sel][0]) : '';
   const labelHtml = nSel === 0
     ? `🚨 <span style="color:#94a3b8;font-weight:600">Seleccionar…</span>`
     : (nSel === 1
-        ? `🚨 <span style="font-family:'SF Mono',Monaco,'Courier New',monospace;letter-spacing:.02em">${_botcEsc([...sel][0])}</span>`
-        : `🚨 <span style="font-weight:800">${nSel} números</span>`);
+        ? `🚨 <span style="font-weight:700">${_botcEsc(firstSelName)}</span>`
+        : `🚨 <span style="font-weight:800">${nSel} personas</span>`);
   const avisarDisabled = nSel > 0 ? '' : 'disabled';
   const avisarOpacity  = nSel > 0 ? '1' : '.4';
   return `<div class="botc-emer-wrap" data-card-key="${_botcEsc(cardKey)}" style="display:inline-flex;gap:6px;margin-top:6px;align-items:stretch;flex-wrap:nowrap">
@@ -44944,7 +44965,7 @@ window._botcNotifAvisarBtn_ = function(cardKey, cardData) {
       </div>
     </div>
     <button type="button" id="notif-emer-btn-${_botcEsc(cardKey)}" ${avisarDisabled} onclick="event.stopPropagation();_botcNotifAvisarEmergencia_('${_botcEsc(cardKey)}')" title="Enviar aviso a los números de emergencia seleccionados" style="background:#dc2626;border:1px solid #b91c1c;color:#fff;font-size:11px;font-weight:800;cursor:pointer;padding:5px 14px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;opacity:${avisarOpacity}">🚨 Avisar${nSel>1?` (${nSel})`:''}</button>
-    <button type="button" onclick="event.stopPropagation();_botcNotifConfigEmergencia_()" title="Editar la lista de números de emergencia" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:11px;font-weight:700;cursor:pointer;padding:5px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:4px">✏️ Editar lista</button>
+    <button type="button" onclick="event.stopPropagation();alert('La lista se toma de la hoja sys_users (columnas Nombre + cel). Edítala directamente en Google Sheets.')" title="La lista se toma de sys_users" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:11px;font-weight:700;cursor:pointer;padding:5px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:4px">ℹ️ sys_users</button>
   </div>`;
 };
 // Toggle una fila de la lista — actualiza selección y re-render inline (solo el bloque)
