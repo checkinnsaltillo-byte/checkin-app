@@ -44914,11 +44914,24 @@ window._botcNotifBuildLink_ = function(kind, id, extra) {
             );
           } else if (kind === 'sol' && phone) {
             if (typeof switchModule === 'function') switchModule('bot-chats');
+            // Prepara anchors para scroll en el chat (timestamps de la task).
+            const tsCsv = q.get('ts') || '';
+            if (tsCsv) {
+              const items = tsCsv.split(',').map(s => s.trim()).filter(Boolean).map(s => {
+                const hasTime = /T\d/.test(s);
+                if (hasTime) { const t = Date.parse(s); return isNaN(t) ? null : { center:t, windowMs:15*60*1000 }; }
+                const raw = s.slice(0,10);
+                if (/^\d{4}-\d{2}-\d{2}/.test(raw)) { const t = Date.parse(raw+'T12:00:00'); return isNaN(t) ? null : { center:t, windowMs:12*60*60*1000 }; }
+                return null;
+              }).filter(Boolean);
+              if (items.length) window.__botcScrollToAnchors = items;
+            }
             waitFor(
               () => typeof botcOpenChat === 'function',
               () => {
                 try { botcOpenChat(phone); } catch(_){}
-                setTimeout(() => { try { window._botcOpenNotifsGlobal_ && window._botcOpenNotifsGlobal_('solicitudes'); } catch(_){} }, 400);
+                // Abrir el drawer lateral "Solicitudes de +XXX" (no el panel Notificaciones).
+                setTimeout(() => { try { window._botcOpenSolicitudesDrawer_ && window._botcOpenSolicitudesDrawer_(phone); } catch(_){} }, 600);
               }
             );
           } else if (kind === 'pago' && reservaId) {
@@ -45396,7 +45409,7 @@ function _botcNotifCardHtml_(r) {
         <div style="font-size:12px;color:#334155;white-space:pre-wrap">${_botcEsc(s.Resumen||'')}</div>
         ${footer}
         ${_botcNotifMsgsBtn_(solKey, p10 || s.Phone, tipoHint, [s.Timestamp, s.UpdatedAt, s.ProgramadaAt, s.AtendidoAt, s.CanceladoAt].filter(Boolean))}
-        ${_botcNotifAvisarBtn_(solKey, { tipo: meta.label, titulo: s.Tipo, alojamiento: alojLabel, fechas: fechasCortas, nombre: nombre, phone: p10 || s.Phone, estado: s.Estado, descripcion: s.Resumen, link: _botcNotifBuildLink_('sol', s.ID, { phone: p10 || s.Phone }) })}
+        ${_botcNotifAvisarBtn_(solKey, { tipo: meta.label, titulo: s.Tipo, alojamiento: alojLabel, fechas: fechasCortas, nombre: nombre, phone: p10 || s.Phone, estado: s.Estado, descripcion: s.Resumen, link: _botcNotifBuildLink_('sol', s.ID, { phone: p10 || s.Phone, ts: [s.Timestamp, s.UpdatedAt, s.ProgramadaAt, s.AtendidoAt, s.CanceladoAt].filter(Boolean).join(',') }) })}
       </div>`;
   }
 
