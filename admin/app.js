@@ -21815,6 +21815,7 @@ window.bnDriveProcessSelected = async function() {
       const ext = (meta.name.split('.').pop() || '').toLowerCase();
       let parsed = [];
       const buf = bnDriveBase64ToArrayBuffer(j.base64);
+      console.info(`[BN drive] "${meta.name}" bytes=${buf.byteLength} ext=${ext}`);
       if (ext === 'xlsx' || ext === 'xls') {
         parsed = await bnUploadParseXlsxFromBuffer(buf, meta.name);
       } else if (ext === 'csv') {
@@ -21826,12 +21827,16 @@ window.bnDriveProcessSelected = async function() {
         allRows.push({ _error: `Formato .${ext} aún no soportado (${meta.name})` });
         continue;
       }
+      console.info(`[BN drive] "${meta.name}" parseó ${parsed.length} filas`);
       // Marca cada fila con su _driveFileId para tracking post-insert
       parsed.forEach(p => {
         p._driveFileId = id;
         p._driveFileName = meta.name;
         p._archivo = meta.path || meta.name; // ruta completa con subcarpetas
       });
+      if (!parsed.length) {
+        allRows.push({ _error: `⚠ "${meta.name}" (${buf.byteLength} bytes) parseó 0 filas — revisa consola para más detalle.` });
+      }
       allRows.push(...parsed);
       BN_DRIVE_STATE.processedThisRun.push({ file_id: id, name: meta.name, parsed_count: parsed.length });
     } catch (e) {
@@ -21845,9 +21850,12 @@ window.bnDriveProcessSelected = async function() {
   BN_UPLOAD_STATE.parsedRows = allRows;
   bnUploadRenderPreview();
   bnDriveClosePanel();
+  const newCount = allRows.filter(r => r._status === 'new').length;
+  const dupCount = allRows.filter(r => r._status === 'duplicate').length;
+  const errCount = allRows.filter(r => r._error).length;
+  console.info(`[BN drive] total filas=${allRows.length} · nuevas=${newCount} · duplicadas=${dupCount} · errores=${errCount}`);
   if (status) {
-    const newCount = allRows.filter(r => r._status === 'new').length;
-    status.textContent = `✓ ${allRows.length} filas parseadas de ${selectedIds.length} archivo(s) · ${newCount} nuevas para insertar`;
+    status.textContent = `✓ ${allRows.length} filas parseadas de ${selectedIds.length} archivo(s) · ${newCount} nuevas · ${dupCount} duplicadas${errCount ? ` · ${errCount} errores`:''}`;
   }
 };
 
