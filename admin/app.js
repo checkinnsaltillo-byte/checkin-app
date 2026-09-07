@@ -21115,6 +21115,15 @@ async function _bnUploadParseWorkbook(wb, fileName) {
     const rows = XLSX.utils.sheet_to_json(sh, { header: 1, defval: '', raw: true });
     totalRowsScanned += rows.length;
     console.info(`[BN parse] "${fileName}" hoja="${sheetName}" filas=${rows.length}`);
+    // Dump de las primeras 15 filas con tipos por celda para diagnosticar
+    // por qué el parser no reconoce la fecha en col A.
+    const dbgRows = rows.slice(0, 15).map((r, i) => {
+      const c0 = r?.[0];
+      const c0type = c0 instanceof Date ? 'Date' : (c0 === null ? 'null' : typeof c0);
+      const c0val  = c0 instanceof Date ? c0.toISOString() : String(c0 ?? '');
+      return `  ${String(i).padStart(2,'0')}  [col0 ${c0type}]="${c0val}"  full=${JSON.stringify(r)}`;
+    }).join('\n');
+    console.info(`[BN parse] "${fileName}" primeras 15 filas:\n${dbgRows}`);
     // ─── Pre-escaneo: busca cuenta_numero en las primeras 10 filas. Si
     //     existe, se usa como default para TODA la hoja. Los marcadores
     //     "Digital *2220" (si existen) seguirán overrideando per-sección.
