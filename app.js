@@ -29296,7 +29296,10 @@ function bnEfectivoRender() {
       </th>`;
     }).join('')}
   </tr>`;
-  // Orden visible
+  // Orden visible: sort primario por columna, con TIEBREAKER por _bancosRowNum
+  // descendente (más recientemente insertado primero) para que el último
+  // registro guardado aparezca arriba entre filas de la misma fecha.
+  // Filas nuevas sin _bancosRowNum flotan al tope (dentro del mismo día).
   const sortedRows = rows.slice();
   if (BN_EFE_STATE.sortKey) {
     const key = BN_EFE_STATE.sortKey;
@@ -29305,7 +29308,9 @@ function bnEfectivoRender() {
       const av = bnEfeSortValue(a, key), bv = bnEfeSortValue(b, key);
       if (av < bv) return -1 * dir;
       if (av > bv) return 1 * dir;
-      return 0;
+      const ra = (a._bancosRowNum != null) ? a._bancosRowNum : Infinity;
+      const rb = (b._bancosRowNum != null) ? b._bancosRowNum : Infinity;
+      return rb - ra;
     });
   }
   tbody.innerHTML = sortedRows.map(r => bnEfectivoRowHtml(r)).join('');
