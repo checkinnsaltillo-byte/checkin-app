@@ -28950,10 +28950,10 @@ function bnEfectivoAutoLoadIfFirst() {
   if (inp && !inp.value) inp.value = '10';
   // Después de cargar los importados, prepende los WIP para no perderlos.
   bnEfectivoLoadLastFromBancos().finally(() => {
-    if (wipNewRows.length) {
-      BN_EFE_STATE.rows = [...wipNewRows, ...BN_EFE_STATE.rows];
-      bnEfectivoRender();
-    }
+    // SIEMPRE agrega 5 renglones vacíos arriba al abrir la subsección
+    const fresh = Array.from({ length: 5 }, () => bnEfeNewRow());
+    BN_EFE_STATE.rows = [...fresh, ...wipNewRows, ...BN_EFE_STATE.rows];
+    bnEfectivoRender();
   });
 }
 
@@ -29456,16 +29456,29 @@ window.bnEfectivoSave = async function (opts) {
     if (r.concepto) out.CONCEPTO_auto  = r.concepto;
     return out;
   });
-  // Asegurar que el upload-pane tenga inicializados los caches
-  if (status) status.textContent = '⏳ Preparando vista previa…';
+  // Clasificación + dedupe automáticos, e inserción directa a BANCOS
+  // (sin paso intermedio de vista previa).
+  if (status) status.textContent = '⏳ Clasificando e insertando en BANCOS…';
   if (typeof bnUploadInit === 'function') await bnUploadInit();
   BN_UPLOAD_STATE.parsedRows = mapped;
+  BN_UPLOAD_STATE.unchecked = new Set();
   if (typeof bnUploadClassifyRows === 'function') bnUploadClassifyRows(mapped);
   if (typeof bnUploadAssignCountersAndDedupe === 'function') bnUploadAssignCountersAndDedupe(mapped);
-  // Mantén el pane de Efectivo visible y mueve el preview-wrap aquí
-  bnEfeMountPreview();
-  if (typeof bnUploadRenderPreview === 'function') bnUploadRenderPreview();
-  if (status) status.innerHTML = `📋 <strong>${mapped.length}</strong> renglones listos para revisar. Confirma con <strong>Insertar en BANCOS</strong>.`;
+  try {
+    await bnUploadConfirmInsert();
+    if (status) status.innerHTML = `✓ <strong>${mapped.length}</strong> renglones enviados a BANCOS.`;
+    // Limpia los renglones nuevos capturados (los importados se recargan solos)
+    BN_EFE_STATE.rows = (BN_EFE_STATE.rows || []).filter(r => r._imported);
+    // Refresca desde BANCOS para que los recién insertados aparezcan como importados
+    try { await bnEfectivoLoadLastFromBancos(); } catch(_){}
+    // Agrega 5 renglones vacíos otra vez para seguir capturando
+    const fresh = Array.from({ length: 5 }, () => bnEfeNewRow());
+    BN_EFE_STATE.rows = [...fresh, ...BN_EFE_STATE.rows];
+    bnEfectivoRender();
+  } catch (e) {
+    if (status) status.textContent = '';
+    alert('No se pudo insertar en BANCOS: ' + (e.message || e));
+  }
 };
 
 let _bnEfePreviewOrigParent = null;
