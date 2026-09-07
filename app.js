@@ -21063,7 +21063,9 @@ async function bnUploadParseXlsx(file) {
 /** Versión low-level: parsea desde un ArrayBuffer + filename ya conocido.
  *  Reusable para Drive (download como base64 → bytes → ArrayBuffer). */
 async function bnUploadParseXlsxFromBuffer(buf, fileName) {
-  const wb = XLSX.read(buf, { type: 'array', cellDates: false });
+  // cellDates: true → SheetJS convierte fechas serial de Excel a JS Date, así
+  // el parser reconoce tanto strings "D/M/YYYY" como celdas de tipo Fecha.
+  const wb = XLSX.read(buf, { type: 'array', cellDates: true });
   return _bnUploadParseWorkbook(wb, fileName);
 }
 
@@ -21105,9 +21107,14 @@ function bnUploadFindDefaultCuentaFromTop(rows, maxRowsScan) {
 
 async function _bnUploadParseWorkbook(wb, fileName) {
   const out = [];
+  let totalRowsScanned = 0;
+  let totalDateMatches = 0;
   for (const sheetName of wb.SheetNames) {
     const sh = wb.Sheets[sheetName];
+    // raw:false ya no — necesitamos Date objects reales para reconocerlos.
     const rows = XLSX.utils.sheet_to_json(sh, { header: 1, defval: '', raw: true });
+    totalRowsScanned += rows.length;
+    console.info(`[BN parse] "${fileName}" hoja="${sheetName}" filas=${rows.length}`);
     // ─── Pre-escaneo: busca cuenta_numero en las primeras 10 filas. Si
     //     existe, se usa como default para TODA la hoja. Los marcadores
     //     "Digital *2220" (si existen) seguirán overrideando per-sección.
@@ -21133,16 +21140,33 @@ async function _bnUploadParseWorkbook(wb, fileName) {
         }
         continue;
       }
-      // Movimiento normal
-      const fechaStr = String(row[0] ?? '').trim();
-      const mFecha = fechaStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-      if (!mFecha) continue;
-      // Sheet usa formato D/M/YYYY SIN ceros a la izquierda (ej. "6/4/2026"
-      // para 6 abril 2026). Generamos en ese formato para que el dedupe
-      // matchee con los displayValues del sheet.
-      const ddNum = parseInt(mFecha[1], 10);
-      const mmNum = parseInt(mFecha[2], 10);
-      const yyyy  = mFecha[3];
+      // Movimiento normal — la primera celda puede venir como:
+      //  (a) string "D/M/YYYY" (formato clásico BBVA en texto)
+      //  (b) Date object (cellDates:true convirtió una fecha serial de Excel)
+      //  (c) número serial de Excel (si por alguna razón no vino como Date)
+      let ddNum = 0, mmNum = 0, yyyy = 0;
+      const cell0 = row[0];
+      if (cell0 instanceof Date && !isNaN(cell0.getTime())) {
+        ddNum = cell0.getDate();
+        mmNum = cell0.getMonth() + 1;
+        yyyy  = cell0.getFullYear();
+      } else if (typeof cell0 === 'number' && isFinite(cell0) && cell0 > 20000 && cell0 < 80000) {
+        // Serial Excel: días desde 1899-12-30
+        const epoch = new Date(Date.UTC(1899, 11, 30));
+        const d = new Date(epoch.getTime() + Math.floor(cell0) * 86400000);
+        ddNum = d.getUTCDate();
+        mmNum = d.getUTCMonth() + 1;
+        yyyy  = d.getUTCFullYear();
+      } else {
+        const fechaStr = String(cell0 ?? '').trim();
+        const mFecha = fechaStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (!mFecha) continue;
+        ddNum = parseInt(mFecha[1], 10);
+        mmNum = parseInt(mFecha[2], 10);
+        yyyy  = parseInt(mFecha[3], 10);
+      }
+      totalDateMatches++;
+      // Sheet destino usa formato D/M/YYYY SIN ceros a la izquierda.
       const dia = `${ddNum}/${mmNum}/${yyyy}`;
       // ISO interno solo para parsear Año/Mes (no se guarda)
       const diaIso = `${yyyy}-${String(mmNum).padStart(2,'0')}-${String(ddNum).padStart(2,'0')}`;
@@ -21188,6 +21212,7 @@ async function _bnUploadParseWorkbook(wb, fileName) {
       });
     }
   }
+  console.info(`[BN parse] "${fileName}" total filas escaneadas=${totalRowsScanned} · con fecha reconocida=${totalDateMatches} · salida=${out.length}`);
   return out;
 }
 
