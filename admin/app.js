@@ -21130,7 +21130,36 @@ async function _bnUploadParseWorkbook(wb, fileName) {
     const defaultMap = bnUploadFindDefaultCuentaFromTop(rows, 10);
     let curTagOrig = defaultMap ? `cuenta_numero: ${defaultMap.cuenta_numero}` : null;
     let curMap = defaultMap;
+    // Columnas por defecto: FECHA=0, DESC=1, CARGO=2, ABONO=3, SALDO=4
+    // Se recalculan al encontrar una fila de encabezado.
+    let colIdx = { fecha: 0, desc: 1, cargo: 2, abono: 3, saldo: 4 };
+    const _normHdr = s => String(s ?? '').toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
     for (const row of rows) {
+      // Detecta fila de encabezado (contiene "FECHA" y "DESCRIPCION") y
+      // remapea colIdx dinámicamente — cubre variantes de orden como
+      // FECHA | DESCRIPCION | ABONO | CARGO | SALDO.
+      if (row && row.length >= 3) {
+        const hdrs = row.map(_normHdr);
+        if (hdrs.includes('fecha') && hdrs.some(h => h.startsWith('descripcion') || h === 'descripcion' || h === 'desc')) {
+          const findIdx = (...names) => {
+            for (const n of names) { const i = hdrs.indexOf(n); if (i >= 0) return i; }
+            return -1;
+          };
+          const fi = findIdx('fecha');
+          const di = findIdx('descripcion','desc');
+          const ci = findIdx('cargo','cargos');
+          const ai = findIdx('abono','abonos');
+          const si = findIdx('saldo','saldos');
+          if (fi >= 0) colIdx.fecha = fi;
+          if (di >= 0) colIdx.desc  = di;
+          if (ci >= 0) colIdx.cargo = ci;
+          if (ai >= 0) colIdx.abono = ai;
+          if (si >= 0) colIdx.saldo = si;
+          console.info('[BN parse] header remap →', colIdx);
+          continue;
+        }
+      }
       if (!row || row.every(c => c === '' || c === null || c === undefined)) continue;
       const a0 = String(row[0] ?? '').trim();
       // ignora encabezados/footer
@@ -21149,38 +21178,44 @@ async function _bnUploadParseWorkbook(wb, fileName) {
         }
         continue;
       }
-      // Movimiento normal — la primera celda puede venir como:
-      //  (a) string "D/M/YYYY" (formato clásico BBVA en texto)
+      // Movimiento normal — la celda de fecha (colIdx.fecha) puede venir como:
+      //  (a) string "D/M/YYYY" o "YYYY-MM-DD"
       //  (b) Date object (cellDates:true convirtió una fecha serial de Excel)
       //  (c) número serial de Excel (si por alguna razón no vino como Date)
       let ddNum = 0, mmNum = 0, yyyy = 0;
-      const cell0 = row[0];
-      if (cell0 instanceof Date && !isNaN(cell0.getTime())) {
-        ddNum = cell0.getDate();
-        mmNum = cell0.getMonth() + 1;
-        yyyy  = cell0.getFullYear();
-      } else if (typeof cell0 === 'number' && isFinite(cell0) && cell0 > 20000 && cell0 < 80000) {
-        // Serial Excel: días desde 1899-12-30
+      const cellF = row[colIdx.fecha];
+      if (cellF instanceof Date && !isNaN(cellF.getTime())) {
+        ddNum = cellF.getDate();
+        mmNum = cellF.getMonth() + 1;
+        yyyy  = cellF.getFullYear();
+      } else if (typeof cellF === 'number' && isFinite(cellF) && cellF > 20000 && cellF < 80000) {
         const epoch = new Date(Date.UTC(1899, 11, 30));
-        const d = new Date(epoch.getTime() + Math.floor(cell0) * 86400000);
+        const d = new Date(epoch.getTime() + Math.floor(cellF) * 86400000);
         ddNum = d.getUTCDate();
         mmNum = d.getUTCMonth() + 1;
         yyyy  = d.getUTCFullYear();
       } else {
-        const fechaStr = String(cell0 ?? '').trim();
-        const mFecha = fechaStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-        if (!mFecha) continue;
-        ddNum = parseInt(mFecha[1], 10);
-        mmNum = parseInt(mFecha[2], 10);
-        yyyy  = parseInt(mFecha[3], 10);
+        const fechaStr = String(cellF ?? '').trim();
+        let mFecha = fechaStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (mFecha) {
+          ddNum = parseInt(mFecha[1], 10);
+          mmNum = parseInt(mFecha[2], 10);
+          yyyy  = parseInt(mFecha[3], 10);
+        } else if ((mFecha = fechaStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) {
+          yyyy  = parseInt(mFecha[1], 10);
+          mmNum = parseInt(mFecha[2], 10);
+          ddNum = parseInt(mFecha[3], 10);
+        } else {
+          continue;
+        }
       }
       totalDateMatches++;
       // Sheet destino usa formato D/M/YYYY SIN ceros a la izquierda.
       const dia = `${ddNum}/${mmNum}/${yyyy}`;
       // ISO interno solo para parsear Año/Mes (no se guarda)
       const diaIso = `${yyyy}-${String(mmNum).padStart(2,'0')}-${String(ddNum).padStart(2,'0')}`;
-      const desc = String(row[1] ?? '').trim();
-      const cargoRaw = row[2], abonoRaw = row[3], saldoRaw = row[4];
+      const desc = String(row[colIdx.desc] ?? '').trim();
+      const cargoRaw = row[colIdx.cargo], abonoRaw = row[colIdx.abono], saldoRaw = row[colIdx.saldo];
       const cargo = bnUploadParseNum(cargoRaw);
       const abono = bnUploadParseNum(abonoRaw);
       const saldoNum = bnUploadParseNum(saldoRaw);
