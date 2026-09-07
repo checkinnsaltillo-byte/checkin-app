@@ -29466,15 +29466,25 @@ window.bnEfectivoSave = async function (opts) {
   if (typeof bnUploadAssignCountersAndDedupe === 'function') bnUploadAssignCountersAndDedupe(mapped);
   try {
     await bnUploadConfirmInsert();
-    if (status) status.innerHTML = `✓ <strong>${mapped.length}</strong> renglones enviados a BANCOS.`;
-    // Limpia los renglones nuevos capturados (los importados se recargan solos)
-    BN_EFE_STATE.rows = (BN_EFE_STATE.rows || []).filter(r => r._imported);
-    // Refresca desde BANCOS para que los recién insertados aparezcan como importados
+    if (status) status.innerHTML = `✓ <strong>${mapped.length}</strong> renglones enviados a BANCOS. Refrescando…`;
+    // Fuerza recarga de BN_RAW desde el server para que los recién insertados
+    // aparezcan con ✓ y sombreado como el resto de importados.
+    BN_RAW = [];
+    try { if (typeof bn_loadData === 'function') await bn_loadData(); } catch(_){}
+    // Sube el N a mostrar para incluir todo lo que acabamos de insertar
+    try {
+      const inp = document.getElementById('bn-efectivo-load-n');
+      const cur = parseInt(inp?.value || '10', 10) || 10;
+      const need = Math.max(cur, mapped.length + 10);
+      if (inp) inp.value = String(need);
+    } catch(_){}
+    // Repuebla desde BANCOS (los recién insertados aparecen con _imported)
     try { await bnEfectivoLoadLastFromBancos(); } catch(_){}
     // Agrega 5 renglones vacíos otra vez para seguir capturando
     const fresh = Array.from({ length: 5 }, () => bnEfeNewRow());
-    BN_EFE_STATE.rows = [...fresh, ...BN_EFE_STATE.rows];
+    BN_EFE_STATE.rows = [...fresh, ...(BN_EFE_STATE.rows || [])];
     bnEfectivoRender();
+    if (status) status.innerHTML = `✓ <strong>${mapped.length}</strong> renglones guardados en BANCOS.`;
   } catch (e) {
     if (status) status.textContent = '';
     alert('No se pudo insertar en BANCOS: ' + (e.message || e));
