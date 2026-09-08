@@ -7382,6 +7382,75 @@ document.querySelector('input[name="cel"]')?.addEventListener("input", scheduleG
 document.querySelector('input[name="cel"]')?.addEventListener("blur", detectExistingGuestByPhone);
 document.getElementById("lada1")?.addEventListener("change", detectExistingGuestByPhone);
 
+/** Prellena campos de la sección "Datos de la reservación" con los valores de
+ *  la reserva encontrada por código. applyGuestRecordToForm solo cubre perfil;
+ *  esta función complementa con cel principal + medio + propiedad + fechas +
+ *  # huéspedes + nombres. Fechas vienen como "MM/DD/YYYY" (Lodgify US) o
+ *  "YYYY-MM-DD" — normalizamos a "YYYY-MM-DD" para <input type=date>. */
+function applyReservacionExtras(reserva, phoneNorm) {
+  if (!reserva) return;
+  const _mark = (el) => { if (el) markFieldAsAutofilled(el); };
+  const _setInp = (sel, val) => {
+    const el = document.querySelector(sel);
+    if (el && val != null && String(val).trim()) { el.value = String(val).trim(); _mark(el); }
+  };
+  const _setSelByTextOrValue = (sel, val) => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    setSelectByTextOrValue(el, val);
+  };
+  // ── Celular principal + lada ──────────────────────────────────────
+  const rawCel = String(reserva["Cel/Whatsapp (principal)"] || phoneNorm || "").replace(/\D/g,"");
+  if (rawCel) {
+    const last10 = rawCel.slice(-10);
+    const lada   = rawCel.length > 10 ? rawCel.slice(0, rawCel.length - 10) : "";
+    const celInp = document.getElementById("celular_principal_input");
+    if (celInp) { celInp.value = last10; _mark(celInp); }
+    if (lada) {
+      const ladaSel = document.getElementById("lada1");
+      if (ladaSel) {
+        // Intenta como value directo (con o sin "+")
+        const opt = Array.from(ladaSel.options).find(o =>
+          String(o.value||"").replace(/\D/g,"") === lada ||
+          String(o.textContent||"").replace(/\D/g,"") === lada);
+        if (opt) { ladaSel.value = opt.value; ladaSel.dispatchEvent(new Event("change",{bubbles:true})); _mark(ladaSel); }
+      }
+    }
+    guestLookupLastMatchedPhone = last10;
+  }
+  // ── Medio de reservación ─────────────────────────────────────────
+  _setSelByTextOrValue('select[name="medio"]', reserva["Medio de reservación"]);
+  // ── Propiedad + Departamento ─────────────────────────────────────
+  const propiedad = String(reserva["Propiedad"] || "").trim();
+  if (propiedad) _setSelByTextOrValue('select[name="propiedad"]', propiedad);
+  const depto = String(reserva["# Departamento"] || "").trim();
+  if (depto) _setSelByTextOrValue('select[name="depto"]', depto);
+  // ── Fechas ingreso/salida (a "YYYY-MM-DD") ──────────────────────
+  const _toIsoDate = (s) => {
+    const str = String(s || "").trim();
+    if (!str) return "";
+    let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return `${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`;
+    // Lodgify manda MM/DD/YYYY
+    m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return `${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+    return "";
+  };
+  _setInp('input[name="ingreso"]', _toIsoDate(reserva["Fecha de ingreso"]));
+  _setInp('input[name="salida"]',  _toIsoDate(reserva["Fecha de salida"]));
+  // ── Horas estimadas ─────────────────────────────────────────────
+  _setSelByTextOrValue('select[name="hora_llegada_estimada"]', reserva["Hora estimada de llegada"]);
+  _setSelByTextOrValue('select[name="hora_salida_estimada"]',  reserva["Hora estimada de salida"]);
+  // ── # Huéspedes ─────────────────────────────────────────────────
+  const nH = reserva["# Huéspedes"];
+  if (nH != null && String(nH).trim() && String(nH) !== "0") {
+    _setSelByTextOrValue('#num_huespedes', String(nH).trim());
+  }
+  // ── Nombres de huéspedes ────────────────────────────────────────
+  const nombresCsv = reserva["Nombres de TODOS los huéspedes (separados por comas)"];
+  if (nombresCsv) fillGuestNames(nombresCsv);
+}
+
 // ─── Toggle "Número de celular" vs "Código de confirmación" ────────────────
 window.sectionLookupSetMode = function(mode) {
   const panelCel  = document.getElementById("lookupPanelCel");
@@ -7434,13 +7503,10 @@ async function detectExistingGuestByConfirmationCode() {
       return;
     }
     const merged = Object.assign({}, json.perfil || {}, json.reserva || {});
-    // Set phone input silently si viene del match
-    if (json.phone && document.getElementById("celular_principal_input")) {
-      const cel = document.getElementById("celular_principal_input");
-      cel.value = String(json.phone).slice(-10);
-      guestLookupLastMatchedPhone = cel.value;
-    }
     applyGuestRecordToForm(merged);
+    // Campos específicos de la reservación (applyGuestRecordToForm cubre perfil,
+    // pero NO cel principal / medio / propiedad / fechas / # huéspedes).
+    applyReservacionExtras(json.reserva || {}, json.phone || "");
     actualizarTextoUploads(true);
     const nombre = merged["Nombre de la persona que hizo la reservación"] || merged["Nombre del huésped"] || "";
     setGuestAutofillMessage("success",
