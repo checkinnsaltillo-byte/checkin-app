@@ -6708,8 +6708,8 @@ body.has-session input[name="nombre"] {
 <option value="Página web (www.check-inn-saltillo.com)">Página web (www.check-inn-saltillo.com)</option>
 <option value="Liga de Whatsapp">Liga de Whatsapp</option>
 </select>
-<label>Estado del pago</label>
-<select id="estado_pago" name="estado_pago">
+<label style="display:none">Estado del pago</label>
+<select id="estado_pago" name="estado_pago" style="display:none">
 <option value="">Selecciona</option>
 <option value="Pagada">Pagada</option>
 <option value="Pago parcial">Pago parcial</option>
@@ -6741,6 +6741,7 @@ body.has-session input[name="nombre"] {
     The invoice issued by Check-Inn DOES NOT INCLUDE the "Airbnb Commission". If you want to cover the total cost, you must download the invoice for this platform's commission directly from its app.
   </div>
 </div>
+<div id="field_monto_pagado_always">
 <label data-i18n="amountPaid">$ Monto pagado</label>
 <div class="money-group">
 <select id="divisa_monto" name="divisa_monto">
@@ -6752,6 +6753,7 @@ body.has-session input[name="nombre"] {
 <option value="GBP">Libra esterlina (GBP)</option>
 </select>
 <input id="monto_pagado" inputmode="decimal" min="0" name="monto_pagado" placeholder="0.00" step="0.01" type="number"/>
+</div>
 </div>
 <div class="hint" id="monto_preview">Monto capturado: MXN 0.00</div>
 <label data-i18n="emailPrimary">Correo electrónico (principal)</label>
@@ -8272,6 +8274,13 @@ function syncFacturaVisibility(){
   const facturaValor = String(factura?.value || "").trim().toLowerCase();
   const show = facturaValor === "si" || facturaValor === "sí" || facturaValor === "yes";
   if (facturaFields) facturaFields.classList.toggle("hidden", !show);
+  // Mueve '$ Monto pagado' fuera de #factura_fields la primera vez para que
+  // sea visible aunque el bloque de facturación esté oculto.
+  const alwaysMP = document.getElementById("field_monto_pagado_always");
+  const section = document.getElementById("section_facturacion");
+  if (alwaysMP && section && alwaysMP.parentElement !== section) {
+    section.appendChild(alwaysMP);
+  }
   if (facturaNotas) facturaNotas.classList.toggle("hidden", !show);
   const esRegistrado = tipoRegistroInput.value === "registrado";
   if (campoRazonSocial) campoRazonSocial.classList.toggle("hidden", !show || esRegistrado);
