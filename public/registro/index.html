@@ -7413,6 +7413,10 @@ async function detectExistingGuestByPhone(){
     if (perfilNombre) merged["Nombre de la persona que hizo la reservación"] = perfilNombre;
     guestLookupLastMatchedPhone = exact.raw;
     applyGuestRecordToForm(merged);
+    // Reserva-específicos (propiedad, depto, medio, fechas, # huéspedes) —
+    // aplica también en flujo por celular para que queden en verde igual que
+    // en el flujo por código.
+    try { applyReservacionExtras(merged, exact.raw); } catch(_){}
     actualizarTextoUploads(true);
     const nombre = (perfilRow && String(perfilRow["Nombre del huésped"] || "").trim())
       || String(sourceRow["Nombre de la persona que hizo la reservación"] || "").trim()
