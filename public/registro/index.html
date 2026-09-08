@@ -7952,8 +7952,47 @@ window.validateWizStep = function(n) {
   });
   if (missing.length) {
     missing.forEach(el => {
+      el.style.setProperty('border', '2px solid #dc2626', 'important');
       el.style.setProperty('border-color', '#dc2626', 'important');
-      el.style.setProperty('box-shadow', '0 0 0 3px rgba(220,38,38,.15)', 'important');
+      el.style.setProperty('background-color', '#fef2f2', 'important');
+      el.style.setProperty('background-image', 'none', 'important');
+      el.style.setProperty('box-shadow', '0 0 0 4px rgba(220,38,38,.20)', 'important');
+      // Marca el label asociado en rojo también
+      try {
+        let lbl = el.id ? document.querySelector(`label[for="${el.id}"]`) : null;
+        if (!lbl) {
+          let cur = el.previousElementSibling;
+          while (cur) { if (cur.tagName === 'LABEL') { lbl = cur; break; } cur = cur.previousElementSibling; }
+          if (!lbl && el.parentElement) {
+            let p = el.parentElement.previousElementSibling;
+            while (p) { if (p.tagName === 'LABEL') { lbl = p; break; } p = p.previousElementSibling; }
+          }
+        }
+        if (lbl) lbl.style.setProperty('color', '#dc2626', 'important');
+        if (lbl) lbl.dataset.wizMissing = '1';
+      } catch(_){}
+      el.dataset.wizMissing = '1';
+      // Auto-limpia al primer input/change del usuario
+      const _clearRed = () => {
+        el.style.removeProperty('border');
+        el.style.removeProperty('border-color');
+        el.style.removeProperty('background-color');
+        el.style.removeProperty('background-image');
+        el.style.removeProperty('box-shadow');
+        delete el.dataset.wizMissing;
+        try {
+          let lbl2 = el.id ? document.querySelector(`label[for="${el.id}"]`) : null;
+          if (!lbl2) {
+            let cur = el.previousElementSibling;
+            while (cur) { if (cur.tagName === 'LABEL') { lbl2 = cur; break; } cur = cur.previousElementSibling; }
+          }
+          if (lbl2) { lbl2.style.removeProperty('color'); delete lbl2.dataset.wizMissing; }
+        } catch(_){}
+        el.removeEventListener('input', _clearRed);
+        el.removeEventListener('change', _clearRed);
+      };
+      el.addEventListener('input', _clearRed);
+      el.addEventListener('change', _clearRed);
     });
     const first = missing[0];
     try { first.scrollIntoView({behavior:'smooth', block:'center'}); first.focus({preventScroll:true}); } catch(_){}
