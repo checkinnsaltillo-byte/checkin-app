@@ -7390,10 +7390,34 @@ async function detectExistingGuestByPhone(){
     if (lookupId !== guestLookupInFlight) return;
 
     const sourceRow = detailRow || row;
+    // Fetch canónico del PERFIL por teléfono → el nombre del perfil manda
+    // sobre el nombre de la última reservación (que puede tener typos como
+    // "pruebaaa"). Fallback silencioso al de la reserva si el perfil no existe.
+    let perfilRow = null;
+    try {
+      const pParams = new URLSearchParams();
+      pParams.set("action", "perfil_get_by_phone");
+      pParams.set("phone", exact.raw);
+      const pRes = await fetch(`${WEB_APP_URL}?${pParams.toString()}`, { method: "GET" });
+      const pJson = await pRes.json();
+      if (lookupId !== guestLookupInFlight) return;
+      if (pJson && pJson.ok && pJson.perfil) perfilRow = pJson.perfil;
+    } catch(_){}
+    // Merge: perfil sobre reserva → nombre canónico y demás campos ganan.
+    // También sobreescribimos la clave usada por el input "Nombre del
+    // administrador" ("Nombre de la persona que hizo la reservación") con
+    // el nombre del perfil para que el admin no vea el nombre de la reserva
+    // vieja tipo "pruebaaa".
+    const perfilNombre = perfilRow ? String(perfilRow["Nombre del huésped"] || "").trim() : "";
+    const merged = perfilRow ? Object.assign({}, sourceRow, perfilRow) : Object.assign({}, sourceRow);
+    if (perfilNombre) merged["Nombre de la persona que hizo la reservación"] = perfilNombre;
     guestLookupLastMatchedPhone = exact.raw;
-    applyGuestRecordToForm(sourceRow);
+    applyGuestRecordToForm(merged);
     actualizarTextoUploads(true);
-    const nombre = sourceRow["Nombre de la persona que hizo la reservación"] || row["Nombre de la persona que hizo la reservación"] || "";
+    const nombre = (perfilRow && String(perfilRow["Nombre del huésped"] || "").trim())
+      || String(sourceRow["Nombre de la persona que hizo la reservación"] || "").trim()
+      || String(row["Nombre de la persona que hizo la reservación"] || "").trim()
+      || "";
     setGuestAutofillMessage("success",
       `<span class="auto-detected-badge">${(window.currentLang === "en") ? "Previous guest found" : "Huésped encontrado"}</span><div>${(window.currentLang === "en") ? "The available fields were completed automatically for" : "Se completaron automáticamente los campos disponibles de"} <strong>${String(nombre || "").trim() || ((window.currentLang === "en") ? "this guest" : "este huésped")}</strong>.</div>`
     );
