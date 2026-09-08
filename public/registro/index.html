@@ -7414,6 +7414,12 @@ async function detectExistingGuestByPhone(){
   const lookupId = ++guestLookupInFlight;
   const digits = getPrimaryPhoneCandidate();
 
+  // Guard: si el celular ya fue resuelto y no cambió, NO hacer nada (evita
+  // que el blur al hacer click en "Siguiente" resetee el estado).
+  if (digits && digits.length >= 10 && guestLookupLastMatchedPhone && guestLookupLastMatchedPhone.replace(/\D/g,"").slice(-10) === digits) {
+    return;
+  }
+
   // Reset del estado de identificación — el botón Siguiente se re-oculta
   // hasta que este lookup renderice una card válida.
   window.WIZ_IDENTIFIED = false;
@@ -7866,15 +7872,17 @@ async function detectExistingGuestByConfirmationCode() {
   const lookupId = ++codeLookupInFlight;
   const inp = document.getElementById("confirmation_code_input");
   const raw = String(inp?.value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/^#/, "");
+  // Evita re-búsqueda si el usuario solo pierde foco (blur al clickear Siguiente,
+  // por ejemplo) sin haber cambiado el valor del input. IMPORTANTE: hacer este
+  // early-return ANTES de limpiar card / desactivar botón — de lo contrario
+  // el blur al presionar "Siguiente" hace desaparecer todo momentáneamente.
+  if (raw && raw === codeLookupLastResolved) return;
   // Reset del estado — el botón Siguiente se re-oculta hasta encontrar reserva
   window.WIZ_IDENTIFIED = false;
   try { if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1); } catch(_){}
   // También limpia la card previa por si existió una del lookup por celular
   try { const host = document.getElementById("reservaSelectorHost"); if (host) host.innerHTML = ""; } catch(_){}
   if (!raw || raw.length < 6) { resetAutofillToNewMode(); return; }
-  // Evita re-búsqueda si el usuario solo pierde foco (blur al clickear Siguiente,
-  // por ejemplo) sin haber cambiado el valor del input.
-  if (raw === codeLookupLastResolved) return;
   try {
     setGuestAutofillMessage("", (window.currentLang === "en") ? "Please wait a moment..." : "Espera un momento...");
     const params = new URLSearchParams();
