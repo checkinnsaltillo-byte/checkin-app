@@ -6814,7 +6814,7 @@ body.has-session input[name="nombre"] {
 <div class="submit-wrap" id="wizNavWrap" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
   <button type="button" id="wiz-btn-prev" onclick="wizPrev()" style="flex:0 0 auto;padding:12px 20px;background:#f1f5f9;color:#334155;border:1.5px solid #cbd5e1;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px">← Atrás</button>
   <button type="button" id="wiz-btn-next" onclick="wizNext()" style="flex:1;padding:14px 20px;background:#2563eb;color:#fff;border:0;border-radius:12px;font-weight:800;cursor:pointer;font-size:15px">Siguiente →</button>
-  <button data-i18n="send" id="submitBtn" type="submit" style="flex:1;display:none">Enviar</button>
+  <button data-i18n="send" id="submitBtn" type="submit" style="flex:1;display:none">Finalizar registro</button>
   <div class="status" id="statusMessage" style="width:100%"></div>
 </div></div></form>
 </div>
@@ -7935,7 +7935,38 @@ window.wizGoTo = function(n) {
   const fp = document.getElementById("formulario_principal");
   if (fp) fp.classList.remove("await-phone-lookup");
 };
-window.wizNext = function() { wizGoTo((window.WIZ_CURRENT || 1) + 1); };
+/** Valida los campos obligatorios visibles del paso actual. Devuelve true si
+ *  pasa la validación, false si hay campos vacíos (y bloquea el avance). */
+window.validateWizStep = function(n) {
+  const ids = window.WIZ_STEPS[n] || [];
+  const missing = [];
+  ids.forEach(secId => {
+    const sec = document.getElementById(secId);
+    if (!sec) return;
+    sec.querySelectorAll('input[required], select[required], textarea[required]').forEach(el => {
+      // Solo considera visibles (offsetParent null = display:none en algún ancestro)
+      if (el.offsetParent === null && el.type !== 'hidden') return;
+      const v = String(el.value || '').trim();
+      if (!v) missing.push(el);
+    });
+  });
+  if (missing.length) {
+    missing.forEach(el => {
+      el.style.setProperty('border-color', '#dc2626', 'important');
+      el.style.setProperty('box-shadow', '0 0 0 3px rgba(220,38,38,.15)', 'important');
+    });
+    const first = missing[0];
+    try { first.scrollIntoView({behavior:'smooth', block:'center'}); first.focus({preventScroll:true}); } catch(_){}
+    alert(`Faltan ${missing.length} campo(s) obligatorio(s) por completar.`);
+    return false;
+  }
+  return true;
+};
+window.wizNext = function() {
+  const cur = window.WIZ_CURRENT || 1;
+  if (!window.validateWizStep(cur)) return;
+  wizGoTo(cur + 1);
+};
 window.wizPrev = function() { wizGoTo((window.WIZ_CURRENT || 1) - 1); };
 
 // Inicializar en paso 1 al cargar UNA sola vez. Sin retry — el timeout de
@@ -9225,7 +9256,7 @@ const I18N = {
     plates: "# Placas",
     platesPlaceholder: "Escribe las placas",
     comments: "Comentarios (opcional)",
-    send: "Enviar",
+    send: "Finalizar registro",
     successTitle: "Condiciones",
     successText: "",
     close: "Cerrar",
@@ -9320,7 +9351,7 @@ const I18N = {
     plates: "License plates",
     platesPlaceholder: "Enter the license plates",
     comments: "Comments (optional)",
-    send: "Submit",
+    send: "Complete registration",
     successTitle: "Conditions",
     successText: "",
     close: "Close",
@@ -9597,7 +9628,7 @@ const SIMPLE_I18N = {
     addPhoto:"Agregar foto",
     usualDepartureTime:"Hora habitual de salida",
     plates:"# Placas",
-    send:"Enviar",
+    send:"Finalizar registro",
     uploadImage:"Subir imagen",
     noImage:"Ninguna imagen seleccionada",
     /* ── Auth: welcome / login / home / session ── */
@@ -9911,7 +9942,7 @@ const SIMPLE_I18N = {
     addPhoto:"Add photo",
     usualDepartureTime:"Usual departure time",
     plates:"License plates",
-    send:"Submit",
+    send:"Complete registration",
     uploadImage:"Upload image",
     noImage:"No image selected",
     /* ── Auth: welcome / login / home / session ── */
