@@ -10551,7 +10551,8 @@ function reservasByPhone_(data) {
     if (dbg.sample_matches.length < 8) {
       dbg.sample_matches.push({ id: iId >= 0 ? String(vals[i][iId]) : "", status: status, da: da, dd: dd, ddIso: _toIsoDateForCompare_(dd) });
     }
-    if (status === "deleted" || status === "declined") { dbg.status_skipped++; continue; }
+    // SOLO Booked (confirmadas): descartar Open (cotización), Tentative, Deleted, Declined, etc.
+    if (status !== "booked") { dbg.status_skipped++; continue; }
     // Activa o próxima: DateArrival O DateDeparture >= hoy. Acepta si alguna
     // fecha es futura (tolerante a errores donde arrival/departure vinieron
     // swapped, como Oaxaca #5: "11/04/2026 → 08/29/2026").
