@@ -7818,11 +7818,10 @@ window.wizGoTo = function(n) {
 window.wizNext = function() { wizGoTo((window.WIZ_CURRENT || 1) + 1); };
 window.wizPrev = function() { wizGoTo((window.WIZ_CURRENT || 1) - 1); };
 
-// Inicializar en paso 1 al cargar. Con timeout corto por si otros scripts
-// re-inyectan la clase await-phone-lookup después del DOMContentLoaded.
+// Inicializar en paso 1 al cargar UNA sola vez. Sin retry — el timeout de
+// 300ms revertía al paso 1 si el usuario clickeaba "Siguiente" muy rápido.
 document.addEventListener('DOMContentLoaded', () => {
   try { wizGoTo(1); } catch(_) {}
-  setTimeout(() => { try { wizGoTo(1); } catch(_) {} }, 300);
 });
 
 // Lookup por Código de confirmación → Apps Script reserva_get_by_confirmation_code
