@@ -6784,10 +6784,12 @@ body.has-session input[name="nombre"] {
 <input class="hidden" id="vehiculo_marca_otro" name="vehiculo_marca_otro" placeholder="Especifica la marca" type="text"/>
 <label data-i18n="model">Modelo</label>
 <input id="vehiculo_modelo" name="vehiculo_modelo" placeholder="Especifica el modelo" type="text"/>
+<label data-i18n="color">Color</label>
+<input id="vehiculo_color" name="vehiculo_color" placeholder="Ejemplo: Blanco, gris, rojo" type="text"/>
 <label data-i18n="platesRequired"># Placas</label>
 <input autocapitalize="characters" id="vehiculo_placas" maxlength="12" name="vehiculo_placas" placeholder="Escribe las placas" type="text"/>
 <div class="hint" data-i18n="platesHint">Usa letras y números tal como aparecen en el vehículo.</div>
-<label data-i18n="color">Color</label><input id="vehiculo_color" name="vehiculo_color" placeholder="Ejemplo: Blanco, gris, rojo" type="text"/><label data-i18n="usualDepartureTime">Hora habitual de salida</label><input id="vehiculo_hora_salida" name="vehiculo_hora_salida" type="time"/><label data-i18n="addPhoto">Agregar foto</label><div class="upload-box">
+<label data-i18n="usualDepartureTime">Hora habitual de salida</label><input id="vehiculo_hora_salida" name="vehiculo_hora_salida" type="time"/><label data-i18n="addPhoto">Agregar foto</label><div class="upload-box">
 <label class="custom-upload">
 <input accept="image/*" id="vehiculo_foto" name="vehiculo_foto" type="file"/>
 <span class="upload-drop">
@@ -7280,11 +7282,11 @@ function applyFieldRequirednessMarks() {
     if (isReq) el.setAttribute('required', '');
   };
   // Paso 2 — obligatorios
-  ['select[name="propiedad"]','select[name="depto"]','select[name="medio"]',
+  ['input[name="nombre"]','select[name="propiedad"]','select[name="depto"]','select[name="medio"]',
    'input[name="ingreso"]','input[name="salida"]'
   ].forEach(s => _apply(s, '* (obligatorio)', true));
   // Paso 2 — opcionales
-  ['input[name="nombre"]','#num_huespedes','#identificacion_tipo','#motivo',
+  ['#num_huespedes','#identificacion_tipo','#motivo',
    'input[name="emergencia"]'
   ].forEach(s => _apply(s, '(opcional)', false));
   // Paso 3 — factura (opcional siempre)
@@ -7299,6 +7301,14 @@ function applyFieldRequirednessMarks() {
   // Paso 4 — obligatorios si tiene_vehiculo=Sí
   ['#vehiculo_marca','#vehiculo_color'].forEach(s => _apply(s, '* (obligatorio)', true));
   ['#vehiculo_modelo','#vehiculo_placas','#vehiculo_hora_salida'].forEach(s => _apply(s, '(opcional)', false));
+  // Paso 4 — Comentarios finales (h2 de sección, no label)
+  try {
+    const cmH2 = document.querySelector('#section_comentarios .section-title');
+    if (cmH2) {
+      let txt = String(cmH2.textContent || '').replace(/\s*\(opcional\)\s*/g,'').replace(/\s*\*\s*\(obligatorio\)\s*/g,'').trim();
+      cmH2.textContent = txt + ' (opcional)';
+    }
+  } catch(_){}
 }
 try { window.applyFieldRequirednessMarks = applyFieldRequirednessMarks; } catch(_){}
 // Aplicar en DOMContentLoaded y después de cualquier cambio de idioma.
