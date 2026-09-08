@@ -7576,11 +7576,15 @@ document.addEventListener('DOMContentLoaded', () => {
 // Lookup por Código de confirmación → Apps Script reserva_get_by_confirmation_code
 let codeLookupTimer = null;
 let codeLookupInFlight = 0;
+let codeLookupLastResolved = "";  // último código que ya resolvimos con éxito o error final
 async function detectExistingGuestByConfirmationCode() {
   const lookupId = ++codeLookupInFlight;
   const inp = document.getElementById("confirmation_code_input");
   const raw = String(inp?.value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/^#/, "");
   if (!raw || raw.length < 6) { resetAutofillToNewMode(); return; }
+  // Evita re-búsqueda si el usuario solo pierde foco (blur al clickear Siguiente,
+  // por ejemplo) sin haber cambiado el valor del input.
+  if (raw === codeLookupLastResolved) return;
   try {
     setGuestAutofillMessage("", (window.currentLang === "en") ? "Please wait a moment..." : "Espera un momento...");
     const params = new URLSearchParams();
@@ -7590,6 +7594,7 @@ async function detectExistingGuestByConfirmationCode() {
     const json = await res.json();
     if (lookupId !== codeLookupInFlight) return;
     if (!json.ok) throw new Error(json.error || "lookup failed");
+    codeLookupLastResolved = raw;
     if (!json.reserva && !json.perfil) {
       resetAutofillToNewMode();
       console.info("[code-lookup] no match. code=", raw, "debug=", json.debug);
