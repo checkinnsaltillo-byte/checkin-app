@@ -7424,9 +7424,12 @@ async function detectExistingGuestByConfirmationCode() {
     if (!json.ok) throw new Error(json.error || "lookup failed");
     if (!json.reserva && !json.perfil) {
       resetAutofillToNewMode();
-      setGuestAutofillMessage("", (window.currentLang === "en")
+      console.info("[code-lookup] no match. code=", raw, "debug=", json.debug);
+      const dbg = json.debug || {};
+      const dbgTxt = `sheet_exists=${dbg.lg_sheet_exists} · filas=${dbg.lg_rows} · iCC=${dbg.lg_iCC} · CC_no_vacíos=${dbg.lg_cc_nonempty} · últimos5_CC=${(dbg.lg_last5||[]).map(x=>x.cc||"(vacío)").join(",")}`;
+      setGuestAutofillMessage("", `${(window.currentLang === "en")
         ? "No previous match was found for this confirmation code."
-        : "No se encontró un registro previo para este código de confirmación.");
+        : "No se encontró un registro previo para este código de confirmación."}<div style="margin-top:6px;font-size:11px;font-family:ui-monospace,monospace;opacity:.7">${dbgTxt}</div>`);
       revealExpressFormBody();
       return;
     }
