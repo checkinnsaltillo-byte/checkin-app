@@ -7470,6 +7470,8 @@ async function detectExistingGuestByPhone(){
       "Correo electrónico": r.GuestEmail || "",
       "Código de confirmación": r.ConfirmationCode || "",
     });
+    // Reconstruye opciones del combobox Medio con lo que realmente hay en DB
+    try { rebuildMedioOptionsFromReservas(reservasList); } catch(_){}
     // Elige por default la reserva más próxima (primera del array = ordenada asc)
     const primary = reservasList.length ? reservasList[0] : null;
     const primaryMerged = primary ? _resToPrefill(primary, exact.raw, perfilRow) : merged;
@@ -7502,6 +7504,44 @@ function scheduleGuestLookup(){
 document.querySelector('input[name="cel"]')?.addEventListener("input", scheduleGuestLookup);
 document.querySelector('input[name="cel"]')?.addEventListener("blur", detectExistingGuestByPhone);
 document.getElementById("lada1")?.addEventListener("change", detectExistingGuestByPhone);
+
+/** Reconstruye las opciones del combobox "Medio de reservación" con los
+ *  valores realmente encontrados en las reservas asociadas al teléfono.
+ *  Mapea sources de Lodgify a las etiquetas que espera el resto del form. */
+function rebuildMedioOptionsFromReservas(reservas) {
+  const sel = document.querySelector('select[name="medio"]');
+  if (!sel) return;
+  if (!Array.isArray(reservas) || !reservas.length) return;
+  const _mapSource = (raw) => {
+    const s = String(raw || "").toLowerCase();
+    if (s.includes("airbnb"))   return "Airbnb";
+    if (s.includes("booking"))  return "Booking.com";
+    if (s.includes("vrbo"))     return "Vrbo";
+    if (s.includes("expedia"))  return "Expedia";
+    if (s.includes("manual"))   return "Trato directo";
+    if (s.includes("direct"))   return "Trato directo";
+    if (s.includes("check-inn") || s.includes("checkinn") || s.includes("check inn"))
+      return "Check-inn-Saltillo.com (website / link de whatsapp)";
+    return raw || "";
+  };
+  const distinct = new Set();
+  reservas.forEach(r => { const m = _mapSource(r.Source); if (m) distinct.add(m); });
+  if (!distinct.size) return;
+  const current = String(sel.value || "").trim();
+  // Reconstruye: siempre "Selecciona" primero, luego los distinct.
+  sel.innerHTML = "";
+  const opt0 = document.createElement("option");
+  opt0.value = ""; opt0.textContent = "Selecciona";
+  sel.appendChild(opt0);
+  Array.from(distinct).sort().forEach(label => {
+    const o = document.createElement("option");
+    o.value = label; o.textContent = label;
+    sel.appendChild(o);
+  });
+  // Si el value anterior está entre las nuevas → mantenerlo; si no, selecciona la primera real.
+  if (current && distinct.has(current)) sel.value = current;
+  else if (distinct.size === 1) sel.value = Array.from(distinct)[0];
+}
 
 /** Renderiza el selector de reservas asociadas al teléfono. Si hay <=1
  *  reserva no muestra nada. Aparece debajo del status/toast del Paso 1. */
@@ -7789,6 +7829,10 @@ async function detectExistingGuestByConfirmationCode() {
     // Limpia campos de un prefill previo antes de aplicar el nuevo — así
     // cambiar de código o de celular no deja valores heredados.
     try { resetPrefilledFields(); } catch(_){}
+    // Reconstruye opciones de Medio con la reserva encontrada
+    if (json.reserva && json.reserva["Medio de reservación"]) {
+      try { rebuildMedioOptionsFromReservas([{ Source: json.reserva["Medio de reservación"] }]); } catch(_){}
+    }
     applyGuestRecordToForm(merged);
     // Campos específicos de la reservación (applyGuestRecordToForm cubre perfil,
     // pero NO cel principal / medio / propiedad / fechas / # huéspedes).
