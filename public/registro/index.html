@@ -6311,15 +6311,43 @@ body.has-session input[name="nombre"] {
 <button type="button" class="back-home-btn" data-back-home data-i18n="backHomeBtn">← Volver al inicio</button>
 <form id="form">
 <input id="tipo_registro" name="tipo_registro" type="hidden" value="nuevo"/>
+<!-- ═══ Stepper del wizard de check-in ═══ -->
+<div id="wizStepper" style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:12px 4px 18px;margin-bottom:8px;border-bottom:1px solid #e2e8f0">
+  <div class="wiz-step-dot" data-step="1" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;cursor:pointer" onclick="wizGoTo(1)">
+    <div class="wiz-step-num" style="width:32px;height:32px;border-radius:50%;background:#2563eb;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">1</div>
+    <div class="wiz-step-lbl" style="font-size:10px;font-weight:700;color:#1e40af;text-align:center;line-height:1.2">Identifícate</div>
+  </div>
+  <div style="flex:0 0 auto;height:2px;width:16px;background:#e2e8f0"></div>
+  <div class="wiz-step-dot" data-step="2" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;cursor:pointer;opacity:.5" onclick="wizGoTo(2)">
+    <div class="wiz-step-num" style="width:32px;height:32px;border-radius:50%;background:#e2e8f0;color:#64748b;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">2</div>
+    <div class="wiz-step-lbl" style="font-size:10px;font-weight:700;color:#64748b;text-align:center;line-height:1.2">Datos de reserva</div>
+  </div>
+  <div style="flex:0 0 auto;height:2px;width:16px;background:#e2e8f0"></div>
+  <div class="wiz-step-dot" data-step="3" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;cursor:pointer;opacity:.5" onclick="wizGoTo(3)">
+    <div class="wiz-step-num" style="width:32px;height:32px;border-radius:50%;background:#e2e8f0;color:#64748b;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">3</div>
+    <div class="wiz-step-lbl" style="font-size:10px;font-weight:700;color:#64748b;text-align:center;line-height:1.2">Facturación</div>
+  </div>
+  <div style="flex:0 0 auto;height:2px;width:16px;background:#e2e8f0"></div>
+  <div class="wiz-step-dot" data-step="4" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;cursor:pointer;opacity:.5" onclick="wizGoTo(4)">
+    <div class="wiz-step-num" style="width:32px;height:32px;border-radius:50%;background:#e2e8f0;color:#64748b;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">4</div>
+    <div class="wiz-step-lbl" style="font-size:10px;font-weight:700;color:#64748b;text-align:center;line-height:1.2">Vehículo</div>
+  </div>
+</div>
+
 <div class="section" id="section_celular_principal">
+<h2 class="section-title" style="margin:0 0 10px">Identifícate</h2>
 <div id="lookupModeTabs" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
   <button type="button" id="lookupModeBtnCel" onclick="sectionLookupSetMode('cel')"
-    style="flex:1;min-width:140px;padding:10px 14px;border:2px solid #2563eb;border-radius:10px;background:#dbeafe;color:#1e40af;font-weight:700;cursor:pointer;font-size:14px">
+    style="flex:1;min-width:120px;padding:10px 14px;border:2px solid #2563eb;border-radius:10px;background:#dbeafe;color:#1e40af;font-weight:700;cursor:pointer;font-size:13px">
     📱 Número de celular
   </button>
   <button type="button" id="lookupModeBtnCode" onclick="sectionLookupSetMode('code')"
-    style="flex:1;min-width:140px;padding:10px 14px;border:2px solid #cbd5e1;border-radius:10px;background:#f8fafc;color:#475569;font-weight:600;cursor:pointer;font-size:14px">
+    style="flex:1;min-width:120px;padding:10px 14px;border:2px solid #cbd5e1;border-radius:10px;background:#f8fafc;color:#475569;font-weight:600;cursor:pointer;font-size:13px">
     🎫 Código de confirmación
+  </button>
+  <button type="button" id="lookupModeBtnNone" onclick="sectionLookupSetMode('none')"
+    style="flex:1;min-width:120px;padding:10px 14px;border:2px solid #cbd5e1;border-radius:10px;background:#f8fafc;color:#475569;font-weight:600;cursor:pointer;font-size:13px">
+    🆕 No cuento con código
   </button>
 </div>
 <div id="lookupPanelCel">
@@ -6329,6 +6357,9 @@ body.has-session input[name="nombre"] {
     <select id="lada1" name="lada1"></select>
     <input autocomplete="tel-national" id="celular_principal_input" inputmode="numeric" name="cel" type="tel"/>
   </div>
+</div>
+<div id="lookupPanelNone" class="hidden">
+  <p class="section-subtitle" style="margin-top:12px">Sigue al siguiente paso y captura los datos manualmente. Podrás guardar tu registro sin código de confirmación.</p>
 </div>
 <div id="lookupPanelCode" class="hidden">
   <h2 class="section-title">Código de confirmación</h2>
@@ -6340,7 +6371,7 @@ body.has-session input[name="nombre"] {
 <div class="note hidden" id="guestAutofillStatus" style="margin-top:10px;"></div>
 </div>
 <div class="visible" id="formulario_principal"><div class="section" id="section_admin_principal"><label data-i18n="bookingName">Nombre del administrador (usuario del Número de celular)</label>
-<input name="nombre" type="text"/></div><div class="section"><h2 class="section-title" data-i18n="sec1Title">Datos de la reservación</h2><p class="section-subtitle" data-i18n="sec1Sub"></p><label data-i18n="bookingSource">Medio de reservación</label>
+<input name="nombre" type="text"/></div><div class="section" id="section_datos_reservacion"><h2 class="section-title" data-i18n="sec1Title">Datos de la reservación</h2><p class="section-subtitle" data-i18n="sec1Sub"></p><label data-i18n="bookingSource">Medio de reservación</label>
 <select name="medio">
 <option value="">Selecciona</option>
 <option value="Airbnb">Airbnb</option>
@@ -6768,9 +6799,14 @@ body.has-session input[name="nombre"] {
 </div>
 </div>
 </div>
-<div class="section"><h2 class="section-title" data-i18n="sec6Title">Comentarios</h2><p class="section-subtitle" data-i18n="sec6Sub"></p>
+<div class="section" id="section_comentarios"><h2 class="section-title" data-i18n="sec6Title">Comentarios</h2><p class="section-subtitle" data-i18n="sec6Sub"></p>
 <textarea name="comentarios"></textarea></div>
-<div class="submit-wrap"><button data-i18n="send" id="submitBtn" type="submit">Enviar</button><div class="status" id="statusMessage"></div></div></div></form>
+<div class="submit-wrap" id="wizNavWrap" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
+  <button type="button" id="wiz-btn-prev" onclick="wizPrev()" style="flex:0 0 auto;padding:12px 20px;background:#f1f5f9;color:#334155;border:1.5px solid #cbd5e1;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px">← Atrás</button>
+  <button type="button" id="wiz-btn-next" onclick="wizNext()" style="flex:1;padding:14px 20px;background:#2563eb;color:#fff;border:0;border-radius:12px;font-weight:800;cursor:pointer;font-size:15px">Siguiente →</button>
+  <button data-i18n="send" id="submitBtn" type="submit" style="flex:1;display:none">Enviar</button>
+  <div class="status" id="statusMessage" style="width:100%"></div>
+</div></div></form>
 </div>
 <div class="popup-backdrop" id="popupEnvio" style="display:none; position:fixed; inset:0; z-index:999999; align-items:center; justify-content:center; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);">
 <div class="popup-card" style="max-width:340px;">
@@ -7451,28 +7487,91 @@ function applyReservacionExtras(reserva, phoneNorm) {
   if (nombresCsv) fillGuestNames(nombresCsv);
 }
 
-// ─── Toggle "Número de celular" vs "Código de confirmación" ────────────────
+// ─── Toggle: 3 modos de identificación ────────────────────────────────────
+// mode: "cel" | "code" | "none"
 window.sectionLookupSetMode = function(mode) {
-  const panelCel  = document.getElementById("lookupPanelCel");
-  const panelCode = document.getElementById("lookupPanelCode");
-  const btnCel    = document.getElementById("lookupModeBtnCel");
-  const btnCode   = document.getElementById("lookupModeBtnCode");
-  const isCode = (mode === "code");
-  if (panelCel)  panelCel.classList.toggle("hidden", isCode);
-  if (panelCode) panelCode.classList.toggle("hidden", !isCode);
-  if (btnCel) {
-    btnCel.style.background   = isCode ? "#f8fafc" : "#dbeafe";
-    btnCel.style.borderColor  = isCode ? "#cbd5e1" : "#2563eb";
-    btnCel.style.color        = isCode ? "#475569" : "#1e40af";
-    btnCel.style.fontWeight   = isCode ? "600" : "700";
-  }
-  if (btnCode) {
-    btnCode.style.background  = isCode ? "#dbeafe" : "#f8fafc";
-    btnCode.style.borderColor = isCode ? "#2563eb" : "#cbd5e1";
-    btnCode.style.color       = isCode ? "#1e40af" : "#475569";
-    btnCode.style.fontWeight  = isCode ? "700" : "600";
-  }
+  const panels = { cel:"lookupPanelCel", code:"lookupPanelCode", none:"lookupPanelNone" };
+  const btns   = { cel:"lookupModeBtnCel", code:"lookupModeBtnCode", none:"lookupModeBtnNone" };
+  Object.entries(panels).forEach(([k, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hidden", k !== mode);
+  });
+  Object.entries(btns).forEach(([k, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const on = k === mode;
+    el.style.background   = on ? "#dbeafe" : "#f8fafc";
+    el.style.borderColor  = on ? "#2563eb" : "#cbd5e1";
+    el.style.color        = on ? "#1e40af" : "#475569";
+    el.style.fontWeight   = on ? "700" : "600";
+  });
+  window.__wizIdentMode = mode;
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║  WIZARD DE CHECK-IN (4 pasos)                                            ║
+// ═══════════════════════════════════════════════════════════════════════════
+window.WIZ_STEPS = {
+  1: ['section_celular_principal'],
+  2: ['section_admin_principal','section_datos_reservacion','section_identificacion_estancia','section_contacto_huesped'],
+  3: ['section_facturacion'],
+  4: ['vehicle_section_hidden_backend','section_comentarios']
+};
+window.WIZ_CURRENT = 1;
+
+window.wizGoTo = function(n) {
+  n = Math.max(1, Math.min(4, Number(n) || 1));
+  window.WIZ_CURRENT = n;
+  // Muestra/oculta secciones
+  Object.values(WIZ_STEPS).flat().forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  (WIZ_STEPS[n] || []).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
+  // Actualiza indicador visual del stepper
+  document.querySelectorAll('#wizStepper .wiz-step-dot').forEach(dot => {
+    const step = Number(dot.dataset.step);
+    const num  = dot.querySelector('.wiz-step-num');
+    const lbl  = dot.querySelector('.wiz-step-lbl');
+    const active = step === n;
+    const done   = step < n;
+    dot.style.opacity = active || done ? '1' : '.5';
+    if (num) {
+      num.style.background = active ? '#2563eb' : done ? '#16a34a' : '#e2e8f0';
+      num.style.color      = (active || done) ? '#fff' : '#64748b';
+      num.textContent      = done ? '✓' : String(step);
+    }
+    if (lbl) lbl.style.color = (active || done) ? '#1e40af' : '#64748b';
+  });
+  // Botones nav
+  const prev = document.getElementById('wiz-btn-prev');
+  const next = document.getElementById('wiz-btn-next');
+  const send = document.getElementById('submitBtn');
+  if (prev) prev.style.display = n === 1 ? 'none' : '';
+  if (next) next.style.display = n === 4 ? 'none' : '';
+  if (send) send.style.display = n === 4 ? '' : 'none';
+  // Scroll al top del popup
+  try {
+    const view = document.getElementById('viewRegistro');
+    if (view) view.scrollTo({ top: 0, behavior: 'smooth' });
+    else window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch(_) { window.scrollTo(0,0); }
+  // Revela el resto del form (por si venía con la clase await-phone-lookup)
+  const fp = document.getElementById("formulario_principal");
+  if (fp) fp.classList.remove("await-phone-lookup");
+};
+window.wizNext = function() { wizGoTo((window.WIZ_CURRENT || 1) + 1); };
+window.wizPrev = function() { wizGoTo((window.WIZ_CURRENT || 1) - 1); };
+
+// Inicializar en paso 1 al cargar. Con timeout corto por si otros scripts
+// re-inyectan la clase await-phone-lookup después del DOMContentLoaded.
+document.addEventListener('DOMContentLoaded', () => {
+  try { wizGoTo(1); } catch(_) {}
+  setTimeout(() => { try { wizGoTo(1); } catch(_) {} }, 300);
+});
 
 // Lookup por Código de confirmación → Apps Script reserva_get_by_confirmation_code
 let codeLookupTimer = null;
