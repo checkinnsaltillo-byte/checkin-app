@@ -7455,8 +7455,7 @@ async function detectExistingGuestByPhone(){
     // Convierte una reserva-summary a la forma esperada por applyReservacionExtras
     const _resToPrefill = (r, phoneRaw, perfil) => Object.assign({}, perfil || {}, {
       "Cel/Whatsapp (principal)": phoneRaw,
-      "Medio de reservación": (r.Source || "").toLowerCase().includes("airbnb") ? "Airbnb"
-                            : (r.Source || "").toLowerCase().includes("direct") ? "Trato directo" : (r.Source || ""),
+      "Medio de reservación": window._mapSourceToMedio(r.Source),
       "Propiedad": r.Propiedad || r.HouseName || "",
       "# Departamento": r.Departamento || "",
       "Fecha de ingreso": r.DateArrival || "",
@@ -7482,8 +7481,8 @@ async function detectExistingGuestByPhone(){
     try { renderReservaSelector(reservasList, exact.raw, perfilRow, _resToPrefill); } catch(e) { console.warn(e); }
     actualizarTextoUploads(true);
     const nombre = (perfilRow && String(perfilRow["Nombre del huésped"] || "").trim())
-      || String(sourceRow["Nombre de la persona que hizo la reservación"] || "").trim()
-      || String(row["Nombre de la persona que hizo la reservación"] || "").trim()
+      || (primary && String(primary.GuestName || "").trim())
+      || String(primaryMerged["Nombre de la persona que hizo la reservación"] || "").trim()
       || "";
     setGuestAutofillMessage("success",
       `<span class="auto-detected-badge">${(window.currentLang === "en") ? "Previous guest found" : "Huésped encontrado"}</span><div>${(window.currentLang === "en") ? "The available fields were completed automatically for" : "Se completaron automáticamente los campos disponibles de"} <strong>${String(nombre || "").trim() || ((window.currentLang === "en") ? "this guest" : "este huésped")}</strong>.</div>`
@@ -7505,25 +7504,27 @@ document.querySelector('input[name="cel"]')?.addEventListener("input", scheduleG
 document.querySelector('input[name="cel"]')?.addEventListener("blur", detectExistingGuestByPhone);
 document.getElementById("lada1")?.addEventListener("change", detectExistingGuestByPhone);
 
+/** Mapa canónico de Source de Lodgify → label que espera el form. */
+window._mapSourceToMedio = function(raw) {
+  const s = String(raw || "").toLowerCase();
+  if (s.includes("airbnb"))   return "Airbnb";
+  if (s.includes("booking"))  return "Booking.com";
+  if (s.includes("vrbo"))     return "";
+  if (s.includes("expedia"))  return "";
+  if (s.includes("manual"))   return "Trato directo";
+  if (s.includes("direct"))   return "Trato directo";
+  if (s.includes("check-inn") || s.includes("checkinn") || s.includes("check inn"))
+    return "Check-inn-Saltillo.com (website / link de whatsapp)";
+  return raw || "";
+};
+
 /** Reconstruye las opciones del combobox "Medio de reservación" con los
- *  valores realmente encontrados en las reservas asociadas al teléfono.
- *  Mapea sources de Lodgify a las etiquetas que espera el resto del form. */
+ *  valores realmente encontrados en las reservas asociadas al teléfono. */
 function rebuildMedioOptionsFromReservas(reservas) {
   const sel = document.querySelector('select[name="medio"]');
   if (!sel) return;
   if (!Array.isArray(reservas) || !reservas.length) return;
-  const _mapSource = (raw) => {
-    const s = String(raw || "").toLowerCase();
-    if (s.includes("airbnb"))   return "Airbnb";
-    if (s.includes("booking"))  return "Booking.com";
-    if (s.includes("vrbo"))     return "";  // omitido
-    if (s.includes("expedia"))  return "";  // omitido
-    if (s.includes("manual"))   return "Trato directo";
-    if (s.includes("direct"))   return "Trato directo";
-    if (s.includes("check-inn") || s.includes("checkinn") || s.includes("check inn"))
-      return "Check-inn-Saltillo.com (website / link de whatsapp)";
-    return raw || "";
-  };
+  const _mapSource = window._mapSourceToMedio;
   const distinct = new Set();
   reservas.forEach(r => { const m = _mapSource(r.Source); if (m) distinct.add(m); });
   if (!distinct.size) return;
