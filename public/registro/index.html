@@ -7414,6 +7414,11 @@ async function detectExistingGuestByPhone(){
   const lookupId = ++guestLookupInFlight;
   const digits = getPrimaryPhoneCandidate();
 
+  // Reset del estado de identificación — el botón Siguiente se re-oculta
+  // hasta que este lookup renderice una card válida.
+  window.WIZ_IDENTIFIED = false;
+  try { if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1); } catch(_){}
+
   if (!digits || digits.length < 10) {
     resetAutofillToNewMode();
     return;
@@ -7861,6 +7866,11 @@ async function detectExistingGuestByConfirmationCode() {
   const lookupId = ++codeLookupInFlight;
   const inp = document.getElementById("confirmation_code_input");
   const raw = String(inp?.value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/^#/, "");
+  // Reset del estado — el botón Siguiente se re-oculta hasta encontrar reserva
+  window.WIZ_IDENTIFIED = false;
+  try { if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1); } catch(_){}
+  // También limpia la card previa por si existió una del lookup por celular
+  try { const host = document.getElementById("reservaSelectorHost"); if (host) host.innerHTML = ""; } catch(_){}
   if (!raw || raw.length < 6) { resetAutofillToNewMode(); return; }
   // Evita re-búsqueda si el usuario solo pierde foco (blur al clickear Siguiente,
   // por ejemplo) sin haber cambiado el valor del input.
@@ -7887,9 +7897,6 @@ async function detectExistingGuestByConfirmationCode() {
       return;
     }
     const merged = Object.assign({}, json.perfil || {}, json.reserva || {});
-    // Marca identificado → habilita el botón "Siguiente" del paso 1
-    window.WIZ_IDENTIFIED = true;
-    try { if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1); } catch(_){}
     // Limpia campos de un prefill previo antes de aplicar el nuevo — así
     // cambiar de código o de celular no deja valores heredados.
     try { resetPrefilledFields(); } catch(_){}
@@ -7901,6 +7908,28 @@ async function detectExistingGuestByConfirmationCode() {
     // Campos específicos de la reservación (applyGuestRecordToForm cubre perfil,
     // pero NO cel principal / medio / propiedad / fechas / # huéspedes).
     applyReservacionExtras(json.reserva || {}, json.phone || "");
+    // Renderiza la card "Reserva encontrada" para que el huésped confirme cuál
+    // se cargó, y solo entonces mostrar el botón "Siguiente".
+    if (json.reserva) {
+      try {
+        const _fromReserva = (r) => ({
+          Id: r["ID"] || "",
+          Source: r["Medio de reservación"] || "",
+          ConfirmationCode: r["Código de confirmación"] || raw,
+          GuestName: r["Nombre de la persona que hizo la reservación"] || "",
+          Propiedad: r["Propiedad"] || "",
+          Departamento: r["# Departamento"] || "",
+          DateArrival: r["Fecha de ingreso"] || "",
+          DateDeparture: r["Fecha de salida"] || "",
+          Nights: r["# Noches"] || 0,
+          NumberOfGuests: r["# Huéspedes"] || 0,
+        });
+        renderReservaSelector([_fromReserva(json.reserva)], json.phone || "", json.perfil || null,
+          (r,ph,pf) => Object.assign({}, merged));
+        window.WIZ_IDENTIFIED = true;
+        if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1);
+      } catch(e) { console.warn(e); }
+    }
     actualizarTextoUploads(true);
     const nombre = merged["Nombre de la persona que hizo la reservación"] || merged["Nombre del huésped"] || "";
     // Formatea el celular como "+52 8701447165" para el toast (últimos 10 dígitos + lada si viene)
