@@ -6365,6 +6365,7 @@ body.has-session input[name="nombre"] {
     style="width:100%;padding:12px 14px;border:2px solid #cbd5e1;border-radius:10px;font-size:16px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.5px;box-sizing:border-box"/>
 </div>
 <div class="note hidden" id="guestAutofillStatus" style="margin-top:10px;"></div>
+<div id="reservaSelectorHost"></div>
 </div>
 <div class="visible" id="formulario_principal"><div class="section" id="section_admin_principal"><label data-i18n="bookingName">Nombre del administrador (usuario del Número de celular)</label>
 <input name="nombre" type="text"/></div><div class="section" id="section_datos_reservacion"><h2 class="section-title" data-i18n="sec1Title">Registrarme con:</h2><p class="section-subtitle" data-i18n="sec1Sub"></p><label data-i18n="bookingSource">Medio de reservación</label>
@@ -7449,14 +7450,46 @@ async function detectExistingGuestByPhone(){
     const merged = perfilRow ? Object.assign({}, sourceRow, perfilRow) : Object.assign({}, sourceRow);
     if (perfilNombre) merged["Nombre de la persona que hizo la reservación"] = perfilNombre;
     guestLookupLastMatchedPhone = exact.raw;
+    // Fetch reservas activas/próximas asociadas al teléfono desde Lodgify.
+    let reservasList = [];
+    try {
+      const rParams = new URLSearchParams();
+      rParams.set("action", "reservas_by_phone");
+      rParams.set("phone", exact.raw);
+      const rRes = await fetch(`${WEB_APP_URL}?${rParams.toString()}`, { method: "GET" });
+      const rJson = await rRes.json();
+      if (lookupId !== guestLookupInFlight) return;
+      if (rJson && rJson.ok && Array.isArray(rJson.reservas)) reservasList = rJson.reservas;
+    } catch(_){}
     // Limpia campos de un prefill previo (otro código/otro celular) para que
     // el nuevo lookup no herede valores de la búsqueda anterior.
     try { resetPrefilledFields(); } catch(_){}
-    applyGuestRecordToForm(merged);
-    // Reserva-específicos (propiedad, depto, medio, fechas, # huéspedes) —
-    // aplica también en flujo por celular para que queden en verde igual que
-    // en el flujo por código.
-    try { applyReservacionExtras(merged, exact.raw); } catch(_){}
+    // Convierte una reserva-summary a la forma esperada por applyReservacionExtras
+    const _resToPrefill = (r, phoneRaw, perfil) => Object.assign({}, perfil || {}, {
+      "Cel/Whatsapp (principal)": phoneRaw,
+      "Medio de reservación": (r.Source || "").toLowerCase().includes("airbnb") ? "Airbnb"
+                            : (r.Source || "").toLowerCase().includes("direct") ? "Trato directo" : (r.Source || ""),
+      "Propiedad": r.Propiedad || r.HouseName || "",
+      "# Departamento": r.Departamento || "",
+      "Fecha de ingreso": r.DateArrival || "",
+      "Fecha de salida":  r.DateDeparture || "",
+      "# Noches": r.Nights || "",
+      "# Huéspedes": r.NumberOfGuests || "",
+      "Nombre de la persona que hizo la reservación":
+        (perfil && String(perfil["Nombre del huésped"] || "").trim())
+        || r.GuestName
+        || (merged["Nombre de la persona que hizo la reservación"] || ""),
+      "Correo electrónico": r.GuestEmail || "",
+      "Código de confirmación": r.ConfirmationCode || "",
+    });
+    // Elige por default la reserva más próxima (primera del array = ordenada asc)
+    const primary = reservasList.length ? reservasList[0] : null;
+    const primaryMerged = primary ? _resToPrefill(primary, exact.raw, perfilRow) : merged;
+    applyGuestRecordToForm(primaryMerged);
+    try { applyReservacionExtras(primaryMerged, exact.raw); } catch(_){}
+    // Si hay >1 reserva activa/próxima, renderiza selector debajo del toast
+    // para que el huésped pueda cambiar cuál cargar.
+    try { renderReservaSelector(reservasList, exact.raw, perfilRow, _resToPrefill); } catch(e) { console.warn(e); }
     actualizarTextoUploads(true);
     const nombre = (perfilRow && String(perfilRow["Nombre del huésped"] || "").trim())
       || String(sourceRow["Nombre de la persona que hizo la reservación"] || "").trim()
@@ -7481,6 +7514,58 @@ function scheduleGuestLookup(){
 document.querySelector('input[name="cel"]')?.addEventListener("input", scheduleGuestLookup);
 document.querySelector('input[name="cel"]')?.addEventListener("blur", detectExistingGuestByPhone);
 document.getElementById("lada1")?.addEventListener("change", detectExistingGuestByPhone);
+
+/** Renderiza el selector de reservas asociadas al teléfono. Si hay <=1
+ *  reserva no muestra nada. Aparece debajo del status/toast del Paso 1. */
+function renderReservaSelector(reservas, phoneRaw, perfilRow, mapper) {
+  const host = document.getElementById("reservaSelectorHost");
+  if (!host) return;
+  host.innerHTML = "";
+  if (!Array.isArray(reservas) || reservas.length < 2) return;
+  const _fmt = iso => {
+    const m = String(iso || "").match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return `${parseInt(m[3],10)}/${parseInt(m[2],10)}/${m[1]}`;
+    const m2 = String(iso || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m2) return `${parseInt(m2[2],10)}/${parseInt(m2[1],10)}/${m2[3]}`;
+    return String(iso || "");
+  };
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "margin-top:12px;padding:12px;border:1.5px solid #cbd5e1;border-radius:12px;background:#f8fafc";
+  wrap.innerHTML = `<div style="font-weight:800;color:#1e40af;font-size:13px;margin-bottom:8px">📅 Selecciona la reserva</div>
+    <div style="font-size:12px;color:#475569;margin-bottom:10px">Encontramos ${reservas.length} reservas activas o próximas asociadas a este número. Selecciona la correcta.</div>`;
+  const list = document.createElement("div");
+  list.style.cssText = "display:flex;flex-direction:column;gap:8px";
+  reservas.forEach((r, idx) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.dataset.idx = String(idx);
+    const active = idx === 0;
+    btn.style.cssText = `text-align:left;padding:10px 12px;border:2px solid ${active?'#2563eb':'#e2e8f0'};background:${active?'#dbeafe':'#fff'};border-radius:10px;cursor:pointer;font-family:inherit`;
+    const propLine = r.Propiedad || r.HouseName || "(sin propiedad)";
+    const deptoLine = r.Departamento ? ` · Depto ${r.Departamento}` : "";
+    const dateLine = `${_fmt(r.DateArrival)} → ${_fmt(r.DateDeparture)}${r.Nights?` · ${r.Nights} noches`:""}`;
+    const codeLine = r.ConfirmationCode ? `<div style="font-size:11px;color:#64748b;font-family:ui-monospace,monospace;margin-top:2px">${r.ConfirmationCode}</div>` : "";
+    const srcLine = r.Source ? `<div style="font-size:11px;color:#64748b;margin-top:2px">${r.Source}</div>` : "";
+    btn.innerHTML = `<div style="font-weight:700;color:#0f172a;font-size:13px">${propLine}${deptoLine}</div>
+      <div style="font-size:12px;color:#334155;margin-top:2px">${dateLine}</div>
+      ${codeLine}${srcLine}`;
+    btn.onclick = () => {
+      // Marcar activo visualmente
+      list.querySelectorAll("button").forEach(b => {
+        b.style.background = "#fff"; b.style.borderColor = "#e2e8f0";
+      });
+      btn.style.background = "#dbeafe"; btn.style.borderColor = "#2563eb";
+      // Aplicar prefill de esa reserva
+      const primaryMerged = mapper(r, phoneRaw, perfilRow);
+      try { resetPrefilledFields(); } catch(_){}
+      applyGuestRecordToForm(primaryMerged);
+      try { applyReservacionExtras(primaryMerged, phoneRaw); } catch(_){}
+    };
+    list.appendChild(btn);
+  });
+  wrap.appendChild(list);
+  host.appendChild(wrap);
+}
 
 /** Prellena campos de la sección "Datos de la reservación" con los valores de
  *  la reserva encontrada por código. applyGuestRecordToForm solo cubre perfil;
