@@ -6311,10 +6311,31 @@ body.has-session input[name="nombre"] {
 <button type="button" class="back-home-btn" data-back-home data-i18n="backHomeBtn">← Volver al inicio</button>
 <form id="form">
 <input id="tipo_registro" name="tipo_registro" type="hidden" value="nuevo"/>
-<div class="section" id="section_celular_principal"><h2 class="section-title" data-i18n="phoneLookupTitle">Número de celular</h2><p class="section-subtitle" data-i18n="phoneLookupSub">⚠️ Ingresa el MISMO NÚMERO CEL con el que se generó tu reservación de Airbnb o Check-Inn. Se completarán automáticamente algunos datos si ya existe registro.</p>
-<div class="phone-group">
-<select id="lada1" name="lada1"></select>
-<input autocomplete="tel-national" id="celular_principal_input" inputmode="numeric" name="cel" type="tel"/>
+<div class="section" id="section_celular_principal">
+<div id="lookupModeTabs" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+  <button type="button" id="lookupModeBtnCel" onclick="sectionLookupSetMode('cel')"
+    style="flex:1;min-width:140px;padding:10px 14px;border:2px solid #2563eb;border-radius:10px;background:#dbeafe;color:#1e40af;font-weight:700;cursor:pointer;font-size:14px">
+    📱 Número de celular
+  </button>
+  <button type="button" id="lookupModeBtnCode" onclick="sectionLookupSetMode('code')"
+    style="flex:1;min-width:140px;padding:10px 14px;border:2px solid #cbd5e1;border-radius:10px;background:#f8fafc;color:#475569;font-weight:600;cursor:pointer;font-size:14px">
+    🎫 Código de confirmación
+  </button>
+</div>
+<div id="lookupPanelCel">
+  <h2 class="section-title" data-i18n="phoneLookupTitle">Número de celular</h2>
+  <p class="section-subtitle" data-i18n="phoneLookupSub">⚠️ Ingresa el MISMO NÚMERO CEL con el que se generó tu reservación de Airbnb o Check-Inn. Se completarán automáticamente algunos datos si ya existe registro.</p>
+  <div class="phone-group">
+    <select id="lada1" name="lada1"></select>
+    <input autocomplete="tel-national" id="celular_principal_input" inputmode="numeric" name="cel" type="tel"/>
+  </div>
+</div>
+<div id="lookupPanelCode" class="hidden">
+  <h2 class="section-title">Código de confirmación</h2>
+  <p class="section-subtitle">Ingresa el código de confirmación de tu reservación de Airbnb (ej. <strong>HMC9QRDTWR</strong>) o de Lodgify (ej. <strong>#B23006918</strong>). Se completarán automáticamente los datos si ya existe registro.</p>
+  <input type="text" id="confirmation_code_input" name="confirmation_code"
+    placeholder="HMC9QRDTWR o #B23006918" autocomplete="off"
+    style="width:100%;padding:12px 14px;border:2px solid #cbd5e1;border-radius:10px;font-size:16px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.5px;box-sizing:border-box"/>
 </div>
 <div class="note hidden" id="guestAutofillStatus" style="margin-top:10px;"></div>
 </div>
@@ -7360,6 +7381,81 @@ function scheduleGuestLookup(){
 document.querySelector('input[name="cel"]')?.addEventListener("input", scheduleGuestLookup);
 document.querySelector('input[name="cel"]')?.addEventListener("blur", detectExistingGuestByPhone);
 document.getElementById("lada1")?.addEventListener("change", detectExistingGuestByPhone);
+
+// ─── Toggle "Número de celular" vs "Código de confirmación" ────────────────
+window.sectionLookupSetMode = function(mode) {
+  const panelCel  = document.getElementById("lookupPanelCel");
+  const panelCode = document.getElementById("lookupPanelCode");
+  const btnCel    = document.getElementById("lookupModeBtnCel");
+  const btnCode   = document.getElementById("lookupModeBtnCode");
+  const isCode = (mode === "code");
+  if (panelCel)  panelCel.classList.toggle("hidden", isCode);
+  if (panelCode) panelCode.classList.toggle("hidden", !isCode);
+  if (btnCel) {
+    btnCel.style.background   = isCode ? "#f8fafc" : "#dbeafe";
+    btnCel.style.borderColor  = isCode ? "#cbd5e1" : "#2563eb";
+    btnCel.style.color        = isCode ? "#475569" : "#1e40af";
+    btnCel.style.fontWeight   = isCode ? "600" : "700";
+  }
+  if (btnCode) {
+    btnCode.style.background  = isCode ? "#dbeafe" : "#f8fafc";
+    btnCode.style.borderColor = isCode ? "#2563eb" : "#cbd5e1";
+    btnCode.style.color       = isCode ? "#1e40af" : "#475569";
+    btnCode.style.fontWeight  = isCode ? "700" : "600";
+  }
+};
+
+// Lookup por Código de confirmación → Apps Script reserva_get_by_confirmation_code
+let codeLookupTimer = null;
+let codeLookupInFlight = 0;
+async function detectExistingGuestByConfirmationCode() {
+  const lookupId = ++codeLookupInFlight;
+  const inp = document.getElementById("confirmation_code_input");
+  const raw = String(inp?.value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/^#/, "");
+  if (!raw || raw.length < 6) { resetAutofillToNewMode(); return; }
+  try {
+    setGuestAutofillMessage("", (window.currentLang === "en") ? "Please wait a moment..." : "Espera un momento...");
+    const params = new URLSearchParams();
+    params.set("action", "reserva_get_by_confirmation_code");
+    params.set("code", raw);
+    const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: "GET" });
+    const json = await res.json();
+    if (lookupId !== codeLookupInFlight) return;
+    if (!json.ok) throw new Error(json.error || "lookup failed");
+    if (!json.reserva && !json.perfil) {
+      resetAutofillToNewMode();
+      setGuestAutofillMessage("", (window.currentLang === "en")
+        ? "No previous match was found for this confirmation code."
+        : "No se encontró un registro previo para este código de confirmación.");
+      revealExpressFormBody();
+      return;
+    }
+    const merged = Object.assign({}, json.perfil || {}, json.reserva || {});
+    // Set phone input silently si viene del match
+    if (json.phone && document.getElementById("celular_principal_input")) {
+      const cel = document.getElementById("celular_principal_input");
+      cel.value = String(json.phone).slice(-10);
+      guestLookupLastMatchedPhone = cel.value;
+    }
+    applyGuestRecordToForm(merged);
+    actualizarTextoUploads(true);
+    const nombre = merged["Nombre de la persona que hizo la reservación"] || merged["Nombre del huésped"] || "";
+    setGuestAutofillMessage("success",
+      `<span class="auto-detected-badge">${(window.currentLang === "en") ? "Previous guest found" : "Huésped encontrado"}</span><div>${(window.currentLang === "en") ? "The available fields were completed automatically for" : "Se completaron automáticamente los campos disponibles de"} <strong>${String(nombre || "").trim() || ((window.currentLang === "en") ? "this guest" : "este huésped")}</strong>.</div>`
+    );
+    revealExpressFormBody();
+  } catch (err) {
+    if (lookupId !== codeLookupInFlight) return;
+    setGuestAutofillMessage("error", ((window.currentLang === "en") ? "Could not verify previous records: " : "No se pudieron verificar registros previos: ") + (err.message || err));
+    revealExpressFormBody();
+  }
+}
+function scheduleCodeLookup() {
+  clearTimeout(codeLookupTimer);
+  codeLookupTimer = setTimeout(detectExistingGuestByConfirmationCode, 500);
+}
+document.getElementById("confirmation_code_input")?.addEventListener("input", scheduleCodeLookup);
+document.getElementById("confirmation_code_input")?.addEventListener("blur", detectExistingGuestByConfirmationCode);
 function renumerarHuespedes(){
   const rows = document.querySelectorAll('#huespedes-container .huesped-row');
   rows.forEach((row, index) => {
