@@ -6741,7 +6741,13 @@ body.has-session input[name="nombre"] {
     The invoice issued by Check-Inn DOES NOT INCLUDE the "Airbnb Commission". If you want to cover the total cost, you must download the invoice for this platform's commission directly from its app.
   </div>
 </div>
-<div id="field_monto_pagado_always">
+<label data-i18n="emailPrimary">Correo electrónico (principal)</label>
+<input id="correo1" name="correo1" type="email"/>
+<label data-i18n="emailCopy">Correo electrónico (copia)</label>
+<input id="correo2" name="correo2" type="email"/>
+</div>
+<!-- $ Monto pagado + Divisa: siempre visibles, fuera de #factura_fields -->
+<div id="field_monto_pagado_always" style="display:block">
 <label data-i18n="amountPaid">$ Monto pagado</label>
 <div class="money-group">
 <select id="divisa_monto" name="divisa_monto">
@@ -6754,12 +6760,7 @@ body.has-session input[name="nombre"] {
 </select>
 <input id="monto_pagado" inputmode="decimal" min="0" name="monto_pagado" placeholder="0.00" step="0.01" type="number"/>
 </div>
-</div>
 <div class="hint" id="monto_preview">Monto capturado: MXN 0.00</div>
-<label data-i18n="emailPrimary">Correo electrónico (principal)</label>
-<input id="correo1" name="correo1" type="email"/>
-<label data-i18n="emailCopy">Correo electrónico (copia)</label>
-<input id="correo2" name="correo2" type="email"/>
 </div>
 </div>
 <div class="section" id="vehicle_section_hidden_backend"><h2 class="section-title" data-i18n="sec5Title">Registro de vehículo</h2><p class="section-subtitle" data-i18n="vehicleProSub">Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.</p><label data-i18n="vehicle">¿Cuentas con vehículo?</label>
