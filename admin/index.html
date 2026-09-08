@@ -1564,7 +1564,8 @@
           <span id="lg-last-sync" style="font-size:11px;color:#64748b;font-weight:600">—</span>
           <button class="btn-limpiar" style="margin:0" onclick="lgRefreshAll()" title="Recarga Lodgify + Reservaciones desde Sheets (instantáneo, no consulta Lodgify API)">↻ Refrescar</button>
           <button class="btn-limpiar" style="margin:0;background:#0d9488;color:#fff;border-color:#0d9488" onclick="lodgifySync(false)" title="Sincroniza últimos 60d + futuro 1 año desde Lodgify">🔄 Sincronizar</button>
-          <button class="btn-limpiar" style="margin:0" onclick="lodgifySync(true)" title="Sincronización completa: 2 años atrás/adelante (2-5 min)">⏳ Sync completa</button>
+          <button class="btn-limpiar" style="margin:0" onclick="lodgifySync(true)" title="Sincronización completa: 2 años atrás/adelante (2-5 min). Rellena campos faltantes como Código de confirmación Airbnb en TODAS las filas.">⏳ Sync completa</button>
+          <button class="btn-limpiar" style="margin:0;background:#f59e0b;color:#fff;border-color:#f59e0b" onclick="lodgifyBackfillCodes()" title="Backfill del Código de confirmación (Airbnb HMxxx / Lodgify #Bxxxx) en todas las reservas antiguas. Corre el sync completo en segundo plano y reintenta si Apps Script timeoutea (6 min máx).">🔄 Backfill Lodgify</button>
           <button class="btn-limpiar" style="margin:0;background:#7c3aed;color:#fff;border-color:#7c3aed" onclick="lgOpenManualRegistro()" title="Abre el formulario express de registro manual">＋ Crear registro manual</button>
         </div>
       </div>
@@ -2827,7 +2828,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1172"></script>
+  <script src="app.js?v=1173"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }

@@ -13728,6 +13728,46 @@ async function __lodgifyLoadInner(force, opts) {
 }
 
 /** Dispara sincronización contra Lodgify (rolling o full). */
+/** Backfill del Código de confirmación en Reservas_Lodgify. Corre el sync
+ *  completo (full=true) en un loop con reintentos: Apps Script tiene tope de
+ *  6 min por invocación, así que si timeoutea, la siguiente corrida termina
+ *  las filas que faltaban. Máx 3 pases; en la práctica 1-2 alcanzan. */
+window.lodgifyBackfillCodes = async function() {
+  if (!confirm('Va a correr una Sync completa de Lodgify (jala 2 años atrás y adelante) para rellenar Código de confirmación en TODAS las reservas antiguas.\n\nTarda 2-6 min por pase, hasta 3 pases si Apps Script timeoutea. ¿Continuar?')) return;
+  const lbl = document.getElementById('lg-status-label');
+  const setLbl = t => { if (lbl) lbl.textContent = t; };
+  const maxPasses = 3;
+  let totalUpdated = 0;
+  for (let pass = 1; pass <= maxPasses; pass++) {
+    setLbl(`🔄 Backfill pase ${pass}/${maxPasses}…`);
+    try {
+      const res = await fetch(`${BACKEND}/lodgify-sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full: true }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        // Si timeouteó Apps Script, backend suele devolver ok:false con hint.
+        // Reintentamos el siguiente pase para completar lo que faltó.
+        console.warn(`[LG backfill] pase ${pass} error:`, data.error || data.raw);
+        if (pass === maxPasses) throw new Error(data.error || `HTTP ${res.status}`);
+        continue;
+      }
+      totalUpdated += Number(data.updated || 0);
+      console.info(`[LG backfill] pase ${pass}: updated=${data.updated} inserted=${data.inserted} elapsed=${(data.elapsed_ms/1000).toFixed(1)}s`);
+      // Si en este pase no actualizó nada nuevo, ya no hay pendientes → salimos.
+      if (Number(data.updated || 0) === 0 && Number(data.inserted || 0) === 0 && pass > 1) break;
+    } catch (e) {
+      console.warn(`[LG backfill] pase ${pass} fetch falló:`, e);
+      if (pass === maxPasses) { alert('Error en backfill: ' + e.message); setLbl('Error backfill'); return; }
+    }
+  }
+  setLbl(`✓ Backfill terminado · ${totalUpdated} filas actualizadas en total`);
+  alert(`✓ Backfill Lodgify completado.\n\nTotal de filas actualizadas: ${totalUpdated}.\n\nAhora los códigos de confirmación (HMxxx / #Bxxxx) están disponibles para el lookup en el check-in.`);
+  try { await lodgifyLoad(true); } catch(_){}
+};
+
 async function lodgifySync(full) {
   const lbl = document.getElementById('lg-status-label');
   const empty = document.getElementById('lg-empty');
