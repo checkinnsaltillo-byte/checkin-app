@@ -6440,8 +6440,8 @@ body.has-session input[name="nombre"] {
 <div>
 <label data-i18n="checkinDate">Fecha de ingreso</label>
 <input name="ingreso" type="date"/>
-<label data-i18n="arrivalTime">Hora estimada de llegada (a partir de las 2 P.M.)</label>
-<select id="hora_llegada_estimada" name="hora_llegada_estimada">
+<label data-i18n="arrivalTime" style="display:none">Hora estimada de llegada (a partir de las 2 P.M.)</label>
+<select id="hora_llegada_estimada" name="hora_llegada_estimada" style="display:none">
 <option value="">Selecciona</option>
 <option value="2:00 p.m.">2:00 p.m.</option>
 <option value="2:30 p.m.">2:30 p.m.</option>
@@ -6489,8 +6489,8 @@ body.has-session input[name="nombre"] {
 <div>
 <label data-i18n="checkoutDate">Fecha de salida</label>
 <input name="salida" type="date"/>
-<label data-i18n="departureTime">Hora estimada de salida (máximo 10 A.M.)</label>
-<select id="hora_salida_estimada" name="hora_salida_estimada">
+<label data-i18n="departureTime" style="display:none">Hora estimada de salida (máximo 10 A.M.)</label>
+<select id="hora_salida_estimada" name="hora_salida_estimada" style="display:none">
 <option value="">Selecciona</option>
 <option value="12:00 a.m.">12:00 a.m.</option>
 <option value="12:30 a.m.">12:30 a.m.</option>
@@ -7494,18 +7494,31 @@ function applyReservacionExtras(reserva, phoneNorm) {
   // ── Nombres de huéspedes ────────────────────────────────────────
   const nombresCsv = reserva["Nombres de TODOS los huéspedes (separados por comas)"];
   if (nombresCsv) fillGuestNames(nombresCsv);
-  // ── Re-marca en el siguiente frame para vencer a los listeners de change
-  //    que corren después de setSelectByTextOrValue y limpian la clase verde.
-  requestAnimationFrame(() => {
-    _touched.forEach(el => {
-      try { markFieldAsAutofilled(el); } catch(_){}
+  // ── Re-marca en varios frames + timeouts para vencer a listeners de change
+  //    que corren después (incluye los que se disparan cuando cargan las
+  //    imágenes INE/vehículo asincrónicamente).
+  const _reapplyMarks = () => {
+    _touched.forEach(el => { try { markFieldAsAutofilled(el); } catch(_){} });
+  };
+  requestAnimationFrame(_reapplyMarks);
+  [100, 300, 700, 1500, 3000].forEach(ms => setTimeout(_reapplyMarks, ms));
+  // MutationObserver: si algún handler externo remueve la clase autofilled-field
+  // (por ejemplo el listener que se dispara al mostrar previews de imágenes),
+  // la re-agregamos. Se desactiva después de 8 segundos para no correr para
+  // siempre.
+  try {
+    const obs = new MutationObserver(muts => {
+      muts.forEach(m => {
+        if (m.type !== 'attributes' || m.attributeName !== 'class') return;
+        const el = m.target;
+        if (_touched.has(el) && !el.classList.contains('autofilled-field')) {
+          try { markFieldAsAutofilled(el); } catch(_){}
+        }
+      });
     });
-  });
-  setTimeout(() => {
-    _touched.forEach(el => {
-      try { markFieldAsAutofilled(el); } catch(_){}
-    });
-  }, 150);
+    _touched.forEach(el => obs.observe(el, { attributes:true, attributeFilter:['class'] }));
+    setTimeout(() => obs.disconnect(), 8000);
+  } catch(_){}
 }
 
 // ─── Toggle: 3 modos de identificación ────────────────────────────────────
