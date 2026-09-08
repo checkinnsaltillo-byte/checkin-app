@@ -7179,6 +7179,43 @@ function fillGuestNames(namesText){
   renumerarHuespedes();
 }
 
+/** Resetea a blanco los campos que el prefill llena — para que un segundo
+ *  lookup (cambio de celular o código) no herede valores del anterior. */
+function resetPrefilledFields() {
+  clearAllAutofilledMarks();
+  const _clearVal = (sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    else el.value = "";
+    ['background-color','background-image','border-color','box-shadow'].forEach(p => el.style.removeProperty(p));
+    try { el.dispatchEvent(new Event('change', { bubbles:true })); } catch(_){}
+  };
+  ['input[name="nombre"]','select[name="medio"]','select[name="propiedad"]','select[name="depto"]',
+   '#num_huespedes','input[name="ingreso"]','input[name="salida"]',
+   'select[name="hora_llegada_estimada"]','select[name="hora_salida_estimada"]',
+   '#razon_social','#correo1','#correo2',
+   '#identificacion_tipo','#identificacion_otro','#motivo','#motivo_otro',
+   '#factura','#regimen','#regimen_otro',
+   'input[name="emergencia"]','#lada2',
+   '#tiene_vehiculo','#vehiculo_marca','#vehiculo_modelo','#vehiculo_color','#vehiculo_placas','#vehiculo_hora_salida'
+  ].forEach(_clearVal);
+  // Nombres de huéspedes: dejar solo una fila vacía
+  try {
+    const inputs = document.querySelectorAll('#huespedes-container input[name="huesped[]"]');
+    inputs.forEach((inp, i) => { if (i === 0) inp.value = ""; else inp.closest('.huesped-row')?.remove(); });
+    if (typeof renumerarHuespedes === 'function') renumerarHuespedes();
+  } catch(_){}
+  // Previews de imágenes (INE/vehículo): reset dataset flags
+  ['ine_frontal','ine_trasero','identificacion_unica','vehiculo_foto'].forEach(id => {
+    const p = document.getElementById(`${id}_preview`);
+    if (p) { p.removeAttribute('src'); p.classList.add('hidden'); delete p.dataset.fromBackend; delete p.dataset.backendUrl; }
+    const n = document.getElementById(`${id}_name`);
+    if (n) n.textContent = "Ninguna imagen seleccionada";
+  });
+}
+try { window.resetPrefilledFields = resetPrefilledFields; } catch(_){}
+
 function applyGuestRecordToForm(row){
   if (!row) return;
   clearAllAutofilledMarks();
@@ -7412,6 +7449,9 @@ async function detectExistingGuestByPhone(){
     const merged = perfilRow ? Object.assign({}, sourceRow, perfilRow) : Object.assign({}, sourceRow);
     if (perfilNombre) merged["Nombre de la persona que hizo la reservación"] = perfilNombre;
     guestLookupLastMatchedPhone = exact.raw;
+    // Limpia campos de un prefill previo (otro código/otro celular) para que
+    // el nuevo lookup no herede valores de la búsqueda anterior.
+    try { resetPrefilledFields(); } catch(_){}
     applyGuestRecordToForm(merged);
     // Reserva-específicos (propiedad, depto, medio, fechas, # huéspedes) —
     // aplica también en flujo por celular para que queden en verde igual que
@@ -7673,6 +7713,9 @@ async function detectExistingGuestByConfirmationCode() {
       return;
     }
     const merged = Object.assign({}, json.perfil || {}, json.reserva || {});
+    // Limpia campos de un prefill previo antes de aplicar el nuevo — así
+    // cambiar de código o de celular no deja valores heredados.
+    try { resetPrefilledFields(); } catch(_){}
     applyGuestRecordToForm(merged);
     // Campos específicos de la reservación (applyGuestRecordToForm cubre perfil,
     // pero NO cel principal / medio / propiedad / fechas / # huéspedes).
