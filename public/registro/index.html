@@ -6371,7 +6371,7 @@ body.has-session input[name="nombre"] {
 <div class="note hidden" id="guestAutofillStatus" style="margin-top:10px;"></div>
 </div>
 <div class="visible" id="formulario_principal"><div class="section" id="section_admin_principal"><label data-i18n="bookingName">Nombre del administrador (usuario del Número de celular)</label>
-<input name="nombre" type="text"/></div><div class="section" id="section_datos_reservacion"><h2 class="section-title" data-i18n="sec1Title">Datos de la reservación</h2><p class="section-subtitle" data-i18n="sec1Sub"></p><label data-i18n="bookingSource">Medio de reservación</label>
+<input name="nombre" type="text"/></div><div class="section" id="section_datos_reservacion"><h2 class="section-title" data-i18n="sec1Title">Registrarme con:</h2><p class="section-subtitle" data-i18n="sec1Sub"></p><label data-i18n="bookingSource">Medio de reservación</label>
 <select name="medio">
 <option value="">Selecciona</option>
 <option value="Airbnb">Airbnb</option>
@@ -7608,8 +7608,17 @@ async function detectExistingGuestByConfirmationCode() {
     applyReservacionExtras(json.reserva || {}, json.phone || "");
     actualizarTextoUploads(true);
     const nombre = merged["Nombre de la persona que hizo la reservación"] || merged["Nombre del huésped"] || "";
+    // Formatea el celular como "+52 8701447165" para el toast (últimos 10 dígitos + lada si viene)
+    const celRaw = String(merged["Cel/Whatsapp (principal)"] || json.phone || "").replace(/\D/g,"");
+    let celFmt = "";
+    if (celRaw) {
+      const last10 = celRaw.slice(-10);
+      const lada   = celRaw.length > 10 ? celRaw.slice(0, celRaw.length - 10) : "";
+      celFmt = lada ? `+${lada} ${last10}` : last10;
+    }
+    const celLine = celFmt ? `<div style="margin-top:4px;font-size:12px;color:#0f172a;opacity:.85">${(window.currentLang === "en") ? "Phone" : "Celular"}: <strong>${celFmt}</strong></div>` : "";
     setGuestAutofillMessage("success",
-      `<span class="auto-detected-badge">${(window.currentLang === "en") ? "Previous guest found" : "Huésped encontrado"}</span><div>${(window.currentLang === "en") ? "The available fields were completed automatically for" : "Se completaron automáticamente los campos disponibles de"} <strong>${String(nombre || "").trim() || ((window.currentLang === "en") ? "this guest" : "este huésped")}</strong>.</div>`
+      `<span class="auto-detected-badge">${(window.currentLang === "en") ? "Previous guest found" : "Huésped encontrado"}</span><div>${(window.currentLang === "en") ? "The available fields were completed automatically for" : "Se completaron automáticamente los campos disponibles de"} <strong>${String(nombre || "").trim() || ((window.currentLang === "en") ? "this guest" : "este huésped")}</strong>.</div>${celLine}`
     );
     revealExpressFormBody();
   } catch (err) {
@@ -8724,7 +8733,7 @@ const I18N = {
     phoneLookupTitle: "Número de celular",
     phoneLookupSub: "⚠️ Ingresa el MISMO NÚMERO CEL con el que se generó tu reservación de Airbnb o Check-Inn. Se completarán automáticamente algunos datos si ya existe registro.",
     guestPhoneNumber: "Número de celular",
-    sec1Title: "Datos de la reservación",
+    sec1Title: "Registrarme con:",
     sec1Sub: "",
     sec2Title: "",
     sec2Sub: "",
@@ -9098,7 +9107,7 @@ const SIMPLE_I18N = {
     phoneLookupTitle:"Número de celular",
     phoneLookupSub:"⚠️ Ingresa el MISMO NÚMERO CEL con el que se generó tu reservación de Airbnb o Check-Inn. Se completarán automáticamente algunos datos si ya existe registro.",
     guestPhoneNumber:"Número de celular",
-    sec1Title:"Datos de la reservación",
+    sec1Title:"Registrarme con:",
     sec1Sub:"",
     sec2Title: "",
     sec2Sub: "",
