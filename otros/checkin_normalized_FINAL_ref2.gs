@@ -10527,11 +10527,15 @@ function reservasByPhone_(data) {
       dbg.sample_matches.push({ id: iId >= 0 ? String(vals[i][iId]) : "", status: status, da: da, dd: dd, ddIso: _toIsoDateForCompare_(dd) });
     }
     if (status === "deleted" || status === "declined") { dbg.status_skipped++; continue; }
-    // Filtra: DateDeparture >= hoy → activa o próxima. Si dd está vacío, se acepta.
-    if (dd) {
-      var ddIso = _toIsoDateForCompare_(dd);
-      if (ddIso && ddIso < todayIso) { dbg.date_skipped++; continue; }
-    }
+    // Activa o próxima: DateArrival O DateDeparture >= hoy. Acepta si alguna
+    // fecha es futura (tolerante a errores donde arrival/departure vinieron
+    // swapped, como Oaxaca #5: "11/04/2026 → 08/29/2026").
+    var daIso = da ? _toIsoDateForCompare_(da) : "";
+    var ddIso = dd ? _toIsoDateForCompare_(dd) : "";
+    var futureDa = daIso && daIso >= todayIso;
+    var futureDd = ddIso && ddIso >= todayIso;
+    var neitherDate = !daIso && !ddIso;
+    if (!futureDa && !futureDd && !neitherDate) { dbg.date_skipped++; continue; }
     var hid = iHId >= 0 ? String(vals[i][iHId] || "").trim() : "";
     var rti = iRTIds >= 0 ? String(vals[i][iRTIds] || "").trim() : "";
     var aloj = _resolveAloj(hid, rti);
