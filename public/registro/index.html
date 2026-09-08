@@ -7462,6 +7462,14 @@ function applyReservacionExtras(reserva, phoneNorm) {
   if (propiedad) _setSelByTextOrValue('select[name="propiedad"]', propiedad);
   const depto = String(reserva["# Departamento"] || "").trim();
   if (depto) _setSelByTextOrValue('select[name="depto"]', depto);
+  // Aunque no venga valor explícito desde la reserva, si el select tiene una
+  // opción seleccionada NO vacía (default cargado desde DOM o prefill previo),
+  // marcamos igual como prellenado — así el usuario ve que ya hay data ahí y
+  // puede confirmarla o cambiarla. Aplica a Propiedad y # Departamento.
+  ['select[name="propiedad"]','select[name="depto"]'].forEach(sel => {
+    const el = document.querySelector(sel);
+    if (el && String(el.value || "").trim()) _mark(el);
+  });
   // ── Fechas ingreso/salida (a "YYYY-MM-DD") ──────────────────────
   const _toIsoDate = (s) => {
     const str = String(s || "").trim();
