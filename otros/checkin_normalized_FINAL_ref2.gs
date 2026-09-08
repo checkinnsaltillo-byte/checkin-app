@@ -10316,6 +10316,14 @@ function _normalizeConfirmationCode_(v) {
 function reservaGetByConfirmationCode_(data) {
   var code = _normalizeConfirmationCode_(data && data.code);
   if (!code) return { ok:false, error:"code requerido" };
+  // Cache 5min por código — evita rescanear la hoja Reservas_Lodgify de 10k
+  // filas cada vez que el huésped hace blur en el input.
+  var _cache = CacheService.getScriptCache();
+  var _cacheKey = "rgcc_v2_" + code;
+  try {
+    var _cached = _cache.get(_cacheKey);
+    if (_cached) { var _p = JSON.parse(_cached); _p._cached = true; return _p; }
+  } catch(_){}
   var sh = getSheet_(RESERVACIONES_SHEET);
   var headers = getHeaders_(sh);
   var iCode = headers.indexOf("Código de confirmación");
@@ -10337,7 +10345,9 @@ function reservaGetByConfirmationCode_(data) {
         var pr = perfilGetByPhone_({ phone: phone });
         if (pr && pr.ok && pr.perfil) perfil = pr.perfil;
       }
-      return { ok:true, reserva:reserva, perfil:perfil, code:code, phone:_normalizePhone10_(phone), source:"reservaciones" };
+      var _outRes = { ok:true, reserva:reserva, perfil:perfil, code:code, phone:_normalizePhone10_(phone), source:"reservaciones" };
+      try { _cache.put(_cacheKey, JSON.stringify(_outRes), 300); } catch(_){}
+      return _outRes;
     }
   }
   // Fallback: buscar en Reservas_Lodgify (columna ConfirmationCode). El código
@@ -10452,7 +10462,9 @@ function reservaGetByConfirmationCode_(data) {
               "Divisa monto pagado":        iCurf>= 0 ? String(lgVals[j][iCurf]|| "") : "",
               "_row": j + 2
             };
-            return { ok:true, reserva:reservaMapped, perfil:perfil2, code:code, phone:_normalizePhone10_(phoneL), source:"lodgify" };
+            var _outLg = { ok:true, reserva:reservaMapped, perfil:perfil2, code:code, phone:_normalizePhone10_(phoneL), source:"lodgify" };
+            try { _cache.put(_cacheKey, JSON.stringify(_outLg), 300); } catch(_){}
+            return _outLg;
           }
         }
       }
@@ -10475,7 +10487,7 @@ function reservasByPhone_(data) {
   if (!p10) return { ok:false, error:"phone requerido (>=10 dígitos)" };
   // Cache 5 min por teléfono — el sheet tiene 10k+ filas y escanear tarda 10-25s.
   var cache = CacheService.getScriptCache();
-  var cacheKey = "rbp_v5_booked_" + p10;
+  var cacheKey = "rbp_v6_fast_" + p10;
   try {
     var cached = cache.get(cacheKey);
     if (cached) { var parsed = JSON.parse(cached); parsed._cached = true; return parsed; }
@@ -10510,10 +10522,30 @@ function reservasByPhone_(data) {
   var iPS = hdr.indexOf("PaymentStatus");
   var iCur = hdr.indexOf("Currency");
   if (iPh < 0) return { ok:false, error:"columna GuestPhone no existe en " + LODGIFY_SHEET };
-  var vals = shL.getRange(2, 1, shL.getLastRow()-1, hdr.length).getValues();
+  // OPTIMIZACIÓN: leer PRIMERO solo la columna GuestPhone (mucho más rápido
+  // que traer 10k×35 columnas). Filtrar índices que matchean el teléfono
+  // (típicamente <20). Luego leer el resto de columnas solo para esos.
+  var lastRow = shL.getLastRow();
+  var phoneCol = iPh + 1;
+  var phoneVals = shL.getRange(2, phoneCol, lastRow-1, 1).getValues();
+  var matchingRowIdx = [];
+  for (var pi = 0; pi < phoneVals.length; pi++) {
+    var rp = String(phoneVals[pi][0] || "").replace(/\D/g,"");
+    if (rp.length >= 10 && rp.slice(-10) === p10) matchingRowIdx.push(pi);
+  }
+  var vals = [];
+  if (matchingRowIdx.length) {
+    // Rango minimal: desde primer match hasta último, luego filtrar en memoria
+    var firstM = matchingRowIdx[0];
+    var lastM = matchingRowIdx[matchingRowIdx.length - 1];
+    var blockVals = shL.getRange(2 + firstM, 1, lastM - firstM + 1, hdr.length).getValues();
+    for (var mi = 0; mi < matchingRowIdx.length; mi++) {
+      vals.push(blockVals[matchingRowIdx[mi] - firstM]);
+    }
+  }
   var today = new Date(); today.setHours(0,0,0,0);
   var todayIso = Utilities.formatDate(today, Session.getScriptTimeZone(), "yyyy-MM-dd");
-  var dbg = { total_rows: vals.length, phone_matches: 0, status_skipped: 0, date_skipped: 0, sample_matches: [], iPh: iPh, iSt: iSt, iDA: iDA, iDD: iDD, todayIso: todayIso };
+  var dbg = { total_rows: phoneVals.length, phone_matches: matchingRowIdx.length, status_skipped: 0, date_skipped: 0, sample_matches: [], iPh: iPh, iSt: iSt, iDA: iDA, iDD: iDD, todayIso: todayIso };
   // Pre-cache alojamientos para resolver Propiedad + # Departamento por HouseId/RoomTypeIds
   var alSh = ss.getSheetByName(ALOJAMIENTOS_SHEET);
   var alRows = [], alHdr = [];
