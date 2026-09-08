@@ -7481,6 +7481,9 @@ async function detectExistingGuestByPhone(){
       "Correo electrónico": r.GuestEmail || "",
       "Código de confirmación": r.ConfirmationCode || "",
     });
+    // Marca identificado → habilita el botón "Siguiente" del paso 1
+    window.WIZ_IDENTIFIED = true;
+    try { if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1); } catch(_){}
     // Reconstruye opciones del combobox Medio con lo que realmente hay en DB
     try { rebuildMedioOptionsFromReservas(reservasList); } catch(_){}
     // Elige por default la reserva más próxima (primera del array = ordenada asc)
@@ -7770,6 +7773,7 @@ window.WIZ_STEPS = {
   4: ['vehicle_section_hidden_backend','section_comentarios']
 };
 window.WIZ_CURRENT = 1;
+window.WIZ_IDENTIFIED = false;  // true tras encontrar reserva por cel o código
 
 window.wizGoTo = function(n) {
   n = Math.max(1, Math.min(4, Number(n) || 1));
@@ -7803,7 +7807,10 @@ window.wizGoTo = function(n) {
   const next = document.getElementById('wiz-btn-next');
   const send = document.getElementById('submitBtn');
   if (prev) prev.style.display = n === 1 ? 'none' : '';
-  if (next) next.style.display = n === 4 ? 'none' : '';
+  // En paso 1: "Siguiente" solo aparece si ya se identificó al huésped
+  // (encontrada reserva por celular o código). En pasos 2-3: siempre visible.
+  if (next) next.style.display = n === 4 ? 'none'
+                             : (n === 1 && !window.WIZ_IDENTIFIED) ? 'none' : '';
   if (send) send.style.display = n === 4 ? '' : 'none';
   // Scroll al top del popup
   try {
@@ -7858,6 +7865,9 @@ async function detectExistingGuestByConfirmationCode() {
       return;
     }
     const merged = Object.assign({}, json.perfil || {}, json.reserva || {});
+    // Marca identificado → habilita el botón "Siguiente" del paso 1
+    window.WIZ_IDENTIFIED = true;
+    try { if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1); } catch(_){}
     // Limpia campos de un prefill previo antes de aplicar el nuevo — así
     // cambiar de código o de celular no deja valores heredados.
     try { resetPrefilledFields(); } catch(_){}
