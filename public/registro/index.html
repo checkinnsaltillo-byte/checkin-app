@@ -7562,7 +7562,7 @@ function renderReservaSelector(reservas, phoneRaw, perfilRow, mapper) {
   const host = document.getElementById("reservaSelectorHost");
   if (!host) return;
   host.innerHTML = "";
-  if (!Array.isArray(reservas) || reservas.length < 2) return;
+  if (!Array.isArray(reservas) || !reservas.length) return;
   const _fmt = iso => {
     const m = String(iso || "").match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
     if (m) return `${parseInt(m[3],10)}/${parseInt(m[2],10)}/${m[1]}`;
@@ -7572,8 +7572,11 @@ function renderReservaSelector(reservas, phoneRaw, perfilRow, mapper) {
   };
   const wrap = document.createElement("div");
   wrap.style.cssText = "margin-top:12px;padding:12px;border:1.5px solid #cbd5e1;border-radius:12px;background:#f8fafc";
-  wrap.innerHTML = `<div style="font-weight:800;color:#1e40af;font-size:13px;margin-bottom:8px">📅 Selecciona la reserva</div>
-    <div style="font-size:12px;color:#475569;margin-bottom:10px">Encontramos ${reservas.length} reservas activas o próximas asociadas a este número. Selecciona la correcta.</div>`;
+  const isSingle = reservas.length === 1;
+  wrap.innerHTML = `<div style="font-weight:800;color:#1e40af;font-size:13px;margin-bottom:8px">📅 ${isSingle ? 'Reserva encontrada' : 'Selecciona la reserva'}</div>
+    <div style="font-size:12px;color:#475569;margin-bottom:10px">${isSingle
+      ? 'Encontramos 1 reserva activa/próxima asociada a este número.'
+      : `Encontramos ${reservas.length} reservas activas o próximas asociadas a este número. Selecciona la correcta.`}</div>`;
   const list = document.createElement("div");
   list.style.cssText = "display:flex;flex-direction:column;gap:8px";
   reservas.forEach((r, idx) => {
