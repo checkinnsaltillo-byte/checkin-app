@@ -10363,6 +10363,11 @@ function reservaGetByConfirmationCode_(data) {
       var iDD  = lgHeaders.indexOf("DateDeparture");
       var iNg  = lgHeaders.indexOf("Nights");
       var iN   = lgHeaders.indexOf("NumberOfGuests");
+      var iTAf = lgHeaders.indexOf("TotalAmount");
+      var iAPf = lgHeaders.indexOf("AmountPaid");
+      var iADf = lgHeaders.indexOf("AmountDue");
+      var iPSf = lgHeaders.indexOf("PaymentStatus");
+      var iCurf= lgHeaders.indexOf("Currency");
       if (iCC >= 0 || iCB >= 0) {
         var lgVals = shL.getRange(2, 1, shL.getLastRow()-1, lgHeaders.length).getValues();
         // Cuenta cuántas filas tienen ConfirmationCode no vacío + últimas 5 muestras
@@ -10441,6 +10446,10 @@ function reservaGetByConfirmationCode_(data) {
               "Nombre de la persona que hizo la reservación": iNm >= 0 ? String(lgVals[j][iNm] || "") : "",
               "Correo electrónico": iEm >= 0 ? String(lgVals[j][iEm] || "") : "",
               "Código de confirmación": code,
+              "($) Monto Total pagado":     iAPf >= 0 ? Number(lgVals[j][iAPf]) || "" : "",
+              "$ MONTO TOTAL Airbnb":       iTAf >= 0 ? Number(lgVals[j][iTAf]) || "" : "",
+              "PaymentStatus":              iPSf >= 0 ? String(lgVals[j][iPSf] || "") : "",
+              "Divisa monto pagado":        iCurf>= 0 ? String(lgVals[j][iCurf]|| "") : "",
               "_row": j + 2
             };
             return { ok:true, reserva:reservaMapped, perfil:perfil2, code:code, phone:_normalizePhone10_(phoneL), source:"lodgify" };
@@ -10495,6 +10504,11 @@ function reservasByPhone_(data) {
   var iGN = hdr.indexOf("GuestName");
   var iGE = hdr.indexOf("GuestEmail");
   var iSrc = hdr.indexOf("Source");
+  var iTA = hdr.indexOf("TotalAmount");
+  var iAP = hdr.indexOf("AmountPaid");
+  var iAD = hdr.indexOf("AmountDue");
+  var iPS = hdr.indexOf("PaymentStatus");
+  var iCur = hdr.indexOf("Currency");
   if (iPh < 0) return { ok:false, error:"columna GuestPhone no existe en " + LODGIFY_SHEET };
   var vals = shL.getRange(2, 1, shL.getLastRow()-1, hdr.length).getValues();
   var today = new Date(); today.setHours(0,0,0,0);
@@ -10567,6 +10581,11 @@ function reservasByPhone_(data) {
       Nights: iNg >= 0 ? Number(vals[i][iNg]) || 0 : 0,
       NumberOfGuests: iNu >= 0 ? Number(vals[i][iNu]) || 0 : 0,
       Status: status,
+      TotalAmount:   iTA >= 0 ? Number(vals[i][iTA]) || 0 : 0,
+      AmountPaid:    iAP >= 0 ? Number(vals[i][iAP]) || 0 : 0,
+      AmountDue:     iAD >= 0 ? Number(vals[i][iAD]) || 0 : 0,
+      PaymentStatus: iPS >= 0 ? String(vals[i][iPS] || "") : "",
+      Currency:      iCur>= 0 ? String(vals[i][iCur]|| "") : "",
     });
   }
   // Orden ascendente por DateArrival

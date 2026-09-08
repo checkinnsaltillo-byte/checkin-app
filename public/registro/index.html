@@ -6709,6 +6709,15 @@ body.has-session input[name="nombre"] {
 <option value="Página web (www.check-inn-saltillo.com)">Página web (www.check-inn-saltillo.com)</option>
 <option value="Liga de Whatsapp">Liga de Whatsapp</option>
 </select>
+<label>Estado del pago</label>
+<select id="estado_pago" name="estado_pago">
+<option value="">Selecciona</option>
+<option value="Pagada">Pagada</option>
+<option value="Pago parcial">Pago parcial</option>
+<option value="Sin pago">Sin pago</option>
+<option value="Reembolsada">Reembolsada</option>
+<option value="Sin cargo">Sin cargo</option>
+</select>
 <div class="hidden" id="comprobante_transferencia_wrap">
 <label data-i18n="transferReceipt">Sube el comprobante de transferencia</label>
 <div class="upload-box">
@@ -7456,6 +7465,9 @@ async function detectExistingGuestByPhone(){
     const _resToPrefill = (r, phoneRaw, perfil) => Object.assign({}, perfil || {}, {
       "Cel/Whatsapp (principal)": phoneRaw,
       "Medio de reservación": window._mapSourceToMedio(r.Source),
+      "($) Monto Total pagado": r.AmountPaid || "",
+      "PaymentStatus": r.PaymentStatus || "",
+      "Divisa monto pagado": r.Currency || "MXN",
       "Propiedad": r.Propiedad || r.HouseName || "",
       "# Departamento": r.Departamento || "",
       "Fecha de ingreso": r.DateArrival || "",
@@ -7673,6 +7685,23 @@ function applyReservacionExtras(reserva, phoneNorm) {
   if (nH != null && String(nH).trim() && String(nH) !== "0") {
     _setSelByTextOrValue('#num_huespedes', String(nH).trim());
   }
+  // ── Monto pagado + Divisa + Estado del pago ──────────────────────
+  const monto = reserva["($) Monto Total pagado"];
+  if (monto != null && Number(monto) > 0) {
+    _setInp('#monto_pagado', String(Math.round(Number(monto) * 100) / 100));
+  }
+  const divisa = reserva["Divisa monto pagado"];
+  if (divisa) _setSelByTextOrValue('#divisa_monto', String(divisa).trim());
+  // Estado del pago: Lodgify usa strings tipo "Paid", "Partially Paid",
+  // "Not Paid", "Refunded", "No Charge" → mapeamos al select en español.
+  const rawPS = String(reserva["PaymentStatus"] || "").toLowerCase();
+  let estado = "";
+  if (rawPS.includes("refund"))            estado = "Reembolsada";
+  else if (rawPS.includes("no charge") || rawPS.includes("sin cargo")) estado = "Sin cargo";
+  else if (rawPS.includes("partial"))      estado = "Pago parcial";
+  else if (rawPS.includes("not paid") || rawPS.includes("sin pago") || rawPS === "unpaid") estado = "Sin pago";
+  else if (rawPS.includes("paid") || rawPS.includes("pagada"))         estado = "Pagada";
+  if (estado) _setSelByTextOrValue('#estado_pago', estado);
   // ── Nombres de huéspedes ────────────────────────────────────────
   const nombresCsv = reserva["Nombres de TODOS los huéspedes (separados por comas)"];
   if (nombresCsv) fillGuestNames(nombresCsv);
