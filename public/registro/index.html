@@ -7236,6 +7236,80 @@ function resetPrefilledFields() {
 }
 try { window.resetPrefilledFields = resetPrefilledFields; } catch(_){}
 
+// ─── Marcado obligatorio/opcional en labels del wizard ────────────────────
+// Añade "* (obligatorio)" o "(opcional)" al final del texto de cada label.
+// Se re-aplica después de i18n o cualquier cambio de textContent gracias a
+// MutationObserver. También setea el atributo `required` en los obligatorios.
+function applyFieldRequirednessMarks() {
+  const REQUIRED = ['* (obligatorio)', ' * (obligatorio)'];
+  const OPTIONAL = ['(opcional)', ' (opcional)'];
+  const _findLabelFor = (sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    // 1) label con for=id
+    if (el.id) {
+      const forLbl = document.querySelector(`label[for="${el.id}"]`);
+      if (forLbl) return forLbl;
+    }
+    // 2) previous sibling label (recorriendo hacia atrás)
+    let cur = el.previousElementSibling;
+    while (cur) {
+      if (cur.tagName === 'LABEL') return cur;
+      cur = cur.previousElementSibling;
+    }
+    // 3) label dentro del parent inmediatamente anterior (caso .money-group)
+    if (el.parentElement) {
+      let p = el.parentElement.previousElementSibling;
+      while (p) {
+        if (p.tagName === 'LABEL') return p;
+        p = p.previousElementSibling;
+      }
+    }
+    return null;
+  };
+  const _apply = (sel, suffix, isReq) => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    const label = _findLabelFor(sel);
+    if (label) {
+      let txt = String(label.textContent || '').trim();
+      // Quita marcadores existentes para reagregar limpio
+      [...REQUIRED, ...OPTIONAL].forEach(m => { txt = txt.replace(m, '').trim(); });
+      label.textContent = txt + ' ' + suffix;
+    }
+    if (isReq) el.setAttribute('required', '');
+  };
+  // Paso 2 — obligatorios
+  ['select[name="propiedad"]','select[name="depto"]','select[name="medio"]',
+   'input[name="ingreso"]','input[name="salida"]'
+  ].forEach(s => _apply(s, '* (obligatorio)', true));
+  // Paso 2 — opcionales
+  ['input[name="nombre"]','#num_huespedes','#identificacion_tipo','#motivo',
+   'input[name="emergencia"]'
+  ].forEach(s => _apply(s, '(opcional)', false));
+  // Paso 3 — factura (opcional siempre)
+  _apply('#factura', '(opcional)', false);
+  _apply('#razon_social', '(opcional)', false);
+  // Paso 3 — obligatorios cuando aparecen (visibles si factura=Sí)
+  ['#regimen','#medio_pago','#correo1'].forEach(s => _apply(s, '* (obligatorio)', true));
+  _apply('#correo2', '(opcional)', false);
+  _apply('#monto_pagado', '(opcional)', false);
+  // Paso 4 — vehículo opcional en su base
+  _apply('#tiene_vehiculo', '(opcional)', false);
+  // Paso 4 — obligatorios si tiene_vehiculo=Sí
+  ['#vehiculo_marca','#vehiculo_color'].forEach(s => _apply(s, '* (obligatorio)', true));
+  ['#vehiculo_modelo','#vehiculo_placas','#vehiculo_hora_salida'].forEach(s => _apply(s, '(opcional)', false));
+}
+try { window.applyFieldRequirednessMarks = applyFieldRequirednessMarks; } catch(_){}
+// Aplicar en DOMContentLoaded y después de cualquier cambio de idioma.
+document.addEventListener('DOMContentLoaded', () => {
+  try { applyFieldRequirednessMarks(); } catch(_){}
+  // Re-aplica cada 800ms durante los primeros 3s (por si i18n corre tarde)
+  [200, 500, 1000, 2000].forEach(ms => setTimeout(() => {
+    try { applyFieldRequirednessMarks(); } catch(_){}
+  }, ms));
+});
+
 // Marca inputs/selects como "userTouched" cuando el huésped interactúa
 // manualmente. Guard: solo si el evento es 'isTrusted' (real, no dispatched
 // desde código). Los resets programáticos ya no borran estos campos.
