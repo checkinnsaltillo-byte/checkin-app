@@ -7502,9 +7502,6 @@ async function detectExistingGuestByPhone(){
       "Correo electrónico": r.GuestEmail || "",
       "Código de confirmación": r.ConfirmationCode || "",
     });
-    // Marca identificado → habilita el botón "Siguiente" del paso 1
-    window.WIZ_IDENTIFIED = true;
-    try { if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1); } catch(_){}
     // Reconstruye opciones del combobox Medio con lo que realmente hay en DB
     try { rebuildMedioOptionsFromReservas(reservasList); } catch(_){}
     // Elige por default la reserva más próxima (primera del array = ordenada asc)
@@ -7512,9 +7509,13 @@ async function detectExistingGuestByPhone(){
     const primaryMerged = primary ? _resToPrefill(primary, exact.raw, perfilRow) : merged;
     applyGuestRecordToForm(primaryMerged);
     try { applyReservacionExtras(primaryMerged, exact.raw); } catch(_){}
-    // Si hay >1 reserva activa/próxima, renderiza selector debajo del toast
-    // para que el huésped pueda cambiar cuál cargar.
+    // Renderiza la card de reserva (si hay reservas). Solo tras renderizar,
+    // habilita el botón "Siguiente" — así el huésped ve primero cuál se cargó.
     try { renderReservaSelector(reservasList, exact.raw, perfilRow, _resToPrefill); } catch(e) { console.warn(e); }
+    if (reservasList.length) {
+      window.WIZ_IDENTIFIED = true;
+      try { if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1); } catch(_){}
+    }
     actualizarTextoUploads(true);
     const nombre = (perfilRow && String(perfilRow["Nombre del huésped"] || "").trim())
       || (primary && String(primary.GuestName || "").trim())
