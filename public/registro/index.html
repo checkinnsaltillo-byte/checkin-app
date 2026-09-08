@@ -7516,8 +7516,8 @@ function rebuildMedioOptionsFromReservas(reservas) {
     const s = String(raw || "").toLowerCase();
     if (s.includes("airbnb"))   return "Airbnb";
     if (s.includes("booking"))  return "Booking.com";
-    if (s.includes("vrbo"))     return "Vrbo";
-    if (s.includes("expedia"))  return "Expedia";
+    if (s.includes("vrbo"))     return "";  // omitido
+    if (s.includes("expedia"))  return "";  // omitido
     if (s.includes("manual"))   return "Trato directo";
     if (s.includes("direct"))   return "Trato directo";
     if (s.includes("check-inn") || s.includes("checkinn") || s.includes("check inn"))
