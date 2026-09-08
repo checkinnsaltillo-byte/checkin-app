@@ -10588,13 +10588,27 @@ function reservasByPhone_(data) {
       Currency:      iCur>= 0 ? String(vals[i][iCur]|| "") : "",
     });
   }
+  // Dedupe por (arrival, departure, propiedad): Lodgify a veces deja la reserva
+  // Open (cotización) además de la Booked (confirmada). Preferimos por status:
+  // booked > tentative > open > otros. Empate → dejamos la de rowIndex más alto.
+  var statusRank = { "booked":3, "confirmed":3, "tentative":2, "open":1 };
+  var dedupeMap = {};
+  results.forEach(function(r) {
+    var key = (_toIsoDateForCompare_(r.DateArrival) || "") + "|" +
+              (_toIsoDateForCompare_(r.DateDeparture) || "") + "|" +
+              (r.Propiedad || r.HouseName || "") + "|" + (r.Departamento || "");
+    var cur = dedupeMap[key];
+    var rank = statusRank[(r.Status || "").toLowerCase()] || 0;
+    if (!cur || rank > cur._rank) { r._rank = rank; dedupeMap[key] = r; }
+  });
+  var deduped = Object.keys(dedupeMap).map(function(k) { var r = dedupeMap[k]; delete r._rank; return r; });
   // Orden ascendente por DateArrival
-  results.sort(function(a, b) {
+  deduped.sort(function(a, b) {
     var aIso = _toIsoDateForCompare_(a.DateArrival) || "";
     var bIso = _toIsoDateForCompare_(b.DateArrival) || "";
     return aIso < bIso ? -1 : aIso > bIso ? 1 : 0;
   });
-  var out = { ok:true, reservas: results, phone:p10, debug: dbg };
+  var out = { ok:true, reservas: deduped, phone:p10, debug: dbg };
   try { cache.put(cacheKey, JSON.stringify(out), 300); } catch(_){}
   return out;
 }
