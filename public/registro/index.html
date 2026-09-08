@@ -7201,7 +7201,11 @@ function resetPrefilledFields() {
     // reseteamos — evita el bug donde seleccionar "Sí" en factura se revertía
     // a "Selecciona" 1s después por un reset async.
     if (el.dataset.userTouched === '1') return;
-    if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    if (el.tagName === 'SELECT') {
+      // Caso especial factura: default = "no" (no primera opción "sí")
+      if (el.id === 'factura') { el.value = 'no'; }
+      else { el.selectedIndex = 0; }
+    }
     else el.value = "";
     ['background-color','background-image','border-color','box-shadow'].forEach(p => el.style.removeProperty(p));
     try { el.dispatchEvent(new Event('change', { bubbles:true })); } catch(_){}
@@ -9161,7 +9165,7 @@ const I18N = {
     idTypeOptions: ["Selecciona","INE","Pasaporte","Otro"],
     reasonOptions: ["Selecciona","Laboral","Estudio","Vacacional","Otro"],
     propertyOptions: ["Selecciona","Calle Cumbres","Calle Baja California","Calle Oaxaca","Calle José Cárdenas","Calle Matamoros","Calle Torreón","Otra"],
-    invoiceOptions: ["Selecciona","Sí","No"],
+    invoiceOptions: ["Sí","No"],
     vehicleOptions: ["Selecciona","Sí","No"],
     paymentOptions: ["Selecciona","Transferencia directa a la cuenta del anfitrión","Airbnb","Página web (www.check-inn-saltillo.com)","Liga de Whatsapp"],
     currencyOptions: ["Selecciona divisa","Peso mexicano (MXN)","Dólar estadounidense (USD)","Real brasileño (BRL)","Euro (EUR)","Libra esterlina (GBP)"],
@@ -9256,7 +9260,7 @@ const I18N = {
     idTypeOptions: ["Select","ID card","Passport","Other"],
     reasonOptions: ["Select","Work","Study","Vacation","Other"],
     propertyOptions: ["Select","Calle Cumbres","Calle Baja California","Calle Oaxaca","Calle José Cárdenas","Calle Matamoros","Calle Torreón","Other"],
-    invoiceOptions: ["Select","Yes","No"],
+    invoiceOptions: ["Yes","No"],
     vehicleOptions: ["Select","Yes","No"],
     paymentOptions: ["Select","Direct transfer to host account","Airbnb","Website (www.check-inn-saltillo.com)","WhatsApp link"],
     currencyOptions: ["Select currency","Mexican peso (MXN)","US dollar (USD)","Brazilian real (BRL)","Euro (EUR)","British pound (GBP)"],
