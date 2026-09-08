@@ -6676,9 +6676,8 @@ body.has-session input[name="nombre"] {
 </div>
 <div class="section" id="section_facturacion"><h2 class="section-title" data-i18n="sec4Title">Facturación</h2><p class="section-subtitle" data-i18n="sec4Sub"></p><label data-i18n="invoice">¿Requieres el TICKET para AUTO-FACTURACIÓN?</label>
 <select id="factura" name="factura">
-<option value="">Selecciona</option>
 <option value="si">Sí</option>
-<option value="no">No</option>
+<option value="no" selected>No</option>
 </select>
 <div class="note hidden" id="factura_notas">
 <div class="factura-note-es">a) UNA FACTURA por PERIODO registrado</div>
@@ -7196,6 +7195,10 @@ function resetPrefilledFields() {
   const _clearVal = (sel) => {
     const el = document.querySelector(sel);
     if (!el) return;
+    // Si el usuario ya interactuó con el campo (input/change manual), no lo
+    // reseteamos — evita el bug donde seleccionar "Sí" en factura se revertía
+    // a "Selecciona" 1s después por un reset async.
+    if (el.dataset.userTouched === '1') return;
     if (el.tagName === 'SELECT') el.selectedIndex = 0;
     else el.value = "";
     ['background-color','background-image','border-color','box-shadow'].forEach(p => el.style.removeProperty(p));
@@ -7225,6 +7228,22 @@ function resetPrefilledFields() {
   });
 }
 try { window.resetPrefilledFields = resetPrefilledFields; } catch(_){}
+
+// Marca inputs/selects como "userTouched" cuando el huésped interactúa
+// manualmente. Guard: solo si el evento es 'isTrusted' (real, no dispatched
+// desde código). Los resets programáticos ya no borran estos campos.
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('form');
+  if (!form) return;
+  ['input','change'].forEach(evt => {
+    form.addEventListener(evt, e => {
+      if (!e.isTrusted) return;
+      if (e.target && (e.target.matches('input, select, textarea'))) {
+        e.target.dataset.userTouched = '1';
+      }
+    }, true);
+  });
+});
 
 function applyGuestRecordToForm(row){
   if (!row) return;
