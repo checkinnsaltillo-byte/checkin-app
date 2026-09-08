@@ -6667,7 +6667,7 @@ body.has-session input[name="nombre"] {
 </div>
 </div>
 </div>
-<div class="section" id="section_contacto_huesped"><h2 class="section-title" data-i18n="sec3Title">Contacto del huésped</h2><p class="section-subtitle" data-i18n="sec3Sub">Datos de contacto del huésped y de emergencia.</p><label data-i18n="emergencyContact">Contacto emergencia</label>
+<div class="section" id="section_contacto_huesped"><h2 class="section-title" data-i18n="sec3Title">Contacto de emergencia</h2><p class="section-subtitle" data-i18n="sec3Sub" style="display:none"></p><label data-i18n="emergencyContact" style="display:none">Contacto emergencia</label>
 <div class="phone-group">
 <select id="lada2" name="lada2"></select>
 <input name="emergencia" type="tel"/>
@@ -7494,31 +7494,35 @@ function applyReservacionExtras(reserva, phoneNorm) {
   // ── Nombres de huéspedes ────────────────────────────────────────
   const nombresCsv = reserva["Nombres de TODOS los huéspedes (separados por comas)"];
   if (nombresCsv) fillGuestNames(nombresCsv);
-  // ── Re-marca en varios frames + timeouts para vencer a listeners de change
-  //    que corren después (incluye los que se disparan cuando cargan las
-  //    imágenes INE/vehículo asincrónicamente).
-  const _reapplyMarks = () => {
-    _touched.forEach(el => { try { markFieldAsAutofilled(el); } catch(_){} });
+  // ── Re-marca combinando: clase + estilos inline !important + observer.
+  //    Los estilos inline son inmunes a los change listeners que solo tocan
+  //    la clase autofilled-field. Cubre el caso donde al cargar previews de
+  //    imágenes se disparan events que limpian la clase pero no el inline.
+  const _applyInlineGreen = (el) => {
+    if (!el) return;
+    try {
+      el.style.setProperty('background-color', '#eefaf3', 'important');
+      el.style.setProperty('background-image', 'linear-gradient(180deg,#eefaf3 0%, #e2f7ea 100%)', 'important');
+      el.style.setProperty('border-color', '#7cc79a', 'important');
+      el.style.setProperty('box-shadow', '0 0 0 3px rgba(34,197,94,.10)', 'important');
+      if (el.tagName === 'SELECT') {
+        el.style.setProperty('-webkit-appearance', 'none', 'important');
+        el.style.setProperty('appearance', 'none', 'important');
+      }
+    } catch(_){}
   };
-  requestAnimationFrame(_reapplyMarks);
-  [100, 300, 700, 1500, 3000].forEach(ms => setTimeout(_reapplyMarks, ms));
-  // MutationObserver: si algún handler externo remueve la clase autofilled-field
-  // (por ejemplo el listener que se dispara al mostrar previews de imágenes),
-  // la re-agregamos. Se desactiva después de 8 segundos para no correr para
-  // siempre.
-  try {
-    const obs = new MutationObserver(muts => {
-      muts.forEach(m => {
-        if (m.type !== 'attributes' || m.attributeName !== 'class') return;
-        const el = m.target;
-        if (_touched.has(el) && !el.classList.contains('autofilled-field')) {
-          try { markFieldAsAutofilled(el); } catch(_){}
-        }
-      });
+  const _reapplyMarks = () => {
+    _touched.forEach(el => {
+      try { markFieldAsAutofilled(el); } catch(_){}
+      _applyInlineGreen(el);
     });
-    _touched.forEach(el => obs.observe(el, { attributes:true, attributeFilter:['class'] }));
-    setTimeout(() => obs.disconnect(), 8000);
-  } catch(_){}
+  };
+  _reapplyMarks();
+  requestAnimationFrame(_reapplyMarks);
+  [100, 300, 700, 1500, 3000, 5000].forEach(ms => setTimeout(_reapplyMarks, ms));
+  // Registro global para que listeners de "clear" que corran más tarde puedan
+  // saber que estos campos deben quedarse en verde.
+  window.__wizAutofilledEls = _touched;
 }
 
 // ─── Toggle: 3 modos de identificación ────────────────────────────────────
@@ -9150,7 +9154,7 @@ const SIMPLE_I18N = {
     sec1Sub:"",
     sec2Title: "",
     sec2Sub: "",
-    sec3Title:"Contacto del huésped",
+    sec3Title:"Contacto de emergencia",
     sec3Sub:"Datos de contacto del huésped y de emergencia.",
     sec4Title:"Facturación",
     sec4Sub:"",
