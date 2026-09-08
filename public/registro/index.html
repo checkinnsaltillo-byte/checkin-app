@@ -7414,53 +7414,41 @@ async function detectExistingGuestByPhone(){
       return;
     }
 
-    const row = await fetchGuestRecordByExactPhone(exact.raw);
+    // PARALELO: perfil + reservas_by_phone en paralelo. Saltamos
+    // fetchGuestRecordByExactPhone + fetchGuestRecordDetail (Reservaciones) —
+    // el perfil ya cubre todos los campos del huésped y reservas_by_phone
+    // trae los datos de reservación (Propiedad, fechas, código). Antes eran
+    // 4 fetches secuenciales de ~5-15s cada uno; ahora son 2 en paralelo.
+    const _fetchJson = async (params) => {
+      try {
+        const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: "GET" });
+        return await res.json();
+      } catch(_) { return null; }
+    };
+    const perfilParams = new URLSearchParams();
+    perfilParams.set("action", "perfil_get_by_phone");
+    perfilParams.set("phone", exact.raw);
+    const reservasParams = new URLSearchParams();
+    reservasParams.set("action", "reservas_by_phone");
+    reservasParams.set("phone", exact.raw);
+    const [pJson, rJson] = await Promise.all([
+      _fetchJson(perfilParams),
+      _fetchJson(reservasParams),
+    ]);
     if (lookupId !== guestLookupInFlight) return;
-
-    if (!row) {
+    const perfilRow = (pJson && pJson.ok && pJson.perfil) ? pJson.perfil : null;
+    const reservasList = (rJson && rJson.ok && Array.isArray(rJson.reservas)) ? rJson.reservas : [];
+    if (!perfilRow && !reservasList.length) {
       resetAutofillToNewMode();
       revealExpressFormBody();
       return;
     }
-
-    const recordId = row["ID"] || row["row_number"] || row["Row"] || row["ROW_NUMBER"] || "";
-    const detailRow = recordId ? (await fetchGuestRecordDetail(recordId)) : null;
-    if (lookupId !== guestLookupInFlight) return;
-
-    const sourceRow = detailRow || row;
-    // Fetch canónico del PERFIL por teléfono → el nombre del perfil manda
-    // sobre el nombre de la última reservación (que puede tener typos como
-    // "pruebaaa"). Fallback silencioso al de la reserva si el perfil no existe.
-    let perfilRow = null;
-    try {
-      const pParams = new URLSearchParams();
-      pParams.set("action", "perfil_get_by_phone");
-      pParams.set("phone", exact.raw);
-      const pRes = await fetch(`${WEB_APP_URL}?${pParams.toString()}`, { method: "GET" });
-      const pJson = await pRes.json();
-      if (lookupId !== guestLookupInFlight) return;
-      if (pJson && pJson.ok && pJson.perfil) perfilRow = pJson.perfil;
-    } catch(_){}
-    // Merge: perfil sobre reserva → nombre canónico y demás campos ganan.
-    // También sobreescribimos la clave usada por el input "Nombre del
-    // administrador" ("Nombre de la persona que hizo la reservación") con
-    // el nombre del perfil para que el admin no vea el nombre de la reserva
-    // vieja tipo "pruebaaa".
     const perfilNombre = perfilRow ? String(perfilRow["Nombre del huésped"] || "").trim() : "";
-    const merged = perfilRow ? Object.assign({}, sourceRow, perfilRow) : Object.assign({}, sourceRow);
+    // "merged" era el fallback anterior a Reservaciones; ahora solo lo usamos
+    // como el objeto base cuando no hay reservas de Lodgify.
+    const merged = perfilRow ? Object.assign({}, perfilRow) : {};
     if (perfilNombre) merged["Nombre de la persona que hizo la reservación"] = perfilNombre;
     guestLookupLastMatchedPhone = exact.raw;
-    // Fetch reservas activas/próximas asociadas al teléfono desde Lodgify.
-    let reservasList = [];
-    try {
-      const rParams = new URLSearchParams();
-      rParams.set("action", "reservas_by_phone");
-      rParams.set("phone", exact.raw);
-      const rRes = await fetch(`${WEB_APP_URL}?${rParams.toString()}`, { method: "GET" });
-      const rJson = await rRes.json();
-      if (lookupId !== guestLookupInFlight) return;
-      if (rJson && rJson.ok && Array.isArray(rJson.reservas)) reservasList = rJson.reservas;
-    } catch(_){}
     // Limpia campos de un prefill previo (otro código/otro celular) para que
     // el nuevo lookup no herede valores de la búsqueda anterior.
     try { resetPrefilledFields(); } catch(_){}

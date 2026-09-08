@@ -10464,9 +10464,20 @@ function reservaGetByConfirmationCode_(data) {
 function reservasByPhone_(data) {
   var p10 = _normalizePhone10_(data && data.phone);
   if (!p10) return { ok:false, error:"phone requerido (>=10 dígitos)" };
+  // Cache 5 min por teléfono — el sheet tiene 10k+ filas y escanear tarda 10-25s.
+  var cache = CacheService.getScriptCache();
+  var cacheKey = "rbp_v3_" + p10;
+  try {
+    var cached = cache.get(cacheKey);
+    if (cached) { var parsed = JSON.parse(cached); parsed._cached = true; return parsed; }
+  } catch(_){}
   var ss = getSpreadsheet_();
   var shL = ss.getSheetByName(LODGIFY_SHEET);
-  if (!shL || shL.getLastRow() < 2) return { ok:true, reservas:[], phone:p10 };
+  if (!shL || shL.getLastRow() < 2) {
+    var empty = { ok:true, reservas:[], phone:p10 };
+    try { cache.put(cacheKey, JSON.stringify(empty), 300); } catch(_){}
+    return empty;
+  }
   var hdr = shL.getRange(1, 1, 1, shL.getLastColumn()).getValues()[0]
     .map(function(h){ return String(h||"").trim(); });
   var iId = hdr.indexOf("Id");
@@ -10564,7 +10575,9 @@ function reservasByPhone_(data) {
     var bIso = _toIsoDateForCompare_(b.DateArrival) || "";
     return aIso < bIso ? -1 : aIso > bIso ? 1 : 0;
   });
-  return { ok:true, reservas: results, phone:p10, debug: dbg };
+  var out = { ok:true, reservas: results, phone:p10, debug: dbg };
+  try { cache.put(cacheKey, JSON.stringify(out), 300); } catch(_){}
+  return out;
 }
 
 /** Normaliza fecha para comparación: acepta MM/DD/YYYY, YYYY-MM-DD, DD/MM/YYYY. */
