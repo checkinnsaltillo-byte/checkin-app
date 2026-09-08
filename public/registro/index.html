@@ -7425,7 +7425,11 @@ document.getElementById("lada1")?.addEventListener("change", detectExistingGuest
  *  "YYYY-MM-DD" — normalizamos a "YYYY-MM-DD" para <input type=date>. */
 function applyReservacionExtras(reserva, phoneNorm) {
   if (!reserva) return;
-  const _mark = (el) => { if (el) markFieldAsAutofilled(el); };
+  // Recolectamos los elementos que llenamos para forzar el mark verde en un
+  // requestAnimationFrame — así ganamos la carrera contra listeners de change
+  // que limpian la clase autofilled cuando disparamos un evento programático.
+  const _touched = new Set();
+  const _mark = (el) => { if (el) { markFieldAsAutofilled(el); _touched.add(el); } };
   const _setInp = (sel, val) => {
     const el = document.querySelector(sel);
     if (el && val != null && String(val).trim()) { el.value = String(val).trim(); _mark(el); }
@@ -7433,7 +7437,8 @@ function applyReservacionExtras(reserva, phoneNorm) {
   const _setSelByTextOrValue = (sel, val) => {
     const el = document.querySelector(sel);
     if (!el) return;
-    setSelectByTextOrValue(el, val);
+    const ok = setSelectByTextOrValue(el, val);
+    if (ok) _touched.add(el);
   };
   // ── Celular principal + lada ──────────────────────────────────────
   const rawCel = String(reserva["Cel/Whatsapp (principal)"] || phoneNorm || "").replace(/\D/g,"");
@@ -7485,6 +7490,18 @@ function applyReservacionExtras(reserva, phoneNorm) {
   // ── Nombres de huéspedes ────────────────────────────────────────
   const nombresCsv = reserva["Nombres de TODOS los huéspedes (separados por comas)"];
   if (nombresCsv) fillGuestNames(nombresCsv);
+  // ── Re-marca en el siguiente frame para vencer a los listeners de change
+  //    que corren después de setSelectByTextOrValue y limpian la clase verde.
+  requestAnimationFrame(() => {
+    _touched.forEach(el => {
+      try { markFieldAsAutofilled(el); } catch(_){}
+    });
+  });
+  setTimeout(() => {
+    _touched.forEach(el => {
+      try { markFieldAsAutofilled(el); } catch(_){}
+    });
+  }, 150);
 }
 
 // ─── Toggle: 3 modos de identificación ────────────────────────────────────
