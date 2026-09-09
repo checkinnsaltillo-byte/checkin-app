@@ -847,9 +847,10 @@ function factRenderCards_(reservas, hostId){
   };
   host.innerHTML = reservas.map((r, i) => {
     const folio = String(r.FolioFacturapi || '').trim();
+    const ticketUrl = String(r.TicketUrl || '').trim();
     const hasFolio = !!folio;
     const chip = hasFolio
-      ? `<span onclick="event.stopPropagation();factOpenTicket_('${folio}')" style="display:inline-block;padding:5px 10px;border-radius:99px;background:#dcfce7;color:#166534;font-size:11px;font-weight:800;cursor:pointer;border:1px solid #86efac">🎟️ Ver Ticket · Folio #${folio}</span>`
+      ? `<span onclick="event.stopPropagation();factOpenTicket_('${folio}','${ticketUrl.replace(/'/g,"\\'")}')" style="display:inline-block;padding:5px 10px;border-radius:99px;background:#dcfce7;color:#166534;font-size:11px;font-weight:800;cursor:pointer;border:1px solid #86efac">🎟️ Ver Ticket · Folio #${folio}</span>`
       : `<span style="display:inline-block;padding:3px 8px;border-radius:99px;background:#fef3c7;color:#92400e;font-size:11px;font-weight:800">Pendiente</span>`;
     const onClick = hasFolio ? '' : `onclick="factPickReserva_(${i}, '${hostId}')"`;
     const cursor = hasFolio ? 'default' : 'pointer';
@@ -939,16 +940,11 @@ async function factEmit_(){
     btn.textContent = oldTxt; btn.disabled = false;
   }
 }
-window.factOpenTicket_ = async function(folio){
-  try {
-    // Pide al backend Cloud Run la URL del receipt (busca por folio en Facturapi)
-    const resp = await fetch(`https://api.check-inn.mx/facturapi/ticket-url?folio=${encodeURIComponent(folio)}`);
-    const j = await resp.json().catch(() => ({}));
-    if (j && j.ok && j.url) { window.open(j.url, '_blank', 'noopener'); return; }
-    alert(`Folio #${folio}\n\nNo se pudo obtener el link automáticamente. Revisa tu correo — ahí te llegó el ticket para completar la auto-facturación.`);
-  } catch (e) {
-    alert(`Folio #${folio}\n\nRevisa tu correo — ahí te llegó el link del ticket.`);
-  }
+window.factOpenTicket_ = function(folio, ticketUrl){
+  // ticketUrl viene de la columna "Ticket facturapi url" de Reservaciones
+  // (archivo del ticket guardado en Drive). Si está vacío, avisar al huésped.
+  if (ticketUrl) { window.open(ticketUrl, '_blank', 'noopener'); return; }
+  alert(`Folio #${folio}\n\nEl link del ticket aún no está disponible. Revisa tu correo — ahí te llegó el ticket para completar la auto-facturación.`);
 };
 window.openFacturacion_ = openFacturacion_;
 window.closeFacturacion_ = closeFacturacion_;

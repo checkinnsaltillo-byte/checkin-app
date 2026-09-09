@@ -10489,7 +10489,7 @@ function reservasByPhone_(data) {
   if (!p10) return { ok:false, error:"phone requerido (>=10 dígitos)" };
   // Cache 5 min por teléfono — el sheet tiene 10k+ filas y escanear tarda 10-25s.
   var cache = CacheService.getScriptCache();
-  var cacheKey = "rbp_v7_folio_" + p10;
+  var cacheKey = "rbp_v8_ticketurl_" + p10;
   try {
     var cached = cache.get(cacheKey);
     if (cached) { var parsed = JSON.parse(cached); parsed._cached = true; return parsed; }
@@ -10532,12 +10532,14 @@ function reservasByPhone_(data) {
         .map(function(h){ return String(h||"").trim(); });
       var rLI = rHdr.indexOf("Lodgify Id");
       var rFO = rHdr.indexOf("Folio facturapi");
+      var rUR = rHdr.indexOf("Ticket facturapi url");
       if (rLI >= 0 && rFO >= 0) {
         var rVals = shR.getRange(2, 1, shR.getLastRow()-1, rHdr.length).getValues();
         for (var rr = 0; rr < rVals.length; rr++) {
           var lid = String(rVals[rr][rLI] || "").trim();
           var fol = String(rVals[rr][rFO] || "").trim();
-          if (lid && fol) folioMap[lid] = fol;
+          var url = rUR >= 0 ? String(rVals[rr][rUR] || "").trim() : "";
+          if (lid && fol) folioMap[lid] = { folio: fol, url: url };
         }
       }
     }
@@ -10640,7 +10642,8 @@ function reservasByPhone_(data) {
       AmountDue:     iAD >= 0 ? Number(vals[i][iAD]) || 0 : 0,
       PaymentStatus: iPS >= 0 ? String(vals[i][iPS] || "") : "",
       Currency:      iCur>= 0 ? String(vals[i][iCur]|| "") : "",
-      FolioFacturapi: folioMap[String(iId >= 0 ? vals[i][iId] : "").trim()] || "",
+      FolioFacturapi: (folioMap[String(iId >= 0 ? vals[i][iId] : "").trim()] || {}).folio || "",
+      TicketUrl:      (folioMap[String(iId >= 0 ? vals[i][iId] : "").trim()] || {}).url   || "",
     });
   }
   // Dedupe por (arrival, departure, propiedad): Lodgify a veces deja la reserva
