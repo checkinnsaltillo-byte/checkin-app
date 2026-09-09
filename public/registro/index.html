@@ -6853,7 +6853,6 @@ body.has-session input[name="nombre"] {
   <span style="font-size:14px;font-weight:700;color:#0f172a">Deseo recibir recordatorios y notificaciones por WhatsApp</span>
 </label>
 <button id="popupEnvioCloseBtn" onclick="popupAceptarYEnviar()" type="button" style="display:block;width:100%;padding:14px 16px;background:#16a34a;color:#fff;border:0;border-radius:16px;font-size:15px;font-weight:700;cursor:not-allowed;opacity:.45;-webkit-appearance:none;appearance:none;pointer-events:none">Aceptar y salir</button>
-<button id="popupGenerarTicketBtn" onclick="popupAceptarYGenerarTicket()" type="button" style="display:none;width:100%;padding:14px 16px;margin-top:10px;background:#dc2626;color:#fff;border:0;border-radius:16px;font-size:15px;font-weight:800;cursor:not-allowed;opacity:.45;-webkit-appearance:none;appearance:none;pointer-events:none">🔴 Generar ticket de auto-facturación</button>
 <script>
 window.popupToggleAccept = function(){
   var cb = document.getElementById('popupAcceptCb');
@@ -6872,8 +6871,7 @@ window.popupToggleAccept = function(){
   }
   var closeBtn = document.getElementById('popupEnvioCloseBtn');
   var waBtn = document.getElementById('whatsappHelpButton');
-  var genBtn = document.getElementById('popupGenerarTicketBtn');
-  [closeBtn, waBtn, genBtn].forEach(function(b){
+  [closeBtn, waBtn].forEach(function(b){
     if (!b) return;
     b.style.opacity = next ? '1' : '.45';
     b.style.pointerEvents = next ? 'auto' : 'none';
@@ -6899,31 +6897,11 @@ window.popupToggleAccept = function(){
     try { if (origSuc) origSuc.apply(this, arguments); } catch(_){}
     var cb = document.getElementById('popupAcceptCb');
     if (cb && cb.getAttribute('data-on') === '1') window.popupToggleAccept();
-    // Mostrar botón "Generar ticket de auto-facturación" solo si factura=Sí.
-    try {
-      var facturaSel = document.getElementById('factura');
-      var v = String(facturaSel && facturaSel.value || '').toLowerCase();
-      var wantsTicket = (v === 'si' || v === 'sí' || v === 'yes');
-      var genBtn = document.getElementById('popupGenerarTicketBtn');
-      if (genBtn) genBtn.style.display = wantsTicket ? 'block' : 'none';
-    } catch(_){}
   };
 })();
 
 // Click "Aceptar y salir": resuelve el gate promise que dispara el submit
 // diferido en el handler onsubmit del formulario.
-// Click "Generar ticket de auto-facturación": el registro ya fue enviado
-// (mostrarVentanaExito corre post-submit). Abre el popup de Auto-facturación
-// Paso 3 (resumen del monto + avisos + botón verde "Generar ticket" que
-// dispara emit-auto: receipt Facturapi + folio en sheet + correo + WhatsApp).
-window.popupAceptarYGenerarTicket = function(){
-  var cb = document.getElementById('popupAcceptCb');
-  if (!cb || cb.getAttribute('data-on') !== '1') return;
-  if (typeof window.openFactConfirmModal_ === 'function') {
-    window.openFactConfirmModal_();
-  }
-};
-
 window.popupAceptarYEnviar = function(){
   var cb = document.getElementById('popupAcceptCb');
   if (!cb || cb.getAttribute('data-on') !== '1') return; // debe estar aceptado
@@ -6951,12 +6929,37 @@ window.mostrarMiniPopupEnviado = function(opts){
   el.id = 'miniPopupEnviado';
   el.style.cssText = 'padding:0;border:0;background:transparent;max-width:none;max-height:none;width:100vw;height:100vh;overflow:hidden;position:fixed;inset:0;margin:0;';
   var esc = function(s){ return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); };
+  // Si factura=Sí, incluye el bloque de auto-facturación + botón "Generar ticket".
+  var factSection = '';
+  try {
+    var fSel = document.getElementById('factura');
+    var fV = String(fSel && fSel.value || '').toLowerCase();
+    var wantsTicket = (fV === 'si' || fV === 'sí' || fV === 'yes');
+    if (wantsTicket && typeof window._factBuildInfoBlock_ === 'function') {
+      var info = window._factBuildInfoBlock_();
+      window.__factConfirmMonto = info.facturado;
+      var btnStyle = info.canEmit
+        ? 'background:#16a34a;cursor:pointer;opacity:1'
+        : 'background:#94a3b8;cursor:not-allowed;opacity:.7';
+      factSection =
+        '<div style="margin:14px 0 12px;padding-top:14px;border-top:1px dashed #cbd5e1">' +
+          '<div style="font-size:14px;font-weight:800;color:#7c3aed;margin-bottom:10px">📄 Ticket para auto-facturación</div>' +
+          info.html +
+          '<button id="_miniPopupGenTicketBtn" type="button" onclick="window._miniPopupGenTicket_(this)" ' +
+            (info.canEmit ? '' : 'disabled ') +
+            'style="display:block;width:100%;padding:12px 22px;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:800;margin-top:12px;' + btnStyle + '">' +
+            '✅ Generar ticket de auto-facturación' +
+          '</button>' +
+        '</div>';
+    }
+  } catch(_){}
   el.innerHTML =
-    '<div style="width:100%;height:100%;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">' +
-      '<div style="background:#fff;border-radius:16px;padding:22px 24px;max-width:380px;width:100%;box-shadow:0 12px 32px rgba(0,0,0,.25);text-align:center">' +
+    '<div style="width:100%;height:100%;background:rgba(15,23,42,.55);display:flex;align-items:flex-start;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto">' +
+      '<div style="background:#fff;border-radius:16px;padding:22px 24px;max-width:420px;width:100%;box-shadow:0 12px 32px rgba(0,0,0,.25);text-align:center;margin:auto">' +
         '<div style="font-size:36px;color:#16a34a;margin-bottom:8px">✓</div>' +
         '<div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:6px">' + esc(titulo) + '</div>' +
         '<div style="font-size:13px;color:#475569;margin-bottom:16px">' + esc(subtitulo) + '</div>' +
+        factSection +
         '<button type="button" onclick="window._miniPopupWaYCerrar()" style="display:block;width:100%;padding:12px 22px;background:#075e54;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">📱 Envíanos un WhatsApp y Cerrar</button>' +
         '<button type="button" onclick="window._miniPopupCerrarYRedirect()" style="display:block;width:100%;padding:12px 22px;background:#16a34a;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer">Cerrar</button>' +
       '</div>' +
@@ -6976,6 +6979,12 @@ window.mostrarMiniPopupEnviado = function(opts){
   }
   // Bloquear el ESC que cierra <dialog> por default (para forzar click en botón)
   el.addEventListener('cancel', function(ev){ ev.preventDefault(); });
+};
+
+// Handler del botón "Generar ticket" dentro del mini popup de éxito:
+// dispara emit-auto (receipt Facturapi + folio en sheet + correo + WhatsApp).
+window._miniPopupGenTicket_ = function(btnEl){
+  if (typeof window._emitAutoNow_ === 'function') window._emitAutoNow_(btnEl);
 };
 
 // Cerrar mini + redirect a home (equivalente al cerrarVentanaEnvio original).
@@ -20274,6 +20283,87 @@ body.embed-checkout-mode { background: #fff !important; }
 })();
 
 // ═════ Modal Confirmación de Auto-facturación (Paso 3 del popup) ═════
+// Helper: construye el bloque de info de auto-facturación reutilizable
+// (chip + montos + Airbnb desglose + aviso + propiedad + fechas + moneda +
+// ventana). Devuelve { html, canEmit, facturado }.
+window._factBuildInfoBlock_ = function() {
+  const r = window.WIZ_SELECTED_RESERVA || {};
+  const total = Number(r.TotalAmount || 0);
+  const pagado = Number(r.AmountPaid || 0);
+  const pendiente = Number(total - pagado);
+  const cur = String(r.Currency || 'MXN');
+  const isAirbnb = String(r.Source || '').toLowerCase().includes('airbnb');
+  const AIRBNB_COMM = 0.155;
+  const baseAirbnb = isAirbnb ? total : pagado;
+  const comision = isAirbnb ? +(baseAirbnb * AIRBNB_COMM).toFixed(2) : 0;
+  const facturado = isAirbnb ? +(baseAirbnb - comision).toFixed(2) : pagado;
+  const rawPS = String(r.PaymentStatus || '').toLowerCase();
+  const isPaid = isAirbnb || (rawPS.includes('paid') && !rawPS.includes('not') && !rawPS.includes('partial'))
+              || rawPS.includes('pagada');
+  const _fmt = n => `$${Number(n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  const _parseD = s => {
+    const str = String(s||'').trim();
+    let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+    m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return new Date(Number(m[3]), Number(m[1])-1, Number(m[2]));
+    return null;
+  };
+  const arr = _parseD(r.DateArrival);
+  const today = new Date(); today.setHours(0,0,0,0);
+  let winValid = false, winMsg = '';
+  if (!arr) winMsg = 'No se pudo determinar la fecha de entrada.';
+  else {
+    const endMonth = new Date(arr.getFullYear(), arr.getMonth()+1, 0);
+    endMonth.setHours(23,59,59,999);
+    if (today < arr) winMsg = `El ticket se podrá generar a partir del ${arr.toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})}.`;
+    else if (today > endMonth) winMsg = `Ventana de emisión venció el ${endMonth.toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})}.`;
+    else { winValid = true; winMsg = `Ventana de emisión: hasta el ${endMonth.toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})}.`; }
+  }
+  const nonAirbnbUnpaid = !isAirbnb && !isPaid;
+  const canEmit = winValid && facturado > 0 && !nonAirbnbUnpaid;
+  const chip = isPaid
+    ? '<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#dcfce7;color:#166534;font-size:11px;font-weight:800">✓ PAGADA</span>'
+    : (rawPS.includes('partial')
+      ? '<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#fef3c7;color:#92400e;font-size:11px;font-weight:800">⚠ PAGO PARCIAL</span>'
+      : '<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#fee2e2;color:#991b1b;font-size:11px;font-weight:800">⨯ PENDIENTE DE PAGO</span>');
+  const montosBlock = isAirbnb
+    ? `<div style="text-align:center;margin-bottom:12px">
+        <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Total</div>
+        <div style="font-size:28px;font-weight:800;color:#0f172a">${_fmt(total)}</div>
+      </div>`
+    : `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="text-align:center"><div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Pagado</div><div style="font-size:18px;font-weight:800;color:${pagado>0?'#16a34a':'#94a3b8'}">${_fmt(pagado)}</div></div>
+        <div style="text-align:center"><div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Pendiente</div><div style="font-size:18px;font-weight:800;color:${pendiente>0?'#dc2626':'#94a3b8'}">${_fmt(pendiente)}</div></div>
+        <div style="text-align:center"><div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Total</div><div style="font-size:18px;font-weight:800;color:#0f172a">${_fmt(total)}</div></div>
+      </div>`;
+  const airbnbBlock = isAirbnb
+    ? `<div style="margin-top:12px;padding:12px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px">
+        <div style="font-size:11px;color:#92400e;text-transform:uppercase;letter-spacing:.05em;font-weight:800;margin-bottom:8px">🧾 Ticket para auto-facturación</div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:#0f172a;margin-bottom:4px"><span>(=) Monto total Airbnb</span><strong>${_fmt(baseAirbnb)}</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:#991b1b;margin-bottom:4px"><span>(−) Comisión Airbnb (15.5%)</span><strong>−${_fmt(comision)}</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;color:#166534;padding-top:6px;border-top:1px solid #f59e0b;margin-top:4px"><span>(+) Monto facturado Total</span><strong>${_fmt(facturado)}</strong></div>
+      </div>
+      <div style="margin-top:10px;padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;font-size:12px;color:#1e3a8a;line-height:1.45"><strong>Aviso:</strong> La factura emitida por Check-Inn <strong>NO INCLUYE</strong> la "Comisión Airbnb". En caso de querer cubrir el gasto total deberás descargar la factura correspondiente a la comisión de esta plataforma directamente de su app.</div>`
+    : '';
+  const windowBlock = nonAirbnbUnpaid
+    ? `<div style="margin-top:10px;padding:10px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#991b1b;text-align:left"><strong>No disponible:</strong> Favor de contactar al anfitrión.</div>`
+    : (winValid
+      ? `<div style="margin-top:10px;padding:8px 10px;background:#dcfce7;border:1px solid #86efac;border-radius:8px;font-size:11px;color:#166534;text-align:center">✓ ${winMsg}</div>`
+      : `<div style="margin-top:10px;padding:10px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#991b1b;text-align:left"><strong>No disponible:</strong> ${winMsg}</div>`);
+  const html = `<div style="padding:16px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;text-align:left">
+    <div style="display:flex;justify-content:center;margin-bottom:10px">${chip}</div>
+    ${montosBlock}
+    ${airbnbBlock}
+    <div style="margin-top:10px;font-size:13px;color:#475569">Propiedad: <strong>${r.Propiedad||'—'}</strong>${r.Departamento?` #${r.Departamento}`:''}</div>
+    <div style="font-size:13px;color:#475569">Fechas: <strong>${r.DateArrival||''} → ${r.DateDeparture||''}</strong></div>
+    <div style="font-size:12px;color:#64748b;margin-top:4px">Moneda: <strong>${cur}</strong></div>
+    ${windowBlock}
+  </div>
+  <div style="margin-top:10px;font-size:12px;color:#64748b;text-align:center">Al oprimir "Generar ticket" se emite y te llegará por correo y WhatsApp.</div>`;
+  return { html, canEmit, facturado };
+};
+
 window.openFactConfirmModal_ = function() {
   const r = window.WIZ_SELECTED_RESERVA || {};
   const total = Number(r.TotalAmount || 0);
@@ -20375,11 +20465,9 @@ window.closeFactConfirmModal_ = function() {
   if (m) m.remove();
   document.body.style.overflow = '';
 };
-window.factConfirmAndSubmit_ = async function() {
-  const modal = document.getElementById('fact-confirm-modal');
-  const btn = modal && modal.querySelector('button[onclick="factConfirmAndSubmit_()"]');
-  const oldTxt = btn ? btn.textContent : '';
-  if (btn) { btn.textContent = '⏳ Generando…'; btn.disabled = true; }
+window._emitAutoNow_ = async function(btnEl) {
+  const oldTxt = btnEl ? btnEl.textContent : '';
+  if (btnEl) { btnEl.textContent = '⏳ Generando…'; btnEl.disabled = true; }
   try {
     const r = window.WIZ_SELECTED_RESERVA || {};
     const facturado = Number(window.__factConfirmMonto || 0);
@@ -20409,11 +20497,20 @@ window.factConfirmAndSubmit_ = async function() {
     if (j.mail_sent) parts.push('✓ Correo enviado');
     if (j.wa_sent) parts.push('✓ WhatsApp enviado');
     alert('✅ Ticket generado\n\n' + parts.join('\n'));
-    window.closeFactConfirmModal_();
+    if (btnEl) { btnEl.textContent = '✓ Ticket generado'; btnEl.style.background = '#94a3b8'; btnEl.disabled = true; }
+    return true;
   } catch(e) {
     alert('❌ Error: ' + (e.message || e));
-    if (btn) { btn.textContent = oldTxt; btn.disabled = false; }
+    if (btnEl) { btnEl.textContent = oldTxt; btnEl.disabled = false; }
+    return false;
   }
+};
+
+window.factConfirmAndSubmit_ = async function() {
+  const modal = document.getElementById('fact-confirm-modal');
+  const btn = modal && modal.querySelector('button[onclick="factConfirmAndSubmit_()"]');
+  const ok = await window._emitAutoNow_(btn);
+  if (ok) window.closeFactConfirmModal_();
 };
 </script>
 </body>
