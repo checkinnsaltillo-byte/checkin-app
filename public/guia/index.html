@@ -856,11 +856,13 @@ function factRenderCards_(reservas, hostId){
     const cursor = hasFolio ? 'default' : 'pointer';
     const propLine = r.Propiedad || '(sin propiedad)';
     const depto = r.Departamento ? ` · Depto ${r.Departamento}` : '';
+    const guestName = String(r.GuestName || '').trim();
     return `<button type="button" data-idx="${i}" ${onClick} style="text-align:left;padding:12px;border:2px solid #e2e8f0;background:#fff;border-radius:10px;font-family:inherit;width:100%;margin-bottom:8px;cursor:${cursor}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px;flex-wrap:wrap">
         <div style="font-weight:800;color:#0f172a;font-size:13px">${propLine}${depto}</div>
         ${chip}
       </div>
+      ${guestName ? `<div style="font-size:12px;color:#0f172a;font-weight:700;margin-bottom:2px">👤 ${guestName}</div>` : ''}
       <div style="font-size:12px;color:#475569">${_fmt(r.DateArrival)} → ${_fmt(r.DateDeparture)}${r.Nights?` · ${r.Nights} noches`:''}</div>
       ${r.ConfirmationCode ? `<div style="font-size:11px;color:#64748b;font-family:monospace;margin-top:2px">${r.ConfirmationCode}</div>` : ''}
     </button>`;
