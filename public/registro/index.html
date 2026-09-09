@@ -9544,7 +9544,7 @@ function applyTranslations(lang){
   const h1 = document.querySelector("h1");
   if (h1) h1.textContent = t.title;
 
-  const sectionTitles = document.querySelectorAll("#viewRegistro .section-title");
+  const sectionTitles = document.querySelectorAll("#viewRegistro #formulario_principal .section-title");
   if (sectionTitles[0]) sectionTitles[0].textContent = t.sec1Title;
   if (sectionTitles[1]) sectionTitles[1].textContent = t.sec2Title;
   if (sectionTitles[2]) sectionTitles[2].textContent = t.sec3Title;
@@ -9552,7 +9552,7 @@ function applyTranslations(lang){
   if (sectionTitles[4]) sectionTitles[4].textContent = t.registerVehicle;
   if (sectionTitles[5]) sectionTitles[5].textContent = t.commentsTitle;
 
-  const sectionSubs = document.querySelectorAll("#viewRegistro .section-subtitle");
+  const sectionSubs = document.querySelectorAll("#viewRegistro #formulario_principal .section-subtitle");
   if (sectionSubs[0]) sectionSubs[0].textContent = t.sec1Sub;
   if (sectionSubs[1]) sectionSubs[1].textContent = t.sec2Sub;
   if (sectionSubs[2]) sectionSubs[2].textContent = t.sec3Sub;
