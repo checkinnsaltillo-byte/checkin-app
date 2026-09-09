@@ -10321,7 +10321,7 @@ function reservaGetByConfirmationCode_(data) {
   // Cache 5min por código — evita rescanear la hoja Reservas_Lodgify de 10k
   // filas cada vez que el huésped hace blur en el input.
   var _cache = CacheService.getScriptCache();
-  var _cacheKey = "rgcc_v3_folio_" + code;
+  var _cacheKey = "rgcc_v4_medio_" + code;
   try {
     var _cached = _cache.get(_cacheKey);
     if (_cached) { var _p = JSON.parse(_cached); _p._cached = true; return _p; }
@@ -10369,6 +10369,7 @@ function reservaGetByConfirmationCode_(data) {
       var iPhL = lgHeaders.indexOf("GuestPhone");
       var iNm  = lgHeaders.indexOf("GuestName");
       var iEm  = lgHeaders.indexOf("GuestEmail");
+      var iSrcL = lgHeaders.indexOf("Source");
       var iHN  = lgHeaders.indexOf("HouseName");
       var iId  = lgHeaders.indexOf("Id");
       var iDA  = lgHeaders.indexOf("DateArrival");
@@ -10473,7 +10474,17 @@ function reservaGetByConfirmationCode_(data) {
             var reservaMapped = {
               "ID": iId >= 0 ? lgVals[j][iId] : "",
               "Cel/Whatsapp (principal)": phoneL,
-              "Medio de reservación": "Airbnb",
+              "Medio de reservación": (function(){
+                var s = iSrcL >= 0 ? String(lgVals[j][iSrcL] || "").trim() : "";
+                var lc = s.toLowerCase();
+                if (lc.indexOf("airbnb") >= 0)  return "Airbnb";
+                if (lc.indexOf("booking") >= 0) return "Booking.com";
+                if (lc.indexOf("vrbo") >= 0)    return "Vrbo";
+                if (lc.indexOf("expedia") >= 0) return "Expedia";
+                if (lc.indexOf("manual") >= 0)  return "Trato directo";
+                if (lc.indexOf("direct") >= 0)  return "Trato directo";
+                return s || "";
+              })(),
               "Propiedad": (iHN >= 0 && String(lgVals[j][iHN] || "").trim()) || propResuelta || "",
               "# Departamento": deptoResuelto || "",
               "Fecha de ingreso":  iDA >= 0 ? String(lgVals[j][iDA] || "") : "",
