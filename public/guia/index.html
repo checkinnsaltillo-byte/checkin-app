@@ -960,10 +960,15 @@ function factRenderStep3_(){
       windowMsg = `Ventana de emisión: hasta el ${windowEnd.toLocaleDateString('es-MX', { day:'numeric', month:'long', year:'numeric' })}.`;
     }
   }
-  FACT_STATE.canEmit = windowValid && montoFacturado > 0;
-  const windowBlock = windowValid
-    ? `<div style="margin-top:10px;padding:8px 10px;background:#dcfce7;border:1px solid #86efac;border-radius:8px;font-size:11px;color:#166534;text-align:center">✓ ${windowMsg}</div>`
-    : `<div style="margin-top:10px;padding:10px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#991b1b;text-align:left"><strong>No disponible:</strong> ${windowMsg}</div>`;
+  // Regla extra: para reservas NO Airbnb, el ticket solo se puede emitir si
+  // la reserva está PAGADA. Si aparece pendiente/parcial/etc → contactar admin.
+  const nonAirbnbUnpaid = !isAirbnb && !isPaid;
+  FACT_STATE.canEmit = windowValid && montoFacturado > 0 && !nonAirbnbUnpaid;
+  const windowBlock = nonAirbnbUnpaid
+    ? `<div style="margin-top:10px;padding:10px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#991b1b;text-align:left"><strong>No disponible:</strong> Favor de contactar al anfitrión.</div>`
+    : (windowValid
+      ? `<div style="margin-top:10px;padding:8px 10px;background:#dcfce7;border:1px solid #86efac;border-radius:8px;font-size:11px;color:#166534;text-align:center">✓ ${windowMsg}</div>`
+      : `<div style="margin-top:10px;padding:10px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#991b1b;text-align:left"><strong>No disponible:</strong> ${windowMsg}</div>`);
   const montosBlock = isAirbnb
     ? `<div style="text-align:center;margin-bottom:12px">
         <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Total</div>
