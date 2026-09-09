@@ -911,6 +911,7 @@ async function factEmit_(){
       reservaId: String(r.Id || '').trim(),
       phone: FACT_STATE.phone || '',
       correo: document.getElementById('fact-correo').value.trim(),
+      correo_copia: document.getElementById('fact-correo2')?.value.trim() || '',
       monto: Number(r.AmountPaid || r.TotalAmount || 0),
       currency: String(r.Currency || 'MXN'),
       propiedad: r.Propiedad || '',
@@ -1214,8 +1215,12 @@ window.closeWelcomeTour_ = function () {
           <input id="fact-cp" type="text" inputmode="numeric" maxlength="5" style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;box-sizing:border-box">
         </div>
         <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Correo electrónico * (obligatorio)</label>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Correo electrónico (principal) * (obligatorio)</label>
           <input id="fact-correo" type="email" style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:4px">Correo electrónico (copia) (opcional)</label>
+          <input id="fact-correo2" type="email" style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;box-sizing:border-box">
         </div>
       </div>
     </div>
