@@ -1817,7 +1817,29 @@ function markAsClassified(i) {
 // ─── Estado global ───────────────────────────────────────────────────────────
 let BN_RAW    = [];
 let BN_BUDGET = [];
-let BN_TIPO   = 'PC';  // Default: Por clasificar → Todos (sub-tipos: PC_I/PC_E/PC_AC/PC_PA/PC_CA)
+let BN_TIPO   = 'PC';  // Default: Por clasificar → Todos (sub-tipos: PC_I/PC_E/PC_AC/PC_PA/PC_CA/PC_ARCH)
+
+// Set de rowNums de registros archivados (persistidos en localStorage por usuario)
+const _BN_ARCH_KEY = 'bn-archived-rows-v1';
+window.BN_ARCHIVED = (() => {
+  try { return new Set(JSON.parse(localStorage.getItem(_BN_ARCH_KEY) || '[]')); }
+  catch(_) { return new Set(); }
+})();
+function bn_saveArchived() {
+  try { localStorage.setItem(_BN_ARCH_KEY, JSON.stringify(Array.from(window.BN_ARCHIVED))); } catch(_){}
+}
+window.bn_toggleArchive = function(rowNum) {
+  const key = String(rowNum || '').trim();
+  if (!key) return;
+  if (window.BN_ARCHIVED.has(key)) window.BN_ARCHIVED.delete(key);
+  else window.BN_ARCHIVED.add(key);
+  bn_saveArchived();
+  try { if (typeof bnRender === 'function') bnRender(); } catch(_){}
+};
+window.bn_isArchived = function(r) {
+  const rn = String(r && r.rowNum || '').trim();
+  return rn && window.BN_ARCHIVED.has(rn);
+};
 let BN_LOADED = false;
 // Estado de filtros (multi-select). Cada campo es un array; vacío = "Todos".
 const bn_st   = {
@@ -3735,11 +3757,17 @@ function bn_kpiRecs(subtype) {
 function bn_recsForTipo(tipo) {
   const isPC = bn_isPC(tipo);
   const sub  = isPC ? bn_subOfPC(tipo) : null;
+  const isArchTab = (tipo === 'PC_ARCH');
   return BN_RAW.filter(r => {
     const t = bn_canon(r._tipo || '');
     const revisado = r._validado === 'Sí';
+    const archived = window.bn_isArchived && window.bn_isArchived(r);
     if (isPC) {
+      // Sub-tab Archivados: solo muestra los archivados no validados
+      if (isArchTab) { return !revisado && archived; }
+      // Resto de sub-tabs de "Por clasificar": excluye archivados y validados
       if (revisado) return false;
+      if (archived) return false;
       if (sub === 'E'  && !t.includes('egr'))     return false;
       if (sub === 'I'  && !t.includes('ing'))     return false;
       if (sub === 'AC' && !t.includes('activ'))   return false;
@@ -4348,7 +4376,7 @@ function bn_monthly() {
 // Mapa tipo → menú padre (para resaltar el menú correspondiente)
 const BN_TIPO_PARENT = {
   T:'reg', I:'reg', E:'reg', AC:'reg', PA:'reg', CA:'reg',
-  PC:'pc', PC_I:'pc', PC_E:'pc', PC_AC:'pc', PC_PA:'pc', PC_CA:'pc',
+  PC:'pc', PC_I:'pc', PC_E:'pc', PC_AC:'pc', PC_PA:'pc', PC_CA:'pc', PC_ARCH:'pc',
   A:'pres', AP:'pres', PR:'pres',
   F:'ind',
   UPLOAD:'upload',
@@ -4364,6 +4392,7 @@ const BN_CAT_SUBS = {
     { id: 'PC_AC',  label: '📈 Activos' },
     { id: 'PC_PA',  label: '📋 Pasivos' },
     { id: 'PC_CA',  label: '💼 Capital' },
+    { id: 'PC_ARCH', label: '🗄 Archivados' },
   ],
   reg: [
     { id: 'T',  label: '📋 Todos' },
@@ -4462,7 +4491,7 @@ function bn_setTipo(t) {
   const pageSize = document.getElementById('bn-page-size');
   const pageSizeWrap = pageSize?.parentElement;
   if (pageSizeWrap) pageSizeWrap.style.display = isPresOrInd ? 'none' : '';
-  const allTabs = ['T','E','I','AC','PA','CA','PC','PC_I','PC_E','PC_AC','PC_PA','PC_CA','A','F','AP','PR','UPLOAD','EFECTIVO'];
+  const allTabs = ['T','E','I','AC','PA','CA','PC','PC_I','PC_E','PC_AC','PC_PA','PC_CA','PC_ARCH','A','F','AP','PR','UPLOAD','EFECTIVO'];
   const pal = BN_CAT_PALETTE[parent] || BN_CAT_PALETTE.pc;
   // Resaltar el chip activo (hijo activo en tono medio; resto en tono claro)
   allTabs.forEach(x => {
@@ -5925,6 +5954,14 @@ function bn_createCard(rec, idx) {
               data-checked="${isValidado}"
               title="${isValidado ? 'Validado — disponible en Registros contables' : 'Marcar como Validado (sale de Por clasificar)'}"
               style="position:absolute;top:40px;right:8px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid ${isValidado ? '#16a34a' : '#e5e7eb'};background:${isValidado ? '#16a34a' : '#f9fafb'};color:${isValidado ? '#fff' : '#d1d5db'};font-size:14px;font-weight:900;line-height:1;cursor:pointer;z-index:3;padding:0">✓</button>
+      <!-- Botón Archivar (🗄) debajo del Validado. Movido a la sub-tab 'Archivados' -->
+      ${(function(){
+        const isArchived = window.bn_isArchived && window.bn_isArchived(rec);
+        return `<button type="button"
+            onclick="event.stopPropagation();bn_toggleArchive('${esc(String(rec.rowNum||''))}')"
+            title="${isArchived ? 'Des-archivar (regresa a Por clasificar)' : 'Archivar (movida a sub-tab Archivados)'}"
+            style="position:absolute;top:72px;right:8px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid ${isArchived ? '#0284c7' : '#e5e7eb'};background:${isArchived ? '#0284c7' : '#f9fafb'};color:${isArchived ? '#fff' : '#d1d5db'};font-size:13px;line-height:1;cursor:pointer;z-index:3;padding:0">🗄</button>`;
+      })()}
       <div class="ticket-card-header ${clsCls}" id="bn-hdr-${idx}" onclick="bn_toggleBnCard(${idx})" style="padding-right:46px">
         <div class="ticket-info">
           <div class="header-chips">${tipoChip}${cuentaBancChip}${encChip}${propChip}${deptChip}${facChip}${reemChip}</div>
