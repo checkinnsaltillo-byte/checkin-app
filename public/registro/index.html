@@ -8118,8 +8118,10 @@ async function detectExistingGuestByConfirmationCode() {
   // Reset del estado — el botón Siguiente se re-oculta hasta encontrar reserva
   window.WIZ_IDENTIFIED = false;
   try { if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1); } catch(_){}
-  // También limpia la card previa por si existió una del lookup por celular
-  try { const host = document.getElementById("reservaSelectorHost"); if (host) host.innerHTML = ""; } catch(_){}
+  // NO limpiamos la card aquí — renderReservaSelector la limpia justo antes
+  // de renderizar la nueva. Si limpiamos aquí y el fetch tarda 1-2s, la card
+  // válida desaparece momentáneamente (y si un segundo lookup blur/input race
+  // corre en paralelo, desaparece permanentemente).
   if (!raw || raw.length < 6) { resetAutofillToNewMode(); return; }
   try {
     setGuestAutofillMessage("", (window.currentLang === "en") ? "Please wait a moment..." : "Espera un momento...");
