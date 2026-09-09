@@ -846,16 +846,17 @@ function factRenderCards_(reservas, hostId){
     return String(s||'');
   };
   host.innerHTML = reservas.map((r, i) => {
-    const hasFolio = !!(r.FolioFacturapi && String(r.FolioFacturapi).trim());
+    const folio = String(r.FolioFacturapi || '').trim();
+    const hasFolio = !!folio;
     const chip = hasFolio
-      ? `<span style="display:inline-block;padding:3px 8px;border-radius:99px;background:#dcfce7;color:#166534;font-size:11px;font-weight:800">Emitida #${r.FolioFacturapi}</span>`
+      ? `<span onclick="event.stopPropagation();factOpenTicket_('${folio}')" style="display:inline-block;padding:5px 10px;border-radius:99px;background:#dcfce7;color:#166534;font-size:11px;font-weight:800;cursor:pointer;border:1px solid #86efac">🎟️ Ver Ticket · Folio #${folio}</span>`
       : `<span style="display:inline-block;padding:3px 8px;border-radius:99px;background:#fef3c7;color:#92400e;font-size:11px;font-weight:800">Pendiente</span>`;
-    const disabledStyle = hasFolio ? 'opacity:.55;cursor:not-allowed' : 'cursor:pointer';
     const onClick = hasFolio ? '' : `onclick="factPickReserva_(${i}, '${hostId}')"`;
+    const cursor = hasFolio ? 'default' : 'pointer';
     const propLine = r.Propiedad || '(sin propiedad)';
     const depto = r.Departamento ? ` · Depto ${r.Departamento}` : '';
-    return `<button type="button" data-idx="${i}" ${onClick} style="text-align:left;padding:12px;border:2px solid #e2e8f0;background:#fff;border-radius:10px;font-family:inherit;width:100%;margin-bottom:8px;${disabledStyle}">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+    return `<button type="button" data-idx="${i}" ${onClick} style="text-align:left;padding:12px;border:2px solid #e2e8f0;background:#fff;border-radius:10px;font-family:inherit;width:100%;margin-bottom:8px;cursor:${cursor}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px;flex-wrap:wrap">
         <div style="font-weight:800;color:#0f172a;font-size:13px">${propLine}${depto}</div>
         ${chip}
       </div>
@@ -938,6 +939,17 @@ async function factEmit_(){
     btn.textContent = oldTxt; btn.disabled = false;
   }
 }
+window.factOpenTicket_ = async function(folio){
+  try {
+    // Pide al backend Cloud Run la URL del receipt (busca por folio en Facturapi)
+    const resp = await fetch(`https://api.check-inn.mx/facturapi/ticket-url?folio=${encodeURIComponent(folio)}`);
+    const j = await resp.json().catch(() => ({}));
+    if (j && j.ok && j.url) { window.open(j.url, '_blank', 'noopener'); return; }
+    alert(`Folio #${folio}\n\nNo se pudo obtener el link automáticamente. Revisa tu correo — ahí te llegó el ticket para completar la auto-facturación.`);
+  } catch (e) {
+    alert(`Folio #${folio}\n\nRevisa tu correo — ahí te llegó el link del ticket.`);
+  }
+};
 window.openFacturacion_ = openFacturacion_;
 window.closeFacturacion_ = closeFacturacion_;
 window.factSetMode_ = factSetMode_;
