@@ -10321,7 +10321,7 @@ function reservaGetByConfirmationCode_(data) {
   // Cache 5min por código — evita rescanear la hoja Reservas_Lodgify de 10k
   // filas cada vez que el huésped hace blur en el input.
   var _cache = CacheService.getScriptCache();
-  var _cacheKey = "rgcc_v4_medio_" + code;
+  var _cacheKey = "rgcc_v5_fastpath_" + code;
   try {
     var _cached = _cache.get(_cacheKey);
     if (_cached) { var _p = JSON.parse(_cached); _p._cached = true; return _p; }
@@ -10382,26 +10382,45 @@ function reservaGetByConfirmationCode_(data) {
       var iPSf = lgHeaders.indexOf("PaymentStatus");
       var iCurf= lgHeaders.indexOf("Currency");
       if (iCC >= 0 || iCB >= 0) {
-        var lgVals = shL.getRange(2, 1, shL.getLastRow()-1, lgHeaders.length).getValues();
-        // Cuenta cuántas filas tienen ConfirmationCode no vacío + últimas 5 muestras
-        for (var k = 0; k < lgVals.length; k++) {
-          if (iCC >= 0 && String(lgVals[k][iCC] || "").trim()) dbg.lg_cc_nonempty++;
+        // FAST-PATH: primero lee SOLO las columnas de identificación (CC, CB, Id)
+        // para localizar la fila; después lee solo esa fila completa. Evita
+        // materializar 10k×50 celdas en cada lookup.
+        var lastRowL = shL.getLastRow();
+        var nRowsL = lastRowL - 1;
+        var codeIsNumeric = /^\d+$/.test(code);
+        var idCols = [];
+        if (iCC >= 0) idCols.push({name:"cc", idx:iCC});
+        if (iCB >= 0) idCols.push({name:"cb", idx:iCB});
+        if (iBId >= 0) idCols.push({name:"id", idx:iBId});
+        // Trae cada columna de identificación como un rango unidimensional
+        var idData = {};
+        idCols.forEach(function(c){
+          idData[c.name] = shL.getRange(2, c.idx+1, nRowsL, 1).getValues();
+        });
+        dbg.lg_cc_nonempty = 0;
+        if (idData.cc) for (var k = 0; k < idData.cc.length; k++) {
+          if (String(idData.cc[k][0] || "").trim()) dbg.lg_cc_nonempty++;
         }
-        for (var k2 = Math.max(0, lgVals.length - 5); k2 < lgVals.length; k2++) {
+        for (var k2 = Math.max(0, nRowsL - 5); k2 < nRowsL; k2++) {
           dbg.lg_last5.push({
-            cc: iCC >= 0 ? String(lgVals[k2][iCC] || "") : "",
-            cb: iCB >= 0 ? String(lgVals[k2][iCB] || "") : "",
+            cc: idData.cc ? String(idData.cc[k2][0] || "") : "",
+            cb: idData.cb ? String(idData.cb[k2][0] || "") : "",
           });
         }
-        // Si el code es puramente numérico, también sirve como Lodgify booking Id
-        // (manuales/Booking.com/etc. no tienen HM code; el Id "#B23006918" o
-        // "23006918" es su único identificador). Buscamos como número Y como string.
-        var codeIsNumeric = /^\d+$/.test(code);
-        for (var j = lgVals.length - 1; j >= 0; j--) {
-          var rawCC = iCC >= 0 ? _normalizeConfirmationCode_(lgVals[j][iCC]) : "";
-          var rawCB = iCB >= 0 ? _normalizeConfirmationCode_(lgVals[j][iCB]) : "";
-          var rawId = iBId >= 0 ? String(lgVals[j][iBId] || "").replace(/\D/g,"") : "";
+        var matchIdx = -1;
+        for (var j = nRowsL - 1; j >= 0; j--) {
+          var rawCC = idData.cc ? _normalizeConfirmationCode_(idData.cc[j][0]) : "";
+          var rawCB = idData.cb ? _normalizeConfirmationCode_(idData.cb[j][0]) : "";
+          var rawId = idData.id ? String(idData.id[j][0] || "").replace(/\D/g,"") : "";
           if ((rawCC && rawCC === code) || (rawCB && rawCB === code) || (codeIsNumeric && rawId && rawId === code)) {
+            matchIdx = j; break;
+          }
+        }
+        if (matchIdx >= 0) {
+          // Lee solo la fila completa que hizo match
+          var lgVals = [ shL.getRange(matchIdx + 2, 1, 1, lgHeaders.length).getValues()[0] ];
+          var j = 0;
+          {
             var phoneL = iPhL >= 0 ? String(lgVals[j][iPhL] || "") : "";
             var perfil2 = null;
             if (phoneL) {
@@ -10500,7 +10519,7 @@ function reservaGetByConfirmationCode_(data) {
               "Divisa monto pagado":        iCurf>= 0 ? String(lgVals[j][iCurf]|| "") : "",
               "Folio facturapi":            folioR,
               "Ticket facturapi url":       ticketUrlR,
-              "_row": j + 2
+              "_row": matchIdx + 2
             };
             var _outLg = { ok:true, reserva:reservaMapped, perfil:perfil2, code:code, phone:_normalizePhone10_(phoneL), source:"lodgify" };
             try { _cache.put(_cacheKey, JSON.stringify(_outLg), 300); } catch(_){}
