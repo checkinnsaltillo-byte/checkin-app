@@ -6938,6 +6938,20 @@ window.mostrarMiniPopupEnviado = function(opts){
     if (wantsTicket && typeof window._factBuildInfoBlock_ === 'function') {
       var info = window._factBuildInfoBlock_();
       window.__factConfirmMonto = info.facturado;
+      // Snapshot de los campos del form ANTES de que this.reset() los borre
+      // (el reset se ejecuta después de mostrar el mini popup). Sin este
+      // snapshot, _emitAutoNow_ lee '' de correo1 y el backend rechaza.
+      try {
+        var _sv = id => (document.getElementById(id)?.value || '').trim();
+        window.__factPendingPayload = {
+          correo: _sv('correo1'),
+          correo_copia: _sv('correo2'),
+          razon: _sv('razon_social'),
+          rfc: _sv('rfc'),
+          regimen: _sv('regimen_fiscal'),
+          cp: _sv('codigo_postal') || _sv('cp'),
+        };
+      } catch(_){}
       var btnStyle = info.canEmit
         ? 'background:#16a34a;cursor:pointer;opacity:1'
         : 'background:#94a3b8;cursor:not-allowed;opacity:.7';
@@ -20472,20 +20486,23 @@ window._emitAutoNow_ = async function(btnEl) {
     const r = window.WIZ_SELECTED_RESERVA || {};
     const facturado = Number(window.__factConfirmMonto || 0);
     const _v = id => (document.getElementById(id)?.value || '').trim();
+    // Prefiere snapshot (capturado antes del form.reset() post-submit) sobre
+    // leer campos del DOM que ya pueden estar vacíos.
+    const snap = window.__factPendingPayload || {};
     const payload = {
       reservaId: String(r.Id || r.id_lodgify || '').trim(),
       phone: window.WIZ_IDENTIFIED?.phone || '',
-      correo: _v('correo1'),
-      correo_copia: _v('correo2'),
+      correo: snap.correo || _v('correo1'),
+      correo_copia: snap.correo_copia || _v('correo2'),
       monto: facturado,
       currency: String(r.Currency || 'MXN'),
       propiedad: r.Propiedad || '',
       arrival: r.DateArrival || '',
       departure: r.DateDeparture || '',
-      razon: _v('razon_social'),
-      rfc: _v('rfc'),
-      regimen: _v('regimen_fiscal'),
-      cp: _v('codigo_postal') || _v('cp'),
+      razon: snap.razon || _v('razon_social'),
+      rfc: snap.rfc || _v('rfc'),
+      regimen: snap.regimen || _v('regimen_fiscal'),
+      cp: snap.cp || _v('codigo_postal') || _v('cp'),
     };
     const resp = await fetch('https://api.check-inn.mx/facturapi/emit-auto', {
       method: 'POST', headers: {'Content-Type':'application/json'},
