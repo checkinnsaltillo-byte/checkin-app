@@ -9003,6 +9003,7 @@ function validarArchivosAntesDeEnviar(){
 
 document.getElementById("form").addEventListener("submit", async function(e){
   e.preventDefault();
+  console.log('[SUBMIT] fired, WIZ_CURRENT=', window.WIZ_CURRENT);
 
   // BLOQUEO: solo permite el submit real en el Paso 4 del wizard. Enter en
   // cualquier campo de los pasos 1-3 lo trata como "Siguiente".
