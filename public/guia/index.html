@@ -890,6 +890,16 @@ function factValidateStep2_(){
   if (missing.length) { alert(`Faltan ${missing.length} campo(s) obligatorio(s).`); return false; }
   return true;
 }
+// Normaliza fecha (MM/DD/YYYY, YYYY-MM-DD o DD/MM/YYYY) → objeto Date (00:00 local)
+function _factParseDate(s) {
+  const str = String(s || '').trim();
+  if (!str) return null;
+  let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+  m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return new Date(Number(m[3]), Number(m[1])-1, Number(m[2])); // MM/DD/YYYY
+  return null;
+}
 function factRenderStep3_(){
   const r = FACT_STATE.reserva || {};
   const total = Number(r.TotalAmount || 0);
@@ -905,6 +915,43 @@ function factRenderStep3_(){
       ? `<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#fef3c7;color:#92400e;font-size:11px;font-weight:800">⚠ PAGO PARCIAL</span>`
       : `<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#fee2e2;color:#991b1b;font-size:11px;font-weight:800">⨯ PENDIENTE DE PAGO</span>`);
   const _fmt = n => `$${Number(n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  // ── Desglose Airbnb ──
+  const isAirbnb = String(r.Source || '').toLowerCase().includes('airbnb');
+  const AIRBNB_COMMISSION_RATE = 0.155;
+  const comisionAirbnb = isAirbnb ? +(pagado * AIRBNB_COMMISSION_RATE).toFixed(2) : 0;
+  const montoFacturado = isAirbnb ? +(pagado - comisionAirbnb).toFixed(2) : pagado;
+  FACT_STATE.montoFacturado = montoFacturado;
+  const airbnbBlock = isAirbnb
+    ? `<div style="margin-top:12px;padding:12px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px">
+        <div style="font-size:11px;color:#92400e;text-transform:uppercase;letter-spacing:.05em;font-weight:800;margin-bottom:8px">🧾 Ticket para auto-facturación</div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:#0f172a;margin-bottom:4px"><span>(=) Monto total Airbnb</span><strong>${_fmt(pagado)}</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:#991b1b;margin-bottom:4px"><span>(−) Comisión Airbnb (15.5%)</span><strong>−${_fmt(comisionAirbnb)}</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;color:#166534;padding-top:6px;border-top:1px solid #f59e0b;margin-top:4px"><span>(+) Monto facturado Total</span><strong>${_fmt(montoFacturado)}</strong></div>
+      </div>`
+    : '';
+  // ── Validación de ventana temporal para emisión ──
+  // Regla: desde la fecha de entrada hasta el último día del mes de la entrada.
+  const arrivalD = _factParseDate(r.DateArrival);
+  const today = new Date(); today.setHours(0,0,0,0);
+  let windowValid = false, windowMsg = '', windowEnd = null;
+  if (!arrivalD) {
+    windowMsg = 'No se pudo determinar la fecha de entrada.';
+  } else {
+    windowEnd = new Date(arrivalD.getFullYear(), arrivalD.getMonth() + 1, 0); // último día del mes
+    windowEnd.setHours(23,59,59,999);
+    if (today < arrivalD) {
+      windowMsg = `El ticket se podrá generar a partir del ${arrivalD.toLocaleDateString('es-MX', { day:'numeric', month:'long', year:'numeric' })}.`;
+    } else if (today > windowEnd) {
+      windowMsg = `La ventana de emisión venció el ${windowEnd.toLocaleDateString('es-MX', { day:'numeric', month:'long', year:'numeric' })}. Contacta al equipo para más opciones.`;
+    } else {
+      windowValid = true;
+      windowMsg = `Ventana de emisión: hasta el ${windowEnd.toLocaleDateString('es-MX', { day:'numeric', month:'long', year:'numeric' })}.`;
+    }
+  }
+  FACT_STATE.canEmit = windowValid && montoFacturado > 0;
+  const windowBlock = windowValid
+    ? `<div style="margin-top:10px;padding:8px 10px;background:#dcfce7;border:1px solid #86efac;border-radius:8px;font-size:11px;color:#166534;text-align:center">✓ ${windowMsg}</div>`
+    : `<div style="margin-top:10px;padding:10px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#991b1b;text-align:left"><strong>No disponible:</strong> ${windowMsg}</div>`;
   document.getElementById('fact-total-view').innerHTML = `
     <div style="display:flex;justify-content:center;margin-bottom:10px">${statusChip}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
@@ -921,14 +968,27 @@ function factRenderStep3_(){
         <div style="font-size:18px;font-weight:800;color:#0f172a">${_fmt(total)}</div>
       </div>
     </div>
+    ${airbnbBlock}
     <div style="margin-top:10px;font-size:13px;color:#475569">Propiedad: <strong>${r.Propiedad||'—'}</strong>${r.Departamento?` #${r.Departamento}`:''}</div>
     <div style="font-size:13px;color:#475569">Fechas: <strong>${r.DateArrival||''} → ${r.DateDeparture||''}</strong></div>
     <div style="font-size:12px;color:#64748b;margin-top:4px">Moneda: <strong>${cur}</strong></div>
-    ${!isPaid ? `<div style="margin-top:12px;padding:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#991b1b;text-align:left"><strong>Aviso:</strong> Esta reserva aún tiene saldo pendiente. El ticket se emitirá por el monto pagado (${_fmt(pagado)}).</div>` : ''}
+    ${windowBlock}
   `;
+  // Habilita/deshabilita el botón según la ventana temporal y monto
+  const btn = document.getElementById('fact-btn-emit');
+  if (btn) {
+    btn.disabled = !FACT_STATE.canEmit;
+    btn.style.opacity = FACT_STATE.canEmit ? '1' : '.5';
+    btn.style.cursor = FACT_STATE.canEmit ? 'pointer' : 'not-allowed';
+    btn.title = FACT_STATE.canEmit ? '' : (windowMsg || 'No disponible');
+  }
 }
 async function factEmit_(){
   const btn = document.getElementById('fact-btn-emit');
+  if (!FACT_STATE.canEmit) {
+    alert('No se puede emitir el ticket en este momento. Revisa la ventana de emisión mostrada.');
+    return;
+  }
   const oldTxt = btn.textContent;
   btn.textContent = '⏳ Generando…'; btn.disabled = true;
   try {
@@ -938,7 +998,8 @@ async function factEmit_(){
       phone: FACT_STATE.phone || '',
       correo: document.getElementById('fact-correo').value.trim(),
       correo_copia: document.getElementById('fact-correo2')?.value.trim() || '',
-      monto: Number(r.AmountPaid || 0),
+      // Monto ya descontado de la comisión Airbnb si aplica (Monto facturado Total)
+      monto: Number(FACT_STATE.montoFacturado || r.AmountPaid || 0),
       currency: String(r.Currency || 'MXN'),
       propiedad: r.Propiedad || '',
       arrival: r.DateArrival || '',
