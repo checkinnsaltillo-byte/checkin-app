@@ -10321,7 +10321,7 @@ function reservaGetByConfirmationCode_(data) {
   // Cache 5min por código — evita rescanear la hoja Reservas_Lodgify de 10k
   // filas cada vez que el huésped hace blur en el input.
   var _cache = CacheService.getScriptCache();
-  var _cacheKey = "rgcc_v2_" + code;
+  var _cacheKey = "rgcc_v3_folio_" + code;
   try {
     var _cached = _cache.get(_cacheKey);
     if (_cached) { var _p = JSON.parse(_cached); _p._cached = true; return _p; }
@@ -10443,6 +10443,31 @@ function reservaGetByConfirmationCode_(data) {
                 }
               }
             } catch (eA) { Logger.log("[alojamientos resolve] " + eA); }
+            // Cruzar con Reservaciones para obtener Folio facturapi + URL del ticket
+            var folioR = "", ticketUrlR = "";
+            try {
+              var shRes = ss.getSheetByName(RESERVACIONES_SHEET);
+              if (shRes && shRes.getLastRow() >= 2) {
+                var rHdrs = shRes.getRange(1, 1, 1, shRes.getLastColumn()).getValues()[0]
+                  .map(function(h){ return String(h||"").trim(); });
+                var rLI = rHdrs.indexOf("Lodgify Id");
+                var rFO = rHdrs.indexOf("Folio facturapi");
+                var rUR = rHdrs.indexOf("Ticket facturapi url");
+                if (rLI >= 0 && rFO >= 0) {
+                  var lidStr = String(iId >= 0 ? lgVals[j][iId] : "").trim();
+                  if (lidStr) {
+                    var rV = shRes.getRange(2, 1, shRes.getLastRow()-1, rHdrs.length).getValues();
+                    for (var rrr = 0; rrr < rV.length; rrr++) {
+                      if (String(rV[rrr][rLI] || "").trim() === lidStr) {
+                        folioR = String(rV[rrr][rFO] || "").trim();
+                        ticketUrlR = rUR >= 0 ? String(rV[rrr][rUR] || "").trim() : "";
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+            } catch(eF) { Logger.log("[reservaGetByConfirmationCode_ folio-cross] " + eF); }
             // Objeto tipo "reserva" mapeado a headers de Reservaciones para
             // que applyGuestRecordToForm() prellene lo que pueda.
             var reservaMapped = {
@@ -10462,6 +10487,8 @@ function reservaGetByConfirmationCode_(data) {
               "$ MONTO TOTAL Airbnb":       iTAf >= 0 ? Number(lgVals[j][iTAf]) || "" : "",
               "PaymentStatus":              iPSf >= 0 ? String(lgVals[j][iPSf] || "") : "",
               "Divisa monto pagado":        iCurf>= 0 ? String(lgVals[j][iCurf]|| "") : "",
+              "Folio facturapi":            folioR,
+              "Ticket facturapi url":       ticketUrlR,
               "_row": j + 2
             };
             var _outLg = { ok:true, reserva:reservaMapped, perfil:perfil2, code:code, phone:_normalizePhone10_(phoneL), source:"lodgify" };

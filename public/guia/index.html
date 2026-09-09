@@ -820,7 +820,8 @@ async function factLookupByCode_(){
           Nights: r['# Noches']||0, NumberOfGuests: r['# Huéspedes']||0,
           AmountPaid: r['($) Monto Total pagado']||0, TotalAmount: r['$ MONTO TOTAL Airbnb']||0,
           Currency: r['Divisa monto pagado']||'MXN',
-          FolioFacturapi: r['Folio facturapi']||''
+          FolioFacturapi: r['Folio facturapi']||'',
+          TicketUrl: r['Ticket facturapi url']||''
         };
         factRenderCards_([summary], 'fact-cards-code');
       } else {
