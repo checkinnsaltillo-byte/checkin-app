@@ -8169,13 +8169,13 @@ async function detectExistingGuestByConfirmationCode() {
           DateDeparture: r["Fecha de salida"] || "",
           Nights: r["# Noches"] || 0,
           NumberOfGuests: r["# Huéspedes"] || 0,
+          // Desglose de pago necesario para el bloque de auto-facturación
+          PaymentStatus: r["PaymentStatus"] || "",
+          TotalAmount: Number(r["$ MONTO TOTAL Airbnb"] || 0),
+          AmountPaid: Number(r["($) Monto Total pagado"] || 0),
+          Currency: r["Divisa monto pagado"] || "MXN",
         });
         window.WIZ_SELECTED_RESERVA = _fromReserva(json.reserva);
-        // Además guardamos el desglose de pago para la validación de auto-facturación
-        window.WIZ_SELECTED_RESERVA.PaymentStatus = json.reserva["PaymentStatus"] || "";
-        window.WIZ_SELECTED_RESERVA.TotalAmount = Number(json.reserva["$ MONTO TOTAL Airbnb"] || 0);
-        window.WIZ_SELECTED_RESERVA.AmountPaid = Number(json.reserva["($) Monto Total pagado"] || 0);
-        window.WIZ_SELECTED_RESERVA.Currency = json.reserva["Divisa monto pagado"] || "MXN";
         renderReservaSelector([_fromReserva(json.reserva)], json.phone || "", json.perfil || null,
           (r,ph,pf) => Object.assign({}, merged));
         window.WIZ_IDENTIFIED = true;
