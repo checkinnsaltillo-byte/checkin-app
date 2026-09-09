@@ -6853,6 +6853,7 @@ body.has-session input[name="nombre"] {
   <span style="font-size:14px;font-weight:700;color:#0f172a">Deseo recibir recordatorios y notificaciones por WhatsApp</span>
 </label>
 <button id="popupEnvioCloseBtn" onclick="popupAceptarYEnviar()" type="button" style="display:block;width:100%;padding:14px 16px;background:#16a34a;color:#fff;border:0;border-radius:16px;font-size:15px;font-weight:700;cursor:not-allowed;opacity:.45;-webkit-appearance:none;appearance:none;pointer-events:none">Aceptar y salir</button>
+<button id="popupGenerarTicketBtn" onclick="popupAceptarYGenerarTicket()" type="button" style="display:none;width:100%;padding:14px 16px;margin-top:10px;background:#dc2626;color:#fff;border:0;border-radius:16px;font-size:15px;font-weight:800;cursor:not-allowed;opacity:.45;-webkit-appearance:none;appearance:none;pointer-events:none">🔴 Generar ticket de auto-facturación</button>
 <script>
 window.popupToggleAccept = function(){
   var cb = document.getElementById('popupAcceptCb');
@@ -6871,7 +6872,8 @@ window.popupToggleAccept = function(){
   }
   var closeBtn = document.getElementById('popupEnvioCloseBtn');
   var waBtn = document.getElementById('whatsappHelpButton');
-  [closeBtn, waBtn].forEach(function(b){
+  var genBtn = document.getElementById('popupGenerarTicketBtn');
+  [closeBtn, waBtn, genBtn].forEach(function(b){
     if (!b) return;
     b.style.opacity = next ? '1' : '.45';
     b.style.pointerEvents = next ? 'auto' : 'none';
@@ -6897,11 +6899,31 @@ window.popupToggleAccept = function(){
     try { if (origSuc) origSuc.apply(this, arguments); } catch(_){}
     var cb = document.getElementById('popupAcceptCb');
     if (cb && cb.getAttribute('data-on') === '1') window.popupToggleAccept();
+    // Mostrar botón "Generar ticket de auto-facturación" solo si factura=Sí.
+    try {
+      var facturaSel = document.getElementById('factura');
+      var v = String(facturaSel && facturaSel.value || '').toLowerCase();
+      var wantsTicket = (v === 'si' || v === 'sí' || v === 'yes');
+      var genBtn = document.getElementById('popupGenerarTicketBtn');
+      if (genBtn) genBtn.style.display = wantsTicket ? 'block' : 'none';
+    } catch(_){}
   };
 })();
 
 // Click "Aceptar y salir": resuelve el gate promise que dispara el submit
 // diferido en el handler onsubmit del formulario.
+// Click "Generar ticket de auto-facturación": el registro ya fue enviado
+// (mostrarVentanaExito corre post-submit). Abre el popup de Auto-facturación
+// Paso 3 (resumen del monto + avisos + botón verde "Generar ticket" que
+// dispara emit-auto: receipt Facturapi + folio en sheet + correo + WhatsApp).
+window.popupAceptarYGenerarTicket = function(){
+  var cb = document.getElementById('popupAcceptCb');
+  if (!cb || cb.getAttribute('data-on') !== '1') return;
+  if (typeof window.openFactConfirmModal_ === 'function') {
+    window.openFactConfirmModal_();
+  }
+};
+
 window.popupAceptarYEnviar = function(){
   var cb = document.getElementById('popupAcceptCb');
   if (!cb || cb.getAttribute('data-on') !== '1') return; // debe estar aceptado
@@ -7937,13 +7959,7 @@ window.wizGoTo = function(n) {
                              : (n === 1 && !window.WIZ_IDENTIFIED) ? 'none' : '';
   if (send) {
     send.style.display = n === 4 ? '' : 'none';
-    // Si en paso 4 y factura=Sí, cambiar texto del botón
-    if (n === 4) {
-      const facturaSel = document.getElementById('factura');
-      const facturaSi = String(facturaSel?.value || '').toLowerCase();
-      const wantsTicket = (facturaSi === 'si' || facturaSi === 'sí' || facturaSi === 'yes');
-      send.textContent = wantsTicket ? 'Finalizar registro y generar ticket de auto-facturación' : 'Finalizar registro';
-    }
+    if (n === 4) send.textContent = 'Finalizar registro';
   }
   // Scroll al top del popup
   try {
@@ -8994,17 +9010,6 @@ document.getElementById("form").addEventListener("submit", async function(e){
     try { if (typeof wizNext === 'function') wizNext(); } catch(_){}
     return;
   }
-  // Si factura=Sí, mostrar el popup de confirmación de auto-facturación
-  // ANTES de submitear. El popup tiene su propio botón "Generar ticket" que
-  // dispara el submit real + emit-auto.
-  try {
-    const facturaSel = document.getElementById('factura');
-    const facturaSi = String(facturaSel?.value || '').toLowerCase();
-    const wantsTicket = (facturaSi === 'si' || facturaSi === 'sí' || facturaSi === 'yes');
-    if (wantsTicket && !window.__factConfirmed) {
-      if (typeof openFactConfirmModal_ === 'function') { openFactConfirmModal_(); return; }
-    }
-  } catch(_){}
 
   const status = document.getElementById("statusMessage");
   const submitBtn = document.getElementById("submitBtn");
@@ -20370,11 +20375,45 @@ window.closeFactConfirmModal_ = function() {
   if (m) m.remove();
   document.body.style.overflow = '';
 };
-window.factConfirmAndSubmit_ = function() {
-  window.__factConfirmed = true;
-  window.closeFactConfirmModal_();
-  const form = document.getElementById('form');
-  if (form) form.requestSubmit ? form.requestSubmit() : form.submit();
+window.factConfirmAndSubmit_ = async function() {
+  const modal = document.getElementById('fact-confirm-modal');
+  const btn = modal && modal.querySelector('button[onclick="factConfirmAndSubmit_()"]');
+  const oldTxt = btn ? btn.textContent : '';
+  if (btn) { btn.textContent = '⏳ Generando…'; btn.disabled = true; }
+  try {
+    const r = window.WIZ_SELECTED_RESERVA || {};
+    const facturado = Number(window.__factConfirmMonto || 0);
+    const _v = id => (document.getElementById(id)?.value || '').trim();
+    const payload = {
+      reservaId: String(r.Id || r.id_lodgify || '').trim(),
+      phone: window.WIZ_IDENTIFIED?.phone || '',
+      correo: _v('correo1'),
+      correo_copia: _v('correo2'),
+      monto: facturado,
+      currency: String(r.Currency || 'MXN'),
+      propiedad: r.Propiedad || '',
+      arrival: r.DateArrival || '',
+      departure: r.DateDeparture || '',
+      razon: _v('razon_social'),
+      rfc: _v('rfc'),
+      regimen: _v('regimen_fiscal'),
+      cp: _v('codigo_postal') || _v('cp'),
+    };
+    const resp = await fetch('https://api.check-inn.mx/facturapi/emit-auto', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const j = await resp.json();
+    if (!j.ok) throw new Error(j.error || `HTTP ${resp.status}`);
+    const parts = [`Folio: #${j.folio}`];
+    if (j.mail_sent) parts.push('✓ Correo enviado');
+    if (j.wa_sent) parts.push('✓ WhatsApp enviado');
+    alert('✅ Ticket generado\n\n' + parts.join('\n'));
+    window.closeFactConfirmModal_();
+  } catch(e) {
+    alert('❌ Error: ' + (e.message || e));
+    if (btn) { btn.textContent = oldTxt; btn.disabled = false; }
+  }
 };
 </script>
 </body>
