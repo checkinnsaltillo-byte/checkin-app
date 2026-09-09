@@ -8126,8 +8126,20 @@ async function detectExistingGuestByConfirmationCode() {
     const params = new URLSearchParams();
     params.set("action", "reserva_get_by_confirmation_code");
     params.set("code", raw);
-    const res = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: "GET" });
-    const json = await res.json();
+    // Apps Script a veces devuelve HTML (302/error transitorio) en el primer
+    // fetch tras idle. Si el parse falla, reintentamos 1 vez silenciosamente.
+    const _fetchJsonRetry = async () => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const r = await fetch(`${WEB_APP_URL}?${params.toString()}`, { method: "GET" });
+        const txt = await r.text();
+        try { return JSON.parse(txt); }
+        catch(e) {
+          if (attempt === 1) throw new Error("respuesta no JSON del servidor");
+          await new Promise(res => setTimeout(res, 400));
+        }
+      }
+    };
+    const json = await _fetchJsonRetry();
     if (lookupId !== codeLookupInFlight) return;
     if (!json.ok) throw new Error(json.error || "lookup failed");
     codeLookupLastResolved = raw;
