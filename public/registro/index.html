@@ -7651,8 +7651,12 @@ async function detectExistingGuestByPhone(){
     // Elige por default la reserva más próxima (primera del array = ordenada asc)
     const primary = reservasList.length ? reservasList[0] : null;
     const primaryMerged = primary ? _resToPrefill(primary, exact.raw, perfilRow) : merged;
-    // Guarda la reserva seleccionada para las validaciones del wizard
-    window.WIZ_SELECTED_RESERVA = primary || null;
+    // Guarda la reserva seleccionada para las validaciones del wizard.
+    // NO sobrescribir con null si el phone-lookup no encontró match — puede
+    // que ya haya una reserva válida cargada por code-lookup (evita perder los
+    // campos de pago cuando este phone-lookup corre como side-effect de un
+    // change en lada1 disparado por applyReservacionExtras).
+    if (primary) window.WIZ_SELECTED_RESERVA = primary;
     applyGuestRecordToForm(primaryMerged);
     try { applyReservacionExtras(primaryMerged, exact.raw); } catch(_){}
     // Renderiza la card de reserva (si hay reservas). Solo tras renderizar,
