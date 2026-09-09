@@ -963,22 +963,28 @@ function factRenderStep3_(){
   const windowBlock = windowValid
     ? `<div style="margin-top:10px;padding:8px 10px;background:#dcfce7;border:1px solid #86efac;border-radius:8px;font-size:11px;color:#166534;text-align:center">✓ ${windowMsg}</div>`
     : `<div style="margin-top:10px;padding:10px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#991b1b;text-align:left"><strong>No disponible:</strong> ${windowMsg}</div>`;
+  const montosBlock = isAirbnb
+    ? `<div style="text-align:center;margin-bottom:12px">
+        <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Total</div>
+        <div style="font-size:28px;font-weight:800;color:#0f172a">${_fmt(total)}</div>
+      </div>`
+    : `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="text-align:center">
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Pagado</div>
+          <div style="font-size:18px;font-weight:800;color:${pagado > 0 ? '#16a34a' : '#94a3b8'}">${_fmt(pagado)}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Pendiente</div>
+          <div style="font-size:18px;font-weight:800;color:${pendiente > 0 ? '#dc2626' : '#94a3b8'}">${_fmt(pendiente)}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Total</div>
+          <div style="font-size:18px;font-weight:800;color:#0f172a">${_fmt(total)}</div>
+        </div>
+      </div>`;
   document.getElementById('fact-total-view').innerHTML = `
     <div style="display:flex;justify-content:center;margin-bottom:10px">${statusChip}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
-      <div style="text-align:center">
-        <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Pagado</div>
-        <div style="font-size:18px;font-weight:800;color:${pagado > 0 ? '#16a34a' : '#94a3b8'}">${_fmt(pagado)}</div>
-      </div>
-      <div style="text-align:center">
-        <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Pendiente</div>
-        <div style="font-size:18px;font-weight:800;color:${pendiente > 0 ? '#dc2626' : '#94a3b8'}">${_fmt(pendiente)}</div>
-      </div>
-      <div style="text-align:center">
-        <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Total</div>
-        <div style="font-size:18px;font-weight:800;color:#0f172a">${_fmt(total)}</div>
-      </div>
-    </div>
+    ${montosBlock}
     ${airbnbBlock}
     <div style="margin-top:10px;font-size:13px;color:#475569">Propiedad: <strong>${r.Propiedad||'—'}</strong>${r.Departamento?` #${r.Departamento}`:''}</div>
     <div style="font-size:13px;color:#475569">Fechas: <strong>${r.DateArrival||''} → ${r.DateDeparture||''}</strong></div>
