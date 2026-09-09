@@ -916,15 +916,19 @@ function factRenderStep3_(){
       : `<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#fee2e2;color:#991b1b;font-size:11px;font-weight:800">⨯ PENDIENTE DE PAGO</span>`);
   const _fmt = n => `$${Number(n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
   // ── Desglose Airbnb ──
+  // Base = TotalAmount (Monto total que Airbnb cobró al huésped), NO AmountPaid
+  // (que representa lo que ya nos llegó a nosotros — a veces 0 porque Airbnb
+  // paga después). El admin panel usa el mismo criterio.
   const isAirbnb = String(r.Source || '').toLowerCase().includes('airbnb');
   const AIRBNB_COMMISSION_RATE = 0.155;
-  const comisionAirbnb = isAirbnb ? +(pagado * AIRBNB_COMMISSION_RATE).toFixed(2) : 0;
-  const montoFacturado = isAirbnb ? +(pagado - comisionAirbnb).toFixed(2) : pagado;
+  const baseAirbnb = isAirbnb ? total : pagado;
+  const comisionAirbnb = isAirbnb ? +(baseAirbnb * AIRBNB_COMMISSION_RATE).toFixed(2) : 0;
+  const montoFacturado = isAirbnb ? +(baseAirbnb - comisionAirbnb).toFixed(2) : pagado;
   FACT_STATE.montoFacturado = montoFacturado;
   const airbnbBlock = isAirbnb
     ? `<div style="margin-top:12px;padding:12px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px">
         <div style="font-size:11px;color:#92400e;text-transform:uppercase;letter-spacing:.05em;font-weight:800;margin-bottom:8px">🧾 Ticket para auto-facturación</div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;color:#0f172a;margin-bottom:4px"><span>(=) Monto total Airbnb</span><strong>${_fmt(pagado)}</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:#0f172a;margin-bottom:4px"><span>(=) Monto total Airbnb</span><strong>${_fmt(baseAirbnb)}</strong></div>
         <div style="display:flex;justify-content:space-between;font-size:13px;color:#991b1b;margin-bottom:4px"><span>(−) Comisión Airbnb (15.5%)</span><strong>−${_fmt(comisionAirbnb)}</strong></div>
         <div style="display:flex;justify-content:space-between;font-size:14px;color:#166534;padding-top:6px;border-top:1px solid #f59e0b;margin-top:4px"><span>(+) Monto facturado Total</span><strong>${_fmt(montoFacturado)}</strong></div>
       </div>`
