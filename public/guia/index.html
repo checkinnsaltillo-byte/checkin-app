@@ -716,22 +716,9 @@ async function loadAlojamientos_(id){
 // Modal fullscreen "Verificar disponibilidad" — iframe con url_lodgify.
 // Al cerrar (X o Escape) vuelve a la guía sin recargarla.
 function openBooking_(){
-  const url = window.__bookUrl || '';
-  if (!url) return;
-  const modal = document.getElementById('book-modal');
-  const iframe = document.getElementById('book-iframe');
-  iframe.src = url;
-  modal.style.display = 'block';
-  document.body.style.overflow = 'hidden';
-  const close = () => {
-    modal.style.display = 'none';
-    iframe.src = 'about:blank'; // libera memoria y detiene audio/video
-    document.body.style.overflow = '';
-    document.removeEventListener('keydown', onKey);
-  };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
-  document.getElementById('book-close').onclick = close;
-  document.addEventListener('keydown', onKey);
+  // Redirige a la página pública de reservas (check-inn.mx/reservas/), no al
+  // iframe externo de check-inn-saltillo.com/Lodgify.
+  window.location.href = 'https://www.check-inn.mx/reservas/';
 }
 
 // Lightbox de fotos — swipe móvil, flechas desktop, teclado Esc/←/→.
