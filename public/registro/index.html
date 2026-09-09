@@ -7732,8 +7732,12 @@ function rebuildMedioOptionsFromReservas(reservas) {
 function renderReservaSelector(reservas, phoneRaw, perfilRow, mapper) {
   const host = document.getElementById("reservaSelectorHost");
   if (!host) return;
-  host.innerHTML = "";
+  // Si no hay reservas para renderizar, NO limpiamos el host — puede haber una
+  // card válida de otro lookup (p.ej. code-lookup encontró la reserva y luego
+  // applyReservacionExtras disparó un phone-lookup async que no encontró nada
+  // porque filtra por fecha; sin este guard, la card válida desaparece).
   if (!Array.isArray(reservas) || !reservas.length) return;
+  host.innerHTML = "";
   const _fmt = iso => {
     const m = String(iso || "").match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
     if (m) return `${parseInt(m[3],10)}/${parseInt(m[2],10)}/${m[1]}`;
