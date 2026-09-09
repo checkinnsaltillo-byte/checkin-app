@@ -6745,7 +6745,7 @@ body.has-session input[name="nombre"] {
 <!-- Correos: siempre visibles fuera de #factura_fields (opcional cuando
      factura=No; correo principal se vuelve obligatorio si factura=Sí — se
      valida al hacer wizNext). -->
-<div id="field_correos_always" style="display:block">
+<div id="field_correos_always" style="display:none">
 <label data-i18n="emailPrimary">Correo electrónico (principal)</label>
 <input id="correo1" name="correo1" type="email"/>
 <label data-i18n="emailCopy">Correo electrónico (copia)</label>
@@ -8524,6 +8524,8 @@ function syncFacturaVisibility(){
   if (alwaysMP && section && alwaysMP.parentElement !== section) {
     section.appendChild(alwaysMP);
   }
+  const alwaysCorreos = document.getElementById("field_correos_always");
+  if (alwaysCorreos) alwaysCorreos.style.display = show ? "block" : "none";
   if (facturaNotas) facturaNotas.classList.toggle("hidden", !show);
   const esRegistrado = tipoRegistroInput.value === "registrado";
   if (campoRazonSocial) campoRazonSocial.classList.toggle("hidden", !show || esRegistrado);
