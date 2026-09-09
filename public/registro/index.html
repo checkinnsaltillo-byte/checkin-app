@@ -6741,6 +6741,11 @@ body.has-session input[name="nombre"] {
     The invoice issued by Check-Inn DOES NOT INCLUDE the "Airbnb Commission". If you want to cover the total cost, you must download the invoice for this platform's commission directly from its app.
   </div>
 </div>
+</div>
+<!-- Correos: siempre visibles fuera de #factura_fields (opcional cuando
+     factura=No; correo principal se vuelve obligatorio si factura=Sí — se
+     valida al hacer wizNext). -->
+<div id="field_correos_always" style="display:block">
 <label data-i18n="emailPrimary">Correo electrónico (principal)</label>
 <input id="correo1" name="correo1" type="email"/>
 <label data-i18n="emailCopy">Correo electrónico (copia)</label>
@@ -7293,7 +7298,10 @@ function applyFieldRequirednessMarks() {
   _apply('#factura', '(opcional)', false);
   _apply('#razon_social', '(opcional)', false);
   // Paso 3 — obligatorios cuando aparecen (visibles si factura=Sí)
-  ['#regimen','#medio_pago','#correo1'].forEach(s => _apply(s, '* (obligatorio)', true));
+  ['#regimen','#medio_pago'].forEach(s => _apply(s, '* (obligatorio)', true));
+  // Correos siempre visibles fuera de factura_fields — opcionales por default.
+  // Si factura=Sí, wizNext valida correo1 explícitamente.
+  _apply('#correo1', '(opcional)', false);
   _apply('#correo2', '(opcional)', false);
   _apply('#monto_pagado', '(opcional)', false);
   // Paso 4 — vehículo opcional en su base
@@ -7950,6 +7958,15 @@ window.validateWizStep = function(n) {
       if (!v) missing.push(el);
     });
   });
+  // Paso 3: si factura=Sí y correo principal está vacío → obligatorio
+  if (n === 3) {
+    const facturaSel = document.getElementById('factura');
+    const facturaVal = String(facturaSel?.value || '').toLowerCase();
+    if (facturaVal === 'si' || facturaVal === 'sí' || facturaVal === 'yes') {
+      const c1 = document.getElementById('correo1');
+      if (c1 && !String(c1.value || '').trim() && !missing.includes(c1)) missing.push(c1);
+    }
+  }
   if (missing.length) {
     missing.forEach(el => {
       el.style.setProperty('border', '2px solid #dc2626', 'important');
