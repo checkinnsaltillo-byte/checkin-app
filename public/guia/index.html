@@ -904,26 +904,36 @@ async function factEmit_(){
   const oldTxt = btn.textContent;
   btn.textContent = '⏳ Generando…'; btn.disabled = true;
   try {
-    // Placeholder: llamamos a un endpoint que aún no existe (Pieza A pendiente).
-    // Por ahora enviamos la solicitud como notificación al admin.
+    const r = FACT_STATE.reserva || {};
     const payload = {
-      reservaId: FACT_STATE.reserva?.Id || '',
-      confirmationCode: FACT_STATE.reserva?.ConfirmationCode || '',
+      reservaId: String(r.Id || '').trim(),
       phone: FACT_STATE.phone || '',
+      correo: document.getElementById('fact-correo').value.trim(),
+      monto: Number(r.AmountPaid || r.TotalAmount || 0),
+      currency: String(r.Currency || 'MXN'),
+      propiedad: r.Propiedad || '',
+      arrival: r.DateArrival || '',
+      departure: r.DateDeparture || '',
       razon: document.getElementById('fact-razon').value.trim(),
       rfc: document.getElementById('fact-rfc').value.trim(),
       regimen: document.getElementById('fact-regimen').value,
       cp: document.getElementById('fact-cp').value.trim(),
-      correo: document.getElementById('fact-correo').value.trim(),
-      monto: Number(FACT_STATE.reserva?.AmountPaid || 0),
-      currency: String(FACT_STATE.reserva?.Currency || 'MXN'),
     };
-    console.info('[fact-emit] payload', payload);
-    // TODO Pieza A: llamar POST https://api.check-inn.mx/facturapi/emit-auto con payload
-    alert('🚧 Emisión automática en construcción.\n\nTu solicitud fue registrada y el equipo la procesará en breve. Recibirás el ticket por correo y WhatsApp.');
+    const resp = await fetch('https://api.check-inn.mx/facturapi/emit-auto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const j = await resp.json();
+    if (!j.ok) throw new Error(j.error || `HTTP ${resp.status}`);
+    const parts = [`Folio: #${j.folio}`];
+    if (j.url) parts.push(`Link: ${j.url}`);
+    if (j.mail_sent) parts.push('✓ Correo enviado');
+    if (j.wa_sent) parts.push('✓ WhatsApp enviado');
+    alert('✅ Ticket generado\n\n' + parts.join('\n'));
     closeFacturacion_();
   } catch(e) {
-    alert('Error: ' + (e.message || e));
+    alert('❌ Error: ' + (e.message || e));
   } finally {
     btn.textContent = oldTxt; btn.disabled = false;
   }

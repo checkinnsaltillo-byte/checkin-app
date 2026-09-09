@@ -178,6 +178,7 @@ function doPost(e) {
     if (action === "perfil_upsert_by_phone") return jsonOutput_(perfilUpsertByPhone_(data));
     if (action === "reserva_get_by_confirmation_code") return jsonOutput_(reservaGetByConfirmationCode_(data));
     if (action === "reservas_by_phone") return jsonOutput_(reservasByPhone_(data));
+    if (action === "reservacion_set_folio_by_lodgify_id") return jsonOutput_(reservacionSetFolioByLodgifyId_(data));
     if (action === "emergency_contacts_list") return jsonOutput_(emergencyContactsList_());
     if (action === "emergency_contacts_set")  return jsonOutput_(emergencyContactsSet_(data));
     if (action === "llaves_notas_list") return jsonOutput_(llavesNotasList_());
@@ -378,6 +379,7 @@ function doGet(e) {
     if (action === "perfil_upsert_by_phone") return jsonOutput_(perfilUpsertByPhone_(e.parameter || {}));
     if (action === "reserva_get_by_confirmation_code") return jsonOutput_(reservaGetByConfirmationCode_(e.parameter || {}));
     if (action === "reservas_by_phone") return jsonOutput_(reservasByPhone_(e.parameter || {}));
+    if (action === "reservacion_set_folio_by_lodgify_id") return jsonOutput_(reservacionSetFolioByLodgifyId_(e.parameter || {}));
     if (action === "emergency_contacts_list") return jsonOutput_(emergencyContactsList_());
     if (action === "emergency_contacts_set")  return jsonOutput_(emergencyContactsSet_(e.parameter || {}));
     if (action === "llaves_notas_list") return jsonOutput_(llavesNotasList_());
@@ -10679,6 +10681,45 @@ function _toIsoDateForCompare_(s) {
     return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
   }
   return "";
+}
+
+/**
+ * Escribe/actualiza el Folio facturapi en la hoja Reservaciones para la fila
+ * cuyo "Lodgify Id" matchee. Si no hay fila con ese id, crea una nueva con
+ * mínimos datos (Lodgify Id + Folio facturapi + Marca temporal).
+ */
+function reservacionSetFolioByLodgifyId_(data) {
+  var lid = String(data && data.lodgify_id || "").trim();
+  var folio = String(data && data.folio || "").trim();
+  if (!lid) return { ok:false, error:"lodgify_id requerido" };
+  if (!folio) return { ok:false, error:"folio requerido" };
+  var sh = getSheet_(RESERVACIONES_SHEET);
+  var headers = getHeaders_(sh);
+  var iLI = headers.indexOf("Lodgify Id");
+  var iFO = headers.indexOf("Folio facturapi");
+  if (iLI < 0 || iFO < 0) return { ok:false, error:"columnas 'Lodgify Id' o 'Folio facturapi' no existen en Reservaciones" };
+  var last = sh.getLastRow();
+  var foundRow = -1;
+  if (last >= 2) {
+    var vals = sh.getRange(2, iLI + 1, last - 1, 1).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      if (String(vals[i][0] || "").trim() === lid) { foundRow = i + 2; break; }
+    }
+  }
+  if (foundRow > 0) {
+    sh.getRange(foundRow, iFO + 1).setValue(folio);
+    return { ok:true, row: foundRow, action:"updated" };
+  }
+  // Crear fila nueva mínima
+  var iMT = headers.indexOf("Marca temporal");
+  var iID = headers.indexOf("ID");
+  var newRow = new Array(headers.length).fill("");
+  if (iID >= 0) newRow[iID] = Utilities.getUuid();
+  if (iMT >= 0) newRow[iMT] = new Date();
+  newRow[iLI] = lid;
+  newRow[iFO] = folio;
+  sh.appendRow(newRow);
+  return { ok:true, row: sh.getLastRow(), action:"created" };
 }
 
 function perfilUpsertByPhone_(data) {
