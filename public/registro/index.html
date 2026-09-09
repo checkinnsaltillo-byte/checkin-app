@@ -7344,9 +7344,9 @@ function applyFieldRequirednessMarks() {
   _apply('#razon_social', '(opcional)', false);
   // Paso 3 — obligatorios cuando aparecen (visibles si factura=Sí)
   ['#regimen','#medio_pago'].forEach(s => _apply(s, '* (obligatorio)', true));
-  // Correos siempre visibles fuera de factura_fields — opcionales por default.
-  // Si factura=Sí, wizNext valida correo1 explícitamente.
-  _apply('#correo1', '(opcional)', false);
+  // Correo principal: obligatorio (aparece solo cuando factura=Sí).
+  // Copia: opcional.
+  _apply('#correo1', '* (obligatorio)', true);
   _apply('#correo2', '(opcional)', false);
   _apply('#monto_pagado', '(opcional)', false);
   // Paso 4 — vehículo opcional en su base
