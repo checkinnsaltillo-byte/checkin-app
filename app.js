@@ -32907,7 +32907,7 @@ const ASIST_STATE = {
 };
 
 // Columnas que se ocultan de la tabla (redundantes o metadatos)
-const ASIST_HIDDEN_COLS = new Set(['Empleado_ID','Horas_extra','ID','Ubicacion_Lat','Ubicacion_Lng','GPS_Accuracy','Tipo','Hora']);
+const ASIST_HIDDEN_COLS = new Set(['Empleado_ID','Horas_extra','ID','Ubicacion_Lat','Ubicacion_Lng','Ubicacion_Entrada_Lat','Ubicacion_Entrada_Lng','Ubicacion_Salida_Lat','Ubicacion_Salida_Lng','GPS_Accuracy','Tipo','Hora']);
 const ASIST_PRIMA_COLS = ['$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)'];
 const ASIST_TOTAL_COL = '$ Salario total';
 // Columnas derivadas — no vienen del sheet, se calculan on-the-fly
@@ -33347,8 +33347,38 @@ function asistRowMonto_(row) {
   return n;
 }
 
+/** Normaliza un timestamp a "YYYY-MM-DD HH:MM:SS" acepta:
+ *  - Date object serializado como ISO
+ *  - "M/D/YYYY H:MM:SS" (formato Google Sheets US)
+ *  - "YYYY-MM-DD HH:MM:SS" (ya normalizado)
+ *  Devuelve la cadena original si no puede parsear. */
+function _asistFmtTimestamp(v) {
+  if (v == null || v === '') return '';
+  const s = String(v).trim();
+  // Ya viene en formato YYYY-MM-DD HH:MM(:SS) — solo asegura 2 dígitos.
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) {
+    const [_, Y, Mo, D, H, Mi, Sec] = m;
+    return `${Y}-${Mo.padStart(2,'0')}-${D.padStart(2,'0')} ${H.padStart(2,'0')}:${Mi}:${(Sec||'00').padStart(2,'0')}`;
+  }
+  // Formato US: "M/D/YYYY H:MM:SS"
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) {
+    const [_, Mo, D, Y, H, Mi, Sec] = m;
+    return `${Y}-${Mo.padStart(2,'0')}-${D.padStart(2,'0')} ${H.padStart(2,'0')}:${Mi}:${(Sec||'00').padStart(2,'0')}`;
+  }
+  // Intento último: Date parse
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+  return s;
+}
+
 /** Devuelve el valor de una columna para un row, incluye columnas derivadas. */
 function asistCellValue(row, col, dayIdx) {
+  if (col === 'Timestamp') return _asistFmtTimestamp(row[col]);
   if (col === 'Entrada' || col === 'Salida' || col === 'Horas') {
     const nombre = String(row.Empleado_Nombre||'').trim();
     const fecha  = String(row.Fecha||'').slice(0,10);
@@ -33378,10 +33408,23 @@ function asistCellValue(row, col, dayIdx) {
       .reduce((s,k) => s + (typeof p[k] === 'number' ? p[k] : 0), 0);
     return total ? asistPanelFmtMonto_(total) : '';
   }
-  // Columna virtual 'Ubicación': combina Ubicacion_Lat + Ubicacion_Lng
+  // Columnas virtuales de ubicación (entrada/salida). Prefiere las columnas
+  // específicas del evento; si no hay, usa la legacy Ubicacion_Lat/Lng como
+  // fallback (solo en Ubicación entrada, para no duplicar).
+  if (col === 'Ubicación entrada') {
+    let la = row.Ubicacion_Entrada_Lat, ln = row.Ubicacion_Entrada_Lng;
+    if ((la == null || la === '') && row.Ubicacion_Lat != null) { la = row.Ubicacion_Lat; ln = row.Ubicacion_Lng; }
+    if (la == null || la === '' || ln == null || ln === '') return '';
+    return `${Number(la).toFixed(6)}, ${Number(ln).toFixed(6)}`;
+  }
+  if (col === 'Ubicación salida') {
+    const la = row.Ubicacion_Salida_Lat, ln = row.Ubicacion_Salida_Lng;
+    if (la == null || la === '' || ln == null || ln === '') return '';
+    return `${Number(la).toFixed(6)}, ${Number(ln).toFixed(6)}`;
+  }
+  // Legacy: 'Ubicación' individual (aún funciona por si algún código la usa)
   if (col === 'Ubicación' || col === 'Ubicacion') {
-    const la = row.Ubicacion_Lat;
-    const ln = row.Ubicacion_Lng;
+    const la = row.Ubicacion_Lat, ln = row.Ubicacion_Lng;
     if (la == null || la === '' || ln == null || ln === '') return '';
     return `${Number(la).toFixed(6)}, ${Number(ln).toFixed(6)}`;
   }
@@ -33393,12 +33436,21 @@ function asistCellValue(row, col, dayIdx) {
 
 function asistCellHtml(row, col, dayIdx, editing) {
   const v = asistCellValue(row, col, dayIdx);
-  // Columna virtual 'Ubicación': lat, lng como link a Google Maps (read-only).
-  if (col === 'Ubicación' || col === 'Ubicacion') {
+  // Columnas virtuales de ubicación: lat, lng como link a Google Maps
+  if (col === 'Ubicación entrada' || col === 'Ubicación salida' || col === 'Ubicación' || col === 'Ubicacion') {
     if (!v) return `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#94a3b8;font-style:italic">—</td>`;
-    const la = Number(row.Ubicacion_Lat);
-    const ln = Number(row.Ubicacion_Lng);
-    const url = `https://www.google.com/maps?q=${la},${ln}`;
+    let la, ln;
+    if (col === 'Ubicación entrada') {
+      la = row.Ubicacion_Entrada_Lat != null && row.Ubicacion_Entrada_Lat !== '' ? row.Ubicacion_Entrada_Lat : row.Ubicacion_Lat;
+      ln = row.Ubicacion_Entrada_Lng != null && row.Ubicacion_Entrada_Lng !== '' ? row.Ubicacion_Entrada_Lng : row.Ubicacion_Lng;
+    } else if (col === 'Ubicación salida') {
+      la = row.Ubicacion_Salida_Lat;
+      ln = row.Ubicacion_Salida_Lng;
+    } else {
+      la = row.Ubicacion_Lat;
+      ln = row.Ubicacion_Lng;
+    }
+    const url = `https://www.google.com/maps?q=${Number(la)},${Number(ln)}`;
     return `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap"><a href="${esc(url)}" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:none;font-family:ui-monospace,monospace">📍 ${esc(v)}</a></td>`;
   }
   const isDerived = ASIST_DERIVED_COLS.includes(col);
@@ -33610,8 +33662,9 @@ function asistVisibleHeaders() {
       for (const d of ['Entrada','Salida','Horas']) if (!out.includes(d)) out.push(d);
       // Meta (Concepto, Metodo)
       for (const m of ['Concepto','Metodo']) if (raw.includes(m) && !out.includes(m)) out.push(m);
-      // Ubicación (virtual: combina Ubicacion_Lat + Ubicacion_Lng)
-      if (!out.includes('Ubicación')) out.push('Ubicación');
+      // Ubicación entrada + salida (virtuales, separadas por evento)
+      if (!out.includes('Ubicación entrada')) out.push('Ubicación entrada');
+      if (!out.includes('Ubicación salida')) out.push('Ubicación salida');
       // Columnas de dinero
       for (const d of ['$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','$ Salario total']) if (!out.includes(d)) out.push(d);
     }
@@ -33619,7 +33672,8 @@ function asistVisibleHeaders() {
   // Fallback si no hubo Fecha
   for (const d of ASIST_DERIVED_COLS) if (!out.includes(d)) out.push(d);
   for (const m of ['Concepto','Metodo']) if (raw.includes(m) && !out.includes(m)) out.push(m);
-  if (!out.includes('Ubicación')) out.push('Ubicación');
+  if (!out.includes('Ubicación entrada')) out.push('Ubicación entrada');
+  if (!out.includes('Ubicación salida')) out.push('Ubicación salida');
   if (raw.includes('Observaciones')) out.push('Observaciones');
   return out;
 }
