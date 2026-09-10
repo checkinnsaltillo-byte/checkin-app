@@ -8194,6 +8194,30 @@ function onClassifySearch(i, q) {
     return `<div class="search-result-item" onmousedown="applySearchResult('${i}',${idx})">${html}</div>`;
   }).join("");
   resEl.classList.remove("hidden");
+  _positionSearchResults(i);
+}
+
+/** Coloca el dropdown de resultados arriba del input cuando no hay espacio
+ *  debajo (última card del listado o zoom fuerte). Se recalcula cada vez
+ *  que aparecen resultados. */
+function _positionSearchResults(i) {
+  const inp = document.getElementById(`search-${i}`);
+  const drop = document.getElementById(`search-results-${i}`);
+  if (!inp || !drop) return;
+  // Espera al siguiente frame para que el navegador conozca el alto real.
+  requestAnimationFrame(() => {
+    const inpRect = inp.getBoundingClientRect();
+    const dropH = Math.min(drop.scrollHeight, 280); // max-height CSS = 280px
+    const spaceBelow = window.innerHeight - inpRect.bottom;
+    const spaceAbove = inpRect.top;
+    if (spaceBelow < dropH + 16 && spaceAbove > spaceBelow) {
+      drop.style.top = 'auto';
+      drop.style.bottom = 'calc(100% + 6px)';
+    } else {
+      drop.style.top = 'calc(100% + 6px)';
+      drop.style.bottom = 'auto';
+    }
+  });
 }
 
 function hideSearchResults(i) {
