@@ -7368,14 +7368,22 @@ function applyFieldRequirednessMarks() {
     }
     if (isReq) el.setAttribute('required', '');
   };
-  // Paso 2 — obligatorios
+  // Paso 2 — obligatorios (# Huéspedes ahora es obligatorio)
   ['input[name="nombre"]','select[name="propiedad"]','select[name="depto"]','select[name="medio"]',
-   'input[name="ingreso"]','input[name="salida"]'
+   'input[name="ingreso"]','input[name="salida"]','#num_huespedes'
   ].forEach(s => _apply(s, '* (obligatorio)', true));
   // Paso 2 — opcionales
-  ['#num_huespedes','#identificacion_tipo','#motivo',
+  ['#identificacion_tipo','#motivo',
    'input[name="emergencia"]'
   ].forEach(s => _apply(s, '(opcional)', false));
+  // Nombres de los huéspedes (label junto al contenedor dinámico) → opcional.
+  try {
+    document.querySelectorAll('label[data-i18n="guestNames"]').forEach(lbl => {
+      let txt = String(lbl.textContent || '').trim();
+      [' * (obligatorio)','* (obligatorio)',' (opcional)','(opcional)'].forEach(m => { txt = txt.replace(m,'').trim(); });
+      lbl.textContent = txt + ' (opcional)';
+    });
+  } catch(_){}
   // Paso 3 — factura (opcional siempre)
   _apply('#factura', '(opcional)', false);
   _apply('#razon_social', '(opcional)', false);
