@@ -6821,6 +6821,7 @@ body.has-session input[name="nombre"] {
   <button type="button" id="wiz-btn-prev" onclick="wizPrev()" style="flex:0 0 auto;padding:12px 20px;background:#f1f5f9;color:#334155;border:1.5px solid #cbd5e1;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px">← Atrás</button>
   <button type="button" id="wiz-btn-next" onclick="wizNext()" style="flex:1;padding:14px 20px;background:#2563eb;color:#fff;border:0;border-radius:12px;font-weight:800;cursor:pointer;font-size:15px">Siguiente →</button>
   <button data-i18n="send" id="submitBtn" type="submit" style="flex:1;display:none">Finalizar registro</button>
+  <button type="submit" id="saveChangesBtn" style="flex:1;display:none;padding:14px 20px;background:#ea580c;color:#fff;border:0;border-radius:12px;font-weight:800;cursor:pointer;font-size:15px">💾 Guardar cambios</button>
   <div class="status" id="statusMessage" style="width:100%"></div>
 </div></div></form>
 </div>
@@ -6922,6 +6923,12 @@ window.popupAceptarYEnviar = function(){
 // top layer del OS que ignora z-index CSS.
 window.mostrarMiniPopupEnviado = function(opts){
   opts = opts || {};
+  // Modo edición: no mostramos mini popup — cerramos directo (comportamiento
+  // solicitado para el botón "Guardar cambios").
+  if (window.WIZ_EDIT_MODE) {
+    try { if (typeof window._miniPopupCerrarYRedirect === 'function') window._miniPopupCerrarYRedirect(); } catch(_){}
+    return;
+  }
   var titulo    = String(opts.titulo || 'Registro exitoso');
   var subtitulo = String(opts.subtitulo || 'El formulario se envió correctamente.');
   var existing = document.getElementById('miniPopupEnviado');
@@ -6953,18 +6960,38 @@ window.mostrarMiniPopupEnviado = function(opts){
           cp: _sv('codigo_postal') || _sv('cp'),
         };
       } catch(_){}
-      var btnStyle = info.canEmit
-        ? 'background:#16a34a;cursor:pointer;opacity:1'
-        : 'background:#94a3b8;cursor:not-allowed;opacity:.7';
-      factSection =
-        '<div style="margin:14px 0 12px;padding-top:14px;border-top:1px dashed #cbd5e1">' +
-          '<div style="font-size:14px;font-weight:800;color:#7c3aed;margin-bottom:10px">📄 Ticket para auto-facturación</div>' +
-          info.html +
+      // Si el ticket YA se generó (folio existe), reemplaza el botón "Generar"
+      // por "Descargar ticket generado" que abre el PDF de Drive.
+      var r_ = window.WIZ_SELECTED_RESERVA || {};
+      var existingFolio = String(r_.FolioFacturapi || '').trim();
+      var existingUrl = String(r_.TicketUrl || '').trim();
+      var actionBtn;
+      if (existingFolio) {
+        var dlDisabled = !existingUrl;
+        actionBtn =
+          '<button type="button" onclick="' + (existingUrl
+            ? "window.open('" + existingUrl.replace(/'/g,"\\'") + "','_blank','noopener')"
+            : "alert('Folio #" + existingFolio + " — el link del ticket aún no está disponible en Drive.')") + '" ' +
+            'style="display:block;width:100%;padding:12px 22px;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:800;margin-top:12px;background:' +
+            (dlDisabled ? '#94a3b8' : '#2563eb') + ';cursor:pointer">' +
+            '⬇️ Descargar ticket generado · Folio #' + existingFolio +
+          '</button>';
+      } else {
+        var btnStyle = info.canEmit
+          ? 'background:#16a34a;cursor:pointer;opacity:1'
+          : 'background:#94a3b8;cursor:not-allowed;opacity:.7';
+        actionBtn =
           '<button id="_miniPopupGenTicketBtn" type="button" onclick="window._miniPopupGenTicket_(this)" ' +
             (info.canEmit ? '' : 'disabled ') +
             'style="display:block;width:100%;padding:12px 22px;color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:800;margin-top:12px;' + btnStyle + '">' +
             '✅ Generar ticket de auto-facturación' +
-          '</button>' +
+          '</button>';
+      }
+      factSection =
+        '<div style="margin:14px 0 12px;padding-top:14px;border-top:1px dashed #cbd5e1">' +
+          '<div style="font-size:14px;font-weight:800;color:#7c3aed;margin-bottom:10px">📄 Ticket para auto-facturación</div>' +
+          info.html +
+          actionBtn +
         '</div>';
     }
   } catch(_){}
@@ -7564,9 +7591,14 @@ async function detectExistingGuestByPhone(){
   }
 
   // Reset del estado de identificación — el botón Siguiente se re-oculta
-  // hasta que este lookup renderice una card válida.
-  window.WIZ_IDENTIFIED = false;
-  try { if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1); } catch(_){}
+  // hasta que este lookup renderice una card válida. EXCEPCIÓN: si ya hay
+  // una reserva identificada (por code-lookup y este phone-lookup corre como
+  // side-effect del change en lada1), preservamos WIZ_IDENTIFIED para no
+  // esconder "Siguiente" durante el fetch.
+  if (!window.WIZ_SELECTED_RESERVA) {
+    window.WIZ_IDENTIFIED = false;
+    try { if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1); } catch(_){}
+  }
 
   if (!digits || digits.length < 10) {
     resetAutofillToNewMode();
@@ -8004,6 +8036,8 @@ window.wizGoTo = function(n) {
     send.style.display = n === 4 ? '' : 'none';
     if (n === 4) send.textContent = 'Finalizar registro';
   }
+  // Botón "Guardar cambios" visible en cualquier paso si hay cambios en modo edición
+  if (typeof updateSaveChangesBtnVisibility === 'function') updateSaveChangesBtnVisibility();
   // Scroll al top del popup
   try {
     const view = document.getElementById('viewRegistro');
@@ -8217,6 +8251,12 @@ async function detectExistingGuestByConfirmationCode() {
         renderReservaSelector([_fromReserva(json.reserva)], json.phone || "", json.perfil || null,
           (r,ph,pf) => Object.assign({}, merged));
         window.WIZ_IDENTIFIED = true;
+        // Activa modo edición si la reserva ya fue registrada previamente:
+        // permite navegar y aparecerá "Guardar cambios" cuando el huésped
+        // modifique cualquier campo.
+        window.WIZ_EDIT_MODE = !!json.reserva.Registrado;
+        window.WIZ_DIRTY = false;
+        if (typeof updateSaveChangesBtnVisibility === 'function') updateSaveChangesBtnVisibility();
         if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1);
       } catch(e) { console.warn(e); }
     }
@@ -8241,6 +8281,33 @@ async function detectExistingGuestByConfirmationCode() {
     revealExpressFormBody();
   }
 }
+// ═══ Dirty tracking para "Guardar cambios" en reservas ya registradas ═══
+window.WIZ_DIRTY = false;
+window.WIZ_EDIT_MODE = false;  // true cuando el reserva encontrada ya es "Registrado"
+function updateSaveChangesBtnVisibility(){
+  var btn = document.getElementById('saveChangesBtn');
+  if (!btn) return;
+  var show = !!(window.WIZ_EDIT_MODE && window.WIZ_DIRTY);
+  btn.style.display = show ? '' : 'none';
+}
+window.markWizDirty_ = function(){
+  if (!window.WIZ_EDIT_MODE) return;  // solo relevante en modo edición
+  window.WIZ_DIRTY = true;
+  updateSaveChangesBtnVisibility();
+};
+// Escucha cambios en cualquier campo del form (input + change + keyup en textareas)
+document.addEventListener('DOMContentLoaded', function(){
+  var form = document.getElementById('form');
+  if (!form) return;
+  ['input','change'].forEach(function(evt){
+    form.addEventListener(evt, function(e){
+      var t = e.target;
+      if (!t || !t.tagName) return;
+      if (t.id === 'confirmation_code_input' || t.id === 'celular_principal_input') return;
+      window.markWizDirty_();
+    });
+  });
+});
 function scheduleCodeLookup() {
   clearTimeout(codeLookupTimer);
   // Al escribir un código NUEVO (distinto al último resuelto), borra
@@ -8257,6 +8324,9 @@ function scheduleCodeLookup() {
       setGuestAutofillMessage("", "");
       window.WIZ_SELECTED_RESERVA = null;
       window.WIZ_IDENTIFIED = false;
+      window.WIZ_EDIT_MODE = false;
+      window.WIZ_DIRTY = false;
+      if (typeof updateSaveChangesBtnVisibility === 'function') updateSaveChangesBtnVisibility();
       if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1);
     }
   } catch(_){}
@@ -9214,15 +9284,19 @@ document.getElementById("form").addEventListener("submit", async function(e){
     submitBtn.textContent = "Enviando...";
     status.textContent = "Preparando registro…";
     status.classList.add("success");
-    // Muestra popup DIRECTAMENTE en success state (con reglamento + Aceptar).
-    // El formulario NO se guarda todavía — espera a que el usuario acepte.
-    mostrarVentanaExito();
-    await esperarRepintadoUI();
-    // Gate: pausa hasta que el usuario click "Aceptar y salir" (popupAceptarYEnviar).
-    await new Promise((resolve, reject) => {
-      window.__popupAcceptResolve = resolve;
-      window.__popupAcceptReject  = reject;
-    });
+    // En modo edición (reserva ya Registrada, click "Guardar cambios"),
+    // saltamos el reglamento — el huésped ya lo aceptó en el registro original.
+    if (!window.WIZ_EDIT_MODE) {
+      mostrarVentanaExito();
+      await esperarRepintadoUI();
+      await new Promise((resolve, reject) => {
+        window.__popupAcceptResolve = resolve;
+        window.__popupAcceptReject  = reject;
+      });
+    } else {
+      mostrarVentanaEnvio();
+      await esperarRepintadoUI();
+    }
     // El usuario ya aceptó → transición a loading + fetch real
     mostrarVentanaEnvio();
     status.textContent = "Enviando registro...";
