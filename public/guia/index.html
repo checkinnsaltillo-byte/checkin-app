@@ -850,9 +850,17 @@ function factRenderCards_(reservas, hostId){
     const folio = String(r.FolioFacturapi || '').trim();
     const ticketUrl = String(r.TicketUrl || '').trim();
     const hasFolio = !!folio;
-    const chip = hasFolio
+    // Chip de check-in: REGISTRADO si "# Huéspedes" (r.NumberOfGuests) > 0,
+    // PENDIENTE si vacío/0. Mismo criterio en Gestión de reservas, Check-in
+    // y aquí (Auto-facturación).
+    const nh = String(r.NumberOfGuests != null ? r.NumberOfGuests : '').trim();
+    const isRegistrado = nh !== '' && nh !== '0';
+    const chipRegistro = isRegistrado
+      ? `<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#0f172a;color:#fff;font-size:10px;font-weight:800;letter-spacing:.03em">REGISTRADO</span>`
+      : `<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#f59e0b;color:#78350f;font-size:10px;font-weight:800;letter-spacing:.03em">PENDIENTE</span>`;
+    const chipTicket = hasFolio
       ? `<span onclick="event.stopPropagation();factOpenTicket_('${folio}','${ticketUrl.replace(/'/g,"\\'")}')" style="display:inline-block;padding:5px 10px;border-radius:99px;background:#dcfce7;color:#166534;font-size:11px;font-weight:800;cursor:pointer;border:1px solid #86efac">🎟️ Ver Ticket · Folio #${folio}</span>`
-      : `<span style="display:inline-block;padding:3px 8px;border-radius:99px;background:#fef3c7;color:#92400e;font-size:11px;font-weight:800">Pendiente</span>`;
+      : '';
     const onClick = hasFolio ? '' : `onclick="factPickReserva_(${i}, '${hostId}')"`;
     const cursor = hasFolio ? 'default' : 'pointer';
     const propLine = r.Propiedad || '(sin propiedad)';
@@ -861,7 +869,7 @@ function factRenderCards_(reservas, hostId){
     return `<button type="button" data-idx="${i}" ${onClick} style="text-align:left;padding:12px;border:2px solid #e2e8f0;background:#fff;border-radius:10px;font-family:inherit;width:100%;margin-bottom:8px;cursor:${cursor}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px;flex-wrap:wrap">
         <div style="font-weight:800;color:#0f172a;font-size:13px">${propLine}${depto}</div>
-        ${chip}
+        <div style="display:flex;gap:4px;flex-wrap:wrap">${chipRegistro}${chipTicket}</div>
       </div>
       ${guestName ? `<div style="font-size:12px;color:#0f172a;font-weight:700;margin-bottom:2px">👤 ${guestName}</div>` : ''}
       <div style="font-size:12px;color:#475569">${_fmt(r.DateArrival)} → ${_fmt(r.DateDeparture)}${r.Nights?` · ${r.Nights} noches`:''}</div>

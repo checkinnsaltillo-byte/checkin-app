@@ -7819,17 +7819,15 @@ function renderReservaSelector(reservas, phoneRaw, perfilRow, mapper) {
     const dateLine = `${_fmt(r.DateArrival)} → ${_fmt(r.DateDeparture)}${r.Nights?` · ${r.Nights} noches`:""}`;
     const codeLine = r.ConfirmationCode ? `<div style="font-size:11px;color:#64748b;font-family:ui-monospace,monospace;margin-top:2px">${r.ConfirmationCode}</div>` : "";
     const srcLine = r.Source ? `<div style="font-size:11px;color:#64748b;margin-top:2px">${r.Source}</div>` : "";
-    // Chip "Registrado" (negro) si la reserva ya se registró
+    // Chip "REGISTRADO" (negro) o "PENDIENTE" (naranja) según registro manual.
     const chipRegistrado = r.Registrado
       ? `<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#0f172a;color:#fff;font-size:10px;font-weight:800;letter-spacing:.03em;margin-right:6px">REGISTRADO</span>`
-      : "";
+      : `<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#f59e0b;color:#78350f;font-size:10px;font-weight:800;letter-spacing:.03em;margin-right:6px">PENDIENTE</span>`;
     // Chip verde "Ver ticket · Folio #X" si hay folio (abre URL si existe)
     const chipTicket = r.FolioFacturapi
       ? `<span class="ver-ticket-chip" onclick="event.stopPropagation();${r.TicketUrl ? `window.open('${String(r.TicketUrl).replace(/'/g,"\\'")}','_blank','noopener')` : `alert('Folio #${r.FolioFacturapi} — el link del ticket aún no está disponible en Drive.')`};" style="display:inline-block;padding:3px 10px;border-radius:99px;background:#16a34a;color:#fff;font-size:10px;font-weight:800;letter-spacing:.03em;cursor:pointer;transition:transform 80ms ease,background 80ms ease,box-shadow 80ms ease;user-select:none">✓ VER TICKET · FOLIO #${r.FolioFacturapi}</span>`
       : "";
-    const chipsRow = (chipRegistrado || chipTicket)
-      ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${chipRegistrado}${chipTicket}</div>`
-      : "";
+    const chipsRow = `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${chipRegistrado}${chipTicket}</div>`;
     btn.innerHTML = `<div style="font-weight:700;color:#0f172a;font-size:13px">${propLine}${deptoLine}</div>
       <div style="font-size:12px;color:#334155;margin-top:2px">${dateLine}</div>
       ${codeLine}${srcLine}${chipsRow}`;
