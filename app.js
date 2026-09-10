@@ -34623,6 +34623,9 @@ window.asistGuardarRegistro = async function () {
   // (a) Celdas con concepto deseado nuevo o distinto al actual → delete+create.
   // Normalizamos: si la fila del sheet tiene Concepto vacío pero hay
   // Entrada/Salida, se considera 'Asistencia' (que es el default visual).
+  // IMPORTANTE: preservamos Metodo + Entrada + Salida + Ubicaciones del row
+  // original — nunca sobreescribimos Metodo=WhatsApp con Manual solo por
+  // cambiar el Concepto.
   desiredByKey.forEach((concepto, key) => {
     const [nombre, iso] = key.split('|');
     const row = rowByKey.get(key);
@@ -34631,6 +34634,17 @@ window.asistGuardarRegistro = async function () {
         ((String(row.Entrada||'').trim() || String(row.Salida||'').trim()) ? 'Asistencia' : '');
       if (conceptoActual === concepto) return; // sin cambios
       if (row.ID) deletes.push(row.ID);
+      // Preserva metadatos del registro original al recrearlo.
+      creates.push({
+        nombre, iso, concepto,
+        preserveMetodo: String(row.Metodo || '').trim(),
+        preserveEntrada: String(row.Entrada || '').trim(),
+        preserveSalida: String(row.Salida || '').trim(),
+        preserveHoras: String(row.Horas || '').trim(),
+        preserveLat: row.Ubicacion_Lat, preserveLng: row.Ubicacion_Lng,
+        preserveLatSal: row.Ubicacion_Salida_Lat, preserveLngSal: row.Ubicacion_Salida_Lng,
+      });
+      return;
     }
     creates.push({ nombre, iso, concepto });
   });
@@ -34655,24 +34669,39 @@ window.asistGuardarRegistro = async function () {
       if (j.ok) ok++; else err++;
     } catch { err++; }
   }
-  // 2) CREATES (entrada/salida/horas solo aplican a 'Asistencia')
-  for (const { nombre, iso, concepto } of creates) {
+  // 2) CREATES (entrada/salida/horas solo aplican a 'Asistencia').
+  // Si el create viene de un cambio sobre una fila existente, preserva
+  // Metodo + Entrada/Salida/Horas/Ubicaciones (no sobreescribas WhatsApp con Manual).
+  for (const c of creates) {
+    const { nombre, iso, concepto } = c;
     const p = asistPanelPrimasPorConcepto_(concepto);
     const fmt = v => v === '' ? '' : asistPanelFmtMonto_(v);
     const total_pago = ['salBase','primaVac','primaDom','primaDF'].reduce((s,k) => s + (typeof p[k] === 'number' ? p[k] : 0), 0);
     const isAs = concepto === 'Asistencia';
+    const metodoFinal = c.preserveMetodo || 'Manual';
+    // Entrada/Salida/Horas: si venía preservado, úsalo; si es nuevo Asistencia,
+    // default 08:30-13:30; para otros conceptos, en blanco.
+    const entrada = c.preserveEntrada != null && c.preserveEntrada !== ''
+      ? c.preserveEntrada : (isAs ? '08:30' : '');
+    const salida = c.preserveSalida != null && c.preserveSalida !== ''
+      ? c.preserveSalida : (isAs ? '13:30' : '');
+    const horas = c.preserveHoras != null && c.preserveHoras !== ''
+      ? c.preserveHoras : (isAs ? '5h00' : '');
     const payload = {
       Empleado_Nombre: nombre, Fecha: iso, Concepto: concepto,
-      Entrada: isAs ? '08:30' : '',
-      Salida:  isAs ? '13:30' : '',
-      Horas:   isAs ? '5h00'  : '',
+      Entrada: entrada, Salida: salida, Horas: horas,
       '$ Salario base':             fmt(p.salBase),
       '$ Prima vacacional (25%)':   fmt(p.primaVac),
       '$ Prima dominical (25%)':    fmt(p.primaDom),
       '$ Prima día feriado (200%)': fmt(p.primaDF),
       '$ Salario total':            total_pago ? asistPanelFmtMonto_(total_pago) : '',
-      Metodo: 'Manual', Observaciones: '',
+      Metodo: metodoFinal, Observaciones: '',
     };
+    // Ubicaciones preservadas (solo si vienen).
+    if (c.preserveLat != null && c.preserveLat !== '') payload.Ubicacion_Lat = c.preserveLat;
+    if (c.preserveLng != null && c.preserveLng !== '') payload.Ubicacion_Lng = c.preserveLng;
+    if (c.preserveLatSal != null && c.preserveLatSal !== '') payload.Ubicacion_Salida_Lat = c.preserveLatSal;
+    if (c.preserveLngSal != null && c.preserveLngSal !== '') payload.Ubicacion_Salida_Lng = c.preserveLngSal;
     try {
       const r = await fetch(`${BACKEND}/rh/asistencia`, {
         method:'POST', headers:{ 'Content-Type':'application/json' },
