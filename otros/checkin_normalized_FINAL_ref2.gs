@@ -11154,8 +11154,12 @@ function asistenciaMarcar_(data) {
     };
     var em = _min(ent), sm = _min(sal);
     if (em != null && sm != null && sm >= em) {
-      var horas = Math.round(((sm - em) / 60) * 100) / 100;
-      sh.getRange(rowNum, iHrs + 1).setValue(horas);
+      // Formato "Xh MM" (mismo que usa el resto de la hoja).
+      var diffMin = sm - em;
+      var hh = Math.floor(diffMin / 60);
+      var mm = diffMin % 60;
+      var horasStr = hh + "h" + (mm < 10 ? "0" + mm : mm);
+      sh.getRange(rowNum, iHrs + 1).setValue(horasStr);
     }
   }
   SpreadsheetApp.flush();
