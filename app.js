@@ -34092,36 +34092,9 @@ window.asistPanelCellToggleConcepto = function (nombre, iso, concepto, ev) {
   // Cierra el menú tras la selección (single-select).
   const m = document.getElementById('asist-panel-cell-menu');
   if (m) m.remove();
-  // Encola cambio pendiente (no se persiste hasta "Guardar cambios"):
-  //   Marcar 'Asistencia' → agrega a pendingCreate (si no existe fila real).
-  //   Desmarcar 'Asistencia' → agrega row.ID a pendingDelete (si existía).
-  if (concepto === 'Asistencia') {
-    st.pendingCreate = st.pendingCreate || new Map();
-    st.pendingDelete = st.pendingDelete || new Set();
-    const key = `${nombre}|${iso}`;
-    const rowExistente = (ASIST_STATE?.rows || []).find(r => {
-      const nm = String(r.Empleado_Nombre || '').trim();
-      let f = r.Fecha;
-      if (f instanceof Date) {
-        const pad = n => String(n).padStart(2,'0');
-        f = `${f.getFullYear()}-${pad(f.getMonth()+1)}-${pad(f.getDate())}`;
-      } else {
-        f = String(f || '').slice(0,10);
-      }
-      return nm === nombre && f === iso;
-    });
-    if (!wasSelected) {
-      // Marcando: si no había fila real, encola create. Si el usuario había
-      // encolado su borrado antes, revierte esa acción.
-      if (st.pendingDelete.has(rowExistente?.ID)) st.pendingDelete.delete(rowExistente.ID);
-      else if (!rowExistente) st.pendingCreate.set(key, { nombre, iso });
-    } else {
-      // Desmarcando: si tenía pendingCreate encolado, sacálo. Si había fila
-      // real (independientemente del Método), encola su borrado.
-      if (st.pendingCreate.has(key)) st.pendingCreate.delete(key);
-      else if (rowExistente && rowExistente.ID) st.pendingDelete.add(rowExistente.ID);
-    }
-  }
+  // El diff real (creates/deletes/updates) se computa al oprimir "Guardar
+  // cambios" comparando st.celdas contra ASIST_STATE.rows. Solo marcamos
+  // el flag dirty y salimos.
 };
 
 async function _asistPanelEliminarRegistro(id) {
@@ -34598,8 +34571,38 @@ window.asistGuardarRegistro = async function () {
   const st = asistPanelState_();
   const status = document.getElementById('asist-status');
   const btn = document.getElementById('asist-btn-guardar');
-  const creates = Array.from(st.pendingCreate?.values() || []);
-  const deletes = Array.from(st.pendingDelete || []);
+  const _pad = n => String(n).padStart(2,'0');
+  const _fechaOf = r => {
+    const f = r.Fecha;
+    if (f instanceof Date) return `${f.getFullYear()}-${_pad(f.getMonth()+1)}-${_pad(f.getDate())}`;
+    return String(f||'').slice(0,10);
+  };
+  // Diff entre st.celdas (concepto deseado por celda) y ASIST_STATE.rows.
+  const rowByKey = new Map();
+  (ASIST_STATE?.rows || []).forEach(r => {
+    const nm = String(r.Empleado_Nombre||'').trim();
+    const fecha = _fechaOf(r);
+    if (nm && fecha) rowByKey.set(`${nm}|${fecha}`, r);
+  });
+  const desiredByKey = new Map();
+  st.celdas.forEach((cs, key) => {
+    const arr = Array.from(cs || []);
+    if (arr.length) desiredByKey.set(key, arr[0]);
+  });
+  const deletes = [];
+  const creates = [];
+  // (a) Celdas con concepto deseado nuevo o distinto al actual → delete+create
+  desiredByKey.forEach((concepto, key) => {
+    const [nombre, iso] = key.split('|');
+    const row = rowByKey.get(key);
+    if (row && String(row.Concepto||'').trim() === concepto) return; // sin cambios
+    if (row && row.ID) deletes.push(row.ID);
+    creates.push({ nombre, iso, concepto });
+  });
+  // (b) Celdas sin concepto deseado pero con fila real → delete
+  rowByKey.forEach((row, key) => {
+    if (!desiredByKey.has(key) && row.ID) deletes.push(row.ID);
+  });
   const total = creates.length + deletes.length;
   if (!total) {
     if (status) { status.style.color = '#065f46'; status.textContent = '✓ Sin cambios.'; }
@@ -34608,7 +34611,6 @@ window.asistGuardarRegistro = async function () {
   }
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
   if (status) { status.style.color = '#64748b'; status.textContent = `⏳ Aplicando ${total} cambio(s)…`; }
-  const _pad = n => String(n).padStart(2,'0');
   let ok = 0, err = 0;
   // 1) DELETES primero
   for (const id of deletes) {
@@ -34618,14 +34620,17 @@ window.asistGuardarRegistro = async function () {
       if (j.ok) ok++; else err++;
     } catch { err++; }
   }
-  // 2) CREATES (todos con entrada 08:30 salida 13:30 concepto Asistencia)
-  const p = asistPanelPrimasPorConcepto_('Asistencia');
-  const fmt = v => v === '' ? '' : asistPanelFmtMonto_(v);
-  const total_pago = ['salBase','primaVac','primaDom','primaDF'].reduce((s,k) => s + (typeof p[k] === 'number' ? p[k] : 0), 0);
-  for (const { nombre, iso } of creates) {
+  // 2) CREATES (entrada/salida/horas solo aplican a 'Asistencia')
+  for (const { nombre, iso, concepto } of creates) {
+    const p = asistPanelPrimasPorConcepto_(concepto);
+    const fmt = v => v === '' ? '' : asistPanelFmtMonto_(v);
+    const total_pago = ['salBase','primaVac','primaDom','primaDF'].reduce((s,k) => s + (typeof p[k] === 'number' ? p[k] : 0), 0);
+    const isAs = concepto === 'Asistencia';
     const payload = {
-      Empleado_Nombre: nombre, Fecha: iso, Concepto: 'Asistencia',
-      Entrada: '08:30', Salida: '13:30', Horas: '5h00',
+      Empleado_Nombre: nombre, Fecha: iso, Concepto: concepto,
+      Entrada: isAs ? '08:30' : '',
+      Salida:  isAs ? '13:30' : '',
+      Horas:   isAs ? '5h00'  : '',
       '$ Salario base':             fmt(p.salBase),
       '$ Prima vacacional (25%)':   fmt(p.primaVac),
       '$ Prima dominical (25%)':    fmt(p.primaDom),
@@ -34646,8 +34651,6 @@ window.asistGuardarRegistro = async function () {
     status.style.color = err ? '#991b1b' : '#065f46';
     status.textContent = err ? `✓ ${ok} aplicado(s), ✗ ${err} con error` : `✓ ${ok} cambio(s) aplicado(s)`;
   }
-  st.pendingCreate = new Map();
-  st.pendingDelete = new Set();
   st._dirtyChanges = false;
   setTimeout(() => {
     asistCancelarRegistro();
