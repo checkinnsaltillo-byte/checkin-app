@@ -34320,6 +34320,110 @@ window.asistCancelarRegistro = function () {
   if (back)  { back.classList.remove('visible'); back.classList.add('hidden'); }
 };
 
+// ─── "+ Nuevo registro manual" — panel simple ──────────────────────────────
+window.asistManualAbrir = function () {
+  ['asist-manual-backdrop','asist-manual-panel'].forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    el.classList.remove('hidden');
+    requestAnimationFrame(() => el.classList.add(id === 'asist-manual-backdrop' ? 'visible' : 'open'));
+  });
+  // Empleado dropdown
+  const sel = document.getElementById('asist-manual-empleado');
+  if (sel) {
+    const empleados = (INC_STATE?.personalRows || [])
+      .map(r => String(r.Nombre||'').trim()).filter(Boolean)
+      .sort((a,b)=>a.localeCompare(b,'es'));
+    sel.innerHTML = '<option value="">— Selecciona —</option>' + empleados.map(n => `<option>${n}</option>`).join('');
+  }
+  // Fecha default = hoy (America/Monterrey)
+  const fechaInp = document.getElementById('asist-manual-fecha');
+  if (fechaInp) {
+    const d = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    fechaInp.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+  // Hora dropdowns (1..12 y 00,05,...,55)
+  const hOpts = (sel12 = 8) => Array.from({length:12}, (_,i) => `<option ${(i+1)===sel12?'selected':''}>${i+1}</option>`).join('');
+  const mOpts = (selM = 30) => Array.from({length:12}, (_,i) => { const m = i*5; return `<option ${m===selM?'selected':''}>${String(m).padStart(2,'0')}</option>`; }).join('');
+  ['asist-manual-ent-h','asist-manual-sal-h'].forEach((id,i) => { const e = document.getElementById(id); if (e) e.innerHTML = hOpts(i === 0 ? 8 : 1); });
+  document.getElementById('asist-manual-ent-m').innerHTML = mOpts(30);
+  document.getElementById('asist-manual-sal-m').innerHTML = mOpts(30);
+  // Reset
+  document.getElementById('asist-manual-obs').value = '';
+  const metodoSel = document.getElementById('asist-manual-metodo'); if (metodoSel) metodoSel.value = 'Manual';
+  const st = document.getElementById('asist-manual-status'); if (st) st.textContent = '';
+  const btn = document.getElementById('asist-manual-btn-guardar'); if (btn) btn.disabled = false;
+};
+
+window.asistManualCerrar = function () {
+  const panel = document.getElementById('asist-manual-panel');
+  const back  = document.getElementById('asist-manual-backdrop');
+  if (panel) { panel.classList.remove('open'); panel.classList.add('hidden'); }
+  if (back)  { back.classList.remove('visible'); back.classList.add('hidden'); }
+};
+
+function _asistManualTo24h(h12, m, ap) {
+  let hh = Number(h12);
+  if (ap === 'PM' && hh !== 12) hh += 12;
+  if (ap === 'AM' && hh === 12) hh = 0;
+  return `${String(hh).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+window.asistManualGuardar = async function () {
+  const nombre = String(document.getElementById('asist-manual-empleado').value || '').trim();
+  const fecha  = String(document.getElementById('asist-manual-fecha').value || '').trim();
+  const status = document.getElementById('asist-manual-status');
+  const btn    = document.getElementById('asist-manual-btn-guardar');
+  if (!nombre) { alert('Selecciona un empleado.'); return; }
+  if (!fecha)  { alert('Selecciona una fecha.'); return; }
+  const entrada = _asistManualTo24h(
+    document.getElementById('asist-manual-ent-h').value,
+    document.getElementById('asist-manual-ent-m').value,
+    document.getElementById('asist-manual-ent-ap').value);
+  const salida = _asistManualTo24h(
+    document.getElementById('asist-manual-sal-h').value,
+    document.getElementById('asist-manual-sal-m').value,
+    document.getElementById('asist-manual-sal-ap').value);
+  const em = asistParseTimeToMinutes(entrada), sm = asistParseTimeToMinutes(salida);
+  const horas = (em != null && sm != null && sm >= em)
+    ? `${Math.floor((sm-em)/60)}h${String((sm-em)%60).padStart(2,'0')}`
+    : '';
+  const metodo = document.getElementById('asist-manual-metodo').value || 'Manual';
+  const observaciones = document.getElementById('asist-manual-obs').value || '';
+  const p = asistPanelPrimasPorConcepto_('Asistencia');
+  const fmt = v => v === '' ? '' : asistPanelFmtMonto_(v);
+  const payload = {
+    Empleado_Nombre: nombre,
+    Fecha: fecha,
+    Concepto: 'Asistencia',
+    Entrada: entrada,
+    Salida:  salida,
+    Horas:   horas,
+    '$ Salario base':             fmt(p.salBase),
+    '$ Prima vacacional (25%)':   fmt(p.primaVac),
+    '$ Prima dominical (25%)':    fmt(p.primaDom),
+    '$ Prima día feriado (200%)': fmt(p.primaDF),
+    '$ Salario total':            (() => { const t = ['salBase','primaVac','primaDom','primaDF'].reduce((s,k) => s + (typeof p[k] === 'number' ? p[k] : 0), 0); return t ? asistPanelFmtMonto_(t) : ''; })(),
+    Metodo: metodo,
+    Observaciones: observaciones,
+  };
+  if (status) { status.style.color = '#64748b'; status.textContent = '⏳ Guardando…'; }
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(`${BACKEND}/rh/asistencia`, {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ payload }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    if (status) { status.style.color = '#065f46'; status.textContent = '✓ Registro guardado.'; }
+    setTimeout(() => { asistManualCerrar(); asistReloadList(); }, 900);
+  } catch (e) {
+    if (status) { status.style.color = '#991b1b'; status.textContent = '❌ ' + (e.message || 'Error al guardar'); }
+    if (btn) btn.disabled = false;
+  }
+};
+
 window.asistGuardarRegistro = async function () {
   const st = asistPanelState_();
   const entradas = Array.from(st.celdas.entries()).filter(([,cs]) => cs && cs.size);
