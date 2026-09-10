@@ -10550,7 +10550,7 @@ function reservasByPhone_(data) {
   if (!p10) return { ok:false, error:"phone requerido (>=10 dígitos)" };
   // Cache 5 min por teléfono — el sheet tiene 10k+ filas y escanear tarda 10-25s.
   var cache = CacheService.getScriptCache();
-  var cacheKey = "rbp_v8_ticketurl_" + p10;
+  var cacheKey = "rbp_v9_registrado_" + p10;
   try {
     var cached = cache.get(cacheKey);
     if (cached) { var parsed = JSON.parse(cached); parsed._cached = true; return parsed; }
@@ -10586,6 +10586,7 @@ function reservasByPhone_(data) {
   var iCur = hdr.indexOf("Currency");
   // Cross-ref con Reservaciones para obtener Folio facturapi por Lodgify Id
   var folioMap = {};
+  var registradoMap = {};
   try {
     var shR = ss.getSheetByName(RESERVACIONES_SHEET);
     if (shR && shR.getLastRow() >= 2) {
@@ -10594,13 +10595,15 @@ function reservasByPhone_(data) {
       var rLI = rHdr.indexOf("Lodgify Id");
       var rFO = rHdr.indexOf("Folio facturapi");
       var rUR = rHdr.indexOf("Ticket facturapi url");
-      if (rLI >= 0 && rFO >= 0) {
+      if (rLI >= 0) {
         var rVals = shR.getRange(2, 1, shR.getLastRow()-1, rHdr.length).getValues();
         for (var rr = 0; rr < rVals.length; rr++) {
           var lid = String(rVals[rr][rLI] || "").trim();
-          var fol = String(rVals[rr][rFO] || "").trim();
+          if (!lid) continue;
+          registradoMap[lid] = true;
+          var fol = rFO >= 0 ? String(rVals[rr][rFO] || "").trim() : "";
           var url = rUR >= 0 ? String(rVals[rr][rUR] || "").trim() : "";
-          if (lid && fol) folioMap[lid] = { folio: fol, url: url };
+          if (fol) folioMap[lid] = { folio: fol, url: url };
         }
       }
     }
@@ -10705,6 +10708,7 @@ function reservasByPhone_(data) {
       Currency:      iCur>= 0 ? String(vals[i][iCur]|| "") : "",
       FolioFacturapi: (folioMap[String(iId >= 0 ? vals[i][iId] : "").trim()] || {}).folio || "",
       TicketUrl:      (folioMap[String(iId >= 0 ? vals[i][iId] : "").trim()] || {}).url   || "",
+      Registrado:     !!registradoMap[String(iId >= 0 ? vals[i][iId] : "").trim()],
     });
   }
   // Dedupe por (arrival, departure, propiedad): Lodgify a veces deja la reserva

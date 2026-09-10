@@ -20561,6 +20561,8 @@ window._emitAutoNow_ = async function(btnEl) {
     const parts = [`Folio: #${j.folio}`];
     if (j.mail_sent) parts.push('✓ Correo enviado');
     if (j.wa_sent) parts.push('✓ WhatsApp enviado');
+    if (j.pdf_saved) parts.push('✓ PDF guardado en Drive');
+    else if (j.pdf_error) parts.push('⚠ PDF no guardado: ' + j.pdf_error);
     alert('✅ Ticket generado\n\n' + parts.join('\n'));
     if (btnEl) { btnEl.textContent = '✓ Ticket generado'; btnEl.style.background = '#94a3b8'; btnEl.disabled = true; }
     return true;
