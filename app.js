@@ -34079,6 +34079,7 @@ window.asistPanelCellToggleConcepto = function (nombre, iso, concepto, ev) {
   const st = asistPanelState_();
   const k = `${nombre}|${iso}`;
   const cur = st.celdas.get(k);
+  const wasSelected = cur && cur.has(concepto);
   if (cur && cur.size === 1 && cur.has(concepto)) st.celdas.delete(k);
   else st.celdas.set(k, new Set([concepto]));
   st._userTouched = true;
@@ -34086,7 +34087,61 @@ window.asistPanelCellToggleConcepto = function (nombre, iso, concepto, ev) {
   // Cierra el menú tras la selección (single-select).
   const m = document.getElementById('asist-panel-cell-menu');
   if (m) m.remove();
+  // Al marcar manualmente 'Asistencia' Y no había ya una fila registrada para
+  // ese {empleado, fecha}, crea el registro con entrada 08:30 / salida 13:30.
+  if (!wasSelected && concepto === 'Asistencia') {
+    const yaExiste = (ASIST_STATE?.rows || []).some(r => {
+      const nm = String(r.Empleado_Nombre || '').trim();
+      let f = r.Fecha;
+      if (f instanceof Date) {
+        const pad = n => String(n).padStart(2,'0');
+        f = `${f.getFullYear()}-${pad(f.getMonth()+1)}-${pad(f.getDate())}`;
+      } else {
+        f = String(f || '').slice(0,10);
+      }
+      return nm === nombre && f === iso;
+    });
+    if (!yaExiste) _asistPanelCrearRegistroAsistencia(nombre, iso);
+  }
 };
+
+async function _asistPanelCrearRegistroAsistencia(nombre, iso) {
+  const entrada = '08:30';
+  const salida  = '13:30';
+  const em = asistParseTimeToMinutes(entrada), sm = asistParseTimeToMinutes(salida);
+  const horas = (em != null && sm != null && sm >= em)
+    ? `${Math.floor((sm-em)/60)}h${String((sm-em)%60).padStart(2,'0')}`
+    : '';
+  const p = asistPanelPrimasPorConcepto_('Asistencia');
+  const fmt = v => v === '' ? '' : asistPanelFmtMonto_(v);
+  const payload = {
+    Empleado_Nombre: nombre,
+    Fecha: iso,
+    Concepto: 'Asistencia',
+    Entrada: entrada,
+    Salida:  salida,
+    Horas:   horas,
+    '$ Salario base':             fmt(p.salBase),
+    '$ Prima vacacional (25%)':   fmt(p.primaVac),
+    '$ Prima dominical (25%)':    fmt(p.primaDom),
+    '$ Prima día feriado (200%)': fmt(p.primaDF),
+    '$ Salario total':            (() => { const t = ['salBase','primaVac','primaDom','primaDF'].reduce((s,k) => s + (typeof p[k] === 'number' ? p[k] : 0), 0); return t ? asistPanelFmtMonto_(t) : ''; })(),
+    Metodo: 'Manual',
+    Observaciones: '',
+  };
+  try {
+    const res = await fetch(`${BACKEND}/rh/asistencia`, {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ payload }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    // Refresca la tabla para que la nueva fila aparezca reflejada.
+    if (typeof asistReloadList === 'function') asistReloadList();
+  } catch (e) {
+    console.warn('[asist-panel] crear registro falló:', e.message);
+  }
+}
 
 // Popover con checkboxes de conceptos para una celda concreta. Se posiciona
 // absolutamente sobre la celda.
