@@ -27195,6 +27195,16 @@ function rhEmpleadoNombre(id) {
 function rhRenderExpediente() {
   const view = document.getElementById('rh-view');
   const rows = RH_STATE.empleados || [];
+  // Lazy-load: si aún no hay empleados en memoria, dispara el fetch y
+  // re-renderiza. Evita quedarse en 'Sin empleados registrados' si el
+  // usuario abrió esta subsección antes de que rhLoadEmpleados terminara.
+  if (!rows.length && !RH_STATE._loadingEmpleados) {
+    RH_STATE._loadingEmpleados = true;
+    if (view) view.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`;
+    rhLoadEmpleados().then(() => { RH_STATE._loadingEmpleados = false; rhRenderExpediente(); })
+      .catch(() => { RH_STATE._loadingEmpleados = false; rhRenderExpediente(); });
+    return;
+  }
   const nombreCompleto = (r) => [r.Nombre, r.Apellido_paterno, r.Apellido_materno].filter(Boolean).join(' ') || '—';
   const estadoChip = (r) => {
     const est = r.Estado || (String(r.Activo||'').toLowerCase() === 'inactivo' ? 'Inactivo' : 'Activo');
