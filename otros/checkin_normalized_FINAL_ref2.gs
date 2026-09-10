@@ -278,6 +278,8 @@ function doPost(e) {
     if (action === "rh_save_compensacion")         return jsonOutput_(rhSaveSimple_('RH_Compensaciones', data, RH_COMP_HEADERS, 'CMP'));
     if (action === "rh_delete_compensacion")       return jsonOutput_(rhDeleteByID_('RH_Compensaciones', String((data && data.ID) || '')));
     if (action === "rh_delete_asistencia")         return jsonOutput_(rhDeleteByID_('RH_Asistencia', String((data && data.ID) || '')));
+    if (action === "asistencia_marcar")            return jsonOutput_(asistenciaMarcar_(data));
+    if (action === "asistencia_lookup_empleado")   return jsonOutput_(asistenciaLookupEmpleadoByCel_(data));
     if (action === "rh_delete_ausencia")           return jsonOutput_(rhDeleteByID_('RH_Ausencias', String((data && data.ID) || '')));
     if (action === "inquilinos_list")              return jsonOutput_(inquilinosList_());
     if (action === "inquilinos_save")              return jsonOutput_(inquilinosSave_(data));
@@ -341,6 +343,8 @@ function doGet(e) {
     if (action === "rh_save_compensacion")   return jsonOutput_(rhSaveSimple_('RH_Compensaciones', e.parameter || {}, RH_COMP_HEADERS, 'CMP'));
     if (action === "rh_delete_compensacion") return jsonOutput_(rhDeleteByID_('RH_Compensaciones', String((e.parameter && e.parameter.ID) || '')));
     if (action === "rh_delete_asistencia")   return jsonOutput_(rhDeleteByID_('RH_Asistencia', String((e.parameter && e.parameter.ID) || '')));
+    if (action === "asistencia_marcar")      return jsonOutput_(asistenciaMarcar_(e.parameter || {}));
+    if (action === "asistencia_lookup_empleado") return jsonOutput_(asistenciaLookupEmpleadoByCel_(e.parameter || {}));
     if (action === "rh_delete_ausencia")     return jsonOutput_(rhDeleteByID_('RH_Ausencias', String((e.parameter && e.parameter.ID) || '')));
     if (action === "sys_login")              return jsonOutput_(sysLogin_(e.parameter || {}));
     if (action === "upload_incidencia_image") return jsonOutput_(uploadIncidenciaImage_(e.parameter || {}));
@@ -11006,4 +11010,138 @@ function llavesNotasSet_(data) {
     sh.getRange(rowIdx, 1, 1, LLAVES_NOTAS_HEADERS.length).setValues([[propiedad, notas, now, user]]);
   }
   return { ok:true, propiedad: propiedad, notas: notas };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║  Control de Asistencias vía WhatsApp                                     ║
+// ║  - asistenciaLookupEmpleadoByCel_: encuentra fila de sys_users por cel.  ║
+// ║  - asistenciaMarcar_: upsert de RH_Asistencia para {empleado, fecha}.    ║
+// ║    Escribe Entrada o Salida según data.tipo; si ambos existen calcula    ║
+// ║    Horas. Timezone fija: America/Monterrey.                              ║
+// ═══════════════════════════════════════════════════════════════════════════
+function asistenciaLookupEmpleadoByCel_(data) {
+  var cel = String(data && (data.cel || data.phone) || "").replace(/\D/g,"");
+  if (cel.length < 10) return { ok:false, error:"cel requerido (min 10 digits)" };
+  var last10 = cel.slice(-10);
+  var sh = getSpreadsheet_().getSheetByName('sys_users');
+  if (!sh) return { ok:false, error:"Hoja sys_users no encontrada" };
+  var hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function(h){ return String(h||"").trim(); });
+  var iCel = hdr.indexOf("cel");
+  var iNom = hdr.indexOf("Nombre");
+  var iPue = hdr.indexOf("Puesto");
+  if (iCel < 0 || iNom < 0) return { ok:false, error:"Faltan columnas 'cel' o 'Nombre' en sys_users" };
+  var last = sh.getLastRow();
+  if (last < 2) return { ok:true, empleado:null };
+  var vals = sh.getRange(2, 1, last-1, hdr.length).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    var rowCel = String(vals[i][iCel] || "").replace(/\D/g,"");
+    if (rowCel.length >= 10 && rowCel.slice(-10) === last10) {
+      return { ok:true, empleado: {
+        nombre: String(vals[i][iNom] || "").trim(),
+        puesto: iPue >= 0 ? String(vals[i][iPue] || "").trim() : "",
+        row: i + 2
+      }};
+    }
+  }
+  return { ok:true, empleado:null };
+}
+
+function asistenciaMarcar_(data) {
+  var tz = "America/Monterrey";
+  var cel = String(data && (data.cel || data.phone) || "").replace(/\D/g,"");
+  var tipo = String(data && data.tipo || "").toLowerCase().trim(); // "entrada" | "salida"
+  var lat = data && data.lat != null && data.lat !== "" ? Number(data.lat) : "";
+  var lng = data && data.lng != null && data.lng !== "" ? Number(data.lng) : "";
+  var accuracy = data && data.accuracy != null && data.accuracy !== "" ? Number(data.accuracy) : "";
+  if (tipo !== "entrada" && tipo !== "salida") return { ok:false, error:"tipo debe ser 'entrada' o 'salida'" };
+  var empRes = asistenciaLookupEmpleadoByCel_({ cel: cel });
+  if (!empRes.ok) return empRes;
+  if (!empRes.empleado) return { ok:false, error:"celular no está registrado en sys_users", empleado:null };
+  var nombre = empRes.empleado.nombre;
+  var puesto = empRes.empleado.puesto;
+  var sh = getSpreadsheet_().getSheetByName('RH_Asistencia');
+  if (!sh) return { ok:false, error:"Hoja RH_Asistencia no encontrada" };
+  var hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function(h){ return String(h||"").trim(); });
+  var iID = hdr.indexOf("ID");
+  var iTS = hdr.indexOf("Timestamp");
+  var iEmpN = hdr.indexOf("Empleado_Nombre");
+  var iFecha = hdr.indexOf("Fecha");
+  var iEnt = hdr.indexOf("Entrada");
+  var iSal = hdr.indexOf("Salida");
+  var iHrs = hdr.indexOf("Horas");
+  var iLat = hdr.indexOf("Ubicacion_Lat");
+  var iLng = hdr.indexOf("Ubicacion_Lng");
+  var iAcc = hdr.indexOf("GPS_Accuracy");
+  var iMet = hdr.indexOf("Metodo");
+  var iObs = hdr.indexOf("Observaciones");
+  if (iEmpN < 0 || iFecha < 0 || iEnt < 0 || iSal < 0) {
+    return { ok:false, error:"Faltan columnas Empleado_Nombre / Fecha / Entrada / Salida en RH_Asistencia" };
+  }
+  var now = new Date();
+  var fechaHoy = Utilities.formatDate(now, tz, "yyyy-MM-dd");
+  var horaAhora = Utilities.formatDate(now, tz, "HH:mm");
+  var last = sh.getLastRow();
+  var rowFound = -1;
+  if (last >= 2) {
+    var vals = sh.getRange(2, 1, last-1, hdr.length).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      var f = String(vals[i][iFecha] || "").trim();
+      // Fecha puede venir como Date object o string YYYY-MM-DD
+      if (vals[i][iFecha] instanceof Date) {
+        f = Utilities.formatDate(vals[i][iFecha], tz, "yyyy-MM-dd");
+      }
+      if (f === fechaHoy && String(vals[i][iEmpN] || "").trim() === nombre) {
+        rowFound = i + 2;
+        break;
+      }
+    }
+  }
+  var rowNum;
+  if (rowFound > 0) {
+    rowNum = rowFound;
+  } else {
+    var newRow = new Array(hdr.length).fill("");
+    if (iID >= 0) newRow[iID] = 'AST-' + Utilities.getUuid().slice(0,8);
+    if (iTS >= 0) newRow[iTS] = now;
+    newRow[iEmpN] = nombre;
+    newRow[iFecha] = fechaHoy;
+    sh.appendRow(newRow);
+    rowNum = sh.getLastRow();
+  }
+  // Escribe la marca correspondiente
+  var colIdx = tipo === "entrada" ? iEnt : iSal;
+  sh.getRange(rowNum, colIdx + 1).setValue(horaAhora);
+  // Ubicación (solo si viene con esta marca)
+  if (lat !== "" && iLat >= 0) sh.getRange(rowNum, iLat + 1).setValue(lat);
+  if (lng !== "" && iLng >= 0) sh.getRange(rowNum, iLng + 1).setValue(lng);
+  if (accuracy !== "" && iAcc >= 0) sh.getRange(rowNum, iAcc + 1).setValue(accuracy);
+  if (iMet >= 0) sh.getRange(rowNum, iMet + 1).setValue("WhatsApp");
+  // Calcula Horas si Entrada + Salida presentes
+  var rowVals = sh.getRange(rowNum, 1, 1, hdr.length).getValues()[0];
+  var ent = String(rowVals[iEnt] || "").trim();
+  var sal = String(rowVals[iSal] || "").trim();
+  if (ent && sal && iHrs >= 0) {
+    var _min = function(hhmm){
+      var m = hhmm.match(/^(\d{1,2}):(\d{2})/);
+      if (!m) return null;
+      return Number(m[1]) * 60 + Number(m[2]);
+    };
+    var em = _min(ent), sm = _min(sal);
+    if (em != null && sm != null && sm >= em) {
+      var horas = Math.round(((sm - em) / 60) * 100) / 100;
+      sh.getRange(rowNum, iHrs + 1).setValue(horas);
+    }
+  }
+  SpreadsheetApp.flush();
+  return {
+    ok:true,
+    empleado: nombre,
+    puesto: puesto,
+    tipo: tipo,
+    fecha: fechaHoy,
+    hora: horaAhora,
+    row: rowNum,
+    action: rowFound > 0 ? "updated" : "created",
+    tiene_ubicacion: !!(lat !== "" && lng !== "")
+  };
 }
