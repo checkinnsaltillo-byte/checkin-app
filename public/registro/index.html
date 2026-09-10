@@ -7586,7 +7586,7 @@ async function detectExistingGuestByPhone(){
 
   // Guard: si el celular ya fue resuelto y no cambió, NO hacer nada (evita
   // que el blur al hacer click en "Siguiente" resetee el estado).
-  if (digits && digits.length >= 10 && guestLookupLastMatchedPhone && guestLookupLastMatchedPhone.replace(/\D/g,"").slice(-10) === digits) {
+  if (digits && digits.length >= 10 && guestLookupLastMatchedPhone && guestLookupLastMatchedPhone.replace(/\D/g,"").slice(-10) === digits.slice(-10)) {
     return;
   }
 
@@ -8295,6 +8295,7 @@ function updateSaveChangesBtnVisibility(){
 }
 window.markWizDirty_ = function(){
   if (!window.WIZ_EDIT_MODE) return;  // solo relevante en modo edición
+  if (window.__wizAutofillInProgress) return;  // ignorar autofills programáticos
   window.WIZ_DIRTY = true;
   updateSaveChangesBtnVisibility();
 };
@@ -8307,6 +8308,8 @@ document.addEventListener('DOMContentLoaded', function(){
       var t = e.target;
       if (!t || !t.tagName) return;
       if (t.id === 'confirmation_code_input' || t.id === 'celular_principal_input') return;
+      // Solo eventos "isTrusted" (originados por el usuario, no programáticos)
+      if (e.isTrusted === false) return;
       window.markWizDirty_();
     });
   });
