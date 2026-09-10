@@ -7376,12 +7376,14 @@ function applyFieldRequirednessMarks() {
   ['#identificacion_tipo','#motivo',
    'input[name="emergencia"]'
   ].forEach(s => _apply(s, '(opcional)', false));
-  // Nombres de los huéspedes (label junto al contenedor dinámico) → opcional.
+  // Nombres de los huéspedes (label del contenedor dinámico) → obligatorio.
+  // Aunque no es un select simple, marcamos el label y validamos aparte
+  // (al menos 1 nombre en cualquier input[name="huesped[]"] no vacío).
   try {
     document.querySelectorAll('label[data-i18n="guestNames"]').forEach(lbl => {
       let txt = String(lbl.textContent || '').trim();
       [' * (obligatorio)','* (obligatorio)',' (opcional)','(opcional)'].forEach(m => { txt = txt.replace(m,'').trim(); });
-      lbl.textContent = txt + ' (opcional)';
+      lbl.textContent = txt + ' * (obligatorio)';
     });
   } catch(_){}
   // Paso 3 — factura (opcional siempre)
@@ -8101,6 +8103,14 @@ window.validateWizStep = function(n) {
       if (!v) missing.push(el);
     });
   });
+  // Paso 2: al menos 1 nombre de huésped no vacío (campo obligatorio).
+  if (n === 2) {
+    const inputs = document.querySelectorAll('#huespedes-container input[name="huesped[]"]');
+    const hasAny = Array.from(inputs).some(inp => String(inp.value || '').trim());
+    if (!hasAny && inputs.length) {
+      missing.push(inputs[0]);
+    }
+  }
   // Paso 1: bloquear avance si hoy < fecha de entrada de la reserva seleccionada
   if (n === 1) {
     const r = window.WIZ_SELECTED_RESERVA;

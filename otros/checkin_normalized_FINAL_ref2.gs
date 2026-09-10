@@ -10329,7 +10329,7 @@ function reservaGetByConfirmationCode_(data) {
   // Cache 5min por código — evita rescanear la hoja Reservas_Lodgify de 10k
   // filas cada vez que el huésped hace blur en el input.
   var _cache = CacheService.getScriptCache();
-  var _cacheKey = "rgcc_v7_huespedes_" + code;
+  var _cacheKey = "rgcc_v8_nombres_" + code;
   try {
     var _cached = _cache.get(_cacheKey);
     if (_cached) { var _p = JSON.parse(_cached); _p._cached = true; return _p; }
@@ -10355,12 +10355,12 @@ function reservaGetByConfirmationCode_(data) {
         var pr = perfilGetByPhone_({ phone: phone });
         if (pr && pr.ok && pr.perfil) perfil = pr.perfil;
       }
-      // Criterio Registrado: la columna "# Huéspedes" tiene un valor > 0.
-      // Lodgify no la propaga; solo se llena si el huésped completó el
-      // formulario de check-in (donde ese campo es obligatorio).
-      var iNH = headers.indexOf("# Huéspedes");
-      var nhVal = iNH >= 0 ? String(vals[i][iNH] || "").trim() : "";
-      var esRegistrado = nhVal !== "" && nhVal !== "0";
+      // Criterio Registrado: la columna "Nombres de TODOS los huéspedes
+      // (separados por comas)" tiene un valor no vacío. Lodgify no la
+      // propaga; solo se llena cuando el huésped completa el formulario.
+      var iNN = headers.indexOf("Nombres de TODOS los huéspedes (separados por comas)");
+      var nnVal = iNN >= 0 ? String(vals[i][iNN] || "").trim() : "";
+      var esRegistrado = nnVal !== "";
       reserva["Registrado"] = esRegistrado;
       var _outRes = { ok:true, reserva:reserva, perfil:perfil, code:code, phone:_normalizePhone10_(phone), source:"reservaciones", registrado:esRegistrado };
       try { _cache.put(_cacheKey, JSON.stringify(_outRes), 60); } catch(_){}
@@ -10503,16 +10503,16 @@ function reservaGetByConfirmationCode_(data) {
                 var rLI = rHdrs.indexOf("Lodgify Id");
                 var rFO = rHdrs.indexOf("Folio facturapi");
                 var rUR = rHdrs.indexOf("Ticket facturapi url");
-                var rNH = rHdrs.indexOf("# Huéspedes");
+                var rNN = rHdrs.indexOf("Nombres de TODOS los huéspedes (separados por comas)");
                 if (rLI >= 0) {
                   var lidStr = String(iId >= 0 ? lgVals[j][iId] : "").trim();
                   if (lidStr) {
                     var rV = shRes.getRange(2, 1, shRes.getLastRow()-1, rHdrs.length).getValues();
                     for (var rrr = 0; rrr < rV.length; rrr++) {
                       if (String(rV[rrr][rLI] || "").trim() === lidStr) {
-                        // Criterio Registrado: "# Huéspedes" con valor > 0.
-                        var _nh = rNH >= 0 ? String(rV[rrr][rNH] || "").trim() : "";
-                        registradoR = _nh !== "" && _nh !== "0";
+                        // Criterio Registrado: "Nombres de TODOS los huéspedes" no vacío.
+                        var _nn = rNN >= 0 ? String(rV[rrr][rNN] || "").trim() : "";
+                        registradoR = _nn !== "";
                         folioR = rFO >= 0 ? String(rV[rrr][rFO] || "").trim() : "";
                         ticketUrlR = rUR >= 0 ? String(rV[rrr][rUR] || "").trim() : "";
                         break;
@@ -10581,7 +10581,7 @@ function reservasByPhone_(data) {
   if (!p10) return { ok:false, error:"phone requerido (>=10 dígitos)" };
   // Cache 5 min por teléfono — el sheet tiene 10k+ filas y escanear tarda 10-25s.
   var cache = CacheService.getScriptCache();
-  var cacheKey = "rbp_v10_huespedes_" + p10;
+  var cacheKey = "rbp_v11_nombres_" + p10;
   try {
     var cached = cache.get(cacheKey);
     if (cached) { var parsed = JSON.parse(cached); parsed._cached = true; return parsed; }
@@ -10626,15 +10626,15 @@ function reservasByPhone_(data) {
       var rLI = rHdr.indexOf("Lodgify Id");
       var rFO = rHdr.indexOf("Folio facturapi");
       var rUR = rHdr.indexOf("Ticket facturapi url");
-      var rNH = rHdr.indexOf("# Huéspedes");
+      var rNN2 = rHdr.indexOf("Nombres de TODOS los huéspedes (separados por comas)");
       if (rLI >= 0) {
         var rVals = shR.getRange(2, 1, shR.getLastRow()-1, rHdr.length).getValues();
         for (var rr = 0; rr < rVals.length; rr++) {
           var lid = String(rVals[rr][rLI] || "").trim();
           if (!lid) continue;
-          // Criterio Registrado: "# Huéspedes" con valor > 0.
-          var _nh2 = rNH >= 0 ? String(rVals[rr][rNH] || "").trim() : "";
-          if (_nh2 !== "" && _nh2 !== "0") registradoMap[lid] = true;
+          // Criterio Registrado: "Nombres de TODOS los huéspedes" no vacío.
+          var _nn2 = rNN2 >= 0 ? String(rVals[rr][rNN2] || "").trim() : "";
+          if (_nn2 !== "") registradoMap[lid] = true;
           var fol = rFO >= 0 ? String(rVals[rr][rFO] || "").trim() : "";
           var url = rUR >= 0 ? String(rVals[rr][rUR] || "").trim() : "";
           if (fol) folioMap[lid] = { folio: fol, url: url };

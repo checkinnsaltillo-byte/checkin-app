@@ -850,11 +850,12 @@ function factRenderCards_(reservas, hostId){
     const folio = String(r.FolioFacturapi || '').trim();
     const ticketUrl = String(r.TicketUrl || '').trim();
     const hasFolio = !!folio;
-    // Chip de check-in: REGISTRADO si "# Huéspedes" (r.NumberOfGuests) > 0,
-    // PENDIENTE si vacío/0. Mismo criterio en Gestión de reservas, Check-in
-    // y aquí (Auto-facturación).
-    const nh = String(r.NumberOfGuests != null ? r.NumberOfGuests : '').trim();
-    const isRegistrado = nh !== '' && nh !== '0';
+    // Chip de check-in: REGISTRADO si la columna "Nombres de TODOS los
+    // huéspedes" fue llenada por el huésped en el formulario. Backend expone
+    // r.Registrado bool (calculado en Apps Script). Fallback: si r.Registrado
+    // no existe, usa r.NumberOfGuests como aproximación.
+    const isRegistrado = (r.Registrado === true) ||
+      (r.Registrado == null && Number(r.NumberOfGuests) > 0);
     const chipRegistro = isRegistrado
       ? `<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#0f172a;color:#fff;font-size:10px;font-weight:800;letter-spacing:.03em">REGISTRADO</span>`
       : `<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#f59e0b;color:#78350f;font-size:10px;font-weight:800;letter-spacing:.03em">PENDIENTE</span>`;
