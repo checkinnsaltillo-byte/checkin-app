@@ -33378,6 +33378,13 @@ function asistCellValue(row, col, dayIdx) {
       .reduce((s,k) => s + (typeof p[k] === 'number' ? p[k] : 0), 0);
     return total ? asistPanelFmtMonto_(total) : '';
   }
+  // Columna virtual 'Ubicación': combina Ubicacion_Lat + Ubicacion_Lng
+  if (col === 'Ubicación' || col === 'Ubicacion') {
+    const la = row.Ubicacion_Lat;
+    const ln = row.Ubicacion_Lng;
+    if (la == null || la === '' || ln == null || ln === '') return '';
+    return `${Number(la).toFixed(6)}, ${Number(ln).toFixed(6)}`;
+  }
   const raw = row[col] == null ? '' : String(row[col]);
   // Oculta el texto "Registro por lote (…)" en Observaciones.
   if (col === 'Observaciones' && /Registro por lote/i.test(raw)) return '';
@@ -33386,6 +33393,14 @@ function asistCellValue(row, col, dayIdx) {
 
 function asistCellHtml(row, col, dayIdx, editing) {
   const v = asistCellValue(row, col, dayIdx);
+  // Columna virtual 'Ubicación': lat, lng como link a Google Maps (read-only).
+  if (col === 'Ubicación' || col === 'Ubicacion') {
+    if (!v) return `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#94a3b8;font-style:italic">—</td>`;
+    const la = Number(row.Ubicacion_Lat);
+    const ln = Number(row.Ubicacion_Lng);
+    const url = `https://www.google.com/maps?q=${la},${ln}`;
+    return `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap"><a href="${esc(url)}" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:none;font-family:ui-monospace,monospace">📍 ${esc(v)}</a></td>`;
+  }
   const isDerived = ASIST_DERIVED_COLS.includes(col);
   // Entrada/Salida son derivadas pero SÍ se editan (con time picker); Horas y
   // las primas siempre son solo-lectura (se recalculan automáticamente).
@@ -33595,6 +33610,8 @@ function asistVisibleHeaders() {
       for (const d of ['Entrada','Salida','Horas']) if (!out.includes(d)) out.push(d);
       // Meta (Concepto, Metodo)
       for (const m of ['Concepto','Metodo']) if (raw.includes(m) && !out.includes(m)) out.push(m);
+      // Ubicación (virtual: combina Ubicacion_Lat + Ubicacion_Lng)
+      if (!out.includes('Ubicación')) out.push('Ubicación');
       // Columnas de dinero
       for (const d of ['$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','$ Salario total']) if (!out.includes(d)) out.push(d);
     }
@@ -33602,6 +33619,7 @@ function asistVisibleHeaders() {
   // Fallback si no hubo Fecha
   for (const d of ASIST_DERIVED_COLS) if (!out.includes(d)) out.push(d);
   for (const m of ['Concepto','Metodo']) if (raw.includes(m) && !out.includes(m)) out.push(m);
+  if (!out.includes('Ubicación')) out.push('Ubicación');
   if (raw.includes('Observaciones')) out.push('Observaciones');
   return out;
 }
