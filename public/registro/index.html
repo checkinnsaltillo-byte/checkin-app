@@ -8243,6 +8243,23 @@ async function detectExistingGuestByConfirmationCode() {
 }
 function scheduleCodeLookup() {
   clearTimeout(codeLookupTimer);
+  // Al escribir un código NUEVO (distinto al último resuelto), borra
+  // inmediatamente la card previa + campos precargados + estatus, para
+  // que el huésped no vea datos que ya no aplican mientras corre el
+  // nuevo lookup.
+  try {
+    const inp = document.getElementById("confirmation_code_input");
+    const raw = String(inp?.value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/^#/, "");
+    if (raw && raw !== codeLookupLastResolved) {
+      const host = document.getElementById("reservaSelectorHost");
+      if (host) host.innerHTML = "";
+      try { resetPrefilledFields(); } catch(_){}
+      setGuestAutofillMessage("", "");
+      window.WIZ_SELECTED_RESERVA = null;
+      window.WIZ_IDENTIFIED = false;
+      if ((window.WIZ_CURRENT || 1) === 1) wizGoTo(1);
+    }
+  } catch(_){}
   codeLookupTimer = setTimeout(detectExistingGuestByConfirmationCode, 500);
 }
 document.getElementById("confirmation_code_input")?.addEventListener("input", scheduleCodeLookup);
