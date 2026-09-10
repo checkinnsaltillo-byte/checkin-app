@@ -11119,8 +11119,17 @@ function asistenciaMarcar_(data) {
     if (iTS >= 0) newRow[iTS] = Utilities.formatDate(now, tz, "yyyy-MM-dd HH:mm:ss");
     newRow[iEmpN] = nombre;
     newRow[iFecha] = fechaHoy;
+    // Default Concepto = "Asistencia" para marcas por WhatsApp
+    var iConcNew = hdr.indexOf("Concepto");
+    if (iConcNew >= 0) newRow[iConcNew] = "Asistencia";
     sh.appendRow(newRow);
     rowNum = sh.getLastRow();
+  }
+  // Si la fila ya existía pero Concepto está vacío, lo llena con "Asistencia".
+  var iConc = hdr.indexOf("Concepto");
+  if (iConc >= 0) {
+    var currConc = String(sh.getRange(rowNum, iConc + 1).getValue() || "").trim();
+    if (!currConc) sh.getRange(rowNum, iConc + 1).setValue("Asistencia");
   }
   // Escribe la marca de hora
   var colIdx = tipo === "entrada" ? iEnt : iSal;
