@@ -34127,6 +34127,23 @@ async function _asistPanelEliminarRegistro(id) {
 }
 
 async function _asistPanelCrearRegistroAsistencia(nombre, iso) {
+  // GUARD anti-duplicados: si ya hay un fetch en vuelo para este par
+  // {empleado, fecha}, no lo mandes de nuevo (los clicks rápidos y el
+  // asistReloadList que aún no ha respondido con la fila nueva causan
+  // race conditions que meten hasta 4 filas iguales al sheet).
+  window.__asistCreandoSet = window.__asistCreandoSet || new Set();
+  const key = `${nombre}|${iso}`;
+  if (window.__asistCreandoSet.has(key)) return;
+  // También agrega optimistamente a ASIST_STATE.rows para que las
+  // comprobaciones de "yaExiste" siguientes vean la fila y no re-posteen.
+  ASIST_STATE.rows = ASIST_STATE.rows || [];
+  ASIST_STATE.rows.push({
+    ID: 'AST-tmp-' + Date.now(),
+    Empleado_Nombre: nombre, Fecha: iso,
+    Entrada: '08:30', Salida: '13:30',
+    Concepto: 'Asistencia', Metodo: 'Manual', _pending: true,
+  });
+  window.__asistCreandoSet.add(key);
   const entrada = '08:30';
   const salida  = '13:30';
   const em = asistParseTimeToMinutes(entrada), sm = asistParseTimeToMinutes(salida);
@@ -34161,6 +34178,10 @@ async function _asistPanelCrearRegistroAsistencia(nombre, iso) {
     if (typeof asistReloadList === 'function') asistReloadList();
   } catch (e) {
     console.warn('[asist-panel] crear registro falló:', e.message);
+  } finally {
+    // Libera el lock del par {empleado, fecha} tras completar el fetch
+    // (éxito o error) — permite marcar de nuevo si el usuario lo requiere.
+    if (window.__asistCreandoSet) window.__asistCreandoSet.delete(key);
   }
 }
 
