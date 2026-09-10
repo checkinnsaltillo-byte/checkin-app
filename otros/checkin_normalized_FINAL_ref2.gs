@@ -10353,7 +10353,7 @@ function reservaGetByConfirmationCode_(data) {
       }
       reserva["Registrado"] = true;
       var _outRes = { ok:true, reserva:reserva, perfil:perfil, code:code, phone:_normalizePhone10_(phone), source:"reservaciones", registrado:true };
-      try { _cache.put(_cacheKey, JSON.stringify(_outRes), 300); } catch(_){}
+      try { _cache.put(_cacheKey, JSON.stringify(_outRes), 60); } catch(_){}
       return _outRes;
     }
   }
@@ -10530,7 +10530,7 @@ function reservaGetByConfirmationCode_(data) {
               "_row": matchIdx + 2
             };
             var _outLg = { ok:true, reserva:reservaMapped, perfil:perfil2, code:code, phone:_normalizePhone10_(phoneL), source:"lodgify", registrado: registradoR };
-            try { _cache.put(_cacheKey, JSON.stringify(_outLg), 300); } catch(_){}
+            try { _cache.put(_cacheKey, JSON.stringify(_outLg), 60); } catch(_){}
             return _outLg;
           }
         }
