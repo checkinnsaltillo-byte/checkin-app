@@ -7862,19 +7862,22 @@ function applyReservacionExtras(reserva, phoneNorm) {
   if (rawCel) {
     const last10 = rawCel.slice(-10);
     const lada   = rawCel.length > 10 ? rawCel.slice(0, rawCel.length - 10) : "";
+    // IMPORTANTE: setear guestLookupLastMatchedPhone ANTES del dispatchEvent
+    // en lada1. Si no, el change dispara detectExistingGuestByPhone, que
+    // no ve el phone match, ejecuta resetPrefilledFields() y borra todos los
+    // datos que acabamos de precargar.
+    guestLookupLastMatchedPhone = last10;
     const celInp = document.getElementById("celular_principal_input");
     if (celInp) { celInp.value = last10; _mark(celInp); }
     if (lada) {
       const ladaSel = document.getElementById("lada1");
       if (ladaSel) {
-        // Intenta como value directo (con o sin "+")
         const opt = Array.from(ladaSel.options).find(o =>
           String(o.value||"").replace(/\D/g,"") === lada ||
           String(o.textContent||"").replace(/\D/g,"") === lada);
         if (opt) { ladaSel.value = opt.value; ladaSel.dispatchEvent(new Event("change",{bubbles:true})); _mark(ladaSel); }
       }
     }
-    guestLookupLastMatchedPhone = last10;
   }
   // ── Medio de reservación ─────────────────────────────────────────
   _setSelByTextOrValue('select[name="medio"]', reserva["Medio de reservación"]);
