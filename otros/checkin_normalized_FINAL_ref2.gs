@@ -11062,8 +11062,9 @@ function asistenciaMarcar_(data) {
   var sh = getSpreadsheet_().getSheetByName('RH_Asistencia');
   if (!sh) return { ok:false, error:"Hoja RH_Asistencia no encontrada" };
   var hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function(h){ return String(h||"").trim(); });
-  // Auto-agrega las 4 columnas de ubicación separadas si no existen aún
-  var neededExtra = ["Ubicacion_Entrada_Lat","Ubicacion_Entrada_Lng","Ubicacion_Salida_Lat","Ubicacion_Salida_Lng"];
+  // Auto-agrega SOLO las 2 columnas de ubicación de salida si no existen.
+  // La ubicación de entrada usa las columnas legacy Ubicacion_Lat/Ubicacion_Lng.
+  var neededExtra = ["Ubicacion_Salida_Lat","Ubicacion_Salida_Lng"];
   var missing = neededExtra.filter(function(n){ return hdr.indexOf(n) < 0; });
   if (missing.length) {
     var startCol = sh.getLastColumn() + 1;
@@ -11077,14 +11078,12 @@ function asistenciaMarcar_(data) {
   var iEnt = hdr.indexOf("Entrada");
   var iSal = hdr.indexOf("Salida");
   var iHrs = hdr.indexOf("Horas");
-  // Ubicación específica por evento (entrada/salida)
-  var iLatEnt = hdr.indexOf("Ubicacion_Entrada_Lat");
-  var iLngEnt = hdr.indexOf("Ubicacion_Entrada_Lng");
-  var iLatSal = hdr.indexOf("Ubicacion_Salida_Lat");
-  var iLngSal = hdr.indexOf("Ubicacion_Salida_Lng");
-  // Legacy: si aún se usan, mantenemos el mirror del último evento
+  // Entrada usa las columnas legacy Ubicacion_Lat/Ubicacion_Lng (renombradas
+  // en el frontend como "Ubicación entrada"). Salida usa las nuevas.
   var iLat = hdr.indexOf("Ubicacion_Lat");
   var iLng = hdr.indexOf("Ubicacion_Lng");
+  var iLatSal = hdr.indexOf("Ubicacion_Salida_Lat");
+  var iLngSal = hdr.indexOf("Ubicacion_Salida_Lng");
   var iAcc = hdr.indexOf("GPS_Accuracy");
   var iMet = hdr.indexOf("Metodo");
   var iObs = hdr.indexOf("Observaciones");
@@ -11126,18 +11125,17 @@ function asistenciaMarcar_(data) {
   // Escribe la marca de hora
   var colIdx = tipo === "entrada" ? iEnt : iSal;
   sh.getRange(rowNum, colIdx + 1).setValue(horaAhora);
-  // Ubicación específica de este evento
+  // Ubicación específica de este evento:
+  //   Entrada → Ubicacion_Lat / Ubicacion_Lng (columnas legacy).
+  //   Salida  → Ubicacion_Salida_Lat / Ubicacion_Salida_Lng.
   if (lat !== "" && lng !== "") {
     if (tipo === "entrada") {
-      if (iLatEnt >= 0) sh.getRange(rowNum, iLatEnt + 1).setValue(lat);
-      if (iLngEnt >= 0) sh.getRange(rowNum, iLngEnt + 1).setValue(lng);
+      if (iLat >= 0) sh.getRange(rowNum, iLat + 1).setValue(lat);
+      if (iLng >= 0) sh.getRange(rowNum, iLng + 1).setValue(lng);
     } else {
       if (iLatSal >= 0) sh.getRange(rowNum, iLatSal + 1).setValue(lat);
       if (iLngSal >= 0) sh.getRange(rowNum, iLngSal + 1).setValue(lng);
     }
-    // Legacy: mantén el mirror del último evento (para código antiguo)
-    if (iLat >= 0) sh.getRange(rowNum, iLat + 1).setValue(lat);
-    if (iLng >= 0) sh.getRange(rowNum, iLng + 1).setValue(lng);
     if (accuracy !== "" && iAcc >= 0) sh.getRange(rowNum, iAcc + 1).setValue(accuracy);
   }
   if (iMet >= 0) sh.getRange(rowNum, iMet + 1).setValue("WhatsApp");

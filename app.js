@@ -32907,7 +32907,7 @@ const ASIST_STATE = {
 };
 
 // Columnas que se ocultan de la tabla (redundantes o metadatos)
-const ASIST_HIDDEN_COLS = new Set(['Empleado_ID','Horas_extra','ID','Ubicacion_Lat','Ubicacion_Lng','Ubicacion_Entrada_Lat','Ubicacion_Entrada_Lng','Ubicacion_Salida_Lat','Ubicacion_Salida_Lng','GPS_Accuracy','Tipo','Hora']);
+const ASIST_HIDDEN_COLS = new Set(['Empleado_ID','Horas_extra','ID','Ubicacion_Lat','Ubicacion_Lng','Ubicacion_Salida_Lat','Ubicacion_Salida_Lng','Ubicacion_Entrada_Lat','Ubicacion_Entrada_Lng','GPS_Accuracy','Tipo','Hora']);
 const ASIST_PRIMA_COLS = ['$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)'];
 const ASIST_TOTAL_COL = '$ Salario total';
 // Columnas derivadas — no vienen del sheet, se calculan on-the-fly
@@ -33408,23 +33408,16 @@ function asistCellValue(row, col, dayIdx) {
       .reduce((s,k) => s + (typeof p[k] === 'number' ? p[k] : 0), 0);
     return total ? asistPanelFmtMonto_(total) : '';
   }
-  // Columnas virtuales de ubicación (entrada/salida). Prefiere las columnas
-  // específicas del evento; si no hay, usa la legacy Ubicacion_Lat/Lng como
-  // fallback (solo en Ubicación entrada, para no duplicar).
-  if (col === 'Ubicación entrada') {
-    let la = row.Ubicacion_Entrada_Lat, ln = row.Ubicacion_Entrada_Lng;
-    if ((la == null || la === '') && row.Ubicacion_Lat != null) { la = row.Ubicacion_Lat; ln = row.Ubicacion_Lng; }
+  // Columnas virtuales de ubicación:
+  //   'Ubicación entrada' ← Ubicacion_Lat / Ubicacion_Lng
+  //   'Ubicación salida'  ← Ubicacion_Salida_Lat / Ubicacion_Salida_Lng
+  if (col === 'Ubicación entrada' || col === 'Ubicación' || col === 'Ubicacion') {
+    const la = row.Ubicacion_Lat, ln = row.Ubicacion_Lng;
     if (la == null || la === '' || ln == null || ln === '') return '';
     return `${Number(la).toFixed(6)}, ${Number(ln).toFixed(6)}`;
   }
   if (col === 'Ubicación salida') {
     const la = row.Ubicacion_Salida_Lat, ln = row.Ubicacion_Salida_Lng;
-    if (la == null || la === '' || ln == null || ln === '') return '';
-    return `${Number(la).toFixed(6)}, ${Number(ln).toFixed(6)}`;
-  }
-  // Legacy: 'Ubicación' individual (aún funciona por si algún código la usa)
-  if (col === 'Ubicación' || col === 'Ubicacion') {
-    const la = row.Ubicacion_Lat, ln = row.Ubicacion_Lng;
     if (la == null || la === '' || ln == null || ln === '') return '';
     return `${Number(la).toFixed(6)}, ${Number(ln).toFixed(6)}`;
   }
@@ -33440,10 +33433,7 @@ function asistCellHtml(row, col, dayIdx, editing) {
   if (col === 'Ubicación entrada' || col === 'Ubicación salida' || col === 'Ubicación' || col === 'Ubicacion') {
     if (!v) return `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#94a3b8;font-style:italic">—</td>`;
     let la, ln;
-    if (col === 'Ubicación entrada') {
-      la = row.Ubicacion_Entrada_Lat != null && row.Ubicacion_Entrada_Lat !== '' ? row.Ubicacion_Entrada_Lat : row.Ubicacion_Lat;
-      ln = row.Ubicacion_Entrada_Lng != null && row.Ubicacion_Entrada_Lng !== '' ? row.Ubicacion_Entrada_Lng : row.Ubicacion_Lng;
-    } else if (col === 'Ubicación salida') {
+    if (col === 'Ubicación salida') {
       la = row.Ubicacion_Salida_Lat;
       ln = row.Ubicacion_Salida_Lng;
     } else {
