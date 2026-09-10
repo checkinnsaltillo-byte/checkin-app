@@ -34321,19 +34321,28 @@ window.asistCancelarRegistro = function () {
 };
 
 // ─── "+ Nuevo registro manual" — panel simple ──────────────────────────────
+function _asistManualFillEmpleados() {
+  const sel = document.getElementById('asist-manual-empleado');
+  if (!sel) return;
+  // Prefiere personalRows (con puestos); si no hay, usa la lista plana personas.
+  let empleados = (INC_STATE?.personalRows || [])
+    .map(r => String(r?.Nombre||'').trim()).filter(Boolean);
+  if (!empleados.length && Array.isArray(INC_STATE?.personas)) {
+    empleados = INC_STATE.personas.map(n => String(n||'').trim()).filter(Boolean);
+  }
+  empleados = Array.from(new Set(empleados)).sort((a,b)=>a.localeCompare(b,'es'));
+  sel.innerHTML = '<option value="">— Selecciona —</option>' + empleados.map(n => `<option>${n}</option>`).join('');
+}
 window.asistManualAbrir = function () {
   ['asist-manual-backdrop','asist-manual-panel'].forEach(id => {
     const el = document.getElementById(id); if (!el) return;
     el.classList.remove('hidden');
     requestAnimationFrame(() => el.classList.add(id === 'asist-manual-backdrop' ? 'visible' : 'open'));
   });
-  // Empleado dropdown
-  const sel = document.getElementById('asist-manual-empleado');
-  if (sel) {
-    const empleados = (INC_STATE?.personalRows || [])
-      .map(r => String(r.Nombre||'').trim()).filter(Boolean)
-      .sort((a,b)=>a.localeCompare(b,'es'));
-    sel.innerHTML = '<option value="">— Selecciona —</option>' + empleados.map(n => `<option>${n}</option>`).join('');
+  // Empleado dropdown — lazy-load si la lista no está cargada.
+  _asistManualFillEmpleados();
+  if (!(INC_STATE?.personalRows?.length) && typeof incLoadPersonal === 'function') {
+    incLoadPersonal().then(_asistManualFillEmpleados).catch(_asistManualFillEmpleados);
   }
   // Fecha default = hoy (America/Monterrey)
   const fechaInp = document.getElementById('asist-manual-fecha');
