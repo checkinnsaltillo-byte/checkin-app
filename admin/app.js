@@ -34090,10 +34090,11 @@ window.asistPanelCellToggleConcepto = function (nombre, iso, concepto, ev) {
   // Cierra el menú tras la selección (single-select).
   const m = document.getElementById('asist-panel-cell-menu');
   if (m) m.remove();
-  // Al marcar manualmente 'Asistencia' Y no había ya una fila registrada para
-  // ese {empleado, fecha}, crea el registro con entrada 08:30 / salida 13:30.
-  if (!wasSelected && concepto === 'Asistencia') {
-    const yaExiste = (ASIST_STATE?.rows || []).some(r => {
+  // Auto-persistencia por click:
+  //   Marcar 'Asistencia' → si no existe registro para {empleado, fecha}, lo crea.
+  //   Desmarcar 'Asistencia' → si hay registro, lo elimina.
+  if (concepto === 'Asistencia') {
+    const rowExistente = (ASIST_STATE?.rows || []).find(r => {
       const nm = String(r.Empleado_Nombre || '').trim();
       let f = r.Fecha;
       if (f instanceof Date) {
@@ -34104,9 +34105,26 @@ window.asistPanelCellToggleConcepto = function (nombre, iso, concepto, ev) {
       }
       return nm === nombre && f === iso;
     });
-    if (!yaExiste) _asistPanelCrearRegistroAsistencia(nombre, iso);
+    if (!wasSelected) {
+      // Estamos MARCANDO (agregando): crea si no existe.
+      if (!rowExistente) _asistPanelCrearRegistroAsistencia(nombre, iso);
+    } else {
+      // Estamos DESMARCANDO (quitando): elimina si existe.
+      if (rowExistente && rowExistente.ID) _asistPanelEliminarRegistro(rowExistente.ID);
+    }
   }
 };
+
+async function _asistPanelEliminarRegistro(id) {
+  try {
+    const res = await fetch(`${BACKEND}/rh/asistencia/${encodeURIComponent(id)}`, { method:'DELETE' });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    if (typeof asistReloadList === 'function') asistReloadList();
+  } catch (e) {
+    console.warn('[asist-panel] eliminar registro falló:', e.message);
+  }
+}
 
 async function _asistPanelCrearRegistroAsistencia(nombre, iso) {
   const entrada = '08:30';
@@ -34544,10 +34562,25 @@ window.asistManualGuardar = async function () {
 };
 
 window.asistGuardarRegistro = async function () {
+  // NUEVO comportamiento: las marcas / desmarcas ya se persisten en el sheet
+  // al momento de hacer click en la celda (via _asistPanelCrearRegistroAsistencia
+  // y _asistPanelEliminarRegistro). El botón "Guardar cambios" es un
+  // confirmador visual — cierra el panel y refresca la tabla.
   const st = asistPanelState_();
-  const entradas = Array.from(st.celdas.entries()).filter(([,cs]) => cs && cs.size);
   const status = document.getElementById('asist-status');
   const btn = document.getElementById('asist-btn-guardar');
+  if (status) { status.style.color = '#065f46'; status.textContent = '✓ Cambios guardados.'; }
+  st._dirtyChanges = false;
+  asistPanelUpdateSaveBtn_();
+  setTimeout(() => {
+    asistCancelarRegistro();
+    if (status) status.textContent = '';
+    if (typeof asistReloadList === 'function') asistReloadList();
+  }, 700);
+  return;
+  /* Código legacy: guardaba TODAS las celdas de una (creaba duplicados con
+     el flujo nuevo). Se conserva comentado por si hay que restaurarlo.
+  const entradas = Array.from(st.celdas.entries()).filter(([,cs]) => cs && cs.size);
   if (!entradas.length) { alert('Marca al menos una celda.'); return; }
   btn.disabled = true;
   // Un registro por par (empleado, día, concepto). Cada uno lleva TODOS los
@@ -34611,6 +34644,7 @@ window.asistGuardarRegistro = async function () {
     asistReloadList();
   }, 1400);
   btn.disabled = false;
+  */
 };
 
 // ═════════════════════════════════════════════════════════════════════════
