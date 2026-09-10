@@ -34153,17 +34153,29 @@ function asistPanelRender() {
     const n = String(r.Nombre || '').trim();
     if (n) diasDict.set(n, asistPanelParseDiasTrabajo_(r.Dias_trabajo));
   });
-  // Semilla: auto-marca celdas de días laborales como "Asistencia".
+  // Semilla: solo marca 'Asistencia' celdas donde YA HAY un registro previo
+  // (con Entrada Y/O Salida). Las celdas del día teórico de trabajo sin
+  // registro salen en gris claro (no auto-verdes) — se sombrean como
+  // "esperado" pero sin monto hasta que exista el registro real.
+  const attendanceSet = new Set(); // "Nombre|YYYY-MM-DD" con registro real
+  (ASIST_STATE?.rows || []).forEach(r => {
+    const nm = String(r.Empleado_Nombre || '').trim();
+    let fecha = r.Fecha;
+    if (fecha instanceof Date) {
+      const pad = n => String(n).padStart(2,'0');
+      fecha = `${fecha.getFullYear()}-${pad(fecha.getMonth()+1)}-${pad(fecha.getDate())}`;
+    } else {
+      fecha = String(fecha || '').slice(0,10);
+    }
+    if (!nm || !fecha) return;
+    const ent = String(r.Entrada || '').trim();
+    const sal = String(r.Salida || '').trim();
+    if (ent || sal) attendanceSet.add(`${nm}|${fecha}`);
+  });
   const shouldSeed = st.celdas.size === 0 && !st._userTouched;
   if (shouldSeed) {
-    personalRows.forEach(({ nombre }) => {
-      const set = diasDict.get(nombre) || new Set();
-      dias.forEach(d => {
-        if (set.has(d.getDay())) {
-          const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-          st.celdas.set(`${nombre}|${iso}`, new Set(['Asistencia']));
-        }
-      });
+    attendanceSet.forEach(key => {
+      st.celdas.set(key, new Set(['Asistencia']));
     });
   }
   let html = `<div style="display:flex;flex-wrap:wrap;gap:10px;padding:6px 4px 10px;font-size:11px;color:#475569;font-weight:700">`;
@@ -34195,13 +34207,28 @@ function asistPanelRender() {
         ${puesto ? `<div class="ocup-aloj-id">${esc(puesto)}</div>` : ''}
       </div>
     </div>`;
+    const workDays = diasDict.get(nombre) || new Set();
     dias.forEach(d => {
       const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const conceptos = st.celdas.get(`${nombre}|${iso}`);
       const dow = d.getDay();
       const isWeekend = dow === 0 || dow === 6;
-      const bg = conceptos ? `background:${asistPanelBgFor_(conceptos)};` : '';
-      const sem = conceptos ? asistPanelSemaforo_(conceptos) : '';
+      const isTheoreticalWorkday = workDays.has(dow);
+      // Estilos:
+      //  - Con conceptos: color del concepto (verde para Asistencia).
+      //  - Sin conceptos y día teórico laboral: gris claro sombreado.
+      //  - Sin conceptos y día NO laboral: sin fondo especial.
+      let bg = '';
+      let sem = '';
+      let title = 'Click para seleccionar conceptos';
+      if (conceptos) {
+        bg = `background:${asistPanelBgFor_(conceptos)};`;
+        sem = asistPanelSemaforo_(conceptos);
+        title = Array.from(conceptos).join(' · ');
+      } else if (isTheoreticalWorkday) {
+        bg = 'background:#f1f5f9;';
+        title = 'Día laboral · sin registro aún';
+      }
       // Etiqueta central: monto calculado (suma sobre los conceptos activos).
       let inner = '';
       if (conceptos && conceptos.size) {
@@ -34212,7 +34239,7 @@ function asistPanelRender() {
         data-cell-key="${esc(nombre)}|${iso}"
         style="${bg}${sem}cursor:pointer"
         onclick="asistPanelOpenCellMenu('${esc(nombre).replace(/'/g,"\\'")}','${iso}',event)"
-        title="${conceptos?Array.from(conceptos).join(' · '):'Click para seleccionar conceptos'}">
+        title="${esc(title)}">
         <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;gap:1px">${inner}</div>
       </div>`;
     });
