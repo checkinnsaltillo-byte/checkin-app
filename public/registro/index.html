@@ -7410,12 +7410,32 @@ function applyFieldRequirednessMarks() {
 }
 try { window.applyFieldRequirednessMarks = applyFieldRequirednessMarks; } catch(_){}
 // Aplicar en DOMContentLoaded y después de cualquier cambio de idioma.
+// Además: MutationObserver en el form para re-aplicar si alguien cambia
+// label.textContent (i18n suele hacerlo tarde y sobreescribe los sufijos).
 document.addEventListener('DOMContentLoaded', () => {
   try { applyFieldRequirednessMarks(); } catch(_){}
-  // Re-aplica cada 800ms durante los primeros 3s (por si i18n corre tarde)
-  [200, 500, 1000, 2000].forEach(ms => setTimeout(() => {
+  // Múltiples re-applies durante los primeros ~5s (i18n puede correr tarde).
+  [100, 300, 600, 1200, 2500, 4500].forEach(ms => setTimeout(() => {
     try { applyFieldRequirednessMarks(); } catch(_){}
   }, ms));
+  // Observer defensivo: si algún proceso cambia el textContent de un label,
+  // re-aplicamos los sufijos. Se desactiva 8s después para no seguir gastando.
+  try {
+    const form = document.getElementById('form');
+    if (form && typeof MutationObserver !== 'undefined') {
+      let __markSuppress = false;
+      const mo = new MutationObserver(muts => {
+        if (__markSuppress) return;
+        const hitLabel = muts.some(m => m.target && (m.target.tagName === 'LABEL' || (m.target.parentElement && m.target.parentElement.tagName === 'LABEL')));
+        if (!hitLabel) return;
+        __markSuppress = true;
+        try { applyFieldRequirednessMarks(); } catch(_){}
+        setTimeout(() => { __markSuppress = false; }, 50);
+      });
+      mo.observe(form, { subtree:true, characterData:true, childList:true });
+      setTimeout(() => { try { mo.disconnect(); } catch(_){} }, 8000);
+    }
+  } catch(_){}
 });
 
 // Marca inputs/selects como "userTouched" cuando el huésped interactúa
