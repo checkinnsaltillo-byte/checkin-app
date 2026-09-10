@@ -8718,6 +8718,14 @@ function syncFacturaVisibility(){
     toggleComprobanteTransferencia();
   } else {
     toggleRegimenOtro();
+    // Auto-selecciona Medio de pago = Airbnb cuando Medio de reservación = Airbnb
+    // (evita que el huésped tenga que elegirlo manualmente en Paso 3).
+    try {
+      if (medio_reservacion && String(medio_reservacion.value || "").trim() === "Airbnb"
+          && !medio_pago.value) {
+        medio_pago.value = "Airbnb";
+      }
+    } catch(_){}
     nota_airbnb.classList.toggle("hidden", medio_pago.value !== "Airbnb");
     toggleComprobanteTransferencia();
   }
