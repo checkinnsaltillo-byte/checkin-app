@@ -34053,8 +34053,9 @@ window.asistNuevoRegistro = function () {
   if (sel) sel.value = semana;
   const status = document.getElementById('asist-status');
   if (status) status.textContent = '';
-  const btn = document.getElementById('asist-btn-guardar');
-  if (btn) btn.disabled = false;
+  // Reset dirty y estado del botón: arranca disabled con "Guardar registro".
+  ASIST_STATE.panel._dirtyChanges = false;
+  asistPanelUpdateSaveBtn_();
   asistPanelRender();
 };
 
@@ -34083,7 +34084,9 @@ window.asistPanelCellToggleConcepto = function (nombre, iso, concepto, ev) {
   if (cur && cur.size === 1 && cur.has(concepto)) st.celdas.delete(k);
   else st.celdas.set(k, new Set([concepto]));
   st._userTouched = true;
+  st._dirtyChanges = true;  // habilita "Guardar cambios"
   asistPanelRender();
+  asistPanelUpdateSaveBtn_();
   // Cierra el menú tras la selección (single-select).
   const m = document.getElementById('asist-panel-cell-menu');
   if (m) m.remove();
@@ -34321,6 +34324,21 @@ function asistPanelRender() {
   cont.innerHTML = html;
 }
 window.asistPanelRender = asistPanelRender;
+
+/** Actualiza el botón "Guardar registro/cambios" según el estado dirty.
+ *  Cuando el usuario ha creado o eliminado registros manuales desde el
+ *  calendario, el botón pasa a "💾 Guardar cambios" y se habilita. */
+function asistPanelUpdateSaveBtn_() {
+  const btn = document.getElementById('asist-btn-guardar');
+  if (!btn) return;
+  const st = asistPanelState_();
+  const dirty = !!st._dirtyChanges;
+  btn.textContent = dirty ? '💾 Guardar cambios' : '💾 Guardar registro';
+  btn.disabled = !dirty;
+  btn.style.opacity = dirty ? '1' : '.5';
+  btn.style.cursor  = dirty ? 'pointer' : 'not-allowed';
+}
+window.asistPanelUpdateSaveBtn_ = asistPanelUpdateSaveBtn_;
 
 /** Captura la ubicación GPS via navegador con fallback a baja precisión. */
 function asistCaptureGeo(opts) {
