@@ -10387,37 +10387,51 @@ function reservaGetByConfirmationCode_(data) {
       var iPSf = lgHeaders.indexOf("PaymentStatus");
       var iCurf= lgHeaders.indexOf("Currency");
       if (iCC >= 0 || iCB >= 0) {
-        // FAST-PATH: primero lee SOLO las columnas de identificación (CC, CB, Id)
-        // para localizar la fila; después lee solo esa fila completa. Evita
-        // materializar 10k×50 celdas en cada lookup.
+        // FAST-PATH v2: cachea el índice CC+CB+Id normalizado en Script Cache
+        // para 5 min. La primera búsqueda hace UN solo getValues del rango que
+        // cubre CC..Id (todas las columnas ID contiguas o cercanas); las
+        // siguientes son cache hits (~200ms).
         var lastRowL = shL.getLastRow();
         var nRowsL = lastRowL - 1;
         var codeIsNumeric = /^\d+$/.test(code);
-        var idCols = [];
-        if (iCC >= 0) idCols.push({name:"cc", idx:iCC});
-        if (iCB >= 0) idCols.push({name:"cb", idx:iCB});
-        if (iBId >= 0) idCols.push({name:"id", idx:iBId});
-        // Trae cada columna de identificación como un rango unidimensional
-        var idData = {};
-        idCols.forEach(function(c){
-          idData[c.name] = shL.getRange(2, c.idx+1, nRowsL, 1).getValues();
-        });
+        var idxCacheKey = "lgidx_v2_" + lastRowL;
+        var flatIdx = null;
+        try {
+          var cachedIdx = _cache.get(idxCacheKey);
+          if (cachedIdx) flatIdx = JSON.parse(cachedIdx);
+        } catch(_){}
+        if (!flatIdx) {
+          // Rango que cubre desde min(iCC,iCB,iBId) hasta max — UN solo read
+          var minCol = Math.min.apply(null, [iCC, iCB, iBId].filter(function(x){ return x >= 0; }));
+          var maxCol = Math.max.apply(null, [iCC, iCB, iBId].filter(function(x){ return x >= 0; }));
+          var width = maxCol - minCol + 1;
+          var block = shL.getRange(2, minCol + 1, nRowsL, width).getValues();
+          flatIdx = new Array(nRowsL);
+          for (var k = 0; k < nRowsL; k++) {
+            var rowVals = block[k];
+            flatIdx[k] = [
+              iCC >= 0 ? _normalizeConfirmationCode_(rowVals[iCC - minCol]) : "",
+              iCB >= 0 ? _normalizeConfirmationCode_(rowVals[iCB - minCol]) : "",
+              iBId >= 0 ? String(rowVals[iBId - minCol] || "").replace(/\D/g,"") : "",
+            ];
+          }
+          try {
+            var payload = JSON.stringify(flatIdx);
+            // Script cache tiene límite de 100KB por entry. Solo cachea si cabe.
+            if (payload.length < 95000) _cache.put(idxCacheKey, payload, 300);
+          } catch(_){}
+        }
         dbg.lg_cc_nonempty = 0;
-        if (idData.cc) for (var k = 0; k < idData.cc.length; k++) {
-          if (String(idData.cc[k][0] || "").trim()) dbg.lg_cc_nonempty++;
+        for (var k = 0; k < flatIdx.length; k++) {
+          if (flatIdx[k][0]) dbg.lg_cc_nonempty++;
         }
         for (var k2 = Math.max(0, nRowsL - 5); k2 < nRowsL; k2++) {
-          dbg.lg_last5.push({
-            cc: idData.cc ? String(idData.cc[k2][0] || "") : "",
-            cb: idData.cb ? String(idData.cb[k2][0] || "") : "",
-          });
+          dbg.lg_last5.push({ cc: flatIdx[k2][0] || "", cb: flatIdx[k2][1] || "" });
         }
         var matchIdx = -1;
         for (var j = nRowsL - 1; j >= 0; j--) {
-          var rawCC = idData.cc ? _normalizeConfirmationCode_(idData.cc[j][0]) : "";
-          var rawCB = idData.cb ? _normalizeConfirmationCode_(idData.cb[j][0]) : "";
-          var rawId = idData.id ? String(idData.id[j][0] || "").replace(/\D/g,"") : "";
-          if ((rawCC && rawCC === code) || (rawCB && rawCB === code) || (codeIsNumeric && rawId && rawId === code)) {
+          var t = flatIdx[j];
+          if ((t[0] && t[0] === code) || (t[1] && t[1] === code) || (codeIsNumeric && t[2] && t[2] === code)) {
             matchIdx = j; break;
           }
         }
