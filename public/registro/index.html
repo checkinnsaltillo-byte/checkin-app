@@ -20582,12 +20582,12 @@ window._factBuildInfoBlock_ = function() {
       ? `<div style="margin-top:10px;padding:8px 10px;background:#dcfce7;border:1px solid #86efac;border-radius:8px;font-size:11px;color:#166534;text-align:center">✓ ${winMsg}</div>`
       : `<div style="margin-top:10px;padding:10px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#991b1b;text-align:left"><strong>No disponible:</strong> ${winMsg}</div>`);
   const html = `<div style="padding:16px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;text-align:left">
+    <div style="font-size:13px;color:#475569">Propiedad: <strong>${r.Propiedad||'—'}</strong>${r.Departamento?` #${r.Departamento}`:''}</div>
+    <div style="font-size:13px;color:#475569">Fechas: <strong>${r.DateArrival||''} → ${r.DateDeparture||''}</strong></div>
+    <div style="font-size:12px;color:#64748b;margin-top:4px;margin-bottom:10px">Moneda: <strong>${cur}</strong></div>
     <div style="display:flex;justify-content:center;margin-bottom:10px">${chip}</div>
     ${montosBlock}
     ${airbnbBlock}
-    <div style="margin-top:10px;font-size:13px;color:#475569">Propiedad: <strong>${r.Propiedad||'—'}</strong>${r.Departamento?` #${r.Departamento}`:''}</div>
-    <div style="font-size:13px;color:#475569">Fechas: <strong>${r.DateArrival||''} → ${r.DateDeparture||''}</strong></div>
-    <div style="font-size:12px;color:#64748b;margin-top:4px">Moneda: <strong>${cur}</strong></div>
     ${windowBlock}
   </div>
   <div style="margin-top:10px;font-size:12px;color:#64748b;text-align:center">Al oprimir "Generar ticket" se emite y te llegará por correo y WhatsApp.</div>`;
@@ -20671,12 +20671,12 @@ window.openFactConfirmModal_ = function() {
       </div>
       <div style="padding:18px">
         <div style="padding:16px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px">
+          <div style="font-size:13px;color:#475569">Propiedad: <strong>${r.Propiedad||'—'}</strong>${r.Departamento?` #${r.Departamento}`:''}</div>
+          <div style="font-size:13px;color:#475569">Fechas: <strong>${r.DateArrival||''} → ${r.DateDeparture||''}</strong></div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;margin-bottom:10px">Moneda: <strong>${cur}</strong></div>
           <div style="display:flex;justify-content:center;margin-bottom:10px">${chip}</div>
           ${montosBlock}
           ${airbnbBlock}
-          <div style="margin-top:10px;font-size:13px;color:#475569">Propiedad: <strong>${r.Propiedad||'—'}</strong>${r.Departamento?` #${r.Departamento}`:''}</div>
-          <div style="font-size:13px;color:#475569">Fechas: <strong>${r.DateArrival||''} → ${r.DateDeparture||''}</strong></div>
-          <div style="font-size:12px;color:#64748b;margin-top:4px">Moneda: <strong>${cur}</strong></div>
           ${windowBlock}
         </div>
         <div style="margin-top:12px;font-size:12px;color:#64748b;text-align:center">Al oprimir "Generar" se emite el ticket y te llegará por correo y WhatsApp.</div>

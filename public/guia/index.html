@@ -998,12 +998,12 @@ function factRenderStep3_(){
         </div>
       </div>`;
   document.getElementById('fact-total-view').innerHTML = `
+    <div style="font-size:13px;color:#475569">Propiedad: <strong>${r.Propiedad||'—'}</strong>${r.Departamento?` #${r.Departamento}`:''}</div>
+    <div style="font-size:13px;color:#475569">Fechas: <strong>${r.DateArrival||''} → ${r.DateDeparture||''}</strong></div>
+    <div style="font-size:12px;color:#64748b;margin-top:4px;margin-bottom:10px">Moneda: <strong>${cur}</strong></div>
     <div style="display:flex;justify-content:center;margin-bottom:10px">${statusChip}</div>
     ${montosBlock}
     ${airbnbBlock}
-    <div style="margin-top:10px;font-size:13px;color:#475569">Propiedad: <strong>${r.Propiedad||'—'}</strong>${r.Departamento?` #${r.Departamento}`:''}</div>
-    <div style="font-size:13px;color:#475569">Fechas: <strong>${r.DateArrival||''} → ${r.DateDeparture||''}</strong></div>
-    <div style="font-size:12px;color:#64748b;margin-top:4px">Moneda: <strong>${cur}</strong></div>
     ${windowBlock}
   `;
   // Habilita/deshabilita el botón según la ventana temporal y monto
