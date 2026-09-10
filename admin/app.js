@@ -34270,7 +34270,11 @@ function asistPanelRender() {
   // (con Entrada Y/O Salida). Las celdas del día teórico de trabajo sin
   // registro salen en gris claro (no auto-verdes) — se sombrean como
   // "esperado" pero sin monto hasta que exista el registro real.
-  const attendanceSet = new Set(); // "Nombre|YYYY-MM-DD" con registro real
+  // Recorre filas reales y guarda el CONCEPTO exacto de cada una (no
+  // hardcodeamos 'Asistencia' — si la fila del sheet tiene Concepto vacío,
+  // usamos 'Asistencia' como default para reflejar la ausencia sin generar
+  // un diff artificial en el guardado).
+  const conceptoRealByKey = new Map();
   (ASIST_STATE?.rows || []).forEach(r => {
     const nm = String(r.Empleado_Nombre || '').trim();
     let fecha = r.Fecha;
@@ -34283,12 +34287,13 @@ function asistPanelRender() {
     if (!nm || !fecha) return;
     const ent = String(r.Entrada || '').trim();
     const sal = String(r.Salida || '').trim();
-    if (ent || sal) attendanceSet.add(`${nm}|${fecha}`);
+    const conc = String(r.Concepto || '').trim() || 'Asistencia';
+    if (ent || sal || conc) conceptoRealByKey.set(`${nm}|${fecha}`, conc);
   });
   const shouldSeed = st.celdas.size === 0 && !st._userTouched;
   if (shouldSeed) {
-    attendanceSet.forEach(key => {
-      st.celdas.set(key, new Set(['Asistencia']));
+    conceptoRealByKey.forEach((concepto, key) => {
+      st.celdas.set(key, new Set([concepto]));
     });
   }
   let html = `<div style="display:flex;flex-wrap:wrap;gap:10px;padding:6px 4px 10px;font-size:11px;color:#475569;font-weight:700">`;
@@ -34615,12 +34620,18 @@ window.asistGuardarRegistro = async function () {
   });
   const deletes = [];
   const creates = [];
-  // (a) Celdas con concepto deseado nuevo o distinto al actual → delete+create
+  // (a) Celdas con concepto deseado nuevo o distinto al actual → delete+create.
+  // Normalizamos: si la fila del sheet tiene Concepto vacío pero hay
+  // Entrada/Salida, se considera 'Asistencia' (que es el default visual).
   desiredByKey.forEach((concepto, key) => {
     const [nombre, iso] = key.split('|');
     const row = rowByKey.get(key);
-    if (row && String(row.Concepto||'').trim() === concepto) return; // sin cambios
-    if (row && row.ID) deletes.push(row.ID);
+    if (row) {
+      const conceptoActual = String(row.Concepto || '').trim() ||
+        ((String(row.Entrada||'').trim() || String(row.Salida||'').trim()) ? 'Asistencia' : '');
+      if (conceptoActual === concepto) return; // sin cambios
+      if (row.ID) deletes.push(row.ID);
+    }
     creates.push({ nombre, iso, concepto });
   });
   // (b) Celdas sin concepto deseado pero con fila real → delete
