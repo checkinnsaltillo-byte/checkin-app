@@ -14127,11 +14127,15 @@ function lgProbableMatchChip() {
  *  que el huésped completó el formulario. */
 function huHasManualRegistration(r) {
   if (!r) return false;
-  // Solo el campo "Nombres de TODOS los huéspedes (separados por comas)"
-  // es señal inequívoca: solo aparece cuando el huésped lo escribió en
-  // el formulario de check-in. La propagación de Lodgify lo deja vacío.
-  const v = r['Nombres de TODOS los huéspedes (separados por comas)'];
-  return v != null && String(v).trim() !== '';
+  // Criterio: la columna "# Huéspedes" tiene un valor no vacío. Lodgify no
+  // la propaga (queda vacía en filas creadas por sync); solo se llena cuando
+  // el huésped completa el formulario de check-in donde ese campo es
+  // obligatorio.
+  const v = r['# Huéspedes'];
+  if (v == null) return false;
+  const s = String(v).trim();
+  if (!s || s === '0') return false;
+  return true;
 }
 
 function lgBookingFacturaState(b) {
