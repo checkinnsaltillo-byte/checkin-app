@@ -6770,9 +6770,8 @@ body.has-session input[name="nombre"] {
 </div>
 <div class="section" id="vehicle_section_hidden_backend"><h2 class="section-title" data-i18n="sec5Title">Registro de vehículo</h2><p class="section-subtitle" data-i18n="vehicleProSub">Registra aquí el vehículo que ingresará al inmueble para mejorar control, seguridad y seguimiento operativo.</p><label data-i18n="vehicle">¿Cuentas con vehículo?</label>
 <select id="tiene_vehiculo" name="tiene_vehiculo">
-<option value="">Selecciona</option>
 <option value="si">Sí</option>
-<option value="no">No</option>
+<option value="no" selected>No</option>
 </select>
 <div class="vehicle-pro-shell hidden" id="vehiculo_fields">
 <div class="vehicle-warning" id="vehicleWarningBox"></div>
@@ -7255,8 +7254,8 @@ function resetPrefilledFields() {
     // a "Selecciona" 1s después por un reset async.
     if (el.dataset.userTouched === '1') return;
     if (el.tagName === 'SELECT') {
-      // Caso especial factura: default = "no" (no primera opción "sí")
-      if (el.id === 'factura') { el.value = 'no'; }
+      // Caso especial: factura y tiene_vehiculo default = "no"
+      if (el.id === 'factura' || el.id === 'tiene_vehiculo') { el.value = 'no'; }
       else { el.selectedIndex = 0; }
     }
     else el.value = "";
@@ -9445,7 +9444,7 @@ const I18N = {
     reasonOptions: ["Selecciona","Laboral","Estudio","Vacacional","Otro"],
     propertyOptions: ["Selecciona","Calle Cumbres","Calle Baja California","Calle Oaxaca","Calle José Cárdenas","Calle Matamoros","Calle Torreón","Otra"],
     invoiceOptions: ["Sí","No"],
-    vehicleOptions: ["Selecciona","Sí","No"],
+    vehicleOptions: ["Sí","No"],
     paymentOptions: ["Selecciona","Transferencia directa a la cuenta del anfitrión","Airbnb","Página web (www.check-inn-saltillo.com)","Liga de Whatsapp"],
     currencyOptions: ["Selecciona divisa","Peso mexicano (MXN)","Dólar estadounidense (USD)","Real brasileño (BRL)","Euro (EUR)","Libra esterlina (GBP)"],
     taxRegimeOptions: ["Selecciona","General de Ley Personas Morales","Régimen Simplificado de Confianza (RESICO)","Persona Física con Actividades Empresariales y Profesionales","Otro"],
@@ -9540,7 +9539,7 @@ const I18N = {
     reasonOptions: ["Select","Work","Study","Vacation","Other"],
     propertyOptions: ["Select","Calle Cumbres","Calle Baja California","Calle Oaxaca","Calle José Cárdenas","Calle Matamoros","Calle Torreón","Other"],
     invoiceOptions: ["Yes","No"],
-    vehicleOptions: ["Select","Yes","No"],
+    vehicleOptions: ["Yes","No"],
     paymentOptions: ["Select","Direct transfer to host account","Airbnb","Website (www.check-inn-saltillo.com)","WhatsApp link"],
     currencyOptions: ["Select currency","Mexican peso (MXN)","US dollar (USD)","Brazilian real (BRL)","Euro (EUR)","British pound (GBP)"],
     taxRegimeOptions: ["Select","General Corporate Tax Regime","Simplified Trust Regime (RESICO)","Individual with Business and Professional Activities","Other"],
