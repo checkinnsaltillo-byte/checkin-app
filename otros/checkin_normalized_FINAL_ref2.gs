@@ -3395,10 +3395,11 @@ function saveFacturapiPdf_(data) {
   const recordId = safe_(data.record_id || data.id || data.row_id);
   const explicitRow = safe_(data.row_number || data.rowNumber);
   const externalId = safe_(data.external_id || data.externalId);
+  const lodgifyId  = safe_(data.lodgify_id || data.lodgifyId);
   const receiptId = safe_(data.receipt_id || data.receiptId);
   const folio = safe_(data.folio_facturapi || data.folio);
   const fileObj = data.file;
-  if (!recordId && !externalId && !explicitRow) throw new Error("Falta identificación.");
+  if (!recordId && !externalId && !explicitRow && !lodgifyId) throw new Error("Falta identificación.");
   if (!receiptId && !folio) throw new Error("Falta receipt_id o folio.");
   if (!fileObj || !fileObj.base64) throw new Error("Sin PDF.");
   // Ruta al handler de Inquilinos_Pagos cuando externalId trae prefix INQPAGO-.
@@ -3414,6 +3415,9 @@ function saveFacturapiPdf_(data) {
     const clean = String(externalId).replace(/^CHECKIN-/, "").trim();
     row = findRowByValue_(sheet, headers, "ID", clean);
     if (!row) row = findRowByRowNumber_(sheet, clean);
+  }
+  if (!row && lodgifyId) {
+    row = findRowByValue_(sheet, headers, "Lodgify Id", String(lodgifyId).trim());
   }
   if (!row) throw new Error("No se encontró la reservación.");
   const resRow = readRow_(sheet, headers, row);
