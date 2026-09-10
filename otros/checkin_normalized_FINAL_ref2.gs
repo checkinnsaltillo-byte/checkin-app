@@ -10321,7 +10321,7 @@ function reservaGetByConfirmationCode_(data) {
   // Cache 5min por código — evita rescanear la hoja Reservas_Lodgify de 10k
   // filas cada vez que el huésped hace blur en el input.
   var _cache = CacheService.getScriptCache();
-  var _cacheKey = "rgcc_v5_fastpath_" + code;
+  var _cacheKey = "rgcc_v6_chips_" + code;
   try {
     var _cached = _cache.get(_cacheKey);
     if (_cached) { var _p = JSON.parse(_cached); _p._cached = true; return _p; }
@@ -10347,7 +10347,8 @@ function reservaGetByConfirmationCode_(data) {
         var pr = perfilGetByPhone_({ phone: phone });
         if (pr && pr.ok && pr.perfil) perfil = pr.perfil;
       }
-      var _outRes = { ok:true, reserva:reserva, perfil:perfil, code:code, phone:_normalizePhone10_(phone), source:"reservaciones" };
+      reserva["Registrado"] = true;
+      var _outRes = { ok:true, reserva:reserva, perfil:perfil, code:code, phone:_normalizePhone10_(phone), source:"reservaciones", registrado:true };
       try { _cache.put(_cacheKey, JSON.stringify(_outRes), 300); } catch(_){}
       return _outRes;
     }
@@ -10464,7 +10465,8 @@ function reservaGetByConfirmationCode_(data) {
               }
             } catch (eA) { Logger.log("[alojamientos resolve] " + eA); }
             // Cruzar con Reservaciones para obtener Folio facturapi + URL del ticket
-            var folioR = "", ticketUrlR = "";
+            // + saber si la reserva ya fue registrada (tiene fila en Reservaciones).
+            var folioR = "", ticketUrlR = "", registradoR = false;
             try {
               var shRes = ss.getSheetByName(RESERVACIONES_SHEET);
               if (shRes && shRes.getLastRow() >= 2) {
@@ -10473,13 +10475,14 @@ function reservaGetByConfirmationCode_(data) {
                 var rLI = rHdrs.indexOf("Lodgify Id");
                 var rFO = rHdrs.indexOf("Folio facturapi");
                 var rUR = rHdrs.indexOf("Ticket facturapi url");
-                if (rLI >= 0 && rFO >= 0) {
+                if (rLI >= 0) {
                   var lidStr = String(iId >= 0 ? lgVals[j][iId] : "").trim();
                   if (lidStr) {
                     var rV = shRes.getRange(2, 1, shRes.getLastRow()-1, rHdrs.length).getValues();
                     for (var rrr = 0; rrr < rV.length; rrr++) {
                       if (String(rV[rrr][rLI] || "").trim() === lidStr) {
-                        folioR = String(rV[rrr][rFO] || "").trim();
+                        registradoR = true;
+                        folioR = rFO >= 0 ? String(rV[rrr][rFO] || "").trim() : "";
                         ticketUrlR = rUR >= 0 ? String(rV[rrr][rUR] || "").trim() : "";
                         break;
                       }
@@ -10519,9 +10522,10 @@ function reservaGetByConfirmationCode_(data) {
               "Divisa monto pagado":        iCurf>= 0 ? String(lgVals[j][iCurf]|| "") : "",
               "Folio facturapi":            folioR,
               "Ticket facturapi url":       ticketUrlR,
+              "Registrado":                 registradoR,
               "_row": matchIdx + 2
             };
-            var _outLg = { ok:true, reserva:reservaMapped, perfil:perfil2, code:code, phone:_normalizePhone10_(phoneL), source:"lodgify" };
+            var _outLg = { ok:true, reserva:reservaMapped, perfil:perfil2, code:code, phone:_normalizePhone10_(phoneL), source:"lodgify", registrado: registradoR };
             try { _cache.put(_cacheKey, JSON.stringify(_outLg), 300); } catch(_){}
             return _outLg;
           }
