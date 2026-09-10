@@ -20511,6 +20511,11 @@ window._emitAutoNow_ = async function(btnEl) {
     // Prefiere snapshot (capturado antes del form.reset() post-submit) sobre
     // leer campos del DOM que ya pueden estar vacíos.
     const snap = window.__factPendingPayload || {};
+    const isAirbnb = String(r.Source || '').toLowerCase().includes('airbnb');
+    const totalReserva = Number(r.TotalAmount || 0);
+    const pagado = Number(r.AmountPaid || 0);
+    const AIRBNB_COMM = 0.155;
+    const comisionAirbnb = isAirbnb ? +(totalReserva * AIRBNB_COMM).toFixed(2) : 0;
     const payload = {
       reservaId: String(r.Id || r.id_lodgify || '').trim(),
       phone: window.WIZ_IDENTIFIED?.phone || '',
@@ -20525,6 +20530,14 @@ window._emitAutoNow_ = async function(btnEl) {
       rfc: snap.rfc || _v('rfc'),
       regimen: snap.regimen || _v('regimen_fiscal'),
       cp: snap.cp || _v('codigo_postal') || _v('cp'),
+      // Desglose de montos para popular columnas $ MONTO TOTAL Airbnb / $ Comisión /
+      // $ Monto antes de impuestos / ($) Monto Total pagado / $ Monto facturado Total
+      isAirbnb: isAirbnb,
+      totalReserva: totalReserva,
+      totalAirbnb: isAirbnb ? totalReserva : 0,
+      comisionAirbnb: comisionAirbnb,
+      totalPagado: isAirbnb ? totalReserva : pagado,
+      montoFacturado: facturado,
     };
     const resp = await fetch('https://api.check-inn.mx/facturapi/emit-auto', {
       method: 'POST', headers: {'Content-Type':'application/json'},
