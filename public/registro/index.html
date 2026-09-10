@@ -5421,6 +5421,9 @@ body.has-session input[name="nombre"] {
 }
 .preview-wrapper.has-image .preview-img-remove{ display:inline-flex; }
 .preview-img-remove:hover{ background:#b91c1c; transform:scale(1.1); }
+/* Feedback visual del chip "Ver ticket" */
+.ver-ticket-chip:hover{ background:#15803d !important; box-shadow:0 2px 6px rgba(22,163,74,.35); }
+.ver-ticket-chip:active{ background:#166534 !important; transform:scale(.94); box-shadow:inset 0 2px 4px rgba(0,0,0,.25); }
 </style>
 
 </head>
@@ -7773,7 +7776,7 @@ function renderReservaSelector(reservas, phoneRaw, perfilRow, mapper) {
       : "";
     // Chip verde "Ver ticket · Folio #X" si hay folio (abre URL si existe)
     const chipTicket = r.FolioFacturapi
-      ? `<span onclick="event.stopPropagation();${r.TicketUrl ? `window.open('${String(r.TicketUrl).replace(/'/g,"\\'")}','_blank','noopener')` : `alert('Folio #${r.FolioFacturapi} — el link del ticket aún no está disponible en Drive.')`};" style="display:inline-block;padding:3px 10px;border-radius:99px;background:#16a34a;color:#fff;font-size:10px;font-weight:800;letter-spacing:.03em;cursor:pointer">✓ VER TICKET · FOLIO #${r.FolioFacturapi}</span>`
+      ? `<span class="ver-ticket-chip" onclick="event.stopPropagation();${r.TicketUrl ? `window.open('${String(r.TicketUrl).replace(/'/g,"\\'")}','_blank','noopener')` : `alert('Folio #${r.FolioFacturapi} — el link del ticket aún no está disponible en Drive.')`};" style="display:inline-block;padding:3px 10px;border-radius:99px;background:#16a34a;color:#fff;font-size:10px;font-weight:800;letter-spacing:.03em;cursor:pointer;transition:transform 80ms ease,background 80ms ease,box-shadow 80ms ease;user-select:none">✓ VER TICKET · FOLIO #${r.FolioFacturapi}</span>`
       : "";
     const chipsRow = (chipRegistrado || chipTicket)
       ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${chipRegistrado}${chipTicket}</div>`
