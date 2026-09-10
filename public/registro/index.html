@@ -6821,7 +6821,7 @@ body.has-session input[name="nombre"] {
   <button type="button" id="wiz-btn-prev" onclick="wizPrev()" style="flex:0 0 auto;padding:12px 20px;background:#f1f5f9;color:#334155;border:1.5px solid #cbd5e1;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px">← Atrás</button>
   <button type="button" id="wiz-btn-next" onclick="wizNext()" style="flex:1;padding:14px 20px;background:#2563eb;color:#fff;border:0;border-radius:12px;font-weight:800;cursor:pointer;font-size:15px">Siguiente →</button>
   <button data-i18n="send" id="submitBtn" type="submit" style="flex:1;display:none">Finalizar registro</button>
-  <button type="submit" id="saveChangesBtn" style="flex:1;display:none;padding:14px 20px;background:#ea580c;color:#fff;border:0;border-radius:12px;font-weight:800;cursor:pointer;font-size:15px">💾 Guardar cambios</button>
+  <button type="button" id="saveChangesBtn" onclick="window.__wizEditSaveClicked=true;document.getElementById('form').requestSubmit ? document.getElementById('form').requestSubmit() : document.getElementById('form').submit();" style="flex:1;display:none;padding:14px 20px;background:#ea580c;color:#fff;border:0;border-radius:12px;font-weight:800;cursor:pointer;font-size:15px">💾 Guardar cambios</button>
   <div class="status" id="statusMessage" style="width:100%"></div>
 </div></div></form>
 </div>
@@ -6923,10 +6923,19 @@ window.popupAceptarYEnviar = function(){
 // top layer del OS que ignora z-index CSS.
 window.mostrarMiniPopupEnviado = function(opts){
   opts = opts || {};
-  // Modo edición: no mostramos mini popup — cerramos directo (comportamiento
-  // solicitado para el botón "Guardar cambios").
+  // Modo edición: muestra popup "Cambios guardados" y auto-cierra a los 1.5s.
   if (window.WIZ_EDIT_MODE) {
-    try { if (typeof window._miniPopupCerrarYRedirect === 'function') window._miniPopupCerrarYRedirect(); } catch(_){}
+    var toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+    toast.innerHTML = '<div style="background:#fff;border-radius:16px;padding:24px 28px;max-width:340px;width:100%;box-shadow:0 12px 32px rgba(0,0,0,.3);text-align:center">' +
+      '<div style="font-size:44px;color:#16a34a;margin-bottom:6px">✓</div>' +
+      '<div style="font-size:17px;font-weight:800;color:#0f172a">Cambios guardados</div>' +
+      '</div>';
+    document.body.appendChild(toast);
+    setTimeout(function(){
+      try { toast.remove(); } catch(_){}
+      try { if (typeof window._miniPopupCerrarYRedirect === 'function') window._miniPopupCerrarYRedirect(); } catch(_){}
+    }, 1500);
     return;
   }
   var titulo    = String(opts.titulo || 'Registro exitoso');
@@ -9160,10 +9169,14 @@ document.getElementById("form").addEventListener("submit", async function(e){
 
   // BLOQUEO: solo permite el submit real en el Paso 4 del wizard. Enter en
   // cualquier campo de los pasos 1-3 lo trata como "Siguiente".
-  if ((window.WIZ_CURRENT || 1) !== 4) {
+  // EXCEPCIÓN: click en "Guardar cambios" (modo edición) siempre submite,
+  // sin importar el paso actual.
+  if ((window.WIZ_CURRENT || 1) !== 4 && !window.__wizEditSaveClicked) {
     try { if (typeof wizNext === 'function') wizNext(); } catch(_){}
     return;
   }
+  // Consume el flag: subsecuentes submits normales no lo heredan
+  window.__wizEditSaveClicked = false;
 
   const status = document.getElementById("statusMessage");
   const submitBtn = document.getElementById("submitBtn");
