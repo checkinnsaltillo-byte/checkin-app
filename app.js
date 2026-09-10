@@ -34053,8 +34053,10 @@ window.asistNuevoRegistro = function () {
   if (sel) sel.value = semana;
   const status = document.getElementById('asist-status');
   if (status) status.textContent = '';
-  // Reset dirty y estado del botón: arranca disabled con "Guardar registro".
+  // Reset dirty + colas pendientes: arranca vacío con "Guardar registro" disabled.
   ASIST_STATE.panel._dirtyChanges = false;
+  ASIST_STATE.panel.pendingCreate = new Map();
+  ASIST_STATE.panel.pendingDelete = new Set();
   asistPanelUpdateSaveBtn_();
   asistPanelRender();
 };
@@ -34090,10 +34092,13 @@ window.asistPanelCellToggleConcepto = function (nombre, iso, concepto, ev) {
   // Cierra el menú tras la selección (single-select).
   const m = document.getElementById('asist-panel-cell-menu');
   if (m) m.remove();
-  // Auto-persistencia por click:
-  //   Marcar 'Asistencia' → si no existe registro para {empleado, fecha}, lo crea.
-  //   Desmarcar 'Asistencia' → si hay registro, lo elimina.
+  // Encola cambio pendiente (no se persiste hasta "Guardar cambios"):
+  //   Marcar 'Asistencia' → agrega a pendingCreate (si no existe fila real).
+  //   Desmarcar 'Asistencia' → agrega row.ID a pendingDelete (si existía).
   if (concepto === 'Asistencia') {
+    st.pendingCreate = st.pendingCreate || new Map();
+    st.pendingDelete = st.pendingDelete || new Set();
+    const key = `${nombre}|${iso}`;
     const rowExistente = (ASIST_STATE?.rows || []).find(r => {
       const nm = String(r.Empleado_Nombre || '').trim();
       let f = r.Fecha;
@@ -34106,11 +34111,15 @@ window.asistPanelCellToggleConcepto = function (nombre, iso, concepto, ev) {
       return nm === nombre && f === iso;
     });
     if (!wasSelected) {
-      // Estamos MARCANDO (agregando): crea si no existe.
-      if (!rowExistente) _asistPanelCrearRegistroAsistencia(nombre, iso);
+      // Marcando: si no había fila real, encola create. Si el usuario había
+      // encolado su borrado antes, revierte esa acción.
+      if (st.pendingDelete.has(rowExistente?.ID)) st.pendingDelete.delete(rowExistente.ID);
+      else if (!rowExistente) st.pendingCreate.set(key, { nombre, iso });
     } else {
-      // Estamos DESMARCANDO (quitando): elimina si existe.
-      if (rowExistente && rowExistente.ID) _asistPanelEliminarRegistro(rowExistente.ID);
+      // Desmarcando: si tenía pendingCreate encolado, sacálo. Si había fila
+      // real (independientemente del Método), encola su borrado.
+      if (st.pendingCreate.has(key)) st.pendingCreate.delete(key);
+      else if (rowExistente && rowExistente.ID) st.pendingDelete.add(rowExistente.ID);
     }
   }
 };
@@ -34583,21 +34592,68 @@ window.asistManualGuardar = async function () {
 };
 
 window.asistGuardarRegistro = async function () {
-  // NUEVO comportamiento: las marcas / desmarcas ya se persisten en el sheet
-  // al momento de hacer click en la celda (via _asistPanelCrearRegistroAsistencia
-  // y _asistPanelEliminarRegistro). El botón "Guardar cambios" es un
-  // confirmador visual — cierra el panel y refresca la tabla.
+  // Aplica los cambios pendientes acumulados desde que se abrió el panel:
+  //   pendingCreate → POST /rh/asistencia por cada celda marcada nueva.
+  //   pendingDelete → DELETE /rh/asistencia/:id por cada celda desmarcada.
   const st = asistPanelState_();
   const status = document.getElementById('asist-status');
   const btn = document.getElementById('asist-btn-guardar');
-  if (status) { status.style.color = '#065f46'; status.textContent = '✓ Cambios guardados.'; }
+  const creates = Array.from(st.pendingCreate?.values() || []);
+  const deletes = Array.from(st.pendingDelete || []);
+  const total = creates.length + deletes.length;
+  if (!total) {
+    if (status) { status.style.color = '#065f46'; status.textContent = '✓ Sin cambios.'; }
+    setTimeout(() => { asistCancelarRegistro(); }, 400);
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
+  if (status) { status.style.color = '#64748b'; status.textContent = `⏳ Aplicando ${total} cambio(s)…`; }
+  const _pad = n => String(n).padStart(2,'0');
+  let ok = 0, err = 0;
+  // 1) DELETES primero
+  for (const id of deletes) {
+    try {
+      const r = await fetch(`${BACKEND}/rh/asistencia/${encodeURIComponent(id)}`, { method:'DELETE' });
+      const j = await r.json();
+      if (j.ok) ok++; else err++;
+    } catch { err++; }
+  }
+  // 2) CREATES (todos con entrada 08:30 salida 13:30 concepto Asistencia)
+  const p = asistPanelPrimasPorConcepto_('Asistencia');
+  const fmt = v => v === '' ? '' : asistPanelFmtMonto_(v);
+  const total_pago = ['salBase','primaVac','primaDom','primaDF'].reduce((s,k) => s + (typeof p[k] === 'number' ? p[k] : 0), 0);
+  for (const { nombre, iso } of creates) {
+    const payload = {
+      Empleado_Nombre: nombre, Fecha: iso, Concepto: 'Asistencia',
+      Entrada: '08:30', Salida: '13:30', Horas: '5h00',
+      '$ Salario base':             fmt(p.salBase),
+      '$ Prima vacacional (25%)':   fmt(p.primaVac),
+      '$ Prima dominical (25%)':    fmt(p.primaDom),
+      '$ Prima día feriado (200%)': fmt(p.primaDF),
+      '$ Salario total':            total_pago ? asistPanelFmtMonto_(total_pago) : '',
+      Metodo: 'Manual', Observaciones: '',
+    };
+    try {
+      const r = await fetch(`${BACKEND}/rh/asistencia`, {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ payload }),
+      });
+      const j = await r.json();
+      if (j.ok) ok++; else err++;
+    } catch { err++; }
+  }
+  if (status) {
+    status.style.color = err ? '#991b1b' : '#065f46';
+    status.textContent = err ? `✓ ${ok} aplicado(s), ✗ ${err} con error` : `✓ ${ok} cambio(s) aplicado(s)`;
+  }
+  st.pendingCreate = new Map();
+  st.pendingDelete = new Set();
   st._dirtyChanges = false;
-  asistPanelUpdateSaveBtn_();
   setTimeout(() => {
     asistCancelarRegistro();
     if (status) status.textContent = '';
     if (typeof asistReloadList === 'function') asistReloadList();
-  }, 700);
+  }, 900);
   return;
   /* Código legacy: guardaba TODAS las celdas de una (creaba duplicados con
      el flujo nuevo). Se conserva comentado por si hay que restaurarlo.
