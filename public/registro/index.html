@@ -7411,6 +7411,29 @@ function applyFieldRequirednessMarks() {
   } catch(_){}
 }
 try { window.applyFieldRequirednessMarks = applyFieldRequirednessMarks; } catch(_){}
+// Hook GLOBAL: cada vez que se llame applyTranslations (i18n) reejecutamos
+// applyFieldRequirednessMarks para que los sufijos * (obligatorio) / (opcional)
+// nunca desaparezcan (i18n sobreescribe label.textContent).
+(function(){
+  try {
+    if (typeof window.applyTranslations !== 'function') {
+      // La función puede estar declarada más adelante — hook diferido.
+      var _hookInterval = setInterval(function(){
+        if (typeof window.applyTranslations === 'function') {
+          clearInterval(_hookInterval);
+          var _orig = window.applyTranslations;
+          window.applyTranslations = function(){
+            var r = _orig.apply(this, arguments);
+            try { applyFieldRequirednessMarks(); } catch(_){}
+            return r;
+          };
+        }
+      }, 100);
+      // Corta después de 10s
+      setTimeout(() => clearInterval(_hookInterval), 10000);
+    }
+  } catch(_){}
+})();
 // Aplicar en DOMContentLoaded y después de cualquier cambio de idioma.
 // Además: MutationObserver en el form para re-aplicar si alguien cambia
 // label.textContent (i18n suele hacerlo tarde y sobreescribe los sufijos).
@@ -7435,7 +7458,8 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { __markSuppress = false; }, 50);
       });
       mo.observe(form, { subtree:true, characterData:true, childList:true });
-      setTimeout(() => { try { mo.disconnect(); } catch(_){} }, 8000);
+      // Se mantiene activo toda la sesión — cada vez que un label cambia
+      // (i18n al cambiar lenguaje, sync de huéspedes, autofills), re-aplica.
     }
   } catch(_){}
 });
