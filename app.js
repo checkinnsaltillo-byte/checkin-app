@@ -34278,16 +34278,12 @@ window.asistPanelUpdateCompensacion = function (nombre, iso, field, value) {
   st._userTouched = true;
   st._dirtyChanges = true;
   asistPanelUpdateSaveBtn_();
-  // Solo actualiza el contenido de la celda (no todo el render) para
-  // mantener el foco en el input abierto.
-  try {
-    const cont = document.getElementById('asist-panel-cal-wrap');
-    const cell = cont && cont.querySelector(`[data-cell-key="${CSS.escape(k)}"]`);
-    if (cell) {
-      const conceptos = st.celdas.get(k);
-      cell.querySelector('div').innerHTML = _asistPanelCellInner_(conceptos, cur);
-    }
-  } catch(_){}
+  // Re-render completo: el popup vive como hijo del <body> (position:fixed)
+  // así que NO se pierde al reconstruir las celdas del calendario, y el
+  // input activo mantiene el foco. Necesitamos el re-render completo para
+  // actualizar (a) la celda del día con el desglose y (b) la columna
+  // semanal "$ Compensación" + "Salario TOTAL" del empleado.
+  asistPanelRender();
 };
 
 async function _asistPanelEliminarRegistro(id) {
