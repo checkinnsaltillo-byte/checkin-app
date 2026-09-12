@@ -34331,7 +34331,8 @@ function asistPanelRender() {
     </span>`;
   });
   html += `</div>`;
-  html += `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:7">`;
+  // 8 columnas: 7 días + $ Salario semanal
+  html += `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:8">`;
   html += `<div class="ocup-cal-head"><div class="ocup-head-aloj">👥 Personal · ${personalRows.length}</div>`;
   const today = new Date(); today.setHours(0,0,0,0);
   dias.forEach(d => {
@@ -34343,6 +34344,10 @@ function asistPanelRender() {
       <div class="ocup-head-day">${d.getDate()}</div>
     </div>`;
   });
+  html += `<div class="ocup-head-cell" style="background:#0f172a;color:#fff">
+    <div class="ocup-head-dow" style="color:#cbd5e1">💰 Salario</div>
+    <div class="ocup-head-day" style="font-size:10px;font-weight:800">semanal</div>
+  </div>`;
   html += `</div>`;
   personalRows.forEach(({ nombre, puesto }) => {
     html += `<div class="ocup-cal-row">`;
@@ -34389,6 +34394,26 @@ function asistPanelRender() {
         <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;gap:1px">${inner}</div>
       </div>`;
     });
+    // ── $ Salario semanal ─────────────────────────────────────────────
+    // Cuenta días con concepto 'Asistencia' (días efectivamente trabajados).
+    // Fórmula: 5 días → *7 (semana completa con 2 días de descanso).
+    //          4 días → *6 (–1 día por falta).  N días → min(7, N+2).
+    //          0 días → $0 (sin registro, no se paga).
+    let diasTrab = 0;
+    dias.forEach(d => {
+      const iso2 = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const cs = st.celdas.get(`${nombre}|${iso2}`);
+      if (cs && cs.has('Asistencia')) diasTrab++;
+    });
+    const factor = diasTrab === 0 ? 0 : Math.min(7, diasTrab + 2);
+    const salSemanal = ASIST_PANEL_SAL_BASE * factor;
+    html += `<div class="ocup-day-cell" style="background:#f8fafc;border-left:2px solid #0f172a"
+      title="Días trabajados: ${diasTrab} · factor: ${factor} × base $${ASIST_PANEL_SAL_BASE.toFixed(2)}">
+      <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;flex-direction:column;gap:1px">
+        <span style="font-size:10px;font-weight:900;color:#0f172a;line-height:1">${asistPanelFmtMonto_(salSemanal)}</span>
+        <span style="font-size:8.5px;color:#64748b;font-weight:700">${diasTrab}d × ${factor}</span>
+      </div>
+    </div>`;
     html += `</div>`;
   });
   html += `</div>`;
