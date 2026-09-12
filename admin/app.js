@@ -33232,7 +33232,7 @@ function asistRenderResumen(targetId) {
   // Estilos tipo tabla de "Control de asistencias" — header oscuro, sticky.
   const th = (label, width) => `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap${width?`;width:${width}`:''}">${label}</th>`;
   const thNum = (label, width) => `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 10px;text-align:right;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap${width?`;width:${width}`:''}">${label}</th>`;
-  const thAcc = `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 8px;text-align:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;width:110px">Acciones</th>`;
+  const thAcc = `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 8px;text-align:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;width:80px">Acciones</th>`;
   const td = (v, extraStyle) => `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#1f2937;white-space:nowrap${extraStyle?';'+extraStyle:''}">${v}</td>`;
   const tdNum = (v, extraStyle) => `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;text-align:right;font-weight:700;color:#0f172a;white-space:nowrap${extraStyle?';'+extraStyle:''}">${v}</td>`;
   const tdAcc = (g) => {
@@ -33246,9 +33246,8 @@ function asistRenderResumen(targetId) {
         <button type="button" title="Cancelar" onclick="asistResumenCancelarEdit('${esc(rowKey)}')" style="${btnStyle} #fecaca;background:#fee2e2;color:#b91c1c">✕</button>`;
     } else {
       const pencil = `<button type="button" title="Editar compensación" onclick="asistResumenAbrirEdit('${esc(rowKey)}')" style="${btnStyle} #fde68a;background:#fef3c7;color:#92400e">✎</button>`;
-      const jump   = `<button type="button" title="Ver renglones agregados en la tabla" onclick="asistResumenIrATabla('${g.ids.join(',')}')" style="${btnStyle} #93c5fd;background:#dbeafe;color:#1d4ed8">↗</button>`;
       const del    = `<button type="button" title="Eliminar todos los renglones de este grupo" onclick="asistResumenEliminarGrupo('${g.ids.join(',')}')" style="${btnStyle} #fecaca;background:#fee2e2;color:#b91c1c">✕</button>`;
-      btns = pencil + jump + del;
+      btns = pencil + del;
     }
     return `<td style="padding:6px 4px;text-align:center;vertical-align:middle;border-bottom:1px solid #f1f5f9"><div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${btns}</div></td>`;
   };
