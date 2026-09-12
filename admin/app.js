@@ -35031,10 +35031,15 @@ window.asistGuardarRegistro = async function () {
     return String(a.concepto || '') === String(b.concepto || '')
       && Number(a.monto || 0) === Number(b.monto || 0);
   };
-  // Cubre TODAS las llaves (celdas deseadas + filas existentes) para que un
-  // cambio de compensación sobre una fila sin cambio de concepto también
-  // dispare un MODIFY.
-  const allKeys = new Set([...desiredByKey.keys(), ...rowByKey.keys()]);
+  // Cubre TODAS las llaves (celdas deseadas + filas existentes +
+  // compensaciones sin concepto). Sin las keys de compensaciones, las
+  // celdas que solo llevan compensación (sin Asistencia/Falta/etc. y sin
+  // fila previa) se saltaban silenciosamente y nunca llegaban a POST.
+  const allKeys = new Set([
+    ...desiredByKey.keys(),
+    ...rowByKey.keys(),
+    ...st.compensaciones.keys(),
+  ]);
   allKeys.forEach(key => {
     const [nombre, iso] = key.split('|');
     const concepto = desiredByKey.get(key) || '';
