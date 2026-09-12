@@ -3905,15 +3905,14 @@ input[type="checkbox"].lg-multi-cb {
 .inc-capture-panel.hidden { transform: translateX(100%); pointer-events: none; }
 .inc-capture-panel.open   { transform: translateX(0); pointer-events: auto; }
 /* El panel de Registro de asistencia contiene un mini-calendario de 7 días
-   × N empleados + 1 columna "$ Salario semanal". Ancho justo = 240 (col
-   Personal) + 7×64 (cols día) + 96 (col Salario semanal) + 32 (padding)
-   = 816px. min(96vw, ...) para no desbordar en pantallas chicas. */
-#asist-form-panel { max-width: min(96vw, 820px); width: 820px; }
-/* En el panel de asistencia, la última columna (Salario semanal) es más
-   ancha que las 7 columnas de día para que quepan montos de 4-5 dígitos. */
+   × N empleados + 5 columnas de nómina semanal (Base, Prima vac, Prima dom,
+   Prima DF, Total). Ancho: 200 (col Personal) + 7×62 (cols día) + 5×82
+   (nómina) + 32 (padding) = 1076px. min(96vw, …) para móviles. */
+#asist-form-panel { max-width: min(96vw, 1080px); width: 1080px; }
+/* Override del grid: personal + 7 días + 5 columnas de nómina más anchas. */
 [data-asist-cal="continuous"] > .ocup-cal-head,
 [data-asist-cal="continuous"] > .ocup-cal-row {
-  grid-template-columns: var(--ocup-aloj-w) repeat(7, var(--ocup-day-w)) 96px;
+  grid-template-columns: 200px repeat(7, var(--ocup-day-w)) repeat(5, 82px);
 }
 .inc-capture-header {
   display: flex;

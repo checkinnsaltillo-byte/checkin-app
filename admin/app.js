@@ -34463,8 +34463,8 @@ function asistPanelRender() {
     </span>`;
   });
   html += `</div>`;
-  // 8 columnas: 7 días + $ Salario semanal
-  html += `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:8">`;
+  // 12 columnas: 7 días + 5 columnas de nómina semanal.
+  html += `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:12">`;
   html += `<div class="ocup-cal-head"><div class="ocup-head-aloj">👥 Personal · ${personalRows.length}</div>`;
   const today = new Date(); today.setHours(0,0,0,0);
   dias.forEach(d => {
@@ -34476,10 +34476,17 @@ function asistPanelRender() {
       <div class="ocup-head-day">${d.getDate()}</div>
     </div>`;
   });
-  html += `<div class="ocup-head-cell" style="background:#0f172a;color:#fff">
-    <div class="ocup-head-dow" style="color:#cbd5e1">💰 Salario</div>
-    <div class="ocup-head-day" style="font-size:10px;font-weight:800">semanal</div>
-  </div>`;
+  // 5 columnas de nómina semanal (fondo oscuro para distinguir del bloque diario).
+  const salHeader = (icon, dow, day, title) => `
+    <div class="ocup-head-cell" style="background:#0f172a;color:#fff" title="${esc(title)}">
+      <div class="ocup-head-dow" style="color:#cbd5e1;font-size:10px">${icon} ${dow}</div>
+      <div class="ocup-head-day" style="font-size:9.5px;font-weight:800">${day}</div>
+    </div>`;
+  html += salHeader('💰', 'Salario', 'base sem.',     'Salario base semanal = $315.04 × (mín(7, días+2))');
+  html += salHeader('🌴', 'Prima',   'vacac. (25%)',  'Suma de la prima vacacional (25% del base) por los días con concepto Vac laboradas o Vacaciones.');
+  html += salHeader('☀️', 'Prima',   'dom. (25%)',    'Suma de la prima dominical (25% del base) por los días con concepto Domingo.');
+  html += salHeader('🎉', 'Prima',   'feriado (200%)','Suma de la prima de día feriado (200% del base) por los días con concepto Día feriado.');
+  html += salHeader('💵', 'Salario', 'TOTAL',         'Salario base semanal + primas.');
   html += `</div>`;
   let totalSemana = 0;
   personalRows.forEach(({ nombre, puesto }) => {
@@ -34513,11 +34520,28 @@ function asistPanelRender() {
         bg = 'background:#f1f5f9;';
         title = 'Día laboral · sin registro aún';
       }
-      // Etiqueta central: monto calculado (suma sobre los conceptos activos).
+      // Etiqueta central: desglose (base / prima / total) cuando hay prima
+      // adicional. Si el concepto no tiene prima (Regular, Falta, Incapacidad),
+      // se muestra solo el total.
       let inner = '';
       if (conceptos && conceptos.size) {
-        const total = Array.from(conceptos).reduce((s, k) => s + asistPanelMontoDe_(k), 0);
-        inner = `<span style="font-size:9px;font-weight:900;color:#0f172a;line-height:1.05;text-align:center;padding:0 2px">${asistPanelFmtMonto_(total)}</span>`;
+        const concKey = Array.from(conceptos)[0];
+        const p = asistPanelPrimasPorConcepto_(concKey);
+        const baseN  = typeof p.salBase === 'number' ? p.salBase : 0;
+        const primaN = (typeof p.primaVac === 'number' ? p.primaVac : 0)
+                     + (typeof p.primaDom === 'number' ? p.primaDom : 0)
+                     + (typeof p.primaDF  === 'number' ? p.primaDF  : 0);
+        const totalN = baseN + primaN;
+        if (primaN > 0) {
+          inner = `
+            <div style="display:flex;flex-direction:column;align-items:center;line-height:1.1;padding:1px 2px">
+              <span style="font-size:8px;color:#475569;font-weight:700">${asistPanelFmtMonto_(baseN)}</span>
+              <span style="font-size:8px;color:#0891b2;font-weight:800">+${asistPanelFmtMonto_(primaN)}</span>
+              <span style="font-size:9px;color:#0f172a;font-weight:900;border-top:1px solid #cbd5e155;padding-top:1px;margin-top:1px">${asistPanelFmtMonto_(totalN)}</span>
+            </div>`;
+        } else {
+          inner = `<span style="font-size:10px;font-weight:900;color:#0f172a;line-height:1.05;text-align:center;padding:0 2px">${asistPanelFmtMonto_(totalN)}</span>`;
+        }
       }
       html += `<div class="ocup-day-cell ${isWeekend?'is-weekend':''}"
         data-cell-key="${esc(nombre)}|${iso}"
@@ -34527,31 +34551,41 @@ function asistPanelRender() {
         <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;gap:1px">${inner}</div>
       </div>`;
     });
-    // ── $ Salario semanal ─────────────────────────────────────────────
-    // Cuenta días con concepto 'Asistencia' (días efectivamente trabajados).
-    // Fórmula: 5 días → *7 (semana completa con 2 días de descanso).
-    //          4 días → *6 (–1 día por falta).  N días → min(7, N+2).
-    //          0 días → $0 (sin registro, no se paga).
+    // ── Nómina semanal (5 columnas) ───────────────────────────────────
+    // Base semanal: Fórmula sobre días trabajados. min(7, N+2) × base.
+    // Primas semanales: suma por día según concepto (Vac / Dom / DF).
     let diasTrab = 0;
+    let primaVacSem = 0, primaDomSem = 0, primaDFSem = 0;
     dias.forEach(d => {
       const iso2 = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const cs = st.celdas.get(`${nombre}|${iso2}`);
-      // Cuenta como día trabajado cualquier sub del grupo 'Asistencia'
-      // (Regular, Vac laboradas, Día feriado, Domingo).
-      if (cs) {
-        for (const k of cs) { if (asistPanelEsDiaTrabajado_(k)) { diasTrab++; break; } }
+      if (!cs) return;
+      let cuenta = false;
+      for (const k of cs) {
+        if (asistPanelEsDiaTrabajado_(k)) cuenta = true;
+        const p = asistPanelPrimasPorConcepto_(k);
+        if (typeof p.primaVac === 'number') primaVacSem += p.primaVac;
+        if (typeof p.primaDom === 'number') primaDomSem += p.primaDom;
+        if (typeof p.primaDF  === 'number') primaDFSem  += p.primaDF;
       }
+      if (cuenta) diasTrab++;
     });
     const factor = diasTrab === 0 ? 0 : Math.min(7, diasTrab + 2);
-    const salSemanal = ASIST_PANEL_SAL_BASE * factor;
-    totalSemana += salSemanal;
-    html += `<div class="ocup-day-cell" style="background:#f8fafc;border-left:2px solid #0f172a"
-      title="Días trabajados: ${diasTrab} · factor: ${factor} × base $${ASIST_PANEL_SAL_BASE.toFixed(2)}">
-      <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;flex-direction:column;gap:1px">
-        <span style="font-size:10px;font-weight:900;color:#0f172a;line-height:1">${asistPanelFmtMonto_(salSemanal)}</span>
-        <span style="font-size:8.5px;color:#64748b;font-weight:700">${diasTrab}d × ${factor}</span>
+    const salBaseSem = ASIST_PANEL_SAL_BASE * factor;
+    const salTotal = salBaseSem + primaVacSem + primaDomSem + primaDFSem;
+    totalSemana += salTotal;
+    const salCell = (v, extra) => `<div class="ocup-day-cell" style="background:#f8fafc;border-left:${extra?.borderLeft || '1px solid #e2e8f0'}"
+      title="${esc(extra?.title || '')}">
+      <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;flex-direction:column;gap:1px;padding:0 3px">
+        <span style="font-size:10px;font-weight:${extra?.strong?900:800};color:${extra?.color || '#0f172a'};line-height:1">${v ? asistPanelFmtMonto_(v) : '—'}</span>
+        ${extra?.sub ? `<span style="font-size:8.5px;color:#64748b;font-weight:700">${extra.sub}</span>` : ''}
       </div>
     </div>`;
+    html += salCell(salBaseSem, { borderLeft:'2px solid #0f172a', title:`Base semanal: ${diasTrab}d × ${factor} × $${ASIST_PANEL_SAL_BASE.toFixed(2)}`, sub:`${diasTrab}d × ${factor}` });
+    html += salCell(primaVacSem, { title:'Suma prima vacacional (25%) de la semana' });
+    html += salCell(primaDomSem, { title:'Suma prima dominical (25%) de la semana' });
+    html += salCell(primaDFSem,  { title:'Suma prima día feriado (200%) de la semana' });
+    html += salCell(salTotal,    { borderLeft:'2px solid #16a34a', title:'Salario base semanal + primas', strong:true, color:'#065f46' });
     html += `</div>`;
   });
   html += `</div>`;
