@@ -33160,7 +33160,13 @@ function asistRenderResumen(targetId) {
     const label = `Lun ${lun.getDate()} ${M[lun.getMonth()]} – Dom ${dom.getDate()} ${M[dom.getMonth()]} ${dom.getFullYear()}`;
     return { value, label, lun };
   };
-  // Agrega
+  // Agrega. Los valores mostrados deben coincidir EXACTAMENTE con las
+  // 5 columnas de nómina semanal del calendario del panel:
+  //   $ Salario base       = $315.04 × min(7, N + 2)  (N = días con Asistencia)
+  //   $ Prima vacacional   = suma prima vac por concepto/día
+  //   $ Prima dominical    = suma prima dom por concepto/día
+  //   $ Prima día feriado  = suma prima DF por concepto/día
+  //   $ Salario total      = suma de las 4 anteriores
   const grupos = new Map();
   for (const r of ASIST_STATE.rows) {
     const nombre = String(r.Empleado_Nombre||'').trim();
@@ -33169,15 +33175,25 @@ function asistRenderResumen(targetId) {
     const w = weekOf(fecha);
     const k = `${nombre}||${w.value}`;
     let g = grupos.get(k);
-    if (!g) { g = { nombre, semana: w, horas:0, base:0, vac:0, dom:0, df:0, total:0, ids:[] }; grupos.set(k, g); }
+    if (!g) { g = { nombre, semana: w, horas:0, workDays: new Set(), vac:0, dom:0, df:0, ids:[] }; grupos.set(k, g); }
     g.horas += parseHoras(r.Horas);
-    g.base  += parseMonto(r['$ Salario base']);
-    g.vac   += parseMonto(r['$ Prima vacacional (25%)']);
-    g.dom   += parseMonto(r['$ Prima dominical (25%)']);
-    g.df    += parseMonto(r['$ Prima día feriado (200%)']);
-    g.total += parseMonto(r['$ Salario total']);
+    const concepto = asistPanelNormalizarConceptoLegado_(String(r.Concepto||'').trim() || 'Regular');
+    if (asistPanelEsDiaTrabajado_(concepto)) g.workDays.add(fecha);
+    const p = asistPanelPrimasPorConcepto_(concepto);
+    if (typeof p.primaVac === 'number') g.vac += p.primaVac;
+    if (typeof p.primaDom === 'number') g.dom += p.primaDom;
+    if (typeof p.primaDF  === 'number') g.df  += p.primaDF;
     g.ids.push(String(r.ID||''));
   }
+  // Derivados: base semanal por fórmula, total = base + primas.
+  grupos.forEach(g => {
+    const N = g.workDays.size;
+    const factor = N === 0 ? 0 : Math.min(7, N + 2);
+    g.diasTrab = N;
+    g.factor = factor;
+    g.base = ASIST_PANEL_SAL_BASE * factor;
+    g.total = g.base + g.vac + g.dom + g.df;
+  });
   const rows = Array.from(grupos.values())
     .sort((a,b) => (b.semana.lun - a.semana.lun) || a.nombre.localeCompare(b.nombre,'es'));
   if (!rows.length) {
