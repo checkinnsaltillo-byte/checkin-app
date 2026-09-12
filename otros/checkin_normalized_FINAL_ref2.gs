@@ -276,11 +276,11 @@ function doPost(e) {
     if (action === "rh_save_ausencia")             return jsonOutput_(rhSaveSimple_('RH_Ausencias', data, RH_AUSE_HEADERS, 'AUS'));
     if (action === "rh_list_compensaciones")       return jsonOutput_(rhListSimple_('RH_Compensaciones'));
     if (action === "rh_save_compensacion")         return jsonOutput_(rhSaveSimple_('RH_Compensaciones', data, RH_COMP_HEADERS, 'CMP'));
-    if (action === "rh_delete_compensacion")       return jsonOutput_(rhDeleteByID_('RH_Compensaciones', String((data && data.ID) || '')));
-    if (action === "rh_delete_asistencia")         return jsonOutput_(rhDeleteByID_('RH_Asistencia', String((data && data.ID) || '')));
+    if (action === "rh_delete_compensacion")       return jsonOutput_(rhDeleteByID_('RH_Compensaciones', String((data && data.ID) || ''), { reason: (data && data.reason) || '', actor: (data && data.actor) || '', force: (data && data.force) === true }));
+    if (action === "rh_delete_asistencia")         return jsonOutput_(rhDeleteByID_('RH_Asistencia', String((data && data.ID) || ''), { reason: (data && data.reason) || '', actor: (data && data.actor) || '', force: (data && data.force) === true }));
     if (action === "asistencia_marcar")            return jsonOutput_(asistenciaMarcar_(data));
     if (action === "asistencia_lookup_empleado")   return jsonOutput_(asistenciaLookupEmpleadoByCel_(data));
-    if (action === "rh_delete_ausencia")           return jsonOutput_(rhDeleteByID_('RH_Ausencias', String((data && data.ID) || '')));
+    if (action === "rh_delete_ausencia")           return jsonOutput_(rhDeleteByID_('RH_Ausencias', String((data && data.ID) || ''), { reason: (data && data.reason) || '', actor: (data && data.actor) || '', force: (data && data.force) === true }));
     if (action === "inquilinos_list")              return jsonOutput_(inquilinosList_());
     if (action === "inquilinos_save")              return jsonOutput_(inquilinosSave_(data));
     if (action === "inquilinos_delete")            return jsonOutput_(inquilinosDelete_(data));
@@ -341,11 +341,11 @@ function doGet(e) {
     if (action === "inquilinos_list")    return jsonOutput_(inquilinosList_());
     if (action === "inquilinos_pagos_list") return jsonOutput_(inquilinosPagosList_(e.parameter || {}));
     if (action === "rh_save_compensacion")   return jsonOutput_(rhSaveSimple_('RH_Compensaciones', e.parameter || {}, RH_COMP_HEADERS, 'CMP'));
-    if (action === "rh_delete_compensacion") return jsonOutput_(rhDeleteByID_('RH_Compensaciones', String((e.parameter && e.parameter.ID) || '')));
-    if (action === "rh_delete_asistencia")   return jsonOutput_(rhDeleteByID_('RH_Asistencia', String((e.parameter && e.parameter.ID) || '')));
+    if (action === "rh_delete_compensacion") return jsonOutput_(rhDeleteByID_('RH_Compensaciones', String((e.parameter && e.parameter.ID) || ''), { reason: (e.parameter && e.parameter.reason) || '', actor: (e.parameter && e.parameter.actor) || '', force: (e.parameter && e.parameter.force) === 'true' }));
+    if (action === "rh_delete_asistencia")   return jsonOutput_(rhDeleteByID_('RH_Asistencia', String((e.parameter && e.parameter.ID) || ''), { reason: (e.parameter && e.parameter.reason) || '', actor: (e.parameter && e.parameter.actor) || '', force: (e.parameter && e.parameter.force) === 'true' }));
     if (action === "asistencia_marcar")      return jsonOutput_(asistenciaMarcar_(e.parameter || {}));
     if (action === "asistencia_lookup_empleado") return jsonOutput_(asistenciaLookupEmpleadoByCel_(e.parameter || {}));
-    if (action === "rh_delete_ausencia")     return jsonOutput_(rhDeleteByID_('RH_Ausencias', String((e.parameter && e.parameter.ID) || '')));
+    if (action === "rh_delete_ausencia")     return jsonOutput_(rhDeleteByID_('RH_Ausencias', String((e.parameter && e.parameter.ID) || ''), { reason: (e.parameter && e.parameter.reason) || '', actor: (e.parameter && e.parameter.actor) || '', force: (e.parameter && e.parameter.force) === 'true' }));
     if (action === "sys_login")              return jsonOutput_(sysLogin_(e.parameter || {}));
     if (action === "upload_incidencia_image") return jsonOutput_(uploadIncidenciaImage_(e.parameter || {}));
     if (action === "save_incidencia")         return jsonOutput_(saveIncidencia_(e.parameter || {}));
@@ -2170,7 +2170,7 @@ var RH_PERSONAL_HEADERS = [
   // Emergencia (legado)
   'Contacto_emergencia', 'Tel_emergencia',
 ];
-var RH_ASIST_HEADERS = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Fecha','Entrada','Salida','Horas','Horas_extra','Hora','Tipo','Concepto','$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','$ Salario total','Ubicacion_Lat','Ubicacion_Lng','GPS_Accuracy','Metodo','Observaciones'];
+var RH_ASIST_HEADERS = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Fecha','Entrada','Salida','Horas','Horas_extra','Hora','Tipo','Concepto','$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','$ Salario total','Ubicacion_Lat','Ubicacion_Lng','GPS_Accuracy','Metodo','Observaciones','Compensación_concepto','Compensación_monto'];
 var RH_AUSE_HEADERS  = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Tipo','Fecha_inicio','Fecha_fin','Dias','Estatus','Comentarios'];
 var RH_COMP_HEADERS  = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Concepto','Periodo','Horas','$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','Monto','Metodo_pago','Estado_pago','Fecha_pago','Comentarios'];
 
@@ -2614,10 +2614,15 @@ function deleteReservaPhoneExtra_(data) {
   } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
 }
 
-function rhDeleteByID_(sheetName, id) {
+function rhDeleteByID_(sheetName, id, opts) {
   try {
     id = String(id || '').trim();
     if (!id) return { ok: false, error: 'ID requerido' };
+    opts = opts || {};
+    var reason = String(opts.reason || '').trim();
+    var actor  = String(opts.actor || '').trim();
+    var force  = opts.force === true || String(opts.force || '').toLowerCase() === 'true';
+
     var ss = getSpreadsheet_();
     var sh = ss.getSheetByName(sheetName);
     if (!sh) return { ok: false, error: 'Hoja no encontrada: ' + sheetName };
@@ -2626,14 +2631,128 @@ function rhDeleteByID_(sheetName, id) {
     if (!idCol) return { ok: false, error: 'Columna ID no encontrada' };
     var lastRow = sh.getLastRow();
     if (lastRow < 2) return { ok: false, error: 'Hoja vacía' };
-    var ids = sh.getRange(2, idCol, lastRow - 1, 1).getDisplayValues();
-    for (var i = 0; i < ids.length; i++) {
-      if (String(ids[i][0]).trim() === id) {
+
+    // Lee TODA la fila (no solo ID) para poder archivarla antes de borrar.
+    var lastCol = sh.getLastColumn();
+    var allData = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    for (var i = 0; i < allData.length; i++) {
+      if (String(allData[i][idCol - 1]).trim() === id) {
+        var fullRow = allData[i];
+
+        // CAPA 2 — Bloqueo por Metodo=WhatsApp en RH_Asistencia salvo force=true.
+        // Los registros WhatsApp vienen del bot con GPS del empleado; son
+        // registros administrativos. El UI del calendario NUNCA debe borrarlos
+        // sin confirmación explícita.
+        if (sheetName === 'RH_Asistencia' && !force) {
+          var iMet = headers.indexOf('Metodo');
+          var metVal = iMet >= 0 ? String(fullRow[iMet] || '').trim() : '';
+          if (metVal.toLowerCase() === 'whatsapp') {
+            return { ok: false, error: 'PROTECCIÓN: registro WhatsApp no puede borrarse sin confirmación explícita (force=true). ID=' + id + ' Empleado=' + (headers.indexOf('Empleado_Nombre') >= 0 ? fullRow[headers.indexOf('Empleado_Nombre')] : '') };
+          }
+        }
+
+        // CAPA 1 — Soft-delete: copia la fila íntegra a la papelera.
+        try {
+          _rhArchiveToPapelera_(sheetName, headers, fullRow, reason, actor);
+        } catch (eArch) {
+          Logger.log('[rhDeleteByID_ archive] ' + eArch);
+          // Si la papelera falla, ABORTAMOS el borrado — nunca perder datos.
+          return { ok: false, error: 'No se pudo archivar en papelera antes de borrar: ' + eArch };
+        }
+
         sh.deleteRow(i + 2);
-        return { ok: true, id: id };
+        return { ok: true, id: id, archived: true };
       }
     }
     return { ok: false, error: 'ID no encontrado: ' + id };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+/**
+ * Archiva una fila borrada en la hoja "<sheetName>_Papelera".
+ * Crea la hoja con el mismo esquema + [Deleted_At, Deleted_Reason, Deleted_By]
+ * si no existe. Esto garantiza que ningún borrado pierda información — la
+ * fila original queda recuperable indefinidamente.
+ */
+function _rhArchiveToPapelera_(sheetName, headers, rowValues, reason, actor) {
+  var ss = getSpreadsheet_();
+  var papeleraName = sheetName + '_Papelera';
+  var sh = ss.getSheetByName(papeleraName);
+  var extraCols = ['Deleted_At', 'Deleted_Reason', 'Deleted_By'];
+  if (!sh) {
+    sh = ss.insertSheet(papeleraName);
+    var fullHeaders = headers.concat(extraCols);
+    sh.getRange(1, 1, 1, fullHeaders.length).setValues([fullHeaders]);
+    sh.getRange(1, 1, 1, fullHeaders.length).setFontWeight('bold').setBackground('#fee2e2');
+    sh.setFrozenRows(1);
+  } else {
+    // Si el esquema del sheet original cambió, agregamos columnas faltantes.
+    var papHeaders = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
+      .map(function (v) { return String(v || '').trim(); });
+    var missing = [];
+    headers.concat(extraCols).forEach(function (h) {
+      if (papHeaders.indexOf(h) < 0) missing.push(h);
+    });
+    if (missing.length) {
+      var startCol = sh.getLastColumn() + 1;
+      sh.getRange(1, startCol, 1, missing.length).setValues([missing]);
+      sh.getRange(1, startCol, 1, missing.length).setFontWeight('bold').setBackground('#fee2e2');
+    }
+  }
+  // Rebuild header map post-migration
+  var papHeadersNow = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
+    .map(function (v) { return String(v || '').trim(); });
+  var outRow = new Array(papHeadersNow.length).fill('');
+  headers.forEach(function (h, idx) {
+    var c = papHeadersNow.indexOf(h);
+    if (c >= 0) outRow[c] = rowValues[idx];
+  });
+  var iAt  = papHeadersNow.indexOf('Deleted_At');
+  var iRes = papHeadersNow.indexOf('Deleted_Reason');
+  var iBy  = papHeadersNow.indexOf('Deleted_By');
+  if (iAt  >= 0) outRow[iAt]  = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'America/Monterrey', 'yyyy-MM-dd HH:mm:ss');
+  if (iRes >= 0) outRow[iRes] = reason || '';
+  if (iBy  >= 0) outRow[iBy]  = actor  || '';
+  sh.appendRow(outRow);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ CAPA 4 — Snapshot diario de RH_Asistencia                                ║
+// ║ Copia todo el contenido de RH_Asistencia a RH_Asistencia_Snapshot_YYYYMM ║
+// ║ (append). Aunque falle la papelera o alguien tenga acceso al sheet y     ║
+// ║ borre a mano, el snapshot conserva el estado histórico. Configura un    ║
+// ║ trigger time-driven diario en Apps Script sobre rhAsistenciaSnapshotCron_║
+// ═══════════════════════════════════════════════════════════════════════════
+function rhAsistenciaSnapshotCron_() {
+  try {
+    var ss = getSpreadsheet_();
+    var src = ss.getSheetByName('RH_Asistencia');
+    if (!src) return { ok: false, error: 'RH_Asistencia no existe' };
+    var last = src.getLastRow();
+    var cols = src.getLastColumn();
+    if (last < 2 || cols < 1) return { ok: true, rows: 0, note: 'sheet vacío' };
+    var now = new Date();
+    var tz = Session.getScriptTimeZone() || 'America/Monterrey';
+    var monthTag = Utilities.formatDate(now, tz, 'yyyyMM');
+    var dateTag  = Utilities.formatDate(now, tz, 'yyyy-MM-dd HH:mm:ss');
+    var snapName = 'RH_Asistencia_Snapshot_' + monthTag;
+    var snap = ss.getSheetByName(snapName);
+    var headers = src.getRange(1, 1, 1, cols).getValues()[0].map(function(v){ return String(v||'').trim(); });
+    var snapshotHeaders = ['Snapshot_At'].concat(headers);
+    if (!snap) {
+      snap = ss.insertSheet(snapName);
+      snap.getRange(1, 1, 1, snapshotHeaders.length).setValues([snapshotHeaders]);
+      snap.getRange(1, 1, 1, snapshotHeaders.length).setFontWeight('bold').setBackground('#dbeafe');
+      snap.setFrozenRows(1);
+    }
+    var data = src.getRange(2, 1, last - 1, cols).getValues();
+    var out = data.map(function(row){ return [dateTag].concat(row); });
+    if (out.length) {
+      snap.getRange(snap.getLastRow() + 1, 1, out.length, snapshotHeaders.length).setValues(out);
+    }
+    return { ok: true, rows: out.length, snapshot_sheet: snapName, at: dateTag };
   } catch (err) {
     return { ok: false, error: String(err && err.message || err) };
   }
@@ -2747,6 +2866,21 @@ function rhSaveSimple_(sheetName, data, headersTemplate, idPrefix) {
     } else {
       rhEnsureHeaders_(sh, headersTemplate);
     }
+    // Auto-extiende columnas: cualquier key del payload que no exista en
+    // el sheet se agrega como nueva columna. Sin esto, valores como
+    // Compensación_concepto / Compensación_monto se descartaban en silencio.
+    try {
+      var existingHdrs = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0]
+        .map(function (v) { return String(v || '').trim(); });
+      var extraKeys = Object.keys(payload || {}).filter(function (k) {
+        return k && existingHdrs.indexOf(k) === -1;
+      });
+      if (extraKeys.length) {
+        var startCol = existingHdrs.length + 1;
+        sh.getRange(1, startCol, 1, extraKeys.length).setValues([extraKeys])
+          .setFontWeight('bold').setBackground('#dbeafe');
+      }
+    } catch (eAdd) { Logger.log('[rhSaveSimple_ auto-add cols] ' + eAdd); }
     var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (v) { return String(v || '').trim(); });
     var idCol = headers.indexOf('ID') + 1;
     var id = String(payload.ID || payload.id || '').trim();
@@ -10329,7 +10463,7 @@ function reservaGetByConfirmationCode_(data) {
   // Cache 5min por código — evita rescanear la hoja Reservas_Lodgify de 10k
   // filas cada vez que el huésped hace blur en el input.
   var _cache = CacheService.getScriptCache();
-  var _cacheKey = "rgcc_v8_nombres_" + code;
+  var _cacheKey = "rgcc_v11_perfilrelookup_" + code;
   try {
     var _cached = _cache.get(_cacheKey);
     if (_cached) { var _p = JSON.parse(_cached); _p._cached = true; return _p; }
@@ -10494,7 +10628,8 @@ function reservaGetByConfirmationCode_(data) {
             } catch (eA) { Logger.log("[alojamientos resolve] " + eA); }
             // Cruzar con Reservaciones para obtener Folio facturapi + URL del ticket
             // + saber si la reserva ya fue registrada (tiene fila en Reservaciones).
-            var folioR = "", ticketUrlR = "", registradoR = false;
+            var folioR = "", ticketUrlR = "", registradoR = false, nombresR = "";
+            var reservacionesFullRow = null; // fila completa de Reservaciones (todos los campos del check-in)
             try {
               var shRes = ss.getSheetByName(RESERVACIONES_SHEET);
               if (shRes && shRes.getLastRow() >= 2) {
@@ -10513,8 +10648,18 @@ function reservaGetByConfirmationCode_(data) {
                         // Criterio Registrado: "Nombres de TODOS los huéspedes" no vacío.
                         var _nn = rNN >= 0 ? String(rV[rrr][rNN] || "").trim() : "";
                         registradoR = _nn !== "";
+                        nombresR = _nn;
                         folioR = rFO >= 0 ? String(rV[rrr][rFO] || "").trim() : "";
                         ticketUrlR = rUR >= 0 ? String(rV[rrr][rUR] || "").trim() : "";
+                        // Guarda la fila completa mapeada por header para que el frontend
+                        // pueda prellenar TODOS los campos del check-in (factura, RFC,
+                        // régimen, correo, identificación, motivo, vehículo, etc.) al
+                        // reabrir una reserva ya registrada.
+                        reservacionesFullRow = {};
+                        for (var rc = 0; rc < rHdrs.length; rc++) {
+                          reservacionesFullRow[rHdrs[rc]] = rV[rrr][rc];
+                        }
+                        reservacionesFullRow._row = rrr + 2;
                         break;
                       }
                     }
@@ -10522,6 +10667,19 @@ function reservaGetByConfirmationCode_(data) {
                 }
               }
             } catch(eF) { Logger.log("[reservaGetByConfirmationCode_ folio-cross] " + eF); }
+            // Re-lookup del perfil usando el celular guardado en Reservaciones
+            // (los campos de factura viven en la hoja Perfiles, no en Reservaciones).
+            // El GuestPhone de Lodgify suele ser un enmascarado de Airbnb y no
+            // matchea con Perfiles; el celular capturado en el check-in sí.
+            try {
+              if (reservacionesFullRow) {
+                var celReg = String(reservacionesFullRow["Cel/Whatsapp (principal)"] || "").trim();
+                if (celReg) {
+                  var pr3 = perfilGetByPhone_({ phone: celReg });
+                  if (pr3 && pr3.ok && pr3.perfil) perfil2 = pr3.perfil;
+                }
+              }
+            } catch(ePP) { Logger.log("[reservaGetByConfirmationCode_ perfil-relookup] " + ePP); }
             // Objeto tipo "reserva" mapeado a headers de Reservaciones para
             // que applyGuestRecordToForm() prellene lo que pueda.
             var reservaMapped = {
@@ -10553,9 +10711,21 @@ function reservaGetByConfirmationCode_(data) {
               "Divisa monto pagado":        iCurf>= 0 ? String(lgVals[j][iCurf]|| "") : "",
               "Folio facturapi":            folioR,
               "Ticket facturapi url":       ticketUrlR,
+              "Nombres de TODOS los huéspedes (separados por comas)": nombresR,
               "Registrado":                 registradoR,
               "_row": matchIdx + 2
             };
+            // Si ya hay registro en Reservaciones, fusiona TODOS sus campos encima
+            // del mapeo de Lodgify — los valores guardados por el huésped ganan
+            // sobre los de Lodgify (factura, RFC, régimen, razón social, correo,
+            // identificación, motivo, vehículo, etc.).
+            if (reservacionesFullRow) {
+              Object.keys(reservacionesFullRow).forEach(function(k){
+                var v = reservacionesFullRow[k];
+                if (v !== "" && v != null) reservaMapped[k] = v;
+              });
+              reservaMapped._row = reservacionesFullRow._row;
+            }
             var _outLg = { ok:true, reserva:reservaMapped, perfil:perfil2, code:code, phone:_normalizePhone10_(phoneL), source:"lodgify", registrado: registradoR };
             try { _cache.put(_cacheKey, JSON.stringify(_outLg), 60); } catch(_){}
             return _outLg;
