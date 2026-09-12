@@ -26721,13 +26721,15 @@ function rhInit() {
   rhLoadEmpleados().then(() => rhSetTab('compensaciones'));
 }
 
-// ── Menú de secciones (Nómina | Obligaciones | Control de asistencias) ──
+// ── Menú de secciones (Nómina | Documentación | Obligaciones | Asistencias) ──
 window.rhSetSection = function (section) {
   RH_STATE.section = section;
   const btnN = document.getElementById('rh-sec-nomina');
+  const btnD = document.getElementById('rh-sec-documentacion');
   const btnO = document.getElementById('rh-sec-obligaciones');
   const btnA = document.getElementById('rh-sec-asistencias');
   const secN = document.getElementById('rh-section-nomina');
+  const secD = document.getElementById('rh-section-documentacion');
   const secO = document.getElementById('rh-section-obligaciones');
   const secA = document.getElementById('rh-section-asistencias');
   const base = 'all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-size:13px;';
@@ -26735,11 +26737,14 @@ window.rhSetSection = function (section) {
   const onAsi = 'background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;box-shadow:0 3px 10px rgba(14,165,233,.35);font-weight:900';
   const off = 'background:transparent;color:#64748b;font-weight:700';
   if (btnN) btnN.setAttribute('style', base + (section === 'nomina' ? onNom : off));
+  if (btnD) btnD.setAttribute('style', base + (section === 'documentacion' ? onNom : off));
   if (btnO) btnO.setAttribute('style', base + (section === 'obligaciones' ? onNom : off));
   if (btnA) btnA.setAttribute('style', base + (section === 'asistencias' ? onAsi : off));
   if (secN) secN.classList.toggle('hidden', section !== 'nomina');
+  if (secD) secD.classList.toggle('hidden', section !== 'documentacion');
   if (secO) secO.classList.toggle('hidden', section !== 'obligaciones');
   if (secA) secA.classList.toggle('hidden', section !== 'asistencias');
+  if (section === 'documentacion') rhRenderExpediente('rh-view-documentacion');
   if (section === 'obligaciones') rhRenderObligaciones();
   if (section === 'asistencias' && typeof asistInit === 'function') asistInit();
 };
@@ -26750,9 +26755,8 @@ window.rhSetTab = function (tab) {
   const view = document.getElementById('rh-view');
   if (!view) return;
   view.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`;
-  if (tab === 'expediente') rhRenderExpediente();
-  else if (tab === 'asist_ause') Promise.all([rhLoadAsistencia(), rhLoadAusencias()]).then(rhRenderAsistAuse);
-  else if (tab === 'compensaciones') rhLoadCompensaciones().then(rhRenderCompensaciones);
+  if (tab === 'compensaciones') rhLoadCompensaciones().then(rhRenderCompensaciones);
+  else if (tab === 'resumen_semanal') rhLoadAsistencia().then(() => asistRenderResumen('rh-view'));
 };
 
 // ── Loaders ──
@@ -27217,8 +27221,9 @@ function rhEmpleadoNombre(id) {
 }
 
 // ── Vistas (listas) ──
-function rhRenderExpediente() {
-  const view = document.getElementById('rh-view');
+function rhRenderExpediente(targetId) {
+  const viewId = targetId || 'rh-view';
+  const view = document.getElementById(viewId);
   const rows = RH_STATE.empleados || [];
   // Lazy-load: si aún no hay empleados en memoria, dispara el fetch y
   // re-renderiza. Evita quedarse en 'Sin empleados registrados' si el
@@ -27226,8 +27231,8 @@ function rhRenderExpediente() {
   if (!rows.length && !RH_STATE._loadingEmpleados) {
     RH_STATE._loadingEmpleados = true;
     if (view) view.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`;
-    rhLoadEmpleados().then(() => { RH_STATE._loadingEmpleados = false; rhRenderExpediente(); })
-      .catch(() => { RH_STATE._loadingEmpleados = false; rhRenderExpediente(); });
+    rhLoadEmpleados().then(() => { RH_STATE._loadingEmpleados = false; rhRenderExpediente(viewId); })
+      .catch(() => { RH_STATE._loadingEmpleados = false; rhRenderExpediente(viewId); });
     return;
   }
   const nombreCompleto = (r) => [r.Nombre, r.Apellido_paterno, r.Apellido_materno].filter(Boolean).join(' ') || '—';
@@ -33109,9 +33114,10 @@ window.asistSetVis = function (vis) {
 
 /** Vista "Resumen semanal": agrega (Empleado_Nombre × Semana Lun-Dom)
  *  sumando Horas y las 5 columnas monetarias derivadas por concepto. */
-function asistRenderResumen() {
-  const wrap = document.getElementById('asist-resumen-wrap');
+function asistRenderResumen(targetId) {
+  const wrap = document.getElementById(targetId || 'asist-resumen-wrap');
   if (!wrap) return;
+  wrap.classList.remove('hidden');
   const parseHoras = s => {
     const m = String(s||'').match(/^(\d+)h(\d{2})/);
     return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
