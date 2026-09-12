@@ -3905,14 +3905,15 @@ input[type="checkbox"].lg-multi-cb {
 .inc-capture-panel.hidden { transform: translateX(100%); pointer-events: none; }
 .inc-capture-panel.open   { transform: translateX(0); pointer-events: auto; }
 /* El panel de Registro de asistencia contiene un mini-calendario de 7 días
-   × N empleados + 6 columnas de nómina semanal (Base, Prima vac, Prima dom,
-   Prima DF, Compensación, Total). Ancho: 200 (Personal) + 7×58 (días) +
-   6×88 (nómina) + 32 (padding) = 1166px. Panel 1220px con margen. */
-#asist-form-panel { max-width: min(98vw, 1220px); width: 1220px; }
-/* Override del grid: personal + 7 días (58px) + 6 columnas de nómina (88px). */
+   × N empleados + 7 columnas de nómina semanal (Base laborado, Base
+   descanso, Prima vac, Prima dom, Prima DF, Compensación, Total).
+   Ancho: 200 (Personal) + 7×56 (días) + 7×84 (nómina) + 32 (padding)
+   = 1212px. Panel 1260px con margen. */
+#asist-form-panel { max-width: min(98vw, 1260px); width: 1260px; }
+/* Override del grid: personal + 7 días (56px) + 7 columnas de nómina (84px). */
 [data-asist-cal="continuous"] > .ocup-cal-head,
 [data-asist-cal="continuous"] > .ocup-cal-row {
-  grid-template-columns: 200px repeat(7, 58px) repeat(6, 88px);
+  grid-template-columns: 200px repeat(7, 56px) repeat(7, 84px);
 }
 .inc-capture-header {
   display: flex;
