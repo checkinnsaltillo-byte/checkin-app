@@ -34150,7 +34150,7 @@ window.asistNuevoRegistro = function () {
   const sel = document.getElementById('asist-panel-semana');
   if (sel) sel.innerHTML = weekOpts.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('');
   const semana = weekOpts[0]?.value || '';
-  ASIST_STATE.panel = { semana, celdas: new Map() };
+  ASIST_STATE.panel = { semana, celdas: new Map(), compensaciones: new Map() };
   if (sel) sel.value = semana;
   const status = document.getElementById('asist-status');
   if (status) status.textContent = '';
@@ -34174,8 +34174,9 @@ window.asistNuevoRegistro = function () {
 };
 
 function asistPanelState_() {
-  if (!ASIST_STATE.panel) ASIST_STATE.panel = { semana:'', celdas:new Map() };
+  if (!ASIST_STATE.panel) ASIST_STATE.panel = { semana:'', celdas:new Map(), compensaciones:new Map() };
   if (!(ASIST_STATE.panel.celdas instanceof Map)) ASIST_STATE.panel.celdas = new Map();
+  if (!(ASIST_STATE.panel.compensaciones instanceof Map)) ASIST_STATE.panel.compensaciones = new Map();
   return ASIST_STATE.panel;
 }
 
@@ -34236,6 +34237,53 @@ window.asistPanelCellSetConcepto = function (nombre, iso, concepto, ev) {
     // Re-abre inmediatamente para mostrar la sub-clasificación.
     setTimeout(() => asistPanelOpenCellMenu(nombre, iso, null), 0);
   }
+};
+
+// Toggle del checkbox "Compensación" en el popup — al activarlo, deja
+// asentada una compensación con concepto/monto vacíos; al desactivarlo
+// borra la compensación de la celda.
+window.asistPanelToggleCompensacion = function (nombre, iso, ev) {
+  if (ev) ev.stopPropagation();
+  const st = asistPanelState_();
+  const k = `${nombre}|${iso}`;
+  const cur = st.compensaciones.get(k);
+  if (cur) st.compensaciones.delete(k);
+  else st.compensaciones.set(k, { concepto: '', monto: 0 });
+  st._userTouched = true;
+  st._dirtyChanges = true;
+  // Re-abrimos el popup en el mismo lugar para mostrar/ocultar los inputs
+  // sin cerrarlo, y re-renderizamos el calendario para reflejar el monto
+  // en la celda.
+  asistPanelRender();
+  asistPanelUpdateSaveBtn_();
+  const m = document.getElementById('asist-panel-cell-menu');
+  if (m) m.remove();
+  setTimeout(() => asistPanelOpenCellMenu(nombre, iso, null), 0);
+};
+
+// Actualiza uno de los campos (concepto / monto) de la compensación de
+// la celda. Se dispara con cada 'input' — no re-abre el menú para no
+// perder el foco del campo mientras el usuario escribe.
+window.asistPanelUpdateCompensacion = function (nombre, iso, field, value) {
+  const st = asistPanelState_();
+  const k = `${nombre}|${iso}`;
+  const cur = st.compensaciones.get(k) || { concepto: '', monto: 0 };
+  if (field === 'monto') cur.monto = Number(String(value).replace(/[^0-9.-]/g,'')) || 0;
+  else if (field === 'concepto') cur.concepto = String(value || '').slice(0, 120);
+  st.compensaciones.set(k, cur);
+  st._userTouched = true;
+  st._dirtyChanges = true;
+  asistPanelUpdateSaveBtn_();
+  // Solo actualiza el contenido de la celda (no todo el render) para
+  // mantener el foco en el input abierto.
+  try {
+    const cont = document.getElementById('asist-panel-cal-wrap');
+    const cell = cont && cont.querySelector(`[data-cell-key="${CSS.escape(k)}"]`);
+    if (cell) {
+      const conceptos = st.celdas.get(k);
+      cell.querySelector('div').innerHTML = _asistPanelCellInner_(conceptos, cur);
+    }
+  } catch(_){}
 };
 
 async function _asistPanelEliminarRegistro(id) {
@@ -34373,6 +34421,38 @@ window.asistPanelOpenCellMenu = function (nombre, iso, ev) {
       html += row(labelHtml, sel, true, subKey);
     });
   }
+  // Sección 3: Compensación (checkbox + Concepto + Monto libres).
+  const comp = st.compensaciones.get(`${nombre}|${iso}`) || null;
+  const compOn = !!comp;
+  const compConcepto = comp ? String(comp.concepto || '') : '';
+  const compMonto = comp && typeof comp.monto === 'number' ? comp.monto : (comp ? Number(comp.monto || 0) : 0);
+  html += '<div style="height:1px;background:#e2e8f0;margin:4px 0"></div>';
+  html += `
+    <div onclick="event.stopPropagation();asistPanelToggleCompensacion('${esc(nombre).replace(/'/g,"\\'")}','${iso}')"
+      style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;user-select:none">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:4px;border:1.5px solid ${compOn?'#0d9488':'#cbd5e1'};background:${compOn?'#0d9488':'#fff'};color:#fff;font-size:11px;font-weight:900;flex-shrink:0;line-height:1">${compOn?'✓':''}</span>
+      <span style="width:10px;height:10px;border-radius:2px;background:#0d9488;display:inline-block"></span>
+      <span style="font-size:12px;font-weight:800;color:#0f172a">Compensación</span>
+    </div>`;
+  if (compOn) {
+    html += `
+      <div style="padding:4px 8px 8px 30px;display:flex;flex-direction:column;gap:6px" onclick="event.stopPropagation()">
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <label style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.03em">Concepto</label>
+          <input type="text" value="${esc(compConcepto)}"
+            oninput="asistPanelUpdateCompensacion('${esc(nombre).replace(/'/g,"\\'")}','${iso}','concepto', this.value)"
+            style="all:unset;padding:5px 8px;border:1.5px solid #cbd5e1;border-radius:5px;font-size:11.5px;color:#0f172a;background:#fff;box-sizing:border-box;width:100%"
+            placeholder="p. ej. Ajuste transporte">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <label style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.03em">Monto</label>
+          <input type="number" step="0.01" min="0" value="${compMonto || ''}"
+            oninput="asistPanelUpdateCompensacion('${esc(nombre).replace(/'/g,"\\'")}','${iso}','monto', this.value)"
+            style="all:unset;padding:5px 8px;border:1.5px solid #cbd5e1;border-radius:5px;font-size:11.5px;color:#0f172a;background:#fff;box-sizing:border-box;width:100%;text-align:right;font-weight:800"
+            placeholder="0.00">
+        </div>
+      </div>`;
+  }
   m.innerHTML = html;
   // Posicionamiento fixed en coordenadas de viewport. Si el menú se saldría
   // por debajo del viewport, lo abrimos hacia ARRIBA de la celda.
@@ -34420,6 +34500,38 @@ function asistPanelSemaforo_(conceptos) {
   return c ? `box-shadow:inset 3px 0 0 ${c.color};` : '';
 }
 
+// Renderiza el contenido de UNA celda (base / prima / compensación / total).
+// Retorna HTML sin wrapper — se pega dentro del <div flex> de la celda.
+function _asistPanelCellInner_(conceptos, comp) {
+  const hasConc = !!(conceptos && conceptos.size);
+  const compMonto = comp && Number(comp.monto) > 0 ? Number(comp.monto) : 0;
+  if (!hasConc && !compMonto) return '';
+  let baseN = 0, primaN = 0;
+  if (hasConc) {
+    const concKey = Array.from(conceptos)[0];
+    const p = asistPanelPrimasPorConcepto_(concKey);
+    baseN = typeof p.salBase === 'number' ? p.salBase : 0;
+    primaN = (typeof p.primaVac === 'number' ? p.primaVac : 0)
+           + (typeof p.primaDom === 'number' ? p.primaDom : 0)
+           + (typeof p.primaDF  === 'number' ? p.primaDF  : 0);
+  }
+  const totalN = baseN + primaN + compMonto;
+  // Si solo hay una cifra (base, sin prima, sin compensación), muestra
+  // el total en una sola línea centrada.
+  const partes = [];
+  if (baseN > 0) partes.push({ label: asistPanelFmtMonto_(baseN),      color: '#475569', prefix: '' });
+  if (primaN > 0) partes.push({ label: asistPanelFmtMonto_(primaN),    color: '#0891b2', prefix: '+' });
+  if (compMonto) partes.push({ label: asistPanelFmtMonto_(compMonto),  color: '#c026d3', prefix: '+' });
+  if (partes.length <= 1) {
+    return `<span style="font-size:10px;font-weight:900;color:#0f172a;line-height:1.05;text-align:center;padding:0 2px">${asistPanelFmtMonto_(totalN)}</span>`;
+  }
+  return `
+    <div style="display:flex;flex-direction:column;align-items:center;line-height:1.05;padding:1px 2px">
+      ${partes.map(p => `<span style="font-size:8px;color:${p.color};font-weight:${p.prefix==='+'?800:700}">${p.prefix}${p.label}</span>`).join('')}
+      <span style="font-size:9px;color:#0f172a;font-weight:900;border-top:1px solid #cbd5e155;padding-top:1px;margin-top:1px">${asistPanelFmtMonto_(totalN)}</span>
+    </div>`;
+}
+
 function asistPanelRender() {
   const cont = document.getElementById('asist-panel-cal-wrap');
   if (!cont) return;
@@ -34446,6 +34558,7 @@ function asistPanelRender() {
   // usamos 'Asistencia' como default para reflejar la ausencia sin generar
   // un diff artificial en el guardado).
   const conceptoRealByKey = new Map();
+  const compensacionRealByKey = new Map();
   (ASIST_STATE?.rows || []).forEach(r => {
     const nm = String(r.Empleado_Nombre || '').trim();
     let fecha = r.Fecha;
@@ -34463,11 +34576,21 @@ function asistPanelRender() {
     if (!conc) conc = 'Regular';
     conc = asistPanelNormalizarConceptoLegado_(conc);
     if (ent || sal || conc) conceptoRealByKey.set(`${nm}|${fecha}`, conc);
+    // Compensación real (si la fila tiene columnas Compensación_concepto /
+    // Compensación_monto). Seed en un mapa aparte.
+    const compMonto = Number(r['Compensación_monto'] || r['Compensacion_monto'] || 0) || 0;
+    const compConcepto = String(r['Compensación_concepto'] || r['Compensacion_concepto'] || '').trim();
+    if (compMonto > 0 || compConcepto) {
+      compensacionRealByKey.set(`${nm}|${fecha}`, { concepto: compConcepto, monto: compMonto });
+    }
   });
   const shouldSeed = st.celdas.size === 0 && !st._userTouched;
   if (shouldSeed) {
     conceptoRealByKey.forEach((concepto, key) => {
       st.celdas.set(key, new Set([concepto]));
+    });
+    compensacionRealByKey.forEach((comp, key) => {
+      st.compensaciones.set(key, { ...comp });
     });
   }
   let html = `<div style="display:flex;flex-wrap:wrap;gap:10px;padding:6px 4px 10px;font-size:11px;color:#475569;font-weight:700">`;
@@ -34536,29 +34659,9 @@ function asistPanelRender() {
         bg = 'background:#f1f5f9;';
         title = 'Día laboral · sin registro aún';
       }
-      // Etiqueta central: desglose (base / prima / total) cuando hay prima
-      // adicional. Si el concepto no tiene prima (Regular, Falta, Incapacidad),
-      // se muestra solo el total.
-      let inner = '';
-      if (conceptos && conceptos.size) {
-        const concKey = Array.from(conceptos)[0];
-        const p = asistPanelPrimasPorConcepto_(concKey);
-        const baseN  = typeof p.salBase === 'number' ? p.salBase : 0;
-        const primaN = (typeof p.primaVac === 'number' ? p.primaVac : 0)
-                     + (typeof p.primaDom === 'number' ? p.primaDom : 0)
-                     + (typeof p.primaDF  === 'number' ? p.primaDF  : 0);
-        const totalN = baseN + primaN;
-        if (primaN > 0) {
-          inner = `
-            <div style="display:flex;flex-direction:column;align-items:center;line-height:1.1;padding:1px 2px">
-              <span style="font-size:8px;color:#475569;font-weight:700">${asistPanelFmtMonto_(baseN)}</span>
-              <span style="font-size:8px;color:#0891b2;font-weight:800">+${asistPanelFmtMonto_(primaN)}</span>
-              <span style="font-size:9px;color:#0f172a;font-weight:900;border-top:1px solid #cbd5e155;padding-top:1px;margin-top:1px">${asistPanelFmtMonto_(totalN)}</span>
-            </div>`;
-        } else {
-          inner = `<span style="font-size:10px;font-weight:900;color:#0f172a;line-height:1.05;text-align:center;padding:0 2px">${asistPanelFmtMonto_(totalN)}</span>`;
-        }
-      }
+      // Etiqueta central: desglose (base / prima / compensación / total).
+      const compEnCelda = st.compensaciones.get(`${nombre}|${iso}`);
+      const inner = _asistPanelCellInner_(conceptos, compEnCelda);
       html += `<div class="ocup-day-cell ${isWeekend?'is-weekend':''}"
         data-cell-key="${esc(nombre)}|${iso}"
         style="${bg}${sem}cursor:pointer"
@@ -34870,37 +34973,71 @@ window.asistGuardarRegistro = async function () {
   // IMPORTANTE: preservamos Metodo + Entrada + Salida + Ubicaciones del row
   // original — nunca sobreescribimos Metodo=WhatsApp con Manual solo por
   // cambiar el Concepto.
-  desiredByKey.forEach((concepto, key) => {
+  // Helper: extrae la compensación deseada de la celda (puede ser null).
+  const compDeseada = (key) => {
+    const c = st.compensaciones.get(key);
+    if (!c) return null;
+    const monto = Number(c.monto) || 0;
+    const concepto = String(c.concepto || '').trim();
+    if (!monto && !concepto) return null;
+    return { concepto, monto };
+  };
+  // Helper: extrae la compensación actual del row (puede venir en 2 columnas
+  // que el usuario podría haber creado en el sheet).
+  const compActual = (row) => {
+    const monto = Number(row['Compensación_monto'] || row['Compensacion_monto'] || 0) || 0;
+    const concepto = String(row['Compensación_concepto'] || row['Compensacion_concepto'] || '').trim();
+    if (!monto && !concepto) return null;
+    return { concepto, monto };
+  };
+  const compEq = (a, b) => {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    return String(a.concepto || '') === String(b.concepto || '')
+      && Number(a.monto || 0) === Number(b.monto || 0);
+  };
+  // Cubre TODAS las llaves (celdas deseadas + filas existentes) para que un
+  // cambio de compensación sobre una fila sin cambio de concepto también
+  // dispare un MODIFY.
+  const allKeys = new Set([...desiredByKey.keys(), ...rowByKey.keys()]);
+  allKeys.forEach(key => {
     const [nombre, iso] = key.split('|');
+    const concepto = desiredByKey.get(key) || '';
     const row = rowByKey.get(key);
+    const compDes = compDeseada(key);
+    const compAct = row ? compActual(row) : null;
     if (row) {
-      // Normaliza el Concepto legado ('Asistencia' → 'Regular') antes de comparar
-      // — el seed también normaliza, así que comparar sin normalizar
-      // producía falsos positivos y marcaba TODO registro WhatsApp para
-      // borrar+recrear aunque el usuario no hubiera tocado esa celda.
       const conceptoActual = asistPanelNormalizarConceptoLegado_(
         String(row.Concepto || '').trim() ||
         ((String(row.Entrada||'').trim() || String(row.Salida||'').trim()) ? 'Asistencia' : '')
       );
-      if (conceptoActual === concepto) return; // sin cambios
-      if (row.ID) { deletes.push(row.ID); modificationIds.add(row.ID); }
-      // Preserva metadatos del registro original al recrearlo.
-      creates.push({
-        nombre, iso, concepto,
-        preserveMetodo: String(row.Metodo || '').trim(),
-        preserveEntrada: String(row.Entrada || '').trim(),
-        preserveSalida: String(row.Salida || '').trim(),
-        preserveHoras: String(row.Horas || '').trim(),
-        preserveLat: row.Ubicacion_Lat, preserveLng: row.Ubicacion_Lng,
-        preserveLatSal: row.Ubicacion_Salida_Lat, preserveLngSal: row.Ubicacion_Salida_Lng,
-      });
+      const conceptoIgual = conceptoActual === concepto;
+      const compIgual = compEq(compAct, compDes);
+      if (conceptoIgual && compIgual) return; // sin cambios
+      if (concepto || compDes) {
+        // MODIFY: recrear con nueva combinación (concepto puede quedar vacío
+        // si solo hay compensación).
+        if (row.ID) { deletes.push(row.ID); modificationIds.add(row.ID); }
+        creates.push({
+          nombre, iso, concepto,
+          compensacion: compDes,
+          preserveMetodo: String(row.Metodo || '').trim(),
+          preserveEntrada: String(row.Entrada || '').trim(),
+          preserveSalida: String(row.Salida || '').trim(),
+          preserveHoras: String(row.Horas || '').trim(),
+          preserveLat: row.Ubicacion_Lat, preserveLng: row.Ubicacion_Lng,
+          preserveLatSal: row.Ubicacion_Salida_Lat, preserveLngSal: row.Ubicacion_Salida_Lng,
+        });
+      } else {
+        // DELETE puro: la celda quedó vacía (sin concepto y sin compensación).
+        if (row.ID) deletes.push(row.ID);
+      }
       return;
     }
-    creates.push({ nombre, iso, concepto });
-  });
-  // (b) Celdas sin concepto deseado pero con fila real → delete
-  rowByKey.forEach((row, key) => {
-    if (!desiredByKey.has(key) && row.ID) deletes.push(row.ID);
+    // No hay row previa: crea si hay algo.
+    if (concepto || compDes) {
+      creates.push({ nombre, iso, concepto, compensacion: compDes });
+    }
   });
   const total = creates.length + deletes.length;
   if (!total) {
@@ -34986,6 +35123,9 @@ window.asistGuardarRegistro = async function () {
       ? c.preserveSalida : (isAs ? '13:30' : '');
     const horas = c.preserveHoras != null && c.preserveHoras !== ''
       ? c.preserveHoras : (isAs ? '5h00' : '');
+    const compMonto = c.compensacion && Number(c.compensacion.monto) > 0 ? Number(c.compensacion.monto) : 0;
+    const compConcepto = c.compensacion && c.compensacion.concepto ? String(c.compensacion.concepto) : '';
+    const total_pago_final = total_pago + compMonto;
     const payload = {
       Empleado_Nombre: nombre, Fecha: iso, Concepto: concepto,
       Entrada: entrada, Salida: salida, Horas: horas,
@@ -34993,8 +35133,12 @@ window.asistGuardarRegistro = async function () {
       '$ Prima vacacional (25%)':   fmt(p.primaVac),
       '$ Prima dominical (25%)':    fmt(p.primaDom),
       '$ Prima día feriado (200%)': fmt(p.primaDF),
-      '$ Salario total':            total_pago ? asistPanelFmtMonto_(total_pago) : '',
+      '$ Salario total':            total_pago_final ? asistPanelFmtMonto_(total_pago_final) : '',
       Metodo: metodoFinal, Observaciones: '',
+      // Compensación manual libre (concepto+monto). Solo se envía si hay algo,
+      // así el sheet no crea columnas vacías cuando no aplica.
+      ...(compConcepto ? { 'Compensación_concepto': compConcepto } : {}),
+      ...(compMonto    ? { 'Compensación_monto':    asistPanelFmtMonto_(compMonto) } : {}),
     };
     // Ubicaciones preservadas (solo si vienen).
     if (c.preserveLat != null && c.preserveLat !== '') payload.Ubicacion_Lat = c.preserveLat;
