@@ -34859,6 +34859,11 @@ window.asistGuardarRegistro = async function () {
   });
   const deletes = [];
   const creates = [];
+  // IDs cuya "eliminación" es en realidad parte de un MODIFY (cambio de
+  // concepto sobre una fila existente). El backend los borra+recrea con
+  // los datos preservados, pero para el usuario NO son un borrado — son
+  // una edición. NO se muestran en la confirmación de "vas a borrar".
+  const modificationIds = new Set();
   // (a) Celdas con concepto deseado nuevo o distinto al actual → delete+create.
   // Normalizamos: si la fila del sheet tiene Concepto vacío pero hay
   // Entrada/Salida, se considera 'Asistencia' (que es el default visual).
@@ -34878,7 +34883,7 @@ window.asistGuardarRegistro = async function () {
         ((String(row.Entrada||'').trim() || String(row.Salida||'').trim()) ? 'Asistencia' : '')
       );
       if (conceptoActual === concepto) return; // sin cambios
-      if (row.ID) deletes.push(row.ID);
+      if (row.ID) { deletes.push(row.ID); modificationIds.add(row.ID); }
       // Preserva metadatos del registro original al recrearlo.
       creates.push({
         nombre, iso, concepto,
@@ -34908,8 +34913,14 @@ window.asistGuardarRegistro = async function () {
   // si se pierden. Antes de borrar, mostramos la lista y pedimos que el
   // usuario escriba "BORRAR" para confirmar. Además, blindamos los registros
   // WhatsApp (los del bot) para que NUNCA se marquen para borrado accidental.
-  if (deletes.length > 0) {
-    const deleteRows = deletes.map(id => (ASIST_STATE?.rows || []).find(r => String(r.ID) === String(id))).filter(Boolean);
+  // Solo pedimos confirmación para BORRADOS reales (cambios donde la celda
+  // queda vacía). Las "eliminaciones" que forman parte de un MODIFY
+  // (cambio de concepto sobre una fila existente) no cuentan como borrado
+  // desde la perspectiva del usuario — la fila se recrea inmediatamente
+  // con los mismos metadatos (Metodo, Entrada, Salida, GPS).
+  const trueDeleteIds = deletes.filter(id => !modificationIds.has(id));
+  if (trueDeleteIds.length > 0) {
+    const deleteRows = trueDeleteIds.map(id => (ASIST_STATE?.rows || []).find(r => String(r.ID) === String(id))).filter(Boolean);
     const waRows = deleteRows.filter(r => String(r.Metodo || '').toLowerCase() === 'whatsapp');
     if (waRows.length > 0) {
       const waList = waRows.map(r => `• ${r.Empleado_Nombre} — ${r.Fecha} (${r.Entrada||'?'}→${r.Salida||'?'})`).join('\n');
@@ -34939,14 +34950,19 @@ window.asistGuardarRegistro = async function () {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
   if (status) { status.style.color = '#64748b'; status.textContent = `⏳ Aplicando ${total} cambio(s)…`; }
   let ok = 0, err = 0;
-  // 1) DELETES primero — enviamos force=true SOLO para los WhatsApp que ya
-  // fueron confirmados arriba con "BORRAR WHATSAPP". El resto va sin force
-  // y también queda archivado en RH_Asistencia_Papelera por el backend.
+  // 1) DELETES primero — enviamos force=true en 2 casos:
+  //    (a) es un MODIFY (se recrea inmediatamente después), o
+  //    (b) es un WhatsApp real y el usuario ya confirmó "BORRAR WHATSAPP".
+  // El resto va sin force. Todos quedan archivados en la Papelera.
   for (const id of deletes) {
     try {
       const row = (ASIST_STATE?.rows || []).find(r => String(r.ID) === String(id));
       const isWa = row && String(row.Metodo || '').toLowerCase() === 'whatsapp';
-      const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(id)}` + (isWa ? '?force=true&reason=' + encodeURIComponent('confirmado por usuario en calendario') : '?reason=' + encodeURIComponent('calendario asist'));
+      const isMod = modificationIds.has(id);
+      const forceFlag = isMod || isWa;
+      const reason = isMod ? 'modificación de concepto en calendario'
+                           : (isWa ? 'confirmado por usuario en calendario' : 'calendario asist');
+      const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(id)}?reason=` + encodeURIComponent(reason) + (forceFlag ? '&force=true' : '');
       const r = await fetch(url, { method:'DELETE' });
       const j = await r.json();
       if (j.ok) ok++; else err++;
