@@ -34143,6 +34143,17 @@ window.asistNuevoRegistro = function () {
   ASIST_STATE.panel.pendingDelete = new Set();
   asistPanelUpdateSaveBtn_();
   asistPanelRender();
+  // Si el catálogo Personal aún no está cargado en INC_STATE.personalRows,
+  // dispara la carga y re-renderiza al terminar. Sin esto, el panel abierto
+  // desde el Resumen semanal (donde nunca se abrió Incidencias) cae al
+  // fallback INC_STATE.personas (lista hardcoded de 9 personas que NO incluye
+  // a todo el personal actual de la hoja Personal).
+  try {
+    const rows = (INC_STATE && INC_STATE.personalRows) || [];
+    if (!rows.length && typeof incLoadPersonal === 'function') {
+      incLoadPersonal().then(() => { try { asistPanelRender(); } catch(_){} });
+    }
+  } catch(_){}
 };
 
 function asistPanelState_() {
