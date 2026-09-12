@@ -33172,9 +33172,26 @@ function asistRenderResumen(targetId) {
   //   $ Prima dominical    = suma prima dom por concepto/día
   //   $ Prima día feriado  = suma prima DF por concepto/día
   //   $ Salario total      = suma de las 4 anteriores
+  // Reconcilia nombres cortos ("Adán") con el nombre completo del Personal
+  // ("Adán Ramos") — de otra forma se generan grupos duplicados por nombre.
+  const _aliasToFull = new Map();
+  (INC_STATE?.personalRows || []).forEach(pr => {
+    const full = String(pr?.Nombre || '').trim();
+    if (!full) return;
+    _aliasToFull.set(_normNombre_(full), full);
+    const firstWord = full.split(/\s+/)[0];
+    if (firstWord && !_aliasToFull.has(_normNombre_(firstWord))) {
+      _aliasToFull.set(_normNombre_(firstWord), full);
+    }
+  });
+  const _canonRes = (raw) => {
+    const t = String(raw || '').trim();
+    if (!t) return t;
+    return _aliasToFull.get(_normNombre_(t)) || t;
+  };
   const grupos = new Map();
   for (const r of ASIST_STATE.rows) {
-    const nombre = String(r.Empleado_Nombre||'').trim();
+    const nombre = _canonRes(String(r.Empleado_Nombre||'').trim());
     const fecha  = String(r.Fecha||'').slice(0,10);
     if (!nombre || !fecha) continue;
     const w = weekOf(fecha);
@@ -33206,11 +33223,15 @@ function asistRenderResumen(targetId) {
     const N = g.workDays.size;
     const workContract = contratoByNombre.get(g.nombre) || 5;
     const restContract = Math.max(0, 7 - workContract);
+    // Los días de descanso solo se pagan si el empleado está dado de alta
+    // en IMSS. Si no, factorDes = 0.
+    const conImss = _empleadoAltaImss_(g.nombre);
+    g.altaImss = conImss;
     g.diasTrab = N;
     g.workContract = workContract;
     g.restContract = restContract;
     g.factorLab = N;
-    g.factorDes = restContract * Math.min(N / Math.max(1, workContract), 1);
+    g.factorDes = conImss ? (restContract * Math.min(N / Math.max(1, workContract), 1)) : 0;
     g.baseLab = ASIST_PANEL_SAL_BASE * g.factorLab;
     g.baseDes = ASIST_PANEL_SAL_BASE * g.factorDes;
     g.total = g.baseLab + g.baseDes + g.vac + g.dom + g.df + g.comp;
@@ -34735,6 +34756,25 @@ function _asistPanelCellInner_(conceptos, comp) {
     </div>`;
 }
 
+// Normaliza un nombre para hacer matching: trim, lowercase, quita acentos y
+// colapsa espacios. Se usa para reconciliar "Adán" con "Adán Ramos".
+function _normNombre_(s) {
+  return String(s || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ');
+}
+// Alta en IMSS del empleado (true si "Sí" o similares). Se usa para pagar
+// o no los días de descanso del contrato.
+function _empleadoAltaImss_(nombreCanonical) {
+  const p = (INC_STATE?.personalRows || []).find(pr =>
+    _normNombre_(String(pr?.Nombre || '')) === _normNombre_(nombreCanonical)
+  );
+  const v = String(p?.['Alta en IMSS'] || '').trim().toLowerCase();
+  return v === 'sí' || v === 'si' || v === 'true' || v === '1' || v === 'yes';
+}
+
 function asistPanelRender() {
   const cont = document.getElementById('asist-panel-cal-wrap');
   if (!cont) return;
@@ -34760,10 +34800,29 @@ function asistPanelRender() {
   // hardcodeamos 'Asistencia' — si la fila del sheet tiene Concepto vacío,
   // usamos 'Asistencia' como default para reflejar la ausencia sin generar
   // un diff artificial en el guardado).
+  // Mapa de aliases: primer nombre → canonical (nombre completo del Personal).
+  // Sirve para reconciliar registros creados con solo "Adán" contra el
+  // renglón "Adán Ramos" de la hoja Personal — de otra forma no aparecerían
+  // en el calendario.
+  const aliasToCanonical = new Map();
+  (INC_STATE?.personalRows || []).forEach(pr => {
+    const full = String(pr?.Nombre || '').trim();
+    if (!full) return;
+    aliasToCanonical.set(_normNombre_(full), full);
+    const firstWord = full.split(/\s+/)[0];
+    if (firstWord && !aliasToCanonical.has(_normNombre_(firstWord))) {
+      aliasToCanonical.set(_normNombre_(firstWord), full);
+    }
+  });
+  const _canonNombre = (raw) => {
+    const t = String(raw || '').trim();
+    if (!t) return t;
+    return aliasToCanonical.get(_normNombre_(t)) || t;
+  };
   const conceptoRealByKey = new Map();
   const compensacionRealByKey = new Map();
   (ASIST_STATE?.rows || []).forEach(r => {
-    const nm = String(r.Empleado_Nombre || '').trim();
+    const nm = _canonNombre(String(r.Empleado_Nombre || '').trim());
     let fecha = r.Fecha;
     if (fecha instanceof Date) {
       const pad = n => String(n).padStart(2,'0');
@@ -34904,8 +34963,10 @@ function asistPanelRender() {
     // 1 día de descanso; 5d/semana → 2 días; 7d/semana → 0.
     const _workContract = (workDays && workDays.size) || 5;
     const _restContract = Math.max(0, 7 - _workContract);
+    // Solo paga días de descanso si el empleado está de alta en IMSS.
+    const _conImss = _empleadoAltaImss_(nombre);
     const factorLab = diasTrab;
-    const factorDes = _restContract * Math.min(diasTrab / Math.max(1, _workContract), 1);
+    const factorDes = _conImss ? (_restContract * Math.min(diasTrab / Math.max(1, _workContract), 1)) : 0;
     const salBaseLab = ASIST_PANEL_SAL_BASE * factorLab;
     const salBaseDes = ASIST_PANEL_SAL_BASE * factorDes;
     const salTotal = salBaseLab + salBaseDes + primaVacSem + primaDomSem + primaDFSem + compSem;
@@ -34918,7 +34979,11 @@ function asistPanelRender() {
       </div>
     </div>`;
     html += salCell(salBaseLab, { borderLeft:'2px solid #0f172a', title:`Base laborado: ${diasTrab}d × $${ASIST_PANEL_SAL_BASE.toFixed(2)}`, sub:`${diasTrab}d` });
-    html += salCell(salBaseDes, { title:`Descanso proporcional: ${_restContract}d contrato × min(${diasTrab}/${_workContract}, 1) = ${factorDes.toFixed(2)}d`, sub:`${factorDes.toFixed(2)}d de ${_restContract}`, color:'#0369a1' });
+    html += salCell(salBaseDes, { title: _conImss
+      ? `Descanso proporcional: ${_restContract}d contrato × min(${diasTrab}/${_workContract}, 1) = ${factorDes.toFixed(2)}d`
+      : `Sin alta en IMSS — no aplica pago de días de descanso.`,
+      sub: _conImss ? `${factorDes.toFixed(2)}d de ${_restContract}` : 'sin IMSS',
+      color: _conImss ? '#0369a1' : '#94a3b8' });
     html += salCell(primaVacSem, { title:'Suma prima vacacional (25%) de la semana' });
     html += salCell(primaDomSem, { title:'Suma prima dominical (25%) de la semana' });
     html += salCell(primaDFSem,  { title:'Suma prima día feriado (200%) de la semana' });
