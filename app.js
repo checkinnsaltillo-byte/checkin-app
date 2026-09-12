@@ -33129,6 +33129,11 @@ function asistRenderResumen(targetId) {
   const wrap = document.getElementById(targetId || 'asist-resumen-wrap');
   if (!wrap) return;
   wrap.classList.remove('hidden');
+  // Filtros persistentes en memoria (no re-crear en cada render).
+  if (typeof ASIST_RESUMEN_FILTERS === 'undefined') {
+    window.ASIST_RESUMEN_FILTERS = { semana: '', empleado: '', altaImss: '' };
+  }
+  const F = window.ASIST_RESUMEN_FILTERS;
   // Barra superior con botón "+ Nuevo registro de asistencia" (mismo panel
   // lateral que el de Control de asistencias).
   const toolbarHtml = `
@@ -33236,10 +33241,49 @@ function asistRenderResumen(targetId) {
     g.baseDes = ASIST_PANEL_SAL_BASE * g.factorDes;
     g.total = g.baseLab + g.baseDes + g.vac + g.dom + g.df + g.comp;
   });
-  const rows = Array.from(grupos.values())
+  const allRows = Array.from(grupos.values())
     .sort((a,b) => (b.semana.lun - a.semana.lun) || a.nombre.localeCompare(b.nombre,'es'));
+  // Opciones de filtro derivadas de los datos (antes de filtrar).
+  const semanaOpts = Array.from(new Map(allRows.map(g => [g.semana.value, g.semana.label])).entries())
+    .sort((a,b) => b[0].localeCompare(a[0]));
+  const empleadoOpts = Array.from(new Set(allRows.map(g => g.nombre))).sort((a,b) => a.localeCompare(b,'es'));
+  // Aplica filtros.
+  const rows = allRows.filter(g => {
+    if (F.semana   && g.semana.value !== F.semana)   return false;
+    if (F.empleado && g.nombre       !== F.empleado) return false;
+    if (F.altaImss === 'si' && !g.altaImss) return false;
+    if (F.altaImss === 'no' &&  g.altaImss) return false;
+    return true;
+  });
+  const filtersHtml = `
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px">
+      <div style="display:flex;flex-direction:column;gap:3px;min-width:230px">
+        <label style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Semana</label>
+        <select onchange="asistResumenSetFilter('semana', this.value)" style="all:unset;padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:6px;background:#fff;color:#0f172a;font-size:12px;font-weight:600;cursor:pointer">
+          <option value="">— Todas —</option>
+          ${semanaOpts.map(([v,l]) => `<option value="${esc(v)}"${F.semana===v?' selected':''}>${esc(l)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;min-width:200px">
+        <label style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Empleado</label>
+        <select onchange="asistResumenSetFilter('empleado', this.value)" style="all:unset;padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:6px;background:#fff;color:#0f172a;font-size:12px;font-weight:600;cursor:pointer">
+          <option value="">— Todos —</option>
+          ${empleadoOpts.map(n => `<option value="${esc(n)}"${F.empleado===n?' selected':''}>${esc(n)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;min-width:160px">
+        <label style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Alta en IMSS</label>
+        <select onchange="asistResumenSetFilter('altaImss', this.value)" style="all:unset;padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:6px;background:#fff;color:#0f172a;font-size:12px;font-weight:600;cursor:pointer">
+          <option value="">— Todos —</option>
+          <option value="si"${F.altaImss==='si'?' selected':''}>Sí</option>
+          <option value="no"${F.altaImss==='no'?' selected':''}>No</option>
+        </select>
+      </div>
+      ${(F.semana||F.empleado||F.altaImss) ? `<button type="button" onclick="asistResumenClearFilters()" style="all:unset;cursor:pointer;padding:6px 12px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;color:#991b1b">Limpiar filtros</button>` : ''}
+      <div style="margin-left:auto;font-size:11px;color:#64748b;font-weight:700">${rows.length} de ${allRows.length} renglones</div>
+    </div>`;
   if (!rows.length) {
-    wrap.innerHTML = toolbarHtml + `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">Sin registros aún.</div>`;
+    wrap.innerHTML = toolbarHtml + filtersHtml + `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">${allRows.length ? 'Ningún renglón coincide con los filtros.' : 'Sin registros aún.'}</div>`;
     return;
   }
   // Aplica override manual de compensación (si existe) al total.
@@ -33323,6 +33367,12 @@ function asistRenderResumen(targetId) {
       : `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:800;font-size:11px;border:1px solid #fde68a">⏳ Pendiente</span>`;
     return `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:center;white-space:nowrap">${chip}</td>`;
   };
+  const tdAltaImss = (g) => {
+    const chip = g.altaImss
+      ? `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:800;font-size:11px;border:1px solid #86efac">✓ Sí</span>`
+      : `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:#fee2e2;color:#991b1b;font-weight:800;font-size:11px;border:1px solid #fca5a5">✕ No</span>`;
+    return `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:center;white-space:nowrap">${chip}</td>`;
+  };
   const tdComentarios = (g) => {
     const p = _rhResPagoGet_(g.nombre, g.semana.value);
     return `<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap">
@@ -33335,6 +33385,7 @@ function asistRenderResumen(targetId) {
   const body = rows.map(g => `<tr data-resumen-row-key="${esc(_rhResRowKey_(g))}" style="transition:background .12s">
     ${tdAcc(g)}
     ${td(esc(g.nombre), 'font-weight:700')}
+    ${tdAltaImss(g)}
     ${td(esc(g.semana.label), 'color:#475569')}
     ${tdNum(fmtHoras(g.horas))}
     ${tdNum(fmt(g.baseLab))}
@@ -33350,10 +33401,20 @@ function asistRenderResumen(targetId) {
     ${tdEstado(g)}
     ${tdComentarios(g)}
   </tr>`).join('');
-  wrap.innerHTML = toolbarHtml + `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:auto;max-height:calc(100vh - 260px)"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>
-    ${thAcc}${th('Empleado', '170px')}${th('Semana', '210px')}${thNum('Horas', '70px')}${thNum('$ Base laborado', '105px')}${thNum('$ Base descanso', '105px')}${thNum('$ Prima vac. (25%)', '100px')}${thNum('$ Prima dom. (25%)', '100px')}${thNum('$ Prima feriado (200%)', '115px')}${thNum('$ Compensación', '105px')}${thNum('$ Salario reportado', '115px')}${thNum('$ Salario TOTAL', '120px')}${th('Método de pago', '180px')}${th('Fecha de pago', '150px')}${th('Estado de pago', '120px')}${th('Comentarios', '220px')}
+  wrap.innerHTML = toolbarHtml + filtersHtml + `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:auto;max-height:calc(100vh - 320px)"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>
+    ${thAcc}${th('Empleado', '170px')}${th('Alta en IMSS', '120px')}${th('Semana', '210px')}${thNum('Horas', '70px')}${thNum('$ Base laborado', '105px')}${thNum('$ Base descanso', '105px')}${thNum('$ Prima vac. (25%)', '100px')}${thNum('$ Prima dom. (25%)', '100px')}${thNum('$ Prima feriado (200%)', '115px')}${thNum('$ Compensación', '105px')}${thNum('$ Salario reportado', '115px')}${thNum('$ Salario TOTAL', '120px')}${th('Método de pago', '180px')}${th('Fecha de pago', '150px')}${th('Estado de pago', '120px')}${th('Comentarios', '220px')}
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
+// Handlers de filtros de la tabla del Resumen.
+window.asistResumenSetFilter = function (field, value) {
+  if (typeof ASIST_RESUMEN_FILTERS === 'undefined') window.ASIST_RESUMEN_FILTERS = { semana:'', empleado:'', altaImss:'' };
+  ASIST_RESUMEN_FILTERS[field] = value || '';
+  asistRenderResumen('rh-view');
+};
+window.asistResumenClearFilters = function () {
+  window.ASIST_RESUMEN_FILTERS = { semana:'', empleado:'', altaImss:'' };
+  asistRenderResumen('rh-view');
+};
 window.asistRenderResumen = asistRenderResumen;
 
 // ── Edición en línea de la Compensación en la tabla del Resumen ───
@@ -33448,7 +33509,7 @@ window.asistResumenPagoSet = function (rowKey, field, value) {
     try {
       const tr = document.querySelector(`tr[data-resumen-row-key="${rowKey}"]`);
       if (tr) {
-        const chip = tr.querySelectorAll('td')[14]; // Estado es la col 15 (0-indexed 14)
+        const chip = tr.querySelectorAll('td')[15]; // Estado es la col 16 (0-indexed 15) tras insertar Alta en IMSS
         const p = _rhResPagoGet_(nombre, semanaValue);
         const pagado = !!p.fecha;
         chip.innerHTML = pagado
