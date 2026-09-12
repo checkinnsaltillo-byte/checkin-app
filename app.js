@@ -35018,7 +35018,22 @@ window.asistGuardarRegistro = async function () {
   setTimeout(() => {
     asistCancelarRegistro();
     if (status) status.textContent = '';
-    if (typeof asistReloadList === 'function') asistReloadList();
+    // Refresca ASIST_STATE.rows y re-renderiza cualquier vista que dependa
+    // de esos datos (Resumen semanal en Nómina + tabla de Control de
+    // asistencias). asistReloadList devuelve una promise; esperamos que
+    // termine antes de re-render para tener las filas nuevas del sheet.
+    if (typeof asistReloadList === 'function') {
+      Promise.resolve(asistReloadList()).then(() => {
+        try {
+          // Resumen semanal (tab dentro de Nómina). RH_STATE.tab === 'resumen_semanal'
+          // indica que el usuario está viéndolo actualmente.
+          if (typeof RH_STATE !== 'undefined' && RH_STATE?.tab === 'resumen_semanal'
+              && typeof asistRenderResumen === 'function') {
+            asistRenderResumen('rh-view');
+          }
+        } catch(_){}
+      });
+    }
   }, 900);
   return;
   /* Código legacy: guardaba TODAS las celdas de una (creaba duplicados con
