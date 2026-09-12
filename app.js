@@ -33175,7 +33175,7 @@ function asistRenderResumen(targetId) {
     const w = weekOf(fecha);
     const k = `${nombre}||${w.value}`;
     let g = grupos.get(k);
-    if (!g) { g = { nombre, semana: w, horas:0, workDays: new Set(), vac:0, dom:0, df:0, ids:[] }; grupos.set(k, g); }
+    if (!g) { g = { nombre, semana: w, horas:0, workDays: new Set(), vac:0, dom:0, df:0, comp:0, ids:[] }; grupos.set(k, g); }
     g.horas += parseHoras(r.Horas);
     const concepto = asistPanelNormalizarConceptoLegado_(String(r.Concepto||'').trim() || 'Regular');
     if (asistPanelEsDiaTrabajado_(concepto)) g.workDays.add(fecha);
@@ -33183,16 +33183,19 @@ function asistRenderResumen(targetId) {
     if (typeof p.primaVac === 'number') g.vac += p.primaVac;
     if (typeof p.primaDom === 'number') g.dom += p.primaDom;
     if (typeof p.primaDF  === 'number') g.df  += p.primaDF;
+    // Compensación libre capturada en la celda (columnas Compensación_*).
+    const cMonto = parseMonto(r['Compensación_monto'] || r['Compensacion_monto']);
+    if (cMonto) g.comp += cMonto;
     g.ids.push(String(r.ID||''));
   }
-  // Derivados: base semanal por fórmula, total = base + primas.
+  // Derivados: base semanal por fórmula, total = base + primas + compensación.
   grupos.forEach(g => {
     const N = g.workDays.size;
     const factor = N === 0 ? 0 : Math.min(7, N + 2);
     g.diasTrab = N;
     g.factor = factor;
     g.base = ASIST_PANEL_SAL_BASE * factor;
-    g.total = g.base + g.vac + g.dom + g.df;
+    g.total = g.base + g.vac + g.dom + g.df + g.comp;
   });
   const rows = Array.from(grupos.values())
     .sort((a,b) => (b.semana.lun - a.semana.lun) || a.nombre.localeCompare(b.nombre,'es'));
@@ -33223,10 +33226,11 @@ function asistRenderResumen(targetId) {
     ${tdNum(fmt(g.vac))}
     ${tdNum(fmt(g.dom))}
     ${tdNum(fmt(g.df))}
+    ${tdNum(fmt(g.comp))}
     ${tdNum(fmt(g.total))}
   </tr>`).join('');
   wrap.innerHTML = toolbarHtml + `<div style="overflow-x:auto"><table class="rh-table"><thead><tr>
-    ${thAcc}${th('Empleado')}${th('Semana')}${thNum('Horas')}${thNum('$ Salario base')}${thNum('$ Prima vacacional (25%)')}${thNum('$ Prima dominical (25%)')}${thNum('$ Prima día feriado (200%)')}${thNum('$ Salario total')}
+    ${thAcc}${th('Empleado')}${th('Semana')}${thNum('Horas')}${thNum('$ Salario base')}${thNum('$ Prima vacacional (25%)')}${thNum('$ Prima dominical (25%)')}${thNum('$ Prima día feriado (200%)')}${thNum('$ Compensación')}${thNum('$ Salario total')}
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 window.asistRenderResumen = asistRenderResumen;
@@ -34602,8 +34606,9 @@ function asistPanelRender() {
     </span>`;
   });
   html += `</div>`;
-  // 12 columnas: 7 días + 5 columnas de nómina semanal.
-  html += `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:12">`;
+  // 13 columnas: 7 días + 6 columnas de nómina semanal (Base, Vac, Dom, DF,
+  // Compensación, Total).
+  html += `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:13">`;
   html += `<div class="ocup-cal-head"><div class="ocup-head-aloj">👥 Personal · ${personalRows.length}</div>`;
   const today = new Date(); today.setHours(0,0,0,0);
   dias.forEach(d => {
@@ -34625,7 +34630,8 @@ function asistPanelRender() {
   html += salHeader('🌴', 'Prima',   'vacac. (25%)',  'Suma de la prima vacacional (25% del base) por los días con concepto Vac laboradas o Vacaciones.');
   html += salHeader('☀️', 'Prima',   'dom. (25%)',    'Suma de la prima dominical (25% del base) por los días con concepto Domingo.');
   html += salHeader('🎉', 'Prima',   'feriado (200%)','Suma de la prima de día feriado (200% del base) por los días con concepto Día feriado.');
-  html += salHeader('💵', 'Salario', 'TOTAL',         'Salario base semanal + primas.');
+  html += salHeader('🎁', '\$', 'Compensación',      'Suma de las compensaciones manuales (concepto+monto) capturadas en las celdas.');
+  html += salHeader('💵', 'Salario', 'TOTAL',         'Salario base semanal + primas + compensación.');
   html += `</div>`;
   let totalSemana = 0;
   personalRows.forEach(({ nombre, puesto }) => {
@@ -34670,28 +34676,31 @@ function asistPanelRender() {
         <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;gap:1px">${inner}</div>
       </div>`;
     });
-    // ── Nómina semanal (5 columnas) ───────────────────────────────────
+    // ── Nómina semanal (6 columnas) ───────────────────────────────────
     // Base semanal: Fórmula sobre días trabajados. min(7, N+2) × base.
-    // Primas semanales: suma por día según concepto (Vac / Dom / DF).
+    // Primas: suma por día según concepto. Compensación: suma libre.
     let diasTrab = 0;
-    let primaVacSem = 0, primaDomSem = 0, primaDFSem = 0;
+    let primaVacSem = 0, primaDomSem = 0, primaDFSem = 0, compSem = 0;
     dias.forEach(d => {
       const iso2 = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const cs = st.celdas.get(`${nombre}|${iso2}`);
-      if (!cs) return;
-      let cuenta = false;
-      for (const k of cs) {
-        if (asistPanelEsDiaTrabajado_(k)) cuenta = true;
-        const p = asistPanelPrimasPorConcepto_(k);
-        if (typeof p.primaVac === 'number') primaVacSem += p.primaVac;
-        if (typeof p.primaDom === 'number') primaDomSem += p.primaDom;
-        if (typeof p.primaDF  === 'number') primaDFSem  += p.primaDF;
+      if (cs) {
+        let cuenta = false;
+        for (const k of cs) {
+          if (asistPanelEsDiaTrabajado_(k)) cuenta = true;
+          const p = asistPanelPrimasPorConcepto_(k);
+          if (typeof p.primaVac === 'number') primaVacSem += p.primaVac;
+          if (typeof p.primaDom === 'number') primaDomSem += p.primaDom;
+          if (typeof p.primaDF  === 'number') primaDFSem  += p.primaDF;
+        }
+        if (cuenta) diasTrab++;
       }
-      if (cuenta) diasTrab++;
+      const comp = st.compensaciones.get(`${nombre}|${iso2}`);
+      if (comp) compSem += Number(comp.monto) || 0;
     });
     const factor = diasTrab === 0 ? 0 : Math.min(7, diasTrab + 2);
     const salBaseSem = ASIST_PANEL_SAL_BASE * factor;
-    const salTotal = salBaseSem + primaVacSem + primaDomSem + primaDFSem;
+    const salTotal = salBaseSem + primaVacSem + primaDomSem + primaDFSem + compSem;
     totalSemana += salTotal;
     const salCell = (v, extra) => `<div class="ocup-day-cell" style="background:#f8fafc;border-left:${extra?.borderLeft || '1px solid #e2e8f0'}"
       title="${esc(extra?.title || '')}">
@@ -34704,7 +34713,8 @@ function asistPanelRender() {
     html += salCell(primaVacSem, { title:'Suma prima vacacional (25%) de la semana' });
     html += salCell(primaDomSem, { title:'Suma prima dominical (25%) de la semana' });
     html += salCell(primaDFSem,  { title:'Suma prima día feriado (200%) de la semana' });
-    html += salCell(salTotal,    { borderLeft:'2px solid #16a34a', title:'Salario base semanal + primas', strong:true, color:'#065f46' });
+    html += salCell(compSem,     { title:'Suma de compensaciones libres capturadas en la semana', color:'#86198f' });
+    html += salCell(salTotal,    { borderLeft:'2px solid #16a34a', title:'Salario base semanal + primas + compensación', strong:true, color:'#065f46' });
     html += `</div>`;
   });
   html += `</div>`;
