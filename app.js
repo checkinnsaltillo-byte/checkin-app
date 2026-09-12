@@ -34869,8 +34869,14 @@ window.asistGuardarRegistro = async function () {
     const [nombre, iso] = key.split('|');
     const row = rowByKey.get(key);
     if (row) {
-      const conceptoActual = String(row.Concepto || '').trim() ||
-        ((String(row.Entrada||'').trim() || String(row.Salida||'').trim()) ? 'Asistencia' : '');
+      // Normaliza el Concepto legado ('Asistencia' → 'Regular') antes de comparar
+      // — el seed también normaliza, así que comparar sin normalizar
+      // producía falsos positivos y marcaba TODO registro WhatsApp para
+      // borrar+recrear aunque el usuario no hubiera tocado esa celda.
+      const conceptoActual = asistPanelNormalizarConceptoLegado_(
+        String(row.Concepto || '').trim() ||
+        ((String(row.Entrada||'').trim() || String(row.Salida||'').trim()) ? 'Asistencia' : '')
+      );
       if (conceptoActual === concepto) return; // sin cambios
       if (row.ID) deletes.push(row.ID);
       // Preserva metadatos del registro original al recrearlo.
