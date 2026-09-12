@@ -33221,38 +33221,128 @@ function asistRenderResumen(targetId) {
     wrap.innerHTML = toolbarHtml + `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">Sin registros aún.</div>`;
     return;
   }
-  // Usa la clase .rh-table (misma que la tabla de Pagos) para uniformidad
-  // de tipografía, tamaños y estilo de encabezado.
-  const th = h => `<th>${h}</th>`;
-  const thNum = h => `<th style="text-align:right">${h}</th>`;
-  const thAcc = `<th style="width:80px;text-align:center">Acciones</th>`;
-  const td = v => `<td>${esc(v)}</td>`;
-  const tdNum = v => `<td style="text-align:right;font-weight:700">${esc(v)}</td>`;
-  const tdAcc = ids => {
-    const btnStyle = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;font-weight:800;font-size:11px;line-height:1;cursor:pointer;border:1px solid';
-    const jump = `<button type="button" title="Ver renglones agregados en la tabla" onclick="asistResumenIrATabla('${ids.join(',')}')" style="${btnStyle} #93c5fd;background:#dbeafe;color:#1d4ed8">↗</button>`;
-    const del  = `<button type="button" title="Eliminar todos los renglones de este grupo" onclick="asistResumenEliminarGrupo('${ids.join(',')}')" style="${btnStyle} #fecaca;background:#fee2e2;color:#b91c1c">✕</button>`;
-    return `<td style="text-align:center;vertical-align:middle"><div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${jump}${del}</div></td>`;
+  // Aplica override manual de compensación (si existe) al total.
+  rows.forEach(g => {
+    const ov = _rhResOverrideGet_(g.nombre, g.semana.value);
+    if (ov != null) {
+      g.compOverride = ov;
+      g.total = g.baseLab + g.baseDes + g.vac + g.dom + g.df + ov;
+    }
+  });
+  // Estilos tipo tabla de "Control de asistencias" — header oscuro, sticky.
+  const th = (label, width) => `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap${width?`;width:${width}`:''}">${label}</th>`;
+  const thNum = (label, width) => `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 10px;text-align:right;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap${width?`;width:${width}`:''}">${label}</th>`;
+  const thAcc = `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 8px;text-align:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;width:110px">Acciones</th>`;
+  const td = (v, extraStyle) => `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#1f2937;white-space:nowrap${extraStyle?';'+extraStyle:''}">${v}</td>`;
+  const tdNum = (v, extraStyle) => `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;text-align:right;font-weight:700;color:#0f172a;white-space:nowrap${extraStyle?';'+extraStyle:''}">${v}</td>`;
+  const tdAcc = (g) => {
+    const editing = ASIST_RESUMEN_EDIT.has(_rhResRowKey_(g));
+    const btnStyle = 'display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:5px;font-weight:800;font-size:12px;line-height:1;cursor:pointer;border:1px solid';
+    const rowKey = _rhResRowKey_(g);
+    let btns;
+    if (editing) {
+      btns = `
+        <button type="button" title="Guardar" onclick="asistResumenGuardarEdit('${esc(rowKey)}')" style="${btnStyle} #86efac;background:#dcfce7;color:#166534">✓</button>
+        <button type="button" title="Cancelar" onclick="asistResumenCancelarEdit('${esc(rowKey)}')" style="${btnStyle} #fecaca;background:#fee2e2;color:#b91c1c">✕</button>`;
+    } else {
+      const pencil = `<button type="button" title="Editar compensación" onclick="asistResumenAbrirEdit('${esc(rowKey)}')" style="${btnStyle} #fde68a;background:#fef3c7;color:#92400e">✎</button>`;
+      const jump   = `<button type="button" title="Ver renglones agregados en la tabla" onclick="asistResumenIrATabla('${g.ids.join(',')}')" style="${btnStyle} #93c5fd;background:#dbeafe;color:#1d4ed8">↗</button>`;
+      const del    = `<button type="button" title="Eliminar todos los renglones de este grupo" onclick="asistResumenEliminarGrupo('${g.ids.join(',')}')" style="${btnStyle} #fecaca;background:#fee2e2;color:#b91c1c">✕</button>`;
+      btns = pencil + jump + del;
+    }
+    return `<td style="padding:6px 4px;text-align:center;vertical-align:middle;border-bottom:1px solid #f1f5f9"><div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${btns}</div></td>`;
   };
   const fmt = n => n ? asistPanelFmtMonto_(n) : '';
-  const body = rows.map(g => `<tr>
-    ${tdAcc(g.ids)}
-    ${td(g.nombre)}
-    ${td(g.semana.label)}
+  // Celda de compensación: si hay override, tacha el original y muestra el override.
+  const tdComp = (g) => {
+    const editing = ASIST_RESUMEN_EDIT.has(_rhResRowKey_(g));
+    if (editing) {
+      const cur = g.compOverride != null ? g.compOverride : g.comp;
+      return `<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:right;white-space:nowrap;background:#fefce8">
+        <input type="number" step="0.01" min="0" value="${cur}"
+          data-resumen-edit-key="${esc(_rhResRowKey_(g))}"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();asistResumenGuardarEdit('${esc(_rhResRowKey_(g))}')} if(event.key==='Escape'){asistResumenCancelarEdit('${esc(_rhResRowKey_(g))}')}"
+          style="all:unset;padding:5px 8px;border:1.5px solid #f59e0b;border-radius:5px;font-size:12px;color:#0f172a;background:#fff;box-sizing:border-box;width:120px;text-align:right;font-weight:800">
+      </td>`;
+    }
+    if (g.compOverride != null && g.compOverride !== g.comp) {
+      const orig = g.comp ? `<span style="text-decoration:line-through;color:#94a3b8;font-size:10.5px;font-weight:600">${asistPanelFmtMonto_(g.comp)}</span>` : '';
+      const nuevo = `<span style="color:#065f46;font-weight:900">${asistPanelFmtMonto_(g.compOverride)}</span>`;
+      return `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-size:12px;white-space:nowrap;color:#0f172a">
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px">${orig}${nuevo}</div>
+      </td>`;
+    }
+    return tdNum(fmt(g.compOverride != null ? g.compOverride : g.comp));
+  };
+  const body = rows.map(g => `<tr data-resumen-row-key="${esc(_rhResRowKey_(g))}" style="transition:background .12s">
+    ${tdAcc(g)}
+    ${td(esc(g.nombre), 'font-weight:700')}
+    ${td(esc(g.semana.label), 'color:#475569')}
     ${tdNum(fmtHoras(g.horas))}
     ${tdNum(fmt(g.baseLab))}
     ${tdNum(fmt(g.baseDes))}
     ${tdNum(fmt(g.vac))}
     ${tdNum(fmt(g.dom))}
     ${tdNum(fmt(g.df))}
-    ${tdNum(fmt(g.comp))}
-    ${tdNum(fmt(g.total))}
+    ${tdComp(g)}
+    ${tdNum(fmt(g.total), 'color:#065f46;font-weight:900')}
   </tr>`).join('');
-  wrap.innerHTML = toolbarHtml + `<div style="overflow-x:auto"><table class="rh-table"><thead><tr>
-    ${thAcc}${th('Empleado')}${th('Semana')}${thNum('Horas')}${thNum('$ Base sem. laborado')}${thNum('$ Base sem. descanso')}${thNum('$ Prima vacacional (25%)')}${thNum('$ Prima dominical (25%)')}${thNum('$ Prima día feriado (200%)')}${thNum('$ Compensación')}${thNum('$ Salario total')}
+  wrap.innerHTML = toolbarHtml + `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:auto;max-height:calc(100vh - 260px)"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>
+    ${thAcc}${th('Empleado', '180px')}${th('Semana', '220px')}${thNum('Horas', '70px')}${thNum('$ Base laborado', '110px')}${thNum('$ Base descanso', '110px')}${thNum('$ Prima vac. (25%)', '105px')}${thNum('$ Prima dom. (25%)', '105px')}${thNum('$ Prima feriado (200%)', '120px')}${thNum('$ Compensación', '110px')}${thNum('$ Salario TOTAL', '125px')}
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 window.asistRenderResumen = asistRenderResumen;
+
+// ── Edición en línea de la Compensación en la tabla del Resumen ───
+// Override manual del monto sumado. Se persiste en localStorage por
+// (empleado, semana). Si el valor difiere de la suma original se muestra
+// el original tachado.
+const ASIST_RESUMEN_EDIT = new Set(); // keys en modo edición
+function _rhResRowKey_(g) { return `${g.nombre}||${g.semana.value}`; }
+function _rhResOverrideKey_(nombre, semanaValue) {
+  return `rh_resumen_comp_override:${nombre}|${semanaValue}`;
+}
+function _rhResOverrideGet_(nombre, semanaValue) {
+  try {
+    const raw = localStorage.getItem(_rhResOverrideKey_(nombre, semanaValue));
+    if (raw == null || raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  } catch(_) { return null; }
+}
+function _rhResOverrideSet_(nombre, semanaValue, monto) {
+  try {
+    if (monto == null || monto === '') localStorage.removeItem(_rhResOverrideKey_(nombre, semanaValue));
+    else localStorage.setItem(_rhResOverrideKey_(nombre, semanaValue), String(Number(monto) || 0));
+  } catch(_){}
+}
+window.asistResumenAbrirEdit = function (rowKey) {
+  ASIST_RESUMEN_EDIT.add(rowKey);
+  asistRenderResumen('rh-view');
+  // Focus + select el input recién montado.
+  setTimeout(() => {
+    const inp = document.querySelector(`input[data-resumen-edit-key="${rowKey}"]`);
+    if (inp) { inp.focus(); inp.select(); }
+  }, 30);
+};
+window.asistResumenCancelarEdit = function (rowKey) {
+  ASIST_RESUMEN_EDIT.delete(rowKey);
+  asistRenderResumen('rh-view');
+};
+window.asistResumenGuardarEdit = function (rowKey) {
+  const inp = document.querySelector(`input[data-resumen-edit-key="${rowKey}"]`);
+  if (!inp) { ASIST_RESUMEN_EDIT.delete(rowKey); asistRenderResumen('rh-view'); return; }
+  const nuevo = Number(String(inp.value).replace(/[^0-9.-]/g,'')) || 0;
+  const [nombre, semanaValue] = rowKey.split('||');
+  _rhResOverrideSet_(nombre, semanaValue, nuevo);
+  ASIST_RESUMEN_EDIT.delete(rowKey);
+  asistRenderResumen('rh-view');
+};
+// Limpia el override manual (vuelve a mostrar la suma original).
+window.asistResumenLimpiarOverride = function (nombre, semanaValue) {
+  _rhResOverrideSet_(nombre, semanaValue, null);
+  asistRenderResumen('rh-view');
+};
 
 // Acciones del resumen: saltar a la tabla filtrando los IDs, o borrar el grupo.
 window.asistResumenIrATabla = function (idsCsv) {
