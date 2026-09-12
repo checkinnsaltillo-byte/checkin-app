@@ -26756,7 +26756,12 @@ window.rhSetTab = function (tab) {
   if (!view) return;
   view.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`;
   if (tab === 'compensaciones') rhLoadCompensaciones().then(rhRenderCompensaciones);
-  else if (tab === 'resumen_semanal') rhLoadAsistencia().then(() => asistRenderResumen('rh-view'));
+  else if (tab === 'resumen_semanal') {
+    // asistRenderResumen lee ASIST_STATE.rows (no RH_STATE.asistencia).
+    // asistReloadList() es la función que popula ASIST_STATE.rows.
+    (typeof asistReloadList === 'function' ? asistReloadList() : Promise.resolve())
+      .then(() => asistRenderResumen('rh-view'));
+  }
 };
 
 // ── Loaders ──
