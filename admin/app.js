@@ -34032,26 +34032,49 @@ function asistPopulateEmpleadoSelect() {
 // L=1(Lun) M=2(Mar) Mi=3(Mié) J=4(Jue) V=5(Vie) S=6(Sáb) D=0(Dom)
 const ASIST_DIAS_MAP = { L:1, M:2, MI:3, J:4, V:5, S:6, D:0 };
 // Conceptos disponibles con su color asignado.
-const ASIST_PANEL_CONCEPTOS = [
-  { k:'Asistencia',  color:'#16a34a' },
-  { k:'Falta',       color:'#dc2626' },
-  { k:'Incapacidad', color:'#7c3aed' },
-  { k:'Vacaciones',  color:'#f59e0b' },
-  { k:'Día feriado', color:'#2563eb' },
-];
-const ASIST_PANEL_CONCEPTO_COLOR = Object.fromEntries(ASIST_PANEL_CONCEPTOS.map(c => [c.k, c.color]));
-// Tarifas por concepto — deben coincidir con los campos informativos del panel.
+// ── Modelo de conceptos ──────────────────────────────────────────────────
+// Estado principal (radio): Asistencia · Falta · Vacaciones · Incapacidad · vacío.
+// Sub-clasificación (solo si Asistencia): Regular · Vac laboradas · Día feriado · Domingo.
+// El sub concepto sustituye al principal como valor guardado en la celda —
+// así el sheet almacena un solo Concepto por fila y basta con leerlo para
+// derivar tanto el grupo (color) como el monto/primas.
 const ASIST_PANEL_SAL_BASE = 315.04;
 const ASIST_PANEL_PRIMA_VAC = 0.25;
+const ASIST_PANEL_PRIMA_DOM = 0.25;
+const ASIST_PANEL_PRIMA_DF  = 2.00;
+// mult = factor por el que se multiplica SAL_BASE para obtener el pago del día.
+const ASIST_PANEL_CONCEPTOS = [
+  // Asistencia (grupo verde) — 4 sub-clasificaciones.
+  { k:'Regular',       color:'#16a34a', group:'Asistencia', mult: 1                                      },
+  { k:'Vac laboradas', color:'#0d9488', group:'Asistencia', mult: 1 + ASIST_PANEL_PRIMA_VAC              },
+  { k:'Día feriado',   color:'#1d4ed8', group:'Asistencia', mult: 1 + ASIST_PANEL_PRIMA_DF               },
+  { k:'Domingo',       color:'#4f46e5', group:'Asistencia', mult: 1 + ASIST_PANEL_PRIMA_DOM              },
+  // Estados principales sin sub.
+  { k:'Falta',         color:'#dc2626', group:'Falta',      mult: 0                                      },
+  { k:'Vacaciones',    color:'#f59e0b', group:'Vacaciones', mult: 1 + ASIST_PANEL_PRIMA_VAC              },
+  { k:'Incapacidad',   color:'#7c3aed', group:'Incapacidad',mult: 0                                      },
+];
+const ASIST_PANEL_CONCEPTO_MAP = Object.fromEntries(ASIST_PANEL_CONCEPTOS.map(c => [c.k, c]));
+const ASIST_PANEL_CONCEPTO_COLOR = Object.fromEntries(ASIST_PANEL_CONCEPTOS.map(c => [c.k, c.color]));
+// Colores por grupo (para el fondo de la celda — no importa cuál sub).
+const ASIST_PANEL_GROUP_COLOR = {
+  'Asistencia':  '#16a34a',
+  'Falta':       '#dc2626',
+  'Vacaciones':  '#f59e0b',
+  'Incapacidad': '#7c3aed',
+};
+// Sub-clasificaciones válidas para "Asistencia".
+const ASIST_PANEL_SUBS_ASISTENCIA = ['Regular','Vac laboradas','Día feriado','Domingo'];
+// Alias de compatibilidad: registros viejos con Concepto='Asistencia' se
+// tratan como 'Regular' al leerlos del sheet.
+function asistPanelNormalizarConceptoLegado_(concepto) {
+  const s = String(concepto || '').trim();
+  if (s === 'Asistencia') return 'Regular';
+  return s;
+}
 function asistPanelMontoDe_(concepto) {
-  switch (concepto) {
-    case 'Asistencia':  return ASIST_PANEL_SAL_BASE;
-    case 'Vacaciones':  return ASIST_PANEL_SAL_BASE * (1 + ASIST_PANEL_PRIMA_VAC);
-    case 'Día feriado': return ASIST_PANEL_SAL_BASE;
-    case 'Falta':       return 0;
-    case 'Incapacidad': return 0;
-    default:            return 0;
-  }
+  const c = ASIST_PANEL_CONCEPTO_MAP[asistPanelNormalizarConceptoLegado_(concepto)];
+  return c ? ASIST_PANEL_SAL_BASE * c.mult : 0;
 }
 function asistPanelFmtMonto_(n) {
   return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -34060,15 +34083,24 @@ function asistPanelFmtMonto_(n) {
  *  llena solo cuando el concepto la justifica; el resto queda vacío. */
 function asistPanelPrimasPorConcepto_(concepto) {
   const base = ASIST_PANEL_SAL_BASE;
-  const vac  = base * ASIST_PANEL_PRIMA_VAC;
-  switch (concepto) {
-    case 'Asistencia':  return { salBase: base, primaVac: '',  primaDom: '', primaDF: '' };
-    case 'Vacaciones':  return { salBase: base, primaVac: vac, primaDom: '', primaDF: '' };
-    case 'Día feriado': return { salBase: base, primaVac: '',  primaDom: '', primaDF: '' };
-    case 'Falta':       return { salBase: '',   primaVac: '',  primaDom: '', primaDF: '' };
-    case 'Incapacidad': return { salBase: '',   primaVac: '',  primaDom: '', primaDF: '' };
-    default:            return { salBase: '',   primaVac: '',  primaDom: '', primaDF: '' };
+  const k = asistPanelNormalizarConceptoLegado_(concepto);
+  const empty = { salBase: '', primaVac: '', primaDom: '', primaDF: '' };
+  switch (k) {
+    case 'Regular':       return { salBase: base, primaVac: '',                          primaDom: '',                          primaDF: '' };
+    case 'Vac laboradas': return { salBase: base, primaVac: base * ASIST_PANEL_PRIMA_VAC, primaDom: '',                          primaDF: '' };
+    case 'Día feriado':   return { salBase: base, primaVac: '',                          primaDom: '',                          primaDF: base * ASIST_PANEL_PRIMA_DF };
+    case 'Domingo':       return { salBase: base, primaVac: '',                          primaDom: base * ASIST_PANEL_PRIMA_DOM, primaDF: '' };
+    case 'Vacaciones':    return { salBase: base, primaVac: base * ASIST_PANEL_PRIMA_VAC, primaDom: '',                          primaDF: '' };
+    case 'Falta':         return empty;
+    case 'Incapacidad':   return empty;
+    default:              return empty;
   }
+}
+// Un concepto "cuenta como día trabajado" para la fórmula del salario semanal
+// si su grupo es 'Asistencia' (Regular, Vac laboradas, Día feriado, Domingo).
+function asistPanelEsDiaTrabajado_(concepto) {
+  const c = ASIST_PANEL_CONCEPTO_MAP[asistPanelNormalizarConceptoLegado_(concepto)];
+  return !!(c && c.group === 'Asistencia');
 }
 function asistPanelParseDiasTrabajo_(str) {
   const out = new Set();
@@ -34149,6 +34181,35 @@ window.asistPanelCellToggleConcepto = function (nombre, iso, concepto, ev) {
   // el flag dirty y salimos.
 };
 
+// Single-select radio: fija UN concepto en la celda (o la limpia si concepto="").
+// Mantiene el menú abierto cuando el usuario cambió el estado principal a
+// "Asistencia" para que pueda elegir la sub-clasificación en el mismo popup.
+window.asistPanelCellSetConcepto = function (nombre, iso, concepto, ev) {
+  if (ev) ev.stopPropagation();
+  const st = asistPanelState_();
+  const k = `${nombre}|${iso}`;
+  const cur = st.celdas.get(k);
+  const prevKey = cur ? Array.from(cur)[0] : '';
+  const prevGroup = ASIST_PANEL_CONCEPTO_MAP[asistPanelNormalizarConceptoLegado_(prevKey)]?.group || '';
+  if (!concepto) st.celdas.delete(k);
+  else st.celdas.set(k, new Set([concepto]));
+  st._userTouched = true;
+  st._dirtyChanges = true;
+  asistPanelRender();
+  asistPanelUpdateSaveBtn_();
+  // Si el usuario pasó de "no-Asistencia" a "Asistencia" (default Regular),
+  // deja abierto el menú para que elija sub-clasificación. En cualquier otro
+  // cambio cierra el menú tras la selección.
+  const newGroup = ASIST_PANEL_CONCEPTO_MAP[asistPanelNormalizarConceptoLegado_(concepto)]?.group || '';
+  const abrirDeNuevo = newGroup === 'Asistencia' && prevGroup !== 'Asistencia';
+  const m = document.getElementById('asist-panel-cell-menu');
+  if (m) m.remove();
+  if (abrirDeNuevo) {
+    // Re-abre inmediatamente para mostrar la sub-clasificación.
+    setTimeout(() => asistPanelOpenCellMenu(nombre, iso, null), 0);
+  }
+};
+
 async function _asistPanelEliminarRegistro(id) {
   try {
     const res = await fetch(`${BACKEND}/rh/asistencia/${encodeURIComponent(id)}`, { method:'DELETE' });
@@ -34175,7 +34236,7 @@ async function _asistPanelCrearRegistroAsistencia(nombre, iso) {
     ID: 'AST-tmp-' + Date.now(),
     Empleado_Nombre: nombre, Fecha: iso,
     Entrada: '08:30', Salida: '13:30',
-    Concepto: 'Asistencia', Metodo: 'Manual', _pending: true,
+    Concepto: 'Regular', Metodo: 'Manual', _pending: true,
   });
   window.__asistCreandoSet.add(key);
   const entrada = '08:30';
@@ -34184,12 +34245,12 @@ async function _asistPanelCrearRegistroAsistencia(nombre, iso) {
   const horas = (em != null && sm != null && sm >= em)
     ? `${Math.floor((sm-em)/60)}h${String((sm-em)%60).padStart(2,'0')}`
     : '';
-  const p = asistPanelPrimasPorConcepto_('Asistencia');
+  const p = asistPanelPrimasPorConcepto_('Regular');
   const fmt = v => v === '' ? '' : asistPanelFmtMonto_(v);
   const payload = {
     Empleado_Nombre: nombre,
     Fecha: iso,
-    Concepto: 'Asistencia',
+    Concepto: 'Regular',
     Entrada: entrada,
     Salida:  salida,
     Horas:   horas,
@@ -34236,15 +34297,50 @@ window.asistPanelOpenCellMenu = function (nombre, iso, ev) {
   }
   const st = asistPanelState_();
   const cur = st.celdas.get(`${nombre}|${iso}`) || new Set();
-  m.innerHTML = ASIST_PANEL_CONCEPTOS.map(c => {
-    const sel = cur.has(c.k);
-    return `<div onclick="event.stopPropagation();asistPanelCellToggleConcepto('${esc(nombre).replace(/'/g,"\\'")}','${iso}','${c.k}')"
-      style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;user-select:none">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid ${sel?c.color:'#cbd5e1'};background:${sel?c.color:'#fff'};color:#fff;font-size:12px;font-weight:900;flex-shrink:0;line-height:1">${sel?'✓':''}</span>
-      <span style="width:10px;height:10px;border-radius:2px;background:${c.color};flex-shrink:0"></span>
-      <span style="font-size:12px;font-weight:700;color:#0f172a">${c.k}</span>
+  const curKey = Array.from(cur)[0] || '';
+  const curNorm = asistPanelNormalizarConceptoLegado_(curKey);
+  const curGroup = ASIST_PANEL_CONCEPTO_MAP[curNorm]?.group || '';
+  const row = (label, sel, sub, key) => `
+    <div onclick="event.stopPropagation();asistPanelCellSetConcepto('${esc(nombre).replace(/'/g,"\\'")}','${iso}','${key}')"
+      style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;user-select:none;${sub?'padding-left:26px;font-size:11px':''}">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:${sub?14:16}px;height:${sub?14:16}px;border-radius:50%;border:1.5px solid ${sel?'#0f172a':'#cbd5e1'};background:${sel?'#0f172a':'#fff'};color:#fff;font-size:10px;font-weight:900;flex-shrink:0;line-height:1">${sel?'●':''}</span>
+      ${label}
     </div>`;
-  }).join('');
+  // Sección 1: Estado principal (radio).
+  const primarios = [
+    { k:'',            label:'<span style="font-size:11.5px;color:#64748b;font-style:italic">— Sin registro —</span>' },
+    { k:'Asistencia',  label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Asistencia']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Asistencia</span>` },
+    { k:'Falta',       label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Falta']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Falta</span>` },
+    { k:'Vacaciones',  label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Vacaciones']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Vacaciones</span>` },
+    { k:'Incapacidad', label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Incapacidad']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Incapacidad</span>` },
+  ];
+  let html = '<div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;padding:4px 8px 2px">Estado</div>';
+  primarios.forEach(p => {
+    let sel;
+    if (p.k === '') sel = !curKey;
+    else if (p.k === 'Asistencia') sel = curGroup === 'Asistencia';
+    else sel = curNorm === p.k;
+    // Para el estado principal "Asistencia", la key enviada es 'Regular' (default);
+    // el sub se elige en la sección de abajo.
+    const sendKey = p.k === 'Asistencia' ? 'Regular' : p.k;
+    html += row(p.label, sel, false, sendKey);
+  });
+  // Sección 2: Sub-clasificación (solo si Asistencia).
+  if (curGroup === 'Asistencia') {
+    html += '<div style="height:1px;background:#e2e8f0;margin:4px 0"></div>';
+    html += '<div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;padding:4px 8px 2px">Tipo de asistencia</div>';
+    ASIST_PANEL_SUBS_ASISTENCIA.forEach(subKey => {
+      const c = ASIST_PANEL_CONCEPTO_MAP[subKey];
+      const sel = curNorm === subKey;
+      const monto = asistPanelFmtMonto_(ASIST_PANEL_SAL_BASE * c.mult);
+      const labelHtml = `
+        <span style="width:8px;height:8px;border-radius:50%;background:${c.color};display:inline-block"></span>
+        <span style="font-size:11px;font-weight:700;color:#334155">${subKey}</span>
+        <span style="margin-left:auto;font-size:10.5px;font-weight:800;color:#0f172a;background:#f1f5f9;padding:1px 6px;border-radius:4px">${monto}</span>`;
+      html += row(labelHtml, sel, true, subKey);
+    });
+  }
+  m.innerHTML = html;
   const contRect = cont.getBoundingClientRect();
   const cellRect = cell.getBoundingClientRect();
   m.style.left = `${cellRect.left - contRect.left + cont.scrollLeft}px`;
@@ -34258,23 +34354,26 @@ function asistPanelCloseCellMenu_(ev) {
   m.remove();
 }
 
-/** Devuelve el background (color sólido o gradient horizontal) para un set de
- *  conceptos. Franjas horizontales = gradient top→bottom. */
+/** Fondo de la celda: color del grupo del concepto principal (Asistencia,
+ *  Falta, Vacaciones, Incapacidad) con transparencia ~20%. Sub-clasificaciones
+ *  de Asistencia comparten el mismo verde para no confundir visualmente. */
 function asistPanelBgFor_(conceptos) {
   const arr = Array.from(conceptos || []);
   if (!arr.length) return '';
-  const cols = arr.map(k => ASIST_PANEL_CONCEPTO_COLOR[k]).filter(Boolean);
-  if (cols.length === 1) return cols[0] + '33';
-  const n = cols.length;
-  const stops = cols.map((c, i) => `${c}55 ${(i*100/n).toFixed(1)}%, ${c}55 ${((i+1)*100/n).toFixed(1)}%`).join(', ');
-  return `linear-gradient(to bottom, ${stops})`;
+  const first = asistPanelNormalizarConceptoLegado_(arr[0]);
+  const c = ASIST_PANEL_CONCEPTO_MAP[first];
+  if (!c) return '';
+  const groupCol = ASIST_PANEL_GROUP_COLOR[c.group] || c.color;
+  return groupCol + '33';
 }
 
-/** Devuelve la franja izquierda (semáforo) — usa el primer color del set. */
+/** Semáforo izquierdo: usa el color del sub-concepto (así se distingue
+ *  Regular de Día feriado / Domingo / Vac laboradas dentro del mismo verde). */
 function asistPanelSemaforo_(conceptos) {
   const arr = Array.from(conceptos || []);
-  const c = arr[0] ? ASIST_PANEL_CONCEPTO_COLOR[arr[0]] : null;
-  return c ? `box-shadow:inset 3px 0 0 ${c};` : '';
+  const first = asistPanelNormalizarConceptoLegado_(arr[0]);
+  const c = ASIST_PANEL_CONCEPTO_MAP[first];
+  return c ? `box-shadow:inset 3px 0 0 ${c.color};` : '';
 }
 
 function asistPanelRender() {
@@ -34315,7 +34414,10 @@ function asistPanelRender() {
     if (!nm || !fecha) return;
     const ent = String(r.Entrada || '').trim();
     const sal = String(r.Salida || '').trim();
-    const conc = String(r.Concepto || '').trim() || 'Asistencia';
+    // Concepto legado 'Asistencia' → 'Regular' (nueva sub-clasificación default).
+    let conc = String(r.Concepto || '').trim();
+    if (!conc) conc = 'Regular';
+    conc = asistPanelNormalizarConceptoLegado_(conc);
     if (ent || sal || conc) conceptoRealByKey.set(`${nm}|${fecha}`, conc);
   });
   const shouldSeed = st.celdas.size === 0 && !st._userTouched;
@@ -34325,9 +34427,11 @@ function asistPanelRender() {
     });
   }
   let html = `<div style="display:flex;flex-wrap:wrap;gap:10px;padding:6px 4px 10px;font-size:11px;color:#475569;font-weight:700">`;
-  ASIST_PANEL_CONCEPTOS.forEach(c => {
+  // Leyenda por grupo principal (no por sub) — mismos 4 colores que las
+  // celdas usan de fondo.
+  Object.entries(ASIST_PANEL_GROUP_COLOR).forEach(([g, col]) => {
     html += `<span style="display:inline-flex;align-items:center;gap:5px">
-      <span style="width:11px;height:11px;border-radius:3px;background:${c.color};box-shadow:0 0 0 1px rgba(0,0,0,.08)"></span>${c.k}
+      <span style="width:11px;height:11px;border-radius:3px;background:${col};box-shadow:0 0 0 1px rgba(0,0,0,.08)"></span>${g}
     </span>`;
   });
   html += `</div>`;
@@ -34403,7 +34507,11 @@ function asistPanelRender() {
     dias.forEach(d => {
       const iso2 = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const cs = st.celdas.get(`${nombre}|${iso2}`);
-      if (cs && cs.has('Asistencia')) diasTrab++;
+      // Cuenta como día trabajado cualquier sub del grupo 'Asistencia'
+      // (Regular, Vac laboradas, Día feriado, Domingo).
+      if (cs) {
+        for (const k of cs) { if (asistPanelEsDiaTrabajado_(k)) { diasTrab++; break; } }
+      }
     });
     const factor = diasTrab === 0 ? 0 : Math.min(7, diasTrab + 2);
     const salSemanal = ASIST_PANEL_SAL_BASE * factor;
@@ -34768,7 +34876,7 @@ window.asistGuardarRegistro = async function () {
     const p = asistPanelPrimasPorConcepto_(concepto);
     const fmt = v => v === '' ? '' : asistPanelFmtMonto_(v);
     const total_pago = ['salBase','primaVac','primaDom','primaDF'].reduce((s,k) => s + (typeof p[k] === 'number' ? p[k] : 0), 0);
-    const isAs = concepto === 'Asistencia';
+    const isAs = asistPanelEsDiaTrabajado_(concepto);
     const metodoFinal = c.preserveMetodo || 'Manual';
     // Entrada/Salida/Horas: si venía preservado, úsalo; si es nuevo Asistencia,
     // default 08:30-13:30; para otros conceptos, en blanco.
