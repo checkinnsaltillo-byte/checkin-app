@@ -33273,6 +33273,44 @@ function asistRenderResumen(targetId) {
     }
     return tdNum(fmt(g.compOverride != null ? g.compOverride : g.comp));
   };
+  // Columnas de pago (siempre editables inline; se auto-persisten en localStorage).
+  const tdReportado = (g) => tdNum(fmt(g.baseLab + g.baseDes), 'color:#334155');
+  const tdMetodo = (g) => {
+    const p = _rhResPagoGet_(g.nombre, g.semana.value);
+    const opts = ['Transferencia bancaria','Efectivo','Cheque','Otro'];
+    const options = ['<option value=""></option>'].concat(
+      opts.map(o => `<option value="${esc(o)}"${p.metodo === o ? ' selected' : ''}>${esc(o)}</option>`)
+    ).join('');
+    return `<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap">
+      <select onchange="asistResumenPagoSet('${esc(_rhResRowKey_(g))}','metodo', this.value)"
+        style="all:unset;padding:5px 8px;border:1.5px solid #cbd5e1;border-radius:5px;background:#fff;color:#0f172a;font-size:12px;font-weight:600;box-sizing:border-box;width:100%;cursor:pointer">${options}</select>
+    </td>`;
+  };
+  const tdFecha = (g) => {
+    const p = _rhResPagoGet_(g.nombre, g.semana.value);
+    return `<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap">
+      <input type="date" value="${esc(p.fecha || '')}"
+        onchange="asistResumenPagoSet('${esc(_rhResRowKey_(g))}','fecha', this.value)"
+        style="all:unset;padding:5px 8px;border:1.5px solid #cbd5e1;border-radius:5px;background:#fff;color:#0f172a;font-size:12px;font-weight:600;box-sizing:border-box;width:100%;cursor:pointer">
+    </td>`;
+  };
+  const tdEstado = (g) => {
+    const p = _rhResPagoGet_(g.nombre, g.semana.value);
+    const pagado = !!p.fecha;
+    const chip = pagado
+      ? `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:800;font-size:11px;border:1px solid #86efac">✓ Pagado</span>`
+      : `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:800;font-size:11px;border:1px solid #fde68a">⏳ Pendiente</span>`;
+    return `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:center;white-space:nowrap">${chip}</td>`;
+  };
+  const tdComentarios = (g) => {
+    const p = _rhResPagoGet_(g.nombre, g.semana.value);
+    return `<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap">
+      <input type="text" value="${esc(p.comentarios || '')}"
+        oninput="asistResumenPagoSet('${esc(_rhResRowKey_(g))}','comentarios', this.value)"
+        placeholder="—"
+        style="all:unset;padding:5px 8px;border:1.5px solid #cbd5e1;border-radius:5px;background:#fff;color:#0f172a;font-size:12px;box-sizing:border-box;width:100%">
+    </td>`;
+  };
   const body = rows.map(g => `<tr data-resumen-row-key="${esc(_rhResRowKey_(g))}" style="transition:background .12s">
     ${tdAcc(g)}
     ${td(esc(g.nombre), 'font-weight:700')}
@@ -33284,10 +33322,15 @@ function asistRenderResumen(targetId) {
     ${tdNum(fmt(g.dom))}
     ${tdNum(fmt(g.df))}
     ${tdComp(g)}
+    ${tdReportado(g)}
     ${tdNum(fmt(g.total), 'color:#065f46;font-weight:900')}
+    ${tdMetodo(g)}
+    ${tdFecha(g)}
+    ${tdEstado(g)}
+    ${tdComentarios(g)}
   </tr>`).join('');
   wrap.innerHTML = toolbarHtml + `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:auto;max-height:calc(100vh - 260px)"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>
-    ${thAcc}${th('Empleado', '180px')}${th('Semana', '220px')}${thNum('Horas', '70px')}${thNum('$ Base laborado', '110px')}${thNum('$ Base descanso', '110px')}${thNum('$ Prima vac. (25%)', '105px')}${thNum('$ Prima dom. (25%)', '105px')}${thNum('$ Prima feriado (200%)', '120px')}${thNum('$ Compensación', '110px')}${thNum('$ Salario TOTAL', '125px')}
+    ${thAcc}${th('Empleado', '170px')}${th('Semana', '210px')}${thNum('Horas', '70px')}${thNum('$ Base laborado', '105px')}${thNum('$ Base descanso', '105px')}${thNum('$ Prima vac. (25%)', '100px')}${thNum('$ Prima dom. (25%)', '100px')}${thNum('$ Prima feriado (200%)', '115px')}${thNum('$ Compensación', '105px')}${thNum('$ Salario reportado', '115px')}${thNum('$ Salario TOTAL', '120px')}${th('Método de pago', '180px')}${th('Fecha de pago', '150px')}${th('Estado de pago', '120px')}${th('Comentarios', '220px')}
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 window.asistRenderResumen = asistRenderResumen;
@@ -33341,6 +33384,58 @@ window.asistResumenGuardarEdit = function (rowKey) {
 window.asistResumenLimpiarOverride = function (nombre, semanaValue) {
   _rhResOverrideSet_(nombre, semanaValue, null);
   asistRenderResumen('rh-view');
+};
+
+// ── Datos de pago semanal (Método / Fecha / Comentarios) ──────────────
+// Persistidos en localStorage por (empleado, semana). Estado se deriva
+// de si hay Fecha de pago capturada. Cambios se auto-guardan al vuelo
+// sin necesidad de entrar a modo edición.
+function _rhResPagoKey_(nombre, semanaValue) {
+  return `rh_resumen_pago:${nombre}|${semanaValue}`;
+}
+function _rhResPagoGet_(nombre, semanaValue) {
+  try {
+    const raw = localStorage.getItem(_rhResPagoKey_(nombre, semanaValue));
+    if (!raw) return { metodo: '', fecha: '', comentarios: '' };
+    const obj = JSON.parse(raw);
+    return {
+      metodo: String(obj?.metodo || ''),
+      fecha:  String(obj?.fecha  || ''),
+      comentarios: String(obj?.comentarios || ''),
+    };
+  } catch(_) { return { metodo: '', fecha: '', comentarios: '' }; }
+}
+function _rhResPagoSet_(nombre, semanaValue, patch) {
+  try {
+    const cur = _rhResPagoGet_(nombre, semanaValue);
+    const next = { ...cur, ...patch };
+    if (!next.metodo && !next.fecha && !next.comentarios) {
+      localStorage.removeItem(_rhResPagoKey_(nombre, semanaValue));
+    } else {
+      localStorage.setItem(_rhResPagoKey_(nombre, semanaValue), JSON.stringify(next));
+    }
+  } catch(_){}
+}
+window.asistResumenPagoSet = function (rowKey, field, value) {
+  const [nombre, semanaValue] = rowKey.split('||');
+  _rhResPagoSet_(nombre, semanaValue, { [field]: value });
+  // Re-render solo si cambia el estado (fecha entra/sale) para no perder
+  // el foco del input mientras el usuario escribe comentarios/métodos.
+  // Fecha y Método sí cambian el chip "Pagado/Pendiente" → repintamos.
+  if (field === 'fecha' || field === 'metodo') {
+    // Actualiza solo el chip de esa fila.
+    try {
+      const tr = document.querySelector(`tr[data-resumen-row-key="${rowKey}"]`);
+      if (tr) {
+        const chip = tr.querySelectorAll('td')[14]; // Estado es la col 15 (0-indexed 14)
+        const p = _rhResPagoGet_(nombre, semanaValue);
+        const pagado = !!p.fecha;
+        chip.innerHTML = pagado
+          ? `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:800;font-size:11px;border:1px solid #86efac">✓ Pagado</span>`
+          : `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:800;font-size:11px;border:1px solid #fde68a">⏳ Pendiente</span>`;
+      }
+    } catch(_){}
+  }
 };
 
 // Acciones del resumen: saltar a la tabla filtrando los IDs, o borrar el grupo.
