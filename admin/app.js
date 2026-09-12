@@ -34288,12 +34288,17 @@ window.asistPanelOpenCellMenu = function (nombre, iso, ev) {
   if (!cont) return;
   const cell = cont.querySelector(`[data-cell-key="${CSS.escape(`${nombre}|${iso}`)}"]`);
   if (!cell) return;
+  // Se ancla al <body> con position:fixed para que NO lo recorten el overflow
+  // del contenedor scrollable (asist-panel-cal-wrap). Antes quedaba cortado
+  // cuando se abría en la última fila del calendario.
   let m = document.getElementById('asist-panel-cell-menu');
   if (!m) {
     m = document.createElement('div');
     m.id = 'asist-panel-cell-menu';
-    m.style.cssText = 'position:absolute;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 20px rgba(15,23,42,.18);z-index:20;padding:6px;min-width:160px';
-    cont.appendChild(m);
+    m.style.cssText = 'position:fixed;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 20px rgba(15,23,42,.18);z-index:99999;padding:6px;min-width:180px';
+    document.body.appendChild(m);
+  } else if (m.parentElement !== document.body) {
+    document.body.appendChild(m);
   }
   const st = asistPanelState_();
   const cur = st.celdas.get(`${nombre}|${iso}`) || new Set();
@@ -34341,10 +34346,21 @@ window.asistPanelOpenCellMenu = function (nombre, iso, ev) {
     });
   }
   m.innerHTML = html;
-  const contRect = cont.getBoundingClientRect();
+  // Posicionamiento fixed en coordenadas de viewport. Si el menú se saldría
+  // por debajo del viewport, lo abrimos hacia ARRIBA de la celda.
   const cellRect = cell.getBoundingClientRect();
-  m.style.left = `${cellRect.left - contRect.left + cont.scrollLeft}px`;
-  m.style.top  = `${cellRect.bottom - contRect.top + cont.scrollTop + 2}px`;
+  m.style.visibility = 'hidden';
+  m.style.left = `${Math.max(8, Math.min(cellRect.left, window.innerWidth - 200))}px`;
+  m.style.top  = `${cellRect.bottom + 4}px`;
+  m.style.visibility = '';
+  const menuRect = m.getBoundingClientRect();
+  if (menuRect.bottom > window.innerHeight - 8) {
+    // No cabe abajo → posiciona arriba de la celda.
+    m.style.top = `${Math.max(8, cellRect.top - menuRect.height - 4)}px`;
+  }
+  if (menuRect.right > window.innerWidth - 8) {
+    m.style.left = `${Math.max(8, window.innerWidth - menuRect.width - 8)}px`;
+  }
   setTimeout(() => document.addEventListener('click', asistPanelCloseCellMenu_, { once:true }), 0);
 };
 function asistPanelCloseCellMenu_(ev) {
@@ -34453,6 +34469,7 @@ function asistPanelRender() {
     <div class="ocup-head-day" style="font-size:10px;font-weight:800">semanal</div>
   </div>`;
   html += `</div>`;
+  let totalSemana = 0;
   personalRows.forEach(({ nombre, puesto }) => {
     html += `<div class="ocup-cal-row">`;
     html += `<div class="ocup-aloj-cell">
@@ -34515,6 +34532,7 @@ function asistPanelRender() {
     });
     const factor = diasTrab === 0 ? 0 : Math.min(7, diasTrab + 2);
     const salSemanal = ASIST_PANEL_SAL_BASE * factor;
+    totalSemana += salSemanal;
     html += `<div class="ocup-day-cell" style="background:#f8fafc;border-left:2px solid #0f172a"
       title="Días trabajados: ${diasTrab} · factor: ${factor} × base $${ASIST_PANEL_SAL_BASE.toFixed(2)}">
       <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;flex-direction:column;gap:1px">
@@ -34525,9 +34543,7 @@ function asistPanelRender() {
     html += `</div>`;
   });
   html += `</div>`;
-  // Total de la semana: suma sobre todas las celdas marcadas.
-  let totalSemana = 0;
-  st.celdas.forEach(cs => cs.forEach(k => { totalSemana += asistPanelMontoDe_(k); }));
+  // Total de la semana: suma de la columna "$ Salario semanal" (una por empleado).
   html += `<div style="margin-top:10px;padding:10px 14px;background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;border-radius:8px;display:flex;justify-content:space-between;align-items:center;font-weight:800">
     <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#cbd5e1">Total semana · todos los trabajadores</span>
     <span style="font-size:16px">${asistPanelFmtMonto_(totalSemana)}</span>
