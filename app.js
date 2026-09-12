@@ -33204,12 +33204,22 @@ function asistRenderResumen(targetId) {
     let g = grupos.get(k);
     if (!g) { g = { nombre, semana: w, horas:0, workDays: new Set(), vac:0, dom:0, df:0, comp:0, ids:[] }; grupos.set(k, g); }
     g.horas += parseHoras(r.Horas);
-    const concepto = asistPanelNormalizarConceptoLegado_(String(r.Concepto||'').trim() || 'Regular');
-    if (asistPanelEsDiaTrabajado_(concepto)) g.workDays.add(fecha);
-    const p = asistPanelPrimasPorConcepto_(concepto);
-    if (typeof p.primaVac === 'number') g.vac += p.primaVac;
-    if (typeof p.primaDom === 'number') g.dom += p.primaDom;
-    if (typeof p.primaDF  === 'number') g.df  += p.primaDF;
+    // Concepto: se toma tal cual; solo se asume 'Regular' cuando hay
+    // evidencia de trabajo (Entrada/Salida). Registros solo con
+    // compensación (sin concepto ni ent/sal) NO cuentan como día
+    // trabajado ni generan prima.
+    const _ent = String(r.Entrada||'').trim();
+    const _sal = String(r.Salida||'').trim();
+    let _conc = String(r.Concepto||'').trim();
+    if (!_conc && (_ent || _sal)) _conc = 'Regular';
+    const concepto = asistPanelNormalizarConceptoLegado_(_conc);
+    if (concepto && asistPanelEsDiaTrabajado_(concepto)) g.workDays.add(fecha);
+    if (concepto) {
+      const p = asistPanelPrimasPorConcepto_(concepto);
+      if (typeof p.primaVac === 'number') g.vac += p.primaVac;
+      if (typeof p.primaDom === 'number') g.dom += p.primaDom;
+      if (typeof p.primaDF  === 'number') g.df  += p.primaDF;
+    }
     // Compensación libre capturada en la celda (columnas Compensación_*).
     const cMonto = parseMonto(r['Compensación_monto'] || r['Compensacion_monto']);
     if (cMonto) g.comp += cMonto;
@@ -34894,11 +34904,13 @@ function asistPanelRender() {
     if (!nm || !fecha) return;
     const ent = String(r.Entrada || '').trim();
     const sal = String(r.Salida || '').trim();
-    // Concepto legado 'Asistencia' → 'Regular' (nueva sub-clasificación default).
+    // Concepto: solo se asume 'Regular' cuando hay evidencia de trabajo
+    // (Entrada/Salida). Un registro que solo tiene compensación —sin
+    // Concepto y sin Ent/Sal— NO debe pintar celda de Asistencia.
     let conc = String(r.Concepto || '').trim();
-    if (!conc) conc = 'Regular';
+    if (!conc && (ent || sal)) conc = 'Regular';
     conc = asistPanelNormalizarConceptoLegado_(conc);
-    if (ent || sal || conc) conceptoRealByKey.set(`${nm}|${fecha}`, conc);
+    if (conc) conceptoRealByKey.set(`${nm}|${fecha}`, conc);
     // Compensación real (si la fila tiene columnas Compensación_concepto /
     // Compensación_monto). Seed en un mapa aparte.
     const compMonto = Number(r['Compensación_monto'] || r['Compensacion_monto'] || 0) || 0;
