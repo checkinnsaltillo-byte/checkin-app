@@ -33169,16 +33169,18 @@ function asistRenderResumen(targetId) {
     wrap.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">Sin registros aún.</div>`;
     return;
   }
-  const th = h => `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">${h}</th>`;
-  const thNum = h => `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 10px;text-align:right;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">${h}</th>`;
-  const thAcc = `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 8px;text-align:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;width:80px">Acciones</th>`;
-  const td = v => `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap;color:#334155">${esc(v)}</td>`;
-  const tdNum = v => `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap;color:#0f172a;text-align:right;font-weight:700">${esc(v)}</td>`;
+  // Usa la clase .rh-table (misma que la tabla de Pagos) para uniformidad
+  // de tipografía, tamaños y estilo de encabezado.
+  const th = h => `<th>${h}</th>`;
+  const thNum = h => `<th style="text-align:right">${h}</th>`;
+  const thAcc = `<th style="width:80px;text-align:center">Acciones</th>`;
+  const td = v => `<td>${esc(v)}</td>`;
+  const tdNum = v => `<td style="text-align:right;font-weight:700">${esc(v)}</td>`;
   const tdAcc = ids => {
     const btnStyle = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;font-weight:800;font-size:11px;line-height:1;cursor:pointer;border:1px solid';
     const jump = `<button type="button" title="Ver renglones agregados en la tabla" onclick="asistResumenIrATabla('${ids.join(',')}')" style="${btnStyle} #93c5fd;background:#dbeafe;color:#1d4ed8">↗</button>`;
     const del  = `<button type="button" title="Eliminar todos los renglones de este grupo" onclick="asistResumenEliminarGrupo('${ids.join(',')}')" style="${btnStyle} #fecaca;background:#fee2e2;color:#b91c1c">✕</button>`;
-    return `<td style="padding:2px 4px;text-align:center;vertical-align:middle;border-bottom:1px solid #f1f5f9"><div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${jump}${del}</div></td>`;
+    return `<td style="text-align:center;vertical-align:middle"><div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${jump}${del}</div></td>`;
   };
   const fmt = n => n ? asistPanelFmtMonto_(n) : '';
   const body = rows.map(g => `<tr>
@@ -33192,9 +33194,9 @@ function asistRenderResumen(targetId) {
     ${tdNum(fmt(g.df))}
     ${tdNum(fmt(g.total))}
   </tr>`).join('');
-  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse"><thead><tr>
-    ${thAcc}${th('Empleado_Nombre')}${th('Semana')}${thNum('Horas')}${thNum('$ Salario base')}${thNum('$ Prima vacacional (25%)')}${thNum('$ Prima dominical (25%)')}${thNum('$ Prima día feriado (200%)')}${thNum('$ Salario total')}
-  </tr></thead><tbody>${body}</tbody></table>`;
+  wrap.innerHTML = `<div style="overflow-x:auto"><table class="rh-table"><thead><tr>
+    ${thAcc}${th('Empleado')}${th('Semana')}${thNum('Horas')}${thNum('$ Salario base')}${thNum('$ Prima vacacional (25%)')}${thNum('$ Prima dominical (25%)')}${thNum('$ Prima día feriado (200%)')}${thNum('$ Salario total')}
+  </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 window.asistRenderResumen = asistRenderResumen;
 
