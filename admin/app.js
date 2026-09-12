@@ -27555,6 +27555,7 @@ window.rhOpenForm = function (kind, id) {
           <div class="rh-field"><label>Antigüedad</label><input type="text" id="rh-antiguedad" value="${esc(antig)}" readonly style="background:#f1f5f9;color:#0f172a;font-weight:600"></div>
           ${rhFieldSelect('Periodicidad_pago','Periodicidad de pago',['Por día','Semanal','Quincenal','Mensual'],editing?.Periodicidad_pago)}
           ${rhFieldNumber('Salario_mensual','Salario mensual ($)',editing?.Salario_mensual)}
+          ${rhFieldSelect('salario','¿Recibe salario?',['Sí','No'], editing?.salario || editing?.Salario)}
         </div>
         <div class="rh-grid-2">
           ${rhFieldTime('Hora_entrada','Hora de entrada',editing?.Hora_entrada)}
