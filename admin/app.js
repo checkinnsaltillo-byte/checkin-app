@@ -33123,6 +33123,20 @@ function asistRenderResumen(targetId) {
   const wrap = document.getElementById(targetId || 'asist-resumen-wrap');
   if (!wrap) return;
   wrap.classList.remove('hidden');
+  // Barra superior con botón "+ Nuevo registro de asistencia" (mismo panel
+  // lateral que el de Control de asistencias).
+  const toolbarHtml = `
+    <div class="rh-toolbar">
+      <div>
+        <div class="rh-toolbar-title">📊 Resumen semanal</div>
+        <div class="rh-toolbar-count">Agregado por Empleado × Semana (Lun-Dom)</div>
+      </div>
+      <button type="button" onclick="asistNuevoRegistro()"
+              style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:9px 14px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:12.5px;font-weight:900;letter-spacing:.02em;border-radius:9px;box-shadow:0 3px 10px rgba(14,165,233,.35);white-space:nowrap">
+        <span style="font-size:14px">➕</span>
+        <span>Nuevo registro de asistencia</span>
+      </button>
+    </div>`;
   const parseHoras = s => {
     const m = String(s||'').match(/^(\d+)h(\d{2})/);
     return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
@@ -33166,7 +33180,7 @@ function asistRenderResumen(targetId) {
   const rows = Array.from(grupos.values())
     .sort((a,b) => (b.semana.lun - a.semana.lun) || a.nombre.localeCompare(b.nombre,'es'));
   if (!rows.length) {
-    wrap.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">Sin registros aún.</div>`;
+    wrap.innerHTML = toolbarHtml + `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">Sin registros aún.</div>`;
     return;
   }
   // Usa la clase .rh-table (misma que la tabla de Pagos) para uniformidad
@@ -33194,7 +33208,7 @@ function asistRenderResumen(targetId) {
     ${tdNum(fmt(g.df))}
     ${tdNum(fmt(g.total))}
   </tr>`).join('');
-  wrap.innerHTML = `<div style="overflow-x:auto"><table class="rh-table"><thead><tr>
+  wrap.innerHTML = toolbarHtml + `<div style="overflow-x:auto"><table class="rh-table"><thead><tr>
     ${thAcc}${th('Empleado')}${th('Semana')}${thNum('Horas')}${thNum('$ Salario base')}${thNum('$ Prima vacacional (25%)')}${thNum('$ Prima dominical (25%)')}${thNum('$ Prima día feriado (200%)')}${thNum('$ Salario total')}
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
