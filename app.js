@@ -14127,15 +14127,12 @@ function lgProbableMatchChip() {
  *  que el huésped completó el formulario. */
 function huHasManualRegistration(r) {
   if (!r) return false;
-  // Criterio: la columna "# Huéspedes" tiene un valor no vacío. Lodgify no
-  // la propaga (queda vacía en filas creadas por sync); solo se llena cuando
-  // el huésped completa el formulario de check-in donde ese campo es
-  // obligatorio.
-  const v = r['# Huéspedes'];
-  if (v == null) return false;
-  const s = String(v).trim();
-  if (!s || s === '0') return false;
-  return true;
+  // Criterio: la columna "Nombres de TODOS los huéspedes (separados por
+  // comas)" tiene un valor no vacío. Lodgify no la propaga; solo se llena
+  // cuando el huésped completa el formulario de check-in donde ese campo
+  // es obligatorio.
+  const v = r['Nombres de TODOS los huéspedes (separados por comas)'];
+  return v != null && String(v).trim() !== '';
 }
 
 function lgBookingFacturaState(b) {
@@ -34662,13 +34659,51 @@ window.asistGuardarRegistro = async function () {
     setTimeout(() => { asistCancelarRegistro(); }, 400);
     return;
   }
+  // ── CAPA 3: CONFIRMACIÓN EXPLÍCITA ANTES DE BORRAR ──────────────────────
+  // Los registros de asistencia son administrativos y no se pueden reconstruir
+  // si se pierden. Antes de borrar, mostramos la lista y pedimos que el
+  // usuario escriba "BORRAR" para confirmar. Además, blindamos los registros
+  // WhatsApp (los del bot) para que NUNCA se marquen para borrado accidental.
+  if (deletes.length > 0) {
+    const deleteRows = deletes.map(id => (ASIST_STATE?.rows || []).find(r => String(r.ID) === String(id))).filter(Boolean);
+    const waRows = deleteRows.filter(r => String(r.Metodo || '').toLowerCase() === 'whatsapp');
+    if (waRows.length > 0) {
+      const waList = waRows.map(r => `• ${r.Empleado_Nombre} — ${r.Fecha} (${r.Entrada||'?'}→${r.Salida||'?'})`).join('\n');
+      const confirmWa = window.prompt(
+        `⚠️ ATENCIÓN — Vas a BORRAR ${waRows.length} registro(s) de asistencia capturados por WhatsApp con GPS del empleado:\n\n${waList}\n\nEstos registros son evidencia administrativa. Si realmente quieres borrarlos, escribe exactamente:\n\nBORRAR WHATSAPP\n\n(cualquier otra cosa cancelará todos los cambios pendientes)`,
+        ''
+      );
+      if (String(confirmWa || '').trim() !== 'BORRAR WHATSAPP') {
+        if (status) { status.style.color = '#991b1b'; status.textContent = '❌ Cambios cancelados: los registros WhatsApp están protegidos.'; }
+        if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar cambios'; }
+        return;
+      }
+    }
+    const otherRows = deleteRows.filter(r => String(r.Metodo || '').toLowerCase() !== 'whatsapp');
+    if (otherRows.length > 0) {
+      const list = otherRows.map(r => `• ${r.Empleado_Nombre} — ${r.Fecha} — ${r.Concepto||'?'} (${r.Metodo||'—'})`).join('\n');
+      const confirmDel = window.confirm(
+        `⚠️ Se van a BORRAR ${otherRows.length} registro(s) de asistencia:\n\n${list}\n\n¿Continuar?\n\nCancelar aborta TODOS los cambios pendientes.`
+      );
+      if (!confirmDel) {
+        if (status) { status.style.color = '#991b1b'; status.textContent = '❌ Cambios cancelados por el usuario.'; }
+        if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar cambios'; }
+        return;
+      }
+    }
+  }
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
   if (status) { status.style.color = '#64748b'; status.textContent = `⏳ Aplicando ${total} cambio(s)…`; }
   let ok = 0, err = 0;
-  // 1) DELETES primero
+  // 1) DELETES primero — enviamos force=true SOLO para los WhatsApp que ya
+  // fueron confirmados arriba con "BORRAR WHATSAPP". El resto va sin force
+  // y también queda archivado en RH_Asistencia_Papelera por el backend.
   for (const id of deletes) {
     try {
-      const r = await fetch(`${BACKEND}/rh/asistencia/${encodeURIComponent(id)}`, { method:'DELETE' });
+      const row = (ASIST_STATE?.rows || []).find(r => String(r.ID) === String(id));
+      const isWa = row && String(row.Metodo || '').toLowerCase() === 'whatsapp';
+      const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(id)}` + (isWa ? '?force=true&reason=' + encodeURIComponent('confirmado por usuario en calendario') : '?reason=' + encodeURIComponent('calendario asist'));
+      const r = await fetch(url, { method:'DELETE' });
       const j = await r.json();
       if (j.ok) ok++; else err++;
     } catch { err++; }
