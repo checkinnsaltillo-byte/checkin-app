@@ -26759,8 +26759,13 @@ window.rhSetTab = function (tab) {
   else if (tab === 'resumen_semanal') {
     // asistRenderResumen lee ASIST_STATE.rows (no RH_STATE.asistencia).
     // asistReloadList() es la función que popula ASIST_STATE.rows.
-    (typeof asistReloadList === 'function' ? asistReloadList() : Promise.resolve())
-      .then(() => asistRenderResumen('rh-view'));
+    // Además, el descanso proporcional depende de Dias_trabajo por empleado,
+    // que vive en INC_STATE.personalRows — si aún no está cargado, lo
+    // dispara en paralelo.
+    const promAsist = typeof asistReloadList === 'function' ? asistReloadList() : Promise.resolve();
+    const needPersonal = !(INC_STATE?.personalRows || []).length && typeof incLoadPersonal === 'function';
+    const promPersonal = needPersonal ? incLoadPersonal() : Promise.resolve();
+    Promise.all([promAsist, promPersonal]).then(() => asistRenderResumen('rh-view'));
   }
 };
 
@@ -33188,13 +33193,24 @@ function asistRenderResumen(targetId) {
     if (cMonto) g.comp += cMonto;
     g.ids.push(String(r.ID||''));
   }
-  // Derivados: base laborado + descanso proporcional (2 × min(N/5,1)) +
-  // primas + compensación.
+  // Descanso proporcional a los DÍAS DE CONTRATO reales del empleado
+  // (Dias_trabajo en la hoja Personal). Construyo un lookup por nombre.
+  const contratoByNombre = new Map();
+  (INC_STATE?.personalRows || []).forEach(r => {
+    const n = String(r?.Nombre || '').trim();
+    if (!n) return;
+    const dias = asistPanelParseDiasTrabajo_(r.Dias_trabajo || '');
+    contratoByNombre.set(n, dias.size || 5);
+  });
   grupos.forEach(g => {
     const N = g.workDays.size;
+    const workContract = contratoByNombre.get(g.nombre) || 5;
+    const restContract = Math.max(0, 7 - workContract);
     g.diasTrab = N;
+    g.workContract = workContract;
+    g.restContract = restContract;
     g.factorLab = N;
-    g.factorDes = 2 * Math.min(N / 5, 1);
+    g.factorDes = restContract * Math.min(N / Math.max(1, workContract), 1);
     g.baseLab = ASIST_PANEL_SAL_BASE * g.factorLab;
     g.baseDes = ASIST_PANEL_SAL_BASE * g.factorDes;
     g.total = g.baseLab + g.baseDes + g.vac + g.dom + g.df + g.comp;
@@ -34698,10 +34714,14 @@ function asistPanelRender() {
       const comp = st.compensaciones.get(`${nombre}|${iso2}`);
       if (comp) compSem += Number(comp.monto) || 0;
     });
-    // Nueva fórmula: laborado = N × base ; descanso = 2 × min(N/5, 1) × base
-    // (proporción sobre 5 días de contrato).
+    // Fórmula: laborado = N × base.
+    // Descanso proporcional sobre los DÍAS DE CONTRATO REALES del empleado
+    // (leídos de la columna Dias_trabajo). Si trabaja 6d/semana solo tiene
+    // 1 día de descanso; 5d/semana → 2 días; 7d/semana → 0.
+    const _workContract = (workDays && workDays.size) || 5;
+    const _restContract = Math.max(0, 7 - _workContract);
     const factorLab = diasTrab;
-    const factorDes = 2 * Math.min(diasTrab / 5, 1);
+    const factorDes = _restContract * Math.min(diasTrab / Math.max(1, _workContract), 1);
     const salBaseLab = ASIST_PANEL_SAL_BASE * factorLab;
     const salBaseDes = ASIST_PANEL_SAL_BASE * factorDes;
     const salTotal = salBaseLab + salBaseDes + primaVacSem + primaDomSem + primaDFSem + compSem;
@@ -34714,7 +34734,7 @@ function asistPanelRender() {
       </div>
     </div>`;
     html += salCell(salBaseLab, { borderLeft:'2px solid #0f172a', title:`Base laborado: ${diasTrab}d × $${ASIST_PANEL_SAL_BASE.toFixed(2)}`, sub:`${diasTrab}d` });
-    html += salCell(salBaseDes, { title:`Descanso proporcional: 2 × min(${diasTrab}/5, 1) = ${factorDes.toFixed(2)}d`, sub:`${factorDes.toFixed(2)}d`, color:'#0369a1' });
+    html += salCell(salBaseDes, { title:`Descanso proporcional: ${_restContract}d contrato × min(${diasTrab}/${_workContract}, 1) = ${factorDes.toFixed(2)}d`, sub:`${factorDes.toFixed(2)}d de ${_restContract}`, color:'#0369a1' });
     html += salCell(primaVacSem, { title:'Suma prima vacacional (25%) de la semana' });
     html += salCell(primaDomSem, { title:'Suma prima dominical (25%) de la semana' });
     html += salCell(primaDFSem,  { title:'Suma prima día feriado (200%) de la semana' });
