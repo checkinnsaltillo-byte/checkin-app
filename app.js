@@ -33148,8 +33148,12 @@ window.asistSetVis = function (vis) {
   if (tbC)   tbC.classList.toggle('hidden', vis !== 'calendario');
   // Editar aplica solo a la tabla
   if (editWrap) editWrap.style.display = vis === 'tabla' ? '' : 'none';
+  // Renderiza cada vista con los datos que YA están en ASIST_STATE.rows —
+  // ninguna vista debe volver a fetchear al hacer switch, ya son los mismos
+  // registros. Solo se pinta.
   if (vis === 'calendario') asistRenderCalendar();
-  if (vis === 'resumen') asistRenderResumen();
+  else if (vis === 'resumen') asistRenderResumen();
+  else if (vis === 'tabla') asistRenderTabla();
 };
 
 /** Vista "Resumen semanal": agrega (Empleado_Nombre × Semana Lun-Dom)
