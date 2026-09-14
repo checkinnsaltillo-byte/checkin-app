@@ -34614,10 +34614,30 @@ window.asistCalClick = function (nombre, iso, ev) {
 };
 
 function _asistCalRowFor_(nombre, iso) {
-  return (ASIST_STATE.rows || []).find(r =>
-    String(r.Empleado_Nombre || '').trim() === nombre &&
+  const all = _asistCalAllRowsFor_(nombre, iso);
+  return all.length ? all[0] : null;
+}
+/** Todos los registros de un (empleado, día) — usado para deduplicar en
+ *  cada guardado. Reconcilia nombres cortos (p.ej. "Alma") contra el
+ *  canonical del Personal (p.ej. "Alma Abigail Robledo Gutiérrez"). */
+function _asistCalAllRowsFor_(nombre, iso) {
+  const _personal = (typeof asistPersonalOperativo === 'function') ? asistPersonalOperativo() : [];
+  const _alias = new Map();
+  _personal.forEach(p => {
+    const full = p.nombre; if (!full) return;
+    _alias.set(_normNombre_(full), full);
+    const fw = full.split(/\s+/)[0];
+    if (fw && !_alias.has(_normNombre_(fw))) _alias.set(_normNombre_(fw), full);
+  });
+  const canon = (raw) => {
+    const t = String(raw||'').trim(); if (!t) return t;
+    return _alias.get(_normNombre_(t)) || t;
+  };
+  const target = canon(nombre);
+  return (ASIST_STATE.rows || []).filter(r =>
+    canon(String(r.Empleado_Nombre || '').trim()) === target &&
     String(r.Fecha || '').slice(0, 10) === iso
-  ) || null;
+  );
 }
 
 window.asistCalOpenCellMenu = function (nombre, iso, ev) {
@@ -34854,12 +34874,15 @@ window.asistCalMenuGuardar = async function () {
   const backupRows = (ASIST_STATE.rows || []).slice();
   const isDeletion = row && !concepto && !compFinal;
   const arr = ASIST_STATE.rows || [];
+  // Todos los registros previos de este (empleado, día) — hay que
+  // borrarlos para evitar duplicados si el usuario cambió el concepto
+  // varias veces o si arrastramos rows desde reloads previos.
+  const allExisting = _asistCalAllRowsFor_(nombre, iso);
+  const existingIds = new Set(allExisting.map(r => String(r.ID)));
   if (isDeletion) {
-    ASIST_STATE.rows = arr.filter(r => String(r.ID) !== String(row.ID));
-  } else if (row) {
-    ASIST_STATE.rows = arr.map(r => String(r.ID) === String(row.ID) ? optimisticRow : r);
+    ASIST_STATE.rows = arr.filter(r => !existingIds.has(String(r.ID)));
   } else {
-    ASIST_STATE.rows = arr.concat([optimisticRow]);
+    ASIST_STATE.rows = arr.filter(r => !existingIds.has(String(r.ID))).concat([optimisticRow]);
   }
   asistCalMenuCerrar();
   S.saving = false;
@@ -34869,14 +34892,24 @@ window.asistCalMenuGuardar = async function () {
   // ── Reales al backend en background ──
   (async () => {
     try {
+      // Borra TODOS los registros previos reales del (empleado, día) para
+      // evitar duplicados. Los IDs tmp ('AST-tmp-...') se omiten (no
+      // existen en el sheet). El backend recibe `force=true` para permitir
+      // borrar registros de WhatsApp también.
+      const realIdsToDelete = allExisting
+        .map(r => String(r.ID || ''))
+        .filter(id => id && !id.startsWith('AST-tmp-'));
       if (isDeletion) {
-        const isWa = String(row.Metodo||'').toLowerCase() === 'whatsapp';
-        const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(row.ID)}?reason=` + encodeURIComponent('borrado desde calendario') + (isWa ? '&force=true' : '');
-        await fetch(url, { method:'DELETE' });
+        await Promise.all(realIdsToDelete.map(id => {
+          const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(id)}?force=true&reason=` + encodeURIComponent('borrado desde calendario');
+          return fetch(url, { method:'DELETE' });
+        }));
       } else {
-        if (row && row.ID) {
-          const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(row.ID)}?force=true&reason=` + encodeURIComponent('modificación desde calendario');
-          await fetch(url, { method:'DELETE' });
+        if (realIdsToDelete.length) {
+          await Promise.all(realIdsToDelete.map(id => {
+            const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(id)}?force=true&reason=` + encodeURIComponent('modificación desde calendario');
+            return fetch(url, { method:'DELETE' });
+          }));
         }
         const payload = {
           Empleado_Nombre: nombre, Fecha: iso, Concepto: concepto,
