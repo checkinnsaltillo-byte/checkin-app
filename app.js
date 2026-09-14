@@ -33124,12 +33124,19 @@ function asistInit() {
   // Default vis = 'calendario' (antes 'tabla'). Se respeta la elección
   // previa del usuario si ya cambió de vista en esta sesión.
   if (!ASIST_STATE.vis) ASIST_STATE.vis = 'calendario';
-  // Precarga lista de Personal si aún no está en memoria
+  // Precarga lista de Personal si aún no está en memoria.
   const afterPersonal = () => {
     asistPopulateEmpleadoSelect();
-    // Si el calendario ya está montado con el fallback (sin Puestos), rehazlo
-    // con la lista filtrada de personalRows (sin administrativos).
-    if (ASIST_STATE.vis === 'calendario') asistRenderCalendar();
+    // Re-render de AMBAS vistas cuando Personal llega — el primer render
+    // seguramente corrió con el fallback (INC_PERSONAL sin admins), pero
+    // recién ahora tenemos la lista real de la hoja con Estado='Activo'
+    // y la reconciliación de nombres. Re-pintar ajusta las filas del
+    // calendario (Adán aparece, admins salen) y refresca la tabla.
+    ASIST_STATE._focusMode = 'preserve';
+    if (ASIST_STATE.vis !== 'resumen') {
+      asistRenderCalendar();
+      asistRenderTabla();
+    }
   };
   if (typeof incLoadPersonal === 'function' && (!INC_STATE?.personalRows?.length)) {
     incLoadPersonal().then(afterPersonal).catch(afterPersonal);
@@ -34280,10 +34287,28 @@ function asistRenderCalendar() {
   const F = asistFilters_();
   if (F.nombre) personalRows = personalRows.filter(p => p.nombre === F.nombre);
   const personas = personalRows.map(x => x.nombre);
-  // Index: `${persona}|${YYYY-MM-DD}` → [rows]
+  // Reconciliación de nombres: registros creados con solo "Adán" deben
+  // matchear con "Adán Ramos" del Personal (canonical). Construimos un
+  // mapa de aliases (nombre completo + primer nombre) → canonical.
+  const _aliasToCanonical = new Map();
+  personalRows.forEach(p => {
+    const full = p.nombre;
+    if (!full) return;
+    _aliasToCanonical.set(_normNombre_(full), full);
+    const firstWord = full.split(/\s+/)[0];
+    if (firstWord && !_aliasToCanonical.has(_normNombre_(firstWord))) {
+      _aliasToCanonical.set(_normNombre_(firstWord), full);
+    }
+  });
+  const _canonNom = (raw) => {
+    const t = String(raw || '').trim();
+    if (!t) return t;
+    return _aliasToCanonical.get(_normNombre_(t)) || t;
+  };
+  // Index: `${persona}|${YYYY-MM-DD}` → [rows]. Usa el nombre canónico.
   const idx = new Map();
   for (const r of ASIST_STATE.rows) {
-    const n = String(r.Empleado_Nombre||'').trim();
+    const n = _canonNom(String(r.Empleado_Nombre||'').trim());
     const f = String(r.Fecha||'').slice(0,10);
     if (!n || !f) continue;
     // Filtro por Concepto: si activo, solo indexamos registros que matchean.
