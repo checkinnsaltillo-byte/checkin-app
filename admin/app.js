@@ -34197,21 +34197,46 @@ function asistRenderCalendar() {
       const isToday = d.getTime() === today.getTime();
       const isWeekend = dow === 0 || dow === 6;
       const recs = idx.get(`${nombre}|${iso}`) || [];
-      // Mismo lenguaje visual que el panel Registro de asistencia:
-      // celdas coloreadas por concepto + monto calculado.
+      // Contenido de celda: Estado (concepto normalizado) + Entrada→Salida.
+      // No mostramos el monto acá, esa vista es más para la nómina; el
+      // calendario grande sirve para revisar cuál fue el estado y las
+      // horas del día de un vistazo.
       const conceptos = asistDeriveConceptos_(recs);
       const bgStyle = conceptos.size ? `background:${asistPanelBgFor_(conceptos)};` : '';
       const semStyle = conceptos.size ? asistPanelSemaforo_(conceptos) : '';
       let inner = '';
       if (conceptos.size) {
-        const total = Array.from(conceptos).reduce((s, k) => s + asistPanelMontoDe_(k), 0);
-        inner = `<span style="font-size:9px;font-weight:900;color:#0f172a;line-height:1.05;text-align:center;padding:0 2px">${asistPanelFmtMonto_(total)}</span>`;
+        // Estado: primer concepto normalizado ('Regular', 'Falta', ...).
+        const concKey = Array.from(conceptos)[0];
+        const concNorm = asistPanelNormalizarConceptoLegado_(concKey);
+        const grupo = ASIST_PANEL_CONCEPTO_MAP[concNorm]?.group || concNorm;
+        // Estado compacto para caber en 64px:
+        // - Grupo Asistencia → muestra la sub (Regular, Vac laboradas, Día feriado, Domingo).
+        // - Otros grupos     → muestra el grupo (Falta, Vacaciones, Incapacidad).
+        const estadoLabel = grupo === 'Asistencia' ? concNorm : grupo;
+        // Entrada / Salida: primer registro con Entrada o Salida definidas.
+        const rEnt = recs.find(r => String(r.Entrada || '').trim()) || {};
+        const rSal = recs.find(r => String(r.Salida  || '').trim()) || {};
+        const ent = String(rEnt.Entrada || '').trim().slice(0,5);
+        const sal = String(rSal.Salida  || '').trim().slice(0,5);
+        const horas = (ent || sal) ? `${ent || '—'} → ${sal || '—'}` : '';
+        inner = `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;padding:1px 2px;gap:1px">
+            <span style="font-size:8.5px;font-weight:900;color:#0f172a;text-align:center;white-space:nowrap;text-transform:none">${esc(estadoLabel)}</span>
+            ${horas ? `<span style="font-size:7.5px;font-weight:700;color:#475569;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${esc(horas)}</span>` : ''}
+          </div>`;
       }
       const wrap = inner
         ? `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%">${inner}</div>`
         : '';
       const tip = recs.length
-        ? recs.map(r => `${r.Tipo||'—'} · ${(r.Hora||'').slice(0,5)}`).join(' | ')
+        ? recs.map(r => {
+            const c = asistPanelNormalizarConceptoLegado_(String(r.Concepto||'').trim() || 'Regular');
+            const e = String(r.Entrada||'').trim().slice(0,5);
+            const s = String(r.Salida ||'').trim().slice(0,5);
+            const h = e || s ? ` · ${e || '?'}→${s || '?'}` : '';
+            return `${c}${h}`;
+          }).join(' | ')
         : '';
       html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" style="${bgStyle}${semStyle}cursor:${recs.length?'pointer':'default'}" title="${esc(tip)}" ${recs.length?`onclick="asistCalClick('${esc(nombre)}','${iso}')"`:''}>${wrap}</div>`;
     }
