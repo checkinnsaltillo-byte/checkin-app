@@ -2437,6 +2437,8 @@
               <span>Nuevo registro de asistencia</span>
             </button>
           </div>
+          <!-- Filtros arriba del calendario y la tabla -->
+          <div id="asist-filters-bar" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px"></div>
           <!-- Calendario primero (siempre visible) -->
           <div id="asist-cal-toolbar" style="margin-bottom:10px"></div>
           <div id="asist-cal-wrap" class="ocup-cal-container" style="margin-top:0;padding:0"></div>
@@ -2877,7 +2879,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1236"></script>
+  <script src="app.js?v=1237"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }

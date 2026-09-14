@@ -33711,6 +33711,98 @@ async function asistReloadList() {
 }
 window.asistReloadList = asistReloadList;
 
+// ── Filtros globales de Control de asistencias ───────────────────────
+// Estado en memoria { nombre, mes (YYYY-MM), concepto }. Se aplican
+// simultáneamente al calendario y a la tabla.
+function asistFilters_() {
+  if (!ASIST_STATE.filters) ASIST_STATE.filters = { nombre:'', mes:'', concepto:'' };
+  return ASIST_STATE.filters;
+}
+function asistFiltersSyncCalMonth_() {
+  const F = asistFilters_();
+  if (!F.mes) return;
+  const m = F.mes.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return;
+  const y = Number(m[1]), mo = Number(m[2]) - 1;
+  const cur = ASIST_STATE.calMonth;
+  if (!cur || cur.getFullYear() !== y || cur.getMonth() !== mo) {
+    ASIST_STATE.calMonth = new Date(y, mo, 1);
+    ASIST_STATE._focusMode = 'month';
+  }
+}
+function asistRenderFiltersBar_() {
+  const bar = document.getElementById('asist-filters-bar');
+  if (!bar) return;
+  const F = asistFilters_();
+  // Opciones dinámicas desde los datos actuales.
+  const nombres = Array.from(new Set(
+    asistPersonalOperativo().map(x => x.nombre)
+      .concat((ASIST_STATE.rows||[]).map(r => String(r.Empleado_Nombre||'').trim()))
+      .filter(Boolean)
+  )).sort((a,b)=>a.localeCompare(b,'es'));
+  // Meses: derivados de las fechas presentes en los registros + 6 meses
+  // hacia atrás/adelante desde hoy.
+  const mesesSet = new Set();
+  const now = new Date();
+  for (let d = -6; d <= 6; d++) {
+    const dt = new Date(now.getFullYear(), now.getMonth() + d, 1);
+    mesesSet.add(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`);
+  }
+  (ASIST_STATE.rows||[]).forEach(r => {
+    const f = String(r.Fecha||'').slice(0,7);
+    if (/^\d{4}-\d{2}$/.test(f)) mesesSet.add(f);
+  });
+  const meses = Array.from(mesesSet).sort((a,b)=>b.localeCompare(a));
+  const NOM_MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const mesLabel = (v) => {
+    const m = v.match(/^(\d{4})-(\d{2})$/);
+    if (!m) return v;
+    return `${NOM_MESES[Number(m[2])-1]} ${m[1]}`;
+  };
+  // Conceptos: los del catálogo del panel.
+  const conceptos = ASIST_PANEL_CONCEPTOS.map(c => c.k);
+  const hasActive = !!(F.nombre || F.mes || F.concepto);
+  bar.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:3px;min-width:200px">
+      <label style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Nombre</label>
+      <select onchange="asistSetFilter('nombre', this.value)" style="all:unset;padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:6px;background:#fff;color:#0f172a;font-size:12px;font-weight:600;cursor:pointer">
+        <option value="">— Todos —</option>
+        ${nombres.map(n => `<option value="${esc(n)}"${F.nombre===n?' selected':''}>${esc(n)}</option>`).join('')}
+      </select>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:3px;min-width:160px">
+      <label style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Mes</label>
+      <select onchange="asistSetFilter('mes', this.value)" style="all:unset;padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:6px;background:#fff;color:#0f172a;font-size:12px;font-weight:600;cursor:pointer">
+        <option value="">— Todos —</option>
+        ${meses.map(m => `<option value="${esc(m)}"${F.mes===m?' selected':''}>${esc(mesLabel(m))}</option>`).join('')}
+      </select>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:3px;min-width:160px">
+      <label style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Concepto</label>
+      <select onchange="asistSetFilter('concepto', this.value)" style="all:unset;padding:6px 10px;border:1.5px solid #cbd5e1;border-radius:6px;background:#fff;color:#0f172a;font-size:12px;font-weight:600;cursor:pointer">
+        <option value="">— Todos —</option>
+        ${conceptos.map(c => `<option value="${esc(c)}"${F.concepto===c?' selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+    </div>
+    ${hasActive ? `<button type="button" onclick="asistClearFilters()" style="all:unset;cursor:pointer;padding:6px 12px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:800;color:#991b1b">Limpiar filtros</button>` : ''}
+  `;
+}
+window.asistSetFilter = function (field, value) {
+  const F = asistFilters_();
+  F[field] = value || '';
+  if (field === 'mes' && value) {
+    // Sincroniza el calendario al mes elegido.
+    asistFiltersSyncCalMonth_();
+  }
+  asistRenderCalendar();
+  asistRenderTabla();
+};
+window.asistClearFilters = function () {
+  ASIST_STATE.filters = { nombre:'', mes:'', concepto:'' };
+  asistRenderCalendar();
+  asistRenderTabla();
+};
+
 function asistStatusTabla(html, kind) {
   const el = document.getElementById('asist-status-tabla');
   if (!el) return;
@@ -33721,7 +33813,17 @@ function asistStatusTabla(html, kind) {
 }
 
 function asistSortedRows() {
-  const rows = ASIST_STATE.rows.slice();
+  // Aplica filtros globales de Control de asistencias (nombre / mes / concepto).
+  const F = asistFilters_();
+  let rows = (ASIST_STATE.rows || []).slice();
+  if (F.nombre) rows = rows.filter(r => String(r.Empleado_Nombre||'').trim() === F.nombre);
+  if (F.mes) rows = rows.filter(r => String(r.Fecha||'').slice(0,7) === F.mes);
+  if (F.concepto) {
+    rows = rows.filter(r => {
+      const c = asistPanelNormalizarConceptoLegado_(String(r.Concepto||'').trim() || ((String(r.Entrada||'').trim() || String(r.Salida||'').trim()) ? 'Regular' : ''));
+      return c === F.concepto;
+    });
+  }
   // Default: si el usuario no ha elegido explícitamente un sortKey,
   // ordena por Timestamp descendente (más reciente primero).
   const key = ASIST_STATE.sortKey || 'Timestamp';
@@ -34154,6 +34256,8 @@ function asistRenderTabla() {
 function asistRenderCalendar() {
   const cont = document.getElementById('asist-cal-wrap');
   if (!cont) return;
+  // Sincroniza calMonth con el filtro de Mes si está activo.
+  asistFiltersSyncCalMonth_();
   if (!ASIST_STATE.calMonth) {
     const t = new Date(); ASIST_STATE.calMonth = new Date(t.getFullYear(), t.getMonth(), 1);
   }
@@ -34165,7 +34269,10 @@ function asistRenderCalendar() {
   const rangeEnd   = new Date(y0, m0 + MA + 1, 0);
   const totalDays = Math.round((rangeEnd - rangeStart) / 86400000) + 1;
   // Personal operativo (sin administrativos). Ordena alfabéticamente.
-  const personalRows = asistPersonalOperativo().slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  let personalRows = asistPersonalOperativo().slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  // Filtro por Empleado_Nombre.
+  const F = asistFilters_();
+  if (F.nombre) personalRows = personalRows.filter(p => p.nombre === F.nombre);
   const personas = personalRows.map(x => x.nombre);
   // Index: `${persona}|${YYYY-MM-DD}` → [rows]
   const idx = new Map();
@@ -34173,10 +34280,17 @@ function asistRenderCalendar() {
     const n = String(r.Empleado_Nombre||'').trim();
     const f = String(r.Fecha||'').slice(0,10);
     if (!n || !f) continue;
+    // Filtro por Concepto: si activo, solo indexamos registros que matchean.
+    if (F.concepto) {
+      const c = asistPanelNormalizarConceptoLegado_(String(r.Concepto||'').trim() || ((String(r.Entrada||'').trim() || String(r.Salida||'').trim()) ? 'Regular' : ''));
+      if (c !== F.concepto) continue;
+    }
     const k = `${n}|${f}`;
     if (!idx.has(k)) idx.set(k, []);
     idx.get(k).push(r);
   }
+  // Re-renderiza también la barra de filtros por si cambió el catálogo.
+  asistRenderFiltersBar_();
 
   // Toolbar renderiza en un contenedor SEPARADO (arriba del calendario, no
   // dentro de la tabla) para no chocar con el header sticky de la grid.
