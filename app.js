@@ -34622,6 +34622,22 @@ window.asistCalGoToWeek = function (weekValue) {
 const ASIST_CAL_EDIT = { nombre: '', iso: '', concepto: '', comp: null, saving: false };
 
 window.asistCalClick = function (nombre, iso, ev) {
+  // Bloquea agregar/modificar registros para fechas futuras — hoy es
+  // el día más tardío permitido. Si ya existe un registro histórico
+  // (creado antes de que existiera esta restricción) se permite abrirlo
+  // solo para borrarlo.
+  const _hoyIso = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  })();
+  if (iso > _hoyIso) {
+    const existe = _asistCalRowFor_(nombre, iso);
+    if (!existe) {
+      alert('⚠️ No se pueden agregar registros para fechas futuras.\n\nHoy (' + _hoyIso + ') es el día más tardío permitido.');
+      if (ev) ev.stopPropagation();
+      return;
+    }
+  }
   asistCalOpenCellMenu(nombre, iso, ev);
 };
 
@@ -34841,6 +34857,16 @@ window.asistCalMenuGuardar = async function () {
   const row    = _asistCalRowFor_(nombre, iso);
   const concepto = S.concepto || '';
   const compFinal = (S.comp && (S.comp.concepto || Number(S.comp.monto) > 0)) ? S.comp : null;
+  // Guardarail: no crear nuevos registros en fechas futuras. Solo se
+  // permite operar sobre registros existentes (para borrarlos).
+  const _hoyIso = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  })();
+  if (iso > _hoyIso && !row) {
+    alert('⚠️ No se pueden agregar registros para fechas futuras.\n\nHoy (' + _hoyIso + ') es el día más tardío permitido.');
+    asistCalMenuCerrar(); S.saving = false; return;
+  }
   // Sin cambios reales → cierra sin trabajo.
   const rowConceptoNorm = row
     ? asistPanelNormalizarConceptoLegado_(String(row.Concepto||'').trim() || ((String(row.Entrada||'').trim() || String(row.Salida||'').trim()) ? 'Regular' : ''))
