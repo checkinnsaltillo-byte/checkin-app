@@ -33143,32 +33143,37 @@ window.asistInit = asistInit;
 
 // ── Visualización Tabla / Calendario / Resumen semanal ──
 window.asistSetVis = function (vis) {
+  // Modelo unificado: Calendario + Tabla se renderizan SIEMPRE en la
+  // misma vista de Control de asistencias (una debajo de la otra), sin
+  // pestañas. Solo Resumen semanal se mantiene como caso aparte porque
+  // vive en Nómina, no aquí.
   ASIST_STATE.vis = vis;
-  const btnT = document.getElementById('asist-vis-tabla');
-  const btnC = document.getElementById('asist-vis-calendario');
-  const btnR = document.getElementById('asist-vis-resumen');
   const wrapT = document.getElementById('asist-tabla-wrap');
   const wrapC = document.getElementById('asist-cal-wrap');
   const wrapR = document.getElementById('asist-resumen-wrap');
   const tbC   = document.getElementById('asist-cal-toolbar');
   const editWrap = document.getElementById('asist-editar-wrap');
-  const on  = 'all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;box-shadow:0 2px 6px rgba(79,70,229,.30)';
-  const off = 'all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b';
-  if (btnT) btnT.setAttribute('style', vis === 'tabla' ? on : off);
-  if (btnC) btnC.setAttribute('style', vis === 'calendario' ? on : off);
-  if (btnR) btnR.setAttribute('style', vis === 'resumen' ? on : off);
-  if (wrapT) wrapT.classList.toggle('hidden', vis !== 'tabla');
-  if (wrapC) wrapC.classList.toggle('hidden', vis !== 'calendario');
-  if (wrapR) wrapR.classList.toggle('hidden', vis !== 'resumen');
-  if (tbC)   tbC.classList.toggle('hidden', vis !== 'calendario');
-  // Editar aplica solo a la tabla
-  if (editWrap) editWrap.style.display = vis === 'tabla' ? '' : 'none';
-  // Renderiza cada vista con los datos que YA están en ASIST_STATE.rows —
-  // ninguna vista debe volver a fetchear al hacer switch, ya son los mismos
-  // registros. Solo se pinta.
-  if (vis === 'calendario') asistRenderCalendar();
-  else if (vis === 'resumen') asistRenderResumen();
-  else if (vis === 'tabla') asistRenderTabla();
+  // Editar aplica solo cuando la tabla es la vista principal — en el
+  // modelo unificado ambos están siempre visibles, así que dejamos el
+  // botón como estaba antes (visible por default).
+  if (editWrap) editWrap.style.display = '';
+  if (vis === 'resumen') {
+    // Modo Resumen: oculta calendario+tabla, muestra resumen.
+    if (wrapT) wrapT.classList.add('hidden');
+    if (wrapC) wrapC.classList.add('hidden');
+    if (tbC)   tbC.classList.add('hidden');
+    if (wrapR) wrapR.classList.remove('hidden');
+    asistRenderResumen();
+    return;
+  }
+  // Cualquier otra vis (calendario/tabla/undefined) = modo unificado:
+  // Calendario arriba + Tabla abajo, ambas visibles simultáneamente.
+  if (wrapC) wrapC.classList.remove('hidden');
+  if (tbC)   tbC.classList.remove('hidden');
+  if (wrapT) wrapT.classList.remove('hidden');
+  if (wrapR) wrapR.classList.add('hidden');
+  asistRenderCalendar();
+  asistRenderTabla();
 };
 
 /** Vista "Resumen semanal": agrega (Empleado_Nombre × Semana Lun-Dom)
@@ -33692,7 +33697,10 @@ async function asistReloadList() {
       : (ASIST_STATE.rows[0] ? Object.keys(ASIST_STATE.rows[0]) : []);
     ASIST_STATE.loaded = true;
     asistStatusTabla('');
-    if (ASIST_STATE.vis === 'calendario') asistRenderCalendar(); else asistRenderTabla();
+    // Modelo unificado: renderiza AMBAS vistas (Calendario arriba + Tabla
+    // abajo). El Resumen se maneja aparte porque vive en la sección Nómina.
+    if (ASIST_STATE.vis === 'resumen') { asistRenderResumen(); }
+    else { asistRenderCalendar(); asistRenderTabla(); }
     const c = document.getElementById('asist-list-count');
     if (c) c.textContent = `${ASIST_STATE.rows.length} registro${ASIST_STATE.rows.length===1?'':'s'}`;
   } catch (e) {
