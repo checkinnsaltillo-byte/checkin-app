@@ -34523,7 +34523,14 @@ function asistCalMenuCloseOnOutside(ev) {
   const m = document.getElementById('asist-panel-cell-menu');
   if (!m) return;
   if (m.contains(ev.target)) { document.addEventListener('click', asistCalMenuCloseOnOutside, { once:true }); return; }
+  // Auto-guarda al cerrar por clic afuera. Si el usuario cambió algo y
+  // simplemente hizo clic fuera del popup (sin oprimir Guardar), asumimos
+  // que quiso confirmar — de otra forma el cambio se pierde y la celda
+  // no refleja nada (requería refresh manual de la página).
   m.remove();
+  if (typeof asistCalMenuGuardar === 'function' && !ASIST_CAL_EDIT.saving) {
+    asistCalMenuGuardar();
+  }
 }
 
 window.asistCalMenuCerrar = function () {
@@ -34536,8 +34543,20 @@ window.asistCalMenuSetConcepto = function (concepto) {
   const prevGroup = ASIST_PANEL_CONCEPTO_MAP[asistPanelNormalizarConceptoLegado_(S.concepto)]?.group || '';
   S.concepto = concepto || '';
   const newGroup = ASIST_PANEL_CONCEPTO_MAP[asistPanelNormalizarConceptoLegado_(S.concepto)]?.group || '';
-  // Re-render el menú (queda abierto para elegir sub o compensación).
-  _asistCalRenderMenu_();
+  // Auto-guarda inmediato en estos casos (no requiere sub-clasificación ni
+  // compensación adicional): Sin registro (delete), Falta, Vacaciones,
+  // Incapacidad, o cualquier sub de Asistencia (Regular, Vac laboradas,
+  // Día feriado, Domingo). Si el usuario acaba de elegir Asistencia por
+  // primera vez, dejamos el menú abierto para escoger la sub.
+  const abrirParaSub = newGroup === 'Asistencia' && prevGroup !== 'Asistencia';
+  if (abrirParaSub) {
+    _asistCalRenderMenu_();  // Mantiene abierto para elegir sub.
+  } else {
+    // Cierra + guarda.
+    const m = document.getElementById('asist-panel-cell-menu');
+    if (m) m.remove();
+    if (!ASIST_CAL_EDIT.saving) asistCalMenuGuardar();
+  }
 };
 
 window.asistCalMenuToggleComp = function () {
