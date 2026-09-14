@@ -3910,9 +3910,12 @@ input[type="checkbox"].lg-multi-cb {
    Ancho: 200 (Personal) + 7×56 (días) + 7×84 (nómina) + 32 (padding)
    = 1212px. Panel 1260px con margen. */
 #asist-form-panel { max-width: min(98vw, 1260px); width: 1260px; }
-/* Override del grid: personal + 7 días (56px) + 7 columnas de nómina (84px). */
-[data-asist-cal="continuous"] > .ocup-cal-head,
-[data-asist-cal="continuous"] > .ocup-cal-row {
+/* Override del grid: personal + 7 días (56px) + 7 columnas de nómina (84px).
+   Scope: SOLO el panel Registro de asistencia (asist-panel-cal-wrap).
+   Sin este scope el override también rompía el calendario de Control de
+   asistencias (asist-cal-wrap) que muestra 180+ días. */
+#asist-panel-cal-wrap [data-asist-cal="continuous"] > .ocup-cal-head,
+#asist-panel-cal-wrap [data-asist-cal="continuous"] > .ocup-cal-row {
   grid-template-columns: 200px repeat(7, 56px) repeat(7, 84px);
 }
 .inc-capture-header {
