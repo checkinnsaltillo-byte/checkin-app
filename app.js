@@ -34291,12 +34291,24 @@ function asistRenderCalendar() {
     label.textContent = `${OCUP_MESES[d.getMonth()]} ${d.getFullYear()}`;
   };
 
-  // Auto-scroll: usa el modo pedido (default = mes seleccionado).
-  //   'month' → centra el primer día del calMonth (usado por navegación con flechas)
-  //   'today' → centra hoy (usado por botón "Ir a hoy")
-  //   'week'  → ya maneja asistCalGoToWeek su propio scroll aparte
-  const focusMode = ASIST_STATE._focusMode || 'month';
+  // Auto-scroll: usa el modo pedido (default = 'today' — hoy siempre
+  // centrado). Cuando el usuario está editando (guardado optimista tras
+  // clasificar), pedimos 'preserve' para NO mover el scrollbar y evitar
+  // que la vista salte de posición.
+  //   'today'    → centra hoy (default, primera carga)
+  //   'month'    → centra el primer día del calMonth (navegación con flechas)
+  //   'preserve' → deja el scrollLeft actual sin tocarlo (post-save)
+  //   'week'     → ya maneja asistCalGoToWeek su propio scroll aparte
+  const focusMode = ASIST_STATE._focusMode || 'today';
   ASIST_STATE._focusMode = null; // reset después de usarlo
+  if (focusMode === 'preserve') {
+    // No hacer nada: el navegador conserva el scrollLeft del contenedor
+    // porque no destruimos el asist-cal-wrap, solo reemplazamos su hijo
+    // .ocup-cal (asistRenderCalendar reasigna cont.innerHTML manteniendo
+    // el mismo cont). scrollLeft se preserva automáticamente en la
+    // mayoría de navegadores porque cont es el scroller.
+    return;
+  }
   setTimeout(() => asistCalCenterOnMonthOrToday_(cont, rangeStart, month, focusMode), 40);
 }
 
@@ -34642,6 +34654,7 @@ window.asistCalMenuGuardar = async function () {
   }
   asistCalMenuCerrar();
   S.saving = false;
+  ASIST_STATE._focusMode = 'preserve'; // no mover el scroll horizontal
   if (typeof asistRenderCalendar === 'function') asistRenderCalendar();
 
   // ── Reales al backend en background ──
@@ -34681,12 +34694,13 @@ window.asistCalMenuGuardar = async function () {
       // del backend. NO re-renderiza el calendario si el resultado es igual
       // (para no parpadear).
       if (typeof asistReloadList === 'function') {
-        try { await asistReloadList(); asistRenderCalendar(); } catch(_){}
+        try { await asistReloadList(); ASIST_STATE._focusMode = 'preserve'; asistRenderCalendar(); } catch(_){}
       }
     } catch (e) {
       console.warn('[asist-cal] guardar falló (background):', e.message);
       // Revierte el cambio optimista si podemos.
       ASIST_STATE.rows = backupRows;
+      ASIST_STATE._focusMode = 'preserve';
       if (typeof asistRenderCalendar === 'function') asistRenderCalendar();
       alert('❌ Error al guardar: ' + e.message + '\n\nEl cambio se revirtió.');
     }
