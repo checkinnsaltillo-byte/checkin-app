@@ -34912,8 +34912,11 @@ function asistPanelRender() {
     conc = asistPanelNormalizarConceptoLegado_(conc);
     if (conc) conceptoRealByKey.set(`${nm}|${fecha}`, conc);
     // Compensación real (si la fila tiene columnas Compensación_concepto /
-    // Compensación_monto). Seed en un mapa aparte.
-    const compMonto = Number(r['Compensación_monto'] || r['Compensacion_monto'] || 0) || 0;
+    // Compensación_monto). Seed en un mapa aparte. IMPORTANTE: el monto
+    // se guarda formateado como "$X.XX", así que hay que quitar el "$" y
+    // comas antes de convertir a número — con Number('$650.00') sale NaN.
+    const _rawMonto = String(r['Compensación_monto'] || r['Compensacion_monto'] || '').replace(/[$,\s]/g, '');
+    const compMonto = Number(_rawMonto) || 0;
     const compConcepto = String(r['Compensación_concepto'] || r['Compensacion_concepto'] || '').trim();
     if (compMonto > 0 || compConcepto) {
       compensacionRealByKey.set(`${nm}|${fecha}`, { concepto: compConcepto, monto: compMonto });
