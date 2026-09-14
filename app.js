@@ -33722,9 +33722,12 @@ function asistStatusTabla(html, kind) {
 
 function asistSortedRows() {
   const rows = ASIST_STATE.rows.slice();
-  const key = ASIST_STATE.sortKey;
-  if (!key) return rows;
-  const dir = ASIST_STATE.sortDir === 'desc' ? -1 : 1;
+  // Default: si el usuario no ha elegido explícitamente un sortKey,
+  // ordena por Timestamp descendente (más reciente primero).
+  const key = ASIST_STATE.sortKey || 'Timestamp';
+  const dir = ASIST_STATE.sortDir === 'asc'
+    ? 1
+    : (ASIST_STATE.sortDir === 'desc' || !ASIST_STATE.sortKey ? -1 : 1);
   return rows.sort((a, b) => {
     const va = String(a[key] ?? '');
     const vb = String(b[key] ?? '');
