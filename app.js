@@ -9814,10 +9814,26 @@ async function __huespedesLoadInner(forceRefetch) {
     };
     const fetchPage = async (n) => {
       const qs = new URLSearchParams({ ...baseParams, page: String(n) });
-      const r = await fetch(`${BACKEND}/huespedes-list?${qs.toString()}`, { cache: 'no-store' });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.error || j.message || 'Error al obtener registros');
-      return j;
+      // Retry hasta 3 veces con backoff (0s / 1.5s / 3s) — Apps Script tiene
+      // hipos ocasionales de HTML/ppConfig que hacen fallar una página
+      // aleatoria; sin retry se aborta TODA la carga por 1 hipo.
+      let lastErr;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const r = await fetch(`${BACKEND}/huespedes-list?${qs.toString()}`, { cache: 'no-store' });
+          const j = await r.json();
+          if (!j.ok) throw new Error(j.error || j.message || 'Error al obtener registros');
+          return j;
+        } catch (e) {
+          lastErr = e;
+          if (attempt < 2) {
+            await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+            continue;
+          }
+          console.warn(`[HU] page ${n} falló 3 veces:`, e.message);
+        }
+      }
+      throw lastErr || new Error('Error al obtener página ' + n);
     };
     const first = await fetchPage(1);
     const totalPages = Math.max(1, Number(first.total_pages || 1));
