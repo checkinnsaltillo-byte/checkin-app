@@ -33268,7 +33268,7 @@ function asistRenderResumen(targetId) {
     const w = weekOf(fecha);
     const k = `${nombre}||${w.value}`;
     let g = grupos.get(k);
-    if (!g) { g = { nombre, semana: w, horas:0, workDays: new Set(), vac:0, dom:0, df:0, comp:0, ids:[] }; grupos.set(k, g); }
+    if (!g) { g = { nombre, semana: w, horas:0, workDays: new Set(), vac:0, dom:0, df:0, comp:0, compConceptos: [], ids:[] }; grupos.set(k, g); }
     g.horas += parseHoras(r.Horas);
     // Concepto: se toma tal cual; solo se asume 'Regular' cuando hay
     // evidencia de trabajo (Entrada/Salida). Registros solo con
@@ -33289,6 +33289,8 @@ function asistRenderResumen(targetId) {
     // Compensación libre capturada en la celda (columnas Compensación_*).
     const cMonto = parseMonto(r['Compensación_monto'] || r['Compensacion_monto']);
     if (cMonto) g.comp += cMonto;
+    const cConc = String(r['Compensación_concepto'] || r['Compensacion_concepto'] || '').trim();
+    if (cConc && !g.compConceptos.includes(cConc)) g.compConceptos.push(cConc);
     g.ids.push(String(r.ID||''));
   }
   // Descanso proporcional a los DÍAS DE CONTRATO reales del empleado
@@ -33469,6 +33471,7 @@ function asistRenderResumen(targetId) {
     ${tdNum(fmt(g.vac))}
     ${tdNum(fmt(g.dom))}
     ${tdNum(fmt(g.df))}
+    ${td(esc((g.compConceptos||[]).join(', ')), 'color:#475569')}
     ${tdComp(g)}
     ${tdReportado(g)}
     ${tdNum(fmt(g.total), 'color:#065f46;font-weight:900')}
@@ -33478,7 +33481,7 @@ function asistRenderResumen(targetId) {
     ${tdComentarios(g)}
   </tr>`).join('');
   wrap.innerHTML = toolbarHtml + filtersHtml + `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:auto;max-height:calc(100vh - 320px)"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>
-    ${thAcc}${th('Empleado', '170px')}${th('Alta en IMSS', '120px')}${th('Semana', '210px')}${thNum('Horas', '70px')}${thNum('$ Base laborado', '105px')}${thNum('$ Base descanso', '105px')}${thNum('$ Prima vac. (25%)', '100px')}${thNum('$ Prima dom. (25%)', '100px')}${thNum('$ Prima feriado (200%)', '115px')}${thNum('$ Compensación', '105px')}${thNum('$ Salario reportado', '115px')}${thNum('$ Salario TOTAL', '120px')}${th('Método de pago', '180px')}${th('Fecha de pago', '150px')}${th('Estado de pago', '120px')}${th('Comentarios', '220px')}
+    ${thAcc}${th('Empleado', '170px')}${th('Alta en IMSS', '120px')}${th('Semana', '210px')}${thNum('Horas', '70px')}${thNum('$ Base laborado', '105px')}${thNum('$ Base descanso', '105px')}${thNum('$ Prima vac. (25%)', '100px')}${thNum('$ Prima dom. (25%)', '100px')}${thNum('$ Prima feriado (200%)', '115px')}${th('Concepto compensación', '170px')}${thNum('$ Compensación', '105px')}${thNum('$ Salario reportado', '115px')}${thNum('$ Salario TOTAL', '120px')}${th('Método de pago', '180px')}${th('Fecha de pago', '150px')}${th('Estado de pago', '120px')}${th('Comentarios', '220px')}
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 // Handlers de filtros de la tabla del Resumen.
@@ -34223,31 +34226,40 @@ function asistVisibleHeaders() {
   const raw = ASIST_STATE.headers.length ? ASIST_STATE.headers : (ASIST_STATE.rows[0] ? Object.keys(ASIST_STATE.rows[0]) : []);
   // Meta que va antes de los dinero (después de Fecha/Entrada/Salida/Horas).
   const META_COLS = new Set(['Concepto','Metodo']);
+  // Columnas que NO se muestran en la tabla de Control de asistencias
+  // (dinero, compensación y observaciones — el detalle vive en Nómina).
+  const EXCLUDED = new Set([
+    '$ Salario base',
+    '$ Prima vacacional (25%)',
+    '$ Prima dominical (25%)',
+    '$ Prima día feriado (200%)',
+    '$ Salario total',
+    'Compensación_concepto',
+    'Compensación_monto',
+    'Observaciones',
+  ]);
   const out = [];
   for (const h of raw) {
     if (ASIST_HIDDEN_COLS.has(h)) continue;
     if (ASIST_DERIVED_COLS.includes(h)) continue;
     if (META_COLS.has(h)) continue;
-    if (h === 'Observaciones') continue;
+    if (EXCLUDED.has(h)) continue;
     out.push(h);
     if (h === 'Fecha') {
-      // Entrada, Salida, Horas
+      // Entrada, Salida, Horas (derivadas)
       for (const d of ['Entrada','Salida','Horas']) if (!out.includes(d)) out.push(d);
       // Meta (Concepto, Metodo)
       for (const m of ['Concepto','Metodo']) if (raw.includes(m) && !out.includes(m)) out.push(m);
       // Ubicación entrada + salida (virtuales, separadas por evento)
       if (!out.includes('Ubicación entrada')) out.push('Ubicación entrada');
       if (!out.includes('Ubicación salida')) out.push('Ubicación salida');
-      // Columnas de dinero
-      for (const d of ['$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','$ Salario total']) if (!out.includes(d)) out.push(d);
     }
   }
-  // Fallback si no hubo Fecha
-  for (const d of ASIST_DERIVED_COLS) if (!out.includes(d)) out.push(d);
+  // Fallback si no hubo Fecha: solo derivadas no-dinero.
+  for (const d of ['Entrada','Salida','Horas']) if (!out.includes(d)) out.push(d);
   for (const m of ['Concepto','Metodo']) if (raw.includes(m) && !out.includes(m)) out.push(m);
   if (!out.includes('Ubicación entrada')) out.push('Ubicación entrada');
   if (!out.includes('Ubicación salida')) out.push('Ubicación salida');
-  if (raw.includes('Observaciones')) out.push('Observaciones');
   return out;
 }
 
