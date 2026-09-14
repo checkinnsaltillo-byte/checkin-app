@@ -34158,6 +34158,8 @@ function asistRenderCalendar() {
   let html = `<div class="ocup-cal" data-asist-cal="continuous" style="--ocup-days:${totalDays}">`;
   html += `<div class="ocup-cal-head"><div class="ocup-head-aloj">👥 Personal · ${personas.length}</div>`;
   let todayIdx = -1;
+  // Abreviaturas de mes (3 letras) — se usa arriba del número de cada día.
+  const _mesAbr = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   for (let i = 0; i < totalDays; i++) {
     const d = new Date(rangeStart); d.setDate(d.getDate()+i);
     const dow = d.getDay();
@@ -34165,10 +34167,15 @@ function asistRenderCalendar() {
     if (isToday) todayIdx = i;
     const isWeekend = dow === 0 || dow === 6;
     const isFirst = d.getDate() === 1;
-    const monthBadge = isFirst ? `<div style="position:absolute;top:-22px;left:0;font-size:10px;font-weight:900;color:#3730a3;background:#e0e7ff;border:1px solid #a5b4fc;padding:2px 8px;border-radius:99px;white-space:nowrap;z-index:2;pointer-events:none">${OCUP_MESES[d.getMonth()]} ${d.getFullYear()}</div>` : '';
+    // Etiqueta de mes+año en la primera fecha de cada mes (siempre visible,
+    // no absoluta) para que al hacer scroll horizontal el usuario vea con
+    // claridad dónde empieza cada mes.
+    const monthLabel = isFirst
+      ? `<div style="font-size:9.5px;font-weight:900;color:#3730a3;background:#e0e7ff;border:1px solid #a5b4fc;padding:1px 5px;border-radius:6px;margin-bottom:2px;white-space:nowrap;line-height:1.2">${OCUP_MESES[d.getMonth()]} ${d.getFullYear()}</div>`
+      : `<div style="font-size:8.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.03em;line-height:1.2">${_mesAbr[d.getMonth()]}</div>`;
     html += `<div class="ocup-head-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" data-day-idx="${i}" style="position:relative">
-      ${monthBadge}
-      <div class="ocup-head-dow">${OCUP_DOW[dow]}</div>
+      ${monthLabel}
+      <div class="ocup-head-dow" style="margin-top:1px">${OCUP_DOW[dow]}</div>
       <div class="ocup-head-day">${d.getDate()}</div>
     </div>`;
   }
