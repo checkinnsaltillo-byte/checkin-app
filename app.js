@@ -32975,7 +32975,7 @@ const ASIST_STATE = {
   dirty: new Set(),          // IDs de filas con cambios sin guardar
   rows: [],                  // filas de RH_Asistencia
   headers: [],               // headers del sheet
-  sortKey: 'Timestamp',      // columna activa para sort (default: Timestamp)
+  sortKey: 'Fecha',          // columna activa para sort (default: Fecha)
   sortDir: 'desc',           // 'asc' | 'desc' (default: más reciente primero)
   loading: false,
   loaded: false,
@@ -33869,8 +33869,8 @@ function asistSortedRows() {
     });
   }
   // Default: si el usuario no ha elegido explícitamente un sortKey,
-  // ordena por Timestamp descendente (más reciente primero).
-  const key = ASIST_STATE.sortKey || 'Timestamp';
+  // ordena por Fecha descendente (más reciente primero).
+  const key = ASIST_STATE.sortKey || 'Fecha';
   const dir = ASIST_STATE.sortDir === 'asc'
     ? 1
     : (ASIST_STATE.sortDir === 'desc' || !ASIST_STATE.sortKey ? -1 : 1);
