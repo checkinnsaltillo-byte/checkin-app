@@ -33022,8 +33022,14 @@ function asistPersonalOperativo() {
         return true;
       });
   }
-  // Fallback: si aún no hay puestos, usa la lista plana de nombres
-  return (INC_STATE?.personas || []).map(n => ({ nombre: String(n).trim(), puesto: '' })).filter(x => x.nombre);
+  // Fallback: si aún no cargó la hoja Personal, usa INC_PERSONAL (hardcoded)
+  // que sí trae puesto por persona, así el filtro de administrativos también
+  // aplica en el modo fallback. INC_STATE.personas es solo la lista plana
+  // y perdería la info del puesto.
+  const fb = (typeof INC_PERSONAL !== 'undefined' && Array.isArray(INC_PERSONAL))
+    ? INC_PERSONAL.map(p => ({ nombre: String(p.nombre || '').trim(), puesto: String(p.puesto || '').trim() }))
+    : (INC_STATE?.personas || []).map(n => ({ nombre: String(n).trim(), puesto: '' }));
+  return fb.filter(x => x.nombre && !asistEsAdministrativo(x.puesto));
 }
 
 /** Parsea "HH:MM[:SS]" a minutos totales. Devuelve null si inválido. */
