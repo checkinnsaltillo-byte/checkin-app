@@ -26897,7 +26897,7 @@ window.rhObligacionSetTotal = async function (month, inputEl) {
 
 function rhObligacionesEmpleadosActivos() {
   return (RH_STATE.empleados || []).filter(r => {
-    const est = r.Estado || (String(r.Activo||'').toLowerCase() === 'inactivo' ? 'Inactivo' : 'Activo');
+    const est = r.Estado || 'Activo';
     return est === 'Activo';
   });
 }
@@ -27247,7 +27247,7 @@ function rhRenderExpediente(targetId) {
   }
   const nombreCompleto = (r) => [r.Nombre, r.Apellido_paterno, r.Apellido_materno].filter(Boolean).join(' ') || '—';
   const estadoChip = (r) => {
-    const est = r.Estado || (String(r.Activo||'').toLowerCase() === 'inactivo' ? 'Inactivo' : 'Activo');
+    const est = r.Estado || 'Activo';
     const cls = est === 'Activo' ? 'rh-chip-activo' : est === 'Suspendido' ? 'rh-chip-est-pe' : 'rh-chip-inactivo';
     const ico = est === 'Activo' ? '✓' : est === 'Suspendido' ? '⏸' : '✕';
     return `<span class="rh-chip ${cls}">${ico} ${esc(est)}</span>`;
@@ -27553,7 +27553,7 @@ window.rhOpenForm = function (kind, id) {
         <div class="rh-grid-2">
           <div class="rh-field"><label>No. de empleado</label><input type="text" value="${esc(noEmp)}" readonly style="background:#f1f5f9;color:#64748b"></div>
           ${rhFieldText('Puesto','Cargo',editing?.Puesto)}
-          ${rhFieldSelect('Estado','Estado',['Activo','Inactivo','Suspendido'], editing?.Estado || (String(editing?.Activo||'').toLowerCase() === 'inactivo' ? 'Inactivo' : 'Activo'))}
+          ${rhFieldSelect('Estado','Estado',['Activo','Inactivo','Suspendido'], editing?.Estado || 'Activo')}
           ${rhFieldSelect('Tipo_contrato','Tipo de contrato',['Indeterminado','Determinado','Honorarios','Por obra','Eventual'],editing?.Tipo_contrato)}
           ${rhFieldDate('Fecha_ingreso','Fecha de ingreso',editing?.Fecha_ingreso)}
           ${rhFieldDate('Fecha_retiro','Fecha de retiro',editing?.Fecha_retiro)}
@@ -27703,10 +27703,9 @@ window.rhSaveCurrentForm = async function () {
   if (diasBoxes.length || document.querySelector('#rh-form-body input[data-rh-day]')) {
     payload.Dias_trabajo = Array.from(diasBoxes).map(b => b.getAttribute('data-rh-day')).join(',');
   }
-  // Sincronizar Estado <-> Activo (backward compat)
-  if (ctx.kind === 'empleado' && payload.Estado) {
-    payload.Activo = (payload.Estado === 'Activo') ? 'Activo' : 'Inactivo';
-  }
+  // 'Activo' es columna legacy duplicada de 'Estado'. Ya no la escribimos —
+  // Estado es la fuente única. Si aún existe en la hoja el usuario puede
+  // borrarla manualmente.
   // Validación mínima
   if (ctx.kind === 'empleado') {
     if (!payload.Nombre) { alert('El nombre es obligatorio.'); return; }
@@ -32985,8 +32984,17 @@ function asistPersonalOperativo() {
       .map(r => ({
         nombre: String(r['Nombre'] || '').trim(),
         puesto: String(r['Puesto'] || r['Rol'] || r['Cargo'] || '').trim(),
+        estado: String(r['Estado'] || '').trim(),
       }))
-      .filter(x => x.nombre && !asistEsAdministrativo(x.puesto));
+      // Excluye administrativos y — CRÍTICO — cualquier empleado cuyo Estado
+      // no sea 'Activo' (Inactivo, Suspendido, Baja). Estado vacío se trata
+      // como activo por retrocompatibilidad con filas viejas.
+      .filter(x => {
+        if (!x.nombre) return false;
+        if (asistEsAdministrativo(x.puesto)) return false;
+        if (x.estado && x.estado.toLowerCase() !== 'activo') return false;
+        return true;
+      });
   }
   // Fallback: si aún no hay puestos, usa la lista plana de nombres
   return (INC_STATE?.personas || []).map(n => ({ nombre: String(n).trim(), puesto: '' })).filter(x => x.nombre);
