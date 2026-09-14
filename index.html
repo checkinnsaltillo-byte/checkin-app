@@ -2398,15 +2398,15 @@
           </div>
         </div>
         <div id="rh-section-menu" style="display:flex;gap:8px;margin:0 0 14px;background:#f1f5f9;padding:5px;border-radius:12px;flex-wrap:wrap">
-          <button type="button" id="rh-sec-nomina" onclick="rhSetSection('nomina')" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-weight:900;font-size:13px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;box-shadow:0 3px 10px rgba(234,88,12,.35)">💵 Nómina</button>
-          <button type="button" id="rh-sec-documentacion" onclick="rhSetSection('documentacion')" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-weight:700;font-size:13px;background:transparent;color:#64748b">👥 Documentación del personal</button>
+          <button type="button" id="rh-sec-asistencias" onclick="rhSetSection('asistencias')" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-weight:900;font-size:13px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;box-shadow:0 3px 10px rgba(14,165,233,.35)">🕐 Control de asistencias</button>
+          <button type="button" id="rh-sec-nomina" onclick="rhSetSection('nomina')" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-weight:700;font-size:13px;background:transparent;color:#64748b">💵 Nómina</button>
           <button type="button" id="rh-sec-obligaciones" onclick="rhSetSection('obligaciones')" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-weight:700;font-size:13px;background:transparent;color:#64748b">📋 Pago de obligaciones</button>
-          <button type="button" id="rh-sec-asistencias" onclick="rhSetSection('asistencias')" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-weight:700;font-size:13px;background:transparent;color:#64748b">🕐 Control de asistencias</button>
+          <button type="button" id="rh-sec-documentacion" onclick="rhSetSection('documentacion')" style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-weight:700;font-size:13px;background:transparent;color:#64748b">👥 Documentación del personal</button>
         </div>
         <div id="rh-section-nomina">
           <div class="rh-tabs">
-            <button type="button" class="rh-tab active" data-tab="compensaciones" onclick="rhSetTab('compensaciones')">💵 Pagos</button>
-            <button type="button" class="rh-tab" data-tab="resumen_semanal" onclick="rhSetTab('resumen_semanal')">📊 Resumen semanal</button>
+            <button type="button" class="rh-tab active" data-tab="resumen_semanal" onclick="rhSetTab('resumen_semanal')">📊 Resumen semanal</button>
+            <button type="button" class="rh-tab" data-tab="compensaciones" onclick="rhSetTab('compensaciones')">💵 Pagos</button>
           </div>
           <div id="rh-view" class="rh-view">
             <div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
@@ -2423,8 +2423,8 @@
         <div id="rh-section-asistencias" class="hidden">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
             <div style="display:inline-flex;background:#f1f5f9;padding:3px;border-radius:9px;gap:2px">
-              <button type="button" id="asist-vis-tabla" onclick="asistSetVis('tabla')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;box-shadow:0 2px 6px rgba(79,70,229,.30)">📋 Tabla</button>
-              <button type="button" id="asist-vis-calendario" onclick="asistSetVis('calendario')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b">📅 Calendario</button>
+              <button type="button" id="asist-vis-calendario" onclick="asistSetVis('calendario')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:800;background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;box-shadow:0 2px 6px rgba(79,70,229,.30)">📅 Calendario</button>
+              <button type="button" id="asist-vis-tabla" onclick="asistSetVis('tabla')" style="all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;color:#64748b">📋 Tabla</button>
             </div>
             <div id="asist-btn-seleccionar" onclick="asistToggleSeleccionar()"
                  style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;padding:7px 12px;border-radius:8px;background:#f1f5f9;color:#475569;font-weight:700;font-size:12px;user-select:none">
@@ -2884,7 +2884,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1233"></script>
+  <script src="app.js?v=1234"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }

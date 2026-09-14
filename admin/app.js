@@ -26728,13 +26728,16 @@ const RH_STATE = {
 
 function rhInit() {
   if (RH_STATE.initialized) {
-    rhSetSection(RH_STATE.section || 'nomina');
+    rhSetSection(RH_STATE.section || 'asistencias');
     return;
   }
   RH_STATE.initialized = true;
-  RH_STATE.section = 'nomina';
-  // Carga catalogo de empleados primero — todos los demás tabs lo necesitan
-  rhLoadEmpleados().then(() => rhSetTab('compensaciones'));
+  // Entrada por default: Control de asistencias (sección principal del módulo).
+  RH_STATE.section = 'asistencias';
+  // Carga catalogo de empleados en background — todos los tabs lo necesitan.
+  rhLoadEmpleados();
+  // Muestra Control de asistencias directamente en lugar de arrancar en Nómina.
+  rhSetSection('asistencias');
 }
 
 // ── Menú de secciones (Nómina | Documentación | Obligaciones | Asistencias) ──
@@ -26763,6 +26766,13 @@ window.rhSetSection = function (section) {
   if (section === 'documentacion') rhRenderExpediente('rh-view-documentacion');
   if (section === 'obligaciones') rhRenderObligaciones();
   if (section === 'asistencias' && typeof asistInit === 'function') asistInit();
+  // Nómina: entra con Resumen semanal por default (antes: Pagos). Si el
+  // usuario ya había cambiado a Pagos en esta sesión, respetamos su
+  // elección; solo se pone default si RH_STATE.tab no está fijado aún.
+  if (section === 'nomina') {
+    const tabInicial = RH_STATE.tab || 'resumen_semanal';
+    rhSetTab(tabInicial);
+  }
 };
 
 window.rhSetTab = function (tab) {
@@ -33105,6 +33115,9 @@ function asistDeriveDayInfo(recs, date, today) {
 }
 
 function asistInit() {
+  // Default vis = 'calendario' (antes 'tabla'). Se respeta la elección
+  // previa del usuario si ya cambió de vista en esta sesión.
+  if (!ASIST_STATE.vis) ASIST_STATE.vis = 'calendario';
   // Precarga lista de Personal si aún no está en memoria
   const afterPersonal = () => {
     asistPopulateEmpleadoSelect();
@@ -33117,11 +33130,13 @@ function asistInit() {
   } else {
     afterPersonal();
   }
-  // Carga la tabla al entrar (única vista al ingresar a la sección)
+  // Carga los registros al entrar; render de la vista actual (calendario
+  // o tabla) se hace dentro de asistReloadList.
   if (!ASIST_STATE.loaded && !ASIST_STATE.loading) {
     asistReloadList();
   } else {
-    asistRenderTabla();
+    // Ya cargados: aplica la vista actual (asistSetVis re-usa datos en memoria).
+    asistSetVis(ASIST_STATE.vis);
   }
 }
 window.asistInit = asistInit;
