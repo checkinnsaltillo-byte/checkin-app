@@ -34358,7 +34358,21 @@ window.asistCalGoToWeek = function (weekValue) {
 window.asistCalClick = function (nombre, iso) {
   const recs = ASIST_STATE.rows.filter(r => String(r.Empleado_Nombre||'').trim() === nombre && String(r.Fecha||'').slice(0,10) === iso);
   if (!recs.length) return;
-  const lines = recs.map(r => `${r.Tipo||'—'} · ${(r.Hora||'').slice(0,8)}${r.Metodo?` · ${r.Metodo}`:''}${r.Observaciones?`\n   ↳ ${r.Observaciones}`:''}`);
+  const lines = recs.map(r => {
+    const conc = String(r.Concepto || '').trim() || 'Regular';
+    const conc2 = (typeof asistPanelNormalizarConceptoLegado_ === 'function')
+      ? asistPanelNormalizarConceptoLegado_(conc) : conc;
+    const ent = String(r.Entrada || '').trim().slice(0,5);
+    const sal = String(r.Salida  || '').trim().slice(0,5);
+    const horas = String(r.Horas || '').trim();
+    const met = r.Metodo ? ` · ${r.Metodo}` : '';
+    const parts = [conc2];
+    if (ent || sal) parts.push(`Ent ${ent || '—'} → Sal ${sal || '—'}`);
+    if (horas) parts.push(`(${horas})`);
+    let line = parts.join(' · ') + met;
+    if (r.Observaciones) line += `\n   ↳ ${r.Observaciones}`;
+    return line;
+  });
   alert(`Asistencias de ${nombre} · ${iso}\n\n${lines.join('\n')}`);
 };
 
