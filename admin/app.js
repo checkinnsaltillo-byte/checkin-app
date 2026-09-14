@@ -34583,85 +34583,114 @@ window.asistCalMenuGuardar = async function () {
   if (S.saving) return;
   S.saving = true;
   _asistCalRenderMenu_();
-  try {
-    const nombre = S.nombre;
-    const iso    = S.iso;
-    const row    = _asistCalRowFor_(nombre, iso);
-    const concepto = S.concepto || '';
-    const compFinal = (S.comp && (S.comp.concepto || Number(S.comp.monto) > 0)) ? S.comp : null;
-    // Si el registro existente ya coincide en concepto Y compensación, no hacer nada.
-    const rowConceptoNorm = row
-      ? asistPanelNormalizarConceptoLegado_(String(row.Concepto||'').trim() || ((String(row.Entrada||'').trim() || String(row.Salida||'').trim()) ? 'Regular' : ''))
-      : '';
-    const rowCompMonto  = row ? (Number(String(row['Compensación_monto']||'').replace(/[$,\s]/g,'')) || 0) : 0;
-    const rowCompConc   = row ? String(row['Compensación_concepto'] || '').trim() : '';
-    const conceptoIgual = rowConceptoNorm === concepto;
-    const compIgual = ((rowCompMonto === (compFinal ? Number(compFinal.monto)||0 : 0))
-                     && (rowCompConc === (compFinal ? String(compFinal.concepto||'') : '')));
-    if (conceptoIgual && compIgual) {
-      asistCalMenuCerrar();
-      S.saving = false;
-      return;
-    }
-    // Caso 1: no había registro → si tampoco hay concepto ni comp final, no hacer nada.
-    if (!row && !concepto && !compFinal) {
-      asistCalMenuCerrar();
-      S.saving = false;
-      return;
-    }
-    // Caso 2: había registro y se limpió todo → DELETE.
-    if (row && !concepto && !compFinal) {
-      const isWa = String(row.Metodo||'').toLowerCase() === 'whatsapp';
-      const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(row.ID)}?reason=` + encodeURIComponent('borrado desde calendario') + (isWa ? '&force=true' : '');
-      await fetch(url, { method:'DELETE' });
-    } else {
-      // Caso 3: MODIFY (delete + create) preservando Metodo/Entrada/Salida/GPS del original.
-      if (row && row.ID) {
-        const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(row.ID)}?force=true&reason=` + encodeURIComponent('modificación desde calendario');
-        await fetch(url, { method:'DELETE' });
-      }
-      const isAs = asistPanelEsDiaTrabajado_(concepto);
-      const p    = asistPanelPrimasPorConcepto_(concepto);
-      const fmt  = v => v === '' ? '' : asistPanelFmtMonto_(v);
-      const totalPago = ['salBase','primaVac','primaDom','primaDF'].reduce((s,k)=>s+(typeof p[k]==='number'?p[k]:0),0)
-                     + (compFinal ? Number(compFinal.monto)||0 : 0);
-      const preserve = row || {};
-      const metodoFinal = String(preserve.Metodo||'').trim() || 'Manual';
-      const entrada = String(preserve.Entrada||'').trim() || (isAs ? '08:30' : '');
-      const salida  = String(preserve.Salida ||'').trim() || (isAs ? '13:30' : '');
-      const horas   = String(preserve.Horas  ||'').trim() || (isAs ? '5h00'  : '');
-      const payload = {
-        Empleado_Nombre: nombre, Fecha: iso, Concepto: concepto,
-        Entrada: entrada, Salida: salida, Horas: horas,
-        '$ Salario base':             fmt(p.salBase),
-        '$ Prima vacacional (25%)':   fmt(p.primaVac),
-        '$ Prima dominical (25%)':    fmt(p.primaDom),
-        '$ Prima día feriado (200%)': fmt(p.primaDF),
-        '$ Salario total':            totalPago ? asistPanelFmtMonto_(totalPago) : '',
-        Metodo: metodoFinal, Observaciones: '',
-        ...(compFinal && compFinal.concepto ? { 'Compensación_concepto': compFinal.concepto } : {}),
-        ...(compFinal && compFinal.monto    ? { 'Compensación_monto':    asistPanelFmtMonto_(Number(compFinal.monto)) } : {}),
-      };
-      if (preserve.Ubicacion_Lat != null && preserve.Ubicacion_Lat !== '') payload.Ubicacion_Lat = preserve.Ubicacion_Lat;
-      if (preserve.Ubicacion_Lng != null && preserve.Ubicacion_Lng !== '') payload.Ubicacion_Lng = preserve.Ubicacion_Lng;
-      if (preserve.Ubicacion_Salida_Lat != null && preserve.Ubicacion_Salida_Lat !== '') payload.Ubicacion_Salida_Lat = preserve.Ubicacion_Salida_Lat;
-      if (preserve.Ubicacion_Salida_Lng != null && preserve.Ubicacion_Salida_Lng !== '') payload.Ubicacion_Salida_Lng = preserve.Ubicacion_Salida_Lng;
-      await fetch(`${BACKEND}/rh/asistencia`, {
-        method:'POST', headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ payload }),
-      });
-    }
-    asistCalMenuCerrar();
-    if (typeof asistReloadList === 'function') {
-      await asistReloadList();
-      if (typeof asistRenderCalendar === 'function') asistRenderCalendar();
-    }
-  } catch (e) {
-    console.warn('[asist-cal] guardar falló:', e.message);
-    alert('❌ Error al guardar: ' + e.message);
-  } finally {
-    ASIST_CAL_EDIT.saving = false;
+  const nombre = S.nombre;
+  const iso    = S.iso;
+  const row    = _asistCalRowFor_(nombre, iso);
+  const concepto = S.concepto || '';
+  const compFinal = (S.comp && (S.comp.concepto || Number(S.comp.monto) > 0)) ? S.comp : null;
+  // Sin cambios reales → cierra sin trabajo.
+  const rowConceptoNorm = row
+    ? asistPanelNormalizarConceptoLegado_(String(row.Concepto||'').trim() || ((String(row.Entrada||'').trim() || String(row.Salida||'').trim()) ? 'Regular' : ''))
+    : '';
+  const rowCompMonto  = row ? (Number(String(row['Compensación_monto']||'').replace(/[$,\s]/g,'')) || 0) : 0;
+  const rowCompConc   = row ? String(row['Compensación_concepto'] || '').trim() : '';
+  const conceptoIgual = rowConceptoNorm === concepto;
+  const compIgual = ((rowCompMonto === (compFinal ? Number(compFinal.monto)||0 : 0))
+                   && (rowCompConc === (compFinal ? String(compFinal.concepto||'') : '')));
+  if (conceptoIgual && compIgual) { asistCalMenuCerrar(); S.saving = false; return; }
+  if (!row && !concepto && !compFinal) { asistCalMenuCerrar(); S.saving = false; return; }
+
+  // ── ACTUALIZACIÓN OPTIMISTA en ASIST_STATE.rows + re-render inmediato ──
+  // El usuario ve el cambio en el calendario al instante. Las llamadas al
+  // backend corren en background; si fallan, revertimos y avisamos.
+  const isAs = asistPanelEsDiaTrabajado_(concepto);
+  const p    = asistPanelPrimasPorConcepto_(concepto);
+  const fmt  = v => v === '' ? '' : asistPanelFmtMonto_(v);
+  const totalPago = ['salBase','primaVac','primaDom','primaDF'].reduce((s,k)=>s+(typeof p[k]==='number'?p[k]:0),0)
+                 + (compFinal ? Number(compFinal.monto)||0 : 0);
+  const preserve = row || {};
+  const metodoFinal = String(preserve.Metodo||'').trim() || 'Manual';
+  const entrada = String(preserve.Entrada||'').trim() || (isAs ? '08:30' : '');
+  const salida  = String(preserve.Salida ||'').trim() || (isAs ? '13:30' : '');
+  const horas   = String(preserve.Horas  ||'').trim() || (isAs ? '5h00'  : '');
+  const optimisticRow = row ? { ...row } : {
+    ID: 'AST-tmp-' + Date.now(),
+    Empleado_Nombre: nombre,
+    Fecha: iso,
+  };
+  optimisticRow.Concepto = concepto;
+  optimisticRow.Entrada  = entrada;
+  optimisticRow.Salida   = salida;
+  optimisticRow.Horas    = horas;
+  optimisticRow['$ Salario base']             = fmt(p.salBase);
+  optimisticRow['$ Prima vacacional (25%)']   = fmt(p.primaVac);
+  optimisticRow['$ Prima dominical (25%)']    = fmt(p.primaDom);
+  optimisticRow['$ Prima día feriado (200%)'] = fmt(p.primaDF);
+  optimisticRow['$ Salario total']            = totalPago ? asistPanelFmtMonto_(totalPago) : '';
+  optimisticRow.Metodo                        = metodoFinal;
+  optimisticRow['Compensación_concepto']      = compFinal ? String(compFinal.concepto || '') : '';
+  optimisticRow['Compensación_monto']         = compFinal && compFinal.monto ? asistPanelFmtMonto_(Number(compFinal.monto)) : '';
+  const backupRows = (ASIST_STATE.rows || []).slice();
+  const isDeletion = row && !concepto && !compFinal;
+  const arr = ASIST_STATE.rows || [];
+  if (isDeletion) {
+    ASIST_STATE.rows = arr.filter(r => String(r.ID) !== String(row.ID));
+  } else if (row) {
+    ASIST_STATE.rows = arr.map(r => String(r.ID) === String(row.ID) ? optimisticRow : r);
+  } else {
+    ASIST_STATE.rows = arr.concat([optimisticRow]);
   }
+  asistCalMenuCerrar();
+  S.saving = false;
+  if (typeof asistRenderCalendar === 'function') asistRenderCalendar();
+
+  // ── Reales al backend en background ──
+  (async () => {
+    try {
+      if (isDeletion) {
+        const isWa = String(row.Metodo||'').toLowerCase() === 'whatsapp';
+        const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(row.ID)}?reason=` + encodeURIComponent('borrado desde calendario') + (isWa ? '&force=true' : '');
+        await fetch(url, { method:'DELETE' });
+      } else {
+        if (row && row.ID) {
+          const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(row.ID)}?force=true&reason=` + encodeURIComponent('modificación desde calendario');
+          await fetch(url, { method:'DELETE' });
+        }
+        const payload = {
+          Empleado_Nombre: nombre, Fecha: iso, Concepto: concepto,
+          Entrada: entrada, Salida: salida, Horas: horas,
+          '$ Salario base':             fmt(p.salBase),
+          '$ Prima vacacional (25%)':   fmt(p.primaVac),
+          '$ Prima dominical (25%)':    fmt(p.primaDom),
+          '$ Prima día feriado (200%)': fmt(p.primaDF),
+          '$ Salario total':            totalPago ? asistPanelFmtMonto_(totalPago) : '',
+          Metodo: metodoFinal, Observaciones: '',
+          ...(compFinal && compFinal.concepto ? { 'Compensación_concepto': compFinal.concepto } : {}),
+          ...(compFinal && compFinal.monto    ? { 'Compensación_monto':    asistPanelFmtMonto_(Number(compFinal.monto)) } : {}),
+        };
+        if (preserve.Ubicacion_Lat != null && preserve.Ubicacion_Lat !== '') payload.Ubicacion_Lat = preserve.Ubicacion_Lat;
+        if (preserve.Ubicacion_Lng != null && preserve.Ubicacion_Lng !== '') payload.Ubicacion_Lng = preserve.Ubicacion_Lng;
+        if (preserve.Ubicacion_Salida_Lat != null && preserve.Ubicacion_Salida_Lat !== '') payload.Ubicacion_Salida_Lat = preserve.Ubicacion_Salida_Lat;
+        if (preserve.Ubicacion_Salida_Lng != null && preserve.Ubicacion_Salida_Lng !== '') payload.Ubicacion_Salida_Lng = preserve.Ubicacion_Salida_Lng;
+        await fetch(`${BACKEND}/rh/asistencia`, {
+          method:'POST', headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ payload }),
+        });
+      }
+      // Resync silencioso para reemplazar el row optimista con el ID real
+      // del backend. NO re-renderiza el calendario si el resultado es igual
+      // (para no parpadear).
+      if (typeof asistReloadList === 'function') {
+        try { await asistReloadList(); asistRenderCalendar(); } catch(_){}
+      }
+    } catch (e) {
+      console.warn('[asist-cal] guardar falló (background):', e.message);
+      // Revierte el cambio optimista si podemos.
+      ASIST_STATE.rows = backupRows;
+      if (typeof asistRenderCalendar === 'function') asistRenderCalendar();
+      alert('❌ Error al guardar: ' + e.message + '\n\nEl cambio se revirtió.');
+    }
+  })();
 };
 
 /** Puebla el <select> del empleado con nombres de la hoja Personal. */
