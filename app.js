@@ -33035,7 +33035,12 @@ function asistParseTimeToMinutes(s) {
  *  panel (Asistencia · Falta · Incapacidad · Vacaciones · Día feriado). */
 function asistDeriveConceptos_(recs) {
   const out = new Set();
-  const CONCEPTO_KEYS = ['Asistencia','Falta','Incapacidad','Vacaciones','Día feriado'];
+  // Incluye TANTO los legados ('Asistencia' / 'Día feriado') como las
+  // sub-clasificaciones nuevas del panel (Regular / Vac laboradas /
+  // Domingo). Sin las nuevas, un registro con Concepto='Vac laboradas'
+  // se caía al fallback de Entrada/Salida y siempre etiquetaba como
+  // 'Asistencia' → 'Regular' — perdiendo la sub-clasificación.
+  const CONCEPTO_KEYS = ['Asistencia','Regular','Vac laboradas','Día feriado','Domingo','Falta','Incapacidad','Vacaciones'];
   for (const r of (recs || [])) {
     // Campo Concepto (fuente preferida cuando existe la columna en el sheet).
     const conc = String(r.Concepto || '').trim();
