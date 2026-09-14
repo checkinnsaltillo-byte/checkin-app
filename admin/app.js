@@ -33974,7 +33974,20 @@ function asistCellValue(row, col, dayIdx) {
     const norm = s => { const m = String(s||'').match(/^(\d{1,2}):(\d{2})/); return m ? String(m[1]).padStart(2,'0') + ':' + m[2] : ''; };
     if (col === 'Entrada') return norm(d?.entrada || legacy);
     if (col === 'Salida')  return norm(d?.salida  || legacy);
-    if (col === 'Horas')   return d?.horas || legacy || '';
+    if (col === 'Horas') {
+      // Horas SIEMPRE = Salida − Entrada (real, no la string guardada,
+      // que suele ser un default hardcodeado tipo "5h00"). Solo si no
+      // hay Entrada+Salida coherentes se cae al string almacenado.
+      const entStr = norm(d?.entrada || row.Entrada || '');
+      const salStr = norm(d?.salida  || row.Salida  || '');
+      const ent = asistParseTimeToMinutes(entStr);
+      const sal = asistParseTimeToMinutes(salStr);
+      if (ent != null && sal != null && sal > ent) {
+        const diff = sal - ent;
+        return `${Math.floor(diff/60)}h${String(diff%60).padStart(2,'0')}`;
+      }
+      return d?.horas || legacy || '';
+    }
   }
   if (ASIST_PRIMA_COLS.includes(col)) {
     const conceptos = asistDeriveConceptos_([row]);
