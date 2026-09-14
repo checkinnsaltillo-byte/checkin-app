@@ -34238,7 +34238,7 @@ function asistRenderCalendar() {
             return `${c}${h}`;
           }).join(' | ')
         : '';
-      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" style="${bgStyle}${semStyle}cursor:${recs.length?'pointer':'default'}" title="${esc(tip)}" ${recs.length?`onclick="asistCalClick('${esc(nombre)}','${iso}')"`:''}>${wrap}</div>`;
+      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" style="${bgStyle}${semStyle}cursor:pointer" title="${esc(tip)}" onclick="asistCalClick('${esc(nombre).replace(/'/g,"\\'")}','${iso}',event)">${wrap}</div>`;
     }
     html += `</div>`;
   });
@@ -34355,25 +34355,265 @@ window.asistCalGoToWeek = function (weekValue) {
     scroller.scrollTo({ left: Math.max(0, midOffset - scrRect.width / 2), behavior: 'smooth' });
   }, 80);
 };
-window.asistCalClick = function (nombre, iso) {
-  const recs = ASIST_STATE.rows.filter(r => String(r.Empleado_Nombre||'').trim() === nombre && String(r.Fecha||'').slice(0,10) === iso);
-  if (!recs.length) return;
-  const lines = recs.map(r => {
-    const conc = String(r.Concepto || '').trim() || 'Regular';
-    const conc2 = (typeof asistPanelNormalizarConceptoLegado_ === 'function')
-      ? asistPanelNormalizarConceptoLegado_(conc) : conc;
-    const ent = String(r.Entrada || '').trim().slice(0,5);
-    const sal = String(r.Salida  || '').trim().slice(0,5);
-    const horas = String(r.Horas || '').trim();
-    const met = r.Metodo ? ` · ${r.Metodo}` : '';
-    const parts = [conc2];
-    if (ent || sal) parts.push(`Ent ${ent || '—'} → Sal ${sal || '—'}`);
-    if (horas) parts.push(`(${horas})`);
-    let line = parts.join(' · ') + met;
-    if (r.Observaciones) line += `\n   ↳ ${r.Observaciones}`;
-    return line;
+// ── Popup del calendario grande (Control de asistencias) ────────────────
+// Estado del edit en curso — mismo modelo que el panel: 1 concepto + 1 comp.
+const ASIST_CAL_EDIT = { nombre: '', iso: '', concepto: '', comp: null, saving: false };
+
+window.asistCalClick = function (nombre, iso, ev) {
+  asistCalOpenCellMenu(nombre, iso, ev);
+};
+
+function _asistCalRowFor_(nombre, iso) {
+  return (ASIST_STATE.rows || []).find(r =>
+    String(r.Empleado_Nombre || '').trim() === nombre &&
+    String(r.Fecha || '').slice(0, 10) === iso
+  ) || null;
+}
+
+window.asistCalOpenCellMenu = function (nombre, iso, ev) {
+  if (ev) ev.stopPropagation();
+  // Estado inicial: leer del registro existente (si hay).
+  const row = _asistCalRowFor_(nombre, iso);
+  let concepto = '';
+  if (row) {
+    const raw = String(row.Concepto || '').trim();
+    if (raw) concepto = asistPanelNormalizarConceptoLegado_(raw);
+    else if (String(row.Entrada||'').trim() || String(row.Salida||'').trim()) concepto = 'Regular';
+  }
+  const compMonto = row ? (Number(String(row['Compensación_monto']||'').replace(/[$,\s]/g,'')) || 0) : 0;
+  const compConc  = row ? String(row['Compensación_concepto'] || '').trim() : '';
+  const compInit  = (compMonto > 0 || compConc) ? { concepto: compConc, monto: compMonto } : null;
+  ASIST_CAL_EDIT.nombre = nombre;
+  ASIST_CAL_EDIT.iso    = iso;
+  ASIST_CAL_EDIT.concepto = concepto;
+  ASIST_CAL_EDIT.comp   = compInit ? { ...compInit } : null;
+  ASIST_CAL_EDIT.saving = false;
+  _asistCalRenderMenu_(ev);
+};
+
+function _asistCalRenderMenu_(ev) {
+  let m = document.getElementById('asist-panel-cell-menu'); // reuso el mismo elemento
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'asist-panel-cell-menu';
+    m.style.cssText = 'position:fixed;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 20px rgba(15,23,42,.18);z-index:99999;padding:6px;min-width:220px';
+    document.body.appendChild(m);
+  } else if (m.parentElement !== document.body) {
+    document.body.appendChild(m);
+  }
+  const S = ASIST_CAL_EDIT;
+  const curNorm = asistPanelNormalizarConceptoLegado_(S.concepto || '');
+  const curGroup = ASIST_PANEL_CONCEPTO_MAP[curNorm]?.group || '';
+  const rowHtml = (label, sel, sub, key) => `
+    <div onclick="event.stopPropagation();asistCalMenuSetConcepto('${key}')"
+      style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;user-select:none;${sub?'padding-left:26px;font-size:11px':''}">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:${sub?14:16}px;height:${sub?14:16}px;border-radius:50%;border:1.5px solid ${sel?'#0f172a':'#cbd5e1'};background:${sel?'#0f172a':'#fff'};color:#fff;font-size:10px;font-weight:900;flex-shrink:0;line-height:1">${sel?'●':''}</span>
+      ${label}
+    </div>`;
+  const primarios = [
+    { k:'',            label:'<span style="font-size:11.5px;color:#64748b;font-style:italic">— Sin registro —</span>' },
+    { k:'Asistencia',  label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Asistencia']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Asistencia</span>` },
+    { k:'Falta',       label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Falta']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Falta</span>` },
+    { k:'Vacaciones',  label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Vacaciones']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Vacaciones</span>` },
+    { k:'Incapacidad', label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Incapacidad']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Incapacidad</span>` },
+  ];
+  let html = '<div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;padding:4px 8px 2px">Estado</div>';
+  primarios.forEach(p => {
+    let sel;
+    if (p.k === '') sel = !S.concepto;
+    else if (p.k === 'Asistencia') sel = curGroup === 'Asistencia';
+    else sel = curNorm === p.k;
+    const sendKey = p.k === 'Asistencia' ? 'Regular' : p.k;
+    html += rowHtml(p.label, sel, false, sendKey);
   });
-  alert(`Asistencias de ${nombre} · ${iso}\n\n${lines.join('\n')}`);
+  if (curGroup === 'Asistencia') {
+    html += '<div style="height:1px;background:#e2e8f0;margin:4px 0"></div>';
+    html += '<div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;padding:4px 8px 2px">Tipo de asistencia</div>';
+    ASIST_PANEL_SUBS_ASISTENCIA.forEach(subKey => {
+      const c = ASIST_PANEL_CONCEPTO_MAP[subKey];
+      const sel = curNorm === subKey;
+      const monto = asistPanelFmtMonto_(ASIST_PANEL_SAL_BASE * c.mult);
+      const labelHtml = `
+        <span style="width:8px;height:8px;border-radius:50%;background:${c.color};display:inline-block"></span>
+        <span style="font-size:11px;font-weight:700;color:#334155">${subKey}</span>
+        <span style="margin-left:auto;font-size:10.5px;font-weight:800;color:#0f172a;background:#f1f5f9;padding:1px 6px;border-radius:4px">${monto}</span>`;
+      html += rowHtml(labelHtml, sel, true, subKey);
+    });
+  }
+  const compOn = !!S.comp;
+  html += '<div style="height:1px;background:#e2e8f0;margin:4px 0"></div>';
+  html += `<div onclick="event.stopPropagation();asistCalMenuToggleComp()"
+    style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;user-select:none">
+    <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:4px;border:1.5px solid ${compOn?'#0d9488':'#cbd5e1'};background:${compOn?'#0d9488':'#fff'};color:#fff;font-size:11px;font-weight:900;flex-shrink:0;line-height:1">${compOn?'✓':''}</span>
+    <span style="width:10px;height:10px;border-radius:2px;background:#0d9488;display:inline-block"></span>
+    <span style="font-size:12px;font-weight:800;color:#0f172a">Compensación</span>
+  </div>`;
+  if (compOn) {
+    const cVal = S.comp || { concepto:'', monto:0 };
+    html += `
+      <div style="padding:4px 8px 8px 30px;display:flex;flex-direction:column;gap:6px" onclick="event.stopPropagation()">
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <label style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.03em">Concepto</label>
+          <input type="text" value="${esc(cVal.concepto)}" oninput="asistCalMenuSetComp('concepto', this.value)"
+            style="all:unset;padding:5px 8px;border:1.5px solid #cbd5e1;border-radius:5px;font-size:11.5px;color:#0f172a;background:#fff;box-sizing:border-box;width:100%"
+            placeholder="p. ej. Ajuste transporte">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <label style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.03em">Monto</label>
+          <input type="number" step="0.01" min="0" value="${cVal.monto || ''}" oninput="asistCalMenuSetComp('monto', this.value)"
+            style="all:unset;padding:5px 8px;border:1.5px solid #cbd5e1;border-radius:5px;font-size:11.5px;color:#0f172a;background:#fff;box-sizing:border-box;width:100%;text-align:right;font-weight:800"
+            placeholder="0.00">
+        </div>
+      </div>`;
+  }
+  html += `<div style="display:flex;gap:6px;padding:6px 4px 2px;margin-top:4px;border-top:1px solid #e2e8f0">
+    <button type="button" onclick="asistCalMenuGuardar()" ${S.saving?'disabled':''}
+      style="all:unset;cursor:pointer;flex:1;text-align:center;padding:7px 10px;border-radius:6px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-size:11.5px;font-weight:900;letter-spacing:.02em">
+      ${S.saving ? '⏳ Guardando…' : '💾 Guardar'}
+    </button>
+    <button type="button" onclick="asistCalMenuCerrar()"
+      style="all:unset;cursor:pointer;text-align:center;padding:7px 12px;border-radius:6px;background:#f1f5f9;color:#334155;font-size:11.5px;font-weight:700">
+      Cancelar
+    </button>
+  </div>`;
+  m.innerHTML = html;
+  // Posicionamiento
+  m.style.visibility = 'hidden';
+  const x = ev ? ev.clientX : window.innerWidth/2;
+  const y = ev ? ev.clientY : window.innerHeight/2;
+  m.style.left = `${Math.max(8, Math.min(x, window.innerWidth - 240))}px`;
+  m.style.top  = `${y + 8}px`;
+  m.style.visibility = '';
+  const menuRect = m.getBoundingClientRect();
+  if (menuRect.bottom > window.innerHeight - 8) {
+    m.style.top = `${Math.max(8, y - menuRect.height - 8)}px`;
+  }
+  if (menuRect.right > window.innerWidth - 8) {
+    m.style.left = `${Math.max(8, window.innerWidth - menuRect.width - 8)}px`;
+  }
+  // Close on outside click
+  setTimeout(() => document.addEventListener('click', asistCalMenuCloseOnOutside, { once:true }), 0);
+}
+
+function asistCalMenuCloseOnOutside(ev) {
+  const m = document.getElementById('asist-panel-cell-menu');
+  if (!m) return;
+  if (m.contains(ev.target)) { document.addEventListener('click', asistCalMenuCloseOnOutside, { once:true }); return; }
+  m.remove();
+}
+
+window.asistCalMenuCerrar = function () {
+  const m = document.getElementById('asist-panel-cell-menu');
+  if (m) m.remove();
+};
+
+window.asistCalMenuSetConcepto = function (concepto) {
+  const S = ASIST_CAL_EDIT;
+  const prevGroup = ASIST_PANEL_CONCEPTO_MAP[asistPanelNormalizarConceptoLegado_(S.concepto)]?.group || '';
+  S.concepto = concepto || '';
+  const newGroup = ASIST_PANEL_CONCEPTO_MAP[asistPanelNormalizarConceptoLegado_(S.concepto)]?.group || '';
+  // Re-render el menú (queda abierto para elegir sub o compensación).
+  _asistCalRenderMenu_();
+};
+
+window.asistCalMenuToggleComp = function () {
+  const S = ASIST_CAL_EDIT;
+  if (S.comp) S.comp = null;
+  else S.comp = { concepto:'', monto:0 };
+  _asistCalRenderMenu_();
+};
+
+window.asistCalMenuSetComp = function (field, value) {
+  const S = ASIST_CAL_EDIT;
+  if (!S.comp) S.comp = { concepto:'', monto:0 };
+  if (field === 'monto') S.comp.monto = Number(String(value).replace(/[^0-9.-]/g,'')) || 0;
+  else S.comp.concepto = String(value || '').slice(0, 120);
+};
+
+window.asistCalMenuGuardar = async function () {
+  const S = ASIST_CAL_EDIT;
+  if (S.saving) return;
+  S.saving = true;
+  _asistCalRenderMenu_();
+  try {
+    const nombre = S.nombre;
+    const iso    = S.iso;
+    const row    = _asistCalRowFor_(nombre, iso);
+    const concepto = S.concepto || '';
+    const compFinal = (S.comp && (S.comp.concepto || Number(S.comp.monto) > 0)) ? S.comp : null;
+    // Si el registro existente ya coincide en concepto Y compensación, no hacer nada.
+    const rowConceptoNorm = row
+      ? asistPanelNormalizarConceptoLegado_(String(row.Concepto||'').trim() || ((String(row.Entrada||'').trim() || String(row.Salida||'').trim()) ? 'Regular' : ''))
+      : '';
+    const rowCompMonto  = row ? (Number(String(row['Compensación_monto']||'').replace(/[$,\s]/g,'')) || 0) : 0;
+    const rowCompConc   = row ? String(row['Compensación_concepto'] || '').trim() : '';
+    const conceptoIgual = rowConceptoNorm === concepto;
+    const compIgual = ((rowCompMonto === (compFinal ? Number(compFinal.monto)||0 : 0))
+                     && (rowCompConc === (compFinal ? String(compFinal.concepto||'') : '')));
+    if (conceptoIgual && compIgual) {
+      asistCalMenuCerrar();
+      S.saving = false;
+      return;
+    }
+    // Caso 1: no había registro → si tampoco hay concepto ni comp final, no hacer nada.
+    if (!row && !concepto && !compFinal) {
+      asistCalMenuCerrar();
+      S.saving = false;
+      return;
+    }
+    // Caso 2: había registro y se limpió todo → DELETE.
+    if (row && !concepto && !compFinal) {
+      const isWa = String(row.Metodo||'').toLowerCase() === 'whatsapp';
+      const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(row.ID)}?reason=` + encodeURIComponent('borrado desde calendario') + (isWa ? '&force=true' : '');
+      await fetch(url, { method:'DELETE' });
+    } else {
+      // Caso 3: MODIFY (delete + create) preservando Metodo/Entrada/Salida/GPS del original.
+      if (row && row.ID) {
+        const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(row.ID)}?force=true&reason=` + encodeURIComponent('modificación desde calendario');
+        await fetch(url, { method:'DELETE' });
+      }
+      const isAs = asistPanelEsDiaTrabajado_(concepto);
+      const p    = asistPanelPrimasPorConcepto_(concepto);
+      const fmt  = v => v === '' ? '' : asistPanelFmtMonto_(v);
+      const totalPago = ['salBase','primaVac','primaDom','primaDF'].reduce((s,k)=>s+(typeof p[k]==='number'?p[k]:0),0)
+                     + (compFinal ? Number(compFinal.monto)||0 : 0);
+      const preserve = row || {};
+      const metodoFinal = String(preserve.Metodo||'').trim() || 'Manual';
+      const entrada = String(preserve.Entrada||'').trim() || (isAs ? '08:30' : '');
+      const salida  = String(preserve.Salida ||'').trim() || (isAs ? '13:30' : '');
+      const horas   = String(preserve.Horas  ||'').trim() || (isAs ? '5h00'  : '');
+      const payload = {
+        Empleado_Nombre: nombre, Fecha: iso, Concepto: concepto,
+        Entrada: entrada, Salida: salida, Horas: horas,
+        '$ Salario base':             fmt(p.salBase),
+        '$ Prima vacacional (25%)':   fmt(p.primaVac),
+        '$ Prima dominical (25%)':    fmt(p.primaDom),
+        '$ Prima día feriado (200%)': fmt(p.primaDF),
+        '$ Salario total':            totalPago ? asistPanelFmtMonto_(totalPago) : '',
+        Metodo: metodoFinal, Observaciones: '',
+        ...(compFinal && compFinal.concepto ? { 'Compensación_concepto': compFinal.concepto } : {}),
+        ...(compFinal && compFinal.monto    ? { 'Compensación_monto':    asistPanelFmtMonto_(Number(compFinal.monto)) } : {}),
+      };
+      if (preserve.Ubicacion_Lat != null && preserve.Ubicacion_Lat !== '') payload.Ubicacion_Lat = preserve.Ubicacion_Lat;
+      if (preserve.Ubicacion_Lng != null && preserve.Ubicacion_Lng !== '') payload.Ubicacion_Lng = preserve.Ubicacion_Lng;
+      if (preserve.Ubicacion_Salida_Lat != null && preserve.Ubicacion_Salida_Lat !== '') payload.Ubicacion_Salida_Lat = preserve.Ubicacion_Salida_Lat;
+      if (preserve.Ubicacion_Salida_Lng != null && preserve.Ubicacion_Salida_Lng !== '') payload.Ubicacion_Salida_Lng = preserve.Ubicacion_Salida_Lng;
+      await fetch(`${BACKEND}/rh/asistencia`, {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ payload }),
+      });
+    }
+    asistCalMenuCerrar();
+    if (typeof asistReloadList === 'function') {
+      await asistReloadList();
+      if (typeof asistRenderCalendar === 'function') asistRenderCalendar();
+    }
+  } catch (e) {
+    console.warn('[asist-cal] guardar falló:', e.message);
+    alert('❌ Error al guardar: ' + e.message);
+  } finally {
+    ASIST_CAL_EDIT.saving = false;
+  }
 };
 
 /** Puebla el <select> del empleado con nombres de la hoja Personal. */
