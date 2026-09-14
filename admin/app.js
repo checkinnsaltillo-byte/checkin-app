@@ -32975,8 +32975,8 @@ const ASIST_STATE = {
   dirty: new Set(),          // IDs de filas con cambios sin guardar
   rows: [],                  // filas de RH_Asistencia
   headers: [],               // headers del sheet
-  sortKey: '',               // columna activa para sort
-  sortDir: 'asc',            // 'asc' | 'desc'
+  sortKey: 'Timestamp',      // columna activa para sort (default: Timestamp)
+  sortDir: 'desc',           // 'asc' | 'desc' (default: más reciente primero)
   loading: false,
   loaded: false,
   calMonth: null,            // primer día del mes visible
@@ -33747,10 +33747,24 @@ function asistRenderFiltersBar_() {
   const bar = document.getElementById('asist-filters-bar');
   if (!bar) return;
   const F = asistFilters_();
-  // Opciones dinámicas desde los datos actuales.
+  // Opciones dinámicas desde los datos actuales. Reconciliamos nombres
+  // cortos (p.ej. "Adán") al canonical del Personal (p.ej. "Adán Ramos")
+  // para no duplicar la persona en el dropdown.
+  const _personal = asistPersonalOperativo();
+  const _aliasCanon = new Map();
+  _personal.forEach(p => {
+    const full = p.nombre; if (!full) return;
+    _aliasCanon.set(_normNombre_(full), full);
+    const fw = full.split(/\s+/)[0];
+    if (fw && !_aliasCanon.has(_normNombre_(fw))) _aliasCanon.set(_normNombre_(fw), full);
+  });
+  const _toCanon = (raw) => {
+    const t = String(raw||'').trim(); if (!t) return t;
+    return _aliasCanon.get(_normNombre_(t)) || t;
+  };
   const nombres = Array.from(new Set(
-    asistPersonalOperativo().map(x => x.nombre)
-      .concat((ASIST_STATE.rows||[]).map(r => String(r.Empleado_Nombre||'').trim()))
+    _personal.map(x => x.nombre)
+      .concat((ASIST_STATE.rows||[]).map(r => _toCanon(String(r.Empleado_Nombre||'').trim())))
       .filter(Boolean)
   )).sort((a,b)=>a.localeCompare(b,'es'));
   // Meses: derivados de las fechas presentes en los registros + 6 meses
@@ -33829,7 +33843,24 @@ function asistSortedRows() {
   // Aplica filtros globales de Control de asistencias (nombre / mes / concepto).
   const F = asistFilters_();
   let rows = (ASIST_STATE.rows || []).slice();
-  if (F.nombre) rows = rows.filter(r => String(r.Empleado_Nombre||'').trim() === F.nombre);
+  if (F.nombre) {
+    // Reconciliamos nombres cortos (p.ej. "Adán") al canonical del Personal
+    // (p.ej. "Adán Ramos") para que el filtro atrape ambas variantes.
+    const _personal = asistPersonalOperativo();
+    const _alias = new Map();
+    _personal.forEach(p => {
+      const full = p.nombre; if (!full) return;
+      _alias.set(_normNombre_(full), full);
+      const fw = full.split(/\s+/)[0];
+      if (fw && !_alias.has(_normNombre_(fw))) _alias.set(_normNombre_(fw), full);
+    });
+    const _canon = (raw) => {
+      const t = String(raw||'').trim(); if (!t) return t;
+      return _alias.get(_normNombre_(t)) || t;
+    };
+    const target = _canon(F.nombre);
+    rows = rows.filter(r => _canon(String(r.Empleado_Nombre||'').trim()) === target);
+  }
   if (F.mes) rows = rows.filter(r => String(r.Fecha||'').slice(0,7) === F.mes);
   if (F.concepto) {
     rows = rows.filter(r => {
@@ -34283,13 +34314,10 @@ function asistRenderCalendar() {
   const totalDays = Math.round((rangeEnd - rangeStart) / 86400000) + 1;
   // Personal operativo (sin administrativos). Ordena alfabéticamente.
   let personalRows = asistPersonalOperativo().slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
-  // Filtro por Empleado_Nombre.
   const F = asistFilters_();
-  if (F.nombre) personalRows = personalRows.filter(p => p.nombre === F.nombre);
-  const personas = personalRows.map(x => x.nombre);
   // Reconciliación de nombres: registros creados con solo "Adán" deben
-  // matchear con "Adán Ramos" del Personal (canonical). Construimos un
-  // mapa de aliases (nombre completo + primer nombre) → canonical.
+  // matchear con "Adán Ramos" del Personal (canonical). Construimos el
+  // mapa ANTES del filtro para poder reconciliar F.nombre también.
   const _aliasToCanonical = new Map();
   personalRows.forEach(p => {
     const full = p.nombre;
@@ -34305,6 +34333,12 @@ function asistRenderCalendar() {
     if (!t) return t;
     return _aliasToCanonical.get(_normNombre_(t)) || t;
   };
+  // Filtro por Empleado_Nombre — reconciliamos F.nombre al canonical.
+  if (F.nombre) {
+    const target = _canonNom(F.nombre);
+    personalRows = personalRows.filter(p => p.nombre === target);
+  }
+  const personas = personalRows.map(x => x.nombre);
   // Index: `${persona}|${YYYY-MM-DD}` → [rows]. Usa el nombre canónico.
   const idx = new Map();
   for (const r of ASIST_STATE.rows) {
