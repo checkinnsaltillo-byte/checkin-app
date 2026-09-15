@@ -33758,13 +33758,7 @@ function asistRenderFiltersBar_() {
   // cortos (p.ej. "Adán") al canonical del Personal (p.ej. "Adán Ramos")
   // para no duplicar la persona en el dropdown.
   const _personal = asistPersonalOperativo();
-  const _aliasCanon = new Map();
-  _personal.forEach(p => {
-    const full = p.nombre; if (!full) return;
-    _aliasCanon.set(_normNombre_(full), full);
-    const fw = full.split(/\s+/)[0];
-    if (fw && !_aliasCanon.has(_normNombre_(fw))) _aliasCanon.set(_normNombre_(fw), full);
-  });
+  const _aliasCanon = _asistBuildAliasMap_(_personal);
   const _toCanon = (raw) => {
     const t = String(raw||'').trim(); if (!t) return t;
     return _aliasCanon.get(_normNombre_(t)) || t;
@@ -33854,13 +33848,7 @@ function asistSortedRows() {
     // Reconciliamos nombres cortos (p.ej. "Adán") al canonical del Personal
     // (p.ej. "Adán Ramos") para que el filtro atrape ambas variantes.
     const _personal = asistPersonalOperativo();
-    const _alias = new Map();
-    _personal.forEach(p => {
-      const full = p.nombre; if (!full) return;
-      _alias.set(_normNombre_(full), full);
-      const fw = full.split(/\s+/)[0];
-      if (fw && !_alias.has(_normNombre_(fw))) _alias.set(_normNombre_(fw), full);
-    });
+    const _alias = _asistBuildAliasMap_(_personal);
     const _canon = (raw) => {
       const t = String(raw||'').trim(); if (!t) return t;
       return _alias.get(_normNombre_(t)) || t;
@@ -34347,16 +34335,7 @@ function asistRenderCalendar() {
   // Reconciliación de nombres: registros creados con solo "Adán" deben
   // matchear con "Adán Ramos" del Personal (canonical). Construimos el
   // mapa ANTES del filtro para poder reconciliar F.nombre también.
-  const _aliasToCanonical = new Map();
-  personalRows.forEach(p => {
-    const full = p.nombre;
-    if (!full) return;
-    _aliasToCanonical.set(_normNombre_(full), full);
-    const firstWord = full.split(/\s+/)[0];
-    if (firstWord && !_aliasToCanonical.has(_normNombre_(firstWord))) {
-      _aliasToCanonical.set(_normNombre_(firstWord), full);
-    }
-  });
+  const _aliasToCanonical = _asistBuildAliasMap_(personalRows);
   const _canonNom = (raw) => {
     const t = String(raw || '').trim();
     if (!t) return t;
@@ -34674,6 +34653,28 @@ window.asistCalClick = function (nombre, iso, ev) {
   asistCalOpenCellMenu(nombre, iso, ev);
 };
 
+/** Construye el mapa alias→canonical usado para reconciliar nombres
+ *  cortos (p.ej. "Sandra" o "Sandra Sánchez") contra el nombre completo
+ *  del Personal ("Sandra Sánchez Rojas"). Registra TODOS los prefijos
+ *  de palabras del nombre — el más largo gana si hay conflictos entre
+ *  personas con el mismo primer nombre. */
+function _asistBuildAliasMap_(personalRows) {
+  const alias = new Map();
+  (personalRows || []).forEach(p => {
+    const full = String(p?.nombre || '').trim();
+    if (!full) return;
+    const words = full.split(/\s+/).filter(Boolean);
+    alias.set(_normNombre_(full), full);
+    // Prefijos de 1..N-1 palabras — solo se registran si aún no existen
+    // (evita que dos personas con el mismo primer nombre se pisen).
+    for (let i = 1; i < words.length; i++) {
+      const pref = words.slice(0, i).join(' ');
+      const key = _normNombre_(pref);
+      if (!alias.has(key)) alias.set(key, full);
+    }
+  });
+  return alias;
+}
 function _asistCalRowFor_(nombre, iso) {
   const all = _asistCalAllRowsFor_(nombre, iso);
   return all.length ? all[0] : null;
@@ -34683,13 +34684,7 @@ function _asistCalRowFor_(nombre, iso) {
  *  canonical del Personal (p.ej. "Alma Abigail Robledo Gutiérrez"). */
 function _asistCalAllRowsFor_(nombre, iso) {
   const _personal = (typeof asistPersonalOperativo === 'function') ? asistPersonalOperativo() : [];
-  const _alias = new Map();
-  _personal.forEach(p => {
-    const full = p.nombre; if (!full) return;
-    _alias.set(_normNombre_(full), full);
-    const fw = full.split(/\s+/)[0];
-    if (fw && !_alias.has(_normNombre_(fw))) _alias.set(_normNombre_(fw), full);
-  });
+  const _alias = _asistBuildAliasMap_(_personal);
   const canon = (raw) => {
     const t = String(raw||'').trim(); if (!t) return t;
     return _alias.get(_normNombre_(t)) || t;
