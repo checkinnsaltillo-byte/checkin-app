@@ -13724,6 +13724,17 @@ async function __lodgifyLoadInner(force, opts) {
     const res = await fetch(url, { cache:'no-store' });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    // Guarda un índice CRUDO (sin filtrar) de Lodgify Id → Status ANTES
+    // de aplicar el filtro Booked/Tentative. Los sintéticos construidos
+    // desde Reservaciones consultan este mapa para saber si su booking
+    // real está Declined/Cancelled y no aparecer como "BOOKED" falso.
+    LG_STATE.__rawStatusById = new Map();
+    if (Array.isArray(data.bookings)) {
+      data.bookings.forEach(b => {
+        const id = String(b?.Id || '').trim();
+        if (id) LG_STATE.__rawStatusById.set(id, String(b?.Status || ''));
+      });
+    }
     // Filtro adicional: solo Booked / Tentative
     if (Array.isArray(data.bookings)) {
       data.bookings = data.bookings.filter(b => {
@@ -14266,6 +14277,14 @@ function huRowToSyntheticBooking(r) {
     return String(iso || '');
   };
   const lodId = String(r['Lodgify Id'] || '').trim();
+  // Si la fila tiene Lodgify Id y el status REAL (del sheet Reservas_Lodgify,
+  // capturado en __rawStatusById antes del filtro) es un estado no-visible,
+  // NO generamos sintético → la reserva desaparece de Gestión de reservas.
+  if (lodId && LG_STATE.__rawStatusById) {
+    const rawSt = String(LG_STATE.__rawStatusById.get(lodId) || '').toLowerCase();
+    const HIDDEN = new Set(['declined','cancelled','canceled','expired','deleted']);
+    if (rawSt && HIDDEN.has(rawSt)) return null;
+  }
   const realLg = lodId ? (LG_STATE.bookings || []).find(b => String(b.Id) === lodId) : null;
   const arrival   = realLg?.DateArrival   || toMMDD(arrivalRaw);
   const departure = realLg?.DateDeparture || toMMDD(departureRaw);
