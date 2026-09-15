@@ -14002,7 +14002,12 @@ function lgMultiRender(id, label, allValues, opts) {
   const c = document.getElementById(containerId);
   if (!c) return;
   lgMultiInitIfNeeded(id, allValues, opts.defaultSelected);
+  // lgMultiInitIfNeeded deja multiSel[id] en null cuando allValues está
+  // vacío (datos aún no cargados). En ese caso NO renderizamos — el
+  // próximo rebuild con datos reales lo pintará. Antes esto reventaba con
+  // "Cannot read properties of null (reading 'size')" y abortaba lodgifyLoad.
   const sel = LG_STATE.multiSel[id];
+  if (!sel) { if (c) c.innerHTML = ''; return; }
   const total = allValues.length;
   const selCount = sel.size;
   const labelTxt = selCount === total
