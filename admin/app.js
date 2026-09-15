@@ -14299,7 +14299,11 @@ function huRowToSyntheticBooking(r) {
   }
   return {
     Id: String(r['ID'] || r['row_number'] || ''),
-    GuestName: realLg?.GuestName || r['Nombre de la persona que hizo la reservación'] || '',
+    GuestName: realLg?.GuestName
+            || r['Nombre de la persona que hizo la reservación']
+            || r['Nombre del huésped']
+            || String(r['Nombres de TODOS los huéspedes (separados por comas)']||'').split(',')[0].trim()
+            || '',
     GuestPhone: realLg?.GuestPhone || phone,
     GuestEmail: realLg?.GuestEmail || r['Correo electrónico'] || '',
     DateArrival: arrival,
@@ -15036,11 +15040,21 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
             //  3) BOTC_STATE.conversations por celular (Perfiles vía Chats bot).
             const bookingName = String(b.GuestName || '').trim();
             const p10 = String(b.GuestPhone || '').replace(/\D/g,'').slice(-10);
+            // Toma el primer nombre de una lista "Nombres de TODOS los
+            // huéspedes (separados por comas)" — para reservas Airbnb
+            // suele ser la única fuente con el nombre real.
+            const _primerHuesped = (raw) => String(raw||'').split(',')[0].trim();
             let perfilName = huesped ? String(huesped['Nombre del huésped'] || '').trim() : '';
+            if (!perfilName && huesped) {
+              perfilName = _primerHuesped(huesped['Nombres de TODOS los huéspedes (separados por comas)']);
+            }
             if (!perfilName && p10 && typeof HU_STATE !== 'undefined' && Array.isArray(HU_STATE.rows)) {
               try {
                 const m = HU_STATE.rows.find(r => String(r['Cel/Whatsapp (principal)']||'').replace(/\D/g,'').slice(-10) === p10);
-                if (m) perfilName = String(m['Nombre del huésped'] || '').trim();
+                if (m) {
+                  perfilName = String(m['Nombre del huésped'] || '').trim()
+                            || _primerHuesped(m['Nombres de TODOS los huéspedes (separados por comas)']);
+                }
               } catch(_){}
             }
             if (!perfilName && p10 && typeof BOTC_STATE === 'object' && Array.isArray(BOTC_STATE.conversations)) {
