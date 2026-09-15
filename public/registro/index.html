@@ -20576,8 +20576,15 @@ window._factBuildInfoBlock_ = function() {
   const comision = isAirbnb ? +(baseAirbnb * AIRBNB_COMM).toFixed(2) : 0;
   const facturado = isAirbnb ? +(baseAirbnb - comision).toFixed(2) : pagado;
   const rawPS = String(r.PaymentStatus || '').toLowerCase();
+  // "Está pagada" = (Airbnb siempre) O el string de Lodgify lo dice O
+  // aritméticamente el pagado cubre el total (pendiente ≤ 0). Este último
+  // caso atrapa reservas donde Lodgify no actualizó el PaymentStatus a
+  // "Paid" pero los montos ya reflejan el pago completo — antes esto
+  // bloqueaba la emisión del ticket con "No disponible: contactar al
+  // anfitrión" aunque la reserva estuviera totalmente pagada.
+  const isPaidByAmount = total > 0 && pendiente <= 0 && pagado > 0;
   const isPaid = isAirbnb || (rawPS.includes('paid') && !rawPS.includes('not') && !rawPS.includes('partial'))
-              || rawPS.includes('pagada');
+              || rawPS.includes('pagada') || isPaidByAmount;
   const _fmt = n => `$${Number(n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
   const _parseD = s => {
     const str = String(s||'').trim();
@@ -20654,8 +20661,15 @@ window.openFactConfirmModal_ = function() {
   const comision = isAirbnb ? +(baseAirbnb * AIRBNB_COMM).toFixed(2) : 0;
   const facturado = isAirbnb ? +(baseAirbnb - comision).toFixed(2) : pagado;
   const rawPS = String(r.PaymentStatus || '').toLowerCase();
+  // "Está pagada" = (Airbnb siempre) O el string de Lodgify lo dice O
+  // aritméticamente el pagado cubre el total (pendiente ≤ 0). Este último
+  // caso atrapa reservas donde Lodgify no actualizó el PaymentStatus a
+  // "Paid" pero los montos ya reflejan el pago completo — antes esto
+  // bloqueaba la emisión del ticket con "No disponible: contactar al
+  // anfitrión" aunque la reserva estuviera totalmente pagada.
+  const isPaidByAmount = total > 0 && pendiente <= 0 && pagado > 0;
   const isPaid = isAirbnb || (rawPS.includes('paid') && !rawPS.includes('not') && !rawPS.includes('partial'))
-              || rawPS.includes('pagada');
+              || rawPS.includes('pagada') || isPaidByAmount;
   const _fmt = n => `$${Number(n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
   const _parseD = s => {
     const str = String(s||'').trim();
