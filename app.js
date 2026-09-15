@@ -15057,9 +15057,9 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
                 }
               } catch(_){}
             }
-            if (!perfilName && p10 && typeof BOTC_STATE === 'object' && Array.isArray(BOTC_STATE.conversations)) {
+            if (!perfilName && p10 && typeof BOTC_STATE === 'object' && BOTC_STATE !== null && Array.isArray(BOTC_STATE.conversations)) {
               try {
-                const c = BOTC_STATE.conversations.find(x => String(x.phone) === p10);
+                const c = BOTC_STATE.conversations.find(x => x && String(x.phone) === p10);
                 if (c && c.name) perfilName = String(c.name).trim();
               } catch(_){}
             }
