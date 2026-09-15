@@ -7787,22 +7787,32 @@ document.querySelector('input[name="cel"]')?.addEventListener("input", scheduleG
 document.querySelector('input[name="cel"]')?.addEventListener("blur", detectExistingGuestByPhone);
 document.getElementById("lada1")?.addEventListener("change", detectExistingGuestByPhone);
 
-/** Mapa canónico de Source de Lodgify → label que espera el form. */
+/** Mapa canónico de Source de Lodgify → label que espera el form.
+ *  Reservas hechas por el widget web de Lodgify o desde la página propia
+ *  (lodgify hospedada como check-inn-saltillo.com) llegan con Source
+ *  "Lodgify" / "Website" / "Manual" / vacío — todas deben mapearse a
+ *  "Check-inn-Saltillo.com (website / link de whatsapp)". */
 window._mapSourceToMedio = function(raw) {
   const s = String(raw || "").toLowerCase();
   if (s.includes("airbnb"))   return "Airbnb";
   if (s.includes("booking"))  return "Booking.com";
   if (s.includes("vrbo"))     return "";
   if (s.includes("expedia"))  return "";
-  if (s.includes("manual"))   return "Trato directo";
-  if (s.includes("direct"))   return "Trato directo";
   if (s.includes("check-inn") || s.includes("checkinn") || s.includes("check inn"))
     return "Check-inn-Saltillo.com (website / link de whatsapp)";
+  if (s.includes("lodgify") || s.includes("website") || s.includes("widget"))
+    return "Check-inn-Saltillo.com (website / link de whatsapp)";
+  if (s.includes("manual"))   return "Check-inn-Saltillo.com (website / link de whatsapp)";
+  if (s.includes("direct"))   return "Trato directo";
   return raw || "";
 };
 
-/** Reconstruye las opciones del combobox "Medio de reservación" con los
- *  valores realmente encontrados en las reservas asociadas al teléfono. */
+/** Reconstruye las opciones del combobox "Medio de reservación" MANTENIENDO
+ *  siempre las 4 opciones estáticas (Selecciona / Airbnb / Check-inn-Saltillo.com
+ *  / Trato directo) y pre-seleccionando la que corresponde al Source detectado.
+ *  Antes: la lista se REEMPLAZABA con los medios encontrados → si el mapper
+ *  identificaba mal el Source, el guest se quedaba atrapado en una sola opción
+ *  incorrecta sin poder cambiarla. */
 function rebuildMedioOptionsFromReservas(reservas) {
   const sel = document.querySelector('select[name="medio"]');
   if (!sel) return;
@@ -7810,21 +7820,38 @@ function rebuildMedioOptionsFromReservas(reservas) {
   const _mapSource = window._mapSourceToMedio;
   const distinct = new Set();
   reservas.forEach(r => { const m = _mapSource(r.Source); if (m) distinct.add(m); });
-  if (!distinct.size) return;
   const current = String(sel.value || "").trim();
-  // Reconstruye: siempre "Selecciona" primero, luego los distinct.
+  // Lista base ESTÁTICA — siempre visible para que el guest pueda corregir
+  // si el mapper acertó parcialmente o no acertó del todo.
+  const BASE_OPTIONS = [
+    { value: "", label: "Selecciona" },
+    { value: "Airbnb", label: "Airbnb" },
+    { value: "Check-inn-Saltillo.com", label: "Check-inn-Saltillo.com (website / link de whatsapp)" },
+    { value: "Trato directo", label: "Trato directo" },
+  ];
   sel.innerHTML = "";
-  const opt0 = document.createElement("option");
-  opt0.value = ""; opt0.textContent = "Selecciona";
-  sel.appendChild(opt0);
+  BASE_OPTIONS.forEach(({ value, label }) => {
+    const o = document.createElement("option");
+    o.value = value; o.textContent = label;
+    sel.appendChild(o);
+  });
+  // Agrega medios adicionales que NO estén en la base (p.ej. "Booking.com"
+  // si aparece en las reservas).
   Array.from(distinct).sort().forEach(label => {
+    if (BASE_OPTIONS.some(o => o.value === label || o.label === label)) return;
     const o = document.createElement("option");
     o.value = label; o.textContent = label;
     sel.appendChild(o);
   });
-  // Si el value anterior está entre las nuevas → mantenerlo; si no, selecciona la primera real.
-  if (current && distinct.has(current)) sel.value = current;
-  else if (distinct.size === 1) sel.value = Array.from(distinct)[0];
+  // Pre-selecciona: mantiene el value previo si existe; si no, usa el
+  // detectado (solo si hubo exactamente uno).
+  if (current) {
+    sel.value = current;
+    // Si el value previo ya no existe en el nuevo select, deja "Selecciona".
+    if (sel.value !== current) sel.value = "";
+  } else if (distinct.size === 1) {
+    sel.value = Array.from(distinct)[0];
+  }
 }
 
 /** Renderiza el selector de reservas asociadas al teléfono. Si hay <=1
