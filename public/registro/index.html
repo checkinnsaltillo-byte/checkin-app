@@ -9389,21 +9389,37 @@ document.getElementById("form").addEventListener("submit", async function(e){
     status.textContent = "Enviando registro...";
     await esperarRepintadoUI();
 
-    const res = await fetch(WEB_APP_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const text = await res.text();
-    let json = {};
-    try {
-      json = JSON.parse(text);
-    } catch (parseErr) {
-      throw new Error("La respuesta del Apps Script no fue JSON válido: " + text);
+    // Retry con backoff (0s / 1.5s / 3s) para atrapar el hipo intermitente
+    // de Apps Script (interstitial HTML ppConfig). Sin retry, un solo hipo
+    // aborta el registro entero y el huésped ve "no fue JSON válido".
+    let text = "", json = {};
+    let lastErr = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(WEB_APP_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+        text = await res.text();
+        try {
+          json = JSON.parse(text);
+          lastErr = null;
+          break; // parseó → éxito, salimos del loop
+        } catch (parseErr) {
+          // HTML del hipo → reintenta. Cualquier otra cosa que no parsee
+          // también → mismo tratamiento (backend problemático momentáneo).
+          lastErr = new Error("La respuesta del Apps Script no fue JSON válido: " + text);
+        }
+      } catch (netErr) {
+        lastErr = netErr;
+      }
+      if (attempt < 2) {
+        try { status.textContent = `Reintentando registro (${attempt + 2}/3)...`; } catch(_){}
+        await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
+      }
     }
+    if (lastErr) throw lastErr;
 
     if (json.ok) {
       status.textContent = "Registro guardado. Procesando imágenes...";
