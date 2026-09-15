@@ -7800,10 +7800,15 @@ window._mapSourceToMedio = function(raw) {
   if (s.includes("expedia"))  return "";
   if (s.includes("check-inn") || s.includes("checkinn") || s.includes("check inn"))
     return "Check-inn-Saltillo.com (website / link de whatsapp)";
+  // "Direct" en Lodgify = reserva hecha por el widget web propio de la
+  // página check-inn-saltillo.com (hosteada en Lodgify). NO es lo mismo
+  // que "Trato directo" (walk-in / cara-a-cara), aunque el nombre
+  // confunda. Todos estos sources apuntan al mismo medio real.
   if (s.includes("lodgify") || s.includes("website") || s.includes("widget"))
     return "Check-inn-Saltillo.com (website / link de whatsapp)";
   if (s.includes("manual"))   return "Check-inn-Saltillo.com (website / link de whatsapp)";
-  if (s.includes("direct"))   return "Trato directo";
+  if (s === "direct" || s.includes("direct"))
+    return "Check-inn-Saltillo.com (website / link de whatsapp)";
   return raw || "";
 };
 
