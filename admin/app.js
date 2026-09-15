@@ -34448,7 +34448,17 @@ function asistRenderCalendar() {
   }
   html += `</div>`;
 
+  // Días laborales por empleado (Dias_trabajo en Personal). Se usa para
+  // pintar en gris claro las celdas de los días que la persona trabaja
+  // aunque no haya registro capturado ese día — visualiza el "esperado".
+  const _diasTrabajoByNombre = new Map();
+  (INC_STATE?.personalRows || []).forEach(pr => {
+    const n = String(pr?.Nombre || '').trim();
+    if (!n) return;
+    _diasTrabajoByNombre.set(n, asistPanelParseDiasTrabajo_(pr.Dias_trabajo || ''));
+  });
   personalRows.forEach(({ nombre, puesto }) => {
+    const _workDows = _diasTrabajoByNombre.get(nombre) || null;
     html += `<div class="ocup-cal-row" data-persona="${esc(nombre)}">`;
     html += `<div class="ocup-aloj-cell">
       <div class="ocup-aloj-img">👤</div>
@@ -34469,7 +34479,13 @@ function asistRenderCalendar() {
       // calendario grande sirve para revisar cuál fue el estado y las
       // horas del día de un vistazo.
       const conceptos = asistDeriveConceptos_(recs);
-      const bgStyle = conceptos.size ? `background:${asistPanelBgFor_(conceptos)};` : '';
+      // Día laboral esperado según Dias_trabajo — pinta la celda vacía
+      // en gris claro cuando no hay registro para dejar visualmente
+      // marcado que ese día "sí trabaja".
+      const isWorkDow = !!(_workDows && _workDows.has(dow));
+      const bgStyle = conceptos.size
+        ? `background:${asistPanelBgFor_(conceptos)};`
+        : (isWorkDow ? 'background:#e2e8f0;' : '');
       const semStyle = conceptos.size ? asistPanelSemaforo_(conceptos) : '';
       let inner = '';
       if (conceptos.size) {
