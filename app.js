@@ -12366,7 +12366,7 @@ function huBuildRecordCard(r) {
 // ─── Integración Facturapi ──────────────────────────────────────────────────
 // URL base del facturapi del check-in (Cloud Run us-central1).
 // Se puede sobreescribir guardando otra en localStorage.HU_FACTURAPI_URL.
-const HU_FACTURAPI_DEFAULT = 'https://api.check-inn.mx/facturapi';
+const HU_FACTURAPI_DEFAULT = 'https://checkin-app-957627511957.us-central1.run.app/facturapi';
 function huGetFacturapiUrl() {
   try {
     const override = localStorage.getItem('HU_FACTURAPI_URL');
@@ -18831,7 +18831,7 @@ function rdBuildRightbarHtml(b, huesped) {
 
 // URL base del backend de Breezeway. Comparte host con Facturapi (mismo
 // Cloud Run de checkin-app). Override via localStorage.BZW_API_BASE.
-const BZW_API_DEFAULT = 'https://api.check-inn.mx';
+const BZW_API_DEFAULT = 'https://checkin-app-957627511957.us-central1.run.app';
 function bzwApiBase() {
   try {
     const o = localStorage.getItem('BZW_API_BASE');
@@ -37804,7 +37804,7 @@ function inqBuildFacturapiUrl_(pago, perfil) {
   }
   if (typeof HU_CHECKIN_WEBAPP_URL === 'string') p.set('checkinWebAppUrl', HU_CHECKIN_WEBAPP_URL);
   if (typeof huGetFacturapiOrg === 'function') p.set('org', huGetFacturapiOrg());
-  const base = (typeof huGetFacturapiUrl === 'function') ? huGetFacturapiUrl() : 'https://api.check-inn.mx/facturapi';
+  const base = (typeof huGetFacturapiUrl === 'function') ? huGetFacturapiUrl() : 'https://checkin-app-957627511957.us-central1.run.app/facturapi';
   return `${base}?${p.toString()}`;
 }
 
