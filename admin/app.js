@@ -26734,8 +26734,12 @@ function rhInit() {
   RH_STATE.initialized = true;
   // Entrada por default: Control de asistencias (sección principal del módulo).
   RH_STATE.section = 'asistencias';
-  // Carga catalogo de empleados en background — todos los tabs lo necesitan.
-  rhLoadEmpleados();
+  // Precarga en paralelo TODAS las listas RH en background — el server-side
+  // cache hará hit cuando el usuario cambie de tab, así que la latencia
+  // percibida en tabs siguientes es ~0. Fire-and-forget: no bloquea el
+  // primer render de asistencias.
+  if (typeof rhLoadEmpleados === 'function') rhLoadEmpleados();
+  if (typeof rhLoadCompensaciones === 'function') rhLoadCompensaciones().catch(()=>{});
   // Muestra Control de asistencias directamente en lugar de arrancar en Nómina.
   rhSetSection('asistencias');
 }
@@ -26781,14 +26785,20 @@ window.rhSetTab = function (tab) {
   const view = document.getElementById('rh-view');
   if (!view) return;
   view.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>`;
-  if (tab === 'compensaciones') rhLoadCompensaciones().then(rhRenderCompensaciones);
+  if (tab === 'compensaciones') {
+    // Idempotente: solo re-fetch si aún no hay datos en memoria.
+    const needComp = !(RH_STATE.compensaciones || []).length;
+    (needComp ? rhLoadCompensaciones() : Promise.resolve()).then(rhRenderCompensaciones);
+  }
   else if (tab === 'resumen_semanal') {
     // asistRenderResumen lee ASIST_STATE.rows (no RH_STATE.asistencia).
     // asistReloadList() es la función que popula ASIST_STATE.rows.
     // Además, el descanso proporcional depende de Dias_trabajo por empleado,
     // que vive en INC_STATE.personalRows — si aún no está cargado, lo
-    // dispara en paralelo.
-    const promAsist = typeof asistReloadList === 'function' ? asistReloadList() : Promise.resolve();
+    // dispara en paralelo. Idempotente: si asistencia + personal ya están
+    // en memoria, render inmediato sin fetch.
+    const needAsist = !ASIST_STATE.loaded && typeof asistReloadList === 'function';
+    const promAsist = needAsist ? asistReloadList() : Promise.resolve();
     const needPersonal = !(INC_STATE?.personalRows || []).length && typeof incLoadPersonal === 'function';
     const promPersonal = needPersonal ? incLoadPersonal() : Promise.resolve();
     Promise.all([promAsist, promPersonal]).then(() => asistRenderResumen('rh-view'));
@@ -26797,11 +26807,19 @@ window.rhSetTab = function (tab) {
 
 // ── Loaders ──
 async function rhLoadEmpleados() {
-  try {
-    const res = await fetch(`${BACKEND}/rh/empleados?_cb=${Date.now()}`, { cache: 'no-store' });
-    const data = await res.json();
-    if (data.ok) RH_STATE.empleados = data.rows || [];
-  } catch (e) { console.warn('[RH] empleados:', e.message); }
+  // Idempotente + coalesce: si ya hay carga en vuelo, devolvemos esa
+  // promesa; si ya cargó y hay datos, no re-fetch.
+  if (RH_STATE._empleadosPromise) return RH_STATE._empleadosPromise;
+  if ((RH_STATE.empleados || []).length) return Promise.resolve();
+  RH_STATE._empleadosPromise = (async () => {
+    try {
+      const res = await fetch(`${BACKEND}/rh/empleados?_cb=${Date.now()}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (data.ok) RH_STATE.empleados = data.rows || [];
+    } catch (e) { console.warn('[RH] empleados:', e.message); }
+    finally { RH_STATE._empleadosPromise = null; }
+  })();
+  return RH_STATE._empleadosPromise;
 }
 async function rhLoadAsistencia() {
   try {
@@ -26818,11 +26836,17 @@ async function rhLoadAusencias() {
   } catch (e) { console.warn('[RH] ausencias:', e.message); }
 }
 async function rhLoadCompensaciones() {
-  try {
-    const res = await fetch(`${BACKEND}/rh/compensaciones?_cb=${Date.now()}`, { cache: 'no-store' });
-    const data = await res.json();
-    if (data.ok) RH_STATE.compensaciones = data.rows || [];
-  } catch (e) { console.warn('[RH] compensaciones:', e.message); }
+  // Idempotente + coalesce (mismo patrón que rhLoadEmpleados).
+  if (RH_STATE._compensacionesPromise) return RH_STATE._compensacionesPromise;
+  RH_STATE._compensacionesPromise = (async () => {
+    try {
+      const res = await fetch(`${BACKEND}/rh/compensaciones?_cb=${Date.now()}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (data.ok) RH_STATE.compensaciones = data.rows || [];
+    } catch (e) { console.warn('[RH] compensaciones:', e.message); }
+    finally { RH_STATE._compensacionesPromise = null; }
+  })();
+  return RH_STATE._compensacionesPromise;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -33704,9 +33728,13 @@ window.asistEliminarSeleccion = async function () {
 };
 
 async function asistReloadList() {
+  // Coalesce: si ya hay una carga en vuelo, devolvemos esa promesa para
+  // evitar dobles fetch al abrir Nómina + Control asistencias simultáneo.
+  if (ASIST_STATE._reloadPromise) return ASIST_STATE._reloadPromise;
   const wrap = document.getElementById('asist-tabla-wrap');
   if (wrap) wrap.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando registros…</div>`;
   ASIST_STATE.loading = true;
+  ASIST_STATE._reloadPromise = (async () => {
   try {
     const res = await fetch(`${BACKEND}/rh/asistencia?_cb=${Date.now()}`, { cache: 'no-store' });
     const j = await res.json();
@@ -33728,6 +33756,9 @@ async function asistReloadList() {
   } finally {
     ASIST_STATE.loading = false;
   }
+  })();
+  try { return await ASIST_STATE._reloadPromise; }
+  finally { ASIST_STATE._reloadPromise = null; }
 }
 window.asistReloadList = asistReloadList;
 
