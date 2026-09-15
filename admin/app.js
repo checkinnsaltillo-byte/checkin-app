@@ -9842,14 +9842,12 @@ async function __huespedesLoadInner(forceRefetch) {
       if (lbl) lbl.textContent = `Cargando 1 de ${totalPages}…`;
       const pageNums = [];
       for (let p = 2; p <= totalPages; p++) pageNums.push(p);
-      // Paralelo en lotes de 6 para más velocidad sin saturar.
-      const BATCH = 6;
-      for (let i = 0; i < pageNums.length; i += BATCH) {
-        const batch = pageNums.slice(i, i + BATCH);
-        const results = await Promise.all(batch.map(fetchPage));
-        results.forEach(j => rows = rows.concat(j.rows || []));
-        if (lbl) lbl.textContent = `Cargando ${Math.min(rows.length, first.total)} de ${first.total}…`;
-      }
+      // Todas las páginas restantes en paralelo — el server cachea +
+      // coalesce peticiones concurrentes a Apps Script, así que ya no
+      // es necesario limitar el batch. Máximo speedup en primera carga.
+      const results = await Promise.all(pageNums.map(fetchPage));
+      results.forEach(j => rows = rows.concat(j.rows || []));
+      if (lbl) lbl.textContent = `Cargando ${Math.min(rows.length, first.total)} de ${first.total}…`;
     }
     const data = { ...first, rows };
     try {
