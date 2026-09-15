@@ -33309,18 +33309,18 @@ function asistRenderResumen(targetId) {
     // Los días de descanso solo se pagan si el empleado está dado de alta
     // en IMSS. Si no, factorDes = 0.
     const conImss = _empleadoAltaImss_(g.nombre);
-    const recibeSalario = _empleadoRecibeSalario_(g.nombre);
     g.altaImss = conImss;
-    g.recibeSalario = recibeSalario;
     g.diasTrab = N;
     g.workContract = workContract;
     g.restContract = restContract;
     g.factorLab = N;
     g.factorDes = conImss ? (restContract * Math.min(N / Math.max(1, workContract), 1)) : 0;
-    // Solo devengan base + primas los que tienen "Salario=Sí" en Personal.
-    g.baseLab = recibeSalario ? ASIST_PANEL_SAL_BASE * g.factorLab : 0;
-    g.baseDes = recibeSalario ? ASIST_PANEL_SAL_BASE * g.factorDes : 0;
-    if (!recibeSalario) { g.vac = 0; g.dom = 0; g.df = 0; }
+    // Solo el Personal con "Alta en IMSS = Sí" devenga base + primas
+    // (y por tanto $ Salario reportado). El resto solo cobra las
+    // compensaciones capturadas manualmente.
+    g.baseLab = conImss ? ASIST_PANEL_SAL_BASE * g.factorLab : 0;
+    g.baseDes = conImss ? ASIST_PANEL_SAL_BASE * g.factorDes : 0;
+    if (!conImss) { g.vac = 0; g.dom = 0; g.df = 0; }
     g.total = g.baseLab + g.baseDes + g.vac + g.dom + g.df + g.comp;
   });
   const allRows = Array.from(grupos.values())
@@ -35517,16 +35517,6 @@ function _empleadoAltaImss_(nombreCanonical) {
     _normNombre_(String(pr?.Nombre || '')) === _normNombre_(nombreCanonical)
   );
   const v = String(p?.['Alta en IMSS'] || '').trim().toLowerCase();
-  return v === 'sí' || v === 'si' || v === 'true' || v === '1' || v === 'yes';
-}
-/** True si el empleado tiene "Sí" en la columna "Salario" de la hoja
- *  Personal. Solo esos empleados devengan base + primas + salario
- *  reportado; el resto solo cobra compensaciones capturadas manualmente. */
-function _empleadoRecibeSalario_(nombreCanonical) {
-  const p = (INC_STATE?.personalRows || []).find(pr =>
-    _normNombre_(String(pr?.Nombre || '')) === _normNombre_(nombreCanonical)
-  );
-  const v = String(p?.['Salario'] || '').trim().toLowerCase();
   return v === 'sí' || v === 'si' || v === 'true' || v === '1' || v === 'yes';
 }
 
