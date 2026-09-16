@@ -45594,6 +45594,11 @@ function _botcEnrichPaymentFields(bk) {
   };
   try { if (typeof PAGOS_STATE === 'object') src = findIn(PAGOS_STATE.bookings); } catch(_){}
   if (!src) { try { if (typeof LG_STATE !== 'undefined') src = findIn(LG_STATE.bookings); } catch(_){} }
+  // Fallback: índice histórico completo (todas las reservas, sin filtro de mes).
+  // Cubre reservas de otros meses cuando PAGOS_STATE aún no ha cargado.
+  if (!src && id && typeof LG_STATE !== 'undefined' && LG_STATE.__allBookingsById) {
+    try { src = LG_STATE.__allBookingsById.get(String(id)) || null; } catch(_){}
+  }
   const merged = src ? Object.assign({}, bk, {
     Id: bk.Id || src.Id,
     LodgifyId: bk.LodgifyId || src.LodgifyId || src.Id,
@@ -45612,6 +45617,18 @@ function _botcEnrichPaymentFields(bk) {
     const t = Number(merged.TotalAmount) || Number(merged.GrossTotal) || 0;
     merged.TotalAmount = t; merged.AmountPaid = t; merged.AmountDue = 0;
     merged.PaymentStatus = t > 0 ? 'Pagada' : 'Sin cargo';
+  } else {
+    // Para el resto (Direct / Manual / Booking, etc.): si aritméticamente
+    // la reserva está pagada (AmountPaid ≥ TotalAmount y AmountDue ≤ 0),
+    // forzar 'Pagada' aunque Lodgify no haya actualizado PaymentStatus.
+    // Antes: reservas Direct/Manual pagadas quedaban sin chip verde porque
+    // Lodgify no auto-actualiza PaymentStatus tras registrar transacciones.
+    const t = Number(merged.TotalAmount) || Number(merged.GrossTotal) || 0;
+    const p = Number(merged.AmountPaid) || 0;
+    const d = merged.AmountDue != null ? Number(merged.AmountDue) : (t - p);
+    if (t > 0 && p > 0 && d <= 0.01) {
+      merged.PaymentStatus = 'Pagada';
+    }
   }
   return merged;
 }
