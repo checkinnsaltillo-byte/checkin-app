@@ -8748,7 +8748,7 @@ function switchModule(mod) {
     const greet = document.getElementById('user-greeting');
     if (greet) greet.style.display = (mod === 'home') ? '' : 'none';
   } catch(_){}
-  ["home", "tickets", "registros", "huespedes", "lodgify", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -8774,6 +8774,9 @@ function switchModule(mod) {
   if (mod === "huespedes") {
     if (!HU_STATE.loaded && !HU_STATE.loading) huespedesLoad(true);
     else huespedesRender();
+  }
+  if (mod === "personas") {
+    if (typeof personasInit === 'function') personasInit();
   }
   if (mod === "lodgify") {
     // El overlay BLOQUEA la interacción → solo lo mostramos cuando NO hay
@@ -53928,3 +53931,244 @@ window.pagosLoad = pagosLoad;
 window.pagosSetFilter = pagosSetFilter;
 window.pagosSelect = pagosSelect;
 window.pagosClosePanel = pagosClosePanel;
+
+// ═════════════════════════════════════════════════════════════════════════
+// ║  Módulo: Personas — vista huésped-céntrica basada en Reservaciones     ║
+// ║  Deduplica por celular, muestra solo Contacto + Datos fiscales +       ║
+// ║  Vehículo. KPIs desde /perfiles-kpis-list (pre-computados) o cálculo   ║
+// ║  local como fallback. Vistas Cards / Tabla.                            ║
+// ═════════════════════════════════════════════════════════════════════════
+const PERSONAS_STATE = {
+  view: 'cards',       // 'cards' | 'tabla'
+  search: '',
+  loaded: false,
+  personas: [],        // array agregado por phone10
+};
+async function personasInit() {
+  const cont = document.getElementById('personas-container');
+  const lbl  = document.getElementById('personas-status-label');
+  // Carga HU_STATE si aún no está — misma fuente que Gestión de reservas.
+  if (!HU_STATE.loaded && !HU_STATE.loading && typeof huespedesLoad === 'function') {
+    if (cont) cont.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando personas…</div>';
+    if (lbl) lbl.textContent = 'Cargando huéspedes…';
+    try { await huespedesLoad(false); } catch(_){}
+  }
+  // Precarga KPIs pre-computados en paralelo (no bloqueante).
+  if (typeof huEnsurePerfilKpis_ === 'function') {
+    huEnsurePerfilKpis_().then(() => personasRender()).catch(()=>{});
+  }
+  personasBuildFromHu_();
+  personasRender();
+}
+window.personasInit = personasInit;
+
+/** Deduplica HU_STATE.rows por últimos 10 dígitos del celular, elige el
+ *  row más reciente (mayor Fecha de ingreso) y arma el objeto persona. */
+function personasBuildFromHu_() {
+  const rows = (HU_STATE && Array.isArray(HU_STATE.rows)) ? HU_STATE.rows : [];
+  const tail = (v) => { const s = String(v||'').replace(/\D/g,''); return s.length>=10 ? s.slice(-10) : ''; };
+  const byPhone = new Map();
+  const noPhone = [];
+  for (const r of rows) {
+    const p10 = tail(r['Cel/Whatsapp (principal)']);
+    if (!p10) { noPhone.push(r); continue; }
+    const cur = byPhone.get(p10);
+    const dThis = String(r['Fecha de ingreso'] || '');
+    if (!cur || dThis > String(cur['Fecha de ingreso'] || '')) byPhone.set(p10, r);
+  }
+  // Nombre canónico prefiriendo el de Perfiles vía BOTC_STATE.conversations.
+  const perfilNameByPhone = new Map();
+  try {
+    if (typeof BOTC_STATE === 'object' && BOTC_STATE && Array.isArray(BOTC_STATE.conversations)) {
+      BOTC_STATE.conversations.forEach(c => { if (c && c.phone && c.name) perfilNameByPhone.set(String(c.phone), String(c.name).trim()); });
+    }
+  } catch(_){}
+  const _pickName = (r, p10) => {
+    const perf = p10 ? perfilNameByPhone.get(p10) : '';
+    if (perf) return perf;
+    const cands = [
+      r['Nombre del huésped'],
+      String(r['Nombres de TODOS los huéspedes (separados por comas)']||'').split(',')[0],
+      r['Nombre de la persona que hizo la reservación'],
+    ];
+    const PLC = new Set(['falta el nombre del huésped','falta el nombre del huesped','sin nombre','n/a','na','-','—']);
+    for (const c of cands) { const v = String(c||'').trim(); if (v && !PLC.has(v.toLowerCase())) return v; }
+    return '';
+  };
+  const arr = [];
+  const push = (p10, r) => {
+    const kpis = (window.__perfilKpisByPhone || {})[p10] || {};
+    let stats = null;
+    if (kpis && (kpis.noches || kpis.visitas || kpis.monto)) {
+      stats = { totalNoches: Number(kpis.noches)||0, visitas: Number(kpis.visitas)||0, montoTotal: Number(kpis.monto)||0, __source:'perfiles-cache' };
+    } else if (typeof huComputeGuestStats === 'function') {
+      try { stats = huComputeGuestStats(r, rows); } catch(_){ stats = null; }
+    }
+    const score = (stats && typeof huComputeLoyaltyScore === 'function') ? huComputeLoyaltyScore(stats) : 0;
+    const tier  = (stats && typeof huGuestTier === 'function') ? huGuestTier(score, stats) : null;
+    arr.push({
+      phone10: p10,
+      row: r,
+      nombre: _pickName(r, p10) || 'Sin nombre',
+      email:  String(r['Correo electrónico'] || '').trim(),
+      celular: String(r['Cel/Whatsapp (principal)'] || '').trim(),
+      rfc:    String(r['RFC'] || '').trim(),
+      razonSocial: String(r['Razón social'] || r['Razon social'] || '').trim(),
+      regimenFiscal: String(r['Régimen fiscal'] || r['Regimen fiscal'] || '').trim(),
+      requiereFactura: String(r['¿Requiere factura?'] || '').trim(),
+      vehMarca:  String(r['Vehículo marca']  || r['Marca del vehículo']  || '').trim(),
+      vehModelo: String(r['Vehículo modelo'] || r['Modelo del vehículo'] || '').trim(),
+      vehPlacas: String(r['Placas'] || r['Placas del vehículo'] || '').trim(),
+      vehColor:  String(r['Color'] || r['Color del vehículo'] || '').trim(),
+      stats, score, tier,
+    });
+  };
+  byPhone.forEach((r, p10) => push(p10, r));
+  noPhone.forEach(r => push('', r));
+  arr.sort((a,b) => String(a.nombre||'').localeCompare(String(b.nombre||''), 'es'));
+  PERSONAS_STATE.personas = arr;
+  PERSONAS_STATE.loaded = true;
+}
+
+window.personasSetView = function(v) {
+  PERSONAS_STATE.view = v;
+  const bC = document.getElementById('personas-view-cards');
+  const bT = document.getElementById('personas-view-tabla');
+  if (bC) bC.setAttribute('style', bC.getAttribute('style').replace(/background:[^;]*/, 'background:'+(v==='cards'?'#0f172a':'transparent')).replace(/color:[^;]*/, 'color:'+(v==='cards'?'#fff':'#475569')));
+  if (bT) bT.setAttribute('style', bT.getAttribute('style').replace(/background:[^;]*/, 'background:'+(v==='tabla'?'#0f172a':'transparent')).replace(/color:[^;]*/, 'color:'+(v==='tabla'?'#fff':'#475569')));
+  personasRender();
+};
+window.personasSetSearch = function(s) {
+  PERSONAS_STATE.search = String(s||'').trim().toLowerCase();
+  personasRender();
+};
+
+function personasFilter_() {
+  const q = PERSONAS_STATE.search;
+  const all = PERSONAS_STATE.personas || [];
+  if (!q) return all;
+  const norm = v => String(v||'').toLowerCase();
+  return all.filter(p =>
+    norm(p.nombre).includes(q) || norm(p.email).includes(q) ||
+    norm(p.celular).includes(q) || norm(p.rfc).includes(q) ||
+    norm(p.razonSocial).includes(q) || norm(p.vehPlacas).includes(q)
+  );
+}
+
+function personasRender() {
+  const cont = document.getElementById('personas-container');
+  const lbl  = document.getElementById('personas-status-label');
+  if (!cont) return;
+  if (!PERSONAS_STATE.loaded) {
+    cont.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando personas…</div>';
+    return;
+  }
+  const rows = personasFilter_();
+  if (lbl) lbl.textContent = `${rows.length} persona${rows.length===1?'':'s'} ${PERSONAS_STATE.search ? ' (filtrado)' : ''}`;
+  if (!rows.length) {
+    cont.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">Sin resultados.</div>';
+    return;
+  }
+  if (PERSONAS_STATE.view === 'tabla') cont.innerHTML = personasRenderTabla_(rows);
+  else cont.innerHTML = personasRenderCards_(rows);
+}
+
+function personasRenderCards_(rows) {
+  const fmt$ = (n) => (typeof huFmtMonto === 'function') ? huFmtMonto(n) : ('$ '+Number(n||0).toFixed(0));
+  const cardHtml = (p) => {
+    const s = p.stats || {};
+    const kpisRow = `
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:80px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;text-align:center">
+          <div style="font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.04em">🌙 Noches</div>
+          <div style="font-size:15px;font-weight:900;color:#0f172a">${Number(s.totalNoches||0)}</div>
+        </div>
+        <div style="flex:1;min-width:80px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;text-align:center">
+          <div style="font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.04em">🧳 Visitas</div>
+          <div style="font-size:15px;font-weight:900;color:#0f172a">${Number(s.visitas||0)}</div>
+        </div>
+        <div style="flex:1.3;min-width:100px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;text-align:center">
+          <div style="font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.04em">💰 Monto</div>
+          <div style="font-size:15px;font-weight:900;color:#0f172a">${s.montoTotal > 0 ? fmt$(s.montoTotal) : '—'}</div>
+        </div>
+      </div>`;
+    const tierChip = p.tier ? `
+      <span title="${esc(p.tier.tooltip||'')}" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;color:${p.tier.fg};background:${p.tier.bg};border:1px solid ${p.tier.border};padding:2px 8px;border-radius:999px;letter-spacing:.04em;text-transform:uppercase;line-height:1.2;white-space:nowrap;margin-left:8px">
+        <span style="font-size:12px">${p.tier.icon}</span>${esc(p.tier.label)}
+        <span style="background:rgba(255,255,255,.7);color:${p.tier.fg};padding:0 5px;border-radius:6px;font-weight:800">${p.tier.score}</span>
+      </span>` : '';
+    // Bloque Contacto
+    const contactoBlock = (p.celular || p.email) ? `
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e2e8f0">
+        <div style="font-size:9px;letter-spacing:.12em;color:#0f766e;font-weight:800;margin-bottom:6px">📞 CONTACTO</div>
+        ${p.celular ? `<div style="font-size:12px;color:#0f172a;margin-bottom:2px">📱 ${esc(p.celular)}</div>` : ''}
+        ${p.email ? `<div style="font-size:12px;color:#0f172a">✉ ${esc(p.email)}</div>` : ''}
+      </div>` : '';
+    // Bloque Datos fiscales — solo si hay algún campo
+    const hasFiscal = p.rfc || p.razonSocial || p.regimenFiscal;
+    const fiscalBlock = hasFiscal ? `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0">
+        <div style="font-size:9px;letter-spacing:.12em;color:#1e40af;font-weight:800;margin-bottom:6px">🧾 DATOS FISCALES ${p.requiereFactura && /s[ií]/i.test(p.requiereFactura) ? '<span style="color:#15803d;background:#dcfce7;padding:1px 6px;border-radius:999px;margin-left:4px;font-weight:700">Requiere factura</span>' : ''}</div>
+        ${p.razonSocial ? `<div style="font-size:12px;color:#0f172a;margin-bottom:2px">${esc(p.razonSocial)}</div>` : ''}
+        ${p.rfc ? `<div style="font-size:11px;color:#475569;font-family:ui-monospace,monospace">RFC: ${esc(p.rfc)}</div>` : ''}
+        ${p.regimenFiscal ? `<div style="font-size:11px;color:#475569;margin-top:2px">${esc(p.regimenFiscal)}</div>` : ''}
+      </div>` : '';
+    // Bloque Vehículo — solo si hay algún dato
+    const hasVeh = p.vehMarca || p.vehModelo || p.vehPlacas || p.vehColor;
+    const vehBlock = hasVeh ? `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0">
+        <div style="font-size:9px;letter-spacing:.12em;color:#6d28d9;font-weight:800;margin-bottom:6px">🚗 VEHÍCULO</div>
+        <div style="font-size:12px;color:#0f172a">
+          ${[p.vehMarca, p.vehModelo, p.vehColor].filter(Boolean).map(v => esc(v)).join(' · ')}
+          ${p.vehPlacas ? `<span style="font-family:ui-monospace,monospace;background:#f1f5f9;padding:1px 6px;border-radius:4px;margin-left:6px">${esc(p.vehPlacas)}</span>` : ''}
+        </div>
+      </div>` : '';
+    return `
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
+        <div style="display:flex;align-items:center;flex-wrap:wrap">
+          <div style="font-size:15px;font-weight:900;color:#0f172a">${esc(p.nombre)}</div>
+          ${tierChip}
+        </div>
+        ${kpisRow}
+        ${contactoBlock}
+        ${fiscalBlock}
+        ${vehBlock}
+      </div>`;
+  };
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px">${rows.map(cardHtml).join('')}</div>`;
+}
+
+function personasRenderTabla_(rows) {
+  const fmt$ = (n) => (typeof huFmtMonto === 'function') ? huFmtMonto(n) : ('$ '+Number(n||0).toFixed(0));
+  const th = (label, right) => `<th style="position:sticky;top:0;background:#1e293b;color:#fff;padding:9px 10px;text-align:${right?'right':'left'};font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">${label}</th>`;
+  const td = (v, extra) => `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#1f2937;white-space:nowrap${extra?';'+extra:''}">${v}</td>`;
+  const tdN = (v) => `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;text-align:right;font-weight:700;color:#0f172a;white-space:nowrap">${v}</td>`;
+  const body = rows.map(p => {
+    const s = p.stats || {};
+    const tierCell = p.tier ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:800;color:${p.tier.fg};background:${p.tier.bg};border:1px solid ${p.tier.border};padding:1px 6px;border-radius:999px;letter-spacing:.04em;text-transform:uppercase;line-height:1.2;white-space:nowrap"><span style="font-size:10px">${p.tier.icon}</span>${esc(p.tier.label)}</span>` : '—';
+    const veh = [p.vehMarca, p.vehModelo, p.vehPlacas].filter(Boolean).join(' · ');
+    return `<tr>
+      ${td(esc(p.nombre), 'font-weight:700')}
+      ${td(esc(p.celular || '—'))}
+      ${td(esc(p.email || '—'), 'color:#475569')}
+      ${td(esc(p.rfc || '—'), 'font-family:ui-monospace,monospace;color:#475569')}
+      ${td(esc(p.razonSocial || '—'), 'color:#475569')}
+      ${td(esc(veh || '—'), 'color:#475569')}
+      ${tdN(Number(s.totalNoches||0))}
+      ${tdN(Number(s.visitas||0))}
+      ${tdN(s.montoTotal > 0 ? fmt$(s.montoTotal) : '—')}
+      ${td(tierCell)}
+    </tr>`;
+  }).join('');
+  return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:auto;max-height:calc(100vh - 220px)">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr>
+        ${th('Nombre')}${th('Teléfono')}${th('Correo')}${th('RFC')}${th('Razón social')}${th('Vehículo')}
+        ${th('Noches', true)}${th('Visitas', true)}${th('Monto', true)}${th('Tier')}
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
+}
+window.personasBuildFromHu_ = personasBuildFromHu_;
+window.personasRender = personasRender;
