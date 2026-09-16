@@ -12493,20 +12493,17 @@ function huNormalizeCurrencyFromSheet(v) {
 }
 
 function huResolveConceptoPorRegimen(regimenFiscal) {
-  // Normaliza: quita acentos, código prefijo (601, 612…), separadores
-  // (· | - / :), espacios extra, y baja a minúsculas. Match por INCLUDES
-  // para tolerar variantes del sheet ("601 · General de Ley…", "General
-  // Ley Personas Morales", "Personas Morales – 601", etc.).
+  // Regla del negocio: CUALQUIER régimen de Persona Moral → concepto 1.
+  // Todo lo demás (persona física, RESICO física, etc.) → concepto 2.
+  // Aplica también a 603 (Personas Morales con Fines no Lucrativos) y a
+  // 626 Régimen Simplificado si es de Persona Moral — todos son PM.
   const norm = String(regimenFiscal || '')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/^\s*\d{2,4}\s*[·\-|\/:.\s]*/, '') // quita "601·", "612 -", etc.
     .replace(/\s+/g, ' ')
     .trim().toLowerCase();
-  // Concepto 1 = Persona Moral (General de Ley) — SIN "no lucrativos"
-  // (ese es el 603 y va con concepto 2 según reglas del negocio).
-  const esPMGeneral = /personas?\s+morales/.test(norm) && !/no\s+lucrativos/.test(norm) && !/simplificado/.test(norm);
-  if (esPMGeneral) return '1. Arrendamiento en Saltillo, Coah.';
-  // Concepto 2 = todo lo demás (persona física, RESICO, sindicatos, etc.)
+  const esPersonaMoral = /personas?\s+morales?/.test(norm);
+  if (esPersonaMoral) return '1. Arrendamiento en Saltillo, Coah.';
   return '2. Arrendamiento en Saltillo, Coah.';
 }
 
@@ -37973,7 +37970,7 @@ function inqBuildFacturapiUrl_(pago, perfil) {
   const whatsapp = (typeof huNormalizePhoneWA === 'function') ? huNormalizePhoneWA(perfil && perfil.Whatsapp) : '';
   const regName = inqRegimenName_(perfil && perfil.Regimen_fiscal);
   const concepto = (typeof huResolveConceptoPorRegimen === 'function') ? huResolveConceptoPorRegimen(regName)
-    : (regName.toLowerCase() === 'general de ley personas morales' ? '1. Arrendamiento en Saltillo, Coah.' : '2. Arrendamiento en Saltillo, Coah.');
+    : (/personas?\s+morales?/i.test(String(regName||'').normalize('NFD').replace(/[̀-ͯ]/g,'')) ? '1. Arrendamiento en Saltillo, Coah.' : '2. Arrendamiento en Saltillo, Coah.');
   if (email) p.set('email', email);
   if (concepto) { p.set('concepto', concepto); p.set('descripcion', concepto); }
   if (whatsapp) p.set('whatsapp', whatsapp);

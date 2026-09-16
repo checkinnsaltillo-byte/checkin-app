@@ -625,7 +625,12 @@
     }
 
     function resolveConceptoPorRegimen(regimenFiscal) {
-      return normalizeText(regimenFiscal) === 'general de ley personas morales'
+      // Regla del negocio: CUALQUIER Persona Moral → concepto 1.
+      // Todo lo demás (Persona Física, RESICO, etc.) → concepto 2.
+      // Aplica también a 603 Personas Morales con Fines no Lucrativos.
+      const norm = normalizeText(regimenFiscal)
+        .replace(/^\s*\d{2,4}\s*[·\-|\/:.\s]*/, '');
+      return /personas?\s+morales?/.test(norm)
         ? '1. Arrendamiento en Saltillo, Coah.'
         : '2. Arrendamiento en Saltillo, Coah.';
     }
