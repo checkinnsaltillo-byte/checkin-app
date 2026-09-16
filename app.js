@@ -9762,6 +9762,25 @@ async function __huespedesLoadInner(forceRefetch) {
   // El populate del select y la auto-selección del mes actual ocurren después
   // de cargar las filas (ver más abajo, justo antes de huespedesRender).
 
+  // Precarga Perfiles (BOTC_STATE.conversations) en background — el nombre
+  // canónico de Perfiles es PRIORIDAD 1 en la cascada de la card. Sin
+  // await: no bloquea la carga de reservas; si llega tarde, el render
+  // sigue con lo que tenga y el próximo render usa Perfiles.
+  try {
+    const _needBotc = !(typeof BOTC_STATE === 'object' && BOTC_STATE && Array.isArray(BOTC_STATE.conversations) && BOTC_STATE.conversations.length);
+    if (_needBotc && typeof botcLoadConversations === 'function') {
+      botcLoadConversations({ silent: true }).then(() => {
+        // Re-render de la vista Detalles si está abierta, para que los
+        // nombres de Perfiles reemplacen placeholders como "Falta el
+        // nombre del huésped" que quedaron en el primer render.
+        try {
+          const moduleRD = document.getElementById('module-reservas-detalles');
+          if (moduleRD && !moduleRD.classList.contains('hidden') && typeof rdRender === 'function') rdRender();
+        } catch(_){}
+      }).catch(()=>{});
+    }
+  } catch(_){}
+
   // PERF: NO awaitar filter-options aquí — dispararlo en paralelo con page1.
   // Antes se hacían secuenciales (6.7s + 18s = 25s). El fetch se completa antes
   // del render (page1 es el bottleneck) y los populate finales del select
@@ -14314,13 +14333,27 @@ function huRowToSyntheticBooking(r) {
       nights = Math.max(0, Math.round((t2 - t1) / 86400000));
     }
   }
+  // Rechaza placeholders literales que Apps Script deja al no poder
+  // propagar el nombre desde Lodgify — se tratan como vacío para que la
+  // cascada del render de la card llegue al fallback de Perfiles/BOTC.
+  const _isPlaceholderName_ = (s) => {
+    const v = String(s||'').trim().toLowerCase();
+    return !v || v === 'falta el nombre del huésped' || v === 'falta el nombre del huesped'
+        || v === 'sin nombre' || v === 'sin nombre del huésped' || v === 'sin nombre del huesped'
+        || v === 'n/a' || v === 'na' || v === '-' || v === '—';
+  };
+  const _pickName_ = (...cands) => {
+    for (const c of cands) { const v = String(c||'').trim(); if (v && !_isPlaceholderName_(v)) return v; }
+    return '';
+  };
   return {
     Id: String(r['ID'] || r['row_number'] || ''),
-    GuestName: realLg?.GuestName
-            || r['Nombre de la persona que hizo la reservación']
-            || r['Nombre del huésped']
-            || String(r['Nombres de TODOS los huéspedes (separados por comas)']||'').split(',')[0].trim()
-            || '',
+    GuestName: _pickName_(
+      realLg?.GuestName,
+      r['Nombre de la persona que hizo la reservación'],
+      r['Nombre del huésped'],
+      String(r['Nombres de TODOS los huéspedes (separados por comas)']||'').split(',')[0]
+    ),
     GuestPhone: realLg?.GuestPhone || phone,
     GuestEmail: realLg?.GuestEmail || r['Correo electrónico'] || '',
     DateArrival: arrival,
@@ -15061,29 +15094,49 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
             // huéspedes (separados por comas)" — para reservas Airbnb
             // suele ser la única fuente con el nombre real.
             const _primerHuesped = (raw) => String(raw||'').split(',')[0].trim();
-            let perfilName = huesped ? String(huesped['Nombre del huésped'] || '').trim() : '';
-            if (!perfilName && huesped) {
-              perfilName = _primerHuesped(huesped['Nombres de TODOS los huéspedes (separados por comas)']);
+            // Placeholders literales que Apps Script deja en la hoja cuando no
+            // logra propagar el nombre desde Lodgify — hay que tratarlos como
+            // vacíos para que la cascada siga buscando el nombre real.
+            const _PLACEHOLDERS = new Set([
+              'falta el nombre del huésped',
+              'falta el nombre del huesped',
+              'sin nombre',
+              'sin nombre del huésped',
+              'sin nombre del huesped',
+              'n/a', 'na', '-', '—',
+            ]);
+            const _validName = (s) => {
+              const v = String(s||'').trim();
+              if (!v) return '';
+              return _PLACEHOLDERS.has(v.toLowerCase()) ? '' : v;
+            };
+            let perfilName = '';
+            // 1) PRIORIDAD 1 — Perfiles vía BOTC_STATE (nombre canónico de la hoja Perfiles).
+            if (p10 && typeof BOTC_STATE === 'object' && BOTC_STATE !== null && Array.isArray(BOTC_STATE.conversations)) {
+              try {
+                const c = BOTC_STATE.conversations.find(x => x && String(x.phone) === p10);
+                if (c && c.name) perfilName = _validName(c.name);
+              } catch(_){}
             }
+            // 2) Match en Reservaciones (huesped): "Nombre del huésped" y luego "Nombres de TODOS los huéspedes".
+            if (!perfilName && huesped) perfilName = _validName(huesped['Nombre del huésped']);
+            if (!perfilName && huesped) perfilName = _validName(_primerHuesped(huesped['Nombres de TODOS los huéspedes (separados por comas)']));
+            // 3) Buscar en HU_STATE.rows por celular (otro row del mismo huésped).
             if (!perfilName && p10 && typeof HU_STATE !== 'undefined' && Array.isArray(HU_STATE.rows)) {
               try {
                 const m = HU_STATE.rows.find(r => String(r['Cel/Whatsapp (principal)']||'').replace(/\D/g,'').slice(-10) === p10);
                 if (m) {
-                  perfilName = String(m['Nombre del huésped'] || '').trim()
-                            || _primerHuesped(m['Nombres de TODOS los huéspedes (separados por comas)']);
+                  perfilName = _validName(m['Nombre del huésped'])
+                            || _validName(_primerHuesped(m['Nombres de TODOS los huéspedes (separados por comas)']));
                 }
-              } catch(_){}
-            }
-            if (!perfilName && p10 && typeof BOTC_STATE === 'object' && BOTC_STATE !== null && Array.isArray(BOTC_STATE.conversations)) {
-              try {
-                const c = BOTC_STATE.conversations.find(x => x && String(x.phone) === p10);
-                if (c && c.name) perfilName = String(c.name).trim();
               } catch(_){}
             }
             // Regla: la card SIEMPRE muestra el nombre del Perfil (mismo que
             // aparece en el editor). Nunca muestra el nombre con el que se
             // registró la reserva en Lodgify (fallback solo si no hay perfil).
-            const main = perfilName || bookingName || 'Sin nombre';
+            // También filtra el bookingName por placeholder para no mostrar
+            // "Falta el nombre del huésped" cuando Perfiles tampoco tiene dato.
+            const main = perfilName || _validName(bookingName) || 'Sin nombre';
             return `<span>${esc(main)}</span>`;
           })()}
           ${(() => {
