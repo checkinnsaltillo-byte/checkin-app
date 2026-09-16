@@ -100,7 +100,7 @@ const PERFILES_HEADERS = [
   "Fecha creación","Fecha actualización",
   "PIN hash","PIN actualizado",
   // KPIs pre-computados (job diario) — evita recalcular al cargar Gestión de reservas
-  "kpi_noches","kpi_visitas","kpi_monto","kpi_updated_at",
+  "kpi_noches","kpi_visitas","kpi_monto","kpi_clasificacion","kpi_updated_at",
   // Nota interna del admin sobre el perfil (visible en Chats bot → editar perfil).
   "Notas"
 ];
@@ -9674,7 +9674,7 @@ function llavesUpsert_(data) {
 function perfilesRecalcKpis_(data) {
   var startMs = Date.now();
   var ss = getSpreadsheet_();
-  ensureNormalizedSheets_(); // asegura columnas kpi_* en Perfiles
+  ensureNormalizedSheets_(); // asegura columnas kpi_* en Perfiles (auto-agrega faltantes)
 
   // 1) Leer TODAS las bookings de Reservas_Lodgify
   var lgSh = ss.getSheetByName(LODGIFY_SHEET);
@@ -9682,16 +9682,36 @@ function perfilesRecalcKpis_(data) {
   var lgLast = lgSh.getLastRow();
   if (lgLast < 2) return { ok: true, updated: 0, total_perfiles: 0, elapsed_ms: 0 };
   var lgHeaders = lgSh.getRange(1, 1, 1, LODGIFY_HEADERS.length).getValues()[0];
-  var iPhone   = lgHeaders.indexOf("GuestPhone");
-  var iNights  = lgHeaders.indexOf("Nights");
-  var iGross   = lgHeaders.indexOf("GrossTotal");
-  var iStatus  = lgHeaders.indexOf("Status");
-  var iArrival = lgHeaders.indexOf("DateArrival");
+  var iPhone      = lgHeaders.indexOf("GuestPhone");
+  var iNights     = lgHeaders.indexOf("Nights");
+  var iGross      = lgHeaders.indexOf("GrossTotal");
+  var iStatus     = lgHeaders.indexOf("Status");
+  var iArrival    = lgHeaders.indexOf("DateArrival");
+  var iDeparture  = lgHeaders.indexOf("DateDeparture");
+  var iTotalAmt   = lgHeaders.indexOf("TotalAmount");
+  var iAmountPaid = lgHeaders.indexOf("AmountPaid");
+  var iAmountDue  = lgHeaders.indexOf("AmountDue");
+  var iSource     = lgHeaders.indexOf("Source");
   if (iPhone < 0 || iStatus < 0) return { ok: false, error: "columnas Reservas_Lodgify no encontradas" };
   var lgVals = lgSh.getRange(2, 1, lgLast - 1, lgHeaders.length).getValues();
 
-  // 2) Agrupar por teléfono últimos 10 dígitos — solo Status=Booked
-  var kpisByPhone = {};
+  // 2) Agrupar bookings por teléfono — solo Status=Booked
+  //    Guardamos las bookings crudas para poder colapsar visitas contiguas después.
+  var byPhone = {};
+  function _dToStr_(v) {
+    if (v instanceof Date) return v.toISOString().slice(0,10);
+    var s = String(v || '');
+    var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+    var m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m2) return m2[3]+'-'+String(m2[1]).padStart(2,'0')+'-'+String(m2[2]).padStart(2,'0');
+    return '';
+  }
+  function _dayDiff_(a, b) { // días entre a y b (ambos "YYYY-MM-DD")
+    var da = new Date(a+'T00:00:00Z').getTime();
+    var db = new Date(b+'T00:00:00Z').getTime();
+    return Math.round((db - da) / 86400000);
+  }
   for (var i = 0; i < lgVals.length; i++) {
     var st = String(lgVals[i][iStatus] || "").toLowerCase();
     if (st !== "booked") continue;
@@ -9700,21 +9720,78 @@ function perfilesRecalcKpis_(data) {
     var phKey = phRaw.slice(-10);
     var nights = Number(lgVals[i][iNights]) || 0;
     var gross  = Number(lgVals[i][iGross])  || 0;
-    if (!kpisByPhone[phKey]) kpisByPhone[phKey] = { noches: 0, visitas: 0, monto: 0 };
-    kpisByPhone[phKey].noches  += nights;
-    kpisByPhone[phKey].visitas += 1;
-    kpisByPhone[phKey].monto   += gross;
+    var arr = iArrival   >= 0 ? _dToStr_(lgVals[i][iArrival])   : '';
+    var dep = iDeparture >= 0 ? _dToStr_(lgVals[i][iDeparture]) : '';
+    var totalAmt   = iTotalAmt   >= 0 ? Number(lgVals[i][iTotalAmt])   || 0 : 0;
+    var amountPaid = iAmountPaid >= 0 ? Number(lgVals[i][iAmountPaid]) || 0 : 0;
+    var amountDue  = iAmountDue  >= 0 ? Number(lgVals[i][iAmountDue])  || 0 : 0;
+    var source     = iSource     >= 0 ? String(lgVals[i][iSource] || '').toLowerCase() : '';
+    if (!byPhone[phKey]) byPhone[phKey] = [];
+    byPhone[phKey].push({
+      nights: nights, gross: gross, arr: arr, dep: dep,
+      totalAmt: totalAmt, amountPaid: amountPaid, amountDue: amountDue, source: source,
+    });
   }
 
-  // 3) Escribir KPIs en Perfiles matcheando por teléfono
+  // 3) Por teléfono: colapsar visitas contiguas + sumar monto pagado por aritmética
+  var kpisByPhone = {};
+  Object.keys(byPhone).forEach(function(phKey) {
+    var bks = byPhone[phKey].slice().sort(function(a, b) { return String(a.arr).localeCompare(String(b.arr)); });
+    var totalNoches = 0, totalMonto = 0;
+    // Visitas: cuenta cadenas contiguas (gap ≥ 1 día entre departure y siguiente arrival = visita nueva).
+    var visitas = 0;
+    var prevDep = '';
+    for (var k = 0; k < bks.length; k++) {
+      var b = bks[k];
+      totalNoches += b.nights;
+      // Criterio "pagada": Airbnb siempre, o aritmético (AmountPaid ≥ TotalAmount y AmountDue ≤ 0.01).
+      var isAirbnb = b.source.indexOf('airbnb') >= 0;
+      var t = b.totalAmt || b.gross;
+      var p = b.amountPaid;
+      var d = b.amountDue != null ? b.amountDue : (t - p);
+      var pagada = isAirbnb || (t > 0 && p > 0 && d <= 0.01);
+      if (pagada) totalMonto += (p > 0 ? p : t);
+      // Visitas contiguas: si arrival de este booking == departure del anterior
+      // (o antes), es continuación de la misma visita. Un gap ≥ 1 día → nueva.
+      if (!b.arr) { visitas++; prevDep = b.dep; continue; }
+      if (!prevDep) { visitas++; prevDep = b.dep; continue; }
+      var diff = _dayDiff_(prevDep, b.arr); // días entre departure previa y arrival actual
+      if (diff >= 1) visitas++;
+      // Actualiza prevDep: si esta reserva se extiende más allá, gana la más lejana.
+      if (b.dep && b.dep > prevDep) prevDep = b.dep;
+    }
+    kpisByPhone[phKey] = { noches: totalNoches, visitas: visitas, monto: totalMonto };
+  });
+
+  // 4) Cálculo de tier (mismo modelo que el frontend huGuestTier / huComputeLoyaltyScore)
+  //    Weights: noches=30, visitas=20, monto=50. Refs: 30 noches, 12 visitas, $100k.
+  //    Tiers: Oro ≥70 · Plata ≥45 · Bronce ≥25 · Recurrente ≥10 · (vacío) <10.
+  function _tierLabel_(stats) {
+    var W_NOCHES = 30, W_VISITAS = 20, W_MONTO = 50;
+    var REF_NOCHES = 30, REF_VISITAS = 12, REF_MONTO = 100000;
+    var wSum = W_NOCHES + W_VISITAS + W_MONTO; // 100
+    var nN = Math.min(1, (Number(stats.noches)||0)  / REF_NOCHES);
+    var nV = Math.min(1, (Number(stats.visitas)||0) / REF_VISITAS);
+    var nM = Math.min(1, (Number(stats.monto)||0)   / REF_MONTO);
+    var score = Math.round(Math.max(0, Math.min(100, (W_NOCHES*nN + W_VISITAS*nV + W_MONTO*nM) * (100 / wSum))));
+    if (score >= 70) return 'Oro';
+    if (score >= 45) return 'Plata';
+    if (score >= 25) return 'Bronce';
+    if (score >= 10) return 'Recurrente';
+    return '';
+  }
+
+  // 5) Escribir KPIs en Perfiles matcheando por teléfono
   var pfSh = getSheet_(PERFILES_SHEET);
   var pfHeaders = getHeaders_(pfSh);
-  var iPfPhone = pfHeaders.indexOf("Cel/Whatsapp (principal)");
-  var iPfNoches   = pfHeaders.indexOf("kpi_noches");
-  var iPfVisitas  = pfHeaders.indexOf("kpi_visitas");
-  var iPfMonto    = pfHeaders.indexOf("kpi_monto");
-  var iPfUpdated  = pfHeaders.indexOf("kpi_updated_at");
+  var iPfPhone         = pfHeaders.indexOf("Cel/Whatsapp (principal)");
+  var iPfNoches        = pfHeaders.indexOf("kpi_noches");
+  var iPfVisitas       = pfHeaders.indexOf("kpi_visitas");
+  var iPfMonto         = pfHeaders.indexOf("kpi_monto");
+  var iPfClasificacion = pfHeaders.indexOf("kpi_clasificacion");
+  var iPfUpdated       = pfHeaders.indexOf("kpi_updated_at");
   if (iPfPhone < 0 || iPfNoches < 0) return { ok: false, error: "columnas Perfiles no encontradas — redeploy Apps Script primero" };
+  if (iPfClasificacion < 0) return { ok: false, error: "columna kpi_clasificacion no existe — redeploy Apps Script primero" };
   var pfLast = pfSh.getLastRow();
   if (pfLast < 2) return { ok: true, updated: 0, total_perfiles: 0, elapsed_ms: Date.now() - startMs };
   var pfRange = pfSh.getRange(2, 1, pfLast - 1, pfHeaders.length);
@@ -9725,18 +9802,19 @@ function perfilesRecalcKpis_(data) {
     var pfPhone = String(pfVals[j][iPfPhone] || "").replace(/\D/g, "");
     if (pfPhone.length < 10) continue;
     var key = pfPhone.slice(-10);
-    var k = kpisByPhone[key];
-    if (!k) {
-      // Sin bookings: KPIs a 0 (mantiene consistencia)
-      pfVals[j][iPfNoches]  = 0;
-      pfVals[j][iPfVisitas] = 0;
-      pfVals[j][iPfMonto]   = 0;
-      pfVals[j][iPfUpdated] = nowIso;
+    var kpi = kpisByPhone[key];
+    if (!kpi) {
+      pfVals[j][iPfNoches]        = 0;
+      pfVals[j][iPfVisitas]       = 0;
+      pfVals[j][iPfMonto]         = 0;
+      pfVals[j][iPfClasificacion] = '';
+      pfVals[j][iPfUpdated]       = nowIso;
     } else {
-      pfVals[j][iPfNoches]  = k.noches;
-      pfVals[j][iPfVisitas] = k.visitas;
-      pfVals[j][iPfMonto]   = k.monto;
-      pfVals[j][iPfUpdated] = nowIso;
+      pfVals[j][iPfNoches]        = kpi.noches;
+      pfVals[j][iPfVisitas]       = kpi.visitas;
+      pfVals[j][iPfMonto]         = kpi.monto;
+      pfVals[j][iPfClasificacion] = _tierLabel_(kpi);
+      pfVals[j][iPfUpdated]       = nowIso;
       updated++;
     }
   }
@@ -9760,6 +9838,7 @@ function perfilesKpisList_() {
   var iN = pfHeaders.indexOf("kpi_noches");
   var iV = pfHeaders.indexOf("kpi_visitas");
   var iM = pfHeaders.indexOf("kpi_monto");
+  var iC = pfHeaders.indexOf("kpi_clasificacion");
   var iU = pfHeaders.indexOf("kpi_updated_at");
   if (iPhone < 0 || iN < 0) return { ok: false, error: "columnas kpi_* no encontradas — corre perfiles_recalc_kpis primero" };
   var pfLast = pfSh.getLastRow();
@@ -9773,6 +9852,7 @@ function perfilesKpisList_() {
         noches:  Number(vals[i][iN]) || 0,
         visitas: Number(vals[i][iV]) || 0,
         monto:   Number(vals[i][iM]) || 0,
+        clasificacion: iC >= 0 ? String(vals[i][iC] || '') : '',
         updated_at: vals[i][iU] ? new Date(vals[i][iU]).toISOString() : ""
       };
     }

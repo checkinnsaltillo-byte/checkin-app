@@ -54000,12 +54000,26 @@ function personasBuildFromHu_() {
     const kpis = (window.__perfilKpisByPhone || {})[p10] || {};
     let stats = null;
     if (kpis && (kpis.noches || kpis.visitas || kpis.monto)) {
-      stats = { totalNoches: Number(kpis.noches)||0, visitas: Number(kpis.visitas)||0, montoTotal: Number(kpis.monto)||0, __source:'perfiles-cache' };
+      stats = { totalNoches: Number(kpis.noches)||0, visitas: Number(kpis.visitas)||0, montoTotal: Number(kpis.monto)||0, montoGlobal: Number(kpis.monto)||0, __source:'perfiles-cache' };
     } else if (typeof huComputeGuestStats === 'function') {
       try { stats = huComputeGuestStats(r, rows); } catch(_){ stats = null; }
     }
     const score = (stats && typeof huComputeLoyaltyScore === 'function') ? huComputeLoyaltyScore(stats) : 0;
-    const tier  = (stats && typeof huGuestTier === 'function') ? huGuestTier(score, stats) : null;
+    // Prefiere kpi_clasificacion persistido del Apps Script; fallback al
+    // cálculo de tier local. Si el backend ya lo escribió, ese label es
+    // la fuente de verdad (elimina posible desfase entre frontend/backend).
+    let tier = null;
+    const persisted = String(kpis.clasificacion || '').trim();
+    if (persisted && typeof huGuestTier === 'function') {
+      // Reconstruye el chip usando huGuestTier con score/stats reales para
+      // mantener colores/ícono, pero fuerza el label persistido.
+      tier = huGuestTier(score, stats);
+      if (tier && tier.label !== persisted) tier.label = persisted;
+      // Si no hubo tier local pero el backend sí clasificó, sintetiza uno.
+      if (!tier) tier = { score, label: persisted, icon: '⭐', bg:'#f1f5f9', fg:'#334155', border:'#cbd5e1', tooltip:`${persisted} (persistido)` };
+    } else {
+      tier = (stats && typeof huGuestTier === 'function') ? huGuestTier(score, stats) : null;
+    }
     arr.push({
       phone10: p10,
       row: r,
