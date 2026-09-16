@@ -12545,7 +12545,13 @@ async function huespedesGenerarTicket(recordId) {
     }
   }
   if (window.__huPendingPersists && window.__huPendingPersists.size) {
-    try { await Promise.all([...window.__huPendingPersists]); } catch (_) {}
+    // Race contra timeout de 4s. Si un persist previo se colgó (hipo de
+    // Apps Script, timeout intermedio, etc.), no bloqueamos el flujo
+    // indefinidamente — mejor abrir Facturapi con datos posiblemente
+    // ligeramente desactualizados que dejar el botón sin efecto.
+    const _timeout = new Promise(resolve => setTimeout(resolve, 4000));
+    const _all = Promise.all([...window.__huPendingPersists]).catch(() => {});
+    await Promise.race([_all, _timeout]);
   }
 
   // Buscar row en cache local
