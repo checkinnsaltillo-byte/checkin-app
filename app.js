@@ -35128,11 +35128,25 @@ window.asistCalMenuGuardar = async function () {
   // ── Reales al backend en background ──
   (async () => {
     try {
-      // Borra TODOS los registros previos reales del (empleado, día) para
-      // evitar duplicados. Los IDs tmp ('AST-tmp-...') se omiten (no
-      // existen en el sheet). El backend recibe `force=true` para permitir
-      // borrar registros de WhatsApp también.
-      const realIdsToDelete = allExisting
+      // ANTES de borrar/POST — reload silenciosa para conocer TODOS los
+      // registros reales del backend (incluidos los que insertó el bot
+      // WhatsApp entre nuestro último reload y este guardado). Sin esto,
+      // la dedup solo veía el estado local viejo y dejaba huérfanos.
+      try {
+        const _res = await fetch(`${BACKEND}/rh/asistencia?_cb=${Date.now()}`, { cache: 'no-store' });
+        const _j = await _res.json();
+        if (_j && _j.ok && Array.isArray(_j.rows)) {
+          // Refresca ASIST_STATE.rows PRESERVANDO el row optimista que
+          // acabamos de agregar (para que el usuario no vea flicker).
+          const tmpRow = ASIST_STATE.rows.find(r => String(r.ID||'').startsWith('AST-tmp-'));
+          ASIST_STATE.rows = _j.rows;
+          if (tmpRow) ASIST_STATE.rows.push(tmpRow);
+        }
+      } catch(_){}
+      // Ahora RE-CALCULA existentes con el estado fresh — atrapa filas
+      // WhatsApp que el bot pudo haber insertado entre reloads.
+      const freshExisting = _asistCalAllRowsFor_(nombre, iso);
+      const realIdsToDelete = freshExisting
         .map(r => String(r.ID || ''))
         .filter(id => id && !id.startsWith('AST-tmp-'));
       if (isDeletion) {
