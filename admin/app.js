@@ -33217,7 +33217,7 @@ function asistDeriveConceptos_(recs) {
   // Domingo). Sin las nuevas, un registro con Concepto='Vac laboradas'
   // se caía al fallback de Entrada/Salida y siempre etiquetaba como
   // 'Asistencia' → 'Regular' — perdiendo la sub-clasificación.
-  const CONCEPTO_KEYS = ['Asistencia','Regular','Vac laboradas','Día feriado','Domingo','Falta','Incapacidad','Vacaciones'];
+  const CONCEPTO_KEYS = ['Asistencia','Regular','Vac laboradas','Día feriado','Domingo','Falta','Incapacidad','Vacaciones','Feriado'];
   for (const r of (recs || [])) {
     // Campo Concepto (fuente preferida cuando existe la columna en el sheet).
     const conc = String(r.Concepto || '').trim();
@@ -34564,6 +34564,7 @@ function asistRenderCalendar() {
         <div style="margin-left:auto;font-size:11px;color:#475569;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 1px #fff,0 0 0 2px #16a34a"></span> asistencia</span>
           <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 1px #fff,0 0 0 2px #f59e0b"></span> vacaciones/asueto</span>
+          <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:50%;background:#0ea5e9;box-shadow:0 0 0 1px #fff,0 0 0 2px #0ea5e9"></span> día feriado</span>
           <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 1px #fff,0 0 0 2px #dc2626"></span> falta</span>
         </div>
       </div>`;
@@ -35222,6 +35223,10 @@ const ASIST_PANEL_CONCEPTOS = [
   { k:'Falta',         color:'#dc2626', group:'Falta',      mult: 0                                      },
   { k:'Vacaciones',    color:'#f59e0b', group:'Vacaciones', mult: 1 + ASIST_PANEL_PRIMA_VAC              },
   { k:'Incapacidad',   color:'#7c3aed', group:'Incapacidad',mult: 0                                      },
+  // "Feriado" (día feriado NO trabajado): empleado no vino pero se le paga
+  // el salario base. Clave interna 'Feriado' para no colisionar con la sub
+  // 'Día feriado' (worked, mult=3). Label UI = "Día feriado".
+  { k:'Feriado',       color:'#0ea5e9', group:'Feriado',    mult: 1,           label: 'Día feriado'      },
 ];
 const ASIST_PANEL_CONCEPTO_MAP = Object.fromEntries(ASIST_PANEL_CONCEPTOS.map(c => [c.k, c]));
 const ASIST_PANEL_CONCEPTO_COLOR = Object.fromEntries(ASIST_PANEL_CONCEPTOS.map(c => [c.k, c.color]));
@@ -35231,6 +35236,7 @@ const ASIST_PANEL_GROUP_COLOR = {
   'Falta':       '#dc2626',
   'Vacaciones':  '#f59e0b',
   'Incapacidad': '#7c3aed',
+  'Feriado':     '#0ea5e9',
 };
 // Sub-clasificaciones válidas para "Asistencia".
 const ASIST_PANEL_SUBS_ASISTENCIA = ['Regular','Vac laboradas','Día feriado','Domingo'];
@@ -35542,6 +35548,7 @@ window.asistPanelOpenCellMenu = function (nombre, iso, ev) {
     { k:'Falta',       label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Falta']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Falta</span>` },
     { k:'Vacaciones',  label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Vacaciones']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Vacaciones</span>` },
     { k:'Incapacidad', label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Incapacidad']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Incapacidad</span>` },
+    { k:'Feriado',     label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Feriado']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Día feriado</span>` },
   ];
   let html = '<div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;padding:4px 8px 2px">Estado</div>';
   primarios.forEach(p => {
