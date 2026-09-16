@@ -9780,6 +9780,35 @@ async function __huespedesLoadInner(forceRefetch) {
       }).catch(()=>{});
     }
   } catch(_){}
+  // Precarga ÍNDICE COMPLETO de reservas Lodgify (sin filtro de fecha).
+  // LG_STATE.bookings solo tiene el mes en curso, así que reservas de otros
+  // meses no encontraban su GuestName y caían al placeholder de Reservaciones.
+  // Este índice cubre TODA la historia para lookups de nombre.
+  try {
+    if (!LG_STATE.__allBookingsById && !LG_STATE.__allBookingsFetching) {
+      LG_STATE.__allBookingsFetching = true;
+      fetch(`${BACKEND}/lodgify-list`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(j => {
+          if (j && j.ok && Array.isArray(j.bookings)) {
+            const idx = new Map();
+            j.bookings.forEach(b => {
+              const id = String(b?.Id || '').trim();
+              if (id) idx.set(id, b);
+            });
+            LG_STATE.__allBookingsById = idx;
+            LG_STATE.__syntheticCache = null;
+            LG_STATE.__syntheticCacheKey = null;
+            try {
+              const moduleRD = document.getElementById('module-reservas-detalles');
+              if (moduleRD && !moduleRD.classList.contains('hidden') && typeof rdRender === 'function') rdRender();
+            } catch(_){}
+          }
+        })
+        .catch(()=>{})
+        .finally(() => { LG_STATE.__allBookingsFetching = false; });
+    }
+  } catch(_){}
 
   // PERF: NO awaitar filter-options aquí — dispararlo en paralelo con page1.
   // Antes se hacían secuenciales (6.7s + 18s = 25s). El fetch se completa antes
@@ -14319,7 +14348,14 @@ function huRowToSyntheticBooking(r) {
     const HIDDEN = new Set(['declined','cancelled','canceled','expired','deleted']);
     if (rawSt && HIDDEN.has(rawSt)) return null;
   }
-  const realLg = lodId ? (LG_STATE.bookings || []).find(b => String(b.Id) === lodId) : null;
+  // realLg: primero busca en LG_STATE.bookings (mes en curso, filtrado
+  // Booked/Tentative). Si no está — porque la reserva es de otro mes —
+  // consulta el índice histórico completo LG_STATE.__allBookingsById.
+  let realLg = lodId ? (LG_STATE.bookings || []).find(b => String(b.Id) === lodId) : null;
+  if (!realLg && lodId && LG_STATE.__allBookingsById) {
+    const raw = LG_STATE.__allBookingsById.get(lodId);
+    if (raw) realLg = raw;
+  }
   const arrival   = realLg?.DateArrival   || toMMDD(arrivalRaw);
   const departure = realLg?.DateDeparture || toMMDD(departureRaw);
   // Noches: si hay Lodgify, usarlo; si no, calcular de las fechas
