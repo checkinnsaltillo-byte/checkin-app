@@ -34911,6 +34911,7 @@ function _asistCalRenderMenu_(ev) {
     { k:'Falta',       label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Falta']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Falta</span>` },
     { k:'Vacaciones',  label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Vacaciones']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Vacaciones</span>` },
     { k:'Incapacidad', label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Incapacidad']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Incapacidad</span>` },
+    { k:'Feriado',     label:`<span style="width:10px;height:10px;border-radius:2px;background:${ASIST_PANEL_GROUP_COLOR['Feriado']};display:inline-block"></span><span style="font-size:12px;font-weight:800;color:#0f172a">Día feriado</span>` },
   ];
   let html = '<div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;padding:4px 8px 2px">Estado</div>';
   primarios.forEach(p => {
