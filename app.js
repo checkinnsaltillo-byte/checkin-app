@@ -9842,12 +9842,18 @@ async function __huespedesLoadInner(forceRefetch) {
       if (lbl) lbl.textContent = `Cargando 1 de ${totalPages}…`;
       const pageNums = [];
       for (let p = 2; p <= totalPages; p++) pageNums.push(p);
-      // Todas las páginas restantes en paralelo — el server cachea +
-      // coalesce peticiones concurrentes a Apps Script, así que ya no
-      // es necesario limitar el batch. Máximo speedup en primera carga.
-      const results = await Promise.all(pageNums.map(fetchPage));
-      results.forEach(j => rows = rows.concat(j.rows || []));
-      if (lbl) lbl.textContent = `Cargando ${Math.min(rows.length, first.total)} de ${first.total}…`;
+      // Batch de 3 páginas en paralelo. Menor concurrencia = menos
+      // presión sobre Apps Script (que serializa internamente y timeoutea
+      // a 120s cuando se satura). Con server-cache activo, cada batch
+      // que ya está en cache resuelve instantáneo, así que la penalización
+      // de latencia es mínima para segunda-carga y posteriores.
+      const BATCH = 3;
+      for (let i = 0; i < pageNums.length; i += BATCH) {
+        const batch = pageNums.slice(i, i + BATCH);
+        const results = await Promise.all(batch.map(fetchPage));
+        results.forEach(j => rows = rows.concat(j.rows || []));
+        if (lbl) lbl.textContent = `Cargando ${Math.min(rows.length, first.total)} de ${first.total}…`;
+      }
     }
     const data = { ...first, rows };
     try {
