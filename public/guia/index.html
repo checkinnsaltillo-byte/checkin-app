@@ -923,8 +923,16 @@ function factRenderStep3_(){
   // se consideran PAGADAS aunque el depósito de Airbnb hacia nosotros aún
   // no haya llegado (AmountPaid=0). Para el resto se respeta PaymentStatus.
   const isAirbnbSrc = String(r.Source || '').toLowerCase().includes('airbnb');
-  const isPaid = isAirbnbSrc || (rawPS.includes('paid') && !rawPS.includes('not') && !rawPS.includes('partial'));
-  const isPartial = !isAirbnbSrc && rawPS.includes('partial');
+  // "Está pagada" también por aritmética: si pendiente ≤ 0 y pagado > 0,
+  // los montos ya reflejan pago completo aunque el string PaymentStatus
+  // de Lodgify no diga "Paid". Atrapa reservas Direct/Manual donde
+  // Lodgify no auto-actualiza PaymentStatus tras registrar la transacción.
+  const isPaidByAmount = total > 0 && pendiente <= 0 && pagado > 0;
+  const isPaid = isAirbnbSrc
+              || (rawPS.includes('paid') && !rawPS.includes('not') && !rawPS.includes('partial'))
+              || rawPS.includes('pagada')
+              || isPaidByAmount;
+  const isPartial = !isAirbnbSrc && !isPaidByAmount && rawPS.includes('partial');
   const statusChip = isPaid
     ? `<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#dcfce7;color:#166534;font-size:11px;font-weight:800">✓ PAGADA</span>`
     : (isPartial
