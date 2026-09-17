@@ -11558,12 +11558,23 @@ function huBuildHistoryList(currentR, allRows, selectedRecId, outerCardRecId) {
     const folioHist  = huValueFlexible(x, ['Folio facturapi','Folio Facturapi','Folio']);
     const reqFacHist = huValueFlexible(x, ['¿Requiere factura?']);
     const ticketUrlHist = (typeof huExtractTicketUrl === 'function') ? huExtractTicketUrl(x) : '';
+    const medioHist    = String(huValueFlexible(x, ['Medio de emisión','Medio de emision']) || '').trim();
     let ticketChipHtml = '';
     if (status === 'emitida') {
       const lbl = `🧾 Ver ticket${folioHist ? ' - Folio #' + esc(folioHist) : ''}`;
       ticketChipHtml = ticketUrlHist
         ? `<a href="${esc(ticketUrlHist)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:inline-block;padding:3px 9px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:800;font-size:9px;border:1px solid #86efac;text-decoration:none;letter-spacing:.02em">${lbl}</a>`
         : `<span style="display:inline-block;padding:3px 9px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:800;font-size:9px;border:1px solid #86efac;letter-spacing:.02em">${lbl}</span>`;
+      // Chip que distingue si el ticket lo generó el HUÉSPED (auto-facturación,
+      // color violeta) o el SISTEMA/admin (facturación sistema, color índigo).
+      if (medioHist) {
+        const isAuto = /auto/i.test(medioHist);
+        const bg = isAuto ? '#ede9fe' : '#e0f2fe';
+        const fg = isAuto ? '#5b21b6' : '#0369a1';
+        const bd = isAuto ? '#c4b5fd' : '#7dd3fc';
+        const emoji = isAuto ? '👤' : '🖥️';
+        ticketChipHtml += ` <span title="Origen del ticket" style="display:inline-block;padding:3px 8px;border-radius:999px;background:${bg};color:${fg};font-weight:800;font-size:9px;border:1px solid ${bd};letter-spacing:.02em">${emoji} ${esc(medioHist)}</span>`;
+      }
     } else if (status === 'pendiente' || /s[ií]/i.test(String(reqFacHist||''))) {
       ticketChipHtml = `<span style="display:inline-block;padding:3px 9px;border-radius:999px;background:#fff7ed;color:#c2410c;font-weight:800;font-size:9px;border:1px solid #fdba74;letter-spacing:.02em">🧾 Pendiente</span>`;
     }
@@ -12555,6 +12566,12 @@ function huBuildFacturapiUrlFromRow(row, baseUrl, cantidadOverride) {
   }
   p.set('checkinWebAppUrl', HU_CHECKIN_WEBAPP_URL);
   p.set('org', huGetFacturapiOrg());
+  // Marca que el ticket fue emitido DESDE EL SISTEMA (admin en Gestión de
+  // reservas / Chats-bot). El popup lo forwardea al backend y Apps Script
+  // lo escribe en la columna "Medio de emisión" de Reservaciones.
+  // Guest desde /registro o /guia NO pasa este param → default backend =
+  // "auto-facturación".
+  p.set('medio_emision', 'facturación sistema');
   // Fechas + propiedad de la reserva (para el popup "Enviar correo y WA" que
   // programa el envío basándose en la salida). Normalizamos a YYYY-MM-DD.
   const _dateIso = (v) => {
@@ -15185,6 +15202,20 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
           })()}
           ${guestAvgStarsInline}
           ${tierInlineHtml}
+          ${(() => {
+            // Chip origen del ticket: 👤 auto-facturación (guest desde /registro
+            // o /guia) vs 🖥️ facturación sistema (admin desde Gestión de reservas
+            // o Chats-bot). Solo si hay ticket emitido.
+            const _medio = String(huValueFlexible(huesped || {}, ['Medio de emisión','Medio de emision']) || '').trim();
+            const _folio = String(huValueFlexible(huesped || {}, ['Folio facturapi','Folio Facturapi','Folio']) || '').trim();
+            if (!_medio || !_folio) return '';
+            const isAuto = /auto/i.test(_medio);
+            const bg = isAuto ? '#ede9fe' : '#e0f2fe';
+            const fg = isAuto ? '#5b21b6' : '#0369a1';
+            const bd = isAuto ? '#c4b5fd' : '#7dd3fc';
+            const emoji = isAuto ? '👤' : '🖥️';
+            return `<span title="Origen del ticket" style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;background:${bg};color:${fg};border:1px solid ${bd};font-size:9px;font-weight:800;letter-spacing:.02em">${emoji} ${esc(_medio)}</span>`;
+          })()}
         </div>
         <div style="font-size:11px;color:#475569;font-weight:600;margin-top:2px">${esc(lgPropOf(b) || '—')}</div>
         <div class="rd-item-meta"><span>🌙 ${esc(ing)} - ${esc(sal)}</span><span>· 👥 ${b.NumberOfGuests||0}</span></div>
@@ -37997,6 +38028,8 @@ function inqBuildFacturapiUrl_(pago, perfil) {
   }
   if (typeof HU_CHECKIN_WEBAPP_URL === 'string') p.set('checkinWebAppUrl', HU_CHECKIN_WEBAPP_URL);
   if (typeof huGetFacturapiOrg === 'function') p.set('org', huGetFacturapiOrg());
+  // Inquilinos: siempre facturación desde el sistema (admin).
+  p.set('medio_emision', 'facturación sistema');
   const base = (typeof huGetFacturapiUrl === 'function') ? huGetFacturapiUrl() : 'https://checkin-app-957627511957.us-central1.run.app/facturapi';
   return `${base}?${p.toString()}`;
 }

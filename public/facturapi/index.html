@@ -1326,7 +1326,12 @@ URL de la factura: ${invoiceUrl}`;
           // Folio = MAX("Folio facturapi" en Reservaciones) + 1.
           // El backend lo traduce a folio_number al crear el receipt.
           assignedFolio: appState.nextFolio ? Number(appState.nextFolio) : undefined,
-          checkinWebAppUrl: appState.checkinWebAppUrl || undefined
+          checkinWebAppUrl: appState.checkinWebAppUrl || undefined,
+          // Medio de emisión: lo pasa el que abre el popup vía query
+          // param ?medio_emision=... (admin pasa "facturación sistema";
+          // guest desde /registro o /guia no pasa nada → default en el
+          // backend es "auto-facturación").
+          medio_emision: (queryParams.get('medio_emision') || '').trim() || undefined,
         };
 
         if (!payload.quantity || payload.quantity <= 0) throw new Error("Debes capturar una cantidad válida.");

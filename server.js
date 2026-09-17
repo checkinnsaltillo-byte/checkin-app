@@ -294,6 +294,7 @@ app.post("/api/create-receipt", async (req, res) => {
       rowNumber,
       assignedFolio,
       checkinWebAppUrl,
+      medio_emision,
     } = req.body || {};
     const org = readOrgFromReq(req);
 
@@ -377,6 +378,12 @@ app.post("/api/create-receipt", async (req, res) => {
           folio_facturapi: facturapiFolio,
           monto_facturado: Number(quantity) || "",   // ← se persiste en "$ Monto facturado Total"
           org: org || "",                            // ← Apps Script lo mapea a "ACR"/"ACL"
+          // Medio de emisión — "auto-facturación" cuando el huésped se
+          // autogeneró desde /registro o /guia; "facturación sistema"
+          // cuando el admin lo generó desde Gestión de reservas o Chats-bot.
+          // Default "auto-facturación" para retro-compat cuando el popup
+          // se abre sin el param (huésped directo).
+          medio_emision: String(medio_emision || "auto-facturación").trim(),
         };
         const data = await checkinFetchJson(resolvedCheckinUrl, {
           method: "POST",

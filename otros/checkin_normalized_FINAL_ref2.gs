@@ -128,6 +128,7 @@ const RESERVACIONES_HEADERS = [
   "$ Noches","$ Cuota de limpieza","$ MONTO TOTAL Airbnb","$ Comisión Airbnb","$ Monto antes de impuestos",
   "($) Monto Total pagado","$ Monto facturado Total",
   "Folio facturapi","Folio facturapi antiguo","Organización facturapi","Folio CFDI","Folio Relación","Folio complemento de pago","Estatus",
+  "Medio de emisión",
   "Fecha de emisión","Concepto Factura","Método de pago",
   "Ticket facturapi url","Ticket facturapi id archivo","Ticket facturapi nombre archivo","Ticket facturapi carpeta url","Ticket facturapi carpeta ruta",
   "Envía tus comentarios","Envía tus comentarios con relación a la factura","Notas","Enviado por",
@@ -3441,6 +3442,19 @@ function updateFacturapiFolioStrict_(data) {
     if (orgCol >= 0) {
       sheet.getRange(row, orgCol + 1).setNumberFormat("@");
       sheet.getRange(row, orgCol + 1).setValue(orgLabel);
+    }
+  }
+  // Persistir el "Medio de emisión" del ticket:
+  //   - "auto-facturación": guest se autogeneró desde /registro o /guia
+  //   - "facturación sistema": admin lo generó desde Gestión de reservas o Chats-bot
+  // El param llega desde Cloud Run /api/create-receipt → strictPayload.medio_emision.
+  const medioRaw = safe_(data.medio_emision || data.medioEmision);
+  const medio = String(medioRaw || "").trim();
+  if (medio) {
+    const medioCol = headers.indexOf("Medio de emisión");
+    if (medioCol >= 0) {
+      sheet.getRange(row, medioCol + 1).setNumberFormat("@");
+      sheet.getRange(row, medioCol + 1).setValue(medio);
     }
   }
   SpreadsheetApp.flush();
