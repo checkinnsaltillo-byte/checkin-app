@@ -3711,6 +3711,7 @@ function mergeReservacionWithProfile_(resRow, perfil, vehiculo) {
     "$ Monto facturado Total": resRow["$ Monto facturado Total"] || "",
     "Folio facturapi": resRow["Folio facturapi"] || "",
     "Ticket facturapi url": resRow["Ticket facturapi url"] || "",
+    "Medio de emisión": resRow["Medio de emisión"] || "",
     "Razón social": p["Razón social"] || "",
     "Régimen fiscal": p["Régimen fiscal"] || "",
     "Forma de pago": resRow["Forma de pago"] || "",
