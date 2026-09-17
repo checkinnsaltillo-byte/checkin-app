@@ -812,7 +812,9 @@ async function factLookupByCode_(){
         // Convertir la reserva al mismo shape que reservas_by_phone entrega
         const r = j.reserva;
         const summary = {
-          Id: r['ID']||'', Source: r['Medio de reservación']||'',
+          Id: String(r['Lodgify Id']||'').trim() || r['ID']||'',
+          RecordId: r['ID']||'',
+          Source: r['Medio de reservación']||'',
           ConfirmationCode: r['Código de confirmación']||raw,
           GuestName: r['Nombre de la persona que hizo la reservación']||'',
           Propiedad: r['Propiedad']||'', Departamento: r['# Departamento']||'',

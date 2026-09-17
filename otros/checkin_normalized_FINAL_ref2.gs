@@ -11114,13 +11114,20 @@ function reservacionSetFolioByLodgifyId_(data) {
   };
   var last = sh.getLastRow();
   var foundRow = -1;
+  // Autodetección: si `lid` es un UUID (36 chars con guiones) en vez de un
+  // Lodgify Id numérico, buscar por la columna ID de Reservaciones. Esto
+  // pasa cuando la guía carga la reserva por código de confirmación
+  // (r['ID'] es el UUID, no el Lodgify Id numérico).
+  var isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lid);
+  var iID = headers.indexOf("ID");
+  var searchCol = (isUuid && iID >= 0) ? iID : iLI;
   if (last >= 2) {
     // Usa getDisplayValues() (no getValues()) porque Lodgify Id puede
     // guardarse como número; getValues() lo devuelve como Number sin
     // trim/normalización, provocando comparación fallida contra el string
     // "23164402" y creando un renglón huérfano. getDisplayValues siempre
     // devuelve el string formateado.
-    var vals = sh.getRange(2, iLI + 1, last - 1, 1).getDisplayValues();
+    var vals = sh.getRange(2, searchCol + 1, last - 1, 1).getDisplayValues();
     for (var i = 0; i < vals.length; i++) {
       if (String(vals[i][0] || "").trim() === lid) { foundRow = i + 2; break; }
     }
@@ -11138,9 +11145,14 @@ function reservacionSetFolioByLodgifyId_(data) {
     _writeAmts(foundRow);
     return { ok:true, row: foundRow, row_number: foundRow, action:"updated" };
   }
-  // Crear fila nueva mínima
+  // Salvaguarda: si el `lid` es un UUID y no encontramos la fila,
+  // NO crear fila huérfana con un UUID en la columna "Lodgify Id".
+  // Mejor devolver error explícito para que el caller lo detecte.
+  if (isUuid) {
+    return { ok:false, error:"No se encontró reservación con ID=" + lid + " (buscado en columna ID de Reservaciones). No se creó fila huérfana." };
+  }
+  // Crear fila nueva mínima (solo cuando `lid` es Lodgify Id numérico legítimo)
   var iMT = headers.indexOf("Marca temporal");
-  var iID = headers.indexOf("ID");
   var newRow = new Array(headers.length).fill("");
   if (iID >= 0) newRow[iID] = Utilities.getUuid();
   if (iMT >= 0) newRow[iMT] = new Date();
