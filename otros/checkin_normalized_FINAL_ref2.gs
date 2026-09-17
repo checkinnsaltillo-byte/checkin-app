@@ -157,6 +157,7 @@ function doPost(e) {
     if (action === "update_facturapi_folio_strict") return jsonOutput_(updateFacturapiFolioStrict_(data));
     if (action === "archive_folio_for_reemit") return jsonOutput_(archiveFolioForReemit_(data));
     if (action === "save_facturapi_pdf") return jsonOutput_(saveFacturapiPdf_(data));
+    if (action === "set_ticket_urls_only") return jsonOutput_(setTicketUrlsOnly_(data));
     if (action === "send_otp") return jsonOutput_(sendOtp_(data));
     if (action === "verify_otp") return jsonOutput_(verifyOtp_(data));
     if (action === "check_user_status") return jsonOutput_(checkUserStatus_(data));
@@ -3541,6 +3542,44 @@ function archiveFolioForReemit_(data) {
     previous_folio: prevFolio,
     archived_to: "Folio facturapi antiguo",
   };
+}
+
+/**
+ * Escribe SOLO las columnas de URL del ticket (sin re-subir PDF a Drive).
+ * Sirve para recuperar reservaciones cuyo ticket sí quedó emitido/guardado
+ * en Drive pero el renglón correcto quedó sin las URLs (ej. cuando
+ * reservacionSetFolioByLodgifyId_ creó un renglón huérfano por bug de
+ * comparación numérica).
+ */
+function setTicketUrlsOnly_(data) {
+  const recordId = safe_(data.record_id || data.id);
+  const explicitRow = safe_(data.row_number || data.rowNumber);
+  const lodgifyId = safe_(data.lodgify_id || data.lodgifyId);
+  const externalId = safe_(data.external_id || data.externalId);
+  if (!recordId && !explicitRow && !lodgifyId && !externalId) throw new Error("Falta identificador.");
+  const sheet = getSheet_(RESERVACIONES_SHEET);
+  const headers = getHeaders_(sheet);
+  let row = null;
+  if (explicitRow) row = findRowByRowNumber_(sheet, explicitRow);
+  if (!row && recordId) { row = findRowByValue_(sheet, headers, "ID", recordId); if (!row) row = findRowByRowNumber_(sheet, recordId); }
+  if (!row && externalId) {
+    const clean = String(externalId).replace(/^CHECKIN-/, "").trim();
+    row = findRowByValue_(sheet, headers, "ID", clean);
+  }
+  if (!row && lodgifyId) row = findRowByValue_(sheet, headers, "Lodgify Id", String(lodgifyId).trim());
+  if (!row) throw new Error("No se encontró la reservación.");
+  const url  = safe_(data.ticket_facturapi_url  || data.url);
+  const fid  = safe_(data.ticket_facturapi_id_archivo || data.file_id);
+  const fnm  = safe_(data.ticket_facturapi_nombre_archivo || data.file_name);
+  const furl = safe_(data.ticket_facturapi_carpeta_url || data.folder_url);
+  const frut = safe_(data.ticket_facturapi_carpeta_ruta || data.folder_path);
+  if (url)  setCellByHeader_(sheet, headers, row, "Ticket facturapi url", url);
+  if (fid)  setCellByHeader_(sheet, headers, row, "Ticket facturapi id archivo", fid);
+  if (fnm)  setCellByHeader_(sheet, headers, row, "Ticket facturapi nombre archivo", fnm);
+  if (furl) setCellByHeader_(sheet, headers, row, "Ticket facturapi carpeta url", furl);
+  if (frut) setCellByHeader_(sheet, headers, row, "Ticket facturapi carpeta ruta", frut);
+  SpreadsheetApp.flush();
+  return { ok: true, row_number: row, ticket_facturapi_url: url, file_id: fid };
 }
 
 function saveFacturapiPdf_(data) {
@@ -11075,7 +11114,12 @@ function reservacionSetFolioByLodgifyId_(data) {
   var last = sh.getLastRow();
   var foundRow = -1;
   if (last >= 2) {
-    var vals = sh.getRange(2, iLI + 1, last - 1, 1).getValues();
+    // Usa getDisplayValues() (no getValues()) porque Lodgify Id puede
+    // guardarse como número; getValues() lo devuelve como Number sin
+    // trim/normalización, provocando comparación fallida contra el string
+    // "23164402" y creando un renglón huérfano. getDisplayValues siempre
+    // devuelve el string formateado.
+    var vals = sh.getRange(2, iLI + 1, last - 1, 1).getDisplayValues();
     for (var i = 0; i < vals.length; i++) {
       if (String(vals[i][0] || "").trim() === lid) { foundRow = i + 2; break; }
     }
