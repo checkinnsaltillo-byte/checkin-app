@@ -1060,8 +1060,11 @@ async function factEmit_(){
     if (!j.ok) throw new Error(j.error || `HTTP ${resp.status}`);
     const parts = [`Folio: #${j.folio}`];
     if (j.url) parts.push(`Link: ${j.url}`);
-    if (j.mail_sent) parts.push('✓ Correo enviado');
-    if (j.wa_sent) parts.push('✓ WhatsApp enviado');
+    if (j._async) parts.push('📧 Enviaremos tu ticket por correo y WhatsApp en unos segundos.');
+    else {
+      if (j.mail_sent) parts.push('✓ Correo enviado');
+      if (j.wa_sent) parts.push('✓ WhatsApp enviado');
+    }
     alert('✅ Ticket generado\n\n' + parts.join('\n'));
     closeFacturacion_();
   } catch(e) {
