@@ -14974,6 +14974,17 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
     } else if (/s[ií]/i.test(reqFac)) {
       tktChip = `<span style="display:inline-block;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:700;font-size:9px;border:1px solid #fde68a">📄 Req. factura</span>`;
     }
+    if (status === 'emitida') {
+      const medio = String(huValueFlexible(huesped, ['Medio de emisión','Medio de emision']) || '').trim();
+      if (medio) {
+        const isAuto = /auto/i.test(medio);
+        const bg = isAuto ? '#ede9fe' : '#e0f2fe';
+        const fg = isAuto ? '#5b21b6' : '#0369a1';
+        const bd = isAuto ? '#c4b5fd' : '#7dd3fc';
+        const emoji = isAuto ? '👤' : '🖥️';
+        tktChip += ` <span title="Origen del ticket" style="display:inline-block;padding:1px 7px;border-radius:999px;background:${bg};color:${fg};border:1px solid ${bd};font-size:9px;font-weight:800;letter-spacing:.02em">${emoji} ${esc(medio)}</span>`;
+      }
+    }
   }
   // Chip Late checkout — leído de la columna LateCheckout de Reservaciones
   // (formato "HH:MM · pendiente|confirmado|rechazado · timestamp").
