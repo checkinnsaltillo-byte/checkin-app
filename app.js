@@ -12265,7 +12265,7 @@ function huBuildRecordCard(r) {
   const huespedesChip = huespedes
     ? `<span data-hu-hdr-huespedes style="display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:999px;background:#fff;color:#1f2937;font-weight:800;font-size:11px;border:1px solid #e2e8f0;letter-spacing:.02em;box-shadow:0 1px 2px rgba(15,23,42,.05)">👥 ${esc(huespedes)} huésped${String(huespedes)==='1'?'':'es'}</span>`
     : '<span data-hu-hdr-huespedes></span>';
-  const facBadge   = status === 'emitida'
+  let facBadge   = status === 'emitida'
     ? (ticketUrl
         ? `<a href="${esc(ticketUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none">
              <span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:700;font-size:11px;border:1px solid #86efac">🧾 Ticket emitido${folio?' - Folio #'+esc(folio):''}</span>
@@ -12274,6 +12274,17 @@ function huBuildRecordCard(r) {
     : status === 'pendiente'
     ? `<span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#fff7ed;color:#c2410c;font-weight:700;font-size:11px;border:1.5px solid #fdba74">🧾 Ticket pendiente</span>`
     : '';
+  if (status === 'emitida') {
+    const medioEm = String(huValueFlexible(r, ['Medio de emisión','Medio de emision']) || '').trim();
+    if (medioEm) {
+      const isAuto = /auto/i.test(medioEm);
+      const bg = isAuto ? '#ede9fe' : '#e0f2fe';
+      const fg = isAuto ? '#5b21b6' : '#0369a1';
+      const bd = isAuto ? '#c4b5fd' : '#7dd3fc';
+      const emoji = isAuto ? '👤' : '🖥️';
+      facBadge += ` <span title="Origen del ticket" style="display:inline-block;padding:5px 12px;border-radius:999px;background:${bg};color:${fg};border:1px solid ${bd};font-size:11px;font-weight:800;letter-spacing:.02em">${emoji} ${esc(medioEm)}</span>`;
+    }
+  }
 
   // KPIs del huésped (sumando su historial completo de reservaciones)
   const stats = huComputeGuestStats(r, HU_STATE.rows);
@@ -16383,6 +16394,17 @@ function lgBuildCardSummary(b) {
       : status === 'pendiente'
       ? `<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#fff7ed;color:#c2410c;font-weight:700;font-size:10px;border:1.5px solid #fdba74">🧾 Ticket pendiente</span>`
       : '';
+    if (status === 'emitida') {
+      const medio = String(huValueFlexible(huespedMatch, ['Medio de emisión','Medio de emision']) || '').trim();
+      if (medio) {
+        const isAuto = /auto/i.test(medio);
+        const bg = isAuto ? '#ede9fe' : '#e0f2fe';
+        const fg = isAuto ? '#5b21b6' : '#0369a1';
+        const bd = isAuto ? '#c4b5fd' : '#7dd3fc';
+        const emoji = isAuto ? '👤' : '🖥️';
+        facBadge += ` <span title="Origen del ticket" style="display:inline-block;padding:4px 10px;border-radius:999px;background:${bg};color:${fg};border:1px solid ${bd};font-size:10px;font-weight:800;letter-spacing:.02em">${emoji} ${esc(medio)}</span>`;
+      }
+    }
     // KPIs globales del huésped + tier
     if (typeof huComputeGuestStats === 'function') {
       const stats = huComputeGuestStats(huespedMatch, HU_STATE.rows);
