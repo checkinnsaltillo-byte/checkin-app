@@ -11140,9 +11140,21 @@ function reservacionSetFolioByLodgifyId_(data) {
       if (idx >= 0) sh.getRange(row, idx + 1).setValue(Number(v));
     });
   }
+  // Medio de emisión: cuando la guía dispara este handler es siempre
+  // "auto-facturación" (huésped). El admin flow usa updateFacturapiFolioStrict_.
+  var medioEmision = String((data && (data.medio_emision || data.medioEmision)) || "auto-facturación").trim();
+  function _writeMedio(row) {
+    if (!medioEmision) return;
+    var idx = headers.indexOf("Medio de emisión");
+    if (idx >= 0) {
+      sh.getRange(row, idx + 1).setNumberFormat("@");
+      sh.getRange(row, idx + 1).setValue(medioEmision);
+    }
+  }
   if (foundRow > 0) {
     sh.getRange(foundRow, iFO + 1).setValue(folio);
     _writeAmts(foundRow);
+    _writeMedio(foundRow);
     return { ok:true, row: foundRow, row_number: foundRow, action:"updated" };
   }
   // Salvaguarda: si el `lid` es un UUID y no encontramos la fila,
@@ -11161,6 +11173,7 @@ function reservacionSetFolioByLodgifyId_(data) {
   sh.appendRow(newRow);
   var newRowNum = sh.getLastRow();
   _writeAmts(newRowNum);
+  _writeMedio(newRowNum);
   return { ok:true, row: newRowNum, row_number: newRowNum, action:"created" };
 }
 
