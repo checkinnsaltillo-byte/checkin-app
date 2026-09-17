@@ -178,7 +178,7 @@
         </li>
         <li class="nav-item" id="nav-item-personas"
             onclick="switchModule('personas');closeNavMenu()">
-          👤 Personas
+          🏨 Huéspedes/Inquilinos
         </li>
         <li class="nav-item" id="nav-item-pagos"
             onclick="switchModule('pagos');closeNavMenu()">
@@ -213,7 +213,8 @@
             onclick="switchModule('rh');closeNavMenu()">
           👥 Recursos Humanos
         </li>
-        <li class="nav-item" id="nav-item-inquilinos"
+        <!-- Inquilinos ahora es una pestaña dentro de "Huéspedes/Inquilinos" -->
+        <li class="nav-item hidden" id="nav-item-inquilinos"
             onclick="switchModule('inquilinos');closeNavMenu()">
           🏠 Inquilinos
         </li>
@@ -313,10 +314,10 @@
             <div class="home-card-arrow">→</div>
           </button>
           <button type="button" class="home-card home-card-personas" onclick="switchModule('personas')">
-            <div class="home-card-icon">👤</div>
+            <div class="home-card-icon">🏨</div>
             <div class="home-card-body">
-              <h3 class="home-card-title">Personas</h3>
-              <p class="home-card-desc">Directorio de huéspedes con KPIs de fidelidad, contacto, datos fiscales y vehículo.</p>
+              <h3 class="home-card-title">Huéspedes/Inquilinos</h3>
+              <p class="home-card-desc">Directorio de huéspedes (KPIs, contacto, datos fiscales, vehículo) y de inquilinos (perfiles y rentas).</p>
             </div>
             <div class="home-card-arrow">→</div>
           </button>
@@ -384,7 +385,8 @@
             </div>
             <div class="home-card-arrow">→</div>
           </button>
-          <button type="button" class="home-card home-card-inquilinos" onclick="switchModule('inquilinos')">
+          <!-- Home-card de Inquilinos removida — ahora vive dentro de "Huéspedes/Inquilinos" -->
+          <button type="button" class="home-card home-card-inquilinos hidden" onclick="switchModule('inquilinos')" style="display:none">
             <div class="home-card-icon">🏠</div>
             <div class="home-card-body">
               <h3 class="home-card-title">Inquilinos</h3>
@@ -1712,12 +1714,17 @@
       </div>
     </div><!-- /module-reservas-detalles -->
 
-    <!-- ══ MÓDULO: Personas ══════════════════════════════════════════ -->
+    <!-- ══ MÓDULO: Huéspedes/Inquilinos (pestaña Huéspedes) ═════════════ -->
     <div id="module-personas" class="hidden" style="padding:20px 24px 60px">
+      <!-- Cabecera compartida con módulo Inquilinos: título + tab switcher -->
+      <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em;margin-bottom:10px">🏨 Huéspedes/Inquilinos</div>
+      <div id="hi-tabs-personas" style="display:inline-flex;gap:4px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:3px;margin-bottom:14px">
+        <button type="button" onclick="switchModule('personas')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:#0f172a;color:#fff">👤 Huéspedes</button>
+        <button type="button" onclick="switchModule('inquilinos')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:transparent;color:#475569">🏠 Inquilinos</button>
+      </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px">
         <div>
-          <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em">👤 Personas</div>
-          <div id="personas-status-label" style="font-size:12px;color:#64748b;margin-top:2px">Cargando…</div>
+          <div id="personas-status-label" style="font-size:12px;color:#64748b">Cargando…</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <div id="personas-view-toggle" style="display:inline-flex;gap:4px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:2px">
@@ -2587,15 +2594,14 @@
       </div>
     </div><!-- /module-rh -->
 
-    <!-- ═══════════════ MÓDULO INQUILINOS ═══════════════ -->
+    <!-- ═══════════════ MÓDULO INQUILINOS (pestaña de Huéspedes/Inquilinos) ═══════════════ -->
     <div id="module-inquilinos" class="hidden" style="padding:20px 24px 60px">
       <div style="max-width:1440px;margin:0 auto">
-        <div class="rh-hero">
-          <div>
-            <div class="rh-hero-kicker">Gestión de rentas</div>
-            <h1 class="rh-hero-title">🏠 Inquilinos</h1>
-            <p class="rh-hero-sub">Perfiles, contratos y pagos mensuales de inquilinos.</p>
-          </div>
+        <!-- Cabecera compartida con módulo Huéspedes: título + tab switcher -->
+        <div style="font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-.01em;margin-bottom:10px">🏨 Huéspedes/Inquilinos</div>
+        <div id="hi-tabs-inquilinos" style="display:inline-flex;gap:4px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:3px;margin-bottom:14px">
+          <button type="button" onclick="switchModule('personas')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:transparent;color:#475569">👤 Huéspedes</button>
+          <button type="button" onclick="switchModule('inquilinos')" style="all:unset;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer;background:#0f172a;color:#fff">🏠 Inquilinos</button>
         </div>
         <div class="rh-tabs" style="margin-bottom:14px">
           <button type="button" class="rh-tab active" data-inq-tab="rentas" onclick="inqSetTab('rentas')">💵 Rentas</button>
@@ -2915,7 +2921,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1269"></script>
+  <script src="app.js?v=1270"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }

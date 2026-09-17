@@ -333,12 +333,15 @@ async function computeHashes(startIdx) {
 const SYS_MODULE_PERMS = {
   I:    ['registros','efectivo'],
   II:   ['tickets'],
-  III:  ['huespedes','lodgify','reservas-detalles','pagos','personas'],
+  // 'personas' e 'inquilinos' son pestañas del módulo compuesto
+  // "Huéspedes/Inquilinos" → cualquier usuario con permiso a alguno de los
+  // dos debe ver la entrada. Se listan en ambos grupos.
+  III:  ['huespedes','lodgify','reservas-detalles','pagos','personas','inquilinos'],
   IV:   ['breezeway'],
   V:    ['incidencias'],
   VI:   ['objetos'],
   VII:  ['ocupacion'],
-  VIII: ['rh','inquilinos','inventarios'],
+  VIII: ['rh','inquilinos','personas','inventarios'],
 };
 function sysGetStoredUser() {
   try { return JSON.parse(localStorage.getItem('sys_user') || 'null'); } catch (_) { return null; }
