@@ -333,7 +333,7 @@ async function computeHashes(startIdx) {
 const SYS_MODULE_PERMS = {
   I:    ['registros','efectivo'],
   II:   ['tickets'],
-  III:  ['huespedes','lodgify','reservas-detalles','pagos'],
+  III:  ['huespedes','lodgify','reservas-detalles','pagos','personas'],
   IV:   ['breezeway'],
   V:    ['incidencias'],
   VI:   ['objetos'],
