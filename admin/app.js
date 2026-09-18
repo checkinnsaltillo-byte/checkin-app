@@ -15224,20 +15224,6 @@ function lgBuildDetailSidebarItem(b, selectedId, huespedOverride) {
           })()}
           ${guestAvgStarsInline}
           ${tierInlineHtml}
-          ${(() => {
-            // Chip origen del ticket: 👤 auto-facturación (guest desde /registro
-            // o /guia) vs 🖥️ facturación sistema (admin desde Gestión de reservas
-            // o Chats-bot). Solo si hay ticket emitido.
-            const _medio = String(huValueFlexible(huesped || {}, ['Medio de emisión','Medio de emision']) || '').trim();
-            const _folio = String(huValueFlexible(huesped || {}, ['Folio facturapi','Folio Facturapi','Folio']) || '').trim();
-            if (!_medio || !_folio) return '';
-            const isAuto = /auto/i.test(_medio);
-            const bg = isAuto ? '#ede9fe' : '#e0f2fe';
-            const fg = isAuto ? '#5b21b6' : '#0369a1';
-            const bd = isAuto ? '#c4b5fd' : '#7dd3fc';
-            const emoji = isAuto ? '👤' : '🖥️';
-            return `<span title="Origen del ticket" style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;background:${bg};color:${fg};border:1px solid ${bd};font-size:9px;font-weight:800;letter-spacing:.02em">${emoji} ${esc(_medio)}</span>`;
-          })()}
         </div>
         <div style="font-size:11px;color:#475569;font-weight:600;margin-top:2px">${esc(lgPropOf(b) || '—')}</div>
         <div class="rd-item-meta"><span>🌙 ${esc(ing)} - ${esc(sal)}</span><span>· 👥 ${b.NumberOfGuests||0}</span></div>
