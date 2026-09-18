@@ -10617,6 +10617,49 @@ function reservaGetByConfirmationCode_(data) {
       var reserva = {};
       for (var c = 0; c < headers.length; c++) reserva[headers[c]] = vals[i][c];
       reserva._row = i + 2;
+      // Hidratar campos vacíos desde Lodgify (# Huéspedes, # Noches,
+      // fechas, monto) cuando existe Lodgify Id y la fila de
+      // Reservaciones aún no fue completada por el check-in del huésped.
+      try {
+        var _lidHid = String(reserva["Lodgify Id"] || "").trim();
+        if (_lidHid) {
+          var _ssHid = getSpreadsheet_();
+          var _shLHid = _ssHid.getSheetByName(LODGIFY_SHEET);
+          if (_shLHid && _shLHid.getLastRow() >= 2) {
+            var _hLHid = getHeaders_(_shLHid);
+            var _iIdL = _hLHid.indexOf("Id");
+            if (_iIdL >= 0) {
+              var _idVals = _shLHid.getRange(2, _iIdL + 1, _shLHid.getLastRow() - 1, 1).getDisplayValues();
+              var _fRow = -1;
+              for (var _k = 0; _k < _idVals.length; _k++) {
+                if (String(_idVals[_k][0] || "").trim() === _lidHid) { _fRow = _k + 2; break; }
+              }
+              if (_fRow > 0) {
+                var _lRow = _shLHid.getRange(_fRow, 1, 1, _hLHid.length).getValues()[0];
+                var _hydrate = [
+                  ["NumberOfGuests", "# Huéspedes"],
+                  ["Nights", "# Noches"],
+                  ["DateArrival", "Fecha de ingreso"],
+                  ["DateDeparture", "Fecha de salida"],
+                  ["AmountPaid", "($) Monto Total pagado"],
+                  ["PaymentStatus", "PaymentStatus"],
+                  ["Currency", "Divisa monto pagado"],
+                ];
+                _hydrate.forEach(function(pair) {
+                  var srcIdx = _hLHid.indexOf(pair[0]);
+                  if (srcIdx < 0) return;
+                  var srcVal = _lRow[srcIdx];
+                  var dstVal = reserva[pair[1]];
+                  var isEmpty = dstVal == null || String(dstVal).trim() === "" || String(dstVal).trim() === "0";
+                  if (isEmpty && srcVal != null && String(srcVal).trim() !== "") {
+                    reserva[pair[1]] = srcVal;
+                  }
+                });
+              }
+            }
+          }
+        }
+      } catch(_hidErr) { /* silent: hidratación best-effort */ }
       var perfil = null;
       var phone = iPh >= 0 ? String(vals[i][iPh] || "") : "";
       if (phone) {
