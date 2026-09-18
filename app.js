@@ -10817,6 +10817,38 @@ function huFacturaHeaderBadge(row) {
   return '';
 }
 
+/** Dedupe filas por celular normalizado (últimos 10 dígitos).
+ *  Descarta filas sin celular válido — solo mostramos huéspedes que existen
+ *  en Perfiles (identificables por su phone key). Para cada teléfono único,
+ *  conserva la reserva "más representativa": prioriza la que ya tiene
+ *  registro manual completo (huHasManualRegistration), luego la de fecha
+ *  de ingreso más reciente. */
+function huDedupeByPhone(rows) {
+  const byPhone = new Map();
+  const _phoneKey = (r) => {
+    const raw = String(huValueFlexible(r, ['Cel/Whatsapp (principal)','Celular','Cel']) || '').replace(/\D/g, '');
+    return raw.length >= 10 ? raw.slice(-10) : '';
+  };
+  const _score = (r) => {
+    // Puntaje para elegir la mejor reserva por huésped: registro manual
+    // completo > fecha de ingreso más reciente > row_number más alto.
+    let s = 0;
+    try { if (huHasManualRegistration && huHasManualRegistration(r)) s += 1e12; } catch(_) {}
+    const dt = huParseDate(huValueFlexible(r, ['Fecha de ingreso']));
+    if (dt) s += dt.getTime();
+    const rn = Number(String(r['row_number']||r['ID']||'').replace(/[^0-9]/g,'')) || 0;
+    s += rn * 1e-6;
+    return s;
+  };
+  (rows || []).forEach(r => {
+    const pk = _phoneKey(r);
+    if (!pk) return;
+    const cur = byPhone.get(pk);
+    if (!cur || _score(r) > _score(cur)) byPhone.set(pk, r);
+  });
+  return Array.from(byPhone.values());
+}
+
 /** Render principal del dashboard de huéspedes. */
 function huespedesRender() {
   const empty   = document.getElementById('hu-empty');
@@ -10826,6 +10858,10 @@ function huespedesRender() {
 
   // 1) Filtro mes (estancia toca al menos un día del mes)
   HU_STATE.filteredRows = huApplyMonthFilter(HU_STATE.rows);
+  // 1a) Solo registros con celular válido (equivalente a "está en Perfiles").
+  // Dedupe: 1 card por celular normalizado (últimos 10 dígitos). Preferimos
+  // la reserva más reciente (mayor Fecha de ingreso o mayor ID/row_number).
+  HU_STATE.filteredRows = huDedupeByPhone(HU_STATE.filteredRows);
   // 1b) Filtros client-side multi-select (Régimen, ¿Req. factura?, Clasificación)
   HU_STATE.filteredRows = huApplyClientMultiFilters(HU_STATE.filteredRows);
 
