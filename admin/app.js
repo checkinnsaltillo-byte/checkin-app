@@ -35473,7 +35473,29 @@ window.asistCalMenuGuardar = async function () {
             return fetch(url, { method:'DELETE' });
           }));
         }
-        const payload = {
+        // Campos que el guardado NO debe copiar del row original — se
+        // recomputan aquí. Todo lo demás del row (GPS, Timestamp, Empleado_ID,
+        // Observaciones, Ubicacion_*, etc.) se preserva íntegro para no
+        // perder metadatos por descuido.
+        const _overriddenKeys = new Set([
+          'ID','Concepto','Entrada','Salida','Horas','Metodo',
+          '$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)',
+          '$ Prima día feriado (200%)','$ Salario total',
+          'Compensación_concepto','Compensación_monto'
+        ]);
+        const payload = {};
+        // 1) Copiar TODOS los campos del row original excepto los overridden.
+        if (row) {
+          for (const k of Object.keys(row)) {
+            if (!k) continue;
+            if (_overriddenKeys.has(k)) continue;
+            const v = row[k];
+            if (v == null || v === '') continue;
+            payload[k] = v;
+          }
+        }
+        // 2) Sobreescribir con los valores nuevos.
+        Object.assign(payload, {
           Empleado_Nombre: nombre, Fecha: iso, Concepto: concepto,
           Entrada: entrada, Salida: salida, Horas: horas,
           '$ Salario base':             fmt(p.salBase),
@@ -35481,14 +35503,12 @@ window.asistCalMenuGuardar = async function () {
           '$ Prima dominical (25%)':    fmt(p.primaDom),
           '$ Prima día feriado (200%)': fmt(p.primaDF),
           '$ Salario total':            totalPago ? asistPanelFmtMonto_(totalPago) : '',
-          Metodo: metodoFinal, Observaciones: '',
-          ...(compFinal && compFinal.concepto ? { 'Compensación_concepto': compFinal.concepto } : {}),
-          ...(compFinal && compFinal.monto    ? { 'Compensación_monto':    asistPanelFmtMonto_(Number(compFinal.monto)) } : {}),
-        };
-        if (preserve.Ubicacion_Lat != null && preserve.Ubicacion_Lat !== '') payload.Ubicacion_Lat = preserve.Ubicacion_Lat;
-        if (preserve.Ubicacion_Lng != null && preserve.Ubicacion_Lng !== '') payload.Ubicacion_Lng = preserve.Ubicacion_Lng;
-        if (preserve.Ubicacion_Salida_Lat != null && preserve.Ubicacion_Salida_Lat !== '') payload.Ubicacion_Salida_Lat = preserve.Ubicacion_Salida_Lat;
-        if (preserve.Ubicacion_Salida_Lng != null && preserve.Ubicacion_Salida_Lng !== '') payload.Ubicacion_Salida_Lng = preserve.Ubicacion_Salida_Lng;
+          Metodo: metodoFinal,
+        });
+        // Observaciones: si no había, dejar vacío. Si había, se preserva de (1).
+        if (payload.Observaciones == null) payload.Observaciones = '';
+        if (compFinal && compFinal.concepto) payload['Compensación_concepto'] = compFinal.concepto;
+        if (compFinal && compFinal.monto)    payload['Compensación_monto']    = asistPanelFmtMonto_(Number(compFinal.monto));
         await fetch(`${BACKEND}/rh/asistencia`, {
           method:'POST', headers:{ 'Content-Type':'application/json' },
           body: JSON.stringify({ payload }),
@@ -36579,6 +36599,9 @@ window.asistGuardarRegistro = async function () {
           preserveHoras: String(row.Horas || '').trim(),
           preserveLat: row.Ubicacion_Lat, preserveLng: row.Ubicacion_Lng,
           preserveLatSal: row.Ubicacion_Salida_Lat, preserveLngSal: row.Ubicacion_Salida_Lng,
+          // Preservación total: pasamos el row entero para no perder metadatos
+          // (GPS_Accuracy, Timestamp, Empleado_ID, Observaciones originales, etc.).
+          preserveRow: row,
         });
       } else {
         // DELETE puro: la celda quedó vacía (sin concepto y sin compensación).
@@ -36678,7 +36701,25 @@ window.asistGuardarRegistro = async function () {
     const compMonto = c.compensacion && Number(c.compensacion.monto) > 0 ? Number(c.compensacion.monto) : 0;
     const compConcepto = c.compensacion && c.compensacion.concepto ? String(c.compensacion.concepto) : '';
     const total_pago_final = total_pago + compMonto;
-    const payload = {
+    // Preservación total: copiar TODOS los campos del row original excepto
+    // los que se recomputan aquí. Antes solo se preservaban 4 ubicaciones;
+    // eso perdía GPS_Accuracy, Timestamp, Observaciones originales, etc.
+    const _overriddenKeys = new Set([
+      'ID','Concepto','Entrada','Salida','Horas','Metodo',
+      '$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)',
+      '$ Prima día feriado (200%)','$ Salario total',
+      'Compensación_concepto','Compensación_monto'
+    ]);
+    const payload = {};
+    if (c.preserveRow) {
+      for (const k of Object.keys(c.preserveRow)) {
+        if (!k || _overriddenKeys.has(k)) continue;
+        const v = c.preserveRow[k];
+        if (v == null || v === '') continue;
+        payload[k] = v;
+      }
+    }
+    Object.assign(payload, {
       Empleado_Nombre: nombre, Fecha: iso, Concepto: concepto,
       Entrada: entrada, Salida: salida, Horas: horas,
       '$ Salario base':             fmt(p.salBase),
@@ -36686,17 +36727,16 @@ window.asistGuardarRegistro = async function () {
       '$ Prima dominical (25%)':    fmt(p.primaDom),
       '$ Prima día feriado (200%)': fmt(p.primaDF),
       '$ Salario total':            total_pago_final ? asistPanelFmtMonto_(total_pago_final) : '',
-      Metodo: metodoFinal, Observaciones: '',
-      // Compensación manual libre (concepto+monto). Solo se envía si hay algo,
-      // así el sheet no crea columnas vacías cuando no aplica.
-      ...(compConcepto ? { 'Compensación_concepto': compConcepto } : {}),
-      ...(compMonto    ? { 'Compensación_monto':    asistPanelFmtMonto_(compMonto) } : {}),
-    };
-    // Ubicaciones preservadas (solo si vienen).
-    if (c.preserveLat != null && c.preserveLat !== '') payload.Ubicacion_Lat = c.preserveLat;
-    if (c.preserveLng != null && c.preserveLng !== '') payload.Ubicacion_Lng = c.preserveLng;
-    if (c.preserveLatSal != null && c.preserveLatSal !== '') payload.Ubicacion_Salida_Lat = c.preserveLatSal;
-    if (c.preserveLngSal != null && c.preserveLngSal !== '') payload.Ubicacion_Salida_Lng = c.preserveLngSal;
+      Metodo: metodoFinal,
+    });
+    if (payload.Observaciones == null) payload.Observaciones = '';
+    if (compConcepto) payload['Compensación_concepto'] = compConcepto;
+    if (compMonto)    payload['Compensación_monto']    = asistPanelFmtMonto_(compMonto);
+    // Fallback a los campos legacy preserve* (por si el row no venía).
+    if (payload.Ubicacion_Lat        == null && c.preserveLat    != null && c.preserveLat    !== '') payload.Ubicacion_Lat        = c.preserveLat;
+    if (payload.Ubicacion_Lng        == null && c.preserveLng    != null && c.preserveLng    !== '') payload.Ubicacion_Lng        = c.preserveLng;
+    if (payload.Ubicacion_Salida_Lat == null && c.preserveLatSal != null && c.preserveLatSal !== '') payload.Ubicacion_Salida_Lat = c.preserveLatSal;
+    if (payload.Ubicacion_Salida_Lng == null && c.preserveLngSal != null && c.preserveLngSal !== '') payload.Ubicacion_Salida_Lng = c.preserveLngSal;
     try {
       const r = await fetch(`${BACKEND}/rh/asistencia`, {
         method:'POST', headers:{ 'Content-Type':'application/json' },
