@@ -54257,17 +54257,58 @@ const PERSONAS_STATE = {
 async function personasInit() {
   const cont = document.getElementById('personas-container');
   const lbl  = document.getElementById('personas-status-label');
-  // Carga HU_STATE si aún no está — misma fuente que Gestión de reservas.
-  if (!HU_STATE.loaded && !HU_STATE.loading && typeof huespedesLoad === 'function') {
-    if (cont) cont.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando personas…</div>';
-    if (lbl) lbl.textContent = 'Cargando huéspedes…';
-    try { await huespedesLoad(false); } catch(_){}
+  if (PERSONAS_STATE.loaded && (PERSONAS_STATE.personas||[]).length) {
+    personasRender();
+    return;
   }
-  // Precarga KPIs pre-computados en paralelo (no bloqueante).
-  if (typeof huEnsurePerfilKpis_ === 'function') {
-    huEnsurePerfilKpis_().then(() => personasRender()).catch(()=>{});
+  if (cont) cont.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando huéspedes…</div>';
+  if (lbl) lbl.textContent = 'Cargando huéspedes…';
+  try {
+    const r = await fetch(`${BACKEND}/perfiles-list`, { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'perfiles-list falló');
+    // Convertir cada persona del endpoint al shape esperado por render/tabla.
+    const arr = (j.personas || []).map(p => {
+      // Tier: usa clasificación persistida si existe; sintetiza chip.
+      let tier = null;
+      const label = String(p.kpi_clasificacion || '').trim();
+      if (label && typeof huGuestTier === 'function') {
+        const stats = { totalNoches: p.kpi_noches||0, visitas: p.kpi_visitas||0, montoTotal: p.kpi_monto||0, montoGlobal: p.kpi_monto||0 };
+        const score = (typeof huComputeLoyaltyScore === 'function') ? huComputeLoyaltyScore(stats) : 0;
+        tier = huGuestTier(score, stats);
+        if (tier && tier.label !== label) tier.label = label;
+        if (!tier) tier = { score, label, icon: '⭐', bg:'#f1f5f9', fg:'#334155', border:'#cbd5e1', tooltip: label };
+      }
+      const stats = { totalNoches: p.kpi_noches||0, visitas: p.kpi_visitas||0, montoTotal: p.kpi_monto||0, montoGlobal: p.kpi_monto||0, __source: 'perfiles-endpoint' };
+      const score = (typeof huComputeLoyaltyScore === 'function') ? huComputeLoyaltyScore(stats) : 0;
+      return {
+        phone10: p.phone10,
+        row: null,
+        nombre: p.nombre || 'Sin nombre',
+        email: p.email || '',
+        celular: p.celular || '',
+        rfc: p.rfc || '',
+        razonSocial: p.razonSocial || '',
+        regimenFiscal: p.regimenFiscal || '',
+        requiereFactura: p.requiereFactura || '',
+        vehMarca:  p.vehMarca  || '',
+        vehModelo: p.vehModelo || '',
+        vehPlacas: p.vehPlacas || '',
+        vehColor:  p.vehColor  || '',
+        stats, score, tier,
+      };
+    });
+    arr.sort((a,b) => String(a.nombre||'').localeCompare(String(b.nombre||''), 'es'));
+    PERSONAS_STATE.personas = arr;
+    PERSONAS_STATE.loaded = true;
+  } catch(e) {
+    console.warn('[PERSONAS] /perfiles-list falló, fallback a HU_STATE:', e.message);
+    // Fallback: si el endpoint nuevo falla, usar el flujo viejo (lento pero funcional)
+    if (!HU_STATE.loaded && !HU_STATE.loading && typeof huespedesLoad === 'function') {
+      try { await huespedesLoad(false); } catch(_){}
+    }
+    personasBuildFromHu_();
   }
-  personasBuildFromHu_();
   personasRender();
 }
 window.personasInit = personasInit;

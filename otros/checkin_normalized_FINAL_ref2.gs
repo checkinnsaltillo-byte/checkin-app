@@ -177,6 +177,7 @@ function doPost(e) {
     if (action === "perfiles_recalc_kpis") return jsonOutput_(perfilesRecalcKpis_(data));
     if (action === "perfiles_backfill_from_lodgify") return jsonOutput_(perfilesBackfillFromLodgify_(data));
     if (action === "perfiles_kpis") return jsonOutput_(perfilesKpisList_());
+    if (action === "perfiles_list_full") return jsonOutput_(perfilesListFull_());
     if (action === "perfil_get_by_phone")    return jsonOutput_(perfilGetByPhone_(data));
     if (action === "perfil_upsert_by_phone") return jsonOutput_(perfilUpsertByPhone_(data));
     if (action === "reserva_get_by_confirmation_code") return jsonOutput_(reservaGetByConfirmationCode_(data));
@@ -383,6 +384,7 @@ function doGet(e) {
     if (action === "perfiles_recalc_kpis") return jsonOutput_(perfilesRecalcKpis_(e.parameter || {}));
     if (action === "perfiles_backfill_from_lodgify") return jsonOutput_(perfilesBackfillFromLodgify_(e.parameter || {}));
     if (action === "perfiles_kpis") return jsonOutput_(perfilesKpisList_());
+    if (action === "perfiles_list_full") return jsonOutput_(perfilesListFull_());
     if (action === "perfil_get_by_phone")    return jsonOutput_(perfilGetByPhone_(e.parameter || {}));
     if (action === "perfil_upsert_by_phone") return jsonOutput_(perfilUpsertByPhone_(e.parameter || {}));
     if (action === "reserva_get_by_confirmation_code") return jsonOutput_(reservaGetByConfirmationCode_(e.parameter || {}));
@@ -10061,6 +10063,97 @@ function perfilesRecalcKpis_(data) {
 
 // Lee solo las columnas KPI de Perfiles — ligero. Devuelve mapa por teléfono
 // últimos 10 dígitos. Usado por Cloud Run /perfiles-kpis-list.
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ perfiles_list_full — lista rápida de huéspedes para el módulo            ║
+// ║ Huéspedes/Inquilinos. Lee SOLO Perfiles + Vehículos (2 scans),           ║
+// ║ NO Reservaciones ni Reservas_Lodgify. Retorna array listo para render:   ║
+// ║ nombre, email, celular, rfc, razón social, régimen, requiere factura,    ║
+// ║ vehículo (marca/modelo/placas/color) + KPIs pre-computados (noches,      ║
+// ║ visitas, monto, clasificación).                                          ║
+// ║ Típicamente <3s vs 30s+ de listGuestRecords_.                            ║
+// ═══════════════════════════════════════════════════════════════════════════
+function perfilesListFull_() {
+  var startMs = Date.now();
+  var ss = getSpreadsheet_();
+  ensureNormalizedSheets_();
+  var pfSh = ss.getSheetByName(PERFILES_SHEET);
+  if (!pfSh || pfSh.getLastRow() < 2) return { ok:true, personas:[], total:0, elapsed_ms: Date.now()-startMs };
+  var pfHdr = getHeaders_(pfSh);
+  var pfVals = pfSh.getRange(2, 1, pfSh.getLastRow()-1, pfHdr.length).getValues();
+  var idx = {
+    id:   pfHdr.indexOf("ID_Perfil"),
+    phone:pfHdr.indexOf("Cel/Whatsapp (principal)"),
+    lada: pfHdr.indexOf("Lada celular huésped"),
+    name: pfHdr.indexOf("Nombre del huésped"),
+    email:pfHdr.indexOf("Correo electrónico para el envío de la factura"),
+    reqf: pfHdr.indexOf("¿Requiere factura?"),
+    rs:   pfHdr.indexOf("Razón social"),
+    rfc:  pfHdr.indexOf("RFC"),
+    reg:  pfHdr.indexOf("Régimen fiscal"),
+    cp:   pfHdr.indexOf("Código Postal"),
+    notes:pfHdr.indexOf("Notas"),
+    kn:   pfHdr.indexOf("kpi_noches"),
+    kv:   pfHdr.indexOf("kpi_visitas"),
+    km:   pfHdr.indexOf("kpi_monto"),
+    kc:   pfHdr.indexOf("kpi_clasificacion"),
+  };
+  // Vehículos: 1 scan, map por teléfono normalizado
+  var vehByPhone = {};
+  var vSh = ss.getSheetByName(VEHICULOS_SHEET);
+  if (vSh && vSh.getLastRow() >= 2) {
+    var vHdr = getHeaders_(vSh);
+    var vVals = vSh.getRange(2, 1, vSh.getLastRow()-1, vHdr.length).getValues();
+    var vIdx = {
+      phone: vHdr.indexOf("Cel/Whatsapp (principal)"),
+      tiene: vHdr.indexOf("¿Cuenta con vehículo?"),
+      marca: vHdr.indexOf("Marca vehículo"),
+      modelo:vHdr.indexOf("Modelo vehículo"),
+      color: vHdr.indexOf("Color vehículo"),
+      placas:vHdr.indexOf("Placas"),
+    };
+    for (var vv = 0; vv < vVals.length; vv++) {
+      var ph = String(vVals[vv][vIdx.phone] || "").replace(/\D/g, "");
+      if (ph.length < 10) continue;
+      vehByPhone[ph.slice(-10)] = {
+        marca:  vIdx.marca  >= 0 ? String(vVals[vv][vIdx.marca]  || "") : "",
+        modelo: vIdx.modelo >= 0 ? String(vVals[vv][vIdx.modelo] || "") : "",
+        color:  vIdx.color  >= 0 ? String(vVals[vv][vIdx.color]  || "") : "",
+        placas: vIdx.placas >= 0 ? String(vVals[vv][vIdx.placas] || "") : ""
+      };
+    }
+  }
+  var personas = [];
+  for (var i = 0; i < pfVals.length; i++) {
+    var phRaw = String(idx.phone >= 0 ? pfVals[i][idx.phone] : "").replace(/\D/g, "");
+    if (phRaw.length < 10) continue;
+    var phKey = phRaw.slice(-10);
+    var v = vehByPhone[phKey] || {};
+    personas.push({
+      id_perfil:     idx.id    >= 0 ? String(pfVals[i][idx.id]    || "") : "",
+      phone10:       phKey,
+      celular:       phRaw,
+      lada:          idx.lada  >= 0 ? String(pfVals[i][idx.lada]  || "") : "",
+      nombre:        idx.name  >= 0 ? String(pfVals[i][idx.name]  || "") : "",
+      email:         idx.email >= 0 ? String(pfVals[i][idx.email] || "") : "",
+      requiereFactura: idx.reqf >= 0 ? String(pfVals[i][idx.reqf] || "") : "",
+      razonSocial:   idx.rs    >= 0 ? String(pfVals[i][idx.rs]    || "") : "",
+      rfc:           idx.rfc   >= 0 ? String(pfVals[i][idx.rfc]   || "") : "",
+      regimenFiscal: idx.reg   >= 0 ? String(pfVals[i][idx.reg]   || "") : "",
+      codigoPostal:  idx.cp    >= 0 ? String(pfVals[i][idx.cp]    || "") : "",
+      notas:         idx.notes >= 0 ? String(pfVals[i][idx.notes] || "") : "",
+      vehMarca:  v.marca  || "",
+      vehModelo: v.modelo || "",
+      vehColor:  v.color  || "",
+      vehPlacas: v.placas || "",
+      kpi_noches:        idx.kn >= 0 ? Number(pfVals[i][idx.kn]) || 0 : 0,
+      kpi_visitas:       idx.kv >= 0 ? Number(pfVals[i][idx.kv]) || 0 : 0,
+      kpi_monto:         idx.km >= 0 ? Number(pfVals[i][idx.km]) || 0 : 0,
+      kpi_clasificacion: idx.kc >= 0 ? String(pfVals[i][idx.kc] || "") : "",
+    });
+  }
+  return { ok:true, personas: personas, total: personas.length, elapsed_ms: Date.now()-startMs };
+}
+
 function perfilesKpisList_() {
   var pfSh = getSheet_(PERFILES_SHEET);
   var pfHeaders = getHeaders_(pfSh);
