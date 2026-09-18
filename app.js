@@ -54370,19 +54370,184 @@ window.personasSetSearch = function(s) {
 function personasFilter_() {
   const q = PERSONAS_STATE.search;
   const all = PERSONAS_STATE.personas || [];
-  if (!q) return all;
   const norm = v => String(v||'').toLowerCase();
-  return all.filter(p =>
+  const passSearch = (p) => !q ||
     norm(p.nombre).includes(q) || norm(p.email).includes(q) ||
     norm(p.celular).includes(q) || norm(p.rfc).includes(q) ||
-    norm(p.razonSocial).includes(q) || norm(p.vehPlacas).includes(q)
-  );
+    norm(p.razonSocial).includes(q) || norm(p.vehPlacas).includes(q);
+  const passMulti = (p) => {
+    const regSet = PERSONAS_MULTI.multiSel.regimen;
+    if (regSet && regSet.size !== personasMultiGetOptions('regimen').length) {
+      if (!regSet.has(p.regimenFiscal || '')) return false;
+    }
+    const reqSet = PERSONAS_MULTI.multiSel.requiere_factura;
+    if (reqSet && reqSet.size !== personasMultiGetOptions('requiere_factura').length) {
+      if (!reqSet.has(p.requiereFactura || '')) return false;
+    }
+    const claSet = PERSONAS_MULTI.multiSel.clasificacion;
+    if (claSet && claSet.size !== personasMultiGetOptions('clasificacion').length) {
+      const label = (p.tier && p.tier.label) || '';
+      if (!claSet.has(label)) return false;
+    }
+    return true;
+  };
+  return all.filter(p => passSearch(p) && passMulti(p));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ Filtros multi-select para módulo Huéspedes/Inquilinos (module-personas). ║
+// ║ Client-side, permanecen abiertos al marcar, cierran al click fuera.      ║
+// ║ Reutilizan CSS .lg-multi-* de Gestión de reservas.                      ║
+// ═══════════════════════════════════════════════════════════════════════════
+const PERSONAS_MULTI = { multiSel: {}, multiOpen: {} };
+const PERSONAS_MULTI_LABELS = {
+  regimen: 'Régimen fiscal',
+  requiere_factura: '¿Requiere factura?',
+  clasificacion: 'Clasificación',
+};
+
+function personasMultiGetOptions(key) {
+  const arr = PERSONAS_STATE.personas || [];
+  const set = new Set();
+  if (key === 'regimen') arr.forEach(p => { const v = String(p.regimenFiscal||'').trim(); if (v) set.add(v); });
+  else if (key === 'requiere_factura') arr.forEach(p => { const v = String(p.requiereFactura||'').trim(); if (v) set.add(v); });
+  else if (key === 'clasificacion') arr.forEach(p => { const v = String((p.tier && p.tier.label)||'').trim(); if (v) set.add(v); });
+  return Array.from(set).sort();
+}
+
+function personasMultiInit(key) {
+  if (PERSONAS_MULTI.multiSel[key] instanceof Set) return;
+  PERSONAS_MULTI.multiSel[key] = new Set(personasMultiGetOptions(key));
+}
+
+function personasMultiRender(key, label) {
+  const cont = document.getElementById(`personas-multi-${key}`);
+  if (!cont) return;
+  personasMultiInit(key);
+  const allValues = personasMultiGetOptions(key);
+  const sel = PERSONAS_MULTI.multiSel[key];
+  const total = allValues.length;
+  const selCount = sel.size;
+  const labelTxt = selCount === total ? `Todos (${total})`
+                 : selCount === 0     ? 'Ninguno'
+                 : selCount === 1     ? [...sel][0]
+                 : `${selCount} de ${total}`;
+  const renderOption = (v) => `
+    <label class="lg-multi-opt">
+      <input type="checkbox" class="lg-multi-cb" value="${esc(v)}" ${sel.has(v)?'checked':''}
+             onchange="personasMultiToggle('${key}', this.value)">
+      <span class="lg-multi-opt-txt">${esc(v)}</span>
+    </label>`;
+  const isOpen = !!PERSONAS_MULTI.multiOpen[key];
+  cont.innerHTML = `
+    <label style="display:block;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">${esc(label)}</label>
+    <div class="lg-multi-wrap personas-multi-wrap">
+      <button type="button" onclick="personasMultiTogglePanel('${key}',event)"
+              id="personas-multi-btn-${key}" class="lg-multi-btn">
+        <span class="lg-multi-btn-lbl" id="personas-multi-lbl-${key}">${esc(labelTxt)}</span>
+        <span class="lg-multi-btn-caret">▾</span>
+      </button>
+      <div id="personas-multi-panel-${key}" class="lg-multi-panel ${isOpen?'':'hidden'}" onclick="event.stopPropagation()">
+        <div class="lg-multi-actions">
+          <button type="button" onclick="event.stopPropagation();personasMultiSetAll('${key}')" class="lg-multi-action">✓ Todos</button>
+          <button type="button" onclick="event.stopPropagation();personasMultiSetNone('${key}')" class="lg-multi-action">✕ Ninguno</button>
+        </div>
+        <div class="lg-multi-options">
+          ${allValues.length ? allValues.map(renderOption).join('') : '<div style="padding:6px 8px;color:#94a3b8;font-size:12px;font-style:italic">Sin valores</div>'}
+        </div>
+      </div>
+    </div>`;
+}
+
+function personasBuildFilters() {
+  const cont = document.getElementById('personas-filters');
+  if (!cont) return;
+  cont.innerHTML = `
+    <div id="personas-multi-regimen"></div>
+    <div id="personas-multi-requiere_factura"></div>
+    <div id="personas-multi-clasificacion"></div>`;
+  personasMultiRender('regimen',          PERSONAS_MULTI_LABELS.regimen);
+  personasMultiRender('requiere_factura', PERSONAS_MULTI_LABELS.requiere_factura);
+  personasMultiRender('clasificacion',    PERSONAS_MULTI_LABELS.clasificacion);
+}
+
+window.personasMultiTogglePanel = function(key, ev) {
+  if (ev) ev.stopPropagation();
+  Object.keys(PERSONAS_MULTI.multiOpen).forEach(k => {
+    if (k !== key) {
+      PERSONAS_MULTI.multiOpen[k] = false;
+      const op = document.getElementById(`personas-multi-panel-${k}`);
+      if (op) op.classList.add('hidden');
+    }
+  });
+  const p = document.getElementById(`personas-multi-panel-${key}`);
+  const willOpen = p ? p.classList.contains('hidden') : !PERSONAS_MULTI.multiOpen[key];
+  PERSONAS_MULTI.multiOpen[key] = willOpen;
+  if (p) p.classList.toggle('hidden', !willOpen);
+};
+
+window.personasMultiToggle = function(key, value) {
+  const set = PERSONAS_MULTI.multiSel[key];
+  if (!set) return;
+  if (set.has(value)) set.delete(value); else set.add(value);
+  const opts = personasMultiGetOptions(key);
+  const lbl = document.getElementById(`personas-multi-lbl-${key}`);
+  if (lbl) {
+    lbl.textContent = set.size === opts.length ? `Todos (${opts.length})`
+                    : set.size === 0 ? 'Ninguno'
+                    : set.size === 1 ? [...set][0]
+                    : `${set.size} de ${opts.length}`;
+  }
+  try { personasRender(); } catch(_) {}
+};
+
+window.personasMultiSetAll = function(key) {
+  PERSONAS_MULTI.multiSel[key] = new Set(personasMultiGetOptions(key));
+  personasMultiRender(key, PERSONAS_MULTI_LABELS[key]);
+  PERSONAS_MULTI.multiOpen[key] = true;
+  const p = document.getElementById(`personas-multi-panel-${key}`);
+  if (p) p.classList.remove('hidden');
+  try { personasRender(); } catch(_) {}
+};
+
+window.personasMultiSetNone = function(key) {
+  PERSONAS_MULTI.multiSel[key] = new Set();
+  personasMultiRender(key, PERSONAS_MULTI_LABELS[key]);
+  PERSONAS_MULTI.multiOpen[key] = true;
+  const p = document.getElementById(`personas-multi-panel-${key}`);
+  if (p) p.classList.remove('hidden');
+  try { personasRender(); } catch(_) {}
+};
+
+if (!window.__personasMultiOutsideClickBound) {
+  window.__personasMultiOutsideClickBound = true;
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.personas-multi-wrap')) {
+      let changed = false;
+      Object.keys(PERSONAS_MULTI.multiOpen).forEach(k => {
+        if (PERSONAS_MULTI.multiOpen[k]) { PERSONAS_MULTI.multiOpen[k] = false; changed = true; }
+      });
+      if (changed) document.querySelectorAll('.personas-multi-wrap .lg-multi-panel').forEach(p => p.classList.add('hidden'));
+    }
+  });
 }
 
 function personasRender() {
   const cont = document.getElementById('personas-container');
   const lbl  = document.getElementById('personas-status-label');
   if (!cont) return;
+  // Asegura que el panel de filtros exista o esté actualizado con las
+  // opciones vigentes (cada re-render usa las clases/valores actuales).
+  try {
+    const filt = document.getElementById('personas-filters');
+    if (filt && !document.getElementById('personas-multi-regimen')) {
+      personasBuildFilters();
+    } else if (filt) {
+      personasMultiRender('regimen',          PERSONAS_MULTI_LABELS.regimen);
+      personasMultiRender('requiere_factura', PERSONAS_MULTI_LABELS.requiere_factura);
+      personasMultiRender('clasificacion',    PERSONAS_MULTI_LABELS.clasificacion);
+    }
+  } catch(_) {}
   if (!PERSONAS_STATE.loaded) {
     cont.innerHTML = '<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando personas…</div>';
     return;
