@@ -3784,7 +3784,7 @@ function listGuestRecords_(params) {
   });
 
   const total = filtered.length;
-  const pageSize = Math.max(1, Math.min(Number(params.page_size || 25), 1000));
+  const pageSize = Math.max(1, Math.min(Number(params.page_size || 25), 10000));
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const page = Math.max(1, Math.min(Number(params.page || 1), totalPages || 1));
   const start = (page - 1) * pageSize;

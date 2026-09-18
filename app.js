@@ -9855,9 +9855,11 @@ async function __huespedesLoadInner(forceRefetch) {
   }
 
   try {
-    // page_size=1000 (cap del backend). 5K reservaciones → 6 páginas.
+    // page_size=10000 (cap del backend). Trae todo en 1 sola llamada — cada
+    // request repite el scan completo de sheets (Reservaciones+Perfiles+Vehículos),
+    // así que paginar multiplica el costo. 7970 reservaciones → 1 página.
     const baseParams = {
-      page_size: '1000',
+      page_size: '10000',
       nombre_reservacion: HU_FILTERS.nombre_reservacion,
       medio_reservacion:  HU_FILTERS.medio_reservacion,
       celular_principal:  HU_FILTERS.celular_principal,
