@@ -10856,6 +10856,20 @@ function huespedesRender() {
   const calend  = document.getElementById('hu-calendar-wrap');
   const pager   = document.getElementById('hu-pager');
 
+  // 0) Asegura que los widgets multi-select se rendericen con las opciones
+  // actuales (HU_STATE.rows recién cargados). Si los contenedores aún no
+  // existen (huespedesBuildFilters no corrió porque filterOptions estaba en
+  // memoria), construimos el panel de filtros ahora.
+  try {
+    const _cont = document.getElementById('hu-filters');
+    if (_cont && !document.getElementById('hu-multi-regimen')) {
+      huespedesBuildFilters();
+    } else {
+      if (document.getElementById('hu-multi-regimen'))          huMultiRender('regimen',          HU_CLIENT_MULTI_LABELS.regimen);
+      if (document.getElementById('hu-multi-requiere_factura')) huMultiRender('requiere_factura', HU_CLIENT_MULTI_LABELS.requiere_factura);
+      if (document.getElementById('hu-multi-clasificacion'))    huMultiRender('clasificacion',    HU_CLIENT_MULTI_LABELS.clasificacion);
+    }
+  } catch(_) {}
   // 1) Filtro mes (estancia toca al menos un día del mes)
   HU_STATE.filteredRows = huApplyMonthFilter(HU_STATE.rows);
   // 1a) Solo registros con celular válido (equivalente a "está en Perfiles").
