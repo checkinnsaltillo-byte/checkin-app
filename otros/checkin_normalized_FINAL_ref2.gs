@@ -9737,6 +9737,60 @@ function perfilesBackfillFromLodgify() {
   return result;
 }
 
+// Diagnóstico: entiende por qué el backfill agrega X y no más.
+// Muestra filas totales, filas con GuestPhone válido/inválido, teléfonos
+// únicos, cuántos ya estaban en Perfiles y cuántos son "sin check-in".
+function perfilesBackfillDiagnostico() {
+  var ss = getSpreadsheet_();
+  var lgSh = ss.getSheetByName(LODGIFY_SHEET);
+  if (!lgSh || lgSh.getLastRow() < 2) { Logger.log("Reservas_Lodgify vacío"); return; }
+  var hdr = lgSh.getRange(1,1,1,lgSh.getLastColumn()).getValues()[0].map(String);
+  var iPh = hdr.indexOf("GuestPhone"), iSt = hdr.indexOf("Status");
+  var iSrc= hdr.indexOf("Source");
+  var vals = lgSh.getRange(2,1,lgSh.getLastRow()-1,hdr.length).getValues();
+  var total = vals.length;
+  var noPhone = 0, shortPhone = 0, byStatus = {}, bySrcNoPhone = {};
+  var unique = {}, uniqueBooked = {};
+  for (var i=0;i<vals.length;i++) {
+    var ph = String(vals[i][iPh]||"").replace(/\D/g,"");
+    var st = String(vals[i][iSt]||"").toLowerCase();
+    var src= iSrc>=0 ? String(vals[i][iSrc]||"") : "";
+    byStatus[st] = (byStatus[st]||0)+1;
+    if (!ph) { noPhone++; bySrcNoPhone[src]=(bySrcNoPhone[src]||0)+1; continue; }
+    if (ph.length < 10) { shortPhone++; continue; }
+    var k = ph.slice(-10);
+    unique[k] = true;
+    if (st === "booked") uniqueBooked[k] = true;
+  }
+  // Perfiles existentes
+  var pfSh = getSheet_(PERFILES_SHEET);
+  var pfHdr = getHeaders_(pfSh);
+  var iPfPh = pfHdr.indexOf("Cel/Whatsapp (principal)");
+  var pfCount = 0, pfSet = {};
+  if (pfSh.getLastRow() >= 2) {
+    var pfPhones = pfSh.getRange(2, iPfPh+1, pfSh.getLastRow()-1, 1).getValues();
+    for (var pp=0; pp<pfPhones.length; pp++) {
+      var k = String(pfPhones[pp][0]||"").replace(/\D/g,"");
+      if (k.length >= 10) { pfSet[k.slice(-10)] = true; pfCount++; }
+    }
+  }
+  var uniqueList = Object.keys(unique);
+  var onlyInLodgifyNotInPerfiles = uniqueList.filter(function(k){ return !pfSet[k]; }).length;
+  var out = {
+    total_rows_lodgify: total,
+    filas_sin_telefono: noPhone,
+    filas_telefono_corto_menor_10: shortPhone,
+    filas_por_status: byStatus,
+    fuentes_de_filas_sin_telefono: bySrcNoPhone,
+    telefonos_unicos_totales: uniqueList.length,
+    telefonos_unicos_booked: Object.keys(uniqueBooked).length,
+    perfiles_existentes: pfCount,
+    telefonos_en_lodgify_no_en_perfiles: onlyInLodgifyNotInPerfiles
+  };
+  Logger.log(JSON.stringify(out, null, 2));
+  return out;
+}
+
 function perfilesBackfillFromLodgify_(data) {
   var startMs = Date.now();
   var ss = getSpreadsheet_();
