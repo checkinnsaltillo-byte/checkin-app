@@ -10597,7 +10597,7 @@ function reservaGetByConfirmationCode_(data) {
   // Cache 5min por código — evita rescanear la hoja Reservas_Lodgify de 10k
   // filas cada vez que el huésped hace blur en el input.
   var _cache = CacheService.getScriptCache();
-  var _cacheKey = "rgcc_v11_perfilrelookup_" + code;
+  var _cacheKey = "rgcc_v12_hidrate_lodgify_" + code;
   try {
     var _cached = _cache.get(_cacheKey);
     if (_cached) { var _p = JSON.parse(_cached); _p._cached = true; return _p; }
