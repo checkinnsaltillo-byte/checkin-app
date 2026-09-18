@@ -9990,17 +9990,218 @@ function huespedesBuildFilters() {
     mkSelect('nombre_reservacion', 'Nombre reservación', opts.nombres_reservacion) +
     mkSelect('medio_reservacion',  'Medio de reservación', opts.medios_reservacion) +
     mkSelect('celular_principal',  'Cel/Whatsapp', opts.celulares_principales) +
-    facturaSelect +
     mkSelect('razon_social',       'Razón social', opts.razones_sociales) +
     mkSelect('forma_pago',         'Forma de pago', opts.formas_pago) +
-    mkSelect('correo',             'Correo electrónico', opts.correos);
+    mkSelect('correo',             'Correo electrónico', opts.correos) +
+    // Multi-select client-side: contenedores vacíos que huMultiRender llena.
+    `<div id="hu-multi-regimen"></div>
+     <div id="hu-multi-requiere_factura"></div>
+     <div id="hu-multi-clasificacion"></div>`;
+  // Render de los widgets multi-select (después de innerHTML)
+  huMultiRender('regimen',           HU_CLIENT_MULTI_LABELS.regimen);
+  huMultiRender('requiere_factura',  HU_CLIENT_MULTI_LABELS.requiere_factura);
+  huMultiRender('clasificacion',     HU_CLIENT_MULTI_LABELS.clasificacion);
 }
 
 function huespedesClearFilters() {
   Object.keys(HU_FILTERS).forEach(k => HU_FILTERS[k] = '');
   const mesEl = document.getElementById('hu-filtro-mes'); if (mesEl) mesEl.value = '';
+  // Reset client-side multi filters
+  Object.keys(HU_CLIENT_MULTI.multiSel).forEach(k => HU_CLIENT_MULTI.multiSel[k] = null);
   huespedesBuildFilters();
   huespedesLoad(true);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ Filtros multi-select CLIENT-SIDE para el módulo Huéspedes                ║
+// ║ (Régimen fiscal, ¿Requiere factura?, Clasificación).                     ║
+// ║ Filtran HU_STATE.filteredRows en memoria sin ir al backend.              ║
+// ║ Reutiliza CSS de .lg-multi-* (idéntico look) y sigue la misma UX:        ║
+// ║ el panel permanece abierto al marcar; se cierra solo al click fuera.     ║
+// ═══════════════════════════════════════════════════════════════════════════
+const HU_CLIENT_MULTI = { multiSel: {}, multiOpen: {} };
+const HU_CLIENT_MULTI_KEYS = ['regimen','requiere_factura','clasificacion'];
+
+function huMultiGetOptions(key) {
+  const rows = HU_STATE.rows || [];
+  const set = new Set();
+  if (key === 'regimen') {
+    rows.forEach(r => {
+      const v = String(huValueFlexible(r, ['Régimen fiscal','Regimen fiscal']) || '').trim();
+      if (v) set.add(v);
+    });
+  } else if (key === 'requiere_factura') {
+    rows.forEach(r => {
+      const v = String(huValueFlexible(r, ['¿Requiere factura?','Requiere factura']) || '').trim();
+      if (v) set.add(v);
+    });
+  } else if (key === 'clasificacion') {
+    rows.forEach(r => {
+      const t = huRowClasificacion(r);
+      if (t) set.add(t);
+    });
+  }
+  return Array.from(set).sort();
+}
+
+function huRowClasificacion(r) {
+  // Preferir el KPI pre-computado si existe
+  const pre = String(huValueFlexible(r, ['kpi_clasificacion','Clasificación','Clasificacion']) || '').trim();
+  if (pre) return pre;
+  // Fallback: computar en vivo con tier del huésped
+  try {
+    if (typeof huComputeGuestStats === 'function' && typeof huGuestTier === 'function') {
+      const stats = huComputeGuestStats(r, HU_STATE.rows);
+      const score = (typeof huComputeLoyaltyScore === 'function') ? huComputeLoyaltyScore(stats) : 0;
+      const tier  = huGuestTier(score, stats);
+      return tier && tier.label ? tier.label : '';
+    }
+  } catch(_) {}
+  return '';
+}
+
+function huMultiInit(key) {
+  if (HU_CLIENT_MULTI.multiSel[key] instanceof Set) return;
+  const opts = huMultiGetOptions(key);
+  HU_CLIENT_MULTI.multiSel[key] = new Set(opts); // por defecto: todos seleccionados
+}
+
+function huMultiRender(key, label) {
+  const container = document.getElementById(`hu-multi-${key}`);
+  if (!container) return;
+  huMultiInit(key);
+  const allValues = huMultiGetOptions(key);
+  const sel = HU_CLIENT_MULTI.multiSel[key];
+  const total = allValues.length;
+  const selCount = sel.size;
+  const labelTxt = selCount === total ? `Todos (${total})`
+                 : selCount === 0     ? 'Ninguno'
+                 : selCount === 1     ? [...sel][0]
+                 : `${selCount} de ${total}`;
+  const renderOption = (v) => {
+    const checked = sel.has(v) ? 'checked' : '';
+    return `
+      <label class="lg-multi-opt">
+        <input type="checkbox" class="lg-multi-cb" value="${esc(v)}" ${checked}
+               onchange="huMultiToggle('${key}', this.value)">
+        <span class="lg-multi-opt-txt">${esc(v)}</span>
+      </label>`;
+  };
+  const isOpen = !!HU_CLIENT_MULTI.multiOpen[key];
+  container.innerHTML = `
+    <label style="display:block;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">${esc(label)}</label>
+    <div class="lg-multi-wrap hu-multi-wrap">
+      <button type="button" onclick="huMultiTogglePanel('${key}',event)"
+              id="hu-multi-btn-${key}" class="lg-multi-btn">
+        <span class="lg-multi-btn-lbl" id="hu-multi-lbl-${key}">${esc(labelTxt)}</span>
+        <span class="lg-multi-btn-caret">▾</span>
+      </button>
+      <div id="hu-multi-panel-${key}" class="lg-multi-panel ${isOpen?'':'hidden'}" onclick="event.stopPropagation()">
+        <div class="lg-multi-actions">
+          <button type="button" onclick="event.stopPropagation();huMultiSetAll('${key}')" class="lg-multi-action">✓ Todos</button>
+          <button type="button" onclick="event.stopPropagation();huMultiSetNone('${key}')" class="lg-multi-action">✕ Ninguno</button>
+        </div>
+        <div class="lg-multi-options">
+          ${allValues.length ? allValues.map(renderOption).join('') : '<div style="padding:6px 8px;color:#94a3b8;font-size:12px;font-style:italic">Sin valores disponibles</div>'}
+        </div>
+      </div>
+    </div>`;
+}
+
+window.huMultiTogglePanel = function(key, ev) {
+  if (ev) ev.stopPropagation();
+  Object.keys(HU_CLIENT_MULTI.multiOpen).forEach(k => {
+    if (k !== key) {
+      HU_CLIENT_MULTI.multiOpen[k] = false;
+      const op = document.getElementById(`hu-multi-panel-${k}`);
+      if (op) op.classList.add('hidden');
+    }
+  });
+  const p = document.getElementById(`hu-multi-panel-${key}`);
+  const willOpen = p ? p.classList.contains('hidden') : !HU_CLIENT_MULTI.multiOpen[key];
+  HU_CLIENT_MULTI.multiOpen[key] = willOpen;
+  if (p) p.classList.toggle('hidden', !willOpen);
+};
+
+window.huMultiToggle = function(key, value) {
+  const set = HU_CLIENT_MULTI.multiSel[key];
+  if (!set) return;
+  if (set.has(value)) set.delete(value);
+  else set.add(value);
+  // Update solo el label, no re-render (no cerrar dropdown)
+  const opts = huMultiGetOptions(key);
+  const lbl = document.getElementById(`hu-multi-lbl-${key}`);
+  if (lbl) {
+    lbl.textContent = set.size === opts.length ? `Todos (${opts.length})`
+                    : set.size === 0 ? 'Ninguno'
+                    : set.size === 1 ? [...set][0]
+                    : `${set.size} de ${opts.length}`;
+  }
+  // Re-render solo de las cards (no del panel de filtros)
+  try { huespedesRender(); } catch(_) {}
+};
+
+window.huMultiSetAll = function(key) {
+  HU_CLIENT_MULTI.multiSel[key] = new Set(huMultiGetOptions(key));
+  huMultiRender(key, HU_CLIENT_MULTI_LABELS[key]);
+  HU_CLIENT_MULTI.multiOpen[key] = true; // mantener abierto
+  const p = document.getElementById(`hu-multi-panel-${key}`);
+  if (p) p.classList.remove('hidden');
+  try { huespedesRender(); } catch(_) {}
+};
+
+window.huMultiSetNone = function(key) {
+  HU_CLIENT_MULTI.multiSel[key] = new Set();
+  huMultiRender(key, HU_CLIENT_MULTI_LABELS[key]);
+  HU_CLIENT_MULTI.multiOpen[key] = true;
+  const p = document.getElementById(`hu-multi-panel-${key}`);
+  if (p) p.classList.remove('hidden');
+  try { huespedesRender(); } catch(_) {}
+};
+
+const HU_CLIENT_MULTI_LABELS = {
+  regimen: 'Régimen fiscal',
+  requiere_factura: '¿Requiere factura?',
+  clasificacion: 'Clasificación',
+};
+
+// Aplica los filtros multi-select client-side sobre un array de rows.
+function huApplyClientMultiFilters(rows) {
+  return (rows || []).filter(r => {
+    // Régimen: si el set no incluye todos, filtrar
+    const regSet = HU_CLIENT_MULTI.multiSel.regimen;
+    if (regSet && regSet.size !== huMultiGetOptions('regimen').length) {
+      const v = String(huValueFlexible(r, ['Régimen fiscal','Regimen fiscal']) || '').trim();
+      if (!regSet.has(v)) return false;
+    }
+    const reqSet = HU_CLIENT_MULTI.multiSel.requiere_factura;
+    if (reqSet && reqSet.size !== huMultiGetOptions('requiere_factura').length) {
+      const v = String(huValueFlexible(r, ['¿Requiere factura?','Requiere factura']) || '').trim();
+      if (!reqSet.has(v)) return false;
+    }
+    const claSet = HU_CLIENT_MULTI.multiSel.clasificacion;
+    if (claSet && claSet.size !== huMultiGetOptions('clasificacion').length) {
+      const v = huRowClasificacion(r);
+      if (!claSet.has(v)) return false;
+    }
+    return true;
+  });
+}
+
+// Listener global: cierra dropdowns al click fuera de cualquier .hu-multi-wrap
+if (!window.__huMultiOutsideClickBound) {
+  window.__huMultiOutsideClickBound = true;
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.hu-multi-wrap')) {
+      let changed = false;
+      Object.keys(HU_CLIENT_MULTI.multiOpen).forEach(k => {
+        if (HU_CLIENT_MULTI.multiOpen[k]) { HU_CLIENT_MULTI.multiOpen[k] = false; changed = true; }
+      });
+      if (changed) {
+        document.querySelectorAll('.hu-multi-wrap .lg-multi-panel').forEach(p => p.classList.add('hidden'));
+      }
+    }
+  });
 }
 
 /** Parser flexible de fecha (acepta YYYY-MM-DD, ISO, DD/MM/YYYY). */
@@ -10625,6 +10826,8 @@ function huespedesRender() {
 
   // 1) Filtro mes (estancia toca al menos un día del mes)
   HU_STATE.filteredRows = huApplyMonthFilter(HU_STATE.rows);
+  // 1b) Filtros client-side multi-select (Régimen, ¿Req. factura?, Clasificación)
+  HU_STATE.filteredRows = huApplyClientMultiFilters(HU_STATE.filteredRows);
 
   // 2) Calcular conteos sobre el universo filtrado
   const allRows  = HU_STATE.filteredRows;
