@@ -10897,9 +10897,20 @@ function reservaGetByConfirmationCode_(data) {
             // sobre los de Lodgify (factura, RFC, régimen, razón social, correo,
             // identificación, motivo, vehículo, etc.).
             if (reservacionesFullRow) {
+              // Campos numéricos donde 0 debe tratarse como "vacío" y NO
+              // sobrescribir el valor real (>0) que viene de Lodgify.
+              var _numericSkipZero = {
+                "# Huéspedes": 1, "# Noches": 1,
+                "($) Monto Total pagado": 1, "$ MONTO TOTAL Airbnb": 1,
+                "$ Monto facturado Total": 1, "$ Noches": 1,
+                "$ Cuota de limpieza": 1, "$ Comisión Airbnb": 1,
+                "$ Monto antes de impuestos": 1
+              };
               Object.keys(reservacionesFullRow).forEach(function(k){
                 var v = reservacionesFullRow[k];
-                if (v !== "" && v != null) reservaMapped[k] = v;
+                if (v === "" || v == null) return;
+                if (_numericSkipZero[k] && (v === 0 || v === "0" || Number(v) === 0)) return;
+                reservaMapped[k] = v;
               });
               reservaMapped._row = reservacionesFullRow._row;
             }
