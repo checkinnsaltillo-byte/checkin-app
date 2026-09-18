@@ -175,6 +175,7 @@ function doPost(e) {
     if (action === "lodgify_sync") return jsonOutput_(syncLodgifyReservations_(data));
     if (action === "lg_hide_booking") return jsonOutput_(hideLodgifyBooking_(data));
     if (action === "perfiles_recalc_kpis") return jsonOutput_(perfilesRecalcKpis_(data));
+    if (action === "perfiles_backfill_from_lodgify") return jsonOutput_(perfilesBackfillFromLodgify_(data));
     if (action === "perfiles_kpis") return jsonOutput_(perfilesKpisList_());
     if (action === "perfil_get_by_phone")    return jsonOutput_(perfilGetByPhone_(data));
     if (action === "perfil_upsert_by_phone") return jsonOutput_(perfilUpsertByPhone_(data));
@@ -380,6 +381,7 @@ function doGet(e) {
     if (action === "lodgify_list") return jsonOutput_(getLodgifyReservations_(e.parameter || {}));
     if (action === "lodgify_sync") return jsonOutput_(syncLodgifyReservations_(e.parameter || {}));
     if (action === "perfiles_recalc_kpis") return jsonOutput_(perfilesRecalcKpis_(e.parameter || {}));
+    if (action === "perfiles_backfill_from_lodgify") return jsonOutput_(perfilesBackfillFromLodgify_(e.parameter || {}));
     if (action === "perfiles_kpis") return jsonOutput_(perfilesKpisList_());
     if (action === "perfil_get_by_phone")    return jsonOutput_(perfilGetByPhone_(e.parameter || {}));
     if (action === "perfil_upsert_by_phone") return jsonOutput_(perfilUpsertByPhone_(e.parameter || {}));
@@ -9717,6 +9719,117 @@ function llavesUpsert_(data) {
   newRange.setNumberFormats(textFmt);
   newRange.setValues([newRowData]);
   return { ok: true, houseId: houseId, created: true };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ Backfill Perfiles desde Reservas_Lodgify                                 ║
+// ║ Crea filas en Perfiles para huéspedes recurrentes que jamás hicieron    ║
+// ║ check-in (por lo tanto no existen en Perfiles). Agrupa por celular      ║
+// ║ normalizado (últimos 10 dígitos). Nunca sobrescribe perfiles existentes.║
+// ║ Al terminar dispara perfilesRecalcKpis_() para actualizar KPIs.         ║
+// ═══════════════════════════════════════════════════════════════════════════
+function perfilesBackfillFromLodgify_(data) {
+  var startMs = Date.now();
+  var ss = getSpreadsheet_();
+  ensureNormalizedSheets_();
+  var lgSh = ss.getSheetByName(LODGIFY_SHEET);
+  if (!lgSh) return { ok: false, error: "Reservas_Lodgify sheet no existe" };
+  var lgLast = lgSh.getLastRow();
+  if (lgLast < 2) return { ok: true, created: 0, skipped: 0, total_unique_phones: 0 };
+  var lgHeaders = lgSh.getRange(1, 1, 1, lgSh.getLastColumn()).getValues()[0]
+    .map(function(h){ return String(h||"").trim(); });
+  var iPhone = lgHeaders.indexOf("GuestPhone");
+  var iName  = lgHeaders.indexOf("GuestName");
+  var iEmail = lgHeaders.indexOf("GuestEmail");
+  var iStatus= lgHeaders.indexOf("Status");
+  if (iPhone < 0) return { ok: false, error: "columna GuestPhone no existe" };
+  var lgVals = lgSh.getRange(2, 1, lgLast - 1, lgHeaders.length).getValues();
+
+  // Agrupar por teléfono últimos 10 dígitos. Guardamos el nombre más largo
+  // (típicamente el más completo), el primer correo no vacío y la lada real
+  // (dígitos antes de los últimos 10).
+  var byPhone = {};
+  for (var i = 0; i < lgVals.length; i++) {
+    var phRaw = String(lgVals[i][iPhone] || "").replace(/\D/g, "");
+    if (phRaw.length < 10) continue;
+    var phKey = phRaw.slice(-10);
+    var lada  = phRaw.length > 10 ? phRaw.slice(0, phRaw.length - 10) : "";
+    var nm = iName  >= 0 ? String(lgVals[i][iName]  || "").trim() : "";
+    var em = iEmail >= 0 ? String(lgVals[i][iEmail] || "").trim() : "";
+    if (!byPhone[phKey]) byPhone[phKey] = { phone: phRaw, phKey: phKey, lada: lada, name: nm, email: em };
+    else {
+      var cur = byPhone[phKey];
+      if (nm && nm.length > (cur.name || "").length) cur.name = nm;
+      if (em && !cur.email) cur.email = em;
+      if (lada && !cur.lada) cur.lada = lada;
+      // Preferimos el phRaw con lada cuando exista
+      if (phRaw.length > (cur.phone || "").length) cur.phone = phRaw;
+    }
+  }
+
+  // Cargar índice de Perfiles existentes por teléfono normalizado
+  var pfSh = getSheet_(PERFILES_SHEET);
+  var pfHeaders = getHeaders_(pfSh);
+  var iPfPhone = pfHeaders.indexOf("Cel/Whatsapp (principal)");
+  if (iPfPhone < 0) return { ok:false, error:"columna 'Cel/Whatsapp (principal)' no existe en Perfiles" };
+  var pfLast = pfSh.getLastRow();
+  var existingSet = {};
+  if (pfLast >= 2) {
+    var pfPhones = pfSh.getRange(2, iPfPhone + 1, pfLast - 1, 1).getValues();
+    for (var pp = 0; pp < pfPhones.length; pp++) {
+      var k = String(pfPhones[pp][0] || "").replace(/\D/g, "");
+      if (k.length >= 10) existingSet[k.slice(-10)] = true;
+    }
+  }
+
+  // Insertar en batch las filas nuevas (una por teléfono único no existente)
+  var iId    = pfHeaders.indexOf("ID_Perfil");
+  var iPName = pfHeaders.indexOf("Nombre del huésped");
+  var iPLada = pfHeaders.indexOf("Lada celular huésped");
+  var iPMail = pfHeaders.indexOf("Correo electrónico para el envío de la factura");
+  var iPFC   = pfHeaders.indexOf("Fecha creación");
+  var iPFA   = pfHeaders.indexOf("Fecha actualización");
+  var newRows = [];
+  var created = 0, skipped = 0;
+  var now = new Date();
+  Object.keys(byPhone).forEach(function(phKey){
+    if (existingSet[phKey]) { skipped++; return; }
+    var g = byPhone[phKey];
+    var row = new Array(pfHeaders.length).fill("");
+    if (iId    >= 0) row[iId]    = Utilities.getUuid();
+    if (iPfPhone>= 0) row[iPfPhone] = g.phone;
+    if (iPLada >= 0) row[iPLada] = g.lada || "";
+    if (iPName >= 0) row[iPName] = g.name || "";
+    if (iPMail >= 0) row[iPMail] = g.email || "";
+    if (iPFC   >= 0) row[iPFC]   = now;
+    if (iPFA   >= 0) row[iPFA]   = now;
+    newRows.push(row);
+    created++;
+  });
+  if (newRows.length) {
+    var startRow = pfSh.getLastRow() + 1;
+    pfSh.getRange(startRow, 1, newRows.length, pfHeaders.length).setValues(newRows);
+    // Formato @ para celular y ladas (evita notación científica en números)
+    if (iPfPhone >= 0) pfSh.getRange(startRow, iPfPhone+1, newRows.length, 1).setNumberFormat("@");
+    if (iPLada  >= 0) pfSh.getRange(startRow, iPLada +1, newRows.length, 1).setNumberFormat("@");
+  }
+  SpreadsheetApp.flush();
+
+  // Trigger de recalculo de KPIs
+  var kpisResult = null;
+  var doRecalc = !data || data.recalc_kpis !== false;
+  if (doRecalc) {
+    try { kpisResult = perfilesRecalcKpis_({}); } catch(errK) { kpisResult = { ok:false, error: String(errK) }; }
+  }
+  return {
+    ok: true,
+    created: created,
+    skipped: skipped,
+    total_unique_phones: created + skipped,
+    lodgify_rows_scanned: lgVals.length,
+    elapsed_ms: Date.now() - startMs,
+    kpis: kpisResult
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
