@@ -35110,19 +35110,25 @@ window.asistCalGoToWeek = function (weekValue) {
 // Estado del edit en curso — mismo modelo que el panel: 1 concepto + 1 comp.
 const ASIST_CAL_EDIT = { nombre: '', iso: '', concepto: '', comp: null, saving: false };
 
+// Permitir capturar hasta N días adelante de hoy (para programar turnos,
+// vacaciones o descansos con antelación). Cambiar aquí si el negocio quiere
+// una ventana más grande/pequeña.
+const ASIST_CAL_FUTURE_DAYS = 7;
+function _asistCalMaxIso_() {
+  const d = new Date();
+  d.setDate(d.getDate() + ASIST_CAL_FUTURE_DAYS);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 window.asistCalClick = function (nombre, iso, ev) {
-  // Bloquea agregar/modificar registros para fechas futuras — hoy es
-  // el día más tardío permitido. Si ya existe un registro histórico
-  // (creado antes de que existiera esta restricción) se permite abrirlo
-  // solo para borrarlo.
-  const _hoyIso = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  })();
-  if (iso > _hoyIso) {
+  // Ventana permitida: hoy + ASIST_CAL_FUTURE_DAYS. Fechas más allá se
+  // bloquean para nuevos registros (los existentes se pueden abrir para
+  // borrarlos).
+  const _maxIso = _asistCalMaxIso_();
+  if (iso > _maxIso) {
     const existe = _asistCalRowFor_(nombre, iso);
     if (!existe) {
-      alert('⚠️ No se pueden agregar registros para fechas futuras.\n\nHoy (' + _hoyIso + ') es el día más tardío permitido.');
+      alert('⚠️ No se pueden agregar registros más allá de ' + ASIST_CAL_FUTURE_DAYS + ' días a futuro.\n\nÚltima fecha permitida: ' + _maxIso + '.');
       if (ev) ev.stopPropagation();
       return;
     }
@@ -35363,14 +35369,12 @@ window.asistCalMenuGuardar = async function () {
   const row    = _asistCalRowFor_(nombre, iso);
   const concepto = S.concepto || '';
   const compFinal = (S.comp && (S.comp.concepto || Number(S.comp.monto) > 0)) ? S.comp : null;
-  // Guardarail: no crear nuevos registros en fechas futuras. Solo se
-  // permite operar sobre registros existentes (para borrarlos).
-  const _hoyIso = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  })();
-  if (iso > _hoyIso && !row) {
-    alert('⚠️ No se pueden agregar registros para fechas futuras.\n\nHoy (' + _hoyIso + ') es el día más tardío permitido.');
+  // Guardarail: no crear nuevos registros más allá de la ventana permitida
+  // (hoy + ASIST_CAL_FUTURE_DAYS). Solo se permite operar sobre registros
+  // existentes para borrarlos.
+  const _maxIso = _asistCalMaxIso_();
+  if (iso > _maxIso && !row) {
+    alert('⚠️ No se pueden agregar registros más allá de ' + ASIST_CAL_FUTURE_DAYS + ' días a futuro.\n\nÚltima fecha permitida: ' + _maxIso + '.');
     asistCalMenuCerrar(); S.saving = false; return;
   }
   // Sin cambios reales → cierra sin trabajo.
