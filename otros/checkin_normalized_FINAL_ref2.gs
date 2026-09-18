@@ -10072,6 +10072,21 @@ function perfilesRecalcKpis_(data) {
 // ║ visitas, monto, clasificación).                                          ║
 // ║ Típicamente <3s vs 30s+ de listGuestRecords_.                            ║
 // ═══════════════════════════════════════════════════════════════════════════
+// Safe convert de valor de celda a número. Sanitiza el caso en que la
+// columna kpi_* esté formateada como Date en el sheet → getValues devuelve
+// un Date object para celdas vacías (cuyo timestamp es Dec 1899 UTC).
+function _kpiNumSafe(v) {
+  if (v == null || v === "") return 0;
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    // Timestamp anterior a 1970 → celda vacía formateada como Date. Tratar como 0.
+    var t = v.getTime();
+    if (t < 0) return 0;
+    return t;
+  }
+  var n = Number(v);
+  return isFinite(n) ? n : 0;
+}
+
 function perfilesListFull_() {
   var startMs = Date.now();
   var ss = getSpreadsheet_();
@@ -10145,9 +10160,9 @@ function perfilesListFull_() {
       vehModelo: v.modelo || "",
       vehColor:  v.color  || "",
       vehPlacas: v.placas || "",
-      kpi_noches:        idx.kn >= 0 ? Number(pfVals[i][idx.kn]) || 0 : 0,
-      kpi_visitas:       idx.kv >= 0 ? Number(pfVals[i][idx.kv]) || 0 : 0,
-      kpi_monto:         idx.km >= 0 ? Number(pfVals[i][idx.km]) || 0 : 0,
+      kpi_noches:        _kpiNumSafe(idx.kn >= 0 ? pfVals[i][idx.kn] : 0),
+      kpi_visitas:       _kpiNumSafe(idx.kv >= 0 ? pfVals[i][idx.kv] : 0),
+      kpi_monto:         _kpiNumSafe(idx.km >= 0 ? pfVals[i][idx.km] : 0),
       kpi_clasificacion: idx.kc >= 0 ? String(pfVals[i][idx.kc] || "") : "",
     });
   }
