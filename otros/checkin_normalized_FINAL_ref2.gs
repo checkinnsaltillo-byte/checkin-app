@@ -9727,7 +9727,16 @@ function llavesUpsert_(data) {
 // ║ check-in (por lo tanto no existen en Perfiles). Agrupa por celular      ║
 // ║ normalizado (últimos 10 dígitos). Nunca sobrescribe perfiles existentes.║
 // ║ Al terminar dispara perfilesRecalcKpis_() para actualizar KPIs.         ║
+// ║                                                                          ║
+// ║ Wrapper público (sin guion bajo) para ejecutar manualmente desde el     ║
+// ║ dropdown "Ejecutar" del editor de Apps Script.                          ║
 // ═══════════════════════════════════════════════════════════════════════════
+function perfilesBackfillFromLodgify() {
+  var result = perfilesBackfillFromLodgify_({});
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
 function perfilesBackfillFromLodgify_(data) {
   var startMs = Date.now();
   var ss = getSpreadsheet_();
