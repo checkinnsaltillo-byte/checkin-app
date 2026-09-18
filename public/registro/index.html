@@ -7900,7 +7900,7 @@ function renderReservaSelector(reservas, phoneRaw, perfilRow, mapper) {
     // Chip "REGISTRADO" (negro) o "PENDIENTE" (naranja) según registro manual.
     const chipRegistrado = r.Registrado
       ? `<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#0f172a;color:#fff;font-size:10px;font-weight:800;letter-spacing:.03em;margin-right:6px">REGISTRADO</span>`
-      : `<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#f59e0b;color:#78350f;font-size:10px;font-weight:800;letter-spacing:.03em;margin-right:6px">PENDIENTE</span>`;
+      : `<span style="display:inline-block;padding:3px 10px;border-radius:99px;background:#f59e0b;color:#78350f;font-size:10px;font-weight:800;letter-spacing:.03em;margin-right:6px">CHECK-IN PENDIENTE</span>`;
     // Chip verde "Ver ticket · Folio #X" si hay folio (abre URL si existe)
     const chipTicket = r.FolioFacturapi
       ? `<span class="ver-ticket-chip" onclick="event.stopPropagation();${r.TicketUrl ? `window.open('${String(r.TicketUrl).replace(/'/g,"\\'")}','_blank','noopener')` : `alert('Folio #${r.FolioFacturapi} — el link del ticket aún no está disponible en Drive.')`};" style="display:inline-block;padding:3px 10px;border-radius:99px;background:#16a34a;color:#fff;font-size:10px;font-weight:800;letter-spacing:.03em;cursor:pointer;transition:transform 80ms ease,background 80ms ease,box-shadow 80ms ease;user-select:none">✓ VER TICKET · FOLIO #${r.FolioFacturapi}</span>`
