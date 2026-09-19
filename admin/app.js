@@ -33764,7 +33764,10 @@ function asistRenderResumen(targetId) {
     let _conc = String(r.Concepto||'').trim();
     if (!_conc && (_ent || _sal)) _conc = 'Regular';
     const concepto = asistPanelNormalizarConceptoLegado_(_conc);
-    if (concepto && asistPanelEsDiaTrabajado_(concepto)) g.workDays.add(fecha);
+    // Cualquier concepto que pague salario base (Asistencia, Vacaciones,
+    // Feriado no trabajado) aporta al Base laborado semanal. Solo Falta e
+    // Incapacidad NO se pagan.
+    if (concepto && asistPanelPagaSalarioBase_(concepto)) g.workDays.add(fecha);
     if (concepto) {
       const p = asistPanelPrimasPorConcepto_(concepto);
       if (typeof p.primaVac === 'number') g.vac += p.primaVac;
@@ -35648,6 +35651,15 @@ function asistPanelEsDiaTrabajado_(concepto) {
   const c = ASIST_PANEL_CONCEPTO_MAP[asistPanelNormalizarConceptoLegado_(concepto)];
   return !!(c && c.group === 'Asistencia');
 }
+// Un concepto "paga salario base" (aporta al Base laborado semanal) cuando
+// el empleado recibe salario base ese día — no solo días efectivamente
+// trabajados, también Vacaciones y Feriado no trabajado (ambos son días
+// pagados por ley). Solo 'Falta' e 'Incapacidad' NO pagan base.
+function asistPanelPagaSalarioBase_(concepto) {
+  const c = ASIST_PANEL_CONCEPTO_MAP[asistPanelNormalizarConceptoLegado_(concepto)];
+  if (!c) return false;
+  return c.group === 'Asistencia' || c.group === 'Vacaciones' || c.group === 'Feriado';
+}
 function asistPanelParseDiasTrabajo_(str) {
   const out = new Set();
   String(str||'').split(/[,;\s]+/).map(t => t.trim().toUpperCase()).filter(Boolean).forEach(tok => {
@@ -36253,7 +36265,9 @@ function asistPanelRender() {
       if (cs) {
         let cuenta = false;
         for (const k of cs) {
-          if (asistPanelEsDiaTrabajado_(k)) cuenta = true;
+          // Cuenta como día pagado si el concepto paga salario base
+          // (Asistencia + Vacaciones + Feriado no trabajado).
+          if (asistPanelPagaSalarioBase_(k)) cuenta = true;
           const p = asistPanelPrimasPorConcepto_(k);
           if (typeof p.primaVac === 'number') primaVacSem += p.primaVac;
           if (typeof p.primaDom === 'number') primaDomSem += p.primaDom;
