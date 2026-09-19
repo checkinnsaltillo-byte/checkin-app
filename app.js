@@ -33554,20 +33554,42 @@ function asistDeriveConceptos_(recs) {
 function asistDeriveDayInfo(recs, date, today) {
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
   const isFuture = date > today;
-  // Vacaciones o Asueto — cualquier registro con ese Tipo domina
-  let hasVac = false, hasAsueto = false;
+  // Estado dominante — priorizamos Concepto (fuente de verdad de la UI
+  // administrativa) sobre Tipo (marca del bot WhatsApp). Esto sincroniza
+  // el calendario con el Registro de asistencia lateral, que usa Concepto.
+  //
+  // Prioridad de estados si hay múltiples registros el mismo día:
+  //   vacaciones > asueto > día feriado > falta > asistencia
+  let hasVac = false, hasAsueto = false, hasFeriado = false, hasFalta = false;
   let entradaMin = null, salidaMin = null;
   let entradaStr = '', salidaStr = '';
+  const _normConcepto = (typeof asistPanelNormalizarConceptoLegado_ === 'function')
+    ? asistPanelNormalizarConceptoLegado_
+    : (v => String(v || '').trim());
   for (const r of recs) {
-    const t = String(r.Tipo || '').toLowerCase();
-    if (t === 'vacaciones') hasVac = true;
-    else if (t === 'asueto') hasAsueto = true;
-    else if (t === 'entrada') {
+    const tipo = String(r.Tipo || '').toLowerCase();
+    const conceptoRaw = String(r.Concepto || '').trim();
+    const conceptoNorm = _normConcepto(conceptoRaw);
+    const conceptoLC = String(conceptoNorm || '').toLowerCase();
+    // Vacaciones / asueto / feriado / falta — Concepto O Tipo dominan.
+    if (tipo === 'vacaciones' || conceptoLC.includes('vacaciones') || conceptoLC.includes('vac laboradas')) hasVac = true;
+    if (tipo === 'asueto' || conceptoLC === 'asueto') hasAsueto = true;
+    if (conceptoLC.includes('feriado') || conceptoLC.includes('día feriado') || conceptoLC.includes('dia feriado')) hasFeriado = true;
+    if (tipo === 'falta' || conceptoLC === 'falta') hasFalta = true;
+    // Entrada/Salida — del bot (Tipo) o del registro manual completo
+    // (columnas Entrada/Salida en el propio row).
+    if (tipo === 'entrada') {
       const m = asistParseTimeToMinutes(r.Hora || r.Entrada);
       if (m != null && (entradaMin == null || m < entradaMin)) { entradaMin = m; entradaStr = (r.Hora || r.Entrada || '').slice(0,5); }
-    } else if (t === 'salida') {
+    } else if (tipo === 'salida') {
       const m = asistParseTimeToMinutes(r.Hora || r.Salida);
       if (m != null && (salidaMin == null || m > salidaMin)) { salidaMin = m; salidaStr = (r.Hora || r.Salida || '').slice(0,5); }
+    } else {
+      // Row sin Tipo (registro manual con Entrada/Salida completos).
+      const eM = asistParseTimeToMinutes(r.Entrada);
+      const sM = asistParseTimeToMinutes(r.Salida);
+      if (eM != null && (entradaMin == null || eM < entradaMin)) { entradaMin = eM; entradaStr = String(r.Entrada || '').slice(0,5); }
+      if (sM != null && (salidaMin  == null || sM > salidaMin))  { salidaMin  = sM; salidaStr  = String(r.Salida  || '').slice(0,5); }
     }
   }
   let horasStr = '';
@@ -33575,17 +33597,11 @@ function asistDeriveDayInfo(recs, date, today) {
     const diff = salidaMin - entradaMin;
     horasStr = `${Math.floor(diff/60)}h${String(diff%60).padStart(2,'0')}`;
   }
-  if (hasVac) return { entrada:entradaStr, salida:salidaStr, horasStr, estado:'vacaciones', semaforo:'#f59e0b' };
-  if (hasAsueto) return { entrada:entradaStr, salida:salidaStr, horasStr, estado:'asueto', semaforo:'#f59e0b' };
+  if (hasVac)     return { entrada:entradaStr, salida:salidaStr, horasStr, estado:'vacaciones',  semaforo:'#f59e0b' };
+  if (hasAsueto)  return { entrada:entradaStr, salida:salidaStr, horasStr, estado:'asueto',      semaforo:'#f59e0b' };
+  if (hasFeriado) return { entrada:entradaStr, salida:salidaStr, horasStr, estado:'dia_feriado', semaforo:'#0ea5e9' };
+  if (hasFalta)   return { entrada:'', salida:'', horasStr:'', estado:'falta', semaforo:'#dc2626' };
   if (entradaMin != null) return { entrada:entradaStr, salida:salidaStr, horasStr, estado:'asistencia', semaforo:'#16a34a' };
-  // Sin registros en la hoja RH_Asistencia → celda vacía, sin semáforo.
-  // "Falta" solo si existe un registro con Tipo=falta (revisar recs arriba)
-  // — nunca inferir por ausencia.
-  for (const r of recs) {
-    if (String(r.Tipo || '').toLowerCase() === 'falta') {
-      return { entrada:'', salida:'', horasStr:'', estado:'falta', semaforo:'#dc2626' };
-    }
-  }
   return { entrada:'', salida:'', horasStr:'', estado:'', semaforo:'' };
 }
 
