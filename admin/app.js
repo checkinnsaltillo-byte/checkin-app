@@ -35349,9 +35349,10 @@ function _asistCalRenderMenu_(ev) {
       const c = ASIST_PANEL_CONCEPTO_MAP[subKey];
       const sel = curNorm === subKey;
       const monto = asistPanelFmtMonto_(ASIST_PANEL_SAL_BASE * c.mult);
+      const displayLabel = c.label || subKey;
       const labelHtml = `
         <span style="width:8px;height:8px;border-radius:50%;background:${c.color};display:inline-block"></span>
-        <span style="font-size:11px;font-weight:700;color:#334155">${subKey}</span>
+        <span style="font-size:11px;font-weight:700;color:#334155">${displayLabel}</span>
         <span style="margin-left:auto;font-size:10.5px;font-weight:800;color:#0f172a;background:#f1f5f9;padding:1px 6px;border-radius:4px">${monto}</span>`;
       html += rowHtml(labelHtml, sel, true, subKey);
     });
@@ -35673,7 +35674,7 @@ const ASIST_PANEL_CONCEPTOS = [
   // Asistencia (grupo verde) — 5 sub-clasificaciones.
   { k:'Regular',        color:'#16a34a', group:'Asistencia', mult: 1                                      },
   { k:'Vac laboradas',  color:'#0d9488', group:'Asistencia', mult: 1 + ASIST_PANEL_PRIMA_VAC              },
-  { k:'Día feriado',    color:'#1d4ed8', group:'Asistencia', mult: 1 + ASIST_PANEL_PRIMA_DF               },
+  { k:'Día feriado',    color:'#1d4ed8', group:'Asistencia', mult: 1 + ASIST_PANEL_PRIMA_DF, label: 'Día feriado laborado' },
   { k:'Domingo',        color:'#4f46e5', group:'Asistencia', mult: 1 + ASIST_PANEL_PRIMA_DOM              },
   // "Sin beneficios": el empleado asistió pero no cobra base ni primas
   // (arreglo especial). Solo puede llevar compensación libre en esa celda.
@@ -36043,9 +36044,10 @@ window.asistPanelOpenCellMenu = function (nombre, iso, ev) {
       const c = ASIST_PANEL_CONCEPTO_MAP[subKey];
       const sel = curNorm === subKey;
       const monto = asistPanelFmtMonto_(ASIST_PANEL_SAL_BASE * c.mult);
+      const displayLabel = c.label || subKey;
       const labelHtml = `
         <span style="width:8px;height:8px;border-radius:50%;background:${c.color};display:inline-block"></span>
-        <span style="font-size:11px;font-weight:700;color:#334155">${subKey}</span>
+        <span style="font-size:11px;font-weight:700;color:#334155">${displayLabel}</span>
         <span style="margin-left:auto;font-size:10.5px;font-weight:800;color:#0f172a;background:#f1f5f9;padding:1px 6px;border-radius:4px">${monto}</span>`;
       html += row(labelHtml, sel, true, subKey);
     });
