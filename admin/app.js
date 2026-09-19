@@ -34083,7 +34083,11 @@ window.asistResumenPagoSet = function (rowKey, field, value) {
     try {
       const tr = document.querySelector(`tr[data-resumen-row-key="${rowKey}"]`);
       if (tr) {
-        const chip = tr.querySelectorAll('td')[15]; // Estado es la col 16 (0-indexed 15) tras insertar Alta en IMSS
+        // Estado de pago está en td[16]. Orden: 0 acc, 1 empleado, 2 alta IMSS,
+        // 3 semana, 4 horas, 5 baseLab, 6 baseDes, 7 vac, 8 dom, 9 df,
+        // 10 conceptoComp, 11 comp, 12 reportado, 13 total, 14 método,
+        // 15 fecha, 16 estado, 17 comentarios.
+        const chip = tr.querySelectorAll('td')[16];
         const p = _rhResPagoGet_(nombre, semanaValue);
         const pagado = !!p.fecha;
         chip.innerHTML = pagado
