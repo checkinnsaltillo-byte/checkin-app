@@ -34181,9 +34181,17 @@ async function asistReloadList() {
   ASIST_STATE.loading = true;
   ASIST_STATE._reloadPromise = (async () => {
   try {
-    const res = await fetch(`${BACKEND}/rh/asistencia?_cb=${Date.now()}`, { cache: 'no-store' });
-    const j = await res.json();
-    if (!j.ok) throw new Error(j.error || 'fetch falló');
+    // Retry up to 3 veces con backoff — el backend a veces retorna
+    // {ok:false, raw:<html>} cuando Apps Script tiene un glitch transitorio.
+    let j = null; let lastErr = '';
+    for (let a = 0; a < 3; a++) {
+      const res = await fetch(`${BACKEND}/rh/asistencia?_cb=${Date.now()}`, { cache: 'no-store' });
+      j = await res.json();
+      if (j.ok) break;
+      lastErr = j.error || j.message || 'respuesta sin ok';
+      if (a < 2) await new Promise(r => setTimeout(r, 1000 * (a + 1)));
+    }
+    if (!j || !j.ok) throw new Error(lastErr || 'fetch falló tras 3 intentos');
     ASIST_STATE.rows = Array.isArray(j.rows) ? j.rows : [];
     ASIST_STATE.headers = Array.isArray(j.headers) && j.headers.length
       ? j.headers
