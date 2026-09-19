@@ -33909,7 +33909,10 @@ function asistRenderResumen(targetId) {
     return tdNum(fmt(g.compOverride != null ? g.compOverride : g.comp));
   };
   // Columnas de pago (siempre editables inline; se auto-persisten en localStorage).
-  const tdReportado = (g) => tdNum(fmt(g.baseLab + g.baseDes), 'color:#334155');
+  // $ Salario reportado = Base laborado + Base descanso + Prima vacacional
+  // + Prima dominical + Prima día feriado. Excluye Compensación (esa se
+  // suma solo en $ Salario TOTAL).
+  const tdReportado = (g) => tdNum(fmt(g.baseLab + g.baseDes + g.vac + g.dom + g.df), 'color:#334155');
   const tdMetodo = (g) => {
     const p = _rhResPagoGet_(g.nombre, g.semana.value);
     const opts = ['Transferencia bancaria','Efectivo','Cheque','Otro'];
