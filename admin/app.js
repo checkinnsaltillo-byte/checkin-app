@@ -35078,7 +35078,7 @@ function asistRenderCalendar() {
             return `${c}${h}`;
           }).join(' | ')
         : '';
-      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" style="${bgStyle}${semStyle}cursor:pointer" title="${esc(tip)}" onclick="asistCalClick('${esc(nombre).replace(/'/g,"\\'")}','${iso}',event)">${wrap}</div>`;
+      html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" style="${bgStyle}${semStyle}cursor:${ASIST_CAL_MODE.editing?'pointer':'default'}" title="${esc(tip)}" onclick="asistCalClick('${esc(nombre).replace(/'/g,"\\'")}','${iso}',event)">${wrap}</div>`;
     }
     html += `</div>`;
   });
