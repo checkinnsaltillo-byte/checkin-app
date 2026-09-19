@@ -33525,7 +33525,7 @@ function asistDeriveConceptos_(recs) {
   // Domingo). Sin las nuevas, un registro con Concepto='Vac laboradas'
   // se caía al fallback de Entrada/Salida y siempre etiquetaba como
   // 'Asistencia' → 'Regular' — perdiendo la sub-clasificación.
-  const CONCEPTO_KEYS = ['Asistencia','Regular','Vac laboradas','Día feriado','Domingo','Falta','Incapacidad','Vacaciones','Feriado'];
+  const CONCEPTO_KEYS = ['Asistencia','Regular','Vac laboradas','Día feriado','Domingo','Sin beneficios','Falta','Incapacidad','Vacaciones','Feriado'];
   for (const r of (recs || [])) {
     // Campo Concepto (fuente preferida cuando existe la columna en el sheet).
     const conc = String(r.Concepto || '').trim();
@@ -35595,11 +35595,14 @@ const ASIST_PANEL_PRIMA_DOM = 0.25;
 const ASIST_PANEL_PRIMA_DF  = 2.00;
 // mult = factor por el que se multiplica SAL_BASE para obtener el pago del día.
 const ASIST_PANEL_CONCEPTOS = [
-  // Asistencia (grupo verde) — 4 sub-clasificaciones.
-  { k:'Regular',       color:'#16a34a', group:'Asistencia', mult: 1                                      },
-  { k:'Vac laboradas', color:'#0d9488', group:'Asistencia', mult: 1 + ASIST_PANEL_PRIMA_VAC              },
-  { k:'Día feriado',   color:'#1d4ed8', group:'Asistencia', mult: 1 + ASIST_PANEL_PRIMA_DF               },
-  { k:'Domingo',       color:'#4f46e5', group:'Asistencia', mult: 1 + ASIST_PANEL_PRIMA_DOM              },
+  // Asistencia (grupo verde) — 5 sub-clasificaciones.
+  { k:'Regular',        color:'#16a34a', group:'Asistencia', mult: 1                                      },
+  { k:'Vac laboradas',  color:'#0d9488', group:'Asistencia', mult: 1 + ASIST_PANEL_PRIMA_VAC              },
+  { k:'Día feriado',    color:'#1d4ed8', group:'Asistencia', mult: 1 + ASIST_PANEL_PRIMA_DF               },
+  { k:'Domingo',        color:'#4f46e5', group:'Asistencia', mult: 1 + ASIST_PANEL_PRIMA_DOM              },
+  // "Sin beneficios": el empleado asistió pero no cobra base ni primas
+  // (arreglo especial). Solo puede llevar compensación libre en esa celda.
+  { k:'Sin beneficios', color:'#94a3b8', group:'Asistencia', mult: 0                                      },
   // Estados principales sin sub.
   { k:'Falta',         color:'#dc2626', group:'Falta',      mult: 0                                      },
   { k:'Vacaciones',    color:'#f59e0b', group:'Vacaciones', mult: 1 + ASIST_PANEL_PRIMA_VAC              },
@@ -35620,7 +35623,7 @@ const ASIST_PANEL_GROUP_COLOR = {
   'Feriado':     '#0ea5e9',
 };
 // Sub-clasificaciones válidas para "Asistencia".
-const ASIST_PANEL_SUBS_ASISTENCIA = ['Regular','Vac laboradas','Día feriado','Domingo'];
+const ASIST_PANEL_SUBS_ASISTENCIA = ['Regular','Vac laboradas','Día feriado','Domingo','Sin beneficios'];
 // Alias de compatibilidad: registros viejos con Concepto='Asistencia' se
 // tratan como 'Regular' al leerlos del sheet.
 function asistPanelNormalizarConceptoLegado_(concepto) {
@@ -35649,6 +35652,9 @@ function asistPanelPrimasPorConcepto_(concepto) {
     case 'Vacaciones':    return { salBase: base, primaVac: base * ASIST_PANEL_PRIMA_VAC, primaDom: '',                          primaDF: '' };
     case 'Falta':         return empty;
     case 'Incapacidad':   return empty;
+    // "Sin beneficios": no paga base ni primas (solo compensación libre
+    // capturada aparte en la celda).
+    case 'Sin beneficios': return empty;
     default:              return empty;
   }
 }
@@ -35661,10 +35667,13 @@ function asistPanelEsDiaTrabajado_(concepto) {
 // Un concepto "paga salario base" (aporta al Base laborado semanal) cuando
 // el empleado recibe salario base ese día — no solo días efectivamente
 // trabajados, también Vacaciones y Feriado no trabajado (ambos son días
-// pagados por ley). Solo 'Falta' e 'Incapacidad' NO pagan base.
+// pagados por ley). NO pagan base: 'Falta', 'Incapacidad' y 'Sin beneficios'
+// (esta última es asistencia sin salario — solo permite compensación libre).
 function asistPanelPagaSalarioBase_(concepto) {
-  const c = ASIST_PANEL_CONCEPTO_MAP[asistPanelNormalizarConceptoLegado_(concepto)];
+  const k = asistPanelNormalizarConceptoLegado_(concepto);
+  const c = ASIST_PANEL_CONCEPTO_MAP[k];
   if (!c) return false;
+  if (k === 'Sin beneficios') return false;
   return c.group === 'Asistencia' || c.group === 'Vacaciones' || c.group === 'Feriado';
 }
 function asistPanelParseDiasTrabajo_(str) {
