@@ -34824,6 +34824,72 @@ function asistRenderTabla() {
 }
 
 // ── Vista Calendario (rows = personal operativo · cols = días) ──
+// ═══════════════════════════════════════════════════════════════════════════
+// ║ Modo edición del calendario principal (Control de asistencias)          ║
+// ║ - Por defecto: calendario READ-ONLY. Click en celda NO hace nada.        ║
+// ║ - Al oprimir "✏️ Editar" entra en modo edición: click en celda abre el   ║
+// ║   popup y los cambios se guardan optimistamente + background.            ║
+// ║ - Al detectar el 1er cambio aparece "💾 Guardar cambios" — al oprimirlo  ║
+// ║   se refresca la tabla desde el backend y se sale del modo edición.      ║
+// ║ - "🚪 Salir" sale del modo edición sin refrescar.                        ║
+// ═══════════════════════════════════════════════════════════════════════════
+const ASIST_CAL_MODE = { editing: false, dirty: false };
+
+function _asistCalEditToolbarButtons_() {
+  if (!ASIST_CAL_MODE.editing) {
+    return `<button type="button" onclick="asistCalToggleEdit(true)"
+              title="Habilitar edición del calendario"
+              style="all:unset;cursor:pointer;padding:7px 14px;background:#fff;color:#0f172a;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:900;font-size:12px;display:inline-flex;align-items:center;gap:6px">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:4px;border:1.5px solid #cbd5e1;background:#fff;font-size:11px;font-weight:900;line-height:1"></span>
+              ✏️ Editar
+            </button>`;
+  }
+  // En modo edición: chip "Editando", opcional Guardar cambios + Salir.
+  const saveBtn = ASIST_CAL_MODE.dirty
+    ? `<button type="button" onclick="asistCalSaveExit()"
+        title="Guardar cambios y salir del modo edición"
+        style="all:unset;cursor:pointer;padding:7px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:8px;font-weight:900;font-size:12px;box-shadow:0 3px 8px rgba(22,163,74,.35)">💾 Guardar cambios</button>`
+    : '';
+  return `
+    <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:#fef3c7;border:1.5px solid #fcd34d;border-radius:8px;font-size:11px;font-weight:800;color:#78350f">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:4px;background:#0f172a;color:#fff;font-size:11px;font-weight:900;line-height:1">✓</span>
+      ✏️ EDITANDO
+    </div>
+    ${saveBtn}
+    <button type="button" onclick="asistCalToggleEdit(false)"
+      title="Salir del modo edición sin guardar"
+      style="all:unset;cursor:pointer;padding:7px 14px;background:#fff;color:#334155;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;font-size:12px">🚪 Salir</button>`;
+}
+
+window.asistCalToggleEdit = function (on) {
+  ASIST_CAL_MODE.editing = !!on;
+  if (!on) ASIST_CAL_MODE.dirty = false;
+  asistRenderCalendar();
+};
+
+window.asistCalSaveExit = async function () {
+  // Los cambios ya se guardaron optimistamente en el backend a medida que
+  // el usuario editaba. Aquí solo refrescamos desde el server (para
+  // reemplazar IDs temporales por reales) y salimos del modo edición.
+  ASIST_CAL_MODE.editing = false;
+  ASIST_CAL_MODE.dirty = false;
+  try { if (typeof asistReloadList === 'function') await asistReloadList(); } catch(_){}
+  // asistReloadList ya re-renderiza calendar + tabla.
+};
+
+// Marca el calendario como "sucio" (hay cambios sin visualizar aún el
+// botón Guardar). Se llama después de cada save optimista exitoso.
+function _asistCalMarkDirty_() {
+  if (!ASIST_CAL_MODE.editing) return;
+  if (ASIST_CAL_MODE.dirty) return;
+  ASIST_CAL_MODE.dirty = true;
+  // Refresca solo la toolbar (barato) para mostrar el botón Guardar.
+  try {
+    const tb = document.getElementById('asist-cal-toolbar');
+    if (tb) asistRenderCalendar();
+  } catch(_){}
+}
+
 function asistRenderCalendar() {
   const cont = document.getElementById('asist-cal-wrap');
   if (!cont) return;
@@ -34896,6 +34962,7 @@ function asistRenderCalendar() {
                 style="all:unset;cursor:pointer;padding:6px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;color:#334155">→</button>
         <button type="button" onclick="asistCalHoy()"
                 style="all:unset;cursor:pointer;padding:7px 14px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;border-radius:8px;font-weight:900;box-shadow:0 3px 8px rgba(14,165,233,.35)">📅 Ir a hoy</button>
+        ${_asistCalEditToolbarButtons_()}
         <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#475569;font-weight:700">
           <span style="text-transform:uppercase;letter-spacing:.06em">Semana:</span>
           <select onchange="asistCalGoToWeek(this.value)"
@@ -35155,6 +35222,11 @@ function _asistCalMaxIso_() {
 }
 
 window.asistCalClick = function (nombre, iso, ev) {
+  // Modo lectura por defecto: click no hace nada si no está en modo edición.
+  if (!ASIST_CAL_MODE.editing) {
+    if (ev) ev.stopPropagation();
+    return;
+  }
   // Ventana permitida: hoy + ASIST_CAL_FUTURE_DAYS. Fechas más allá se
   // bloquean para nuevos registros (los existentes se pueden abrir para
   // borrarlos).
@@ -35469,6 +35541,9 @@ window.asistCalMenuGuardar = async function () {
   asistCalMenuCerrar();
   S.saving = false;
   ASIST_STATE._focusMode = 'preserve'; // no mover el scroll horizontal
+  // Marca dirty ANTES del render para que la toolbar salga con el botón
+  // "Guardar cambios" visible en la misma pasada.
+  try { _asistCalMarkDirty_(); } catch(_){}
   if (typeof asistRenderCalendar === 'function') asistRenderCalendar();
 
   // ── Reales al backend en background ──
