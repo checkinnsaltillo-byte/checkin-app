@@ -11280,7 +11280,7 @@ function reservasByPhone_(data) {
   if (!p10) return { ok:false, error:"phone requerido (>=10 dígitos)" };
   // Cache 5 min por teléfono — el sheet tiene 10k+ filas y escanear tarda 10-25s.
   var cache = CacheService.getScriptCache();
-  var cacheKey = "rbp_v11_nombres_" + p10;
+  var cacheKey = "rbp_v12_pastwindow_" + p10;
   try {
     var cached = cache.get(cacheKey);
     if (cached) { var parsed = JSON.parse(cached); parsed._cached = true; return parsed; }
@@ -11405,15 +11405,25 @@ function reservasByPhone_(data) {
     }
     // SOLO Booked (confirmadas): descartar Open (cotización), Tentative, Deleted, Declined, etc.
     if (status !== "booked") { dbg.status_skipped++; continue; }
-    // Activa o próxima: DateArrival O DateDeparture >= hoy. Acepta si alguna
-    // fecha es futura (tolerante a errores donde arrival/departure vinieron
-    // swapped, como Oaxaca #5: "11/04/2026 → 08/29/2026").
+    // Ventana de aceptación: reservas activas, próximas, o que hayan
+    // terminado dentro de los últimos RESERVAS_PAST_WINDOW_DAYS días
+    // (para que el huésped pueda auto-facturar después del check-out).
     var daIso = da ? _toIsoDateForCompare_(da) : "";
     var ddIso = dd ? _toIsoDateForCompare_(dd) : "";
     var futureDa = daIso && daIso >= todayIso;
     var futureDd = ddIso && ddIso >= todayIso;
     var neitherDate = !daIso && !ddIso;
-    if (!futureDa && !futureDd && !neitherDate) { dbg.date_skipped++; continue; }
+    // Ventana pasada aceptable: 60 días desde el checkout. Facturapi típicamente
+    // permite facturar hasta el fin de mes + algo, y damos margen adicional.
+    var RESERVAS_PAST_WINDOW_DAYS = 60;
+    var recentPast = false;
+    if (ddIso && !futureDd) {
+      var _today = new Date(todayIso + 'T00:00:00Z').getTime();
+      var _dep = new Date(ddIso + 'T00:00:00Z').getTime();
+      var _diffDays = Math.round((_today - _dep) / 86400000);
+      if (_diffDays >= 0 && _diffDays <= RESERVAS_PAST_WINDOW_DAYS) recentPast = true;
+    }
+    if (!futureDa && !futureDd && !neitherDate && !recentPast) { dbg.date_skipped++; continue; }
     var hid = iHId >= 0 ? String(vals[i][iHId] || "").trim() : "";
     var rti = iRTIds >= 0 ? String(vals[i][iRTIds] || "").trim() : "";
     var aloj = _resolveAloj(hid, rti);
