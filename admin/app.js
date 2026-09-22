@@ -19559,13 +19559,23 @@ window.bzwRefreshAlerts = async function(opts) {
     // Resetea el flag de "aseo inyectado" en TODOS los paneles de detalle
     // visibles, y vuelve a escanear → cada panel recibe la nueva versión
     // (con datos de Breezeway recién cargados) en lugar del placeholder.
+    // IMPORTANTE: eliminamos cualquier .bzw-aseo-card, .lg-tuya-card,
+    // .lg-inc-card, .lg-obj-card, .lg-reports-card previamente inyectadas
+    // — de otra forma el dedup por data-bzw-key detecta la placeholder
+    // vieja y bloquea la re-inyección, dejando "⏳ Cargando datos de
+    // Breezeway…" pegado eternamente.
     try {
       document.querySelectorAll('[data-aseo-injected="1"]').forEach(el => {
-        // Borra el bloque inyectado y resetea el flag
-        const lastChild = el.lastElementChild;
-        if (lastChild && /Aseo · ejecución/i.test(lastChild.textContent || '')) {
-          lastChild.remove();
-        }
+        el.querySelectorAll(
+          '.bzw-aseo-card, .lg-tuya-card, .lg-inc-card, .lg-obj-card, .lg-reports-card'
+        ).forEach(card => {
+          const wrap = card.parentElement;
+          if (wrap && wrap.parentElement === el && wrap.children.length === 1) {
+            wrap.remove();
+          } else {
+            card.remove();
+          }
+        });
         el.removeAttribute('data-aseo-injected');
       });
       if (typeof window.bzwAseoInjectorScan === 'function') {
