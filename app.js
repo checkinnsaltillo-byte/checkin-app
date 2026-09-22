@@ -9829,26 +9829,40 @@ async function __huespedesLoadInner(forceRefetch) {
   wrap?.classList.add('hidden');
   if (lbl) lbl.textContent = 'Cargando…';
 
-  // Cache localStorage (TTL 5 min) — primera carga lenta, siguientes instantáneas.
+  // Cache localStorage — 2 niveles:
+  //   FRESH (5 min): usar sin refresh, más reciente.
+  //   STALE (24h):  mostrar inmediatamente y refrescar en background.
+  // Con esta lógica, cuando el usuario vuelve al módulo NUNCA espera.
   const HU_CACHE_KEY = 'hu_cache_v1';
-  const HU_CACHE_TTL = 5 * 60 * 1000;
+  const HU_CACHE_FRESH_MS = 5 * 60 * 1000;
+  const HU_CACHE_STALE_MS = 24 * 60 * 60 * 1000;
+  let _cacheState = null; // 'fresh' | 'stale' | null
   if (!forceRefetch) {
     try {
       const raw = localStorage.getItem(HU_CACHE_KEY);
       if (raw) {
         const c = JSON.parse(raw);
-        if (c && c.ts && (Date.now() - c.ts) < HU_CACHE_TTL && Array.isArray(c.rows)) {
-          HU_STATE.rows = c.rows;
-          HU_STATE.serverTotal = c.total || c.rows.length;
-          HU_STATE.totalConFactura = c.totalConFactura || 0;
-          HU_STATE.totalSinFactura = c.totalSinFactura || 0;
-          HU_STATE.totalMediosUnicos = c.totalMediosUnicos || 0;
-          HU_STATE.loaded = true;
-          HU_STATE.loading = false;
-          if (lbl) lbl.textContent = `${c.rows.length} reservaciones (cache)`;
-          try { huPopulateMesOptions(); } catch (e) { console.warn('[HU cache] huPopulateMesOptions falló:', e && e.stack || e && e.message); }
-          try { huespedesRender(); } catch (e) { console.warn('[HU cache] huespedesRender falló:', e && e.stack || e && e.message); }
-          return;
+        if (c && c.ts && Array.isArray(c.rows)) {
+          const age = Date.now() - c.ts;
+          if (age < HU_CACHE_STALE_MS) {
+            HU_STATE.rows = c.rows;
+            HU_STATE.serverTotal = c.total || c.rows.length;
+            HU_STATE.totalConFactura = c.totalConFactura || 0;
+            HU_STATE.totalSinFactura = c.totalSinFactura || 0;
+            HU_STATE.totalMediosUnicos = c.totalMediosUnicos || 0;
+            HU_STATE.loaded = true;
+            _cacheState = age < HU_CACHE_FRESH_MS ? 'fresh' : 'stale';
+            if (lbl) lbl.textContent = _cacheState === 'fresh'
+              ? `${c.rows.length} reservaciones (cache)`
+              : `${c.rows.length} reservaciones (actualizando…)`;
+            try { huPopulateMesOptions(); } catch (e) { console.warn('[HU cache] huPopulateMesOptions falló:', e && e.stack || e && e.message); }
+            try { huespedesRender(); } catch (e) { console.warn('[HU cache] huespedesRender falló:', e && e.stack || e && e.message); }
+            if (_cacheState === 'fresh') {
+              HU_STATE.loading = false;
+              return;
+            }
+            // Stale: seguimos a la carga real, en background.
+          }
         }
       }
     } catch(_) {}
@@ -17021,14 +17035,25 @@ function lgBuildCombinedDetailColumn(b, huesped) {
   const tarifaLimp = sumKind(k => k.includes('fee') || k.includes('clean') || k.includes('limpieza'))
                   || numFromHuExact(['$ Cuota de limpieza']);
   const impuestos  = sumKind(k => k.includes('tax') || k.includes('vat') || k.includes('iva'));
+  // Promoción (Airbnb "estancia mínima" / descuentos en general).
+  // En Lodgify vienen como kind='Promotion' con gross positivo pero SUMAN
+  // como negativo al total. Mostramos el monto con signo negativo para que
+  // el desglose cuadre visualmente con Lodgify.
+  const promocion = sumKind(k => k.includes('promotion') || k.includes('discount') || k.includes('promoci') || k.includes('descuento'));
+  const totalLineItems = tarifaHosp + tarifaLimp + impuestos - promocion;
+  // TotalAmount (post-descuento, autoritativo). Fallback a la resta manual.
   const totalCobros = Number(b.Gross)
-                   || (tarifaHosp + tarifaLimp + impuestos)
+                   || (totalLineItems > 0 ? totalLineItems : 0)
                    || numFromHuExact(['($) Monto Total pagado','$ MONTO TOTAL Airbnb','$ Monto facturado Total']);
   const cur = b.Currency || 'MXN';
   const moneyOrDash = (n) => n > 0 ? `<b style="color:#0f766e">${lgFmtMoney(n, cur)}</b>` : '—';
+  const promocionRow = promocion > 0
+    ? `${fldRow('Promoción estancia mínima Airbnb', `<b style="color:#b45309">−${lgFmtMoney(promocion, cur)}</b>`)}`
+    : '';
   const section2 = `
     ${fldRow('Divisa', b.Currency ? `<b>${esc(b.Currency)}</b>` : '—')}
     ${fldRow('Tarifa hospedaje', moneyOrDash(tarifaHosp))}
+    ${promocionRow}
     ${fldRow('Tarifa limpieza',  moneyOrDash(tarifaLimp))}
     ${fldRow('Impuestos',        moneyOrDash(impuestos))}
     <div style="display:grid;grid-template-columns:170px 1fr;gap:10px;padding:10px 0;border-top:2px solid #e2e8f0;margin-top:4px">
