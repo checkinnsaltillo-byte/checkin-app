@@ -14115,16 +14115,30 @@ async function __lodgifyLoadInner(force, opts) {
     if (dupsHere > 0) {
       console.warn(`[LG] ${dupsHere} fila(s) duplicada(s) ignoradas en frontend. Recomendado: redesplegar Apps Script + Sincronizar.`);
     }
-    LG_STATE.bookings = dedupedBookings.map(b => ({
-      ...b,
-      DateArrival:   lgNormalizeDate(b.DateArrival),
-      DateDeparture: lgNormalizeDate(b.DateDeparture),
-      DateCancelled: lgNormalizeDate(b.DateCancelled),
-      Gross: Number(b.GrossTotal != null ? b.GrossTotal : b.Gross) || 0,
-      Net:   Number(b.NetTotal   != null ? b.NetTotal   : b.Net)   || 0,
-      Vat:   Number(b.VatTotal   != null ? b.VatTotal   : b.Vat)   || 0,
-      LineItems: Array.isArray(b.LineItems) ? b.LineItems : [],
-    }));
+    LG_STATE.bookings = dedupedBookings.map(b => {
+      // TotalAmount es la cifra AUTORITATIVA de Lodgify (post-descuento y
+      // lo que el huésped efectivamente paga). GrossTotal es la SUMA cruda
+      // de LineItems y tiene un bug del sync: Promotion (descuento) se
+      // suma como positivo en vez de restarse. Ejemplo: booking 23232434
+      // → LineItems suman 4889.40 pero TotalAmount = 4119.40 (real).
+      // Prioridad: TotalAmount > GrossTotal > Gross.
+      const ta = Number(b.TotalAmount);
+      const gt = Number(b.GrossTotal);
+      const g  = Number(b.Gross);
+      const totalReal = (Number.isFinite(ta) && ta > 0) ? ta
+                     : (Number.isFinite(gt) && gt > 0) ? gt
+                     : (Number.isFinite(g)  && g  > 0) ? g  : 0;
+      return {
+        ...b,
+        DateArrival:   lgNormalizeDate(b.DateArrival),
+        DateDeparture: lgNormalizeDate(b.DateDeparture),
+        DateCancelled: lgNormalizeDate(b.DateCancelled),
+        Gross: totalReal,
+        Net:   Number(b.NetTotal   != null ? b.NetTotal   : b.Net)   || 0,
+        Vat:   Number(b.VatTotal   != null ? b.VatTotal   : b.Vat)   || 0,
+        LineItems: Array.isArray(b.LineItems) ? b.LineItems : [],
+      };
+    });
     LG_STATE.loaded = true;
     LG_STATE.lastSync = data.last_synced_at || '';
     // Piggyback: registros de la hoja "check_out" indexados por prop|depto|salida
