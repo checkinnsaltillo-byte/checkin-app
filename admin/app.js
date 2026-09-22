@@ -34619,6 +34619,11 @@ window.asistResumenEliminarGrupo = async function (idsCsv) {
   const ids = idsCsv.split(',').filter(Boolean);
   if (!ids.length) return;
   if (!confirm(`¿Eliminar los ${ids.length} registros de este grupo? No se puede deshacer.`)) return;
+  // Detecta el contenedor activo: puede ser Nómina (#rh-view) o Control
+  // de asistencias (#asist-resumen-wrap). Sin esta detección el UI no
+  // se re-pintaba desde Nómina y parecía que el botón no hacía nada.
+  const isNomina = !!document.getElementById('rh-view') && !document.getElementById('rh-section-nomina')?.classList.contains('hidden');
+  const targetId = isNomina ? 'rh-view' : 'asist-resumen-wrap';
   asistStatusTabla('⏳ Eliminando…');
   let ok = 0, err = 0;
   for (const id of ids) {
@@ -34631,7 +34636,10 @@ window.asistResumenEliminarGrupo = async function (idsCsv) {
   asistStatusTabla(err ? `✓ ${ok} eliminados, ✗ ${err} con error` : `✓ ${ok} eliminados`);
   setTimeout(() => asistStatusTabla(''), 2500);
   await asistReloadList();
-  asistRenderResumen();
+  asistRenderResumen(targetId);
+  // Si hay error, avisamos al usuario porque el status inline solo existe
+  // en Control de asistencias — desde Nómina no se ve.
+  if (err && isNomina) alert(`✕ ${err} registros no se pudieron eliminar. Revisa consola.`);
 };
 
 // ── Modo Seleccionar — estilo idéntico a Guías: chip con span palomita 18x18 ──
