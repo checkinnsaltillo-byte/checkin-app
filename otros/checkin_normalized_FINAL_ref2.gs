@@ -11849,7 +11849,7 @@ function llavesNotasSet_(data) {
 // ║  Dedupe estricto: UNA fila por par (Empleado_Nombre, Semana). Semana en  ║
 // ║  formato "S:yyyy-mm-dd_yyyy-mm-dd" (lun–dom) — el frontend arma la key. ║
 // ═══════════════════════════════════════════════════════════════════════════
-var RH_PAGO_SEMANAL_HEADERS = ['Empleado_Nombre','Semana','Metodo_pago','Fecha_pago','Comentarios','Timestamp','Actor'];
+var RH_PAGO_SEMANAL_HEADERS = ['Empleado_Nombre','Semana','Metodo_pago','Fecha_pago','Comentarios','Concepto_compensacion_override','Compensacion_override','Timestamp','Actor'];
 
 function _rhPagoSemanalSheet_() {
   var ss = getSpreadsheet_();
@@ -11907,7 +11907,7 @@ function rhPagoSemanalUpsert_(data) {
     var ts = Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyy-MM-dd HH:mm:ss');
     var actor = String(payload.actor || payload.Actor || '').trim();
     // Campos escribibles (los null/undefined SÍ se escriben — permite borrar).
-    var writable = ['Metodo_pago','Fecha_pago','Comentarios'];
+    var writable = ['Metodo_pago','Fecha_pago','Comentarios','Concepto_compensacion_override','Compensacion_override'];
     var found = -1;
     if (last >= 2) {
       var vals = sh.getRange(2, 1, last - 1, hdr.length).getValues();

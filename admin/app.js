@@ -34249,13 +34249,14 @@ function asistRenderResumen(targetId) {
     wrap.innerHTML = toolbarHtml + filtersHtml + `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">${allRows.length ? 'Ningún renglón coincide con los filtros.' : 'Sin registros aún.'}</div>`;
     return;
   }
-  // Aplica override manual de compensación (si existe) al total.
+  // Aplica overrides manuales de Concepto y $ Compensación (si existen).
   rows.forEach(g => {
     const ov = _rhResOverrideGet_(g.nombre, g.semana.value);
-    if (ov != null) {
-      g.compOverride = ov;
-      g.total = g.baseLab + g.baseDes + g.vac + g.dom + g.df + ov;
+    if (ov.monto != null) {
+      g.compOverride = ov.monto;
+      g.total = g.baseLab + g.baseDes + g.vac + g.dom + g.df + ov.monto;
     }
+    if (ov.concepto) g.conceptoOverride = ov.concepto;
   });
   // Estilos tipo tabla de "Control de asistencias" — header oscuro, sticky.
   const th = (label, width) => `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap${width?`;width:${width}`:''}">${label}</th>`;
@@ -34284,7 +34285,33 @@ function asistRenderResumen(targetId) {
   };
   const tdEmpleadoSticky = (nombre) => `<td style="position:sticky;left:80px;z-index:2;background:#fff;padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#1f2937;white-space:nowrap;font-weight:700;width:170px;min-width:170px;box-shadow:2px 0 4px rgba(15,23,42,.08)">${esc(nombre)}</td>`;
   const fmt = n => n ? asistPanelFmtMonto_(n) : '';
-  // Celda de compensación: si hay override, tacha el original y muestra el override.
+  // Celda editable de Concepto compensación. En modo edit muestra input
+  // texto; fuera de edit muestra el override (concepto tachado + nuevo) o
+  // la concatenación original de conceptos capturados por día.
+  const tdConceptoComp = (g) => {
+    const editing = ASIST_RESUMEN_EDIT.has(_rhResRowKey_(g));
+    const origList = (g.compConceptos||[]).join(', ');
+    if (editing) {
+      const cur = g.conceptoOverride != null ? g.conceptoOverride : origList;
+      return `<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;white-space:nowrap;background:#fefce8">
+        <input type="text" value="${esc(cur)}"
+          data-resumen-edit-key="${esc(_rhResRowKey_(g))}"
+          data-resumen-edit-field="concepto"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();asistResumenGuardarEdit('${esc(_rhResRowKey_(g))}')} if(event.key==='Escape'){asistResumenCancelarEdit('${esc(_rhResRowKey_(g))}')}"
+          placeholder="—"
+          style="all:unset;padding:5px 8px;border:1.5px solid #f59e0b;border-radius:5px;font-size:12px;color:#0f172a;background:#fff;box-sizing:border-box;width:100%;font-weight:700">
+      </td>`;
+    }
+    if (g.conceptoOverride && g.conceptoOverride !== origList) {
+      const orig = origList ? `<span style="text-decoration:line-through;color:#94a3b8;font-size:10.5px;font-weight:600">${esc(origList)}</span>` : '';
+      const nuevo = `<span style="color:#065f46;font-weight:900">${esc(g.conceptoOverride)}</span>`;
+      return `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap;color:#0f172a">
+        <div style="display:flex;flex-direction:column;gap:1px">${orig}${nuevo}</div>
+      </td>`;
+    }
+    return td(esc(origList), 'color:#475569');
+  };
+  // Celda editable de $ Compensación: si hay override, tacha el original y muestra el override.
   const tdComp = (g) => {
     const editing = ASIST_RESUMEN_EDIT.has(_rhResRowKey_(g));
     if (editing) {
@@ -34292,6 +34319,7 @@ function asistRenderResumen(targetId) {
       return `<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:right;white-space:nowrap;background:#fefce8">
         <input type="number" step="0.01" min="0" value="${cur}"
           data-resumen-edit-key="${esc(_rhResRowKey_(g))}"
+          data-resumen-edit-field="monto"
           onkeydown="if(event.key==='Enter'){event.preventDefault();asistResumenGuardarEdit('${esc(_rhResRowKey_(g))}')} if(event.key==='Escape'){asistResumenCancelarEdit('${esc(_rhResRowKey_(g))}')}"
           style="all:unset;padding:5px 8px;border:1.5px solid #f59e0b;border-radius:5px;font-size:12px;color:#0f172a;background:#fff;box-sizing:border-box;width:120px;text-align:right;font-weight:800">
       </td>`;
@@ -34363,7 +34391,7 @@ function asistRenderResumen(targetId) {
     ${tdNum(fmt(g.vac))}
     ${tdNum(fmt(g.dom))}
     ${tdNum(fmt(g.df))}
-    ${td(esc((g.compConceptos||[]).join(', ')), 'color:#475569')}
+    ${tdConceptoComp(g)}
     ${tdComp(g)}
     ${tdReportado(g)}
     ${tdNum(fmt(g.total), 'color:#065f46;font-weight:900')}
@@ -34394,29 +34422,34 @@ window.asistRenderResumen = asistRenderResumen;
 // el original tachado.
 const ASIST_RESUMEN_EDIT = new Set(); // keys en modo edición
 function _rhResRowKey_(g) { return `${g.nombre}||${g.semana.value}`; }
-function _rhResOverrideKey_(nombre, semanaValue) {
-  return `rh_resumen_comp_override:${nombre}|${semanaValue}`;
-}
+// Overrides de Concepto + $ Compensación viven en RH_Pagos_Semanal (misma
+// hoja que Método/Fecha/Comentarios). Se persisten vía _rhResPagoSet_.
 function _rhResOverrideGet_(nombre, semanaValue) {
-  try {
-    const raw = localStorage.getItem(_rhResOverrideKey_(nombre, semanaValue));
-    if (raw == null || raw === '') return null;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : null;
-  } catch(_) { return null; }
+  const p = _rhResPagoGet_(nombre, semanaValue);
+  const rawMonto = String(p.compOverride || '').trim();
+  const monto = rawMonto === '' ? null : Number(rawMonto);
+  return {
+    concepto: String(p.conceptoOverride || ''),
+    monto: (monto != null && Number.isFinite(monto)) ? monto : null,
+  };
 }
-function _rhResOverrideSet_(nombre, semanaValue, monto) {
-  try {
-    if (monto == null || monto === '') localStorage.removeItem(_rhResOverrideKey_(nombre, semanaValue));
-    else localStorage.setItem(_rhResOverrideKey_(nombre, semanaValue), String(Number(monto) || 0));
-  } catch(_){}
+function _rhResOverrideSet_(nombre, semanaValue, patch) {
+  const send = {};
+  if (Object.prototype.hasOwnProperty.call(patch, 'concepto')) {
+    send.conceptoOverride = patch.concepto == null ? '' : String(patch.concepto);
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'monto')) {
+    send.compOverride = (patch.monto == null || patch.monto === '') ? '' : String(Number(patch.monto) || 0);
+  }
+  _rhResPagoSet_(nombre, semanaValue, send);
 }
 window.asistResumenAbrirEdit = function (rowKey) {
   ASIST_RESUMEN_EDIT.add(rowKey);
   asistRenderResumen('rh-view');
-  // Focus + select el input recién montado.
+  // Focus + select el input de Concepto (viene primero); si no existe, monto.
   setTimeout(() => {
-    const inp = document.querySelector(`input[data-resumen-edit-key="${rowKey}"]`);
+    const inp = document.querySelector(`input[data-resumen-edit-key="${rowKey}"][data-resumen-edit-field="concepto"]`)
+             || document.querySelector(`input[data-resumen-edit-key="${rowKey}"][data-resumen-edit-field="monto"]`);
     if (inp) { inp.focus(); inp.select(); }
   }, 30);
 };
@@ -34425,17 +34458,20 @@ window.asistResumenCancelarEdit = function (rowKey) {
   asistRenderResumen('rh-view');
 };
 window.asistResumenGuardarEdit = function (rowKey) {
-  const inp = document.querySelector(`input[data-resumen-edit-key="${rowKey}"]`);
-  if (!inp) { ASIST_RESUMEN_EDIT.delete(rowKey); asistRenderResumen('rh-view'); return; }
-  const nuevo = Number(String(inp.value).replace(/[^0-9.-]/g,'')) || 0;
+  const inpMonto = document.querySelector(`input[data-resumen-edit-key="${rowKey}"][data-resumen-edit-field="monto"]`);
+  const inpConcepto = document.querySelector(`input[data-resumen-edit-key="${rowKey}"][data-resumen-edit-field="concepto"]`);
+  if (!inpMonto && !inpConcepto) { ASIST_RESUMEN_EDIT.delete(rowKey); asistRenderResumen('rh-view'); return; }
   const [nombre, semanaValue] = rowKey.split('||');
-  _rhResOverrideSet_(nombre, semanaValue, nuevo);
+  const patch = {};
+  if (inpMonto)    patch.monto    = Number(String(inpMonto.value).replace(/[^0-9.-]/g,'')) || 0;
+  if (inpConcepto) patch.concepto = String(inpConcepto.value || '').trim();
+  _rhResOverrideSet_(nombre, semanaValue, patch);
   ASIST_RESUMEN_EDIT.delete(rowKey);
   asistRenderResumen('rh-view');
 };
-// Limpia el override manual (vuelve a mostrar la suma original).
+// Limpia AMBOS overrides (vuelve a mostrar el concepto y suma original).
 window.asistResumenLimpiarOverride = function (nombre, semanaValue) {
-  _rhResOverrideSet_(nombre, semanaValue, null);
+  _rhResOverrideSet_(nombre, semanaValue, { concepto: '', monto: null });
   asistRenderResumen('rh-view');
 };
 
@@ -34457,19 +34493,31 @@ function _rhResPagoKey_(nombre, semanaValue) {
 function _rhResPagoGet_(nombre, semanaValue) {
   const k = _rhResPagoKey_(nombre, semanaValue);
   const mem = RH_PAGOS_SEMANAL_CACHE.get(k);
-  if (mem) return { metodo: mem.metodo || '', fecha: mem.fecha || '', comentarios: mem.comentarios || '' };
+  const shape = {
+    metodo:'', fecha:'', comentarios:'',
+    conceptoOverride:'', compOverride:'',
+  };
+  if (mem) return {
+    metodo: mem.metodo || '',
+    fecha: mem.fecha || '',
+    comentarios: mem.comentarios || '',
+    conceptoOverride: mem.conceptoOverride || '',
+    compOverride: mem.compOverride || '',
+  };
   // Fallback: localStorage legacy (rh_resumen_pago:...) para no perder
   // datos guardados antes de la migración a sheet.
   try {
     const raw = localStorage.getItem(`rh_resumen_pago:${k}`);
-    if (!raw) return { metodo: '', fecha: '', comentarios: '' };
+    if (!raw) return shape;
     const obj = JSON.parse(raw);
     return {
       metodo: String(obj?.metodo || ''),
       fecha:  String(obj?.fecha  || ''),
       comentarios: String(obj?.comentarios || ''),
+      conceptoOverride: String(obj?.conceptoOverride || ''),
+      compOverride: String(obj?.compOverride || ''),
     };
-  } catch(_) { return { metodo: '', fecha: '', comentarios: '' }; }
+  } catch(_) { return shape; }
 }
 async function rhLoadPagosSemanal(opts = {}) {
   if (RH_PAGOS_SEMANAL_LOADED && !opts.force) return;
@@ -34484,6 +34532,8 @@ async function rhLoadPagosSemanal(opts = {}) {
           metodo: String(r.Metodo_pago || ''),
           fecha:  String(r.Fecha_pago  || ''),
           comentarios: String(r.Comentarios || ''),
+          conceptoOverride: String(r.Concepto_compensacion_override || ''),
+          compOverride: String(r.Compensacion_override || ''),
         });
       }
       RH_PAGOS_SEMANAL_LOADED = true;
@@ -34492,7 +34542,7 @@ async function rhLoadPagosSemanal(opts = {}) {
 }
 async function _rhResPagoUpsertRemote_(nombre, semanaValue) {
   const k = _rhResPagoKey_(nombre, semanaValue);
-  const cur = RH_PAGOS_SEMANAL_CACHE.get(k) || { metodo:'', fecha:'', comentarios:'' };
+  const cur = RH_PAGOS_SEMANAL_CACHE.get(k) || {};
   try {
     const res = await fetch(`${BACKEND}/rh/pagos-semanal`, {
       method: 'POST',
@@ -34504,6 +34554,8 @@ async function _rhResPagoUpsertRemote_(nombre, semanaValue) {
           Metodo_pago: cur.metodo || '',
           Fecha_pago:  cur.fecha  || '',
           Comentarios: cur.comentarios || '',
+          Concepto_compensacion_override: cur.conceptoOverride || '',
+          Compensacion_override: cur.compOverride || '',
         }
       }),
     });
@@ -34513,7 +34565,7 @@ async function _rhResPagoUpsertRemote_(nombre, semanaValue) {
 }
 function _rhResPagoSet_(nombre, semanaValue, patch) {
   const k = _rhResPagoKey_(nombre, semanaValue);
-  const cur = RH_PAGOS_SEMANAL_CACHE.get(k) || { metodo:'', fecha:'', comentarios:'' };
+  const cur = RH_PAGOS_SEMANAL_CACHE.get(k) || {};
   const next = { ...cur, ...patch };
   RH_PAGOS_SEMANAL_CACHE.set(k, next);
   // Cache local espejo (para offline/desconectado).
