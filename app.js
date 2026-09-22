@@ -34626,9 +34626,12 @@ window.asistResumenEliminarGrupo = async function (idsCsv) {
   const targetId = isNomina ? 'rh-view' : 'asist-resumen-wrap';
   asistStatusTabla('⏳ Eliminando…');
   let ok = 0, err = 0;
+  // force=true: el usuario ya confirmó el DELETE del grupo entero; sin
+  // esto, los registros con Metodo=WhatsApp fallan por la protección del
+  // Apps Script.
   for (const id of ids) {
     try {
-      const res = await fetch(`${BACKEND}/rh/asistencia/${encodeURIComponent(id)}`, { method:'DELETE' });
+      const res = await fetch(`${BACKEND}/rh/asistencia/${encodeURIComponent(id)}?force=true&reason=${encodeURIComponent('resumen semanal: eliminar grupo')}&actor=admin`, { method:'DELETE' });
       const j = await res.json();
       if (j.ok) ok++; else err++;
     } catch { err++; }
