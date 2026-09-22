@@ -34260,7 +34260,10 @@ function asistRenderResumen(targetId) {
   // Estilos tipo tabla de "Control de asistencias" — header oscuro, sticky.
   const th = (label, width) => `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap${width?`;width:${width}`:''}">${label}</th>`;
   const thNum = (label, width) => `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 10px;text-align:right;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap${width?`;width:${width}`:''}">${label}</th>`;
-  const thAcc = `<th style="position:sticky;top:0;z-index:5;background:#1e293b;color:#fff;padding:9px 8px;text-align:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;width:80px">Acciones</th>`;
+  // Acciones y Empleado son sticky-left → sobreviven al scroll horizontal.
+  // z-index más alto (7) que el resto de th sticky-top (5) para que ganen en la esquina.
+  const thAcc = `<th style="position:sticky;top:0;left:0;z-index:7;background:#1e293b;color:#fff;padding:9px 8px;text-align:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;width:80px;min-width:80px">Acciones</th>`;
+  const thEmpleado = `<th style="position:sticky;top:0;left:80px;z-index:7;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;width:170px;min-width:170px;box-shadow:2px 0 4px rgba(15,23,42,.12)">Empleado</th>`;
   const td = (v, extraStyle) => `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#1f2937;white-space:nowrap${extraStyle?';'+extraStyle:''}">${v}</td>`;
   const tdNum = (v, extraStyle) => `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;text-align:right;font-weight:700;color:#0f172a;white-space:nowrap${extraStyle?';'+extraStyle:''}">${v}</td>`;
   const tdAcc = (g) => {
@@ -34277,8 +34280,9 @@ function asistRenderResumen(targetId) {
       const del    = `<button type="button" title="Eliminar todos los renglones de este grupo" onclick="asistResumenEliminarGrupo('${g.ids.join(',')}')" style="${btnStyle} #fecaca;background:#fee2e2;color:#b91c1c">✕</button>`;
       btns = pencil + del;
     }
-    return `<td style="padding:6px 4px;text-align:center;vertical-align:middle;border-bottom:1px solid #f1f5f9"><div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${btns}</div></td>`;
+    return `<td style="position:sticky;left:0;z-index:2;background:#fff;padding:6px 4px;text-align:center;vertical-align:middle;border-bottom:1px solid #f1f5f9;width:80px;min-width:80px"><div style="display:inline-flex;align-items:center;justify-content:center;gap:4px">${btns}</div></td>`;
   };
+  const tdEmpleadoSticky = (nombre) => `<td style="position:sticky;left:80px;z-index:2;background:#fff;padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#1f2937;white-space:nowrap;font-weight:700;width:170px;min-width:170px;box-shadow:2px 0 4px rgba(15,23,42,.08)">${esc(nombre)}</td>`;
   const fmt = n => n ? asistPanelFmtMonto_(n) : '';
   // Celda de compensación: si hay override, tacha el original y muestra el override.
   const tdComp = (g) => {
@@ -34350,7 +34354,7 @@ function asistRenderResumen(targetId) {
   };
   const body = rows.map(g => `<tr data-resumen-row-key="${esc(_rhResRowKey_(g))}" style="transition:background .12s">
     ${tdAcc(g)}
-    ${td(esc(g.nombre), 'font-weight:700')}
+    ${tdEmpleadoSticky(g.nombre)}
     ${tdAltaImss(g)}
     ${td(esc(g.semana.label), 'color:#475569')}
     ${tdNum(fmtHoras(g.horas))}
@@ -34369,7 +34373,7 @@ function asistRenderResumen(targetId) {
     ${tdComentarios(g)}
   </tr>`).join('');
   wrap.innerHTML = toolbarHtml + filtersHtml + `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:auto;max-height:calc(100vh - 320px)"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>
-    ${thAcc}${th('Empleado', '170px')}${th('Alta en IMSS', '120px')}${th('Semana', '210px')}${thNum('Horas', '70px')}${thNum('$ Base laborado', '105px')}${thNum('$ Base descanso', '105px')}${thNum('$ Prima vac. (25%)', '100px')}${thNum('$ Prima dom. (25%)', '100px')}${thNum('$ Prima feriado (200%)', '115px')}${th('Concepto compensación', '170px')}${thNum('$ Compensación', '105px')}${thNum('$ Salario reportado', '115px')}${thNum('$ Salario TOTAL', '120px')}${th('Método de pago', '180px')}${th('Fecha de pago', '150px')}${th('Estado de pago', '120px')}${th('Comentarios', '220px')}
+    ${thAcc}${thEmpleado}${th('Alta en IMSS', '120px')}${th('Semana', '210px')}${thNum('Horas', '70px')}${thNum('$ Base laborado', '105px')}${thNum('$ Base descanso', '105px')}${thNum('$ Prima vac. (25%)', '100px')}${thNum('$ Prima dom. (25%)', '100px')}${thNum('$ Prima feriado (200%)', '115px')}${th('Concepto compensación', '170px')}${thNum('$ Compensación', '105px')}${thNum('$ Salario reportado', '115px')}${thNum('$ Salario TOTAL', '120px')}${th('Método de pago', '180px')}${th('Fecha de pago', '150px')}${th('Estado de pago', '120px')}${th('Comentarios', '220px')}
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 // Handlers de filtros de la tabla del Resumen.
