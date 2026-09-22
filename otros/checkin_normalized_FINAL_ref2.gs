@@ -2895,7 +2895,10 @@ function rhSaveSimple_(sheetName, data, headersTemplate, idPrefix) {
     var idCol = headers.indexOf('ID') + 1;
     var id = String(payload.ID || payload.id || '').trim();
     var ts = Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyy-MM-dd HH:mm:ss');
-    // Update si tiene ID existente
+    // Update si tiene ID existente. BATCH: leemos la fila entera,
+    // aplicamos el patch y escribimos la fila entera en 1 sola llamada
+    // setValues — evita N round-trips a Sheets cuando hay muchas columnas
+    // (era el cuello de botella real del "guardar tarda mucho").
     if (id && idCol) {
       var lastRow = sh.getLastRow();
       if (lastRow >= 2) {
@@ -2903,10 +2906,13 @@ function rhSaveSimple_(sheetName, data, headersTemplate, idPrefix) {
         for (var i = 0; i < ids.length; i++) {
           if (String(ids[i][0]).trim() === id) {
             var rowIdx = i + 2;
+            var rowRange = sh.getRange(rowIdx, 1, 1, headers.length);
+            var current = rowRange.getValues()[0];
             for (var k in payload) {
-              var col = headers.indexOf(k) + 1;
-              if (col) sh.getRange(rowIdx, col).setValue(payload[k] == null ? '' : String(payload[k]));
+              var colIdx = headers.indexOf(k);
+              if (colIdx >= 0) current[colIdx] = payload[k] == null ? '' : String(payload[k]);
             }
+            rowRange.setValues([current]);
             return { ok: true, id: id, mode: 'update' };
           }
         }

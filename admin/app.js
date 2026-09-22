@@ -28582,27 +28582,41 @@ window.rhSaveCurrentForm = async function () {
   const ctx = RH_STATE.formContext;
   if (!ctx) return;
   const inputs = document.querySelectorAll('#rh-form-body [data-rh-field]');
-  const payload = {};
-  inputs.forEach(el => { payload[el.getAttribute('data-rh-field')] = el.value || ''; });
-  // Si es edición, conserva el ID
-  if (ctx.editing && ctx.editing.ID) payload.ID = ctx.editing.ID;
+  const fullPayload = {};
+  inputs.forEach(el => { fullPayload[el.getAttribute('data-rh-field')] = el.value || ''; });
   // Empacar Dias_trabajo desde checkboxes
   const diasBoxes = document.querySelectorAll('#rh-form-body input[data-rh-day]:checked');
   if (diasBoxes.length || document.querySelector('#rh-form-body input[data-rh-day]')) {
-    payload.Dias_trabajo = Array.from(diasBoxes).map(b => b.getAttribute('data-rh-day')).join(',');
+    fullPayload.Dias_trabajo = Array.from(diasBoxes).map(b => b.getAttribute('data-rh-day')).join(',');
   }
-  // 'Activo' es columna legacy duplicada de 'Estado'. Ya no la escribimos —
-  // Estado es la fuente única. Si aún existe en la hoja el usuario puede
-  // borrarla manualmente.
   // Validación mínima
   if (ctx.kind === 'empleado') {
-    if (!payload.Nombre) { alert('El nombre es obligatorio.'); return; }
-  } else if (!payload.Empleado_ID) {
+    if (!fullPayload.Nombre) { alert('El nombre es obligatorio.'); return; }
+  } else if (!fullPayload.Empleado_ID) {
     alert('Selecciona un empleado.'); return;
   }
   // Empleado_Nombre para mostrar en tablas (denormalizado)
-  if (payload.Empleado_ID) {
-    payload.Empleado_Nombre = rhEmpleadoNombre(payload.Empleado_ID);
+  if (fullPayload.Empleado_ID) {
+    fullPayload.Empleado_Nombre = rhEmpleadoNombre(fullPayload.Empleado_ID);
+  }
+  // ── DIFF: si es edición, solo mandamos campos que cambiaron ───────────
+  // Antes se mandaba TODO el formulario (15+ campos) y el Apps Script
+  // hacía setValue por cada uno → 15+ round-trips. Ahora solo van los
+  // campos modificados; con el batch write en el AS se traduce a 1 solo
+  // getValues + 1 solo setValues.
+  let payload;
+  if (ctx.editing && ctx.editing.ID) {
+    payload = { ID: ctx.editing.ID };
+    for (const k in fullPayload) {
+      const before = (ctx.editing[k] == null ? '' : String(ctx.editing[k])).trim();
+      const after  = (fullPayload[k] == null ? '' : String(fullPayload[k])).trim();
+      if (before !== after) payload[k] = fullPayload[k];
+    }
+    // Si nada cambió, ni hacemos fetch — cerrar y ya.
+    const changedKeys = Object.keys(payload).filter(k => k !== 'ID');
+    if (!changedKeys.length) { rhCloseForm(); return; }
+  } else {
+    payload = fullPayload;
   }
   const endpoint = {
     empleado: '/rh/empleados',
@@ -28610,9 +28624,23 @@ window.rhSaveCurrentForm = async function () {
     ausencia: '/rh/ausencias',
     compensacion: '/rh/compensaciones',
   }[ctx.kind];
-  const btn = document.querySelector('#rh-form-panel .inc-btn-pri');
-  const orig = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Guardando…'; }
+  // ── UI optimista: cerramos YA + actualizamos cache local con el patch
+  //    ANTES de esperar al backend. El fetch corre en background.
+  const listName = ctx.kind === 'empleado' ? 'empleados'
+                 : ctx.kind === 'asistencia' ? 'asistencia'
+                 : ctx.kind === 'ausencia' ? 'ausencias' : 'compensaciones';
+  const cacheList = RH_STATE[listName];
+  let optimisticRow = null;
+  if (Array.isArray(cacheList) && ctx.editing && ctx.editing.ID) {
+    const idx = cacheList.findIndex(r => String(r.ID) === String(ctx.editing.ID));
+    if (idx >= 0) {
+      optimisticRow = { ...cacheList[idx] };
+      cacheList[idx] = { ...cacheList[idx], ...payload };
+    }
+  }
+  rhCloseForm();
+  // Re-render inmediato con la data optimista.
+  if (typeof rhSetTab === 'function') rhSetTab(RH_STATE.tab);
   try {
     const res = await fetch(`${BACKEND}${endpoint}`, {
       method: 'POST',
@@ -28621,17 +28649,14 @@ window.rhSaveCurrentForm = async function () {
     });
     const out = await res.json();
     if (!out.ok) throw new Error(out.error || 'Error');
-    rhCloseForm();
-    // Recargar el catálogo si era empleado, luego re-render
-    if (ctx.kind === 'empleado') await rhLoadEmpleados();
-    if (ctx.kind === 'asistencia') await rhLoadAsistencia();
-    if (ctx.kind === 'ausencia') await rhLoadAusencias();
-    if (ctx.kind === 'compensacion') await rhLoadCompensaciones();
-    rhSetTab(RH_STATE.tab);
   } catch (e) {
+    // Rollback optimista si falló.
+    if (optimisticRow && Array.isArray(cacheList)) {
+      const idx = cacheList.findIndex(r => String(r.ID) === String(ctx.editing.ID));
+      if (idx >= 0) cacheList[idx] = optimisticRow;
+      if (typeof rhSetTab === 'function') rhSetTab(RH_STATE.tab);
+    }
     alert('No se pudo guardar:\n' + (e.message || e));
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
   }
 };
 
