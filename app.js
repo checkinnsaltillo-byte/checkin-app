@@ -27305,12 +27305,10 @@ window.rhSetSection = function (section) {
   if (section === 'documentacion') rhRenderExpediente('rh-view-documentacion');
   if (section === 'obligaciones') rhRenderObligaciones();
   if (section === 'asistencias' && typeof asistInit === 'function') asistInit();
-  // Nómina: entra con Resumen semanal por default (antes: Pagos). Si el
-  // usuario ya había cambiado a Pagos en esta sesión, respetamos su
-  // elección; solo se pone default si RH_STATE.tab no está fijado aún.
+  // Nómina: siempre entra en Resumen semanal (la tab "Pagos" se ocultó y su
+  // contenido migró a "Pago de Obligaciones › Pagos de Nómina").
   if (section === 'nomina') {
-    const tabInicial = RH_STATE.tab || 'resumen_semanal';
-    rhSetTab(tabInicial);
+    rhSetTab('resumen_semanal');
   }
 };
 
@@ -27393,6 +27391,9 @@ const RH_OBL_STATE = {
   files: {},             // map "M|kind|empleadoId" → { url, name, id }
   totales: {},           // map month → { total, actualizado }
   loading: false,
+  subTab: 'nomina',      // 'nomina' | 'obligaciones' — sub-sección visible
+  weekExpanded: null,    // clave 'S:yyyy-mm-dd_yyyy-mm-dd' de la semana abierta
+  personExpanded: null,  // clave 'nombre||semanaValue' de la persona abierta
 };
 const RH_OBL_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
@@ -27425,11 +27426,42 @@ async function rhLoadObligaciones(year) {
 async function rhRenderObligaciones() {
   const view = rhObligacionesContainer();
   if (!view) return;
-  // Carga empleados si aún no, y los archivos del año
-  if (!RH_STATE.empleados || !RH_STATE.empleados.length) await rhLoadEmpleados();
-  view.innerHTML = `<div style="text-align:center;padding:40px;color:#94a3b8;font-size:13px">⏳ Cargando obligaciones…</div>`;
-  await Promise.all([rhLoadObligaciones(RH_OBL_STATE.year), rhLoadObligacionTotales(RH_OBL_STATE.year)]);
-  rhPaintObligaciones();
+  // Sub-tabs: (a) Pagos de Nómina, (b) Pagos de Obligaciones.
+  const subTab = RH_OBL_STATE.subTab || 'nomina';
+  const btn = (id, label, active) => `
+    <button type="button" onclick="rhObligacionesSetSubTab('${id}')"
+      style="all:unset;cursor:pointer;flex:1;text-align:center;padding:10px 14px;border-radius:9px;font-size:13px;${active
+        ? 'background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;box-shadow:0 3px 10px rgba(234,88,12,.35);font-weight:900'
+        : 'background:transparent;color:#64748b;font-weight:700'}">${label}</button>`;
+  view.innerHTML = `
+    <div style="display:flex;gap:8px;margin:0 0 14px;background:#f1f5f9;padding:5px;border-radius:12px;flex-wrap:wrap">
+      ${btn('nomina',      '💵 Pagos de Nómina',      subTab === 'nomina')}
+      ${btn('obligaciones','📋 Pagos de Obligaciones', subTab === 'obligaciones')}
+    </div>
+    <div id="rh-obl-content">
+      <div style="text-align:center;padding:40px;color:#94a3b8;font-size:13px">⏳ Cargando…</div>
+    </div>`;
+  await _rhObligacionesPaintSubTab_();
+}
+
+window.rhObligacionesSetSubTab = function (id) {
+  RH_OBL_STATE.subTab = id;
+  rhRenderObligaciones();
+};
+
+async function _rhObligacionesPaintSubTab_() {
+  if (RH_OBL_STATE.subTab === 'nomina') {
+    // Necesitamos asistencia + personal (Alta IMSS + Dias_trabajo) para calcular
+    // los grupos empleado × semana igual que el Resumen semanal de Nómina.
+    const promAsist = !ASIST_STATE.loaded && typeof asistReloadList === 'function' ? asistReloadList() : Promise.resolve();
+    const promPersonal = !(INC_STATE?.personalRows || []).length && typeof incLoadPersonal === 'function' ? incLoadPersonal() : Promise.resolve();
+    await Promise.all([promAsist, promPersonal]);
+    rhPaintPagosNominaCards();
+  } else {
+    if (!RH_STATE.empleados || !RH_STATE.empleados.length) await rhLoadEmpleados();
+    await Promise.all([rhLoadObligaciones(RH_OBL_STATE.year), rhLoadObligacionTotales(RH_OBL_STATE.year)]);
+    rhPaintObligaciones();
+  }
 }
 
 async function rhLoadObligacionTotales(year) {
@@ -27487,8 +27519,269 @@ function rhObligacionesEmpleadosActivos() {
   });
 }
 
+// ─── Sub-tab "Pagos de Nómina": cards dropdown por semana ─────────────────
+// Agrupa ASIST_STATE.rows por (empleado × semana ISO Lun-Dom) siguiendo la
+// misma lógica que asistRenderResumen, pero solo con Alta IMSS = Sí. Cada
+// semana es una card top-level con: título de la semana + suma de salarios
+// reportados. Al oprimir, expone sub-cards por persona con su Salario
+// reportado. Al oprimir la sub-card, se muestra el desglose completo.
+function _rhComputeGruposSemanaImss_() {
+  const parseHoras = s => {
+    const m = String(s||'').match(/^(\d+)h(\d{2})/);
+    return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
+  };
+  const parseMonto = s => {
+    const n = Number(String(s||'').replace(/[$,\s]/g,''));
+    return Number.isFinite(n) ? n : 0;
+  };
+  const weekOf = (isoDate) => {
+    const [y,m,d] = isoDate.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    const dow = dt.getDay();
+    const lun = new Date(dt); lun.setDate(dt.getDate() - ((dow + 6) % 7));
+    const dom = new Date(lun); dom.setDate(lun.getDate() + 6);
+    const iso = x => `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+    const value = `S:${iso(lun)}_${iso(dom)}`;
+    const M = (typeof NOM_MONTHS_ABR !== 'undefined') ? NOM_MONTHS_ABR : ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const label = `Lun ${lun.getDate()} ${M[lun.getMonth()]} – Dom ${dom.getDate()} ${M[dom.getMonth()]} ${dom.getFullYear()}`;
+    return { value, label, lun };
+  };
+  const _aliasToFull = new Map();
+  (INC_STATE?.personalRows || []).forEach(pr => {
+    const full = String(pr?.Nombre || '').trim();
+    if (!full) return;
+    _aliasToFull.set(_normNombre_(full), full);
+    const firstWord = full.split(/\s+/)[0];
+    if (firstWord && !_aliasToFull.has(_normNombre_(firstWord))) {
+      _aliasToFull.set(_normNombre_(firstWord), full);
+    }
+  });
+  const _canonRes = (raw) => {
+    const t = String(raw || '').trim();
+    if (!t) return t;
+    return _aliasToFull.get(_normNombre_(t)) || t;
+  };
+  const grupos = new Map();
+  for (const r of (ASIST_STATE?.rows || [])) {
+    const nombre = _canonRes(String(r.Empleado_Nombre||'').trim());
+    const fecha  = String(r.Fecha||'').slice(0,10);
+    if (!nombre || !fecha) continue;
+    const w = weekOf(fecha);
+    const k = `${nombre}||${w.value}`;
+    let g = grupos.get(k);
+    if (!g) { g = { nombre, semana: w, horas:0, workDays: new Set(), vac:0, dom:0, df:0, comp:0, compConceptos: [], ids:[] }; grupos.set(k, g); }
+    g.horas += parseHoras(r.Horas);
+    const _ent = String(r.Entrada||'').trim();
+    const _sal = String(r.Salida||'').trim();
+    let _conc = String(r.Concepto||'').trim();
+    if (!_conc && (_ent || _sal)) _conc = 'Regular';
+    const concepto = asistPanelNormalizarConceptoLegado_(_conc);
+    if (concepto && asistPanelPagaSalarioBase_(concepto)) g.workDays.add(fecha);
+    if (concepto) {
+      const p = asistPanelPrimasPorConcepto_(concepto);
+      if (typeof p.primaVac === 'number') g.vac += p.primaVac;
+      if (typeof p.primaDom === 'number') g.dom += p.primaDom;
+      if (typeof p.primaDF  === 'number') g.df  += p.primaDF;
+    }
+    const cMonto = parseMonto(r['Compensación_monto'] || r['Compensacion_monto']);
+    if (cMonto) g.comp += cMonto;
+    const cConc = String(r['Compensación_concepto'] || r['Compensacion_concepto'] || '').trim();
+    if (cConc && !g.compConceptos.includes(cConc)) g.compConceptos.push(cConc);
+    g.ids.push(String(r.ID||''));
+  }
+  const contratoByNombre = new Map();
+  (INC_STATE?.personalRows || []).forEach(r => {
+    const n = String(r?.Nombre || '').trim();
+    if (!n) return;
+    const dias = asistPanelParseDiasTrabajo_(r.Dias_trabajo || '');
+    contratoByNombre.set(n, dias.size || 5);
+  });
+  grupos.forEach(g => {
+    const N = g.workDays.size;
+    const workContract = contratoByNombre.get(g.nombre) || 5;
+    const restContract = Math.max(0, 7 - workContract);
+    const conImss = _empleadoAltaImss_(g.nombre);
+    g.altaImss = conImss;
+    g.diasTrab = N;
+    g.workContract = workContract;
+    g.restContract = restContract;
+    g.factorLab = N;
+    g.factorDes = conImss ? (restContract * Math.min(N / Math.max(1, workContract), 1)) : 0;
+    g.baseLab = conImss ? ASIST_PANEL_SAL_BASE * g.factorLab : 0;
+    g.baseDes = conImss ? ASIST_PANEL_SAL_BASE * g.factorDes : 0;
+    if (!conImss) { g.vac = 0; g.dom = 0; g.df = 0; }
+    g.salarioReportado = g.baseLab + g.baseDes + g.vac + g.dom + g.df;
+    g.total = g.salarioReportado + g.comp;
+  });
+  // SOLO Alta IMSS = Sí (los otros no reciben salario base).
+  return Array.from(grupos.values()).filter(g => g.altaImss);
+}
+
+function rhPaintPagosNominaCards() {
+  const view = document.getElementById('rh-obl-content') || rhObligacionesContainer();
+  if (!view) return;
+  const grupos = _rhComputeGruposSemanaImss_();
+  if (!grupos.length) {
+    view.innerHTML = `
+      <div style="text-align:center;padding:60px 20px;color:#64748b">
+        <div style="font-size:38px;opacity:.4;margin-bottom:10px">💵</div>
+        <div style="font-weight:700;color:#334155;margin-bottom:4px">Sin datos de nómina</div>
+        <div style="font-size:12px;color:#94a3b8">Aún no hay registros de asistencia con Alta en IMSS este año.</div>
+      </div>`;
+    return;
+  }
+  // Reagrupa por semana → { semana, personas:[g], totalReportado }.
+  const semanaMap = new Map();
+  for (const g of grupos) {
+    const k = g.semana.value;
+    let s = semanaMap.get(k);
+    if (!s) { s = { semana: g.semana, personas: [], totalReportado: 0 }; semanaMap.set(k, s); }
+    s.personas.push(g);
+    s.totalReportado += g.salarioReportado;
+  }
+  const semanas = Array.from(semanaMap.values())
+    .sort((a,b) => b.semana.lun - a.semana.lun);
+  semanas.forEach(s => {
+    s.personas.sort((a,b) => a.nombre.localeCompare(b.nombre, 'es'));
+  });
+  const fmt = (n) => asistPanelFmtMonto_(Number(n) || 0);
+  const fmtHoras = mins => mins ? `${Math.floor(mins/60)}h${String(mins%60).padStart(2,'0')}` : '0h00';
+  const cards = semanas.map(s => {
+    const isOpen = RH_OBL_STATE.weekExpanded === s.semana.value;
+    const chevron = isOpen ? '▲' : '▼';
+    const subCards = isOpen ? s.personas.map(g => {
+      const rowKey = _rhResRowKey_(g);
+      const p = _rhResPagoGet_(g.nombre, g.semana.value);
+      const isPersonOpen = RH_OBL_STATE.personExpanded === rowKey;
+      const chP = isPersonOpen ? '▲' : '▼';
+      const metodoOpts = ['Transferencia bancaria','Efectivo','Cheque','Otro'];
+      const metodoSelect = ['<option value=""></option>'].concat(
+        metodoOpts.map(o => `<option value="${esc(o)}"${p.metodo === o ? ' selected' : ''}>${esc(o)}</option>`)
+      ).join('');
+      const detalle = isPersonOpen ? `
+        <div style="padding:14px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;border-radius:0 0 12px 12px">
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+              <thead>
+                <tr style="background:#f1f5f9;color:#475569;font-weight:800;text-align:left">
+                  <th style="padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em">Concepto</th>
+                  <th style="padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;text-align:right">Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td style="padding:8px 10px;border-bottom:1px solid #f1f5f9">$ Base laborado</td><td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-variant-numeric:tabular-nums">${fmt(g.baseLab)}</td></tr>
+                <tr><td style="padding:8px 10px;border-bottom:1px solid #f1f5f9">$ Base descanso</td><td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-variant-numeric:tabular-nums">${fmt(g.baseDes)}</td></tr>
+                <tr><td style="padding:8px 10px;border-bottom:1px solid #f1f5f9">$ Prima vac. (25%)</td><td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-variant-numeric:tabular-nums">${fmt(g.vac)}</td></tr>
+                <tr><td style="padding:8px 10px;border-bottom:1px solid #f1f5f9">$ Prima dom. (25%)</td><td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-variant-numeric:tabular-nums">${fmt(g.dom)}</td></tr>
+                <tr><td style="padding:8px 10px;border-bottom:1px solid #f1f5f9">$ Prima feriado (200%)</td><td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-variant-numeric:tabular-nums">${fmt(g.df)}</td></tr>
+                <tr style="background:#ecfdf5;font-weight:900;color:#065f46">
+                  <td style="padding:10px;border-top:2px solid #6ee7b7">$ Salario reportado</td>
+                  <td style="padding:10px;border-top:2px solid #6ee7b7;text-align:right;font-variant-numeric:tabular-nums">${fmt(g.salarioReportado)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:14px">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label style="font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em">Método de pago</label>
+              <select onchange="asistResumenPagoSet('${esc(rowKey)}','metodo', this.value)"
+                style="padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;color:#0f172a;font-weight:600">${metodoSelect}</select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label style="font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em">Fecha de pago</label>
+              <input type="date" value="${esc(p.fecha || '')}"
+                onchange="asistResumenPagoSet('${esc(rowKey)}','fecha', this.value)"
+                style="padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;color:#0f172a;font-weight:600">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label style="font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em">Horas laboradas</label>
+              <div style="padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8fafc;font-size:13px;color:#0f172a;font-weight:700">${esc(fmtHoras(g.horas))}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label style="font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em">Días laborados</label>
+              <div style="padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8fafc;font-size:13px;color:#0f172a;font-weight:700">${g.diasTrab} / ${g.workContract}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;grid-column:1 / -1">
+              <label style="font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em">Comentarios</label>
+              <input type="text" value="${esc(p.comentarios || '')}"
+                oninput="asistResumenPagoSet('${esc(rowKey)}','comentarios', this.value)"
+                placeholder="—"
+                style="padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;color:#0f172a">
+            </div>
+          </div>
+        </div>` : '';
+      return `
+        <div style="background:#fff;border:1.5px solid ${isPersonOpen ? '#0369a1' : '#e2e8f0'};border-radius:12px;overflow:hidden;transition:all .15s;${isPersonOpen?'box-shadow:0 6px 16px rgba(3,105,161,.15)':''}">
+          <div onclick="rhTogglePersona('${esc(rowKey)}')" style="cursor:pointer;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:${isPersonOpen?'linear-gradient(135deg,#eff6ff,#fff)':'#fff'}">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0">
+              <div style="width:36px;height:36px;border-radius:10px;background:${isPersonOpen?'linear-gradient(135deg,#0ea5e9,#0369a1)':'#f1f5f9'};color:${isPersonOpen?'#fff':'#475569'};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0">${esc((g.nombre||'').split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase())}</div>
+              <div style="min-width:0">
+                <div style="font-weight:800;font-size:13.5px;color:#0f172a;letter-spacing:-.01em">${esc(g.nombre)}</div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600">${g.diasTrab} día${g.diasTrab===1?'':'s'} trabajado${g.diasTrab===1?'':'s'} · ${esc(fmtHoras(g.horas))}</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+              <span style="font-size:14px;color:#065f46;font-weight:900;background:#dcfce7;border:1px solid #86efac;padding:5px 12px;border-radius:99px;white-space:nowrap;font-variant-numeric:tabular-nums">${fmt(g.salarioReportado)}</span>
+              <span style="color:#94a3b8;font-size:11px">${chP}</span>
+            </div>
+          </div>
+          ${detalle}
+        </div>`;
+    }).join('') : '';
+    const body = isOpen ? `
+      <div style="padding:14px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;flex-direction:column;gap:10px">
+        ${subCards}
+      </div>` : '';
+    return `
+      <div style="background:#fff;border:1.5px solid ${isOpen?'#c2410c':'#e2e8f0'};border-radius:16px;overflow:hidden;transition:all .2s;${isOpen?'box-shadow:0 10px 26px rgba(234,88,12,.18)':'box-shadow:0 1px 3px rgba(15,23,42,.04)'};margin-bottom:12px">
+        <div onclick="rhToggleSemana('${esc(s.semana.value)}')" style="cursor:pointer;display:flex;align-items:stretch;background:${isOpen?'linear-gradient(135deg,#fff7ed,#fff)':'#fff'}">
+          <div style="width:6px;background:linear-gradient(180deg,#ea580c,#c2410c)"></div>
+          <div style="flex:1;padding:14px 18px;display:flex;align-items:center;gap:14px;min-width:0">
+            <div style="width:44px;height:44px;border-radius:12px;background:${isOpen?'linear-gradient(135deg,#ea580c,#c2410c)':'#fff7ed'};color:${isOpen?'#fff':'#c2410c'};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;flex-shrink:0">📅</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:800;font-size:15px;color:#0f172a;letter-spacing:-.01em">${esc(s.semana.label)}</div>
+              <div style="font-size:11.5px;color:#94a3b8;font-weight:600">${s.personas.length} persona${s.personas.length===1?'':'s'} de alta en IMSS</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0">
+              <div style="font-size:9.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.05em">Total salarios reportados</div>
+              <div style="font-size:17px;color:#065f46;font-weight:900;background:#dcfce7;border:1px solid #6ee7b7;padding:4px 14px;border-radius:99px;font-variant-numeric:tabular-nums">${fmt(s.totalReportado)}</div>
+            </div>
+            <span style="color:#94a3b8;font-size:13px;margin-left:6px">${chevron}</span>
+          </div>
+        </div>
+        ${body}
+      </div>`;
+  }).join('');
+  const totalGlobal = semanas.reduce((a, s) => a + s.totalReportado, 0);
+  view.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em">💵 Pagos de Nómina</div>
+        <div style="font-size:11.5px;color:#94a3b8;font-weight:600;margin-top:2px">${semanas.length} semana${semanas.length===1?'':'s'} · solo personal de alta en IMSS</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end">
+        <div style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.05em">Total acumulado</div>
+        <div style="font-size:18px;color:#065f46;font-weight:900;font-variant-numeric:tabular-nums">${fmt(totalGlobal)}</div>
+      </div>
+    </div>
+    ${cards}`;
+}
+
+window.rhToggleSemana = function (semanaValue) {
+  RH_OBL_STATE.weekExpanded = (RH_OBL_STATE.weekExpanded === semanaValue) ? null : semanaValue;
+  RH_OBL_STATE.personExpanded = null; // cerrar detalle de persona al cambiar semana
+  rhPaintPagosNominaCards();
+};
+
+window.rhTogglePersona = function (rowKey) {
+  RH_OBL_STATE.personExpanded = (RH_OBL_STATE.personExpanded === rowKey) ? null : rowKey;
+  rhPaintPagosNominaCards();
+};
+
 function rhPaintObligaciones() {
-  const view = rhObligacionesContainer();
+  // Renderea dentro del sub-contenedor "Pagos de Obligaciones". Si aún no
+  // existe (usuario acaba de cambiar de tab), fallback al container padre.
+  const view = document.getElementById('rh-obl-content') || rhObligacionesContainer();
   if (!view) return;
   const year = RH_OBL_STATE.year;
   const yearsRange = []; for (let y = year - 2; y <= year + 1; y++) yearsRange.push(y);
