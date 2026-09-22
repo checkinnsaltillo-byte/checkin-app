@@ -9987,6 +9987,18 @@ function perfilesRecalcKpis_(data) {
   // 2) Agrupar bookings por teléfono — solo Status=Booked
   //    Guardamos las bookings crudas para poder colapsar visitas contiguas después.
   var byPhone = {};
+  // Safe number: rechaza Date objects (celdas formateadas como fecha en
+  // el sheet devuelven Date, y Number(Date) = timestamp en ms → valores
+  // gigantes que rompen las sumas). Clamp opcional para valores de rango.
+  function _numSafe_(v, opts) {
+    if (v == null || v === '') return 0;
+    if (Object.prototype.toString.call(v) === '[object Date]') return 0;
+    var n = Number(v);
+    if (!isFinite(n)) return 0;
+    if (opts && opts.min != null && n < opts.min) return 0;
+    if (opts && opts.max != null && n > opts.max) return 0;
+    return n;
+  }
   function _dToStr_(v) {
     if (v instanceof Date) return v.toISOString().slice(0,10);
     var s = String(v || '');
@@ -10007,13 +10019,20 @@ function perfilesRecalcKpis_(data) {
     var phRaw = String(lgVals[i][iPhone] || "").replace(/\D/g, "");
     if (phRaw.length < 10) continue;
     var phKey = phRaw.slice(-10);
-    var nights = Number(lgVals[i][iNights]) || 0;
-    var gross  = Number(lgVals[i][iGross])  || 0;
+    // Rango razonable: noches 0-365, monto 0-1M. Todo lo demás se descarta
+    // como dato corrupto (celda con fecha, texto, etc.).
+    var nights = _numSafe_(lgVals[i][iNights], { min: 0, max: 365 });
+    var gross  = _numSafe_(lgVals[i][iGross],  { min: 0, max: 1e6 });
+    // Fallback: si Nights=0 pero tenemos DateArrival/DateDeparture, calcularla.
     var arr = iArrival   >= 0 ? _dToStr_(lgVals[i][iArrival])   : '';
     var dep = iDeparture >= 0 ? _dToStr_(lgVals[i][iDeparture]) : '';
-    var totalAmt   = iTotalAmt   >= 0 ? Number(lgVals[i][iTotalAmt])   || 0 : 0;
-    var amountPaid = iAmountPaid >= 0 ? Number(lgVals[i][iAmountPaid]) || 0 : 0;
-    var amountDue  = iAmountDue  >= 0 ? Number(lgVals[i][iAmountDue])  || 0 : 0;
+    if (!nights && arr && dep) {
+      var _diff = _dayDiff_(arr, dep);
+      if (_diff > 0 && _diff <= 365) nights = _diff;
+    }
+    var totalAmt   = iTotalAmt   >= 0 ? _numSafe_(lgVals[i][iTotalAmt],   { min: 0, max: 1e6 }) : 0;
+    var amountPaid = iAmountPaid >= 0 ? _numSafe_(lgVals[i][iAmountPaid], { min: 0, max: 1e6 }) : 0;
+    var amountDue  = iAmountDue  >= 0 ? _numSafe_(lgVals[i][iAmountDue],  { min: -1e6, max: 1e6 }) : 0;
     var source     = iSource     >= 0 ? String(lgVals[i][iSource] || '').toLowerCase() : '';
     if (!byPhone[phKey]) byPhone[phKey] = [];
     byPhone[phKey].push({
@@ -10108,6 +10127,13 @@ function perfilesRecalcKpis_(data) {
     }
   }
   pfRange.setValues(pfVals);
+  // Fuerza formato NUMBER en las 3 columnas KPI para que valores futuros no
+  // se interpreten como Date cuando la celda ya venía formateada así.
+  try {
+    if (iPfNoches  >= 0) pfSh.getRange(2, iPfNoches  + 1, pfVals.length, 1).setNumberFormat('0');
+    if (iPfVisitas >= 0) pfSh.getRange(2, iPfVisitas + 1, pfVals.length, 1).setNumberFormat('0');
+    if (iPfMonto   >= 0) pfSh.getRange(2, iPfMonto   + 1, pfVals.length, 1).setNumberFormat('0.00');
+  } catch(_){}
   return {
     ok: true,
     updated: updated,
@@ -10243,10 +10269,20 @@ function perfilesKpisList_() {
     for (var i = 0; i < vals.length; i++) {
       var raw = String(vals[i][iPhone] || "").replace(/\D/g, "");
       if (raw.length < 10) continue;
+      // Safe number: rechaza Date objects y valores fuera de rango
+      // (celdas formateadas como fecha devuelven timestamps enormes).
+      var _sn = function(v, max) {
+        if (v == null || v === '') return 0;
+        if (Object.prototype.toString.call(v) === '[object Date]') return 0;
+        var n = Number(v);
+        if (!isFinite(n) || n < 0) return 0;
+        if (max != null && n > max) return 0;
+        return n;
+      };
       byPhone[raw.slice(-10)] = {
-        noches:  Number(vals[i][iN]) || 0,
-        visitas: Number(vals[i][iV]) || 0,
-        monto:   Number(vals[i][iM]) || 0,
+        noches:  _sn(vals[i][iN], 100000),
+        visitas: _sn(vals[i][iV], 10000),
+        monto:   _sn(vals[i][iM], 1e8),
         clasificacion: iC >= 0 ? String(vals[i][iC] || '') : '',
         updated_at: vals[i][iU] ? new Date(vals[i][iU]).toISOString() : ""
       };
