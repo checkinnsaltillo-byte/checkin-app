@@ -14062,6 +14062,37 @@ async function __lodgifyLoadInner(force, opts) {
     if (empty) empty.classList.add('hidden');
     if (cont) cont.innerHTML = lgLoaderHtml('Cargando reservaciones…');
   }
+  // ── SWR client-side con localStorage ──────────────────────────────
+  // Mostrar cache viejo INMEDIATAMENTE mientras refrescamos en background.
+  // El usuario NUNCA ve el overlay/spinner si hay cache local disponible.
+  // Incluso con force=true (ej. click "Refrescar") hidratamos primero desde
+  // cache y luego seguimos con el fetch fresco al backend.
+  const LG_CACHE_KEY = 'lg_cache_v1';
+  const LG_CACHE_STALE_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
+  let _servedFromLocal = false;
+  try {
+    const raw = localStorage.getItem(LG_CACHE_KEY);
+    if (raw) {
+      const c = JSON.parse(raw);
+      const age = Date.now() - (c.ts || 0);
+      if (c && Array.isArray(c.bookings) && age < LG_CACHE_STALE_MS) {
+        LG_STATE.bookings = c.bookings;
+        LG_STATE.checkOuts = Array.isArray(c.checkOuts) ? c.checkOuts : [];
+        LG_STATE.checkOutIdx = typeof lgBuildCheckOutIndex_ === 'function' ? lgBuildCheckOutIndex_(LG_STATE.checkOuts) : new Map();
+        LG_STATE.__rawStatusById = new Map();
+        LG_STATE.loaded = true;
+        LG_STATE.lastSync = c.lastSync || '';
+        _servedFromLocal = true;
+        // Rendereo inmediato para que el usuario NO vea el overlay.
+        try { if (typeof lgComputeMatches === 'function') lgComputeMatches(); } catch(_){}
+        try { if (typeof lodgifyRender === 'function') lodgifyRender(); } catch(_){}
+        // Quita el spinner porque ya hay data visible.
+        if (cont && cont.querySelector('.lg-loading-msg')) {
+          try { lodgifyRender(); } catch(_){}
+        }
+      }
+    }
+  } catch(_) {}
   try {
     // FASE 1: filtro mes-en-curso. Solo se cargan reservas cuya estancia
     // TOCA el mes actual (arrival<=fin_mes && departure>=inicio_mes) y Status
@@ -14158,6 +14189,16 @@ async function __lodgifyLoadInner(force, opts) {
     // Piggyback: registros de la hoja "check_out" indexados por prop|depto|salida
     LG_STATE.checkOuts = Array.isArray(data.check_outs) ? data.check_outs : [];
     LG_STATE.checkOutIdx = lgBuildCheckOutIndex_(LG_STATE.checkOuts);
+    // Persistir en localStorage para SWR client-side en siguientes entradas.
+    // Ignora errores si el quota se llena (7MB+ puede fallar en algunos navegadores).
+    try {
+      localStorage.setItem(LG_CACHE_KEY, JSON.stringify({
+        ts: Date.now(),
+        bookings: LG_STATE.bookings,
+        checkOuts: LG_STATE.checkOuts,
+        lastSync: LG_STATE.lastSync,
+      }));
+    } catch(_) {}
     if (lbl) lbl.textContent = `${LG_STATE.bookings.length} reservaciones`;
     if (lastSyncLbl) {
       lastSyncLbl.textContent = LG_STATE.lastSync
