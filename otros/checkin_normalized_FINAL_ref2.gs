@@ -282,6 +282,8 @@ function doPost(e) {
     if (action === "rh_save_compensacion")         return jsonOutput_(rhSaveSimple_('RH_Compensaciones', data, RH_COMP_HEADERS, 'CMP'));
     if (action === "rh_delete_compensacion")       return jsonOutput_(rhDeleteByID_('RH_Compensaciones', String((data && data.ID) || ''), { reason: (data && data.reason) || '', actor: (data && data.actor) || '', force: (data && data.force) === true }));
     if (action === "rh_delete_asistencia")         return jsonOutput_(rhDeleteByID_('RH_Asistencia', String((data && data.ID) || ''), { reason: (data && data.reason) || '', actor: (data && data.actor) || '', force: (data && data.force) === true }));
+    if (action === "rh_pago_semanal_list")         return jsonOutput_(rhPagoSemanalList_());
+    if (action === "rh_pago_semanal_upsert")       return jsonOutput_(rhPagoSemanalUpsert_(data));
     if (action === "asistencia_marcar")            return jsonOutput_(asistenciaMarcar_(data));
     if (action === "asistencia_lookup_empleado")   return jsonOutput_(asistenciaLookupEmpleadoByCel_(data));
     if (action === "rh_delete_ausencia")           return jsonOutput_(rhDeleteByID_('RH_Ausencias', String((data && data.ID) || ''), { reason: (data && data.reason) || '', actor: (data && data.actor) || '', force: (data && data.force) === true }));
@@ -347,6 +349,8 @@ function doGet(e) {
     if (action === "rh_save_compensacion")   return jsonOutput_(rhSaveSimple_('RH_Compensaciones', e.parameter || {}, RH_COMP_HEADERS, 'CMP'));
     if (action === "rh_delete_compensacion") return jsonOutput_(rhDeleteByID_('RH_Compensaciones', String((e.parameter && e.parameter.ID) || ''), { reason: (e.parameter && e.parameter.reason) || '', actor: (e.parameter && e.parameter.actor) || '', force: (e.parameter && e.parameter.force) === 'true' }));
     if (action === "rh_delete_asistencia")   return jsonOutput_(rhDeleteByID_('RH_Asistencia', String((e.parameter && e.parameter.ID) || ''), { reason: (e.parameter && e.parameter.reason) || '', actor: (e.parameter && e.parameter.actor) || '', force: (e.parameter && e.parameter.force) === 'true' }));
+    if (action === "rh_pago_semanal_list")   return jsonOutput_(rhPagoSemanalList_());
+    if (action === "rh_pago_semanal_upsert") return jsonOutput_(rhPagoSemanalUpsert_(e.parameter || {}));
     if (action === "asistencia_marcar")      return jsonOutput_(asistenciaMarcar_(e.parameter || {}));
     if (action === "asistencia_lookup_empleado") return jsonOutput_(asistenciaLookupEmpleadoByCel_(e.parameter || {}));
     if (action === "rh_delete_ausencia")     return jsonOutput_(rhDeleteByID_('RH_Ausencias', String((e.parameter && e.parameter.ID) || ''), { reason: (e.parameter && e.parameter.reason) || '', actor: (e.parameter && e.parameter.actor) || '', force: (e.parameter && e.parameter.force) === 'true' }));
@@ -2904,6 +2908,46 @@ function rhSaveSimple_(sheetName, data, headersTemplate, idPrefix) {
               if (col) sh.getRange(rowIdx, col).setValue(payload[k] == null ? '' : String(payload[k]));
             }
             return { ok: true, id: id, mode: 'update' };
+          }
+        }
+      }
+    }
+    // Dedupe por (Empleado_Nombre + Fecha) en RH_Asistencia: solo UNA fila
+    // por empleado por día. Si ya existe, hacemos update en vez de insert.
+    // Esto evita duplicados cuando se marca la misma persona el mismo día
+    // por distintos canales (WhatsApp / Manual / bot).
+    if (sheetName === 'RH_Asistencia' && !id) {
+      var iEmpN = headers.indexOf('Empleado_Nombre');
+      var iFecha = headers.indexOf('Fecha');
+      var reqNombre = String(payload.Empleado_Nombre || '').trim();
+      var reqFecha = String(payload.Fecha || '').trim();
+      if (iEmpN >= 0 && iFecha >= 0 && reqNombre && reqFecha) {
+        var lastRow2 = sh.getLastRow();
+        if (lastRow2 >= 2) {
+          var range = sh.getRange(2, 1, lastRow2 - 1, headers.length);
+          var vals = range.getValues();
+          var disp = range.getDisplayValues();
+          for (var j = 0; j < vals.length; j++) {
+            var nomJ = String(vals[j][iEmpN] || '').trim();
+            var fJ = vals[j][iFecha];
+            if (fJ instanceof Date) {
+              fJ = Utilities.formatDate(fJ, 'America/Monterrey', 'yyyy-MM-dd');
+            } else {
+              fJ = String(disp[j][iFecha] || '').trim();
+            }
+            if (nomJ === reqNombre && fJ === reqFecha) {
+              var rowIdx2 = j + 2;
+              var existingId = String(disp[j][headers.indexOf('ID')] || '').trim() || rhGenId_(idPrefix);
+              // Merge: solo escribe campos NO vacíos del payload.
+              for (var k2 in payload) {
+                if (k2 === 'ID' || k2 === 'Timestamp') continue;
+                var v = payload[k2];
+                if (v == null || String(v).trim() === '') continue;
+                var col2 = headers.indexOf(k2) + 1;
+                if (col2) sh.getRange(rowIdx2, col2).setValue(String(v));
+              }
+              return { ok: true, id: existingId, mode: 'update-dedupe' };
+            }
           }
         }
       }
@@ -11797,6 +11841,107 @@ function llavesNotasSet_(data) {
     sh.getRange(rowIdx, 1, 1, LLAVES_NOTAS_HEADERS.length).setValues([[propiedad, notas, now, user]]);
   }
   return { ok:true, propiedad: propiedad, notas: notas };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║  RH_Pagos_Semanal                                                        ║
+// ║  Persiste Método / Fecha / Comentarios de nómina por (Empleado, Semana). ║
+// ║  Dedupe estricto: UNA fila por par (Empleado_Nombre, Semana). Semana en  ║
+// ║  formato "S:yyyy-mm-dd_yyyy-mm-dd" (lun–dom) — el frontend arma la key. ║
+// ═══════════════════════════════════════════════════════════════════════════
+var RH_PAGO_SEMANAL_HEADERS = ['Empleado_Nombre','Semana','Metodo_pago','Fecha_pago','Comentarios','Timestamp','Actor'];
+
+function _rhPagoSemanalSheet_() {
+  var ss = getSpreadsheet_();
+  var sh = ss.getSheetByName('RH_Pagos_Semanal');
+  if (!sh) {
+    sh = ss.insertSheet('RH_Pagos_Semanal');
+    sh.getRange(1, 1, 1, RH_PAGO_SEMANAL_HEADERS.length).setValues([RH_PAGO_SEMANAL_HEADERS])
+      .setFontWeight('bold').setBackground('#dbeafe');
+    sh.setFrozenRows(1);
+  } else {
+    // Asegura columnas mínimas (auto-agrega si faltan).
+    var hdr = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0]
+      .map(function(v){ return String(v || '').trim(); });
+    var missing = RH_PAGO_SEMANAL_HEADERS.filter(function(h){ return hdr.indexOf(h) === -1; });
+    if (missing.length) {
+      var startCol = hdr.length + 1;
+      sh.getRange(1, startCol, 1, missing.length).setValues([missing])
+        .setFontWeight('bold').setBackground('#dbeafe');
+    }
+  }
+  return sh;
+}
+
+function rhPagoSemanalList_() {
+  try {
+    var sh = _rhPagoSemanalSheet_();
+    var last = sh.getLastRow();
+    if (last < 2) return { ok: true, rows: [] };
+    var hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function(v){ return String(v || '').trim(); });
+    var vals = sh.getRange(2, 1, last - 1, hdr.length).getDisplayValues();
+    var rows = vals.map(function(r) {
+      var o = {};
+      for (var i = 0; i < hdr.length; i++) o[hdr[i]] = r[i];
+      return o;
+    }).filter(function(r){ return r.Empleado_Nombre && r.Semana; });
+    return { ok: true, rows: rows };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+function rhPagoSemanalUpsert_(data) {
+  try {
+    var payload = data && data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : data || {};
+    var nombre = String(payload.Empleado_Nombre || payload.nombre || '').trim();
+    var semana = String(payload.Semana || payload.semana || '').trim();
+    if (!nombre || !semana) return { ok:false, error:'Empleado_Nombre y Semana requeridos' };
+    var sh = _rhPagoSemanalSheet_();
+    var hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function(v){ return String(v || '').trim(); });
+    var iEmp = hdr.indexOf('Empleado_Nombre');
+    var iSem = hdr.indexOf('Semana');
+    var iTs  = hdr.indexOf('Timestamp');
+    var iAct = hdr.indexOf('Actor');
+    var last = sh.getLastRow();
+    var ts = Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyy-MM-dd HH:mm:ss');
+    var actor = String(payload.actor || payload.Actor || '').trim();
+    // Campos escribibles (los null/undefined SÍ se escriben — permite borrar).
+    var writable = ['Metodo_pago','Fecha_pago','Comentarios'];
+    var found = -1;
+    if (last >= 2) {
+      var vals = sh.getRange(2, 1, last - 1, hdr.length).getValues();
+      for (var i = 0; i < vals.length; i++) {
+        if (String(vals[i][iEmp] || '').trim() === nombre && String(vals[i][iSem] || '').trim() === semana) {
+          found = i + 2; break;
+        }
+      }
+    }
+    if (found > 0) {
+      writable.forEach(function(key) {
+        if (payload[key] === undefined) return;
+        var col = hdr.indexOf(key) + 1;
+        if (col) sh.getRange(found, col).setValue(payload[key] == null ? '' : String(payload[key]));
+      });
+      if (iTs >= 0)  sh.getRange(found, iTs + 1).setValue(ts);
+      if (iAct >= 0 && actor) sh.getRange(found, iAct + 1).setValue(actor);
+      return { ok: true, mode: 'update', row: found };
+    } else {
+      var newRow = new Array(hdr.length).fill('');
+      newRow[iEmp] = nombre;
+      newRow[iSem] = semana;
+      writable.forEach(function(key){
+        var c = hdr.indexOf(key);
+        if (c >= 0 && payload[key] !== undefined) newRow[c] = payload[key] == null ? '' : String(payload[key]);
+      });
+      if (iTs >= 0)  newRow[iTs] = ts;
+      if (iAct >= 0) newRow[iAct] = actor;
+      sh.appendRow(newRow);
+      return { ok: true, mode: 'insert', row: sh.getLastRow() };
+    }
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

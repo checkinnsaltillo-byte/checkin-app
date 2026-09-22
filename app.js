@@ -27275,6 +27275,7 @@ function rhInit() {
   // primer render de asistencias.
   if (typeof rhLoadEmpleados === 'function') rhLoadEmpleados();
   if (typeof rhLoadCompensaciones === 'function') rhLoadCompensaciones().catch(()=>{});
+  if (typeof rhLoadPagosSemanal === 'function') rhLoadPagosSemanal().catch(()=>{});
   // Muestra Control de asistencias directamente en lugar de arrancar en Nómina.
   rhSetSection('asistencias');
 }
@@ -27334,7 +27335,8 @@ window.rhSetTab = function (tab) {
     const promAsist = needAsist ? asistReloadList() : Promise.resolve();
     const needPersonal = !(INC_STATE?.personalRows || []).length && typeof incLoadPersonal === 'function';
     const promPersonal = needPersonal ? incLoadPersonal() : Promise.resolve();
-    Promise.all([promAsist, promPersonal]).then(() => asistRenderResumen('rh-view'));
+    const promPagos = !RH_PAGOS_SEMANAL_LOADED && typeof rhLoadPagosSemanal === 'function' ? rhLoadPagosSemanal() : Promise.resolve();
+    Promise.all([promAsist, promPersonal, promPagos]).then(() => asistRenderResumen('rh-view'));
   }
 };
 
@@ -27452,10 +27454,12 @@ window.rhObligacionesSetSubTab = function (id) {
 async function _rhObligacionesPaintSubTab_() {
   if (RH_OBL_STATE.subTab === 'nomina') {
     // Necesitamos asistencia + personal (Alta IMSS + Dias_trabajo) para calcular
-    // los grupos empleado × semana igual que el Resumen semanal de Nómina.
+    // los grupos empleado × semana igual que el Resumen semanal de Nómina,
+    // más los pagos guardados en la sheet RH_Pagos_Semanal.
     const promAsist = !ASIST_STATE.loaded && typeof asistReloadList === 'function' ? asistReloadList() : Promise.resolve();
     const promPersonal = !(INC_STATE?.personalRows || []).length && typeof incLoadPersonal === 'function' ? incLoadPersonal() : Promise.resolve();
-    await Promise.all([promAsist, promPersonal]);
+    const promPagos = !RH_PAGOS_SEMANAL_LOADED && typeof rhLoadPagosSemanal === 'function' ? rhLoadPagosSemanal() : Promise.resolve();
+    await Promise.all([promAsist, promPersonal, promPagos]);
     rhPaintPagosNominaCards();
   } else {
     if (!RH_STATE.empleados || !RH_STATE.empleados.length) await rhLoadEmpleados();
@@ -34429,12 +34433,25 @@ window.asistResumenLimpiarOverride = function (nombre, semanaValue) {
 // Persistidos en localStorage por (empleado, semana). Estado se deriva
 // de si hay Fecha de pago capturada. Cambios se auto-guardan al vuelo
 // sin necesidad de entrar a modo edición.
+// Cache en memoria (sheet-backed). Poblado por rhLoadPagosSemanal(). Fallback
+// a localStorage si el fetch aún no completó — así el UI no muestra vacío
+// mientras carga y sigue funcionando offline.
+if (typeof RH_PAGOS_SEMANAL_CACHE === 'undefined') {
+  window.RH_PAGOS_SEMANAL_CACHE = new Map(); // key "nombre||semanaValue" → { metodo, fecha, comentarios }
+  window.RH_PAGOS_SEMANAL_LOADED = false;
+  window.RH_PAGOS_SEMANAL_SAVE_TIMERS = new Map();  // debounce por rowKey
+}
 function _rhResPagoKey_(nombre, semanaValue) {
-  return `rh_resumen_pago:${nombre}|${semanaValue}`;
+  return `${nombre}||${semanaValue}`;
 }
 function _rhResPagoGet_(nombre, semanaValue) {
+  const k = _rhResPagoKey_(nombre, semanaValue);
+  const mem = RH_PAGOS_SEMANAL_CACHE.get(k);
+  if (mem) return { metodo: mem.metodo || '', fecha: mem.fecha || '', comentarios: mem.comentarios || '' };
+  // Fallback: localStorage legacy (rh_resumen_pago:...) para no perder
+  // datos guardados antes de la migración a sheet.
   try {
-    const raw = localStorage.getItem(_rhResPagoKey_(nombre, semanaValue));
+    const raw = localStorage.getItem(`rh_resumen_pago:${k}`);
     if (!raw) return { metodo: '', fecha: '', comentarios: '' };
     const obj = JSON.parse(raw);
     return {
@@ -34444,16 +34461,61 @@ function _rhResPagoGet_(nombre, semanaValue) {
     };
   } catch(_) { return { metodo: '', fecha: '', comentarios: '' }; }
 }
-function _rhResPagoSet_(nombre, semanaValue, patch) {
+async function rhLoadPagosSemanal(opts = {}) {
+  if (RH_PAGOS_SEMANAL_LOADED && !opts.force) return;
   try {
-    const cur = _rhResPagoGet_(nombre, semanaValue);
-    const next = { ...cur, ...patch };
-    if (!next.metodo && !next.fecha && !next.comentarios) {
-      localStorage.removeItem(_rhResPagoKey_(nombre, semanaValue));
-    } else {
-      localStorage.setItem(_rhResPagoKey_(nombre, semanaValue), JSON.stringify(next));
+    const res = await fetch(`${BACKEND}/rh/pagos-semanal?_cb=${Date.now()}`, { cache: 'no-store' });
+    const data = await res.json();
+    if (data && data.ok && Array.isArray(data.rows)) {
+      RH_PAGOS_SEMANAL_CACHE.clear();
+      for (const r of data.rows) {
+        const k = _rhResPagoKey_(String(r.Empleado_Nombre || '').trim(), String(r.Semana || '').trim());
+        RH_PAGOS_SEMANAL_CACHE.set(k, {
+          metodo: String(r.Metodo_pago || ''),
+          fecha:  String(r.Fecha_pago  || ''),
+          comentarios: String(r.Comentarios || ''),
+        });
+      }
+      RH_PAGOS_SEMANAL_LOADED = true;
     }
-  } catch(_){}
+  } catch (e) { console.warn('[RH] pagos-semanal:', e.message); }
+}
+async function _rhResPagoUpsertRemote_(nombre, semanaValue) {
+  const k = _rhResPagoKey_(nombre, semanaValue);
+  const cur = RH_PAGOS_SEMANAL_CACHE.get(k) || { metodo:'', fecha:'', comentarios:'' };
+  try {
+    const res = await fetch(`${BACKEND}/rh/pagos-semanal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        payload: {
+          Empleado_Nombre: nombre,
+          Semana: semanaValue,
+          Metodo_pago: cur.metodo || '',
+          Fecha_pago:  cur.fecha  || '',
+          Comentarios: cur.comentarios || '',
+        }
+      }),
+    });
+    const data = await res.json();
+    if (!data || !data.ok) throw new Error((data && data.error) || 'save failed');
+  } catch (e) { console.warn('[RH] pago-semanal save:', e.message); }
+}
+function _rhResPagoSet_(nombre, semanaValue, patch) {
+  const k = _rhResPagoKey_(nombre, semanaValue);
+  const cur = RH_PAGOS_SEMANAL_CACHE.get(k) || { metodo:'', fecha:'', comentarios:'' };
+  const next = { ...cur, ...patch };
+  RH_PAGOS_SEMANAL_CACHE.set(k, next);
+  // Cache local espejo (para offline/desconectado).
+  try { localStorage.setItem(`rh_resumen_pago:${k}`, JSON.stringify(next)); } catch(_){}
+  // Debounce por rowKey — comentarios se escriben letra a letra, no queremos
+  // spammear Apps Script. 500 ms tras la última tecla persiste.
+  const prev = RH_PAGOS_SEMANAL_SAVE_TIMERS.get(k);
+  if (prev) clearTimeout(prev);
+  RH_PAGOS_SEMANAL_SAVE_TIMERS.set(k, setTimeout(() => {
+    RH_PAGOS_SEMANAL_SAVE_TIMERS.delete(k);
+    _rhResPagoUpsertRemote_(nombre, semanaValue);
+  }, 500));
 }
 window.asistResumenPagoSet = function (rowKey, field, value) {
   const [nombre, semanaValue] = rowKey.split('||');
