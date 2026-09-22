@@ -27624,13 +27624,19 @@ function _rhComputeGruposSemanaImss_() {
 function rhPaintPagosNominaCards() {
   const view = document.getElementById('rh-obl-content') || rhObligacionesContainer();
   if (!view) return;
-  const grupos = _rhComputeGruposSemanaImss_();
+  // SOLO grupos marcados como "Pagado" (tienen Fecha_pago en RH_Pagos_Semanal).
+  // Los pendientes se administran desde el Resumen semanal de Nómina; aquí
+  // este tab es puramente un histórico de pagos ya realizados.
+  const grupos = _rhComputeGruposSemanaImss_().filter(g => {
+    const p = _rhResPagoGet_(g.nombre, g.semana.value);
+    return !!(p && p.fecha);
+  });
   if (!grupos.length) {
     view.innerHTML = `
       <div style="text-align:center;padding:60px 20px;color:#64748b">
         <div style="font-size:38px;opacity:.4;margin-bottom:10px">💵</div>
-        <div style="font-weight:700;color:#334155;margin-bottom:4px">Sin datos de nómina</div>
-        <div style="font-size:12px;color:#94a3b8">Aún no hay registros de asistencia con Alta en IMSS este año.</div>
+        <div style="font-weight:700;color:#334155;margin-bottom:4px">Sin pagos registrados</div>
+        <div style="font-size:12px;color:#94a3b8">Marca "Fecha de pago" en el Resumen semanal de Nómina para que la persona aparezca aquí.</div>
       </div>`;
     return;
   }
