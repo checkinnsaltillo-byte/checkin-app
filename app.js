@@ -10024,6 +10024,13 @@ async function huespedesLoadFilterOptions() {
 function huespedesBuildFilters() {
   const cont = document.getElementById('hu-filters');
   if (!cont) return;
+  // Construir estos filtros tarda ~2.5 s; con el módulo oculto se deja
+  // pendiente y huespedesRender lo hace al abrir Huéspedes.
+  if (document.getElementById('module-huespedes')?.classList.contains('hidden')) {
+    HU_STATE.__filtersDirty = true;
+    return;
+  }
+  HU_STATE.__filtersDirty = false;
   const opts = HU_STATE.filterOptions || {};
   const mkSelect = (key, label, list) => {
     const items = (list || []).map(v => `<option value="${esc(v)}" ${HU_FILTERS[key]===v?'selected':''}>${esc(v)}</option>`).join('');
@@ -10960,7 +10967,7 @@ function huespedesRender() {
   // memoria), construimos el panel de filtros ahora.
   try {
     const _cont = document.getElementById('hu-filters');
-    if (_cont && !document.getElementById('hu-multi-regimen')) {
+    if (_cont && (!document.getElementById('hu-multi-regimen') || HU_STATE.__filtersDirty)) {
       huespedesBuildFilters();
     } else {
       if (document.getElementById('hu-multi-regimen'))          huMultiRender('regimen',          HU_CLIENT_MULTI_LABELS.regimen);
