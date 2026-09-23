@@ -9856,7 +9856,9 @@ async function __huespedesLoadInner(forceRefetch) {
               ? `${c.rows.length} reservaciones (cache)`
               : `${c.rows.length} reservaciones (actualizando…)`;
             try { huPopulateMesOptions(); } catch (e) { console.warn('[HU cache] huPopulateMesOptions falló:', e && e.stack || e && e.message); }
+            const _tc = performance.now(); console.info(`[HU perf] → huespedesRender (cache, ${c.rows.length} filas)`);
             try { huespedesRender(); } catch (e) { console.warn('[HU cache] huespedesRender falló:', e && e.stack || e && e.message); }
+            console.info(`[HU perf] ✓ huespedesRender (cache): ${Math.round(performance.now() - _tc)} ms`);
             if (_cacheState === 'fresh') {
               HU_STATE.loading = false;
               return;
@@ -9926,15 +9928,17 @@ async function __huespedesLoadInner(forceRefetch) {
       }
     }
     const data = { ...first, rows };
+    const _hp = (label, fn) => { const t = performance.now(); console.info(`[HU perf] → ${label}`); try { return fn(); } finally { console.info(`[HU perf] ✓ ${label}: ${Math.round(performance.now() - t)} ms`); } };
+    console.info(`[HU perf] filas recibidas: ${rows.length}`);
     try {
-      localStorage.setItem(HU_CACHE_KEY, JSON.stringify({
+      _hp('localStorage', () => localStorage.setItem(HU_CACHE_KEY, JSON.stringify({
         ts: Date.now(),
         rows,
         total: data.total,
         totalConFactura: data.total_con_factura,
         totalSinFactura: data.total_sin_factura,
         totalMediosUnicos: data.total_medios_unicos,
-      }));
+      })));
     } catch(_) {}
     HU_STATE.rows = data.rows;
     HU_STATE.serverTotal = data.total || 0;
@@ -9943,8 +9947,8 @@ async function __huespedesLoadInner(forceRefetch) {
     HU_STATE.totalMediosUnicos = data.total_medios_unicos || 0;
     HU_STATE.loaded = true;
     if (lbl) lbl.textContent = `${data.total || 0} reservaciones`;
-    try { huPopulateMesOptions(); } catch (e) { console.warn('[HU] huPopulateMesOptions falló:', e && e.stack || e && e.message); }
-    try { huespedesRender(); } catch (e) { console.warn('[HU] huespedesRender falló:', e && e.stack || e && e.message); }
+    try { _hp('huPopulateMesOptions', () => huPopulateMesOptions()); } catch (e) { console.warn('[HU] huPopulateMesOptions falló:', e && e.stack || e && e.message); }
+    try { _hp('huespedesRender', () => huespedesRender()); } catch (e) { console.warn('[HU] huespedesRender falló:', e && e.stack || e && e.message); }
     // Si el usuario está viendo Lodgify Detalles, ahora HU_STATE está completo
     // → re-render para mostrar las cards sintéticas (antes mostraba "Cargando…").
     const moduleLodgifyVisible = document.getElementById('module-lodgify');
@@ -9952,11 +9956,11 @@ async function __huespedesLoadInner(forceRefetch) {
     const inLodgify = moduleLodgifyVisible && !moduleLodgifyVisible.classList.contains('hidden');
     const inRD      = moduleRDVisible      && !moduleRDVisible.classList.contains('hidden');
     if (inLodgify) {
-      try { if (LG_STATE.loaded) lgComputeMatches(); } catch (e) { console.warn('[HU→LG] lgComputeMatches falló:', e && e.stack || e && e.message); }
-      try { lgRebuildFilterOptions(); } catch (e) { console.warn('[HU→LG] lgRebuildFilterOptions falló:', e && e.stack || e && e.message); }
-      try { lodgifyRender(); } catch (e) { console.warn('[HU→LG] lodgifyRender falló:', e && e.stack || e && e.message); }
+      try { if (LG_STATE.loaded) _hp('lgComputeMatches', () => lgComputeMatches()); } catch (e) { console.warn('[HU→LG] lgComputeMatches falló:', e && e.stack || e && e.message); }
+      try { _hp('lgRebuildFilterOptions', () => lgRebuildFilterOptions()); } catch (e) { console.warn('[HU→LG] lgRebuildFilterOptions falló:', e && e.stack || e && e.message); }
+      try { _hp('lodgifyRender', () => lodgifyRender()); } catch (e) { console.warn('[HU→LG] lodgifyRender falló:', e && e.stack || e && e.message); }
     }
-    if (inRD && typeof rdRender === 'function') { try { rdRender(); } catch (e) { console.warn('[HU→RD] rdRender falló:', e && e.stack || e && e.message); } }
+    if (inRD && typeof rdRender === 'function') { try { _hp('rdRender', () => rdRender()); } catch (e) { console.warn('[HU→RD] rdRender falló:', e && e.stack || e && e.message); } }
   } catch (e) {
     console.error('[HU] load error:', e && e.stack || e);
     if (lbl) lbl.textContent = 'Error: ' + e.message;
@@ -20993,6 +20997,8 @@ window.bzwOpenReservationDetail = function(lodgifyId) {
     } catch (_) { /* silent */ }
   }
   function scan() {
+    window.__aseoScans = (window.__aseoScans || 0) + 1;
+    if (window.__aseoScans % 100 === 0) console.info(`[aseo scan] ${window.__aseoScans} escaneos`);
     // Selecciona columnas de detalle. El selector cubre todas las variantes:
     // SOLO la columna de Detalle de reservación. NO usar [data-hu-resv-id]
     // porque ese selector matchea el wrapper externo que contiene tanto
