@@ -34212,21 +34212,17 @@ function asistRenderResumen(targetId) {
     const N = g.workDays.size;
     const workContract = contratoByNombre.get(g.nombre) || 5;
     const restContract = Math.max(0, 7 - workContract);
-    // Los días de descanso solo se pagan si el empleado está dado de alta
-    // en IMSS. Si no, factorDes = 0.
+    // Base + primas se devengan para TODO el personal (con o sin IMSS).
+    // Alta IMSS solo decide si el monto cuenta en $ Salario reportado.
     const conImss = _empleadoAltaImss_(g.nombre);
     g.altaImss = conImss;
     g.diasTrab = N;
     g.workContract = workContract;
     g.restContract = restContract;
     g.factorLab = N;
-    g.factorDes = conImss ? (restContract * Math.min(N / Math.max(1, workContract), 1)) : 0;
-    // Solo el Personal con "Alta en IMSS = Sí" devenga base + primas
-    // (y por tanto $ Salario reportado). El resto solo cobra las
-    // compensaciones capturadas manualmente.
-    g.baseLab = conImss ? ASIST_PANEL_SAL_BASE * g.factorLab : 0;
-    g.baseDes = conImss ? ASIST_PANEL_SAL_BASE * g.factorDes : 0;
-    if (!conImss) { g.vac = 0; g.dom = 0; g.df = 0; }
+    g.factorDes = restContract * Math.min(N / Math.max(1, workContract), 1);
+    g.baseLab = ASIST_PANEL_SAL_BASE * g.factorLab;
+    g.baseDes = ASIST_PANEL_SAL_BASE * g.factorDes;
     g.total = g.baseLab + g.baseDes + g.vac + g.dom + g.df + g.comp;
   });
   const allRows = Array.from(grupos.values())
@@ -34362,7 +34358,7 @@ function asistRenderResumen(targetId) {
   // $ Salario reportado = Base laborado + Base descanso + Prima vacacional
   // + Prima dominical + Prima día feriado. Excluye Compensación (esa se
   // suma solo en $ Salario TOTAL).
-  const tdReportado = (g) => tdNum(fmt(g.baseLab + g.baseDes + g.vac + g.dom + g.df), 'color:#334155');
+  const tdReportado = (g) => tdNum(fmt(g.altaImss ? (g.baseLab + g.baseDes + g.vac + g.dom + g.df) : 0), 'color:#334155');
   const tdMetodo = (g) => {
     const p = _rhResPagoGet_(g.nombre, g.semana.value);
     const opts = ['Transferencia bancaria','Efectivo','Cheque','Otro'];
