@@ -8824,17 +8824,24 @@ function switchModule(mod) {
     // overlay. El usuario puede interactuar con las cards inmediatamente.
     lodgifyMaybeAutoSync();
     lgEnsureHuespedesAndMatch();
-    try {
-      if (typeof bzwInit === 'function') {
-        bzwInit().then(() => {
-          if (window.LG_USER_INTERACTED) {
-            console.info('[LG] skip auto re-render: user already selected a history card');
-            return;
-          }
-          if (typeof lodgifyRender === 'function') lodgifyRender();
-        }).catch(() => {});
+    // Breezeway (11 MB, 5k tareas) solo alimenta "Tareas relacionadas" en el
+    // detalle. Arranca cuando reservas y huéspedes ya están pintados para no
+    // competir por el hilo principal (máx 15 s de espera).
+    (async () => {
+      const tWait = Date.now();
+      while (!(LG_STATE.loaded && HU_STATE.loaded) && Date.now() - tWait < 15000) {
+        await new Promise(r => setTimeout(r, 300));
       }
-    } catch(_) {}
+      await new Promise(r => setTimeout(r, 500));
+      if (typeof bzwInit !== 'function') return;
+      bzwInit().then(() => {
+        if (window.LG_USER_INTERACTED) {
+          console.info('[LG] skip auto re-render: user already selected a history card');
+          return;
+        }
+        if (typeof lodgifyRender === 'function') lodgifyRender();
+      }).catch(() => {});
+    })();
   }
   if (mod === "reservas-detalles") {
     // Reusa LG_STATE.bookings (ya cargado por el módulo Lodgify). Si no
@@ -8842,6 +8849,25 @@ function switchModule(mod) {
     if (!LG_STATE.loaded && !LG_STATE.loading) lodgifyLoad(true);
     lgEnsureHuespedesAndMatch();
     rdRender();
+    // Este módulo muestra historial: si el índice de nombres se armó solo con
+    // la ventana de Gestión de reservas, trae el completo en segundo plano.
+    if (LG_STATE.__allBookingsIsWindow && !LG_STATE.__allBookingsFetching) {
+      LG_STATE.__allBookingsFetching = true;
+      fetch(`${BACKEND}/lodgify-list`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(j => {
+          if (!j || !j.ok || !Array.isArray(j.bookings)) return;
+          const idx = new Map();
+          j.bookings.forEach(b => { const id = String(b?.Id || '').trim(); if (id) idx.set(id, b); });
+          LG_STATE.__allBookingsById = idx;
+          LG_STATE.__allBookingsIsWindow = false;
+          LG_STATE.__syntheticCache = null;
+          LG_STATE.__syntheticCacheKey = null;
+          if (!document.getElementById('module-reservas-detalles')?.classList.contains('hidden')) rdRender();
+        })
+        .catch(() => {})
+        .finally(() => { LG_STATE.__allBookingsFetching = false; });
+    }
   }
   if (mod === "incidencias") {
     if (typeof incInit === 'function') incInit();
@@ -9791,11 +9817,21 @@ async function __huespedesLoadInner(forceRefetch) {
   // meses no encontraban su GuestName y caían al placeholder de Reservaciones.
   // Este índice cubre TODA la historia para lookups de nombre.
   try {
-    if (!LG_STATE.__allBookingsById && !LG_STATE.__allBookingsFetching) {
+    const _needFullIdx = LG_STATE.__allBookingsIsWindow && document.getElementById('module-lodgify')?.classList.contains('hidden');
+    if ((!LG_STATE.__allBookingsById || _needFullIdx) && !LG_STATE.__allBookingsFetching) {
       LG_STATE.__allBookingsFetching = true;
-      // 13 MB: se difiere 8 s para no competir con la carga principal.
+      // El historial completo pesa 13 MB. En Gestión de reservas (ventana
+      // 2 meses → futuro) basta la ventana (~1.7 MB). Se difiere para no
+      // competir con la carga principal.
       new Promise(r => setTimeout(r, 8000))
-        .then(() => fetch(`${BACKEND}/lodgify-list`, { cache: 'no-store' }))
+        .then(() => {
+          const inLodgify = !document.getElementById('module-lodgify')?.classList.contains('hidden');
+          const win = LG_STATE.__monthRange;
+          const useWin = !!(inLodgify && win);
+          LG_STATE.__allBookingsIsWindow = useWin;
+          const url = useWin ? `${BACKEND}/lodgify-list?from=${win.from}&to=${win.to}` : `${BACKEND}/lodgify-list`;
+          return fetch(url, { cache: 'no-store' });
+        })
         .then(r => r.json())
         .then(j => {
           if (j && j.ok && Array.isArray(j.bookings)) {
