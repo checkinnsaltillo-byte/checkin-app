@@ -36916,10 +36916,9 @@ function asistPanelRender() {
     // 1 día de descanso; 5d/semana → 2 días; 7d/semana → 0.
     const _workContract = (workDays && workDays.size) || 5;
     const _restContract = Math.max(0, 7 - _workContract);
-    // Solo paga días de descanso si el empleado está de alta en IMSS.
-    const _conImss = _empleadoAltaImss_(nombre);
+    // Descanso proporcional para TODO el personal (con o sin IMSS).
     const factorLab = diasTrab;
-    const factorDes = _conImss ? (_restContract * Math.min(diasTrab / Math.max(1, _workContract), 1)) : 0;
+    const factorDes = _restContract * Math.min(diasTrab / Math.max(1, _workContract), 1);
     const salBaseLab = ASIST_PANEL_SAL_BASE * factorLab;
     const salBaseDes = ASIST_PANEL_SAL_BASE * factorDes;
     const salTotal = salBaseLab + salBaseDes + primaVacSem + primaDomSem + primaDFSem + compSem;
@@ -36932,11 +36931,10 @@ function asistPanelRender() {
       </div>
     </div>`;
     html += salCell(salBaseLab, { borderLeft:'2px solid #0f172a', title:`Base laborado: ${diasTrab}d × $${ASIST_PANEL_SAL_BASE.toFixed(2)}`, sub:`${diasTrab}d` });
-    html += salCell(salBaseDes, { title: _conImss
-      ? `Descanso proporcional: ${_restContract}d contrato × min(${diasTrab}/${_workContract}, 1) = ${factorDes.toFixed(2)}d`
-      : `Sin alta en IMSS — no aplica pago de días de descanso.`,
-      sub: _conImss ? `${factorDes.toFixed(2)}d de ${_restContract}` : 'sin IMSS',
-      color: _conImss ? '#0369a1' : '#94a3b8' });
+    html += salCell(salBaseDes, {
+      title: `Descanso proporcional: ${_restContract}d contrato × min(${diasTrab}/${_workContract}, 1) = ${factorDes.toFixed(2)}d`,
+      sub: `${factorDes.toFixed(2)}d de ${_restContract}`,
+      color: '#0369a1' });
     html += salCell(primaVacSem, { title:'Suma prima vacacional (25%) de la semana' });
     html += salCell(primaDomSem, { title:'Suma prima dominical (25%) de la semana' });
     html += salCell(primaDFSem,  { title:'Suma prima día feriado (200%) de la semana' });
