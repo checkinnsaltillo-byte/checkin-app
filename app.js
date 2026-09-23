@@ -10776,17 +10776,40 @@ window.huespedesCopiarMsgConsulta = async function(btn, encoded) {
 };
 
 // ─── Helpers de status de factura (portados de check-in) ────────────────────
+const _HU_NORMK_MEMO = new Map();
+function _huNormK(k) {
+  const s = String(k || '');
+  let n = _HU_NORMK_MEMO.get(s);
+  if (n === undefined) {
+    n = s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+    _HU_NORMK_MEMO.set(s, n);
+  }
+  return n;
+}
+// Índice por fila: nombre normalizado → primer valor no vacío. Se invalida
+// si cambia el número de columnas de la fila (p. ej. tras un merge).
+const _HU_ROW_NORM_IDX = new WeakMap();
 function huValueFlexible(row, candidates) {
   if (!row || typeof row !== 'object') return '';
-  const normK = (k) => String(k||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
   for (const c of candidates) {
     if (row[c] != null && String(row[c]).trim() !== '') return String(row[c]).trim();
   }
-  const entries = Object.entries(row);
+  const keys = Object.keys(row);
+  let idx = _HU_ROW_NORM_IDX.get(row);
+  if (!idx || idx.__n !== keys.length) {
+    idx = new Map();
+    for (const k of keys) {
+      const v = row[k];
+      if (v == null || String(v).trim() === '') continue;
+      const nk = _huNormK(k);
+      if (!idx.has(nk)) idx.set(nk, String(v).trim());
+    }
+    idx.__n = keys.length;
+    _HU_ROW_NORM_IDX.set(row, idx);
+  }
   for (const c of candidates) {
-    const nc = normK(c);
-    const found = entries.find(([k, v]) => normK(k) === nc && v != null && String(v).trim() !== '');
-    if (found) return String(found[1]).trim();
+    const v = idx.get(_huNormK(c));
+    if (v !== undefined) return v;
   }
   return '';
 }
@@ -15040,19 +15063,22 @@ function lgGetFiltered(sourceList) {
     const m = String(b.DateArrival||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     return m ? new Date(+m[3], +m[1]-1, +m[2]).getTime() : 0;
   };
-  filtered.sort((a, b) => {
-    const fa = factRankOf(a), fb = factRankOf(b);
-    if (fa !== fb) return fa - fb;
-    const sa = rank[lgGetStayState(a.DateArrival, a.DateDeparture)] || 99;
-    const sb = rank[lgGetStayState(b.DateArrival, b.DateDeparture)] || 99;
-    if (sa !== sb) return sa - sb;
-    const ta = tsArrival(a), tb = tsArrival(b);
+  // Claves calculadas una vez por reserva (no en cada comparación del sort).
+  const keyed = filtered.map(b => ({
+    b,
+    f: factRankOf(b),
+    s: rank[lgGetStayState(b.DateArrival, b.DateDeparture)] || 99,
+    t: tsArrival(b),
+  }));
+  keyed.sort((x, y) => {
+    if (x.f !== y.f) return x.f - y.f;
+    if (x.s !== y.s) return x.s - y.s;
     // Próximas / Entrada hoy / Activa / Salida hoy: ascendente por fecha.
     // Concluidas: las más recientes primero.
-    if (sa === 5) return tb - ta;
-    return ta - tb;
+    if (x.s === 5) return y.t - x.t;
+    return x.t - y.t;
   });
-  return filtered;
+  return keyed.map(k => k.b);
 }
 
 /** Renderiza KPIs + lista de cards. */
