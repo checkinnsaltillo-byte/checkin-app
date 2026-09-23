@@ -15095,9 +15095,17 @@ function lodgifyRender(opts) {
   // por cada filter/click es prohibitivo (≈300ms por re-render).
   let detailSource = null;
   if (mode === 'detail' || mode === 'cards') {
-    const hu = HU_STATE.rows || [];
+    // Solo reservaciones cuya estancia toca la ventana del módulo (2 meses
+    // atrás → futuro). Antes se convertía TODO el historial (≈6,000 filas,
+    // ~3 s por render).
+    const winFrom = huParseDate((LG_STATE.__monthRange && LG_STATE.__monthRange.from) || '');
+    const huAll = HU_STATE.rows || [];
+    const hu = winFrom ? huAll.filter(r => {
+      const d = huParseDate(r['Fecha de salida']) || huParseDate(r['Fecha de ingreso']);
+      return !d || d >= winFrom;
+    }) : huAll;
     const lg = LG_STATE.bookings || [];
-    const cacheKey = `${hu.length}|${lg.length}`;
+    const cacheKey = `${huAll.length}|${hu.length}|${lg.length}`;
     if (!LG_STATE.__syntheticCache || LG_STATE.__syntheticCacheKey !== cacheKey) {
       // SIDEBAR = HUÉSPEDES: 1 card por persona (dedupe por últimos 10
       // dígitos del teléfono); el card refleja la reservación MÁS RECIENTE
