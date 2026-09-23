@@ -14067,7 +14067,9 @@ async function __lodgifyLoadInner(force, opts) {
   // El usuario NUNCA ve el overlay/spinner si hay cache local disponible.
   // Incluso con force=true (ej. click "Refrescar") hidratamos primero desde
   // cache y luego seguimos con el fetch fresco al backend.
-  const LG_CACHE_KEY = 'lg_cache_v1';
+  const LG_CACHE_KEY = 'lg_cache_v2';
+  const _t = { start: performance.now() };
+  const _mark = (k) => { _t[k] = Math.round(performance.now() - _t.start); };
   const LG_CACHE_STALE_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
   let _servedFromLocal = false;
   try {
@@ -14094,24 +14096,23 @@ async function __lodgifyLoadInner(force, opts) {
     }
   } catch(_) {}
   try {
-    // FASE 1: filtro mes-en-curso. Solo se cargan reservas cuya estancia
-    // TOCA el mes actual (arrival<=fin_mes && departure>=inicio_mes) y Status
-    // Booked o Tentative. El historial completo por huésped se carga on-demand
-    // al expandir cada card (Fase 3).
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const lastDay = new Date(yyyy, now.getMonth() + 1, 0).getDate();
-    const fromIso = `${yyyy}-${mm}-01`;
-    const toIso   = `${yyyy}-${mm}-${String(lastDay).padStart(2,'0')}`;
-    // status filter lo hacemos client-side (soporta Booked+Tentative)
+    // Ventana: reservas cuya estancia toca los últimos 2 meses + todas las
+    // próximas. El backend la responde desde un snapshot en memoria. El
+    // historial completo por huésped se carga on-demand al expandir la card.
+    const d0 = new Date();
+    d0.setMonth(d0.getMonth() - 2);
+    const fromIso = `${d0.getFullYear()}-${String(d0.getMonth()+1).padStart(2,'0')}-${String(d0.getDate()).padStart(2,'0')}`;
+    const toIso = '2099-12-31';
     const url = `${BACKEND}/lodgify-list?from=${fromIso}&to=${toIso}`;
     LG_STATE.__monthRange = { from: fromIso, to: toIso };
     // Fase 2c: precarga KPIs pre-computados en paralelo con lodgify-list.
     // No bloqueamos si falla (el render tiene fallback).
     if (typeof huEnsurePerfilKpis_ === 'function') huEnsurePerfilKpis_().catch(()=>{});
+    _mark('cache_local');
     const res = await fetch(url, { cache:'no-store' });
+    _mark('respuesta');
     const data = await res.json();
+    _mark('json');
     if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     // Guarda un índice CRUDO (sin filtrar) de Lodgify Id → Status ANTES
     // de aplicar el filtro Booked/Tentative. Los sintéticos construidos
@@ -14184,6 +14185,7 @@ async function __lodgifyLoadInner(force, opts) {
         LineItems: Array.isArray(b.LineItems) ? b.LineItems : [],
       };
     });
+    _mark('normalizar');
     LG_STATE.loaded = true;
     LG_STATE.lastSync = data.last_synced_at || '';
     // Piggyback: registros de la hoja "check_out" indexados por prop|depto|salida
@@ -14215,11 +14217,15 @@ async function __lodgifyLoadInner(force, opts) {
     // Si el usuario ya seleccionó una card (ej. lodgifyLoad fue silencioso
     // detrás de un módulo ya visible), NO re-renderizamos — perdería su
     // selección. La data ya está en memoria; lo verá al cambiar de card.
+    _mark('guardar_local');
     if (window.LG_USER_INTERACTED) {
       console.info('[LG] skip re-render tras load: user interacted');
     } else {
       lodgifyRender();
     }
+    _mark('render');
+    window.LG_LAST_TIMING = { ..._t, desde_cache_local: _servedFromLocal, reservas: LG_STATE.bookings.length, snapshot: !!data.snapshot };
+    console.info('[LG timing ms]', window.LG_LAST_TIMING);
   } catch (e) {
     if (lbl) lbl.textContent = 'Error: ' + e.message;
     if (empty) { empty.textContent = '⚠ ' + e.message; empty.classList.remove('hidden'); }
