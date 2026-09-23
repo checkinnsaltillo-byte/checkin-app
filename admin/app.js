@@ -8767,6 +8767,13 @@ function switchModule(mod) {
       pushLoading('Cargando Breezeway…', 'Leyendo bitácora y sincronizando con API');
       try {
         if (typeof bzwInit === 'function') await bzwInit();
+        // Las tareas pudieron cargarse con el módulo oculto (desde Gestión de
+        // reservas) o venir de caché: pinta la lista ahora que es visible.
+        if (typeof BZW_ALL_TASKS !== 'undefined' && BZW_ALL_TASKS.length && !window.__bzwListFresh) {
+          bzwRebuildFilterOptions();
+          bzwApplyFilters();
+          window.__bzwListFresh = true;
+        }
       } catch (e) { console.warn('[BZW] init error:', e?.message || e); }
       try {
         if (typeof bzwSync === 'function') await bzwSync();
@@ -19591,6 +19598,7 @@ window.bzwRefreshAlerts = async function(opts) {
         if (cached && cached.ts && (Date.now() - cached.ts) < CACHE_TTL_MS && Array.isArray(cached.tasks)) {
           console.info('[BZW] cache hit — skip fetch (' + Math.round((Date.now()-cached.ts)/1000) + 's ago, ' + cached.tasks.length + ' tasks)');
           BZW_ALL_TASKS = cached.tasks;
+          window.__bzwListFresh = false;
           try { bzwRebuildHomolMap(); } catch(_){}
           try { bzwBuildTaskIndexes_(); } catch(_){}
           try { if (typeof bzwInjectSidebarChips === 'function') bzwInjectSidebarChips(); } catch(_){}
@@ -19711,8 +19719,15 @@ window.bzwRefreshAlerts = async function(opts) {
         </div>`;
       return;
     }
-    bzwRebuildFilterOptions();
-    bzwApplyFilters();
+    // Pintar la lista del módulo Breezeway cuesta ~1.2 s: solo si está
+    // visible. switchModule('breezeway') la pinta al abrirlo.
+    if (!document.getElementById('module-breezeway')?.classList.contains('hidden')) {
+      bzwRebuildFilterOptions();
+      bzwApplyFilters();
+      window.__bzwListFresh = true;
+    } else {
+      window.__bzwListFresh = false;
+    }
   } catch (e) {
     console.warn('[BZW] alerts error:', e);
     if (list) list.innerHTML = `
