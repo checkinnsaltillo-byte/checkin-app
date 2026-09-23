@@ -15861,9 +15861,11 @@ function lgBuildCardsView(list, cont) {
   // mismo shell de filtros + un placeholder en lugar de las cards. Antes
   // se reemplazaba todo el contenedor → los filtros desaparecían y el
   // usuario quedaba sin forma de re-seleccionar.
+  // Se pintan de 60 en 60 ("Ver más"): 200 tarjetas costaban ~750 ms.
+  const shown = Math.min(list.length, LG_STATE.cardsLimit || 60);
   const itemsHtml = !list.length
     ? '<div style="padding:60px 20px;text-align:center;color:#94a3b8;font-size:13px;font-style:italic">Sin reservaciones según los filtros.</div>'
-    : list.slice(0, 200).map(b => {
+    : list.slice(0, shown).map(b => {
     const idStr = esc(b.Id);
     let sidebarHeader = lgBuildDetailSidebarItem(b, ''); // sin selected → estilo base
     sidebarHeader = sidebarHeader.replace(
@@ -15897,9 +15899,16 @@ function lgBuildCardsView(list, cont) {
       <div class="lg-cards-list" style="display:block">
         ${itemsHtml}
       </div>
-      ${list.length > 200 ? `<div style="margin:14px 2px 8px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;font-size:11px;color:#9a3412;text-align:center"><b>+ ${list.length - 200}</b> reservaciones más no mostradas. Refina los filtros.</div>` : ''}
+      ${list.length > shown ? `<button type="button" onclick="lgCardsShowMore()" style="display:block;width:100%;margin:14px 0 8px;padding:10px 12px;background:#fff;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:800;color:#334155;cursor:pointer">Ver ${Math.min(60, list.length - shown)} más · mostrando ${shown} de ${list.length}</button>` : ''}
     </div>`;
 }
+
+window.lgCardsShowMore = function () {
+  LG_STATE.cardsLimit = (LG_STATE.cardsLimit || 60) + 60;
+  const y = window.scrollY;
+  lodgifyRender({ force: true });
+  window.scrollTo(0, y);
+};
 
 /** Contenido expandido de una card en vista Cards.
  *  Como el header colapsable ya muestra nombre + tier + KPIs (Noches/Visitas/
