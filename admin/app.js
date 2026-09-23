@@ -9793,7 +9793,9 @@ async function __huespedesLoadInner(forceRefetch) {
   try {
     if (!LG_STATE.__allBookingsById && !LG_STATE.__allBookingsFetching) {
       LG_STATE.__allBookingsFetching = true;
-      fetch(`${BACKEND}/lodgify-list`, { cache: 'no-store' })
+      // 13 MB: se difiere 8 s para no competir con la carga principal.
+      new Promise(r => setTimeout(r, 8000))
+        .then(() => fetch(`${BACKEND}/lodgify-list`, { cache: 'no-store' }))
         .then(r => r.json())
         .then(j => {
           if (j && j.ok && Array.isArray(j.bookings)) {
@@ -10042,8 +10044,14 @@ function huespedesClearFilters() {
 const HU_CLIENT_MULTI = { multiSel: {}, multiOpen: {} };
 const HU_CLIENT_MULTI_KEYS = ['regimen','requiere_factura','clasificacion'];
 
+// Memo por referencia de HU_STATE.rows: las opciones solo cambian cuando se
+// recargan las filas. Sin esto, huApplyClientMultiFilters recalculaba las
+// opciones por CADA fila → O(N²)–O(N³) y el navegador se congelaba.
+const _HU_OPTS_MEMO = { rows: null, byKey: {} };
 function huMultiGetOptions(key) {
   const rows = HU_STATE.rows || [];
+  if (_HU_OPTS_MEMO.rows !== rows) { _HU_OPTS_MEMO.rows = rows; _HU_OPTS_MEMO.byKey = {}; }
+  if (_HU_OPTS_MEMO.byKey[key]) return _HU_OPTS_MEMO.byKey[key];
   const set = new Set();
   if (key === 'regimen') {
     rows.forEach(r => {
@@ -10061,23 +10069,27 @@ function huMultiGetOptions(key) {
       if (t) set.add(t);
     });
   }
-  return Array.from(set).sort();
+  return (_HU_OPTS_MEMO.byKey[key] = Array.from(set).sort());
 }
 
+const _HU_CLASIF_MEMO = new WeakMap();
 function huRowClasificacion(r) {
+  if (r && typeof r === 'object' && _HU_CLASIF_MEMO.has(r)) return _HU_CLASIF_MEMO.get(r);
+  let out = '';
   // Preferir el KPI pre-computado si existe
   const pre = String(huValueFlexible(r, ['kpi_clasificacion','Clasificación','Clasificacion']) || '').trim();
-  if (pre) return pre;
+  if (pre) out = pre;
   // Fallback: computar en vivo con tier del huésped
-  try {
+  else try {
     if (typeof huComputeGuestStats === 'function' && typeof huGuestTier === 'function') {
       const stats = huComputeGuestStats(r, HU_STATE.rows);
       const score = (typeof huComputeLoyaltyScore === 'function') ? huComputeLoyaltyScore(stats) : 0;
       const tier  = huGuestTier(score, stats);
-      return tier && tier.label ? tier.label : '';
+      out = tier && tier.label ? tier.label : '';
     }
   } catch(_) {}
-  return '';
+  if (r && typeof r === 'object') _HU_CLASIF_MEMO.set(r, out);
+  return out;
 }
 
 function huMultiInit(key) {
@@ -10187,20 +10199,25 @@ const HU_CLIENT_MULTI_LABELS = {
 
 // Aplica los filtros multi-select client-side sobre un array de rows.
 function huApplyClientMultiFilters(rows) {
+  // Cada filtro solo aplica si NO están todas las opciones marcadas. Se
+  // decide una vez, fuera del loop por fila.
+  const regSet = HU_CLIENT_MULTI.multiSel.regimen;
+  const reqSet = HU_CLIENT_MULTI.multiSel.requiere_factura;
+  const claSet = HU_CLIENT_MULTI.multiSel.clasificacion;
+  const useReg = !!regSet && regSet.size !== huMultiGetOptions('regimen').length;
+  const useReq = !!reqSet && reqSet.size !== huMultiGetOptions('requiere_factura').length;
+  const useCla = !!claSet && claSet.size !== huMultiGetOptions('clasificacion').length;
+  if (!useReg && !useReq && !useCla) return rows || [];
   return (rows || []).filter(r => {
-    // Régimen: si el set no incluye todos, filtrar
-    const regSet = HU_CLIENT_MULTI.multiSel.regimen;
-    if (regSet && regSet.size !== huMultiGetOptions('regimen').length) {
+    if (useReg) {
       const v = String(huValueFlexible(r, ['Régimen fiscal','Regimen fiscal']) || '').trim();
       if (!regSet.has(v)) return false;
     }
-    const reqSet = HU_CLIENT_MULTI.multiSel.requiere_factura;
-    if (reqSet && reqSet.size !== huMultiGetOptions('requiere_factura').length) {
+    if (useReq) {
       const v = String(huValueFlexible(r, ['¿Requiere factura?','Requiere factura']) || '').trim();
       if (!reqSet.has(v)) return false;
     }
-    const claSet = HU_CLIENT_MULTI.multiSel.clasificacion;
-    if (claSet && claSet.size !== huMultiGetOptions('clasificacion').length) {
+    if (useCla) {
       const v = huRowClasificacion(r);
       if (!claSet.has(v)) return false;
     }
@@ -10871,6 +10888,9 @@ function huDedupeByPhone(rows) {
 
 /** Render principal del dashboard de huéspedes. */
 function huespedesRender() {
+  // El módulo oculto no se pinta: switchModule('huespedes') vuelve a llamar
+  // huespedesRender() al abrirlo. Evita trabajo pesado en otros módulos.
+  if (document.getElementById('module-huespedes')?.classList.contains('hidden')) return;
   const empty   = document.getElementById('hu-empty');
   const records = document.getElementById('hu-records-wrap');
   const calend  = document.getElementById('hu-calendar-wrap');
