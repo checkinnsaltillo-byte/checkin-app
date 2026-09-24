@@ -1822,31 +1822,79 @@ let BN_RAW    = [];
 let BN_BUDGET = [];
 let BN_TIPO   = 'PC';  // Default: Por clasificar → Todos (sub-tipos: PC_I/PC_E/PC_AC/PC_PA/PC_CA/PC_ARCH)
 
-// Set de rowNums de registros archivados (persistidos en localStorage por usuario)
+// Archivado persistido en la columna ARCHIVADO de la hoja BANCOS (rec._archivado).
+// Antes vivía solo en localStorage ('bn-archived-rows-v1'); esos se migran a la
+// hoja al cargar (bn_migrateLocalArchived_).
 const _BN_ARCH_KEY = 'bn-archived-rows-v1';
-window.BN_ARCHIVED = (() => {
-  try { return new Set(JSON.parse(localStorage.getItem(_BN_ARCH_KEY) || '[]')); }
-  catch(_) { return new Set(); }
-})();
-function bn_saveArchived() {
-  try { localStorage.setItem(_BN_ARCH_KEY, JSON.stringify(Array.from(window.BN_ARCHIVED))); } catch(_){}
+async function bn_saveArchivado_(rec) {
+  const resp = await fetch(`${BACKEND}/save-banco-clasificacion`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      rowNum: rec.rowNum,
+      archivado_edit: true,
+      archivado: rec._archivado === 'Sí' ? 'Sí' : '',
+      // Clasificación actual: si el Apps Script aún no conoce archivado_edit,
+      // la ruta general reescribe estos mismos valores en vez de borrarlos.
+      clasificacion: {
+        cuenta:          rec._cuenta          || '',
+        subcuenta:       rec._subcuenta       || '',
+        categoria_gasto: rec._categoria_gasto || '',
+        concepto:        rec._concepto        || '',
+        propiedad:       rec._propiedad       || '',
+        departamento:    rec._departamento    || '',
+        encargado:       rec._encargado       || '',
+        deducible:       rec._deducible       || 'No',
+        reembolso:       rec._reembolso       || 'No',
+        reembolso_a:     rec._reembolso_a     || '',
+        metodo_pago:     rec._metodo_pago     || '',
+        clasificado_por: currentUser || '',
+        duda:            rec._duda     || '',
+        validado:        rec._validado || '',
+      },
+    }),
+  });
+  const result = await resp.json();
+  if (!result.ok) throw new Error(result.error || 'Error al guardar');
+  // Apps Script sin la acción archivado_edit no devuelve 'archivado'.
+  if (!('archivado' in result)) throw new Error('Falta actualizar el Apps Script (acción archivado_edit).');
 }
-window.bn_toggleArchive = function(rowNum) {
+window.bn_toggleArchive = async function(rowNum) {
   const key = String(rowNum || '').trim();
-  if (!key) return;
-  if (window.BN_ARCHIVED.has(key)) {
-    window.BN_ARCHIVED.delete(key);
-  } else {
-    if (!confirm('¿Seguro que quieres archivar este registro? Se moverá a la sección "Archivados".')) return;
-    window.BN_ARCHIVED.add(key);
-  }
-  bn_saveArchived();
+  const rec = key && BN_RAW.find(r => String(r.rowNum) === key);
+  if (!rec) return;
+  const archivar = rec._archivado !== 'Sí';
+  if (archivar && !confirm('¿Seguro que quieres archivar este registro? Se moverá a la sección "Archivados".')) return;
+  rec._archivado = archivar ? 'Sí' : '';
   try { bn_render(); } catch (e) { console.warn('[BN] render tras archivar falló:', e && e.message); }
+  try {
+    await bn_saveArchivado_(rec);
+  } catch (e) {
+    rec._archivado = archivar ? '' : 'Sí';
+    try { bn_render(); } catch (_) {}
+    alert('No se pudo guardar en la hoja BANCOS:\n' + (e.message || e));
+  }
 };
 window.bn_isArchived = function(r) {
-  const rn = String(r && r.rowNum || '').trim();
-  return rn && window.BN_ARCHIVED.has(rn);
+  return !!r && r._archivado === 'Sí';
 };
+// Una sola vez: pasa a la hoja los archivados que solo estaban en este navegador.
+async function bn_migrateLocalArchived_() {
+  let keys = [];
+  try { keys = JSON.parse(localStorage.getItem(_BN_ARCH_KEY) || '[]'); } catch (_) {}
+  if (!Array.isArray(keys) || !keys.length) return;
+  const pending = keys.map(k => BN_RAW.find(r => String(r.rowNum) === String(k))).filter(r => r && r._archivado !== 'Sí');
+  // Se muestran como archivados de inmediato; la lista local solo se borra
+  // cuando TODOS quedaron guardados en la hoja.
+  // Se marcan de inmediato (antes del primer render del módulo).
+  pending.forEach(rec => { rec._archivado = 'Sí'; });
+  await Promise.resolve();
+  for (const rec of pending) {
+    try { await bn_saveArchivado_(rec); }
+    catch (e) { console.warn('[BN] migración de archivados pendiente:', e.message); return; }
+  }
+  try { localStorage.removeItem(_BN_ARCH_KEY); } catch (_) {}
+}
 let BN_LOADED = false;
 // Estado de filtros (multi-select). Cada campo es un array; vacío = "Todos".
 const bn_st   = {
@@ -2110,6 +2158,7 @@ async function bn_loadData() {
       rec._duda            = rec.DUDA      || '';
       rec._duda_nota       = rec.DUDA_NOTA || '';
       rec._validado        = rec.VALIDADO  || '';
+      rec._archivado       = /^s[ií]$/i.test(String(rec.ARCHIVADO || '').trim()) ? 'Sí' : '';
       rec._comentarios     = rec.COMENTARIOS || rec.Comentarios || '';
       // Normaliza "sí/si/SI/Sí" → 'Sí' siempre; cualquier otra cosa → ''
       const _trRaw = rec.Ticket_relacionado || rec.TICKET_RELACIONADO || rec.ticket_relacionado || '';
@@ -2148,6 +2197,7 @@ async function bn_loadData() {
     });
     BN_BUDGET=data.budget||[];
     BN_LOADED=true; bn_resetBCache();
+    bn_migrateLocalArchived_().catch(() => {});
     bn_buildBnCatalog();
     bn_activateCatalog(); // Usa el catálogo de Presupuesto_sys mientras el módulo está activo
     if (lbl) {

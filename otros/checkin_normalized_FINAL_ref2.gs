@@ -8575,6 +8575,7 @@ function getBancosData_(ss) {
   const iDud    = pickIdx(hB, ["DUDA"]);
   const iDudN   = pickIdx(hB, ["DUDA_NOTA", "DUDA NOTA", "NOTA_DUDA"]);
   const iVal    = pickIdx(hB, ["VALIDADO"]);
+  const iArch   = pickIdx(hB, ["ARCHIVADO"]);
   const iComB   = pickIdx(hB, ["COMENTARIOS", "COMENTARIO"]);
   const iCuentaA = pickIdx(hB, ["CUENTA_AUTO", "CUENTA AUTO"]);
   const iSubA    = pickIdx(hB, ["SUBCUENTA_AUTO", "SUBCUENTA AUTO"]);
@@ -8622,6 +8623,7 @@ function getBancosData_(ss) {
         DUDA:              iDud    >= 0 ? String(r[iDud]).trim()    : "",
         DUDA_NOTA:         iDudN   >= 0 ? String(r[iDudN]).trim()   : "",
         VALIDADO:          iVal    >= 0 ? String(r[iVal]).trim()    : "",
+        ARCHIVADO:         iArch   >= 0 ? String(r[iArch]).trim()   : "",
         COMENTARIOS:       iComB   >= 0 ? String(r[iComB]).trim()   : "",
         CUENTA_auto:       iCuentaA>= 0 ? String(r[iCuentaA]).trim(): "",
         SUBCUENTA_auto:    iSubA   >= 0 ? String(r[iSubA]).trim()   : "",
@@ -8771,6 +8773,12 @@ function saveBancoClasificacion_(ss, data) {
     const valCol = getOrCreateCol("VALIDADO");
     if (valCol) shB.getRange(rowNum, valCol).setValue(data.validado || "");
     return { ok: true, rowNum: rowNum, validado: data.validado };
+  }
+
+  if (data.archivado_edit) {
+    const arcCol = getOrCreateCol("ARCHIVADO");
+    if (arcCol) shB.getRange(rowNum, arcCol).setValue(data.archivado === "Sí" ? "Sí" : "");
+    return { ok: true, rowNum: rowNum, archivado: data.archivado === "Sí" ? "Sí" : "" };
   }
 
   if (data.fecha_edit) {
