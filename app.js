@@ -1826,7 +1826,8 @@ let BN_TIPO   = 'PC';  // Default: Por clasificar → Todos (sub-tipos: PC_I/PC_
 // Antes vivía solo en localStorage ('bn-archived-rows-v1'); esos se migran a la
 // hoja al cargar (bn_migrateLocalArchived_).
 const _BN_ARCH_KEY = 'bn-archived-rows-v1';
-async function bn_saveArchivado_(rec) {
+async function bn_saveArchivado_(rec, _intento) {
+  const intento = _intento || 1;
   const resp = await fetch(`${BACKEND}/save-banco-clasificacion`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1856,8 +1857,16 @@ async function bn_saveArchivado_(rec) {
   });
   const result = await resp.json();
   if (!result.ok) throw new Error(result.error || 'Error al guardar');
-  // Apps Script sin la acción archivado_edit no devuelve 'archivado'.
-  if (!('archivado' in result)) throw new Error('Falta actualizar el Apps Script (acción archivado_edit).');
+  // Apps Script sin la acción archivado_edit no devuelve 'archivado'. Justo
+  // después de implementar una versión nueva, Google puede seguir sirviendo
+  // la anterior unos minutos: se reintenta antes de reportar error.
+  if (!('archivado' in result)) {
+    if (intento < 3) {
+      await new Promise(r => setTimeout(r, 2500 * intento));
+      return bn_saveArchivado_(rec, intento + 1);
+    }
+    throw new Error('Apps Script respondió con una versión sin la acción archivado_edit. Verifica que la implementación activa sea la última versión.');
+  }
 }
 window.bn_toggleArchive = async function(rowNum) {
   const key = String(rowNum || '').trim();
