@@ -14880,6 +14880,34 @@ function lgRebuildFilterOptions() {
  *  reutilizar todo el render del sidebar/detail SIN duplicar código.
  *  Si la fila tiene "Lodgify Id" y existe el booking real en LG_STATE.bookings,
  *  hidrata con sus campos (LineItems, Gross real, etc.). */
+// Índice teléfono(10)|llegada|salida → reserva Lodgify. Se reconstruye cuando
+// cambia LG_STATE.bookings. Si dos reservas comparten la clave se descarta
+// (ambigua) para no ligar la equivocada.
+let _LG_PHONE_DATES_IDX = { src: null, map: null };
+function lgFindBookingByPhoneDates_(phone, arrival, departure) {
+  const tail = (v) => { const s = String(v || '').replace(/\D/g, ''); return s.length >= 10 ? s.slice(-10) : ''; };
+  const iso = (v) => {
+    const s = String(v || '').trim();
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return `${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+    return '';
+  };
+  const t = tail(phone), a = iso(arrival), d = iso(departure);
+  if (!t || !a || !d) return null;
+  const src = LG_STATE.bookings || [];
+  if (_LG_PHONE_DATES_IDX.src !== src) {
+    const map = new Map();
+    for (const b of src) {
+      const k = `${tail(b.GuestPhone)}|${iso(b.DateArrival)}|${iso(b.DateDeparture)}`;
+      if (k.startsWith('|')) continue;
+      map.set(k, map.has(k) ? 'AMBIGUA' : b);
+    }
+    _LG_PHONE_DATES_IDX = { src, map };
+  }
+  const hit = _LG_PHONE_DATES_IDX.map.get(`${t}|${a}|${d}`);
+  return hit && hit !== 'AMBIGUA' ? hit : null;
+}
+
 function huRowToSyntheticBooking(r) {
   if (!r) return null;
   const phone = String(r['Cel/Whatsapp (principal)'] || '');
@@ -14909,6 +14937,10 @@ function huRowToSyntheticBooking(r) {
     const raw = LG_STATE.__allBookingsById.get(lodId);
     if (raw) realLg = raw;
   }
+  // Fila sin Lodgify Id (p. ej. check-in hecho sin la liga de la guía):
+  // se liga con la reserva de Lodgify con mismo teléfono (10 dígitos) y
+  // exactamente las mismas fechas de llegada y salida.
+  if (!realLg && !lodId) realLg = lgFindBookingByPhoneDates_(phone, arrivalRaw, departureRaw);
   const arrival   = realLg?.DateArrival   || toMMDD(arrivalRaw);
   const departure = realLg?.DateDeparture || toMMDD(departureRaw);
   // Noches: si hay Lodgify, usarlo; si no, calcular de las fechas
@@ -14967,7 +14999,7 @@ function huRowToSyntheticBooking(r) {
     Currency: realLg?.Currency || 'MXN',
     LineItems: realLg?.LineItems || [],
     ConfirmationCode: realLg?.ConfirmationCode || '',
-    LodgifyId: lodId,
+    LodgifyId: lodId || (realLg ? String(realLg.Id || '') : ''),
     // Referencias inversas para el render del detail:
     __reservacion: r,
     __lodgify: realLg,
