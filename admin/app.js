@@ -1834,10 +1834,14 @@ function bn_saveArchived() {
 window.bn_toggleArchive = function(rowNum) {
   const key = String(rowNum || '').trim();
   if (!key) return;
-  if (window.BN_ARCHIVED.has(key)) window.BN_ARCHIVED.delete(key);
-  else window.BN_ARCHIVED.add(key);
+  if (window.BN_ARCHIVED.has(key)) {
+    window.BN_ARCHIVED.delete(key);
+  } else {
+    if (!confirm('¿Seguro que quieres archivar este registro? Se moverá a la sección "Archivados".')) return;
+    window.BN_ARCHIVED.add(key);
+  }
   bn_saveArchived();
-  try { if (typeof bnRender === 'function') bnRender(); } catch(_){}
+  try { bn_render(); } catch (e) { console.warn('[BN] render tras archivar falló:', e && e.message); }
 };
 window.bn_isArchived = function(r) {
   const rn = String(r && r.rowNum || '').trim();
@@ -3766,8 +3770,8 @@ function bn_recsForTipo(tipo) {
     const revisado = r._validado === 'Sí';
     const archived = window.bn_isArchived && window.bn_isArchived(r);
     if (isPC) {
-      // Sub-tab Archivados: solo muestra los archivados no validados
-      if (isArchTab) { return !revisado && archived; }
+      // Sub-tab Archivados: todos los archivados (validados o no)
+      if (isArchTab) { return archived; }
       // Resto de sub-tabs de "Por clasificar": excluye archivados y validados
       if (revisado) return false;
       if (archived) return false;
@@ -3780,6 +3784,7 @@ function bn_recsForTipo(tipo) {
     }
     if (['T','E','I','AC','PA','CA'].includes(tipo)) {
       if (!revisado) return false;
+      if (archived) return false;
     }
     if (tipo === 'E'  && !t.includes('egr'))     return false;
     if (tipo === 'I'  && !t.includes('ing'))     return false;
