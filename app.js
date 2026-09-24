@@ -1866,12 +1866,36 @@ window.bn_toggleArchive = async function(rowNum) {
   const archivar = rec._archivado !== 'Sí';
   if (archivar && !confirm('¿Seguro que quieres archivar este registro? Se moverá a la sección "Archivados".')) return;
   rec._archivado = archivar ? 'Sí' : '';
-  try { bn_render(); } catch (e) { console.warn('[BN] render tras archivar falló:', e && e.message); }
+  // La tarjeta sale de la vista actual en su lugar (sin repintar ni volver a
+  // la página 1). Las tarjetas se identifican por posición en BN_CUR_RECS,
+  // así que se oculta en vez de quitarla de la lista.
+  const idx = BN_CUR_RECS.indexOf(rec);
+  const card = idx >= 0 ? document.getElementById(`bn-card-${idx}`) : null;
+  const leavesView = !bn_recsForTipo(BN_TIPO).includes(rec);
+  const restyle = (on) => {
+    const b = card && card.querySelector('button[onclick*="bn_toggleArchive"]');
+    if (!b) return;
+    b.style.borderColor = on ? '#dc2626' : '#e5e7eb';
+    b.style.background  = on ? '#dc2626' : '#f9fafb';
+    b.style.color       = on ? '#fff'    : '#d1d5db';
+    b.title = on ? 'Archivado — clic para des-archivar' : 'Archivar (pasa a Archivados)';
+  };
+  if (card && leavesView) {
+    card.style.transition = 'opacity .2s ease, max-height .25s ease, margin .25s ease';
+    card.style.overflow = 'hidden';
+    card.style.maxHeight = card.offsetHeight + 'px';
+    requestAnimationFrame(() => { card.style.opacity = '0'; card.style.maxHeight = '0px'; card.style.marginBottom = '0px'; });
+    setTimeout(() => { card.style.display = 'none'; }, 260);
+  } else if (card) {
+    restyle(archivar);
+  } else {
+    try { bn_render(); } catch (_) {}
+  }
   try {
     await bn_saveArchivado_(rec);
   } catch (e) {
     rec._archivado = archivar ? '' : 'Sí';
-    try { bn_render(); } catch (_) {}
+    if (card) { card.style.display = ''; card.style.opacity = '1'; card.style.maxHeight = ''; card.style.marginBottom = ''; restyle(!archivar); }
     alert('No se pudo guardar en la hoja BANCOS:\n' + (e.message || e));
   }
 };
@@ -6012,13 +6036,13 @@ function bn_createCard(rec, idx) {
               data-checked="${isValidado}"
               title="${isValidado ? 'Validado — disponible en Registros contables' : 'Marcar como Validado (sale de Por clasificar)'}"
               style="position:absolute;top:40px;right:8px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid ${isValidado ? '#16a34a' : '#e5e7eb'};background:${isValidado ? '#16a34a' : '#f9fafb'};color:${isValidado ? '#fff' : '#d1d5db'};font-size:14px;font-weight:900;line-height:1;cursor:pointer;z-index:3;padding:0">✓</button>
-      <!-- Botón Archivar (🗄) debajo del Validado. Movido a la sub-tab 'Archivados' -->
+      <!-- Botón Archivar (✕) debajo del Validado. Activo = rojo; va a la sub-tab 'Archivados' -->
       ${(function(){
         const isArchived = window.bn_isArchived && window.bn_isArchived(rec);
         return `<button type="button"
             onclick="event.stopPropagation();bn_toggleArchive('${esc(String(rec.rowNum||''))}')"
-            title="${isArchived ? 'Des-archivar (regresa a Por clasificar)' : 'Archivar (movida a sub-tab Archivados)'}"
-            style="position:absolute;top:72px;right:8px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid ${isArchived ? '#0284c7' : '#e5e7eb'};background:${isArchived ? '#0284c7' : '#f9fafb'};color:${isArchived ? '#fff' : '#d1d5db'};font-size:13px;line-height:1;cursor:pointer;z-index:3;padding:0">🗄</button>`;
+            title="${isArchived ? 'Archivado — clic para des-archivar' : 'Archivar (pasa a Archivados)'}"
+            style="position:absolute;top:72px;right:8px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid ${isArchived ? '#dc2626' : '#e5e7eb'};background:${isArchived ? '#dc2626' : '#f9fafb'};color:${isArchived ? '#fff' : '#d1d5db'};font-size:14px;font-weight:900;line-height:1;cursor:pointer;z-index:3;padding:0">✕</button>`;
       })()}
       <div class="ticket-card-header ${clsCls}" id="bn-hdr-${idx}" onclick="bn_toggleBnCard(${idx})" style="padding-right:46px">
         <div class="ticket-info">
