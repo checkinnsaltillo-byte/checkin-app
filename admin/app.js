@@ -4343,9 +4343,17 @@ function bn_filteredRecs(tipo) {
     const t = bn_canon(r._tipo || '');
 
     const isPCTab = bn_isPC(tipo);
+    // Archivados: la sub-tab muestra solo archivados (validados o no); Por
+    // clasificar y Registros contables los excluyen.
+    const archived = r._archivado === 'Sí';
+    if (tipo === 'PC_ARCH') {
+      if (!archived) return false;
+    } else if (archived && (isPCTab || ['T','E','I','AC','PA','CA'].includes(tipo))) {
+      return false;
+    }
     // Revisado: PC/PC_X muestra solo NO revisados; T/E/I/AC/PA/CA solo revisados.
     // Bypass cuando se renderizan Indicadores (vista independiente).
-    if (!BN_BYPASS_REVISADO) {
+    if (!BN_BYPASS_REVISADO && tipo !== 'PC_ARCH') {
       const revisado = r._validado === 'Sí';
       if (isPCTab) {
         if (revisado) return false;
