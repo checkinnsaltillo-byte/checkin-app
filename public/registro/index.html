@@ -7711,6 +7711,7 @@ async function detectExistingGuestByPhone(){
     if (!perfilRow && !reservasList.length) {
       resetAutofillToNewMode();
       revealExpressFormBody();
+      if (window.WIZ_REQUIRE_RESERVA && !window.WIZ_SELECTED_RESERVA) window.wizPedirCodigo();
       return;
     }
     const perfilNombre = perfilRow ? String(perfilRow["Nombre del huésped"] || "").trim() : "";
@@ -7771,6 +7772,8 @@ async function detectExistingGuestByPhone(){
       `<span class="auto-detected-badge">${(window.currentLang === "en") ? "Previous guest found" : "Huésped encontrado"}</span><div>${(window.currentLang === "en") ? "The available fields were completed automatically for" : "Se completaron automáticamente los campos disponibles de"} <strong>${String(nombre || "").trim() || ((window.currentLang === "en") ? "this guest" : "este huésped")}</strong>.</div>`
     );
     revealExpressFormBody();
+    // Perfil conocido pero sin reserva con este celular: igual se exige código.
+    if (!reservasList.length && window.WIZ_REQUIRE_RESERVA && !window.WIZ_SELECTED_RESERVA) window.wizPedirCodigo();
   } catch (err) {
     if (lookupId !== guestLookupInFlight) return;
     setGuestAutofillMessage("error", ((window.currentLang === "en") ? "Could not verify previous records: " : "No se pudieron verificar registros previos: ") + err.message);
@@ -8092,8 +8095,36 @@ window.WIZ_STEPS = {
 window.WIZ_CURRENT = 1;
 window.WIZ_IDENTIFIED = false;  // true tras encontrar reserva por cel o código
 
+// Opción A: el huésped no puede avanzar ni enviar sin una reserva identificada
+// (por celular o código). Exento cuando el admin abre el formulario (?admin=1).
+window.WIZ_REQUIRE_RESERVA = !/[?&]admin=1(&|$)/.test(location.search || '');
+window.wizHasReserva = function() {
+  return !!(window.WIZ_SELECTED_RESERVA && window.WIZ_IDENTIFIED);
+};
+window.wizSelectedLodgifyId = function() {
+  const r = window.WIZ_SELECTED_RESERVA || {};
+  for (const c of [r.LodgifyId, r['Lodgify Id'], r.id_lodgify, r.Id]) {
+    const s = String(c == null ? '' : c).trim();
+    if (/^\d{6,12}$/.test(s)) return s;
+  }
+  return '';
+};
+window.wizPedirCodigo = function() {
+  const en = window.currentLang === 'en';
+  try { sectionLookupSetMode('code'); } catch(_) {}
+  setGuestAutofillMessage('error', en
+    ? '<strong>We could not find your reservation with this phone number.</strong><div>Enter your confirmation code to continue. On Airbnb it is in <em>Trips → your reservation → Show listing / Reservation details</em> (e.g. <strong>HMC9QRDTWR</strong>).</div>'
+    : '<strong>No encontramos tu reservación con este número de celular.</strong><div>Ingresa tu <strong>código de confirmación</strong> para continuar. En Airbnb lo encuentras en <em>Viajes → tu reservación → Detalles de la reservación</em> (ej. <strong>HMC9QRDTWR</strong>).</div>');
+  setTimeout(() => { try { document.getElementById('confirmation_code_input')?.focus(); } catch(_) {} }, 50);
+};
+
 window.wizGoTo = function(n) {
   n = Math.max(1, Math.min(4, Number(n) || 1));
+  if (n > 1 && window.WIZ_REQUIRE_RESERVA && !window.WIZ_EDIT_MODE && !window.wizHasReserva()) {
+    n = 1;
+    if (window.WIZ_CURRENT && window.WIZ_CURRENT !== 1) window.WIZ_CURRENT = 1;
+    try { window.wizPedirCodigo(); } catch(_) {}
+  }
   window.WIZ_CURRENT = n;
   // Muestra/oculta secciones
   Object.values(WIZ_STEPS).flat().forEach(id => {
@@ -8332,6 +8363,9 @@ async function detectExistingGuestByConfirmationCode() {
       try {
         const _fromReserva = (r) => ({
           Id: r["ID"] || "",
+          // Si viene de Reservaciones trae "Lodgify Id"; si viene de
+          // Reservas_Lodgify (fallback), "ID" ya es el Id numérico de Lodgify.
+          LodgifyId: String(r["Lodgify Id"] || (/^\d{6,12}$/.test(String(r["ID"] || "").trim()) ? r["ID"] : "") || "").trim(),
           Source: r["Medio de reservación"] || "",
           ConfirmationCode: r["Código de confirmación"] || raw,
           GuestName: r["Nombre de la persona que hizo la reservación"] || "",
@@ -9298,6 +9332,13 @@ document.getElementById("form").addEventListener("submit", async function(e){
     return;
   }
 
+  // Opción A: nunca se guarda un check-in sin una reserva identificada.
+  if (window.WIZ_REQUIRE_RESERVA && !window.WIZ_EDIT_MODE && !window.wizHasReserva()) {
+    try { wizGoTo(1); } catch(_) {}
+    try { window.wizPedirCodigo(); } catch(_) {}
+    return;
+  }
+
   const f = new FormData(this);
 
   validarArchivosAntesDeEnviar();
@@ -9329,6 +9370,10 @@ document.getElementById("form").addEventListener("submit", async function(e){
 
   const payload = {
     action: "submit_form",
+    // Reserva elegida: Apps Script guarda en SU fila (por Lodgify Id) aunque
+    // esa fila no tenga celular, y deja el Lodgify Id en la fila.
+    lodgify_id: (typeof window.wizSelectedLodgifyId === 'function') ? window.wizSelectedLodgifyId() : "",
+    codigo_confirmacion: String((window.WIZ_SELECTED_RESERVA && window.WIZ_SELECTED_RESERVA.ConfirmationCode) || "").trim(),
     tipo_registro: f.get("tipo_registro"),
     medio: f.get("medio"),
     nombre: f.get("nombre"),

@@ -603,8 +603,21 @@ function insertReservacion_(data, cel, idVehiculo) {
   // en esa fila en lugar de insertar otra. Se aplica tanto si la fila ya
   // tiene Lodgify Id (auto-propagada) como si NO lo tiene (manual previo
   // del mismo huésped) — en ambos casos es la misma reserva.
+  // PRIMERO por Lodgify Id de la reserva que el huésped eligió en el
+  // formulario: la fila creada por la sincronización puede no tener celular
+  // (Airbnb aún no lo compartía) y el match por teléfono no la encontraba.
+  const lodgifyIdForm = String(safe_(data.lodgify_id)).replace(/\D/g, "");
+  const codigoForm = safe_(data.codigo_confirmacion).trim();
+  if (lodgifyIdForm) {
+    const rowByLid = findReservacionByLodgifyId_(sheet, headers, lodgifyIdForm);
+    if (rowByLid) {
+      fillReservacionIdentityIfEmpty_(sheet, headers, rowByLid.row, cel, data, lodgifyIdForm, codigoForm);
+      return updateReservacionWithFormData_(sheet, headers, rowByLid.row, rowByLid.id, data, cel, idVehiculo, now, ingresoDate);
+    }
+  }
   const existingRow = findReservacionByPhoneArrival_(sheet, headers, cel, safe_(data.ingreso));
   if (existingRow) {
+    fillReservacionIdentityIfEmpty_(sheet, headers, existingRow.row, cel, data, lodgifyIdForm, codigoForm);
     return updateReservacionWithFormData_(sheet, headers, existingRow.row, existingRow.id, data, cel, idVehiculo, now, ingresoDate);
   }
 
@@ -642,12 +655,58 @@ function insertReservacion_(data, cel, idVehiculo) {
   // WhatsApp opt-in + Número adicional (del formulario de check-in).
   m["Recibir WhatsApp"] = (data && data.wa_notify_optin === false) ? "No" : "Sí";
   m["Número adicional WhatsApp"] = safe_(data.numero_adicional_wa);
+  if (lodgifyIdForm) m["Lodgify Id"] = lodgifyIdForm;
+  if (codigoForm) m["Código de confirmación"] = codigoForm;
 
   const rowNumber = appendRow_(sheet, headers, m);
   // Si hay Número adicional WhatsApp: upsert WA_Config con recipients para que
   // aparezca en "Números adicionales" del modal WhatsApp (admin).
   waRegistroSyncRecipients_(sheet, headers, rowNumber, data);
   return { row_number: rowNumber, record_id: recordId };
+}
+
+/** Busca la fila de Reservaciones con ese Lodgify Id comparando solo dígitos
+ *  (la celda puede ser número, texto o tener formato). Devuelve { row, id }. */
+function findReservacionByLodgifyId_(sheet, headers, lodgifyId) {
+  const idxLod = headers.indexOf("Lodgify Id");
+  const idxId  = headers.indexOf("ID");
+  const target = String(lodgifyId || "").replace(/\D/g, "");
+  const lastRow = sheet.getLastRow();
+  if (idxLod < 0 || !target || lastRow < 2) return null;
+  const vals = sheet.getRange(2, idxLod + 1, lastRow - 1, 1).getValues();
+  for (let i = vals.length - 1; i >= 0; i--) {
+    if (String(vals[i][0] == null ? "" : vals[i][0]).replace(/\D/g, "") === target) {
+      const row = i + 2;
+      const id = idxId >= 0 ? String(sheet.getRange(row, idxId + 1).getValue() || "") : "";
+      return { row: row, id: id };
+    }
+  }
+  return null;
+}
+
+/** En la fila existente completa SOLO los datos de identidad que estén vacíos
+ *  (celular, propiedad, departamento, fechas, Lodgify Id, código). Nunca
+ *  sobrescribe un valor existente. */
+function fillReservacionIdentityIfEmpty_(sheet, headers, row, cel, data, lodgifyId, codigo) {
+  const fill = {
+    "Cel/Whatsapp (principal)": cel,
+    "Propiedad": resolveOtherValue_(data.propiedad, data.propiedad_otra, ["Otra","Other"]),
+    "# Departamento": safe_(data.depto),
+    "Fecha de ingreso": safe_(data.ingreso),
+    "Fecha de salida": safe_(data.salida),
+    "Nombre de la persona que hizo la reservación": safe_(data.nombre),
+    "Lodgify Id": lodgifyId || "",
+    "Código de confirmación": codigo || "",
+  };
+  Object.keys(fill).forEach(function(k) {
+    const v = fill[k];
+    if (v === "" || v == null) return;
+    const idx = headers.indexOf(k);
+    if (idx < 0) return;
+    const cell = sheet.getRange(row, idx + 1);
+    const cur = cell.getValue();
+    if (cur === "" || cur == null || String(cur).trim() === "") cell.setValue(v);
+  });
 }
 
 /** Busca una fila en Reservaciones que matchee phone(últimos 10 dígitos) +

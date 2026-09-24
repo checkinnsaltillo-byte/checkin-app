@@ -30950,7 +30950,7 @@ window.lgOpenManualRegistro = function () {
   const iframe = document.getElementById('lg-manual-iframe');
   if (!back || !panel || !iframe) return;
   if (iframe.src === 'about:blank' || !iframe.src.includes('check-inn.mx')) {
-    iframe.src = 'https://www.check-inn.mx/public/registro/#express';
+    iframe.src = 'https://www.check-inn.mx/public/registro/?admin=1#express';
   }
   back.classList.remove('hidden');
   panel.classList.remove('hidden');
