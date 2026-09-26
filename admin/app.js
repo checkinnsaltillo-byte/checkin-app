@@ -13972,14 +13972,53 @@ async function dispLoadDispositivos() {
   }
 }
 
+// El catálogo (64 filas) se guarda en localStorage: al abrir cualquier módulo
+// queda disponible al instante y se refresca en segundo plano una vez por
+// carga de página. Llamadas simultáneas comparten la misma descarga (antes
+// regresaban de inmediato sin datos y el Dashboard pintaba "No hay catálogo").
+const ALOJ_LOCAL_KEY = 'aloj_cache_v1';
 async function lgLoadAlojamientos() {
-  if (ALOJ_STATE.loaded || ALOJ_STATE.loading) return;
+  if (ALOJ_STATE._promise) return ALOJ_STATE._promise;
+  if (ALOJ_STATE.loaded && ALOJ_STATE._refreshedThisPage) return;
+  let servedLocal = false;
+  if (!ALOJ_STATE.loaded) {
+    try {
+      const c = JSON.parse(localStorage.getItem(ALOJ_LOCAL_KEY) || 'null');
+      if (c && Array.isArray(c.rows) && c.rows.length) { _alojIndexRows(c.rows); servedLocal = true; }
+    } catch (_) {}
+  }
   ALOJ_STATE.loading = true;
+  ALOJ_STATE._promise = _alojFetchAndIndex().finally(() => {
+    ALOJ_STATE.loading = false;
+    ALOJ_STATE._promise = null;
+    ALOJ_STATE._refreshedThisPage = true;
+  });
+  if (servedLocal) return;           // datos ya usables; el refresco sigue solo
+  return ALOJ_STATE._promise;
+}
+
+async function _alojFetchAndIndex() {
   try {
     const res = await fetch(`${BACKEND}/alojamientos-list`, { cache: 'no-store' });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'fetch failed');
-    ALOJ_STATE.rows = data.rows || [];
+    _alojIndexRows(data.rows || []);
+    try { localStorage.setItem(ALOJ_LOCAL_KEY, JSON.stringify({ ts: Date.now(), rows: ALOJ_STATE.rows })); } catch (_) {}
+    // Rebuild filter options now that Propiedad can be homologated to
+    // "José Cárdenas - #3" via the catalog.
+    try {
+      if (typeof lgRebuildFilterOptions === 'function') lgRebuildFilterOptions();
+      if (typeof lodgifyRender === 'function' && LG_STATE.loaded) lodgifyRender();
+      if (!document.getElementById('module-ocupacion')?.classList.contains('hidden') && typeof ocupRender === 'function') ocupRender();
+    } catch (e) { /* silent */ }
+  } catch (e) {
+    console.warn('[ALOJ] no cargó:', e.message);
+  }
+}
+
+function _alojIndexRows(rows) {
+  {
+    ALOJ_STATE.rows = rows || [];
     ALOJ_STATE.byHouseId.clear();
     ALOJ_STATE.byHouseName.clear();
     ALOJ_STATE.byPropDepto.clear();
@@ -14008,19 +14047,7 @@ async function lgLoadAlojamientos() {
         if (dev) ALOJ_STATE.byDeviceName.set(dev, r);
       }
     }
-    console.info(`[ALOJ] Device_name col: ${devColKey || 'NO ENCONTRADA'} · ${ALOJ_STATE.byDeviceName.size} mapeos`);
     ALOJ_STATE.loaded = true;
-    console.info(`[ALOJ] catálogo: ${ALOJ_STATE.rows.length} alojamientos`);
-    // Rebuild filter options now that Propiedad can be homologated to
-    // "José Cárdenas - #3" via the catalog.
-    try {
-      if (typeof lgRebuildFilterOptions === 'function') lgRebuildFilterOptions();
-      if (typeof lodgifyRender === 'function' && LG_STATE.loaded) lodgifyRender();
-    } catch (e) { /* silent */ }
-  } catch (e) {
-    console.warn('[ALOJ] no cargó:', e.message);
-  } finally {
-    ALOJ_STATE.loading = false;
   }
 }
 
@@ -25660,11 +25687,19 @@ async function ocupInit() {
   ocupShowLoading();
   // Asegura datos cargados (silencioso si ya están)
   try {
-    if (typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded && !ALOJ_STATE.loading) {
+    // Si ya hay una descarga en curso, lgLoadAlojamientos la espera (antes se
+    // saltaba y el Dashboard pintaba "No hay catálogo de alojamientos").
+    if (typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded) {
       if (typeof lgLoadAlojamientos === 'function') await lgLoadAlojamientos();
     }
-    if (typeof LG_STATE !== 'undefined' && !LG_STATE.loaded && !LG_STATE.loading) {
-      if (typeof lodgifyLoad === 'function') await lodgifyLoad(true, { silent: true });
+    if (typeof LG_STATE !== 'undefined' && !LG_STATE.loaded) {
+      if (LG_STATE.loading) {
+        // Otra carga ya está en curso (p. ej. desde Gestión de reservas).
+        const t0 = Date.now();
+        while (LG_STATE.loading && Date.now() - t0 < 30000) await new Promise(r => setTimeout(r, 200));
+      } else if (typeof lodgifyLoad === 'function') {
+        await lodgifyLoad(true, { silent: true });
+      }
     }
   } catch (e) {
     console.warn('[OCUP] load error:', e?.message || e);
@@ -32671,7 +32706,7 @@ async function guiasInit() {
 }
 
 async function guiasLoad(force) {
-  if (force) { ALOJ_STATE.loaded = false; ALOJ_STATE.loading = false; await lgLoadAlojamientos(); }
+  if (force) { await (ALOJ_STATE._promise || Promise.resolve()); await _alojFetchAndIndex(); }
   guiasRenderSidebar(); guiasRenderContent();
 }
 
