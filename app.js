@@ -26571,17 +26571,43 @@ function ocupIsConfirmed(b) {
 // - Revenue = sum(Gross × nochesEnEsteMes / nochesTotalesDeLaReserva)
 //   (asignación proporcional cuando la estancia cruza varios meses).
 // Solo reservas con status "Booked" (confirmadas).
+// Índice por alojamiento con fechas ya convertidas (se reconstruye solo si
+// cambia la lista) + memoria de resultados por (alojamiento, mes, filtro).
+// Antes cada celda recorría las ~7,500 reservas: Indicadores tardaba ~2.4 s.
+let _OCUP_IDX = { src: null, map: new Map(), memo: new Map() };
+function _ocupIdx() {
+  const src = ocupBookings();
+  if (_OCUP_IDX.src !== src) {
+    const map = new Map();
+    for (const b of src) {
+      const arr = ocupParseDate(b.DateArrival), dep = ocupParseDate(b.DateDeparture);
+      if (!arr || !dep) continue;
+      const k = String(b.HouseId || '');
+      let l = map.get(k); if (!l) map.set(k, l = []);
+      l.push({ b, arr, dep });
+    }
+    _OCUP_IDX = { src, map, memo: new Map() };
+  }
+  return _OCUP_IDX;
+}
+function _ocupFilterSig() {
+  const v = OCUP_STATE.view;
+  let est = null;
+  if (v === 'indicadores') est = OCUP_STATE.filters && OCUP_STATE.filters.estados;
+  else if (v === 'graficas') est = OCUP_STATE.chart && OCUP_STATE.chart.estados;
+  return v + '|' + (est && est.size ? [...est].sort().join(',') : 'booked');
+}
+
 function ocupNightsForAloj(houseId, y, m) {
-  const bookings = ocupBookings();
+  const idx = _ocupIdx();
+  const memoKey = `n|${houseId}|${y}|${m}|${_ocupFilterSig()}`;
+  if (idx.memo.has(memoKey)) return idx.memo.get(memoKey);
   const monthStart = new Date(y, m, 1);
   const monthEnd = new Date(y, m + 1, 1);
   let occupied = 0, revenue = 0, currency = '';
-  bookings.forEach(b => {
-    if (String(b.HouseId || '') !== String(houseId)) return;
+  (idx.map.get(String(houseId)) || []).forEach(({ b, arr, dep }) => {
+    if (arr >= monthEnd || dep <= monthStart) return;
     if (!ocupIsConfirmed(b)) return;
-    const arr = ocupParseDate(b.DateArrival);
-    const dep = ocupParseDate(b.DateDeparture);
-    if (!arr || !dep) return;
     const a = arr < monthStart ? monthStart : arr;
     const d = dep > monthEnd ? monthEnd : dep;
     const nightsInMonth = Math.max(0, Math.round((d - a) / 86400000));
@@ -26595,7 +26621,9 @@ function ocupNightsForAloj(houseId, y, m) {
     }
   });
   const total = new Date(y, m + 1, 0).getDate();
-  return { occupied, total, percent: total ? (occupied * 100 / total) : 0, revenue, currency: currency || 'MXN' };
+  const out = { occupied, total, percent: total ? (occupied * 100 / total) : 0, revenue, currency: currency || 'MXN' };
+  idx.memo.set(memoKey, out);
+  return out;
 }
 
 function ocupFmtMoney(n, ccy) {
@@ -26625,7 +26653,9 @@ function ocupClassifySource(src) {
 const OCUP_AIRBNB_COMM = 0.155;
 
 function ocupStatsForAloj(houseId, y, m) {
-  const bookings = ocupBookings();
+  const idx = _ocupIdx();
+  const memoKey = `s|${houseId}|${y}|${m}|${_ocupFilterSig()}`;
+  if (idx.memo.has(memoKey)) return idx.memo.get(memoKey);
   const monthStart = new Date(y, m, 1);
   const monthEnd = new Date(y, m + 1, 1);
   let occupied = 0, revenue = 0, currency = '';
@@ -26633,12 +26663,9 @@ function ocupStatsForAloj(houseId, y, m) {
   const byChannel = new Map();
   // Ingresos brutos por categoría contable
   let revAirbnb = 0, revManual = 0, revOh = 0;
-  bookings.forEach(b => {
-    if (String(b.HouseId || '') !== String(houseId)) return;
+  (idx.map.get(String(houseId)) || []).forEach(({ b, arr, dep }) => {
+    if (arr >= monthEnd || dep <= monthStart) return;
     if (!ocupIsConfirmed(b)) return;
-    const arr = ocupParseDate(b.DateArrival);
-    const dep = ocupParseDate(b.DateDeparture);
-    if (!arr || !dep) return;
     const a = arr < monthStart ? monthStart : arr;
     const d = dep > monthEnd ? monthEnd : dep;
     const nightsInMonth = Math.max(0, Math.round((d - a) / 86400000));
@@ -26665,7 +26692,7 @@ function ocupStatsForAloj(houseId, y, m) {
   const airbnbNeto = revAirbnb / (1 + OCUP_AIRBNB_COMM);
   const airbnbComm = revAirbnb - airbnbNeto;
   const ingresoNeto = airbnbNeto + revManual + revOh;
-  return {
+  const out = {
     occupied, total, percent: total ? (occupied * 100 / total) : 0,
     revenue, currency: currency || 'MXN',
     resCount,
@@ -26677,6 +26704,8 @@ function ocupStatsForAloj(houseId, y, m) {
     revAirbnb, airbnbNeto, airbnbComm,
     revManual, revOh, ingresoNeto,
   };
+  idx.memo.set(memoKey, out);
+  return out;
 }
 
 // Color por canal — paleta ampliamente distinguible incluso para daltónicos.
