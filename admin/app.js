@@ -14261,6 +14261,32 @@ function lgLoaderHtml(msg) {
     </div>`;
 }
 
+/** Normaliza una fila de Reservas_Lodgify (fechas, montos, LineItems). */
+function lgNormalizeBookingRow_(b) {
+  // TotalAmount es la cifra AUTORITATIVA de Lodgify (post-descuento y
+  // lo que el huésped efectivamente paga). GrossTotal es la SUMA cruda
+  // de LineItems y tiene un bug del sync: Promotion (descuento) se
+  // suma como positivo en vez de restarse. Ejemplo: booking 23232434
+  // → LineItems suman 4889.40 pero TotalAmount = 4119.40 (real).
+  // Prioridad: TotalAmount > GrossTotal > Gross.
+  const ta = Number(b.TotalAmount);
+  const gt = Number(b.GrossTotal);
+  const g  = Number(b.Gross);
+  const totalReal = (Number.isFinite(ta) && ta > 0) ? ta
+                 : (Number.isFinite(gt) && gt > 0) ? gt
+                 : (Number.isFinite(g)  && g  > 0) ? g  : 0;
+  return {
+    ...b,
+    DateArrival:   lgNormalizeDate(b.DateArrival),
+    DateDeparture: lgNormalizeDate(b.DateDeparture),
+    DateCancelled: lgNormalizeDate(b.DateCancelled),
+    Gross: totalReal,
+    Net:   Number(b.NetTotal   != null ? b.NetTotal   : b.Net)   || 0,
+    Vat:   Number(b.VatTotal   != null ? b.VatTotal   : b.Vat)   || 0,
+    LineItems: Array.isArray(b.LineItems) ? b.LineItems : [],
+  };
+}
+
 /** Lee desde el sheet (vía Cloud Run → Apps Script → hoja "Reservas_Lodgify").
  *  Es la lectura rápida (default). No consulta Lodgify directamente. */
 async function lodgifyLoad(force, opts) {
@@ -14380,30 +14406,7 @@ async function __lodgifyLoadInner(force, opts) {
     if (dupsHere > 0) {
       console.warn(`[LG] ${dupsHere} fila(s) duplicada(s) ignoradas en frontend. Recomendado: redesplegar Apps Script + Sincronizar.`);
     }
-    LG_STATE.bookings = dedupedBookings.map(b => {
-      // TotalAmount es la cifra AUTORITATIVA de Lodgify (post-descuento y
-      // lo que el huésped efectivamente paga). GrossTotal es la SUMA cruda
-      // de LineItems y tiene un bug del sync: Promotion (descuento) se
-      // suma como positivo en vez de restarse. Ejemplo: booking 23232434
-      // → LineItems suman 4889.40 pero TotalAmount = 4119.40 (real).
-      // Prioridad: TotalAmount > GrossTotal > Gross.
-      const ta = Number(b.TotalAmount);
-      const gt = Number(b.GrossTotal);
-      const g  = Number(b.Gross);
-      const totalReal = (Number.isFinite(ta) && ta > 0) ? ta
-                     : (Number.isFinite(gt) && gt > 0) ? gt
-                     : (Number.isFinite(g)  && g  > 0) ? g  : 0;
-      return {
-        ...b,
-        DateArrival:   lgNormalizeDate(b.DateArrival),
-        DateDeparture: lgNormalizeDate(b.DateDeparture),
-        DateCancelled: lgNormalizeDate(b.DateCancelled),
-        Gross: totalReal,
-        Net:   Number(b.NetTotal   != null ? b.NetTotal   : b.Net)   || 0,
-        Vat:   Number(b.VatTotal   != null ? b.VatTotal   : b.Vat)   || 0,
-        LineItems: Array.isArray(b.LineItems) ? b.LineItems : [],
-      };
-    });
+    LG_STATE.bookings = dedupedBookings.map(lgNormalizeBookingRow_);
     _mark('normalizar');
     LG_STATE.loaded = true;
     LG_STATE.lastSync = data.last_synced_at || '';
@@ -25661,7 +25664,7 @@ window.ocupCalClearFilters = function () {
 };
 
 function ocupCalPopulateFilters(allAlojs) {
-  const bookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+  const bookings = ocupBookings();
   const estados   = Array.from(new Set(bookings.map(b => String(b.Status || '').trim()).filter(Boolean))).sort();
   const fuentes   = Array.from(new Set(bookings.map(b => String(b.Source || '').trim()).filter(Boolean))).sort();
   const propiedades = Array.from(new Set((allAlojs || []).map(a => a.propiedad).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es'));
@@ -25692,19 +25695,48 @@ async function ocupInit() {
     if (typeof ALOJ_STATE !== 'undefined' && !ALOJ_STATE.loaded) {
       if (typeof lgLoadAlojamientos === 'function') await lgLoadAlojamientos();
     }
-    if (typeof LG_STATE !== 'undefined' && !LG_STATE.loaded) {
-      if (LG_STATE.loading) {
-        // Otra carga ya está en curso (p. ej. desde Gestión de reservas).
-        const t0 = Date.now();
-        while (LG_STATE.loading && Date.now() - t0 < 30000) await new Promise(r => setTimeout(r, 200));
-      } else if (typeof lodgifyLoad === 'function') {
-        await lodgifyLoad(true, { silent: true });
-      }
-    }
+    await ocupLoadBookings();
   } catch (e) {
     console.warn('[OCUP] load error:', e?.message || e);
   }
   ocupRender();
+}
+
+// El Dashboard usa su propia lista (24 meses de historia → futuro). Gestión
+// de reservas solo carga 2 meses atrás, y compartir esa lista dejaba los
+// indicadores y el calendario de meses pasados en cero.
+const OCUP_HIST_MONTHS = 24;
+function ocupBookings() {
+  if (OCUP_STATE.bookingsLoaded && Array.isArray(OCUP_STATE.bookings)) return OCUP_STATE.bookings;
+  return (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+}
+async function ocupLoadBookings(force) {
+  if (OCUP_STATE.bookingsLoaded && !force) return;
+  if (OCUP_STATE._bkPromise) return OCUP_STATE._bkPromise;
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - OCUP_HIST_MONTHS);
+  const from = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+  OCUP_STATE._bkPromise = (async () => {
+    try {
+      const res = await fetch(`${BACKEND}/lodgify-list?from=${from}&to=2099-12-31&view=dash`, { cache: 'no-store' });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const byId = new Map();
+      for (const b of (data.bookings || [])) {
+        const st = String((b && b.Status) || '').toLowerCase();
+        if (st !== 'booked' && st !== 'tentative') continue;
+        const id = String(b.Id || ''); if (!id) continue;
+        const prev = byId.get(id);
+        if (!prev || String(b.last_synced_at || '') > String(prev.last_synced_at || '')) byId.set(id, b);
+      }
+      OCUP_STATE.bookings = Array.from(byId.values()).map(lgNormalizeBookingRow_);
+      OCUP_STATE.bookingsLoaded = true;
+    } catch (e) {
+      console.warn('[OCUP] historial no cargó:', e?.message || e);
+    } finally {
+      OCUP_STATE._bkPromise = null;
+    }
+  })();
+  return OCUP_STATE._bkPromise;
 }
 
 function ocupShowLoading() {
@@ -25717,9 +25749,8 @@ window.ocupReload = async function (sync) {
   try {
     if (sync && typeof lodgifySync === 'function') {
       await lodgifySync({ silent: true });
-    } else if (typeof lodgifyLoad === 'function') {
-      await lodgifyLoad(true, { silent: true });
     }
+    await ocupLoadBookings(true);
   } catch (e) { console.warn('[OCUP] reload:', e?.message || e); }
   ocupRender();
 };
@@ -25889,7 +25920,7 @@ function ocupRender() {
 
   // Pre-indexa bookings por HouseId (aplicando filtros de Estado y Fuente)
   const byHouse = new Map();
-  const bookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+  const bookings = ocupBookings();
   bookings.forEach(b => {
     if (f.estado) {
       if (String(b.Status || '').trim() !== f.estado) return;
@@ -26079,8 +26110,7 @@ function ocupBindScrollMonthSync(cont) {
 
 // Panel lateral de detalle
 window.ocupOpenDetail = function (bookingId) {
-  const b = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings))
-    ? LG_STATE.bookings.find(x => String(x.Id) === String(bookingId)) : null;
+  const b = ocupBookings().find(x => String(x.Id) === String(bookingId)) || null;
   if (!b) return;
   const body = document.getElementById('ocup-detail-body');
   const panel = document.getElementById('ocup-detail-panel');
@@ -26382,7 +26412,7 @@ function ocupRenderFilters() {
 }
 
 function ocupGetEstadoOptions() {
-  const bookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+  const bookings = ocupBookings();
   const estados = Array.from(new Set(bookings.map(b => String(b.Status || '').trim()).filter(Boolean))).sort();
   return estados.map(s => ({ value: s, label: s }));
 }
@@ -26542,7 +26572,7 @@ function ocupIsConfirmed(b) {
 //   (asignación proporcional cuando la estancia cruza varios meses).
 // Solo reservas con status "Booked" (confirmadas).
 function ocupNightsForAloj(houseId, y, m) {
-  const bookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+  const bookings = ocupBookings();
   const monthStart = new Date(y, m, 1);
   const monthEnd = new Date(y, m + 1, 1);
   let occupied = 0, revenue = 0, currency = '';
@@ -26595,7 +26625,7 @@ function ocupClassifySource(src) {
 const OCUP_AIRBNB_COMM = 0.155;
 
 function ocupStatsForAloj(houseId, y, m) {
-  const bookings = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings : [];
+  const bookings = ocupBookings();
   const monthStart = new Date(y, m, 1);
   const monthEnd = new Date(y, m + 1, 1);
   let occupied = 0, revenue = 0, currency = '';
