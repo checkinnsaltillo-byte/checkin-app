@@ -25829,7 +25829,9 @@ function ocupGetAlojamientos() {
   if (typeof ALOJ_STATE === 'undefined' || !ALOJ_STATE.loaded) return [];
   return ALOJ_STATE.rows
     .map(r => ({
-      houseId: String(r['HouseId'] || '').trim(),
+      // La columna HouseId está vacía en el catálogo; el Id de Lodgify vive en
+      // id_lodgify (sin este fallback el Dashboard quedaba sin alojamientos).
+      houseId: String(r['HouseId'] || r['id_lodgify'] || '').replace(/[^\d]/g, ''),
       propiedad: String(r['Propiedad'] || '').trim(),
       depto: String(r['# Departamento'] || '').trim().replace(/^#\s*/, ''),
       nombre: (function () {
