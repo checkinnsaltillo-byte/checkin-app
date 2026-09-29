@@ -35881,9 +35881,16 @@ function asistRenderTabla() {
 // ║   se refresca la tabla desde el backend y se sale del modo edición.      ║
 // ║ - "🚪 Salir" sale del modo edición sin refrescar.                        ║
 // ═══════════════════════════════════════════════════════════════════════════
-const ASIST_CAL_MODE = { editing: false, dirty: false, pending: new Set() };
+const ASIST_CAL_MODE = { editing: false, dirty: false, saving: false, pending: new Set() };
 
 function _asistCalEditToolbarButtons_() {
+  // Guardando: botón deshabilitado con spinner para que se note que trabaja.
+  if (ASIST_CAL_MODE.saving) {
+    return `<span style="display:inline-flex;align-items:center;gap:8px;padding:7px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:8px;font-weight:900;font-size:12px;opacity:.9;cursor:wait">
+        <span style="width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:hu-spin .7s linear infinite"></span>
+        Guardando cambios…
+      </span>`;
+  }
   if (!ASIST_CAL_MODE.editing) {
     return `<button type="button" onclick="asistCalToggleEdit(true)"
               title="Habilitar edición del calendario"
@@ -35919,12 +35926,19 @@ window.asistCalSaveExit = async function () {
   // Los cambios ya se guardaron optimistamente en el backend a medida que
   // el usuario editaba. Aquí solo refrescamos desde el server (para
   // reemplazar IDs temporales por reales) y salimos del modo edición.
+  if (ASIST_CAL_MODE.saving) return;
+  ASIST_CAL_MODE.saving = true;
+  ASIST_STATE._focusMode = 'preserve';
+  asistRenderCalendar(); // muestra el spinner en la toolbar
   // Espera a que terminen los guardados en curso antes de refrescar, así la
   // tabla de abajo se actualiza UNA sola vez y ya con todos los cambios.
   try { await Promise.allSettled(Array.from(ASIST_CAL_MODE.pending)); } catch(_){}
   ASIST_CAL_MODE.editing = false;
   ASIST_CAL_MODE.dirty = false;
   try { if (typeof asistReloadList === 'function') await asistReloadList(); } catch(_){}
+  ASIST_CAL_MODE.saving = false;
+  ASIST_STATE._focusMode = 'preserve';
+  asistRenderCalendar(); // asegura quitar el spinner aunque falle el reload
   // asistReloadList ya re-renderiza calendar + tabla.
 };
 
