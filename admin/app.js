@@ -28065,10 +28065,6 @@ function rhPaintPagosNominaCards() {
       const p = _rhResPagoGet_(g.nombre, g.semana.value);
       const isPersonOpen = RH_OBL_STATE.personExpanded === rowKey;
       const chP = isPersonOpen ? '▲' : '▼';
-      const metodoOpts = ['Transferencia bancaria','Efectivo','Cheque','Otro'];
-      const metodoSelect = ['<option value=""></option>'].concat(
-        metodoOpts.map(o => `<option value="${esc(o)}"${p.metodo === o ? ' selected' : ''}>${esc(o)}</option>`)
-      ).join('');
       const detalle = isPersonOpen ? `
         <div style="padding:14px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;border-radius:0 0 12px 12px">
           <div style="overflow-x:auto">
@@ -28095,14 +28091,11 @@ function rhPaintPagosNominaCards() {
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:14px">
             <div style="display:flex;flex-direction:column;gap:4px">
               <label style="font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em">Método de pago</label>
-              <select onchange="asistResumenPagoSet('${esc(rowKey)}','metodo', this.value)"
-                style="padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;color:#0f172a;font-weight:600">${metodoSelect}</select>
+              <div style="padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8fafc;font-size:13px;color:#0f172a;font-weight:700">${esc(p.metodo || '—')}</div>
             </div>
             <div style="display:flex;flex-direction:column;gap:4px">
               <label style="font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em">Fecha de pago</label>
-              <input type="date" value="${esc(p.fecha || '')}"
-                onchange="asistResumenPagoSet('${esc(rowKey)}','fecha', this.value)"
-                style="padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;color:#0f172a;font-weight:600">
+              <div style="padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8fafc;font-size:13px;color:#0f172a;font-weight:700">${esc(/^\d{4}-\d{2}-\d{2}$/.test(p.fecha || '') ? p.fecha.split('-').reverse().join('/') : (p.fecha || '—'))}</div>
             </div>
             <div style="display:flex;flex-direction:column;gap:4px">
               <label style="font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em">Días laborados</label>
