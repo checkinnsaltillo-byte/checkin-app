@@ -23009,7 +23009,7 @@ async function incLoadPersonal() {
  *  Personal y luego en el catálogo INC_PERSONAL hardcoded. */
 function incPuestoDe(nombre) {
   if (INC_STATE.personasFromSheet) {
-    const r = INC_STATE.personalRows.find(x => String(x['Nombre'] || '').trim() === nombre);
+    const r = INC_STATE.personalRows.find(x => _normNombre_(_rhPersonalFullName_(x)) === _normNombre_(nombre));
     if (r) {
       return String(r['Puesto'] || r['Rol'] || r['Cargo'] || '').trim();
     }
@@ -27985,15 +27985,7 @@ function _rhComputeGruposSemanaImss_() {
     return { value, label, lun };
   };
   const _aliasToFull = new Map();
-  (INC_STATE?.personalRows || []).forEach(pr => {
-    const full = String(pr?.Nombre || '').trim();
-    if (!full) return;
-    _aliasToFull.set(_normNombre_(full), full);
-    const firstWord = full.split(/\s+/)[0];
-    if (firstWord && !_aliasToFull.has(_normNombre_(firstWord))) {
-      _aliasToFull.set(_normNombre_(firstWord), full);
-    }
-  });
+  (INC_STATE?.personalRows || []).forEach(pr => _rhRegisterPersonalAliases_(_aliasToFull, pr));
   const _canonRes = (raw) => {
     const t = String(raw || '').trim();
     if (!t) return t;
@@ -28029,7 +28021,7 @@ function _rhComputeGruposSemanaImss_() {
   }
   const contratoByNombre = new Map();
   (INC_STATE?.personalRows || []).forEach(r => {
-    const n = String(r?.Nombre || '').trim();
+    const n = _rhPersonalFullName_(r);
     if (!n) return;
     const dias = asistPanelParseDiasTrabajo_(r.Dias_trabajo || '');
     contratoByNombre.set(n, dias.size || 5);
@@ -28538,7 +28530,7 @@ function rhFmtMoney(n) {
 }
 function rhEmpleadoNombre(id) {
   const e = (RH_STATE.empleados || []).find(x => String(x.ID) === String(id));
-  return e ? e.Nombre : id;
+  return e ? _rhPersonalFullName_(e) : id;
 }
 
 // ── Vistas (listas) ──
@@ -34437,7 +34429,7 @@ function asistPersonalOperativo() {
   if (rows.length) {
     return rows
       .map(r => ({
-        nombre: String(r['Nombre'] || '').trim(),
+        nombre: _rhPersonalFullName_(r),
         puesto: String(r['Puesto'] || r['Rol'] || r['Cargo'] || '').trim(),
         estado: String(r['Estado'] || '').trim(),
         salario: String(r['salario'] ?? r['Salario'] ?? '').trim(),
@@ -34694,15 +34686,7 @@ function asistRenderResumen(targetId) {
   // Reconcilia nombres cortos ("Adán") con el nombre completo del Personal
   // ("Adán Ramos") — de otra forma se generan grupos duplicados por nombre.
   const _aliasToFull = new Map();
-  (INC_STATE?.personalRows || []).forEach(pr => {
-    const full = String(pr?.Nombre || '').trim();
-    if (!full) return;
-    _aliasToFull.set(_normNombre_(full), full);
-    const firstWord = full.split(/\s+/)[0];
-    if (firstWord && !_aliasToFull.has(_normNombre_(firstWord))) {
-      _aliasToFull.set(_normNombre_(firstWord), full);
-    }
-  });
+  (INC_STATE?.personalRows || []).forEach(pr => _rhRegisterPersonalAliases_(_aliasToFull, pr));
   const _canonRes = (raw) => {
     const t = String(raw || '').trim();
     if (!t) return t;
@@ -34750,7 +34734,7 @@ function asistRenderResumen(targetId) {
   // (Dias_trabajo en la hoja Personal). Construyo un lookup por nombre.
   const contratoByNombre = new Map();
   (INC_STATE?.personalRows || []).forEach(r => {
-    const n = String(r?.Nombre || '').trim();
+    const n = _rhPersonalFullName_(r);
     if (!n) return;
     const dias = asistPanelParseDiasTrabajo_(r.Dias_trabajo || '');
     contratoByNombre.set(n, dias.size || 5);
@@ -36125,7 +36109,7 @@ function asistRenderCalendar() {
   // aunque no haya registro capturado ese día — visualiza el "esperado".
   const _diasTrabajoByNombre = new Map();
   (INC_STATE?.personalRows || []).forEach(pr => {
-    const n = String(pr?.Nombre || '').trim();
+    const n = _rhPersonalFullName_(pr);
     if (!n) return;
     _diasTrabajoByNombre.set(n, asistPanelParseDiasTrabajo_(pr.Dias_trabajo || ''));
   });
@@ -37294,11 +37278,56 @@ function _normNombre_(s) {
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/\s+/g, ' ');
 }
+/** Nombre COMPLETO del empleado a partir de la estructura actual de la hoja
+ *  Personal (3 campos: Nombre + Apellido_paterno + Apellido_materno).
+ *  Homologa el match/display con los nombres completos que las hojas de
+ *  asistencia y nómina guardaron con la estructura anterior (un solo campo
+ *  con nombre + apellidos). Maneja registros aún NO migrados: si "Nombre" ya
+ *  contiene los apellidos, lo usa tal cual (no los duplica). */
+function _rhPersonalFullName_(pr) {
+  const nom = String(pr?.Nombre || '').trim();
+  const ap  = String(pr?.Apellido_paterno || pr?.['Apellido paterno'] || '').trim();
+  const am  = String(pr?.Apellido_materno || pr?.['Apellido materno'] || '').trim();
+  if (!ap && !am) return nom;
+  const nomN = _normNombre_(nom);
+  const apN  = _normNombre_(ap);
+  const amN  = _normNombre_(am);
+  const yaTiene = (!apN || nomN.includes(apN)) && (!amN || nomN.includes(amN));
+  if (yaTiene) return nom;
+  return [nom, ap, am].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+}
+/** Registra en `map` (Map de nombre-normalizado → nombre canónico) las
+ *  variantes plausibles de escritura del empleado, para reconciliar los
+ *  nombres INFORMALES con que asistencia/nómina guardaron los registros
+ *  (p.ej. "Adán Ramos" o "Sandra Sánchez") contra la estructura ACTUAL de 3
+ *  campos, donde el nombre oficial puede traer segundo nombre / segundo
+ *  apellido ("Adán Isidro Ramos Lozano", "Sandra Sánchez Rojas").
+ *  Las claves fuertes (nombre completo y campo Nombre) se fijan siempre; las
+ *  variantes informales no sobrescriben una clave ya tomada por otro empleado. */
+function _rhRegisterPersonalAliases_(map, pr) {
+  const full = _rhPersonalFullName_(pr);
+  if (!full) return;
+  const nom = String(pr?.Nombre || '').trim();
+  const ap  = String(pr?.Apellido_paterno || pr?.['Apellido paterno'] || '').trim();
+  const am  = String(pr?.Apellido_materno || pr?.['Apellido materno'] || '').trim();
+  const t1  = nom.split(/\s+/)[0] || '';
+  const put = (k, force) => {
+    const key = _normNombre_(k);
+    if (!key) return;
+    if (force || !map.has(key)) map.set(key, full);
+  };
+  put(full, true);
+  if (nom) put(nom, true);
+  if (t1 && ap)       put(`${t1} ${ap}`);        // "Adán Ramos", "Sandra Sánchez"
+  if (t1 && ap && am) put(`${t1} ${ap} ${am}`);  // "Adán Ramos Lozano"
+  if (nom && ap)      put(`${nom} ${ap}`);
+  if (t1)             put(t1);                    // solo primer nombre
+}
 // Alta en IMSS del empleado (true si "Sí" o similares). Se usa para pagar
 // o no los días de descanso del contrato.
 function _empleadoAltaImss_(nombreCanonical) {
   const p = (INC_STATE?.personalRows || []).find(pr =>
-    _normNombre_(String(pr?.Nombre || '')) === _normNombre_(nombreCanonical)
+    _normNombre_(_rhPersonalFullName_(pr)) === _normNombre_(nombreCanonical)
   );
   const v = String(p?.['Alta en IMSS'] || '').trim().toLowerCase();
   return v === 'sí' || v === 'si' || v === 'true' || v === '1' || v === 'yes';
@@ -37318,7 +37347,7 @@ function asistPanelRender() {
   const personalRows = asistPersonalOperativo().slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
   const diasDict = new Map();
   (INC_STATE?.personalRows || []).forEach(r => {
-    const n = String(r.Nombre || '').trim();
+    const n = _rhPersonalFullName_(r);
     if (n) diasDict.set(n, asistPanelParseDiasTrabajo_(r.Dias_trabajo));
   });
   // Semilla: solo marca 'Asistencia' celdas donde YA HAY un registro previo
@@ -37334,15 +37363,7 @@ function asistPanelRender() {
   // renglón "Adán Ramos" de la hoja Personal — de otra forma no aparecerían
   // en el calendario.
   const aliasToCanonical = new Map();
-  (INC_STATE?.personalRows || []).forEach(pr => {
-    const full = String(pr?.Nombre || '').trim();
-    if (!full) return;
-    aliasToCanonical.set(_normNombre_(full), full);
-    const firstWord = full.split(/\s+/)[0];
-    if (firstWord && !aliasToCanonical.has(_normNombre_(firstWord))) {
-      aliasToCanonical.set(_normNombre_(firstWord), full);
-    }
-  });
+  (INC_STATE?.personalRows || []).forEach(pr => _rhRegisterPersonalAliases_(aliasToCanonical, pr));
   const _canonNombre = (raw) => {
     const t = String(raw || '').trim();
     if (!t) return t;
@@ -38036,7 +38057,7 @@ window.asistGuardarRegistro = async function () {
   if (status) { status.style.color = '#64748b'; status.textContent = `⏳ Guardando ${totalRegs} registro(s)…`; }
   const empDict = new Map();
   (INC_STATE?.personalRows || []).forEach(r => {
-    const n = String(r.Nombre||'').trim();
+    const n = _rhPersonalFullName_(r);
     if (n) empDict.set(n, { entrada: String(r.Hora_entrada||'08:30').slice(0,5), salida: String(r.Hora_salida||'13:30').slice(0,5) });
   });
   const calcHoras = (ent, sal) => {
