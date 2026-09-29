@@ -33368,18 +33368,24 @@ function guiasRenderContent() {
             style="width:60px;height:60px;border-radius:18px;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 10px 24px -4px rgba(37,211,102,.55),inset 0 -3px 6px rgba(0,0,0,.12);border:1px solid rgba(255,255,255,.15)">${waIconSvg}</a>
        </div>`
     : '';
-  // Botones "Registrar entrada" y "Registrar salida" — fijos al fondo.
+  // Barra inferior fija — replica los 4 botones de la guía pública:
+  // Check-in, Check-out, [Reserva directa si el alojamiento tiene url_lodgify],
+  // Auto facturación. La auto-facturación es un flujo de 3 pasos que vive en la
+  // guía pública; desde el sistema abrimos esa guía (donde el flujo funciona).
+  const guiaShowBook = isReadOne && !!photoPageUrl; // photoPageUrl = url_lodgify
+  const guiaPubUrl   = isReadOne ? `https://www.check-inn.mx/public/guia/?id=${encodeURIComponent(guiasItemId(alojs[0]))}` : '';
+  const guiaFabBtn = (bg, shadow, extra, onclick, icon, label, title) =>
+    `<button type="button" ${title ? `title="${esc(title)}"` : ''} onclick="${onclick}"
+             style="pointer-events:auto;flex:1;min-width:0;padding:14px 8px;background:${bg};color:#fff;border:0;border-radius:14px;font-size:13px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:${shadow};text-shadow:0 1px 2px rgba(0,0,0,.2);line-height:1.15;${extra}">
+       <span style="display:inline-flex;align-items:center;gap:5px;justify-content:center;line-height:1"><span style="font-size:16px;line-height:1">${icon}</span><span>${label}</span></span>
+     </button>`;
   const checkinHtml = isReadOne
     ? `<div id="guias-checkin-fab" style="position:fixed;left:0;right:0;bottom:0;z-index:9400;padding:14px 16px 18px;background:linear-gradient(180deg,rgba(15,23,42,0),rgba(15,23,42,.55));pointer-events:none">
-         <div style="max-width:520px;margin:0 auto;display:flex;gap:8px;pointer-events:none">
-           <button type="button" onclick="guiasOpenCheckin_()"
-                   style="pointer-events:auto;flex:1;padding:14px 16px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;border:0;border-radius:14px;font-size:14px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 12px 28px -6px rgba(15,118,110,.55);animation:guiaCheckinPulse 2.2s ease-in-out infinite;text-shadow:0 1px 2px rgba(0,0,0,.2)">
-             <span style="display:inline-flex;align-items:center;gap:6px;justify-content:center;line-height:1"><span style="font-size:17px;line-height:1">✅</span><span>Check-in</span></span>
-           </button>
-           <button type="button" onclick="guiasOpenCheckout_()"
-                   style="pointer-events:auto;flex:1;padding:14px 16px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:0;border-radius:14px;font-size:14px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 12px 28px -6px rgba(220,38,38,.6);text-shadow:0 1px 2px rgba(0,0,0,.2)">
-             <span style="display:inline-flex;align-items:center;gap:6px;justify-content:center;line-height:1"><span style="font-size:17px;line-height:1">🚪</span><span>Check-out</span></span>
-           </button>
+         <div style="max-width:600px;margin:0 auto;display:flex;gap:8px;pointer-events:none">
+           ${guiaFabBtn('linear-gradient(135deg,#0f766e,#14b8a6)','0 12px 28px -6px rgba(15,118,110,.55)','animation:guiaCheckinPulse 2.2s ease-in-out infinite','guiasOpenCheckin_()','✅','Check-in','')}
+           ${guiaFabBtn('linear-gradient(135deg,#dc2626,#ef4444)','0 12px 28px -6px rgba(220,38,38,.6)','','guiasOpenCheckout_()','🚪','Check-out','')}
+           ${guiaShowBook ? guiaFabBtn('linear-gradient(135deg,#2563eb,#3b82f6)','0 12px 28px -6px rgba(37,99,235,.55)','',"window.open('https://www.check-inn.mx/reservas/','_blank','noopener')",'🗓️','Reserva directa','Verificar disponibilidad / reserva directa') : ''}
+           ${guiaFabBtn('linear-gradient(135deg,#7c3aed,#a855f7)','0 12px 28px -6px rgba(124,58,237,.55)','',guiaPubUrl ? `window.open('${guiaPubUrl}','_blank','noopener')` : '','🧾','Auto facturación','Abre la auto-facturación en la guía del huésped')}
          </div>
        </div>
        <style>@keyframes guiaCheckinPulse{0%,100%{box-shadow:0 12px 28px -6px rgba(15,118,110,.55);transform:translateY(0)}50%{box-shadow:0 18px 40px -4px rgba(15,118,110,.8);transform:translateY(-2px)}}</style>`
