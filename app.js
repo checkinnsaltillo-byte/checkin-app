@@ -35878,26 +35878,32 @@ function asistRenderTabla() {
 // ║ - Al oprimir "✏️ Editar" entra en modo edición: click en celda abre el   ║
 // ║   popup y los cambios se guardan optimistamente + background.            ║
 // ║ - Al detectar el 1er cambio aparece "💾 Guardar cambios" — al oprimirlo  ║
-// ║   se refresca la tabla desde el backend y se sale del modo edición.      ║
+// ║   se pinta la tabla con el estado local (instantáneo) y se sale.         ║
 // ║ - "🚪 Salir" sale del modo edición sin refrescar.                        ║
 // ═══════════════════════════════════════════════════════════════════════════
-const ASIST_CAL_MODE = { editing: false, dirty: false, saving: false, pending: new Set() };
+const ASIST_CAL_MODE = { editing: false, dirty: false, pending: new Set(), chains: new Map(), idMap: new Map() };
+
+// Chip discreto "Sincronizando…" junto al botón de la toolbar mientras hay
+// guardados en segundo plano. Se actualiza sin re-renderizar el calendario.
+function _asistCalSyncChipHtml_() {
+  const n = ASIST_CAL_MODE.pending.size;
+  if (!n) return '';
+  return `<span style="width:11px;height:11px;border:2px solid #cbd5e1;border-top-color:#16a34a;border-radius:50%;display:inline-block;animation:hu-spin .7s linear infinite"></span> Sincronizando ${n}…`;
+}
+function _asistCalSyncChip_() {
+  const el = document.getElementById('asist-cal-sync-chip');
+  if (el) el.innerHTML = _asistCalSyncChipHtml_();
+}
 
 function _asistCalEditToolbarButtons_() {
-  // Guardando: botón deshabilitado con spinner para que se note que trabaja.
-  if (ASIST_CAL_MODE.saving) {
-    return `<span style="display:inline-flex;align-items:center;gap:8px;padding:7px 14px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-radius:8px;font-weight:900;font-size:12px;opacity:.9;cursor:wait">
-        <span style="width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:hu-spin .7s linear infinite"></span>
-        Guardando cambios…
-      </span>`;
-  }
+  const syncChip = `<span id="asist-cal-sync-chip" style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#64748b">${_asistCalSyncChipHtml_()}</span>`;
   if (!ASIST_CAL_MODE.editing) {
     return `<button type="button" onclick="asistCalToggleEdit(true)"
               title="Habilitar edición del calendario"
               style="all:unset;cursor:pointer;padding:7px 14px;background:#fff;color:#0f172a;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:900;font-size:12px;display:inline-flex;align-items:center;gap:6px">
               <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:4px;border:1.5px solid #cbd5e1;background:#fff;font-size:11px;font-weight:900;line-height:1"></span>
               ✏️ Editar
-            </button>`;
+            </button>${syncChip}`;
   }
   // En modo edición: chip "Editando", opcional Guardar cambios + Salir.
   const saveBtn = ASIST_CAL_MODE.dirty
@@ -35913,7 +35919,7 @@ function _asistCalEditToolbarButtons_() {
     ${saveBtn}
     <button type="button" onclick="asistCalToggleEdit(false)"
       title="Salir del modo edición sin guardar"
-      style="all:unset;cursor:pointer;padding:7px 14px;background:#fff;color:#334155;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;font-size:12px">🚪 Salir</button>`;
+      style="all:unset;cursor:pointer;padding:7px 14px;background:#fff;color:#334155;border:1.5px solid #cbd5e1;border-radius:8px;font-weight:800;font-size:12px">🚪 Salir</button>${syncChip}`;
 }
 
 window.asistCalToggleEdit = function (on) {
@@ -35922,24 +35928,21 @@ window.asistCalToggleEdit = function (on) {
   asistRenderCalendar();
 };
 
-window.asistCalSaveExit = async function () {
-  // Los cambios ya se guardaron optimistamente en el backend a medida que
-  // el usuario editaba. Aquí solo refrescamos desde el server (para
-  // reemplazar IDs temporales por reales) y salimos del modo edición.
-  if (ASIST_CAL_MODE.saving) return;
-  ASIST_CAL_MODE.saving = true;
-  ASIST_STATE._focusMode = 'preserve';
-  asistRenderCalendar(); // muestra el spinner en la toolbar
-  // Espera a que terminen los guardados en curso antes de refrescar, así la
-  // tabla de abajo se actualiza UNA sola vez y ya con todos los cambios.
-  try { await Promise.allSettled(Array.from(ASIST_CAL_MODE.pending)); } catch(_){}
+window.asistCalSaveExit = function () {
+  // INSTANTÁNEO: cada cambio ya se está guardando en segundo plano (1 sola
+  // llamada por celda) y ASIST_STATE.rows ya refleja el resultado. Aquí solo
+  // salimos del modo edición y pintamos la tabla de abajo con el estado
+  // local — sin volver a descargar la lista (~5s). Si algún guardado falla,
+  // su job avisa y recarga los registros reales.
+  const _t0 = performance.now();
   ASIST_CAL_MODE.editing = false;
   ASIST_CAL_MODE.dirty = false;
-  try { if (typeof asistReloadList === 'function') await asistReloadList(); } catch(_){}
-  ASIST_CAL_MODE.saving = false;
   ASIST_STATE._focusMode = 'preserve';
-  asistRenderCalendar(); // asegura quitar el spinner aunque falle el reload
-  // asistReloadList ya re-renderiza calendar + tabla.
+  asistRenderCalendar();
+  asistRenderTabla();
+  const c = document.getElementById('asist-list-count');
+  if (c) c.textContent = `${ASIST_STATE.rows.length} registro${ASIST_STATE.rows.length===1?'':'s'}`;
+  console.log(`[asist-cal] Guardar cambios → UI lista en ${Math.round(performance.now() - _t0)}ms (${ASIST_CAL_MODE.pending.size} guardado(s) terminando en 2º plano)`);
 };
 
 // Marca el calendario como "sucio" (hay cambios sin visualizar aún el
@@ -36613,65 +36616,26 @@ window.asistCalMenuGuardar = async function () {
   if (typeof asistRenderCalendar === 'function') asistRenderCalendar();
 
   // ── Reales al backend en background ──
-  // Se registra en ASIST_CAL_MODE.pending para que "Guardar cambios" espere
-  // a que terminen antes de refrescar la tabla de abajo.
-  const _job = (async () => {
+  // Medido (sep-2026): el flujo anterior hacía GET lista (~5s) + DELETE con
+  // papelera (~4s) + POST insert (~5.6s) + GET lista (~5s) ≈ 20s por celda.
+  // Ahora: UNA sola llamada — update in-place por ID (~3.7s) si la celda ya
+  // tenía registro, insert si no, DELETE solo si se vacía. Sin recargar la
+  // lista: el estado local ya es la verdad. Los guardados de una misma celda
+  // se encadenan para que un 2º cambio use el ID real del 1º.
+  const _cellKey = nombre + '|' + iso;
+  const _prev = ASIST_CAL_MODE.chains.get(_cellKey) || Promise.resolve();
+  const _job = _prev.catch(() => {}).then(async () => {
+    const _t0 = performance.now();
+    const _idMap = ASIST_CAL_MODE.idMap;
+    const _resolve = (id) => { id = String(id || ''); while (_idMap.has(id)) id = _idMap.get(id); return id; };
+    const ids = Array.from(existingIds).map(_resolve).filter(id => id && !id.startsWith('AST-tmp-'));
+    const _del = (id, why) => fetch(`${BACKEND}/rh/asistencia/${encodeURIComponent(id)}?force=true&reason=` + encodeURIComponent(why), { method:'DELETE' })
+      .then(r => r.json()).then(j => { if (!j || !j.ok) throw new Error((j && j.error) || 'DELETE falló'); });
     try {
-      // ANTES de borrar/POST — reload silenciosa para conocer TODOS los
-      // registros reales del backend (incluidos los que insertó el bot
-      // WhatsApp entre nuestro último reload y este guardado). Sin esto,
-      // la dedup solo veía el estado local viejo y dejaba huérfanos.
-      try {
-        const _res = await fetch(`${BACKEND}/rh/asistencia?_cb=${Date.now()}`, { cache: 'no-store' });
-        const _j = await _res.json();
-        if (_j && _j.ok && Array.isArray(_j.rows)) {
-          // Refresca ASIST_STATE.rows PRESERVANDO el row optimista que
-          // acabamos de agregar (para que el usuario no vea flicker).
-          const tmpRows = ASIST_STATE.rows.filter(r => String(r.ID||'').startsWith('AST-tmp-'));
-          ASIST_STATE.rows = _j.rows.concat(tmpRows);
-        }
-      } catch(_){}
-      // Ahora RE-CALCULA existentes con el estado fresh — atrapa filas
-      // WhatsApp que el bot pudo haber insertado entre reloads.
-      const freshExisting = _asistCalAllRowsFor_(nombre, iso);
-      const realIdsToDelete = freshExisting
-        .map(r => String(r.ID || ''))
-        .filter(id => id && !id.startsWith('AST-tmp-'));
       if (isDeletion) {
-        await Promise.all(realIdsToDelete.map(id => {
-          const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(id)}?force=true&reason=` + encodeURIComponent('borrado desde calendario');
-          return fetch(url, { method:'DELETE' });
-        }));
+        await Promise.all(ids.map(id => _del(id, 'borrado desde calendario')));
       } else {
-        if (realIdsToDelete.length) {
-          await Promise.all(realIdsToDelete.map(id => {
-            const url = `${BACKEND}/rh/asistencia/${encodeURIComponent(id)}?force=true&reason=` + encodeURIComponent('modificación desde calendario');
-            return fetch(url, { method:'DELETE' });
-          }));
-        }
-        // Campos que el guardado NO debe copiar del row original — se
-        // recomputan aquí. Todo lo demás del row (GPS, Timestamp, Empleado_ID,
-        // Observaciones, Ubicacion_*, etc.) se preserva íntegro para no
-        // perder metadatos por descuido.
-        const _overriddenKeys = new Set([
-          'ID','Concepto','Entrada','Salida','Horas','Metodo',
-          '$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)',
-          '$ Prima día feriado (200%)','$ Salario total',
-          'Compensación_concepto','Compensación_monto'
-        ]);
-        const payload = {};
-        // 1) Copiar TODOS los campos del row original excepto los overridden.
-        if (row) {
-          for (const k of Object.keys(row)) {
-            if (!k) continue;
-            if (_overriddenKeys.has(k)) continue;
-            const v = row[k];
-            if (v == null || v === '') continue;
-            payload[k] = v;
-          }
-        }
-        // 2) Sobreescribir con los valores nuevos.
-        Object.assign(payload, {
+        const payload = {
           Empleado_Nombre: nombre, Fecha: iso, Concepto: concepto,
           Entrada: entrada, Salida: salida, Horas: horas,
           '$ Salario base':             fmt(p.salBase),
@@ -36680,44 +36644,43 @@ window.asistCalMenuGuardar = async function () {
           '$ Prima día feriado (200%)': fmt(p.primaDF),
           '$ Salario total':            totalPago ? asistPanelFmtMonto_(totalPago) : '',
           Metodo: metodoFinal,
-        });
-        // Observaciones: si no había, dejar vacío. Si había, se preserva de (1).
-        if (payload.Observaciones == null) payload.Observaciones = '';
-        if (compFinal && compFinal.concepto) payload['Compensación_concepto'] = compFinal.concepto;
-        if (compFinal && compFinal.monto)    payload['Compensación_monto']    = asistPanelFmtMonto_(Number(compFinal.monto));
-        await fetch(`${BACKEND}/rh/asistencia`, {
-          method:'POST', headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ payload }),
-        });
+          'Compensación_concepto': compFinal ? String(compFinal.concepto || '') : '',
+          'Compensación_monto':    compFinal && compFinal.monto ? asistPanelFmtMonto_(Number(compFinal.monto)) : '',
+        };
+        const primary = ids[0] || '';
+        if (primary) payload.ID = primary; // update in-place (conserva GPS, Timestamp, etc.)
+        else payload.Observaciones = '';
+        const [j] = await Promise.all([
+          fetch(`${BACKEND}/rh/asistencia`, {
+            method:'POST', headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({ payload }),
+          }).then(r => r.json()),
+          // Duplicados viejos del mismo (empleado, día) — se borran en paralelo.
+          ...ids.slice(1).map(id => _del(id, 'duplicado (empleado, día) desde calendario')),
+        ]);
+        if (!j || !j.ok) throw new Error((j && j.error) || 'POST falló');
+        const realId = String(j.id || primary || '');
+        if (realId && String(optimisticRow.ID) !== realId) {
+          _idMap.set(String(optimisticRow.ID), realId);
+          optimisticRow.ID = realId;
+        }
       }
-      // Resync silencioso para reemplazar el row optimista con el ID real
-      // del backend. En modo edición SOLO se refresca el calendario: la tabla
-      // de abajo se actualiza únicamente al oprimir "Guardar cambios".
-      if (ASIST_CAL_MODE.editing) {
-        try {
-          const _r2 = await fetch(`${BACKEND}/rh/asistencia?_cb=${Date.now()}`, { cache: 'no-store' });
-          const _j2 = await _r2.json();
-          if (_j2 && _j2.ok && Array.isArray(_j2.rows)) {
-            // Conserva optimistas de otros guardados aún en curso.
-            const tmps = (ASIST_STATE.rows || []).filter(r => String(r.ID||'').startsWith('AST-tmp-') && r !== optimisticRow);
-            ASIST_STATE.rows = _j2.rows.concat(tmps);
-            ASIST_STATE._focusMode = 'preserve'; asistRenderCalendar();
-          }
-        } catch(_){}
-      } else if (typeof asistReloadList === 'function') {
-        try { await asistReloadList(); ASIST_STATE._focusMode = 'preserve'; asistRenderCalendar(); } catch(_){}
-      }
+      console.log(`[asist-cal] guardado ${nombre} ${iso} (${isDeletion ? 'delete' : (ids.length ? 'update' : 'insert')}) en ${Math.round(performance.now() - _t0)}ms`);
     } catch (e) {
       console.warn('[asist-cal] guardar falló (background):', e.message);
-      // Revierte el cambio optimista si podemos.
-      ASIST_STATE.rows = backupRows;
-      ASIST_STATE._focusMode = 'preserve';
-      if (typeof asistRenderCalendar === 'function') asistRenderCalendar();
-      alert('❌ Error al guardar: ' + e.message + '\n\nEl cambio se revirtió.');
+      alert('❌ Error al guardar ' + nombre + ' ' + iso + ': ' + e.message + '\n\nSe recargarán los registros reales.');
+      try { await asistReloadList(); } catch(_){}
+      throw e;
     }
-  })();
+  });
+  ASIST_CAL_MODE.chains.set(_cellKey, _job);
   ASIST_CAL_MODE.pending.add(_job);
-  _job.finally(() => ASIST_CAL_MODE.pending.delete(_job));
+  _asistCalSyncChip_();
+  _job.catch(() => {}).finally(() => {
+    ASIST_CAL_MODE.pending.delete(_job);
+    if (ASIST_CAL_MODE.chains.get(_cellKey) === _job) ASIST_CAL_MODE.chains.delete(_cellKey);
+    _asistCalSyncChip_();
+  });
 };
 
 /** Puebla el <select> del empleado con nombres de la hoja Personal. */
