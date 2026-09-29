@@ -395,6 +395,7 @@ async function tryLogin() {
     });
     const out = await res.json();
     if (!out.ok) throw new Error(out.error || 'Error de autenticación');
+    if (!out.user || !out.user.Nombre) throw new Error('No se pudo verificar la contraseña. Intenta de nuevo.');
     sysStoreUser(out.user);
     currentUser = out.user.Nombre;
     sysApplyPermissions(out.user);
