@@ -36122,6 +36122,8 @@ function asistRenderCalendar() {
         : (isWorkDow ? 'background:#e2e8f0;' : '');
       const semStyle = conceptos.size ? asistPanelSemaforo_(conceptos) : '';
       let inner = '';
+      const _com = recs.map(r => String(r.Comentarios || '').trim()).filter(Boolean).join(' · ');
+      const _comChip = _com ? `<span title="${esc(_com)}" style="font-size:8px;font-weight:900;color:#1e40af;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;padding:0 4px;line-height:1.3;white-space:nowrap">💬</span>` : '';
       if (conceptos.size) {
         // Estado: primer concepto normalizado ('Regular', 'Falta', ...).
         const concKey = Array.from(conceptos)[0];
@@ -36141,19 +36143,24 @@ function asistRenderCalendar() {
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;padding:1px 2px;gap:1px">
             <span style="font-size:8.5px;font-weight:900;color:#0f172a;text-align:center;white-space:nowrap;text-transform:none">${esc(estadoLabel)}</span>
             ${horas ? `<span style="font-size:7.5px;font-weight:700;color:#475569;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${esc(horas)}</span>` : ''}
+            ${_comChip}
           </div>`;
+      } else if (_comChip) {
+        inner = `<div style="display:flex;align-items:center;justify-content:center">${_comChip}</div>`;
       }
       const wrap = inner
         ? `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%">${inner}</div>`
         : '';
       const tip = recs.length
         ? recs.map(r => {
-            const c = asistPanelNormalizarConceptoLegado_(String(r.Concepto||'').trim() || 'Regular');
             const e = String(r.Entrada||'').trim().slice(0,5);
             const s = String(r.Salida ||'').trim().slice(0,5);
+            const rawC = String(r.Concepto||'').trim();
+            const c = rawC || (e || s) ? asistPanelNormalizarConceptoLegado_(rawC || 'Regular') : '';
             const h = e || s ? ` · ${e || '?'}→${s || '?'}` : '';
-            return `${c}${h}`;
-          }).join(' | ')
+            const cm = String(r.Comentarios || '').trim();
+            return [c ? `${c}${h}` : '', cm ? `💬 ${cm}` : ''].filter(Boolean).join(' · ');
+          }).filter(Boolean).join(' | ')
         : '';
       html += `<div class="ocup-day-cell ${isToday?'is-today':''} ${isWeekend?'is-weekend':''}" style="${bgStyle}${semStyle}cursor:${ASIST_CAL_MODE.editing?'pointer':'default'}" title="${esc(tip)}" onclick="asistCalClick('${esc(nombre).replace(/'/g,"\\'")}','${iso}',event)">${wrap}</div>`;
     }
@@ -36286,7 +36293,7 @@ window.asistCalGoToWeek = function (weekValue) {
 };
 // ── Popup del calendario grande (Control de asistencias) ────────────────
 // Estado del edit en curso — mismo modelo que el panel: 1 concepto + 1 comp.
-const ASIST_CAL_EDIT = { nombre: '', iso: '', concepto: '', comp: null, saving: false };
+const ASIST_CAL_EDIT = { nombre: '', iso: '', concepto: '', comp: null, comentarios: '', saving: false };
 
 // Permitir capturar hasta N días adelante de hoy (para programar turnos,
 // vacaciones o descansos con antelación). Cambiar aquí si el negocio quiere
@@ -36379,6 +36386,7 @@ window.asistCalOpenCellMenu = function (nombre, iso, ev) {
   ASIST_CAL_EDIT.iso    = iso;
   ASIST_CAL_EDIT.concepto = concepto;
   ASIST_CAL_EDIT.comp   = compInit ? { ...compInit } : null;
+  ASIST_CAL_EDIT.comentarios = row ? String(row.Comentarios || '') : '';
   ASIST_CAL_EDIT.saving = false;
   _asistCalRenderMenu_(ev);
 };
@@ -36460,6 +36468,15 @@ function _asistCalRenderMenu_(ev) {
         </div>
       </div>`;
   }
+  // Comentarios — texto libre, siempre visible (no es check).
+  html += '<div style="height:1px;background:#e2e8f0;margin:4px 0"></div>';
+  html += `
+    <div style="padding:4px 8px 6px;display:flex;flex-direction:column;gap:4px" onclick="event.stopPropagation()">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#0f172a">💬 Comentarios</label>
+      <textarea rows="2" maxlength="500" oninput="asistCalMenuSetComentarios(this.value)"
+        style="all:unset;padding:5px 8px;border:1.5px solid #cbd5e1;border-radius:5px;font-size:11.5px;color:#0f172a;background:#fff;box-sizing:border-box;width:100%;min-height:38px;white-space:pre-wrap;word-break:break-word;resize:vertical"
+        placeholder="Escribe un comentario…">${esc(S.comentarios || '')}</textarea>
+    </div>`;
   html += `<div style="display:flex;gap:6px;padding:6px 4px 2px;margin-top:4px;border-top:1px solid #e2e8f0">
     <button type="button" onclick="asistCalMenuGuardar()" ${S.saving?'disabled':''}
       style="all:unset;cursor:pointer;flex:1;text-align:center;padding:7px 10px;border-radius:6px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-size:11.5px;font-weight:900;letter-spacing:.02em">
@@ -36543,6 +36560,10 @@ window.asistCalMenuSetComp = function (field, value) {
   else S.comp.concepto = String(value || '').slice(0, 120);
 };
 
+window.asistCalMenuSetComentarios = function (value) {
+  ASIST_CAL_EDIT.comentarios = String(value || '').slice(0, 500);
+};
+
 window.asistCalMenuGuardar = async function () {
   const S = ASIST_CAL_EDIT;
   if (S.saving) return;
@@ -36553,6 +36574,7 @@ window.asistCalMenuGuardar = async function () {
   const row    = _asistCalRowFor_(nombre, iso);
   const concepto = S.concepto || '';
   const compFinal = (S.comp && (S.comp.concepto || Number(S.comp.monto) > 0)) ? S.comp : null;
+  const comentarios = String(S.comentarios || '').trim();
   // Guardarail: no crear nuevos registros más allá de la ventana permitida
   // (hoy + ASIST_CAL_FUTURE_DAYS). Solo se permite operar sobre registros
   // existentes para borrarlos.
@@ -36570,8 +36592,9 @@ window.asistCalMenuGuardar = async function () {
   const conceptoIgual = rowConceptoNorm === concepto;
   const compIgual = ((rowCompMonto === (compFinal ? Number(compFinal.monto)||0 : 0))
                    && (rowCompConc === (compFinal ? String(compFinal.concepto||'') : '')));
-  if (conceptoIgual && compIgual) { asistCalMenuCerrar(); S.saving = false; return; }
-  if (!row && !concepto && !compFinal) { asistCalMenuCerrar(); S.saving = false; return; }
+  const comIgual = String(row ? row.Comentarios || '' : '').trim() === comentarios;
+  if (conceptoIgual && compIgual && comIgual) { asistCalMenuCerrar(); S.saving = false; return; }
+  if (!row && !concepto && !compFinal && !comentarios) { asistCalMenuCerrar(); S.saving = false; return; }
 
   // ── ACTUALIZACIÓN OPTIMISTA en ASIST_STATE.rows + re-render inmediato ──
   // El usuario ve el cambio en el calendario al instante. Las llamadas al
@@ -36582,15 +36605,23 @@ window.asistCalMenuGuardar = async function () {
   const totalPago = ['salBase','primaVac','primaDom','primaDF'].reduce((s,k)=>s+(typeof p[k]==='number'?p[k]:0),0)
                  + (compFinal ? Number(compFinal.monto)||0 : 0);
   const preserve = row || {};
-  const metodoFinal = String(preserve.Metodo||'').trim() || 'Manual';
-  const entrada = String(preserve.Entrada||'').trim() || (isAs ? '08:30' : '');
-  const salida  = String(preserve.Salida ||'').trim() || (isAs ? '13:30' : '');
-  const horas   = String(preserve.Horas  ||'').trim() || (isAs ? '5h00'  : '');
+  // Registro de SOLO comentario (sin estado ni compensación): sin horas,
+  // sin método y sin montos — solo Timestamp, Empleado, Fecha y Comentarios.
+  const soloComentario = !concepto && !compFinal && !!comentarios;
+  const metodoFinal = String(preserve.Metodo||'').trim() || (soloComentario ? '' : 'Manual');
+  const entrada = concepto ? (String(preserve.Entrada||'').trim() || (isAs ? '08:30' : '')) : '';
+  const salida  = concepto ? (String(preserve.Salida ||'').trim() || (isAs ? '13:30' : '')) : '';
+  const horas   = concepto ? (String(preserve.Horas  ||'').trim() || (isAs ? '5h00'  : '')) : '';
+  const _now = new Date();
+  const _ts = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')} ${String(_now.getHours()).padStart(2,'0')}:${String(_now.getMinutes()).padStart(2,'0')}:${String(_now.getSeconds()).padStart(2,'0')}`;
   const optimisticRow = row ? { ...row } : {
     ID: 'AST-tmp-' + Date.now(),
+    Timestamp: _ts,
     Empleado_Nombre: nombre,
     Fecha: iso,
   };
+  optimisticRow.Comentarios = comentarios;
+  if (!concepto) optimisticRow.Tipo = '';
   optimisticRow.Concepto = concepto;
   optimisticRow.Entrada  = entrada;
   optimisticRow.Salida   = salida;
@@ -36604,7 +36635,7 @@ window.asistCalMenuGuardar = async function () {
   optimisticRow['Compensación_concepto']      = compFinal ? String(compFinal.concepto || '') : '';
   optimisticRow['Compensación_monto']         = compFinal && compFinal.monto ? asistPanelFmtMonto_(Number(compFinal.monto)) : '';
   const backupRows = (ASIST_STATE.rows || []).slice();
-  const isDeletion = row && !concepto && !compFinal;
+  const isDeletion = row && !concepto && !compFinal && !comentarios;
   const arr = ASIST_STATE.rows || [];
   // Todos los registros previos de este (empleado, día) — hay que
   // borrarlos para evitar duplicados si el usuario cambió el concepto
@@ -36655,10 +36686,12 @@ window.asistCalMenuGuardar = async function () {
           Metodo: metodoFinal,
           'Compensación_concepto': compFinal ? String(compFinal.concepto || '') : '',
           'Compensación_monto':    compFinal && compFinal.monto ? asistPanelFmtMonto_(Number(compFinal.monto)) : '',
+          Comentarios: comentarios,
         };
+        if (!concepto) payload.Tipo = '';
         const primary = ids[0] || '';
         if (primary) payload.ID = primary; // update in-place (conserva GPS, Timestamp, etc.)
-        else payload.Observaciones = '';
+        else { payload.Observaciones = ''; payload.Timestamp = optimisticRow.Timestamp || ''; }
         const [j] = await Promise.all([
           fetch(`${BACKEND}/rh/asistencia`, {
             method:'POST', headers:{ 'Content-Type':'application/json' },
