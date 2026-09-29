@@ -35325,7 +35325,7 @@ function asistRenderFiltersBar_() {
   const nombres = Array.from(new Set(
     _personal.map(x => x.nombre)
       .concat((ASIST_STATE.rows||[]).map(r => _toCanon(String(r.Empleado_Nombre||'').trim())))
-      .filter(Boolean)
+      .filter(n => n && !asistEsSinSalario_(n))
   )).sort((a,b)=>a.localeCompare(b,'es'));
   // Meses: derivados de las fechas presentes en los registros + 6 meses
   // hacia atrás/adelante desde hoy.
