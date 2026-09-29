@@ -34373,6 +34373,27 @@ function asistEsAdministrativo(puesto) {
 
 /** Devuelve la lista de personal para el calendario, EXCLUYE los puestos de
  *  Administración según la columna Puesto de la hoja Personal. */
+/** ¿La persona tiene "No" en la columna salario de la hoja Personal? Acepta
+ *  nombre completo o corto ("Andrés" → canonical) para registros viejos. */
+function asistEsSinSalario_(nombre) {
+  const rows = INC_STATE?.personalRows || [];
+  if (!rows.length) return false;
+  const sinSalario = new Set();
+  rows.forEach(r => {
+    if (String(r['salario'] ?? r['Salario'] ?? '').trim().toLowerCase() === 'no') {
+      const n = String(r['Nombre'] || '').trim();
+      if (n) sinSalario.add(_normNombre_(n));
+    }
+  });
+  if (!sinSalario.size) return false;
+  const t = String(nombre || '').trim();
+  if (!t) return false;
+  if (sinSalario.has(_normNombre_(t))) return true;
+  const alias = _asistBuildAliasMap_(rows.map(r => ({ nombre: String(r['Nombre'] || '').trim() })).filter(x => x.nombre));
+  const canon = alias.get(_normNombre_(t));
+  return !!(canon && sinSalario.has(_normNombre_(canon)));
+}
+
 function asistPersonalOperativo() {
   const rows = (INC_STATE?.personalRows || []);
   if (rows.length) {
@@ -34381,14 +34402,18 @@ function asistPersonalOperativo() {
         nombre: String(r['Nombre'] || '').trim(),
         puesto: String(r['Puesto'] || r['Rol'] || r['Cargo'] || '').trim(),
         estado: String(r['Estado'] || '').trim(),
+        salario: String(r['salario'] ?? r['Salario'] ?? '').trim(),
       }))
       // Excluye administrativos y — CRÍTICO — cualquier empleado cuyo Estado
       // no sea 'Activo' (Inactivo, Suspendido, Baja). Estado vacío se trata
       // como activo por retrocompatibilidad con filas viejas.
+      // También excluye a quien tenga salario = "No" (no lleva control de
+      // asistencia: dirección, auxiliar contable, etc.).
       .filter(x => {
         if (!x.nombre) return false;
         if (asistEsAdministrativo(x.puesto)) return false;
         if (x.estado && x.estado.toLowerCase() !== 'activo') return false;
+        if (x.salario.toLowerCase() === 'no') return false;
         return true;
       });
   }
@@ -34647,7 +34672,9 @@ function asistRenderResumen(targetId) {
     return _aliasToFull.get(_normNombre_(t)) || t;
   };
   const grupos = new Map();
+  const _enAsistencias = (targetId || 'asist-resumen-wrap') !== 'rh-view';
   for (const r of ASIST_STATE.rows) {
+    if (_enAsistencias && asistEsSinSalario_(r.Empleado_Nombre)) continue;
     const nombre = _canonRes(String(r.Empleado_Nombre||'').trim());
     const fecha  = String(r.Fecha||'').slice(0,10);
     if (!nombre || !fecha) continue;
@@ -35375,7 +35402,7 @@ function asistStatusTabla(html, kind) {
 function asistSortedRows() {
   // Aplica filtros globales de Control de asistencias (nombre / mes / concepto).
   const F = asistFilters_();
-  let rows = (ASIST_STATE.rows || []).slice();
+  let rows = (ASIST_STATE.rows || []).slice().filter(r => !asistEsSinSalario_(r.Empleado_Nombre));
   if (F.nombre) {
     // Reconciliamos nombres cortos (p.ej. "Adán") al canonical del Personal
     // (p.ej. "Adán Ramos") para que el filtro atrape ambas variantes.
@@ -37546,6 +37573,7 @@ function _asistManualFillEmpleados() {
   if (!sel) return;
   // Prefiere personalRows (con puestos); si no hay, usa la lista plana personas.
   let empleados = (INC_STATE?.personalRows || [])
+    .filter(r => String(r?.salario ?? r?.Salario ?? '').trim().toLowerCase() !== 'no')
     .map(r => String(r?.Nombre||'').trim()).filter(Boolean);
   if (!empleados.length && Array.isArray(INC_STATE?.personas)) {
     empleados = INC_STATE.personas.map(n => String(n||'').trim()).filter(Boolean);
