@@ -35598,6 +35598,10 @@ function asistCellHtml(row, col, dayIdx, editing) {
   const editableDerived = col === 'Entrada' || col === 'Salida';
   const isReadOnly = (isDerived && !editableDerived) || col === 'ID' || col === 'Timestamp';
   const id = String(row.ID||'');
+  if (col === 'Comentarios') {
+    if (!editing) return `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#334155;min-width:180px;max-width:320px;white-space:normal;word-break:break-word">${esc(v)}</td>`;
+    return `<td style="padding:3px 6px;border-bottom:1px solid #f1f5f9;background:#fefce8"><input type="text" value="${esc(v)}" oninput="asistCellChange('${esc(id)}','Comentarios',this.value)" placeholder="Comentarios…" maxlength="500" style="width:100%;min-width:220px;padding:5px 7px;font-size:12px;border:1.5px solid #cbd5e1;border-radius:6px;background:#fff;color:#0f172a;font-weight:600"></td>`;
+  }
   // Modo lectura (o campos read-only en modo edición)
   if (!editing || isReadOnly) {
     const bg = isReadOnly ? 'background:#f8fafc;color:#475569' : 'color:#334155';
@@ -35823,6 +35827,11 @@ function asistVisibleHeaders() {
   for (const m of ['Concepto','Metodo']) if (raw.includes(m) && !out.includes(m)) out.push(m);
   if (!out.includes('Ubicación entrada')) out.push('Ubicación entrada');
   if (!out.includes('Ubicación salida')) out.push('Ubicación salida');
+  // Comentarios (texto libre) — siempre al final, aunque la columna aún no
+  // exista en la hoja (se crea sola en RH_Asistencia al primer guardado).
+  const iCom = out.indexOf('Comentarios');
+  if (iCom >= 0) out.splice(iCom, 1);
+  out.push('Comentarios');
   return out;
 }
 
