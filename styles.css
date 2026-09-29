@@ -6360,6 +6360,18 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   transition: background .12s, color .12s, border-color .12s;
 }
 .ug-logout:hover { background: #f1f5f9; border-color: #94a3b8; color: #0f172a; }
+.ug-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ug-hamburger {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 30px; padding: 0; flex: none;
+  background: #fff; border: 1px solid #cbd5e1; border-radius: 8px;
+  color: #0369a1; font-size: 17px; line-height: 1; cursor: pointer;
+  transition: background .12s, border-color .12s, transform .06s;
+}
+.ug-hamburger:hover { background: #f0f9ff; border-color: #7dd3fc; }
+.ug-hamburger:active { transform: scale(.94); }
+body.dark .ug-hamburger { background: #1e293b; border-color: #334155; color: #7dd3fc; }
+body.dark .ug-hamburger:hover { background: #334155; }
 body.dark .user-greeting { background: #1e3a5f; border-color: #1e40af; color: #e2e8f0; }
 body.dark .ug-hello strong { color: #7dd3fc; }
 body.dark .ug-logout { background: #1e293b; border-color: #334155; color: #cbd5e1; }

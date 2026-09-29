@@ -8899,11 +8899,11 @@ function switchModule(mod) {
       if (location.hash !== target) history.replaceState(null, '', target);
     }
   } catch(_) {}
-  // Barra de saludo + botón "Cerrar sesión" SOLO en la pantalla home —
-  // en cualquier otro módulo desperdicia espacio vertical.
+  // Barra de saludo ("Hola, ...") + hamburguesa (menú lateral) + "Cerrar
+  // sesión": visible SIEMPRE, en todos los módulos (barra superior global).
   try {
     const greet = document.getElementById('user-greeting');
-    if (greet) greet.style.display = (mod === 'home') ? '' : 'none';
+    if (greet) greet.style.display = '';
   } catch(_){}
   ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
