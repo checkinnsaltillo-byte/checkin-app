@@ -35881,7 +35881,7 @@ function asistRenderTabla() {
 // ║   se refresca la tabla desde el backend y se sale del modo edición.      ║
 // ║ - "🚪 Salir" sale del modo edición sin refrescar.                        ║
 // ═══════════════════════════════════════════════════════════════════════════
-const ASIST_CAL_MODE = { editing: false, dirty: false };
+const ASIST_CAL_MODE = { editing: false, dirty: false, pending: new Set() };
 
 function _asistCalEditToolbarButtons_() {
   if (!ASIST_CAL_MODE.editing) {
@@ -35919,6 +35919,9 @@ window.asistCalSaveExit = async function () {
   // Los cambios ya se guardaron optimistamente en el backend a medida que
   // el usuario editaba. Aquí solo refrescamos desde el server (para
   // reemplazar IDs temporales por reales) y salimos del modo edición.
+  // Espera a que terminen los guardados en curso antes de refrescar, así la
+  // tabla de abajo se actualiza UNA sola vez y ya con todos los cambios.
+  try { await Promise.allSettled(Array.from(ASIST_CAL_MODE.pending)); } catch(_){}
   ASIST_CAL_MODE.editing = false;
   ASIST_CAL_MODE.dirty = false;
   try { if (typeof asistReloadList === 'function') await asistReloadList(); } catch(_){}
@@ -36596,7 +36599,9 @@ window.asistCalMenuGuardar = async function () {
   if (typeof asistRenderCalendar === 'function') asistRenderCalendar();
 
   // ── Reales al backend en background ──
-  (async () => {
+  // Se registra en ASIST_CAL_MODE.pending para que "Guardar cambios" espere
+  // a que terminen antes de refrescar la tabla de abajo.
+  const _job = (async () => {
     try {
       // ANTES de borrar/POST — reload silenciosa para conocer TODOS los
       // registros reales del backend (incluidos los que insertó el bot
@@ -36608,9 +36613,8 @@ window.asistCalMenuGuardar = async function () {
         if (_j && _j.ok && Array.isArray(_j.rows)) {
           // Refresca ASIST_STATE.rows PRESERVANDO el row optimista que
           // acabamos de agregar (para que el usuario no vea flicker).
-          const tmpRow = ASIST_STATE.rows.find(r => String(r.ID||'').startsWith('AST-tmp-'));
-          ASIST_STATE.rows = _j.rows;
-          if (tmpRow) ASIST_STATE.rows.push(tmpRow);
+          const tmpRows = ASIST_STATE.rows.filter(r => String(r.ID||'').startsWith('AST-tmp-'));
+          ASIST_STATE.rows = _j.rows.concat(tmpRows);
         }
       } catch(_){}
       // Ahora RE-CALCULA existentes con el estado fresh — atrapa filas
@@ -36673,9 +36677,20 @@ window.asistCalMenuGuardar = async function () {
         });
       }
       // Resync silencioso para reemplazar el row optimista con el ID real
-      // del backend. NO re-renderiza el calendario si el resultado es igual
-      // (para no parpadear).
-      if (typeof asistReloadList === 'function') {
+      // del backend. En modo edición SOLO se refresca el calendario: la tabla
+      // de abajo se actualiza únicamente al oprimir "Guardar cambios".
+      if (ASIST_CAL_MODE.editing) {
+        try {
+          const _r2 = await fetch(`${BACKEND}/rh/asistencia?_cb=${Date.now()}`, { cache: 'no-store' });
+          const _j2 = await _r2.json();
+          if (_j2 && _j2.ok && Array.isArray(_j2.rows)) {
+            // Conserva optimistas de otros guardados aún en curso.
+            const tmps = (ASIST_STATE.rows || []).filter(r => String(r.ID||'').startsWith('AST-tmp-') && r !== optimisticRow);
+            ASIST_STATE.rows = _j2.rows.concat(tmps);
+            ASIST_STATE._focusMode = 'preserve'; asistRenderCalendar();
+          }
+        } catch(_){}
+      } else if (typeof asistReloadList === 'function') {
         try { await asistReloadList(); ASIST_STATE._focusMode = 'preserve'; asistRenderCalendar(); } catch(_){}
       }
     } catch (e) {
@@ -36687,6 +36702,8 @@ window.asistCalMenuGuardar = async function () {
       alert('❌ Error al guardar: ' + e.message + '\n\nEl cambio se revirtió.');
     }
   })();
+  ASIST_CAL_MODE.pending.add(_job);
+  _job.finally(() => ASIST_CAL_MODE.pending.delete(_job));
 };
 
 /** Puebla el <select> del empleado con nombres de la hoja Personal. */
