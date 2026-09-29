@@ -34404,14 +34404,13 @@ function asistPersonalOperativo() {
         estado: String(r['Estado'] || '').trim(),
         salario: String(r['salario'] ?? r['Salario'] ?? '').trim(),
       }))
-      // Excluye administrativos y — CRÍTICO — cualquier empleado cuyo Estado
-      // no sea 'Activo' (Inactivo, Suspendido, Baja). Estado vacío se trata
-      // como activo por retrocompatibilidad con filas viejas.
-      // También excluye a quien tenga salario = "No" (no lleva control de
-      // asistencia: dirección, auxiliar contable, etc.).
+      // Excluye — CRÍTICO — cualquier empleado cuyo Estado no sea 'Activo'
+      // (Inactivo, Suspendido, Baja). Estado vacío se trata como activo por
+      // retrocompatibilidad con filas viejas.
+      // El puesto ya NO excluye: solo se oculta a quien tenga salario = "No"
+      // (no lleva control de asistencia: dirección, auxiliar contable, etc.).
       .filter(x => {
         if (!x.nombre) return false;
-        if (asistEsAdministrativo(x.puesto)) return false;
         if (x.estado && x.estado.toLowerCase() !== 'activo') return false;
         if (x.salario.toLowerCase() === 'no') return false;
         return true;
