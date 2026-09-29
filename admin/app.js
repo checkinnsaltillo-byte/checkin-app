@@ -343,17 +343,58 @@ const SYS_MODULE_PERMS = {
   VII:  ['ocupacion'],
   VIII: ['rh','inquilinos','personas','inventarios'],
 };
+// Módulos asignables por empleado (RH › Documentación › Acceso al sistema).
+// Se guardan como lista de claves en la columna sys_modulos de la hoja Personal.
+const SYS_MODULE_LIST = [
+  ['registros',        '📚 Registros contables'],
+  ['tickets',          '🎫 Tickets'],
+  ['lodgify',          '🌐 Gestión de reservas'],
+  ['personas',         '🏨 Huéspedes/Inquilinos'],
+  ['pagos',            '💰 Pagos'],
+  ['breezeway',        '🧹 Breezeway'],
+  ['incidencias',      '🚨 Incidencias'],
+  ['reportes-tecnicos','🛠 Reportes técnicos'],
+  ['objetos',          '🧳 Objetos olvidados'],
+  ['ocupacion',        '📊 Dashboard (Ocupación)'],
+  ['rh',               '👥 Recursos Humanos'],
+  ['inventarios',      '📦 Inventarios'],
+  ['tuya',             '🛰️ Dispositivos'],
+  ['guias',            '📖 Guías de Bienvenida'],
+  ['llaves',           '🔑 Llaves'],
+  ['config-admin',     '⚙️ Configuración Admin'],
+  ['bot-chats',        '🤖 Chats bot'],
+  ['reservas-nueva',   '🏨 Reservas'],
+];
+// Submódulos/alias que acompañan a un módulo elegido.
+const SYS_MODULE_EXTRAS = {
+  registros: ['efectivo'],
+  personas:  ['huespedes', 'inquilinos'],
+  lodgify:   ['reservas-detalles'],
+  ocupacion: ['dashboard', 'calendario'],
+};
 function sysGetStoredUser() {
   try { return JSON.parse(localStorage.getItem('sys_user') || 'null'); } catch (_) { return null; }
 }
 function sysStoreUser(u) { try { localStorage.setItem('sys_user', JSON.stringify(u)); } catch(_) {} }
 function sysApplyPermissions(user) {
-  const allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos', 'reservas-nueva']);
-  if (user && user.modulos) {
-    for (const k in SYS_MODULE_PERMS) {
-      if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
+  let allowed;
+  if (user && Array.isArray(user.modulosKeys)) {
+    // Usuario de la hoja Personal: SOLO Inicio + los módulos marcados.
+    allowed = new Set(['home']);
+    user.modulosKeys.forEach(k => {
+      allowed.add(k);
+      (SYS_MODULE_EXTRAS[k] || []).forEach(x => allowed.add(x));
+    });
+  } else {
+    // Usuario legado de sys_users (grupos por número romano).
+    allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos', 'reservas-nueva']);
+    if (user && user.modulos) {
+      for (const k in SYS_MODULE_PERMS) {
+        if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
+      }
     }
   }
+  window.SYS_ALLOWED = allowed;
   document.querySelectorAll('[id^="nav-item-"]').forEach(el => {
     const key = el.id.replace('nav-item-', '');
     if (key === 'home') return;
@@ -8829,6 +8870,11 @@ if (!window._rtHashListener) {
   });
 }
 function switchModule(mod) {
+  // Permisos: un módulo no asignado (p. ej. por enlace #modulo) manda a Inicio.
+  if (window.SYS_ALLOWED && mod !== 'home') {
+    const permKey = (mod === 'dashboard' || mod === 'calendario') ? 'ocupacion' : mod;
+    if (!window.SYS_ALLOWED.has(permKey) && !window.SYS_ALLOWED.has(mod)) mod = 'home';
+  }
   // Legacy: 'ocupacion' como módulo top-level se trata como Dashboard
   if (mod === 'ocupacion') mod = 'dashboard';
   // Aliases: 'dashboard' y 'calendario' comparten el contenedor module-ocupacion
@@ -28787,6 +28833,7 @@ window.rhOpenForm = function (kind, id) {
           ${rhFieldText('Telefono','Teléfono',editing?.Telefono)}
           ${rhFieldText('Celular','Celular',editing?.Celular)}
           ${rhFieldText('Email','Email',editing?.Email)}
+          ${rhFieldSelect('Tipo','Tipo',['Empleado','Invitado','Apoyo'], editing?.Tipo || 'Empleado')}
         </div>
         ${rhFieldText('Direccion','Dirección',editing?.Direccion)}
       </div>
@@ -28836,6 +28883,18 @@ window.rhOpenForm = function (kind, id) {
           ${rhFieldText('Contacto_emergencia','Nombre del contacto',editing?.Contacto_emergencia)}
           ${rhFieldText('Tel_emergencia','Teléfono',editing?.Tel_emergencia)}
         </div>
+      </div>
+
+      <div class="rh-section">
+        <div class="rh-section-title">🔐 Acceso al sistema</div>
+        <div class="rh-grid-2">
+          ${rhFieldSelect('sys_access','sys_access (¿Tiene acceso?)',['Sí','No'], editing?.sys_access || 'No')}
+          <div class="rh-field"><label>sys_password</label>
+            <input type="text" data-rh-field="sys_password" value="" autocomplete="off" spellcheck="false"
+              placeholder="${editing?.sys_password_set ? '•••• guardada — escribe una nueva para cambiarla' : 'Sin contraseña'}">
+          </div>
+        </div>
+        ${rhFieldModulos(editing?.sys_modulos)}
       </div>`;
   } else if (kind === 'asistencia') {
     editing = id ? (RH_STATE.asistencia || []).find(r => String(r.ID) === String(id)) : null;
@@ -28944,9 +29003,23 @@ window.rhSaveCurrentForm = async function () {
   if (diasBoxes.length || document.querySelector('#rh-form-body input[data-rh-day]')) {
     fullPayload.Dias_trabajo = Array.from(diasBoxes).map(b => b.getAttribute('data-rh-day')).join(',');
   }
+  // Acceso al sistema: módulos marcados → sys_modulos (lista de claves).
+  const modEls = document.querySelectorAll('#rh-form-body [data-rh-mod]');
+  if (modEls.length) {
+    fullPayload.sys_modulos = Array.from(modEls).filter(el => el.dataset.on === '1').map(el => el.dataset.rhMod).join(',');
+  }
+  // La contraseña guardada nunca llega al navegador: vacío = no cambiarla.
+  if ('sys_password' in fullPayload && !String(fullPayload.sys_password || '').trim()) delete fullPayload.sys_password;
+  else if ('sys_password' in fullPayload) fullPayload.sys_password = String(fullPayload.sys_password).trim();
   // Validación mínima
   if (ctx.kind === 'empleado') {
     if (!fullPayload.Nombre) { alert('El nombre es obligatorio.'); return; }
+    if (fullPayload.sys_access === 'Sí' && !fullPayload.sys_password && !(ctx.editing && ctx.editing.sys_password_set)) {
+      alert('Para dar acceso al sistema captura una sys_password.'); return;
+    }
+    if (fullPayload.sys_access === 'Sí' && modEls.length && !fullPayload.sys_modulos) {
+      alert('Selecciona al menos un módulo para este usuario.'); return;
+    }
   } else if (!fullPayload.Empleado_ID) {
     alert('Selecciona un empleado.'); return;
   }
@@ -28990,12 +29063,16 @@ window.rhSaveCurrentForm = async function () {
     const idx = cacheList.findIndex(r => String(r.ID) === String(ctx.editing.ID));
     if (idx >= 0) {
       optimisticRow = { ...cacheList[idx] };
-      cacheList[idx] = { ...cacheList[idx], ...payload };
+      cacheList[idx] = _rhSafeRow_({ ...cacheList[idx], ...payload });
     }
   }
   rhCloseForm();
-  // Re-render inmediato con la data optimista.
-  if (typeof rhSetTab === 'function') rhSetTab(RH_STATE.tab);
+  // Re-render inmediato con la data optimista (Nómina o Documentación).
+  const _rhRerender = () => {
+    if (RH_STATE.section === 'documentacion' && typeof rhRenderExpediente === 'function') rhRenderExpediente('rh-view-documentacion');
+    else if (typeof rhSetTab === 'function') rhSetTab(RH_STATE.tab);
+  };
+  _rhRerender();
   try {
     const res = await fetch(`${BACKEND}${endpoint}`, {
       method: 'POST',
@@ -29004,16 +29081,30 @@ window.rhSaveCurrentForm = async function () {
     });
     const out = await res.json();
     if (!out.ok) throw new Error(out.error || 'Error');
+    // Alta nueva: agregarla a la lista local con el ID asignado.
+    if (!(ctx.editing && ctx.editing.ID) && Array.isArray(cacheList) && out.id) {
+      cacheList.push(_rhSafeRow_({ ...payload, ID: out.id }));
+      _rhRerender();
+    }
   } catch (e) {
     // Rollback optimista si falló.
     if (optimisticRow && Array.isArray(cacheList)) {
       const idx = cacheList.findIndex(r => String(r.ID) === String(ctx.editing.ID));
       if (idx >= 0) cacheList[idx] = optimisticRow;
-      if (typeof rhSetTab === 'function') rhSetTab(RH_STATE.tab);
+      _rhRerender();
     }
     alert('No se pudo guardar:\n' + (e.message || e));
   }
 };
+
+// La contraseña nunca se guarda en la memoria del navegador.
+function _rhSafeRow_(row) {
+  if (row && 'sys_password' in row) {
+    if (String(row.sys_password || '').trim()) row.sys_password_set = 'Sí';
+    delete row.sys_password;
+  }
+  return row;
+}
 
 // ── Helpers de campos ──
 function rhFieldText(name, label, val) {
@@ -29042,6 +29133,43 @@ function rhFieldEmpleadoSelect(val, empleadoOpts) {
 function rhFieldTime(name, label, val) {
   return `<div class="rh-field"><label>${esc(label)}</label><input type="time" data-rh-field="${esc(name)}" value="${esc(val || '')}"></div>`;
 }
+// Palomitas de módulos (span 18×18, nunca checkbox nativo).
+function _rhModStyle_(el, on) {
+  el.dataset.on = on ? '1' : '0';
+  el.style.borderColor = on ? '#2563eb' : '#e2e8f0';
+  el.style.background  = on ? '#eff6ff' : '#fff';
+  const box = el.querySelector('.rh-mod-box');
+  if (box) {
+    box.style.borderColor = on ? '#2563eb' : '#cbd5e1';
+    box.style.background  = on ? '#2563eb' : '#fff';
+    box.textContent = on ? '✓' : '';
+  }
+}
+function rhFieldModulos(selected) {
+  const sel = new Set(String(selected || '').split(',').map(s => s.trim()).filter(Boolean));
+  const btn = 'padding:4px 10px;border:1px solid #cbd5e1;background:#fff;border-radius:6px;font-size:11px;font-weight:700;color:#475569;cursor:pointer';
+  return `<div class="rh-field"><label>Módulos con acceso</label>
+    <div style="display:flex;gap:6px;margin:2px 0 8px">
+      <button type="button" style="${btn}" onclick="rhModsAll(true)">✓ Todos</button>
+      <button type="button" style="${btn}" onclick="rhModsAll(false)">✕ Ninguno</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px">
+      ${SYS_MODULE_LIST.map(([k, l]) => {
+        const on = sel.has(k);
+        return `<div data-rh-mod="${esc(k)}" data-on="${on ? '1' : '0'}" onclick="rhToggleMod(this)"
+          style="display:flex;align-items:center;gap:8px;padding:7px 10px;border:1.5px solid ${on ? '#2563eb' : '#e2e8f0'};border-radius:8px;cursor:pointer;background:${on ? '#eff6ff' : '#fff'};font-size:12.5px;user-select:none">
+          <span class="rh-mod-box" style="width:18px;height:18px;border-radius:4px;border:1.5px solid ${on ? '#2563eb' : '#cbd5e1'};background:${on ? '#2563eb' : '#fff'};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex-shrink:0;line-height:1">${on ? '✓' : ''}</span>
+          <span>${esc(l)}</span>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+window.rhToggleMod = function (el) { _rhModStyle_(el, el.dataset.on !== '1'); };
+window.rhModsAll = function (on) {
+  document.querySelectorAll('#rh-form-body [data-rh-mod]').forEach(el => _rhModStyle_(el, on));
+};
+
 function rhFieldDays(name, label, selected) {
   const DIAS = [['L','Lun'],['M','Mar'],['Mi','Mié'],['J','Jue'],['V','Vie'],['S','Sáb'],['D','Dom']];
   const sel = new Set(selected || []);

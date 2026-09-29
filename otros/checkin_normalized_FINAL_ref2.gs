@@ -2238,6 +2238,8 @@ var RH_PERSONAL_HEADERS = [
   'Banco', 'CLABE', 'Tipo_cuenta', 'Cuentahabiente',
   // Emergencia (legado)
   'Contacto_emergencia', 'Tel_emergencia',
+  // Tipo de persona + acceso al sistema admin (www.check-inn.mx)
+  'Tipo', 'sys_access', 'sys_password', 'sys_modulos',
 ];
 var RH_ASIST_HEADERS = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Fecha','Entrada','Salida','Horas','Horas_extra','Hora','Tipo','Concepto','$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','$ Salario total','Ubicacion_Lat','Ubicacion_Lng','GPS_Accuracy','Metodo','Observaciones','Compensación_concepto','Compensación_monto'];
 var RH_AUSE_HEADERS  = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Tipo','Fecha_inicio','Fecha_fin','Dias','Estatus','Comentarios'];
@@ -2306,6 +2308,12 @@ function rhListEmpleados_() {
         }
       }
     }
+    // La contraseña nunca sale de la hoja (el endpoint es público): solo se
+    // indica si existe.
+    rows.forEach(function (o) {
+      o.sys_password_set = String(o.sys_password || '').trim() ? 'Sí' : '';
+      delete o.sys_password;
+    });
     return { ok: true, rows: rows, headers: RH_PERSONAL_HEADERS };
   } catch (err) {
     return { ok: false, error: String(err && err.message || err) };
@@ -2321,6 +2329,39 @@ function rhSaveEmpleado_(data) {
     var headers = rhEnsureHeaders_(sh, RH_PERSONAL_HEADERS);
     var idCol = headers.indexOf('ID') + 1;
     var id = String(payload.ID || payload.id || '').trim();
+    // sys_password: vacío = no cambiar; debe ser única (el login solo pide
+    // contraseña, sin usuario).
+    if (payload.sys_password != null) {
+      payload.sys_password = String(payload.sys_password).trim();
+      if (!payload.sys_password) delete payload.sys_password;
+    }
+    if (payload.sys_password) {
+      var pwCol = headers.indexOf('sys_password') + 1;
+      var lr = sh.getLastRow();
+      if (pwCol && idCol && lr >= 2) {
+        var pws = sh.getRange(2, pwCol, lr - 1, 1).getDisplayValues();
+        var idsP = sh.getRange(2, idCol, lr - 1, 1).getDisplayValues();
+        for (var q = 0; q < pws.length; q++) {
+          if (String(pws[q][0]).trim() === payload.sys_password && String(idsP[q][0]).trim() !== id) {
+            return { ok: false, error: 'Esa sys_password ya la usa otra persona. Usa una distinta.' };
+          }
+        }
+      }
+      var shU = ss.getSheetByName('sys_users');
+      if (shU && shU.getLastRow() >= 2) {
+        var vU = shU.getDataRange().getDisplayValues();
+        var hU = vU[0].map(function (h) { return String(h || '').trim().toLowerCase(); });
+        var cU = hU.indexOf('sys_password');
+        var nU = hU.indexOf('nombre');
+        var nombreEmp = String(payload.Nombre || '').trim().toLowerCase();
+        for (var u = 1; cU >= 0 && u < vU.length; u++) {
+          if (String(vU[u][cU]).trim() === payload.sys_password
+              && !(nU >= 0 && nombreEmp && String(vU[u][nU]).trim().toLowerCase() === nombreEmp)) {
+            return { ok: false, error: 'Esa sys_password ya la usa otro usuario del sistema. Usa una distinta.' };
+          }
+        }
+      }
+    }
     // Update si tiene ID y existe; insert si no
     if (id && idCol) {
       var lastRow = sh.getLastRow();
@@ -2371,12 +2412,40 @@ function rhListSimple_(sheetName) {
   }
 }
 
+/** Busca la contraseña en la hoja Personal. Devuelve la respuesta de login o
+ *  null si ninguna fila de Personal tiene esa sys_password. */
+function sysLoginFromPersonal_(ss, pwd) {
+  var sh = ss.getSheetByName('Personal');
+  if (!sh || sh.getLastRow() < 2) return null;
+  var values = sh.getDataRange().getDisplayValues();
+  var h = values[0].map(function (x) { return String(x || '').trim(); });
+  var iPw = h.indexOf('sys_password');
+  if (iPw < 0) return null;
+  var iAcc = h.indexOf('sys_access'), iMod = h.indexOf('sys_modulos');
+  var iNom = h.indexOf('Nombre'), iEst = h.indexOf('Estado');
+  for (var i = 1; i < values.length; i++) {
+    var r = values[i];
+    if (String(r[iPw] || '').trim() !== pwd) continue;
+    var acc = String(iAcc >= 0 ? r[iAcc] : '').trim().toLowerCase();
+    if (acc !== 'sí' && acc !== 'si') return { ok: false, error: 'Este usuario no tiene acceso al sistema (sys_access = No).' };
+    var est = String(iEst >= 0 ? r[iEst] : '').trim().toLowerCase();
+    if (est && est !== 'activo') return { ok: false, error: 'Usuario inactivo' };
+    var mods = String(iMod >= 0 ? r[iMod] : '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    return { ok: true, user: { Nombre: String(iNom >= 0 ? r[iNom] : '').trim(), modulosKeys: mods, source: 'Personal' } };
+  }
+  return null;
+}
+
 function sysLogin_(data) {
   try {
     var payload = data && data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : data;
     var pwd = String((payload && (payload.password || payload.sys_password)) || '').trim();
     if (!pwd) return { ok: false, error: 'Falta contraseña' };
     var ss = getSpreadsheet_();
+    // 1) Personal (RH › Documentación › Acceso al sistema): módulos por usuario.
+    var fromPersonal = sysLoginFromPersonal_(ss, pwd);
+    if (fromPersonal) return fromPersonal;
+    // 2) Legado: hoja sys_users (grupos por número romano).
     var sh = ss.getSheetByName('sys_users');
     if (!sh) return { ok: false, error: 'Hoja sys_users no encontrada' };
     var values = sh.getDataRange().getDisplayValues();
