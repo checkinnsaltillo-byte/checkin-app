@@ -28829,7 +28829,6 @@ window.rhOpenForm = function (kind, id) {
           ${rhFieldText('Apellido_paterno','Apellido paterno',editing?.Apellido_paterno)}
           ${rhFieldText('Apellido_materno','Apellido materno',editing?.Apellido_materno)}
           ${rhFieldDate('Fecha_nacimiento','Fecha de nacimiento',editing?.Fecha_nacimiento)}
-          ${rhFieldText('CURP','CURP',editing?.CURP)}
           ${rhFieldText('Telefono','Teléfono',editing?.Telefono)}
           ${rhFieldText('Celular','Celular',editing?.Celular)}
           ${rhFieldText('Email','Email',editing?.Email)}
@@ -28838,7 +28837,7 @@ window.rhOpenForm = function (kind, id) {
         ${rhFieldText('Direccion','Dirección',editing?.Direccion)}
       </div>
 
-      <div class="rh-section">
+      <div class="rh-section" data-rh-no-invitado="1">
         <div class="rh-section-title">💼 Nómina</div>
         <div class="rh-grid-2">
           <div class="rh-field"><label>No. de empleado</label><input type="text" value="${esc(noEmp)}" readonly style="background:#f1f5f9;color:#64748b"></div>
@@ -28859,15 +28858,16 @@ window.rhOpenForm = function (kind, id) {
         ${rhFieldDays('Dias_trabajo','Días de la semana que trabaja', diasDef)}
       </div>
 
-      <div class="rh-section">
+      <div class="rh-section" data-rh-no-invitado="1">
         <div class="rh-section-title">🏥 IMSS y SAT</div>
         <div class="rh-grid-2">
           ${rhFieldText('NSS','No. de Seguridad Social (IMSS)',editing?.NSS)}
           ${rhFieldText('RFC','RFC',editing?.RFC)}
+          ${rhFieldText('CURP','CURP',editing?.CURP)}
         </div>
       </div>
 
-      <div class="rh-section">
+      <div class="rh-section" data-rh-no-invitado="1">
         <div class="rh-section-title">🏦 Datos bancarios</div>
         <div class="rh-grid-2">
           ${rhFieldText('Banco','Banco',editing?.Banco)}
@@ -28877,7 +28877,7 @@ window.rhOpenForm = function (kind, id) {
         </div>
       </div>
 
-      <div class="rh-section">
+      <div class="rh-section" data-rh-no-invitado="1">
         <div class="rh-section-title">🚨 Contacto de emergencia</div>
         <div class="rh-grid-2">
           ${rhFieldText('Contacto_emergencia','Nombre del contacto',editing?.Contacto_emergencia)}
@@ -28948,6 +28948,8 @@ window.rhOpenForm = function (kind, id) {
   panel.classList.add('open');
   if (kind === 'empleado') {
     setTimeout(() => {
+      const tipoSel = document.querySelector('#rh-form-body [data-rh-field="Tipo"]');
+      if (tipoSel) { tipoSel.addEventListener('change', rhAplicarTipo_); rhAplicarTipo_(); }
       const fi = document.querySelector('#rh-form-body [data-rh-field="Fecha_ingreso"]');
       const fr = document.querySelector('#rh-form-body [data-rh-field="Fecha_retiro"]');
       const out = document.getElementById('rh-antiguedad');
@@ -28983,6 +28985,15 @@ window.rhOpenForm = function (kind, id) {
     }, 50);
   }
 };
+
+// Tipo = Invitado: solo "Datos generales" y "Acceso al sistema".
+function rhAplicarTipo_() {
+  const tipo = document.querySelector('#rh-form-body [data-rh-field="Tipo"]')?.value || '';
+  const invitado = tipo === 'Invitado';
+  document.querySelectorAll('#rh-form-body [data-rh-no-invitado]').forEach(sec => {
+    sec.style.display = invitado ? 'none' : '';
+  });
+}
 
 window.rhCloseForm = function () {
   const panel = document.getElementById('rh-form-panel');
