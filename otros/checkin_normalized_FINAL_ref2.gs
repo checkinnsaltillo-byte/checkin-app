@@ -2241,7 +2241,7 @@ var RH_PERSONAL_HEADERS = [
   // Tipo de persona + acceso al sistema admin (www.check-inn.mx)
   'Tipo', 'sys_access', 'sys_password', 'sys_modulos',
 ];
-var RH_ASIST_HEADERS = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Fecha','Entrada','Salida','Horas','Horas_extra','Hora','Tipo','Concepto','$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','$ Salario total','Ubicacion_Lat','Ubicacion_Lng','GPS_Accuracy','Metodo','Observaciones','Compensación_concepto','Compensación_monto'];
+var RH_ASIST_HEADERS = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Fecha','Entrada','Salida','Horas','Horas_extra','Hora','Tipo','Concepto','$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','$ Salario total','Ubicacion_Lat','Ubicacion_Lng','GPS_Accuracy','Metodo','Observaciones','Compensación_concepto','Compensación_monto','Comentarios'];
 var RH_AUSE_HEADERS  = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Tipo','Fecha_inicio','Fecha_fin','Dias','Estatus','Comentarios'];
 var RH_COMP_HEADERS  = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Concepto','Periodo','Horas','$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','Monto','Metodo_pago','Estado_pago','Fecha_pago','Comentarios'];
 
