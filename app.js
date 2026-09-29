@@ -3239,7 +3239,8 @@ function bn_apAggregateGroup(records) {
 
 /** Calcula totales globales y por cuenta (Egresos/Activos/Capital). */
 function bn_apComputeTotalsOnly() {
-  const records = bn_kpiRecs(null);
+  // KPIs de presupuesto: solo registros clasificados (universo "Cuentas").
+  const records = bn_kpiRecs(null, true);
   BN_AP_TOTALS.global      = bn_apAggregateGroup(records);
   BN_AP_TOTALS.operativo   = bn_apAggregateGroup(records.filter(r => bn_apMatchesCuenta(r, 'Egresos')));
   BN_AP_TOTALS.reinversion = bn_apAggregateGroup(records.filter(r => bn_apMatchesCuenta(r, 'Activos')));
@@ -3280,7 +3281,7 @@ function bn_apToggleSection(key) {
  *  Muestra Monto, barra de magnitud relativa y % del total. Botón "Detalles" lleva
  *  a Análisis por partida con la cuenta pre-expandida. */
 function bn_kpiOpenSubcuentasPopup(cuentaRaiz) {
-  const records = (typeof bn_kpiRecs === 'function' ? bn_kpiRecs(null) : BN_RAW)
+  const records = (typeof bn_kpiRecs === 'function' ? bn_kpiRecs(null, true) : BN_RAW)
     .filter(r => (r._cuenta || '') === cuentaRaiz);
   // Agrupar por subcuenta
   const map = new Map();
@@ -3838,12 +3839,21 @@ function bn_renderReviewPanel() {
     </div>`;
 }
 
-/** Registros para KPIs del período: aplica Año/Mes/búsqueda/multi-selects
- *  pero NO restringe por revisado ni por tipo-tab. */
-function bn_kpiRecs(subtype) {
+/** Registros para KPIs del período: aplica Año/Mes/búsqueda/multi-selects.
+ *  Por defecto NO restringe por revisado ni por tipo-tab. Si `soloClasif` es
+ *  true, restringe al MISMO universo que la sección "Cuentas" (registros ya
+ *  clasificados): validados, no archivados y no "en tránsito" — así los KPIs
+ *  se calculan solo con lo clasificado y no con todos los registros. */
+function bn_kpiRecs(subtype, soloClasif) {
   const s = bn_st;
   const q = (s.q || '').toLowerCase().trim();
   return BN_RAW.filter(r => {
+    if (soloClasif) {
+      if (r._validado !== 'Sí') return false;      // solo clasificados/validados
+      if (r._archivado === 'Sí') return false;     // excluye archivados (como en Cuentas)
+      const saldoStr = String(r.SALDO == null ? '' : r.SALDO);
+      if (/tr[aá]nsito/i.test(saldoStr)) return false; // excluye "en tránsito" (como en Cuentas)
+    }
     const t = bn_canon(r._tipo || '');
     if (subtype === 'E'  && !t.includes('egr'))     return false;
     if (subtype === 'I'  && !t.includes('ing'))     return false;
@@ -4694,9 +4704,10 @@ function bn_render() {
   if(!BN_LOADED) return;
   const sE=bn_aggregate('E'), sI=bn_aggregate('I');
 
-  // KPIs del período: usan bn_kpiRecs que NO restringe por revisado ni tipo-tab
-  const kpiE = bn_kpiRecs('E');
-  const kpiI = bn_kpiRecs('I');
+  // KPIs del período: solo registros clasificados (los que aparecen en "Cuentas"),
+  // no todos. soloClasif=true → validados, no archivados, no "en tránsito".
+  const kpiE = bn_kpiRecs('E', true);
+  const kpiI = bn_kpiRecs('I', true);
   const realE = kpiE.reduce((s,r)=>s+Math.abs(Number(r.Monto||0)),0);
   const realI = kpiI.reduce((s,r)=>s+Math.abs(Number(r.Monto||0)),0);
 
