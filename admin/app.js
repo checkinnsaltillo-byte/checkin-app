@@ -12311,7 +12311,15 @@ function huBuildAirbnbBox(r, opts) {
   const medio      = huValueFlexible(r, ['Medio de reservación']);
   const folio      = huValueFlexible(r, ['Folio facturapi','Folio Facturapi','Folio']);
   const ticketUrl  = huExtractTicketUrl(r);
-  const esAirbnb   = String(medio||'').toLowerCase().includes('airbnb');
+  // "Es Airbnb" para el desglose (comisión 15.5%): se decide por la FUENTE real
+  // de la reserva (Source del booking — lo que muestra el panel DETALLE), no por
+  // "Medio de reservación", que es un campo editable que a veces queda en
+  // "Airbnb" aunque la reserva sea Manual/otra fuente. Si el caller no pasa
+  // fuente (p.ej. vista de huésped sin booking), se cae al Medio como antes.
+  const fuente     = (opts && opts.source != null && String(opts.source).trim() !== '')
+                       ? String(opts.source)
+                       : String(medio || '');
+  const esAirbnb   = fuente.toLowerCase().includes('airbnb');
   const montoFact  = huValueFlexible(r, ['$ Monto facturado Total']);
   let   montoAirbnb= huValueFlexible(r, ['$ Monto total Airbnb']);
   // Si el huésped marcó EXPLÍCITAMENTE "No" en ¿Requiere factura? y aún no
@@ -17464,7 +17472,7 @@ function lgBuildCombinedDetailColumn(b, huesped) {
   // "Importar $Montos" entre Líneas de cobro y esta caja.
   let airbnbBoxHtml = '';
   if (huesped && typeof huBuildAirbnbBox === 'function') {
-    try { airbnbBoxHtml = huBuildAirbnbBox(huesped); }
+    try { airbnbBoxHtml = huBuildAirbnbBox(huesped, { source: b?.Source }); }
     catch (e) { console.error('[LG] airbnbBox error:', e); }
   }
 
@@ -18422,7 +18430,7 @@ function lgBuildSection2CobrosHtml(b, huesped) {
   const moneyOrDash = (n) => n > 0 ? `<b style="color:#0f766e">${lgFmtMoney(n, cur)}</b>` : '—';
   let airbnbBoxHtml = '';
   if (huesped && typeof huBuildAirbnbBox === 'function') {
-    try { airbnbBoxHtml = huBuildAirbnbBox(huesped); }
+    try { airbnbBoxHtml = huBuildAirbnbBox(huesped, { source: b?.Source }); }
     catch (e) { console.error('[LG] airbnbBox error:', e); }
   }
   const medioHu = huesped ? String(huValueFlexible(huesped, ['Medio de reservación']) || '') : '';
