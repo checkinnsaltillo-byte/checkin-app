@@ -14985,7 +14985,7 @@ function lgFindBookingByPhoneDates_(phone, arrival, departure) {
   return hit && hit !== 'AMBIGUA' ? hit : null;
 }
 
-function huRowToSyntheticBooking(r) {
+function huRowToSyntheticBooking(r, opts) {
   if (!r) return null;
   const phone = String(r['Cel/Whatsapp (principal)'] || '');
   const arrivalRaw = String(r['Fecha de ingreso'] || '');
@@ -15001,16 +15001,26 @@ function huRowToSyntheticBooking(r) {
   // Si la fila tiene Lodgify Id y el status REAL (del sheet Reservas_Lodgify,
   // capturado en __rawStatusById antes del filtro) es un estado no-visible,
   // NO generamos sintético → la reserva desaparece de Gestión de reservas.
+  // Status Lodgify oculto (cancelada/borrada/etc.): por defecto NO generamos
+  // sintético → la reserva desaparece de Gestión de reservas (filtrado).
+  // Pero en modo display (opts.allowHidden, p.ej. al SELECCIONAR la card en el
+  // historial) sí lo generamos, a partir de los datos PROPIOS de la fila e
+  // ignorando el booking Lodgify oculto (que puede traer fechas/montos viejos).
+  let _lgHidden = false;
   if (lodId && LG_STATE.__rawStatusById) {
     const rawSt = String(LG_STATE.__rawStatusById.get(lodId) || '').toLowerCase();
     const HIDDEN = new Set(['declined','cancelled','canceled','expired','deleted']);
-    if (rawSt && HIDDEN.has(rawSt)) return null;
+    if (rawSt && HIDDEN.has(rawSt)) {
+      if (!(opts && opts.allowHidden)) return null;
+      _lgHidden = true;
+    }
   }
   // realLg: primero busca en LG_STATE.bookings (mes en curso, filtrado
   // Booked/Tentative). Si no está — porque la reserva es de otro mes —
   // consulta el índice histórico completo LG_STATE.__allBookingsById.
-  let realLg = lodId ? (LG_STATE.bookings || []).find(b => String(b.Id) === lodId) : null;
-  if (!realLg && lodId && LG_STATE.__allBookingsById) {
+  // Si el booking está oculto (_lgHidden) lo ignoramos: manda la fila.
+  let realLg = (lodId && !_lgHidden) ? (LG_STATE.bookings || []).find(b => String(b.Id) === lodId) : null;
+  if (!realLg && lodId && !_lgHidden && LG_STATE.__allBookingsById) {
     const raw = LG_STATE.__allBookingsById.get(lodId);
     if (raw) realLg = raw;
   }
@@ -18621,7 +18631,11 @@ window.lgHistorySelect = function(bookingId, outerRecIdQuoted, selectedRecIdQuot
     historyCol.innerHTML = html;
   }
   if (detailCol || cobrosCol) {
-    const syn = huRowToSyntheticBooking(r);
+    // allowHidden: aunque el booking Lodgify de esta card esté oculto
+    // (cancelado/borrado) igual reconstruimos DETALLE/COBROS con los datos
+    // propios de la fila — así el panel SIEMPRE refleja la card seleccionada
+    // y no se queda con la reserva anterior.
+    const syn = huRowToSyntheticBooking(r, { allowHidden: true });
     if (syn) {
       if (detailCol) detailCol.innerHTML = lgBuildSection1DetailHtml(syn, r);
       if (cobrosCol) cobrosCol.innerHTML = lgBuildSection2CobrosHtml(syn, r);
