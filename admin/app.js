@@ -33362,12 +33362,9 @@ function guiasRenderContent() {
   // WhatsApp fab arriba, botón Check-in abajo (ambos fijos al viewport).
   // Usa SIEMPRE el número del negocio (no el contacto_whatsapp del alojamiento).
   const BUSINESS_WA = '528444443922';
-  const waHtml = isReadOne
-    ? `<div id="guias-wa-fab" style="position:fixed;bottom:110px;right:24px;z-index:9500;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:auto">
-         <a href="https://wa.me/${BUSINESS_WA}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" title="Contactar por WhatsApp"
-            style="width:60px;height:60px;border-radius:18px;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 10px 24px -4px rgba(37,211,102,.55),inset 0 -3px 6px rgba(0,0,0,.12);border:1px solid rgba(255,255,255,.15)">${waIconSvg}</a>
-       </div>`
-    : '';
+  // WhatsApp ya NO es un botón flotante aislado: ahora va DENTRO de la barra
+  // inferior (checkinHtml), junto a "Auto facturación".
+  const waHtml = '';
   // Barra inferior fija — replica los 4 botones de la guía pública:
   // Check-in, Check-out, [Reserva directa si el alojamiento tiene url_lodgify],
   // Auto facturación. La auto-facturación es un flujo de 3 pasos que vive en la
@@ -33386,6 +33383,8 @@ function guiasRenderContent() {
            ${guiaFabBtn('linear-gradient(135deg,#dc2626,#ef4444)','0 12px 28px -6px rgba(220,38,38,.6)','','guiasOpenCheckout_()','🚪','Check-out','')}
            ${guiaShowBook ? guiaFabBtn('linear-gradient(135deg,#2563eb,#3b82f6)','0 12px 28px -6px rgba(37,99,235,.55)','',"window.open('https://www.check-inn.mx/reservas/','_blank','noopener')",'🗓️','Reserva directa','Verificar disponibilidad / reserva directa') : ''}
            ${guiaFabBtn('linear-gradient(135deg,#7c3aed,#a855f7)','0 12px 28px -6px rgba(124,58,237,.55)','',guiaPubUrl ? `window.open('${guiaPubUrl}','_blank','noopener')` : '','🧾','Auto facturación','Abre la auto-facturación en la guía del huésped')}
+           <a href="https://wa.me/${BUSINESS_WA}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" title="Contactar por WhatsApp"
+              style="pointer-events:auto;flex:none;width:54px;display:flex;align-items:center;justify-content:center;background:#25d366;border-radius:14px;text-decoration:none;box-shadow:0 12px 28px -6px rgba(37,211,102,.55);border:1px solid rgba(255,255,255,.15)">${waIconSvg}</a>
          </div>
        </div>
        <style>@keyframes guiaCheckinPulse{0%,100%{box-shadow:0 12px 28px -6px rgba(15,118,110,.55);transform:translateY(0)}50%{box-shadow:0 18px 40px -4px rgba(15,118,110,.8);transform:translateY(-2px)}}</style>`
