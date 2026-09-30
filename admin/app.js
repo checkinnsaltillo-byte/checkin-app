@@ -38298,8 +38298,8 @@ function inqRenderPerfiles() {
               <td>${esc(r.Departamento || r['# Departamento'] || '—')}</td>
               <td><strong>${esc(r.Nombre || '—')}</strong></td>
               <td>${inqSiNoChip(r.Contrato_existe)}</td>
-              <td>${inqFmtFechaCorta(r.Fecha_inicio)}</td>
-              <td>${inqFmtFechaCorta(r.Fecha_fin)}</td>
+              <td style="white-space:nowrap">${inqFmtFechaCorta(r.Fecha_inicio)}</td>
+              <td style="white-space:nowrap">${inqFmtFechaCorta(r.Fecha_fin)}</td>
               <td>${inqEstadoChip(r.Estado_contrato)}</td>
               <td>${inqSiNoChip(r.Requiere_factura)}</td>
               <td style="text-align:right;font-weight:700;white-space:nowrap">${r.Renta_mensual ? inqFmtMoney(r.Renta_mensual) : '—'}</td>
