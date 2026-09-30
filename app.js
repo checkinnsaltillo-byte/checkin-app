@@ -30659,7 +30659,7 @@ function bnEfeInquilinoPara_(prop, depto) {
 function bnEfeRerenderRow_(id) {
   const r = BN_EFE_STATE.rows.find(x => x.id === id);
   const tr = document.querySelector(`tr[data-efe-id="${id}"]`);
-  if (r && tr) tr.outerHTML = bnEfectivoRowHtml(r);
+  if (r && tr) { tr.outerHTML = bnEfectivoRowHtml(r); bnEfeApplySticky_(); }
   else bnEfectivoRender();
 }
 window.bnEfectivoSetInquilino = function (id, nombre) {
@@ -31109,6 +31109,47 @@ function bnEfectivoRender() {
     });
   }
   tbody.innerHTML = sortedRows.map(r => bnEfectivoRowHtml(r)).join('');
+  bnEfeApplySticky_();
+}
+
+// Congela las columnas desde la primera hasta "Monto" (incluida la de
+// selección si está activa). Mide los anchos reales del thead y fija
+// position:sticky + left acumulado en th y td.
+function bnEfeApplySticky_() {
+  const tbl = document.getElementById('bn-efectivo-tbl');
+  const headRow = document.querySelector('#bn-efectivo-thead tr');
+  if (!tbl || !headRow) return;
+  // Si la tabla está oculta los anchos miden 0: se re-aplica cuando se
+  // vuelve visible o cambia de tamaño (ResizeObserver, una sola vez).
+  if (!tbl._bnEfeRO && typeof ResizeObserver !== 'undefined') {
+    let raf = 0;
+    tbl._bnEfeRO = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(bnEfeApplySticky_); });
+    tbl._bnEfeRO.observe(tbl);
+  }
+  const nFrozen = BN_EFE_COLS.findIndex(c => c.id === 'monto') + 1 + (BN_EFE_STATE.selectMode ? 1 : 0);
+  const ths = Array.from(headRow.children);
+  const lefts = [];
+  let acc = 0;
+  for (let i = 0; i < nFrozen && i < ths.length; i++) { lefts.push(acc); acc += ths[i].getBoundingClientRect().width; }
+  ths.forEach((th, i) => {
+    if (i >= lefts.length) return;
+    th.style.position = 'sticky';
+    th.style.left = lefts[i] + 'px';
+    th.style.zIndex = '4';
+    th.style.background = '#f1f5f9';
+    if (i === lefts.length - 1) th.style.boxShadow = 'inset -2px 0 0 #cbd5e1';
+  });
+  tbl.querySelectorAll('#bn-efectivo-tbody tr').forEach(tr => {
+    const bg = tr.style.background || '#fff';
+    Array.from(tr.children).forEach((td, i) => {
+      if (i >= lefts.length) return;
+      td.style.position = 'sticky';
+      td.style.left = lefts[i] + 'px';
+      td.style.zIndex = '1';
+      td.style.background = bg;
+      if (i === lefts.length - 1) td.style.boxShadow = 'inset -2px 0 0 #cbd5e1';
+    });
+  });
 }
 
 function bnEfectivoRowHtml(r) {
