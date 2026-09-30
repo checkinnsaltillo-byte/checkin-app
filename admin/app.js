@@ -22724,6 +22724,7 @@ async function _bnUploadConfirmInsertInner() {
     await bnUploadRefreshDedupe();
     bnUploadClearPreview();
     if (status) status.textContent = `✓ Listo. ${j.inserted} filas insertadas correctamente.`;
+    return j;
   } catch (e) {
     if (status) status.textContent = `⚠ Error al insertar: ${e.message}`;
   }
@@ -30891,6 +30892,8 @@ window.bnEfectivoSaveRow = async function (id) {
     r._dirty = false;
     r._editing = false;
     if (status) status.innerHTML = `✓ Cambios guardados en BANCOS.`;
+    const _rent = await bnEfeSyncRentas_([r]);
+    if (status) status.innerHTML = `✓ Cambios guardados en BANCOS.${esc(bnEfeRentasMsg_(_rent))}`;
     bnEfectivoRender();
     if (typeof bnEfectivoUpdateSaveBtnLabel === 'function') bnEfectivoUpdateSaveBtnLabel();
   } catch (e) {
@@ -31179,6 +31182,75 @@ function bnEfectivoRowHtml(r) {
   </tr>`;
 }
 
+// ── Sincroniza con Inquilinos › Rentas ─────────────────────────────────
+// Cada movimiento de efectivo con Inquilino + Mes correspondiente genera (o
+// actualiza) el pago de renta en Inquilinos_Pagos → aparece en la tabla y en
+// el calendario de Rentas. Un pago por (inquilino, mes): si ya existe uno
+// capturado a mano en Rentas, NO se toca; si lo creó Efectivo, se actualiza.
+const BN_EFE_RENTA_TAG = '[Efectivo]';
+async function bnEfeSyncRentas_(rows) {
+  const cand = (rows || []).filter(r => String(r.inquilino || '').trim() && /^\d{4}-\d{2}$/.test(String(r.mesCorr || '').slice(0, 7)));
+  if (!cand.length) return { creados: 0, actualizados: 0, omitidos: [] };
+  if (!bnEfePerfiles_().length && typeof inqLoadPerfiles === 'function') { try { await inqLoadPerfiles(); } catch (_) {} }
+  let pagos = [];
+  try {
+    const rr = await fetch(`${BACKEND}/inquilinos-pagos?_cb=${Date.now()}`, { cache: 'no-store' });
+    const jj = await rr.json();
+    if (jj.ok) pagos = jj.rows || [];
+  } catch (_) {}
+  const mesOf = v => (typeof inqFmtMonthISO_ === 'function' ? inqFmtMonthISO_(v) : String(v || '').slice(0, 7));
+  const out = { creados: 0, actualizados: 0, omitidos: [] };
+  for (const r of cand) {
+    const nombre = String(r.inquilino).trim();
+    const mes = String(r.mesCorr).slice(0, 7);
+    const perfiles = bnEfePerfiles_().filter(p => String(p.Nombre || '').trim() === nombre);
+    const perfil = perfiles.find(p => String(p.Propiedad || '').trim() === String(r.propiedad || '').trim()
+                                   && String(p.Departamento || '').trim() === String(r.depto || '').trim()) || perfiles[0];
+    if (!perfil) { out.omitidos.push(`${nombre} (no está en Inquilinos)`); continue; }
+    const monto = Math.abs(Number(r.abono) || Number(r.monto) || Number(r.cargo) || 0);
+    const existente = pagos.find(p => String(p.Inquilino_ID) === String(perfil.ID) && mesOf(p.Mes) === mes);
+    if (existente && !String(existente.Notas || '').includes(BN_EFE_RENTA_TAG)) {
+      out.omitidos.push(`${nombre} · ${bnEfeMesLabel_(mes)} (ya tenía pago en Rentas)`);
+      continue;
+    }
+    const payload = {
+      Inquilino_ID: perfil.ID,
+      Mes: mes,
+      Monto_pagado: monto ? monto.toFixed(2) : '',
+      Metodo_pago: 'Efectivo',
+      Fecha_pago: r.dia || '',
+      Notas: `${BN_EFE_RENTA_TAG} Carga de movimientos en efectivo${r.desc ? ' · ' + r.desc : ''}`,
+    };
+    if (existente) payload.ID = existente.ID;
+    try {
+      const res = await fetch(`${BACKEND}/inquilinos-pagos`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'save failed');
+      if (existente) out.actualizados++; else { out.creados++; pagos.push({ ...payload, ID: j.ID }); }
+    } catch (e) {
+      out.omitidos.push(`${nombre} · ${bnEfeMesLabel_(mes)} (error: ${e.message})`);
+    }
+  }
+  // Refresca Rentas en memoria (tabla + calendario) si el módulo ya se abrió.
+  try {
+    if (typeof inqLoadPagos === 'function' && typeof INQ_STATE !== 'undefined') {
+      await inqLoadPagos(INQ_STATE.currentInquilinoId);
+      if (INQ_STATE.tab === 'rentas' && typeof inqRenderRentas === 'function') inqRenderRentas();
+    }
+  } catch (_) {}
+  return out;
+}
+function bnEfeRentasMsg_(res) {
+  if (!res) return '';
+  const parts = [];
+  if (res.creados) parts.push(`${res.creados} pago(s) de renta creados en Inquilinos › Rentas`);
+  if (res.actualizados) parts.push(`${res.actualizados} pago(s) de renta actualizados`);
+  if (res.omitidos.length) parts.push(`sin registrar en Rentas: ${res.omitidos.join('; ')}`);
+  return parts.length ? ' · 🏠 ' + parts.join(' · ') : '';
+}
 /** "2026-06-24" → "24/6/2026" como espera la hoja BANCOS. */
 function bnEfeIsoToDmy(iso) {
   if (!iso) return '';
@@ -31228,7 +31300,8 @@ window.bnEfectivoSave = async function (opts) {
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || 'Update falló');
       edited.forEach(r => { r._dirty = false; r._editing = false; });
-      if (status) status.innerHTML = `✓ ${j.written || edited.length} cambios guardados en BANCOS.`;
+      const _rentE = await bnEfeSyncRentas_(edited);
+      if (status) status.innerHTML = `✓ ${j.written || edited.length} cambios guardados en BANCOS.${esc(bnEfeRentasMsg_(_rentE))}`;
       bnEfectivoRender();
     } catch (e) {
       alert('No se pudieron guardar los cambios: ' + (e.message || e));
@@ -31284,8 +31357,10 @@ window.bnEfectivoSave = async function (opts) {
   if (typeof bnUploadClassifyRows === 'function') bnUploadClassifyRows(mapped);
   if (typeof bnUploadAssignCountersAndDedupe === 'function') bnUploadAssignCountersAndDedupe(mapped);
   try {
-    await bnUploadConfirmInsert();
+    const _ins = await bnUploadConfirmInsert();
     if (status) status.innerHTML = `✓ <strong>${mapped.length}</strong> renglones enviados a BANCOS. Refrescando…`;
+    // Solo genera pagos de renta si BANCOS confirmó la inserción.
+    const _rentN = (_ins && _ins.ok) ? await bnEfeSyncRentas_(valid) : null;
     // Fuerza recarga de BN_RAW desde el server para que los recién insertados
     // aparezcan con ✓ y sombreado como el resto de importados.
     BN_RAW = [];
@@ -31303,7 +31378,7 @@ window.bnEfectivoSave = async function (opts) {
     const fresh = Array.from({ length: 5 }, () => bnEfeNewRow());
     BN_EFE_STATE.rows = [...fresh, ...(BN_EFE_STATE.rows || [])];
     bnEfectivoRender();
-    if (status) status.innerHTML = `✓ <strong>${mapped.length}</strong> renglones guardados en BANCOS.`;
+    if (status) status.innerHTML = `✓ <strong>${mapped.length}</strong> renglones guardados en BANCOS.${esc(bnEfeRentasMsg_(_rentN))}`;
   } catch (e) {
     if (status) status.textContent = '';
     alert('No se pudo insertar en BANCOS: ' + (e.message || e));
