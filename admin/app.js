@@ -38243,6 +38243,24 @@ function inqSiNoChip(v) {
   return '—';
 }
 
+/** Formatea una fecha a "12-jul-2026". Acepta ISO (YYYY-MM-DD[THH:MM..Z]) o
+ *  DD/MM/YYYY. La parte de fecha del ISO ya representa el día local (la hora
+ *  Z es la medianoche local), así que tomamos YYYY-MM-DD directo sin convertir
+ *  timezone (evita corrimientos de ±1 día). */
+function inqFmtFechaCorta(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return '—';
+  const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  let y, mo, d;
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) { y = +m[1]; mo = +m[2]; d = +m[3]; }
+  else {
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) { d = +m[1]; mo = +m[2]; y = +m[3]; }
+  }
+  if (!y || !mo || !d || mo < 1 || mo > 12) return esc(s);
+  return `${d}-${MESES[mo-1]}-${y}`;
+}
 function inqRenderPerfiles() {
   const view = document.getElementById('inq-view');
   const rows = INQ_STATE.perfiles || [];
@@ -38280,8 +38298,8 @@ function inqRenderPerfiles() {
               <td>${esc(r.Departamento || r['# Departamento'] || '—')}</td>
               <td><strong>${esc(r.Nombre || '—')}</strong></td>
               <td>${inqSiNoChip(r.Contrato_existe)}</td>
-              <td>${esc(r.Fecha_inicio || '—')}</td>
-              <td>${esc(r.Fecha_fin || '—')}</td>
+              <td>${inqFmtFechaCorta(r.Fecha_inicio)}</td>
+              <td>${inqFmtFechaCorta(r.Fecha_fin)}</td>
               <td>${inqEstadoChip(r.Estado_contrato)}</td>
               <td>${inqSiNoChip(r.Requiere_factura)}</td>
               <td style="text-align:right;font-weight:700">${r.Renta_mensual ? inqFmtMoney(r.Renta_mensual) : '—'}</td>
