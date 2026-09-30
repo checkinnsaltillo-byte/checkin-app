@@ -40549,6 +40549,63 @@ window.inqCloseZoom = function () {
 };
 
 // ── SAVE / DELETE ──────────────────────────────────────────────────────
+// ── Rentas → Efectivo: al editar un pago creado desde Efectivo ([Efectivo]
+// en Notas) se actualiza su renglón en BANCOS (Día, Abono/Monto, Inquilino,
+// Propiedad, # Depto, Mes correspondiente) → se refleja en Registros de
+// efectivo. El renglón se localiza por (INQUILINO, MES_CORRESPONDIENTE)
+// ANTERIORES al cambio.
+function bnEfeYm_(v) {
+  const t = String(v || '').trim();
+  if (/^\d{4}-\d{2}(-\d{2})?$/.test(t)) return t.slice(0, 7);
+  return typeof inqFmtMonthISO_ === 'function' ? inqFmtMonthISO_(v) : t.slice(0, 7);
+}
+async function inqSyncPagoToEfectivo_(prev, next) {
+  try {
+    if (!prev) return '';
+    const perfiles = (typeof INQ_STATE !== 'undefined' && INQ_STATE.perfiles) || [];
+    const pPrev = perfiles.find(p => String(p.ID) === String(prev.Inquilino_ID));
+    const pNext = perfiles.find(p => String(p.ID) === String(next.Inquilino_ID || prev.Inquilino_ID)) || pPrev;
+    if (!pPrev) return '';
+    if (!Array.isArray(BN_RAW) || !BN_RAW.length) { try { await bn_loadData(); } catch (_) {} }
+    const isEfe = r => /efectivo/i.test(String(r['Cuenta bancaria'] || '') + ' ' + String(r['# Cuenta'] || ''));
+    const prevMes = bnEfeYm_(prev.Mes);
+    const row = (BN_RAW || []).find(r => isEfe(r)
+      && String(r.INQUILINO || '').trim() === String(pPrev.Nombre || '').trim()
+      && bnEfeYm_(r.MES_CORRESPONDIENTE) === prevMes);
+    if (!row || !row.rowNum) return ' (no se encontró su renglón en Registros de efectivo)';
+    const monto = Number(String(next.Monto_pagado ?? prev.Monto_pagado ?? '').replace(/[^0-9.-]/g, '')) || 0;
+    const fecha = (typeof inqFmtDateISO_ === 'function' ? inqFmtDateISO_(next.Fecha_pago || prev.Fecha_pago) : String(next.Fecha_pago || '').slice(0, 10));
+    const fields = {
+      'Día':                  bnEfeIsoToDmy(fecha),
+      'CARGO':                '',
+      'ABONO':                monto || '',
+      'Monto':                monto,
+      'INQUILINO':            String(pNext.Nombre || '').trim(),
+      'INQUILINO_PROPIEDAD':  String(pNext.Propiedad || '').trim(),
+      'INQUILINO_DEPTO':      String(pNext.Departamento || '').trim(),
+      'MES_CORRESPONDIENTE':  bnEfeYm_(next.Mes || prev.Mes),
+    };
+    const res = await fetch(`${BACKEND}/bn/update-rows`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates: [{ rowNum: row.rowNum, fields }] }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'update falló');
+    // Refleja el cambio en memoria (BN_RAW + tabla de Efectivo si está abierta).
+    Object.assign(row, fields, { 'Día': fields['Día'] });
+    const er = (BN_EFE_STATE.rows || []).find(x => x._bancosRowNum === row.rowNum);
+    if (er) {
+      Object.assign(er, { dia: fecha, cargo: '', abono: monto || '', monto,
+        inquilino: fields.INQUILINO, propiedad: fields.INQUILINO_PROPIEDAD, depto: fields.INQUILINO_DEPTO, mesCorr: fields.MES_CORRESPONDIENTE });
+      if (typeof bnEfectivoRender === 'function') bnEfectivoRender();
+    }
+    return ' · actualizado también en Registros de efectivo';
+  } catch (e) {
+    console.warn('[INQ→Efectivo]', e.message);
+    return ' (no se pudo actualizar Registros de efectivo: ' + e.message + ')';
+  }
+}
+
 window.inqSaveCurrentForm = async function () {
   const kind = INQ_STATE.formKind;
   if (!kind) return;
@@ -40647,6 +40704,9 @@ window.inqSaveCurrentForm = async function () {
     }
   }
   const endpoint = kind === 'perfil' ? '/inquilinos' : '/inquilinos-pagos';
+  // Pago previo (antes del cambio) para localizar su renglón de Efectivo.
+  const _prevPago = (kind === 'pago' && data.ID)
+    ? (INQ_STATE.pagos || []).find(p => String(p.ID) === String(data.ID)) : null;
   try {
     const r = await fetch(`${BACKEND}${endpoint}`, {
       method: 'POST',
@@ -40655,6 +40715,10 @@ window.inqSaveCurrentForm = async function () {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'save failed');
+    if (_prevPago && /\[Efectivo\]/.test(String(_prevPago.Notas || '') + ' ' + String(data.Notas || ''))) {
+      const msg = await inqSyncPagoToEfectivo_({ ..._prevPago }, data);
+      if (msg && msg.startsWith(' (')) alert('Pago guardado' + msg);
+    }
     inqCloseForm();
     if (kind === 'perfil') { await inqLoadPerfiles(); inqRenderPerfiles(); }
     else { await inqLoadPagos(INQ_STATE.currentInquilinoId); inqRenderRentas(); }
