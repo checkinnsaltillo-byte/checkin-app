@@ -38302,7 +38302,7 @@ function inqRenderPerfiles() {
               <td>${inqFmtFechaCorta(r.Fecha_fin)}</td>
               <td>${inqEstadoChip(r.Estado_contrato)}</td>
               <td>${inqSiNoChip(r.Requiere_factura)}</td>
-              <td style="text-align:right;font-weight:700">${r.Renta_mensual ? inqFmtMoney(r.Renta_mensual) : '—'}</td>
+              <td style="text-align:right;font-weight:700;white-space:nowrap">${r.Renta_mensual ? inqFmtMoney(r.Renta_mensual) : '—'}</td>
               <td>${esc(r.Metodo_pago || '—')}</td>
               <td>${esc(r.Dia_pago || '—')}</td>
               <td>${esc(r.Whatsapp || '—')}</td>

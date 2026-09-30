@@ -5999,6 +5999,7 @@ textarea.inc-input { resize: vertical; min-height: 60px; }
   font-size: 10px;
   font-weight: 800;
   letter-spacing: .03em;
+  white-space: nowrap;
 }
 .rh-chip-activo { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
 .rh-chip-inactivo { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
