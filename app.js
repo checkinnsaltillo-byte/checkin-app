@@ -30892,8 +30892,7 @@ window.bnEfectivoSaveRow = async function (id) {
     r._dirty = false;
     r._editing = false;
     if (status) status.innerHTML = `✓ Cambios guardados en BANCOS.`;
-    const _rent = await bnEfeSyncRentas_([r]);
-    if (status) status.innerHTML = `✓ Cambios guardados en BANCOS.${esc(bnEfeRentasMsg_(_rent))}`;
+    bnEfePatchRaw_(r);
     bnEfectivoRender();
     if (typeof bnEfectivoUpdateSaveBtnLabel === 'function') bnEfectivoUpdateSaveBtnLabel();
   } catch (e) {
@@ -30935,42 +30934,7 @@ function bnEfectivoUpdateSaveBtnLabel() {
   btn.innerHTML = hasEditedImported ? '💾 Guardar nuevos registros y cambios' : '💾 Guardar registros';
 }
 
-window.bnEfectivoLoadLastFromBancos = async function () {
-  const inp = document.getElementById('bn-efectivo-load-n');
-  let n = parseInt(inp?.value || '10', 10);
-  if (!isFinite(n) || n < 1) n = 10;
-  if (n > 500) n = 500;
-  // Asegura BN_RAW cargado
-  if (!Array.isArray(BN_RAW) || !BN_RAW.length) {
-    try { if (typeof bn_loadData === 'function') await bn_loadData(); } catch(_) {}
-  }
-  // bn_loadData puede haber ocultado el pane (efe→hidden) vía bn_setCat. Re-fuerzo.
-  const _efe = document.getElementById('bn-efectivo-pane');
-  const _up  = document.getElementById('bn-upload-pane');
-  if (_efe) _efe.classList.remove('hidden');
-  if (_up)  _up.classList.add('hidden');
-  if (!Array.isArray(BN_RAW) || !BN_RAW.length) {
-    alert('No se pudieron cargar registros de BANCOS.'); return;
-  }
-  // Filtra solo registros marcados como Efectivo
-  const isEfe = (r) => {
-    const ct = String(r['Cuenta bancaria'] || '').toLowerCase().trim();
-    const nc = String(r['# Cuenta']        || '').toLowerCase().trim();
-    return ct === 'efectivo' || nc === 'efectivo' || ct.includes('efectivo') || nc.includes('efectivo');
-  };
-  const efeRows = BN_RAW.filter(isEfe);
-  if (!efeRows.length) {
-    alert('No hay registros con Cuenta bancaria = "Efectivo" en BANCOS.'); return;
-  }
-  // Ordena por Día desc (más reciente primero)
-  efeRows.sort((a, b) => {
-    const da = bnUploadDiaToIso(a['Día'] || a['Dia'] || '') || '';
-    const db = bnUploadDiaToIso(b['Día'] || b['Dia'] || '') || '';
-    return db.localeCompare(da);
-  });
-  const slice = efeRows.slice(0, n);
-  // Mapea a la forma de BN_EFE_STATE.rows
-  BN_EFE_STATE.rows = slice.map(r => {
+function bnEfeRowFromBancos_(r) {
     const iso = bnUploadDiaToIso(r['Día'] || r['Dia'] || '') || '';
     // Fallback: si Apps Script aún no devuelve CARGO/ABONO/SALDO, deriva del
     // Monto firmado (negativo → CARGO, positivo → ABONO). Con Apps Script
@@ -31009,7 +30973,85 @@ window.bnEfectivoLoadLastFromBancos = async function () {
       _imported: true,                  // viene de BANCOS → no editable
       _bancosRowNum: r.rowNum || null,  // referencia al renglón original
     };
+}
+
+// Refleja en BN_RAW (memoria) la edición de un renglón importado, para que
+// Inquilinos › Rentas lea los 4 campos actualizados sin recargar BANCOS.
+function bnEfePatchRaw_(r) {
+  if (!r || !r._bancosRowNum || !Array.isArray(BN_RAW)) return;
+  const raw = BN_RAW.find(x => x.rowNum === r._bancosRowNum);
+  if (raw) Object.assign(raw, {
+    'Día': bnEfeIsoToDmy(r.dia), DESCRIPCION: r.desc || '',
+    CARGO: Number(r.cargo) || '', ABONO: Number(r.abono) || '', Monto: Number(r.monto) || 0,
+    INQUILINO: r.inquilino || '', INQUILINO_PROPIEDAD: r.propiedad || '',
+    INQUILINO_DEPTO: r.depto || '', MES_CORRESPONDIENTE: r.mesCorr || '',
   });
+  if (typeof inqEfePagosFromRaw_ === 'function') inqEfePagosFromRaw_(BN_RAW, true);
+}
+
+// Abre Registros de efectivo con el renglón de BANCOS indicado en modo
+// edición (lo agrega a la tabla si no está entre los últimos cargados).
+window.bnEfectivoOpenRow = async function (rowNum) {
+  bnEfectivoOpenFromHome();
+  const t0 = Date.now();
+  // Espera a que la sección termine su carga inicial.
+  while (Date.now() - t0 < 30000) {
+    await new Promise(r => setTimeout(r, 400));
+    if (Array.isArray(BN_RAW) && BN_RAW.length && (BN_EFE_STATE.rows || []).some(x => x._imported)) break;
+  }
+  let r = (BN_EFE_STATE.rows || []).find(x => x._bancosRowNum === rowNum);
+  if (!r) {
+    const raw = (BN_RAW || []).find(x => x.rowNum === rowNum);
+    if (!raw) { alert('No se encontró el renglón en BANCOS.'); return; }
+    r = bnEfeRowFromBancos_(raw);
+    BN_EFE_STATE.rows = [r, ...(BN_EFE_STATE.rows || [])];
+  }
+  r._editing = true; r._dirty = false;
+  bnEfectivoRender();
+  const tr = document.querySelector(`tr[data-efe-id="${r.id}"]`);
+  if (tr) {
+    tr.scrollIntoView({ block: 'center' });
+    tr.style.outline = '2px solid #0d9488';
+    setTimeout(() => { tr.style.outline = ''; }, 2500);
+  }
+};
+
+window.bnEfectivoLoadLastFromBancos = async function () {
+  const inp = document.getElementById('bn-efectivo-load-n');
+  let n = parseInt(inp?.value || '10', 10);
+  if (!isFinite(n) || n < 1) n = 10;
+  if (n > 500) n = 500;
+  // Asegura BN_RAW cargado
+  if (!Array.isArray(BN_RAW) || !BN_RAW.length) {
+    try { if (typeof bn_loadData === 'function') await bn_loadData(); } catch(_) {}
+  }
+  // bn_loadData puede haber ocultado el pane (efe→hidden) vía bn_setCat. Re-fuerzo.
+  const _efe = document.getElementById('bn-efectivo-pane');
+  const _up  = document.getElementById('bn-upload-pane');
+  if (_efe) _efe.classList.remove('hidden');
+  if (_up)  _up.classList.add('hidden');
+  if (!Array.isArray(BN_RAW) || !BN_RAW.length) {
+    alert('No se pudieron cargar registros de BANCOS.'); return;
+  }
+  // Filtra solo registros marcados como Efectivo
+  const isEfe = (r) => {
+    const ct = String(r['Cuenta bancaria'] || '').toLowerCase().trim();
+    const nc = String(r['# Cuenta']        || '').toLowerCase().trim();
+    return ct === 'efectivo' || nc === 'efectivo' || ct.includes('efectivo') || nc.includes('efectivo');
+  };
+  const efeRows = BN_RAW.filter(isEfe);
+  if (!efeRows.length) {
+    alert('No hay registros con Cuenta bancaria = "Efectivo" en BANCOS.'); return;
+  }
+  // Ordena por Día desc (más reciente primero)
+  efeRows.sort((a, b) => {
+    const da = bnUploadDiaToIso(a['Día'] || a['Dia'] || '') || '';
+    const db = bnUploadDiaToIso(b['Día'] || b['Dia'] || '') || '';
+    return db.localeCompare(da);
+  });
+  const slice = efeRows.slice(0, n);
+  // Mapea a la forma de BN_EFE_STATE.rows
+  BN_EFE_STATE.rows = slice.map(bnEfeRowFromBancos_);
   bnEfectivoRender();
   const status = document.getElementById('bn-efectivo-status');
   if (status) status.innerHTML = `📋 Mostrando últimos <strong>${BN_EFE_STATE.rows.length}</strong> registros de Efectivo desde BANCOS.`;
@@ -31223,81 +31265,6 @@ function bnEfectivoRowHtml(r) {
   </tr>`;
 }
 
-// ── Sincroniza con Inquilinos › Rentas ─────────────────────────────────
-// Cada movimiento de efectivo con Inquilino + Mes correspondiente genera (o
-// actualiza) el pago de renta en Inquilinos_Pagos → aparece en la tabla y en
-// el calendario de Rentas. Un pago por (inquilino, mes): si ya existe uno
-// capturado a mano en Rentas, NO se toca; si lo creó Efectivo, se actualiza.
-const BN_EFE_RENTA_TAG = '[Efectivo]';
-async function bnEfeSyncRentas_(rows) {
-  const cand = (rows || []).filter(r => String(r.inquilino || '').trim() && /^\d{4}-\d{2}$/.test(String(r.mesCorr || '').slice(0, 7)));
-  if (!cand.length) return { creados: 0, actualizados: 0, omitidos: [] };
-  if (!bnEfePerfiles_().length && typeof inqLoadPerfiles === 'function') { try { await inqLoadPerfiles(); } catch (_) {} }
-  let pagos = [];
-  try {
-    const rr = await fetch(`${BACKEND}/inquilinos-pagos?_cb=${Date.now()}`, { cache: 'no-store' });
-    const jj = await rr.json();
-    if (jj.ok) pagos = jj.rows || [];
-  } catch (_) {}
-  // "2026-09" / "2026-09-01" se toman literal (inqFmtMonthISO_ los recorre
-  // un mes por zona horaria); ISO con hora (Date de la hoja) sí va por él.
-  const mesOf = v => {
-    const t = String(v || '').trim();
-    if (/^\d{4}-\d{2}(-\d{2})?$/.test(t)) return t.slice(0, 7);
-    return typeof inqFmtMonthISO_ === 'function' ? inqFmtMonthISO_(v) : t.slice(0, 7);
-  };
-  const out = { creados: 0, actualizados: 0, omitidos: [] };
-  for (const r of cand) {
-    const nombre = String(r.inquilino).trim();
-    const mes = String(r.mesCorr).slice(0, 7);
-    const perfiles = bnEfePerfiles_().filter(p => String(p.Nombre || '').trim() === nombre);
-    const perfil = perfiles.find(p => String(p.Propiedad || '').trim() === String(r.propiedad || '').trim()
-                                   && String(p.Departamento || '').trim() === String(r.depto || '').trim()) || perfiles[0];
-    if (!perfil) { out.omitidos.push(`${nombre} (no está en Inquilinos)`); continue; }
-    const monto = Math.abs(Number(r.abono) || Number(r.monto) || Number(r.cargo) || 0);
-    const existente = pagos.find(p => String(p.Inquilino_ID) === String(perfil.ID) && mesOf(p.Mes) === mes);
-    if (existente && !String(existente.Notas || '').includes(BN_EFE_RENTA_TAG)) {
-      out.omitidos.push(`${nombre} · ${bnEfeMesLabel_(mes)} (ya tenía pago en Rentas)`);
-      continue;
-    }
-    const payload = {
-      Inquilino_ID: perfil.ID,
-      Mes: mes,
-      Monto_pagado: monto ? monto.toFixed(2) : '',
-      Metodo_pago: 'Efectivo',
-      Fecha_pago: r.dia || '',
-      Notas: `${BN_EFE_RENTA_TAG} Carga de movimientos en efectivo${r.desc ? ' · ' + r.desc : ''}`,
-    };
-    if (existente) payload.ID = existente.ID;
-    try {
-      const res = await fetch(`${BACKEND}/inquilinos-pagos`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const j = await res.json();
-      if (!j.ok) throw new Error(j.error || 'save failed');
-      if (existente) out.actualizados++; else { out.creados++; pagos.push({ ...payload, ID: j.ID }); }
-    } catch (e) {
-      out.omitidos.push(`${nombre} · ${bnEfeMesLabel_(mes)} (error: ${e.message})`);
-    }
-  }
-  // Refresca Rentas en memoria (tabla + calendario) si el módulo ya se abrió.
-  try {
-    if (typeof inqLoadPagos === 'function' && typeof INQ_STATE !== 'undefined') {
-      await inqLoadPagos(INQ_STATE.currentInquilinoId);
-      if (INQ_STATE.tab === 'rentas' && typeof inqRenderRentas === 'function') inqRenderRentas();
-    }
-  } catch (_) {}
-  return out;
-}
-function bnEfeRentasMsg_(res) {
-  if (!res) return '';
-  const parts = [];
-  if (res.creados) parts.push(`${res.creados} pago(s) de renta creados en Inquilinos › Rentas`);
-  if (res.actualizados) parts.push(`${res.actualizados} pago(s) de renta actualizados`);
-  if (res.omitidos.length) parts.push(`sin registrar en Rentas: ${res.omitidos.join('; ')}`);
-  return parts.length ? ' · 🏠 ' + parts.join(' · ') : '';
-}
 /** "2026-06-24" → "24/6/2026" como espera la hoja BANCOS. */
 function bnEfeIsoToDmy(iso) {
   if (!iso) return '';
@@ -31347,8 +31314,8 @@ window.bnEfectivoSave = async function (opts) {
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || 'Update falló');
       edited.forEach(r => { r._dirty = false; r._editing = false; });
-      const _rentE = await bnEfeSyncRentas_(edited);
-      if (status) status.innerHTML = `✓ ${j.written || edited.length} cambios guardados en BANCOS.${esc(bnEfeRentasMsg_(_rentE))}`;
+      edited.forEach(bnEfePatchRaw_);
+      if (status) status.innerHTML = `✓ ${j.written || edited.length} cambios guardados en BANCOS.`;
       bnEfectivoRender();
     } catch (e) {
       alert('No se pudieron guardar los cambios: ' + (e.message || e));
@@ -31404,10 +31371,9 @@ window.bnEfectivoSave = async function (opts) {
   if (typeof bnUploadClassifyRows === 'function') bnUploadClassifyRows(mapped);
   if (typeof bnUploadAssignCountersAndDedupe === 'function') bnUploadAssignCountersAndDedupe(mapped);
   try {
-    const _ins = await bnUploadConfirmInsert();
+    await bnUploadConfirmInsert();
     if (status) status.innerHTML = `✓ <strong>${mapped.length}</strong> renglones enviados a BANCOS. Refrescando…`;
-    // Solo genera pagos de renta si BANCOS confirmó la inserción.
-    const _rentN = (_ins && _ins.ok) ? await bnEfeSyncRentas_(valid) : null;
+
     // Fuerza recarga de BN_RAW desde el server para que los recién insertados
     // aparezcan con ✓ y sombreado como el resto de importados.
     BN_RAW = [];
@@ -31425,7 +31391,9 @@ window.bnEfectivoSave = async function (opts) {
     const fresh = Array.from({ length: 5 }, () => bnEfeNewRow());
     BN_EFE_STATE.rows = [...fresh, ...(BN_EFE_STATE.rows || [])];
     bnEfectivoRender();
-    if (status) status.innerHTML = `✓ <strong>${mapped.length}</strong> renglones guardados en BANCOS.${esc(bnEfeRentasMsg_(_rentN))}`;
+    if (status) status.innerHTML = `✓ <strong>${mapped.length}</strong> renglones guardados en BANCOS.`;
+    // BN_RAW ya se recargó arriba → Rentas toma los pagos nuevos de ahí.
+    if (typeof inqEfePagosFromRaw_ === 'function') inqEfePagosFromRaw_(BN_RAW, true);
   } catch (e) {
     if (status) status.textContent = '';
     alert('No se pudo insertar en BANCOS: ' + (e.message || e));
@@ -38476,6 +38444,8 @@ window.inqSetTab = function (tab) {
     }
     if (!INQ_STATE.pagos || !INQ_STATE.pagos.length) {
       inqLoadPagos().then(() => { if (INQ_STATE.tab === 'rentas') inqRenderRentas(); });
+    } else {
+      inqRefreshEfePagos_(); // pagos en efectivo frescos desde BANCOS
     }
   }
 };
@@ -38486,14 +38456,88 @@ async function inqLoadPerfiles() {
     const j = await r.json();
     if (j.ok) INQ_STATE.perfiles = j.rows || [];
   } catch (e) { console.warn('[INQ] perfiles:', e.message); }
+  // Pagos de BANCOS se ligan al perfil por nombre → re-mapear con perfiles frescos.
+  if (INQ_STATE._manualPagos || INQ_STATE._efeRaw) inqMergePagos_();
 }
 async function inqLoadPagos(inquilinoId) {
+  INQ_STATE._pagosFilterId = inquilinoId || '';
   try {
     const qs = inquilinoId ? `?inquilino_id=${encodeURIComponent(inquilinoId)}&` : '?';
     const r = await fetch(`${BACKEND}/inquilinos-pagos${qs}_cb=${Date.now()}`, { cache: 'no-store' });
     const j = await r.json();
-    if (j.ok) INQ_STATE.pagos = j.rows || [];
+    // Copias viejas "[Efectivo]" (sincronización anterior) se ignoran: los
+    // pagos en efectivo ahora se leen SOLO de BANCOS.
+    if (j.ok) INQ_STATE._manualPagos = (j.rows || []).filter(p => !/\[Efectivo\]/.test(String(p.Notas || '')));
   } catch (e) { console.warn('[INQ] pagos:', e.message); }
+  inqMergePagos_();
+  inqRefreshEfePagos_(); // background: BANCOS fresco → re-render al llegar
+}
+
+// ── Pagos en efectivo desde BANCOS (fuente única) ──────────────────────
+// Renglones de BANCOS con Cuenta = Efectivo + INQUILINO + MES_CORRESPONDIENTE
+// se muestran en Rentas (tabla y calendario) como pagos de solo lectura; se
+// editan en Registros de efectivo. Copia en localStorage para pintar al
+// instante mientras llega BANCOS (~10s).
+const INQ_EFE_LOCAL_KEY = 'inq_efe_pagos_v1';
+function inqEfePagosFromRaw_(records, rerender) {
+  const isEfe = r => /efectivo/i.test(String(r['Cuenta bancaria'] || '') + ' ' + String(r['# Cuenta'] || ''));
+  const list = [];
+  (records || []).forEach(r => {
+    const nombre = String(r.INQUILINO || '').trim();
+    const mes = bnEfeYm_(r.MES_CORRESPONDIENTE);
+    if (!nombre || !/^\d{4}-\d{2}$/.test(mes) || !isEfe(r) || !r.rowNum) return;
+    const abono = Number(r.ABONO) || 0, monto = Number(r.Monto) || 0, cargo = Number(r.CARGO) || 0;
+    list.push({
+      rowNum: r.rowNum, nombre, mes,
+      propiedad: String(r.INQUILINO_PROPIEDAD || '').trim(),
+      depto: String(r.INQUILINO_DEPTO || '').trim(),
+      monto: Math.abs(abono || monto || cargo),
+      fecha: bnUploadDiaToIso(r['Día'] || r['Dia'] || '') || '',
+      desc: String(r.DESCRIPCION || ''),
+    });
+  });
+  INQ_STATE._efeRaw = list;
+  try { localStorage.setItem(INQ_EFE_LOCAL_KEY, JSON.stringify(list)); } catch (_) {}
+  inqMergePagos_();
+  if (rerender && INQ_STATE.tab === 'rentas' && typeof inqRenderRentas === 'function') inqRenderRentas();
+}
+function inqMergePagos_() {
+  if (!INQ_STATE._efeRaw) {
+    try { INQ_STATE._efeRaw = JSON.parse(localStorage.getItem(INQ_EFE_LOCAL_KEY) || '[]'); } catch (_) { INQ_STATE._efeRaw = []; }
+  }
+  const perfiles = INQ_STATE.perfiles || [];
+  const efe = (INQ_STATE._efeRaw || []).map(e => {
+    const cands = perfiles.filter(p => String(p.Nombre || '').trim() === e.nombre);
+    const perfil = cands.find(p => String(p.Propiedad || '').trim() === e.propiedad && String(p.Departamento || '').trim() === e.depto) || cands[0];
+    return {
+      ID: 'BANCOS-' + e.rowNum,
+      Inquilino_ID: perfil ? perfil.ID : '',
+      Mes: e.mes,
+      Monto_pagado: e.monto,
+      Metodo_pago: 'Efectivo',
+      Fecha_pago: e.fecha,
+      Notas: `💵 Registros de efectivo${e.desc ? ' · ' + e.desc : ''}`,
+      _fromBancos: true,
+      _bancosRowNum: e.rowNum,
+      _nombre: e.nombre,
+    };
+  }).filter(p => !INQ_STATE._pagosFilterId || String(p.Inquilino_ID) === String(INQ_STATE._pagosFilterId));
+  INQ_STATE.pagos = (INQ_STATE._manualPagos || []).concat(efe);
+}
+let _inqEfeRefreshP = null;
+function inqRefreshEfePagos_() {
+  if (_inqEfeRefreshP) return _inqEfeRefreshP;
+  _inqEfeRefreshP = (async () => {
+    try {
+      // Si Registros contables ya cargó BANCOS en esta página, úsalo directo.
+      if (Array.isArray(BN_RAW) && BN_RAW.length) { inqEfePagosFromRaw_(BN_RAW, true); return; }
+      const r = await fetch(`${BACKEND}/get-bancos?_cb=${Date.now()}`, { cache: 'no-store' });
+      const j = await r.json();
+      if (j && Array.isArray(j.records)) inqEfePagosFromRaw_(j.records, true);
+    } catch (e) { console.warn('[INQ] efectivo BANCOS:', e.message); }
+    finally { setTimeout(() => { _inqEfeRefreshP = null; }, 30000); }
+  })();
+  return _inqEfeRefreshP;
 }
 
 // Normaliza a "YYYY-MM-DD" para <input type="date">.
@@ -38781,7 +38825,7 @@ function inqRenderRentas() {
             return `
             <tr onclick="inqOpenPagoForm('${esc(p.ID)}')" style="cursor:pointer">
               <td><strong>${esc(p.Mes || '—')}</strong></td>
-              <td>${esc(inq ? inq.Nombre : (p.Inquilino_ID || '—'))}</td>
+              <td>${esc(inq ? inq.Nombre : (p._nombre || p.Inquilino_ID || '—'))}</td>
               <td style="text-align:right;font-weight:700;color:#0f766e">${inqFmtMoney(p.Monto_pagado)}</td>
               <td>${esc(p.Metodo_pago || '—')}</td>
               <td>${esc(p.Fecha_pago || '—')}</td>
@@ -38793,7 +38837,9 @@ function inqRenderRentas() {
               })()}</td>
               <td style="font-size:12px;max-width:180px;white-space:normal;color:#475569">${esc(p.Notas || '—')}</td>
               <td style="text-align:right">
-                <button type="button" onclick="event.stopPropagation();inqDeletePago('${esc(p.ID)}')" style="all:unset;cursor:pointer;color:#dc2626;font-weight:700;padding:4px 8px" title="Eliminar">✕</button>
+                ${p._fromBancos
+                  ? `<span title="Se edita en Registros de efectivo" style="font-size:11px;font-weight:800;color:#0f766e;background:#ccfbf1;border:1px solid #5eead4;border-radius:6px;padding:2px 6px;white-space:nowrap">💵 BANCOS</span>`
+                  : `<button type="button" onclick="event.stopPropagation();inqDeletePago('${esc(p.ID)}')" style="all:unset;cursor:pointer;color:#dc2626;font-weight:700;padding:4px 8px" title="Eliminar">✕</button>`}
               </td>
             </tr>`;
           }).join('')}</tbody>
@@ -39050,9 +39096,9 @@ window.inqHmOpenCell = function (inquilinoId, mesKey) {
         <div style="color:#64748b">Notas:</div><div>${esc(pago.Notas || '—')}</div>
         <div style="color:#64748b;align-self:start;padding-top:6px">Comprobante:</div><div>${fileLinks}</div>
       </div>
-      ${inqBuildTicketButtonsBox_(pago)}
+      ${pago._fromBancos ? '' : inqBuildTicketButtonsBox_(pago)}
       <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-        <button type="button" onclick="inqHmClosePopup();inqOpenPagoForm('${esc(pago.ID)}')" style="all:unset;cursor:pointer;padding:8px 14px;background:#0f766e;color:#fff;border-radius:8px;font-weight:700;font-size:13px">✏️ Editar pago</button>
+        <button type="button" onclick="inqHmClosePopup();inqOpenPagoForm('${esc(pago.ID)}')" style="all:unset;cursor:pointer;padding:8px 14px;background:#0f766e;color:#fff;border-radius:8px;font-weight:700;font-size:13px">${pago._fromBancos ? '✏️ Editar en Registros de efectivo' : '✏️ Editar pago'}</button>
       </div>`
     : `<div style="text-align:center;padding:16px">
         <div style="font-size:15px;color:#0f172a;font-weight:700;margin-bottom:6px">Sin pago registrado</div>
@@ -39130,6 +39176,8 @@ window.inqOpenPerfilForm = function (id) {
 
 window.inqOpenPagoForm = function (id) {
   const data = id ? ((INQ_STATE.pagos || []).find(x => String(x.ID) === String(id)) || {}) : {};
+  // Pago en efectivo: vive en BANCOS → se edita en Registros de efectivo.
+  if (data._fromBancos) { bnEfectivoOpenRow(data._bancosRowNum); return; }
   INQ_STATE.formKind = 'pago';
   INQ_STATE.formData = JSON.parse(JSON.stringify(data));
   // Comprobante_files: si venía Comprobante_url legacy, migra a array de 1 item
@@ -40549,63 +40597,12 @@ window.inqCloseZoom = function () {
 };
 
 // ── SAVE / DELETE ──────────────────────────────────────────────────────
-// ── Rentas → Efectivo: al editar un pago creado desde Efectivo ([Efectivo]
-// en Notas) se actualiza su renglón en BANCOS (Día, Abono/Monto, Inquilino,
-// Propiedad, # Depto, Mes correspondiente) → se refleja en Registros de
-// efectivo. El renglón se localiza por (INQUILINO, MES_CORRESPONDIENTE)
-// ANTERIORES al cambio.
+// Normaliza un Mes ("2026-09", "2026-09-01" o ISO con hora) a "YYYY-MM".
 function bnEfeYm_(v) {
   const t = String(v || '').trim();
   if (/^\d{4}-\d{2}(-\d{2})?$/.test(t)) return t.slice(0, 7);
   return typeof inqFmtMonthISO_ === 'function' ? inqFmtMonthISO_(v) : t.slice(0, 7);
 }
-async function inqSyncPagoToEfectivo_(prev, next) {
-  try {
-    if (!prev) return '';
-    const perfiles = (typeof INQ_STATE !== 'undefined' && INQ_STATE.perfiles) || [];
-    const pPrev = perfiles.find(p => String(p.ID) === String(prev.Inquilino_ID));
-    const pNext = perfiles.find(p => String(p.ID) === String(next.Inquilino_ID || prev.Inquilino_ID)) || pPrev;
-    if (!pPrev) return '';
-    if (!Array.isArray(BN_RAW) || !BN_RAW.length) { try { await bn_loadData(); } catch (_) {} }
-    const isEfe = r => /efectivo/i.test(String(r['Cuenta bancaria'] || '') + ' ' + String(r['# Cuenta'] || ''));
-    const prevMes = bnEfeYm_(prev.Mes);
-    const row = (BN_RAW || []).find(r => isEfe(r)
-      && String(r.INQUILINO || '').trim() === String(pPrev.Nombre || '').trim()
-      && bnEfeYm_(r.MES_CORRESPONDIENTE) === prevMes);
-    if (!row || !row.rowNum) return ' (no se encontró su renglón en Registros de efectivo)';
-    const monto = Number(String(next.Monto_pagado ?? prev.Monto_pagado ?? '').replace(/[^0-9.-]/g, '')) || 0;
-    const fecha = (typeof inqFmtDateISO_ === 'function' ? inqFmtDateISO_(next.Fecha_pago || prev.Fecha_pago) : String(next.Fecha_pago || '').slice(0, 10));
-    const fields = {
-      'Día':                  bnEfeIsoToDmy(fecha),
-      'CARGO':                '',
-      'ABONO':                monto || '',
-      'Monto':                monto,
-      'INQUILINO':            String(pNext.Nombre || '').trim(),
-      'INQUILINO_PROPIEDAD':  String(pNext.Propiedad || '').trim(),
-      'INQUILINO_DEPTO':      String(pNext.Departamento || '').trim(),
-      'MES_CORRESPONDIENTE':  bnEfeYm_(next.Mes || prev.Mes),
-    };
-    const res = await fetch(`${BACKEND}/bn/update-rows`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ updates: [{ rowNum: row.rowNum, fields }] }),
-    });
-    const j = await res.json();
-    if (!j.ok) throw new Error(j.error || 'update falló');
-    // Refleja el cambio en memoria (BN_RAW + tabla de Efectivo si está abierta).
-    Object.assign(row, fields, { 'Día': fields['Día'] });
-    const er = (BN_EFE_STATE.rows || []).find(x => x._bancosRowNum === row.rowNum);
-    if (er) {
-      Object.assign(er, { dia: fecha, cargo: '', abono: monto || '', monto,
-        inquilino: fields.INQUILINO, propiedad: fields.INQUILINO_PROPIEDAD, depto: fields.INQUILINO_DEPTO, mesCorr: fields.MES_CORRESPONDIENTE });
-      if (typeof bnEfectivoRender === 'function') bnEfectivoRender();
-    }
-    return ' · actualizado también en Registros de efectivo';
-  } catch (e) {
-    console.warn('[INQ→Efectivo]', e.message);
-    return ' (no se pudo actualizar Registros de efectivo: ' + e.message + ')';
-  }
-}
-
 window.inqSaveCurrentForm = async function () {
   const kind = INQ_STATE.formKind;
   if (!kind) return;
@@ -40704,9 +40701,6 @@ window.inqSaveCurrentForm = async function () {
     }
   }
   const endpoint = kind === 'perfil' ? '/inquilinos' : '/inquilinos-pagos';
-  // Pago previo (antes del cambio) para localizar su renglón de Efectivo.
-  const _prevPago = (kind === 'pago' && data.ID)
-    ? (INQ_STATE.pagos || []).find(p => String(p.ID) === String(data.ID)) : null;
   try {
     const r = await fetch(`${BACKEND}${endpoint}`, {
       method: 'POST',
@@ -40715,10 +40709,6 @@ window.inqSaveCurrentForm = async function () {
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'save failed');
-    if (_prevPago && /\[Efectivo\]/.test(String(_prevPago.Notas || '') + ' ' + String(data.Notas || ''))) {
-      const msg = await inqSyncPagoToEfectivo_({ ..._prevPago }, data);
-      if (msg && msg.startsWith(' (')) alert('Pago guardado' + msg);
-    }
     inqCloseForm();
     if (kind === 'perfil') { await inqLoadPerfiles(); inqRenderPerfiles(); }
     else { await inqLoadPagos(INQ_STATE.currentInquilinoId); inqRenderRentas(); }
