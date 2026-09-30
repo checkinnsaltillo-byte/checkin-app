@@ -38258,6 +38258,8 @@ function inqRenderPerfiles() {
       ? `<div class="rh-empty">Sin inquilinos. Pulsa <strong>＋ Agregar inquilino</strong> para crear el primero.</div>`
       : `<div style="overflow-x:auto"><table class="rh-table">
           <thead><tr>
+            <th>Propiedad</th>
+            <th># Departamento</th>
             <th>Nombre</th>
             <th>Contrato</th>
             <th>Inicio</th>
@@ -38274,6 +38276,8 @@ function inqRenderPerfiles() {
           </tr></thead>
           <tbody>${rows.map(r => `
             <tr onclick="inqOpenPerfilForm('${esc(r.ID)}')" style="cursor:pointer">
+              <td>${esc(r.Propiedad || '—')}</td>
+              <td>${esc(r.Departamento || r['# Departamento'] || '—')}</td>
               <td><strong>${esc(r.Nombre || '—')}</strong></td>
               <td>${inqSiNoChip(r.Contrato_existe)}</td>
               <td>${esc(r.Fecha_inicio || '—')}</td>
