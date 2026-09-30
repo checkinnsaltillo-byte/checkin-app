@@ -38644,16 +38644,16 @@ function inqRenderHeatmap() {
                   !!pago.Comprobante_url
                 );
                 const ticketUrl = pago && String(pago.Ticket_facturapi_url || '').trim();
-                // Meses futuros dentro del contrato: clickeables (con +) para
-                // registrar un pago anticipado. noctr sigue no clickeable.
-                const clickable = info.state !== 'noctr';
+                // Meses futuros y fuera de contrato: clickeables (con +) para
+                // registrar un pago manual.
+                const clickable = true;
                 const cursor = clickable ? 'cursor:pointer' : 'cursor:default';
                 const onclick = clickable ? `onclick="inqHmOpenCell('${esc(p.ID)}','${inqHmMonthKey_(year, m)}')"` : '';
                 const title = pago
                   ? `${p.Nombre} · ${inqHmMonthKey_(year, m)} · ${inqFmtMoney(pago.Monto_pagado)}`
-                  : `${p.Nombre} · ${inqHmMonthKey_(year, m)} · ${info.state === 'overdue' ? 'No pagado' : info.state === 'future' ? 'Registrar pago anticipado' : ''}`;
+                  : `${p.Nombre} · ${inqHmMonthKey_(year, m)} · ${info.state === 'overdue' ? 'No pagado' : info.state === 'future' ? 'Registrar pago anticipado' : info.state === 'noctr' ? 'Fuera de contrato · Registrar pago manual' : ''}`;
                 let body = '';
-                if (info.state === 'future') {
+                if (info.state === 'future' || info.state === 'noctr') {
                   // Futuro: botón "+" centrado como hint de "click para registrar".
                   body = `<div style="display:flex;align-items:center;justify-content:center;height:100%;min-height:52px">
                     <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1.5px dashed #94a3b8;border-radius:50%;color:#64748b;font-size:16px;font-weight:900;line-height:1;background:#fff">+</span>
