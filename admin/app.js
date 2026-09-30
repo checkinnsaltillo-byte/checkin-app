@@ -31198,7 +31198,13 @@ async function bnEfeSyncRentas_(rows) {
     const jj = await rr.json();
     if (jj.ok) pagos = jj.rows || [];
   } catch (_) {}
-  const mesOf = v => (typeof inqFmtMonthISO_ === 'function' ? inqFmtMonthISO_(v) : String(v || '').slice(0, 7));
+  // "2026-09" / "2026-09-01" se toman literal (inqFmtMonthISO_ los recorre
+  // un mes por zona horaria); ISO con hora (Date de la hoja) sí va por él.
+  const mesOf = v => {
+    const t = String(v || '').trim();
+    if (/^\d{4}-\d{2}(-\d{2})?$/.test(t)) return t.slice(0, 7);
+    return typeof inqFmtMonthISO_ === 'function' ? inqFmtMonthISO_(v) : t.slice(0, 7);
+  };
   const out = { creados: 0, actualizados: 0, omitidos: [] };
   for (const r of cand) {
     const nombre = String(r.inquilino).trim();
