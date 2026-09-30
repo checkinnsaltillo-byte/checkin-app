@@ -38259,7 +38259,7 @@ function inqRenderPerfiles() {
       : `<div style="overflow-x:auto"><table class="rh-table">
           <thead><tr>
             <th>Propiedad</th>
-            <th># Departamento</th>
+            <th># Depto.</th>
             <th>Nombre</th>
             <th>Contrato</th>
             <th>Inicio</th>
