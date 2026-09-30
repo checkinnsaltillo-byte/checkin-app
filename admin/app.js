@@ -31122,8 +31122,8 @@ function bnEfeApplySticky_() {
   // Si la tabla está oculta los anchos miden 0: se re-aplica cuando se
   // vuelve visible o cambia de tamaño (ResizeObserver, una sola vez).
   if (!tbl._bnEfeRO && typeof ResizeObserver !== 'undefined') {
-    let raf = 0;
-    tbl._bnEfeRO = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(bnEfeApplySticky_); });
+    // Directo (sin rAF): sticky/left no alteran el tamaño → no hay bucle.
+    tbl._bnEfeRO = new ResizeObserver(() => bnEfeApplySticky_());
     tbl._bnEfeRO.observe(tbl);
   }
   const nFrozen = BN_EFE_COLS.findIndex(c => c.id === 'monto') + 1 + (BN_EFE_STATE.selectMode ? 1 : 0);
