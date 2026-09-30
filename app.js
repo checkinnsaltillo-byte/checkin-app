@@ -28142,6 +28142,14 @@ function rhPaintPagosNominaCards() {
               <div style="width:36px;height:36px;border-radius:10px;background:${isPersonOpen?'linear-gradient(135deg,#0ea5e9,#0369a1)':'#f1f5f9'};color:${isPersonOpen?'#fff':'#475569'};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0">${esc((g.nombre||'').split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase())}</div>
               <div style="min-width:0">
                 <div style="font-weight:800;font-size:13.5px;color:#0f172a;letter-spacing:-.01em">${esc(g.nombre)}</div>
+                ${(() => {
+                  const _f = _rhEmpleadoDatosFiscales_(g.nombre);
+                  if (!_f.imss && !_f.rfc) return '';
+                  return `<div style="font-size:10px;color:#64748b;font-weight:600;margin-top:2px;display:flex;flex-wrap:wrap;gap:2px 10px;line-height:1.3">
+                    <span title="No. de Seguridad Social (IMSS)"><span style="color:#94a3b8">IMSS:</span> <b style="color:#475569;font-variant-numeric:tabular-nums">${esc(_f.imss || '—')}</b></span>
+                    <span title="RFC"><span style="color:#94a3b8">RFC:</span> <b style="color:#475569">${esc(_f.rfc || '—')}</b></span>
+                  </div>`;
+                })()}
                 <div style="font-size:11px;color:#94a3b8;font-weight:600">${g.diasTrab} día${g.diasTrab===1?'':'s'} trabajado${g.diasTrab===1?'':'s'} · ${esc(fmtHoras(g.horas))}</div>
               </div>
             </div>
@@ -37322,6 +37330,16 @@ function _rhRegisterPersonalAliases_(map, pr) {
   if (t1 && ap && am) put(`${t1} ${ap} ${am}`);  // "Adán Ramos Lozano"
   if (nom && ap)      put(`${nom} ${ap}`);
   if (t1)             put(t1);                    // solo primer nombre
+}
+/** IMSS (No. de Seguridad Social) + RFC del empleado, buscando por nombre
+ *  completo en la hoja Personal. Para mostrar en los headers de nómina. */
+function _rhEmpleadoDatosFiscales_(nombre) {
+  const t = _normNombre_(nombre);
+  const pr = (INC_STATE?.personalRows || []).find(x => _normNombre_(_rhPersonalFullName_(x)) === t);
+  return {
+    imss: pr ? String(pr['No. De Seguridad (IMSS)'] || pr['NSS'] || '').trim() : '',
+    rfc:  pr ? String(pr['RFC'] || '').trim() : '',
+  };
 }
 // Alta en IMSS del empleado (true si "Sí" o similares). Se usa para pagar
 // o no los días de descanso del contrato.
