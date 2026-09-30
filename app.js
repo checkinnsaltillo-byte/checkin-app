@@ -28145,7 +28145,7 @@ function rhPaintPagosNominaCards() {
                 ${(() => {
                   const _f = _rhEmpleadoDatosFiscales_(g.nombre);
                   if (!_f.imss && !_f.rfc) return '';
-                  return `<div style="font-size:10px;color:#64748b;font-weight:600;margin-top:2px;display:flex;flex-wrap:wrap;gap:2px 10px;line-height:1.3">
+                  return `<div style="font-size:12.5px;color:#64748b;font-weight:600;margin-top:3px;display:flex;flex-wrap:wrap;gap:2px 12px;line-height:1.3">
                     <span title="No. de Seguridad Social (IMSS)"><span style="color:#94a3b8">IMSS:</span> <b style="color:#475569;font-variant-numeric:tabular-nums">${esc(_f.imss || '—')}</b></span>
                     <span title="RFC"><span style="color:#94a3b8">RFC:</span> <b style="color:#475569">${esc(_f.rfc || '—')}</b></span>
                   </div>`;
