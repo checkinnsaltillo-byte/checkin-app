@@ -30542,18 +30542,111 @@ const BN_EFE_COLS = [
   { id: 'monto',          label: 'Monto',                  type: 'number', align: 'right' },
   { id: 'origenDestino',  label: 'ORIGEN/DESTINO',         type: 'string', align: 'left'  },
   { id: 'origenDestinoComments', label: 'ORIGEN/DESTINO_comments', type: 'string', align: 'left' },
+  { id: 'inquilino',      label: 'Inquilino',              type: 'string', align: 'left'  },
+  { id: 'propiedad',      label: 'Propiedad',              type: 'string', align: 'left'  },
+  { id: 'depto',          label: '# Depto.',               type: 'string', align: 'left'  },
+  { id: 'mesCorr',        label: 'Mes correspondiente',    type: 'string', align: 'left'  },
 ];
+
+// ── Inquilino / Propiedad / # Depto / Mes correspondiente ──────────────
+// Inquilinos = hoja de perfiles (INQ_STATE.perfiles). Propiedad y # Depto =
+// catálogo alojamientos (ALOJ_STATE). Elegir inquilino llena Propiedad +
+// Depto; elegir Propiedad + Depto llena el inquilino que ocupa ese depto.
+const BN_EFE_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function bnEfeMesLabel_(ym) {
+  const m = String(ym || '').match(/^(\d{4})-(\d{2})/);
+  return m ? `${BN_EFE_MESES[parseInt(m[2], 10) - 1]} ${m[1]}` : String(ym || '');
+}
+function bnEfeMesOptions_(current) {
+  const now = new Date();
+  const opts = [];
+  for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 2; y--) {
+    for (let m = 12; m >= 1; m--) opts.push(`${y}-${String(m).padStart(2, '0')}`);
+  }
+  if (current && !opts.includes(current)) opts.unshift(current);
+  return `<option value=""></option>` + opts.map(v => `<option value="${v}"${v === current ? ' selected' : ''}>${esc(bnEfeMesLabel_(v))}</option>`).join('');
+}
+function bnEfePerfiles_() {
+  return (typeof INQ_STATE !== 'undefined' && Array.isArray(INQ_STATE.perfiles)) ? INQ_STATE.perfiles : [];
+}
+function bnEfeInquilinoOptions_(current) {
+  const names = Array.from(new Set(bnEfePerfiles_().map(p => String(p.Nombre || '').trim()).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, 'es'));
+  if (current && !names.includes(current)) names.unshift(current);
+  return `<option value=""></option>` + names.map(n => `<option value="${esc(n)}"${n === current ? ' selected' : ''}>${esc(n)}</option>`).join('');
+}
+// Inquilino que ocupa (Propiedad, Depto). Si hay varios (histórico), prefiere
+// el de contrato vigente o, en su defecto, el de contrato más reciente.
+function bnEfeInquilinoPara_(prop, depto) {
+  const p = String(prop || '').trim(), d = String(depto || '').trim();
+  if (!p || !d) return '';
+  const cands = bnEfePerfiles_().filter(x => String(x.Propiedad || '').trim() === p && String(x.Departamento || '').trim() === d);
+  if (!cands.length) return '';
+  const hoy = new Date().toISOString().slice(0, 10);
+  const iso = v => (typeof inqFmtDateISO_ === 'function' ? inqFmtDateISO_(v) : String(v || '').slice(0, 10));
+  const vig = cands.filter(x => (!x.Fecha_inicio || iso(x.Fecha_inicio) <= hoy) && (!x.Fecha_fin || iso(x.Fecha_fin) >= hoy));
+  const pool = vig.length ? vig : cands;
+  pool.sort((a, b) => iso(b.Fecha_inicio).localeCompare(iso(a.Fecha_inicio)));
+  return String(pool[0].Nombre || '').trim();
+}
+function bnEfeRerenderRow_(id) {
+  const r = BN_EFE_STATE.rows.find(x => x.id === id);
+  const tr = document.querySelector(`tr[data-efe-id="${id}"]`);
+  if (r && tr) tr.outerHTML = bnEfectivoRowHtml(r);
+  else bnEfectivoRender();
+}
+window.bnEfectivoSetInquilino = function (id, nombre) {
+  const r = BN_EFE_STATE.rows.find(x => x.id === id);
+  if (!r) return;
+  bnEfectivoUpdate(id, 'inquilino', nombre);
+  const perfil = nombre ? bnEfePerfiles_().find(p => String(p.Nombre || '').trim() === nombre) : null;
+  if (perfil) {
+    bnEfectivoUpdate(id, 'propiedad', String(perfil.Propiedad || '').trim());
+    bnEfectivoUpdate(id, 'depto', String(perfil.Departamento || '').trim());
+  }
+  bnEfeRerenderRow_(id);
+};
+window.bnEfectivoSetPropiedad = function (id, prop) {
+  const r = BN_EFE_STATE.rows.find(x => x.id === id);
+  if (!r) return;
+  bnEfectivoUpdate(id, 'propiedad', prop);
+  // Si el depto actual no existe en la nueva propiedad, se limpia.
+  const validos = (typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.rows ? ALOJ_STATE.rows : [])
+    .filter(a => String(a['Propiedad'] || '').trim() === prop)
+    .map(a => String(a['# Departamento'] || '').trim());
+  if (r.depto && !validos.includes(r.depto)) bnEfectivoUpdate(id, 'depto', '');
+  bnEfectivoUpdate(id, 'inquilino', bnEfeInquilinoPara_(r.propiedad, r.depto));
+  bnEfeRerenderRow_(id);
+};
+window.bnEfectivoSetDepto = function (id, depto) {
+  const r = BN_EFE_STATE.rows.find(x => x.id === id);
+  if (!r) return;
+  bnEfectivoUpdate(id, 'depto', depto);
+  bnEfectivoUpdate(id, 'inquilino', bnEfeInquilinoPara_(r.propiedad, r.depto));
+  bnEfeRerenderRow_(id);
+};
+// Carga (una vez) perfiles de inquilinos + catálogo alojamientos y repinta.
+let _bnEfeCatalogsPromise = null;
+function bnEfeEnsureCatalogs_() {
+  if (_bnEfeCatalogsPromise) return _bnEfeCatalogsPromise;
+  const tasks = [];
+  if (!bnEfePerfiles_().length && typeof inqLoadPerfiles === 'function') tasks.push(inqLoadPerfiles());
+  if (typeof lgLoadAlojamientos === 'function') tasks.push(lgLoadAlojamientos());
+  _bnEfeCatalogsPromise = Promise.allSettled(tasks).then(() => { bnEfectivoRender(); });
+  return _bnEfeCatalogsPromise;
+}
 
 let _bnEfeRowSeq = 0;
 function bnEfeNewRow() {
   const today = new Date().toISOString().slice(0,10);
-  return { id: ++_bnEfeRowSeq, dia: today, desc: '', cargo: '', abono: '', saldo: '', monto: '', origenDestino: '', origenDestinoComments: '', cuenta: '', sub: '', cat: '', concepto: '', selected: false };
+  return { id: ++_bnEfeRowSeq, dia: today, desc: '', cargo: '', abono: '', saldo: '', monto: '', origenDestino: '', origenDestinoComments: '', inquilino: '', propiedad: '', depto: '', mesCorr: '', cuenta: '', sub: '', cat: '', concepto: '', selected: false };
 }
 
 function bnEfectivoInit() {
   // Render inmediato para que el usuario vea algo (placeholder) mientras carga
   if (!BN_EFE_STATE.rows.length) BN_EFE_STATE.rows = [bnEfeNewRow()];
   bnEfectivoRender();
+  bnEfeEnsureCatalogs_();
   // Re-fuerza visibilidad del pane: bn_loadData → bn_setCat/Tipo puede ocultarlo
   const _reshow = () => {
     const efe = document.getElementById('bn-efectivo-pane');
@@ -30716,6 +30809,10 @@ window.bnEfectivoSaveRow = async function (id) {
         'Monto':        Number(r.monto) || 0,
         'ORIGEN/DESTINO':           r.origenDestino || '',
         'ORIGEN/DESTINO_comments':  r.origenDestinoComments || '',
+        'INQUILINO':            r.inquilino || '',
+        'INQUILINO_PROPIEDAD':  r.propiedad || '',
+        'INQUILINO_DEPTO':      r.depto || '',
+        'MES_CORRESPONDIENTE':  r.mesCorr || '',
       },
       clearClasif: true,
     }];
@@ -30835,6 +30932,10 @@ window.bnEfectivoLoadLastFromBancos = async function () {
       monto: monto,
       origenDestino: String(r['ORIGEN/DESTINO'] || ''),
       origenDestinoComments: String(r['ORIGEN/DESTINO_comments'] || ''),
+      inquilino: String(r['INQUILINO'] || ''),
+      propiedad: String(r['INQUILINO_PROPIEDAD'] || ''),
+      depto:     String(r['INQUILINO_DEPTO'] || ''),
+      mesCorr:   String(r['MES_CORRESPONDIENTE'] || '').slice(0, 7),
       selected: false,
       _imported: true,                  // viene de BANCOS → no editable
       _bancosRowNum: r.rowNum || null,  // referencia al renglón original
@@ -31003,6 +31104,10 @@ function bnEfectivoRowHtml(r) {
       <option value=""></option>${BN_EFE_ORIGEN_DESTINO.map(o => `<option value="${esc(o)}" ${o===r.origenDestino?'selected':''}>${esc(o)}</option>`).join('')}
     </select></td>
     <td style="padding:2px 4px"><input type="text" value="${esc(r.origenDestinoComments||'')}" ${ro} oninput="bnEfectivoUpdate(${r.id},'origenDestinoComments',this.value)" style="${inputStyle}"></td>
+    <td style="padding:2px 4px;min-width:170px"><select ${di} onchange="bnEfectivoSetInquilino(${r.id},this.value)" style="${inputStyle}">${bnEfeInquilinoOptions_(r.inquilino || '')}</select></td>
+    <td style="padding:2px 4px;min-width:140px"><select ${di} onchange="bnEfectivoSetPropiedad(${r.id},this.value)" style="${inputStyle}">${typeof inqBuildPropiedadOptions_ === 'function' ? inqBuildPropiedadOptions_(r.propiedad || '').replace(/>— Selecciona —</, '><') : ''}</select></td>
+    <td style="padding:2px 4px;min-width:80px"><select ${di} onchange="bnEfectivoSetDepto(${r.id},this.value)" style="${inputStyle}">${typeof inqBuildDepartamentoOptions_ === 'function' ? inqBuildDepartamentoOptions_(r.propiedad || '', r.depto || '').replace(/>— Selecciona —</, '><') : ''}</select></td>
+    <td style="padding:2px 4px;min-width:150px"><select ${di} onchange="bnEfectivoUpdate(${r.id},'mesCorr',this.value)" style="${inputStyle}">${bnEfeMesOptions_(r.mesCorr || '')}</select></td>
   </tr>`;
 }
 
@@ -31041,6 +31146,10 @@ window.bnEfectivoSave = async function (opts) {
           'Monto':        Number(r.monto) || 0,
           'ORIGEN/DESTINO':           r.origenDestino || '',
           'ORIGEN/DESTINO_comments':  r.origenDestinoComments || '',
+          'INQUILINO':            r.inquilino || '',
+          'INQUILINO_PROPIEDAD':  r.propiedad || '',
+          'INQUILINO_DEPTO':      r.depto || '',
+          'MES_CORRESPONDIENTE':  r.mesCorr || '',
         },
         clearClasif: true, // borra CUENTA/SUBCUENTA/CATEGORIA/CONCEPTO
       }));
@@ -31085,6 +31194,10 @@ window.bnEfectivoSave = async function (opts) {
       'Monto': monto,
       'ORIGEN/DESTINO': r.origenDestino || '',
       'ORIGEN/DESTINO_comments': r.origenDestinoComments || '',
+      'INQUILINO':            r.inquilino || '',
+      'INQUILINO_PROPIEDAD':  r.propiedad || '',
+      'INQUILINO_DEPTO':      r.depto || '',
+      'MES_CORRESPONDIENTE':  r.mesCorr || '',
       'COMENTARIOS': '',
     };
     // Si el usuario clasificó manualmente, marcarlo como _auto para que se respete

@@ -7868,7 +7868,7 @@ function bnBancosInsertBulk_(data) {
   catch (e) { return { ok: false, error: "No se pudo adquirir lock (otra escritura en curso)." }; }
   try {
     // Auto-crear columnas ORIGEN/DESTINO si no existen (módulo Efectivo)
-    bnEnsureBancosColumns_(sh, ["ORIGEN/DESTINO", "ORIGEN/DESTINO_comments"]);
+    bnEnsureBancosColumns_(sh, ["ORIGEN/DESTINO", "ORIGEN/DESTINO_comments", "INQUILINO", "INQUILINO_PROPIEDAD", "INQUILINO_DEPTO", "MES_CORRESPONDIENTE"]);
     const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
                       .map(function(h){ return String(h || "").trim(); });
     // Match case/accent-insensitive: frontend manda keys "CARGO", "Día",
@@ -7925,7 +7925,7 @@ function bnUpdateRowsBulk_(data) {
   try { lock.waitLock(30000); }
   catch (e) { return { ok: false, error: "No se pudo adquirir lock." }; }
   try {
-    bnEnsureBancosColumns_(sh, ["ORIGEN/DESTINO", "ORIGEN/DESTINO_comments"]);
+    bnEnsureBancosColumns_(sh, ["ORIGEN/DESTINO", "ORIGEN/DESTINO_comments", "INQUILINO", "INQUILINO_PROPIEDAD", "INQUILINO_DEPTO", "MES_CORRESPONDIENTE"]);
     const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
                       .map(function(h){ return String(h || "").trim(); });
     function _norm(s) {
@@ -8724,6 +8724,16 @@ function getBancosData_(ss) {
   // aunque la hoja sí los tenga.
   const iOrDe   = pickIdx(hB, ["ORIGEN/DESTINO", "ORIGEN DESTINO", "ORIGEN_DESTINO"]);
   const iOrDeC  = pickIdx(hB, ["ORIGEN/DESTINO_COMMENTS", "ORIGEN_DESTINO_COMMENTS", "ORIGEN/DESTINO COMMENTS", "ORIGEN DESTINO COMMENTS"]);
+  // Efectivo: renta de inquilinos (Inquilino / Propiedad / # Depto / Mes correspondiente).
+  const iInq     = pickIdx(hB, ["INQUILINO"]);
+  const iInqProp = pickIdx(hB, ["INQUILINO_PROPIEDAD"]);
+  const iInqDep  = pickIdx(hB, ["INQUILINO_DEPTO"]);
+  const iMesCorr = pickIdx(hB, ["MES_CORRESPONDIENTE"]);
+  const fmtYm = (v) => {
+    if (!v) return "";
+    if (v instanceof Date) return Utilities.formatDate(v, TZ, "yyyy-MM");
+    return String(v).trim();
+  };
 
   const records = bancos.slice(1)
     .map((r, i) => ({ r, rowNum: i + 2 }))
@@ -8767,6 +8777,10 @@ function getBancosData_(ss) {
         Ticket_match_total:  iTmto >= 0 ? toNumber(r[iTmto])       : 0,
         "ORIGEN/DESTINO":          iOrDe  >= 0 ? String(r[iOrDe]).trim()  : "",
         "ORIGEN/DESTINO_comments": iOrDeC >= 0 ? String(r[iOrDeC]).trim() : "",
+        INQUILINO:           iInq     >= 0 ? String(r[iInq]).trim()     : "",
+        INQUILINO_PROPIEDAD: iInqProp >= 0 ? String(r[iInqProp]).trim() : "",
+        INQUILINO_DEPTO:     iInqDep  >= 0 ? String(bancosDisplay[rowNum - 1][iInqDep]).trim() : "",
+        MES_CORRESPONDIENTE: iMesCorr >= 0 ? fmtYm(r[iMesCorr])         : "",
         rowNum:            rowNum
       };
     });
