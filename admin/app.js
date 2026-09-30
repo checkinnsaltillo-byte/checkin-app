@@ -30557,14 +30557,80 @@ function bnEfeMesLabel_(ym) {
   const m = String(ym || '').match(/^(\d{4})-(\d{2})/);
   return m ? `${BN_EFE_MESES[parseInt(m[2], 10) - 1]} ${m[1]}` : String(ym || '');
 }
-function bnEfeMesOptions_(current) {
+// Selector estético de mes: popover con año (‹ 2026 ›) y cuadrícula de 12 meses.
+const BN_EFE_MES_ABR = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+let _bnEfeMesPick = null; // { id, year }
+window.bnEfeMesPickerOpen = function (id, btn) {
+  const r = BN_EFE_STATE.rows.find(x => x.id === id);
+  if (!r) return;
+  const cur = String(r.mesCorr || '').match(/^(\d{4})-(\d{2})/);
+  _bnEfeMesPick = { id, year: cur ? parseInt(cur[1], 10) : new Date().getFullYear(), btn };
+  _bnEfeMesPickerRender_();
+};
+window.bnEfeMesPickerYear = function (delta) {
+  if (!_bnEfeMesPick) return;
+  _bnEfeMesPick.year += delta;
+  _bnEfeMesPickerRender_();
+};
+window.bnEfeMesPickerSet = function (ym) {
+  if (!_bnEfeMesPick) return;
+  const id = _bnEfeMesPick.id;
+  bnEfeMesPickerClose();
+  bnEfectivoUpdate(id, 'mesCorr', ym);
+  bnEfeRerenderRow_(id);
+};
+window.bnEfeMesPickerClose = function () {
+  const el = document.getElementById('bn-efe-mes-pop');
+  if (el) el.remove();
+  document.removeEventListener('mousedown', _bnEfeMesPickerOutside_, true);
+  _bnEfeMesPick = null;
+};
+function _bnEfeMesPickerOutside_(ev) {
+  const el = document.getElementById('bn-efe-mes-pop');
+  if (el && !el.contains(ev.target)) bnEfeMesPickerClose();
+}
+function _bnEfeMesPickerRender_() {
+  const P = _bnEfeMesPick; if (!P) return;
+  const r = BN_EFE_STATE.rows.find(x => x.id === P.id);
+  const sel = String(r?.mesCorr || '').slice(0, 7);
   const now = new Date();
-  const opts = [];
-  for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 2; y--) {
-    for (let m = 12; m >= 1; m--) opts.push(`${y}-${String(m).padStart(2, '0')}`);
+  const hoyYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  let el = document.getElementById('bn-efe-mes-pop');
+  const fresh = !el;
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'bn-efe-mes-pop';
+    el.style.cssText = 'position:fixed;z-index:99999;width:232px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.18);padding:10px;font-family:inherit';
+    document.body.appendChild(el);
   }
-  if (current && !opts.includes(current)) opts.unshift(current);
-  return `<option value=""></option>` + opts.map(v => `<option value="${v}"${v === current ? ' selected' : ''}>${esc(bnEfeMesLabel_(v))}</option>`).join('');
+  const navBtn = 'all:unset;cursor:pointer;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;color:#334155;font-size:16px;font-weight:900;background:#f1f5f9';
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <button type="button" onclick="bnEfeMesPickerYear(-1)" style="${navBtn}" title="Año anterior">‹</button>
+      <div style="font-size:15px;font-weight:900;color:#0f172a;letter-spacing:.02em">${P.year}</div>
+      <button type="button" onclick="bnEfeMesPickerYear(1)" style="${navBtn}" title="Año siguiente">›</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+      ${BN_EFE_MES_ABR.map((m, i) => {
+        const ym = `${P.year}-${String(i + 1).padStart(2, '0')}`;
+        const isSel = ym === sel, isHoy = ym === hoyYm;
+        const bg = isSel ? 'linear-gradient(135deg,#0d9488,#0f766e)' : '#fff';
+        const fg = isSel ? '#fff' : '#0f172a';
+        const bd = isSel ? '#0f766e' : (isHoy ? '#5eead4' : '#e2e8f0');
+        return `<button type="button" onclick="bnEfeMesPickerSet('${ym}')" title="${esc(BN_EFE_MESES[i])} ${P.year}"
+          style="all:unset;cursor:pointer;text-align:center;padding:8px 0;border-radius:8px;border:1.5px solid ${bd};background:${bg};color:${fg};font-size:12px;font-weight:${isSel || isHoy ? 900 : 700}">${m}</button>`;
+      }).join('')}
+    </div>
+    ${sel ? `<div style="margin-top:8px;text-align:right"><button type="button" onclick="bnEfeMesPickerSet('')" style="all:unset;cursor:pointer;font-size:11px;font-weight:700;color:#b91c1c;padding:4px 6px">Quitar mes</button></div>` : ''}`;
+  if (fresh) {
+    const rc = P.btn ? P.btn.getBoundingClientRect() : { left: innerWidth / 2, bottom: innerHeight / 2, top: innerHeight / 2 };
+    const h = el.offsetHeight || 190;
+    let top = rc.bottom + 4;
+    if (top + h > innerHeight - 8) top = Math.max(8, rc.top - h - 4);
+    el.style.top = `${top}px`;
+    el.style.left = `${Math.max(8, Math.min(rc.left, innerWidth - 240))}px`;
+    setTimeout(() => document.addEventListener('mousedown', _bnEfeMesPickerOutside_, true), 0);
+  }
 }
 function bnEfePerfiles_() {
   return (typeof INQ_STATE !== 'undefined' && Array.isArray(INQ_STATE.perfiles)) ? INQ_STATE.perfiles : [];
@@ -31107,7 +31173,9 @@ function bnEfectivoRowHtml(r) {
     <td style="padding:2px 4px;min-width:170px"><select ${di} onchange="bnEfectivoSetInquilino(${r.id},this.value)" style="${inputStyle}">${bnEfeInquilinoOptions_(r.inquilino || '')}</select></td>
     <td style="padding:2px 4px;min-width:140px"><select ${di} onchange="bnEfectivoSetPropiedad(${r.id},this.value)" style="${inputStyle}">${typeof inqBuildPropiedadOptions_ === 'function' ? inqBuildPropiedadOptions_(r.propiedad || '').replace(/>— Selecciona —</, '><') : ''}</select></td>
     <td style="padding:2px 4px;min-width:80px"><select ${di} onchange="bnEfectivoSetDepto(${r.id},this.value)" style="${inputStyle}">${typeof inqBuildDepartamentoOptions_ === 'function' ? inqBuildDepartamentoOptions_(r.propiedad || '', r.depto || '').replace(/>— Selecciona —</, '><') : ''}</select></td>
-    <td style="padding:2px 4px;min-width:150px"><select ${di} onchange="bnEfectivoUpdate(${r.id},'mesCorr',this.value)" style="${inputStyle}">${bnEfeMesOptions_(r.mesCorr || '')}</select></td>
+    <td style="padding:2px 4px;min-width:150px"><button type="button" ${di} onclick="bnEfeMesPickerOpen(${r.id},this)"
+      style="${inputStyle};display:flex;align-items:center;justify-content:space-between;gap:6px;text-align:left;cursor:${locked?'not-allowed':'pointer'};font-weight:${r.mesCorr?'700':'400'};color:${r.mesCorr?(locked?'#475569':'#0f172a'):'#94a3b8'}">
+      <span>${r.mesCorr ? esc(bnEfeMesLabel_(r.mesCorr)) : 'Elegir mes…'}</span><span style="font-size:11px;opacity:.7">📅</span></button></td>
   </tr>`;
 }
 
