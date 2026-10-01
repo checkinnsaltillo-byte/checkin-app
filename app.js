@@ -26001,7 +26001,7 @@ async function ocupInit() {
   // Re-pinta la vista VISIBLE (antes siempre pintaba el Calendario, aunque se
   // estuviera viendo Indicadores → la tabla se quedaba sin datos).
   const v = OCUP_STATE.view || 'calendario';
-  if (v === 'indicadores') { ocupInitFiltersOnce(); ocupRenderTable(); }
+  if (v === 'indicadores') { ocupInitFiltersOnce(); ocupRenderTable(); ocupTableScrollEnd_(); }
   else if (v === 'graficas') { ocupChartInitFiltersOnce(); ocupRenderChart(); }
   else ocupRender();
   console.info('[OCUP timing ms]', { carga: _tLoad, render: Math.round(performance.now() - _t0) - _tLoad, vista: v, reservas: (OCUP_STATE.bookings || []).length });
@@ -26633,6 +26633,7 @@ window.ocupSetView = function (v) {
   else if (v === 'indicadores') {
     ocupInitFiltersOnce();
     ocupRenderTable();
+    ocupTableScrollEnd_();
   } else {
     ocupChartInitFiltersOnce();
     ocupRenderChart();
@@ -27126,6 +27127,22 @@ function ocupCellHtml(r, isAvg) {
 }
 
 // ─── Vista Indicadores (tabla) ───
+// Al ENTRAR a Indicadores: desplaza la tabla hasta la derecha para mostrar
+// los últimos meses y la columna "Promedio". Busca el contenedor que
+// realmente tiene scroll horizontal (puede ser el contenedor o un ancestro).
+function ocupTableScrollEnd_() {
+  const go = () => {
+    const tbl = document.querySelector('#ocup-table-container .ocup-table');
+    let el = tbl ? tbl.parentElement : null;
+    while (el && el !== document.body) {
+      const ox = getComputedStyle(el).overflowX;
+      if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 2) { el.scrollLeft = el.scrollWidth; return true; }
+      el = el.parentElement;
+    }
+    return false;
+  };
+  requestAnimationFrame(() => { if (!go()) setTimeout(go, 150); });
+}
 function ocupRenderTable() {
   const cont = document.getElementById('ocup-table-container');
   if (!cont) return;
