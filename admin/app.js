@@ -27141,7 +27141,10 @@ function ocupTableScrollEnd_() {
     }
     return false;
   };
-  requestAnimationFrame(() => { if (!go()) setTimeout(go, 150); });
+  // Inmediato (el layout ya está calculado tras innerHTML) + reintento por si
+  // el contenedor aún no tenía tamaño.
+  go();
+  setTimeout(go, 150);
 }
 function ocupRenderTable() {
   const cont = document.getElementById('ocup-table-container');
