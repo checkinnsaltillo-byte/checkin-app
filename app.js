@@ -6320,7 +6320,7 @@ function bnDetallesSetup_(ci) {
   if (!sec) {
     sec = document.createElement('div');
     sec.id = 'bn-detalles-sec';
-    sec.style.cssText = 'margin:8px 0 14px;border:1.5px solid #e2e8f0;border-radius:12px;background:#f8fafc;overflow:hidden';
+    sec.style.cssText = 'margin:8px 40px 14px 0;border:1.5px solid #e2e8f0;border-radius:12px;background:#f8fafc;overflow:hidden';
     sec.innerHTML = `
       <button type="button" id="bn-detalles-toggle" onclick="bnDetallesToggle_()"
         style="all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;font-size:13px;font-weight:900;color:#0f172a">
