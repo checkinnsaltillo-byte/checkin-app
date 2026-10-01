@@ -6308,6 +6308,49 @@ async function bn_validateAutoClasif(idx) {
   }
 }
 
+// Sección plegable "Detalles" del popup Clasificar: agrupa la tabla de
+// detalles + Encargado de operación + Reembolso + Método de pago (los nodos
+// se MUEVEN, conservan sus ids → getClassify/snapshot siguen funcionando).
+// Cerrada por defecto en cada apertura.
+function bnDetallesSetup_(ci) {
+  const modal = document.getElementById('bn-classify-modal');
+  const resumen = document.getElementById('bn-classify-modal-resumen');
+  if (!modal || !resumen) return;
+  let sec = document.getElementById('bn-detalles-sec');
+  if (!sec) {
+    sec = document.createElement('div');
+    sec.id = 'bn-detalles-sec';
+    sec.style.cssText = 'margin:8px 0 14px;border:1.5px solid #e2e8f0;border-radius:12px;background:#f8fafc;overflow:hidden';
+    sec.innerHTML = `
+      <button type="button" id="bn-detalles-toggle" onclick="bnDetallesToggle_()"
+        style="all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;font-size:13px;font-weight:900;color:#0f172a">
+        <span>📋 Detalles</span><span id="bn-detalles-chev" style="font-size:12px;color:#64748b;transition:transform .2s">▼</span>
+      </button>
+      <div id="bn-detalles-content" style="display:none;padding:4px 12px 12px;border-top:1px solid #e2e8f0;background:#fff">
+        <div id="bn-detalles-fields"></div>
+      </div>`;
+    resumen.parentNode.insertBefore(sec, resumen);
+    const content = sec.querySelector('#bn-detalles-content');
+    content.insertBefore(resumen, content.firstChild); // la tabla va arriba
+    resumen.style.marginTop = '10px';
+  }
+  const fields = document.getElementById('bn-detalles-fields');
+  fields.innerHTML = '';
+  [`comprador-grid-${ci}`, `reembolso-${ci}`, `metodo-grid-${ci}`].forEach(id => {
+    const f = document.getElementById(id)?.closest('.cuenta-field');
+    if (f) fields.appendChild(f);
+  });
+  bnDetallesToggle_(false);
+}
+window.bnDetallesToggle_ = function (open) {
+  const c = document.getElementById('bn-detalles-content');
+  const ch = document.getElementById('bn-detalles-chev');
+  if (!c) return;
+  const show = typeof open === 'boolean' ? open : c.style.display === 'none';
+  c.style.display = show ? 'block' : 'none';
+  if (ch) ch.style.transform = show ? 'rotate(180deg)' : '';
+};
+
 function bn_toggleBnClassify(idx) {
   const rec = BN_CUR_RECS[idx];
   if (!rec) return;
@@ -6348,6 +6391,7 @@ function bn_toggleBnClassify(idx) {
   document.getElementById('bn-classify-modal-resumen').innerHTML =
     bn_buildBnResumenTable(rec, idx);
   document.getElementById('bn-classify-modal-body').innerHTML = classifyHtml;
+  bnDetallesSetup_(ci);
 
   // Inyectar botones Duda/Validado en una fila SIEMPRE VISIBLE arriba de
   // classify-actions; el classify-actions sólo aparece cuando hay cambios.
@@ -7192,6 +7236,8 @@ function bn_bulkClasificar() {
        <div style="font-size:12px;color:#475569">Se aplicará la clasificación que selecciones a <b>${BN_SEL.size}</b> registros marcados. La tabla de Resumen individual se omite por ser múltiples.</div>
      </div>`;
   document.getElementById('bn-classify-modal-body').innerHTML = classifyHtml;
+  bnDetallesSetup_('bnbulk');
+  bnDetallesToggle_(true); // en masiva se muestra el aviso de cuántos registros
   document.getElementById('bn-classify-overlay').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
 
