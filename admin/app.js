@@ -56986,44 +56986,48 @@ function tarDelDia_(iso) {
     });
 }
 // 1) Resumen: 4 columnas
-// Resumen por OCURRENCIA: hoy + vencidas (últimos 30 días) + concluidas
-// recientes (últimos 7 días).
-const TAR_VENCIDAS_DIAS = 30;
+// Resumen por OCURRENCIA del MES elegido (TAR_STATE.resMes 'YYYY-MM'):
+// todas las fechas del mes en 4 columnas.
+//   Nuevos     → sin atender, de hoy en adelante
+//   Pendientes → sin concluir y ya vencidas (o marcadas Pendiente)
+//   En proceso → marcadas En proceso
+//   Concluidos → Resuelto / Cancelado
 function tarResumenHtml_() {
-  const hoyD = tarToday_(), hoy = tarIso_(hoyD);
+  const hoy = tarIso_(tarToday_());
+  if (!TAR_STATE.resMes) TAR_STATE.resMes = hoy.slice(0, 7);
+  const [y, m] = TAR_STATE.resMes.split('-').map(Number);
+  const dim = new Date(y, m, 0).getDate();
   const buckets = { nuevos: [], pendientes: [], en_proceso: [], concluidos: [] };
-  const hace7 = new Date(hoyD); hace7.setDate(hace7.getDate() - 7);
-  for (let i = TAR_VENCIDAS_DIAS; i >= 0; i--) {
-    const d = new Date(hoyD); d.setDate(d.getDate() - i);
-    const iso = tarIso_(d);
+  for (let day = 1; day <= dim; day++) {
+    const iso = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     tarDelDia_(iso).forEach(r => {
       const oc = tarOcur_(r.ID, iso);
       const est = (oc && oc.Estado) || 'Pendiente';
       const item = { r, iso };
       if (est === 'En proceso') buckets.en_proceso.push(item);
-      else if (est === 'Resuelto' || est === 'Cancelado') { if (iso >= tarIso_(hace7)) buckets.concluidos.push(item); }
-      else if (iso === hoy && !oc) buckets.nuevos.push(item);
+      else if (est === 'Resuelto' || est === 'Cancelado') buckets.concluidos.push(item);
+      else if (!oc && iso >= hoy) buckets.nuevos.push(item);
       else buckets.pendientes.push(item);
     });
   }
-  buckets.concluidos.reverse();
-  // Pendientes: UNA card por tarea (la fecha pendiente más reciente) con el
-  // total de fechas sin atender — evita que una tarea diaria llene la columna.
-  const porTarea = new Map();
-  buckets.pendientes.forEach(it => {
-    const g = porTarea.get(it.r.ID);
-    if (!g) porTarea.set(it.r.ID, { r: it.r, iso: it.iso, n: 1 });
-    else { g.n++; if (it.iso > g.iso) g.iso = it.iso; }
-  });
-  buckets.pendientes = Array.from(porTarea.values()).sort((a, b) => b.iso.localeCompare(a.iso));
   const COLS = [
-    { key: 'nuevos',     label: 'Nuevos (hoy)', color: '#475569', accent: '#94a3b8' },
-    { key: 'pendientes', label: 'Pendientes',   color: '#b45309', accent: '#f59e0b' },
-    { key: 'en_proceso', label: 'En proceso',   color: '#1d4ed8', accent: '#3b82f6' },
-    { key: 'concluidos', label: 'Concluidos',   color: '#15803d', accent: '#22c55e' },
+    { key: 'nuevos',     label: 'Nuevos',     color: '#475569', accent: '#94a3b8' },
+    { key: 'pendientes', label: 'Pendientes', color: '#b45309', accent: '#f59e0b' },
+    { key: 'en_proceso', label: 'En proceso', color: '#1d4ed8', accent: '#3b82f6' },
+    { key: 'concluidos', label: 'Concluidos', color: '#15803d', accent: '#22c55e' },
   ];
-  return `<div style="font-size:11.5px;color:#64748b;margin-bottom:10px">Tareas de hoy y vencidas de los últimos ${TAR_VENCIDAS_DIAS} días; concluidas de los últimos 7 días. Arrastra una card para cambiar el estado de ese día.</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;align-items:start">${COLS.map(col => {
+  const navB = 'all:unset;cursor:pointer;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:16px;font-weight:900;color:#334155';
+  const total = Object.values(buckets).reduce((a, x) => a + x.length, 0);
+  const filtro = `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <span style="font-size:12px;font-weight:800;color:#475569">Mes:</span>
+      <button type="button" onclick="tarResMesNav(-1)" style="${navB}" title="Mes anterior">‹</button>
+      <button type="button" onclick="tarResMesOpen(this)" style="all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:8px;border:1.5px solid #c4b5fd;background:#faf5ff;font-size:13px;font-weight:900;color:#5b21b6">${esc(bnEfeMesLabel_(TAR_STATE.resMes))} <span style="font-size:12px">📅</span></button>
+      <button type="button" onclick="tarResMesNav(1)" style="${navB}" title="Mes siguiente">›</button>
+      ${TAR_STATE.resMes !== hoy.slice(0, 7) ? `<button type="button" onclick="tarResMesSet('${hoy.slice(0, 7)}')" style="all:unset;cursor:pointer;padding:6px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:12px;font-weight:800;color:#334155">Mes actual</button>` : ''}
+      <span style="font-size:12px;color:#64748b">${total} tarea${total === 1 ? '' : 's'} programada${total === 1 ? '' : 's'} en el mes · arrastra una card para cambiar el estado de ese día</span>
+    </div>`;
+  return filtro + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;align-items:start">${COLS.map(col => {
     const items = buckets[col.key];
     return `<div style="min-width:0;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:3px solid ${col.accent}">
@@ -57032,11 +57036,18 @@ function tarResumenHtml_() {
       </div>
       <div ondragover="event.preventDefault();this.style.background='#f1f5f9'" ondragleave="this.style.background=''" ondrop="tarDrop(event,'${col.key}');this.style.background=''"
            style="display:flex;flex-direction:column;gap:10px;min-height:60px;padding:4px;border-radius:10px">
-        ${items.length ? items.map(it => tarCardHtml_(it.r, { fecha: it.iso, draggable: true, compact: true, pendientesN: it.n })).join('') : '<div style="text-align:center;padding:18px 8px;color:#94a3b8;font-size:11px;font-style:italic;border:1px dashed #e2e8f0;border-radius:8px">Sin tareas</div>'}
+        ${items.length ? items.map(it => tarCardHtml_(it.r, { fecha: it.iso, draggable: true, compact: true })).join('') : '<div style="text-align:center;padding:18px 8px;color:#94a3b8;font-size:11px;font-style:italic;border:1px dashed #e2e8f0;border-radius:8px">Sin tareas</div>'}
       </div>
     </div>`;
   }).join('')}</div>`;
 }
+window.tarResMesSet = function (ym) { if (ym) { TAR_STATE.resMes = ym; tarRender(); } };
+window.tarResMesNav = function (delta) {
+  const [y, m] = (TAR_STATE.resMes || tarIso_(tarToday_()).slice(0, 7)).split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  tarResMesSet(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+};
+window.tarResMesOpen = function (btn) { mesPickerOpen_(btn, () => TAR_STATE.resMes, ym => tarResMesSet(ym)); };
 window.tarDragStart = function (ev, id, iso) {
   const v = `${id}|${iso || ''}`;
   try { ev.dataTransfer.setData('text/tar-oc', v); } catch (_) {}
