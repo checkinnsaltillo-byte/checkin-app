@@ -57411,3 +57411,15 @@ window.tarClasifSave = async function () {
     if (TAR_STATE.panel) tarPanelRender_();
   } catch (e) { alert('Error: ' + e.message); }
 };
+
+// ── Versión cargada (visible en la barra superior y en Console) ─────────
+(function () {
+  try {
+    const sc = Array.from(document.scripts).find(x => /app\.js\?v=\d+/.test(x.src));
+    const v = sc ? (sc.src.match(/v=(\d+)/) || [])[1] : '';
+    window.APP_VERSION = v;
+    console.info('%cCheck Inn · app.js v=' + v, 'background:#0f172a;color:#fff;padding:2px 8px;border-radius:4px;font-weight:700');
+    const put = () => { const el = document.getElementById('ug-version'); if (el) el.textContent = 'v' + v; };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put); else put();
+  } catch (_) {}
+})();
