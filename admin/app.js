@@ -2305,9 +2305,20 @@ async function bn_loadData() {
   document.getElementById('bn-kpi-row')?.classList.add('hidden');
   try { showLoading('Cargando datos…', 'Conectando con Google Sheets'); } catch(_) {}
   try {
-    const res  = await fetch(BACKEND+'/get-bancos',{cache:'no-store'});
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error||'Error al obtener datos');
+    // 1 reintento automático: Google Sheets falla de forma intermitente.
+    let data = null;
+    for (let a = 1; a <= 2; a++) {
+      try {
+        const res = await fetch(BACKEND+'/get-bancos',{cache:'no-store'});
+        data = await res.json();
+        if (data && data.ok) break;
+      } catch (e) { data = { ok:false, error: e.message }; }
+      if (a < 2) {
+        if (lbl) lbl.textContent = 'Reintentando…';
+        await new Promise(r => setTimeout(r, 1500));
+      }
+    }
+    if (!data || !data.ok) throw new Error((data && data.error) || 'Error al obtener datos');
     BN_RAW=(data.records||[]).map((r,i)=>{
       const rec = r.rowNum ? {...r} : {...r, rowNum: i+2};
       // Inicializar campos _ desde valores ya clasificados en el sheet
