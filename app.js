@@ -354,7 +354,7 @@ const SYS_MODULE_LIST = [
   ['breezeway',        '🧹 Breezeway'],
   ['incidencias',      '🚨 Incidencias'],
   ['reportes-tecnicos','🛠 Reportes técnicos'],
-  ['tareas',           '🗓️ Programación de tareas'],
+  ['tareas',           '🗓️ Tareas pendientes'],
   ['objetos',          '🧳 Objetos olvidados'],
   ['ocupacion',        '📊 Dashboard (Ocupación)'],
   ['rh',               '👥 Recursos Humanos'],
@@ -56814,7 +56814,7 @@ function tarRender() {
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px">
         <div>
           <div style="font-size:11px;color:#64748b;font-weight:800;letter-spacing:.14em;text-transform:uppercase">Operación · personal</div>
-          <h1 style="margin:2px 0 0;font-size:22px;font-weight:800;color:#0f172a">🗓️ Programación de tareas recurrentes</h1>
+          <h1 style="margin:2px 0 0;font-size:22px;font-weight:800;color:#0f172a">🗓️ Tareas pendientes</h1>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button type="button" onclick="tarOpenClasifManager()" style="padding:8px 12px;border:1.5px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">⚙️ Clasificaciones</button>
@@ -57476,7 +57476,7 @@ window.tarDelete = async function () {
   const P = TAR_STATE.panel; if (!P || !P.id) return;
   if (!confirm(`¿Eliminar la tarea "${P.d.Nombre}"?\n\nQueda una copia en la hoja Tareas_Papelera.`)) return;
   try {
-    const r = await fetch(`${BACKEND}/tareas/${encodeURIComponent(P.id)}?reason=${encodeURIComponent('eliminada desde Programación de tareas')}`, { method: 'DELETE' });
+    const r = await fetch(`${BACKEND}/tareas/${encodeURIComponent(P.id)}?reason=${encodeURIComponent('eliminada desde Tareas pendientes')}`, { method: 'DELETE' });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'No se pudo eliminar');
     TAR_STATE.list = TAR_STATE.list.filter(x => x.ID !== P.id);
