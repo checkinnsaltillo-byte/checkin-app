@@ -56987,34 +56987,27 @@ function tarDelDia_(iso) {
 }
 // 1) Resumen: 4 columnas
 // Resumen por OCURRENCIA del MES elegido (TAR_STATE.resMes 'YYYY-MM'):
-// todas las fechas del mes en 4 columnas.
-//   Nuevos     → sin atender, de hoy en adelante
-//   Pendientes → sin concluir y ya vencidas (o marcadas Pendiente)
-//   En proceso → marcadas En proceso
-//   Concluidos → Resuelto / Cancelado
+// todas las fechas del mes en 4 columnas = los mismos estados del detalle
+// (Pendiente · En proceso · Resuelto · Cancelado). Sin registro = Pendiente.
 function tarResumenHtml_() {
   const hoy = tarIso_(tarToday_());
   if (!TAR_STATE.resMes) TAR_STATE.resMes = hoy.slice(0, 7);
   const [y, m] = TAR_STATE.resMes.split('-').map(Number);
   const dim = new Date(y, m, 0).getDate();
-  const buckets = { nuevos: [], pendientes: [], en_proceso: [], concluidos: [] };
+  const buckets = { 'Pendiente': [], 'En proceso': [], 'Resuelto': [], 'Cancelado': [] };
   for (let day = 1; day <= dim; day++) {
     const iso = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     tarDelDia_(iso).forEach(r => {
       const oc = tarOcur_(r.ID, iso);
       const est = (oc && oc.Estado) || 'Pendiente';
-      const item = { r, iso };
-      if (est === 'En proceso') buckets.en_proceso.push(item);
-      else if (est === 'Resuelto' || est === 'Cancelado') buckets.concluidos.push(item);
-      else if (!oc && iso >= hoy) buckets.nuevos.push(item);
-      else buckets.pendientes.push(item);
+      (buckets[est] || buckets['Pendiente']).push({ r, iso });
     });
   }
   const COLS = [
-    { key: 'nuevos',     label: 'Nuevos',     color: '#475569', accent: '#94a3b8' },
-    { key: 'pendientes', label: 'Pendientes', color: '#b45309', accent: '#f59e0b' },
-    { key: 'en_proceso', label: 'En proceso', color: '#1d4ed8', accent: '#3b82f6' },
-    { key: 'concluidos', label: 'Concluidos', color: '#15803d', accent: '#22c55e' },
+    { key: 'Pendiente',  label: 'Pendiente',  color: '#b45309', accent: '#f59e0b' },
+    { key: 'En proceso', label: 'En proceso', color: '#1d4ed8', accent: '#3b82f6' },
+    { key: 'Resuelto',   label: 'Resuelto',   color: '#15803d', accent: '#22c55e' },
+    { key: 'Cancelado',  label: 'Cancelado',  color: '#475569', accent: '#94a3b8' },
   ];
   const navB = 'all:unset;cursor:pointer;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:16px;font-weight:900;color:#334155';
   const total = Object.values(buckets).reduce((a, x) => a + x.length, 0);
@@ -57058,7 +57051,7 @@ window.tarDrop = function (ev, col) {
   const v = (ev.dataTransfer && ev.dataTransfer.getData('text/tar-oc')) || window.__tarDragOc || '';
   const [id, iso] = v.split('|');
   if (!id || !iso) return;
-  const estado = col === 'en_proceso' ? 'En proceso' : col === 'concluidos' ? 'Resuelto' : 'Pendiente';
+  const estado = TAR_ESTADOS.some(e => e.k === col) ? col : 'Pendiente';
   if (tarOcurEstado_(id, iso) === estado) return;
   tarSaveOcur_(id, iso, { Estado: estado }).then(() => tarRender()).catch(e => alert('No se pudo guardar: ' + e.message));
   tarRender();
