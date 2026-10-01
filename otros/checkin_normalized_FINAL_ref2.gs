@@ -292,6 +292,10 @@ function doPost(e) {
     if (action === "tareas_delete")                return jsonOutput_(rhDeleteByID_('Tareas', String((data && data.ID) || ''), { reason: (data && data.reason) || '', actor: (data && data.actor) || '', force: true }));
     if (action === "tareas_config_list")           return jsonOutput_(rhListSimple_('Tareas_Config'));
     if (action === "tareas_config_save")           return jsonOutput_(rhSaveSimple_('Tareas_Config', data, TAREAS_CONFIG_HEADERS, 'TCF'));
+    if (action === "tareas_ocur_list")             return jsonOutput_(rhListSimple_('Tareas_Ocurrencias'));
+    if (action === "tareas_ocur_save")             return jsonOutput_(tareasOcurSave_(data));
+    if (action === "tareas_hist_list")             return jsonOutput_(rhListSimple_('Tareas_Historial'));
+    if (action === "tareas_hist_add")              return jsonOutput_(tareasHistAdd_(data));
     if (action === "inquilinos_list")              return jsonOutput_(inquilinosList_());
     if (action === "inquilinos_save")              return jsonOutput_(inquilinosSave_(data));
     if (action === "inquilinos_delete")            return jsonOutput_(inquilinosDelete_(data));
@@ -361,6 +365,8 @@ function doGet(e) {
     if (action === "rh_delete_ausencia")     return jsonOutput_(rhDeleteByID_('RH_Ausencias', String((e.parameter && e.parameter.ID) || ''), { reason: (e.parameter && e.parameter.reason) || '', actor: (e.parameter && e.parameter.actor) || '', force: (e.parameter && e.parameter.force) === 'true' }));
     if (action === "tareas_list")            return jsonOutput_(rhListSimple_('Tareas'));
     if (action === "tareas_config_list")     return jsonOutput_(rhListSimple_('Tareas_Config'));
+    if (action === "tareas_ocur_list")       return jsonOutput_(rhListSimple_('Tareas_Ocurrencias'));
+    if (action === "tareas_hist_list")       return jsonOutput_(rhListSimple_('Tareas_Historial'));
     if (action === "sys_login")              return jsonOutput_(sysLogin_(e.parameter || {}));
     if (action === "upload_incidencia_image") return jsonOutput_(uploadIncidenciaImage_(e.parameter || {}));
     if (action === "save_incidencia")         return jsonOutput_(saveIncidencia_(e.parameter || {}));
@@ -2251,6 +2257,60 @@ var RH_PERSONAL_HEADERS = [
 // Módulo "Programación de tareas recurrentes".
 var TAREAS_HEADERS = ['ID','Timestamp','Nombre','Clasificacion','Subclasificacion','Prioridad','Naturaleza','Programacion','Programacion_texto','Personal','WhatsApp','Mensaje','Template_ID','Estado','Comentarios','Creado_por','Updated_at'];
 var TAREAS_CONFIG_HEADERS = ['ID','Timestamp','Clasificaciones_json'];
+// Una fila por (tarea, fecha) que alguien atendió: estado propio de cada día.
+var TAREAS_OCUR_HEADERS = ['ID','Timestamp','Tarea_ID','Fecha','Estado','Comentarios','Atendido_por','Updated_at'];
+// Bitácora append-only de cambios (tarea y ocurrencias).
+var TAREAS_HIST_HEADERS = ['ID','Timestamp','Tarea_ID','Fecha','Campo','Antes','Despues','Usuario'];
+
+/** Guarda/actualiza una ocurrencia y agrega sus cambios al historial.
+ *  payload: { ID?, Tarea_ID, Fecha 'YYYY-MM-DD', Estado, Comentarios,
+ *             Atendido_por, Updated_at, _hist:[{Campo,Antes,Despues,Usuario}] } */
+function tareasOcurSave_(data) {
+  try {
+    var p = data && data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : (data || {});
+    var hist = Array.isArray(p._hist) ? p._hist : [];
+    delete p._hist;
+    var fecha = String(p.Fecha || '').replace(/^'/, '');
+    if (!p.Tarea_ID || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { ok: false, error: 'Tarea_ID y Fecha (YYYY-MM-DD) requeridos' };
+    p.Fecha = "'" + fecha; // texto: evita que Sheets lo convierta a fecha local
+    var r = rhSaveSimple_('Tareas_Ocurrencias', { payload: p }, TAREAS_OCUR_HEADERS, 'TOC');
+    if (r && r.ok && hist.length) {
+      tareasHistAppend_(hist.map(function (h) {
+        return { Tarea_ID: p.Tarea_ID, Fecha: fecha, Campo: h.Campo, Antes: h.Antes, Despues: h.Despues, Usuario: h.Usuario };
+      }));
+    }
+    return r;
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+function tareasHistAdd_(data) {
+  try {
+    var p = data && data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : (data || {});
+    return tareasHistAppend_(Array.isArray(p.rows) ? p.rows : []);
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+function tareasHistAppend_(rows) {
+  if (!rows.length) return { ok: true, added: 0 };
+  var ss = getSpreadsheet_();
+  var sh = ss.getSheetByName('Tareas_Historial') || ss.insertSheet('Tareas_Historial');
+  rhEnsureHeaders_(sh, TAREAS_HIST_HEADERS);
+  var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (v) { return String(v || '').trim(); });
+  var ts = Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyy-MM-dd HH:mm:ss');
+  var matrix = rows.map(function (h) {
+    var o = {
+      ID: rhGenId_('THI'), Timestamp: ts, Tarea_ID: String(h.Tarea_ID || ''),
+      Fecha: h.Fecha ? "'" + String(h.Fecha).replace(/^'/, '') : '',
+      Campo: String(h.Campo || ''), Antes: String(h.Antes == null ? '' : h.Antes),
+      Despues: String(h.Despues == null ? '' : h.Despues), Usuario: String(h.Usuario || ''),
+    };
+    return headers.map(function (k) { return o[k] == null ? '' : o[k]; });
+  });
+  sh.getRange(sh.getLastRow() + 1, 1, matrix.length, headers.length).setValues(matrix);
+  return { ok: true, added: matrix.length };
+}
 var RH_ASIST_HEADERS = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Fecha','Entrada','Salida','Horas','Horas_extra','Hora','Tipo','Concepto','$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','$ Salario total','Ubicacion_Lat','Ubicacion_Lng','GPS_Accuracy','Metodo','Observaciones','Compensación_concepto','Compensación_monto','Comentarios'];
 var RH_AUSE_HEADERS  = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Tipo','Fecha_inicio','Fecha_fin','Dias','Estatus','Comentarios'];
 var RH_COMP_HEADERS  = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Concepto','Periodo','Horas','$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','Monto','Metodo_pago','Estado_pago','Fecha_pago','Comentarios'];
