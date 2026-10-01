@@ -56691,7 +56691,8 @@ function tarOccursOn_(row, iso) {
   const d = tarParseIso_(iso);
   if (!d) return false;
   const inicio = p.inicio || String(row.Timestamp || '').slice(0, 10);
-  if (p.inicio && iso < p.inicio) return false;
+  // Sin "Desde": no hay ocurrencias antes de la fecha de alta de la tarea.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(inicio) && iso < inicio) return false;
   if (p.fin && iso > p.fin) return false;
   if (p.tipo === 'semanal') return p.dias_semana.includes(d.getDay());
   const dim = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
@@ -56901,7 +56902,7 @@ function tarCardHtml_(r, opts) {
   const hoy = tarIso_(tarToday_());
   const vencida = fecha && fecha < hoy && (estadoOcur === 'Pendiente' || estadoOcur === 'En proceso');
   let fechaTxt;
-  if (fecha) fechaTxt = `📅 ${tarFmtFecha_(fecha)}${vencida ? ' · ⚠️ vencida' : ''}`;
+  if (fecha) fechaTxt = `📅 ${tarFmtFecha_(fecha)}${vencida ? ' · ⚠️ vencida' : ''}${opts.pendientesN > 1 ? ` · ${opts.pendientesN} fechas sin atender` : ''}`;
   else {
     const prox = tarVigencia_(r) === 'Activa' ? tarNextDate_(r) : '';
     fechaTxt = `📅 ${tarProgTexto_(tarProg_(r))}${prox && r.Naturaleza === 'Recurrente' ? ` · próxima ${tarFmtFecha_(prox)}` : ''}`;
@@ -57006,6 +57007,15 @@ function tarResumenHtml_() {
     });
   }
   buckets.concluidos.reverse();
+  // Pendientes: UNA card por tarea (la fecha pendiente más reciente) con el
+  // total de fechas sin atender — evita que una tarea diaria llene la columna.
+  const porTarea = new Map();
+  buckets.pendientes.forEach(it => {
+    const g = porTarea.get(it.r.ID);
+    if (!g) porTarea.set(it.r.ID, { r: it.r, iso: it.iso, n: 1 });
+    else { g.n++; if (it.iso > g.iso) g.iso = it.iso; }
+  });
+  buckets.pendientes = Array.from(porTarea.values()).sort((a, b) => b.iso.localeCompare(a.iso));
   const COLS = [
     { key: 'nuevos',     label: 'Nuevos (hoy)', color: '#475569', accent: '#94a3b8' },
     { key: 'pendientes', label: 'Pendientes',   color: '#b45309', accent: '#f59e0b' },
@@ -57022,7 +57032,7 @@ function tarResumenHtml_() {
       </div>
       <div ondragover="event.preventDefault();this.style.background='#f1f5f9'" ondragleave="this.style.background=''" ondrop="tarDrop(event,'${col.key}');this.style.background=''"
            style="display:flex;flex-direction:column;gap:10px;min-height:60px;padding:4px;border-radius:10px">
-        ${items.length ? items.map(it => tarCardHtml_(it.r, { fecha: it.iso, draggable: true, compact: true })).join('') : '<div style="text-align:center;padding:18px 8px;color:#94a3b8;font-size:11px;font-style:italic;border:1px dashed #e2e8f0;border-radius:8px">Sin tareas</div>'}
+        ${items.length ? items.map(it => tarCardHtml_(it.r, { fecha: it.iso, draggable: true, compact: true, pendientesN: it.n })).join('') : '<div style="text-align:center;padding:18px 8px;color:#94a3b8;font-size:11px;font-style:italic;border:1px dashed #e2e8f0;border-radius:8px">Sin tareas</div>'}
       </div>
     </div>`;
   }).join('')}</div>`;
