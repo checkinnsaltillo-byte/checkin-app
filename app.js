@@ -948,8 +948,9 @@ function cpDeptoOptions_(propiedad, current, fallback) {
   if (!hasCat && fallback) return '<option value="">— Seleccionar —</option>' + fallback;
   return inqBuildDepartamentoOptions_(propiedad || '', current || '').replace('>— Selecciona —<', '>— Seleccionar —<');
 }
+// Categorías de cobro de renta: "Contratos" y "Trato directo".
 function cpIsContratos_(i) {
-  return /contrato/i.test(document.getElementById(`categoria-${i}`)?.value || '');
+  return /contrato|trato\s*directo/i.test(document.getElementById(`categoria-${i}`)?.value || '');
 }
 function cpToggleContratos_(i) {
   const box = document.getElementById(`contratos-fields-${i}`);
@@ -1302,7 +1303,7 @@ function buildClassifyPanel(idx, fecha, deptOpts, saveLabel, saveOnclick, limpia
       </div>
 
       ${/^bn\d+$/.test(String(idx)) ? `
-      <!-- Solo Categoría = Contratos: renta de inquilinos (BANCOS INQUILINO / MES_CORRESPONDIENTE) -->
+      <!-- Solo Categoría = Contratos / Trato directo: renta de inquilinos (BANCOS INQUILINO / MES_CORRESPONDIENTE) -->
       <div id="contratos-fields-${idx}" class="hidden">
         <div class="cuenta-field">
           <label>Inquilino</label>
