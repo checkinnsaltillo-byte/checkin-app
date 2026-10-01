@@ -56819,7 +56819,7 @@ function tarFiltered_() {
 }
 function tarRegistroHtml_() {
   const rows = tarFiltered_();
-  const sel = (id, val, opts, ph, fn) => `<select onchange="${fn}(this.value)" style="padding:7px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff">
+  const sel = (id, val, opts, ph, fn) => `<select onchange="${fn}(this.value)" style="width:auto;flex:0 0 auto;max-width:220px;padding:7px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff">
       <option value="">${ph}</option>${opts.map(o => `<option value="${esc(o)}"${o === val ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
   const vBtn = (k, label) => {
     const on = TAR_STATE.view === k;
@@ -56846,7 +56846,7 @@ function tarRegistroHtml_() {
         const est = TAR_ESTADOS.find(e => e.k === r.Estado) || TAR_ESTADOS[0];
         const pri = TAR_PRIORIDADES.find(p => p.k === r.Prioridad);
         return `<tr onclick="tarOpenPanel('${esc(r.ID)}')" style="cursor:pointer" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
-          ${td(`<strong style="color:#0f172a">${esc(r.Nombre || '')}</strong>`)}
+          ${td(`<strong style="color:#0f172a">${esc(r.Nombre || '')}</strong>`, 'min-width:170px')}
           ${td(tarChip_(est.k, est.fg, est.bg, est.bd))}
           ${td(pri ? tarChip_(pri.k, pri.fg, pri.bg, pri.bd) : '—')}
           ${td(esc(r.Clasificacion || '—'))}
@@ -57033,7 +57033,9 @@ function tarMesHtml_() {
   const primero = new Date(y, m, 1);
   const start = new Date(primero); start.setDate(1 - ((primero.getDay() + 6) % 7));
   const hoy = tarIso_(tarToday_());
-  const celdas = Array.from({ length: 42 }, (_, i) => { const x = new Date(start); x.setDate(start.getDate() + i); return x; });
+  const offset = (primero.getDay() + 6) % 7;
+  const dim = new Date(y, m + 1, 0).getDate();
+  const celdas = Array.from({ length: Math.ceil((offset + dim) / 7) * 7 }, (_, i) => { const x = new Date(start); x.setDate(start.getDate() + i); return x; });
   const head = TAR_DOW.map(([, l]) => `<div style="font-size:10.5px;font-weight:900;color:#64748b;text-transform:uppercase;text-align:center;padding:4px">${l}</div>`).join('');
   return tarNavBar_(`${TAR_MESES_L[m]} ${y}`) + `<div style="overflow-x:auto"><div style="display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));gap:4px;min-width:860px">${head}${celdas.map(d => {
     const iso = tarIso_(d);
