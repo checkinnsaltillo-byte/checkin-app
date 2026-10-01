@@ -6015,16 +6015,6 @@ function bn_createCard(rec, idx) {
   const probChipHtml = (color, bg) => `<span title="${esc(rec._args_clasif||'')}" style="padding:3px 8px;background:${bg};color:${color};border-radius:6px;${tabTextStyle};font-weight:800;white-space:nowrap;cursor:help">${probPct}%</span>`;
   const robotValidatedHtml = (color) => `<span style="display:inline-flex;align-items:center;gap:4px;${tabTextStyle};color:${color};white-space:nowrap">🤖 Auto-clasificación validada</span>`;
 
-  const autoTabHtml = `
-    <div class="classify-tab" id="bn-btn-classify-${idx}" style="background:#fff7ed;border-color:#fed7aa;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
-      <span onclick="bn_toggleBnClassify(${idx})" style="cursor:pointer;${tabTextStyle};color:#9a3412;display:inline-flex;align-items:center;gap:4px">🤖 ${esc(pathText)}</span>
-      <button onclick="event.stopPropagation();bn_validateAutoClasif(${idx})"
-              style="padding:3px 8px;border:1px solid #16a34a;background:#fff;color:#16a34a;border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">
-        ✓ Validar auto-clasificación
-      </button>
-      ${probChipHtml(probCol, probBg)}
-    </div>`;
-
   // Usar rec.rowNum como key estable (no idx) para el flujo de reclasificación.
   const _rn = Number(rec.rowNum) || 0;
   const reclasifyOpen = !!(window.BN_RECLASIF_STAGED && BN_RECLASIF_STAGED['__open_' + _rn]);
@@ -6037,6 +6027,29 @@ function bn_createCard(rec, idx) {
            onblur="setTimeout(bn_tblSearchHide, 200)"
            style="flex:1;min-width:0;max-width:520px;padding:5px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:11px;font-weight:600;background:#fff;outline:none;text-align:center;color:#1f2937">`;
   const hamburgerBtnHtml = `<button onclick="event.stopPropagation();bn_toggleBnClassify(${idx})" title="Abrir panel Clasificar" style="padding:4px 9px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;font-size:14px;font-weight:800;line-height:1;cursor:pointer">≡</button>`;
+
+  // Auto-clasificación sugerida: Validar o Re-clasificar. Re-clasificar abre la
+  // barra buscadora ahí mismo; al elegir otra clasificación se guarda en
+  // automático (sin botón Guardar) y la tarjeta queda como clasificada normal.
+  const reclasifyAutoOpen = !!(window.BN_RECLASIF_STAGED && BN_RECLASIF_STAGED['__openAuto_' + _rn]);
+  const autoTabHtml = reclasifyAutoOpen
+    ? `<div class="classify-tab" id="bn-btn-classify-${idx}" style="background:#fff7ed;border-color:#fed7aa;display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">
+         ${inlineSearchInputHtml}
+         <button onclick="event.stopPropagation();bn_cancelReclasify(${_rn})" style="padding:4px 8px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">Cancelar</button>
+       </div>`
+    : `
+    <div class="classify-tab" id="bn-btn-classify-${idx}" style="background:#fff7ed;border-color:#fed7aa;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
+      <span onclick="bn_toggleBnClassify(${idx})" style="cursor:pointer;${tabTextStyle};color:#9a3412;display:inline-flex;align-items:center;gap:4px">🤖 ${esc(pathText)}</span>
+      <button onclick="event.stopPropagation();bn_validateAutoClasif(${idx})"
+              style="padding:3px 8px;border:1px solid #16a34a;background:#fff;color:#16a34a;border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">
+        ✓ Validar auto-clasificación
+      </button>
+      <button onclick="event.stopPropagation();bn_toggleReclasifyAuto(${_rn})"
+              style="padding:3px 8px;border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:6px;${tabTextStyle};cursor:pointer;white-space:nowrap">
+        ✏️ Re-clasificar
+      </button>
+      ${probChipHtml(probCol, probBg)}
+    </div>`;
 
   const classifiedTabHtml = reclasifyOpen
     ? `<div class="classify-tab classified ${clasifColorCls}" id="bn-btn-classify-${idx}" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">
@@ -7442,6 +7455,7 @@ async function bn_classifyTabPick(rowNum, enc, staged) {
 
 async function bn_classifyTabApply(rowNum, opt) {
   const rec = bn_recByRowNum(rowNum); if (!rec) return;
+  delete BN_RECLASIF_STAGED['__openAuto_' + rowNum];
   rec._cuenta          = opt.cuenta    || '';
   rec._subcuenta       = opt.subcuenta || '';
   rec._categoria_gasto = opt.categoria || '';
@@ -7481,7 +7495,16 @@ async function bn_saveReclasify(rowNum) {
   await bn_classifyTabApply(rowNum, opt);
 }
 
+// Re-clasificar desde la sugerencia automática: abre el buscador en la
+// pestaña; elegir una opción guarda directo (no es "staged").
+function bn_toggleReclasifyAuto(rowNum) {
+  BN_RECLASIF_STAGED['__openAuto_' + rowNum] = true;
+  bn_renderCards();
+  setTimeout(() => { document.getElementById('bn-classify-tab-input-' + rowNum)?.focus(); }, 50);
+}
+
 function bn_cancelReclasify(rowNum) {
+  delete BN_RECLASIF_STAGED['__openAuto_' + rowNum];
   delete BN_RECLASIF_STAGED['__open_' + rowNum];
   delete BN_RECLASIF_STAGED[rowNum];
   bn_renderCards();
