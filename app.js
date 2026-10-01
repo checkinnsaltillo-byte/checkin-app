@@ -56890,7 +56890,31 @@ function tarRegistroHtml_() {
         </tr>`;
       }).join('')}</tbody></table></div>`;
   }
-  return toolbar + `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px">${rows.map(r => tarCardHtml_(r)).join('')}</div>`;
+  // Cards agrupadas por Clasificación (orden del catálogo; "Sin clasificación" al final).
+  const orden = Object.keys(tarClasif_());
+  const grupos = new Map();
+  rows.forEach(r => {
+    const k = r.Clasificacion || '';
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(r);
+  });
+  const keys = Array.from(grupos.keys()).sort((a, b) => {
+    if (!a) return 1; if (!b) return -1;
+    const ia = orden.indexOf(a), ib = orden.indexOf(b);
+    if (ia >= 0 && ib >= 0) return ia - ib;
+    if (ia >= 0) return -1; if (ib >= 0) return 1;
+    return a.localeCompare(b, 'es');
+  });
+  return toolbar + keys.map(k => {
+    const items = grupos.get(k);
+    return `<div style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 2px 8px;margin-bottom:10px;border-bottom:2px solid #ede9fe">
+        <span style="font-size:13px;font-weight:900;color:${k ? '#5b21b6' : '#64748b'};letter-spacing:.02em">${esc(k || 'Sin clasificación')}</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 7px;background:${k ? '#7c3aed' : '#94a3b8'};color:#fff;border-radius:999px;font-size:11px;font-weight:800">${items.length}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px">${items.map(r => tarCardHtml_(r)).join('')}</div>
+    </div>`;
+  }).join('');
 }
 function tarCardHtml_(r, opts) {
   opts = opts || {};
