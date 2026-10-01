@@ -6320,7 +6320,7 @@ function bnDetallesSetup_(ci) {
   if (!sec) {
     sec = document.createElement('div');
     sec.id = 'bn-detalles-sec';
-    sec.style.cssText = 'margin:8px 40px 14px 0;border:1.5px solid #e2e8f0;border-radius:12px;background:#f8fafc;overflow:hidden';
+    sec.style.cssText = 'margin:0 0 14px;border:1.5px solid #e2e8f0;border-radius:12px;background:#f8fafc;overflow:hidden';
     sec.innerHTML = `
       <button type="button" id="bn-detalles-toggle" onclick="bnDetallesToggle_()"
         style="all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;font-size:13px;font-weight:900;color:#0f172a">
@@ -6340,7 +6340,23 @@ function bnDetallesSetup_(ci) {
     const f = document.getElementById(id)?.closest('.cuenta-field');
     if (f) fields.appendChild(f);
   });
+  // Ubicación: arriba de "Comentarios" (dentro del cuerpo del popup).
+  const coment = document.getElementById(`comentarios-${ci}`)?.closest('.cuenta-field');
+  if (coment && coment.parentNode) coment.parentNode.insertBefore(sec, coment);
+  sec.style.margin = '0 0 14px';
   bnDetallesToggle_(false);
+}
+// Antes de reemplazar el cuerpo del popup, regresa "Detalles" a su lugar fijo
+// en el modal (si no, se destruiría junto con la tabla de detalles).
+function bnDetallesPark_() {
+  const sec = document.getElementById('bn-detalles-sec');
+  const body = document.getElementById('bn-classify-modal-body');
+  if (sec && body && body.contains(sec)) body.parentNode.insertBefore(sec, body);
+}
+// Menú hamburguesa (Cuenta › Subcuenta › Categoría › Concepto) desplegado.
+function bnHamburguesaAbierta_(ci) {
+  document.getElementById(`cuenta-section-${ci}`)?.classList.remove('hidden');
+  document.getElementById(`clasif-toggle-${ci}`)?.classList.add('active');
 }
 window.bnDetallesToggle_ = function (open) {
   const c = document.getElementById('bn-detalles-content');
@@ -6388,10 +6404,12 @@ function bn_toggleBnClassify(idx) {
       <span style="font-size:12px;color:#6b7280">Marca como <b>Validado</b> para que el registro salga de <i>Por clasificar</i> y aparezca en su sección de Registros contables</span>
     </div>`;
 
+  bnDetallesPark_();
   document.getElementById('bn-classify-modal-resumen').innerHTML =
     bn_buildBnResumenTable(rec, idx);
   document.getElementById('bn-classify-modal-body').innerHTML = classifyHtml;
   bnDetallesSetup_(ci);
+  bnHamburguesaAbierta_(ci);
 
   // Inyectar botones Duda/Validado en una fila SIEMPRE VISIBLE arriba de
   // classify-actions; el classify-actions sólo aparece cuando hay cambios.
@@ -6530,6 +6548,7 @@ function bn_closeClassifyModal() {
   if (!ov) return;
   ov.classList.add('hidden');
   document.body.style.overflow = '';
+  bnDetallesPark_();
   document.getElementById('bn-classify-modal-resumen').innerHTML = '';
   document.getElementById('bn-classify-modal-body').innerHTML    = '';
 }
@@ -7230,6 +7249,7 @@ function bn_bulkClasificar() {
     'Fecha del registro'
   ).replace('class="classify-panel hidden"', 'class="classify-panel"');
 
+  bnDetallesPark_();
   document.getElementById('bn-classify-modal-resumen').innerHTML =
     `<div style="padding:14px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:10px;margin-bottom:8px">
        <div style="font-weight:700;color:#334155;font-size:14px;margin-bottom:4px">🏷️ Clasificación masiva</div>
@@ -7238,6 +7258,7 @@ function bn_bulkClasificar() {
   document.getElementById('bn-classify-modal-body').innerHTML = classifyHtml;
   bnDetallesSetup_('bnbulk');
   bnDetallesToggle_(true); // en masiva se muestra el aviso de cuántos registros
+  bnHamburguesaAbierta_('bnbulk');
   document.getElementById('bn-classify-overlay').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
 
