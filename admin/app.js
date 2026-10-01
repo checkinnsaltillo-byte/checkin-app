@@ -354,6 +354,7 @@ const SYS_MODULE_LIST = [
   ['breezeway',        '🧹 Breezeway'],
   ['incidencias',      '🚨 Incidencias'],
   ['reportes-tecnicos','🛠 Reportes técnicos'],
+  ['tareas',           '🗓️ Programación de tareas'],
   ['objetos',          '🧳 Objetos olvidados'],
   ['ocupacion',        '📊 Dashboard (Ocupación)'],
   ['rh',               '👥 Recursos Humanos'],
@@ -387,7 +388,7 @@ function sysApplyPermissions(user) {
     });
   } else {
     // Usuario legado de sys_users (grupos por número romano).
-    allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos', 'reservas-nueva']);
+    allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos', 'reservas-nueva', 'tareas']);
     if (user && user.modulos) {
       for (const k in SYS_MODULE_PERMS) {
         if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
@@ -8996,7 +8997,7 @@ const _VALID_MODULES = new Set([
   'home','tickets','registros','huespedes','lodgify','reservas-detalles',
   'breezeway','incidencias','objetos','reportes-tecnicos','ocupacion',
   'dashboard','calendario','rh','inquilinos','inventarios','tuya','guias',
-  'config-admin','llaves','bot-chats','reservas-nueva','pagos',
+  'config-admin','llaves','bot-chats','reservas-nueva','pagos','tareas',
 ]);
 function _bootModuleFromHash_() {
   const h = (location.hash || '').replace(/^#/, '').trim();
@@ -9039,7 +9040,7 @@ function switchModule(mod) {
     const greet = document.getElementById('user-greeting');
     if (greet) greet.style.display = '';
   } catch(_){}
-  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -9195,6 +9196,9 @@ function switchModule(mod) {
   }
   if (mod === "reportes-tecnicos") {
     if (typeof rtInit === 'function') rtInit();
+  }
+  if (mod === "tareas") {
+    if (typeof tareasInit === 'function') tareasInit();
   }
   if (mod === "pagos") {
     if (typeof pagosInit === 'function') pagosInit();
@@ -56580,3 +56584,828 @@ function personasRenderTabla_(rows) {
 }
 window.personasBuildFromHu_ = personasBuildFromHu_;
 window.personasRender = personasRender;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║  MÓDULO: PROGRAMACIÓN DE TAREAS RECURRENTES (key: 'tareas')              ║
+// ║  Hoja "Tareas" (una fila por tarea) + "Tareas_Config" (catálogo de       ║
+// ║  clasificaciones/sub-clasificaciones en JSON, fila ID=CATALOGO).         ║
+// ║  Programacion (JSON): { tipo:'unica'|'semanal'|'mensual'|'bimestral',    ║
+// ║    fechas:[iso], dias_semana:[0-6 getDay], dias_mes:[1-31],              ║
+// ║    inicio:iso, fin:iso }                                                 ║
+// ═══════════════════════════════════════════════════════════════════════════
+const TAR_DEFAULT_CLASIF = {
+  'Recursos humanos': [], 'Servicios': [], 'Limpieza': [],
+  'Mantenimiento': [], 'Inventarios': [], 'Proveedores': [],
+};
+const TAR_PRIORIDADES = [
+  { k: 'Bajo',    fg: '#475569', bg: '#f1f5f9', bd: '#cbd5e1', w: 1 },
+  { k: 'Medio',   fg: '#1d4ed8', bg: '#dbeafe', bd: '#93c5fd', w: 2 },
+  { k: 'Alto',    fg: '#c2410c', bg: '#ffedd5', bd: '#fdba74', w: 3 },
+  { k: 'Crítico', fg: '#ffffff', bg: '#dc2626', bd: '#b91c1c', w: 4 },
+];
+const TAR_ESTADOS = [
+  { k: 'Pendiente',  fg: '#92400e', bg: '#fef3c7', bd: '#fcd34d' },
+  { k: 'En proceso', fg: '#1e40af', bg: '#dbeafe', bd: '#93c5fd' },
+  { k: 'Resuelto',   fg: '#166534', bg: '#dcfce7', bd: '#86efac' },
+  { k: 'Cancelado',  fg: '#475569', bg: '#e2e8f0', bd: '#cbd5e1' },
+];
+// Lunes primero; valor = Date.getDay()
+const TAR_DOW = [[1,'Lun'],[2,'Mar'],[3,'Mié'],[4,'Jue'],[5,'Vie'],[6,'Sáb'],[0,'Dom']];
+const TAR_MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const TAR_MESES_L = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const TAR_LOCAL_KEY = 'tar_cache_v1';
+const TAR_NUEVO_HORAS = 72; // "Nuevos" = Pendiente creado hace < 72h
+
+const TAR_STATE = {
+  list: [], loaded: false, clasif: null,
+  section: 'registro', view: 'cards', calView: 'resumen', calRef: null,
+  q: '', fEstado: '', fPrioridad: '', fClasif: '',
+  templates: null, panel: null,
+};
+
+// ── Utilidades de fecha ────────────────────────────────────────────────
+function tarIso_(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function tarParseIso_(s) { const m = String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? new Date(+m[1], +m[2]-1, +m[3]) : null; }
+function tarFmtFecha_(iso) { const d = tarParseIso_(iso); return d ? `${d.getDate()} ${TAR_MESES[d.getMonth()]} ${d.getFullYear()}` : ''; }
+function tarToday_() { const d = new Date(); d.setHours(0,0,0,0); return d; }
+
+// ── Programación ───────────────────────────────────────────────────────
+function tarEmptyProg_(naturaleza) {
+  return { tipo: naturaleza === 'Recurrente' ? 'semanal' : 'unica', fechas: [], dias_semana: [], dias_mes: [], inicio: '', fin: '' };
+}
+function tarProg_(row) {
+  if (row && row._prog) return row._prog;
+  let p = null;
+  try { p = JSON.parse(String(row && row.Programacion || '') || 'null'); } catch (_) {}
+  p = Object.assign(tarEmptyProg_(row && row.Naturaleza), p || {});
+  ['fechas','dias_semana','dias_mes'].forEach(k => { if (!Array.isArray(p[k])) p[k] = []; });
+  if (row) row._prog = p;
+  return p;
+}
+function tarProgTexto_(p) {
+  if (!p) return '';
+  const rango = () => {
+    const a = p.inicio ? `desde ${tarFmtFecha_(p.inicio)}` : '';
+    const b = p.fin ? `hasta ${tarFmtFecha_(p.fin)}` : '';
+    return [a, b].filter(Boolean).join(' ');
+  };
+  if (p.tipo === 'unica') {
+    const f = p.fechas.slice().sort();
+    if (!f.length) return 'Sin fecha';
+    return (f.length === 1 ? 'Única · ' : 'Fechas · ') + f.map(tarFmtFecha_).join(', ');
+  }
+  if (p.tipo === 'semanal') {
+    const dias = TAR_DOW.filter(([v]) => p.dias_semana.includes(v)).map(([, l]) => l);
+    return `Semanal · ${dias.length === 7 ? 'Todos los días' : (dias.join(', ') || 'sin días')}${rango() ? ' · ' + rango() : ''}`;
+  }
+  const dm = p.dias_mes.slice().sort((a, b) => a - b);
+  const lbl = p.tipo === 'bimestral' ? 'Bimestral' : 'Mensual';
+  return `${lbl} · ${dm.length ? 'día' + (dm.length > 1 ? 's ' : ' ') + dm.join(', ') : 'sin días'}${rango() ? ' · ' + rango() : ''}`;
+}
+// ¿La tarea toca en la fecha iso?
+function tarOccursOn_(row, iso) {
+  const p = tarProg_(row);
+  if (p.tipo === 'unica') return p.fechas.includes(iso);
+  const d = tarParseIso_(iso);
+  if (!d) return false;
+  const inicio = p.inicio || String(row.Timestamp || '').slice(0, 10);
+  if (p.inicio && iso < p.inicio) return false;
+  if (p.fin && iso > p.fin) return false;
+  if (p.tipo === 'semanal') return p.dias_semana.includes(d.getDay());
+  const dim = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  const day = d.getDate();
+  // Días 29-31 en meses más cortos caen en el último día del mes.
+  const hit = p.dias_mes.some(x => Number(x) === day || (day === dim && Number(x) > dim));
+  if (!hit) return false;
+  if (p.tipo === 'bimestral') {
+    const b = tarParseIso_(inicio) || d;
+    const diff = (d.getFullYear() - b.getFullYear()) * 12 + (d.getMonth() - b.getMonth());
+    return ((diff % 2) + 2) % 2 === 0;
+  }
+  return true;
+}
+// Próxima fecha programada desde hoy (o '' si ya no hay).
+function tarNextDate_(row) {
+  const p = tarProg_(row);
+  const hoy = tarIso_(tarToday_());
+  if (p.tipo === 'unica') return p.fechas.filter(f => f >= hoy).sort()[0] || '';
+  const d = tarToday_();
+  for (let i = 0; i < 400; i++) {
+    const iso = tarIso_(d);
+    if (tarOccursOn_(row, iso)) return iso;
+    d.setDate(d.getDate() + 1);
+  }
+  return '';
+}
+
+// ── Chips ──────────────────────────────────────────────────────────────
+function tarChip_(txt, fg, bg, bd) {
+  return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:800;color:${fg};background:${bg};border:1px solid ${bd || bg};white-space:nowrap;line-height:1.5">${esc(txt)}</span>`;
+}
+function tarChipsHtml_(r) {
+  const est = TAR_ESTADOS.find(e => e.k === r.Estado) || TAR_ESTADOS[0];
+  const pri = TAR_PRIORIDADES.find(p => p.k === r.Prioridad);
+  return [
+    tarChip_(est.k, est.fg, est.bg, est.bd),
+    pri ? tarChip_((pri.k === 'Crítico' ? '🔥 ' : '') + pri.k, pri.fg, pri.bg, pri.bd) : '',
+    r.Clasificacion ? tarChip_(r.Clasificacion, '#5b21b6', '#ede9fe', '#c4b5fd') : '',
+    r.Subclasificacion ? tarChip_(r.Subclasificacion, '#0f766e', '#ccfbf1', '#5eead4') : '',
+    String(r.WhatsApp || '') === 'Sí' ? tarChip_('💬 WhatsApp', '#15803d', '#f0fdf4', '#86efac') : '',
+  ].join('');
+}
+function tarPersonalList_(r) {
+  return String(r.Personal || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+// ── Carga ──────────────────────────────────────────────────────────────
+async function tarLoad_() {
+  try {
+    const [rl, rc] = await Promise.all([
+      fetch(`${BACKEND}/tareas?_cb=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch(`${BACKEND}/tareas/config?_cb=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()),
+    ]);
+    if (rl && rl.ok) { TAR_STATE.list = (rl.rows || []).filter(x => x.ID); TAR_STATE.loaded = true; }
+    if (rc && rc.ok) {
+      const cfg = (rc.rows || []).find(x => x.ID === 'CATALOGO');
+      let c = null;
+      try { c = cfg ? JSON.parse(cfg.Clasificaciones_json || 'null') : null; } catch (_) {}
+      TAR_STATE.clasif = (c && typeof c === 'object') ? c : JSON.parse(JSON.stringify(TAR_DEFAULT_CLASIF));
+    }
+    try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif })); } catch (_) {}
+  } catch (e) {
+    console.warn('[tareas] carga:', e.message);
+  }
+}
+function tarClasif_() {
+  if (!TAR_STATE.clasif) TAR_STATE.clasif = JSON.parse(JSON.stringify(TAR_DEFAULT_CLASIF));
+  return TAR_STATE.clasif;
+}
+function tarPersonalNombres_() {
+  const rows = (typeof INC_STATE !== 'undefined' && INC_STATE.personalRows) || [];
+  const out = rows.filter(r => !r.Estado || String(r.Estado).toLowerCase() === 'activo')
+    .map(r => (typeof _rhPersonalFullName_ === 'function' ? _rhPersonalFullName_(r) : String(r.Nombre || '')).trim())
+    .filter(Boolean);
+  return Array.from(new Set(out)).sort((a, b) => a.localeCompare(b, 'es'));
+}
+async function tarLoadTemplates_() {
+  if (TAR_STATE.templates) return TAR_STATE.templates;
+  try {
+    const r = await fetch(`${BACKEND}/wa/templates-list`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const j = await r.json();
+    TAR_STATE.templates = (j && j.items) || [];
+  } catch (_) { TAR_STATE.templates = []; }
+  return TAR_STATE.templates;
+}
+
+// ── Init / render principal ────────────────────────────────────────────
+window.tareasInit = async function () {
+  if (!TAR_STATE.loaded) {
+    try {
+      const c = JSON.parse(localStorage.getItem(TAR_LOCAL_KEY) || 'null');
+      if (c) { TAR_STATE.list = c.list || []; TAR_STATE.clasif = c.clasif || null; }
+    } catch (_) {}
+  }
+  tarRender();
+  if (typeof INC_STATE !== 'undefined' && !(INC_STATE.personalRows || []).length && typeof incLoadPersonal === 'function') {
+    incLoadPersonal().catch(() => {});
+  }
+  await tarLoad_();
+  tarRender();
+};
+
+function tarRender() {
+  const root = document.getElementById('module-tareas');
+  if (!root) return;
+  const tabBtn = (k, label) => {
+    const on = TAR_STATE.section === k;
+    return `<button type="button" onclick="tarSetSection('${k}')" style="all:unset;cursor:pointer;padding:10px 16px;font-size:13px;font-weight:${on ? 900 : 700};color:${on ? '#0f172a' : '#64748b'};border-bottom:3px solid ${on ? '#7c3aed' : 'transparent'};margin-bottom:-1px">${label}</button>`;
+  };
+  root.innerHTML = `
+    <div style="max-width:1440px;margin:0 auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+        <div>
+          <div style="font-size:11px;color:#64748b;font-weight:800;letter-spacing:.14em;text-transform:uppercase">Operación · personal</div>
+          <h1 style="margin:2px 0 0;font-size:22px;font-weight:800;color:#0f172a">🗓️ Programación de tareas recurrentes</h1>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" onclick="tarOpenClasifManager()" style="padding:8px 12px;border:1.5px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">⚙️ Clasificaciones</button>
+          <button type="button" onclick="tarOpenPanel(null)" style="padding:8px 14px;border:none;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border-radius:8px;font-weight:900;font-size:12px;cursor:pointer;box-shadow:0 3px 8px rgba(124,58,237,.3)">＋ Nueva tarea</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:0;border-bottom:1px solid #e2e8f0;margin-bottom:14px">
+        ${tabBtn('registro', '📝 Registro de tareas')}
+        ${tabBtn('calendario', '📅 Calendario')}
+      </div>
+      <div id="tar-content">${TAR_STATE.section === 'registro' ? tarRegistroHtml_() : tarCalendarioHtml_()}</div>
+    </div>`;
+}
+window.tarSetSection = function (k) { TAR_STATE.section = k; tarRender(); };
+
+// ── Sección 1: Registro de tareas ──────────────────────────────────────
+function tarFiltered_() {
+  const q = TAR_STATE.q.trim().toLowerCase();
+  return TAR_STATE.list.filter(r => {
+    if (TAR_STATE.fEstado && r.Estado !== TAR_STATE.fEstado) return false;
+    if (TAR_STATE.fPrioridad && r.Prioridad !== TAR_STATE.fPrioridad) return false;
+    if (TAR_STATE.fClasif && r.Clasificacion !== TAR_STATE.fClasif) return false;
+    if (q && ![r.Nombre, r.Clasificacion, r.Subclasificacion, r.Personal, r.Comentarios].join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a, b) => {
+    const pa = (TAR_PRIORIDADES.find(p => p.k === a.Prioridad) || {}).w || 0;
+    const pb = (TAR_PRIORIDADES.find(p => p.k === b.Prioridad) || {}).w || 0;
+    if (pa !== pb) return pb - pa;
+    return String(a.Nombre || '').localeCompare(String(b.Nombre || ''), 'es');
+  });
+}
+function tarRegistroHtml_() {
+  const rows = tarFiltered_();
+  const sel = (id, val, opts, ph, fn) => `<select onchange="${fn}(this.value)" style="padding:7px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff">
+      <option value="">${ph}</option>${opts.map(o => `<option value="${esc(o)}"${o === val ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+  const vBtn = (k, label) => {
+    const on = TAR_STATE.view === k;
+    return `<button type="button" onclick="tarSetView('${k}')" style="all:unset;cursor:pointer;padding:6px 12px;font-size:12px;font-weight:800;border-radius:6px;background:${on ? '#0f172a' : 'transparent'};color:${on ? '#fff' : '#475569'}">${label}</button>`;
+  };
+  const toolbar = `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <input type="search" value="${esc(TAR_STATE.q)}" oninput="tarSetQ(this.value)" placeholder="🔍 Buscar tarea, personal…" style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">
+      ${sel('e', TAR_STATE.fEstado, TAR_ESTADOS.map(e => e.k), 'Todos los estados', 'tarSetFEstado')}
+      ${sel('p', TAR_STATE.fPrioridad, TAR_PRIORIDADES.map(p => p.k), 'Todas las prioridades', 'tarSetFPrioridad')}
+      ${sel('c', TAR_STATE.fClasif, Object.keys(tarClasif_()), 'Todas las clasificaciones', 'tarSetFClasif')}
+      <div style="display:inline-flex;gap:2px;padding:3px;background:#f1f5f9;border-radius:8px">${vBtn('cards', '▦ Cards')}${vBtn('tabla', '☰ Tabla')}</div>
+    </div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:10px">${rows.length} tarea${rows.length === 1 ? '' : 's'}${TAR_STATE.loaded ? '' : ' · ⏳ cargando…'}</div>`;
+  if (!rows.length) {
+    return toolbar + `<div style="text-align:center;padding:50px 20px;color:#94a3b8;border:1px dashed #cbd5e1;border-radius:12px">${TAR_STATE.loaded ? 'Sin tareas. Oprime <strong>＋ Nueva tarea</strong>.' : '⏳ Cargando tareas…'}</div>`;
+  }
+  if (TAR_STATE.view === 'tabla') {
+    const th = h => `<th style="position:sticky;top:0;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">${h}</th>`;
+    const td = (v, extra) => `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#334155;${extra || ''}">${v}</td>`;
+    return toolbar + `<div style="overflow:auto;border:1px solid #e2e8f0;border-radius:10px;max-height:70vh"><table style="width:100%;border-collapse:collapse">
+      <thead><tr>${['Nombre','Estado','Prioridad','Clasificación','Sub-clasificación','Naturaleza','Fecha(s)','Personal asignado','WhatsApp','Comentarios'].map(th).join('')}</tr></thead>
+      <tbody>${rows.map(r => {
+        const est = TAR_ESTADOS.find(e => e.k === r.Estado) || TAR_ESTADOS[0];
+        const pri = TAR_PRIORIDADES.find(p => p.k === r.Prioridad);
+        return `<tr onclick="tarOpenPanel('${esc(r.ID)}')" style="cursor:pointer" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+          ${td(`<strong style="color:#0f172a">${esc(r.Nombre || '')}</strong>`)}
+          ${td(tarChip_(est.k, est.fg, est.bg, est.bd))}
+          ${td(pri ? tarChip_(pri.k, pri.fg, pri.bg, pri.bd) : '—')}
+          ${td(esc(r.Clasificacion || '—'))}
+          ${td(esc(r.Subclasificacion || '—'))}
+          ${td(esc(r.Naturaleza || '—'))}
+          ${td(esc(tarProgTexto_(tarProg_(r))), 'min-width:180px')}
+          ${td(esc(tarPersonalList_(r).join(', ') || '—'), 'min-width:160px')}
+          ${td(String(r.WhatsApp) === 'Sí' ? '💬 Sí' : 'No')}
+          ${td(esc(r.Comentarios || ''), 'max-width:240px;white-space:normal')}
+        </tr>`;
+      }).join('')}</tbody></table></div>`;
+  }
+  return toolbar + `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px">${rows.map(r => tarCardHtml_(r)).join('')}</div>`;
+}
+function tarCardHtml_(r, opts) {
+  opts = opts || {};
+  const pri = TAR_PRIORIDADES.find(p => p.k === r.Prioridad);
+  const accent = pri ? (pri.k === 'Crítico' ? '#dc2626' : pri.bd) : '#cbd5e1';
+  const pers = tarPersonalList_(r);
+  const fechaTxt = opts.fecha ? `📅 ${tarFmtFecha_(opts.fecha)}` : `📅 ${tarProgTexto_(tarProg_(r))}`;
+  const drag = opts.draggable ? `draggable="true" ondragstart="tarDragStart(event,'${esc(r.ID)}')"` : '';
+  return `
+    <div ${drag} onclick="tarOpenPanel('${esc(r.ID)}')" style="cursor:pointer;background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${accent};border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(15,23,42,.05);display:flex;flex-direction:column;gap:6px;transition:box-shadow .15s"
+         onmouseover="this.style.boxShadow='0 6px 16px rgba(15,23,42,.12)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(15,23,42,.05)'">
+      <div style="display:flex;flex-wrap:wrap;gap:4px">${tarChipsHtml_(r)}</div>
+      <div style="font-size:14px;font-weight:800;color:#0f172a;line-height:1.3">${esc(r.Nombre || '(sin nombre)')}</div>
+      <div style="font-size:11.5px;color:#475569;line-height:1.45">
+        <div>👥 ${pers.length ? esc(pers.join(', ')) : '<span style="color:#94a3b8">Sin personal asignado</span>'}</div>
+        <div>${esc(fechaTxt)}</div>
+      </div>
+      ${r.Comentarios && !opts.compact ? `<div style="font-size:11px;color:#64748b;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">💬 ${esc(r.Comentarios)}</div>` : ''}
+    </div>`;
+}
+let _tarQTimer = null;
+window.tarSetQ = function (v) {
+  TAR_STATE.q = v;
+  clearTimeout(_tarQTimer);
+  _tarQTimer = setTimeout(() => {
+    const el = document.getElementById('tar-content');
+    if (!el) return;
+    el.innerHTML = tarRegistroHtml_();
+    const inp = el.querySelector('input[type=search]');
+    if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  }, 200);
+};
+window.tarSetFEstado = function (v) { TAR_STATE.fEstado = v; tarRender(); };
+window.tarSetFPrioridad = function (v) { TAR_STATE.fPrioridad = v; tarRender(); };
+window.tarSetFClasif = function (v) { TAR_STATE.fClasif = v; tarRender(); };
+window.tarSetView = function (v) { TAR_STATE.view = v; tarRender(); };
+
+// ── Sección 2: Calendario ──────────────────────────────────────────────
+function tarCalendarioHtml_() {
+  if (!TAR_STATE.calRef) TAR_STATE.calRef = tarToday_();
+  const vBtn = (k, label) => {
+    const on = TAR_STATE.calView === k;
+    return `<button type="button" onclick="tarSetCalView('${k}')" style="all:unset;cursor:pointer;padding:7px 14px;font-size:12px;font-weight:800;border-radius:8px;background:${on ? '#7c3aed' : '#fff'};color:${on ? '#fff' : '#475569'};border:1.5px solid ${on ? '#7c3aed' : '#e2e8f0'}">${label}</button>`;
+  };
+  const tabs = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    ${vBtn('resumen', '🗂️ Resumen de tareas')}${vBtn('dia', '📌 Pendientes del día')}${vBtn('semana', '🗓️ Pendientes de la semana')}${vBtn('mes', '📆 Pendientes del mes')}</div>`;
+  let body = '';
+  if (TAR_STATE.calView === 'resumen') body = tarResumenHtml_();
+  else if (TAR_STATE.calView === 'dia') body = tarDiaHtml_();
+  else if (TAR_STATE.calView === 'semana') body = tarSemanaHtml_();
+  else body = tarMesHtml_();
+  return tabs + body;
+}
+window.tarSetCalView = function (k) { TAR_STATE.calView = k; TAR_STATE.calRef = tarToday_(); tarRender(); };
+window.tarCalNav = function (delta) {
+  const d = new Date(TAR_STATE.calRef || tarToday_());
+  if (TAR_STATE.calView === 'dia') d.setDate(d.getDate() + delta);
+  else if (TAR_STATE.calView === 'semana') d.setDate(d.getDate() + 7 * delta);
+  else d.setMonth(d.getMonth() + delta, 1);
+  TAR_STATE.calRef = d;
+  tarRender();
+};
+window.tarCalHoy = function () { TAR_STATE.calRef = tarToday_(); tarRender(); };
+function tarNavBar_(titulo) {
+  const b = 'all:unset;cursor:pointer;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:16px;font-weight:900;color:#334155';
+  return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <button type="button" onclick="tarCalNav(-1)" style="${b}">‹</button>
+    <button type="button" onclick="tarCalHoy()" style="all:unset;cursor:pointer;padding:6px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:12px;font-weight:800;color:#334155">Hoy</button>
+    <button type="button" onclick="tarCalNav(1)" style="${b}">›</button>
+    <div style="font-size:16px;font-weight:900;color:#0f172a;margin-left:6px">${titulo}</div>
+  </div>`;
+}
+function tarActivas_() { return TAR_STATE.list.filter(r => r.Estado !== 'Cancelado'); }
+function tarDelDia_(iso) {
+  return tarActivas_().filter(r => tarOccursOn_(r, iso)).sort((a, b) =>
+    ((TAR_PRIORIDADES.find(p => p.k === b.Prioridad) || {}).w || 0) - ((TAR_PRIORIDADES.find(p => p.k === a.Prioridad) || {}).w || 0));
+}
+// 1) Resumen: 4 columnas
+function tarResumenHtml_() {
+  const now = Date.now();
+  const buckets = { nuevos: [], pendientes: [], en_proceso: [], concluidos: [] };
+  TAR_STATE.list.forEach(r => {
+    if (r.Estado === 'En proceso') buckets.en_proceso.push(r);
+    else if (r.Estado === 'Resuelto' || r.Estado === 'Cancelado') buckets.concluidos.push(r);
+    else {
+      const ts = Date.parse(String(r.Timestamp || '').replace(' ', 'T'));
+      if (isFinite(ts) && now - ts < TAR_NUEVO_HORAS * 3600e3) buckets.nuevos.push(r);
+      else buckets.pendientes.push(r);
+    }
+  });
+  const COLS = [
+    { key: 'nuevos',     label: 'Nuevos',     color: '#475569', accent: '#94a3b8' },
+    { key: 'pendientes', label: 'Pendientes', color: '#b45309', accent: '#f59e0b' },
+    { key: 'en_proceso', label: 'En proceso', color: '#1d4ed8', accent: '#3b82f6' },
+    { key: 'concluidos', label: 'Concluidos', color: '#15803d', accent: '#22c55e' },
+  ];
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;align-items:start">${COLS.map(col => {
+    const items = buckets[col.key];
+    return `<div style="min-width:0;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:3px solid ${col.accent}">
+        <span style="font-size:11px;color:${col.color};font-weight:900;letter-spacing:.06em;text-transform:uppercase">${col.label}</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;background:${col.accent};color:#fff;border-radius:999px;font-size:11px;font-weight:800">${items.length}</span>
+      </div>
+      <div ondragover="event.preventDefault();this.style.background='#f1f5f9'" ondragleave="this.style.background=''" ondrop="tarDrop(event,'${col.key}');this.style.background=''"
+           style="display:flex;flex-direction:column;gap:10px;min-height:60px;padding:4px;border-radius:10px">
+        ${items.length ? items.map(r => tarCardHtml_(r, { draggable: true, compact: true })).join('') : '<div style="text-align:center;padding:18px 8px;color:#94a3b8;font-size:11px;font-style:italic;border:1px dashed #e2e8f0;border-radius:8px">Sin tareas</div>'}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+window.tarDragStart = function (ev, id) { try { ev.dataTransfer.setData('text/tar-id', id); } catch (_) {} window.__tarDragId = id; };
+window.tarDrop = function (ev, col) {
+  ev.preventDefault();
+  const id = (ev.dataTransfer && ev.dataTransfer.getData('text/tar-id')) || window.__tarDragId;
+  const r = TAR_STATE.list.find(x => x.ID === id);
+  if (!r) return;
+  const estado = col === 'en_proceso' ? 'En proceso' : col === 'concluidos' ? 'Resuelto' : 'Pendiente';
+  if (r.Estado === estado) return;
+  r.Estado = estado;
+  tarRender();
+  tarSaveRow_({ ID: r.ID, Estado: estado, Updated_at: new Date().toISOString() });
+};
+// 2) Pendientes del día
+function tarDiaHtml_() {
+  const iso = tarIso_(TAR_STATE.calRef);
+  const d = TAR_STATE.calRef;
+  const dowName = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][d.getDay()];
+  const items = tarDelDia_(iso);
+  return tarNavBar_(`${dowName} ${d.getDate()} de ${TAR_MESES_L[d.getMonth()].toLowerCase()} ${d.getFullYear()}`) +
+    (items.length
+      ? `<div style="display:flex;flex-direction:column;gap:10px;max-width:760px">${items.map(r => tarCardHtml_(r, { fecha: iso })).join('')}</div>`
+      : `<div style="text-align:center;padding:40px 20px;color:#94a3b8;border:1px dashed #cbd5e1;border-radius:12px;max-width:760px">Sin tareas programadas este día.</div>`);
+}
+// 3) Pendientes de la semana
+function tarSemanaHtml_() {
+  const ref = new Date(TAR_STATE.calRef);
+  const lunes = new Date(ref); lunes.setDate(ref.getDate() - ((ref.getDay() + 6) % 7));
+  const dias = Array.from({ length: 7 }, (_, i) => { const x = new Date(lunes); x.setDate(lunes.getDate() + i); return x; });
+  const hoy = tarIso_(tarToday_());
+  const fin = dias[6];
+  const titulo = `${lunes.getDate()} ${TAR_MESES[lunes.getMonth()]} – ${fin.getDate()} ${TAR_MESES[fin.getMonth()]} ${fin.getFullYear()}`;
+  return tarNavBar_(titulo) + `<div style="overflow-x:auto"><div style="display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:8px;min-width:1050px">${dias.map(d => {
+    const iso = tarIso_(d);
+    const items = tarDelDia_(iso);
+    const isHoy = iso === hoy;
+    return `<div style="background:${isHoy ? '#faf5ff' : '#f8fafc'};border:1.5px solid ${isHoy ? '#a78bfa' : '#e2e8f0'};border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:160px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between">
+        <span style="font-size:11px;font-weight:900;color:${isHoy ? '#6d28d9' : '#475569'};text-transform:uppercase">${TAR_DOW.find(([v]) => v === d.getDay())[1]}</span>
+        <span style="font-size:16px;font-weight:900;color:${isHoy ? '#6d28d9' : '#0f172a'}">${d.getDate()}</span>
+      </div>
+      ${items.map(r => tarMiniHtml_(r)).join('') || '<div style="font-size:10.5px;color:#cbd5e1;text-align:center;padding-top:20px">—</div>'}
+    </div>`;
+  }).join('')}</div></div>`;
+}
+function tarMiniHtml_(r) {
+  const est = TAR_ESTADOS.find(e => e.k === r.Estado) || TAR_ESTADOS[0];
+  const pri = TAR_PRIORIDADES.find(p => p.k === r.Prioridad);
+  const accent = pri ? (pri.k === 'Crítico' ? '#dc2626' : pri.bd) : '#cbd5e1';
+  const pers = tarPersonalList_(r);
+  return `<div onclick="tarOpenPanel('${esc(r.ID)}')" title="${esc(r.Nombre)}${pers.length ? ' · ' + esc(pers.join(', ')) : ''}"
+    style="cursor:pointer;background:#fff;border:1px solid #e2e8f0;border-left:3px solid ${accent};border-radius:7px;padding:5px 7px;display:flex;flex-direction:column;gap:3px">
+    <div style="font-size:11px;font-weight:800;color:#0f172a;line-height:1.25;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(r.Nombre || '')}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:3px">${tarChip_(est.k, est.fg, est.bg, est.bd)}${pri ? tarChip_(pri.k, pri.fg, pri.bg, pri.bd) : ''}</div>
+    ${pers.length ? `<div style="font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">👥 ${esc(pers.join(', '))}</div>` : ''}
+  </div>`;
+}
+// 4) Pendientes del mes
+function tarMesHtml_() {
+  const ref = new Date(TAR_STATE.calRef);
+  const y = ref.getFullYear(), m = ref.getMonth();
+  const primero = new Date(y, m, 1);
+  const start = new Date(primero); start.setDate(1 - ((primero.getDay() + 6) % 7));
+  const hoy = tarIso_(tarToday_());
+  const celdas = Array.from({ length: 42 }, (_, i) => { const x = new Date(start); x.setDate(start.getDate() + i); return x; });
+  const head = TAR_DOW.map(([, l]) => `<div style="font-size:10.5px;font-weight:900;color:#64748b;text-transform:uppercase;text-align:center;padding:4px">${l}</div>`).join('');
+  return tarNavBar_(`${TAR_MESES_L[m]} ${y}`) + `<div style="overflow-x:auto"><div style="display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));gap:4px;min-width:860px">${head}${celdas.map(d => {
+    const iso = tarIso_(d);
+    const inMonth = d.getMonth() === m;
+    const items = inMonth ? tarDelDia_(iso) : [];
+    const isHoy = iso === hoy;
+    const shown = items.slice(0, 3);
+    return `<div onclick="tarIrADia('${iso}')" style="cursor:pointer;min-height:96px;background:${!inMonth ? '#fafafa' : isHoy ? '#faf5ff' : '#fff'};border:1.5px solid ${isHoy ? '#a78bfa' : '#e2e8f0'};border-radius:8px;padding:5px;display:flex;flex-direction:column;gap:3px;opacity:${inMonth ? 1 : .45}">
+      <div style="font-size:12px;font-weight:900;color:${isHoy ? '#6d28d9' : '#334155'}">${d.getDate()}</div>
+      ${shown.map(r => {
+        const pri = TAR_PRIORIDADES.find(p => p.k === r.Prioridad);
+        const bg = pri ? pri.bg : '#f1f5f9', fg = pri ? pri.fg : '#334155';
+        return `<div onclick="event.stopPropagation();tarOpenPanel('${esc(r.ID)}')" title="${esc(r.Nombre)}" style="font-size:10px;font-weight:800;background:${bg};color:${fg};border-radius:5px;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.Nombre || '')}</div>`;
+      }).join('')}
+      ${items.length > 3 ? `<div style="font-size:10px;font-weight:800;color:#7c3aed">+${items.length - 3} más</div>` : ''}
+    </div>`;
+  }).join('')}</div></div>`;
+}
+window.tarIrADia = function (iso) { TAR_STATE.calView = 'dia'; TAR_STATE.calRef = tarParseIso_(iso); tarRender(); };
+
+// ── Guardado ───────────────────────────────────────────────────────────
+async function tarSaveRow_(payload) {
+  const res = await fetch(`${BACKEND}/tareas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload }) });
+  const j = await res.json();
+  if (!j || !j.ok) throw new Error((j && j.error) || 'No se pudo guardar');
+  try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif })); } catch (_) {}
+  return j;
+}
+
+// ── Panel lateral (detalle / edición) ──────────────────────────────────
+function tarPanelEls_() {
+  let bd = document.getElementById('tar-panel-backdrop');
+  let pn = document.getElementById('tar-panel');
+  if (!bd) {
+    bd = document.createElement('div');
+    bd.id = 'tar-panel-backdrop';
+    bd.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9300;opacity:0;transition:opacity .2s;display:none';
+    bd.onclick = () => tarClosePanel();
+    document.body.appendChild(bd);
+  }
+  if (!pn) {
+    pn = document.createElement('div');
+    pn.id = 'tar-panel';
+    pn.style.cssText = 'position:fixed;top:0;right:0;height:100vh;width:100%;max-width:560px;background:#fff;z-index:9400;box-shadow:-16px 0 40px rgba(15,23,42,.18);transform:translateX(100%);transition:transform .25s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column';
+    document.body.appendChild(pn);
+  }
+  return { bd, pn };
+}
+function tarPanelSnapshot_(d) {
+  return JSON.stringify({
+    n: d.Nombre || '', c: d.Clasificacion || '', s: d.Subclasificacion || '', p: d.Prioridad || '',
+    na: d.Naturaleza || '', pr: d._prog, pe: (d._personal || []).slice().sort(),
+    w: d.WhatsApp || 'No', m: d.Mensaje || '', t: d.Template_ID || '', e: d.Estado || '', co: d.Comentarios || '',
+  });
+}
+window.tarOpenPanel = function (id) {
+  const row = id ? TAR_STATE.list.find(x => x.ID === id) : null;
+  const d = row ? JSON.parse(JSON.stringify(row)) : {
+    Nombre: '', Clasificacion: '', Subclasificacion: '', Prioridad: 'Medio', Naturaleza: 'Recurrente',
+    WhatsApp: 'No', Mensaje: '', Template_ID: '', Estado: 'Pendiente', Comentarios: '',
+  };
+  d._prog = JSON.parse(JSON.stringify(row ? tarProg_(row) : tarEmptyProg_(d.Naturaleza)));
+  d._personal = row ? tarPersonalList_(row) : [];
+  TAR_STATE.panel = { id: id || '', d, orig: tarPanelSnapshot_(d), saving: false };
+  const { bd, pn } = tarPanelEls_();
+  bd.style.display = 'block';
+  pn.style.display = 'flex';
+  requestAnimationFrame(() => { bd.style.opacity = '1'; pn.style.transform = 'translateX(0)'; });
+  tarPanelRender_();
+  if (String(d.WhatsApp) === 'Sí') tarLoadTemplates_().then(() => tarPanelRender_());
+};
+window.tarClosePanel = function (force) {
+  const P = TAR_STATE.panel;
+  if (!force && P && tarPanelSnapshot_(P.d) !== P.orig && !confirm('Hay cambios sin guardar. ¿Salir sin guardar?')) return;
+  const bd = document.getElementById('tar-panel-backdrop');
+  const pn = document.getElementById('tar-panel');
+  if (bd) { bd.style.opacity = '0'; setTimeout(() => { bd.style.display = 'none'; }, 200); }
+  if (pn) { pn.style.transform = 'translateX(100%)'; setTimeout(() => { pn.style.display = 'none'; }, 250); }
+  TAR_STATE.panel = null;
+};
+function tarPill_(on, label, onclick, colors) {
+  const c = colors || { fg: '#fff', bg: '#7c3aed', bd: '#7c3aed' };
+  return `<button type="button" onclick="${onclick}" style="all:unset;cursor:pointer;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:800;border:1.5px solid ${on ? c.bd : '#e2e8f0'};background:${on ? c.bg : '#fff'};color:${on ? c.fg : '#475569'}">${label}</button>`;
+}
+function tarCheck_(on) {
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;border:1.5px solid ${on ? '#7c3aed' : '#cbd5e1'};background:${on ? '#7c3aed' : '#fff'};color:#fff;font-size:12px;font-weight:900;line-height:1;flex-shrink:0">${on ? '✓' : ''}</span>`;
+}
+function tarPanelRender_() {
+  const P = TAR_STATE.panel; if (!P) return;
+  const d = P.d, prog = d._prog;
+  const { pn } = tarPanelEls_();
+  const clasif = tarClasif_();
+  const lbl = t => `<label style="display:block;font-size:10.5px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${t}</label>`;
+  const inp = 'width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;color:#0f172a;background:#fff;font-family:inherit';
+  const field = (inner) => `<div style="margin-bottom:16px">${inner}</div>`;
+  const subs = clasif[d.Clasificacion] || [];
+  // Fechas
+  let fechasHtml = '';
+  if (d.Naturaleza === 'Único') {
+    fechasHtml = `
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input type="date" id="tar-add-fecha" style="${inp};width:auto">
+        <button type="button" onclick="tarAddFecha()" style="all:unset;cursor:pointer;padding:8px 12px;border-radius:8px;background:#ede9fe;color:#5b21b6;font-size:12px;font-weight:800">＋ Agregar fecha</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${prog.fechas.slice().sort().map(f => `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#f5f3ff;border:1px solid #c4b5fd;font-size:12px;font-weight:700;color:#5b21b6">${esc(tarFmtFecha_(f))}<button type="button" onclick="tarDelFecha('${f}')" style="all:unset;cursor:pointer;color:#b91c1c;font-weight:900">✕</button></span>`).join('') || '<span style="font-size:12px;color:#94a3b8">Sin fechas — agrega una o varias.</span>'}</div>`;
+  } else {
+    const tipoPills = [['semanal', 'Días de la semana'], ['mensual', 'Días del mes'], ['bimestral', 'Bimestral']]
+      .map(([k, l]) => tarPill_(prog.tipo === k, l, `tarSetTipo('${k}')`)).join(' ');
+    let selector = '';
+    if (prog.tipo === 'semanal') {
+      selector = `<div style="display:flex;flex-wrap:wrap;gap:6px">${TAR_DOW.map(([v, l]) => tarPill_(prog.dias_semana.includes(v), l, `tarToggleDow(${v})`)).join('')}</div>`;
+    } else {
+      selector = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;max-width:340px">${Array.from({ length: 31 }, (_, i) => i + 1).map(n => {
+        const on = prog.dias_mes.includes(n);
+        return `<button type="button" onclick="tarToggleDiaMes(${n})" style="all:unset;cursor:pointer;text-align:center;padding:7px 0;border-radius:7px;font-size:12px;font-weight:800;border:1.5px solid ${on ? '#7c3aed' : '#e2e8f0'};background:${on ? '#7c3aed' : '#fff'};color:${on ? '#fff' : '#334155'}">${n}</button>`;
+      }).join('')}</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:6px">${prog.tipo === 'bimestral' ? 'Se repite cada 2 meses a partir del mes de inicio. ' : ''}Si el mes no tiene el día 29–31, se usa su último día.</div>`;
+    }
+    fechasHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${tipoPills}</div>${selector}
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <div><div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:3px">Desde${prog.tipo === 'bimestral' ? ' (mes de inicio)' : ''}</div><input type="date" value="${esc(prog.inicio || '')}" onchange="tarSetProgField('inicio',this.value)" style="${inp};width:auto"></div>
+        <div><div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:3px">Hasta (opcional)</div><input type="date" value="${esc(prog.fin || '')}" onchange="tarSetProgField('fin',this.value)" style="${inp};width:auto"></div>
+      </div>`;
+  }
+  // Personal
+  const nombres = tarPersonalNombres_();
+  d._personal.forEach(n => { if (!nombres.includes(n)) nombres.push(n); });
+  const personalHtml = nombres.length
+    ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px">${nombres.map(n => {
+        const on = d._personal.includes(n);
+        return `<button type="button" onclick="tarTogglePersonal(this.dataset.n)" data-n="${esc(n)}" style="all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;border:1.5px solid ${on ? '#c4b5fd' : '#e2e8f0'};background:${on ? '#f5f3ff' : '#fff'};font-size:12px;font-weight:700;color:#0f172a">${tarCheck_(on)}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</span></button>`;
+      }).join('')}</div>`
+    : '<div style="font-size:12px;color:#94a3b8">⏳ Cargando personal…</div>';
+  // WhatsApp
+  const tpls = TAR_STATE.templates || [];
+  const waHtml = `
+    <div style="display:flex;gap:6px">${tarPill_(d.WhatsApp === 'Sí', 'Sí', "tarSetField('WhatsApp','Sí')", { fg: '#fff', bg: '#16a34a', bd: '#16a34a' })}${tarPill_(d.WhatsApp !== 'Sí', 'No', "tarSetField('WhatsApp','No')", { fg: '#fff', bg: '#475569', bd: '#475569' })}</div>
+    ${d.WhatsApp === 'Sí' ? `
+      <div style="margin-top:10px">
+        <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:3px">Usar template de “Templates de mensajes programados” (opcional)</div>
+        <select onchange="tarUseTemplate(this.value)" style="${inp}">
+          <option value="">${TAR_STATE.templates ? '— Mensaje libre —' : '⏳ Cargando templates…'}</option>
+          ${tpls.map(t => `<option value="${esc(t.id)}"${t.id === d.Template_ID ? ' selected' : ''}>${esc(t.nombre || t.id)}</option>`).join('')}
+        </select>
+        <div style="font-size:11px;color:#64748b;font-weight:700;margin:8px 0 3px">Mensaje</div>
+        <textarea id="tar-mensaje" rows="4" oninput="tarSetText('Mensaje',this.value)" placeholder="Texto del mensaje de WhatsApp…" style="${inp};resize:vertical">${esc(d.Mensaje || '')}</textarea>
+      </div>` : ''}`;
+  const dirty = tarPanelSnapshot_(d) !== P.orig;
+  pn.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e2e8f0;background:linear-gradient(180deg,#faf5ff,#fff)">
+      <div style="font-size:15px;font-weight:900;color:#0f172a">${P.id ? '📋 Detalle de la tarea' : '＋ Nueva tarea'}</div>
+      <button type="button" onclick="tarClosePanel()" style="width:32px;height:32px;border:none;background:#f1f5f9;color:#475569;border-radius:8px;font-weight:900;font-size:16px;cursor:pointer">✕</button>
+    </div>
+    <div style="flex:1;overflow:auto;padding:18px">
+      ${field(lbl('Nombre') + `<input type="text" value="${esc(d.Nombre || '')}" oninput="tarSetText('Nombre',this.value)" placeholder="Ej. Revisar cisterna" style="${inp}">`)}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${field(lbl('Clasificación de tarea') + `<select onchange="tarSetField('Clasificacion',this.value)" style="${inp}"><option value=""></option>${Object.keys(clasif).map(c => `<option value="${esc(c)}"${c === d.Clasificacion ? ' selected' : ''}>${esc(c)}</option>`).join('')}${d.Clasificacion && !clasif[d.Clasificacion] ? `<option selected>${esc(d.Clasificacion)}</option>` : ''}</select>`)}
+        ${field(lbl('Sub-clasificación') + `<select onchange="tarSetField('Subclasificacion',this.value)" style="${inp}" ${d.Clasificacion ? '' : 'disabled'}><option value=""></option>${subs.map(c => `<option value="${esc(c)}"${c === d.Subclasificacion ? ' selected' : ''}>${esc(c)}</option>`).join('')}${d.Subclasificacion && !subs.includes(d.Subclasificacion) ? `<option selected>${esc(d.Subclasificacion)}</option>` : ''}</select>`)}
+      </div>
+      ${field(lbl('Nivel de prioridad') + `<div style="display:flex;gap:6px;flex-wrap:wrap">${TAR_PRIORIDADES.map(p => tarPill_(d.Prioridad === p.k, p.k, `tarSetField('Prioridad','${p.k}')`, { fg: p.k === 'Crítico' ? '#fff' : p.fg, bg: p.bg, bd: p.bd })).join('')}</div>`)}
+      ${field(lbl('Naturaleza') + `<div style="display:flex;gap:6px">${tarPill_(d.Naturaleza === 'Único', 'Único', "tarSetNaturaleza('Único')")}${tarPill_(d.Naturaleza === 'Recurrente', 'Recurrente', "tarSetNaturaleza('Recurrente')")}</div>`)}
+      ${field(lbl('Fecha(s)') + fechasHtml)}
+      ${field(lbl(`Personal asignado${d._personal.length ? ` · ${d._personal.length}` : ''}`) + personalHtml)}
+      ${field(lbl('¿Enviar mensaje por WhatsApp?') + waHtml)}
+      ${field(lbl('Estado') + `<div style="display:flex;gap:6px;flex-wrap:wrap">${TAR_ESTADOS.map(e => tarPill_(d.Estado === e.k, e.k, `tarSetField('Estado','${e.k}')`, { fg: e.fg, bg: e.bg, bd: e.bd })).join('')}</div>`)}
+      ${field(lbl('Comentarios') + `<textarea rows="3" oninput="tarSetText('Comentarios',this.value)" style="${inp};resize:vertical">${esc(d.Comentarios || '')}</textarea>`)}
+    </div>
+    <div id="tar-panel-footer" style="display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid #e2e8f0;background:#f8fafc">${tarPanelFooterHtml_(dirty)}</div>`;
+}
+function tarPanelFooterHtml_(dirty) {
+  const P = TAR_STATE.panel;
+  const del = P && P.id ? `<button type="button" onclick="tarDelete()" style="all:unset;cursor:pointer;padding:8px 12px;border-radius:8px;color:#b91c1c;font-size:12px;font-weight:800">🗑 Eliminar</button>` : '';
+  const save = dirty ? `<button type="button" onclick="tarSavePanel()" ${P && P.saving ? 'disabled' : ''} style="all:unset;cursor:pointer;padding:9px 16px;border-radius:8px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-size:13px;font-weight:900;box-shadow:0 3px 8px rgba(22,163,74,.3)">${P && P.saving ? '⏳ Guardando…' : '💾 Guardar cambios'}</button>` : '';
+  return `${del}<div style="flex:1"></div>${save}<button type="button" onclick="tarClosePanel()" style="all:unset;cursor:pointer;padding:9px 16px;border-radius:8px;background:#fff;border:1.5px solid #cbd5e1;color:#334155;font-size:13px;font-weight:800">🚪 Salir</button>`;
+}
+function tarPanelRefreshFooter_() {
+  const P = TAR_STATE.panel; if (!P) return;
+  const f = document.getElementById('tar-panel-footer');
+  if (f) f.innerHTML = tarPanelFooterHtml_(tarPanelSnapshot_(P.d) !== P.orig);
+}
+// Campos de texto: actualizan estado sin re-render (no se pierde el foco).
+window.tarSetText = function (k, v) { const P = TAR_STATE.panel; if (!P) return; P.d[k] = v; tarPanelRefreshFooter_(); };
+window.tarSetField = function (k, v) {
+  const P = TAR_STATE.panel; if (!P) return;
+  P.d[k] = v;
+  if (k === 'Clasificacion') P.d.Subclasificacion = '';
+  if (k === 'WhatsApp' && v === 'Sí') tarLoadTemplates_().then(() => tarPanelRender_());
+  tarPanelRender_();
+};
+window.tarSetNaturaleza = function (v) {
+  const P = TAR_STATE.panel; if (!P || P.d.Naturaleza === v) return;
+  P.d.Naturaleza = v;
+  const old = P.d._prog;
+  P.d._prog = Object.assign(tarEmptyProg_(v), { inicio: old.inicio, fin: old.fin });
+  tarPanelRender_();
+};
+window.tarSetTipo = function (t) { const P = TAR_STATE.panel; if (!P) return; P.d._prog.tipo = t; tarPanelRender_(); };
+window.tarToggleDow = function (v) {
+  const a = TAR_STATE.panel.d._prog.dias_semana;
+  const i = a.indexOf(v); if (i >= 0) a.splice(i, 1); else a.push(v);
+  tarPanelRender_();
+};
+window.tarToggleDiaMes = function (n) {
+  const a = TAR_STATE.panel.d._prog.dias_mes;
+  const i = a.indexOf(n); if (i >= 0) a.splice(i, 1); else a.push(n);
+  tarPanelRender_();
+};
+window.tarSetProgField = function (k, v) { TAR_STATE.panel.d._prog[k] = v || ''; tarPanelRefreshFooter_(); };
+window.tarAddFecha = function () {
+  const v = document.getElementById('tar-add-fecha')?.value;
+  if (!v) return;
+  const a = TAR_STATE.panel.d._prog.fechas;
+  if (!a.includes(v)) a.push(v);
+  tarPanelRender_();
+};
+window.tarDelFecha = function (f) {
+  const a = TAR_STATE.panel.d._prog.fechas;
+  const i = a.indexOf(f); if (i >= 0) a.splice(i, 1);
+  tarPanelRender_();
+};
+window.tarTogglePersonal = function (n) {
+  const a = TAR_STATE.panel.d._personal;
+  const i = a.indexOf(n); if (i >= 0) a.splice(i, 1); else a.push(n);
+  tarPanelRender_();
+};
+window.tarUseTemplate = function (id) {
+  const P = TAR_STATE.panel; if (!P) return;
+  P.d.Template_ID = id || '';
+  const t = (TAR_STATE.templates || []).find(x => x.id === id);
+  if (t && t.body) P.d.Mensaje = t.body;
+  tarPanelRender_();
+};
+window.tarSavePanel = async function () {
+  const P = TAR_STATE.panel; if (!P || P.saving) return;
+  const d = P.d, prog = d._prog;
+  if (!String(d.Nombre || '').trim()) { alert('Escribe el nombre de la tarea.'); return; }
+  if (prog.tipo === 'unica' && !prog.fechas.length) { alert('Agrega al menos una fecha.'); return; }
+  if (prog.tipo === 'semanal' && !prog.dias_semana.length) { alert('Elige al menos un día de la semana.'); return; }
+  if ((prog.tipo === 'mensual' || prog.tipo === 'bimestral') && !prog.dias_mes.length) { alert('Elige al menos un día del mes.'); return; }
+  if (d.WhatsApp === 'Sí' && !String(d.Mensaje || '').trim()) { alert('Escribe el mensaje de WhatsApp (o elige un template).'); return; }
+  if (prog.tipo === 'bimestral' && !prog.inicio) prog.inicio = tarIso_(tarToday_());
+  const payload = {
+    Nombre: String(d.Nombre).trim(),
+    Clasificacion: d.Clasificacion || '', Subclasificacion: d.Subclasificacion || '',
+    Prioridad: d.Prioridad || '', Naturaleza: d.Naturaleza || '',
+    Programacion: JSON.stringify(prog), Programacion_texto: tarProgTexto_(prog),
+    Personal: d._personal.join(', '),
+    WhatsApp: d.WhatsApp === 'Sí' ? 'Sí' : 'No',
+    Mensaje: d.WhatsApp === 'Sí' ? (d.Mensaje || '') : '',
+    Template_ID: d.WhatsApp === 'Sí' ? (d.Template_ID || '') : '',
+    Estado: d.Estado || 'Pendiente', Comentarios: d.Comentarios || '',
+    Updated_at: new Date().toISOString(),
+  };
+  if (P.id) payload.ID = P.id;
+  else payload.Creado_por = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : '';
+  P.saving = true; tarPanelRefreshFooter_();
+  try {
+    const j = await tarSaveRow_(payload);
+    const id = P.id || j.id;
+    const row = Object.assign({}, payload, { ID: id });
+    const prev = TAR_STATE.list.find(x => x.ID === id);
+    if (prev) { Object.assign(prev, row); delete prev._prog; }
+    else { row.Timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19); TAR_STATE.list.unshift(row); }
+    try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif })); } catch (_) {}
+    tarClosePanel(true);
+    tarRender();
+  } catch (e) {
+    P.saving = false; tarPanelRefreshFooter_();
+    alert('No se pudo guardar: ' + e.message);
+  }
+};
+window.tarDelete = async function () {
+  const P = TAR_STATE.panel; if (!P || !P.id) return;
+  if (!confirm(`¿Eliminar la tarea "${P.d.Nombre}"?\n\nQueda una copia en la hoja Tareas_Papelera.`)) return;
+  try {
+    const r = await fetch(`${BACKEND}/tareas/${encodeURIComponent(P.id)}?reason=${encodeURIComponent('eliminada desde Programación de tareas')}`, { method: 'DELETE' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'No se pudo eliminar');
+    TAR_STATE.list = TAR_STATE.list.filter(x => x.ID !== P.id);
+    tarClosePanel(true);
+    tarRender();
+  } catch (e) { alert('Error: ' + e.message); }
+};
+
+// ── Administrador de clasificaciones ───────────────────────────────────
+window.tarOpenClasifManager = function () {
+  TAR_STATE._clasifDraft = JSON.parse(JSON.stringify(tarClasif_()));
+  let m = document.getElementById('tar-clasif-modal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'tar-clasif-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px';
+    m.onclick = (e) => { if (e.target === m) tarCloseClasif(); };
+    document.body.appendChild(m);
+  }
+  m.style.display = 'flex';
+  tarClasifRender_();
+};
+window.tarCloseClasif = function () { const m = document.getElementById('tar-clasif-modal'); if (m) m.style.display = 'none'; };
+function tarClasifRender_() {
+  const m = document.getElementById('tar-clasif-modal'); if (!m) return;
+  const C = TAR_STATE._clasifDraft;
+  const inp = 'padding:7px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12px;font-family:inherit';
+  m.innerHTML = `
+    <div style="background:#fff;border-radius:14px;width:100%;max-width:620px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.3)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e2e8f0">
+        <div style="font-size:15px;font-weight:900;color:#0f172a">⚙️ Clasificaciones y sub-clasificaciones</div>
+        <button type="button" onclick="tarCloseClasif()" style="width:32px;height:32px;border:none;background:#f1f5f9;border-radius:8px;font-weight:900;cursor:pointer">✕</button>
+      </div>
+      <div style="flex:1;overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+        ${Object.keys(C).map((c, ci) => `
+          <div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+              <span style="font-size:13px;font-weight:900;color:#5b21b6">${esc(c)}</span>
+              <button type="button" onclick="tarClasifDel(${ci})" style="all:unset;cursor:pointer;font-size:11px;font-weight:800;color:#b91c1c">Quitar clasificación</button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+              ${C[c].map((s, si) => `<span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;background:#ccfbf1;border:1px solid #5eead4;font-size:11.5px;font-weight:700;color:#0f766e">${esc(s)}<button type="button" onclick="tarSubDel(${ci},${si})" style="all:unset;cursor:pointer;color:#b91c1c;font-weight:900">✕</button></span>`).join('')}
+              <input type="text" id="tar-sub-new-${ci}" placeholder="Nueva sub-clasificación" onkeydown="if(event.key==='Enter')tarSubAdd(${ci})" style="${inp};width:170px">
+              <button type="button" onclick="tarSubAdd(${ci})" style="all:unset;cursor:pointer;padding:6px 10px;border-radius:8px;background:#f0fdfa;color:#0f766e;font-size:12px;font-weight:800">＋</button>
+            </div>
+          </div>`).join('')}
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" id="tar-clasif-new" placeholder="Nueva clasificación" onkeydown="if(event.key==='Enter')tarClasifAdd()" style="${inp};flex:1">
+          <button type="button" onclick="tarClasifAdd()" style="all:unset;cursor:pointer;padding:8px 12px;border-radius:8px;background:#ede9fe;color:#5b21b6;font-size:12px;font-weight:800">＋ Agregar clasificación</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #e2e8f0;background:#f8fafc">
+        <button type="button" onclick="tarCloseClasif()" style="all:unset;cursor:pointer;padding:9px 16px;border-radius:8px;border:1.5px solid #cbd5e1;background:#fff;font-size:13px;font-weight:800;color:#334155">Cancelar</button>
+        <button type="button" onclick="tarClasifSave()" style="all:unset;cursor:pointer;padding:9px 16px;border-radius:8px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-size:13px;font-weight:900">💾 Guardar</button>
+      </div>
+    </div>`;
+}
+window.tarClasifAdd = function () {
+  const v = String(document.getElementById('tar-clasif-new')?.value || '').trim();
+  if (!v) return;
+  if (!TAR_STATE._clasifDraft[v]) TAR_STATE._clasifDraft[v] = [];
+  tarClasifRender_();
+};
+window.tarClasifDel = function (ci) {
+  const k = Object.keys(TAR_STATE._clasifDraft)[ci];
+  const usadas = TAR_STATE.list.filter(r => r.Clasificacion === k).length;
+  if (!confirm(`¿Quitar la clasificación "${k}"?${usadas ? `\n\n${usadas} tarea(s) la usan; conservarán el texto.` : ''}`)) return;
+  delete TAR_STATE._clasifDraft[k];
+  tarClasifRender_();
+};
+window.tarSubAdd = function (ci) {
+  const k = Object.keys(TAR_STATE._clasifDraft)[ci];
+  const v = String(document.getElementById('tar-sub-new-' + ci)?.value || '').trim();
+  if (!v) return;
+  if (!TAR_STATE._clasifDraft[k].includes(v)) TAR_STATE._clasifDraft[k].push(v);
+  tarClasifRender_();
+  setTimeout(() => document.getElementById('tar-sub-new-' + ci)?.focus(), 0);
+};
+window.tarSubDel = function (ci, si) {
+  const k = Object.keys(TAR_STATE._clasifDraft)[ci];
+  TAR_STATE._clasifDraft[k].splice(si, 1);
+  tarClasifRender_();
+};
+window.tarClasifSave = async function () {
+  const C = TAR_STATE._clasifDraft;
+  try {
+    const res = await fetch(`${BACKEND}/tareas/config`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload: { ID: 'CATALOGO', Clasificaciones_json: JSON.stringify(C) } }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
+    TAR_STATE.clasif = C;
+    try { localStorage.setItem(TAR_LOCAL_KEY, JSON.stringify({ list: TAR_STATE.list, clasif: TAR_STATE.clasif })); } catch (_) {}
+    tarCloseClasif();
+    tarRender();
+    if (TAR_STATE.panel) tarPanelRender_();
+  } catch (e) { alert('Error: ' + e.message); }
+};

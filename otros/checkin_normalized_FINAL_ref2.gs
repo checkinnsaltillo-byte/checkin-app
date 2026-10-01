@@ -287,6 +287,11 @@ function doPost(e) {
     if (action === "asistencia_marcar")            return jsonOutput_(asistenciaMarcar_(data));
     if (action === "asistencia_lookup_empleado")   return jsonOutput_(asistenciaLookupEmpleadoByCel_(data));
     if (action === "rh_delete_ausencia")           return jsonOutput_(rhDeleteByID_('RH_Ausencias', String((data && data.ID) || ''), { reason: (data && data.reason) || '', actor: (data && data.actor) || '', force: (data && data.force) === true }));
+    if (action === "tareas_list")                  return jsonOutput_(rhListSimple_('Tareas'));
+    if (action === "tareas_save")                  return jsonOutput_(rhSaveSimple_('Tareas', data, TAREAS_HEADERS, 'TAR'));
+    if (action === "tareas_delete")                return jsonOutput_(rhDeleteByID_('Tareas', String((data && data.ID) || ''), { reason: (data && data.reason) || '', actor: (data && data.actor) || '', force: true }));
+    if (action === "tareas_config_list")           return jsonOutput_(rhListSimple_('Tareas_Config'));
+    if (action === "tareas_config_save")           return jsonOutput_(rhSaveSimple_('Tareas_Config', data, TAREAS_CONFIG_HEADERS, 'TCF'));
     if (action === "inquilinos_list")              return jsonOutput_(inquilinosList_());
     if (action === "inquilinos_save")              return jsonOutput_(inquilinosSave_(data));
     if (action === "inquilinos_delete")            return jsonOutput_(inquilinosDelete_(data));
@@ -354,6 +359,8 @@ function doGet(e) {
     if (action === "asistencia_marcar")      return jsonOutput_(asistenciaMarcar_(e.parameter || {}));
     if (action === "asistencia_lookup_empleado") return jsonOutput_(asistenciaLookupEmpleadoByCel_(e.parameter || {}));
     if (action === "rh_delete_ausencia")     return jsonOutput_(rhDeleteByID_('RH_Ausencias', String((e.parameter && e.parameter.ID) || ''), { reason: (e.parameter && e.parameter.reason) || '', actor: (e.parameter && e.parameter.actor) || '', force: (e.parameter && e.parameter.force) === 'true' }));
+    if (action === "tareas_list")            return jsonOutput_(rhListSimple_('Tareas'));
+    if (action === "tareas_config_list")     return jsonOutput_(rhListSimple_('Tareas_Config'));
     if (action === "sys_login")              return jsonOutput_(sysLogin_(e.parameter || {}));
     if (action === "upload_incidencia_image") return jsonOutput_(uploadIncidenciaImage_(e.parameter || {}));
     if (action === "save_incidencia")         return jsonOutput_(saveIncidencia_(e.parameter || {}));
@@ -2241,6 +2248,9 @@ var RH_PERSONAL_HEADERS = [
   // Tipo de persona + acceso al sistema admin (www.check-inn.mx)
   'Tipo', 'sys_access', 'sys_password', 'sys_modulos',
 ];
+// Módulo "Programación de tareas recurrentes".
+var TAREAS_HEADERS = ['ID','Timestamp','Nombre','Clasificacion','Subclasificacion','Prioridad','Naturaleza','Programacion','Programacion_texto','Personal','WhatsApp','Mensaje','Template_ID','Estado','Comentarios','Creado_por','Updated_at'];
+var TAREAS_CONFIG_HEADERS = ['ID','Timestamp','Clasificaciones_json'];
 var RH_ASIST_HEADERS = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Fecha','Entrada','Salida','Horas','Horas_extra','Hora','Tipo','Concepto','$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','$ Salario total','Ubicacion_Lat','Ubicacion_Lng','GPS_Accuracy','Metodo','Observaciones','Compensación_concepto','Compensación_monto','Comentarios'];
 var RH_AUSE_HEADERS  = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Tipo','Fecha_inicio','Fecha_fin','Dias','Estatus','Comentarios'];
 var RH_COMP_HEADERS  = ['ID','Timestamp','Empleado_ID','Empleado_Nombre','Concepto','Periodo','Horas','$ Salario base','$ Prima vacacional (25%)','$ Prima dominical (25%)','$ Prima día feriado (200%)','Monto','Metodo_pago','Estado_pago','Fecha_pago','Comentarios'];
