@@ -31129,6 +31129,21 @@ function bnEfePatchRaw_(r) {
 
 // Abre Registros de efectivo con el renglón de BANCOS indicado en modo
 // edición (lo agrega a la tabla si no está entre los últimos cargados).
+// Abre Registros contables con la ventana Clasificar del renglón de BANCOS
+// indicado (pagos de renta bancarios que se ven en Inquilinos › Rentas).
+window.bnOpenClasifRow = async function (rowNum) {
+  try { switchModule('registros'); } catch (_) {}
+  const t0 = Date.now();
+  while (Date.now() - t0 < 30000 && !(Array.isArray(BN_RAW) && BN_RAW.length)) {
+    await new Promise(r => setTimeout(r, 400));
+  }
+  const rec = (BN_RAW || []).find(x => x.rowNum === rowNum);
+  if (!rec) { alert('No se encontró el renglón en BANCOS.'); return; }
+  let idx = BN_CUR_RECS.indexOf(rec);
+  if (idx < 0) { BN_CUR_RECS.push(rec); idx = BN_CUR_RECS.length - 1; }
+  bn_toggleBnClassify(idx);
+};
+
 window.bnEfectivoOpenRow = async function (rowNum) {
   bnEfectivoOpenFromHome();
   const t0 = Date.now();
@@ -38616,14 +38631,16 @@ async function inqLoadPagos(inquilinoId) {
 // se muestran en Rentas (tabla y calendario) como pagos de solo lectura; se
 // editan en Registros de efectivo. Copia en localStorage para pintar al
 // instante mientras llega BANCOS (~10s).
-const INQ_EFE_LOCAL_KEY = 'inq_efe_pagos_v1';
+const INQ_EFE_LOCAL_KEY = 'inq_efe_pagos_v2';
 function inqEfePagosFromRaw_(records, rerender) {
   const isEfe = r => /efectivo/i.test(String(r['Cuenta bancaria'] || '') + ' ' + String(r['# Cuenta'] || ''));
   const list = [];
+  // Todos los renglones de BANCOS con Inquilino + Mes correspondiente:
+  // efectivo (Registros de efectivo) y bancarios (Categoría Contratos).
   (records || []).forEach(r => {
     const nombre = String(r.INQUILINO || '').trim();
     const mes = bnEfeYm_(r.MES_CORRESPONDIENTE);
-    if (!nombre || !/^\d{4}-\d{2}$/.test(mes) || !isEfe(r) || !r.rowNum) return;
+    if (!nombre || !/^\d{4}-\d{2}$/.test(mes) || !r.rowNum) return;
     const abono = Number(r.ABONO) || 0, monto = Number(r.Monto) || 0, cargo = Number(r.CARGO) || 0;
     list.push({
       rowNum: r.rowNum, nombre, mes,
@@ -38632,6 +38649,8 @@ function inqEfePagosFromRaw_(records, rerender) {
       monto: Math.abs(abono || monto || cargo),
       fecha: bnUploadDiaToIso(r['Día'] || r['Dia'] || '') || '',
       desc: String(r.DESCRIPCION || ''),
+      efe: isEfe(r),
+      cuenta: String(r['Cuenta bancaria'] || '').trim(),
     });
   });
   INQ_STATE._efeRaw = list;
@@ -38652,10 +38671,13 @@ function inqMergePagos_() {
       Inquilino_ID: perfil ? perfil.ID : '',
       Mes: e.mes,
       Monto_pagado: e.monto,
-      Metodo_pago: 'Efectivo',
+      Metodo_pago: e.efe ? 'Efectivo' : 'Transferencia',
       Fecha_pago: e.fecha,
-      Notas: `💵 Registros de efectivo${e.desc ? ' · ' + e.desc : ''}`,
+      Notas: e.efe
+        ? `💵 Registros de efectivo${e.desc ? ' · ' + e.desc : ''}`
+        : `🏦 ${e.cuenta || 'Banco'}${e.desc ? ' · ' + e.desc : ''}`,
       _fromBancos: true,
+      _efe: !!e.efe,
       _bancosRowNum: e.rowNum,
       _nombre: e.nombre,
     };
@@ -38976,7 +38998,7 @@ function inqRenderRentas() {
               <td style="font-size:12px;max-width:180px;white-space:normal;color:#475569">${esc(p.Notas || '—')}</td>
               <td style="text-align:right">
                 ${p._fromBancos
-                  ? `<span title="Se edita en Registros de efectivo" style="font-size:11px;font-weight:800;color:#0f766e;background:#ccfbf1;border:1px solid #5eead4;border-radius:6px;padding:2px 6px;white-space:nowrap">💵 BANCOS</span>`
+                  ? `<span title="${p._efe ? 'Se edita en Registros de efectivo' : 'Se edita en Registros contables'}" style="font-size:11px;font-weight:800;color:#0f766e;background:#ccfbf1;border:1px solid #5eead4;border-radius:6px;padding:2px 6px;white-space:nowrap">${p._efe ? '💵' : '🏦'} BANCOS</span>`
                   : `<button type="button" onclick="event.stopPropagation();inqDeletePago('${esc(p.ID)}')" style="all:unset;cursor:pointer;color:#dc2626;font-weight:700;padding:4px 8px" title="Eliminar">✕</button>`}
               </td>
             </tr>`;
@@ -39236,7 +39258,7 @@ window.inqHmOpenCell = function (inquilinoId, mesKey) {
       </div>
       ${pago._fromBancos ? '' : inqBuildTicketButtonsBox_(pago)}
       <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-        <button type="button" onclick="inqHmClosePopup();inqOpenPagoForm('${esc(pago.ID)}')" style="all:unset;cursor:pointer;padding:8px 14px;background:#0f766e;color:#fff;border-radius:8px;font-weight:700;font-size:13px">${pago._fromBancos ? '✏️ Editar en Registros de efectivo' : '✏️ Editar pago'}</button>
+        <button type="button" onclick="inqHmClosePopup();inqOpenPagoForm('${esc(pago.ID)}')" style="all:unset;cursor:pointer;padding:8px 14px;background:#0f766e;color:#fff;border-radius:8px;font-weight:700;font-size:13px">${pago._fromBancos ? (pago._efe ? '✏️ Editar en Registros de efectivo' : '✏️ Editar en Registros contables') : '✏️ Editar pago'}</button>
       </div>`
     : `<div style="text-align:center;padding:16px">
         <div style="font-size:15px;color:#0f172a;font-weight:700;margin-bottom:6px">Sin pago registrado</div>
@@ -39315,7 +39337,11 @@ window.inqOpenPerfilForm = function (id) {
 window.inqOpenPagoForm = function (id) {
   const data = id ? ((INQ_STATE.pagos || []).find(x => String(x.ID) === String(id)) || {}) : {};
   // Pago en efectivo: vive en BANCOS → se edita en Registros de efectivo.
-  if (data._fromBancos) { bnEfectivoOpenRow(data._bancosRowNum); return; }
+  if (data._fromBancos) {
+    if (data._efe) bnEfectivoOpenRow(data._bancosRowNum);
+    else bnOpenClasifRow(data._bancosRowNum);
+    return;
+  }
   INQ_STATE.formKind = 'pago';
   INQ_STATE.formData = JSON.parse(JSON.stringify(data));
   // Comprobante_files: si venía Comprobante_url legacy, migra a array de 1 item
