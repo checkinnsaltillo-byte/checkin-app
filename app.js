@@ -14491,6 +14491,69 @@ function lgNormalizeBookingRow_(b) {
   };
 }
 
+/** Carga bajo demanda: si el usuario elige en "📅 Meses" un mes anterior a
+ *  la ventana inicial (2 meses atrás → futuro), descarga las reservas desde
+ *  ese mes hasta el inicio de la ventana, las agrega a LG_STATE.bookings y
+ *  re-pinta. El servidor responde de su snapshot (~25 meses) al instante;
+ *  más antiguo pasa por Apps Script (35-60 s). */
+let _lgExtendInflight = null;
+function lgEnsureMesesCargados_() {
+  const sel = LG_STATE.multiSel && LG_STATE.multiSel['meses'];
+  const rng = LG_STATE.__monthRange;
+  if (_lgExtendInflight) return true;
+  if (!(sel instanceof Set) || !sel.size || !rng || !rng.from) return false;
+  const minYm = Array.from(sel).filter(v => /^\d{4}-\d{2}$/.test(v)).sort()[0];
+  if (!minYm) return false;
+  const fromIso = `${minYm}-01`;
+  if (fromIso >= rng.from) return false;
+  LG_STATE.__extFailed = LG_STATE.__extFailed || new Set();
+  if (LG_STATE.__extFailed.has(fromIso)) return false; // ya falló: no reintentar en bucle
+  const prevFrom = rng.from;
+  const toD = new Date(prevFrom + 'T00:00:00'); toD.setDate(toD.getDate() - 1);
+  const toIso = `${toD.getFullYear()}-${String(toD.getMonth()+1).padStart(2,'0')}-${String(toD.getDate()).padStart(2,'0')}`;
+  const lbl = document.getElementById('lg-status-label');
+  const cont = document.getElementById('lg-cards');
+  const mesTxt = (() => { const M = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']; const [y, m] = minYm.split('-'); return `${M[+m - 1]} ${y}`; })();
+  if (lbl) lbl.textContent = `Cargando reservas desde ${mesTxt}…`;
+  if (cont && typeof lgLoaderHtml === 'function') cont.innerHTML = lgLoaderHtml(`Trayendo reservas desde ${mesTxt}…`);
+  const t0 = performance.now();
+  _lgExtendInflight = (async () => {
+    try {
+      const res = await fetch(`${BACKEND}/lodgify-list?from=${fromIso}&to=${toIso}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (!LG_STATE.__rawStatusById) LG_STATE.__rawStatusById = new Map();
+      const byId = new Map((LG_STATE.bookings || []).map(b => [String(b.Id || ''), b]));
+      let nuevas = 0;
+      (data.bookings || []).forEach(b => {
+        const id = String(b && b.Id || '').trim();
+        if (!id) return;
+        LG_STATE.__rawStatusById.set(id, String(b.Status || ''));
+        const st = String(b.Status || '').toLowerCase();
+        if (st !== 'booked' && st !== 'tentative') return;
+        if (byId.has(id)) return;
+        byId.set(id, lgNormalizeBookingRow_(b));
+        nuevas++;
+      });
+      LG_STATE.bookings = Array.from(byId.values());
+      // Solo amplía la ventana si sigue vigente (otra carga base no la cambió).
+      if (LG_STATE.__monthRange && LG_STATE.__monthRange.from === prevFrom) LG_STATE.__monthRange.from = fromIso;
+      LG_STATE.__syntheticCache = null;
+      try { if (typeof lgComputeMatches === 'function' && HU_STATE.loaded) lgComputeMatches(); } catch (_) {}
+      console.info(`[LG] meses anteriores: +${nuevas} reservas desde ${fromIso} en ${Math.round(performance.now() - t0)} ms`);
+      if (lbl) lbl.textContent = `${LG_STATE.bookings.length} reservaciones`;
+    } catch (e) {
+      console.warn('[LG] carga de meses anteriores:', e.message);
+      LG_STATE.__extFailed.add(fromIso);
+      if (lbl) lbl.textContent = 'Error al traer meses anteriores: ' + e.message;
+    } finally {
+      _lgExtendInflight = null;
+      lodgifyRender({ force: true });
+    }
+  })();
+  return true;
+}
+
 /** Lee desde el sheet (vía Cloud Run → Apps Script → hoja "Reservas_Lodgify").
  *  Es la lectura rápida (default). No consulta Lodgify directamente. */
 async function lodgifyLoad(force, opts) {
@@ -14650,6 +14713,7 @@ async function __lodgifyLoadInner(force, opts) {
       lodgifyRender();
     }
     _mark('render');
+    LG_STATE.__extFailed = new Set(); // la carga base reinicia la ventana
     window.LG_LAST_TIMING = { ..._t, desde_cache_local: _servedFromLocal, reservas: LG_STATE.bookings.length, snapshot: !!data.snapshot };
     console.info('[LG timing ms]', window.LG_LAST_TIMING);
   } catch (e) {
@@ -15058,6 +15122,10 @@ function lgRebuildFilterOptions() {
   };
   LG_STATE.bookings.forEach(b => addMes(b.DateArrival));
   (HU_STATE.rows || []).forEach(r => addMes(r['Fecha de ingreso']));
+  // Siempre ofrece los últimos 36 meses aunque aún no estén cargados: al
+  // elegir uno anterior a la ventana inicial se descargan bajo demanda.
+  { const d = new Date(); d.setDate(1);
+    for (let i = 0; i < 36; i++) { mesesSet.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`); d.setMonth(d.getMonth() - 1); } }
   LG_FILTER_OPTIONS.meses = Array.from(mesesSet).sort().reverse();
 
   lgMultiRender('programacion', '🗓️ Programación', LG_FILTER_OPTIONS.programacion, {
@@ -15518,6 +15586,11 @@ function lodgifyRender(opts) {
     console.info('[LG] lodgifyRender BLOQUEADO: usuario interactuó. force:true para forzar.');
     return;
   }
+  // Meses seleccionados anteriores a lo ya descargado → traerlos (async) y
+  // volver a pintar al llegar.
+  try {
+    if (lgEnsureMesesCargados_()) return; // descargando: el loader queda visible y se re-pinta al llegar
+  } catch (_) {}
   const mode = LG_STATE.viewMode || 'list';
   // En modo "detail" el sidebar muestra Reservaciones. Si HU_STATE aún no
   // está cargado (las páginas están en curso), evitamos renderizar con datos
