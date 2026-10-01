@@ -8799,6 +8799,15 @@ function getBancosData_(ss) {
   const iInqProp = pickIdx(hB, ["INQUILINO_PROPIEDAD"]);
   const iInqDep  = pickIdx(hB, ["INQUILINO_DEPTO"]);
   const iMesCorr = pickIdx(hB, ["MES_CORRESPONDIENTE"]);
+  // Campos de clasificación que el popup necesita al re-abrir un registro
+  // (antes no se devolvían → se veían vacíos aunque estuvieran guardados).
+  const iProp   = pickIdx(hB, ["PROPIEDAD"]);
+  const iDepto  = pickIdx(hB, ["DEPARTAMENTO"]);
+  const iEnc    = pickIdx(hB, ["ENCARGADO"]);
+  const iDed    = pickIdx(hB, ["DEDUCIBLE"]);
+  const iReem   = pickIdx(hB, ["REEMBOLSO"]);
+  const iReemA  = pickIdx(hB, ["REEMBOLSO_A", "REEMBOLSO A"]);
+  const iMetP   = pickIdx(hB, ["METODO_PAGO", "METODO PAGO", "MÉTODO_PAGO"]);
   const fmtYm = (v) => {
     if (!v) return "";
     if (v instanceof Date) return Utilities.formatDate(v, TZ, "yyyy-MM");
@@ -8851,6 +8860,13 @@ function getBancosData_(ss) {
         INQUILINO_PROPIEDAD: iInqProp >= 0 ? String(r[iInqProp]).trim() : "",
         INQUILINO_DEPTO:     iInqDep  >= 0 ? String(bancosDisplay[rowNum - 1][iInqDep]).trim() : "",
         MES_CORRESPONDIENTE: iMesCorr >= 0 ? fmtYm(r[iMesCorr])         : "",
+        PROPIEDAD:    iProp  >= 0 ? String(r[iProp]).trim()  : "",
+        DEPARTAMENTO: iDepto >= 0 ? String(bancosDisplay[rowNum - 1][iDepto]).trim() : "",
+        ENCARGADO:    iEnc   >= 0 ? String(r[iEnc]).trim()   : "",
+        DEDUCIBLE:    iDed   >= 0 ? String(r[iDed]).trim()   : "",
+        REEMBOLSO:    iReem  >= 0 ? String(r[iReem]).trim()  : "",
+        REEMBOLSO_A:  iReemA >= 0 ? String(r[iReemA]).trim() : "",
+        METODO_PAGO:  iMetP  >= 0 ? String(r[iMetP]).trim()  : "",
         rowNum:            rowNum
       };
     });

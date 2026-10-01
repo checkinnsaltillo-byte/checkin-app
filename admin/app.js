@@ -2331,6 +2331,15 @@ async function bn_loadData() {
       rec._validado        = rec.VALIDADO  || '';
       rec._archivado       = /^s[ií]$/i.test(String(rec.ARCHIVADO || '').trim()) ? 'Sí' : '';
       rec._comentarios     = rec.COMENTARIOS || rec.Comentarios || '';
+      // Campos de clasificación guardados (PROPIEDAD, DEPARTAMENTO, …). Si la
+      // fila tiene Inquilino, su Propiedad / # Depto sirven de respaldo.
+      rec._propiedad       = rec.PROPIEDAD    || rec.INQUILINO_PROPIEDAD || '';
+      rec._departamento    = rec.DEPARTAMENTO || rec.INQUILINO_DEPTO     || '';
+      rec._encargado       = rec.ENCARGADO    || '';
+      rec._deducible       = /^s[ií]$/i.test(String(rec.DEDUCIBLE || '').trim()) ? 'Sí' : (rec.DEDUCIBLE ? 'No' : '');
+      rec._reembolso       = /^s[ií]$/i.test(String(rec.REEMBOLSO || '').trim()) ? 'Sí' : (rec.REEMBOLSO ? 'No' : '');
+      rec._reembolso_a     = rec.REEMBOLSO_A  || '';
+      if (rec.METODO_PAGO) rec._metodo_pago = rec.METODO_PAGO;
       // Normaliza "sí/si/SI/Sí" → 'Sí' siempre; cualquier otra cosa → ''
       const _trRaw = rec.Ticket_relacionado || rec.TICKET_RELACIONADO || rec.ticket_relacionado || '';
       const _trCanon = String(_trRaw).normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toLowerCase();
