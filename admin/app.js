@@ -25979,7 +25979,13 @@ async function ocupInit() {
     const today = new Date();
     OCUP_STATE.currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   }
+  const _t0 = performance.now();
+  const _pend = !OCUP_STATE.bookingsLoaded;
   ocupShowLoading();
+  if (_pend) {
+    const tc = document.getElementById('ocup-table-container');
+    if (tc && OCUP_STATE.view === 'indicadores') tc.innerHTML = `<div style="text-align:center;padding:80px 20px;color:#94a3b8;font-size:13px">⏳ Cargando reservas de los últimos ${OCUP_HIST_MONTHS} meses…</div>`;
+  }
   // Asegura datos cargados (silencioso si ya están)
   try {
     // Si ya hay una descarga en curso, lgLoadAlojamientos la espera (antes se
@@ -25991,7 +25997,14 @@ async function ocupInit() {
   } catch (e) {
     console.warn('[OCUP] load error:', e?.message || e);
   }
-  ocupRender();
+  const _tLoad = Math.round(performance.now() - _t0);
+  // Re-pinta la vista VISIBLE (antes siempre pintaba el Calendario, aunque se
+  // estuviera viendo Indicadores → la tabla se quedaba sin datos).
+  const v = OCUP_STATE.view || 'calendario';
+  if (v === 'indicadores') { ocupInitFiltersOnce(); ocupRenderTable(); }
+  else if (v === 'graficas') { ocupChartInitFiltersOnce(); ocupRenderChart(); }
+  else ocupRender();
+  console.info('[OCUP timing ms]', { carga: _tLoad, render: Math.round(performance.now() - _t0) - _tLoad, vista: v, reservas: (OCUP_STATE.bookings || []).length });
 }
 
 // El Dashboard usa su propia lista (24 meses de historia → futuro). Gestión
