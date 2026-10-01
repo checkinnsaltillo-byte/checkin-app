@@ -6505,8 +6505,14 @@ input.bn-efe-chk[type="checkbox"], input.bn-up-chk[type="checkbox"]:checked::aft
   transform: rotate(45deg);
 }
 
-/* ─── Ocupación · Indicadores: alojamiento semi-transparente + noches compactas ─── */
-.ocup-td-aloj { opacity: .55; }
+/* ─── Ocupación · Indicadores: alojamiento con FONDO semi-transparente (el
+   texto va negro 100% — opacity atenuaba también el nombre) + noches compactas ─── */
+.ocup-table tbody td.ocup-td-aloj {
+  opacity: 1;
+  background: rgba(224, 231, 255, .55) !important;
+  color: #000 !important;
+}
+.ocup-table tbody tr:hover td.ocup-td-aloj { background: rgba(199, 210, 254, .6) !important; }
 .ocup-cell-line { gap: 4px !important; flex-wrap: nowrap !important; }
 .ocup-cell-nights { font-size: 10px !important; white-space: nowrap !important; }
 .ocup-cell-pct    { font-size: 11px !important; white-space: nowrap !important; }
