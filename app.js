@@ -934,7 +934,79 @@ function autoSelectDeducible(i, productos) {
 }
 
 /** Actualiza el texto de ruta de clasificación debajo del buscador */
+
+// ── Panel Clasificar: Propiedad / # Departamento del catálogo alojamientos
+// (mismo que Registros de efectivo) + Inquilino / Mes correspondiente
+// visibles solo con Categoría = Contratos. Autollenado en ambos sentidos.
+function cpPropiedadOptions_(current) {
+  const base = (typeof inqBuildPropiedadOptions_ === 'function') ? inqBuildPropiedadOptions_(current || '') : '<option value=""></option>';
+  return base.replace(/>(— Selecciona —|⏳ Cargando…)</, '>— Seleccionar —<') + '<option value="Otro">Otro</option>';
+}
+function cpDeptoOptions_(propiedad, current, fallback) {
+  const hasCat = typeof ALOJ_STATE !== 'undefined' && ALOJ_STATE.rows && ALOJ_STATE.rows.length;
+  if (!hasCat && fallback) return '<option value="">— Seleccionar —</option>' + fallback;
+  return inqBuildDepartamentoOptions_(propiedad || '', current || '').replace('>— Selecciona —<', '>— Seleccionar —<');
+}
+function cpIsContratos_(i) {
+  return /contrato/i.test(document.getElementById(`categoria-${i}`)?.value || '');
+}
+function cpToggleContratos_(i) {
+  const box = document.getElementById(`contratos-fields-${i}`);
+  if (box) box.classList.toggle('hidden', !cpIsContratos_(i));
+}
+function cpPropVal_(i) {
+  const sel = document.getElementById(`propiedad-${i}`);
+  if (!sel) return '';
+  return sel.value === 'Otro' ? (document.getElementById(`propiedad-otro-${i}`)?.value?.trim() || '') : sel.value;
+}
+// Reconstruye selects con el catálogo actual conservando los valores.
+function cpFillAlojSelects_(i, prop, depto, inquilino) {
+  const pSel = document.getElementById(`propiedad-${i}`);
+  const dSel = document.getElementById(`departamento-${i}`);
+  const iSel = document.getElementById(`inquilino-${i}`);
+  if (pSel) { pSel.innerHTML = cpPropiedadOptions_(prop || ''); pSel.value = prop || ''; }
+  if (dSel) { dSel.innerHTML = cpDeptoOptions_(prop || '', depto || ''); dSel.value = depto || ''; }
+  if (iSel) { iSel.innerHTML = bnEfeInquilinoOptions_(inquilino || ''); iSel.value = inquilino || ''; }
+}
+function cpOnPropiedad_(i) {
+  const prop = cpPropVal_(i);
+  const dSel = document.getElementById(`departamento-${i}`);
+  const cur = dSel ? dSel.value : '';
+  if (dSel) { dSel.innerHTML = cpDeptoOptions_(prop, cur); if (![...dSel.options].some(o => o.value === cur)) dSel.value = ''; }
+  cpOnDepto_(i);
+}
+function cpOnDepto_(i) {
+  const iSel = document.getElementById(`inquilino-${i}`);
+  if (!iSel) return;
+  const nombre = bnEfeInquilinoPara_(cpPropVal_(i), document.getElementById(`departamento-${i}`)?.value || '');
+  iSel.innerHTML = bnEfeInquilinoOptions_(nombre);
+  iSel.value = nombre;
+}
+function cpOnInquilino_(i) {
+  const nombre = document.getElementById(`inquilino-${i}`)?.value || '';
+  const perfil = nombre ? bnEfePerfiles_().find(p => String(p.Nombre || '').trim() === nombre) : null;
+  if (!perfil) return;
+  const prop = String(perfil.Propiedad || '').trim(), depto = String(perfil.Departamento || '').trim();
+  const pSel = document.getElementById(`propiedad-${i}`);
+  if (pSel) { pSel.innerHTML = cpPropiedadOptions_(prop); pSel.value = prop; togglePropiedadOtro(i, prop); }
+  const dSel = document.getElementById(`departamento-${i}`);
+  if (dSel) { dSel.innerHTML = cpDeptoOptions_(prop, depto); dSel.value = depto; }
+}
+function cpSetMes_(i, ym) {
+  const h = document.getElementById(`mescorr-${i}`);
+  const b = document.getElementById(`mescorr-btn-${i}`);
+  if (h) h.value = ym || '';
+  if (b) {
+    b.style.color = ym ? '#0f172a' : '#94a3b8';
+    b.style.fontWeight = ym ? '700' : '400';
+    b.firstElementChild.textContent = ym ? bnEfeMesLabel_(ym) : 'Elegir mes…';
+  }
+}
+window.cpMesOpen_ = function (i, btn) {
+  mesPickerOpen_(btn, () => document.getElementById(`mescorr-${i}`)?.value || '', ym => { cpSetMes_(i, ym); markClassifyDirty(i); });
+};
 function updateClasiPath(i) {
+  cpToggleContratos_(i);
   const el = document.getElementById(`clasif-path-${i}`);
   if (!el) return;
   const cuenta    = document.getElementById(`cuenta-${i}`)?.value    || "";
@@ -1211,14 +1283,8 @@ function buildClassifyPanel(idx, fecha, deptOpts, saveLabel, saveOnclick, limpia
 
       <div class="cuenta-field">
         <label>Propiedad</label>
-        <select id="propiedad-${idx}" class="field-select" onchange="togglePropiedadOtro('${idx}', this.value); markClassifyDirty('${idx}')">
-          <option value="">— Seleccionar —</option>
-          <option>Calle Cumbres</option>
-          <option>Calle Baja California</option>
-          <option>Calle Oaxaca</option>
-          <option>Calle José Cárdenas</option>
-          <option>Calle Matamoros</option>
-          <option value="Otro">Otro</option>
+        <select id="propiedad-${idx}" class="field-select" onchange="togglePropiedadOtro('${idx}', this.value); cpOnPropiedad_('${idx}'); markClassifyDirty('${idx}')">
+          ${cpPropiedadOptions_('')}
         </select>
         <div class="hidden" id="propiedad-otro-wrap-${idx}" style="margin-top:8px">
           <input type="text" id="propiedad-otro-${idx}" class="field-select"
@@ -1229,11 +1295,28 @@ function buildClassifyPanel(idx, fecha, deptOpts, saveLabel, saveOnclick, limpia
 
       <div class="cuenta-field">
         <label># Departamento</label>
-        <select id="departamento-${idx}" class="field-select" onchange="markClassifyDirty('${idx}')">
-          <option value="">— Seleccionar —</option>
-          ${Array.from({length:14},(_,j)=>`<option>${j+1}</option>`).join('')}
+        <select id="departamento-${idx}" class="field-select" onchange="cpOnDepto_('${idx}'); markClassifyDirty('${idx}')">
+          ${cpDeptoOptions_('', '', deptOpts)}
         </select>
       </div>
+
+      ${/^bn\d+$/.test(String(idx)) ? `
+      <!-- Solo Categoría = Contratos: renta de inquilinos (BANCOS INQUILINO / MES_CORRESPONDIENTE) -->
+      <div id="contratos-fields-${idx}" class="hidden">
+        <div class="cuenta-field">
+          <label>Inquilino</label>
+          <select id="inquilino-${idx}" class="field-select" onchange="cpOnInquilino_('${idx}'); markClassifyDirty('${idx}')">
+            ${bnEfeInquilinoOptions_('')}
+          </select>
+        </div>
+        <div class="cuenta-field">
+          <label>Mes correspondiente</label>
+          <input type="hidden" id="mescorr-${idx}" value="">
+          <button type="button" id="mescorr-btn-${idx}" class="field-select" onclick="cpMesOpen_('${idx}', this)"
+                  style="display:flex;align-items:center;justify-content:space-between;text-align:left;cursor:pointer;color:#94a3b8">
+            <span>Elegir mes…</span><span>📅</span></button>
+        </div>
+      </div>` : ''}
 
       <div class="cuenta-field" id="deducible-field-${idx}">
         <label>Deducible</label>
@@ -6534,18 +6617,22 @@ function bn_autoPopulateBnClassify(ci, rec) {
     }
   }
 
-  // Propiedad
-  const propSel = document.getElementById(`propiedad-${ci}`);
-  if (propSel && rec._propiedad) {
-    const exists = Array.from(propSel.options).some(o => o.value === rec._propiedad);
-    if (exists) propSel.value = rec._propiedad;
-    else { propSel.value = 'Otro'; togglePropiedadOtro(ci, 'Otro');
-      const oEl = document.getElementById(`propiedad-otro-${ci}`); if (oEl) oEl.value = rec._propiedad; }
+  // Propiedad + # Departamento (catálogo alojamientos) + Inquilino / Mes
+  // correspondiente. El catálogo puede llegar después → se re-pintan los
+  // selects conservando los valores del registro.
+  const _cpFill = () => {
+    cpFillAlojSelects_(ci, rec._propiedad || '', rec._departamento != null ? String(rec._departamento) : '', String(rec.INQUILINO || ''));
+    cpSetMes_(ci, bnEfeYm_(rec.MES_CORRESPONDIENTE || ''));
+    cpToggleContratos_(ci);
+  };
+  _cpFill();
+  if (typeof bnEfeEnsureCatalogs_ === 'function') {
+    bnEfeEnsureCatalogs_().then(() => {
+      if (!document.getElementById(`propiedad-${ci}`)) return;
+      _cpFill();
+      try { bn_classifyInitialSnapshot = bn_classifySnapshot(ci); } catch (_) {}
+    });
   }
-
-  // Departamento
-  const dEl = document.getElementById(`departamento-${ci}`);
-  if (dEl && rec._departamento) dEl.value = rec._departamento;
 
   // Encargado (comprador)
   if (rec._encargado) {
@@ -6651,6 +6738,26 @@ async function bn_saveBnClassification(idx) {
   rec._tipo     = _ct2.includes('egr') ? 'Egresos' : _ct2.includes('ing') ? 'Ingresos' :
                   _ct2.includes('activ') ? 'Activos' : _ct2.includes('pasiv') ? 'Pasivos' :
                   _ct2.includes('capital') ? 'Capital' : _rawT2;
+
+  // Inquilino / Mes correspondiente (Categoría = Contratos) → mismas columnas
+  // de BANCOS que Registros de efectivo. Se escribe si hay dato nuevo o si
+  // antes tenía (para limpiarlo al cambiar de categoría).
+  const _inqFields = {
+    INQUILINO:           c.inquilino || '',
+    INQUILINO_PROPIEDAD: c.inquilino ? (c.propiedad || '') : '',
+    INQUILINO_DEPTO:     c.inquilino ? (c.departamento || '') : '',
+    MES_CORRESPONDIENTE: c.mes_corr || '',
+  };
+  const _inqChanged = Object.keys(_inqFields).some(k => String(rec[k] || '') !== String(_inqFields[k]));
+  if (_inqChanged) {
+    Object.assign(rec, _inqFields);
+    fetch(`${BACKEND}/bn/update-rows`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates: [{ rowNum: rec.rowNum, fields: _inqFields }] }),
+    }).then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error || 'update falló'); })
+      .catch(e => alert('No se pudo guardar Inquilino / Mes correspondiente: ' + (e.message || e)));
+    if (typeof inqEfePagosFromRaw_ === 'function' && Array.isArray(BN_RAW)) inqEfePagosFromRaw_(BN_RAW, false);
+  }
 
   // Re-render: actualizar SIEMPRE la vista activa (cards o tabla)
   // UI instantánea: cierra modal + re-renderiza ANTES del fetch
@@ -8036,6 +8143,7 @@ function bn_classifySnapshot(ci) {
     ded: !!c.deducible, reem: !!c.reembolso, reema: c.reembolso_a||'',
     mp: c.metodo_pago_clasif||'',
     coment: c.comentarios||'', detalles: c.detalles||'',
+    inq: c.inquilino||'', mesc: c.mes_corr||'',
     fecha, dudaOn, valOn, desc,
   });
 }
@@ -8475,6 +8583,9 @@ function getClassify(i) {
     metodo_pago_clasif:document.getElementById(`metodo-clasif-${i}`)?.value  || "",
     detalles_operacion:document.getElementById(`detalles-${i}`)?.value?.trim()|| "",
     comentarios:       document.getElementById(`comentarios-${i}`)?.value?.trim() || "",
+    // Solo con Categoría = Contratos (si no, se limpian al guardar).
+    inquilino:         cpIsContratos_(i) ? (document.getElementById(`inquilino-${i}`)?.value || "") : "",
+    mes_corr:          cpIsContratos_(i) ? (document.getElementById(`mescorr-${i}`)?.value  || "") : "",
   };
 }
 
@@ -30583,13 +30694,19 @@ function bnEfeMesLabel_(ym) {
 }
 // Selector estético de mes: popover con año (‹ 2026 ›) y cuadrícula de 12 meses.
 const BN_EFE_MES_ABR = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-let _bnEfeMesPick = null; // { id, year }
+let _bnEfeMesPick = null; // { year, btn, get():ym, set(ym) }
+// Genérico: abre el selector de mes junto a `btn`. get() = mes actual "YYYY-MM",
+// set(ym) se llama al elegir ('' = quitar).
+function mesPickerOpen_(btn, get, set) {
+  bnEfeMesPickerClose();
+  const cur = String(get() || '').match(/^(\d{4})-(\d{2})/);
+  _bnEfeMesPick = { year: cur ? parseInt(cur[1], 10) : new Date().getFullYear(), btn, get, set };
+  _bnEfeMesPickerRender_();
+}
 window.bnEfeMesPickerOpen = function (id, btn) {
   const r = BN_EFE_STATE.rows.find(x => x.id === id);
   if (!r) return;
-  const cur = String(r.mesCorr || '').match(/^(\d{4})-(\d{2})/);
-  _bnEfeMesPick = { id, year: cur ? parseInt(cur[1], 10) : new Date().getFullYear(), btn };
-  _bnEfeMesPickerRender_();
+  mesPickerOpen_(btn, () => r.mesCorr, ym => { bnEfectivoUpdate(id, 'mesCorr', ym); bnEfeRerenderRow_(id); });
 };
 window.bnEfeMesPickerYear = function (delta) {
   if (!_bnEfeMesPick) return;
@@ -30597,11 +30714,10 @@ window.bnEfeMesPickerYear = function (delta) {
   _bnEfeMesPickerRender_();
 };
 window.bnEfeMesPickerSet = function (ym) {
-  if (!_bnEfeMesPick) return;
-  const id = _bnEfeMesPick.id;
+  const P = _bnEfeMesPick;
+  if (!P) return;
   bnEfeMesPickerClose();
-  bnEfectivoUpdate(id, 'mesCorr', ym);
-  bnEfeRerenderRow_(id);
+  P.set(ym);
 };
 window.bnEfeMesPickerClose = function () {
   const el = document.getElementById('bn-efe-mes-pop');
@@ -30615,8 +30731,7 @@ function _bnEfeMesPickerOutside_(ev) {
 }
 function _bnEfeMesPickerRender_() {
   const P = _bnEfeMesPick; if (!P) return;
-  const r = BN_EFE_STATE.rows.find(x => x.id === P.id);
-  const sel = String(r?.mesCorr || '').slice(0, 7);
+  const sel = String(P.get() || '').slice(0, 7);
   const now = new Date();
   const hoyYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   let el = document.getElementById('bn-efe-mes-pop');
