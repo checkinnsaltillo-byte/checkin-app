@@ -37010,6 +37010,15 @@ function _asistBuildAliasMap_(personalRows) {
       if (!alias.has(key)) alias.set(key, full);
     }
   });
+  // Variantes informales sin segundo nombre ("Adán Ramos Lozano", "Adán
+  // Ramos") con las que el bot de WhatsApp / capturas viejas guardaron
+  // registros — mismas reglas que el resto de RH (_rhRegisterPersonalAliases_).
+  if (typeof _rhRegisterPersonalAliases_ === 'function' && typeof INC_STATE !== 'undefined') {
+    const fulls = new Set((personalRows || []).map(p => String(p?.nombre || '').trim()).filter(Boolean));
+    const extra = new Map();
+    (INC_STATE.personalRows || []).forEach(pr => _rhRegisterPersonalAliases_(extra, pr));
+    extra.forEach((full, key) => { if (fulls.has(full) && !alias.has(key)) alias.set(key, full); });
+  }
   return alias;
 }
 function _asistCalRowFor_(nombre, iso) {

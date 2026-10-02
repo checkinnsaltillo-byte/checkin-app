@@ -12220,6 +12220,33 @@ function asistenciaLookupEmpleadoByCel_(data) {
   return { ok:true, empleado:null };
 }
 
+/** Nombre completo del empleado en la hoja Personal cuyo Celular/Whatsapp
+ *  termina en los mismos 10 dígitos. Une Nombre + apellidos sin duplicar. */
+function asistenciaNombrePersonalByCel_(cel) {
+  try {
+    var last10 = String(cel || '').replace(/\D/g, '').slice(-10);
+    if (last10.length < 10) return '';
+    var sh = getSpreadsheet_().getSheetByName('Personal');
+    if (!sh || sh.getLastRow() < 2) return '';
+    var v = sh.getDataRange().getDisplayValues();
+    var h = v[0].map(function (x) { return String(x || '').trim(); });
+    var iNom = h.indexOf('Nombre'), iAp = h.indexOf('Apellido_paterno'), iAm = h.indexOf('Apellido_materno');
+    var iCels = ['Celular', 'Whatsapp', 'WhatsApp', 'Telefono', 'Teléfono', 'cel'].map(function (k) { return h.indexOf(k); }).filter(function (i) { return i >= 0; });
+    if (iNom < 0 || !iCels.length) return '';
+    var norm = function (s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim(); };
+    for (var r = 1; r < v.length; r++) {
+      var hit = iCels.some(function (i) { var d = String(v[r][i] || '').replace(/\D/g, ''); return d.length >= 10 && d.slice(-10) === last10; });
+      if (!hit) continue;
+      var nom = String(v[r][iNom] || '').trim();
+      var ap = iAp >= 0 ? String(v[r][iAp] || '').trim() : '';
+      var am = iAm >= 0 ? String(v[r][iAm] || '').trim() : '';
+      var yaTiene = (!ap || norm(nom).indexOf(norm(ap)) >= 0) && (!am || norm(nom).indexOf(norm(am)) >= 0);
+      return (yaTiene ? nom : [nom, ap, am].filter(Boolean).join(' ')).replace(/\s+/g, ' ').trim();
+    }
+  } catch (e) { Logger.log('[asistenciaNombrePersonalByCel_] ' + e); }
+  return '';
+}
+
 function asistenciaMarcar_(data) {
   var tz = "America/Monterrey";
   var cel = String(data && (data.cel || data.phone) || "").replace(/\D/g,"");
@@ -12233,6 +12260,10 @@ function asistenciaMarcar_(data) {
   if (!empRes.empleado) return { ok:false, error:"celular no está registrado en sys_users", empleado:null };
   var nombre = empRes.empleado.nombre;
   var puesto = empRes.empleado.puesto;
+  // Nombre OFICIAL desde la hoja Personal (por celular): sys_users puede tener
+  // una versión corta ("Adán Ramos Lozano") que el calendario no reconoce.
+  var oficial = asistenciaNombrePersonalByCel_(cel);
+  if (oficial) nombre = oficial;
   var sh = getSpreadsheet_().getSheetByName('RH_Asistencia');
   if (!sh) return { ok:false, error:"Hoja RH_Asistencia no encontrada" };
   var hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function(h){ return String(h||"").trim(); });
@@ -12277,7 +12308,8 @@ function asistenciaMarcar_(data) {
       if (vals[i][iFecha] instanceof Date) {
         f = Utilities.formatDate(vals[i][iFecha], tz, "yyyy-MM-dd");
       }
-      if (f === fechaHoy && String(vals[i][iEmpN] || "").trim() === nombre) {
+      var _nm = String(vals[i][iEmpN] || "").trim();
+      if (f === fechaHoy && (_nm === nombre || _nm === empRes.empleado.nombre)) {
         rowFound = i + 2;
         break;
       }
