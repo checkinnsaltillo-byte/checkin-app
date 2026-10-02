@@ -56148,6 +56148,31 @@ function pagosRender() {
     </div>`;
   // Sincroniza el modal lateral (fuera del contenedor) con selectedId.
   _pagosSyncSlideOver_();
+  _pagosStickyCols_();
+}
+// Congela las columnas Reserva · Huésped · Alojamiento · Medio · Fechas al
+// desplazar la tabla a la derecha. Mide los anchos reales del encabezado.
+const PAGOS_FROZEN_COLS = 5;
+function _pagosStickyCols_() {
+  const tbl = document.querySelector('#pagos-root table');
+  if (!tbl) return;
+  if (!tbl._pagosRO && typeof ResizeObserver !== 'undefined') {
+    tbl._pagosRO = new ResizeObserver(() => _pagosStickyCols_());
+    tbl._pagosRO.observe(tbl);
+  }
+  const ths = Array.from(tbl.querySelectorAll('thead tr th'));
+  const lefts = []; let acc = 0;
+  for (let i = 0; i < PAGOS_FROZEN_COLS && i < ths.length; i++) { lefts.push(acc); acc += ths[i].getBoundingClientRect().width; }
+  const last = lefts.length - 1;
+  const fix = (cell, i, bg, z) => {
+    cell.style.position = 'sticky'; cell.style.left = lefts[i] + 'px'; cell.style.zIndex = z; cell.style.background = bg;
+    if (i === last) cell.style.boxShadow = 'inset -2px 0 0 #cbd5e1';
+  };
+  ths.forEach((th, i) => { if (i <= last) fix(th, i, '#f8fafc', '3'); });
+  tbl.querySelectorAll('tbody tr').forEach(tr => {
+    const bg = tr.style.background || '#fff';
+    Array.from(tr.children).forEach((td, i) => { if (i <= last) fix(td, i, bg, '1'); });
+  });
 }
 async function pagosSelect(id) {
   PAGOS_STATE.selectedId = String(id);
