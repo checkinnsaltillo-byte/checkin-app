@@ -2294,7 +2294,10 @@ function bn_resetBCache() { BN_BCACHE.E=null; BN_BCACHE.I=null; }
 function bn_txt(id,v) { const el=document.getElementById(id); if(el) el.textContent=v; }
 
 // ─── Load ─────────────────────────────────────────────────────────────────────
-async function bn_loadData() {
+async function bn_loadData(opts) {
+  opts = opts || {};
+  const _t0 = performance.now(), _T = {};
+  const _mk = k => { _T[k] = Math.round(performance.now() - _t0); };
   const lbl   = document.getElementById('bn-status-label');
   const empty = document.getElementById('bn-empty');
   const emMsg = document.getElementById('bn-empty-msg');
@@ -2309,8 +2312,12 @@ async function bn_loadData() {
     let data = null;
     for (let a = 1; a <= 2; a++) {
       try {
-        const res = await fetch(BACKEND+'/get-bancos',{cache:'no-store'});
+        // El servidor responde al instante con su copia en memoria (se refresca
+        // sola en 2º plano). fresh=1 espera la versión nueva (tras insertar).
+        const res = await fetch(BACKEND+'/get-bancos'+(opts.fresh ? '?fresh=1' : ''),{cache:'no-store'});
+        _mk('respuesta');
         data = await res.json();
+        _mk('json');
         if (data && data.ok) break;
       } catch (e) { data = { ok:false, error: e.message }; }
       if (a < 2) {
@@ -2375,6 +2382,7 @@ async function bn_loadData() {
                   _ct.includes('capital') ? 'Capital' : _rawTipo;
       return rec;
     });
+    _mk('procesar');
     BN_BUDGET=data.budget||[];
     BN_LOADED=true; bn_resetBCache();
     bn_migrateLocalArchived_().catch(() => {});
@@ -2391,6 +2399,8 @@ async function bn_loadData() {
     bn_setDefaultFilters();
     // Inicializar categoría (renderiza chips de sub-opciones)
     bn_setCat(BN_TIPO_PARENT[BN_TIPO] || 'pc');
+    _mk('render');
+    console.info('[BN timing ms]', { ..._T, registros: BN_RAW.length, copia_servidor: !!data.cached, antiguedad_copia_s: data.cached_age_ms != null ? Math.round(data.cached_age_ms / 1000) : null });
   } catch(e) {
     if (lbl) lbl.textContent='Error al cargar';
     if (empty) { empty.style.display='flex'; if(emMsg) emMsg.textContent='Error: '+e.message; }
@@ -22979,6 +22989,8 @@ async function _bnUploadConfirmInsertInner() {
     const j = await res.json();
     if (!j.ok) throw new Error(j.error || 'Insert falló');
     if (status) status.textContent = `✓ ${j.inserted} filas insertadas en BANCOS. Refrescando índice…`;
+    // La inserción va directo a Apps Script: avisa al servidor que su copia cambió.
+    fetch(`${BACKEND}/bn/invalidate`, { method: 'POST' }).catch(() => {});
     // Si el origen fue Drive, marca cada file_id como importado para que
     // la próxima vez aparezca deseleccionado en el picker.
     try {
@@ -31728,7 +31740,7 @@ window.bnEfectivoSave = async function (opts) {
     // Fuerza recarga de BN_RAW desde el server para que los recién insertados
     // aparezcan con ✓ y sombreado como el resto de importados.
     BN_RAW = [];
-    try { if (typeof bn_loadData === 'function') await bn_loadData(); } catch(_){}
+    try { if (typeof bn_loadData === 'function') await bn_loadData({ fresh: true }); } catch(_){}
     // Sube el N a mostrar para incluir todo lo que acabamos de insertar
     try {
       const inp = document.getElementById('bn-efectivo-load-n');
