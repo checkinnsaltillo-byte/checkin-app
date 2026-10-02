@@ -56081,7 +56081,7 @@ function pagosRender() {
     const extChip = ext ? `<div style="margin-top:3px"><span title="Salida original: ${_pagosEsc(_pagosFmtFecha(ext.antes))} → nueva: ${_pagosEsc(_pagosFmtFecha(ext.nueva))}${ext.fuente === 'registro' ? ' (según el registro de check-in)' : ''}" style="display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:999px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;font-size:10px;font-weight:800">⏩ Extensión</span> <span style="font-size:10px;color:#94a3b8">antes ${_pagosEsc(_pagosFmtFecha(ext.antes))}</span></div>` : '';
     return `
       <tr onclick="pagosSelect('${_pagosEsc(String(b.Id))}')" style="cursor:pointer;background:${isSel?'#eff6ff':'#fff'};border-bottom:1px solid #f1f5f9">
-        <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#1e40af">${_pagosEsc(b.Id)}</td>
+        <td style="padding:10px 8px;font-size:12px;font-weight:700"><a href="#" onclick="event.preventDefault();event.stopPropagation();pagosOpenReserva('${_pagosEsc(String(b.Id))}')" title="Ver detalles de la reserva" style="color:#1e40af;text-decoration:underline;text-underline-offset:2px">${_pagosEsc(b.Id)}</a></td>
         <td style="padding:10px 8px;font-size:12px">${_pagosEsc(b.GuestName || '—')}</td>
         <td style="padding:10px 8px;font-size:12px;color:#475569">${_pagosEsc(_pagosAlojName(b))}</td>
         <td style="padding:10px 8px">${_pagosSourceChip(b.Source)}</td>
@@ -56192,6 +56192,57 @@ function _pagosStickyCols_() {
     Array.from(tr.children).forEach((td, i) => { if (i <= last) fix(td, i, bg, '1'); });
   });
 }
+
+// ── Detalle de la reserva (link en la columna Reserva) ─────────────────
+// Panel lateral derecho con las MISMAS columnas 2 y 3 del detalle de las
+// cards de Gestión de reservas: "Detalle de reservación" (+ secciones que se
+// inyectan solas: aseo, dispositivos, incidencias, objetos, reportes) y
+// "Cobros" (tarifas + recuadro de factura/ticket).
+window.pagosOpenReserva = function (id) {
+  const raw = PAGOS_STATE.bookings.find(x => String(x.Id) === String(id));
+  if (!raw) return;
+  const b = (typeof lgNormalizeBookingRow_ === 'function') ? lgNormalizeBookingRow_({ ...raw }) : { ...raw };
+  const lgB = (typeof LG_STATE !== 'undefined' && Array.isArray(LG_STATE.bookings)) ? LG_STATE.bookings.find(x => String(x.Id) === String(id)) : null;
+  const hu = _pagosHuRow(raw) || (lgB && typeof lgGetHuespedForBooking === 'function' ? lgGetHuespedForBooking(lgB) : null) || null;
+  let ov = document.getElementById('pagos-resv-slideover');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'pagos-resv-slideover';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex';
+    document.body.appendChild(ov);
+    if (!window.__pagosResvEsc) {
+      window.__pagosResvEsc = (e) => { if (e.key === 'Escape') pagosCloseReserva(); };
+      document.addEventListener('keydown', window.__pagosResvEsc);
+    }
+  }
+  const col2 = (typeof lgBuildSection1DetailHtml === 'function') ? lgBuildSection1DetailHtml(b, hu) : '';
+  const col3 = (typeof lgBuildSection2CobrosHtml === 'function') ? lgBuildSection2CobrosHtml(b, hu) : '';
+  ov.innerHTML = `
+    <div onclick="pagosCloseReserva()" style="flex:1;background:rgba(15,23,42,.55);cursor:pointer"></div>
+    <div style="width:min(980px,100%);height:100%;background:#f8fafc;box-shadow:-12px 0 32px rgba(15,23,42,.25);overflow-y:auto;animation:pagosSlideIn .18s ease-out;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:#fff;position:sticky;top:0;z-index:2">
+        <div>
+          <div style="font-size:15px;font-weight:900;color:#0f172a">Reserva #${_pagosEsc(String(id))}</div>
+          <div style="font-size:12px;color:#64748b">${_pagosEsc(raw.GuestName || '')}${hu ? '' : ' · <span style="color:#b45309">sin registro de check-in vinculado</span>'}</div>
+        </div>
+        <button type="button" onclick="pagosCloseReserva()" aria-label="Cerrar" style="width:32px;height:32px;border:none;background:#f1f5f9;color:#475569;border-radius:8px;font-weight:900;font-size:16px;cursor:pointer">✕</button>
+      </div>
+      <div class="hu-record-body" data-lg-booking-id="${_pagosEsc(String(id))}" style="padding:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">
+        <div class="hu-col-detail">${col2}</div>
+        <div class="hu-col-cobros">${col3}</div>
+      </div>
+    </div>`;
+  if (!document.getElementById('pagos-slideover-style')) {
+    const st = document.createElement('style');
+    st.id = 'pagos-slideover-style';
+    st.textContent = '@keyframes pagosSlideIn { from { transform: translateX(100%) } to { transform: translateX(0) } }';
+    document.head.appendChild(st);
+  }
+};
+window.pagosCloseReserva = function () {
+  const ov = document.getElementById('pagos-resv-slideover');
+  if (ov) ov.remove();
+};
 async function pagosSelect(id) {
   PAGOS_STATE.selectedId = String(id);
   _pagosSyncSlideOver_(); // muestra loader al instante
