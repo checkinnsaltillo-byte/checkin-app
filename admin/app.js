@@ -55635,11 +55635,13 @@ function _pagosPerfilByPhone(phone) {
       if (!p || p.length < 10) continue;
       const razon = String(h['Razón social'] || h.RazonSocial || '').trim();
       const factura = String(h['¿Requiere factura?'] || h.RequiereFactura || '').trim();
+      const regimen = String(h['Régimen fiscal'] || h['Regimen fiscal'] || '').trim();
       // Solo sobrescribir si el existente está vacío (preferir el más completo).
       const prev = map.get(p);
-      if (!prev) { map.set(p, { razon, factura, celFull: cel }); }
+      if (!prev) { map.set(p, { razon, factura, regimen, celFull: cel }); }
       else {
         if (!prev.razon && razon) prev.razon = razon;
+        if (!prev.regimen && regimen) prev.regimen = regimen;
         if (!prev.factura && factura) prev.factura = factura;
         if (!prev.celFull && cel) prev.celFull = cel;
       }
@@ -55737,6 +55739,10 @@ async function _pagosLoadExtensiones_() {
 function _pagosRazon(b) {
   const perfil = _pagosPerfilByPhone(b.GuestPhone);
   return perfil ? perfil.razon : '';
+}
+function _pagosRegimen(b) {
+  const perfil = _pagosPerfilByPhone(b.GuestPhone);
+  return perfil ? (perfil.regimen || '') : '';
 }
 function _pagosReqFactura(b) {
   const perfil = _pagosPerfilByPhone(b.GuestPhone);
@@ -55943,7 +55949,7 @@ function pagosApplyFilters() {
       const hay = [
         b.Id, b.GuestName, _pagosAlojName(b), b.Source,
         b.DateArrival, b.DateDeparture,
-        _pagosCel(b), _pagosRazon(b), _pagosReqFactura(b),
+        _pagosCel(b), _pagosRazon(b), _pagosRegimen(b), _pagosReqFactura(b),
         _pagosProgramacion(b), b.PaymentStatus,
         b.PaymentPolicy,
       ].map(v => String(v == null ? '' : v).toLowerCase()).join(' | ');
@@ -56082,6 +56088,7 @@ function pagosRender() {
         <td style="padding:10px 8px;font-size:11px;color:#64748b;white-space:nowrap">${fechas}${extChip}</td>
         <td style="padding:10px 8px;font-size:11px;color:#475569;white-space:nowrap">${_pagosEsc(_pagosCel(b) || '—')}</td>
         <td style="padding:10px 8px;font-size:11px;color:#475569;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_pagosEsc(_pagosRazon(b))}">${_pagosEsc(_pagosRazon(b) || '—')}</td>
+        <td style="padding:10px 8px;font-size:11px;color:#475569;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_pagosEsc(_pagosRegimen(b))}">${_pagosEsc(_pagosRegimen(b) || '—')}</td>
         <td style="padding:10px 8px;text-align:center">${_pagosFacturaChip(_pagosReqFactura(b))}</td>
         <td style="padding:10px 8px;text-align:center">${_pagosProgChip(_pagosProgramacion(b))}</td>
         <td style="padding:10px 8px;font-size:12px;text-align:right;font-weight:700">${_pagosFmt$(b.TotalAmount, b.Currency)}</td>
@@ -56140,6 +56147,7 @@ function pagosRender() {
                 <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Fechas</th>
                 <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Celular</th>
                 <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Razón social</th>
+                <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Régimen fiscal</th>
                 <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Factura</th>
                 <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Programación</th>
                 <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Total</th>
