@@ -55652,6 +55652,86 @@ function _pagosCel(b) {
   if (perfil && perfil.celFull) return perfil.celFull;
   return String(b.GuestPhone || '').trim();
 }
+
+// ── Fechas amigables, Extensiones y Ticket en la tabla de Pagos ────────
+const _PAGOS_MES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function _pagosFmtFecha(iso) {
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}-${_PAGOS_MES[+m[2] - 1]}-${m[1]}` : '';
+}
+function _pagosHuIso_(v) {
+  if (typeof huParseDate === 'function') { const d = huParseDate(v); if (d && !isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+  return _pagosDateIso(v);
+}
+// Reservación (hoja Reservaciones) de la reserva: por Lodgify Id; si no,
+// por teléfono + fecha de llegada.
+function _pagosHuRow(b) {
+  if (typeof HU_STATE === 'undefined' || !HU_STATE.rows || !HU_STATE.rows.length) return null;
+  if (!PAGOS_STATE._huIdx || PAGOS_STATE._huIdxLen !== HU_STATE.rows.length) {
+    const byId = new Map(), byPhoneArr = new Map();
+    for (const h of HU_STATE.rows) {
+      const id = String(h['Lodgify Id'] || '').trim();
+      const tieneTicket = !!String(h['Folio facturapi'] || '').trim();
+      if (id && (!byId.has(id) || tieneTicket)) byId.set(id, h);
+      const p = _pagosPhone10(h['Cel/Whatsapp (principal)'] || '');
+      const a = _pagosHuIso_(h['Fecha de ingreso']);
+      if (p && a) { const k = p + '|' + a; if (!byPhoneArr.has(k) || tieneTicket) byPhoneArr.set(k, h); }
+    }
+    PAGOS_STATE._huIdx = { byId, byPhoneArr };
+    PAGOS_STATE._huIdxLen = HU_STATE.rows.length;
+  }
+  const ix = PAGOS_STATE._huIdx;
+  return ix.byId.get(String(b.Id)) || ix.byPhoneArr.get(_pagosPhone10(b.GuestPhone) + '|' + _pagosDateIso(b.DateArrival)) || null;
+}
+const _pagosNum = v => { const n = Number(String(v == null ? '' : v).replace(/[^0-9.-]/g, '')); return isFinite(n) && String(v || '').trim() !== '' ? n : null; };
+// Extensión: 1) detectada por el servidor (Reservas_Extensiones);
+// 2) retroactiva: la salida actual es posterior a la del registro de check-in.
+function _pagosExt(b) {
+  const lst = PAGOS_STATE.extById && PAGOS_STATE.extById.get(String(b.Id));
+  const dep = _pagosDateIso(b.DateDeparture);
+  if (lst && lst.length) {
+    const first = lst[0], last = lst[lst.length - 1];
+    return { antes: first.antes, nueva: dep || last.nueva, totalAntes: first.totalAntes, detectado: last.detectado, fuente: 'lodgify' };
+  }
+  const hu = _pagosHuRow(b);
+  if (!hu) return null;
+  const huDep = _pagosHuIso_(hu['Fecha de salida']);
+  const huArr = _pagosHuIso_(hu['Fecha de ingreso']);
+  if (!huDep || !dep || dep <= huDep || (huArr && huArr !== _pagosDateIso(b.DateArrival))) return null;
+  return { antes: huDep, nueva: dep, totalAntes: _pagosNum(hu['($) Monto Total pagado']), detectado: '', fuente: 'registro' };
+}
+function _pagosTicket(b) {
+  const hu = _pagosHuRow(b);
+  if (!hu) return null;
+  const folio = String(hu['Folio facturapi'] || '').trim();
+  const url = (typeof huExtractTicketUrl === 'function') ? huExtractTicketUrl(hu) : String(hu['Ticket facturapi url'] || '');
+  if (!folio && !url) return null;
+  return { folio, url, monto: _pagosNum(hu['$ Monto facturado Total']), emision: _pagosHuIso_(hu['Fecha de emisión']) };
+}
+// Ticket emitido ANTES de la extensión → hay que re-emitir por la diferencia.
+function _pagosAlertaExt(b, ext, tk) {
+  if (!ext || !tk) return '';
+  const total = Number(b.TotalAmount) || 0;
+  if (tk.monto != null && tk.monto < total - 0.5) return `Ticket por ${_pagosFmt$(tk.monto, b.Currency)} emitido antes de la extensión (total actual ${_pagosFmt$(total, b.Currency)}). Re-emitir ticket.`;
+  if (tk.emision && ext.detectado && tk.emision < String(ext.detectado).slice(0, 10)) return `Ticket emitido el ${_pagosFmtFecha(tk.emision)}, antes de la extensión. Revisar / re-emitir ticket.`;
+  if (tk.monto == null && !tk.emision) return 'Ya había ticket y la reserva se extendió. Revisar si se debe re-emitir.';
+  return '';
+}
+async function _pagosLoadExtensiones_() {
+  try {
+    const j = await fetch(`${BACKEND}/lodgify-extensiones?_cb=${Date.now()}`, { cache: 'no-store' }).then(r => r.json());
+    const m = new Map();
+    (j && j.ok ? j.rows : []).forEach(r => {
+      const id = String(r.Lodgify_Id || '').trim(); if (!id) return;
+      if (!m.has(id)) m.set(id, []);
+      m.get(id).push({ antes: String(r.Salida_anterior || '').slice(0, 10), nueva: String(r.Salida_nueva || '').slice(0, 10),
+        totalAntes: _pagosNum(r.Total_anterior), detectado: String(r.Detectado || r.Timestamp || '') });
+    });
+    m.forEach(l => l.sort((a, b) => a.detectado.localeCompare(b.detectado)));
+    PAGOS_STATE.extById = m;
+    if (document.getElementById('pagos-root')) pagosRender();
+  } catch (e) { console.warn('[pagos] extensiones:', e.message); }
+}
 function _pagosRazon(b) {
   const perfil = _pagosPerfilByPhone(b.GuestPhone);
   return perfil ? perfil.razon : '';
@@ -55806,6 +55886,7 @@ async function pagosLoad() {
     }
     _mk('alojamientos');
     PAGOS_STATE.from = _pagosWindowFrom_();
+    _pagosLoadExtensiones_(); // en paralelo; re-pinta al llegar
     const r = await fetch(`${BACKEND}/lodgify-list?from=${PAGOS_STATE.from}&to=2099-12-31`);
     _mk('respuesta');
     const j = await r.json();
@@ -55976,15 +56057,21 @@ function pagosRender() {
   const rowHtml = rows.map(b => {
     const arr = _pagosDateIso(b.DateArrival);
     const dep = _pagosDateIso(b.DateDeparture);
-    const fechas = arr && dep ? `${arr.slice(5)} → ${dep.slice(5)}` : (arr || dep || '—');
+    const fechas = arr && dep ? `${_pagosFmtFecha(arr)} → ${_pagosFmtFecha(dep)}` : (_pagosFmtFecha(arr || dep) || '—');
     const isSel = String(PAGOS_STATE.selectedId) === String(b.Id);
+    const ext = _pagosExt(b);
+    const tk = _pagosTicket(b);
+    const alerta = _pagosAlertaExt(b, ext, tk);
+    const totalAct = Number(b.TotalAmount) || 0;
+    const dif = ext && ext.totalAntes != null ? totalAct - ext.totalAntes : null;
+    const extChip = ext ? `<div style="margin-top:3px"><span title="Salida original: ${_pagosEsc(_pagosFmtFecha(ext.antes))} → nueva: ${_pagosEsc(_pagosFmtFecha(ext.nueva))}${ext.fuente === 'registro' ? ' (según el registro de check-in)' : ''}" style="display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:999px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;font-size:10px;font-weight:800">⏩ Extensión</span> <span style="font-size:10px;color:#94a3b8">antes ${_pagosEsc(_pagosFmtFecha(ext.antes))}</span></div>` : '';
     return `
       <tr onclick="pagosSelect('${_pagosEsc(String(b.Id))}')" style="cursor:pointer;background:${isSel?'#eff6ff':'#fff'};border-bottom:1px solid #f1f5f9">
         <td style="padding:10px 8px;font-size:12px;font-weight:700;color:#1e40af">${_pagosEsc(b.Id)}</td>
         <td style="padding:10px 8px;font-size:12px">${_pagosEsc(b.GuestName || '—')}</td>
         <td style="padding:10px 8px;font-size:12px;color:#475569">${_pagosEsc(_pagosAlojName(b))}</td>
         <td style="padding:10px 8px">${_pagosSourceChip(b.Source)}</td>
-        <td style="padding:10px 8px;font-size:11px;color:#64748b;white-space:nowrap">${fechas}</td>
+        <td style="padding:10px 8px;font-size:11px;color:#64748b;white-space:nowrap">${fechas}${extChip}</td>
         <td style="padding:10px 8px;font-size:11px;color:#475569;white-space:nowrap">${_pagosEsc(_pagosCel(b) || '—')}</td>
         <td style="padding:10px 8px;font-size:11px;color:#475569;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_pagosEsc(_pagosRazon(b))}">${_pagosEsc(_pagosRazon(b) || '—')}</td>
         <td style="padding:10px 8px;text-align:center">${_pagosFacturaChip(_pagosReqFactura(b))}</td>
@@ -55993,6 +56080,11 @@ function pagosRender() {
         <td style="padding:10px 8px;font-size:12px;text-align:right;color:#166534;font-weight:700">${_pagosFmt$(b.AmountPaid, b.Currency)}</td>
         <td style="padding:10px 8px;font-size:12px;text-align:right;color:${(Number(b.AmountDue)||0)>0?'#991b1b':'#64748b'};font-weight:700">${_pagosFmt$(b.AmountDue, b.Currency)}</td>
         <td style="padding:10px 8px;text-align:center">${_pagosStatusChip(b.PaymentStatus)}</td>
+        <td style="padding:10px 8px;font-size:12px;text-align:right;font-weight:800;white-space:nowrap;color:${dif == null ? '#94a3b8' : dif > 0 ? '#b45309' : '#64748b'}" title="${ext ? (ext.totalAntes != null ? 'Total antes de la extensión: ' + _pagosEsc(_pagosFmt$(ext.totalAntes, b.Currency)) : 'No se conoce el total previo a la extensión') : ''}">${ext ? (dif == null ? '—' : (dif > 0 ? '+' : '') + _pagosFmt$(dif, b.Currency)) : ''}</td>
+        <td style="padding:10px 8px;text-align:center;white-space:nowrap" onclick="event.stopPropagation()">${tk ? (tk.url
+          ? `<a href="${_pagosEsc(tk.url)}" target="_blank" rel="noopener" style="display:inline-block;padding:3px 9px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:800;font-size:10.5px;border:1px solid #86efac;text-decoration:none">🧾 Folio #${_pagosEsc(tk.folio || '—')}</a>`
+          : `<span style="font-size:11px;font-weight:700;color:#475569">Folio #${_pagosEsc(tk.folio)}</span>`) : '<span style="color:#cbd5e1">—</span>'}</td>
+        <td style="padding:10px 8px;text-align:center">${alerta ? `<span title="${_pagosEsc(alerta)}" style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;font-size:10px;font-weight:800;white-space:nowrap;cursor:help">⚠️ Re-emitir ticket</span>` : ''}</td>
       </tr>`;
   }).join('');
   root.innerHTML = `
@@ -56044,6 +56136,9 @@ function pagosRender() {
                 <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Pagado</th>
                 <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Saldo</th>
                 <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Status</th>
+                <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap" title="Diferencia de monto por la extensión (total actual − total antes de extender)">Δ Extensión</th>
+                <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Ticket</th>
+                <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px">Alerta</th>
               </tr>
             </thead>
             <tbody>${rowHtml}</tbody>

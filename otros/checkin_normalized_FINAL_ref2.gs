@@ -293,6 +293,8 @@ function doPost(e) {
     if (action === "tareas_config_list")           return jsonOutput_(rhListSimple_('Tareas_Config'));
     if (action === "tareas_config_save")           return jsonOutput_(rhSaveSimple_('Tareas_Config', data, TAREAS_CONFIG_HEADERS, 'TCF'));
     if (action === "tareas_ocur_list")             return jsonOutput_(rhListSimple_('Tareas_Ocurrencias'));
+    if (action === "reservas_ext_list")            return jsonOutput_(rhListSimple_('Reservas_Extensiones'));
+    if (action === "reservas_ext_add")             return jsonOutput_(reservasExtAdd_(data));
     if (action === "tareas_ocur_save")             return jsonOutput_(tareasOcurSave_(data));
     if (action === "tareas_hist_list")             return jsonOutput_(rhListSimple_('Tareas_Historial'));
     if (action === "tareas_hist_add")              return jsonOutput_(tareasHistAdd_(data));
@@ -366,6 +368,7 @@ function doGet(e) {
     if (action === "tareas_list")            return jsonOutput_(rhListSimple_('Tareas'));
     if (action === "tareas_config_list")     return jsonOutput_(rhListSimple_('Tareas_Config'));
     if (action === "tareas_ocur_list")       return jsonOutput_(rhListSimple_('Tareas_Ocurrencias'));
+    if (action === "reservas_ext_list")      return jsonOutput_(rhListSimple_('Reservas_Extensiones'));
     if (action === "tareas_hist_list")       return jsonOutput_(rhListSimple_('Tareas_Historial'));
     if (action === "sys_login")              return jsonOutput_(sysLogin_(e.parameter || {}));
     if (action === "upload_incidencia_image") return jsonOutput_(uploadIncidenciaImage_(e.parameter || {}));
@@ -2257,6 +2260,39 @@ var RH_PERSONAL_HEADERS = [
 // Módulo "Programación de tareas recurrentes".
 var TAREAS_HEADERS = ['ID','Timestamp','Nombre','Clasificacion','Subclasificacion','Prioridad','Naturaleza','Programacion','Programacion_texto','Personal','WhatsApp','Mensaje','Template_ID','Estado','Comentarios','Creado_por','Updated_at'];
 var TAREAS_CONFIG_HEADERS = ['ID','Timestamp','Clasificaciones_json'];
+// Extensiones de reservas detectadas por el servidor (cambio de fecha de salida).
+var RESERVAS_EXT_HEADERS = ['ID','Timestamp','Lodgify_Id','Huesped','Fuente','Salida_anterior','Salida_nueva','Total_anterior','Total_nuevo','Detectado'];
+function reservasExtAdd_(data) {
+  try {
+    var p = data && data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : (data || {});
+    var rows = Array.isArray(p.rows) ? p.rows : [];
+    if (!rows.length) return { ok: true, added: 0 };
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName('Reservas_Extensiones') || ss.insertSheet('Reservas_Extensiones');
+    rhEnsureHeaders_(sh, RESERVAS_EXT_HEADERS);
+    var h = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (x) { return String(x || '').trim(); });
+    var iId = h.indexOf('Lodgify_Id'), iSn = h.indexOf('Salida_nueva');
+    var existentes = {};
+    if (sh.getLastRow() > 1) {
+      sh.getRange(2, 1, sh.getLastRow() - 1, h.length).getDisplayValues().forEach(function (r) { existentes[r[iId] + '|' + r[iSn]] = true; });
+    }
+    var ts = Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyy-MM-dd HH:mm:ss');
+    var txt = function (v) { v = String(v == null ? '' : v); return /^\d{4}-\d{2}-\d{2}/.test(v) ? "'" + v : v; };
+    var matrix = [];
+    rows.forEach(function (r) {
+      var k = String(r.Lodgify_Id || '') + '|' + String(r.Salida_nueva || '');
+      if (!r.Lodgify_Id || existentes[k]) return;
+      existentes[k] = true;
+      var o = { ID: rhGenId_('EXT'), Timestamp: ts, Lodgify_Id: String(r.Lodgify_Id), Huesped: r.Huesped || '', Fuente: r.Fuente || '',
+        Salida_anterior: txt(r.Salida_anterior), Salida_nueva: txt(r.Salida_nueva), Total_anterior: r.Total_anterior, Total_nuevo: r.Total_nuevo, Detectado: txt(r.Detectado || ts) };
+      matrix.push(h.map(function (c) { return o[c] == null ? '' : o[c]; }));
+    });
+    if (matrix.length) sh.getRange(sh.getLastRow() + 1, 1, matrix.length, h.length).setValues(matrix);
+    return { ok: true, added: matrix.length };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
 // Una fila por (tarea, fecha) que alguien atendió: estado propio de cada día.
 var TAREAS_OCUR_HEADERS = ['ID','Timestamp','Tarea_ID','Fecha','Estado','Comentarios','Atendido_por','Updated_at'];
 // Bitácora append-only de cambios (tarea y ocurrencias).
