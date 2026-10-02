@@ -55739,8 +55739,56 @@ async function pagosInit() {
   pagosRender();
   if (!PAGOS_STATE.loaded && !PAGOS_STATE.loading) await pagosLoad();
 }
+// Ventana de Pagos: 24 meses atrás → futuro. El servidor la responde de su
+// copia en memoria (snapshot) en < 1 s. Antes se pedía /lodgify-list SIN
+// rango: esa consulta usa otra caché que se pierde en cada reinicio del
+// servidor y entonces esperaba a Google Sheets (35-60 s).
+const PAGOS_HIST_MONTHS = 24;
+function _pagosWindowFrom_() {
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - PAGOS_HIST_MONTHS);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+}
+function _pagosPrepBookings_(list) {
+  // Excluir solo canceladas/declined sin pago. Airbnb: el pago lo procesa el
+  // OTA fuera de Lodgify → se asume pagada al 100% del GrossTotal.
+  return (list || []).filter(b => {
+    const st = String(b.Status || '').toLowerCase();
+    if (st === 'declined' || st === 'cancelled' || st === 'deleted') {
+      const p = Number(b.AmountPaid) || 0;
+      if (p === 0) return false;
+    }
+    return true;
+  }).map(b => {
+    if (String(b.Source || '').toLowerCase() === 'airbnb') {
+      const total = Number(b.TotalAmount) || Number(b.GrossTotal) || 0;
+      b.TotalAmount = total; b.AmountPaid = total; b.AmountDue = 0;
+      b.PaymentStatus = total > 0 ? 'Pagada' : 'Sin cargo';
+    }
+    return b;
+  });
+}
+// Mes elegido anterior a la ventana → lo descarga aparte y lo agrega.
+let _pagosExtraInflight = null;
+function _pagosEnsureMonth_(ym) {
+  if (!ym || !PAGOS_STATE.from || `${ym}-01` >= PAGOS_STATE.from || _pagosExtraInflight) return;
+  PAGOS_STATE.__mesesExtra = PAGOS_STATE.__mesesExtra || new Set();
+  if (PAGOS_STATE.__mesesExtra.has(ym)) return;
+  PAGOS_STATE.__mesesExtra.add(ym);
+  const [y, m] = ym.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate();
+  PAGOS_STATE.loading = true; pagosRender();
+  _pagosExtraInflight = fetch(`${BACKEND}/lodgify-list?from=${ym}-01&to=${ym}-${String(last).padStart(2,'0')}`)
+    .then(r => r.json()).then(j => {
+      if (!j.ok) throw new Error(j.error || 'error backend');
+      const ids = new Set(PAGOS_STATE.bookings.map(b => String(b.Id)));
+      _pagosPrepBookings_(j.bookings).forEach(b => { if (!ids.has(String(b.Id))) PAGOS_STATE.bookings.push(b); });
+    }).catch(e => console.warn('[pagos] mes anterior:', e.message))
+    .finally(() => { _pagosExtraInflight = null; PAGOS_STATE.loading = false; pagosApplyFilters(); pagosRender(); });
+}
 async function pagosLoad() {
   PAGOS_STATE.loading = true; pagosRender();
+  const _t0 = performance.now(), _T = {};
+  const _mk = k => { _T[k] = Math.round(performance.now() - _t0); };
   try {
     // Alojamientos: rápido, sí esperar (necesario para columna Alojamiento).
     if (typeof lgLoadAlojamientos === 'function') {
@@ -55756,36 +55804,18 @@ async function pagosLoad() {
         if (document.getElementById('pagos-root')) pagosRender();
       }).catch(() => {});
     }
-    const r = await fetch(`${BACKEND}/lodgify-list`);
+    _mk('alojamientos');
+    PAGOS_STATE.from = _pagosWindowFrom_();
+    const r = await fetch(`${BACKEND}/lodgify-list?from=${PAGOS_STATE.from}&to=2099-12-31`);
+    _mk('respuesta');
     const j = await r.json();
+    _mk('json');
     if (!j.ok) throw new Error(j.error || 'error backend');
-    // Excluir solo canceladas/declined. Reservas OTA (Airbnb/Booking) suelen
-    // llegar con TotalAmount=0 porque el pago lo procesa el OTA, no Lodgify —
-    // aun así son válidas y se marcan como "Sin cargo" para transparencia.
-    PAGOS_STATE.bookings = (j.bookings || []).filter(b => {
-      const st = String(b.Status || '').toLowerCase();
-      if (st === 'declined' || st === 'cancelled' || st === 'deleted') {
-        // Solo excluir declined si además nunca hubo pago (para no perder
-        // rastro de reservas canceladas con reembolso).
-        const p = Number(b.AmountPaid) || 0;
-        if (p === 0) return false;
-      }
-      return true;
-    });
-    // Override Airbnb: el pago lo procesa el OTA fuera de Lodgify. Asumimos
-    // pagada al 100% del GrossTotal (ya que TotalAmount viene 0). Usamos
-    // GrossTotal (suma de LineItems) porque total_amount de Lodgify es 0
-    // para reservas Airbnb.
-    PAGOS_STATE.bookings.forEach(b => {
-      if (String(b.Source || '').toLowerCase() === 'airbnb') {
-        const total = Number(b.TotalAmount) || Number(b.GrossTotal) || 0;
-        b.TotalAmount = total;
-        b.AmountPaid = total;
-        b.AmountDue = 0;
-        b.PaymentStatus = total > 0 ? 'Pagada' : 'Sin cargo';
-      }
-    });
+    PAGOS_STATE.bookings = _pagosPrepBookings_(j.bookings);
+    PAGOS_STATE.__mesesExtra = new Set();
     PAGOS_STATE.loaded = true;
+    _mk('procesar');
+    console.info('[PAGOS timing ms]', { ..._T, reservas: PAGOS_STATE.bookings.length, copia_servidor: !!j.snapshot });
   } catch (e) {
     console.warn('[pagos] load error:', e.message);
     PAGOS_STATE.bookings = [];
@@ -55797,6 +55827,7 @@ async function pagosLoad() {
 }
 function pagosApplyFilters() {
   const f = PAGOS_STATE.filters;
+  if (f.month) _pagosEnsureMonth_(f.month);
   const q = String(f.q || '').trim().toLowerCase();
   PAGOS_STATE.filtered = PAGOS_STATE.bookings.filter(b => {
     // Filtro mes: arrival dentro del mes YYYY-MM.
