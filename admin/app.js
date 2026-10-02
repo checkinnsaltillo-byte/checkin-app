@@ -28338,6 +28338,7 @@ function _rhComputeGruposSemanaImss_() {
   };
   const grupos = new Map();
   for (const r of (ASIST_STATE?.rows || [])) {
+    if (asistEsSinSalario_(r.Empleado_Nombre)) continue; // salario = "No": no se paga
     const nombre = _canonRes(String(r.Empleado_Nombre||'').trim());
     const fecha  = String(r.Fecha||'').slice(0,10);
     if (!nombre || !fecha) continue;
@@ -35335,9 +35336,10 @@ function asistRenderResumen(targetId) {
     return _aliasToFull.get(_normNombre_(t)) || t;
   };
   const grupos = new Map();
-  const _enAsistencias = (targetId || 'asist-resumen-wrap') !== 'rh-view';
+  // Quien tiene salario = "No" en Personal no se calcula ni en Control de
+  // asistencias ni en Nómina (p. ej. Dirección que marca por WhatsApp).
   for (const r of ASIST_STATE.rows) {
-    if (_enAsistencias && asistEsSinSalario_(r.Empleado_Nombre)) continue;
+    if (asistEsSinSalario_(r.Empleado_Nombre)) continue;
     const nombre = _canonRes(String(r.Empleado_Nombre||'').trim());
     const fecha  = String(r.Fecha||'').slice(0,10);
     if (!nombre || !fecha) continue;
