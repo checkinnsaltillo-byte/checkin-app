@@ -55558,6 +55558,8 @@ const PAGOS_STATE = {
     programacion: [],          // multi-select: Activa/Próxima/Concluida/Cancelada.
     house: [],                 // multi-select: HouseId.
     source: [],                // multi-select: Source (medio de reserva).
+    ticket: [],                // multi-select: 'Sí' / 'No' (tiene ticket emitido).
+    extension: [],             // multi-select: 'Sí' / 'No' (reserva extendida).
     q: '',                     // búsqueda global (aplica a TODAS las columnas visibles).
   },
   selectedId: null,
@@ -55729,7 +55731,7 @@ async function _pagosLoadExtensiones_() {
     });
     m.forEach(l => l.sort((a, b) => a.detectado.localeCompare(b.detectado)));
     PAGOS_STATE.extById = m;
-    if (document.getElementById('pagos-root')) pagosRender();
+    if (document.getElementById('pagos-root')) { pagosApplyFilters(); pagosRender(); }
   } catch (e) { console.warn('[pagos] extensiones:', e.message); }
 }
 function _pagosRazon(b) {
@@ -55881,7 +55883,7 @@ async function pagosLoad() {
       PAGOS_STATE._huScheduled = true;
       lgEnsureHuespedesAndMatch().then(() => {
         // Solo re-render si aún estamos en el módulo Pagos.
-        if (document.getElementById('pagos-root')) pagosRender();
+        if (document.getElementById('pagos-root')) { pagosApplyFilters(); pagosRender(); }
       }).catch(() => {});
     }
     _mk('alojamientos');
@@ -55929,6 +55931,12 @@ function pagosApplyFilters() {
     }
     if (Array.isArray(f.source) && f.source.length) {
       if (!f.source.includes(String(b.Source || ''))) return false;
+    }
+    if (Array.isArray(f.ticket) && f.ticket.length) {
+      if (!f.ticket.includes(_pagosTicket(b) ? 'Sí' : 'No')) return false;
+    }
+    if (Array.isArray(f.extension) && f.extension.length) {
+      if (!f.extension.includes(_pagosExt(b) ? 'Sí' : 'No')) return false;
     }
     // Buscador global: aplica a TODAS las columnas visibles.
     if (q) {
@@ -56110,6 +56118,8 @@ function pagosRender() {
       ${_multiDD('programacion', 'Programación',  progOpts)}
       ${_multiDD('house',        'Alojamiento',   houses, houseValueLabel)}
       ${_multiDD('source',       'Medio',         sourceOpts)}
+      ${_multiDD('ticket',       'Ticket',        ['Sí','No'])}
+      ${_multiDD('extension',    'Extensión',     ['Sí','No'])}
       <div style="flex:1;min-width:200px">
         <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Buscar</div>
         <input id="pagos-search-input" placeholder="Busca en cualquier columna…" value="${_pagosEsc(f.q)}" oninput="pagosSetFilterQ_(this.value)" style="width:100%;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
