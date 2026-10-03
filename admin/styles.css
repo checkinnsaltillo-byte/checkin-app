@@ -6377,6 +6377,20 @@ body.dark .user-greeting { background: #1e3a5f; border-color: #1e40af; color: #e
 body.dark .ug-hello strong { color: #7dd3fc; }
 body.dark .ug-logout { background: #1e293b; border-color: #334155; color: #cbd5e1; }
 body.dark .ug-logout:hover { background: #334155; }
+.ug-panel {
+  background: linear-gradient(120deg, #4338ca, #6366f1);
+  border: 1px solid #4338ca;
+  color: #fff;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter .12s, transform .06s;
+}
+.ug-panel:hover { filter: brightness(1.1); }
+.ug-panel:active { transform: scale(.96); }
 
 /* ─── Logo animado: bloquear proporciones (no estirar en mobile/desktop) ─── */
 .checkinn-loader {

@@ -411,6 +411,8 @@ function sysApplyPermissions(user) {
       }
     }
   });
+  const pcBtn = document.getElementById('ug-panel-btn');
+  if (pcBtn) pcBtn.style.display = allowed.has('panel-control') ? '' : 'none';
   const greet = document.getElementById('user-greeting');
   const nm    = document.getElementById('ug-name');
   if (greet && nm && user) { nm.textContent = user.Nombre || ''; greet.classList.remove('hidden'); }
