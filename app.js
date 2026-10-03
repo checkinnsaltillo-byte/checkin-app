@@ -46350,6 +46350,7 @@ async function cfgAdminInit() {
 function cfgAdminRender() {
   const host = document.getElementById('cfg-view');
   if (!host) return;
+  if (CFG_ADMIN.tab === 'procesos') return dpRenderModule_(host);
   if (CFG_ADMIN.loading && !CFG_ADMIN.loaded) {
     host.innerHTML = `<div style="text-align:center;padding:60px;color:#94a3b8;font-size:13px">⏳ Cargando templates y alojamientos…</div>`;
     return;
@@ -58833,6 +58834,1211 @@ window.pcDrawer = function (tipo) {
   setTimeout(() => document.querySelectorAll('#pc-drawer .pc-bar>span[data-w]').forEach(s => { s.style.width = s.getAttribute('data-w'); }), 50);
 };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') pcCloseDrawer(); });
+
+// ═══════════════════════════════════════════════════════════════════════
+// ║ Configuración admin › 📘 Documentación de procesos                    ║
+// ║ Catálogo + ficha (general, diagrama, procedimiento, checklist, roles, ║
+// ║ insumos, documentos, excepciones, KPIs, versiones, capacitación,      ║
+// ║ historial). Hojas: Procesos (Data_json con la ficha) y               ║
+// ║ Procesos_Historial (auditoría + ejecuciones de checklist).            ║
+// ═══════════════════════════════════════════════════════════════════════
+const DP_LOCAL_KEY = 'DP_PROCESOS_V1';
+const DP_AREAS = ['Reservaciones', 'Limpieza', 'Mantenimiento', 'Administración', 'Atención al huésped', 'Facturación', 'Operación'];
+const DP_AREA_PREF = { 'Reservaciones': 'RES', 'Limpieza': 'LIM', 'Mantenimiento': 'MAN', 'Administración': 'ADM', 'Atención al huésped': 'ATH', 'Facturación': 'FAC', 'Operación': 'OPE' };
+const DP_AREA_ICO = { 'Reservaciones': '🏨', 'Limpieza': '🧹', 'Mantenimiento': '🔧', 'Administración': '🗂️', 'Atención al huésped': '🤝', 'Facturación': '🧾', 'Operación': '⚙️' };
+const DP_FRECS = ['Diario', 'Semanal', 'Mensual', 'Por evento'];
+const DP_PRIOS = ['Alta', 'Media', 'Baja'];
+const DP_ESTATUS = ['Borrador', 'Activo', 'En revisión', 'Obsoleto'];
+const DP_IMPORT = ['Crítica', 'Alta', 'Media', 'Baja'];
+const DP_EVID = ['—', 'Checklist', 'Fotografías', 'Confirmación', 'Firma', 'Documento', 'Video'];
+const DP_DOC_TIPOS = ['Manual', 'Fotografía', 'Video', 'PDF', 'Formato', 'Contrato', 'Plantilla', 'Instructivo', 'Otro'];
+const DP_DOC_ICO = { 'Manual': '📕', 'Fotografía': '🖼️', 'Video': '🎬', 'PDF': '📄', 'Formato': '📝', 'Contrato': '📜', 'Plantilla': '🧩', 'Instructivo': '📘', 'Otro': '📎' };
+const DP_SEV = ['Baja', 'Media', 'Alta', 'Crítica'];
+const DP_SECS = [
+  ['general', 'ℹ️', 'Información general'],
+  ['diagrama', '🔀', 'Diagrama'],
+  ['pasos', '🪜', 'Procedimiento'],
+  ['checklist', '☑️', 'Checklist'],
+  ['roles', '👥', 'Roles y RACI'],
+  ['insumos', '🔄', 'Insumos y resultados'],
+  ['docs', '📎', 'Documentos'],
+  ['excepciones', '⚠️', 'Incidencias y excepciones'],
+  ['kpis', '📈', 'Indicadores (KPI)'],
+  ['versiones', '🏷️', 'Control de versiones'],
+  ['capac', '🎓', 'Capacitación'],
+  ['historial', '🕓', 'Historial y auditoría'],
+];
+const DP_KPI_PRESETS = {
+  'Limpieza': [
+    ['Tiempo promedio de limpieza', 'min', 'menor', '60'], ['% de departamentos aprobados a la primera', '%', 'mayor', '95'],
+    ['Número de incidencias', '#', 'menor', ''], ['Incidencias por 100 limpiezas', '#', 'menor', '3'],
+    ['Retrasos', '#', 'menor', '0'], ['Reprocesos', '#', 'menor', '0'],
+  ],
+  'Mantenimiento': [
+    ['Tiempo de respuesta', 'h', 'menor', '4'], ['Tiempo de resolución', 'h', 'menor', '24'],
+    ['% resuelto en primera visita', '%', 'mayor', '85'], ['Costo promedio', '$', 'menor', ''], ['Incidencias recurrentes', '#', 'menor', '0'],
+  ],
+  'Reservaciones': [['Tiempo de confirmación', 'min', 'menor', '15'], ['% de reservas sin errores', '%', 'mayor', '99'], ['Cancelaciones', '#', 'menor', '']],
+  'Atención al huésped': [['Tiempo de primera respuesta', 'min', 'menor', '10'], ['Calificación promedio', '★', 'mayor', '4.8'], ['Quejas', '#', 'menor', '0']],
+  'Facturación': [['Facturas emitidas a tiempo', '%', 'mayor', '100'], ['Facturas canceladas / re-emitidas', '#', 'menor', '0']],
+  'Administración': [['Cumplimiento en tiempo', '%', 'mayor', '100'], ['Errores detectados', '#', 'menor', '0']],
+  'Operación': [['Cumplimiento del proceso', '%', 'mayor', '95'], ['Incidencias', '#', 'menor', '']],
+};
+
+window.DP = window.DP || {
+  list: [], hist: [], loaded: false, loading: false, err: '',
+  view: 'catalogo', selId: null, sec: 'general', edit: false, draft: null, isNew: false,
+  f: { q: '', area: '', estatus: '', frec: '', prio: '', imp: '', vencidas: false },
+  run: null, saving: false,
+};
+
+// ── Utilidades ─────────────────────────────────────────────────────────
+function dpEsc_(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function dpClean_(v) { return String(v == null ? '' : v).replace(/^'/, '').trim(); }
+function dpHoy_() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function dpFmtD_(s) {
+  s = dpClean_(s); const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return s || '—';
+  const mes = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][+m[2] - 1];
+  return `${m[3]}-${mes}-${m[1]}`;
+}
+function dpUser_() { return (typeof currentUser !== 'undefined' && currentUser) ? currentUser : 'admin'; }
+function dpEmptyData_() {
+  return {
+    diagrama: [], pasos: [], checklists: [], roles: { ejecuta: '', supervisa: '', autoriza: '' }, raciRoles: [],
+    insumos: { entradas: [], proceso: '', salidas: [], depende: [], alimenta: [] },
+    docs: [], excepciones: [], kpis: [], versiones: [],
+    capac: { audiencia: [], requerida: true, personas: {} },
+  };
+}
+function dpParse_(r) {
+  let d = null;
+  try { d = JSON.parse(r.Data_json || 'null'); } catch (_) {}
+  const base = dpEmptyData_();
+  d = Object.assign(base, d || {});
+  d.roles = Object.assign({ ejecuta: '', supervisa: '', autoriza: '' }, d.roles || {});
+  d.insumos = Object.assign({ entradas: [], proceso: '', salidas: [], depende: [], alimenta: [] }, d.insumos || {});
+  d.capac = Object.assign({ audiencia: [], requerida: true, personas: {} }, d.capac || {});
+  const o = { d };
+  ['ID', 'Codigo', 'Nombre', 'Area', 'Responsable', 'Frecuencia', 'Frecuencia_detalle', 'Prioridad', 'Estatus', 'Version',
+    'Ultima_actualizacion', 'Proxima_revision', 'Importancia', 'Objetivo', 'Alcance', 'Creado_por', 'Timestamp', 'Updated_at']
+    .forEach(k => { o[k] = dpClean_(r[k]); });
+  if (!o.Version) o.Version = '1.0';
+  if (!o.Estatus) o.Estatus = 'Borrador';
+  return o;
+}
+function dpById_(id) { return DP.list.find(p => p.ID === id) || null; }
+function dpByCode_(c) { return DP.list.find(p => p.Codigo === c) || null; }
+function dpVencida_(p) { return p.Estatus !== 'Obsoleto' && p.Proxima_revision && p.Proxima_revision < dpHoy_(); }
+function dpNextCode_(area, exceptId) {
+  const pref = DP_AREA_PREF[area] || 'PRC';
+  let max = 0;
+  DP.list.forEach(p => { if (p.ID === exceptId) return; const m = String(p.Codigo || '').match(new RegExp('^' + pref + '-(\\d+)$')); if (m) max = Math.max(max, +m[1]); });
+  return `${pref}-${String(max + 1).padStart(3, '0')}`;
+}
+function dpCapStats_(p) {
+  const ps = (p.d.capac && p.d.capac.personas) || {};
+  const debe = Object.keys(ps).filter(n => ps[n] && ps[n].debe);
+  const cap = debe.filter(n => ps[n].fecha);
+  const ultima = Object.values(ps).map(x => x && x.fecha || '').filter(Boolean).sort().pop() || '';
+  return { debe: debe.length, cap: cap.length, ultima };
+}
+function dpSecFilled_(p, k) {
+  const d = p.d;
+  switch (k) {
+    case 'general': return !!(p.Objetivo || p.Alcance);
+    case 'diagrama': return d.diagrama.length > 0;
+    case 'pasos': return d.pasos.length > 0;
+    case 'checklist': return d.checklists.some(c => (c.items || []).length);
+    case 'roles': return !!(d.roles.ejecuta || d.roles.supervisa || d.roles.autoriza || d.raciRoles.length);
+    case 'insumos': return !!(d.insumos.entradas.length || d.insumos.salidas.length || d.insumos.proceso);
+    case 'docs': return d.docs.length > 0;
+    case 'excepciones': return d.excepciones.length > 0;
+    case 'kpis': return d.kpis.length > 0;
+    case 'versiones': return d.versiones.length > 0;
+    case 'capac': return dpCapStats_(p).debe > 0;
+    case 'historial': return DP.hist.some(h => h.Proceso_ID === p.ID);
+  }
+  return false;
+}
+function dpSearchText_(p) {
+  const d = p.d;
+  return [p.Codigo, p.Nombre, p.Area, p.Responsable, p.Objetivo, p.Alcance, p.Frecuencia_detalle,
+    d.pasos.map(s => s.actividad + ' ' + s.responsable).join(' '),
+    d.checklists.map(c => c.titulo + ' ' + (c.items || []).join(' ')).join(' '),
+    d.excepciones.map(e => e.situacion + ' ' + (e.pasos || []).join(' ')).join(' '),
+    d.docs.map(x => x.nombre).join(' '), d.kpis.map(x => x.nombre).join(' '),
+    d.insumos.entradas.join(' '), d.insumos.salidas.join(' '), d.insumos.proceso,
+  ].join(' ').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+function dpNorm_(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+
+// ── Carga / guardado ──────────────────────────────────────────────────
+async function dpLoad_(force) {
+  if (DP.loading) return;
+  if (!DP.loaded) {
+    try {
+      const c = JSON.parse(localStorage.getItem(DP_LOCAL_KEY) || 'null');
+      if (c && Array.isArray(c.list)) { DP.list = c.list.map(dpParse_); DP.hist = c.hist || []; }
+    } catch (_) {}
+  }
+  DP.loading = true; DP.err = '';
+  dpRender_();
+  try {
+    const cb = force ? `?_cb=${Date.now()}` : '';
+    const [rl, rh] = await Promise.all([
+      fetch(`${BACKEND}/procesos${cb}`, { cache: 'no-store' }).then(r => r.json()),
+      fetch(`${BACKEND}/procesos/historial${cb}`, { cache: 'no-store' }).then(r => r.json()).catch(() => null),
+    ]);
+    if (!rl || !rl.ok) throw new Error((rl && rl.error) || 'Sin respuesta del servidor');
+    if (!Array.isArray(rl.rows)) throw new Error('el Apps Script publicado aún no tiene la acción procesos_list (acción desconocida)');
+    const raw = (rl.rows || []).filter(r => r.ID);
+    DP.list = raw.map(dpParse_);
+    if (rh && rh.ok) DP.hist = (rh.rows || []).filter(r => r.ID);
+    DP.loaded = true;
+    try { localStorage.setItem(DP_LOCAL_KEY, JSON.stringify({ list: raw, hist: DP.hist })); } catch (_) {}
+  } catch (e) {
+    DP.err = e.message || String(e);
+  } finally {
+    DP.loading = false;
+    if (!(DP.edit && DP.view === 'ficha')) dpRender_();
+  }
+}
+function dpToRow_(p) {
+  return {
+    ID: p.ID || '', Codigo: p.Codigo, Nombre: p.Nombre, Area: p.Area, Responsable: p.Responsable,
+    Frecuencia: p.Frecuencia, Frecuencia_detalle: p.Frecuencia_detalle, Prioridad: p.Prioridad, Estatus: p.Estatus,
+    Version: "'" + (p.Version || '1.0'), Ultima_actualizacion: p.Ultima_actualizacion ? "'" + p.Ultima_actualizacion : '',
+    Proxima_revision: p.Proxima_revision ? "'" + p.Proxima_revision : '', Importancia: p.Importancia,
+    Objetivo: p.Objetivo, Alcance: p.Alcance, Data_json: JSON.stringify(p.d),
+    Creado_por: p.Creado_por || '', Updated_at: new Date().toISOString(),
+  };
+}
+async function dpPersist_(p) {
+  const row = dpToRow_(p);
+  if (row.Data_json.length > 45000) throw new Error('La ficha es demasiado grande (más de 45,000 caracteres). Reduce textos o mueve contenido a documentos adjuntos.');
+  const r = await fetch(`${BACKEND}/procesos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload: row }) }).then(x => x.json());
+  if (!r || !r.ok) throw new Error((r && r.error) || 'No se pudo guardar');
+  if (!r.id && !p.ID) throw new Error('el Apps Script publicado aún no tiene la acción procesos_save. Publica la nueva versión del Apps Script.');
+  if (!p.ID) p.ID = r.id;
+  const raw = Object.assign({}, row, { ID: p.ID });
+  const i = DP.list.findIndex(x => x.ID === p.ID);
+  const parsed = dpParse_(raw);
+  if (i >= 0) DP.list[i] = parsed; else DP.list.unshift(parsed);
+  dpSaveLocal_();
+  return parsed;
+}
+function dpSaveLocal_() {
+  try { localStorage.setItem(DP_LOCAL_KEY, JSON.stringify({ list: DP.list.map(dpToRow_).map((r, i) => Object.assign(r, { ID: DP.list[i].ID })), hist: DP.hist })); } catch (_) {}
+}
+function dpLog_(p, accion, detalle) {
+  const row = { Proceso_ID: p.ID, Codigo: p.Codigo, Usuario: dpUser_(), Accion: accion, Detalle: detalle || '' };
+  const ts = new Date();
+  DP.hist.unshift(Object.assign({ ID: 'tmp-' + ts.getTime() + Math.random(), Timestamp: `${dpHoy_()} ${String(ts.getHours()).padStart(2, '0')}:${String(ts.getMinutes()).padStart(2, '0')}:${String(ts.getSeconds()).padStart(2, '0')}` }, row));
+  dpSaveLocal_();
+  fetch(`${BACKEND}/procesos/historial`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload: { rows: [row] } }) })
+    .catch(e => console.warn('[procesos] historial:', e.message));
+}
+
+// ── Estilos ───────────────────────────────────────────────────────────
+function dpEnsureStyles_() {
+  if (document.getElementById('dp-styles')) return;
+  const st = document.createElement('style');
+  st.id = 'dp-styles';
+  st.textContent = `
+  .dp{--dp-ink:#0f172a;--dp-mut:#64748b;--dp-line:#e2e8f0;--dp-acc:#4f46e5;--dp-acc2:#eef2ff;color:var(--dp-ink);font-size:13px}
+  .dp *{box-sizing:border-box}
+  .dp-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .dp-top h2{margin:0;font-size:20px;font-weight:900;letter-spacing:-.01em}
+  .dp-top p{margin:3px 0 0;color:var(--dp-mut);font-size:12.5px;max-width:640px}
+  .dp-btn{border:1px solid var(--dp-line);background:#fff;color:#334155;border-radius:9px;padding:8px 13px;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-family:inherit}
+  .dp-btn:hover{border-color:#94a3b8;background:#f8fafc}
+  .dp-btn.pri{background:var(--dp-acc);border-color:var(--dp-acc);color:#fff}
+  .dp-btn.pri:hover{filter:brightness(1.08);background:var(--dp-acc)}
+  .dp-btn.ok{background:#059669;border-color:#059669;color:#fff}
+  .dp-btn.dan{color:#b91c1c;border-color:#fecaca}
+  .dp-btn.sm{padding:5px 9px;font-size:11.5px;border-radius:7px}
+  .dp-btn:disabled{opacity:.55;cursor:default}
+  .dp-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:12px}
+  .dp-kpi{background:#fff;border:1px solid var(--dp-line);border-radius:12px;padding:10px 12px;cursor:pointer;text-align:left;font-family:inherit;transition:border-color .12s,box-shadow .12s}
+  .dp-kpi:hover{border-color:#a5b4fc;box-shadow:0 2px 10px rgba(79,70,229,.08)}
+  .dp-kpi.on{border-color:var(--dp-acc);box-shadow:0 0 0 2px #c7d2fe}
+  .dp-kpi .v{font-size:22px;font-weight:900;line-height:1.1}
+  .dp-kpi .l{font-size:10.5px;font-weight:800;color:var(--dp-mut);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+  .dp-filt{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid var(--dp-line);border-radius:12px;padding:10px;margin-bottom:12px}
+  .dp-filt input,.dp-filt select,.dp-in,.dp-sel,.dp-ta{border:1px solid #cbd5e1;border-radius:8px;padding:7px 9px;font-size:12.5px;font-family:inherit;background:#fff;color:var(--dp-ink);min-width:0}
+  .dp-filt input{flex:1 1 220px}
+  .dp-in,.dp-sel,.dp-ta{width:100%}
+  .dp-ta{resize:vertical;min-height:70px;line-height:1.45}
+  .dp-in:focus,.dp-sel:focus,.dp-ta:focus,.dp-filt input:focus,.dp-filt select:focus{outline:none;border-color:#818cf8;box-shadow:0 0 0 3px #e0e7ff}
+  .dp-card{background:#fff;border:1px solid var(--dp-line);border-radius:14px;overflow:hidden}
+  .dp-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  .dp-tbl th{background:#f8fafc;text-align:left;padding:9px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:#475569;font-weight:800;border-bottom:1px solid var(--dp-line);white-space:nowrap}
+  .dp-tbl td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+  .dp-tbl tr.click{cursor:pointer}
+  .dp-tbl tr.click:hover td{background:#f8faff}
+  .dp-code{font-family:ui-monospace,Menlo,monospace;font-weight:800;font-size:11.5px;background:var(--dp-acc2);color:#3730a3;border-radius:6px;padding:2px 7px;white-space:nowrap}
+  .dp-pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:800;white-space:nowrap}
+  .dp-st-Borrador{background:#f1f5f9;color:#475569}
+  .dp-st-Activo{background:#dcfce7;color:#166534}
+  .dp-st-En{background:#fef3c7;color:#92400e}
+  .dp-st-Obsoleto{background:#fee2e2;color:#991b1b;text-decoration:line-through}
+  .dp-lv-Crítica,.dp-lv-Alta{background:#fee2e2;color:#991b1b}
+  .dp-lv-Media{background:#fef3c7;color:#92400e}
+  .dp-lv-Baja{background:#e0f2fe;color:#075985}
+  .dp-venc{color:#b91c1c;font-weight:800}
+  .dp-empty{text-align:center;padding:48px 16px;color:var(--dp-mut)}
+  .dp-empty .ico{font-size:40px;margin-bottom:6px}
+  .dp-banner{border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:12px}
+  .dp-banner.warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+  .dp-banner.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+  /* Ficha */
+  .dp-head{background:linear-gradient(120deg,#1e1b4b,#4338ca 60%,#6366f1);color:#fff;border-radius:16px;padding:16px 18px;margin-bottom:12px}
+  .dp-head .row1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;opacity:.95}
+  .dp-head h3{margin:6px 0 4px;font-size:20px;font-weight:900;line-height:1.25}
+  .dp-head .meta{font-size:12px;opacity:.85;display:flex;gap:14px;flex-wrap:wrap}
+  .dp-head .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .dp-head .dp-btn{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3);color:#fff}
+  .dp-head .dp-btn:hover{background:rgba(255,255,255,.22)}
+  .dp-head .dp-btn.ok{background:#10b981;border-color:#10b981}
+  .dp-head .dp-btn.pri{background:#fff;color:#3730a3;border-color:#fff}
+  .dp-head .dp-code{background:rgba(255,255,255,.18);color:#fff}
+  .dp-lay{display:grid;grid-template-columns:230px minmax(0,1fr);gap:12px;align-items:start}
+  .dp-nav{position:sticky;top:8px;background:#fff;border:1px solid var(--dp-line);border-radius:14px;padding:6px}
+  .dp-nav button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:9px;font-size:12.5px;font-weight:700;color:#334155;cursor:pointer;font-family:inherit}
+  .dp-nav button:hover{background:#f1f5f9}
+  .dp-nav button.on{background:var(--dp-acc2);color:#3730a3}
+  .dp-nav .dot{margin-left:auto;width:7px;height:7px;border-radius:50%;background:#e2e8f0;flex:none}
+  .dp-nav .dot.f{background:#22c55e}
+  .dp-sec{background:#fff;border:1px solid var(--dp-line);border-radius:14px;padding:16px;min-width:0}
+  .dp-sec h4{margin:0 0 12px;font-size:15px;font-weight:900;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .dp-sec h4 .sp{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  .dp-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px}
+  .dp-f label,.dp-lbl{display:block;font-size:10.5px;font-weight:800;color:var(--dp-mut);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+  .dp-f .v{font-size:13px;font-weight:600;word-break:break-word}
+  .dp-txt{white-space:pre-wrap;line-height:1.55;font-size:13px;background:#f8fafc;border:1px solid #f1f5f9;border-radius:10px;padding:10px 12px}
+  .dp-hint{font-size:11.5px;color:var(--dp-mut);margin-top:4px}
+  .dp-mut{color:var(--dp-mut)}
+  .dp-chk{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid #94a3b8;border-radius:5px;background:#fff;color:#fff;font-size:12px;font-weight:900;flex:none;cursor:pointer;line-height:1}
+  .dp-chk.on{background:#4f46e5;border-color:#4f46e5}
+  .dp-cl{display:flex;flex-direction:column;gap:2px}
+  .dp-cl .it{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;cursor:pointer;font-size:13px}
+  .dp-cl .it:hover{background:#f8fafc}
+  .dp-cl .it.on span.t{color:#94a3b8;text-decoration:line-through}
+  .dp-prog{height:8px;background:#f1f5f9;border-radius:99px;overflow:hidden}
+  .dp-prog>div{height:100%;background:linear-gradient(90deg,#6366f1,#22c55e);border-radius:99px;transition:width .2s}
+  .dp-flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
+  .dp-flow .box{flex:1 1 160px;background:#f8fafc;border:1px solid var(--dp-line);border-radius:12px;padding:12px}
+  .dp-flow .arr{display:flex;align-items:center;color:#a5b4fc;font-size:20px;font-weight:900}
+  .dp-raci td,.dp-raci th{text-align:center}
+  .dp-raci td:first-child,.dp-raci th:first-child{text-align:left}
+  .dp-rc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:7px;font-weight:900;font-size:12px;border:1px dashed #cbd5e1;color:#cbd5e1}
+  .dp-rc.R{background:#4f46e5;color:#fff;border:0}.dp-rc.A{background:#dc2626;color:#fff;border:0}
+  .dp-rc.C{background:#f59e0b;color:#fff;border:0}.dp-rc.I{background:#0ea5e9;color:#fff;border:0}
+  .dp-rc.ed{cursor:pointer}
+  .dp-docs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+  .dp-doc{display:flex;align-items:center;gap:10px;border:1px solid var(--dp-line);border-radius:12px;padding:10px 12px;text-decoration:none;color:inherit;background:#fff;min-width:0}
+  .dp-doc:hover{border-color:#a5b4fc;background:#f8faff}
+  .dp-doc .i{font-size:22px;flex:none}
+  .dp-doc .n{font-weight:800;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dp-exc{border:1px solid var(--dp-line);border-left:4px solid #f59e0b;border-radius:12px;padding:12px;margin-bottom:10px}
+  .dp-exc.sev-Alta,.dp-exc.sev-Crítica{border-left-color:#dc2626}
+  .dp-exc.sev-Baja{border-left-color:#0ea5e9}
+  .dp-steps{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+  .dp-steps .s{background:#f1f5f9;border-radius:8px;padding:5px 9px;font-size:12px;font-weight:600}
+  .dp-steps .a{color:#94a3b8;font-weight:900}
+  .dp-kgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+  .dp-k{border:1px solid var(--dp-line);border-radius:12px;padding:12px;background:#fff}
+  .dp-k .n{font-size:12px;font-weight:800;color:#334155;min-height:30px}
+  .dp-k .v{font-size:24px;font-weight:900;margin-top:4px}
+  .dp-k .m{font-size:11px;color:var(--dp-mut)}
+  .dp-k.ok{border-color:#86efac;background:#f0fdf4}.dp-k.bad{border-color:#fecaca;background:#fef2f2}
+  .dp-tl{position:relative;padding-left:22px}
+  .dp-tl:before{content:'';position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:#e0e7ff}
+  .dp-tl .e{position:relative;margin-bottom:14px}
+  .dp-tl .e:before{content:'';position:absolute;left:-20px;top:3px;width:12px;height:12px;border-radius:50%;background:#6366f1;border:2px solid #fff;box-shadow:0 0 0 2px #c7d2fe}
+  .dp-tl .e.ap:before{background:#10b981;box-shadow:0 0 0 2px #a7f3d0}
+  .dp-row-ed{display:grid;gap:8px;align-items:center;padding:8px;border:1px solid #f1f5f9;border-radius:10px;margin-bottom:6px;background:#fcfcfd}
+  .dp-mini{display:flex;gap:4px}
+  .dp-mini button{border:1px solid var(--dp-line);background:#fff;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:12px}
+  .dp-mini button:hover{background:#f1f5f9}
+  .dp-diag{width:100%;max-width:640px;display:block;margin:0 auto}
+  .dp-modal{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}
+  .dp-modal .pn{background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:90vh;overflow:auto;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .dp-opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--dp-line);border-radius:10px;padding:10px;cursor:pointer;margin-bottom:8px}
+  .dp-opt.on{border-color:#6366f1;background:#eef2ff}
+  .dp-radio{width:16px;height:16px;border-radius:50%;border:2px solid #94a3b8;flex:none;margin-top:2px}
+  .dp-opt.on .dp-radio{border:5px solid #4f46e5}
+  .dp-chips{display:flex;gap:6px;flex-wrap:wrap}
+  .dp-chip{background:#eef2ff;color:#3730a3;border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:700;cursor:pointer;border:0;font-family:inherit}
+  .dp-person{display:grid;grid-template-columns:minmax(0,1fr) auto 150px;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid #f1f5f9}
+  body.dark .dp{--dp-ink:#e2e8f0;--dp-line:#334155;--dp-acc2:#312e81}
+  body.dark .dp-card,body.dark .dp-sec,body.dark .dp-nav,body.dark .dp-kpi,body.dark .dp-filt,body.dark .dp-k,body.dark .dp-doc,body.dark .dp-btn{background:#1e293b;color:#e2e8f0}
+  body.dark .dp-tbl th,body.dark .dp-txt,body.dark .dp-flow .box{background:#0f172a}
+  @media (max-width:900px){
+    .dp-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .dp-lay{grid-template-columns:minmax(0,1fr)}
+    .dp-nav{position:static;display:flex;overflow-x:auto;gap:4px;padding:5px;-webkit-overflow-scrolling:touch}
+    .dp-nav button{width:auto;white-space:nowrap;flex:none}
+    .dp-nav .dot{margin-left:2px}
+    .dp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+  @media (max-width:640px){
+    .dp-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .dp-kpi .v{font-size:19px}
+    .dp-filt select{flex:1 1 45%}
+    .dp-grid{grid-template-columns:minmax(0,1fr)}
+    .dp-sec{padding:12px}
+    .dp-head{padding:14px}
+    .dp-head h3{font-size:17px}
+    .dp-person{grid-template-columns:minmax(0,1fr) auto;}
+    .dp-person .dt{grid-column:1 / -1}
+    .dp-tbl.cards thead{display:none}
+    .dp-tbl.cards,.dp-tbl.cards tbody,.dp-tbl.cards tr,.dp-tbl.cards td{display:block;width:100%}
+    .dp-tbl.cards tr{border:1px solid var(--dp-line);border-radius:12px;padding:8px 10px;margin:8px;width:auto;background:#fff}
+    .dp-tbl.cards td{border:0;padding:3px 0;display:flex;justify-content:space-between;gap:12px;text-align:right;word-break:break-word}
+    .dp-tbl.cards td::before{content:attr(data-l);font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.04em;text-align:left;flex:none;max-width:45%}
+    .dp-tbl.cards td[colspan]::before{content:none}
+    .dp-flow .arr{transform:rotate(90deg);width:100%;justify-content:center}
+  }
+  @media print{ .dp-nav,.dp-head .acts{display:none} }
+  `;
+  document.head.appendChild(st);
+}
+
+// ── Render principal ──────────────────────────────────────────────────
+function dpRenderModule_(host) {
+  dpEnsureStyles_();
+  host.innerHTML = `<div class="dp" id="dp-root"></div>`;
+  if (!DP.loaded && !DP.loading) dpLoad_();
+  else dpRender_();
+  if (typeof INC_STATE !== 'undefined' && !(INC_STATE.personalRows || []).length && typeof incLoadPersonal === 'function') {
+    incLoadPersonal().then(() => { if (DP.view === 'ficha' && DP.sec === 'capac') dpRender_(); }).catch(() => {});
+  }
+}
+function dpRender_() {
+  const root = document.getElementById('dp-root');
+  if (!root) return;
+  if (DP.view === 'ficha') return dpRenderFicha_(root);
+  dpRenderCatalogo_(root);
+}
+
+// ── 1. Catálogo ───────────────────────────────────────────────────────
+function dpFiltered_() {
+  const f = DP.f, q = dpNorm_(f.q).split(/\s+/).filter(Boolean);
+  return DP.list.filter(p => {
+    if (f.area && p.Area !== f.area) return false;
+    if (f.estatus && p.Estatus !== f.estatus) return false;
+    if (f.frec && p.Frecuencia !== f.frec) return false;
+    if (f.prio && p.Prioridad !== f.prio) return false;
+    if (f.imp && p.Importancia !== f.imp) return false;
+    if (f.vencidas && !dpVencida_(p)) return false;
+    if (q.length) { const t = dpSearchText_(p); if (!q.every(w => t.includes(w))) return false; }
+    return true;
+  }).sort((a, b) => String(a.Codigo).localeCompare(String(b.Codigo), 'es', { numeric: true }));
+}
+function dpStPill_(s) { return `<span class="dp-pill dp-st-${dpEsc_(String(s).split(' ')[0])}">${dpEsc_(s || '—')}</span>`; }
+function dpLvPill_(s) { return s ? `<span class="dp-pill dp-lv-${dpEsc_(s)}">${dpEsc_(s)}</span>` : '<span class="dp-mut">—</span>'; }
+function dpRenderCatalogo_(root) {
+  const L = DP.list, f = DP.f;
+  const cnt = s => L.filter(p => p.Estatus === s).length;
+  const venc = L.filter(dpVencida_).length;
+  const kpi = (v, l, on, act, color) => `<button type="button" class="dp-kpi ${on ? 'on' : ''}" onclick="${act}"><div class="v" style="color:${color}">${v}</div><div class="l">${l}</div></button>`;
+  const opts = (arr, sel, ph) => `<option value="">${ph}</option>` + arr.map(a => `<option ${a === sel ? 'selected' : ''}>${dpEsc_(a)}</option>`).join('');
+  const rows = dpFiltered_();
+  const errBanner = DP.err ? `<div class="dp-banner ${L.length ? 'warn' : 'err'}">⚠️ No se pudo leer la hoja <b>Procesos</b>: ${dpEsc_(DP.err)}.${/acci|action|unknown|desconoc/i.test(DP.err) ? ' Falta publicar la nueva versión del Apps Script.' : ''} ${L.length ? 'Se muestra la última copia guardada en este navegador.' : ''} <button class="dp-btn sm" onclick="dpLoad_(true)">Reintentar</button></div>` : '';
+  const filtActive = f.q || f.area || f.estatus || f.frec || f.prio || f.imp || f.vencidas;
+  root.innerHTML = `
+    <div class="dp-top">
+      <div>
+        <h2>📘 Documentación de procesos</h2>
+        <p>Documenta, ejecuta, supervisa y mejora cada proceso de Check Inn: procedimiento, checklist, roles, excepciones, indicadores, versiones y capacitación.</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="dp-btn" onclick="dpLoad_(true)" ${DP.loading ? 'disabled' : ''}>${DP.loading ? '⏳ Cargando…' : '🔄 Actualizar'}</button>
+        <button class="dp-btn pri" onclick="dpNuevo_()">＋ Nuevo proceso</button>
+      </div>
+    </div>
+    ${errBanner}
+    <div class="dp-kpis">
+      ${kpi(L.length, 'Procesos', !filtActive, 'dpFiltReset_()', '#4f46e5')}
+      ${kpi(cnt('Activo'), 'Activos', f.estatus === 'Activo' && !f.vencidas, "dpFiltSet_('estatus','Activo',true)", '#059669')}
+      ${kpi(cnt('En revisión'), 'En revisión', f.estatus === 'En revisión', "dpFiltSet_('estatus','En revisión',true)", '#d97706')}
+      ${kpi(cnt('Borrador'), 'Borradores', f.estatus === 'Borrador', "dpFiltSet_('estatus','Borrador',true)", '#475569')}
+      ${kpi(cnt('Obsoleto'), 'Obsoletos', f.estatus === 'Obsoleto', "dpFiltSet_('estatus','Obsoleto',true)", '#94a3b8')}
+      ${kpi(venc, 'Revisión vencida', f.vencidas, 'dpFiltVencidas_()', venc ? '#dc2626' : '#94a3b8')}
+    </div>
+    <div class="dp-filt">
+      <input id="dp-q" type="search" placeholder="🔎 Buscar por palabra clave (nombre, código, pasos, checklist…)" value="${dpEsc_(f.q)}" oninput="dpSearch_(this.value)">
+      <select onchange="dpFiltSet_('area',this.value)">${opts(DP_AREAS, f.area, 'Todas las áreas')}</select>
+      <select onchange="dpFiltSet_('estatus',this.value)">${opts(DP_ESTATUS, f.estatus, 'Todos los estatus')}</select>
+      <select onchange="dpFiltSet_('frec',this.value)">${opts(DP_FRECS, f.frec, 'Toda frecuencia')}</select>
+      <select onchange="dpFiltSet_('prio',this.value)">${opts(DP_PRIOS, f.prio, 'Toda prioridad')}</select>
+      <select onchange="dpFiltSet_('imp',this.value)">${opts(DP_IMPORT, f.imp, 'Toda importancia')}</select>
+      ${filtActive ? `<button class="dp-btn sm" onclick="dpFiltReset_()">✕ Limpiar</button>` : ''}
+    </div>
+    <div id="dp-cat-list">${dpCatList_(rows)}</div>`;
+}
+function dpCatList_(rows) {
+  if (!DP.list.length) {
+    if (DP.loading) return `<div class="dp-card dp-empty"><div class="ico">⏳</div>Cargando procesos…</div>`;
+    return `<div class="dp-card dp-empty"><div class="ico">📘</div><div style="font-weight:800;color:#334155;font-size:14px">Aún no hay procesos documentados</div>
+      <div style="margin:6px 0 14px">Crea el primero desde cero o carga el ejemplo de limpieza para ver cómo se ve una ficha completa.</div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="dp-btn pri" onclick="dpNuevo_()">＋ Nuevo proceso</button><button class="dp-btn" onclick="dpCrearEjemplo_()">✨ Crear ejemplo LIM-001</button></div></div>`;
+  }
+  if (!rows.length) return `<div class="dp-card dp-empty"><div class="ico">🔎</div>Ningún proceso coincide con la búsqueda o los filtros.</div>`;
+  const hoy = dpHoy_();
+  const tr = rows.map(p => {
+    const v = dpVencida_(p);
+    return `<tr class="click" onclick="dpAbrir_('${dpEsc_(p.ID)}')">
+      <td data-l="Código"><span class="dp-code">${dpEsc_(p.Codigo || '—')}</span></td>
+      <td data-l="Proceso" style="font-weight:800;min-width:200px">${dpEsc_(p.Nombre || '(sin nombre)')}</td>
+      <td data-l="Área" style="white-space:nowrap">${DP_AREA_ICO[p.Area] || ''} ${dpEsc_(p.Area || '—')}</td>
+      <td data-l="Responsable">${dpEsc_(p.Responsable || '—')}</td>
+      <td data-l="Frecuencia">${dpEsc_(p.Frecuencia || '—')}${p.Frecuencia_detalle ? `<div class="dp-mut" style="font-size:11px">${dpEsc_(p.Frecuencia_detalle)}</div>` : ''}</td>
+      <td data-l="Prioridad">${dpLvPill_(p.Prioridad)}</td>
+      <td data-l="Estatus">${dpStPill_(p.Estatus)}</td>
+      <td data-l="Versión" style="font-weight:800">v${dpEsc_(p.Version)}</td>
+      <td data-l="Últ. actualización" style="white-space:nowrap">${dpFmtD_(p.Ultima_actualizacion)}</td>
+      <td data-l="Próx. revisión" style="white-space:nowrap" class="${v ? 'dp-venc' : ''}">${v ? '⏰ ' : ''}${dpFmtD_(p.Proxima_revision)}</td>
+      <td data-l="Importancia">${dpLvPill_(p.Importancia)}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="dp-card" style="overflow-x:auto"><table class="dp-tbl cards"><thead><tr>
+    <th>Código</th><th>Proceso</th><th>Área</th><th>Responsable</th><th>Frecuencia</th><th>Prioridad</th><th>Estatus</th><th>Versión</th><th>Últ. actualización</th><th>Próx. revisión</th><th>Importancia</th>
+    </tr></thead><tbody>${tr}</tbody></table></div>
+    <div class="dp-mut" style="font-size:11.5px;margin:8px 4px">${rows.length} de ${DP.list.length} procesos · hoy ${dpFmtD_(hoy)}</div>`;
+}
+let _dpSearchT = null;
+window.dpSearch_ = function (v) {
+  DP.f.q = v;
+  clearTimeout(_dpSearchT);
+  _dpSearchT = setTimeout(() => { const el = document.getElementById('dp-cat-list'); if (el) el.innerHTML = dpCatList_(dpFiltered_()); }, 120);
+};
+window.dpFiltSet_ = function (k, v, solo) {
+  if (solo) { DP.f = { q: DP.f.q, area: '', estatus: '', frec: '', prio: '', imp: '', vencidas: false }; if (DP.f[k] === v) v = ''; }
+  DP.f[k] = v; dpRender_();
+};
+window.dpFiltVencidas_ = function () { const on = !DP.f.vencidas; DP.f = { q: DP.f.q, area: '', estatus: '', frec: '', prio: '', imp: '', vencidas: on }; dpRender_(); };
+window.dpFiltReset_ = function () { DP.f = { q: '', area: '', estatus: '', frec: '', prio: '', imp: '', vencidas: false }; dpRender_(); };
+
+// ── Abrir / nuevo / ejemplo ───────────────────────────────────────────
+window.dpAbrir_ = function (id) {
+  DP.view = 'ficha'; DP.selId = id; DP.sec = 'general'; DP.edit = false; DP.draft = null; DP.isNew = false; DP.run = null;
+  dpRender_(); dpScrollTop_();
+};
+window.dpVolver_ = function () {
+  if (DP.edit && !confirm('Hay cambios sin guardar. ¿Salir sin guardar?')) return;
+  DP.view = 'catalogo'; DP.edit = false; DP.draft = null; DP.isNew = false; DP.run = null;
+  dpRender_(); dpScrollTop_();
+};
+function dpScrollTop_() { const r = document.getElementById('dp-root'); if (r && r.getBoundingClientRect().top < 0) r.scrollIntoView({ block: 'start' }); }
+window.dpNuevo_ = function () {
+  const area = DP.f.area || 'Operación';
+  DP.draft = {
+    ID: '', Codigo: dpNextCode_(area), Nombre: '', Area: area, Responsable: '', Frecuencia: 'Por evento', Frecuencia_detalle: '',
+    Prioridad: 'Media', Estatus: 'Borrador', Version: '1.0', Ultima_actualizacion: dpHoy_(), Proxima_revision: '', Importancia: 'Media',
+    Objetivo: '', Alcance: '', Creado_por: dpUser_(), d: dpEmptyData_(),
+  };
+  DP.view = 'ficha'; DP.selId = null; DP.sec = 'general'; DP.edit = true; DP.isNew = true; DP.run = null;
+  dpRender_(); dpScrollTop_();
+};
+window.dpCrearEjemplo_ = async function () {
+  const p = {
+    ID: '', Codigo: 'LIM-001', Nombre: 'Preparación de departamento para llegada de huésped', Area: 'Limpieza',
+    Responsable: 'Supervisor de limpieza', Frecuencia: 'Por evento', Frecuencia_detalle: 'Por cada salida', Prioridad: 'Alta',
+    Estatus: 'Borrador', Version: '1.0', Ultima_actualizacion: dpHoy_(), Proxima_revision: '', Importancia: 'Crítica',
+    Objetivo: 'Garantizar que el departamento esté completamente preparado antes de la llegada del siguiente huésped.',
+    Alcance: 'Desde la salida del huésped anterior hasta la liberación del departamento.', Creado_por: dpUser_(),
+    d: Object.assign(dpEmptyData_(), {
+      diagrama: [
+        { tipo: 'inicio', texto: 'Salida huésped' }, { tipo: 'actividad', texto: 'Generar tarea de limpieza' },
+        { tipo: 'actividad', texto: 'Limpieza del departamento' }, { tipo: 'actividad', texto: 'Revisión' },
+        { tipo: 'decision', texto: '¿Cumple?', no: 7 }, { tipo: 'actividad', texto: 'Liberar departamento' },
+        { tipo: 'fin', texto: 'Listo para recibir huésped' }, { tipo: 'actividad', texto: 'Corrección', ir: 3 },
+      ],
+      pasos: [
+        { actividad: 'Revisar estado del departamento', responsable: 'Limpieza', tiempo: '2', evidencia: '—' },
+        { actividad: 'Retirar basura', responsable: 'Limpieza', tiempo: '5', evidencia: '—' },
+        { actividad: 'Cambiar ropa de cama', responsable: 'Limpieza', tiempo: '10', evidencia: '—' },
+        { actividad: 'Limpiar baño', responsable: 'Limpieza', tiempo: '15', evidencia: 'Checklist' },
+        { actividad: 'Revisar inventario', responsable: 'Limpieza', tiempo: '5', evidencia: 'Checklist' },
+        { actividad: 'Tomar fotografías', responsable: 'Limpieza', tiempo: '3', evidencia: 'Fotografías' },
+        { actividad: 'Liberar departamento', responsable: 'Supervisor', tiempo: '2', evidencia: 'Confirmación' },
+      ],
+      checklists: [{ titulo: 'Checklist de salida', items: ['Refrigerador limpio', 'Microondas limpio', 'Estufa limpia', 'Baño limpio', 'Sábanas cambiadas', 'Toallas completas', 'Papel sanitario', 'Jabón', 'Internet funcionando', 'Luces funcionando', 'Aire acondicionado funcionando', 'No existen daños', 'Fotografías tomadas'] }],
+      roles: { ejecuta: 'Personal de limpieza', supervisa: 'Coordinador de operaciones', autoriza: 'Gerente' },
+      raciRoles: ['Personal de limpieza', 'Supervisor', 'Gerente', 'Recepción'],
+      insumos: { entradas: ['Reserva confirmada', 'Departamento desocupado', 'Información del huésped', 'Materiales de limpieza'], proceso: 'Limpieza + inspección + reposición.', salidas: ['Departamento listo para recibir huésped'], depende: [], alimenta: [] },
+      excepciones: [
+        { situacion: 'Falta una toalla', severidad: 'Baja', pasos: ['Registrar incidencia', 'Solicitar reposición', 'Notificar supervisor', 'Reponer', 'Cerrar incidencia'] },
+        { situacion: 'Se detecta daño', severidad: 'Alta', pasos: ['Tomar fotografías', 'Registrar daño', 'Clasificar gravedad', 'Notificar administración', 'Determinar responsabilidad', 'Generar reparación/cobro'] },
+      ],
+      kpis: DP_KPI_PRESETS['Limpieza'].map(k => ({ nombre: k[0], unidad: k[1], sentido: k[2], meta: k[3], actual: '', frecuencia: 'Mensual' })),
+      versiones: [{ version: '1.0', fecha: dpHoy_(), usuario: dpUser_(), cambio: 'Creación del proceso.', motivo: 'Documentación inicial' }],
+      capac: { audiencia: ['Personal de limpieza', 'Supervisores'], requerida: true, personas: {} },
+    }),
+  };
+  p.d.pasos.forEach((s, i) => { s.raci = { 'Personal de limpieza': i === 6 ? 'I' : 'R', 'Supervisor': i === 6 ? 'R' : 'A', 'Gerente': i === 6 ? 'A' : '', 'Recepción': i === 6 ? 'I' : '' }; });
+  if (dpByCode_('LIM-001')) p.Codigo = dpNextCode_('Limpieza');
+  try {
+    const saved = await dpPersist_(p);
+    dpLog_(saved, 'Creó proceso', 'Ejemplo LIM-001 · versión 1.0');
+    dpAbrir_(saved.ID);
+  } catch (e) { alert('No se pudo crear el ejemplo: ' + e.message); }
+};
+
+// ── 2. Ficha ──────────────────────────────────────────────────────────
+function dpCur_() { return DP.edit ? DP.draft : dpById_(DP.selId); }
+function dpRenderFicha_(root) {
+  const p = dpCur_();
+  if (!p) { DP.view = 'catalogo'; return dpRenderCatalogo_(root); }
+  const ed = DP.edit;
+  const v = dpVencida_(p);
+  const acts = ed ? `
+      <button class="dp-btn ok" onclick="dpGuardar_()" ${DP.saving ? 'disabled' : ''}>${DP.saving ? '⏳ Guardando…' : '💾 Guardar'}</button>
+      <button class="dp-btn" onclick="dpCancelar_()">Cancelar</button>` : `
+      <button class="dp-btn pri" onclick="dpEditar_()">✏️ Editar</button>
+      ${p.Estatus === 'Borrador' ? `<button class="dp-btn" onclick="dpCambiarEstatus_('En revisión')">📤 Enviar a revisión</button>` : ''}
+      ${p.Estatus === 'En revisión' || p.Estatus === 'Borrador' ? `<button class="dp-btn ok" onclick="dpAprobar_()">✅ Aprobar versión ${dpEsc_(p.Version)}</button>` : ''}
+      ${p.Estatus === 'Activo' ? `<button class="dp-btn" onclick="dpCambiarEstatus_('En revisión')">🔍 Poner en revisión</button>` : ''}
+      ${p.Estatus !== 'Obsoleto' ? `<button class="dp-btn" onclick="dpCambiarEstatus_('Obsoleto')">🗄️ Marcar obsoleto</button>` : `<button class="dp-btn" onclick="dpCambiarEstatus_('Borrador')">♻️ Reactivar como borrador</button>`}
+      <button class="dp-btn" onclick="dpImprimir_()">🖨️ Imprimir / PDF</button>
+      <button class="dp-btn" onclick="dpDuplicar_()">📄 Duplicar</button>
+      <button class="dp-btn" onclick="dpEliminar_()">🗑️ Eliminar</button>`;
+  const nav = DP_SECS.map(([k, ico, t]) => `<button type="button" class="${DP.sec === k ? 'on' : ''}" onclick="dpSec_('${k}')">${ico} ${t}<span class="dot ${dpSecFilled_(p, k) ? 'f' : ''}"></span></button>`).join('');
+  root.innerHTML = `
+    <div style="margin-bottom:10px"><button class="dp-btn sm" onclick="dpVolver_()">← Catálogo de procesos</button></div>
+    <div class="dp-head">
+      <div class="row1"><span class="dp-code">${dpEsc_(p.Codigo || 'NUEVO')}</span>${dpStPill_(p.Estatus)}<span>v${dpEsc_(p.Version)}</span><span>· ${DP_AREA_ICO[p.Area] || ''} ${dpEsc_(p.Area || '')}</span>${ed ? '<span class="dp-pill" style="background:#fde68a;color:#78350f">✏️ Editando</span>' : ''}</div>
+      <h3>${dpEsc_(p.Nombre || (DP.isNew ? 'Nuevo proceso' : '(sin nombre)'))}</h3>
+      <div class="meta"><span>👤 ${dpEsc_(p.Responsable || 'Sin responsable')}</span><span>🔁 ${dpEsc_(p.Frecuencia || '—')}${p.Frecuencia_detalle ? ' · ' + dpEsc_(p.Frecuencia_detalle) : ''}</span><span>🗓️ Actualizado ${dpFmtD_(p.Ultima_actualizacion)}</span><span${v ? ' style="color:#fecaca;font-weight:800"' : ''}>⏰ Revisión ${dpFmtD_(p.Proxima_revision)}${v ? ' (vencida)' : ''}</span></div>
+      <div class="acts">${acts}</div>
+    </div>
+    <div class="dp-lay">
+      <nav class="dp-nav">${nav}</nav>
+      <section class="dp-sec" id="dp-sec">${dpSecHtml_(p, DP.sec, ed)}</section>
+    </div>`;
+}
+window.dpSec_ = function (k) {
+  DP.sec = k; DP.run = null;
+  const p = dpCur_();
+  document.querySelectorAll('.dp-nav button').forEach((b, i) => b.classList.toggle('on', DP_SECS[i][0] === k));
+  const s = document.getElementById('dp-sec');
+  if (s) s.innerHTML = dpSecHtml_(p, k, DP.edit);
+  const nav = document.querySelector('.dp-nav button.on');
+  if (nav && window.innerWidth <= 900) nav.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+};
+function dpRefreshSec_() { const s = document.getElementById('dp-sec'); if (s) s.innerHTML = dpSecHtml_(dpCur_(), DP.sec, DP.edit); dpRefreshDots_(); }
+function dpRefreshDots_() { const p = dpCur_(); document.querySelectorAll('.dp-nav .dot').forEach((d, i) => d.classList.toggle('f', dpSecFilled_(p, DP_SECS[i][0]))); }
+function dpSecHtml_(p, k, ed) {
+  const [, ico, t] = DP_SECS.find(s => s[0] === k) || DP_SECS[0];
+  const body = ({
+    general: dpSecGeneral_, diagrama: dpSecDiagrama_, pasos: dpSecPasos_, checklist: dpSecChecklist_, roles: dpSecRoles_,
+    insumos: dpSecInsumos_, docs: dpSecDocs_, excepciones: dpSecExc_, kpis: dpSecKpis_, versiones: dpSecVersiones_,
+    capac: dpSecCapac_, historial: dpSecHist_,
+  }[k] || dpSecGeneral_)(p, ed);
+  return `<h4>${ico} ${t}${body.tools ? `<span class="sp">${body.tools}</span>` : ''}</h4>${body.html}`;
+}
+// Setters de borrador (no re-renderizan para no perder el foco)
+window.dpSet_ = function (k, v) {
+  DP.draft[k] = v;
+  if (k === 'Area' && DP.isNew) { DP.draft.Codigo = dpNextCode_(v); const c = document.getElementById('dp-f-codigo'); if (c) c.value = DP.draft.Codigo; }
+  dpRefreshDots_();
+};
+window.dpSetD_ = function (path, v) {
+  const parts = path.split('.'); let o = DP.draft.d;
+  for (let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
+  o[parts[parts.length - 1]] = v;
+  dpRefreshDots_();
+};
+function dpLines_(s) { return String(s || '').split('\n').map(x => x.trim()).filter(Boolean); }
+const dpOpt_ = (arr, sel) => arr.map(a => `<option ${a === sel ? 'selected' : ''}>${dpEsc_(a)}</option>`).join('');
+
+// ── Sección: Información general ─────────────────────────────────────
+function dpSecGeneral_(p, ed) {
+  if (!ed) {
+    const f = (l, v) => `<div class="dp-f"><label>${l}</label><div class="v">${v}</div></div>`;
+    return { html: `
+      <div class="dp-grid">
+        ${f('Nombre', dpEsc_(p.Nombre || '—'))}${f('Código', `<span class="dp-code">${dpEsc_(p.Codigo)}</span>`)}${f('Área', `${DP_AREA_ICO[p.Area] || ''} ${dpEsc_(p.Area || '—')}`)}
+        ${f('Responsable', dpEsc_(p.Responsable || '—'))}${f('Frecuencia', dpEsc_(p.Frecuencia || '—') + (p.Frecuencia_detalle ? ` · <span class="dp-mut">${dpEsc_(p.Frecuencia_detalle)}</span>` : ''))}${f('Prioridad', dpLvPill_(p.Prioridad))}
+        ${f('Estatus', dpStPill_(p.Estatus))}${f('Versión', 'v' + dpEsc_(p.Version))}${f('Nivel de importancia', dpLvPill_(p.Importancia))}
+        ${f('Última actualización', dpFmtD_(p.Ultima_actualizacion))}${f('Próxima revisión', `<span class="${dpVencida_(p) ? 'dp-venc' : ''}">${dpFmtD_(p.Proxima_revision)}</span>`)}${f('Creado por', dpEsc_(p.Creado_por || '—'))}
+      </div>
+      <div style="margin-top:14px"><div class="dp-lbl">🎯 Objetivo</div><div class="dp-txt">${dpEsc_(p.Objetivo) || '<span class="dp-mut">Sin objetivo definido.</span>'}</div></div>
+      <div style="margin-top:12px"><div class="dp-lbl">📐 Alcance</div><div class="dp-txt">${dpEsc_(p.Alcance) || '<span class="dp-mut">Sin alcance definido.</span>'}</div></div>` };
+  }
+  const nombres = (typeof tarPersonalNombres_ === 'function' ? tarPersonalNombres_() : []);
+  const fi = (l, h, full) => `<div class="dp-f" ${full ? 'style="grid-column:1/-1"' : ''}><label>${l}</label>${h}</div>`;
+  return { html: `
+    <datalist id="dp-dl-pers">${nombres.map(n => `<option value="${dpEsc_(n)}">`).join('')}${['Supervisor de limpieza', 'Coordinador de operaciones', 'Gerente', 'Recepción', 'Administración', 'Mantenimiento'].map(n => `<option value="${n}">`).join('')}</datalist>
+    <div class="dp-grid">
+      ${fi('Nombre del proceso *', `<input class="dp-in" value="${dpEsc_(p.Nombre)}" oninput="dpSet_('Nombre',this.value)" placeholder="Ej. Preparación de departamento para llegada de huésped">`, true)}
+      ${fi('Código', `<input id="dp-f-codigo" class="dp-in" value="${dpEsc_(p.Codigo)}" oninput="dpSet_('Codigo',this.value.toUpperCase())" style="font-family:ui-monospace,Menlo,monospace;font-weight:800">`)}
+      ${fi('Área', `<select class="dp-sel" onchange="dpSet_('Area',this.value)">${dpOpt_(DP_AREAS, p.Area)}</select>`)}
+      ${fi('Responsable', `<input class="dp-in" list="dp-dl-pers" value="${dpEsc_(p.Responsable)}" oninput="dpSet_('Responsable',this.value)" placeholder="Puesto o persona">`)}
+      ${fi('Frecuencia', `<select class="dp-sel" onchange="dpSet_('Frecuencia',this.value)">${dpOpt_(DP_FRECS, p.Frecuencia)}</select>`)}
+      ${fi('Detalle de frecuencia', `<input class="dp-in" value="${dpEsc_(p.Frecuencia_detalle)}" oninput="dpSet_('Frecuencia_detalle',this.value)" placeholder="Ej. Por cada salida">`)}
+      ${fi('Prioridad', `<select class="dp-sel" onchange="dpSet_('Prioridad',this.value)">${dpOpt_(DP_PRIOS, p.Prioridad)}</select>`)}
+      ${fi('Estatus', `<select class="dp-sel" onchange="dpSet_('Estatus',this.value)">${dpOpt_(DP_ESTATUS, p.Estatus)}</select>`)}
+      ${fi('Nivel de importancia', `<select class="dp-sel" onchange="dpSet_('Importancia',this.value)">${dpOpt_(DP_IMPORT, p.Importancia)}</select>`)}
+      ${fi('Próxima revisión', `<input type="date" class="dp-in" value="${dpEsc_(p.Proxima_revision)}" onchange="dpSet_('Proxima_revision',this.value)">`)}
+      ${fi('Versión', `<div class="v" style="padding:8px 0;font-weight:800">v${dpEsc_(p.Version)} <span class="dp-mut" style="font-weight:600;font-size:11.5px">· se actualiza al guardar</span></div>`)}
+      ${fi('Última actualización', `<div class="v" style="padding:8px 0">${dpFmtD_(p.Ultima_actualizacion)}</div>`)}
+      ${fi('🎯 Objetivo', `<textarea class="dp-ta" oninput="dpSet_('Objetivo',this.value)" placeholder="¿Para qué existe este proceso?">${dpEsc_(p.Objetivo)}</textarea>`, true)}
+      ${fi('📐 Alcance', `<textarea class="dp-ta" oninput="dpSet_('Alcance',this.value)" placeholder="¿Dónde empieza y dónde termina?">${dpEsc_(p.Alcance)}</textarea>`, true)}
+    </div>` };
+}
+
+// ── Sección: Diagrama ────────────────────────────────────────────────
+function dpWrap_(t, n) {
+  const words = String(t || '').split(/\s+/); const out = []; let cur = '';
+  words.forEach(w => { if ((cur + ' ' + w).trim().length > n && cur) { out.push(cur); cur = w; } else cur = (cur + ' ' + w).trim(); });
+  if (cur) out.push(cur);
+  if (out.length > 2) { out.length = 2; out[1] = out[1].replace(/.{0,2}$/, '…'); }
+  return out;
+}
+function dpDiagramSvg_(nodes) {
+  if (!nodes || !nodes.length) return '';
+  const cx = 190, W = 250, GAP = 34;
+  const H = n => n.tipo === 'decision' ? 74 : 48;
+  const ys = []; let y = 14;
+  nodes.forEach(n => { ys.push(y); y += H(n) + GAP; });
+  const total = y - GAP + 14;
+  const mid = i => ys[i] + H(nodes[i]) / 2;
+  const fill = { inicio: '#dcfce7', fin: '#1e1b4b', actividad: '#eef2ff', decision: '#fef3c7' };
+  const stroke = { inicio: '#16a34a', fin: '#1e1b4b', actividad: '#6366f1', decision: '#d97706' };
+  let out = '';
+  // conectores verticales
+  nodes.forEach((n, i) => {
+    if (i === nodes.length - 1 || n.tipo === 'fin' || (n.ir !== '' && n.ir != null && n.tipo !== 'decision')) return;
+    const y1 = ys[i] + H(n), y2 = ys[i + 1];
+    out += `<line x1="${cx}" y1="${y1}" x2="${cx}" y2="${y2 - 2}" stroke="#94a3b8" stroke-width="2" marker-end="url(#dpArr)"/>`;
+    if (n.tipo === 'decision') out += `<text x="${cx + 8}" y="${y1 + 18}" font-size="12" font-weight="800" fill="#16a34a">Sí</text>`;
+  });
+  // ramas laterales (No / Ir a)
+  let lane = 0;
+  nodes.forEach((n, i) => {
+    const tgt = n.tipo === 'decision' ? n.no : n.ir;
+    if (tgt === '' || tgt == null || !nodes[+tgt] || +tgt === i) return;
+    const t = +tgt;
+    const x0 = n.tipo === 'decision' ? cx + 70 : cx + W / 2;
+    const lx = cx + W / 2 + 26 + lane * 22; lane++;
+    const ya = mid(i) + (n.tipo === 'decision' ? 0 : 6), yb = mid(t) - 7;
+    out += `<path d="M${x0} ${ya} H${lx} V${yb} H${cx + W / 2 + 3}" fill="none" stroke="${n.tipo === 'decision' ? '#dc2626' : '#94a3b8'}" stroke-width="2" ${n.tipo === 'decision' ? '' : 'stroke-dasharray="5 4"'} marker-end="url(#dpArr${n.tipo === 'decision' ? 'R' : ''})"/>`;
+    if (n.tipo === 'decision') out += `<text x="${x0 + 6}" y="${ya - 6}" font-size="12" font-weight="800" fill="#dc2626">No</text>`;
+  });
+  // nodos
+  nodes.forEach((n, i) => {
+    const h = H(n), y0 = ys[i], tipo = fill[n.tipo] ? n.tipo : 'actividad';
+    const lines = dpWrap_(n.texto || '(sin texto)', tipo === 'decision' ? 18 : 30);
+    const txtCol = tipo === 'fin' ? '#fff' : '#0f172a';
+    if (tipo === 'decision') {
+      out += `<polygon points="${cx},${y0} ${cx + 70},${y0 + h / 2} ${cx},${y0 + h} ${cx - 70},${y0 + h / 2}" fill="${fill[tipo]}" stroke="${stroke[tipo]}" stroke-width="2"/>`;
+    } else {
+      const rx = (tipo === 'inicio' || tipo === 'fin') ? h / 2 : 10;
+      out += `<rect x="${cx - W / 2}" y="${y0}" width="${W}" height="${h}" rx="${rx}" fill="${fill[tipo]}" stroke="${stroke[tipo]}" stroke-width="2"/>`;
+    }
+    const ly = y0 + h / 2 - (lines.length - 1) * 7.5 + 4.5;
+    out += lines.map((l, j) => `<text x="${cx}" y="${ly + j * 15}" text-anchor="middle" font-size="${tipo === 'decision' ? 11.5 : 12.5}" font-weight="700" fill="${txtCol}">${dpEsc_(l)}</text>`).join('');
+    out += `<text x="${cx - W / 2 - 8}" y="${y0 + 14}" text-anchor="end" font-size="10" font-weight="800" fill="#94a3b8">${i + 1}</text>`;
+  });
+  const width = cx + W / 2 + 40 + lane * 22;
+  return `<svg class="dp-diag" viewBox="0 0 ${width} ${total}" style="max-width:${Math.max(380, width + 40)}px" font-family="inherit" role="img" aria-label="Diagrama del proceso">
+    <defs><marker id="dpArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#94a3b8"/></marker>
+    <marker id="dpArrR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#dc2626"/></marker></defs>${out}</svg>`;
+}
+function dpSecDiagrama_(p, ed) {
+  const N = p.d.diagrama;
+  if (!ed) {
+    if (!N.length) return { html: `<div class="dp-empty" style="padding:28px"><div class="ico">🔀</div>Este proceso no tiene diagrama. No todos lo necesitan; puedes agregarlo desde <b>✏️ Editar</b>.</div>` };
+    return { html: `<div style="overflow-x:auto">${dpDiagramSvg_(N)}</div>
+      <div class="dp-mut" style="font-size:11.5px;margin-top:8px;text-align:center">🟢 Inicio · 🟦 Actividad · 🟨 Decisión (Sí ↓ / No →) · ⬛ Fin · línea punteada = regresa a otro paso</div>` };
+  }
+  const tgtOpts = (sel, self) => `<option value="">—</option>` + N.map((x, j) => j === self ? '' : `<option value="${j}" ${String(sel) === String(j) ? 'selected' : ''}>${j + 1}. ${dpEsc_((x.texto || '').slice(0, 28))}</option>`).join('');
+  const rows = N.map((n, i) => `
+    <div class="dp-row-ed" style="grid-template-columns:26px 130px minmax(0,1fr) 190px auto">
+      <b class="dp-mut">${i + 1}</b>
+      <select class="dp-sel" onchange="dpDiagSet_(${i},'tipo',this.value)">${[['inicio', 'Inicio'], ['actividad', 'Actividad'], ['decision', 'Decisión'], ['fin', 'Fin']].map(([v, l]) => `<option value="${v}" ${n.tipo === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <input class="dp-in" value="${dpEsc_(n.texto)}" oninput="dpDiagSet_(${i},'texto',this.value,true)" placeholder="Texto del paso">
+      ${n.tipo === 'decision' ? `<label style="display:flex;gap:6px;align-items:center;font-size:11.5px;font-weight:800;color:#dc2626">No →<select class="dp-sel" onchange="dpDiagSet_(${i},'no',this.value)">${tgtOpts(n.no, i)}</select></label>`
+      : n.tipo === 'fin' ? '<span></span>' : `<label style="display:flex;gap:6px;align-items:center;font-size:11.5px;font-weight:800;color:#64748b">Luego ir a<select class="dp-sel" onchange="dpDiagSet_(${i},'ir',this.value)"><option value="">Siguiente</option>${tgtOpts(n.ir, i).replace('<option value="">—</option>', '')}</select></label>`}
+      <div class="dp-mini"><button onclick="dpDiagMove_(${i},-1)" title="Subir">↑</button><button onclick="dpDiagMove_(${i},1)" title="Bajar">↓</button><button onclick="dpDiagDel_(${i})" title="Quitar">✕</button></div>
+    </div>`).join('');
+  return {
+    tools: `<button class="dp-btn sm" onclick="dpDiagFromPasos_()">🪄 Generar desde procedimiento</button><button class="dp-btn sm" onclick="dpDiagAdd_()">＋ Nodo</button>`,
+    html: `<div class="dp-hint" style="margin:-4px 0 10px">Cada nodo fluye al siguiente. Una <b>Decisión</b> continúa con "Sí" hacia abajo y con "No" al nodo que elijas. Usa "Luego ir a" para regresar a un paso (p. ej. Corrección → Revisión).</div>
+      ${rows || '<div class="dp-mut" style="padding:8px 0">Sin nodos todavía.</div>'}
+      <div id="dp-diag-prev" style="margin-top:14px;overflow-x:auto;border-top:1px dashed #e2e8f0;padding-top:12px">${dpDiagramSvg_(N)}</div>`,
+  };
+}
+window.dpDiagSet_ = function (i, k, v, soft) {
+  const n = DP.draft.d.diagrama[i]; n[k] = v;
+  if (k === 'tipo') { if (v !== 'decision') delete n.no; if (v === 'decision' || v === 'fin') delete n.ir; }
+  if (soft) { const pv = document.getElementById('dp-diag-prev'); if (pv) pv.innerHTML = dpDiagramSvg_(DP.draft.d.diagrama); dpRefreshDots_(); }
+  else dpRefreshSec_();
+};
+function dpDiagRemap_(fn) { DP.draft.d.diagrama.forEach(n => { ['no', 'ir'].forEach(k => { if (n[k] !== '' && n[k] != null) { const r = fn(+n[k]); if (r == null) delete n[k]; else n[k] = r; } }); }); }
+window.dpDiagAdd_ = function () { DP.draft.d.diagrama.push({ tipo: DP.draft.d.diagrama.length ? 'actividad' : 'inicio', texto: '' }); dpRefreshSec_(); };
+window.dpDiagDel_ = function (i) { DP.draft.d.diagrama.splice(i, 1); dpDiagRemap_(t => t === i ? null : (t > i ? t - 1 : t)); dpRefreshSec_(); };
+window.dpDiagMove_ = function (i, dir) {
+  const A = DP.draft.d.diagrama, j = i + dir; if (j < 0 || j >= A.length) return;
+  [A[i], A[j]] = [A[j], A[i]]; dpDiagRemap_(t => t === i ? j : (t === j ? i : t)); dpRefreshSec_();
+};
+window.dpDiagFromPasos_ = function () {
+  const P = DP.draft.d.pasos;
+  if (!P.length) return alert('Primero captura el procedimiento paso a paso.');
+  if (DP.draft.d.diagrama.length && !confirm('¿Reemplazar el diagrama actual por uno generado desde el procedimiento?')) return;
+  DP.draft.d.diagrama = [{ tipo: 'inicio', texto: 'Inicio' }].concat(P.map(s => ({ tipo: 'actividad', texto: s.actividad || '' })), [{ tipo: 'fin', texto: 'Fin' }]);
+  dpRefreshSec_();
+};
+
+// ── Sección: Procedimiento paso a paso ───────────────────────────────
+function dpSecPasos_(p, ed) {
+  const P = p.d.pasos;
+  const tot = P.reduce((a, s) => a + (parseFloat(s.tiempo) || 0), 0);
+  const totTxt = tot ? `⏱️ Tiempo total estimado: <b>${tot} min</b>${tot >= 60 ? ` (${Math.floor(tot / 60)} h ${tot % 60} min)` : ''}` : '';
+  if (!ed) {
+    if (!P.length) return { html: `<div class="dp-empty" style="padding:28px"><div class="ico">🪜</div>Sin procedimiento. Es la parte central del proceso: agrégalo desde <b>✏️ Editar</b>.</div>` };
+    return { html: `<div style="overflow-x:auto"><table class="dp-tbl cards"><thead><tr><th>#</th><th>Actividad</th><th>Responsable</th><th>Tiempo</th><th>Evidencia</th></tr></thead><tbody>
+      ${P.map((s, i) => `<tr><td data-l="#" style="font-weight:900;color:#6366f1">${i + 1}</td><td data-l="Actividad" style="font-weight:700">${dpEsc_(s.actividad)}</td><td data-l="Responsable">${dpEsc_(s.responsable || '—')}</td><td data-l="Tiempo" style="white-space:nowrap">${s.tiempo ? dpEsc_(s.tiempo) + ' min' : '—'}</td><td data-l="Evidencia">${s.evidencia && s.evidencia !== '—' ? `<span class="dp-pill" style="background:#eef2ff;color:#3730a3">${dpEsc_(s.evidencia)}</span>` : '<span class="dp-mut">—</span>'}</td></tr>`).join('')}
+      </tbody></table></div><div style="margin-top:10px;font-size:12.5px">${totTxt}</div>` };
+  }
+  const rows = P.map((s, i) => `
+    <div class="dp-row-ed" style="grid-template-columns:26px minmax(0,1fr) 160px 90px 140px auto">
+      <b class="dp-mut">${i + 1}</b>
+      <input class="dp-in" value="${dpEsc_(s.actividad)}" oninput="dpSetD_('pasos.${i}.actividad',this.value)" placeholder="Actividad">
+      <input class="dp-in" list="dp-dl-pers" value="${dpEsc_(s.responsable)}" oninput="dpSetD_('pasos.${i}.responsable',this.value)" placeholder="Responsable">
+      <input class="dp-in" type="number" min="0" value="${dpEsc_(s.tiempo)}" oninput="dpSetD_('pasos.${i}.tiempo',this.value)" placeholder="min">
+      <select class="dp-sel" onchange="dpSetD_('pasos.${i}.evidencia',this.value)">${dpOpt_(DP_EVID, s.evidencia || '—')}</select>
+      <div class="dp-mini"><button onclick="dpArrMove_('pasos',${i},-1)">↑</button><button onclick="dpArrMove_('pasos',${i},1)">↓</button><button onclick="dpArrDel_('pasos',${i})">✕</button></div>
+    </div>`).join('');
+  const nombres = (typeof tarPersonalNombres_ === 'function' ? tarPersonalNombres_() : []);
+  return {
+    tools: `<button class="dp-btn sm" onclick="dpArrAdd_('pasos',{actividad:'',responsable:'',tiempo:'',evidencia:'—'})">＋ Paso</button>`,
+    html: `<datalist id="dp-dl-pers">${nombres.map(n => `<option value="${dpEsc_(n)}">`).join('')}</datalist>
+      <div class="dp-hint" style="margin:-4px 0 10px">Actividad · Responsable · Tiempo (minutos) · Evidencia requerida.</div>
+      ${rows || '<div class="dp-mut" style="padding:8px 0">Sin pasos todavía.</div>'}<div style="margin-top:8px;font-size:12.5px">${totTxt}</div>`,
+  };
+}
+window.dpArrAdd_ = function (path, obj) { const parts = path.split('.'); let o = DP.draft.d; parts.forEach(k => o = o[k]); o.push(obj); dpRefreshSec_(); };
+window.dpArrDel_ = function (path, i) { const parts = path.split('.'); let o = DP.draft.d; parts.forEach(k => o = o[k]); o.splice(i, 1); dpRefreshSec_(); };
+window.dpArrMove_ = function (path, i, dir) {
+  const parts = path.split('.'); let A = DP.draft.d; parts.forEach(k => A = A[k]);
+  const j = i + dir; if (j < 0 || j >= A.length) return; [A[i], A[j]] = [A[j], A[i]]; dpRefreshSec_();
+};
+
+// ── Sección: Checklist (ver / ejecutar / editar) ─────────────────────
+function dpSecChecklist_(p, ed) {
+  const C = p.d.checklists;
+  if (ed) {
+    const rows = C.map((c, i) => `
+      <div class="dp-row-ed" style="grid-template-columns:minmax(0,1fr) auto;align-items:start">
+        <div><input class="dp-in" value="${dpEsc_(c.titulo)}" oninput="dpSetD_('checklists.${i}.titulo',this.value)" placeholder="Título (ej. Checklist de salida)" style="font-weight:800;margin-bottom:6px">
+        <textarea class="dp-ta" style="min-height:140px" oninput="dpSetD_('checklists.${i}.items',dpLines_(this.value))" placeholder="Un elemento por renglón">${dpEsc_((c.items || []).join('\n'))}</textarea>
+        <div class="dp-hint">Un elemento por renglón.</div></div>
+        <div class="dp-mini"><button onclick="dpArrDel_('checklists',${i})" title="Quitar checklist">✕</button></div>
+      </div>`).join('');
+    return { tools: `<button class="dp-btn sm" onclick="dpArrAdd_('checklists',{titulo:'',items:[]})">＋ Checklist</button>`, html: rows || '<div class="dp-mut">Sin checklists. Muy útil para limpieza y mantenimiento.</div>' };
+  }
+  if (!C.length) return { html: `<div class="dp-empty" style="padding:28px"><div class="ico">☑️</div>Sin checklist. Agrégalo desde <b>✏️ Editar</b>.</div>` };
+  const ejec = DP.hist.filter(h => h.Proceso_ID === p.ID && h.Accion === 'Ejecutó checklist').slice(0, 8);
+  const html = C.map((c, i) => {
+    const run = DP.run && DP.run.ci === i ? DP.run : null;
+    const items = c.items || [];
+    const done = run ? items.filter((_, j) => run.chk[j]).length : 0;
+    const pct = items.length ? Math.round(done / items.length * 100) : 0;
+    return `<div class="dp-card" style="padding:14px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px"><b style="font-size:14px">${dpEsc_(c.titulo || 'Checklist')}</b><span class="dp-mut">${items.length} elementos</span>
+        <span style="margin-left:auto">${run ? `<button class="dp-btn sm" onclick="dpRunStop_()">Cancelar</button>` : `<button class="dp-btn sm pri" onclick="dpRunStart_(${i})">▶️ Ejecutar checklist</button>`}</span></div>
+      ${run ? `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div class="dp-prog" style="flex:1"><div style="width:${pct}%"></div></div><b style="font-size:12px">${done}/${items.length}</b></div>` : ''}
+      <div class="dp-cl">${items.map((t, j) => `<div class="it ${run && run.chk[j] ? 'on' : ''}" ${run ? `onclick="dpRunToggle_(${j})"` : ''}><span class="dp-chk ${run && run.chk[j] ? 'on' : ''}">${run && run.chk[j] ? '✓' : ''}</span><span class="t">${dpEsc_(t)}</span></div>`).join('')}</div>
+      ${run ? `<div class="dp-grid" style="margin-top:10px;grid-template-columns:minmax(0,1fr) minmax(0,2fr)">
+          <div class="dp-f"><label>Departamento / referencia</label><input class="dp-in" value="${dpEsc_(run.ref)}" oninput="DP.run.ref=this.value" placeholder="Ej. Torre A 302"></div>
+          <div class="dp-f"><label>Observaciones</label><input class="dp-in" value="${dpEsc_(run.obs)}" oninput="DP.run.obs=this.value" placeholder="Opcional"></div></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="dp-btn ok" onclick="dpRunGuardar_()">💾 Registrar ejecución (${done}/${items.length})</button></div>` : ''}
+    </div>`;
+  }).join('');
+  const hist = ejec.length ? `<div class="dp-lbl" style="margin-top:6px">Últimas ejecuciones registradas</div><div style="overflow-x:auto"><table class="dp-tbl cards"><thead><tr><th>Fecha</th><th>Usuario</th><th>Resultado</th></tr></thead><tbody>
+    ${ejec.map(h => `<tr><td data-l="Fecha" style="white-space:nowrap">${dpEsc_(dpFmtD_(h.Timestamp))} ${dpEsc_(String(h.Timestamp).slice(11, 16))}</td><td data-l="Usuario">${dpEsc_(h.Usuario)}</td><td data-l="Resultado">${dpEsc_(h.Detalle)}</td></tr>`).join('')}</tbody></table></div>` : '';
+  return { html: html + hist };
+}
+window.dpRunStart_ = function (i) { DP.run = { ci: i, chk: {}, ref: '', obs: '' }; dpRefreshSec_(); };
+window.dpRunStop_ = function () { DP.run = null; dpRefreshSec_(); };
+window.dpRunToggle_ = function (j) { DP.run.chk[j] = !DP.run.chk[j]; dpRefreshSec_(); };
+window.dpRunGuardar_ = function () {
+  const p = dpCur_(), c = p.d.checklists[DP.run.ci], items = c.items || [];
+  const ok = items.filter((_, j) => DP.run.chk[j]).length;
+  const falt = items.filter((_, j) => !DP.run.chk[j]);
+  if (falt.length && !confirm(`Faltan ${falt.length} elementos sin marcar. ¿Registrar de todas formas?`)) return;
+  const det = `${c.titulo || 'Checklist'} · ${ok}/${items.length}${DP.run.ref ? ' · ' + DP.run.ref : ''}${falt.length ? ' · Pendiente: ' + falt.join(', ') : ' · Completo ✅'}${DP.run.obs ? ' · Obs: ' + DP.run.obs : ''}`;
+  dpLog_(p, 'Ejecutó checklist', det);
+  DP.run = null; dpRefreshSec_();
+};
+
+// ── Sección: Roles y RACI ─────────────────────────────────────────────
+function dpSecRoles_(p, ed) {
+  const R = p.d.roles, roles = p.d.raciRoles, P = p.d.pasos;
+  const flow = `<div class="dp-flow">
+    ${[['ejecuta', '🛠️ Ejecuta'], ['supervisa', '👀 Supervisa'], ['autoriza', '✅ Autoriza']].map(([k, l], i) => `${i ? '<div class="arr">→</div>' : ''}<div class="box"><div class="dp-lbl">${l}</div>${ed ? `<input class="dp-in" value="${dpEsc_(R[k])}" oninput="dpSetD_('roles.${k}',this.value)" placeholder="Puesto">` : `<div style="font-weight:800;font-size:14px">${dpEsc_(R[k] || '—')}</div>`}</div>`).join('')}
+  </div>`;
+  const legend = `<div class="dp-chips" style="margin:8px 0 10px;font-size:11.5px;color:#475569;gap:12px"><span><span class="dp-rc R" style="width:20px;height:20px">R</span> Responsible · ejecuta</span><span><span class="dp-rc A" style="width:20px;height:20px">A</span> Accountable · responsable final</span><span><span class="dp-rc C" style="width:20px;height:20px">C</span> Consulted · se consulta</span><span><span class="dp-rc I" style="width:20px;height:20px">I</span> Informed · se informa</span></div>`;
+  let raci = '';
+  if (roles.length && P.length) {
+    raci = `<div style="overflow-x:auto;border:1px solid var(--dp-line);border-radius:12px"><table class="dp-tbl dp-raci" style="min-width:${220 + roles.length * 90}px"><thead><tr><th>Actividad</th>${roles.map(r => `<th>${dpEsc_(r)}</th>`).join('')}</tr></thead><tbody>
+      ${P.map((s, i) => `<tr><td style="font-weight:700"><span class="dp-mut">${i + 1}.</span> ${dpEsc_(s.actividad)}</td>${roles.map(r => { const v = (s.raci || {})[r] || ''; return `<td><span class="dp-rc ${v} ${ed ? 'ed' : ''}" ${ed ? `onclick="dpRaciCycle_(${i},'${dpEsc_(r).replace(/'/g, "\\'")}')" title="Clic para cambiar"` : ''}>${v || '·'}</span></td>`; }).join('')}</tr>`).join('')}
+      </tbody></table></div>${ed ? '<div class="dp-hint">Haz clic en una celda para alternar R → A → C → I → vacío.</div>' : ''}`;
+  } else {
+    raci = `<div class="dp-mut" style="font-size:12.5px">${!P.length ? 'La matriz RACI se arma sobre las actividades del procedimiento (aún no hay pasos).' : 'Define los roles de la matriz para asignar R / A / C / I a cada actividad.'}</div>`;
+  }
+  return { html: `${flow}
+    <div style="margin-top:18px"><div class="dp-lbl">Matriz RACI</div>
+    ${ed ? `<div class="dp-f" style="margin-bottom:10px"><label>Roles de la matriz (uno por renglón)</label><textarea class="dp-ta" style="min-height:80px" onchange="dpSetD_('raciRoles',dpLines_(this.value));dpRefreshSec_()">${dpEsc_(roles.join('\n'))}</textarea></div>` : ''}
+    ${legend}${raci}</div>` };
+}
+window.dpRaciCycle_ = function (i, r) {
+  const s = DP.draft.d.pasos[i]; s.raci = s.raci || {};
+  const seq = ['', 'R', 'A', 'C', 'I']; s.raci[r] = seq[(seq.indexOf(s.raci[r] || '') + 1) % seq.length];
+  dpRefreshSec_();
+};
+
+// ── Sección: Insumos y resultados ─────────────────────────────────────
+function dpSecInsumos_(p, ed) {
+  const I = p.d.insumos;
+  const otros = DP.list.filter(x => x.ID !== p.ID && x.Codigo);
+  const reverse = otros.filter(x => (x.d.insumos.depende || []).includes(p.Codigo)).map(x => x.Codigo);
+  const chipsCodes = codes => codes.length ? `<div class="dp-chips">${codes.map(c => { const x = dpByCode_(c); return `<button class="dp-chip" ${x && !DP.edit ? `onclick="dpAbrir_('${dpEsc_(x.ID)}')"` : ''} title="${dpEsc_(x ? x.Nombre : 'No encontrado')}">${dpEsc_(c)}${x ? ' · ' + dpEsc_(x.Nombre.slice(0, 32)) : ''}</button>`; }).join('')}</div>` : '<span class="dp-mut">—</span>';
+  if (!ed) {
+    const ul = a => a.length ? `<ul style="margin:0;padding-left:18px;line-height:1.7">${a.map(x => `<li>${dpEsc_(x)}</li>`).join('')}</ul>` : '<span class="dp-mut">—</span>';
+    return { html: `<div class="dp-flow">
+        <div class="box"><div class="dp-lbl">📥 Entradas</div>${ul(I.entradas)}</div><div class="arr">→</div>
+        <div class="box"><div class="dp-lbl">⚙️ Proceso</div><div style="font-weight:700">${dpEsc_(I.proceso) || '<span class="dp-mut">—</span>'}</div></div><div class="arr">→</div>
+        <div class="box"><div class="dp-lbl">📤 Salidas</div>${ul(I.salidas)}</div></div>
+      <div class="dp-grid" style="margin-top:16px;grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div class="dp-f"><label>⬅️ Depende de</label>${chipsCodes(I.depende || [])}</div>
+        <div class="dp-f"><label>➡️ Alimenta a</label>${chipsCodes(I.alimenta || [])}</div>
+        <div class="dp-f"><label>🔗 Procesos que dependen de éste</label>${chipsCodes(reverse)}</div></div>` };
+  }
+  const multi = (k) => `<div class="dp-chips">${otros.map(x => { const on = (I[k] || []).includes(x.Codigo); return `<span class="dp-chip" style="${on ? 'background:#4f46e5;color:#fff' : ''}" onclick="dpDepToggle_('${k}','${dpEsc_(x.Codigo)}')">${on ? '✓ ' : ''}${dpEsc_(x.Codigo)}</span>`; }).join('') || '<span class="dp-mut">No hay otros procesos.</span>'}</div>`;
+  return { html: `<div class="dp-grid">
+      <div class="dp-f"><label>📥 Entradas (una por renglón)</label><textarea class="dp-ta" style="min-height:120px" oninput="dpSetD_('insumos.entradas',dpLines_(this.value))">${dpEsc_(I.entradas.join('\n'))}</textarea></div>
+      <div class="dp-f"><label>⚙️ Proceso (resumen)</label><textarea class="dp-ta" style="min-height:120px" oninput="dpSetD_('insumos.proceso',this.value)">${dpEsc_(I.proceso)}</textarea></div>
+      <div class="dp-f"><label>📤 Salidas (una por renglón)</label><textarea class="dp-ta" style="min-height:120px" oninput="dpSetD_('insumos.salidas',dpLines_(this.value))">${dpEsc_(I.salidas.join('\n'))}</textarea></div>
+    </div>
+    <div class="dp-f" style="margin-top:14px"><label>⬅️ Depende de</label>${multi('depende')}</div>
+    <div class="dp-f" style="margin-top:12px"><label>➡️ Alimenta a</label>${multi('alimenta')}</div>` };
+}
+window.dpDepToggle_ = function (k, c) {
+  const A = DP.draft.d.insumos[k] = DP.draft.d.insumos[k] || [];
+  const i = A.indexOf(c); if (i >= 0) A.splice(i, 1); else A.push(c); dpRefreshSec_();
+};
+
+// ── Sección: Documentos relacionados ─────────────────────────────────
+function dpSecDocs_(p, ed) {
+  const D = p.d.docs;
+  if (!ed) {
+    if (!D.length) return { html: `<div class="dp-empty" style="padding:28px"><div class="ico">📎</div>Sin documentos. Adjunta manuales, fotos, videos, PDFs, formatos o plantillas desde <b>✏️ Editar</b>.</div>` };
+    return { html: `<div class="dp-docs">${D.map(x => `<a class="dp-doc" href="${dpEsc_(x.url || '#')}" target="_blank" rel="noopener"><span class="i">${DP_DOC_ICO[x.tipo] || '📎'}</span><div style="min-width:0"><div class="n">${dpEsc_(x.nombre || x.url || 'Documento')}</div><div class="dp-mut" style="font-size:11px">${dpEsc_(x.tipo || 'Otro')}${x.url ? ' · abrir ↗' : ' · sin enlace'}</div></div></a>`).join('')}</div>` };
+  }
+  const rows = D.map((x, i) => `
+    <div class="dp-row-ed" style="grid-template-columns:140px minmax(0,1fr) minmax(0,1.3fr) auto">
+      <select class="dp-sel" onchange="dpSetD_('docs.${i}.tipo',this.value)">${dpOpt_(DP_DOC_TIPOS, x.tipo || 'Otro')}</select>
+      <input class="dp-in" value="${dpEsc_(x.nombre)}" oninput="dpSetD_('docs.${i}.nombre',this.value)" placeholder="Nombre">
+      <input class="dp-in" value="${dpEsc_(x.url)}" oninput="dpSetD_('docs.${i}.url',this.value)" placeholder="Enlace (Drive, YouTube, etc.)">
+      <div class="dp-mini"><button onclick="dpArrDel_('docs',${i})">✕</button></div>
+    </div>`).join('');
+  return {
+    tools: `<label class="dp-btn sm" style="cursor:pointer">📤 Subir archivo<input type="file" multiple style="display:none" onchange="dpUpload_(this)"></label><button class="dp-btn sm" onclick="dpArrAdd_('docs',{tipo:'Manual',nombre:'',url:''})">＋ Enlace</button>`,
+    html: `<div id="dp-up-st" class="dp-hint" style="margin:-4px 0 10px">Sube archivos (se guardan en Drive › Check Inn - Sistemas › Procesos) o pega un enlace.</div>${rows || '<div class="dp-mut">Sin documentos todavía.</div>'}`,
+  };
+}
+window.dpUpload_ = async function (inp) {
+  const files = Array.from(inp.files || []); inp.value = '';
+  const st = document.getElementById('dp-up-st');
+  for (const f of files) {
+    if (f.size > 20 * 1024 * 1024) { alert(`"${f.name}" pesa más de 20 MB. Súbelo a Drive y pega el enlace.`); continue; }
+    if (st) st.innerHTML = `⏳ Subiendo <b>${dpEsc_(f.name)}</b>…`;
+    try {
+      const b64 = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(f); });
+      const j = await fetch(`${BACKEND}/procesos/upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ codigo: DP.draft.Codigo, filename: f.name, mime: f.type || 'application/octet-stream', data: b64 }) }).then(r => r.json());
+      if (!j || !j.ok) throw new Error((j && j.error) || 'Error al subir');
+      const m = f.type || '';
+      const tipo = m.startsWith('image/') ? 'Fotografía' : m.startsWith('video/') ? 'Video' : m === 'application/pdf' ? 'PDF' : /sheet|excel|word|document/.test(m) ? 'Formato' : 'Otro';
+      DP.draft.d.docs.push({ tipo, nombre: f.name.replace(/\.[^.]+$/, ''), url: j.file.url });
+    } catch (e) { alert(`No se pudo subir "${f.name}": ${e.message}`); }
+  }
+  dpRefreshSec_();
+};
+
+// ── Sección: Incidencias y excepciones ───────────────────────────────
+function dpSecExc_(p, ed) {
+  const E = p.d.excepciones;
+  if (!ed) {
+    if (!E.length) return { html: `<div class="dp-empty" style="padding:28px"><div class="ico">⚠️</div>Sin excepciones documentadas. Un proceso real también dice qué hacer cuando algo sale mal.</div>` };
+    return { html: E.map(e => `<div class="dp-exc sev-${dpEsc_(e.severidad || 'Media')}"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:13.5px">Si ${dpEsc_(String(e.situacion || '').replace(/^si\s+/i, ''))}</b>${dpLvPill_(e.severidad === 'Crítica' ? 'Crítica' : e.severidad)}</div>
+      <div class="dp-steps">${(e.pasos || []).map((s, i) => `${i ? '<span class="a">→</span>' : '<span class="a">→</span>'}<span class="s">${dpEsc_(s)}</span>`).join('')}</div></div>`).join('') };
+  }
+  const rows = E.map((e, i) => `
+    <div class="dp-row-ed" style="grid-template-columns:minmax(0,1fr) auto;align-items:start">
+      <div><div style="display:grid;grid-template-columns:minmax(0,1fr) 130px;gap:8px;margin-bottom:6px">
+        <input class="dp-in" value="${dpEsc_(e.situacion)}" oninput="dpSetD_('excepciones.${i}.situacion',this.value)" placeholder="Situación (ej. Falta una toalla)" style="font-weight:700">
+        <select class="dp-sel" onchange="dpSetD_('excepciones.${i}.severidad',this.value)">${dpOpt_(DP_SEV, e.severidad || 'Media')}</select></div>
+        <textarea class="dp-ta" oninput="dpSetD_('excepciones.${i}.pasos',dpLines_(this.value))" placeholder="Qué hacer, un paso por renglón">${dpEsc_((e.pasos || []).join('\n'))}</textarea></div>
+      <div class="dp-mini"><button onclick="dpArrDel_('excepciones',${i})">✕</button></div>
+    </div>`).join('');
+  return { tools: `<button class="dp-btn sm" onclick="dpArrAdd_('excepciones',{situacion:'',severidad:'Media',pasos:[]})">＋ Excepción</button>`, html: rows || '<div class="dp-mut">Sin excepciones todavía.</div>' };
+}
+
+// ── Sección: Indicadores (KPI) ───────────────────────────────────────
+function dpKpiEstado_(k) {
+  const a = parseFloat(String(k.actual).replace(/[^\d.\-]/g, '')), m = parseFloat(String(k.meta).replace(/[^\d.\-]/g, ''));
+  if (isNaN(a) || isNaN(m)) return '';
+  return (k.sentido === 'menor' ? a <= m : a >= m) ? 'ok' : 'bad';
+}
+function dpSecKpis_(p, ed) {
+  const K = p.d.kpis;
+  if (!ed) {
+    if (!K.length) return { html: `<div class="dp-empty" style="padding:28px"><div class="ico">📈</div>Sin indicadores. Desde <b>✏️ Editar</b> puedes cargar los sugeridos para el área.</div>` };
+    return { html: `<div class="dp-kgrid">${K.map(k => { const e = dpKpiEstado_(k); return `<div class="dp-k ${e}"><div class="n">${dpEsc_(k.nombre)}</div>
+      <div class="v" style="color:${e === 'ok' ? '#059669' : e === 'bad' ? '#dc2626' : '#94a3b8'}">${k.actual !== '' && k.actual != null ? dpEsc_(k.actual) + ' <span style="font-size:13px">' + dpEsc_(k.unidad || '') + '</span>' : '—'}</div>
+      <div class="m">🎯 Meta: ${k.meta ? (k.sentido === 'menor' ? '≤ ' : '≥ ') + dpEsc_(k.meta) + ' ' + dpEsc_(k.unidad || '') : 'sin meta'} · ${dpEsc_(k.frecuencia || 'Mensual')}</div>
+      ${e ? `<div style="margin-top:6px;font-size:11px;font-weight:800;color:${e === 'ok' ? '#059669' : '#dc2626'}">${e === 'ok' ? '✅ Cumple' : '❌ Fuera de meta'}</div>` : ''}</div>`; }).join('')}</div>
+      <div class="dp-hint" style="margin-top:10px">Actualiza el valor actual desde ✏️ Editar al cierre de cada periodo.</div>` };
+  }
+  const rows = K.map((k, i) => `
+    <div class="dp-row-ed" style="grid-template-columns:minmax(0,1.6fr) 70px 120px 80px 80px 110px auto">
+      <input class="dp-in" value="${dpEsc_(k.nombre)}" oninput="dpSetD_('kpis.${i}.nombre',this.value)" placeholder="Indicador">
+      <input class="dp-in" value="${dpEsc_(k.unidad)}" oninput="dpSetD_('kpis.${i}.unidad',this.value)" placeholder="Unidad">
+      <select class="dp-sel" onchange="dpSetD_('kpis.${i}.sentido',this.value)"><option value="mayor" ${k.sentido !== 'menor' ? 'selected' : ''}>Mayor es mejor</option><option value="menor" ${k.sentido === 'menor' ? 'selected' : ''}>Menor es mejor</option></select>
+      <input class="dp-in" value="${dpEsc_(k.meta)}" oninput="dpSetD_('kpis.${i}.meta',this.value)" placeholder="Meta">
+      <input class="dp-in" value="${dpEsc_(k.actual)}" oninput="dpSetD_('kpis.${i}.actual',this.value)" placeholder="Actual">
+      <select class="dp-sel" onchange="dpSetD_('kpis.${i}.frecuencia',this.value)">${dpOpt_(['Diario', 'Semanal', 'Mensual', 'Trimestral'], k.frecuencia || 'Mensual')}</select>
+      <div class="dp-mini"><button onclick="dpArrDel_('kpis',${i})">✕</button></div>
+    </div>`).join('');
+  return {
+    tools: `<button class="dp-btn sm" onclick="dpKpiSugeridos_()">✨ Sugeridos del área</button><button class="dp-btn sm" onclick="dpArrAdd_('kpis',{nombre:'',unidad:'',sentido:'mayor',meta:'',actual:'',frecuencia:'Mensual'})">＋ KPI</button>`,
+    html: `<div class="dp-hint" style="margin:-4px 0 10px">Indicador · Unidad · Sentido · Meta · Valor actual · Frecuencia de medición.</div>${rows || '<div class="dp-mut">Sin indicadores todavía.</div>'}`,
+  };
+}
+window.dpKpiSugeridos_ = function () {
+  const pre = DP_KPI_PRESETS[DP.draft.Area] || DP_KPI_PRESETS['Operación'];
+  const have = new Set(DP.draft.d.kpis.map(k => k.nombre));
+  pre.forEach(k => { if (!have.has(k[0])) DP.draft.d.kpis.push({ nombre: k[0], unidad: k[1], sentido: k[2], meta: k[3], actual: '', frecuencia: 'Mensual' }); });
+  dpRefreshSec_();
+};
+
+// ── Sección: Control de versiones ────────────────────────────────────
+function dpSecVersiones_(p) {
+  const V = p.d.versiones.slice().reverse();
+  if (!V.length) return { html: `<div class="dp-mut">Se registra automáticamente una versión cada vez que guardas cambios.</div>` };
+  return { html: `<div class="dp-tl">${V.map(v => `<div class="e ${v.aprobado_por ? 'ap' : ''}">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:14px">Versión ${dpEsc_(v.version)}</b>${v.version === p.Version ? '<span class="dp-pill" style="background:#e0e7ff;color:#3730a3">vigente</span>' : ''}${v.aprobado_por ? `<span class="dp-pill dp-st-Activo">✅ Aprobada por ${dpEsc_(v.aprobado_por)} · ${dpFmtD_(v.aprobado_fecha)}</span>` : ''}</div>
+      <div class="dp-mut" style="font-size:11.5px;margin:2px 0 4px">🗓️ ${dpFmtD_(v.fecha)} · 👤 ${dpEsc_(v.usuario || '—')}</div>
+      <div style="font-size:13px"><b>Qué cambió:</b> ${dpEsc_(v.cambio || '—')}</div>
+      ${v.motivo ? `<div style="font-size:12.5px;color:#475569"><b>Motivo:</b> ${dpEsc_(v.motivo)}</div>` : ''}
+    </div>`).join('')}</div>` };
+}
+
+// ── Sección: Capacitación ────────────────────────────────────────────
+function dpSecCapac_(p, ed) {
+  const C = p.d.capac, st = dpCapStats_(p);
+  const nombres = (typeof tarPersonalNombres_ === 'function' ? tarPersonalNombres_() : []);
+  const all = Array.from(new Set(nombres.concat(Object.keys(C.personas || {})))).sort((a, b) => a.localeCompare(b, 'es'));
+  const resumen = `<div class="dp-kgrid" style="margin-bottom:14px">
+    <div class="dp-k"><div class="n">Capacitación requerida</div><div class="v" style="font-size:20px">${C.requerida ? 'Sí' : 'No'}</div></div>
+    <div class="dp-k ${st.debe && st.cap === st.debe ? 'ok' : st.debe ? 'bad' : ''}"><div class="n">Personal capacitado</div><div class="v">${st.cap}/${st.debe}</div><div class="dp-prog" style="margin-top:6px"><div style="width:${st.debe ? Math.round(st.cap / st.debe * 100) : 0}%"></div></div></div>
+    <div class="dp-k"><div class="n">Última capacitación</div><div class="v" style="font-size:18px">${dpFmtD_(st.ultima)}</div></div></div>`;
+  if (!ed) {
+    const ps = C.personas || {};
+    const debe = Object.keys(ps).filter(n => ps[n] && ps[n].debe).sort((a, b) => a.localeCompare(b, 'es'));
+    return { html: `${resumen}
+      <div class="dp-f" style="margin-bottom:12px"><label>¿Quién debe conocer este proceso?</label>${C.audiencia.length ? `<div class="dp-chips">${C.audiencia.map(a => `<span class="dp-chip" style="cursor:default">${dpEsc_(a)}</span>`).join('')}</div>` : '<span class="dp-mut">—</span>'}</div>
+      ${debe.length ? `<div class="dp-lbl">Personal asignado</div>${debe.map(n => `<div class="dp-person"><div style="font-weight:700">${dpEsc_(n)}</div><div>${ps[n].fecha ? `<span class="dp-pill dp-st-Activo">✅ Puede ejecutar ${dpEsc_(p.Codigo)}</span>` : '<span class="dp-pill dp-st-En">⏳ Pendiente de capacitar</span>'}</div><div class="dt dp-mut" style="font-size:12px">${ps[n].fecha ? 'Capacitado el ' + dpFmtD_(ps[n].fecha) : ''}</div></div>`).join('')}` : '<div class="dp-mut">Aún no se asigna personal. Hazlo desde ✏️ Editar.</div>'}` };
+  }
+  return { html: `${resumen}
+    <div class="dp-grid" style="grid-template-columns:minmax(0,2fr) minmax(0,1fr)">
+      <div class="dp-f"><label>¿Quién debe conocer este proceso? (puestos, uno por renglón)</label><textarea class="dp-ta" oninput="dpSetD_('capac.audiencia',dpLines_(this.value))">${dpEsc_(C.audiencia.join('\n'))}</textarea></div>
+      <div class="dp-f"><label>Capacitación requerida</label><div style="display:flex;gap:8px;align-items:center;padding-top:6px;cursor:pointer" onclick="dpSetD_('capac.requerida',!DP.draft.d.capac.requerida);dpRefreshSec_()"><span class="dp-chk ${C.requerida ? 'on' : ''}">${C.requerida ? '✓' : ''}</span><b>${C.requerida ? 'Sí' : 'No'}</b></div></div>
+    </div>
+    <div class="dp-lbl" style="margin-top:12px">Personal (marca quién debe conocerlo y la fecha en que se capacitó)</div>
+    ${all.length ? all.map(n => { const x = (C.personas || {})[n] || {}; const js = dpEsc_(n).replace(/'/g, "\\'"); return `<div class="dp-person">
+        <div style="font-weight:700;display:flex;gap:8px;align-items:center;cursor:pointer" onclick="dpCapToggle_('${js}')"><span class="dp-chk ${x.debe ? 'on' : ''}">${x.debe ? '✓' : ''}</span>${dpEsc_(n)}</div>
+        <div class="dp-mut" style="font-size:11.5px">${x.debe ? (x.fecha ? '✅ capacitado' : '⏳ pendiente') : ''}</div>
+        <div class="dt">${x.debe ? `<input type="date" class="dp-in" value="${dpEsc_(x.fecha || '')}" onchange="dpCapFecha_('${js}',this.value)">` : ''}</div></div>`; }).join('') : '<div class="dp-mut">⏳ Cargando personal…</div>'}` };
+}
+window.dpCapToggle_ = function (n) {
+  const ps = DP.draft.d.capac.personas = DP.draft.d.capac.personas || {};
+  const x = ps[n] = ps[n] || {}; x.debe = !x.debe; if (!x.debe && !x.fecha) delete ps[n];
+  dpRefreshSec_();
+};
+window.dpCapFecha_ = function (n, v) { const ps = DP.draft.d.capac.personas; ps[n] = ps[n] || { debe: true }; ps[n].fecha = v; dpRefreshSec_(); };
+
+// ── Sección: Historial y auditoría ───────────────────────────────────
+function dpSecHist_(p) {
+  const H = DP.hist.filter(h => h.Proceso_ID === p.ID).sort((a, b) => String(b.Timestamp).localeCompare(String(a.Timestamp)));
+  if (!p.ID) return { html: '<div class="dp-mut">El historial inicia al guardar el proceso.</div>' };
+  if (!H.length) return { html: '<div class="dp-mut">Sin movimientos registrados.</div>' };
+  return { html: `<div style="overflow-x:auto"><table class="dp-tbl cards"><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalle</th></tr></thead><tbody>
+    ${H.map(h => `<tr><td data-l="Fecha" style="white-space:nowrap">${dpFmtD_(h.Timestamp)} <span class="dp-mut">${dpEsc_(String(h.Timestamp).slice(11, 16))}</span></td><td data-l="Usuario" style="font-weight:700">${dpEsc_(h.Usuario || '—')}</td><td data-l="Acción">${dpEsc_(h.Accion)}</td><td data-l="Detalle" class="dp-mut">${dpEsc_(h.Detalle || '')}</td></tr>`).join('')}
+    </tbody></table></div>` };
+}
+
+// ── Acciones: editar / guardar / estatus ─────────────────────────────
+window.dpEditar_ = function () {
+  const p = dpById_(DP.selId); if (!p) return;
+  DP.draft = JSON.parse(JSON.stringify(p)); DP.edit = true; DP.isNew = false; DP.run = null;
+  DP._orig = JSON.stringify(p);
+  dpRender_();
+};
+window.dpCancelar_ = function () {
+  if (DP.isNew) { DP.view = 'catalogo'; }
+  DP.edit = false; DP.draft = null; DP.isNew = false; dpRender_();
+};
+function dpCambios_(a, b) {
+  const lbl = { general: 'información general', diagrama: 'diagrama', pasos: 'procedimiento', checklist: 'checklist', roles: 'roles/RACI', insumos: 'insumos y resultados', docs: 'documentos', excepciones: 'excepciones', kpis: 'indicadores', capac: 'capacitación' };
+  const out = [];
+  const gen = ['Codigo', 'Nombre', 'Area', 'Responsable', 'Frecuencia', 'Frecuencia_detalle', 'Prioridad', 'Estatus', 'Proxima_revision', 'Importancia', 'Objetivo', 'Alcance'];
+  if (gen.some(k => (a[k] || '') !== (b[k] || ''))) out.push('general');
+  const J = x => JSON.stringify(x);
+  if (J(a.d.diagrama) !== J(b.d.diagrama)) out.push('diagrama');
+  const strip = P => P.map(s => ({ actividad: s.actividad, responsable: s.responsable, tiempo: s.tiempo, evidencia: s.evidencia }));
+  if (J(strip(a.d.pasos)) !== J(strip(b.d.pasos))) out.push('pasos');
+  if (J(a.d.checklists) !== J(b.d.checklists)) out.push('checklist');
+  if (J(a.d.roles) !== J(b.d.roles) || J(a.d.raciRoles) !== J(b.d.raciRoles) || J(a.d.pasos.map(s => s.raci || {})) !== J(b.d.pasos.map(s => s.raci || {}))) out.push('roles');
+  if (J(a.d.insumos) !== J(b.d.insumos)) out.push('insumos');
+  if (J(a.d.docs) !== J(b.d.docs)) out.push('docs');
+  if (J(a.d.excepciones) !== J(b.d.excepciones)) out.push('excepciones');
+  if (J(a.d.kpis) !== J(b.d.kpis)) out.push('kpis');
+  if (J(a.d.capac) !== J(b.d.capac)) out.push('capac');
+  return out.map(k => lbl[k]);
+}
+function dpBump_(v, tipo) {
+  const m = String(v || '1.0').match(/^(\d+)(?:\.(\d+))?/); const M = m ? +m[1] : 1, n = m && m[2] ? +m[2] : 0;
+  return tipo === 'mayor' ? `${M + 1}.0` : `${M}.${n + 1}`;
+}
+window.dpGuardar_ = function () {
+  const p = DP.draft;
+  if (!String(p.Nombre || '').trim()) { DP.sec = 'general'; dpRender_(); return alert('Captura el nombre del proceso.'); }
+  if (!String(p.Codigo || '').trim()) { DP.sec = 'general'; dpRender_(); return alert('Captura el código del proceso.'); }
+  const dup = DP.list.find(x => x.Codigo === p.Codigo && x.ID !== p.ID);
+  if (dup) { DP.sec = 'general'; dpRender_(); return alert(`El código ${p.Codigo} ya lo usa "${dup.Nombre}". Elige otro.`); }
+  if (DP.isNew) return dpGuardarFinal_({ tipo: 'nuevo', cambio: 'Creación del proceso.', motivo: '' });
+  const orig = JSON.parse(DP._orig);
+  const cambios = dpCambios_(orig, p);
+  const soloCapKpi = cambios.length && cambios.every(c => c === 'capacitación' || c === 'indicadores' || c === 'documentos');
+  if (!cambios.length) { DP.edit = false; DP.draft = null; return dpRender_(); }
+  dpVersionModal_(p, cambios, soloCapKpi ? 'ninguna' : 'menor');
+};
+function dpVersionModal_(p, cambios, def) {
+  const st = { tipo: def };
+  const m = document.createElement('div');
+  m.className = 'dp-modal dp'; m.id = 'dp-vmodal';
+  const opt = (k, t, d) => `<div class="dp-opt ${st.tipo === k ? 'on' : ''}" data-k="${k}" onclick="dpVmSel_('${k}')"><span class="dp-radio"></span><div><b>${t}</b><div class="dp-mut" style="font-size:12px">${d}</div></div></div>`;
+  m.innerHTML = `<div class="pn">
+    <div style="font-size:16px;font-weight:900;margin-bottom:4px">🏷️ Registrar cambio</div>
+    <div class="dp-mut" style="font-size:12.5px;margin-bottom:12px">Secciones modificadas: <b>${dpEsc_(cambios.join(', '))}</b></div>
+    ${opt('menor', `Cambio menor → v${dpBump_(p.Version, 'menor')}`, 'Ajustes o adiciones que no cambian la forma de trabajar.')}
+    ${opt('mayor', `Cambio mayor → v${dpBump_(p.Version, 'mayor')}`, 'Se modifica el procedimiento o la forma de ejecutar.')}
+    ${opt('ninguna', `Sin nueva versión (sigue v${dpEsc_(p.Version)})`, 'Correcciones de texto, capacitación, documentos o KPIs.')}
+    <div class="dp-f" style="margin-top:10px"><label>¿Qué cambió?</label><textarea id="dp-vm-cambio" class="dp-ta" style="min-height:60px">${dpEsc_('Se actualizó: ' + cambios.join(', ') + '.')}</textarea></div>
+    <div class="dp-f" style="margin-top:8px"><label>Motivo del cambio</label><input id="dp-vm-motivo" class="dp-in" placeholder="Ej. Se detectaron fallas en la revisión de internet"></div>
+    <div class="dp-hint" style="margin-top:8px">Una versión nueva de un proceso <b>Activo</b> queda <b>En revisión</b> hasta que alguien la apruebe.</div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button class="dp-btn" onclick="document.getElementById('dp-vmodal').remove()">Cancelar</button><button class="dp-btn ok" id="dp-vm-ok">💾 Guardar</button></div>
+  </div>`;
+  document.body.appendChild(m);
+  window.dpVmSel_ = k => { st.tipo = k; m.querySelectorAll('.dp-opt').forEach(o => o.classList.toggle('on', o.dataset.k === k)); };
+  m.querySelector('#dp-vm-ok').onclick = () => {
+    const cambio = m.querySelector('#dp-vm-cambio').value.trim(), motivo = m.querySelector('#dp-vm-motivo').value.trim();
+    m.remove();
+    dpGuardarFinal_({ tipo: st.tipo, cambio, motivo, secciones: cambios });
+  };
+}
+async function dpGuardarFinal_(o) {
+  const p = DP.draft;
+  const prevVer = p.Version;
+  p.Ultima_actualizacion = dpHoy_();
+  if (o.tipo === 'nuevo') {
+    p.Version = '1.0'; p.Creado_por = p.Creado_por || dpUser_();
+    p.d.versiones = [{ version: '1.0', fecha: dpHoy_(), usuario: dpUser_(), cambio: o.cambio, motivo: o.motivo }];
+  } else if (o.tipo === 'menor' || o.tipo === 'mayor') {
+    p.Version = dpBump_(p.Version, o.tipo);
+    p.d.versiones.push({ version: p.Version, fecha: dpHoy_(), usuario: dpUser_(), cambio: o.cambio, motivo: o.motivo });
+    if (p.Estatus === 'Activo') p.Estatus = 'En revisión';
+  } else if (p.d.versiones.length) {
+    const last = p.d.versiones[p.d.versiones.length - 1];
+    if (o.cambio) last.notas = (last.notas ? last.notas + ' | ' : '') + o.cambio;
+  }
+  DP.saving = true; dpRender_();
+  try {
+    const saved = await dpPersist_(p);
+    if (o.tipo === 'nuevo') dpLog_(saved, 'Creó proceso', `${saved.Codigo} · versión 1.0`);
+    else dpLog_(saved, o.tipo === 'ninguna' ? 'Modificó proceso' : `Creó versión ${saved.Version}`,
+      `${(o.secciones || []).join(', ')}${o.tipo !== 'ninguna' ? ` · v${prevVer} → v${saved.Version}` : ''}${o.motivo ? ' · Motivo: ' + o.motivo : ''}`);
+    DP.selId = saved.ID; DP.edit = false; DP.draft = null; DP.isNew = false;
+  } catch (e) {
+    alert('No se pudo guardar: ' + e.message);
+  } finally {
+    DP.saving = false; dpRender_();
+  }
+}
+async function dpUpdateQuick_(p, mut, accion, detalle) {
+  const c = JSON.parse(JSON.stringify(p)); mut(c);
+  try { const s = await dpPersist_(c); dpLog_(s, accion, detalle); dpRender_(); }
+  catch (e) { alert('No se pudo actualizar: ' + e.message); }
+}
+window.dpCambiarEstatus_ = function (st) {
+  const p = dpById_(DP.selId); if (!p) return;
+  if (st === 'Obsoleto' && !confirm(`¿Marcar ${p.Codigo} como obsoleto? Dejará de considerarse vigente.`)) return;
+  dpUpdateQuick_(p, c => { c.Estatus = st; c.Ultima_actualizacion = dpHoy_(); }, 'Cambió estatus', `${p.Estatus} → ${st}`);
+};
+window.dpAprobar_ = function () {
+  const p = dpById_(DP.selId); if (!p) return;
+  if (!confirm(`¿Aprobar la versión ${p.Version} de ${p.Codigo}? Quedará como Activo.`)) return;
+  dpUpdateQuick_(p, c => {
+    c.Estatus = 'Activo'; c.Ultima_actualizacion = dpHoy_();
+    let v = c.d.versiones.find(x => x.version === c.Version);
+    if (!v) { v = { version: c.Version, fecha: dpHoy_(), usuario: dpUser_(), cambio: 'Versión aprobada', motivo: '' }; c.d.versiones.push(v); }
+    v.aprobado_por = dpUser_(); v.aprobado_fecha = dpHoy_();
+    if (!c.Proxima_revision) { const d = new Date(); d.setFullYear(d.getFullYear() + 1); c.Proxima_revision = d.toISOString().slice(0, 10); }
+  }, `Aprobó versión ${p.Version}`, `Estatus ${p.Estatus} → Activo`);
+};
+window.dpDuplicar_ = function () {
+  const p = dpById_(DP.selId); if (!p) return;
+  const c = JSON.parse(JSON.stringify(p));
+  Object.assign(c, { ID: '', Codigo: dpNextCode_(c.Area), Nombre: c.Nombre + ' (copia)', Estatus: 'Borrador', Version: '1.0', Ultima_actualizacion: dpHoy_(), Creado_por: dpUser_() });
+  c.d.versiones = []; c.d.capac.personas = {};
+  DP.draft = c; DP.isNew = true; DP.edit = true; DP.selId = null; DP.sec = 'general';
+  dpRender_(); dpScrollTop_();
+};
+window.dpEliminar_ = async function () {
+  const p = dpById_(DP.selId); if (!p) return;
+  if (!confirm(`¿Eliminar definitivamente ${p.Codigo} · ${p.Nombre}?\n\nSi solo dejó de usarse, mejor márcalo como Obsoleto para conservar su historial.`)) return;
+  try {
+    const r = await fetch(`${BACKEND}/procesos/${encodeURIComponent(p.ID)}?actor=${encodeURIComponent(dpUser_())}&reason=${encodeURIComponent('Eliminado desde Documentación de procesos')}`, { method: 'DELETE' }).then(x => x.json());
+    if (!r || !r.ok) throw new Error((r && r.error) || 'No se pudo eliminar');
+    dpLog_(p, 'Eliminó proceso', `${p.Codigo} · ${p.Nombre}`);
+    DP.list = DP.list.filter(x => x.ID !== p.ID); dpSaveLocal_();
+    DP.view = 'catalogo'; dpRender_();
+  } catch (e) { alert('No se pudo eliminar: ' + e.message); }
+};
+
+// ── Imprimir / PDF (todas las secciones en un documento) ──────────────
+window.dpImprimir_ = function () {
+  const p = dpById_(DP.selId); if (!p) return;
+  const secs = DP_SECS.filter(s => s[0] !== 'historial').map(([k, ico, t]) => {
+    let b = ({ general: dpSecGeneral_, diagrama: dpSecDiagrama_, pasos: dpSecPasos_, checklist: dpSecChecklist_, roles: dpSecRoles_, insumos: dpSecInsumos_, docs: dpSecDocs_, excepciones: dpSecExc_, kpis: dpSecKpis_, versiones: dpSecVersiones_, capac: dpSecCapac_ }[k])(p, false).html;
+    b = b.replace(/<button[^>]*>[\s\S]*?<\/button>/g, '');
+    return `<section class="dp-sec" style="margin-bottom:14px;page-break-inside:avoid"><h4>${ico} ${t}</h4>${b}</section>`;
+  }).join('');
+  const w = window.open('', '_blank');
+  if (!w) return alert('Permite ventanas emergentes para imprimir.');
+  const css = document.getElementById('dp-styles').textContent;
+  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${dpEsc_(p.Codigo)} · ${dpEsc_(p.Nombre)}</title><style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:24px;background:#fff}${css}</style></head><body class="dp">
+    <div class="dp-head" style="-webkit-print-color-adjust:exact;print-color-adjust:exact"><div class="row1"><span class="dp-code">${dpEsc_(p.Codigo)}</span>${dpStPill_(p.Estatus)}<span>v${dpEsc_(p.Version)}</span><span>· ${dpEsc_(p.Area)}</span></div><h3>${dpEsc_(p.Nombre)}</h3><div class="meta"><span>Responsable: ${dpEsc_(p.Responsable || '—')}</span><span>Actualizado ${dpFmtD_(p.Ultima_actualizacion)}</span><span>Impreso ${dpFmtD_(dpHoy_())}</span></div></div>
+    ${secs}<script>setTimeout(()=>window.print(),400)<\/script></body></html>`);
+  w.document.close();
+};
 
 // ── Versión cargada (visible en la barra superior y en Console) ─────────
 (function () {

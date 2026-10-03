@@ -298,6 +298,12 @@ function doPost(e) {
     if (action === "tareas_ocur_save")             return jsonOutput_(tareasOcurSave_(data));
     if (action === "tareas_hist_list")             return jsonOutput_(rhListSimple_('Tareas_Historial'));
     if (action === "tareas_hist_add")              return jsonOutput_(tareasHistAdd_(data));
+    if (action === "procesos_list")                return jsonOutput_(rhListSimple_('Procesos'));
+    if (action === "procesos_save")                return jsonOutput_(rhSaveSimple_('Procesos', data, PROCESOS_HEADERS, 'PRC'));
+    if (action === "procesos_delete")              return jsonOutput_(rhDeleteByID_('Procesos', String((data && data.ID) || ''), { reason: (data && data.reason) || '', actor: (data && data.actor) || '', force: true }));
+    if (action === "procesos_hist_list")           return jsonOutput_(rhListSimple_('Procesos_Historial'));
+    if (action === "procesos_hist_add")            return jsonOutput_(procesosHistAdd_(data));
+    if (action === "procesos_upload_file")         return jsonOutput_(procesosUploadFile_(data));
     if (action === "inquilinos_list")              return jsonOutput_(inquilinosList_());
     if (action === "inquilinos_save")              return jsonOutput_(inquilinosSave_(data));
     if (action === "inquilinos_delete")            return jsonOutput_(inquilinosDelete_(data));
@@ -370,6 +376,8 @@ function doGet(e) {
     if (action === "tareas_ocur_list")       return jsonOutput_(rhListSimple_('Tareas_Ocurrencias'));
     if (action === "reservas_ext_list")      return jsonOutput_(rhListSimple_('Reservas_Extensiones'));
     if (action === "tareas_hist_list")       return jsonOutput_(rhListSimple_('Tareas_Historial'));
+    if (action === "procesos_list")          return jsonOutput_(rhListSimple_('Procesos'));
+    if (action === "procesos_hist_list")     return jsonOutput_(rhListSimple_('Procesos_Historial'));
     if (action === "sys_login")              return jsonOutput_(sysLogin_(e.parameter || {}));
     if (action === "upload_incidencia_image") return jsonOutput_(uploadIncidenciaImage_(e.parameter || {}));
     if (action === "save_incidencia")         return jsonOutput_(saveIncidencia_(e.parameter || {}));
@@ -2296,6 +2304,52 @@ function reservasExtAdd_(data) {
 // Una fila por (tarea, fecha) que alguien atendió: estado propio de cada día.
 var TAREAS_OCUR_HEADERS = ['ID','Timestamp','Tarea_ID','Fecha','Estado','Comentarios','Atendido_por','Updated_at'];
 // Bitácora append-only de cambios (tarea y ocurrencias).
+// ─── Documentación de procesos (Configuración admin) ───
+// Campos del catálogo en columnas; el resto de la ficha (diagrama, pasos,
+// checklists, RACI, insumos, documentos, excepciones, KPIs, versiones,
+// capacitación) vive en Data_json.
+var PROCESOS_HEADERS = ['ID','Timestamp','Codigo','Nombre','Area','Responsable','Frecuencia','Frecuencia_detalle','Prioridad','Estatus','Version','Ultima_actualizacion','Proxima_revision','Importancia','Objetivo','Alcance','Data_json','Creado_por','Updated_at'];
+var PROCESOS_HIST_HEADERS = ['ID','Timestamp','Proceso_ID','Codigo','Usuario','Accion','Detalle'];
+function procesosHistAdd_(data) {
+  try {
+    var p = data && data.payload ? (typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload) : (data || {});
+    var rows = Array.isArray(p.rows) ? p.rows : [p];
+    var ss = getSpreadsheet_();
+    var sh = ss.getSheetByName('Procesos_Historial') || ss.insertSheet('Procesos_Historial');
+    rhEnsureHeaders_(sh, PROCESOS_HIST_HEADERS);
+    var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (v) { return String(v || '').trim(); });
+    var ts = Utilities.formatDate(new Date(), 'America/Monterrey', 'yyyy-MM-dd HH:mm:ss');
+    var matrix = rows.filter(function (h) { return h && h.Proceso_ID; }).map(function (h) {
+      var o = { ID: rhGenId_('PHI'), Timestamp: ts, Proceso_ID: String(h.Proceso_ID), Codigo: String(h.Codigo || ''),
+                Usuario: String(h.Usuario || ''), Accion: String(h.Accion || ''), Detalle: String(h.Detalle || '') };
+      return headers.map(function (k) { return o[k] == null ? '' : o[k]; });
+    });
+    if (!matrix.length) return { ok: true, added: 0 };
+    sh.getRange(sh.getLastRow() + 1, 1, matrix.length, headers.length).setValues(matrix);
+    return { ok: true, added: matrix.length };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+function procesosUploadFile_(data) {
+  try {
+    data = data || {};
+    var cod = String(data.codigo || '').trim().replace(/[\\/]/g, '-') || 'sin_codigo';
+    var fname = String(data.filename || 'archivo').trim();
+    var mime = String(data.mime || 'application/octet-stream');
+    var b64 = String(data.data || '').replace(/^data:[^;]+;base64,/, '');
+    if (!b64) return { ok: false, error: 'data vacío' };
+    var folder = DriveApp.getRootFolder();
+    folder = getOrCreateFolder_(folder, 'Check Inn - Sistemas');
+    folder = getOrCreateFolder_(folder, 'Procesos');
+    folder = getOrCreateFolder_(folder, cod);
+    var file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(b64), mime, fname));
+    try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (_) {}
+    return { ok: true, file: { id: file.getId(), name: fname, mime: mime, url: 'https://drive.google.com/file/d/' + file.getId() + '/view' } };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
 var TAREAS_HIST_HEADERS = ['ID','Timestamp','Tarea_ID','Fecha','Campo','Antes','Despues','Usuario'];
 
 /** Guarda/actualiza una ocurrencia y agrega sus cambios al historial.
