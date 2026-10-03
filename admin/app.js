@@ -58156,6 +58156,38 @@ function pcEnsureStyles_() {
   .pc-tbl th{background:#f1f5f9;text-align:left;padding:8px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#475569;position:sticky;top:0}
   .pc-tbl td{padding:8px 10px;border-top:1px solid #f1f5f9;color:#334155}
   .pc-tbl td.r,.pc-tbl th.r{text-align:right;font-variant-numeric:tabular-nums}
+  .pc-tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px}
+  .pc-dhdr{position:sticky;top:0;z-index:2;background:linear-gradient(120deg,#1e1b4b,#4338ca);color:#fff;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .pc-dbody{padding:16px;display:flex;flex-direction:column;gap:14px}
+  .pc-catl{width:200px}
+  @media (max-width:640px){
+    #module-panel-control{padding:12px 10px 50px !important}
+    .pc-hero{padding:16px;border-radius:16px}
+    .pc-hero h1{font-size:21px}
+    .pc-card{padding:12px}
+    .pc-kpis{grid-template-columns:1fr 1fr;gap:10px}
+    .pc-kpi{padding:11px 12px 8px}
+    .pc-kpi-val{font-size:18px}
+    .pc-kpi-sub{font-size:10.5px}
+    #pc-drawer .pn{width:100%}
+    .pc-dhdr{padding:12px 14px}
+    .pc-dhdr .pc-btn{padding:7px 10px;font-size:11.5px}
+    .pc-dbody{padding:10px}
+    .pc-catl{width:110px}
+    .pc-row>div:first-child{width:120px !important}
+    .pc-hm{grid-template-columns:90px repeat(12,1fr) !important;font-size:8.5px}
+    .pc-hm .c{height:13px}
+    /* Tablas → tarjetas apiladas, sin desbordar el ancho de la pantalla */
+    .pc-tblwrap{overflow:visible}
+    .pc-tbl,.pc-tbl tbody,.pc-tbl tr,.pc-tbl td{display:block;width:100%}
+    .pc-tbl{border:0;background:transparent}
+    .pc-tbl thead{display:none}
+    .pc-tbl tr{background:#fff;border:1px solid var(--pc-line);border-radius:12px;padding:8px 10px;margin-bottom:8px;box-sizing:border-box}
+    .pc-tbl td{border:0;padding:4px 0;display:flex;justify-content:space-between;gap:12px;text-align:right;word-break:break-word;box-sizing:border-box}
+    .pc-tbl td::before{content:attr(data-l);font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.04em;text-align:left;flex-shrink:0;max-width:45%}
+    .pc-tbl td[colspan]::before{content:none}
+    .pc-tbl td>div{text-align:right}
+  }
   `;
   document.head.appendChild(st);
 }
@@ -58733,10 +58765,13 @@ window.pcDrawer = function (tipo) {
   const d = document.getElementById('pc-drawer'), pn = document.getElementById('pc-drawer-pn');
   if (!d || !pn) return;
   const ym = PC.ym;
-  const hdr = (t, sub, mod) => `<div style="position:sticky;top:0;z-index:2;background:linear-gradient(120deg,#1e1b4b,#4338ca);color:#fff;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+  const hdr = (t, sub, mod) => `<div class="pc-dhdr">
       <div><div style="font-size:11px;font-weight:800;letter-spacing:.12em;opacity:.75;text-transform:uppercase">${pcYmLabel(ym)}</div><div style="font-size:18px;font-weight:900">${t}</div>${sub ? `<div style="font-size:12px;opacity:.85">${sub}</div>` : ''}</div>
       <div style="display:flex;gap:8px">${mod ? `<button class="pc-btn" onclick="pcGo('${mod}')">Abrir módulo →</button>` : ''}<button class="pc-btn" onclick="pcCloseDrawer()">✕</button></div></div>`;
-  const tbl = (cols, rows) => `<table class="pc-tbl"><thead><tr>${cols.map(c => `<th class="${c.r ? 'r' : ''}">${c.t}</th>`).join('')}</tr></thead><tbody>${rows.length ? rows.join('') : `<tr><td colspan="${cols.length}" style="text-align:center;color:#94a3b8;padding:20px">Sin registros</td></tr>`}</tbody></table>`;
+  // En celular cada renglón se vuelve una tarjeta: cada celda lleva su
+  // encabezado en data-l (ver CSS .pc-tbl @media).
+  const lbl = s => String(s).replace(/<[^>]+>/g, '').replace(/"/g, '&quot;');
+  const tbl = (cols, rows) => `<div class="pc-tblwrap"><table class="pc-tbl"><thead><tr>${cols.map(c => `<th class="${c.r ? 'r' : ''}">${c.t}</th>`).join('')}</tr></thead><tbody>${rows.length ? rows.map(r => { let i = 0; return r.replace(/<td(?=[\s>])/g, () => `<td data-l="${lbl((cols[i++] || {}).t || '')}"`); }).join('') : `<tr><td colspan="${cols.length}" style="text-align:center;color:#94a3b8;padding:20px">Sin registros</td></tr>`}</tbody></table></div>`;
   let html = '';
   if (tipo === 'ingresos' || tipo === 'egresos') {
     if (!PC.finRecs) return;
@@ -58744,27 +58779,27 @@ window.pcDrawer = function (tipo) {
     const porCat = {}; list.forEach(x => { const k = x.r.CATEGORIA || x.r.SUBCUENTA || 'Sin categoría'; porCat[k] = (porCat[k] || 0) + x.monto; });
     const tot = tipo === 'ingresos' ? f.I : f.E;
     html = hdr(tipo === 'ingresos' ? '💰 Ingresos' : '💸 Egresos', `${pcFmt$(tot)} · ${list.length} movimientos validados`, 'registros') +
-      `<div style="padding:16px;display:flex;flex-direction:column;gap:14px">
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px">${Object.entries(porCat).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `<div class="pc-row"><div style="width:200px;font-size:12px;font-weight:700;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pcEsc(k)}</div><div class="pc-bar"><span data-w="${(v / (tot || 1) * 100).toFixed(1)}%" style="background:${tipo === 'ingresos' ? '#16a34a' : '#f59e0b'}"></span></div><b style="width:110px;text-align:right;font-size:12px">${pcFmt$(v)}</b></div>`).join('')}</div>
+      `<div class="pc-dbody">
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px">${Object.entries(porCat).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `<div class="pc-row"><div class="pc-catl" style="font-size:12px;font-weight:700;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pcEsc(k)}</div><div class="pc-bar"><span data-w="${(v / (tot || 1) * 100).toFixed(1)}%" style="background:${tipo === 'ingresos' ? '#16a34a' : '#f59e0b'}"></span></div><b style="min-width:80px;text-align:right;font-size:12px">${pcFmt$(v)}</b></div>`).join('')}</div>
         ${tbl([{ t: 'Día' }, { t: 'Descripción' }, { t: 'Categoría' }, { t: 'Monto', r: 1 }], list.slice(0, 200).map(x => `<tr><td>${pcEsc(x.r['Día'] || '')}</td><td>${pcEsc(x.r.DESCRIPCION || '')}</td><td>${pcEsc(x.r.CATEGORIA || x.r.SUBCUENTA || '')}</td><td class="r"><b>${pcFmt$(x.monto, 2)}</b></td></tr>`))}
       </div>`;
   } else if (tipo === 'utilidad') {
     if (!PC.finRecs) return;
     const tr = pcFinTrend_(ym), f = pcFinMonth_(ym);
     html = hdr('📈 Utilidad y margen', `Utilidad ${pcFmt$(f.U)} · margen ${pcPct(f.M, 1)}`, 'registros') +
-      `<div style="padding:16px">${tbl([{ t: 'Mes' }, { t: 'Ingresos', r: 1 }, { t: 'Egresos', r: 1 }, { t: 'Utilidad', r: 1 }, { t: 'Margen', r: 1 }], tr.slice().reverse().map(t => `<tr><td><b>${pcYmLabel(t.ym)}</b></td><td class="r">${pcFmt$(t.I)}</td><td class="r">${pcFmt$(t.E)}</td><td class="r" style="color:${t.U >= 0 ? '#166534' : '#991b1b'};font-weight:900">${pcFmt$(t.U)}</td><td class="r">${pcPct(t.M, 1)}</td></tr>`))}
+      `<div class="pc-dbody">${tbl([{ t: 'Mes' }, { t: 'Ingresos', r: 1 }, { t: 'Egresos', r: 1 }, { t: 'Utilidad', r: 1 }, { t: 'Margen', r: 1 }], tr.slice().reverse().map(t => `<tr><td><b>${pcYmLabel(t.ym)}</b></td><td class="r">${pcFmt$(t.I)}</td><td class="r">${pcFmt$(t.E)}</td><td class="r" style="color:${t.U >= 0 ? '#166534' : '#991b1b'};font-weight:900">${pcFmt$(t.U)}</td><td class="r">${pcPct(t.M, 1)}</td></tr>`))}
       <div style="font-size:11px;color:#94a3b8;margin-top:8px">Tabla mensual con todos los movimientos no archivados (igual que la gráfica de Indicadores).</div></div>`;
   } else if (tipo === 'ocupacion') {
     const o = pcOcupMonth_(ym);
     html = hdr('🏨 Ocupación por alojamiento', `${pcPct(o.pct, 1)} global · ${pcFmt$(o.rev)} ingreso hospedaje`, 'dashboard') +
-      `<div style="padding:16px">${tbl([{ t: 'Alojamiento' }, { t: 'Noches', r: 1 }, { t: '% Ocup.', r: 1 }, { t: 'Reservas', r: 1 }, { t: 'Ingreso', r: 1 }, { t: 'Tarifa/noche', r: 1 }], o.rows.map(x => `<tr><td><b>${pcEsc(x.a.nombre)}</b></td><td class="r">${x.s.occupied || 0}/${x.s.total || 0}</td><td class="r"><span class="pc-chip" style="background:${x.pct >= .8 ? '#dcfce7' : x.pct >= .5 ? '#fef3c7' : '#fee2e2'};color:${x.pct >= .8 ? '#166534' : x.pct >= .5 ? '#92400e' : '#991b1b'}">${pcPct(x.pct)}</span></td><td class="r">${x.s.resCount || 0}</td><td class="r">${pcFmt$(x.s.revenue)}</td><td class="r">${pcFmt$(x.s.avgPriceNight)}</td></tr>`))}</div>`;
+      `<div class="pc-dbody">${tbl([{ t: 'Alojamiento' }, { t: 'Noches', r: 1 }, { t: '% Ocup.', r: 1 }, { t: 'Reservas', r: 1 }, { t: 'Ingreso', r: 1 }, { t: 'Tarifa/noche', r: 1 }], o.rows.map(x => `<tr><td><b>${pcEsc(x.a.nombre)}</b></td><td class="r">${x.s.occupied || 0}/${x.s.total || 0}</td><td class="r"><span class="pc-chip" style="background:${x.pct >= .8 ? '#dcfce7' : x.pct >= .5 ? '#fef3c7' : '#fee2e2'};color:${x.pct >= .8 ? '#166534' : x.pct >= .5 ? '#92400e' : '#991b1b'}">${pcPct(x.pct)}</span></td><td class="r">${x.s.resCount || 0}</td><td class="r">${pcFmt$(x.s.revenue)}</td><td class="r">${pcFmt$(x.s.avgPriceNight)}</td></tr>`))}</div>`;
   } else if (tipo === 'cobranza' || tipo === 'tickets' || tipo === 'extensiones') {
     if (!PAGOS_STATE.loaded) return;
     const c = pcCobMonth_(ym);
     const lista = tipo === 'cobranza' ? c.pendientes : tipo === 'tickets' ? c.tickets.pend : c.ext;
     const tit = tipo === 'cobranza' ? '🧾 Reservas con saldo pendiente' : tipo === 'tickets' ? '🧾 Tickets de auto-facturación pendientes' : '⏩ Reservas extendidas';
     html = hdr(tit, `${lista.length} reservas`, 'pagos') +
-      `<div style="padding:16px">${tbl([{ t: 'Reserva' }, { t: 'Huésped' }, { t: 'Alojamiento' }, { t: 'Fechas' }, { t: 'Total', r: 1 }, { t: tipo === 'extensiones' ? 'Ticket' : 'Saldo', r: 1 }], lista.map(b => {
+      `<div class="pc-dbody">${tbl([{ t: 'Reserva' }, { t: 'Huésped' }, { t: 'Alojamiento' }, { t: 'Fechas' }, { t: 'Total', r: 1 }, { t: tipo === 'extensiones' ? 'Ticket' : 'Saldo', r: 1 }], lista.map(b => {
         const tk = _pagosTicket(b), e = _pagosExt(b), al = e ? _pagosAlertaExt(b, e, tk) : '';
         return `<tr><td><a href="#" onclick="event.preventDefault();pagosOpenReserva('${pcEsc(String(b.Id))}')" style="color:#1d4ed8;font-weight:800">${pcEsc(b.Id)}</a></td><td>${pcEsc(b.GuestName || '')}</td><td>${pcEsc(_pagosAlojName(b))}</td><td style="white-space:nowrap">${_pagosFmtFecha(_pagosDateIso(b.DateArrival))} → ${_pagosFmtFecha(_pagosDateIso(b.DateDeparture))}${e ? `<br><span class="pc-chip" style="background:#fef3c7;color:#92400e">antes ${_pagosFmtFecha(e.antes)}</span>` : ''}</td><td class="r">${pcFmt$(b.TotalAmount, 2)}</td><td class="r">${tipo === 'extensiones' ? (tk ? `Folio #${pcEsc(tk.folio)}${al ? '<br><span class="pc-chip" style="background:#fee2e2;color:#991b1b">⚠️ re-emitir</span>' : ''}` : '—') : `<b style="color:#9a3412">${pcFmt$(b.AmountDue, 2)}</b>`}</td></tr>`;
       }))}</div>`;
@@ -58772,18 +58807,18 @@ window.pcDrawer = function (tipo) {
     const r = pcRentasYear_(ym);
     const idx = r.rows.map(({ p, cells }) => ({ p, c: cells[r.m0] })).filter(x => x.c.state === 'paid' || x.c.state === 'overdue');
     html = hdr('🏠 Rentas de inquilinos', `${r.pag} pagadas · ${r.venc} sin pagar · cobrado ${pcFmt$(r.cobrado)}`, 'inquilinos') +
-      `<div style="padding:16px">${tbl([{ t: 'Inquilino' }, { t: 'Alojamiento' }, { t: 'Renta', r: 1 }, { t: 'Estado' }, { t: 'Pagado', r: 1 }, { t: 'Método' }], idx.sort((a, b) => (a.c.state === 'overdue' ? -1 : 1) - (b.c.state === 'overdue' ? -1 : 1)).map(({ p, c }) => `<tr><td><b>${pcEsc(p.Nombre)}</b></td><td>${pcEsc([p.Propiedad, p.Departamento ? '#' + p.Departamento : ''].filter(Boolean).join(' '))}</td><td class="r">${pcFmt$(Number(String(p.Renta_mensual || '').replace(/[^0-9.-]/g, '')) || 0)}</td><td>${c.state === 'paid' ? '<span class="pc-chip" style="background:#dcfce7;color:#166534">✓ Pagado</span>' : '<span class="pc-chip" style="background:#fee2e2;color:#991b1b">No pagado</span>'}</td><td class="r">${c.pago ? pcFmt$(Number(String(c.pago.Monto_pagado || '').replace(/[^0-9.-]/g, '')) || 0) : '—'}</td><td>${c.pago ? pcEsc(c.pago.Metodo_pago || '') : ''}</td></tr>`))}</div>`;
+      `<div class="pc-dbody">${tbl([{ t: 'Inquilino' }, { t: 'Alojamiento' }, { t: 'Renta', r: 1 }, { t: 'Estado' }, { t: 'Pagado', r: 1 }, { t: 'Método' }], idx.sort((a, b) => (a.c.state === 'overdue' ? -1 : 1) - (b.c.state === 'overdue' ? -1 : 1)).map(({ p, c }) => `<tr><td><b>${pcEsc(p.Nombre)}</b></td><td>${pcEsc([p.Propiedad, p.Departamento ? '#' + p.Departamento : ''].filter(Boolean).join(' '))}</td><td class="r">${pcFmt$(Number(String(p.Renta_mensual || '').replace(/[^0-9.-]/g, '')) || 0)}</td><td>${c.state === 'paid' ? '<span class="pc-chip" style="background:#dcfce7;color:#166534">✓ Pagado</span>' : '<span class="pc-chip" style="background:#fee2e2;color:#991b1b">No pagado</span>'}</td><td class="r">${c.pago ? pcFmt$(Number(String(c.pago.Monto_pagado || '').replace(/[^0-9.-]/g, '')) || 0) : '—'}</td><td>${c.pago ? pcEsc(c.pago.Metodo_pago || '') : ''}</td></tr>`))}</div>`;
   } else if (tipo === 'operacion') {
     const op = pcOpMonth_(ym);
     const rows = [...op.inc.abiertas.map(x => `<tr><td><span class="pc-chip" style="background:#ffe4e6;color:#be123c">🚨 Incidencia</span></td><td>${pcEsc(x.r.Clasificacion || x.r.Motivos || '')}<div style="font-size:11px;color:#94a3b8">${pcEsc((x.r.Descripcion || '').slice(0, 90))}</div></td><td>${pcEsc(x.r.Alojamiento || x.r.Propiedad || '')}</td><td>${pcEsc(x.n)}</td><td>${pcEsc(x.e)}</td><td>${pcEsc(x.f)}</td></tr>`),
       ...op.rt.abiertos.map(x => `<tr><td><span class="pc-chip" style="background:#e0e7ff;color:#3730a3">🛠 Reporte</span></td><td>${pcEsc(x.r.Titulo || '')}<div style="font-size:11px;color:#94a3b8">${pcEsc(x.r.Folio || '')}</div></td><td>${pcEsc(x.r.Alojamiento || x.r.Propiedad || '')}</td><td>${pcEsc(x.p)}</td><td>${pcEsc(x.e.replace('_', ' '))}</td><td>${pcEsc(x.f)}</td></tr>`)];
     html = hdr('🛠️ Pendientes operativos', `${op.inc.abiertas.length} incidencias y ${op.rt.abiertos.length} reportes técnicos abiertos`, 'incidencias') +
-      `<div style="padding:16px">${tbl([{ t: 'Tipo' }, { t: 'Descripción' }, { t: 'Alojamiento' }, { t: 'Nivel' }, { t: 'Estado' }, { t: 'Fecha' }], rows)}</div>`;
+      `<div class="pc-dbody">${tbl([{ t: 'Tipo' }, { t: 'Descripción' }, { t: 'Alojamiento' }, { t: 'Nivel' }, { t: 'Estado' }, { t: 'Fecha' }], rows)}</div>`;
   } else if (tipo === 'personal' || tipo === 'nomina') {
     const h = pcRh_(ym);
     html = tipo === 'personal'
-      ? hdr('👥 Asistencia de hoy', `${h.presentes.length} de ${h.personal.length}`, 'rh') + `<div style="padding:16px">${tbl([{ t: 'Persona' }, { t: 'Puesto' }, { t: 'Hoy' }], h.personal.map(p => `<tr><td><b>${pcEsc(p.nombre)}</b></td><td>${pcEsc(p.puesto)}</td><td>${h.presentes.includes(p) ? '<span class="pc-chip" style="background:#dcfce7;color:#166534">✓ Registró</span>' : '<span class="pc-chip" style="background:#f1f5f9;color:#64748b">Sin registro</span>'}</td></tr>`))}</div>`
-      : hdr('💵 Nómina de la semana', `${pcFmt$(h.semanaTotal)} · salario reportado (IMSS)`, 'rh') + `<div style="padding:16px">${tbl([{ t: 'Persona' }, { t: 'Días' }, { t: 'Salario reportado', r: 1 }, { t: 'Total', r: 1 }], h.semana.map(g => `<tr><td><b>${pcEsc(g.nombre)}</b></td><td>${g.diasTrab}</td><td class="r">${pcFmt$(g.salarioReportado, 2)}</td><td class="r">${pcFmt$(g.total, 2)}</td></tr>`))}</div>`;
+      ? hdr('👥 Asistencia de hoy', `${h.presentes.length} de ${h.personal.length}`, 'rh') + `<div class="pc-dbody">${tbl([{ t: 'Persona' }, { t: 'Puesto' }, { t: 'Hoy' }], h.personal.map(p => `<tr><td><b>${pcEsc(p.nombre)}</b></td><td>${pcEsc(p.puesto)}</td><td>${h.presentes.includes(p) ? '<span class="pc-chip" style="background:#dcfce7;color:#166534">✓ Registró</span>' : '<span class="pc-chip" style="background:#f1f5f9;color:#64748b">Sin registro</span>'}</td></tr>`))}</div>`
+      : hdr('💵 Nómina de la semana', `${pcFmt$(h.semanaTotal)} · salario reportado (IMSS)`, 'rh') + `<div class="pc-dbody">${tbl([{ t: 'Persona' }, { t: 'Días' }, { t: 'Salario reportado', r: 1 }, { t: 'Total', r: 1 }], h.semana.map(g => `<tr><td><b>${pcEsc(g.nombre)}</b></td><td>${g.diasTrab}</td><td class="r">${pcFmt$(g.salarioReportado, 2)}</td><td class="r">${pcFmt$(g.total, 2)}</td></tr>`))}</div>`;
   } else if (tipo === 'tareas') {
     pcGo('tareas'); return;
   }
