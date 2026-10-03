@@ -346,6 +346,7 @@ const SYS_MODULE_PERMS = {
 // Módulos asignables por empleado (RH › Documentación › Acceso al sistema).
 // Se guardan como lista de claves en la columna sys_modulos de la hoja Personal.
 const SYS_MODULE_LIST = [
+  ['panel-control',    '📊 Panel de control'],
   ['registros',        '📚 Registros contables'],
   ['tickets',          '🎫 Tickets'],
   ['lodgify',          '🌐 Gestión de reservas'],
@@ -388,7 +389,7 @@ function sysApplyPermissions(user) {
     });
   } else {
     // Usuario legado de sys_users (grupos por número romano).
-    allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos', 'reservas-nueva', 'tareas']);
+    allowed = new Set(['home', 'tuya', 'guias', 'config-admin', 'llaves', 'bot-chats', 'reportes-tecnicos', 'reservas-nueva', 'tareas', 'panel-control']);
     if (user && user.modulos) {
       for (const k in SYS_MODULE_PERMS) {
         if (user.modulos[k]) SYS_MODULE_PERMS[k].forEach(m => allowed.add(m));
@@ -9095,7 +9096,7 @@ const _VALID_MODULES = new Set([
   'home','tickets','registros','huespedes','lodgify','reservas-detalles',
   'breezeway','incidencias','objetos','reportes-tecnicos','ocupacion',
   'dashboard','calendario','rh','inquilinos','inventarios','tuya','guias',
-  'config-admin','llaves','bot-chats','reservas-nueva','pagos','tareas',
+  'config-admin','llaves','bot-chats','reservas-nueva','pagos','tareas','panel-control',
 ]);
 function _bootModuleFromHash_() {
   const h = (location.hash || '').replace(/^#/, '').trim();
@@ -9138,7 +9139,7 @@ function switchModule(mod) {
     const greet = document.getElementById('user-greeting');
     if (greet) greet.style.display = '';
   } catch(_){}
-  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas"].forEach(m => {
+  ["home", "tickets", "registros", "huespedes", "lodgify", "personas", "reservas-detalles", "breezeway", "incidencias", "objetos", "reportes-tecnicos", "ocupacion", "rh", "inquilinos", "inventarios", "tuya", "guias", "config-admin", "llaves", "bot-chats", "reservas-nueva", "pagos", "tareas", "panel-control"].forEach(m => {
     document.getElementById(`module-${m}`)?.classList.toggle("hidden", m !== containerMod);
     document.getElementById(`tab-module-${m}`)?.classList.toggle("active", m === containerMod);
     document.getElementById(`nav-item-${m}`)?.classList.toggle("active", m === containerMod);
@@ -9297,6 +9298,9 @@ function switchModule(mod) {
   }
   if (mod === "tareas") {
     if (typeof tareasInit === 'function') tareasInit();
+  }
+  if (mod === "panel-control") {
+    if (typeof panelControlInit === 'function') panelControlInit();
   }
   if (mod === "pagos") {
     if (typeof pagosInit === 'function') pagosInit();
@@ -58041,6 +58045,749 @@ window.tarClasifSave = async function () {
     if (TAR_STATE.panel) tarPanelRender_();
   } catch (e) { alert('Error: ' + e.message); }
 };
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ║  MÓDULO: PANEL DE CONTROL (key: 'panel-control')                         ║
+// ║  Dashboard ejecutivo: finanzas, ocupación, cobranza/facturación, rentas, ║
+// ║  operación, personal/nómina y dispositivos. Reutiliza los mismos         ║
+// ║  cálculos de cada módulo para que los números coincidan.                 ║
+// ║  Cada sección carga en paralelo y se pinta sola al llegar su dato.       ║
+// ═══════════════════════════════════════════════════════════════════════════
+const PC_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const PC_MES3 = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const PC = {
+  ym: '', loading: {}, err: {}, t: {}, updatedAt: null,
+  fin: null, ocup: null, cob: null, rentas: null, op: null, rh: null, disp: null,
+  hidden: new Set(), // series ocultas en la gráfica de finanzas
+};
+const pcFmt$ = (n, d) => (Number(n) || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: d == null ? 0 : d });
+const pcFmtN = n => (Number(n) || 0).toLocaleString('es-MX', { maximumFractionDigits: 0 });
+const pcPct = (n, d) => isFinite(n) ? `${(n * 100).toFixed(d == null ? 0 : d)}%` : '—';
+function pcYm(y, m0) { return `${y}-${String(m0 + 1).padStart(2, '0')}`; }
+function pcYmParts(ym) { const [y, m] = String(ym).split('-').map(Number); return { y, m0: m - 1 }; }
+function pcYmShift(ym, d) { const { y, m0 } = pcYmParts(ym); const t = new Date(y, m0 + d, 1); return pcYm(t.getFullYear(), t.getMonth()); }
+function pcYmLabel(ym, corto) { const { y, m0 } = pcYmParts(ym); return corto ? `${PC_MES3[m0]} ${String(y).slice(2)}` : `${PC_MESES[m0]} ${y}`; }
+function pcLast12(ym) { const out = []; for (let i = 11; i >= 0; i--) out.push(pcYmShift(ym, -i)); return out; }
+function pcEsc(s) { return (typeof esc === 'function') ? esc(s) : String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function pcIsoDay(v) { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+// ── Estilos (una sola vez) ─────────────────────────────────────────────
+function pcEnsureStyles_() {
+  if (document.getElementById('pc-styles')) return;
+  const st = document.createElement('style');
+  st.id = 'pc-styles';
+  st.textContent = `
+  #module-panel-control{--pc-ink:#0f172a;--pc-soft:#64748b;--pc-line:#e2e8f0;--pc-card:#ffffff;--pc-bg:#f1f5f9;
+    --pc-green:#16a34a;--pc-red:#dc2626;--pc-amber:#f59e0b;--pc-blue:#2563eb;--pc-violet:#7c3aed;--pc-teal:#0d9488;background:var(--pc-bg)}
+  .pc-wrap{max-width:1500px;margin:0 auto}
+  .pc-hero{position:relative;overflow:hidden;border-radius:20px;padding:22px 26px;color:#fff;
+    background:radial-gradient(1200px 300px at 10% -40%,rgba(255,255,255,.18),transparent),linear-gradient(120deg,#1e1b4b 0%,#4338ca 45%,#7c3aed 100%);
+    box-shadow:0 18px 40px rgba(67,56,202,.28);margin-bottom:18px}
+  .pc-hero:after{content:'';position:absolute;right:-60px;top:-60px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.07)}
+  .pc-hero h1{margin:2px 0 0;font-size:26px;font-weight:900;letter-spacing:-.02em}
+  .pc-eyebrow{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;opacity:.75}
+  .pc-hero-row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;position:relative;z-index:1}
+  .pc-mnav{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:5px;backdrop-filter:blur(6px)}
+  .pc-mnav button{all:unset;cursor:pointer;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:9px;font-weight:900;font-size:16px;color:#fff}
+  .pc-mnav button:hover{background:rgba(255,255,255,.18)}
+  .pc-mnav .pc-mlabel{min-width:150px;text-align:center;font-weight:900;font-size:14px}
+  .pc-btn{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:11px;background:#fff;color:#3730a3;font-weight:900;font-size:12.5px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+  .pc-btn:hover{transform:translateY(-1px)}
+  .pc-meta{font-size:11.5px;opacity:.8;margin-top:6px}
+  .pc-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;margin-bottom:18px}
+  .pc-kpi{position:relative;cursor:pointer;background:var(--pc-card);border:1px solid var(--pc-line);border-radius:16px;padding:14px 16px 10px;
+    box-shadow:0 1px 2px rgba(15,23,42,.04);transition:transform .18s,box-shadow .18s,border-color .18s;animation:pcUp .45s both;overflow:hidden}
+  .pc-kpi:hover{transform:translateY(-3px);box-shadow:0 14px 28px rgba(15,23,42,.12);border-color:#c7d2fe}
+  .pc-kpi:before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc,#6366f1)}
+  .pc-kpi-top{display:flex;align-items:center;gap:8px}
+  .pc-kpi-ico{width:30px;height:30px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;background:var(--accbg,#eef2ff)}
+  .pc-kpi-lbl{font-size:10.5px;font-weight:900;color:var(--pc-soft);text-transform:uppercase;letter-spacing:.06em}
+  .pc-kpi-val{font-size:24px;font-weight:900;color:var(--pc-ink);letter-spacing:-.02em;margin:8px 0 2px;font-variant-numeric:tabular-nums}
+  .pc-kpi-sub{font-size:11.5px;color:var(--pc-soft);display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:18px}
+  .pc-delta{display:inline-flex;align-items:center;gap:2px;padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:900}
+  .pc-delta.up{background:#dcfce7;color:#166534}.pc-delta.down{background:#fee2e2;color:#991b1b}.pc-delta.flat{background:#f1f5f9;color:#475569}
+  .pc-spark{display:block;width:100%;height:34px;margin-top:6px}
+  .pc-more{position:absolute;right:12px;top:12px;font-size:10px;font-weight:800;color:#a5b4fc;opacity:0;transition:opacity .2s}
+  .pc-kpi:hover .pc-more{opacity:1}
+  .pc-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+  .pc-card{background:var(--pc-card);border:1px solid var(--pc-line);border-radius:18px;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04);animation:pcUp .5s both;min-width:0}
+  .pc-card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+  .pc-card-t{font-size:13px;font-weight:900;color:var(--pc-ink);display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.05em}
+  .pc-card-t small{font-weight:700;color:var(--pc-soft);text-transform:none;letter-spacing:0;font-size:11.5px}
+  .pc-link{all:unset;cursor:pointer;font-size:11.5px;font-weight:800;color:#4f46e5}
+  .pc-link:hover{text-decoration:underline}
+  .s12{grid-column:span 12}.s8{grid-column:span 8}.s7{grid-column:span 7}.s6{grid-column:span 6}.s5{grid-column:span 5}.s4{grid-column:span 4}
+  @media(max-width:1100px){.s8,.s7,.s6,.s5,.s4{grid-column:span 12}}
+  .pc-skel{height:var(--h,160px);border-radius:12px;background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 37%,#f1f5f9 63%);background-size:400% 100%;animation:pcShim 1.3s infinite}
+  @keyframes pcShim{0%{background-position:100% 50%}100%{background-position:0 50%}}
+  @keyframes pcUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .pc-legend{display:flex;gap:8px;flex-wrap:wrap}
+  .pc-leg{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--pc-line);font-size:11.5px;font-weight:800;color:var(--pc-ink);background:#fff}
+  .pc-leg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .pc-leg.off{opacity:.4;text-decoration:line-through}
+  .pc-chart{position:relative}
+  .pc-tip{position:absolute;pointer-events:none;background:#0f172a;color:#fff;border-radius:10px;padding:8px 10px;font-size:11.5px;line-height:1.5;box-shadow:0 10px 24px rgba(0,0,0,.25);white-space:nowrap;opacity:0;transition:opacity .12s;z-index:5}
+  .pc-row{display:flex;align-items:center;gap:10px;padding:5px 0;cursor:pointer;border-radius:8px}
+  .pc-row:hover{background:#f8fafc}
+  .pc-bar{flex:1;height:10px;background:#f1f5f9;border-radius:999px;overflow:hidden}
+  .pc-bar>span{display:block;height:100%;border-radius:999px;width:0;transition:width .9s cubic-bezier(.2,.7,.3,1)}
+  .pc-ring{--p:0;--c:#16a34a;width:120px;height:120px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p)*1%),#e2e8f0 0);display:grid;place-items:center;transition:--p 1s}
+  .pc-ring>div{width:92px;height:92px;border-radius:50%;background:#fff;display:grid;place-items:center;text-align:center}
+  .pc-ring b{font-size:22px;font-weight:900;color:var(--pc-ink);line-height:1}
+  .pc-ring small{font-size:10px;font-weight:800;color:var(--pc-soft);text-transform:uppercase;letter-spacing:.05em}
+  .pc-stat{background:#f8fafc;border:1px solid var(--pc-line);border-radius:12px;padding:10px 12px;cursor:pointer;transition:background .15s}
+  .pc-stat:hover{background:#eef2ff}
+  .pc-stat .l{font-size:10px;font-weight:900;color:var(--pc-soft);text-transform:uppercase;letter-spacing:.06em}
+  .pc-stat .v{font-size:18px;font-weight:900;color:var(--pc-ink);margin-top:2px;font-variant-numeric:tabular-nums}
+  .pc-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:900;white-space:nowrap}
+  .pc-hm{display:grid;gap:3px;font-size:10px}
+  .pc-hm .c{height:16px;border-radius:4px}
+  .pc-alert{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa;font-size:12px;color:#7c2d12}
+  .pc-tank{width:62px;height:96px;border-radius:12px;border:2px solid #334155;position:relative;overflow:hidden;background:#f8fafc}
+  .pc-tank>span{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(180deg,#38bdf8,#0369a1);transition:height 1s}
+  .pc-tank>b{position:absolute;inset:0;display:grid;place-items:center;font-size:15px;font-weight:900;color:#0f172a;text-shadow:0 1px 0 #fff}
+  #pc-drawer{position:fixed;inset:0;z-index:10050;display:none}
+  #pc-drawer.on{display:flex}
+  #pc-drawer .bd{flex:1;background:rgba(15,23,42,.5);animation:pcFade .2s}
+  #pc-drawer .pn{width:min(760px,100%);height:100%;background:#f8fafc;box-shadow:-16px 0 40px rgba(15,23,42,.25);overflow:auto;animation:pcSlide .22s cubic-bezier(.2,.7,.3,1)}
+  @keyframes pcFade{from{opacity:0}to{opacity:1}} @keyframes pcSlide{from{transform:translateX(100%)}to{transform:none}}
+  .pc-tbl{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid var(--pc-line);border-radius:12px;overflow:hidden}
+  .pc-tbl th{background:#f1f5f9;text-align:left;padding:8px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#475569;position:sticky;top:0}
+  .pc-tbl td{padding:8px 10px;border-top:1px solid #f1f5f9;color:#334155}
+  .pc-tbl td.r,.pc-tbl th.r{text-align:right;font-variant-numeric:tabular-nums}
+  `;
+  document.head.appendChild(st);
+}
+
+// ── Utilidades de gráficas (SVG) ───────────────────────────────────────
+function pcSpark_(vals, color) {
+  const v = (vals || []).map(x => Number(x) || 0);
+  if (!v.length || v.every(x => x === 0)) return `<svg class="pc-spark" viewBox="0 0 100 30" preserveAspectRatio="none"><line x1="0" y1="28" x2="100" y2="28" stroke="#e2e8f0" stroke-width="1.5"/></svg>`;
+  const mn = Math.min(...v, 0), mx = Math.max(...v), rg = (mx - mn) || 1;
+  const pts = v.map((x, i) => [i * (100 / Math.max(1, v.length - 1)), 28 - ((x - mn) / rg) * 24]);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const gid = 'g' + Math.random().toString(36).slice(2, 8);
+  return `<svg class="pc-spark" viewBox="0 0 100 30" preserveAspectRatio="none">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".28"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+    <path d="${d} L100 30 L0 30 Z" fill="url(#${gid})"/>
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+    <circle cx="${pts[pts.length-1][0]}" cy="${pts[pts.length-1][1]}" r="2.2" fill="${color}"/></svg>`;
+}
+function pcDelta_(cur, prev, invert) {
+  if (!isFinite(prev) || prev === 0 || !isFinite(cur)) return '';
+  const d = (cur - prev) / Math.abs(prev);
+  const good = invert ? d < 0 : d > 0;
+  const cls = Math.abs(d) < 0.005 ? 'flat' : (good ? 'up' : 'down');
+  return `<span class="pc-delta ${cls}" title="vs mes anterior">${d >= 0 ? '▲' : '▼'} ${Math.abs(d * 100).toFixed(0)}%</span>`;
+}
+// Gráfica de líneas interactiva (hover con tooltip y guía vertical).
+function pcLineChart_(id, labels, series, opts) {
+  opts = opts || {};
+  const W = 760, H = opts.h || 240, P = { l: 58, r: 14, t: 14, b: 26 };
+  const vis = series.filter(s => !s.hidden);
+  const all = vis.flatMap(s => s.data.map(Number)).filter(isFinite);
+  let mn = Math.min(0, ...all), mx = Math.max(1, ...all);
+  const pad = (mx - mn) * 0.08; mx += pad; if (mn < 0) mn -= pad;
+  const x = i => P.l + i * ((W - P.l - P.r) / Math.max(1, labels.length - 1));
+  const y = v => P.t + (1 - (v - mn) / ((mx - mn) || 1)) * (H - P.t - P.b);
+  const ticks = 4;
+  let grid = '';
+  for (let k = 0; k <= ticks; k++) {
+    const v = mn + (mx - mn) * k / ticks, yy = y(v);
+    grid += `<line x1="${P.l}" x2="${W - P.r}" y1="${yy}" y2="${yy}" stroke="#eef2f7"/><text x="${P.l - 8}" y="${yy + 4}" text-anchor="end" font-size="10" fill="#94a3b8">${opts.pct ? (v * 100).toFixed(0) + '%' : (Math.abs(v) >= 1000 ? (v / 1000).toFixed(0) + 'k' : v.toFixed(0))}</text>`;
+  }
+  const xl = labels.map((l, i) => `<text x="${x(i)}" y="${H - 6}" text-anchor="middle" font-size="10" fill="#94a3b8">${pcEsc(l)}</text>`).join('');
+  const paths = vis.map(s => {
+    const d = s.data.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(Number(v) || 0).toFixed(1)).join(' ');
+    const area = s.area ? `<path d="${d} L${x(s.data.length - 1)} ${y(Math.max(mn, 0))} L${x(0)} ${y(Math.max(mn, 0))} Z" fill="${s.color}" opacity=".08"/>` : '';
+    const dots = s.data.map((v, i) => `<circle cx="${x(i)}" cy="${y(Number(v) || 0)}" r="3" fill="#fff" stroke="${s.color}" stroke-width="2"/>`).join('');
+    return `${area}<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" style="stroke-dasharray:2000;stroke-dashoffset:2000;animation:pcDraw 1.1s forwards"/>${dots}`;
+  }).join('');
+  const cols = labels.map((l, i) => `<rect x="${x(i) - (W - P.l - P.r) / labels.length / 2}" y="${P.t}" width="${(W - P.l - P.r) / labels.length}" height="${H - P.t - P.b}" fill="transparent" data-i="${i}"/>`).join('');
+  window.__pcCharts = window.__pcCharts || {};
+  window.__pcCharts[id] = { labels, series: vis, fmt: opts.fmt || (v => pcFmt$(v)) };
+  return `<div class="pc-chart" id="${id}" onmousemove="pcChartHover(event,'${id}')" onmouseleave="pcChartLeave('${id}')">
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+      <style>@keyframes pcDraw{to{stroke-dashoffset:0}}</style>
+      ${grid}${xl}${paths}<line class="pc-guide" x1="0" x2="0" y1="${P.t}" y2="${H - P.b}" stroke="#6366f1" stroke-dasharray="3 3" opacity="0"/>${cols}
+    </svg><div class="pc-tip"></div></div>`;
+}
+window.pcChartHover = function (ev, id) {
+  const el = document.getElementById(id), meta = (window.__pcCharts || {})[id];
+  if (!el || !meta) return;
+  const r = ev.target.closest && ev.target.closest('rect[data-i]');
+  if (!r) return;
+  const i = +r.getAttribute('data-i');
+  const svg = el.querySelector('svg'), tip = el.querySelector('.pc-tip'), g = el.querySelector('.pc-guide');
+  const cx = +r.getAttribute('x') + +r.getAttribute('width') / 2;
+  g.setAttribute('x1', cx); g.setAttribute('x2', cx); g.setAttribute('opacity', '1');
+  tip.innerHTML = `<div style="font-weight:900;margin-bottom:2px">${pcEsc(meta.labels[i])}</div>` + meta.series.map(s => `<div><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${s.color};margin-right:6px"></i>${pcEsc(s.name)}: <b>${meta.fmt(s.data[i], s)}</b></div>`).join('');
+  const rect = el.getBoundingClientRect(), scale = rect.width / svg.viewBox.baseVal.width;
+  let left = cx * scale + 12; if (left > rect.width - 190) left = cx * scale - 190;
+  tip.style.left = left + 'px'; tip.style.top = '8px'; tip.style.opacity = '1';
+};
+window.pcChartLeave = function (id) {
+  const el = document.getElementById(id); if (!el) return;
+  el.querySelector('.pc-tip').style.opacity = '0';
+  const g = el.querySelector('.pc-guide'); if (g) g.setAttribute('opacity', '0');
+};
+function pcBars_(labels, vals, opts) {
+  opts = opts || {};
+  const mx = Math.max(...vals.map(v => Math.abs(Number(v) || 0)), 0.0001);
+  return `<div style="display:flex;align-items:flex-end;gap:6px;height:${opts.h || 120}px;padding-top:14px">${vals.map((v, i) => {
+    const n = Number(v) || 0, h = Math.max(2, Math.abs(n) / mx * ((opts.h || 120) - 26));
+    const col = opts.colorFn ? opts.colorFn(n, i) : '#6366f1';
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0" title="${pcEsc(labels[i])}: ${pcEsc(opts.fmt ? opts.fmt(n) : n)}">
+      <div style="font-size:9.5px;font-weight:800;color:#475569;white-space:nowrap">${opts.fmt ? opts.fmt(n) : n}</div>
+      <div style="width:100%;max-width:34px;height:${h}px;border-radius:7px 7px 3px 3px;background:${col};transform-origin:bottom;animation:pcGrow .7s ${i * 0.03}s both"></div>
+      <div style="font-size:9.5px;color:#94a3b8;white-space:nowrap">${pcEsc(labels[i])}</div></div>`;
+  }).join('')}</div><style>@keyframes pcGrow{from{transform:scaleY(0)}to{transform:none}}</style>`;
+}
+function pcRing_(pct, color, label) {
+  const p = Math.max(0, Math.min(100, (Number(pct) || 0) * 100));
+  return `<div class="pc-ring" style="--p:${p.toFixed(1)};--c:${color}"><div><div><b>${p.toFixed(0)}%</b><br><small>${pcEsc(label || '')}</small></div></div></div>`;
+}
+function pcAnimateBars_() {
+  requestAnimationFrame(() => document.querySelectorAll('#module-panel-control .pc-bar>span[data-w]').forEach(s => { s.style.width = s.getAttribute('data-w'); }));
+  setTimeout(() => document.querySelectorAll('#module-panel-control .pc-bar>span[data-w]').forEach(s => { s.style.width = s.getAttribute('data-w'); }), 60);
+}
+function pcSkel_(h) { return `<div class="pc-skel" style="--h:${h || 160}px"></div>`; }
+function pcErr_(msg) { return `<div class="pc-alert">⚠️ <div>${pcEsc(msg)}</div></div>`; }
+
+// ── Carga de datos ─────────────────────────────────────────────────────
+async function pcTimed_(key, fn) {
+  const t0 = performance.now();
+  PC.loading[key] = true; PC.err[key] = '';
+  try { await fn(); }
+  catch (e) { PC.err[key] = e.message || String(e); console.warn('[panel]', key, e); }
+  finally { PC.loading[key] = false; PC.t[key] = Math.round(performance.now() - t0); pcRenderSection_(key); pcRenderKpis_(); }
+}
+function pcLoadAll_(force) {
+  PC.updatedAt = new Date();
+  pcTimed_('fin', () => pcLoadFin_(force));
+  pcTimed_('ocup', () => pcLoadOcup_(force));
+  pcTimed_('cob', () => pcLoadCob_(force));
+  pcTimed_('rentas', () => pcLoadRentas_(force));
+  pcTimed_('op', () => pcLoadOp_(force));
+  pcTimed_('rh', () => pcLoadRh_(force));
+  pcTimed_('disp', () => pcLoadDisp_(force));
+  setTimeout(() => console.info('[PANEL timing ms]', { ...PC.t }), 15000);
+}
+
+// 1) FINANZAS — mismas reglas que Registros contables:
+//    KPIs: solo validados, no archivados, no "en tránsito". Tendencia: todos
+//    los no archivados (como la gráfica de Indicadores).
+let _pcBancos = null;
+async function pcLoadFin_(force) {
+  if (!_pcBancos || force) {
+    const j = await fetch(`${BACKEND}/get-bancos`, { cache: 'no-store' }).then(r => r.json());
+    if (!j || !j.ok) throw new Error((j && j.error) || 'Registros contables no respondió');
+    _pcBancos = j;
+  }
+  const canon = s => (typeof bn_canon === 'function') ? bn_canon(s) : String(s || '').toLowerCase();
+  const diaIso = r => (typeof bn_formatDiaISO === 'function') ? bn_formatDiaISO(r['Día'] || r.Dia || '') : '';
+  const recs = (_pcBancos.records || []).map(r => {
+    const monto = Number(r.Monto) || 0;
+    const raw = r.CUENTA || r.TIPO || (monto < 0 ? 'Egresos' : monto > 0 ? 'Ingresos' : '');
+    const c = canon(raw);
+    const tipo = c.includes('egr') ? 'E' : c.includes('ing') ? 'I' : c.includes('activ') ? 'AC' : c.includes('capital') ? 'CA' : c.includes('pasiv') ? 'PA' : '';
+    return {
+      r, tipo, monto: Math.abs(monto), ym: String(diaIso(r)).slice(0, 7),
+      validado: String(r.VALIDADO || '').trim() === 'Sí',
+      archivado: /^s[ií]$/i.test(String(r.ARCHIVADO || '').trim()),
+      transito: /tr[aá]nsito/i.test(String(r.SALDO == null ? '' : r.SALDO)),
+      cuentaCanon: canon(r.CUENTA || raw),
+    };
+  });
+  PC.finRecs = recs;
+  PC.finBudget = _pcBancos.budget || [];
+}
+function pcFinMonth_(ym) {
+  const recs = PC.finRecs || [];
+  const kpi = recs.filter(x => x.validado && !x.archivado && !x.transito && x.ym === ym);
+  const sum = (arr, t) => arr.filter(x => x.tipo === t).reduce((a, x) => a + x.monto, 0);
+  const E = sum(kpi, 'E'), I = sum(kpi, 'I');
+  const agg = (arr) => {
+    let real = 0, bud = 0; const seen = new Set();
+    const norm = s => (typeof bn_norm === 'function') ? bn_norm(s) : String(s || '').trim().toLowerCase();
+    arr.forEach(x => { real += x.monto; });
+    arr.forEach(x => {
+      const k = norm(x.r.CATEGORIA) + '||' + norm(x.r.CONCEPTO);
+      if (seen.has(k)) return; seen.add(k);
+      const b = (PC.finBudget || []).find(b => norm(b.CATEGORIA) === norm(x.r.CATEGORIA) && norm(b.CONCEPTO) === norm(x.r.CONCEPTO));
+      if (b && typeof bn_apBudgetForRow === 'function') bud += bn_apBudgetForRow(b).value;
+    });
+    return { real, bud, av: bud > 0 ? real / bud : NaN };
+  };
+  return {
+    E, I, U: I - E, M: I ? (I - E) / I : NaN,
+    nE: kpi.filter(x => x.tipo === 'E').length, nI: kpi.filter(x => x.tipo === 'I').length,
+    oper: agg(kpi.filter(x => x.cuentaCanon.includes('egr'))),
+    reinv: agg(kpi.filter(x => x.cuentaCanon.includes('activ'))),
+    retiro: agg(kpi.filter(x => x.cuentaCanon.includes('capital'))),
+    recsE: kpi.filter(x => x.tipo === 'E'), recsI: kpi.filter(x => x.tipo === 'I'),
+  };
+}
+function pcFinTrend_(ym) {
+  const recs = (PC.finRecs || []).filter(x => !x.archivado && !x.transito);
+  return pcLast12(ym).map(m => {
+    const E = recs.filter(x => x.tipo === 'E' && x.ym === m).reduce((a, x) => a + x.monto, 0);
+    const I = recs.filter(x => x.tipo === 'I' && x.ym === m).reduce((a, x) => a + x.monto, 0);
+    return { ym: m, E, I, U: I - E, M: I ? (I - E) / I : 0 };
+  });
+}
+
+// 2) OCUPACIÓN — mismas funciones del Dashboard.
+async function pcLoadOcup_(force) {
+  if (typeof lgLoadAlojamientos === 'function' && (typeof ALOJ_STATE === 'undefined' || !ALOJ_STATE.loaded)) await lgLoadAlojamientos();
+  if (typeof ocupLoadBookings === 'function') await ocupLoadBookings(!!force);
+}
+function pcOcupMonth_(ym) {
+  const { y, m0 } = pcYmParts(ym);
+  const alojs = (typeof ocupGetAlojamientos === 'function') ? ocupGetAlojamientos() : [];
+  let occ = 0, tot = 0, rev = 0, res = 0, neto = 0;
+  const rows = alojs.map(a => {
+    const s = ocupStatsForAloj(a.houseId, y, m0) || {};
+    occ += s.occupied || 0; tot += s.total || 0; rev += s.revenue || 0; res += s.resCount || 0; neto += s.ingresoNeto || 0;
+    return { a, s, pct: s.total ? (s.occupied || 0) / s.total : 0 };
+  });
+  return { rows: rows.sort((p, q) => q.pct - p.pct), occ, tot, pct: tot ? occ / tot : 0, rev, res, neto, adr: occ ? rev / occ : 0 };
+}
+
+// 3) COBRANZA Y FACTURACIÓN — mismas funciones del módulo Pagos.
+async function pcLoadCob_(force) {
+  if (typeof pagosLoad === 'function' && (!PAGOS_STATE.loaded || force)) await pagosLoad();
+  if (typeof lgEnsureHuespedesAndMatch === 'function') { try { await lgEnsureHuespedesAndMatch(); } catch (_) {} }
+  if (typeof _pagosLoadExtensiones_ === 'function' && !PAGOS_STATE.extById) { try { await _pagosLoadExtensiones_(); } catch (_) {} }
+}
+function pcCobMonth_(ym) {
+  const list = (PAGOS_STATE.bookings || []).filter(b => _pagosDateIso(b.DateArrival).startsWith(ym));
+  let fact = 0, cob = 0, pend = 0;
+  const pendientes = [], tickets = { req: 0, emit: 0, pend: [] }, ext = [], alertas = [];
+  list.forEach(b => {
+    fact += Number(b.TotalAmount) || 0;
+    const p = Number(b.AmountPaid) || 0, d = Number(b.AmountDue) || 0;
+    if (p > 0) cob += p;
+    if (d > 0) { pend += d; pendientes.push(b); }
+    const tk = _pagosTicket(b), req = /s[ií]/i.test(String(_pagosReqFactura(b) || ''));
+    if (req || tk) { tickets.req++; if (tk) tickets.emit++; else tickets.pend.push(b); }
+    const e = _pagosExt(b);
+    if (e) { ext.push(b); if (_pagosAlertaExt(b, e, tk)) alertas.push(b); }
+  });
+  return { n: list.length, fact, cob, pend, pendientes, tickets, ext, alertas, list };
+}
+
+// 4) RENTAS DE INQUILINOS — mismas reglas de la Vista mensual de pagos.
+async function pcLoadRentas_(force) {
+  if (typeof inqLoadPerfiles === 'function' && (!(INQ_STATE.perfiles || []).length || force)) await inqLoadPerfiles();
+  if (typeof inqLoadPagos === 'function') await inqLoadPagos();
+  if (typeof inqRefreshEfePagos_ === 'function') { try { await inqRefreshEfePagos_(); } catch (_) {} }
+}
+function pcRentasYear_(ym) {
+  const { y, m0 } = pcYmParts(ym);
+  const today = new Date();
+  const idx = {};
+  (INQ_STATE.pagos || []).forEach(p => {
+    const mes = String(p.Mes || '').slice(0, 7); // misma regla que la Vista mensual de pagos
+    if (p.Inquilino_ID && mes) idx[p.Inquilino_ID + '|' + mes] = p;
+  });
+  const perfiles = (INQ_STATE.perfiles || []).slice().sort((a, b) => String(a.Propiedad || '').localeCompare(String(b.Propiedad || ''), 'es') || String(a.Departamento || '').localeCompare(String(b.Departamento || ''), 'es', { numeric: true }));
+  const rows = perfiles.map(p => ({ p, cells: Array.from({ length: 12 }, (_, i) => inqHmCellState_(p, y, i, idx, today.getFullYear(), today.getMonth())) }));
+  let pag = 0, venc = 0, esperado = 0, cobrado = 0;
+  const vencidos = [];
+  rows.forEach(({ p, cells }) => {
+    const c = cells[m0];
+    if (c.state === 'paid') { pag++; cobrado += Number(String(c.pago.Monto_pagado || '').replace(/[^0-9.-]/g, '')) || 0; }
+    if (c.state === 'overdue') { venc++; vencidos.push(p); }
+    if (c.state === 'paid' || c.state === 'overdue') esperado += Number(String(p.Renta_mensual || '').replace(/[^0-9.-]/g, '')) || 0;
+  });
+  return { rows, pag, venc, activos: pag + venc, esperado, cobrado, vencidos, m0, y };
+}
+
+// 5) OPERACIÓN — Incidencias, Reportes técnicos y Tareas programadas.
+let _pcRT = null;
+async function pcLoadOp_(force) {
+  const tasks = [];
+  if (typeof incLoadIncidencias === 'function' && (!(INC_STATE.list || []).length || force)) tasks.push(incLoadIncidencias().catch(() => {}));
+  tasks.push(fetch(`${BACKEND}/reportes-tecnicos-list?_cb=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()).then(j => { _pcRT = (j && j.rows) || []; }).catch(() => { _pcRT = _pcRT || []; }));
+  if (typeof tarLoad_ === 'function' && (!TAR_STATE.loaded || force)) tasks.push(tarLoad_().catch(() => {}));
+  await Promise.all(tasks);
+}
+function pcOpMonth_(ym) {
+  const normE = e => (typeof incNormalizeEstatus === 'function') ? incNormalizeEstatus(e) : String(e || '');
+  const normN = n => (typeof incNormalizeNivel === 'function') ? incNormalizeNivel(n) : String(n || '');
+  const inc = (INC_STATE.list || []).map(r => ({ r, f: String(r.Fecha || r.Timestamp || '').slice(0, 10), e: normE(r.Estatus), n: normN(r.Nivel) }));
+  const incMes = inc.filter(x => x.f.startsWith(ym));
+  const incAbiertas = inc.filter(x => x.e === 'Nuevo' || x.e === 'En proceso');
+  const rtE = e => (typeof _rtNormalizeEstado === 'function') ? _rtNormalizeEstado(e) : String(e || '').toLowerCase();
+  const rtP = p => (typeof _rtNormalizePrio === 'function') ? _rtNormalizePrio(p) : String(p || '').toLowerCase();
+  const rt = (_pcRT || []).map(r => ({ r, e: rtE(r.Estado), p: rtP(r.Prioridad), f: String(r.Fecha || '').slice(0, 10) }));
+  const rtAbiertos = rt.filter(x => x.e === 'nuevo' || x.e === 'en_proceso');
+  const hoy = pcIsoDay();
+  const tarHoy = (typeof tarDelDia_ === 'function' && TAR_STATE.loaded) ? tarDelDia_(hoy).map(r => ({ r, e: tarOcurEstado_(r.ID, hoy) })) : [];
+  return {
+    inc: { mes: incMes, abiertas: incAbiertas, criticas: incAbiertas.filter(x => x.n === 'Crítica' || x.n === 'Alta'),
+      porEstado: ['Nuevo', 'En proceso', 'Resuelto', 'Cancelado'].map(k => [k, incMes.filter(x => x.e === k).length]) },
+    rt: { all: rt, abiertos: rtAbiertos, criticos: rtAbiertos.filter(x => x.p === 'critica' || x.p === 'alta'),
+      porEstado: [['nuevo', 'Nuevos'], ['en_proceso', 'En proceso'], ['resuelto', 'Resueltos'], ['cancelado', 'Cancelados']].map(([k, l]) => [l, rt.filter(x => x.e === k).length]) },
+    tar: { hoy: tarHoy, porEstado: ['Pendiente', 'En proceso', 'Resuelto', 'Cancelado'].map(k => [k, tarHoy.filter(x => x.e === k).length]) },
+  };
+}
+
+// 6) PERSONAL Y NÓMINA — Control de asistencias + Pagos de nómina.
+async function pcLoadRh_(force) {
+  const tasks = [];
+  if (typeof incLoadPersonal === 'function' && (!(INC_STATE.personalRows || []).length || force)) tasks.push(incLoadPersonal());
+  if (!(ASIST_STATE.rows || []).length || force) tasks.push(fetch(`${BACKEND}/rh/asistencia?_cb=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()).then(j => { if (j && j.ok && Array.isArray(j.rows)) ASIST_STATE.rows = j.rows; }));
+  if (typeof rhLoadPagosSemanal === 'function') tasks.push(rhLoadPagosSemanal().catch(() => {}));
+  await Promise.all(tasks);
+}
+function pcRh_(ym) {
+  const hoy = pcIsoDay();
+  const personal = (typeof asistPersonalOperativo === 'function') ? asistPersonalOperativo() : [];
+  const alias = (typeof _asistBuildAliasMap_ === 'function') ? _asistBuildAliasMap_(personal) : new Map();
+  const canon = n => alias.get((typeof _normNombre_ === 'function') ? _normNombre_(n) : n) || n;
+  const hoyRows = (ASIST_STATE.rows || []).filter(r => String(r.Fecha || '').slice(0, 10) === hoy);
+  const presentes = new Set(hoyRows.filter(r => String(r.Entrada || r.Salida || '').trim() || /asist|regular/i.test(String(r.Concepto || ''))).map(r => canon(String(r.Empleado_Nombre || '').trim())));
+  let grupos = [];
+  try { grupos = (typeof _rhComputeGruposSemanaImss_ === 'function') ? _rhComputeGruposSemanaImss_() : []; } catch (_) {}
+  const lunes = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); })();
+  const semana = grupos.filter(g => g.semana && g.semana.lun && g.semana.lun.getTime() === lunes);
+  const delMes = grupos.filter(g => g.semana && g.semana.lun && pcYm(g.semana.lun.getFullYear(), g.semana.lun.getMonth()) === ym);
+  const pagado = g => { try { const p = _rhResPagoGet_(g.nombre, g.semana.value); return !!(p && p.fecha); } catch (_) { return false; } };
+  return {
+    personal, presentes: personal.filter(p => presentes.has(p.nombre)), ausentes: personal.filter(p => !presentes.has(p.nombre)),
+    semana, semanaTotal: semana.reduce((a, g) => a + (g.salarioReportado || 0), 0),
+    mesTotal: delMes.reduce((a, g) => a + (g.salarioReportado || 0), 0),
+    mesPagado: delMes.filter(pagado).reduce((a, g) => a + (g.salarioReportado || 0), 0),
+  };
+}
+
+// 7) DISPOSITIVOS — tinacos / cisternas (Tuya).
+async function pcLoadDisp_() {
+  const j = await fetch(`${BACKEND}/tuya/devices`, { cache: 'no-store' }).then(r => r.json());
+  if (!j || !j.ok) throw new Error((j && j.error) || 'Tuya no respondió');
+  PC.disp = j;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────
+window.panelControlInit = function () {
+  pcEnsureStyles_();
+  if (!PC.ym) { const d = new Date(); PC.ym = pcYm(d.getFullYear(), d.getMonth()); }
+  pcRenderShell_();
+  pcLoadAll_(false);
+};
+window.pcSetMonth = function (delta) { PC.ym = pcYmShift(PC.ym, delta); pcRenderShell_(); ['fin', 'ocup', 'cob', 'rentas', 'op', 'rh', 'disp'].forEach(pcRenderSection_); pcRenderKpis_(); };
+window.pcReload = function () { pcRenderShell_(); pcLoadAll_(true); };
+window.pcGo = function (mod) { pcCloseDrawer(); if (typeof switchModule === 'function') switchModule(mod); };
+
+function pcRenderShell_() {
+  const root = document.getElementById('module-panel-control');
+  if (!root) return;
+  const hoy = new Date();
+  root.innerHTML = `
+  <div class="pc-wrap">
+    <div class="pc-hero">
+      <div class="pc-hero-row">
+        <div>
+          <div class="pc-eyebrow">Check Inn · vista ejecutiva</div>
+          <h1>📊 Panel de control</h1>
+          <div class="pc-meta">${hoy.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · actualizado ${PC.updatedAt ? PC.updatedAt.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="pc-mnav"><button type="button" onclick="pcSetMonth(-1)" title="Mes anterior">‹</button><div class="pc-mlabel">${pcYmLabel(PC.ym)}</div><button type="button" onclick="pcSetMonth(1)" title="Mes siguiente">›</button></div>
+          <button type="button" class="pc-btn" onclick="pcReload()">🔄 Actualizar</button>
+        </div>
+      </div>
+    </div>
+    <div class="pc-kpis" id="pc-kpis"></div>
+    <div class="pc-grid">
+      <div class="pc-card s8" id="pc-sec-fin"></div>
+      <div class="pc-card s4" id="pc-sec-pres"></div>
+      <div class="pc-card s7" id="pc-sec-ocup"></div>
+      <div class="pc-card s5" id="pc-sec-ocup12"></div>
+      <div class="pc-card s6" id="pc-sec-cob"></div>
+      <div class="pc-card s6" id="pc-sec-rentas"></div>
+      <div class="pc-card s8" id="pc-sec-op"></div>
+      <div class="pc-card s4" id="pc-sec-rh"></div>
+      <div class="pc-card s12" id="pc-sec-disp"></div>
+    </div>
+  </div>
+  <div id="pc-drawer"><div class="bd" onclick="pcCloseDrawer()"></div><div class="pn" id="pc-drawer-pn"></div></div>`;
+  pcRenderKpis_();
+  ['fin', 'ocup', 'cob', 'rentas', 'op', 'rh', 'disp'].forEach(pcRenderSection_);
+}
+
+function pcKpi_(o) {
+  return `<div class="pc-kpi" style="--acc:${o.acc};--accbg:${o.accbg};animation-delay:${o.delay || 0}s" onclick="${o.onclick}">
+    <span class="pc-more">ver detalle →</span>
+    <div class="pc-kpi-top"><span class="pc-kpi-ico">${o.ico}</span><span class="pc-kpi-lbl">${pcEsc(o.label)}</span></div>
+    <div class="pc-kpi-val">${o.loading ? '<span class="pc-skel" style="--h:26px;display:block;width:70%"></span>' : o.value}</div>
+    <div class="pc-kpi-sub">${o.loading ? '' : (o.sub || '')}</div>
+    ${o.loading ? '' : (o.spark || '')}
+  </div>`;
+}
+function pcRenderKpis_() {
+  const el = document.getElementById('pc-kpis'); if (!el) return;
+  const ym = PC.ym, prev = pcYmShift(ym, -1);
+  const finOk = !!PC.finRecs, ocOk = typeof OCUP_STATE !== 'undefined' && OCUP_STATE.bookingsLoaded && !PC.loading.ocup;
+  const cobOk = typeof PAGOS_STATE !== 'undefined' && PAGOS_STATE.loaded && !PC.loading.cob;
+  const k = [];
+  if (finOk) {
+    const f = pcFinMonth_(ym), fp = pcFinMonth_(prev), tr = pcFinTrend_(ym);
+    k.push(pcKpi_({ ico: '💰', label: 'Ingresos', acc: '#16a34a', accbg: '#dcfce7', value: pcFmt$(f.I), sub: `${pcDelta_(f.I, fp.I)} ${f.nI} movimientos`, spark: pcSpark_(tr.map(t => t.I), '#16a34a'), onclick: "pcDrawer('ingresos')", delay: 0 }));
+    k.push(pcKpi_({ ico: '💸', label: 'Egresos', acc: '#dc2626', accbg: '#fee2e2', value: pcFmt$(f.E), sub: `${pcDelta_(f.E, fp.E, true)} ${f.nE} movimientos`, spark: pcSpark_(tr.map(t => t.E), '#dc2626'), onclick: "pcDrawer('egresos')", delay: .04 }));
+    k.push(pcKpi_({ ico: '📈', label: 'Utilidad', acc: '#4f46e5', accbg: '#e0e7ff', value: `<span style="color:${f.U >= 0 ? '#166534' : '#991b1b'}">${pcFmt$(f.U)}</span>`, sub: `${pcDelta_(f.U, fp.U)} Margen ${pcPct(f.M, 1)}`, spark: pcSpark_(tr.map(t => t.U), '#4f46e5'), onclick: "pcDrawer('utilidad')", delay: .08 }));
+  } else ['Ingresos', 'Egresos', 'Utilidad'].forEach((l, i) => k.push(pcKpi_({ ico: '⏳', label: l, acc: '#cbd5e1', accbg: '#f1f5f9', loading: !PC.err.fin, value: PC.err.fin ? '—' : '', sub: PC.err.fin ? 'Sin datos' : '', onclick: '' })));
+  if (ocOk) {
+    const o = pcOcupMonth_(ym), op = pcOcupMonth_(prev);
+    k.push(pcKpi_({ ico: '🏨', label: 'Ocupación', acc: '#0d9488', accbg: '#ccfbf1', value: pcPct(o.pct, 1), sub: `${pcDelta_(o.pct, op.pct)} ${pcFmtN(o.occ)} / ${pcFmtN(o.tot)} noches`, spark: pcSpark_(pcLast12(ym).map(m => pcOcupMonth_(m).pct), '#0d9488'), onclick: "pcDrawer('ocupacion')", delay: .12 }));
+    k.push(pcKpi_({ ico: '🛏️', label: 'Ingreso hospedaje', acc: '#2563eb', accbg: '#dbeafe', value: pcFmt$(o.rev), sub: `${pcDelta_(o.rev, op.rev)} ${pcFmtN(o.res)} reservas · ${pcFmt$(o.adr)}/noche`, spark: pcSpark_(pcLast12(ym).map(m => pcOcupMonth_(m).rev), '#2563eb'), onclick: "pcDrawer('ocupacion')", delay: .16 }));
+  } else ['Ocupación', 'Ingreso hospedaje'].forEach(l => k.push(pcKpi_({ ico: '⏳', label: l, acc: '#cbd5e1', accbg: '#f1f5f9', loading: !PC.err.ocup, value: '—', onclick: '' })));
+  if (cobOk) {
+    const c = pcCobMonth_(ym);
+    k.push(pcKpi_({ ico: '🧾', label: 'Por cobrar (reservas)', acc: '#ea580c', accbg: '#ffedd5', value: `<span style="color:${c.pend > 0 ? '#9a3412' : '#166534'}">${pcFmt$(c.pend)}</span>`, sub: `${c.pendientes.length} reservas con saldo · cobrado ${pcFmt$(c.cob)}`, onclick: "pcDrawer('cobranza')", delay: .2 }));
+  } else k.push(pcKpi_({ ico: '⏳', label: 'Por cobrar (reservas)', acc: '#cbd5e1', accbg: '#f1f5f9', loading: !PC.err.cob, value: '—', onclick: '' }));
+  if (!PC.loading.rentas && (INQ_STATE.perfiles || []).length) {
+    const r = pcRentasYear_(ym);
+    k.push(pcKpi_({ ico: '🏠', label: 'Rentas inquilinos', acc: '#7c3aed', accbg: '#ede9fe', value: `${r.pag}<span style="font-size:15px;color:#94a3b8"> / ${r.activos}</span>`, sub: `${r.venc ? `<span class="pc-delta down">${r.venc} sin pagar</span>` : '<span class="pc-delta up">al corriente</span>'} cobrado ${pcFmt$(r.cobrado)}`, onclick: "pcDrawer('rentas')", delay: .24 }));
+  } else k.push(pcKpi_({ ico: '⏳', label: 'Rentas inquilinos', acc: '#cbd5e1', accbg: '#f1f5f9', loading: !PC.err.rentas, value: '—', onclick: '' }));
+  if (!PC.loading.op) {
+    const op = pcOpMonth_(ym);
+    const abiertos = op.inc.abiertas.length + op.rt.abiertos.length;
+    const crit = op.inc.criticas.length + op.rt.criticos.length;
+    k.push(pcKpi_({ ico: '🛠️', label: 'Pendientes operativos', acc: '#e11d48', accbg: '#ffe4e6', value: pcFmtN(abiertos), sub: `${crit ? `<span class="pc-delta down">${crit} alta/crítica</span>` : '<span class="pc-delta up">sin críticos</span>'} incidencias + reportes`, onclick: "pcDrawer('operacion')", delay: .28 }));
+  } else k.push(pcKpi_({ ico: '⏳', label: 'Pendientes operativos', acc: '#cbd5e1', accbg: '#f1f5f9', loading: true, value: '', onclick: '' }));
+  el.innerHTML = k.join('');
+}
+
+function pcRenderSection_(key) {
+  const ym = PC.ym;
+  const card = (id, html) => { const e = document.getElementById(id); if (e) e.innerHTML = html; };
+  const head = (t, sub, link) => `<div class="pc-card-h"><div class="pc-card-t">${t}${sub ? ` <small>· ${sub}</small>` : ''}</div>${link || ''}</div>`;
+  if (key === 'fin') {
+    if (PC.err.fin) { card('pc-sec-fin', head('💹 Finanzas') + pcErr_(PC.err.fin)); card('pc-sec-pres', head('🎯 Presupuesto') + pcErr_(PC.err.fin)); return; }
+    if (!PC.finRecs) { card('pc-sec-fin', head('💹 Finanzas', 'tendencia 12 meses') + pcSkel_(240)); card('pc-sec-pres', head('🎯 Presupuesto operativo') + pcSkel_(240)); return; }
+    const tr = pcFinTrend_(ym);
+    const S = [
+      { key: 'I', name: 'Ingresos', color: '#16a34a', data: tr.map(t => t.I), area: true },
+      { key: 'E', name: 'Egresos', color: '#f59e0b', data: tr.map(t => t.E) },
+      { key: 'U', name: 'Utilidad', color: '#6366f1', data: tr.map(t => t.U) },
+    ].map(s => ({ ...s, hidden: PC.hidden.has(s.key) }));
+    const leg = S.map(s => `<button type="button" class="pc-leg ${s.hidden ? 'off' : ''}" onclick="pcToggleSerie('${s.key}')"><i style="background:${s.color}"></i>${s.name}</button>`).join('');
+    card('pc-sec-fin', head('💹 Finanzas', 'ingresos · egresos · utilidad, últimos 12 meses', `<button class="pc-link" onclick="pcGo('registros')">Registros contables →</button>`) +
+      `<div class="pc-legend" style="margin-bottom:6px">${leg}</div>` +
+      pcLineChart_('pc-ch-fin', tr.map(t => pcYmLabel(t.ym, true)), S, { h: 230 }) +
+      `<div style="font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 0">Margen neto mensual</div>` +
+      pcBars_(tr.map(t => PC_MES3[pcYmParts(t.ym).m0]), tr.map(t => t.M), { h: 110, fmt: v => (v * 100).toFixed(0) + '%', colorFn: v => v >= 0 ? 'linear-gradient(180deg,#34d399,#059669)' : 'linear-gradient(180deg,#fbbf24,#f97316)' }));
+    const f = pcFinMonth_(ym);
+    const av = f.oper.av, col = !isFinite(av) ? '#94a3b8' : av > 1.1 ? '#dc2626' : av > 1 ? '#f59e0b' : '#16a34a';
+    card('pc-sec-pres', head('🎯 Presupuesto operativo', pcYmLabel(ym)) +
+      `<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">${pcRing_(isFinite(av) ? av : 0, col, 'ejercido')}
+        <div style="flex:1;min-width:150px;font-size:12px;color:#475569;line-height:1.7">
+          <div>Real: <b style="color:#0f172a">${pcFmt$(f.oper.real)}</b></div>
+          <div>Presupuesto: <b style="color:#0f172a">${pcFmt$(f.oper.bud)}</b></div>
+          <div>${!isFinite(av) ? 'Sin presupuesto ligado' : av > 1 ? `<span class="pc-delta down">Excedido ${pcFmt$(f.oper.real - f.oper.bud)}</span>` : `<span class="pc-delta up">Disponible ${pcFmt$(f.oper.bud - f.oper.real)}</span>`}</div>
+        </div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+        <div class="pc-stat" onclick="pcDrawer('utilidad')"><div class="l">Retiro de utilidades</div><div class="v">${pcFmt$(f.retiro.real)}</div><div style="font-size:11px;color:#64748b">${f.I ? pcPct(f.retiro.real / f.I, 1) + ' del ingreso' : '—'}</div></div>
+        <div class="pc-stat" onclick="pcDrawer('utilidad')"><div class="l">Reinversión</div><div class="v">${pcFmt$(f.reinv.real)}</div><div style="font-size:11px;color:#64748b">${f.I ? pcPct(f.reinv.real / f.I, 1) + ' del ingreso' : '—'}</div></div>
+      </div>
+      <div style="font-size:10.5px;color:#94a3b8;margin-top:10px">KPIs con movimientos <b>validados</b> (igual que Registros contables).</div>`);
+  }
+  if (key === 'ocup') {
+    if (PC.err.ocup) { card('pc-sec-ocup', head('🏨 Ocupación') + pcErr_(PC.err.ocup)); card('pc-sec-ocup12', ''); return; }
+    if (PC.loading.ocup || typeof OCUP_STATE === 'undefined' || !OCUP_STATE.bookingsLoaded) { card('pc-sec-ocup', head('🏨 Ocupación por alojamiento') + pcSkel_(300)); card('pc-sec-ocup12', head('📅 Ocupación 12 meses') + pcSkel_(300)); return; }
+    const o = pcOcupMonth_(ym);
+    const colr = p => p >= 0.8 ? 'linear-gradient(90deg,#34d399,#059669)' : p >= 0.5 ? 'linear-gradient(90deg,#fcd34d,#f59e0b)' : 'linear-gradient(90deg,#fca5a5,#dc2626)';
+    const top = o.rows.slice(0, 7), bot = o.rows.slice(-5).reverse();
+    const rowH = x => `<div class="pc-row" onclick="pcDrawer('ocupacion')" title="${pcEsc(x.a.nombre)}: ${x.s.occupied || 0}/${x.s.total || 0} noches · ${pcFmt$(x.s.revenue)}">
+      <div style="width:170px;font-size:12px;font-weight:700;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${pcEsc(x.a.nombre)}</div>
+      <div class="pc-bar"><span data-w="${(x.pct * 100).toFixed(1)}%" style="background:${colr(x.pct)}"></span></div>
+      <div style="width:44px;text-align:right;font-size:12px;font-weight:900;color:#0f172a">${pcPct(x.pct)}</div></div>`;
+    card('pc-sec-ocup', head('🏨 Ocupación por alojamiento', pcYmLabel(ym), `<button class="pc-link" onclick="pcGo('dashboard')">Dashboard →</button>`) +
+      `<div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px">${pcRing_(o.pct, '#0d9488', 'global')}
+          <div style="font-size:11px;color:#64748b;text-align:center">${pcFmtN(o.occ)} de ${pcFmtN(o.tot)} noches<br>${o.rows.length} alojamientos</div></div>
+        <div style="flex:1;min-width:260px">
+          <div style="font-size:10.5px;font-weight:900;color:#166534;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Mayor ocupación</div>${top.map(rowH).join('')}
+          <div style="font-size:10.5px;font-weight:900;color:#991b1b;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 2px">Menor ocupación</div>${bot.map(rowH).join('')}
+          <button class="pc-link" style="margin-top:6px" onclick="pcDrawer('ocupacion')">Ver los ${o.rows.length} alojamientos →</button>
+        </div></div>`);
+    const m12 = pcLast12(ym).map(m => ({ m, o: pcOcupMonth_(m) }));
+    card('pc-sec-ocup12', head('📅 Ocupación e ingreso', 'últimos 12 meses') +
+      pcBars_(m12.map(x => PC_MES3[pcYmParts(x.m).m0]), m12.map(x => x.o.pct), { h: 150, fmt: v => (v * 100).toFixed(0) + '%', colorFn: v => v >= .8 ? 'linear-gradient(180deg,#5eead4,#0d9488)' : v >= .5 ? 'linear-gradient(180deg,#fde68a,#f59e0b)' : 'linear-gradient(180deg,#fecaca,#ef4444)' }) +
+      pcLineChart_('pc-ch-rev', m12.map(x => PC_MES3[pcYmParts(x.m).m0]), [{ name: 'Ingreso hospedaje', color: '#2563eb', data: m12.map(x => x.o.rev), area: true }, { name: 'Ingreso neto', color: '#7c3aed', data: m12.map(x => x.o.neto) }], { h: 150 }));
+    pcAnimateBars_();
+  }
+  if (key === 'cob') {
+    if (PC.err.cob) { card('pc-sec-cob', head('🧾 Cobranza y facturación') + pcErr_(PC.err.cob)); return; }
+    if (PC.loading.cob || typeof PAGOS_STATE === 'undefined' || !PAGOS_STATE.loaded) { card('pc-sec-cob', head('🧾 Cobranza y facturación') + pcSkel_(260)); return; }
+    const c = pcCobMonth_(ym);
+    const pctCob = c.fact ? c.cob / c.fact : 0, pctTk = c.tickets.req ? c.tickets.emit / c.tickets.req : 0;
+    card('pc-sec-cob', head('🧾 Cobranza y facturación', `reservas con llegada en ${pcYmLabel(ym)}`, `<button class="pc-link" onclick="pcGo('pagos')">Pagos →</button>`) +
+      `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div class="pc-stat" onclick="pcDrawer('cobranza')"><div class="l">Facturado</div><div class="v">${pcFmt$(c.fact)}</div><div style="font-size:11px;color:#64748b">${c.n} reservas</div></div>
+        <div class="pc-stat" onclick="pcDrawer('cobranza')"><div class="l">Cobrado</div><div class="v" style="color:#166534">${pcFmt$(c.cob)}</div><div style="font-size:11px;color:#64748b">${pcPct(pctCob)} del total</div></div>
+        <div class="pc-stat" onclick="pcDrawer('cobranza')"><div class="l">Pendiente</div><div class="v" style="color:#9a3412">${pcFmt$(c.pend)}</div><div style="font-size:11px;color:#64748b">${c.pendientes.length} reservas</div></div>
+      </div>
+      <div style="margin-top:14px;font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Cobranza</div>
+      <div class="pc-bar" style="height:14px;margin-top:6px"><span data-w="${(pctCob * 100).toFixed(1)}%" style="background:linear-gradient(90deg,#22c55e,#16a34a)"></span></div>
+      <div style="margin-top:14px;display:flex;justify-content:space-between;font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.05em"><span>Tickets de auto-facturación</span><span style="color:#0f172a">${c.tickets.emit} / ${c.tickets.req} emitidos</span></div>
+      <div class="pc-bar" style="height:14px;margin-top:6px;cursor:pointer" onclick="pcDrawer('tickets')"><span data-w="${(pctTk * 100).toFixed(1)}%" style="background:linear-gradient(90deg,#86efac,#16a34a)"></span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <span class="pc-chip" style="background:#fee2e2;color:#991b1b;cursor:pointer" onclick="pcDrawer('tickets')">🧾 ${c.tickets.pend.length} tickets pendientes</span>
+        <span class="pc-chip" style="background:#fef3c7;color:#92400e;cursor:pointer" onclick="pcDrawer('extensiones')">⏩ ${c.ext.length} extensiones</span>
+        ${c.alertas.length ? `<span class="pc-chip" style="background:#fecaca;color:#7f1d1d;cursor:pointer" onclick="pcDrawer('extensiones')">⚠️ ${c.alertas.length} ticket(s) por re-emitir</span>` : ''}
+      </div>`);
+    pcAnimateBars_();
+  }
+  if (key === 'rentas') {
+    if (PC.err.rentas) { card('pc-sec-rentas', head('🏠 Rentas de inquilinos') + pcErr_(PC.err.rentas)); return; }
+    if (PC.loading.rentas || !(INQ_STATE.perfiles || []).length) { card('pc-sec-rentas', head('🏠 Rentas de inquilinos') + pcSkel_(260)); return; }
+    const r = pcRentasYear_(ym);
+    const colS = { paid: '#16a34a', overdue: '#dc2626', future: '#e2e8f0', noctr: '#f8fafc' };
+    const hm = `<div class="pc-hm" style="grid-template-columns:150px repeat(12,1fr)">
+      <div></div>${PC_MES3.map((m, i) => `<div style="text-align:center;font-weight:${i === r.m0 ? 900 : 700};color:${i === r.m0 ? '#4f46e5' : '#94a3b8'}">${m}</div>`).join('')}
+      ${r.rows.map(({ p, cells }) => `<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;color:#334155;font-size:10.5px;padding-right:6px" title="${pcEsc(p.Nombre)} · ${pcEsc([p.Propiedad, p.Departamento ? '#' + p.Departamento : ''].filter(Boolean).join(' '))}">${pcEsc(p.Nombre || p.ID)}</div>${cells.map((c, i) => `<div class="c" title="${pcEsc(p.Nombre)} · ${PC_MESES[i]}: ${c.state === 'paid' ? 'Pagado' : c.state === 'overdue' ? 'No pagado' : c.state === 'future' ? 'Futuro' : 'Fuera de contrato'}" style="background:${colS[c.state]};${i === r.m0 ? 'outline:2px solid #6366f1;outline-offset:-1px' : ''};border:1px solid ${c.state === 'noctr' ? '#e2e8f0' : 'transparent'}"></div>`).join('')}`).join('')}
+    </div>`;
+    card('pc-sec-rentas', head('🏠 Rentas de inquilinos', `${r.y}`, `<button class="pc-link" onclick="pcGo('inquilinos')">Inquilinos →</button>`) +
+      `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+        <div class="pc-stat" onclick="pcDrawer('rentas')"><div class="l">Pagadas ${PC_MES3[r.m0]}</div><div class="v" style="color:#166534">${r.pag} / ${r.activos}</div></div>
+        <div class="pc-stat" onclick="pcDrawer('rentas')"><div class="l">Cobrado</div><div class="v">${pcFmt$(r.cobrado)}</div><div style="font-size:11px;color:#64748b">de ${pcFmt$(r.esperado)} esperado</div></div>
+        <div class="pc-stat" onclick="pcDrawer('rentas')"><div class="l">Sin pagar</div><div class="v" style="color:${r.venc ? '#991b1b' : '#166534'}">${r.venc}</div></div>
+      </div>${hm}
+      <div style="display:flex;gap:12px;font-size:10.5px;color:#64748b;margin-top:8px"><span>🟩 Pagado</span><span>🟥 No pagado</span><span>⬜ Futuro / fuera de contrato</span></div>`);
+  }
+  if (key === 'op') {
+    if (PC.loading.op) { card('pc-sec-op', head('🛠️ Operación') + pcSkel_(260)); return; }
+    const op = pcOpMonth_(ym);
+    const col = (title, ico, pairs, colors, drawer, mod, foot) => `
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:12px;font-weight:900;color:#0f172a">${ico} ${title}</div><button class="pc-link" onclick="pcGo('${mod}')">abrir →</button></div>
+        ${pairs.map(([l, n], i) => `<div class="pc-row" onclick="pcDrawer('${drawer}')"><span class="pc-chip" style="background:${colors[i][0]};color:${colors[i][1]};min-width:92px;justify-content:center">${pcEsc(l)}</span>
+          <div class="pc-bar"><span data-w="${Math.min(100, n / Math.max(1, ...pairs.map(p => p[1])) * 100).toFixed(0)}%" style="background:${colors[i][1]}"></span></div><b style="width:28px;text-align:right;font-size:13px">${n}</b></div>`).join('')}
+        <div style="font-size:11px;color:#64748b;margin-top:6px">${foot}</div>
+      </div>`;
+    const C4 = [['#fef3c7', '#b45309'], ['#dbeafe', '#1d4ed8'], ['#dcfce7', '#15803d'], ['#e2e8f0', '#475569']];
+    const crit = [...op.inc.criticas.map(x => ({ t: 'Incidencia', n: x.n, txt: `${x.r.Clasificacion || (x.r.Motivos || '')} · ${x.r.Alojamiento || x.r.Propiedad || ''}`, f: x.f })),
+      ...op.rt.criticos.map(x => ({ t: 'Reporte', n: x.p === 'critica' ? 'Crítica' : 'Alta', txt: `${x.r.Titulo || ''} · ${x.r.Alojamiento || x.r.Propiedad || ''}`, f: x.f }))].slice(0, 6);
+    card('pc-sec-op', head('🛠️ Operación', pcYmLabel(ym)) +
+      `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+        ${col('Incidencias del mes', '🚨', op.inc.porEstado, C4, 'operacion', 'incidencias', `${op.inc.abiertas.length} abiertas en total`)}
+        ${col('Reportes técnicos', '🛠', op.rt.porEstado, C4, 'operacion', 'reportes-tecnicos', `${op.rt.abiertos.length} abiertos`)}
+        ${col('Tareas de hoy', '🗓️', op.tar.porEstado, C4, 'tareas', 'tareas', `${op.tar.hoy.length} programadas hoy`)}
+      </div>
+      ${crit.length ? `<div style="margin-top:12px;font-size:11px;font-weight:900;color:#991b1b;text-transform:uppercase;letter-spacing:.05em">Atención prioritaria</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${crit.map(c => `<div class="pc-row" style="padding:6px 8px;background:#fff1f2;border:1px solid #fecdd3" onclick="pcDrawer('operacion')"><span class="pc-chip" style="background:#e11d48;color:#fff">${c.n}</span><span style="font-size:12px;font-weight:700;color:#334155;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.t}: ${pcEsc(c.txt)}</span><span style="font-size:11px;color:#94a3b8">${pcEsc(c.f)}</span></div>`).join('')}</div>` : ''}`);
+    pcAnimateBars_();
+  }
+  if (key === 'rh') {
+    if (PC.err.rh) { card('pc-sec-rh', head('👥 Personal y nómina') + pcErr_(PC.err.rh)); return; }
+    if (PC.loading.rh) { card('pc-sec-rh', head('👥 Personal y nómina') + pcSkel_(260)); return; }
+    const h = pcRh_(ym);
+    const pct = h.personal.length ? h.presentes.length / h.personal.length : 0;
+    card('pc-sec-rh', head('👥 Personal y nómina', '', `<button class="pc-link" onclick="pcGo('rh')">RH →</button>`) +
+      `<div style="display:flex;align-items:center;gap:14px">${pcRing_(pct, '#2563eb', 'asistencia hoy')}
+        <div style="font-size:12px;color:#475569;line-height:1.7"><b style="font-size:20px;color:#0f172a">${h.presentes.length}</b> de ${h.personal.length} registraron asistencia hoy
+        ${h.ausentes.length ? `<div style="font-size:11px;color:#94a3b8;cursor:pointer" onclick="pcDrawer('personal')">Sin registro: ${pcEsc(h.ausentes.map(p => p.nombre.split(' ')[0]).join(', '))}</div>` : ''}</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+        <div class="pc-stat" onclick="pcDrawer('nomina')"><div class="l">Nómina semana actual</div><div class="v">${pcFmt$(h.semanaTotal)}</div><div style="font-size:11px;color:#64748b">${h.semana.length} personas IMSS</div></div>
+        <div class="pc-stat" onclick="pcDrawer('nomina')"><div class="l">Nómina del mes</div><div class="v">${pcFmt$(h.mesTotal)}</div><div style="font-size:11px;color:#64748b">pagado ${pcFmt$(h.mesPagado)}</div></div>
+      </div>`);
+  }
+  if (key === 'disp') {
+    const linkD = `<button class="pc-link" onclick="pcGo('tuya')">Dispositivos →</button>`;
+    if (PC.loading.disp) { card('pc-sec-disp', head('💧 Dispositivos · tinacos y cisternas', '', linkD) + pcSkel_(120)); return; }
+    if (PC.err.disp) {
+      const vencido = /expired|subscription/i.test(PC.err.disp);
+      card('pc-sec-disp', head('💧 Dispositivos · tinacos y cisternas', '', linkD) + `<div class="pc-alert">⚠️ <div><b>${vencido ? 'La suscripción de Tuya (IoT Core) está vencida' : 'No se pudieron leer los dispositivos'}.</b><br>${vencido ? 'Renuévala en platform.tuya.com → Cloud → Cloud Services → IoT Core (Western America Data Center) para volver a ver niveles de agua.' : pcEsc(PC.err.disp)}</div></div>`);
+      return;
+    }
+    const devs = ((PC.disp && PC.disp.devices) || []).filter(d => typeof tuyaIsWaterLevel === 'function' ? tuyaIsWaterLevel(d) : false);
+    const items = devs.map(d => {
+      const pct = typeof tuyaWaterLevelCurrentPct === 'function' ? tuyaWaterLevelCurrentPct(d) : null;
+      const al = typeof tuyaResolveAloj === 'function' ? tuyaResolveAloj(d) : null;
+      const nm = (al && (al.nombre || al.Propiedad)) || d.name;
+      const col = pct == null ? '#94a3b8' : pct < 25 ? '#dc2626' : pct < 50 ? '#f59e0b' : '#16a34a';
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;min-width:120px">
+        <div class="pc-tank"><span style="height:${pct == null ? 0 : pct}%;${pct != null && pct < 25 ? 'background:linear-gradient(180deg,#fca5a5,#dc2626)' : ''}"></span><b>${pct == null ? '—' : pct + '%'}</b></div>
+        <div style="font-size:11.5px;font-weight:800;color:#334155;text-align:center;max-width:130px">${pcEsc(nm)}</div>
+        <span class="pc-chip" style="background:${d.online === false ? '#fee2e2' : '#dcfce7'};color:${d.online === false ? '#991b1b' : '#166534'}">${d.online === false ? 'Offline' : 'Online'}</span>
+        <div style="height:4px;width:100%;border-radius:4px;background:${col}"></div></div>`;
+    });
+    card('pc-sec-disp', head('💧 Dispositivos · tinacos y cisternas', `${devs.length} medidores`, linkD) + (items.length ? `<div style="display:flex;gap:12px;flex-wrap:wrap">${items.join('')}</div>` : '<div style="font-size:12px;color:#94a3b8">Sin medidores de nivel de agua.</div>'));
+  }
+}
+window.pcToggleSerie = function (k) { if (PC.hidden.has(k)) PC.hidden.delete(k); else PC.hidden.add(k); pcRenderSection_('fin'); };
+
+// ── Drawer de detalle (al oprimir un KPI / tarjeta) ─────────────────────
+window.pcCloseDrawer = function () { const d = document.getElementById('pc-drawer'); if (d) d.classList.remove('on'); };
+window.pcDrawer = function (tipo) {
+  const d = document.getElementById('pc-drawer'), pn = document.getElementById('pc-drawer-pn');
+  if (!d || !pn) return;
+  const ym = PC.ym;
+  const hdr = (t, sub, mod) => `<div style="position:sticky;top:0;z-index:2;background:linear-gradient(120deg,#1e1b4b,#4338ca);color:#fff;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div><div style="font-size:11px;font-weight:800;letter-spacing:.12em;opacity:.75;text-transform:uppercase">${pcYmLabel(ym)}</div><div style="font-size:18px;font-weight:900">${t}</div>${sub ? `<div style="font-size:12px;opacity:.85">${sub}</div>` : ''}</div>
+      <div style="display:flex;gap:8px">${mod ? `<button class="pc-btn" onclick="pcGo('${mod}')">Abrir módulo →</button>` : ''}<button class="pc-btn" onclick="pcCloseDrawer()">✕</button></div></div>`;
+  const tbl = (cols, rows) => `<table class="pc-tbl"><thead><tr>${cols.map(c => `<th class="${c.r ? 'r' : ''}">${c.t}</th>`).join('')}</tr></thead><tbody>${rows.length ? rows.join('') : `<tr><td colspan="${cols.length}" style="text-align:center;color:#94a3b8;padding:20px">Sin registros</td></tr>`}</tbody></table>`;
+  let html = '';
+  if (tipo === 'ingresos' || tipo === 'egresos') {
+    if (!PC.finRecs) return;
+    const f = pcFinMonth_(ym), list = (tipo === 'ingresos' ? f.recsI : f.recsE).slice().sort((a, b) => b.monto - a.monto);
+    const porCat = {}; list.forEach(x => { const k = x.r.CATEGORIA || x.r.SUBCUENTA || 'Sin categoría'; porCat[k] = (porCat[k] || 0) + x.monto; });
+    const tot = tipo === 'ingresos' ? f.I : f.E;
+    html = hdr(tipo === 'ingresos' ? '💰 Ingresos' : '💸 Egresos', `${pcFmt$(tot)} · ${list.length} movimientos validados`, 'registros') +
+      `<div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px">${Object.entries(porCat).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `<div class="pc-row"><div style="width:200px;font-size:12px;font-weight:700;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pcEsc(k)}</div><div class="pc-bar"><span data-w="${(v / (tot || 1) * 100).toFixed(1)}%" style="background:${tipo === 'ingresos' ? '#16a34a' : '#f59e0b'}"></span></div><b style="width:110px;text-align:right;font-size:12px">${pcFmt$(v)}</b></div>`).join('')}</div>
+        ${tbl([{ t: 'Día' }, { t: 'Descripción' }, { t: 'Categoría' }, { t: 'Monto', r: 1 }], list.slice(0, 200).map(x => `<tr><td>${pcEsc(x.r['Día'] || '')}</td><td>${pcEsc(x.r.DESCRIPCION || '')}</td><td>${pcEsc(x.r.CATEGORIA || x.r.SUBCUENTA || '')}</td><td class="r"><b>${pcFmt$(x.monto, 2)}</b></td></tr>`))}
+      </div>`;
+  } else if (tipo === 'utilidad') {
+    if (!PC.finRecs) return;
+    const tr = pcFinTrend_(ym), f = pcFinMonth_(ym);
+    html = hdr('📈 Utilidad y margen', `Utilidad ${pcFmt$(f.U)} · margen ${pcPct(f.M, 1)}`, 'registros') +
+      `<div style="padding:16px">${tbl([{ t: 'Mes' }, { t: 'Ingresos', r: 1 }, { t: 'Egresos', r: 1 }, { t: 'Utilidad', r: 1 }, { t: 'Margen', r: 1 }], tr.slice().reverse().map(t => `<tr><td><b>${pcYmLabel(t.ym)}</b></td><td class="r">${pcFmt$(t.I)}</td><td class="r">${pcFmt$(t.E)}</td><td class="r" style="color:${t.U >= 0 ? '#166534' : '#991b1b'};font-weight:900">${pcFmt$(t.U)}</td><td class="r">${pcPct(t.M, 1)}</td></tr>`))}
+      <div style="font-size:11px;color:#94a3b8;margin-top:8px">Tabla mensual con todos los movimientos no archivados (igual que la gráfica de Indicadores).</div></div>`;
+  } else if (tipo === 'ocupacion') {
+    const o = pcOcupMonth_(ym);
+    html = hdr('🏨 Ocupación por alojamiento', `${pcPct(o.pct, 1)} global · ${pcFmt$(o.rev)} ingreso hospedaje`, 'dashboard') +
+      `<div style="padding:16px">${tbl([{ t: 'Alojamiento' }, { t: 'Noches', r: 1 }, { t: '% Ocup.', r: 1 }, { t: 'Reservas', r: 1 }, { t: 'Ingreso', r: 1 }, { t: 'Tarifa/noche', r: 1 }], o.rows.map(x => `<tr><td><b>${pcEsc(x.a.nombre)}</b></td><td class="r">${x.s.occupied || 0}/${x.s.total || 0}</td><td class="r"><span class="pc-chip" style="background:${x.pct >= .8 ? '#dcfce7' : x.pct >= .5 ? '#fef3c7' : '#fee2e2'};color:${x.pct >= .8 ? '#166534' : x.pct >= .5 ? '#92400e' : '#991b1b'}">${pcPct(x.pct)}</span></td><td class="r">${x.s.resCount || 0}</td><td class="r">${pcFmt$(x.s.revenue)}</td><td class="r">${pcFmt$(x.s.avgPriceNight)}</td></tr>`))}</div>`;
+  } else if (tipo === 'cobranza' || tipo === 'tickets' || tipo === 'extensiones') {
+    if (!PAGOS_STATE.loaded) return;
+    const c = pcCobMonth_(ym);
+    const lista = tipo === 'cobranza' ? c.pendientes : tipo === 'tickets' ? c.tickets.pend : c.ext;
+    const tit = tipo === 'cobranza' ? '🧾 Reservas con saldo pendiente' : tipo === 'tickets' ? '🧾 Tickets de auto-facturación pendientes' : '⏩ Reservas extendidas';
+    html = hdr(tit, `${lista.length} reservas`, 'pagos') +
+      `<div style="padding:16px">${tbl([{ t: 'Reserva' }, { t: 'Huésped' }, { t: 'Alojamiento' }, { t: 'Fechas' }, { t: 'Total', r: 1 }, { t: tipo === 'extensiones' ? 'Ticket' : 'Saldo', r: 1 }], lista.map(b => {
+        const tk = _pagosTicket(b), e = _pagosExt(b), al = e ? _pagosAlertaExt(b, e, tk) : '';
+        return `<tr><td><a href="#" onclick="event.preventDefault();pagosOpenReserva('${pcEsc(String(b.Id))}')" style="color:#1d4ed8;font-weight:800">${pcEsc(b.Id)}</a></td><td>${pcEsc(b.GuestName || '')}</td><td>${pcEsc(_pagosAlojName(b))}</td><td style="white-space:nowrap">${_pagosFmtFecha(_pagosDateIso(b.DateArrival))} → ${_pagosFmtFecha(_pagosDateIso(b.DateDeparture))}${e ? `<br><span class="pc-chip" style="background:#fef3c7;color:#92400e">antes ${_pagosFmtFecha(e.antes)}</span>` : ''}</td><td class="r">${pcFmt$(b.TotalAmount, 2)}</td><td class="r">${tipo === 'extensiones' ? (tk ? `Folio #${pcEsc(tk.folio)}${al ? '<br><span class="pc-chip" style="background:#fee2e2;color:#991b1b">⚠️ re-emitir</span>' : ''}` : '—') : `<b style="color:#9a3412">${pcFmt$(b.AmountDue, 2)}</b>`}</td></tr>`;
+      }))}</div>`;
+  } else if (tipo === 'rentas') {
+    const r = pcRentasYear_(ym);
+    const idx = r.rows.map(({ p, cells }) => ({ p, c: cells[r.m0] })).filter(x => x.c.state === 'paid' || x.c.state === 'overdue');
+    html = hdr('🏠 Rentas de inquilinos', `${r.pag} pagadas · ${r.venc} sin pagar · cobrado ${pcFmt$(r.cobrado)}`, 'inquilinos') +
+      `<div style="padding:16px">${tbl([{ t: 'Inquilino' }, { t: 'Alojamiento' }, { t: 'Renta', r: 1 }, { t: 'Estado' }, { t: 'Pagado', r: 1 }, { t: 'Método' }], idx.sort((a, b) => (a.c.state === 'overdue' ? -1 : 1) - (b.c.state === 'overdue' ? -1 : 1)).map(({ p, c }) => `<tr><td><b>${pcEsc(p.Nombre)}</b></td><td>${pcEsc([p.Propiedad, p.Departamento ? '#' + p.Departamento : ''].filter(Boolean).join(' '))}</td><td class="r">${pcFmt$(Number(String(p.Renta_mensual || '').replace(/[^0-9.-]/g, '')) || 0)}</td><td>${c.state === 'paid' ? '<span class="pc-chip" style="background:#dcfce7;color:#166534">✓ Pagado</span>' : '<span class="pc-chip" style="background:#fee2e2;color:#991b1b">No pagado</span>'}</td><td class="r">${c.pago ? pcFmt$(Number(String(c.pago.Monto_pagado || '').replace(/[^0-9.-]/g, '')) || 0) : '—'}</td><td>${c.pago ? pcEsc(c.pago.Metodo_pago || '') : ''}</td></tr>`))}</div>`;
+  } else if (tipo === 'operacion') {
+    const op = pcOpMonth_(ym);
+    const rows = [...op.inc.abiertas.map(x => `<tr><td><span class="pc-chip" style="background:#ffe4e6;color:#be123c">🚨 Incidencia</span></td><td>${pcEsc(x.r.Clasificacion || x.r.Motivos || '')}<div style="font-size:11px;color:#94a3b8">${pcEsc((x.r.Descripcion || '').slice(0, 90))}</div></td><td>${pcEsc(x.r.Alojamiento || x.r.Propiedad || '')}</td><td>${pcEsc(x.n)}</td><td>${pcEsc(x.e)}</td><td>${pcEsc(x.f)}</td></tr>`),
+      ...op.rt.abiertos.map(x => `<tr><td><span class="pc-chip" style="background:#e0e7ff;color:#3730a3">🛠 Reporte</span></td><td>${pcEsc(x.r.Titulo || '')}<div style="font-size:11px;color:#94a3b8">${pcEsc(x.r.Folio || '')}</div></td><td>${pcEsc(x.r.Alojamiento || x.r.Propiedad || '')}</td><td>${pcEsc(x.p)}</td><td>${pcEsc(x.e.replace('_', ' '))}</td><td>${pcEsc(x.f)}</td></tr>`)];
+    html = hdr('🛠️ Pendientes operativos', `${op.inc.abiertas.length} incidencias y ${op.rt.abiertos.length} reportes técnicos abiertos`, 'incidencias') +
+      `<div style="padding:16px">${tbl([{ t: 'Tipo' }, { t: 'Descripción' }, { t: 'Alojamiento' }, { t: 'Nivel' }, { t: 'Estado' }, { t: 'Fecha' }], rows)}</div>`;
+  } else if (tipo === 'personal' || tipo === 'nomina') {
+    const h = pcRh_(ym);
+    html = tipo === 'personal'
+      ? hdr('👥 Asistencia de hoy', `${h.presentes.length} de ${h.personal.length}`, 'rh') + `<div style="padding:16px">${tbl([{ t: 'Persona' }, { t: 'Puesto' }, { t: 'Hoy' }], h.personal.map(p => `<tr><td><b>${pcEsc(p.nombre)}</b></td><td>${pcEsc(p.puesto)}</td><td>${h.presentes.includes(p) ? '<span class="pc-chip" style="background:#dcfce7;color:#166534">✓ Registró</span>' : '<span class="pc-chip" style="background:#f1f5f9;color:#64748b">Sin registro</span>'}</td></tr>`))}</div>`
+      : hdr('💵 Nómina de la semana', `${pcFmt$(h.semanaTotal)} · salario reportado (IMSS)`, 'rh') + `<div style="padding:16px">${tbl([{ t: 'Persona' }, { t: 'Días' }, { t: 'Salario reportado', r: 1 }, { t: 'Total', r: 1 }], h.semana.map(g => `<tr><td><b>${pcEsc(g.nombre)}</b></td><td>${g.diasTrab}</td><td class="r">${pcFmt$(g.salarioReportado, 2)}</td><td class="r">${pcFmt$(g.total, 2)}</td></tr>`))}</div>`;
+  } else if (tipo === 'tareas') {
+    pcGo('tareas'); return;
+  }
+  pn.innerHTML = html;
+  d.classList.add('on');
+  pcAnimateBars_();
+  setTimeout(() => document.querySelectorAll('#pc-drawer .pc-bar>span[data-w]').forEach(s => { s.style.width = s.getAttribute('data-w'); }), 50);
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape') pcCloseDrawer(); });
 
 // ── Versión cargada (visible en la barra superior y en Console) ─────────
 (function () {

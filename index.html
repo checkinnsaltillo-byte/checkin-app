@@ -201,6 +201,10 @@
             onclick="switchModule('reportes-tecnicos');closeNavMenu()">
           🛠 Reportes técnicos
         </li>
+        <li class="nav-item" id="nav-item-panel-control"
+            onclick="switchModule('panel-control');closeNavMenu()">
+          📊 Panel de control
+        </li>
         <li class="nav-item" id="nav-item-tareas"
             onclick="switchModule('tareas');closeNavMenu()">
           🗓️ Tareas programadas
@@ -358,6 +362,14 @@
             <div class="home-card-body">
               <h3 class="home-card-title">Reportes técnicos</h3>
               <p class="home-card-desc">Bitácora de trabajo técnico, mantenimiento y refacciones.</p>
+            </div>
+            <div class="home-card-arrow">→</div>
+          </button>
+          <button type="button" class="home-card home-card-panel-control" onclick="switchModule('panel-control')">
+            <div class="home-card-icon">📊</div>
+            <div class="home-card-body">
+              <h3 class="home-card-title">Panel de control</h3>
+              <p class="home-card-desc">Vista ejecutiva: finanzas, ocupación, cobranza, rentas, operación y personal.</p>
             </div>
             <div class="home-card-arrow">→</div>
           </button>
@@ -2089,6 +2101,9 @@
       </div>
     </div><!-- /module-incidencias -->
 
+    <!-- ═══════════════ MÓDULO PANEL DE CONTROL (dashboard ejecutivo) ═══════════════ -->
+    <div id="module-panel-control" class="hidden" style="padding:20px 24px 60px"></div>
+
     <!-- ═══════════════ MÓDULO PROGRAMACIÓN DE TAREAS RECURRENTES ═══════════════ -->
     <div id="module-tareas" class="hidden" style="padding:20px 24px 60px"></div>
 
@@ -2940,7 +2955,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- SheetJS para parsear xlsx en cliente (Carga de datos bancarios) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js?v=1396"></script>
+  <script src="app.js?v=1397"></script>
   <!-- ═══════════════════ Bottom nav bar (5 shortcuts, sistema global) ═══════════════════ -->
   <style>
     @keyframes botcCritPulse { 0%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,.75)} 70%{transform:scale(1.15);box-shadow:0 0 0 8px rgba(124,29,29,0)} 100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,29,29,0)} }
