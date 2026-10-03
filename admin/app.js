@@ -59200,6 +59200,12 @@ function dpEnsureStyles_() {
     .dp-tbl.cards td::before{content:attr(data-l);font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.04em;text-align:left;flex:none;max-width:45%}
     .dp-tbl.cards td[colspan]::before{content:none}
     .dp-flow .arr{transform:rotate(90deg);width:100%;justify-content:center}
+    .dp-row-ed{display:flex !important;flex-wrap:wrap}
+    .dp-row-ed>*{flex:1 1 120px;min-width:0}
+    .dp-row-ed>b{flex:0 0 auto}
+    .dp-row-ed>.dp-mini{flex:0 0 auto;margin-left:auto}
+    .dp-row-ed>div:not(.dp-mini){flex-basis:100%}
+    .dp-row-ed>label{flex-basis:100%}
   }
   @media print{ .dp-nav,.dp-head .acts{display:none} }
   `;
@@ -59905,7 +59911,7 @@ function dpCambios_(a, b) {
   const strip = P => P.map(s => ({ actividad: s.actividad, responsable: s.responsable, tiempo: s.tiempo, evidencia: s.evidencia }));
   if (J(strip(a.d.pasos)) !== J(strip(b.d.pasos))) out.push('pasos');
   if (J(a.d.checklists) !== J(b.d.checklists)) out.push('checklist');
-  if (J(a.d.roles) !== J(b.d.roles) || J(a.d.raciRoles) !== J(b.d.raciRoles) || J(a.d.pasos.map(s => s.raci || {})) !== J(b.d.pasos.map(s => s.raci || {}))) out.push('roles');
+  if (J(a.d.roles) !== J(b.d.roles) || J(a.d.raciRoles) !== J(b.d.raciRoles) || J(a.d.pasos.filter(s => s.raci && Object.values(s.raci).some(Boolean)).map(s => s.raci)) !== J(b.d.pasos.filter(s => s.raci && Object.values(s.raci).some(Boolean)).map(s => s.raci))) out.push('roles');
   if (J(a.d.insumos) !== J(b.d.insumos)) out.push('insumos');
   if (J(a.d.docs) !== J(b.d.docs)) out.push('docs');
   if (J(a.d.excepciones) !== J(b.d.excepciones)) out.push('excepciones');
