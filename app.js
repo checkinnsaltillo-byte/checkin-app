@@ -57076,7 +57076,7 @@ const TAR_NUEVO_HORAS = 72; // "Nuevos" = Pendiente creado hace < 72h
 const TAR_STATE = {
   list: [], loaded: false, clasif: null,
   section: 'registro', view: 'cards', calView: 'resumen', calRef: null,
-  q: '', fEstado: '', fPrioridad: '', fClasif: '',
+  q: '', fEstado: '', fPrioridad: '', fClasif: '', fOrigen: '',
   templates: null, panel: null,
   ocur: [], ocurIdx: new Map(), hist: null,
 };
@@ -57181,6 +57181,7 @@ function tarChipsHtml_(r, estadoOcur) {
     pri ? tarChip_((pri.k === 'Crítico' ? '🔥 ' : '') + pri.k, pri.fg, pri.bg, pri.bd) : '',
     r.Clasificacion ? tarChip_(r.Clasificacion, '#5b21b6', '#ede9fe', '#c4b5fd') : '',
     r.Subclasificacion ? tarChip_(r.Subclasificacion, '#0f766e', '#ccfbf1', '#5eead4') : '',
+    r.Proceso_Codigo ? tarChip_('📘 ' + r.Proceso_Codigo, '#3730a3', '#e0e7ff', '#a5b4fc') : '',
     String(r.WhatsApp || '') === 'Sí' ? tarChip_('💬 WhatsApp', '#15803d', '#f0fdf4', '#86efac') : '',
   ].join('');
 }
@@ -57281,7 +57282,11 @@ function tarFiltered_() {
     if (TAR_STATE.fEstado && tarVigencia_(r) !== TAR_STATE.fEstado) return false;
     if (TAR_STATE.fPrioridad && r.Prioridad !== TAR_STATE.fPrioridad) return false;
     if (TAR_STATE.fClasif && r.Clasificacion !== TAR_STATE.fClasif) return false;
-    if (q && ![r.Nombre, r.Clasificacion, r.Subclasificacion, r.Personal, r.Comentarios].join(' ').toLowerCase().includes(q)) return false;
+    const fo = TAR_STATE.fOrigen;
+    if (fo === 'proceso' && !r.Proceso_ID) return false;
+    if (fo === 'manual' && r.Proceso_ID) return false;
+    if (fo.startsWith('P:') && r.Proceso_Codigo !== fo.slice(2)) return false;
+    if (q && ![r.Nombre, r.Clasificacion, r.Subclasificacion, r.Personal, r.Comentarios, r.Proceso_Codigo, r.Proceso_Nombre].join(' ').toLowerCase().includes(q)) return false;
     return true;
   }).sort((a, b) => {
     const pa = (TAR_PRIORIDADES.find(p => p.k === a.Prioridad) || {}).w || 0;
@@ -57304,6 +57309,7 @@ function tarRegistroHtml_() {
       ${sel('e', TAR_STATE.fEstado, TAR_VIGENCIAS.map(e => e.k), 'Todas las vigencias', 'tarSetFEstado')}
       ${sel('p', TAR_STATE.fPrioridad, TAR_PRIORIDADES.map(p => p.k), 'Todas las prioridades', 'tarSetFPrioridad')}
       ${sel('c', TAR_STATE.fClasif, Object.keys(tarClasif_()), 'Todas las clasificaciones', 'tarSetFClasif')}
+      ${tarOrigenSelect_()}
       <div style="display:inline-flex;gap:2px;padding:3px;background:#f1f5f9;border-radius:8px">${vBtn('cards', '▦ Cards')}${vBtn('tabla', '☰ Tabla')}</div>
     </div>
     <div style="font-size:12px;color:#64748b;margin-bottom:10px">${rows.length} tarea${rows.length === 1 ? '' : 's'}${TAR_STATE.loaded ? '' : ' · ⏳ cargando…'}</div>`;
@@ -57314,13 +57320,14 @@ function tarRegistroHtml_() {
     const th = h => `<th style="position:sticky;top:0;background:#1e293b;color:#fff;padding:9px 10px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">${h}</th>`;
     const td = (v, extra) => `<td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#334155;${extra || ''}">${v}</td>`;
     return toolbar + `<div style="overflow:auto;border:1px solid #e2e8f0;border-radius:10px;max-height:70vh"><table style="width:100%;border-collapse:collapse">
-      <thead><tr>${['Nombre','Vigencia','Prioridad','Clasificación','Sub-clasificación','Naturaleza','Fecha(s)','Próxima fecha','Personal asignado','WhatsApp','Comentarios'].map(th).join('')}</tr></thead>
+      <thead><tr>${['Nombre','Origen','Vigencia','Prioridad','Clasificación','Sub-clasificación','Naturaleza','Fecha(s)','Próxima fecha','Personal asignado','WhatsApp','Comentarios'].map(th).join('')}</tr></thead>
       <tbody>${rows.map(r => {
         const est = TAR_VIGENCIAS.find(v => v.k === tarVigencia_(r));
         const pri = TAR_PRIORIDADES.find(p => p.k === r.Prioridad);
         const prox = tarVigencia_(r) === 'Activa' ? tarNextDate_(r) : '';
         return `<tr onclick="tarOpenPanel('${esc(r.ID)}')" style="cursor:pointer" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
           ${td(`<strong style="color:#0f172a">${esc(r.Nombre || '')}</strong>`, 'min-width:170px')}
+          ${td(r.Proceso_Codigo ? tarChip_('📘 ' + r.Proceso_Codigo, '#3730a3', '#e0e7ff', '#a5b4fc') : '<span style="color:#94a3b8">Manual</span>', 'white-space:nowrap')}
           ${td(tarChip_(est.k, est.fg, est.bg, est.bd))}
           ${td(pri ? tarChip_(pri.k, pri.fg, pri.bg, pri.bd) : '—')}
           ${td(esc(r.Clasificacion || '—'))}
@@ -57406,6 +57413,33 @@ window.tarSetQ = function (v) {
 window.tarSetFEstado = function (v) { TAR_STATE.fEstado = v; tarRender(); };
 window.tarSetFPrioridad = function (v) { TAR_STATE.fPrioridad = v; tarRender(); };
 window.tarSetFClasif = function (v) { TAR_STATE.fClasif = v; tarRender(); };
+window.tarSetFOrigen = function (v) { TAR_STATE.fOrigen = v; tarRender(); };
+// Filtro por origen: manuales / generadas desde Documentación de procesos (todas o por código).
+function tarOrigenSelect_() {
+  const fo = TAR_STATE.fOrigen;
+  const cods = Array.from(new Set(TAR_STATE.list.map(r => r.Proceso_Codigo).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+  const o = (v, l) => `<option value="${esc(v)}"${fo === v ? ' selected' : ''}>${esc(l)}</option>`;
+  return `<select onchange="tarSetFOrigen(this.value)" style="width:auto;flex:0 0 auto;max-width:240px;padding:7px 10px;font-size:12px;border:1px solid ${fo ? '#818cf8' : '#cbd5e1'};border-radius:8px;background:${fo ? '#eef2ff' : '#fff'}">
+    ${o('', 'Todos los orígenes')}${o('proceso', '📘 Desde procesos')}${o('manual', '✍️ Manuales')}${cods.map(c => o('P:' + c, '📘 ' + c)).join('')}</select>`;
+}
+window.tarAbrirProceso = function (id) {
+  if (typeof DP === 'undefined') return;
+  if (TAR_STATE.panel) tarClosePanel(true);
+  DP.view = 'ficha'; DP.selId = id; DP.sec = 'general'; DP.edit = false; DP.draft = null; DP.isNew = false;
+  switchModule('config-admin');
+  if (typeof cfgSetTab === 'function') cfgSetTab('procesos');
+};
+// Abre "Nueva tarea" con datos precargados (p. ej. desde un proceso).
+window.tarOpenPanelPrefill = function (pre) {
+  tarOpenPanel(null);
+  const P = TAR_STATE.panel; if (!P) return;
+  const prog = pre._prog; delete pre._prog;
+  const pers = pre._personal; delete pre._personal;
+  Object.assign(P.d, pre);
+  if (prog) P.d._prog = Object.assign(tarEmptyProg_(P.d.Naturaleza), prog);
+  if (pers) P.d._personal = pers.slice();
+  tarPanelRender_();
+};
 window.tarSetView = function (v) { TAR_STATE.view = v; tarRender(); };
 
 // ── Sección 2: Calendario ──────────────────────────────────────────────
@@ -57791,6 +57825,12 @@ function tarPanelRender_() {
         ${(() => { const o = tarOcur_(P.id, P.fecha); return o && o.Atendido_por ? `<div style="font-size:11px;color:#64748b;margin-top:6px">Último cambio: ${esc(o.Atendido_por)}${o.Updated_at ? ' · ' + esc(String(o.Updated_at).replace('T', ' ').slice(0, 16)) : ''}</div>` : ''; })()}
       </div>
       <div style="font-size:10.5px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Definición de la tarea (aplica a todas sus fechas)</div>` : ''}
+      ${d.Proceso_ID ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;padding:10px 12px;border:1.5px solid #c7d2fe;border-radius:10px;background:#eef2ff">
+        <span style="font-size:18px">📘</span>
+        <div style="flex:1;min-width:0"><div style="font-size:10.5px;font-weight:900;color:#4338ca;text-transform:uppercase;letter-spacing:.05em">Generada desde un proceso</div>
+        <div style="font-size:13px;font-weight:800;color:#1e1b4b">${esc(d.Proceso_Codigo || '')} · ${esc(d.Proceso_Nombre || '')}${d.Proceso_Version ? ` <span style="color:#6366f1;font-weight:700">v${esc(d.Proceso_Version)}</span>` : ''}</div></div>
+        ${P.id ? `<button type="button" onclick="tarAbrirProceso('${esc(d.Proceso_ID)}')" style="all:unset;cursor:pointer;padding:6px 10px;border-radius:8px;background:#4f46e5;color:#fff;font-size:12px;font-weight:800">Ver proceso →</button>` : ''}
+      </div>` : ''}
       ${field(lbl('Nombre') + `<input type="text" value="${esc(d.Nombre || '')}" oninput="tarSetText('Nombre',this.value)" placeholder="Ej. Revisar cisterna" style="${inp}">`)}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         ${field(lbl('Clasificación de tarea') + `<select onchange="tarSetField('Clasificacion',this.value)" style="${inp}"><option value=""></option>${Object.keys(clasif).map(c => `<option value="${esc(c)}"${c === d.Clasificacion ? ' selected' : ''}>${esc(c)}</option>`).join('')}${d.Clasificacion && !clasif[d.Clasificacion] ? `<option selected>${esc(d.Clasificacion)}</option>` : ''}</select>`)}
@@ -57907,6 +57947,7 @@ window.tarSavePanel = async function () {
     Estado: d.Estado || 'Activa', Comentarios: d.Comentarios || '',
     Updated_at: new Date().toISOString(),
   };
+  if (d.Proceso_ID) Object.assign(payload, { Origen: 'Proceso', Proceso_ID: d.Proceso_ID, Proceso_Codigo: d.Proceso_Codigo || '', Proceso_Nombre: d.Proceso_Nombre || '', Proceso_Version: "'" + String(d.Proceso_Version || '').replace(/^'/, '') });
   if (P.id) payload.ID = P.id;
   else payload.Creado_por = tarUser_();
   const defChanged = tarPanelSnapshot_(d) !== P.orig;
@@ -57929,10 +57970,13 @@ window.tarSavePanel = async function () {
         if (a !== b) histRows.push({ Tarea_ID: id, Fecha: '', Campo: label, Antes: a, Despues: b, Usuario: user });
       });
     } else {
-      histRows.push({ Tarea_ID: id, Fecha: '', Campo: 'Creación', Antes: '', Despues: payload.Nombre, Usuario: user });
+      histRows.push({ Tarea_ID: id, Fecha: '', Campo: 'Creación', Antes: '', Despues: payload.Nombre + (payload.Proceso_Codigo ? ` (desde proceso ${payload.Proceso_Codigo})` : ''), Usuario: user });
+      const pr = payload.Proceso_ID && typeof dpById_ === 'function' ? dpById_(payload.Proceso_ID) : null;
+      if (pr) dpLog_(pr, 'Generó tarea programada', `${payload.Nombre} · ${payload.Programacion_texto}${payload.Personal ? ' · ' + payload.Personal : ''}`);
     }
     tarHistAdd_(histRows);
     const row = Object.assign({}, payload, { ID: id });
+    if (row.Proceso_Version) row.Proceso_Version = String(row.Proceso_Version).replace(/^'/, '');
     const prev = TAR_STATE.list.find(x => x.ID === id);
     if (prev) { Object.assign(prev, row); delete prev._prog; }
     else { row.Timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19); TAR_STATE.list.unshift(row); }
@@ -59398,6 +59442,7 @@ window.dpCrearEjemplo_ = async function () {
 function dpCur_() { return DP.edit ? DP.draft : dpById_(DP.selId); }
 function dpRenderFicha_(root) {
   const p = dpCur_();
+  if (!p && DP.loading) { root.innerHTML = '<div class="dp-card dp-empty"><div class="ico">⏳</div>Cargando proceso…</div>'; return; }
   if (!p) { DP.view = 'catalogo'; return dpRenderCatalogo_(root); }
   const ed = DP.edit;
   const v = dpVencida_(p);
@@ -59405,6 +59450,7 @@ function dpRenderFicha_(root) {
       <button class="dp-btn ok" onclick="dpGuardar_()" ${DP.saving ? 'disabled' : ''}>${DP.saving ? '⏳ Guardando…' : '💾 Guardar'}</button>
       <button class="dp-btn" onclick="dpCancelar_()">Cancelar</button>` : `
       <button class="dp-btn pri" onclick="dpEditar_()">✏️ Editar</button>
+      <button class="dp-btn" onclick="dpCrearTarea_()" title="Crear una tarea en Tareas programadas a partir de este proceso">🗓️ Crear tarea programada</button>
       ${p.Estatus === 'Borrador' ? `<button class="dp-btn" onclick="dpCambiarEstatus_('En revisión')">📤 Enviar a revisión</button>` : ''}
       ${p.Estatus === 'En revisión' || p.Estatus === 'Borrador' ? `<button class="dp-btn ok" onclick="dpAprobar_()">✅ Aprobar versión ${dpEsc_(p.Version)}</button>` : ''}
       ${p.Estatus === 'Activo' ? `<button class="dp-btn" onclick="dpCambiarEstatus_('En revisión')">🔍 Poner en revisión</button>` : ''}
@@ -59609,7 +59655,7 @@ function dpSecPasos_(p, ed) {
     if (!P.length) return { html: `<div class="dp-empty" style="padding:28px"><div class="ico">🪜</div>Sin procedimiento. Es la parte central del proceso: agrégalo desde <b>✏️ Editar</b>.</div>` };
     return { html: `<div style="overflow-x:auto"><table class="dp-tbl cards"><thead><tr><th>#</th><th>Actividad</th><th>Responsable</th><th>Tiempo</th><th>Evidencia</th></tr></thead><tbody>
       ${P.map((s, i) => `<tr><td data-l="#" style="font-weight:900;color:#6366f1">${i + 1}</td><td data-l="Actividad" style="font-weight:700">${dpEsc_(s.actividad)}</td><td data-l="Responsable">${dpEsc_(s.responsable || '—')}</td><td data-l="Tiempo" style="white-space:nowrap">${s.tiempo ? dpEsc_(s.tiempo) + ' min' : '—'}</td><td data-l="Evidencia">${s.evidencia && s.evidencia !== '—' ? `<span class="dp-pill" style="background:#eef2ff;color:#3730a3">${dpEsc_(s.evidencia)}</span>` : '<span class="dp-mut">—</span>'}</td></tr>`).join('')}
-      </tbody></table></div><div style="margin-top:10px;font-size:12.5px">${totTxt}</div>` };
+      </tbody></table></div><div style="margin-top:10px;font-size:12.5px">${totTxt}</div>${dpTareasVinc_(p)}` };
   }
   const rows = P.map((s, i) => `
     <div class="dp-row-ed" style="grid-template-columns:26px minmax(0,1fr) 160px 90px 140px auto">
@@ -59633,6 +59679,49 @@ window.dpArrDel_ = function (path, i) { const parts = path.split('.'); let o = D
 window.dpArrMove_ = function (path, i, dir) {
   const parts = path.split('.'); let A = DP.draft.d; parts.forEach(k => A = A[k]);
   const j = i + dir; if (j < 0 || j >= A.length) return; [A[i], A[j]] = [A[j], A[i]]; dpRefreshSec_();
+};
+
+// Tareas de "Tareas programadas" generadas desde este proceso.
+function dpTareasVinc_(p) {
+  if (!p.ID || typeof TAR_STATE === 'undefined') return '';
+  if (!TAR_STATE.loaded && !DP._tarLoading) {
+    DP._tarLoading = true;
+    tarLoad_().finally(() => { DP._tarLoading = false; if (DP.view === 'ficha' && DP.sec === 'pasos' && !DP.edit) dpRefreshSec_(); });
+  }
+  const T = (TAR_STATE.list || []).filter(r => r.Proceso_ID === p.ID);
+  const body = !TAR_STATE.loaded && !T.length ? '<div class="dp-mut" style="font-size:12px">⏳ Cargando tareas…</div>'
+    : T.length ? `<div style="display:flex;flex-direction:column;gap:6px">${T.map(r => `<button type="button" class="dp-doc" style="cursor:pointer;text-align:left;font-family:inherit;width:100%" onclick="dpIrTarea_('${dpEsc_(r.ID)}')"><span class="i">🗓️</span><div style="min-width:0;flex:1"><div class="n">${dpEsc_(r.Nombre)}</div><div class="dp-mut" style="font-size:11px">${dpEsc_(r.Programacion_texto || '')}${r.Personal ? ' · 👥 ' + dpEsc_(r.Personal) : ''} · ${dpEsc_(tarVigencia_(r))}</div></div><span class="dp-mut">→</span></button>`).join('')}</div>`
+    : '<div class="dp-mut" style="font-size:12px">Aún no hay tareas generadas desde este proceso.</div>';
+  return `<div style="margin-top:16px;padding-top:12px;border-top:1px dashed #e2e8f0">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><div class="dp-lbl" style="margin:0">🗓️ Tareas programadas de este proceso (${T.length})</div>
+    <span style="margin-left:auto"><button class="dp-btn sm pri" onclick="dpCrearTarea_()">＋ Crear tarea programada</button></span></div>${body}</div>`;
+}
+window.dpIrTarea_ = function (id) {
+  switchModule('tareas');
+  setTimeout(() => { if (typeof tarOpenPanel === 'function') tarOpenPanel(id); }, 50);
+};
+window.dpCrearTarea_ = function () {
+  const p = dpById_(DP.selId); if (!p) return;
+  const clasifTar = (typeof tarClasif_ === 'function') ? Object.keys(tarClasif_()) : [];
+  const prio = p.Importancia === 'Crítica' ? 'Crítico' : ({ Alta: 'Alto', Media: 'Medio', Baja: 'Bajo' }[p.Prioridad] || 'Medio');
+  const nat = p.Frecuencia === 'Por evento' ? 'Único' : 'Recurrente';
+  const prog = p.Frecuencia === 'Diario' ? { tipo: 'semanal', dias_semana: [0, 1, 2, 3, 4, 5, 6] }
+    : p.Frecuencia === 'Semanal' ? { tipo: 'semanal' } : p.Frecuencia === 'Mensual' ? { tipo: 'mensual' } : { tipo: 'unica' };
+  // Personal ya capacitado en el proceso → preseleccionado.
+  const ps = (p.d.capac && p.d.capac.personas) || {};
+  const capacitados = Object.keys(ps).filter(n => ps[n] && ps[n].debe && ps[n].fecha);
+  const pasos = p.d.pasos.map((s, i) => `${i + 1}. ${s.actividad}${s.responsable ? ' (' + s.responsable + ')' : ''}${s.tiempo ? ' · ' + s.tiempo + ' min' : ''}${s.evidencia && s.evidencia !== '—' ? ' · evidencia: ' + s.evidencia : ''}`);
+  const cl = p.d.checklists.filter(c => (c.items || []).length).map(c => `${c.titulo || 'Checklist'}: ${c.items.join(', ')}`);
+  const coment = [`Procedimiento ${p.Codigo} v${p.Version}${p.Objetivo ? ' — ' + p.Objetivo : ''}`].concat(pasos.length ? ['', ...pasos] : [], cl.length ? ['', ...cl] : []).join('\n');
+  const pre = {
+    Nombre: `${p.Codigo} · ${p.Nombre}`,
+    Clasificacion: clasifTar.includes(p.Area) ? p.Area : '',
+    Prioridad: prio, Naturaleza: nat, Comentarios: coment,
+    Origen: 'Proceso', Proceso_ID: p.ID, Proceso_Codigo: p.Codigo, Proceso_Nombre: p.Nombre, Proceso_Version: p.Version,
+    _prog: prog, _personal: capacitados,
+  };
+  switchModule('tareas');
+  setTimeout(() => tarOpenPanelPrefill(pre), 50);
 };
 
 // ── Sección: Checklist (ver / ejecutar / editar) ─────────────────────
