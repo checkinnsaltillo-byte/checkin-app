@@ -58713,7 +58713,8 @@ function pcRenderSection_(key) {
     const items = devs.map(d => {
       const pct = typeof tuyaWaterLevelCurrentPct === 'function' ? tuyaWaterLevelCurrentPct(d) : null;
       const al = typeof tuyaResolveAloj === 'function' ? tuyaResolveAloj(d) : null;
-      const nm = al ? [al['Propiedad'], al['# Departamento'] ? '#' + al['# Departamento'] : ''].filter(Boolean).join(' ') || d.name : d.name;
+      const dep = al ? String(al['# Departamento'] || '').trim() : '';
+      const nm = al ? [al['Propiedad'], dep ? (/^\d/.test(dep) ? '#' + dep : '· ' + dep) : ''].filter(Boolean).join(' ') || d.name : d.name;
       const col = pct == null ? '#94a3b8' : pct < 25 ? '#dc2626' : pct < 50 ? '#f59e0b' : '#16a34a';
       return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;min-width:120px">
         <div class="pc-tank"><span style="height:${pct == null ? 0 : pct}%;${pct != null && pct < 25 ? 'background:linear-gradient(180deg,#fca5a5,#dc2626)' : ''}"></span><b>${pct == null ? '—' : pct + '%'}</b></div>
